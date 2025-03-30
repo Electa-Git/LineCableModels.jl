@@ -1,0 +1,150 @@
+#documenter-settings-button {
+    display: none !important;
+}
+
+.display-light-only {
+    display: block !important;
+}
+
+.display-dark-only {
+    display: none !important;
+}
+
+.theme--documenter-dark .display-light-only {
+    display: none !important;
+}
+
+.theme--documenter-dark .display-dark-only {
+    display: block !important;
+}
+
+article#documenter-page img {
+    display: block !important;
+    margin: auto !important;
+}
+
+/* Improved scrollbar styling for code blocks rendered in Chrome */
+pre {
+    padding-bottom: 15px !important;
+    /* Add extra padding at bottom */
+    overflow-x: auto;
+    /* Horizontal scrolling */
+}
+
+/* Custom scrollbar styling for Chrome/Edge/Safari */
+pre::-webkit-scrollbar {
+    height: 6px !important;
+    /* Thinner scrollbar */
+}
+
+pre::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    /* Light gray track */
+}
+
+pre::-webkit-scrollbar-thumb {
+    background: #888;
+    /* Darker scroll thumb */
+    border-radius: 3px !important;
+    /* Rounded corners */
+}
+
+pre::-webkit-scrollbar-thumb:hover {
+    background: #555;
+    /* Darker on hover */
+}
+
+/* Prevent unnecessary scrollbars on tables and code blocks */
+pre,
+table {
+    overflow-x: auto;
+    /* Use auto instead of scroll */
+    max-width: 100%;
+    /* Ensure content doesn't exceed container */
+}
+
+/* Modern scrollbar styling using standard CSS */
+pre,
+table {
+    scrollbar-width: thin;
+    /* Firefox: make scrollbars thin */
+    scrollbar-color: #888 transparent;
+    /* Firefox: thumb and track colors */
+}
+
+/* Chrome/Edge/Safari scrollbar styling */
+pre::-webkit-scrollbar,
+table::-webkit-scrollbar {
+    height: 6px;
+    /* Height for horizontal scrollbar */
+    width: 6px;
+    /* Width for vertical scrollbar */
+}
+
+pre::-webkit-scrollbar-track,
+table::-webkit-scrollbar-track {
+    background: transparent;
+    /* Make track transparent */
+}
+
+pre::-webkit-scrollbar-thumb,
+table::-webkit-scrollbar-thumb {
+    background-color: #888;
+    /* Color of the scroll thumb */
+    border-radius: 3px;
+    /* Rounded corners */
+    border: none;
+    /* No border */
+}
+
+/* Only show scrollbar when content overflows */
+pre:not(:hover)::-webkit-scrollbar-thumb,
+table:not(:hover)::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    /* Hide thumb when not hovering */
+}
+
+/* Fix container overflow handling */
+.docstring,
+.content {
+    overflow: visible;
+}
+
+/* Force tables to respect container width */
+table {
+    table-layout: auto;
+    width: auto;
+    max-width: 100%;
+}
+
+/* Fix for DataFrame scrollbars */
+.data-frame {
+    overflow-x: auto !important;
+    /* Only show scrollbar when needed */
+    max-width: 100%;
+}
+
+/* Hide scrollbar when not scrolling */
+.data-frame::-webkit-scrollbar {
+    height: 8px;
+}
+
+.data-frame::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.data-frame::-webkit-scrollbar-thumb {
+    background-color: #888;
+    border-radius: 4px;
+}
+
+/* Only show scrollbar on hover if content overflows */
+.data-frame:not(:hover)::-webkit-scrollbar-thumb {
+    background-color: transparent;
+}
+
+/* For Firefox */
+.data-frame {
+    scrollbar-width: thin;
+    scrollbar-color: #888 transparent;
+}
