@@ -108,7 +108,7 @@
         "alpha": 0.004,
         "__julia_type__": "LineCableModels.Materials.Material",
         "eps_r": 1,
-        "mu_r": 1,
+        "mu_r": 0.999983,
         "rho": 2.14e-7
     },
     "copper_corrected": {
