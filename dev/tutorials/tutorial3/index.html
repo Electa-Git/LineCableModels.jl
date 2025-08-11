@@ -81,7 +81,7 @@ cable_design = CableDesign(cable_id, core_cc, nominal_data=datasheet_info)</code
 └─ Component &quot;core&quot;:
    ├─ ConductorGroup: [radius_in=0.0, radius_ext=0.02382, rho=2.385e-8, eps_r=0.0, mu_r=1.017, alpha=0.00393]
    └─ InsulatorGroup: [radius_in=0.02382, radius_ext=0.05392, rho=6.792e13, eps_r=2.697, mu_r=1.699, alpha=0.0]
-</code></pre><p>At this point, it becomes possible to preview the cable design:</p><pre><code class="language-julia hljs">plt1 = preview_cabledesign(cable_design)</code></pre><img src="b9dbafda.svg" alt="Example block output"/><h3 id="Lead-screen/sheath"><a class="docs-heading-anchor" href="#Lead-screen/sheath">Lead screen/sheath</a><a id="Lead-screen/sheath-1"></a><a class="docs-heading-anchor-permalink" href="#Lead-screen/sheath" title="Permalink"></a></h3><p>Build the wire screens on top of the previous layer:</p><pre><code class="language-julia hljs">material = get_material(materials_db, &quot;lead&quot;)
+</code></pre><p>At this point, it becomes possible to preview the cable design:</p><pre><code class="language-julia hljs">plt1 = preview_cabledesign(cable_design)</code></pre><img src="4719276f.svg" alt="Example block output"/><h3 id="Lead-screen/sheath"><a class="docs-heading-anchor" href="#Lead-screen/sheath">Lead screen/sheath</a><a id="Lead-screen/sheath-1"></a><a class="docs-heading-anchor-permalink" href="#Lead-screen/sheath" title="Permalink"></a></h3><p>Build the wire screens on top of the previous layer:</p><pre><code class="language-julia hljs">material = get_material(materials_db, &quot;lead&quot;)
 screen_con =
     ConductorGroup(Tubular(main_insu, Thickness(t_sc), material))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1-element ConductorGroup: [radius_in=0.05392, radius_ext=0.05722, cross_section=0.001152, resistance=0.0001857, gmr=0.05613]
 └─Tubular: [radius_in=0.05392, radius_ext=0.05722, cross_section=0.001152, resistance=0.0001857, gmr=0.05613]
@@ -100,7 +100,7 @@ addto_cabledesign!(cable_design, sheath_cc)</code></pre><pre class="documenter-e
 └─ Component &quot;sheath&quot;:
    ├─ ConductorGroup: [radius_in=0.05392, radius_ext=0.05722, rho=2.14e-7, eps_r=0.0, mu_r=1.0, alpha=0.004]
    └─ InsulatorGroup: [radius_in=0.05722, radius_ext=0.06322, rho=2.844e14, eps_r=2.519, mu_r=1.0, alpha=0.0]
-</code></pre><p>Examine the newly added components:</p><pre><code class="language-julia hljs">plt2 = preview_cabledesign(cable_design)</code></pre><img src="162f7bbc.svg" alt="Example block output"/><h3 id="Armor-and-outer-jacket-components"><a class="docs-heading-anchor" href="#Armor-and-outer-jacket-components">Armor and outer jacket components</a><a id="Armor-and-outer-jacket-components-1"></a><a class="docs-heading-anchor-permalink" href="#Armor-and-outer-jacket-components" title="Permalink"></a></h3><p>Add the armor wires on top of the previous layer:</p><pre><code class="language-julia hljs">lay_ratio = 10 # typical value for wire screens
+</code></pre><p>Examine the newly added components:</p><pre><code class="language-julia hljs">plt2 = preview_cabledesign(cable_design)</code></pre><img src="e476abe2.svg" alt="Example block output"/><h3 id="Armor-and-outer-jacket-components"><a class="docs-heading-anchor" href="#Armor-and-outer-jacket-components">Armor and outer jacket components</a><a id="Armor-and-outer-jacket-components-1"></a><a class="docs-heading-anchor-permalink" href="#Armor-and-outer-jacket-components" title="Permalink"></a></h3><p>Add the armor wires on top of the previous layer:</p><pre><code class="language-julia hljs">lay_ratio = 10 # typical value for wire screens
 material = get_material(materials_db, &quot;steel&quot;)
 armor_con =
     ConductorGroup(WireArray(screen_insu, Diameter(d_wa), num_ar_wires, lay_ratio, material))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1-element ConductorGroup: [radius_in=0.06322, radius_ext=0.06905, cross_section=0.001813, resistance=7.977e-5, gmr=0.02231]
@@ -118,7 +118,7 @@ armor_insu = InsulatorGroup(Insulator(armor_con, Thickness(t_jac), material))</c
 └─ Component &quot;armor&quot;:
    ├─ ConductorGroup: [radius_in=0.06322, radius_ext=0.06905, rho=1.931e-7, eps_r=0.0, mu_r=40.2, alpha=0.0045]
    └─ InsulatorGroup: [radius_in=0.06905, radius_ext=0.07905, rho=1.0e15, eps_r=2.8, mu_r=1.124, alpha=0.0]
-</code></pre><p>Inspect the finished cable design:</p><pre><code class="language-julia hljs">plt3 = preview_cabledesign(cable_design)</code></pre><img src="d35badd8.svg" alt="Example block output"/><h2 id="Examining-the-cable-parameters-(RLC)"><a class="docs-heading-anchor" href="#Examining-the-cable-parameters-(RLC)">Examining the cable parameters (RLC)</a><a id="Examining-the-cable-parameters-(RLC)-1"></a><a class="docs-heading-anchor-permalink" href="#Examining-the-cable-parameters-(RLC)" title="Permalink"></a></h2><p>In this section, the cable design is examined and the calculated parameters are compared with datasheet values. <a href="../../#LineCableModels.jl"><code>LineCableModels.jl</code></a> provides methods to analyze the design in different levels of detail.</p><p>Summarize DC lumped parameters (R, L, C):</p><pre><code class="language-julia hljs">core_df = cabledesign_todf(cable_design, :baseparams)</code></pre><div><div style = "float: left;"><span>3×4 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "header"><th class = "rowNumber" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">parameter</th><th style = "text-align: left;">computed</th><th style = "text-align: left;">nominal</th><th style = "text-align: left;">percent_diff</th></tr><tr class = "subheader headerLastRow"><th class = "rowNumber" style = "font-weight: bold; text-align: right;"></th><th title = "String" style = "text-align: left;">String</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th></tr></thead><tbody><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">R [Ω/km]</td><td style = "text-align: right;">0.0133793</td><td style = "text-align: right;">NaN</td><td style = "text-align: right;">NaN</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">L [mH/km]</td><td style = "text-align: right;">0.406716</td><td style = "text-align: right;">NaN</td><td style = "text-align: right;">NaN</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">C [μF/km]</td><td style = "text-align: right;">0.183687</td><td style = "text-align: right;">NaN</td><td style = "text-align: right;">NaN</td></tr></tbody></table></div><p>Obtain the equivalent electromagnetic properties of the cable:</p><pre><code class="language-julia hljs">components_df = cabledesign_todf(cable_design, :components)</code></pre><div><div style = "float: left;"><span>9×4 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "header"><th class = "rowNumber" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">property</th><th style = "text-align: left;">core</th><th style = "text-align: left;">sheath</th><th style = "text-align: left;">armor</th></tr><tr class = "subheader headerLastRow"><th class = "rowNumber" style = "font-weight: bold; text-align: right;"></th><th title = "Symbol" style = "text-align: left;">Symbol</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th></tr></thead><tbody><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">radius_in_con</td><td style = "text-align: right;">0.0</td><td style = "text-align: right;">0.0539219</td><td style = "text-align: right;">0.0632219</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">radius_ext_con</td><td style = "text-align: right;">0.0238218</td><td style = "text-align: right;">0.0572219</td><td style = "text-align: right;">0.0690489</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">rho_con</td><td style = "text-align: right;">2.38526e-8</td><td style = "text-align: right;">2.14e-7</td><td style = "text-align: right;">1.93147e-7</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">alpha_con</td><td style = "text-align: right;">0.00393</td><td style = "text-align: right;">0.004</td><td style = "text-align: right;">0.0045</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">5</td><td style = "text-align: left;">mu_con</td><td style = "text-align: right;">1.01663</td><td style = "text-align: right;">0.999983</td><td style = "text-align: right;">40.1985</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">6</td><td style = "text-align: left;">radius_ext_ins</td><td style = "text-align: right;">0.0539219</td><td style = "text-align: right;">0.0632219</td><td style = "text-align: right;">0.0790489</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">7</td><td style = "text-align: left;">eps_ins</td><td style = "text-align: right;">2.69734</td><td style = "text-align: right;">2.51934</td><td style = "text-align: right;">2.8</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">8</td><td style = "text-align: left;">mu_ins</td><td style = "text-align: right;">1.69888</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">1.12354</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">9</td><td style = "text-align: left;">loss_factor_ins</td><td style = "text-align: right;">1.96222e-6</td><td style = "text-align: right;">5.01696e-7</td><td style = "text-align: right;">1.28394e-7</td></tr></tbody></table></div><h2 id="Saving-the-cable-design"><a class="docs-heading-anchor" href="#Saving-the-cable-design">Saving the cable design</a><a id="Saving-the-cable-design-1"></a><a class="docs-heading-anchor-permalink" href="#Saving-the-cable-design" title="Permalink"></a></h2><p>Load an existing <a href="../../reference/#LineCableModels.DataModel.CablesLibrary"><code>CablesLibrary</code></a> file or create a new one:</p><pre><code class="language-julia hljs">library = CablesLibrary()
+</code></pre><p>Inspect the finished cable design:</p><pre><code class="language-julia hljs">plt3 = preview_cabledesign(cable_design)</code></pre><img src="5b843328.svg" alt="Example block output"/><h2 id="Examining-the-cable-parameters-(RLC)"><a class="docs-heading-anchor" href="#Examining-the-cable-parameters-(RLC)">Examining the cable parameters (RLC)</a><a id="Examining-the-cable-parameters-(RLC)-1"></a><a class="docs-heading-anchor-permalink" href="#Examining-the-cable-parameters-(RLC)" title="Permalink"></a></h2><p>In this section, the cable design is examined and the calculated parameters are compared with datasheet values. <a href="../../#LineCableModels.jl"><code>LineCableModels.jl</code></a> provides methods to analyze the design in different levels of detail.</p><p>Summarize DC lumped parameters (R, L, C):</p><pre><code class="language- hljs">core_df = to_df(cable_design, :baseparams)</code></pre><p>Obtain the equivalent electromagnetic properties of the cable:</p><pre><code class="language- hljs">components_df = to_df(cable_design, :components)</code></pre><h2 id="Saving-the-cable-design"><a class="docs-heading-anchor" href="#Saving-the-cable-design">Saving the cable design</a><a id="Saving-the-cable-design-1"></a><a class="docs-heading-anchor-permalink" href="#Saving-the-cable-design" title="Permalink"></a></h2><p>Load an existing <a href="../../reference/#LineCableModels.DataModel.CablesLibrary"><code>CablesLibrary</code></a> file or create a new one:</p><pre><code class="language-julia hljs">library = CablesLibrary()
 library_file = joinpath(@__DIR__, &quot;cables_library.json&quot;)
 load_cableslibrary!(library, file_name=library_file)
 store_cableslibrary!(library, cable_design)
@@ -127,8 +127,7 @@ earth_params = EarthModel(f, 100.0, 10.0, 1.0)  # 100 Ω·m resistivity, εr=10,
 ├─ Layer 1 (air): [rho_g=Inf, epsr_g=1.0, mur_g=1.0, t=∞]
 └─ Layer 2: [rho_g=100.0, epsr_g=10.0, mur_g=1.0, t=∞]
    Frequency-dependent model: CP model
-   No equivalent homogeneous model
-</code></pre><p>Earth model base (DC) properties:</p><pre><code class="language-julia hljs">earthmodel_df = earthmodel_todf(earth_params)</code></pre><div><div style = "float: left;"><span>2×4 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "header"><th class = "rowNumber" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">rho_g</th><th style = "text-align: left;">epsr_g</th><th style = "text-align: left;">mur_g</th><th style = "text-align: left;">thickness</th></tr><tr class = "subheader headerLastRow"><th class = "rowNumber" style = "font-weight: bold; text-align: right;"></th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th></tr></thead><tbody><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: right;">Inf</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">Inf</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: right;">100.0</td><td style = "text-align: right;">10.0</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">Inf</td></tr></tbody></table></div><h3 id="Underground-bipole-configuration"><a class="docs-heading-anchor" href="#Underground-bipole-configuration">Underground bipole configuration</a><a id="Underground-bipole-configuration-1"></a><a class="docs-heading-anchor-permalink" href="#Underground-bipole-configuration" title="Permalink"></a></h3><pre><code class="language-julia hljs">xp = -0.5
+</code></pre><p>Earth model base (DC) properties:</p><pre><code class="language-julia hljs">earthmodel_df = to_df(earth_params)</code></pre><div><div style = "float: left;"><span>2×4 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "header"><th class = "rowNumber" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">rho_g</th><th style = "text-align: left;">epsr_g</th><th style = "text-align: left;">mur_g</th><th style = "text-align: left;">thickness</th></tr><tr class = "subheader headerLastRow"><th class = "rowNumber" style = "font-weight: bold; text-align: right;"></th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th></tr></thead><tbody><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: right;">Inf</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">Inf</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: right;">100.0</td><td style = "text-align: right;">10.0</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">Inf</td></tr></tbody></table></div><h3 id="Underground-bipole-configuration"><a class="docs-heading-anchor" href="#Underground-bipole-configuration">Underground bipole configuration</a><a id="Underground-bipole-configuration-1"></a><a class="docs-heading-anchor-permalink" href="#Underground-bipole-configuration" title="Permalink"></a></h3><pre><code class="language-julia hljs">xp = -0.5
 xn = 0.5
 y0 = -1.0;</code></pre><p>Initialize the <code>LineCableSystem</code> with positive pole:</p><pre><code class="language-julia hljs">cablepos = CablePosition(cable_design, xp, y0,
     Dict(&quot;core&quot; =&gt; 1, &quot;sheath&quot; =&gt; 0, &quot;armor&quot; =&gt; 0))
@@ -140,14 +139,14 @@ cable_system = LineCableSystem(&quot;525kV_1600mm2_bipole&quot;, 1000.0, cablepo
 └─ 2-element CablePosition:
    ├─ CableDesign &quot;525kV_1600mm2&quot;: [horz=-0.5, vert=-1.0, conn=(core→1, sheath→0, armor→0)]
    └─ CableDesign &quot;525kV_1600mm2&quot;: [horz=0.5, vert=-1.0, conn=(core→2, sheath→0, armor→0)]
-</code></pre><h3 id="Cable-system-preview"><a class="docs-heading-anchor" href="#Cable-system-preview">Cable system preview</a><a id="Cable-system-preview-1"></a><a class="docs-heading-anchor-permalink" href="#Cable-system-preview" title="Permalink"></a></h3><p>In this section the complete bipole cable system is examined.</p><p>Display system details:</p><pre><code class="language-julia hljs">system_df = linecablesystem_todf(cable_system)</code></pre><div><div style = "float: left;"><span>2×4 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "header"><th class = "rowNumber" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">cable_id</th><th style = "text-align: left;">horz</th><th style = "text-align: left;">vert</th><th style = "text-align: left;">phase_mapping</th></tr><tr class = "subheader headerLastRow"><th class = "rowNumber" style = "font-weight: bold; text-align: right;"></th><th title = "String" style = "text-align: left;">String</th><th title = "Number" style = "text-align: left;">Number</th><th title = "Number" style = "text-align: left;">Number</th><th title = "String" style = "text-align: left;">String</th></tr></thead><tbody><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">525kV_1600mm2</td><td style = "text-align: right;">-0.5</td><td style = "text-align: right;">-1.0</td><td style = "text-align: left;">core: 1, sheath: 0, armor: 0</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">525kV_1600mm2</td><td style = "text-align: right;">0.5</td><td style = "text-align: right;">-1.0</td><td style = "text-align: left;">core: 2, sheath: 0, armor: 0</td></tr></tbody></table></div><p>Visualize the cross-section of the three-phase system:</p><pre><code class="language-julia hljs">plt4 = preview_linecablesystem(cable_system, zoom_factor=0.15)</code></pre><img src="14518870.svg" alt="Example block output"/><h2 id="PSCAD-export"><a class="docs-heading-anchor" href="#PSCAD-export">PSCAD export</a><a id="PSCAD-export-1"></a><a class="docs-heading-anchor-permalink" href="#PSCAD-export" title="Permalink"></a></h2><p>This step showcases how to export the model for electromagnetic transient simulations in PSCAD.</p><p>Export to PSCAD input file:</p><pre><code class="language-julia hljs">output_file = joinpath(@__DIR__, &quot;$(cable_system.system_id)_export.pscx&quot;)
+</code></pre><h3 id="Cable-system-preview"><a class="docs-heading-anchor" href="#Cable-system-preview">Cable system preview</a><a id="Cable-system-preview-1"></a><a class="docs-heading-anchor-permalink" href="#Cable-system-preview" title="Permalink"></a></h3><p>In this section the complete bipole cable system is examined.</p><p>Display system details:</p><pre><code class="language- hljs">system_df = to_df(cable_system)</code></pre><p>Visualize the cross-section of the three-phase system:</p><pre><code class="language-julia hljs">plt4 = preview_linecablesystem(cable_system, zoom_factor=0.15)</code></pre><img src="9807036e.svg" alt="Example block output"/><h2 id="PSCAD-export"><a class="docs-heading-anchor" href="#PSCAD-export">PSCAD export</a><a id="PSCAD-export-1"></a><a class="docs-heading-anchor-permalink" href="#PSCAD-export" title="Permalink"></a></h2><p>This step showcases how to export the model for electromagnetic transient simulations in PSCAD.</p><p>Export to PSCAD input file:</p><pre><code class="language-julia hljs">output_file = joinpath(@__DIR__, &quot;$(cable_system.system_id)_export.pscx&quot;)
 export_file = export_pscad_lcp(cable_system, earth_params, file_name=output_file);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">PSCAD file saved to: 525kV_1600mm2_bipole_export.pscx</code></pre><h2 id="FEM-calculations"><a class="docs-heading-anchor" href="#FEM-calculations">FEM calculations</a><a id="FEM-calculations-1"></a><a class="docs-heading-anchor-permalink" href="#FEM-calculations" title="Permalink"></a></h2><p>Define a LineParametersProblem with the cable system and earth model</p><pre><code class="language-julia hljs">f = 1e-3 # Near DC frequency for the analysis
 problem = LineParametersProblem(
     cable_system,
     temperature=20.0,  # Operating temperature
     earth_props=earth_params,
     frequencies=[f],   # Frequency for the analysis
-)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LineParametersProblem(LineCableSystem(&quot;525kV_1600mm2_bipole&quot;, 1000.0, 2, 2, CablePosition[CablePosition(CableDesign(&quot;525kV_1600mm2&quot;, NominalData(&quot;(N)2XH(F)RK2Y&quot;, 500.0, 525.0, 1600.0, 1000.0, nothing, NaN, NaN, NaN), CableComponent[CableComponent(&quot;core&quot;, ConductorGroup(0, 0.02382185, 0.0013397317828553706, 127, 3.5157174935832782, 1.337933694851607e-5, 0.003930000000000001, 0.01847548119438913, AbstractConductorPart[WireArray(0, 0.00183245, 0.00183245, 1, 0, 0.00183245, 0.0, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 1.0549069156341502e-5, 0.0016343622119147534, 0.0014271156356110443), WireArray(0.00183245, 0.00549735, 0.00183245, 6, 11, 0.007329799999999999, 0.08062779999999999, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 6.329441493804902e-5, 0.00028328512558856254, 0.004221694894917983), WireArray(0.00549735, 0.00916225, 0.00183245, 12, 11, 0.0146596, 0.1612556, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 0.00012658882987609803, 0.00014164256279428127, 0.007866915436277402), WireArray(0.00916225, 0.01282715, 0.00183245, 18, 11, 0.0219894, 0.2418834, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 0.00018988324481414702, 9.442837519618751e-5, 0.011525460549397154), WireArray(0.01282715, 0.01649205, 0.00183245, 24, 11, 0.029319200000000004, 0.32251120000000005, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 0.00025317765975219606, 7.082128139714063e-5, 0.015187220517899403), WireArray(0.01649205, 0.02015695, 0.00183245, 30, 11, 0.036649, 0.403139, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 0.000316472074690245, 5.6657025117712506e-5, 0.01885024834408592), WireArray(0.02015695, 0.02382185, 0.00183245, 36, 11, 0.0439788, 0.4837668, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 0.00037976648962829404, 4.7214187598093756e-5, 0.022513905134601313)]), Material(2.385258407436559e-8, 0.0, 1.0166348581554203, 20, 0.003930000000000001), InsulatorGroup(0.02382185, 0.05392185000000001, 0.007351595007164955, 1.8368710626807816e-10, 1.1323380097721256e-13, AbstractInsulatorPart[Semicon(0.02382185, 0.02582185, Material(1000.0, 1000.0, 1.0, 20.0, 0.0), 20, 0.0003119205664340316, 3.205944421787561e6, 0.02516412915401364, 6.900771124224237e-7, 0.07793793479564756), Insulator(0.02582185, 0.05182185, Material(1.97e14, 2.3, 1.0, 20.0, 0.0), 20, 0.006342046815455776, 3.106252693056515e16, 0.04412227413993518, 1.8368710671079737e-10, 4.5786334998607355e-14), Semicon(0.05182185, 0.053621850000000006, Material(500.0, 1000.0, 1.0, 20.0, 0.0), 20, 0.0005962700759171872, 838546.1893771813, 0.053025262929149816, 1.6293130767027504e-6, 0.36803219248350355), Semicon(0.053621850000000006, 0.05392185000000001, Material(5300.0, 32.3, 1.0, 20.0, 0.0), 20, 0.00010135754935796018, 5.229013559988722e7, 0.053821942979798, 3.2207997053228586e-7, 0.21248907011998272)]), Material(6.792311307794798e13, 2.697343612657566, 1.6988809170760097, 20, 0.0)), CableComponent(&quot;sheath&quot;, ConductorGroup(0.05392185000000001, 0.057221850000000005, 0.0011522551636621995, 0, 0.0, 0.00018572275199865126, 0.004, 0.05613274872684118, AbstractConductorPart[Tubular(0.05392185000000001, 0.057221850000000005, Material(2.14e-7, 1.0, 0.999983, 20.0, 0.004), 20, 0.0011522551636621995, 0.00018572275199865126, 0.05613274872684118)]), Material(2.14e-7, 0.0, 0.9999830000000038, 20, 0.004), InsulatorGroup(0.057221850000000005, 0.06322185000000001, 0.0022703102585470386, 1.4055872819044677e-9, 2.2153824035081482e-13, AbstractInsulatorPart[Insulator(0.057221850000000005, 0.06022185000000001, Material(1.97e14, 2.3, 1.0, 20.0, 0.0), 20, 0.0011068807953912108, 1.7797761133833136e17, 0.05923036032917627, 2.5040351594154657e-9, 6.241624396523219e-13), Insulator(0.06022185000000001, 0.06322185000000001, Material(1.0e15, 2.8, 1.0, 20.0, 0.0), 20, 0.0011634294631558278, 8.595278284318829e17, 0.0622299468670669, 3.2041938862774052e-9, 1.2924448674224622e-13)]), Material(2.8442932557131344e14, 2.519335553932266, 1.0, 20, 0.0)), CableComponent(&quot;armor&quot;, ConductorGroup(0.06322185000000001, 0.06904885000000001, 0.0018133800364174603, 68, 0.7560253328968546, 7.976806121717488e-5, 0.0045, 0.02230691946954866, AbstractConductorPart[WireArray(0.06322185000000001, 0.06904885000000001, 0.0029135, 68, 10, 0.13227070000000002, 1.3227070000000003, 1, Material(1.38e-7, 1.0, 300.0, 20.0, 0.0045), 20, 0.0018133800364174603, 7.976806121717488e-5, 0.02230691946954866)]), Material(1.9314682755887068e-7, 0.0, 40.19845108876294, 20, 0.0045), InsulatorGroup(0.06904885000000001, 0.07904885, 0.00465262646333545, 1.1517112415552918e-9, 4.645546854314229e-14, AbstractInsulatorPart[Insulator(0.06904885000000001, 0.07904885, Material(1.0e15, 2.8, 1.0, 20.0, 0.0), 20, 0.00465262646333545, 2.1493236301697514e17, 0.07579045618304785, 1.1517112415552918e-9, 4.645546854314229e-14)]), Material(9.999999999999999e14, 2.8, 1.123540037088774, 20, 0.0))]), -0.5, -1.0, [1, 0, 0]), CablePosition(CableDesign(&quot;525kV_1600mm2&quot;, NominalData(&quot;(N)2XH(F)RK2Y&quot;, 500.0, 525.0, 1600.0, 1000.0, nothing, NaN, NaN, NaN), CableComponent[CableComponent(&quot;core&quot;, ConductorGroup(0, 0.02382185, 0.0013397317828553706, 127, 3.5157174935832782, 1.337933694851607e-5, 0.003930000000000001, 0.01847548119438913, AbstractConductorPart[WireArray(0, 0.00183245, 0.00183245, 1, 0, 0.00183245, 0.0, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 1.0549069156341502e-5, 0.0016343622119147534, 0.0014271156356110443), WireArray(0.00183245, 0.00549735, 0.00183245, 6, 11, 0.007329799999999999, 0.08062779999999999, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 6.329441493804902e-5, 0.00028328512558856254, 0.004221694894917983), WireArray(0.00549735, 0.00916225, 0.00183245, 12, 11, 0.0146596, 0.1612556, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 0.00012658882987609803, 0.00014164256279428127, 0.007866915436277402), WireArray(0.00916225, 0.01282715, 0.00183245, 18, 11, 0.0219894, 0.2418834, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 0.00018988324481414702, 9.442837519618751e-5, 0.011525460549397154), WireArray(0.01282715, 0.01649205, 0.00183245, 24, 11, 0.029319200000000004, 0.32251120000000005, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 0.00025317765975219606, 7.082128139714063e-5, 0.015187220517899403), WireArray(0.01649205, 0.02015695, 0.00183245, 30, 11, 0.036649, 0.403139, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 0.000316472074690245, 5.6657025117712506e-5, 0.01885024834408592), WireArray(0.02015695, 0.02382185, 0.00183245, 36, 11, 0.0439788, 0.4837668, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 0.00037976648962829404, 4.7214187598093756e-5, 0.022513905134601313)]), Material(2.385258407436559e-8, 0.0, 1.0166348581554203, 20, 0.003930000000000001), InsulatorGroup(0.02382185, 0.05392185000000001, 0.007351595007164955, 1.8368710626807816e-10, 1.1323380097721256e-13, AbstractInsulatorPart[Semicon(0.02382185, 0.02582185, Material(1000.0, 1000.0, 1.0, 20.0, 0.0), 20, 0.0003119205664340316, 3.205944421787561e6, 0.02516412915401364, 6.900771124224237e-7, 0.07793793479564756), Insulator(0.02582185, 0.05182185, Material(1.97e14, 2.3, 1.0, 20.0, 0.0), 20, 0.006342046815455776, 3.106252693056515e16, 0.04412227413993518, 1.8368710671079737e-10, 4.5786334998607355e-14), Semicon(0.05182185, 0.053621850000000006, Material(500.0, 1000.0, 1.0, 20.0, 0.0), 20, 0.0005962700759171872, 838546.1893771813, 0.053025262929149816, 1.6293130767027504e-6, 0.36803219248350355), Semicon(0.053621850000000006, 0.05392185000000001, Material(5300.0, 32.3, 1.0, 20.0, 0.0), 20, 0.00010135754935796018, 5.229013559988722e7, 0.053821942979798, 3.2207997053228586e-7, 0.21248907011998272)]), Material(6.792311307794798e13, 2.697343612657566, 1.6988809170760097, 20, 0.0)), CableComponent(&quot;sheath&quot;, ConductorGroup(0.05392185000000001, 0.057221850000000005, 0.0011522551636621995, 0, 0.0, 0.00018572275199865126, 0.004, 0.05613274872684118, AbstractConductorPart[Tubular(0.05392185000000001, 0.057221850000000005, Material(2.14e-7, 1.0, 0.999983, 20.0, 0.004), 20, 0.0011522551636621995, 0.00018572275199865126, 0.05613274872684118)]), Material(2.14e-7, 0.0, 0.9999830000000038, 20, 0.004), InsulatorGroup(0.057221850000000005, 0.06322185000000001, 0.0022703102585470386, 1.4055872819044677e-9, 2.2153824035081482e-13, AbstractInsulatorPart[Insulator(0.057221850000000005, 0.06022185000000001, Material(1.97e14, 2.3, 1.0, 20.0, 0.0), 20, 0.0011068807953912108, 1.7797761133833136e17, 0.05923036032917627, 2.5040351594154657e-9, 6.241624396523219e-13), Insulator(0.06022185000000001, 0.06322185000000001, Material(1.0e15, 2.8, 1.0, 20.0, 0.0), 20, 0.0011634294631558278, 8.595278284318829e17, 0.0622299468670669, 3.2041938862774052e-9, 1.2924448674224622e-13)]), Material(2.8442932557131344e14, 2.519335553932266, 1.0, 20, 0.0)), CableComponent(&quot;armor&quot;, ConductorGroup(0.06322185000000001, 0.06904885000000001, 0.0018133800364174603, 68, 0.7560253328968546, 7.976806121717488e-5, 0.0045, 0.02230691946954866, AbstractConductorPart[WireArray(0.06322185000000001, 0.06904885000000001, 0.0029135, 68, 10, 0.13227070000000002, 1.3227070000000003, 1, Material(1.38e-7, 1.0, 300.0, 20.0, 0.0045), 20, 0.0018133800364174603, 7.976806121717488e-5, 0.02230691946954866)]), Material(1.9314682755887068e-7, 0.0, 40.19845108876294, 20, 0.0045), InsulatorGroup(0.06904885000000001, 0.07904885, 0.00465262646333545, 1.1517112415552918e-9, 4.645546854314229e-14, AbstractInsulatorPart[Insulator(0.06904885000000001, 0.07904885, Material(1.0e15, 2.8, 1.0, 20.0, 0.0), 20, 0.00465262646333545, 2.1493236301697514e17, 0.07579045618304785, 1.1517112415552918e-9, 4.645546854314229e-14)]), Material(9.999999999999999e14, 2.8, 1.123540037088774, 20, 0.0))]), 0.5, -1.0, [2, 0, 0])]), 20.0, EarthModel(2, CPEarth(), nothing, false, EarthLayer[EarthLayer(Inf, 1.0, 1.0, Inf, Number[Inf, Inf, Inf, Inf, Inf, Inf, Inf, Inf, Inf, Inf], Number[8.8541878128e-12, 8.8541878128e-12, 8.8541878128e-12, 8.8541878128e-12, 8.8541878128e-12, 8.8541878128e-12, 8.8541878128e-12, 8.8541878128e-12, 8.8541878128e-12, 8.8541878128e-12], Number[1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6]), EarthLayer(100.0, 10.0, 1.0, Inf, Number[100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0], Number[8.8541878128e-11, 8.8541878128e-11, 8.8541878128e-11, 8.8541878128e-11, 8.8541878128e-11, 8.8541878128e-11, 8.8541878128e-11, 8.8541878128e-11, 8.8541878128e-11, 8.8541878128e-11], Number[1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6])], missing, missing, missing), [0.001])</code></pre><p>Create a FEMFormulation with custom mesh definitions</p><pre><code class="language-julia hljs">rho_g = earth_params.layers[end].rho_g[1]
+)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">LineParametersProblem(LineCableSystem(&quot;525kV_1600mm2_bipole&quot;, 1000.0, 2, 2, CablePosition[CablePosition(CableDesign(&quot;525kV_1600mm2&quot;, NominalData(&quot;(N)2XH(F)RK2Y&quot;, 500.0, 525.0, 1600.0, 1000.0, nothing, NaN, NaN, NaN), CableComponent[CableComponent(&quot;core&quot;, ConductorGroup(0, 0.02382185, 0.0013397317828553706, 127, 3.5157174935832782, 1.337933694851607e-5, 0.003930000000000001, 0.01847548119438913, AbstractConductorPart[WireArray(0, 0.00183245, 0.00183245, 1, 0, 0.00183245, 0.0, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 1.0549069156341502e-5, 0.0016343622119147534, 0.0014271156356110443), WireArray(0.00183245, 0.00549735, 0.00183245, 6, 11, 0.007329799999999999, 0.08062779999999999, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 6.329441493804902e-5, 0.00028328512558856254, 0.004221694894917983), WireArray(0.00549735, 0.00916225, 0.00183245, 12, 11, 0.0146596, 0.1612556, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 0.00012658882987609803, 0.00014164256279428127, 0.007866915436277402), WireArray(0.00916225, 0.01282715, 0.00183245, 18, 11, 0.0219894, 0.2418834, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 0.00018988324481414702, 9.442837519618751e-5, 0.011525460549397154), WireArray(0.01282715, 0.01649205, 0.00183245, 24, 11, 0.029319200000000004, 0.32251120000000005, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 0.00025317765975219606, 7.082128139714063e-5, 0.015187220517899403), WireArray(0.01649205, 0.02015695, 0.00183245, 30, 11, 0.036649, 0.403139, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 0.000316472074690245, 5.6657025117712506e-5, 0.01885024834408592), WireArray(0.02015695, 0.02382185, 0.00183245, 36, 11, 0.0439788, 0.4837668, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 0.00037976648962829404, 4.7214187598093756e-5, 0.022513905134601313)]), Material(2.385258407436559e-8, 0.0, 1.0166348581554203, 20, 0.003930000000000001), InsulatorGroup(0.02382185, 0.05392185000000001, 0.007351595007164955, 1.8368710626807816e-10, 1.1323380097721256e-13, AbstractInsulatorPart[Semicon(0.02382185, 0.02582185, Material(1000.0, 1000.0, 1.0, 20.0, 0.0), 20, 0.0003119205664340316, 3.205944421787561e6, 0.02516412915401364, 6.900771124224237e-7, 0.07793793479564756), Insulator(0.02582185, 0.05182185, Material(1.97e14, 2.3, 1.0, 20.0, 0.0), 20, 0.006342046815455776, 3.106252693056515e16, 0.04412227413993518, 1.8368710671079737e-10, 4.5786334998607355e-14), Semicon(0.05182185, 0.053621850000000006, Material(500.0, 1000.0, 1.0, 20.0, 0.0), 20, 0.0005962700759171872, 838546.1893771813, 0.053025262929149816, 1.6293130767027504e-6, 0.36803219248350355), Semicon(0.053621850000000006, 0.05392185000000001, Material(5300.0, 32.3, 1.0, 20.0, 0.0), 20, 0.00010135754935796018, 5.229013559988722e7, 0.053821942979798, 3.2207997053228586e-7, 0.21248907011998272)]), Material(6.792311307794798e13, 2.697343612657566, 1.6988809170760097, 20, 0.0)), CableComponent(&quot;sheath&quot;, ConductorGroup(0.05392185000000001, 0.057221850000000005, 0.0011522551636621995, 0, 0.0, 0.00018572275199865126, 0.004, 0.05613274872684118, AbstractConductorPart[Tubular(0.05392185000000001, 0.057221850000000005, Material(2.14e-7, 1.0, 0.999983, 20.0, 0.004), 20, 0.0011522551636621995, 0.00018572275199865126, 0.05613274872684118)]), Material(2.14e-7, 0.0, 0.9999830000000038, 20, 0.004), InsulatorGroup(0.057221850000000005, 0.06322185000000001, 0.0022703102585470386, 1.4055872819044677e-9, 2.2153824035081482e-13, AbstractInsulatorPart[Insulator(0.057221850000000005, 0.06022185000000001, Material(1.97e14, 2.3, 1.0, 20.0, 0.0), 20, 0.0011068807953912108, 1.7797761133833136e17, 0.05923036032917627, 2.5040351594154657e-9, 6.241624396523219e-13), Insulator(0.06022185000000001, 0.06322185000000001, Material(1.0e15, 2.8, 1.0, 20.0, 0.0), 20, 0.0011634294631558278, 8.595278284318829e17, 0.0622299468670669, 3.2041938862774052e-9, 1.2924448674224622e-13)]), Material(2.8442932557131344e14, 2.519335553932266, 1.0, 20, 0.0)), CableComponent(&quot;armor&quot;, ConductorGroup(0.06322185000000001, 0.06904885000000001, 0.0018133800364174603, 68, 0.7560253328968546, 7.976806121717488e-5, 0.0045, 0.02230691946954866, AbstractConductorPart[WireArray(0.06322185000000001, 0.06904885000000001, 0.0029135, 68, 10, 0.13227070000000002, 1.3227070000000003, 1, Material(1.38e-7, 1.0, 300.0, 20.0, 0.0045), 20, 0.0018133800364174603, 7.976806121717488e-5, 0.02230691946954866)]), Material(1.9314682755887068e-7, 0.0, 40.19845108876294, 20, 0.0045), InsulatorGroup(0.06904885000000001, 0.07904885, 0.00465262646333545, 1.1517112415552918e-9, 4.645546854314229e-14, AbstractInsulatorPart[Insulator(0.06904885000000001, 0.07904885, Material(1.0e15, 2.8, 1.0, 20.0, 0.0), 20, 0.00465262646333545, 2.1493236301697514e17, 0.07579045618304785, 1.1517112415552918e-9, 4.645546854314229e-14)]), Material(9.999999999999999e14, 2.8, 1.123540037088774, 20, 0.0))]), -0.5, -1.0, [1, 0, 0]), CablePosition(CableDesign(&quot;525kV_1600mm2&quot;, NominalData(&quot;(N)2XH(F)RK2Y&quot;, 500.0, 525.0, 1600.0, 1000.0, nothing, NaN, NaN, NaN), CableComponent[CableComponent(&quot;core&quot;, ConductorGroup(0, 0.02382185, 0.0013397317828553706, 127, 3.5157174935832782, 1.337933694851607e-5, 0.003930000000000001, 0.01847548119438913, AbstractConductorPart[WireArray(0, 0.00183245, 0.00183245, 1, 0, 0.00183245, 0.0, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 1.0549069156341502e-5, 0.0016343622119147534, 0.0014271156356110443), WireArray(0.00183245, 0.00549735, 0.00183245, 6, 11, 0.007329799999999999, 0.08062779999999999, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 6.329441493804902e-5, 0.00028328512558856254, 0.004221694894917983), WireArray(0.00549735, 0.00916225, 0.00183245, 12, 11, 0.0146596, 0.1612556, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 0.00012658882987609803, 0.00014164256279428127, 0.007866915436277402), WireArray(0.00916225, 0.01282715, 0.00183245, 18, 11, 0.0219894, 0.2418834, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 0.00018988324481414702, 9.442837519618751e-5, 0.011525460549397154), WireArray(0.01282715, 0.01649205, 0.00183245, 24, 11, 0.029319200000000004, 0.32251120000000005, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 0.00025317765975219606, 7.082128139714063e-5, 0.015187220517899403), WireArray(0.01649205, 0.02015695, 0.00183245, 30, 11, 0.036649, 0.403139, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 0.000316472074690245, 5.6657025117712506e-5, 0.01885024834408592), WireArray(0.02015695, 0.02382185, 0.00183245, 36, 11, 0.0439788, 0.4837668, 1, Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393), 20, 0.00037976648962829404, 4.7214187598093756e-5, 0.022513905134601313)]), Material(2.385258407436559e-8, 0.0, 1.0166348581554203, 20, 0.003930000000000001), InsulatorGroup(0.02382185, 0.05392185000000001, 0.007351595007164955, 1.8368710626807816e-10, 1.1323380097721256e-13, AbstractInsulatorPart[Semicon(0.02382185, 0.02582185, Material(1000.0, 1000.0, 1.0, 20.0, 0.0), 20, 0.0003119205664340316, 3.205944421787561e6, 0.02516412915401364, 6.900771124224237e-7, 0.07793793479564756), Insulator(0.02582185, 0.05182185, Material(1.97e14, 2.3, 1.0, 20.0, 0.0), 20, 0.006342046815455776, 3.106252693056515e16, 0.04412227413993518, 1.8368710671079737e-10, 4.5786334998607355e-14), Semicon(0.05182185, 0.053621850000000006, Material(500.0, 1000.0, 1.0, 20.0, 0.0), 20, 0.0005962700759171872, 838546.1893771813, 0.053025262929149816, 1.6293130767027504e-6, 0.36803219248350355), Semicon(0.053621850000000006, 0.05392185000000001, Material(5300.0, 32.3, 1.0, 20.0, 0.0), 20, 0.00010135754935796018, 5.229013559988722e7, 0.053821942979798, 3.2207997053228586e-7, 0.21248907011998272)]), Material(6.792311307794798e13, 2.697343612657566, 1.6988809170760097, 20, 0.0)), CableComponent(&quot;sheath&quot;, ConductorGroup(0.05392185000000001, 0.057221850000000005, 0.0011522551636621995, 0, 0.0, 0.00018572275199865126, 0.004, 0.05613274872684118, AbstractConductorPart[Tubular(0.05392185000000001, 0.057221850000000005, Material(2.14e-7, 1.0, 0.999983, 20.0, 0.004), 20, 0.0011522551636621995, 0.00018572275199865126, 0.05613274872684118)]), Material(2.14e-7, 0.0, 0.9999830000000038, 20, 0.004), InsulatorGroup(0.057221850000000005, 0.06322185000000001, 0.0022703102585470386, 1.4055872819044677e-9, 2.2153824035081482e-13, AbstractInsulatorPart[Insulator(0.057221850000000005, 0.06022185000000001, Material(1.97e14, 2.3, 1.0, 20.0, 0.0), 20, 0.0011068807953912108, 1.7797761133833136e17, 0.05923036032917627, 2.5040351594154657e-9, 6.241624396523219e-13), Insulator(0.06022185000000001, 0.06322185000000001, Material(1.0e15, 2.8, 1.0, 20.0, 0.0), 20, 0.0011634294631558278, 8.595278284318829e17, 0.0622299468670669, 3.2041938862774052e-9, 1.2924448674224622e-13)]), Material(2.8442932557131344e14, 2.519335553932266, 1.0, 20, 0.0)), CableComponent(&quot;armor&quot;, ConductorGroup(0.06322185000000001, 0.06904885000000001, 0.0018133800364174603, 68, 0.7560253328968546, 7.976806121717488e-5, 0.0045, 0.02230691946954866, AbstractConductorPart[WireArray(0.06322185000000001, 0.06904885000000001, 0.0029135, 68, 10, 0.13227070000000002, 1.3227070000000003, 1, Material(1.38e-7, 1.0, 300.0, 20.0, 0.0045), 20, 0.0018133800364174603, 7.976806121717488e-5, 0.02230691946954866)]), Material(1.9314682755887068e-7, 0.0, 40.19845108876294, 20, 0.0045), InsulatorGroup(0.06904885000000001, 0.07904885, 0.00465262646333545, 1.1517112415552918e-9, 4.645546854314229e-14, AbstractInsulatorPart[Insulator(0.06904885000000001, 0.07904885, Material(1.0e15, 2.8, 1.0, 20.0, 0.0), 20, 0.00465262646333545, 2.1493236301697514e17, 0.07579045618304785, 1.1517112415552918e-9, 4.645546854314229e-14)]), Material(9.999999999999999e14, 2.8, 1.123540037088774, 20, 0.0))]), 0.5, -1.0, [2, 0, 0])]), 20.0, EarthModel{Float64}(CPEarth(), false, EarthLayer{Float64}[EarthLayer{Float64}(Inf, 1.0, 1.0, Inf, [Inf, Inf, Inf, Inf, Inf, Inf, Inf, Inf, Inf, Inf], [8.8541878128e-12, 8.8541878128e-12, 8.8541878128e-12, 8.8541878128e-12, 8.8541878128e-12, 8.8541878128e-12, 8.8541878128e-12, 8.8541878128e-12, 8.8541878128e-12, 8.8541878128e-12], [1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6]), EarthLayer{Float64}(100.0, 10.0, 1.0, Inf, [100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0], [8.8541878128e-11, 8.8541878128e-11, 8.8541878128e-11, 8.8541878128e-11, 8.8541878128e-11, 8.8541878128e-11, 8.8541878128e-11, 8.8541878128e-11, 8.8541878128e-11, 8.8541878128e-11], [1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6, 1.2566370614359173e-6])]), [0.001])</code></pre><p>Create a FEMFormulation with custom mesh definitions</p><pre><code class="language-julia hljs">rho_g = earth_params.layers[end].rho_g[1]
 mu_g = earth_params.layers[end].mu_g[1]
 skin_depth_earth = abs(sqrt(rho_g / (1im * (2 * pi * f[1]) * mu_g)))
 domain_radius = clamp(skin_depth_earth, 5.0, 5000.0);</code></pre><p>Define custom mesh transitions around each cable</p><pre><code class="language-julia hljs">mesh_transition1 = MeshTransition(
@@ -167,9 +166,11 @@ mesh_transition2 = MeshTransition(
     mesh_factor_min=0.01 / (domain_radius / 5),
     mesh_factor_max=0.25 / (domain_radius / 5),
     n_regions=5);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr33"><span class="sgr1">┌ Warning: </span></span>r_min (0.0 m) is smaller than bounding radius (0.07904885 m). Adjusting r_min to match.
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ LineCableModels.FEMTools ~/work/LineCableModels.jl/LineCableModels.jl/src/FEMTools.jl:249</span>
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ LineCableModels.FEMTools ~/work/LineCableModels.jl/LineCableModels.jl/src/FEMTools.jl:259</span>
 <span class="sgr33"><span class="sgr1">┌ Warning: </span></span>r_min (0.0 m) is smaller than bounding radius (0.07904885 m). Adjusting r_min to match.
-<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ LineCableModels.FEMTools ~/work/LineCableModels.jl/LineCableModels.jl/src/FEMTools.jl:249</span></code></pre><p>Define the FEM formulation with the specified parameters</p><pre><code class="language-julia hljs">formulation = FEMFormulation(
+<span class="sgr33"><span class="sgr1">└ </span></span><span class="sgr90">@ LineCableModels.FEMTools ~/work/LineCableModels.jl/LineCableModels.jl/src/FEMTools.jl:259</span></code></pre><p>Define the FEM formulation with the specified parameters</p><pre><code class="language-julia hljs">formulation = FormulationSet(
+    impedance=FEMDarwin(),
+    admittance=FEMElectrodynamics(),
     domain_radius=domain_radius,
     domain_radius_inf=domain_radius * 1.25,
     elements_per_length_conductor=1,
@@ -177,8 +178,6 @@ mesh_transition2 = MeshTransition(
     elements_per_length_semicon=1,
     elements_per_length_interfaces=5,
     points_per_circumference=16,
-    analysis_type=(FEMDarwin(),
-        FEMElectrodynamics()),
     mesh_size_min=1e-6,
     mesh_size_max=domain_radius / 5,
     mesh_transitions=[mesh_transition1,
@@ -225,509 +224,70 @@ mesh_transition2 = MeshTransition(
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Starting FEM solver
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving frequency 1/1: 0.001 Hz
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 1... (Resolution = Darwin)
-Info    : Calling &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_darwin.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Darwin -setnumber active_con 1 -v2 -onelab &quot;GetDP&quot; /home/runner/.gmshsock2 &amp;&#39;
+Info    : Calling &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_darwin.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Darwin -setnumber active_con 1 -v2 -verbose 2 -onelab &quot;GetDP&quot; /home/runner/.gmshsock2 &amp;&#39;
 Info    : Running &#39;GetDP&#39;...
-Info    : GetDP - Running &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_darwin.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Darwin -setnumber active_con 1 -v2 -onelab GetDP /home/runner/.gmshsock2&#39; [GetDP 3.5.0, 1 node, max. 1 thread]
-Info    : GetDP - Started (Sat Aug  9 17:03:13 2025, Wall = 0.000470877s, CPU = 0.000744s, Mem = 7.70703Mb, Recv/Send = 1.90735e-05/0.000789642Mb)
-Info    : GetDP - Initializing Gmsh
-Info    : GetDP - Loading problem definition &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_darwin.pro&#39;
-Info    : GetDP - Adding number active_con = 1
-Info    : GetDP - Selected Resolution &#39;Darwin&#39;
-Info    : GetDP - Loading Geometric data &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - Reading &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;...
-Info    : GetDP - 23397 entities
-Info    : GetDP - 139674 nodes
-Info    : GetDP - 314131 elements
-Info    : GetDP - Done reading &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - System &#39;Sys_Mag&#39; : Complex, Frequency = 0.001 Hz
-Info    : GetDP - P r e - P r o c e s s i n g . . .
-Info    : GetDP - Treatment Formulation &#39;Darwin_a_2D&#39;
-Info    : GetDP -   Generate ExtendedGroup &#39;_CO_Entity_15&#39; (NodesOf, None)
-Info    : GetDP - System 1/1: 139216 Dofs
-Info    : GetDP - (Wall = 3.55207s, CPU = 3.43196s, Mem = 433.77Mb, Recv/Send = 8.67844e-05/0.00377369Mb)
-Info    : GetDP - E n d   P r e - P r o c e s s i n g
-Info    : GetDP - P r o c e s s i n g . . .
-Info    : GetDP - CreateDir[/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/results/darwin]
-Info    : GetDP - InitSolution[Sys_Mag]
-Info    : GetDP - Generate[Sys_Mag]
-Info    : GetDP - Solve[Sys_Mag]
-Info    : GetDP - N: 139216 - preonly lu mumps
-Info    : GetDP - SaveSolution[Sys_Mag]
-Info    : GetDP - PostOperation
-Info    : GetDP - NameOfSystem not set in PostProcessing: selected &#39;Sys_Mag&#39;
-Info    : GetDP - Selected PostProcessing &#39;Darwin_a_2D&#39;
-Info    : GetDP - Selected Mesh &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - PostOperation &#39;LineParams&#39; 1/1
-Info    : GetDP -           &gt; &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/results/darwin/Z.dat&#39;
-Info    : GetDP - (Wall = 17.8505s, CPU = 17.7083s, Mem = 898.77Mb, Recv/Send = 0.000246048/0.00810432Mb)
-Info    : GetDP - E n d   P r o c e s s i n g
-Info    : GetDP - Stopped (Sat Aug  9 17:03:30 2025, Wall = 17.9465s, CPU = 17.7893s, Mem = 898.77Mb, Recv/Send = 0.000265121/0.00828362Mb)
 Info    : Done running &#39;GetDP&#39;
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 1!
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 2... (Resolution = Darwin)
-Info    : Calling &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_darwin.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Darwin -setnumber active_con 2 -v2 -onelab &quot;GetDP&quot; /home/runner/.gmshsock2 &amp;&#39;
+Info    : Calling &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_darwin.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Darwin -setnumber active_con 2 -v2 -verbose 2 -onelab &quot;GetDP&quot; /home/runner/.gmshsock2 &amp;&#39;
 Info    : Running &#39;GetDP&#39;...
-Info    : GetDP - Running &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_darwin.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Darwin -setnumber active_con 2 -v2 -onelab GetDP /home/runner/.gmshsock2&#39; [GetDP 3.5.0, 1 node, max. 1 thread]
-Info    : GetDP - Started (Sat Aug  9 17:03:31 2025, Wall = 0.000754118s, CPU = 0.000818s, Mem = 7.69531Mb, Recv/Send = 1.90735e-05/0.000789642Mb)
-Info    : GetDP - Initializing Gmsh
-Info    : GetDP - Loading problem definition &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_darwin.pro&#39;
-Info    : GetDP - Adding number active_con = 2
-Info    : GetDP - Selected Resolution &#39;Darwin&#39;
-Info    : GetDP - Loading Geometric data &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - Reading &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;...
-Info    : GetDP - 23397 entities
-Info    : GetDP - 139674 nodes
-Info    : GetDP - 314131 elements
-Info    : GetDP - Done reading &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - System &#39;Sys_Mag&#39; : Complex, Frequency = 0.001 Hz
-Info    : GetDP - P r e - P r o c e s s i n g . . .
-Info    : GetDP - Treatment Formulation &#39;Darwin_a_2D&#39;
-Info    : GetDP -   Generate ExtendedGroup &#39;_CO_Entity_15&#39; (NodesOf, None)
-Info    : GetDP - System 1/1: 139216 Dofs
-Info    : GetDP - (Wall = 3.57691s, CPU = 3.46162s, Mem = 433.164Mb, Recv/Send = 0.000407219/0.00378132Mb)
-Info    : GetDP - E n d   P r e - P r o c e s s i n g
-Info    : GetDP - P r o c e s s i n g . . .
-Info    : GetDP - CreateDir[/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/results/darwin]
-Info    : GetDP - InitSolution[Sys_Mag]
-Info    : GetDP - Generate[Sys_Mag]
-Info    : GetDP - Solve[Sys_Mag]
-Info    : GetDP - N: 139216 - preonly lu mumps
-Info    : GetDP - SaveSolution[Sys_Mag]
-Info    : GetDP - PostOperation
-Info    : GetDP - NameOfSystem not set in PostProcessing: selected &#39;Sys_Mag&#39;
-Info    : GetDP - Selected PostProcessing &#39;Darwin_a_2D&#39;
-Info    : GetDP - Selected Mesh &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - PostOperation &#39;LineParams&#39; 1/1
-Info    : GetDP -           &gt;&gt; &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/results/darwin/Z.dat&#39;
-Info    : GetDP - (Wall = 17.8411s, CPU = 17.7081s, Mem = 898.961Mb, Recv/Send = 0.000865936/0.00812149Mb)
-Info    : GetDP - E n d   P r o c e s s i n g
-Info    : GetDP - Stopped (Sat Aug  9 17:03:48 2025, Wall = 17.9412s, CPU = 17.7921s, Mem = 898.961Mb, Recv/Send = 0.00088501/0.00830173Mb)
 Info    : Done running &#39;GetDP&#39;
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 2!
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 3... (Resolution = Darwin)
-Info    : Calling &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_darwin.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Darwin -setnumber active_con 3 -v2 -onelab &quot;GetDP&quot; /home/runner/.gmshsock2 &amp;&#39;
+Info    : Calling &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_darwin.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Darwin -setnumber active_con 3 -v2 -verbose 2 -onelab &quot;GetDP&quot; /home/runner/.gmshsock2 &amp;&#39;
 Info    : Running &#39;GetDP&#39;...
-Info    : GetDP - Running &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_darwin.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Darwin -setnumber active_con 3 -v2 -onelab GetDP /home/runner/.gmshsock2&#39; [GetDP 3.5.0, 1 node, max. 1 thread]
-Info    : GetDP - Started (Sat Aug  9 17:03:48 2025, Wall = 0.000746965s, CPU = 0.001649s, Mem = 7.74609Mb, Recv/Send = 1.90735e-05/0.000789642Mb)
-Info    : GetDP - Initializing Gmsh
-Info    : GetDP - Loading problem definition &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_darwin.pro&#39;
-Info    : GetDP - Adding number active_con = 3
-Info    : GetDP - Selected Resolution &#39;Darwin&#39;
-Info    : GetDP - Loading Geometric data &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - Reading &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;...
-Info    : GetDP - 23397 entities
-Info    : GetDP - 139674 nodes
-Info    : GetDP - 314131 elements
-Info    : GetDP - Done reading &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - System &#39;Sys_Mag&#39; : Complex, Frequency = 0.001 Hz
-Info    : GetDP - P r e - P r o c e s s i n g . . .
-Info    : GetDP - Treatment Formulation &#39;Darwin_a_2D&#39;
-Info    : GetDP -   Generate ExtendedGroup &#39;_CO_Entity_15&#39; (NodesOf, None)
-Info    : GetDP - System 1/1: 139216 Dofs
-Info    : GetDP - (Wall = 3.61434s, CPU = 3.49529s, Mem = 433.23Mb, Recv/Send = 0.000407219/0.00378132Mb)
-Info    : GetDP - E n d   P r e - P r o c e s s i n g
-Info    : GetDP - P r o c e s s i n g . . .
-Info    : GetDP - CreateDir[/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/results/darwin]
-Info    : GetDP - InitSolution[Sys_Mag]
-Info    : GetDP - Generate[Sys_Mag]
-Info    : GetDP - Solve[Sys_Mag]
-Info    : GetDP - N: 139216 - preonly lu mumps
-Info    : GetDP - SaveSolution[Sys_Mag]
-Info    : GetDP - PostOperation
-Info    : GetDP - NameOfSystem not set in PostProcessing: selected &#39;Sys_Mag&#39;
-Info    : GetDP - Selected PostProcessing &#39;Darwin_a_2D&#39;
-Info    : GetDP - Selected Mesh &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - PostOperation &#39;LineParams&#39; 1/1
-Info    : GetDP -           &gt;&gt; &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/results/darwin/Z.dat&#39;
-Info    : GetDP - (Wall = 17.9002s, CPU = 17.8294s, Mem = 899.07Mb, Recv/Send = 0.000865936/0.00812054Mb)
-Info    : GetDP - E n d   P r o c e s s i n g
-Info    : GetDP - Stopped (Sat Aug  9 17:04:06 2025, Wall = 18.0021s, CPU = 17.9142s, Mem = 899.07Mb, Recv/Send = 0.00088501/0.00829983Mb)
 Info    : Done running &#39;GetDP&#39;
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 3!
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 4... (Resolution = Darwin)
-Info    : Calling &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_darwin.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Darwin -setnumber active_con 4 -v2 -onelab &quot;GetDP&quot; /home/runner/.gmshsock2 &amp;&#39;
+Info    : Calling &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_darwin.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Darwin -setnumber active_con 4 -v2 -verbose 2 -onelab &quot;GetDP&quot; /home/runner/.gmshsock2 &amp;&#39;
 Info    : Running &#39;GetDP&#39;...
-Info    : GetDP - Running &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_darwin.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Darwin -setnumber active_con 4 -v2 -onelab GetDP /home/runner/.gmshsock2&#39; [GetDP 3.5.0, 1 node, max. 1 thread]
-Info    : GetDP - Started (Sat Aug  9 17:04:06 2025, Wall = 0.000756025s, CPU = 0.000825s, Mem = 7.74609Mb, Recv/Send = 1.90735e-05/0.000789642Mb)
-Info    : GetDP - Initializing Gmsh
-Info    : GetDP - Loading problem definition &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_darwin.pro&#39;
-Info    : GetDP - Adding number active_con = 4
-Info    : GetDP - Selected Resolution &#39;Darwin&#39;
-Info    : GetDP - Loading Geometric data &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - Reading &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;...
-Info    : GetDP - 23397 entities
-Info    : GetDP - 139674 nodes
-Info    : GetDP - 314131 elements
-Info    : GetDP - Done reading &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - System &#39;Sys_Mag&#39; : Complex, Frequency = 0.001 Hz
-Info    : GetDP - P r e - P r o c e s s i n g . . .
-Info    : GetDP - Treatment Formulation &#39;Darwin_a_2D&#39;
-Info    : GetDP -   Generate ExtendedGroup &#39;_CO_Entity_15&#39; (NodesOf, None)
-Info    : GetDP - System 1/1: 139216 Dofs
-Info    : GetDP - (Wall = 3.52413s, CPU = 3.37399s, Mem = 433.41Mb, Recv/Send = 0.000407219/0.00378132Mb)
-Info    : GetDP - E n d   P r e - P r o c e s s i n g
-Info    : GetDP - P r o c e s s i n g . . .
-Info    : GetDP - CreateDir[/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/results/darwin]
-Info    : GetDP - InitSolution[Sys_Mag]
-Info    : GetDP - Generate[Sys_Mag]
-Info    : GetDP - Solve[Sys_Mag]
-Info    : GetDP - N: 139216 - preonly lu mumps
-Info    : GetDP - SaveSolution[Sys_Mag]
-Info    : GetDP - PostOperation
-Info    : GetDP - NameOfSystem not set in PostProcessing: selected &#39;Sys_Mag&#39;
-Info    : GetDP - Selected PostProcessing &#39;Darwin_a_2D&#39;
-Info    : GetDP - Selected Mesh &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - PostOperation &#39;LineParams&#39; 1/1
-Info    : GetDP -           &gt;&gt; &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/results/darwin/Z.dat&#39;
-Info    : GetDP - (Wall = 17.89s, CPU = 17.7547s, Mem = 899.059Mb, Recv/Send = 0.000865936/0.00812054Mb)
-Info    : GetDP - E n d   P r o c e s s i n g
-Info    : GetDP - Stopped (Sat Aug  9 17:04:24 2025, Wall = 17.9858s, CPU = 17.8365s, Mem = 899.059Mb, Recv/Send = 0.00088501/0.00829887Mb)
 Info    : Done running &#39;GetDP&#39;
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 4!
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 5... (Resolution = Darwin)
-Info    : Calling &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_darwin.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Darwin -setnumber active_con 5 -v2 -onelab &quot;GetDP&quot; /home/runner/.gmshsock2 &amp;&#39;
+Info    : Calling &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_darwin.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Darwin -setnumber active_con 5 -v2 -verbose 2 -onelab &quot;GetDP&quot; /home/runner/.gmshsock2 &amp;&#39;
 Info    : Running &#39;GetDP&#39;...
-Info    : GetDP - Running &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_darwin.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Darwin -setnumber active_con 5 -v2 -onelab GetDP /home/runner/.gmshsock2&#39; [GetDP 3.5.0, 1 node, max. 1 thread]
-Info    : GetDP - Started (Sat Aug  9 17:04:25 2025, Wall = 0.000568867s, CPU = 0.002156s, Mem = 7.69922Mb, Recv/Send = 1.90735e-05/0.000789642Mb)
-Info    : GetDP - Initializing Gmsh
-Info    : GetDP - Loading problem definition &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_darwin.pro&#39;
-Info    : GetDP - Adding number active_con = 5
-Info    : GetDP - Selected Resolution &#39;Darwin&#39;
-Info    : GetDP - Loading Geometric data &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - Reading &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;...
-Info    : GetDP - 23397 entities
-Info    : GetDP - 139674 nodes
-Info    : GetDP - 314131 elements
-Info    : GetDP - Done reading &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - System &#39;Sys_Mag&#39; : Complex, Frequency = 0.001 Hz
-Info    : GetDP - P r e - P r o c e s s i n g . . .
-Info    : GetDP - Treatment Formulation &#39;Darwin_a_2D&#39;
-Info    : GetDP -   Generate ExtendedGroup &#39;_CO_Entity_15&#39; (NodesOf, None)
-Info    : GetDP - System 1/1: 139216 Dofs
-Info    : GetDP - (Wall = 3.58347s, CPU = 3.4298s, Mem = 433.285Mb, Recv/Send = 0.000407219/0.00378132Mb)
-Info    : GetDP - E n d   P r e - P r o c e s s i n g
-Info    : GetDP - P r o c e s s i n g . . .
-Info    : GetDP - CreateDir[/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/results/darwin]
-Info    : GetDP - InitSolution[Sys_Mag]
-Info    : GetDP - Generate[Sys_Mag]
-Info    : GetDP - Solve[Sys_Mag]
-Info    : GetDP - N: 139216 - preonly lu mumps
-Info    : GetDP - SaveSolution[Sys_Mag]
-Info    : GetDP - PostOperation
-Info    : GetDP - NameOfSystem not set in PostProcessing: selected &#39;Sys_Mag&#39;
-Info    : GetDP - Selected PostProcessing &#39;Darwin_a_2D&#39;
-Info    : GetDP - Selected Mesh &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - PostOperation &#39;LineParams&#39; 1/1
-Info    : GetDP -           &gt;&gt; &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/results/darwin/Z.dat&#39;
-Info    : GetDP - (Wall = 17.8158s, CPU = 17.6484s, Mem = 898.957Mb, Recv/Send = 0.000865936/0.00812054Mb)
-Info    : GetDP - E n d   P r o c e s s i n g
-Info    : GetDP - Stopped (Sat Aug  9 17:04:42 2025, Wall = 17.9136s, CPU = 17.7312s, Mem = 898.957Mb, Recv/Send = 0.00088501/0.00830078Mb)
 Info    : Done running &#39;GetDP&#39;
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 5!
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 6... (Resolution = Darwin)
-Info    : Calling &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_darwin.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Darwin -setnumber active_con 6 -v2 -onelab &quot;GetDP&quot; /home/runner/.gmshsock2 &amp;&#39;
+Info    : Calling &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_darwin.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Darwin -setnumber active_con 6 -v2 -verbose 2 -onelab &quot;GetDP&quot; /home/runner/.gmshsock2 &amp;&#39;
 Info    : Running &#39;GetDP&#39;...
-Info    : GetDP - Running &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_darwin.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Darwin -setnumber active_con 6 -v2 -onelab GetDP /home/runner/.gmshsock2&#39; [GetDP 3.5.0, 1 node, max. 1 thread]
-Info    : GetDP - Started (Sat Aug  9 17:04:42 2025, Wall = 0.000792027s, CPU = 0.000994s, Mem = 7.74609Mb, Recv/Send = 1.90735e-05/0.000789642Mb)
-Info    : GetDP - Initializing Gmsh
-Info    : GetDP - Loading problem definition &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_darwin.pro&#39;
-Info    : GetDP - Adding number active_con = 6
-Info    : GetDP - Selected Resolution &#39;Darwin&#39;
-Info    : GetDP - Loading Geometric data &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - Reading &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;...
-Info    : GetDP - 23397 entities
-Info    : GetDP - 139674 nodes
-Info    : GetDP - 314131 elements
-Info    : GetDP - Done reading &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - System &#39;Sys_Mag&#39; : Complex, Frequency = 0.001 Hz
-Info    : GetDP - P r e - P r o c e s s i n g . . .
-Info    : GetDP - Treatment Formulation &#39;Darwin_a_2D&#39;
-Info    : GetDP -   Generate ExtendedGroup &#39;_CO_Entity_15&#39; (NodesOf, None)
-Info    : GetDP - System 1/1: 139216 Dofs
-Info    : GetDP - (Wall = 3.67421s, CPU = 3.54145s, Mem = 433.41Mb, Recv/Send = 0.000407219/0.00378132Mb)
-Info    : GetDP - E n d   P r e - P r o c e s s i n g
-Info    : GetDP - P r o c e s s i n g . . .
-Info    : GetDP - CreateDir[/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/results/darwin]
-Info    : GetDP - InitSolution[Sys_Mag]
-Info    : GetDP - Generate[Sys_Mag]
-Info    : GetDP - Solve[Sys_Mag]
-Info    : GetDP - N: 139216 - preonly lu mumps
-Info    : GetDP - SaveSolution[Sys_Mag]
-Info    : GetDP - PostOperation
-Info    : GetDP - NameOfSystem not set in PostProcessing: selected &#39;Sys_Mag&#39;
-Info    : GetDP - Selected PostProcessing &#39;Darwin_a_2D&#39;
-Info    : GetDP - Selected Mesh &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - PostOperation &#39;LineParams&#39; 1/1
-Info    : GetDP -           &gt;&gt; &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/results/darwin/Z.dat&#39;
-Info    : GetDP - (Wall = 18.0348s, CPU = 17.8734s, Mem = 899.066Mb, Recv/Send = 0.000865936/0.00812054Mb)
-Info    : GetDP - E n d   P r o c e s s i n g
-Info    : GetDP - Stopped (Sat Aug  9 17:05:01 2025, Wall = 18.1313s, CPU = 17.9539s, Mem = 899.066Mb, Recv/Send = 0.00088501/0.00830078Mb)
 Info    : Done running &#39;GetDP&#39;
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 6!
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 1... (Resolution = Electrodynamics)
-Info    : Calling &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_electrodynamics.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Electrodynamics -setnumber active_con 1 -v2 -onelab &quot;GetDP&quot; /home/runner/.gmshsock2 &amp;&#39;
+Info    : Calling &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_electrodynamics.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Electrodynamics -setnumber active_con 1 -v2 -verbose 2 -onelab &quot;GetDP&quot; /home/runner/.gmshsock2 &amp;&#39;
 Info    : Running &#39;GetDP&#39;...
-Info    : GetDP - Running &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_electrodynamics.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Electrodynamics -setnumber active_con 1 -v2 -onelab GetDP /home/runner/.gmshsock2&#39; [GetDP 3.5.0, 1 node, max. 1 thread]
-Info    : GetDP - Started (Sat Aug  9 17:05:01 2025, Wall = 0.000391006s, CPU = 0.002088s, Mem = 7.74609Mb, Recv/Send = 1.90735e-05/0.000806808Mb)
-Info    : GetDP - Initializing Gmsh
-Info    : GetDP - Loading problem definition &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_electrodynamics.pro&#39;
-Info    : GetDP - Adding number active_con = 1
-Info    : GetDP - Selected Resolution &#39;Electrodynamics&#39;
-Info    : GetDP - Loading Geometric data &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - Reading &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;...
-Info    : GetDP - 23397 entities
-Info    : GetDP - 139674 nodes
-Info    : GetDP - 314131 elements
-Info    : GetDP - Done reading &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - System &#39;Sys_Ele&#39; : Complex, Frequency = 0.001 Hz
-Info    : GetDP - P r e - P r o c e s s i n g . . .
-Info    : GetDP - Treatment Formulation &#39;Electrodynamics_v&#39;
-Info    : GetDP -   Generate ExtendedGroup &#39;_BF_Entity_14&#39; (NodesOf, Not)
-Info    : GetDP -   Generate ExtendedGroup &#39;_CO_Entity_19&#39; (NodesOf, None)
-Info    : GetDP -   Generate ExtendedGroup &#39;_CO_Entity_20&#39; (NodesOf, None)
-Info    : GetDP -   Generate ExtendedGroup &#39;_CO_Entity_21&#39; (NodesOf, None)
-Info    : GetDP -   Generate ExtendedGroup &#39;_BF_Entity_15&#39; (GroupsOfNodesOf, None)
-Info    : GetDP - System 1/1: 71970 Dofs
-Info    : GetDP - (Wall = 6.73019s, CPU = 6.59551s, Mem = 433.215Mb, Recv/Send = 0.000407219/0.00422287Mb)
-Info    : GetDP - E n d   P r e - P r o c e s s i n g
-Info    : GetDP - P r o c e s s i n g . . .
-Info    : GetDP - CreateDir[/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/results/electrodynamics]
-Info    : GetDP - Generate[Sys_Ele]
-Info    : GetDP - Solve[Sys_Ele]
-Info    : GetDP - N: 71970 - preonly lu mumps
-Info    : GetDP - SaveSolution[Sys_Ele]
-Info    : GetDP - PostOperation
-Info    : GetDP - NameOfSystem not set in PostProcessing: selected &#39;Sys_Ele&#39;
-Info    : GetDP - Selected PostProcessing &#39;EleDyn_v&#39;
-Info    : GetDP - Selected Mesh &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - PostOperation &#39;LineParams&#39; 1/1
-Info    : GetDP -           &gt; &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/results/electrodynamics/Y.dat&#39;
-Info    : GetDP - (Wall = 21.3439s, CPU = 21.2314s, Mem = 649.496Mb, Recv/Send = 0.000846863/0.00851154Mb)
-Info    : GetDP - E n d   P r o c e s s i n g
-Info    : GetDP - Stopped (Sat Aug  9 17:05:23 2025, Wall = 21.4431s, CPU = 21.3175s, Mem = 649.496Mb, Recv/Send = 0.000865936/0.00869179Mb)
 Info    : Done running &#39;GetDP&#39;
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 1!
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 2... (Resolution = Electrodynamics)
-Info    : Calling &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_electrodynamics.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Electrodynamics -setnumber active_con 2 -v2 -onelab &quot;GetDP&quot; /home/runner/.gmshsock2 &amp;&#39;
+Info    : Calling &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_electrodynamics.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Electrodynamics -setnumber active_con 2 -v2 -verbose 2 -onelab &quot;GetDP&quot; /home/runner/.gmshsock2 &amp;&#39;
 Info    : Running &#39;GetDP&#39;...
-Info    : GetDP - Running &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_electrodynamics.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Electrodynamics -setnumber active_con 2 -v2 -onelab GetDP /home/runner/.gmshsock2&#39; [GetDP 3.5.0, 1 node, max. 1 thread]
-Info    : GetDP - Started (Sat Aug  9 17:05:23 2025, Wall = 0.000771046s, CPU = 0.00167s, Mem = 7.6875Mb, Recv/Send = 1.90735e-05/0.000806808Mb)
-Info    : GetDP - Initializing Gmsh
-Info    : GetDP - Loading problem definition &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_electrodynamics.pro&#39;
-Info    : GetDP - Adding number active_con = 2
-Info    : GetDP - Selected Resolution &#39;Electrodynamics&#39;
-Info    : GetDP - Loading Geometric data &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - Reading &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;...
-Info    : GetDP - 23397 entities
-Info    : GetDP - 139674 nodes
-Info    : GetDP - 314131 elements
-Info    : GetDP - Done reading &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - System &#39;Sys_Ele&#39; : Complex, Frequency = 0.001 Hz
-Info    : GetDP - P r e - P r o c e s s i n g . . .
-Info    : GetDP - Treatment Formulation &#39;Electrodynamics_v&#39;
-Info    : GetDP -   Generate ExtendedGroup &#39;_BF_Entity_14&#39; (NodesOf, Not)
-Info    : GetDP -   Generate ExtendedGroup &#39;_CO_Entity_19&#39; (NodesOf, None)
-Info    : GetDP -   Generate ExtendedGroup &#39;_CO_Entity_20&#39; (NodesOf, None)
-Info    : GetDP -   Generate ExtendedGroup &#39;_CO_Entity_21&#39; (NodesOf, None)
-Info    : GetDP -   Generate ExtendedGroup &#39;_BF_Entity_15&#39; (GroupsOfNodesOf, None)
-Info    : GetDP - System 1/1: 71970 Dofs
-Info    : GetDP - (Wall = 6.30335s, CPU = 6.19001s, Mem = 433.008Mb, Recv/Send = 0.000558853/0.00422096Mb)
-Info    : GetDP - E n d   P r e - P r o c e s s i n g
-Info    : GetDP - P r o c e s s i n g . . .
-Info    : GetDP - CreateDir[/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/results/electrodynamics]
-Info    : GetDP - Generate[Sys_Ele]
-Info    : GetDP - Solve[Sys_Ele]
-Info    : GetDP - N: 71970 - preonly lu mumps
-Info    : GetDP - SaveSolution[Sys_Ele]
-Info    : GetDP - PostOperation
-Info    : GetDP - NameOfSystem not set in PostProcessing: selected &#39;Sys_Ele&#39;
-Info    : GetDP - Selected PostProcessing &#39;EleDyn_v&#39;
-Info    : GetDP - Selected Mesh &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - PostOperation &#39;LineParams&#39; 1/1
-Info    : GetDP -           &gt;&gt; &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/results/electrodynamics/Y.dat&#39;
-Info    : GetDP - (Wall = 20.5068s, CPU = 20.3807s, Mem = 650.195Mb, Recv/Send = 0.00113964/0.00851059Mb)
-Info    : GetDP - E n d   P r o c e s s i n g
-Info    : GetDP - Stopped (Sat Aug  9 17:05:43 2025, Wall = 20.6062s, CPU = 20.465s, Mem = 650.195Mb, Recv/Send = 0.00115871/0.00868988Mb)
 Info    : Done running &#39;GetDP&#39;
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 2!
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 3... (Resolution = Electrodynamics)
-Info    : Calling &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_electrodynamics.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Electrodynamics -setnumber active_con 3 -v2 -onelab &quot;GetDP&quot; /home/runner/.gmshsock2 &amp;&#39;
+Info    : Calling &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_electrodynamics.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Electrodynamics -setnumber active_con 3 -v2 -verbose 2 -onelab &quot;GetDP&quot; /home/runner/.gmshsock2 &amp;&#39;
 Info    : Running &#39;GetDP&#39;...
-Info    : GetDP - Running &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_electrodynamics.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Electrodynamics -setnumber active_con 3 -v2 -onelab GetDP /home/runner/.gmshsock2&#39; [GetDP 3.5.0, 1 node, max. 1 thread]
-Info    : GetDP - Started (Sat Aug  9 17:05:43 2025, Wall = 0.000746012s, CPU = 0.001939s, Mem = 7.74609Mb, Recv/Send = 1.90735e-05/0.000806808Mb)
-Info    : GetDP - Initializing Gmsh
-Info    : GetDP - Loading problem definition &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_electrodynamics.pro&#39;
-Info    : GetDP - Adding number active_con = 3
-Info    : GetDP - Selected Resolution &#39;Electrodynamics&#39;
-Info    : GetDP - Loading Geometric data &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - Reading &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;...
-Info    : GetDP - 23397 entities
-Info    : GetDP - 139674 nodes
-Info    : GetDP - 314131 elements
-Info    : GetDP - Done reading &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - System &#39;Sys_Ele&#39; : Complex, Frequency = 0.001 Hz
-Info    : GetDP - P r e - P r o c e s s i n g . . .
-Info    : GetDP - Treatment Formulation &#39;Electrodynamics_v&#39;
-Info    : GetDP -   Generate ExtendedGroup &#39;_BF_Entity_14&#39; (NodesOf, Not)
-Info    : GetDP -   Generate ExtendedGroup &#39;_CO_Entity_19&#39; (NodesOf, None)
-Info    : GetDP -   Generate ExtendedGroup &#39;_CO_Entity_20&#39; (NodesOf, None)
-Info    : GetDP -   Generate ExtendedGroup &#39;_CO_Entity_21&#39; (NodesOf, None)
-Info    : GetDP -   Generate ExtendedGroup &#39;_BF_Entity_15&#39; (GroupsOfNodesOf, None)
-Info    : GetDP - System 1/1: 71970 Dofs
-Info    : GetDP - (Wall = 6.22591s, CPU = 6.10137s, Mem = 433.953Mb, Recv/Send = 0.000558853/0.00422287Mb)
-Info    : GetDP - E n d   P r e - P r o c e s s i n g
-Info    : GetDP - P r o c e s s i n g . . .
-Info    : GetDP - CreateDir[/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/results/electrodynamics]
-Info    : GetDP - Generate[Sys_Ele]
-Info    : GetDP - Solve[Sys_Ele]
-Info    : GetDP - N: 71970 - preonly lu mumps
-Info    : GetDP - SaveSolution[Sys_Ele]
-Info    : GetDP - PostOperation
-Info    : GetDP - NameOfSystem not set in PostProcessing: selected &#39;Sys_Ele&#39;
-Info    : GetDP - Selected PostProcessing &#39;EleDyn_v&#39;
-Info    : GetDP - Selected Mesh &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - PostOperation &#39;LineParams&#39; 1/1
-Info    : GetDP -           &gt;&gt; &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/results/electrodynamics/Y.dat&#39;
-Info    : GetDP - (Wall = 20.4955s, CPU = 20.347s, Mem = 650.406Mb, Recv/Send = 0.00113964/0.0085125Mb)
-Info    : GetDP - E n d   P r o c e s s i n g
-Info    : GetDP - Stopped (Sat Aug  9 17:06:04 2025, Wall = 20.5943s, CPU = 20.4317s, Mem = 650.406Mb, Recv/Send = 0.00115871/0.00868988Mb)
 Info    : Done running &#39;GetDP&#39;
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 3!
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 4... (Resolution = Electrodynamics)
-Info    : Calling &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_electrodynamics.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Electrodynamics -setnumber active_con 4 -v2 -onelab &quot;GetDP&quot; /home/runner/.gmshsock2 &amp;&#39;
+Info    : Calling &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_electrodynamics.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Electrodynamics -setnumber active_con 4 -v2 -verbose 2 -onelab &quot;GetDP&quot; /home/runner/.gmshsock2 &amp;&#39;
 Info    : Running &#39;GetDP&#39;...
-Info    : GetDP - Running &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_electrodynamics.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Electrodynamics -setnumber active_con 4 -v2 -onelab GetDP /home/runner/.gmshsock2&#39; [GetDP 3.5.0, 1 node, max. 1 thread]
-Info    : GetDP - Started (Sat Aug  9 17:06:04 2025, Wall = 0.000748873s, CPU = 0.001959s, Mem = 7.70703Mb, Recv/Send = 1.90735e-05/0.000806808Mb)
-Info    : GetDP - Initializing Gmsh
-Info    : GetDP - Loading problem definition &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_electrodynamics.pro&#39;
-Info    : GetDP - Adding number active_con = 4
-Info    : GetDP - Selected Resolution &#39;Electrodynamics&#39;
-Info    : GetDP - Loading Geometric data &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - Reading &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;...
-Info    : GetDP - 23397 entities
-Info    : GetDP - 139674 nodes
-Info    : GetDP - 314131 elements
-Info    : GetDP - Done reading &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - System &#39;Sys_Ele&#39; : Complex, Frequency = 0.001 Hz
-Info    : GetDP - P r e - P r o c e s s i n g . . .
-Info    : GetDP - Treatment Formulation &#39;Electrodynamics_v&#39;
-Info    : GetDP -   Generate ExtendedGroup &#39;_BF_Entity_14&#39; (NodesOf, Not)
-Info    : GetDP -   Generate ExtendedGroup &#39;_CO_Entity_19&#39; (NodesOf, None)
-Info    : GetDP -   Generate ExtendedGroup &#39;_CO_Entity_20&#39; (NodesOf, None)
-Info    : GetDP -   Generate ExtendedGroup &#39;_CO_Entity_21&#39; (NodesOf, None)
-Info    : GetDP -   Generate ExtendedGroup &#39;_BF_Entity_15&#39; (GroupsOfNodesOf, None)
-Info    : GetDP - System 1/1: 71970 Dofs
-Info    : GetDP - (Wall = 6.52191s, CPU = 6.38425s, Mem = 432.98Mb, Recv/Send = 0.000558853/0.00422287Mb)
-Info    : GetDP - E n d   P r e - P r o c e s s i n g
-Info    : GetDP - P r o c e s s i n g . . .
-Info    : GetDP - CreateDir[/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/results/electrodynamics]
-Info    : GetDP - Generate[Sys_Ele]
-Info    : GetDP - Solve[Sys_Ele]
-Info    : GetDP - N: 71970 - preonly lu mumps
-Info    : GetDP - SaveSolution[Sys_Ele]
-Info    : GetDP - PostOperation
-Info    : GetDP - NameOfSystem not set in PostProcessing: selected &#39;Sys_Ele&#39;
-Info    : GetDP - Selected PostProcessing &#39;EleDyn_v&#39;
-Info    : GetDP - Selected Mesh &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - PostOperation &#39;LineParams&#39; 1/1
-Info    : GetDP -           &gt;&gt; &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/results/electrodynamics/Y.dat&#39;
-Info    : GetDP - (Wall = 20.9592s, CPU = 20.8172s, Mem = 649.359Mb, Recv/Send = 0.00113964/0.00851154Mb)
-Info    : GetDP - E n d   P r o c e s s i n g
-Info    : GetDP - Stopped (Sat Aug  9 17:06:25 2025, Wall = 21.059s, CPU = 20.902s, Mem = 649.359Mb, Recv/Send = 0.00115871/0.00869083Mb)
 Info    : Done running &#39;GetDP&#39;
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 4!
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 5... (Resolution = Electrodynamics)
-Info    : Calling &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_electrodynamics.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Electrodynamics -setnumber active_con 5 -v2 -onelab &quot;GetDP&quot; /home/runner/.gmshsock2 &amp;&#39;
+Info    : Calling &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_electrodynamics.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Electrodynamics -setnumber active_con 5 -v2 -verbose 2 -onelab &quot;GetDP&quot; /home/runner/.gmshsock2 &amp;&#39;
 Info    : Running &#39;GetDP&#39;...
-Info    : GetDP - Running &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_electrodynamics.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Electrodynamics -setnumber active_con 5 -v2 -onelab GetDP /home/runner/.gmshsock2&#39; [GetDP 3.5.0, 1 node, max. 1 thread]
-Info    : GetDP - Started (Sat Aug  9 17:06:25 2025, Wall = 0.000579834s, CPU = 0.00147s, Mem = 7.74609Mb, Recv/Send = 1.90735e-05/0.000806808Mb)
-Info    : GetDP - Initializing Gmsh
-Info    : GetDP - Loading problem definition &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_electrodynamics.pro&#39;
-Info    : GetDP - Adding number active_con = 5
-Info    : GetDP - Selected Resolution &#39;Electrodynamics&#39;
-Info    : GetDP - Loading Geometric data &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - Reading &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;...
-Info    : GetDP - 23397 entities
-Info    : GetDP - 139674 nodes
-Info    : GetDP - 314131 elements
-Info    : GetDP - Done reading &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - System &#39;Sys_Ele&#39; : Complex, Frequency = 0.001 Hz
-Info    : GetDP - P r e - P r o c e s s i n g . . .
-Info    : GetDP - Treatment Formulation &#39;Electrodynamics_v&#39;
-Info    : GetDP -   Generate ExtendedGroup &#39;_BF_Entity_14&#39; (NodesOf, Not)
-Info    : GetDP -   Generate ExtendedGroup &#39;_CO_Entity_19&#39; (NodesOf, None)
-Info    : GetDP -   Generate ExtendedGroup &#39;_CO_Entity_20&#39; (NodesOf, None)
-Info    : GetDP -   Generate ExtendedGroup &#39;_CO_Entity_21&#39; (NodesOf, None)
-Info    : GetDP -   Generate ExtendedGroup &#39;_BF_Entity_15&#39; (GroupsOfNodesOf, None)
-Info    : GetDP - System 1/1: 71970 Dofs
-Info    : GetDP - (Wall = 6.2951s, CPU = 6.18379s, Mem = 433.25Mb, Recv/Send = 0.000558853/0.00422192Mb)
-Info    : GetDP - E n d   P r e - P r o c e s s i n g
-Info    : GetDP - P r o c e s s i n g . . .
-Info    : GetDP - CreateDir[/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/results/electrodynamics]
-Info    : GetDP - Generate[Sys_Ele]
-Info    : GetDP - Solve[Sys_Ele]
-Info    : GetDP - N: 71970 - preonly lu mumps
-Info    : GetDP - SaveSolution[Sys_Ele]
-Info    : GetDP - PostOperation
-Info    : GetDP - NameOfSystem not set in PostProcessing: selected &#39;Sys_Ele&#39;
-Info    : GetDP - Selected PostProcessing &#39;EleDyn_v&#39;
-Info    : GetDP - Selected Mesh &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - PostOperation &#39;LineParams&#39; 1/1
-Info    : GetDP -           &gt;&gt; &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/results/electrodynamics/Y.dat&#39;
-Info    : GetDP - (Wall = 20.3686s, CPU = 20.265s, Mem = 649.504Mb, Recv/Send = 0.00113964/0.00850964Mb)
-Info    : GetDP - E n d   P r o c e s s i n g
-Info    : GetDP - Stopped (Sat Aug  9 17:06:45 2025, Wall = 20.4667s, CPU = 20.349s, Mem = 649.504Mb, Recv/Send = 0.00115871/0.00868797Mb)
 Info    : Done running &#39;GetDP&#39;
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 5!
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 6... (Resolution = Electrodynamics)
-Info    : Calling &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_electrodynamics.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Electrodynamics -setnumber active_con 6 -v2 -onelab &quot;GetDP&quot; /home/runner/.gmshsock2 &amp;&#39;
+Info    : Calling &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_electrodynamics.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Electrodynamics -setnumber active_con 6 -v2 -verbose 2 -onelab &quot;GetDP&quot; /home/runner/.gmshsock2 &amp;&#39;
 Info    : Running &#39;GetDP&#39;...
-Info    : GetDP - Running &#39;/home/runner/.julia/packages/GetDP/oaydE/src/../deps/getdp/bin/getdp /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_electrodynamics.pro -msh /home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh -solve Electrodynamics -setnumber active_con 6 -v2 -onelab GetDP /home/runner/.gmshsock2&#39; [GetDP 3.5.0, 1 node, max. 1 thread]
-Info    : GetDP - Started (Sat Aug  9 17:06:45 2025, Wall = 0.000564098s, CPU = 0.002601s, Mem = 7.64453Mb, Recv/Send = 1.90735e-05/0.000806808Mb)
-Info    : GetDP - Initializing Gmsh
-Info    : GetDP - Loading problem definition &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole_electrodynamics.pro&#39;
-Info    : GetDP - Adding number active_con = 6
-Info    : GetDP - Selected Resolution &#39;Electrodynamics&#39;
-Info    : GetDP - Loading Geometric data &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - Reading &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;...
-Info    : GetDP - 23397 entities
-Info    : GetDP - 139674 nodes
-Info    : GetDP - 314131 elements
-Info    : GetDP - Done reading &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - System &#39;Sys_Ele&#39; : Complex, Frequency = 0.001 Hz
-Info    : GetDP - P r e - P r o c e s s i n g . . .
-Info    : GetDP - Treatment Formulation &#39;Electrodynamics_v&#39;
-Info    : GetDP -   Generate ExtendedGroup &#39;_BF_Entity_14&#39; (NodesOf, Not)
-Info    : GetDP -   Generate ExtendedGroup &#39;_CO_Entity_19&#39; (NodesOf, None)
-Info    : GetDP -   Generate ExtendedGroup &#39;_CO_Entity_20&#39; (NodesOf, None)
-Info    : GetDP -   Generate ExtendedGroup &#39;_CO_Entity_21&#39; (NodesOf, None)
-Info    : GetDP -   Generate ExtendedGroup &#39;_BF_Entity_15&#39; (GroupsOfNodesOf, None)
-Info    : GetDP - System 1/1: 71970 Dofs
-Info    : GetDP - (Wall = 6.14713s, CPU = 6.01896s, Mem = 433.477Mb, Recv/Send = 0.000558853/0.00422287Mb)
-Info    : GetDP - E n d   P r e - P r o c e s s i n g
-Info    : GetDP - P r o c e s s i n g . . .
-Info    : GetDP - CreateDir[/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/results/electrodynamics]
-Info    : GetDP - Generate[Sys_Ele]
-Info    : GetDP - Solve[Sys_Ele]
-Info    : GetDP - N: 71970 - preonly lu mumps
-Info    : GetDP - SaveSolution[Sys_Ele]
-Info    : GetDP - PostOperation
-Info    : GetDP - NameOfSystem not set in PostProcessing: selected &#39;Sys_Ele&#39;
-Info    : GetDP - Selected PostProcessing &#39;EleDyn_v&#39;
-Info    : GetDP - Selected Mesh &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/525kV_1600mm2_bipole.msh&#39;
-Info    : GetDP - PostOperation &#39;LineParams&#39; 1/1
-Info    : GetDP -           &gt;&gt; &#39;/home/runner/work/LineCableModels.jl/LineCableModels.jl/docs/build/tutorials/fem_output/525kV_1600mm2_bipole/results/electrodynamics/Y.dat&#39;
-Info    : GetDP - (Wall = 20.2325s, CPU = 20.0785s, Mem = 650.379Mb, Recv/Send = 0.00113964/0.0085125Mb)
-Info    : GetDP - E n d   P r o c e s s i n g
-Info    : GetDP - Stopped (Sat Aug  9 17:07:06 2025, Wall = 20.3293s, CPU = 20.1612s, Mem = 650.379Mb, Recv/Send = 0.00115871/0.00869083Mb)
 Info    : Done running &#39;GetDP&#39;
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 6!
 <span class="sgr36"><span class="sgr1">[ Info: </span></span>FEM computation completed successfully
-310.965039 seconds (1.66 M allocations: 103.953 MiB, 0.01% gc time, 1.45% compilation time)</code></pre><p>Display primary core results</p><pre><code class="language-julia hljs">if !opts.mesh_only
-    println(&quot;\nR = $(round(real(line_params.Z[1,1,1])*1000, sigdigits=4)) Ω/km&quot;)
+320.132200 seconds (1.67 M allocations: 103.997 MiB, 0.01% gc time, 1.42% compilation time)</code></pre><p>Display primary core results</p><pre><code class="language-julia hljs">if !opts.mesh_only
+    println(&quot;R = $(round(real(line_params.Z[1,1,1])*1000, sigdigits=4)) Ω/km&quot;)
     println(&quot;L = $(round(imag(line_params.Z[1,1,1])/(2π*f)*1e6, sigdigits=4)) mH/km&quot;)
     println(&quot;C = $(round(imag(line_params.Y[1,1,1])/(2π*f)*1e9, sigdigits=4)) μF/km&quot;)
-end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">
-R = 0.01303 Ω/km
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">R = 0.01303 Ω/km
 L = 2.797 mH/km
-C = 0.1837 μF/km</code></pre><hr/><p>🏠 Back to <a href="../#Tutorials">Tutorials</a></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../tutorial2/">« Tutorial 2 - Building a cable design</a><a class="docs-footer-nextpage" href="../../reference/">Toolbox reference »</a><div class="flexbox-break"></div><p class="footer-message"><a href="https://github.com/Electa-Git/LineCableModels.jl">LineCableModels.jl</a> v0.1.1-DEV supported by the Etch Competence Hub of EnergyVille, financed by the Flemish Government.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Saturday 9 August 2025 17:12">Saturday 9 August 2025</span>. Using Julia version 1.11.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+C = 0.1837 μF/km</code></pre><hr/><p>🏠 Back to <a href="../#Tutorials">Tutorials</a></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../tutorial2/">« Tutorial 2 - Building a cable design</a><a class="docs-footer-nextpage" href="../../reference/">Toolbox reference »</a><div class="flexbox-break"></div><p class="footer-message"><a href="https://github.com/Electa-Git/LineCableModels.jl">LineCableModels.jl</a> v0.1.1-DEV supported by the Etch Competence Hub of EnergyVille, financed by the Flemish Government.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Monday 11 August 2025 22:28">Monday 11 August 2025</span>. Using Julia version 1.11.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
