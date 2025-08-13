@@ -311,22 +311,13 @@
             "nominal_data": {
                 "U": 525,
                 "screen_cross_section": 1000,
-                "capacitance": {
-                    "value": "NaN",
-                    "__type__": "SpecialFloat"
-                },
+                "capacitance": null,
                 "__julia_type__": "LineCableModels.DataModel.NominalData",
                 "U0": 500,
                 "conductor_cross_section": 1600,
                 "armor_cross_section": null,
-                "resistance": {
-                    "value": "NaN",
-                    "__type__": "SpecialFloat"
-                },
-                "inductance": {
-                    "value": "NaN",
-                    "__type__": "SpecialFloat"
-                },
+                "resistance": null,
+                "inductance": null,
                 "designation_code": "(N)2XH(F)RK2Y"
             },
             "__julia_type__": "LineCableModels.DataModel.CableDesign",
