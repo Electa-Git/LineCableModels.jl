@@ -510,6 +510,107 @@
                             }
                         ]
                     }
+                },
+                {
+                    "insulator_group": {
+                        "__julia_type__": "LineCableModels.DataModel.InsulatorGroup",
+                        "layers": [
+                            {
+                                "material_props": {
+                                    "T0": 20,
+                                    "alpha": 0,
+                                    "__julia_type__": "LineCableModels.Materials.Material",
+                                    "eps_r": 2.3,
+                                    "mu_r": 1,
+                                    "rho": 197000000000000
+                                },
+                                "radius_in": 0.057221850000000005,
+                                "__julia_type__": "LineCableModels.DataModel.Insulator",
+                                "radius_ext": 0.06022185000000001,
+                                "temperature": 20
+                            },
+                            {
+                                "material_props": {
+                                    "T0": 20,
+                                    "alpha": 0,
+                                    "__julia_type__": "LineCableModels.Materials.Material",
+                                    "eps_r": 2.8,
+                                    "mu_r": 1,
+                                    "rho": 1000000000000000
+                                },
+                                "radius_in": 0.06022185000000001,
+                                "__julia_type__": "LineCableModels.DataModel.Insulator",
+                                "radius_ext": 0.06322185000000001,
+                                "temperature": 20
+                            }
+                        ]
+                    },
+                    "__julia_type__": "LineCableModels.DataModel.CableComponent",
+                    "id": "sheath",
+                    "conductor_group": {
+                        "__julia_type__": "LineCableModels.DataModel.ConductorGroup",
+                        "layers": [
+                            {
+                                "material_props": {
+                                    "T0": 20,
+                                    "alpha": 0.004,
+                                    "__julia_type__": "LineCableModels.Materials.Material",
+                                    "eps_r": 1,
+                                    "mu_r": 0.999983,
+                                    "rho": 2.14e-7
+                                },
+                                "radius_in": 0.05392185000000001,
+                                "__julia_type__": "LineCableModels.DataModel.Tubular",
+                                "radius_ext": 0.057221850000000005,
+                                "temperature": 20
+                            }
+                        ]
+                    }
+                },
+                {
+                    "insulator_group": {
+                        "__julia_type__": "LineCableModels.DataModel.InsulatorGroup",
+                        "layers": [
+                            {
+                                "material_props": {
+                                    "T0": 20,
+                                    "alpha": 0,
+                                    "__julia_type__": "LineCableModels.Materials.Material",
+                                    "eps_r": 2.8,
+                                    "mu_r": 1,
+                                    "rho": 1000000000000000
+                                },
+                                "radius_in": 0.06904885000000001,
+                                "__julia_type__": "LineCableModels.DataModel.Insulator",
+                                "radius_ext": 0.07904885,
+                                "temperature": 20
+                            }
+                        ]
+                    },
+                    "__julia_type__": "LineCableModels.DataModel.CableComponent",
+                    "id": "armor",
+                    "conductor_group": {
+                        "__julia_type__": "LineCableModels.DataModel.ConductorGroup",
+                        "layers": [
+                            {
+                                "lay_ratio": 10,
+                                "material_props": {
+                                    "T0": 20,
+                                    "alpha": 0.0045,
+                                    "__julia_type__": "LineCableModels.Materials.Material",
+                                    "eps_r": 1,
+                                    "mu_r": 300,
+                                    "rho": 1.38e-7
+                                },
+                                "lay_direction": 1,
+                                "radius_in": 0.06322185000000001,
+                                "__julia_type__": "LineCableModels.DataModel.WireArray",
+                                "radius_wire": 0.0029135,
+                                "num_wires": 68,
+                                "temperature": 20
+                            }
+                        ]
+                    }
                 }
             ]
         }
