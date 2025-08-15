@@ -15,6 +15,14 @@
         "mu_r": 0.999994,
         "rho": 3.03e-8
     },
+    "carbon_pe": {
+        "T0": 20,
+        "alpha": 0,
+        "__julia_type__": "LineCableModels.Materials.Material",
+        "eps_r": 1000,
+        "mu_r": 1,
+        "rho": 0.06
+    },
     "bronze": {
         "T0": 20,
         "alpha": 0.003,
@@ -23,6 +31,22 @@
         "mu_r": 1,
         "rho": 3.5e-8
     },
+    "lead": {
+        "T0": 20,
+        "alpha": 0.004,
+        "__julia_type__": "LineCableModels.Materials.Material",
+        "eps_r": 1,
+        "mu_r": 0.999983,
+        "rho": 2.14e-7
+    },
+    "steel": {
+        "T0": 20,
+        "alpha": 0.0045,
+        "__julia_type__": "LineCableModels.Materials.Material",
+        "eps_r": 1,
+        "mu_r": 300,
+        "rho": 1.38e-7
+    },
     "copper": {
         "T0": 20,
         "alpha": 0.00393,
@@ -30,6 +54,14 @@
         "eps_r": 1,
         "mu_r": 0.999994,
         "rho": 1.7241e-8
+    },
+    "copper_corrected": {
+        "T0": 20,
+        "alpha": 0.00393,
+        "__julia_type__": "LineCableModels.Materials.Material",
+        "eps_r": 1,
+        "mu_r": 0.999994,
+        "rho": 1.835e-8
     },
     "pec": {
         "T0": 20,
@@ -46,6 +78,17 @@
         "eps_r": 8.6,
         "mu_r": 1,
         "rho": 18.5
+    },
+    "air": {
+        "T0": 20,
+        "alpha": 0,
+        "__julia_type__": "LineCableModels.Materials.Material",
+        "eps_r": 1,
+        "mu_r": 1,
+        "rho": {
+            "value": "Inf",
+            "__type__": "SpecialFloat"
+        }
     },
     "laminated_paper": {
         "T0": 20,
@@ -71,6 +114,14 @@
         "mu_r": 1,
         "rho": 1000
     },
+    "epr": {
+        "T0": 20,
+        "alpha": 0.005,
+        "__julia_type__": "LineCableModels.Materials.Material",
+        "eps_r": 3,
+        "mu_r": 1,
+        "rho": 1000000000000000
+    },
     "xlpe": {
         "T0": 20,
         "alpha": 0,
@@ -86,57 +137,6 @@
         "eps_r": 1000,
         "mu_r": 1,
         "rho": 500
-    },
-    "aluminum": {
-        "T0": 20,
-        "alpha": 0.00429,
-        "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 1,
-        "mu_r": 1.000022,
-        "rho": 2.8264e-8
-    },
-    "carbon_pe": {
-        "T0": 20,
-        "alpha": 0,
-        "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 1000,
-        "mu_r": 1,
-        "rho": 0.06
-    },
-    "lead": {
-        "T0": 20,
-        "alpha": 0.004,
-        "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 1,
-        "mu_r": 0.999983,
-        "rho": 2.14e-7
-    },
-    "copper_corrected": {
-        "T0": 20,
-        "alpha": 0.00393,
-        "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 1,
-        "mu_r": 0.999994,
-        "rho": 1.835e-8
-    },
-    "air": {
-        "T0": 20,
-        "alpha": 0,
-        "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 1,
-        "mu_r": 1,
-        "rho": {
-            "value": "Inf",
-            "__type__": "SpecialFloat"
-        }
-    },
-    "epr": {
-        "T0": 20,
-        "alpha": 0.005,
-        "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 3,
-        "mu_r": 1,
-        "rho": 1000000000000000
     },
     "pvc": {
         "T0": 20,
@@ -154,12 +154,12 @@
         "mu_r": 500,
         "rho": 7.0e-7
     },
-    "steel": {
+    "aluminum": {
         "T0": 20,
-        "alpha": 0.0045,
+        "alpha": 0.00429,
         "__julia_type__": "LineCableModels.Materials.Material",
         "eps_r": 1,
-        "mu_r": 300,
-        "rho": 1.38e-7
+        "mu_r": 1.000022,
+        "rho": 2.8264e-8
     }
 }

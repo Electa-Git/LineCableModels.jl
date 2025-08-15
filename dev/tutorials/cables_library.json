@@ -1,6 +1,6 @@
 {
     "__julia_type__": "LineCableModels.DataModel.CablesLibrary",
-    "cable_designs": {
+    "data": {
         "18kV_1000mm2": {
             "cable_id": "18kV_1000mm2",
             "nominal_data": {
