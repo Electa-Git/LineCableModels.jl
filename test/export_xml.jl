@@ -19,7 +19,7 @@ end
     # 1. ARRANGE & ACT: Run the export in a temporary directory
     mktempdir() do tmpdir
         output_file = joinpath(tmpdir, "atp_export_test.xml")
-        result_path = export_data(Val(:atp), problem_atp, file_name=output_file)
+        result_path = export_data(Val(:atp), cable_system, earth_props, file_name=output_file)
 
         # 2. ASSERT: Basic file checks (unchanged)
         @test result_path == output_file
@@ -112,7 +112,7 @@ end
         line_params = LineParameters(Z_matrix, Y_matrix)
 
         # Call the function we want to test
-        result_path = export_ZY2XML(line_params, problem_atp, file_name=output_file)
+        result_path = export_data(Val(:atp), line_params, freqs;  file_name=output_file)
         
         # 2. BASIC FILE CHECKS
         @test result_path == output_file

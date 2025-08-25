@@ -16,7 +16,9 @@ This function takes all the system information, cables, ground parameters and fr
 - The absolute path of the saved file.
 """
 function export_data(::Val{:atp},
-    problem::LineParametersProblem;
+    cable_system::LineCableSystem,
+    earth_props::EarthModel;
+    base_freq=f₀,
     file_name::String="$(cable_system.system_id)_export.xml"
 )::Union{String,Nothing}
 
@@ -26,10 +28,7 @@ function export_data(::Val{:atp},
         end
     end
     # --- 1. Setup Constants and Variables ---
-    cable_system = problem.system
-    earth_props = problem.earth_props
     file_name = isabspath(file_name) ? file_name : joinpath(@__DIR__, file_name)
-    freq = problem.frequencies[1]
     num_phases = length(cable_system.cables)
     
     # Create XML Structure and LCC Component
@@ -38,7 +37,7 @@ function export_data(::Val{:atp},
     setroot!(doc, project)
     _set_attributes!(project, Dict("Application" => "ATPDraw", "Version" => "7.3", "VersionXML" => "1"))
     header = addelement!(project, "header")
-    _set_attributes!(header, Dict("Timestep" => 1e-6, "Tmax" => 0.1, "XOPT" => 0, "COPT" => 0, "SysFreq" => freq, "TopLeftX" => 200, "TopLeftY" => 0))
+    _set_attributes!(header, Dict("Timestep" => 1e-6, "Tmax" => 0.1, "XOPT" => 0, "COPT" => 0, "SysFreq" => base_freq, "TopLeftX" => 200, "TopLeftY" => 0))
     objects = addelement!(project, "objects")
     variables = addelement!(project, "variables")
     comp = addelement!(objects, "comp")
@@ -47,7 +46,7 @@ function export_data(::Val{:atp},
     _set_attributes!(comp_content, Dict("PosX" => 280, "PosY" => 360, "NumPhases" => num_phases, "Icon" => "default", "SinglePhaseIcon" => "true"))
     for side in ["IN", "OUT"]; y0 = -20; for k in 1:num_phases; y0 += 10; node = addelement!(comp_content, "node"); _set_attributes!(node, Dict("Name" => "$side$k", "Value" => "C$(k)$(side=="IN" ? "SND" : "RCV")", "UserNamed" => "true", "Kind" => k, "PosX" => side == "IN" ? -20 : 20, "PosY" => y0, "NamePosX" => 0, "NamePosY" => 0)); end; end
     soil_rho = earth_props.layers[end].base_rho_g
-    for (name, value) in [("Length", cable_system.line_length), ("Freq", freq), ("Grnd resis", soil_rho)]; data_node = addelement!(comp_content, "data"); _set_attributes!(data_node, Dict("Name" => name, "Value" => value)); end
+    for (name, value) in [("Length", cable_system.line_length), ("Freq", base_freq), ("Grnd resis", soil_rho)]; data_node = addelement!(comp_content, "data"); _set_attributes!(data_node, Dict("Name" => name, "Value" => value)); end
     
     # Populate the LCC Sub-structure with CORRECTLY Structured Cable Data
     lcc_node = addelement!(comp, "LCC")
@@ -109,14 +108,14 @@ end
 
 
 """
-    read_atp_data(filepath::String, cable_system::LineCableSystem)
+    read_atp_data(file_name::String, cable_system::LineCableSystem)
 
 Reads an ATP `.lis` output file, extracts the Ze and Zi matrices, and dynamically
 reorders them to a grouped-by-phase format based on the provided `cable_system`
 structure. It correctly handles systems with a variable number of components per cable.
 
 # Arguments
-- `filepath`: The path to the `.lis` file.
+- `file_name`: The path to the `.lis` file.
 - `cable_system`: The `LineCableSystem` object corresponding to the data in the file.
 
 # Returns
@@ -125,7 +124,11 @@ structure. It correctly handles systems with a variable number of components per
 - `nothing`: If the file cannot be found, parsed, or if the matrix dimensions in the
   file do not match the provided `cable_system` structure.
 """
-function read_atp_data(filepath::String, cable_system::LineCableSystem)::Union{Array{COMPLEXSCALAR, 2}, Nothing}
+function read_data(::Val{:atp},
+    cable_system::LineCableSystem,
+    freq::AbstractFloat;
+    file_name::String="$(cable_system.system_id)_1.lis"
+    )::Union{Array{COMPLEXSCALAR, 2}, Nothing}
     # --- Inner helper function to parse a matrix block from text lines ---
     function parse_block(block_lines::Vector{String})
         data_lines = filter(line -> !isempty(strip(line)), block_lines)
@@ -148,8 +151,8 @@ function read_atp_data(filepath::String, cable_system::LineCableSystem)::Union{A
     end
 
     # --- Main Function Logic ---
-    if !isfile(filepath) @error "File not found: $filepath"; return nothing end
-    lines = readlines(filepath)
+    if !isfile(file_name) @error "File not found: $file_name"; return nothing end
+    lines = readlines(file_name)
     ze_start_idx = findfirst(occursin.("Earth impedance [Ze]", lines))
     zi_start_idx = findfirst(occursin.("Conductor internal impedance [Zi]", lines))
     if isnothing(ze_start_idx) || isnothing(zi_start_idx) @error "Could not find Ze/Zi headers."; return nothing end
@@ -210,14 +213,17 @@ into a structured XML format for use in other programs.
 
 - The absolute path of the saved file.
 """
-function export_ZY2XML(line_params::LineParameters,
-    problem::LineParametersProblem;
-    file_name::String="$(problem.system.system_id)_ZY.xml",
-)::Union{String,Nothing}
+function export_data(::Val{:atp},
+    line_params::LineParameters,
+    freq::Vector{BASE_FLOAT};
+    file_name::String="ZY_export.xml",
+    cable_system::Union{LineCableSystem,Nothing}=nothing
+    )::Union{String,Nothing}
+    # Construct the file name with system_id if cable_system is provided
+    file_name = isnothing(cable_system) ? file_name : "$(cable_system.system_id)_ZY_export.xml"
    
     cable_length = 1.0
     atp_format = "G+Bi"
-    freq_vec = problem.frequencies
     file_name = isabspath(file_name) ? file_name : joinpath(@__DIR__, file_name)
     
     open(file_name, "w") do fid
@@ -227,7 +233,7 @@ function export_ZY2XML(line_params::LineParameters,
         @printf(fid, "<ZY NumPhases=\"%d\" Length=\"%.4f\" ZFmt=\"R+Xi\" YFmt=\"%s\">\n", num_phases, cable_length, y_fmt)
 
         # --- Z Matrix Printing ---
-        for (k, freq_val) in enumerate(freq_vec)
+        for (k, freq_val) in enumerate(freq)
             @printf(fid, "  <Z Freq=\"%.16E\">\n", freq_val)
             for i in 1:num_phases
                 row_str = join([@sprintf("%.16E%+.16Ei", real(line_params.Z[i, j, k]), imag(line_params.Z[i, j, k])) for j in 1:num_phases], ",")
@@ -246,7 +252,7 @@ function export_ZY2XML(line_params::LineParameters,
             end
             @printf(fid, "  </Y>\n")
         else # Case for "G+Bi"
-            for (k, freq_val) in enumerate(freq_vec)
+            for (k, freq_val) in enumerate(freq)
                 @printf(fid, "  <Y Freq=\"%.16E\">\n", freq_val)
                 for i in 1:num_phases
                     row_str = join([@sprintf("%.16E%+.16Ei", real(line_params.Y[i, j, k]), imag(line_params.Y[i, j, k])) for j in 1:num_phases], ",")
