@@ -1,165 +1,462 @@
 {
     "pe": {
-        "T0": 20,
-        "alpha": 0,
+        "T0": {
+            "value": 20,
+            "__type__": "Float"
+        },
+        "alpha": {
+            "value": 0,
+            "__type__": "Float"
+        },
         "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 2.3,
-        "mu_r": 1,
-        "rho": 197000000000000
+        "eps_r": {
+            "value": 2.3,
+            "__type__": "Float"
+        },
+        "mu_r": {
+            "value": 1,
+            "__type__": "Float"
+        },
+        "rho": {
+            "value": 197000000000000,
+            "__type__": "Float"
+        }
     },
     "aluminum_corrected": {
-        "T0": 20,
-        "alpha": 0.00403,
+        "T0": {
+            "value": 20,
+            "__type__": "Float"
+        },
+        "alpha": {
+            "value": 0.00403,
+            "__type__": "Float"
+        },
         "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 1,
-        "mu_r": 0.999994,
-        "rho": 3.03e-8
-    },
-    "bronze": {
-        "T0": 20,
-        "alpha": 0.003,
-        "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 1,
-        "mu_r": 1,
-        "rho": 3.5e-8
-    },
-    "copper": {
-        "T0": 20,
-        "alpha": 0.00393,
-        "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 1,
-        "mu_r": 0.999994,
-        "rho": 1.7241e-8
-    },
-    "pec": {
-        "T0": 20,
-        "alpha": 0,
-        "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 1,
-        "mu_r": 1,
-        "rho": 2.220446049250313e-16
-    },
-    "conductive_paper": {
-        "T0": 20,
-        "alpha": 0,
-        "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 8.6,
-        "mu_r": 1,
-        "rho": 18.5
-    },
-    "laminated_paper": {
-        "T0": 20,
-        "alpha": 0,
-        "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 2.8,
-        "mu_r": 1,
-        "rho": 1000000000000000
-    },
-    "polyacrylate": {
-        "T0": 20,
-        "alpha": 0,
-        "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 32.3,
-        "mu_r": 1,
-        "rho": 5300
-    },
-    "semicon1": {
-        "T0": 20,
-        "alpha": 0,
-        "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 1000,
-        "mu_r": 1,
-        "rho": 1000
-    },
-    "xlpe": {
-        "T0": 20,
-        "alpha": 0,
-        "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 2.5,
-        "mu_r": 1,
-        "rho": 197000000000000
-    },
-    "semicon2": {
-        "T0": 20,
-        "alpha": 0,
-        "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 1000,
-        "mu_r": 1,
-        "rho": 500
-    },
-    "aluminum": {
-        "T0": 20,
-        "alpha": 0.00429,
-        "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 1,
-        "mu_r": 1.000022,
-        "rho": 2.8264e-8
+        "eps_r": {
+            "value": 1,
+            "__type__": "Float"
+        },
+        "mu_r": {
+            "value": 0.999994,
+            "__type__": "Float"
+        },
+        "rho": {
+            "value": 3.03e-8,
+            "__type__": "Float"
+        }
     },
     "carbon_pe": {
-        "T0": 20,
-        "alpha": 0,
+        "T0": {
+            "value": 20,
+            "__type__": "Float"
+        },
+        "alpha": {
+            "value": 0,
+            "__type__": "Float"
+        },
         "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 1000,
-        "mu_r": 1,
-        "rho": 0.06
+        "eps_r": {
+            "value": 1000,
+            "__type__": "Float"
+        },
+        "mu_r": {
+            "value": 1,
+            "__type__": "Float"
+        },
+        "rho": {
+            "value": 0.06,
+            "__type__": "Float"
+        }
+    },
+    "bronze": {
+        "T0": {
+            "value": 20,
+            "__type__": "Float"
+        },
+        "alpha": {
+            "value": 0.003,
+            "__type__": "Float"
+        },
+        "__julia_type__": "LineCableModels.Materials.Material",
+        "eps_r": {
+            "value": 1,
+            "__type__": "Float"
+        },
+        "mu_r": {
+            "value": 1,
+            "__type__": "Float"
+        },
+        "rho": {
+            "value": 3.5e-8,
+            "__type__": "Float"
+        }
     },
     "lead": {
-        "T0": 20,
-        "alpha": 0.004,
+        "T0": {
+            "value": 20,
+            "__type__": "Float"
+        },
+        "alpha": {
+            "value": 0.004,
+            "__type__": "Float"
+        },
         "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 1,
-        "mu_r": 0.999983,
-        "rho": 2.14e-7
+        "eps_r": {
+            "value": 1,
+            "__type__": "Float"
+        },
+        "mu_r": {
+            "value": 0.999983,
+            "__type__": "Float"
+        },
+        "rho": {
+            "value": 2.14e-7,
+            "__type__": "Float"
+        }
+    },
+    "steel": {
+        "T0": {
+            "value": 20,
+            "__type__": "Float"
+        },
+        "alpha": {
+            "value": 0.0045,
+            "__type__": "Float"
+        },
+        "__julia_type__": "LineCableModels.Materials.Material",
+        "eps_r": {
+            "value": 1,
+            "__type__": "Float"
+        },
+        "mu_r": {
+            "value": 300,
+            "__type__": "Float"
+        },
+        "rho": {
+            "value": 1.38e-7,
+            "__type__": "Float"
+        }
+    },
+    "copper": {
+        "T0": {
+            "value": 20,
+            "__type__": "Float"
+        },
+        "alpha": {
+            "value": 0.00393,
+            "__type__": "Float"
+        },
+        "__julia_type__": "LineCableModels.Materials.Material",
+        "eps_r": {
+            "value": 1,
+            "__type__": "Float"
+        },
+        "mu_r": {
+            "value": 0.999994,
+            "__type__": "Float"
+        },
+        "rho": {
+            "value": 1.7241e-8,
+            "__type__": "Float"
+        }
     },
     "copper_corrected": {
-        "T0": 20,
-        "alpha": 0.00393,
+        "T0": {
+            "value": 20,
+            "__type__": "Float"
+        },
+        "alpha": {
+            "value": 0.00393,
+            "__type__": "Float"
+        },
         "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 1,
-        "mu_r": 0.999994,
-        "rho": 1.835e-8
+        "eps_r": {
+            "value": 1,
+            "__type__": "Float"
+        },
+        "mu_r": {
+            "value": 0.999994,
+            "__type__": "Float"
+        },
+        "rho": {
+            "value": 1.835e-8,
+            "__type__": "Float"
+        }
+    },
+    "pec": {
+        "T0": {
+            "value": 20,
+            "__type__": "Float"
+        },
+        "alpha": {
+            "value": 0,
+            "__type__": "Float"
+        },
+        "__julia_type__": "LineCableModels.Materials.Material",
+        "eps_r": {
+            "value": 1,
+            "__type__": "Float"
+        },
+        "mu_r": {
+            "value": 1,
+            "__type__": "Float"
+        },
+        "rho": {
+            "value": 2.220446049250313e-16,
+            "__type__": "Float"
+        }
+    },
+    "conductive_paper": {
+        "T0": {
+            "value": 20,
+            "__type__": "Float"
+        },
+        "alpha": {
+            "value": 0,
+            "__type__": "Float"
+        },
+        "__julia_type__": "LineCableModels.Materials.Material",
+        "eps_r": {
+            "value": 8.6,
+            "__type__": "Float"
+        },
+        "mu_r": {
+            "value": 1,
+            "__type__": "Float"
+        },
+        "rho": {
+            "value": 18.5,
+            "__type__": "Float"
+        }
     },
     "air": {
-        "T0": 20,
-        "alpha": 0,
+        "T0": {
+            "value": 20,
+            "__type__": "Float"
+        },
+        "alpha": {
+            "value": 0,
+            "__type__": "Float"
+        },
         "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 1,
-        "mu_r": 1,
+        "eps_r": {
+            "value": 1,
+            "__type__": "Float"
+        },
+        "mu_r": {
+            "value": 1,
+            "__type__": "Float"
+        },
         "rho": {
             "value": "Inf",
             "__type__": "SpecialFloat"
         }
     },
-    "epr": {
-        "T0": 20,
-        "alpha": 0.005,
+    "laminated_paper": {
+        "T0": {
+            "value": 20,
+            "__type__": "Float"
+        },
+        "alpha": {
+            "value": 0,
+            "__type__": "Float"
+        },
         "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 3,
-        "mu_r": 1,
-        "rho": 1000000000000000
+        "eps_r": {
+            "value": 2.8,
+            "__type__": "Float"
+        },
+        "mu_r": {
+            "value": 1,
+            "__type__": "Float"
+        },
+        "rho": {
+            "value": 1000000000000000,
+            "__type__": "Float"
+        }
+    },
+    "polyacrylate": {
+        "T0": {
+            "value": 20,
+            "__type__": "Float"
+        },
+        "alpha": {
+            "value": 0,
+            "__type__": "Float"
+        },
+        "__julia_type__": "LineCableModels.Materials.Material",
+        "eps_r": {
+            "value": 32.3,
+            "__type__": "Float"
+        },
+        "mu_r": {
+            "value": 1,
+            "__type__": "Float"
+        },
+        "rho": {
+            "value": 5300,
+            "__type__": "Float"
+        }
+    },
+    "semicon1": {
+        "T0": {
+            "value": 20,
+            "__type__": "Float"
+        },
+        "alpha": {
+            "value": 0,
+            "__type__": "Float"
+        },
+        "__julia_type__": "LineCableModels.Materials.Material",
+        "eps_r": {
+            "value": 1000,
+            "__type__": "Float"
+        },
+        "mu_r": {
+            "value": 1,
+            "__type__": "Float"
+        },
+        "rho": {
+            "value": 1000,
+            "__type__": "Float"
+        }
+    },
+    "epr": {
+        "T0": {
+            "value": 20,
+            "__type__": "Float"
+        },
+        "alpha": {
+            "value": 0.005,
+            "__type__": "Float"
+        },
+        "__julia_type__": "LineCableModels.Materials.Material",
+        "eps_r": {
+            "value": 3,
+            "__type__": "Float"
+        },
+        "mu_r": {
+            "value": 1,
+            "__type__": "Float"
+        },
+        "rho": {
+            "value": 1000000000000000,
+            "__type__": "Float"
+        }
+    },
+    "xlpe": {
+        "T0": {
+            "value": 20,
+            "__type__": "Float"
+        },
+        "alpha": {
+            "value": 0,
+            "__type__": "Float"
+        },
+        "__julia_type__": "LineCableModels.Materials.Material",
+        "eps_r": {
+            "value": 2.5,
+            "__type__": "Float"
+        },
+        "mu_r": {
+            "value": 1,
+            "__type__": "Float"
+        },
+        "rho": {
+            "value": 197000000000000,
+            "__type__": "Float"
+        }
+    },
+    "semicon2": {
+        "T0": {
+            "value": 20,
+            "__type__": "Float"
+        },
+        "alpha": {
+            "value": 0,
+            "__type__": "Float"
+        },
+        "__julia_type__": "LineCableModels.Materials.Material",
+        "eps_r": {
+            "value": 1000,
+            "__type__": "Float"
+        },
+        "mu_r": {
+            "value": 1,
+            "__type__": "Float"
+        },
+        "rho": {
+            "value": 500,
+            "__type__": "Float"
+        }
     },
     "pvc": {
-        "T0": 20,
-        "alpha": 0.1,
+        "T0": {
+            "value": 20,
+            "__type__": "Float"
+        },
+        "alpha": {
+            "value": 0.1,
+            "__type__": "Float"
+        },
         "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 8,
-        "mu_r": 1,
-        "rho": 1000000000000000
+        "eps_r": {
+            "value": 8,
+            "__type__": "Float"
+        },
+        "mu_r": {
+            "value": 1,
+            "__type__": "Float"
+        },
+        "rho": {
+            "value": 1000000000000000,
+            "__type__": "Float"
+        }
     },
     "stainless_steel": {
-        "T0": 20,
-        "alpha": 0,
+        "T0": {
+            "value": 20,
+            "__type__": "Float"
+        },
+        "alpha": {
+            "value": 0,
+            "__type__": "Float"
+        },
         "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 1,
-        "mu_r": 500,
-        "rho": 7.0e-7
+        "eps_r": {
+            "value": 1,
+            "__type__": "Float"
+        },
+        "mu_r": {
+            "value": 500,
+            "__type__": "Float"
+        },
+        "rho": {
+            "value": 7.0e-7,
+            "__type__": "Float"
+        }
     },
-    "steel": {
-        "T0": 20,
-        "alpha": 0.0045,
+    "aluminum": {
+        "T0": {
+            "value": 20,
+            "__type__": "Float"
+        },
+        "alpha": {
+            "value": 0.00429,
+            "__type__": "Float"
+        },
         "__julia_type__": "LineCableModels.Materials.Material",
-        "eps_r": 1,
-        "mu_r": 300,
-        "rho": 1.38e-7
+        "eps_r": {
+            "value": 1,
+            "__type__": "Float"
+        },
+        "mu_r": {
+            "value": 1.000022,
+            "__type__": "Float"
+        },
+        "rho": {
+            "value": 2.8264e-8,
+            "__type__": "Float"
+        }
     }
 }
