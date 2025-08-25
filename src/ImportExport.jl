@@ -26,6 +26,8 @@ module ImportExport
 
 # Export public API
 export export_data
+export export_ZY2XML
+export read_atp_data
 export save
 export load!
 export get
@@ -39,6 +41,7 @@ include("commondeps.jl")
 using Measurements
 using EzXML # For PSCAD export
 using Dates # For PSCAD export
+using Printf # For ATP export
 using JSON3
 using Serialization # For .jls format
 import Base: get
@@ -54,6 +57,6 @@ include("ImportExport/deserialize.jl")
 include("ImportExport/cableslibrary.jl")
 include("ImportExport/materialslibrary.jl")
 include("ImportExport/pscad.jl")
-
+include("ImportExport/atp.jl")
 
 end # module ImportExport
