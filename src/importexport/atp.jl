@@ -269,11 +269,11 @@ function export_data(::Val{:atp},
         # Use pretty print option for debugging comparisons if needed
         # open(filename, "w") do io; prettyprint(io, doc); end
         if isfile(file_name)
-            @info "XML file saved to: $(_display_path(file_name))"
+            @info "XML file saved to: $(file_name)"
         end
         return file_name
     catch e
-        @error "Failed to write XML file '$(_display_path(file_name))': $(e)"
+        @error "Failed to write XML file '$(file_name)': $(e)"
         isa(e, SystemError) && println("SystemError details: ", e.extrainfo)
         return nothing
         rethrow(e) # Rethrow to indicate failure clearly
