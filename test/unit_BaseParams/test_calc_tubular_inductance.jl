@@ -1,4 +1,4 @@
-@testitem "calc_tubular_inductance unit tests" setup = [defaults] begin
+@testitem "BaseParams: calc_tubular_inductance unit tests" setup = [defaults] begin
     using Measurements
     # Basic Functionality
     @testset "Basic Functionality" begin

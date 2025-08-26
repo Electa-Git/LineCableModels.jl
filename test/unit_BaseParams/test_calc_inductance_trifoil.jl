@@ -1,6 +1,6 @@
 # test/unit_BaseParams/test_calc_inductance_trifoil.jl
 
-@testitem "calc_inductance_trifoil unit tests" setup = [defaults] begin
+@testitem "BaseParams: calc_inductance_trifoil unit tests" setup = [defaults] begin
 
     #=
     ## Test Case Setup

@@ -32,7 +32,7 @@ export compute!
 
 # Load common dependencies
 using ..LineCableModels
-include("commondeps.jl")
+include("utils/commondeps.jl")
 
 # Module-specific dependencies
 using Measurements
@@ -43,79 +43,53 @@ using ..Utils
 using ..Materials
 using ..EarthProps
 using ..DataModel
-import ..LineCableModels: FormulationSet, _get_description
 
-"""
-$(TYPEDEF)
-
-Abstract base type for all problem definitions in the [`LineCableModels.jl`](index.md) computation framework.
-"""
-abstract type ProblemDefinition end
-
-# Formulation abstract types
-abstract type AbstractFormulationSet end
-abstract type AbstractFormulationOptions end
-
-abstract type AbstractImpedanceFormulation <: AbstractFormulationSet end
-abstract type InternalImpedanceFormulation <: AbstractImpedanceFormulation end
-abstract type InsulationImpedanceFormulation <: AbstractImpedanceFormulation end
-abstract type EarthImpedanceFormulation <: AbstractImpedanceFormulation end
-
-abstract type AbstractAdmittanceFormulation <: AbstractFormulationSet end
-abstract type InsulationAdmittanceFormulation <: AbstractAdmittanceFormulation end
-abstract type EarthAdmittanceFormulation <: AbstractAdmittanceFormulation end
-
-"""
-$(TYPEDEF)
-
-Abstract type representing different equivalent homogeneous earth models (EHEM). Used in the multi-dispatch implementation of [`_calc_ehem_properties!`](@ref).
-
-# Currently available formulations
-
-- [`EnforceLayer`](@ref): Effective parameters defined according to a specific earth layer.
-"""
-abstract type AbstractEHEMFormulation end
+include("engine/types.jl")
 
 # Problem definitions
-include("Engine/problemdefs.jl")
+include("engine/problemdefs.jl")
 
 # Submodule `InternalImpedance`
-include("Engine/InternalImpedance.jl")
+include("engine/InternalImpedance.jl")
 @force using .InternalImpedance
 
 # Submodule `InsulationImpedance`
-include("Engine/InsulationImpedance.jl")
+include("engine/InsulationImpedance.jl")
 @force using .InsulationImpedance
 
 # Submodule `EarthImpedance`
-include("Engine/EarthImpedance.jl")
+include("engine/EarthImpedance.jl")
 @force using .EarthImpedance
 
 # Submodule `InsulationAdmittance`
-include("Engine/InsulationAdmittance.jl")
+include("engine/InsulationAdmittance.jl")
 @force using .InsulationAdmittance
 
 # Submodule `EarthAdmittance`
-include("Engine/EarthAdmittance.jl")
+include("engine/EarthAdmittance.jl")
 @force using .EarthAdmittance
 
 # Submodule `EHEM`
-include("Engine/EHEM.jl")
+include("engine/EHEM.jl")
 @force using .EHEM
 
 # Helpers
-include("Engine/utils.jl")
+include("engine/helpers.jl")
 
 # Workspace definition
-include("Engine/workspace.jl")
+include("engine/workspace.jl")
 
 # Computation methods
-include("Engine/solver.jl")
+include("engine/solver.jl")
 
 # Override I/O methods
-include("Engine/io.jl")
+include("engine/base.jl")
+
+# Submodule `FEM`
+include("engine/FEM.jl")
+@force using .FEM
 
 @reexport using .InternalImpedance, .InsulationImpedance, .EarthImpedance,
-    .InsulationAdmittance, .EarthAdmittance, .EHEM
+    .InsulationAdmittance, .EarthAdmittance, .EHEM, .FEM
 
 end # module Engine

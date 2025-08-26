@@ -1,4 +1,4 @@
-@testitem "calc_equivalent_lossfact unit tests" setup = [defaults] begin
+@testitem "BaseParams: calc_equivalent_lossfact unit tests" setup = [defaults] begin
     @testset "Basic Functionality" begin
         # Example from docstring: G_eq=1e-8 S·m, C_eq=1e-10 F/m, ω=2π*50
         G_eq = 1e-8

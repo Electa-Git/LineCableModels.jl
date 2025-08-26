@@ -10,7 +10,7 @@ end
         @testset "CPEarth" begin
             cp_formulation = EP.CPEarth()
             @test cp_formulation isa EP.AbstractFDEMFormulation
-            @test LCM._get_description(cp_formulation) == "Constant properties (CP)"
+            @test LCM.get_description(cp_formulation) == "Constant properties (CP)"
         end
     end
 

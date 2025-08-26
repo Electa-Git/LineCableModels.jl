@@ -20,8 +20,9 @@ $(EXPORTS)
 module Utils
 
 # Export public API
-export equals,
-    to_nominal,
+export resolve_T, coerce_to_T, _CLEANMETHODLIST, resolve_backend, is_headless
+
+export to_nominal,
     strip_uncertainty,
     percent_to_uncertain,
     bias_to_uncertain,
@@ -31,38 +32,12 @@ export equals,
 
 # Load common dependencies
 using ..LineCableModels
-include("commondeps.jl")
+include("utils/commondeps.jl")
 
 # Module-specific dependencies
-using Measurements
+using Measurements: Measurement, value, uncertainty, measurement
 using Statistics
-
-"""
-$(TYPEDSIGNATURES)
-
-Checks if two numerical values are approximately equal within a given tolerance.
-
-# Arguments
-
-- `x`: First numeric value.
-- `y`: Second numeric value.
-- `atol`: Absolute tolerance for comparison (default: `TOL`).
-
-# Returns
-
-- `true` if `x` and `y` are approximately equal within the given tolerance.
-- `false` otherwise.
-
-# Examples
-
-```julia
-$(FUNCTIONNAME)(1.00001, 1.0, atol=1e-4) # Output: true
-$(FUNCTIONNAME)(1.0001, 1.0, atol=1e-5)  # Output: false
-```
-"""
-function equals(x, y; atol=TOL)
-    return isapprox(x, y, atol=atol)
-end
+using Plots
 
 """
 $(TYPEDSIGNATURES)
@@ -285,5 +260,147 @@ function percent_error(m::Number)
         return NaN
     end
 end
+
+@inline _nudge_float(x::AbstractFloat) = isfinite(x) && x == trunc(x) ? nextfloat(x) : x #redundant and I dont care
+
+_coerce_args_to_T(args...) =
+    any(x -> x isa Measurement, args) ? Measurement{BASE_FLOAT} : BASE_FLOAT
+
+# Promote scalar to T if T is Measurement; otherwise take nominal if x is Measurement.
+function _coerce_scalar_to_T(x, ::Type{T}) where {T}
+    if T <: Measurement
+        return x isa Measurement ? x : (zero(T) + x)
+    else
+        return x isa Measurement ? T(value(x)) : convert(T, x)
+    end
+end
+
+# Arrays: promote/demote elementwise, preserving shape. Arrays NEVER decide T.
+function _coerce_array_to_T(A::AbstractArray, ::Type{T}) where {T}
+    if T <: Measurement
+        return (eltype(A) === T) ? A : (A .+ zero(T))             # Real → Measurement(σ=0)
+    elseif eltype(A) <: Measurement
+        B = value.(A)                                             # Measurement → Real (nominal)
+        return (eltype(B) === T) ? B : convert.(T, B)
+    else
+        return (eltype(A) === T) ? A : convert.(T, A)
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Determines if the current execution environment is headless (without display capability).
+
+# Returns
+
+- `true` if running in a continuous integration environment or without display access.
+- `false` otherwise when a display is available.
+
+# Examples
+
+```julia
+if $(FUNCTIONNAME)()
+	# Use non-graphical backend
+	gr()
+else
+	# Use interactive backend
+	plotlyjs()
+end
+```
+"""
+function is_headless()::Bool
+    # 1. Check for common CI environment variables
+    if get(ENV, "CI", "false") == "true"
+        return true
+    end
+
+    # 2. Check if a display is available (primarily for Linux)
+    if !haskey(ENV, "DISPLAY") && Sys.islinux()
+        return true
+    end
+
+    # 3. Check for GR backend's specific headless setting
+    if get(ENV, "GKSwstype", "") in ("100", "nul", "nil")
+        return true
+    end
+
+    return false
+end
+
+function display_path(file_name)
+    return is_headless() ? basename(file_name) : relpath(file_name)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Checks if the code is running inside a `@testset` by checking if `Test` is loaded
+in the current session and then calling `get_testset_depth()`.
+"""
+function is_in_testset()
+    # Start with the current module
+    current_module = @__MODULE__
+
+    # Walk up the module tree (e.g., from the sandbox to Main)
+    while true
+        if isdefined(current_module, :Test) &&
+           isdefined(current_module.Test, :get_testset_depth)
+            # Found the Test module, check the test set depth
+            return current_module.Test.get_testset_depth() > 0
+        end
+
+        # Move to the parent module
+        parent = parentmodule(current_module)
+        if parent === current_module # Reached the top (Main)
+            break
+        end
+        current_module = parent
+    end
+
+    return false
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Selects the appropriate plotting backend based on the environment.
+
+# Arguments
+
+- `backend`: Optional explicit backend to use. If provided, this backend will be activated.
+
+# Returns
+
+Nothing. The function activates the chosen backend.
+
+# Notes
+
+Automatically selects GR for headless environments (CI or no DISPLAY) and PlotlyJS
+for interactive use when no backend is explicitly specified. This is particularly needed when running within CI environments.
+
+# Examples
+
+```julia
+resolve_backend()           # Auto-selects based on environment
+resolve_backend(pyplot)     # Explicitly use PyPlot backend
+```
+"""
+function resolve_backend(backend=nothing)
+    if isnothing(backend) # Check if running in a headless environment 
+        if is_headless() # Use GR for CI/headless environments
+            ENV["GKSwstype"] = "100"
+            gr()
+        else # Use PlotlyJS for interactive use 
+            plotlyjs()
+        end
+    else # Use the specified backend if provided 
+        backend()
+    end
+end
+
+include("utils/typecoercion.jl")
+include("utils/docstringextension.jl")
+include("utils/macros.jl")
 
 end # module Utils

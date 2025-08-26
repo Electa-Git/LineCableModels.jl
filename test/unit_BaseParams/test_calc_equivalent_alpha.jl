@@ -1,4 +1,4 @@
-@testitem "calc_equivalent_alpha unit tests" setup = [defaults] begin
+@testitem "BaseParams: calc_equivalent_alpha unit tests" setup = [defaults] begin
 
     @testset "calc_equivalent_alpha: Basic Functionality (Copper & Aluminum)" begin
         alpha1 = 0.00393  # Copper

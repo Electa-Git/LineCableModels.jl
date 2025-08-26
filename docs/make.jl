@@ -171,9 +171,10 @@ makedocs(;
     pages=[
         "Home" => "index.md",
         "Tutorials" => tutorial_menu,
-        "Toolbox reference" => "reference.md",
+        "API reference" => "reference.md",
         "Development" => Any[
-            # "Naming conventions"=>"conventions.md",
+            "Validation module"=>"validation.md",
+            "Docstrings"=>"docstrings.md",
             "TODO"=>"TODO.md",
             "Changelog"=>"CHANGELOG.md",
         ],

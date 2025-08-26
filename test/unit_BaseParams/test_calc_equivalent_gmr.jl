@@ -1,4 +1,4 @@
-@testitem "calc_equivalent_gmr unit tests" setup = [defaults, deps_datamodel, defs_materials] begin
+@testitem "BaseParams: calc_equivalent_gmr unit tests" setup = [defaults, deps_datamodel, defs_materials] begin
     @testset "Basic Functionality" begin
         # Example from docstring
         material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)

@@ -1,4 +1,4 @@
-@testitem "calc_solenoid_correction unit tests" setup = [defaults] begin
+@testitem "BaseParams: calc_solenoid_correction unit tests" setup = [defaults] begin
     @testset "Basic Functionality" begin
         # Example from docstring: 10 turns/m, conductor radius 5 mm, insulator radius 10 mm
         result = calc_solenoid_correction(10.0, 0.005, 0.01)

@@ -1,4 +1,4 @@
-@testitem "calc_equivalent_mu unit tests" setup = [defaults] begin
+@testitem "BaseParams: calc_equivalent_mu unit tests" setup = [defaults] begin
     @testset "Basic Functionality" begin
         # Example from docstring
         gmr = 0.015

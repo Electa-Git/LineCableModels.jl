@@ -194,12 +194,12 @@
         # Test invalid geometric parameters
         @test_throws ArgumentError WireArray(0.0, Diameter(-1.0), 1, 0.0, material_al)
         @test_throws ArgumentError Insulator(core, Thickness(-1.0), material_pe)
-        @test_throws AssertionError WireArray(core, Diameter(d_w), 1, -1.0, material_al) # Negative lay ratio
+        @test_throws ArgumentError WireArray(core, Diameter(d_w), 1, -1.0, material_al) # Negative lay ratio
         @test_throws ArgumentError Strip(core, Thickness(-0.1), w_cut, lay_ratio, material_cu)
 
         # Test empty object creation
-        @test_throws MethodError ConductorGroup()
-        @test_throws MethodError InsulatorGroup()
+        @test_throws ArgumentError ConductorGroup()
+        @test_throws ArgumentError InsulatorGroup()
         @test_throws MethodError CableDesign("empty_cable")
         @test_throws MethodError LineCableSystem("empty_system", 1000.0)
 

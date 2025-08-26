@@ -1,4 +1,4 @@
-@testitem "calc_sigma_lossfact unit tests" setup = [defaults] begin
+@testitem "BaseParams: calc_sigma_lossfact unit tests" setup = [defaults] begin
     @testset "Basic Functionality" begin
         # Example from docstring: G_eq=2.7169e-9 S·m, r_in=0.01 m, r_ext=0.02 m
         G_eq = 2.7169e-9

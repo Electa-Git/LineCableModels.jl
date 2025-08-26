@@ -1,4 +1,4 @@
-@testitem "calc_equivalent_rho unit tests" setup = [defaults] begin
+@testitem "BaseParams: calc_equivalent_rho unit tests" setup = [defaults] begin
     @testset "Basic Functionality" begin
         # Example from docstring: R=0.01 Ω, r_ext=0.02 m, r_in=0.01 m
         result = calc_equivalent_rho(0.01, 0.02, 0.01)

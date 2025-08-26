@@ -1,4 +1,4 @@
-@testitem "calc_equivalent_eps unit tests" setup = [defaults] begin
+@testitem "BaseParams: calc_equivalent_eps unit tests" setup = [defaults] begin
     @testset "Basic Functionality" begin
         # Example from docstring: C_eq=1e-10 F/m, r_ext=0.01 m, r_in=0.005 m
         result = calc_equivalent_eps(1e-10, 0.01, 0.005)

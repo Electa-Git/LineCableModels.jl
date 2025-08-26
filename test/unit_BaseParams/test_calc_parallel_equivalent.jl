@@ -1,4 +1,4 @@
-@testitem "calc_parallel_equivalent unit tests" setup = [defaults] begin
+@testitem "BaseParams: calc_parallel_equivalent unit tests" setup = [defaults] begin
 
     @testset "Basic Functionality" begin
         # Test with real numbers (Float64)

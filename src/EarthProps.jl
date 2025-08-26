@@ -24,20 +24,19 @@ module EarthProps
 export CPEarth,
     EarthLayer,
     EarthModel,
-    DataFrame,
-    add!
+    DataFrame
 
 # Load common dependencies
 using ..LineCableModels
-include("commondeps.jl")
+include("utils/commondeps.jl")
 
 # Module-specific dependencies
 using Measurements
 using DataFrames
 using ..Utils
-import ..LineCableModels: coerce_to_T
+import ..LineCableModels: add!
 
-include("EarthProps/fdprops.jl")
+include("earthprops/fdprops.jl")
 
 """
 $(TYPEDEF)
@@ -333,7 +332,7 @@ println(length(vert_earth_model.layers)) # Output: 4
 
 - [`EarthLayer`](@ref)
 """
-function LineCableModels.add!(
+function add!(
     model::EarthModel{T},
     frequencies::Vector{T},
     base_rho_g::T,
@@ -381,7 +380,7 @@ function LineCableModels.add!(
     model
 end
 
-function LineCableModels.add!(model::EarthModel, frequencies::AbstractVector, base_rho_g, base_epsr_g, base_mur_g; t=Inf)
+function add!(model::EarthModel, frequencies::AbstractVector, base_rho_g, base_epsr_g, base_mur_g; t=Inf)
 
     # Resolve the required type from ALL inputs (the model + the new layer)
     T_new = resolve_T(model, frequencies, base_rho_g, base_epsr_g, base_mur_g, t)
@@ -390,7 +389,7 @@ function LineCableModels.add!(model::EarthModel, frequencies::AbstractVector, ba
     if T_new == T_old
         # CASE 1: No promotion needed. The model already has the correct type.
         # This is the fast path that mutates the existing model.
-        return LineCableModels.add!(
+        return add!(
             model, # Pass the original model
             coerce_to_T(frequencies, T_new),
             coerce_to_T(base_rho_g, T_new),
@@ -409,7 +408,7 @@ function LineCableModels.add!(model::EarthModel, frequencies::AbstractVector, ba
         promoted_model = coerce_to_T(model, T_new)
 
         # 2. Call the inner add! method on the NEWLY CREATED model.
-        return LineCableModels.add!(
+        return add!(
             promoted_model,
             coerce_to_T(frequencies, T_new),
             coerce_to_T(base_rho_g, T_new),
@@ -420,8 +419,8 @@ function LineCableModels.add!(model::EarthModel, frequencies::AbstractVector, ba
     end
 end
 
-include("EarthProps/typecoercion.jl")
-include("EarthProps/dataframe.jl")
-include("EarthProps/io.jl")
+include("earthprops/typecoercion.jl")
+include("earthprops/dataframe.jl")
+include("earthprops/base.jl")
 
 end # module EarthProps

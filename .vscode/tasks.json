@@ -35,7 +35,7 @@
             }
         },
         {
-            "label": "⚙️ Redefine All Environments",
+            "label": "🧹 Clean Documentation",
             "presentation": {
                 "panel": "new",
                 "showReuseMessage": false,
@@ -43,7 +43,10 @@
                 "clear": true,
                 "close": true
             },
-            "command": "julia -e 'include(\"setup.jl\"); setup_envs_only()'",
+            "command": "rm -rf docs/build",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "problemMatcher": [],
             "type": "shell",
             "group": {
@@ -52,21 +55,13 @@
             }
         },
         {
-            "label": "🔧 Setup VSCode Configuration",
-            "presentation": {
-                "panel": "new",
-                "showReuseMessage": false,
-                "reveal": "always",
-                "clear": true,
-                "close": true
-            },
-            "command": "julia -e 'include(\"setup.jl\"); setup_vscode_only()'",
-            "problemMatcher": [],
-            "type": "shell",
-            "group": {
-                "kind": "build",
-                "isDefault": false
-            }
+            "label": "📂 Open Julia config folder",
+            "type": "process",
+            "command": "xdg-open", // Use "open" on macOS, "explorer" on Windows
+            "args": [
+                "${env:HOME}/.julia/config/"
+            ],
+            "problemMatcher": []
         }
     ],
     "version": "2.0.0"

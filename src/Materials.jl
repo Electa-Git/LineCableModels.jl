@@ -23,12 +23,10 @@ module Materials
 
 # Export public API
 export Material, MaterialsLibrary
-export add!, get, delete!, length, setindex!, iterate, keys, values, haskey, getindex
-export DataFrame
 
 # Load common dependencies
 using ..LineCableModels
-include("commondeps.jl")
+include("utils/commondeps.jl")
 
 
 # Module-specific dependencies
@@ -57,7 +55,6 @@ struct Material{T<:REALSCALAR}
 end
 
 function Material(rho, eps_r, mu_r, T0, alpha)
-
     T = resolve_T(rho, eps_r, mu_r, T0, alpha)
     return Material{T}(
         convert(T, rho),
@@ -68,12 +65,9 @@ function Material(rho, eps_r, mu_r, T0, alpha)
     )
 end
 
-Base.convert(::Type{Material{T}}, m::Material) where {T<:REALSCALAR} =
-    Material{T}(convert(T, m.rho), convert(T, m.eps_r), convert(T, m.mu_r),
-        convert(T, m.T0), convert(T, m.alpha))
-
-include("Materials/materialslibrary.jl")
-include("Materials/dataframe.jl")
-include("Materials/io.jl")
+include("materials/materialslibrary.jl")
+include("materials/dataframe.jl")
+include("materials/base.jl")
+include("materials/typecoercion.jl")
 
 end # module Materials

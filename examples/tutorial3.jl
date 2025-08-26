@@ -368,3 +368,7 @@ if !opts.mesh_only
     println("L = $(@sprintf("%.6g", L)) mH/km")
     println("C = $(@sprintf("%.6g", C)) μF/km")
 end
+
+
+output_file = fullfile("$(cable_system.system_id)_export.xml")
+export_data(Val(:atp), line_params, cable_system, problem, file_name=output_file)

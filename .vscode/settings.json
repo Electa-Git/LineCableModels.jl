@@ -1,1 +1,10 @@
-{}
+{
+    "files.exclude": {
+        "**/.github": true,
+        "**/.vscode": true,
+        "**/@INPROGRESS": true,
+        "**/docs": true,
+        "**/examples": true,
+        "**/test": true
+    }
+}

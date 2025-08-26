@@ -1,4 +1,4 @@
-@testitem "calc_wirearray_gmr unit tests" setup = [defaults] begin
+@testitem "BaseParams: calc_wirearray_gmr unit tests" setup = [defaults] begin
     using Measurements: measurement, value, uncertainty
 
     @testset "Basic Functionality" begin

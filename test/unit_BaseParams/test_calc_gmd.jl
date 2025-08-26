@@ -1,4 +1,4 @@
-@testitem "calc_gmd unit tests" setup = [defaults, deps_datamodel, defs_materials] begin
+@testitem "BaseParams: calc_gmd unit tests" setup = [defaults, deps_datamodel, defs_materials] begin
     @testset "Basic Functionality" begin
         material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
         wire_array = WireArray(0.01, Diameter(0.002), 7, 10, material_props, temperature=25)
@@ -63,7 +63,7 @@
         @test res4 isa Measurement{Float64}
         mtub_temp = Tubular(0.01, 0.02, material_props, temperature=measurement(25, 1e-4))
         res5 = calc_gmd(wa, mtub_temp)
-        @test res5 isa Float64 # Should remain Float64 since temperature does not affect inductance
+        @test res5 isa Measurement{Float64}
     end
 
     @testset "Uncertainty Quantification" begin

@@ -2,14 +2,15 @@ module LineCableModels
 
 # Package-wide definitions
 include("globals.jl")
-include("typecoercion.jl")
-include("logging.jl")
-include("macros.jl")
+include("utils/logging.jl")
 
 # Submodule `Utils`
 include("Utils.jl")
 @force using .Utils
-@reexport using .Utils
+
+# Submodule `Validation`
+include("Validation.jl")
+@force using .Validation
 
 # Submodule `Materials`
 include("Materials.jl")
@@ -30,11 +31,6 @@ include("DataModel.jl")
 include("Engine.jl")
 @force using .Engine
 @reexport using .Engine
-
-# Submodule `FEMTools`
-include("FEMTools.jl")
-@force using .FEMTools
-@reexport using .FEMTools
 
 # Submodule `ImportExport`
 include("ImportExport.jl")

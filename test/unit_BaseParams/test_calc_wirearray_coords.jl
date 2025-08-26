@@ -1,4 +1,4 @@
-@testitem "calc_wirearray_coords unit tests" setup = [defaults] begin
+@testitem "BaseParams: calc_wirearray_coords unit tests" setup = [defaults] begin
 
     @testset "Basic Functionality" begin
         @testset "Standard 6-wire array at origin" begin

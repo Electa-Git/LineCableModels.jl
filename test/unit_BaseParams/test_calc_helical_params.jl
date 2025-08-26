@@ -1,4 +1,4 @@
-@testitem "calc_helical_params unit tests" setup = [defaults] begin
+@testitem "BaseParams: calc_helical_params unit tests" setup = [defaults] begin
     using Measurements
     # --- Basic Functionality ---
     @testset "Basic Functionality" begin

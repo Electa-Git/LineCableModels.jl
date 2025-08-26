@@ -29,14 +29,11 @@ export ConductorGroup, InsulatorGroup  # Group types
 export CableComponent, CableDesign  # Cable design types
 export CablePosition, LineCableSystem  # System types
 export CablesLibrary, NominalData  # Support types
-export add!, get, delete!, length, setindex!, iterate, keys, values, haskey, getindex
 export trifoil_formation, flat_formation  # Formation helpers
-export preview  # Visualization
-export DataFrame  # Data conversion
 
 # Load common dependencies
 using ..LineCableModels
-include("commondeps.jl")
+include("utils/commondeps.jl")
 
 # Module-specific dependencies
 using Measurements
@@ -47,94 +44,40 @@ using DisplayAs: DisplayAs
 using ..Utils
 using ..Materials
 using ..EarthProps
-import ..LineCableModels: _is_headless, _is_in_testset, _CLEANMETHODLIST, _coerce_args_to_T, _coerce_array_to_T, _coerce_scalar_to_T
-
-# To handle radius-related operations
-abstract type AbstractRadius end
-function _do_resolve_radius end
+using ..Validation
+import ..Validation: sanitize, validate!, has_radii, has_temperature, extra_rules, IntegerField, Positive, Finite, Normalized, IsA
 
 # TODO: Develop and integrate input type normalization
 # Issue URL: https://github.com/Electa-Git/LineCableModels.jl/issues/10
 
-"""
-$(TYPEDEF)
+# Abstract types & constructors
+include("datamodel/types.jl")
+include("datamodel/macros.jl")
+include("datamodel/validation.jl")
+include("datamodel/radii.jl")
 
-Represents the thickness of a cable component.
+# Conductors
+include("datamodel/wirearray.jl")
+include("datamodel/strip.jl")
+include("datamodel/tubular.jl")
+include("datamodel/conductorgroup.jl")
 
-$(TYPEDFIELDS)
-"""
-struct Thickness{T<:Real} <: AbstractRadius
-    "Numerical value of the thickness \\[m\\]."
-    value::T
-    function Thickness(value::T) where {T<:Real}
-        value >= 0 || throw(ArgumentError("Thickness must be a non-negative number."))
-        new{T}(value)
-    end
-end
-
-"""
-$(TYPEDEF)
-
-Represents the diameter of a cable component.
-
-$(TYPEDFIELDS)
-"""
-struct Diameter{T<:Real} <: AbstractRadius
-    "Numerical value of the diameter \\[m\\]."
-    value::T
-    function Diameter(value::T) where {T<:Real}
-        value > 0 || throw(ArgumentError("Diameter must be a positive number."))
-        new{T}(value)
-    end
-end
-
-"""
-$(TYPEDEF)
-
-Abstract type representing a generic cable part.
-"""
-abstract type AbstractCablePart end
-
-"""
-$(TYPEDEF)
-
-Abstract type representing a conductive part of a cable.
-
-Subtypes implement specific configurations:
-- [`WireArray`](@ref)
-- [`Tubular`](@ref)
-- [`Strip`](@ref)
-"""
-abstract type AbstractConductorPart <: AbstractCablePart end
-
-"""
-$(TYPEDEF)
-
-Abstract type representing an insulating part of a cable.
-
-Subtypes implement specific configurations:
-- [`Insulator`](@ref)
-- [`Semicon`](@ref)
-"""
-abstract type AbstractInsulatorPart <: AbstractCablePart end
-
-include("DataModel/conductors.jl")
-
-include("DataModel/insulators.jl")
+#Insulators
+include("datamodel/insulator.jl")
+include("datamodel/semicon.jl")
+include("datamodel/insulatorgroup.jl")
 
 # Submodule `BaseParams`
-include("DataModel/BaseParams.jl")
+include("datamodel/BaseParams.jl")
 @force using .BaseParams
-
-include("DataModel/cabledesign.jl")
-include("DataModel/cableslibrary.jl")
-include("DataModel/linecablesystem.jl")
-include("DataModel/utils.jl")
-include("DataModel/radii.jl")
-include("DataModel/preview.jl")
-include("DataModel/dataframe.jl")
-include("DataModel/io.jl")
-
 @reexport using .BaseParams
+
+include("datamodel/cabledesign.jl")
+include("datamodel/cableslibrary.jl")
+include("datamodel/linecablesystem.jl")
+include("datamodel/helpers.jl")
+include("datamodel/preview.jl")
+include("datamodel/dataframe.jl")
+include("datamodel/base.jl")
 
 end # module DataModel

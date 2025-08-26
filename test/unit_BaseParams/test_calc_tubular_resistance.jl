@@ -1,4 +1,4 @@
-@testitem "calc_tubular_resistance unit tests" setup = [defaults] begin
+@testitem "BaseParams: calc_tubular_resistance unit tests" setup = [defaults] begin
     # Basic Functionality
     @testset "Basic Functionality" begin
         # Example from docstring

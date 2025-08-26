@@ -1,4 +1,4 @@
-@testitem "calc_shunt_capacitance unit tests" setup = [defaults] begin
+@testitem "BaseParams: calc_shunt_capacitance unit tests" setup = [defaults] begin
     @testset "Basic Functionality" begin
         # Example from docstring
         radius_in = 0.01
