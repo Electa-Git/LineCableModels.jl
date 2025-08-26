@@ -94,6 +94,7 @@ Validation.keyword_fields(::Type{Insulator}) = _OPT_INSULATOR
 
 # accept proxies for radii
 Validation.is_radius_input(::Type{Insulator}, ::Val{:radius_in}, x::AbstractCablePart) = true
+Validation.is_radius_input(::Type{Insulator}, ::Val{:radius_in}, x::Thickness) = true
 Validation.is_radius_input(::Type{Insulator}, ::Val{:radius_ext}, x::Thickness) = true
 Validation.is_radius_input(::Type{Insulator}, ::Val{:radius_ext}, x::Diameter) = true
 

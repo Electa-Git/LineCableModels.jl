@@ -99,6 +99,7 @@ Validation.keyword_fields(::Type{Semicon}) = _OPT_SEMICON
 
 # accept proxies for radii
 Validation.is_radius_input(::Type{Semicon}, ::Val{:radius_in}, x::AbstractCablePart) = true
+Validation.is_radius_input(::Type{Semicon}, ::Val{:radius_in}, x::Thickness) = true
 Validation.is_radius_input(::Type{Semicon}, ::Val{:radius_ext}, x::Thickness) = true
 Validation.is_radius_input(::Type{Semicon}, ::Val{:radius_ext}, x::Diameter) = true
 

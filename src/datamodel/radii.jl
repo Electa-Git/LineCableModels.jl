@@ -4,7 +4,7 @@ $(TYPEDSIGNATURES)
 Resolves radius parameters for cable components, converting from various input formats to standardized inner radius, outer radius, and thickness values.
 
 This function serves as a high-level interface to the radius resolution system. It processes inputs through a two-stage pipeline:
-1. First normalizes input parameters to consistent forms using [`_parse_inputs_radius`](@ref).
+1. First normalizes input parameters to consistent forms using [`_parse_radius_operand`](@ref).
 2. Then delegates to specialized implementations via [`_do_resolve_radius`](@ref) based on the component type.
 
 # Arguments
@@ -29,7 +29,7 @@ This function serves as a high-level interface to the radius resolution system. 
 - [`AbstractCablePart`](@ref)
 """
 @inline _normalize_radii(::Type{T}, rin, rex) where {T} =
-  _do_normalize_radii(_parse_inputs_radius(rin, T), _parse_inputs_radius(rex, T), T)
+  _do_normalize_radii(_parse_radius_operand(rin, T), _parse_radius_operand(rex, T), T)
 
 """
 $(TYPEDSIGNATURES)
@@ -61,21 +61,20 @@ $(_CLEANMETHODLIST)
 
 - [`Diameter`](@ref)
 - [`Thickness`](@ref)
-- [`strip_uncertainty`](@ref)
 """
-function _parse_inputs_radius end
+function _parse_radius_operand end
 
 # ------------ Input parsing
-@inline _parse_inputs_radius(x::Number, ::Type{T}) where {T} = x
-@inline _parse_inputs_radius(d::Diameter, ::Type{T}) where {T} = d.value / 2
-@inline _parse_inputs_radius(p::Thickness, ::Type{T}) where {T} = p
-@inline function _parse_inputs_radius(p::AbstractCablePart, ::Type{T}) where {T}
+@inline _parse_radius_operand(x::Number, ::Type{T}) where {T} = x
+@inline _parse_radius_operand(d::Diameter, ::Type{T}) where {T} = d.value / 2
+@inline _parse_radius_operand(p::Thickness, ::Type{T}) where {T} = p
+@inline function _parse_radius_operand(p::AbstractCablePart, ::Type{T}) where {T}
   r = getfield(p, :radius_ext)                     # outer radius of prior layer
-  return (typeof(p) == T) ? r : strip_uncertainty(r)
+  return (typeof(p) == T) ? r : to_certain(r)
 end
-@inline _parse_inputs_radius(x::AbstractString, ::Type{T}) where {T} =
+@inline _parse_radius_operand(x::AbstractString, ::Type{T}) where {T} =
   throw(ArgumentError("[$(nameof(T))] radius parameter must be numeric, not String: $(repr(x))"))
-@inline _parse_inputs_radius(x, ::Type{T}) where {T} =
+@inline _parse_radius_operand(x, ::Type{T}) where {T} =
   throw(ArgumentError("[$(nameof(T))] unsupported radius parameter $(typeof(x)): $(repr(x))"))
 
 
@@ -91,4 +90,15 @@ end
 
 @inline function _do_normalize_radii(radius_in::Number, radius_wire::Number, ::Type{AbstractWireArray})
   return radius_in, radius_in + (2 * radius_wire)
+end
+
+@inline function _do_normalize_radii(t::Thickness, rex::Number, ::Type{T}) where {T}
+  rin = rex - t.value
+  rin >= 0 || throw(ArgumentError("[$(nameof(T))] thickness $(t.value) exceeds outer radius $(rex)."))
+  return rin, rex
+end
+
+# NEW: reject thickness on BOTH ends
+@inline function _do_normalize_radii(::Thickness, ::Thickness, ::Type{T}) where {T}
+  throw(ArgumentError("[$(nameof(T))] cannot specify thickness for both inner and outer radii."))
 end

@@ -1,6 +1,7 @@
 import Base: show, eltype, convert
 
 eltype(::EarthModel{T}) where {T} = T
+eltype(::EarthLayer{T}) where {T} = T
 
 function convert(::Type{EarthModel{T}}, model::EarthModel) where {T}
     # If the model is already the target type, return it without modification.

@@ -127,12 +127,11 @@ Validation.required_fields(::Type{Strip}) = _REQ_STRIP
 Validation.keyword_fields(::Type{Strip}) = _OPT_STRIP
 Validation.coercive_fields(::Type{Strip}) = (:radius_in, :radius_ext, :width, :lay_ratio, :material_props, :temperature)  # not :lay_direction
 # accept proxies for radii
-Validation.is_radius_input(::Type{Strip}, ::Val{:radius_in},
-    x::AbstractCablePart) = true
-Validation.is_radius_input(::Type{Strip}, ::Val{:radius_ext},
-    x::Thickness) = true
-Validation.is_radius_input(::Type{Strip}, ::Val{:radius_ext},
-    x::Diameter) = true
+
+Validation.is_radius_input(::Type{Strip}, ::Val{:radius_in}, x::AbstractCablePart) = true
+Validation.is_radius_input(::Type{Strip}, ::Val{:radius_in}, x::Thickness) = true
+Validation.is_radius_input(::Type{Strip}, ::Val{:radius_ext}, x::Thickness) = true
+Validation.is_radius_input(::Type{Strip}, ::Val{:radius_ext}, x::Diameter) = true
 
 Validation.extra_rules(::Type{Strip}) = (IsA{Material}(:material_props), OneOf(:lay_direction, (-1, 1)), Finite(:lay_ratio), Nonneg(:lay_ratio), Finite(:width), Positive(:width),)
 

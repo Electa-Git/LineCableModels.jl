@@ -81,4 +81,28 @@
         t5 = Tubular(0.01, 0.02, mmat)
         @test t5.material_props.rho isa Measurement
     end
+
+    @testset "Radius Input Parsing" begin
+        import LineCableModels.DataModel: _normalize_radii
+        # inner:Number, outer:Thickness
+        @test _normalize_radii(Tubular, 0.01, Thickness(0.02)) == (0.01, 0.03)
+
+        # inner:Thickness, outer:Number
+        rin, rex = _normalize_radii(Tubular, Thickness(0.002), 0.02)
+        @test isapprox(rin, 0.018; atol=TEST_TOL)
+        @test isapprox(rex, 0.02; atol=TEST_TOL)
+
+
+        # inner:Thickness too large
+        @test_throws ArgumentError _normalize_radii(Tubular, Thickness(0.03), 0.02)
+
+        # both Thickness → error
+        @test_throws ArgumentError _normalize_radii(Tubular, Thickness(0.001), Thickness(0.002))
+
+        # diameter on either side collapses in parse:
+        @test _normalize_radii(Tubular, Diameter(0.02), 0.03) == (0.01, 0.03)
+        @test _normalize_radii(Tubular, 0.01, Diameter(0.02)) == (0.01, 0.01)
+
+
+    end
 end

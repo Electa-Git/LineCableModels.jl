@@ -23,7 +23,7 @@ module Utils
 export resolve_T, coerce_to_T, _CLEANMETHODLIST, resolve_backend, is_headless
 
 export to_nominal,
-    strip_uncertainty,
+    to_certain,
     percent_to_uncertain,
     bias_to_uncertain,
     to_upper,
@@ -88,7 +88,7 @@ y = 10.0
 result = $(FUNCTIONNAME)(y)  # Output: 10.0
 ```
 """
-function strip_uncertainty(value)
+function to_certain(value)
     return value isa Measurement ? (Measurements.value(value) ± 0.0) : value
 end
 
@@ -399,8 +399,8 @@ function resolve_backend(backend=nothing)
     end
 end
 
-include("utils/typecoercion.jl")
 include("utils/docstringextension.jl")
+include("utils/typecoercion.jl")
 include("utils/macros.jl")
 
 end # module Utils

@@ -80,6 +80,7 @@ Validation.keyword_fields(::Type{Tubular}) = _OPT_TUBULAR
 
 # accept proxies for radii
 Validation.is_radius_input(::Type{Tubular}, ::Val{:radius_in}, x::AbstractCablePart) = true
+Validation.is_radius_input(::Type{Tubular}, ::Val{:radius_in}, x::Thickness) = true
 Validation.is_radius_input(::Type{Tubular}, ::Val{:radius_ext}, x::Thickness) = true
 Validation.is_radius_input(::Type{Tubular}, ::Val{:radius_ext}, x::Diameter) = true
 

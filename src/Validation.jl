@@ -1,7 +1,8 @@
 """
 	LineCableModels.Validation
 
-The [`Validation`](@ref) module implements a trait‑driven, two‑stage input checking pipeline for component constructors in `LineCableModels`. Inputs are first *sanitized* (arity and shape checks on raw arguments), then *parsed* (proxy values normalized to numeric radii), and finally validated by a generated set of rules.
+The [`Validation`](@ref) module implements a trait-driven, three-phase input checking pipeline for component constructors in `LineCableModels`. Inputs are first *sanitized* (arity and shape checks on raw arguments), then *parsed* (proxy values normalized to numeric radii), and finally validated by a generated set of rules.
+
 
 # Overview
 
@@ -146,7 +147,7 @@ Rule that enforces a field to be `in` the set `S`.
 
 $(TYPEDFIELDS)
 """
-struct OneOf{S} <: Validation.Rule
+struct OneOf{S} <: Rule
     name::Symbol
     set::S
 end
@@ -430,7 +431,7 @@ Trait hook enabling the annular radii rule bundle on fields `:radius_in` and `:r
 # Examples
 
 ```julia
-Validation.has_radii(Tubular)
+Validation.has_radii(Tubular)  # true
 ```
 """
 has_radii(::Type) = false       # Default = false/empty. Components extend these.
@@ -634,6 +635,10 @@ Performs raw input checks and shapes the input into a `NamedTuple` without parsi
 
 - `ArgumentError` on invalid arity, excess positional arguments, missing required fields, or rejected raw radius inputs.
 
+# Notes
+
+Required arguments must be positional; optional arguments must be passed as keywords. Positional arity must equal `length(required_fields(T))`.
+
 # Examples
 
 ```julia
@@ -698,7 +703,7 @@ parse(::Type, nt) = nt
 """
 $(TYPEDSIGNATURES)
 
-Generates, at compile time, the tuple of rules to apply for component type `T`. The result concatenates standard bundles driven by traits and any rules returned by `extra_rules(T)`.
+Generates (at compile time, via a `@generated` function) the tuple of rules to apply for component type `T`. The result concatenates standard bundles driven by traits and any rules returned by `extra_rules(T)`.
 
 # Arguments
 
@@ -744,6 +749,11 @@ Runs the full validation pipeline for a component type: `sanitize` (arity and ra
 nt = $(FUNCTIONNAME)(Tubular, 0.01, 0.02, material; temperature = 20.0)
 # use nt.radius_in, nt.radius_ext, nt.temperature thereafter
 ```
+
+# See also
+- [`sanitize`](@ref)
+- [`parse`](@ref)
+- [`coercive_fields`](@ref)
 """
 function validate!(::Type{T}, args...; kwargs...) where {T}
     # One validate! to rule them all
