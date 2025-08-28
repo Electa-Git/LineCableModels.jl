@@ -27,6 +27,7 @@ Manifest.toml
 
 # the hidden folder of shame
 temp/
+@INPROGRESS/
 
 # Internal files
 dev
@@ -42,3 +43,11 @@ confidential/
 onelab
 showcase
 !showcase/*.jl
+papers
+sprint
+*/fem_output
+.github/*.md
+.github/instructions
+.github/prompts
+test/jl_*
+*.sh

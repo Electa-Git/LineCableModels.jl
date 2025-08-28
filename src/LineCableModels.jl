@@ -1,12 +1,16 @@
 module LineCableModels
 
-# Load common dependencies and definitions
-include("CommonDeps.jl")
+# Package-wide definitions
+include("consts.jl")
+include("utils/logging.jl")
 
 # Submodule `Utils`
 include("Utils.jl")
 @force using .Utils
-@reexport using .Utils
+
+# Submodule `Validation`
+include("Validation.jl")
+@force using .Validation
 
 # Submodule `Materials`
 include("Materials.jl")
@@ -22,6 +26,11 @@ include("EarthProps.jl")
 include("DataModel.jl")
 @force using .DataModel
 @reexport using .DataModel
+
+# Submodule `Engine`
+include("Engine.jl")
+@force using .Engine
+@reexport using .Engine
 
 # Submodule `ImportExport`
 include("ImportExport.jl")
