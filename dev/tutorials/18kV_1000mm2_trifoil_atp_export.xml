@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project Application="ATPDraw" Version="7.3" VersionXML="1">
+  <header XOPT="0" COPT="0" TopLeftX="200" TopLeftY="0" Timestep="1.0e-6" SysFreq="50.0" Tmax="0.1"/>
+  <objects>
+    <comp Id="18kV_1000mm2_trifoil_1" Capangl="90" Caption="" CapPosY="-25" Name="LCC" CapPosX="-10">
+      <comp_content PosX="280" NumPhases="3" PosY="360" Icon="default" SinglePhaseIcon="true">
+        <node NamePosX="0" Value="C1SND" PosX="-20" PosY="-10" Kind="1" Name="IN1" NamePosY="0" UserNamed="true"/>
+        <node NamePosX="0" Value="C2SND" PosX="-20" PosY="0" Kind="2" Name="IN2" NamePosY="0" UserNamed="true"/>
+        <node NamePosX="0" Value="C3SND" PosX="-20" PosY="10" Kind="3" Name="IN3" NamePosY="0" UserNamed="true"/>
+        <node NamePosX="0" Value="C1RCV" PosX="20" PosY="-10" Kind="1" Name="OUT1" NamePosY="0" UserNamed="true"/>
+        <node NamePosX="0" Value="C2RCV" PosX="20" PosY="0" Kind="2" Name="OUT2" NamePosY="0" UserNamed="true"/>
+        <node NamePosX="0" Value="C3RCV" PosX="20" PosY="10" Kind="3" Name="OUT3" NamePosY="0" UserNamed="true"/>
+        <data Value="1000.0" Name="Length"/>
+        <data Value="50.0" Name="Freq"/>
+        <data Value="100.0" Name="Grnd resis"/>
+      </comp_content>
+      <LCC NumPhases="3" LineCablePipe="2" IconLength="true" ModelType="1">
+        <cable_header InAirGrnd="1" MatrixOutput="true" ExtraCG="3">
+          <cable Rout="0.034600000000000006" PosX="0.0" PosY="-0.9595854811567261" NumCond="3">
+            <conductor Rout="0.02115" muC="1.0346409257821119" muI="1.2784444668561725" Cext="4.133572333031305e-10" Gext="5.306791495141761e-13" epsI="2.756527783603902" Rin="0.0" rho="3.874096262197088e-8"/>
+            <conductor Rout="0.031700000000000006" muC="2.6011569794045832" muI="1.1032781577064583" Cext="1.9077264082738856e-7" Gext="0.12586036004272963" epsI="32.3" Rin="0.030650000000000004" rho="1.0401985677760987e-7"/>
+            <conductor Rout="0.032150000000000005" muC="1.0000219999999032" muI="1.0" Cext="1.7422741145822232e-9" Gext="4.3428386291292453e-13" epsI="2.299999999999997" Rin="0.03200000000000001" rho="2.8264e-8"/>
+          </cable>
+          <cable Rout="0.034600000000000006" PosX="-0.034999999999999996" PosY="-1.020207259421637" NumCond="3">
+            <conductor Rout="0.02115" muC="1.0346409257821119" muI="1.2784444668561725" Cext="4.133572333031305e-10" Gext="5.306791495141761e-13" epsI="2.756527783603902" Rin="0.0" rho="3.874096262197088e-8"/>
+            <conductor Rout="0.031700000000000006" muC="2.6011569794045832" muI="1.1032781577064583" Cext="1.9077264082738856e-7" Gext="0.12586036004272963" epsI="32.3" Rin="0.030650000000000004" rho="1.0401985677760987e-7"/>
+            <conductor Rout="0.032150000000000005" muC="1.0000219999999032" muI="1.0" Cext="1.7422741145822232e-9" Gext="4.3428386291292453e-13" epsI="2.299999999999997" Rin="0.03200000000000001" rho="2.8264e-8"/>
+          </cable>
+          <cable Rout="0.034600000000000006" PosX="0.03499999999999999" PosY="-1.020207259421637" NumCond="3">
+            <conductor Rout="0.02115" muC="1.0346409257821119" muI="1.2784444668561725" Cext="4.133572333031305e-10" Gext="5.306791495141761e-13" epsI="2.756527783603902" Rin="0.0" rho="3.874096262197088e-8"/>
+            <conductor Rout="0.031700000000000006" muC="2.6011569794045832" muI="1.1032781577064583" Cext="1.9077264082738856e-7" Gext="0.12586036004272963" epsI="32.3" Rin="0.030650000000000004" rho="1.0401985677760987e-7"/>
+            <conductor Rout="0.032150000000000005" muC="1.0000219999999032" muI="1.0" Cext="1.7422741145822232e-9" Gext="4.3428386291292453e-13" epsI="2.299999999999997" Rin="0.03200000000000001" rho="2.8264e-8"/>
+          </cable>
+        </cable_header>
+      </LCC>
+    </comp>
+  </objects>
+  <variables IOPCVP="0" UseParser="false" NumSim="1"/>
+</project>
