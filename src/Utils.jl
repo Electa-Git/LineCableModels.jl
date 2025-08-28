@@ -19,54 +19,25 @@ $(EXPORTS)
 """
 module Utils
 
+# Export public API
+export resolve_T, coerce_to_T, _CLEANMETHODLIST, resolve_backend, is_headless
+
+export to_nominal,
+    to_certain,
+    percent_to_uncertain,
+    bias_to_uncertain,
+    to_upper,
+    to_lower,
+    percent_error
+
 # Load common dependencies
-include("CommonDeps.jl")
+using ..LineCableModels
+include("utils/commondeps.jl")
 
 # Module-specific dependencies
-using Measurements
+using Measurements: Measurement, value, uncertainty, measurement
 using Statistics
-
-# General constants
-"Base power system frequency, f₀ = 50 [Hz]."
-const f₀ = 50
-"Magnetic constant (vacuum permeability), μ₀ = 4π * 1e-7 [H/m]."
-const μ₀ = 4π * 1e-7
-"Electric constant (vacuum permittivity), ε₀ = 8.8541878128e-12 [F/m]."
-const ε₀ = 8.8541878128e-12
-"Annealed copper reference resistivity, ρ₀ = 1.724e-08 [Ω·m]."
-const ρ₀ = 1.724e-08
-"Base temperature for conductor properties, T₀ = 20 [°C]."
-const T₀ = 20
-"Default tolerance for floating-point comparisons, TOL = 1e-6."
-const TOL = 1e-6
-export f₀, μ₀, ε₀, ρ₀, T₀, TOL
-
-"""
-$(TYPEDSIGNATURES)
-
-Checks if two numerical values are approximately equal within a given tolerance.
-
-# Arguments
-
-- `x`: First numeric value.
-- `y`: Second numeric value.
-- `atol`: Absolute tolerance for comparison (default: `TOL`).
-
-# Returns
-
-- `true` if `x` and `y` are approximately equal within the given tolerance.
-- `false` otherwise.
-
-# Examples
-
-```julia
-$(FUNCTIONNAME)(1.00001, 1.0, atol=1e-4) # Output: true
-$(FUNCTIONNAME)(1.0001, 1.0, atol=1e-5)  # Output: false
-```
-"""
-function equals(x, y; atol = TOL)
-	return isapprox(x, y, atol = atol)
-end
+using Plots
 
 """
 $(TYPEDSIGNATURES)
@@ -91,7 +62,7 @@ $(FUNCTIONNAME)(5.2 ± 0.3)  # Output: 5.2
 ```
 """
 function to_nominal(x)
-	return x isa Measurement ? Measurements.value(x) : x
+    return x isa Measurement ? Measurements.value(x) : x
 end
 
 """
@@ -117,8 +88,8 @@ y = 10.0
 result = $(FUNCTIONNAME)(y)  # Output: 10.0
 ```
 """
-function strip_uncertainty(value)
-	return value isa Measurement ? (Measurements.value(value) ± 0.0) : value
+function to_certain(value)
+    return value isa Measurement ? (Measurements.value(value) ± 0.0) : value
 end
 
 """
@@ -145,7 +116,7 @@ $(FUNCTIONNAME)(10.0, 10)  # Output: 10.0 ± 1.0
 ```
 """
 function percent_to_uncertain(val, perc) #perc from 0 to 100
-	measurement(val, (perc * val) / 100)
+    measurement(val, (perc * val) / 100)
 end
 
 """
@@ -179,13 +150,13 @@ println(result)  # Output: Measurement with adjusted uncertainty
 ```
 """
 function bias_to_uncertain(nominal::Float64, measurements::Vector{<:Measurement})
-	# Compute the mean value and uncertainty from the measurements
-	mean_measurement = mean(measurements)
-	mean_value = Measurements.value(mean_measurement)  # Central value
-	sigma_mean = Measurements.uncertainty(mean_measurement)  # Uncertainty of the mean
-	# Compute the bias (deterministic nominal value minus mean measurement)
-	bias = abs(nominal - mean_value)
-	return mean_value ± (sigma_mean + bias)
+    # Compute the mean value and uncertainty from the measurements
+    mean_measurement = mean(measurements)
+    mean_value = Measurements.value(mean_measurement)  # Central value
+    sigma_mean = Measurements.uncertainty(mean_measurement)  # Uncertainty of the mean
+    # Compute the bias (deterministic nominal value minus mean measurement)
+    bias = abs(nominal - mean_value)
+    return mean_value ± (sigma_mean + bias)
 end
 
 """
@@ -215,11 +186,11 @@ upper_invalid = $(FUNCTIONNAME)(not_a_measurement)  # Output: NaN
 ```
 """
 function to_upper(m::Number)
-	if m isa Measurement
-		return Measurements.value(m) + Measurements.uncertainty(m)
-	else
-		return NaN
-	end
+    if m isa Measurement
+        return Measurements.value(m) + Measurements.uncertainty(m)
+    else
+        return NaN
+    end
 end
 
 """
@@ -249,11 +220,11 @@ lower_invalid = $(FUNCTIONNAME)(not_a_measurement)  # Output: NaN
 ```
 """
 function to_lower(m::Number)
-	if m isa Measurement
-		return Measurements.value(m) - Measurements.uncertainty(m)
-	else
-		return NaN
-	end
+    if m isa Measurement
+        return Measurements.value(m) - Measurements.uncertainty(m)
+    else
+        return NaN
+    end
 end
 
 """
@@ -283,72 +254,153 @@ percent_err_invalid = $(FUNCTIONNAME)(not_a_measurement)  # Output: NaN
 ```
 """
 function percent_error(m::Number)
-	if m isa Measurement
-		return 100 * Measurements.uncertainty(m) / Measurements.value(m)
-	else
-		return NaN
-	end
+    if m isa Measurement
+        return 100 * Measurements.uncertainty(m) / Measurements.value(m)
+    else
+        return NaN
+    end
+end
+
+@inline _nudge_float(x::AbstractFloat) = isfinite(x) && x == trunc(x) ? nextfloat(x) : x #redundant and I dont care
+
+_coerce_args_to_T(args...) =
+    any(x -> x isa Measurement, args) ? Measurement{BASE_FLOAT} : BASE_FLOAT
+
+# Promote scalar to T if T is Measurement; otherwise take nominal if x is Measurement.
+function _coerce_scalar_to_T(x, ::Type{T}) where {T}
+    if T <: Measurement
+        return x isa Measurement ? x : (zero(T) + x)
+    else
+        return x isa Measurement ? T(value(x)) : convert(T, x)
+    end
+end
+
+# Arrays: promote/demote elementwise, preserving shape. Arrays NEVER decide T.
+function _coerce_array_to_T(A::AbstractArray, ::Type{T}) where {T}
+    if T <: Measurement
+        return (eltype(A) === T) ? A : (A .+ zero(T))             # Real → Measurement(σ=0)
+    elseif eltype(A) <: Measurement
+        B = value.(A)                                             # Measurement → Real (nominal)
+        return (eltype(B) === T) ? B : convert.(T, B)
+    else
+        return (eltype(A) === T) ? A : convert.(T, A)
+    end
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Automatically exports public functions, types, and modules from a module.
-
-# Arguments
-
-- None.
+Determines if the current execution environment is headless (without display capability).
 
 # Returns
 
-- An `export` expression containing all public symbols that should be exported.
+- `true` if running in a continuous integration environment or without display access.
+- `false` otherwise when a display is available.
 
-# Notes
-
-This macro scans the current module for all defined symbols and automatically generates an `export` statement for public functions, types, and submodules, excluding built-in and private names. Private names are considered those starting with an underscore ('_'), as per standard Julia conventions.
-	
 # Examples
 
 ```julia
-@_autoexport
-```
-```julia
-using ..Utils
-# ...
-Utils.@_autoexport
+if $(FUNCTIONNAME)()
+	# Use non-graphical backend
+	gr()
+else
+	# Use interactive backend
+	plotlyjs()
+end
 ```
 """
-macro _autoexport()
-	mod = __module__
+function is_headless()::Bool
+    # 1. Check for common CI environment variables
+    if get(ENV, "CI", "false") == "true"
+        return true
+    end
 
-	# Get all names defined in the module, including unexported ones
-	all_names = names(mod; all = true)
+    # 2. Check if a display is available (primarily for Linux)
+    if !haskey(ENV, "DISPLAY") && Sys.islinux()
+        return true
+    end
 
-	# List of names to explicitly exclude
-	excluded_names = Set([:eval, :include, :using, :import, :export, :require])
+    # 3. Check for GR backend's specific headless setting
+    if get(ENV, "GKSwstype", "") in ("100", "nul", "nil")
+        return true
+    end
 
-	# Filter out private names (starting with '_'), module name, built-in functions, and auto-generated method symbols
-	public_names = Symbol[]
-	for name in all_names
-		str_name = string(name)
-
-		startswith(str_name, "@_") && continue  # Skip private macros
-		startswith(str_name, "_") && continue  # Skip private names
-		name === nameof(mod) && continue  # Skip the module's own name
-		name in excluded_names && continue  # Skip built-in functions
-		startswith(str_name, "#") && continue  # Skip generated method symbols (e.g., #eval, #include)
-
-		if isdefined(mod, name)
-			val = getfield(mod, name)
-			if val isa Function || val isa Type || val isa Module
-				push!(public_names, name)
-			end
-		end
-	end
-
-	return esc(Expr(:export, public_names...))
+    return false
 end
 
-@_autoexport
-
+function display_path(file_name)
+    return is_headless() ? basename(file_name) : relpath(file_name)
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Checks if the code is running inside a `@testset` by checking if `Test` is loaded
+in the current session and then calling `get_testset_depth()`.
+"""
+function is_in_testset()
+    # Start with the current module
+    current_module = @__MODULE__
+
+    # Walk up the module tree (e.g., from the sandbox to Main)
+    while true
+        if isdefined(current_module, :Test) &&
+           isdefined(current_module.Test, :get_testset_depth)
+            # Found the Test module, check the test set depth
+            return current_module.Test.get_testset_depth() > 0
+        end
+
+        # Move to the parent module
+        parent = parentmodule(current_module)
+        if parent === current_module # Reached the top (Main)
+            break
+        end
+        current_module = parent
+    end
+
+    return false
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Selects the appropriate plotting backend based on the environment.
+
+# Arguments
+
+- `backend`: Optional explicit backend to use. If provided, this backend will be activated.
+
+# Returns
+
+Nothing. The function activates the chosen backend.
+
+# Notes
+
+Automatically selects GR for headless environments (CI or no DISPLAY) and PlotlyJS
+for interactive use when no backend is explicitly specified. This is particularly needed when running within CI environments.
+
+# Examples
+
+```julia
+resolve_backend()           # Auto-selects based on environment
+resolve_backend(pyplot)     # Explicitly use PyPlot backend
+```
+"""
+function resolve_backend(backend=nothing)
+    if isnothing(backend) # Check if running in a headless environment 
+        if is_headless() # Use GR for CI/headless environments
+            ENV["GKSwstype"] = "100"
+            gr()
+        else # Use PlotlyJS for interactive use 
+            plotlyjs()
+        end
+    else # Use the specified backend if provided 
+        backend()
+    end
+end
+
+include("utils/docstringextension.jl")
+include("utils/typecoercion.jl")
+include("utils/macros.jl")
+
+end # module Utils

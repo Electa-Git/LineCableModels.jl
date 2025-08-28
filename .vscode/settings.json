@@ -1,3 +1,10 @@
 {
-    "julia.environmentPath": "/home/amartins/Documents/KUL/LineCableModels/dev"
+    "files.exclude": {
+        "**/.github": true,
+        "**/.vscode": true,
+        "**/@INPROGRESS": true,
+        "**/docs": true,
+        "**/examples": true,
+        "**/test": true
+    }
 }

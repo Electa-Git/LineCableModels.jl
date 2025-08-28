@@ -22,12 +22,38 @@ $(EXPORTS)
 """
 module BaseParams
 
+# Export public API
+export calc_equivalent_alpha
+export calc_parallel_equivalent
+export calc_helical_params
+export calc_strip_resistance
+export calc_temperature_correction
+export calc_tubular_resistance
+export calc_tubular_inductance
+export calc_wirearray_coords
+export calc_inductance_trifoil
+export calc_wirearray_gmr
+export calc_tubular_gmr
+export calc_equivalent_mu
+export calc_shunt_capacitance
+export calc_shunt_conductance
+export calc_equivalent_gmr
+export calc_gmd
+export calc_solenoid_correction
+export calc_equivalent_rho
+export calc_equivalent_eps
+export calc_equivalent_lossfact
+export calc_sigma_lossfact
+
 # Load common dependencies
-include("CommonDeps.jl")
-using ...Utils
+include("../utils/commondeps.jl")
+using ...LineCableModels
 
 # Module-specific dependencies
 using Measurements
+using ...Utils
+using ..DataModel: ConductorGroup, WireArray
+import ..DataModel: AbstractCablePart
 
 """
 $(TYPEDSIGNATURES)
@@ -61,8 +87,18 @@ alpha_eq = $(FUNCTIONNAME)(alpha_conductor, R_conductor, alpha_new_part, R_new_p
 println(alpha_eq)  # Output: 0.00396 (approximately)
 ```
 """
-function calc_equivalent_alpha(alpha1::Number, R1::Number, alpha2::Number, R2::Number)
-	return (alpha1 * R2 + alpha2 * R1) / (R1 + R2)
+function calc_equivalent_alpha(alpha1::T, R1::T, alpha2::T, R2::T) where {T<:REALSCALAR}
+    return (alpha1 * R2 + alpha2 * R1) / (R1 + R2)
+end
+
+function calc_equivalent_alpha(alpha1, R1, alpha2, R2)
+    T = resolve_T(alpha1, R1, alpha2, R2)
+    return calc_equivalent_alpha(
+        coerce_to_T(alpha1, T),
+        coerce_to_T(R1, T),
+        coerce_to_T(alpha2, T),
+        coerce_to_T(R2, T),
+    )
 end
 
 """
@@ -108,8 +144,31 @@ println(Req) # Outputs: 3.3333333333333335
 
 - [`calc_helical_params`](@ref)
 """
-function calc_parallel_equivalent(Z1::Number, Z2::Number)
-	return 1 / (1 / Z1 + 1 / Z2)
+function calc_parallel_equivalent(Z1::T, Z2::T) where {T<:Union{REALSCALAR,COMPLEXSCALAR}}
+
+    # Case 1: Inf / Inf -> NaN
+    # The parallel combination of an open circuit (Inf) and any finite impedance is the finite impedance.
+    if isinf(Z1)
+        return Z2
+    elseif isinf(Z2)
+        return Z1
+    end
+
+    # Case 2: 0 / 0 -> NaN
+    # The parallel combination of two short circuits (0) is a short circuit.
+    # The standard formula works fine if only one is zero, but not if both are.
+    if iszero(Z1) && iszero(Z2)
+        return zero(T)
+    end
+    return (Z1 * Z2) / (Z1 + Z2)
+end
+
+function calc_parallel_equivalent(Z1, Z2)
+    T = resolve_T(Z1, Z2)
+    return calc_parallel_equivalent(
+        coerce_to_T(Z1, T),
+        coerce_to_T(Z2, T),
+    )
 end
 
 """
@@ -120,7 +179,7 @@ Calculates the mean diameter, pitch length, and overlength based on cable geomet
 ```math
 \\lambda = \\frac{L_p}{D_e}
 ```
-where ``\\lambda`` is the pitch length, ``D_e`` and ``L_p`` are the dimensions represented in the figure.
+where ``D_e`` and ``L_p`` are the dimensions represented in the figure.
 
 ![](./assets/lay_ratio.svg)
 
@@ -161,12 +220,21 @@ mean_diam, pitch, overlength = $(FUNCTIONNAME)(radius_in, radius_ext, lay_ratio)
 # overlength > 1.0 [1/m]
 ```
 """
-function calc_helical_params(radius_in::Number, radius_ext::Number, lay_ratio::Number)
-	mean_diameter = 2 * (radius_in + (radius_ext - radius_in) / 2)
-	pitch_length = lay_ratio * mean_diameter
-	overlength = pitch_length != 0 ? sqrt(1 + (π * mean_diameter / pitch_length)^2) : 1
+function calc_helical_params(radius_in::T, radius_ext::T, lay_ratio::T) where {T<:REALSCALAR}
+    mean_diameter = 2 * (radius_in + (radius_ext - radius_in) / 2)
+    pitch_length = lay_ratio * mean_diameter
+    overlength = !isapprox(pitch_length, 0.0) ? sqrt(1 + (π * mean_diameter / pitch_length)^2) : 1
 
-	return mean_diameter, pitch_length, overlength
+    return mean_diameter, pitch_length, overlength
+end
+
+function calc_helical_params(radius_in, radius_ext, lay_ratio)
+    T = resolve_T(radius_in, radius_ext, lay_ratio)
+    return calc_helical_params(
+        coerce_to_T(radius_in, T),
+        coerce_to_T(radius_ext, T),
+        coerce_to_T(lay_ratio, T),
+    )
 end
 
 """
@@ -186,7 +254,7 @@ where ``\\ell`` is the length of the strip, ``W`` is the width, and ``T`` is the
 - `rho`: Electrical resistivity of the conductor material \\[Ω·m\\].
 - `alpha`: Temperature coefficient of resistivity \\[1/°C\\].
 - `T0`: Reference temperature for the material properties \\[°C\\].
-- `T`: Operating temperature of the conductor \\[°C\\].
+- `Top`: Operating temperature of the conductor \\[°C\\].
 
 # Returns
 
@@ -202,23 +270,36 @@ alpha = 0.00393
 T0 = 20
 T = 25
 resistance = $(FUNCTIONNAME)(thickness, width, rho, alpha, T0, T)
-# Output: ~8.62e-7 Ω
+# Output: ~0.0001758 Ω
 ```
 
-# See also
+# See also  
 
 - [`calc_temperature_correction`](@ref)
 """
 function calc_strip_resistance(
-	thickness::Number,
-	width::Number,
-	rho::Number,
-	alpha::Number,
-	T0::Number,
-	T::Number,
-)
-	cross_section = thickness * width
-	return calc_temperature_correction(alpha, T, T0) * rho / cross_section
+    thickness::T,
+    width::T,
+    rho::T,
+    alpha::T,
+    T0::T,
+    Top::T,
+) where {T<:REALSCALAR}
+
+    cross_section = thickness * width
+    return calc_temperature_correction(alpha, Top, T0) * rho / cross_section
+end
+
+function calc_strip_resistance(thickness, width, rho, alpha, T0, Top)
+    T = resolve_T(thickness, width, rho, alpha, T0, Top)
+    return calc_strip_resistance(
+        coerce_to_T(thickness, T),
+        coerce_to_T(width, T),
+        coerce_to_T(rho, T),
+        coerce_to_T(alpha, T),
+        coerce_to_T(T0, T),
+        coerce_to_T(Top, T),
+    )
 end
 
 """
@@ -244,12 +325,27 @@ where ``\\alpha`` is the temperature coefficient of the material resistivity, ``
 # Examples
 
 ```julia
-# Copper resistivity correction (alpha = 0.00393 [1/°C])
-k = $(FUNCTIONNAME)(0.00393, 75.0, 20.0)  # Expected output: 1.2158
+    # Copper resistivity correction (alpha = 0.00393 [1/°C])
+    k = $(FUNCTIONNAME)(0.00393, 75.0, 20.0)  # Expected output: 1.2161
 ```
 """
-function calc_temperature_correction(alpha::Number, T::Number, T0::Number = T₀)
-	return 1 + alpha * (T - T0)
+function calc_temperature_correction(alpha::T, Top::T, T0::T=T₀) where {T<:REALSCALAR}
+    @assert abs(Top - T0) < ΔTmax """
+    Temperature is outside the valid range for linear resistivity model:
+    Top = $Top
+    T0 = $T0
+    ΔTmax = $ΔTmax
+    |Top - T0| = $(abs(Top - T0))"""
+    return 1 + alpha * (Top - T0)
+end
+
+function calc_temperature_correction(alpha, Top, T0=T₀)
+    T = resolve_T(alpha, Top, T0)
+    return calc_temperature_correction(
+        coerce_to_T(alpha, T),
+        coerce_to_T(Top, T),
+        coerce_to_T(T0, T),
+    )
 end
 
 """
@@ -269,7 +365,7 @@ where ``\\ell`` is the length of the conductor, ``r_{in}`` and ``r_{ext}`` are t
 - `rho`: Electrical resistivity of the conductor material \\[Ω·m\\].
 - `alpha`: Temperature coefficient of resistivity \\[1/°C\\].
 - `T0`: Reference temperature for the material properties \\[°C\\].
-- `T`: Operating temperature of the conductor \\[°C\\].
+- `Top`: Operating temperature of the conductor \\[°C\\].
 
 # Returns
 
@@ -293,15 +389,27 @@ resistance = $(FUNCTIONNAME)(radius_in, radius_ext, rho, alpha, T0, T)
 - [`calc_temperature_correction`](@ref)
 """
 function calc_tubular_resistance(
-	radius_in::Number,
-	radius_ext::Number,
-	rho::Number,
-	alpha::Number,
-	T0::Number,
-	T::Number,
-)
-	cross_section = π * (radius_ext^2 - radius_in^2)
-	return calc_temperature_correction(alpha, T, T0) * rho / cross_section
+    radius_in::T,
+    radius_ext::T,
+    rho::T,
+    alpha::T,
+    T0::T,
+    Top::T,
+) where {T<:REALSCALAR}
+    cross_section = π * (radius_ext^2 - radius_in^2)
+    return calc_temperature_correction(alpha, Top, T0) * rho / cross_section
+end
+
+function calc_tubular_resistance(radius_in, radius_ext, rho, alpha, T0, Top)
+    T = resolve_T(radius_in, radius_ext, rho, alpha, T0, Top)
+    return calc_tubular_resistance(
+        coerce_to_T(radius_in, T),
+        coerce_to_T(radius_ext, T),
+        coerce_to_T(rho, T),
+        coerce_to_T(alpha, T),
+        coerce_to_T(T0, T),
+        coerce_to_T(Top, T),
+    )
 end
 
 """
@@ -338,8 +446,17 @@ L = $(FUNCTIONNAME)(radius_in, radius_ext, mu_r)
 
 - [`calc_tubular_resistance`](@ref)
 """
-function calc_tubular_inductance(radius_in::Number, radius_ext::Number, mu_r::Number)
-	return mu_r * μ₀ / (2 * π) * log(radius_ext / radius_in)
+function calc_tubular_inductance(radius_in::T, radius_ext::T, mu_r::T) where {T<:REALSCALAR}
+    return mu_r * μ₀ / (2 * π) * log(radius_ext / radius_in)
+end
+
+function calc_tubular_inductance(radius_in, radius_ext, mu_r)
+    T = resolve_T(radius_in, radius_ext, mu_r)
+    return calc_tubular_inductance(
+        coerce_to_T(radius_in, T),
+        coerce_to_T(radius_ext, T),
+        coerce_to_T(mu_r, T),
+    )
 end
 
 """
@@ -374,25 +491,34 @@ wire_coords = $(FUNCTIONNAME)(7, 0.002, 0.01, C=(0.5, 0.3))
 - [`LineCableModels.DataModel.WireArray`](@ref)
 """
 function calc_wirearray_coords(
-	num_wires::Number,
-	radius_wire::Number,
-	radius_in::Number;
-	C = (0.0, 0.0),
-)
-	wire_coords = []  # Global coordinates of all wires
-	# radius_wire = wa.radius_wire
-	# num_wires = wa.num_wires
-	lay_radius = num_wires == 1 ? 0 : radius_in + radius_wire
+    num_wires::U,
+    radius_wire::T,
+    radius_in::T,
+    C::Tuple{T,T},
+) where {T<:REALSCALAR,U<:Int}
+    wire_coords = Tuple{T,T}[]  # Global coordinates of all wires
+    lay_radius = num_wires == 1 ? 0 : radius_in + radius_wire
 
-	# Calculate the angle between each wire
-	angle_step = 2 * π / num_wires
-	for i in 0:num_wires-1
-		angle = i * angle_step
-		x = C[1] + lay_radius * cos(angle)
-		y = C[2] + lay_radius * sin(angle)
-		push!(wire_coords, (x, y))  # Add wire center
-	end
-	return wire_coords
+    # Calculate the angle between each wire
+    angle_step = 2 * π / num_wires
+    for i in 0:num_wires-1
+        angle = i * angle_step
+        x = C[1] + lay_radius * cos(angle)
+        y = C[2] + lay_radius * sin(angle)
+        push!(wire_coords, (x, y))  # Add wire center
+    end
+    return wire_coords
+end
+
+function calc_wirearray_coords(num_wires::Int, radius_wire, radius_in; C=nothing)
+    T = C === nothing ? resolve_T(radius_wire, radius_in) : resolve_T(radius_wire, radius_in, C...)
+    C_val = C === nothing ? coerce_to_T((0.0, 0.0), T) : coerce_to_T(C, T)
+    return calc_wirearray_coords(
+        num_wires,
+        coerce_to_T(radius_wire, T),
+        coerce_to_T(radius_in, T),
+        C_val,
+    )
 end
 
 """
@@ -438,63 +564,92 @@ println(L) # Output: Inductance value in H/m
 - [`calc_tubular_gmr`](@ref)
 """
 function calc_inductance_trifoil(
-	r_in_co::Number,
-	r_ext_co::Number,
-	rho_co::Number,
-	mu_r_co::Number,
-	r_in_scr::Number,
-	r_ext_scr::Number,
-	rho_scr::Number,
-	mu_r_scr::Number,
-	S::Number;
-	rho_e::Number = 100,
-	f::Number = f₀,
+    r_in_co::T,
+    r_ext_co::T,
+    rho_co::T,
+    mu_r_co::T,
+    r_in_scr::T,
+    r_ext_scr::T,
+    rho_scr::T,
+    mu_r_scr::T,
+    S::T;
+    rho_e::T=100.0,
+    f::T=f₀,
+) where {T<:REALSCALAR}
+
+    ω = 2 * π * f
+    C = μ₀ / (2π)
+
+    # Compute simplified earth return depth
+    DE = 659.0 * sqrt(rho_e / f)
+
+    # Compute R'_E
+    RpE = (ω * μ₀) / 8.0
+
+    # Compute Xa
+    GMRa = calc_tubular_gmr(r_ext_co, r_in_co, mu_r_co)
+    Xa = (ω * C) * log(DE / GMRa)
+
+    # Self impedance of a phase conductor with earth return
+    Ra = rho_co / (π * (r_ext_co^2 - r_in_co^2))
+    Za = RpE + Ra + im * Xa
+
+    # Compute rs
+    GMRscr = calc_tubular_gmr(r_ext_scr, r_in_scr, mu_r_scr)
+    # Compute Xs
+    Xs = (ω * C) * log(DE / GMRscr)
+
+    # Self impedance of metal screen with earth return
+    Rs = rho_scr / (π * (r_ext_scr^2 - r_in_scr^2))
+    Zs = RpE + Rs + im * Xs
+
+    # Mutual impedance between phase conductor and screen
+    Zm = RpE + im * Xs
+
+    # Compute GMD
+    GMD = S # trifoil, for flat use: 2^(1/3) * S
+
+    # Compute Xap
+    Xap = (ω * C) * log(DE / GMD)
+
+    # Equivalent mutual impedances between cables
+    Zx = RpE + im * Xap
+
+    # Formula from CIGRE TB-531, 4.2.4.3, solid bonding
+    Z1_sb = (Za - Zx) - ((Zm - Zx)^2 / (Zs - Zx))
+
+    # Likewise, but for single point bonding
+    # Z1_sp = (Za - Zx)
+    return imag(Z1_sb) / ω
+end
+
+function calc_inductance_trifoil(
+    r_in_co,
+    r_ext_co,
+    rho_co,
+    mu_r_co,
+    r_in_scr,
+    r_ext_scr,
+    rho_scr,
+    mu_r_scr,
+    S;
+    rho_e=100.0,
+    f=f₀,
 )
-
-	ω = 2 * π * f
-	C = μ₀ / (2π)
-
-	# Compute simplified earth return depth
-	DE = 659 * sqrt(rho_e / f)
-
-	# Compute R'_E
-	RpE = (ω * μ₀) / 8
-
-	# Compute Xa
-	GMRa = calc_tubular_gmr(r_ext_co, r_in_co, mu_r_co)
-	Xa = (ω * C) * log(DE / GMRa)
-
-	# Self impedance of a phase conductor with earth return
-	Ra = rho_co / (π * (r_ext_co^2 - r_in_co^2))
-	Za = RpE + Ra + im * Xa
-
-	# Compute rs
-	GMRscr = calc_tubular_gmr(r_ext_scr, r_in_scr, mu_r_scr)
-	# Compute Xs
-	Xs = (ω * C) * log(DE / GMRscr)
-
-	# Self impedance of metal screen with earth return
-	Rs = rho_scr / (π * (r_ext_scr^2 - r_in_scr^2))
-	Zs = RpE + Rs + im * Xs
-
-	# Mutual impedance between phase conductor and screen
-	Zm = RpE + im * Xs
-
-	# Compute GMD
-	GMD = S # trifoil, for flat use: 2^(1/3) * S
-
-	# Compute Xap
-	Xap = (ω * C) * log(DE / GMD)
-
-	# Equivalent mutual impedances between cables
-	Zx = RpE + im * Xap
-
-	# Formula from CIGRE TB-531, 4.2.4.3, solid bonding
-	Z1_sb = (Za - Zx) - ((Zm - Zx)^2 / (Zs - Zx))
-
-	# Likewise, but for single point bonding
-	# Z1_sp = (Za - Zx)
-	return imag(Z1_sb) / ω
+    T = resolve_T(r_in_co, r_ext_co, rho_co, mu_r_co, r_in_scr, r_ext_scr, rho_scr, mu_r_scr, S, rho_e, f)
+    return calc_inductance_trifoil(
+        coerce_to_T(r_in_co, T),
+        coerce_to_T(r_ext_co, T),
+        coerce_to_T(rho_co, T),
+        coerce_to_T(mu_r_co, T),
+        coerce_to_T(r_in_scr, T),
+        coerce_to_T(r_ext_scr, T),
+        coerce_to_T(rho_scr, T),
+        coerce_to_T(mu_r_scr, T),
+        coerce_to_T(S, T);
+        rho_e=coerce_to_T(rho_e, T),
+        f=coerce_to_T(f, T)
+    )
 end
 
 """
@@ -530,10 +685,20 @@ gmr = $(FUNCTIONNAME)(lay_rad, N, rad_wire, mu_r)
 println(gmr) # Expected output: 0.01187... [m]
 ```
 """
-function calc_wirearray_gmr(lay_rad::Number, N::Number, rad_wire::Number, mu_r::Number)
-	gmr_wire = rad_wire * exp(-mu_r / 4)
-	log_gmr_array = log(gmr_wire * N * lay_rad^(N - 1)) / N
-	return exp(log_gmr_array)
+function calc_wirearray_gmr(lay_rad::T, N::Int, rad_wire::T, mu_r::T) where {T<:REALSCALAR}
+    gmr_wire = rad_wire * exp(-mu_r / 4)
+    log_gmr_array = log(gmr_wire * N * lay_rad^(N - 1)) / N
+    return exp(log_gmr_array)
+end
+
+function calc_wirearray_gmr(lay_rad, N::Int, rad_wire, mu_r)
+    T = resolve_T(lay_rad, rad_wire, mu_r)
+    return calc_wirearray_gmr(
+        coerce_to_T(lay_rad, T),
+        N,
+        coerce_to_T(rad_wire, T),
+        coerce_to_T(mu_r, T),
+    )
 end
 
 """
@@ -571,30 +736,39 @@ gmr = $(FUNCTIONNAME)(radius_ext, radius_in, mu_r)
 println(gmr) # Expected output: ~0.0135 [m]
 ```
 """
-function calc_tubular_gmr(radius_ext::Number, radius_in::Number, mu_r::Number)
-	if radius_ext < radius_in
-		throw(ArgumentError("Invalid parameters: radius_ext must be >= radius_in."))
-	end
+function calc_tubular_gmr(radius_ext::T, radius_in::T, mu_r::T) where {T<:REALSCALAR}
+    if (radius_ext < radius_in) || (radius_ext <= 0.0)
+        throw(ArgumentError("Invalid parameters: radius_ext must be >= radius_in and positive."))
+    end
 
-	# Constants
-	if abs(radius_ext - radius_in) < TOL
-		# Tube collapses into a thin shell with infinitesimal thickness and the GMR is simply the radius
-		gmr = radius_ext
-	elseif abs(radius_in / radius_ext) < eps() && abs(radius_in) > TOL
-		# Tube becomes infinitely thick up to floating point precision
-		gmr = Inf
-	else
-		term1 =
-			radius_in == 0 ? 0 :
-			(radius_in^4 / (radius_ext^2 - radius_in^2)^2) * log(radius_ext / radius_in)
-		term2 = (3 * radius_in^2 - radius_ext^2) / (4 * (radius_ext^2 - radius_in^2))
-		Lin = (μ₀ * mu_r / (2 * π)) * (term1 - term2)
+    # Constants
+    if isapprox(radius_in, radius_ext)
+        # Tube collapses into a thin shell with infinitesimal thickness and the GMR is simply the radius
+        gmr = radius_ext
+    elseif abs(radius_in / radius_ext) < eps() && abs(radius_in) > TOL
+        # Tube becomes infinitely thick up to floating point precision
+        gmr = Inf
+    else
+        is_solid = isapprox(radius_in, 0.0)
+        term1 = is_solid ? 0.0 :
+                (radius_in^4 / (radius_ext^2 - radius_in^2)^2) * log(radius_ext / radius_in)
+        term2 = (3 * radius_in^2 - radius_ext^2) / (4 * (radius_ext^2 - radius_in^2))
+        Lin = (μ₀ * mu_r / (2 * π)) * (term1 - term2)
 
-		# Compute the GMR
-		gmr = exp(log(radius_ext) - (2 * π / μ₀) * Lin)
-	end
+        # Compute the GMR
+        gmr = exp(log(radius_ext) - (2 * π / μ₀) * Lin)
+    end
 
-	return gmr
+    return gmr
+end
+
+function calc_tubular_gmr(radius_ext, radius_in, mu_r)
+    T = resolve_T(radius_ext, radius_in, mu_r)
+    return calc_tubular_gmr(
+        coerce_to_T(radius_ext, T),
+        coerce_to_T(radius_in, T),
+        coerce_to_T(mu_r, T),
+    )
 end
 
 """
@@ -637,28 +811,36 @@ gmr = 0.015
 radius_ext = 0.02
 radius_in = 0.01
 mu_r = $(FUNCTIONNAME)(gmr, radius_ext, radius_in)
-println(mu_r) # Expected output: ~1.5 [dimensionless]
+println(mu_r) # Expected output: ~1.7 [dimensionless]
 ```
 
 # See also
 - [`calc_tubular_gmr`](@ref)
 """
-function calc_equivalent_mu(gmr::Number, radius_ext::Number, radius_in::Number)
-	if radius_ext < radius_in
-		throw(ArgumentError("Invalid parameters: radius_ext must be >= radius_in."))
-	end
+function calc_equivalent_mu(gmr::T, radius_ext::T, radius_in::T) where {T<:REALSCALAR}
+    if (radius_ext < radius_in) || (radius_ext <= 0.0)
+        throw(ArgumentError("Invalid parameters: radius_ext must be >= radius_in and positive."))
+    end
+    is_solid = isapprox(radius_in, 0.0) || isapprox(radius_in, radius_ext)
+    term1 = is_solid ? 0.0 :
+            (radius_in^4 / (radius_ext^2 - radius_in^2)^2) * log(radius_ext / radius_in)
+    term2 = (3 * radius_in^2 - radius_ext^2) / (4 * (radius_ext^2 - radius_in^2))
+    # Compute the log difference
+    log_diff = log(gmr) - log(radius_ext)
 
-	term1 =
-		radius_in == 0 ? 0 :
-		(radius_in^4 / (radius_ext^2 - radius_in^2)^2) * log(radius_ext / radius_in)
-	term2 = (3 * radius_in^2 - radius_ext^2) / (4 * (radius_ext^2 - radius_in^2))
-	# Compute the log difference
-	log_diff = log(gmr) - log(radius_ext)
+    # Compute mu_r
+    mu_r = -log_diff / (term1 - term2)
 
-	# Compute mu_r
-	mu_r = -log_diff / (term1 - term2)
+    return mu_r
+end
 
-	return mu_r
+function calc_equivalent_mu(gmr, radius_ext, radius_in)
+    T = resolve_T(gmr, radius_ext, radius_in)
+    return calc_equivalent_mu(
+        coerce_to_T(gmr, T),
+        coerce_to_T(radius_ext, T),
+        coerce_to_T(radius_in, T),
+    )
 end
 
 """
@@ -691,8 +873,17 @@ capacitance = $(FUNCTIONNAME)(radius_in, radius_ext, epsr)
 println(capacitance) # Expected output: ~1.24e-10 [F/m]
 ```
 """
-function calc_shunt_capacitance(radius_in::Number, radius_ext::Number, epsr::Number)
-	return 2 * π * ε₀ * epsr / log(radius_ext / radius_in)
+function calc_shunt_capacitance(radius_in::T, radius_ext::T, epsr::T) where {T<:REALSCALAR}
+    return 2 * π * ε₀ * epsr / log(radius_ext / radius_in)
+end
+
+function calc_shunt_capacitance(radius_in, radius_ext, epsr)
+    T = resolve_T(radius_in, radius_ext, epsr)
+    return calc_shunt_capacitance(
+        coerce_to_T(radius_in, T),
+        coerce_to_T(radius_ext, T),
+        coerce_to_T(epsr, T),
+    )
 end
 
 """
@@ -725,11 +916,19 @@ g = $(FUNCTIONNAME)(radius_in, radius_ext, rho)
 println(g) # Expected output: 2.7169e-9 [S·m]
 ```
 """
-function calc_shunt_conductance(radius_in::Number, radius_ext::Number, rho::Number)
-	return 2 * π * (1 / rho) / log(radius_ext / radius_in)
+function calc_shunt_conductance(radius_in::T, radius_ext::T, rho::T) where {T<:REALSCALAR}
+    return 2 * π * (1 / rho) / log(radius_ext / radius_in)
 end
 
-using ..DataModel: AbstractCablePart, ConductorGroup, WireArray
+function calc_shunt_conductance(radius_in, radius_ext, rho)
+    T = resolve_T(radius_in, radius_ext, rho)
+    return calc_shunt_conductance(
+        coerce_to_T(radius_in, T),
+        coerce_to_T(radius_ext, T),
+        coerce_to_T(rho, T),
+    )
+end
+
 """
 $(TYPEDSIGNATURES)
 
@@ -768,12 +967,12 @@ equivalent_gmr = $(FUNCTIONNAME)(conductor, new_layer)  # Expected output: Updat
 
 - [`calc_gmd`](@ref)
 """
-function calc_equivalent_gmr(existing::AbstractCablePart, new_layer::AbstractCablePart)
-	beta = existing.cross_section / (existing.cross_section + new_layer.cross_section)
-	current_conductor = existing isa ConductorGroup ? existing.layers[end] : existing
-	gmd = calc_gmd(current_conductor, new_layer)
-	return existing.gmr^(beta^2) * new_layer.gmr^((1 - beta)^2) *
-		   gmd^(2 * beta * (1 - beta))
+function calc_equivalent_gmr(existing::T, new_layer::U) where {T<:AbstractCablePart,U<:AbstractCablePart}
+    beta = existing.cross_section / (existing.cross_section + new_layer.cross_section)
+    current_conductor = existing isa ConductorGroup ? existing.layers[end] : existing
+    gmd = calc_gmd(current_conductor, new_layer)
+    return existing.gmr^(beta^2) * new_layer.gmr^((1 - beta)^2) *
+           gmd^(2 * beta * (1 - beta))
 end
 
 """
@@ -824,55 +1023,55 @@ gmd = $(FUNCTIONNAME)(strip, tubular)  # Expected output: GMD value [m]
 - [`calc_wirearray_coords`](@ref)
 - [`calc_equivalent_gmr`](@ref)
 """
-function calc_gmd(co1::AbstractCablePart, co2::AbstractCablePart)
+function calc_gmd(co1::T, co2::U) where {T<:AbstractCablePart,U<:AbstractCablePart}
 
-	if co1 isa WireArray
-		coords1 = calc_wirearray_coords(co1.num_wires, co1.radius_wire, co1.radius_in)
-		n1 = co1.num_wires
-		r1 = co1.radius_wire
-		s1 = pi * r1^2
-	else
-		coords1 = [(0, 0)]
-		n1 = 1
-		r1 = co1.radius_ext
-		s1 = co1.cross_section
-	end
+    if co1 isa WireArray
+        coords1 = calc_wirearray_coords(co1.num_wires, co1.radius_wire, co1.radius_in)
+        n1 = co1.num_wires
+        r1 = co1.radius_wire
+        s1 = pi * r1^2
+    else
+        coords1 = [(0.0, 0.0)]
+        n1 = 1
+        r1 = co1.radius_ext
+        s1 = co1.cross_section
+    end
 
-	if co2 isa WireArray
-		coords2 = calc_wirearray_coords(co2.num_wires, co2.radius_wire, co2.radius_in)
-		n2 = co2.num_wires
-		r2 = co2.radius_wire
-		s2 = pi * r2^2
-	else
-		coords2 = [(0, 0)]
-		n2 = 1
-		r2 = co2.radius_ext
-		s2 = co2.cross_section
-	end
+    if co2 isa WireArray
+        coords2 = calc_wirearray_coords(co2.num_wires, co2.radius_wire, co2.radius_in)
+        n2 = co2.num_wires
+        r2 = co2.radius_wire
+        s2 = pi * r2^2
+    else
+        coords2 = [(0.0, 0.0)]
+        n2 = 1
+        r2 = co2.radius_ext
+        s2 = co2.cross_section
+    end
 
-	log_sum = 0.0
-	area_weights = 0.0
+    log_sum = 0.0
+    area_weights = 0.0
 
-	for i in 1:n1
-		for j in 1:n2
-			# Pair-wise distances
-			x1, y1 = coords1[i]
-			x2, y2 = coords2[j]
-			d_ij = sqrt((x1 - x2)^2 + (y1 - y2)^2)
-			if d_ij > eps()
-				# The GMD is computed as the Euclidean distance from center-to-center
-				log_dij = log(d_ij)
-			else
-				# This means two concentric structures (solid/strip or tubular, tubular/strip or tubular, strip/strip or tubular)
-				# In all cases the GMD is the outermost radius
-				max(r1, r2)
-				log_dij = log(max(r1, r2))
-			end
-			log_sum += (s1 * s2) * log_dij
-			area_weights += (s1 * s2)
-		end
-	end
-	return exp(log_sum / area_weights)
+    for i in 1:n1
+        for j in 1:n2
+            # Pair-wise distances
+            x1, y1 = coords1[i]
+            x2, y2 = coords2[j]
+            d_ij = sqrt((x1 - x2)^2 + (y1 - y2)^2)
+            if d_ij > eps()
+                # The GMD is computed as the Euclidean distance from center-to-center
+                log_dij = log(d_ij)
+            else
+                # This means two concentric structures (solid/strip or tubular, tubular/strip or tubular, strip/strip or tubular)
+                # In all cases the GMD is the outermost radius
+                max(r1, r2)
+                log_dij = log(max(r1, r2))
+            end
+            log_sum += (s1 * s2) * log_dij
+            area_weights += (s1 * s2)
+        end
+    end
+    return exp(log_sum / area_weights)
 end
 """
 $(TYPEDSIGNATURES)
@@ -909,17 +1108,30 @@ correction = $(FUNCTIONNAME)(NaN, 0.005, 0.01)  # Expected output: 1.0 [dimensio
 ```
 """
 function calc_solenoid_correction(
-	num_turns::Number,
-	radius_ext_con::Number,
-	radius_ext_ins::Number,
+    num_turns::T,
+    radius_ext_con::T,
+    radius_ext_ins::T,
+) where {T<:REALSCALAR}
+    if isnan(num_turns)
+        return 1.0
+    else
+        return 1.0 +
+               2 * num_turns^2 * pi^2 * (radius_ext_ins^2 - radius_ext_con^2) /
+               log(radius_ext_ins / radius_ext_con)
+    end
+end
+
+function calc_solenoid_correction(
+    num_turns,
+    radius_ext_con,
+    radius_ext_ins,
 )
-	if isnan(num_turns)
-		return 1.0
-	else
-		return 1.0 +
-			   2 * num_turns^2 * pi^2 * (radius_ext_ins^2 - radius_ext_con^2) /
-			   log(radius_ext_ins / radius_ext_con)
-	end
+    T = resolve_T(num_turns, radius_ext_con, radius_ext_ins)
+    return calc_solenoid_correction(
+        coerce_to_T(num_turns, T),
+        coerce_to_T(radius_ext_con, T),
+        coerce_to_T(radius_ext_ins, T),
+    )
 end
 
 """
@@ -949,9 +1161,18 @@ where ``S_{eff}`` is the effective cross-sectional area of the tubular conductor
 rho_eq = $(FUNCTIONNAME)(0.01, 0.02, 0.01)  # Expected output: ~9.42e-4 [Ω·m]
 ```
 """
-function calc_equivalent_rho(R::Number, radius_ext_con::Number, radius_in_con::Number)
-	eff_conductor_area = π * (radius_ext_con^2 - radius_in_con^2)
-	return R * eff_conductor_area
+function calc_equivalent_rho(R::T, radius_ext_con::T, radius_in_con::T) where {T<:REALSCALAR}
+    eff_conductor_area = π * (radius_ext_con^2 - radius_in_con^2)
+    return R * eff_conductor_area
+end
+
+function calc_equivalent_rho(R, radius_ext_con, radius_in_con)
+    T = resolve_T(R, radius_ext_con, radius_in_con)
+    return calc_equivalent_rho(
+        coerce_to_T(R, T),
+        coerce_to_T(radius_ext_con, T),
+        coerce_to_T(radius_in_con, T),
+    )
 end
 
 """
@@ -984,8 +1205,17 @@ eps_eq = $(FUNCTIONNAME)(1e-10, 0.01, 0.005)  # Expected output: ~2.26 [dimensio
 # See also
 - [`ε₀`](@ref)
 """
-function calc_equivalent_eps(C_eq::Number, radius_ext::Number, radius_in::Number)
-	return (C_eq * log(radius_ext / radius_in)) / (2 * pi) / ε₀
+function calc_equivalent_eps(C_eq::T, radius_ext::T, radius_in::T) where {T<:REALSCALAR}
+    return (C_eq * log(radius_ext / radius_in)) / (2 * pi) / ε₀
+end
+
+function calc_equivalent_eps(C_eq, radius_ext, radius_in)
+    T = resolve_T(C_eq, radius_ext, radius_in)
+    return calc_equivalent_eps(
+        coerce_to_T(C_eq, T),
+        coerce_to_T(radius_ext, T),
+        coerce_to_T(radius_in, T),
+    )
 end
 
 """
@@ -1015,8 +1245,17 @@ where ``\\tan \\delta`` is the loss factor (tangent).
 loss_factor = $(FUNCTIONNAME)(1e-8, 1e-10, 2π*50)  # Expected output: ~0.0318 [dimensionless]
 ```
 """
-function calc_equivalent_lossfact(G_eq::Number, C_eq::Number, ω::Number)
-	return G_eq / (ω * C_eq)
+function calc_equivalent_lossfact(G_eq::T, C_eq::T, ω::T) where {T<:REALSCALAR}
+    return G_eq / (ω * C_eq)
+end
+
+function calc_equivalent_lossfact(G_eq, C_eq, ω)
+    T = resolve_T(G_eq, C_eq, ω)
+    return calc_equivalent_lossfact(
+        coerce_to_T(G_eq, T),
+        coerce_to_T(C_eq, T),
+        coerce_to_T(ω, T),
+    )
 end
 
 """
@@ -1046,10 +1285,17 @@ Geq = 2.7169e-9
 sigma_eq = $(FUNCTIONNAME)(G_eq, radius_in, radius_ext)
 ```
 """
-function calc_sigma_lossfact(G_eq::Number, radius_in::Number, radius_ext::Number)
-	return G_eq * log(radius_ext / radius_in) / (2 * pi)
+function calc_sigma_lossfact(G_eq::T, radius_in::T, radius_ext::T) where {T<:REALSCALAR}
+    return G_eq * log(radius_ext / radius_in) / (2 * pi)
 end
 
-Utils.@_autoexport
-
+function calc_sigma_lossfact(G_eq, radius_in, radius_ext)
+    T = resolve_T(G_eq, radius_in, radius_ext)
+    return calc_sigma_lossfact(
+        coerce_to_T(G_eq, T),
+        coerce_to_T(radius_in, T),
+        coerce_to_T(radius_ext, T),
+    )
 end
+
+end # module BaseParams

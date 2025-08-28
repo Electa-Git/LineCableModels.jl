@@ -1,4 +1,4 @@
-# Toolbox reference
+# API reference
 
 This page provides a comprehensive API reference for the [`LineCableModels.jl`](@ref) package. It documents all public modules, types, functions, and constants, organized by functional area. Each section corresponds to a major module in the package, with detailed information about parameters, return values, and usage examples.
 
