@@ -1,7 +1,11 @@
 # Make Material fieldwise-coercible with specialized dispatch
 import ..Utils: coerce_to_T
 
-coerce_to_T(m::Material, ::Type{T}) where {T<:REALSCALAR} = Material(
+# Identity: no allocation if already at T
+@inline coerce_to_T(m::Material{T}, ::Type{T}) where {T} = m
+
+# Cross-T rebuild: use the TYPED constructor to avoid surprise promotion
+@inline coerce_to_T(m::Material{S}, ::Type{T}) where {S,T} = Material{T}(
     coerce_to_T(m.rho, T),
     coerce_to_T(m.eps_r, T),
     coerce_to_T(m.mu_r, T),

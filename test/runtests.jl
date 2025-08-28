@@ -10,12 +10,12 @@ using TestItemRunner
 end
 
 @testsnippet defs_materials begin
+    materials = MaterialsLibrary(add_defaults=true)
     copper_props = Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
     aluminum_props = Material(2.8264e-8, 1.0, 1.0, 20.0, 0.00429)
     insulator_props = Material(1e14, 2.3, 1.0, 20.0, 0.0)
     semicon_props = Material(1000.0, 1000.0, 1.0, 20.0, 0.0)
 end
-
 
 @testsnippet cable_system_export begin
 
@@ -52,15 +52,4 @@ end
 
 end
 
-# @testitem "Cable System Export Setup" setup=[defaults, cable_system_export] begin
-#     # This is an actual test.
-#     # The code from the `defaults` and `cable_system_export` snippets has already run
-#     # before this line is executed.
-
-#     # We can add a simple test to ensure a variable from the snippet was created.
-#     @test @isdefined problem_atp
-#     @test problem_atp isa LineParametersProblem
-# end
-
-# @run_package_tests filter = ti -> occursin("Cable System Export Setup", ti.name)
-# @run_package_tests verbose = true
+@run_package_tests verbose = true

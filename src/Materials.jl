@@ -52,16 +52,37 @@ struct Material{T<:REALSCALAR}
     T0::T
     "Temperature coefficient of resistivity \\[1/°C\\]."
     alpha::T
+
+    @inline function Material{T}(rho::T, eps_r::T, mu_r::T, T0::T, alpha::T) where {T<:REALSCALAR}
+        return new{T}(rho, eps_r, mu_r, T0, alpha)
+    end
+
 end
 
-function Material(rho, eps_r, mu_r, T0, alpha)
+"""
+$(TYPEDSIGNATURES)
+
+Weakly-typed constructor that infers the target scalar type `T` from the arguments,
+coerces values to `T`, and calls the strict numeric kernel.
+
+# Arguments
+- `rho`: Resistivity \\[Ω·m\\].
+- `eps_r`: Relative permittivity \\[1\\].
+- `mu_r`: Relative permeability \\[1\\].
+- `T0`: Reference temperature \\[°C\\].
+- `alpha`: Temperature coefficient of resistivity \\[1/°C\\].
+
+# Returns
+- `Material{T}` where `T = resolve_T(rho, eps_r, mu_r, T0, alpha)`.
+"""
+@inline function Material(rho, eps_r, mu_r, T0, alpha)
     T = resolve_T(rho, eps_r, mu_r, T0, alpha)
     return Material{T}(
-        convert(T, rho),
-        convert(T, eps_r),
-        convert(T, mu_r),
-        convert(T, T0),
-        convert(T, alpha),
+        coerce_to_T(rho, T),
+        coerce_to_T(eps_r, T),
+        coerce_to_T(mu_r, T),
+        coerce_to_T(T0, T),
+        coerce_to_T(alpha, T),
     )
 end
 

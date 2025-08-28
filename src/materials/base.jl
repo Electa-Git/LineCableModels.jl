@@ -1,4 +1,7 @@
-import Base: show, get, delete!, length, setindex!, iterate, keys, values, haskey, getindex, convert
+import Base: show, get, delete!, length, setindex!, iterate, keys, values, haskey, getindex, convert, eltype
+
+eltype(::Material{T}) where {T} = T
+eltype(::Type{Material{T}}) where {T} = T
 
 # Implement the AbstractDict interface
 length(lib::MaterialsLibrary) = length(lib.data)
@@ -8,6 +11,82 @@ keys(lib::MaterialsLibrary) = keys(lib.data)
 values(lib::MaterialsLibrary) = values(lib.data)
 haskey(lib::MaterialsLibrary, key::String) = haskey(lib.data, key)
 getindex(lib::MaterialsLibrary, key::String) = getindex(lib.data, key)
+
+
+"""
+$(TYPEDSIGNATURES)
+
+Removes a material from a [`MaterialsLibrary`](@ref).
+
+# Arguments
+
+- `library`: Instance of [`MaterialsLibrary`](@ref) from which the material will be removed.
+- `name`: Name of the material to be removed.
+
+# Returns
+
+- The modified instance of [`MaterialsLibrary`](@ref) without the specified material.
+
+# Errors
+
+Throws an error if the material does not exist in the library.
+
+# Examples
+
+```julia
+library = MaterialsLibrary()
+$(FUNCTIONNAME)(library, "copper")
+```
+
+# See also
+
+- [`add!`](@ref)
+"""
+function delete!(library::MaterialsLibrary, name::String)
+    if !haskey(library, name)
+        @error "Material '$name' not found in the library; cannot delete."
+        throw(KeyError(name))
+
+    end
+    delete!(library.data, name)
+    @info "Material '$name' removed from the library."
+end
+
+
+
+"""
+$(TYPEDSIGNATURES)
+
+Retrieves a material from a [`MaterialsLibrary`](@ref) by name.
+
+# Arguments
+
+- `library`: Instance of [`MaterialsLibrary`](@ref) containing the materials.
+- `name`: Name of the material to retrieve.
+
+# Returns
+
+- The requested [`Material`](@ref) if found, otherwise `nothing`.
+
+# Examples
+
+```julia
+library = MaterialsLibrary()
+material = $(FUNCTIONNAME)(library, "copper")
+```
+
+# See also
+
+- [`add!`](@ref)
+- [`delete!`](@ref)
+"""
+function get(library::MaterialsLibrary, name::String, default=nothing)
+    material = get(library.data, name, default)
+    if material === nothing
+        @warn "Material '$name' not found in the library; returning default."
+    end
+    return material
+end
 
 """
 $(TYPEDSIGNATURES)

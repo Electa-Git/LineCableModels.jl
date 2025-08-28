@@ -14,25 +14,25 @@ properties that represent the composite behavior of the entire assembly.
 
 $(TYPEDFIELDS)
 """
-mutable struct ConductorGroup <: AbstractConductorPart
+mutable struct ConductorGroup{T<:REALSCALAR} <: AbstractConductorPart{T}
     "Inner radius of the conductor group \\[m\\]."
-    radius_in::Number
+    radius_in::T
     "Outer radius of the conductor group \\[m\\]."
-    radius_ext::Number
+    radius_ext::T
     "Cross-sectional area of the entire conductor group \\[m²\\]."
-    cross_section::Number
+    cross_section::T
     "Number of individual wires in the conductor group \\[dimensionless\\]."
-    num_wires::Number
+    num_wires::Int
     "Number of turns per meter of each wire strand \\[1/m\\]."
-    num_turns::Number
+    num_turns::T
     "DC resistance of the conductor group \\[Ω\\]."
-    resistance::Number
+    resistance::T
     "Temperature coefficient of resistance \\[1/°C\\]."
-    alpha::Number
+    alpha::T
     "Geometric mean radius of the conductor group \\[m\\]."
-    gmr::Number
+    gmr::T
     "Vector of conductor layer components."
-    layers::Vector{AbstractConductorPart}
+    layers::Vector{AbstractConductorPart{T}}
 
     @doc """
     $(TYPEDSIGNATURES)
@@ -46,47 +46,64 @@ mutable struct ConductorGroup <: AbstractConductorPart
     # Returns
 
     - A [`ConductorGroup`](@ref) object initialized with geometric and electrical properties derived from the central conductor.
-
-    # Examples
-
-    ```julia
-    material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
-    central_strip = Strip(0.01, 0.002, 0.05, 10, material_props)
-    conductor_group = $(FUNCTIONNAME)(central_strip)
-    println(conductor_group.layers)      # Output: [central_strip]
-    println(conductor_group.resistance)  # Output: Resistance in \\[Ω\\]
-    ```
     """
-    function ConductorGroup(central_conductor::AbstractConductorPart)
-        num_wires = 0
-        num_turns = 0.0
+    function ConductorGroup{T}(
+        radius_in::T,
+        radius_ext::T,
+        cross_section::T,
+        num_wires::Int,
+        num_turns::T,
+        resistance::T,
+        alpha::T,
+        gmr::T,
+        layers::Vector{AbstractConductorPart{T}},
+    ) where {T}
+        return new{T}(radius_in, radius_ext, cross_section, num_wires, num_turns,
+            resistance, alpha, gmr, layers)
+    end
 
-        if central_conductor isa WireArray || central_conductor isa Strip
-            num_wires = central_conductor isa WireArray ? central_conductor.num_wires : 1
-            num_turns =
-                central_conductor.pitch_length > 0 ?
-                1 / central_conductor.pitch_length : 0.0
+    function ConductorGroup{T}(central::AbstractConductorPart{T}) where {T}
+        num_wires::Int = 0
+        num_turns::T = zero(T)
+
+        # only touch fields that exist inside the guarded branches
+        if central isa WireArray{T}
+            num_wires = central.num_wires
+            num_turns = central.pitch_length > zero(T) ? one(T) / central.pitch_length : zero(T)
+        elseif central isa Strip{T}
+            num_wires = 1
+            num_turns = central.pitch_length > zero(T) ? one(T) / central.pitch_length : zero(T)
         end
 
-        # Initialize object
-        return new(
-            central_conductor.radius_in,
-            central_conductor.radius_ext,
-            central_conductor.cross_section,
+        return new{T}(
+            central.radius_in,
+            central.radius_ext,
+            central.cross_section,
             num_wires,
             num_turns,
-            central_conductor.resistance,
-            central_conductor.material_props.alpha,
-            central_conductor.gmr,
-            [central_conductor],
+            central.resistance,
+            central.material_props.alpha,
+            central.gmr,
+            AbstractConductorPart{T}[central],
         )
     end
 end
 
+# Outer helper that infers T from the central part
+ConductorGroup(con::AbstractConductorPart{T}) where {T} = ConductorGroup{T}(con)
+
 """
 $(TYPEDSIGNATURES)
 
-Adds a new part to an existing [`ConductorGroup`](@ref) object and updates its equivalent electrical parameters.
+Add a new conductor part to a [`ConductorGroup`](@ref), validating raw inputs,
+normalizing proxies, and **promoting** the group’s numeric type if required.
+
+# Behavior:
+
+1. Apply part-level keyword defaults.
+2. Default `radius_in` to `group.radius_ext` if absent.
+3. Compute `Tnew = resolve_T(group, radius_in, args..., values(kwargs)...)`.
+4. If `Tnew === T`, mutate in place; else `coerce_to_T(group, Tnew)` then mutate and **return the promoted group**.
 
 # Arguments
 
@@ -128,57 +145,80 @@ $(FUNCTIONNAME)(conductor, WireArray, 0.02, 0.002, 7, 15, material_props, temper
 - [`calc_equivalent_alpha`](@ref)
 """
 function add!(
-    group::ConductorGroup,
-    part_type::Type{T},  # The type of conductor part (WireArray, Strip, Tubular)
-    args...;  # Arguments specific to the part type
-    kwargs...,
-) where {T<:AbstractConductorPart}
-    # Infer default properties
-    radius_in = get(kwargs, :radius_in, group.radius_ext)
+    group::ConductorGroup{T},
+    part_type::Type{C},
+    args...;
+    kwargs...
+) where {T,C<:AbstractConductorPart}
 
-    # Create a new named tuple with default temperature
-    default_kwargs = (temperature=group.layers[1].temperature,)
+    # 1) Merge declared keyword defaults for this part type
+    kwv = _with_kwdefaults(C, (; kwargs...))
 
-    # Create a merged kwargs dictionary
-    merged_kwargs = Dict{Symbol,Any}()
+    # 2) Default stacking: inner radius = current outer radius unless overridden
+    rin = get(kwv, :radius_in, group.radius_ext)
+    kwv = haskey(kwv, :radius_in) ? kwv : merge(kwv, (; radius_in=rin))
 
-    # Add defaults first
-    for (key, value) in pairs(default_kwargs)
-        merged_kwargs[key] = value
+    # 3) Decide target numeric type using *current group + raw inputs*
+    Tnew = resolve_T(group, rin, args..., values(kwv)...)
+
+    if Tnew === T
+        # 4a) Fast path: mutate in place
+        return _do_add!(group, C, args...; kwv...)
+    else
+        @warn """
+        Adding a `$Tnew` part to a `ConductorGroup{$T}` returns a **promoted** group.
+        Capture the result:  group = add!(group, $C, …)
+        """
+        promoted = coerce_to_T(group, Tnew)
+        return _do_add!(promoted, C, args...; kwv...)
     end
+end
 
-    # Then override with user-provided values
-    for (key, value) in kwargs
-        merged_kwargs[key] = value
-    end
+"""
+$(TYPEDSIGNATURES)
 
-    # Create the new part
-    new_part = T(radius_in, args...; merged_kwargs...)
+Internal, in-place insertion (no promotion logic). Assumes `:radius_in` was materialized.
+Runs Validation → parsing, then coerces fields to the group’s `T` and updates
+equivalent properties and book-keeping.
+"""
+function _do_add!(
+    group::ConductorGroup{Tg},
+    C::Type{<:AbstractConductorPart},
+    args...;
+    kwargs...
+) where {Tg}
+    # Materialize keyword args into a NamedTuple (never poke Base.Pairs internals)
+    kw = (; kwargs...)
 
-    # Update the Conductor with the new part
+    # Validate + parse with the part’s own pipeline (proxies resolved here)
+    ntv = Validation.validate!(C, kw.radius_in, args...; kw...)
+
+    # Coerce validated values to group’s T and call strict numeric core
+    order = (Validation.required_fields(C)..., Validation.keyword_fields(C)...)
+    coerced = _coerced_args(C, ntv, Tg, order)      # respects coercive_fields(C)
+    new_part = C(coerced...)
+
+    # Update equivalent properties
     group.gmr = calc_equivalent_gmr(group, new_part)
-    group.alpha = calc_equivalent_alpha(
-        group.alpha,
-        group.resistance,
+    group.alpha = calc_equivalent_alpha(group.alpha, group.resistance,
         new_part.material_props.alpha,
-        new_part.resistance,
-    )
-
+        new_part.resistance)
     group.resistance = calc_parallel_equivalent(group.resistance, new_part.resistance)
     group.radius_ext += (new_part.radius_ext - new_part.radius_in)
     group.cross_section += new_part.cross_section
 
-    # For WireArray, update the number of wires and turns
+    # WireArray / Strip bookkeeping
     if new_part isa WireArray || new_part isa Strip
-        cum_num_wires = group.num_wires
-        cum_num_turns = group.num_turns
-        new_wires = new_part isa WireArray ? new_part.num_wires : 1
-        new_turns = new_part.pitch_length > 0 ? 1 / new_part.pitch_length : 0.0
-        group.num_wires += new_wires
-        group.num_turns =
-            (cum_num_wires * cum_num_turns + new_wires * new_turns) / (group.num_wires)
+        old_wires = group.num_wires
+        old_turns = group.num_turns
+        nw = new_part isa WireArray ? new_part.num_wires : 1
+        nt = new_part.pitch_length > 0 ? inv(new_part.pitch_length) : zero(Tg)
+        group.num_wires += nw
+        group.num_turns = (old_wires * old_turns + nw * nt) / group.num_wires
     end
 
     push!(group.layers, new_part)
-    group
+    return group
 end
+
+include("conductorgroup/base.jl")

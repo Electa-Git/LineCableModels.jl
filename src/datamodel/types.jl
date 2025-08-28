@@ -38,7 +38,7 @@ $(TYPEDEF)
 
 Abstract type representing a generic cable part.
 """
-abstract type AbstractCablePart end
+abstract type AbstractCablePart{T} end
 
 """
 $(TYPEDEF)
@@ -50,8 +50,8 @@ Subtypes implement specific configurations:
 - [`Tubular`](@ref)
 - [`Strip`](@ref)
 """
-abstract type AbstractConductorPart <: AbstractCablePart end
-abstract type AbstractWireArray <: AbstractConductorPart end
+abstract type AbstractConductorPart{T} <: AbstractCablePart{T} end
+abstract type AbstractWireArray{T} <: AbstractConductorPart{T} end
 
 """
 $(TYPEDEF)
@@ -62,7 +62,7 @@ Subtypes implement specific configurations:
 - [`Insulator`](@ref)
 - [`Semicon`](@ref)
 """
-abstract type AbstractInsulatorPart <: AbstractCablePart end
+abstract type AbstractInsulatorPart{T} <: AbstractCablePart{T} end
 
 
 # If a correct ctor exists, Julia will pick it; this runs only when arity is wrong.

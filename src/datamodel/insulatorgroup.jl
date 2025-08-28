@@ -12,19 +12,19 @@ properties that represent the composite behavior of the entire assembly, stored 
 
 $(TYPEDFIELDS)
 """
-mutable struct InsulatorGroup <: AbstractInsulatorPart
+mutable struct InsulatorGroup{T<:REALSCALAR} <: AbstractInsulatorPart{T}
     "Inner radius of the insulator group \\[m\\]."
-    radius_in::Number
+    radius_in::T
     "Outer radius of the insulator group \\[m\\]."
-    radius_ext::Number
+    radius_ext::T
     "Cross-sectional area of the entire insulator group \\[m²\\]."
-    cross_section::Number
+    cross_section::T
     "Shunt capacitance per unit length of the insulator group \\[F/m\\]."
-    shunt_capacitance::Number
+    shunt_capacitance::T
     "Shunt conductance per unit length of the insulator group \\[S·m\\]."
-    shunt_conductance::Number
+    shunt_conductance::T
     "Vector of insulator layer components."
-    layers::Vector{AbstractInsulatorPart}
+    layers::Vector{AbstractInsulatorPart{T}}
 
     @doc """
     $(TYPEDSIGNATURES)
@@ -49,23 +49,44 @@ mutable struct InsulatorGroup <: AbstractInsulatorPart
     println(insulator_group.shunt_capacitance) # Output: Capacitance in [F/m]
     ```
     """
-    function InsulatorGroup(initial_insulator::AbstractInsulatorPart)
-        # Initialize object
-        return new(
+    function InsulatorGroup{T}(
+        radius_in::T,
+        radius_ext::T,
+        cross_section::T,
+        shunt_capacitance::T,
+        shunt_conductance::T,
+        layers::Vector{AbstractInsulatorPart{T}},
+    ) where {T}
+        return new{T}(radius_in, radius_ext, cross_section,
+            shunt_capacitance, shunt_conductance, layers)
+    end
+
+    function InsulatorGroup{T}(initial_insulator::AbstractInsulatorPart{T}) where {T}
+        return new{T}(
             initial_insulator.radius_in,
             initial_insulator.radius_ext,
             initial_insulator.cross_section,
             initial_insulator.shunt_capacitance,
             initial_insulator.shunt_conductance,
-            [initial_insulator],
+            AbstractInsulatorPart{T}[initial_insulator],
         )
     end
 end
+
+# Convenience outer
+InsulatorGroup(ins::AbstractInsulatorPart{T}) where {T} = InsulatorGroup{T}(ins)
 
 """
 $(TYPEDSIGNATURES)
 
 Adds a new part to an existing [`InsulatorGroup`](@ref) object and updates its equivalent electrical parameters.
+
+# Behavior:
+
+1. Apply part-level keyword defaults (from `Validation.keyword_defaults`).
+2. Default `radius_in` to `group.radius_ext` if absent.
+3. Compute `Tnew = resolve_T(group, radius_in, args..., values(kwargs)..., f)`.
+4. If `Tnew === T`, mutate in place; else `coerce_to_T(group, Tnew)` then mutate and **return the promoted group**.
 
 # Arguments
 
@@ -103,51 +124,80 @@ $(FUNCTIONNAME)(insulator_group, Semicon, 0.015, 0.018, material_props)
 - [`calc_parallel_equivalent`](@ref)
 """
 function add!(
-    group::InsulatorGroup,
-    part_type::Type{T},  # The type of insulator part (Insulator, Semicon)
-    args...;  # Arguments specific to the part type
-    f::Number=f₀,  # Add the f parameter with default value f₀
-    kwargs...,
-) where {T<:AbstractInsulatorPart}
-    # Infer default properties
-    radius_in = get(kwargs, :radius_in, group.radius_ext)
+    group::InsulatorGroup{T},
+    part_type::Type{C},
+    args...;
+    f::Number=f₀,
+    kwargs...
+) where {T,C<:AbstractInsulatorPart}
 
-    # Create a new named tuple with default temperature
-    default_kwargs = (temperature=group.layers[1].temperature,)
+    # 1) Merge declared keyword defaults for this part type
+    kwv = _with_kwdefaults(C, (; kwargs...))
 
-    # Create a merged kwargs dictionary
-    merged_kwargs = Dict{Symbol,Any}()
+    # 2) Default stacking: inner radius = current outer radius unless overridden
+    rin = get(kwv, :radius_in, group.radius_ext)
+    kwv = haskey(kwv, :radius_in) ? kwv : merge(kwv, (; radius_in=rin))
 
-    # Add defaults first
-    for (key, value) in pairs(default_kwargs)
-        merged_kwargs[key] = value
+    # 3) Decide target numeric type using *current group + raw inputs + f*
+    Tnew = resolve_T(group, rin, args..., values(kwv)..., f)
+
+    if Tnew === T
+        # 4a) Fast path: mutate in place
+        return _do_add!(group, C, args...; f, kwv...)
+    else
+        @warn """
+        Adding a `$Tnew` part to an `InsulatorGroup{$T}` returns a **promoted** group.
+        Capture the result:  group = add!(group, $C, …)
+        """
+        promoted = coerce_to_T(group, Tnew)
+        return _do_add!(promoted, C, args...; f, kwv...)
     end
-
-    # Then override with user-provided values
-    for (key, value) in kwargs
-        merged_kwargs[key] = value
-    end
-
-    # Create the new part
-    new_part = T(radius_in, args...; merged_kwargs...)
-
-
-    # For admittances (parallel combination)
-    ω = 2 * π * f
-    Y_group = Complex(group.shunt_conductance, ω * group.shunt_capacitance)
-    Y_newpart = Complex(new_part.shunt_conductance, ω * new_part.shunt_capacitance)
-    Y_equiv = calc_parallel_equivalent(Y_group, Y_newpart)
-    group.shunt_capacitance = imag(Y_equiv) / ω
-    group.shunt_conductance = real(Y_equiv)
-
-    # Update geometric properties
-    group.radius_ext += (new_part.radius_ext - new_part.radius_in)
-    group.cross_section += new_part.cross_section
-
-    # Add to layers
-    push!(group.layers, new_part)
-    group
 end
 
+"""
+$(TYPEDSIGNATURES)
 
+Do the actual insertion for `InsulatorGroup` with the group already at the
+correct scalar type. Validates/parses the part, coerces to the group’s `T`,
+constructs the strict numeric core, and updates geometry and admittances at the
+provided frequency.
+
+Returns the mutated group (same object).
+"""
+function _do_add!(
+    group::InsulatorGroup{Tg},
+    C::Type{<:AbstractInsulatorPart},
+    args...;
+    f::Number=f₀,
+    kwargs...
+) where {Tg}
+
+    # Materialize keyword args into a NamedTuple
+    kw = (; kwargs...)
+
+    # Validate + parse with the part’s own pipeline (proxies resolved here)
+    ntv = Validation.validate!(C, kw.radius_in, args...; kw...)
+
+    # Build argument order and coerce validated values to group’s T
+    order = (Validation.required_fields(C)..., Validation.keyword_fields(C)...)
+    coerced = _coerced_args(C, ntv, Tg, order)   # respects coercive_fields(C)
+    new_part = C(coerced...)                      # call strict numeric core
+
+    # Parallel admittances at frequency f
+    ω = Tg(2π) * coerce_to_T(f, Tg)
+    Yg = Complex(group.shunt_conductance, ω * group.shunt_capacitance)
+    Yp = Complex(new_part.shunt_conductance, ω * new_part.shunt_capacitance)
+    Ye = calc_parallel_equivalent(Yg, Yp)
+    group.shunt_conductance = real(Ye)
+    group.shunt_capacitance = imag(Ye) / ω
+
+    # Update geometry
+    group.radius_ext += new_part.radius_ext - new_part.radius_in
+    group.cross_section += new_part.cross_section
+
+    push!(group.layers, new_part)
+    return group
+end
+
+include("insulatorgroup/base.jl")
 

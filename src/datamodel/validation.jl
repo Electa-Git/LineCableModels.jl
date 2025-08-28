@@ -68,3 +68,20 @@ Validation.is_radius_input(Tubular, Val(:radius_ext), Thickness(1e-3))  # true
 ```
 """
 is_radius_input(::Type{T}, ::Val{:radius_ext}, ::Thickness) where {T} = true
+
+"""
+$(TYPEDSIGNATURES)
+
+Merge per-part keyword defaults declared via `Validation.keyword_defaults` with
+user-provided kwargs and return a **NamedTuple** suitable for forwarding.
+
+Defaults may be a `NamedTuple` or a `Tuple` zipped against `Validation.keyword_fields(::Type{C})`.
+User keys always win.
+"""
+@inline function _with_kwdefaults(::Type{C}, kwargs::NamedTuple) where {C}
+    defs = Validation.keyword_defaults(C)
+    defs === () && return kwargs
+    nt = defs isa NamedTuple ? defs :
+         NamedTuple{Validation.keyword_fields(C)}(defs)
+    return merge(nt, kwargs)
+end

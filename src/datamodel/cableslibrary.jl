@@ -1,5 +1,3 @@
-import ..LineCableModels: add!
-
 """
 $(TYPEDEF)
 
@@ -46,6 +44,8 @@ mutable struct CablesLibrary
     end
 end
 
+import ..LineCableModels: add!
+
 """
 Stores a cable design in a [`CablesLibrary`](@ref) object.
 
@@ -77,5 +77,7 @@ function add!(library::CablesLibrary, design::CableDesign)
     library
 end
 
+include("cableslibrary/base.jl")
+include("cableslibrary/dataframe.jl")
 
 

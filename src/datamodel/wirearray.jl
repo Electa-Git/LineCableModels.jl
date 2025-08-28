@@ -5,7 +5,7 @@ Represents an array of wires equally spaced around a circumference of arbitrary 
 
 $(TYPEDFIELDS)
 """
-struct WireArray{T<:REALSCALAR,U<:Int} <: AbstractWireArray
+struct WireArray{T<:REALSCALAR,U<:Int} <: AbstractWireArray{T}
     "Internal radius of the wire array \\[m\\]."
     radius_in::T
     "External radius of the wire array \\[m\\]."
@@ -131,6 +131,8 @@ Validation.has_radii(::Type{WireArray}) = false
 Validation.has_temperature(::Type{WireArray}) = true
 Validation.required_fields(::Type{WireArray}) = _REQ_WIREARRAY
 Validation.keyword_fields(::Type{WireArray}) = _OPT_WIREARRAY
+Validation.keyword_defaults(::Type{WireArray}) = _DEFS_WIREARRAY
+
 Validation.coercive_fields(::Type{WireArray}) = (:radius_in, :radius_wire, :lay_ratio, :material_props, :temperature)  # not :num_wires, :lay_direction
 # accept proxies for radii
 Validation.is_radius_input(::Type{WireArray}, ::Val{:radius_in},

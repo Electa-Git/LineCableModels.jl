@@ -84,3 +84,4 @@ function coerce_to_T(layer::EarthLayer, ::Type{T}) where {T}
         coerce_to_T(layer.mu_g, T)
     )
 end
+

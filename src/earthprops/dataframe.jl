@@ -1,3 +1,5 @@
+import DataFrames: DataFrame
+
 """
 $(TYPEDSIGNATURES)
 
@@ -22,7 +24,7 @@ df = $(FUNCTIONNAME)(earth_model)
 println(df)
 ```
 """
-function DataFrames.DataFrame(earth_model::EarthModel)
+function DataFrame(earth_model::EarthModel)
   layers = earth_model.layers
 
   base_rho_g = [layer.base_rho_g for layer in layers]

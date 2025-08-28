@@ -22,8 +22,7 @@ module Validation
 
 # Export public API
 export validate!, has_radii, has_temperature, extra_rules,
-    sanitize, parse, is_radius_input, required_fields, keyword_fields, coercive_fields,
-    Finite, Nonneg, Positive, IntegerField, Less, LessEq, IsA, Normalized, OneOf
+    sanitize, parse, is_radius_input, required_fields, keyword_fields, keyword_defaults, coercive_fields, Finite, Nonneg, Positive, IntegerField, Less, LessEq, IsA, Normalized, OneOf
 
 # Load common dependencies
 using ..LineCableModels
@@ -499,6 +498,28 @@ keyword_fields(::Type) = ()
 """
 $(TYPEDSIGNATURES)
 
+Trait hook supplying **default values** for optional keyword fields.
+
+Return either:
+- a `NamedTuple` mapping defaults by name (e.g., `(temperature = T₀,)`), or
+- a plain `Tuple` of defaults aligned with `keyword_fields(T)` (same order + length).
+
+Defaults are applied in `sanitize` **after** positional→named merge and before rule application.
+User-provided keywords always override these defaults.
+
+# Arguments
+
+- `::Type{T}`: Component type \\[dimensionless\\].
+
+# Returns
+
+- `NamedTuple` or `Tuple` with default keyword values.
+"""
+keyword_defaults(::Type) = ()
+
+"""
+$(TYPEDSIGNATURES)
+
 Trait hook listing **coercive** fields: values that participate in numeric promotion and will be converted to the promoted type by the convenience constructor. Defaults to all fields (`required_fields ∪ keyword_fields`). Types may override to exclude integers or categorical fields.
 
 # Arguments
@@ -619,6 +640,69 @@ is_radius_input(::Type{T}, ::Val{:radius_ext}, ::Any) where {T} = false
 """
 $(TYPEDSIGNATURES)
 
+Internal helper that canonicalizes `keyword_defaults(T)` into a `NamedTuple`
+keyed by `keyword_fields(T)`. Accepts:
+
+- `()` → returns an empty `NamedTuple()`.
+- `NamedTuple` → returned unchanged.
+- `Tuple` → zipped **by position** with `keyword_fields(T)`; lengths must match.
+
+This function does **not** merge user-provided keywords; callers should perform
+`merge(_kwdefaults_nt(T), kwargs)` so that user values take precedence.
+
+# Arguments
+
+- `::Type{T}`: Component type \\[dimensionless\\].
+
+# Returns
+
+- `NamedTuple` mapping optional keyword field names to their default values.
+
+# Errors
+
+- If `keyword_defaults(T)` returns a `Tuple` whose length differs from
+  `length(keyword_fields(T))`.
+- If `keyword_defaults(T)` returns a value that is neither `()` nor a
+  `NamedTuple` nor a `Tuple`.
+
+# Examples
+
+```julia
+# Suppose:
+#   keyword_fields(::Type{X})   = (:temperature, :lay_direction)
+#   keyword_defaults(::Type{X}) = (T₀, 1)
+
+$(FUNCTIONNAME)(X)  # => (temperature = T₀, lay_direction = 1)
+
+# If defaults are already a NamedTuple:
+#   keyword_defaults(::Type{Y}) = (temperature = 25.0,)
+$(FUNCTIONNAME)(Y)  # => (temperature = 25.0,)
+````
+
+# See also
+
+* [`keyword_fields`](@ref)
+* [`keyword_defaults`](@ref)
+* [`sanitize`](@ref)
+  """
+@inline function _kwdefaults_nt(::Type{T}) where {T}
+    defs = keyword_defaults(T)
+    defs === () && return NamedTuple()
+    if defs isa NamedTuple
+        return defs
+    elseif defs isa Tuple
+        keys = keyword_fields(T)
+        length(keys) == length(defs) ||
+            error("[$(String(nameof(T)))] keyword_defaults length $(length(defs)) ≠ keyword_fields length $(length(keys))")
+        return NamedTuple{keys}(defs)
+    else
+        error("[$(String(nameof(T)))] keyword_defaults must be NamedTuple or Tuple; got $(typeof(defs))")
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Performs raw input checks and shapes the input into a `NamedTuple` without parsing proxies. Responsibilities: arity validation, positional→named mapping, required field presence, and raw acceptance of radius inputs via `is_radius_input` when `has_radii(T)` is true.
 
 # Arguments
@@ -646,33 +730,34 @@ nt = $(FUNCTIONNAME)(Tubular, (0.01, 0.02, material), (; temperature = 20.0,))
 ```
 """
 function sanitize(::Type{T}, args::Tuple, kwargs::NamedTuple) where {T}
-
-    # soviet-style arity check 
+    # -- hard arity on required positionals --
     req = required_fields(T)
     kw = keyword_fields(T)
-
     nreq = length(req)
     na = length(args)
-
     if na != nreq
         names = join(string.(req), ", ")
         throw(ArgumentError("[$(_typename(T))] expected exactly $nreq positional args ($names); got $na. Optionals must be keywords."))
     end
 
-    # positional -> named (exactly nreq items)
+    # positional -> named
     nt_pos = (; (req[i] => args[i] for i = 1:nreq)...)
 
-    # Reject unknown keywords 
+    # reject unknown keywords (strict)
     for k in keys(kwargs)
         if !(k in kw) && !(k in req)
             throw(ArgumentError("[$(_typename(T))] unknown keyword '$k'. Allowed keywords: $(join(string.(kw), ", "))."))
         end
     end
 
-    # merge (keywords override same-name positional if any — rare, but consistent)
+    # user kw override positionals (if any same names)
     nt = merge(nt_pos, kwargs)
 
-    # raw acceptance for radii
+    # backfill missing optional keywords with trait defaults ---
+    # defaults first, then user-provided values win
+    nt = merge(_kwdefaults_nt(T), nt)
+
+    # radii raw acceptance (unchanged)
     if has_radii(T)
         haskey(nt, :radius_in) || throw(ArgumentError("[$(_typename(T))] missing 'radius_in'."))
         haskey(nt, :radius_ext) || throw(ArgumentError("[$(_typename(T))] missing 'radius_ext'."))

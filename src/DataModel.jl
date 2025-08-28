@@ -45,10 +45,7 @@ using ..Utils
 using ..Materials
 using ..EarthProps
 using ..Validation
-import ..Validation: sanitize, validate!, has_radii, has_temperature, extra_rules, IntegerField, Positive, Finite, Normalized, IsA
-
-# TODO: Develop and integrate input type normalization
-# Issue URL: https://github.com/Electa-Git/LineCableModels.jl/issues/10
+import ..Validation: sanitize, validate!, has_radii, has_temperature, extra_rules, IntegerField, Positive, Finite, Normalized, IsA, required_fields, coercive_fields, keyword_fields, keyword_defaults, _kwdefaults_nt
 
 # Abstract types & constructors
 include("datamodel/types.jl")
@@ -62,7 +59,7 @@ include("datamodel/strip.jl")
 include("datamodel/tubular.jl")
 include("datamodel/conductorgroup.jl")
 
-#Insulators
+# Insulators
 include("datamodel/insulator.jl")
 include("datamodel/semicon.jl")
 include("datamodel/insulatorgroup.jl")
@@ -72,12 +69,19 @@ include("datamodel/BaseParams.jl")
 @force using .BaseParams
 @reexport using .BaseParams
 
+# Groups
+include("datamodel/nominaldata.jl")
+include("datamodel/cablecomponent.jl")
 include("datamodel/cabledesign.jl")
+
+# Library
 include("datamodel/cableslibrary.jl")
 include("datamodel/linecablesystem.jl")
+
+# Helpers & overrides
 include("datamodel/helpers.jl")
 include("datamodel/preview.jl")
-include("datamodel/dataframe.jl")
-include("datamodel/base.jl")
+include("datamodel/io.jl")
+include("datamodel/typecoercion.jl")
 
 end # module DataModel

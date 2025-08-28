@@ -258,19 +258,64 @@ $(_CLEANMETHODLIST)
 - [`resolve_T`](@ref)
 """
 function coerce_to_T end
-# Promote Real to Complex when target is Complex.
+# --- No-op for exact type matches (universal short-circuit)
+coerce_to_T(x::T, ::Type{T}) where {T} = x  # exact-type pass-through, no allocation
+
+# --- Numbers
+# Promote Real to Complex when target is Complex
 coerce_to_T(x::Real, ::Type{C}) where {P,C<:Complex{P}} = C(coerce_to_T(x, P))
-# General numbers fall back to element coercion.
-coerce_to_T(x::Number, ::Type{T}) where {T} = _coerce_elt_to_T(x, T)
-# Coerce a Complex number to a target Complex type.
-coerce_to_T(x::Complex, ::Type{C}) where {P,C<:Complex{P}} =
-    C(coerce_to_T(real(x), P), coerce_to_T(imag(x), P))
-# Coerce a Complex number to a Real type (drops imaginary part).
+
+# Complex → same Complex{P}: pass-through (avoid rebuilding)
+coerce_to_T(x::Complex{P}, ::Type{Complex{P}}) where {P} = x
+
+# Complex → Complex{P′}: rebuild parts
+coerce_to_T(x::Complex{S}, ::Type{Complex{P}}) where {S,P} =
+    Complex{P}(coerce_to_T(real(x), P), coerce_to_T(imag(x), P))
+
+# Complex → Real: drop imag
 coerce_to_T(x::Complex, ::Type{R}) where {R<:Real} = coerce_to_T(real(x), R)
-# Handle containers recursively.
+
+# Generic numbers → element coercion
+coerce_to_T(x::Number, ::Type{T}) where {T} = _coerce_elt_to_T(x, T)
+
+# --- Containers
+# Arrays: return the SAME array when element type already matches exactly
+coerce_to_T(A::AbstractArray{T}, ::Type{T}) where {T} = A
 coerce_to_T(A::AbstractArray, ::Type{T}) where {T} = broadcast(y -> coerce_to_T(y, T), A)
+
+# Tuples / NamedTuples (immutables): unavoidable allocation if types change
+coerce_to_T(t::Tuple{Vararg{T}}, ::Type{T}) where {T} = t
 coerce_to_T(t::Tuple, ::Type{T}) where {T} = map(y -> coerce_to_T(y, T), t)
-coerce_to_T(nt::NamedTuple, ::Type{T}) where {T} =
-    NamedTuple{keys(nt)}(map(v -> coerce_to_T(v, T), values(nt)))
-# Fallback for other types.
+
+# --- NamedTuples (two non-overlapping methods)
+# 1) Pass-through when every field is already T (strictly more specific)
+coerce_to_T(nt::NamedTuple{K,TT}, ::Type{T}) where {K,T,TT<:Tuple{Vararg{T}}} = nt
+# 2) Fallback: rebuild with coerced values
+coerce_to_T(nt::NamedTuple{K,TT}, ::Type{T}) where {K,TT<:Tuple,T} =
+    NamedTuple{K}(map(v -> coerce_to_T(v, T), values(nt)))
+
+# --- Catch-all (must come last; pairs with the universal short-circuit above)
 coerce_to_T(x, ::Type{T}) where {T} = _coerce_elt_to_T(x, T)
+
+# # No-op for exact type matches
+# coerce_to_T(x::T, ::Type{T}) where {T} = x  # exact-type pass-through, no allocation
+
+# # --- Numbers
+# # Promote Real to Complex when target is Complex.
+# coerce_to_T(x::Real, ::Type{C}) where {P,C<:Complex{P}} = C(coerce_to_T(x, P))
+# # General numbers fall back to element coercion.
+# coerce_to_T(x::Number, ::Type{T}) where {T} = _coerce_elt_to_T(x, T)
+# # Coerce a Complex number to a target Complex type.
+# coerce_to_T(x::Complex, ::Type{C}) where {P,C<:Complex{P}} =
+#     C(coerce_to_T(real(x), P), coerce_to_T(imag(x), P))
+# # Coerce a Complex number to a Real type (drops imaginary part).
+# coerce_to_T(x::Complex, ::Type{R}) where {R<:Real} = coerce_to_T(real(x), R)
+# # --- Containers
+# # Arrays: return the SAME array when element type already matches exactly
+# coerce_to_T(A::AbstractArray, ::Type{T}) where {T} = broadcast(y -> coerce_to_T(y, T), A)
+# # Tuples / NamedTuples (immutables): unavoidable allocation if types change
+# coerce_to_T(t::Tuple, ::Type{T}) where {T} = map(y -> coerce_to_T(y, T), t)
+# coerce_to_T(nt::NamedTuple, ::Type{T}) where {T} =
+#     NamedTuple{keys(nt)}(map(v -> coerce_to_T(v, T), values(nt)))
+# # Fallback for other types.
+# coerce_to_T(x, ::Type{T}) where {T} = _coerce_elt_to_T(x, T)

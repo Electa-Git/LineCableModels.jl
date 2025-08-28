@@ -214,7 +214,7 @@
         @test_throws ArgumentError add!(cable_system, cable_design, xa, ya, Dict("core" => 2))
 
         # Test conductor at interface
-        @test_throws AssertionError CablePosition(cable_design, 0.0, 0.0, Dict("core" => 1))
+        @test_throws ArgumentError CablePosition(cable_design, 0.0, 0.0, Dict("core" => 1))
 
         # Test invalid phase mapping
         @test_throws ArgumentError CablePosition(cable_design, 1.0, 1.0, Dict("non_existent_component" => 1))

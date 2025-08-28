@@ -5,7 +5,7 @@ Represents an insulating layer with defined geometric, material, and electrical 
 
 $(TYPEDFIELDS)
 """
-struct Insulator{T<:REALSCALAR} <: AbstractInsulatorPart
+struct Insulator{T<:REALSCALAR} <: AbstractInsulatorPart{T}
     "Internal radius of the insulating layer \\[m\\]."
     radius_in::T
     "External radius of the insulating layer \\[m\\]."
@@ -91,6 +91,7 @@ Validation.has_radii(::Type{Insulator}) = true
 Validation.has_temperature(::Type{Insulator}) = true
 Validation.required_fields(::Type{Insulator}) = _REQ_INSULATOR
 Validation.keyword_fields(::Type{Insulator}) = _OPT_INSULATOR
+Validation.keyword_defaults(::Type{Insulator}) = _DEFS_INSULATOR
 
 # accept proxies for radii
 Validation.is_radius_input(::Type{Insulator}, ::Val{:radius_in}, x::AbstractCablePart) = true

@@ -5,7 +5,7 @@ Represents a tubular or solid (`radius_in=0`) conductor with geometric and mater
 
 $(TYPEDFIELDS)
 """
-struct Tubular{T<:REALSCALAR} <: AbstractConductorPart
+struct Tubular{T<:REALSCALAR} <: AbstractConductorPart{T}
     "Internal radius of the tubular conductor \\[m\\]."
     radius_in::T
     "External radius of the tubular conductor \\[m\\]."
@@ -77,6 +77,7 @@ Validation.has_radii(::Type{Tubular}) = true
 Validation.has_temperature(::Type{Tubular}) = true
 Validation.required_fields(::Type{Tubular}) = _REQ_TUBULAR
 Validation.keyword_fields(::Type{Tubular}) = _OPT_TUBULAR
+Validation.keyword_defaults(::Type{Tubular}) = _DEFS_TUBULAR
 
 # accept proxies for radii
 Validation.is_radius_input(::Type{Tubular}, ::Val{:radius_in}, x::AbstractCablePart) = true

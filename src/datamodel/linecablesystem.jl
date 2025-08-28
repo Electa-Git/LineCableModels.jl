@@ -7,13 +7,13 @@ Represents a physically defined cable with position and phase mapping within a s
 
 $(TYPEDFIELDS)
 """
-struct CablePosition
+struct CablePosition{T<:REALSCALAR}
     "The [`CableDesign`](@ref) object assigned to this cable position."
-    design_data::CableDesign
+    design_data::CableDesign{T}
     "Horizontal coordinate \\[m\\]."
-    horz::Number
+    horz::T
     "Vertical coordinate \\[m\\]."
-    vert::Number
+    vert::T
     "Phase mapping vector (aligned with design_data.components)."
     conn::Vector{Int}
 
@@ -55,49 +55,74 @@ struct CablePosition
 
     - [`CableDesign`](@ref)
     """
-    function CablePosition(
-        cable::Union{CableDesign,Nothing},
-        horz::Number,
-        vert::Number,
-        conn::Union{Dict{String,Int},Nothing}=nothing,
-    )
-        # Validate cable design is not empty
-        @assert !isnothing(cable) "A valid CableDesign must be provided"
+    function CablePosition{T}(
+        cable::CableDesign{T},
+        horz::T,
+        vert::T,
+        conn::Vector{Int},
+    ) where {T<:REALSCALAR}
+        # Validate: cable not empty
         @assert !isempty(cable.components) "CableDesign must contain at least one component"
 
-        # Find outermost radius by checking both conductor and insulator groups of last component
+        # Find outermost radius (last component)
         last_comp = cable.components[end]
         r_cond = last_comp.conductor_group.radius_ext
         r_ins = last_comp.insulator_group.radius_ext
         r_max = max(r_cond, r_ins)
 
         # Validate vertical position
-        @assert vert != 0 "Vertical position cannot be exactly at the air/earth interface (z=0)"
-        @assert abs(vert) >= r_max """
-        Vertical position |$(vert)| must be greater than or equal to cable's outer radius $(r_max)
-        to prevent crossing the air/earth interface at z=0
-        """
-
-
-        # Create phase mapping vector
-        components = [comp.id for comp in cable.components]
-        if isnothing(conn)
-            conn_vector = [i == 1 ? 1 : 0 for i in 1:length(components)]  # Default: First component gets phase 1
-        else
-            conn_vector = [get(conn, name, 0) for name in components]  # Ensure correct mapping order
+        if iszero(vert)
+            throw(ArgumentError("Vertical position cannot be exactly at the air/earth interface (z=0)"))
         end
-        # Validate there is at least one ungrounded conductor
-        !all(iszero, conn_vector) || @warn ("At least one component must be assigned to a non-zero phase.")
+        if abs(vert) < r_max
+            throw(ArgumentError("Vertical position |$vert| must be ≥ cable's outer radius $r_max to avoid crossing z=0"))
+        end
 
+        return new{T}(cable, horz, vert, conn)
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+**Weakly-typed constructor** that infers `T` from the `cable` and coordinates, builds/validates the phase mapping, coerces inputs to `T`, and calls the typed kernel.
+"""
+function CablePosition(
+    cable::Union{CableDesign,Nothing},
+    horz::Number,
+    vert::Number,
+    conn::Union{Dict{String,Int},Nothing}=nothing,
+)
+    @assert !isnothing(cable) "A valid CableDesign must be provided"
+    @assert !isempty(cable.components) "CableDesign must contain at least one component"
+
+    # Build phase mapping vector aligned to component order
+    names = [comp.id for comp in cable.components]
+    conn_vector = if isnothing(conn)
+        [i == 1 ? 1 : 0 for i in 1:length(names)]   # default: first component → phase 1, others grounded
+    else
+        [get(conn, name, 0) for name in names]
+    end
+
+    # Validate provided mapping keys exist (only when conn was given)
+    if conn !== nothing
         for component_id in keys(conn)
-            if !(component_id in [c.id for c in cable.components])
+            if !(component_id in names)
                 throw(ArgumentError("Component ID '$component_id' not found in the cable design."))
             end
         end
-
-
-        return new(cable, horz, vert, conn_vector)
     end
+
+    # Warn if all grounded
+    !all(iszero, conn_vector) || @warn("At least one component should be assigned to a non-zero phase.")
+
+    # Resolve scalar type and coerce — with identity-preserving pass-through
+    T = resolve_T(cable, horz, vert)
+    cableT = coerce_to_T(cable, T)
+    horzT = (horz isa T) ? horz : coerce_to_T(horz, T)
+    vertT = (vert isa T) ? vert : coerce_to_T(vert, T)
+
+    return CablePosition{T}(cableT, horzT, vertT, conn_vector)
 end
 
 """
@@ -107,17 +132,17 @@ Represents a cable system configuration, defining the physical structure, cables
 
 $(TYPEDFIELDS)
 """
-mutable struct LineCableSystem
+mutable struct LineCableSystem{T<:REALSCALAR}
     "Unique identifier for the system."
     system_id::String
     "Length of the cable system \\[m\\]."
-    line_length::Number
+    line_length::T
     "Number of cables in the system."
     num_cables::Int
     "Number of actual phases in the system."
     num_phases::Int
     "Cross-section cable positions."
-    cables::Vector{CablePosition}
+    cables::Vector{CablePosition{T}}
 
     @doc """
     $(TYPEDSIGNATURES)
@@ -149,26 +174,93 @@ mutable struct LineCableSystem
     - [`CablePosition`](@ref)
     - [`CableDesign`](@ref)
     """
-    function LineCableSystem(
+    @inline function LineCableSystem{T}(
         system_id::String,
-        line_length::Number,
-        cable::CablePosition,
-    )
-        # Initialize with the first cable definition
-        num_cables = 1
+        line_length::T,
+        cable::CablePosition{T},
+    ) where {T<:REALSCALAR}
+        # phase accounting from this single position
+        conn = cable.conn
+        # count unique non-zero phases
+        nph = count(x -> x > 0, unique(conn))
+        return new{T}(system_id, line_length, 1, nph, CablePosition{T}[cable])
+    end
 
-        # Count unique nonzero phases from the first cable
-        assigned_phases = unique(cable.conn)
-        num_phases = count(x -> x > 0, assigned_phases)
+    @doc """
+    $(TYPEDSIGNATURES)
 
-        return new(system_id, line_length, num_cables, num_phases, [cable])
+    **Strict numeric kernel**. Builds a typed `LineCableSystem{T}` from a vector of `CablePosition{T}`.
+    """
+    @inline function LineCableSystem{T}(
+        system_id::String,
+        line_length::T,
+        cables::Vector{CablePosition{T}},
+    ) where {T<:REALSCALAR}
+        @assert !isempty(cables) "At least one CablePosition must be provided"
+        # flatten & count phases
+        assigned = unique(vcat((cp.conn for cp in cables)...))
+        nph = count(x -> x > 0, assigned)
+        return new{T}(system_id, line_length, length(cables), nph, cables)
     end
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Adds a new cable position to an existing [`LineCableSystem`](@ref), updating its phase mapping and cable count.
+Weakly-typed constructor. Infers scalar type `T` from `line_length` and the `cable` (or its design), coerces as needed, and calls the strict kernel.
+"""
+function LineCableSystem(
+    system_id::String,
+    line_length::Number,
+    cable::CablePosition,
+)
+    T = resolve_T(line_length, cable)
+    return LineCableSystem{T}(
+        system_id,
+        coerce_to_T(line_length, T),
+        coerce_to_T(cable, T),
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Weakly-typed convenience constructor. Builds a `CablePosition` from a `CableDesign` and coordinates, then constructs the system.
+"""
+function LineCableSystem(
+    system_id::String,
+    line_length::Number,
+    cable::CableDesign,
+    horz::Number,
+    vert::Number,
+    conn::Union{Dict{String,Int},Nothing}=nothing,
+)
+    pos = CablePosition(cable, horz, vert, conn)
+    return LineCableSystem(system_id, line_length, pos)
+end
+
+# Outer (maximum) radius of the last component of a position's design
+@inline function _outer_radius(cp::CablePosition)
+    comp = cp.design_data.components[end]
+    return max(comp.conductor_group.radius_ext, comp.insulator_group.radius_ext)
+end
+
+# True if two cable disks overlap (strictly), evaluated in a common scalar type T
+@inline function _overlaps(a::CablePosition, b::CablePosition, ::Type{T}) where {T}
+    x1 = coerce_to_T(a.horz, T)
+    y1 = coerce_to_T(a.vert, T)
+    r1 = coerce_to_T(_outer_radius(a), T)
+    x2 = coerce_to_T(b.horz, T)
+    y2 = coerce_to_T(b.vert, T)
+    r2 = coerce_to_T(_outer_radius(b), T)
+    d = hypot(x1 - x2, y1 - y2)
+    return d < (r1 + r2)   # strict overlap; grazing contact (==) allowed
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Adds a new cable position to an existing [`LineCableSystem`](@ref), updating its phase mapping and cable count. If adding the position introduces a different numeric scalar type, the system is **promoted** and the promoted system is returned. Otherwise, mutation happens in place.
 
 # Arguments
 
@@ -207,38 +299,55 @@ println(cable_system.num_cables)  # Prints: 2
 - [`CablePosition`](@ref)
 - [`CableDesign`](@ref)
 """
+function add!(system::LineCableSystem{T}, pos::CablePosition) where {T}
+    # Decide the common numeric type first
+    Tnew = resolve_T(system, pos)
+
+    # Geometric guard once, in a common type (no mutation, no allocation)
+    for cp in system.cables
+        if _overlaps(cp, pos, Tnew)
+            throw(ArgumentError("Cable position overlaps an existing cable (disks intersect)."))
+        end
+    end
+
+    if Tnew === T
+        posT = coerce_to_T(pos, T)  # identity if already T
+        push!(system.cables, posT)
+        system.num_cables += 1
+        assigned = unique(vcat((cp.conn for cp in system.cables)...))
+        system.num_phases = count(x -> x > 0, assigned)
+        return system
+    else
+        @warn """
+        Adding a `$Tnew` position to a `LineCableSystem{$T}` returns a **promoted** system.
+        Capture the result:  system = add!(system, position)
+        """
+        sysT = coerce_to_T(system, Tnew)
+        posT = coerce_to_T(pos, Tnew)
+        push!(sysT.cables, posT)
+        sysT.num_cables += 1
+        assigned = unique(vcat((cp.conn for cp in sysT.cables)...))
+        sysT.num_phases = count(x -> x > 0, assigned)
+        return sysT
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Convenience `add!` that accepts a cable design and coordinates (and optional mapping).
+Builds a [`CablePosition`](@ref) and forwards to `add!(system, pos)`.
+"""
 function add!(
-    system::LineCableSystem,
+    system::LineCableSystem{T},
     cable::CableDesign,
     horz::Number,
     vert::Number,
     conn::Union{Dict{String,Int},Nothing}=nothing,
-)
-    max_phase =
-        isempty(system.cables) ? 0 : maximum(maximum.(getfield.(system.cables, :conn)))
-
-    component_names = [comp.id for comp in cable.components]  # Get component IDs from vector
-
-    new_conn = if isnothing(conn)
-        Dict(name => (i == 1 ? max_phase + 1 : 0) for (i, name) in enumerate(component_names))
-    else
-        Dict(name => get(conn, name, 0) for name in component_names)  # Ensures correct mapping order
-    end
-
-    # Validate that the coordinates do not overlap with existing cables
-    for cable_pos in system.cables
-        if cable_pos.horz == horz && cable_pos.vert == vert
-            throw(ArgumentError("Cable position overlaps with existing cable"))
-        end
-    end
-
-    push!(system.cables, CablePosition(cable, horz, vert, new_conn))
-
-    # Update num_cables
-    system.num_cables += 1
-
-    # Update num_phases by counting unique nonzero phases
-    assigned_phases = unique(vcat([cable_pos.conn for cable_pos in system.cables]...))
-    system.num_phases = count(x -> x > 0, assigned_phases)
-    system
+) where {T}
+    pos = CablePosition(cable, horz, vert, conn)
+    return add!(system, pos)  # may mutate or return a promoted system
 end
+
+include("linecablesystem/dataframe.jl")
+include("linecablesystem/base.jl")

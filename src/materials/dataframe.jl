@@ -1,3 +1,5 @@
+import DataFrames: DataFrame
+
 """
 $(TYPEDSIGNATURES)
 
@@ -22,7 +24,7 @@ df = $(FUNCTIONNAME)(library)
 
 - [`LineCableModels.ImportExport.save`](@ref)
 """
-function DataFrames.DataFrame(library::MaterialsLibrary)::DataFrame
+function DataFrame(library::MaterialsLibrary)::DataFrame
     rows = [
         (
             name=name,

@@ -5,7 +5,7 @@ Represents a semiconducting layer with defined geometric, material, and electric
 
 $(TYPEDFIELDS)
 """
-struct Semicon{T<:REALSCALAR} <: AbstractInsulatorPart
+struct Semicon{T<:REALSCALAR} <: AbstractInsulatorPart{T}
     "Internal radius of the semiconducting layer \\[m\\]."
     radius_in::T
     "External radius of the semiconducting layer \\[m\\]."
@@ -96,6 +96,7 @@ Validation.has_radii(::Type{Semicon}) = true
 Validation.has_temperature(::Type{Semicon}) = true
 Validation.required_fields(::Type{Semicon}) = _REQ_SEMICON
 Validation.keyword_fields(::Type{Semicon}) = _OPT_SEMICON
+Validation.keyword_defaults(::Type{Semicon}) = _DEFS_SEMICON
 
 # accept proxies for radii
 Validation.is_radius_input(::Type{Semicon}, ::Val{:radius_in}, x::AbstractCablePart) = true

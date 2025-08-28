@@ -49,3 +49,5 @@ sprint
 .github/*.md
 .github/instructions
 .github/prompts
+test/jl_*
+*.sh

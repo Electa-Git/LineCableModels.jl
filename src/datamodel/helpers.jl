@@ -5,8 +5,8 @@ Calculates the coordinates of three cables arranged in a trifoil pattern.
 
 # Arguments
 
-- `xc`: X-coordinate of the center point \\[m\\].
-- `yc`: Y-coordinate of the center point \\[m\\].
+- `x0`: X-coordinate of the center point \\[m\\].
+- `y0`: Y-coordinate of the center point \\[m\\].
 - `r_ext`: External radius of the circular layout \\[m\\].
 
 # Returns
@@ -25,22 +25,18 @@ println((xb, yb))  # Coordinates of bottom-left cable
 println((xc, yc))  # Coordinates of bottom-right cable
 ```
 """
-function trifoil_formation(xc::T, yc::T, r_ext::T) where {T<:REALSCALAR}
+function trifoil_formation(x0::T, y0::T, r_ext::T) where {T<:REALSCALAR}
   @assert r_ext > 0 "External radius must be positive"
-  # Horizontal distance between centers of adjacent circles (equal to twice the radius of each circle)
-  d = 2 * r_ext
-  # Vertical distance from top circle center to the line between bottom two circles
-  h = sqrt(3) * r_ext
 
-  # Calculate the top circle coordinates (centered directly above the midpoint of the bottom two circles)
-  xa = xc
-  ya = yc + h / 2
+  d = r_ext / cos(deg2rad(30))
+  xa = x0
+  ya = y0 + d * sin(deg2rad(90))
 
-  # Calculate the coordinates of the bottom two circles
-  xb = xc - d / 2
-  yb = yc - h / 2
-  xc = xc + d / 2
-  yc = yc - h / 2
+  xb = x0 + d * cos(deg2rad(210))
+  yb = y0 + d * sin(deg2rad(210))
+
+  xc = x0 + d * cos(deg2rad(330))
+  yc = y0 + d * sin(deg2rad(330))
 
   return xa, ya, xb, yb, xc, yc
 end
