@@ -194,7 +194,7 @@
       "ref": "HEAD",
       "repoProvider": "github"
     },
-    "kernelOptions": { "name": "julia", "path": "." },
+    "kernelOptions": { "name": "julia-1.10", "path": "." },
     "selector": ".thebe-cell"
   }
   </script>
@@ -232,7 +232,28 @@
 <section id="live-cell-click-activate" class="title-slide slide level1 center">
 <h1>Live cell (click “Activate”)</h1>
 <p>After the deck loads, hit <strong>Activate</strong> (Thebe) → Binder spins up a Julia kernel → run:</p>
-<p><code>muggvzt #| class: thebe-cell # Minimal "computation" to prove execution sum(i^2 for i in 1:10), prod(i for i in 1:5)</code></p>
+<p><code>apjhgzo #| class: thebe-cell # Minimal "computation" to prove execution sum(i^2 for i in 1:10), prod(i for i in 1:5)</code></p>
+</section>
+<section class="slide level2">
+
+</section></section>
+<section>
+<section id="activate-kernel-if-needed" class="title-slide slide level1 center">
+<h1>Activate Kernel (if needed)</h1>
+<p>If you don’t see Thebe’s Activate control, click the button below:</p>
+<button id="thebe-activate" style="padding:8px 12px; font-size:0.9rem;">
+Activate (start Binder)
+</button>
+<script>
+  window.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('thebe-activate');
+    if (btn && window.thebe) {
+      btn.addEventListener('click', async () => {
+        try { await thebe.bootstrap(); btn.textContent = 'Activated'; } catch (e) { console.error(e); btn.textContent = 'Activation failed'; }
+      });
+    }
+  });
+  </script>
 </section>
 <section class="slide level2">
 
@@ -241,7 +262,7 @@
 <section id="your-package-hook-optional-live" class="title-slide slide level1 center">
 <h1>Your package hook (optional live)</h1>
 <p>Uncomment and replace with your package to smoke-test imports.</p>
-<p><code>muggvzt #| class: thebe-cell # using YourPackage # YourPackage.versioninfo() "ready"</code></p>
+<p><code>apjhgzo #| class: thebe-cell # using YourPackage # YourPackage.versioninfo() "ready"</code></p>
 </section>
 <section class="slide level2">
 
