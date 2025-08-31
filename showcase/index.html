@@ -120,18 +120,6 @@
       margin-right: 0; 
     }
   </style>
-  <script type="text/x-thebe-config">
-  {
-    "requestKernel": true,
-    "binderOptions": {
-      "repo": "Electa-Git/LineCableModels.jl",
-      "ref": "HEAD",
-      "repoProvider": "github"
-    },
-    "kernelOptions": { "name": "julia-1.11", "path": "." },
-    "selector": "[data-executable]"
-  }
-  </script>
 </head>
 <body class="quarto-dark">
   <div class="reveal">
@@ -158,38 +146,27 @@
 
 </section></section>
 <section>
-<section id="live-cell-click-activate" class="title-slide slide level1 center">
-<h1>Live cell (click “Activate”)</h1>
-<p>After the deck loads, hit <strong>Activate</strong> (Thebe) → Binder spins up a Julia kernel → run:</p>
+<section id="a-simple-computation" class="title-slide slide level1 center">
+<h1>A simple computation</h1>
+<p>This is rendered at build time (if execution is enabled):</p>
+<div id="4" class="cell" data-execution_count="1">
+<div class="cell-output cell-output-display" data-execution_count="1">
+<pre><code>(385, 120)</code></pre>
+</div>
+</div>
 </section>
 <section class="slide level2">
 
 </section></section>
 <section>
-<section id="activate-kernel-if-needed" class="title-slide slide level1 center">
-<h1>Activate Kernel (if needed)</h1>
-<p>If you don’t see Thebe’s Activate control, click the button below:</p>
-<button id="thebe-activate" style="padding:8px 12px; font-size:0.9rem;">
-Activate (start Binder)
-</button>
-<script>
-  window.addEventListener('DOMContentLoaded', () => {
-    const btn = document.getElementById('thebe-activate');
-    if (btn && window.thebe) {
-      btn.addEventListener('click', async () => {
-        try { await thebe.bootstrap(); btn.textContent = 'Activated'; } catch (e) { console.error(e); btn.textContent = 'Activation failed'; }
-      });
-    }
-  });
-  </script>
-</section>
-<section class="slide level2">
-
-</section></section>
-<section>
-<section id="your-package-hook-optional-live" class="title-slide slide level1 center">
-<h1>Your package hook (optional live)</h1>
-<p>Uncomment and replace with your package to smoke-test imports.</p>
+<section id="your-package-hook-static" class="title-slide slide level1 center">
+<h1>Your package hook (static)</h1>
+<p>Uncomment and replace with your package to smoke-test imports locally:</p>
+<div id="6" class="cell" data-execution_count="1">
+<div class="cell-output cell-output-display" data-execution_count="1">
+<pre><code>"ready"</code></pre>
+</div>
+</div>
 </section>
 <section class="slide level2">
 
@@ -203,25 +180,22 @@ Activate (start Binder)
 
 </section></section>
 <section>
-<section id="pluto-widget-live" class="title-slide slide level1 center">
-<h1>Pluto Widget (live)</h1>
-<p>If Thebe feels limited for UI widgets, here is a Pluto cell embedded via Binder. First load can take a minute.</p>
-<iframe class="pluto-frame" src="https://mybinder.org/v2/gh/Electa-Git/LineCableModels.jl/HEAD?urlpath=pluto/open?path=docs/showcase/pluto/hello.jl" loading="lazy">
-</iframe>
-<p>If the frame doesn’t load, open in a new tab:</p>
-<p><a href="https://mybinder.org/v2/gh/Electa-Git/LineCableModels.jl/HEAD?urlpath=pluto/open?path=docs/showcase/pluto/hello.jl">Open Pluto on Binder</a></p>
+<section id="pluto-live-new-tab" class="title-slide slide level1 center">
+<h1>Pluto (live, new tab)</h1>
+<p>Open these Pluto notebooks on Binder (first launch can take a few minutes):</p>
+<ul>
+<li>Hello demo: https://mybinder.org/v2/gh/Electa-Git/LineCableModels.jl/HEAD?urlpath=pluto/open?path=docs/showcase/pluto/hello.jl</li>
+<li>Plot demo: https://mybinder.org/v2/gh/Electa-Git/LineCableModels.jl/HEAD?urlpath=pluto/open?path=docs/showcase/pluto/plot.jl</li>
+<li>Showcase: https://mybinder.org/v2/gh/Electa-Git/LineCableModels.jl/HEAD?urlpath=pluto/open?path=docs/showcase/pluto/showcase.jl</li>
+</ul>
 </section>
 <section class="slide level2">
 
-</section></section>
-<section id="pluto-plot-live" class="title-slide slide level1 center">
-<h1>Pluto Plot (live)</h1>
-<p>Interactive plot using Plots.jl inside Pluto.</p>
-<iframe class="pluto-frame" src="https://mybinder.org/v2/gh/Electa-Git/LineCableModels.jl/HEAD?urlpath=pluto/open?path=docs/showcase/pluto/plot.jl" loading="lazy">
-</iframe>
-<p><a href="https://mybinder.org/v2/gh/Electa-Git/LineCableModels.jl/HEAD?urlpath=pluto/open?path=docs/showcase/pluto/plot.jl">Open Pluto Plot on Binder</a></p>
-
 </section>
+<section class="slide level2">
+
+
+</section></section>
     </div>
   <div class="quarto-auto-generated-content" style="display: none;">
 <div class="footer footer-default">
