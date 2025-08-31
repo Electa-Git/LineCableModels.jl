@@ -129,7 +129,7 @@
       "repoProvider": "github"
     },
     "kernelOptions": { "name": "julia-1.11", "path": "." },
-    "selector": ".thebe-cell"
+    "selector": "[data-executable]"
   }
   </script>
   <script src="https://unpkg.com/thebe@0.8.2/lib/index.js"></script>
@@ -170,7 +170,11 @@
 <section id="live-cell-click-activate" class="title-slide slide level1 center">
 <h1>Live cell (click “Activate”)</h1>
 <p>After the deck loads, hit <strong>Activate</strong> (Thebe) → Binder spins up a Julia kernel → run:</p>
-<p><code>ybykqyg #| class: thebe-cell # Minimal "computation" to prove execution sum(i^2 for i in 1:10), prod(i for i in 1:5)</code></p>
+<div id="4" class="cell" data-thebe="true" data-execution_count="1">
+<div class="cell-output cell-output-display" data-execution_count="1">
+<pre><code>(385, 120)</code></pre>
+</div>
+</div>
 </section>
 <section class="slide level2">
 
@@ -200,7 +204,11 @@ Activate (start Binder)
 <section id="your-package-hook-optional-live" class="title-slide slide level1 center">
 <h1>Your package hook (optional live)</h1>
 <p>Uncomment and replace with your package to smoke-test imports.</p>
-<p><code>ybykqyg #| class: thebe-cell # using YourPackage # YourPackage.versioninfo() "ready"</code></p>
+<div id="6" class="cell" data-thebe="true" data-execution_count="1">
+<div class="cell-output cell-output-display" data-execution_count="1">
+<pre><code>"ready"</code></pre>
+</div>
+</div>
 </section>
 <section class="slide level2">
 
