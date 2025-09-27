@@ -369,6 +369,74 @@ function _plot_layer_makie!(ax, layer, label::String;
 		return plots
 	end
 
+	if layer isa Sector
+		vertices = layer.vertices
+		# Convert vertices to Makie.Point2f format with offset
+		makie_points = [Makie.Point2f(v[1] + x0, v[2] + y0) for v in vertices]
+		# Ensure polygon is closed by adding first point at the end if needed
+		if length(makie_points) > 0 && makie_points[1] != makie_points[end]
+			push!(makie_points, makie_points[1])
+		end
+		
+		color = get_material_color_makie(layer.material_props)
+
+		poly = Makie.poly!(ax, makie_points;
+			color = color,
+			strokecolor = :black,
+			strokewidth = 0.5,
+			label = display_legend ? label : "")
+
+		if legend_sink !== nothing && display_legend
+			push!(legend_sink[1], poly)
+			push!(legend_sink[2], label)
+			if length(legend_sink) >= 3
+				push!(legend_sink[3], [poly])
+			end
+			if length(legend_sink) >= 4
+				push!(legend_sink[4], NaN)      # not a wirearray
+			end
+		end
+		return (poly,)
+	end
+
+	if layer isa SectorInsulator
+		outer_vertices = [(v[1] + x0, v[2] + y0) for v in layer.outer_vertices]
+		# Convert to Makie.Point2f format
+		outer_points = [Makie.Point2f(v[1], v[2]) for v in outer_vertices]
+		# Ensure polygon is closed
+		if length(outer_points) > 0 && outer_points[1] != outer_points[end]
+			push!(outer_points, outer_points[1])
+		end
+
+		# (Not used for now) The inner boundary is the conductor's vertices. It must be reversed for the hole to be drawn correctly.
+		inner_vertices = [(v[1] + x0, v[2] + y0) for v in layer.inner_sector.vertices]
+		inner_points = [Makie.Point2f(v[1], v[2]) for v in inner_vertices]
+		# Ensure inner polygon is closed
+		if length(inner_points) > 0 && inner_points[1] != inner_points[end]
+			push!(inner_points, inner_points[1])
+		end
+		color = get_material_color_makie(layer.material_props)
+		# Create a shape with a hole by passing the outer boundary and holes as a vector of vectors
+		polygon_with_hole = Makie.Polygon(outer_points, [inner_points])
+		poly = Makie.poly!(ax, polygon_with_hole;
+			color = color,
+			strokecolor = :black,
+			strokewidth = 0.5,
+			label = display_legend ? label : "")
+
+		if legend_sink !== nothing && display_legend
+			push!(legend_sink[1], poly)
+			push!(legend_sink[2], label)
+			if length(legend_sink) >= 3
+				push!(legend_sink[3], [poly])
+			end
+			if length(legend_sink) >= 4
+				push!(legend_sink[4], NaN)      # not a wirearray
+			end
+		end
+		return (poly,)
+	end
+
 	@warn "Unknown layer type $(typeof(layer)); skipping"
 	return ()
 end
