@@ -382,8 +382,28 @@ function _reconstruct_partsgroup(layer_data::Dict)
             )
         elseif LayerType == Semicon
             radius_ext = get_as(deserialized_layer_dict, :radius_ext, missing, BASE_FLOAT)
-            ismissing(radius_ext) && Base.error("Missing 'radius_ext' for Semicon first layer.")
+            ismissing(radius_ext) && Base.error(
+                "Missing 'radius_ext' for first layer type $LayerType in data: $layer_data",
+            )
             return Semicon(radius_in, radius_ext, material_props; temperature=temperature)
+        elseif LayerType == Sector
+            params = get_as(deserialized_layer_dict, :params, missing, BASE_FLOAT)
+            rotation_angle_deg = get_as(deserialized_layer_dict, :rotation_angle_deg, missing, BASE_FLOAT)
+
+            ismissing(params) && Base.error("Missing 'params' for Sector in data: $layer_data")
+            !(params isa SectorParams) && error("'params' did not deserialize to a SectorParams object. Got: $(typeof(params))")
+            ismissing(rotation_angle_deg) && Base.error("Missing 'rotation_angle_deg' for Sector in data: $layer_data")
+
+            return Sector(params, rotation_angle_deg, material_props; temperature=temperature)
+        elseif LayerType == SectorInsulator
+            inner_sector = get_as(deserialized_layer_dict, :inner_sector, missing, BASE_FLOAT)
+            thickness = get_as(deserialized_layer_dict, :thickness, missing, BASE_FLOAT)
+
+            ismissing(inner_sector) && Base.error("Missing 'inner_sector' for SectorInsulator in data: $layer_data")
+            !(inner_sector isa Sector) && error("'inner_sector' did not deserialize to a Sector object. Got: $(typeof(inner_sector))")
+            ismissing(thickness) && Base.error("Missing 'thickness' for SectorInsulator in data: $layer_data")
+
+            return SectorInsulator(inner_sector, thickness, material_props; temperature=temperature)
         else
             Base.error("Unsupported layer type for first layer reconstruction: $LayerType")
         end

@@ -9,7 +9,7 @@ export add!, set_verbosity!, set_backend!
 export Material, MaterialsLibrary
 
 # Data model (design + system):
-export Thickness, Diameter, WireArray, Strip, Tubular, Semicon, Insulator
+export Thickness, Diameter, WireArray, Strip, Tubular, Semicon, Insulator, Sector, SectorInsulator
 export ConductorGroup, InsulatorGroup
 export CableComponent, CableDesign, NominalData
 export CablesLibrary

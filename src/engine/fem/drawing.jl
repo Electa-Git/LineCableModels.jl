@@ -640,6 +640,98 @@ function draw_transition_region(
 	return tags, all_mesh_points, markers
 end
 
+function draw_polygon(vertices::Vector{<:Point})
+	@debug "Drawing a polygon for a Point vertices"
+    # Create points
+    points = [gmsh.model.occ.add_point(v[1], v[2], 0.0) for v in vertices]
+
+    # Create lines
+    lines = [gmsh.model.occ.add_line(points[i], points[i % length(points) + 1]) for i in 1:length(points)]
+
+    # Create curve loop and surface
+    curve_loop = gmsh.model.occ.add_curve_loop(lines)
+    surface_tag = gmsh.model.occ.add_plane_surface([curve_loop])
+    
+    # Synchronize to make the new entity available for calculations
+    gmsh.model.occ.synchronize()
+
+    # calculate the centroid of the vertices as a marker
+    if isempty(vertices)
+        error("Cannot calculate centroid of empty vertex list.")
+    end
+    avg_x = sum(v[1] for v in vertices) / length(vertices)
+    avg_y = sum(v[2] for v in vertices) / length(vertices)
+    marker = [avg_x, avg_y, 0.0]
+
+    return surface_tag, marker
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Draw a polygon with a hole.
+
+# Arguments
+- `outer_vertices`: A vector of (x,y) coordinates for the outer boundary.
+- `inner_vertices`: A vector of (x,y) coordinates for the inner boundary (the hole).
+
+# Returns
+- A tuple containing the Gmsh surface tag and a marker point `[x, y, z]`.
+"""
+function _densify_vertices(vertices::Vector{<:Point}, max_len::Number)
+    new_vertices = Point[]
+    if isempty(vertices)
+        return new_vertices
+    end
+    for i in 1:length(vertices)
+        p1 = vertices[i]
+        p2 = vertices[i % length(vertices) + 1]
+        
+        push!(new_vertices, p1)
+        
+        edge_vec = p2 - p1
+        edge_len = norm(edge_vec)
+        
+        if edge_len > max_len
+            num_segments = ceil(Int, edge_len / max_len)
+            for j in 1:(num_segments - 1)
+                intermediate_point = p1 + (j / num_segments) * edge_vec
+                push!(new_vertices, intermediate_point)
+            end
+        end
+    end
+    return new_vertices
+end
+
+function draw_polygon_with_hole(outer_vertices::Vector{<:Point}, inner_vertices::Vector{<:Point}, max_edge_length::Number)
+    
+    new_outer_vertices = _densify_vertices(outer_vertices, max_edge_length)
+    new_inner_vertices = _densify_vertices(inner_vertices, max_edge_length)
+
+    # Create outer boundary
+    outer_points = [gmsh.model.occ.add_point(v[1], v[2], 0.0) for v in new_outer_vertices]
+    outer_lines = [gmsh.model.occ.add_line(outer_points[i], outer_points[i % length(outer_points) + 1]) for i in 1:length(outer_points)]
+    outer_loop = gmsh.model.occ.add_curve_loop(outer_lines)
+
+    # Create inner boundary (hole)
+    inner_points = [gmsh.model.occ.add_point(v[1], v[2], 0.0) for v in new_inner_vertices]
+    inner_lines = [gmsh.model.occ.add_line(inner_points[i], inner_points[i % length(inner_points) + 1]) for i in 1:length(inner_points)]
+    inner_loop = gmsh.model.occ.add_curve_loop(inner_lines)
+
+    # Create surface with hole
+    surface_tag = gmsh.model.occ.add_plane_surface([outer_loop, inner_loop])
+    
+    # Synchronize to make the new entity available for calculations
+    gmsh.model.occ.synchronize()
+
+    # A marker point must be inside the insulator, but outside the conductor.
+    # A point halfway between the inner and outer boundaries along one of the vertices should work.
+    marker_point = (outer_vertices[1] + inner_vertices[1]) / 2
+    marker = [marker_point[1], marker_point[2], 0.0]
+
+    return surface_tag, marker
+end
+
 function get_system_centroid(cable_system::LineCableSystem, cable_idx::Vector{<:Integer})
 	# Check if cable_idx is empty
 	if isempty(cable_idx)
@@ -735,6 +827,37 @@ function get_air_gap_markers(num_wires::Int, radius_wire::Number, radius_in::Num
 		push!(markers, [x, y, 0.0])
 	end
 	return markers
+end
+
+function draw_polygon(vertices::Vector{<:Point}, max_edge_length::Number)
+    if isempty(vertices)
+        error("Cannot draw a polygon with no vertices.")
+    end
+
+    new_vertices = _densify_vertices(vertices, max_edge_length)
+
+    # Create points
+    points = [gmsh.model.occ.add_point(v[1], v[2], 0.0) for v in new_vertices]
+
+    # Create lines
+    lines = [gmsh.model.occ.add_line(points[i], points[i % length(points) + 1]) for i in 1:length(points)]
+
+    # Create curve loop and surface
+    curve_loop = gmsh.model.occ.add_curve_loop(lines)
+    surface_tag = gmsh.model.occ.add_plane_surface([curve_loop])
+    
+    # Synchronize to make the new entity available for calculations
+    gmsh.model.occ.synchronize()
+
+    # calculate the centroid of the original vertices as a marker
+    if isempty(vertices)
+        error("Cannot calculate centroid of empty vertex list.")
+    end
+    avg_x = sum(v[1] for v in vertices) / length(vertices)
+    avg_y = sum(v[2] for v in vertices) / length(vertices)
+    marker = [avg_x, avg_y, 0.0]
+
+    return surface_tag, marker
 end
 
 
