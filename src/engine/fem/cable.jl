@@ -448,3 +448,161 @@ function _make_cablepart!(workspace::FEMWorkspace, part::WireArray,
 		register_physical_group!(workspace, physical_group_tag_air_gap, air_material)
 	end
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Create a cable part entity for all tubular shapes. This function is specialized for `Tubular` parts.
+
+# Arguments
+
+- `workspace`: The [`FEMWorkspace`](@ref) containing the model parameters.
+- `part`: The [`Tubular`](@ref) to create.
+- `cable_idx`: The index of the cable.
+- `comp_idx`: The index of the component.
+- `comp_id`: The ID of the component.
+- `phase`: The phase assignment.
+- `layer_idx`: The index of the layer.
+
+# Returns
+
+- Nothing. Updates the conductors or insulators vector in the workspace.
+
+# Examples
+
+```julia
+$(FUNCTIONNAME)(workspace, part, 1, 1, "core", 1, 1)
+```
+"""
+function _make_cablepart!(workspace::FEMWorkspace, part::Tubular,
+	cable_idx::Int, comp_idx::Int, comp_id::String,
+	phase::Int, layer_idx::Int)
+
+	# Get the cable definition
+	cable_position = workspace.problem_def.system.cables[cable_idx]
+
+	# Get the center coordinates
+	x_center = to_nominal(cable_position.horz)
+	y_center = to_nominal(cable_position.vert)
+
+	# Determine material group directly from part type
+	material_group = get_material_group(part)
+
+	# Get or register material ID
+	material_id = get_or_register_material_id(workspace, part.material_props)
+
+	# Create physical tag with new encoding scheme
+	physical_group_tag = encode_physical_group_tag(
+		1,              # Surface type 1 = cable component
+		cable_idx,      # Cable number
+		comp_idx,       # Component number
+		material_group, # Material group from part type
+		material_id,     # Material ID from registry
+	)
+
+	# Create physical name
+	part_type = lowercase(string(nameof(typeof(part))))
+	elementary_name = create_cable_elementary_name(
+		cable_idx = cable_idx,
+		component_id = comp_id,
+		group_type = material_group,
+		part_type = part_type,
+		layer_idx = layer_idx,
+		phase = phase,
+	)
+
+	# Extract parameters
+	radius_in = to_nominal(part.radius_in)
+	radius_ext = to_nominal(part.radius_ext)
+
+	# Calculate mesh size for this part
+	if part isa AbstractConductorPart
+		num_elements = workspace.formulation.elements_per_length_conductor
+	elseif part isa Insulator
+		num_elements = workspace.formulation.elements_per_length_insulator
+	elseif part isa Semicon
+		num_elements = workspace.formulation.elements_per_length_semicon
+	end
+
+	mesh_size_current =
+		_calc_mesh_size(radius_in, radius_ext, part.material_props, num_elements, workspace)
+
+	# Calculate mesh size for the next part
+	num_layers =
+		length(cable_position.design_data.components[comp_idx].conductor_group.layers)
+	next_part =
+		layer_idx < num_layers ?
+		cable_position.design_data.components[comp_idx].conductor_group.layers[layer_idx+1] :
+		nothing
+
+	if !isnothing(next_part)
+		next_radius_in = to_nominal(next_part.radius_in)
+		next_radius_ext = to_nominal(next_part.radius_ext)
+		mesh_size_next = _calc_mesh_size(
+			next_radius_in,
+			next_radius_ext,
+			next_part.material_props,
+			num_elements,
+			workspace,
+		)
+		if next_part isa Insulator
+			mesh_size = min(mesh_size_current, mesh_size_next)
+		else
+			mesh_size = max(mesh_size_current, mesh_size_next)
+		end
+	else
+		mesh_size = mesh_size_current
+	end
+
+	num_points_circumference = workspace.formulation.points_per_circumference
+
+	# Create annular shape and assign marker
+	if radius_in ≈ 0
+		# Solid disk
+		_, _, marker, _ =
+			draw_disk(x_center, y_center, radius_ext, mesh_size, num_points_circumference)
+	else
+		# Annular shape
+		_, _, marker, _ = draw_annular(
+			x_center,
+			y_center,
+			radius_in,
+			radius_ext,
+			mesh_size,
+			num_points_circumference,
+		)
+		
+		# Define the inner region as an insulator (air)
+        air_material = get_air_material(workspace)
+        air_material_id = get_or_register_material_id(workspace, air_material)
+        air_physical_group_tag = encode_physical_group_tag(1, cable_idx, comp_idx, 2, air_material_id)
+        air_elementary_name = create_cable_elementary_name(
+            cable_idx=cable_idx, component_id=comp_id, group_type=2,
+            part_type="tubular_inner_air", layer_idx=layer_idx, phase=phase
+        )
+        
+        # Place a marker in the inner region
+        inner_marker_x = x_center
+        inner_marker_y = y_center
+        inner_marker = [inner_marker_x, inner_marker_y, 0.0]
+        
+        core_data_air = CoreEntityData(air_physical_group_tag, air_elementary_name, mesh_size)
+        entity_data_air = SurfaceEntity(core_data_air, air_material)
+        workspace.unassigned_entities[inner_marker] = entity_data_air
+        register_physical_group!(workspace, air_physical_group_tag, air_material)
+
+	end
+
+	# Create entity data
+	core_data = CoreEntityData(physical_group_tag, elementary_name, mesh_size)
+	entity_data = CablePartEntity(core_data, part)
+
+	# Add to workspace in the unassigned container for subsequent processing
+	workspace.unassigned_entities[marker] = entity_data
+
+	# Add physical groups to the workspace
+	register_physical_group!(workspace, physical_group_tag, part.material_props)
+
+
+
+end
