@@ -82,19 +82,6 @@ function MeshTransition(
 
 	r_max = r_min + r_length
 
-	# Auto-detect layer if not specified
-	if isnothing(earth_layer)
-		# Simple detection: y >= 0 is air (layer 1), y < 0 is first earth layer (layer 2)
-		earth_layer = cy >= 0 ? 1 : 2
-		@debug "Auto-detected earth_layer=$earth_layer for transition at ($cx, $cy)"
-	end
-
-	# Validate no surface crossing for underground transitions
-	if earth_layer > 1 && cy + r_max > 0
-		Base.error(
-			"Transition region would cross earth surface (y=0). Reduce r_length or use separate transition regions.",
-		)
-	end
 
 	return MeshTransition(
 		(cx, cy),
