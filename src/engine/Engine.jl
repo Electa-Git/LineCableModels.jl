@@ -91,6 +91,7 @@ include("plot.jl")
 
 # Override I/O methods
 include("base.jl")
+include("dataframe.jl")
 
 # Submodule `FEM`
 include("fem/FEM.jl")
