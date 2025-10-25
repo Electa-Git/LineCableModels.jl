@@ -307,11 +307,12 @@ function compute_admittance_matrix!(
 		# gap coefficients p_g for gaps g = 1..n-1 (between cons[g] and cons[g+1])
 		p = Vector{Complex{T}}(undef, n-1)
 		@inbounds for g in 1:(n-1)
-			i        = cons[g]
+			i = cons[g]
 			r_in_ins = ws.r_ins_in[i]     # = r_ext of conductor g
 			r_ex_ins = ws.r_ins_ext[i]
-			eps_ins  = ws.eps_ins[i]      # eps relative
-			p[g]     = pinsfunctor(r_in_ins, r_ex_ins, eps_ins, jω)
+			eps_ins = ws.eps_ins[i]      # eps relative
+			loss_factor = ws.tan_ins[i]
+			p[g] = pinsfunctor(r_in_ins, r_ex_ins, eps_ins, jω, loss_factor)
 		end
 
 		# tail sums S[k] = sum_{g=k}^{n-1} p_g, with S[n] = 0
