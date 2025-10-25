@@ -100,6 +100,9 @@ function _add_default_materials!(library::MaterialsLibrary)
 		"polyacrylate",
 		Material(5.3e3, 32.3, 1.0, 20.0, 0.0),
 	)
+	add!(library, "lead", Material(21.4e-8, 1.0, 0.999983, 20.0, 0.00400)) # Lead or lead alloy
+	add!(library, "steel", Material(13.8e-8, 1.0, 300.0, 20.0, 0.00450)) # Steel
+	add!(library, "pp", Material(1e15, 2.8, 1.0, 20.0, 0.0)) # Laminated paper propylene
 end
 
 
