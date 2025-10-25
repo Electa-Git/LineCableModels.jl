@@ -463,22 +463,22 @@ using ..ParametricBuilder: PartSpec, _spec
 using ...DataModel: DataModel
 
 # wire: args are (n, lay)
-Wires(component::Symbol; layers::Int, d, n::Int, lay = 11.0, mat) =
+Wires(component::Symbol; layers::Int, d, n::Int, lay = 11.0, m) =
 	PartSpec(component, DataModel.WireArray, layers;
-		dim = _spec(d), args = (n, _spec(lay)), material = mat)
+		dim = _spec(d), args = (n, _spec(lay)), material = m)
 
 # tube: no extra args
-Tubular(component::Symbol; layers::Int, t, mat) =
+Tubular(component::Symbol; layers::Int, t, m) =
 	PartSpec(component, DataModel.Tubular, layers;
-		dim = _spec(t), args = (), material = mat)
+		dim = _spec(t), args = (), material = m)
 
 # strip: args are (width, lay)
-Strip(component::Symbol; layers::Int, t, w, lay = 0.0, mat) =
+Strip(component::Symbol; layers::Int, t, w, lay = 0.0, m) =
 	PartSpec(component, DataModel.Strip, layers;
-		dim = _spec(t), args = (_spec(w), _spec(lay)), material = mat)
+		dim = _spec(t), args = (_spec(w), _spec(lay)), material = m)
 
 # central + hex rings sugar
-function Stranded(component::Symbol; layers::Int, d, n::Int, lay = 11.0, mat)
+function Stranded(component::Symbol; layers::Int, d, n::Int, lay = 11.0, m)
 	@assert layers >= 1 "stranded: layers must be ≥ 1 (includes the central wire)."
 	specs = PartSpec[]
 	dspec = _spec(d)
@@ -487,7 +487,7 @@ function Stranded(component::Symbol; layers::Int, d, n::Int, lay = 11.0, mat)
 	push!(
 		specs,
 		PartSpec(component, DataModel.WireArray, 1;
-			dim = dspec, args = (1, (0.0, nothing)), material = mat),
+			dim = dspec, args = (1, (0.0, nothing)), material = m),
 	)
 
 	# 2) rings: (layers-1) layers, base n, common lay
@@ -495,7 +495,7 @@ function Stranded(component::Symbol; layers::Int, d, n::Int, lay = 11.0, mat)
 		push!(
 			specs,
 			PartSpec(component, DataModel.WireArray, layers - 1;
-				dim = dspec, args = (n, _spec(lay)), material = mat),
+				dim = dspec, args = (n, _spec(lay)), material = m),
 		)
 	end
 
@@ -509,11 +509,11 @@ module Insulator
 using ..ParametricBuilder: PartSpec, _spec
 using ...DataModel: DataModel
 
-Tubular(component::Symbol; layers::Int, t, mat) =
+Tubular(component::Symbol; layers::Int, t, m) =
 	PartSpec(component, DataModel.Insulator, layers;
-		dim = _spec(t), args = (), material = mat)
+		dim = _spec(t), args = (), material = m)
 
-Semicon(component::Symbol; layers::Int, t, mat) =
+Semicon(component::Symbol; layers::Int, t, m) =
 	PartSpec(component, DataModel.Semicon, layers;
-		dim = _spec(t), args = (), material = mat)
+		dim = _spec(t), args = (), material = m)
 end
