@@ -198,47 +198,6 @@ function DataFrame(
 	)
 end
 
-"""
-	DataFrame(slice::AbstractVector; freqs, kind=:auto, mode=:RLCG,
-			  coord=:cart, freq_unit=:base, length_unit=:kilo, quantity_units=nothing,
-			  tol=sqrt(eps(Float64)))
-
-Create a frequency-indexed `DataFrame` for a single impedance/admittance element
-provided as a vector over frequency samples.
-
-- `freqs`: frequency vector in Hz (must be supplied).
-- `kind`: `:series_impedance`, `:shunt_admittance`, or `:auto` (default). `:auto`
-  attempts to infer the correct type using the magnitude of the real part.
-- Remaining keywords follow the array methods.
-"""
-function DataFrame(
-	slice::AbstractVector;
-	freqs::AbstractVector,
-	kind::Symbol = :auto,
-	mode::Symbol = :RLCG,
-	coord::Symbol = :cart,
-	freq_unit::Symbol = :base,
-	length_unit::Symbol = :kilo,
-	quantity_units = nothing,
-	tol::Real = sqrt(eps(Float64)),
-)
-	freq_raw = _frequency_vector(slice, freqs)
-	units = _normalize_quantity_units(quantity_units)
-	kind ∈ (:series_impedance, :shunt_admittance, :auto) ||
-		Base.error("Unsupported kind $(kind). Use :series_impedance, :shunt_admittance, or :auto.")
-	return _slice_dataframe(
-		slice,
-		kind,
-		freq_raw,
-		mode,
-		coord,
-		units,
-		length_unit,
-		freq_unit,
-		float(tol),
-	)
-end
-
 function _clip_field(x::Real, tol)
 	isfinite(x) || return x
 	return _clip(x, tol)
@@ -273,3 +232,56 @@ end
 
 _scalar_abs(x::Real) = abs(x)
 _scalar_abs(m::Measurements.Measurement) = abs(value(m))
+
+"""
+	DataFrame(LP::LineParameters; mode=:RLCG, coord=:cart,
+			  freq_unit=:base, length_unit=:kilo, quantity_units=nothing,
+			  tol=sqrt(eps(Float64)))
+Convert `LP.Z` and `LP.Y` to per-element, frequency-indexed `DataFrame`s
+using `LP.f` as the authoritative frequency vector. Returns `(df_z, df_y)`,
+each an `n×n` `Matrix{DataFrame}`.
+"""
+function DataFrame(
+	LP::LineParameters;
+	mode::Symbol = :RLCG,
+	coord::Symbol = :cart,
+	freq_unit::Symbol = :base,
+	length_unit::Symbol = :kilo,
+	quantity_units = nothing,
+	tol::Real = sqrt(eps(Float64)),
+)
+	# --- validations: LP is the source of truth for frequency samples ----
+	@assert eltype(LP.f) <: Real "LP.f must be real-valued frequencies."
+	nzx, nzy, nfZ = size(LP.Z.values)
+	nyx, nyy, nfY = size(LP.Y.values)
+	nfZ == nfY ||
+		Base.error("Z and Y have different number of frequency samples: $nfZ ≠ $nfY.")
+	length(LP.f) == nfZ || Base.error(
+		"Length of LP.f ($(length(LP.f))) does not match samples in Z/Y ($nfZ).",
+	)
+
+	# --- delegate with LP.f explicitly (no guessing, no manual input) ----
+	df_z = DataFrame(
+		LP.Z;
+		freqs = LP.f,
+		mode = mode,
+		coord = coord,
+		freq_unit = freq_unit,
+		length_unit = length_unit,
+		quantity_units = quantity_units,
+		tol = tol,
+	)
+
+	df_y = DataFrame(
+		LP.Y;
+		freqs = LP.f,
+		mode = mode,
+		coord = coord,
+		freq_unit = freq_unit,
+		length_unit = length_unit,
+		quantity_units = quantity_units,
+		tol = tol,
+	)
+
+	return df_z, df_y
+end
