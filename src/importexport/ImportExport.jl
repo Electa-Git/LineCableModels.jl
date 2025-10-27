@@ -30,10 +30,9 @@ export read_data
 export save
 export load!
 
-
 # Module-specific dependencies
 using ..Commons
-using ..Utils: display_path, to_nominal, resolve_T, coerce_to_T
+using ..Utils: display_path, to_nominal, resolve_T, coerce_to_T, isdiag_approx
 using ..Materials: Material, MaterialsLibrary
 using ..EarthProps: EarthModel
 using ..DataModel: CablesLibrary, CableDesign, CableComponent, ConductorGroup,
@@ -47,7 +46,9 @@ using Printf # For ATP export
 using JSON3
 using Serialization # For .jls format
 using LinearAlgebra
-
+using XLSX
+using Tables
+using DataFrames
 
 """
 $(TYPEDSIGNATURES)
@@ -68,6 +69,7 @@ include("cableslibrary.jl")
 include("materialslibrary.jl")
 include("pscad.jl")
 include("atp.jl")
+include("xlsx.jl")
 include("tralin.jl")
 
 end # module ImportExport
