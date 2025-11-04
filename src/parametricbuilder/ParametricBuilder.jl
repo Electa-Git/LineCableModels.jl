@@ -4,7 +4,7 @@ module ParametricBuilder
 export make_stranded, make_screened
 export Conductor, Insulator, Material, CableBuilder
 export at, Earth, SystemBuilder
-export sample
+export determinize, sample
 
 # Module-specific dependencies
 using ..Commons
@@ -53,6 +53,7 @@ end
 include("materialspec.jl")
 include("cablebuilderspec.jl")
 include("systembuilderspec.jl")
+include("determinize.jl")
 include("uquant.jl")
 include("base.jl")
 
