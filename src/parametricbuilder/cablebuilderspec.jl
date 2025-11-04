@@ -477,6 +477,11 @@ Strip(component::Symbol; layers::Int, t, w, lay = 0.0, m) =
 	PartSpec(component, DataModel.Strip, layers;
 		dim = _spec(t), args = (_spec(w), _spec(lay)), material = m)
 
+# solid: inherits inner radius = 0.0, builds from diameter
+Solid(component::Symbol; d, m) =
+	PartSpec(component, DataModel.Tubular, 1;
+		dim = _spec(d), args = (), material = m)
+
 # central + hex rings sugar
 function Stranded(component::Symbol; layers::Int, d, n::Int, lay = 11.0, m)
 	@assert layers >= 1 "stranded: layers must be ≥ 1 (includes the central wire)."
