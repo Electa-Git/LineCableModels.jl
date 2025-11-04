@@ -43,7 +43,7 @@ end
 	return (v, u)
 end
 
-@inline _is_pct_pair(a) = (a isa Tuple) && (length(a) == 2) && !(a[1] isa Integer)
+# @inline _is_pct_pair(a) = (a isa Tuple) && (length(a) == 2) && !(a[1] isa Integer)
 
 # Collapse PartSpec.args:
 #   each entry can be:
@@ -56,7 +56,7 @@ end
 		(
 			begin
 				a = args[i]
-				if _is_pct_pair(a)
+				if (a isa Tuple) && (length(a) == 2) && !(a[1] isa Integer) #_is_pct_pair(a)
 					_collapse_pair(a, distribution)
 				elseif a isa AbstractVector
 					# pick one element uniformly if user passed enumerations
