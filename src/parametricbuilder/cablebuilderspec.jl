@@ -43,8 +43,10 @@ function _collect_parts!(acc::Vector{PartSpec}, x)
 		@inbounds for y in x
 			_collect_parts!(acc, y)
 		end
+	elseif isnothing(x)
+		@warn "Ignoring `nothing` in parts collection."
 	else
-		error("Expected PartSpec or a collection of PartSpec; got $(typeof(x))")
+		Base.error("Expected PartSpec or a collection of PartSpec; got $(typeof(x))")
 	end
 	return acc
 end
