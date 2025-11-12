@@ -13,42 +13,49 @@
 @inline function _det_pair(spec, pct)
 	pct === nothing && return (spec, nothing)
 
-	# A) spec = (lo,hi,N1), pct = (u1,u2,N2) → ((lo(1-u1%), hi(1+u2%), N1*N2), nothing)
+	# helper: largest percent magnitude in the tuple
+	_umax(u1, u2) = max(abs(float(u1)), abs(float(u2)))
+
+	# A) spec = (lo,hi,N1), pct = (u1,u2,N2)
 	if (spec isa Tuple && length(spec)==3 && all(x->x isa Number, spec)) &&
 	   (pct isa Tuple && length(pct) == 3 && all(x->x isa Number, pct))
 		lo, hi, N1 = float(spec[1]), float(spec[2]), Int(spec[3])
 		u1, u2, N2 = float(pct[1]), float(pct[2]), Int(pct[3])
-		lo_det, hi_det = _expand_bounds(lo, hi, u1, u2)
+		u = _umax(u1, u2)
+		lo_det = lo * (1 - _pct(u))
+		hi_det = hi * (1 + _pct(u))
 		return ((lo_det, hi_det, N1 * N2), nothing)
 	end
 
-	# B) spec = (lo,hi,N1), pct = u → ((lo(1-u%), hi(1+u%), N1), nothing)
+	# B) spec = (lo,hi,N1), pct = u
 	if (spec isa Tuple && length(spec)==3 && all(x->x isa Number, spec)) && (pct isa Number)
 		lo, hi, N1 = float(spec[1]), float(spec[2]), Int(spec[3])
-		u = float(pct)
-		lo_det, hi_det = _expand_bounds(lo, hi, u, u)
+		u = abs(float(pct))
+		lo_det = lo * (1 - _pct(u))
+		hi_det = hi * (1 + _pct(u))
 		return ((lo_det, hi_det, N1), nothing)
 	end
 
-	# C) spec = nom, pct = (u1,u2,N2) → ((nom(1-u1%), nom(1+u2%), N2), nothing)
+	# C) spec = nom, pct = (u1,u2,N2)
 	if (spec isa Number) && (pct isa Tuple && length(pct)==3 && all(x->x isa Number, pct))
 		nom = float(spec)
 		u1, u2, N2 = float(pct[1]), float(pct[2]), Int(pct[3])
-		lo_det, hi_det = _expand_nom(nom, u1);
-		_, hi2 = _expand_nom(nom, u2)
-		# reuse lo_det from u1 and hi from u2 to respect asymmetric pct
-		return ((lo_det, hi2, N2), nothing)
+		u = _umax(u1, u2)
+		lo_det = nom * (1 - _pct(u))
+		hi_det = nom * (1 + _pct(u))
+		return ((lo_det, hi_det, max(N2, 2)), nothing)
 	end
 
-	# D) spec = nom, pct = u → ((nom(1-u%), nom(1+u%), 2), nothing)
+	# D) spec = nom, pct = u
 	if (spec isa Number) && (pct isa Number)
 		nom = float(spec);
-		u = float(pct)
-		lo_det, hi_det = _expand_nom(nom, u)
+		u = abs(float(pct))
+		lo_det = nom * (1 - _pct(u))
+		hi_det = nom * (1 + _pct(u))
 		return ((lo_det, hi_det, 2), nothing)
 	end
 
-	# E) spec === nothing — no sensible base for %; safest is to drop pct
+	# E) fallback
 	return (spec, nothing)
 end
 
