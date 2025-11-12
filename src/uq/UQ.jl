@@ -7,7 +7,8 @@ export sample, mc
 using ..ParametricBuilder:
 	MaterialSpec, PartSpec, CableBuilderSpec, SystemBuilderSpec, build, iterate_problems,
 	_spec, determinize
-using Measurements: Measurement, value, uncertainty
+using ..Engine: EMTFormulation, compute!, LineParameters
+using Measurements: Measurement, measurement, value, uncertainty
 using Random, Statistics, DataFrames
 using Distributions: Distributions, Normal, Uniform
 using StatsBase: fit, Histogram
