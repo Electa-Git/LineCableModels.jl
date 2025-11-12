@@ -42,6 +42,8 @@ using ..Utils
 using ..Materials
 using ..EarthProps: EarthModel
 using ..DataModel: LineCableSystem
+using ..Utils: levelfrom, TimestampLogger
+using Logging, LoggingExtras
 
 include("types.jl")
 
