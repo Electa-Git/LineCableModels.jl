@@ -148,7 +148,7 @@ function iterate_problems(spec::SystemBuilderSpec)
 		catch e
 			@error "iterate SystemBuilderSpec failed" exception=(e, catch_backtrace())
 		finally
-			@info "iterate SystemBuilderSpec finished" produced=produced upper_bound=cardinality(
+			@debug "iterate SystemBuilderSpec finished" produced=produced upper_bound=cardinality(
 				spec,
 			)
 		end
