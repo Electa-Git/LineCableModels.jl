@@ -4,7 +4,7 @@ module ParametricBuilder
 export make_stranded, make_screened
 export Conductor, Insulator, Material, CableBuilder
 export at, Earth, SystemBuilder
-export determinize, sample
+export determinize
 
 # Module-specific dependencies
 using ..Commons
@@ -54,7 +54,6 @@ include("materialspec.jl")
 include("cablebuilderspec.jl")
 include("systembuilderspec.jl")
 include("determinize.jl")
-include("uquant.jl")
 include("base.jl")
 
 # Submodule `WirePatterns`
