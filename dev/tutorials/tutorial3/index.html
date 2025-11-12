@@ -3,13 +3,13 @@
 using LineCableModels.Engine.FEM
 using LineCableModels.Engine.Transforms: Fortescue
 using DataFrames
-using Printf</code></pre><p>Initialize library and the required materials for this design:</p><pre><code class="language- hljs">materials = MaterialsLibrary(add_defaults = true)
-lead = Material(21.4e-8, 1.0, 0.999983, 20.0, 0.00400) # Lead or lead alloy
-add!(materials, &quot;lead&quot;, lead)
-steel = Material(13.8e-8, 1.0, 300.0, 20.0, 0.00450) # Steel
-add!(materials, &quot;steel&quot;, steel)
-pp = Material(1e15, 2.8, 1.0, 20.0, 0.0) # Laminated paper propylene
-add!(materials, &quot;pp&quot;, pp)</code></pre><p>Inspect the contents of the materials library:</p><pre><code class="language-julia hljs">materials_df = DataFrame(materials)</code></pre><div><div style = "float: left;"><span>12×6 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">name</th><th style = "text-align: left;">rho</th><th style = "text-align: left;">eps_r</th><th style = "text-align: left;">mu_r</th><th style = "text-align: left;">T0</th><th style = "text-align: left;">alpha</th></tr><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;"></th><th title = "String" style = "text-align: left;">String</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pe</td><td style = "text-align: right;">1.97e14</td><td style = "text-align: right;">2.3</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">20.0</td><td style = "text-align: right;">0.0</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">copper</td><td style = "text-align: right;">1.7241e-8</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">0.999994</td><td style = "text-align: right;">20.0</td><td style = "text-align: right;">0.00393</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">pec</td><td style = "text-align: right;">2.22045e-16</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">20.0</td><td style = "text-align: right;">0.0</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">polyacrylate</td><td style = "text-align: right;">5300.0</td><td style = "text-align: right;">32.3</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">20.0</td><td style = "text-align: right;">0.0</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">5</td><td style = "text-align: left;">semicon1</td><td style = "text-align: right;">1000.0</td><td style = "text-align: right;">1000.0</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">20.0</td><td style = "text-align: right;">0.0</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">6</td><td style = "text-align: left;">xlpe</td><td style = "text-align: right;">1.97e14</td><td style = "text-align: right;">2.5</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">20.0</td><td style = "text-align: right;">0.0</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">7</td><td style = "text-align: left;">semicon2</td><td style = "text-align: right;">500.0</td><td style = "text-align: right;">1000.0</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">20.0</td><td style = "text-align: right;">0.0</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">8</td><td style = "text-align: left;">aluminum</td><td style = "text-align: right;">2.8264e-8</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">1.00002</td><td style = "text-align: right;">20.0</td><td style = "text-align: right;">0.00429</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">9</td><td style = "text-align: left;">lead</td><td style = "text-align: right;">2.14e-7</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">0.999983</td><td style = "text-align: right;">20.0</td><td style = "text-align: right;">0.004</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">10</td><td style = "text-align: left;">air</td><td style = "text-align: right;">Inf</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">20.0</td><td style = "text-align: right;">0.0</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">11</td><td style = "text-align: left;">pp</td><td style = "text-align: right;">1.0e15</td><td style = "text-align: right;">2.8</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">20.0</td><td style = "text-align: right;">0.0</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">12</td><td style = "text-align: left;">steel</td><td style = "text-align: right;">1.38e-7</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">300.0</td><td style = "text-align: right;">20.0</td><td style = "text-align: right;">0.0045</td></tr></tbody></table></div><h2 id="Cable-dimensions"><a class="docs-heading-anchor" href="#Cable-dimensions">Cable dimensions</a><a id="Cable-dimensions-1"></a><a class="docs-heading-anchor-permalink" href="#Cable-dimensions" title="Permalink"></a></h2><p>The cable under consideration is a high-voltage, stranded copper conductor cable with XLPE insulation, water-blocking tape, lead tubular screens, PE inner sheath, PP bedding, steel armor and PP jacket, rated for 525 kV HVDC systems. This information is typically found in the cable datasheet and is based on the design studied in [<a href="../../bib/#Karmokar2025">13</a>].</p><p>The cable is found to have the following configuration:</p><pre><code class="language-julia hljs">num_co_wires = 127 # number of core wires
+using Printf</code></pre><p>Initialize library and the required materials for this design:</p><pre><code class="language-julia hljs">materials = MaterialsLibrary(add_defaults = true)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">MaterialsLibrary with 12 materials:
+├─ pe
+├─ copper
+├─ pec
+├─ polyacrylate
+└─ semicon1
+└─ ... and 7 more</code></pre><p>Inspect the contents of the materials library:</p><pre><code class="language-julia hljs">materials_df = DataFrame(materials)</code></pre><div><div style = "float: left;"><span>12×6 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">name</th><th style = "text-align: left;">rho</th><th style = "text-align: left;">eps_r</th><th style = "text-align: left;">mu_r</th><th style = "text-align: left;">T0</th><th style = "text-align: left;">alpha</th></tr><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;"></th><th title = "String" style = "text-align: left;">String</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">pe</td><td style = "text-align: right;">1.97e14</td><td style = "text-align: right;">2.3</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">20.0</td><td style = "text-align: right;">0.0</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">copper</td><td style = "text-align: right;">1.7241e-8</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">0.999994</td><td style = "text-align: right;">20.0</td><td style = "text-align: right;">0.00393</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">pec</td><td style = "text-align: right;">2.22045e-16</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">20.0</td><td style = "text-align: right;">0.0</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">polyacrylate</td><td style = "text-align: right;">5300.0</td><td style = "text-align: right;">32.3</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">20.0</td><td style = "text-align: right;">0.0</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">5</td><td style = "text-align: left;">semicon1</td><td style = "text-align: right;">1000.0</td><td style = "text-align: right;">1000.0</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">20.0</td><td style = "text-align: right;">0.0</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">6</td><td style = "text-align: left;">xlpe</td><td style = "text-align: right;">1.97e14</td><td style = "text-align: right;">2.5</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">20.0</td><td style = "text-align: right;">0.0</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">7</td><td style = "text-align: left;">semicon2</td><td style = "text-align: right;">500.0</td><td style = "text-align: right;">1000.0</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">20.0</td><td style = "text-align: right;">0.0</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">8</td><td style = "text-align: left;">aluminum</td><td style = "text-align: right;">2.8264e-8</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">1.00002</td><td style = "text-align: right;">20.0</td><td style = "text-align: right;">0.00429</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">9</td><td style = "text-align: left;">lead</td><td style = "text-align: right;">2.14e-7</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">0.999983</td><td style = "text-align: right;">20.0</td><td style = "text-align: right;">0.004</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">10</td><td style = "text-align: left;">air</td><td style = "text-align: right;">Inf</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">20.0</td><td style = "text-align: right;">0.0</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">11</td><td style = "text-align: left;">pp</td><td style = "text-align: right;">1.0e15</td><td style = "text-align: right;">2.8</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">20.0</td><td style = "text-align: right;">0.0</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">12</td><td style = "text-align: left;">steel</td><td style = "text-align: right;">1.38e-7</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">300.0</td><td style = "text-align: right;">20.0</td><td style = "text-align: right;">0.0045</td></tr></tbody></table></div><h2 id="Cable-dimensions"><a class="docs-heading-anchor" href="#Cable-dimensions">Cable dimensions</a><a id="Cable-dimensions-1"></a><a class="docs-heading-anchor-permalink" href="#Cable-dimensions" title="Permalink"></a></h2><p>The cable under consideration is a high-voltage, stranded copper conductor cable with XLPE insulation, water-blocking tape, lead tubular screens, PE inner sheath, PP bedding, steel armor and PP jacket, rated for 525 kV HVDC systems. This information is typically found in the cable datasheet and is based on the design studied in [<a href="../../bib/#Karmokar2025">13</a>].</p><p>The cable is found to have the following configuration:</p><pre><code class="language-julia hljs">num_co_wires = 127 # number of core wires
 num_ar_wires = 68  # number of armor wires
 d_core = 0.0463    # nominal core overall diameter
 d_w = 3.6649e-3    # nominal strand diameter of the core (minimum value to match datasheet)
@@ -177,113 +177,8 @@ mesh_transition2 = MeshTransition(
 	mesh_max_retries = 20,
 	materials = materials,
 	options = opts,
-);</code></pre><p>Run the FEM solver</p><pre><code class="language-julia hljs">@time ws, p = compute!(problem, F);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">[ Info: </span></span>Created base output directory: fem_output
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Created case directory: 525kV_1600mm2_bipole
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Building mesh for system: 525kV_1600mm2_bipole
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Running in headless mode, suppressing Gmsh output
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Initialized Gmsh model: 525kV_1600mm2_bipole
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Creating domain boundaries...
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Creating domain boundaries...
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Domain boundaries created
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Creating 2 mesh transition regions
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Mesh transition regions created
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Earth interfaces created
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Creating cable geometry...
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Processing cable 1 at position (-0.5, -1.0)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Processing cable 2 at position (0.5, -1.0)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Cable geometry created
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Performing boolean operations...
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Boolean fragmentation completed
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Identifying entities after fragmentation...
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Entity identification completed: 5855/5855 entities identified
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Assigning physical groups...
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Physical groups assigned: 33 successful, 0 failed out of 33 total
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Setting up mesh sizing...
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Generating mesh...
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Mesh generation completed
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Created mesh with 129301 nodes and 290745 elements
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saving mesh to file: 525kV_1600mm2_bipole.msh
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saving geometry to file: 525kV_1600mm2_bipole.geo_unrolled
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Mesh generation completed
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Starting FEM solver
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving frequency 1/1: 0.001 Hz
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Running in headless mode, suppressing Gmsh output
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Running in headless mode, suppressing GetDP output
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 1... (Resolution = Darwin)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 1!
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 2... (Resolution = Darwin)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 2!
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 3... (Resolution = Darwin)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 3!
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 4... (Resolution = Darwin)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 4!
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 5... (Resolution = Darwin)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 5!
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 6... (Resolution = Darwin)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 6!
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Running in headless mode, suppressing Gmsh output
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Running in headless mode, suppressing GetDP output
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 1... (Resolution = Electrodynamics)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 1!
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 2... (Resolution = Electrodynamics)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 2!
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 3... (Resolution = Electrodynamics)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 3!
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 4... (Resolution = Electrodynamics)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 4!
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 5... (Resolution = Electrodynamics)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 5!
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 6... (Resolution = Electrodynamics)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 6!
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>FEM computation completed successfully
-321.202981 seconds (12.75 M allocations: 644.536 MiB, 0.06% gc time, 5.04% compilation time)</code></pre><p>Display computation results</p><pre><code class="language-julia hljs">per_km(p, 1; mode = :RLCG, tol = 1e-9)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">2x2x1 LineParameters</span> |  mode = <span class="sgr36"><span class="sgr1">RLCG</span></span>  |  units per km  |  tol = 1.0e-09 <span class="sgr33"><span class="sgr1">(!)</span></span>
-──────────────────────────────────────────────────────────────────────────
-
-
-[:, :, 1]  @ f=0.001 Hz
-R [Ω/km] =
-[ 0.0130311 1.8889e-08;
- 1.8889e-08  0.0130311]
-
-L [mH/km] =
-[2.79656 2.08162;
- 2.08162 2.79584]
-
-G [S/km] =
-[0 0;
- 0 0]
-
-C [µF/km] =
-[0.185098      0;
-        0 0.1851]</code></pre><p>Export ZY matrices to ATPDraw</p><pre><code class="language-julia hljs">output_file = fullfile(&quot;ZY_export.xml&quot;)
-export_file = export_data(:atp, p; file_name = output_file, cable_system = cable_system);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">[ Info: </span></span>XML file saved to: 525kV_1600mm2_bipole_ZY_export.xml</code></pre><p>Obtain the symmetrical components via Fortescue transformation</p><pre><code class="language-julia hljs">Tv, p012 = Fortescue(tol = 1e-5)(p);</code></pre><p>Inspect the transformed matrices</p><pre><code class="language-julia hljs">per_km(p012, 1; mode = :ZY, tol = 1e-9)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">2x2x1 LineParameters</span> |  mode = <span class="sgr36"><span class="sgr1">ZY</span></span>  |  units per km  |  tol = 1.0e-09 <span class="sgr33"><span class="sgr1">(!)</span></span>
-────────────────────────────────────────────────────────────────────────
-
-
-[:, :, 1]  @ f=0.001 Hz
-Z [Ω/km] =
-[0.0130311+3.06482e-05im                  0+0im;
-                   0+0im 0.013031+4.48986e-06im]
-
-Y [S/km] =
-[0+1.16301e-09im           0+0im;
-           0+0im 0+1.16301e-09im]</code></pre><p>Or the corresponding lumped circuit quantities</p><pre><code class="language-julia hljs">per_km(p012, 1; mode = :RLCG, tol = 1e-9)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">2x2x1 LineParameters</span> |  mode = <span class="sgr36"><span class="sgr1">RLCG</span></span>  |  units per km  |  tol = 1.0e-09 <span class="sgr33"><span class="sgr1">(!)</span></span>
-──────────────────────────────────────────────────────────────────────────
-
-
-[:, :, 1]  @ f=0.001 Hz
-R [Ω/km] =
-[0.0130311        0;
-         0 0.013031]
-
-L [mH/km] =
-[4.87782        0;
-       0 0.714584]
-
-G [S/km] =
-[0 0;
- 0 0]
-
-C [µF/km] =
-[0.185099        0;
-        0 0.185099]</code></pre><hr/><p>🏠 Back to <a href="../#Tutorials">Tutorials</a></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../tutorial2/">« Tutorial 2 - Building a cable design</a><a class="docs-footer-nextpage" href="../../reference/">API reference »</a><div class="flexbox-break"></div><p class="footer-message"><a href="https://github.com/Electa-Git/LineCableModels.jl">LineCableModels.jl</a> v0.1.1-DEV supported by the Etch Competence Hub of EnergyVille, financed by the Flemish Government.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.15.0 on <span class="colophon-date" title="Tuesday 4 November 2025 20:29">Tuesday 4 November 2025</span>. Using Julia version 1.12.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+);</code></pre><p>Run the FEM solver</p><pre><code class="language- hljs">@time ws, p = compute!(problem, F);
+nothing #hide</code></pre><p>Display computation results</p><pre><code class="language- hljs">per_km(p, 1; mode = :RLCG, tol = 1e-9)</code></pre><p>Export ZY matrices to ATPDraw</p><pre><code class="language- hljs">output_file = fullfile(&quot;ZY_export.xml&quot;)
+export_file = export_data(:atp, p; file_name = output_file, cable_system = cable_system);
+nothing #hide</code></pre><p>Obtain the symmetrical components via Fortescue transformation</p><pre><code class="language- hljs">Tv, p012 = Fortescue(tol = 1e-5)(p);
+nothing #hide</code></pre><p>Inspect the transformed matrices</p><pre><code class="language- hljs">per_km(p012, 1; mode = :ZY, tol = 1e-9)</code></pre><p>Or the corresponding lumped circuit quantities</p><pre><code class="language- hljs">per_km(p012, 1; mode = :RLCG, tol = 1e-9)</code></pre><hr/><p>🏠 Back to <a href="../#Tutorials">Tutorials</a></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../tutorial2/">« Tutorial 2 - Building a cable design</a><a class="docs-footer-nextpage" href="../../reference/">API reference »</a><div class="flexbox-break"></div><p class="footer-message"><a href="https://github.com/Electa-Git/LineCableModels.jl">LineCableModels.jl</a> v0.1.1-DEV supported by the Etch Competence Hub of EnergyVille, financed by the Flemish Government.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.15.0 on <span class="colophon-date" title="Wednesday 12 November 2025 09:58">Wednesday 12 November 2025</span>. Using Julia version 1.12.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
