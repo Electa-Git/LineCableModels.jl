@@ -36,12 +36,6 @@ set_backend!(:gl); #hide
 
 # Initialize library and the required materials for this design:
 materials = MaterialsLibrary(add_defaults = true)
-# lead = Material(21.4e-8, 1.0, 0.999983, 20.0, 0.00400) # Lead or lead alloy
-# add!(materials, "lead", lead)
-# steel = Material(13.8e-8, 1.0, 300.0, 20.0, 0.00450) # Steel
-# add!(materials, "steel", steel)
-# pp = Material(1e15, 2.8, 1.0, 20.0, 0.0) # Laminated paper propylene
-# add!(materials, "pp", pp)
 
 # Inspect the contents of the materials library:
 materials_df = DataFrame(materials)
