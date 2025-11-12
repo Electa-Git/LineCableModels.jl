@@ -3,144 +3,154 @@ function compute!(
 	formulation::EMTFormulation,
 ) where {T <: REALSCALAR}
 
-	@info "Preallocating arrays"
+	lvl = levelfrom(formulation.options.common.verbosity)
+	sink =
+		isnothing(formulation.options.logfile) ?
+		ConsoleLogger(stderr, lvl) :
+		TeeLogger(ConsoleLogger(stderr, lvl),
+			FileLogger(formulation.options.logfile, lvl))
+	with_logger(TimestampLogger(sink)) do
 
-	ws = init_workspace(problem, formulation)
-	nph, nfreq = ws.n_phases, ws.n_frequencies
 
-	# --- full matrices are built per slice (no 3D alloc) ----------------------
-	Zbuf = Matrix{Complex{T}}(undef, nph, nph)   # reordered scratch (mutated by merge_bundles!)
-	Pbuf = Matrix{Complex{T}}(undef, nph, nph)
-	inv_Pbuf = similar(Pbuf) # buffer to hold inv(Pbuf)
+		@info "Preallocating arrays"
 
-	Ztmp = Matrix{Complex{T}}(undef, nph, nph)   # raw slice coming from builders
-	Ptmp = Matrix{Complex{T}}(undef, nph, nph)
+		ws = init_workspace(problem, formulation)
+		nph, nfreq = ws.n_phases, ws.n_frequencies
 
-	# --- index plan (constant across k) ---------------------------------------
-	phase_map = ws.phase_map::Vector{Int}
-	perm      = reorder_indices(phase_map)
-	map_r     = phase_map[perm]                  # reordered map
+		# --- full matrices are built per slice (no 3D alloc) ----------------------
+		Zbuf = Matrix{Complex{T}}(undef, nph, nph)   # reordered scratch (mutated by merge_bundles!)
+		Pbuf = Matrix{Complex{T}}(undef, nph, nph)
+		inv_Pbuf = similar(Pbuf) # buffer to hold inv(Pbuf)
 
-	# bundle tails mask (same logic as merge_bundles!, but map-only)
-	reduced_map = let m = copy(map_r), seen = Set{Int}()
-		@inbounds for (i, p) in pairs(map_r)
-			if p > 0 && (p in seen)
-				;
-				m[i]=0
-			else
-				;
-				p>0 && push!(seen, p)
-			end
-		end
-		m
-	end
+		Ztmp = Matrix{Complex{T}}(undef, nph, nph)   # raw slice coming from builders
+		Ptmp = Matrix{Complex{T}}(undef, nph, nph)
 
-	# decide what Kron shall smite upon
-	kron_map = if formulation.options.reduce_bundle
-		if formulation.options.kron_reduction
-			reduced_map                      # kill tails and keep nonzero labels
-		else
-			km = copy(reduced_map)           # kill only tails; keep phase-0 explicit
-			@inbounds for i in eachindex(km)
-				if map_r[i] == 0
+		# --- index plan (constant across k) ---------------------------------------
+		phase_map = ws.phase_map::Vector{Int}
+		perm      = reorder_indices(phase_map)
+		map_r     = phase_map[perm]                  # reordered map
+
+		# bundle tails mask (same logic as merge_bundles!, but map-only)
+		reduced_map = let m = copy(map_r), seen = Set{Int}()
+			@inbounds for (i, p) in pairs(map_r)
+				if p > 0 && (p in seen)
 					;
-					km[i] = -1
+					m[i]=0
+				else
+					;
+					p>0 && push!(seen, p)
 				end
 			end
-			km
-		end
-	else
-		formulation.options.kron_reduction ? map_r : nothing
-	end
-
-	nkeep = kron_map === nothing ? nph : count(!=(0), kron_map)
-	Zout = Array{Complex{T}, 3}(undef, nkeep, nkeep, nfreq)
-	Yout = Array{Complex{T}, 3}(undef, nkeep, nkeep, nfreq)
-	Mred = Matrix{Complex{T}}(undef, nkeep, nkeep) # buffer to hold Mred
-	inv_Mred = similar(Mred) # buffer to hold inv(Mred)
-
-	# tiny gather helper to avoid per-slice allocs
-	@inline function _reorder_into!(dest::AbstractMatrix{Complex{T}},
-		src::AbstractMatrix{Complex{T}},
-		perm::AbstractVector{Int})
-		n = length(perm)
-		@inbounds for j in 1:n, i in 1:n
-			dest[i, j] = src[perm[i], perm[j]]
-		end
-		return dest
-	end
-
-	# apply temperature correction if needed
-	if formulation.options.temperature_correction
-		ΔT = ws.temp - T₀
-		@. ws.rho_cond *= 1 + ws.alpha_cond * ΔT
-	end
-
-	# pre-allocate LU factorization for admittance inversion
-	I_nph = Matrix{Complex{T}}(I, nph, nph)      # identity for full size
-	I_nkeep = Matrix{Complex{T}}(I, nkeep, nkeep)   # identity for reduced size
-
-	# --- per-frequency pipeline ------------------------------------------------
-	@info "Starting line parameters computation"
-	for k in 1:nfreq
-
-		compute_impedance_matrix!(Ztmp, ws, k, formulation)
-		compute_admittance_matrix!(Ptmp, ws, k, formulation)
-
-		# 1) reorder
-		_reorder_into!(Zbuf, Ztmp, perm)
-		_reorder_into!(Pbuf, Ptmp, perm)
-
-		# 2) bundle reduction (in-place)
-		if formulation.options.reduce_bundle
-			merge_bundles!(Zbuf, map_r)
-			merge_bundles!(Pbuf, map_r)
+			m
 		end
 
-		# 3) kron
-		if kron_map === nothing
-			symtrans!(Zbuf)
-			formulation.options.ideal_transposition || line_transpose!(Zbuf)
-			@views @inbounds Zout[:, :, k] .= Zbuf
-
-			try
-				F = cholesky!(Hermitian(Pbuf))               # in-place factorization
-				ldiv!(inv_Pbuf, F, I_nph)                    # inv_Pbuf := P^{-1}
-			catch
-				F = lu!(Pbuf)                                # overwrite Pbuf with LU
-				ldiv!(inv_Pbuf, F, I_nph)                    # inv_Pbuf := P^{-1}
+		# decide what Kron shall smite upon
+		kron_map = if formulation.options.reduce_bundle
+			if formulation.options.kron_reduction
+				reduced_map                      # kill tails and keep nonzero labels
+			else
+				km = copy(reduced_map)           # kill only tails; keep phase-0 explicit
+				@inbounds for i in eachindex(km)
+					if map_r[i] == 0
+						;
+						km[i] = -1
+					end
+				end
+				km
 			end
-			# inv_Pbuf = pBuf
-			inv_Pbuf .*= ws.jω[k]
-			symtrans!(inv_Pbuf)
-			formulation.options.ideal_transposition || line_transpose!(inv_Pbuf)
-			@views @inbounds Yout[:, :, k] .= inv_Pbuf
 		else
-			kronify!(Zbuf, kron_map, Mred)
-			symtrans!(Mred)
-			formulation.options.ideal_transposition || line_transpose!(Mred)
-			@views @inbounds Zout[:, :, k] .= Mred
-
-			kronify!(Pbuf, kron_map, Mred)
-			try
-				F = cholesky!(Hermitian(Mred))
-				ldiv!(inv_Mred, F, I_nkeep)
-			catch
-				F = lu!(Mred)
-				ldiv!(inv_Mred, F, I_nkeep)
-			end
-			# inv_Mred = Mred
-			inv_Mred .*= ws.jω[k]
-			symtrans!(inv_Mred)
-			formulation.options.ideal_transposition && line_transpose!(inv_Mred)
-
-			@views @inbounds Yout[:, :, k] .= inv_Mred
+			formulation.options.kron_reduction ? map_r : nothing
 		end
-	end
-	# fill!(Yout, zero(Complex{T}))
 
-	@info "Line parameters computation completed successfully"
-	return ws, LineParameters(Zout, Yout, ws.freq)
+		nkeep = kron_map === nothing ? nph : count(!=(0), kron_map)
+		Zout = Array{Complex{T}, 3}(undef, nkeep, nkeep, nfreq)
+		Yout = Array{Complex{T}, 3}(undef, nkeep, nkeep, nfreq)
+		Mred = Matrix{Complex{T}}(undef, nkeep, nkeep) # buffer to hold Mred
+		inv_Mred = similar(Mred) # buffer to hold inv(Mred)
+
+		# tiny gather helper to avoid per-slice allocs
+		@inline function _reorder_into!(dest::AbstractMatrix{Complex{T}},
+			src::AbstractMatrix{Complex{T}},
+			perm::AbstractVector{Int})
+			n = length(perm)
+			@inbounds for j in 1:n, i in 1:n
+				dest[i, j] = src[perm[i], perm[j]]
+			end
+			return dest
+		end
+
+		# apply temperature correction if needed
+		if formulation.options.temperature_correction
+			ΔT = ws.temp - T₀
+			@. ws.rho_cond *= 1 + ws.alpha_cond * ΔT
+		end
+
+		# pre-allocate LU factorization for admittance inversion
+		I_nph = Matrix{Complex{T}}(I, nph, nph)      # identity for full size
+		I_nkeep = Matrix{Complex{T}}(I, nkeep, nkeep)   # identity for reduced size
+
+		# --- per-frequency pipeline ------------------------------------------------
+		@info "Starting line parameters computation"
+		for k in 1:nfreq
+
+			compute_impedance_matrix!(Ztmp, ws, k, formulation)
+			compute_admittance_matrix!(Ptmp, ws, k, formulation)
+
+			# 1) reorder
+			_reorder_into!(Zbuf, Ztmp, perm)
+			_reorder_into!(Pbuf, Ptmp, perm)
+
+			# 2) bundle reduction (in-place)
+			if formulation.options.reduce_bundle
+				merge_bundles!(Zbuf, map_r)
+				merge_bundles!(Pbuf, map_r)
+			end
+
+			# 3) kron
+			if kron_map === nothing
+				symtrans!(Zbuf)
+				formulation.options.ideal_transposition || line_transpose!(Zbuf)
+				@views @inbounds Zout[:, :, k] .= Zbuf
+
+				try
+					F = cholesky!(Hermitian(Pbuf))               # in-place factorization
+					ldiv!(inv_Pbuf, F, I_nph)                    # inv_Pbuf := P^{-1}
+				catch
+					F = lu!(Pbuf)                                # overwrite Pbuf with LU
+					ldiv!(inv_Pbuf, F, I_nph)                    # inv_Pbuf := P^{-1}
+				end
+				# inv_Pbuf = pBuf
+				inv_Pbuf .*= ws.jω[k]
+				symtrans!(inv_Pbuf)
+				formulation.options.ideal_transposition || line_transpose!(inv_Pbuf)
+				@views @inbounds Yout[:, :, k] .= inv_Pbuf
+			else
+				kronify!(Zbuf, kron_map, Mred)
+				symtrans!(Mred)
+				formulation.options.ideal_transposition || line_transpose!(Mred)
+				@views @inbounds Zout[:, :, k] .= Mred
+
+				kronify!(Pbuf, kron_map, Mred)
+				try
+					F = cholesky!(Hermitian(Mred))
+					ldiv!(inv_Mred, F, I_nkeep)
+				catch
+					F = lu!(Mred)
+					ldiv!(inv_Mred, F, I_nkeep)
+				end
+				# inv_Mred = Mred
+				inv_Mred .*= ws.jω[k]
+				symtrans!(inv_Mred)
+				formulation.options.ideal_transposition && line_transpose!(inv_Mred)
+
+				@views @inbounds Yout[:, :, k] .= inv_Mred
+			end
+		end
+		# fill!(Yout, zero(Complex{T}))
+
+		@info "Line parameters computation completed successfully"
+		return ws, LineParameters(Zout, Yout, ws.freq)
+	end
 end
 
 @inline function stash!(slice_or_nothing, k::Int, src::AbstractMatrix)
