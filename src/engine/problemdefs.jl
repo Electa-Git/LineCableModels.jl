@@ -173,7 +173,7 @@ struct EMTFormulation <: AbstractFormulationSet
 	"Earth admittance formulation."
 	earth_admittance::EarthAdmittanceFormulation
 	"Modal transformation method."
-	modal_transform::AbstractTransformFormulation
+	modal_transform::Union{AbstractTransformFormulation, Nothing}
 	"Equivalent homogeneous earth model (EHEM) formulation."
 	equivalent_earth::Union{AbstractEHEMFormulation, Nothing}
 	"Solver options for EMT-type computations."
@@ -211,7 +211,7 @@ struct EMTFormulation <: AbstractFormulationSet
 		earth_impedance::EarthImpedanceFormulation,
 		insulation_admittance::InsulationAdmittanceFormulation,
 		earth_admittance::EarthAdmittanceFormulation,
-		modal_transform::AbstractTransformFormulation,
+		modal_transform::Union{AbstractTransformFormulation, Nothing},
 		equivalent_earth::Union{AbstractEHEMFormulation, Nothing},
 		options::EMTOptions,
 	)
@@ -229,7 +229,7 @@ function FormulationSet(::Val{:EMT};
 	earth_impedance::EarthImpedanceFormulation = EarthImpedance.Papadopoulos(),
 	insulation_admittance::InsulationAdmittanceFormulation = InsulationAdmittance.Lossless(),
 	earth_admittance::EarthAdmittanceFormulation = EarthAdmittance.Papadopoulos(),
-	modal_transform::AbstractTransformFormulation = Transforms.Fortescue(),
+	modal_transform::Union{AbstractTransformFormulation, Nothing} = nothing,
 	equivalent_earth::Union{AbstractEHEMFormulation, Nothing} = nothing,
 	options = (;),
 )
