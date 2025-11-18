@@ -55,6 +55,8 @@ $(TYPEDFIELDS)
 	mu_g::Matrix{T}
 	"Operating temperature [°C]."
 	temp::T
+	"Line length [m]."
+	line_length::T
 	"Number of frequency samples."
 	n_frequencies::Int
 	"Number of phases in the system."
@@ -182,6 +184,7 @@ function init_workspace(
 	)
 
 	temp = T(problem.temperature)
+	line_length = T(problem.system.line_length)
 
 	# Construct and return the EMTWorkspace struct
 	return EMTWorkspace{T}(
@@ -193,7 +196,8 @@ function init_workspace(
 		eps_cond = eps_cond, rho_ins = rho_ins, mu_ins = mu_ins, eps_ins = eps_ins,
 		tan_ins = tan_ins, phase_map = phase_map, cable_map = cable_map, rho_g = rho_g,
 		eps_g = eps_g, mu_g = mu_g,
-		temp = temp, n_frequencies = n_frequencies, n_phases = n_phases,
+		temp = temp, line_length = line_length, n_frequencies = n_frequencies,
+		n_phases = n_phases,
 		n_cables = n_cables, Z = Z, P = P, Zin = Zin, Pin = Pin, Zg = Zg,
 		Pg = Pg,
 	)
