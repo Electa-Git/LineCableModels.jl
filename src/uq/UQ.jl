@@ -1,24 +1,25 @@
 module UQ
 
 # Export public API
-export sample, mc
+export sample, mc, hist
 
 # Module-specific dependencies
+using ..Commons: BASE_FLOAT
 using ..ParametricBuilder:
 	MaterialSpec, PartSpec, CableBuilderSpec, SystemBuilderSpec, build, iterate_problems,
 	_spec, determinize
 using ..Engine: EMTFormulation, compute!, LineParameters
 using Measurements: Measurement, measurement, value, uncertainty
 using Random, Statistics, DataFrames
-using Distributions: Distributions, Normal, Uniform
-using StatsBase: fit, Histogram
+using Distributions: Distributions, ContinuousUnivariateDistribution, Normal, Uniform
+using StatsBase: fit, Histogram, normalize
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Random collapse of ranges → singleton specs + one-shot build
 # ─────────────────────────────────────────────────────────────────────────────
 
 # - Given [lo, hi], interpret as ±1σ around μ = (lo+hi)/2, σ = (hi-lo)/2.
-# - :gaussian => Normal(μ, σ).
+# - :normal => Normal(μ, σ).
 # - :uniform  => Uniform(μ ± √3 σ) so std matches σ.
 # - Any other symbol => hard error.
 @inline function _bounded_draw(lo::Real, hi::Real, distribution::Symbol = :uniform)
@@ -28,7 +29,7 @@ using StatsBase: fit, Histogram
 	μ = (lo_f + hi_f) / 2
 	σ = (hi_f - lo_f) / 2
 
-	if distribution === :gaussian || distribution === :normal
+	if distribution === :normal
 		return rand(Distributions.Normal(μ, σ))
 	elseif distribution === :uniform
 		d = √3 * σ
@@ -36,7 +37,7 @@ using StatsBase: fit, Histogram
 	else
 		throw(
 			ArgumentError(
-				"unsupported distribution: $(distribution). Use :uniform or :gaussian",
+				"unsupported distribution: $(distribution). Use :uniform or :normal",
 			),
 		)
 	end
@@ -128,7 +129,7 @@ Return a **singleton** `CableBuilderSpec` by collapsing every range-like item
 """
 function collapse_cbs(
 	cbs::CableBuilderSpec;
-	distribution::Symbol = :uniform,
+	distribution::Symbol = :normal,
 )
 	parts = PartSpec[_collapse_part(p, distribution) for p in cbs.parts]
 	return CableBuilderSpec(cbs.cable_id, parts, cbs.nominal)
@@ -142,7 +143,7 @@ Useful for Monte Carlo style sampling where each call yields a new realization.
 """
 function sample(
 	cbs::CableBuilderSpec;
-	distribution::Symbol = :uniform,
+	distribution::Symbol = :normal,
 )
 	scbs = collapse_cbs(cbs; distribution = distribution)
 	designs = build(scbs)              # with singleton choices, this yields length == 1
@@ -164,7 +165,7 @@ Rules:
 """
 function collapse_sbs(
 	sbs::SystemBuilderSpec;
-	distribution::Symbol = :uniform,
+	distribution::Symbol = :normal,
 )
 	scbs = collapse_cbs(sbs.builder; distribution = distribution)
 
@@ -207,13 +208,17 @@ Collapse ranges in `sbs` and produce one `LineParametersProblem`.
 """
 function sample(
 	sbs::SystemBuilderSpec;
-	distribution::Symbol = :uniform,
+	distribution::Symbol = :normal,
 )
 	ss = collapse_sbs(sbs; distribution = distribution)
 	ch = iterate_problems(ss)
 	return take!(ch)
 end
 
+include("types.jl")
+include("distributions.jl")
 include("montecarlo.jl")
+include("dataframe.jl")
+include("plot.jl")
 
 end # module UQ
