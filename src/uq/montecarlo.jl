@@ -1,162 +1,151 @@
-# Piecewise-constant PDF 
-struct PCPDF
-	edges::Vector{Float64}   # length B+1
-	dens::Vector{Float64}    # length B (area ≈ 1)
-end
-
-# Build a piecewise-constant PDF from samples
-function _pdf_from_hist(x::AbstractVector{<:Real}; nbins::Int = 50)
-	n = length(x)
-	n == 0 && error("Empty sample set.")
-	h = fit(Histogram, float.(x); nbins = nbins, closed = :left)
-	edges = collect(h.edges[1])
-	widths = diff(edges)
-	dens = h.weights ./ (n .* widths)  # counts / (n * binwidth)
-	return PCPDF(edges, dens)
-end
-
-# Density at x0 
-@inline function (hp::PCPDF)(x0::Real)
-	i = searchsortedlast(hp.edges, float(x0))
-	(i < 1 || i >= length(hp.edges)) && return 0.0
-	return hp.dens[i]
-end
-
 function mc(cbs::CableBuilderSpec;
 	trials::Union{Int, Nothing} = nothing,
-	distribution::Symbol = :uniform,
-	seed::Union{Int, Nothing} = nothing,
-	conf::Float64 = 0.95,
-	dkw_eps::Float64 = 0.02,     # used only if trials === nothing (DKW sizing)
-	batch::Int = 1000,
-	return_samples::Bool = false,
-	return_pdf::Bool = false,
-	nbins::Int = 80,
+	distribution::Symbol        = :normal,
+	seed::Union{Int, Nothing}   = nothing,
+	conf::Float64               = 0.95,
+	tol::Float64                = 0.02,     # used only if trials === nothing (DKW sizing)
+	print_step::Int             = 1000,
+	return_samples::Bool        = false,
+	return_pdf::Bool            = false,
+	nbins::Union{Int, Nothing}  = nothing,
 )
 	seed !== nothing && Random.seed!(seed)
 	z = quantile(Distributions.Normal(), 0.5 + conf/2)
 
-	n = if trials === nothing
+	# 3 scalar observables: R, L, C
+	M = 3
+	ntrials = if trials === nothing
 		α = 1 - conf
-		ceil(Int, log(2/α) / (2 * dkw_eps^2))
+		ceil(Int, log(2 * M / α) / (2 * tol^2))
 	else
 		trials
 	end
 
-	μR = Vector{Float64}(undef, n)
-	μL = Vector{Float64}(undef, n)
-	μC = Vector{Float64}(undef, n)
+	if trials === nothing
+		@info "mc: estimate number of trials using DKW inequality" scalars = M conf = conf tol =
+			tol trials = ntrials
+	end
+
+	@info "mc: starting draws" draws = ntrials conf = conf tol = tol distribution =
+		(distribution === :uniform ? "Uniform(μ ± √3·σ)" : "Normal(μ, σ)")
+
+	# Base float type — enforced upstream
+	T = BASE_FLOAT
+
+	μR = Vector{T}(undef, ntrials)
+	μL = Vector{T}(undef, ntrials)
+	μC = Vector{T}(undef, ntrials)
 
 	@inline function _draw!(i::Int)
 		des    = sample(determinize(cbs); distribution = distribution) # cbs is transformed to deterministic ranges
-		params = DataFrame(des, :baseparams).computed  # invariant
-		r      = params[1];
-		l      = params[2];
+		params = DataFrame(des, :baseparams).computed  # invariant ordering: R, L, C
+		r      = params[1]
+		l      = params[2]
 		c      = params[3]
 		@inbounds begin
-			μR[i] = float(r)
-			μL[i] = float(l)
-			μC[i] = float(c)
+			μR[i] = T(r)
+			μL[i] = T(l)
+			μC[i] = T(c)
 		end
 		return nothing
 	end
 
-	@info "mc: starting draws" draws=n conf=conf dkw_eps=dkw_eps distribution =
-		distribution === :uniform ? "Uniform(μ ± √3·σ)" : "Normal(μ, σ)"
-	for i in 1:n
+	for i in 1:ntrials
 		_draw!(i)
-		(i % batch == 0) && @info "mc: progress" done=i
+		(i % print_step == 0) && @info "mc: progress" done = i
 	end
-	@info "mc: done" total=n
+	@info "mc: done" total = ntrials
 
+	# stats kernel (scalar real vector → NamedTuple)
 	_stats = function (arr::AbstractVector{<:Real})
-		m  = mean(arr);
-		s  = std(arr);
+		m  = mean(arr)
+		s  = std(arr)
 		N  = length(arr)
 		ci = z * s / sqrt(N)
-		(mean = m, std = s, min = minimum(arr), q05 = quantile(arr, 0.05),
-			q50 = quantile(arr, 0.50), q95 = quantile(arr, 0.95), max = maximum(arr),
-			n = N, ci_half = ci, ci_rel = ci / max(abs(m), eps()))
+		return (mean    = m, std     = s, min     = minimum(arr),
+			q05     = quantile(arr, 0.05),
+			q50     = quantile(arr, 0.50),
+			q95     = quantile(arr, 0.95),
+			max     = maximum(arr),
+			n       = N,
+			ci_half = ci,
+			ci_rel  = ci / max(abs(m), eps()))
 	end
 
 	sR = _stats(μR)
 	sL = _stats(μL)
 	sC = _stats(μC)
 
-	summary = DataFrame(
-		variable = ["R", "L", "C"],
-		mean     = [sR.mean, sL.mean, sC.mean],
-		std      = [sR.std, sL.std, sC.std],
-		min      = [sR.min, sL.min, sC.min],
-		q05      = [sR.q05, sL.q05, sC.q05],
-		q50      = [sR.q50, sL.q50, sC.q50],
-		q95      = [sR.q95, sL.q95, sC.q95],
-		max      = [sR.max, sL.max, sC.max],
-		n        = fill(n, 3),
-		conf     = fill(conf, 3),
-		z        = fill(z, 3),
-		ci_half  = [sR.ci_half, sL.ci_half, sC.ci_half],
-		ci_rel   = [sR.ci_rel, sL.ci_rel, sC.ci_rel],
-	)
+	meas = Measurement{T}[
+		measurement(sR.mean, sR.std),
+		measurement(sL.mean, sL.std),
+		measurement(sC.mean, sC.std),
+	]
 
-	meas = [measurement(sR.mean, sR.std), measurement(sL.mean, sL.std),
-		measurement(sC.mean, sC.std)]
-
-	if return_pdf || return_samples
-		ret = (summary = summary,)
-		if return_samples
-			samples = DataFrame(μ_R = μR, μ_L = μL, μ_C = μC)
-			ret = merge(ret, (samples = samples,))
-		end
-		if return_pdf
-			pdfR = _pdf_from_hist(μR; nbins = nbins)
-			pdfL = _pdf_from_hist(μL; nbins = nbins)
-			pdfC = _pdf_from_hist(μC; nbins = nbins)
-			ret = merge(ret, (pdf = (R = pdfR, L = pdfL, C = pdfC),))
-		end
-		return ret, meas
-	else
-		return summary, meas
+	# PDFs (optional)
+	pdf_nt = nothing
+	if return_pdf
+		pdfR = _pdf_from_hist(μR; nbins = nbins)
+		pdfL = _pdf_from_hist(μL; nbins = nbins)
+		pdfC = _pdf_from_hist(μC; nbins = nbins)
+		pdf_nt = (R = pdfR, L = pdfL, C = pdfC)
 	end
+
+	# Samples as NamedTuple of vectors (R,L,C) or nothing
+	samples_nt = return_samples ? (R = μR, L = μL, C = μC) : nothing
+
+	return CableDesignMCSummary{T}(
+		(R = sR, L = sL, C = sC),
+		pdf_nt,
+		samples_nt,
+		meas,
+	)
 end
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Monte Carlo for frequency scans (matrix Z, Y) — mirrors mc(cbs::CableBuilderSpec)
-# ─────────────────────────────────────────────────────────────────────────────
+
 function mc(
 	sbs::SystemBuilderSpec,
 	F::EMTFormulation;
 	trials::Union{Int, Nothing} = nothing,
-	distribution::Symbol = :uniform,      # :uniform => Uniform(μ ± √3·σ), :normal => Normal(μ,σ)
-	seed::Union{Int, Nothing} = nothing,
-	conf::Float64 = 0.95,
-	dkw_eps::Float64 = 0.02,
-	batch::Int = 1000,
-	return_samples::Bool = false,         # heavy for big n×n×trials → off by default
-	return_pdf::Bool = false,         # hist-based PCPDF per element & part (Real/Imag)
-	nbins::Int = 80,
+	distribution::Symbol        = :normal,      # :uniform => Uniform(μ ± √3·σ), :normal => Normal(μ,σ)
+	seed::Union{Int, Nothing}   = nothing,
+	conf::Float64               = 0.95,
+	tol::Float64                = 0.02,
+	print_step::Int             = 1000,
+	return_samples::Bool        = false,         # returns Vector{LineParameters} (one per trial)
+	return_pdf::Bool            = false,         # hist-based LineParametersPDF per R/L/C/G & freq
+	per_line::Bool              = false,         # scale results per line length
+	nbins::Union{Int, Nothing}  = nothing,
 )
 
 	seed !== nothing && Random.seed!(seed)
 	z = quantile(Distributions.Normal(), 0.5 + conf/2)
 
-	ntrials = trials === nothing ? ceil(Int, log(2/(1-conf)) / (2*dkw_eps^2)) : trials
-	fvec = sbs.frequencies  # keep sbs frequencies verbatim
+	fvec  = sbs.frequencies
+	nfreq = length(fvec)
 
-	# Local helper: build a single-frequency SystemBuilderSpec
-	_single_freq = function (s::SystemBuilderSpec, f1::Number)
-		return typeof(s)(
-			s.system_id,
-			s.builder,
-			s.positions;
-			length      = s.length,
-			temperature = s.temperature,
-			earth       = s.earth,
-			f           = [f1],
-		)
+	# number of physical phases from current mapping
+	nph = count(!=(0), vcat(values.(getfield.(sbs.positions, :conn))...))
+
+	# Total scalar observables under DKW: Z & Y, Real & Imag, upper-triangular (incl. diag) per freq
+	M = 2 * nph * (nph + 1) * nfreq
+
+	ntrials = if trials === nothing
+		α = 1 - conf
+		ceil(Int, log(2 * M / α) / (2 * tol^2))
+	else
+		trials
 	end
 
-	# Reuse mc stats kernel (mean/std/ci etc.) but on real vectors
+	if trials === nothing
+		@info "mc: estimate number of trials using DKW inequality" scalars = M conf = conf tol =
+			tol trials = ntrials
+	end
+
+	@info "mc[Z,Y]: starting" draws = ntrials conf = conf tol = tol distribution =
+		(distribution === :uniform ? "Uniform(μ ± √3·σ)" : "Normal(μ, σ)")
+
+	# Stats kernel on reals
 	_stats = function (arr::AbstractVector{<:Real})
 		m  = mean(arr)
 		s  = std(arr)
@@ -165,128 +154,123 @@ function mc(
 		return (mean = m, std = s, min = minimum(arr),
 			q05 = quantile(arr, 0.05), q50 = quantile(arr, 0.50),
 			q95 = quantile(arr, 0.95),
-			max = maximum(arr), n = N, ci_half = ci, ci_rel = ci / max(abs(m), eps()))
+			max = maximum(arr), n = N, conf = conf, z = z,
+			ci_half = ci, ci_rel = ci / max(abs(m), eps()))
 	end
 
-	# Optional PDF builders
-	_mkpdf_real = (x::AbstractVector{<:Real}) -> _pdf_from_hist(x; nbins = nbins)
-	_mkpdf_pair =
-		(x::AbstractVector{<:Complex}) ->
-			(real = _mkpdf_real(real.(x)), imag = _mkpdf_real(imag.(x)))
+	U = eltype(fvec)
 
-	# complex Measurement eltype without hard-coding param
-	nph = count(!=(0), vcat(values.(getfield.(sbs.positions, :conn))...))
-	mT = typeof(measurement(0.0, 0.0))
-	Zmeas = Array{Complex{mT}}(undef, nph, nph, length(fvec))
-	Ymeas = Array{Complex{mT}}(undef, nph, nph, length(fvec))
+	# Concrete vectors of RLCG samples
+	Rsamp = Array{U, 4}(undef, nph, nph, nfreq, ntrials)
+	Lsamp = Array{U, 4}(undef, nph, nph, nfreq, ntrials)
+	Gsamp = Array{U, 4}(undef, nph, nph, nfreq, ntrials)
+	Csamp = Array{U, 4}(undef, nph, nph, nfreq, ntrials)
 
-	out = Vector{NamedTuple}(undef, length(fvec))  # one (Z=..., Y=..., f=...) per frequency
+	# Determinize once
+	sys_det = determinize(sbs)
 
-	@info "mc[Z,Y]: starting" draws=ntrials conf=conf dkw_eps=dkw_eps distribution =
-		distribution === :uniform ? "Uniform(μ ± √3·σ)" : "Normal(μ, σ)"
-
-	# Frequency loop — each k is a fully independent MC on Z(·,·) and Y(·,·)
-	for (k, fk) in pairs(fvec)
-		system = determinize(_single_freq(sbs, fk))
-
-		# Preallocate complex sample cubes (nph×nph×ntrials)
-		Zs = Array{ComplexF64}(undef, nph, nph, ntrials)
-		Ys = Array{ComplexF64}(undef, nph, nph, ntrials)
-
-		# MC draws
-		for i in 1:ntrials
-			prob = sample(system; distribution = distribution)
-			_, p = compute!(prob, F)
-			@inbounds begin
-				Z = p.Z[:, :, 1];
-				Y = p.Y[:, :, 1]
-				Zs[:, :, i] = Z
-				Ys[:, :, i] = Y
-			end
-			(i % batch == 0) && @info "mc[Z,Y]: progress" f=fk done=i
+	# ─────────────────────────────────────────────────────────────────────────
+	# Monte Carlo over FULL frequency vector: one LineParameters per trial
+	# ─────────────────────────────────────────────────────────────────────────
+	for i in 1:ntrials
+		prob = sample(sys_det; distribution = distribution)
+		ws, lp = compute!(prob, F)     # lp::LineParameters{Tc, Tr}
+		if per_line
+			Zscaled = lp.Z.values .* ws.line_length
+			Yscaled = lp.Y.values .* ws.line_length
+		else
+			Zscaled = lp.Z.values
+			Yscaled = lp.Y.values
 		end
 
-		# Aggregate stats per element → matrices of DataFrames with rows Real/Imag
-		dfZ = Matrix{DataFrame}(undef, nph, nph)
-		dfY = Matrix{DataFrame}(undef, nph, nph)
+		@inbounds for j1 in 1:nph, j2 in 1:nph, k in 1:nfreq
+			Zval = Zscaled[j1, j2, k]
+			Yval = Yscaled[j1, j2, k]
+			fk   = fvec[k]
+			ω   = 2π * fk
 
-		@inbounds for j1 in 1:nph, j2 in 1:nph
-			# Views to avoid extra copies
-			zvec = @view Zs[j1, j2, :]
-			yvec = @view Ys[j1, j2, :]
+			Rval = real(Zval)
+			Lval = imag(Zval) / ω
+			Gval = real(Yval)
+			Cval = imag(Yval) / ω
 
-			# Component-wise stats
-			zr = _stats(real.(zvec));
-			zi = _stats(imag.(zvec))
-			yr = _stats(real.(yvec));
-			yi = _stats(imag.(yvec))
-
-			# Build two-row DataFrames (Real/Imag) with consistent schema
-			dfZ[j1, j2] = DataFrame(
-				part    = ["Real", "Imaginary"],
-				mean    = [zr.mean, zi.mean],
-				std     = [zr.std, zi.std],
-				min     = [zr.min, zi.min],
-				q05     = [zr.q05, zi.q05],
-				q50     = [zr.q50, zi.q50],
-				q95     = [zr.q95, zi.q95],
-				max     = [zr.max, zi.max],
-				n       = [zr.n, zi.n],
-				conf    = [conf, conf],
-				z       = [z, z],
-				ci_half = [zr.ci_half, zi.ci_half],
-				ci_rel  = [zr.ci_rel, zi.ci_rel],
-			)
-
-			dfY[j1, j2] = DataFrame(
-				part    = ["Real", "Imaginary"],
-				mean    = [yr.mean, yi.mean],
-				std     = [yr.std, yi.std],
-				min     = [yr.min, yi.min],
-				q05     = [yr.q05, yi.q05],
-				q50     = [yr.q50, yi.q50],
-				q95     = [yr.q95, yi.q95],
-				max     = [yr.max, yi.max],
-				n       = [yr.n, yi.n],
-				conf    = [conf, conf],
-				z       = [z, z],
-				ci_half = [yr.ci_half, yi.ci_half],
-				ci_rel  = [yr.ci_rel, yi.ci_rel],
-			)
-			# Complex measurement per entry at this frequency index k
-			Zmeas[j1, j2, k] =
-				measurement(zr.mean, zr.std) + 1im * measurement(zi.mean, zi.std)
-			Ymeas[j1, j2, k] =
-				measurement(yr.mean, yr.std) + 1im * measurement(yi.mean, yi.std)
+			Rsamp[j1, j2, k, i] = Rval
+			Lsamp[j1, j2, k, i] = Lval
+			Gsamp[j1, j2, k, i] = Gval
+			Csamp[j1, j2, k, i] = Cval
 		end
 
-		# Optional payloads
-		ret = (f = fk, Z = dfZ, Y = dfY)
-
-		if return_samples || return_pdf
-			samples = return_samples ? (Z = Zs, Y = Ys) : nothing
-
-			pdfZ = nothing;
-			pdfY = nothing
-			if return_pdf
-				pdfZ = Matrix{NamedTuple}(undef, nph, nph)
-				pdfY = Matrix{NamedTuple}(undef, nph, nph)
-				@inbounds for j1 in 1:nph, j2 in 1:nph
-					pdfZ[j1, j2] = _mkpdf_pair(@view Zs[j1, j2, :])
-					pdfY[j1, j2] = _mkpdf_pair(@view Ys[j1, j2, :])
-				end
-			end
-
-			ret = merge(ret, (samples = samples, pdf = (Z = pdfZ, Y = pdfY)))
-		end
-
-		out[k] = ret
+		(i % print_step == 0) && @info "mc[Z,Y]: progress" done = i
 	end
 
-	LP = LineParameters(Zmeas, Ymeas, fvec)
+	# ─────────────────────────────────────────────────────────────────────────
+	# Aggregate statistics per element (j1,j2) and per frequency k
+	# ─────────────────────────────────────────────────────────────────────────
 
+	# Measurement-valued Z,Y (nph×nph×nfreq)
+	T = Complex{typeof(measurement(zero(U), zero(U)))}   # Measurement{BASE_FLOAT}
+	Zmeas = Array{T}(undef, nph, nph, nfreq)
+	Ymeas = Array{T}(undef, nph, nph, nfreq)
 
-	@info "mc[Z,Y]: done" total=ntrials nf=length(fvec)
+	# 3D arrays of stats for R,L,C,G
+	Rstats = Array{NamedTuple, 3}(undef, nph, nph, nfreq)
+	Lstats = Array{NamedTuple, 3}(undef, nph, nph, nfreq)
+	Gstats = Array{NamedTuple, 3}(undef, nph, nph, nfreq)
+	Cstats = Array{NamedTuple, 3}(undef, nph, nph, nfreq)
 
-	return out, LP
+	# Optional PDFs: same 3D shape, one distribution per scalar
+	Rpdf = return_pdf ? Array{LineParametersPDF{U}, 3}(undef, nph, nph, nfreq) : nothing
+	Lpdf = return_pdf ? Array{LineParametersPDF{U}, 3}(undef, nph, nph, nfreq) : nothing
+	Gpdf = return_pdf ? Array{LineParametersPDF{U}, 3}(undef, nph, nph, nfreq) : nothing
+	Cpdf = return_pdf ? Array{LineParametersPDF{U}, 3}(undef, nph, nph, nfreq) : nothing
+
+	@inbounds for j1 in 1:nph, j2 in 1:nph, k in 1:nfreq
+		fk = fvec[k]
+		ω = 2π * fk
+
+		rvec = @view Rsamp[j1, j2, k, :]
+		lvec = @view Lsamp[j1, j2, k, :]
+		gvec = @view Gsamp[j1, j2, k, :]
+		cvec = @view Csamp[j1, j2, k, :]
+
+		sR = _stats(rvec)
+		sL = _stats(lvec)
+		sG = _stats(gvec)
+		sC = _stats(cvec)
+
+		Rstats[j1, j2, k] = sR
+		Lstats[j1, j2, k] = sL
+		Gstats[j1, j2, k] = sG
+		Cstats[j1, j2, k] = sC
+
+		# Z = R + j ω L, Y = G + j ω C
+		Zmeas[j1, j2, k] =
+			measurement(sR.mean, sR.std) +
+			1im * measurement(ω * sL.mean, ω * sL.std)
+
+		Ymeas[j1, j2, k] =
+			measurement(sG.mean, sG.std) +
+			1im * measurement(ω * sC.mean, ω * sC.std)
+
+		# Optional PDFs per (j1,j2,k)
+		if return_pdf
+			Rpdf[j1, j2, k] = _pdf_from_hist(rvec; nbins = nbins)
+			Lpdf[j1, j2, k] = _pdf_from_hist(lvec; nbins = nbins)
+			Gpdf[j1, j2, k] = _pdf_from_hist(gvec; nbins = nbins)
+			Cpdf[j1, j2, k] = _pdf_from_hist(cvec; nbins = nbins)
+		end
+	end
+
+	# Frequency-dependent LineParameters using Measurements.jl types
+	LP_meas = LineParameters(Zmeas, Ymeas, fvec)
+
+	@info "mc[Z,Y]: done" total = ntrials nfreq = nfreq
+
+	stats_nt = (R = Rstats, L = Lstats, C = Cstats, G = Gstats)
+	pdf_nt   = return_pdf ? (R = Rpdf, L = Lpdf, C = Cpdf, G = Gpdf) : nothing
+
+	samples_nt = return_samples ? (R = Rsamp, L = Lsamp, C = Csamp, G = Gsamp) : nothing
+
+	return LineParametersMCSummary{U}(fvec, stats_nt, pdf_nt, samples_nt, LP_meas)
+
 end
