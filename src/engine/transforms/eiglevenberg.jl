@@ -2,11 +2,8 @@ struct Levenberg <: AbstractTransformFormulation
 	tol::BASE_FLOAT
 end
 
-const LMTOL = 1e-8  # default LM tolerance
-
 # Convenient ctor
-Levenberg(; tol::U = U(LMTOL)) where {U <: REALSCALAR} =
-	Levenberg(BASE_FLOAT(tol))  # explicit downcast to Float64
+Levenberg(; tol::BASE_FLOAT = BASE_FLOAT(1e-8)) = Levenberg(tol)
 
 get_description(
 	::Levenberg,
@@ -18,7 +15,7 @@ $(TYPEDSIGNATURES)
 Apply Levenberg–Marquardt modal decomposition to a frequency-dependent
 [`LineParameters`](@ref) object. Returns the (frequency-tracked) modal
 transformation matrices and a **modal-domain** `LineParameters` holding the
-**modal characteristic** impedance/admittance (diagonal per frequency).
+**modal per-unit-length** impedance/admittance (diagonal per frequency).
 
 # Arguments
 
@@ -27,18 +24,13 @@ transformation matrices and a **modal-domain** `LineParameters` holding the
 
 # Returns
 
-- `Tv`: Transformation matrices `T(•)` as a 3-tensor `n×n×nfreq` (columns are modes).
-- `LineParameters`: Modal-domain characteristic parameters:
-  - `Z.values[:,:,k] = Diagonal(Zcₖ)`, where `Zcₖ = sqrt.(diag(Zmₖ))./sqrt.(diag(Ymₖ))`.
-  - `Y.values[:,:,k] = Diagonal(Ycₖ)`, with `Ycₖ = 1 ./ Zcₖ`.
+- `Ti`: Transformation matrices `T(•)` as a 3-tensor `n×n×nfreq` (columns are modes).
+- `LineParameters`: Modal-domain per-unit-length parameters:
+  - Series impedance `Zm` (diagonal per frequency) \\[Ω/m\\].
+  - Shunt admittance `Ym` (diagonal per frequency) \\[S/m\\].
 
-# Notes
-
-- Columns are **phase→modal** voltage transformation (same convention as your legacy code).
-- Rotation `rot!` is applied per frequency to minimize the imaginary part of each column
-  (Gustavsen’s scheme), stabilizing mode identity across the sweep.
 """
-function (f::Levenberg)(lp::LineParameters)
+function (f::Levenberg)(lp::LineParameters{Tc}) where {Tc <: COMPLEXSCALAR}
 	n, n2, nfreq = size(lp.Z.values)
 	n == n2 || throw(DimensionMismatch("Z must be square"))
 	size(lp.Y.values) == (n, n, nfreq) || throw(DimensionMismatch("Y must be n×n×nfreq"))
@@ -50,16 +42,51 @@ function (f::Levenberg)(lp::LineParameters)
 	Ti, _g_nom = _calc_transformation_matrix_LM(n, Z_nom, Y_nom, f_nom; tol = f.tol)
 	_rot_min_imag!(Ti)
 
-	# 2) Apply deterministic T to uncertain (or plain) inputs for *physical* outputs
-	Zm, Ym, Zc_mod, Yc_mod, Zch, Ych =
-		_calc_modal_quantities(Ti, lp.Z.values, lp.Y.values)
-	Gdiag = _calc_gamma(Ti, lp.Z.values, lp.Y.values)
+	Zm = similar(lp.Z.values)
+	Ym = similar(lp.Y.values)
 
-	# Keep your original return (Ti, modal characteristic) for compatibility,
+	Tk   = zeros(Tc, n, n)
+	Zk   = zeros(Tc, n, n)
+	Yk   = zeros(Tc, n, n)
+	invT = zeros(Tc, n, n)
+
+	@inbounds for k in 1:nfreq
+		Tk   .= @view Ti[:, :, k]
+		invT .= inv(Tk)
+		@views begin # enforce reciprocity
+			copyto!(Zk, lp.Z.values[:, :, k]);
+			symtrans!(Zk)
+			copyto!(Yk, lp.Y.values[:, :, k]);
+			symtrans!(Yk)
+		end
+		# Modal matrices (carry uncertainties)
+		@views Zm[:, :, k] .= transpose(Tk) * Zk * Tk
+		@views Ym[:, :, k] .= invT * Yk * transpose(invT)
+
+		fname = String(nameof(typeof(f)))
+		offdiagZ = offdiag_ratio(Zm[:, :, k])
+		if offdiagZ > f.tol
+			@warn "$fname: transformed Z not diagonal within tolerance, check your results" ratio =
+				offdiagZ
+		end
+		offdiagY = offdiag_ratio(Ym[:, :, k])
+		if offdiagY > f.tol
+			@warn "$fname: transformed Y not diagonal within tolerance, check your results" ratio =
+				offdiagY
+		end
+
+	end
+	# 2) Apply deterministic T to uncertain (or plain) inputs for *physical* outputs
+	# Zm, Ym, Zc_mod, Yc_mod, Zch, Ych =
+	# 	_calc_modal_quantities(Ti, lp.Z.values, lp.Y.values)
+	# Gdiag = _calc_gamma(Ti, lp.Z.values, lp.Y.values)
+
+	return Ti, LineParameters(SeriesImpedance(Zm), ShuntAdmittance(Ym), lp.f)
+	# Keep  original return (Ti, modal characteristic) for compatibility,
 	# but you now also have Zm, Ym, Zch, Ych, Gdiag available for downstream use.
-	return Ti, LineParameters(SeriesImpedance(Zc_mod), ShuntAdmittance(Yc_mod), lp.f),
-	LineParameters(SeriesImpedance(Zm), ShuntAdmittance(Ym), lp.f),
-	LineParameters(SeriesImpedance(Zch), ShuntAdmittance(Ych), lp.f), Gdiag
+	# return Ti, LineParameters(SeriesImpedance(Zc_mod), ShuntAdmittance(Yc_mod), lp.f),
+	# LineParameters(SeriesImpedance(Zm), ShuntAdmittance(Ym), lp.f),
+	# LineParameters(SeriesImpedance(Zch), ShuntAdmittance(Ych), lp.f), Gdiag
 end
 
 #= ---------------------------------------------------------------------------
