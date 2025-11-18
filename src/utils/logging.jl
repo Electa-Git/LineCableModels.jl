@@ -4,7 +4,12 @@ using LoggingExtras: TeeLogger, FileLogger
 using Dates
 using Printf
 
-levelfrom(v) = v >= 2 ? Logging.Debug : v == 1 ? Logging.Info : Logging.Warn
+levelfrom(v::Integer)::Logging.LogLevel =
+	v >= 2 ? Logging.Debug :
+	v == 1 ? Logging.Info  :
+	v == 0 ? Logging.Warn  :
+	Logging.Error
+
 
 
 struct TimestampLogger <: AbstractLogger
