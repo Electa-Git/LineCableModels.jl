@@ -17,20 +17,23 @@ function (f::Fortescue)(lp::LineParameters{Tc}) where {Tc <: COMPLEXSCALAR}
 	Z012 = similar(lp.Z.values)
 	Y012 = similar(lp.Y.values)
 
-	for k in 1:nfreq
+	@inbounds for k in 1:nfreq
 		Zs = symtrans(lp.Z.values[:, :, k])  # enforce reciprocity
 		Ys = symtrans(lp.Y.values[:, :, k])
 
-		Zseq = Tv * Zs * Tv'       # NOT inv(T)*Z*T — use unitary similarity
+		Zseq = Tv * Zs * Tv'
 		Yseq = Tv * Ys * Tv'
 
-		if offdiag_ratio(Zseq) > f.tol
-			@warn "Fortescue: transformed Z not diagonal enough, check your results" ratio =
-				offdiag_ratio(Zseq)
+		fname = String(nameof(typeof(f)))
+		offdiagZ = offdiag_ratio(Zseq)
+		if offdiagZ > f.tol
+			@warn "$fname: transformed Z not diagonal within tolerance, check your results" ratio =
+				offdiagZ
 		end
-		if offdiag_ratio(Yseq) > f.tol
-			@warn "Fortescue: transformed Y not diagonal enough, check your results" ratio =
-				offdiag_ratio(Yseq)
+		offdiagY = offdiag_ratio(Yseq)
+		if offdiagY > f.tol
+			@warn "$fname: transformed Y not diagonal within tolerance, check your results" ratio =
+				offdiagY
 		end
 
 		Z012[:, :, k] = Matrix(Diagonal(diag(Zseq)))
