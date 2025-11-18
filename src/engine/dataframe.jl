@@ -98,32 +98,32 @@ function _matrix_dataframes(
 	return result
 end
 
-function _slice_dataframe(
-	slice::AbstractVector,
-	kind::Symbol,
-	freq_raw::Vector{<:Real},
-	mode::Symbol,
-	coord::Symbol,
-	units::Dict{Symbol, Symbol},
-	length_unit::Symbol,
-	freq_unit::Symbol,
-	tol::Real,
-)
-	resolved_kind = _resolve_kind(slice, kind, tol)
-	comps =
-		resolved_kind == :series_impedance ?
-		components_for(_SERIES_DUMMY, mode, coord) :
-		components_for(_SHUNT_DUMMY, mode, coord)
-	return _build_dataframe(
-		slice,
-		freq_raw,
-		comps,
-		units,
-		length_unit,
-		freq_unit,
-		tol,
-	)
-end
+# function _slice_dataframe(
+# 	slice::AbstractVector,
+# 	kind::Symbol,
+# 	freq_raw::Vector{<:Real},
+# 	mode::Symbol,
+# 	coord::Symbol,
+# 	units::Dict{Symbol, Symbol},
+# 	length_unit::Symbol,
+# 	freq_unit::Symbol,
+# 	tol::Real,
+# )
+# 	resolved_kind = _resolve_kind(slice, kind, tol)
+# 	comps =
+# 		resolved_kind == :series_impedance ?
+# 		components_for(_SERIES_DUMMY, mode, coord) :
+# 		components_for(_SHUNT_DUMMY, mode, coord)
+# 	return _build_dataframe(
+# 		slice,
+# 		freq_raw,
+# 		comps,
+# 		units,
+# 		length_unit,
+# 		freq_unit,
+# 		tol,
+# 	)
+# end
 
 """
 	DataFrame(Z::SeriesImpedance; freqs=nothing, mode=:RLCG, coord=:cart,
@@ -149,10 +149,11 @@ function DataFrame(
 	length_unit::Symbol = :kilo,
 	quantity_units = nothing,
 	tol::Real = sqrt(eps(Float64)),
+	per_length::Bool = true,
 )
 	freq_raw = _frequency_vector(Z, freqs)
 	units = _normalize_quantity_units(quantity_units)
-	comps = components_for(Z, mode, coord)
+	comps = components_for(Z, mode, coord; per_length = per_length)
 	return _matrix_dataframes(
 		Z,
 		freq_raw,
@@ -183,10 +184,11 @@ function DataFrame(
 	length_unit::Symbol = :kilo,
 	quantity_units = nothing,
 	tol::Real = sqrt(eps(Float64)),
+	per_length::Bool = true,
 )
 	freq_raw = _frequency_vector(Y, freqs)
 	units = _normalize_quantity_units(quantity_units)
-	comps = components_for(Y, mode, coord)
+	comps = components_for(Y, mode, coord; per_length = per_length)
 	return _matrix_dataframes(
 		Y,
 		freq_raw,
@@ -249,6 +251,7 @@ function DataFrame(
 	length_unit::Symbol = :kilo,
 	quantity_units = nothing,
 	tol::Real = sqrt(eps(Float64)),
+	per_length::Bool = true,
 )
 	# --- validations: LP is the source of truth for frequency samples ----
 	@assert eltype(LP.f) <: Real "LP.f must be real-valued frequencies."
@@ -270,6 +273,7 @@ function DataFrame(
 		length_unit = length_unit,
 		quantity_units = quantity_units,
 		tol = tol,
+		per_length = per_length,
 	)
 
 	df_y = DataFrame(
@@ -281,6 +285,7 @@ function DataFrame(
 		length_unit = length_unit,
 		quantity_units = quantity_units,
 		tol = tol,
+		per_length = per_length,
 	)
 
 	return df_z, df_y
