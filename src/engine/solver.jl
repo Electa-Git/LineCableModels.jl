@@ -11,7 +11,6 @@ function compute!(
 			FileLogger(formulation.options.logfile, lvl))
 	with_logger(TimestampLogger(sink)) do
 
-
 		@info "Preallocating arrays"
 
 		ws = init_workspace(problem, formulation)
@@ -34,10 +33,8 @@ function compute!(
 		reduced_map = let m = copy(map_r), seen = Set{Int}()
 			@inbounds for (i, p) in pairs(map_r)
 				if p > 0 && (p in seen)
-					;
 					m[i]=0
 				else
-					;
 					p>0 && push!(seen, p)
 				end
 			end
@@ -52,7 +49,6 @@ function compute!(
 				km = copy(reduced_map)           # kill only tails; keep phase-0 explicit
 				@inbounds for i in eachindex(km)
 					if map_r[i] == 0
-						;
 						km[i] = -1
 					end
 				end
@@ -146,10 +142,16 @@ function compute!(
 				@views @inbounds Yout[:, :, k] .= inv_Mred
 			end
 		end
-		# fill!(Yout, zero(Complex{T}))
+
+		if !isnothing(formulation.modal_transform)
+			# apply modal transformation
+			_, lp = formulation.modal_transform(LineParameters(Zout, Yout, ws.freq))
+		else
+			lp = LineParameters(Zout, Yout, ws.freq)
+		end
 
 		@info "Line parameters computation completed successfully"
-		return ws, LineParameters(Zout, Yout, ws.freq)
+		return ws, lp
 	end
 end
 
