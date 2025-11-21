@@ -43,9 +43,9 @@ function mc(cbs::CableBuilderSpec;
 		l      = params[2]
 		c      = params[3]
 		@inbounds begin
-			μR[i] = T(r)
-			μL[i] = T(l)
-			μC[i] = T(c)
+			μR[i] = T(r) / 1e3 # ohm/km to ohm/m
+			μL[i] = T(l) / 1e6 # mH/km to H/m
+			μC[i] = T(c) / 1e9 # μF/km to F/m
 		end
 		return nothing
 	end
@@ -114,7 +114,7 @@ function mc(
 	print_step::Int             = 1000,
 	return_samples::Bool        = false,         # returns Vector{LineParameters} (one per trial)
 	return_pdf::Bool            = false,         # hist-based LineParametersPDF per R/L/C/G & freq
-	per_line::Bool              = false,         # scale results per line length
+	per_length::Bool            = true,         # scale results per length
 	nbins::Union{Int, Nothing}  = nothing,
 )
 
@@ -175,12 +175,12 @@ function mc(
 	for i in 1:ntrials
 		prob = sample(sys_det; distribution = distribution)
 		ws, lp = compute!(prob, F)     # lp::LineParameters{Tc, Tr}
-		if per_line
-			Zscaled = lp.Z.values .* ws.line_length
-			Yscaled = lp.Y.values .* ws.line_length
-		else
+		if per_length
 			Zscaled = lp.Z.values
 			Yscaled = lp.Y.values
+		else
+			Zscaled = lp.Z.values .* ws.line_length
+			Yscaled = lp.Y.values .* ws.line_length
 		end
 
 		@inbounds for j1 in 1:nph, j2 in 1:nph, k in 1:nfreq

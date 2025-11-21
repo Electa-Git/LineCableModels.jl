@@ -264,7 +264,12 @@ end
 	y2 = coerce_to_T(b.vert, T)
 	r2 = coerce_to_T(_outer_radius(b), T)
 	d = hypot(x1 - x2, y1 - y2)
-	return d < (r1 + r2)   # strict overlap; grazing contact (==) allowed
+	tol = 1e-8 * max(r1 + r2, 1.0)
+	overlaps = d+tol < (r1 + r2)
+	if overlaps
+		@warn "Cable positions overlap: distance $d < sum of radii $(r1 + r2)"
+	end
+	return overlaps   # strict overlap; grazing contact (==) allowed
 end
 
 """

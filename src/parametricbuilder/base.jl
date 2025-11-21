@@ -52,8 +52,8 @@ function cardinality(cbs::CableBuilderSpec)
 		ps = by_comp[cname]
 		cond = [p for p in ps if p.part_type <: DataModel.AbstractConductorPart]
 		insu = [p for p in ps if p.part_type <: DataModel.AbstractInsulatorPart]
-		isempty(cond) && error("component '$cname' has no conductors")
-		isempty(insu) && error("component '$cname' has no insulators")
+		isempty(cond) && Base.error("component '$cname' has no conductors")
+		isempty(insu) && Base.error("component '$cname' has no insulators")
 
 		# first conductor axes
 		p1c    = cond[1]
@@ -112,8 +112,8 @@ function Base.show(io::IO, ::MIME"text/plain", cbs::CableBuilderSpec)
 		ps = by_comp[cname]
 		cond = [p for p in ps if p.part_type <: DataModel.AbstractConductorPart]
 		insu = [p for p in ps if p.part_type <: DataModel.AbstractInsulatorPart]
-		isempty(cond) && error("component '$cname' has no conductors")
-		isempty(insu) && error("component '$cname' has no insulators")
+		isempty(cond) && Base.error("component '$cname' has no conductors")
+		isempty(insu) && Base.error("component '$cname' has no insulators")
 
 		# conductors: couple to first when tuples compare equal
 		p1c    = cond[1]
@@ -171,7 +171,8 @@ end
 Base.show(io::IO, ::MIME"text/plain", tr::DesignTrace) = show_trace(tr)
 
 # == Choice-count helpers (reusing ParametricBuilder counting) ==
-_position_choice_count(p::_Pos) = _choice_count(p.dx) * _choice_count(p.dy)
+
+_position_choice_count(p::PositionSpec) = _choice_count(p.dx) * _choice_count(p.dy)
 
 _earth_choice_count(e::EarthSpec) =
 	_choice_count(e.rho) * _choice_count(e.eps_r) * _choice_count(e.mu_r) *
@@ -198,7 +199,7 @@ function Base.iterate(spec::SystemBuilderSpec)
 	try
 		x = take!(ch);
 		return (x, ch)
-	catch
+	catch e
 		@error "SystemBuilderSpec iteration failed before first yield" exception=(
 			e,
 			catch_backtrace(),

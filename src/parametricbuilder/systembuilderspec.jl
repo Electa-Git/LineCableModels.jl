@@ -1,37 +1,9 @@
-
 # ─────────────────────────────────────────────────────────────────────────────
-# Left-hand mapping syntax
-# Accepts (:core,1) etc., with positions:
-#   at(x=..., y=..., dx=..., dy=..., phases = (:core=>1, :sheath=>0, :jacket=>0))
+# Cross-section handlers
 # ─────────────────────────────────────────────────────────────────────────────
-const _MapItem = Union{
-	Tuple{Symbol, Int}, Tuple{String, Int},
-	Pair{Symbol, Int}, Pair{String, Int},
-}
 
-_mapdict(items::_MapItem...) = Dict{String, Int}(
-	(it isa Pair ? (string(first(it)) => Int(last(it)))
-		: (string(it[1]) => Int(it[2])))
-	for it in items
-)
-
-struct _Pos
-	x0::Number
-	y0::Number
-	dx::Any
-	dy::Any
-	conn::Dict{String, Int}
-end
-
-# normalize phases input to a splattable tuple of _MapItem
-_iter_phases(p) = (p,)                                  # single Pair or Tuple(:sym,Int)
-_iter_phases(p::Tuple) = p                              # tuple of items
-_iter_phases(v::AbstractVector{<:_MapItem}) = Tuple(v)  # vector of items
-
-function at(; x, y, dx = 0.0, dy = 0.0, phases = nothing)
-	items = phases === nothing ? () : _iter_phases(phases)
-	return _Pos(x, y, dx, dy, _mapdict(items...))
-end
+include("positionspec.jl")
+# include("trifoil.jl")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Earth and system specs
@@ -51,7 +23,7 @@ Earth(; rho, eps_r = 1.0, mu_r = 1.0, t = Inf) =
 struct SystemBuilderSpec
 	system_id::String
 	builder::CableBuilderSpec
-	positions::Vector{_Pos}
+	positions::Vector{PositionSpec}
 	length::Any         # (valuespec, pctspec) or scalar
 	temperature::Any    # (valuespec, pctspec) or scalar
 	earth::EarthSpec
@@ -59,7 +31,7 @@ struct SystemBuilderSpec
 end
 
 function SystemBuilderSpec(id::AbstractString, cbs::CableBuilderSpec,
-	positions::Vector{_Pos};
+	positions::Vector{PositionSpec};
 	length = 1000.0, temperature = 20.0, earth::EarthSpec, f::AbstractVector{<:Real})
 	return SystemBuilderSpec(
 		String(id),
@@ -73,7 +45,7 @@ function SystemBuilderSpec(id::AbstractString, cbs::CableBuilderSpec,
 end
 
 SystemBuilder(id::AbstractString, cbs::CableBuilderSpec,
-	positions::Vector{_Pos};
+	positions::Vector{PositionSpec};
 	length = 1000.0, temperature = 20.0, earth::EarthSpec, f::AbstractVector{<:Real}) = SystemBuilderSpec(id, cbs, positions; length, temperature, earth, f)
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -91,15 +63,25 @@ SystemBuilder(id::AbstractString, cbs::CableBuilderSpec,
 	end
 end
 
-_expand_position(p::_Pos) =
+_expand_position(p::PositionSpec) =
 	((x, y, p.conn) for x in _axis(p.x0, p.dx), y in _axis(p.y0, p.dy))
+
+@inline function _choice_positions(choice_item::Tuple)
+	isempty(choice_item) && return ()
+	first_item = choice_item[1]
+	if first_item isa Tuple
+		return choice_item
+	else
+		return (choice_item,)
+	end
+end
 
 _expand_earth(e::EarthSpec) = (
 	(ρ, ε, μ, t)
-	for ρ in _expand_pair(e.rho), #_make_range(e.rho[1]; pct = e.rho[2]),
-	ε in _expand_pair(e.eps_r), #_make_range(e.epsr[1]; pct = e.epsr[2]),
-	μ in _expand_pair(e.mu_r), #_make_range(e.mur[1]; pct = e.mur[2]),
-	t in _expand_pair(e.t) #_make_range(e.t[1]; pct = e.t[2])
+	for ρ in _expand_pair(e.rho),
+	ε in _expand_pair(e.eps_r),
+	μ in _expand_pair(e.mu_r),
+	t in _expand_pair(e.t)
 )
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -133,12 +133,14 @@ T₀ = $T₀
 				r_outer_j = positions[j][3]
 
 				# Check if cables overlap
-				min_allowed_dist = r_outer_i + r_outer_j
+				min_allowed = r_outer_i + r_outer_j
+				tol = 1e-8 * max(min_allowed, 1.0)
 
-				@assert dist > min_allowed_dist """
+
+				@assert dist + tol >= min_allowed """
 					Cables $i and $j overlap!
-					Center-to-center distance: $(dist) m
-					Minimum required distance: $(min_allowed_dist) m
+					Center-to-center distance: $(dist + tol) m
+					Minimum required distance: $(min_allowed) m
 					Cable $i outer radius: $(r_outer_i) m
 					Cable $j outer radius: $(r_outer_j) m"""
 			end

@@ -3,18 +3,19 @@ module ParametricBuilder
 # Export public API
 export make_stranded, make_screened
 export Conductor, Insulator, Material, CableBuilder
-export at, Earth, SystemBuilder
+export at, trifoil, Earth, SystemBuilder
 export determinize
 
 # Module-specific dependencies
 using ..Commons
 import ..Commons: add!
 using ..Materials: Materials
-using ..DataModel: DataModel
+using ..DataModel: DataModel, trifoil_formation, CableDesign
 using ..EarthProps: EarthModel
 using ..Engine: LineParametersProblem
 using Measurements
 using Base.Iterators: product
+
 
 # normalize input to (spec, pct)
 _spec(x) = (x isa Tuple && length(x)==2) ? x : (x, nothing)
@@ -33,8 +34,7 @@ _pcts(t::Tuple{<:Number, <:Number, <:Integer}) =
 function _make_range(spec; pct = nothing)
 	vs, ps = collect(_values(spec)), collect(_pcts(pct))
 	if all(p->p==0.0, ps)
-		;
-		return vs;
+		return vs
 	end
 	out = Any[]
 	for v in vs, p in ps

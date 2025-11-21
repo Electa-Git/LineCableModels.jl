@@ -110,10 +110,20 @@ function determinize(e::EarthSpec)
 	)
 end
 
-# determinize _Pos (keep anchors; just collapse dx/dy specs)
-function determinize(p::_Pos)
-	_Pos(p.x0, p.y0, _det_axis(p.dx), _det_axis(p.dy), p.conn)
+# determinize PositionSpec (keep anchors; just collapse dx/dy specs)
+function determinize(p::PositionSpec)
+	dx_det = _det_axis(p.dx)
+	dy_det = _det_axis(p.dy)
+	return PositionSpec(
+		p.x0,
+		p.y0,
+		dx_det,
+		dy_det,
+		p.conn,
+	)
 end
+
+
 
 # determinize SystemBuilderSpec
 function determinize(s::SystemBuilderSpec)
