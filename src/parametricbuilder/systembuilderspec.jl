@@ -1,8 +1,14 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# Cross-section handlers
-# ─────────────────────────────────────────────────────────────────────────────
+# Positions in the parametric system builder.
+#
+# Two flavours:
+#   - PositionSpec      : single anchor with dx/dy ranges (arbitrary layouts)
+#   - PositionGroupSpec : defined in `trifoil.jl`, grouped formations
+#
+# Both subtype AbstractPositionSpec so SystemBuilderSpec can store a mixed vector.
+abstract type AbstractPositionSpec end
 
 include("positionspec.jl")
+include("groupspec.jl")
 # include("trifoil.jl")
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -23,7 +29,7 @@ Earth(; rho, eps_r = 1.0, mu_r = 1.0, t = Inf) =
 struct SystemBuilderSpec
 	system_id::String
 	builder::CableBuilderSpec
-	positions::Vector{PositionSpec}
+	positions::Vector{AbstractPositionSpec}
 	length::Any         # (valuespec, pctspec) or scalar
 	temperature::Any    # (valuespec, pctspec) or scalar
 	earth::EarthSpec
@@ -31,7 +37,7 @@ struct SystemBuilderSpec
 end
 
 function SystemBuilderSpec(id::AbstractString, cbs::CableBuilderSpec,
-	positions::Vector{PositionSpec};
+	positions::Vector{<:AbstractPositionSpec};
 	length = 1000.0, temperature = 20.0, earth::EarthSpec, f::AbstractVector{<:Real})
 	return SystemBuilderSpec(
 		String(id),
@@ -45,8 +51,12 @@ function SystemBuilderSpec(id::AbstractString, cbs::CableBuilderSpec,
 end
 
 SystemBuilder(id::AbstractString, cbs::CableBuilderSpec,
-	positions::Vector{PositionSpec};
+	positions::AbstractVector{<:AbstractPositionSpec};
 	length = 1000.0, temperature = 20.0, earth::EarthSpec, f::AbstractVector{<:Real}) = SystemBuilderSpec(id, cbs, positions; length, temperature, earth, f)
+
+SystemBuilder(id::AbstractString, cbs::CableBuilderSpec,
+	positions::AbstractPositionSpec;
+	length = 1000.0, temperature = 20.0, earth::EarthSpec, f::AbstractVector{<:Real}) = SystemBuilderSpec(id, cbs, [positions]; length, temperature, earth, f)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Internals: expand range/% grammar via ParametricBuilder helpers
@@ -63,19 +73,6 @@ SystemBuilder(id::AbstractString, cbs::CableBuilderSpec,
 	end
 end
 
-_expand_position(p::PositionSpec) =
-	((x, y, p.conn) for x in _axis(p.x0, p.dx), y in _axis(p.y0, p.dy))
-
-@inline function _choice_positions(choice_item::Tuple)
-	isempty(choice_item) && return ()
-	first_item = choice_item[1]
-	if first_item isa Tuple
-		return choice_item
-	else
-		return (choice_item,)
-	end
-end
-
 _expand_earth(e::EarthSpec) = (
 	(ρ, ε, μ, t)
 	for ρ in _expand_pair(e.rho),
@@ -84,33 +81,55 @@ _expand_earth(e::EarthSpec) = (
 	t in _expand_pair(e.t)
 )
 
+# Choice count for single positions: size of the dx × dy grid
+function _position_choice_count(p::PositionSpec)
+	nx = length(collect(_axis(p.x0, p.dx)))
+	ny = length(collect(_axis(p.y0, p.dy)))
+	return nx * ny
+end
+
+# Choice count for grouped positions: number of spacing samples
+function _position_choice_count(g::PositionGroupSpec)
+	spec, pct = g.d
+	return length(collect(_make_range(spec; pct = pct)))
+end
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Main iterator: yields fully-formed LineParametersProblem objects
 # Overlaps are *not* emitted (skipped with warning  by catching the geometry error).
 # Designs are identical per system realization (no cross-mixing).
 # ─────────────────────────────────────────────────────────────────────────────
-function iterate_problems(spec::SystemBuilderSpec)
+function iterate(spec::SystemBuilderSpec)
 	return Channel{LineParametersProblem}(32) do ch
 		produced = 0
 		try
 			for des in spec.builder
 				for L in _expand_pair(spec.length)
-					pos_spaces = map(_expand_position, spec.positions)
-					for choice in product(pos_spaces...)
+					# NB: _expand_position keeps grouped spacings atomic and
+					# materializes after `des` (and its outer radius) are known.
+					for choice in _expand_position(spec.positions, des)
 						try
 							x1, y1, c1 = choice[1]
-							sys = DataModel.LineCableSystem(spec.system_id, L,
-								DataModel.CablePosition(des, x1, y1, c1))
+							sys = DataModel.LineCableSystem(
+								spec.system_id,
+								L,
+								DataModel.CablePosition(des, x1, y1, c1),
+							)
+
 							for k in Iterators.drop(eachindex(choice), 1)
 								xk, yk, ck = choice[k]
 								sys = add!(sys, des, xk, yk, ck)
 							end
+
 							for T in _expand_pair(spec.temperature)
 								for (ρ, ε, μ, t) in _expand_earth(spec.earth)
 									em = EarthModel(spec.frequencies, ρ, ε, μ; t = t)
-									prob = LineParametersProblem(sys;
-										temperature = T, earth_props = em,
-										frequencies = spec.frequencies)
+									prob = LineParametersProblem(
+										sys;
+										temperature = T,
+										earth_props = em,
+										frequencies = spec.frequencies,
+									)
 									put!(ch, prob)
 									produced += 1
 								end
@@ -128,11 +147,18 @@ function iterate_problems(spec::SystemBuilderSpec)
 				end
 			end
 		catch e
-			@error "iterate SystemBuilderSpec failed" exception=(e, catch_backtrace())
+			@error "iterate SystemBuilderSpec failed" exception = (e, catch_backtrace())
 		finally
-			@debug "iterate SystemBuilderSpec finished" produced=produced upper_bound=cardinality(
-				spec,
-			)
+			@debug "iterate SystemBuilderSpec finished" produced = produced upper_bound =
+				cardinality(spec)
 		end
 	end
+end
+
+function build(spec::SystemBuilderSpec)
+	problems = LineParametersProblem[]
+	for prob in spec              # uses Base.iterate(spec::SystemBuilderSpec)
+		push!(problems, prob)
+	end
+	return problems
 end
