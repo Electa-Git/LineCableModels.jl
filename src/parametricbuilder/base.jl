@@ -274,7 +274,7 @@ function _show_position(io::IO, i::Int, g::PositionGroupSpec)
 	dvals  = _vals_pair(g.d)
 
 	# phases: show one map per leg, reusing _fmt_map
-	phase_str = "[" * join((_fmt_map(c) for c in g.conns), "; ") * "]"
+	phase_str = "[" * join((_fmt_map(c) for c in g.conn), "; ") * "]"
 
 	println(
 		io,
