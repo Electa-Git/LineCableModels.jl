@@ -123,7 +123,18 @@ function determinize(p::PositionSpec)
 	)
 end
 
-
+# determinize PositionGroupSpec: collapse (valuespec,pctspec) for spacing,
+# keep the rest as-is; still materialized lazily later.
+function determinize(p::PositionGroupSpec)
+	dspec_det = _det_field(p.d)
+	return PositionGroupSpec(
+		p.arrangement,
+		p.n,
+		p.anchor,
+		dspec_det,
+		p.conns,
+	)
+end
 
 # determinize SystemBuilderSpec
 function determinize(s::SystemBuilderSpec)
