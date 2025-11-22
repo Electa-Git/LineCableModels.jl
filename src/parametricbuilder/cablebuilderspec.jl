@@ -224,8 +224,6 @@ function _make_variants(ps::Vector{PartSpec}, base)
 	end
 
 	# ---------------- selection stacks (resolved tuples) -------------
-	# chosen_c stores (pc, mc, dc, ac)
-	# chosen_i stores (pi, m2i, d2i, a2i)
 	chosen_c = Vector{NTuple{4, Any}}()
 	chosen_i = Vector{NTuple{4, Any}}()
 
@@ -410,12 +408,12 @@ function build(cbs::CableBuilderSpec; trace::Bool = false)
 end
 
 """
-	iterate_designs(cbs) -> Channel{DataModel.CableDesign}
+	iterate(cbs) -> Channel{DataModel.CableDesign}
 
 Lazy stream of `CableDesign`s built from `CableBuilderSpec` without allocating all of them.
-Works with `for d in iterate_designs(cbs)`.
+Works with `for d in iterate(cbs)`.
 """
-function iterate_designs(cbs::CableBuilderSpec)
+function iterate(cbs::CableBuilderSpec)
 	# group by component
 	comp_names = unique(p.component for p in cbs.parts)
 	by_comp = Dict{Symbol, Vector{PartSpec}}()
@@ -435,8 +433,7 @@ function iterate_designs(cbs::CableBuilderSpec)
 					nominal_data = cbs.nominal,
 				)
 				for k in 2:length(built)
-					;
-					add!(des, built[k]);
+					add!(des, built[k])
 				end
 				put!(ch, des)
 				return
