@@ -17,7 +17,7 @@ struct PositionGroupSpec <: AbstractPositionSpec
 	n::Int                              # number of cables in the group
 	anchor::Tuple{Float64, Float64}     # (x0,y0)
 	d::Tuple{Any, Any}              # (valuespec, pctspec)
-	conns::Vector{Dict{String, Int}}    # per-leg connection maps
+	conn::Vector{Dict{String, Int}}    # per-leg connection maps
 end
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -34,13 +34,13 @@ The spacing `d` follows the usual `(valuespec, pctspec)` grammar; it will be
 expanded lazily and clamped at runtime to avoid overlaps.
 """
 function trifoil(; x0::Real = 0.0, y0::Real, d, phases)
-	conns = make_phase_maps(phases, 3)
+	conn = make_phase_maps(phases, 3)
 	return PositionGroupSpec(
 		:trifoil,
 		3,
 		(float(x0), float(y0)),
 		_spec(d),
-		conns,
+		conn,
 	)
 end
 
@@ -54,13 +54,13 @@ Horizontal flat formation: first cable at `(x0, y0)`, remaining `n-1` cables at
 """
 function hflat(; x0::Real = 0.0, y0::Real = 0.0, d, n::Integer = 3, phases)
 	n < 1 && error("hflat requires n ≥ 1")
-	conns = make_phase_maps(phases, n)
+	conn = make_phase_maps(phases, n)
 	return PositionGroupSpec(
 		:hflat,
 		n,
 		(float(x0), float(y0)),
 		_spec(d),
-		conns,
+		conn,
 	)
 end
 
@@ -74,13 +74,13 @@ Vertical flat formation: first cable at `(x0, y0)`, remaining `n-1` cables at
 """
 function vflat(; x0::Real = 0.0, y0::Real = 0.0, d, n::Integer = 3, phases)
 	n < 1 && error("vflat requires n ≥ 1")
-	conns = make_phase_maps(phases, n)
+	conn = make_phase_maps(phases, n)
 	return PositionGroupSpec(
 		:vflat,
 		n,
 		(float(x0), float(y0)),
 		_spec(d),
-		conns,
+		conn,
 	)
 end
 
@@ -115,14 +115,14 @@ function _get_valid_spacings(g::PositionGroupSpec, rout)
 
 	# CASE 1: all invalid → pure AUTO: min_spacing with all pcts
 	if isempty(valid)
-		@warn "Spacing spec produced only overlapping layouts; clamping to minimum with % uncertainty grid." min_spacing=min_spacing
+		@debug "Spacing spec produced only overlapping layouts; clamping to minimum with % uncertainty grid." min_spacing=min_spacing
 		return collect(_make_range(min_spacing; pct = g.d[2]))
 	end
 
 	# CASE 2: some valid, some discarded → inject ONE batch at min_spacing,
 	# but only for spacing+uncertainty combos that are not already present.
 	if discarded > 0
-		@warn "Dropped $discarded spacing samples below minimum center-to-center distance; including one batch at the minimum feasible spacing." min_spacing=min_spacing
+		@debug "Dropped $discarded spacing samples below minimum center-to-center distance; including one batch at the minimum feasible spacing." min_spacing=min_spacing
 
 		autos_all = collect(_make_range(min_spacing; pct = g.d[2]))
 
@@ -177,7 +177,7 @@ function _materialize(g::PositionGroupSpec, des::CableDesign)
 			end :
 			error("Unknown position group arrangement $(g.arrangement)")
 
-		return [(x, y, g.conns[i]) for (i, (x, y)) in enumerate(coords)]
+		return [(x, y, g.conn[i]) for (i, (x, y)) in enumerate(coords)]
 	end
 
 	return (_make_layout(g, d) for d in spacings)
@@ -212,62 +212,3 @@ function _expand_position(position_defs::Vector{AbstractPositionSpec}, des::Cabl
 
 	return (reduce(vcat, combo) for combo in product(spaces...))
 end
-
-# # ─────────────────────────────────────────────────────────────────────────────
-# # Phase mapping: (:core => 1) or (:core => (1,2,3)), etc.
-# # ─────────────────────────────────────────────────────────────────────────────
-# function _phase_maps(phases, n::Int)
-# 	items = phases === nothing ? () : _normalize_phase_map(phases)
-# 	out = [Dict{String, Int}() for _ in 1:n]
-
-# 	for it in items
-# 		key, val =
-# 			it isa Pair ? (first(it), last(it)) :
-# 			(it isa Tuple && length(it) == 2) ? (it[1], it[2]) :
-# 			error("Invalid phases entry: $it")
-
-# 		name = string(key)
-
-# 		if val isa Integer
-# 			# scalar → replicate to all legs
-# 			for k in 1:n
-# 				out[k][name] = Int(val)
-# 			end
-# 		elseif val isa Tuple && length(val) == n && all(x -> x isa Integer, val)
-# 			# tuple → per-leg phases
-# 			for k in 1:n
-# 				out[k][name] = Int(val[k])
-# 			end
-# 		else
-# 			error(
-# 				"Invalid phase mapping for $name: $val. Expected Int or length-$n tuple of Ints.",
-# 			)
-# 		end
-# 	end
-
-# 	return out
-# end
-
-# # ─────────────────────────────────────────────────────────────────────────────
-# # Public sugar constructors
-# # ─────────────────────────────────────────────────────────────────────────────
-
-# """
-# 	trifoil(; x0 = 0.0, y0, d, phases)
-
-# Lazily describes a 3-cable trifoil formation. The anchor `(x0,y0)` is passed to
-# `DataModel.trifoil_formation(x0,y0,d)` when the group is materialized.
-
-# The spacing `d` follows the usual `(valuespec, pctspec)` grammar; it will be
-# expanded lazily and clamped at runtime to avoid overlaps.
-# """
-# function trifoil(; x0::Real = 0.0, y0::Real, d, phases)
-# 	conns = _phase_maps(phases, 3)
-# 	return PositionGroupSpec(
-# 		:trifoil,
-# 		3,
-# 		(float(x0), float(y0)),
-# 		_spec(d),
-# 		conns,
-# 	)
-# end
