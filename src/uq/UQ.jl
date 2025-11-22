@@ -6,9 +6,10 @@ export sample, mc, hist
 # Module-specific dependencies
 using ..Commons: BASE_FLOAT
 using ..ParametricBuilder:
-	MaterialSpec, PartSpec, CableBuilderSpec, SystemBuilderSpec, build, iterate_problems,
-	_spec, determinize
+	MaterialSpec, PartSpec, CableBuilderSpec, SystemBuilderSpec, AbstractPositionSpec,
+	PositionSpec, PositionGroupSpec, build, iterate, _spec, determinize
 using ..Engine: EMTFormulation, compute!, LineParameters
+using ..DataModel: get_outer_radius
 using Measurements: Measurement, measurement, value, uncertainty
 using Random, Statistics, DataFrames
 using Distributions: Distributions, ContinuousUnivariateDistribution, Normal, Uniform
@@ -17,46 +18,68 @@ using StatsBase: fit, Histogram, normalize
 # ─────────────────────────────────────────────────────────────────────────────
 # Random collapse of ranges → singleton specs + one-shot build
 # ─────────────────────────────────────────────────────────────────────────────
+# # - Any other symbol => hard error.
+# @inline function _bounded_draw(lo::Real, hi::Real, distribution::Symbol = :normal)
+# 	# - Given [lo, hi], interpret as ±1σ around μ = (lo+hi)/2, σ = (hi-lo)/2.
+# 	lo_f = float(lo)
+# 	hi_f = float(hi)
+# 	@assert hi_f > lo_f "hi must be greater than lo"
+# 	μ = (lo_f + hi_f) / 2
+# 	σ = (hi_f - lo_f) / 2
 
-# - Given [lo, hi], interpret as ±1σ around μ = (lo+hi)/2, σ = (hi-lo)/2.
-# - :normal => Normal(μ, σ).
-# - :uniform  => Uniform(μ ± √3 σ) so std matches σ.
-# - Any other symbol => hard error.
-@inline function _bounded_draw(lo::Real, hi::Real, distribution::Symbol = :uniform)
-	lo_f = float(lo)
-	hi_f = float(hi)
-	@assert hi_f > lo_f "hi must be greater than lo"
-	μ = (lo_f + hi_f) / 2
-	σ = (hi_f - lo_f) / 2
-
-	if distribution === :normal
-		return rand(Distributions.Normal(μ, σ))
-	elseif distribution === :uniform
-		d = √3 * σ
-		return rand(Distributions.Uniform(μ - d, μ + d))
-	else
-		throw(
-			ArgumentError(
-				"unsupported distribution: $(distribution). Use :uniform or :normal",
-			),
-		)
-	end
-end
+# 	if distribution === :normal
+# 		# - :normal => Normal(μ, σ).
+# 		return rand(Distributions.Normal(μ, σ))
+# 	elseif distribution === :uniform
+# 		# - :uniform  => Uniform(μ ± √3 σ) so std matches σ.
+# 		d = √3 * σ
+# 		return rand(Distributions.Uniform(μ - d, μ + d))
+# 	else
+# 		throw(
+# 			ArgumentError(
+# 				"unsupported distribution: $(distribution). Use :uniform or :normal",
+# 			),
+# 		)
+# 	end
+# end
 
 # Draw once from a "range-like" spec
 #   spec :: Number                             → return as-is
 #   spec :: AbstractVector                     → random element (uniform over indices)
-#   spec :: (lo::Number, hi::Number, n::Int)   → scalar draw in [lo, hi] (n only defines a grid elsewhere)
+#   spec :: (lo::Number, hi::Number, n::Int)   → given [lo, hi], interpret as ±1σ around μ = (lo+hi)/2, σ = (hi-lo)/2.
 #   anything iterable                          → pick a random element
 @inline function _rand_in(spec, distribution::Symbol)
 	if spec isa Number
 		return spec
+
 	elseif spec isa AbstractVector
 		@inbounds return spec[rand(1:length(spec))]
+
 	elseif spec isa Tuple && length(spec) == 3 &&
 		   spec[1] isa Number && spec[2] isa Number && spec[3] isa Integer
 		lo, hi = spec[1], spec[2]
-		return _bounded_draw(lo, hi, distribution)
+		# - Given [lo, hi], interpret as ±1σ around μ = (lo+hi)/2, σ = (hi-lo)/2.
+		lo_f = float(lo)
+		hi_f = float(hi)
+		@assert hi_f > lo_f "hi must be greater than lo"
+		μ = (lo_f + hi_f) / 2
+		σ = (hi_f - lo_f) / 2
+
+		if distribution === :normal
+			# - :normal => Normal(μ, σ).
+			return rand(Distributions.Normal(μ, σ))
+		elseif distribution === :uniform
+			# - :uniform  => Uniform(μ ± √3 σ) so std matches σ.
+			d = √3 * σ
+			return rand(Distributions.Uniform(μ - d, μ + d))
+		else
+			throw(
+				ArgumentError(
+					"unsupported distribution: $(distribution). Use :uniform or :normal",
+				),
+			)
+		end
+
 	else
 		if Base.iterable(spec)
 			vals = collect(spec)
@@ -67,10 +90,75 @@ end
 end
 
 # Collapse a (spec, pct) pair → (value::Number, pct::Union{Nothing,Number})
-@inline function _collapse_pair(sp::Tuple, distribution::Symbol)
+"""
+	_collapse_pair(sp::Tuple, distribution::Symbol; domain=nothing, max_tries::Int=10_000)
+
+Collapse a (spec, pct) pair into `(value, pct_value)` by drawing once from the
+"range-like" `spec` and `pct` using `_rand_in`.
+
+If `domain !== nothing`, it must be a tuple `(lo, hi)` where each bound can be
+`Real` or `nothing`. The value draw `v` is accepted only if:
+
+	(lo === nothing || v ≥ lo) && (hi === nothing || v ≤ hi)
+
+Otherwise a new draw is attempted, up to `max_tries`. If no feasible value is
+found, an `error` is thrown.
+
+This gives you generic rejection-sampling with minimal code, suitable for
+enforcing physical domains like `(0, Inf)` for resistivity, spacing, thickness, etc.
+"""
+@inline function _collapse_pair(
+	sp::Tuple,
+	distribution::Symbol;
+	domain::Union{Nothing, Tuple} = nothing,
+	max_tries::Int = 10_000,
+)
 	spec, pct = sp
-	v = _rand_in(spec, distribution)
-	u = pct === nothing ? nothing : _rand_in(pct, distribution)
+
+	# Draw main value with optional domain constraint
+	v =
+		if domain === nothing
+			_rand_in(spec, distribution)
+		else
+			lo, hi = domain
+			tries = 0
+			valid = nothing
+			while true
+				tries += 1
+				tries > max_tries && error(
+					"Unable to draw value in domain $domain from spec=$spec " *
+					"after $max_tries attempts. Check your range and distribution.",
+				)
+				val = _rand_in(spec, distribution)
+				if (lo === nothing || val >= lo) && (hi === nothing || val <= hi)
+					valid = val
+					break
+				end
+			end
+			valid
+		end
+
+	# pct ALWAYS lives in [0,100]
+	u =
+		pct === nothing ? nothing :
+		begin
+			lo, hi = 0.0, 100.0
+			tries = 0
+			accepted_pct = nothing
+			while true
+				tries += 1
+				tries > max_tries && error(
+					"Unable to draw pct ∈ [0,100] from pct-spec=$pct after $max_tries attempts.",
+				)
+				val = _rand_in(pct, distribution)
+				if lo <= val <= hi
+					accepted_pct = val
+					break
+				end
+			end
+			accepted_pct
+		end
+
 	return (v, u)
 end
 
@@ -121,13 +209,13 @@ end
 end
 
 """
-	collapse_cbs(cbs::CableBuilderSpec; distribution::Symbol = :uniform) -> CableBuilderSpec
+	collapse(cbs::CableBuilderSpec; distribution::Symbol = :uniform) -> CableBuilderSpec
 
 Return a **singleton** `CableBuilderSpec` by collapsing every range-like item
 (dims, args, and material fields) into one random draw using the chosen distribution.
 
 """
-function collapse_cbs(
+function collapse(
 	cbs::CableBuilderSpec;
 	distribution::Symbol = :normal,
 )
@@ -138,51 +226,105 @@ end
 """
 	sample(cbs::CableBuilderSpec; distribution::Symbol = :uniform) -> DataModel.CableDesign
 
-Collapse ranges in `cbs` using `collapse_cbs` and build **one** cable design.
+Collapse ranges in `cbs` using `collapse` and build **one** cable design.
 Useful for Monte Carlo style sampling where each call yields a new realization.
 """
 function sample(
 	cbs::CableBuilderSpec;
 	distribution::Symbol = :normal,
 )
-	scbs = collapse_cbs(cbs; distribution = distribution)
+	scbs = collapse(cbs; distribution = distribution)
 	designs = build(scbs)              # with singleton choices, this yields length == 1
 	@assert length(designs) == 1
 	return designs[1]
 end
 
 """
-	collapse_sbs(sbs::SystemBuilderSpec; distribution::Symbol = :uniform) -> SystemBuilderSpec
+	_collapse_position(p::AbstractPositionSpec, distribution) -> PositionSpec or PositionGroupSpec
+
+Collapse the uncertainty-bearing fields of a position specification.
+No geometry is touched — grouped formations remain lazy, but their spacing
+is collapsed to a concrete `(value, pct)` pair.
+"""
+# --- collapse for single positions -------------------------------------------------
+function _collapse_position(p::PositionSpec, distribution::Symbol)
+	dxc = _collapse_pair(_spec(p.dx), distribution)
+	dyc = _collapse_pair(_spec(p.dy), distribution)
+	return PositionSpec(
+		p.x0,
+		p.y0,
+		dxc,
+		dyc,
+		p.conn,
+	)
+end
+# --- collapse for grouped formations ----------------------------------------------
+function _collapse_position(
+	g::PositionGroupSpec,
+	distribution::Symbol,
+	d_min::Real;
+	max_tries::Int = 10_000,
+)
+	# Physical constraint: d ≥ 2*R_out
+	dspec_collapsed = _collapse_pair(
+		g.d,
+		distribution;
+		domain = (d_min, nothing),   # (lo, hi), hi unconstrained
+		max_tries = max_tries,
+	)
+	# value is guaranteed ≥ d_min here
+
+	return PositionGroupSpec(
+		g.arrangement,
+		g.n,
+		g.anchor,
+		dspec_collapsed,
+		g.conns,
+	)
+end
+
+"""
+	collapse(sbs::SystemBuilderSpec; distribution::Symbol = :uniform) -> SystemBuilderSpec
 
 Collapse ranges in a `SystemBuilderSpec` using existing helpers.
 
 Rules:
 - Anchors `x, y` are numbers → pass through unchanged.
-- `dx, dy` are ((nom_range), (unc_range)) → `_collapse_pair(_spec(...), distribution)`.
+- `pos` are ((nom_range), (unc_range)) → `_collapse_position(..., distribution)`.
 - `length`, `temperature` → `_collapse_pair(_spec(...), distribution)`.
 - Earth fields (`rho`, `eps_r`, `mu_r`, `t`) → `_collapse_pair(_spec(...), distribution)`.
-- Inner `builder` → `collapse_cbs(builder; distribution)`.
+- Inner `builder` → `collapse(builder; distribution)`.
 """
-function collapse_sbs(
+function collapse(
 	sbs::SystemBuilderSpec;
 	distribution::Symbol = :normal,
 )
-	scbs = collapse_cbs(sbs.builder; distribution = distribution)
+	# 1) collapse cable builder (dims, mats, etc.)
+	scbs = collapse(sbs.builder; distribution = distribution)
 
-	# positions: keep anchors; collapse dx/dy pairs
-	pos = [
-		begin
-			dxc = _collapse_pair(_spec(p.dx), distribution)
-			dyc = _collapse_pair(_spec(p.dy), distribution)
-			typeof(p)(p.x0, p.y0, dxc, dyc, p.conn)
-		end for p in sbs.positions
-	]
+	# 2) build the *single* cable design and get its outer radius
+	designs = build(scbs)
+	@assert length(designs) == 1 "Collapsed CableBuilderSpec should yield exactly one design"
+	des = designs[1]
+	r_out = get_outer_radius(des)
 
-	# system-level scalars-as-pairs
+	# 3) collapse positions: singles are collapsed generically,
+	#    grouped formations are collapsed with geometry-aware rejection.
+	pos = Vector{AbstractPositionSpec}(undef, length(sbs.positions))
+	for (i, p) in enumerate(sbs.positions)
+		if p isa PositionSpec
+			pos[i] = _collapse_position(p, distribution)
+		elseif p isa PositionGroupSpec
+			pos[i] = _collapse_position(p, distribution, 2*r_out)
+		else
+			error("Unsupported position type in SystemBuilderSpec: $(typeof(p))")
+		end
+	end
+
+	# 4) system-level scalars as before
 	L = _collapse_pair(_spec(sbs.length), distribution)
 	T = _collapse_pair(_spec(sbs.temperature), distribution)
 
-	# earth
 	er = sbs.earth
 	ρ = _collapse_pair(_spec(er.rho), distribution)
 	ε = _collapse_pair(_spec(er.eps_r), distribution)
@@ -194,12 +336,44 @@ function collapse_sbs(
 		sbs.system_id,
 		scbs,
 		pos;
-		length = L,
+		length      = L,
 		temperature = T,
-		earth = earth,
-		f = sbs.frequencies,
+		earth       = earth,
+		f           = sbs.frequencies,
 	)
 end
+
+# function collapse(
+# 	sbs::SystemBuilderSpec;
+# 	distribution::Symbol = :normal,
+# )
+# 	scbs = collapse(sbs.builder; distribution = distribution)
+
+# 	# positions: keep anchors; collapse dx/dy/dspec pairs
+# 	pos = [_collapse_position(p, distribution) for p in sbs.positions]
+
+# 	# system-level scalars-as-pairs
+# 	L = _collapse_pair(_spec(sbs.length), distribution)
+# 	T = _collapse_pair(_spec(sbs.temperature), distribution)
+
+# 	# earth
+# 	er = sbs.earth
+# 	ρ = _collapse_pair(_spec(er.rho), distribution)
+# 	ε = _collapse_pair(_spec(er.eps_r), distribution)
+# 	μ = _collapse_pair(_spec(er.mu_r), distribution)
+# 	t = _collapse_pair(_spec(er.t), distribution)
+# 	earth = typeof(er)(; rho = ρ, eps_r = ε, mu_r = μ, t = t)
+
+# 	return typeof(sbs)(
+# 		sbs.system_id,
+# 		scbs,
+# 		pos;
+# 		length = L,
+# 		temperature = T,
+# 		earth = earth,
+# 		f = sbs.frequencies,
+# 	)
+# end
 
 """
 	sample(sbs::SystemBuilderSpec; distribution::Symbol = :uniform)
@@ -210,8 +384,8 @@ function sample(
 	sbs::SystemBuilderSpec;
 	distribution::Symbol = :normal,
 )
-	ss = collapse_sbs(sbs; distribution = distribution)
-	ch = iterate_problems(ss)
+	ss = collapse(sbs; distribution = distribution)
+	ch = iterate(ss)
 	return take!(ch)
 end
 
