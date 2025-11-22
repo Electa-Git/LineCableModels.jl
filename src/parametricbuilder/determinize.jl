@@ -132,7 +132,7 @@ function determinize(p::PositionGroupSpec)
 		p.n,
 		p.anchor,
 		dspec_det,
-		p.conns,
+		p.conn,
 	)
 end
 
