@@ -29,7 +29,7 @@ export ConductorGroup, InsulatorGroup  # Group types
 export CableComponent, CableDesign  # Cable design types
 export CablePosition, LineCableSystem  # System types
 export CablesLibrary, NominalData  # Support types
-export trifoil_formation, flat_formation  # Formation helpers
+export trifoil_formation, flat_formation, get_outer_radius  # Helpers
 export preview, equivalent
 
 # Module-specific dependencies
