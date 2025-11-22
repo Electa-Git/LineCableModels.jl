@@ -115,14 +115,16 @@ enforcing physical domains like `(0, Inf)` for resistivity, spacing, thickness, 
 )
 	spec, pct = sp
 
-	# Draw main value with optional domain constraint
+	# 1) VALUE SIDE (v): domain only for randomizable specs
 	v =
-		if domain === nothing
+		if domain === nothing || spec isa Number
+			# No domain guardrail for scalars: if the user hard-codes nonsense,
+			# let geometry/physics code blow up later.
 			_rand_in(spec, distribution)
 		else
 			lo, hi = domain
 			tries = 0
-			valid = nothing
+			accepted = nothing
 			while true
 				tries += 1
 				tries > max_tries && error(
@@ -131,36 +133,44 @@ enforcing physical domains like `(0, Inf)` for resistivity, spacing, thickness, 
 				)
 				val = _rand_in(spec, distribution)
 				if (lo === nothing || val >= lo) && (hi === nothing || val <= hi)
-					valid = val
+					accepted = val
 					break
 				end
 			end
-			valid
+			accepted
 		end
 
-	# pct ALWAYS lives in [0,100]
+	# 2) PCT SIDE (u): domain only for randomizable pct-specs
 	u =
 		pct === nothing ? nothing :
 		begin
-			lo, hi = 0.0, 100.0
-			tries = 0
-			accepted_pct = nothing
-			while true
-				tries += 1
-				tries > max_tries && error(
-					"Unable to draw pct ∈ [0,100] from pct-spec=$pct after $max_tries attempts.",
-				)
-				val = _rand_in(pct, distribution)
-				if lo <= val <= hi
-					accepted_pct = val
-					break
+			if pct isa Number
+				# Scalar pct: pass through. If it's garbage, some other validator
+				# or the physics will scream, not the domain sampler.
+				_rand_in(pct, distribution)
+			else
+				# Range-like pct: enforce 0–100 on the *random draws*.
+				lo, hi = 0.0, 100.0
+				tries = 0
+				accepted_pct = nothing
+				while true
+					tries += 1
+					tries > max_tries && error(
+						"Unable to draw pct ∈ [0,100] from pct-spec=$pct after $max_tries attempts.",
+					)
+					val = _rand_in(pct, distribution)
+					if lo <= val <= hi
+						accepted_pct = val
+						break
+					end
 				end
+				accepted_pct
 			end
-			accepted_pct
 		end
 
 	return (v, u)
 end
+
 
 # Collapse PartSpec.args:
 #   each entry can be:
@@ -279,7 +289,7 @@ function _collapse_position(
 		g.n,
 		g.anchor,
 		dspec_collapsed,
-		g.conns,
+		g.conn,
 	)
 end
 
