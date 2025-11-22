@@ -167,7 +167,7 @@ function mc(
 	Csamp = Array{U, 4}(undef, nph, nph, nfreq, ntrials)
 
 	# Determinize once
-	@show sys_det = determinize(sbs)
+	sys_det = determinize(sbs)
 
 	# ─────────────────────────────────────────────────────────────────────────
 	# Monte Carlo over FULL frequency vector: one LineParameters per trial
