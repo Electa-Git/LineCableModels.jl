@@ -374,3 +374,128 @@ function Distributions.modes(d::LineParametersPDF{T}) where {T}
 
 	return [(d.edges[i] + d.edges[i+1]) / 2 for i in indices]
 end
+
+"""
+entropy(d::LineParametersPDF)
+
+Calculate the differential entropy (base e).
+H(X) = - ∫ f(x) * log(f(x)) dx
+	 = - Σ ∫_{e_i}^{e_{i+1}} [d_i * log(d_i)] dx
+	 = - Σ [d_i * log(d_i) * w_i]
+	 = - Σ [p_i * log(d_i)]
+where p_i = d_i * w_i is the probability mass of bin i.
+"""
+function Distributions.entropy(d::LineParametersPDF{T}) where {T}
+	acc = zero(T)
+	widths = diff(d.edges)
+
+	@inbounds for i in 1:length(d.dens)
+		dens_i = d.dens[i]
+
+		# If density is 0, (f(x) * log(f(x))) -> 0.
+		# So we just skip the bin.
+		if dens_i > 0
+			width_i = widths[i]
+			prob_mass_i = dens_i * width_i
+
+			# This is base e (natural log)
+			acc -= prob_mass_i * log(dens_i)
+		end
+	end
+	return acc
+end
+
+"""
+entropy(d::LineParametersPDF, b::Real)
+
+Calculate the differential entropy with a specified base b.
+H_b(X) = H_e(X) / log(b)
+"""
+function Distributions.entropy(d::LineParametersPDF, b::Real)
+	(b > 0 && b != 1) ||
+		throw(ArgumentError("Entropy base must satisfy b > 0 and b ≠ 1, got b = $b"))
+
+	# Just convert the base e entropy.
+	return Distributions.entropy(d) / log(b)
+end
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Moment Generating & Characteristic Functions
+# ─────────────────────────────────────────────────────────────────────────────
+
+"""
+mgf(d::LineParametersPDF, t::Real)
+
+Moment Generating Function
+M(t) = E[e^(tX)] = ∫ e^(tx) * f(x) dx
+	 = Σ ∫_{e_i}^{e_{i+1}} [d_i * e^(tx)] dx
+	 = Σ d_i * [e^(tx) / t]_{e_i}^{e_{i+1}}
+	 = Σ d_i/t * (e^(t*e_{i+1}) - e^(t*e_i))
+
+This is numerically catastrophic for t -> 0.
+We rewrite:
+Term_i = d_i * e^(t*e_i) * (e^(t*(e_{i+1}-e_i)) - 1) / t
+Let w_i = e_{i+1} - e_i.
+Term_i = d_i * e^(t*e_i) * w_i * (e^(t*w_i) - 1) / (t*w_i)
+Term_i = d_i * e^(t*e_i) * w_i * exprel(t*w_i)
+
+`Base.Math.exprel(x)` is the numerically stable (e^x - 1) / x.
+"""
+function Distributions.mgf(d::LineParametersPDF{T}, t::Real) where {T}
+	t == 0 && return one(T) # MGF(0) = 1
+
+	acc = zero(T)
+
+	@inbounds for i in 1:length(d.dens)
+		dens_i = d.dens[i]
+		dens_i == 0 && continue
+
+		a = d.edges[i]
+		b = d.edges[i+1]
+		w = b - a
+
+		# This is the argument to exprel: z = t*w
+		z = t * w
+
+		# Calculate (e^z - 1) / z, handling z=0
+		# This is the stable implementation
+		exprel_z = iszero(z) ? one(z) : expm1(z) / z
+
+		# Term_i = d_i * e^(t*a) * w_i * exprel(t*w_i)
+		acc += dens_i * exp(t * a) * w * exprel_z
+	end
+	return acc
+end
+
+
+"""
+cf(d::LineParametersPDF, t::Real)
+
+Characteristic Function
+ϕ(t) = E[e^(itX)] = MGF(it)
+
+This is the exact same derivation as the MGF, just
+substituting `t` with `it`.
+"""
+function Distributions.cf(d::LineParametersPDF{T}, t::Real) where {T}
+	t == 0 && return one(Complex{T})
+
+	acc = zero(Complex{T})
+
+	@inbounds for i in 1:length(d.dens)
+		dens_i = d.dens[i]
+		dens_i == 0 && continue
+
+		a = d.edges[i]
+		b = d.edges[i+1]
+		w = b - a
+
+		z = im * t * w
+
+		exprel_z = iszero(z) ? one(z) : expm1(z) / z
+
+		acc += dens_i * exp(im * t * a) * w * exprel_z
+	end
+	return acc
+end
