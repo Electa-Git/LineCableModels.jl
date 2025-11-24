@@ -13,7 +13,8 @@ using ..DataModel: get_outer_radius
 using Measurements: Measurement, measurement, value, uncertainty
 using Random, Statistics, DataFrames
 using Distributions: Distributions, ContinuousUnivariateDistribution, Normal, Uniform
-using StatsBase: fit, Histogram, normalize
+using StatsBase: fit, Histogram, normalize, quantile
+using LinearAlgebra
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Random collapse of ranges → singleton specs + one-shot build
