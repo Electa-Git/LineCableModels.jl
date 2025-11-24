@@ -12,37 +12,11 @@ using ..Engine: EMTFormulation, compute!, LineParameters
 using ..DataModel: get_outer_radius
 using Measurements: Measurement, measurement, value, uncertainty
 using Random, Statistics, DataFrames
-using Distributions: Distributions, ContinuousUnivariateDistribution, Normal, Uniform
-using StatsBase: fit, Histogram, normalize, quantile
+using Distributions:
+	Distributions, ContinuousUnivariateDistribution, Normal, Uniform, cdf, sampler
+using StatsBase: fit, Histogram, normalize, quantile, ecdf
 using LinearAlgebra
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Random collapse of ranges → singleton specs + one-shot build
-# ─────────────────────────────────────────────────────────────────────────────
-# # - Any other symbol => hard error.
-# @inline function _bounded_draw(lo::Real, hi::Real, distribution::Symbol = :normal)
-# 	# - Given [lo, hi], interpret as ±1σ around μ = (lo+hi)/2, σ = (hi-lo)/2.
-# 	lo_f = float(lo)
-# 	hi_f = float(hi)
-# 	@assert hi_f > lo_f "hi must be greater than lo"
-# 	μ = (lo_f + hi_f) / 2
-# 	σ = (hi_f - lo_f) / 2
-
-# 	if distribution === :normal
-# 		# - :normal => Normal(μ, σ).
-# 		return rand(Distributions.Normal(μ, σ))
-# 	elseif distribution === :uniform
-# 		# - :uniform  => Uniform(μ ± √3 σ) so std matches σ.
-# 		d = √3 * σ
-# 		return rand(Distributions.Uniform(μ - d, μ + d))
-# 	else
-# 		throw(
-# 			ArgumentError(
-# 				"unsupported distribution: $(distribution). Use :uniform or :normal",
-# 			),
-# 		)
-# 	end
-# end
 
 # Draw once from a "range-like" spec
 #   spec :: Number                             → return as-is
@@ -354,37 +328,6 @@ function collapse(
 	)
 end
 
-# function collapse(
-# 	sbs::SystemBuilderSpec;
-# 	distribution::Symbol = :normal,
-# )
-# 	scbs = collapse(sbs.builder; distribution = distribution)
-
-# 	# positions: keep anchors; collapse dx/dy/dspec pairs
-# 	pos = [_collapse_position(p, distribution) for p in sbs.positions]
-
-# 	# system-level scalars-as-pairs
-# 	L = _collapse_pair(_spec(sbs.length), distribution)
-# 	T = _collapse_pair(_spec(sbs.temperature), distribution)
-
-# 	# earth
-# 	er = sbs.earth
-# 	ρ = _collapse_pair(_spec(er.rho), distribution)
-# 	ε = _collapse_pair(_spec(er.eps_r), distribution)
-# 	μ = _collapse_pair(_spec(er.mu_r), distribution)
-# 	t = _collapse_pair(_spec(er.t), distribution)
-# 	earth = typeof(er)(; rho = ρ, eps_r = ε, mu_r = μ, t = t)
-
-# 	return typeof(sbs)(
-# 		sbs.system_id,
-# 		scbs,
-# 		pos;
-# 		length = L,
-# 		temperature = T,
-# 		earth = earth,
-# 		f = sbs.frequencies,
-# 	)
-# end
 
 """
 	sample(sbs::SystemBuilderSpec; distribution::Symbol = :uniform)
