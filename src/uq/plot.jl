@@ -48,13 +48,17 @@ struct LineParametersHistSpec
 	title::String
 	xlabel::String
 	ylabel::String
-	values::Vector{<:Real}
-	nbins::Int
+	values::Union{Nothing, Vector{<:Real}}
+	pdf_obj::Union{Nothing, LineParametersPDF}
+	bins::Vector{<:Real}
 	x_exp::Int
 	fig_size::Union{Nothing, Tuple{Int, Int}}
 	freq::Real
 	normalization::Symbol
+	data::Symbol
 end
+
+
 
 function _mc_quantity_metadata()
 	sdesc = get_description(SeriesImpedance(zeros(1, 1, 1)))
@@ -138,11 +142,12 @@ function _build_hist_spec(
 	fig_size::Union{Nothing, Tuple{Int, Int}} = LP_FIG_SIZE,
 	per_length::Bool = true,
 	quantity_units = nothing,
-	nbins::Int = 15,
+	nbins::Union{Nothing, Int} = nothing,
 	normalization::Symbol = :none,
+	data::Symbol = :samples,
 )
-	obj.samples === nothing &&
-		Base.error("Sampled values are not available in this LineParametersMCSummary")
+	vals = nothing
+	pdf_obj = nothing
 
 	values_sym, _ijk = _parse_values_ref(values_expr, ijk)
 	meta = _quantity_metadata(values_sym)
@@ -152,42 +157,88 @@ function _build_hist_spec(
 	l_scale = per_length ? length_scale(length_unit) : 1.0
 	y_scale = quantity_scale(q_prefix)
 
+	# This is the physical scaling constant
+	c_scale = y_scale * l_scale
+
 	i, j, k = _ijk
-	samps = getfield(obj.samples, values_sym)
-	max_i, max_j, max_k, _ = size(samps)
-	(1 <= i <= max_i && 1 <= j <= max_j && 1 <= k <= max_k) || Base.error(
-		"indices (i=$(i), j=$(j), k=$(k)) out of bounds for samples size $(size(samps))",
-	)
 
-	raw_vals = @view samps[i, j, k, :]
-	vals = collect(raw_vals) .* y_scale .* l_scale
+	# --- Load Data  ---
+	if data == :samples || data == :both
+		obj.samples === nothing &&
+			Base.error(
+				"Samples requested (data=:samples or :both) but not available in summary.",
+			)
+		samps = getfield(obj.samples, values_sym)
+		# ... (bounds check) ...
+		raw_vals = @view samps[i, j, k, :]
+		vals = collect(raw_vals) .* c_scale
+	end
 
-	_, x_exp = autoscale_axis(vals)
+	if data == :pdf || data == :both
+		obj.pdf === nothing &&
+			Base.error("PDF requested (data=:pdf or :both) but not available in summary.")
+		pdfs = getfield(obj.pdf, values_sym)
+		# ... (bounds check) ...
+		raw_pdf = pdfs[i, j, k]
+		scaled_edges = raw_pdf.edges .* c_scale
+		scaled_dens = raw_pdf.dens ./ c_scale
+		pdf_obj = LineParametersPDF(scaled_edges, scaled_dens)
+	end
+	# --- End Data Load ---
+
+	# --- Determine Canonical Bin Edges ---
+	local bin_edges::Vector{<:Real}
+	local current_norm::Symbol
+	local x_exp::Int
+
+	if pdf_obj !== nothing
+		# If PDF exists, its edges ARE the canonical edges.
+		bin_edges = pdf_obj.edges
+		current_norm = :pdf # Force density
+	elseif vals !== nothing # Only samples, no PDF
+		# We must calculate the edges *now*, just like _pdf_from_hist would.
+		current_norm = normalization
+		hist_nbins = isnothing(nbins) ? _auto_nbins(vals) : nbins
+
+		# This is the crucial step: pre-fit the histogram
+		h_fit = fit(Histogram, vals; nbins = hist_nbins, closed = :left)
+		bin_edges = collect(h_fit.edges[1])
+	else
+		error("No data (samples or PDF) to plot.") # Should be caught above
+	end
+
+	# Autoscale axis based on available data
+	if vals !== nothing
+		_, x_exp = autoscale_axis(vals)
+	else
+		_, x_exp = autoscale_axis(bin_edges)
+	end
+	# --- End Binning Logic ---
 
 	xlabel_unit = composite_unit(q_prefix, meta.unit.symbol, per_length, length_unit)
 	xlabel = string(meta.axis_label, " [", xlabel_unit, "]")
 	ylabel =
-		normalization == :none ?
-		"count" :
-		String(normalization)
-
+		current_norm == :none ? "count" :
+		(current_norm == :pdf ? "density" : String(current_norm))
 
 	freq_val = obj.f[k]
-	# freq_str = @sprintf("%.4g", freq_val)
 	title = string(meta.title, " histogram @ f=", @sprintf("%.4g", freq_val), " Hz")
 
+	# Pass `bin_edges` instead of `nbins`
 	return LineParametersHistSpec(
 		values_sym,
 		meta.symbol,
 		title,
 		xlabel,
 		ylabel,
-		vals,
-		nbins,
+		vals,       # Vector or nothing
+		pdf_obj,    # PDF object or nothing
+		bin_edges,  # <-- The canonical, physically-scaled edges
 		x_exp,
 		fig_size,
 		freq_val,
-		normalization,
+		current_norm,
+		data,
 	)
 end
 
@@ -199,8 +250,9 @@ function lineparametermc_hist_specs(
 	fig_size::Union{Nothing, Tuple{Int, Int}} = LP_FIG_SIZE,
 	per_length::Bool = true,
 	quantity_units = nothing,
-	nbins::Int = 15,
+	nbins::Union{Nothing, Int} = nothing,
 	normalization::Symbol = :none,
+	data::Symbol = :samples,
 )
 	spec = _build_hist_spec(
 		obj,
@@ -212,6 +264,7 @@ function lineparametermc_hist_specs(
 		quantity_units = quantity_units,
 		nbins = nbins,
 		normalization = normalization,
+		data = data,
 	)
 	return [spec]
 end
@@ -299,6 +352,7 @@ function _display!(backend_ctx, fig::Makie.Figure; title::AbstractString = "")
 	return nothing
 end
 
+# Find ()
 function _build_hist_plot!(fig_ctx, ctx, axis, spec::LineParametersHistSpec)
 	axis.title  = spec.title
 	axis.xlabel = _axis_label(spec.xlabel, spec.x_exp)
@@ -308,19 +362,70 @@ function _build_hist_plot!(fig_ctx, ctx, axis, spec::LineParametersHistSpec)
 
 	axis.ytickformat[] = vals -> TICKFORMATTER(vals)
 
-	vals_scaled = spec.values ./ x_scale
+	# --- Dynamic plotting and legends ---
+	legend_elements = []
+	legend_labels = []
 
-	hist!(
-		axis,
-		vals_scaled;
-		bins = spec.nbins,
-		normalization = spec.normalization,
-		color = :steelblue,
-		strokecolor = :white,
-		strokewidth = 0.5,
-	)
+	scaled_edges = spec.bins ./ x_scale
+
+	legend_elements = []
+	legend_labels = []
+
+	# 1. Plot samples (Histogram)
+	if spec.data == :samples || spec.data == :both
+		vals_scaled = spec.values ./ x_scale
+
+		hist!(
+			axis,
+			vals_scaled;
+			# Use the *exact* scaled edges
+			bins = scaled_edges,
+			normalization = spec.normalization,
+			color = :steelblue,
+			strokecolor = :white,
+			strokewidth = 0.5,
+		)
+
+		push!(
+			legend_elements,
+			Makie.PolyElement(
+				color = :steelblue,
+				strokecolor = :white,
+				strokewidth = 0.5,
+			),
+		)
+		push!(legend_labels, "MC samples")
+	end
+
+	# 2. Plot PDF (Line)
+	if spec.data == :pdf || spec.data == :both
+		pdf = spec.pdf_obj
+
+		# We MUST use the same scaled_edges.
+		dens_scaled = pdf.dens .* x_scale
+
+		# For N+1 points (N edges, N-1 densities)
+		# We have N+1 edges, N densities.
+		# We need N+1 y-values for N+1 x-edges for step=:post.
+		# We repeat the last density value for the last edge.
+		y_values = [dens_scaled; dens_scaled[end]]
+
+		stairs!(
+			axis,
+			scaled_edges,
+			y_values;
+			step = :post,
+			color = :red,
+			linewidth = 2,
+			overdraw = true,
+		)
+
+		push!(legend_elements, Makie.LineElement(color = :red, linewidth = 2))
+		push!(legend_labels, "Model PDF")
+	end
 
 	Makie.autolimits!(axis)
+	ylims!(axis, 0, nothing)
 
 	buttons = [
 		ControlButtonSpec(
@@ -337,19 +442,14 @@ function _build_hist_plot!(fig_ctx, ctx, axis, spec::LineParametersHistSpec)
 		),
 	]
 
+	# Dynamic legend
 	return PlotBuildArtifacts(
 		axis = axis,
 		legends = parent ->
 			Makie.Legend(
 				parent,
-				[
-					Makie.PolyElement(
-						color = :steelblue,
-						strokecolor = :white,
-						strokewidth = 0.5,
-					),
-				],
-				["MC samples"];
+				legend_elements,
+				legend_labels;
 				orientation = :vertical,
 			),
 		colorbars = Any[],
@@ -367,11 +467,15 @@ function hist(
 	fig_size::Union{Nothing, Tuple{Int, Int}} = LP_FIG_SIZE,
 	per_length::Bool = true,
 	quantity_units = nothing,
-	nbins::Int = 15,
+	nbins::Union{Nothing, Int} = nothing,
 	normalization::Symbol = :none,
+	data::Symbol = :samples,
 	backend = nothing,
 	display_plot::Bool = true,
 )
+	data in (:samples, :pdf, :both) ||
+		Base.error("`data` must be one of :samples, :pdf, or :both")
+
 	specs = lineparametermc_hist_specs(
 		obj,
 		values_expr;
@@ -382,6 +486,7 @@ function hist(
 		quantity_units = quantity_units,
 		nbins = nbins,
 		normalization = normalization,
+		data = data,
 	)
 	spec = first(specs)
 	return _render_hist_spec(spec; backend = backend, display_plot = display_plot)
