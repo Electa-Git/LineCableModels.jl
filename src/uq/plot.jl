@@ -1,5 +1,5 @@
 using Makie
-import Makie: hist
+import Makie: plot
 
 using Base: basename
 using Dates
@@ -42,7 +42,7 @@ using ..PlotUIComponents:
 
 const _HIST_EXTENSION = "svg"
 
-struct LineParametersHistSpec
+struct MCPlotHistSpec
 	quantity::Symbol
 	symbol::String
 	title::String
@@ -50,12 +50,12 @@ struct LineParametersHistSpec
 	ylabel::String
 	values::Union{Nothing, Vector{<:Real}}
 	pdf_obj::Union{Nothing, LineParametersPDF}
-	bins::Vector{<:Real}
+	bins::Vector{<:Real} # The canonical edges
 	x_exp::Int
 	fig_size::Union{Nothing, Tuple{Int, Int}}
-	freq::Real
 	normalization::Symbol
 	data::Symbol
+	mode::Symbol
 end
 
 
@@ -145,7 +145,11 @@ function _build_hist_spec(
 	nbins::Union{Nothing, Int} = nothing,
 	normalization::Symbol = :none,
 	data::Symbol = :samples,
+	mode::Symbol = :hist, # <-- ADDED
 )
+	# Force data=:both if mode is not :hist
+	plot_data = (mode == :hist) ? data : :both
+
 	vals = nothing
 	pdf_obj = nothing
 
@@ -153,96 +157,101 @@ function _build_hist_spec(
 	meta = _quantity_metadata(values_sym)
 	units = normalize_quantity_units(quantity_units)
 	q_prefix = resolve_quantity_prefix(meta.quantity, units)
-
-	l_scale = per_length ? length_scale(length_unit) : 1.0
-	y_scale = quantity_scale(q_prefix)
-
-	# This is the physical scaling constant
-	c_scale = y_scale * l_scale
-
+	c_scale = (per_length ? length_scale(length_unit) : 1.0) * quantity_scale(q_prefix)
 	i, j, k = _ijk
 
-	# --- Load Data  ---
-	if data == :samples || data == :both
+	# --- Load Data (uses plot_data) ---
+	if plot_data == :samples || plot_data == :both
 		obj.samples === nothing &&
-			Base.error(
-				"Samples requested (data=:samples or :both) but not available in summary.",
-			)
+			Base.error("mode=:$mode requires samples, but none are available.")
 		samps = getfield(obj.samples, values_sym)
-		# ... (bounds check) ...
+
+		max_i, max_j, max_k, _ = size(samps)
+		(1 <= i <= max_i && 1 <= j <= max_j && 1 <= k <= max_k) || Base.error(
+			"indices (i=$(i), j=$(j), k=$(k)) out of bounds for samples size $(size(samps))",
+		)
+
 		raw_vals = @view samps[i, j, k, :]
 		vals = collect(raw_vals) .* c_scale
 	end
-
-	if data == :pdf || data == :both
+	if plot_data == :pdf || plot_data == :both
 		obj.pdf === nothing &&
-			Base.error("PDF requested (data=:pdf or :both) but not available in summary.")
+			Base.error("mode=:$mode requires PDF, but none is available.")
 		pdfs = getfield(obj.pdf, values_sym)
-		# ... (bounds check) ...
+
+		max_i, max_j, max_k = size(pdfs)
+		(1 <= i <= max_i && 1 <= j <= max_j && 1 <= k <= max_k) || Base.error(
+			"indices (i=$(i), j=$(j), k=$(k)) out of bounds for pdf size $(size(pdfs))",
+		)
+
 		raw_pdf = pdfs[i, j, k]
 		scaled_edges = raw_pdf.edges .* c_scale
 		scaled_dens = raw_pdf.dens ./ c_scale
 		pdf_obj = LineParametersPDF(scaled_edges, scaled_dens)
 	end
-	# --- End Data Load ---
 
-	# --- Determine Canonical Bin Edges ---
+	# --- Binning (Conditional) & Scaling ---
 	local bin_edges::Vector{<:Real}
 	local current_norm::Symbol
 	local x_exp::Int
 
-	if pdf_obj !== nothing
-		# If PDF exists, its edges ARE the canonical edges.
-		bin_edges = pdf_obj.edges
-		current_norm = :pdf # Force density
-	elseif vals !== nothing # Only samples, no PDF
-		# We must calculate the edges *now*, just like _pdf_from_hist would.
-		current_norm = normalization
-		hist_nbins = isnothing(nbins) ? _auto_nbins(vals) : nbins
-
-		# This is the crucial step: pre-fit the histogram
-		h_fit = fit(Histogram, vals; nbins = hist_nbins, closed = :left)
-		bin_edges = collect(h_fit.edges[1])
+	if mode == :hist
+		if pdf_obj !== nothing
+			bin_edges = pdf_obj.edges
+			current_norm = :pdf
+		elseif vals !== nothing
+			current_norm = normalization
+			hist_nbins = isnothing(nbins) ? _auto_nbins(vals) : nbins
+			h_fit = fit(Histogram, vals; nbins = hist_nbins, closed = :left)
+			bin_edges = collect(h_fit.edges[1])
+		else
+			error("No data (samples or PDF) to plot.")
+		end
 	else
-		error("No data (samples or PDF) to plot.") # Should be caught above
+		bin_edges = Float64[] # Not used
+		current_norm = :none  # Not used
 	end
 
-	# Autoscale axis based on available data
+	# Autoscale is *always* needed
 	if vals !== nothing
 		_, x_exp = autoscale_axis(vals)
 	else
-		_, x_exp = autoscale_axis(bin_edges)
+		_, x_exp = autoscale_axis(pdf_obj.edges)
 	end
-	# --- End Binning Logic ---
+
+	# --- Labels and Title (Conditional) ---
+	local title::String
+	local xlabel::String
+	local ylabel::String
 
 	xlabel_unit = composite_unit(q_prefix, meta.unit.symbol, per_length, length_unit)
-	xlabel = string(meta.axis_label, " [", xlabel_unit, "]")
-	ylabel =
-		current_norm == :none ? "count" :
-		(current_norm == :pdf ? "density" : String(current_norm))
+	base_xlabel = string(meta.axis_label, " [", xlabel_unit, "]")
+	freq_str = @sprintf("%.4g", obj.f[k])
 
-	freq_val = obj.f[k]
-	title = string(meta.title, " histogram @ f=", @sprintf("%.4g", freq_val), " Hz")
+	if mode == :hist
+		title = string(meta.title, " histogram @ f=", freq_str, " Hz")
+		xlabel = base_xlabel
+		ylabel =
+			current_norm == :none ? "count" :
+			(current_norm == :pdf ? "density" : String(current_norm))
+	elseif mode == :ecdf
+		title = string(meta.title, " CDF @ f=", freq_str, " Hz")
+		xlabel = base_xlabel
+		ylabel = "cumulative probability"
+	elseif mode == :qq
+		title = string(meta.title, " Q-Q plot @ f=", freq_str, " Hz")
+		xlabel = "sample quantiles" # x_exp will be added by plotting func
+		ylabel = "model quantiles"  # x_exp will be added by plotting func
+	end
 
-	# Pass `bin_edges` instead of `nbins`
-	return LineParametersHistSpec(
-		values_sym,
-		meta.symbol,
-		title,
-		xlabel,
-		ylabel,
-		vals,       # Vector or nothing
-		pdf_obj,    # PDF object or nothing
-		bin_edges,  # <-- The canonical, physically-scaled edges
-		x_exp,
-		fig_size,
-		freq_val,
-		current_norm,
-		data,
+	return MCPlotHistSpec(
+		values_sym, meta.symbol, title, xlabel, ylabel,
+		vals, pdf_obj, bin_edges, x_exp,
+		fig_size, current_norm, plot_data, mode,
 	)
 end
 
-function lineparametermc_hist_specs(
+function _hist_specs(
 	obj::LineParametersMCSummary,
 	values_expr;
 	ijk::Union{Nothing, NTuple{3, Int}} = nothing,
@@ -253,8 +262,9 @@ function lineparametermc_hist_specs(
 	nbins::Union{Nothing, Int} = nothing,
 	normalization::Symbol = :none,
 	data::Symbol = :samples,
+	mode::Symbol = :hist,
 )
-	spec = _build_hist_spec(
+	spec = _build_hist_spec( # Calls LP-MC builder
 		obj,
 		values_expr;
 		ijk = ijk,
@@ -265,28 +275,29 @@ function lineparametermc_hist_specs(
 		nbins = nbins,
 		normalization = normalization,
 		data = data,
+		mode = mode,
 	)
 	return [spec]
 end
 
-function _default_export_path_hist(spec::LineParametersHistSpec)
+function _default_export_path_hist(spec::MCPlotHistSpec)
 	base_title = strip(spec.title)
 	name = strip(replace(lowercase(base_title), r"[^0-9a-z]+" => "_"), '_')
-	isempty(name) && (name = "lineparameters_hist")
+	isempty(name) && (name = "mc_hist")
 	timestamp = Dates.format(Dates.now(), "yyyymmdd_HHMMSS")
 	filename = string(name, "_", timestamp, ".", _HIST_EXTENSION)
 	return joinpath(pwd(), filename)
 end
 
-function _save_hist_export(spec::LineParametersHistSpec, axis)
-	fig = build_hist_export(spec)
+function _save_hist_export(spec::MCPlotHistSpec, axis)
+	fig = _build_hist_export(spec)
 	trim!(fig.layout)
 	path = _default_export_path_hist(spec)
 	Makie.save(path, fig)
 	return path
 end
 
-function build_hist_export(spec::LineParametersHistSpec)
+function _build_hist_export(spec::MCPlotHistSpec)
 	backend_ctx = _make_window(
 		BackendHandler,
 		:cairo;
@@ -311,7 +322,7 @@ function build_hist_export(spec::LineParametersHistSpec)
 end
 
 function _render_hist_spec(
-	spec::LineParametersHistSpec;
+	spec::MCPlotHistSpec; # <-- Unified spec
 	backend = nothing,
 	display_plot::Bool = true,
 )
@@ -330,6 +341,7 @@ function _render_hist_spec(
 	assembly = with_plot_theme(backend_ctx) do
 		_run_plot_pipeline(
 			backend_ctx,
+			# Calls the single, unified _build_hist_plot!
 			(fig_ctx, ctx, axis) -> _build_hist_plot!(fig_ctx, ctx, axis, spec);
 			pipeline_kwargs...,
 		)
@@ -352,89 +364,143 @@ function _display!(backend_ctx, fig::Makie.Figure; title::AbstractString = "")
 	return nothing
 end
 
-# Find ()
-function _build_hist_plot!(fig_ctx, ctx, axis, spec::LineParametersHistSpec)
-	axis.title  = spec.title
-	axis.xlabel = _axis_label(spec.xlabel, spec.x_exp)
-	axis.ylabel = spec.ylabel
+function _build_hist_plot!(fig_ctx, ctx, axis, spec::MCPlotHistSpec)
+	axis.title = spec.title
 
 	x_scale = 10.0 ^ spec.x_exp
-
 	axis.ytickformat[] = vals -> TICKFORMATTER(vals)
 
-	# --- Dynamic plotting and legends ---
+	# Conditional axis labels
+	if spec.mode == :qq
+		# Q-Q plot: both axes get the exponent
+		axis.xlabel = _axis_label(spec.xlabel, spec.x_exp)
+		axis.ylabel = _axis_label(spec.ylabel, spec.x_exp)
+	else
+		# Hist/ECDF: only x-axis gets the exponent
+		axis.xlabel = _axis_label(spec.xlabel, spec.x_exp)
+		axis.ylabel = spec.ylabel
+	end
+
 	legend_elements = []
 	legend_labels = []
 
-	scaled_edges = spec.bins ./ x_scale
+	# --- PLOTTING LOGIC SWITCH ---
+	if spec.mode == :hist
+		scaled_edges = spec.bins ./ x_scale
 
-	legend_elements = []
-	legend_labels = []
+		if spec.data == :samples || spec.data == :both
+			vals_scaled = spec.values ./ x_scale
+			hist!(
+				axis, vals_scaled;
+				bins = scaled_edges,
+				normalization = spec.normalization,
+				color = :steelblue, strokecolor = :white, strokewidth = 0.5,
+			)
+			push!(
+				legend_elements,
+				Makie.PolyElement(
+					color = :steelblue, strokecolor = :white, strokewidth = 0.5,
+				),
+			)
+			push!(legend_labels, "samples")
+		end
 
-	# 1. Plot samples (Histogram)
-	if spec.data == :samples || spec.data == :both
+		if spec.data == :pdf || spec.data == :both
+			pdf = spec.pdf_obj
+			dens_scaled = pdf.dens .* x_scale
+			y_values = [dens_scaled; dens_scaled[end]]
+			stairs!(
+				axis, scaled_edges, y_values;
+				step = :post, color = :red, linewidth = 2, overdraw = true,
+			)
+			push!(legend_elements, Makie.LineElement(color = :red, linewidth = 2))
+			push!(legend_labels, "model PDF")
+		end
+
+		Makie.autolimits!(axis)
+		ylims!(axis, 0, nothing) # Glue bars to x-axis
+
+	elseif spec.mode == :ecdf
+		# --- ECDF PLOT ---
+		pdf = spec.pdf_obj
 		vals_scaled = spec.values ./ x_scale
+		ecdf_func = ecdf(vals_scaled)
 
-		hist!(
-			axis,
-			vals_scaled;
-			# Use the *exact* scaled edges
-			bins = scaled_edges,
-			normalization = spec.normalization,
-			color = :steelblue,
-			strokecolor = :white,
-			strokewidth = 0.5,
+		# Define plot range from scaled PDF edges
+		xmin = minimum(pdf.edges) / x_scale
+		xmax = maximum(pdf.edges) / x_scale
+		pad = (xmax - xmin) * 0.05
+		xs = range(xmin - pad, xmax + pad, length = 500)
+
+
+		# 1. Plot Model CDF (Theory)
+		# We must feed *physical* values (xs .* x_scale) to the cdf function
+		model_cdf_data = cdf.(Ref(pdf), xs .* x_scale)
+		lines!(axis, xs, model_cdf_data,
+			color = :red, linewidth = 2,
 		)
+		push!(legend_elements, Makie.LineElement(color = :red, linewidth = 2))
+		push!(legend_labels, "model CDF")
 
+		# 2. Plot ECDF (Data)
+		lines!(axis, xs, ecdf_func.(xs),
+			color = :blue, linestyle = :dash, linewidth = 2,
+		)
 		push!(
 			legend_elements,
-			Makie.PolyElement(
-				color = :steelblue,
-				strokecolor = :white,
-				strokewidth = 0.5,
-			),
+			Makie.LineElement(color = :blue, linestyle = :dash, linewidth = 2),
 		)
-		push!(legend_labels, "MC samples")
-	end
+		push!(legend_labels, "empirical")
 
-	# 2. Plot PDF (Line)
-	if spec.data == :pdf || spec.data == :both
+
+		Makie.autolimits!(axis)
+		ylims!(axis, 0, nothing) # CDFs are bounded [0, 1]
+
+	elseif spec.mode == :qq
+		# --- Q-Q PLOT ---
+		vals_scaled = spec.values ./ x_scale
+		sample_quantiles = sort(vals_scaled)
+		n = length(sample_quantiles)
+		probs = ((1:n) .- 0.5) ./ n
+
 		pdf = spec.pdf_obj
+		s = sampler(pdf) # Sampler on physically-scaled PDF
 
-		# We MUST use the same scaled_edges.
-		dens_scaled = pdf.dens .* x_scale
+		model_quantiles_physical = quantile.(Ref(s), probs)
+		model_quantiles_scaled = model_quantiles_physical ./ x_scale
 
-		# For N+1 points (N edges, N-1 densities)
-		# We have N+1 edges, N densities.
-		# We need N+1 y-values for N+1 x-edges for step=:post.
-		# We repeat the last density value for the last edge.
-		y_values = [dens_scaled; dens_scaled[end]]
-
-		stairs!(
-			axis,
-			scaled_edges,
-			y_values;
-			step = :post,
-			color = :red,
-			linewidth = 2,
-			overdraw = true,
+		# 1. Plot the quantiles
+		scatter!(axis, sample_quantiles, model_quantiles_scaled,
+			color = :steelblue, markersize = 6,
 		)
+		push!(legend_elements, Makie.MarkerElement(color = :steelblue, marker = :circle))
+		push!(legend_labels, "quantiles")
 
-		push!(legend_elements, Makie.LineElement(color = :red, linewidth = 2))
-		push!(legend_labels, "Model PDF")
+		# 2. Plot the y=x line
+		diag_min = min(sample_quantiles[1], model_quantiles_scaled[1])
+		diag_max = max(sample_quantiles[end], model_quantiles_scaled[end])
+		lines!(axis, [diag_min, diag_max], [diag_min, diag_max],
+			color = :black, linestyle = :dash, linewidth = 2,
+		)
+		push!(
+			legend_elements,
+			Makie.LineElement(color = :black, linestyle = :dash, linewidth = 2),
+		)
+		push!(legend_labels, "perfect fit")
+
+		Makie.autolimits!(axis)
+		# No ylims! for Q-Q
 	end
 
-	Makie.autolimits!(axis)
-	ylims!(axis, 0, nothing)
-
+	# --- Buttons (identical) ---
 	buttons = [
 		ControlButtonSpec(
-			(_ctx, _btn) -> (Makie.reset_limits!(axis); nothing);
+			(_ctx, _btn) -> (Makie.autolimits!(axis); nothing), # Use autolimits
 			icon = MI_REFRESH,
 			on_success = ControlReaction(status_string = "Axis limits reset"),
 		),
 		ControlButtonSpec(
-			(_ctx, _btn) -> _save_hist_export(spec, axis);
+			(_ctx, _btn) -> _save_hist_export(spec, axis),
 			icon = MI_SAVE,
 			on_success = ControlReaction(
 				status_string = path -> string("Saved SVG to ", basename(path)),
@@ -442,7 +508,7 @@ function _build_hist_plot!(fig_ctx, ctx, axis, spec::LineParametersHistSpec)
 		),
 	]
 
-	# Dynamic legend
+	# --- Return (identical) ---
 	return PlotBuildArtifacts(
 		axis = axis,
 		legends = parent ->
@@ -459,7 +525,7 @@ function _build_hist_plot!(fig_ctx, ctx, axis, spec::LineParametersHistSpec)
 	)
 end
 
-function hist(
+function plot(
 	obj::LineParametersMCSummary,
 	values_expr;
 	ijk::Union{Nothing, NTuple{3, Int}} = nothing,
@@ -470,13 +536,17 @@ function hist(
 	nbins::Union{Nothing, Int} = nothing,
 	normalization::Symbol = :none,
 	data::Symbol = :samples,
+	mode::Symbol = :hist,
 	backend = nothing,
 	display_plot::Bool = true,
 )
 	data in (:samples, :pdf, :both) ||
 		Base.error("`data` must be one of :samples, :pdf, or :both")
 
-	specs = lineparametermc_hist_specs(
+	mode in (:hist, :ecdf, :qq) ||
+		Base.error("`mode` must be one of :hist, :ecdf, or :qq")
+
+	specs = _hist_specs(
 		obj,
 		values_expr;
 		ijk = ijk,
@@ -487,26 +557,14 @@ function hist(
 		nbins = nbins,
 		normalization = normalization,
 		data = data,
+		mode = mode,
 	)
 	spec = first(specs)
 	return _render_hist_spec(spec; backend = backend, display_plot = display_plot)
 end
 
 
-### Histogram methods for CableDesignMCSummary -> CableDesignHistSpec
-
-struct CableDesignHistSpec
-	quantity::Symbol
-	symbol::String
-	title::String
-	xlabel::String
-	ylabel::String
-	values::Vector{<:Real}
-	nbins::Int
-	x_exp::Int
-	fig_size::Union{Nothing, Tuple{Int, Int}}
-	normalization::Symbol
-end
+# ### Histogram methods for CableDesignMCSummary -> CableDesignHistSpec
 
 const _CABLE_DESIGN_SUPPORTED_QUANTITIES = (:R, :L, :C)
 
@@ -522,18 +580,24 @@ function _parse_cabledesign_quantity(values_expr)
 	)
 end
 
-function _build_cabledesign_hist_spec(
+# --- Builder for CableDesign (New, refactored logic) ---
+function _build_hist_spec(
 	obj::CableDesignMCSummary,
 	values_expr;
 	length_unit::Symbol = :kilo,
 	fig_size::Union{Nothing, Tuple{Int, Int}} = LP_FIG_SIZE,
 	per_length::Bool = true,
 	quantity_units = nothing,
-	nbins::Int = 15,
+	nbins::Union{Nothing, Int} = nothing,
 	normalization::Symbol = :none,
+	data::Symbol = :samples,
+	mode::Symbol = :hist, # <-- ADDED
 )
-	obj.samples === nothing &&
-		Base.error("Sampled values are not available in this CableDesignMCSummary")
+	# MODIFIED: Force data=:both
+	plot_data = (mode == :hist) ? data : :both
+
+	vals = nothing
+	pdf_obj = nothing
 
 	values_sym = _parse_cabledesign_quantity(values_expr)
 	values_sym in _CABLE_DESIGN_SUPPORTED_QUANTITIES || Base.error(
@@ -543,49 +607,96 @@ function _build_cabledesign_hist_spec(
 	meta = _quantity_metadata(values_sym)
 	units = normalize_quantity_units(quantity_units)
 	q_prefix = resolve_quantity_prefix(meta.quantity, units)
+	c_scale = (per_length ? length_scale(length_unit) : 1.0) * quantity_scale(q_prefix)
 
-	l_scale = per_length ? length_scale(length_unit) : 1.0
-	y_scale = quantity_scale(q_prefix)
+	# --- Load Data (uses plot_data) ---
+	if plot_data == :samples || plot_data == :both
+		obj.samples === nothing &&
+			Base.error("mode=:$mode requires samples, but none are available.")
+		samps = getfield(obj.samples, values_sym)
+		vals = collect(samps) .* c_scale
+	end
+	if plot_data == :pdf || plot_data == :both
+		obj.pdf === nothing &&
+			Base.error("mode=:$mode requires PDF, but none is available.")
+		raw_pdf = getfield(obj.pdf, values_sym)
+		scaled_edges = raw_pdf.edges .* c_scale
+		scaled_dens = raw_pdf.dens ./ c_scale
+		pdf_obj = LineParametersPDF(scaled_edges, scaled_dens)
+	end
 
-	samps = getfield(obj.samples, values_sym)
-	vals = collect(samps) .* y_scale .* l_scale
+	# --- Binning (Conditional) & Scaling ---
+	local bin_edges::Vector{<:Real}
+	local current_norm::Symbol
+	local x_exp::Int
 
-	_, x_exp = autoscale_axis(vals)
+	if mode == :hist
+		if pdf_obj !== nothing
+			bin_edges = pdf_obj.edges
+			current_norm = :pdf
+		elseif vals !== nothing
+			current_norm = normalization
+			hist_nbins = isnothing(nbins) ? _auto_nbins(vals) : nbins
+			h_fit = fit(Histogram, vals; nbins = hist_nbins, closed = :left)
+			bin_edges = collect(h_fit.edges[1])
+		else
+			error("No data (samples or PDF) to plot.")
+		end
+	else
+		bin_edges = Float64[]
+		current_norm = :none
+	end
+
+	if vals !== nothing
+		_, x_exp = autoscale_axis(vals)
+	else
+		_, x_exp = autoscale_axis(pdf_obj.edges)
+	end
+
+	# --- Labels and Title (Conditional) ---
+	local title::String
+	local xlabel::String
+	local ylabel::String
 
 	xlabel_unit = composite_unit(q_prefix, meta.unit.symbol, per_length, length_unit)
-	xlabel = string(meta.axis_label, " [", xlabel_unit, "]")
-	ylabel =
-		normalization == :none ?
-		"count" :
-		String(normalization)
+	base_xlabel = string(meta.axis_label, " [", xlabel_unit, "]")
 
-	title = string(meta.title, " histogram (base values)")
+	if mode == :hist
+		title = string(meta.title, " histogram (base values)")
+		xlabel = base_xlabel
+		ylabel =
+			current_norm == :none ? "count" :
+			(current_norm == :pdf ? "density" : String(current_norm))
+	elseif mode == :ecdf
+		title = string(meta.title, " CDF (base values)")
+		xlabel = base_xlabel
+		ylabel = "cumulative probability"
+	elseif mode == :qq
+		title = string(meta.title, " Q-Q plot (base values)")
+		xlabel = "sampled quantiles"
+		ylabel = "model quantiles"
+	end
 
-	return CableDesignHistSpec(
-		values_sym,
-		meta.symbol,
-		title,
-		xlabel,
-		ylabel,
-		vals,
-		nbins,
-		x_exp,
-		fig_size,
-		normalization,
+	return MCPlotHistSpec(
+		values_sym, meta.symbol, title, xlabel, ylabel,
+		vals, pdf_obj, bin_edges, x_exp,
+		fig_size, current_norm, plot_data, mode,
 	)
 end
 
-function cabledesign_hist_specs(
+function _hist_specs(
 	obj::CableDesignMCSummary,
 	values_expr;
 	length_unit::Symbol = :kilo,
 	fig_size::Union{Nothing, Tuple{Int, Int}} = LP_FIG_SIZE,
 	per_length::Bool = true,
 	quantity_units = nothing,
-	nbins::Int = 15,
+	nbins::Union{Nothing, Int} = nothing,
 	normalization::Symbol = :none,
+	data::Symbol = :samples,
+	mode::Symbol = :hist,
 )
-	spec = _build_cabledesign_hist_spec(
+	spec = _build_hist_spec( # Calls CD-MC builder
 		obj,
 		values_expr;
 		length_unit = length_unit,
@@ -594,154 +705,33 @@ function cabledesign_hist_specs(
 		quantity_units = quantity_units,
 		nbins = nbins,
 		normalization = normalization,
+		data = data,
+		mode = mode,
 	)
 	return [spec]
 end
 
-function _default_export_path_hist(spec::CableDesignHistSpec)
-	base_title = strip(spec.title)
-	name = strip(replace(lowercase(base_title), r"[^0-9a-z]+" => "_"), '_')
-	isempty(name) && (name = "cabledesign_hist")
-	timestamp = Dates.format(Dates.now(), "yyyymmdd_HHMMSS")
-	filename = string(name, "_", timestamp, ".", _HIST_EXTENSION)
-	return joinpath(pwd(), filename)
-end
-
-function _save_hist_export(spec::CableDesignHistSpec, axis)
-	fig = build_hist_export(spec)
-	trim!(fig.layout)
-	path = _default_export_path_hist(spec)
-	Makie.save(path, fig)
-	return path
-end
-
-function build_hist_export(spec::CableDesignHistSpec)
-	backend_ctx = _make_window(
-		BackendHandler,
-		:cairo;
-		icons = _ICON_FN,
-		icons_font = ICON_TTF,
-		interactive_override = false,
-		use_latex_fonts = true,
-	)
-	pipeline_kwargs =
-		spec.fig_size === nothing ?
-		(; initial_status = "") :
-		(; fig_size = spec.fig_size, initial_status = "")
-	assembly = with_plot_theme(backend_ctx; mode = :export) do
-		_run_plot_pipeline(
-			backend_ctx,
-			(fig_ctx, ctx, axis) -> _build_hist_plot!(fig_ctx, ctx, axis, spec);
-			pipeline_kwargs...,
-		)
-	end
-	ensure_export_background!(assembly.figure)
-	return assembly.figure
-end
-
-function _render_hist_spec(
-	spec::CableDesignHistSpec;
-	backend = nothing,
-	display_plot::Bool = true,
-)
-	n = next_fignum()
-	backend_ctx = _make_window(
-		BackendHandler,
-		backend;
-		title = "Fig. $(n) – $(spec.title)",
-		icons = _ICON_FN,
-		icons_font = ICON_TTF,
-	)
-	pipeline_kwargs =
-		spec.fig_size === nothing ?
-		(; initial_status = " ") :
-		(; fig_size = spec.fig_size, initial_status = " ")
-	assembly = with_plot_theme(backend_ctx) do
-		_run_plot_pipeline(
-			backend_ctx,
-			(fig_ctx, ctx, axis) -> _build_hist_plot!(fig_ctx, ctx, axis, spec);
-			pipeline_kwargs...,
-		)
-	end
-	if display_plot
-		_display!(backend_ctx, assembly.figure; title = spec.title)
-	end
-	return assembly
-end
-
-function _build_hist_plot!(fig_ctx, ctx, axis, spec::CableDesignHistSpec)
-	axis.title  = spec.title
-	axis.xlabel = _axis_label(spec.xlabel, spec.x_exp)
-	axis.ylabel = spec.ylabel
-
-	x_scale = 10.0 ^ spec.x_exp
-
-	axis.ytickformat[] = vals -> TICKFORMATTER(vals)
-
-	vals_scaled = spec.values ./ x_scale
-
-	hist!(
-		axis,
-		vals_scaled;
-		bins = spec.nbins,
-		normalization = spec.normalization,
-		color = :steelblue,
-		strokecolor = :white,
-		strokewidth = 0.5,
-	)
-
-	Makie.autolimits!(axis)
-
-	buttons = [
-		ControlButtonSpec(
-			(_ctx, _btn) -> (Makie.reset_limits!(axis); nothing);
-			icon = MI_REFRESH,
-			on_success = ControlReaction(status_string = "Axis limits reset"),
-		),
-		ControlButtonSpec(
-			(_ctx, _btn) -> _save_hist_export(spec, axis);
-			icon = MI_SAVE,
-			on_success = ControlReaction(
-				status_string = path -> string("Saved SVG to ", basename(path)),
-			),
-		),
-	]
-
-	return PlotBuildArtifacts(
-		axis = axis,
-		legends = parent ->
-			Makie.Legend(
-				parent,
-				[
-					Makie.PolyElement(
-						color = :steelblue,
-						strokecolor = :white,
-						strokewidth = 0.5,
-					),
-				],
-				["MC samples"];
-				orientation = :vertical,
-			),
-		colorbars = Any[],
-		control_buttons = buttons,
-		control_toggles = ControlToggleSpec[],
-		status_message = nothing,
-	)
-end
-
-function hist(
+# --- hist for CableDesignMCSummary ---
+function plot(
 	obj::CableDesignMCSummary,
 	values_expr;
 	length_unit::Symbol = :kilo,
 	fig_size::Union{Nothing, Tuple{Int, Int}} = LP_FIG_SIZE,
-	# per_length::Bool = true,
 	quantity_units = nothing,
-	nbins::Int = 15,
+	nbins::Union{Nothing, Int} = nothing, # <-- Now Union{Nothing, Int}
 	normalization::Symbol = :none,
+	data::Symbol = :samples, # <-- New arg
+	mode::Symbol = :hist,
 	backend = nothing,
 	display_plot::Bool = true,
 )
-	specs = cabledesign_hist_specs(
+	data in (:samples, :pdf, :both) ||
+		Base.error("`data` must be one of :samples, :pdf, or :both")
+
+	mode in (:hist, :ecdf, :qq) ||
+		Base.error("`mode` must be one of :hist, :ecdf, or :qq")
+
+	specs = _hist_specs( # Dispatches to CableDesignMCSummary version
 		obj,
 		values_expr;
 		length_unit = length_unit,
@@ -750,6 +740,8 @@ function hist(
 		quantity_units = quantity_units,
 		nbins = nbins,
 		normalization = normalization,
+		data = data,
+		mode = mode,
 	)
 	spec = first(specs)
 	return _render_hist_spec(spec; backend = backend, display_plot = display_plot)
