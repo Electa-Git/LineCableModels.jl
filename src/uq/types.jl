@@ -6,6 +6,7 @@ struct LineParametersPDF{T <: Real} <: ContinuousUnivariateDistribution
 	dens::Vector{T}    # length B, area ≈ 1
 end
 
+# Your constructor (modified slightly to remove redundant collect)
 function LineParametersPDF(
 	edges::AbstractVector{T},
 	dens::AbstractVector{T},
@@ -13,17 +14,21 @@ function LineParametersPDF(
 	length(edges) == length(dens) + 1 ||
 		throw(ArgumentError("edges must have length length(dens)+1"))
 
-	e = collect(edges)
-	d = collect(dens)
+	e = Vector(edges) # Just convert once
+	d = Vector(dens)
 
 	# Ensure increasing edges
 	issorted(e) || throw(ArgumentError("edges must be sorted ascending"))
 
 	# Normalize area to 1 (robust against floating crap)
 	widths = diff(e)
-	area   = sum(d .* widths)
+	area = dot(d, widths) # Cleaner than sum(d .* widths)
 	area <= zero(T) && throw(ArgumentError("non-positive total area in LineParametersPDF"))
-	d ./= area
+
+	# Only normalize if it's not already 1 (avoids float division noise)
+	if !(area ≈ 1.0)
+		d ./= area
+	end
 
 	return LineParametersPDF{T}(e, d)
 end
