@@ -130,7 +130,7 @@ function _sanitize_filename_component(str::AbstractString)
 	sanitized = lowercase(strip(str))
 	sanitized = replace(sanitized, r"[^0-9a-z]+" => "_")
 	sanitized = strip(sanitized, '_')
-	return isempty(sanitized) ? "lineparameters_plot" : sanitized
+	return isempty(sanitized) ? "linecablemodels_plot" : sanitized
 end
 
 function _default_export_path(
