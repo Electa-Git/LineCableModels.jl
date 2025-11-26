@@ -1,4 +1,19 @@
 using Makie
+
+# TODO: Remove toggle_visibility! override when Makie.jl issue #5190 is fixed
+function __init__()
+	@eval Makie begin
+		function toggle_visibility!(entry::LegendEntry, sync = false)
+			@warn "LineCableModels: overriding Makie.toggle_visibility! due to https://github.com/MakieOrg/Makie.jl/issues/5190"
+			foreach_plot(entry) do p
+				current_vis = p.visible[]
+				p.visible[] = sync ? true : !current_vis
+			end
+			return
+		end
+	end
+end
+
 import Makie: plot
 
 using Base: basename
@@ -21,7 +36,9 @@ using ..Engine:
 	get_description,
 	get_symbol,
 	get_unit_symbol,
-	ComponentMetadata
+	ComponentMetadata,
+	EXPORT_EXTENSION,
+	EXPORT_TIMESTAMP_FORMAT
 
 import ..BackendHandler: BackendHandler, next_fignum
 
@@ -40,7 +57,6 @@ using ..PlotUIComponents:
 	with_plot_theme,
 	ensure_export_background!
 
-const _HIST_EXTENSION = "svg"
 
 struct MCPlotHistSpec
 	quantity::Symbol
@@ -50,7 +66,7 @@ struct MCPlotHistSpec
 	ylabel::String
 	values::Union{Nothing, Vector{<:Real}}
 	pdf_obj::Union{Nothing, LineParametersPDF}
-	bins::Vector{<:Real} # The canonical edges
+	bins::Vector{<:Real}
 	x_exp::Int
 	fig_size::Union{Nothing, Tuple{Int, Int}}
 	normalization::Symbol
@@ -145,7 +161,7 @@ function _build_hist_spec(
 	nbins::Union{Nothing, Int} = nothing,
 	normalization::Symbol = :none,
 	data::Symbol = :samples,
-	mode::Symbol = :hist, # <-- ADDED
+	mode::Symbol = :hist,
 )
 	# Force data=:both if mode is not :hist
 	plot_data = (mode == :hist) ? data : :both
@@ -240,8 +256,8 @@ function _build_hist_spec(
 		ylabel = "cumulative probability"
 	elseif mode == :qq
 		title = string(meta.title, " Q-Q plot @ f=", freq_str, " Hz")
-		xlabel = "sample quantiles" # x_exp will be added by plotting func
-		ylabel = "model quantiles"  # x_exp will be added by plotting func
+		xlabel = "sample quantiles"
+		ylabel = "model quantiles"
 	end
 
 	return MCPlotHistSpec(
@@ -282,10 +298,9 @@ end
 
 function _default_export_path_hist(spec::MCPlotHistSpec)
 	base_title = strip(spec.title)
-	name = strip(replace(lowercase(base_title), r"[^0-9a-z]+" => "_"), '_')
-	isempty(name) && (name = "mc_hist")
-	timestamp = Dates.format(Dates.now(), "yyyymmdd_HHMMSS")
-	filename = string(name, "_", timestamp, ".", _HIST_EXTENSION)
+	name = _sanitize_filename_component(base_title)
+	timestamp = Dates.format(Dates.now(), EXPORT_TIMESTAMP_FORMAT)
+	filename = string(name, "_", timestamp, ".", EXPORT_EXTENSION)
 	return joinpath(pwd(), filename)
 end
 
@@ -381,11 +396,9 @@ function _build_hist_plot!(fig_ctx, ctx, axis, spec::MCPlotHistSpec)
 		axis.ylabel = spec.ylabel
 	end
 
-	legend_elements = []
-	legend_labels = []
-
 	# --- PLOTTING LOGIC SWITCH ---
 	if spec.mode == :hist
+
 		scaled_edges = spec.bins ./ x_scale
 
 		if spec.data == :samples || spec.data == :both
@@ -395,14 +408,9 @@ function _build_hist_plot!(fig_ctx, ctx, axis, spec::MCPlotHistSpec)
 				bins = scaled_edges,
 				normalization = spec.normalization,
 				color = :steelblue, strokecolor = :white, strokewidth = 0.5,
+				label = "samples",
 			)
-			push!(
-				legend_elements,
-				Makie.PolyElement(
-					color = :steelblue, strokecolor = :white, strokewidth = 0.5,
-				),
-			)
-			push!(legend_labels, "samples")
+
 		end
 
 		if spec.data == :pdf || spec.data == :both
@@ -412,9 +420,9 @@ function _build_hist_plot!(fig_ctx, ctx, axis, spec::MCPlotHistSpec)
 			stairs!(
 				axis, scaled_edges, y_values;
 				step = :post, color = :red, linewidth = 2, overdraw = true,
+				label = "model PDF",
 			)
-			push!(legend_elements, Makie.LineElement(color = :red, linewidth = 2))
-			push!(legend_labels, "model PDF")
+
 		end
 
 		Makie.autolimits!(axis)
@@ -437,20 +445,13 @@ function _build_hist_plot!(fig_ctx, ctx, axis, spec::MCPlotHistSpec)
 		# We must feed *physical* values (xs .* x_scale) to the cdf function
 		model_cdf_data = cdf.(Ref(pdf), xs .* x_scale)
 		lines!(axis, xs, model_cdf_data,
-			color = :red, linewidth = 2,
+			color = :red, linewidth = 2, label = "model CDF",
 		)
-		push!(legend_elements, Makie.LineElement(color = :red, linewidth = 2))
-		push!(legend_labels, "model CDF")
 
 		# 2. Plot ECDF (Data)
 		lines!(axis, xs, ecdf_func.(xs),
-			color = :blue, linestyle = :dash, linewidth = 2,
+			color = :blue, linestyle = :dash, linewidth = 2, label = "empirical",
 		)
-		push!(
-			legend_elements,
-			Makie.LineElement(color = :blue, linestyle = :dash, linewidth = 2),
-		)
-		push!(legend_labels, "empirical")
 
 
 		Makie.autolimits!(axis)
@@ -471,22 +472,16 @@ function _build_hist_plot!(fig_ctx, ctx, axis, spec::MCPlotHistSpec)
 
 		# 1. Plot the quantiles
 		scatter!(axis, sample_quantiles, model_quantiles_scaled,
-			color = :steelblue, markersize = 6,
+			color = :steelblue, markersize = 6, label = "quantiles",
 		)
-		push!(legend_elements, Makie.MarkerElement(color = :steelblue, marker = :circle))
-		push!(legend_labels, "quantiles")
+
 
 		# 2. Plot the y=x line
 		diag_min = min(sample_quantiles[1], model_quantiles_scaled[1])
 		diag_max = max(sample_quantiles[end], model_quantiles_scaled[end])
 		lines!(axis, [diag_min, diag_max], [diag_min, diag_max],
-			color = :black, linestyle = :dash, linewidth = 2,
+			color = :black, linestyle = :dash, linewidth = 2, label = "perfect fit",
 		)
-		push!(
-			legend_elements,
-			Makie.LineElement(color = :black, linestyle = :dash, linewidth = 2),
-		)
-		push!(legend_labels, "perfect fit")
 
 		Makie.autolimits!(axis)
 		# No ylims! for Q-Q
@@ -508,16 +503,18 @@ function _build_hist_plot!(fig_ctx, ctx, axis, spec::MCPlotHistSpec)
 		),
 	]
 
+	legend_builder =
+		parent ->
+			Makie.Legend(
+				parent,
+				axis;
+				orientation = :vertical,
+			)
+
 	# --- Return (identical) ---
 	return PlotBuildArtifacts(
 		axis = axis,
-		legends = parent ->
-			Makie.Legend(
-				parent,
-				legend_elements,
-				legend_labels;
-				orientation = :vertical,
-			),
+		legends = legend_builder,
 		colorbars = Any[],
 		control_buttons = buttons,
 		control_toggles = ControlToggleSpec[],
