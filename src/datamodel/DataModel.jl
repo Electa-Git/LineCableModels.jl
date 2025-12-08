@@ -40,9 +40,9 @@ using ..Utils:
 	is_in_testset, to_lower, to_upper
 import ..Utils: coerce_to_T, to_lower
 using ..Materials: Material
-import ..BackendHandler: set_backend!, ensure_backend!, current_backend_symbol,
+import ..PlotBuilder.BackendHandler: set_backend!, ensure_backend!, current_backend_symbol,
 	backend_available, renderfig, next_fignum
-import ..PlotUIComponents: gl_screen, with_icon, MI_REFRESH, MI_SAVE, ICON_TTF
+import ..PlotBuilder.PlotUIComponents: gl_screen, with_icon, MI_REFRESH, MI_SAVE, ICON_TTF
 import ..Validation: Validation, sanitize, validate!, has_radii, has_temperature,
 	extra_rules, IntegerField, Positive, Finite, Normalized, IsA, required_fields,
 	coercive_fields, keyword_fields, keyword_defaults, _kwdefaults_nt, is_radius_input,
