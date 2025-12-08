@@ -33,7 +33,7 @@ function LineParametersPDF(
 	return LineParametersPDF{T}(e, d)
 end
 
-struct LineParametersMCSummary{U <: Real}
+struct LineParametersMC{U <: Real}
 	"Frequencies \\[Hz\\]."
 	f::Vector{U}
 
@@ -80,7 +80,7 @@ struct LineParametersMCSummary{U <: Real}
 	measurements::LineParameters{Complex{Measurement{U}}, U}
 end
 
-struct CableDesignMCSummary{U <: Real}
+struct CableDesignMC{U <: Real}
 	"Statistics for R, L, C (each is a NamedTuple from the mc stats kernel)."
 	stats::NamedTuple{
 		(:R, :L, :C),
