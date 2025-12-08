@@ -349,4 +349,6 @@ include("montecarlo.jl")
 include("dataframe.jl")
 include("plot.jl")
 
+include("plotspecs/mcstatsplotspec.jl")
+
 end # module UQ
