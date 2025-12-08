@@ -2,27 +2,7 @@
 using Makie
 import Makie: plot
 
-import ..BackendHandler: BackendHandler, next_fignum
-using Base: basename, mod1
-using Dates: format, now
-
-using ..PlotUIComponents:
-	PlotAssembly,
-	PlotBuildArtifacts,
-	ControlButtonSpec,
-	ControlToggleSpec,
-	ControlReaction,
-	_make_window,
-	_run_plot_pipeline,
-	with_plot_theme,
-	ensure_export_background!,
-	with_icon,
-	MI_REFRESH,
-	MI_SAVE,
-	ICON_TTF,
-	AXIS_LABEL_FONT_SIZE,
-	clear_status!,
-	TICKFORMATTER
+include("../plotbuilder/plothelpers.jl")
 
 using Measurements: Measurements
 
@@ -104,7 +84,7 @@ struct ComponentMetadata
 	unit::UnitSpec
 end
 
-struct LineParametersPlotSpec
+struct LineParametersPlotSpec <: AbstractPlotSpec
 	parent_kind::Symbol
 	component::Symbol
 	symbol::String
@@ -121,39 +101,6 @@ struct LineParametersPlotSpec
 	fig_size::Union{Nothing, Tuple{Int, Int}}
 	xscale::Base.RefValue{Function}
 	yscale::Base.RefValue{Function}
-end
-
-const EXPORT_TIMESTAMP_FORMAT = "yyyymmdd_HHMMSS"
-const EXPORT_EXTENSION = "svg"
-
-function _sanitize_filename_component(str::AbstractString)
-	sanitized = lowercase(strip(str))
-	sanitized = replace(sanitized, r"[^0-9a-z]+" => "_")
-	sanitized = strip(sanitized, '_')
-	return isempty(sanitized) ? "linecablemodels_plot" : sanitized
-end
-
-function _default_export_path(
-	spec::LineParametersPlotSpec;
-	extension::AbstractString = EXPORT_EXTENSION,
-)
-	base_title = strip(spec.title)
-	base = isempty(base_title) ? string(spec.parent_kind, "_", spec.component) : base_title
-	name = _sanitize_filename_component(base)
-	timestamp = format(now(), EXPORT_TIMESTAMP_FORMAT)
-	filename = string(name, "_", timestamp, ".", extension)
-	return joinpath(pwd(), filename)
-end
-
-function _save_plot_export(spec::LineParametersPlotSpec, axis)
-	# Capture current axis scales before building the export figure
-	spec.xscale[] = axis.xscale[]
-	spec.yscale[] = axis.yscale[]
-	fig = build_export_figure(spec)
-	trim!(fig.layout)
-	path = _default_export_path(spec)
-	Makie.save(path, fig)
-	return path
 end
 
 get_description(::SeriesImpedance) = (
