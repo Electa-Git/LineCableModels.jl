@@ -1,6 +1,6 @@
 import DataFrames: DataFrame
 
-function DataFrame(res::LineParametersMCSummary)
+function DataFrame(res::LineParametersMC)
 	nph, _, nfreq = size(res.stats.R)
 	dfs = Array{DataFrame, 3}(undef, nph, nph, nfreq)
 	@inbounds for i in 1:nph, j in 1:nph, k in 1:nfreq
@@ -27,7 +27,7 @@ function DataFrame(res::LineParametersMCSummary)
 	return dfs
 end
 
-function DataFrame(res::CableDesignMCSummary)
+function DataFrame(res::CableDesignMC)
 	sR, sL, sC = res.stats.R, res.stats.L, res.stats.C
 	DataFrame(
 		variable = ["R", "L", "C"],
