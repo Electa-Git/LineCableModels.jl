@@ -2,13 +2,13 @@ module PlotBuilder
 
 using Base: @kwdef
 
-import ..UnitHandler: Units, QuantityTag, get_label, get_symbol, display_unit
+import ..UnitHandler: Units, QuantityTag, get_label, get_symbol, display_unit, scale_factor
 
 export PlotAxis, PlotRenderer,
 	plot_kind, enable_logscale, dispatch_on,
 	axis_quantity, axis_unit, axis_label,
 	default_figsize,
-	parse_kwargs, resolve_input, build_payloads, make
+	parse_kwargs, resolve_input, build_payloads, make_renderer
 
 abstract type AbstractPlotSpec end
 include("plotspecs.jl")
@@ -189,7 +189,7 @@ function build_axes(::Type{S}, nt::NamedTuple) where {S <: AbstractPlotSpec}
 		elseif dim === :z
 			zaxis = ax
 		else
-			error("Unsupported axis dim $(dim) in geom_axes for $(S)")
+			Base.error("Unsupported axis dim $(dim) in geom_axes for $(S)")
 		end
 	end
 
@@ -322,6 +322,9 @@ comes from there, define:
 """
 data_container(::Type{S}, ::Val{dim}) where {S <: AbstractPlotSpec, dim} = nothing
 
+# Child key for axis `dim` inside the container returned by `data_container`.
+# Data parsed as: `obj.container.datakey[i,j,k(,l)].axis_key.`
+axis_key(::Type{S}, ::Val{dim}) where {S <: AbstractPlotSpec, dim} = nothing
 
 """
 	input_defaults(::Type{S}, obj) where {S<:AbstractPlotSpec}
@@ -363,13 +366,12 @@ function split_kwargs(
 	dims::Tuple,
 ) where {S <: AbstractPlotSpec}
 
-	# Axis data keys: (:x, :y, :z) → (:xdata, :ydata, :zdata)
-	data_keys = Tuple(Symbol(d, :data) for d in dims)
+	# Axis selector keys: (:x, :y, :z)
+	axis_keys = dims
 
-	semantic_keys = (ik..., idx..., data_keys...)
+	semantic_keys = (ik..., idx..., axis_keys...)
 	allowed       = (semantic_keys..., bk...)
 
-	# Split kwargs into semantic vs backend
 	spec_pairs    = Tuple(filter(((k, _),) -> k in semantic_keys, pairs(kwargs)))
 	backend_pairs = Tuple(filter(((k, _),) -> k in bk, pairs(kwargs)))
 
@@ -424,11 +426,11 @@ function normalize_indices(
 				(v isa Int ||
 				 v isa AbstractUnitRange{<:Int} ||
 				 v isa Colon) ||
-					error(
+					Base.error(
 						"Index $(k) must be Int, Int range, or `:`; got $(typeof(v))",
 					)
 			else
-				v isa Int || error("Index $(k) must be Int, got $(typeof(v))")
+				v isa Int || Base.error("Index $(k) must be Int, got $(typeof(v))")
 			end
 
 			v
@@ -447,15 +449,69 @@ function verify_datasources(
 ) where {S <: AbstractPlotSpec}
 
 	for d in dims
-		key = Symbol(d, :data) # :xdata, :ydata, :zdata
-		val = get(spec, key, nothing)
+		val = get(spec, d, nothing)
 		val === nothing &&
-			Base.error("Missing data source $(key) for spec $(S) after defaults")
+			Base.error("Missing axis selector $(d) for spec $(S) after defaults")
 		val isa Symbol ||
-			Base.error("$(key) must be a Symbol, got $(typeof(val)) for spec $(S)")
+			Base.error(
+				"Axis selector $(d) must be a Symbol, got $(typeof(val)) for spec $(S)",
+			)
 	end
 
 	return
+end
+
+function container_array(
+	::Type{S},
+	obj,
+	dim::Symbol,
+	datakey::Symbol,
+) where {S <: AbstractPlotSpec}
+
+	container = data_container(S, Val(dim))
+
+	if container === nothing
+		hasproperty(obj, datakey) ||
+			Base.error(
+				"For spec $(S), axis $(dim) expects obj.$(datakey), " *
+				"but $(typeof(obj)) has no such field.",
+			)
+		return getproperty(obj, datakey)
+	else
+		container isa Symbol ||
+			Base.error(
+				"data_container(::Type{$(S)}, Val($(dim))) must be Symbol or nothing; got $(typeof(container))",
+			)
+
+		hasproperty(obj, container) ||
+			Base.error(
+				"data_container(::Type{$(S)}, Val($(dim))) = :$(container), " *
+				"but $(typeof(obj)) has no field :$(container).",
+			)
+
+		parent = getproperty(obj, container)
+
+		if parent isa AbstractDict
+			haskey(parent, datakey) ||
+				Base.error(
+					"Container field :$(container) for $(S) has no key :$(datakey) for axis $(dim).",
+				)
+			return parent[datakey]
+		elseif parent isa NamedTuple && haskey(parent, datakey)
+			return parent[datakey]
+		elseif hasproperty(parent, datakey)
+			return getproperty(parent, datakey)
+		else
+			try
+				return parent[datakey]
+			catch
+				Base.error(
+					"Container field :$(container) of type $(typeof(parent)) " *
+					"does not provide data for key :$(datakey) for axis $(dim) in $(S).",
+				)
+			end
+		end
+	end
 end
 
 # normalize_shapes – centralized structural sanity
@@ -474,19 +530,17 @@ function verify_shapes(
 	# Axis → datakey mapping (:x → :f, :y → :R, etc.)
 	datakeys = Dict{Symbol, Symbol}()
 	for d in dims
-		key = Symbol(d, :data) # :xdata, :ydata, :zdata
-		val = get(spec, key, nothing)
-		datakeys[d] = val
+		datakeys[d] = getfield(spec, d)  # verified by verify_datasources
 	end
 
-	# Extract indices if present
 	has_i = :i in idx_keys
 	has_j = :j in idx_keys
+	has_k = :k in idx_keys
+
 	i_val = has_i ? spec.i : nothing
 	j_val = has_j ? spec.j : nothing
+	k_val = has_k ? spec.k : Colon()  # normalized to Int / range / Colon by normalize_indices
 
-	# Helper: basic index bounds check (Int only for now; ranges will need
-	# additional logic if/when you allow them for i/j).
 	local function _check_index(name::Symbol, v, n::Int)
 		v isa Int || Base.error("Index $(name) must be Int, got $(typeof(v)) for spec $(S)")
 		(1 <= v <= n) ||
@@ -494,32 +548,17 @@ function verify_shapes(
 		v
 	end
 
-	# Helper: resolve the raw storage array for a given axis + data source key.
-	# This is where `data_container(::Type{S}, ::Val{dim})` is obeyed.
-	local function _data_array(dim::Symbol, datakey::Symbol)
-		container = data_container(S, Val(dim))
-
-		if container === nothing
-			# Direct: obj.R, obj.f, ...
-			return getproperty(obj, datakey)
-		else
-			# Indirect: obj.stats[:R], obj.some_nt[:foo], ...
-			parent = getproperty(obj, container)
-			return parent[datakey]
-		end
-	end
-
-	# Compute sample length per axis (last dimension or vector length)
 	lengths = Dict{Symbol, Int}()
 
 	for d in dims
 		datakey = datakeys[d]
-		arr = _data_array(d, datakey)
+		arr = container_array(S, obj, d, datakey)
 
 		nd = ndims(arr)
-		nd == 0 && error("Axis $(d) data for $(S) is scalar; expected an array.")
+		nd == 0 &&
+			Base.error("Axis $(d) data for $(S) is scalar; expected an array.")
 
-		# Check i/j bounds when there are at least that many dims
+		# Check i/j bounds using first/second dims when present
 		if has_i && nd >= 1
 			_check_index(:i, i_val, size(arr, 1))
 		end
@@ -527,18 +566,41 @@ function verify_shapes(
 			_check_index(:j, j_val, size(arr, 2))
 		end
 
-		# Sample length = length of vector (1D) or size along last dimension (≥2D)
-		len = nd == 1 ? length(arr) : size(arr, nd)
+		# Effective sample length along last dimension, accounting for k
+		n_samp = size(arr, nd)
+
+		len = if has_k
+			kv = k_val
+			if kv isa Int
+				_check_index(:k, kv, n_samp)
+				1
+			elseif kv isa AbstractUnitRange{<:Int}
+				first(kv) >= 1 && last(kv) <= n_samp ||
+					error(
+						"Range k = $(kv) out of bounds 1:$(n_samp) for spec $(S) on axis $(d).",
+					)
+				length(kv)
+			elseif kv isa Colon
+				n_samp
+			else
+				Base.error(
+					"Index :k must be Int, Int range, or `:` after normalization; " *
+					"got $(typeof(kv)) for spec $(S).",
+				)
+			end
+		else
+			nd == 1 ? length(arr) : n_samp
+		end
+
 		lengths[d] = len
 	end
 
-	# Ensure all axes share the same sample length
 	vals = collect(values(lengths))
 	isempty(vals) && return
 
 	ref = first(vals)
 	for (d, len) in lengths
-		len == ref || error(
+		len == ref || Base.error(
 			"Mismatched sample lengths for spec $(S): axis $(d) has length $(len), " *
 			"expected $(ref). Containers must align along their sample dimension.",
 		)
@@ -546,6 +608,9 @@ function verify_shapes(
 
 	return
 end
+
+
+
 
 @inline function trait_to_tuple(::Type{S}, raw, name) where {S <: AbstractPlotSpec}
 	raw === () && return ()
@@ -568,7 +633,7 @@ Responsibilities:
 	 `backend_defaults(S, obj)`.
   3. Normalize indices (`index_keys(S)` / `ranged_keys(S)`) to the allowed
 	 types and fill in defaults.
-  4. Ensure axis data keys (`xdata`, `ydata`, ...) exist and are `Symbol`s.
+  4. Ensure axis data keys (`x`, `y`, ...) exist and are `Symbol`s.
   5. Run grammar-level structural checks:
 	 - data sources exist under `obj` according to `data_container`,
 	 - indices are in bounds,
@@ -604,7 +669,7 @@ function parse_kwargs(::Type{S}, obj, kwargs::NamedTuple) where {S <: AbstractPl
 
 	for d in dims
 		d in (:x, :y, :z) ||
-			error(
+			Base.error(
 				"geom_axes(::Type{$(S)}) returned unsupported axis $(d). " *
 				"Valid axes are :x, :y, :z.",
 			)
@@ -632,361 +697,6 @@ end
 parse_kwargs(::Type{S}, obj; kwargs...) where {S <: AbstractPlotSpec} =
 	parse_kwargs(S, obj, (; kwargs...))
 
-
-# # -----------------------------------------------------------------------------
-# # build_payloads pipeline (spec → payloads)
-# # -----------------------------------------------------------------------------
-# """
-# 	parse_kwargs(::Type{S}, obj, kwargs::NamedTuple) where {S<:AbstractPlotSpec}
-# 	parse_kwargs(::Type{S}, obj; kwargs...) where {S<:AbstractPlotSpec}
-
-# Normalize user keyword arguments for a plot specification `S` into a canonical
-# NamedTuple with three fields: `obj`, `spec`, and `style`.
-
-# This function implements the trait-driven plot grammar. It splits the incoming
-# `kwargs` into:
-
-#   • semantic control parameters declared by `input_kwargs(S)`, merged with
-# 	`input_defaults(S, obj)` into `spec`;
-#   • backend or style parameters declared by `backend_kwargs(S)`, merged with
-# 	`backend_defaults(S, obj)` into `style`.
-
-# Any keyword not listed in `input_kwargs(S)` or `backend_kwargs(S)` is ignored
-# for the merge and may trigger a warning. No other filtering, mutation, or
-# validation is performed here; downstream methods are expected to consume the
-# canonical form only.
-
-# The returned NamedTuple is the sole input shape that `resolve_input` and
-# `build_payloads` are expected to handle for specification `S`.
-
-# # Arguments
-
-#   • `S::Type{<:AbstractPlotSpec}`: plot specification type.
-#   • `obj`: domain object dispatched by `S` \\(for example, a Monte Carlo result
-# 	container\\).
-#   • `kwargs::NamedTuple`: user keyword arguments collected from the plotting
-# 	call.
-
-# # Returns
-
-#   • `NamedTuple`: a normalized tuple
-
-# 	  (; obj = obj, spec = spec_nt, style = style_nt)
-
-# 	where `spec_nt` and `style_nt` are NamedTuples obtained by partitioning
-# 	and merging `kwargs` with the trait-provided defaults.
-
-# # See also
-
-# `input_kwargs`, `input_defaults`, `backend_kwargs`, `backend_defaults`,
-# `resolve_input`, `build_payloads`.
-# """
-# function parse_kwargs(::Type{S}, obj, kwargs::NamedTuple) where {S <: AbstractPlotSpec}
-# 	# Raw trait values
-# 	ik_raw   = input_kwargs(S)
-# 	bk_raw   = backend_kwargs(S)
-# 	idx_raw  = index_keys(S)
-# 	dims_raw = geom_axes(S)
-# 	rk_raw   = ranged_keys(S)
-
-# 	# Coerce to tuples, with warnings if dev was lazy.
-# 	ik =
-# 		ik_raw === () ? () :
-# 		ik_raw isa Tuple ? ik_raw :
-# 		begin
-# 			@warn "input_kwargs(::Type{$(S)}) should return a Tuple of Symbols. " *
-# 				  "Wrapping single value `$(ik_raw)` into a 1-tuple. Use (:key,) instead of :key."
-# 			(ik_raw,)
-# 		end
-
-# 	bk =
-# 		bk_raw === () ? () :
-# 		bk_raw isa Tuple ? bk_raw :
-# 		begin
-# 			@warn "backend_kwargs(::Type{$(S)}) should return a Tuple of Symbols. " *
-# 				  "Wrapping single value `$(bk_raw)` into a 1-tuple. Use (:key,) instead of :key."
-# 			(bk_raw,)
-# 		end
-
-# 	idx =
-# 		idx_raw === () ? () :
-# 		idx_raw isa Tuple ? idx_raw :
-# 		begin
-# 			@warn "index_keys(::Type{$(S)}) should return a Tuple of Symbols. " *
-# 				  "Wrapping single value `$(idx_raw)` into a 1-tuple. Use (:i,) or (:i,:j)."
-# 			(idx_raw,)
-# 		end
-
-# 	dims =
-# 		dims_raw === () ? () :
-# 		dims_raw isa Tuple ? dims_raw :
-# 		begin
-# 			@warn "geom_axes(::Type{$(S)}) should return a Tuple of axis symbols, e.g. (:x, :y). " *
-# 				  "Wrapping single value `$(dims_raw)` into a 1-tuple."
-# 			(dims_raw,)
-# 		end
-
-# 	rk =
-# 		rk_raw === () ? () :
-# 		rk_raw isa Tuple ? rk_raw :
-# 		begin
-# 			@warn "ranged_keys(::Type{$(S)}) should return a Tuple of Symbols. " *
-# 				  "Wrapping single value `$(rk_raw)` into a 1-tuple. Use (:k,) instead of :k."
-# 			(rk_raw,)
-# 		end
-
-# 	# Optionally sanity-check symbol-ness
-# 	if !all(d -> d isa Symbol, dims)
-# 		@warn "geom_axes(::Type{$(S)}) returned non-Symbol entries $(dims). Expected dims like (:x, :y, :z)."
-# 	end
-# 	for (name, tup) in (("input_kwargs", ik), ("backend_kwargs", bk),
-# 		("index_keys", idx), ("ranged_keys", rk))
-# 		all(k -> k isa Symbol, tup) ||
-# 			@warn "$(name)(::Type{$(S)}) should be a Tuple of Symbols, got $(tup)."
-# 	end
-
-# 	# For each dim (:x,:y,:z) define corresponding data key (:xdata,:ydata,:zdata)
-# 	data_keys = Tuple(Symbol(d, :data) for d in dims)
-
-# 	semantic_keys = (ik..., idx..., data_keys...)
-
-# 	allowed  = (semantic_keys..., bk...)
-# 	idefault = input_defaults(S, obj)
-# 	bdefault = backend_defaults(S, obj)
-
-# 	spec_pairs    = Tuple(filter(((k, _),)->k in semantic_keys, pairs(kwargs)))
-# 	backend_pairs = Tuple(filter(((k, _),)->k in bk, pairs(kwargs)))
-
-# 	for k in keys(kwargs)
-# 		k in allowed || @warn "Unknown plot keyword for $(S): :$(k)"
-# 	end
-
-# 	spec_user    = NamedTuple(spec_pairs)
-# 	backend_user = NamedTuple(backend_pairs)
-
-# 	spec0 = merge(idefault, spec_user)
-# 	style = merge(bdefault, backend_user)
-
-# 	# Enforce index semantics: Int vs range-capable
-# 	if isempty(idx)
-# 		spec = spec0
-# 	else
-# 		idx_vals = Tuple(
-# 			begin
-# 				is_ranged = k in rk
-# 				default = is_ranged ? Colon() : 1   # `:` means "all" for ranged axes
-
-# 				v = get(spec0, k, default)
-
-# 				if is_ranged
-# 					# Accept Int, AbstractUnitRange{<:Int}, or colon
-# 					(v isa Int ||
-# 					 v isa AbstractUnitRange{<:Int} ||
-# 					 v === Colon()) ||
-# 						error(
-# 							"Index $(k) must be Int, Int range, or `:`; got $(typeof(v))",
-# 						)
-# 				else
-# 					v isa Int || error("Index $(k) must be Int, got $(typeof(v))")
-# 				end
-
-# 				v
-# 			end for k in idx
-# 		)
-
-# 		idx_nt = NamedTuple{idx}(idx_vals)
-# 		spec   = merge(spec0, idx_nt)
-# 	end
-
-# 	# Sanity check: enforce basic grammar invariants after normalization.
-# 	#
-# 	# Invariants:
-# 	#   - For each geometric axis dim ∈ geom_axes(S),
-# 	#       there must be a data source key :xdata/:ydata/:zdata in `spec`.
-# 	#   - For each axis, the resolved storage must be an array:
-# 	#       * 1D: treated as a sample vector.
-# 	#       * ≥2D: last dimension is the sample axis.
-# 	#   - All active axes must have the same sample length.
-# 	#   - Index keys (:i,:j,...) must be in bounds for any storage that uses
-# 	#     the corresponding dimension (we assume dim1→i, dim2→j as per your
-# 	#     cable grammar).
-# 	#
-# 	# No content/physics is inspected; this only checks shapes and bounds.
-# 	dims = geom_axes(S)
-# 	dims = dims isa Tuple ? dims : (dims,)
-
-# 	idx_keys = index_keys(S)
-# 	idx_keys = idx_keys isa Tuple ? idx_keys : (idx_keys,)
-
-# 	# Axis → datakey mapping (:x → :f, :y → :R, etc.)
-# 	datakeys = Dict{Symbol, Symbol}()
-
-# 	for d in dims
-# 		key = Symbol(d, :data) # :xdata, :ydata, :zdata
-# 		val = get(spec, key, nothing)
-# 		val === nothing && error("Missing data source $(key) for spec $(S)")
-# 		val isa Symbol || error("$(key) must be a Symbol, got $(typeof(val))")
-# 		datakeys[d] = val
-# 	end
-
-# 	# Extract indices if present
-# 	has_i = :i in idx_keys
-# 	has_j = :j in idx_keys
-# 	i_val = has_i ? spec.i : nothing
-# 	j_val = has_j ? spec.j : nothing
-
-# 	# Helper: basic index bounds check (Int only for now; ranges handled later if/when you add :k)
-# 	_check_index(name::Symbol, v, n::Int) = begin
-# 		v isa Int || error("Index $(name) must be Int, got $(typeof(v))")
-# 		(1 <= v <= n) ||
-# 			error("Index $(name) = $(v) out of bounds 1:$(n) for spec $(S)")
-# 		v
-# 	end
-
-# 	# Helper: resolve the raw storage array for a given data source key.
-# 	# Obeys the `data_container` trait.
-# 	function _data_array(::Type{S}, obj, datakey::Symbol) where {S <: AbstractPlotSpec}
-# 		container = data_container(S, Val(datakey))
-
-# 		if container === nothing
-# 			# Direct: obj.R, obj.f, ...
-# 			return getproperty(obj, datakey)
-# 		else
-# 			# Indirect: obj.stats[:R], obj.some_nt[:foo], ...
-# 			parent = getproperty(obj, container)
-# 			return parent[datakey]
-# 		end
-# 	end
-
-# 	# Compute sample length per axis (last dimension or vector length)
-# 	lengths = Dict{Symbol, Int}()
-
-# 	for d in dims
-# 		datakey = datakeys[d]
-# 		arr = _data_array(S, obj, datakey)
-
-# 		nd = ndims(arr)
-# 		nd == 0 && error("Axis $(d) data for $(S) is scalar; expected an array.")
-
-# 		# Check i/j bounds when there are at least that many dims
-# 		if has_i && nd >= 1
-# 			_check_index(:i, i_val, size(arr, 1))
-# 		end
-# 		if has_j && nd >= 2
-# 			_check_index(:j, j_val, size(arr, 2))
-# 		end
-
-# 		# Sample length = length of vector (1D) or size along last dimension (≥2D)
-# 		len = nd == 1 ? length(arr) : size(arr, nd)
-
-# 		lengths[d] = len
-# 	end
-
-# 	# Ensure all axes share the same sample length
-# 	vals = collect(values(lengths))
-# 	isempty(vals) && return
-
-# 	ref = first(vals)
-# 	for (d, len) in lengths
-# 		len == ref || error(
-# 			"Mismatched sample lengths for spec $(S): axis $(d) has length $(len), " *
-# 			"expected $(ref). Containers must align along their sample dimension.",
-# 		)
-# 	end
-
-# 	return (; obj = obj, spec = spec, style = style)
-# end
-
-
-# parse_kwargs(::Type{S}, obj; kwargs...) where {S <: AbstractPlotSpec} =
-# 	parse_kwargs(S, obj, (; kwargs...))
-
-
-# """
-# Resolve raw inputs into a normalized NamedTuple understood by `build_payloads`.
-
-# This is where a spec implements its own mini-grammar:
-
-# - parse `values_expr` / `ijk`,
-# - pick matrix indices/slices,
-# - decide which quantities (R/L/C/G etc.) and which kind (:hist, :heatmap, ...).
-
-# Default is identity; spec types are expected to override.
-# """
-# function resolve_input(::Type{S}, nt::NamedTuple) where {S <: AbstractPlotSpec}
-# 	obj   = nt.obj
-# 	spec  = nt.spec
-# 	style = nt.style
-
-# 	# Geometry + index traits
-# 	dims = geom_axes(S)
-# 	dims = dims isa Tuple ? dims : (dims,)
-
-# 	idx_keys = index_keys(S)
-# 	idx_keys = idx_keys isa Tuple ? idx_keys : (idx_keys,)
-
-# 	# ------------------------------------------------------------------
-# 	# Axis data sources per dim (xdata, ydata, zdata)
-# 	# ------------------------------------------------------------------
-# 	xdata_src = nothing
-# 	ydata_src = nothing
-# 	zdata_src = nothing
-
-# 	for d in dims
-# 		key = Symbol(d, :data)        # :xdata, :ydata, :zdata
-# 		val = get(spec, key, nothing)
-# 		val === nothing && error("Missing required data source $(key) for spec $(S)")
-# 		val isa Symbol || error("$(key) must be a Symbol, got $(typeof(val))")
-
-# 		if d === :x
-# 			xdata_src = val
-# 		elseif d === :y
-# 			ydata_src = val
-# 		elseif d === :z
-# 			zdata_src = val
-# 		else
-# 			error("Unsupported axis dim $(d) in geom_axes for $(S)")
-# 		end
-# 	end
-
-# 	# ------------------------------------------------------------------
-# 	# Axis quantity semantics (only for existing axes)
-# 	# ------------------------------------------------------------------
-# 	xq = nothing
-# 	yq = nothing
-# 	zq = nothing
-
-# 	if :x in dims
-# 		xq = axis_quantity(S, Val(:x), Val(xdata_src))
-# 	end
-# 	if :y in dims
-# 		yq = axis_quantity(S, Val(:y), Val(ydata_src))
-# 	end
-# 	if :z in dims
-# 		zq = axis_quantity(S, Val(:z), Val(zdata_src))
-# 	end
-
-# 	# ------------------------------------------------------------------
-# 	# Flatten spec into top-level NT + attach axis data & quantities
-# 	# ------------------------------------------------------------------
-# 	out = spec
-
-# 	if :x in dims
-# 		out = merge(out, (; xdata = xdata_src, x_quantity = xq))
-# 	end
-# 	if :y in dims
-# 		out = merge(out, (; ydata = ydata_src, y_quantity = yq))
-# 	end
-# 	if :z in dims
-# 		out = merge(out, (; zdata = zdata_src, z_quantity = zq))
-# 	end
-
-# 	# Attach object and style
-# 	out = merge(out, (; obj = obj, style = style))
-
-# 	return out
-# end
-
 """
 Resolve raw inputs into a normalized NamedTuple understood by `build_payloads`.
 
@@ -999,57 +709,236 @@ This is where a spec implements its own mini-grammar:
 Default is identity; spec types are expected to override.
 """
 function resolve_input(::Type{S}, nt::NamedTuple) where {S <: AbstractPlotSpec}
-	obj = nt.obj
-	spec = nt.spec
-	backend_nt = nt.backend
+	obj     = nt.obj
+	spec    = nt.spec
+	backend = nt.backend
 
-	# Geometry trait
 	dims = geom_axes(S)
 	dims = dims isa Tuple ? dims : (dims,)
 
-	# ------------------------------------------------------------------
-	# Axis data sources (symbols) — invariants guaranteed by parse_kwargs
-	# ------------------------------------------------------------------
-	xdata_src = :x in dims ? spec.xdata : nothing
-	ydata_src = :y in dims ? spec.ydata : nothing
-	zdata_src = :z in dims && haskey(spec, :zdata) ? spec.zdata : nothing
+	xsel = :x in dims ? spec.x : nothing
+	ysel = :y in dims ? spec.y : nothing
+	zsel = :z in dims && haskey(spec, :z) ? spec.z : nothing
 
-	# ------------------------------------------------------------------
-	# Axis quantity semantics (only for existing axes)
-	# ------------------------------------------------------------------
 	xq = nothing
 	yq = nothing
 	zq = nothing
 
 	if :x in dims
-		xq = axis_quantity(S, Val(:x), Val(xdata_src))
+		xq = axis_quantity(S, Val(:x), Val(xsel))
 	end
 	if :y in dims
-		yq = axis_quantity(S, Val(:y), Val(ydata_src))
+		yq = axis_quantity(S, Val(:y), Val(ysel))
 	end
-	if :z in dims && zdata_src !== nothing
-		zq = axis_quantity(S, Val(:z), Val(zdata_src))
+	if :z in dims && zsel !== nothing
+		zq = axis_quantity(S, Val(:z), Val(zsel))
 	end
 
-	# ------------------------------------------------------------------
-	# Flatten spec into top-level NT + attach axis data & quantities
-	# ------------------------------------------------------------------
 	out = spec
 
 	if :x in dims
-		out = merge(out, (; xdata = xdata_src, x_quantity = xq))
+		out = merge(out, (; x = xsel, x_quantity = xq))
 	end
 	if :y in dims
-		out = merge(out, (; ydata = ydata_src, y_quantity = yq))
+		out = merge(out, (; y = ysel, y_quantity = yq))
 	end
-	if :z in dims && zdata_src !== nothing
-		out = merge(out, (; zdata = zdata_src, z_quantity = zq))
+	if :z in dims && zsel !== nothing
+		out = merge(out, (; z = zsel, z_quantity = zq))
 	end
 
-	# Attach object and style
-	return merge(out, (; obj = obj, backend = backend_nt))
+	return merge(out, (; obj = obj, backend = backend))
 end
 
+# --------------------------------------------------------------------------
+# Axis-level transform hook
+# --------------------------------------------------------------------------
+
+"""
+	axis_transform(::Type{S}, ::Val{dim}, ::Val{datakey}, nt, axis::PlotAxis, data) where {S,dim,datakey}
+
+Per-spec hook to post-process the sliced axis data *before* unit scaling.
+
+- `dim`      : :x, :y, or :z
+- `datakey`  : axis selector symbol (e.g. :f, :R, :Z, ...)
+- `nt`       : resolved input NamedTuple from `resolve_input`
+- `axis`     : PlotAxis for this dimension (quantity + units + label + scale)
+- `data`     : 1D numeric/complex array returned by `axis_slice`
+
+Default is identity; specs override this to apply `abs`, `angle`, imperial
+conversions, etc.
+"""
+axis_transform(
+	::Type{S},
+	::Val{dim},
+	::Val{datakey},
+	nt::NamedTuple,
+	axis::PlotAxis,
+	data,
+) where {S <: AbstractPlotSpec, dim, datakey} = data
+
+"""
+	axis_slice(::Type{S}, nt, axis::PlotAxis, ::Val{dim}) where {S<:AbstractPlotSpec}
+
+Return a 1D slice for axis `dim` using the grammar:
+
+  * Use `data_container(S, Val(dim))` and the axis selector `nt.<dim>`
+	(e.g. `nt.x`, `nt.y`) to locate the raw storage in `nt.obj`.
+  * Apply indices `i, j` if present in `nt`, assuming the sample dimension
+	is the last array dimension.
+  * Optionally unwrap child fields using `axis_key(S, Val(dim))` if it is
+	non-`nothing` and elements are NamedTuples.
+
+No unit scaling and no numeric check happen here; those are handled by
+`axis_transform` and `build_payloads`.
+"""
+function axis_slice(
+	::Type{S},
+	nt::NamedTuple,
+	axis::PlotAxis,
+	::Val{dim},
+) where {S <: AbstractPlotSpec, dim}
+
+	obj = nt.obj
+
+	# Axis selector: what the user (or defaults) chose for this axis, e.g. :f, :R, ...
+	selector = getfield(nt, dim)::Symbol
+
+	# --- 1. Fetch raw array via centralized container logic ---
+	raw_arr = container_array(S, obj, dim, selector)
+
+	# --- 2. Apply indices (i,j,k) → 1D slice along sample dimension ---
+	arr = raw_arr
+	nd  = ndims(arr)
+
+	has_i = haskey(nt, :i)
+	has_j = haskey(nt, :j)
+	has_k = haskey(nt, :k)
+
+	# First slice in i,j where applicable
+	if has_i && has_j && nd >= 3
+		arr = view(arr, nt.i, nt.j, :)
+	elseif has_i && nd >= 2 && !has_j
+		arr = view(arr, nt.i, :)
+	elseif has_j && nd >= 2 && !has_i
+		arr = view(arr, :, nt.j)
+	end
+
+	# Then slice in k along last dimension (sample dim)
+	if has_k
+		k = nt.k
+		nd2 = ndims(arr)
+
+		if nd2 == 0
+			Base.error(
+				"Axis $(dim) for $(S) has scalar data after i/j slicing; cannot apply k index.",
+			)
+		end
+
+		if nd2 == 1
+			if k isa Int
+				arr = view(arr, k:k)
+			elseif k isa AbstractUnitRange{<:Int} || k isa Colon
+				arr = view(arr, k)
+			else
+				Base.error(
+					"Index :k must be Int, Int range, or `:` after normalization; " *
+					"got $(typeof(k)) for spec $(S) on axis $(dim).",
+				)
+			end
+		else
+			# nd2 ≥ 2, index last dimension
+			lastdim = nd2
+			if k isa Int
+				inds = ntuple(d -> d == lastdim ? (k:k) : Colon(), lastdim)
+			elseif k isa AbstractUnitRange{<:Int} || k isa Colon
+				inds = ntuple(d -> d == lastdim ? k : Colon(), lastdim)
+			else
+				Base.error(
+					"Index :k must be Int, Int range, or `:` after normalization; " *
+					"got $(typeof(k)) for spec $(S) on axis $(dim).",
+				)
+			end
+			arr = view(arr, inds...)
+		end
+	end
+
+	ndims(arr) == 1 ||
+		Base.error(
+			"Axis $(dim) for $(S) expected to resolve to a 1D slice after indexing; " *
+			"got $(ndims(arr))-dimensional array.",
+		)
+
+	vec_arr = arr
+
+	# --- 3. Optional NamedTuple unwrapping via axis_key ---
+	kfield = axis_key(S, Val(dim))
+
+	if kfield === nothing
+		return collect(vec_arr)
+	else
+		hasproperty(nt, kfield) ||
+			Base.error(
+				"axis_key($(S), Val($(dim))) = :$(kfield) but resolved input has no field $(kfield).",
+			)
+
+		ksym = getfield(nt, kfield)
+		ksym isa Symbol ||
+			Base.error(
+				"Field $(kfield) in resolved input for $(S) on axis $(dim) " *
+				"must be a Symbol; got $(typeof(ksym)).",
+			)
+
+		first_el = first(vec_arr)
+		first_el isa NamedTuple ||
+			Base.error(
+				"axis_key($(S), Val($(dim))) = :$(kfield) but elements are not NamedTuples; " *
+				"got $(typeof(first_el)).",
+			)
+
+		haskey(first_el, ksym) ||
+			Base.error(
+				"NamedTuple elements on axis $(dim) for $(S) have no key $(ksym). " *
+				"Available keys: $(collect(keys(first_el))).",
+			)
+
+		return [el[ksym] for el in vec_arr]
+	end
+end
+
+
+# Process one axis if present
+@inline function axis_data(
+	::Type{S},
+	dim::Symbol,
+	nt::NamedTuple,
+	axis::Union{PlotAxis, Nothing},
+) where {S <: AbstractPlotSpec}
+	axis === nothing && return nothing
+
+	# axis selector: nt.x / nt.y / nt.z
+	selector = getfield(nt, dim)::Symbol
+
+	# 1) slice + axis_key unwrapping (no scaling)
+	raw_vec = axis_slice(S, nt, axis, Val(dim))
+
+	# 2) spec-level transform
+	transformed = axis_transform(S, Val(dim), Val(selector), nt, axis, raw_vec)
+
+	# 3) numeric check
+	transformed isa AbstractArray ||
+		Base.error(
+			"Axis $(dim) for $(S) did not resolve to an array; got $(typeof(transformed)).",
+		)
+
+	eltype(transformed) <: Number ||
+		Base.error(
+			"Axis $(dim) for $(S) did not resolve to numeric data; got eltype $(eltype(transformed)).",
+		)
+
+	# 4) unit scaling
+	sf = scale_factor(axis.quantity, axis.units)
+	return sf .* transformed
+end
 
 """
 Final construction step: from normalized NamedTuple to concrete payloads.
@@ -1070,10 +959,46 @@ to Makie’s own vocabulary, e.g.:
 		kwargs  = ::NamedTuple,   # color, linestyle, markersize, ...
 	)
 
-Every concrete spec type MUST override this.
+Specs may override this when they need multiple primitives, grids, etc.
 """
+# --------------------------------------------------------------------------
+# Generic payload builder
+# --------------------------------------------------------------------------
+
 function build_payloads(::Type{S}, nt::NamedTuple) where {S <: AbstractPlotSpec}
-	error("`build_payloads(::Type{$(S)}, nt)` not implemented for this plot spec")
+	dims    = geom_axes(S)
+	dims    = dims isa Tuple ? dims : (dims,)
+	backend = nt.backend
+
+	axes  = build_axes(S, nt)
+	xaxis = axes.xaxis
+	yaxis = axes.yaxis
+	zaxis = axes.zaxis
+
+	xdata = nothing
+	ydata = nothing
+	zdata = nothing
+
+	:x in dims && (xdata = axis_data(S, :x, nt, xaxis))
+	:y in dims && (ydata = axis_data(S, :y, nt, yaxis))
+	:z in dims && (zdata = axis_data(S, :z, nt, zaxis))
+
+	title  = default_title(S, nt)
+	legend = legend_labels(S, nt)
+
+	payload = (
+		xdata  = xdata,
+		ydata  = ydata,
+		zdata  = zdata,
+		xaxis  = xaxis,
+		yaxis  = yaxis,
+		zaxis  = zaxis,
+		title  = title,
+		legend = legend,
+		kwargs = backend,
+	)
+
+	return [payload]
 end
 
 """
@@ -1084,14 +1009,14 @@ runs:
 
 	parse_kwargs → resolve_input → build_payloads
 
-`build_payloads` returns vector of payload NamedTuples; `make` wraps them into
+`build_payloads` returns vector of payload NamedTuples; `make_renderer` wraps them into
 `PlotRenderer` values that the UI layer will later assemble into actual
 windows/layouts.
 """
-function make(::Type{S}, obj; kwargs...) where {S <: AbstractPlotSpec}
+function make_renderer(::Type{S}, obj; kwargs...) where {S <: AbstractPlotSpec}
 	Tdispatch = dispatch_on(S)
 	obj isa Tdispatch ||
-		error("Spec $(S) cannot dispatch on $(typeof(obj)); expected $(Tdispatch)")
+		Base.error("Spec $(S) cannot dispatch on $(typeof(obj)); expected $(Tdispatch)")
 
 	raw      = parse_kwargs(S, obj; kwargs...)
 	norm     = resolve_input(S, raw)
