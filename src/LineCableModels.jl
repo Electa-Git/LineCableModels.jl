@@ -45,12 +45,12 @@ include("uncertainbessels/UncertainBessels.jl")
 include("utils/Utils.jl")
 using .Utils: set_verbosity!
 
-# Submodule `BackendHandler`
-include("backendhandler/BackendHandler.jl")
-using .BackendHandler: set_backend!
+# Submodule `UnitHandler`
+include("unithandler/UnitHandler.jl")
 
-# Submodule `PlotUIComponents`
-include("plotuicomponents/PlotUIComponents.jl")
+# Submodule `PlotBuilder`
+include("plotbuilder/PlotBuilder.jl")
+using .PlotBuilder.BackendHandler: set_backend!
 
 # Submodule `Validation`
 include("validation/Validation.jl")
