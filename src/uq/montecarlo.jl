@@ -94,7 +94,7 @@ function mc(cbs::CableBuilderSpec;
 	# Samples as NamedTuple of vectors (R,L,C) or nothing
 	samples_nt = return_samples ? (R = μR, L = μL, C = μC) : nothing
 
-	return CableDesignMCSummary{T}(
+	return CableDesignMC{T}(
 		(R = sR, L = sL, C = sC),
 		pdf_nt,
 		samples_nt,
@@ -271,6 +271,6 @@ function mc(
 
 	samples_nt = return_samples ? (R = Rsamp, L = Lsamp, C = Csamp, G = Gsamp) : nothing
 
-	return LineParametersMCSummary{U}(fvec, stats_nt, pdf_nt, samples_nt, LP_meas)
+	return LineParametersMC{U}(fvec, stats_nt, pdf_nt, samples_nt, LP_meas)
 
 end
