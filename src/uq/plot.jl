@@ -1,26 +1,8 @@
 using Makie
-
-# TODO: Remove toggle_visibility! override when Makie.jl issue #5190 is fixed
-function __init__()
-	@eval Makie begin
-		function toggle_visibility!(entry::LegendEntry, sync = false)
-			@warn "LineCableModels: overriding Makie.toggle_visibility! due to https://github.com/MakieOrg/Makie.jl/issues/5190"
-			foreach_plot(entry) do p
-				current_vis = p.visible[]
-				p.visible[] = sync ? true : !current_vis
-			end
-			return
-		end
-	end
-end
-
 import Makie: plot
 
-using Base: basename
-using Dates
-using Printf: @sprintf
-
 using ..Engine:
+	Engine,
 	SeriesImpedance,
 	ShuntAdmittance,
 	UnitSpec,
@@ -34,29 +16,10 @@ using ..Engine:
 	_axis_label,
 	_ICON_FN,
 	get_description,
-	get_symbol,
 	get_unit_symbol,
-	ComponentMetadata,
-	EXPORT_EXTENSION,
-	EXPORT_TIMESTAMP_FORMAT
+	ComponentMetadata
 
-import ..BackendHandler: BackendHandler, next_fignum
-
-using ..PlotUIComponents:
-	PlotAssembly,
-	PlotBuildArtifacts,
-	ControlButtonSpec,
-	ControlReaction,
-	ControlToggleSpec,
-	TICKFORMATTER,
-	MI_REFRESH,
-	MI_SAVE,
-	ICON_TTF,
-	_make_window,
-	_run_plot_pipeline,
-	with_plot_theme,
-	ensure_export_background!
-
+include("../plotbuilder/plothelpers.jl")
 
 struct MCPlotHistSpec
 	quantity::Symbol
@@ -78,11 +41,11 @@ end
 
 function _mc_quantity_metadata()
 	sdesc = get_description(SeriesImpedance(zeros(1, 1, 1)))
-	symb = get_symbol(SeriesImpedance(zeros(1, 1, 1)))
+	symb = Engine.get_symbol(SeriesImpedance(zeros(1, 1, 1)))
 	sunit = get_unit_symbol(SeriesImpedance(zeros(1, 1, 1)))
 
 	adesc = get_description(ShuntAdmittance(zeros(1, 1, 1)))
-	asymb = get_symbol(ShuntAdmittance(zeros(1, 1, 1)))
+	asymb = Engine.get_symbol(ShuntAdmittance(zeros(1, 1, 1)))
 	aunit = get_unit_symbol(ShuntAdmittance(zeros(1, 1, 1)))
 
 	return Dict(
@@ -151,7 +114,7 @@ function _parse_values_ref(values, ijk)
 end
 
 function _build_hist_spec(
-	obj::LineParametersMCSummary,
+	obj::LineParametersMC,
 	values_expr;
 	ijk::Union{Nothing, NTuple{3, Int}} = nothing,
 	length_unit::Symbol = :kilo,
@@ -268,7 +231,7 @@ function _build_hist_spec(
 end
 
 function _hist_specs(
-	obj::LineParametersMCSummary,
+	obj::LineParametersMC,
 	values_expr;
 	ijk::Union{Nothing, NTuple{3, Int}} = nothing,
 	length_unit::Symbol = :kilo,
@@ -298,7 +261,7 @@ end
 
 function _default_export_path_hist(spec::MCPlotHistSpec)
 	base_title = strip(spec.title)
-	name = _sanitize_filename_component(base_title)
+	name = _sanitize_filename_plot(base_title)
 	timestamp = Dates.format(Dates.now(), EXPORT_TIMESTAMP_FORMAT)
 	filename = string(name, "_", timestamp, ".", EXPORT_EXTENSION)
 	return joinpath(pwd(), filename)
@@ -523,7 +486,7 @@ function _build_hist_plot!(fig_ctx, ctx, axis, spec::MCPlotHistSpec)
 end
 
 function plot(
-	obj::LineParametersMCSummary,
+	obj::LineParametersMC,
 	values_expr;
 	ijk::Union{Nothing, NTuple{3, Int}} = nothing,
 	length_unit::Symbol = :kilo,
@@ -561,7 +524,7 @@ function plot(
 end
 
 
-# ### Histogram methods for CableDesignMCSummary -> CableDesignHistSpec
+# ### Histogram methods for CableDesignMC -> CableDesignHistSpec
 
 const _CABLE_DESIGN_SUPPORTED_QUANTITIES = (:R, :L, :C)
 
@@ -573,13 +536,13 @@ function _parse_cabledesign_quantity(values_expr)
 		values_expr.args[1] isa Symbol &&
 		return values_expr.args[1]
 	Base.error(
-		"Provide values as Symbol (:R, :L or :C) when plotting CableDesignMCSummary samples",
+		"Provide values as Symbol (:R, :L or :C) when plotting CableDesignMC samples",
 	)
 end
 
 # --- Builder for CableDesign (New, refactored logic) ---
 function _build_hist_spec(
-	obj::CableDesignMCSummary,
+	obj::CableDesignMC,
 	values_expr;
 	length_unit::Symbol = :kilo,
 	fig_size::Union{Nothing, Tuple{Int, Int}} = LP_FIG_SIZE,
@@ -598,7 +561,7 @@ function _build_hist_spec(
 
 	values_sym = _parse_cabledesign_quantity(values_expr)
 	values_sym in _CABLE_DESIGN_SUPPORTED_QUANTITIES || Base.error(
-		"CableDesignMCSummary provides samples only for :R, :L and :C; got $(values_sym)",
+		"CableDesignMC provides samples only for :R, :L and :C; got $(values_sym)",
 	)
 
 	meta = _quantity_metadata(values_sym)
@@ -682,7 +645,7 @@ function _build_hist_spec(
 end
 
 function _hist_specs(
-	obj::CableDesignMCSummary,
+	obj::CableDesignMC,
 	values_expr;
 	length_unit::Symbol = :kilo,
 	fig_size::Union{Nothing, Tuple{Int, Int}} = LP_FIG_SIZE,
@@ -708,9 +671,9 @@ function _hist_specs(
 	return [spec]
 end
 
-# --- hist for CableDesignMCSummary ---
+# --- hist for CableDesignMC ---
 function plot(
-	obj::CableDesignMCSummary,
+	obj::CableDesignMC,
 	values_expr;
 	length_unit::Symbol = :kilo,
 	fig_size::Union{Nothing, Tuple{Int, Int}} = LP_FIG_SIZE,
@@ -728,7 +691,7 @@ function plot(
 	mode in (:hist, :ecdf, :qq) ||
 		Base.error("`mode` must be one of :hist, :ecdf, or :qq")
 
-	specs = _hist_specs( # Dispatches to CableDesignMCSummary version
+	specs = _hist_specs( # Dispatches to CableDesignMC version
 		obj,
 		values_expr;
 		length_unit = length_unit,
@@ -743,3 +706,4 @@ function plot(
 	spec = first(specs)
 	return _render_hist_spec(spec; backend = backend, display_plot = display_plot)
 end
+
