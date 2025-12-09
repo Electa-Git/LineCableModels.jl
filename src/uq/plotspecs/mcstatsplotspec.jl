@@ -81,7 +81,7 @@ PlotBuilder.backend_kwargs(::Type{MCStatsPlotSpec}) =
 PlotBuilder.input_defaults(::Type{MCStatsPlotSpec}, ::LineParametersMC) = (
 	x = :f,
 	y = :R,
-	key = :mean,
+	key = :std,
 	# i,j,k are handled via index_keys + parse_kwargs (default 1 or :)
 )
 
