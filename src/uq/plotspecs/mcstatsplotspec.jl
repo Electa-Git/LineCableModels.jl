@@ -81,7 +81,7 @@ PlotBuilder.backend_kwargs(::Type{MCStatsPlotSpec}) =
 PlotBuilder.input_defaults(::Type{MCStatsPlotSpec}, ::LineParametersMC) = (
 	x = :f,
 	y = :R,
-	key = :std,
+	key = :mean,
 	# i,j,k are handled via index_keys + parse_kwargs (default 1 or :)
 )
 
@@ -95,44 +95,3 @@ PlotBuilder.backend_defaults(::Type{MCStatsPlotSpec}, ::LineParametersMC) = (
 	marker     = :circle,
 	markersize = 6,
 )
-
-# function PlotBuilder.build_payloads(::Type{S}, nt::NamedTuple) where {S <: MCStatsPlotSpec}
-# 	obj       = nt.obj
-# 	ydata_qty = nt.y        # :R, :L, :C, :G
-# 	key       = nt.key
-# 	i, j      = nt.i, nt.j
-# 	backend   = nt.backend
-
-# 	xraw = getproperty(obj, nt.x)    # lp.f
-
-# 	ydata_src = obj.stats[ydata_qty]
-# 	ydata_vec = ydata_src[i, j, :]
-# 	yraw      = [s[key] for s in ydata_vec]
-
-# 	axes  = PlotBuilder.build_axes(S, nt)
-# 	xaxis = axes.xaxis
-# 	yaxis = axes.yaxis
-# 	zaxis = axes.zaxis  # `nothing` here, but grammar-consistent
-
-# 	sx = scale_factor(xaxis.quantity, xaxis.units)
-# 	sy = scale_factor(yaxis.quantity, yaxis.units)
-
-# 	xdata  = xraw .* sx
-# 	ydata  = yraw .* sy
-# 	title  = PlotBuilder.default_title(S, nt)
-# 	legend = PlotBuilder.legend_labels(S, nt)
-
-# 	payload = (
-# 		xdata  = xdata,
-# 		ydata  = ydata,
-# 		zdata  = nothing,
-# 		xaxis  = xaxis,
-# 		yaxis  = yaxis,
-# 		zaxis  = zaxis,
-# 		title  = title,
-# 		legend = legend,
-# 		kwargs = backend,
-# 	)
-
-# 	return [payload]
-# end
