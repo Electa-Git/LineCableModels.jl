@@ -323,7 +323,8 @@ comes from there, define:
 data_container(::Type{S}, ::Val{dim}) where {S <: AbstractPlotSpec, dim} = nothing
 
 # Child key for axis `dim` inside the container returned by `data_container`.
-# Data parsed as: `obj.container.datakey[i,j,k(,l)].axis_key.`
+# child_key = getfield(nt, axis_key(S, Val(dim)))  # e.g. :mean
+# data      = obj.container.datakey[i,j,k].(child_key)
 axis_key(::Type{S}, ::Val{dim}) where {S <: AbstractPlotSpec, dim} = nothing
 
 """
@@ -441,8 +442,8 @@ function normalize_indices(
 	return merge(spec, idx_nt)
 end
 
-# normalize_datasources – ensure xdata/ydata/... exist and are Symbols
-function verify_datasources(
+# normalize selectors of datasources – ensure sources for xdata/ydata/... exist and are Symbols
+function verify_selectors(
 	::Type{S},
 	spec::NamedTuple,
 	dims::Tuple,
@@ -530,7 +531,7 @@ function verify_shapes(
 	# Axis → datakey mapping (:x → :f, :y → :R, etc.)
 	datakeys = Dict{Symbol, Symbol}()
 	for d in dims
-		datakeys[d] = getfield(spec, d)  # verified by verify_datasources
+		datakeys[d] = getfield(spec, d)  # verified by verify_selectors
 	end
 
 	has_i = :i in idx_keys
@@ -568,7 +569,9 @@ function verify_shapes(
 
 		# Effective sample length along last dimension, accounting for k
 		n_samp = size(arr, nd)
-
+		n_samp == 0 && Base.error(
+			"Axis $(d) data for $(S) has zero samples; no data to plot.",
+		)
 		len = if has_k
 			kv = k_val
 			if kv isa Int
@@ -593,6 +596,34 @@ function verify_shapes(
 		end
 
 		lengths[d] = len
+
+		# guard axis_key semantics
+		kfield = axis_key(S, Val(d))
+		if kfield !== nothing
+			# Decide how to interpret axis_key:
+			# - if kfield is a field in spec → spec[kfield] must be a Symbol (indirect mode)
+			# - else                  → kfield itself is the child key (direct mode)
+			sym = if kfield in keys(spec)
+				v = spec[kfield]
+				v isa Symbol || Base.error(
+					"axis_key($(S), Val($(d))) = :$(kfield) but spec.$(kfield) " *
+					"is not a Symbol; got $(typeof(v)).",
+				)
+				v
+			else
+				kfield::Symbol
+			end
+
+			# Check data element type and key existence
+			first_el = first(arr)
+			first_el isa NamedTuple || Base.error(
+				"Data for axis $(d) in $(S) must be NamedTuple when axis_key is used; " *
+				"got $(typeof(first_el)).",
+			)
+			haskey(first_el, sym) || Base.error(
+				"NamedTuple data for axis $(d) in $(S) has no key $(sym).",
+			)
+		end
 	end
 
 	vals = collect(values(lengths))
@@ -685,7 +716,7 @@ function parse_kwargs(::Type{S}, obj, kwargs::NamedTuple) where {S <: AbstractPl
 	spec_nt = normalize_indices(S, spec_nt, idx, rk)
 
 	# 4) Ensure axis data keys exist and are Symbols
-	verify_datasources(S, spec_nt, dims)
+	verify_selectors(S, spec_nt, dims)
 
 	# 5) Grammar-level structural sanity: containers, bounds, lengths
 	verify_shapes(S, obj, spec_nt, dims, idx)
@@ -803,10 +834,10 @@ function axis_slice(
 	# Axis selector: what the user (or defaults) chose for this axis, e.g. :f, :R, ...
 	selector = getfield(nt, dim)::Symbol
 
-	# --- 1. Fetch raw array via centralized container logic ---
+	# --- Fetch raw array via centralized container logic ---
 	raw_arr = container_array(S, obj, dim, selector)
 
-	# --- 2. Apply indices (i,j,k) → 1D slice along sample dimension ---
+	# --- Apply indices (i,j,k) → 1D slice along sample dimension ---
 	arr = raw_arr
 	nd  = ndims(arr)
 
@@ -870,39 +901,41 @@ function axis_slice(
 
 	vec_arr = arr
 
-	# --- 3. Optional NamedTuple unwrapping via axis_key ---
+	# --- NamedTuple unwrapping via axis_key ---
 	kfield = axis_key(S, Val(dim))
 
 	if kfield === nothing
 		return collect(vec_arr)
 	else
-		hasproperty(nt, kfield) ||
-			Base.error(
-				"axis_key($(S), Val($(dim))) = :$(kfield) but resolved input has no field $(kfield).",
-			)
-
-		ksym = getfield(nt, kfield)
-		ksym isa Symbol ||
-			Base.error(
+		# Same dual semantics:
+		# - if nt has a field kfield → that field must be a Symbol (indirect mode)
+		# - else                    → kfield itself is the child key (direct mode)
+		ksym = if kfield in propertynames(nt)
+			v = getfield(nt, kfield)
+			v isa Symbol || Base.error(
 				"Field $(kfield) in resolved input for $(S) on axis $(dim) " *
-				"must be a Symbol; got $(typeof(ksym)).",
+				"must be a Symbol; got $(typeof(v)).",
 			)
+			v
+		else
+			kfield::Symbol
+		end
 
 		first_el = first(vec_arr)
 		first_el isa NamedTuple ||
 			Base.error(
-				"axis_key($(S), Val($(dim))) = :$(kfield) but elements are not NamedTuples; " *
+				"axis_key($(S), Val($(dim))) expects NamedTuple elements; " *
 				"got $(typeof(first_el)).",
 			)
 
-		haskey(first_el, ksym) ||
-			Base.error(
-				"NamedTuple elements on axis $(dim) for $(S) have no key $(ksym). " *
-				"Available keys: $(collect(keys(first_el))).",
-			)
+		haskey(first_el, ksym) || Base.error(
+			"NamedTuple elements on axis $(dim) for $(S) have no key $(ksym). " *
+			"Available keys: $(collect(keys(first_el))).",
+		)
 
 		return [el[ksym] for el in vec_arr]
 	end
+
 end
 
 
