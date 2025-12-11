@@ -21,8 +21,9 @@ PlotBuilder.default_figsize(::Type{MCStatsPlotSpec}) = (800, 400)
 PlotBuilder.geom_axes(::Type{MCStatsPlotSpec}) = (:x, :y)
 
 # Index convention: all MC stats are per-(i,j) element over frequency
-PlotBuilder.index_keys(::Type{MCStatsPlotSpec})  = (:i, :j, :k)
+PlotBuilder.index_keys(::Type{MCStatsPlotSpec}) = (:i, :j, :k)
 PlotBuilder.ranged_keys(::Type{MCStatsPlotSpec}) = (:k,)
+
 
 # Grouping: overlay all on single plot
 PlotBuilder.grouping_mode(::Type{MCStatsPlotSpec}) = :overlay
@@ -47,7 +48,7 @@ PlotBuilder.data_container(::Type{MCStatsPlotSpec}, ::Val{:y}) = :stats         
 function PlotBuilder.default_title(::Type{MCStatsPlotSpec}, nt::NamedTuple)
 	qx = nt.x_quantity
 	qy = nt.y_quantity
-	key = nt.key
+	key = nt.field
 
 	y_label = get_label(qy)  # "Series resistance"
 	x_label = get_label(qx)  # "Frequency"
@@ -58,7 +59,7 @@ end
 # Define legend labels
 function PlotBuilder.legend_labels(::Type{MCStatsPlotSpec}, nt::NamedTuple)
 	qy = nt.y_quantity
-	key = nt.key
+	key = nt.field
 	i = nt.i
 	j = nt.j
 
@@ -71,7 +72,7 @@ end
 # Semantic knobs:
 #   :key  → which field from stats NamedTuple
 PlotBuilder.input_kwargs(::Type{MCStatsPlotSpec}) =
-	(:key,)
+	(:field,)
 
 # Backend knobs this spec forwards to Makie
 PlotBuilder.backend_kwargs(::Type{MCStatsPlotSpec}) =
@@ -81,12 +82,12 @@ PlotBuilder.backend_kwargs(::Type{MCStatsPlotSpec}) =
 PlotBuilder.input_defaults(::Type{MCStatsPlotSpec}, ::LineParametersMC) = (
 	x = :f,
 	y = :R,
-	key = :mean,
+	field = :mean,
 	# i,j,k are handled via index_keys + parse_kwargs (default 1 or :)
 )
 
 PlotBuilder.axis_key(::Type{MCStatsPlotSpec}, ::Val{:x}) = nothing
-PlotBuilder.axis_key(::Type{MCStatsPlotSpec}, ::Val{:y}) = :key # or :mean directly
+PlotBuilder.axis_key(::Type{MCStatsPlotSpec}, ::Val{:y}) = :field # or :mean directly
 
 # Defaults for backend knobs
 PlotBuilder.backend_defaults(::Type{MCStatsPlotSpec}, ::LineParametersMC) = (
