@@ -348,6 +348,28 @@ function parse_kwargs(::Type{S}, obj, kwargs::NamedTuple) where {S <: AbstractPl
 			)
 	end
 
+	# Additional trait sanity for ranged_keys:
+	# - ranged_keys ⊆ index_keys
+	# - only :k and :l are allowed to be ranged (sample-like dims)
+	if !isempty(rk)
+		# ranged_keys ⊆ index_keys
+		for key in rk
+			key in idx || Base.error(
+				"ranged_keys(::Type{$(S)}) includes $(key), which is not in " *
+				"index_keys(::Type{$(S)}) = $(idx).",
+			)
+		end
+
+		# Only :k and :l allowed as rangeable indices (sample dimensions)
+		for key in rk
+			(key === :k || key === :l) || Base.error(
+				"ranged_keys(::Type{$(S)}) may only contain :k and/or :l. " *
+				"Got $(key). Allowing :i or :j here would break the axis " *
+				"semantics (sample dimension must remain unique).",
+			)
+		end
+	end
+
 	# 1) Split user kwargs into semantic vs backend
 	spec_inputs, backend_inputs = split_kwargs(S, kwargs, ik, bk, idx, dims)
 
@@ -371,7 +393,7 @@ parse_kwargs(::Type{S}, obj; kwargs...) where {S <: AbstractPlotSpec} =
 	parse_kwargs(S, obj, (; kwargs...))
 
 """
-Resolve raw inputs into a normalized NamedTuple understood by `build_payloads`.
+Resolve raw inputs into a normalized NamedTuple understood by `build_figures`.
 
 This is where a spec implements its own mini-grammar:
 
