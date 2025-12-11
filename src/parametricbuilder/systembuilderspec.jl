@@ -9,7 +9,6 @@ abstract type AbstractPositionSpec end
 
 include("positionspec.jl")
 include("groupspec.jl")
-# include("trifoil.jl")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Earth and system specs
