@@ -90,7 +90,7 @@ end
 
 # Expand spacing spec and clamp out overlapping choices, based on radius
 function _get_valid_spacings(g::PositionGroupSpec, rout)
-	min_spacing = 2 * to_nominal(rout)
+	min_spacing = to_nominal(rout) + eps()  # tiny epsilon to avoid overlap issues
 
 	# Full grid of values × pct → Measurement or plain Real
 	raw = collect(_make_range(g.d[1]; pct = g.d[2]))
