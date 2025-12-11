@@ -39,7 +39,7 @@ Return a 1D slice for axis `dim` using the grammar:
 	non-`nothing` and elements are NamedTuples.
 
 No unit scaling and no numeric check happen here; those are handled by
-`axis_transform` and `build_payloads`.
+`axis_transform` and `build_series`.
 """
 function axis_slice(
 	::Type{S},
