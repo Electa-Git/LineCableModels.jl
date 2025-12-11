@@ -36,7 +36,7 @@ using LinearAlgebra
 		# - Given [lo, hi], interpret as ±1σ around μ = (lo+hi)/2, σ = (hi-lo)/2.
 		lo_f = float(lo)
 		hi_f = float(hi)
-		@assert hi_f > lo_f "hi must be greater than lo"
+		@assert hi_f >= lo_f "hi must be greater than lo"
 		μ = (lo_f + hi_f) / 2
 		σ = (hi_f - lo_f) / 2
 
