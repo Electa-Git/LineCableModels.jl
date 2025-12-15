@@ -3,29 +3,28 @@
 function split_kwargs(
 	::Type{S},
 	kwargs::NamedTuple,
-	ik::Tuple,
-	bk::Tuple,
+	input_keys::Tuple,
+	renderer_keys::Tuple,
 	idx::Tuple,
 	dims::Tuple,
 ) where {S <: AbstractPlotSpec}
 
 	# Axis selector keys: (:x, :y, :z)
-	axis_keys = dims
+	select_fields = dims
 
-	semantic_keys = (ik..., idx..., axis_keys...)
-	allowed       = (semantic_keys..., bk...)
+	semantic_keys = (input_keys..., idx..., select_fields...)
+	allowed       = (semantic_keys..., renderer_keys...)
 
-	spec_pairs    = Tuple(filter(((k, _),) -> k in semantic_keys, pairs(kwargs)))
-	backend_pairs = Tuple(filter(((k, _),) -> k in bk, pairs(kwargs)))
-
+	spec_pairs = Tuple(filter(((k, _),) -> k in semantic_keys, pairs(kwargs)))
+	renderer_pairs = Tuple(filter(((k, _),) -> k in renderer_keys, pairs(kwargs)))
 	for k in keys(kwargs)
 		k in allowed || @warn "Unknown plot keyword for $(S): :$(k)"
 	end
 
-	spec    = NamedTuple(spec_pairs)
-	backend = NamedTuple(backend_pairs)
+	spec = NamedTuple(spec_pairs)
+	renderer = NamedTuple(renderer_pairs)
 
-	return spec, backend
+	return spec, renderer
 end
 
 # merge_defaults – “how does this spec fill in the blanks?”
@@ -33,56 +32,64 @@ function merge_defaults(
 	::Type{S},
 	obj,
 	spec::NamedTuple,
-	backend::NamedTuple,
+	renderer::NamedTuple,
 ) where {S <: AbstractPlotSpec}
 
 	idefault = input_defaults(S, obj)
-	bdefault = backend_defaults(S, obj)
+	bdefault = renderer_defaults(S, obj)
 
 	spec_merged = merge(idefault, spec)
-	backend_merged = merge(bdefault, backend)
+	renderer_merged = merge(bdefault, renderer)
 
-	return spec_merged, backend_merged
+	return spec_merged, renderer_merged
 end
 
 # normalize_indices – enforce Int vs range-capable
 function normalize_indices(
 	::Type{S},
 	spec::NamedTuple,
-	idx::Tuple,
-	rk::Tuple,
+	idx_keys::Tuple{Vararg{Symbol}},
+	ranged_keys::Tuple{Vararg{Symbol}},
 ) where {S <: AbstractPlotSpec}
 
 	# No index keys → nothing to normalize
-	isempty(idx) && return spec
+	isempty(idx_keys) && return spec
 
-	idx_vals = Tuple(
-		begin
-			is_ranged = k in rk
-			# Default: `:` for ranged (all), 1 for scalar indices
-			default = is_ranged ? Colon() : 1
+	out = spec
 
-			v = get(spec, k, default)
+	for k in idx_keys
+		is_ranged = k in ranged_keys
 
-			if is_ranged
-				# Accept Int, AbstractUnitRange{<:Int}, or colon
-				(v isa Int ||
-				 v isa AbstractUnitRange{<:Int} ||
-				 v isa Colon) ||
-					Base.error(
-						"Index $(k) must be Int, Int range, or `:`; got $(typeof(v))",
-					)
-			else
-				v isa Int || Base.error("Index $(k) must be Int, got $(typeof(v))")
+		if is_ranged
+			# Sample-like index (typically :k, optionally :l)
+			# Default to full range when not provided at all.
+			v = get(out, k, Colon())
+
+			(v isa Int ||
+			 v isa AbstractUnitRange{<:Int} ||
+			 v isa Colon) ||
+				Base.error(
+					"Index $(k) for spec $(S) must be Int, AbstractUnitRange{<:Int} or `:`; " *
+					"got $(typeof(v)).",
+				)
+
+			out = merge(out, NamedTuple{(k,)}((v,)))
+		else
+			# Selector indices (:i, :j, ...) – only normalized if explicitly present.
+			# No defaults are invented for these.
+			if haskey(out, k)
+				v = getfield(out, k)
+				v isa Int || Base.error(
+					"Index $(k) for spec $(S) must be Int when provided; got $(typeof(v)).",
+				)
+				out = merge(out, NamedTuple{(k,)}((v,)))
 			end
+		end
+	end
 
-			v
-		end for k in idx
-	)
-
-	idx_nt = NamedTuple{idx}(idx_vals)
-	return merge(spec, idx_nt)
+	return out
 end
+
 
 # sanity check selectors of datasources – ensure sources for xdata/ydata/... exist and are Symbols
 function verify_selectors(
@@ -176,16 +183,23 @@ function verify_shapes(
 		datakeys[d] = getfield(spec, d)  # verified by verify_selectors
 	end
 
-	has_i = :i in idx_keys
-	has_j = :j in idx_keys
-	has_k = :k in idx_keys
+	# Index presence semantics:
+	# - i/j are selector indices: present iff field exists in spec NT
+	# - k is sample-like only if it is in ranged_keys(S)
+	rk = ranged_keys(S)
+
+	has_i = (:i in idx_keys) && haskey(spec, :i)
+	has_j = (:j in idx_keys) && haskey(spec, :j)
+	has_k = (:k in rk)       # sample-like dimension iff ranged_keys(S) contains :k
 
 	i_val = has_i ? spec.i : nothing
 	j_val = has_j ? spec.j : nothing
-	k_val = has_k ? spec.k : Colon()  # normalized to Int / range / Colon by normalize_indices
+	k_val = has_k ? spec.k : Colon()  # normalized in normalize_indices
 
 	local function _check_index(name::Symbol, v, n::Int)
-		v isa Int || Base.error("Index $(name) must be Int, got $(typeof(v)) for spec $(S)")
+		v isa Int || Base.error(
+			"Index $(name) must be Int, got $(typeof(v)) for spec $(S)",
+		)
 		(1 <= v <= n) ||
 			error("Index $(name) = $(v) out of bounds 1:$(n) for spec $(S)")
 		v
@@ -209,11 +223,13 @@ function verify_shapes(
 			_check_index(:j, j_val, size(arr, 2))
 		end
 
-		# Effective sample length along last dimension, accounting for k
-		n_samp = size(arr, nd)
-		n_samp == 0 && Base.error(
-			"Axis $(d) data for $(S) has zero samples; no data to plot.",
-		)
+		# Determine sample length along k or last dimension
+		n_samp = if nd == 1
+			length(arr)
+		else
+			size(arr, nd)
+		end
+
 		len = if has_k
 			kv = k_val
 			if kv isa Int
@@ -234,37 +250,49 @@ function verify_shapes(
 				)
 			end
 		else
+			# No ranged k for this spec → sample length is the 1D length (nd == 1)
+			# or the last dimension if nd ≥ 2; caller already ensured alignment.
 			nd == 1 ? length(arr) : n_samp
 		end
 
 		lengths[d] = len
 
-		# guard axis_key semantics
-		kfield = axis_key(S, Val(d))
+		# guard select_field semantics
+		kfield = select_field(S, Val(d))
 		if kfield !== nothing
-			# Decide how to interpret axis_key:
-			# - if kfield is a field in spec → spec[kfield] must be a Symbol (indirect mode)
-			# - else                  → kfield itself is the child key (direct mode)
-			sym = if kfield in keys(spec)
+			# select_field is interpreted strictly as a spec field name.
+			# If that field is provided in the spec NT, then it must be a Symbol
+			# and the data must be NamedTuple with that key.
+			# If not provided, we only enforce that elements are NamedTuple;
+			# the grammar decides how to use the keys later.
+			isempty(arr) && continue
+
+			first_el = first(arr)
+
+			if kfield in keys(spec)
 				v = spec[kfield]
 				v isa Symbol || Base.error(
-					"axis_key($(S), Val($(d))) = :$(kfield) but spec.$(kfield) " *
+					"select_field($(S), Val($(d))) = :$(kfield) but spec.$(kfield) " *
 					"is not a Symbol; got $(typeof(v)).",
 				)
-				v
-			else
-				kfield::Symbol
-			end
+				sym = v
 
-			# Check data element type and key existence
-			first_el = first(arr)
-			first_el isa NamedTuple || Base.error(
-				"Data for axis $(d) in $(S) must be NamedTuple when axis_key is used; " *
-				"got $(typeof(first_el)).",
-			)
-			haskey(first_el, sym) || Base.error(
-				"NamedTuple data for axis $(d) in $(S) has no key $(sym).",
-			)
+				first_el isa NamedTuple || Base.error(
+					"Data for axis $(d) in $(S) must be NamedTuple when a leaf " *
+					"field is selected via select_field; got $(typeof(first_el)).",
+				)
+				haskey(first_el, sym) || Base.error(
+					"NamedTuple data for axis $(d) in $(S) has no key $(sym).",
+				)
+			else
+				# select_field is defined but no concrete field has been bound yet.
+				# Enforce that the data are NamedTuple; actual key usage is left
+				# to the generic build_series/build_panels logic.
+				first_el isa NamedTuple || Base.error(
+					"Data for axis $(d) in $(S) must be NamedTuple when " *
+					"select_field($(S), Val($(d))) is defined; got $(typeof(first_el)).",
+				)
+			end
 		end
 	end
 
@@ -285,6 +313,7 @@ end
 
 
 
+
 @inline function trait_to_tuple(::Type{S}, raw, name) where {S <: AbstractPlotSpec}
 	raw === () && return ()
 	raw isa Tuple && return raw
@@ -299,11 +328,11 @@ Grammar-level normalization phase.
 
 Responsibilities:
 
-  1. Decide which kwargs matter for this spec (`input_kwargs`, `backend_kwargs`,
+  1. Decide which kwargs matter for this spec (`input_kwargs`, `renderer_kwargs`,
 	 `index_keys`, `geom_axes`) and partition user kwargs into semantic vs
-	 backend.
+	 renderer.
   2. Merge user kwargs with `input_defaults(S, obj)` and
-	 `backend_defaults(S, obj)`.
+	 `renderer_defaults(S, obj)`.
   3. Normalize indices (`index_keys(S)` / `ranged_keys(S)`) to the allowed
 	 types and fill in defaults.
   4. Ensure axis data keys (`x`, `y`, ...) exist and are `Symbol`s.
@@ -321,20 +350,20 @@ to be consumed by `resolve_input`.
 function parse_kwargs(::Type{S}, obj, kwargs::NamedTuple) where {S <: AbstractPlotSpec}
 	# Raw traits
 	ik_raw   = input_kwargs(S)
-	bk_raw   = backend_kwargs(S)
+	bk_raw   = renderer_kwargs(S)
 	idx_raw  = index_keys(S)
 	dims_raw = geom_axes(S)
 	rk_raw   = ranged_keys(S)
 
 	# Coerce to tuples with warnings if someone was lazy
 	ik   = trait_to_tuple(S, ik_raw, "input_kwargs")
-	bk   = trait_to_tuple(S, bk_raw, "backend_kwargs")
+	bk   = trait_to_tuple(S, bk_raw, "renderer_kwargs")
 	idx  = trait_to_tuple(S, idx_raw, "index_keys")
 	dims = trait_to_tuple(S, dims_raw, "geom_axes")
 	rk   = trait_to_tuple(S, rk_raw, "ranged_keys")
 
 	# Basic trait sanity: they should all be Symbols, and axes only from :x,:y,:z
-	for (name, tup) in (("input_kwargs", ik), ("backend_kwargs", bk),
+	for (name, tup) in (("input_kwargs", ik), ("renderer_kwargs", bk),
 		("index_keys", idx), ("ranged_keys", rk))
 		all(k -> k isa Symbol, tup) ||
 			@warn "$(name)(::Type{$(S)}) should be a Tuple of Symbols, got $(tup)."
@@ -371,10 +400,10 @@ function parse_kwargs(::Type{S}, obj, kwargs::NamedTuple) where {S <: AbstractPl
 	end
 
 	# 1) Split user kwargs into semantic vs backend
-	spec_inputs, backend_inputs = split_kwargs(S, kwargs, ik, bk, idx, dims)
+	spec_inputs, renderer_inputs = split_kwargs(S, kwargs, ik, bk, idx, dims)
 
 	# 2) Merge with defaults
-	spec_nt, backend_nt = merge_defaults(S, obj, spec_inputs, backend_inputs)
+	spec_nt, renderer_nt = merge_defaults(S, obj, spec_inputs, renderer_inputs)
 
 	# 3) Normalize indices (i,j,k,...) according to index/ranged traits
 	spec_nt = normalize_indices(S, spec_nt, idx, rk)
@@ -385,7 +414,7 @@ function parse_kwargs(::Type{S}, obj, kwargs::NamedTuple) where {S <: AbstractPl
 	# 5) Grammar-level structural sanity: containers, bounds, lengths
 	verify_shapes(S, obj, spec_nt, dims, idx)
 
-	return (; obj = obj, spec = spec_nt, backend = backend_nt)
+	return (; obj = obj, spec = spec_nt, renderer = renderer_nt)
 end
 
 # Convenience varargs wrapper
@@ -404,9 +433,9 @@ This is where a spec implements its own mini-grammar:
 Default is identity; spec types are expected to override.
 """
 function resolve_input(::Type{S}, nt::NamedTuple) where {S <: AbstractPlotSpec}
-	obj     = nt.obj
-	spec    = nt.spec
-	backend = nt.backend
+	obj = nt.obj
+	spec = nt.spec
+	renderer_nt = nt.renderer
 
 	dims = geom_axes(S)
 	dims = dims isa Tuple ? dims : (dims,)
@@ -441,5 +470,5 @@ function resolve_input(::Type{S}, nt::NamedTuple) where {S <: AbstractPlotSpec}
 		out = merge(out, (; z = zsel, z_quantity = zq))
 	end
 
-	return merge(out, (; obj = obj, backend = backend))
+	return merge(out, (; obj = obj, renderer = renderer_nt))
 end
