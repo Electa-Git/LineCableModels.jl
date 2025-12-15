@@ -1,7 +1,7 @@
 abstract type AbstractPlotSpec end
 
 """
-PlotAxis is the fully decided axis descriptor used by plot areas.
+Axis is the fully decided axis descriptor used by plot areas (panels).
 
 - `dim`      : axis dimension (e.g. :x, :y, :z)
 - `quantity` : semantic quantity tag (from UnitHandler)
@@ -9,7 +9,7 @@ PlotAxis is the fully decided axis descriptor used by plot areas.
 - `label`    : full label text, including unit symbol
 - `scale`    : :linear or :log10
 """
-struct PlotAxis
+struct Axis
 	dim::Symbol
 	quantity::QuantityTag
 	units::Units
@@ -20,9 +20,8 @@ end
 # --------------------------------------------------------------------------
 # Payload hierarchy: series → area → figure → renderer
 # --------------------------------------------------------------------------
-
 """
-	PlotSeries
+	Dataseries
 
 Single plot primitive (one Makie call).
 
@@ -32,59 +31,59 @@ Fields:
 - `ydata`  : y values \\[dimensionless or scaled\\]
 - `zdata`  : z values if applicable, otherwise `nothing`
 - `label`  : legend entry for this series, or `nothing` for no legend
-- `kwargs` : backend kwargs, passed as-is to the rendering backend
 """
-struct PlotSeries
-	kind   :: Symbol
-	xdata  :: Union{Nothing, AbstractVector{<:Number}}
-	ydata  :: Union{Nothing, AbstractVector{<:Number}}
-	zdata  :: Union{Nothing, AbstractVector{<:Number}}
-	label  :: Union{Nothing, String}
-	kwargs :: NamedTuple
+struct Dataseries
+	kind  :: Symbol
+	xdata :: Union{Nothing, AbstractVector{<:Number}}
+	ydata :: Union{Nothing, AbstractVector{<:Number}}
+	zdata :: Union{Nothing, AbstractVector{<:Number}}
+	label :: Union{Nothing, String}
 end
 
 """
-	PlotArea
+	Panel
 
 One plot panel / axis system.
 
-All PlotSeries inside a PlotArea share the same x/y(/z) axes. The `key`
+All Dataseries inside a Panel share the same x/y(/z) axes. The `key`
 field encodes the semantic facet this area represents (e.g. \\(i,j\\),
 quantity, frequency).
 
 Fields:
-- `xaxis`  : x PlotAxis or `nothing` if unused
-- `yaxis`  : y PlotAxis or `nothing` if unused
-- `zaxis`  : z PlotAxis or `nothing` if unused
+- `xaxis`  : x Axis or `nothing` if unused
+- `yaxis`  : y Axis or `nothing` if unused
+- `zaxis`  : z Axis or `nothing` if unused
 - `title`  : panel title
-- `series` : vector of PlotSeries
+- `series` : vector of Dataseries
 - `key`    : NamedTuple identifying the facet, or empty `NamedTuple` if none
 """
-struct PlotArea
-	xaxis  :: Union{Nothing, PlotAxis}
-	yaxis  :: Union{Nothing, PlotAxis}
-	zaxis  :: Union{Nothing, PlotAxis}
+struct Panel
+	xaxis  :: Union{Nothing, Axis}
+	yaxis  :: Union{Nothing, Axis}
+	zaxis  :: Union{Nothing, Axis}
 	title  :: String
-	series :: Vector{PlotSeries}
+	series :: Vector{Dataseries}
 	key    :: NamedTuple
 end
 
 """
-	PlotFigure
+	Figure
 
 One logical figure / window.
 
 Fields:
 - `title`      : optional figure-level title (may be empty)
-- `layout`     : layout hint (:single, :grid, :free, ...)
-- `plot_areas` : vector of PlotArea values contained in this figure
+- `size`       : (width, height) in pixels
+- `layout`     : layout spec (:windows, :grid, :tabbed, ...)
+- `panels` : vector of Panel values contained in this figure
 - `kwargs`     : figure-level backend options (e.g. figsize)
 """
-struct PlotFigure
-	title      :: String
-	layout     :: Symbol
-	plot_areas :: Vector{PlotArea}
-	kwargs     :: NamedTuple
+struct Figure
+	title  :: String
+	size   :: Tuple{Int, Int}
+	layout :: Symbol
+	panels :: Vector{Panel}
+	kwargs :: NamedTuple
 end
 
 """
@@ -94,12 +93,12 @@ Final product of the grammar pipeline for spec type `S`.
 
 Carries only:
 - the spec type (the grammar definition),
-- a vector of PlotFigure payloads.
+- a vector of Figure payloads.
 
 The rendering backend (Makie) should only see PlotRenderer values and must
 never touch domain objects or grammar logic.
 """
 struct PlotRenderer{S <: AbstractPlotSpec}
 	spec_type :: Type{S}
-	figures   :: Vector{PlotFigure}
+	figures   :: Vector{Figure}
 end
