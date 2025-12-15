@@ -152,15 +152,11 @@ These describe what is plotted or how the data is selected/sliced
 input_kwargs(::Type{S}) where {S <: AbstractPlotSpec} = ()
 
 """
-	backend_kwargs(::Type{S}) where {S<:AbstractPlotSpec}
+	renderer_kwargs(::Type{S}) where {S<:AbstractPlotSpec}
 
-Backend / style kwargs that are simply forwarded to the plotting backend
-(Makie today, whatever tomorrow).
-
-Typical examples: :color, :linewidth, :marker, :markersize, :linestyle,
-:colormap, :alpha, etc.
+Figure kwargs that are simply forwarded to the renderer that will be processed by the backend (Makie today, whatever tomorrow).
 """
-backend_kwargs(::Type{S}) where {S <: AbstractPlotSpec} = ()
+renderer_kwargs(::Type{S}) where {S <: AbstractPlotSpec} = ()
 
 """
 Root container inside `obj` for the data of axis `dim`.
@@ -175,9 +171,9 @@ comes from there, define:
 data_container(::Type{S}, ::Val{dim}) where {S <: AbstractPlotSpec, dim} = nothing
 
 # Child key for axis `dim` inside the container returned by `data_container`.
-# child_key = getfield(nt, axis_key(S, Val(dim)))  # e.g. :mean
+# child_key = getfield(nt, select_field(S, Val(dim)))  # e.g. :mean
 # data      = obj.container.datakey[i,j,k].(child_key)
-axis_key(::Type{S}, ::Val{dim}) where {S <: AbstractPlotSpec, dim} = nothing
+select_field(::Type{S}, ::Val{dim}) where {S <: AbstractPlotSpec, dim} = nothing
 
 """
 	input_defaults(::Type{S}, obj) where {S<:AbstractPlotSpec}
@@ -190,19 +186,29 @@ from `obj` contents).
 input_defaults(::Type{S}, obj) where {S <: AbstractPlotSpec} = NamedTuple()
 
 """
-	backend_defaults(::Type{S}, obj) where {S<:AbstractPlotSpec}
+	renderer_defaults(::Type{S}, obj) where {S<:AbstractPlotSpec}
 
-Defaults for backend kwargs declared in `backend_kwargs(S)`.
+Defaults for figure kwargs declared in `renderer_kwargs(S)`.
 
 This is where a spec declares its default color/linestyle/whatever,
 possibly depending on `obj` (e.g. per-phase colors).
 """
-backend_defaults(::Type{S}, obj) where {S <: AbstractPlotSpec} = NamedTuple()
+renderer_defaults(::Type{S}, obj) where {S <: AbstractPlotSpec} = NamedTuple()
 
 """
 How to group dataseries into figures.
-Options: :none -> each dataseries spawns its own figure;
-		 :overlay -> all dataseries in one figure, same axis;
-		 :grid -> all dataseries in one figure, arranged in a grid.
+Options: :auto -> let the machinery decide;
+		 :single -> one dataseries in one plot area (panel), same axis;
+		 :overlay_ij -> one plot area (panel), overlay all (i,j) on the same axis - target/leaf resolved to one field;
+		 :overlay_fields -> one plot area (panel), overlay all fields on the same axis - data container resolved to one pair (i,j).
+		 :per_ij_overlay_fields -> multiple plot areas (panels), one per (i,j), overlay all fields.
 """
-grouping_mode(::Type{S}) where {S <: AbstractPlotSpec} = :none
+grouping_mode(::Type{S}) where {S <: AbstractPlotSpec} = :auto
+
+"""
+How to render figures into Makie windows.
+Options: :windows -> one panel per window;
+		 :grid -> all panels in a single window, arranged in a grid;
+		 :tabs -> TBD: all panels in a single window, arranged in tabs.
+"""
+figure_layout(::Type{S}) where {S <: AbstractPlotSpec} = :windows  # default
