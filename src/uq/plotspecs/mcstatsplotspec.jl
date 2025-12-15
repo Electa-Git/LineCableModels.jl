@@ -24,10 +24,6 @@ PlotBuilder.geom_axes(::Type{MCStatsPlotSpec}) = (:x, :y)
 PlotBuilder.index_keys(::Type{MCStatsPlotSpec}) = (:i, :j, :k)
 PlotBuilder.ranged_keys(::Type{MCStatsPlotSpec}) = (:k,)
 
-
-# Grouping: overlay all on single plot
-PlotBuilder.grouping_mode(::Type{MCStatsPlotSpec}) = :overlay
-
 # X is always frequency; Y will depend on user kwarg, so the valid possible quantities are defined below. 
 PlotBuilder.axis_quantity(::Type{MCStatsPlotSpec}, ::Val{:x}, ::Val{:f}) =
 	QuantityTag{:freq}()
@@ -70,13 +66,11 @@ function PlotBuilder.legend_labels(::Type{MCStatsPlotSpec}, nt::NamedTuple)
 end
 
 # Semantic knobs:
-#   :key  → which field from stats NamedTuple
-PlotBuilder.input_kwargs(::Type{MCStatsPlotSpec}) =
-	(:field,)
+#   :field  → which field from stats NamedTuple
+PlotBuilder.input_kwargs(::Type{MCStatsPlotSpec}) = (:field,)
 
 # Backend knobs this spec forwards to Makie
-PlotBuilder.backend_kwargs(::Type{MCStatsPlotSpec}) =
-	(:color, :linewidth, :linestyle, :marker, :markersize)
+PlotBuilder.renderer_kwargs(::Type{MCStatsPlotSpec}) = ()
 
 # Defaults for semantic knobs, given the dispatched object
 PlotBuilder.input_defaults(::Type{MCStatsPlotSpec}, ::LineParametersMC) = (
@@ -86,13 +80,8 @@ PlotBuilder.input_defaults(::Type{MCStatsPlotSpec}, ::LineParametersMC) = (
 	# i,j,k are handled via index_keys + parse_kwargs (default 1 or :)
 )
 
-PlotBuilder.axis_key(::Type{MCStatsPlotSpec}, ::Val{:x}) = nothing
-PlotBuilder.axis_key(::Type{MCStatsPlotSpec}, ::Val{:y}) = :field # or :mean directly
+PlotBuilder.select_field(::Type{MCStatsPlotSpec}, ::Val{:x}) = nothing
+PlotBuilder.select_field(::Type{MCStatsPlotSpec}, ::Val{:y}) = :field # or :mean directly
 
-# Defaults for backend knobs
-PlotBuilder.backend_defaults(::Type{MCStatsPlotSpec}, ::LineParametersMC) = (
-	color      = :blue,
-	linewidth  = 2,
-	marker     = :circle,
-	markersize = 6,
-)
+# Defaults for renderer knobs
+PlotBuilder.renderer_defaults(::Type{MCStatsPlotSpec}, ::LineParametersMC) = ()
