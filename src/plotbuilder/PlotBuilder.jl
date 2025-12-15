@@ -17,11 +17,11 @@ using .PlotUIComponents
 
 include("types.jl")
 include("traits.jl")
-include("plotaxis.jl")
+include("axes.jl")
 include("parse.jl")
-include("plotseries.jl")
-include("plotarea.jl")
-include("plotfigure.jl")
+include("dataseries.jl")
+include("panels.jl")
+include("figures.jl")
 
 
 include("plotspecs.jl")
@@ -39,7 +39,7 @@ runs:
 	resolve_input(S, raw)            → nt
 	build_figures(S, nt)             → figs
 
-`build_figures` returns a vector of PlotFigure values; `build_renderer`
+`build_figures` returns a vector of Figure values; `build_renderer`
 wraps them into a PlotRenderer that the UI layer will later assemble into
 actual windows/layouts.
 """
@@ -50,7 +50,7 @@ function build_renderer(::Type{S}, obj; kwargs...) where {S <: AbstractPlotSpec}
 
 	raw  = parse_kwargs(S, obj; kwargs...)
 	norm = resolve_input(S, raw)
-	figs = build_figures(S, norm)  # ::Vector{PlotFigure}
+	figs = build_figures(S, norm)  # ::Vector{Figure}
 
 	return PlotRenderer(S, figs)
 end
