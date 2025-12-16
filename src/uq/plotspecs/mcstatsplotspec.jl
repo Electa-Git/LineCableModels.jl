@@ -83,5 +83,5 @@ PlotBuilder.input_defaults(::Type{MCStatsPlotSpec}, ::LineParametersMC) = (
 PlotBuilder.select_field(::Type{MCStatsPlotSpec}, ::Val{:x}) = nothing
 PlotBuilder.select_field(::Type{MCStatsPlotSpec}, ::Val{:y}) = :field # or :mean directly
 
-# Defaults for renderer knobs
-PlotBuilder.renderer_defaults(::Type{MCStatsPlotSpec}, ::LineParametersMC) = ()
+# # Defaults for renderer knobs
+# PlotBuilder.renderer_defaults(::Type{MCStatsPlotSpec}, ::LineParametersMC) = ()
