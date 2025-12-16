@@ -28,7 +28,7 @@ _serializable_fields(obj::T) where {T} = fieldnames(T)
 # required by the reconstruction logic (e.g., for groups).
 
 # Core Data Types
-_serializable_fields(::Material) = (:rho, :eps_r, :mu_r, :T0, :alpha)
+_serializable_fields(::Material) = (:rho, :eps_r, :mu_r, :T0, :alpha, :kappa)
 _serializable_fields(::NominalData) = (
 	:designation_code,
 	:U0,

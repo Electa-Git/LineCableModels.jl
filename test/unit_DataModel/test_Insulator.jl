@@ -73,7 +73,7 @@
         # Mixed: temperature as Measurement
         iMix2 = Insulator(0.01, 0.015, insulator_props, temperature=measurement(20.0, 0.1))
         @test typeof(iMix2.temperature) <: Measurement
-        mmat = Material(1e14, measurement(5.0, 0.1), 1.0, 20.0, 0.0)
+        mmat = Material(1e14, measurement(5.0, 0.1), 1.0, 20.0, 0.0, 0.1)
         iMix3 = Insulator(0.01, 0.015, mmat, temperature=20.0)
         @test typeof(iMix3.shunt_conductance) <: Measurement
     end

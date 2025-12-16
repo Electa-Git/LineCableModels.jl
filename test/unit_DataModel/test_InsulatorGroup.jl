@@ -1,7 +1,7 @@
 @testsnippet defs_ins_group begin
     using Measurements
     # Canonical dielectric material for tests
-    const ins_props = Material(1e10, 3.0, 1.0, 20.0, 0.0)
+    const ins_props = Material(1e10, 3.0, 1.0, 20.0, 0.0, 0.5)
 
     # Fresh inner insulator (Float64)
     make_ins_group() = InsulatorGroup(

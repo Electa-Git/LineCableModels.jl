@@ -45,39 +45,42 @@ Computes frequency-dependent earth properties using the [`CPEarth`](@ref) formul
 frequencies = [1e3, 1e4, 1e5]
 
 # Using the CP model
-rho, epsilon, mu = $(FUNCTIONNAME)(frequencies, 100, 10, 1, CPEarth())
+rho, epsilon, mu, kappa = $(FUNCTIONNAME)(frequencies, 100, 10, 1, 1.0, CPEarth())
 println(rho)     # Output: [100, 100, 100]
 println(epsilon) # Output: [8.854e-11, 8.854e-11, 8.854e-11]
 println(mu)      # Output: [1.2566e-6, 1.2566e-6, 1.2566e-6]
-```
+println(kappa)   # Output: [1.0, 1.0, 1.0]
 
 # See also
 
 - [`EarthLayer`](@ref)
 """
 function (f::CPEarth)(frequencies::Vector{T}, base_rho_g::T, base_epsr_g::T,
-    base_mur_g::T) where {T<:REALSCALAR}
+    base_mur_g::T, base_kappa_g::T) where {T<:REALSCALAR}
 
     # Preallocate for performance
     n_freq = length(frequencies)
     rho = Vector{T}(undef, n_freq)
     epsilon = Vector{typeof(ε₀ * base_epsr_g)}(undef, n_freq)
     mu = Vector{typeof(μ₀ * base_mur_g)}(undef, n_freq)
+    kappa = Vector{typeof(base_kappa_g)}(undef, n_freq)
 
     # Vectorized assignment
     fill!(rho, base_rho_g)
     fill!(epsilon, ε₀ * base_epsr_g)
     fill!(mu, μ₀ * base_mur_g)
+    fill!(kappa, base_kappa_g)
 
-    return rho, epsilon, mu
+    return rho, epsilon, mu, kappa
 end
 
-function (f::CPEarth)(frequencies::AbstractVector, base_rho_g, base_epsr_g, base_mur_g)
-    T = resolve_T(frequencies, base_rho_g, base_epsr_g, base_mur_g)
+function (f::CPEarth)(frequencies::AbstractVector, base_rho_g, base_epsr_g, base_mur_g, base_kappa_g)
+    T = resolve_T(frequencies, base_rho_g, base_epsr_g, base_mur_g, base_kappa_g)
     return f(
         coerce_to_T(frequencies, T),
         coerce_to_T(base_rho_g, T),
         coerce_to_T(base_epsr_g, T),
         coerce_to_T(base_mur_g, T),
+        coerce_to_T(base_kappa_g, T),
     )
 end

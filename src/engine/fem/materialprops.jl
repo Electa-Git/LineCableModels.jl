@@ -35,6 +35,7 @@ function get_material_name(material::Material, library::MaterialsLibrary; tol = 
 	eps_r = to_nominal(material.eps_r)
 	mu_r = to_nominal(material.mu_r)
 	alpha = to_nominal(material.alpha)
+	kappa = to_nominal(material.kappa)
 
 	# Try to find an exact match
 	for (name, lib_material) in library
@@ -42,7 +43,8 @@ function get_material_name(material::Material, library::MaterialsLibrary; tol = 
 		if isapprox(rho, to_nominal(lib_material.rho), rtol = tol) &&
 		   isapprox(eps_r, to_nominal(lib_material.eps_r), rtol = tol) &&
 		   isapprox(mu_r, to_nominal(lib_material.mu_r), rtol = tol) &&
-		   isapprox(alpha, to_nominal(lib_material.alpha), rtol = tol)
+		   isapprox(alpha, to_nominal(lib_material.alpha), rtol = tol) &&
+		   isapprox(kappa, to_nominal(lib_material.kappa), rtol = tol)
 			return name
 		end
 	end
@@ -75,18 +77,20 @@ function hash_material_properties(material::Material)
 	rho = to_nominal(material.rho)
 	eps_r = to_nominal(material.eps_r)
 	mu_r = to_nominal(material.mu_r)
+	kappa = to_nominal(material.kappa)
 
 	rho_str = isinf(rho) ? "inf" : "$(round(rho, sigdigits=6))"
 	eps_str = "$(round(eps_r, sigdigits=6))"
 	mu_str = "$(round(mu_r, sigdigits=6))"
+	kappa_str = "$(round(kappa, sigdigits=6))"
 
-	return "rho=$(rho_str)_epsr=$(eps_str)_mu=$(mu_str)"
+	return "rho=$(rho_str)_epsr=$(eps_str)_mu=$(mu_str)_kappa=$(kappa_str)"
 end
 
 
 function get_earth_model_material(workspace::FEMWorkspace, layer_idx::Int)
 
-	earth_props = workspace.problem_def.earth_props
+	earth_props = workspace.core.earth_props
 	num_layers = length(earth_props.layers)
 
 	if layer_idx <= num_layers
@@ -95,8 +99,9 @@ function get_earth_model_material(workspace::FEMWorkspace, layer_idx::Int)
 		rho = to_nominal(earth_props.layers[layer_idx].base_rho_g)  # Layer 1 is air, Layer 2 is first earth layer
 		eps_r = to_nominal(earth_props.layers[layer_idx].base_epsr_g)
 		mu_r = to_nominal(earth_props.layers[layer_idx].base_mur_g)
+		kappa = to_nominal(earth_props.layers[layer_idx].base_kappa_g)
 
-		return Material(rho, eps_r, mu_r, 20.0, 0.0)
+		return Material(rho, eps_r, mu_r, 20.0, 0.0, kappa)
 	else
 		# Default to bottom earth layer if layer_idx is out of bounds
 
@@ -104,14 +109,15 @@ function get_earth_model_material(workspace::FEMWorkspace, layer_idx::Int)
 		rho = to_nominal(earth_props.layers[end].base_rho_g)  # Layer 1 is air, Layer 2 is first earth layer
 		eps_r = to_nominal(earth_props.layers[end].base_epsr_g)
 		mu_r = to_nominal(earth_props.layers[end].base_mur_g)
+		kappa = to_nominal(earth_props.layers[end].base_kappa_g)
 
-		return Material(rho, eps_r, mu_r, 20.0, 0.0)
+		return Material(rho, eps_r, mu_r, 20.0, 0.0, kappa)
 	end
 end
 
 function get_air_material(workspace::FEMWorkspace)
-	if !isnothing(workspace.formulation.materials)
-		airm = get(workspace.formulation.materials, "air")
+	if !isnothing(workspace.core.formulation.materials)
+		airm = get(workspace.core.formulation.materials, "air")
 
 		if isnothing(airm)
 			@warn("Air material not found in database. Overriding with default properties.")
@@ -120,7 +126,8 @@ function get_air_material(workspace::FEMWorkspace)
 			rho = to_nominal(airm.rho)
 			eps_r = to_nominal(airm.eps_r)
 			mu_r = to_nominal(airm.mu_r)
-			air_material = Material(rho, eps_r, mu_r, 20.0, 0.0)
+			kappa = to_nominal(airm.kappa)
+			air_material = Material(rho, eps_r, mu_r, 20.0, 0.0, kappa)
 		end
 	end
 	return air_material

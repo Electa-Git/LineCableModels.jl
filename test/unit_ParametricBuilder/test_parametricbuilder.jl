@@ -65,15 +65,15 @@
 				d = (co_d, unc),
 				n = 6,
 				lay = (co_lay, unc),
-				m = ms_al_uq,
+				mat = ms_al_uq,
 			),
 
 			# CORE insulators
-			Insulator.Semicon(:core; layers = 1, t = (t_sct, unc), m = ms_polyacryl),
-			Insulator.Semicon(:core; layers = 1, t = (t_sc_in, unc), m = ms_sem1),
-			Insulator.Tubular(:core; layers = 1, t = (t_ins, unc), m = ms_xlpe),
-			Insulator.Semicon(:core; layers = 1, t = t_sc_out, m = ms_sem2),
-			Insulator.Semicon(:core; layers = 1, t = t_sct, m = ms_polyacryl),
+			Insulator.Semicon(:core; layers = 1, t = (t_sct, unc), mat = ms_polyacryl),
+			Insulator.Semicon(:core; layers = 1, t = (t_sc_in, unc), mat = ms_sem1),
+			Insulator.Tubular(:core; layers = 1, t = (t_ins, unc), mat = ms_xlpe),
+			Insulator.Semicon(:core; layers = 1, t = t_sc_out, mat = ms_sem2),
+			Insulator.Semicon(:core; layers = 1, t = t_sct, mat = ms_polyacryl),
 
 			# SHEATH
 			Conductor.Wires(
@@ -82,7 +82,7 @@
 				d = (sc_d, unc),
 				n = sc_n,
 				lay = (sc_lay, unc),
-				m = ms_cu,
+				mat = ms_cu,
 			),
 			Conductor.Strip(
 				:sheath;
@@ -90,14 +90,14 @@
 				t = (t_cut, unc),
 				w = (w_cut, unc),
 				lay = (sc_lay, unc),
-				m = ms_cu,
+				mat = ms_cu,
 			),
-			Insulator.Semicon(:sheath; layers = 1, t = t_wbt, m = ms_polyacryl),
+			Insulator.Semicon(:sheath; layers = 1, t = t_wbt, mat = ms_polyacryl),
 
 			# JACKET
-			Conductor.Tubular(:jacket; layers = 1, t = t_alt, m = ms_al_uq),
-			Insulator.Tubular(:jacket; layers = 1, t = t_pet, m = ms_pe),
-			Insulator.Tubular(:jacket; layers = 1, t = t_jac, m = ms_pe),
+			Conductor.Tubular(:jacket; layers = 1, t = t_alt, mat = ms_al_uq),
+			Insulator.Tubular(:jacket; layers = 1, t = t_pet, mat = ms_pe),
+			Insulator.Tubular(:jacket; layers = 1, t = t_jac, mat = ms_pe),
 		]
 	end
 
@@ -228,6 +228,7 @@
 			rho = ((100.0, 500.0, 2), (10.0)),
 			eps_r = [5.0, 10.0],
 			mu_r = 1.0,
+			kappa = 1.0,
 			t = Inf,
 		)
 

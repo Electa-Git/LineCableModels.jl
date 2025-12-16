@@ -17,7 +17,7 @@ export Fortescue
 # Module-specific dependencies
 using ...Commons
 import ...Commons: get_description
-import ...Utils: symtrans, symtrans!, offdiag_ratio, to_nominal
+import ...Utils: symtrans, offdiag_ratio, to_nominal
 import ..Engine:
 	AbstractTransformFormulation, LineParameters, SeriesImpedance, ShuntAdmittance
 using Measurements

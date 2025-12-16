@@ -22,7 +22,7 @@ end
 	@test isempty(materials_empty)
 
 	# Add a custom material for removal tests
-	mat_remove_test = Material(1e-5, 5.0, 1.0, 20.0, 0.05)
+	mat_remove_test = Material(1e-5, 5.0, 1.0, 20.0, 0.05, 100.0)
 	add!(materials, "remove_me", mat_remove_test)
 	@test length(materials) == initial_default_count + 1
 	@test haskey(materials, "remove_me")
@@ -42,12 +42,12 @@ end
 
 	println("  Testing DataFrame...")
 	# Use the empty DB + one material for simpler checking
-	mat_list_test = Material(9e9, 9.0, 9.0, 99.0, 0.9)
+	mat_list_test = Material(9e9, 9.0, 9.0, 99.0, 0.9, 100.0)
 	add!(materials_empty, "list_test_mat", mat_list_test)
 	df_listed = DataFrame(materials_empty)
 
 	@test df_listed isa DataFrame
-	@test names(df_listed) == ["name", "rho", "eps_r", "mu_r", "T0", "alpha"] # Check column names
+	@test names(df_listed) == ["name", "rho", "eps_r", "mu_r", "T0", "alpha", "kappa"] # Check column names
 	@test nrow(df_listed) == 1
 	@test df_listed[1, :name] == "list_test_mat"
 	@test df_listed[1, :rho] == 9e9
@@ -64,7 +64,7 @@ end
 		# Save the db that had defaults + 'remove_me' (before removal)
 		# Let's re-add it for a more comprehensive save file
 		db_to_save = MaterialsLibrary(add_defaults = true)
-		mat_temp = Material(1e-5, 5.0, 1.0, 20.0, 0.05)
+		mat_temp = Material(1e-5, 5.0, 1.0, 20.0, 0.05, 100.0)
 		add!(db_to_save, "temp_mat", mat_temp)
 		num_expected = length(db_to_save)
 
@@ -507,7 +507,7 @@ end
 
 	println("  Setting up CableSystem...")
 	f_pscad = 10.0 .^ range(0, stop = 6, length = 10) # Frequency range
-	earth_params_pscad = EarthModel(f_pscad, 100.0, 10.0, 1.0) # 100 Ω·m, εr=10, μr=1
+	earth_params_pscad = EarthModel(f_pscad, 100.0, 10.0, 1.0, 1.0) # 100 Ω·m, εr=10, μr=1, κ=1.0
 
 	# Use outermost radius for trifoil calculation spacing
 	r = cable_design.components[end].insulator_group.radius_ext

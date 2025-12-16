@@ -19,6 +19,7 @@ abstract type EarthAdmittanceFormulation <: AbstractAdmittanceFormulation end
 
 abstract type AbstractTransformFormulation <: AbstractFormulationSet end
 
+abstract type AmpacityFormulation <: AbstractFormulationSet end
 """
 	FormulationSet(...)
 

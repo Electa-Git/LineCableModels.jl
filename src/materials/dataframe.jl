@@ -33,6 +33,7 @@ function DataFrame(library::MaterialsLibrary)::DataFrame
             mu_r=m.mu_r,
             T0=m.T0,
             alpha=m.alpha,
+            kappa=m.kappa,
         )
         for (name, m) in library
     ]

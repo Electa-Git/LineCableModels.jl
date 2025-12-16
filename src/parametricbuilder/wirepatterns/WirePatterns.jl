@@ -185,9 +185,6 @@ function make_stranded(target_mm2::Real; nmin::Integer = -3, nmax::Integer = 40)
 	# ---- best_match: minimize |A - target| (tie: smaller dw, then smaller L) ----
 	rank_keys = [(abs(A - target_area_m2), dw, L) for (dw, L, N, A, _) in candidates]
 	best_match = _to_choice(candidates[argmin(rank_keys)])
-	if best_match.wires > 271
-		@warn "Best match stranded pattern with a very high wire count ($(best_match.wires) wires). Consider revising the target cross-section or choosing a different wire configuration."
-	end
 
 	# Split feasible/infeasible for next selectors
 	feas   = filter(((dw, L, N, A, awg),)->A >= target_area_m2, candidates)

@@ -35,6 +35,7 @@ export calc_inductance_trifoil
 export calc_wirearray_gmr
 export calc_tubular_gmr
 export calc_equivalent_mu
+export calc_equivalent_kappa
 export calc_shunt_capacitance
 export calc_shunt_conductance
 export calc_equivalent_gmr
@@ -48,7 +49,7 @@ export calc_sigma_lossfact
 # Module-specific dependencies
 using Measurements
 using ...Commons
-import ..DataModel: AbstractCablePart
+import ..DataModel: AbstractCablePart, AbstractInsulatorPart
 using ...Utils: resolve_T, coerce_to_T
 
 
@@ -1198,7 +1199,113 @@ function calc_solenoid_correction(
 		coerce_to_T(radius_ext_ins, T),
 	)
 end
+"""
+$(TYPEDSIGNATURES)
 
+Calculates the equivalent thermal conductivity (κ) a solid tubular conductor, using the Law of Wiedemann–Franz:
+
+```math
+\\kappa_{eq} = L \\sigma T = L \\frac{T}{\\rho}
+```
+
+where ``L`` is the Lorenz number.
+
+# Arguments
+
+- `T`: Temperature of the conductor \\[°C\\].
+- `rho`: Resistivity of the conductor \\[Ω·m\\].
+
+# Returns
+
+- Equivalent thermal conductivity of the tubular conductor \\[W/(m·K)\\].
+
+# Examples
+
+```julia
+kappa_eq = $(FUNCTIONNAME)(2.38-8, 20.0)  # Expected output: ~299.8 [W/(m·K)]
+```
+"""
+function calc_equivalent_kappa(
+    rho::T,
+    T0::T,
+) where {T <: REALSCALAR}
+    T0_kelvin = T0 + 273.15  # Convert to Kelvin
+    L = 2.44e-8  # Lorenz number in W·Ω/K²
+    return L * inv(rho) * T0_kelvin
+end
+
+function calc_equivalent_kappa(rho, T0)
+    T = resolve_T(rho, T0)
+    return calc_equivalent_kappa(
+        coerce_to_T(rho, T),
+        coerce_to_T(T0, T),
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Calculates the equivalent thermal conductivity of a multilayer tubular insulator.
+
+The function computes the total thermal resistance of the insulator group by
+summing the resistances of each concentric layer in series.
+
+```math
+R_{th, layer} = \\frac{\\log(r_{ext} / r_{in})}{2 \\pi \\kappa_{layer}}
+
+R_{th, total} = \\sum R_{th, layer}
+```
+
+The equivalent thermal conductivity (κ_eq) is then found by treating the
+entire group as a single layer with the total thermal resistance and the
+group's overall geometry:
+
+```math
+\\kappa_{eq} = \\frac{\\log(r_{group, ext} / r_{group, in})}{2 \\pi R_{th, total}}
+```
+
+# Arguments
+
+- `insulator_group::InsulatorGroup{T}`: A struct containing a vector of
+  `InsulatorLayer` objects and the total inner and outer radii.
+
+# Returns
+
+- Equivalent thermal conductivity of the insulator group [W/(m·K)].
+
+
+"""
+function calc_equivalent_kappa(insulator_group::AbstractInsulatorPart)
+	R_thermal_total = 0.0
+
+	# Calculate total thermal resistance by summing layers in series
+	for layer in insulator_group.layers
+		# Ensure radii are valid to prevent log(<=0)
+		if layer.radius_ext <= layer.radius_in || layer.material_props.kappa <= 0.0
+			# Or throw an error
+			continue 
+		end
+		
+		R_thermal_layer = 
+			log(layer.radius_ext / layer.radius_in) / (2 * π * layer.material_props.kappa)
+		
+		R_thermal_total += R_thermal_layer
+	end
+
+	r_group_ext = insulator_group.radius_ext
+	r_group_in = insulator_group.radius_in
+
+	# Check for invalid total geometry or zero total resistance
+	if R_thermal_total <= 0.0 || r_group_ext <= r_group_in
+		# Fallback: return kappa of the first layer or 0.0
+		return isempty(insulator_group.layers) ? 0.0 : insulator_group.layers[1].material_props.kappa
+	end
+
+	# Calculate equivalent kappa using the total resistance and total geometry
+	kappa_eq = log(r_group_ext / r_group_in) / (2 * π * R_thermal_total)
+
+	return kappa_eq
+end
 """
 $(TYPEDSIGNATURES)
 

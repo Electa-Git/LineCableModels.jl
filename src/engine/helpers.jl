@@ -77,6 +77,7 @@ function _get_earth_data(::Nothing,
 	ρ = Matrix{T}(undef, nL, nF)
 	ε = Matrix{T}(undef, nL, nF)
 	μ = Matrix{T}(undef, nL, nF)
+	κ = Matrix{T}(undef, nL, nF)
 
 	@inbounds for i in 1:nL
 		L = earth_model.layers[i]
@@ -86,10 +87,11 @@ function _get_earth_data(::Nothing,
 			ρ[i, j] = T(to_nominal(L.rho_g[j]))
 			ε[i, j] = T(to_nominal(L.eps_g[j]))
 			μ[i, j] = T(to_nominal(L.mu_g[j]))
+			κ[i, j] = T(to_nominal(L.kappa_g[j]))
 		end
 	end
 
-	return (rho_g = ρ, eps_g = ε, mu_g = μ)
+	return (rho_g = ρ, eps_g = ε, mu_g = μ, kappa_g = κ)
 end
 
 @inline function _get_outer_radii(cable_map::AbstractVector{Int},

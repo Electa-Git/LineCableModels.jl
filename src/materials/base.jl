@@ -105,7 +105,7 @@ function Base.show(io::IO, ::MIME"text/plain", material::Material)
     print(io, "Material with properties: [")
 
     # Define fields to display
-    fields = [:rho, :eps_r, :mu_r, :T0, :alpha]
+    fields = [:rho, :eps_r, :mu_r, :T0, :alpha, :kappa]
 
     # Print each field with proper formatting
     for (i, field) in enumerate(fields)

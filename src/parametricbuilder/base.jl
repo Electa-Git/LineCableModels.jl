@@ -3,7 +3,7 @@ Base.eltype(::Type{CableBuilderSpec}) = DataModel.CableDesign
 Base.IteratorSize(::Type{CableBuilderSpec}) = Base.SizeUnknown()
 
 function Base.iterate(cbs::CableBuilderSpec)
-	ch = iterate(cbs)
+	ch = iterate_designs(cbs)
 	try
 		d = take!(ch)
 		return (d, ch)
@@ -52,8 +52,8 @@ function cardinality(cbs::CableBuilderSpec)
 		ps = by_comp[cname]
 		cond = [p for p in ps if p.part_type <: DataModel.AbstractConductorPart]
 		insu = [p for p in ps if p.part_type <: DataModel.AbstractInsulatorPart]
-		isempty(cond) && Base.error("component '$cname' has no conductors")
-		isempty(insu) && Base.error("component '$cname' has no insulators")
+		isempty(cond) && error("component '$cname' has no conductors")
+		isempty(insu) && error("component '$cname' has no insulators")
 
 		# first conductor axes
 		p1c    = cond[1]
@@ -112,8 +112,8 @@ function Base.show(io::IO, ::MIME"text/plain", cbs::CableBuilderSpec)
 		ps = by_comp[cname]
 		cond = [p for p in ps if p.part_type <: DataModel.AbstractConductorPart]
 		insu = [p for p in ps if p.part_type <: DataModel.AbstractInsulatorPart]
-		isempty(cond) && Base.error("component '$cname' has no conductors")
-		isempty(insu) && Base.error("component '$cname' has no insulators")
+		isempty(cond) && error("component '$cname' has no conductors")
+		isempty(insu) && error("component '$cname' has no insulators")
 
 		# conductors: couple to first when tuples compare equal
 		p1c    = cond[1]
@@ -170,35 +170,35 @@ end
 
 Base.show(io::IO, ::MIME"text/plain", tr::DesignTrace) = show_trace(tr)
 
+# == Choice-count helpers (reusing ParametricBuilder counting) ==
+_position_choice_count(p::_Pos) = _choice_count(p.dx) * _choice_count(p.dy)
+
 _earth_choice_count(e::EarthSpec) =
 	_choice_count(e.rho) * _choice_count(e.eps_r) * _choice_count(e.mu_r) *
 	_choice_count(e.t)
 
 # == Public cardinality API ==
-function cardinality(s::SystemBuilderSpec)
-	# designs from CableBuilderSpec (uses existing cardinality(cbs::CableBuilderSpec))
-	n_builder = cardinality(s.builder)
-
-	# length / temperature / earth choices via existing expanders
-	n_len   = length(collect(_expand_pair(s.length)))
-	n_temp  = length(collect(_expand_pair(s.temperature)))
-	n_earth = length(collect(_expand_earth(s.earth)))
-
-	# positions: product over singles and groups
-	n_pos = isempty(s.positions) ? 1 : prod(_position_choice_count(p) for p in s.positions)
-
-	return n_builder * n_len * n_temp * n_earth * n_pos
+function cardinality(spec::SystemBuilderSpec)
+	pos_prod =
+		isempty(spec.positions) ? 0 :
+		prod(_position_choice_count(p) for p in spec.positions)
+	pos_prod == 0 && return 0
+	return cardinality(spec.builder) *
+		   _choice_count(spec.length) *
+		   pos_prod *
+		   _choice_count(spec.temperature) *
+		   _earth_choice_count(spec.earth)
 end
 
 Base.length(spec::SystemBuilderSpec) = cardinality(spec)
 
 # == Iterator over fully formed LineParametersProblem (skips overlaps silently) ==
 function Base.iterate(spec::SystemBuilderSpec)
-	ch = iterate(spec)
+	ch = iterate_problems(spec)
 	try
 		x = take!(ch);
 		return (x, ch)
-	catch e
+	catch
 		@error "SystemBuilderSpec iteration failed before first yield" exception=(
 			e,
 			catch_backtrace(),
@@ -236,9 +236,9 @@ _fmt_vals(vals; limit = 8) = begin
 end
 
 # expand one knob (your (valuespec,pct) grammar) into concrete values
-_vals_pair(p) = collect(_expand_pair(p))
+_vals_pair(p) = collect(_expand_pair(p))                      # :contentReference[oaicite:2]{index=2}
 # axis around anchor (handles (nothing, pct) → uncertain anchor)
-_vals_axis(anchor, dspec) = collect(_axis(anchor, dspec))
+_vals_axis(anchor, dspec) = collect(_axis(anchor, dspec))     # :contentReference[oaicite:3]{index=3}
 
 # deterministic freq summary: list if tiny, else min..max (N)
 _fmt_freqs(f::AbstractVector) =
@@ -255,45 +255,17 @@ function _fmt_map(conn::Dict{String, Int})
 	return join(string.(ks, "=>", vs), ", ")
 end
 
-# helper for printing a single arbitrary position (old behaviour)
-function _show_position(io::IO, i::Int, p::PositionSpec)
-	dxvals = _vals_axis(p.x0, p.dx)
-	dyvals = _vals_axis(p.y0, p.dy)
-	println(
-		io,
-		"    • p", i,
-		"  x: ", _fmt_vals(dxvals),
-		", y: ", _fmt_vals(dyvals),
-		", phases: {", _fmt_map(p.conn), "}",
-	)
-end
-
-# helper for printing a grouped formation
-function _show_position(io::IO, i::Int, g::PositionGroupSpec)
-	x0, y0 = g.anchor
-	dvals  = _vals_pair(g.d)
-
-	# phases: show one map per leg, reusing _fmt_map
-	phase_str = "[" * join((_fmt_map(c) for c in g.conn), "; ") * "]"
-
-	println(
-		io,
-		"    • p", i,
-		"  group(", g.arrangement, ", n=", g.n, ")",
-		"  anchor=(", x0, ", ", y0, ")",
-		", d: ", _fmt_vals(dvals),
-		", phases: ", phase_str,
-	)
-end
-
 function Base.show(io::IO, ::MIME"text/plain", spec::SystemBuilderSpec)
 	println(io, "SystemBuilder(\"", spec.system_id, "\")")
-	println(io, "  designs × = ", cardinality(spec.builder))
+	println(io, "  designs × = ", cardinality(spec.builder))  # we don’t explode details here; PB has its own show. :contentReference[oaicite:4]{index=4}
 
 	# positions block
 	println(io, "  positions = ", length(spec.positions))
 	for (i, p) in enumerate(spec.positions)
-		_show_position(io, i, p)   # dispatches on PositionSpec vs PositionGroupSpec
+		dxvals = _vals_axis(p.x0, p.dx)
+		dyvals = _vals_axis(p.y0, p.dy)
+		println(io, "    • p", i, "  x: ", _fmt_vals(dxvals), ", y: ", _fmt_vals(dyvals),
+			", phases: {", _fmt_map(p.conn), "}")
 	end
 
 	# system scalars
@@ -305,6 +277,7 @@ function Base.show(io::IO, ::MIME"text/plain", spec::SystemBuilderSpec)
 	println(io, "    ρ     = ", _fmt_vals(_vals_pair(spec.earth.rho)))
 	println(io, "    εr    = ", _fmt_vals(_vals_pair(spec.earth.eps_r)))
 	println(io, "    μr    = ", _fmt_vals(_vals_pair(spec.earth.mu_r)))
+	println(io, "    κr    = ", _fmt_vals(_vals_pair(spec.earth.kappa_r)))
 	println(io, "    t     = ", _fmt_vals(_vals_pair(spec.earth.t)))
 
 	# frequencies (deterministic vector coming from the user/spec)

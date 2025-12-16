@@ -107,7 +107,8 @@ mutable struct CableComponent{T<:REALSCALAR}
         μ_con = calc_equivalent_mu(conductor_group.gmr, r2, r1)
         α_con = conductor_group.alpha
         θ_con = conductor_group.layers[1].temperature
-        conductor_props = Material{T}(ρ_con, T(0), μ_con, θ_con, α_con)
+        κ_con = calc_equivalent_kappa(ρ_con, conductor_group.layers[1].temperature)
+        conductor_props = Material{T}(ρ_con, T(0), μ_con, θ_con, α_con, κ_con)
 
         # 3) Insulator equivalents (use already-aggregated C and G)
         C_eq = insulator_group.shunt_capacitance
@@ -117,7 +118,8 @@ mutable struct CableComponent{T<:REALSCALAR}
         ρ_ins = inv(σ_ins)               # safe if σ_ins ≠ 0
         μ_ins_corr = calc_solenoid_correction(conductor_group.num_turns, r2, r3)
         θ_ins = insulator_group.layers[1].temperature
-        insulator_props = Material{T}(ρ_ins, ε_ins, μ_ins_corr, θ_ins, T(0))
+        κ_ins = calc_equivalent_kappa(insulator_group)
+        insulator_props = Material{T}(ρ_ins, ε_ins, μ_ins_corr, θ_ins, T(0), κ_ins)
 
         return new{T}(
             id,

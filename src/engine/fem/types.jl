@@ -121,21 +121,10 @@ function GmshObject(tag::Integer, data::T) where {T <: AbstractEntityData}
 	return GmshObject{T}(Int32(tag), data)
 end
 
-mutable struct Darwin <: AbstractImpedanceFormulation
-	problem::GetDP.Problem
-	resolution_name::String
+struct Darwin <: AbstractImpedanceFormulation end
+struct Electrodynamics <: AbstractAdmittanceFormulation end
+struct MagnetoThermal <: AmpacityFormulation end
 
-	function Darwin()
-		return new(GetDP.Problem(), "Darwin")
-	end
-
-end
-
-mutable struct Electrodynamics <: AbstractAdmittanceFormulation
-	problem::GetDP.Problem
-	resolution_name::String
-
-	function Electrodynamics()
-		return new(GetDP.Problem(), "Electrodynamics")
-	end
-end
+get_resolution_name(::Darwin) = "Darwin"
+get_resolution_name(::Electrodynamics) = "Electrodynamics"
+get_resolution_name(::MagnetoThermal) = "MagnetoThermal"

@@ -93,7 +93,7 @@
         wMix2 = WireArray(0.01, 0.002, 7, measurement(10.0, 0.1), copper_props, temperature=20.0, lay_direction=1)
         @test typeof(wMix2.lay_ratio) <: Measurement
         # material as measurement
-        mmat = Material(measurement(1.7241e-8, 1e-10), 1.0, 1.0, 20.0, 0.00393)
+        mmat = Material(measurement(1.7241e-8, 1e-10), 1.0, 1.0, 20.0, 0.00393, 401.0)
         wMix3 = WireArray(0.01, 0.002, 7, 10.0, mmat, temperature=20.0, lay_direction=1)
         @test typeof(wMix3.resistance) <: Measurement
     end

@@ -71,38 +71,35 @@ $(FUNCTIONNAME)(library)
 - [`add!`](@ref)
 """
 function _add_default_materials!(library::MaterialsLibrary)
-	add!(library, "air", Material(Inf, 1.0, 1.0, 20.0, 0.0))
-	add!(library, "pec", Material(eps(), 1.0, 1.0, 20.0, 0.0))
+	add!(library, "air", Material(Inf, 1.0, 1.0, 20.0, 0.0, 0.02587))
+	add!(library, "pec", Material(eps(), 1.0, 1.0, 20.0, 0.0, 0.19))
 	add!(
 		library,
 		"copper",
-		Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393),
+		Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393, 401.0),
 	)
 	add!(
 		library,
 		"aluminum",
-		Material(2.8264e-8, 1.0, 1.000022, 20.0, 0.00429),
+		Material(2.8264e-8, 1.0, 1.000022, 20.0, 0.00429, 237.0),
 	)
-	add!(library, "xlpe", Material(1.97e14, 2.5, 1.0, 20.0, 0.0))
-	add!(library, "pe", Material(1.97e14, 2.3, 1.0, 20.0, 0.0))
+	add!(library, "xlpe", Material(1.97e14, 2.5, 1.0, 20.0, 0.0, 0.3))
+	add!(library, "pe", Material(1.97e14, 2.3, 1.0, 20.0, 0.0, 0.28))
 	add!(
 		library,
 		"semicon1",
-		Material(1000.0, 1000.0, 1.0, 20.0, 0.0),
+		Material(1000.0, 1000.0, 1.0, 20.0, 0.0, 148.0),
 	)
 	add!(
 		library,
 		"semicon2",
-		Material(500.0, 1000.0, 1.0, 20.0, 0.0),
+		Material(500.0, 1000.0, 1.0, 20.0, 0.0, 148.0),
 	)
 	add!(
 		library,
 		"polyacrylate",
-		Material(5.3e3, 32.3, 1.0, 20.0, 0.0),
+		Material(5.3e3, 32.3, 1.0, 20.0, 0.0, 0.1),
 	)
-	add!(library, "lead", Material(21.4e-8, 1.0, 0.999983, 20.0, 0.00400)) # Lead or lead alloy
-	add!(library, "steel", Material(13.8e-8, 1.0, 300.0, 20.0, 0.00450)) # Steel
-	add!(library, "pp", Material(1e15, 2.8, 1.0, 20.0, 0.0)) # Laminated paper propylene
 end
 
 

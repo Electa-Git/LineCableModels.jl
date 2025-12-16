@@ -1,6 +1,6 @@
 @testitem "BaseParams: calc_gmd unit tests" setup = [defaults, deps_datamodel, defs_materials] begin
     @testset "Basic Functionality" begin
-        material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
+        material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393, 401.0)
         wire_array = WireArray(0.01, Diameter(0.002), 7, 10, material_props, temperature=25)
         tubular = Tubular(0.01, 0.02, material_props, temperature=25)
         gmd = calc_gmd(wire_array, tubular)
@@ -11,7 +11,7 @@
     end
 
     @testset "Edge Cases" begin
-        material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
+        material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393, 401.0)
         # Identical objects (should return outer radius)
         tubular = Tubular(0.01, 0.02, material_props, temperature=25)
         gmd_same = calc_gmd(tubular, tubular)
@@ -23,7 +23,7 @@
     end
 
     @testset "Numerical Consistency" begin
-        material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
+        material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393, 401.0)
         wire_array_f32 = WireArray(Float32(0.01), Diameter(Float32(0.002)), 7, Float32(10), material_props, temperature=25)
         tubular_f32 = Tubular(Float32(0.01), Float32(0.02), material_props, temperature=25)
         gmd_f32 = calc_gmd(wire_array_f32, tubular_f32)
@@ -34,7 +34,7 @@
     end
 
     @testset "Physical Behavior" begin
-        material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
+        material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393, 401.0)
         wa1 = WireArray(0.01, Diameter(0.002), 7, 10, material_props, temperature=25)
         wa2 = WireArray(0.02, Diameter(0.002), 7, 10, material_props, temperature=25)
         tubular = Tubular(0.01, 0.02, material_props, temperature=25)
@@ -44,7 +44,7 @@
     end
 
     @testset "Type Stability & Promotion" begin
-        material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
+        material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393, 401.0)
         wa = WireArray(0.01, Diameter(0.002), 7, 10, material_props, temperature=25)
         tub = Tubular(0.01, 0.02, material_props, temperature=25)
         mwa = WireArray(0.01, Diameter(measurement(0.002, 1e-4)), 7, 10, material_props, temperature=25)
@@ -67,7 +67,7 @@
     end
 
     @testset "Uncertainty Quantification" begin
-        material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
+        material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393, 401.0)
         wa = WireArray(0.01, Diameter(0.002), 7, 10, material_props, temperature=25)
         tub = Tubular(0.01, 0.02, material_props, temperature=25)
         mwa = WireArray(measurement(0.01, 1e-4), Diameter(0.002), 7, 10, material_props, temperature=25)

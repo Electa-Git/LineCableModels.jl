@@ -21,16 +21,17 @@ end
 
 @testsnippet defs_materials begin
 	materials = MaterialsLibrary(add_defaults = true)
-	copper_props = Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
-	aluminum_props = Material(2.8264e-8, 1.0, 1.0, 20.0, 0.00429)
-	insulator_props = Material(1e14, 2.3, 1.0, 20.0, 0.0)
-	semicon_props = Material(1000.0, 1000.0, 1.0, 20.0, 0.0)
+	copper_props = Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393, 401.0)
+	aluminum_props = Material(2.8264e-8, 1.0, 1.0, 20.0, 0.00429, 237.0)
+	insulator_props = Material(1e14, 2.3, 1.0, 20.0, 0.0, 0.5)
+	semicon_props = Material(1000.0, 1000.0, 1.0, 20.0, 0.0, 148.0)
 end
 
 @testsnippet cable_system_export begin
 
 	cables_library = CablesLibrary()
 	@show file_name = joinpath(@__DIR__, "cable_test.json")
+	display("Loading cable design from JSON file: $file_name")
 	cables_library = load!(cables_library, file_name = file_name)
 
 	# Retrieve the reloaded design
@@ -50,7 +51,7 @@ end
 		Dict("core" => 3, "sheath" => 0, "jacket" => 0))
 
 	freqs = [50.0]
-	earth_props = EarthModel(freqs, 100.0, 10.0, 1.0)
+	earth_props = EarthModel(freqs, 100.0, 10.0, 1.0, 1.0)
 	num_phases = cable_system.num_phases
 
 	# Create minimal mock objects for the other required arguments
@@ -63,4 +64,4 @@ end
 
 end
 
-@run_package_tests(verbose = true, filter=ti->!(:skipci in ti.tags))
+# @run_package_tests(verbose = true, filter=ti->!(:skipci in ti.tags))

@@ -24,7 +24,7 @@ module FEM
 # Export public API
 export MeshTransition, calc_domain_size
 export compute!, preview_results
-export FormulationSet, Electrodynamics, Darwin
+export FormulationSet, Electrodynamics, Darwin, MagnetoThermal
 
 # Module-specific dependencies
 using ...Commons
@@ -34,7 +34,7 @@ using ...DataModel
 using ...Engine
 import ...Engine: kronify, reorder_M, reorder_indices, merge_bundles!, FormulationSet,
 	AbstractFormulationSet, AbstractImpedanceFormulation, AbstractAdmittanceFormulation,
-	compute!
+	compute!, AmpacityFormulation
 import ...Engine: AbstractFormulationOptions, LineParamOptions, build_options, _COMMON_SYMS
 import ...DataModel: AbstractCablePart, AbstractConductorPart, AbstractInsulatorPart
 using ...Utils:
@@ -47,7 +47,7 @@ using Colors
 # FEM specific dependencies
 using Gmsh
 using GetDP
-using GetDP: Problem, get_getdp_executable, add!
+# using GetDP: Problem, get_getdp_executable, add!, add_quantity_term!, add_post_quantity_term!
 
 
 include("types.jl")

@@ -10,10 +10,10 @@
     using Measurements: measurement
 
     # metals & dielectrics
-    copper_props = MAT.Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
-    alu_props = MAT.Material(2.82e-8, 1.0, 1.0, 20.0, 0.0039)
-    xlpe_props = MAT.Material(1e10, 2.3, 1.0, 20.0, 0.0)   # insulator-like
-    semi_props = MAT.Material(1e3, 2.6, 1.0, 20.0, 0.0)   # semicon-ish
+    copper_props = MAT.Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393, 401.0)
+    alu_props = MAT.Material(2.82e-8, 1.0, 1.0, 20.0, 0.0039, 237.0)
+    xlpe_props = MAT.Material(1e10, 2.3, 1.0, 20.0, 0.0, 0.3)   # insulator-like
+    semi_props = MAT.Material(1e3, 2.6, 1.0, 20.0, 0.0, 148.0)   # semicon-ish
 
     # geometry
     d_wire = 3e-3 # 3 mm
@@ -62,7 +62,7 @@ end
     @testset "Input Validation" begin
         # mismatched radii: force an insulator group that doesn't start at conductor rex
         g = make_conductor_group()
-        bad_ins = DM.InsulatorGroup(DM.Insulator(g.radius_ext + 1e-4, DM.Thickness(1e-3), MAT.Material(1e10, 3.0, 1.0, 20.0, 0.0)))
+        bad_ins = DM.InsulatorGroup(DM.Insulator(g.radius_ext + 1e-4, DM.Thickness(1e-3), MAT.Material(1e10, 3.0, 1.0, 20.0, 0.0, 0.1)))
         @test_throws ArgumentError DM.CableComponent("core", g, bad_ins)
         @test_throws ArgumentError DM.CableDesign("cabA", g, bad_ins)
     end

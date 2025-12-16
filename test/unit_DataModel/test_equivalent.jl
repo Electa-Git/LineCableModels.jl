@@ -6,9 +6,9 @@
 	using Measurements: measurement
 
 	# Basic materials
-	copper_props = MAT.Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
-	xlpe_props = MAT.Material(1e10, 2.3, 1.0, 20.0, 0.0)
-	semi_props = MAT.Material(1e3, 2.6, 1.0, 20.0, 0.0)
+	copper_props = MAT.Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393, 401.0)
+	xlpe_props = MAT.Material(1e10, 2.3, 1.0, 20.0, 0.0, 0.3)
+	semi_props = MAT.Material(1e3, 2.6, 1.0, 20.0, 0.0, 148.0)
 
 	# Geometry helpers
 	d_wire = 3e-3

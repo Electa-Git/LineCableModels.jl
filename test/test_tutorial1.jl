@@ -19,7 +19,7 @@
         @test nrow(df) >= 0  # should be defined (>=0); more specific tests below
 
         # Check expected columns if present
-        expected = ["name", "rho", "eps_r", "mu_r", "T0", "alpha"]
+        expected = ["name", "rho", "eps_r", "mu_r", "T0", "alpha", "kappa"]
         @test all(x -> x in string.(names(df)), expected)
     end
 
@@ -27,10 +27,10 @@
         materials = MaterialsLibrary(add_defaults=false)  # start clean for deterministic tests
 
         # Define tutorial materials (subset representative of file)
-        copper_corrected = Material(1.835e-8, 1.0, 0.999994, 20.0, 0.00393)
-        aluminum_corrected = Material(3.03e-8, 1.0, 0.999994, 20.0, 0.00403)
-        epr = Material(1e15, 3.0, 1.0, 20.0, 0.005)
-        pvc = Material(1e15, 8.0, 1.0, 20.0, 0.1)
+        copper_corrected = Material(1.835e-8, 1.0, 0.999994, 20.0, 0.00393, 401.0)
+        aluminum_corrected = Material(3.03e-8, 1.0, 0.999994, 20.0, 0.00403, 237.0)
+        epr = Material(1e15, 3.0, 1.0, 20.0, 0.005, 0.2)
+        pvc = Material(1e15, 8.0, 1.0, 20.0, 0.1,  0.14)
 
         add!(materials, "copper_corrected", copper_corrected)
         add!(materials, "aluminum_corrected", aluminum_corrected)
@@ -50,7 +50,7 @@
 
     @testset "remove duplicate" begin
         materials = MaterialsLibrary(add_defaults=false)
-        epr = Material(1e15, 3.0, 1.0, 20.0, 0.005)
+        epr = Material(1e15, 3.0, 1.0, 20.0, 0.005, 0.2)
         add!(materials, "epr", epr)
 
         # Add duplicate and then remove it
@@ -64,8 +64,8 @@
         materials = MaterialsLibrary(add_defaults=false)
 
         # Add a small set of materials
-        copper_corrected = Material(1.835e-8, 1.0, 0.999994, 20.0, 0.00393)
-        epr = Material(1e15, 3.0, 1.0, 20.0, 0.005)
+        copper_corrected = Material(1.835e-8, 1.0, 0.999994, 20.0, 0.00393, 401.0)
+        epr = Material(1e15, 3.0, 1.0, 20.0, 0.005, 0.2)
         add!(materials, "copper_corrected", copper_corrected)
         add!(materials, "epr", epr)
 
@@ -118,17 +118,17 @@
         materials = MaterialsLibrary(add_defaults=false)
 
         # Add the full tutorial list used in examples (representative)
-        add!(materials, "copper_corrected", Material(1.835e-8, 1.0, 0.999994, 20.0, 0.00393))
-        add!(materials, "aluminum_corrected", Material(3.03e-8, 1.0, 0.999994, 20.0, 0.00403))
-        add!(materials, "lead", Material(21.4e-8, 1.0, 0.999983, 20.0, 0.00400))
-        add!(materials, "steel", Material(13.8e-8, 1.0, 300.0, 20.0, 0.00450))
-        add!(materials, "bronze", Material(3.5e-8, 1.0, 1.0, 20.0, 0.00300))
-        add!(materials, "stainless_steel", Material(70.0e-8, 1.0, 500.0, 20.0, 0.0))
-        add!(materials, "epr", Material(1e15, 3.0, 1.0, 20.0, 0.005))
-        add!(materials, "pvc", Material(1e15, 8.0, 1.0, 20.0, 0.1))
-        add!(materials, "laminated_paper", Material(1e15, 2.8, 1.0, 20.0, 0.0))
-        add!(materials, "carbon_pe", Material(0.06, 1e3, 1.0, 20.0, 0.0))
-        add!(materials, "conductive_paper", Material(18.5, 8.6, 1.0, 20.0, 0.0))
+        add!(materials, "copper_corrected", Material(1.835e-8, 1.0, 0.999994, 20.0, 0.00393, 401.0))
+        add!(materials, "aluminum_corrected", Material(3.03e-8, 1.0, 0.999994, 20.0, 0.00403, 237.0))
+        add!(materials, "lead", Material(21.4e-8, 1.0, 0.999983, 20.0, 0.00400, 35.0))
+        add!(materials, "steel", Material(13.8e-8, 1.0, 300.0, 20.0, 0.00450, 45.0))
+        add!(materials, "bronze", Material(3.5e-8, 1.0, 1.0, 20.0, 0.00300, 108.0))
+        add!(materials, "stainless_steel", Material(70.0e-8, 1.0, 500.0, 20.0, 0.0, 25.0))
+        add!(materials, "epr", Material(1e15, 3.0, 1.0, 20.0, 0.005, 0.2))
+        add!(materials, "pvc", Material(1e15, 8.0, 1.0, 20.0, 0.1, 0.14))
+        add!(materials, "laminated_paper", Material(1e15, 2.8, 1.0, 20.0, 0.0, 90.0))
+        add!(materials, "carbon_pe", Material(0.06, 1e3, 1.0, 20.0, 0.0, 1.0))
+        add!(materials, "conductive_paper", Material(18.5, 8.6, 1.0, 20.0, 0.0, 150.0))
 
         # Duplicate add and delete
         add!(materials, "epr_dupe", get(materials, "epr"))

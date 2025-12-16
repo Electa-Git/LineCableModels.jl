@@ -71,7 +71,7 @@
         # Mixed: temperature as Measurement
         sMix2 = Semicon(0.01, 0.012, semicon_props, temperature=measurement(20.0, 0.1))
         @test typeof(sMix2.temperature) <: Measurement
-        mmat = Material(1000.0, measurement(1000.0, 0.1), 1.0, 20.0, 0.0)
+        mmat = Material(1000.0, measurement(1000.0, 0.1), 1.0, 20.0, 0.0, 148.0)
         sMix3 = Semicon(0.01, 0.012, mmat, temperature=20.0)
         @test typeof(sMix3.shunt_capacitance) <: Measurement
     end

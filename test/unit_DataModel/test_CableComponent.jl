@@ -5,10 +5,10 @@
     const MAT = LM.Materials
 
     # --- Canonical materials (fallbacks in case `defs_materials` lacks a key) ---
-    copper = get(materials, "copper", MAT.Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393))
-    aluminum = get(materials, "aluminum", MAT.Material(2.826e-8, 1.0, 1.0, 20.0, 0.00429))
-    polyeth = get(materials, "polyethylene", MAT.Material(1e12, 2.3, 1.0, 20.0, 0.0))
-    semimat = get(materials, "semicon", MAT.Material(1e3, 3.0, 1.0, 20.0, 0.0))
+    copper = get(materials, "copper", MAT.Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393, 401.0))
+    aluminum = get(materials, "aluminum", MAT.Material(2.826e-8, 1.0, 1.0, 20.0, 0.00429, 237.0))
+    polyeth = get(materials, "polyethylene", MAT.Material(1e12, 2.3, 1.0, 20.0, 0.0, 0.44))
+    semimat = get(materials, "semicon", MAT.Material(1e3, 3.0, 1.0, 20.0, 0.0, 148.0))
 
     # --- Helpers ---------------------------------------------------------------
     make_conductor_group_F = function ()

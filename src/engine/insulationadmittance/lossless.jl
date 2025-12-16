@@ -6,7 +6,6 @@ get_description(::Lossless) = "Lossless insulation (ideal dielectric)"
 	r_ex::T,
 	epsr_i::T,
 	jω::Complex{T},
-	loss_factor::T,
 ) where {T <: REALSCALAR}
 
 	if isapprox(r_in, 0.0, atol = eps(T)) || isapprox(r_in, r_ex, atol = eps(T))

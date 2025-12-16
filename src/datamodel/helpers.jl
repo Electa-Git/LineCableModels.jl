@@ -25,20 +25,20 @@ println((xb, yb))  # Coordinates of bottom-left cable
 println((xc, yc))  # Coordinates of bottom-right cable
 ```
 """
-function trifoil_formation(x0::T, y0::T, r_ext::T) where {T <: REALSCALAR}
-	@assert r_ext > 0 "External radius must be positive"
+function trifoil_formation(x0::T, y0::T, r_ext::T) where {T<:REALSCALAR}
+  @assert r_ext > 0 "External radius must be positive"
 
-	d = r_ext / cos(deg2rad(30))
-	xa = x0
-	ya = y0 + d * sin(deg2rad(90))
+  d = r_ext / cos(deg2rad(30))
+  xa = x0
+  ya = y0 + d * sin(deg2rad(90))
 
-	xb = x0 + d * cos(deg2rad(210))
-	yb = y0 + d * sin(deg2rad(210))
+  xb = x0 + d * cos(deg2rad(210))
+  yb = y0 + d * sin(deg2rad(210))
 
-	xc = x0 + d * cos(deg2rad(330))
-	yc = y0 + d * sin(deg2rad(330))
+  xc = x0 + d * cos(deg2rad(330))
+  yc = y0 + d * sin(deg2rad(330))
 
-	return xa, ya, xb, yb, xc, yc
+  return xa, ya, xb, yb, xc, yc
 end
 
 """
@@ -73,26 +73,18 @@ println((xc, yc))  # Third conductor coordinates
 xa, ya, xb, yb, xc, yc = $(FUNCTIONNAME)(0.0, 0.0, 0.1, vertical=true)
 ```
 """
-function flat_formation(xc::T, yc::T, s::T; vertical = false) where {T <: REALSCALAR}
-	if vertical
-		# Layout is vertical; adjust only y-coordinates
-		xa, ya = xc, yc
-		xb, yb = xc, yc - s
-		xc, yc = xc, yc - 2s
-	else
-		# Layout is horizontal; adjust only x-coordinates
-		xa, ya = xc, yc
-		xb, yb = xc + s, yc
-		xc, yc = xc + 2s, yc
-	end
+function flat_formation(xc::T, yc::T, s::T; vertical=false) where {T<:REALSCALAR}
+  if vertical
+    # Layout is vertical; adjust only y-coordinates
+    xa, ya = xc, yc
+    xb, yb = xc, yc - s
+    xc, yc = xc, yc - 2s
+  else
+    # Layout is horizontal; adjust only x-coordinates
+    xa, ya = xc, yc
+    xb, yb = xc + s, yc
+    xc, yc = xc + 2s, yc
+  end
 
-	return xa, ya, xb, yb, xc, yc
-end
-
-# Outermost radius of a fully-built cable design 
-@inline function get_outer_radius(des::CableDesign)
-	last_comp = des.components[end]
-	r_c = to_nominal(last_comp.conductor_group.radius_ext)
-	r_i = to_nominal(last_comp.insulator_group.radius_ext)
-	return max(r_c, r_i)
+  return xa, ya, xb, yb, xc, yc
 end

@@ -49,6 +49,8 @@ struct EarthLayer{T <: REALSCALAR}
 	"Base (DC)  relative permeability \\[dimensionless\\]."
 	base_mur_g::T
 	"Thickness of the layer \\[m\\]."
+	base_kappa_g::T
+	"Base (DC) thermal conductivity \\[W/(m·K)\\]."
 	t::T
 	"Computed resistivity values \\[Ω·m\\] at given frequencies."
 	rho_g::Vector{T}
@@ -56,13 +58,15 @@ struct EarthLayer{T <: REALSCALAR}
 	eps_g::Vector{T}
 	"Computed permeability values \\[H/m\\] at given frequencies."
 	mu_g::Vector{T}
+	"Computed thermal conductivity values \\[W/(m·K)\\] at given frequencies."
+	kappa_g::Vector{T}
 
 	@doc """
 	Constructs an [`EarthLayer`](@ref) instance with specified base and frequency-dependent properties.
 	"""
-	function EarthLayer{T}(base_rho_g::T, base_epsr_g::T, base_mur_g::T, t::T,
-		rho_g::Vector{T}, eps_g::Vector{T}, mu_g::Vector{T}) where {T <: REALSCALAR}
-		new{T}(base_rho_g, base_epsr_g, base_mur_g, t, rho_g, eps_g, mu_g)
+	function EarthLayer{T}(base_rho_g::T, base_epsr_g::T, base_mur_g::T, base_kappa_g::T, t::T,
+		rho_g::Vector{T}, eps_g::Vector{T}, mu_g::Vector{T}, kappa_g::Vector{T}) where {T <: REALSCALAR}
+		new{T}(base_rho_g, base_epsr_g, base_mur_g, base_kappa_g, t, rho_g, eps_g, mu_g, kappa_g)
 	end
 end
 
@@ -103,19 +107,22 @@ function EarthLayer(
 	base_rho_g::T,
 	base_epsr_g::T,
 	base_mur_g::T,
+	base_kappa_g::T,
 	t::T,
 	freq_dependence::AbstractFDEMFormulation,
 ) where {T <: REALSCALAR}
 
-	rho_g, eps_g, mu_g = freq_dependence(frequencies, base_rho_g, base_epsr_g, base_mur_g)
+	rho_g, eps_g, mu_g, kappa_g = freq_dependence(frequencies, base_rho_g, base_epsr_g, base_mur_g, base_kappa_g)
 	return EarthLayer{T}(
 		base_rho_g,
 		base_epsr_g,
 		base_mur_g,
+		base_kappa_g,
 		t,
 		rho_g,
 		eps_g,
 		mu_g,
+		kappa_g,
 	)
 end
 
@@ -124,15 +131,17 @@ function EarthLayer(
 	base_rho_g,
 	base_epsr_g,
 	base_mur_g,
+	base_kappa_g,
 	t,
 	freq_dependence,
 )
-	T = resolve_T(frequencies, base_rho_g, base_epsr_g, base_mur_g, t)
+	T = resolve_T(frequencies, base_rho_g, base_epsr_g, base_mur_g, base_kappa_g, t)
 	return EarthLayer(
 		coerce_to_T(frequencies, T),
 		coerce_to_T(base_rho_g, T),
 		coerce_to_T(base_epsr_g, T),
 		coerce_to_T(base_mur_g, T),
+		coerce_to_T(base_kappa_g, T),
 		coerce_to_T(t, T),
 		freq_dependence,
 	)
@@ -201,7 +210,8 @@ function EarthModel(
 	frequencies::Vector{T},
 	rho_g::T,
 	epsr_g::T,
-	mur_g::T;
+	mur_g::T,
+	kappa_g::T;
 	t::T = T(Inf),
 	freq_dependence::AbstractFDEMFormulation = CPEarth(),
 	vertical_layers::Bool = false,
@@ -213,6 +223,7 @@ function EarthModel(
 	@assert rho_g > 0 "Resistivity must be positive"
 	@assert epsr_g > 0 "Relative permittivity must be positive"
 	@assert mur_g > 0 "Relative permeability must be positive"
+	@assert kappa_g >= 0 "Thermal conductivity must be positive"
 	@assert t > 0 || isinf(t) "Layer thickness must be positive or infinite"
 
 	# Enforce rule for vertical model initialization
@@ -224,11 +235,11 @@ function EarthModel(
 
 	# Create air layer if not provided
 	if air_layer === nothing
-		air_layer = EarthLayer(frequencies, T(Inf), T(1.0), T(1.0), T(Inf), freq_dependence)
+		air_layer = EarthLayer(frequencies, T(Inf), T(1.0), T(1.0), 0.024, T(Inf), freq_dependence)
 	end
 
 	# Create top earth layer
-	top_layer = EarthLayer(frequencies, rho_g, epsr_g, mur_g, t, freq_dependence)
+	top_layer = EarthLayer(frequencies, rho_g, epsr_g, mur_g, kappa_g, t, freq_dependence)
 
 	return EarthModel{T}(
 		freq_dependence,
@@ -241,7 +252,8 @@ function EarthModel(
 	frequencies::AbstractVector,
 	rho_g,
 	epsr_g,
-	mur_g;
+	mur_g,
+	kappa_g;
 	t = Inf,
 	freq_dependence = CPEarth(),
 	vertical_layers = false,
@@ -261,7 +273,8 @@ function EarthModel(
 		coerce_to_T(frequencies, T),
 		coerce_to_T(rho_g, T),
 		coerce_to_T(epsr_g, T),
-		coerce_to_T(mur_g, T);
+		coerce_to_T(mur_g, T),
+		coerce_to_T(kappa_g, T);
 		t = coerce_to_T(t, T),
 		freq_dependence = freq_dependence,
 		vertical_layers = vertical_layers,
@@ -351,7 +364,8 @@ function add!(
 	frequencies::Vector{T},
 	base_rho_g::T,
 	base_epsr_g::T,
-	base_mur_g::T;
+	base_mur_g::T,
+	base_kappa_g::T;
 	t::T = T(Inf),
 ) where {T <: REALSCALAR}
 
@@ -362,9 +376,10 @@ function add!(
 	@assert base_rho_g > 0 "Resistivity must be positive"
 	@assert base_epsr_g > 0 "Relative permittivity must be positive"
 	@assert base_mur_g > 0 "Relative permeability must be positive"
+	@assert base_kappa_g >= 0 "Thermal conductivity must be positive"
 	@assert t > 0 || isinf(t) "Layer thickness must be positive or infinite"
 	@assert eltype(frequencies) === T "frequencies eltype must match model T"
-	@assert all(x -> x isa T, (base_rho_g, base_epsr_g, base_mur_g)) "scalars must match model T"
+	@assert all(x -> x isa T, (base_rho_g, base_epsr_g, base_mur_g, base_kappa_g)) "scalars must match model T"
 
 	# Enforce thickness rules
 	if isinf(last(model.layers).t)
@@ -386,6 +401,7 @@ function add!(
 		base_rho_g,
 		base_epsr_g,
 		base_mur_g,
+		base_kappa_g,
 		t,
 		model.freq_dependence,
 	)
@@ -399,12 +415,13 @@ function add!(
 	frequencies::AbstractVector,
 	base_rho_g,
 	base_epsr_g,
-	base_mur_g;
+	base_mur_g,
+	base_kappa_g;
 	t = Inf,
 )
 
 	# Resolve the required type from ALL inputs (the model + the new layer)
-	T_new = resolve_T(model, frequencies, base_rho_g, base_epsr_g, base_mur_g, t)
+	T_new = resolve_T(model, frequencies, base_rho_g, base_epsr_g, base_mur_g, base_kappa_g, t)
 	T_old = eltype(model)
 
 	if T_new == T_old
@@ -415,7 +432,8 @@ function add!(
 			coerce_to_T(frequencies, T_new),
 			coerce_to_T(base_rho_g, T_new),
 			coerce_to_T(base_epsr_g, T_new),
-			coerce_to_T(base_mur_g, T_new);
+			coerce_to_T(base_mur_g, T_new),
+			coerce_to_T(base_kappa_g, T_new);
 			t = coerce_to_T(t, T_new),
 		)
 	else
@@ -434,7 +452,8 @@ function add!(
 			coerce_to_T(frequencies, T_new),
 			coerce_to_T(base_rho_g, T_new),
 			coerce_to_T(base_epsr_g, T_new),
-			coerce_to_T(base_mur_g, T_new);
+			coerce_to_T(base_mur_g, T_new),
+			coerce_to_T(base_kappa_g, T_new);
 			t = coerce_to_T(t, T_new),
 		)
 	end

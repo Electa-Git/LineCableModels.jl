@@ -28,7 +28,8 @@
                                     "__julia_type__": "LineCableModels.Materials.Material",
                                     "eps_r": 32.3,
                                     "mu_r": 1,
-                                    "rho": 5300
+                                    "rho": 5300,
+                                    "kappa": 148
                                 },
                                 "radius_in": 0.02115,
                                 "__julia_type__": "LineCableModels.DataModel.Semicon",
@@ -42,7 +43,8 @@
                                     "__julia_type__": "LineCableModels.Materials.Material",
                                     "eps_r": 1000,
                                     "mu_r": 1,
-                                    "rho": 1000
+                                    "rho": 1000,
+                                    "kappa": 148.0
                                 },
                                 "radius_in": 0.02145,
                                 "__julia_type__": "LineCableModels.DataModel.Semicon",
@@ -56,7 +58,8 @@
                                     "__julia_type__": "LineCableModels.Materials.Material",
                                     "eps_r": 2.3,
                                     "mu_r": 1,
-                                    "rho": 197000000000000
+                                    "rho": 197000000000000,
+                                    "kappa": 0.3
                                 },
                                 "radius_in": 0.02205,
                                 "__julia_type__": "LineCableModels.DataModel.Insulator",
@@ -70,7 +73,8 @@
                                     "__julia_type__": "LineCableModels.Materials.Material",
                                     "eps_r": 1000,
                                     "mu_r": 1,
-                                    "rho": 500
+                                    "rho": 500,
+                                    "kappa": 148.0
                                 },
                                 "radius_in": 0.03005,
                                 "__julia_type__": "LineCableModels.DataModel.Semicon",
@@ -84,7 +88,8 @@
                                     "__julia_type__": "LineCableModels.Materials.Material",
                                     "eps_r": 32.3,
                                     "mu_r": 1,
-                                    "rho": 5300
+                                    "rho": 5300,
+                                    "kappa": 148
                                 },
                                 "radius_in": 0.030350000000000002,
                                 "__julia_type__": "LineCableModels.DataModel.Semicon",
@@ -106,7 +111,8 @@
                                     "__julia_type__": "LineCableModels.Materials.Material",
                                     "eps_r": 1,
                                     "mu_r": 1.000022,
-                                    "rho": 2.8264e-8
+                                    "rho": 2.8264e-8,
+                                    "kappa": 237.0
                                 },
                                 "lay_direction": 1,
                                 "radius_in": 0,
@@ -123,7 +129,8 @@
                                     "__julia_type__": "LineCableModels.Materials.Material",
                                     "eps_r": 1,
                                     "mu_r": 1.000022,
-                                    "rho": 2.8264e-8
+                                    "rho": 2.8264e-8,
+                                    "kappa": 237.0
                                 },
                                 "lay_direction": 1,
                                 "radius_in": 0.00235,
@@ -140,7 +147,8 @@
                                     "__julia_type__": "LineCableModels.Materials.Material",
                                     "eps_r": 1,
                                     "mu_r": 1.000022,
-                                    "rho": 2.8264e-8
+                                    "rho": 2.8264e-8,
+                                    "kappa": 237.0
                                 },
                                 "lay_direction": 1,
                                 "radius_in": 0.007050000000000001,
@@ -157,7 +165,8 @@
                                     "__julia_type__": "LineCableModels.Materials.Material",
                                     "eps_r": 1,
                                     "mu_r": 1.000022,
-                                    "rho": 2.8264e-8
+                                    "rho": 2.8264e-8,
+                                    "kappa": 237.0
                                 },
                                 "lay_direction": 1,
                                 "radius_in": 0.01175,
@@ -174,7 +183,8 @@
                                     "__julia_type__": "LineCableModels.Materials.Material",
                                     "eps_r": 1,
                                     "mu_r": 1.000022,
-                                    "rho": 2.8264e-8
+                                    "rho": 2.8264e-8,
+                                    "kappa": 237.0
                                 },
                                 "lay_direction": 1,
                                 "radius_in": 0.01645,
@@ -197,7 +207,8 @@
                                     "__julia_type__": "LineCableModels.Materials.Material",
                                     "eps_r": 32.3,
                                     "mu_r": 1,
-                                    "rho": 5300
+                                    "rho": 5300,
+                                    "kappa": 148
                                 },
                                 "radius_in": 0.031700000000000006,
                                 "__julia_type__": "LineCableModels.DataModel.Semicon",
@@ -219,7 +230,8 @@
                                     "__julia_type__": "LineCableModels.Materials.Material",
                                     "eps_r": 1,
                                     "mu_r": 0.999994,
-                                    "rho": 1.7241e-8
+                                    "rho": 1.7241e-8,
+                                    "kappa": 401.0
                                 },
                                 "lay_direction": 1,
                                 "radius_in": 0.030650000000000004,
@@ -236,7 +248,8 @@
                                     "__julia_type__": "LineCableModels.Materials.Material",
                                     "eps_r": 1,
                                     "mu_r": 0.999994,
-                                    "rho": 1.7241e-8
+                                    "rho": 1.7241e-8,
+                                    "kappa": 401.0
                                 },
                                 "lay_direction": 1,
                                 "radius_in": 0.0316,
@@ -259,7 +272,8 @@
                                     "__julia_type__": "LineCableModels.Materials.Material",
                                     "eps_r": 2.3,
                                     "mu_r": 1,
-                                    "rho": 197000000000000
+                                    "rho": 197000000000000,
+                                    "kappa": 0.3
                                 },
                                 "radius_in": 0.032150000000000005,
                                 "__julia_type__": "LineCableModels.DataModel.Insulator",
@@ -273,7 +287,8 @@
                                     "__julia_type__": "LineCableModels.Materials.Material",
                                     "eps_r": 2.3,
                                     "mu_r": 1,
-                                    "rho": 197000000000000
+                                    "rho": 197000000000000,
+                                    "kappa": 0.3
                                 },
                                 "radius_in": 0.032200000000000006,
                                 "__julia_type__": "LineCableModels.DataModel.Insulator",
@@ -294,7 +309,8 @@
                                     "__julia_type__": "LineCableModels.Materials.Material",
                                     "eps_r": 1,
                                     "mu_r": 1.000022,
-                                    "rho": 2.8264e-8
+                                    "rho": 2.8264e-8,
+                                    "kappa": 237.0
                                 },
                                 "radius_in": 0.03200000000000001,
                                 "__julia_type__": "LineCableModels.DataModel.Tubular",

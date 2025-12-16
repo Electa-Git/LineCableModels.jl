@@ -249,27 +249,22 @@ function LineCableSystem(
 	return LineCableSystem(system_id, line_length, pos)
 end
 
-# # Outer (maximum) radius of the last component of a position's design
-# @inline function _outer_radius(cp::CablePosition)
-# 	comp = cp.design_data.components[end]
-# 	return max(comp.conductor_group.radius_ext, comp.insulator_group.radius_ext)
-# end
+# Outer (maximum) radius of the last component of a position's design
+@inline function _outer_radius(cp::CablePosition)
+	comp = cp.design_data.components[end]
+	return max(comp.conductor_group.radius_ext, comp.insulator_group.radius_ext)
+end
 
 # True if two cable disks overlap (strictly), evaluated in a common scalar type T
 @inline function _overlaps(a::CablePosition, b::CablePosition, ::Type{T}) where {T}
 	x1 = coerce_to_T(a.horz, T)
 	y1 = coerce_to_T(a.vert, T)
-	r1 = coerce_to_T(get_outer_radius(a.design_data), T)
+	r1 = coerce_to_T(_outer_radius(a), T)
 	x2 = coerce_to_T(b.horz, T)
 	y2 = coerce_to_T(b.vert, T)
-	r2 = coerce_to_T(get_outer_radius(b.design_data), T)
+	r2 = coerce_to_T(_outer_radius(b), T)
 	d = hypot(x1 - x2, y1 - y2)
-	tol = 1e-8 * max(r1 + r2, 1.0)
-	overlaps = d+tol < (r1 + r2)
-	if overlaps
-		@warn "Cable positions overlap: distance $d < sum of radii $(r1 + r2)"
-	end
-	return overlaps   # strict overlap; grazing contact (within tolerance) allowed
+	return d < (r1 + r2)   # strict overlap; grazing contact (==) allowed
 end
 
 """

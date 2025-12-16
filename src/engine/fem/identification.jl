@@ -71,7 +71,7 @@ function process_fragments(workspace::FEMWorkspace)
     @info "Boolean fragmentation completed"
     @debug "Before: $(length(surfaces)) surfaces, $(length(curves)) curves, $(length(points)) points"
     @debug "After: $(length(final_surfaces)) surfaces, $(length(final_curves)) curves, $(length(final_points)) points"
-    @debug "Unique markers in workspace: $(length(workspace.unassigned_entities)) markers"
+    @debug "Unique markers in workspace: $(length(workspace.core.unassigned_entities)) markers"
 
 end
 
@@ -81,15 +81,15 @@ function identify_by_marker(workspace::FEMWorkspace)
     all_surfaces = gmsh.model.get_entities(2)
 
     # Track statistics
-    total_entities = length(workspace.unassigned_entities)
+    total_entities = length(workspace.core.unassigned_entities)
     identified_count = 0
 
     # Copy keys to avoid modifying dict during iteration
-    markers = collect(keys(workspace.unassigned_entities))
+    markers = collect(keys(workspace.core.unassigned_entities))
 
     # For each marker, find which surface contains it
     for marker in markers
-        entity_data = workspace.unassigned_entities[marker]
+        entity_data = workspace.core.unassigned_entities[marker]
         physical_group_tag = entity_data.core.physical_group_tag
         elementary_name = entity_data.core.elementary_name
 
@@ -102,15 +102,15 @@ function identify_by_marker(workspace::FEMWorkspace)
                     # Place in appropriate container
                     if entity_data isa CablePartEntity
                         if entity_data.cable_part isa AbstractConductorPart
-                            push!(workspace.conductors, fem_entity)
+                            push!(workspace.core.conductors, fem_entity)
                         elseif entity_data.cable_part isa AbstractInsulatorPart
-                            push!(workspace.insulators, fem_entity)
+                            push!(workspace.core.insulators, fem_entity)
                         end
                     elseif entity_data isa SurfaceEntity
-                        push!(workspace.space_regions, fem_entity)
+                        push!(workspace.core.space_regions, fem_entity)
                     end
 
-                    delete!(workspace.unassigned_entities, marker)
+                    delete!(workspace.core.unassigned_entities, marker)
                     identified_count += 1
                     @debug "Marker at $(marker) identified entity $(tag) as $(elementary_name) (tag: $(physical_group_tag))"
                     break
@@ -123,11 +123,11 @@ function identify_by_marker(workspace::FEMWorkspace)
     all_curves = gmsh.model.get_entities(1)
 
     # Update keys to avoid modifying dict during iteration
-    markers = collect(keys(workspace.unassigned_entities))
+    markers = collect(keys(workspace.core.unassigned_entities))
 
     # For each marker, find which surface contains it
     for marker in markers
-        entity_data = workspace.unassigned_entities[marker]
+        entity_data = workspace.core.unassigned_entities[marker]
         physical_group_tag = entity_data.core.physical_group_tag
         elementary_name = entity_data.core.elementary_name
 
@@ -139,10 +139,10 @@ function identify_by_marker(workspace::FEMWorkspace)
 
                 # Place in appropriate container
                 if entity_data isa CurveEntity
-                    push!(workspace.boundaries, fem_entity)
+                    push!(workspace.core.boundaries, fem_entity)
                 end
 
-                delete!(workspace.unassigned_entities, marker)
+                delete!(workspace.core.unassigned_entities, marker)
                 identified_count += 1
                 @debug "Marker at $(marker) identified entity $(tag) as $(elementary_name) (tag: $(physical_group_tag))"
                 break
@@ -153,8 +153,8 @@ function identify_by_marker(workspace::FEMWorkspace)
     # Report identification stats
     @info "Entity identification completed: $(identified_count)/$(total_entities) entities identified"
 
-    if !isempty(workspace.unassigned_entities)
-        @warn "$(length(workspace.unassigned_entities))/$(total_entities) markers could not be matched to entities"
+    if !isempty(workspace.core.unassigned_entities)
+        @warn "$(length(workspace.core.unassigned_entities))/$(total_entities) markers could not be matched to entities"
     end
 end
 function assign_physical_groups(workspace::FEMWorkspace)
@@ -162,7 +162,7 @@ function assign_physical_groups(workspace::FEMWorkspace)
     entities_by_physical_group_tag = Dict{Tuple{Int,Int},Vector{Int}}()
 
     # Process all entity containers
-    for container in [workspace.conductors, workspace.insulators, workspace.space_regions, workspace.boundaries]
+    for container in [workspace.core.conductors, workspace.core.insulators, workspace.core.space_regions, workspace.core.boundaries]
         for entity in container
             physical_group_tag = entity.data.core.physical_group_tag
             elementary_name = entity.data.core.elementary_name

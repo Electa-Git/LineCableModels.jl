@@ -53,7 +53,7 @@ function _calc_mesh_size(part::AbstractCablePart, workspace::FEMWorkspace)
     thickness = radius_ext - radius_in
 
     # Extract formulation parameters
-    formulation = workspace.formulation
+    formulation = workspace.core.formulation
 
     # Calculate mesh size based on part type and properties
     scale_length = thickness
@@ -82,7 +82,7 @@ function _calc_mesh_size(radius_in::Number, radius_ext::Number, material::Materi
     thickness = radius_ext - radius_in
 
     # Extract problem_def parameters
-    formulation = workspace.formulation
+    formulation = workspace.core.formulation
     mesh_size = thickness / num_elements
 
     # Apply bounds from configuration
@@ -117,7 +117,7 @@ function config_mesh_options(workspace::FEMWorkspace)
     gmsh.option.set_number("General.InitialModule", 2)
 
     # Set mesh algorithm
-    gmsh.option.set_number("Mesh.Algorithm", workspace.formulation.mesh_algorithm)
+    gmsh.option.set_number("Mesh.Algorithm", workspace.core.formulation.mesh_algorithm)
     gmsh.option.set_number("Mesh.AlgorithmSwitchOnFailure", 1)
     # Set mesh optimization parameters
     gmsh.option.set_number("Mesh.Optimize", 0)
@@ -125,18 +125,18 @@ function config_mesh_options(workspace::FEMWorkspace)
 
     # Set mesh globals
     gmsh.option.set_number("Mesh.SaveAll", 1)  # Mesh all regions
-    gmsh.option.set_number("Mesh.MaxRetries", workspace.formulation.mesh_max_retries)
-    gmsh.option.set_number("Mesh.MeshSizeMin", workspace.formulation.mesh_size_min)
-    gmsh.option.set_number("Mesh.MeshSizeMax", workspace.formulation.mesh_size_max)
+    gmsh.option.set_number("Mesh.MaxRetries", workspace.core.formulation.mesh_max_retries)
+    gmsh.option.set_number("Mesh.MeshSizeMin", workspace.core.formulation.mesh_size_min)
+    gmsh.option.set_number("Mesh.MeshSizeMax", workspace.core.formulation.mesh_size_max)
     gmsh.option.set_number("Mesh.MeshSizeFromPoints", 1)
     gmsh.option.set_number("Mesh.MeshSizeFromParametricPoints", 0)
 
     gmsh.option.set_number("Mesh.MeshSizeExtendFromBoundary", 1)
-    gmsh.option.set_number("Mesh.MeshSizeFromCurvature", workspace.formulation.points_per_circumference)
+    gmsh.option.set_number("Mesh.MeshSizeFromCurvature", workspace.core.formulation.points_per_circumference)
 
 
-    @debug "Mesh algorithm: $(workspace.formulation.mesh_algorithm)"
-    @debug "Mesh size range: [$(workspace.formulation.mesh_size_min), $(workspace.formulation.mesh_size_max)]"
+    @debug "Mesh algorithm: $(workspace.core.formulation.mesh_algorithm)"
+    @debug "Mesh size range: [$(workspace.core.formulation.mesh_size_min), $(workspace.core.formulation.mesh_size_max)]"
 end
 
 """
@@ -196,7 +196,7 @@ $(FUNCTIONNAME)("test_case", problem_def, solver)
 """
 function initialize_gmsh(workspace::FEMWorkspace)
     # Create a new model
-    system_id = workspace.problem_def.system.system_id
+    system_id = workspace.core.system.system_id
     gmsh.model.add(system_id)
 
     # Module launched on startup (0: automatic, 1: geometry, 2: mesh, 3: solver, 4: post-processing)
@@ -204,7 +204,7 @@ function initialize_gmsh(workspace::FEMWorkspace)
     gmsh.option.set_string("General.DefaultFileName", system_id * ".geo")
 
     # Define verbosity level
-    gmsh_verbosity = map_verbosity_to_gmsh(workspace.opts.verbosity)
+    gmsh_verbosity = map_verbosity_to_gmsh(workspace.core.opts.verbosity)
     gmsh.option.set_number("General.Verbosity", gmsh_verbosity)
 
     # Set OCC model healing options
@@ -256,25 +256,25 @@ function _do_make_mesh!(workspace::FEMWorkspace)
     generate_mesh(workspace)
 
     # Save mesh
-    @info "Saving mesh to file: $(display_path(workspace.paths[:mesh_file]))"
-    gmsh.write(workspace.paths[:mesh_file])
+    @info "Saving mesh to file: $(display_path(workspace.core.paths[:mesh_file]))"
+    gmsh.write(workspace.core.paths[:mesh_file])
 
     # Save geometry
-    @info "Saving geometry to file: $(display_path(workspace.paths[:geo_file]))"
-    gmsh.write(workspace.paths[:geo_file])
+    @info "Saving geometry to file: $(display_path(workspace.core.paths[:geo_file]))"
+    gmsh.write(workspace.core.paths[:geo_file])
 end
 
 function mesh_exists(workspace::FEMWorkspace)
-    mesh_file = workspace.paths[:mesh_file]
+    mesh_file = workspace.core.paths[:mesh_file]
 
     # Force remesh overrides everything
-    if workspace.opts.force_remesh
+    if workspace.core.opts.force_remesh
         @debug "Force remesh requested"
         return false
     end
 
     # If workspace is empty (no entities), force remesh regardless of file existence
-    if isempty(workspace.conductors) && isempty(workspace.insulators) && isempty(workspace.space_regions) && isempty(workspace.boundaries) && isempty(workspace.physical_groups) && isempty(workspace.material_registry)
+    if isempty(workspace.core.conductors) && isempty(workspace.core.insulators) && isempty(workspace.core.space_regions) && isempty(workspace.core.boundaries) && isempty(workspace.core.physical_groups) && isempty(workspace.core.material_registry)
         @warn "Empty workspace detected - forcing remesh"
         return false
     end
@@ -298,7 +298,7 @@ function make_mesh!(workspace::FEMWorkspace)
     end
 
     # --- Mesh generation is required from this point on ---
-    @info "Building mesh for system: $(workspace.problem_def.system.system_id)"
+    @info "Building mesh for system: $(workspace.core.system.system_id)"
 
     try
         # Ensure Gmsh is initialized
@@ -312,7 +312,7 @@ function make_mesh!(workspace::FEMWorkspace)
 
         # Handle mesh-only mode: preview the mesh and stop.
         # The Gmsh session is still active here.
-        if workspace.opts.mesh_only
+        if workspace.core.opts.mesh_only
             @info "Mesh-only mode: Opening preview. Close the preview window to continue."
             preview_mesh(workspace)
             @info "Preview closed. Halting computation as per mesh_only=true."

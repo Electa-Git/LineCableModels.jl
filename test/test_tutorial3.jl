@@ -1,9 +1,14 @@
 @testitem "examples/tutorial3.jl tests" setup = [defaults] begin
 
-
 	mktempdir(joinpath(@__DIR__)) do tmpdir
 		# Materials
 		materials = MaterialsLibrary(add_defaults = true)
+		lead = Material(21.4e-8, 1.0, 0.999983, 20.0, 0.00400, 35.0)
+		add!(materials, "lead", lead)
+		steel = Material(13.8e-8, 1.0, 300.0, 20.0, 0.00450, 14.0)
+		add!(materials, "steel", steel)
+		pp = Material(1e15, 2.8, 1.0, 20.0, 0.0, 0.11)
+		add!(materials, "pp", pp)
 
 		@test haskey(materials, "lead")
 		@test haskey(materials, "steel")
@@ -93,7 +98,7 @@
 
 		# Defining a cable system
 		f = 1e-3
-		earth_params = EarthModel([f], 100.0, 10.0, 1.0)
+		earth_params = EarthModel([f], 100.0, 10.0, 1.0, 1.0)
 		xp = -0.5
 		xn = 0.5
 		y0 = -1.0

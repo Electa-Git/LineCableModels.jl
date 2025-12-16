@@ -43,10 +43,8 @@ function _collect_parts!(acc::Vector{PartSpec}, x)
 		@inbounds for y in x
 			_collect_parts!(acc, y)
 		end
-	elseif isnothing(x)
-		@warn "Ignoring `nothing` in parts collection."
 	else
-		Base.error("Expected PartSpec or a collection of PartSpec; got $(typeof(x))")
+		error("Expected PartSpec or a collection of PartSpec; got $(typeof(x))")
 	end
 	return acc
 end
@@ -224,6 +222,8 @@ function _make_variants(ps::Vector{PartSpec}, base)
 	end
 
 	# ---------------- selection stacks (resolved tuples) -------------
+	# chosen_c stores (pc, mc, dc, ac)
+	# chosen_i stores (pi, m2i, d2i, a2i)
 	chosen_c = Vector{NTuple{4, Any}}()
 	chosen_i = Vector{NTuple{4, Any}}()
 
@@ -408,12 +408,12 @@ function build(cbs::CableBuilderSpec; trace::Bool = false)
 end
 
 """
-	iterate(cbs) -> Channel{DataModel.CableDesign}
+	iterate_designs(cbs) -> Channel{DataModel.CableDesign}
 
 Lazy stream of `CableDesign`s built from `CableBuilderSpec` without allocating all of them.
-Works with `for d in iterate(cbs)`.
+Works with `for d in iterate_designs(cbs)`.
 """
-function iterate(cbs::CableBuilderSpec)
+function iterate_designs(cbs::CableBuilderSpec)
 	# group by component
 	comp_names = unique(p.component for p in cbs.parts)
 	by_comp = Dict{Symbol, Vector{PartSpec}}()
@@ -433,7 +433,8 @@ function iterate(cbs::CableBuilderSpec)
 					nominal_data = cbs.nominal,
 				)
 				for k in 2:length(built)
-					add!(des, built[k])
+					;
+					add!(des, built[k]);
 				end
 				put!(ch, des)
 				return
@@ -462,27 +463,22 @@ using ..ParametricBuilder: PartSpec, _spec
 using ...DataModel: DataModel
 
 # wire: args are (n, lay)
-Wires(component::Symbol; layers::Int, d, n::Int, lay = 11.0, m) =
+Wires(component::Symbol; layers::Int, d, n::Int, lay = 11.0, mat) =
 	PartSpec(component, DataModel.WireArray, layers;
-		dim = _spec(d), args = (n, _spec(lay)), material = m)
+		dim = _spec(d), args = (n, _spec(lay)), material = mat)
 
 # tube: no extra args
-Tubular(component::Symbol; layers::Int, t, m) =
+Tubular(component::Symbol; layers::Int, t, mat) =
 	PartSpec(component, DataModel.Tubular, layers;
-		dim = _spec(t), args = (), material = m)
+		dim = _spec(t), args = (), material = mat)
 
 # strip: args are (width, lay)
-Strip(component::Symbol; layers::Int, t, w, lay = 0.0, m) =
+Strip(component::Symbol; layers::Int, t, w, lay = 0.0, mat) =
 	PartSpec(component, DataModel.Strip, layers;
-		dim = _spec(t), args = (_spec(w), _spec(lay)), material = m)
-
-# solid: inherits inner radius = 0.0, builds from diameter
-Solid(component::Symbol; d, m) =
-	PartSpec(component, DataModel.Tubular, 1;
-		dim = _spec(d), args = (), material = m)
+		dim = _spec(t), args = (_spec(w), _spec(lay)), material = mat)
 
 # central + hex rings sugar
-function Stranded(component::Symbol; layers::Int, d, n::Int, lay = 11.0, m)
+function Stranded(component::Symbol; layers::Int, d, n::Int, lay = 11.0, mat)
 	@assert layers >= 1 "stranded: layers must be ≥ 1 (includes the central wire)."
 	specs = PartSpec[]
 	dspec = _spec(d)
@@ -491,7 +487,7 @@ function Stranded(component::Symbol; layers::Int, d, n::Int, lay = 11.0, m)
 	push!(
 		specs,
 		PartSpec(component, DataModel.WireArray, 1;
-			dim = dspec, args = (1, (0.0, nothing)), material = m),
+			dim = dspec, args = (1, (0.0, nothing)), material = mat),
 	)
 
 	# 2) rings: (layers-1) layers, base n, common lay
@@ -499,7 +495,7 @@ function Stranded(component::Symbol; layers::Int, d, n::Int, lay = 11.0, m)
 		push!(
 			specs,
 			PartSpec(component, DataModel.WireArray, layers - 1;
-				dim = dspec, args = (n, _spec(lay)), material = m),
+				dim = dspec, args = (n, _spec(lay)), material = mat),
 		)
 	end
 
@@ -513,11 +509,11 @@ module Insulator
 using ..ParametricBuilder: PartSpec, _spec
 using ...DataModel: DataModel
 
-Tubular(component::Symbol; layers::Int, t, m) =
+Tubular(component::Symbol; layers::Int, t, mat) =
 	PartSpec(component, DataModel.Insulator, layers;
-		dim = _spec(t), args = (), material = m)
+		dim = _spec(t), args = (), material = mat)
 
-Semicon(component::Symbol; layers::Int, t, m) =
+Semicon(component::Symbol; layers::Int, t, mat) =
 	PartSpec(component, DataModel.Semicon, layers;
-		dim = _spec(t), args = (), material = m)
+		dim = _spec(t), args = (), material = mat)
 end

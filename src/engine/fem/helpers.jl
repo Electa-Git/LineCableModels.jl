@@ -50,23 +50,33 @@ function setup_paths(cable_system::LineCableSystem, formulation::FEMFormulation)
     mesh_file = joinpath(case_dir, "$(case_id).msh")
     geo_file = joinpath(case_dir, "$(case_id).geo_unrolled")
     # data_file = joinpath(case_dir, "$(case_id)_data.geo")
+    if formulation.analysis_type isa AmpacityFormulation
+        analysis_file = joinpath(case_dir, "$(case_id)_$(get_resolution_name(formulation.analysis_type)).pro")
+        paths = Dict{Symbol,String}(
+            :base_dir => opts.save_path,
+            :case_dir => case_dir,
+            :results_dir => results_dir,
+            :mesh_file => mesh_file,
+            :geo_file => geo_file,
+            :analysis_file => analysis_file,
+            )
 
-    impedance_res = lowercase(formulation.analysis_type[1].resolution_name)
-    impedance_file = joinpath(case_dir, "$(case_id)_$(impedance_res).pro")
-
-    admittance_res = lowercase(formulation.analysis_type[2].resolution_name)
-    admittance_file = joinpath(case_dir, "$(case_id)_$(admittance_res).pro")
-
-    # Return compiled dictionary of paths
-    paths = Dict{Symbol,String}(
-        :base_dir => opts.save_path,
-        :case_dir => case_dir,
-        :results_dir => results_dir,
-        :mesh_file => mesh_file,
-        :geo_file => geo_file,
-        :impedance_file => impedance_file,
-        :admittance_file => admittance_file,
-    )
+    elseif formulation.analysis_type isa Tuple{AbstractImpedanceFormulation, AbstractAdmittanceFormulation}
+        impedance_res = get_resolution_name(formulation.analysis_type[1])
+        impedance_file = joinpath(case_dir, "$(case_id)_$(impedance_res).pro")
+        
+        admittance_res = get_resolution_name(formulation.analysis_type[2])
+        admittance_file = joinpath(case_dir, "$(case_id)_$(admittance_res).pro")
+        paths = Dict{Symbol,String}(
+            :base_dir => opts.save_path,
+            :case_dir => case_dir,
+            :results_dir => results_dir,
+            :mesh_file => mesh_file,
+            :geo_file => geo_file,
+            :impedance_file => impedance_file,
+            :admittance_file => admittance_file,
+        )
+    end
 
     @debug "Paths configured: $(join(["$(k): $(v)" for (k,v) in paths], ", "))"
 
@@ -138,7 +148,7 @@ function read_results_file(
 )
 
     results_path =
-        joinpath(workspace.paths[:results_dir], lowercase(fem_formulation.resolution_name))
+        joinpath(workspace.core.paths[:results_dir], lowercase(get_resolution_name(fem_formulation)))
 
     if isnothing(file)
         file =
@@ -154,7 +164,7 @@ function read_results_file(
     # Read all lines from file
     lines = readlines(filepath)
     n_rows =
-        sum([length(c.design_data.components) for c in workspace.problem_def.system.cables])
+        sum([length(c.design_data.components) for c in workspace.core.system.cables])
 
     # Pre-allocate result matrix
     matrix = zeros(ComplexF64, n_rows, n_rows)
@@ -243,7 +253,7 @@ end
 
 function archive_frequency_results(workspace::FEMWorkspace, frequency::Float64)
     try
-        results_dir = workspace.paths[:results_dir]
+        results_dir = workspace.core.paths[:results_dir]
         freq_dir =
             joinpath(dirname(results_dir), "results_f=$(round(frequency, sigdigits=6))")
 
@@ -253,9 +263,9 @@ function archive_frequency_results(workspace::FEMWorkspace, frequency::Float64)
         end
 
         # Move solver files
-        for ext in [".res", ".pre"]
+        for ext in [".res", ".pre", ".pos"]
             case_files = filter(f -> endswith(f, ext),
-                readdir(workspace.paths[:case_dir], join=true))
+                readdir(workspace.core.paths[:case_dir], join=true))
             for f in case_files
                 mv(f, joinpath(freq_dir, basename(f)), force=true)
             end

@@ -1,7 +1,6 @@
 module PlotUIComponents
 
 using Makie
-using Printf: @sprintf
 import ..BackendHandler: current_backend_symbol, _pkgid
 
 # -----------------------------------------------------------------------------
@@ -29,8 +28,6 @@ const BG_COLOR_INTERACTIVE = :grey90
 const BG_COLOR_EXPORT = :white
 const ICON_COLOR_ACTIVE = Makie.RGBAf(0.15, 0.15, 0.15, 1.0)
 const ICON_COLOR_DISABLED = Makie.RGBAf(0.55, 0.55, 0.55, 1.0)
-const TICK_FMT = x -> @sprintf("%.4g", x)
-const TICKFORMATTER = values -> [TICK_FMT(v) for v in values]
 
 
 # -----------------------------------------------------------------------------
@@ -279,8 +276,6 @@ function theme_for(
 				ylabelsize = AXIS_LABEL_FONT_SIZE,
 				xticklabelsize = AXIS_TICK_FONT_SIZE,
 				yticklabelsize = AXIS_TICK_FONT_SIZE,
-				xtickformat = TICKFORMATTER,
-				ytickformat = TICKFORMATTER,
 			),
 			Legend = (
 				fontsize = AXIS_LABEL_FONT_SIZE,
@@ -300,8 +295,6 @@ function theme_for(
 				ylabelsize = AXIS_LABEL_FONT_SIZE,
 				xticklabelsize = AXIS_TICK_FONT_SIZE,
 				yticklabelsize = AXIS_TICK_FONT_SIZE,
-				xtickformat = TICKFORMATTER,
-				ytickformat = TICKFORMATTER,
 			),
 			Legend = (
 				fontsize = AXIS_LABEL_FONT_SIZE,

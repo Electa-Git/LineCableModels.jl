@@ -1,7 +1,7 @@
 @testitem "DataModel(Tubular): constructor unit tests" setup = [defaults, deps_datamodel, defs_materials] begin
     # Input Validation
     @testset "Input Validation" begin
-        material = Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
+        material = Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393, 401.0)
 
         # Missing required arguments
         @test_throws ArgumentError Tubular()
@@ -26,7 +26,7 @@
 
     # Basic Functionality
     @testset "Basic Functionality" begin
-        material = Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
+        material = Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393, 401.0)
         t = Tubular(0.01, 0.02, material)
         @test t isa Tubular
         @test isapprox(t.radius_in, 0.01, atol=TEST_TOL)
@@ -41,7 +41,7 @@
 
     # Edge Cases
     @testset "Edge Cases" begin
-        material = Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
+        material = Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393, 401.0)
         # Very small but positive thickness
         eps = 1e-12
         t = Tubular(0.01, 0.01 + eps, material)
@@ -53,7 +53,7 @@
 
     # Physical Behavior
     @testset "Physical Behavior" begin
-        material = Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
+        material = Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393, 401.0)
         t1 = Tubular(0.01, 0.02, material)
         t2 = Tubular(0.01, 0.03, material)
         @test t2.cross_section > t1.cross_section
@@ -62,13 +62,13 @@
 
     # Type Stability & Promotion
     @testset "Type Stability & Promotion" begin
-        material = Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
+        material = Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393, 401.0)
         m = measurement(0.01, 0.001)
         # All Float64
         t1 = Tubular(0.01, 0.02, material)
         @test t1.radius_in isa Float64
         # All Measurement
-        mmat = Material(measurement(1.7241e-8, 1e-10), 1.0, 1.0, 20.0, 0.00393)
+        mmat = Material(measurement(1.7241e-8, 1e-10), 1.0, 1.0, 20.0, 0.00393, 401.0)
         t2 = Tubular(0.011, 0.021, mmat)
         @test t2.radius_in isa Measurement
         # Mixed: radius_in as Measurement

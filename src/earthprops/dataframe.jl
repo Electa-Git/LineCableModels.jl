@@ -30,12 +30,14 @@ function DataFrame(earth_model::EarthModel)
   base_rho_g = [layer.base_rho_g for layer in layers]
   base_epsr_g = [layer.base_epsr_g for layer in layers]
   base_mur_g = [layer.base_mur_g for layer in layers]
+  base_kappa_g = [layer.base_kappa_g for layer in layers]
   thickness = [layer.t for layer in layers]
 
   return DataFrame(
     rho_g=base_rho_g,
     epsr_g=base_epsr_g,
     mur_g=base_mur_g,
+    kappa_g=base_kappa_g,
     thickness=thickness,
   )
 end

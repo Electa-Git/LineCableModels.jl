@@ -49,6 +49,8 @@ struct Material{T <: REALSCALAR}
 	T0::T
 	"Temperature coefficient of resistivity \\[1/°C\\]."
 	alpha::T
+	"Thermal conductivity of the material \\[W/(m·K)\\]."
+	kappa::T
 
 	@inline function Material{T}(
 		rho::T,
@@ -56,8 +58,9 @@ struct Material{T <: REALSCALAR}
 		mu_r::T,
 		T0::T,
 		alpha::T,
+		kappa::T,
 	) where {T <: REALSCALAR}
-		return new{T}(rho, eps_r, mu_r, T0, alpha)
+		return new{T}(rho, eps_r, mu_r, T0, alpha, kappa)
 	end
 
 end
@@ -74,18 +77,20 @@ coerces values to `T`, and calls the strict numeric kernel.
 - `mu_r`: Relative permeability \\[1\\].
 - `T0`: Reference temperature \\[°C\\].
 - `alpha`: Temperature coefficient of resistivity \\[1/°C\\].
+- `kappa`: Thermal conductivity \\[W/(m·K)\\].
 
 # Returns
-- `Material{T}` where `T = resolve_T(rho, eps_r, mu_r, T0, alpha)`.
+- `Material{T}` where `T = resolve_T(rho, eps_r, mu_r, T0, alpha, kappa)`.
 """
-@inline function Material(rho, eps_r, mu_r, T0, alpha)
-	T = resolve_T(rho, eps_r, mu_r, T0, alpha)
+@inline function Material(rho, eps_r, mu_r, T0, alpha, kappa)
+	T = resolve_T(rho, eps_r, mu_r, T0, alpha, kappa)
 	return Material{T}(
 		coerce_to_T(rho, T),
 		coerce_to_T(eps_r, T),
 		coerce_to_T(mu_r, T),
 		coerce_to_T(T0, T),
 		coerce_to_T(alpha, T),
+		coerce_to_T(kappa, T),
 	)
 end
 

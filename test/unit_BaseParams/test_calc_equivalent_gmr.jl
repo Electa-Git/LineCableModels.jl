@@ -1,7 +1,7 @@
 @testitem "BaseParams: calc_equivalent_gmr unit tests" setup = [defaults, deps_datamodel, defs_materials] begin
     @testset "Basic Functionality" begin
         # Example from docstring
-        material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
+        material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393, 401.0)
         strip = Strip(0.01, Thickness(0.002), 0.05, 10, material_props)
         wirearray = WireArray(0.02, 0.002, 7, 15, material_props)
         gmr_eq = calc_equivalent_gmr(strip, wirearray)
@@ -10,7 +10,7 @@
 
     @testset "Edge Cases" begin
         # Identical layers (should reduce to geometric mean)
-        material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
+        material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393, 401.0)
         part1 = WireArray(0.01, 0.002, 7, 10, material_props)
         part2 = WireArray(0.01, 0.002, 7, 10, material_props)
         gmr_eq = calc_equivalent_gmr(part1, part2)
@@ -23,7 +23,7 @@
 
     @testset "Numerical Consistency" begin
         # Float32 vs Float64
-        material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
+        material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393, 401.0)
         part1f32 = WireArray(Float32(0.01), Float32(0.002), 7, Float32(10), material_props)
         part2f32 = WireArray(Float32(0.02), Float32(0.002), 7, Float32(15), material_props)
         gmr_eq_f32 = calc_equivalent_gmr(part1f32, part2f32)
@@ -35,7 +35,7 @@
 
     @testset "Physical Behavior" begin
         # Equivalent GMR increases as GMD increases
-        material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
+        material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393, 401.0)
         part1 = WireArray(0.01, 0.002, 7, 10, material_props)
         part2 = WireArray(0.02, 0.002, 7, 15, material_props)
         part3 = WireArray(0.03, 0.002, 7, 15, material_props)
@@ -46,7 +46,7 @@
 
     @testset "Type Stability & Promotion" begin
         using Measurements
-        material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
+        material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393, 401.0)
         part1 = WireArray(0.01, 0.002, 7, 10, material_props)
         part2 = WireArray(0.02, 0.002, 7, 15, material_props)
         mpart1 = WireArray(measurement(0.01, 1e-4), 0.002, 7, 10, material_props)
@@ -67,7 +67,7 @@
 
     @testset "Uncertainty Quantification" begin
         using Measurements
-        material_props = Material(1.7241e-8, 1.0, 0.999994, measurement(20, 10), 0.00393)
+        material_props = Material(1.7241e-8, 1.0, 0.999994, measurement(20, 10), 0.00393, 401.0)
         part1 = WireArray(0.01, 0.002, 7, 10, material_props)
         part2 = WireArray(0.02, 0.002, 7, 15, material_props)
         mpart1 = WireArray(measurement(0.01, 1e-4), 0.002, 7, 10, material_props)

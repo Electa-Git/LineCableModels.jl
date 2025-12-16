@@ -4,12 +4,6 @@ using LoggingExtras: TeeLogger, FileLogger
 using Dates
 using Printf
 
-levelfrom(v::Integer)::Logging.LogLevel =
-	v >= 2 ? Logging.Debug :
-	v == 1 ? Logging.Info  :
-	v == 0 ? Logging.Warn  :
-	Logging.Error
-
 
 
 struct TimestampLogger <: AbstractLogger
@@ -30,9 +24,9 @@ function Logging.handle_message(logger::TimestampLogger, level, message, _module
 end
 
 function set_verbosity!(verbosity::Int, logfile::Union{String, Nothing} = nothing)
-	# level = verbosity >= 2 ? Logging.Debug :
-	# 		verbosity == 1 ? Logging.Info : Logging.Warn
-	level = levelfrom(verbosity)
+	level = verbosity >= 2 ? Logging.Debug :
+			verbosity == 1 ? Logging.Info : Logging.Warn
+
 	# Create console logger
 	console_logger = ConsoleLogger(stderr, level)
 

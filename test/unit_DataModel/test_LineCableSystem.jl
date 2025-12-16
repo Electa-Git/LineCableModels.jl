@@ -9,8 +9,8 @@
 
     # Minimal Float64 design with matching interface radii
     function _make_design_F64(; id="CAB")
-        mC = MAT.Material(1e-8, 1.0, 1.0, 20.0, 0.0)
-        mI = MAT.Material(1e12, 2.5, 1.0, 20.0, 0.0)
+        mC = MAT.Material(1e-8, 1.0, 1.0, 20.0, 0.0, 100.0)
+        mI = MAT.Material(1e12, 2.5, 1.0, 20.0, 0.0, 0.5)
 
         cg = DM.ConductorGroup(DM.Tubular(0.010, 0.012, mC))
         ig = DM.InsulatorGroup(DM.Insulator(0.012, 0.016, mI))

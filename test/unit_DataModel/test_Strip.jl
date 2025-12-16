@@ -94,7 +94,7 @@
         # Mixed: width as measurement
         sMix2 = Strip(0.01, 0.012, measurement(0.05, 1e-4), 10.0, copper_props)
         @test typeof(sMix2.width) <: Measurement
-        mmat = Material(measurement(1.7241e-8, 1e-10), 1.0, 1.0, 20.0, 0.00393)
+        mmat = Material(measurement(1.7241e-8, 1e-10), 1.0, 1.0, 20.0, 0.00393, 401.0)
         sMix3 = Strip(0.01, 0.012, 0.05, 10.0, mmat, temperature=20.0, lay_direction=1)
         @test typeof(sMix3.resistance) <: Measurement
     end

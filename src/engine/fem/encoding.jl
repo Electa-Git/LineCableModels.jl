@@ -263,23 +263,23 @@ material_id = get_or_register_material_id(workspace, copper_material)
 """
 function get_or_register_material_id(workspace::FEMWorkspace, material::Material)
 	# Create material_registry if it doesn't exist
-	if !isdefined(workspace, :material_registry)
-		workspace.material_registry = Dict{String, Int}()
+	if !isdefined(workspace.core, :material_registry)
+		workspace.core.material_registry = Dict{String, Int}()
 	end
 
 	# Get material name using existing function that checks library first
-	material_name = get_material_name(material, workspace.formulation.materials)
+	material_name = get_material_name(material, workspace.core.formulation.materials)
 
 	# Find or create the ID
-	if !haskey(workspace.material_registry, material_name)
+	if !haskey(workspace.core.material_registry, material_name)
 		# New material - assign next available ID
-		material_id = length(workspace.material_registry) + 1
+		material_id = length(workspace.core.material_registry) + 1
 		if material_id > 99
 			Base.error("Material registry full: Maximum of 99 unique materials supported")
 		end
-		workspace.material_registry[material_name] = material_id
+		workspace.core.material_registry[material_name] = material_id
 	else
-		material_id = workspace.material_registry[material_name]
+		material_id = workspace.core.material_registry[material_name]
 	end
 
 	return material_id
@@ -292,19 +292,20 @@ function register_physical_group!(
 )
 
 	# Create physical_groups if it doesn't exist
-	if !isdefined(workspace, :physical_groups)
-		workspace.physical_groups = Dict{Int, Material}()
+	if !isdefined(workspace.core, :physical_groups)
+		workspace.core.physical_groups = Dict{Int, Material}()
 	end
 
 	# Find or create the ID
-	if !haskey(workspace.physical_groups, physical_group_tag)
+	if !haskey(workspace.core.physical_groups, physical_group_tag)
 		# New material - assign next available ID
-		workspace.physical_groups[physical_group_tag] = Material(
+		workspace.core.physical_groups[physical_group_tag] = Material(
 			to_nominal(material.rho),
 			to_nominal(material.eps_r),
 			to_nominal(material.mu_r),
 			to_nominal(material.T0),
 			to_nominal(material.alpha),
+			to_nominal(material.kappa),
 		)
 	end
 
@@ -410,7 +411,7 @@ function _create_surface_physical_name(workspace::FEMWorkspace, tag::Int)
 
 	# Get material name if available
 	material_name = "unknown"
-	for (name, id) in workspace.material_registry
+	for (name, id) in workspace.core.material_registry
 		if id == material_id
 			material_name = name
 			break
@@ -422,8 +423,8 @@ function _create_surface_physical_name(workspace::FEMWorkspace, tag::Int)
 		# Cable component
 		# Try to get component name
 		component_name = "unknown"
-		if 1 <= entity_num <= length(workspace.problem_def.system.cables)
-			cable = workspace.problem_def.system.cables[entity_num]
+		if 1 <= entity_num <= length(workspace.core.system.cables)
+			cable = workspace.core.system.cables[entity_num]
 
 			# Validate component_num is within range
 			if 1 <= component_num <= length(cable.design_data.components)

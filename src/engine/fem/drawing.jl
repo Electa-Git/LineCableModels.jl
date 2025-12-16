@@ -198,8 +198,8 @@ function draw_line(
 
 	if length(mesh_points) >= 2
 		# Iterate through adjacent pairs of mesh points
-		for i in 1:(num_points-1)
-			t = (i - 0.5) / (num_points - 1)  # Parametric coordinate (0.5 between points)
+		for i in 1:(num_points*10-1)
+			t = (i - 0.5) / (num_points*10 - 1)  # Parametric coordinate (0.5 between points)
 			mid_x = x1 + t * (x2 - x1)
 			mid_y = y1 + t * (y2 - y1)
 			# Create marker at midpoint
@@ -263,10 +263,10 @@ function draw_disk(
 
 	if num_points >= 2
 		# Calculate the angular step between mesh points
-		theta_step = 2 * pi / num_points
+		theta_step = 2 * pi / (num_points*1000)
 
 		# Add a midpoint marker for each arc segment
-		for i in 1:num_points
+		for i in 1:(num_points*1000)
 			# Calculate midpoint theta (angle)
 			theta_mid = (i - 0.5) * theta_step
 
@@ -365,10 +365,10 @@ function draw_annular(
 
 	if num_points >= 2
 		# Calculate the angular step between mesh points
-		theta_step = 2 * pi / num_points
+		theta_step = 2 * pi / (num_points*1000)
 
 		# Add a midpoint marker for each arc segment
-		for i in 1:num_points
+		for i in 1:(num_points*1000)
 			# Calculate midpoint theta (angle)
 			theta_mid = (i - 0.5) * theta_step
 
@@ -736,5 +736,3 @@ function get_air_gap_markers(num_wires::Int, radius_wire::Number, radius_in::Num
 	end
 	return markers
 end
-
-

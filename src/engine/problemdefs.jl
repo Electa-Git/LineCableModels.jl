@@ -133,14 +133,12 @@ T₀ = $T₀
 				r_outer_j = positions[j][3]
 
 				# Check if cables overlap
-				min_allowed = r_outer_i + r_outer_j
-				tol = 1e-8 * max(min_allowed, 1.0)
+				min_allowed_dist = r_outer_i + r_outer_j
 
-
-				@assert dist + tol >= min_allowed """
+				@assert dist > min_allowed_dist """
 					Cables $i and $j overlap!
-					Center-to-center distance: $(dist + tol) m
-					Minimum required distance: $(min_allowed) m
+					Center-to-center distance: $(dist) m
+					Minimum required distance: $(min_allowed_dist) m
 					Cable $i outer radius: $(r_outer_i) m
 					Cable $j outer radius: $(r_outer_j) m"""
 			end
@@ -155,6 +153,212 @@ T₀ = $T₀
 		)
 	end
 end
+"""
+$(TYPEDEF)
+
+Represents an Magneto-thermal computation problem for a given physical cable system
+and a specific energization.
+
+$(TYPEDFIELDS)
+"""
+struct AmpacityProblem{T <: REALSCALAR} <: ProblemDefinition
+    "The physical cable system to analyze."
+    system::LineCableSystem{T}
+    "Ambient operating temperature [°C]."
+    temperature::T
+    "Earth properties model."
+    earth_props::EarthModel{T}
+    "Vector of frequencies at which the analysis is performed [Hz]."
+    frequencies::Vector{T}
+    "Vector of energizing currents [A]. Index corresponds to phase number."
+    energizations::Vector{Complex{T}}
+	"Velocity of the ambient wind [m/s]."
+	wind_velocity::T
+
+    @doc """
+    $(TYPEDSIGNATURES)
+
+    Constructs an [`AmpacityProblem`](@ref) instance.
+
+    # Arguments
+
+    - `system`: The cable system to analyze ([`LineCableSystem`](@ref)).
+    - `temperature`: Ambient temperature [°C]. Default: `T₀`.
+    - `earth_props`: Earth properties model ([`EarthModel`](@ref)).
+    - `frequencies`: Vector of frequency for analysis [Hz]. Default: [`f₀`](@ref).
+    - `energizations`: Vector of phase currents [A]. Must match `system.num_phases`.
+
+    # Returns
+
+    - An [`AmpacityProblem`](@ref) object with validated inputs.
+
+    # Examples
+
+    ```julia
+    prob = $(FUNCTIONNAME)(system;
+        temperature=25.0,
+        earth_props=earth,
+        frequencies=[60.0],
+        energizations=[100.0 + 0im, 100.0 * cis(-2pi/3), 100.0 * cis(2pi/3)]
+    )
+    ```
+    """
+    function AmpacityProblem(
+        system::LineCableSystem;
+        temperature::REALSCALAR = (T₀),
+        earth_props::EarthModel,
+        frequencies::Vector{<:Number} = [f₀],
+        energizations::Vector{<:Number},
+		wind_velocity::REALSCALAR = 1.0,
+    )
+
+        # 1. System structure validation
+        @assert !isempty(system.cables) "LineCableSystem must contain at least one cable"
+
+        # 2. Phase assignment validation
+        phase_numbers = unique(vcat([cable.conn for cable in system.cables]...))
+        @assert !isempty(filter(x -> x > 0, phase_numbers)) "At least one conductor must be assigned to a phase (>0)"
+        @assert maximum(phase_numbers) <= system.num_phases "Invalid phase number detected"
+
+        # 3. Cable components validation
+        for (i, cable) in enumerate(system.cables)
+            @assert !isempty(cable.design_data.components) "Cable $i has no components defined"
+
+            # Validate conductor-insulator pairs
+            for (j, comp) in enumerate(cable.design_data.components)
+                @assert !isempty(comp.conductor_group.layers) "Component $j in cable $i has no conductor layers"
+                @assert !isempty(comp.insulator_group.layers) "Component $j in cable $i has no insulator layers"
+
+                # Validate monotonic increase of radii
+                @assert comp.conductor_group.radius_ext > comp.conductor_group.radius_in "Component $j in cable $i: conductor outer radius must be larger than inner radius"
+                @assert comp.insulator_group.radius_ext > comp.insulator_group.radius_in "Component $j in cable $i: insulator outer radius must be larger than inner radius"
+
+                # Validate geometric continuity between conductor and insulator
+                r_ext_cond = comp.conductor_group.radius_ext
+                r_in_ins = comp.insulator_group.radius_in
+                @assert abs(r_ext_cond - r_in_ins) < 1e-10 "Geometric mismatch in cable $i component $j: conductor outer radius ≠ insulator inner radius"
+
+                # Validate electromagnetic properties
+                # Conductor properties
+                @assert comp.conductor_props.rho > 0 "Component $j in cable $i: conductor resistivity must be positive"
+                @assert comp.conductor_props.mu_r > 0 "Component $j in cable $i: conductor relative permeability must be positive"
+                @assert comp.conductor_props.eps_r >= 0 "Component $j in cable $i: conductor relative permittivity grater than or equal to zero"
+
+                # Insulator properties
+                @assert comp.insulator_props.rho > 0 "Component $j in cable $i: insulator resistivity must be positive"
+                @assert comp.insulator_props.mu_r > 0 "Component $j in cable $i: insulator relative permeability must be positive"
+                @assert comp.insulator_props.eps_r > 0 "Component $j in cable $i: insulator relative permittivity must be positive"
+            end
+        end
+
+        # 4. Temperature range validation
+        @assert abs(temperature - T₀) < ΔTmax """
+Temperature is outside the valid range for linear resistivity model:
+T = $temperature
+T₀ = $T₀
+ΔTmax = $ΔTmax
+|T - T₀| = $(abs(temperature - T₀))"""
+		# 5. Wind velocity validation
+		@assert wind_velocity >= 0.0 "Wind velocity must be non-negative"
+		@assert wind_velocity <= 140.0 "Wind velocity exceeds typical maximum values (140 m/s)"
+
+		# 6. Frequency range validation
+		@assert !isempty(frequencies) "Frequency vector cannot be empty"
+		@assert all(f -> f > 0, frequencies) "All frequencies must be positive"
+		@assert issorted(frequencies) "Frequency vector must be monotonically increasing"
+		if maximum(frequencies) > 1e8
+			@warn "Frequencies above 100 MHz exceed quasi-TEM validity limit. High-frequency results should be interpreted with caution." maxfreq =
+				maximum(frequencies)
+		end
+
+        # 7. Earth model validation (Adapted for single frequency)
+        @assert length(earth_props.layers[end].rho_g) == 1 """Earth model frequencies must match analysis frequency count (must be 1)
+        Earth model frequencies = $(length(earth_props.layers[end].rho_g))
+        Analysis frequencies = 1
+        """
+
+        # 8. Geometric validation
+        positions = [
+            (
+                cable.horz,
+                cable.vert,
+                maximum(
+                    comp.insulator_group.radius_ext
+                    for comp in cable.design_data.components
+                ),
+            )
+            for cable in system.cables
+        ]
+
+        for i in eachindex(positions)
+            for j in (i+1):lastindex(positions)
+                # Calculate center-to-center distance
+                dist = sqrt(
+                    (positions[i][1] - positions[j][1])^2 +
+                    (positions[i][2] - positions[j][2])^2,
+                )
+
+                # Get outermost radii for both cables
+                r_outer_i = positions[i][3]
+                r_outer_j = positions[j][3]
+
+                # Check if cables overlap
+                min_allowed_dist = r_outer_i + r_outer_j
+
+                @assert dist > min_allowed_dist """
+                    Cables $i and $j overlap!
+                    Center-to-center distance: $(dist) m
+                    Minimum required distance: $(min_allowed_dist) m
+                    Cable $i outer radius: $(r_outer_i) m
+                    Cable $j outer radius: $(r_outer_j) m"""
+            end
+        end
+
+        # 9. Energization validation
+        @assert length(energizations) == system.num_phases """
+        Number of energizations must match the number of phases in the system.
+        Phases in system: $(system.num_phases)
+        Energizations provided: $(length(energizations))"""
+
+
+        # 10. Type resolution and final construction
+        T = resolve_T(system, temperature, earth_props, frequencies, wind_velocity)
+        
+        # Coerce energizations to Complex{T}
+        complex_energizations = coerce_to_T(energizations, Complex{T})
+        
+        return new{T}(
+            coerce_to_T(system, T),
+            coerce_to_T(temperature, T),
+            coerce_to_T(earth_props, T),
+            coerce_to_T(frequencies, T),
+			complex_energizations,
+			coerce_to_T(wind_velocity, T),
+        )
+    end
+end
+
+# @kwdef struct EMTOptions <: AbstractFormulationOptions
+# 	"Skip user confirmation for overwriting results"
+# 	force_overwrite::Bool = false
+# 	"Reduce bundle conductors to equivalent single conductor"
+# 	reduce_bundle::Bool = true
+# 	"Eliminate grounded conductors from the system (Kron reduction)"
+# 	kron_reduction::Bool = true
+# 	"Enforce ideal transposition/snaking"
+# 	ideal_transposition::Bool = true
+# 	"Temperature correction"
+# 	temperature_correction::Bool = true
+# 	"Save path for output files"
+# 	save_path::String = joinpath(".", "lineparams_output")
+# 	"Verbosity level"
+# 	verbosity::Int = 0
+# 	"Log file path"
+# 	logfile::Union{String, Nothing} = nothing
+# end
+
+# The one-line constructor to "promote" a NamedTuple
+# EMTOptions(opts::NamedTuple) = EMTOptions(; opts...)
 
 """
 $(TYPEDEF)
@@ -175,7 +379,7 @@ struct EMTFormulation <: AbstractFormulationSet
 	"Earth admittance formulation."
 	earth_admittance::EarthAdmittanceFormulation
 	"Modal transformation method."
-	modal_transform::Union{AbstractTransformFormulation, Nothing}
+	modal_transform::AbstractTransformFormulation
 	"Equivalent homogeneous earth model (EHEM) formulation."
 	equivalent_earth::Union{AbstractEHEMFormulation, Nothing}
 	"Solver options for EMT-type computations."
@@ -213,7 +417,7 @@ struct EMTFormulation <: AbstractFormulationSet
 		earth_impedance::EarthImpedanceFormulation,
 		insulation_admittance::InsulationAdmittanceFormulation,
 		earth_admittance::EarthAdmittanceFormulation,
-		modal_transform::Union{AbstractTransformFormulation, Nothing},
+		modal_transform::AbstractTransformFormulation,
 		equivalent_earth::Union{AbstractEHEMFormulation, Nothing},
 		options::EMTOptions,
 	)
@@ -231,7 +435,7 @@ function FormulationSet(::Val{:EMT};
 	earth_impedance::EarthImpedanceFormulation = EarthImpedance.Papadopoulos(),
 	insulation_admittance::InsulationAdmittanceFormulation = InsulationAdmittance.Lossless(),
 	earth_admittance::EarthAdmittanceFormulation = EarthAdmittance.Papadopoulos(),
-	modal_transform::Union{AbstractTransformFormulation, Nothing} = nothing,
+	modal_transform::AbstractTransformFormulation = Transforms.Fortescue(),
 	equivalent_earth::Union{AbstractEHEMFormulation, Nothing} = nothing,
 	options = (;),
 )

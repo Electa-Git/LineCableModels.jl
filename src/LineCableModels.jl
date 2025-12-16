@@ -20,12 +20,12 @@ export trifoil_formation, flat_formation, preview, equivalent
 export EarthModel
 
 # Engine:
-export LineParametersProblem,
+export LineParametersProblem, AmpacityProblem, 
 	FormulationSet,
 	compute!, SeriesImpedance, ShuntAdmittance, per_km, per_m, kronify
 
 # Parametric builder:
-# export make_stranded, make_screened
+export make_stranded, make_screened
 # export conductor, insulator
 
 # Import/Export:
@@ -71,14 +71,11 @@ using .DataModel: Thickness, Diameter, WireArray, Strip, Tubular, Semicon, Insul
 
 # Submodule `Engine`
 include("engine/Engine.jl")
-using .Engine: LineParametersProblem, compute!, SeriesImpedance, ShuntAdmittance, per_km,
+using .Engine: LineParametersProblem, AmpacityProblem, compute!, SeriesImpedance, ShuntAdmittance, per_km,
 	per_m, kronify, FormulationSet
 
 # Submodule `ParametricBuilder`
 include("parametricbuilder/ParametricBuilder.jl")
-
-# Submodule `UQ`
-include("uq/UQ.jl")
 
 # Submodule `ImportExport`
 include("importexport/ImportExport.jl")

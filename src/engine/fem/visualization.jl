@@ -108,7 +108,7 @@ function preview_results(workspace::FEMWorkspace, pos_file::String)
         gmsh.model.add("field_view")
 
         # Merge mesh file
-        mesh_file = workspace.paths[:mesh_file]
+        mesh_file = workspace.core.paths[:mesh_file]
         if isfile(mesh_file)
             gmsh.merge(abspath(mesh_file))
         else

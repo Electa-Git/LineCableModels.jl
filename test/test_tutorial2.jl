@@ -147,7 +147,7 @@
 
     @testset "cable system and export" begin
         f = 10.0 .^ range(0, stop=6, length=10)
-        earth_params = EarthModel(f, 100.0, 10.0, 1.0)
+        earth_params = EarthModel(f, 100.0, 10.0, 1.0, 1.0)
         @test DataFrame(earth_params) isa DataFrame
 
         x0, y0 = 0.0, -1.0
@@ -178,7 +178,7 @@
         @test preview(cable_design, display_plot=false) isa Any
 
         f = 10.0 .^ range(0, stop=6, length=10)
-        earth_params = EarthModel(f, 100.0, 10.0, 1.0)
+        earth_params = EarthModel(f, 100.0, 10.0, 1.0, 1.0)
         x0, y0 = 0.0, -1.0
         xa, ya, xb, yb, xc, yc = trifoil_formation(x0, y0, 0.035)
         cablepos = CablePosition(cable_design, xa, ya, Dict("core" => 1, "sheath" => 0, "jacket" => 0))
@@ -223,7 +223,7 @@
 
         # Test exporting a system where some components are grounded (valid case)
         f = 10.0 .^ range(0, stop=6, length=10)
-        earth_params = EarthModel(f, 100.0, 10.0, 1.0)
+        earth_params = EarthModel(f, 100.0, 10.0, 1.0, 1.0)
         cablepos_partially_grounded = CablePosition(cable_design, xa, ya, Dict("core" => 1, "sheath" => 0, "jacket" => 0))
         system_partially_grounded = LineCableSystem("partially_grounded_system", 1000.0, cablepos_partially_grounded)
         mktempdir(joinpath(@__DIR__)) do temp_dir

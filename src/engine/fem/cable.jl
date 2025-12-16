@@ -25,7 +25,7 @@ $(FUNCTIONNAME)(workspace)
 function make_cable_geometry(workspace::FEMWorkspace)
 
 	# Get the cable system
-	cable_system = workspace.problem_def.system
+	cable_system = workspace.core.system
 
 	# Process each cable in the system
 	for (cable_idx, cable_position) in enumerate(cable_system.cables)
@@ -124,7 +124,7 @@ function _make_cablepart!(workspace::FEMWorkspace, part::AbstractCablePart,
 	phase::Int, layer_idx::Int)
 
 	# Get the cable definition
-	cable_position = workspace.problem_def.system.cables[cable_idx]
+	cable_position = workspace.core.system.cables[cable_idx]
 
 	# Get the center coordinates
 	x_center = to_nominal(cable_position.horz)
@@ -162,11 +162,11 @@ function _make_cablepart!(workspace::FEMWorkspace, part::AbstractCablePart,
 
 	# Calculate mesh size for this part
 	if part isa AbstractConductorPart
-		num_elements = workspace.formulation.elements_per_length_conductor
+		num_elements = workspace.core.formulation.elements_per_length_conductor
 	elseif part isa Insulator
-		num_elements = workspace.formulation.elements_per_length_insulator
+		num_elements = workspace.core.formulation.elements_per_length_insulator
 	elseif part isa Semicon
-		num_elements = workspace.formulation.elements_per_length_semicon
+		num_elements = workspace.core.formulation.elements_per_length_semicon
 	end
 
 	mesh_size_current =
@@ -199,7 +199,7 @@ function _make_cablepart!(workspace::FEMWorkspace, part::AbstractCablePart,
 		mesh_size = mesh_size_current
 	end
 
-	num_points_circumference = workspace.formulation.points_per_circumference
+	num_points_circumference = workspace.core.formulation.points_per_circumference
 
 	# Create annular shape and assign marker
 	if radius_in ≈ 0
@@ -223,7 +223,7 @@ function _make_cablepart!(workspace::FEMWorkspace, part::AbstractCablePart,
 	entity_data = CablePartEntity(core_data, part)
 
 	# Add to workspace in the unassigned container for subsequent processing
-	workspace.unassigned_entities[marker] = entity_data
+	workspace.core.unassigned_entities[marker] = entity_data
 
 	# Add physical groups to the workspace
 	register_physical_group!(workspace, physical_group_tag, part.material_props)
@@ -262,7 +262,7 @@ function _make_cablepart!(workspace::FEMWorkspace, part::WireArray,
 	phase::Int, layer_idx::Int)
 
 	# Get the cable definition
-	cable_position = workspace.problem_def.system.cables[cable_idx]
+	cable_position = workspace.core.system.cables[cable_idx]
 
 	# Get the center coordinates
 	x_center = to_nominal(cable_position.horz)
@@ -297,7 +297,7 @@ function _make_cablepart!(workspace::FEMWorkspace, part::WireArray,
 
 
 	# Calculate mesh size for this part
-	num_elements = workspace.formulation.elements_per_length_conductor
+	num_elements = workspace.core.formulation.elements_per_length_conductor
 	mesh_size_current =
 		_calc_mesh_size(radius_in, radius_ext, part.material_props, num_elements, workspace)
 
@@ -330,7 +330,7 @@ function _make_cablepart!(workspace::FEMWorkspace, part::WireArray,
 
 
 
-	num_points_circumference = workspace.formulation.points_per_circumference
+	num_points_circumference = workspace.core.formulation.points_per_circumference
 
 	# Calculate wire positions
 	function _calc_wirearray_coords(
@@ -381,7 +381,7 @@ function _make_cablepart!(workspace::FEMWorkspace, part::WireArray,
 		entity_data = CablePartEntity(core_data, part)
 
 		# Add to workspace
-		workspace.unassigned_entities[marker] = entity_data
+		workspace.core.unassigned_entities[marker] = entity_data
 	end
 	# Add physical groups to the workspace
 	register_physical_group!(workspace, physical_group_tag, part.material_props)
@@ -441,7 +441,7 @@ function _make_cablepart!(workspace::FEMWorkspace, part::WireArray,
 			entity_data = SurfaceEntity(core_data, air_material)
 
 			# Add to unassigned entities with type information
-			workspace.unassigned_entities[marker] = entity_data
+			workspace.core.unassigned_entities[marker] = entity_data
 		end
 
 		# Add physical groups to the workspace

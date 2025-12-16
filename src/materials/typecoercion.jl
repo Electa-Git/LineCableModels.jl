@@ -8,4 +8,5 @@
     coerce_to_T(m.mu_r, T),
     coerce_to_T(m.T0, T),
     coerce_to_T(m.alpha, T),
+    coerce_to_T(m.kappa, T),
 )

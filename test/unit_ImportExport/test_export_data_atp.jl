@@ -1,5 +1,6 @@
 @testsnippet deps_export_atp begin
 	using EzXML
+	include("C:\\Users\\Amauri\\OneDrive\\Documentos\\UnB\\Mestrado\\LineCableModels.jl\\test\\runtests.jl")
 end
 
 # TODO: test if serialization works properly if uncertain types are used (Measurements)
