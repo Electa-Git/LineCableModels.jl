@@ -59,13 +59,23 @@ function axis_slice(
 	# --- Apply indices (i,j,k) → 1D slice along sample dimension ---
 	arr = raw_arr
 	nd  = ndims(arr)
-
+	@show nd
+	@show arr
 	has_i = haskey(nt, :i)
 	has_j = haskey(nt, :j)
 	has_k = haskey(nt, :k)
 
 	# First slice in i,j where applicable
-	if has_i && has_j && nd >= 3
+	if has_i && has_j
+		if nd < 3
+			Base.error(
+				"Invalid axis storage for $(dim): spec uses indices :i and :j, " *
+				"but container_array($(S), $(dim)) returned an array with $(nd) dimension(s). " *
+				"When both :i and :j are active, the underlying array must be at least 3D " *
+				"(Ni, Nj, Nk...). Check index_keys($(S)) and container_array($(S), $(dim)).",
+			)
+		end
+		# canonical case: Ni×Nj×Nk...
 		arr = view(arr, nt.i, nt.j, :)
 	elseif has_i && nd >= 2 && !has_j
 		arr = view(arr, nt.i, :)
