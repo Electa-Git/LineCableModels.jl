@@ -17,6 +17,26 @@ function build_figures(
 ) where {S <: AbstractPlotSpec}
 	layout = figure_layout(S)                # :windows, :grid, ...
 
+	# Do not materialize plots if length == 1.
+	# Upstream grouping/materialization stays intact, but the final Figure[] is empty.
+	if !isempty(panels)
+		p1 = first(panels)
+		if !isempty(p1.series)
+			ds1 = first(p1.series)
+
+			data1 =
+				ds1.xdata === nothing ? (ds1.ydata === nothing ? ds1.zdata : ds1.ydata) :
+				ds1.xdata
+			if data1 !== nothing
+				n = length(data1)
+				if n <= 1
+					@warn "Skipping plot for spec $(S): sample length is $(n) (need ≥ 2)."
+					return Figure[]
+				end
+			end
+		end
+	end
+
 	fig_kwargs = nt.renderer
 	figsize = default_figsize(S)
 	fig_title = default_title(S, nt)
@@ -28,7 +48,7 @@ end
 # Determine if, for spec S and resolved input nt, the leaf seen by axis_slice /
 # build_series behaves as "scalar" (numeric/complex) or as a NamedTuple that
 # should be exploded at the figure / panel level.
-function is_target_scalar(::Type{S}, nt::NamedTuple) where {S <: AbstractPlotSpec}
+function is_leaf(::Type{S}, nt::NamedTuple) where {S <: AbstractPlotSpec}
 	dims_raw = geom_axes(S)
 	dims = dims_raw isa Tuple ? dims_raw : (dims_raw,)
 
@@ -70,9 +90,8 @@ function resolve_group_mode(::Type{S}, nt::NamedTuple) where {S <: AbstractPlotS
 	i_defined = has_i && haskey(nt, :i)
 	j_defined = has_j && haskey(nt, :j)
 
-	leaf_scalar = is_target_scalar(S, nt)
 
-	if leaf_scalar
+	if is_leaf(S, nt)
 		if !has_matrix
 			return :single
 		end
@@ -387,67 +406,4 @@ function build_figures(
 
 	return build_figures(S, nt, areas)
 end
-
-
-# """
-# 	build_figures(::Type{S}, nt, panels) where {S<:AbstractPlotSpec}
-
-# Packs Panel values into Figure payloads.
-
-# Default behavior:
-# - a single Figure is created for this spec call,
-# - `layout` is chosen based on `grouping_mode(S)` and the number of plot areas (panels):
-# 	:grid   → :grid if more than one area, otherwise :single
-# 	:none   → :single
-# 	:overlay → :single
-# - figure kwargs include at least `figsize = default_figsize(S)`.
-
-# Specs that want multiple OS windows or more complex layout policies may
-# override this method.
-# """
-# function build_figures(
-# 	::Type{S},
-# 	nt::NamedTuple,
-# 	panels::Vector{Panel},
-# ) where {S <: AbstractPlotSpec}
-# 	mode   = grouping_mode(S)
-# 	layout = if mode === :grid && length(panels) > 1
-# 		:grid
-# 	else
-# 		:single
-# 	end
-
-# 	figsize = default_figsize(S)
-# 	fig_kwargs = (figsize = figsize,)
-
-# 	figure = Figure("", layout, panels, fig_kwargs)
-# 	return Figure[figure]
-# end
-
-# """
-# 	build_figures(::Type{S}, nt) where {S<:AbstractPlotSpec}
-
-# High-level payload builder: from normalized input `nt` to a vector of
-# Figure values.
-
-# Pipeline:
-
-#   axes   = build_axes(S, nt)
-#   series = build_series(S, nt, axes)
-#   panels  = build_panels(S, nt, axes, series)
-#   figs   = build_figures(S, nt, panels)
-
-# Specs may override `build_series`, `build_panels`, or the
-# `build_figures(S, nt, panels)` method to encode custom trace, panel, or
-# window grouping, while reusing the common grammar and axis machinery.
-# """
-# function build_figures(
-# 	::Type{S},
-# 	nt::NamedTuple,
-# ) where {S <: AbstractPlotSpec}
-# 	axes = build_axes(S, nt)
-# 	series = build_series(S, nt, axes)
-# 	panels = build_panels(S, nt, axes, series)
-# 	return build_figures(S, nt, panels)
-# end
 
