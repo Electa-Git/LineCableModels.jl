@@ -322,9 +322,9 @@ mesh_transition2 = MeshTransition(
 
 # Define runtime options 
 opts = (
-	force_remesh = false,                # Force remeshing
+	force_remesh = true,                # Force remeshing
 	force_overwrite = true,             # Overwrite existing files
-	plot_field_maps = false,             # Do not compute/ plot field maps
+	plot_field_maps = true,             # Do not compute/ plot field maps
 	mesh_only = false,                  # Preview the mesh
 	save_path = fullfile("fem_output"), # Results directory
 	keep_run_files = true,              # Archive files after each run

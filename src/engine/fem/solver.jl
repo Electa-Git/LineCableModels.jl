@@ -1,15 +1,21 @@
 
 
-@inline function get_output_filename(::AbstractImpedanceFormulation, workspace::FEMWorkspace)
-    return workspace.core.paths[:impedance_file]
+@inline function get_output_filename(
+	::AbstractImpedanceFormulation,
+	workspace::FEMWorkspace,
+)
+	return workspace.core.paths[:impedance_file]
 end
 
-@inline function get_output_filename(::AbstractAdmittanceFormulation, workspace::FEMWorkspace)
-    return workspace.core.paths[:admittance_file]
+@inline function get_output_filename(
+	::AbstractAdmittanceFormulation,
+	workspace::FEMWorkspace,
+)
+	return workspace.core.paths[:admittance_file]
 end
 
 @inline function get_output_filename(::AmpacityFormulation, workspace::FEMWorkspace)
-    return workspace.core.paths[:analysis_file]
+	return workspace.core.paths[:analysis_file]
 end
 
 struct DefineJacobian end
@@ -21,25 +27,25 @@ struct DefineConstraint end
 struct DefineResolution end
 
 @inline function (f::Union{AbstractImpedanceFormulation, AbstractAdmittanceFormulation})(
-    frequency::Float64,
-    workspace::FEMWorkspace,
+	frequency::Float64,
+	workspace::FEMWorkspace,
 	active_cond::Int,
 )
-    # Create and build the problem
-    getdp_problem = GetDP.Problem()
+	# Create and build the problem
+	getdp_problem = GetDP.Problem()
 
-    DefineJacobian()(getdp_problem, workspace)
-    DefineIntegration()(getdp_problem)
-    DefineMaterialProps()(getdp_problem, workspace)
-    DefineConstants()(getdp_problem, frequency)
-    DefineDomainGroups()(getdp_problem, f, workspace, active_cond)
-    DefineConstraint()(getdp_problem, f)
-    DefineResolution()(getdp_problem, f)
+	DefineJacobian()(getdp_problem, workspace)
+	DefineIntegration()(getdp_problem)
+	DefineMaterialProps()(getdp_problem, workspace)
+	DefineConstants()(getdp_problem, frequency)
+	DefineDomainGroups()(getdp_problem, f, workspace, active_cond)
+	DefineConstraint()(getdp_problem, f)
+	DefineResolution()(getdp_problem, f)
 
-    make_problem!(getdp_problem)
-	
+	make_problem!(getdp_problem)
+
 	# Set the filename on the problem object based on formulation type
-    getdp_problem.filename = get_output_filename(f, workspace)
+	getdp_problem.filename = get_output_filename(f, workspace)
 
 	write_file(getdp_problem)
 
@@ -47,24 +53,24 @@ struct DefineResolution end
 end
 
 @inline function (f::AmpacityFormulation)(
-    frequency::Float64,
-    workspace::FEMWorkspace,
+	frequency::Float64,
+	workspace::FEMWorkspace,
 )
-    # Create and build the problem
-    getdp_problem = GetDP.Problem()
-    
-    DefineJacobian()(getdp_problem, workspace)
-    DefineIntegration()(getdp_problem)
-    DefineMaterialProps()(getdp_problem, workspace)
-    DefineConstants()(getdp_problem, frequency, workspace)
-    DefineDomainGroups()(getdp_problem, f, workspace)
-    DefineConstraint()(getdp_problem, workspace)
-    DefineResolution()(getdp_problem, f)
+	# Create and build the problem
+	getdp_problem = GetDP.Problem()
 
-    make_problem!(getdp_problem)
-	
+	DefineJacobian()(getdp_problem, workspace)
+	DefineIntegration()(getdp_problem)
+	DefineMaterialProps()(getdp_problem, workspace)
+	DefineConstants()(getdp_problem, frequency, workspace)
+	DefineDomainGroups()(getdp_problem, f, workspace)
+	DefineConstraint()(getdp_problem, workspace)
+	DefineResolution()(getdp_problem, f)
+
+	make_problem!(getdp_problem)
+
 	# Set the filename on the problem object based on formulation type
-    getdp_problem.filename = get_output_filename(f, workspace)
+	getdp_problem.filename = get_output_filename(f, workspace)
 
 	write_file(getdp_problem)
 
@@ -80,8 +86,8 @@ end
 	Rext = workspace.core.formulation.domain_radius_inf
 
 	# Add Vol Jacobian
-	vol = add!(jac, "Vol")
-	add!(vol;
+	vol = GetDP.add!(jac, "Vol")
+	GetDP.add!(vol;
 		Region = "DomainInf",
 		Jacobian = GetDP.VolSphShell(
 			Rint = Rint,
@@ -91,11 +97,11 @@ end
 			center_Z = 0.0,
 		),
 	)
-	add!(vol; Region = "All", Jacobian = "Vol")
+	GetDP.add!(vol; Region = "All", Jacobian = "Vol")
 
 	# Add Sur Jacobian
-	sur = add!(jac, "Sur")
-	add!(sur;
+	sur = GetDP.add!(jac, "Sur")
+	GetDP.add!(sur;
 		Region = "All",
 		Jacobian = "Sur",
 	)
@@ -107,13 +113,13 @@ end
 @inline function (f::DefineIntegration)(problem::GetDP.Problem)
 	# Initialize Integration
 	integ = GetDP.Integration()
-	i1 = add!(integ, "I1")
-	case = add!(i1)
+	i1 = GetDP.add!(integ, "I1")
+	case = GetDP.add!(i1)
 	geo_case = GetDP.add_nested_case!(case; type = "Gauss")
-	add!(geo_case; GeoElement = "Point", NumberOfPoints = 1)
-	add!(geo_case; GeoElement = "Line", NumberOfPoints = 4)
-	add!(geo_case; GeoElement = "Triangle", NumberOfPoints = 4)
-	add!(geo_case; GeoElement = "Quadrangle", NumberOfPoints = 4)
+	GetDP.add!(geo_case; GeoElement = "Point", NumberOfPoints = 1)
+	GetDP.add!(geo_case; GeoElement = "Line", NumberOfPoints = 4)
+	GetDP.add!(geo_case; GeoElement = "Triangle", NumberOfPoints = 4)
+	GetDP.add!(geo_case; GeoElement = "Quadrangle", NumberOfPoints = 4)
 	problem.integration = integ
 
 end
@@ -131,15 +137,15 @@ end
 				false,
 			)
 			add_space!(func)
-			add!(func, "nu", expression = 1 / (mat.mu_r * μ₀), region = [tag])
-			add!(
+			GetDP.add!(func, "nu", expression = 1 / (mat.mu_r * μ₀), region = [tag])
+			GetDP.add!(
 				func,
 				"sigma",
 				expression = isinf(mat.rho) ? 0.0 : 1 / mat.rho,
 				region = [tag],
 			)
-			add!(func, "epsilon", expression = mat.eps_r * ε₀, region = [tag])
-			add!(func, "k", expression = mat.kappa, region = [tag])
+			GetDP.add!(func, "epsilon", expression = mat.eps_r * ε₀, region = [tag])
+			GetDP.add!(func, "k", expression = mat.kappa, region = [tag])
 		end
 	end
 
@@ -155,7 +161,7 @@ end
 
 	add_constant!(func, "Freq", frequency)
 	add_constant!(func, "UnitAmplitude", 1.0)
-	
+
 	push!(problem.function_obj, func)
 end
 
@@ -226,7 +232,7 @@ end
 	group = GetDP.Group()
 
 	# Add common domains
-	add!(
+	GetDP.add!(
 		group,
 		"DomainInf",
 		material_reg[:DomainInf],
@@ -235,11 +241,11 @@ end
 	)
 
 	for (key, tag) in enumerate(inds_reg)
-		add!(group, "Con_$key", [tag], "Region";
+		GetDP.add!(group, "Con_$key", [tag], "Region";
 			comment = "$(create_physical_group_name(workspace, tag))")
 	end
 
-	add!(group, "Conductors", inds_reg, "Region")
+	GetDP.add!(group, "Conductors", inds_reg, "Region")
 
 	# Add standard FEM domains
 	domain_configs = [
@@ -254,29 +260,29 @@ end
 	]
 
 	for (name, regions, comment) in domain_configs
-		add!(group, name, regions, "Region"; comment = comment)
+		GetDP.add!(group, name, regions, "Region"; comment = comment)
 	end
 
 	for tag in material_reg[:DomainC]
-		add!(group, "DomainC", [tag], "Region";
+		GetDP.add!(group, "DomainC", [tag], "Region";
 			operation = "+=",
 			comment = "$(create_physical_group_name(workspace, tag))")
 	end
 
 	for tag in material_reg[:DomainCC]
-		add!(group, "DomainCC", [tag], "Region";
+		GetDP.add!(group, "DomainCC", [tag], "Region";
 			operation = "+=",
 			comment = "$(create_physical_group_name(workspace, tag))")
 	end
 
 	if fem_formulation isa AbstractAdmittanceFormulation
-		add!(group, "Domain_Ele", ["DomainCC", "DomainC"], "Region")
-		add!(group, "Sur_Dirichlet_Ele", boundary_reg, "Region")
+		GetDP.add!(group, "Domain_Ele", ["DomainCC", "DomainC"], "Region")
+		GetDP.add!(group, "Sur_Dirichlet_Ele", boundary_reg, "Region")
 
 	else
 		# Add domain groups
-		add!(group, "Domain_Mag", ["DomainCC", "DomainC"], "Region")
-		add!(group, "Sur_Dirichlet_Mag", boundary_reg, "Region")
+		GetDP.add!(group, "Domain_Mag", ["DomainCC", "DomainC"], "Region")
+		GetDP.add!(group, "Sur_Dirichlet_Mag", boundary_reg, "Region")
 	end
 
 	problem.group = group
@@ -331,7 +337,7 @@ end
 	group = GetDP.Group()
 
 	# Add common domains
-	add!(
+	GetDP.add!(
 		group,
 		"DomainInf",
 		material_reg[:DomainInf],
@@ -340,11 +346,11 @@ end
 	)
 
 	for (key, tag) in enumerate(inds_reg)
-		add!(group, "Con_$key", [tag], "Region";
+		GetDP.add!(group, "Con_$key", [tag], "Region";
 			comment = "$(create_physical_group_name(workspace, tag))")
 	end
 
-	add!(group, "Conductors", inds_reg, "Region")
+	GetDP.add!(group, "Conductors", inds_reg, "Region")
 
 	# Add standard FEM domains
 	domain_configs = [
@@ -353,27 +359,27 @@ end
 	]
 
 	for (name, regions, comment) in domain_configs
-		add!(group, name, regions, "Region"; comment = comment)
+		GetDP.add!(group, name, regions, "Region"; comment = comment)
 	end
 
 	for tag in material_reg[:DomainC]
-		add!(group, "DomainC", [tag], "Region";
+		GetDP.add!(group, "DomainC", [tag], "Region";
 			operation = "+=",
 			comment = "$(create_physical_group_name(workspace, tag))")
 	end
 
 	for tag in material_reg[:DomainCC]
-		add!(group, "DomainCC", [tag], "Region";
+		GetDP.add!(group, "DomainCC", [tag], "Region";
 			operation = "+=",
 			comment = "$(create_physical_group_name(workspace, tag))")
 	end
 
 
-	add!(group, "Domain_Mag", ["DomainCC", "DomainC"], "Region")
-	add!(group, "Sur_Dirichlet_Mag", boundary_reg, "Region")
-	add!(group, "Sur_Dirichlet_The", boundary_reg, "Region")
-	add!(group, "Sur_Convection_Thermal", [], "Region")
-	
+	GetDP.add!(group, "Domain_Mag", ["DomainCC", "DomainC"], "Region")
+	GetDP.add!(group, "Sur_Dirichlet_Mag", boundary_reg, "Region")
+	GetDP.add!(group, "Sur_Dirichlet_The", boundary_reg, "Region")
+	GetDP.add!(group, "Sur_Convection_Thermal", [], "Region")
+
 	problem.group = group
 end
 
@@ -449,7 +455,7 @@ end
 
 	# FunctionSpace section
 	functionspace = FunctionSpace()
-	fs1 = add!(functionspace, "Hgrad_v_Ele", nothing, nothing, Type = "Form0")
+	fs1 = GetDP.add!(functionspace, "Hgrad_v_Ele", nothing, nothing, Type = "Form0")
 	add_basis_function!(
 		functionspace,
 		"sn",
@@ -476,13 +482,13 @@ end
 
 	# Formulation section
 	formulation = Formulation()
-	form = add!(formulation, "Electrodynamics_v", "FemEquation")
+	form = GetDP.add!(formulation, "Electrodynamics_v", "FemEquation")
 	add_quantity!(form, "v", Type = "Local", NameOfSpace = "Hgrad_v_Ele")
 	add_quantity!(form, "U", Type = "Global", NameOfSpace = "Hgrad_v_Ele [U]")
 	add_quantity!(form, "Q", Type = "Global", NameOfSpace = "Hgrad_v_Ele [Q]")
 
 	eq = add_equation!(form)
-	add!(
+	GetDP.add!(
 		eq,
 		"Galerkin",
 		"[ sigma[] * Dof{d v} , {d v} ]",
@@ -490,7 +496,7 @@ end
 		Jacobian = "Vol",
 		Integration = "I1",
 	)
-	add!(
+	GetDP.add!(
 		eq,
 		"Galerkin",
 		"DtDof[ epsilon[] * Dof{d v} , {d v} ]",
@@ -498,7 +504,7 @@ end
 		Jacobian = "Vol",
 		Integration = "I1",
 	) #CHECKME
-	add!(eq, "GlobalTerm", "[ Dof{Q} , {U} ]", In = "Conductors")
+	GetDP.add!(eq, "GlobalTerm", "[ Dof{Q} , {U} ]", In = "Conductors")
 
 	problem.formulation = formulation
 
@@ -507,11 +513,11 @@ end
 	output_dir = joinpath("results", lowercase(resolution_name))
 	output_dir = replace(output_dir, "\\" => "/") # for compatibility with Windows paths
 	resolution = Resolution()
-	sys_ele = SystemItem("Sys_Ele", "Electrodynamics_v"; 
-		Type="Complex", 
-		Frequency="Freq"
+	sys_ele = SystemItem("Sys_Ele", "Electrodynamics_v";
+		Type = "Complex",
+		Frequency = "Freq",
 	)
-	add!(resolution, resolution_name, [sys_ele],
+	GetDP.add!(resolution, resolution_name, [sys_ele],
 		Operation = [
 			"CreateDir[\"$(output_dir)\"]",
 			"Generate[Sys_Ele]",
@@ -524,7 +530,7 @@ end
 
 	# PostProcessing section
 	postprocessing = PostProcessing()
-	pp = add!(postprocessing, "EleDyn_v", "Electrodynamics_v")
+	pp = GetDP.add!(postprocessing, "EleDyn_v", "Electrodynamics_v")
 
 	# Add field maps quantities
 	for (name, expr, options) in [
@@ -537,12 +543,12 @@ end
 		("jm", "Norm[-sigma[] * {d v}]", Dict()),
 	]
 		q = add_post_quantity_term!(pp, name)
-		add!(q, "Term", expr; In = "Domain_Ele", Jacobian = "Vol", options...)
+		GetDP.add!(q, "Term", expr; In = "Domain_Ele", Jacobian = "Vol", options...)
 	end
 
 	# Add jtot (combination of j and d)
 	q = add_post_quantity_term!(pp, "jtot")
-	add!(
+	GetDP.add!(
 		q,
 		"Term",
 		"-sigma[] * {d v}";
@@ -550,7 +556,7 @@ end
 		In = "Domain_Ele",
 		Jacobian = "Vol",
 	)
-	add!(
+	GetDP.add!(
 		q,
 		"Term",
 		"-epsilon[] * Dt[{d v}]";
@@ -560,13 +566,13 @@ end
 	)
 
 	q = add_post_quantity_term!(pp, "U")
-	add!(q, "Term", "{U}"; In = "Domain_Ele")
+	GetDP.add!(q, "Term", "{U}"; In = "Domain_Ele")
 
 	q = add_post_quantity_term!(pp, "Q")
-	add!(q, "Term", "{Q}"; In = "Domain_Ele")
+	GetDP.add!(q, "Term", "{Q}"; In = "Domain_Ele")
 
 	q = add_post_quantity_term!(pp, "Y")
-	add!(q, "Term", "-{Q}"; In = "Domain_Ele")
+	GetDP.add!(q, "Term", "-{Q}"; In = "Domain_Ele")
 
 	problem.postprocessing = postprocessing
 
@@ -574,7 +580,7 @@ end
 	postoperation = PostOperation()
 
 	# Field_Maps
-	po1 = add!(postoperation, "Field_Maps", "EleDyn_v")
+	po1 = GetDP.add!(postoperation, "Field_Maps", "EleDyn_v")
 	op1 = add_operation!(po1)
 	add_operation!(
 		op1,
@@ -594,7 +600,7 @@ end
 	)
 
 	# LineParams
-	po2 = add!(postoperation, "LineParams", "EleDyn_v")
+	po2 = GetDP.add!(postoperation, "LineParams", "EleDyn_v")
 	op2 = add_operation!(po2)
 	add_operation!(
 		op2,
@@ -614,7 +620,7 @@ end
 	functionspace = FunctionSpace()
 
 	# FunctionSpace section
-	fs1 = add!(functionspace, "Hcurl_a_Mag_2D", nothing, nothing, Type = "Form1P")
+	fs1 = GetDP.add!(functionspace, "Hcurl_a_Mag_2D", nothing, nothing, Type = "Form1P")
 	add_basis_function!(
 		functionspace,
 		"se",
@@ -626,7 +632,7 @@ end
 
 	add_constraint!(functionspace, "ae", "NodesOf", "MagneticVectorPotential_2D")
 
-	fs3 = add!(functionspace, "Hregion_u_Mag_2D", nothing, nothing, Type = "Form1P")
+	fs3 = GetDP.add!(functionspace, "Hregion_u_Mag_2D", nothing, nothing, Type = "Form1P")
 	add_basis_function!(
 		functionspace,
 		"sr",
@@ -645,7 +651,7 @@ end
 	# Define Formulation
 	formulation = GetDP.Formulation()
 
-	form = add!(formulation, "Darwin_a_2D", "FemEquation")
+	form = GetDP.add!(formulation, "Darwin_a_2D", "FemEquation")
 	add_quantity!(form, "a", Type = "Local", NameOfSpace = "Hcurl_a_Mag_2D")
 	add_quantity!(form, "ur", Type = "Local", NameOfSpace = "Hregion_u_Mag_2D")
 	add_quantity!(form, "I", Type = "Global", NameOfSpace = "Hregion_u_Mag_2D [I]")
@@ -653,7 +659,7 @@ end
 
 	eq = add_equation!(form)
 
-	add!(
+	GetDP.add!(
 		eq,
 		"Galerkin",
 		"[ nu[] * Dof{d a} , {d a} ]",
@@ -661,7 +667,7 @@ end
 		Jacobian = "Vol",
 		Integration = "I1",
 	)
-	add!(
+	GetDP.add!(
 		eq,
 		"Galerkin",
 		"DtDof [ sigma[] * Dof{a} , {a} ]",
@@ -669,7 +675,7 @@ end
 		Jacobian = "Vol",
 		Integration = "I1",
 	)
-	add!(
+	GetDP.add!(
 		eq,
 		"Galerkin",
 		"[ sigma[] * Dof{ur}, {a} ]",
@@ -677,7 +683,7 @@ end
 		Jacobian = "Vol",
 		Integration = "I1",
 	)
-	add!(
+	GetDP.add!(
 		eq,
 		"Galerkin",
 		"DtDof [ sigma[] * Dof{a} , {ur} ]",
@@ -685,7 +691,7 @@ end
 		Jacobian = "Vol",
 		Integration = "I1",
 	)
-	add!(
+	GetDP.add!(
 		eq,
 		"Galerkin",
 		"[ sigma[] * Dof{ur}, {ur}]",
@@ -693,7 +699,7 @@ end
 		Jacobian = "Vol",
 		Integration = "I1",
 	)
-	add!(
+	GetDP.add!(
 		eq,
 		"Galerkin",
 		"DtDtDof [ epsilon[] * Dof{a} , {a}]",
@@ -702,7 +708,7 @@ end
 		Integration = "I1",
 		comment = " Darwin approximation term",
 	)
-	add!(
+	GetDP.add!(
 		eq,
 		"Galerkin",
 		"DtDof[ epsilon[] * Dof{ur}, {a} ]",
@@ -710,7 +716,7 @@ end
 		Jacobian = "Vol",
 		Integration = "I1",
 	)
-	add!(
+	GetDP.add!(
 		eq,
 		"Galerkin",
 		"DtDtDof [ epsilon[] * Dof{a} , {ur}]",
@@ -718,7 +724,7 @@ end
 		Jacobian = "Vol",
 		Integration = "I1",
 	)
-	add!(
+	GetDP.add!(
 		eq,
 		"Galerkin",
 		"DtDof[ epsilon[] * Dof{ur}, {ur} ]",
@@ -726,22 +732,22 @@ end
 		Jacobian = "Vol",
 		Integration = "I1",
 	)
-	add!(eq, "GlobalTerm", "[ Dof{I} , {U} ]", In = "Conductors") #DomainActive
+	GetDP.add!(eq, "GlobalTerm", "[ Dof{I} , {U} ]", In = "Conductors") #DomainActive
 
 	# Add the formulation to the problem
 	problem.formulation = formulation
 
 	# Define Resolution
 	resolution = Resolution()
-	sys_mag = SystemItem("Sys_Mag", "Darwin_a_2D"; 
-		Type="Complex", 
-		Frequency="Freq"
+	sys_mag = SystemItem("Sys_Mag", "Darwin_a_2D";
+		Type = "Complex",
+		Frequency = "Freq",
 	)
 	# Add a resolution
 	resolution_name = get_resolution_name(formulation_type)
 	output_dir = joinpath("results", lowercase(resolution_name))
 	output_dir = replace(output_dir, "\\" => "/")     # for compatibility with Windows paths
-	add!(resolution, resolution_name, [sys_mag],
+	GetDP.add!(resolution, resolution_name, [sys_mag],
 		Operation = [
 			"CreateDir[\"$(output_dir)\"]",
 			"InitSolution[Sys_Mag]",
@@ -757,36 +763,60 @@ end
 	# PostProcessing section
 	postprocessing = PostProcessing()
 
-	pp = add!(postprocessing, "Darwin_a_2D", "Darwin_a_2D")
+	pp = GetDP.add!(postprocessing, "Darwin_a_2D", "Darwin_a_2D")
 	q = add_post_quantity_term!(pp, "a")
-	add!(q, "Term", "{a}"; In = "Domain_Mag", Jacobian = "Vol")
+	GetDP.add!(q, "Term", "{a}"; In = "Domain_Mag", Jacobian = "Vol")
 	q = add_post_quantity_term!(pp, "az")
-	add!(q, "Term", "CompZ[{a}]"; In = "Domain_Mag", Jacobian = "Vol")
+	GetDP.add!(q, "Term", "CompZ[{a}]"; In = "Domain_Mag", Jacobian = "Vol")
 	q = add_post_quantity_term!(pp, "b")
-	add!(q, "Term", "{d a}"; In = "Domain_Mag", Jacobian = "Vol")
+	GetDP.add!(q, "Term", "{d a}"; In = "Domain_Mag", Jacobian = "Vol")
 	q = add_post_quantity_term!(pp, "bm")
-	add!(q, "Term", "Norm[{d a}]"; In = "Domain_Mag", Jacobian = "Vol")
+	GetDP.add!(q, "Term", "Norm[{d a}]"; In = "Domain_Mag", Jacobian = "Vol")
 	q = add_post_quantity_term!(pp, "j")
-	add!(q, "Term", "-sigma[]*(Dt[{a}]+{ur})"; In = "DomainC", Jacobian = "Vol")
+	GetDP.add!(q, "Term", "-sigma[]*(Dt[{a}]+{ur})"; In = "DomainC", Jacobian = "Vol")
 	q = add_post_quantity_term!(pp, "jz")
-	add!(q, "Term", "CompZ[-sigma[]*(Dt[{a}]+{ur})]"; In = "DomainC", Jacobian = "Vol")
+	GetDP.add!(
+		q,
+		"Term",
+		"CompZ[-sigma[]*(Dt[{a}]+{ur})]";
+		In = "DomainC",
+		Jacobian = "Vol",
+	)
 	q = add_post_quantity_term!(pp, "jm")
-	add!(q, "Term", "Norm[-sigma[]*(Dt[{a}]+{ur})]"; In = "DomainC", Jacobian = "Vol")
+	GetDP.add!(q, "Term", "Norm[-sigma[]*(Dt[{a}]+{ur})]"; In = "DomainC", Jacobian = "Vol")
 	q = add_post_quantity_term!(pp, "d")
-	add!(q, "Term", "epsilon[] * Dt[Dt[{a}]+{ur}]"; In = "DomainC", Jacobian = "Vol")
+	GetDP.add!(q, "Term", "epsilon[] * Dt[Dt[{a}]+{ur}]"; In = "DomainC", Jacobian = "Vol")
 	q = add_post_quantity_term!(pp, "dz")
-	add!(q, "Term", "CompZ[epsilon[] * Dt[Dt[{a}]+{ur}]]"; In = "DomainC", Jacobian = "Vol")
+	GetDP.add!(
+		q,
+		"Term",
+		"CompZ[epsilon[] * Dt[Dt[{a}]+{ur}]]";
+		In = "DomainC",
+		Jacobian = "Vol",
+	)
 	q = add_post_quantity_term!(pp, "dm")
-	add!(q, "Term", "Norm[epsilon[] * Dt[Dt[{a}]+{ur}]]"; In = "DomainC", Jacobian = "Vol")
+	GetDP.add!(
+		q,
+		"Term",
+		"Norm[epsilon[] * Dt[Dt[{a}]+{ur}]]";
+		In = "DomainC",
+		Jacobian = "Vol",
+	)
 	q = add_post_quantity_term!(pp, "rhoj2")
-	add!(q, "Term", "0.5*sigma[]*SquNorm[Dt[{a}]+{ur}]"; In = "DomainC", Jacobian = "Vol")
+	GetDP.add!(
+		q,
+		"Term",
+		"0.5*sigma[]*SquNorm[Dt[{a}]+{ur}]";
+		In = "DomainC",
+		Jacobian = "Vol",
+	)
 
 	q = add_post_quantity_term!(pp, "U")
-	add!(q, "Term", "{U}"; In = "DomainC")
+	GetDP.add!(q, "Term", "{U}"; In = "DomainC")
 	q = add_post_quantity_term!(pp, "I")
-	add!(q, "Term", "{I}"; In = "DomainC")
+	GetDP.add!(q, "Term", "{I}"; In = "DomainC")
 	q = add_post_quantity_term!(pp, "Z")
-	add!(q, "Term", "-{U}"; In = "DomainC")
+	GetDP.add!(q, "Term", "-{U}"; In = "DomainC")
 
 	problem.postprocessing = postprocessing
 
@@ -794,7 +824,7 @@ end
 	postoperation = PostOperation()
 
 	# Add post-operation items
-	po1 = add!(postoperation, "Field_Maps", "Darwin_a_2D")
+	po1 = GetDP.add!(postoperation, "Field_Maps", "Darwin_a_2D")
 	op1 = add_operation!(po1)
 
 	add_operation!(
@@ -826,7 +856,7 @@ end
 		"Print[ dm, OnElementsOf DomainC, Smoothing 1, Name \"|D| [A/m²]\", File StrCat[ \"$(joinpath(output_dir,"dm_"))\", Sprintf(\"%g\",active_con), \".pos\" ] ];",
 	)
 
-	po2 = add!(postoperation, "LineParams", "Darwin_a_2D")
+	po2 = GetDP.add!(postoperation, "LineParams", "Darwin_a_2D")
 	op2 = add_operation!(po2)
 	add_operation!(
 		op2,
@@ -845,7 +875,7 @@ end
 	functionspace = FunctionSpace()
 
 	# FunctionSpace section
-	fs1 = add!(functionspace, "Hcurl_a_Mag_2D", nothing, nothing, Type = "Form1P")
+	fs1 = GetDP.add!(functionspace, "Hcurl_a_Mag_2D", nothing, nothing, Type = "Form1P")
 	add_basis_function!(
 		functionspace,
 		"se",
@@ -857,7 +887,7 @@ end
 
 	add_constraint!(functionspace, "ae", "NodesOf", "MagneticVectorPotential_2D")
 
-	fs3 = add!(functionspace, "Hregion_u_Mag_2D", nothing, nothing, Type = "Form1P")
+	fs3 = GetDP.add!(functionspace, "Hregion_u_Mag_2D", nothing, nothing, Type = "Form1P")
 	add_basis_function!(
 		functionspace,
 		"sr",
@@ -871,7 +901,7 @@ end
 	add_constraint!(functionspace, "U", "Region", "Voltage_2D")
 	add_constraint!(functionspace, "I", "Region", "Current_2D")
 
-	fs1 = add!(functionspace, "Hgrad_Thermal", nothing, nothing, Type = "Form0")
+	fs1 = GetDP.add!(functionspace, "Hgrad_Thermal", nothing, nothing, Type = "Form0")
 	add_basis_function!(
 		functionspace,
 		"sn",
@@ -888,7 +918,7 @@ end
 	# Define Formulation
 	formulation = GetDP.Formulation()
 
-	form = add!(formulation, "Darwin_a_2D", "FemEquation")
+	form = GetDP.add!(formulation, "Darwin_a_2D", "FemEquation")
 	add_quantity!(form, "a", Type = "Local", NameOfSpace = "Hcurl_a_Mag_2D")
 	add_quantity!(form, "ur", Type = "Local", NameOfSpace = "Hregion_u_Mag_2D")
 	add_quantity!(form, "T", Type = "Local", NameOfSpace = "Hgrad_Thermal")
@@ -897,7 +927,7 @@ end
 
 	eq = add_equation!(form)
 
-	add!(
+	GetDP.add!(
 		eq,
 		"Galerkin",
 		"[ nu[] * Dof{d a} , {d a} ]",
@@ -905,7 +935,7 @@ end
 		Jacobian = "Vol",
 		Integration = "I1",
 	)
-	add!(
+	GetDP.add!(
 		eq,
 		"Galerkin",
 		"DtDof [ sigma[{T}] * Dof{a} , {a} ]",
@@ -913,7 +943,7 @@ end
 		Jacobian = "Vol",
 		Integration = "I1",
 	)
-	add!(
+	GetDP.add!(
 		eq,
 		"Galerkin",
 		"[ sigma[{T}] * Dof{ur}, {a} ]",
@@ -921,7 +951,7 @@ end
 		Jacobian = "Vol",
 		Integration = "I1",
 	)
-	add!(
+	GetDP.add!(
 		eq,
 		"Galerkin",
 		"DtDof [ sigma[{T}] * Dof{a} , {ur} ]",
@@ -929,7 +959,7 @@ end
 		Jacobian = "Vol",
 		Integration = "I1",
 	)
-	add!(
+	GetDP.add!(
 		eq,
 		"Galerkin",
 		"[ sigma[{T}] * Dof{ur}, {ur}]",
@@ -937,7 +967,7 @@ end
 		Jacobian = "Vol",
 		Integration = "I1",
 	)
-	add!(
+	GetDP.add!(
 		eq,
 		"Galerkin",
 		"DtDtDof [ epsilon[] * Dof{a} , {a}]",
@@ -946,7 +976,7 @@ end
 		Integration = "I1",
 		comment = " Darwin approximation term",
 	)
-	add!(
+	GetDP.add!(
 		eq,
 		"Galerkin",
 		"DtDof[ epsilon[] * Dof{ur}, {a} ]",
@@ -954,7 +984,7 @@ end
 		Jacobian = "Vol",
 		Integration = "I1",
 	)
-	add!(
+	GetDP.add!(
 		eq,
 		"Galerkin",
 		"DtDtDof [ epsilon[] * Dof{a} , {ur}]",
@@ -962,7 +992,7 @@ end
 		Jacobian = "Vol",
 		Integration = "I1",
 	)
-	add!(
+	GetDP.add!(
 		eq,
 		"Galerkin",
 		"DtDof[ epsilon[] * Dof{ur}, {ur} ]",
@@ -970,16 +1000,16 @@ end
 		Jacobian = "Vol",
 		Integration = "I1",
 	)
-	add!(eq, "GlobalTerm", "[ Dof{I} , {U} ]", In = "Conductors") #DomainActive
+	GetDP.add!(eq, "GlobalTerm", "[ Dof{I} , {U} ]", In = "Conductors") #DomainActive
 
-	form = add!(formulation, "ThermalSta", "FemEquation")
+	form = GetDP.add!(formulation, "ThermalSta", "FemEquation")
 	add_quantity!(form, "T", Type = "Local", NameOfSpace = "Hgrad_Thermal")
 	add_quantity!(form, "a", Type = "Local", NameOfSpace = "Hcurl_a_Mag_2D")
 	add_quantity!(form, "ur", Type = "Local", NameOfSpace = "Hregion_u_Mag_2D")
 
 	eq = add_equation!(form)
 
-	add!(
+	GetDP.add!(
 		eq,
 		"Galerkin",
 		"[ k[] * Dof{d T} , {d T} ]",
@@ -988,7 +1018,7 @@ end
 		Integration = "I1",
 	)
 
-	add!(
+	GetDP.add!(
 		eq,
 		"Galerkin",
 		"[ -0.5*sigma[{T}] * <a>[ SquNorm[Dt[{a}]+{ur}] ], {T} ]",
@@ -997,7 +1027,7 @@ end
 		Integration = "I1",
 	)
 
-	add!(
+	GetDP.add!(
 		eq,
 		"Galerkin",
 		"[ h[] * Dof{T} , {T} ]",
@@ -1007,7 +1037,7 @@ end
 		comment = " Convection boundary condition",
 	)
 
-	add!(
+	GetDP.add!(
 		eq,
 		"Galerkin",
 		"[-h[] * Tambient[] , {T} ]",
@@ -1021,7 +1051,7 @@ end
 	# Define Resolution
 	resolution = Resolution()
 
-	sys_mag = SystemItem("Sys_Mag", "Darwin_a_2D"; Type="Complex", Frequency="Freq")
+	sys_mag = SystemItem("Sys_Mag", "Darwin_a_2D"; Type = "Complex", Frequency = "Freq")
 	sys_the = SystemItem("Sys_The", "ThermalSta")
 
 	# Add a resolution
@@ -1030,7 +1060,7 @@ end
 	output_dir = replace(output_dir, "\\" => "/")     # for compatibility with Windows paths
 
 	# Construct the final Operation vector
-	add!(resolution, resolution_name, [sys_mag, sys_the],
+	GetDP.add!(resolution, resolution_name, [sys_mag, sys_the],
 		Operation = [
 			"CreateDir[\"$(output_dir)\"]",
 			"InitSolution[Sys_Mag]",
@@ -1042,7 +1072,7 @@ end
 			"SaveSolution[Sys_Mag]",
 			"SaveSolution[Sys_The]",
 			"PostOperation[LineParams]",
-		]
+		],
 	)
 	# Add the resolution to the problem
 	problem.resolution = resolution
@@ -1050,49 +1080,79 @@ end
 	# PostProcessing section
 	postprocessing = PostProcessing()
 
-	pp = add!(postprocessing, "Darwin_a_2D", "Darwin_a_2D")
+	pp = GetDP.add!(postprocessing, "Darwin_a_2D", "Darwin_a_2D")
 
 	q = add_post_quantity_term!(pp, "a")
-	add!(q, "Term", "{a}"; In = "Domain_Mag", Jacobian = "Vol")
+	GetDP.add!(q, "Term", "{a}"; In = "Domain_Mag", Jacobian = "Vol")
 	q = add_post_quantity_term!(pp, "az")
-	add!(q, "Term", "CompZ[{a}]"; In = "Domain_Mag", Jacobian = "Vol")
+	GetDP.add!(q, "Term", "CompZ[{a}]"; In = "Domain_Mag", Jacobian = "Vol")
 	q = add_post_quantity_term!(pp, "b")
-	add!(q, "Term", "{d a}"; In = "Domain_Mag", Jacobian = "Vol")
+	GetDP.add!(q, "Term", "{d a}"; In = "Domain_Mag", Jacobian = "Vol")
 	q = add_post_quantity_term!(pp, "bm")
-	add!(q, "Term", "Norm[{d a}]"; In = "Domain_Mag", Jacobian = "Vol")
+	GetDP.add!(q, "Term", "Norm[{d a}]"; In = "Domain_Mag", Jacobian = "Vol")
 	q = add_post_quantity_term!(pp, "j")
-	add!(q, "Term", "-sigma[]*(Dt[{a}]+{ur})"; In = "DomainC", Jacobian = "Vol")
+	GetDP.add!(q, "Term", "-sigma[]*(Dt[{a}]+{ur})"; In = "DomainC", Jacobian = "Vol")
 	q = add_post_quantity_term!(pp, "jz")
-	add!(q, "Term", "CompZ[-sigma[{T}]*(Dt[{a}]+{ur})]"; In = "DomainC", Jacobian = "Vol")
+	GetDP.add!(
+		q,
+		"Term",
+		"CompZ[-sigma[{T}]*(Dt[{a}]+{ur})]";
+		In = "DomainC",
+		Jacobian = "Vol",
+	)
 	q = add_post_quantity_term!(pp, "jm")
-	add!(q, "Term", "Norm[-sigma[{T}]*(Dt[{a}]+{ur})]"; In = "DomainC", Jacobian = "Vol")
+	GetDP.add!(
+		q,
+		"Term",
+		"Norm[-sigma[{T}]*(Dt[{a}]+{ur})]";
+		In = "DomainC",
+		Jacobian = "Vol",
+	)
 	q = add_post_quantity_term!(pp, "d")
-	add!(q, "Term", "epsilon[] * Dt[Dt[{a}]+{ur}]"; In = "DomainC", Jacobian = "Vol")
+	GetDP.add!(q, "Term", "epsilon[] * Dt[Dt[{a}]+{ur}]"; In = "DomainC", Jacobian = "Vol")
 	q = add_post_quantity_term!(pp, "dz")
-	add!(q, "Term", "CompZ[epsilon[] * Dt[Dt[{a}]+{ur}]]"; In = "DomainC", Jacobian = "Vol")
+	GetDP.add!(
+		q,
+		"Term",
+		"CompZ[epsilon[] * Dt[Dt[{a}]+{ur}]]";
+		In = "DomainC",
+		Jacobian = "Vol",
+	)
 	q = add_post_quantity_term!(pp, "dm")
-	add!(q, "Term", "Norm[epsilon[] * Dt[Dt[{a}]+{ur}]]"; In = "DomainC", Jacobian = "Vol")
+	GetDP.add!(
+		q,
+		"Term",
+		"Norm[epsilon[] * Dt[Dt[{a}]+{ur}]]";
+		In = "DomainC",
+		Jacobian = "Vol",
+	)
 	q = add_post_quantity_term!(pp, "rhoj2")
-	add!(q, "Term", "0.5*sigma[{T}]*SquNorm[Dt[{a}]+{ur}]"; In = "DomainC", Jacobian = "Vol")
+	GetDP.add!(
+		q,
+		"Term",
+		"0.5*sigma[{T}]*SquNorm[Dt[{a}]+{ur}]";
+		In = "DomainC",
+		Jacobian = "Vol",
+	)
 
 	q = add_post_quantity_term!(pp, "U")
-	add!(q, "Term", "{U}"; In = "DomainC")
+	GetDP.add!(q, "Term", "{U}"; In = "DomainC")
 	q = add_post_quantity_term!(pp, "I")
-	add!(q, "Term", "{I}"; In = "DomainC")
+	GetDP.add!(q, "Term", "{I}"; In = "DomainC")
 	q = add_post_quantity_term!(pp, "Z")
-	add!(q, "Term", "-{U}"; In = "DomainC")
+	GetDP.add!(q, "Term", "-{U}"; In = "DomainC")
 
 
-	pp_the = add!(postprocessing, "ThermalSta", "ThermalSta")
+	pp_the = GetDP.add!(postprocessing, "ThermalSta", "ThermalSta")
 
 	q = add_quantity_term!(pp_the, "T")
-	add!(q, "Local", "{T}"; In = "Domain_Mag", Jacobian = "Vol")
+	GetDP.add!(q, "Local", "{T}"; In = "Domain_Mag", Jacobian = "Vol")
 
 	q = add_quantity_term!(pp_the, "TinC")
-	add!(q, "Local", "{T}-273.15"; In = "Domain_Mag", Jacobian = "Vol")
+	GetDP.add!(q, "Local", "{T}-273.15"; In = "Domain_Mag", Jacobian = "Vol")
 
 	q = add_quantity_term!(pp_the, "q")
-	add!(q, "Local", "-k[]*{d T}"; In = "Domain_Mag", Jacobian = "Vol")
+	GetDP.add!(q, "Local", "-k[]*{d T}"; In = "Domain_Mag", Jacobian = "Vol")
 
 	problem.postprocessing = postprocessing
 
@@ -1100,15 +1160,27 @@ end
 	postoperation = PostOperation()
 
 	# Add post-operation items
-	po1 = add!(postoperation, "Field_Maps", "ThermalSta")
+	po1 = GetDP.add!(postoperation, "Field_Maps", "ThermalSta")
 	op1 = add_operation!(po1)
-	add_operation!(op1, "Print[ TinC, OnElementsOf Domain_Mag, Name \"T [°C] around cable\", File StrCat[ \"$(joinpath(output_dir,"TinC"))\", \".pos\" ] ];")
-	add_operation!(op1, "Print[ q , OnElementsOf Domain_Mag, Name \"heat flux [W/m²] around cable\", File StrCat[ \"$(joinpath(output_dir,"q"))\", \".pos\" ] ];")
+	add_operation!(
+		op1,
+		"Print[ TinC, OnElementsOf Domain_Mag, Name \"T [°C] around cable\", File StrCat[ \"$(joinpath(output_dir,"TinC"))\", \".pos\" ] ];",
+	)
+	add_operation!(
+		op1,
+		"Print[ q , OnElementsOf Domain_Mag, Name \"heat flux [W/m²] around cable\", File StrCat[ \"$(joinpath(output_dir,"q"))\", \".pos\" ] ];",
+	)
 
-	po2 = add!(postoperation, "LineParams", "ThermalSta")
+	po2 = GetDP.add!(postoperation, "LineParams", "ThermalSta")
 	op2 = add_operation!(po2)
-	add_operation!(op2, "Print[ TinC, OnElementsOf Domain_Mag, Name \"T [°C] around cable\", File StrCat[ \"$(joinpath(output_dir,"TinC"))\", \".pos\" ] ];")
-	add_operation!(op2, "Print[ q , OnElementsOf Domain_Mag, Name \"heat flux [W/m²] around cable\", File StrCat[ \"$(joinpath(output_dir,"q"))\", \".pos\" ] ];")
+	add_operation!(
+		op2,
+		"Print[ TinC, OnElementsOf Domain_Mag, Name \"T [°C] around cable\", File StrCat[ \"$(joinpath(output_dir,"TinC"))\", \".pos\" ] ];",
+	)
+	add_operation!(
+		op2,
+		"Print[ q , OnElementsOf Domain_Mag, Name \"heat flux [W/m²] around cable\", File StrCat[ \"$(joinpath(output_dir,"q"))\", \".pos\" ] ];",
+	)
 	# add_operation!(op2, "Print[ Z, OnRegion Conductors, Format Table, File \"$(joinpath(output_dir,"Z.dat"))\", AppendToExistingFile (active_con > 1 ? 1 : 0) ];")
 
 
@@ -1118,40 +1190,45 @@ end
 end
 
 function run_getdp(workspace::FEMWorkspace, frequency::Float64,
-	fem_formulation::Union{AbstractImpedanceFormulation, AbstractAdmittanceFormulation}, active_con::Int)
+	fem_formulation::Union{AbstractImpedanceFormulation, AbstractAdmittanceFormulation},
+	active_con::Int)
 
 	resolution_name = get_resolution_name(fem_formulation)
-    @debug "Processing $(resolution_name) formulation"
-    getdp_problem = fem_formulation(frequency, workspace, active_con)
-    getdp_verbosity = map_verbosity_to_getdp(workspace.core.opts.verbosity)
-    solve_cmd = "$(workspace.core.opts.getdp_executable) $(getdp_problem.filename) -msh $(workspace.core.paths[:mesh_file]) -solve $(resolution_name) -v2 -verbose $(getdp_verbosity)"
+	@debug "Processing $(resolution_name) formulation"
+	getdp_problem = fem_formulation(frequency, workspace, active_con)
+	getdp_verbosity = map_verbosity_to_getdp(workspace.core.opts.verbosity)
+	solve_cmd = "$(workspace.core.opts.getdp_executable) $(getdp_problem.filename) -msh $(workspace.core.paths[:mesh_file]) -solve $(resolution_name) -v2 -verbose $(getdp_verbosity)"
 
-    @info "Solving for source conductor $active_con... (Resolution = $(resolution_name))"
+	@info "Solving for source conductor $active_con... (Resolution = $(resolution_name))"
 
-    # Attempt to run the solver
-    success = true
-    try
-        gmsh.onelab.run("GetDP", solve_cmd)
+	# Attempt to run the solver
+	success = true
+	try
+		gmsh.onelab.run("GetDP", solve_cmd)
 
-        if workspace.core.opts.plot_field_maps
-            @info "Building field maps for source conductor $active_con... (Resolution = $(resolution_name))"
+		if workspace.core.opts.plot_field_maps
+			@info "Building field maps for source conductor $active_con... (Resolution = $(resolution_name))"
 
-            post_cmd = "$(workspace.core.opts.getdp_executable) $(getdp_problem.filename) -msh $(workspace.core.paths[:mesh_file]) -pos Field_Maps -v2 -verbose $(getdp_verbosity)"
+			post_cmd = "$(workspace.core.opts.getdp_executable) $(getdp_problem.filename) -msh $(workspace.core.paths[:mesh_file]) -pos Field_Maps -v2 -verbose $(getdp_verbosity)"
 
-            gmsh.onelab.run("GetDP", post_cmd)
-        end
+			gmsh.onelab.run("GetDP", post_cmd)
+		end
 
-        @info "Solve successful for source conductor $(active_con)!"
-    catch e
-        # Log the error and update the success flag
-        @error "Solver failed for source conductor $active_con: $e"
-        success = false
-    end
-    
+		@info "Solve successful for source conductor $(active_con)!"
+	catch e
+		# Log the error and update the success flag
+		@error "Solver failed for source conductor $active_con: $e"
+		success = false
+	end
+
 	return success
 
 end
-function run_getdp(workspace::FEMWorkspace, problem::GetDP.Problem, fem_formulation::AmpacityFormulation)
+function run_getdp(
+	workspace::FEMWorkspace,
+	problem::GetDP.Problem,
+	fem_formulation::AmpacityFormulation,
+)
 	# Initialize Gmsh if not already initialized
 	if gmsh.is_initialized() == 0
 		gmsh.initialize()
@@ -1230,139 +1307,143 @@ workspace = $(FUNCTIONNAME)(cable_system, formulation, solver)
 """
 
 function compute!(problem::LineParametersProblem,
-    formulation::FEMFormulation,
-    workspace::Union{FEMWorkspace, Nothing} = nothing)
+	formulation::FEMFormulation,
+	workspace::Union{FEMWorkspace, Nothing} = nothing)
 
-    opts = formulation.options
+	opts = formulation.options
 
-    # Initialize workspace
-    workspace = init_workspace(problem, formulation, workspace)
+	# Initialize workspace
+	workspace = init_workspace(problem, formulation, workspace)
 
-    # Meshing phase: make_mesh! decides if it needs to run.
-    # It returns true if the process should stop (e.g., mesh_only=true).
-    mesh_only_flag = make_mesh!(workspace)
-        
-    # Only proceed with solver if not mesh_only
-    if !mesh_only_flag
-        @info "Starting FEM solver"
-        
-        # Extract necessary variables from workspace
-        n_phases = workspace.core.n_phases
-        n_frequencies = workspace.core.n_frequencies
-        phase_map = workspace.core.phase_map
+	# Meshing phase: make_mesh! decides if it needs to run.
+	# It returns true if the process should stop (e.g., mesh_only=true).
+	mesh_only_flag = make_mesh!(workspace)
 
-        # --- Index plan (once) ---
-        perm = reorder_indices(phase_map)    # encounter-ordered: first of each phase, then tails, then zeros
-        map_r = phase_map[perm]              # reordered map (constant across k)
+	# Only proceed with solver if not mesh_only
+	if !mesh_only_flag
+		@info "Starting FEM solver"
 
-        # --- Outputs: size decided by kron_map (here: map_r after merge_bundles! zeros tails) ---
-        # Probe the keep-size once using a scratch (no heavy cost)
-        _probe = Matrix{ComplexF64}(I, n_phases, n_phases)
-        _, reduced_map = merge_bundles!(copy(_probe), map_r)
-        n_keep = count(!=(0), reduced_map)
+		# Extract necessary variables from workspace
+		n_phases = workspace.core.n_phases
+		n_frequencies = workspace.core.n_frequencies
+		phase_map = workspace.core.phase_map
 
-        Zr = zeros(ComplexF64, n_keep, n_keep, n_frequencies)
-        Yr = zeros(ComplexF64, n_keep, n_keep, n_frequencies)
+		# --- Index plan (once) ---
+		perm = reorder_indices(phase_map)    # encounter-ordered: first of each phase, then tails, then zeros
+		map_r = phase_map[perm]              # reordered map (constant across k)
 
-        # --- Scratch buffers (reused every k) ---
-        Zbuf = Matrix{ComplexF64}(undef, n_phases, n_phases)   # reordered + merged target
-        Ybuf = Matrix{ComplexF64}(undef, n_phases, n_phases)
-        Pf = Matrix{ComplexF64}(undef, n_phases, n_phases)     # potentials (for Y path)
+		# --- Outputs: size decided by kron_map (here: map_r after merge_bundles! zeros tails) ---
+		# Probe the keep-size once using a scratch (no heavy cost)
+		_probe = Matrix{ComplexF64}(I, n_phases, n_phases)
+		_, reduced_map = merge_bundles!(copy(_probe), map_r)
+		n_keep = count(!=(0), reduced_map)
 
-        # Tiny gather helper: reorder src[:,:,k] into dest without temp allocs
-        @inline function _reorder_into!(dest::StridedMatrix{ComplexF64},
-            src::Array{ComplexF64, 3},
-            perm::Vector{Int}, k::Int)
-            n = length(perm)
-            @inbounds for j in 1:n, i in 1:n
-                dest[i, j] = src[perm[i], perm[j], k]
-            end
-            dest
-        end
+		Zr = zeros(ComplexF64, n_keep, n_keep, n_frequencies)
+		Yr = zeros(ComplexF64, n_keep, n_keep, n_frequencies)
 
-        # --- Big loop over frequencies ---
-        for (k, frequency) in enumerate(workspace.core.freq)
-            @info "Solving frequency $k/$n_frequencies: $frequency Hz"
+		# --- Scratch buffers (reused every k) ---
+		Zbuf = Matrix{ComplexF64}(undef, n_phases, n_phases)   # reordered + merged target
+		Ybuf = Matrix{ComplexF64}(undef, n_phases, n_phases)
+		Pf = Matrix{ComplexF64}(undef, n_phases, n_phases)     # potentials (for Y path)
 
-            # Build and solve both formulations
-            for fem_formulation_item in formulation.analysis_type
+		# Tiny gather helper: reorder src[:,:,k] into dest without temp allocs
+		@inline function _reorder_into!(dest::StridedMatrix{ComplexF64},
+			src::Array{ComplexF64, 3},
+			perm::Vector{Int}, k::Int)
+			n = length(perm)
+			@inbounds for j in 1:n, i in 1:n
+				dest[i, j] = src[perm[i], perm[j], k]
+			end
+			dest
+		end
+
+		# --- Big loop over frequencies ---
+		for (k, frequency) in enumerate(workspace.core.freq)
+			@info "Solving frequency $k/$n_frequencies: $frequency Hz"
+
+			# Build and solve both formulations
+			for fem_formulation_item in formulation.analysis_type
 
 				# Initialize Gmsh if not already initialized
-                if gmsh.is_initialized() == 0
-                    gmsh.initialize()
-                end
+				if gmsh.is_initialized() == 0
+					gmsh.initialize()
+				end
 
-                # Number of iterations
-                n_phases_inner = sum([length(c.design_data.components) for c in workspace.core.system.cables])
+				# Number of iterations
+				n_phases_inner = sum([
+					length(c.design_data.components) for c in workspace.core.system.cables
+				])
 
-                # Flag to track if all solves are successful
-                all_success = true
+				# Flag to track if all solves are successful
+				all_success = true
 
-                # Map verbosity to Gmsh/GetDP level
-                gmsh_verbosity = map_verbosity_to_gmsh(workspace.core.opts.verbosity)
-                gmsh.option.set_number("General.Verbosity", gmsh_verbosity)
+				# Map verbosity to Gmsh/GetDP level
+				gmsh_verbosity = map_verbosity_to_gmsh(workspace.core.opts.verbosity)
+				gmsh.option.set_number("General.Verbosity", gmsh_verbosity)
 
-                # Loop over each active_ind from 1 to n_phases
-                for i in 1:n_phases_inner
-                    # Construct solver command with -setnumber active_ind i
+				# Loop over each active_ind from 1 to n_phases
+				for i in 1:n_phases_inner
+					# Construct solver command with -setnumber active_ind i
 					all_success = run_getdp(workspace, frequency, fem_formulation_item, i)
-                end
+				end
 
-                # Check if solve was successful
-                if !all_success
-                    Base.error("$(get_resolution_name(fem_formulation_item)) solver failed")
-                end
-            end
+				# Check if solve was successful
+				if !all_success
+					Base.error("$(get_resolution_name(fem_formulation_item)) solver failed")
+				end
+			end
 
-            # Extract results into preallocated arrays
-            workspace.Z[:, :, k] = read_results_file(formulation.analysis_type[1], workspace)
-            workspace.Y[:, :, k] = read_results_file(formulation.analysis_type[2], workspace)
+			# Extract results into preallocated arrays
+			workspace.Z[:, :, k] =
+				read_results_file(formulation.analysis_type[1], workspace)
+			workspace.Y[:, :, k] =
+				read_results_file(formulation.analysis_type[2], workspace)
 
-            # REORDER → Z
-            _reorder_into!(Zbuf, workspace.Z, perm, k)
+			# REORDER → Z
+			_reorder_into!(Zbuf, workspace.Z, perm, k)
 
-            # MERGE bundles (in-place on Zbuf) and get reduced map (tails → 0)
-            Zm, reduced_map = merge_bundles!(Zbuf, map_r)
+			# MERGE bundles (in-place on Zbuf) and get reduced map (tails → 0)
+			Zm, reduced_map = merge_bundles!(Zbuf, map_r)
 
-            # KRON on Z
-            Zred = kronify(Zm, reduced_map)
-            symtrans!(Zred)
-            formulation.options.ideal_transposition || line_transpose!(Zred)
-            @inbounds Zr[:, :, k] .= Zred
+			# KRON on Z
+			Zred = kronify(Zm, reduced_map)
+			symtrans!(Zred)
+			formulation.options.ideal_transposition || line_transpose!(Zred)
+			@inbounds Zr[:, :, k] .= Zred
 
-            # Y path goes via potentials: Pf = inv(Y/(jω))
-            w = 2π * frequency
-            # REORDER → Y
-            _reorder_into!(Ybuf, workspace.Y, perm, k)
+			# Y path goes via potentials: Pf = inv(Y/(jω))
+			w = 2π * frequency
+			# REORDER → Y
+			_reorder_into!(Ybuf, workspace.Y, perm, k)
 
-            # Pf = inv(Ybuf / (jω)) without extra temps
-            @inbounds @views begin
-                Pf .= Ybuf
-                Pf ./= (1im * w)
-            end
-            Pf .= inv(Pf)
+			# Pf = inv(Ybuf / (jω)) without extra temps
+			@inbounds @views begin
+				Pf .= Ybuf
+				Pf ./= (1im * w)
+			end
+			Pf .= inv(Pf)
 
-            # MERGE bundles for Pf (same reduced_map semantics)
-            Pfm, reduced_map = merge_bundles!(Pf, map_r)
+			# MERGE bundles for Pf (same reduced_map semantics)
+			Pfm, reduced_map = merge_bundles!(Pf, map_r)
 
-            # KRON on Pf, then invert back to Y
-            Pr = kronify(Pfm, reduced_map)
-            Yrk = (1im * w) * inv(Pr)
-            symtrans!(Yrk)
-            formulation.options.ideal_transposition || line_transpose!(Yrk)
-            @inbounds Yr[:, :, k] .= Yrk
+			# KRON on Pf, then invert back to Y
+			Pr = kronify(Pfm, reduced_map)
+			Yrk = (1im * w) * inv(Pr)
+			symtrans!(Yrk)
+			formulation.options.ideal_transposition || line_transpose!(Yrk)
+			@inbounds Yr[:, :, k] .= Yrk
 
-            # Archive if requested
-            if workspace.core.opts.keep_run_files
-                archive_frequency_results(workspace, frequency)
-            end
-        end
+			# Archive if requested
+			if workspace.core.opts.keep_run_files
+				archive_frequency_results(workspace, frequency)
+			end
+		end
 
-        ZY = LineParameters(Zr, Yr, workspace.core.freq)
-        @info "FEM computation completed successfully"
-    end
+		ZY = LineParameters(Zr, Yr, workspace.core.freq)
+		@info "FEM computation completed successfully"
+	end
 
-    return workspace, ZY
+	return workspace, ZY
 end
 """
 $(TYPEDSIGNATURES)
