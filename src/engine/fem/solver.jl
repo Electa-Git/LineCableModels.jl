@@ -1,21 +1,15 @@
 
 
-@inline function get_output_filename(
-	::AbstractImpedanceFormulation,
-	workspace::FEMWorkspace,
-)
-	return workspace.core.paths[:impedance_file]
+@inline function get_output_filename(::AbstractImpedanceFormulation, workspace::FEMWorkspace)
+    return workspace.core.paths[:impedance_file]
 end
 
-@inline function get_output_filename(
-	::AbstractAdmittanceFormulation,
-	workspace::FEMWorkspace,
-)
-	return workspace.core.paths[:admittance_file]
+@inline function get_output_filename(::AbstractAdmittanceFormulation, workspace::FEMWorkspace)
+    return workspace.core.paths[:admittance_file]
 end
 
 @inline function get_output_filename(::AmpacityFormulation, workspace::FEMWorkspace)
-	return workspace.core.paths[:analysis_file]
+    return workspace.core.paths[:analysis_file]
 end
 
 struct DefineJacobian end
@@ -27,25 +21,25 @@ struct DefineConstraint end
 struct DefineResolution end
 
 @inline function (f::Union{AbstractImpedanceFormulation, AbstractAdmittanceFormulation})(
-	frequency::Float64,
-	workspace::FEMWorkspace,
+    frequency::Float64,
+    workspace::FEMWorkspace,
 	active_cond::Int,
 )
-	# Create and build the problem
-	getdp_problem = GetDP.Problem()
+    # Create and build the problem
+    getdp_problem = GetDP.Problem()
 
-	DefineJacobian()(getdp_problem, workspace)
-	DefineIntegration()(getdp_problem)
-	DefineMaterialProps()(getdp_problem, workspace)
-	DefineConstants()(getdp_problem, frequency)
-	DefineDomainGroups()(getdp_problem, f, workspace, active_cond)
-	DefineConstraint()(getdp_problem, f)
-	DefineResolution()(getdp_problem, f)
+    DefineJacobian()(getdp_problem, workspace)
+    DefineIntegration()(getdp_problem)
+    DefineMaterialProps()(getdp_problem, workspace)
+    DefineConstants()(getdp_problem, frequency)
+    DefineDomainGroups()(getdp_problem, f, workspace, active_cond)
+    DefineConstraint()(getdp_problem, f)
+    DefineResolution()(getdp_problem, f)
 
-	make_problem!(getdp_problem)
-
+    make_problem!(getdp_problem)
+	
 	# Set the filename on the problem object based on formulation type
-	getdp_problem.filename = get_output_filename(f, workspace)
+    getdp_problem.filename = get_output_filename(f, workspace)
 
 	write_file(getdp_problem)
 
@@ -53,24 +47,24 @@ struct DefineResolution end
 end
 
 @inline function (f::AmpacityFormulation)(
-	frequency::Float64,
-	workspace::FEMWorkspace,
+    frequency::Float64,
+    workspace::FEMWorkspace,
 )
-	# Create and build the problem
-	getdp_problem = GetDP.Problem()
+    # Create and build the problem
+    getdp_problem = GetDP.Problem()
+    
+    DefineJacobian()(getdp_problem, workspace)
+    DefineIntegration()(getdp_problem)
+    DefineMaterialProps()(getdp_problem, workspace)
+    DefineConstants()(getdp_problem, frequency, workspace)
+    DefineDomainGroups()(getdp_problem, f, workspace)
+    DefineConstraint()(getdp_problem, workspace)
+    DefineResolution()(getdp_problem, f)
 
-	DefineJacobian()(getdp_problem, workspace)
-	DefineIntegration()(getdp_problem)
-	DefineMaterialProps()(getdp_problem, workspace)
-	DefineConstants()(getdp_problem, frequency, workspace)
-	DefineDomainGroups()(getdp_problem, f, workspace)
-	DefineConstraint()(getdp_problem, workspace)
-	DefineResolution()(getdp_problem, f)
-
-	make_problem!(getdp_problem)
-
+    make_problem!(getdp_problem)
+	
 	# Set the filename on the problem object based on formulation type
-	getdp_problem.filename = get_output_filename(f, workspace)
+    getdp_problem.filename = get_output_filename(f, workspace)
 
 	write_file(getdp_problem)
 
@@ -161,7 +155,7 @@ end
 
 	add_constant!(func, "Freq", frequency)
 	add_constant!(func, "UnitAmplitude", 1.0)
-
+	
 	push!(problem.function_obj, func)
 end
 
@@ -379,7 +373,7 @@ end
 	GetDP.add!(group, "Sur_Dirichlet_Mag", boundary_reg, "Region")
 	GetDP.add!(group, "Sur_Dirichlet_The", boundary_reg, "Region")
 	GetDP.add!(group, "Sur_Convection_Thermal", [], "Region")
-
+	
 	problem.group = group
 end
 
@@ -513,9 +507,9 @@ end
 	output_dir = joinpath("results", lowercase(resolution_name))
 	output_dir = replace(output_dir, "\\" => "/") # for compatibility with Windows paths
 	resolution = Resolution()
-	sys_ele = SystemItem("Sys_Ele", "Electrodynamics_v";
-		Type = "Complex",
-		Frequency = "Freq",
+	sys_ele = SystemItem("Sys_Ele", "Electrodynamics_v"; 
+		Type="Complex", 
+		Frequency="Freq"
 	)
 	GetDP.add!(resolution, resolution_name, [sys_ele],
 		Operation = [
@@ -739,9 +733,9 @@ end
 
 	# Define Resolution
 	resolution = Resolution()
-	sys_mag = SystemItem("Sys_Mag", "Darwin_a_2D";
-		Type = "Complex",
-		Frequency = "Freq",
+	sys_mag = SystemItem("Sys_Mag", "Darwin_a_2D"; 
+		Type="Complex", 
+		Frequency="Freq"
 	)
 	# Add a resolution
 	resolution_name = get_resolution_name(formulation_type)
@@ -775,41 +769,17 @@ end
 	q = add_post_quantity_term!(pp, "j")
 	GetDP.add!(q, "Term", "-sigma[]*(Dt[{a}]+{ur})"; In = "DomainC", Jacobian = "Vol")
 	q = add_post_quantity_term!(pp, "jz")
-	GetDP.add!(
-		q,
-		"Term",
-		"CompZ[-sigma[]*(Dt[{a}]+{ur})]";
-		In = "DomainC",
-		Jacobian = "Vol",
-	)
+	GetDP.add!(q, "Term", "CompZ[-sigma[]*(Dt[{a}]+{ur})]"; In = "DomainC", Jacobian = "Vol")
 	q = add_post_quantity_term!(pp, "jm")
 	GetDP.add!(q, "Term", "Norm[-sigma[]*(Dt[{a}]+{ur})]"; In = "DomainC", Jacobian = "Vol")
 	q = add_post_quantity_term!(pp, "d")
 	GetDP.add!(q, "Term", "epsilon[] * Dt[Dt[{a}]+{ur}]"; In = "DomainC", Jacobian = "Vol")
 	q = add_post_quantity_term!(pp, "dz")
-	GetDP.add!(
-		q,
-		"Term",
-		"CompZ[epsilon[] * Dt[Dt[{a}]+{ur}]]";
-		In = "DomainC",
-		Jacobian = "Vol",
-	)
+	GetDP.add!(q, "Term", "CompZ[epsilon[] * Dt[Dt[{a}]+{ur}]]"; In = "DomainC", Jacobian = "Vol")
 	q = add_post_quantity_term!(pp, "dm")
-	GetDP.add!(
-		q,
-		"Term",
-		"Norm[epsilon[] * Dt[Dt[{a}]+{ur}]]";
-		In = "DomainC",
-		Jacobian = "Vol",
-	)
+	GetDP.add!(q, "Term", "Norm[epsilon[] * Dt[Dt[{a}]+{ur}]]"; In = "DomainC", Jacobian = "Vol")
 	q = add_post_quantity_term!(pp, "rhoj2")
-	GetDP.add!(
-		q,
-		"Term",
-		"0.5*sigma[]*SquNorm[Dt[{a}]+{ur}]";
-		In = "DomainC",
-		Jacobian = "Vol",
-	)
+	GetDP.add!(q, "Term", "0.5*sigma[]*SquNorm[Dt[{a}]+{ur}]"; In = "DomainC", Jacobian = "Vol")
 
 	q = add_post_quantity_term!(pp, "U")
 	GetDP.add!(q, "Term", "{U}"; In = "DomainC")
@@ -1051,7 +1021,7 @@ end
 	# Define Resolution
 	resolution = Resolution()
 
-	sys_mag = SystemItem("Sys_Mag", "Darwin_a_2D"; Type = "Complex", Frequency = "Freq")
+	sys_mag = SystemItem("Sys_Mag", "Darwin_a_2D"; Type="Complex", Frequency="Freq")
 	sys_the = SystemItem("Sys_The", "ThermalSta")
 
 	# Add a resolution
@@ -1072,7 +1042,7 @@ end
 			"SaveSolution[Sys_Mag]",
 			"SaveSolution[Sys_The]",
 			"PostOperation[LineParams]",
-		],
+		]
 	)
 	# Add the resolution to the problem
 	problem.resolution = resolution
@@ -1093,47 +1063,17 @@ end
 	q = add_post_quantity_term!(pp, "j")
 	GetDP.add!(q, "Term", "-sigma[]*(Dt[{a}]+{ur})"; In = "DomainC", Jacobian = "Vol")
 	q = add_post_quantity_term!(pp, "jz")
-	GetDP.add!(
-		q,
-		"Term",
-		"CompZ[-sigma[{T}]*(Dt[{a}]+{ur})]";
-		In = "DomainC",
-		Jacobian = "Vol",
-	)
+	GetDP.add!(q, "Term", "CompZ[-sigma[{T}]*(Dt[{a}]+{ur})]"; In = "DomainC", Jacobian = "Vol")
 	q = add_post_quantity_term!(pp, "jm")
-	GetDP.add!(
-		q,
-		"Term",
-		"Norm[-sigma[{T}]*(Dt[{a}]+{ur})]";
-		In = "DomainC",
-		Jacobian = "Vol",
-	)
+	GetDP.add!(q, "Term", "Norm[-sigma[{T}]*(Dt[{a}]+{ur})]"; In = "DomainC", Jacobian = "Vol")
 	q = add_post_quantity_term!(pp, "d")
 	GetDP.add!(q, "Term", "epsilon[] * Dt[Dt[{a}]+{ur}]"; In = "DomainC", Jacobian = "Vol")
 	q = add_post_quantity_term!(pp, "dz")
-	GetDP.add!(
-		q,
-		"Term",
-		"CompZ[epsilon[] * Dt[Dt[{a}]+{ur}]]";
-		In = "DomainC",
-		Jacobian = "Vol",
-	)
+	GetDP.add!(q, "Term", "CompZ[epsilon[] * Dt[Dt[{a}]+{ur}]]"; In = "DomainC", Jacobian = "Vol")
 	q = add_post_quantity_term!(pp, "dm")
-	GetDP.add!(
-		q,
-		"Term",
-		"Norm[epsilon[] * Dt[Dt[{a}]+{ur}]]";
-		In = "DomainC",
-		Jacobian = "Vol",
-	)
+	GetDP.add!(q, "Term", "Norm[epsilon[] * Dt[Dt[{a}]+{ur}]]"; In = "DomainC", Jacobian = "Vol")
 	q = add_post_quantity_term!(pp, "rhoj2")
-	GetDP.add!(
-		q,
-		"Term",
-		"0.5*sigma[{T}]*SquNorm[Dt[{a}]+{ur}]";
-		In = "DomainC",
-		Jacobian = "Vol",
-	)
+	GetDP.add!(q, "Term", "0.5*sigma[{T}]*SquNorm[Dt[{a}]+{ur}]"; In = "DomainC", Jacobian = "Vol")
 
 	q = add_post_quantity_term!(pp, "U")
 	GetDP.add!(q, "Term", "{U}"; In = "DomainC")
@@ -1162,25 +1102,13 @@ end
 	# Add post-operation items
 	po1 = GetDP.add!(postoperation, "Field_Maps", "ThermalSta")
 	op1 = add_operation!(po1)
-	add_operation!(
-		op1,
-		"Print[ TinC, OnElementsOf Domain_Mag, Name \"T [°C] around cable\", File StrCat[ \"$(joinpath(output_dir,"TinC"))\", \".pos\" ] ];",
-	)
-	add_operation!(
-		op1,
-		"Print[ q , OnElementsOf Domain_Mag, Name \"heat flux [W/m²] around cable\", File StrCat[ \"$(joinpath(output_dir,"q"))\", \".pos\" ] ];",
-	)
+	add_operation!(op1, "Print[ TinC, OnElementsOf Domain_Mag, Name \"T [°C] around cable\", File StrCat[ \"$(joinpath(output_dir,"TinC"))\", \".pos\" ] ];")
+	add_operation!(op1, "Print[ q , OnElementsOf Domain_Mag, Name \"heat flux [W/m²] around cable\", File StrCat[ \"$(joinpath(output_dir,"q"))\", \".pos\" ] ];")
 
 	po2 = GetDP.add!(postoperation, "LineParams", "ThermalSta")
 	op2 = add_operation!(po2)
-	add_operation!(
-		op2,
-		"Print[ TinC, OnElementsOf Domain_Mag, Name \"T [°C] around cable\", File StrCat[ \"$(joinpath(output_dir,"TinC"))\", \".pos\" ] ];",
-	)
-	add_operation!(
-		op2,
-		"Print[ q , OnElementsOf Domain_Mag, Name \"heat flux [W/m²] around cable\", File StrCat[ \"$(joinpath(output_dir,"q"))\", \".pos\" ] ];",
-	)
+	add_operation!(op2, "Print[ TinC, OnElementsOf Domain_Mag, Name \"T [°C] around cable\", File StrCat[ \"$(joinpath(output_dir,"TinC"))\", \".pos\" ] ];")
+	add_operation!(op2, "Print[ q , OnElementsOf Domain_Mag, Name \"heat flux [W/m²] around cable\", File StrCat[ \"$(joinpath(output_dir,"q"))\", \".pos\" ] ];")
 	# add_operation!(op2, "Print[ Z, OnRegion Conductors, Format Table, File \"$(joinpath(output_dir,"Z.dat"))\", AppendToExistingFile (active_con > 1 ? 1 : 0) ];")
 
 
@@ -1190,45 +1118,40 @@ end
 end
 
 function run_getdp(workspace::FEMWorkspace, frequency::Float64,
-	fem_formulation::Union{AbstractImpedanceFormulation, AbstractAdmittanceFormulation},
-	active_con::Int)
+	fem_formulation::Union{AbstractImpedanceFormulation, AbstractAdmittanceFormulation}, active_con::Int)
 
 	resolution_name = get_resolution_name(fem_formulation)
-	@debug "Processing $(resolution_name) formulation"
-	getdp_problem = fem_formulation(frequency, workspace, active_con)
-	getdp_verbosity = map_verbosity_to_getdp(workspace.core.opts.verbosity)
-	solve_cmd = "$(workspace.core.opts.getdp_executable) $(getdp_problem.filename) -msh $(workspace.core.paths[:mesh_file]) -solve $(resolution_name) -v2 -verbose $(getdp_verbosity)"
+    @debug "Processing $(resolution_name) formulation"
+    getdp_problem = fem_formulation(frequency, workspace, active_con)
+    getdp_verbosity = map_verbosity_to_getdp(workspace.core.opts.verbosity)
+    solve_cmd = "$(workspace.core.opts.getdp_executable) $(getdp_problem.filename) -msh $(workspace.core.paths[:mesh_file]) -solve $(resolution_name) -v2 -verbose $(getdp_verbosity)"
 
-	@info "Solving for source conductor $active_con... (Resolution = $(resolution_name))"
+    @info "Solving for source conductor $active_con... (Resolution = $(resolution_name))"
 
-	# Attempt to run the solver
-	success = true
-	try
-		gmsh.onelab.run("GetDP", solve_cmd)
+    # Attempt to run the solver
+    success = true
+    try
+        gmsh.onelab.run("GetDP", solve_cmd)
 
-		if workspace.core.opts.plot_field_maps
-			@info "Building field maps for source conductor $active_con... (Resolution = $(resolution_name))"
+        if workspace.core.opts.plot_field_maps
+            @info "Building field maps for source conductor $active_con... (Resolution = $(resolution_name))"
 
-			post_cmd = "$(workspace.core.opts.getdp_executable) $(getdp_problem.filename) -msh $(workspace.core.paths[:mesh_file]) -pos Field_Maps -v2 -verbose $(getdp_verbosity)"
+            post_cmd = "$(workspace.core.opts.getdp_executable) $(getdp_problem.filename) -msh $(workspace.core.paths[:mesh_file]) -pos Field_Maps -v2 -verbose $(getdp_verbosity)"
 
-			gmsh.onelab.run("GetDP", post_cmd)
-		end
+            gmsh.onelab.run("GetDP", post_cmd)
+        end
 
-		@info "Solve successful for source conductor $(active_con)!"
-	catch e
-		# Log the error and update the success flag
-		@error "Solver failed for source conductor $active_con: $e"
-		success = false
-	end
-
+        @info "Solve successful for source conductor $(active_con)!"
+    catch e
+        # Log the error and update the success flag
+        @error "Solver failed for source conductor $active_con: $e"
+        success = false
+    end
+    
 	return success
 
 end
-function run_getdp(
-	workspace::FEMWorkspace,
-	problem::GetDP.Problem,
-	fem_formulation::AmpacityFormulation,
-)
+function run_getdp(workspace::FEMWorkspace, problem::GetDP.Problem, fem_formulation::AmpacityFormulation)
 	# Initialize Gmsh if not already initialized
 	if gmsh.is_initialized() == 0
 		gmsh.initialize()
@@ -1307,143 +1230,139 @@ workspace = $(FUNCTIONNAME)(cable_system, formulation, solver)
 """
 
 function compute!(problem::LineParametersProblem,
-	formulation::FEMFormulation,
-	workspace::Union{FEMWorkspace, Nothing} = nothing)
+    formulation::FEMFormulation,
+    workspace::Union{FEMWorkspace, Nothing} = nothing)
 
-	opts = formulation.options
+    opts = formulation.options
 
-	# Initialize workspace
-	workspace = init_workspace(problem, formulation, workspace)
+    # Initialize workspace
+    workspace = init_workspace(problem, formulation, workspace)
 
-	# Meshing phase: make_mesh! decides if it needs to run.
-	# It returns true if the process should stop (e.g., mesh_only=true).
-	mesh_only_flag = make_mesh!(workspace)
+    # Meshing phase: make_mesh! decides if it needs to run.
+    # It returns true if the process should stop (e.g., mesh_only=true).
+    mesh_only_flag = make_mesh!(workspace)
+        
+    # Only proceed with solver if not mesh_only
+    if !mesh_only_flag
+        @info "Starting FEM solver"
+        
+        # Extract necessary variables from workspace
+        n_phases = workspace.core.n_phases
+        n_frequencies = workspace.core.n_frequencies
+        phase_map = workspace.core.phase_map
 
-	# Only proceed with solver if not mesh_only
-	if !mesh_only_flag
-		@info "Starting FEM solver"
+        # --- Index plan (once) ---
+        perm = reorder_indices(phase_map)    # encounter-ordered: first of each phase, then tails, then zeros
+        map_r = phase_map[perm]              # reordered map (constant across k)
 
-		# Extract necessary variables from workspace
-		n_phases = workspace.core.n_phases
-		n_frequencies = workspace.core.n_frequencies
-		phase_map = workspace.core.phase_map
+        # --- Outputs: size decided by kron_map (here: map_r after merge_bundles! zeros tails) ---
+        # Probe the keep-size once using a scratch (no heavy cost)
+        _probe = Matrix{ComplexF64}(I, n_phases, n_phases)
+        _, reduced_map = merge_bundles!(copy(_probe), map_r)
+        n_keep = count(!=(0), reduced_map)
 
-		# --- Index plan (once) ---
-		perm = reorder_indices(phase_map)    # encounter-ordered: first of each phase, then tails, then zeros
-		map_r = phase_map[perm]              # reordered map (constant across k)
+        Zr = zeros(ComplexF64, n_keep, n_keep, n_frequencies)
+        Yr = zeros(ComplexF64, n_keep, n_keep, n_frequencies)
 
-		# --- Outputs: size decided by kron_map (here: map_r after merge_bundles! zeros tails) ---
-		# Probe the keep-size once using a scratch (no heavy cost)
-		_probe = Matrix{ComplexF64}(I, n_phases, n_phases)
-		_, reduced_map = merge_bundles!(copy(_probe), map_r)
-		n_keep = count(!=(0), reduced_map)
+        # --- Scratch buffers (reused every k) ---
+        Zbuf = Matrix{ComplexF64}(undef, n_phases, n_phases)   # reordered + merged target
+        Ybuf = Matrix{ComplexF64}(undef, n_phases, n_phases)
+        Pf = Matrix{ComplexF64}(undef, n_phases, n_phases)     # potentials (for Y path)
 
-		Zr = zeros(ComplexF64, n_keep, n_keep, n_frequencies)
-		Yr = zeros(ComplexF64, n_keep, n_keep, n_frequencies)
+        # Tiny gather helper: reorder src[:,:,k] into dest without temp allocs
+        @inline function _reorder_into!(dest::StridedMatrix{ComplexF64},
+            src::Array{ComplexF64, 3},
+            perm::Vector{Int}, k::Int)
+            n = length(perm)
+            @inbounds for j in 1:n, i in 1:n
+                dest[i, j] = src[perm[i], perm[j], k]
+            end
+            dest
+        end
 
-		# --- Scratch buffers (reused every k) ---
-		Zbuf = Matrix{ComplexF64}(undef, n_phases, n_phases)   # reordered + merged target
-		Ybuf = Matrix{ComplexF64}(undef, n_phases, n_phases)
-		Pf = Matrix{ComplexF64}(undef, n_phases, n_phases)     # potentials (for Y path)
+        # --- Big loop over frequencies ---
+        for (k, frequency) in enumerate(workspace.core.freq)
+            @info "Solving frequency $k/$n_frequencies: $frequency Hz"
 
-		# Tiny gather helper: reorder src[:,:,k] into dest without temp allocs
-		@inline function _reorder_into!(dest::StridedMatrix{ComplexF64},
-			src::Array{ComplexF64, 3},
-			perm::Vector{Int}, k::Int)
-			n = length(perm)
-			@inbounds for j in 1:n, i in 1:n
-				dest[i, j] = src[perm[i], perm[j], k]
-			end
-			dest
-		end
-
-		# --- Big loop over frequencies ---
-		for (k, frequency) in enumerate(workspace.core.freq)
-			@info "Solving frequency $k/$n_frequencies: $frequency Hz"
-
-			# Build and solve both formulations
-			for fem_formulation_item in formulation.analysis_type
+            # Build and solve both formulations
+            for fem_formulation_item in formulation.analysis_type
 
 				# Initialize Gmsh if not already initialized
-				if gmsh.is_initialized() == 0
-					gmsh.initialize()
-				end
+                if gmsh.is_initialized() == 0
+                    gmsh.initialize()
+                end
 
-				# Number of iterations
-				n_phases_inner = sum([
-					length(c.design_data.components) for c in workspace.core.system.cables
-				])
+                # Number of iterations
+                n_phases_inner = sum([length(c.design_data.components) for c in workspace.core.system.cables])
 
-				# Flag to track if all solves are successful
-				all_success = true
+                # Flag to track if all solves are successful
+                all_success = true
 
-				# Map verbosity to Gmsh/GetDP level
-				gmsh_verbosity = map_verbosity_to_gmsh(workspace.core.opts.verbosity)
-				gmsh.option.set_number("General.Verbosity", gmsh_verbosity)
+                # Map verbosity to Gmsh/GetDP level
+                gmsh_verbosity = map_verbosity_to_gmsh(workspace.core.opts.verbosity)
+                gmsh.option.set_number("General.Verbosity", gmsh_verbosity)
 
-				# Loop over each active_ind from 1 to n_phases
-				for i in 1:n_phases_inner
-					# Construct solver command with -setnumber active_ind i
+                # Loop over each active_ind from 1 to n_phases
+                for i in 1:n_phases_inner
+                    # Construct solver command with -setnumber active_ind i
 					all_success = run_getdp(workspace, frequency, fem_formulation_item, i)
-				end
+                end
 
-				# Check if solve was successful
-				if !all_success
-					Base.error("$(get_resolution_name(fem_formulation_item)) solver failed")
-				end
-			end
+                # Check if solve was successful
+                if !all_success
+                    Base.error("$(get_resolution_name(fem_formulation_item)) solver failed")
+                end
+            end
 
-			# Extract results into preallocated arrays
-			workspace.Z[:, :, k] =
-				read_results_file(formulation.analysis_type[1], workspace)
-			workspace.Y[:, :, k] =
-				read_results_file(formulation.analysis_type[2], workspace)
+            # Extract results into preallocated arrays
+            workspace.Z[:, :, k] = read_results_file(formulation.analysis_type[1], workspace)
+            workspace.Y[:, :, k] = read_results_file(formulation.analysis_type[2], workspace)
 
-			# REORDER → Z
-			_reorder_into!(Zbuf, workspace.Z, perm, k)
+            # REORDER → Z
+            _reorder_into!(Zbuf, workspace.Z, perm, k)
 
-			# MERGE bundles (in-place on Zbuf) and get reduced map (tails → 0)
-			Zm, reduced_map = merge_bundles!(Zbuf, map_r)
+            # MERGE bundles (in-place on Zbuf) and get reduced map (tails → 0)
+            Zm, reduced_map = merge_bundles!(Zbuf, map_r)
 
-			# KRON on Z
-			Zred = kronify(Zm, reduced_map)
-			symtrans!(Zred)
-			formulation.options.ideal_transposition || line_transpose!(Zred)
-			@inbounds Zr[:, :, k] .= Zred
+            # KRON on Z
+            Zred = kronify(Zm, reduced_map)
+            symtrans!(Zred)
+            formulation.options.ideal_transposition || line_transpose!(Zred)
+            @inbounds Zr[:, :, k] .= Zred
 
-			# Y path goes via potentials: Pf = inv(Y/(jω))
-			w = 2π * frequency
-			# REORDER → Y
-			_reorder_into!(Ybuf, workspace.Y, perm, k)
+            # Y path goes via potentials: Pf = inv(Y/(jω))
+            w = 2π * frequency
+            # REORDER → Y
+            _reorder_into!(Ybuf, workspace.Y, perm, k)
 
-			# Pf = inv(Ybuf / (jω)) without extra temps
-			@inbounds @views begin
-				Pf .= Ybuf
-				Pf ./= (1im * w)
-			end
-			Pf .= inv(Pf)
+            # Pf = inv(Ybuf / (jω)) without extra temps
+            @inbounds @views begin
+                Pf .= Ybuf
+                Pf ./= (1im * w)
+            end
+            Pf .= inv(Pf)
 
-			# MERGE bundles for Pf (same reduced_map semantics)
-			Pfm, reduced_map = merge_bundles!(Pf, map_r)
+            # MERGE bundles for Pf (same reduced_map semantics)
+            Pfm, reduced_map = merge_bundles!(Pf, map_r)
 
-			# KRON on Pf, then invert back to Y
-			Pr = kronify(Pfm, reduced_map)
-			Yrk = (1im * w) * inv(Pr)
-			symtrans!(Yrk)
-			formulation.options.ideal_transposition || line_transpose!(Yrk)
-			@inbounds Yr[:, :, k] .= Yrk
+            # KRON on Pf, then invert back to Y
+            Pr = kronify(Pfm, reduced_map)
+            Yrk = (1im * w) * inv(Pr)
+            symtrans!(Yrk)
+            formulation.options.ideal_transposition || line_transpose!(Yrk)
+            @inbounds Yr[:, :, k] .= Yrk
 
-			# Archive if requested
-			if workspace.core.opts.keep_run_files
-				archive_frequency_results(workspace, frequency)
-			end
-		end
+            # Archive if requested
+            if workspace.core.opts.keep_run_files
+                archive_frequency_results(workspace, frequency)
+            end
+        end
 
-		ZY = LineParameters(Zr, Yr, workspace.core.freq)
-		@info "FEM computation completed successfully"
-	end
+        ZY = LineParameters(Zr, Yr, workspace.core.freq)
+        @info "FEM computation completed successfully"
+    end
 
-	return workspace, ZY
+    return workspace, ZY
 end
 """
 $(TYPEDSIGNATURES)
