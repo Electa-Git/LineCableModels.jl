@@ -41,7 +41,7 @@ GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 WGLMakie = "276b4fcb-3e11-5398-bf8b-a0c2d153d008"
 
 [sources]
-GetDP = {rev = "fix/recover-pr12", url = "https://github.com/Electa-Git/GetDP.jl"}
+GetDP = {rev = "473dece8e9bdb614990f611cac346d10984cfd25", url = "https://github.com/Electa-Git/GetDP.jl"}
 
 [compat]
 Aqua = "0.8"
