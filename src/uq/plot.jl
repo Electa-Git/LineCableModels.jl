@@ -157,7 +157,7 @@ function _build_hist_spec(
 	meta = _quantity_metadata(values_sym)
 	units = normalize_quantity_units(quantity_units)
 	q_prefix = resolve_quantity_prefix(meta.quantity, units)
-	c_scale = (per_length ? length_scale(length_unit) : 1.0) * quantity_scale(q_prefix)
+	c_scale = (per_length ? 1.0 : length_scale(length_unit)) * quantity_scale(q_prefix)
 	i, j, k = _ijk
 
 	# --- Load Data (uses plot_data) ---
