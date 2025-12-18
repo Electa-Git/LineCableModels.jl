@@ -30,7 +30,9 @@ transformation matrices and a **modal-domain** `LineParameters` holding the
   - Shunt admittance `Ym` (diagonal per frequency) \\[S/m\\].
 
 """
-function (f::Levenberg)(lp::LineParameters{Tc}) where {Tc <: COMPLEXSCALAR}
+function (f::Levenberg)(
+	lp::LineParameters{Tc, U, PhaseDomain},
+) where {Tc <: COMPLEXSCALAR, U <: REALSCALAR}
 	n, n2, nfreq = size(lp.Z.values)
 	n == n2 || throw(DimensionMismatch("Z must be square"))
 	size(lp.Y.values) == (n, n, nfreq) || throw(DimensionMismatch("Y must be n×n×nfreq"))
@@ -68,20 +70,23 @@ function (f::Levenberg)(lp::LineParameters{Tc}) where {Tc <: COMPLEXSCALAR}
 		if offdiagZ > f.tol
 			@warn "$fname: transformed Z not diagonal within tolerance, check your results" ratio =
 				offdiagZ
+		else
+			@views Zm[:, :, k] .= Diagonal(diag(Zm[:, :, k]))  # enforce exact diagonal
 		end
 		offdiagY = offdiag_ratio(Ym[:, :, k])
 		if offdiagY > f.tol
 			@warn "$fname: transformed Y not diagonal within tolerance, check your results" ratio =
 				offdiagY
+		else
+			@views Ym[:, :, k] .= Diagonal(diag(Ym[:, :, k]))  # enforce exact diagonal
 		end
-
 	end
 	# 2) Apply deterministic T to uncertain (or plain) inputs for *physical* outputs
 	# Zm, Ym, Zc_mod, Yc_mod, Zch, Ych =
 	# 	_calc_modal_quantities(Ti, lp.Z.values, lp.Y.values)
 	# Gdiag = _calc_gamma(Ti, lp.Z.values, lp.Y.values)
 
-	return Ti, LineParameters(SeriesImpedance(Zm), ShuntAdmittance(Ym), lp.f)
+	return Ti, LineParameters(ModalDomain, SeriesImpedance(Zm), ShuntAdmittance(Ym), lp.f)
 	# Keep  original return (Ti, modal characteristic) for compatibility,
 	# but you now also have Zm, Ym, Zch, Ych, Gdiag available for downstream use.
 	# return Ti, LineParameters(SeriesImpedance(Zc_mod), ShuntAdmittance(Yc_mod), lp.f),
