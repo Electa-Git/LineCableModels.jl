@@ -215,12 +215,26 @@ function verify_shapes(
 		nd == 0 &&
 			Base.error("Axis $(d) data for $(S) is scalar; expected an array.")
 
-		# Check i/j bounds using first/second dims when present
-		if has_i && nd >= 1
-			_check_index(:i, i_val, size(arr, 1))
+		# Enforce the same storage contract as axis_slice,
+		# except that :x may be a global 1D vector.
+		if has_i && has_j && !(d === :x && nd == 1) && nd < 3
+			Base.error(
+				"Invalid axis storage for $(d): spec uses indices :i and :j, " *
+				"but container_array($(S), $(d)) returned an array with $(nd) dimension(s). " *
+				"When both :i and :j are active, the underlying array must be at least 3D " *
+				"(Ni, Nj, Nk...).",
+			)
 		end
-		if has_j && nd >= 2
-			_check_index(:j, j_val, size(arr, 2))
+
+		# Check i/j bounds using first/second dims when present.
+		# Skip for global 1D :x vectors.
+		if !(d === :x && nd == 1)
+			if has_i && nd >= 1
+				_check_index(:i, i_val, size(arr, 1))
+			end
+			if has_j && nd >= 2
+				_check_index(:j, j_val, size(arr, 2))
+			end
 		end
 
 		# Determine sample length along k or last dimension
