@@ -21,8 +21,8 @@ export EarthModel
 
 # Engine:
 export LineParametersProblem,
-	FormulationSet,
-	compute!, SeriesImpedance, ShuntAdmittance, per_km, per_m, kronify
+	FormulationSet, compute!, SeriesImpedance, ShuntAdmittance, per_km, per_m, kronify,
+	LineParameters, PhaseDomain, ModalDomain
 
 # Parametric builder:
 # export make_stranded, make_screened
@@ -71,8 +71,8 @@ using .DataModel: Thickness, Diameter, WireArray, Strip, Tubular, Semicon, Insul
 
 # Submodule `Engine`
 include("engine/Engine.jl")
-using .Engine: LineParametersProblem, compute!, SeriesImpedance, ShuntAdmittance, per_km,
-	per_m, kronify, FormulationSet
+using .Engine: LineParametersProblem, compute!, LineParameters, SeriesImpedance,
+	ShuntAdmittance, per_km, per_m, kronify, FormulationSet, PhaseDomain, ModalDomain
 
 # Submodule `ParametricBuilder`
 include("parametricbuilder/ParametricBuilder.jl")
