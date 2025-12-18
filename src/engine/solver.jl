@@ -145,9 +145,11 @@ function compute!(
 
 		if !isnothing(formulation.modal_transform)
 			# apply modal transformation
-			_, lp = formulation.modal_transform(LineParameters(Zout, Yout, ws.freq))
+			_, lp = formulation.modal_transform(
+				LineParameters(PhaseDomain, Zout, Yout, ws.freq),
+			)
 		else
-			lp = LineParameters(Zout, Yout, ws.freq)
+			lp = LineParameters(PhaseDomain, Zout, Yout, ws.freq)
 		end
 
 		@info "Line parameters computation completed successfully"
