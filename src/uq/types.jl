@@ -91,6 +91,10 @@ function LineParametersMC(
 	return LineParametersMC{U, D}(f, stats, pdf, samples, lp_meas)
 end
 
+@inline domain(::Type{<:LineParametersMC{U, D}}) where {U <: Real, D <: LineParamsDomain} =
+	D
+@inline domain(lp::LineParametersMC) = domain(typeof(lp))
+
 struct CableDesignMC{U <: Real}
 	"Statistics for R, L, C (each is a NamedTuple from the mc stats kernel)."
 	stats::NamedTuple{
