@@ -215,6 +215,98 @@ function get_target_fields(
 end
 
 """
+	is_modal(obj)
+
+Return `true` iff `domain(obj)` is a modal-like tag.
+"""
+@inline is_modal(x) = (D = domain(x); D !== nothing && D <: ModalDomain)
+
+# --------------------------------------------------------------------------
+# Index pair iterator: PhaseDomain vs ModalDomain
+# --------------------------------------------------------------------------
+
+"""
+	index_pairs(::Type{S}, nt) where {S<:AbstractPlotSpec}
+
+Return the list of \\((i,j)\\) index pairs that this spec should materialize
+for the given resolved input `nt`.
+
+Semantics:
+
+- Phase-like domain (default, or `domain(nt.obj) === nothing`):
+	* If :i is in `index_keys(S)`:
+		- If `nt` pins `i`, use only that value.
+		- Otherwise, use `1:Ni` where `Ni` is inferred from `matrix_size(S, nt)`.
+	* If :j is in `index_keys(S)`:
+		- Same, using `nj` / `Nj`.
+
+  Result: full rectangular coverage over the active ranges.
+
+- ModalDomain AND both :i and :j are in `index_keys(S)` AND neither is pinned in `nt`:
+	* Let `(Ni, Nj) = matrix_size(S, nt)` and `N = min(Ni, Nj)`.
+	* Return only diagonal pairs: `(1,1), (2,2), ..., (N,N)`.
+
+- If the user pins `i` and/or `j`, user intent takes precedence regardless
+  of domain tag.
+"""
+function index_pairs(
+	::Type{S},
+	nt::NamedTuple,
+) where {S <: AbstractPlotSpec}
+	idx_raw = index_keys(S)
+	idx = idx_raw isa Tuple ? idx_raw : (idx_raw,)
+
+	has_i = :i in idx
+	has_j = :j in idx
+
+	Ni, Nj = matrix_size(S, nt)
+
+	i_defined = has_i && haskey(nt, :i)
+	j_defined = has_j && haskey(nt, :j)
+
+	obj = nt.obj
+	modal = is_modal(obj)
+
+	# Modal diagonal semantics:
+	# - both :i and :j are matrix selectors,
+	# - neither is pinned by the user or defaults,
+	# - domain is ModalDomain (or subtype).
+	if modal && has_i && has_j && !i_defined && !j_defined
+		N = min(Ni, Nj)
+		pairs = Vector{Tuple{Int, Int}}(undef, N)
+		@inbounds for k in 1:N
+			pairs[k] = (k, k)
+		end
+		return pairs
+	end
+
+	# Phase-like / generic semantics (or user-pinned case in modal)
+	I_range =
+		if has_i
+			i_defined ? (nt.i:nt.i) : (1:Ni)
+		else
+			1:1
+		end
+
+	J_range =
+		if has_j
+			j_defined ? (nt.j:nt.j) : (1:Nj)
+		else
+			1:1
+		end
+
+	pairs = Tuple{Int, Int}[]
+	@inbounds for i in I_range
+		for j in J_range
+			push!(pairs, (i, j))
+		end
+	end
+
+	return pairs
+end
+
+
+"""
 	build_figures(::Type{S}, nt) where {S<:AbstractPlotSpec}
 
 Top-level figure builder for spec `S`.
@@ -264,40 +356,19 @@ function build_figures(
 	has_i = :i in idx
 	has_j = :j in idx
 
-	i_defined = has_i && haskey(nt, :i)
-	j_defined = has_j && haskey(nt, :j)
-
-	Ni, Nj = matrix_size(S, nt)
-
-	I_range =
-		if has_i
-			i_defined ? (nt.i:nt.i) : (1:Ni)
-		else
-			1:1
-		end
-
-	J_range =
-		if has_j
-			j_defined ? (nt.j:nt.j) : (1:Nj)
-		else
-			1:1
-		end
-
 	all_series = Dataseries[]
 
-	for i in I_range
-		for j in J_range
-			nt_ij = nt
-			if has_i
-				nt_ij = merge(nt_ij, (; i = i))
-			end
-			if has_j
-				nt_ij = merge(nt_ij, (; j = j))
-			end
-
-			series_ij = build_series(S, nt_ij, axes)
-			append!(all_series, series_ij)
+	for (i, j) in index_pairs(S, nt)
+		nt_ij = nt
+		if has_i
+			nt_ij = merge(nt_ij, (; i = i))
 		end
+		if has_j
+			nt_ij = merge(nt_ij, (; j = j))
+		end
+
+		series_ij = build_series(S, nt_ij, axes)
+		append!(all_series, series_ij)
 	end
 
 	panels = build_panels(S, nt, axes, all_series)
@@ -336,74 +407,54 @@ function build_figures(
 	has_i = :i in idx
 	has_j = :j in idx
 
-	i_defined = has_i && haskey(nt, :i)
-	j_defined = has_j && haskey(nt, :j)
-
-	Ni, Nj = matrix_size(S, nt)
-
-	I_range =
-		if has_i
-			i_defined ? (nt.i:nt.i) : (1:Ni)
-		else
-			1:1
-		end
-
-	J_range =
-		if has_j
-			j_defined ? (nt.j:nt.j) : (1:Nj)
-		else
-			1:1
-		end
-
 	_, kfield, field_keys = get_target_fields(S, nt, axes)
 
 	areas = Panel[]
 
-	for i in I_range
-		for j in J_range
-			nt_ij = nt
-			if has_i
-				nt_ij = merge(nt_ij, (; i = i))
-			end
-			if has_j
-				nt_ij = merge(nt_ij, (; j = j))
-			end
-
-			series_ij = Dataseries[]
-
-			for fk in field_keys
-				nt_ij_fk = merge(nt_ij, (; kfield => fk))
-				series_fk = build_series(S, nt_ij_fk, axes)
-				append!(series_ij, series_fk)
-			end
-
-			# Populate area key with whatever matrix indices this spec actually uses.
-			key =
-				if has_i && has_j
-					(; i = i, j = j)
-				elseif has_i
-					(; i = i)
-				elseif has_j
-					(; j = j)
-				else
-					(;)
-				end
-
-			title = default_title(S, nt_ij)
-
-			area = Panel(
-				axes.xaxis,
-				axes.yaxis,
-				axes.zaxis,
-				title,
-				series_ij,
-				key,
-			)
-
-			push!(areas, area)
+	for (i, j) in index_pairs(S, nt)
+		nt_ij = nt
+		if has_i
+			nt_ij = merge(nt_ij, (; i = i))
 		end
+		if has_j
+			nt_ij = merge(nt_ij, (; j = j))
+		end
+
+		series_ij = Dataseries[]
+
+		for fk in field_keys
+			nt_ij_fk = merge(nt_ij, (; kfield => fk))
+			series_fk = build_series(S, nt_ij_fk, axes)
+			append!(series_ij, series_fk)
+		end
+
+		# Populate area key with whatever matrix indices this spec actually uses.
+		key =
+			if has_i && has_j
+				(; i = i, j = j)
+			elseif has_i
+				(; i = i)
+			elseif has_j
+				(; j = j)
+			else
+				(;)
+			end
+
+		title = default_title(S, nt_ij)
+
+		area = Panel(
+			axes.xaxis,
+			axes.yaxis,
+			axes.zaxis,
+			title,
+			series_ij,
+			key,
+		)
+
+		push!(areas, area)
 	end
 
 	return build_figures(S, nt, areas)
 end
+
 
