@@ -26,7 +26,8 @@ module Engine
 
 # Export public API
 export LineParametersProblem,
-	LineParameters, SeriesImpedance, ShuntAdmittance, per_km, per_m, kronify
+	LineParameters, SeriesImpedance, ShuntAdmittance, per_km, per_m, kronify, PhaseDomain,
+	ModalDomain
 export EMTFormulation, FormulationSet, LineParamOptions
 
 export compute!, plot
