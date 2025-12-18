@@ -115,5 +115,8 @@ LineParameters(
 # end
 
 # --- Tiny domain extractors ---------------------------------------------------
+"""
+Return the domain tag type for `LineParameters` objects.
+"""
 @inline domain(::Type{<:LineParameters{T, U, D}}) where {T, U, D <: LineParamsDomain} = D
 @inline domain(lp::LineParameters) = domain(typeof(lp))
