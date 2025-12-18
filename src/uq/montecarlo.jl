@@ -172,9 +172,21 @@ function mc(
 	# ─────────────────────────────────────────────────────────────────────────
 	# Monte Carlo over FULL frequency vector: one LineParameters per trial
 	# ─────────────────────────────────────────────────────────────────────────
+	Dlp = nothing  # will hold ::Type{<:LineParamsDomain}
+
 	for i in 1:ntrials
 		prob = sample(sys_det; distribution = distribution)
 		ws, lp = compute!(prob, F)     # lp::LineParameters{Tc, Tr}
+		if Dlp === nothing
+			Dlp = domain(lp)  # e.g. PhaseDomain or ModalDomain (as a Type)
+		else
+			domain(lp) === Dlp || throw(
+				DomainError(
+					domain(lp),
+					"mc: inconsistent LineParameters domain across trials",
+				),
+			)
+		end
 		if per_length
 			Zscaled = lp.Z.values
 			Yscaled = lp.Y.values
@@ -262,7 +274,9 @@ function mc(
 	end
 
 	# Frequency-dependent LineParameters using Measurements.jl types
-	LP_meas = LineParameters(Zmeas, Ymeas, fvec)
+	Dlp === nothing &&
+		throw(ErrorException("mc: compute! produced no LineParameters (ntrials = 0?)"))
+	LP_meas = LineParameters(Dlp, Zmeas, Ymeas, fvec)
 
 	@info "mc[Z,Y]: done" total = ntrials nfreq = nfreq
 
@@ -271,6 +285,6 @@ function mc(
 
 	samples_nt = return_samples ? (R = Rsamp, L = Lsamp, C = Csamp, G = Gsamp) : nothing
 
-	return LineParametersMC{U}(fvec, stats_nt, pdf_nt, samples_nt, LP_meas)
+	return LineParametersMC(fvec, stats_nt, pdf_nt, samples_nt, LP_meas)
 
 end
