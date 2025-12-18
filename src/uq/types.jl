@@ -33,7 +33,7 @@ function LineParametersPDF(
 	return LineParametersPDF{T}(e, d)
 end
 
-struct LineParametersMC{U <: Real}
+struct LineParametersMC{U <: Real, D <: LineParamsDomain}
 	"Frequencies \\[Hz\\]."
 	f::Vector{U}
 
@@ -77,7 +77,18 @@ struct LineParametersMC{U <: Real}
 	}
 
 	"Frequency-dependent LineParameters with Measurement-valued entries."
-	measurements::LineParameters{Complex{Measurement{U}}, U}
+	measurements::LineParameters{Complex{Measurement{U}}, U, D}
+end
+
+# Constructor to infer D from lp_meas at compile time
+function LineParametersMC(
+	f::Vector{U},
+	stats::NamedTuple,
+	pdf,
+	samples,
+	lp_meas::LineParameters{Tc, U, D},
+) where {Tc, U <: Real, D <: LineParamsDomain}
+	return LineParametersMC{U, D}(f, stats, pdf, samples, lp_meas)
 end
 
 struct CableDesignMC{U <: Real}
