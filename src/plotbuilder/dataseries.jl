@@ -59,28 +59,39 @@ function axis_slice(
 	# --- Apply indices (i,j,k) → 1D slice along sample dimension ---
 	arr = raw_arr
 	nd  = ndims(arr)
-	@show nd
-	@show arr
+
 	has_i = haskey(nt, :i)
 	has_j = haskey(nt, :j)
 	has_k = haskey(nt, :k)
 
-	# First slice in i,j where applicable
+	# First slice in i,j where applicable.
+	# Exception: allow :x to be a global 1D vector shared across all (i,j).
 	if has_i && has_j
-		if nd < 3
+		if dim === :x && nd == 1
+			# global x; do nothing
+		elseif nd < 3
 			Base.error(
 				"Invalid axis storage for $(dim): spec uses indices :i and :j, " *
 				"but container_array($(S), $(dim)) returned an array with $(nd) dimension(s). " *
 				"When both :i and :j are active, the underlying array must be at least 3D " *
 				"(Ni, Nj, Nk...). Check index_keys($(S)) and container_array($(S), $(dim)).",
 			)
+		else
+			# canonical case: Ni×Nj×Nk...
+			arr = view(arr, nt.i, nt.j, :)
 		end
-		# canonical case: Ni×Nj×Nk...
-		arr = view(arr, nt.i, nt.j, :)
-	elseif has_i && nd >= 2 && !has_j
-		arr = view(arr, nt.i, :)
-	elseif has_j && nd >= 2 && !has_i
-		arr = view(arr, :, nt.j)
+	elseif has_i && !has_j
+		if dim === :x && nd == 1
+			# global x; do nothing
+		elseif nd >= 2
+			arr = view(arr, nt.i, :)
+		end
+	elseif has_j && !has_i
+		if dim === :x && nd == 1
+			# global x; do nothing
+		elseif nd >= 2
+			arr = view(arr, :, nt.j)
+		end
 	end
 
 	# Then slice in k along last dimension (sample dim)
