@@ -8,7 +8,8 @@ using ..Commons: BASE_FLOAT
 using ..ParametricBuilder:
 	MaterialSpec, PartSpec, CableBuilderSpec, SystemBuilderSpec, AbstractPositionSpec,
 	PositionSpec, PositionGroupSpec, build, iterate, _spec, determinize
-using ..Engine: EMTFormulation, compute!, LineParameters
+using ..Engine: EMTFormulation, compute!, LineParameters, PhaseDomain, ModalDomain,
+	LineParamsDomain, domain
 using ..DataModel: get_outer_radius
 using Measurements: Measurement, measurement, value, uncertainty
 using Random, Statistics, DataFrames
