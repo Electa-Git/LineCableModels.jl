@@ -12,10 +12,9 @@ Per-spec hook to post-process the sliced axis data *before* unit scaling.
 - `datakey`  : axis selector symbol (e.g. :f, :R, :Z, ...)
 - `nt`       : resolved input NamedTuple from `resolve_input`
 - `axis`     : Axis for this dimension (quantity + units + label + scale)
-- `data`     : 1D numeric/complex array returned by `axis_slice`
+- `data`     : 1D numeric array returned by `axis_slice`
 
-Default is identity; specs override this to apply `abs`, `angle`, imperial
-conversions, etc.
+Default is identity; in case of complex quantities defined by the trait `has_complex_qty`, the selector `as` defines what to extract: real, imaginary, magnitude, or phase components.
 """
 axis_transform(
 	::Type{S},
@@ -24,7 +23,24 @@ axis_transform(
 	nt::NamedTuple,
 	axis::Axis,
 	data,
-) where {S <: AbstractPlotSpec, dim, datakey} = data
+) where {S <: AbstractPlotSpec, dim, datakey} = begin
+	has_complex_qty(S, Val(dim), Val(datakey)) || return data
+	(data isa AbstractArray && eltype(data) <: Number) || return data
+
+	ask = Symbol(dim, :_as)
+	haskey(nt, ask) || return data
+	as = getfield(nt, ask)
+
+	as === :re && return real.(data)
+	as === :im && return imag.(data)
+	as === :abs && return abs.(data)
+	as === :angle && return angle.(data) .* (180 / pi)
+
+	Base.error(
+		"Unsupported as=$(as) for $(datakey) on axis $(dim). Valid options: :re, :im, :abs, :angle.",
+	)
+end
+
 
 """
 	axis_slice(::Type{S}, nt, axis::Axis, ::Val{dim}) where {S<:AbstractPlotSpec}
