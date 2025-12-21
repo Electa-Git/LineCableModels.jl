@@ -458,30 +458,77 @@ function resolve_input(::Type{S}, nt::NamedTuple) where {S <: AbstractPlotSpec}
 	ysel = :y in dims ? spec.y : nothing
 	zsel = :z in dims && haskey(spec, :z) ? spec.z : nothing
 
-	xq = nothing
-	yq = nothing
-	zq = nothing
+	# raw user knob (global, for now)
+	has_as = haskey(spec, :as)
+	raw_as = has_as ? spec.as : nothing
+
+	xq = yq = zq = nothing
+	xas = yas = zas = nothing
+
+	any_complex = false
 
 	if :x in dims
-		xq = axis_quantity(S, Val(:x), Val(xsel))
+		if has_complex_qty(S, Val(:x), Val(xsel))
+			any_complex = true
+			xas = raw_as === nothing ? complex_as_default(S, Val(:x), Val(xsel)) : raw_as
+
+			allowed = complex_as(S, Val(:x), Val(xsel))
+			xas in allowed ||
+				Base.error("Invalid as=$(xas) for x=$(xsel). Allowed: $(allowed).")
+
+			xq = axis_quantity(S, Val(:x), Val(xsel), Val(xas))
+		else
+			xq = axis_quantity(S, Val(:x), Val(xsel))
+		end
 	end
+
 	if :y in dims
-		yq = axis_quantity(S, Val(:y), Val(ysel))
+		if has_complex_qty(S, Val(:y), Val(ysel))
+			any_complex = true
+			yas = raw_as === nothing ? complex_as_default(S, Val(:y), Val(ysel)) : raw_as
+			allowed = complex_as(S, Val(:y), Val(ysel))
+			yas in allowed ||
+				Base.error("Invalid as=$(yas) for y=$(ysel). Allowed: $(allowed).")
+
+			yq = axis_quantity(S, Val(:y), Val(ysel), Val(yas))
+		else
+			yq = axis_quantity(S, Val(:y), Val(ysel))
+		end
 	end
+
 	if :z in dims && zsel !== nothing
-		zq = axis_quantity(S, Val(:z), Val(zsel))
+		if has_complex_qty(S, Val(:z), Val(zsel))
+			any_complex = true
+			zas = raw_as === nothing ? complex_as_default(S, Val(:z), Val(zsel)) : raw_as
+
+			allowed = complex_as(S, Val(:z), Val(zsel))
+			zas in allowed ||
+				Base.error("Invalid as=$(zas) for z=$(zsel). Allowed: $(allowed).")
+
+			zq = axis_quantity(S, Val(:z), Val(zsel), Val(zas))
+		else
+			zq = axis_quantity(S, Val(:z), Val(zsel))
+		end
+	end
+
+	# Tight API: if user asked for as= but nothing is complex, that's nonsense.
+	if has_as && !any_complex
+		@warn "Keyword as= selected, but output is not complex."
 	end
 
 	out = spec
 
 	if :x in dims
 		out = merge(out, (; x = xsel, x_quantity = xq))
+		xas === nothing || (out = merge(out, (; x_as = xas)))
 	end
 	if :y in dims
 		out = merge(out, (; y = ysel, y_quantity = yq))
+		yas === nothing || (out = merge(out, (; y_as = yas)))
 	end
 	if :z in dims && zsel !== nothing
 		out = merge(out, (; z = zsel, z_quantity = zq))
+		zas === nothing || (out = merge(out, (; z_as = zas)))
 	end
 
 	return merge(out, (; obj = obj, renderer = renderer_nt))
