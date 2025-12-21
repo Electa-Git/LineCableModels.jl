@@ -212,3 +212,91 @@ Options: :windows -> one panel per window;
 		 :tabs -> TBD: all panels in a single window, arranged in tabs.
 """
 figure_layout(::Type{S}) where {S <: AbstractPlotSpec} = :windows  # default
+
+# --------------------------------------------------------------------------
+# Complex quantity / "as" traits (default: disabled)
+# --------------------------------------------------------------------------
+
+has_complex_qty(
+	::Type{S},
+	::Val{dim},
+	::Val{datakey},
+) where {S <: AbstractPlotSpec, dim, datakey} =
+	false
+
+complex_as(
+	::Type{S},
+	::Val{dim},
+	::Val{datakey},
+) where {S <: AbstractPlotSpec, dim, datakey} =
+	(:re, :im, :abs, :angle)
+
+complex_as_default(
+	::Type{S},
+	::Val{dim},
+	::Val{datakey},
+) where {S <: AbstractPlotSpec, dim, datakey} =
+	:re
+
+# View-aware axis_quantity: fallback keeps existing grammar intact
+axis_quantity(
+	::Type{S},
+	::Val{dim},
+	::Val{datakey},
+	::Val{as},
+) where {S <: AbstractPlotSpec, dim, datakey, as} =
+	axis_quantity(S, Val(dim), Val(datakey))
+
+# Z: re/im correspond to R/X
+axis_quantity(
+	::Type{S},
+	::Val{dim},
+	::Val{:Z},
+	::Val{:re},
+) where {S <: AbstractPlotSpec, dim} = QuantityTag{:resistance}()
+axis_quantity(
+	::Type{S},
+	::Val{dim},
+	::Val{:Z},
+	::Val{:im},
+) where {S <: AbstractPlotSpec, dim} = QuantityTag{:reactance}()
+
+# Y: re/im correspond to G/B
+axis_quantity(
+	::Type{S},
+	::Val{dim},
+	::Val{:Y},
+	::Val{:re},
+) where {S <: AbstractPlotSpec, dim} = QuantityTag{:conductance}()
+axis_quantity(
+	::Type{S},
+	::Val{dim},
+	::Val{:Y},
+	::Val{:im},
+) where {S <: AbstractPlotSpec, dim} = QuantityTag{:susceptance}()
+
+axis_quantity(
+	::Type{S},
+	::Val{dim},
+	::Val{:Z},
+	::Val{:abs},
+) where {S <: AbstractPlotSpec, dim} = QuantityTag{(:impedance, :abs)}()
+axis_quantity(
+	::Type{S},
+	::Val{dim},
+	::Val{:Z},
+	::Val{:angle},
+) where {S <: AbstractPlotSpec, dim} = QuantityTag{(:impedance, :angle)}()
+
+axis_quantity(
+	::Type{S},
+	::Val{dim},
+	::Val{:Y},
+	::Val{:abs},
+) where {S <: AbstractPlotSpec, dim} = QuantityTag{(:admittance, :abs)}()
+axis_quantity(
+	::Type{S},
+	::Val{dim},
+	::Val{:Y},
+	::Val{:angle},
+) where {S <: AbstractPlotSpec, dim} = QuantityTag{(:admittance, :angle)}()
