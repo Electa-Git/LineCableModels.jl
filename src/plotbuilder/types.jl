@@ -35,8 +35,8 @@ Fields:
 struct Dataseries
 	kind  :: Symbol
 	xdata :: Union{Nothing, AbstractVector{<:Number}}
-	ydata :: Union{Nothing, AbstractVector{<:Number}}
-	zdata :: Union{Nothing, AbstractVector{<:Number}}
+	ydata :: Union{Nothing, AbstractArray{<:Number}}
+	zdata :: Union{Nothing, AbstractArray{<:Number}}
 	label :: Union{Nothing, String}
 end
 
