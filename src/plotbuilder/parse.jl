@@ -513,7 +513,9 @@ function resolve_input(::Type{S}, nt::NamedTuple) where {S <: AbstractPlotSpec}
 
 	# Tight API: if user asked for as= but nothing is complex, that's nonsense.
 	if has_as && !any_complex
-		@warn "Keyword as= selected, but output is not complex."
+		Base.error(
+			"Keyword as= is only valid for complex selectors with trait has_complex_qty == true.",
+		)
 	end
 
 	out = spec
