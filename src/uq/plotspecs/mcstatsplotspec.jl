@@ -39,6 +39,7 @@ PlotBuilder.axis_quantity(::Type{MCStatsPlotSpec}, ::Val{:y}, ::Val{:G}) =
 PlotBuilder.data_container(::Type{MCStatsPlotSpec}, ::Val{:x}) = nothing         # obj.f
 PlotBuilder.data_container(::Type{MCStatsPlotSpec}, ::Val{:y}) = :stats          # obj.stats[Sym]
 
+PlotBuilder.has_complex_qty(::Type{MCStatsPlotSpec}, ::Val{:y}, ::Val{:R}) = true
 
 # Define plot title
 function PlotBuilder.default_title(::Type{MCStatsPlotSpec}, nt::NamedTuple)
@@ -67,7 +68,7 @@ end
 
 # Semantic knobs:
 #   :field  → which field from stats NamedTuple
-PlotBuilder.input_kwargs(::Type{MCStatsPlotSpec}) = (:field,)
+PlotBuilder.input_kwargs(::Type{MCStatsPlotSpec}) = (:field, :as)
 
 # Backend knobs this spec forwards to Makie
 PlotBuilder.renderer_kwargs(::Type{MCStatsPlotSpec}) = ()
