@@ -25,8 +25,9 @@ $(EXPORTS)
 module Engine
 
 # Export public API
-export LineParametersProblem, LineParameters, SeriesImpedance, ShuntAdmittance, per_km,
-	per_m, kronify, PhaseDomain, ModalDomain, domain
+export LineParametersProblem,
+	LineParameters, SeriesImpedance, ShuntAdmittance, per_km,
+	per_m, kronify
 export EMTFormulation, FormulationSet, LineParamOptions
 
 export compute!, plot
@@ -36,7 +37,7 @@ using Reexport, ForceImport
 using Measurements
 using LinearAlgebra
 using ..Commons
-import ..Commons: get_description, domain
+import ..Commons: get_description, LineParamsDomain, PhaseDomain, ModalDomain, domain
 
 using ..Utils
 using ..Materials
