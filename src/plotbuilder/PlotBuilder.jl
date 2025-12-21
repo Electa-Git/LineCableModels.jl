@@ -3,8 +3,7 @@ module PlotBuilder
 using Base: @kwdef
 
 import ..UnitHandler: Units, QuantityTag, get_label, get_symbol, display_unit, scale_factor
-import ..Commons: domain
-using ..Engine: ModalDomain
+import ..Commons: PhaseDomain, ModalDomain, domain
 
 export build_renderer, PlotRenderer
 
