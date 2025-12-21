@@ -31,6 +31,15 @@ axis_transform(
 	haskey(nt, ask) || return data
 	as = getfield(nt, ask)
 
+	# Warn if a "complex view" is requested but the materialized slice is real.
+	# This is mathematically valid (imag(real)=0, abs(real)=|real|, angle(real)=0/π),
+	# but it usually indicates the pipeline expected complex data and got real instead.
+	if as !== :re && !(eltype(data) <: Complex)
+		@warn "Complex view requested on real-valued data; did you materialize a real quantity where complex was expected?" spec=S dim=dim datakey=datakey as=as eltype=eltype(
+			data,
+		)
+	end
+
 	as === :re && return real.(data)
 	as === :im && return imag.(data)
 	as === :abs && return abs.(data)
