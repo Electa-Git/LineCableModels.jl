@@ -1,7 +1,3 @@
-abstract type LineParamsDomain end
-struct PhaseDomain <: LineParamsDomain end
-struct ModalDomain <: LineParamsDomain end
-
 struct SeriesImpedance{T} <: AbstractArray{T, 3}
 	values::Array{T, 3}   # n×n×nfreq, units: Ω/m
 end
