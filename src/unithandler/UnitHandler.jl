@@ -228,7 +228,9 @@ SI symbol label for the quantity.
 Default: fall back to the quantity tag name `Q` as a string.
 There is no way to guess, so you must override it with meaningful labels.
 """
-get_symbol(::QuantityTag{Q}) where {Q} = String(Q)
+get_symbol(::QuantityTag{Q}) where {Q} =
+	Q isa Tuple ? get_symbol(QuantityTag{first(Q)}()) : String(Q)
+
 
 # --------------------------------------------------------------------------
 # Unit scaling between arbitrary composite units
@@ -361,6 +363,14 @@ display_unit(::QuantityTag{:impedance}) =
 get_label(::QuantityTag{:impedance}) = "Series impedance"
 get_symbol(::QuantityTag{:impedance}) = "Z"
 
+# Shunt admittance
+default_unit(::QuantityTag{:admittance}) =
+	units(:base, :siemens; per = (:base, :meter))
+display_unit(::QuantityTag{:admittance}) =
+	units(:base, :siemens; per = (:kilo, :meter))
+get_label(::QuantityTag{:admittance}) = "Shunt admittance"
+get_symbol(::QuantityTag{:admittance}) = "Y"
+
 # Inductive reactance
 default_unit(::QuantityTag{:reactance}) =
 	units(:base, :ohm; per = (:base, :meter))
@@ -376,5 +386,31 @@ display_unit(::QuantityTag{:susceptance}) =
 	units(:base, :siemens; per = (:kilo, :meter))
 get_label(::QuantityTag{:susceptance}) = "Capacitive susceptance"
 get_symbol(::QuantityTag{:susceptance}) = "B"
+
+# Angle
+default_unit(::QuantityTag{:angle}) =
+	units(:base, :degree)
+display_unit(::QuantityTag{:angle}) =
+	units(:base, :degree)
+get_label(::QuantityTag{:angle}) = "Angle"
+get_symbol(::QuantityTag{:angle}) = "∠"
+
+# magnitude uses same unit as base quantity
+default_unit(::QuantityTag{(:impedance, :re)})   = default_unit(QuantityTag{:resistance}())
+default_unit(::QuantityTag{(:impedance, :im)})   = default_unit(QuantityTag{:reactance}())
+default_unit(::QuantityTag{(:impedance, :abs)})  = default_unit(QuantityTag{:impedance}())
+default_unit(::QuantityTag{(:admittance, :re)})  = default_unit(QuantityTag{:conductance}())
+default_unit(::QuantityTag{(:admittance, :im)})  = default_unit(QuantityTag{:susceptance}())
+default_unit(::QuantityTag{(:admittance, :abs)}) = default_unit(QuantityTag{:admittance}())
+
+# angle unit
+default_unit(::QuantityTag{(:impedance, :angle)}) = default_unit(QuantityTag{:angle}())
+default_unit(::QuantityTag{(:admittance, :angle)}) = default_unit(QuantityTag{:angle}())
+
+# labels 
+get_label(::QuantityTag{(:impedance, :abs)})    = "Series impedance magnitude"
+get_label(::QuantityTag{(:impedance, :angle)})  = "Series impedance angle"
+get_label(::QuantityTag{(:admittance, :abs)})   = "Shunt admittance magnitude"
+get_label(::QuantityTag{(:admittance, :angle)}) = "Shunt admittance angle"
 
 end # module UnitHandler
