@@ -5,13 +5,13 @@ export sample, mc, hist
 
 # Module-specific dependencies
 using ..Commons: BASE_FLOAT
-import ..Commons: domain
+import ..Commons: domain, PhaseDomain, ModalDomain,
+	LineParamsDomain
 using ..ParametricBuilder:
 	MaterialSpec, PartSpec, CableBuilderSpec, SystemBuilderSpec, AbstractPositionSpec,
 	PositionSpec, PositionGroupSpec, build, iterate, _spec, determinize
 using ..Engine:
-	EMTFormulation, compute!, LineParameters, PhaseDomain, ModalDomain,
-	LineParamsDomain
+	EMTFormulation, compute!, LineParameters
 using ..DataModel: get_outer_radius
 using Measurements: Measurement, measurement, value, uncertainty
 using Random, Statistics, DataFrames
