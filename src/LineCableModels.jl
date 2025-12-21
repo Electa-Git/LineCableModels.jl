@@ -36,8 +36,7 @@ import DocStringExtensions: DocStringExtensions
 
 # Submodule `Commons`
 include("commons/Commons.jl")
-using .Commons: IMPORTS, EXPORTS, add!
-
+using .Commons: IMPORTS, EXPORTS, add!, PhaseDomain, ModalDomain, domain
 # Submodule `UncertainBessels`
 include("uncertainbessels/UncertainBessels.jl")
 
@@ -48,12 +47,12 @@ using .Utils: set_verbosity!
 # Submodule `UnitHandler`
 include("unithandler/UnitHandler.jl")
 
+# Submodule `Validation`
+include("validation/Validation.jl")
+
 # Submodule `PlotBuilder`
 include("plotbuilder/PlotBuilder.jl")
 using .PlotBuilder.BackendHandler: set_backend!
-
-# Submodule `Validation`
-include("validation/Validation.jl")
 
 # Submodule `Materials`
 include("materials/Materials.jl")
@@ -72,7 +71,7 @@ using .DataModel: Thickness, Diameter, WireArray, Strip, Tubular, Semicon, Insul
 # Submodule `Engine`
 include("engine/Engine.jl")
 using .Engine: LineParametersProblem, compute!, LineParameters, SeriesImpedance,
-	ShuntAdmittance, per_km, per_m, kronify, FormulationSet, PhaseDomain, ModalDomain
+	ShuntAdmittance, per_km, per_m, kronify, FormulationSet
 
 # Submodule `ParametricBuilder`
 include("parametricbuilder/ParametricBuilder.jl")
