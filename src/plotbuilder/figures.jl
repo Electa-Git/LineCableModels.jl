@@ -24,15 +24,14 @@ function build_figures(
 		if !isempty(p1.series)
 			ds1 = first(p1.series)
 
-			data1 =
-				ds1.xdata === nothing ? (ds1.ydata === nothing ? ds1.zdata : ds1.ydata) :
-				ds1.xdata
-			if data1 !== nothing
-				n = length(data1)
-				if n <= 1
-					@warn "Skipping plot for spec $(S): sample length is $(n) (need ≥ 2)."
-					return Figure[]
-				end
+			ds1.xdata === nothing && Base.error(
+				"Broken plot payload for spec $(S): xdata is `nothing`.",
+			)
+
+			n = length(ds1.xdata)
+			if n <= 1
+				@warn "Skipping plot for spec $(S): sample length is $(n) (need ≥ 2)."
+				return Figure[]
 			end
 		end
 	end
