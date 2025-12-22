@@ -1,23 +1,23 @@
 """
-	build_panels(::Type{S}, nt, axes, series) where {S<:AbstractPlotSpec}
+	build_views(::Type{S}, nt, axes, series) where {S<:AbstractPlotSpec}
 
-Groups Dataseries into Panel values.
+Groups PBSeries into PBView values.
 
 Default behavior:
 - all series share the same axes `axes.xaxis`, `axes.yaxis`, `axes.zaxis`,
-- one Panel is created,
+- one PBView is created,
 - `title` is taken from `default_title(S, nt)`,
 - `key` is the empty NamedTuple `(; )` (no faceting semantics).
 
-Specs that require multiple panels (e.g. grids over indices or frequencies)
+Specs that require multiple views (e.g. grids over indices or frequencies)
 should override this method and partition `series` accordingly, setting
-a meaningful `key` for each Panel.
+a meaningful `key` for each PBView.
 """
-function build_panels(
+function build_views(
 	::Type{S},
 	nt::NamedTuple,
 	axes::NamedTuple,
-	series::Vector{Dataseries},
+	series::Vector{PBSeries},
 ) where {S <: AbstractPlotSpec}
 	title = default_title(S, nt)
 	key   = (;)
@@ -26,6 +26,6 @@ function build_panels(
 	yaxis = axes.yaxis
 	zaxis = axes.zaxis
 
-	panel = Panel(xaxis, yaxis, zaxis, title, series, key)
-	return Panel[panel]
+	view = PBView(xaxis, yaxis, zaxis, title, series, key)
+	return PBView[view]
 end

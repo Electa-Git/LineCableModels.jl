@@ -9,7 +9,7 @@ function split_kwargs(
 	dims::Tuple,
 ) where {S <: AbstractPlotSpec}
 
-	# Axis selector keys: (:x, :y, :z)
+	# PBAxis selector keys: (:x, :y, :z)
 	select_fields = dims
 
 	semantic_keys = (input_keys..., idx..., select_fields...)
@@ -104,7 +104,7 @@ function verify_selectors(
 			Base.error("Missing axis selector $(d) for spec $(S) after defaults")
 		val isa Symbol ||
 			Base.error(
-				"Axis selector $(d) must be a Symbol, got $(typeof(val)) for spec $(S)",
+				"PBAxis selector $(d) must be a Symbol, got $(typeof(val)) for spec $(S)",
 			)
 	end
 
@@ -177,7 +177,7 @@ function verify_shapes(
 	idx_keys::Tuple,
 ) where {S <: AbstractPlotSpec}
 
-	# Axis → datakey mapping (:x → :f, :y → :R, etc.)
+	# PBAxis → datakey mapping (:x → :f, :y → :R, etc.)
 	datakeys = Dict{Symbol, Symbol}()
 	for d in dims
 		datakeys[d] = getfield(spec, d)  # verified by verify_selectors
@@ -213,7 +213,7 @@ function verify_shapes(
 
 		nd = ndims(arr)
 		nd == 0 &&
-			Base.error("Axis $(d) data for $(S) is scalar; expected an array.")
+			Base.error("PBAxis $(d) data for $(S) is scalar; expected an array.")
 
 		# Enforce the same storage contract as axis_slice,
 		# except that :x may be a global 1D vector.
@@ -301,7 +301,7 @@ function verify_shapes(
 			else
 				# select_field is defined but no concrete field has been bound yet.
 				# Enforce that the data are NamedTuple; actual key usage is left
-				# to the generic build_series/build_panels logic.
+				# to the generic build_series/build_views logic.
 				first_el isa NamedTuple || Base.error(
 					"Data for axis $(d) in $(S) must be NamedTuple when " *
 					"select_field($(S), Val($(d))) is defined; got $(typeof(first_el)).",

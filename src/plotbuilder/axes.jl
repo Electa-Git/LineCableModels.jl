@@ -6,9 +6,9 @@ Build axes for spec `S` using quantity tags stored in `nt` as
 fields `x_quantity`, `y_quantity`, `z_quantity` (when applicable).
 
 Returns:
-	(xaxis = Axis or nothing,
-	 yaxis = Axis or nothing,
-	 zaxis = Axis or nothing)
+	(xaxis = PBAxis or nothing,
+	 yaxis = PBAxis or nothing,
+	 zaxis = PBAxis or nothing)
 """
 function build_axes(::Type{S}, nt::NamedTuple) where {S <: AbstractPlotSpec}
 	dims = geom_axes(S)
@@ -51,7 +51,7 @@ function axis_label(q::QuantityTag, u::Units)
 end
 
 """
-Build a Axis for spec `S`, axis dim `dim`, quantity `q`, units `u`.
+Build a PBAxis for spec `S`, axis dim `dim`, quantity `q`, units `u`.
 """
 function build_axis(::Type{S},
 	dim::Symbol,
@@ -61,7 +61,7 @@ function build_axis(::Type{S},
 	lab = axis_label(q, u)
 	dims = enable_logscale(S)
 	sc = dim in dims ? :log10 : :linear
-	return Axis(dim, q, u, lab, sc)
+	return PBAxis(dim, q, u, lab, sc)
 end
 
 # High-level builder: dim only (static semantics)

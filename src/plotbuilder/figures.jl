@@ -1,10 +1,10 @@
 """
-	build_figures(::Type{S}, nt, panels) where {S<:AbstractPlotSpec}
+	build_figures(::Type{S}, nt, views) where {S<:AbstractPlotSpec}
 
-Packs Panel values into Figure payloads.
+Packs PBView values into PBFigure payloads.
 
 Default behavior:
-- a single Figure is created for this spec call,
+- a single PBFigure is created for this spec call,
 - `layout` is chosen based on `figure_layout(S)` trait.
 
 Specs that want multiple OS windows or more complex layout policies may
@@ -13,14 +13,14 @@ override this method.
 function build_figures(
 	::Type{S},
 	nt::NamedTuple,
-	panels::Vector{Panel},
+	views::Vector{PBView},
 ) where {S <: AbstractPlotSpec}
 	layout = figure_layout(S)                # :windows, :grid, ...
 
 	# Do not materialize plots if length == 1.
-	# Upstream grouping/materialization stays intact, but the final Figure[] is empty.
-	if !isempty(panels)
-		p1 = first(panels)
+	# Upstream grouping/materialization stays intact, but the final PBFigure[] is empty.
+	if !isempty(views)
+		p1 = first(views)
 		if !isempty(p1.series)
 			ds1 = first(p1.series)
 
@@ -31,7 +31,7 @@ function build_figures(
 			n = length(ds1.xdata)
 			if n <= 1
 				@warn "Skipping plot for spec $(S): sample length is $(n) (need ≥ 2)."
-				return Figure[]
+				return PBFigure[]
 			end
 		end
 	end
@@ -40,13 +40,13 @@ function build_figures(
 	figsize = default_figsize(S)
 	fig_title = default_title(S, nt)
 
-	fig = Figure(fig_title, figsize, layout, panels, fig_kwargs)
-	return Figure[fig]
+	fig = PBFigure(fig_title, figsize, layout, views, fig_kwargs)
+	return PBFigure[fig]
 end
 
 # Determine if, for spec S and resolved input nt, the leaf seen by axis_slice /
 # build_series behaves as "scalar" (numeric/complex) or as a NamedTuple that
-# should be exploded at the figure / panel level.
+# should be exploded at the figure / view level.
 function is_leaf(::Type{S}, nt::NamedTuple) where {S <: AbstractPlotSpec}
 	dims_raw = geom_axes(S)
 	dims = dims_raw isa Tuple ? dims_raw : (dims_raw,)
@@ -193,7 +193,7 @@ function get_target_fields(
 
 	axis === nothing &&
 		Base.error(
-			"get_target_fields: axis $(dim_field) has no Axis for spec $(S).",
+			"get_target_fields: axis $(dim_field) has no PBAxis for spec $(S).",
 		)
 
 	# axis_slice will return a vector of NamedTuples in the "NamedTuple leaf" modes
@@ -320,8 +320,8 @@ It then delegates to `build_figures(::Type{S}, ::Val{mode}, nt, axes)` where
 - :single                 → single atom, no i/j or field expansion
 - :overlay_ij              → scalar leaf, some of :i/:j free → overlay all (i,j)
 - :overlay_fields          → NamedTuple leaf, fixed (i,j) → overlay all fields
-- :per_ij_overlay_fields → NamedTuple leaf, some of :i/:j free → one Panel
-							  per (i,j), overlaying all fields in each panel.
+- :per_ij_overlay_fields → NamedTuple leaf, some of :i/:j free → one PBView
+							  per (i,j), overlaying all fields in each view.
 """
 function build_figures(
 	::Type{S},
@@ -339,8 +339,8 @@ function build_figures(
 	axes::NamedTuple,
 ) where {S <: AbstractPlotSpec}
 	series = build_series(S, nt, axes)
-	panels = build_panels(S, nt, axes, series)
-	return build_figures(S, nt, panels)
+	views = build_views(S, nt, axes, series)
+	return build_figures(S, nt, views)
 end
 
 function build_figures(
@@ -355,7 +355,7 @@ function build_figures(
 	has_i = :i in idx
 	has_j = :j in idx
 
-	all_series = Dataseries[]
+	all_series = PBSeries[]
 
 	for (i, j) in index_pairs(S, nt)
 		nt_ij = nt
@@ -370,8 +370,8 @@ function build_figures(
 		append!(all_series, series_ij)
 	end
 
-	panels = build_panels(S, nt, axes, all_series)
-	return build_figures(S, nt, panels)
+	views = build_views(S, nt, axes, all_series)
+	return build_figures(S, nt, views)
 end
 
 function build_figures(
@@ -382,7 +382,7 @@ function build_figures(
 ) where {S <: AbstractPlotSpec}
 	_, kfield, field_keys = get_target_fields(S, nt, axes)
 
-	all_series = Dataseries[]
+	all_series = PBSeries[]
 
 	for fk in field_keys
 		nt_fk = merge(nt, (; kfield => fk))
@@ -390,8 +390,8 @@ function build_figures(
 		append!(all_series, series_fk)
 	end
 
-	panels = build_panels(S, nt, axes, all_series)
-	return build_figures(S, nt, panels)
+	views = build_views(S, nt, axes, all_series)
+	return build_figures(S, nt, views)
 end
 
 function build_figures(
@@ -408,7 +408,7 @@ function build_figures(
 
 	_, kfield, field_keys = get_target_fields(S, nt, axes)
 
-	areas = Panel[]
+	areas = PBView[]
 
 	for (i, j) in index_pairs(S, nt)
 		nt_ij = nt
@@ -419,7 +419,7 @@ function build_figures(
 			nt_ij = merge(nt_ij, (; j = j))
 		end
 
-		series_ij = Dataseries[]
+		series_ij = PBSeries[]
 
 		for fk in field_keys
 			nt_ij_fk = merge(nt_ij, (; kfield => fk))
@@ -441,7 +441,7 @@ function build_figures(
 
 		title = default_title(S, nt_ij)
 
-		area = Panel(
+		area = PBView(
 			axes.xaxis,
 			axes.yaxis,
 			axes.zaxis,

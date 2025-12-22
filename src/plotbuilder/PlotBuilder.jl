@@ -5,7 +5,7 @@ using Base: @kwdef
 import ..UnitHandler: Units, QuantityTag, get_label, get_symbol, display_unit, scale_factor
 import ..Commons: PhaseDomain, ModalDomain, domain
 
-export build_renderer, PlotRenderer
+export build_renderer, PBRenderer
 
 # Submodule `BackendHandler`
 include("backendhandler/BackendHandler.jl")
@@ -21,7 +21,7 @@ include("traits.jl")
 include("axes.jl")
 include("parse.jl")
 include("dataseries.jl")
-include("panels.jl")
+include("views.jl")
 include("figures.jl")
 
 
@@ -31,7 +31,7 @@ include("plotspecs.jl")
 """
 	build_renderer(::Type{S}, obj; kwargs...) where {S<:AbstractPlotSpec}
 
-High-level API: from domain object + keyword arguments to a PlotRenderer.
+High-level API: from domain object + keyword arguments to a PBRenderer.
 
 Checks that the object type is compatible with `dispatch_on(S)` and then
 runs:
@@ -40,8 +40,8 @@ runs:
 	resolve_input(S, raw)            → nt
 	build_figures(S, nt)             → figs
 
-`build_figures` returns a vector of Figure values; `build_renderer`
-wraps them into a PlotRenderer that the UI layer will later assemble into
+`build_figures` returns a vector of PBFigure values; `build_renderer`
+wraps them into a PBRenderer that the UI layer will later assemble into
 actual windows/layouts.
 """
 function build_renderer(::Type{S}, obj; kwargs...) where {S <: AbstractPlotSpec}
@@ -51,9 +51,9 @@ function build_renderer(::Type{S}, obj; kwargs...) where {S <: AbstractPlotSpec}
 
 	raw  = parse_kwargs(S, obj; kwargs...)
 	norm = resolve_input(S, raw)
-	figs = build_figures(S, norm)  # ::Vector{Figure}
+	figs = build_figures(S, norm)  # ::Vector{PBFigure}
 
-	return PlotRenderer(S, figs)
+	return PBRenderer(S, figs)
 end
 
 end # module PlotBuilder

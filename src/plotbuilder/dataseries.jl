@@ -1,17 +1,17 @@
 
 # --------------------------------------------------------------------------
-# Axis-level transform hook
+# PBAxis-level transform hook
 # --------------------------------------------------------------------------
 
 """
-	axis_transform(::Type{S}, ::Val{dim}, ::Val{datakey}, nt, axis::Axis, data) where {S,dim,datakey}
+	axis_transform(::Type{S}, ::Val{dim}, ::Val{datakey}, nt, axis::PBAxis, data) where {S,dim,datakey}
 
 Per-spec hook to post-process the sliced axis data *before* unit scaling.
 
 - `dim`      : :x, :y, or :z
 - `datakey`  : axis selector symbol (e.g. :f, :R, :Z, ...)
 - `nt`       : resolved input NamedTuple from `resolve_input`
-- `axis`     : Axis for this dimension (quantity + units + label + scale)
+- `axis`     : PBAxis for this dimension (quantity + units + label + scale)
 - `data`     : 1D numeric array returned by `axis_slice`
 
 Default is identity; in case of complex quantities defined by the trait `has_complex_qty`, the selector `as` defines what to extract: real, imaginary, magnitude, or phase components.
@@ -21,7 +21,7 @@ axis_transform(
 	::Val{dim},
 	::Val{datakey},
 	nt::NamedTuple,
-	axis::Axis,
+	axis::PBAxis,
 	data,
 ) where {S <: AbstractPlotSpec, dim, datakey} = begin
 	has_complex_qty(S, Val(dim), Val(datakey)) || return data
@@ -52,7 +52,7 @@ end
 
 
 """
-	axis_slice(::Type{S}, nt, axis::Axis, ::Val{dim}) where {S<:AbstractPlotSpec}
+	axis_slice(::Type{S}, nt, axis::PBAxis, ::Val{dim}) where {S<:AbstractPlotSpec}
 
 Return a 1D slice for axis `dim` using the grammar:
 
@@ -69,13 +69,13 @@ No unit scaling and no numeric check happen here; those are handled by
 function axis_slice(
 	::Type{S},
 	nt::NamedTuple,
-	axis::Axis,
+	axis::PBAxis,
 	::Val{dim},
 ) where {S <: AbstractPlotSpec, dim}
 
 	obj = nt.obj
 
-	# Axis selector: what the user (or defaults) chose for this axis, e.g. :f, :R, ...
+	# PBAxis selector: what the user (or defaults) chose for this axis, e.g. :f, :R, ...
 	selector = getfield(nt, dim)::Symbol
 
 	# --- Fetch raw array via centralized container logic ---
@@ -126,7 +126,7 @@ function axis_slice(
 
 		if nd2 == 0
 			Base.error(
-				"Axis $(dim) for $(S) has scalar data after i/j slicing; cannot apply k index.",
+				"PBAxis $(dim) for $(S) has scalar data after i/j slicing; cannot apply k index.",
 			)
 		end
 
@@ -160,7 +160,7 @@ function axis_slice(
 
 	ndims(arr) == 1 ||
 		Base.error(
-			"Axis $(dim) for $(S) expected to resolve to a 1D slice after indexing; " *
+			"PBAxis $(dim) for $(S) expected to resolve to a 1D slice after indexing; " *
 			"got $(ndims(arr))-dimensional array.",
 		)
 
@@ -218,7 +218,7 @@ end
 	::Type{S},
 	dim::Symbol,
 	nt::NamedTuple,
-	axis::Union{Axis, Nothing},
+	axis::Union{PBAxis, Nothing},
 ) where {S <: AbstractPlotSpec}
 	axis === nothing && return nothing
 
@@ -234,12 +234,12 @@ end
 	# 3) numeric check
 	transformed isa AbstractArray ||
 		Base.error(
-			"Axis $(dim) for $(S) did not resolve to an array; got $(typeof(transformed)).",
+			"PBAxis $(dim) for $(S) did not resolve to an array; got $(typeof(transformed)).",
 		)
 
 	eltype(transformed) <: Number ||
 		Base.error(
-			"Axis $(dim) for $(S) did not resolve to numeric data; got eltype $(eltype(transformed)).",
+			"PBAxis $(dim) for $(S) did not resolve to numeric data; got eltype $(eltype(transformed)).",
 		)
 
 	# 4) unit scaling
@@ -250,9 +250,9 @@ end
 """
 	build_series(::Type{S}, nt, axes) where {S<:AbstractPlotSpec}
 
-Builds the vector of Dataseries for the given spec and resolved input `nt`.
+Builds the vector of PBSeries for the given spec and resolved input `nt`.
 
-Defaults to a single Dataseries corresponding to the primary primitive of
+Defaults to a single PBSeries corresponding to the primary primitive of
 this spec, using the axis data computed by `axis_data`. Specs that need
 multiple traces (overlays, histogram + CDF, etc.) should override this
 method and typically still call `axis_data` under the hood.
@@ -277,7 +277,7 @@ function build_series(
 	labels = legend_labels(S, nt)
 	label  = isempty(labels) ? nothing : first(labels)
 
-	series = Dataseries(
+	series = PBSeries(
 		kind,
 		xdata,
 		ydata,
@@ -285,5 +285,5 @@ function build_series(
 		label,
 	)
 
-	return Dataseries[series]
+	return PBSeries[series]
 end

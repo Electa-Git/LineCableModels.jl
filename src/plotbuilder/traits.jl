@@ -198,18 +198,18 @@ renderer_defaults(::Type{S}, obj) where {S <: AbstractPlotSpec} = NamedTuple()
 """
 How to group dataseries into figures.
 Options: :auto -> let the machinery decide;
-		 :single -> one dataseries in one plot area (panel), same axis;
-		 :overlay_ij -> one plot area (panel), overlay all (i,j) on the same axis - target/leaf resolved to one field;
-		 :overlay_fields -> one plot area (panel), overlay all fields on the same axis - data container resolved to one pair (i,j).
-		 :per_ij_overlay_fields -> multiple plot areas (panels), one per (i,j), overlay all fields.
+		 :single -> one dataseries in one plot area (view), same axis;
+		 :overlay_ij -> one plot area (view), overlay all (i,j) on the same axis - target/leaf resolved to one field;
+		 :overlay_fields -> one plot area (view), overlay all fields on the same axis - data container resolved to one pair (i,j).
+		 :per_ij_overlay_fields -> multiple plot areas (views), one per (i,j), overlay all fields.
 """
 grouping_mode(::Type{S}) where {S <: AbstractPlotSpec} = :auto
 
 """
 How to render figures into Makie windows.
-Options: :windows -> one panel per window;
-		 :grid -> all panels in a single window, arranged in a grid;
-		 :tabs -> TBD: all panels in a single window, arranged in tabs.
+Options: :windows -> one view per window;
+		 :grid -> all views in a single window, arranged in a grid;
+		 :tabs -> TBD: all views in a single window, arranged in tabs.
 """
 figure_layout(::Type{S}) where {S <: AbstractPlotSpec} = :windows  # default
 
