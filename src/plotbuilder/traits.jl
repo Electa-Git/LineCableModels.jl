@@ -117,7 +117,7 @@ default_title(::Type{S}, nt::NamedTuple) where {S <: AbstractPlotSpec} = ""
 
 Return the legend entry labels for this spec, given the resolved input `nt`.
 Length of the returned vector must match the number of primitives produced
-by `build_series(S, nt)`.
+by `make_series(S, nt)`.
 """
 legend_labels(::Type{S}, nt::NamedTuple) where {S <: AbstractPlotSpec} = String[]
 
