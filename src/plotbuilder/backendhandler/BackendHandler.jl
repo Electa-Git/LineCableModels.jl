@@ -51,7 +51,8 @@ using Makie
 using UUIDs
 using ...Utils: is_headless
 
-export set_backend!
+export set_backend!,
+	ensure_backend!, current_backend_symbol, renderfig, with_backend, make_screen
 
 # ---------------------------------------------------------------------------
 # Backend registry
@@ -136,6 +137,66 @@ function current_backend_symbol()
 		return :none
 	end
 end
+
+"""
+	with_backend(f, backend; force=false)
+
+Temporarily activate `backend`, run `f()`, then restore the previous backend.
+
+Intended for export workflows (switch to CairoMakie, render/save, restore).
+Restoration is best-effort: if the previous backend can’t be determined, it’s skipped.
+"""
+function with_backend(f::Function, backend::Symbol; force::Bool = false)
+	prev = current_backend_symbol()
+	prev_ok =
+		prev in (:cairo, :gl, :wgl) ? prev :
+		(_active_backend[] in (:cairo, :gl, :wgl) ? _active_backend[] : :none)
+
+	ensure_backend!(backend)
+
+	try
+		return f()
+	finally
+		if prev_ok != :none && prev_ok != current_backend_symbol()
+			try
+				set_backend!(prev_ok; force = force)
+			catch e
+				@warn "Failed to restore backend $(prev_ok)" exception=(
+					e,
+					catch_backtrace(),
+				)
+			end
+		end
+	end
+end
+
+"""
+	make_screen(title; backend=current_backend_symbol(), kwargs...) -> screen | nothing
+
+Create a backend-specific screen/window handle for interactive display.
+
+Currently:
+- `:gl` returns `GLMakie.Screen(; title=...)` (loaded lazily).
+- other backends return `nothing`.
+"""
+function make_screen(title::AbstractString;
+	backend::Symbol = current_backend_symbol(),
+	kwargs...,
+)
+	backend == :gl || return nothing
+	mod = Base.require(_pkgid(:gl))
+	ctor = getproperty(mod, :Screen)
+	return Base.invokelatest(ctor; title = String(title), kwargs...)
+end
+
+"""
+	make_screen(backend, title; kwargs...) -> screen | nothing
+
+Convenience overload.
+"""
+make_screen(backend::Symbol, title::AbstractString; kwargs...) =
+	make_screen(title; backend = backend, kwargs...)
+
 
 
 """Display a figure appropriately in headless docs or interactive sessions.
