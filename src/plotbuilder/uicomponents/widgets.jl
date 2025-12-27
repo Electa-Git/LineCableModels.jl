@@ -1,30 +1,34 @@
-function controls_default(
-	ctx::UIContext,
-	::Type{S},
-	pbfig::PageSpec,
-	panels::Vector{UIPanel},
-) where {S}
-	return Dict{Symbol, Any}()
+# -------------------------
+# Traits (Declarative)
+# -------------------------
+
+function controls_default(::Type{S}, ctx::UIContext, page, panels) where {S}
+	!ctx.interactive && return UIWidgetSpec[]
+
+	return UIWidgetSpec[
+		UIButtonSpec(
+			"",
+			MI_REFRESH,
+			(c, a, o) -> action_refresh(a),
+		),
+		UIButtonSpec(
+			"",
+			MI_SAVE,
+			(c, a, o) -> action_export_svg!(c, a, "plot_export.svg"),
+		),
+	]
 end
 
-function controls_extra(
-	::Type{S},
-	ctx::UIContext,
-	pbfig::PageSpec,
-	panels::Vector{UIPanel},
-) where {S}
-	return Dict{Symbol, Any}()
+function controls_custom(::Type{S}, ctx, page, panels) where {S}
+	return UIWidgetSpec[]
 end
 
-function build_widgets!(
-	uifig::UIFigure,
-	ctx::UIContext,
-	::Type{S},
-	pbfig::PageSpec,
-	panels::Vector{UIPanel};
-	kwargs...,
-) where {S}
-	w = controls_default(ctx, S, pbfig, panels)
-	merge!(w, controls_extra(S, ctx, pbfig, panels))
+# -------------------------
+# The Architect: make_widgets
+# -------------------------
+
+function make_widgets(::Type{S}, ctx::UIContext, page, panels) where {S}
+	w = controls_default(S, ctx, page, panels)
+	append!(w, controls_custom(S, ctx, page, panels))
 	return w
 end
