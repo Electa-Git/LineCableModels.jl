@@ -1,161 +1,171 @@
 # -------------------------
-# Context + display routing
+# The Architect: make_context
 # -------------------------
 
-function build_context(;
+function make_context(;
 	backend::Union{Nothing, Symbol} = nothing,
 	display::Bool = true,
-	interactive_override::Union{Nothing, Bool} = nothing,
 	title::AbstractString = "LineCableModels Plot",
-	status::Union{Nothing, Makie.Observable{String}} = nothing,
-	window = nothing,
-	screen = nothing,
 	theme::Union{Nothing, Makie.Theme} = nothing,
+	use_latex_fonts::Bool = false,
 	kwargs...,
 )
-	actual_backend = BackendHandler.ensure_backend!(backend)
+	active_backend = BackendHandler.ensure_backend!(backend)
+	interactive = (display && active_backend in (:gl, :wgl))
 
-	interactive =
-		interactive_override === nothing ?
-		(display && actual_backend in (:gl, :wgl)) :
-		interactive_override
+	stat = interactive ? Makie.Observable("Ready.") : nothing
 
-	chan = status
-	if chan === nothing && interactive
-		chan = Makie.Observable("")
-	end
-
-	win = window
-	scr = screen
-
-	if interactive && actual_backend == :gl && win === nothing && scr === nothing
+	win = nothing
+	scr = nothing
+	if interactive && active_backend == :gl
 		scr = BackendHandler.make_screen(title; backend = :gl)
-		if scr !== nothing
-			win = scr
-		end
+		win = scr
 	end
 
-	return UIContext(actual_backend, interactive, win, scr, chan, theme)
+	# Default theme
+	default_theme = make_theme(; interactive, use_latex_fonts)
+
+	# 2. Build official theme (uses ctx.interactive by default)
+	built_theme = theme === nothing ? default_theme : merge(default_theme, theme)
+
+	return UIContext(
+		active_backend,
+		interactive,
+		use_latex_fonts,
+		win,
+		scr,
+		stat,
+		built_theme,
+	)
 end
 
-function display!(ctx::UIContext, fig::Makie.Figure; title::AbstractString = "")
-	if ctx.interactive && ctx.window !== nothing
-		display(ctx.window, fig)
-		if !isempty(title) && hasproperty(ctx.window, :title)
-			try
-				ctx.window.title[] = String(title)
-			catch
+# -------------------------
+# The Boss: render
+# -------------------------
+
+function render(
+	r::RenderSpec{S};
+	backend = nothing,
+	display::Bool = true,
+	kwargs...,
+) where {S}
+	ctx = make_context(; backend = backend, display = display, kwargs...)
+	assemblies = UIPlot[]
+
+	Makie.with_theme(ctx.theme) do
+		for page in r.figures # page is PageSpec
+
+			# A. Architect
+			layout_s = make_layout(Val(page.layout))
+
+			# B. Constructor (Shell)
+			uifig = build_figure(ctx, page, layout_s)
+
+			# C. Constructor (Panels)
+			panels = UIPanel[]
+			for view in page.views # view is ViewSpec
+				push!(panels, build_panel!(uifig, view))
+			end
+
+			# D. Constructor (Decorations)
+			widgets_s = make_widgets(S, ctx, page, panels)
+			widgets_dict = build_toolbar!(uifig, widgets_s, ctx)
+
+			build_statusbar!(uifig, Val(:status), ctx)
+			build_legend!(uifig, Val(:legend), panels)
+
+			# E. Assembly
+			assem = UIPlot(S, ctx, page, uifig, panels, widgets_dict)
+			push!(assemblies, assem)
+
+			if display
+				display!(ctx, assem)
 			end
 		end
-	else
-		BackendHandler.renderfig(fig)
-	end
-	return nothing
-end
-
-function display!(ctx::UIContext, assem::PlotAssembly)
-	ttl = assem.pbfig.title
-	return display!(ctx, assem.uifig.figure; title = ttl)
-end
-
-# -------------------------
-# Figure / panel build
-# -------------------------
-
-function render(r::RenderSpec; backend = nothing, display::Bool = true, kwargs...)
-	ctx = build_context(; backend = backend, display = display, kwargs...)
-	assemblies = PlotAssembly[]
-	for pbfig in r.figures
-		assem = render_figure(ctx, r.spec, pbfig; display = display, kwargs...)
-		push!(assemblies, assem)
 	end
 	return assemblies
 end
 
-function render_figure(
-	ctx::UIContext,
-	::Type{S},
-	pbfig::PageSpec;
-	display::Bool = true,
-	kwargs...,
-) where {S}
-	ls = layout_spec(S, Val(pbfig.layout))
-	uifig = build_figure(ls, ctx, pbfig)
-	panels = UIPanel[]
-	for v in pbfig.views
-		push!(panels, build_panel!(uifig, ctx, pbfig, v))
-	end
-	widgets = build_widgets!(uifig, ctx, S, pbfig, panels; kwargs...)
-	assem = PlotAssembly(S, ctx, pbfig, uifig, panels, widgets, (;))
-	display && display!(ctx, assem)
-	return assem
+# -------------------------
+# The Constructors: build_ / build_!
+# -------------------------
+
+# Helper to find spec for a slot name (to retrieve attrs)
+function get_slot_spec(uifig::UIFigure, name::Symbol)
+	idx = findfirst(s -> s.name == name, uifig.layoutspec.slots)
+	return idx === nothing ? nothing : uifig.layoutspec.slots[idx]
 end
 
-function build_figure(ls::UILayoutSpec, ctx::UIContext, pbfig::PageSpec)
-	# Clean up kwargs
-	kw = pbfig.kwargs
-	kw2 = (; (k => v for (k, v) in pairs(kw) if k != :size && k != :resolution)...)
+function build_figure(ctx::UIContext, page::PageSpec, ls::UILayoutSpec)
+	kw = page.kwargs
+	safe_kw = (; (k=>v for (k, v) in pairs(kw) if k != :size && k != :resolution)...)
 
-	fig = Makie.Figure(; size = pbfig.size, kw2...)
+	fig = Makie.Figure(; size = page.size, safe_kw...)
 
 	containers = Dict{Symbol, Makie.GridLayout}()
 	slots = Dict{Symbol, Any}()
 
-	# Root is always initialized
-	root = fig.layout
-	containers[:root] = root
+	containers[:root] = fig.layout
 
-	# --- PHASE 1: Materialize Slots as Nested Grids ---
+	# --- PHASE 1: Materialize Slots/Containers ---
+	# Uses `s.layout` for Grid properties
+
+	# 1a. Intermediate Containers
+	for c in ls.containers
+		parent_gl = containers[c.parent]
+		subgl = Makie.GridLayout(; c.layout...)
+		parent_gl[c.at...] = subgl
+		containers[c.name] = subgl
+	end
+
+	# 1b. Slots (Terminals)
 	for s in ls.slots
 		parent_gl = containers[s.parent]
-
-		# 1. Get the position
-		gp = parent_gl[s.at...]
-
-		# 2. IMMEDIATELY initialize a sub-grid in this slot.
-		# This forces the parent_gl to expand to include this row/col.
-		subgl = Makie.GridLayout()
-		gp[] = subgl
-
-		# 3. Store the sub-grid, not the position.
+		subgl = Makie.GridLayout(; s.layout...)
+		parent_gl[s.at...] = subgl
 		slots[s.name] = subgl
 
-		# 4. Now safe to apply sizes to the PARENT because it has expanded.
-		if haskey(s.props, :rowsize) && s.at[1] isa Int
-			Makie.rowsize!(parent_gl, s.at[1], s.props.rowsize)
-		end
-		if haskey(s.props, :colsize) && s.at[2] isa Int
-			Makie.colsize!(parent_gl, s.at[2], s.props.colsize)
+		# --- DEBUG: VISUALIZE SLOTS ---
+		# Makie.Box(parent_gl[s.at...], color = (:red, 0.2), strokewidth = 0)
+	end
+
+	# --- PHASE 2: Apply Sizing ---
+
+	for (name, sizes) in ls.rowsizes
+		gl = get(containers, name, nothing)
+		gl === nothing && continue
+		for (i, s) in enumerate(sizes)
+			Makie.rowsize!(gl, i, s)
 		end
 	end
 
-	# Determine panelgrid shape for multi-view scenarios
-	n = length(pbfig.views)
-	panel_shape = if n > 1
+	for (name, sizes) in ls.colsizes
+		gl = get(containers, name, nothing)
+		gl === nothing && continue
+		for (i, s) in enumerate(sizes)
+			Makie.colsize!(gl, i, s)
+		end
+	end
+
+	# Grid Shape Logic
+	n = length(page.views)
+	panel_shape = (1, 1)
+	if n > 1
 		nr = ceil(Int, sqrt(n))
 		nc = ceil(Int, n / nr)
-		(nr, nc)
-	else
-		(1, 1)
+		panel_shape = (nr, nc)
 	end
 
 	return UIFigure(fig, ls, containers, slots, Ref(0), panel_shape)
 end
 
-function build_panel!(uifig::UIFigure, ctx::UIContext, pbfig::PageSpec, view::ViewSpec)
-	# Determine the semantic slot
-	slot_key =
-		(length(pbfig.views) > 1 || !haskey(uifig.slots, :canvas)) ? :panelgrid : :canvas
+function build_panel!(uifig::UIFigure, view::ViewSpec)
+	target_gl = uifig.slots[:canvas]
+	nr, nc = uifig.panelshape
 
-	# Retrieve the target GridLayout (guaranteed to be a GL now)
-	target_gl = uifig.slots[slot_key]
-
-	# Calculate placement INSIDE the slot's grid
-	# If it's a panelgrid, we calculate (i, j). If single view, it's just (1, 1).
-	ax_pos = if slot_key == :panelgrid && length(pbfig.views) > 1
+	ax_pos = if nr > 1 || nc > 1
 		uifig.cursor[] += 1
 		k = uifig.cursor[]
-		nr, nc = uifig.panelshape
 		row = (k - 1) ÷ nc + 1
 		col = (k - 1) % nc + 1
 		target_gl[row, col]
@@ -163,27 +173,96 @@ function build_panel!(uifig::UIFigure, ctx::UIContext, pbfig::PageSpec, view::Vi
 		target_gl[1, 1]
 	end
 
-	# Axis creation
+	# Retrieve 'attrs' for content
+	slot_spec = get_slot_spec(uifig, :canvas)
+	slot_attrs = slot_spec !== nothing ? slot_spec.attrs : (;)
+
 	ax = Makie.Axis(ax_pos;
 		xlabel = something(view.xaxis.label, ""),
 		ylabel = something(view.yaxis.label, ""),
 		title  = view.title,
 		xscale = (view.xaxis.scale == :log10) ? Makie.log10 : Makie.identity,
 		yscale = (view.yaxis.scale == :log10) ? Makie.log10 : Makie.identity,
+		slot_attrs...,
 	)
 
 	plots = Any[]
-	for s in view.series
+	for s in view.series # s is SeriesSpec
 		append!(plots, draw!(ax, s))
 	end
 
-	if any(s -> s.label !== nothing, view.series)
-		Makie.axislegend(ax)
-	end
-
-	return UIPanel(view, ax, plots, (;))
+	return UIPanel(view, ax, plots)
 end
 
-function export_svg!(ctx::UIContext, assem::PlotAssembly, path::AbstractString; kwargs...)
-	return action_export_svg!(ctx, assem, path; kwargs...)
+function build_toolbar!(uifig::UIFigure, specs::Vector{UIWidgetSpec}, ctx::UIContext)
+	dict = Dict{Symbol, Any}()
+	haskey(uifig.slots, :toolbar) || return dict
+
+	gl = uifig.slots[:toolbar]
+	gl.halign = :left
+
+	for (i, s) in enumerate(specs)
+		if s isa UIButtonSpec
+
+			# CONSTRUCTION LOGIC:
+			# Combine icon and label using with_icon helper
+			lbl = (s.icon !== nothing) ? with_icon(s.icon; text = s.label) : s.label
+
+			btn = Makie.Button(gl[1, i]; label = lbl, s.attrs...)
+			dict[Symbol(:btn_, i)] = btn
+
+			Makie.on(btn.clicks) do _
+				Base.@async begin
+					try
+						s.action(ctx, uifig, btn)
+					catch e
+						@error "Widget error" exception=(e, catch_backtrace())
+						action_set_status!(ctx, "Error: $(e)")
+					end
+				end
+			end
+		end
+	end
+	return dict
+end
+
+function build_statusbar!(uifig::UIFigure, ::Val{:status}, ctx::UIContext)
+	haskey(uifig.slots, :status) || return
+	gl = uifig.slots[:status]
+	txt = (ctx.status !== nothing) ? ctx.status : Makie.Observable("")
+	Makie.Label(gl[1, 1], txt, halign = :left, fontsize = 12)
+end
+
+function build_legend!(uifig::UIFigure, ::Val{:legend}, panels::Vector{UIPanel})
+	haskey(uifig.slots, :legend) || return
+
+	seen = Set{String}()
+	elements = Any[]
+	labels = String[]
+
+	for p in panels, plt in p.plots
+		if hasproperty(plt, :label)
+			lbl = plt.label[]
+			if lbl !== nothing && !isempty(lbl) && !(lbl in seen)
+				push!(elements, plt)
+				push!(labels, lbl)
+				push!(seen, lbl)
+			end
+		end
+	end
+
+	if !isempty(elements)
+		slot_spec = get_slot_spec(uifig, :legend)
+		slot_attrs = slot_spec !== nothing ? slot_spec.attrs : (;)
+
+		Makie.Legend(uifig.slots[:legend][1, 1], elements, labels; slot_attrs...)
+	end
+end
+
+function display!(ctx::UIContext, assem::UIPlot)
+	if ctx.interactive && ctx.window !== nothing
+		display(ctx.window, assem.uifig.figure)
+	else
+		BackendHandler.renderfig(assem.uifig.figure)
+	end
 end
