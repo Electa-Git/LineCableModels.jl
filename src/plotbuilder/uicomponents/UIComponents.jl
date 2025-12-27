@@ -12,6 +12,7 @@ export render, export_svg!,
 
 export build_context, display!
 
+include("themes.jl")
 include("types.jl")
 include("layoutspecs.jl")
 include("actions.jl")
