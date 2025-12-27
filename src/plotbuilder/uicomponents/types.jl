@@ -1,50 +1,74 @@
 # -------------------------
-# Declarative layout specs
+# UI Logic Specs (Recipes)
 # -------------------------
 
 struct UIContainerSpec
 	name::Symbol
 	parent::Union{Nothing, Symbol}
-	at::Tuple{Union{Int, UnitRange{Int}}, Union{Int, UnitRange{Int}}}
-	shape::Tuple{Int, Int}
-	props::NamedTuple
-
-	function UIContainerSpec(
-		name::Symbol,
-		parent::Union{Nothing, Symbol},
-		at::Tuple{Union{Int, UnitRange{Int}}, Union{Int, UnitRange{Int}}},
-		shape::Tuple{Int, Int};
-		props::NamedTuple = NamedTuple(),
-	)
-		return new(name, parent, at, shape, props)
-	end
+	at::Tuple # Relaxed from strict Union types to generic Tuple
+	layout::NamedTuple
 end
+
+UIContainerSpec(name, parent, at; layout = (;)) =
+	UIContainerSpec(name, parent, at, layout)
 
 struct UISlotSpec
 	name::Symbol
 	parent::Symbol
-	at::Tuple{Union{Int, UnitRange{Int}}, Union{Int, UnitRange{Int}}}
-	props::NamedTuple
-
-	function UISlotSpec(
-		name::Symbol,
-		parent::Symbol,
-		at::Tuple{Union{Int, UnitRange{Int}}, Union{Int, UnitRange{Int}}};
-		props::NamedTuple = NamedTuple(),
-	)
-		return new(name, parent, at, props)
-	end
+	at::Tuple # Relaxed from strict Union types
+	layout::NamedTuple # Grid properties (e.g. alignmode, height)
+	attrs::NamedTuple  # Content properties (e.g. Axis background, Legend align)
 end
+
+# Robust helper constructor
+UISlotSpec(name, parent, at; layout = (;), attrs = (;)) =
+	UISlotSpec(name, parent, at, layout, attrs)
 
 struct UILayoutSpec
 	name::Symbol
 	containers::Vector{UIContainerSpec}
 	slots::Vector{UISlotSpec}
+	rowsizes::Dict{Symbol, Vector{Any}}
+	colsizes::Dict{Symbol, Vector{Any}}
 end
 
+abstract type UIWidgetSpec end
+
+struct UIButtonSpec <: UIWidgetSpec
+	label::String
+	icon::Union{Nothing, String}
+	action::Function # (ctx, uifig, button) -> nothing
+	attrs::NamedTuple # Passed to Makie.Button
+end
+
+# Constructor
+UIButtonSpec(label, icon, action; attrs = (;)) =
+	UIButtonSpec(label, icon, action, attrs)
+
+struct UIToggleSpec <: UIWidgetSpec
+	label::String
+	active::Bool
+	action::Function # (ctx, uifig, active::Bool) -> nothing
+	attrs::NamedTuple # Passed to Makie.Toggle
+end
+
+# Constructor
+UIToggleSpec(label, active, action; attrs = (;)) =
+	UIToggleSpec(label, active, action, attrs)
+
 # -------------------------
-# Materialized UI objects
+# UI Instances (Objects)
 # -------------------------
+
+mutable struct UIContext
+	backend::Symbol
+	interactive::Bool
+	use_latex_fonts::Bool
+	window::Union{Nothing, Any}
+	screen::Union{Nothing, Any}
+	status::Union{Nothing, Makie.Observable{String}}
+	theme::Makie.Theme
+end
 
 struct UIFigure
 	figure::Makie.Figure
@@ -59,24 +83,13 @@ struct UIPanel
 	view::ViewSpec
 	axis::Any
 	plots::Vector{Any}
-	meta::NamedTuple
 end
 
-mutable struct UIContext
-	backend::Symbol
-	interactive::Bool
-	window::Union{Nothing, Any}
-	screen::Union{Nothing, Any}
-	status::Union{Nothing, Makie.Observable{String}}
-	theme::Union{Nothing, Makie.Theme}
-end
-
-struct PlotAssembly
+struct UIPlot
 	spec::DataType
 	ctx::UIContext
-	pbfig::PageSpec
+	page::PageSpec
 	uifig::UIFigure
 	panels::Vector{UIPanel}
 	widgets::Dict{Symbol, Any}
-	meta::NamedTuple
 end
