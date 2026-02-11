@@ -9,7 +9,7 @@ export add!, set_verbosity!, set_backend!
 export Material, MaterialsLibrary
 
 # Data model (design + system):
-export Thickness, Diameter, WireArray, Strip, Tubular, Semicon, Insulator, Sector, SectorInsulator
+export Thickness, Diameter, WireArray, Strip, Tubular, Semicon, Insulator, Sector, SectorParams, SectorInsulator
 export ConductorGroup, InsulatorGroup
 export CableComponent, CableDesign, NominalData
 export CablesLibrary
@@ -61,7 +61,7 @@ using .EarthProps: EarthModel
 
 # Submodule `DataModel`
 include("datamodel/DataModel.jl")
-using .DataModel: Thickness, Diameter, WireArray, Strip, Tubular, Semicon, Insulator,
+using .DataModel: Thickness, Diameter, WireArray, Strip, Tubular, Semicon, Insulator, Sector, SectorParams, SectorInsulator,
 	ConductorGroup, InsulatorGroup, CableComponent, CableDesign, NominalData, CablesLibrary,
 	CablePosition, LineCableSystem, trifoil_formation, flat_formation, preview, equivalent
 
