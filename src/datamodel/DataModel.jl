@@ -77,7 +77,7 @@ include("sector.jl")
 include("insulator.jl")
 include("semicon.jl")
 include("insulatorgroup.jl")
-include("SectorInsulator.jl")
+include("sectorinsulator.jl")
 
 
 # Groups
