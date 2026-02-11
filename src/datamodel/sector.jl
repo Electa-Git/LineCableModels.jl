@@ -18,7 +18,29 @@ struct SectorParams{T<:REALSCALAR}
     theta_cond_deg::T
     "Insulation thickness \\[m\\]."
     d_insulation::T  # needed to correct for the offset
+
+    function SectorParams(n_sectors::Int, r_back::T, d_sector::T, r_corner::T, theta_cond_deg::T, d_insulation::T) where {T<:REALSCALAR}
+        if r_back < 0
+             throw(ArgumentError("Sector geometry: r_back must be non-negative."))
+        end
+        if d_sector < 0
+             throw(ArgumentError("Sector geometry: d_sector must be non-negative."))
+        end
+        if r_corner < 0
+             throw(ArgumentError("Sector geometry: r_corner must be non-negative."))
+        end
+        if d_insulation < 0
+             throw(ArgumentError("Sector geometry: d_insulation must be non-negative."))
+        end
+        
+        new{T}(n_sectors, r_back, d_sector, r_corner, theta_cond_deg, d_insulation)
+    end
 end
+
+SectorParams(n_sectors::Int, r_back, d_sector, r_corner, theta_cond_deg, d_insulation) = 
+    let T = promote_type(typeof(r_back), typeof(d_sector), typeof(r_corner), typeof(theta_cond_deg), typeof(d_insulation))
+        SectorParams(n_sectors, convert(T, r_back), convert(T, d_sector), convert(T, r_corner), convert(T, theta_cond_deg), convert(T, d_insulation))
+    end
 
 """
 $(TYPEDEF)
