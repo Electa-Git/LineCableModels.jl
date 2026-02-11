@@ -1,8 +1,8 @@
 name: CI
 on:
   push:
-    branches:
-      - main
+    branches-ignore:
+      - gh-pages  
     tags: ['*']
   pull_request:
   workflow_dispatch:

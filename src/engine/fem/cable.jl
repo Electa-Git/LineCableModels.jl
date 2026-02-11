@@ -448,3 +448,96 @@ function _make_cablepart!(workspace::FEMWorkspace, part::WireArray,
 		register_physical_group!(workspace, physical_group_tag_air_gap, air_material)
 	end
 end
+
+"""
+$(TYPEDSIGNATURES)
+
+Specialized method to create the geometry for a `Sector` conductor.
+"""
+function _make_cablepart!(workspace::FEMWorkspace, part::Sector,
+    cable_idx::Int, comp_idx::Int, comp_id::String,
+    phase::Int, layer_idx::Int)
+
+    # Get the cable's center coordinates from the workspace
+    cable_position = workspace.problem_def.system.cables[cable_idx]
+    x_center = to_nominal(cable_position.horz)
+    y_center = to_nominal(cable_position.vert)
+
+    # The vertices in the Sector object are already rotated and relative to the cable's origin.
+    # We just need to translate them to the cable's position in the system.
+    translated_vertices = [Point(v[1] + x_center, v[2] + y_center) for v in part.vertices]
+
+    # Calculate mesh size for this part
+    num_elements = workspace.formulation.elements_per_length_conductor
+    mesh_size = _calc_mesh_size(part.radius_in, part.radius_ext, part.material_props, num_elements, workspace)
+
+    # Create the polygon in Gmsh
+    @debug "the translated vertices are $translated_vertices \n they are of type $(typeof(translated_vertices))"
+    surface_tag, marker = draw_polygon(translated_vertices, mesh_size)
+
+    # --- The rest of this function is similar to the other _make_cablepart! methods ---
+
+    # Get material group (1 for conductor)
+    material_group = get_material_group(part)
+    material_id = get_or_register_material_id(workspace, part.material_props)
+
+    # Create physical tag
+    physical_group_tag = encode_physical_group_tag(1, cable_idx, comp_idx, material_group, material_id)
+
+    # Create a descriptive name for the entity
+    elementary_name = create_cable_elementary_name(
+        cable_idx=cable_idx, component_id=comp_id, group_type=material_group,
+        part_type="sector", layer_idx=layer_idx, phase=phase
+    )
+
+    # Create the entity data and add it to the workspace's unassigned entities
+    core_data = CoreEntityData(physical_group_tag, elementary_name, mesh_size)
+    entity_data = CablePartEntity(core_data, part)
+    workspace.unassigned_entities[marker] = entity_data
+
+    # Register the physical group
+    register_physical_group!(workspace, physical_group_tag, part.material_props)
+end
+
+
+"""
+$(TYPEDSIGNATURES)
+
+Specialized method to create the geometry for a `SectorInsulator`.
+"""
+function _make_cablepart!(workspace::FEMWorkspace, part::SectorInsulator,
+    cable_idx::Int, comp_idx::Int, comp_id::String,
+    phase::Int, layer_idx::Int)
+
+    cable_position = workspace.problem_def.system.cables[cable_idx]
+    x_center = to_nominal(cable_position.horz)
+    y_center = to_nominal(cable_position.vert)
+
+    # Translate the vertices for both outer and inner boundaries
+    outer_vertices_translated = [Point(v[1] + x_center, v[2] + y_center) for v in part.outer_vertices]
+    inner_vertices_translated = [Point(v[1] + x_center, v[2] + y_center) for v in part.inner_sector.vertices]
+
+    # Calculate mesh size for this part
+    num_elements = workspace.formulation.elements_per_length_insulator
+    mesh_size = _calc_mesh_size(part.radius_in, part.radius_ext, part.material_props, num_elements, workspace)
+
+    # Create the polygon with a hole using our new drawing primitive
+    surface_tag, marker = draw_polygon_with_hole(outer_vertices_translated, inner_vertices_translated, mesh_size)
+
+    # --- The rest is similar to the Sector method ---
+
+    material_group = get_material_group(part)
+    material_id = get_or_register_material_id(workspace, part.material_props)
+    physical_group_tag = encode_physical_group_tag(1, cable_idx, comp_idx, material_group, material_id)
+
+    elementary_name = create_cable_elementary_name(
+        cable_idx=cable_idx, component_id=comp_id, group_type=material_group,
+        part_type="sector_insulator", layer_idx=layer_idx, phase=phase
+    )
+
+    core_data = CoreEntityData(physical_group_tag, elementary_name, mesh_size)
+    entity_data = CablePartEntity(core_data, part)
+    workspace.unassigned_entities[marker] = entity_data
+
+    register_physical_group!(workspace, physical_group_tag, part.material_props)
+end
