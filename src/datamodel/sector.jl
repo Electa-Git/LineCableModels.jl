@@ -20,27 +20,89 @@ struct SectorParams{T<:REALSCALAR}
     d_insulation::T  # needed to correct for the offset
 
     function SectorParams(n_sectors::Int, r_back::T, d_sector::T, r_corner::T, theta_cond_deg::T, d_insulation::T) where {T<:REALSCALAR}
-        if r_back < 0
-             throw(ArgumentError("Sector geometry: r_back must be non-negative."))
-        end
-        if d_sector < 0
-             throw(ArgumentError("Sector geometry: d_sector must be non-negative."))
-        end
-        if r_corner < 0
-             throw(ArgumentError("Sector geometry: r_corner must be non-negative."))
-        end
-        if d_insulation < 0
-             throw(ArgumentError("Sector geometry: d_insulation must be non-negative."))
-        end
-        
-        new{T}(n_sectors, r_back, d_sector, r_corner, theta_cond_deg, d_insulation)
+         # validation for the sector geometry constraints (angle limits, no overlap, discriminant check)
+         _validate_sector_params(n_sectors, r_back, d_sector, r_corner, theta_cond_deg, d_insulation)
+         new{T}(n_sectors, r_back, d_sector, r_corner, theta_cond_deg, d_insulation)
     end
 end
 
-SectorParams(n_sectors::Int, r_back, d_sector, r_corner, theta_cond_deg, d_insulation) = 
-    let T = promote_type(typeof(r_back), typeof(d_sector), typeof(r_corner), typeof(theta_cond_deg), typeof(d_insulation))
-        SectorParams(n_sectors, convert(T, r_back), convert(T, d_sector), convert(T, r_corner), convert(T, theta_cond_deg), convert(T, d_insulation))
+const _REQ_SECTOR_PARAMS = (:n_sectors, :r_back, :d_sector, :r_corner, :theta_cond_deg, :d_insulation)
+
+Validation.has_radii(::Type{SectorParams}) = false
+Validation.required_fields(::Type{SectorParams}) = _REQ_SECTOR_PARAMS
+Validation.coercive_fields(::Type{SectorParams}) = (:r_back, :d_sector, :r_corner, :theta_cond_deg, :d_insulation)
+
+# --- Geometry Logic Storage ---
+function _validate_sector_params(n_sectors, r_back, d_sector, r_corner, theta_cond_deg, d_insulation) 
+    # 1. Basic Non-negativity (redundant with rules but kept for Core safety)
+    if r_back < 0 || d_sector < 0 || r_corner < 0 || theta_cond_deg < 0 || d_insulation < 0
+        throw(ArgumentError("Sector geometry parameters must be non-negative."))
     end
+    
+    # 2. Basic constraints
+    if theta_cond_deg >= 360.0
+         throw(ArgumentError("[SectorParams] theta_cond_deg ($theta_cond_deg) must be < 360"))
+    end
+    allowed_angle = 360.0 / n_sectors
+    if theta_cond_deg > allowed_angle + 1e-4
+         throw(ArgumentError("[SectorParams] theta_cond_deg ($theta_cond_deg) exceeds allowed 360/n ($allowed_angle)"))
+    end
+
+    if d_sector >= r_back
+         throw(ArgumentError("[SectorParams] d_sector ($d_sector) must be less than r_back ($r_back)"))
+    end
+
+    # 3. Geometric feasibility (Discriminant check)
+    phi_deg = 90.0 - theta_cond_deg / 2.0
+    phi_rad = deg2rad(phi_deg)
+
+    if abs(cos(phi_rad)) < 1e-9
+         throw(ArgumentError("[SectorParams] theta_cond_deg too close to 180 (phi ~ 90), valid sector cannot be formed."))
+    end
+    
+    d_base_corner = r_corner * (1.0 / cos(phi_rad) - 1.0)
+    d_offset = r_back - d_sector - d_base_corner
+    
+    k = r_corner / cos(phi_rad) + d_offset
+    qa = 1.0 + tan(phi_rad)^2
+    qb = 2.0 * k * tan(phi_rad)
+    qc = k^2 - (r_back - r_corner)^2
+
+    discriminant = qb^2 - 4.0 * qa * qc
+    if discriminant < 0
+        throw(ArgumentError("[SectorParams] Geometric constraints violated (negative discriminant). The combination of radii, depth and angle does not form a closed sector."))
+    end
+end
+
+"""
+$(TYPEDEF)
+
+Rule that enforces specific Sector geometry constraints (discriminant, angle limits, no overlap).
+"""
+struct SectorGeometryValid <: Validation.Rule
+    name::Symbol
+end
+
+function Validation._apply(r::SectorGeometryValid, nt, ::Type{SectorParams})
+    # Delegate to the shared validation function
+    # Note: Non-neg rules from Validation framework handle the basic checks, 
+    # but _validate_sector_params repeats them safely.
+    _validate_sector_params(nt.n_sectors, nt.r_back, nt.d_sector, nt.r_corner, nt.theta_cond_deg, nt.d_insulation)
+end
+
+Validation.extra_rules(::Type{SectorParams}) = (
+    Validation.IntegerField(:n_sectors),
+    Validation.Positive(:n_sectors),
+    Validation.Nonneg(:r_back),
+    Validation.Nonneg(:d_sector),
+    Validation.Nonneg(:r_corner),
+    Validation.Nonneg(:theta_cond_deg),
+    Validation.Nonneg(:d_insulation),
+    Validation.Less(:d_sector, :r_back),
+    SectorGeometryValid(:sector_geometry),
+)
+
+@construct SectorParams _REQ_SECTOR_PARAMS
 
 """
 $(TYPEDEF)
