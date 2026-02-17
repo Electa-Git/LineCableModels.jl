@@ -13,7 +13,7 @@
     copper_props = MAT.Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393, 401.0)
     alu_props = MAT.Material(2.82e-8, 1.0, 1.0, 20.0, 0.0039, 237.0)
     xlpe_props = MAT.Material(1e10, 2.3, 1.0, 20.0, 0.0, 0.3)   # insulator-like
-    semi_props = MAT.Material(1e3, 2.6, 1.0, 20.0, 0.0, 148.0)   # semicon-ish
+    semi_props = MAT.Material(1e3, 2.6, 1.0, 20.0, 0.0, 0.4)   # semicon-ish
 
     # geometry
     d_wire = 3e-3 # 3 mm
