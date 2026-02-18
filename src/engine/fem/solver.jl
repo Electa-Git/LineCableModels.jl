@@ -442,9 +442,14 @@ end
 	case!(voltage, "")
 
 	# Current_2D
+	# GetDP's complex (frequency-domain) formulation uses peak amplitudes:
+	#   a(t) = Re[ Â · exp(jωt) ]
+	# Time-averaged Joule losses: P = 0.5·σ·|E|² = (I_peak/√2)²·R = I_rms²·R
+	# User specifies RMS currents, so we scale by √2 to get peak amplitudes.
 	current = assign!(constraint, "Current_2D")
 	for (idx, curr) in enumerate(workspace.energizations)
-		case!(current, "Con_$idx", value = "Complex[$(real(curr)), $(imag(curr))]")
+		peak_curr = curr * sqrt(2)  # RMS → peak conversion
+		case!(current, "Con_$idx", value = "Complex[$(real(peak_curr)), $(imag(peak_curr))]")
 	end
 
 	temp = assign!(constraint, "DirichletTemp")
