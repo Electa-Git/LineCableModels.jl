@@ -22,22 +22,57 @@ struct RectStrandsShape{T <: REALSCALAR, U <: Int} <: AbstractShapeGeometry
 	cross_section::T
 end
 
+"""
+$(TYPEDEF)
+
+Represents a concentric layer of rectangular strands with defined geometric, material, and electrical properties:
+
+$(TYPEDFIELDS)
+"""
 struct RectStrands{T <: REALSCALAR, S <: RectStrandsShape} <: AbstractStrandsLayer{T}
 	"Internal radial boundary \\[m\\]."
 	radius_in::T
 	"External radial boundary \\[m\\]."
 	radius_ext::T
+	"Material properties of the conductive strands."
 	material_props::Material{T}
+	"Operating temperature of the layer \\[°C\\]."
 	temperature::T
-
-	# Fundamental electrical properties for ConductorGroup
+	"Equivalent electrical resistance of the layer \\[Ω/m\\]."
 	resistance::T
+	"Geometric mean radius (GMR) of the layer \\[m\\]."
 	gmr::T
-
-	# Shape payload, defines how resistance and gmr are computed
+	"Shape payload defining the internal geometric layout."
 	shape::S
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Constructs a [`RectStrands`](@ref) instance.
+
+# Arguments
+
+- `radius_in`: Internal radius of the layer \\[m\\].
+- `thickness`: Radial thickness of the strands \\[m\\].
+- `width`: Width of the individual rectangular strip \\[m\\].
+- `num_wires`: Number of strands in the layer \\[dimensionless\\].
+- `lay_ratio`: Ratio defining the lay length of the strands \\[dimensionless\\].
+- `material_props`: A [`Material`](@ref) object containing physical properties.
+- `temperature`: Operating temperature \\[°C\\].
+- `lay_direction`: Twisting direction (1 = unilay, -1 = contralay) \\[dimensionless\\].
+
+# Returns
+
+- A [`RectStrands`](@ref) object with calculated geometric and electrical properties.
+
+# Examples
+
+```julia
+material = Material(1.724e-8, 1.0, 1.0, 20.0, 0.00393)
+layer = $(FUNCTIONNAME)(0.01, 0.002, 0.005, 10, 12.0, material, 25.0, 1)
+```
+"""
 function RectStrands(
 	radius_in::T,
 	thickness::T,
