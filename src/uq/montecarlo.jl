@@ -125,7 +125,7 @@ function mc(
 	nfreq = length(fvec)
 
 	# number of physical phases from current mapping
-	nph = count(!=(0), vcat(values.(getfield.(sbs.positions, :conn))...))
+	nph = count(!=(0), vcat(values.(getproperty.(sbs.positions, :conn))...))
 
 	# Total scalar observables under DKW: Z & Y, Real & Imag, upper-triangular (incl. diag) per freq
 	M = 2 * nph * (nph + 1) * nfreq
