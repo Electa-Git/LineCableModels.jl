@@ -342,6 +342,7 @@ opts = (
 F = FormulationSet(:FEM,
 	impedance = Darwin(),
 	admittance = Electrodynamics(),
+	ehem_formula = EnforceLayer(3),
 	domain_radius = domain_radius,
 	domain_radius_inf = domain_radius * 1.25,
 	elements_per_length_conductor = 1,
