@@ -17,14 +17,14 @@ using InteractiveUtils
 
 # This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
 macro bind(def, element)
-    #! format: off
-    return quote
-        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
-        local el = $(esc(element))
-        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
-        el
-    end
-    #! format: on
+	#! format: off
+	return quote
+		local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+		local el = $(esc(element))
+		global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+		el
+	end
+	#! format: on
 end
 
 # ╔═╡ 426024d7-23c8-4261-9c20-d0045b1ab077
@@ -180,11 +180,11 @@ begin
 
 	function build_core(materials, d_wire_mm::Real, d_wire_pct::Real, n_layers::Int)
 		d = _with_unc(d_wire_mm, d_wire_pct)  # Measurement
-		core = ConductorGroup(WireArray(0, Diameter(d), 1, 0, get(materials, "aluminum")))
+		core = ConductorGroup(CircStrands(0, Diameter(d), 1, 0, get(materials, "aluminum")))
 		for ℓ in 1:n_layers
 			add!(
 				core,
-				WireArray,
+				CircStrands,
 				Diameter(d),
 				6*ℓ,
 				pitch_for_layer(ℓ),
@@ -897,7 +897,7 @@ begin
 	lay_ratio = 10 # typical value for wire screens
 	screen_con =
 		ConductorGroup(
-			WireArray(
+			CircStrands(
 				main_insu,
 				Diameter(d_ws),
 				num_sc_wires,
@@ -1077,7 +1077,7 @@ begin
 	# Build the wire screens on top of the previous layer:
 	sscreen_con =
 		ConductorGroup(
-			WireArray(
+			CircStrands(
 				main_insu,
 				Diameter(d_ws),
 				num_sc_wires,
@@ -1178,385 +1178,104 @@ begin
 	)
 end;
 
-# ╔═╡ c6415453-f16c-4a8d-8d2d-c754eca919b0
+# ╔═╡ d20e89c6-b980-4f57-8989-f86d23ea59c6
 begin
-	import LineCableModels.BackendHandler: ensure_backend!, current_backend_symbol
 	using Measurements: Measurement, uncertainty
-	function plot(
+	function rlcg_tables(
 		lp::LineParameters;
 		per::Symbol = :km,
 		diag_only::Bool = true,
 		elements::Union{Nothing, Vector{Tuple{Int, Int}}} = nothing,
 		labels::Union{Nothing, Vector{String}} = nothing,
-		backend::Union{Nothing, Symbol} = nothing,
-		figsize::Tuple{Int, Int} = (900, 500),
+		epsval::Real = eps(Float64),
 	)
-		# Ensure a Makie backend (defaults to Cairo if none)
-		ensure_backend!(backend)
-
 		n, _, nf = size(lp.Z)
-		_nom(x) = x isa Measurement ? value(x) : x
-		f = collect(map(x -> float(_nom(x)), lp.f))
+		# frequency vector (preserve potential Measurement)
+		f = collect(lp.f)
 		scale = per === :km ? 1_000.0 : 1.0
-
-		# Build element list
 		elts = if diag_only
 			[(i, i) for i in 1:n]
 		else
 			elements === nothing ? [(i, j) for i in 1:n for j in 1:n] : elements
 		end
-
-		# Default labels
 		if labels === nothing
 			if diag_only && n == 3
-				labels = ["Z₀", "Z₁", "Z₂"]
+				labels = ["0", "1", "2"]
 			else
-				labels = ["Z[$i,$j]" for (i, j) in elts]
+				labels = ["$(i),$(j)" for (i, j) in elts]
 			end
 		end
-
-		fig = Figure(size = figsize)
-		axr = Axis(
-			fig[1, 1],
-			xlabel = "f [Hz]",
-			ylabel = "Re(Z) [Ω/$(per==:km ? "km" : "m")]",
-			xscale = log10,
-		)
-		axi = Axis(
-			fig[1, 2],
-			xlabel = "f [Hz]",
-			ylabel = "Im(Z) [Ω/$(per==:km ? "km" : "m")]",
-			xscale = log10,
-		)
-
-		# Plot lines for each selected element
-		for (idx, (i, j)) in enumerate(elts)
-			reZ = Vector{Float64}(undef, nf)
-			imZ = Vector{Float64}(undef, nf)
-			@inbounds for k in 1:nf
-				z = lp.Z.values[i, j, k] * scale
-				reZ[k] = float(_nom(real(z)))
-				imZ[k] = float(_nom(imag(z)))
-			end
-			color = Makie.wong_colors()[mod1(idx, length(Makie.wong_colors()))]
-			lines!(axr, f, reZ, color = color, label = labels[idx])
-			lines!(axi, f, imZ, color = color, label = labels[idx])
-		end
-
-		axislegend(axr; position = :rb)
-		fig
-	end
-
-	function _plot(
-		lp::LineParameters;
-		per::Symbol = :km,
-		diag_only::Bool = true,
-		elements::Union{Nothing, Vector{Tuple{Int, Int}}} = nothing,
-		labels::Union{Nothing, Vector{String}} = nothing,
-		backend::Union{Nothing, Symbol} = nothing,
-		figsize::Tuple{Int, Int} = (900, 500),
-		show_errors::Bool = true,
-		error_style::Symbol = :band,           # :band or :bars
-		error_scale::Real = 1.0,               # multiply σ by this factor
-		error_alpha::Real = 0.25,              # band transparency
-		error_linewidth::Real = 1.5,           # line width for bars/band edges
-		error_whiskerwidth::Real = 8.0,        # for :bars style
-		error_whiskerlinewidth::Real = 1.2,
-	)
-		# Ensure a Makie backend (defaults to Cairo if none)
-		ensure_backend!(backend)
-
-		n, _, nf = size(lp.Z)
-		_nom(x) = x isa Measurement ? value(x) : x
-		f = collect(map(x -> float(_nom(x)), lp.f))
-		scale = per === :km ? 1_000.0 : 1.0
-
-		# Build element list
-		elts = if diag_only
-			[(i, i) for i in 1:n]
-		else
-			elements === nothing ? [(i, j) for i in 1:n for j in 1:n] : elements
-		end
-
-		# Default labels
-		if labels === nothing
-			if diag_only && n == 3
-				labels = ["Z₀", "Z₁", "Z₂"]
+		# Zero-clip helper preserving Measurement type
+		zero_clip(x, τ) = begin
+			if x isa Measurement
+				v = value(x)
+				u = uncertainty(x)
+				vv = abs(v) < τ ? 0.0 : v
+				uu = abs(u) < τ ? 0.0 : u
+				return measurement(vv, uu)
 			else
-				labels = ["Z[$i,$j]" for (i, j) in elts]
+				return abs(x) < τ ? zero(x) : x
 			end
 		end
-
-		fig = Figure(size = figsize)
-		axr = Axis(
-			fig[1, 1],
-			xlabel = "f [Hz]",
-			ylabel = "Re(Z) [Ω/$(per==:km ? "km" : "m")]",
-			xscale = log10,
-		)
-		axi = Axis(
-			fig[1, 2],
-			xlabel = "f [Hz]",
-			ylabel = "Im(Z) [Ω/$(per==:km ? "km" : "m")]",
-			xscale = log10,
-		)
-
-		# Plot lines for each selected element
-		for (idx, (i, j)) in enumerate(elts)
-			reZ = Vector{Float64}(undef, nf)
-			imZ = Vector{Float64}(undef, nf)
-			reE = Vector{Float64}(undef, nf)
-			imE = Vector{Float64}(undef, nf)
-			@inbounds for k in 1:nf
+		out = Dict{String, DataFrame}()
+		@inbounds for (idx, (i, j)) in enumerate(elts)
+			R = Vector{Any}(undef, nf)
+			L = Vector{Any}(undef, nf)
+			G = Vector{Any}(undef, nf)
+			C = Vector{Any}(undef, nf)
+			for k in 1:nf
+				fk = f[k]
+				ω = 2π * fk
 				z = lp.Z.values[i, j, k] * scale
+				y = lp.Y.values[i, j, k] * scale
 				r = real(z)
-				ii = imag(z)
-				reZ[k] = float(_nom(r))
-				imZ[k] = float(_nom(ii))
-				reE[k] = r isa Measurement ? float(uncertainty(r)) : 0.0
-				imE[k] = ii isa Measurement ? float(uncertainty(ii)) : 0.0
-			end
-			color = Makie.wong_colors()[mod1(idx, length(Makie.wong_colors()))]
-			if show_errors && error_style == :band
-				has_re = any(x -> x > 0, reE)
-				has_im = any(x -> x > 0, imE)
-				if has_re
-					ylow = reZ .- error_scale .* reE
-					yupp = reZ .+ error_scale .* reE
-					band!(axr, f, ylow, yupp; color = (color, error_alpha))
-				end
-				if has_im
-					ylow = imZ .- error_scale .* imE
-					yupp = imZ .+ error_scale .* imE
-					band!(axi, f, ylow, yupp; color = (color, error_alpha))
-				end
-			end
-			# Draw lines on top for visibility
-			lines!(axr, f, reZ, color = color, label = labels[idx])
-			lines!(axi, f, imZ, color = color, label = labels[idx])
-			if show_errors && error_style != :band
-				has_re = any(x -> x > 0, reE)
-				has_im = any(x -> x > 0, imE)
-				has_re && errorbars!(axr, f, reZ, error_scale .* reE;
-					color = color, whiskerwidth = error_whiskerwidth,
-					whiskerlinewidth = error_whiskerlinewidth,
-					linewidth = error_linewidth)
-				has_im && errorbars!(axi, f, imZ, error_scale .* imE;
-					color = color, whiskerwidth = error_whiskerwidth,
-					whiskerlinewidth = error_whiskerlinewidth,
-					linewidth = error_linewidth)
-			end
-		end
-
-		axislegend(axr; position = :rb)
-		fig
-	end
-
-	function _plot_RL(
-		lp::LineParameters;
-		per::Symbol = :km,
-		diag_only::Bool = true,
-		elements::Union{Nothing, Vector{Tuple{Int, Int}}} = nothing,
-		labels::Union{Nothing, Vector{String}} = nothing,
-		backend::Union{Nothing, Symbol} = nothing,
-		figsize::Tuple{Int, Int} = (900, 500),
-		L_unit::Symbol = :H,
-		show_errors::Bool = true,
-		error_style::Symbol = :band,
-		error_scale::Real = 1.0,
-		error_alpha::Real = 0.25,
-		error_linewidth::Real = 1.5,
-		error_whiskerwidth::Real = 8.0,
-	)
-		ensure_backend!(backend)
-
-		n, _, nf = size(lp.Z)
-		_nom(x) = x isa Measurement ? value(x) : x
-		f = collect(map(x -> float(_nom(x)), lp.f))
-		ω = 2π .* f
-		scale = per === :km ? 1_000.0 : 1.0
-		Lscale = (L_unit === :mH ? 1e3 : 1.0)  # convert H → mH if requested
-
-		elts = if diag_only
-			[(i, i) for i in 1:n]
-		else
-			elements === nothing ? [(i, j) for i in 1:n for j in 1:n] : elements
-		end
-		if labels === nothing
-			if diag_only && n == 3
-				labels = ["Z₀", "Z₁", "Z₂"]
-			else
-				labels = ["Z[$i,$j]" for (i, j) in elts]
-			end
-		end
-
-		fig = Figure(size = figsize)
-		yLlabel = L_unit === :mH ? "mH" : "H"
-		axR = Axis(
-			fig[1, 1],
-			xlabel = "f [Hz]",
-			ylabel = "R [Ω/$(per==:km ? "km" : "m")]",
-			xscale = log10,
-		)
-		axL = Axis(
-			fig[1, 2],
-			xlabel = "f [Hz]",
-			ylabel = "L [$yLlabel/$(per==:km ? "km" : "m")]",
-			xscale = log10,
-		)
-
-		for (idx, (i, j)) in enumerate(elts)
-			Rv = Vector{Float64}(undef, nf)
-			Lv = Vector{Float64}(undef, nf)
-			Re = Vector{Float64}(undef, nf)
-			Le = Vector{Float64}(undef, nf)
-			@inbounds for k in 1:nf
-				z = lp.Z.values[i, j, k]
-				r = real(z) * scale
-				x = imag(z) * scale
-				Rv[k] = float(_nom(r))
-				Re[k] = r isa Measurement ? float(uncertainty(r)) : 0.0
-				if ω[k] == 0
-					Lv[k] = NaN
-					Le[k] = 0.0
+				g = real(y)
+				if (fk isa Measurement ? value(fk) == 0 : fk == 0)
+					l = NaN
+					c = NaN
 				else
-					lk = (x / ω[k]) * Lscale
-					Lv[k] = float(_nom(lk))
-					Le[k] = lk isa Measurement ? float(uncertainty(lk)) : 0.0
+					l = imag(z) / ω
+					c = imag(y) / ω
 				end
+				R[k] = zero_clip(r, epsval)
+				L[k] = (l isa Number || l isa Measurement) ? zero_clip(l, epsval) : l
+				G[k] = zero_clip(g, epsval)
+				C[k] = (c isa Number || c isa Measurement) ? zero_clip(c, epsval) : c
 			end
-			color = Makie.wong_colors()[mod1(idx, length(Makie.wong_colors()))]
-			if show_errors && error_style == :band
-				if any(>(0), Re)
-					band!(
-						axR,
-						f,
-						Rv .- error_scale .* Re,
-						Rv .+ error_scale .* Re;
-						color = (color, error_alpha),
-					)
-				end
-				if any(>(0), Le)
-					band!(
-						axL,
-						f,
-						Lv .- error_scale .* Le,
-						Lv .+ error_scale .* Le;
-						color = (color, error_alpha),
-					)
-				end
-			end
-			lines!(axR, f, Rv, color = color, label = labels[idx])
-			lines!(axL, f, Lv, color = color, label = labels[idx])
-			if show_errors && error_style != :band
-				any(>(0), Re) && errorbars!(axR, f, Rv, error_scale .* Re;
-					color = color, whiskerwidth = error_whiskerwidth,
-					linewidth = error_linewidth, linecap = :round)
-				any(>(0), Le) && errorbars!(axL, f, Lv, error_scale .* Le;
-					color = color, whiskerwidth = error_whiskerwidth,
-					linewidth = error_linewidth, linecap = :round)
-			end
+			tag = labels[idx]
+			df = DataFrame(
+				:f_Hz => f,
+				:R => R,
+				:L => L,
+				:C => C,
+				:G => G,
+			)
+			out[string(tag)] = df
 		end
-
-		axislegend(axR; position = :rb)
-		fig
+		return out
 	end
-
-end;
+end
 
 # ╔═╡ e8117400-adf3-45e3-bf56-59933f01e6d0
 # ╠═╡ show_logs = false
 begin
-	@time ws, p = compute!(problem, F);
-	Tv, p012 = Fortescue(tol = 1e-5)(p)
+	@time ws, p012 = compute!(problem, F);
+	#Tv, p012 = Fortescue(tol = 1e-5)(p)
 end;
 
 # ╔═╡ cebe81ec-a183-43d7-be36-6627a46de3bf
 begin
-	fig = _plot_RL(p012, error_scale = 100, error_style = :bars, L_unit = :mH)
-	axL = content(fig[1, 2])
-	axR = content(fig[1, 1])
-	lo = 1
-	hi = 1e6
-	xlims!(axR, lo, hi);
-	xlims!(axL, lo, hi)
+	fig = plot(
+		p012;
+		backend = :cairo,
+		mode = :RLCG,
+		length_unit = :kilo,
+		xscale = log10,
+		per_length = true,
+	)
 
-	fig
-end
+	fig[(:series_impedance, :resistance)].figure
 
-# ╔═╡ d20e89c6-b980-4f57-8989-f86d23ea59c6
-function rlcg_tables(
-	lp::LineParameters;
-	per::Symbol = :km,
-	diag_only::Bool = true,
-	elements::Union{Nothing, Vector{Tuple{Int, Int}}} = nothing,
-	labels::Union{Nothing, Vector{String}} = nothing,
-	epsval::Real = eps(Float64),
-)
-	n, _, nf = size(lp.Z)
-	# frequency vector (preserve potential Measurement)
-	f = collect(lp.f)
-	scale = per === :km ? 1_000.0 : 1.0
-	elts = if diag_only
-		[(i, i) for i in 1:n]
-	else
-		elements === nothing ? [(i, j) for i in 1:n for j in 1:n] : elements
-	end
-	if labels === nothing
-		if diag_only && n == 3
-			labels = ["0", "1", "2"]
-		else
-			labels = ["$(i),$(j)" for (i, j) in elts]
-		end
-	end
-	# Zero-clip helper preserving Measurement type
-	zero_clip(x, τ) = begin
-		if x isa Measurement
-			v = value(x)
-			u = uncertainty(x)
-			vv = abs(v) < τ ? 0.0 : v
-			uu = abs(u) < τ ? 0.0 : u
-			return measurement(vv, uu)
-		else
-			return abs(x) < τ ? zero(x) : x
-		end
-	end
-	out = Dict{String, DataFrame}()
-	@inbounds for (idx, (i, j)) in enumerate(elts)
-		R = Vector{Any}(undef, nf)
-		L = Vector{Any}(undef, nf)
-		G = Vector{Any}(undef, nf)
-		C = Vector{Any}(undef, nf)
-		for k in 1:nf
-			fk = f[k]
-			ω = 2π * fk
-			z = lp.Z.values[i, j, k] * scale
-			y = lp.Y.values[i, j, k] * scale
-			r = real(z)
-			g = real(y)
-			if (fk isa Measurement ? value(fk) == 0 : fk == 0)
-				l = NaN
-				c = NaN
-			else
-				l = imag(z) / ω
-				c = imag(y) / ω
-			end
-			R[k] = zero_clip(r, epsval)
-			L[k] = (l isa Number || l isa Measurement) ? zero_clip(l, epsval) : l
-			G[k] = zero_clip(g, epsval)
-			C[k] = (c isa Number || c isa Measurement) ? zero_clip(c, epsval) : c
-		end
-		tag = labels[idx]
-		df = DataFrame(
-			:f_Hz => f,
-			:R => R,
-			:L => L,
-			:C => C,
-			:G => G,
-		)
-		out[string(tag)] = df
-	end
-	return out
 end
 
 # ╔═╡ c6cdfb66-1405-4208-808b-12f3e0949ed1
@@ -1631,27 +1350,26 @@ md"""
 # ╟─e0f87b28-14a3-4630-87db-6f4b51bdb30a
 # ╟─b081c88a-7959-44ea-85ff-33b980ec71b4
 # ╟─0b5142ef-2eb0-4c72-8ba5-da776eadb5a3
-# ╟─1ae76282-4340-4df0-ba29-11712c184a79
-# ╟─9ddcccbe-86c8-4335-8d65-35af4ce755ab
-# ╟─43ff64cb-1226-4d26-9fdf-8aff03505439
-# ╟─ae1749c8-0f6d-4487-8857-12826eb57db3
-# ╟─3d9239df-523e-40be-b6e9-f0d538638bd8
-# ╟─fd1e268a-6520-4dc8-a9ff-32a4854859df
-# ╟─b4169697-e06d-4947-8105-9f42017f5042
-# ╟─0900d10f-8191-4507-af4e-50d7f4a1126f
+# ╠═1ae76282-4340-4df0-ba29-11712c184a79
+# ╠═9ddcccbe-86c8-4335-8d65-35af4ce755ab
+# ╠═43ff64cb-1226-4d26-9fdf-8aff03505439
+# ╠═ae1749c8-0f6d-4487-8857-12826eb57db3
+# ╠═3d9239df-523e-40be-b6e9-f0d538638bd8
+# ╠═fd1e268a-6520-4dc8-a9ff-32a4854859df
+# ╠═b4169697-e06d-4947-8105-9f42017f5042
+# ╠═0900d10f-8191-4507-af4e-50d7f4a1126f
 # ╟─4ce85966-0386-4525-8cf2-35e9814f8459
-# ╟─44f5823e-4b07-4f2c-8773-e4c3187a6100
-# ╟─987902c5-5983-4815-b62f-4eabc1be2362
-# ╟─6ee6d16d-326c-4436-a750-077ecc2b3b9c
-# ╟─39f7460d-8a1e-483d-94f4-14500d6c9ac2
+# ╠═44f5823e-4b07-4f2c-8773-e4c3187a6100
+# ╠═987902c5-5983-4815-b62f-4eabc1be2362
+# ╠═6ee6d16d-326c-4436-a750-077ecc2b3b9c
+# ╠═39f7460d-8a1e-483d-94f4-14500d6c9ac2
 # ╟─a2e5d81f-f6a2-4b04-83cc-c95026fd283a
-# ╟─cebe81ec-a183-43d7-be36-6627a46de3bf
-# ╟─ce7d068e-2831-49dc-a459-bb68138c3a00
-# ╟─83d26ac6-24e5-4ca1-817c-921d3c2375c5
-# ╟─cb44ffb8-7e33-4603-a97e-47dbc507f813
-# ╟─e8117400-adf3-45e3-bf56-59933f01e6d0
-# ╟─c6415453-f16c-4a8d-8d2d-c754eca919b0
-# ╟─d20e89c6-b980-4f57-8989-f86d23ea59c6
+# ╠═cebe81ec-a183-43d7-be36-6627a46de3bf
+# ╠═ce7d068e-2831-49dc-a459-bb68138c3a00
+# ╠═83d26ac6-24e5-4ca1-817c-921d3c2375c5
+# ╠═cb44ffb8-7e33-4603-a97e-47dbc507f813
+# ╠═e8117400-adf3-45e3-bf56-59933f01e6d0
+# ╠═d20e89c6-b980-4f57-8989-f86d23ea59c6
 # ╠═c6cdfb66-1405-4208-808b-12f3e0949ed1
 # ╟─2f28cc7a-cb14-44e6-908a-f34b8991c1bd
 # ╟─fb9cfe06-1a26-443a-9669-615a4e0463b4
