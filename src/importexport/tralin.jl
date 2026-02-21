@@ -61,9 +61,9 @@ function export_data(::Val{:tralin},
 	if nlayers == 2
 		# [AIR, SOIL] => uniform semi-infinite earth
 		soil  = earth_props.layers[end]
-		rho   = _fmt(getfield(soil, :base_rho_g))
-		mu_r  = hasfield(typeof(soil), :mu_r) ? _fmt(getfield(soil, :mu_r)) : "1"
-		eps_r = hasfield(typeof(soil), :eps_r) ? _fmt(getfield(soil, :eps_r)) : "1"
+		rho   = _fmt(getproperty(soil, :base_rho_g))
+		mu_r  = hasfield(typeof(soil), :mu_r) ? _fmt(getproperty(soil, :mu_r)) : "1"
+		eps_r = hasfield(typeof(soil), :eps_r) ? _fmt(getproperty(soil, :eps_r)) : "1"
 		push!(lines, "SOIL-TYPE")
 		push!(lines, "UNIFORM,$rho,$mu_r,$eps_r")
 	else
@@ -81,9 +81,9 @@ function export_data(::Val{:tralin},
 			vcat("TOP", fill("CENTRAL", n_earth - 2), "BOTTOM")
 
 		for (eidx, (lname, layer)) in enumerate(zip(names, earth_props.layers[2:end]))
-			rho   = _fmt(getfield(layer, :base_rho_g))
-			mu_r  = hasfield(typeof(layer), :base_mur_g) ? _fmt(getfield(layer, :base_mur_g)) : "1"
-			eps_r = hasfield(typeof(layer), :base_epsr_g) ? _fmt(getfield(layer, :base_epsr_g)) : "1"
+			rho   = _fmt(getproperty(layer, :base_rho_g))
+			mu_r  = hasfield(typeof(layer), :base_mur_g) ? _fmt(getproperty(layer, :base_mur_g)) : "1"
+			eps_r = hasfield(typeof(layer), :base_epsr_g) ? _fmt(getproperty(layer, :base_epsr_g)) : "1"
 
 			if eidx == n_earth
 				# BOTTOM: no thickness -> explicit empty field `,,`
@@ -93,9 +93,9 @@ function export_data(::Val{:tralin},
 				thk =
 					(
 						hasfield(typeof(layer), :t) &&
-						getfield(layer, :t) !== nothing
+						getproperty(layer, :t) !== nothing
 					) ?
-					_fmt(getfield(layer, :t)) : ""
+					_fmt(getproperty(layer, :t)) : ""
 				push!(lines, "    LAYER,$lname,$rho,$thk,$mu_r,$eps_r")
 			end
 		end
@@ -121,7 +121,7 @@ function export_data(::Val{:tralin},
 		push!(lines, "CABLE,CA-$(pidx),$(_fmt(outer_R))")
 
 		# Strict connection vector
-		conn = getfield(cable, :conn)
+		conn = getproperty(cable, :conn)
 		if !(conn isa AbstractVector)
 			throw(
 				ArgumentError(
@@ -141,7 +141,7 @@ function export_data(::Val{:tralin},
 		for i in 1:ncomp
 			label = _TRALIN_COMP[i]
 			comp = comps_vec[i]
-			comp_id = String(getfield(comp, :id))  # <-- component name from your datamodel
+			comp_id = String(getproperty(comp, :id))  # <-- component name from your datamodel
 
 			conn_val = Int(conn[i])  # 0 or 1..N phases
 
