@@ -65,7 +65,7 @@ mutable struct ConductorGroup{T<:REALSCALAR} <: AbstractConductorPart{T}
         num_turns::T = zero(T)
 
         # only touch fields that exist inside the guarded branches
-        if central isa WireArray{T}
+        if central isa CircStrands{T}
             num_wires = central.num_wires
             num_turns = central.pitch_length > zero(T) ? one(T) / central.pitch_length : zero(T)
         elseif central isa Strip{T}
@@ -131,13 +131,13 @@ normalizing proxies, and **promoting** the group’s numeric type if required.
 ```julia
 material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
 conductor = ConductorGroup(Strip(0.01, 0.002, 0.05, 10, material_props))
-$(FUNCTIONNAME)(conductor, WireArray, 0.02, 0.002, 7, 15, material_props, temperature = 25)
+$(FUNCTIONNAME)(conductor, CircStrands, 0.02, 0.002, 7, 15, material_props, temperature = 25)
 ```
 
 # See also
 
 - [`ConductorGroup`](@ref)
-- [`WireArray`](@ref)
+- [`CircStrands`](@ref)
 - [`Strip`](@ref)
 - [`Tubular`](@ref)
 - [`calc_equivalent_gmr`](@ref)
@@ -207,11 +207,11 @@ function _do_add!(
     group.radius_ext += (new_part.radius_ext - new_part.radius_in)
     group.cross_section += new_part.cross_section
 
-    # WireArray / Strip bookkeeping
-    if new_part isa WireArray || new_part isa Strip
+    # CircStrands / Strip bookkeeping
+    if new_part isa CircStrands || new_part isa Strip
         old_wires = group.num_wires
         old_turns = group.num_turns
-        nw = new_part isa WireArray ? new_part.num_wires : 1
+        nw = new_part isa CircStrands ? new_part.num_wires : 1
         nt = new_part.pitch_length > 0 ? inv(new_part.pitch_length) : zero(Tg)
         group.num_wires += nw
         group.num_turns = (old_wires * old_turns + nw * nt) / group.num_wires
