@@ -5,7 +5,7 @@ The [`DataModel`](@ref) module provides data structures, constructors and utilit
 
 # Overview
 
-- Provides objects for detailed cable modeling with the [`CableDesign`](@ref) and supporting types: [`WireArray`](@ref), [`Strip`](@ref), [`Tubular`](@ref), [`Semicon`](@ref), and [`Insulator`](@ref).
+- Provides objects for detailed cable modeling with the [`CableDesign`](@ref) and supporting types: [`CircStrands`](@ref), [`Strip`](@ref), [`Tubular`](@ref), [`Semicon`](@ref), and [`Insulator`](@ref).
 - Includes objects for cable **system** modeling with the [`LineCableSystem`](@ref) type, and multiple formation patterns like trifoil and flat arrangements.
 - Contains functions for calculating the base electric properties of all elements within a [`CableDesign`](@ref), namely: resistance, inductance (via GMR), shunt capacitance, and shunt conductance (via loss factor).
 - Offers visualization tools for previewing cable cross-sections and system layouts.
@@ -23,13 +23,13 @@ module DataModel
 
 # Export public API
 export Thickness, Diameter  # Type definitions
-export WireArray, Strip, Tubular  # Conductor types
+export CircStrands, RectStrands, Strip, Tubular  # Conductor types
 export Semicon, Insulator  # Insulator types
 export ConductorGroup, InsulatorGroup  # Group types
 export CableComponent, CableDesign  # Cable design types
 export CablePosition, LineCableSystem  # System types
 export CablesLibrary, NominalData  # Support types
-export trifoil_formation, flat_formation, get_outer_radius  # Helpers
+export trifoil_formation, flat_formation, get_outer_radius, MaxFill  # Helpers
 export preview, equivalent
 
 # Module-specific dependencies
@@ -46,7 +46,7 @@ import ..PlotBuilder.PlotUIComponents: gl_screen, with_icon, MI_REFRESH, MI_SAVE
 import ..Validation: Validation, sanitize, validate!, has_radii, has_temperature,
 	extra_rules, IntegerField, Positive, Finite, Normalized, IsA, required_fields,
 	coercive_fields, keyword_fields, keyword_defaults, _kwdefaults_nt, is_radius_input,
-	Nonneg, OneOf
+	Nonneg, OneOf, Greater, PhysicalFillLimit, Satisfies
 using Measurements
 using DataFrames
 using Colors
@@ -66,7 +66,9 @@ include("macros.jl")
 include("validation.jl")
 
 # Conductors
-include("wirearray.jl")
+include("strands_handler.jl")
+include("circstrands.jl")
+include("rectstrands.jl")
 include("strip.jl")
 include("tubular.jl")
 include("conductorgroup.jl")
@@ -91,5 +93,9 @@ include("helpers.jl")
 include("preview.jl")
 include("io.jl")
 include("typecoercion.jl")
+
+# Aliases for backward compatibility
+const WireArray = CircStrands
+export WireArray
 
 end # module DataModel
