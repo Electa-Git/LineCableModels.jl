@@ -2,7 +2,7 @@
 """
 PartSpec:
 - component::Symbol           # e.g. :core, :sheath, :jacket
-- part_type::Type             # WireArray, Tubular, Strip, Insulator, Semicon, …
+- part_type::Type             # CircStrands, Tubular, Strip, Insulator, Semicon, …
 - n_layers::Int               # how many stacked layers of this part_type
 - dim::Tuple                  # diameter OR thickness OR radius (spec, pct)
 - args::Tuple                 # specialized ctor positional args
@@ -95,19 +95,19 @@ end
 @inline _anchor(x::DataModel.AbstractInsulatorPart) = x
 
 @inline function _anchor(g::DataModel.ConductorGroup)
-	L = getfield(g, :layers)
+	L = getproperty(g, :layers)
 	@assert !isempty(L) "ConductorGroup has no layers to anchor on."
 	return L[end]
 end
 @inline function _anchor(g::DataModel.InsulatorGroup)
-	L = getfield(g, :layers)
+	L = getproperty(g, :layers)
 	@assert !isempty(L) "InsulatorGroup has no layers to anchor on."
 	return L[end]
 end
 
 # ----- proxy for radius_ext by CONTRACT -----
 @inline function _resolve_dim(T::Type, is_abs_first::Bool)
-	return T <: DataModel.AbstractWireArray ? :diameter :
+	return T <: DataModel.AbstractStrandsLayer ? :diameter :
 		   (is_abs_first && T === DataModel.Tubular ? :diameter : :thickness)
 end
 
@@ -121,14 +121,14 @@ function _init_cg(T::Type, base, dim_val, args_pos::Tuple, mat; abs_first::Bool)
 
 	r_in = _anchor(base)
 	sym  = _resolve_dim(T, abs_first)
-	_    = _make_dim(sym, dim_val)   # keeps intent (WireArray ignores this)
+	_    = _make_dim(sym, dim_val)   # keeps intent (CircStrands ignores this)
 
-	if T <: DataModel.AbstractWireArray
-		@assert length(args_pos) ≥ 1 "WireArray needs (n, [lay])."
+	if T <: DataModel.AbstractStrandsLayer
+		@assert length(args_pos) ≥ 1 "CircStrands needs (n, [lay])."
 		n   = args_pos[1]
 		lay = length(args_pos) ≥ 2 ? args_pos[2] : 0.0
 		return DataModel.ConductorGroup(
-			DataModel.WireArray(r_in, DataModel.Diameter(dim_val), n, lay, mat),
+			DataModel.CircStrands(r_in, DataModel.Diameter(dim_val), n, lay, mat),
 		)
 	else
 		return DataModel.ConductorGroup(T(r_in, _make_dim(sym, dim_val), args_pos..., mat))
@@ -144,11 +144,11 @@ function _add_conductor!(
 	mat;
 	layer::Int,
 )
-	if T <: DataModel.AbstractWireArray
-		@assert length(args_pos) ≥ 1 "WireArray needs (n, [lay])."
+	if T <: DataModel.AbstractStrandsLayer
+		@assert length(args_pos) ≥ 1 "CircStrands needs (n, [lay])."
 		n   = args_pos[1]
 		lay = length(args_pos) ≥ 2 ? args_pos[2] : 0.0
-		add!(cg, DataModel.WireArray, DataModel.Diameter(dim_val), layer*n, lay, mat)
+		add!(cg, DataModel.CircStrands, DataModel.Diameter(dim_val), layer*n, lay, mat)
 	else
 		# thickness by contract for all non-wire additions
 		add!(cg, T, _make_dim(:thickness, dim_val), args_pos..., mat)
@@ -463,7 +463,7 @@ using ...DataModel: DataModel
 
 # wire: args are (n, lay)
 Wires(component::Symbol; layers::Int, d, n::Int, lay = 11.0, m) =
-	PartSpec(component, DataModel.WireArray, layers;
+	PartSpec(component, DataModel.CircStrands, layers;
 		dim = _spec(d), args = (n, _spec(lay)), material = m)
 
 # tube: no extra args
@@ -490,7 +490,7 @@ function Stranded(component::Symbol; layers::Int, d, n::Int, lay = 11.0, m)
 	# 1) central wire: 1 layer, n=1, lay=0.0
 	push!(
 		specs,
-		PartSpec(component, DataModel.WireArray, 1;
+		PartSpec(component, DataModel.CircStrands, 1;
 			dim = dspec, args = (1, (0.0, nothing)), material = m),
 	)
 
@@ -498,7 +498,7 @@ function Stranded(component::Symbol; layers::Int, d, n::Int, lay = 11.0, m)
 	if layers > 1
 		push!(
 			specs,
-			PartSpec(component, DataModel.WireArray, layers - 1;
+			PartSpec(component, DataModel.CircStrands, layers - 1;
 				dim = dspec, args = (n, _spec(lay)), material = m),
 		)
 	end
