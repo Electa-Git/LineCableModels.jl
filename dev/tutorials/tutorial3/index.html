@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Tutorial 3 - Computing line parameters · LineCableModels.jl</title><meta name="title" content="Tutorial 3 - Computing line parameters · LineCableModels.jl"/><meta property="og:title" content="Tutorial 3 - Computing line parameters · LineCableModels.jl"/><meta property="twitter:title" content="Tutorial 3 - Computing line parameters · LineCableModels.jl"/><meta name="description" content="Documentation for LineCableModels.jl."/><meta property="og:description" content="Documentation for LineCableModels.jl."/><meta property="twitter:description" content="Documentation for LineCableModels.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/citations.css" rel="stylesheet" type="text/css"/><link href="../../assets/favicon.ico" rel="icon" type="image/x-icon"/><link href="../../assets/custom.css" rel="stylesheet" type="text/css"/><script src="../../assets/custom.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.svg" alt="LineCableModels.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">LineCableModels.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><input class="collapse-toggle" id="menuitem-2" type="checkbox" checked/><label class="tocitem" for="menuitem-2"><span class="docs-label">Tutorials</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../">Contents</a></li><li><a class="tocitem" href="../tutorial1/">Tutorial 1 - Using the  materials library</a></li><li><a class="tocitem" href="../tutorial2/">Tutorial 2 - Building a cable design</a></li><li class="is-active"><a class="tocitem" href>Tutorial 3 - Computing line parameters</a><ul class="internal"><li><a class="tocitem" href="#Introduction"><span>Introduction</span></a></li><li><a class="tocitem" href="#Getting-started"><span>Getting started</span></a></li><li><a class="tocitem" href="#Cable-dimensions"><span>Cable dimensions</span></a></li><li><a class="tocitem" href="#Core-and-main-insulation"><span>Core and main insulation</span></a></li><li><a class="tocitem" href="#Examining-the-cable-parameters-(RLC)"><span>Examining the cable parameters (RLC)</span></a></li><li><a class="tocitem" href="#Saving-the-cable-design"><span>Saving the cable design</span></a></li><li><a class="tocitem" href="#Defining-a-cable-system"><span>Defining a cable system</span></a></li><li><a class="tocitem" href="#PSCAD-and-ATPDraw-export"><span>PSCAD &amp; ATPDraw export</span></a></li><li><a class="tocitem" href="#FEM-calculations"><span>FEM calculations</span></a></li></ul></li></ul></li><li><a class="tocitem" href="../../reference/">API reference</a></li><li><input class="collapse-toggle" id="menuitem-4" type="checkbox"/><label class="tocitem" for="menuitem-4"><span class="docs-label">Development</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../validation/">Validation module</a></li><li><a class="tocitem" href="../../docstrings/">Docstrings</a></li><li><a class="tocitem" href="../../TODO/">TODO</a></li><li><a class="tocitem" href="../../CHANGELOG/">Changelog</a></li></ul></li><li><a class="tocitem" href="../../bib/">Bibliography</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Tutorial 3 - Computing line parameters</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Tutorial 3 - Computing line parameters</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/Electa-Git/LineCableModels.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/Electa-Git/LineCableModels.jl/blob/main/examples/tutorial3.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Tutorial-3-Computing-line-parameters"><a class="docs-heading-anchor" href="#Tutorial-3-Computing-line-parameters">Tutorial 3 - Computing line parameters</a><a id="Tutorial-3-Computing-line-parameters-1"></a><a class="docs-heading-anchor-permalink" href="#Tutorial-3-Computing-line-parameters" title="Permalink"></a></h1><p>This case file demonstrates how to model an armored high-voltage single-core power cable using the <a href="../../#LineCableModels.jl"><code>LineCableModels.jl</code></a> package. The objective is to build a complete representation of a single-core 525 kV cable with a 1600 mm² copper conductor, 1.2 mm tubular lead sheath and 68 x 6 mm galvanized steel armor, based on the design described in [<a href="../../bib/#Karmokar2025">13</a>].</p><p><strong>Tutorial outline</strong></p><ul><li><a href="#Introduction">Introduction</a></li><li><a href="#Getting-started">Getting started</a></li><li><a href="#Cable-dimensions">Cable dimensions</a></li><li><a href="#Core-and-main-insulation">Core and main insulation</a></li><li class="no-marker"><ul><li><a href="#Inner-semiconductor">Inner semiconductor</a></li><li><a href="#Main-insulation">Main insulation</a></li><li><a href="#Outer-semiconductor">Outer semiconductor</a></li><li><a href="#Lead-screen/sheath">Lead screen/sheath</a></li><li><a href="#Armor-and-outer-jacket-components">Armor and outer jacket components</a></li></ul></li><li><a href="#Examining-the-cable-parameters-(RLC)">Examining the cable parameters (RLC)</a></li><li><a href="#Saving-the-cable-design">Saving the cable design</a></li><li><a href="#Defining-a-cable-system">Defining a cable system</a></li><li class="no-marker"><ul><li><a href="#Earth-model">Earth model</a></li><li><a href="#Underground-bipole-configuration">Underground bipole configuration</a></li><li><a href="#Cable-system-preview">Cable system preview</a></li></ul></li><li><a href="#PSCAD-and-ATPDraw-export">PSCAD &amp; ATPDraw export</a></li><li><a href="#FEM-calculations">FEM calculations</a></li></ul><h2 id="Introduction"><a class="docs-heading-anchor" href="#Introduction">Introduction</a><a id="Introduction-1"></a><a class="docs-heading-anchor-permalink" href="#Introduction" title="Permalink"></a></h2><p>HVDC cables are constructed around a central conductor enclosed by a triple-extruded insulation system (inner/outer semi-conductive layers and main insulation). A metallic screen and protective outer sheath are then applied for land cables. Subsea designs add galvanized steel wire armor over this structure to provide mechanical strength against water pressure. A reference design for a 525 kV HVDC cable <a href="https://nkt.widen.net/content/pnwgwjfudf/pdf/Extruded_DC_525kV_DS_EN_DEHV_HV_DS_DE-EN.pdf">is shown here</a>.</p><h2 id="Getting-started"><a class="docs-heading-anchor" href="#Getting-started">Getting started</a><a id="Getting-started-1"></a><a class="docs-heading-anchor-permalink" href="#Getting-started" title="Permalink"></a></h2><p>Load the package and set up the environment:</p><pre><code class="language-julia hljs">using LineCableModels
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Tutorial 3 - Computing line parameters · LineCableModels.jl</title><meta name="title" content="Tutorial 3 - Computing line parameters · LineCableModels.jl"/><meta property="og:title" content="Tutorial 3 - Computing line parameters · LineCableModels.jl"/><meta property="twitter:title" content="Tutorial 3 - Computing line parameters · LineCableModels.jl"/><meta name="description" content="Documentation for LineCableModels.jl."/><meta property="og:description" content="Documentation for LineCableModels.jl."/><meta property="twitter:description" content="Documentation for LineCableModels.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/citations.css" rel="stylesheet" type="text/css"/><link href="../../assets/favicon.ico" rel="icon" type="image/x-icon"/><link href="../../assets/custom.css" rel="stylesheet" type="text/css"/><script src="../../assets/custom.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.svg" alt="LineCableModels.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">LineCableModels.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><input class="collapse-toggle" id="menuitem-2" type="checkbox" checked/><label class="tocitem" for="menuitem-2"><span class="docs-label">Tutorials</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../">Contents</a></li><li><a class="tocitem" href="../tutorial1/">Tutorial 1 - Using the  materials library</a></li><li><a class="tocitem" href="../tutorial2/">Tutorial 2 - Building a cable design</a></li><li class="is-active"><a class="tocitem" href>Tutorial 3 - Computing line parameters</a><ul class="internal"><li><a class="tocitem" href="#Introduction"><span>Introduction</span></a></li><li><a class="tocitem" href="#Getting-started"><span>Getting started</span></a></li><li><a class="tocitem" href="#Cable-dimensions"><span>Cable dimensions</span></a></li><li><a class="tocitem" href="#Core-and-main-insulation"><span>Core and main insulation</span></a></li><li><a class="tocitem" href="#Examining-the-cable-parameters-(RLC)"><span>Examining the cable parameters (RLC)</span></a></li><li><a class="tocitem" href="#Saving-the-cable-design"><span>Saving the cable design</span></a></li><li><a class="tocitem" href="#Defining-a-cable-system"><span>Defining a cable system</span></a></li><li><a class="tocitem" href="#PSCAD-and-ATPDraw-export"><span>PSCAD &amp; ATPDraw export</span></a></li><li><a class="tocitem" href="#FEM-calculations"><span>FEM calculations</span></a></li><li class="toplevel"><a class="tocitem" href="#Run-the-FEM-solver"><span>Run the FEM solver</span></a></li><li class="toplevel"><a class="tocitem" href="#Display-computation-results"><span>Display computation results</span></a></li><li class="toplevel"><a class="tocitem" href="#Export-ZY-matrices-to-ATPDraw"><span>Export ZY matrices to ATPDraw</span></a></li><li class="toplevel"><a class="tocitem" href="#Obtain-the-symmetrical-components-via-Fortescue-transformation"><span>Obtain the symmetrical components via Fortescue transformation</span></a></li><li class="toplevel"><a class="tocitem" href="#Inspect-the-transformed-matrices"><span>Inspect the transformed matrices</span></a></li><li class="toplevel"><a class="tocitem" href="#Or-the-corresponding-lumped-circuit-quantities"><span>Or the corresponding lumped circuit quantities</span></a></li></ul></li></ul></li><li><a class="tocitem" href="../../reference/">API reference</a></li><li><input class="collapse-toggle" id="menuitem-4" type="checkbox"/><label class="tocitem" for="menuitem-4"><span class="docs-label">Development</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../validation/">Validation module</a></li><li><a class="tocitem" href="../../docstrings/">Docstrings</a></li><li><a class="tocitem" href="../../TODO/">TODO</a></li><li><a class="tocitem" href="../../CHANGELOG/">Changelog</a></li></ul></li><li><a class="tocitem" href="../../bib/">Bibliography</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Tutorial 3 - Computing line parameters</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Tutorial 3 - Computing line parameters</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/Electa-Git/LineCableModels.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/Electa-Git/LineCableModels.jl/blob/main/examples/tutorial3.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Tutorial-3-Computing-line-parameters"><a class="docs-heading-anchor" href="#Tutorial-3-Computing-line-parameters">Tutorial 3 - Computing line parameters</a><a id="Tutorial-3-Computing-line-parameters-1"></a><a class="docs-heading-anchor-permalink" href="#Tutorial-3-Computing-line-parameters" title="Permalink"></a></h1><p>This case file demonstrates how to model an armored high-voltage single-core power cable using the <a href="../../#LineCableModels.jl"><code>LineCableModels.jl</code></a> package. The objective is to build a complete representation of a single-core 525 kV cable with a 1600 mm² copper conductor, 1.2 mm tubular lead sheath and 68 x 6 mm galvanized steel armor, based on the design described in [<a href="../../bib/#Karmokar2025">13</a>].</p><p><strong>Tutorial outline</strong></p><ul><li><a href="#Introduction">Introduction</a></li><li><a href="#Getting-started">Getting started</a></li><li><a href="#Cable-dimensions">Cable dimensions</a></li><li><a href="#Core-and-main-insulation">Core and main insulation</a></li><li class="no-marker"><ul><li><a href="#Inner-semiconductor">Inner semiconductor</a></li><li><a href="#Main-insulation">Main insulation</a></li><li><a href="#Outer-semiconductor">Outer semiconductor</a></li><li><a href="#Lead-screen/sheath">Lead screen/sheath</a></li><li><a href="#Armor-and-outer-jacket-components">Armor and outer jacket components</a></li></ul></li><li><a href="#Examining-the-cable-parameters-(RLC)">Examining the cable parameters (RLC)</a></li><li><a href="#Saving-the-cable-design">Saving the cable design</a></li><li><a href="#Defining-a-cable-system">Defining a cable system</a></li><li class="no-marker"><ul><li><a href="#Earth-model">Earth model</a></li><li><a href="#Underground-bipole-configuration">Underground bipole configuration</a></li><li><a href="#Cable-system-preview">Cable system preview</a></li></ul></li><li><a href="#PSCAD-and-ATPDraw-export">PSCAD &amp; ATPDraw export</a></li><li><a href="#FEM-calculations">FEM calculations</a></li></ul><h2 id="Introduction"><a class="docs-heading-anchor" href="#Introduction">Introduction</a><a id="Introduction-1"></a><a class="docs-heading-anchor-permalink" href="#Introduction" title="Permalink"></a></h2><p>HVDC cables are constructed around a central conductor enclosed by a triple-extruded insulation system (inner/outer semi-conductive layers and main insulation). A metallic screen and protective outer sheath are then applied for land cables. Subsea designs add galvanized steel wire armor over this structure to provide mechanical strength against water pressure. A reference design for a 525 kV HVDC cable <a href="https://nkt.widen.net/content/pnwgwjfudf/pdf/Extruded_DC_525kV_DS_EN_DEHV_HV_DS_DE-EN.pdf">is shown here</a>.</p><h2 id="Getting-started"><a class="docs-heading-anchor" href="#Getting-started">Getting started</a><a id="Getting-started-1"></a><a class="docs-heading-anchor-permalink" href="#Getting-started" title="Permalink"></a></h2><p>Load the package and set up the environment:</p><pre><code class="language-julia hljs">using LineCableModels
 using LineCableModels.Engine.FEM
 using LineCableModels.Engine.Transforms: Fortescue
 using DataFrames
@@ -22,21 +22,21 @@ t_pe = 3e-3        # nominal PE inner sheath thickness
 t_bed = 3e-3       # nominal thickness of the PP bedding
 d_wa = 5.827e-3    # nominal armor wire diameter
 t_jac = 10e-3      # nominal PP jacket thickness</code></pre><p>The cable structure is summarized in a table for better visualization, with dimensions in milimiters:</p><div><div style = "float: left;"><span>10×3 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">layer</th><th style = "text-align: left;">thickness</th><th style = "text-align: left;">diameter</th></tr><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;"></th><th title = "String" style = "text-align: left;">String</th><th title = "Any" style = "text-align: left;">Any</th><th title = "Float64" style = "text-align: left;">Float64</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">Conductor</td><td style = "text-align: left;">-</td><td style = "text-align: right;">46.3</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">Inner semiconductor</td><td style = "text-align: left;">2.0</td><td style = "text-align: right;">50.3</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">Main insulation</td><td style = "text-align: left;">26.0</td><td style = "text-align: right;">102.3</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">Outer semiconductor</td><td style = "text-align: left;">1.8</td><td style = "text-align: right;">105.9</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">5</td><td style = "text-align: left;">Swellable tape</td><td style = "text-align: left;">0.3</td><td style = "text-align: right;">106.5</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">6</td><td style = "text-align: left;">Lead screen</td><td style = "text-align: left;">3.3</td><td style = "text-align: right;">113.1</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">7</td><td style = "text-align: left;">PE inner sheath</td><td style = "text-align: left;">3.0</td><td style = "text-align: right;">119.1</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">8</td><td style = "text-align: left;">PP bedding</td><td style = "text-align: left;">3.0</td><td style = "text-align: right;">125.1</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">9</td><td style = "text-align: left;">Stranded wire armor</td><td style = "text-align: left;">5.8</td><td style = "text-align: right;">136.75</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">10</td><td style = "text-align: left;">PP jacket</td><td style = "text-align: left;">10.0</td><td style = "text-align: right;">156.75</td></tr></tbody></table></div><h2 id="Core-and-main-insulation"><a class="docs-heading-anchor" href="#Core-and-main-insulation">Core and main insulation</a><a id="Core-and-main-insulation-1"></a><a class="docs-heading-anchor-permalink" href="#Core-and-main-insulation" title="Permalink"></a></h2><p>Initialize the conductor object and assign the central wire:</p><pre><code class="language-julia hljs">material = get(materials, &quot;copper&quot;)
-core = ConductorGroup(WireArray(0.0, Diameter(d_w), 1, 0.0, material))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1-element ConductorGroup: [radius_in=0.0, radius_ext=0.001832, cross_section=1.055e-5, resistance=0.001634, gmr=0.001427]
-└─WireArray: [radius_in=0.0, radius_ext=0.001832, cross_section=1.055e-5, resistance=0.001634, gmr=0.001427]
+core = ConductorGroup(CircStrands(0.0, Diameter(d_w), 1, 0.0, material))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1-element ConductorGroup: [radius_in=0.0, radius_ext=0.001832, cross_section=1.055e-5, resistance=0.001634, gmr=0.001427]
+└─CircStrands: [radius_in=0.0, radius_ext=0.001832, cross_section=1.055e-5, resistance=0.001634, gmr=0.001427]
 </code></pre><p>Add the subsequent layers of wires and inspect the object:</p><pre><code class="language-julia hljs">n_strands = 6 # Strands per layer
 n_layers = 6 # Layers of strands
 for i in 1:n_layers
-	add!(core, WireArray, Diameter(d_w), i * n_strands, 11.0, material)
+	add!(core, CircStrands, Diameter(d_w), i * n_strands, 11.0, material)
 end
 core</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">7-element ConductorGroup: [radius_in=0.0, radius_ext=0.02382, cross_section=0.00134, resistance=1.338e-5, gmr=0.01848]
-├─WireArray: [radius_in=0.0, radius_ext=0.001832, cross_section=1.055e-5, resistance=0.001634, gmr=0.001427]
-├─WireArray: [radius_in=0.001832, radius_ext=0.005497, cross_section=6.329e-5, resistance=0.0002833, gmr=0.004222]
-├─WireArray: [radius_in=0.005497, radius_ext=0.009162, cross_section=0.0001266, resistance=0.0001416, gmr=0.007867]
-├─WireArray: [radius_in=0.009162, radius_ext=0.01283, cross_section=0.0001899, resistance=9.443e-5, gmr=0.01153]
-├─WireArray: [radius_in=0.01283, radius_ext=0.01649, cross_section=0.0002532, resistance=7.082e-5, gmr=0.01519]
-├─WireArray: [radius_in=0.01649, radius_ext=0.02016, cross_section=0.0003165, resistance=5.666e-5, gmr=0.01885]
-└─WireArray: [radius_in=0.02016, radius_ext=0.02382, cross_section=0.0003798, resistance=4.721e-5, gmr=0.02251]
+├─CircStrands: [radius_in=0.0, radius_ext=0.001832, cross_section=1.055e-5, resistance=0.001634, gmr=0.001427]
+├─CircStrands: [radius_in=0.001832, radius_ext=0.005497, cross_section=6.329e-5, resistance=0.0002833, gmr=0.004222]
+├─CircStrands: [radius_in=0.005497, radius_ext=0.009162, cross_section=0.0001266, resistance=0.0001416, gmr=0.007867]
+├─CircStrands: [radius_in=0.009162, radius_ext=0.01283, cross_section=0.0001899, resistance=9.443e-5, gmr=0.01153]
+├─CircStrands: [radius_in=0.01283, radius_ext=0.01649, cross_section=0.0002532, resistance=7.082e-5, gmr=0.01519]
+├─CircStrands: [radius_in=0.01649, radius_ext=0.02016, cross_section=0.0003165, resistance=5.666e-5, gmr=0.01885]
+└─CircStrands: [radius_in=0.02016, radius_ext=0.02382, cross_section=0.0003798, resistance=4.721e-5, gmr=0.02251]
 </code></pre><h3 id="Inner-semiconductor"><a class="docs-heading-anchor" href="#Inner-semiconductor">Inner semiconductor</a><a id="Inner-semiconductor-1"></a><a class="docs-heading-anchor-permalink" href="#Inner-semiconductor" title="Permalink"></a></h3><p>Inner semiconductor (1000 Ω.m as per IEC 840):</p><pre><code class="language-julia hljs">material = get(materials, &quot;semicon1&quot;)
 main_insu = InsulatorGroup(Semicon(core, Thickness(t_sc_in), material))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1-element InsulatorGroup: [radius_in=0.02382, radius_ext=0.02582, cross_section=0.0003119, shunt_capacitance=6.901e-7, shunt_conductance=0.07794]
 └─Semicon: [radius_in=0.02382, radius_ext=0.02582, cross_section=0.0003119, resistance=3.206e6, gmr=0.02516, shunt_capacitance=6.901e-7, shunt_conductance=0.07794]
@@ -93,8 +93,8 @@ add!(cable_design, sheath_cc)</code></pre><pre class="documenter-example-output"
 </code></pre><h3 id="Armor-and-outer-jacket-components"><a class="docs-heading-anchor" href="#Armor-and-outer-jacket-components">Armor and outer jacket components</a><a id="Armor-and-outer-jacket-components-1"></a><a class="docs-heading-anchor-permalink" href="#Armor-and-outer-jacket-components" title="Permalink"></a></h3><p>Add the armor wires on top of the previous layer:</p><pre><code class="language-julia hljs">lay_ratio = 10.0 # typical value for wire screens
 material = get(materials, &quot;steel&quot;)
 armor_con = ConductorGroup(
-	WireArray(screen_insu, Diameter(d_wa), num_ar_wires, lay_ratio, material))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1-element ConductorGroup: [radius_in=0.06322, radius_ext=0.06905, cross_section=0.001813, resistance=7.977e-5, gmr=0.02231]
-└─WireArray: [radius_in=0.06322, radius_ext=0.06905, cross_section=0.001813, resistance=7.977e-5, gmr=0.02231]
+	CircStrands(screen_insu, Diameter(d_wa), num_ar_wires, lay_ratio, material))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1-element ConductorGroup: [radius_in=0.06322, radius_ext=0.06905, cross_section=0.001813, resistance=7.977e-5, gmr=0.02231]
+└─CircStrands: [radius_in=0.06322, radius_ext=0.06905, cross_section=0.001813, resistance=7.977e-5, gmr=0.02231]
 </code></pre><p>PP layer after armor:</p><pre><code class="language-julia hljs">material = get(materials, &quot;pp&quot;)
 armor_insu = InsulatorGroup(Insulator(armor_con, Thickness(t_jac), material))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1-element InsulatorGroup: [radius_in=0.06905, radius_ext=0.07905, cross_section=0.004653, shunt_capacitance=1.152e-9, shunt_conductance=4.646e-14]
 └─Insulator: [radius_in=0.06905, radius_ext=0.07905, cross_section=0.004653, resistance=2.149e17, gmr=0.07579, shunt_capacitance=1.152e-9, shunt_conductance=4.646e-14]
@@ -108,7 +108,7 @@ armor_insu = InsulatorGroup(Insulator(armor_con, Thickness(t_jac), material))</c
 └─ Component &quot;armor&quot;:
    ├─ ConductorGroup: [radius_in=0.06322, radius_ext=0.06905, rho=1.931e-7, eps_r=0.0, mu_r=40.2, alpha=0.0045]
    └─ InsulatorGroup: [radius_in=0.06905, radius_ext=0.07905, rho=1.0e15, eps_r=2.8, mu_r=1.124, alpha=0.0]
-</code></pre><p>Inspect the finished cable design:</p><pre><code class="language-julia hljs">plt1, _ = preview(cable_design)</code></pre><img src="50ccdec2.png" alt="Example block output"/><h2 id="Examining-the-cable-parameters-(RLC)"><a class="docs-heading-anchor" href="#Examining-the-cable-parameters-(RLC)">Examining the cable parameters (RLC)</a><a id="Examining-the-cable-parameters-(RLC)-1"></a><a class="docs-heading-anchor-permalink" href="#Examining-the-cable-parameters-(RLC)" title="Permalink"></a></h2><p>Summarize DC lumped parameters (R, L, C):</p><pre><code class="language-julia hljs">core_df = DataFrame(cable_design, :baseparams)</code></pre><div><div style = "float: left;"><span>3×4 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">parameter</th><th style = "text-align: left;">computed</th><th style = "text-align: left;">nominal</th><th style = "text-align: left;">percent_diff</th></tr><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;"></th><th title = "String" style = "text-align: left;">String</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Nothing" style = "text-align: left;">Nothing</th><th title = "Missing" style = "text-align: left;">Missing</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">R [Ω/km]</td><td style = "text-align: right;">0.0133793</td><td style = "font-style: italic; text-align: left;"></td><td style = "font-style: italic; text-align: right;">missing</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">L [mH/km]</td><td style = "text-align: right;">0.406716</td><td style = "font-style: italic; text-align: left;"></td><td style = "font-style: italic; text-align: right;">missing</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">C [μF/km]</td><td style = "text-align: right;">0.183687</td><td style = "font-style: italic; text-align: left;"></td><td style = "font-style: italic; text-align: right;">missing</td></tr></tbody></table></div><p>Obtain the equivalent electromagnetic properties of the cable:</p><pre><code class="language-julia hljs">components_df = DataFrame(cable_design, :components)</code></pre><div><div style = "float: left;"><span>9×4 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">property</th><th style = "text-align: left;">core</th><th style = "text-align: left;">sheath</th><th style = "text-align: left;">armor</th></tr><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;"></th><th title = "Symbol" style = "text-align: left;">Symbol</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">radius_in_con</td><td style = "text-align: right;">0.0</td><td style = "text-align: right;">0.0539219</td><td style = "text-align: right;">0.0632219</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">radius_ext_con</td><td style = "text-align: right;">0.0238218</td><td style = "text-align: right;">0.0572219</td><td style = "text-align: right;">0.0690489</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">rho_con</td><td style = "text-align: right;">2.38526e-8</td><td style = "text-align: right;">2.14e-7</td><td style = "text-align: right;">1.93147e-7</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">alpha_con</td><td style = "text-align: right;">0.00393</td><td style = "text-align: right;">0.004</td><td style = "text-align: right;">0.0045</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">5</td><td style = "text-align: left;">mu_con</td><td style = "text-align: right;">1.01663</td><td style = "text-align: right;">0.999983</td><td style = "text-align: right;">40.1985</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">6</td><td style = "text-align: left;">radius_ext_ins</td><td style = "text-align: right;">0.0539219</td><td style = "text-align: right;">0.0632219</td><td style = "text-align: right;">0.0790489</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">7</td><td style = "text-align: left;">eps_ins</td><td style = "text-align: right;">2.69734</td><td style = "text-align: right;">2.51934</td><td style = "text-align: right;">2.8</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">8</td><td style = "text-align: left;">mu_ins</td><td style = "text-align: right;">1.69888</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">1.12354</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">9</td><td style = "text-align: left;">loss_factor_ins</td><td style = "text-align: right;">1.96222e-6</td><td style = "text-align: right;">5.01696e-7</td><td style = "text-align: right;">1.28394e-7</td></tr></tbody></table></div><h2 id="Saving-the-cable-design"><a class="docs-heading-anchor" href="#Saving-the-cable-design">Saving the cable design</a><a id="Saving-the-cable-design-1"></a><a class="docs-heading-anchor-permalink" href="#Saving-the-cable-design" title="Permalink"></a></h2><p>Load an existing <a href="../../reference/#LineCableModels.DataModel.CablesLibrary"><code>CablesLibrary</code></a> file or create a new one:</p><pre><code class="language-julia hljs">library = CablesLibrary()
+</code></pre><p>Inspect the finished cable design:</p><pre><code class="language-julia hljs">plt1, _ = preview(cable_design)</code></pre><img src="128f6fb6.png" alt="Example block output"/><h2 id="Examining-the-cable-parameters-(RLC)"><a class="docs-heading-anchor" href="#Examining-the-cable-parameters-(RLC)">Examining the cable parameters (RLC)</a><a id="Examining-the-cable-parameters-(RLC)-1"></a><a class="docs-heading-anchor-permalink" href="#Examining-the-cable-parameters-(RLC)" title="Permalink"></a></h2><p>Summarize DC lumped parameters (R, L, C):</p><pre><code class="language-julia hljs">core_df = DataFrame(cable_design, :baseparams)</code></pre><div><div style = "float: left;"><span>3×4 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">parameter</th><th style = "text-align: left;">computed</th><th style = "text-align: left;">nominal</th><th style = "text-align: left;">percent_diff</th></tr><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;"></th><th title = "String" style = "text-align: left;">String</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Nothing" style = "text-align: left;">Nothing</th><th title = "Missing" style = "text-align: left;">Missing</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">R [Ω/km]</td><td style = "text-align: right;">0.0133793</td><td style = "font-style: italic; text-align: left;"></td><td style = "font-style: italic; text-align: right;">missing</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">L [mH/km]</td><td style = "text-align: right;">0.406716</td><td style = "font-style: italic; text-align: left;"></td><td style = "font-style: italic; text-align: right;">missing</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">C [μF/km]</td><td style = "text-align: right;">0.183687</td><td style = "font-style: italic; text-align: left;"></td><td style = "font-style: italic; text-align: right;">missing</td></tr></tbody></table></div><p>Obtain the equivalent electromagnetic properties of the cable:</p><pre><code class="language-julia hljs">components_df = DataFrame(cable_design, :components)</code></pre><div><div style = "float: left;"><span>9×4 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">property</th><th style = "text-align: left;">core</th><th style = "text-align: left;">sheath</th><th style = "text-align: left;">armor</th></tr><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;"></th><th title = "Symbol" style = "text-align: left;">Symbol</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">radius_in_con</td><td style = "text-align: right;">0.0</td><td style = "text-align: right;">0.0539219</td><td style = "text-align: right;">0.0632219</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">radius_ext_con</td><td style = "text-align: right;">0.0238218</td><td style = "text-align: right;">0.0572219</td><td style = "text-align: right;">0.0690489</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">rho_con</td><td style = "text-align: right;">2.38526e-8</td><td style = "text-align: right;">2.14e-7</td><td style = "text-align: right;">1.93147e-7</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">alpha_con</td><td style = "text-align: right;">0.00393</td><td style = "text-align: right;">0.004</td><td style = "text-align: right;">0.0045</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">5</td><td style = "text-align: left;">mu_con</td><td style = "text-align: right;">1.01663</td><td style = "text-align: right;">0.999983</td><td style = "text-align: right;">40.1985</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">6</td><td style = "text-align: left;">radius_ext_ins</td><td style = "text-align: right;">0.0539219</td><td style = "text-align: right;">0.0632219</td><td style = "text-align: right;">0.0790489</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">7</td><td style = "text-align: left;">eps_ins</td><td style = "text-align: right;">2.69734</td><td style = "text-align: right;">2.51934</td><td style = "text-align: right;">2.8</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">8</td><td style = "text-align: left;">mu_ins</td><td style = "text-align: right;">1.69888</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">1.12354</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">9</td><td style = "text-align: left;">loss_factor_ins</td><td style = "text-align: right;">1.96222e-6</td><td style = "text-align: right;">5.01696e-7</td><td style = "text-align: right;">1.28394e-7</td></tr></tbody></table></div><h2 id="Saving-the-cable-design"><a class="docs-heading-anchor" href="#Saving-the-cable-design">Saving the cable design</a><a id="Saving-the-cable-design-1"></a><a class="docs-heading-anchor-permalink" href="#Saving-the-cable-design" title="Permalink"></a></h2><p>Load an existing <a href="../../reference/#LineCableModels.DataModel.CablesLibrary"><code>CablesLibrary</code></a> file or create a new one:</p><pre><code class="language-julia hljs">library = CablesLibrary()
 library_file = fullfile(&quot;cables_library.json&quot;)
 load!(library, file_name = library_file)
 add!(library, cable_design)
@@ -134,7 +134,7 @@ export_file = export_data(:atp, cable_system, earth_params, file_name = output_f
 	temperature = 20.0,  # Operating temperature
 	earth_props = earth_params,
 	frequencies = f,   # Frequency for the analysis
-);</code></pre><p>Estimate domain size based on skin depth in the earth</p><pre><code class="language-julia hljs">domain_radius = calc_domain_size(earth_params, f);</code></pre><p>Define custom mesh transitions around each cable</p><pre><code class="language-julia hljs">mesh_transition1 = MeshTransition(
+);</code></pre><p>Estimate domain size based on skin depth in the earth</p><pre><code class="language-julia hljs">domain_radius = 10.0; #calc_domain_size(earth_params, f);</code></pre><p>Define custom mesh transitions around each cable</p><pre><code class="language-julia hljs">mesh_transition1 = MeshTransition(
 	cable_system,
 	[1],
 	r_min = 0.08,
@@ -154,11 +154,11 @@ mesh_transition2 = MeshTransition(
 	force_remesh = true,                # Force remeshing
 	force_overwrite = true,             # Overwrite existing files
 	plot_field_maps = false,            # Do not compute/ plot field maps
-	mesh_only = false,                  # Preview the mesh
+	mesh_only = true,                  # Preview the mesh
 	save_path = fullfile(&quot;fem_output&quot;), # Results directory
 	keep_run_files = true,              # Archive files after each run
-	verbosity = 0,                      # Verbosity
-);</code></pre><p>Define the FEM formulation with the specified parameters</p><pre><code class="language-julia hljs">F = FormulationSet(:FEM,
+	verbosity = 1,                      # Verbosity
+);</code></pre><p>Define the FEM formulation with the specified parameters</p><pre><code class="language- hljs">F = FormulationSet(:FEM,
 	impedance = Darwin(),
 	admittance = Electrodynamics(),
 	domain_radius = domain_radius,
@@ -169,121 +169,176 @@ mesh_transition2 = MeshTransition(
 	elements_per_length_interfaces = 5,
 	points_per_circumference = 16,
 	mesh_size_min = 1e-6,
-	mesh_size_max = domain_radius / 5,
-	mesh_transitions = [mesh_transition1,
-		mesh_transition2],
-	mesh_size_default = domain_radius / 10,
+	mesh_size_max = domain_radius / 5,</code></pre><p>mesh<em>transitions = [mesh</em>transition1, 	mesh_transition2],</p><pre><code class="language-julia hljs">	mesh_size_default = domain_radius / 10,
 	mesh_algorithm = 5,
 	mesh_max_retries = 20,
 	materials = materials,
 	options = opts,
-);</code></pre><p>Run the FEM solver</p><pre><code class="language-julia hljs">@time ws, p = compute!(problem, F);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">[ Info: </span></span>Created base output directory: fem_output
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Created case directory: 525kV_1600mm2_bipole
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Building mesh for system: 525kV_1600mm2_bipole
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Running in headless mode, suppressing Gmsh output
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Initialized Gmsh model: 525kV_1600mm2_bipole
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Creating domain boundaries...
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Creating domain boundaries...
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Domain boundaries created
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Creating 2 mesh transition regions
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Mesh transition regions created
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Earth interfaces created
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Creating cable geometry...
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Processing cable 1 at position (-0.5, -1.0)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Processing cable 2 at position (0.5, -1.0)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Cable geometry created
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Performing boolean operations...
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Boolean fragmentation completed
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Identifying entities after fragmentation...
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Entity identification completed: 5855/5855 entities identified
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Assigning physical groups...
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Physical groups assigned: 33 successful, 0 failed out of 33 total
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Setting up mesh sizing...
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Generating mesh...
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Mesh generation completed
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Created mesh with 129301 nodes and 290745 elements
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saving mesh to file: 525kV_1600mm2_bipole.msh
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Saving geometry to file: 525kV_1600mm2_bipole.geo_unrolled
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Mesh generation completed
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Starting FEM solver
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving frequency 1/1: 0.001 Hz
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Running in headless mode, suppressing Gmsh output
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Running in headless mode, suppressing GetDP output
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 1... (Resolution = Darwin)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 1!
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 2... (Resolution = Darwin)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 2!
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 3... (Resolution = Darwin)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 3!
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 4... (Resolution = Darwin)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 4!
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 5... (Resolution = Darwin)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 5!
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 6... (Resolution = Darwin)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 6!
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Running in headless mode, suppressing Gmsh output
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Running in headless mode, suppressing GetDP output
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 1... (Resolution = Electrodynamics)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 1!
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 2... (Resolution = Electrodynamics)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 2!
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 3... (Resolution = Electrodynamics)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 3!
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 4... (Resolution = Electrodynamics)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 4!
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 5... (Resolution = Electrodynamics)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 5!
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solving for source conductor 6... (Resolution = Electrodynamics)
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>Solve successful for source conductor 6!
-<span class="sgr36"><span class="sgr1">[ Info: </span></span>FEM computation completed successfully
-350.302857 seconds (12.75 M allocations: 644.526 MiB, 0.04% gc time, 5.09% compilation time)</code></pre><p>Display computation results</p><pre><code class="language-julia hljs">per_km(p, 1; mode = :RLCG, tol = 1e-9)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">2x2x1 LineParameters</span> |  mode = <span class="sgr36"><span class="sgr1">RLCG</span></span>  |  units per km  |  tol = 1.0e-09 <span class="sgr33"><span class="sgr1">(!)</span></span>
-──────────────────────────────────────────────────────────────────────────
+);</code></pre><h1 id="Run-the-FEM-solver"><a class="docs-heading-anchor" href="#Run-the-FEM-solver">Run the FEM solver</a><a id="Run-the-FEM-solver-1"></a><a class="docs-heading-anchor-permalink" href="#Run-the-FEM-solver" title="Permalink"></a></h1><p>@time ws, p = compute!(problem, F);</p><h1 id="Display-computation-results"><a class="docs-heading-anchor" href="#Display-computation-results">Display computation results</a><a id="Display-computation-results-1"></a><a class="docs-heading-anchor-permalink" href="#Display-computation-results" title="Permalink"></a></h1><p>per_km(p, 1; mode = :RLCG, tol = 1e-9)</p><h1 id="Export-ZY-matrices-to-ATPDraw"><a class="docs-heading-anchor" href="#Export-ZY-matrices-to-ATPDraw">Export ZY matrices to ATPDraw</a><a id="Export-ZY-matrices-to-ATPDraw-1"></a><a class="docs-heading-anchor-permalink" href="#Export-ZY-matrices-to-ATPDraw" title="Permalink"></a></h1><p>output<em>file = fullfile(&quot;ZY</em>export.xml&quot;) export<em>file = export</em>data(:atp, p; file<em>name = output</em>file, cable<em>system = cable</em>system);</p><h1 id="Obtain-the-symmetrical-components-via-Fortescue-transformation"><a class="docs-heading-anchor" href="#Obtain-the-symmetrical-components-via-Fortescue-transformation">Obtain the symmetrical components via Fortescue transformation</a><a id="Obtain-the-symmetrical-components-via-Fortescue-transformation-1"></a><a class="docs-heading-anchor-permalink" href="#Obtain-the-symmetrical-components-via-Fortescue-transformation" title="Permalink"></a></h1><p>Tv, p012 = Fortescue(tol = 1e-5)(p);</p><h1 id="Inspect-the-transformed-matrices"><a class="docs-heading-anchor" href="#Inspect-the-transformed-matrices">Inspect the transformed matrices</a><a id="Inspect-the-transformed-matrices-1"></a><a class="docs-heading-anchor-permalink" href="#Inspect-the-transformed-matrices" title="Permalink"></a></h1><p>per_km(p012, 1; mode = :ZY, tol = 1e-9)</p><h1 id="Or-the-corresponding-lumped-circuit-quantities"><a class="docs-heading-anchor" href="#Or-the-corresponding-lumped-circuit-quantities">Or the corresponding lumped circuit quantities</a><a id="Or-the-corresponding-lumped-circuit-quantities-1"></a><a class="docs-heading-anchor-permalink" href="#Or-the-corresponding-lumped-circuit-quantities" title="Permalink"></a></h1><p>per_km(p012, 1; mode = :RLCG, tol = 1e-9)</p><pre><code class="language-julia hljs">using LineCableModels.Utils: to_nominal
+using LineCableModels.DataModel: calc_circstrands_coords
 
+function collect_layer_geometry(design::CableDesign;
+	x_offset::Real = 0.0,
+	y_offset::Real = 0.0,
+)
+	layer_no = Ref(0)
+	out = Vector{
+		NamedTuple{(:layer, :type, :element, :x, :y, :radius_out, :rin, :rext),
+			Tuple{Int, String, Int, Float64, Float64, Float64, Float64, Float64}},
+	}()
 
-[:, :, 1]  @ f=0.001 Hz
-R [Ω/km] =
-[ 0.0130311 1.8889e-08;
- 1.8889e-08  0.0130311]
+	function push_layer!(layer, x0, y0)
+		if layer isa CircStrands
+			layer_no[] += 1
+			rwire = to_nominal(layer.radius_wire)
+			lay_r = layer.num_wires == 1 ? 0.0 : to_nominal(layer.radius_in)
+			coords = calc_circstrands_coords(layer.num_wires, rwire, lay_r; C = (x0, y0))
+			for (i, (x, y)) in enumerate(coords)
+				push!(out, (layer_no[], &quot;circstrands&quot;, i, x, y, rwire, NaN, NaN))
+			end
+		elseif layer isa Strip || layer isa Tubular || layer isa Semicon ||
+			   layer isa Insulator
+			layer_no[] += 1
+			rin = to_nominal(layer.radius_in);
+			rex = to_nominal(layer.radius_ext)
+			typ = lowercase(string(nameof(typeof(layer))))
+			push!(out, (layer_no[], typ, 1, x0, y0, rex, rin, rex))
+		elseif layer isa ConductorGroup
+			for sub in layer.layers
+				push_layer!(sub, x0, y0)
+			end
+		else
+			@warn &quot;Skipping layer $(typeof(layer)) in geometry collection&quot;
+		end
+	end
 
-L [mH/km] =
-[2.79656 2.08162;
- 2.08162 2.79584]
+	for comp in design.components
+		for layer in comp.conductor_group.layers
+			push_layer!(layer, x_offset, y_offset)
+		end
+		for layer in comp.insulator_group.layers
+			push_layer!(layer, x_offset, y_offset)
+		end
+	end
+	return out
+end
 
-G [S/km] =
-[0 0;
- 0 0]
+function dump_layer_geometry_csv(design::CableDesign;
+	x_offset::Real = 0.0,
+	y_offset::Real = 0.0,
+	path::AbstractString = &quot;layer_dump.csv&quot;,
+)
+	layer_no = Ref(0)
 
-C [µF/km] =
-[0.185098      0;
-        0 0.1851]</code></pre><p>Export ZY matrices to ATPDraw</p><pre><code class="language-julia hljs">output_file = fullfile(&quot;ZY_export.xml&quot;)
-export_file = export_data(:atp, p; file_name = output_file, cable_system = cable_system);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">[ Info: </span></span>XML file saved to: 525kV_1600mm2_bipole_ZY_export.xml</code></pre><p>Obtain the symmetrical components via Fortescue transformation</p><pre><code class="language-julia hljs">Tv, p012 = Fortescue(tol = 1e-5)(p);</code></pre><p>Inspect the transformed matrices</p><pre><code class="language-julia hljs">per_km(p012, 1; mode = :ZY, tol = 1e-9)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">2x2x1 LineParameters</span> |  mode = <span class="sgr36"><span class="sgr1">ZY</span></span>  |  units per km  |  tol = 1.0e-09 <span class="sgr33"><span class="sgr1">(!)</span></span>
-────────────────────────────────────────────────────────────────────────
+	function emit!(io, layer, x0, y0)
+		if layer isa CircStrands
+			layer_no[] += 1
+			rwire = to_nominal(layer.radius_wire)
+			lay_r = layer.num_wires == 1 ? 0.0 : to_nominal(layer.radius_in)
+			coords = calc_circstrands_coords(layer.num_wires, rwire, lay_r; C = (x0, y0))
+			for (i, (x, y)) in enumerate(coords)
+				println(io, &quot;$(layer_no[]),circstrands,$i,$x,$y,$rwire,,&quot;)
+			end
+		elseif layer isa Strip || layer isa Tubular || layer isa Semicon ||
+			   layer isa Insulator
+			layer_no[] += 1
+			rin = to_nominal(layer.radius_in);
+			rex = to_nominal(layer.radius_ext)
+			typ = lowercase(string(nameof(typeof(layer))))
+			println(io, &quot;$(layer_no[]),$typ,1,$x0,$y0,$rex,$rin,$rex&quot;)
+		elseif layer isa ConductorGroup
+			for sub in layer.layers
+				emit!(io, sub, x0, y0)
+			end
+		else
+			@warn &quot;Skipping layer $(typeof(layer)) in CSV dump&quot;
+		end
+	end
 
+	open(path, &quot;w&quot;) do io
+		println(io, &quot;layer,type,element,x0,y0,radius_out,rin,rext&quot;)
+		for comp in design.components
+			for layer in comp.conductor_group.layers
+				emit!(io, layer, x_offset, y_offset)
+			end
+			for layer in comp.insulator_group.layers
+				emit!(io, layer, x_offset, y_offset)
+			end
+		end
+	end
+	return path
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">dump_layer_geometry_csv (generic function with 1 method)</code></pre><p>dump<em>layer</em>geometry<em>csv(cable</em>design; path = fullfile(&quot;cable_layers.csv&quot;))</p><pre><code class="language- hljs">all_wires = collect_layer_geometry(cable_design)
 
-[:, :, 1]  @ f=0.001 Hz
-Z [Ω/km] =
-[0.0130311+3.06482e-05im                  0+0im;
-                   0+0im 0.013031+4.48986e-06im]
+using Gmsh: gmsh
 
-Y [S/km] =
-[0+1.16301e-09im           0+0im;
-           0+0im 0+1.16301e-09im]</code></pre><p>Or the corresponding lumped circuit quantities</p><pre><code class="language-julia hljs">per_km(p012, 1; mode = :RLCG, tol = 1e-9)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">2x2x1 LineParameters</span> |  mode = <span class="sgr36"><span class="sgr1">RLCG</span></span>  |  units per km  |  tol = 1.0e-09 <span class="sgr33"><span class="sgr1">(!)</span></span>
-──────────────────────────────────────────────────────────────────────────
+gmsh.initialize()
 
+system_id = &quot;test&quot;
+gmsh.model.add(system_id)
 
-[:, :, 1]  @ f=0.001 Hz
-R [Ω/km] =
-[0.0130311        0;
-         0 0.013031]
+gmsh.option.set_number(&quot;General.InitialModule&quot;, 0)
+gmsh.option.set_string(&quot;General.DefaultFileName&quot;, system_id * &quot;.geo&quot;)</code></pre><p>Define verbosity level</p><pre><code class="language- hljs">gmsh.option.set_number(&quot;General.Verbosity&quot;, 1)</code></pre><p>Set OCC model healing options</p><pre><code class="language- hljs">gmsh.option.set_number(&quot;Geometry.AutoCoherence&quot;, 1)
+gmsh.option.set_number(&quot;Geometry.OCCFixDegenerated&quot;, 1)
+gmsh.option.set_number(&quot;Geometry.OCCFixSmallEdges&quot;, 1)
+gmsh.option.set_number(&quot;Geometry.OCCFixSmallFaces&quot;, 1)
+gmsh.option.set_number(&quot;Geometry.OCCSewFaces&quot;, 1)
+gmsh.option.set_number(&quot;Geometry.OCCMakeSolids&quot;, 1)</code></pre><p>Log settings based on verbosity</p><pre><code class="language- hljs">@info &quot;Initialized Gmsh model: $system_id&quot;
 
-L [mH/km] =
-[4.87782        0;
-       0 0.714584]
+function my_disk!(x, y, r, lcp, wires, llwires)
+	cen = gmsh.model.geo.addPoint(x, y, 0.0, lcp)
+	p1 = gmsh.model.geo.addPoint(x+r, y, 0.0, lcp)
+	p2 = gmsh.model.geo.addPoint(x, y+r, 0.0, lcp)
+	p3 = gmsh.model.geo.addPoint(x-r, y, 0, lcp)
+	p4 = gmsh.model.geo.addPoint(x, y-r, 0, lcp)
 
-G [S/km] =
-[0 0;
- 0 0]
+	c1 = gmsh.model.geo.addCircleArc(p1, cen, p2)
+	c2 = gmsh.model.geo.addCircleArc(p2, cen, p3)
+	c3 = gmsh.model.geo.addCircleArc(p3, cen, p4)
+	c4 = gmsh.model.geo.addCircleArc(p4, cen, p1)
 
-C [µF/km] =
-[0.185099        0;
-        0 0.185099]</code></pre><hr/><p>🏠 Back to <a href="../#Tutorials">Tutorials</a></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../tutorial2/">« Tutorial 2 - Building a cable design</a><a class="docs-footer-nextpage" href="../../reference/">API reference »</a><div class="flexbox-break"></div><p class="footer-message"><a href="https://github.com/Electa-Git/LineCableModels.jl">LineCableModels.jl</a> v0.1.1-DEV supported by the Etch Competence Hub of EnergyVille, financed by the Flemish Government.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Monday 24 November 2025 19:16">Monday 24 November 2025</span>. Using Julia version 1.12.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+	ll = gmsh.model.geo.addCurveLoop([c1, c2, c3, c4])
+	s = gmsh.model.geo.addPlaneSurface([ll])
+	push!(wires, s)
+	push!(llwires, ll)
+	return s
+end
+
+lc = 0.0
+z0 = 0.0
+i=1
+wires = []
+llwires = []
+for wire in all_wires
+	x = wire.x
+	y = wire.y
+	r = wire.radius_out
+	my_disk!(x, y, r, lc, wires, llwires)
+end
+
+gmsh.model.geo.synchronize()
+
+gmsh.option.set_number(&quot;Geometry.SurfaceLabels&quot;, 0)  # Show surface labels
+gmsh.option.set_number(&quot;Geometry.PointNumbers&quot;, 0)
+gmsh.option.set_number(&quot;Geometry.CurveNumbers&quot;, 0)
+gmsh.option.set_number(&quot;Geometry.SurfaceNumbers&quot;, 0)
+gmsh.option.set_number(&quot;Geometry.NumSubEdges&quot;, 160)
+gmsh.option.set_number(&quot;Geometry.Points&quot;, 1)
+gmsh.option.set_number(&quot;Geometry.Curves&quot;, 1)
+gmsh.option.set_number(&quot;Geometry.Surfaces&quot;, 0)
+gmsh.option.set_number(&quot;Mesh.ColorCarousel&quot;, 2)  # Colors by physical group
+gmsh.option.set_number(&quot;Mesh.LineWidth&quot;, 1)
+gmsh.option.set_number(&quot;Mesh.SurfaceFaces&quot;, 1)
+
+gmsh.fltk.initialize()</code></pre><p>Define event check function</p><pre><code class="language-julia hljs">function check_for_event()
+	action = gmsh.onelab.get_string(&quot;ONELAB/Action&quot;)
+	if length(action) &gt; 0 &amp;&amp; action[1] == &quot;check&quot;
+		gmsh.onelab.set_string(&quot;ONELAB/Action&quot;, [&quot;&quot;])
+		@debug &quot;UI interaction detected&quot;
+		gmsh.graphics.draw()
+	end
+	return true
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">check_for_event (generic function with 1 method)</code></pre><p>Wait for user to close the window</p><pre><code class="language- hljs">while gmsh.fltk.is_available() == 1 &amp;&amp; check_for_event()
+	gmsh.fltk.wait()
+end
+
+gmsh.finalize()</code></pre><hr/><p>🏠 Back to <a href="../#Tutorials">Tutorials</a></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../tutorial2/">« Tutorial 2 - Building a cable design</a><a class="docs-footer-nextpage" href="../../reference/">API reference »</a><div class="flexbox-break"></div><p class="footer-message"><a href="https://github.com/Electa-Git/LineCableModels.jl">LineCableModels.jl</a> v0.1.1-DEV supported by the Etch Competence Hub of EnergyVille, financed by the Flemish Government.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 21 February 2026 17:52">Saturday 21 February 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

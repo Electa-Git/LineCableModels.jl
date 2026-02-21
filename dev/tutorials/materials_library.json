@@ -413,6 +413,29 @@
             "__type__": "Float"
         }
     },
+    "stainless_steel": {
+        "T0": {
+            "value": 20,
+            "__type__": "Float"
+        },
+        "alpha": {
+            "value": 0,
+            "__type__": "Float"
+        },
+        "__julia_type__": "LineCableModels.Materials.Material",
+        "eps_r": {
+            "value": 1,
+            "__type__": "Float"
+        },
+        "mu_r": {
+            "value": 500,
+            "__type__": "Float"
+        },
+        "rho": {
+            "value": 7.0e-7,
+            "__type__": "Float"
+        }
+    },
     "aluminum": {
         "T0": {
             "value": 20,

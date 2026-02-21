@@ -275,7 +275,7 @@
                                     "value": 0,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.WireArray",
+                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.00235,
                                     "__type__": "Float"
@@ -325,7 +325,7 @@
                                     "value": 0.00235,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.WireArray",
+                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.00235,
                                     "__type__": "Float"
@@ -375,7 +375,7 @@
                                     "value": 0.007050000000000001,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.WireArray",
+                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.00235,
                                     "__type__": "Float"
@@ -425,7 +425,7 @@
                                     "value": 0.01175,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.WireArray",
+                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.00235,
                                     "__type__": "Float"
@@ -475,7 +475,7 @@
                                     "value": 0.01645,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.WireArray",
+                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.00235,
                                     "__type__": "Float"
@@ -577,7 +577,7 @@
                                     "value": 0.030650000000000004,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.WireArray",
+                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.000475,
                                     "__type__": "Float"
@@ -1001,7 +1001,7 @@
                                     "value": 0,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.WireArray",
+                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.00183245,
                                     "__type__": "Float"
@@ -1051,7 +1051,7 @@
                                     "value": 0.00183245,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.WireArray",
+                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.00183245,
                                     "__type__": "Float"
@@ -1101,7 +1101,7 @@
                                     "value": 0.00549735,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.WireArray",
+                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.00183245,
                                     "__type__": "Float"
@@ -1151,7 +1151,7 @@
                                     "value": 0.00916225,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.WireArray",
+                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.00183245,
                                     "__type__": "Float"
@@ -1201,7 +1201,7 @@
                                     "value": 0.01282715,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.WireArray",
+                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.00183245,
                                     "__type__": "Float"
@@ -1251,7 +1251,7 @@
                                     "value": 0.01649205,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.WireArray",
+                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.00183245,
                                     "__type__": "Float"
@@ -1301,7 +1301,7 @@
                                     "value": 0.02015695,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.WireArray",
+                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.00183245,
                                     "__type__": "Float"
@@ -1531,7 +1531,7 @@
                                     "value": 0.06322185000000001,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.WireArray",
+                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.0029135,
                                     "__type__": "Float"
