@@ -54,12 +54,12 @@ copper_corrected = Material(1.835e-8, 1.0, 0.999994, 20.0, 0.00393) # Copper wit
 add!(materials, "copper_corrected", copper_corrected)
 aluminum_corrected = Material(3.03e-8, 1.0, 0.999994, 20.0, 0.00403) # Aluminum with corrected resistivity from IEC 60287-3-2
 add!(materials, "aluminum_corrected", aluminum_corrected)
-lead = Material(21.4e-8, 1.0, 0.999983, 20.0, 0.00400) # Lead or lead alloy
-add!(materials, "lead", lead)
-steel = Material(13.8e-8, 1.0, 300.0, 20.0, 0.00450) # Steel
-add!(materials, "steel", steel)
-bronze = Material(3.5e-8, 1.0, 1.0, 20.0, 0.00300) # Bronze
-add!(materials, "bronze", bronze)
+# lead = Material(21.4e-8, 1.0, 0.999983, 20.0, 0.00400) # Lead or lead alloy
+# add!(materials, "lead", lead)
+# steel = Material(13.8e-8, 1.0, 300.0, 20.0, 0.00450) # Steel
+# add!(materials, "steel", steel)
+# bronze = Material(3.5e-8, 1.0, 1.0, 20.0, 0.00300) # Bronze
+# add!(materials, "bronze", bronze)
 stainless_steel = Material(70.0e-8, 1.0, 500.0, 20.0, 0.0) # Stainless steel
 add!(materials, "stainless_steel", stainless_steel)
 
