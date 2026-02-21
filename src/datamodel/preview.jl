@@ -287,6 +287,94 @@ function _circle_poly(r::Real, x0::Real, y0::Real; N::Int = 128)
 	filter(p -> _valid_finite(p[1], p[2]), pts)
 end
 
+function _annular_sector_poly(
+	rin::Real,
+	rex::Real,
+	θ_start::Real,
+	θ_end::Real,
+	x0::Real,
+	y0::Real;
+	N_pts::Int = 32,
+)
+	# Generate points along the outer arc, then reverse back along the inner arc
+	θ_out = range(θ_start, θ_end; length = N_pts)
+	θ_in  = reverse(θ_out)
+
+	xo = x0 .+ rex .* cos.(θ_out)
+	yo = y0 .+ rex .* sin.(θ_out)
+
+	xi = x0 .+ rin .* cos.(θ_in)
+	yi = y0 .+ rin .* sin.(θ_in)
+
+	# Close the polygon
+	px = vcat(xo, xi, xo[1])
+	py = vcat(yo, yi, yo[1])
+
+	pts = Makie.Point2f.(px, py)
+	filter(p -> _valid_finite(p[1], p[2]), pts)
+end
+
+function _bent_rect_poly(
+	rin::Real,
+	rex::Real,
+	w::Real,
+	θ_c::Real,
+	x0::Real,
+	y0::Real;
+	N_pts::Int = 32,
+)
+	# Outer arc: arc length is exactly w, so the angular span is w / rex
+	dθ_out = rex > 0 ? (w / rex) : 0.0
+	θ_out = range(θ_c - dθ_out/2, θ_c + dθ_out/2; length = N_pts)
+	xo = x0 .+ rex .* cos.(θ_out)
+	yo = y0 .+ rex .* sin.(θ_out)
+
+	# Inner arc: arc length is exactly w, so the angular span is w / rin
+	dθ_in = rin > 0 ? (w / rin) : 0.0
+	θ_in = reverse(range(θ_c - dθ_in/2, θ_c + dθ_in/2; length = N_pts))
+	xi = x0 .+ rin .* cos.(θ_in)
+	yi = y0 .+ rin .* sin.(θ_in)
+
+	# Connect the arcs. The straight side walls will now perfectly 
+	# preserve the Cartesian width of the strand.
+	px = vcat(xo, xi, xo[1])
+	py = vcat(yo, yi, yo[1])
+
+	pts = Makie.Point2f.(px, py)
+	filter(p -> _valid_finite(p[1], p[2]), pts)
+end
+
+function _radial_wedge_poly(
+	rin::Real,
+	rex::Real,
+	w::Real,
+	θ_c::Real,
+	x0::Real,
+	y0::Real;
+	N_pts::Int = 32,
+)
+	# The true angular width is dictated entirely by the inner arc length (w)
+	dθ = rin > 0 ? (w / rin) : 0.0
+
+	# Both inner and outer arcs share this exact same angular range.
+	# This guarantees perfectly radial side walls (a true sector).
+	θ_out = range(θ_c - dθ/2, θ_c + dθ/2; length = N_pts)
+	θ_in  = reverse(θ_out)
+
+	xo = x0 .+ rex .* cos.(θ_out)
+	yo = y0 .+ rex .* sin.(θ_out)
+
+	xi = x0 .+ rin .* cos.(θ_in)
+	yi = y0 .+ rin .* sin.(θ_in)
+
+	# Close the polygon
+	px = vcat(xo, xi, xo[1])
+	py = vcat(yo, yi, yo[1])
+
+	pts = Makie.Point2f.(px, py)
+	filter(p -> _valid_finite(p[1], p[2]), pts)
+end
+
 #############################
 # Layer -> Makie primitives #
 #############################
@@ -295,13 +383,13 @@ function _plot_layer_makie!(ax, layer, label::String;
 	legend_sink::Union{Nothing, Tuple} = nothing,
 )
 
-	if layer isa WireArray
+	if layer isa CircStrands
 		rwire = to_nominal(layer.radius_wire)
 		nW = layer.num_wires
 		lay_r = nW == 1 ? 0.0 : to_nominal(layer.radius_in)
 		color = get_material_color_makie(layer.material_props)
 
-		coords = calc_wirearray_coords(nW, rwire, to_nominal(lay_r), C = (x0, y0))
+		coords = calc_circstrands_coords(nW, rwire, to_nominal(lay_r), C = (x0, y0))
 
 		plots = Any[]
 		handle = nothing
@@ -331,7 +419,48 @@ function _plot_layer_makie!(ax, layer, label::String;
 		return plots
 	end
 
-	if layer isa Strip || layer isa Tubular || layer isa Semicon || layer isa Insulator
+	if layer isa RectStrands
+		rin = to_nominal(layer.radius_in)
+		rex = to_nominal(layer.radius_ext)
+		w = to_nominal(layer.width)
+		nW = layer.num_wires
+		color = get_material_color_makie(layer.material_props)
+
+		plots = Any[]
+		handle = nothing
+		for i in 1:nW
+			# Distribute the center points symmetrically around the circle
+			θ_c = (i - 1) * 2π / nW
+
+			# Draw the constant-width bent rectangle
+			poly = Makie.poly!(ax, _radial_wedge_poly(rin, rex, w, θ_c, x0, y0);
+				color = color,
+				strokecolor = :black,
+				strokewidth = 0.5,
+				label = (i == 1 && display_legend) ? label : "")
+
+			push!(plots, poly)
+			if i == 1 && display_legend
+				handle = poly
+			end
+		end
+
+		# Legend sink: push one entry per layer. If sink has 3rd slot, store the group.
+		if legend_sink !== nothing && display_legend && handle !== nothing
+			push!(legend_sink[1], handle)
+			push!(legend_sink[2], label)
+			if length(legend_sink) >= 3
+				push!(legend_sink[3], plots)   # group = all wires in this layer
+			end
+			if length(legend_sink) >= 4
+				push!(legend_sink[4], to_nominal(layer.material_props.rho))  # <-- rho key
+			end
+		end
+		return plots
+	end
+
+	if layer isa Strip || layer isa Tubular ||
+	   layer isa Semicon || layer isa Insulator
 		rin = to_nominal(layer.radius_in)
 		rex = to_nominal(layer.radius_ext)
 		color = get_material_color_makie(layer.material_props)
@@ -347,7 +476,7 @@ function _plot_layer_makie!(ax, layer, label::String;
 				push!(legend_sink[3], [poly])
 			end
 			if length(legend_sink) >= 4
-				push!(legend_sink[4], NaN)      # not a wirearray
+				push!(legend_sink[4], NaN)      # not a circstrands
 			end
 		end
 		return (poly,)
@@ -496,32 +625,38 @@ function preview(design::CableDesign;
 			groups  = length(sink) >= 3 ? sink[3] : [[h] for h in handles]
 			rhos    = length(sink) >= 4 ? sink[4] : fill(NaN, length(handles))
 
-			# Merge consecutive wirearray entries with equal rho
+			# Merge consecutive entries that share the exact same label and material rho
 			merged_handles = Any[]
 			merged_labels  = String[]
 			merged_groups  = Vector{Any}[]  # Vector{Vector{Any}}
 
 			i = 1
 			while i <= length(handles)
-				h = handles[i];
-				l = labels[i];
-				g = groups[i];
+				h = handles[i]
+				l = labels[i]
+				g = groups[i]
 				ρ = rhos[i]
-				if l == "wirearray" && isfinite(ρ)
+
+				# We merge if the rho is finite (i.e., it's a conductor)
+				if isfinite(ρ)
 					j = i + 1
 					merged_g = Vector{Any}(g)
+
+					# Look ahead: merge as long as the label and rho match the current group
 					while j <= length(handles) &&
-							  labels[j] == "wirearray" &&
+							  labels[j] == l &&
 							  isfinite(rhos[j]) &&
 							  isapprox(ρ, rhos[j]; rtol = 1e-6, atol = 0.0)
 						append!(merged_g, groups[j])
 						j += 1
 					end
+
 					push!(merged_handles, h)        # keep first handle for the group
-					push!(merged_labels, l)         # keep label "wirearray"
-					push!(merged_groups, merged_g)  # all wires across merged layers
+					push!(merged_labels, l)         # keep the shared label
+					push!(merged_groups, merged_g)  # all sub-elements across merged layers
 					i = j
 				else
+					# Non-finite rho (e.g., insulators where you pushed NaN) do not merge
 					push!(merged_handles, h)
 					push!(merged_labels, l)
 					push!(merged_groups, g)
@@ -670,7 +805,7 @@ function preview(system::LineCableSystem;
 	earth_labels  = String[]
 
 	# Plot earth layers if provided and horizontal (vertical_layers == false)
-	if !isnothing(earth_model) && getfield(earth_model, :vertical_layers) == false
+	if !isnothing(earth_model) && getproperty(earth_model, :vertical_layers) == false
 		cumulative_depth = 0.0
 		# Skip air layer (index 1). Iterate finite-thickness layers; stop on Inf.
 		for (i, layer) in enumerate(earth_model.layers[2:end])
