@@ -207,11 +207,11 @@ grouping_mode(::Type{S}) where {S <: AbstractPlotSpec} = :auto
 
 """
 How to render figures into Makie windows.
-Options: :windows -> one view per window;
+Options: :single -> one view per window;
 		 :grid -> all views in a single window, arranged in a grid;
 		 :tabs -> TBD: all views in a single window, arranged in tabs.
 """
-figure_layout(::Type{S}) where {S <: AbstractPlotSpec} = :windows  # default
+figure_layout(::Type{S}) where {S <: AbstractPlotSpec} = :single  # default
 
 # --------------------------------------------------------------------------
 # Complex quantity / "as" traits (default: disabled)
