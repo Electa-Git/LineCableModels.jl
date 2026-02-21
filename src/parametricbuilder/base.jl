@@ -308,8 +308,9 @@ function Base.show(io::IO, ::MIME"text/plain", spec::SystemBuilderSpec)
 	println(io, "    t     = ", _fmt_vals(_vals_pair(spec.earth.t)))
 
 	# frequencies (deterministic vector coming from the user/spec)
-	if hasfield(SystemBuilderSpec, :frequencies) && !isempty(getfield(spec, :frequencies))
-		f = getfield(spec, :frequencies)
+	if hasfield(SystemBuilderSpec, :frequencies) &&
+	   !isempty(getproperty(spec, :frequencies))
+		f = getproperty(spec, :frequencies)
 		println(io, "  f       = ", _fmt_freqs(f))
 	end
 
