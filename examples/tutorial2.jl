@@ -36,7 +36,7 @@ This tutorial covers:
 # Load the package and set up the environment:
 using LineCableModels
 using DataFrames
-import LineCableModels.BackendHandler: renderfig #hide
+import LineCableModels.PlotBuilder.BackendHandler: renderfig #hide
 fullfile(filename) = joinpath(@__DIR__, filename); #hide
 set_verbosity!(0); #hide
 set_backend!(:gl); #hide
@@ -133,7 +133,7 @@ CableDesign
 │   ├── conductor_group::ConductorGroup <: AbstractConductorPart
 │   │   ├── conductor_props::Material
 │   │   └── layers::Vector{AbstractConductorPart}
-│   │       ├── WireArray
+│   │       ├── CircStrands
 │   │       ├── Tubular
 │   │       ├── Strip
 │   │       └── …
@@ -163,7 +163,7 @@ The [`ConductorGroup`](@ref) object serves as a specialized container for organi
 
 #### AbstractConductorPart implementations
 
-- The [`WireArray`](@ref) object models stranded cores and screens with helical patterns and circular cross-sections.
+- The [`CircStrands`](@ref) object models stranded cores and screens with helical patterns and circular cross-sections.
 - The [`Tubular`](@ref) object represents simple tubular conductors with straightforward parameter calculations.
 - The [`Strip`](@ref) object models conductor tapes following helical patterns with rectangular cross-sections.
 
@@ -188,12 +188,12 @@ The [`InsulatorGroup`](@ref) object organizes [`AbstractInsulatorPart`](@ref) el
 #=
 ## Core and main insulation
 
-The core consists of a 4-layer AAAC stranded conductor with 61 wires arranged in (1/6/12/18/24) pattern, with respective lay ratios of (15/13.5/12.5/11) [CENELEC50182](@cite). Stranded conductors are modeled using the [`WireArray`](@ref) object, which handles the helical pattern and twisting effects via the [`calc_helical_params`](@ref) method.
+The core consists of a 4-layer AAAC stranded conductor with 61 wires arranged in (1/6/12/18/24) pattern, with respective lay ratios of (15/13.5/12.5/11) [CENELEC50182](@cite). Stranded conductors are modeled using the [`CircStrands`](@ref) object, which handles the helical pattern and twisting effects via the [`calc_helical_params`](@ref) method.
 =#
 
 # Initialize the conductor object and assign the central wire:
 material = get(materials, "aluminum")
-core = ConductorGroup(WireArray(0.0, Diameter(d_w), 1, 0.0, material))
+core = ConductorGroup(CircStrands(0.0, Diameter(d_w), 1, 0.0, material))
 
 #=
 !!! tip "Convenience methods"
@@ -201,10 +201,10 @@ core = ConductorGroup(WireArray(0.0, Diameter(d_w), 1, 0.0, material))
 =#
 
 # Add the subsequent layers of wires and inspect the object:
-add!(core, WireArray, Diameter(d_w), 6, 15.0, material)
-add!(core, WireArray, Diameter(d_w), 12, 13.5, material)
-add!(core, WireArray, Diameter(d_w), 18, 12.5, material)
-add!(core, WireArray, Diameter(d_w), 24, 11.0, material)
+add!(core, CircStrands, Diameter(d_w), 6, 15.0, material)
+add!(core, CircStrands, Diameter(d_w), 12, 13.5, material)
+add!(core, CircStrands, Diameter(d_w), 18, 12.5, material)
+add!(core, CircStrands, Diameter(d_w), 24, 11.0, material)
 
 #=
 ### Inner semiconductor
@@ -291,7 +291,9 @@ The metallic screen (typically copper) serves multiple purposes:
 lay_ratio = 10.0 # typical value for wire screens
 material = get(materials, "copper")
 screen_con =
-	ConductorGroup(WireArray(main_insu, Diameter(d_ws), num_sc_wires, lay_ratio, material))
+	ConductorGroup(
+		CircStrands(main_insu, Diameter(d_ws), num_sc_wires, lay_ratio, material),
+	)
 
 # Add the equalizing copper tape wrapping the wire screen:
 add!(screen_con, Strip, Thickness(t_cut), w_cut, lay_ratio, material)
