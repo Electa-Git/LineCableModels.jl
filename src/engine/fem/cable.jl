@@ -235,12 +235,12 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Specialized method to create individual wire entities for `WireArray` parts.
+Specialized method to create individual wire entities for `CircStrands` parts.
 
 # Arguments
 
 - `workspace`: The [`FEMWorkspace`](@ref) containing the model parameters.
-- `part`: The [`WireArray`](@ref)  to create.
+- `part`: The [`CircStrands`](@ref)  to create.
 - `cable_idx`: The index of the cable.
 - `comp_idx`: The index of the component.
 - `comp_id`: The ID of the component.
@@ -257,7 +257,7 @@ Specialized method to create individual wire entities for `WireArray` parts.
 $(FUNCTIONNAME)(workspace, part, 1, 1, "core", 1, 1)
 ```
 """
-function _make_cablepart!(workspace::FEMWorkspace, part::WireArray,
+function _make_cablepart!(workspace::FEMWorkspace, part::CircStrands,
 	cable_idx::Int, comp_idx::Int, comp_id::String,
 	phase::Int, layer_idx::Int)
 
@@ -326,14 +326,14 @@ function _make_cablepart!(workspace::FEMWorkspace, part::WireArray,
 
 	# A single wire without air gaps
 	is_single_wire =
-		(num_wires == 1) && (isnothing(next_part) || !(next_part isa WireArray))
+		(num_wires == 1) && (isnothing(next_part) || !(next_part isa CircStrands))
 
 
 
 	num_points_circumference = workspace.formulation.points_per_circumference
 
 	# Calculate wire positions
-	function _calc_wirearray_coords(
+	function _calc_circstrands_coords(
 		num_wires::Number,
 		# radius_wire::Number,
 		radius_in::Number,
@@ -356,7 +356,7 @@ function _make_cablepart!(workspace::FEMWorkspace, part::WireArray,
 	end
 
 	wire_positions =
-		_calc_wirearray_coords(num_wires, radius_in, radius_ext, C = (x_center, y_center))
+		_calc_circstrands_coords(num_wires, radius_in, radius_ext, C = (x_center, y_center))
 
 	# Create wires
 	TOL = is_single_wire ? 0 : 5e-6 # Shrink the radius to avoid overlapping boundaries, this must be greater than Gmsh geometry tolerance
@@ -386,9 +386,9 @@ function _make_cablepart!(workspace::FEMWorkspace, part::WireArray,
 	# Add physical groups to the workspace
 	register_physical_group!(workspace, physical_group_tag, part.material_props)
 
-	# Handle WireArray outermost boundary
+	# Handle CircStrands outermost boundary
 	mesh_size = (radius_ext - radius_in)
-	if !(next_part isa WireArray) && !isnothing(next_part)
+	if !(next_part isa CircStrands) && !isnothing(next_part)
 		# step_angle = 2 * pi / num_wires
 		add_mesh_points(
 			radius_in = radius_ext,
@@ -405,8 +405,8 @@ function _make_cablepart!(workspace::FEMWorkspace, part::WireArray,
 
 	# Create air gaps for:
 	# - Multiple wires (always)
-	# - Single wire IF next part is a WireArray
-	# Skip ONLY for single wire when next part is not a WireArray
+	# - Single wire IF next part is a CircStrands
+	# Skip ONLY for single wire when next part is not a CircStrands
 	if !is_single_wire
 		# Air gaps will be determined from the boolean fragmentation operation and do not need to be drawn. Only the markers are needed.
 		markers_air_gap = get_air_gap_markers(num_wires, radius_wire, radius_in)
