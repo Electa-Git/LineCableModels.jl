@@ -36,8 +36,8 @@ using ..Utils: display_path, to_nominal, resolve_T, coerce_to_T, isdiag_approx
 using ..Materials: Material, MaterialsLibrary
 using ..EarthProps: EarthModel
 using ..DataModel: CablesLibrary, CableDesign, CableComponent, ConductorGroup,
-	InsulatorGroup, WireArray, Strip, Tubular, Semicon, Insulator, LineCableSystem,
-	NominalData
+	InsulatorGroup, CircStrands, RectStrands, Strip, Tubular, Semicon, Insulator,
+	LineCableSystem, NominalData
 import ..Engine: LineParameters, SeriesImpedance, ShuntAdmittance
 using Measurements
 using EzXML
