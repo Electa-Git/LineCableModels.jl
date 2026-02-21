@@ -110,7 +110,7 @@
                                 },
                                 "lay_direction": 1,
                                 "radius_in": 0,
-                                "__julia_type__": "LineCableModels.DataModel.WireArray",
+                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": 0.00235,
                                 "num_wires": 1,
                                 "temperature": 20
@@ -127,7 +127,7 @@
                                 },
                                 "lay_direction": 1,
                                 "radius_in": 0.00235,
-                                "__julia_type__": "LineCableModels.DataModel.WireArray",
+                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": 0.00235,
                                 "num_wires": 6,
                                 "temperature": 20
@@ -144,7 +144,7 @@
                                 },
                                 "lay_direction": 1,
                                 "radius_in": 0.007050000000000001,
-                                "__julia_type__": "LineCableModels.DataModel.WireArray",
+                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": 0.00235,
                                 "num_wires": 12,
                                 "temperature": 20
@@ -161,7 +161,7 @@
                                 },
                                 "lay_direction": 1,
                                 "radius_in": 0.01175,
-                                "__julia_type__": "LineCableModels.DataModel.WireArray",
+                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": 0.00235,
                                 "num_wires": 18,
                                 "temperature": 20
@@ -178,7 +178,7 @@
                                 },
                                 "lay_direction": 1,
                                 "radius_in": 0.01645,
-                                "__julia_type__": "LineCableModels.DataModel.WireArray",
+                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": 0.00235,
                                 "num_wires": 24,
                                 "temperature": 20
@@ -223,7 +223,7 @@
                                 },
                                 "lay_direction": 1,
                                 "radius_in": 0.030650000000000004,
-                                "__julia_type__": "LineCableModels.DataModel.WireArray",
+                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": 0.000475,
                                 "num_wires": 49,
                                 "temperature": 20
