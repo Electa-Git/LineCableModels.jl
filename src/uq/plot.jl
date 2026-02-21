@@ -143,7 +143,7 @@ function _build_hist_spec(
 	if plot_data == :samples || plot_data == :both
 		obj.samples === nothing &&
 			Base.error("mode=:$mode requires samples, but none are available.")
-		samps = getfield(obj.samples, values_sym)
+		samps = getproperty(obj.samples, values_sym)
 
 		max_i, max_j, max_k, _ = size(samps)
 		(1 <= i <= max_i && 1 <= j <= max_j && 1 <= k <= max_k) || Base.error(
@@ -156,7 +156,7 @@ function _build_hist_spec(
 	if plot_data == :pdf || plot_data == :both
 		obj.pdf === nothing &&
 			Base.error("mode=:$mode requires PDF, but none is available.")
-		pdfs = getfield(obj.pdf, values_sym)
+		pdfs = getproperty(obj.pdf, values_sym)
 
 		max_i, max_j, max_k = size(pdfs)
 		(1 <= i <= max_i && 1 <= j <= max_j && 1 <= k <= max_k) || Base.error(
@@ -573,13 +573,13 @@ function _build_hist_spec(
 	if plot_data == :samples || plot_data == :both
 		obj.samples === nothing &&
 			Base.error("mode=:$mode requires samples, but none are available.")
-		samps = getfield(obj.samples, values_sym)
+		samps = getproperty(obj.samples, values_sym)
 		vals = collect(samps) .* c_scale
 	end
 	if plot_data == :pdf || plot_data == :both
 		obj.pdf === nothing &&
 			Base.error("mode=:$mode requires PDF, but none is available.")
-		raw_pdf = getfield(obj.pdf, values_sym)
+		raw_pdf = getproperty(obj.pdf, values_sym)
 		scaled_edges = raw_pdf.edges .* c_scale
 		scaled_dens = raw_pdf.dens ./ c_scale
 		pdf_obj = LineParametersPDF(scaled_edges, scaled_dens)
