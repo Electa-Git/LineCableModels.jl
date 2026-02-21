@@ -43,7 +43,7 @@ end
 # The Boss: render
 # -------------------------
 
-function render(
+function build(
 	r::RenderSpec{S};
 	backend = nothing,
 	display::Bool = true,
@@ -110,12 +110,30 @@ function build_figure(ctx::UIContext, page::PageSpec, ls::UILayoutSpec)
 	# --- PHASE 1: Materialize Slots/Containers ---
 	# Uses `s.layout` for Grid properties
 
-	# 1a. Intermediate Containers
+	# 1a. Intermediate Containers (and Root configuration)
 	for c in ls.containers
-		parent_gl = containers[c.parent]
-		subgl = Makie.GridLayout(; c.layout...)
-		parent_gl[c.at...] = subgl
-		containers[c.name] = subgl
+		if c.name == :root
+			# SPECIAL CASE: Configuration for the main Figure layout
+			# Apply gaps, alignmode (padding), etc.
+			gl = containers[:root]
+			for (k, v) in pairs(c.layout)
+				# We use setproperty! or specific Makie functions for gaps
+				if k == :rowgap
+					Makie.rowgap!(gl, v)
+				elseif k == :colgap
+					Makie.colgap!(gl, v)
+				else
+					# alignmode, etc.
+					setproperty!(gl, k, v)
+				end
+			end
+		else
+			# Standard nested container creation
+			parent_gl = containers[c.parent]
+			subgl = Makie.GridLayout(; c.layout...)
+			parent_gl[c.at...] = subgl
+			containers[c.name] = subgl
+		end
 	end
 
 	# 1b. Slots (Terminals)
@@ -202,10 +220,8 @@ function build_toolbar!(uifig::UIFigure, specs::Vector{UIWidgetSpec}, ctx::UICon
 	gl.halign = :left
 
 	for (i, s) in enumerate(specs)
+		# --- BUTTON ---
 		if s isa UIButtonSpec
-
-			# CONSTRUCTION LOGIC:
-			# Combine icon and label using with_icon helper
 			lbl = (s.icon !== nothing) ? with_icon(s.icon; text = s.label) : s.label
 
 			btn = Makie.Button(gl[1, i]; label = lbl, s.attrs...)
@@ -221,6 +237,32 @@ function build_toolbar!(uifig::UIFigure, specs::Vector{UIWidgetSpec}, ctx::UICon
 					end
 				end
 			end
+
+			# --- TOGGLE ---
+		elseif s isa UIToggleSpec
+			# Container for [Label | Toggle] to keep them grouped in the toolbar slot
+			sub = Makie.GridLayout(gl[1, i])
+
+			# 1. Label
+			Makie.Label(sub[1, 1], s.label, halign = :right)
+
+			# 2. Toggle
+			tgl = Makie.Toggle(sub[1, 2]; active = s.active, s.attrs...)
+			dict[Symbol(:tgl_, i)] = tgl
+
+			Makie.on(tgl.active) do val
+				Base.@async begin
+					try
+						s.action(ctx, uifig, val)
+					catch e
+						@error "Widget error" exception=(e, catch_backtrace())
+						action_set_status!(ctx, "Error: $(e)")
+					end
+				end
+			end
+
+			# Tweak subgrid spacing
+			Makie.colgap!(sub, 4)
 		end
 	end
 	return dict
