@@ -30,9 +30,9 @@ export calc_strip_resistance
 export calc_temperature_correction
 export calc_tubular_resistance
 export calc_tubular_inductance
-export calc_wirearray_coords
+export calc_circstrands_coords
 export calc_inductance_trifoil
-export calc_wirearray_gmr
+export calc_circstrands_gmr
 export calc_tubular_gmr
 export calc_equivalent_mu
 export calc_shunt_capacitance
@@ -107,7 +107,7 @@ Calculates the parallel equivalent of two impedances (or series equivalent of tw
 Z_{eq} = \\frac{Z_1 Z_2}{Z_1 + Z_2}
 ```
 
-This expression, when applied recursively to [`LineCableModels.DataModel.WireArray`](@ref) objects, implements the formula for the hexagonal wiring pattern described in CIGRE TB-345 [app14198982](@cite) [cigre345](@cite):
+This expression, when applied recursively to [`LineCableModels.DataModel.CircStrands`](@ref) objects, implements the formula for the hexagonal wiring pattern described in CIGRE TB-345 [app14198982](@cite) [cigre345](@cite):
 
 ```math
 \\frac{1}{R_{\\text{dc}}} = \\frac{\\pi d^2}{4 \\rho} \\left( 1 + \\sum_{1}^{n} \\frac{6n}{k_n} \\right)
@@ -336,11 +336,11 @@ where ``\\alpha`` is the temperature coefficient of the material resistivity, ``
 """
 function calc_temperature_correction(alpha::T, Top::T, T0::T = T₀) where {T <: REALSCALAR}
 	@assert abs(Top - T0) < ΔTmax """
-   Temperature is outside the valid range for linear resistivity model:
-   Top = $Top
-   T0 = $T0
-   ΔTmax = $ΔTmax
-   |Top - T0| = $(abs(Top - T0))"""
+Temperature is outside the valid range for linear resistivity model:
+Top = $Top
+T0 = $T0
+ΔTmax = $ΔTmax
+|Top - T0| = $(abs(Top - T0))"""
 	return 1 + alpha * (Top - T0)
 end
 
@@ -497,9 +497,9 @@ wire_coords = $(FUNCTIONNAME)(7, 0.002, 0.01, C=(0.5, 0.3))
 
 # See also
 
-- [`LineCableModels.DataModel.WireArray`](@ref)
+- [`LineCableModels.DataModel.CircStrands`](@ref)
 """
-function calc_wirearray_coords(
+function calc_circstrands_coords(
 	num_wires::U,
 	radius_wire::T,
 	radius_in::T,
@@ -519,12 +519,12 @@ function calc_wirearray_coords(
 	return wire_coords
 end
 
-function calc_wirearray_coords(num_wires::Int, radius_wire, radius_in; C = nothing)
+function calc_circstrands_coords(num_wires::Int, radius_wire, radius_in; C = nothing)
 	T =
 		C === nothing ? resolve_T(radius_wire, radius_in) :
 		resolve_T(radius_wire, radius_in, C...)
 	C_val = C === nothing ? coerce_to_T((0.0, 0.0), T) : coerce_to_T(C, T)
-	return calc_wirearray_coords(
+	return calc_circstrands_coords(
 		num_wires,
 		coerce_to_T(radius_wire, T),
 		coerce_to_T(radius_in, T),
@@ -681,7 +681,7 @@ $(TYPEDSIGNATURES)
 Calculates the geometric mean radius (GMR) of a circular wire array, using formula (62), page 335, of the book by Edward Rosa [rosa1908](@cite):
 
 ```math
-GMR = \\sqrt[a] {r n a^{n-1}}
+GMR = \\sqrt[n] {r n a^{n-1}}
 ```
 
 where ``a`` is the layout radius, ``n`` is the number of wires, and ``r`` is the radius of each wire.
@@ -708,7 +708,7 @@ gmr = $(FUNCTIONNAME)(lay_rad, N, rad_wire, mu_r)
 println(gmr) # Expected output: 0.01187... [m]
 ```
 """
-function calc_wirearray_gmr(
+function calc_circstrands_gmr(
 	lay_rad::T,
 	N::Int,
 	rad_wire::T,
@@ -719,9 +719,9 @@ function calc_wirearray_gmr(
 	return exp(log_gmr_array)
 end
 
-function calc_wirearray_gmr(lay_rad, N::Int, rad_wire, mu_r)
+function calc_circstrands_gmr(lay_rad, N::Int, rad_wire, mu_r)
 	T = resolve_T(lay_rad, rad_wire, mu_r)
-	return calc_wirearray_gmr(
+	return calc_circstrands_gmr(
 		coerce_to_T(lay_rad, T),
 		N,
 		coerce_to_T(rad_wire, T),
@@ -1002,7 +1002,7 @@ where:
 ```julia
 material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
 conductor = Conductor(Strip(0.01, 0.002, 0.05, 10, material_props))
-new_layer = WireArray(0.02, 0.002, 7, 15, material_props)
+new_layer = CircStrands(0.02, 0.002, 7, 15, material_props)
 equivalent_gmr = $(FUNCTIONNAME)(conductor, new_layer)  # Expected output: Updated GMR value [m]
 ```
 
@@ -1018,7 +1018,7 @@ function calc_equivalent_gmr(
 
 	DM = parentmodule(@__MODULE__) # DataModel
 	if isdefined(DM, :ConductorGroup)
-		CG = getfield(DM, :ConductorGroup)
+		CG = getproperty(DM, :ConductorGroup)
 		if existing isa CG
 			current_conductor = existing.layers[end]
 		else
@@ -1032,11 +1032,11 @@ function calc_equivalent_gmr(
 		   gmd^(2 * beta * (1 - beta))
 end
 
-# evil hackery to detect WireArray types 
-@inline function _is_wirearray(x)
+# evil hackery to detect CircStrands types 
+@inline function _is_circstrands(x)
 	DM = parentmodule(@__MODULE__) # DataModel
-	return isdefined(DM, :WireArray) &&
-		   (x isa getfield(DM, :WireArray)) # no compile-time ref to WireArray
+	return isdefined(DM, :CircStrands) &&
+		   (x isa getproperty(DM, :CircStrands)) # no compile-time ref to CircStrands
 end
 
 """
@@ -1073,9 +1073,9 @@ For concentric structures, the GMD converges to the external radii of the outerm
 
 ```julia
 material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
-wire_array1 = WireArray(0.01, 0.002, 7, 10, material_props)
-wire_array2 = WireArray(0.02, 0.002, 7, 15, material_props)
-gmd = $(FUNCTIONNAME)(wire_array1, wire_array2)  # Expected output: GMD value [m]
+circstrands1 = CircStrands(0.01, 0.002, 7, 10, material_props)
+circstrands2 = CircStrands(0.02, 0.002, 7, 15, material_props)
+gmd = $(FUNCTIONNAME)(circstrands1, circstrands2)  # Expected output: GMD value [m]
 
 strip = Strip(0.01, 0.002, 0.05, 10, material_props)
 tubular = Tubular(0.01, 0.02, material_props)
@@ -1084,13 +1084,13 @@ gmd = $(FUNCTIONNAME)(strip, tubular)  # Expected output: GMD value [m]
 
 # See also
 
-- [`calc_wirearray_coords`](@ref)
+- [`calc_circstrands_coords`](@ref)
 - [`calc_equivalent_gmr`](@ref)
 """
 function calc_gmd(co1::T, co2::U) where {T <: AbstractCablePart, U <: AbstractCablePart}
 
-	if _is_wirearray(co1) #co1 isa WireArray
-		coords1 = calc_wirearray_coords(co1.num_wires, co1.radius_wire, co1.radius_in)
+	if _is_circstrands(co1) #co1 isa CircStrands
+		coords1 = calc_circstrands_coords(co1.num_wires, co1.radius_wire, co1.radius_in)
 		n1 = co1.num_wires
 		r1 = co1.radius_wire
 		s1 = pi * r1^2
@@ -1101,9 +1101,9 @@ function calc_gmd(co1::T, co2::U) where {T <: AbstractCablePart, U <: AbstractCa
 		s1 = co1.cross_section
 	end
 
-	# if co2 isa WireArray
-	if _is_wirearray(co2)
-		coords2 = calc_wirearray_coords(co2.num_wires, co2.radius_wire, co2.radius_in)
+	# if co2 isa CircStrands
+	if _is_circstrands(co2)
+		coords2 = calc_circstrands_coords(co2.num_wires, co2.radius_wire, co2.radius_in)
 		n2 = co2.num_wires
 		r2 = co2.radius_wire
 		s2 = pi * r2^2
@@ -1141,7 +1141,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Calculates the solenoid correction factor for magnetic permeability in insulated cables with helical conductors ([`WireArray`](@ref)), using the formula from Gudmundsdottir et al. [5743045](@cite):
+Calculates the solenoid correction factor for magnetic permeability in insulated cables with helical conductors ([`CircStrands`](@ref)), using the formula from Gudmundsdottir et al. [5743045](@cite):
 
 ```math
 \\mu_{r, sol} = 1 + \\frac{2 \\pi^2 N^2 (r_{ins, ext}^2 - r_{con, ext}^2)}{\\log(r_{ins, ext}/r_{con, ext})}
