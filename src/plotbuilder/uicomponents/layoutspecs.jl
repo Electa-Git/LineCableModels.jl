@@ -6,62 +6,70 @@ function make_layout(::Val{layout}) where {layout}
 	error("make_layout(Val(:$layout)) not implemented")
 end
 
-const _LEGEND_WIDTH = 150
-const _TOOLBAR_H = 36
-const _STATUS_H = 20
+function make_layout(::Val{:single})
+	# 1. ROOT CONFIGURATION (The global visual effect)
+	# We define a container for :root to apply gaps and padding.
+	root = UIContainerSpec(
+		:root, nothing, (1, 1); # Position ignored for root
+		layout = (;
+			rowgap = GRID_ROW_GAP,
+			colgap = LEGEND_GAP, # The gap between Canvas and Legend
+			alignmode = Makie.Outside(FIG_PADDING...), # (L, R, B, T)
+		),
+	)
 
-function make_layout(::Val{:windows})
-	# 3x2 Grid
-
+	# 2. SLOTS
 	slots = [
-		# Toolbar
-		# layout: Container behavior (height, padding)
+		# Toolbar: Rigid height, internal spacing for buttons
 		UISlotSpec(:toolbar, :root, (1, 1);
 			layout = (;
-				height = _TOOLBAR_H,
+				height = CTLBAR_HEIGHT,
 				tellheight = true,
-				alignmode = Makie.Outside(5),
+				colgap = CTLBAR_GAP # Spacing between buttons
 			),
 		),
 
-		# Canvas
-		# layout: Standard plot area
+		# Canvas: Takes available space
 		UISlotSpec(:canvas, :root, (2, 1);
-			layout = (; alignmode = Makie.Inside()),
+			layout = (;
+				alignmode = Makie.Inside() # Standard plot behavior
+			),
 		),
 
-		# Status
+		# Status: Rigid height
 		UISlotSpec(:status, :root, (3, 1);
 			layout = (;
-				height = _STATUS_H,
+				height = STATUSBAR_HEIGHT,
 				tellheight = true,
-				alignmode = Makie.Outside(2),
 			),
 		),
 
-		# Legend
-		# layout: Grid behavior (padding from edge)
-		# attrs:  Legend behavior (anchor to top)
+		# Legend: Fixed width column
 		UISlotSpec(:legend, :root, (1:3, 2);
-			layout = (; alignmode = Makie.Outside(5)),
-			attrs  = (; valign = :top),
+			layout = (;
+				width = LEGEND_WIDTH, # Enforce width at slot level too for safety
+				tellwidth = true,
+				alignmode = Makie.Inside(),
+			),
+			attrs = (; valign = :top),
 		),
 	]
 
+	# 3. ROOT SIZING (Structural constraints)
 	rs = Dict(
 		:root => Any[
-			Makie.Fixed(_TOOLBAR_H),
+			Makie.Fixed(CTLBAR_HEIGHT),
 			Makie.Relative(1.0),
-			Makie.Fixed(_STATUS_H),
+			Makie.Fixed(STATUSBAR_HEIGHT),
 		],
 	)
 
 	cs = Dict(:root => Any[
 		Makie.Relative(1.0),
-		Makie.Fixed(_LEGEND_WIDTH),
+		Makie.Fixed(LEGEND_WIDTH),
 	])
 
-	return UILayoutSpec(:windows, UIContainerSpec[], slots, rs, cs)
+	return UILayoutSpec(:single, [root], slots, rs, cs)
 end
 
-make_layout(::Val{:grid}) = make_layout(Val(:windows))
+make_layout(::Val{:grid}) = make_layout(Val(:single))
