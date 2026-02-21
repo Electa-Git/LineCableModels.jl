@@ -6,7 +6,7 @@ import ..BackendHandler
 
 import ..PlotBuilder: AbstractPlotSpec, RenderSpec, PageSpec, ViewSpec, SeriesSpec, AxisSpec
 
-export render, export_svg!,
+export build, export_svg!,
 	UIContext, UILayoutSpec, UIContainerSpec, UISlotSpec,
 	UIFigure, UIPanel, PlotAssembly
 
