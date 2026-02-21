@@ -15,9 +15,9 @@
 	rin0 = 0.0
 
 	function make_conductor_group()
-		core = DM.WireArray(rin0, DM.Diameter(d_wire), 1, 0.0, copper_props)
+		core = DM.CircStrands(rin0, DM.Diameter(d_wire), 1, 0.0, copper_props)
 		g = DM.ConductorGroup(core)
-		add!(g, DM.WireArray, DM.Diameter(d_wire), 6, 10.0, copper_props)
+		add!(g, DM.CircStrands, DM.Diameter(d_wire), 6, 10.0, copper_props)
 		add!(g, DM.Strip, DM.Thickness(0.5e-3), 0.02, 8.0, copper_props)
 		add!(g, DM.Tubular, DM.Thickness(0.8e-3), copper_props)
 		g

@@ -372,12 +372,12 @@
 		for comp in des.components
 			# effective conductor/insulator props are Materials.Material
 			if hasproperty(comp, :conductor_props)
-				mp = getfield(comp, :conductor_props)
-				if (getfield(mp, :rho) isa Measurement) ||
-				   (getfield(mp, :mu_r) isa Measurement) ||
-				   (getfield(mp, :T0) isa Measurement) ||
-				   (getfield(mp, :alpha) isa Measurement) ||
-				   (getfield(mp, :eps_r) isa Measurement)
+				mp = getproperty(comp, :conductor_props)
+				if (getproperty(mp, :rho) isa Measurement) ||
+				   (getproperty(mp, :mu_r) isa Measurement) ||
+				   (getproperty(mp, :T0) isa Measurement) ||
+				   (getproperty(mp, :alpha) isa Measurement) ||
+				   (getproperty(mp, :eps_r) isa Measurement)
 					found_meas = true
 					break
 				end

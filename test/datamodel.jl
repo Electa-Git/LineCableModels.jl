@@ -169,7 +169,7 @@ end
 
 	println("Constructing core conductor group...")
 	material_alu = get(materials, "aluminum")
-	core = ConductorGroup(WireArray(0.0, Diameter(d_w), 1, 0.0, material_alu))
+	core = ConductorGroup(CircStrands(0.0, Diameter(d_w), 1, 0.0, material_alu))
 	@test core isa ConductorGroup
 	@test length(core.layers) == 1
 	@test core.radius_in == 0
@@ -177,20 +177,20 @@ end
 	@test core.resistance > 0
 	@test core.gmr > 0
 
-	add!(core, WireArray, Diameter(d_w), 6, 15.0, material_alu)
+	add!(core, CircStrands, Diameter(d_w), 6, 15.0, material_alu)
 	@test length(core.layers) == 2
 	@test core.radius_ext ≈ (d_w / 2.0) * 3 # Approximation for 1+6 wires
 	@test core.resistance > 0 # Resistance should decrease
 
-	add!(core, WireArray, Diameter(d_w), 12, 13.5, material_alu)
+	add!(core, CircStrands, Diameter(d_w), 12, 13.5, material_alu)
 	@test length(core.layers) == 3
 	@test core.radius_ext ≈ (d_w / 2.0) * 5 # Approximation for 1+6+12 wires
 
-	add!(core, WireArray, Diameter(d_w), 18, 12.5, material_alu)
+	add!(core, CircStrands, Diameter(d_w), 18, 12.5, material_alu)
 	@test length(core.layers) == 4
 	@test core.radius_ext ≈ (d_w / 2.0) * 7 # Approximation
 
-	add!(core, WireArray, Diameter(d_w), 24, 11.0, material_alu)
+	add!(core, CircStrands, Diameter(d_w), 24, 11.0, material_alu)
 	@test length(core.layers) == 5
 	@test core.radius_ext ≈ (d_w / 2.0) * 9 # Approximation
 	# Check final calculated radius against nominal diameter
@@ -257,7 +257,7 @@ end
 	lay_ratio_screen = 10.0
 	material_cu = get(materials, "copper")
 	screen_con = ConductorGroup(
-		WireArray(
+		CircStrands(
 			main_insu,
 			Diameter(d_ws),
 			num_sc_wires,
