@@ -197,7 +197,7 @@ Get the material group (conductor or insulator) for a cable part based on its ty
 # Examples
 
 ```julia
-group = get_material_group(wire_array)  # Returns 1 (conductor)
+group = get_material_group(circstrands)  # Returns 1 (conductor)
 ```
 """
 function get_material_group(part::AbstractCablePart)
