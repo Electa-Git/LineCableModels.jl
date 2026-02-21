@@ -40,6 +40,7 @@ using LinearAlgebra
 		lo_f = float(lo)
 		hi_f = float(hi)
 		# TODO: handle edge case lo == hi when the nominal value is 0
+		# Issue URL: https://github.com/Electa-Git/LineCableModels.jl/issues/31
 		@assert hi_f > lo_f "hi must be greater than lo"
 		μ = (lo_f + hi_f) / 2
 		σ = (hi_f - lo_f) / 2
