@@ -9,12 +9,12 @@ export add!, set_verbosity!, set_backend!
 export Material, MaterialsLibrary
 
 # Data model (design + system):
-export Thickness, Diameter, WireArray, Strip, Tubular, Semicon, Insulator
+export Thickness, Diameter, CircStrands, RectStrands, Strip, Tubular, Semicon, Insulator
 export ConductorGroup, InsulatorGroup
 export CableComponent, CableDesign, NominalData
 export CablesLibrary
 export CablePosition, LineCableSystem
-export trifoil_formation, flat_formation, preview, equivalent
+export trifoil_formation, flat_formation, preview, equivalent, MaxFill
 
 # Earth properties:
 export EarthModel
@@ -64,9 +64,10 @@ using .EarthProps: EarthModel
 
 # Submodule `DataModel`
 include("datamodel/DataModel.jl")
-using .DataModel: Thickness, Diameter, WireArray, Strip, Tubular, Semicon, Insulator,
-	ConductorGroup, InsulatorGroup, CableComponent, CableDesign, NominalData, CablesLibrary,
-	CablePosition, LineCableSystem, trifoil_formation, flat_formation, preview, equivalent
+using .DataModel: Thickness, Diameter, CircStrands, RectStrands, Strip, Tubular, Semicon,
+	Insulator, ConductorGroup, InsulatorGroup, CableComponent, CableDesign, NominalData,
+	CablesLibrary, CablePosition, LineCableSystem, trifoil_formation, flat_formation,
+	preview, equivalent, MaxFill
 
 # Submodule `Engine`
 include("engine/Engine.jl")
@@ -82,5 +83,9 @@ include("uq/UQ.jl")
 # Submodule `ImportExport`
 include("importexport/ImportExport.jl")
 using .ImportExport: export_data, load!, save
+
+# Aliases for backward compatibility
+const WireArray = CircStrands  # alias for now
+export WireArray  # export aliases
 
 end
