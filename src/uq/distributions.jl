@@ -279,8 +279,24 @@ end
 
 # Use the efficient sampler-based method
 function Base.rand(rng::AbstractRNG, s::LineParametersPDFSampler)
-	u = rand(rng, eltype(s.cum_probs)) # Get a random probability 0..1
-	return Distributions.quantile(s, u) # Run it through the inverse CDF
+	# 1. Draw a uniform random number between 0 and 1
+	u = rand(rng)
+
+	# 2. Find which bin 'u' falls into using binary search
+	idx = searchsortedfirst(s.cum_probs, u)
+
+	# 3. Get the cumulative probability up to the start of this bin
+	prev_cum_prob = idx == 1 ? zero(eltype(s.cum_probs)) : s.cum_probs[idx-1]
+
+	# 4. Calculate how far 'u' is into this specific bin (as a fraction from 0 to 1)
+	prob_in_bin = s.cum_probs[idx] - prev_cum_prob
+	fraction = (u - prev_cum_prob) / prob_in_bin
+
+	# 5. Interpolate between the bin edges to get the continuous value
+	left_edge = s.d.edges[idx]
+	right_edge = s.d.edges[idx+1]
+
+	return left_edge + fraction * (right_edge - left_edge)
 end
 
 # This one will be called if you just do `rand(d)`

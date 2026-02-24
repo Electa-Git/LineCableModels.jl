@@ -134,7 +134,10 @@ function iterate(spec::SystemBuilderSpec)
 								end
 							end
 						catch e
-							if occursin("overlap", sprint(showerror, e))
+							if occursin("overlap", sprint(showerror, e)) || occursin(
+								"conductor resistivity must be positive",
+								sprint(showerror, e),
+							)
 								@warn sprint(showerror, e)
 								@warn "Skipping..."
 								continue
