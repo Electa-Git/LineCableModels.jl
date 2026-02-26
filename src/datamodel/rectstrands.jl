@@ -46,6 +46,40 @@ struct RectStrands{T <: REALSCALAR, S <: RectStrandsShape} <: AbstractStrandsLay
 	shape::S
 end
 
+# struct SectorCore{T <: REALSCALAR, S <: SectorShape} <: AbstractStrandsLayer{T}
+# 	"Internal radial boundary \\[m\\]."
+# 	radius_in::T
+# 	"External radial boundary \\[m\\]."
+# 	radius_ext::T
+# 	"Material properties of the conductive strands."
+# 	material_props::Material{T}
+# 	"Operating temperature of the layer \\[°C\\]."
+# 	temperature::T
+# 	"Equivalent electrical resistance of the layer \\[Ω/m\\]."
+# 	resistance::T
+# 	"Geometric mean radius (GMR) of the layer \\[m\\]."
+# 	gmr::T
+# 	"Shape payload defining the internal geometric layout."
+# 	shape::S
+# end
+
+# struct CircCore{T <: REALSCALAR, S <: Concentric} <: AbstractStrandsLayer{T}
+# 	"Internal radial boundary \\[m\\]."
+# 	radius_in::T
+# 	"External radial boundary \\[m\\]."
+# 	radius_ext::T
+# 	"Material properties of the conductive strands."
+# 	material_props::Material{T}
+# 	"Operating temperature of the layer \\[°C\\]."
+# 	temperature::T
+# 	"Equivalent electrical resistance of the layer \\[Ω/m\\]."
+# 	resistance::T
+# 	"Geometric mean radius (GMR) of the layer \\[m\\]."
+# 	gmr::T
+# 	"Shape payload defining the internal geometric layout."
+# 	shape::S
+# end
+
 """
 $(TYPEDSIGNATURES)
 
@@ -84,16 +118,24 @@ function RectStrands(
 	lay_direction::U,
 ) where {T <: REALSCALAR, U <: Int}
 
-	# Geometry calculations
+
+	# Target Area (the 'invariant' property)
+	A0 = width * thickness
+
+	# Area-Preserving Radial Expansion
+	# This solves A_total = pi * (r_ext^2 - r_in^2)
 	radius_ext =
-		num_wires == 1 ? Base.error("num_wires must be > 1") : radius_in + thickness
+		num_wires == 1 ? Base.error("num_wires must be > 1") :
+		sqrt(radius_in^2 + (num_wires * A0) / T(π))
+	thickness_effective=radius_ext-radius_in
+	@info "Calculating outer radius to preserve total cross-sectional area of strands." radius_ext radius_ext_without_correction=radius_in+thickness thickness_effective thickness
 	mean_diameter, pitch_length, overlength =
 		calc_helical_params(radius_in, radius_ext, lay_ratio)
 
-	cross_section = num_wires * (thickness * width)
+	cross_section = num_wires * A0
 
 	shape_payload = RectStrandsShape(
-		thickness, width, num_wires, lay_ratio, lay_direction,
+		thickness_effective, width, num_wires, lay_ratio, lay_direction,
 		mean_diameter, pitch_length, cross_section,
 	)
 
