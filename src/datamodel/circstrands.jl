@@ -84,6 +84,7 @@ function CircStrands(
 	T0 = material_props.T0
 	alpha = material_props.alpha
 	radius_ext = num_wires == 1 ? radius_wire : radius_in + 2 * radius_wire # TODO: The resolved outer radius for stranded cores should account for compression. See rectstrands.jl for an example of area-preserving expansion. 
+	                                                                        # Issue URL: https://github.com/Electa-Git/LineCableModels.jl/issues/32
 
 	mean_diameter, pitch_length, overlength = calc_helical_params(
 		radius_in,
