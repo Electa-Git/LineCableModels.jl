@@ -1018,7 +1018,7 @@ begin
 	# Define system center point (underground at 1 m depth) and the trifoil positions
 	x0 = 0.0
 	y0 = -1.0
-	S = 1e-6+to_nominal(cable_design.components[end].insulator_group.radius_ext)
+	S = 1e-6+to_nominal(cable_design.components[end].insulator_group.r_ex)
 	xa, ya, xb, yb, xc, yc = trifoil_formation(x0, y0, S)
 end;
 
@@ -1129,7 +1129,7 @@ begin
 	add!(ccable_design, "jacket", jjacket_con, jjacket_insu)
 
 	# Define system center point (underground at 1 m depth) and the trifoil positions
-	SS = 0.1+to_nominal(ccable_design.components[end].insulator_group.radius_ext)
+	SS = 0.1+to_nominal(ccable_design.components[end].insulator_group.r_ex)
 	xxa, yya, xxb, yyb, xxc, yyc = trifoil_formation(x0, y0, SS)
 
 	ccablepos = CablePosition(ccable_design, xxa, yya,
