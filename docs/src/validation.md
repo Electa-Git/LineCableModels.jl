@@ -26,7 +26,7 @@ The **typed cores** accept **numbers only**. All proxy handling happens in the *
 
   * Rejects wrong arities: exactly `length(required_fields(T))` positionals are expected; optionals must be passed as keywords listed in `keyword_fields(T)`.
   * Maps positionals to names using `required_fields(T)`; merges keyword arguments; rejects unknown keywords.
-  * If `has_radii(T) == true`, checks admissibility of raw radius inputs with `is_radius_input(T, Val(:radius_in), x)` and `is_radius_input(T, Val(:radius_ext), x)`. The default accepts only real, non‑complex numbers; types may extend to allow proxies.
+  * If `has_radii(T) == true`, checks admissibility of raw radius inputs with `is_radius_input(T, Val(:r_in), x)` and `is_radius_input(T, Val(:r_ex), x)`. The default accepts only real, non‑complex numbers; types may extend to allow proxies.
   * Returns a **raw** `NamedTuple`.
 
 * **`parse(::Type{T}, nt)`**
@@ -108,7 +108,7 @@ Attach via `extra_rules(::Type{X}) = (InRange(:alpha, 0.0, 1.0), ...)`.
 **Typed core** (numbers only):
 
 ```julia
-function Tubular(radius_in::T, radius_ext::T, material_props::Material{T}, temperature::T) where {T<:REALSCALAR}
+function Tubular(r_in::T, r_ex::T, material_props::Material{T}, temperature::T) where {T<:REALSCALAR}
 ```
 
 Rationale: all proxy resolution must happen before reaching the typed core to avoid duplicate parsing and to keep type promotion deterministic.
@@ -116,7 +116,7 @@ Rationale: all proxy resolution must happen before reaching the typed core to av
 **Trait configuration**:
 
 ```julia
-const _REQ_TUBULAR = (:radius_in, :radius_ext, :material_props,)
+const _REQ_TUBULAR = (:r_in, :r_ex, :material_props,)
 const _OPT_TUBULAR = (:temperature,)
 const _DEFS_TUBULAR = (T₀,)
 
@@ -126,7 +126,7 @@ Validation.required_fields(::Type{Tubular}) = _REQ_TUBULAR
 Validation.keyword_fields(::Type{Tubular}) = _OPT_TUBULAR
 ```
 
-* `has_radii = true` enables the radii bundle: `Normalized(:radius_in)`, `Normalized(:radius_ext)`, `Finite`, `Nonneg`, `Less(:radius_in,:radius_ext)`.
+* `has_radii = true` enables the radii bundle: `Normalized(:r_in)`, `Normalized(:r_ex)`, `Finite`, `Nonneg`, `Less(:r_in,:r_ex)`.
 * `has_temperature = true` adds `Finite(:temperature)`.
 * `required_fields` defines the mandatory positional fields.
 * `keyword_fields` defines the optional fields that will receive default values.
@@ -134,12 +134,12 @@ Validation.keyword_fields(::Type{Tubular}) = _OPT_TUBULAR
 **Raw proxy acceptance**:
 
 ```julia
-Validation.is_radius_input(::Type{Tubular}, ::Val{:radius_in}, x::AbstractCablePart) = true
-Validation.is_radius_input(::Type{Tubular}, ::Val{:radius_ext}, x::Thickness) = true
-Validation.is_radius_input(::Type{Tubular}, ::Val{:radius_ext}, x::Diameter) = true
+Validation.is_radius_input(::Type{Tubular}, ::Val{:r_in}, x::AbstractCablePart) = true
+Validation.is_radius_input(::Type{Tubular}, ::Val{:r_ex}, x::Thickness) = true
+Validation.is_radius_input(::Type{Tubular}, ::Val{:r_ex}, x::Diameter) = true
 ```
 
-The inner radius may take an existing cable part (its `radius_ext`); the outer radius may take a `Thickness` or `Diameter` wrapper.
+The inner radius may take an existing cable part (its `r_ex`); the outer radius may take a `Thickness` or `Diameter` wrapper.
 
 **Extra rules**:
 
@@ -151,8 +151,8 @@ Validation.extra_rules(::Type{Tubular}) = (IsA{Material}(:material_props),)
 
 ```julia
 Validation.parse(::Type{Tubular}, nt) = begin
-    rin, rex = _normalize_radii(Tubular, nt.radius_in, nt.radius_ext)
-    (; nt..., radius_in=rin, radius_ext=rex)
+    rin, rex = _normalize_radii(Tubular, nt.r_in, nt.r_ex)
+    (; nt..., r_in=rin, r_ex=rex)
 end
 ```
 
@@ -169,7 +169,7 @@ This expands to a weakly‑typed method that calls `validate!`, promotes using `
 * Wrong arity, missing keys → `sanitize` via `required_fields`.
 * String/complex radii → `sanitize` via default `is_radius_input` (unless explicitly allowed).
 * Forgotten parsing after allowing proxies → caught by `Normalized` rules.
-* Geometry violations (`radius_in ≥ radius_ext`) → `Less(:radius_in,:radius_ext)`.
+* Geometry violations (`r_in ≥ r_ex`) → `Less(:r_in,:r_ex)`.
 
 ---
 
@@ -188,8 +188,8 @@ Validation.required_fields(::Type{NewPart}) = (:a, :b, :material)
 Validation.keyword_fields(::Type{NewPart})  = (:temperature,)
 
 # 3) Raw acceptance (extend only what you intend to parse)
-Validation.is_radius_input(::Type{NewPart}, ::Val{:radius_in},  x::AbstractCablePart) = true
-Validation.is_radius_input(::Type{NewPart}, ::Val{:radius_ext}, x::Thickness)        = true
+Validation.is_radius_input(::Type{NewPart}, ::Val{:r_in},  x::AbstractCablePart) = true
+Validation.is_radius_input(::Type{NewPart}, ::Val{:r_ex}, x::Thickness)        = true
 
 # 4) Extra rules
 Validation.extra_rules(::Type{NewPart}) = (
@@ -225,11 +225,11 @@ Extend `_rules` inside `Validation` to splice the corresponding checks when `has
 
 ### Field‑specific admissibility
 
-If only `:radius_in` should accept proxies, extend the field‑tagged predicate:
+If only `:r_in` should accept proxies, extend the field‑tagged predicate:
 
 ```julia
-Validation.is_radius_input(::Type{X}, ::Val{:radius_in},  p::AbstractCablePart) = true
-Validation.is_radius_input(::Type{X}, ::Val{:radius_ext}, ::AbstractCablePart)  = false
+Validation.is_radius_input(::Type{X}, ::Val{:r_in},  p::AbstractCablePart) = true
+Validation.is_radius_input(::Type{X}, ::Val{:r_ex}, ::AbstractCablePart)  = false
 ```
 
 ---
