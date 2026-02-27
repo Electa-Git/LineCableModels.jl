@@ -66,12 +66,12 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
+                                "r_in": {
                                     "value": 0.02115,
                                     "__type__": "Float"
                                 },
                                 "__julia_type__": "LineCableModels.DataModel.Semicon",
-                                "radius_ext": {
+                                "r_ex": {
                                     "value": 0.02145,
                                     "__type__": "Float"
                                 },
@@ -104,12 +104,12 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
+                                "r_in": {
                                     "value": 0.02145,
                                     "__type__": "Float"
                                 },
                                 "__julia_type__": "LineCableModels.DataModel.Semicon",
-                                "radius_ext": {
+                                "r_ex": {
                                     "value": 0.02205,
                                     "__type__": "Float"
                                 },
@@ -142,12 +142,12 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
+                                "r_in": {
                                     "value": 0.02205,
                                     "__type__": "Float"
                                 },
                                 "__julia_type__": "LineCableModels.DataModel.Insulator",
-                                "radius_ext": {
+                                "r_ex": {
                                     "value": 0.03005,
                                     "__type__": "Float"
                                 },
@@ -180,12 +180,12 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
+                                "r_in": {
                                     "value": 0.03005,
                                     "__type__": "Float"
                                 },
                                 "__julia_type__": "LineCableModels.DataModel.Semicon",
-                                "radius_ext": {
+                                "r_ex": {
                                     "value": 0.030350000000000002,
                                     "__type__": "Float"
                                 },
@@ -218,12 +218,12 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
+                                "r_in": {
                                     "value": 0.030350000000000002,
                                     "__type__": "Float"
                                 },
                                 "__julia_type__": "LineCableModels.DataModel.Semicon",
-                                "radius_ext": {
+                                "r_ex": {
                                     "value": 0.030650000000000004,
                                     "__type__": "Float"
                                 },
@@ -271,7 +271,7 @@
                                     "value": 1,
                                     "__type__": "Int"
                                 },
-                                "radius_in": {
+                                "r_in": {
                                     "value": 0,
                                     "__type__": "Float"
                                 },
@@ -321,7 +321,7 @@
                                     "value": 1,
                                     "__type__": "Int"
                                 },
-                                "radius_in": {
+                                "r_in": {
                                     "value": 0.00235,
                                     "__type__": "Float"
                                 },
@@ -371,7 +371,7 @@
                                     "value": 1,
                                     "__type__": "Int"
                                 },
-                                "radius_in": {
+                                "r_in": {
                                     "value": 0.007050000000000001,
                                     "__type__": "Float"
                                 },
@@ -421,7 +421,7 @@
                                     "value": 1,
                                     "__type__": "Int"
                                 },
-                                "radius_in": {
+                                "r_in": {
                                     "value": 0.01175,
                                     "__type__": "Float"
                                 },
@@ -471,7 +471,7 @@
                                     "value": 1,
                                     "__type__": "Int"
                                 },
-                                "radius_in": {
+                                "r_in": {
                                     "value": 0.01645,
                                     "__type__": "Float"
                                 },
@@ -520,12 +520,12 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
+                                "r_in": {
                                     "value": 0.031700000000000006,
                                     "__type__": "Float"
                                 },
                                 "__julia_type__": "LineCableModels.DataModel.Semicon",
-                                "radius_ext": {
+                                "r_ex": {
                                     "value": 0.03200000000000001,
                                     "__type__": "Float"
                                 },
@@ -573,7 +573,7 @@
                                     "value": 1,
                                     "__type__": "Int"
                                 },
-                                "radius_in": {
+                                "r_in": {
                                     "value": 0.030650000000000004,
                                     "__type__": "Float"
                                 },
@@ -623,7 +623,7 @@
                                     "value": 1,
                                     "__type__": "Int"
                                 },
-                                "radius_in": {
+                                "r_in": {
                                     "value": 0.0316,
                                     "__type__": "Float"
                                 },
@@ -632,7 +632,7 @@
                                     "value": 0.01,
                                     "__type__": "Float"
                                 },
-                                "radius_ext": {
+                                "r_ex": {
                                     "value": 0.031700000000000006,
                                     "__type__": "Float"
                                 },
@@ -672,12 +672,12 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
+                                "r_in": {
                                     "value": 0.032150000000000005,
                                     "__type__": "Float"
                                 },
                                 "__julia_type__": "LineCableModels.DataModel.Insulator",
-                                "radius_ext": {
+                                "r_ex": {
                                     "value": 0.032200000000000006,
                                     "__type__": "Float"
                                 },
@@ -710,12 +710,12 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
+                                "r_in": {
                                     "value": 0.032200000000000006,
                                     "__type__": "Float"
                                 },
                                 "__julia_type__": "LineCableModels.DataModel.Insulator",
-                                "radius_ext": {
+                                "r_ex": {
                                     "value": 0.034600000000000006,
                                     "__type__": "Float"
                                 },
@@ -755,12 +755,12 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
+                                "r_in": {
                                     "value": 0.03200000000000001,
                                     "__type__": "Float"
                                 },
                                 "__julia_type__": "LineCableModels.DataModel.Tubular",
-                                "radius_ext": {
+                                "r_ex": {
                                     "value": 0.032150000000000005,
                                     "__type__": "Float"
                                 },
