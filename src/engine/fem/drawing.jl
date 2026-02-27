@@ -4,11 +4,11 @@ These functions handle the creation of geometric entities in Gmsh.
 """
 
 function add_mesh_points(;
-	radius_ext::Number,
+	r_ex::Number,
 	theta_0::Number,
 	theta_1::Number,
 	mesh_size::Number,
-	radius_in::Number = 0.0,
+	r_in::Number = 0.0,
 	num_points_ang::Integer = 8,
 	num_points_rad::Integer = 0,
 	C::Tuple{Number, Number} = (0.0, 0.0),
@@ -31,7 +31,7 @@ function add_mesh_points(;
 
 	# Circular arc (default case or when num_points_rad=0)
 	if num_points_rad == 0
-		r = radius_ext  # Use external radius as default
+		r = r_ex  # Use external radius as default
 		np_ang = max(2, num_points_ang)  # At least 2 points for an arc
 
 		for i in 0:(np_ang-1)
@@ -60,7 +60,7 @@ function add_mesh_points(;
 
 		for j in 0:(np_rad-1)
 			t_rad = j / (np_rad - 1)
-			r = radius_in + t_rad * (radius_ext - radius_in)
+			r = r_in + t_rad * (r_ex - r_in)
 
 			x = center_x + r * cos(theta)
 			y = center_y + r * sin(theta)
@@ -83,7 +83,7 @@ function add_mesh_points(;
 
 	for j in 0:(np_rad-1)
 		t_rad = j / (np_rad - 1)
-		r = radius_in + t_rad * (radius_ext - radius_in)
+		r = r_in + t_rad * (r_ex - r_in)
 
 		for i in 0:(np_ang-1)
 			t_ang = i / (np_ang - 1)
@@ -180,8 +180,8 @@ function draw_line(
 	gmsh.model.set_entity_name(0, marker_tag, "marker_$(round(mesh_size, sigdigits=6))")
 
 	mesh_points = add_mesh_points(
-		radius_in = -radius,
-		radius_ext = radius,
+		r_in = -radius,
+		r_ex = radius,
 		theta_0 = theta,
 		theta_1 = theta,
 		mesh_size = mesh_size,
@@ -243,8 +243,8 @@ function draw_disk(
 	tag = gmsh.model.occ.add_disk(x, y, 0.0, radius, radius)
 
 	mesh_points = add_mesh_points(
-		radius_in = radius,
-		radius_ext = radius,
+		r_in = radius,
+		r_ex = radius,
 		theta_0 = 0,
 		theta_1 = 2 * pi,
 		mesh_size = mesh_size,
@@ -294,8 +294,8 @@ Draw an annular (ring) shape with specified center, inner radius, and outer radi
 
 - `x`: X-coordinate of the center \\[m\\].
 - `y`: Y-coordinate of the center \\[m\\].
-- `radius_in`: Inner radius of the annular shape \\[m\\].
-- `radius_ext`: Outer radius of the annular shape \\[m\\].
+- `r_in`: Inner radius of the annular shape \\[m\\].
+- `r_ex`: Outer radius of the annular shape \\[m\\].
 
 # Returns
 
@@ -310,17 +310,17 @@ annular_tag = $(FUNCTIONNAME)(0.0, 0.0, 0.3, 0.5, 0.01)
 function draw_annular(
 	x::Number,
 	y::Number,
-	radius_in::Number,
-	radius_ext::Number,
+	r_in::Number,
+	r_ex::Number,
 	mesh_size::Number,
 	num_points::Number;
 	inner_points::Bool = false,
 )
 	# Create outer disk
-	outer_disk = gmsh.model.occ.add_disk(x, y, 0.0, radius_ext, radius_ext)
+	outer_disk = gmsh.model.occ.add_disk(x, y, 0.0, r_ex, r_ex)
 
 	# Create inner disk
-	inner_disk = gmsh.model.occ.add_disk(x, y, 0.0, radius_in, radius_in)
+	inner_disk = gmsh.model.occ.add_disk(x, y, 0.0, r_in, r_in)
 
 	# Cut inner disk from outer disk to create annular shape
 	annular_obj, _ = gmsh.model.occ.cut([(2, outer_disk)], [(2, inner_disk)])
@@ -333,8 +333,8 @@ function draw_annular(
 	end
 
 	mesh_points = add_mesh_points(
-		radius_in = radius_ext,
-		radius_ext = radius_ext,
+		r_in = r_ex,
+		r_ex = r_ex,
 		theta_0 = 0,
 		theta_1 = 2 * pi,
 		mesh_size = mesh_size,
@@ -345,8 +345,8 @@ function draw_annular(
 
 	if inner_points
 		mesh_points = add_mesh_points(
-			radius_in = radius_in,
-			radius_ext = radius_in,
+			r_in = r_in,
+			r_ex = r_in,
 			theta_0 = 0,
 			theta_1 = 2 * pi,
 			mesh_size = mesh_size,
@@ -356,7 +356,7 @@ function draw_annular(
 		)
 	end
 
-	marker = [x, y + (radius_in + 0.99 * (radius_ext - radius_in)), 0.0]
+	marker = [x, y + (r_in + 0.99 * (r_ex - r_in)), 0.0]
 	marker_tag = gmsh.model.occ.add_point(marker[1], marker[2], marker[3], mesh_size)
 	gmsh.model.set_entity_name(0, marker_tag, "marker_$(round(mesh_size, sigdigits=6))")
 
@@ -373,8 +373,8 @@ function draw_annular(
 			theta_mid = (i - 0.5) * theta_step
 
 			# Calculate midpoint coordinates
-			mid_x = x + radius_ext * cos(theta_mid)
-			mid_y = y + radius_ext * sin(theta_mid)
+			mid_x = x + r_ex * cos(theta_mid)
+			mid_y = y + r_ex * sin(theta_mid)
 
 			# Create marker at the midpoint
 			mid_marker = [mid_x, mid_y, 0.0]
@@ -563,8 +563,8 @@ function draw_transition_region(
 
 	# Add mesh points for innermost disk
 	inner_mesh_points = add_mesh_points(
-		radius_in = radii[1],
-		radius_ext = radii[1],
+		r_in = radii[1],
+		r_ex = radii[1],
 		theta_0 = 0,
 		theta_1 = 2 * pi,
 		mesh_size = mesh_sizes[1],
@@ -604,8 +604,8 @@ function draw_transition_region(
 
 			# Add mesh points on the boundary
 			boundary_points = add_mesh_points(
-				radius_in = radii[i],
-				radius_ext = radii[i],
+				r_in = radii[i],
+				r_ex = radii[i],
 				theta_0 = 0,
 				theta_1 = 2 * pi,
 				mesh_size = mesh_sizes[i],
@@ -675,9 +675,9 @@ function get_system_centroid(cable_system::LineCableSystem, cable_idx::Vector{<:
 		if !isempty(cable_position.design_data.components)
 			last_component = cable_position.design_data.components[end]
 
-			outer_radius = last_component.insulator_group.radius_ext
+			outer_radius = last_component.insulator_group.r_ex
 
-			insulator_radius_in = last_component.insulator_group.layers[end].radius_in
+			insulator_radius_in = last_component.insulator_group.layers[end].r_in
 			last_layer_thickness = outer_radius - insulator_radius_in
 
 
@@ -701,7 +701,7 @@ Calculate the coordinates of air gaps in a wire array.
 
 - `num_wires`: Number of wires in the array \\[dimensionless\\].
 - `radius_wire`: Radius of each wire \\[m\\].
-- `radius_in`: Inner radius of the wire array \\[m\\].
+- `r_in`: Inner radius of the wire array \\[m\\].
 
 # Returns
 
@@ -719,10 +719,10 @@ boolean fragmentation operations.
 markers = $(FUNCTIONNAME)(7, 0.002, 0.01)
 ```
 """
-function get_air_gap_markers(num_wires::Int, radius_wire::Number, radius_in::Number)
+function get_air_gap_markers(num_wires::Int, radius_wire::Number, r_in::Number)
 	markers = Vector{Vector{Float64}}()
 
-	lay_radius = radius_in + radius_wire
+	lay_radius = r_in + radius_wire
 
 	num_angular_markers = num_wires == 1 ? 6 : num_wires
 	# For multiple wires, place markers between adjacent wires

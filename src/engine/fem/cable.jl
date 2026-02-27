@@ -157,8 +157,8 @@ function _make_cablepart!(workspace::FEMWorkspace, part::AbstractCablePart,
 	)
 
 	# Extract parameters
-	radius_in = to_nominal(part.radius_in)
-	radius_ext = to_nominal(part.radius_ext)
+	r_in = to_nominal(part.r_in)
+	r_ex = to_nominal(part.r_ex)
 
 	# Calculate mesh size for this part
 	if part isa AbstractConductorPart
@@ -170,7 +170,7 @@ function _make_cablepart!(workspace::FEMWorkspace, part::AbstractCablePart,
 	end
 
 	mesh_size_current =
-		_calc_mesh_size(radius_in, radius_ext, part.material_props, num_elements, workspace)
+		_calc_mesh_size(r_in, r_ex, part.material_props, num_elements, workspace)
 
 	# Calculate mesh size for the next part
 	num_layers =
@@ -181,8 +181,8 @@ function _make_cablepart!(workspace::FEMWorkspace, part::AbstractCablePart,
 		nothing
 
 	if !isnothing(next_part)
-		next_radius_in = to_nominal(next_part.radius_in)
-		next_radius_ext = to_nominal(next_part.radius_ext)
+		next_radius_in = to_nominal(next_part.r_in)
+		next_radius_ext = to_nominal(next_part.r_ex)
 		mesh_size_next = _calc_mesh_size(
 			next_radius_in,
 			next_radius_ext,
@@ -202,17 +202,17 @@ function _make_cablepart!(workspace::FEMWorkspace, part::AbstractCablePart,
 	num_points_circumference = workspace.formulation.points_per_circumference
 
 	# Create annular shape and assign marker
-	if radius_in ≈ 0
+	if r_in ≈ 0
 		# Solid disk
 		_, _, marker, _ =
-			draw_disk(x_center, y_center, radius_ext, mesh_size, num_points_circumference)
+			draw_disk(x_center, y_center, r_ex, mesh_size, num_points_circumference)
 	else
 		# Annular shape
 		_, _, marker, _ = draw_annular(
 			x_center,
 			y_center,
-			radius_in,
-			radius_ext,
+			r_in,
+			r_ex,
 			mesh_size,
 			num_points_circumference,
 		)
@@ -289,8 +289,8 @@ function _make_cablepart!(workspace::FEMWorkspace, part::CircStrands,
 	part_type = lowercase(string(nameof(typeof(part))))
 
 	# Extract parameters
-	radius_in = to_nominal(part.radius_in)
-	radius_ext = to_nominal(part.radius_ext)
+	r_in = to_nominal(part.r_in)
+	r_ex = to_nominal(part.r_ex)
 
 	radius_wire = to_nominal(part.radius_wire)
 	num_wires = part.num_wires
@@ -299,7 +299,7 @@ function _make_cablepart!(workspace::FEMWorkspace, part::CircStrands,
 	# Calculate mesh size for this part
 	num_elements = workspace.formulation.elements_per_length_conductor
 	mesh_size_current =
-		_calc_mesh_size(radius_in, radius_ext, part.material_props, num_elements, workspace)
+		_calc_mesh_size(r_in, r_ex, part.material_props, num_elements, workspace)
 
 	# Calculate mesh size for the next part
 	num_layers =
@@ -310,8 +310,8 @@ function _make_cablepart!(workspace::FEMWorkspace, part::CircStrands,
 		nothing
 
 	if !isnothing(next_part)
-		next_radius_in = to_nominal(next_part.radius_in)
-		next_radius_ext = to_nominal(next_part.radius_ext)
+		next_radius_in = to_nominal(next_part.r_in)
+		next_radius_ext = to_nominal(next_part.r_ex)
 		mesh_size_next = _calc_mesh_size(
 			next_radius_in,
 			next_radius_ext,
@@ -336,13 +336,13 @@ function _make_cablepart!(workspace::FEMWorkspace, part::CircStrands,
 	function _calc_circstrands_coords(
 		num_wires::Number,
 		# radius_wire::Number,
-		radius_in::Number,
-		radius_ext::Number;
+		r_in::Number,
+		r_ex::Number;
 		C = (0.0, 0.0),
 	)
 		wire_coords = []  # Global coordinates of all wires
 
-		lay_radius = num_wires == 1 ? 0 : (radius_in + radius_ext) / 2
+		lay_radius = num_wires == 1 ? 0 : (r_in + r_ex) / 2
 
 		# Calculate the angle between each wire
 		angle_step = 2 * π / num_wires
@@ -356,7 +356,7 @@ function _make_cablepart!(workspace::FEMWorkspace, part::CircStrands,
 	end
 
 	wire_positions =
-		_calc_circstrands_coords(num_wires, radius_in, radius_ext, C = (x_center, y_center))
+		_calc_circstrands_coords(num_wires, r_in, r_ex, C = (x_center, y_center))
 
 	# Create wires
 	TOL = is_single_wire ? 0 : 5e-6 # Shrink the radius to avoid overlapping boundaries, this must be greater than Gmsh geometry tolerance
@@ -387,12 +387,12 @@ function _make_cablepart!(workspace::FEMWorkspace, part::CircStrands,
 	register_physical_group!(workspace, physical_group_tag, part.material_props)
 
 	# Handle CircStrands outermost boundary
-	mesh_size = (radius_ext - radius_in)
+	mesh_size = (r_ex - r_in)
 	if !(next_part isa CircStrands) && !isnothing(next_part)
 		# step_angle = 2 * pi / num_wires
 		add_mesh_points(
-			radius_in = radius_ext,
-			radius_ext = radius_ext,
+			r_in = r_ex,
+			r_ex = r_ex,
 			theta_0 = 0,
 			theta_1 = 2 * pi,
 			mesh_size = mesh_size,
@@ -409,7 +409,7 @@ function _make_cablepart!(workspace::FEMWorkspace, part::CircStrands,
 	# Skip ONLY for single wire when next part is not a CircStrands
 	if !is_single_wire
 		# Air gaps will be determined from the boolean fragmentation operation and do not need to be drawn. Only the markers are needed.
-		markers_air_gap = get_air_gap_markers(num_wires, radius_wire, radius_in)
+		markers_air_gap = get_air_gap_markers(num_wires, radius_wire, r_in)
 
 		# Adjust air gap markers to cable center
 		for marker in markers_air_gap

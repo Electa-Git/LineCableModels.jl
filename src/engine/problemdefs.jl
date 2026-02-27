@@ -63,12 +63,12 @@ struct LineParametersProblem{T <: REALSCALAR} <: ProblemDefinition
 				@assert !isempty(comp.insulator_group.layers) "Component $j in cable $i has no insulator layers"
 
 				# Validate monotonic increase of radii
-				@assert comp.conductor_group.radius_ext > comp.conductor_group.radius_in "Component $j in cable $i: conductor outer radius must be larger than inner radius"
-				@assert comp.insulator_group.radius_ext > comp.insulator_group.radius_in "Component $j in cable $i: insulator outer radius must be larger than inner radius"
+				@assert comp.conductor_group.r_ex > comp.conductor_group.r_in "Component $j in cable $i: conductor outer radius must be larger than inner radius"
+				@assert comp.insulator_group.r_ex > comp.insulator_group.r_in "Component $j in cable $i: insulator outer radius must be larger than inner radius"
 
 				# Validate geometric continuity between conductor and insulator
-				r_ext_cond = comp.conductor_group.radius_ext
-				r_in_ins = comp.insulator_group.radius_in
+				r_ext_cond = comp.conductor_group.r_ex
+				r_in_ins = comp.insulator_group.r_in
 				@assert abs(r_ext_cond - r_in_ins) < 1e-10 "Geometric mismatch in cable $i component $j: conductor outer radius ≠ insulator inner radius"
 
 				# Validate electromagnetic properties
@@ -113,7 +113,7 @@ T₀ = $T₀
 				cable.horz,
 				cable.vert,
 				maximum(
-					comp.insulator_group.radius_ext
+					comp.insulator_group.r_ex
 					for comp in cable.design_data.components
 				),
 			)

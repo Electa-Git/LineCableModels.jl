@@ -48,9 +48,9 @@ end
 function _calc_mesh_size(part::AbstractCablePart, workspace::FEMWorkspace)
 
 	# Extract geometric properties
-	radius_in = to_nominal(part.radius_in)
-	radius_ext = to_nominal(part.radius_ext)
-	thickness = radius_ext - radius_in
+	r_in = to_nominal(part.r_in)
+	r_ex = to_nominal(part.r_ex)
+	thickness = r_ex - r_in
 
 	# Extract formulation parameters
 	formulation = workspace.formulation
@@ -78,14 +78,14 @@ function _calc_mesh_size(part::AbstractCablePart, workspace::FEMWorkspace)
 end
 
 function _calc_mesh_size(
-	radius_in::Number,
-	radius_ext::Number,
+	r_in::Number,
+	r_ex::Number,
 	material::Material,
 	num_elements::Int,
 	workspace::FEMWorkspace,
 )
 	# Extract geometric properties
-	thickness = radius_ext - radius_in
+	thickness = r_ex - r_in
 
 	# Extract problem_def parameters
 	formulation = workspace.formulation

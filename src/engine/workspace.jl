@@ -147,10 +147,10 @@ function init_workspace(
 			# Geometric properties
 			horz[idx] = T(cable.horz)
 			vert[idx] = T(cable.vert)
-			r_in[idx] = T(component.conductor_group.radius_in)
-			r_ext[idx] = T(component.conductor_group.radius_ext)
-			r_ins_in[idx] = T(component.insulator_group.radius_in)
-			r_ins_ext[idx] = T(component.insulator_group.radius_ext)
+			r_in[idx] = T(component.conductor_group.r_in)
+			r_ext[idx] = T(component.conductor_group.r_ex)
+			r_ins_in[idx] = T(component.insulator_group.r_in)
+			r_ins_ext[idx] = T(component.insulator_group.r_ex)
 
 			# Material properties
 			rho_cond[idx] = T(component.conductor_props.rho)
