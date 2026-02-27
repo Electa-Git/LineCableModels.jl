@@ -197,7 +197,7 @@ core = ConductorGroup(CircStrands(0.0, Diameter(d_w), 1, 0.0, material))
 
 #=
 !!! tip "Convenience methods"
-	The [`add!`](@ref) method internally passes the `radius_ext` of the existing object to the `radius_in` argument of the new conductor. This enables easy stacking of multiple layers without redundancy. Moreover, the [`Diameter`](@ref) method is a convenience function that converts the diameter to radius at the constructor level. This maintains alignment with manufacturer specifications while enabling internal calculations to use radius values directly. This approach eliminates repetitive unit conversions and potential sources of implementation error.
+	The [`add!`](@ref) method internally passes the `r_ex` of the existing object to the `r_in` argument of the new conductor. This enables easy stacking of multiple layers without redundancy. Moreover, the [`Diameter`](@ref) method is a convenience function that converts the diameter to radius at the constructor level. This maintains alignment with manufacturer specifications while enabling internal calculations to use radius values directly. This approach eliminates repetitive unit conversions and potential sources of implementation error.
 =#
 
 # Add the subsequent layers of wires and inspect the object:
