@@ -105,7 +105,7 @@ end
 	return L[end]
 end
 
-# ----- proxy for radius_ext by CONTRACT -----
+# ----- proxy for r_ex by CONTRACT -----
 @inline function _resolve_dim(T::Type, is_abs_first::Bool)
 	return T <: DataModel.AbstractStrandsLayer ? :diameter :
 		   (is_abs_first && T === DataModel.Tubular ? :diameter : :thickness)
