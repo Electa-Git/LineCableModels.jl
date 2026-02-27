@@ -43,7 +43,7 @@ _serializable_fields(::NominalData) = (
 
 # Layer Types (Conductor Parts)
 _serializable_fields(::CircStrands) = (
-	:radius_in, # Needed for first layer reconstruction
+	:r_in, # Needed for first layer reconstruction
 	:radius_wire,
 	:num_wires,
 	:lay_ratio,
@@ -54,7 +54,7 @@ _serializable_fields(::CircStrands) = (
 
 # Layer Types (Conductor Parts)
 _serializable_fields(::RectStrands) = (
-	:radius_in, # Needed for first layer reconstruction
+	:r_in, # Needed for first layer reconstruction
 	:thickness,
 	:width,
 	:num_wires,
@@ -65,14 +65,14 @@ _serializable_fields(::RectStrands) = (
 )
 
 _serializable_fields(::Tubular) = (
-	:radius_in, # Needed for first layer reconstruction
-	:radius_ext,
+	:r_in, # Needed for first layer reconstruction
+	:r_ex,
 	:material_props,
 	:temperature,
 )
 _serializable_fields(::Strip) = (
-	:radius_in, # Needed for first layer reconstruction
-	:radius_ext,
+	:r_in, # Needed for first layer reconstruction
+	:r_ex,
 	:width,
 	:lay_ratio,
 	:material_props,
@@ -82,14 +82,14 @@ _serializable_fields(::Strip) = (
 
 # Layer Types (Insulator Parts)
 _serializable_fields(::Insulator) = (
-	:radius_in, # Needed for first layer reconstruction
-	:radius_ext,
+	:r_in, # Needed for first layer reconstruction
+	:r_ex,
 	:material_props,
 	:temperature,
 )
 _serializable_fields(::Semicon) = (
-	:radius_in, # Needed for first layer reconstruction
-	:radius_ext,
+	:r_in, # Needed for first layer reconstruction
+	:r_ex,
 	:material_props,
 	:temperature,
 )

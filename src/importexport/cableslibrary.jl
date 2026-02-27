@@ -306,14 +306,14 @@ function _reconstruct_partsgroup(layer_data::Dict)
 	end
 
 	# Extract necessary fields using get with Symbol keys
-	radius_in = get_as(deserialized_layer_dict, :radius_in, missing, BASE_FLOAT)
+	r_in = get_as(deserialized_layer_dict, :r_in, missing, BASE_FLOAT)
 	material_props = get_as(deserialized_layer_dict, :material_props, missing, BASE_FLOAT)
 	temperature = get_as(deserialized_layer_dict, :temperature, T₀, BASE_FLOAT)
 
 	# Check for essential properties common to most first layers
-	ismissing(radius_in) &&
+	ismissing(r_in) &&
 		Base.error(
-			"Missing 'radius_in' for first layer type $LayerType in data: $layer_data",
+			"Missing 'r_in' for first layer type $LayerType in data: $layer_data",
 		)
 	ismissing(material_props) && error(
 		"Missing 'material_props' for first layer type $LayerType in data: $layer_data",
@@ -340,7 +340,7 @@ function _reconstruct_partsgroup(layer_data::Dict)
 			num_wires_int = isa(num_wires, Int) ? num_wires : Int(num_wires)
 			lay_direction_int = isa(lay_direction, Int) ? lay_direction : Int(lay_direction)
 			return CircStrands(
-				radius_in,
+				r_in,
 				radius_wire,
 				num_wires_int,
 				lay_ratio,
@@ -349,24 +349,24 @@ function _reconstruct_partsgroup(layer_data::Dict)
 				lay_direction = lay_direction_int,
 			)
 		elseif LayerType == Tubular
-			radius_ext = get_as(deserialized_layer_dict, :radius_ext, missing, BASE_FLOAT)
-			ismissing(radius_ext) &&
-				Base.error("Missing 'radius_ext' for Tubular first layer.")
+			r_ex = get_as(deserialized_layer_dict, :r_ex, missing, BASE_FLOAT)
+			ismissing(r_ex) &&
+				Base.error("Missing 'r_ex' for Tubular first layer.")
 			return Tubular(
-				radius_in, radius_ext, material_props; temperature = temperature)
+				r_in, r_ex, material_props; temperature = temperature)
 		elseif LayerType == Strip
-			radius_ext = get_as(deserialized_layer_dict, :radius_ext, missing, BASE_FLOAT)
+			r_ex = get_as(deserialized_layer_dict, :r_ex, missing, BASE_FLOAT)
 			width = get_as(deserialized_layer_dict, :width, missing, BASE_FLOAT)
 			lay_ratio = get_as(deserialized_layer_dict, :lay_ratio, missing, BASE_FLOAT)
 			lay_direction = get(deserialized_layer_dict, :lay_direction, 1)
-			any(ismissing, (radius_ext, width, lay_ratio)) && error(
-				"Missing required field(s) (radius_ext, width, lay_ratio) for Strip first layer.",
+			any(ismissing, (r_ex, width, lay_ratio)) && error(
+				"Missing required field(s) (r_ex, width, lay_ratio) for Strip first layer.",
 			)
 			lay_direction_int = isa(lay_direction, Int) ? lay_direction : Int(lay_direction)
 
 			return Strip(
-				radius_in,
-				radius_ext,
+				r_in,
+				r_ex,
 				width,
 				lay_ratio,
 				material_props;
@@ -374,20 +374,20 @@ function _reconstruct_partsgroup(layer_data::Dict)
 				lay_direction = lay_direction_int,
 			)
 		elseif LayerType == Insulator
-			radius_ext = get_as(deserialized_layer_dict, :radius_ext, missing, BASE_FLOAT)
-			ismissing(radius_ext) &&
-				Base.error("Missing 'radius_ext' for Insulator first layer.")
+			r_ex = get_as(deserialized_layer_dict, :r_ex, missing, BASE_FLOAT)
+			ismissing(r_ex) &&
+				Base.error("Missing 'r_ex' for Insulator first layer.")
 			return Insulator(
-				radius_in,
-				radius_ext,
+				r_in,
+				r_ex,
 				material_props;
 				temperature = temperature,
 			)
 		elseif LayerType == Semicon
-			radius_ext = get_as(deserialized_layer_dict, :radius_ext, missing, BASE_FLOAT)
-			ismissing(radius_ext) &&
-				Base.error("Missing 'radius_ext' for Semicon first layer.")
-			return Semicon(radius_in, radius_ext, material_props; temperature = temperature)
+			r_ex = get_as(deserialized_layer_dict, :r_ex, missing, BASE_FLOAT)
+			ismissing(r_ex) &&
+				Base.error("Missing 'r_ex' for Semicon first layer.")
+			return Semicon(r_in, r_ex, material_props; temperature = temperature)
 		else
 			Base.error("Unsupported layer type for first layer reconstruction: $LayerType")
 		end
@@ -529,19 +529,19 @@ function _reconstruct_cabledesign(
 					)
 					args = [radius_wire, num_wires, lay_ratio, material_props]
 				elseif LayerType == Tubular
-					radius_ext = get_as(layer_data, "radius_ext", missing, BASE_FLOAT)
-					ismissing(radius_ext) &&
-						Base.error("Missing 'radius_ext' for Tubular layer $i in $comp_id")
-					args = [radius_ext, material_props]
+					r_ex = get_as(layer_data, "r_ex", missing, BASE_FLOAT)
+					ismissing(r_ex) &&
+						Base.error("Missing 'r_ex' for Tubular layer $i in $comp_id")
+					args = [r_ex, material_props]
 				elseif LayerType == Strip
-					radius_ext = get_as(layer_data, "radius_ext", missing, BASE_FLOAT)
+					r_ex = get_as(layer_data, "r_ex", missing, BASE_FLOAT)
 					width = get_as(layer_data, "width", missing, BASE_FLOAT)
 					lay_ratio = get_as(layer_data, "lay_ratio", missing, BASE_FLOAT)
-					any(ismissing, (radius_ext, width, lay_ratio)) &&
+					any(ismissing, (r_ex, width, lay_ratio)) &&
 						Base.error(
 							"Missing required field(s) for Strip layer $i in $comp_id",
 						)
-					args = [radius_ext, width, lay_ratio, material_props]
+					args = [r_ex, width, lay_ratio, material_props]
 				else
 					Base.error("Unsupported layer type '$LayerType' for add!")
 				end
@@ -602,15 +602,15 @@ function _reconstruct_cabledesign(
 			kwargs[:temperature] = get_as(layer_data, "temperature", T₀, BASE_FLOAT)
 
 			try
-				# All insulator types (Semicon, Insulator) take radius_ext, material_props
+				# All insulator types (Semicon, Insulator) take r_ex, material_props
 				# for the add! method.
 				if LayerType in [Semicon, Insulator]
-					radius_ext = get_as(layer_data, "radius_ext", missing, BASE_FLOAT)
-					ismissing(radius_ext) &&
+					r_ex = get_as(layer_data, "r_ex", missing, BASE_FLOAT)
+					ismissing(r_ex) &&
 						Base.error(
-							"Missing 'radius_ext' for $LayerType layer $i in $comp_id",
+							"Missing 'r_ex' for $LayerType layer $i in $comp_id",
 						)
-					args = [radius_ext, material_props]
+					args = [r_ex, material_props]
 				else
 					Base.error("Unsupported layer type '$LayerType' for add!")
 				end

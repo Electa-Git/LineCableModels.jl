@@ -117,7 +117,7 @@ function export_data(::Val{:tralin},
 			)
 		end
 		# Outer radius for CABLE line
-		outer_R = to_nominal(comps_vec[end].insulator_group.radius_ext)
+		outer_R = to_nominal(comps_vec[end].insulator_group.r_ex)
 		push!(lines, "CABLE,CA-$(pidx),$(_fmt(outer_R))")
 
 		# Strict connection vector
@@ -150,8 +150,8 @@ function export_data(::Val{:tralin},
 			cond_props = comp.conductor_props
 			ins_props  = comp.insulator_props
 
-			rin  = _fmt(cond_group.radius_in)
-			rex  = _fmt(cond_group.radius_ext)
+			rin  = _fmt(cond_group.r_in)
+			rex  = _fmt(cond_group.r_ex)
 			rho  = _fmt(cond_props.rho/ρ₀) # values in TRALIN are normalized to match the annealed copper
 			muC  = _fmt(cond_props.mu_r)
 			epsI = _fmt(ins_props.eps_r)  # coating εr

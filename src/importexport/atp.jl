@@ -204,7 +204,7 @@ function export_data(::Val{:atp},
 
 		num_components = length(cable.design_data.components)
 		outermost_radius =
-			to_nominal(cable.design_data.components[end].insulator_group.radius_ext)
+			to_nominal(cable.design_data.components[end].insulator_group.r_ex)
 
 		_set_attributes!(
 			cable_node,
@@ -232,8 +232,8 @@ function export_data(::Val{:atp},
 			_set_attributes!(
 				conductor_node,
 				Dict(
-					"Rin" => to_nominal(cond_group.radius_in),
-					"Rout" => to_nominal(cond_group.radius_ext),
+					"Rin" => to_nominal(cond_group.r_in),
+					"Rout" => to_nominal(cond_group.r_ex),
 					"rho" => to_nominal(rho_eq),
 					"muC" => to_nominal(mu_r_cond),
 					"muI" => to_nominal(mu_r_ins),
