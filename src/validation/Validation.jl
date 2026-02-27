@@ -34,7 +34,7 @@ include("applyrules.jl")
 """
 $(TYPEDSIGNATURES)
 
-Trait hook enabling the annular radii rule bundle on fields `:radius_in` and `:radius_ext` (normalized numbers required, finiteness, non‑negativity, and the ordering constraint `:radius_in` < `:radius_ext`). It does **not** indicate the mere existence of radii; it opts in to the annular/coaxial shell geometry checks.
+Trait hook enabling the annular radii rule bundle on fields `:r_in` and `:r_ex` (normalized numbers required, finiteness, non‑negativity, and the ordering constraint `:r_in` < `:r_ex`). It does **not** indicate the mere existence of radii; it opts in to the annular/coaxial shell geometry checks.
 
 # Arguments
 
@@ -184,7 +184,7 @@ Field‑aware acceptance predicate used by `sanitize` to distinguish inner vs. o
 # Arguments
 
 - `::Type{T}`: Component type \\[dimensionless\\].
-- `::Val{F}`: Field tag; typically `Val(:radius_in)` or `Val(:radius_ext)` \\[dimensionless\\].
+- `::Val{F}`: Field tag; typically `Val(:r_in)` or `Val(:r_ex)` \\[dimensionless\\].
 - `x`: Candidate value \\[dimensionless\\].
 
 # Returns
@@ -194,8 +194,8 @@ Field‑aware acceptance predicate used by `sanitize` to distinguish inner vs. o
 # Examples
 
 ```julia
-Validation.is_radius_input(Tubular, Val(:radius_in), 0.01)   # true
-Validation.is_radius_input(Tubular, Val(:radius_ext), 0.01)  # true
+Validation.is_radius_input(Tubular, Val(:r_in), 0.01)   # true
+Validation.is_radius_input(Tubular, Val(:r_ex), 0.01)  # true
 ```
 
 # See also
@@ -213,7 +213,7 @@ Default policy for **inner** radius raw inputs: accept real numbers.
 # Arguments
 
 - `::Type{T}`: Component type \\[dimensionless\\].
-- `::Val{:radius_in}`: Field tag for the inner radius \\[dimensionless\\].
+- `::Val{:r_in}`: Field tag for the inner radius \\[dimensionless\\].
 - `x::Number`: Candidate value \\[dimensionless\\].
 
 # Returns
@@ -223,13 +223,13 @@ Default policy for **inner** radius raw inputs: accept real numbers.
 # Examples
 
 ```julia
-Validation.is_radius_input(Tubular, Val(:radius_in), 0.0)   # true
-Validation.is_radius_input(Tubular, Val(:radius_in), 1+0im) # false
+Validation.is_radius_input(Tubular, Val(:r_in), 0.0)   # true
+Validation.is_radius_input(Tubular, Val(:r_in), 1+0im) # false
 ```
 """
-is_radius_input(::Type{T}, ::Val{:radius_in}, x::Number) where {T} =
+is_radius_input(::Type{T}, ::Val{:r_in}, x::Number) where {T} =
 	(x isa Number) && !(x isa Complex)
-is_radius_input(::Type{T}, ::Val{:radius_in}, ::Any) where {T} = false
+is_radius_input(::Type{T}, ::Val{:r_in}, ::Any) where {T} = false
 
 """
 $(TYPEDSIGNATURES)
@@ -239,7 +239,7 @@ Default policy for **outer** radius raw inputs (annular shells): accept real num
 # Arguments
 
 - `::Type{T}`: Component type \\[dimensionless\\].
-- `::Val{:radius_ext}`: Field tag for the outer radius \\[dimensionless\\].
+- `::Val{:r_ex}`: Field tag for the outer radius \\[dimensionless\\].
 - `x::Number`: Candidate value \\[dimensionless\\].
 
 # Returns
@@ -249,12 +249,12 @@ Default policy for **outer** radius raw inputs (annular shells): accept real num
 # Examples
 
 ```julia
-Validation.is_radius_input(Tubular, Val(:radius_ext), 0.02)  # true
+Validation.is_radius_input(Tubular, Val(:r_ex), 0.02)  # true
 ```
 """
-is_radius_input(::Type{T}, ::Val{:radius_ext}, x::Number) where {T} =
+is_radius_input(::Type{T}, ::Val{:r_ex}, x::Number) where {T} =
 	(x isa Number) && !(x isa Complex)
-is_radius_input(::Type{T}, ::Val{:radius_ext}, ::Any) where {T} = false
+is_radius_input(::Type{T}, ::Val{:r_ex}, ::Any) where {T} = false
 
 """
 $(TYPEDSIGNATURES)
@@ -390,20 +390,20 @@ function sanitize(::Type{T}, args::Tuple, kwargs::NamedTuple) where {T}
 
 	# radii raw acceptance (unchanged)
 	if has_radii(T)
-		haskey(nt, :radius_in) ||
-			throw(ArgumentError("[$(_typename(T))] missing 'radius_in'."))
-		haskey(nt, :radius_ext) ||
-			throw(ArgumentError("[$(_typename(T))] missing 'radius_ext'."))
-		is_radius_input(T, Val(:radius_in), nt.radius_in) ||
+		haskey(nt, :r_in) ||
+			throw(ArgumentError("[$(_typename(T))] missing 'r_in'."))
+		haskey(nt, :r_ex) ||
+			throw(ArgumentError("[$(_typename(T))] missing 'r_ex'."))
+		is_radius_input(T, Val(:r_in), nt.r_in) ||
 			throw(
 				ArgumentError(
-					"[$(_typename(T))] radius_in not an accepted input: $(typeof(nt.radius_in))",
+					"[$(_typename(T))] r_in not an accepted input: $(typeof(nt.r_in))",
 				),
 			)
-		is_radius_input(T, Val(:radius_ext), nt.radius_ext) ||
+		is_radius_input(T, Val(:r_ex), nt.r_ex) ||
 			throw(
 				ArgumentError(
-					"[$(_typename(T))] radius_ext not an accepted input: $(typeof(nt.radius_ext))",
+					"[$(_typename(T))] r_ex not an accepted input: $(typeof(nt.r_ex))",
 				),
 			)
 	end
@@ -422,7 +422,7 @@ Parses and normalizes raw inputs produced by [`sanitize`](@ref) into the canonic
 
 # Returns
 
-- `NamedTuple` with normalized fields (e.g., numeric `:radius_in`, `:radius_ext`).
+- `NamedTuple` with normalized fields (e.g., numeric `:r_in`, `:r_ex`).
 """
 parse(::Type, nt) = nt
 
@@ -443,10 +443,10 @@ Generates (at compile time, via a `@generated` function) the tuple of rules to a
 	:((
 		(
 			has_radii(T) ?
-			(Normalized(:radius_in), Normalized(:radius_ext),
-				Finite(:radius_in), Nonneg(:radius_in),
-				Finite(:radius_ext), Nonneg(:radius_ext),
-				Less(:radius_in, :radius_ext)) : ()
+			(Normalized(:r_in), Normalized(:r_ex),
+				Finite(:r_in), Nonneg(:r_in),
+				Finite(:r_ex), Nonneg(:r_ex),
+				Less(:r_in, :r_ex)) : ()
 		)...,
 		(has_temperature(T) ? (Finite(:temperature),) : ())...,
 		extra_rules(T)...,
@@ -476,7 +476,7 @@ Runs the full validation pipeline for a component type: `sanitize` (arity and ra
 
 ```julia
 nt = $(FUNCTIONNAME)(Tubular, 0.01, 0.02, material; temperature = 20.0)
-# use nt.radius_in, nt.radius_ext, nt.temperature thereafter
+# use nt.r_in, nt.r_ex, nt.temperature thereafter
 ```
 
 # See also

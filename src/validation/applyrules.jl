@@ -62,7 +62,7 @@ Asserts that `x` is a real (non‑complex) number. Used by rule implementations 
 # Examples
 
 ```julia
-$(FUNCTIONNAME)(:radius_in, 0.01, SomeType)  # ok
+$(FUNCTIONNAME)(:r_in, 0.01, SomeType)  # ok
 ```
 """
 @inline function _ensure_real(field::Symbol, x, ::Type{T}) where {T}
