@@ -7,9 +7,9 @@ $(TYPEDFIELDS)
 """
 struct CircStrands{T <: REALSCALAR, U <: Int} <: AbstractStrandsLayer{T}
 	"Internal radius of the wire array \\[m\\]."
-	radius_in::T
+	r_in::T
 	"External radius of the wire array \\[m\\]."
-	radius_ext::T
+	r_ex::T
 	"Radius of each individual wire \\[m\\]."
 	radius_wire::T
 	"Number of wires in the array \\[dimensionless\\]."
@@ -41,7 +41,7 @@ Constructs a [`CircStrands`](@ref) instance based on specified geometric and mat
 
 # Arguments
 
-- `radius_in`: Internal radius of the wire array \\[m\\].
+- `r_in`: Internal radius of the wire array \\[m\\].
 - `radius_wire`: Radius of each individual wire \\[m\\].
 - `num_wires`: Number of wires in the array \\[dimensionless\\].
 - `lay_ratio`: Ratio defining the lay length of the wires (twisting factor) \\[dimensionless\\].
@@ -71,7 +71,7 @@ println(circstrands.resistance)     # Outputs resistance in Ω/m
 - [`calc_helical_params`](@ref)
 """
 function CircStrands(
-	radius_in::T,
+	r_in::T,
 	radius_wire::T,
 	num_wires::U,
 	lay_ratio::T,
@@ -83,12 +83,12 @@ function CircStrands(
 	rho = material_props.rho
 	T0 = material_props.T0
 	alpha = material_props.alpha
-	radius_ext = num_wires == 1 ? radius_wire : radius_in + 2 * radius_wire # TODO: The resolved outer radius for stranded cores should account for compression. See rectstrands.jl for an example of area-preserving expansion. 
-	                                                                        # Issue URL: https://github.com/Electa-Git/LineCableModels.jl/issues/32
+	r_ex = num_wires == 1 ? radius_wire : r_in + 2 * radius_wire # TODO: The resolved outer radius for stranded cores should account for compression. See rectstrands.jl for an example of area-preserving expansion. 
+	# Issue URL: https://github.com/Electa-Git/LineCableModels.jl/issues/32
 
 	mean_diameter, pitch_length, overlength = calc_helical_params(
-		radius_in,
-		radius_ext,
+		r_in,
+		r_ex,
 		lay_ratio,
 	)
 
@@ -100,7 +100,7 @@ function CircStrands(
 	R_all_wires = R_wire / num_wires
 
 	gmr = calc_circstrands_gmr(
-		radius_in + radius_wire,
+		r_in + radius_wire,
 		num_wires,
 		radius_wire,
 		material_props.mu_r,
@@ -108,8 +108,8 @@ function CircStrands(
 
 	# Initialize object
 	return CircStrands(
-		radius_in,
-		radius_ext,
+		r_in,
+		r_ex,
 		radius_wire,
 		num_wires,
 		lay_ratio,
@@ -124,7 +124,7 @@ function CircStrands(
 	)
 end
 
-const _REQ_CIRCSTRANDS = (:radius_in, :radius_wire, :num_wires, :lay_ratio, :material_props)
+const _REQ_CIRCSTRANDS = (:r_in, :radius_wire, :num_wires, :lay_ratio, :material_props)
 const _OPT_CIRCSTRANDS = (:temperature, :lay_direction)
 const _DEFS_CIRCSTRANDS = (T₀, 1)
 
@@ -135,16 +135,16 @@ Validation.keyword_fields(::Type{CircStrands}) = _OPT_CIRCSTRANDS
 Validation.keyword_defaults(::Type{CircStrands}) = _DEFS_CIRCSTRANDS
 
 Validation.coercive_fields(::Type{CircStrands}) =
-	(:radius_in, :radius_wire, :lay_ratio, :material_props, :temperature)  # not :num_wires, :lay_direction
+	(:r_in, :radius_wire, :lay_ratio, :material_props, :temperature)  # not :num_wires, :lay_direction
 # accept proxies for radii
-Validation.is_radius_input(::Type{CircStrands}, ::Val{:radius_in},
+Validation.is_radius_input(::Type{CircStrands}, ::Val{:r_in},
 	x::AbstractCablePart) = true
-Validation.is_radius_input(::Type{CircStrands}, ::Val{:radius_ext},
+Validation.is_radius_input(::Type{CircStrands}, ::Val{:r_ex},
 	x::Diameter) = true
 
 Validation.extra_rules(::Type{CircStrands}) = (
 	# radii (post-parse they must be numeric)
-	Normalized(:radius_in), Finite(:radius_in), Nonneg(:radius_in),
+	Normalized(:r_in), Finite(:r_in), Nonneg(:r_in),
 	Normalized(:radius_wire), Finite(:radius_wire), Positive(:radius_wire),
 
 	# counts and geometry params
@@ -163,8 +163,8 @@ maxfill(::Type{CircStrands}, rin::Real, rw::Real) =
 
 # normalize proxies -> numbers
 Validation.parse(::Type{CircStrands}, nt) = begin
-	rin, rw = _normalize_radii(CircStrands, nt.radius_in, nt.radius_wire)
-	(; nt..., radius_in = rin, radius_wire = rw)
+	rin, rw = _normalize_radii(CircStrands, nt.r_in, nt.radius_wire)
+	(; nt..., r_in = rin, radius_wire = rw)
 end
 
 # This macro expands to a weakly-typed constructor for CircStrands

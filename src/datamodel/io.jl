@@ -1,6 +1,6 @@
 # Full inheritance over composition madness
 function Base.getproperty(part::AbstractCablePart, sym::Symbol)
-	# Fast path: Is it a real field on the top-level struct? (radius_in, gmr, shape)
+	# Fast path: Is it a real field on the top-level struct? (r_in, gmr, shape)
 	if hasfield(typeof(part), sym)
 		return getfield(part, sym) # MUST use getfield here to prevent infinite recursion
 	end
@@ -70,8 +70,8 @@ function Base.show(io::IO, ::MIME"text/plain", part::T) where {T <: AbstractCabl
 		io,
 		part,
 		[
-			:radius_in,
-			:radius_ext,
+			:r_in,
+			:r_ex,
 			:cross_section,
 			:resistance,
 			:gmr,
@@ -117,8 +117,8 @@ function Base.show(io::IO, ::MIME"text/plain", group::Union{ConductorGroup, Insu
 		io,
 		group,
 		[
-			:radius_in,
-			:radius_ext,
+			:r_in,
+			:r_ex,
 			:cross_section,
 			:resistance,
 			:gmr,
@@ -139,8 +139,8 @@ function Base.show(io::IO, ::MIME"text/plain", group::Union{ConductorGroup, Insu
 			io,
 			layer,
 			[
-				:radius_in,
-				:radius_ext,
+				:r_in,
+				:r_ex,
 				:cross_section,
 				:resistance,
 				:gmr,

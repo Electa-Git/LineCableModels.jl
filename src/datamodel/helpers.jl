@@ -92,7 +92,7 @@ end
 # Outermost radius of a fully-built cable design 
 @inline function get_outer_radius(des::CableDesign)
 	last_comp = des.components[end]
-	r_c = to_nominal(last_comp.conductor_group.radius_ext)
-	r_i = to_nominal(last_comp.insulator_group.radius_ext)
+	r_c = to_nominal(last_comp.conductor_group.r_ex)
+	r_i = to_nominal(last_comp.insulator_group.r_ex)
 	return max(r_c, r_i)
 end

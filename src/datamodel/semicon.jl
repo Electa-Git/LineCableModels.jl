@@ -7,9 +7,9 @@ $(TYPEDFIELDS)
 """
 struct Semicon{T <: REALSCALAR} <: AbstractInsulatorPart{T}
 	"Internal radius of the semiconducting layer \\[m\\]."
-	radius_in::T
+	r_in::T
 	"External radius of the semiconducting layer \\[m\\]."
-	radius_ext::T
+	r_ex::T
 	"Material properties of the semiconductor."
 	material_props::Material{T}
 	"Operating temperature of the semiconductor \\[°C\\]."
@@ -33,8 +33,8 @@ Constructs a [`Semicon`](@ref) instance with calculated electrical and geometric
 
 # Arguments
 
-- `radius_in`: Internal radius of the semiconducting layer \\[m\\].
-- `radius_ext`: External radius or thickness of the layer \\[m\\].
+- `r_in`: Internal radius of the semiconducting layer \\[m\\].
+- `r_ex`: External radius or thickness of the layer \\[m\\].
 - `material_props`: Material properties of the semiconducting material.
 - `temperature`: Operating temperature of the layer \\[°C\\] (default: T₀).
 
@@ -55,8 +55,8 @@ println(semicon_layer.shunt_conductance)  # Expected output: Conductance in [S·
 ```
 """
 function Semicon(
-	radius_in::T,
-	radius_ext::T,
+	r_in::T,
+	r_ex::T,
 	material_props::Material{T},
 	temperature::T,
 ) where {T <: REALSCALAR}
@@ -66,18 +66,18 @@ function Semicon(
 	alpha = material_props.alpha
 	epsr_r = material_props.eps_r
 
-	cross_section = π * (radius_ext^2 - radius_in^2)
+	cross_section = π * (r_ex^2 - r_in^2)
 
 	resistance =
-		calc_tubular_resistance(radius_in, radius_ext, rho, alpha, T0, temperature)
-	gmr = calc_tubular_gmr(radius_ext, radius_in, material_props.mu_r)
-	shunt_capacitance = calc_shunt_capacitance(radius_in, radius_ext, epsr_r)
-	shunt_conductance = calc_shunt_conductance(radius_in, radius_ext, rho)
+		calc_tubular_resistance(r_in, r_ex, rho, alpha, T0, temperature)
+	gmr = calc_tubular_gmr(r_ex, r_in, material_props.mu_r)
+	shunt_capacitance = calc_shunt_capacitance(r_in, r_ex, epsr_r)
+	shunt_conductance = calc_shunt_conductance(r_in, r_ex, rho)
 
 	# Initialize object
 	return Semicon(
-		radius_in,
-		radius_ext,
+		r_in,
+		r_ex,
 		material_props,
 		temperature,
 		cross_section,
@@ -88,7 +88,7 @@ function Semicon(
 	)
 end
 
-const _REQ_SEMICON = (:radius_in, :radius_ext, :material_props)
+const _REQ_SEMICON = (:r_in, :r_ex, :material_props)
 const _OPT_SEMICON = (:temperature,)
 const _DEFS_SEMICON = (T₀,)
 
@@ -99,17 +99,17 @@ Validation.keyword_fields(::Type{Semicon}) = _OPT_SEMICON
 Validation.keyword_defaults(::Type{Semicon}) = _DEFS_SEMICON
 
 # accept proxies for radii
-Validation.is_radius_input(::Type{Semicon}, ::Val{:radius_in}, x::AbstractCablePart) = true
-Validation.is_radius_input(::Type{Semicon}, ::Val{:radius_in}, x::Thickness) = true
-Validation.is_radius_input(::Type{Semicon}, ::Val{:radius_ext}, x::Thickness) = true
-Validation.is_radius_input(::Type{Semicon}, ::Val{:radius_ext}, x::Diameter) = true
+Validation.is_radius_input(::Type{Semicon}, ::Val{:r_in}, x::AbstractCablePart) = true
+Validation.is_radius_input(::Type{Semicon}, ::Val{:r_in}, x::Thickness) = true
+Validation.is_radius_input(::Type{Semicon}, ::Val{:r_ex}, x::Thickness) = true
+Validation.is_radius_input(::Type{Semicon}, ::Val{:r_ex}, x::Diameter) = true
 
 Validation.extra_rules(::Type{Semicon}) = (IsA{Material}(:material_props),)
 
 # normalize proxies -> numbers
 Validation.parse(::Type{Semicon}, nt) = begin
-	rin, rex = _normalize_radii(Semicon, nt.radius_in, nt.radius_ext)
-	(; nt..., radius_in = rin, radius_ext = rex)
+	rin, rex = _normalize_radii(Semicon, nt.r_in, nt.r_ex)
+	(; nt..., r_in = rin, r_ex = rex)
 end
 
 # This macro expands to a weakly-typed constructor for Semicon

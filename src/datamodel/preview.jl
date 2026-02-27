@@ -386,7 +386,7 @@ function _plot_layer_makie!(ax, layer, label::String;
 	if layer isa CircStrands
 		rwire = to_nominal(layer.radius_wire)
 		nW = layer.num_wires
-		lay_r = nW == 1 ? 0.0 : to_nominal(layer.radius_in)
+		lay_r = nW == 1 ? 0.0 : to_nominal(layer.r_in)
 		color = get_material_color_makie(layer.material_props)
 
 		coords = calc_circstrands_coords(nW, rwire, to_nominal(lay_r), C = (x0, y0))
@@ -420,8 +420,8 @@ function _plot_layer_makie!(ax, layer, label::String;
 	end
 
 	if layer isa RectStrands
-		rin = to_nominal(layer.radius_in)
-		rex = to_nominal(layer.radius_ext)
+		rin = to_nominal(layer.r_in)
+		rex = to_nominal(layer.r_ex)
 		w = to_nominal(layer.width)
 		nW = layer.num_wires
 		color = get_material_color_makie(layer.material_props)
@@ -461,8 +461,8 @@ function _plot_layer_makie!(ax, layer, label::String;
 
 	if layer isa Strip || layer isa Tubular ||
 	   layer isa Semicon || layer isa Insulator
-		rin = to_nominal(layer.radius_in)
-		rex = to_nominal(layer.radius_ext)
+		rin = to_nominal(layer.r_in)
+		rex = to_nominal(layer.r_ex)
 		color = get_material_color_makie(layer.material_props)
 
 		poly = Makie.poly!(ax, _annulus_poly(rin, rex, x0, y0);
@@ -572,7 +572,7 @@ function preview(design::CableDesign;
 	end
 
 	let r = try
-			to_nominal(design.components[end].insulator_group.radius_ext)
+			to_nominal(design.components[end].insulator_group.r_ex)
 		catch
 			NaN
 		end
@@ -774,8 +774,8 @@ function preview(system::LineCableSystem;
 	y0s = Float64[to_nominal(c.vert) for c in system.cables]
 	radii = Float64[
 		(comp = last(c.design_data.components);
-			max(to_nominal(comp.conductor_group.radius_ext),
-				to_nominal(comp.insulator_group.radius_ext)))
+			max(to_nominal(comp.conductor_group.r_ex),
+				to_nominal(comp.insulator_group.r_ex)))
 		for c in system.cables
 	]
 	cx = isempty(x0s) ? 0.0 : mean(x0s)

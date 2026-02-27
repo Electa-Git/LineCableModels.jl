@@ -63,8 +63,8 @@ struct CablePosition{T <: REALSCALAR}
 
 		# Find outermost radius (last component)
 		last_comp = cable.components[end]
-		r_cond = last_comp.conductor_group.radius_ext
-		r_ins = last_comp.insulator_group.radius_ext
+		r_cond = last_comp.conductor_group.r_ex
+		r_ins = last_comp.insulator_group.r_ex
 		r_max = max(r_cond, r_ins)
 
 		# Validate vertical position
@@ -252,7 +252,7 @@ end
 # # Outer (maximum) radius of the last component of a position's design
 # @inline function _outer_radius(cp::CablePosition)
 # 	comp = cp.design_data.components[end]
-# 	return max(comp.conductor_group.radius_ext, comp.insulator_group.radius_ext)
+# 	return max(comp.conductor_group.r_ex, comp.insulator_group.r_ex)
 # end
 
 # True if two cable disks overlap (strictly), evaluated in a common scalar type T

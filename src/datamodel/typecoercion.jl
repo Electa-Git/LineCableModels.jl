@@ -26,8 +26,8 @@ coerce_to_T(g::ConductorGroup{T}, ::Type{T}) where {T} = g
 		layersT[i] = coerce_to_T(g.layers[i], T)  # uses your part-level coercers
 	end
 	return ConductorGroup{T}(
-		coerce_to_T(g.radius_in, T),
-		coerce_to_T(g.radius_ext, T),
+		coerce_to_T(g.r_in, T),
+		coerce_to_T(g.r_ex, T),
 		coerce_to_T(g.cross_section, T),
 		g.num_wires,                                  # keep Int as-is
 		coerce_to_T(g.num_turns, T),
@@ -49,8 +49,8 @@ end
 		layersT[i] = coerce_to_T(g.layers[i], T)   # uses the part-level coercers above
 	end
 	return InsulatorGroup{T}(
-		coerce_to_T(g.radius_in, T),
-		coerce_to_T(g.radius_ext, T),
+		coerce_to_T(g.r_in, T),
+		coerce_to_T(g.r_ex, T),
 		coerce_to_T(g.cross_section, T),
 		coerce_to_T(g.shunt_capacitance, T),
 		coerce_to_T(g.shunt_conductance, T),

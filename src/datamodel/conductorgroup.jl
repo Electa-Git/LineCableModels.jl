@@ -24,9 +24,9 @@ $(TYPEDFIELDS)
 
 mutable struct ConductorGroup{T <: REALSCALAR} <: AbstractConductorPart{T}
 	"Inner radius of the conductor group \\[m\\]."
-	radius_in::T
+	r_in::T
 	"Outer radius of the conductor group \\[m\\]."
-	radius_ext::T
+	r_ex::T
 	"Cross-sectional area of the entire conductor group \\[m²\\]."
 	cross_section::T
 	"Number of individual wires in the conductor group \\[dimensionless\\]."
@@ -56,8 +56,8 @@ mutable struct ConductorGroup{T <: REALSCALAR} <: AbstractConductorPart{T}
 	- A [`ConductorGroup`](@ref) object initialized with geometric and electrical properties derived from the central conductor.
 	"""
 	function ConductorGroup{T}(
-		radius_in::T,
-		radius_ext::T,
+		r_in::T,
+		r_ex::T,
 		cross_section::T,
 		num_wires::Int,
 		num_turns::T,
@@ -66,7 +66,7 @@ mutable struct ConductorGroup{T <: REALSCALAR} <: AbstractConductorPart{T}
 		gmr::T,
 		layers::Vector{AbstractConductorPart{T}},
 	) where {T}
-		return new{T}(radius_in, radius_ext, cross_section, num_wires, num_turns,
+		return new{T}(r_in, r_ex, cross_section, num_wires, num_turns,
 			resistance, alpha, gmr, layers)
 	end
 
@@ -86,8 +86,8 @@ mutable struct ConductorGroup{T <: REALSCALAR} <: AbstractConductorPart{T}
 		end
 
 		return new{T}(
-			central.radius_in,
-			central.radius_ext,
+			central.r_in,
+			central.r_ex,
 			central.cross_section,
 			num_wires,
 			num_turns,
@@ -113,8 +113,8 @@ normalizing proxies, and **promoting** the group’s numeric type if required.
 # Behavior:
 
 1. Apply part-level keyword defaults.
-2. Default `radius_in` to `group.radius_ext` if absent.
-3. Compute `Tnew = resolve_T(group, radius_in, args..., values(kwargs)...)`.
+2. Default `r_in` to `group.r_ex` if absent.
+3. Compute `Tnew = resolve_T(group, r_in, args..., values(kwargs)...)`.
 4. If `Tnew === T`, mutate in place; else `coerce_to_T(group, Tnew)` then mutate and **return the promoted group**.
 
 # Arguments
@@ -130,12 +130,12 @@ normalizing proxies, and **promoting** the group’s numeric type if required.
 
 # Notes
 
-- Updates `gmr`, `resistance`, `alpha`, `radius_ext`, `cross_section`, and `num_wires` to account for the new part.
+- Updates `gmr`, `resistance`, `alpha`, `r_ex`, `cross_section`, and `num_wires` to account for the new part.
 - The `temperature` of the new part defaults to the temperature of the first layer if not specified.
-- The `radius_in` of the new part defaults to the external radius of the existing conductor if not specified.
+- The `r_in` of the new part defaults to the external radius of the existing conductor if not specified.
 
 !!! warning "Note"
-	- When an [`AbstractCablePart`](@ref) is provided as `radius_in`, the constructor retrieves its `radius_ext` value, allowing the new cable part to be placed directly over the existing part in a layered cable design.
+	- When an [`AbstractCablePart`](@ref) is provided as `r_in`, the constructor retrieves its `r_ex` value, allowing the new cable part to be placed directly over the existing part in a layered cable design.
 	- In case of uncertain measurements, if the added cable part is of a different type than the existing one, the uncertainty is removed from the radius value before being passed to the new component. This ensures that measurement uncertainties do not inappropriately cascade across different cable parts.
 
 # Examples
@@ -167,8 +167,8 @@ function add!(
 	kwv = _with_kwdefaults(C, (; kwargs...))
 
 	# 2) Default stacking: inner radius = current outer radius unless overridden
-	rin = get(kwv, :radius_in, group.radius_ext)
-	kwv = haskey(kwv, :radius_in) ? kwv : merge(kwv, (; radius_in = rin))
+	rin = get(kwv, :r_in, group.r_ex)
+	kwv = haskey(kwv, :r_in) ? kwv : merge(kwv, (; r_in = rin))
 
 	# 3) Decide target numeric type using *current group + raw inputs*
 	Tnew = resolve_T(group, rin, args..., values(kwv)...)
@@ -189,7 +189,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Internal, in-place insertion (no promotion logic). Assumes `:radius_in` was materialized.
+Internal, in-place insertion (no promotion logic). Assumes `:r_in` was materialized.
 Runs Validation → parsing, then coerces fields to the group’s `T` and updates
 equivalent properties and book-keeping.
 """
@@ -203,7 +203,7 @@ function _do_add!(
 	kw = (; kwargs...)
 
 	# Validate + parse with the part’s own pipeline (proxies resolved here)
-	ntv = Validation.validate!(C, kw.radius_in, args...; kw...)
+	ntv = Validation.validate!(C, kw.r_in, args...; kw...)
 
 	# Coerce validated values to group’s T and call strict numeric core
 	order = (Validation.required_fields(C)..., Validation.keyword_fields(C)...)
@@ -216,7 +216,7 @@ function _do_add!(
 		new_part.material_props.alpha,
 		new_part.resistance)
 	group.resistance = calc_parallel_equivalent(group.resistance, new_part.resistance)
-	group.radius_ext += (new_part.radius_ext - new_part.radius_in)
+	group.r_ex += (new_part.r_ex - new_part.r_in)
 	group.cross_section += new_part.cross_section
 
 	# CircStrands / Strip bookkeeping

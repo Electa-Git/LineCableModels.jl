@@ -71,17 +71,17 @@ function DataFrame(
 			S === nothing ?
 			(
 				# Check if we need to use insulator or conductor radius
-				isnan(cable_outer.insulator_group.radius_ext) ?
-				2 * cable_outer.conductor_group.radius_ext :
-				2 * cable_outer.insulator_group.radius_ext
+				isnan(cable_outer.insulator_group.r_ex) ?
+				2 * cable_outer.conductor_group.r_ex :
+				2 * cable_outer.insulator_group.r_ex
 			) : S
 
 		# Compute R, L, and C using given formulas - mapped to new data structure
 		# Cable core resistance
 		R =
 			calc_tubular_resistance(
-				cable_core.conductor_group.radius_in,
-				cable_core.conductor_group.radius_ext,
+				cable_core.conductor_group.r_in,
+				cable_core.conductor_group.r_ex,
 				cable_core.conductor_props.rho,
 				0.0, 20.0, 20.0,
 			) * 1e3
@@ -89,12 +89,12 @@ function DataFrame(
 		# Inductance calculation
 		L =
 			calc_inductance_trifoil(
-				cable_core.conductor_group.radius_in,
-				cable_core.conductor_group.radius_ext,
+				cable_core.conductor_group.r_in,
+				cable_core.conductor_group.r_ex,
 				cable_core.conductor_props.rho,
 				cable_core.conductor_props.mu_r,
-				cable_shield.conductor_group.radius_in,
-				cable_shield.conductor_group.radius_ext,
+				cable_shield.conductor_group.r_in,
+				cable_shield.conductor_group.r_ex,
 				cable_shield.conductor_props.rho,
 				cable_shield.conductor_props.mu_r,
 				S,
@@ -104,8 +104,8 @@ function DataFrame(
 		# Capacitance calculation
 		C =
 			calc_shunt_capacitance(
-				cable_core.conductor_group.radius_ext,
-				cable_core.insulator_group.radius_ext,
+				cable_core.conductor_group.r_ex,
+				cable_core.insulator_group.r_ex,
 				cable_core.insulator_props.eps_r,
 			) * 1e6 * 1e3
 
@@ -179,12 +179,12 @@ function DataFrame(
 
 			# Collect values for each property - mapping from new structure to old property names
 			new_col = [
-				component.conductor_group.radius_in,               # radius_in_con
-				component.conductor_group.radius_ext,              # radius_ext_con
+				component.conductor_group.r_in,               # radius_in_con
+				component.conductor_group.r_ex,              # radius_ext_con
 				component.conductor_props.rho,                     # rho_con
 				component.conductor_props.alpha,                   # alpha_con
 				component.conductor_props.mu_r,                    # mu_con
-				component.insulator_group.radius_ext,              # radius_ext_ins
+				component.insulator_group.r_ex,              # radius_ext_ins
 				component.insulator_props.eps_r,                   # eps_ins
 				component.insulator_props.mu_r,                    # mu_ins
 				loss_factor,                                       # loss_factor_ins
@@ -198,8 +198,8 @@ function DataFrame(
 		# Detailed part-by-part breakdown
 		properties = [
 			"type",
-			"radius_in",
-			"radius_ext",
+			"r_in",
+			"r_ex",
 			"diam_in",
 			"diam_ext",
 			"thickness",
@@ -265,17 +265,17 @@ Helper function to extract properties from a part for detailed format.
 
 - A vector containing the extracted properties in the following order:
   - `type`: The lowercase string representation of the part's type.
-  - `radius_in`: The inner radius of the part, if it exists, otherwise `missing`.
-  - `radius_ext`: The outer radius of the part, if it exists, otherwise `missing`.
-  - `diameter_in`: The inner diameter of the part (2 * radius_in), if `radius_in` exists, otherwise `missing`.
-  - `diameter_ext`: The outer diameter of the part (2 * radius_ext), if `radius_ext` exists, otherwise `missing`.
-  - `thickness`: The difference between `radius_ext` and `radius_in`, if both exist, otherwise `missing`.
+  - `r_in`: The inner radius of the part, if it exists, otherwise `missing`.
+  - `r_ex`: The outer radius of the part, if it exists, otherwise `missing`.
+  - `diameter_in`: The inner diameter of the part (2 * r_in), if `r_in` exists, otherwise `missing`.
+  - `diameter_ext`: The outer diameter of the part (2 * r_ex), if `r_ex` exists, otherwise `missing`.
+  - `thickness`: The difference between `r_ex` and `r_in`, if both exist, otherwise `missing`.
   - `cross_section`: The cross-sectional area of the part, if it exists, otherwise `missing`.
   - `num_wires`: The number of wires in the part, if it exists, otherwise `missing`.
   - `resistance`: The resistance of the part, if it exists, otherwise `missing`.
   - `alpha`: The temperature coefficient of resistivity of the part or its material, if it exists, otherwise `missing`.
   - `gmr`: The geometric mean radius of the part, if it exists, otherwise `missing`.
-  - `gmr_ratio`: The ratio of `gmr` to `radius_ext`, if both exist, otherwise `missing`.
+  - `gmr_ratio`: The ratio of `gmr` to `r_ex`, if both exist, otherwise `missing`.
   - `shunt_capacitance`: The shunt capacitance of the part, if it exists, otherwise `missing`.
   - `shunt_conductance`: The shunt conductance of the part, if it exists, otherwise `missing`.
 
@@ -287,7 +287,7 @@ This function is used to create a standardized format for displaying detailed in
 
 ```julia
 part = Conductor(...)
-properties = [:radius_in, :radius_ext, :resistance]  # Example of properties to extract
+properties = [:r_in, :r_ex, :resistance]  # Example of properties to extract
 extracted_properties = _extract_part_properties(part, properties)
 println(extracted_properties)
 ```
@@ -295,17 +295,17 @@ println(extracted_properties)
 function _extract_part_properties(part, properties)
 	return [
 		lowercase(string(typeof(part))),  # type
-		hasfield(typeof(part), :radius_in) ?
-		getproperty(part, :radius_in) : missing,
-		hasfield(typeof(part), :radius_ext) ?
-		getproperty(part, :radius_ext) : missing,
-		hasfield(typeof(part), :radius_in) ?
-		2 * getproperty(part, :radius_in) : missing,
-		hasfield(typeof(part), :radius_ext) ?
-		2 * getproperty(part, :radius_ext) : missing,
-		hasfield(typeof(part), :radius_ext) &&
-		hasfield(typeof(part), :radius_in) ?
-		(getproperty(part, :radius_ext) - getproperty(part, :radius_in)) :
+		hasfield(typeof(part), :r_in) ?
+		getproperty(part, :r_in) : missing,
+		hasfield(typeof(part), :r_ex) ?
+		getproperty(part, :r_ex) : missing,
+		hasfield(typeof(part), :r_in) ?
+		2 * getproperty(part, :r_in) : missing,
+		hasfield(typeof(part), :r_ex) ?
+		2 * getproperty(part, :r_ex) : missing,
+		hasfield(typeof(part), :r_ex) &&
+		hasfield(typeof(part), :r_in) ?
+		(getproperty(part, :r_ex) - getproperty(part, :r_in)) :
 		missing,
 		hasfield(typeof(part), :cross_section) ?
 		getproperty(part, :cross_section) : missing,
@@ -326,8 +326,8 @@ function _extract_part_properties(part, properties)
 		hasfield(typeof(part), :gmr) ?
 		getproperty(part, :gmr) : missing,
 		hasfield(typeof(part), :gmr) &&
-		hasfield(typeof(part), :radius_ext) ?
-		(getproperty(part, :gmr) / getproperty(part, :radius_ext)) : missing,
+		hasfield(typeof(part), :r_ex) ?
+		(getproperty(part, :gmr) / getproperty(part, :r_ex)) : missing,
 		hasfield(typeof(part), :shunt_capacitance) ?
 		getproperty(part, :shunt_capacitance) : missing,
 		hasfield(typeof(part), :shunt_conductance) ?

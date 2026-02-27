@@ -1,15 +1,15 @@
 """
 $(TYPEDEF)
 
-Represents a tubular or solid (`radius_in=0`) conductor with geometric and material properties defined as:
+Represents a tubular or solid (`r_in=0`) conductor with geometric and material properties defined as:
 
 $(TYPEDFIELDS)
 """
 struct Tubular{T <: REALSCALAR} <: AbstractConductorPart{T}
 	"Internal radius of the tubular conductor \\[m\\]."
-	radius_in::T
+	r_in::T
 	"External radius of the tubular conductor \\[m\\]."
-	radius_ext::T
+	r_ex::T
 	"A [`Material`](@ref) object representing the physical properties of the conductor material."
 	material_props::Material{T}
 	"Temperature at which the properties are evaluated \\[°C\\]."
@@ -29,8 +29,8 @@ Initializes a [`Tubular`](@ref) object with specified geometric and material par
 
 # Arguments
 
-- `radius_in`: Internal radius of the tubular conductor \\[m\\].
-- `radius_ext`: External radius of the tubular conductor \\[m\\].
+- `r_in`: Internal radius of the tubular conductor \\[m\\].
+- `r_ex`: External radius of the tubular conductor \\[m\\].
 - `material_props`: A [`Material`](@ref) object representing the physical properties of the conductor material.
 - `temperature`: Temperature at which the properties are evaluated \\[°C\\]. Defaults to [`T₀`](@ref).
 
@@ -54,8 +54,8 @@ println(tubular.resistance)    # Output: Resistance value [Ω/m]
 - [`calc_tubular_gmr`](@ref)
 """
 function Tubular(
-	radius_in::T,
-	radius_ext::T,
+	r_in::T,
+	r_ex::T,
 	material_props::Material{T},
 	temperature::T,
 ) where {T <: REALSCALAR}
@@ -64,16 +64,16 @@ function Tubular(
 	T0 = material_props.T0
 	alpha = material_props.alpha
 
-	cross_section = π * (radius_ext^2 - radius_in^2)
+	cross_section = π * (r_ex^2 - r_in^2)
 
-	R0 = calc_tubular_resistance(radius_in, radius_ext, rho, alpha, T0, temperature)
+	R0 = calc_tubular_resistance(r_in, r_ex, rho, alpha, T0, temperature)
 
-	gmr = calc_tubular_gmr(radius_ext, radius_in, material_props.mu_r)
+	gmr = calc_tubular_gmr(r_ex, r_in, material_props.mu_r)
 
 	# Initialize object
 	return Tubular(
-		radius_in,
-		radius_ext,
+		r_in,
+		r_ex,
 		material_props,
 		temperature,
 		cross_section,
@@ -82,7 +82,7 @@ function Tubular(
 	)
 end
 
-const _REQ_TUBULAR = (:radius_in, :radius_ext, :material_props)
+const _REQ_TUBULAR = (:r_in, :r_ex, :material_props)
 const _OPT_TUBULAR = (:temperature,)
 const _DEFS_TUBULAR = (T₀,)
 
@@ -93,17 +93,17 @@ Validation.keyword_fields(::Type{Tubular}) = _OPT_TUBULAR
 Validation.keyword_defaults(::Type{Tubular}) = _DEFS_TUBULAR
 
 # accept proxies for radii
-Validation.is_radius_input(::Type{Tubular}, ::Val{:radius_in}, x::AbstractCablePart) = true
-Validation.is_radius_input(::Type{Tubular}, ::Val{:radius_in}, x::Thickness) = true
-Validation.is_radius_input(::Type{Tubular}, ::Val{:radius_ext}, x::Thickness) = true
-Validation.is_radius_input(::Type{Tubular}, ::Val{:radius_ext}, x::Diameter) = true
+Validation.is_radius_input(::Type{Tubular}, ::Val{:r_in}, x::AbstractCablePart) = true
+Validation.is_radius_input(::Type{Tubular}, ::Val{:r_in}, x::Thickness) = true
+Validation.is_radius_input(::Type{Tubular}, ::Val{:r_ex}, x::Thickness) = true
+Validation.is_radius_input(::Type{Tubular}, ::Val{:r_ex}, x::Diameter) = true
 
 Validation.extra_rules(::Type{Tubular}) = (IsA{Material}(:material_props),)
 
 # normalize proxies -> numbers
 Validation.parse(::Type{Tubular}, nt) = begin
-	rin, rex = _normalize_radii(Tubular, nt.radius_in, nt.radius_ext)
-	(; nt..., radius_in = rin, radius_ext = rex)
+	rin, rex = _normalize_radii(Tubular, nt.r_in, nt.r_ex)
+	(; nt..., r_in = rin, r_ex = rex)
 end
 
 # This macro expands to a weakly-typed constructor for Tubular

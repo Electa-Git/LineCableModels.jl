@@ -1,25 +1,26 @@
 """
 $(TYPEDSIGNATURES)
 
-Default policy for **inner** radius raw inputs: accept proxies that expose an outer radius. This permits stacking by hijacking `p.radius_ext` during parsing.
+Default policy for **inner** radius raw inputs: accept proxies that expose an outer radius. This permits stacking by hijacking `p.r_ex` during parsing.
 
 # Arguments
 
 - `::Type{T}`: Component type \\[dimensionless\\].
-- `::Val{:radius_in}`: Field tag for the inner radius \\[dimensionless\\].
+- `::Val{:r_in}`: Field tag for the inner radius \\[dimensionless\\].
 - `p::AbstractCablePart`: Proxy object \\[dimensionless\\].
 
 # Returns
 
-- `Bool` indicating acceptance (`true` if `hasproperty(p, :radius_ext)`).
+- `Bool` indicating acceptance (`true` if `hasproperty(p, :r_ex)`).
 
 # Examples
 
 ```julia
-Validation.is_radius_input(Tubular, Val(:radius_in), prev_layer)  # true if prev_layer has :radius_ext
+Validation.is_radius_input(Tubular, Val(:r_in), prev_layer)  # true if prev_layer has :r_ex
 ```
 """
-is_radius_input(::Type{T}, ::Val{:radius_in}, p::AbstractCablePart) where {T} = hasproperty(p, :radius_ext)
+is_radius_input(::Type{T}, ::Val{:r_in}, p::AbstractCablePart) where {T} =
+	hasproperty(p, :r_ex)
 
 """
 $(TYPEDSIGNATURES)
@@ -29,7 +30,7 @@ Default policy for **outer** radius raw inputs (annular shells): reject `Abstrac
 # Arguments
 
 - `::Type{T}`: Component type \\[dimensionless\\].
-- `::Val{:radius_ext}`: Field tag for the outer radius \\[dimensionless\\].
+- `::Val{:r_ex}`: Field tag for the outer radius \\[dimensionless\\].
 - `::AbstractCablePart`: Proxy object \\[dimensionless\\].
 
 # Returns
@@ -39,10 +40,10 @@ Default policy for **outer** radius raw inputs (annular shells): reject `Abstrac
 # Examples
 
 ```julia
-Validation.is_radius_input(Tubular, Val(:radius_ext), prev_layer)  # false
+Validation.is_radius_input(Tubular, Val(:r_ex), prev_layer)  # false
 ```
 """
-is_radius_input(::Type{T}, ::Val{:radius_ext}, ::AbstractCablePart) where {T} = false
+is_radius_input(::Type{T}, ::Val{:r_ex}, ::AbstractCablePart) where {T} = false
 
 """
 $(TYPEDSIGNATURES)
@@ -52,7 +53,7 @@ Default policy for **outer** radius raw inputs (annular shells): accept `Thickne
 # Arguments
 
 - `::Type{T}`: Component type \\[dimensionless\\].
-- `::Val{:radius_ext}`: Field tag for the outer radius \\[dimensionless\\].
+- `::Val{:r_ex}`: Field tag for the outer radius \\[dimensionless\\].
 - `::Thickness`: Thickness wrapper \\[dimensionless\\].
 
 # Returns
@@ -62,10 +63,10 @@ Default policy for **outer** radius raw inputs (annular shells): accept `Thickne
 # Examples
 
 ```julia
-Validation.is_radius_input(Tubular, Val(:radius_ext), Thickness(1e-3))  # true
+Validation.is_radius_input(Tubular, Val(:r_ex), Thickness(1e-3))  # true
 ```
 """
-is_radius_input(::Type{T}, ::Val{:radius_ext}, ::Thickness) where {T} = true
+is_radius_input(::Type{T}, ::Val{:r_ex}, ::Thickness) where {T} = true
 
 """
 $(TYPEDSIGNATURES)
@@ -77,9 +78,9 @@ Defaults may be a `NamedTuple` or a `Tuple` zipped against `Validation.keyword_f
 User keys always win.
 """
 @inline function _with_kwdefaults(::Type{C}, kwargs::NamedTuple) where {C}
-    defs = Validation.keyword_defaults(C)
-    defs === () && return kwargs
-    nt = defs isa NamedTuple ? defs :
-         NamedTuple{Validation.keyword_fields(C)}(defs)
-    return merge(nt, kwargs)
+	defs = Validation.keyword_defaults(C)
+	defs === () && return kwargs
+	nt = defs isa NamedTuple ? defs :
+		 NamedTuple{Validation.keyword_fields(C)}(defs)
+	return merge(nt, kwargs)
 end

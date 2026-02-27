@@ -17,8 +17,8 @@ This function serves as a high-level interface to the radius resolution system. 
 
 # Returns
 
-- `radius_in`: Normalized inner radius \\[m\\].
-- `radius_ext`: Normalized outer radius \\[m\\].
+- `r_in`: Normalized inner radius \\[m\\].
+- `r_ex`: Normalized outer radius \\[m\\].
 - `thickness`: Computed thickness or specialized dimension depending on the method \\[m\\].
   For [`CircStrands`](@ref) components, this value represents the wire radius instead of thickness.
 
@@ -69,7 +69,7 @@ function _parse_radius_operand end
 @inline _parse_radius_operand(d::Diameter, ::Type{T}) where {T} = d.value / 2
 @inline _parse_radius_operand(p::Thickness, ::Type{T}) where {T} = p
 @inline function _parse_radius_operand(p::AbstractCablePart, ::Type{T}) where {T}
-	r = getproperty(p, :radius_ext)                     # outer radius of prior layer
+	r = getproperty(p, :r_ex)                     # outer radius of prior layer
 	return (typeof(p) == T) ? r : to_certain(r)
 end
 @inline _parse_radius_operand(x::AbstractString, ::Type{T}) where {T} =
@@ -87,27 +87,27 @@ end
 
 # ------------ Input parsing
 @inline function _do_normalize_radii(
-	radius_in::Number,
-	radius_ext::Number,
+	r_in::Number,
+	r_ex::Number,
 	::Type{T},
 ) where {T}
-	return radius_in, radius_ext
+	return r_in, r_ex
 end
 
 @inline function _do_normalize_radii(
-	radius_in::Number,
+	r_in::Number,
 	thickness::Thickness,
 	::Type{T},
 ) where {T}
-	return radius_in, (radius_in + thickness.value)
+	return r_in, (r_in + thickness.value)
 end
 
 @inline function _do_normalize_radii(
-	radius_in::Number,
+	r_in::Number,
 	radius_wire::Number,
 	::Type{AbstractStrandsLayer},
 )
-	return radius_in, radius_in + (2 * radius_wire)
+	return r_in, r_in + (2 * radius_wire)
 end
 
 @inline function _do_normalize_radii(t::Thickness, rex::Number, ::Type{T}) where {T}
