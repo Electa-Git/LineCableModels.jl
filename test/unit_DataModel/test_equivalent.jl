@@ -24,7 +24,7 @@
 	end
 
 	function make_insulator_group(conductor_group)
-		ins1 = DM.Insulator(conductor_group.radius_ext, DM.Thickness(2.0e-3), xlpe_props)
+		ins1 = DM.Insulator(conductor_group.r_ex, DM.Thickness(2.0e-3), xlpe_props)
 		ig = DM.InsulatorGroup(ins1)
 		add!(ig, DM.Semicon, DM.Thickness(0.8e-3), semi_props)
 		add!(ig, DM.Insulator, DM.Thickness(2.0e-3), xlpe_props)
@@ -76,11 +76,11 @@ end
 
 		# Geometry continuity: outer radius preserved by equivalence
 		for (orig, simp) in zip(des.components, des_s.components)
-			@test simp.conductor_group.radius_in ≈ orig.conductor_group.radius_in atol =
+			@test simp.conductor_group.r_in ≈ orig.conductor_group.r_in atol =
 				TEST_TOL
-			@test simp.conductor_group.radius_ext ≈ orig.conductor_group.radius_ext atol =
+			@test simp.conductor_group.r_ex ≈ orig.conductor_group.r_ex atol =
 				TEST_TOL
-			@test simp.insulator_group.radius_ext ≈ orig.insulator_group.radius_ext atol =
+			@test simp.insulator_group.r_ex ≈ orig.insulator_group.r_ex atol =
 				TEST_TOL
 			@test simp.id == orig.id
 		end
@@ -140,13 +140,13 @@ end
 		)
 
 		des_sM = DM.equivalent(desM)
-		@test typeof(des_sM.components[1].conductor_group.radius_in) <:
+		@test typeof(des_sM.components[1].conductor_group.r_in) <:
 			  Measurements.Measurement
-		@test typeof(des_sM.components[1].conductor_group.radius_ext) <:
+		@test typeof(des_sM.components[1].conductor_group.r_ex) <:
 			  Measurements.Measurement
-		@test typeof(des_sM.components[1].insulator_group.radius_in) <:
+		@test typeof(des_sM.components[1].insulator_group.r_in) <:
 			  Measurements.Measurement
-		@test typeof(des_sM.components[1].insulator_group.radius_ext) <:
+		@test typeof(des_sM.components[1].insulator_group.r_ex) <:
 			  Measurements.Measurement
 	end
 
@@ -168,26 +168,26 @@ end
 		# Base: Float64 -> Float64
 		desF = DM.CableDesign("CAB-F", cF)
 		sF = DM.equivalent(desF)
-		@test eltype([sF.components[1].conductor_group.radius_in]) == Float64
+		@test eltype([sF.components[1].conductor_group.r_in]) == Float64
 
 		# Fully promoted: Measurement -> Measurement
 		gM = DM.coerce_to_T(cF.conductor_group, Measurements.Measurement{Float64})
 		igM = DM.coerce_to_T(cF.insulator_group, Measurements.Measurement{Float64})
 		desM = DM.CableDesign("CAB-M", DM.CableComponent("coreM", gM, igM))
 		sM = DM.equivalent(desM)
-		@test typeof(sM.components[1].conductor_group.radius_in) <: Measurements.Measurement
-		@test typeof(sM.components[1].insulator_group.radius_ext) <:
+		@test typeof(sM.components[1].conductor_group.r_in) <: Measurements.Measurement
+		@test typeof(sM.components[1].insulator_group.r_ex) <:
 			  Measurements.Measurement
 
 		# Mixed cases
 		desC = DM.CableDesign("CAB-C", DM.CableComponent("c1", gM, cF.insulator_group))
 		sC = DM.equivalent(desC)
-		@test typeof(sC.components[1].conductor_group.radius_in) <: Measurements.Measurement
-		@test typeof(sC.components[1].insulator_group.radius_in) <: Measurements.Measurement
+		@test typeof(sC.components[1].conductor_group.r_in) <: Measurements.Measurement
+		@test typeof(sC.components[1].insulator_group.r_in) <: Measurements.Measurement
 
 		desI = DM.CableDesign("CAB-I", DM.CableComponent("c2", cF.conductor_group, igM))
 		sI = DM.equivalent(desI)
-		@test typeof(sI.components[1].conductor_group.radius_in) <: Measurements.Measurement
-		@test typeof(sI.components[1].insulator_group.radius_in) <: Measurements.Measurement
+		@test typeof(sI.components[1].conductor_group.r_in) <: Measurements.Measurement
+		@test typeof(sI.components[1].insulator_group.r_in) <: Measurements.Measurement
 	end
 end

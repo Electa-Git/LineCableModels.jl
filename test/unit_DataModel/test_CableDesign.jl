@@ -23,11 +23,11 @@
 	core_wire = DM.CircStrands(rin0, DM.Diameter(d_wire), 1, 0.0, copper_props)
 	# outer wire layer
 	outer_wire =
-		DM.CircStrands(core_wire.radius_ext, DM.Diameter(d_wire), 6, 10.0, copper_props)
+		DM.CircStrands(core_wire.r_ex, DM.Diameter(d_wire), 6, 10.0, copper_props)
 	# strip (placed over outer wire layer)
-	strip1 = DM.Strip(outer_wire.radius_ext, DM.Thickness(0.5e-3), 0.02, 8.0, copper_props)
+	strip1 = DM.Strip(outer_wire.r_ex, DM.Thickness(0.5e-3), 0.02, 8.0, copper_props)
 	# tubular (placed over strip)
-	tube1 = DM.Tubular(strip1.radius_ext, DM.Thickness(0.8e-3), copper_props)
+	tube1 = DM.Tubular(strip1.r_ex, DM.Thickness(0.8e-3), copper_props)
 
 	# Build a conductor group with mixed parts
 	function make_conductor_group()
@@ -39,9 +39,9 @@
 	end
 
 	# Insulation parts
-	ins1 = DM.Insulator(tube1.radius_ext, DM.Thickness(2.0e-3), xlpe_props)
-	semi = DM.Semicon(ins1.radius_ext, DM.Thickness(0.8e-3), semi_props)
-	ins2 = DM.Insulator(semi.radius_ext, DM.Thickness(2.0e-3), xlpe_props)
+	ins1 = DM.Insulator(tube1.r_ex, DM.Thickness(2.0e-3), xlpe_props)
+	semi = DM.Semicon(ins1.r_ex, DM.Thickness(0.8e-3), semi_props)
+	ins2 = DM.Insulator(semi.r_ex, DM.Thickness(2.0e-3), xlpe_props)
 
 	function make_insulator_group()
 		ig = DM.InsulatorGroup(ins1)
@@ -66,7 +66,7 @@ end
 		g = make_conductor_group()
 		bad_ins = DM.InsulatorGroup(
 			DM.Insulator(
-				g.radius_ext + 1e-4,
+				g.r_ex + 1e-4,
 				DM.Thickness(1e-3),
 				MAT.Material(1e10, 3.0, 1.0, 20.0, 0.0),
 			),
@@ -77,7 +77,7 @@ end
 
 	@testset "Basic Functionality (Float64)" begin
 		g, ig = make_groups()
-		@test g.radius_ext ≈ ig.radius_in atol = TEST_TOL
+		@test g.r_ex ≈ ig.r_in atol = TEST_TOL
 
 		# direct component then design
 		cc = DM.CableComponent("core", g, ig)
@@ -102,7 +102,7 @@ end
 		# tiny interface gap within tolerance should pass (uses isapprox in inner ctor)
 		g, ig = make_groups()
 		# Nudge insulator inner radius by a few eps of Float64
-		ig.radius_in = ig.radius_in + eps(Float64) * 1
+		ig.r_in = ig.r_in + eps(Float64) * 1
 		@test DM.CableComponent("core", g, ig) isa DM.CableComponent
 	end
 
@@ -124,14 +124,14 @@ end
 		# Create a Measurement insulator by tweaking thickness with uncertainty
 		igM = DM.coerce_to_T(igF, Measurements.Measurement{Float64})
 		ccP = DM.CableComponent("coreM", gF, igM)
-		@test typeof(ccP.conductor_group.radius_ext) <: Measurements.Measurement
-		@test typeof(ccP.insulator_group.radius_ext) <: Measurements.Measurement
+		@test typeof(ccP.conductor_group.r_ex) <: Measurements.Measurement
+		@test typeof(ccP.insulator_group.r_ex) <: Measurements.Measurement
 
 		# Creating a design with this mixed component works and holds the component
 		des = DM.CableDesign("CAB-MIXED", ccP)
 		@test length(des.components) == 1
 		@test des.components[1].id == "coreM"
-		@test typeof(des.components[1].conductor_group.radius_in) <:
+		@test typeof(des.components[1].conductor_group.r_in) <:
 			  Measurements.Measurement
 	end
 
@@ -156,23 +156,23 @@ end
 
 		# 1) Base: both Float64
 		ccF = DM.CableComponent("cF", g, ig)
-		@test typeof(ccF.conductor_group.radius_in) == Float64
+		@test typeof(ccF.conductor_group.r_in) == Float64
 
 		# 2) Fully promoted: both Measurement
 		gM = DM.coerce_to_T(g, Measurements.Measurement{Float64})
 		igM = DM.coerce_to_T(ig, Measurements.Measurement{Float64})
 		ccM = DM.CableComponent("cM", gM, igM)
-		@test typeof(ccM.conductor_group.radius_in) <: Measurements.Measurement
-		@test typeof(ccM.insulator_group.radius_ext) <: Measurements.Measurement
+		@test typeof(ccM.conductor_group.r_in) <: Measurements.Measurement
+		@test typeof(ccM.insulator_group.r_ex) <: Measurements.Measurement
 
 		# 3a) Mixed: conductor carries Measurement
 		cc1 = DM.CableComponent("c1", gM, ig)
-		@test typeof(cc1.conductor_group.radius_in) <: Measurements.Measurement
-		@test typeof(cc1.insulator_group.radius_in) <: Measurements.Measurement
+		@test typeof(cc1.conductor_group.r_in) <: Measurements.Measurement
+		@test typeof(cc1.insulator_group.r_in) <: Measurements.Measurement
 
 		# 3b) Mixed: insulator carries Measurement
 		cc2 = DM.CableComponent("c2", g, igM)
-		@test typeof(cc2.conductor_group.radius_in) <: Measurements.Measurement
-		@test typeof(cc2.insulator_group.radius_in) <: Measurements.Measurement
+		@test typeof(cc2.conductor_group.r_in) <: Measurements.Measurement
+		@test typeof(cc2.insulator_group.r_in) <: Measurements.Measurement
 	end
 end

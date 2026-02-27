@@ -2,9 +2,9 @@
 
 	@testset "Basic Functionality" begin
 		@testset "Standard 6-wire array at origin" begin
-			let num_wires = 6, radius_wire = 0.001, radius_in = 0.01
-				lay_radius = radius_in + radius_wire # 0.011
-				coords = calc_circstrands_coords(num_wires, radius_wire, radius_in)
+			let num_wires = 6, radius_wire = 0.001, r_in = 0.01
+				lay_radius = r_in + radius_wire # 0.011
+				coords = calc_circstrands_coords(num_wires, radius_wire, r_in)
 
 				@test length(coords) == num_wires
 				@test coords isa Vector{Tuple{Float64, Float64}}
@@ -28,9 +28,9 @@
 		end
 
 		@testset "4-wire array with non-zero center" begin
-			let num_wires = 4, radius_wire = 0.002, radius_in = 0.02, C = (0.1, -0.2)
-				lay_radius = radius_in + radius_wire # 0.022
-				coords = calc_circstrands_coords(num_wires, radius_wire, radius_in, C)
+			let num_wires = 4, radius_wire = 0.002, r_in = 0.02, C = (0.1, -0.2)
+				lay_radius = r_in + radius_wire # 0.022
+				coords = calc_circstrands_coords(num_wires, radius_wire, r_in, C)
 
 				@test length(coords) == num_wires
 
@@ -130,7 +130,7 @@
 			@test Measurements.uncertainty(coords[2][2]) > 0
 		end
 
-		@testset "Mixed types: radius_in is Measurement" begin
+		@testset "Mixed types: r_in is Measurement" begin
 			num_wires = 4
 			rw = 0.001 # Float64
 			ri = 0.01 ± 0.0002

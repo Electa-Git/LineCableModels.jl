@@ -30,7 +30,7 @@
 		add!(core, CircStrands, Diameter(d_w), 24, 11.0, material_al)
 
 		@test length(core.layers) == 5
-		@test isapprox(core.radius_ext * 2, 0.0423, atol = 1e-4)
+		@test isapprox(core.r_ex * 2, 0.0423, atol = 1e-4)
 
 		material_poly = get(materials, "polyacrylate")
 		material_sc1 = get(materials, "semicon1")

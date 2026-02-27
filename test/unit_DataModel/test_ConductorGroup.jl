@@ -95,10 +95,10 @@ end
 		g = make_core_group()
 		@test g isa ConductorGroup
 		@test length(g.layers) == 1
-		@test g.radius_in == 0.0
-		@test g.radius_ext ≈ rad_wire0 atol = TEST_TOL
+		@test g.r_in == 0.0
+		@test g.r_ex ≈ rad_wire0 atol = TEST_TOL
 
-		# Add another wire layer using Diameter convenience + defaults (radius_in auto = g.radius_ext)
+		# Add another wire layer using Diameter convenience + defaults (r_in auto = g.r_ex)
 		d_w = 2 * rad_wire0
 		g = add!(g, CircStrands, Diameter(d_w), 6, 15.0, copper_props)  # lay_direction defaults to 1
 		@test g isa ConductorGroup
@@ -107,22 +107,22 @@ end
 		@test g.layers[end].lay_direction == 1  # came from keyword_defaults for CircStrands
 
 		# Geometry stacks outward and resistance decreases (parallel)
-		@test g.radius_ext > rad_wire0
+		@test g.r_ex > rad_wire0
 		@test g.resistance < g.layers[1].resistance
 
 		# Add an outer tubular sleeve by thickness proxy
-		outer_before = g.radius_ext
+		outer_before = g.r_ex
 		g = add!(g, Tubular, Thickness(0.002), copper_props)  # temperature default from keyword_defaults(Tubular)
 		@test g.layers[end] isa Tubular
-		@test g.radius_ext ≈ outer_before + 0.002 atol = TEST_TOL
+		@test g.r_ex ≈ outer_before + 0.002 atol = TEST_TOL
 	end
 
 	@testset "Edge Cases" begin
 		# Very thin sleeve
 		g = make_core_group()
-		outer0 = g.radius_ext
+		outer0 = g.r_ex
 		g = add!(g, Tubular, Thickness(1e-6), copper_props)
-		@test g.radius_ext ≈ outer0 + 1e-6 atol = TEST_TOL
+		@test g.r_ex ≈ outer0 + 1e-6 atol = TEST_TOL
 
 		# CircStrands with lay_ratio very small but positive
 		g = make_core_group()
@@ -154,7 +154,7 @@ end
 		# Base: purely Float64 group
 		gF = make_core_group()
 		@test eltype(gF) == Float64
-		@test typeof(gF.radius_ext) == Float64
+		@test typeof(gF.r_ex) == Float64
 
 		# Promote by adding a Measurement argument (e.g., temperature)
 		gF_before_id = objectid(gF)
@@ -169,7 +169,7 @@ end
 		)
 		@test gP !== gF                     # returned a promoted group
 		@test eltype(gP) <: Measurement
-		@test typeof(gP.radius_ext) <: Measurement
+		@test typeof(gP.r_ex) <: Measurement
 		# Original left intact
 		@test objectid(gF) == gF_before_id
 		@test length(gF.layers) == 1

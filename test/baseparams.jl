@@ -189,12 +189,12 @@
 		# If truly concentric, d_ij = 0 for internal logic, should return max(r_ext1, r_ext2)
 		gmd_concentric = calc_gmd(part_inner, part_outer)
 		# GMD of concentric tubular conductors
-		@test gmd_concentric ≈ part_outer.radius_ext atol = TEST_TOL
+		@test gmd_concentric ≈ part_outer.r_ex atol = TEST_TOL
 
 		# calc_equivalent_gmr
 		# Create a conductor group to test adding layers
 		core = ConductorGroup(part1_solid)
-		layer2 = Tubular(core.radius_ext, 0.015, aluminum_props) # Add tubular layer outside
+		layer2 = Tubular(core.r_ex, 0.015, aluminum_props) # Add tubular layer outside
 		beta = core.cross_section / (core.cross_section + layer2.cross_section)
 		gmd_core_layer2 = calc_gmd(core.layers[end], layer2) # GMD between solid core and new layer
 
@@ -205,7 +205,7 @@
 		@test gmr_eq_calc ≈ gmr_eq_expected atol = TEST_TOL
 
 		# Test adding a CircStrands layer
-		layer3_wa = CircStrands(layer2.radius_ext, 0.001, 12, 15.0, copper_props)
+		layer3_wa = CircStrands(layer2.r_ex, 0.001, 12, 15.0, copper_props)
 		# Need to update core equivalent properties first before calculating next step
 		core.gmr = gmr_eq_calc # Update core GMR based on previous step
 		core.cross_section += layer2.cross_section # Update core area

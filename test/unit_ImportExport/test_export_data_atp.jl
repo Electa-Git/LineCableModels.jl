@@ -79,8 +79,8 @@ end
 				ins_group = source_component.insulator_group
 				ins_props = source_component.insulator_props
 
-				expected_radius_in = cond_group.radius_in
-				expected_radius_ext = cond_group.radius_ext
+				expected_radius_in = cond_group.r_in
+				expected_radius_ext = cond_group.r_ex
 				expected_rho = cond_props.rho
 				expected_muC = cond_props.mu_r
 				expected_epsI = ins_props.eps_r

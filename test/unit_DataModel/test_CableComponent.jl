@@ -16,7 +16,7 @@
 		# core: 1 wire at center (diameter d_w)
 		d_w = 3e-3
 		g = DM.ConductorGroup(DM.CircStrands(0.0, DM.Diameter(d_w), 1, 0.0, aluminum))
-		# add helical wire layer (defaults: radius_in = group.radius_ext)
+		# add helical wire layer (defaults: r_in = group.r_ex)
 		DM.add!(g, DM.CircStrands, DM.Diameter(d_w), 6, 10.0, aluminum)
 		# add thin strip layer
 		DM.add!(g, DM.Strip, DM.Thickness(5e-4), 1.0e-2, 15.0, aluminum)
@@ -38,8 +38,8 @@
 	# --- Input Validation ------------------------------------------------------
 	@testset "Input Validation" begin
 		gC = make_conductor_group_F()
-		# make insulator group that *does not* start exactly at gC.radius_ext
-		bad_rin = gC.radius_ext + 1e-6
+		# make insulator group that *does not* start exactly at gC.r_ex
+		bad_rin = gC.r_ex + 1e-6
 		gI_bad = DM.InsulatorGroup(DM.Insulator(bad_rin, DM.Thickness(4e-3), polyeth))
 		DM.add!(gI_bad, DM.Semicon, DM.Thickness(5e-4), semimat)
 		@test_throws ArgumentError DM.CableComponent("bad", gC, gI_bad)
@@ -48,7 +48,7 @@
 	# --- Basic Functionality (Float64 workflow) --------------------------------
 	@testset "Basic Functionality (Float64)" begin
 		gC = make_conductor_group_F()
-		gI = make_insulator_group_F(gC.radius_ext)
+		gI = make_insulator_group_F(gC.r_ex)
 		cc = DM.CableComponent("core", gC, gI)
 
 		# Type & identity when no promotion needed
@@ -59,8 +59,8 @@
 
 		# Geometric continuity (nominal comparison)
 		@test isapprox(
-			cc.conductor_group.radius_ext,
-			cc.insulator_group.radius_in;
+			cc.conductor_group.r_ex,
+			cc.insulator_group.r_in;
 			atol = TEST_TOL,
 		)
 
@@ -75,22 +75,22 @@
 	@testset "Edge Cases" begin
 		gC = DM.ConductorGroup(DM.CircStrands(0.0, DM.Diameter(2e-3), 1, 0.0, copper))
 		# hairline insulator: nearly zero thickness, but non-zero
-		gI = DM.InsulatorGroup(DM.Insulator(gC.radius_ext, gC.radius_ext + 1e-6, polyeth))
+		gI = DM.InsulatorGroup(DM.Insulator(gC.r_ex, gC.r_ex + 1e-6, polyeth))
 		cc = DM.CableComponent("thin", gC, gI)
-		@test cc.insulator_group.radius_ext > cc.conductor_group.radius_ext
+		@test cc.insulator_group.r_ex > cc.conductor_group.r_ex
 		@test cc.insulator_props.eps_r > 0
 	end
 
 	# --- Physical Behavior (relationships that should hold) --------------------
 	@testset "Physical Behavior" begin
 		gC = make_conductor_group_F()
-		gI = make_insulator_group_F(gC.radius_ext)
+		gI = make_insulator_group_F(gC.r_ex)
 		cc = DM.CableComponent("phys", gC, gI)
 
 		# Conductor alpha propagated
 		@test isapprox(cc.conductor_props.alpha, gC.alpha; atol = TEST_TOL)
 
-		gI2 = DM.InsulatorGroup(DM.Insulator(gC.radius_ext, DM.Thickness(6e-3), polyeth))
+		gI2 = DM.InsulatorGroup(DM.Insulator(gC.r_ex, DM.Thickness(6e-3), polyeth))
 		DM.add!(gI2, DM.Semicon, DM.Thickness(5e-4), semimat)
 		cc2 = DM.CableComponent("phys2", gC, gI2)
 		@test cc2.insulator_group.shunt_capacitance < cc.insulator_group.shunt_capacitance
@@ -100,7 +100,7 @@
 	@testset "Type Stability & Promotion" begin
 		# Base: both Float64
 		gC_F = make_conductor_group_F()
-		gI_F = make_insulator_group_F(gC_F.radius_ext)
+		gI_F = make_insulator_group_F(gC_F.r_ex)
 		cc_F = DM.CableComponent("F", gC_F, gI_F)
 		@test eltype(cc_F) == Float64
 
@@ -128,7 +128,7 @@
 			DM.ConductorGroup(DM.CircStrands(0.0, DM.Diameter(m(3e-3)), 1, 0.0, aluminum))
 		DM.add!(gC_mix, DM.Tubular, DM.Thickness(m(5e-4)), copper)
 		gI_mix =
-			DM.InsulatorGroup(DM.Insulator(gC_mix.radius_ext, DM.Thickness(2e-3), polyeth))
+			DM.InsulatorGroup(DM.Insulator(gC_mix.r_ex, DM.Thickness(2e-3), polyeth))
 		cc_mix = DM.CableComponent("mix", gC_mix, gI_mix)
 		@test eltype(cc_mix) <: Measurement
 	end
@@ -137,7 +137,7 @@
 	@testset "Combinatorial Type Testing" begin
 		# Base floats
 		gC = DM.ConductorGroup(DM.CircStrands(0.0, DM.Diameter(2e-3), 1, 0.0, aluminum))
-		gI = DM.InsulatorGroup(DM.Insulator(gC.radius_ext, DM.Thickness(3e-3), polyeth))
+		gI = DM.InsulatorGroup(DM.Insulator(gC.r_ex, DM.Thickness(3e-3), polyeth))
 
 		# Case A: Float + Measurement (insulator group)
 		gI_A = DM.coerce_to_T(gI, Measurement{Float64})

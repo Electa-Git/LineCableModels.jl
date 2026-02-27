@@ -6,15 +6,15 @@
 	@testset "Input Validation" begin
 		# Missing required arguments
 		@test_throws ArgumentError CircStrands()
-		@test_throws ArgumentError CircStrands(radius_in = 0.01)
-		@test_throws ArgumentError CircStrands(radius_in = 0.01, radius_wire = 0.002)
+		@test_throws ArgumentError CircStrands(r_in = 0.01)
+		@test_throws ArgumentError CircStrands(r_in = 0.01, radius_wire = 0.002)
 		@test_throws ArgumentError CircStrands(
-			radius_in = 0.01,
+			r_in = 0.01,
 			radius_wire = 0.002,
 			num_wires = 7,
 		)
 		@test_throws ArgumentError CircStrands(
-			radius_in = 0.01,
+			r_in = 0.01,
 			radius_wire = 0.002,
 			num_wires = 7,
 			lay_ratio = 10,
@@ -229,7 +229,7 @@
 			lay_direction = 1,
 		)
 		@test w isa CircStrands
-		@test w.radius_in ≈ 0.01 atol = TEST_TOL
+		@test w.r_in ≈ 0.01 atol = TEST_TOL
 		@test w.radius_wire ≈ 0.002 atol = TEST_TOL
 		@test w.num_wires == 7
 		@test w.lay_ratio ≈ 10 atol = TEST_TOL
@@ -248,13 +248,13 @@
 			lay_direction = 1,
 		)
 		@test w2 isa CircStrands
-		@test value(w2.radius_in) ≈ 0.01 atol = TEST_TOL
+		@test value(w2.r_in) ≈ 0.01 atol = TEST_TOL
 		@test value(w2.radius_wire) ≈ 0.002 atol = TEST_TOL
 		@test value(w2.temperature) ≈ 20.0 atol = TEST_TOL
 	end
 
 	@testset "Edge Cases" begin
-		# radius_in very close to radius_ext
+		# r_in very close to r_ex
 		w = CircStrands(
 			1e-6,
 			0.002,
@@ -264,8 +264,8 @@
 			temperature = 20.0,
 			lay_direction = 1,
 		)
-		@test w.radius_in ≈ 1e-6 atol = TEST_TOL
-		# num_wires = 1 (should set radius_ext = radius_wire)
+		@test w.r_in ≈ 1e-6 atol = TEST_TOL
+		# num_wires = 1 (should set r_ex = radius_wire)
 		w1 = CircStrands(
 			0.0,
 			0.002,
@@ -275,7 +275,7 @@
 			temperature = 20.0,
 			lay_direction = 1,
 		)
-		@test w1.radius_ext ≈ 0.002 atol = TEST_TOL
+		@test w1.r_ex ≈ 0.002 atol = TEST_TOL
 	end
 
 	@testset "Physical Behavior" begin
@@ -332,7 +332,7 @@
 			temperature = 20.0,
 			lay_direction = 1,
 		)
-		@test typeof(w.radius_in) == Float64
+		@test typeof(w.r_in) == Float64
 		# All Measurement
 		wM = CircStrands(
 			measurement(0.01, 1e-5),
@@ -343,8 +343,8 @@
 			temperature = measurement(20.0, 0.1),
 			lay_direction = 1,
 		)
-		@test typeof(wM.radius_in) <: Measurement
-		# Mixed: radius_in as Measurement
+		@test typeof(wM.r_in) <: Measurement
+		# Mixed: r_in as Measurement
 		wMix1 = CircStrands(
 			measurement(0.01, 1e-5),
 			0.002,
@@ -354,7 +354,7 @@
 			temperature = 20.0,
 			lay_direction = 1,
 		)
-		@test typeof(wMix1.radius_in) <: Measurement
+		@test typeof(wMix1.r_in) <: Measurement
 		# Mixed: lay_ratio as Measurement
 		wMix2 = CircStrands(
 			0.01,
