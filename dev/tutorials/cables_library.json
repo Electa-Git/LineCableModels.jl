@@ -66,13 +66,13 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
-                                    "value": 0.02115,
+                                "__julia_type__": "LineCableModels.DataModel.Semicon",
+                                "r_ex": {
+                                    "value": 0.02145,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.Semicon",
-                                "radius_ext": {
-                                    "value": 0.02145,
+                                "r_in": {
+                                    "value": 0.02115,
                                     "__type__": "Float"
                                 },
                                 "temperature": {
@@ -104,13 +104,13 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
-                                    "value": 0.02145,
+                                "__julia_type__": "LineCableModels.DataModel.Semicon",
+                                "r_ex": {
+                                    "value": 0.02205,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.Semicon",
-                                "radius_ext": {
-                                    "value": 0.02205,
+                                "r_in": {
+                                    "value": 0.02145,
                                     "__type__": "Float"
                                 },
                                 "temperature": {
@@ -142,13 +142,13 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
-                                    "value": 0.02205,
+                                "__julia_type__": "LineCableModels.DataModel.Insulator",
+                                "r_ex": {
+                                    "value": 0.03005,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.Insulator",
-                                "radius_ext": {
-                                    "value": 0.03005,
+                                "r_in": {
+                                    "value": 0.02205,
                                     "__type__": "Float"
                                 },
                                 "temperature": {
@@ -180,13 +180,13 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
-                                    "value": 0.03005,
+                                "__julia_type__": "LineCableModels.DataModel.Semicon",
+                                "r_ex": {
+                                    "value": 0.030350000000000002,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.Semicon",
-                                "radius_ext": {
-                                    "value": 0.030350000000000002,
+                                "r_in": {
+                                    "value": 0.03005,
                                     "__type__": "Float"
                                 },
                                 "temperature": {
@@ -218,13 +218,13 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
-                                    "value": 0.030350000000000002,
+                                "__julia_type__": "LineCableModels.DataModel.Semicon",
+                                "r_ex": {
+                                    "value": 0.030650000000000004,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.Semicon",
-                                "radius_ext": {
-                                    "value": 0.030650000000000004,
+                                "r_in": {
+                                    "value": 0.030350000000000002,
                                     "__type__": "Float"
                                 },
                                 "temperature": {
@@ -271,13 +271,13 @@
                                     "value": 1,
                                     "__type__": "Int"
                                 },
-                                "radius_in": {
-                                    "value": 0,
-                                    "__type__": "Float"
-                                },
                                 "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.00235,
+                                    "__type__": "Float"
+                                },
+                                "r_in": {
+                                    "value": 0,
                                     "__type__": "Float"
                                 },
                                 "num_wires": {
@@ -321,12 +321,12 @@
                                     "value": 1,
                                     "__type__": "Int"
                                 },
-                                "radius_in": {
+                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
+                                "radius_wire": {
                                     "value": 0.00235,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
-                                "radius_wire": {
+                                "r_in": {
                                     "value": 0.00235,
                                     "__type__": "Float"
                                 },
@@ -371,13 +371,13 @@
                                     "value": 1,
                                     "__type__": "Int"
                                 },
-                                "radius_in": {
-                                    "value": 0.007050000000000001,
-                                    "__type__": "Float"
-                                },
                                 "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.00235,
+                                    "__type__": "Float"
+                                },
+                                "r_in": {
+                                    "value": 0.007050000000000001,
                                     "__type__": "Float"
                                 },
                                 "num_wires": {
@@ -421,13 +421,13 @@
                                     "value": 1,
                                     "__type__": "Int"
                                 },
-                                "radius_in": {
-                                    "value": 0.01175,
-                                    "__type__": "Float"
-                                },
                                 "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.00235,
+                                    "__type__": "Float"
+                                },
+                                "r_in": {
+                                    "value": 0.01175,
                                     "__type__": "Float"
                                 },
                                 "num_wires": {
@@ -471,13 +471,13 @@
                                     "value": 1,
                                     "__type__": "Int"
                                 },
-                                "radius_in": {
-                                    "value": 0.01645,
-                                    "__type__": "Float"
-                                },
                                 "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.00235,
+                                    "__type__": "Float"
+                                },
+                                "r_in": {
+                                    "value": 0.01645,
                                     "__type__": "Float"
                                 },
                                 "num_wires": {
@@ -520,13 +520,13 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
-                                    "value": 0.031700000000000006,
+                                "__julia_type__": "LineCableModels.DataModel.Semicon",
+                                "r_ex": {
+                                    "value": 0.03200000000000001,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.Semicon",
-                                "radius_ext": {
-                                    "value": 0.03200000000000001,
+                                "r_in": {
+                                    "value": 0.031700000000000006,
                                     "__type__": "Float"
                                 },
                                 "temperature": {
@@ -573,13 +573,13 @@
                                     "value": 1,
                                     "__type__": "Int"
                                 },
-                                "radius_in": {
-                                    "value": 0.030650000000000004,
-                                    "__type__": "Float"
-                                },
                                 "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.000475,
+                                    "__type__": "Float"
+                                },
+                                "r_in": {
+                                    "value": 0.030650000000000004,
                                     "__type__": "Float"
                                 },
                                 "num_wires": {
@@ -623,17 +623,17 @@
                                     "value": 1,
                                     "__type__": "Int"
                                 },
-                                "radius_in": {
-                                    "value": 0.0316,
+                                "__julia_type__": "LineCableModels.DataModel.Strip",
+                                "r_ex": {
+                                    "value": 0.031700000000000006,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.Strip",
                                 "width": {
                                     "value": 0.01,
                                     "__type__": "Float"
                                 },
-                                "radius_ext": {
-                                    "value": 0.031700000000000006,
+                                "r_in": {
+                                    "value": 0.0316,
                                     "__type__": "Float"
                                 },
                                 "temperature": {
@@ -672,13 +672,13 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
-                                    "value": 0.032150000000000005,
+                                "__julia_type__": "LineCableModels.DataModel.Insulator",
+                                "r_ex": {
+                                    "value": 0.032200000000000006,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.Insulator",
-                                "radius_ext": {
-                                    "value": 0.032200000000000006,
+                                "r_in": {
+                                    "value": 0.032150000000000005,
                                     "__type__": "Float"
                                 },
                                 "temperature": {
@@ -710,13 +710,13 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
-                                    "value": 0.032200000000000006,
+                                "__julia_type__": "LineCableModels.DataModel.Insulator",
+                                "r_ex": {
+                                    "value": 0.034600000000000006,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.Insulator",
-                                "radius_ext": {
-                                    "value": 0.034600000000000006,
+                                "r_in": {
+                                    "value": 0.032200000000000006,
                                     "__type__": "Float"
                                 },
                                 "temperature": {
@@ -755,13 +755,13 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
-                                    "value": 0.03200000000000001,
+                                "__julia_type__": "LineCableModels.DataModel.Tubular",
+                                "r_ex": {
+                                    "value": 0.032150000000000005,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.Tubular",
-                                "radius_ext": {
-                                    "value": 0.032150000000000005,
+                                "r_in": {
+                                    "value": 0.03200000000000001,
                                     "__type__": "Float"
                                 },
                                 "temperature": {
@@ -830,13 +830,13 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
-                                    "value": 0.02382185,
+                                "__julia_type__": "LineCableModels.DataModel.Semicon",
+                                "r_ex": {
+                                    "value": 0.02582185,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.Semicon",
-                                "radius_ext": {
-                                    "value": 0.02582185,
+                                "r_in": {
+                                    "value": 0.02382185,
                                     "__type__": "Float"
                                 },
                                 "temperature": {
@@ -868,13 +868,13 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
-                                    "value": 0.02582185,
+                                "__julia_type__": "LineCableModels.DataModel.Insulator",
+                                "r_ex": {
+                                    "value": 0.05182185,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.Insulator",
-                                "radius_ext": {
-                                    "value": 0.05182185,
+                                "r_in": {
+                                    "value": 0.02582185,
                                     "__type__": "Float"
                                 },
                                 "temperature": {
@@ -906,13 +906,13 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
-                                    "value": 0.05182185,
+                                "__julia_type__": "LineCableModels.DataModel.Semicon",
+                                "r_ex": {
+                                    "value": 0.053621850000000006,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.Semicon",
-                                "radius_ext": {
-                                    "value": 0.053621850000000006,
+                                "r_in": {
+                                    "value": 0.05182185,
                                     "__type__": "Float"
                                 },
                                 "temperature": {
@@ -944,13 +944,13 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
-                                    "value": 0.053621850000000006,
+                                "__julia_type__": "LineCableModels.DataModel.Semicon",
+                                "r_ex": {
+                                    "value": 0.05392185000000001,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.Semicon",
-                                "radius_ext": {
-                                    "value": 0.05392185000000001,
+                                "r_in": {
+                                    "value": 0.053621850000000006,
                                     "__type__": "Float"
                                 },
                                 "temperature": {
@@ -997,13 +997,13 @@
                                     "value": 1,
                                     "__type__": "Int"
                                 },
-                                "radius_in": {
-                                    "value": 0,
-                                    "__type__": "Float"
-                                },
                                 "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.00183245,
+                                    "__type__": "Float"
+                                },
+                                "r_in": {
+                                    "value": 0,
                                     "__type__": "Float"
                                 },
                                 "num_wires": {
@@ -1047,12 +1047,12 @@
                                     "value": 1,
                                     "__type__": "Int"
                                 },
-                                "radius_in": {
+                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
+                                "radius_wire": {
                                     "value": 0.00183245,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.CircStrands",
-                                "radius_wire": {
+                                "r_in": {
                                     "value": 0.00183245,
                                     "__type__": "Float"
                                 },
@@ -1097,13 +1097,13 @@
                                     "value": 1,
                                     "__type__": "Int"
                                 },
-                                "radius_in": {
-                                    "value": 0.00549735,
-                                    "__type__": "Float"
-                                },
                                 "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.00183245,
+                                    "__type__": "Float"
+                                },
+                                "r_in": {
+                                    "value": 0.00549735,
                                     "__type__": "Float"
                                 },
                                 "num_wires": {
@@ -1147,13 +1147,13 @@
                                     "value": 1,
                                     "__type__": "Int"
                                 },
-                                "radius_in": {
-                                    "value": 0.00916225,
-                                    "__type__": "Float"
-                                },
                                 "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.00183245,
+                                    "__type__": "Float"
+                                },
+                                "r_in": {
+                                    "value": 0.00916225,
                                     "__type__": "Float"
                                 },
                                 "num_wires": {
@@ -1197,13 +1197,13 @@
                                     "value": 1,
                                     "__type__": "Int"
                                 },
-                                "radius_in": {
-                                    "value": 0.01282715,
-                                    "__type__": "Float"
-                                },
                                 "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.00183245,
+                                    "__type__": "Float"
+                                },
+                                "r_in": {
+                                    "value": 0.01282715,
                                     "__type__": "Float"
                                 },
                                 "num_wires": {
@@ -1247,13 +1247,13 @@
                                     "value": 1,
                                     "__type__": "Int"
                                 },
-                                "radius_in": {
-                                    "value": 0.01649205,
-                                    "__type__": "Float"
-                                },
                                 "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.00183245,
+                                    "__type__": "Float"
+                                },
+                                "r_in": {
+                                    "value": 0.01649205,
                                     "__type__": "Float"
                                 },
                                 "num_wires": {
@@ -1297,13 +1297,13 @@
                                     "value": 1,
                                     "__type__": "Int"
                                 },
-                                "radius_in": {
-                                    "value": 0.02015695,
-                                    "__type__": "Float"
-                                },
                                 "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.00183245,
+                                    "__type__": "Float"
+                                },
+                                "r_in": {
+                                    "value": 0.02015695,
                                     "__type__": "Float"
                                 },
                                 "num_wires": {
@@ -1346,13 +1346,13 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
-                                    "value": 0.057221850000000005,
+                                "__julia_type__": "LineCableModels.DataModel.Insulator",
+                                "r_ex": {
+                                    "value": 0.06022185000000001,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.Insulator",
-                                "radius_ext": {
-                                    "value": 0.06022185000000001,
+                                "r_in": {
+                                    "value": 0.057221850000000005,
                                     "__type__": "Float"
                                 },
                                 "temperature": {
@@ -1384,13 +1384,13 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
-                                    "value": 0.06022185000000001,
+                                "__julia_type__": "LineCableModels.DataModel.Insulator",
+                                "r_ex": {
+                                    "value": 0.06322185000000001,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.Insulator",
-                                "radius_ext": {
-                                    "value": 0.06322185000000001,
+                                "r_in": {
+                                    "value": 0.06022185000000001,
                                     "__type__": "Float"
                                 },
                                 "temperature": {
@@ -1429,13 +1429,13 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
-                                    "value": 0.05392185000000001,
+                                "__julia_type__": "LineCableModels.DataModel.Tubular",
+                                "r_ex": {
+                                    "value": 0.057221850000000005,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.Tubular",
-                                "radius_ext": {
-                                    "value": 0.057221850000000005,
+                                "r_in": {
+                                    "value": 0.05392185000000001,
                                     "__type__": "Float"
                                 },
                                 "temperature": {
@@ -1474,13 +1474,13 @@
                                         "__type__": "Float"
                                     }
                                 },
-                                "radius_in": {
-                                    "value": 0.06904885000000001,
+                                "__julia_type__": "LineCableModels.DataModel.Insulator",
+                                "r_ex": {
+                                    "value": 0.07904885,
                                     "__type__": "Float"
                                 },
-                                "__julia_type__": "LineCableModels.DataModel.Insulator",
-                                "radius_ext": {
-                                    "value": 0.07904885,
+                                "r_in": {
+                                    "value": 0.06904885000000001,
                                     "__type__": "Float"
                                 },
                                 "temperature": {
@@ -1527,13 +1527,13 @@
                                     "value": 1,
                                     "__type__": "Int"
                                 },
-                                "radius_in": {
-                                    "value": 0.06322185000000001,
-                                    "__type__": "Float"
-                                },
                                 "__julia_type__": "LineCableModels.DataModel.CircStrands",
                                 "radius_wire": {
                                     "value": 0.0029135,
+                                    "__type__": "Float"
+                                },
+                                "r_in": {
+                                    "value": 0.06322185000000001,
                                     "__type__": "Float"
                                 },
                                 "num_wires": {
