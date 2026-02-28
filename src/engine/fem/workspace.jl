@@ -155,10 +155,10 @@ struct FEMWorkspace{T <: AbstractFloat}
 				# Geometric properties
 				horz[idx] = to_nominal(cable.horz)
 				vert[idx] = to_nominal(cable.vert)
-				r_in[idx] = to_nominal(component.conductor_group.radius_in)
-				r_ext[idx] = to_nominal(component.conductor_group.radius_ext)
-				r_ins_in[idx] = to_nominal(component.insulator_group.radius_in)
-				r_ins_ext[idx] = to_nominal(component.insulator_group.radius_ext)
+				r_in[idx] = to_nominal(component.conductor_group.r_in)
+				r_ext[idx] = to_nominal(component.conductor_group.r_ex)
+				r_ins_in[idx] = to_nominal(component.insulator_group.r_in)
+				r_ins_ext[idx] = to_nominal(component.insulator_group.r_ex)
 
 				# Material properties
 				rho_cond[idx] = to_nominal(component.conductor_props.rho)
