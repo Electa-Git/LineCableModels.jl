@@ -1,10 +1,10 @@
 @testitem "BaseParams: calc_shunt_capacitance unit tests" setup = [defaults] begin
 	@testset "Basic Functionality" begin
 		# Example from docstring
-		radius_in = 0.01
+		r_in = 0.01
 		r_ex = 0.02
 		epsr = 2.3
-		cap = calc_shunt_capacitance(radius_in, r_ex, epsr)
+		cap = calc_shunt_capacitance(r_in, r_ex, epsr)
 		@test isapprox(cap, 1.241e-10, atol = TEST_TOL)
 		# Vacuum (epsr = 1)
 		cap_vac = calc_shunt_capacitance(0.01, 0.02, 1.0)
@@ -12,7 +12,7 @@
 	end
 
 	@testset "Edge Cases" begin
-		# Collapsing geometry: radius_in -> r_ex
+		# Collapsing geometry: r_in -> r_ex
 		cap = calc_shunt_capacitance(0.02, 0.02, 2.3)
 		@test isinf(cap) || isnan(cap)
 		# Very large radii
@@ -43,14 +43,14 @@
 
 	@testset "Type Stability & Promotion" begin
 		using Measurements
-		radius_in = 0.01
+		r_in = 0.01
 		r_ex = 0.02
 		epsr = 2.3
-		min = measurement(radius_in, 1e-4)
+		min = measurement(r_in, 1e-4)
 		mex = measurement(r_ex, 1e-4)
 		mepsr = measurement(epsr, 1e-2)
 		# All Float64
-		res1 = calc_shunt_capacitance(radius_in, r_ex, epsr)
+		res1 = calc_shunt_capacitance(r_in, r_ex, epsr)
 		@test typeof(res1) == Float64
 		# All Measurement
 		res2 = calc_shunt_capacitance(min, mex, mepsr)
@@ -59,10 +59,10 @@
 		res3 = calc_shunt_capacitance(min, r_ex, epsr)
 		@test res3 isa Measurement{Float64}
 		# Mixed: second argument Measurement
-		res4 = calc_shunt_capacitance(radius_in, mex, epsr)
+		res4 = calc_shunt_capacitance(r_in, mex, epsr)
 		@test res4 isa Measurement{Float64}
 		# Mixed: third argument Measurement
-		res5 = calc_shunt_capacitance(radius_in, r_ex, mepsr)
+		res5 = calc_shunt_capacitance(r_in, r_ex, mepsr)
 		@test res5 isa Measurement{Float64}
 	end
 
