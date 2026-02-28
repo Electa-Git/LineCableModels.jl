@@ -31,9 +31,9 @@ $(TYPEDFIELDS)
 """
 struct RectStrands{T <: REALSCALAR, S <: RectStrandsShape} <: AbstractStrandsLayer{T}
 	"Internal radial boundary \\[m\\]."
-	radius_in::T
+	r_in::T
 	"External radial boundary \\[m\\]."
-	radius_ext::T
+	r_ex::T
 	"Material properties of the conductive strands."
 	material_props::Material{T}
 	"Operating temperature of the layer \\[°C\\]."
@@ -48,9 +48,9 @@ end
 
 # struct SectorCore{T <: REALSCALAR, S <: SectorShape} <: AbstractStrandsLayer{T}
 # 	"Internal radial boundary \\[m\\]."
-# 	radius_in::T
+# 	r_in::T
 # 	"External radial boundary \\[m\\]."
-# 	radius_ext::T
+# 	r_ex::T
 # 	"Material properties of the conductive strands."
 # 	material_props::Material{T}
 # 	"Operating temperature of the layer \\[°C\\]."
@@ -65,9 +65,9 @@ end
 
 # struct CircCore{T <: REALSCALAR, S <: Concentric} <: AbstractStrandsLayer{T}
 # 	"Internal radial boundary \\[m\\]."
-# 	radius_in::T
+# 	r_in::T
 # 	"External radial boundary \\[m\\]."
-# 	radius_ext::T
+# 	r_ex::T
 # 	"Material properties of the conductive strands."
 # 	material_props::Material{T}
 # 	"Operating temperature of the layer \\[°C\\]."
@@ -87,7 +87,7 @@ Constructs a [`RectStrands`](@ref) instance.
 
 # Arguments
 
-- `radius_in`: Internal radius of the layer \\[m\\].
+- `r_in`: Internal radius of the layer \\[m\\].
 - `thickness`: Radial thickness of the strands \\[m\\].
 - `width`: Width of the individual rectangular strip \\[m\\].
 - `num_wires`: Number of strands in the layer \\[dimensionless\\].
@@ -108,7 +108,7 @@ layer = $(FUNCTIONNAME)(0.01, 0.002, 0.005, 10, 12.0, material, 25.0, 1)
 ```
 """
 function RectStrands(
-	radius_in::T,
+	r_in::T,
 	thickness::T,
 	width::T,
 	num_wires::U,
@@ -124,13 +124,13 @@ function RectStrands(
 
 	# Area-Preserving Radial Expansion
 	# This solves A_total = pi * (r_ext^2 - r_in^2)
-	radius_ext =
+	r_ex =
 		num_wires == 1 ? Base.error("num_wires must be > 1") :
-		sqrt(radius_in^2 + (num_wires * A0) / T(π))
-	thickness_effective=radius_ext-radius_in
-	@info "Calculating outer radius to preserve total cross-sectional area of strands." radius_ext radius_ext_without_correction=radius_in+thickness thickness_effective thickness num_wires
+		sqrt(r_in^2 + (num_wires * A0) / T(π))
+	thickness_effective=r_ex-r_in
+	@info "Calculating outer radius to preserve total cross-sectional area of strands." r_ex radius_ext_without_correction=r_in+thickness thickness_effective thickness num_wires
 	mean_diameter, pitch_length, overlength =
-		calc_helical_params(radius_in, radius_ext, lay_ratio)
+		calc_helical_params(r_in, r_ex, lay_ratio)
 
 	cross_section = num_wires * A0
 
@@ -148,12 +148,12 @@ function RectStrands(
 		calc_strip_resistance(thickness, width, rho, alpha, T0, temperature) * overlength
 	R_layer = R_wire / num_wires
 
-	gmr_layer = calc_tubular_gmr(radius_ext, radius_in, material_props.mu_r)
+	gmr_layer = calc_tubular_gmr(r_ex, r_in, material_props.mu_r)
 
 	# 3. Instantiate the concrete struct
 	return RectStrands(
-		radius_in,
-		radius_ext,
+		r_in,
+		r_ex,
 		material_props,
 		temperature,
 		R_layer,
@@ -163,7 +163,7 @@ function RectStrands(
 end
 
 const _REQ_RECTSTRANDS =
-	(:radius_in, :thickness, :width, :num_wires, :lay_ratio, :material_props)
+	(:r_in, :thickness, :width, :num_wires, :lay_ratio, :material_props)
 const _OPT_RECTSTRANDS = (:temperature, :lay_direction)
 const _DEFS_RECTSTRANDS = (T₀, 1)
 
@@ -174,38 +174,38 @@ Validation.keyword_fields(::Type{RectStrands}) = _OPT_RECTSTRANDS
 Validation.keyword_defaults(::Type{RectStrands}) = _DEFS_RECTSTRANDS
 
 Validation.coercive_fields(::Type{RectStrands}) =
-	(:radius_in, :thickness, :width, :lay_ratio, :material_props, :temperature)
+	(:r_in, :thickness, :width, :lay_ratio, :material_props, :temperature)
 
 Validation.is_radius_input(
 	::Type{RectStrands},
-	::Val{:radius_in},
+	::Val{:r_in},
 	x::AbstractCablePart,
 ) = true
 
-Validation.is_radius_input(::Type{RectStrands}, ::Val{:radius_in}, x::Thickness) = true
+Validation.is_radius_input(::Type{RectStrands}, ::Val{:r_in}, x::Thickness) = true
 
 # Specific for rectangular strands
 Validation.maxfill(::Type{RectStrands}, rin::Real, w::Real) =
 	floor(Int, 2 * π * rin / w)
 
 Validation.extra_rules(::Type{RectStrands}) = (
-	Normalized(:radius_in), Finite(:radius_in), Nonneg(:radius_in),
+	Normalized(:r_in), Finite(:r_in), Nonneg(:r_in),
 	Normalized(:thickness), Finite(:thickness), Positive(:thickness),
 	IntegerField(:num_wires), Positive(:num_wires),
 	Finite(:lay_ratio), Nonneg(:lay_ratio),
 	IsA{Material}(:material_props),
 	OneOf(:lay_direction, (-1, 1)), Finite(:width),
 	Positive(:width),
-	PhysicalFillLimit(:num_wires, (:radius_in, :width)), # THE BOUNCER
+	PhysicalFillLimit(:num_wires, (:r_in, :width)), # THE BOUNCER
 )
 
 Validation.parse(::Type{RectStrands}, nt) = begin
-	rin, rw = _normalize_radii(RectStrands, nt.radius_in, nt.thickness)
+	rin, rw = _normalize_radii(RectStrands, nt.r_in, nt.thickness)
 
 	# Resolves to Int using the generic interface
 	n_wires = _resolve_strands(nt.num_wires, RectStrands, rin, nt.width)
 
-	return (; nt..., radius_in = rin, thickness = rw, num_wires = n_wires)
+	return (; nt..., r_in = rin, thickness = rw, num_wires = n_wires)
 end
 
 @construct RectStrands _REQ_RECTSTRANDS _OPT_RECTSTRANDS _DEFS_RECTSTRANDS
