@@ -142,16 +142,16 @@ end
 
 		# Inductance (Trifoil)
 		# Use outermost radius for separation calculation - corrected access path
-		outermost_radius = last_comp.insulator_group.radius_ext
+		outermost_radius = last_comp.insulator_group.r_ex
 		S = default_S_factor * outermost_radius # Approx center-to-center distance [m]
 
 		L =
 			calc_inductance_trifoil(
-				core_comp.conductor_group.radius_in,
-				core_comp.conductor_group.radius_ext,
+				core_comp.conductor_group.r_in,
+				core_comp.conductor_group.r_ex,
 				core_comp.conductor_props.rho, core_comp.conductor_props.mu_r,
-				sheath_comp.conductor_group.radius_in,
-				sheath_comp.conductor_group.radius_ext, sheath_comp.conductor_props.rho,
+				sheath_comp.conductor_group.r_in,
+				sheath_comp.conductor_group.r_ex, sheath_comp.conductor_props.rho,
 				sheath_comp.conductor_props.mu_r,
 				S, rho_e = rho_e,
 			) * 1e6 # H/m to mH/km
@@ -159,8 +159,8 @@ end
 		# Capacitance
 		C =
 			calc_shunt_capacitance(
-				core_comp.conductor_group.radius_ext,
-				core_comp.insulator_group.radius_ext,
+				core_comp.conductor_group.r_ex,
+				core_comp.insulator_group.r_ex,
 				core_comp.insulator_props.eps_r,
 			) * 1e6 * 1e3 # F/m to μF/km
 
@@ -172,31 +172,31 @@ end
 	core = ConductorGroup(CircStrands(0.0, Diameter(d_w), 1, 0.0, material_alu))
 	@test core isa ConductorGroup
 	@test length(core.layers) == 1
-	@test core.radius_in == 0
-	@test core.radius_ext ≈ d_w / 2.0
+	@test core.r_in == 0
+	@test core.r_ex ≈ d_w / 2.0
 	@test core.resistance > 0
 	@test core.gmr > 0
 
 	add!(core, CircStrands, Diameter(d_w), 6, 15.0, material_alu)
 	@test length(core.layers) == 2
-	@test core.radius_ext ≈ (d_w / 2.0) * 3 # Approximation for 1+6 wires
+	@test core.r_ex ≈ (d_w / 2.0) * 3 # Approximation for 1+6 wires
 	@test core.resistance > 0 # Resistance should decrease
 
 	add!(core, CircStrands, Diameter(d_w), 12, 13.5, material_alu)
 	@test length(core.layers) == 3
-	@test core.radius_ext ≈ (d_w / 2.0) * 5 # Approximation for 1+6+12 wires
+	@test core.r_ex ≈ (d_w / 2.0) * 5 # Approximation for 1+6+12 wires
 
 	add!(core, CircStrands, Diameter(d_w), 18, 12.5, material_alu)
 	@test length(core.layers) == 4
-	@test core.radius_ext ≈ (d_w / 2.0) * 7 # Approximation
+	@test core.r_ex ≈ (d_w / 2.0) * 7 # Approximation
 
 	add!(core, CircStrands, Diameter(d_w), 24, 11.0, material_alu)
 	@test length(core.layers) == 5
-	@test core.radius_ext ≈ (d_w / 2.0) * 9 # Approximation
+	@test core.r_ex ≈ (d_w / 2.0) * 9 # Approximation
 	# Check final calculated radius against nominal diameter
 	# Note: constructor uses internal calculations, may differ slightly from d_core/2
-	@test core.radius_ext ≈ d_core / 2.0 rtol = 0.1 # Allow 10% tolerance for geometric approximation vs nominal
-	final_core_radius = core.radius_ext # Store for later use
+	@test core.r_ex ≈ d_core / 2.0 rtol = 0.1 # Allow 10% tolerance for geometric approximation vs nominal
+	final_core_radius = core.r_ex # Store for later use
 	final_core_resistance = core.resistance # Store for later use
 
 	println("Constructing main insulation group...")
@@ -205,35 +205,35 @@ end
 	main_insu = InsulatorGroup(Semicon(core, Thickness(t_sct), material_sc_tape))
 	@test main_insu isa InsulatorGroup
 	@test length(main_insu.layers) == 1
-	@test main_insu.radius_in ≈ final_core_radius
-	@test main_insu.radius_ext ≈ final_core_radius + t_sct
+	@test main_insu.r_in ≈ final_core_radius
+	@test main_insu.r_ex ≈ final_core_radius + t_sct
 
 	# Inner semiconductor
 	material_sc1 = get(materials, "semicon1")
 	add!(main_insu, Semicon, Thickness(t_sc_in), material_sc1)
 	@test length(main_insu.layers) == 2
-	@test main_insu.radius_ext ≈ final_core_radius + t_sct + t_sc_in
+	@test main_insu.r_ex ≈ final_core_radius + t_sct + t_sc_in
 
 	# Main insulation (XLPE)
 	material_pe = get(materials, "pe")
 	add!(main_insu, Insulator, Thickness(t_ins), material_pe)
 	@test length(main_insu.layers) == 3
-	@test main_insu.radius_ext ≈ final_core_radius + t_sct + t_sc_in + t_ins
+	@test main_insu.r_ex ≈ final_core_radius + t_sct + t_sc_in + t_ins
 
 	# Outer semiconductor
 	material_sc2 = get(materials, "semicon2")
 	add!(main_insu, Semicon, Thickness(t_sc_out), material_sc2)
 	@test length(main_insu.layers) == 4
-	@test main_insu.radius_ext ≈ final_core_radius + t_sct + t_sc_in + t_ins + t_sc_out
+	@test main_insu.r_ex ≈ final_core_radius + t_sct + t_sc_in + t_ins + t_sc_out
 
 	# Outer semiconductive tape
 	add!(main_insu, Semicon, Thickness(t_sct), material_sc_tape)
 	@test length(main_insu.layers) == 5
-	@test main_insu.radius_ext ≈
+	@test main_insu.r_ex ≈
 		  final_core_radius + t_sct + t_sc_in + t_ins + t_sc_out + t_sct
 	@test main_insu.shunt_capacitance > 0
 	@test main_insu.shunt_conductance >= 0
-	final_insu_radius = main_insu.radius_ext # Store for later use
+	final_insu_radius = main_insu.r_ex # Store for later use
 
 	println("Creating core cable component...")
 	core_cc = CableComponent("core", core, main_insu)
@@ -266,8 +266,8 @@ end
 		),
 	)
 	@test screen_con isa ConductorGroup
-	@test screen_con.radius_in ≈ final_insu_radius
-	@test screen_con.radius_ext ≈ final_insu_radius + d_ws # Approx radius of single layer of wires
+	@test screen_con.r_in ≈ final_insu_radius
+	@test screen_con.r_ex ≈ final_insu_radius + d_ws # Approx radius of single layer of wires
 
 	# Copper tape
 	add!(
@@ -278,14 +278,14 @@ end
 		lay_ratio_screen,
 		material_cu,
 	)
-	@test screen_con.radius_ext ≈ final_insu_radius + d_ws + t_cut
-	final_screen_con_radius = screen_con.radius_ext
+	@test screen_con.r_ex ≈ final_insu_radius + d_ws + t_cut
+	final_screen_con_radius = screen_con.r_ex
 
 	# Water blocking tape
 	material_wbt = get(materials, "polyacrylate") # Assuming same as sc tape
 	screen_insu = InsulatorGroup(Semicon(screen_con, Thickness(t_wbt), material_wbt))
-	@test screen_insu.radius_ext ≈ final_screen_con_radius + t_wbt
-	final_screen_insu_radius = screen_insu.radius_ext
+	@test screen_insu.r_ex ≈ final_screen_con_radius + t_wbt
+	final_screen_insu_radius = screen_insu.r_ex
 
 	# Sheath Cable Component & Add to Design
 	sheath_cc = CableComponent("sheath", screen_con, screen_insu)
@@ -298,25 +298,25 @@ end
 	# Aluminum foil
 	material_alu = get(materials, "aluminum") # Re-get just in case
 	jacket_con = ConductorGroup(Tubular(screen_insu, Thickness(t_alt), material_alu))
-	@test jacket_con.radius_ext ≈ final_screen_insu_radius + t_alt
-	final_jacket_con_radius = jacket_con.radius_ext
+	@test jacket_con.r_ex ≈ final_screen_insu_radius + t_alt
+	final_jacket_con_radius = jacket_con.r_ex
 
 	# PE layer after foil
 	material_pe = get(materials, "pe") # Re-get just in case
 	jacket_insu = InsulatorGroup(Insulator(jacket_con, Thickness(t_pet), material_pe))
-	@test jacket_insu.radius_ext ≈ final_jacket_con_radius + t_pet
+	@test jacket_insu.r_ex ≈ final_jacket_con_radius + t_pet
 
 	# PE jacket
 	add!(jacket_insu, Insulator, Thickness(t_jac), material_pe)
-	@test jacket_insu.radius_ext ≈ final_jacket_con_radius + t_pet + t_jac
-	final_jacket_insu_radius = jacket_insu.radius_ext
+	@test jacket_insu.r_ex ≈ final_jacket_con_radius + t_pet + t_jac
+	final_jacket_insu_radius = jacket_insu.r_ex
 
 	# Add Jacket Component to Design (using alternative signature)
 	add!(cable_design, "jacket", jacket_con, jacket_insu)
 	@test length(cable_design.components) == 3
 	@test cable_design.components[3].id == "jacket"
 	# Check overall radius
-	@test cable_design.components[3].insulator_group.radius_ext ≈
+	@test cable_design.components[3].insulator_group.r_ex ≈
 		  final_jacket_insu_radius
 
 	println("Checking DataFrame...")
@@ -358,10 +358,10 @@ end
 		# Extract effective properties and dimensions
 		eff_cond_props = original_component.conductor_props
 		eff_ins_props = original_component.insulator_props
-		r_in_cond = original_component.conductor_group.radius_in
-		r_ext_cond = original_component.conductor_group.radius_ext
-		r_in_ins = original_component.insulator_group.radius_in
-		r_ext_ins = original_component.insulator_group.radius_ext
+		r_in_cond = original_component.conductor_group.r_in
+		r_ext_cond = original_component.conductor_group.r_ex
+		r_in_ins = original_component.insulator_group.r_in
+		r_ext_ins = original_component.insulator_group.r_ex
 
 		# Sanity check dimensions
 		@test r_ext_cond ≈ r_in_ins atol = 1e-9 # Inner radius of insulator must match outer of conductor
@@ -510,7 +510,7 @@ end
 	earth_params_pscad = EarthModel(f_pscad, 100.0, 10.0, 1.0) # 100 Ω·m, εr=10, μr=1
 
 	# Use outermost radius for trifoil calculation spacing
-	r = cable_design.components[end].insulator_group.radius_ext
+	r = cable_design.components[end].insulator_group.r_ex
 
 	s = 2r + 0.01
 
