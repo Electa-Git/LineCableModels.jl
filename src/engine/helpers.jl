@@ -18,10 +18,10 @@ function _find_common_type(problem::LineParametersProblem)
 			if any(
 				x -> x isa Measurement,
 				(
-					component.conductor_group.radius_in,
-					component.conductor_group.radius_ext,
-					component.insulator_group.radius_in,
-					component.insulator_group.radius_ext,
+					component.conductor_group.r_in,
+					component.conductor_group.r_ex,
+					component.insulator_group.r_in,
+					component.insulator_group.r_ex,
 					component.conductor_props.rho, component.conductor_props.mu_r,
 					component.conductor_props.eps_r,
 					component.insulator_props.rho, component.insulator_props.mu_r,
