@@ -20,17 +20,35 @@ struct Material{T <: Real}
 	sigma_solar::T
 end
 
+# function Material(
+# 	rho::Real, eps_r::Real, mu_r::Real, T0::Real, alpha::Real,
+# 	rho_thermal::Real, theta_max::Real, tan_delta::Real, sigma_solar::Real,
+# )
+# 	# Promote all 9 inputs to a single common type T (e.g., mixed Float64 and Measurement)
+# 	p = promote(rho, eps_r, mu_r, T0, alpha, rho_thermal, theta_max, tan_delta, sigma_solar)
+
+# 	T_common = typeof(first(p))
+
+# 	# Splat the perfectly aligned tuple into the strict, auto-generated constructor
+# 	return Material{T_common}(p...)
+# end
 function Material(
-	rho::Real, eps_r::Real, mu_r::Real, T0::Real, alpha::Real,
-	rho_thermal::Real, theta_max::Real, tan_delta::Real, sigma_solar::Real,
+	rho,
+	eps_r,
+	mu_r,
+	T0,
+	alpha,
+	rho_thermal,
+	theta_max,
+	tan_delta,
+	sigma_solar,
 )
-	# Promote all 9 inputs to a single common type T (e.g., mixed Float64 and Measurement)
-	p = promote(rho, eps_r, mu_r, T0, alpha, rho_thermal, theta_max, tan_delta, sigma_solar)
-
-	T_common = typeof(first(p))
-
-	# Splat the perfectly aligned tuple into the strict, auto-generated constructor
-	return Material{T_common}(p...)
+	T = promote_type(typeof(rho), typeof(eps_r), typeof(mu_r), typeof(T0), typeof(alpha),
+		typeof(rho_thermal), typeof(theta_max), typeof(tan_delta), typeof(sigma_solar))
+	return Material{T}(convert(T, rho), convert(T, eps_r), convert(T, mu_r), convert(T, T0),
+		convert(T, alpha),
+		convert(T, rho_thermal), convert(T, theta_max), convert(T, tan_delta),
+		convert(T, sigma_solar))
 end
 
 import Base: convert
