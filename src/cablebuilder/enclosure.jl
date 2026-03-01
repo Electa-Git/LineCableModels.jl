@@ -7,15 +7,13 @@ function Enclosure(
 	base_shape::AbstractShape{L, T_shape},
 	filler::Material{T_mat},
 ) where {L, T_shape <: Real, T_mat <: Real}
-	# Find the mathematical truce between the shape and the fluid
-	T_common = promote_type(T_shape, T_mat)
 
-	# Force the inner shape and the material to upgrade if necessary
-	s_promoted = convert(AbstractShape{L, T_common}, base_shape)
-	f_promoted = convert(Material{T_common}, filler)
+	T = promote_type(T_shape, T_mat)
 
-	# Shove the perfectly aligned structs into the auto-generated Vault
-	return Enclosure{L, T_common, typeof(s_promoted)}(s_promoted, f_promoted)
+	s = convert(AbstractShape{L, T}, base_shape)   # must return concrete
+	f = convert(Material{T}, filler)
+
+	return Enclosure{L, T, typeof(s)}(s, f)
 end
 
 function Base.convert(::Type{<:AbstractShape{L, T}}, e::Enclosure{L}) where {L, T <: Real}
@@ -29,3 +27,42 @@ end
 
 r_in(e::Enclosure) = r_in(e.base_shape)
 r_ex(e::Enclosure) = r_ex(e.base_shape)
+
+struct EnclosureBuilder{P, S, O, F}
+	inner::S
+	offset::O
+	filler::Material{F}
+end
+
+@inline function EnclosureBuilder{P}(
+	inner::S,
+	offset::O,
+	filler::Material{F},
+) where {P, S, O, F}
+	return EnclosureBuilder{P, S, O, F}(inner, offset, filler)
+end
+
+@inline function (b::EnclosureBuilder{P})(current_r::T) where {P, T <: Real}
+	r0 = current_r + b.offset
+	part = b.inner(r0)
+	newshape = Enclosure(part.shape, b.filler)
+	return P(part.tag, newshape, part.material)
+end
+
+struct EnclosureSpec{P, S, O, F} <: AbstractSpec{EnclosureBuilder{P}}
+	inner::S
+	offset::O
+	filler::F
+end
+
+# Make this diva explicit about what is iterable, and what is not. 
+@inline grid_args(spec::EnclosureSpec) = (spec.inner, spec.offset, spec.filler)
+
+@inline function EnclosureSpec(::Type{P}, inner::S, offset::O, filler::F) where {P, S, O, F}
+	return EnclosureSpec{P, S, O, F}(inner, offset, filler)
+end
+
+@inline function EnclosureSpec(::Type{P}, inner_spec, filler; offset = 0.0) where {P}
+	filler_spec = convert(AbstractSpec{Material}, filler)
+	return EnclosureSpec(P, inner_spec, Grid(offset), filler_spec)
+end
