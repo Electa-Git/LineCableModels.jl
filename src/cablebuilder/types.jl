@@ -1,5 +1,7 @@
 abstract type AbstractCablePart end
 
+@inline r_ex(p::AbstractCablePart) = r_ex(p.shape)
+
 struct ConductorPart{L, T, S <: AbstractShape{L, T}} <: AbstractCablePart
 	tag::Symbol
 	shape::S
@@ -10,19 +12,15 @@ function ConductorPart(
 	tag::Symbol,
 	shape::AbstractShape{L, T_shape},
 	mat::Material{T_mat},
-) where {L, T_shape, T_mat}
+) where {L, T_shape <: Real, T_mat <: Real}
 	# 1. Ask the compiler what the safest common type is.
-	T_common = promote_type(T_shape, T_mat)
+	T = promote_type(T_shape, T_mat)
 
 	# 2. Let native dispatch handle the translation.
-	shape_promoted = convert(AbstractShape{L, T_common}, shape)
-	mat_promoted = convert(Material{T_common}, mat)
+	s = convert(AbstractShape{L, T}, shape)
+	m = convert(Material{T}, mat)
 
-	return ConductorPart{L, T_common, typeof(shape_promoted)}(
-		tag,
-		shape_promoted,
-		mat_promoted,
-	)
+	return ConductorPart{L, T, typeof(s)}(tag, s, m)
 end
 
 struct InsulatorPart{L, T, S <: AbstractShape{L, T}} <: AbstractCablePart
@@ -35,17 +33,13 @@ function InsulatorPart(
 	tag::Symbol,
 	shape::AbstractShape{L, T_shape},
 	mat::Material{T_mat},
-) where {L, T_shape, T_mat}
+) where {L, T_shape <: Real, T_mat <: Real}
 	# 1. Ask the compiler what the safest common type is.
-	T_common = promote_type(T_shape, T_mat)
+	T = promote_type(T_shape, T_mat)
 
 	# 2. Let native dispatch handle the translation.
-	shape_promoted = convert(AbstractShape{L, T_common}, shape)
-	mat_promoted = convert(Material{T_common}, mat)
+	s = convert(AbstractShape{L, T}, shape)
+	m = convert(Material{T}, mat)
 
-	return InsulatorPart{L, T_common, typeof(shape_promoted)}(
-		tag,
-		shape_promoted,
-		mat_promoted,
-	)
+	return InsulatorPart{L, T, typeof(s)}(tag, s, m)
 end
