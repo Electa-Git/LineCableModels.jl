@@ -3,13 +3,9 @@ struct TubularShape{L, T <: Real} <: AbstractShape{L, T}
 	r_ex::T
 end
 
-function TubularShape{L}(r_in::Real, r_ex::Real) where {L}
-	# Force the two boundaries to agree on a common precision T
-	p = promote(r_in, r_ex)
-	T_common = typeof(first(p))
-
-	# Hand the perfectly aligned tuple to the auto-generated strict struct
-	return TubularShape{L, T_common}(p...)
+function TubularShape{L}(r_in, r_ex) where {L}
+	T = promote_type(typeof(r_in), typeof(r_ex))
+	return TubularShape{L, T}(convert(T, r_in), convert(T, r_ex))
 end
 
 function Base.convert(
@@ -17,34 +13,51 @@ function Base.convert(
 	s::TubularShape{L},
 ) where {L, T <: Real}
 	# Safely cast both boundaries to the new T, and lock them in a new Vault
-	return TubularShape{L, T}(convert(T, s.r_in), convert(T, s.r_ex))
+	return TubularShape{L, T}(convert(T, r_in(s)), convert(T, r_ex(s)))
 end
+
+@inline r_in(s::TubularShape) = s.r_in
+@inline r_ex(s::TubularShape) = s.r_ex
 
 # ---------------------------------------------------------
 # The Payload (Does NOT subtype AbstractSpec)
 # ---------------------------------------------------------
-struct TubularBuilder{P, T_geom <: Real, T_mat <: Real}
-	PartType::Type{P}  # Holds ConductorPart or InsulatorPart
+struct TubularBuilder{P, Tgeom <: Real, Tmat <: Real}
 	tag::Symbol
-	t::T_geom
-	mat::Material{T_mat}
+	t::Tgeom
+	mat::Material{Tmat}
 end
 
-# It waits peacefully until the materializer hands it current_r
-function (b::TubularBuilder)(current_r::Real)
-	r_ex = current_r + b.t
+@inline function TubularBuilder{P}(
+	tag::Symbol,
+	t::Tgeom,
+	mat::Material{Tmat},
+) where {P, Tgeom, Tmat}
+	return TubularBuilder{P, Tgeom, Tmat}(tag, t, mat)
+end
 
-	# Stomp out the final physical struct using the role
-	return b.PartType(b.tag, TubularShape{Concentric}(current_r, r_ex), b.mat)
+# # It waits peacefully until the materializer hands it current_r
+@inline function (b::TubularBuilder{P})(current_r::T) where {P, T <: Real}
+	r_ex = current_r + b.t
+	return P(b.tag, TubularShape{Concentric}(current_r, r_ex), b.mat)
 end
 
 # ---------------------------------------------------------
 # The Blueprint (Subtypes AbstractSpec)
 # ---------------------------------------------------------
-struct TubularPartSpec{P, T, Th, M <: AbstractSpec{Material}} <:
-	   AbstractSpec{TubularBuilder}
-	PartType::P  # Will be a DeterministicGrid holding the Type
-	tag::T
-	t::Th
+struct TubularPartSpec{P, Ttag, Tt, M <: AbstractSpec{Material}} <:
+	   AbstractSpec{TubularBuilder{P}}
+	tag::Ttag
+	t::Tt
 	mat::M
+end
+
+@inline function TubularPartSpec(
+	::Type{P},
+	tag::Ttag,
+	t::Tt,
+	mat::M,
+) where
+	{P, Ttag, Tt, M <: AbstractSpec{Material}}
+	return TubularPartSpec{P, Ttag, Tt, M}(tag, t, mat)
 end
