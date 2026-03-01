@@ -18,8 +18,25 @@ abstract type AbstractSpec{Target} end
 # ---------------------------------------------------------
 # The Generic Iteration Protocol
 # ---------------------------------------------------------
-Base.iterate(spec::AbstractSpec) = iterate(generator(spec))
-Base.iterate(spec::AbstractSpec, state) = iterate(generator(spec), state)
+# Base.iterate(spec::AbstractSpec) = iterate(generator(spec))
+# Base.iterate(spec::AbstractSpec, state) = iterate(generator(spec), state)
+
+# ---------------------------------------------------------
+# The Generic Iteration Protocol (allocation-thin)
+# ---------------------------------------------------------
+@inline function Base.iterate(spec::AbstractSpec)
+	gen = generator(spec)
+	y = iterate(gen)
+	y === nothing && return nothing
+	return (y[1], (gen, y[2]))
+end
+
+@inline function Base.iterate(spec::AbstractSpec, state)
+	gen, st = state
+	y = iterate(gen, st)
+	y === nothing && return nothing
+	return (y[1], (gen, y[2]))
+end
 
 # Calculates the total combinatorial gangbang size natively.
 # init=1 prevents it from shitting the bed if you ever define a struct with zero fields.
@@ -35,8 +52,6 @@ Base.eltype(::Type{<:AbstractSpec{Target}}) where {Target} = Target
 # The Generic Stochastic Realizer
 import Base: rand
 using Distributions
-@inline grid_args(spec::AbstractSpec) =
-	ntuple(i -> getfield(spec, i), Val(fieldcount(typeof(spec))))
 
 @inline function Base.rand(
 	spec::AbstractSpec{Target};
