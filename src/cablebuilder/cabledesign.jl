@@ -37,7 +37,7 @@ end
 # The Cheap-Allocation Stacking Engine
 # ---------------------------------------------------------
 
-# Type-stable machinery to say that the cable center is at 0. Whether I'm being sarcastic or not depends on how much caffeine I've had.
+# Type-stable machinery to say that the cable center is at 0. Whether I'm being sarcastic or not in this comment depends on how much caffeine I've had.
 @inline scalar_type(b) = typeof(_scalar_seed(b))
 
 @inline _scalar_seed(b) = _scalar_seed_fields(b, Val(1), Val(fieldcount(typeof(b))))
@@ -49,7 +49,7 @@ end
 # Which is… bold, from an engineering standpoint.
 @inline _scalar_seed_fields(::Any, ::Val{0}) =
 	Base.error(
-		"Builder has no Real fields; cannot infer scalar type for stacking. Not to mention the engineering challenges involved in building some imaginary cable.",
+		"Builder has no Real fields; cannot infer scalar type for stacking, not to mention the engineering challenges involved in building some imaginary cable.",
 	)
 
 @inline function _scalar_seed_fields(b, ::Val{i}, ::Val{N}) where {i, N}
