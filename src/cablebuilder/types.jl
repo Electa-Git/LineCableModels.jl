@@ -3,13 +3,13 @@ abstract type AbstractCablePart end
 @inline r_ex(p::AbstractCablePart) = r_ex(p.shape)
 
 struct ConductorPart{L, T, S <: AbstractShape{L, T}} <: AbstractCablePart
-	tag::Symbol
+	cmp::Symbol
 	shape::S
 	material::Material{T}
 end
 
 function ConductorPart(
-	tag::Symbol,
+	cmp::Symbol,
 	shape::AbstractShape{L, T_shape},
 	mat::Material{T_mat},
 ) where {L, T_shape <: Real, T_mat <: Real}
@@ -20,17 +20,17 @@ function ConductorPart(
 	s = convert(AbstractShape{L, T}, shape)
 	m = convert(Material{T}, mat)
 
-	return ConductorPart{L, T, typeof(s)}(tag, s, m)
+	return ConductorPart{L, T, typeof(s)}(cmp, s, m)
 end
 
 struct InsulatorPart{L, T, S <: AbstractShape{L, T}} <: AbstractCablePart
-	tag::Symbol
+	cmp::Symbol
 	shape::S
 	material::Material{T}
 end
 
 function InsulatorPart(
-	tag::Symbol,
+	cmp::Symbol,
 	shape::AbstractShape{L, T_shape},
 	mat::Material{T_mat},
 ) where {L, T_shape <: Real, T_mat <: Real}
@@ -41,5 +41,5 @@ function InsulatorPart(
 	s = convert(AbstractShape{L, T}, shape)
 	m = convert(Material{T}, mat)
 
-	return InsulatorPart{L, T, typeof(s)}(tag, s, m)
+	return InsulatorPart{L, T, typeof(s)}(cmp, s, m)
 end
