@@ -16,48 +16,45 @@ function Base.convert(
 	return TubularShape{L, T}(convert(T, r_in(s)), convert(T, r_ex(s)))
 end
 
-@inline r_in(s::TubularShape) = s.r_in
-@inline r_ex(s::TubularShape) = s.r_ex
-
 # ---------------------------------------------------------
 # The Payload (Does NOT subtype AbstractSpec)
 # ---------------------------------------------------------
 struct TubularBuilder{P, Tgeom <: Real, Tmat <: Real}
-	tag::Symbol
+	cmp::Symbol
 	t::Tgeom
 	mat::Material{Tmat}
 end
 
 @inline function TubularBuilder{P}(
-	tag::Symbol,
+	cmp::Symbol,
 	t::Tgeom,
 	mat::Material{Tmat},
 ) where {P, Tgeom, Tmat}
-	return TubularBuilder{P, Tgeom, Tmat}(tag, t, mat)
+	return TubularBuilder{P, Tgeom, Tmat}(cmp, t, mat)
 end
 
 # # It waits peacefully until the materializer hands it current_r
 @inline function (b::TubularBuilder{P})(current_r::T) where {P, T <: Real}
 	r_ex = current_r + b.t
-	return P(b.tag, TubularShape{Concentric}(current_r, r_ex), b.mat)
+	return P(b.cmp, TubularShape{Concentric}(current_r, r_ex), b.mat)
 end
 
 # ---------------------------------------------------------
 # The Blueprint (Subtypes AbstractSpec)
 # ---------------------------------------------------------
-struct TubularPartSpec{P, Ttag, Tt, M <: AbstractSpec{Material}} <:
+struct TubularLayerSpec{P, Tcmp, Tt, M <: AbstractSpec{Material}} <:
 	   AbstractSpec{TubularBuilder{P}}
-	tag::Ttag
+	cmp::Tcmp
 	t::Tt
 	mat::M
 end
 
-@inline function TubularPartSpec(
+@inline function TubularLayerSpec(
 	::Type{P},
-	tag::Ttag,
+	cmp::Tcmp,
 	t::Tt,
 	mat::M,
 ) where
-	{P, Ttag, Tt, M <: AbstractSpec{Material}}
-	return TubularPartSpec{P, Ttag, Tt, M}(tag, t, mat)
+	{P, Tcmp, Tt, M <: AbstractSpec{Material}}
+	return TubularLayerSpec{P, Tcmp, Tt, M}(cmp, t, mat)
 end
