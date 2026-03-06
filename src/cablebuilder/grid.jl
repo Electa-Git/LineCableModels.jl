@@ -19,7 +19,7 @@ struct AbsoluteGrid{V, P}
 end
 
 # ---------------------------------------------------------
-# The Bouncers & Tags
+# The Bouncers & cmps
 # ---------------------------------------------------------
 # If it's already a collection, pass it through
 _tuplify(x::AbstractArray) = x
@@ -28,7 +28,7 @@ _tuplify(x::Tuple) = x
 # If it's a scalar (Real, Symbol, Type, Material, etc.), wrap it in a 1-element Tuple so it can iterate
 _tuplify(x) = (x,)
 
-# The explicit tag for absolute standard deviations. 
+# The explicit cmp for absolute standard deviations. 
 # If someone asks what this does, fire them.
 struct AbsoluteError{T}
 	vals::T
