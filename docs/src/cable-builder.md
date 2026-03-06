@@ -31,13 +31,13 @@ Two built-in roles exist:
 
 ```julia
 struct ConductorPart{L,T,S<:AbstractShape{L,T}} <: AbstractCablePart
-    tag::Symbol
+    cmp::Symbol
     shape::S
     material::Material{T}
 end
 
 struct InsulatorPart{L,T,S<:AbstractShape{L,T}} <: AbstractCablePart
-    tag::Symbol
+    cmp::Symbol
     shape::S
     material::Material{T}
 end
@@ -46,7 +46,7 @@ end
 Both rely on identical promotion logic:
 
 ```julia
-function ConductorPart(tag::Symbol,
+function ConductorPart(cmp::Symbol,
                        shape::AbstractShape{L,Tshape},
                        mat::Material{Tmat}) where {L,Tshape<:Real,Tmat<:Real}
 
@@ -55,7 +55,7 @@ function ConductorPart(tag::Symbol,
     s = convert(AbstractShape{L,T}, shape)
     m = convert(Material{T}, mat)
 
-    ConductorPart{L,T,typeof(s)}(tag,s,m)
+    ConductorPart{L,T,typeof(s)}(cmp,s,m)
 end
 ```
 
@@ -65,7 +65,7 @@ Identical pattern applies to `InsulatorPart`.
 
 A valid cable part requires:
 
-* `tag::Symbol`
+* `cmp::Symbol`
 * `shape <: AbstractShape`
 * `material::Material`
 
@@ -103,7 +103,7 @@ r_in(shape)
 r_ex(shape)
 ```
 
-These accessors are **mandatory**.
+or fallback to the global default. These accessors are **mandatory**.
 
 All geometry logic in downstream physics relies on them.
 
@@ -166,7 +166,7 @@ end
 @inline r_ex(s::SolidCore) = s.r_ex
 ```
 
-These must always exist.
+These must always exist, and are defined globally. Cases non-conformal to the typical `r_in` / `r_ex` pattern must specify custom accessors, e.g. `SolidCore`, `Enclosure`.
 
 Never access fields directly outside the shape file.
 
@@ -186,7 +186,7 @@ They receive the current stacking radius.
 
 ```julia
 struct SolidCoreBuilder{P,Tgeom<:Real,Tmat<:Real}
-    tag::Symbol
+    cmp::Symbol
     r_ex::Tgeom
     mat::Material{Tmat}
 end
@@ -195,11 +195,11 @@ end
 Constructor:
 
 ```julia
-@inline function SolidCoreBuilder{P}(tag::Symbol,
+@inline function SolidCoreBuilder{P}(cmp::Symbol,
                                      r_ex::Tgeom,
                                      mat::Material{Tmat}) where {P,Tgeom,Tmat}
 
-    SolidCoreBuilder{P,Tgeom,Tmat}(tag,r_ex,mat)
+    SolidCoreBuilder{P,Tgeom,Tmat}(cmp,r_ex,mat)
 end
 ```
 
@@ -211,7 +211,7 @@ Materialization:
     current_r != zero(T) &&
         error("Topological violation: Solid core must be at r=0.")
 
-    P(b.tag, SolidCore{Concentric}(b.r_ex), b.mat)
+    P(b.cmp, SolidCore{Concentric}(b.r_ex), b.mat)
 end
 ```
 
@@ -221,7 +221,7 @@ end
 
 ```julia
 struct TubularBuilder{P,Tgeom<:Real,Tmat<:Real}
-    tag::Symbol
+    cmp::Symbol
     t::Tgeom
     mat::Material{Tmat}
 end
@@ -234,7 +234,7 @@ Materialization:
 
     r_ex = current_r + b.t
 
-    P(b.tag,
+    P(b.cmp,
       TubularShape{Concentric}(current_r,r_ex),
       b.mat)
 end
@@ -259,10 +259,10 @@ abstract type AbstractSpec{Target} end
 ## SolidCoreSpec
 
 ```julia
-struct SolidCoreSpec{P,Ttag,Tr,M<:AbstractSpec{Material}} <:
+struct SolidCoreSpec{P,Tcmp,Tr,M<:AbstractSpec{Material}} <:
        AbstractSpec{SolidCoreBuilder{P}}
 
-    tag::Ttag
+    cmp::Tcmp
     r_ex::Tr
     mat::M
 end
@@ -272,9 +272,9 @@ Constructor:
 
 ```julia
 SolidCoreSpec(::Type{P},
-              tag::Ttag,
+              cmp::Tcmp,
               r_ex::Tr,
-              mat::M) where {P,Ttag,Tr,M<:AbstractSpec{Material}}
+              mat::M) where {P,Tcmp,Tr,M<:AbstractSpec{Material}}
 ```
 
 ---
@@ -282,10 +282,10 @@ SolidCoreSpec(::Type{P},
 ## TubularPartSpec
 
 ```julia
-struct TubularPartSpec{P,Ttag,Tt,M<:AbstractSpec{Material}} <:
+struct TubularPartSpec{P,Tcmp,Tt,M<:AbstractSpec{Material}} <:
        AbstractSpec{TubularBuilder{P}}
 
-    tag::Ttag
+    cmp::Tcmp
     t::Tt
     mat::M
 end
@@ -295,7 +295,7 @@ Constructor:
 
 ```julia
 TubularPartSpec(::Type{P},
-                tag::Ttag,
+                cmp::Tcmp,
                 t::Tt,
                 mat::M)
 ```
@@ -353,8 +353,8 @@ User-facing constructors exist in DSL modules:
 Example:
 
 ```julia
-Conductor.Solid(tag,material;r)
-Conductor.Tubular(tag,material;t)
+Conductor.Solid(cmp,material;r)
+Conductor.Tubular(cmp,material;t)
 ```
 
 They construct specs:
@@ -431,7 +431,7 @@ Functor:
 Must return:
 
 ```
-P(tag, NewShape(...), material)
+P(cmp, NewShape(...), material)
 ```
 
 ---
@@ -452,7 +452,7 @@ NewShapeSpec(::Type{P}, ...)
 
 # Step 4 — Define Grid Arguments
 
-If parameters are gridable, ensure they propagate through `grid_args`.
+If parameters are gridable, ensure they propagate through the global `grid_args` or specialize if necessary.
 
 ---
 
@@ -461,7 +461,7 @@ If parameters are gridable, ensure they propagate through `grid_args`.
 Example:
 
 ```julia
-function Conductor.NewShape(tag::Symbol, mat; parameters...)
+function Conductor.NewShape(cmp::Symbol, mat; parameters...)
 ```
 
 Must return:
