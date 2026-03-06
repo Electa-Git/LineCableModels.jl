@@ -25,6 +25,7 @@ function Base.convert(::Type{<:AbstractShape{L, T}}, e::Enclosure{L}) where {L, 
 	return Enclosure{L, T, typeof(s_converted)}(s_converted, f_converted)
 end
 
+# Override the global accessors because Enclosure is a diva
 r_in(e::Enclosure) = r_in(e.base_shape)
 r_ex(e::Enclosure) = r_ex(e.base_shape)
 
@@ -46,7 +47,7 @@ end
 	r0 = current_r + b.offset
 	part = b.inner(r0)
 	newshape = Enclosure(part.shape, b.filler)
-	return P(part.tag, newshape, part.material)
+	return P(part.cmp, newshape, part.material)
 end
 
 struct EnclosureSpec{P, S, O, F} <: AbstractSpec{EnclosureBuilder{P}}
@@ -55,8 +56,8 @@ struct EnclosureSpec{P, S, O, F} <: AbstractSpec{EnclosureBuilder{P}}
 	filler::F
 end
 
-# Make this diva explicit about what is iterable, and what is not. 
-@inline grid_args(spec::EnclosureSpec) = (spec.inner, spec.offset, spec.filler)
+# # Make this diva explicit about what is iterable, and what is not. 
+# @inline grid_args(spec::EnclosureSpec) = (spec.inner, spec.offset, spec.filler)
 
 @inline function EnclosureSpec(::Type{P}, inner::S, offset::O, filler::F) where {P, S, O, F}
 	return EnclosureSpec{P, S, O, F}(inner, offset, filler)
