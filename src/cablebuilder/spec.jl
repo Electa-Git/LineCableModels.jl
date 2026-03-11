@@ -8,6 +8,7 @@ abstract type AbstractSpec{Target} end
 @inline grid_args(spec::AbstractSpec) =
 	ntuple(i -> getfield(spec, i), Val(fieldcount(typeof(spec))))
 
+
 # The Generic Generator.
 # Splats the unrolled tuple of grids into Iterators.product, 
 # then splats the resulting combination directly into the Target constructor.
@@ -15,11 +16,6 @@ abstract type AbstractSpec{Target} end
 	T(args...) for args in Iterators.product(grid_args(spec)...)
 )
 
-# ---------------------------------------------------------
-# The Generic Iteration Protocol
-# ---------------------------------------------------------
-# Base.iterate(spec::AbstractSpec) = iterate(generator(spec))
-# Base.iterate(spec::AbstractSpec, state) = iterate(generator(spec), state)
 
 # ---------------------------------------------------------
 # The Generic Iteration Protocol (allocation-thin)
@@ -40,25 +36,28 @@ end
 
 # Calculates the total combinatorial gangbang size natively.
 # init=1 prevents it from shitting the bed if you ever define a struct with zero fields.
-Base.length(spec::AbstractSpec) =
-	prod((length(g) for g in grid_args(spec)), init = 1)
+Base.length(spec::AbstractSpec) = prod((length(g) for g in grid_args(spec)), init = 1)
+Base.IteratorSize(::Type{<:AbstractSpec}) = Base.HasLength()
 
-# Let Julia's native Generator interface infer the eltype dynamically
-# Base.IteratorEltype(::Type{<:AbstractSpec}) = Base.EltypeUnknown()
-Base.IteratorEltype(::Type{<:AbstractSpec}) = Base.HasEltype()
-Base.eltype(::Type{<:AbstractSpec{Target}}) where {Target} = Target
+# Forces Julia to infer the state tuple bottom-up from the materialized objects
+Base.IteratorEltype(::Type{<:AbstractSpec}) = Base.EltypeUnknown()
 
 
 # The Generic Stochastic Realizer
 import Base: rand
 using Distributions
 
+# The positional fast-path for nested specs
 @inline function Base.rand(
-	spec::AbstractSpec{Target};
-	dist::Type{D} = Normal,
+	spec::AbstractSpec{Target},
+	::Type{D},
 ) where {Target, D <: ContinuousUnivariateDistribution}
-	# Pass the Type positionally. No kwargs in the closure.
 	samples = map(g -> rand(g, D), grid_args(spec))
-
 	return Target(samples...)
 end
+
+# The public API (kwargs)
+Base.rand(
+	spec::AbstractSpec;
+	dist::Type{D} = Normal,
+) where {D <: ContinuousUnivariateDistribution} = rand(spec, dist)
