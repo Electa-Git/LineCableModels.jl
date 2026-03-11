@@ -1,60 +1,65 @@
-# The Vault (The Struct): Blunt, violently strict, purely parametric (T). Zero logic. Zero inner constructors. It just dictates the memory layout.
-struct SolidShape{L, T <: Real} <: AbstractShape{L, T}
+# ==========================================
+# 1. THE VAULT
+# ==========================================
+# Just strictly holds the universal boundaries.
+struct SolidCore{L, T <: Real} <: AbstractShape{L, T}
+	r_in::T
 	r_ex::T
 end
 
-# The Janitor (The Outer Constructor): Takes the messy, mixed-type garbage from the user, sweeps it through promote(), and hands a perfectly clean, uniform tuple to the Vault.
-# If the closure passes a Float64, T becomes Float64.
-# If the closure passes a Measurement, T becomes Measurement.
-SolidShape{L}(r_ex::T) where {L, T <: Real} = SolidShape{L, T}(r_ex)
-
-# The Diplomat (Base.convert): When a parent container (like ConductorPart or your physics solver) demands that an already-built struct upgrade its precision (e.g., Float64 to Measurement), this hook effortlessly translates the fields and returns a new Vault.
-function Base.convert(::Type{<:AbstractShape{L, T}}, s::SolidShape{L}) where {L, T <: Real}
-	# Safely upgrade r_ex to the new T, and call the strictly-typed Vault
-	return SolidShape{L, T}(convert(T, r_ex(s)))
+function SolidCore{L}(r_in, r_ex) where {L}
+	T = promote_type(typeof(r_in), typeof(r_ex))
+	return SolidCore{L, T}(convert(T, r_in), convert(T, r_ex))
 end
 
-# Override the universal accessor because SolidShape has no r_in field
-@inline r_in(s::SolidShape) = zero(typeof(s.r_ex))
-# r_ex(s) implicitly falls back to s.r_ex defined on AbstractShape
+function Base.convert(::Type{<:AbstractShape{L, T}}, s::SolidCore{L}) where {L, T <: Real}
+	return SolidCore{L, T}(convert(T, s.r_in), convert(T, s.r_ex))
+end
 
-# ---------------------------------------------------------
-# The Generic Solid Builder
-# ---------------------------------------------------------
-struct SolidCoreBuilder{P, T_geom <: Real, T_mat <: Real}
+# ==========================================
+# 2. THE BUILDER
+# ==========================================
+# Holds the actual target radius grid-value.
+struct SolidCoreBuilder{P, Tr <: Real, Tmat <: Real}
 	cmp::Symbol
-	r_ex::T_geom
-	mat::Material{T_mat}
+	r::Tr
+	mat::Material{Tmat}
 end
 
 @inline function SolidCoreBuilder{P}(
 	cmp::Symbol,
-	r_ex::Tgeom,
+	r::Tr,
 	mat::Material{Tmat},
-) where {P, Tgeom, Tmat}
-	return SolidCoreBuilder{P, Tgeom, Tmat}(cmp, r_ex, mat)
+) where {P, Tr, Tmat}
+	return SolidCoreBuilder{P, Tr, Tmat}(cmp, r, mat)
 end
 
 @inline function (b::SolidCoreBuilder{P})(current_r::T) where {P, T <: Real}
-	current_r != zero(T) && error("Topological violation: Solid core must be at r=0.")
-	return P(b.cmp, SolidShape{Concentric}(b.r_ex), b.mat)
+	# If someone tries to stack a solid core on top of an existing layer, mock them.
+	current_r != zero(T) && error(
+		"Topological violation: Solid core must be at r=0. You can't put a solid core on the outside of a cable.",
+	)
+
+	shape = SolidCore{Concentric}(current_r, b.r)
+	return P(b.cmp, shape, b.mat)
 end
 
-# ---------------------------------------------------------
-# The  Solid blueprint
-# ---------------------------------------------------------
+# ==========================================
+# 3. THE BLUEPRINT
+# ==========================================
+# Flat fields. Perfectly aligned with spec.jl's Introspection Kernel.
 struct SolidCoreSpec{P, Tcmp, Tr, M <: AbstractSpec{Material}} <:
 	   AbstractSpec{SolidCoreBuilder{P}}
 	cmp::Tcmp
-	r_ex::Tr
+	r::Tr
 	mat::M
 end
 
 @inline function SolidCoreSpec(
 	::Type{P},
 	cmp::Tcmp,
-	r_ex::Tr,
+	r::Tr,
 	mat::M,
 ) where {P, Tcmp, Tr, M <: AbstractSpec{Material}}
-	return SolidCoreSpec{P, Tcmp, Tr, M}(cmp, r_ex, mat)
+	return SolidCoreSpec{P, Tcmp, Tr, M}(cmp, r, mat)
 end
