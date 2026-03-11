@@ -1,49 +1,54 @@
-struct TubularShape{L, T <: Real} <: AbstractShape{L, T}
+# ==========================================
+# 1. THE VAULT
+# ==========================================
+struct TubularLayer{L, T <: Real} <: AbstractShape{L, T}
 	r_in::T
 	r_ex::T
 end
 
-function TubularShape{L}(r_in, r_ex) where {L}
+function TubularLayer{L}(r_in, r_ex) where {L}
 	T = promote_type(typeof(r_in), typeof(r_ex))
-	return TubularShape{L, T}(convert(T, r_in), convert(T, r_ex))
+	return TubularLayer{L, T}(convert(T, r_in), convert(T, r_ex))
 end
 
 function Base.convert(
 	::Type{<:AbstractShape{L, T}},
-	s::TubularShape{L},
+	s::TubularLayer{L},
 ) where {L, T <: Real}
-	# Safely cast both boundaries to the new T, and lock them in a new Vault
-	return TubularShape{L, T}(convert(T, r_in(s)), convert(T, r_ex(s)))
+	return TubularLayer{L, T}(convert(T, s.r_in), convert(T, s.r_ex))
 end
 
-# ---------------------------------------------------------
-# The Payload (Does NOT subtype AbstractSpec)
-# ---------------------------------------------------------
-struct TubularBuilder{P, Tgeom <: Real, Tmat <: Real}
+# ==========================================
+# 2. THE BUILDER
+# ==========================================
+# Holds the abstract thickness value.
+struct TubularLayerBuilder{P, Tt <: Real, Tmat <: Real}
 	cmp::Symbol
-	t::Tgeom
+	t::Tt
 	mat::Material{Tmat}
 end
 
-@inline function TubularBuilder{P}(
+@inline function TubularLayerBuilder{P}(
 	cmp::Symbol,
-	t::Tgeom,
+	t::Tt,
 	mat::Material{Tmat},
-) where {P, Tgeom, Tmat}
-	return TubularBuilder{P, Tgeom, Tmat}(cmp, t, mat)
+) where {P, Tt, Tmat}
+	return TubularLayerBuilder{P, Tt, Tmat}(cmp, t, mat)
 end
 
-# # It waits peacefully until the materializer hands it current_r
-@inline function (b::TubularBuilder{P})(current_r::T) where {P, T <: Real}
+@inline function (b::TubularLayerBuilder{P})(current_r::T) where {P, T <: Real}
+	# Physics reminder: r_ex = r_in + thickness. 
 	r_ex = current_r + b.t
-	return P(b.cmp, TubularShape{Concentric}(current_r, r_ex), b.mat)
+	shape = TubularLayer{Concentric}(current_r, r_ex)
+	return P(b.cmp, shape, b.mat)
 end
 
-# ---------------------------------------------------------
-# The Blueprint (Subtypes AbstractSpec)
-# ---------------------------------------------------------
+# ==========================================
+# 3. THE BLUEPRINT
+# ==========================================
+# Flat fields. Measurements.jl will propagate the uncertainty of `t` cleanly.
 struct TubularLayerSpec{P, Tcmp, Tt, M <: AbstractSpec{Material}} <:
-	   AbstractSpec{TubularBuilder{P}}
+	   AbstractSpec{TubularLayerBuilder{P}}
 	cmp::Tcmp
 	t::Tt
 	mat::M
@@ -54,7 +59,6 @@ end
 	cmp::Tcmp,
 	t::Tt,
 	mat::M,
-) where
-	{P, Tcmp, Tt, M <: AbstractSpec{Material}}
+) where {P, Tcmp, Tt, M <: AbstractSpec{Material}}
 	return TubularLayerSpec{P, Tcmp, Tt, M}(cmp, t, mat)
 end
