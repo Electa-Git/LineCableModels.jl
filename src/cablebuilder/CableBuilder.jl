@@ -17,12 +17,9 @@ include("types.jl")
 include("cabledesign.jl")
 
 
-export Material, MaterialSpec, AbstractCablePart, CableDesign, CableDesignSpec, build
-export Concentric, SectorShaped
-export ConductorPart, InsulatorPart
-export SolidCore, TubularShape, CircStrandedShape, Enclosure
-export Grid, DeterministicGrid, RelativeGrid, AbsoluteGrid, AbsoluteError, AbstractSpec,
-	EnclosureSpec, TubularLayerSpec, SolidCoreSpec, CircStrandedSpec
+export Material, CableDesign
+export Conductor, Insulator
+export Grid, AbsoluteError
 
 # ==========================================
 # THE FRONTEND API (Compilation boundary)
@@ -32,7 +29,7 @@ module Conductor
 	import ..CableBuilder: SolidCoreSpec, TubularLayerSpec, ConductorPart, Grid
 	import ..CableBuilder: AbstractSpec, Material, EnclosureSpec, CircStrandedSpec
 
-	@inline function SolidCore(cmp::Symbol, mat; r)
+	@inline function Solid(cmp::Symbol, mat; r)
 		mat_spec = convert(AbstractSpec{Material}, mat)
 		return SolidCoreSpec(ConductorPart, Grid(cmp), Grid(r), mat_spec)
 	end
@@ -47,7 +44,15 @@ module Conductor
 		return EnclosureSpec(ConductorPart, inner, filler; offset = offset)
 	end
 
-	@inline function Wires(cmp::Symbol, mat; r_w, n_w, lay_r, lay_d = 1)
+	@inline function Stranded(
+		cmp::Symbol,
+		mat;
+		pattern::Symbol = :layer,
+		r_w,
+		n_w,
+		lay_r,
+		lay_d = 1,
+	)
 		mat_spec = convert(AbstractSpec{Material}, mat)
 		return CircStrandedSpec(
 			ConductorPart,
