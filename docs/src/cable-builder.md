@@ -65,9 +65,9 @@ Identical pattern applies to `InsulatorPart`.
 
 A valid cable part requires:
 
-* `cmp::Symbol`
-* `shape <: AbstractShape`
-* `material::Material`
+* `cmp::Symbol` (used to group parts into functional components)
+* `shape <: AbstractShape` (used to determine geometric features of parts)
+* `material::Material` (used to determine physical properties of parts)
 
 No logic is allowed inside the struct.
 
@@ -346,7 +346,7 @@ current_r → r_ex(part)
 
 ---
 
-# 8. API Sugar
+# 8. API layer
 
 User-facing constructors exist in DSL modules:
 
