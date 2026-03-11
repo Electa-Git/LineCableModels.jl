@@ -13,6 +13,8 @@ end
 # ---------------------------------------------------------
 # Override grid_args to unroll the tuple instead of inspecting struct fields
 @inline grid_args(spec::CableDesignSpec) = spec.layers
+
+
 # Specialize generator to avoid the extra layer of nesting/splat from the default generator
 @inline generator(spec::AbstractSpec{CableDesign}) = (
 	CableDesign(args) for args in Iterators.product(grid_args(spec)...)
@@ -36,45 +38,20 @@ end
 # ---------------------------------------------------------
 # The Cheap-Allocation Stacking Engine
 # ---------------------------------------------------------
-
-# Type-stable machinery to say that the cable center is at 0. Whether I'm being sarcastic or not in this comment depends on how much caffeine I've had.
-@inline scalar_type(b) = typeof(_scalar_seed(b))
-
-@inline _scalar_seed(b) = _scalar_seed_fields(b, Val(1), Val(fieldcount(typeof(b))))
-
-@inline _scalar_seed_fields(::Any, ::Val{i}, ::Val{N}) where {i, N} =
-	0.0  # should never happen unless no Real fields exist
-
-# If we run out of fields, your builder has no Real-valued geometry at all.
-# Which is… bold, from an engineering standpoint.
-@inline _scalar_seed_fields(::Any, ::Val{0}) =
-	Base.error(
-		"Builder has no Real fields; cannot infer scalar type for stacking, not to mention the engineering challenges involved in building some imaginary cable.",
-	)
-
-@inline function _scalar_seed_fields(b, ::Val{i}, ::Val{N}) where {i, N}
-	x = getfield(b, i)
-	x isa Real && return x
-	i == N && return _scalar_seed_fields(b, Val(i+1), Val(N))  # trigger the error above
-	return _scalar_seed_fields(b, Val(i+1), Val(N))
-end
-
-# The most overengineered 0 you'll see today. But it stacks cable layers, so shut up and enjoy.
-@inline scalar_zero(b) = zero(scalar_type(b))
-
 # Base case: no builders left
 @inline build_layer(r, ::Tuple{}) = ()
 
-# Recursive case: peel first + tail (Tuple recursion, because vectors are for people who enjoy allocations)
+# Recursive case: peel first + tail 
 @inline function build_layer(r, builders::Tuple)
 	b = first(builders)
-	part = b(r)
+	part = b(r) # The Shape's Janitor handles promotion natively here
 	return (part, build_layer(r_ex(part.shape), Base.tail(builders))...)
 end
 
 @inline function CableDesign(builders::Tuple)
-	z = scalar_zero(first(builders))   # "0", but in the right numeric universe
-	parts = build_layer(z, builders)   # start stacking from the center like civilized cable geometry
+	# Toss a default Float64 zero and let Julia's tuple recursion 
+	# and promote_type handle the rest.
+	parts = build_layer(0.0, builders)
 	return CableDesign{typeof(parts)}(parts)
 end
 
