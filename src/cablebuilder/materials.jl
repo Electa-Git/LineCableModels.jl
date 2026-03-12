@@ -1,4 +1,3 @@
-
 struct Material{T <: Real}
 	"Electrical resistivity of the material \\[Ω·m\\]."
 	rho::T
@@ -20,18 +19,6 @@ struct Material{T <: Real}
 	sigma_solar::T
 end
 
-# function Material(
-# 	rho::Real, eps_r::Real, mu_r::Real, T0::Real, alpha::Real,
-# 	rho_thermal::Real, theta_max::Real, tan_delta::Real, sigma_solar::Real,
-# )
-# 	# Promote all 9 inputs to a single common type T (e.g., mixed Float64 and Measurement)
-# 	p = promote(rho, eps_r, mu_r, T0, alpha, rho_thermal, theta_max, tan_delta, sigma_solar)
-
-# 	T_common = typeof(first(p))
-
-# 	# Splat the perfectly aligned tuple into the strict, auto-generated constructor
-# 	return Material{T_common}(p...)
-# end
 function Material(
 	rho,
 	eps_r,
@@ -51,10 +38,8 @@ function Material(
 		convert(T, sigma_solar))
 end
 
-import Base: convert
-
 # Convert Material to a new precision T
-function convert(::Type{Material{T}}, m::Material) where {T <: Real}
+function Base.convert(::Type{Material{T}}, m::Material) where {T <: Real}
 	return Material{T}(
 		convert(T, m.rho),
 		convert(T, m.eps_r),
