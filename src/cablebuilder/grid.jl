@@ -10,7 +10,7 @@ end
 
 struct RelativeGrid{V, P}
 	vals::V
-	pcts::P
+	rel_err::P
 end
 
 struct AbsoluteGrid{V, P}
@@ -19,7 +19,7 @@ struct AbsoluteGrid{V, P}
 end
 
 # ---------------------------------------------------------
-# The Bouncers & cmps
+# The Bouncers & tags
 # ---------------------------------------------------------
 # If it's already a collection, pass it through
 _tuplify(x::AbstractArray) = x
@@ -28,7 +28,7 @@ _tuplify(x::Tuple) = x
 # If it's a scalar (Real, Symbol, Type, Material, etc.), wrap it in a 1-element Tuple so it can iterate
 _tuplify(x) = (x,)
 
-# The explicit cmp for absolute standard deviations. 
+# The explicit tag for absolute standard deviations. 
 # If someone asks what this does, fire them.
 struct AbsoluteError{T}
 	vals::T
@@ -63,10 +63,11 @@ Base.eltype(::Type{DeterministicGrid{V}}) where {V} = eltype(V)
 	measurement(res[1][1], abs(res[1][1]) * (res[1][2] / 100.0)),
 	res[2],
 )
-Base.iterate(g::RelativeGrid) = _measurify_rel(iterate(Iterators.product(g.vals, g.pcts)))
+Base.iterate(g::RelativeGrid) =
+	_measurify_rel(iterate(Iterators.product(g.vals, g.rel_err)))
 Base.iterate(g::RelativeGrid, state) =
-	_measurify_rel(iterate(Iterators.product(g.vals, g.pcts), state))
-Base.length(g::RelativeGrid) = length(g.vals) * length(g.pcts)
+	_measurify_rel(iterate(Iterators.product(g.vals, g.rel_err), state))
+Base.length(g::RelativeGrid) = length(g.vals) * length(g.rel_err)
 Base.eltype(::Type{<:RelativeGrid{V, P}}) where {V, P} =
 	Measurement{promote_type(eltype(V), eltype(P))}
 
@@ -91,7 +92,7 @@ Base.extrema(g::DeterministicGrid) = (minimum(g.vals), maximum(g.vals))
 
 function Base.extrema(g::RelativeGrid)
 	v_min, v_max = minimum(g.vals), maximum(g.vals)
-	p_max = maximum(abs, g.pcts) / 100.0
+	p_max = maximum(abs, g.rel_err) / 100.0
 	return (v_min * (1.0 - p_max), v_max * (1.0 + p_max))
 end
 
@@ -111,7 +112,7 @@ using Distributions
 @inline Base.rand(g::DeterministicGrid, ::Type{D}) where {D} = rand(g.vals)
 
 @inline function Base.rand(g::RelativeGrid, ::Type{D}) where {D}
-	v, p = rand(g.vals), rand(g.pcts)
+	v, p = rand(g.vals), rand(g.rel_err)
 	σ = abs(v) * (p / 100.0)
 	σ == 0 && return float(v) # Bypass distributions entirely if exact
 	return D === Normal ? rand(Normal(v, σ)) : rand(Uniform(v - √3*σ, v + √3*σ))
