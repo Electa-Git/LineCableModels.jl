@@ -29,23 +29,23 @@ module Conductor
 	import ..CableBuilder: SolidCoreSpec, TubularLayerSpec, ConductorPart, Grid
 	import ..CableBuilder: AbstractSpec, Material, EnclosureSpec, CircStrandedSpec
 
-	@inline function Solid(cmp::Symbol, mat; r)
+	@inline function Solid(grp::Symbol, mat; r)
 		mat_spec = convert(AbstractSpec{Material}, mat)
-		return SolidCoreSpec(ConductorPart, Grid(cmp), Grid(r), mat_spec)
+		return SolidCoreSpec(ConductorPart, Grid(grp), Grid(r), mat_spec)
 	end
 
-	@inline function Tubular(cmp::Symbol, mat; t)
+	@inline function Tubular(grp::Symbol, mat; t)
 		mat_spec = convert(AbstractSpec{Material}, mat)
-		return TubularLayerSpec(ConductorPart, Grid(cmp), Grid(t), mat_spec)
+		return TubularLayerSpec(ConductorPart, Grid(grp), Grid(t), mat_spec)
 	end
 
-	@inline function Pipe(cmp::Symbol, mat; t, filler, offset = 0.0)
-		inner = Tubular(cmp, mat; t = t)          # tubular wall
+	@inline function Pipe(grp::Symbol, mat; t, filler, offset = 0.0)
+		inner = Tubular(grp, mat; t = t)          # tubular wall
 		return EnclosureSpec(ConductorPart, inner, filler; offset = offset)
 	end
 
 	@inline function Stranded(
-		cmp::Symbol,
+		grp::Symbol,
 		mat;
 		pattern::Symbol = :layer,
 		r_w,
@@ -56,7 +56,7 @@ module Conductor
 		mat_spec = convert(AbstractSpec{Material}, mat)
 		return CircStrandedSpec(
 			ConductorPart,
-			Grid(cmp),
+			Grid(grp),
 			Grid(r_w),
 			Grid(n_w),
 			Grid(lay_r),
@@ -72,9 +72,9 @@ module Insulator
 	import ..CableBuilder: AbstractSpec, Material, EnclosureSpec
 
 	# Insulators don't usually have solid cores, but the logic holds!
-	@inline function Tubular(cmp::Symbol, mat; t)
+	@inline function Tubular(grp::Symbol, mat; t)
 		mat_spec = convert(AbstractSpec{Material}, mat)
-		return TubularLayerSpec(InsulatorPart, Grid(cmp), Grid(t), mat_spec)
+		return TubularLayerSpec(InsulatorPart, Grid(grp), Grid(t), mat_spec)
 	end
 end
 
