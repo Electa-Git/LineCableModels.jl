@@ -20,18 +20,18 @@ end
 # 2. THE BUILDER
 # ==========================================
 # Holds the actual target radius grid-value.
-struct SolidCoreBuilder{P, Tr <: Real, Tmat <: Real}
-	cmp::Symbol
-	r::Tr
-	mat::Material{Tmat}
+struct SolidCoreBuilder{P, T <: Real, M <: Real}
+	grp::Symbol
+	r::T
+	mat::Material{M}
 end
 
 @inline function SolidCoreBuilder{P}(
-	cmp::Symbol,
-	r::Tr,
-	mat::Material{Tmat},
-) where {P, Tr, Tmat}
-	return SolidCoreBuilder{P, Tr, Tmat}(cmp, r, mat)
+	grp::Symbol,
+	r::T,
+	mat::Material{M},
+) where {P, T, M}
+	return SolidCoreBuilder{P, T, M}(grp, r, mat)
 end
 
 @inline function (b::SolidCoreBuilder{P})(current_r::T) where {P, T <: Real}
@@ -41,25 +41,25 @@ end
 	)
 
 	shape = SolidCore{Concentric}(current_r, b.r)
-	return P(b.cmp, shape, b.mat)
+	return P(b.grp, shape, b.mat)
 end
 
 # ==========================================
 # 3. THE BLUEPRINT
 # ==========================================
 # Flat fields. Perfectly aligned with spec.jl's Introspection Kernel.
-struct SolidCoreSpec{P, Tcmp, Tr, M <: AbstractSpec{Material}} <:
+struct SolidCoreSpec{P, G, T, M <: AbstractSpec{Material}} <:
 	   AbstractSpec{SolidCoreBuilder{P}}
-	cmp::Tcmp
-	r::Tr
+	grp::G
+	r::T
 	mat::M
 end
 
 @inline function SolidCoreSpec(
 	::Type{P},
-	cmp::Tcmp,
-	r::Tr,
+	grp::G,
+	r::T,
 	mat::M,
-) where {P, Tcmp, Tr, M <: AbstractSpec{Material}}
-	return SolidCoreSpec{P, Tcmp, Tr, M}(cmp, r, mat)
+) where {P, G, T, M <: AbstractSpec{Material}}
+	return SolidCoreSpec{P, G, T, M}(grp, r, mat)
 end
