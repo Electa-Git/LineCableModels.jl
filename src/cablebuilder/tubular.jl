@@ -22,43 +22,43 @@ end
 # 2. THE BUILDER
 # ==========================================
 # Holds the abstract thickness value.
-struct TubularLayerBuilder{P, Tt <: Real, Tmat <: Real}
-	cmp::Symbol
-	t::Tt
-	mat::Material{Tmat}
+struct TubularLayerBuilder{P, T <: Real, M <: Real}
+	grp::Symbol
+	t::T
+	mat::Material{M}
 end
 
 @inline function TubularLayerBuilder{P}(
-	cmp::Symbol,
-	t::Tt,
-	mat::Material{Tmat},
-) where {P, Tt, Tmat}
-	return TubularLayerBuilder{P, Tt, Tmat}(cmp, t, mat)
+	grp::Symbol,
+	t::T,
+	mat::Material{M},
+) where {P, T, M}
+	return TubularLayerBuilder{P, T, M}(grp, t, mat)
 end
 
 @inline function (b::TubularLayerBuilder{P})(current_r::T) where {P, T <: Real}
 	# Physics reminder: r_ex = r_in + thickness. 
 	r_ex = current_r + b.t
 	shape = TubularLayer{Concentric}(current_r, r_ex)
-	return P(b.cmp, shape, b.mat)
+	return P(b.grp, shape, b.mat)
 end
 
-# ==========================================
+# ==========================================Tr
 # 3. THE BLUEPRINT
 # ==========================================
 # Flat fields. Measurements.jl will propagate the uncertainty of `t` cleanly.
-struct TubularLayerSpec{P, Tcmp, Tt, M <: AbstractSpec{Material}} <:
+struct TubularLayerSpec{P, G, T, M <: AbstractSpec{Material}} <:
 	   AbstractSpec{TubularLayerBuilder{P}}
-	cmp::Tcmp
-	t::Tt
+	grp::G
+	t::T
 	mat::M
 end
 
 @inline function TubularLayerSpec(
 	::Type{P},
-	cmp::Tcmp,
-	t::Tt,
+	grp::G,
+	t::T,
 	mat::M,
-) where {P, Tcmp, Tt, M <: AbstractSpec{Material}}
-	return TubularLayerSpec{P, Tcmp, Tt, M}(cmp, t, mat)
+) where {P, G, T, M <: AbstractSpec{Material}}
+	return TubularLayerSpec{P, G, T, M}(grp, t, mat)
 end
