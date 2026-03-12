@@ -47,7 +47,7 @@ end
 	r0 = current_r + b.offset
 	part = b.inner(r0)
 	newshape = Enclosure(part.shape, b.filler)
-	return P(part.cmp, newshape, part.material)
+	return P(part.grp, newshape, part.material)
 end
 
 struct EnclosureSpec{P, S, O, F} <: AbstractSpec{EnclosureBuilder{P}}
