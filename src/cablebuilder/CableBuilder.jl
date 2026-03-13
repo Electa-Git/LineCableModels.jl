@@ -2,6 +2,8 @@ module CableBuilder
 
 include("spec.jl")
 include("grid.jl")
+include("gridspace.jl")
+include("macros.jl")
 
 include("materials.jl")
 
@@ -27,7 +29,7 @@ export Grid, AbsoluteError
 export Conductor, Insulator
 module Conductor
 	import ..CableBuilder: SolidCoreSpec, TubularLayerSpec, ConductorPart, Grid
-	import ..CableBuilder: AbstractSpec, Material, EnclosureSpec, CircStrandedSpec
+	import ..CableBuilder: AbstractSpec, Material, EnclosureSpec
 
 	@inline function Solid(grp::Symbol, mat; r)
 		mat_spec = convert(AbstractSpec{Material}, mat)
