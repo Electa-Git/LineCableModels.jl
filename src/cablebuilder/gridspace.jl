@@ -11,6 +11,8 @@ end
 Gridspace{Target}(grids::Args) where {Target, Args <: Tuple} =
 	Gridspace{Target, Args}(grids)
 
+Grid(g::Gridspace) = g
+
 # No more ntuple/fieldcount bullshit. We just return the tuple.
 @inline grid_args(g::Gridspace) = g.grids
 
