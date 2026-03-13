@@ -1,3 +1,8 @@
+abstract type AbstractLayout end
+struct Concentric <: AbstractLayout end
+struct SectorShaped <: AbstractLayout end
+abstract type AbstractShape{L <: AbstractLayout, T <: Real} end
+
 abstract type AbstractCablePart end
 
 @inline r_ex(p::AbstractCablePart) = r_ex(p.shape)
