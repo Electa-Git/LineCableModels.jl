@@ -1,9 +1,5 @@
 
-abstract type AbstractLayout end
-struct Concentric <: AbstractLayout end
-struct SectorShaped <: AbstractLayout end
 
-abstract type AbstractShape{L <: AbstractLayout, T <: Real} end
 
 import .Validation:
 	Validation, required_fields, extra_rules, Normalized, Finite, Nonneg, Less, Positive
@@ -15,11 +11,11 @@ import .Validation:
 
 
 include("solidcore.jl")
-include("tubular.jl")
-include("enclosure.jl")
-include("wires.jl")
-include("helical.jl")
-include("stranded.jl")
+# include("tubular.jl")
+# include("enclosure.jl")
+# include("wires.jl")
+# include("helical.jl")
+# include("stranded.jl")
 
 # ---------------------------------------------------------
 # The Fuzzy Characteristic Length Trait
