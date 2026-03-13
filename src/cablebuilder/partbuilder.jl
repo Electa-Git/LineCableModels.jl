@@ -9,28 +9,34 @@
 # ==========================================
 # THE BUILDER
 # ==========================================
-struct PartBuilder{Part, Shape, P <: Tuple}
-	part::Type{Part}
-	shape::Type{Shape}
+struct PartBuilder{Target, Shape, P <: Tuple}
 	grp::Symbol
 	payload::P
 end
 
-# The Strict Constructor (The Sanity Checkpoint)
+# 1. THE CONSTRUCTOR (The Zero-Alloc Val Interceptor)
 @inline function PartBuilder(
-	part::Type{Part}, shape::Type{Shape}, grp::Symbol, payload...,
-) where {Part, Shape}
+	::Val{Target}, ::Val{Shape}, grp::Symbol, payload...,
+) where {Target, Shape}
 
-	# THE CHOKEPOINT: Validates the payload before the object is built.
-	validate(shape, payload)
-
-	return PartBuilder{Part, Shape, typeof(payload)}(part, shape, grp, payload)
+	return PartBuilder{Target, Shape, typeof(payload)}(grp, payload)
 end
 
-# The DSL Hook (Remains unchanged)
+# 2. THE FUNCTOR (The Spatial Collapse - Restored)
+@inline function (b::PartBuilder{Target, Shape})(current_r) where {Target, Shape}
+	# This routes to the specific shape logic you write in solidcore.jl, etc.
+	return build_part(Target, Shape, b.grp, current_r, b.payload)
+end
+
+# ==========================================
+# THE DSL HOOK
+# ==========================================
 @inline function Builder(
-	part::Type{Part}, shape::Type{Shape}, grp::Symbol, args...,
-) where {Part, Shape}
-	grids = (Grid(part), Grid(shape), Grid(grp), map(Grid, args)...)
+	::Type{Target}, ::Type{Shape}, grp::Symbol, args...,
+) where {Target, Shape}
+
+	# Wrap the types in Val{}() to make them 100% concrete for the tuple iteration
+	grids = (Grid(Val{Target}()), Grid(Val{Shape}()), Grid(grp), map(Grid, args)...)
+
 	return Gridspace{PartBuilder}(grids)
 end
