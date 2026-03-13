@@ -19,15 +19,15 @@ end
 # ==========================================
 # 2. THE FUNCTOR SPECIALIZATION (Spatial Collapse)
 # ==========================================
-# We dispatch exactly on the ShapeTag. 
-@inline function (b::PartBuilder{Part, SolidCore})(current_r::T) where {Part, T <: Real}
-	# Unpack the payload exactly in the positional order you defined for this shape
-	mat, r = b.payload
-
-	current_r != zero(T) && error("Topological violation: Solid core must be at r=0.")
-
+@inline function build_part(
+	::Type{Target},
+	::Type{SolidCore},
+	grp::Symbol,
+	current_r::T,
+	payload::Tuple,
+) where {Target, T}
+	mat, r = payload
+	current_r != zero(T) && error("Core must be at r=0.")
 	shape = SolidCore{Concentric}(current_r, current_r + r)
-
-	# Natively build the final role object (e.g., ConductorPart)
-	return b.part(b.grp, shape, mat)
+	return Target(grp, shape, mat) # Target is a compile-time constant here!
 end
