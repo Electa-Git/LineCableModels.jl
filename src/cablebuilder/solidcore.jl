@@ -17,49 +17,17 @@ function Base.convert(::Type{<:AbstractShape{L, T}}, s::SolidCore{L}) where {L, 
 end
 
 # ==========================================
-# 2. THE BUILDER
+# 2. THE FUNCTOR SPECIALIZATION (Spatial Collapse)
 # ==========================================
-# Holds the actual target radius grid-value.
-struct SolidCoreBuilder{P, T <: Real, M <: Real}
-	grp::Symbol
-	r::T
-	mat::Material{M}
-end
+# We dispatch exactly on the ShapeTag. 
+@inline function (b::PartBuilder{Part, SolidCore})(current_r::T) where {Part, T <: Real}
+	# Unpack the payload exactly in the positional order you defined for this shape
+	mat, r = b.payload
 
-@inline function SolidCoreBuilder{P}(
-	grp::Symbol,
-	r::T,
-	mat::Material{M},
-) where {P, T, M}
-	return SolidCoreBuilder{P, T, M}(grp, r, mat)
-end
+	current_r != zero(T) && error("Topological violation: Solid core must be at r=0.")
 
-@inline function (b::SolidCoreBuilder{P})(current_r::T) where {P, T <: Real}
-	# If someone tries to stack a solid core on top of an existing layer, mock them.
-	current_r != zero(T) && error(
-		"Topological violation: Solid core must be at r=0. You can't put a solid core on the outside of a cable.",
-	)
+	shape = SolidCore{Concentric}(current_r, current_r + r)
 
-	shape = SolidCore{Concentric}(current_r, b.r)
-	return P(b.grp, shape, b.mat)
-end
-
-# ==========================================
-# 3. THE BLUEPRINT
-# ==========================================
-# Flat fields. Perfectly aligned with spec.jl's Introspection Kernel.
-struct SolidCoreSpec{P, G, T, M <: AbstractSpec{Material}} <:
-	   AbstractSpec{SolidCoreBuilder{P}}
-	grp::G
-	r::T
-	mat::M
-end
-
-@inline function SolidCoreSpec(
-	::Type{P},
-	grp::G,
-	r::T,
-	mat::M,
-) where {P, G, T, M <: AbstractSpec{Material}}
-	return SolidCoreSpec{P, G, T, M}(grp, r, mat)
+	# Natively build the final role object (e.g., ConductorPart)
+	return b.part(b.grp, shape, mat)
 end
