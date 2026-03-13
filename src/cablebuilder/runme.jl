@@ -1,7 +1,7 @@
 using Revise
 include("CableBuilder.jl")
 using .CableBuilder
-import .CableBuilder: CableDesignSpec, MaterialSpec
+import .CableBuilder: CableDesignSpec
 
 using BenchmarkTools
 
@@ -40,44 +40,44 @@ using BenchmarkTools
 # println("--- Combinatorial Allocation Test ---")
 # @btime exhaust_generator($spec)
 
-ms_cu = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393, 0.0, 0.0, 0.0, 0.0)
-ms_vac = Material(Inf, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+# ms_cu = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393, 0.0, 0.0, 0.0, 0.0)
+# ms_vac = Material(Inf, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
-parts = (
-	Conductor.Solid(:core, ms_cu; r = 0.02315),
-	Conductor.Tubular(:sheath, ms_cu; t = 0.005),
-	Conductor.Pipe(:pipe, ms_cu; t = 0.005, filler = ms_vac, offset = 0.01),
-	# Conductor.Stranded(:sheath, ms_cu; r_w = 0.005, n_w = 3, lay_r = 0.01),
-)
-
-# Flawless compilation
-cds = CableDesignSpec(parts)
-
-ast = first(cds)
-println(ast.payload)
-
-
-# # 1. Define the Blueprint (The User DSL)
-# # Notice we mix deterministic scalars, a relative sweep, and an absolute sweep
-# copper_spec = MaterialSpec(
-# 	rho = Grid(1.68e-8:0.01e-8:1.72e-8, 2.0), # 2% manufacturing tolerance
-# 	eps_r = 1.0,                              # Auto-promoted to DeterministicGrid
-# 	mu_r = 1.0,
-# 	T0 = Grid(20.0:10.0:90.0, AbsoluteError(2.0)), # ± 2.0°C absolute sensor error
+# parts = (
+# 	Conductor.Solid(:core, ms_cu; r = 0.02315),
+# 	Conductor.Tubular(:sheath, ms_cu; t = 0.005),
+# 	Conductor.Pipe(:pipe, ms_cu; t = 0.005, filler = ms_vac, offset = 0.01),
+# 	# Conductor.Stranded(:sheath, ms_cu; r_w = 0.005, n_w = 3, lay_r = 0.01),
 # )
 
-# @show typeof(copper_spec)
-# @code_warntype rand(copper_spec)
+# # Flawless compilation
+# cds = CableDesignSpec(parts)
 
-# @show @allocated rand(copper_spec)
-# @btime @allocated rand($copper_spec)
+# ast = first(cds)
+# println(ast.payload)
 
 
-# # ---------------------------------------------------------
-# # Benchmark 1: The Array Comprehension (User Snippet)
-# # ---------------------------------------------------------
-# println("--- Benchmarking 100000 Monte Carlo Realizations (Array Allocation) ---")
-# @btime mc_materials = [rand($copper_spec) for _ in 1:100000]
+# 1. Define the Blueprint (The User DSL)
+# Notice we mix deterministic scalars, a relative sweep, and an absolute sweep
+copper_spec = Material(;
+	rho = Grid(1.68e-8:0.01e-8:1.72e-8, 2.0), # 2% manufacturing tolerance
+	eps_r = 1.0,                              # Auto-promoted to DeterministicGrid
+	mu_r = 1.0,
+	T0 = Grid(20.0:10.0:90.0, AbsoluteError(2.0)), # ± 2.0°C absolute sensor error
+)
+
+@show typeof(copper_spec)
+@code_warntype rand(copper_spec)
+
+@show @allocated rand(copper_spec)
+@btime @allocated rand($copper_spec)
+
+
+# ---------------------------------------------------------
+# Benchmark 1: The Array Comprehension (User Snippet)
+# ---------------------------------------------------------
+println("--- Benchmarking 100000 Monte Carlo Realizations (Array Allocation) ---")
+@btime mc_materials = [rand($copper_spec) for _ in 1:100000]
 
 # # @allocated(rand(copper_spec)) = 80
 # #  27.698 ns (0 allocations: 0 bytes)
