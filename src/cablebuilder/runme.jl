@@ -18,7 +18,7 @@ mat = Material(
 core = Conductor.Solid(:core, mat; r = Grid([0.01, 0.02, 0.03, 0.04, 0.05]))
 
 # 3. Wrap it in the Design Blueprint
-spec = CableDesignSpec((core,))
+spec = CableDesignSpec(core)
 
 # 4. The strict function barrier
 # This forces the compiler to optimize the loop exactly as it would in production
