@@ -115,13 +115,13 @@ using Distributions
 	v, p = rand(g.vals), rand(g.rel_err)
 	σ = abs(v) * (p / 100.0)
 	σ == 0 && return float(v) # Bypass distributions entirely if exact
-	return D === Normal ? rand(Normal(v, σ)) : rand(Uniform(v - √3*σ, v + √3*σ))
+	return D <: Normal ? rand(Normal(v, σ)) : rand(Uniform(v - √3*σ, v + √3*σ))
 end
 
 @inline function Base.rand(g::AbsoluteGrid, ::Type{D}) where {D}
 	v, σ = rand(g.vals), rand(g.abs_err)
 	σ == 0 && return float(v) # Bypass distributions entirely if exact
-	return D === Normal ? rand(Normal(v, σ)) : rand(Uniform(v - √3*σ, v + √3*σ))
+	return D <: Normal ? rand(Normal(v, σ)) : rand(Uniform(v - √3*σ, v + √3*σ))
 end
 
 # Public API (Forwards kwargs to the positional fast-path)
