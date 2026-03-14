@@ -183,14 +183,17 @@ macro relax(expr)
 	# If an idiot bypasses kwargs and feeds strings in here, promote_type yields Any.
 	# The Target{Any} instantiation will throw a MethodError, which is exactly what they deserve.
 	pos_func = quote
-		function $struct_name($(field_names...))
+		@inline function $struct_name($(field_names...))
 			T = promote_type($(typeof_calls...))
 			return $struct_name{T}($(convert_args...))
 		end
 	end
 
 	conv_func = quote
-		function Base.convert(::Type{$struct_name{T}}, m::$struct_name) where {T <: Real}
+		@inline function Base.convert(
+			::Type{$struct_name{T}},
+			m::$struct_name,
+		) where {T <: Real}
 			return $struct_name{T}($(convert_m_args...))
 		end
 	end
