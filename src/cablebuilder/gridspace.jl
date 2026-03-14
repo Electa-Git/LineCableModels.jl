@@ -19,8 +19,8 @@ Grid(g::Gridspace) = g
 
 # 1. The Initializer
 @inline function Base.iterate(g::Gridspace{Target}) where {Target}
-	# Iterators.product is natively stack-allocated. No closures.
-	iter = Iterators.product(g.grids...)
+	# Base.Iterators.ProductIterator consumes the tuple directly, preventing the SROA leak.
+	iter = Base.Iterators.ProductIterator(g.grids)
 	next = iterate(iter)
 
 	next === nothing && return nothing
@@ -32,7 +32,7 @@ end
 
 # 2. The Advancer
 @inline function Base.iterate(g::Gridspace{Target}, state) where {Target}
-	iter = Iterators.product(g.grids...)
+	iter = Base.Iterators.ProductIterator(g.grids)
 	next = iterate(iter, state)
 
 	next === nothing && return nothing
@@ -61,7 +61,7 @@ using Distributions
 	return Target(samples...)
 end
 
-Base.rand(
+@inline Base.rand(
 	g::Gridspace;
 	dist::Type{D} = Normal,
 ) where {D <: ContinuousUnivariateDistribution} = rand(g, dist)
