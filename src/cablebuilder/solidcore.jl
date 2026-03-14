@@ -7,12 +7,15 @@ struct SolidCore{L, T <: Real} <: AbstractShape{L, T}
 	r_ex::T
 end
 
-function SolidCore{L}(r_in, r_ex) where {L}
+@inline function SolidCore{L}(r_in, r_ex) where {L}
 	T = promote_type(typeof(r_in), typeof(r_ex))
 	return SolidCore{L, T}(convert(T, r_in), convert(T, r_ex))
 end
 
-function Base.convert(::Type{<:AbstractShape{L, T}}, s::SolidCore{L}) where {L, T <: Real}
+@inline function Base.convert(
+	::Type{<:AbstractShape{L, T}},
+	s::SolidCore{L},
+) where {L, T <: Real}
 	return SolidCore{L, T}(convert(T, s.r_in), convert(T, s.r_ex))
 end
 
@@ -24,8 +27,8 @@ end
 	::Type{SolidCore},
 	grp::Symbol,
 	current_r::T,
-	payload::Tuple,
-) where {Target, T}
+	payload::P,
+) where {Target, T, P <: Tuple}
 	mat, r = payload
 	current_r != zero(T) && error("Core must be at r=0.")
 	shape = SolidCore{Concentric}(current_r, current_r + r)
