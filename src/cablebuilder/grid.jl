@@ -52,9 +52,9 @@ Grid(g::AbsoluteGrid) = g
 # ---------------------------------------------------------
 
 # Deterministic
-Base.iterate(g::DeterministicGrid) = iterate(g.vals)
-Base.iterate(g::DeterministicGrid, state) = iterate(g.vals, state)
-Base.length(g::DeterministicGrid) = length(g.vals)
+@inline Base.iterate(g::DeterministicGrid) = iterate(g.vals)
+@inline Base.iterate(g::DeterministicGrid, state) = iterate(g.vals, state)
+@inline Base.length(g::DeterministicGrid) = length(g.vals)
 Base.eltype(::Type{DeterministicGrid{V}}) where {V} = eltype(V)
 
 # Relative
@@ -63,11 +63,11 @@ Base.eltype(::Type{DeterministicGrid{V}}) where {V} = eltype(V)
 	measurement(res[1][1], abs(res[1][1]) * (res[1][2] / 100.0)),
 	res[2],
 )
-Base.iterate(g::RelativeGrid) =
+@inline Base.iterate(g::RelativeGrid) =
 	_measurify_rel(iterate(Iterators.product(g.vals, g.rel_err)))
-Base.iterate(g::RelativeGrid, state) =
+@inline Base.iterate(g::RelativeGrid, state) =
 	_measurify_rel(iterate(Iterators.product(g.vals, g.rel_err), state))
-Base.length(g::RelativeGrid) = length(g.vals) * length(g.rel_err)
+@inline Base.length(g::RelativeGrid) = length(g.vals) * length(g.rel_err)
 Base.eltype(::Type{<:RelativeGrid{V, P}}) where {V, P} =
 	Measurement{promote_type(eltype(V), eltype(P))}
 
@@ -77,26 +77,26 @@ Base.eltype(::Type{<:RelativeGrid{V, P}}) where {V, P} =
 	measurement(res[1][1], abs(res[1][2])),
 	res[2],
 )
-Base.iterate(g::AbsoluteGrid) =
+@inline Base.iterate(g::AbsoluteGrid) =
 	_measurify_abs(iterate(Iterators.product(g.vals, g.abs_err)))
-Base.iterate(g::AbsoluteGrid, state) =
+@inline Base.iterate(g::AbsoluteGrid, state) =
 	_measurify_abs(iterate(Iterators.product(g.vals, g.abs_err), state))
-Base.length(g::AbsoluteGrid) = length(g.vals) * length(g.abs_err)
+@inline Base.length(g::AbsoluteGrid) = length(g.vals) * length(g.abs_err)
 Base.eltype(::Type{<:AbsoluteGrid{V, P}}) where {V, P} =
 	Measurement{promote_type(eltype(V), eltype(P))}
 
 # ---------------------------------------------------------
 # Boundaries (For Lemonparty Solvers)
 # ---------------------------------------------------------
-Base.extrema(g::DeterministicGrid) = (minimum(g.vals), maximum(g.vals))
+@inline Base.extrema(g::DeterministicGrid) = (minimum(g.vals), maximum(g.vals))
 
-function Base.extrema(g::RelativeGrid)
+@inline function Base.extrema(g::RelativeGrid)
 	v_min, v_max = minimum(g.vals), maximum(g.vals)
 	p_max = maximum(abs, g.rel_err) / 100.0
 	return (v_min * (1.0 - p_max), v_max * (1.0 + p_max))
 end
 
-function Base.extrema(g::AbsoluteGrid)
+@inline function Base.extrema(g::AbsoluteGrid)
 	v_min, v_max = minimum(g.vals), maximum(g.vals)
 	err_max = maximum(abs, g.abs_err)
 	return (v_min - err_max, v_max + err_max)
@@ -125,7 +125,7 @@ end
 end
 
 # Public API (Forwards kwargs to the positional fast-path)
-Base.rand(
+@inline Base.rand(
 	g::Union{DeterministicGrid, RelativeGrid, AbsoluteGrid};
 	dist::Type{D} = Normal,
 ) where {D} = rand(g, D)
