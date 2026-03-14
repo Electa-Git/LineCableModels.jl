@@ -57,7 +57,7 @@ using Distributions
 	::Type{D},
 ) where {Target, D <: ContinuousUnivariateDistribution}
 	# Map distributes your existing grid.jl rand() over the tuple
-	samples = map(grid -> rand(grid, D), grid_args(g))
+	samples = map(grid -> rand(grid, D), g.grids)
 	return Target(samples...)
 end
 
