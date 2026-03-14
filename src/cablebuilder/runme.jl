@@ -8,14 +8,14 @@ using BenchmarkTools
 # 1. Define a dummy stochastic Material
 # 2 variations of resistivity
 mat = Material(
-	rho = Grid([1.6e-8, 1.7e-8]),
+	rho = Grid((1.6e-8, 1.7e-8)),
 	eps_r = 1.0, mu_r = 1.0, T0 = 20.0, alpha = 0.0,
 	rho_thermal = 0.0, theta_max = 90.0, tan_delta = 0.0, sigma_solar = 0.0,
 )
 
 # 2. Define the Solid Core wrapping the Circle primitive
 # 5 variations of radius
-core = Conductor.Solid(:core, mat; r = Grid([0.01, 0.02, 0.03, 0.04, 0.05]))
+core = Conductor.Solid(:core, mat; r = Grid((0.01, 0.02, 0.03, 0.04, 0.05)))
 
 # 3. Wrap it in the Design Blueprint
 spec = CableDesignSpec(core)
