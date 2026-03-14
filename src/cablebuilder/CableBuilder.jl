@@ -1,6 +1,5 @@
 module CableBuilder
 
-include("spec.jl")
 include("grid.jl")
 include("gridspace.jl")
 include("macros.jl")
