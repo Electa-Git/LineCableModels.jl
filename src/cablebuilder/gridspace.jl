@@ -13,35 +13,38 @@ Gridspace{Target}(grids::Args) where {Target, Args <: Tuple} =
 
 Grid(g::Gridspace) = g
 
-# No more ntuple/fieldcount bullshit. We just return the tuple.
-@inline grid_args(g::Gridspace) = g.grids
+# ==============================================================================
+# THE THIN-ALLOCATION ITERATOR PROTOCOL
+# ==============================================================================
 
-# The Generator. 
-# Splats the unrolled iterators directly into the Target constructor.
-@inline generator(g::Gridspace{Target}) where {Target} = (
-	Target(args...) for args in Iterators.product(grid_args(g)...)
-)
+# 1. The Initializer
+@inline function Base.iterate(g::Gridspace{Target}) where {Target}
+	# Iterators.product is natively stack-allocated. No closures.
+	iter = Iterators.product(g.grids...)
+	next = iterate(iter)
 
-# ---------------------------------------------------------
-# The Iteration Protocol
-# ---------------------------------------------------------
-@inline function Base.iterate(g::Gridspace)
-	gen = generator(g)
-	y = iterate(gen)
-	y === nothing && return nothing
-	return (y[1], (gen, y[2]))
+	next === nothing && return nothing
+
+	args, state = next
+	# Native splat into Target. Completely type-stable.
+	return Target(args...), state
 end
 
-@inline function Base.iterate(g::Gridspace, state)
-	gen, st = state
-	y = iterate(gen, st)
-	y === nothing && return nothing
-	return (y[1], (gen, y[2]))
+# 2. The Advancer
+@inline function Base.iterate(g::Gridspace{Target}, state) where {Target}
+	iter = Iterators.product(g.grids...)
+	next = iterate(iter, state)
+
+	next === nothing && return nothing
+
+	args, new_state = next
+	return Target(args...), new_state
 end
 
-Base.length(g::Gridspace) = prod((length(x) for x in grid_args(g)), init = 1)
-Base.IteratorSize(::Type{<:Gridspace}) = Base.HasLength()
-Base.IteratorEltype(::Type{<:Gridspace}) = Base.EltypeUnknown()
+# 3. Utilities (So the compiler knows exactly how big the loop is)
+Base.IteratorSize(::Type{<:Gridspace}) = Base.HasShape{1}()
+Base.length(g::Gridspace) = prod(length, g.grids)
+Base.size(g::Gridspace) = (length(g),)
 
 # ---------------------------------------------------------
 # The Stochastic Sampler
