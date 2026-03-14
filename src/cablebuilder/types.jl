@@ -13,13 +13,13 @@ struct ConductorPart{L, T, S <: AbstractShape{L, T}} <: AbstractCablePart
 	material::Material{T}
 end
 
-function ConductorPart(
+@inline function ConductorPart(
 	grp::Symbol,
-	shape::AbstractShape{L, T_shape},
-	mat::Material{T_mat},
-) where {L, T_shape <: Real, T_mat <: Real}
+	shape::AbstractShape{L, S},
+	mat::Material{M},
+) where {L, S <: Real, M <: Real}
 	# 1. Ask the compiler what the safest common type is.
-	T = promote_type(T_shape, T_mat)
+	T = promote_type(S, M)
 
 	# 2. Let native dispatch handle the translation.
 	s = convert(AbstractShape{L, T}, shape)
@@ -34,13 +34,13 @@ struct InsulatorPart{L, T, S <: AbstractShape{L, T}} <: AbstractCablePart
 	material::Material{T}
 end
 
-function InsulatorPart(
+@inline function InsulatorPart(
 	grp::Symbol,
-	shape::AbstractShape{L, T_shape},
-	mat::Material{T_mat},
-) where {L, T_shape <: Real, T_mat <: Real}
+	shape::AbstractShape{L, S},
+	mat::Material{M},
+) where {L, S <: Real, M <: Real}
 	# 1. Ask the compiler what the safest common type is.
-	T = promote_type(T_shape, T_mat)
+	T = promote_type(S, M)
 
 	# 2. Let native dispatch handle the translation.
 	s = convert(AbstractShape{L, T}, shape)
