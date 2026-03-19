@@ -7,7 +7,7 @@ struct StrandedLayer{
 	U <: Integer,
 	P <: AbstractWire{T},
 	H <: HelicalPath,
-} <: AbstractShape{L, T}
+} <: AbstractShape{T}
 	r_in::T
 	r_ex::T
 	n_w::U
@@ -15,26 +15,26 @@ struct StrandedLayer{
 	pitch::H
 end
 
-function StrandedLayer{L}(
+function StrandedLayer(
 	r_in,
 	r_ex,
 	n_w::Integer,
 	wire::AbstractWire,
 	pitch::HelicalPath,
-) where {L}
+)
 	T = promote_type(typeof(r_in), typeof(r_ex))
 	p = convert(AbstractWire{T}, wire)
-	return StrandedLayer{L, T, typeof(n_w), typeof(p), typeof(pitch)}(
+	return StrandedLayer{T, typeof(n_w), typeof(p), typeof(pitch)}(
 		convert(T, r_in), convert(T, r_ex), n_w, p, pitch,
 	)
 end
 
 function Base.convert(
-	::Type{<:AbstractShape{L, T}},
-	s::StrandedLayer{L},
-) where {L, T <: Real}
+	::Type{<:AbstractShape{T}},
+	s::StrandedLayer,
+) where {T <: Real}
 	p_converted = convert(AbstractWire{T}, s.wire)
-	return StrandedLayer{L, T, typeof(s.n_w), typeof(p_converted), typeof(s.pitch)}(
+	return StrandedLayer{T, typeof(s.n_w), typeof(p_converted), typeof(s.pitch)}(
 		convert(T, s.r_in), convert(T, s.r_ex), s.n_w, p_converted, s.pitch,
 	)
 end
@@ -69,7 +69,7 @@ end
 	pitch_profile = b.pitch_builder(mean_diam)
 
 	# 4. Lock it into the unified layer
-	shape = StrandedLayer{Concentric}(current_r, r_ex, b.n_w, wire, pitch_profile)
+	shape = StrandedLayer(current_r, r_ex, b.n_w, wire, pitch_profile)
 
 	return P(b.grp, shape, b.mat)
 end
