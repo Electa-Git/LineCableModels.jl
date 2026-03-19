@@ -154,86 +154,73 @@ end
 # MACRO 2: @relax (The Type Promoter & Converter)
 # ==============================================================================
 macro relax(expr)
-	raw_ast = _strip_escapes(expr)
-	struct_node = _get_struct_node(raw_ast)
-	struct_node === nothing && error("@relax must be applied to a struct.")
+	expr.head == :struct || error("@relax must be applied to a struct definition.")
 
-	struct_name = _extract_struct_name(struct_node)
-
-	# We use your universal parser. If gridspace ran first, defaults are already gone.
-	# If relax is running first (standalone or wrong order), we catch the illegal syntax here.
-	fields, clean_body_args = _parse_fields(struct_node.args[3])
-
-	if any(f -> f.has_default, fields)
-		error(
-			"""
-	  Syntax Error: @relax encountered default values in struct '$struct_name'.
-	  @relax only handles strict type promotion, not kwargs. 
-	  If you want combinatorics and defaults, stack the macros as: `@gridspace @relax struct...` so @gridspace processes and strips the defaults before @relax sees them.
-	  """,
-		)
+	# 1. Parse signature and supertype
+	sig = expr.args[2]
+	super_type = nothing
+	if sig isa Expr && sig.head == :<:
+		super_type = sig.args[2]
+		sig = sig.args[1]
 	end
+	struct_name = sig isa Expr && sig.head == :curly ? sig.args[1] : sig
 
-	field_names = [f.name for f in fields]
-
-	typeof_calls = [:(typeof($n)) for n in field_names]
-	convert_args = [:(convert(T, $n)) for n in field_names]
-	convert_m_args = [:(convert(T, m.$n)) for n in field_names]
-
-	# If an idiot bypasses kwargs and feeds strings in here, promote_type yields Any.
-	# The Target{Any} instantiation will throw a MethodError, which is exactly what they deserve.
-	pos_func = quote
-		@inline function $struct_name($(field_names...))
-			T = promote_type($(typeof_calls...))
-			return $struct_name{T}($(convert_args...))
+	# 2. Extract fields
+	fields = Symbol[]
+	for arg in expr.args[3].args
+		if arg isa Symbol
+			push!(fields, arg)
+		elseif arg isa Expr && arg.head == :(::)
+			push!(fields, arg.args[1])
 		end
 	end
 
-	conv_func = quote
-		@inline function Base.convert(
-			::Type{$struct_name{T}},
-			m::$struct_name,
-		) where {T <: Real}
-			return $struct_name{T}($(convert_m_args...))
+	# 3. Build AST components
+	eltype_calls   = [:(Base.eltype(typeof($(f)))) for f in fields]
+	recasts        = [:(recast(T_promo, $(f))) for f in fields]
+	target_recasts = [:(recast(T_target, s.$(f))) for f in fields]
+
+	# 4. Abstract Supertype Converter (Optional)
+	abstract_convert = :()
+	if super_type !== nothing && super_type isa Expr && super_type.head == :curly
+		abstract_name = super_type.args[1]
+		abstract_convert = quote
+			@inline function Base.convert(
+				::Type{<:$(abstract_name){T_target}},
+				s::$(struct_name),
+			) where {T_target <: Real}
+				return $(struct_name)($(target_recasts...))
+			end
 		end
 	end
 
-	# Rebuild the AST exactly as it came in, appending the new functions.
-	# Since we already validated no defaults exist, we can safely reuse struct_node.
-	final_ast = _rebuild_ast(raw_ast, struct_node, Any[pos_func, conv_func])
-	return esc(final_ast)
+	# 5. Emit
+	return esc(
+		quote
+			$expr # The original struct
+
+			# The Untyped Outer Constructor
+			@inline function $struct_name($(fields...))
+				T_promo = promote_type($(eltype_calls...))
+				return $struct_name($(recasts...))
+			end
+
+			# The Concrete Converter
+			@inline function Base.convert(
+				::Type{<:$struct_name{T_target}},
+				s::$struct_name,
+			) where {T_target <: Real}
+				return $struct_name($(target_recasts...))
+			end
+
+			# The eltype Hook
+			@inline Base.eltype(::Type{<:$struct_name{T}}) where {T} = T
+
+			# THE NEW RECAST HOOK FOR THIS CONCRETE STRUCT
+			@inline recast(::Type{T_target}, s::$struct_name) where {T_target <: Real} =
+				$struct_name($(target_recasts...))
+
+			$abstract_convert
+		end,
+	)
 end
-# macro relax(expr)
-# 	raw_ast = _strip_escapes(expr)
-# 	struct_node = _get_struct_node(raw_ast)
-# 	struct_node === nothing && error("@relax must be applied to a struct.")
-
-# 	struct_name = _extract_struct_name(struct_node)
-# 	fields, _ = _parse_fields(struct_node.args[3])
-
-# 	# Note: @relax doesn't care if defaults are present or not. It just reads the names.
-# 	# It leaves the struct node unmodified. Let @gridspace handle the cleanup.
-# 	field_names = [f.name for f in fields]
-
-# 	typeof_calls = [:(typeof($n)) for n in field_names]
-# 	convert_args = [:(convert(T, $n)) for n in field_names]
-# 	convert_m_args = [:(convert(T, m.$n)) for n in field_names]
-
-# 	# If a user bypasses kwargs and feeds strings in here, promote_type yields Any.
-# 	# The Target{Any} instantiation will throw a MethodError, which is exactly what they deserve.
-# 	pos_func = quote
-# 		function $struct_name($(field_names...))
-# 			T = promote_type($(typeof_calls...))
-# 			return $struct_name{T}($(convert_args...))
-# 		end
-# 	end
-
-# 	conv_func = quote
-# 		function Base.convert(::Type{$struct_name{T}}, m::$struct_name) where {T <: Real}
-# 			return $struct_name{T}($(convert_m_args...))
-# 		end
-# 	end
-
-# 	final_ast = _rebuild_ast(raw_ast, struct_node, Any[pos_func, conv_func])
-# 	return esc(final_ast)
-# end
