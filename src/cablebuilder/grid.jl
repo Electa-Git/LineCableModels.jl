@@ -2,85 +2,91 @@ import Base: iterate, length, eltype, extrema
 using Measurements
 
 # ---------------------------------------------------------
-# The Vaults (Do not expose these to the smooth-brains)
+# The Vaults (Strictly type-constrained to Tuples)
 # ---------------------------------------------------------
-struct DeterministicGrid{V}
+struct DeterministicGrid{V <: Tuple}
 	vals::V
 end
 
-struct RelativeGrid{V, P}
+struct RelativeGrid{V <: Tuple, P <: Tuple}
 	vals::V
 	rel_err::P
 end
 
-struct AbsoluteGrid{V, P}
+struct AbsoluteGrid{V <: Tuple, P <: Tuple}
 	vals::V
 	abs_err::P
 end
 
-# ---------------------------------------------------------
-# The Bouncers & tags
-# ---------------------------------------------------------
-# If it's already a collection, pass it through
-_tuplify(x::AbstractArray) = x
-_tuplify(x::Tuple) = x
-
-# If it's a scalar (Real, Symbol, Type, Material, etc.), wrap it in a 1-element Tuple so it can iterate
-_tuplify(x) = (x,)
-
 # The explicit tag for absolute standard deviations. 
 # If someone asks what this does, fire them.
-struct AbsoluteError{T}
+struct AbsoluteError{T <: Tuple}
 	vals::T
 end
-AbsoluteError(x) = AbsoluteError{typeof(_tuplify(x))}(_tuplify(x))
+
+AbsoluteError(x::Tuple) = AbsoluteError{typeof(x)}(x)
+AbsoluteError(x::AbstractArray) = AbsoluteError(Tuple(x))
+AbsoluteError(x::Real) = AbsoluteError((x,))
+
 
 # ---------------------------------------------------------
-# Surface API 
+# Surface API: The Formal Normalization Grammar
+# Tuples and Arrays are collections. Everything else is a scalar.
 # ---------------------------------------------------------
-Grid(v) = DeterministicGrid(_tuplify(v))
-Grid(v, p) = RelativeGrid(_tuplify(v), _tuplify(p))
-Grid(v, a::AbsoluteError) = AbsoluteGrid(_tuplify(v), a.vals)
 
-# If it's already a Grid vault, pass it through untouched.
-Grid(g::DeterministicGrid) = g
-Grid(g::RelativeGrid) = g
-Grid(g::AbsoluteGrid) = g
+# --- 1. Deterministic ---
+Grid(v::Tuple) = DeterministicGrid(v)
+Grid(v::AbstractArray) = DeterministicGrid(Tuple(v))
+Grid(v::Any) = DeterministicGrid((v,))
+
+# --- 2. Relative (v, p) ---
+Grid(v::Tuple, p::Tuple) = RelativeGrid(v, p)
+Grid(v::Tuple, p::AbstractArray) = RelativeGrid(v, Tuple(p))
+Grid(v::Tuple, p::Any) = RelativeGrid(v, (p,))
+
+Grid(v::AbstractArray, p::Tuple) = RelativeGrid(Tuple(v), p)
+Grid(v::AbstractArray, p::AbstractArray) = RelativeGrid(Tuple(v), Tuple(p))
+Grid(v::AbstractArray, p::Any) = RelativeGrid(Tuple(v), (p,))
+
+Grid(v::Any, p::Tuple) = RelativeGrid((v,), p)
+Grid(v::Any, p::AbstractArray) = RelativeGrid((v,), Tuple(p))
+Grid(v::Any, p::Any) = RelativeGrid((v,), (p,))
+
+# --- 3. Absolute (v, a) ---
+Grid(v::Tuple, a::AbsoluteError) = AbsoluteGrid(v, a.vals)
+Grid(v::AbstractArray, a::AbsoluteError) = AbsoluteGrid(Tuple(v), a.vals)
+Grid(v::Any, a::AbsoluteError) = AbsoluteGrid((v,), a.vals)
+
+# Pass-through for already built vaults
+Grid(g::Union{DeterministicGrid, RelativeGrid, AbsoluteGrid}) = g
 
 # ---------------------------------------------------------
 # The Iteration Protocol (Measurements Gangbang)
 # ---------------------------------------------------------
 
 # Deterministic
-@inline Base.iterate(g::DeterministicGrid) = iterate(g.vals)
-@inline Base.iterate(g::DeterministicGrid, state) = iterate(g.vals, state)
+@inline Base.iterate(g::DeterministicGrid, state...) = iterate(g.vals, state...)
 @inline Base.length(g::DeterministicGrid) = length(g.vals)
-Base.eltype(::Type{DeterministicGrid{V}}) where {V} = eltype(V)
+Base.eltype(::Type{<:DeterministicGrid{V}}) where {V} = eltype(V)
 
 # Relative
-@inline _measurify_rel(::Nothing) = nothing
-@inline _measurify_rel(res::Tuple) = (
-	measurement(res[1][1], abs(res[1][1]) * (res[1][2] / 100.0)),
-	res[2],
-)
-@inline Base.iterate(g::RelativeGrid) =
-	_measurify_rel(iterate(Iterators.product(g.vals, g.rel_err)))
-@inline Base.iterate(g::RelativeGrid, state) =
-	_measurify_rel(iterate(Iterators.product(g.vals, g.rel_err), state))
+@inline function Base.iterate(g::RelativeGrid, state...)
+	res = iterate(Iterators.product(g.vals, g.rel_err), state...)
+	res === nothing && return nothing
+	((v, p), next_state) = res
+	return measurement(v, abs(v) * (p / 100.0)), next_state
+end
 @inline Base.length(g::RelativeGrid) = length(g.vals) * length(g.rel_err)
 Base.eltype(::Type{<:RelativeGrid{V, P}}) where {V, P} =
 	Measurement{promote_type(eltype(V), eltype(P))}
 
 # Absolute
-@inline _measurify_abs(::Nothing) = nothing
-@inline _measurify_abs(res::Tuple) = (
-	measurement(res[1][1], abs(res[1][2])),
-	res[2],
-)
-@inline Base.iterate(g::AbsoluteGrid) =
-	_measurify_abs(iterate(Iterators.product(g.vals, g.abs_err)))
-@inline Base.iterate(g::AbsoluteGrid, state) =
-	_measurify_abs(iterate(Iterators.product(g.vals, g.abs_err), state))
+@inline function Base.iterate(g::AbsoluteGrid, state...)
+	res = iterate(Iterators.product(g.vals, g.abs_err), state...)
+	res === nothing && return nothing
+	((v, err), next_state) = res
+	return measurement(v, abs(err)), next_state
+end
 @inline Base.length(g::AbsoluteGrid) = length(g.vals) * length(g.abs_err)
 Base.eltype(::Type{<:AbsoluteGrid{V, P}}) where {V, P} =
 	Measurement{promote_type(eltype(V), eltype(P))}
@@ -108,23 +114,21 @@ end
 import Base: rand
 using Distributions
 
-# Positional Fast-Paths (Zero kwargs)
 @inline Base.rand(g::DeterministicGrid, ::Type{D}) where {D} = rand(g.vals)
 
 @inline function Base.rand(g::RelativeGrid, ::Type{D}) where {D}
 	v, p = rand(g.vals), rand(g.rel_err)
 	σ = abs(v) * (p / 100.0)
-	σ == 0 && return float(v) # Bypass distributions entirely if exact
+	σ == 0 && return float(v)
 	return D <: Normal ? rand(Normal(v, σ)) : rand(Uniform(v - √3*σ, v + √3*σ))
 end
 
 @inline function Base.rand(g::AbsoluteGrid, ::Type{D}) where {D}
 	v, σ = rand(g.vals), rand(g.abs_err)
-	σ == 0 && return float(v) # Bypass distributions entirely if exact
+	σ == 0 && return float(v)
 	return D <: Normal ? rand(Normal(v, σ)) : rand(Uniform(v - √3*σ, v + √3*σ))
 end
 
-# Public API (Forwards kwargs to the positional fast-path)
 @inline Base.rand(
 	g::Union{DeterministicGrid, RelativeGrid, AbsoluteGrid};
 	dist::Type{D} = Normal,

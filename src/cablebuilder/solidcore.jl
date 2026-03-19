@@ -8,31 +8,6 @@
 	params::P
 end
 
-# # Outer constructor: Extract T3 directly from the abstract signature and promote
-# @inline function SolidCore(
-# 	r_in::T1,
-# 	r_ex::T2,
-# 	params::AbstractShapeParams{T3},
-# ) where {T1 <: Real, T2 <: Real, T3 <: Real}
-
-# 	T = promote_type(T1, T2, T3)
-
-# 	# Idiomatic Julia conversion. Routes to the 1-liners in primitives.jl
-# 	p_cast = convert(AbstractShapeParams{T}, params)
-
-# 	return SolidCore{T, typeof(p_cast)}(convert(T, r_in), convert(T, r_ex), p_cast)
-# end
-
-# # Convert method: Propagates conversion cleanly down the tree
-# @inline function Base.convert(
-# 	::Type{<:AbstractShape{T}},
-# 	s::SolidCore,
-# ) where {T <: Real}
-
-# 	p_cast = convert(AbstractShapeParams{T}, s.params)
-# 	return SolidCore{T, typeof(p_cast)}(convert(T, s.r_in), convert(T, s.r_ex), p_cast)
-# end
-
 @inline function validate(part::ConductorPart{T, <:SolidCore}) where {T}
 	shape = part.shape
 

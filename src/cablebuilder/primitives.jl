@@ -4,9 +4,7 @@ abstract type AbstractShapeParams{T <: Real} end
 @gridspace @relax struct Circular{T <: Real} <: AbstractShapeParams{T}
 	r::T
 end
-# # Teach Base how to cast the abstract type down to this specific concrete type
-# @inline Base.convert(::Type{AbstractShapeParams{T}}, p::Circular) where {T <: Real} =
-# 	convert(Circular{T}, p)
+
 
 @inline function validate(p::Circular)
 	p.r > zero(p.r) || throw(DomainError(p.r, "Circular radius must be strictly positive."))
@@ -17,9 +15,7 @@ end
 	w::T
 	h::T
 end
-# # Teach Base how to cast the abstract type down to this specific concrete type
-# @inline Base.convert(::Type{AbstractShapeParams{T}}, p::Rectangular) where {T <: Real} =
-# 	convert(Rectangular{T}, p)
+
 
 @inline function validate(p::Rectangular)
 	p.w > zero(p.w) ||
