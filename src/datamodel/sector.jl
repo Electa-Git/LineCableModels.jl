@@ -113,9 +113,9 @@ $(TYPEDFIELDS)
 """
 struct Sector{T<:REALSCALAR} <: AbstractConductorPart{T}
     "Inner radius (not applicable, typically 0 for the central point) \\[m\\]."
-    radius_in::T
+    r_in::T
     "Outer radius (equivalent back radius) \\[m\\]."
-    radius_ext::T
+    r_ex::T
     "Geometric parameters defining the sector's shape."
     params::SectorParams{T}
     "Rotation angle of this specific sector around the cable's center [degrees]."

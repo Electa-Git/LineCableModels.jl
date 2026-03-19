@@ -7,9 +7,9 @@ $(TYPEDFIELDS)
 """
 struct SectorInsulator{T<:REALSCALAR} <: AbstractInsulatorPart{T}
     "Inner radius (not applicable, defined by inner sector) \\[m\\]."
-    radius_in::T
+    r_in::T
     "Outer radius (equivalent back radius of outer boundary) \\[m\\]."
-    radius_ext::T
+    r_ex::T
     "The inner sector conductor that this insulator surrounds."
     inner_sector::Sector{T}
     "The thickness of the insulating layer \\[m\\]."
@@ -72,7 +72,7 @@ function SectorInsulator(
     outer_r_back = inner_sector.params.r_back + thickness
 
     return SectorInsulator{T}(
-        inner_sector.radius_ext,
+        inner_sector.r_ex,
         outer_r_back,
         inner_sector,
         thickness,
