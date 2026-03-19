@@ -406,7 +406,7 @@ function _reconstruct_partsgroup(layer_data::Dict)
             !(inner_sector isa Sector) && error("'inner_sector' did not deserialize to a Sector object. Got: $(typeof(inner_sector))")
             ismissing(thickness) && Base.error("Missing 'thickness' for SectorInsulator in data: $layer_data")
 
-            return SectorInsulator(inner_sector, thickness, material_props; temperature=temper
+            return SectorInsulator(inner_sector, thickness, material_props; temperature=temperature)
     else
 			Base.error("Unsupported layer type for first layer reconstruction: $LayerType")
 		end
