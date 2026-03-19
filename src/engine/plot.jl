@@ -2,26 +2,7 @@
 using Makie
 import Makie: plot
 
-import ..BackendHandler: BackendHandler, next_fignum
-using Base: basename, mod1
-using Dates: format, now
-
-using ..PlotUIComponents:
-	PlotAssembly,
-	PlotBuildArtifacts,
-	ControlButtonSpec,
-	ControlToggleSpec,
-	ControlReaction,
-	_make_window,
-	_run_plot_pipeline,
-	with_plot_theme,
-	ensure_export_background!,
-	with_icon,
-	MI_REFRESH,
-	MI_SAVE,
-	ICON_TTF,
-	AXIS_LABEL_FONT_SIZE,
-	clear_status!
+include("../plotbuilder/plothelpers.jl")
 
 using Measurements: Measurements
 
@@ -103,7 +84,7 @@ struct ComponentMetadata
 	unit::UnitSpec
 end
 
-struct LineParametersPlotSpec
+struct LineParametersPlotSpec <: AbstractPlotSpec
 	parent_kind::Symbol
 	component::Symbol
 	symbol::String
@@ -120,39 +101,6 @@ struct LineParametersPlotSpec
 	fig_size::Union{Nothing, Tuple{Int, Int}}
 	xscale::Base.RefValue{Function}
 	yscale::Base.RefValue{Function}
-end
-
-const EXPORT_TIMESTAMP_FORMAT = "yyyymmdd_HHMMSS"
-const EXPORT_EXTENSION = "svg"
-
-function _sanitize_filename_component(str::AbstractString)
-	sanitized = lowercase(strip(str))
-	sanitized = replace(sanitized, r"[^0-9a-z]+" => "_")
-	sanitized = strip(sanitized, '_')
-	return isempty(sanitized) ? "lineparameters_plot" : sanitized
-end
-
-function _default_export_path(
-	spec::LineParametersPlotSpec;
-	extension::AbstractString = EXPORT_EXTENSION,
-)
-	base_title = strip(spec.title)
-	base = isempty(base_title) ? string(spec.parent_kind, "_", spec.component) : base_title
-	name = _sanitize_filename_component(base)
-	timestamp = format(now(), EXPORT_TIMESTAMP_FORMAT)
-	filename = string(name, "_", timestamp, ".", extension)
-	return joinpath(pwd(), filename)
-end
-
-function _save_plot_export(spec::LineParametersPlotSpec, axis)
-	# Capture current axis scales before building the export figure
-	spec.xscale[] = axis.xscale[]
-	spec.yscale[] = axis.yscale[]
-	fig = build_export_figure(spec)
-	trim!(fig.layout)
-	path = _default_export_path(spec)
-	Makie.save(path, fig)
-	return path
 end
 
 get_description(::SeriesImpedance) = (
@@ -306,7 +254,12 @@ function collect_indices(sel, n)
 	end
 end
 
-function components_for(obj::SeriesImpedance, mode::Symbol, coord::Symbol)
+function components_for(
+	obj::SeriesImpedance,
+	mode::Symbol,
+	coord::Symbol;
+	per_length::Bool = true,
+)
 	desc = get_description(obj)
 	sym = get_symbol(obj)
 	units = get_unit_symbol(obj)
@@ -317,18 +270,18 @@ function components_for(obj::SeriesImpedance, mode::Symbol, coord::Symbol)
 				ComponentMetadata(:real, :impedance, sym.impedance,
 					string(desc.impedance, " – real part"),
 					string("real(", sym.impedance, ")"),
-					UnitSpec(units.impedance, true)),
+					UnitSpec(units.impedance, per_length)),
 				ComponentMetadata(:imag, :impedance, sym.impedance,
 					string(desc.impedance, " – imaginary part"),
 					string("imag(", sym.impedance, ")"),
-					UnitSpec(units.impedance, true)),
+					UnitSpec(units.impedance, per_length)),
 			]
 		else
 			return ComponentMetadata[
 				ComponentMetadata(:magnitude, :impedance, sym.impedance,
 					string(desc.impedance, " – magnitude"),
 					string("|", sym.impedance, "|"),
-					UnitSpec(units.impedance, true)),
+					UnitSpec(units.impedance, per_length)),
 				ComponentMetadata(:angle, :angle, sym.impedance,
 					string(desc.impedance, " – angle"),
 					string("angle(", sym.impedance, ")"),
@@ -340,18 +293,23 @@ function components_for(obj::SeriesImpedance, mode::Symbol, coord::Symbol)
 			ComponentMetadata(:resistance, :resistance, sym.resistance,
 				desc.resistance,
 				sym.resistance,
-				UnitSpec(units.resistance, true)),
+				UnitSpec(units.resistance, per_length)),
 			ComponentMetadata(:inductance, :inductance, sym.inductance,
 				desc.inductance,
 				sym.inductance,
-				UnitSpec(units.inductance, true)),
+				UnitSpec(units.inductance, per_length)),
 		]
 	else
 		Base.error("Unsupported mode $(mode)")
 	end
 end
 
-function components_for(obj::ShuntAdmittance, mode::Symbol, coord::Symbol)
+function components_for(
+	obj::ShuntAdmittance,
+	mode::Symbol,
+	coord::Symbol;
+	per_length::Bool = true,
+)
 	desc = get_description(obj)
 	sym = get_symbol(obj)
 	units = get_unit_symbol(obj)
@@ -362,18 +320,18 @@ function components_for(obj::ShuntAdmittance, mode::Symbol, coord::Symbol)
 				ComponentMetadata(:real, :admittance, sym.admittance,
 					string(desc.admittance, " – real part"),
 					string("real(", sym.admittance, ")"),
-					UnitSpec(units.admittance, true)),
+					UnitSpec(units.admittance, per_length)),
 				ComponentMetadata(:imag, :admittance, sym.admittance,
 					string(desc.admittance, " – imaginary part"),
 					string("imag(", sym.admittance, ")"),
-					UnitSpec(units.admittance, true)),
+					UnitSpec(units.admittance, per_length)),
 			]
 		else
 			return ComponentMetadata[
 				ComponentMetadata(:magnitude, :admittance, sym.admittance,
 					string(desc.admittance, " – magnitude"),
 					string("|", sym.admittance, "|"),
-					UnitSpec(units.admittance, true)),
+					UnitSpec(units.admittance, per_length)),
 				ComponentMetadata(:angle, :angle, sym.admittance,
 					string(desc.admittance, " – angle"),
 					string("angle(", sym.admittance, ")"),
@@ -388,11 +346,11 @@ function components_for(obj::ShuntAdmittance, mode::Symbol, coord::Symbol)
 			ComponentMetadata(:conductance, :conductance, sym.conductance,
 				desc.conductance,
 				sym.conductance,
-				UnitSpec(units.conductance, true)),
+				UnitSpec(units.conductance, per_length)),
 			ComponentMetadata(:capacitance, :capacitance, sym.capacitance,
 				desc.capacitance,
 				sym.capacitance,
-				UnitSpec(units.capacitance, true)),
+				UnitSpec(units.capacitance, per_length)),
 		]
 	else
 		Base.error("Unsupported mode $(mode)")
@@ -530,6 +488,7 @@ function lineparameter_plot_specs(
 	fig_size::Union{Nothing, Tuple{Int, Int}} = LP_FIG_SIZE,
 	xscale::Function = Makie.identity,
 	yscale::Function = Makie.identity,
+	per_length::Bool = true,
 )
 	freq_vec = collect(freqs)
 	nfreq = length(freq_vec)
@@ -539,7 +498,7 @@ function lineparameter_plot_specs(
 	end
 	size(obj.values, 3) == nfreq ||
 		Base.error("Frequency vector length does not match impedance samples")
-	comps = components_for(obj, mode, coord)
+	comps = components_for(obj, mode, coord; per_length = per_length)
 	units = normalize_quantity_units(quantity_units)
 	freq_scale = frequency_scale(freq_unit)
 	raw_freq_axis = freq_vec .* freq_scale
@@ -602,6 +561,7 @@ function lineparameter_plot_specs(
 	fig_size::Union{Nothing, Tuple{Int, Int}} = LP_FIG_SIZE,
 	xscale::Function = Makie.identity,
 	yscale::Function = Makie.identity,
+	per_length::Bool = true,
 )
 	freq_vec = collect(freqs)
 	nfreq = length(freq_vec)
@@ -611,7 +571,7 @@ function lineparameter_plot_specs(
 	end
 	size(obj.values, 3) == nfreq ||
 		Base.error("Frequency vector length does not match admittance samples")
-	comps = components_for(obj, mode, coord)
+	comps = components_for(obj, mode, coord; per_length = per_length)
 	units = normalize_quantity_units(quantity_units)
 	freq_scale = frequency_scale(freq_unit)
 	raw_freq_axis = freq_vec .* freq_scale
@@ -673,6 +633,7 @@ function lineparameter_plot_specs(
 	fig_size::Union{Nothing, Tuple{Int, Int}} = LP_FIG_SIZE,
 	xscale::Function = Makie.identity,
 	yscale::Function = Makie.identity,
+	per_length::Bool = true,
 )
 	specs = LineParametersPlotSpec[]
 	append!(
@@ -687,6 +648,7 @@ function lineparameter_plot_specs(
 			fig_size = fig_size,
 			xscale = xscale,
 			yscale = yscale,
+			per_length = per_length,
 		),
 	)
 	append!(
@@ -701,6 +663,7 @@ function lineparameter_plot_specs(
 			fig_size = fig_size,
 			xscale = xscale,
 			yscale = yscale,
+			per_length = per_length,
 		),
 	)
 	return specs
@@ -724,9 +687,10 @@ function plot(
 	freqs::AbstractVector;
 	backend = nothing,
 	display_plot::Bool = true,
+	per_length::Bool = true,
 	kwargs...,
 )
-	specs = lineparameter_plot_specs(obj, freqs; kwargs...)
+	specs = lineparameter_plot_specs(obj, freqs; per_length = per_length, kwargs...)
 	return render_plot_specs(specs; backend = backend, display_plot = display_plot)
 end
 
@@ -735,9 +699,10 @@ function plot(
 	freqs::AbstractVector;
 	backend = nothing,
 	display_plot::Bool = true,
+	per_length::Bool = true,
 	kwargs...,
 )
-	specs = lineparameter_plot_specs(obj, freqs; kwargs...)
+	specs = lineparameter_plot_specs(obj, freqs; per_length = per_length, kwargs...)
 	return render_plot_specs(specs; backend = backend, display_plot = display_plot)
 end
 
@@ -745,9 +710,10 @@ function plot(
 	lp::LineParameters;
 	backend = nothing,
 	display_plot::Bool = true,
+	per_length::Bool = true,
 	kwargs...,
 )
-	specs = lineparameter_plot_specs(lp; kwargs...)
+	specs = lineparameter_plot_specs(lp; per_length = per_length, kwargs...)
 	return render_plot_specs(specs; backend = backend, display_plot = display_plot)
 end
 
@@ -845,6 +811,10 @@ function _build_plot!(fig_ctx, ctx, axis, spec::LineParametersPlotSpec)
 	axis.title  = spec.title
 	axis.xlabel = _get_axis_label(spec.xlabel, spec.x_exp, spec.xscale[])
 	axis.ylabel = _get_axis_label(spec.ylabel, spec.y_exp, spec.yscale[])
+
+	# ---- Override global tick formatter for this specialized plot ----------
+	axis.xtickformat[] = Makie.automatic
+	axis.ytickformat[] = Makie.automatic
 
 	# ---- Helpers ------------------------------------------------------------
 	sanitize_log!(v::AbstractVector, is_log::Bool) =
@@ -962,7 +932,7 @@ function _build_plot!(fig_ctx, ctx, axis, spec::LineParametersPlotSpec)
 
 	# If nothing to draw, add transparent dummy without legend entry
 	if !any_real_curve
-		lines!(axis, [NaN], [NaN]; color = :transparent, label = "No data")
+		lines!(axis, x_vals_obs, [0]; color = :transparent, label = "No data")
 	end
 
 	# ---- Apply initial scales safely ---------------------------------------

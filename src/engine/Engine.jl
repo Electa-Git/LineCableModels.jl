@@ -26,7 +26,8 @@ module Engine
 
 # Export public API
 export LineParametersProblem,
-	LineParameters, SeriesImpedance, ShuntAdmittance, per_km, per_m, kronify
+	LineParameters, SeriesImpedance, ShuntAdmittance, per_km,
+	per_m, kronify
 export EMTFormulation, FormulationSet, LineParamOptions
 
 export compute!, plot
@@ -36,12 +37,14 @@ using Reexport, ForceImport
 using Measurements
 using LinearAlgebra
 using ..Commons
-import ..Commons: get_description
+import ..Commons: get_description, LineParamsDomain, PhaseDomain, ModalDomain, domain
 
 using ..Utils
 using ..Materials
 using ..EarthProps: EarthModel
 using ..DataModel: LineCableSystem
+using ..Utils: levelfrom, TimestampLogger
+using Logging, LoggingExtras
 
 include("types.jl")
 
@@ -91,6 +94,7 @@ include("plot.jl")
 
 # Override I/O methods
 include("base.jl")
+include("dataframe.jl")
 
 # Submodule `FEM`
 include("fem/FEM.jl")

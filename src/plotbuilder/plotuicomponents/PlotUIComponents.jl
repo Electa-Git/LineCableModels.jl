@@ -1,7 +1,24 @@
 module PlotUIComponents
 
 using Makie
-import ..BackendHandler: current_backend_symbol, _pkgid
+
+# TODO: Remove toggle_visibility! override when Makie.jl issue #5190 is fixed
+# Let this stand as a monument of cardboard and duct tape.
+function __init__()
+	@eval Makie begin
+		function toggle_visibility!(entry::LegendEntry, sync = false)
+			@warn "LineCableModels: overriding Makie.toggle_visibility! due to https://github.com/MakieOrg/Makie.jl/issues/5190"
+			foreach_plot(entry) do p
+				current_vis = p.visible[]
+				p.visible[] = sync ? true : !current_vis
+			end
+			return
+		end
+	end
+end
+
+using Printf: @sprintf
+import ..PlotBuilder.BackendHandler: current_backend_symbol, _pkgid
 
 # -----------------------------------------------------------------------------
 # Constants
@@ -28,14 +45,18 @@ const BG_COLOR_INTERACTIVE = :grey90
 const BG_COLOR_EXPORT = :white
 const ICON_COLOR_ACTIVE = Makie.RGBAf(0.15, 0.15, 0.15, 1.0)
 const ICON_COLOR_DISABLED = Makie.RGBAf(0.55, 0.55, 0.55, 1.0)
-
+const TICK_FMT = x -> @sprintf("%.4g", x)
+const TICKFORMATTER = values -> [TICK_FMT(v) for v in values]
+const EXPORT_TIMESTAMP_FORMAT = "yyyymmdd_HHMMSS"
+const EXPORT_EXTENSION = "svg"
 
 # -----------------------------------------------------------------------------
 # Material UI icons
 # -----------------------------------------------------------------------------
 const MI_REFRESH = "\uE5D5"  # Material Icons: 'refresh'
 const MI_SAVE    = "\uE161"  # Material Icons: 'save'
-const ICON_TTF   = joinpath(@__DIR__, "..", "..", "assets", "fonts", "material-icons", "MaterialIcons-Regular.ttf")
+const ICON_TTF   = joinpath(pkgdir(@__MODULE__), "assets", "fonts", "material-icons", "MaterialIcons-Regular.ttf")
+
 
 # -----------------------------------------------------------------------------
 # Data structures
@@ -266,45 +287,30 @@ function theme_for(
 		base = merge(base, Makie.theme_latexfonts())
 	end
 	icon_font = ctx.icons_font
-	custom =
-		icon_font === nothing ?
-		Makie.Theme(
-			backgroundcolor = background,
-			Axis = (
-				titlesize = AXIS_TITLE_FONT_SIZE,
-				xlabelsize = AXIS_LABEL_FONT_SIZE,
-				ylabelsize = AXIS_LABEL_FONT_SIZE,
-				xticklabelsize = AXIS_TICK_FONT_SIZE,
-				yticklabelsize = AXIS_TICK_FONT_SIZE,
-			),
-			Legend = (
-				fontsize = AXIS_LABEL_FONT_SIZE,
-				labelsize = AXIS_LABEL_FONT_SIZE,
-			),
-			Colorbar = (
-				labelsize = AXIS_LABEL_FONT_SIZE,
-				ticklabelsize = AXIS_TICK_FONT_SIZE,
-			),
-		) :
-		Makie.Theme(
-			backgroundcolor = background,
-			fonts = (; icons = icon_font),
-			Axis = (
-				titlesize = AXIS_TITLE_FONT_SIZE,
-				xlabelsize = AXIS_LABEL_FONT_SIZE,
-				ylabelsize = AXIS_LABEL_FONT_SIZE,
-				xticklabelsize = AXIS_TICK_FONT_SIZE,
-				yticklabelsize = AXIS_TICK_FONT_SIZE,
-			),
-			Legend = (
-				fontsize = AXIS_LABEL_FONT_SIZE,
-				labelsize = AXIS_LABEL_FONT_SIZE,
-			),
-			Colorbar = (
-				labelsize = AXIS_LABEL_FONT_SIZE,
-				ticklabelsize = AXIS_TICK_FONT_SIZE,
-			),
-		)
+	# Optional keyword: empty if no icon font, otherwise sets fonts = (; icons = icon_font)
+	fonts_kw = icon_font === nothing ? NamedTuple() : (fonts = (; icons = icon_font),)
+	# one single theme with conditional fonts because we are civilized barbarians
+	custom = Makie.Theme(;
+		backgroundcolor = background,
+		Axis = (
+			titlesize      = AXIS_TITLE_FONT_SIZE,
+			xlabelsize     = AXIS_LABEL_FONT_SIZE,
+			ylabelsize     = AXIS_LABEL_FONT_SIZE,
+			xticklabelsize = AXIS_TICK_FONT_SIZE,
+			yticklabelsize = AXIS_TICK_FONT_SIZE,
+			xtickformat    = TICKFORMATTER,
+			ytickformat    = TICKFORMATTER,
+		),
+		Legend = (
+			fontsize = AXIS_LABEL_FONT_SIZE,
+			labelsize = AXIS_LABEL_FONT_SIZE,
+		),
+		Colorbar = (
+			labelsize     = AXIS_LABEL_FONT_SIZE,
+			ticklabelsize = AXIS_TICK_FONT_SIZE,
+		),
+		fonts_kw...,  # <- conditionally adds `fonts` only when icon_font ≠ nothing
+	)
 	return merge(base, custom)
 end
 

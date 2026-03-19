@@ -42,8 +42,8 @@ _serializable_fields(::NominalData) = (
 )
 
 # Layer Types (Conductor Parts)
-_serializable_fields(::WireArray) = (
-	:radius_in, # Needed for first layer reconstruction
+_serializable_fields(::CircStrands) = (
+	:r_in, # Needed for first layer reconstruction
 	:radius_wire,
 	:num_wires,
 	:lay_ratio,
@@ -51,15 +51,28 @@ _serializable_fields(::WireArray) = (
 	:temperature,
 	:lay_direction,
 )
+
+# Layer Types (Conductor Parts)
+_serializable_fields(::RectStrands) = (
+	:r_in, # Needed for first layer reconstruction
+	:thickness,
+	:width,
+	:num_wires,
+	:lay_ratio,
+	:material_props,
+	:temperature,
+	:lay_direction,
+)
+
 _serializable_fields(::Tubular) = (
-	:radius_in, # Needed for first layer reconstruction
-	:radius_ext,
+	:r_in, # Needed for first layer reconstruction
+	:r_ex,
 	:material_props,
 	:temperature,
 )
 _serializable_fields(::Strip) = (
-	:radius_in, # Needed for first layer reconstruction
-	:radius_ext,
+	:r_in, # Needed for first layer reconstruction
+	:r_ex,
 	:width,
 	:lay_ratio,
 	:material_props,
@@ -69,14 +82,14 @@ _serializable_fields(::Strip) = (
 
 # Layer Types (Insulator Parts)
 _serializable_fields(::Insulator) = (
-	:radius_in, # Needed for first layer reconstruction
-	:radius_ext,
+	:r_in, # Needed for first layer reconstruction
+	:r_ex,
 	:material_props,
 	:temperature,
 )
 _serializable_fields(::Semicon) = (
-	:radius_in, # Needed for first layer reconstruction
-	:radius_ext,
+	:r_in, # Needed for first layer reconstruction
+	:r_ex,
 	:material_props,
 	:temperature,
 )
@@ -193,7 +206,7 @@ function _serialize_obj(obj)
 		# Iterate only through the fields specified by the trait
 		for field in fields_to_include
 			if hasproperty(obj, field)
-				value = getfield(obj, field)
+				value = getproperty(obj, field)
 				result[string(field)] = _serialize_value(value) # Recursively serialize
 			else
 				# This indicates an issue with the _serializable_fields definition for T

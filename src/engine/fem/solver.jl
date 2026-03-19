@@ -792,7 +792,9 @@ function run_solver!(workspace::FEMWorkspace)
 		end
 	end
 
-	return LineParameters(Zr, Yr, workspace.freq)
+	lp = LineParameters(PhaseDomain, Zr, Yr, workspace.freq)
+
+	return lp
 end
 
 

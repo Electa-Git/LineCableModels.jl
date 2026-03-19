@@ -3,7 +3,6 @@
 
 The [`Validation`](@ref) module implements a trait-driven, three-phase input checking pipeline for component constructors in `LineCableModels`. Inputs are first *sanitized* (arity and shape checks on raw arguments), then *parsed* (proxy values normalized to numeric radii), and finally validated by a generated set of rules.
 
-
 # Overview
 
 - Centralized constructor input handling: `sanitize` → `parse` → rule application.
@@ -22,399 +21,20 @@ module Validation
 
 # Export public API
 export validate!, has_radii, has_temperature, extra_rules,
-    sanitize, parse, is_radius_input, required_fields, keyword_fields, keyword_defaults, coercive_fields, Finite, Nonneg, Positive, IntegerField, Less, LessEq, IsA, Normalized, OneOf
+	sanitize, parse, is_radius_input, required_fields, keyword_fields, keyword_defaults,
+	coercive_fields, Finite, Nonneg, Positive, IntegerField, Less, LessEq, IsA, Normalized,
+	OneOf, GreaterEq, Greater, PhysicalFillLimit, Satisfies
 
 # Module-specific dependencies
 using ..Commons
 
-"""
-$(TYPEDEF)
-
-Base abstract type for validation rules. All concrete rule types must subtype [`Rule`](@ref) and provide an `_apply(::Rule, nt, ::Type{T})` method that checks a field in the normalized `NamedTuple` `nt` for the component type `T`.
-
-$(TYPEDFIELDS)
-"""
-abstract type Rule end
-
-"""
-$(TYPEDEF)
-
-Rule that enforces finiteness of a numeric field.
-
-$(TYPEDFIELDS)
-"""
-struct Finite <: Rule
-    "Name of the field to check."
-    name::Symbol
-end
-
-"""
-$(TYPEDEF)
-
-Rule that enforces a field to be non‑negative (`≥ 0`).
-
-$(TYPEDFIELDS)
-"""
-struct Nonneg <: Rule
-    "Name of the field to check."
-    name::Symbol
-end
-
-"""
-$(TYPEDEF)
-
-Rule that enforces a field to be strictly positive (`> 0`).
-
-$(TYPEDFIELDS)
-"""
-struct Positive <: Rule
-    "Name of the field to check."
-    name::Symbol
-end
-
-"""
-$(TYPEDEF)
-
-Rule that enforces a field to be of an integer type.
-
-$(TYPEDFIELDS)
-"""
-struct IntegerField <: Rule
-    "Name of the field to check."
-    name::Symbol
-end
-
-"""
-$(TYPEDEF)
-
-Rule that enforces a strict ordering constraint `a < b` between two fields.
-
-$(TYPEDFIELDS)
-"""
-struct Less <: Rule
-    "Left‑hand field name."
-    a::Symbol
-    "Right‑hand field name."
-    b::Symbol
-end
-
-"""
-$(TYPEDEF)
-
-Rule that enforces a non‑strict ordering constraint `a ≤ b` between two fields.
-
-$(TYPEDFIELDS)
-"""
-struct LessEq <: Rule
-    "Left‑hand field name."
-    a::Symbol
-    "Right‑hand field name."
-    b::Symbol
-end
-
-"""
-$(TYPEDEF)
-
-Rule that enforces a field to be `isa M` for a specified type parameter `M`.
-
-$(TYPEDFIELDS)
-"""
-struct IsA{M} <: Rule
-    "Name of the field to check."
-    name::Symbol
-end
-
-"""
-$(TYPEDEF)
-
-Rule that enforces that a field has already been normalized to a numeric value during parsing. Intended to guard that `parse` has executed and removed proxies.
-
-$(TYPEDFIELDS)
-"""
-struct Normalized <: Rule
-    "Name of the field to check."
-    name::Symbol
-end
-
-"""
-$(TYPEDEF)
-
-Rule that enforces a field to be `in` the set `S`.
-
-$(TYPEDFIELDS)
-"""
-struct OneOf{S} <: Rule
-    name::Symbol
-    set::S
-end
-
+include("rules.jl")
+include("applyrules.jl")
 
 """
 $(TYPEDSIGNATURES)
 
-Returns the simple (unqualified) name of type `T` as a `String`. Utility for constructing diagnostic messages.
-
-# Arguments
-
-- `::Type{T}`: Type whose name is requested \\[dimensionless\\].
-
-# Returns
-
-- `String` with the type name \\[dimensionless\\].
-
-# Examples
-
-```julia
-name = $(FUNCTIONNAME)(Float64)  # "Float64"
-```
-"""
-@inline _typename(::Type{T}) where {T} = String(nameof(T))
-
-"""
-$(TYPEDSIGNATURES)
-
-Returns a compact textual representation of `x` for error messages.
-
-# Arguments
-
-- `x`: Value to represent \\[dimensionless\\].
-
-# Returns
-
-- `String` with a compact `repr` \\[dimensionless\\].
-
-# Examples
-
-```julia
-s = $(FUNCTIONNAME)(:field)  # ":field"
-```
-"""
-@inline _repr(x) = repr(x; context=:compact => true)
-
-"""
-$(TYPEDSIGNATURES)
-
-Asserts that `x` is a real (non‑complex) number. Used by rule implementations before performing numeric comparisons.
-
-# Arguments
-
-- `field`: Field name used in diagnostics \\[dimensionless\\].
-- `x`: Value to check \\[dimensionless\\].
-- `::Type{T}`: Component type for contextualized messages \\[dimensionless\\].
-
-# Returns
-
-- Nothing. Throws on failure.
-
-# Errors
-
-- `ArgumentError` if `x` is not `isa Number` or is a `Complex` value.
-
-# Examples
-
-```julia
-$(FUNCTIONNAME)(:radius_in, 0.01, SomeType)  # ok
-```
-"""
-@inline function _ensure_real(field::Symbol, x, ::Type{T}) where {T}
-    if !(x isa Number) || x isa Complex
-        throw(ArgumentError("[$(_typename(T))] $field must be a real number, got $(typeof(x)): $(_repr(x))"))
-    end
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Applies [`Finite`](@ref) to ensure the target field is a finite real number.
-
-# Arguments
-
-- `r`: Rule instance \\[dimensionless\\].
-- `nt`: Normalized `NamedTuple` of inputs \\[dimensionless\\].
-- `::Type{T}`: Component type \\[dimensionless\\].
-
-# Returns
-
-- Nothing. Throws on failure.
-"""
-@inline function _apply(r::Finite, nt, ::Type{T}) where {T}
-    x = getfield(nt, r.name)
-    _ensure_real(r.name, x, T)
-    isfinite(x) || throw(DomainError("[$(_typename(T))] $(r.name) must be finite, got $x"))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Applies [`Nonneg`](@ref) to ensure the target field is `≥ 0`.
-
-# Arguments
-
-- `r`: Rule instance \\[dimensionless\\].
-- `nt`: Normalized `NamedTuple` of inputs \\[dimensionless\\].
-- `::Type{T}`: Component type \\[dimensionless\\].
-
-# Returns
-
-- Nothing. Throws on failure.
-"""
-@inline function _apply(r::Nonneg, nt, ::Type{T}) where {T}
-    x = getfield(nt, r.name)
-    _ensure_real(r.name, x, T)
-    x >= 0 || throw(ArgumentError("[$(_typename(T))] $(r.name) must be ≥ 0, got $x"))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Applies [`Positive`](@ref) to ensure the target field is `> 0`.
-
-# Arguments
-
-- `r`: Rule instance \\[dimensionless\\].
-- `nt`: Normalized `NamedTuple` of inputs \\[dimensionless\\].
-- `::Type{T}`: Component type \\[dimensionless\\].
-
-# Returns
-
-- Nothing. Throws on failure.
-"""
-@inline function _apply(r::Positive, nt, ::Type{T}) where {T}
-    x = getfield(nt, r.name)
-    _ensure_real(r.name, x, T)
-    x > 0 || throw(ArgumentError("[$(_typename(T))] $(r.name) must be > 0, got $x"))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Applies [`IntegerField`](@ref) to ensure the target field is an `Integer`.
-
-# Arguments
-
-- `r`: Rule instance \\[dimensionless\\].
-- `nt`: Normalized `NamedTuple` of inputs \\[dimensionless\\].
-- `::Type{T}`: Component type \\[dimensionless\\].
-
-# Returns
-
-- Nothing. Throws on failure.
-"""
-@inline function _apply(r::IntegerField, nt, ::Type{T}) where {T}
-    x = getfield(nt, r.name)
-    x isa Integer || throw(ArgumentError("[$(_typename(T))] $(r.name) must be Integer, got $(typeof(x))"))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Applies [`Less`](@ref) to ensure `nt[a] < nt[b]`.
-
-# Arguments
-
-- `r`: Rule instance with fields `a` and `b` \\[dimensionless\\].
-- `nt`: Normalized `NamedTuple` \\[dimensionless\\].
-- `::Type{T}`: Component type \\[dimensionless\\].
-
-# Returns
-
-- Nothing. Throws on failure.
-"""
-@inline function _apply(r::Less, nt, ::Type{T}) where {T}
-    a = getfield(nt, r.a)
-    b = getfield(nt, r.b)
-    _ensure_real(r.a, a, T)
-    _ensure_real(r.b, b, T)
-    a < b || throw(ArgumentError("[$(_typename(T))] $(r.a) < $(r.b) violated (got $a ≥ $b)"))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Applies [`LessEq`](@ref) to ensure `nt[a] ≤ nt[b]`.
-
-# Arguments
-
-- `r`: Rule instance with fields `a` and `b` \\[dimensionless\\].
-- `nt`: Normalized `NamedTuple` \\[dimensionless\\].
-- `::Type{T}`: Component type \\[dimensionless\\].
-
-# Returns
-
-- Nothing. Throws on failure.
-"""
-@inline function _apply(r::LessEq, nt, ::Type{T}) where {T}
-    a = getfield(nt, r.a)
-    b = getfield(nt, r.b)
-    _ensure_real(r.a, a, T)
-    _ensure_real(r.b, b, T)
-    a <= b || throw(ArgumentError("[$(_typename(T))] $(r.a) ≤ $(r.b) violated (got $a > $b)"))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Applies [`IsA{M}`](@ref) to ensure a field is of type `M`.
-
-# Arguments
-
-- `r`: Rule instance parameterized by `M` \\[dimensionless\\].
-- `nt`: Normalized `NamedTuple` \\[dimensionless\\].
-- `::Type{T}`: Component type \\[dimensionless\\].
-
-# Returns
-
-- Nothing. Throws on failure.
-"""
-@inline function _apply(r::IsA{M}, nt, ::Type{T}) where {T,M}
-    x = getfield(nt, r.name)
-    x isa M || throw(ArgumentError("[$(_typename(T))] $(r.name) must be $(M), got $(typeof(x))"))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Applies [`Normalized`](@ref) to ensure the field has been converted to a numeric value during parsing.
-
-# Arguments
-
-- `r`: Rule instance \\[dimensionless\\].
-- `nt`: Normalized `NamedTuple` \\[dimensionless\\].
-- `::Type{T}`: Component type \\[dimensionless\\].
-
-# Returns
-
-- Nothing. Throws on failure.
-"""
-@inline function _apply(r::Normalized, nt, ::Type{T}) where {T}
-    x = getfield(nt, r.name)
-    x isa Number || throw(ArgumentError("[$(_typename(T))] $(r.name) must be normalized Number; got $(typeof(x))"))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Applies [`OneOf`](@ref) to ensure the target field is contained in a specified set.
-
-# Arguments
-
-- `r`: Rule instance with fields `name` and `set` \\[dimensionless\\].
-- `nt`: Normalized `NamedTuple` of inputs \\[dimensionless\\].
-- `::Type{T}`: Component type \\[dimensionless\\].
-
-# Returns
-
-- Nothing. Throws on failure.
-"""
-@inline function _apply(r::OneOf{S}, nt, ::Type{T}) where {S,T}
-    x = getfield(nt, r.name)
-    (x in r.set) || throw(ArgumentError("[$(String(nameof(T)))] $(r.name) must be one of $(collect(r.set)); got $(x)"))
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Trait hook enabling the annular radii rule bundle on fields `:radius_in` and `:radius_ext` (normalized numbers required, finiteness, non‑negativity, and the ordering constraint `:radius_in` < `:radius_ext`). It does **not** indicate the mere existence of radii; it opts in to the annular/coaxial shell geometry checks.
+Trait hook enabling the annular radii rule bundle on fields `:r_in` and `:r_ex` (normalized numbers required, finiteness, non‑negativity, and the ordering constraint `:r_in` < `:r_ex`). It does **not** indicate the mere existence of radii; it opts in to the annular/coaxial shell geometry checks.
 
 # Arguments
 
@@ -564,7 +184,7 @@ Field‑aware acceptance predicate used by `sanitize` to distinguish inner vs. o
 # Arguments
 
 - `::Type{T}`: Component type \\[dimensionless\\].
-- `::Val{F}`: Field tag; typically `Val(:radius_in)` or `Val(:radius_ext)` \\[dimensionless\\].
+- `::Val{F}`: Field tag; typically `Val(:r_in)` or `Val(:r_ex)` \\[dimensionless\\].
 - `x`: Candidate value \\[dimensionless\\].
 
 # Returns
@@ -574,8 +194,8 @@ Field‑aware acceptance predicate used by `sanitize` to distinguish inner vs. o
 # Examples
 
 ```julia
-Validation.is_radius_input(Tubular, Val(:radius_in), 0.01)   # true
-Validation.is_radius_input(Tubular, Val(:radius_ext), 0.01)  # true
+Validation.is_radius_input(Tubular, Val(:r_in), 0.01)   # true
+Validation.is_radius_input(Tubular, Val(:r_ex), 0.01)  # true
 ```
 
 # See also
@@ -583,7 +203,7 @@ Validation.is_radius_input(Tubular, Val(:radius_ext), 0.01)  # true
 - [`sanitize`](@ref)
 - [`is_radius_input(::Type{T}, x)`](@ref)
 """
-is_radius_input(::Type{T}, ::Val{F}, x) where {T,F} = is_radius_input(T, x)
+is_radius_input(::Type{T}, ::Val{F}, x) where {T, F} = is_radius_input(T, x)
 
 """
 $(TYPEDSIGNATURES)
@@ -593,7 +213,7 @@ Default policy for **inner** radius raw inputs: accept real numbers.
 # Arguments
 
 - `::Type{T}`: Component type \\[dimensionless\\].
-- `::Val{:radius_in}`: Field tag for the inner radius \\[dimensionless\\].
+- `::Val{:r_in}`: Field tag for the inner radius \\[dimensionless\\].
 - `x::Number`: Candidate value \\[dimensionless\\].
 
 # Returns
@@ -603,12 +223,13 @@ Default policy for **inner** radius raw inputs: accept real numbers.
 # Examples
 
 ```julia
-Validation.is_radius_input(Tubular, Val(:radius_in), 0.0)   # true
-Validation.is_radius_input(Tubular, Val(:radius_in), 1+0im) # false
+Validation.is_radius_input(Tubular, Val(:r_in), 0.0)   # true
+Validation.is_radius_input(Tubular, Val(:r_in), 1+0im) # false
 ```
 """
-is_radius_input(::Type{T}, ::Val{:radius_in}, x::Number) where {T} = (x isa Number) && !(x isa Complex)
-is_radius_input(::Type{T}, ::Val{:radius_in}, ::Any) where {T} = false
+is_radius_input(::Type{T}, ::Val{:r_in}, x::Number) where {T} =
+	(x isa Number) && !(x isa Complex)
+is_radius_input(::Type{T}, ::Val{:r_in}, ::Any) where {T} = false
 
 """
 $(TYPEDSIGNATURES)
@@ -618,7 +239,7 @@ Default policy for **outer** radius raw inputs (annular shells): accept real num
 # Arguments
 
 - `::Type{T}`: Component type \\[dimensionless\\].
-- `::Val{:radius_ext}`: Field tag for the outer radius \\[dimensionless\\].
+- `::Val{:r_ex}`: Field tag for the outer radius \\[dimensionless\\].
 - `x::Number`: Candidate value \\[dimensionless\\].
 
 # Returns
@@ -628,11 +249,12 @@ Default policy for **outer** radius raw inputs (annular shells): accept real num
 # Examples
 
 ```julia
-Validation.is_radius_input(Tubular, Val(:radius_ext), 0.02)  # true
+Validation.is_radius_input(Tubular, Val(:r_ex), 0.02)  # true
 ```
 """
-is_radius_input(::Type{T}, ::Val{:radius_ext}, x::Number) where {T} = (x isa Number) && !(x isa Complex)
-is_radius_input(::Type{T}, ::Val{:radius_ext}, ::Any) where {T} = false
+is_radius_input(::Type{T}, ::Val{:r_ex}, x::Number) where {T} =
+	(x isa Number) && !(x isa Complex)
+is_radius_input(::Type{T}, ::Val{:r_ex}, ::Any) where {T} = false
 
 """
 $(TYPEDSIGNATURES)
@@ -683,18 +305,22 @@ $(FUNCTIONNAME)(Y)  # => (temperature = 25.0,)
 * [`sanitize`](@ref)
   """
 @inline function _kwdefaults_nt(::Type{T}) where {T}
-    defs = keyword_defaults(T)
-    defs === () && return NamedTuple()
-    if defs isa NamedTuple
-        return defs
-    elseif defs isa Tuple
-        keys = keyword_fields(T)
-        length(keys) == length(defs) ||
-            Base.error("[$(String(nameof(T)))] keyword_defaults length $(length(defs)) ≠ keyword_fields length $(length(keys))")
-        return NamedTuple{keys}(defs)
-    else
-        Base.error("[$(String(nameof(T)))] keyword_defaults must be NamedTuple or Tuple; got $(typeof(defs))")
-    end
+	defs = keyword_defaults(T)
+	defs === () && return NamedTuple()
+	if defs isa NamedTuple
+		return defs
+	elseif defs isa Tuple
+		keys = keyword_fields(T)
+		length(keys) == length(defs) ||
+			Base.error(
+				"[$(String(nameof(T)))] keyword_defaults length $(length(defs)) ≠ keyword_fields length $(length(keys))",
+			)
+		return NamedTuple{keys}(defs)
+	else
+		Base.error(
+			"[$(String(nameof(T)))] keyword_defaults must be NamedTuple or Tuple; got $(typeof(defs))",
+		)
+	end
 end
 
 """
@@ -727,43 +353,61 @@ nt = $(FUNCTIONNAME)(Tubular, (0.01, 0.02, material), (; temperature = 20.0,))
 ```
 """
 function sanitize(::Type{T}, args::Tuple, kwargs::NamedTuple) where {T}
-    # -- hard arity on required positionals --
-    req = required_fields(T)
-    kw = keyword_fields(T)
-    nreq = length(req)
-    na = length(args)
-    if na != nreq
-        names = join(string.(req), ", ")
-        throw(ArgumentError("[$(_typename(T))] expected exactly $nreq positional args ($names); got $na. Optionals must be keywords."))
-    end
+	# -- hard arity on required positionals --
+	req = required_fields(T)
+	kw = keyword_fields(T)
+	nreq = length(req)
+	na = length(args)
+	if na != nreq
+		names = join(string.(req), ", ")
+		throw(
+			ArgumentError(
+				"[$(_typename(T))] expected exactly $nreq positional args ($names); got $na. Optionals must be keywords.",
+			),
+		)
+	end
 
-    # positional -> named
-    nt_pos = (; (req[i] => args[i] for i = 1:nreq)...)
+	# positional -> named
+	nt_pos = (; (req[i] => args[i] for i ∈ 1:nreq)...)
 
-    # reject unknown keywords (strict)
-    for k in keys(kwargs)
-        if !(k in kw) && !(k in req)
-            throw(ArgumentError("[$(_typename(T))] unknown keyword '$k'. Allowed keywords: $(join(string.(kw), ", "))."))
-        end
-    end
+	# reject unknown keywords (strict)
+	for k in keys(kwargs)
+		if !(k in kw) && !(k in req)
+			throw(
+				ArgumentError(
+					"[$(_typename(T))] unknown keyword '$k'. Allowed keywords: $(join(string.(kw), ", ")).",
+				),
+			)
+		end
+	end
 
-    # user kw override positionals (if any same names)
-    nt = merge(nt_pos, kwargs)
+	# user kw override positionals (if any same names)
+	nt = merge(nt_pos, kwargs)
 
-    # backfill missing optional keywords with trait defaults ---
-    # defaults first, then user-provided values win
-    nt = merge(_kwdefaults_nt(T), nt)
+	# backfill missing optional keywords with trait defaults ---
+	# defaults first, then user-provided values win
+	nt = merge(_kwdefaults_nt(T), nt)
 
-    # radii raw acceptance (unchanged)
-    if has_radii(T)
-        haskey(nt, :radius_in) || throw(ArgumentError("[$(_typename(T))] missing 'radius_in'."))
-        haskey(nt, :radius_ext) || throw(ArgumentError("[$(_typename(T))] missing 'radius_ext'."))
-        is_radius_input(T, Val(:radius_in), nt.radius_in) ||
-            throw(ArgumentError("[$(_typename(T))] radius_in not an accepted input: $(typeof(nt.radius_in))"))
-        is_radius_input(T, Val(:radius_ext), nt.radius_ext) ||
-            throw(ArgumentError("[$(_typename(T))] radius_ext not an accepted input: $(typeof(nt.radius_ext))"))
-    end
-    return nt
+	# radii raw acceptance (unchanged)
+	if has_radii(T)
+		haskey(nt, :r_in) ||
+			throw(ArgumentError("[$(_typename(T))] missing 'r_in'."))
+		haskey(nt, :r_ex) ||
+			throw(ArgumentError("[$(_typename(T))] missing 'r_ex'."))
+		is_radius_input(T, Val(:r_in), nt.r_in) ||
+			throw(
+				ArgumentError(
+					"[$(_typename(T))] r_in not an accepted input: $(typeof(nt.r_in))",
+				),
+			)
+		is_radius_input(T, Val(:r_ex), nt.r_ex) ||
+			throw(
+				ArgumentError(
+					"[$(_typename(T))] r_ex not an accepted input: $(typeof(nt.r_ex))",
+				),
+			)
+	end
+	return nt
 end
 
 """
@@ -778,7 +422,7 @@ Parses and normalizes raw inputs produced by [`sanitize`](@ref) into the canonic
 
 # Returns
 
-- `NamedTuple` with normalized fields (e.g., numeric `:radius_in`, `:radius_ext`).
+- `NamedTuple` with normalized fields (e.g., numeric `:r_in`, `:r_ex`).
 """
 parse(::Type, nt) = nt
 
@@ -796,14 +440,17 @@ Generates (at compile time, via a `@generated` function) the tuple of rules to a
 - Tuple of [`Rule`](@ref) instances to apply in order.
 """
 @generated function _rules(::Type{T}) where {T}
-    :((
-        (has_radii(T) ? (Normalized(:radius_in), Normalized(:radius_ext),
-            Finite(:radius_in), Nonneg(:radius_in),
-            Finite(:radius_ext), Nonneg(:radius_ext),
-            Less(:radius_in, :radius_ext)) : ())...,
-        (has_temperature(T) ? (Finite(:temperature),) : ())...,
-        extra_rules(T)...
-    ))
+	:((
+		(
+			has_radii(T) ?
+			(Normalized(:r_in), Normalized(:r_ex),
+				Finite(:r_in), Nonneg(:r_in),
+				Finite(:r_ex), Nonneg(:r_ex),
+				Less(:r_in, :r_ex)) : ()
+		)...,
+		(has_temperature(T) ? (Finite(:temperature),) : ())...,
+		extra_rules(T)...,
+	))
 end
 
 """
@@ -829,7 +476,7 @@ Runs the full validation pipeline for a component type: `sanitize` (arity and ra
 
 ```julia
 nt = $(FUNCTIONNAME)(Tubular, 0.01, 0.02, material; temperature = 20.0)
-# use nt.radius_in, nt.radius_ext, nt.temperature thereafter
+# use nt.r_in, nt.r_ex, nt.temperature thereafter
 ```
 
 # See also
@@ -838,16 +485,16 @@ nt = $(FUNCTIONNAME)(Tubular, 0.01, 0.02, material; temperature = 20.0)
 - [`coercive_fields`](@ref)
 """
 function validate!(::Type{T}, args...; kwargs...) where {T}
-    # One validate! to rule them all
+	# One validate! to rule them all
 
-    nt0 = sanitize(T, args, (; kwargs...))
-    nt1 = parse(T, nt0)
-    # if has_radii: Normalized ensures numbers post-parse; if not numbers, rules will throw
-    rules = _rules(T)
-    @inbounds for i in eachindex(rules)
-        _apply(rules[i], nt1, T)
-    end
-    return nt1
+	nt0 = sanitize(T, args, (; kwargs...))
+	nt1 = parse(T, nt0)
+	# if has_radii: Normalized ensures numbers post-parse; if not numbers, rules will throw
+	rules = _rules(T)
+	@inbounds for i in eachindex(rules)
+		_apply(rules[i], nt1, T)
+	end
+	return nt1
 end
 
 end # module Validation

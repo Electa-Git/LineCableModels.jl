@@ -36,12 +36,6 @@ set_backend!(:gl); #hide
 
 # Initialize library and the required materials for this design:
 materials = MaterialsLibrary(add_defaults = true)
-lead = Material(21.4e-8, 1.0, 0.999983, 20.0, 0.00400) # Lead or lead alloy
-add!(materials, "lead", lead)
-steel = Material(13.8e-8, 1.0, 300.0, 20.0, 0.00450) # Steel
-add!(materials, "steel", steel)
-pp = Material(1e15, 2.8, 1.0, 20.0, 0.0) # Laminated paper propylene
-add!(materials, "pp", pp)
 
 # Inspect the contents of the materials library:
 materials_df = DataFrame(materials)
@@ -107,13 +101,13 @@ Initialize the conductor object and assign the central wire:
 =#
 
 material = get(materials, "copper")
-core = ConductorGroup(WireArray(0.0, Diameter(d_w), 1, 0.0, material))
+core = ConductorGroup(CircStrands(0.0, Diameter(d_w), 1, 0.0, material))
 
 # Add the subsequent layers of wires and inspect the object:
 n_strands = 6 # Strands per layer
 n_layers = 6 # Layers of strands
 for i in 1:n_layers
-	add!(core, WireArray, Diameter(d_w), i * n_strands, 11.0, material)
+	add!(core, CircStrands, Diameter(d_w), i * n_strands, 11.0, material)
 end
 core
 
@@ -194,7 +188,7 @@ add!(cable_design, sheath_cc)
 lay_ratio = 10.0 # typical value for wire screens
 material = get(materials, "steel")
 armor_con = ConductorGroup(
-	WireArray(screen_insu, Diameter(d_wa), num_ar_wires, lay_ratio, material))
+	CircStrands(screen_insu, Diameter(d_wa), num_ar_wires, lay_ratio, material))
 
 # PP layer after armor:
 material = get(materials, "pp")
@@ -306,7 +300,7 @@ problem = LineParametersProblem(
 );
 
 # Estimate domain size based on skin depth in the earth
-domain_radius = calc_domain_size(earth_params, f);
+domain_radius = 10.0; #calc_domain_size(earth_params, f);
 
 # Define custom mesh transitions around each cable
 mesh_transition1 = MeshTransition(
@@ -332,10 +326,10 @@ opts = (
 	force_remesh = true,                # Force remeshing
 	force_overwrite = true,             # Overwrite existing files
 	plot_field_maps = false,            # Do not compute/ plot field maps
-	mesh_only = false,                  # Preview the mesh
+	mesh_only = true,                  # Preview the mesh
 	save_path = fullfile("fem_output"), # Results directory
 	keep_run_files = true,              # Archive files after each run
-	verbosity = 0,                      # Verbosity
+	verbosity = 1,                      # Verbosity
 );
 
 # Define the FEM formulation with the specified parameters
@@ -351,8 +345,8 @@ F = FormulationSet(:FEM,
 	points_per_circumference = 16,
 	mesh_size_min = 1e-6,
 	mesh_size_max = domain_radius / 5,
-	mesh_transitions = [mesh_transition1,
-		mesh_transition2],
+	# mesh_transitions = [mesh_transition1,
+	# 	mesh_transition2],
 	mesh_size_default = domain_radius / 10,
 	mesh_algorithm = 5,
 	mesh_max_retries = 20,

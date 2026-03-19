@@ -16,7 +16,7 @@ Determines the promoted numeric element type for convenience constructors of com
 # Examples
 
 ```julia
-Tp = $(FUNCTIONNAME)(Tubular, (radius_in=0.01, radius_ext=0.02, material_props=mat, temperature=20.0), ())
+Tp = $(FUNCTIONNAME)(Tubular, (r_in=0.01, r_ex=0.02, material_props=mat, temperature=20.0), ())
 ```
 """
 @inline _promotion_T(::Type{C}, ntv, _order::Tuple) where {C} =
@@ -41,7 +41,7 @@ Builds the positional argument tuple to feed the **typed core** constructor, coe
 # Examples
 
 ```julia
-args = $(FUNCTIONNAME)(Tubular, ntv, Float64, (:radius_in, :radius_ext, :material_props, :temperature))
+args = $(FUNCTIONNAME)(Tubular, ntv, Float64, (:r_in, :r_ex, :material_props, :temperature))
 ```
 """
 @inline _coerced_args(::Type{C}, ntv, Tp, order::Tuple) where {C} =
@@ -117,17 +117,17 @@ Generates a weakly‑typed convenience constructor for a component `T`. The gene
 # Examples
 
 ```julia
-const _REQ_TUBULAR = (:radius_in, :radius_ext, :material_props)
+const _REQ_TUBULAR = (:r_in, :r_ex, :material_props)
 const _OPT_TUBULAR = (:temperature,)
 const _DEFS_TUBULAR = (T₀,)
 
 @construct Tubular _REQ_TUBULAR _OPT_TUBULAR _DEFS_TUBULAR
 
 # Expands roughly to:
-# function Tubular(radius_in, radius_ext, material_props; temperature=T₀)
-#   ntv = validate!(Tubular, radius_in, radius_ext, material_props; temperature=temperature)
-#   Tp  = _promotion_T(Tubular, ntv, (:radius_in, :radius_ext, :material_props, :temperature))
-#   args = _coerced_args(Tubular, ntv, Tp, (:radius_in, :radius_ext, :material_props, :temperature))
+# function Tubular(r_in, r_ex, material_props; temperature=T₀)
+#   ntv = validate!(Tubular, r_in, r_ex, material_props; temperature=temperature)
+#   Tp  = _promotion_T(Tubular, ntv, (:r_in, :r_ex, :material_props, :temperature))
+#   args = _coerced_args(Tubular, ntv, Tp, (:r_in, :r_ex, :material_props, :temperature))
 #   return Tubular(args...)
 # end
 ```

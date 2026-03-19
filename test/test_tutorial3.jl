@@ -4,12 +4,6 @@
 	mktempdir(joinpath(@__DIR__)) do tmpdir
 		# Materials
 		materials = MaterialsLibrary(add_defaults = true)
-		lead = Material(21.4e-8, 1.0, 0.999983, 20.0, 0.00400)
-		add!(materials, "lead", lead)
-		steel = Material(13.8e-8, 1.0, 300.0, 20.0, 0.00450)
-		add!(materials, "steel", steel)
-		pp = Material(1e15, 2.8, 1.0, 20.0, 0.0)
-		add!(materials, "pp", pp)
 
 		@test haskey(materials, "lead")
 		@test haskey(materials, "steel")
@@ -31,13 +25,13 @@
 		# Core and main insulation
 		material_cu = get(materials, "copper")
 		n = 6
-		core = ConductorGroup(WireArray(0.0, Diameter(d_w), 1, 0.0, material_cu))
-		add!(core, WireArray, Diameter(d_w), 1 * n, 11.0, material_cu)
-		add!(core, WireArray, Diameter(d_w), 2 * n, 11.0, material_cu)
-		add!(core, WireArray, Diameter(d_w), 3 * n, 11.0, material_cu)
-		add!(core, WireArray, Diameter(d_w), 4 * n, 11.0, material_cu)
-		add!(core, WireArray, Diameter(d_w), 5 * n, 11.0, material_cu)
-		add!(core, WireArray, Diameter(d_w), 6 * n, 11.0, material_cu)
+		core = ConductorGroup(CircStrands(0.0, Diameter(d_w), 1, 0.0, material_cu))
+		add!(core, CircStrands, Diameter(d_w), 1 * n, 11.0, material_cu)
+		add!(core, CircStrands, Diameter(d_w), 2 * n, 11.0, material_cu)
+		add!(core, CircStrands, Diameter(d_w), 3 * n, 11.0, material_cu)
+		add!(core, CircStrands, Diameter(d_w), 4 * n, 11.0, material_cu)
+		add!(core, CircStrands, Diameter(d_w), 5 * n, 11.0, material_cu)
+		add!(core, CircStrands, Diameter(d_w), 6 * n, 11.0, material_cu)
 
 		material_sc1 = get(materials, "semicon1")
 		main_insu = InsulatorGroup(Semicon(core, Thickness(t_sc_in), material_sc1))
@@ -74,7 +68,13 @@
 		lay_ratio = 10.0
 		material_steel = get(materials, "steel")
 		armor_con = ConductorGroup(
-			WireArray(screen_insu, Diameter(d_wa), num_ar_wires, lay_ratio, material_steel),
+			CircStrands(
+				screen_insu,
+				Diameter(d_wa),
+				num_ar_wires,
+				lay_ratio,
+				material_steel,
+			),
 		)
 		material_pp_jacket = get(materials, "pp")
 		armor_insu =

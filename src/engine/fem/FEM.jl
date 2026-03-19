@@ -35,6 +35,7 @@ using ...Engine
 import ...Engine: kronify, reorder_M, reorder_indices, merge_bundles!, FormulationSet,
 	AbstractFormulationSet, AbstractImpedanceFormulation, AbstractAdmittanceFormulation,
 	compute!
+import ...Commons: PhaseDomain, ModalDomain, LineParamsDomain, domain
 import ...Engine: AbstractFormulationOptions, LineParamOptions, build_options, _COMMON_SYMS
 import ...DataModel: AbstractCablePart, AbstractConductorPart, AbstractInsulatorPart
 using ...Utils:

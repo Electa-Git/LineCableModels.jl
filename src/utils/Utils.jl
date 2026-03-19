@@ -493,6 +493,6 @@ end
 
 include("logging.jl")
 include("typecoercion.jl")
-include("macros.jl")
+# include("macros.jl")
 
 end # module Utils

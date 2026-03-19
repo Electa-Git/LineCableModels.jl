@@ -5,7 +5,7 @@ The [`DataModel`](@ref) module provides data structures, constructors and utilit
 
 # Overview
 
-- Provides objects for detailed cable modeling with the [`CableDesign`](@ref) and supporting types: [`WireArray`](@ref), [`Strip`](@ref), [`Tubular`](@ref), [`Semicon`](@ref), and [`Insulator`](@ref).
+- Provides objects for detailed cable modeling with the [`CableDesign`](@ref) and supporting types: [`CircStrands`](@ref), [`Strip`](@ref), [`Tubular`](@ref), [`Semicon`](@ref), and [`Insulator`](@ref).
 - Includes objects for cable **system** modeling with the [`LineCableSystem`](@ref) type, and multiple formation patterns like trifoil and flat arrangements.
 - Contains functions for calculating the base electric properties of all elements within a [`CableDesign`](@ref), namely: resistance, inductance (via GMR), shunt capacitance, and shunt conductance (via loss factor).
 - Offers visualization tools for previewing cable cross-sections and system layouts.
@@ -23,13 +23,13 @@ module DataModel
 
 # Export public API
 export Thickness, Diameter  # Type definitions
-export WireArray, Strip, Tubular, SectorParams, Sector  # Conductor types
-export Semicon, Insulator, SectorInsulator  # Insulator types
+export CircStrands, RectStrands, Strip, Tubular, SectorParams, Sector  # Conductor types
+export Semicon, Insulator  # Insulator types
 export ConductorGroup, InsulatorGroup  # Group types
 export CableComponent, CableDesign  # Cable design types
 export CablePosition, LineCableSystem  # System types
 export CablesLibrary, NominalData  # Support types
-export trifoil_formation, flat_formation  # Formation helpers
+export trifoil_formation, flat_formation, get_outer_radius, MaxFill  # Helpers
 export preview, equivalent
 
 # Module-specific dependencies
@@ -40,13 +40,13 @@ using ..Utils:
 	is_in_testset, to_lower, to_upper
 import ..Utils: coerce_to_T, to_lower
 using ..Materials: Material
-import ..BackendHandler: set_backend!, ensure_backend!, current_backend_symbol,
+import ..PlotBuilder.BackendHandler: set_backend!, ensure_backend!, current_backend_symbol,
 	backend_available, renderfig, next_fignum
-import ..PlotUIComponents: gl_screen, with_icon, MI_REFRESH, MI_SAVE, ICON_TTF
+import ..PlotBuilder.PlotUIComponents: gl_screen, with_icon, MI_REFRESH, MI_SAVE, ICON_TTF
 import ..Validation: Validation, sanitize, validate!, has_radii, has_temperature,
 	extra_rules, IntegerField, Positive, Finite, Normalized, IsA, required_fields,
 	coercive_fields, keyword_fields, keyword_defaults, _kwdefaults_nt, is_radius_input,
-	Nonneg, OneOf
+	Nonneg, OneOf, Greater, PhysicalFillLimit, Satisfies
 using Measurements
 using DataFrames
 using Colors
@@ -67,7 +67,9 @@ include("macros.jl")
 include("validation.jl")
 
 # Conductors
-include("wirearray.jl")
+include("strands_handler.jl")
+include("circstrands.jl")
+include("rectstrands.jl")
 include("strip.jl")
 include("tubular.jl")
 include("conductorgroup.jl")
@@ -94,5 +96,9 @@ include("helpers.jl")
 include("preview.jl")
 include("io.jl")
 include("typecoercion.jl")
+
+# Aliases for backward compatibility
+const WireArray = CircStrands
+export WireArray
 
 end # module DataModel

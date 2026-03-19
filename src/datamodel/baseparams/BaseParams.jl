@@ -30,9 +30,9 @@ export calc_strip_resistance
 export calc_temperature_correction
 export calc_tubular_resistance
 export calc_tubular_inductance
-export calc_wirearray_coords
+export calc_circstrands_coords
 export calc_inductance_trifoil
-export calc_wirearray_gmr
+export calc_circstrands_gmr
 export calc_tubular_gmr
 export calc_equivalent_mu
 export calc_shunt_capacitance
@@ -107,7 +107,7 @@ Calculates the parallel equivalent of two impedances (or series equivalent of tw
 Z_{eq} = \\frac{Z_1 Z_2}{Z_1 + Z_2}
 ```
 
-This expression, when applied recursively to [`LineCableModels.DataModel.WireArray`](@ref) objects, implements the formula for the hexagonal wiring pattern described in CIGRE TB-345 [app14198982](@cite) [cigre345](@cite):
+This expression, when applied recursively to [`LineCableModels.DataModel.CircStrands`](@ref) objects, implements the formula for the hexagonal wiring pattern described in CIGRE TB-345 [app14198982](@cite) [cigre345](@cite):
 
 ```math
 \\frac{1}{R_{\\text{dc}}} = \\frac{\\pi d^2}{4 \\rho} \\left( 1 + \\sum_{1}^{n} \\frac{6n}{k_n} \\right)
@@ -185,8 +185,8 @@ where ``D_e`` and ``L_p`` are the dimensions represented in the figure.
 
 # Arguments
 
-- `radius_in`: Inner radius of the cable layer \\[m\\].
-- `radius_ext`: Outer radius of the cable layer \\[m\\].
+- `r_in`: Inner radius of the cable layer \\[m\\].
+- `r_ex`: Outer radius of the cable layer \\[m\\].
 - `lay_ratio`: Ratio of the pitch (lay) length to the external diameter of the corresponding layer of wires \\[dimensionless\\].
 
 # Returns
@@ -210,22 +210,22 @@ Reference values for `lay_ratio` are given under standard EN 50182 [CENELEC50182
 # Examples
 
 ```julia
-radius_in = 0.01
-radius_ext = 0.015
+r_in = 0.01
+r_ex = 0.015
 lay_ratio = 12
 
-mean_diam, pitch, overlength = $(FUNCTIONNAME)(radius_in, radius_ext, lay_ratio)
+mean_diam, pitch, overlength = $(FUNCTIONNAME)(r_in, r_ex, lay_ratio)
 # mean_diam ≈ 0.025 [m]
 # pitch ≈ 0.3 [m]
 # overlength > 1.0 [1/m]
 ```
 """
 function calc_helical_params(
-	radius_in::T,
-	radius_ext::T,
+	r_in::T,
+	r_ex::T,
 	lay_ratio::T,
 ) where {T <: REALSCALAR}
-	mean_diameter = 2 * (radius_in + (radius_ext - radius_in) / 2)
+	mean_diameter = 2 * (r_in + (r_ex - r_in) / 2)
 	pitch_length = lay_ratio * mean_diameter
 	overlength =
 		!isapprox(pitch_length, 0.0) ? sqrt(1 + (π * mean_diameter / pitch_length)^2) : 1
@@ -233,11 +233,11 @@ function calc_helical_params(
 	return mean_diameter, pitch_length, overlength
 end
 
-function calc_helical_params(radius_in, radius_ext, lay_ratio)
-	T = resolve_T(radius_in, radius_ext, lay_ratio)
+function calc_helical_params(r_in, r_ex, lay_ratio)
+	T = resolve_T(r_in, r_ex, lay_ratio)
 	return calc_helical_params(
-		coerce_to_T(radius_in, T),
-		coerce_to_T(radius_ext, T),
+		coerce_to_T(r_in, T),
+		coerce_to_T(r_ex, T),
 		coerce_to_T(lay_ratio, T),
 	)
 end
@@ -336,11 +336,11 @@ where ``\\alpha`` is the temperature coefficient of the material resistivity, ``
 """
 function calc_temperature_correction(alpha::T, Top::T, T0::T = T₀) where {T <: REALSCALAR}
 	@assert abs(Top - T0) < ΔTmax """
-   Temperature is outside the valid range for linear resistivity model:
-   Top = $Top
-   T0 = $T0
-   ΔTmax = $ΔTmax
-   |Top - T0| = $(abs(Top - T0))"""
+Temperature is outside the valid range for linear resistivity model:
+Top = $Top
+T0 = $T0
+ΔTmax = $ΔTmax
+|Top - T0| = $(abs(Top - T0))"""
 	return 1 + alpha * (Top - T0)
 end
 
@@ -365,8 +365,8 @@ where ``\\ell`` is the length of the conductor, ``r_{in}`` and ``r_{ext}`` are t
 
 # Arguments
 
-- `radius_in`: Internal radius of the tubular conductor \\[m\\].
-- `radius_ext`: External radius of the tubular conductor \\[m\\].
+- `r_in`: Internal radius of the tubular conductor \\[m\\].
+- `r_ex`: External radius of the tubular conductor \\[m\\].
 - `rho`: Electrical resistivity of the conductor material \\[Ω·m\\].
 - `alpha`: Temperature coefficient of resistivity \\[1/°C\\].
 - `T0`: Reference temperature for the material properties \\[°C\\].
@@ -379,13 +379,13 @@ where ``\\ell`` is the length of the conductor, ``r_{in}`` and ``r_{ext}`` are t
 # Examples
 
 ```julia
-radius_in = 0.01
-radius_ext = 0.02
+r_in = 0.01
+r_ex = 0.02
 rho = 1.7241e-8
 alpha = 0.00393
 T0 = 20
 T = 25
-resistance = $(FUNCTIONNAME)(radius_in, radius_ext, rho, alpha, T0, T)
+resistance = $(FUNCTIONNAME)(r_in, r_ex, rho, alpha, T0, T)
 # Output: ~9.10e-8 Ω
 ```
 
@@ -394,22 +394,22 @@ resistance = $(FUNCTIONNAME)(radius_in, radius_ext, rho, alpha, T0, T)
 - [`calc_temperature_correction`](@ref)
 """
 function calc_tubular_resistance(
-	radius_in::T,
-	radius_ext::T,
+	r_in::T,
+	r_ex::T,
 	rho::T,
 	alpha::T,
 	T0::T,
 	Top::T,
 ) where {T <: REALSCALAR}
-	cross_section = π * (radius_ext^2 - radius_in^2)
+	cross_section = π * (r_ex^2 - r_in^2)
 	return calc_temperature_correction(alpha, Top, T0) * rho / cross_section
 end
 
-function calc_tubular_resistance(radius_in, radius_ext, rho, alpha, T0, Top)
-	T = resolve_T(radius_in, radius_ext, rho, alpha, T0, Top)
+function calc_tubular_resistance(r_in, r_ex, rho, alpha, T0, Top)
+	T = resolve_T(r_in, r_ex, rho, alpha, T0, Top)
 	return calc_tubular_resistance(
-		coerce_to_T(radius_in, T),
-		coerce_to_T(radius_ext, T),
+		coerce_to_T(r_in, T),
+		coerce_to_T(r_ex, T),
 		coerce_to_T(rho, T),
 		coerce_to_T(alpha, T),
 		coerce_to_T(T0, T),
@@ -429,8 +429,8 @@ where ``\\mu_r`` is the relative permeability of the conductor material, ``\\mu_
 
 # Arguments
 
-- `radius_in`: Internal radius of the tubular conductor \\[m\\].
-- `radius_ext`: External radius of the tubular conductor \\[m\\].
+- `r_in`: Internal radius of the tubular conductor \\[m\\].
+- `r_ex`: External radius of the tubular conductor \\[m\\].
 - `mu_r`: Relative permeability of the conductor material \\[dimensionless\\].
 
 # Returns
@@ -440,10 +440,10 @@ where ``\\mu_r`` is the relative permeability of the conductor material, ``\\mu_
 # Examples
 
 ```julia
-radius_in = 0.01
-radius_ext = 0.02
+r_in = 0.01
+r_ex = 0.02
 mu_r = 1.0
-L = $(FUNCTIONNAME)(radius_in, radius_ext, mu_r)
+L = $(FUNCTIONNAME)(r_in, r_ex, mu_r)
 # Output: ~2.31e-7 H/m
 ```
 
@@ -452,18 +452,18 @@ L = $(FUNCTIONNAME)(radius_in, radius_ext, mu_r)
 - [`calc_tubular_resistance`](@ref)
 """
 function calc_tubular_inductance(
-	radius_in::T,
-	radius_ext::T,
+	r_in::T,
+	r_ex::T,
 	mu_r::T,
 ) where {T <: REALSCALAR}
-	return mu_r * μ₀ / (2 * π) * log(radius_ext / radius_in)
+	return mu_r * μ₀ / (2 * π) * log(r_ex / r_in)
 end
 
-function calc_tubular_inductance(radius_in, radius_ext, mu_r)
-	T = resolve_T(radius_in, radius_ext, mu_r)
+function calc_tubular_inductance(r_in, r_ex, mu_r)
+	T = resolve_T(r_in, r_ex, mu_r)
 	return calc_tubular_inductance(
-		coerce_to_T(radius_in, T),
-		coerce_to_T(radius_ext, T),
+		coerce_to_T(r_in, T),
+		coerce_to_T(r_ex, T),
 		coerce_to_T(mu_r, T),
 	)
 end
@@ -477,7 +477,7 @@ Calculates the center coordinates of wires arranged in a circular pattern.
 
 - `num_wires`: Number of wires in the circular arrangement \\[dimensionless\\].
 - `radius_wire`: Radius of each individual wire \\[m\\].
-- `radius_in`: Inner radius of the wire array (to wire centers) \\[m\\].
+- `r_in`: Inner radius of the wire array (to wire centers) \\[m\\].
 - `C`: Optional tuple representing the center coordinates of the circular arrangement \\[m\\]. Default is (0.0, 0.0).
 
 # Returns
@@ -497,16 +497,16 @@ wire_coords = $(FUNCTIONNAME)(7, 0.002, 0.01, C=(0.5, 0.3))
 
 # See also
 
-- [`LineCableModels.DataModel.WireArray`](@ref)
+- [`LineCableModels.DataModel.CircStrands`](@ref)
 """
-function calc_wirearray_coords(
+function calc_circstrands_coords(
 	num_wires::U,
 	radius_wire::T,
-	radius_in::T,
+	r_in::T,
 	C::Tuple{T, T},
 ) where {T <: REALSCALAR, U <: Int}
 	wire_coords = Tuple{T, T}[]  # Global coordinates of all wires
-	lay_radius = num_wires == 1 ? 0 : radius_in + radius_wire
+	lay_radius = num_wires == 1 ? 0 : r_in + radius_wire
 
 	# Calculate the angle between each wire
 	angle_step = 2 * π / num_wires
@@ -519,15 +519,15 @@ function calc_wirearray_coords(
 	return wire_coords
 end
 
-function calc_wirearray_coords(num_wires::Int, radius_wire, radius_in; C = nothing)
+function calc_circstrands_coords(num_wires::Int, radius_wire, r_in; C = nothing)
 	T =
-		C === nothing ? resolve_T(radius_wire, radius_in) :
-		resolve_T(radius_wire, radius_in, C...)
+		C === nothing ? resolve_T(radius_wire, r_in) :
+		resolve_T(radius_wire, r_in, C...)
 	C_val = C === nothing ? coerce_to_T((0.0, 0.0), T) : coerce_to_T(C, T)
-	return calc_wirearray_coords(
+	return calc_circstrands_coords(
 		num_wires,
 		coerce_to_T(radius_wire, T),
-		coerce_to_T(radius_in, T),
+		coerce_to_T(r_in, T),
 		C_val,
 	)
 end
@@ -681,7 +681,7 @@ $(TYPEDSIGNATURES)
 Calculates the geometric mean radius (GMR) of a circular wire array, using formula (62), page 335, of the book by Edward Rosa [rosa1908](@cite):
 
 ```math
-GMR = \\sqrt[a] {r n a^{n-1}}
+GMR = \\sqrt[n] {r n a^{n-1}}
 ```
 
 where ``a`` is the layout radius, ``n`` is the number of wires, and ``r`` is the radius of each wire.
@@ -708,7 +708,7 @@ gmr = $(FUNCTIONNAME)(lay_rad, N, rad_wire, mu_r)
 println(gmr) # Expected output: 0.01187... [m]
 ```
 """
-function calc_wirearray_gmr(
+function calc_circstrands_gmr(
 	lay_rad::T,
 	N::Int,
 	rad_wire::T,
@@ -719,9 +719,9 @@ function calc_wirearray_gmr(
 	return exp(log_gmr_array)
 end
 
-function calc_wirearray_gmr(lay_rad, N::Int, rad_wire, mu_r)
+function calc_circstrands_gmr(lay_rad, N::Int, rad_wire, mu_r)
 	T = resolve_T(lay_rad, rad_wire, mu_r)
-	return calc_wirearray_gmr(
+	return calc_circstrands_gmr(
 		coerce_to_T(lay_rad, T),
 		N,
 		coerce_to_T(rad_wire, T),
@@ -742,8 +742,8 @@ where ``\\mu_r`` is the material magnetic permeability (relative to free space),
 
 # Arguments
 
-- `radius_ext`: External radius of the tubular conductor \\[m\\].
-- `radius_in`: Internal radius of the tubular conductor \\[m\\].
+- `r_ex`: External radius of the tubular conductor \\[m\\].
+- `r_in`: Internal radius of the tubular conductor \\[m\\].
 - `mu_r`: Relative permeability of the conductor material \\[dimensionless\\].
 
 # Returns
@@ -752,54 +752,54 @@ where ``\\mu_r`` is the material magnetic permeability (relative to free space),
 
 # Errors
 
-- Throws `ArgumentError` if `radius_ext` is less than `radius_in`.
+- Throws `ArgumentError` if `r_ex` is less than `r_in`.
 
 # Examples
 
 ```julia
-radius_ext = 0.02
-radius_in = 0.01
+r_ex = 0.02
+r_in = 0.01
 mu_r = 1.0
-gmr = $(FUNCTIONNAME)(radius_ext, radius_in, mu_r)
+gmr = $(FUNCTIONNAME)(r_ex, r_in, mu_r)
 println(gmr) # Expected output: ~0.0135 [m]
 ```
 """
-function calc_tubular_gmr(radius_ext::T, radius_in::T, mu_r::T) where {T <: REALSCALAR}
-	if (radius_ext < radius_in) || (radius_ext <= 0.0)
+function calc_tubular_gmr(r_ex::T, r_in::T, mu_r::T) where {T <: REALSCALAR}
+	if (r_ex < r_in) || (r_ex <= 0.0)
 		throw(
 			ArgumentError(
-				"Invalid parameters: radius_ext must be >= radius_in and positive.",
+				"Invalid parameters: r_ex must be >= r_in and positive.",
 			),
 		)
 	end
 
 	# Constants
-	if isapprox(radius_in, radius_ext)
+	if isapprox(r_in, r_ex)
 		# Tube collapses into a thin shell with infinitesimal thickness and the GMR is simply the radius
-		gmr = radius_ext
-	elseif abs(radius_in / radius_ext) < eps() && abs(radius_in) > TOL
+		gmr = r_ex
+	elseif abs(r_in / r_ex) < eps() && abs(r_in) > TOL
 		# Tube becomes infinitely thick up to floating point precision
 		gmr = Inf
 	else
-		is_solid = isapprox(radius_in, 0.0)
+		is_solid = isapprox(r_in, 0.0)
 		term1 =
 			is_solid ? 0.0 :
-			(radius_in^4 / (radius_ext^2 - radius_in^2)^2) * log(radius_ext / radius_in)
-		term2 = (3 * radius_in^2 - radius_ext^2) / (4 * (radius_ext^2 - radius_in^2))
+			(r_in^4 / (r_ex^2 - r_in^2)^2) * log(r_ex / r_in)
+		term2 = (3 * r_in^2 - r_ex^2) / (4 * (r_ex^2 - r_in^2))
 		Lin = (μ₀ * mu_r / (2 * π)) * (term1 - term2)
 
 		# Compute the GMR
-		gmr = exp(log(radius_ext) - (2 * π / μ₀) * Lin)
+		gmr = exp(log(r_ex) - (2 * π / μ₀) * Lin)
 	end
 
 	return gmr
 end
 
-function calc_tubular_gmr(radius_ext, radius_in, mu_r)
-	T = resolve_T(radius_ext, radius_in, mu_r)
+function calc_tubular_gmr(r_ex, r_in, mu_r)
+	T = resolve_T(r_ex, r_in, mu_r)
 	return calc_tubular_gmr(
-		coerce_to_T(radius_ext, T),
-		coerce_to_T(radius_in, T),
+		coerce_to_T(r_ex, T),
+		coerce_to_T(r_in, T),
 		coerce_to_T(mu_r, T),
 	)
 end
@@ -822,8 +822,8 @@ where ``r_1`` is the inner radius and ``r_2`` is the outer radius.
 # Arguments
 
 - `gmr`: Geometric mean radius of the conductor \\[m\\].
-- `radius_ext`: External radius of the conductor \\[m\\].
-- `radius_in`: Internal radius of the conductor \\[m\\].
+- `r_ex`: External radius of the conductor \\[m\\].
+- `r_in`: Internal radius of the conductor \\[m\\].
 
 # Returns
 
@@ -831,40 +831,40 @@ where ``r_1`` is the inner radius and ``r_2`` is the outer radius.
 
 # Errors
 
-- Throws `ArgumentError` if `radius_ext` is less than `radius_in`.
+- Throws `ArgumentError` if `r_ex` is less than `r_in`.
 
 # Notes
 
-Assumes a tubular geometry for the conductor, reducing to the solid case if `radius_in` is zero.
+Assumes a tubular geometry for the conductor, reducing to the solid case if `r_in` is zero.
 
 # Examples
 
 ```julia
 gmr = 0.015
-radius_ext = 0.02
-radius_in = 0.01
-mu_r = $(FUNCTIONNAME)(gmr, radius_ext, radius_in)
+r_ex = 0.02
+r_in = 0.01
+mu_r = $(FUNCTIONNAME)(gmr, r_ex, r_in)
 println(mu_r) # Expected output: ~1.7 [dimensionless]
 ```
 
 # See also
 - [`calc_tubular_gmr`](@ref)
 """
-function calc_equivalent_mu(gmr::T, radius_ext::T, radius_in::T) where {T <: REALSCALAR}
-	if (radius_ext < radius_in) || (radius_ext <= 0.0)
+function calc_equivalent_mu(gmr::T, r_ex::T, r_in::T) where {T <: REALSCALAR}
+	if (r_ex < r_in) || (r_ex <= 0.0)
 		throw(
 			ArgumentError(
-				"Invalid parameters: radius_ext must be >= radius_in and positive.",
+				"Invalid parameters: r_ex must be >= r_in and positive.",
 			),
 		)
 	end
-	is_solid = isapprox(radius_in, 0.0) || isapprox(radius_in, radius_ext)
+	is_solid = isapprox(r_in, 0.0) || isapprox(r_in, r_ex)
 	term1 =
 		is_solid ? 0.0 :
-		(radius_in^4 / (radius_ext^2 - radius_in^2)^2) * log(radius_ext / radius_in)
-	term2 = (3 * radius_in^2 - radius_ext^2) / (4 * (radius_ext^2 - radius_in^2))
+		(r_in^4 / (r_ex^2 - r_in^2)^2) * log(r_ex / r_in)
+	term2 = (3 * r_in^2 - r_ex^2) / (4 * (r_ex^2 - r_in^2))
 	# Compute the log difference
-	log_diff = log(gmr) - log(radius_ext)
+	log_diff = log(gmr) - log(r_ex)
 
 	# Compute mu_r
 	mu_r = -log_diff / (term1 - term2)
@@ -872,12 +872,12 @@ function calc_equivalent_mu(gmr::T, radius_ext::T, radius_in::T) where {T <: REA
 	return mu_r
 end
 
-function calc_equivalent_mu(gmr, radius_ext, radius_in)
-	T = resolve_T(gmr, radius_ext, radius_in)
+function calc_equivalent_mu(gmr, r_ex, r_in)
+	T = resolve_T(gmr, r_ex, r_in)
 	return calc_equivalent_mu(
 		coerce_to_T(gmr, T),
-		coerce_to_T(radius_ext, T),
-		coerce_to_T(radius_in, T),
+		coerce_to_T(r_ex, T),
+		coerce_to_T(r_in, T),
 	)
 end
 
@@ -893,8 +893,8 @@ where ``\\varepsilon_0`` is the vacuum permittivity, ``\\varepsilon_r`` is the r
 
 # Arguments
 
-- `radius_in`: Internal radius of the coaxial structure \\[m\\].
-- `radius_ext`: External radius of the coaxial structure \\[m\\].
+- `r_in`: Internal radius of the coaxial structure \\[m\\].
+- `r_ex`: External radius of the coaxial structure \\[m\\].
 - `epsr`: Relative permittivity of the dielectric material \\[dimensionless\\].
 
 # Returns
@@ -904,26 +904,26 @@ where ``\\varepsilon_0`` is the vacuum permittivity, ``\\varepsilon_r`` is the r
 # Examples
 
 ```julia
-radius_in = 0.01
-radius_ext = 0.02
+r_in = 0.01
+r_ex = 0.02
 epsr = 2.3
-capacitance = $(FUNCTIONNAME)(radius_in, radius_ext, epsr)
+capacitance = $(FUNCTIONNAME)(r_in, r_ex, epsr)
 println(capacitance) # Expected output: ~1.24e-10 [F/m]
 ```
 """
 function calc_shunt_capacitance(
-	radius_in::T,
-	radius_ext::T,
+	r_in::T,
+	r_ex::T,
 	epsr::T,
 ) where {T <: REALSCALAR}
-	return 2 * π * ε₀ * epsr / log(radius_ext / radius_in)
+	return 2 * π * ε₀ * epsr / log(r_ex / r_in)
 end
 
-function calc_shunt_capacitance(radius_in, radius_ext, epsr)
-	T = resolve_T(radius_in, radius_ext, epsr)
+function calc_shunt_capacitance(r_in, r_ex, epsr)
+	T = resolve_T(r_in, r_ex, epsr)
 	return calc_shunt_capacitance(
-		coerce_to_T(radius_in, T),
-		coerce_to_T(radius_ext, T),
+		coerce_to_T(r_in, T),
+		coerce_to_T(r_ex, T),
 		coerce_to_T(epsr, T),
 	)
 end
@@ -940,8 +940,8 @@ where ``\\sigma = \\frac{1}{\\rho}`` is the conductivity of the dielectric/semic
 
 # Arguments
 
-- `radius_in`: Internal radius of the coaxial structure \\[m\\].
-- `radius_ext`: External radius of the coaxial structure \\[m\\].
+- `r_in`: Internal radius of the coaxial structure \\[m\\].
+- `r_ex`: External radius of the coaxial structure \\[m\\].
 - `rho`: Resistivity of the dielectric/semiconducting material \\[Ω·m\\].
 
 # Returns
@@ -951,22 +951,22 @@ where ``\\sigma = \\frac{1}{\\rho}`` is the conductivity of the dielectric/semic
 # Examples
 
 ```julia
-radius_in = 0.01
-radius_ext = 0.02
+r_in = 0.01
+r_ex = 0.02
 rho = 1e9
-g = $(FUNCTIONNAME)(radius_in, radius_ext, rho)
+g = $(FUNCTIONNAME)(r_in, r_ex, rho)
 println(g) # Expected output: 2.7169e-9 [S·m]
 ```
 """
-function calc_shunt_conductance(radius_in::T, radius_ext::T, rho::T) where {T <: REALSCALAR}
-	return 2 * π * (1 / rho) / log(radius_ext / radius_in)
+function calc_shunt_conductance(r_in::T, r_ex::T, rho::T) where {T <: REALSCALAR}
+	return 2 * π * (1 / rho) / log(r_ex / r_in)
 end
 
-function calc_shunt_conductance(radius_in, radius_ext, rho)
-	T = resolve_T(radius_in, radius_ext, rho)
+function calc_shunt_conductance(r_in, r_ex, rho)
+	T = resolve_T(r_in, r_ex, rho)
 	return calc_shunt_conductance(
-		coerce_to_T(radius_in, T),
-		coerce_to_T(radius_ext, T),
+		coerce_to_T(r_in, T),
+		coerce_to_T(r_ex, T),
 		coerce_to_T(rho, T),
 	)
 end
@@ -1002,7 +1002,7 @@ where:
 ```julia
 material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
 conductor = Conductor(Strip(0.01, 0.002, 0.05, 10, material_props))
-new_layer = WireArray(0.02, 0.002, 7, 15, material_props)
+new_layer = CircStrands(0.02, 0.002, 7, 15, material_props)
 equivalent_gmr = $(FUNCTIONNAME)(conductor, new_layer)  # Expected output: Updated GMR value [m]
 ```
 
@@ -1018,7 +1018,7 @@ function calc_equivalent_gmr(
 
 	DM = parentmodule(@__MODULE__) # DataModel
 	if isdefined(DM, :ConductorGroup)
-		CG = getfield(DM, :ConductorGroup)
+		CG = getproperty(DM, :ConductorGroup)
 		if existing isa CG
 			current_conductor = existing.layers[end]
 		else
@@ -1032,11 +1032,11 @@ function calc_equivalent_gmr(
 		   gmd^(2 * beta * (1 - beta))
 end
 
-# evil hackery to detect WireArray types 
-@inline function _is_wirearray(x)
+# evil hackery to detect CircStrands types 
+@inline function _is_circstrands(x)
 	DM = parentmodule(@__MODULE__) # DataModel
-	return isdefined(DM, :WireArray) &&
-		   (x isa getfield(DM, :WireArray)) # no compile-time ref to WireArray
+	return isdefined(DM, :CircStrands) &&
+		   (x isa getproperty(DM, :CircStrands)) # no compile-time ref to CircStrands
 end
 
 """
@@ -1073,9 +1073,9 @@ For concentric structures, the GMD converges to the external radii of the outerm
 
 ```julia
 material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
-wire_array1 = WireArray(0.01, 0.002, 7, 10, material_props)
-wire_array2 = WireArray(0.02, 0.002, 7, 15, material_props)
-gmd = $(FUNCTIONNAME)(wire_array1, wire_array2)  # Expected output: GMD value [m]
+circstrands1 = CircStrands(0.01, 0.002, 7, 10, material_props)
+circstrands2 = CircStrands(0.02, 0.002, 7, 15, material_props)
+gmd = $(FUNCTIONNAME)(circstrands1, circstrands2)  # Expected output: GMD value [m]
 
 strip = Strip(0.01, 0.002, 0.05, 10, material_props)
 tubular = Tubular(0.01, 0.02, material_props)
@@ -1084,33 +1084,33 @@ gmd = $(FUNCTIONNAME)(strip, tubular)  # Expected output: GMD value [m]
 
 # See also
 
-- [`calc_wirearray_coords`](@ref)
+- [`calc_circstrands_coords`](@ref)
 - [`calc_equivalent_gmr`](@ref)
 """
 function calc_gmd(co1::T, co2::U) where {T <: AbstractCablePart, U <: AbstractCablePart}
 
-	if _is_wirearray(co1) #co1 isa WireArray
-		coords1 = calc_wirearray_coords(co1.num_wires, co1.radius_wire, co1.radius_in)
+	if _is_circstrands(co1) #co1 isa CircStrands
+		coords1 = calc_circstrands_coords(co1.num_wires, co1.radius_wire, co1.r_in)
 		n1 = co1.num_wires
 		r1 = co1.radius_wire
 		s1 = pi * r1^2
 	else
 		coords1 = [(0.0, 0.0)]
 		n1 = 1
-		r1 = co1.radius_ext
+		r1 = co1.r_ex
 		s1 = co1.cross_section
 	end
 
-	# if co2 isa WireArray
-	if _is_wirearray(co2)
-		coords2 = calc_wirearray_coords(co2.num_wires, co2.radius_wire, co2.radius_in)
+	# if co2 isa CircStrands
+	if _is_circstrands(co2)
+		coords2 = calc_circstrands_coords(co2.num_wires, co2.radius_wire, co2.r_in)
 		n2 = co2.num_wires
 		r2 = co2.radius_wire
 		s2 = pi * r2^2
 	else
 		coords2 = [(0.0, 0.0)]
 		n2 = 1
-		r2 = co2.radius_ext
+		r2 = co2.r_ex
 		s2 = co2.cross_section
 	end
 
@@ -1141,7 +1141,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Calculates the solenoid correction factor for magnetic permeability in insulated cables with helical conductors ([`WireArray`](@ref)), using the formula from Gudmundsdottir et al. [5743045](@cite):
+Calculates the solenoid correction factor for magnetic permeability in insulated cables with helical conductors ([`CircStrands`](@ref)), using the formula from Gudmundsdottir et al. [5743045](@cite):
 
 ```math
 \\mu_{r, sol} = 1 + \\frac{2 \\pi^2 N^2 (r_{ins, ext}^2 - r_{con, ext}^2)}{\\log(r_{ins, ext}/r_{con, ext})}
@@ -1258,8 +1258,8 @@ where ``\\varepsilon_0`` is the permittivity of free space.
 # Arguments
 
 - `C_eq`: Equivalent capacitance of the insulation \\[F/m\\].
-- `radius_ext`: External radius of the insulation \\[m\\].
-- `radius_in`: Internal radius of the insulation \\[m\\].
+- `r_ex`: External radius of the insulation \\[m\\].
+- `r_in`: Internal radius of the insulation \\[m\\].
 
 # Returns
 
@@ -1274,16 +1274,16 @@ eps_eq = $(FUNCTIONNAME)(1e-10, 0.01, 0.005)  # Expected output: ~2.26 [dimensio
 # See also
 - [`ε₀`](@ref)
 """
-function calc_equivalent_eps(C_eq::T, radius_ext::T, radius_in::T) where {T <: REALSCALAR}
-	return (C_eq * log(radius_ext / radius_in)) / (2 * pi) / ε₀
+function calc_equivalent_eps(C_eq::T, r_ex::T, r_in::T) where {T <: REALSCALAR}
+	return (C_eq * log(r_ex / r_in)) / (2 * pi) / ε₀
 end
 
-function calc_equivalent_eps(C_eq, radius_ext, radius_in)
-	T = resolve_T(C_eq, radius_ext, radius_in)
+function calc_equivalent_eps(C_eq, r_ex, r_in)
+	T = resolve_T(C_eq, r_ex, r_in)
 	return calc_equivalent_eps(
 		coerce_to_T(C_eq, T),
-		coerce_to_T(radius_ext, T),
-		coerce_to_T(radius_in, T),
+		coerce_to_T(r_ex, T),
+		coerce_to_T(r_in, T),
 	)
 end
 
@@ -1340,8 +1340,8 @@ where ``\\sigma_{eq} = \\frac{1}{\\rho_{eq}}`` is the conductivity of the dielec
 # Arguments
 
 - `G_eq`: Equivalent conductance of the material \\[S·m\\].
-- `radius_in`: Internal radius of the coaxial structure \\[m\\].
-- `radius_ext`: External radius of the coaxial structure \\[m\\].
+- `r_in`: Internal radius of the coaxial structure \\[m\\].
+- `r_ex`: External radius of the coaxial structure \\[m\\].
 
 # Returns
 
@@ -1351,19 +1351,19 @@ where ``\\sigma_{eq} = \\frac{1}{\\rho_{eq}}`` is the conductivity of the dielec
 
 ```julia
 Geq = 2.7169e-9
-sigma_eq = $(FUNCTIONNAME)(G_eq, radius_in, radius_ext)
+sigma_eq = $(FUNCTIONNAME)(G_eq, r_in, r_ex)
 ```
 """
-function calc_sigma_lossfact(G_eq::T, radius_in::T, radius_ext::T) where {T <: REALSCALAR}
-	return G_eq * log(radius_ext / radius_in) / (2 * pi)
+function calc_sigma_lossfact(G_eq::T, r_in::T, r_ex::T) where {T <: REALSCALAR}
+	return G_eq * log(r_ex / r_in) / (2 * pi)
 end
 
-function calc_sigma_lossfact(G_eq, radius_in, radius_ext)
-	T = resolve_T(G_eq, radius_in, radius_ext)
+function calc_sigma_lossfact(G_eq, r_in, r_ex)
+	T = resolve_T(G_eq, r_in, r_ex)
 	return calc_sigma_lossfact(
 		coerce_to_T(G_eq, T),
-		coerce_to_T(radius_in, T),
-		coerce_to_T(radius_ext, T),
+		coerce_to_T(r_in, T),
+		coerce_to_T(r_ex, T),
 	)
 end
 

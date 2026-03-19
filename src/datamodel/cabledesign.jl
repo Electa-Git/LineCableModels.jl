@@ -228,8 +228,8 @@ function nonsensify(
 		ig = original_component.insulator_group
 
 		# Radii from conductor group layers
-		rin = cg.layers[1].radius_in
-		rex = cg.layers[end].radius_ext
+		rin = cg.layers[1].r_in
+		rex = cg.layers[end].r_ex
 
 		# "Main" material props and temperature for conductor from first conductor layer
 		mat_con = cg.layers[1].material_props
@@ -239,8 +239,8 @@ function nonsensify(
 		tubular = Tubular(rin, rex, mat_con, temp_con)
 		new_cond_group = ConductorGroup(tubular)
 
-		ins_rin = new_cond_group.radius_ext           # ensure interface matches
-		ins_rex = ig.radius_ext                        # keep original outer boundary
+		ins_rin = new_cond_group.r_ex           # ensure interface matches
+		ins_rex = ig.r_ex                        # keep original outer boundary
 
 		# Pick first Insulator layer in insulator group (skip Semicon); fallback to first layer
 		idx_ins = findfirst(x -> x isa Insulator, ig.layers)

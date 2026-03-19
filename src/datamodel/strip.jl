@@ -7,9 +7,9 @@ $(TYPEDFIELDS)
 """
 struct Strip{T <: REALSCALAR} <: AbstractConductorPart{T}
 	"Internal radius of the strip \\[m\\]."
-	radius_in::T
+	r_in::T
 	"External radius of the strip \\[m\\]."
-	radius_ext::T
+	r_ex::T
 	"Thickness of the strip \\[m\\]."
 	thickness::T
 	"Width of the strip \\[m\\]."
@@ -41,8 +41,8 @@ Constructs a [`Strip`](@ref) object with specified geometric and material parame
 
 # Arguments
 
-- `radius_in`: Internal radius of the strip \\[m\\].
-- `radius_ext`: External radius or thickness of the strip \\[m\\].
+- `r_in`: Internal radius of the strip \\[m\\].
+- `r_ex`: External radius or thickness of the strip \\[m\\].
 - `width`: Width of the strip \\[m\\].
 - `lay_ratio`: Ratio defining the lay length of the strip \\[dimensionless\\].
 - `material_props`: Material properties of the strip.
@@ -71,8 +71,8 @@ println(strip.resistance)    # Output: Resistance value [Ω/m]
 - [`calc_helical_params`](@ref)
 """
 function Strip(
-	radius_in::T,
-	radius_ext::T,
+	r_in::T,
+	r_ex::T,
 	width::T,
 	lay_ratio::T,
 	material_props::Material{T},
@@ -80,14 +80,14 @@ function Strip(
 	lay_direction::Int,
 ) where {T <: REALSCALAR}
 
-	thickness = radius_ext - radius_in
+	thickness = r_ex - r_in
 	rho = material_props.rho
 	T0 = material_props.T0
 	alpha = material_props.alpha
 
 	mean_diameter, pitch_length, overlength = calc_helical_params(
-		radius_in,
-		radius_ext,
+		r_in,
+		r_ex,
 		lay_ratio,
 	)
 
@@ -97,12 +97,12 @@ function Strip(
 		calc_strip_resistance(thickness, width, rho, alpha, T0, temperature) *
 		overlength
 
-	gmr = calc_tubular_gmr(radius_ext, radius_in, material_props.mu_r)
+	gmr = calc_tubular_gmr(r_ex, r_in, material_props.mu_r)
 
 	# Initialize object
 	return Strip(
-		radius_in,
-		radius_ext,
+		r_in,
+		r_ex,
 		thickness,
 		width,
 		lay_ratio,
@@ -117,7 +117,7 @@ function Strip(
 	)
 end
 
-const _REQ_STRIP = (:radius_in, :radius_ext, :width, :lay_ratio, :material_props)
+const _REQ_STRIP = (:r_in, :r_ex, :width, :lay_ratio, :material_props)
 const _OPT_STRIP = (:temperature, :lay_direction)
 const _DEFS_STRIP = (T₀, 1)
 
@@ -128,13 +128,13 @@ Validation.keyword_fields(::Type{Strip}) = _OPT_STRIP
 Validation.keyword_defaults(::Type{Strip}) = _DEFS_STRIP
 
 Validation.coercive_fields(::Type{Strip}) =
-	(:radius_in, :radius_ext, :width, :lay_ratio, :material_props, :temperature)  # not :lay_direction
+	(:r_in, :r_ex, :width, :lay_ratio, :material_props, :temperature)  # not :lay_direction
 # accept proxies for radii
 
-Validation.is_radius_input(::Type{Strip}, ::Val{:radius_in}, x::AbstractCablePart) = true
-Validation.is_radius_input(::Type{Strip}, ::Val{:radius_in}, x::Thickness) = true
-Validation.is_radius_input(::Type{Strip}, ::Val{:radius_ext}, x::Thickness) = true
-Validation.is_radius_input(::Type{Strip}, ::Val{:radius_ext}, x::Diameter) = true
+Validation.is_radius_input(::Type{Strip}, ::Val{:r_in}, x::AbstractCablePart) = true
+Validation.is_radius_input(::Type{Strip}, ::Val{:r_in}, x::Thickness) = true
+Validation.is_radius_input(::Type{Strip}, ::Val{:r_ex}, x::Thickness) = true
+Validation.is_radius_input(::Type{Strip}, ::Val{:r_ex}, x::Diameter) = true
 
 Validation.extra_rules(::Type{Strip}) = (
 	IsA{Material}(:material_props),
@@ -147,8 +147,8 @@ Validation.extra_rules(::Type{Strip}) = (
 
 # normalize proxies -> numbers
 Validation.parse(::Type{Strip}, nt) = begin
-	rin, rex = _normalize_radii(Strip, nt.radius_in, nt.radius_ext)
-	(; nt..., radius_in = rin, radius_ext = rex)
+	rin, rex = _normalize_radii(Strip, nt.r_in, nt.r_ex)
+	(; nt..., r_in = rin, r_ex = rex)
 end
 
 # This macro expands to a weakly-typed constructor for Strip

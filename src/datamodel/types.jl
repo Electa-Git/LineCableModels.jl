@@ -8,13 +8,13 @@ Represents the thickness of a cable component.
 
 $(TYPEDFIELDS)
 """
-struct Thickness{T<:Real} <: AbstractRadius
-    "Numerical value of the thickness \\[m\\]."
-    value::T
-    function Thickness(value::T) where {T<:Real}
-        value >= 0 || throw(ArgumentError("Thickness must be a non-negative number."))
-        new{T}(value)
-    end
+struct Thickness{T <: Real} <: AbstractRadius
+	"Numerical value of the thickness \\[m\\]."
+	value::T
+	function Thickness(value::T) where {T <: Real}
+		value >= 0 || throw(ArgumentError("Thickness must be a non-negative number."))
+		new{T}(value)
+	end
 end
 
 """
@@ -24,13 +24,13 @@ Represents the diameter of a cable component.
 
 $(TYPEDFIELDS)
 """
-struct Diameter{T<:Real} <: AbstractRadius
-    "Numerical value of the diameter \\[m\\]."
-    value::T
-    function Diameter(value::T) where {T<:Real}
-        value > 0 || throw(ArgumentError("Diameter must be a positive number."))
-        new{T}(value)
-    end
+struct Diameter{T <: Real} <: AbstractRadius
+	"Numerical value of the diameter \\[m\\]."
+	value::T
+	function Diameter(value::T) where {T <: Real}
+		value > 0 || throw(ArgumentError("Diameter must be a positive number."))
+		new{T}(value)
+	end
 end
 
 """
@@ -46,12 +46,22 @@ $(TYPEDEF)
 Abstract type representing a conductive part of a cable.
 
 Subtypes implement specific configurations:
-- [`WireArray`](@ref)
 - [`Tubular`](@ref)
 - [`Strip`](@ref)
 """
 abstract type AbstractConductorPart{T} <: AbstractCablePart{T} end
-abstract type AbstractWireArray{T} <: AbstractConductorPart{T} end
+
+"""
+$(TYPEDEF)
+
+Abstract type representing all stranded configurations composed of grouped discrete geometric shapes.
+
+Subtypes implement specific configurations:
+- [`CircStrands`](@ref)
+- [`RectStrands`](@ref)
+"""
+abstract type AbstractStrandsLayer{T} <: AbstractConductorPart{T} end
+
 
 """
 $(TYPEDEF)
@@ -66,6 +76,14 @@ abstract type AbstractInsulatorPart{T} <: AbstractCablePart{T} end
 
 
 # If a correct ctor exists, Julia will pick it; this runs only when arity is wrong.
-function (::Type{T})(args::Vararg{Any,N}; kwargs...) where {T<:AbstractCablePart,N}
-    throw(ArgumentError("[$(nameof(T))] constructor: invalid number of positional args ($N)."))
+function (::Type{T})(args::Vararg{Any, N}; kwargs...) where {T <: AbstractCablePart, N}
+	throw(
+		ArgumentError(
+			"[$(nameof(T))] constructor: invalid number of positional args ($N).",
+		),
+	)
 end
+
+
+### Provisions for the new types currently under development: RectStrandsShape and SectorShape
+abstract type AbstractShapeGeometry end

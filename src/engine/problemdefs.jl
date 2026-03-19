@@ -63,12 +63,12 @@ struct LineParametersProblem{T <: REALSCALAR} <: ProblemDefinition
 				@assert !isempty(comp.insulator_group.layers) "Component $j in cable $i has no insulator layers"
 
 				# Validate monotonic increase of radii
-				@assert comp.conductor_group.radius_ext > comp.conductor_group.radius_in "Component $j in cable $i: conductor outer radius must be larger than inner radius"
-				@assert comp.insulator_group.radius_ext > comp.insulator_group.radius_in "Component $j in cable $i: insulator outer radius must be larger than inner radius"
+				@assert comp.conductor_group.r_ex > comp.conductor_group.r_in "Component $j in cable $i: conductor outer radius must be larger than inner radius"
+				@assert comp.insulator_group.r_ex > comp.insulator_group.r_in "Component $j in cable $i: insulator outer radius must be larger than inner radius"
 
 				# Validate geometric continuity between conductor and insulator
-				r_ext_cond = comp.conductor_group.radius_ext
-				r_in_ins = comp.insulator_group.radius_in
+				r_ext_cond = comp.conductor_group.r_ex
+				r_in_ins = comp.insulator_group.r_in
 				@assert abs(r_ext_cond - r_in_ins) < 1e-10 "Geometric mismatch in cable $i component $j: conductor outer radius ≠ insulator inner radius"
 
 				# Validate electromagnetic properties
@@ -113,7 +113,7 @@ T₀ = $T₀
 				cable.horz,
 				cable.vert,
 				maximum(
-					comp.insulator_group.radius_ext
+					comp.insulator_group.r_ex
 					for comp in cable.design_data.components
 				),
 			)
@@ -133,12 +133,14 @@ T₀ = $T₀
 				r_outer_j = positions[j][3]
 
 				# Check if cables overlap
-				min_allowed_dist = r_outer_i + r_outer_j
+				min_allowed = r_outer_i + r_outer_j
+				tol = 1e-8 * max(min_allowed, 1.0)
 
-				@assert dist > min_allowed_dist """
+
+				@assert dist + tol >= min_allowed """
 					Cables $i and $j overlap!
-					Center-to-center distance: $(dist) m
-					Minimum required distance: $(min_allowed_dist) m
+					Center-to-center distance: $(dist + tol) m
+					Minimum required distance: $(min_allowed) m
 					Cable $i outer radius: $(r_outer_i) m
 					Cable $j outer radius: $(r_outer_j) m"""
 			end
@@ -153,28 +155,6 @@ T₀ = $T₀
 		)
 	end
 end
-
-# @kwdef struct EMTOptions <: AbstractFormulationOptions
-# 	"Skip user confirmation for overwriting results"
-# 	force_overwrite::Bool = false
-# 	"Reduce bundle conductors to equivalent single conductor"
-# 	reduce_bundle::Bool = true
-# 	"Eliminate grounded conductors from the system (Kron reduction)"
-# 	kron_reduction::Bool = true
-# 	"Enforce ideal transposition/snaking"
-# 	ideal_transposition::Bool = true
-# 	"Temperature correction"
-# 	temperature_correction::Bool = true
-# 	"Save path for output files"
-# 	save_path::String = joinpath(".", "lineparams_output")
-# 	"Verbosity level"
-# 	verbosity::Int = 0
-# 	"Log file path"
-# 	logfile::Union{String, Nothing} = nothing
-# end
-
-# The one-line constructor to "promote" a NamedTuple
-# EMTOptions(opts::NamedTuple) = EMTOptions(; opts...)
 
 """
 $(TYPEDEF)
@@ -195,7 +175,7 @@ struct EMTFormulation <: AbstractFormulationSet
 	"Earth admittance formulation."
 	earth_admittance::EarthAdmittanceFormulation
 	"Modal transformation method."
-	modal_transform::AbstractTransformFormulation
+	modal_transform::Union{AbstractTransformFormulation, Nothing}
 	"Equivalent homogeneous earth model (EHEM) formulation."
 	equivalent_earth::Union{AbstractEHEMFormulation, Nothing}
 	"Solver options for EMT-type computations."
@@ -233,7 +213,7 @@ struct EMTFormulation <: AbstractFormulationSet
 		earth_impedance::EarthImpedanceFormulation,
 		insulation_admittance::InsulationAdmittanceFormulation,
 		earth_admittance::EarthAdmittanceFormulation,
-		modal_transform::AbstractTransformFormulation,
+		modal_transform::Union{AbstractTransformFormulation, Nothing},
 		equivalent_earth::Union{AbstractEHEMFormulation, Nothing},
 		options::EMTOptions,
 	)
@@ -251,7 +231,7 @@ function FormulationSet(::Val{:EMT};
 	earth_impedance::EarthImpedanceFormulation = EarthImpedance.Papadopoulos(),
 	insulation_admittance::InsulationAdmittanceFormulation = InsulationAdmittance.Lossless(),
 	earth_admittance::EarthAdmittanceFormulation = EarthAdmittance.Papadopoulos(),
-	modal_transform::AbstractTransformFormulation = Transforms.Fortescue(),
+	modal_transform::Union{AbstractTransformFormulation, Nothing} = nothing,
 	equivalent_earth::Union{AbstractEHEMFormulation, Nothing} = nothing,
 	options = (;),
 )

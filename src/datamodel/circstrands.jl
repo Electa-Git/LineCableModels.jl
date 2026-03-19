@@ -5,11 +5,11 @@ Represents an array of wires equally spaced around a circumference of arbitrary 
 
 $(TYPEDFIELDS)
 """
-struct WireArray{T <: REALSCALAR, U <: Int} <: AbstractWireArray{T}
+struct CircStrands{T <: REALSCALAR, U <: Int} <: AbstractStrandsLayer{T}
 	"Internal radius of the wire array \\[m\\]."
-	radius_in::T
+	r_in::T
 	"External radius of the wire array \\[m\\]."
-	radius_ext::T
+	r_ex::T
 	"Radius of each individual wire \\[m\\]."
 	radius_wire::T
 	"Number of wires in the array \\[dimensionless\\]."
@@ -37,11 +37,11 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Constructs a [`WireArray`](@ref) instance based on specified geometric and material parameters.
+Constructs a [`CircStrands`](@ref) instance based on specified geometric and material parameters.
 
 # Arguments
 
-- `radius_in`: Internal radius of the wire array \\[m\\].
+- `r_in`: Internal radius of the wire array \\[m\\].
 - `radius_wire`: Radius of each individual wire \\[m\\].
 - `num_wires`: Number of wires in the array \\[dimensionless\\].
 - `lay_ratio`: Ratio defining the lay length of the wires (twisting factor) \\[dimensionless\\].
@@ -51,15 +51,15 @@ Constructs a [`WireArray`](@ref) instance based on specified geometric and mater
 
 # Returns
 
-- A [`WireArray`](@ref) object with calculated geometric and electrical properties.
+- A [`CircStrands`](@ref) object with calculated geometric and electrical properties.
 
 # Examples
 
 ```julia
 material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
-wire_array = $(FUNCTIONNAME)(0.01, Diameter(0.002), 7, 10, material_props, temperature=25)
-println(wire_array.mean_diameter)  # Outputs mean diameter in m
-println(wire_array.resistance)     # Outputs resistance in Ω/m
+circstrands = $(FUNCTIONNAME)(0.01, Diameter(0.002), 7, 10, material_props, temperature=25)
+println(circstrands.mean_diameter)  # Outputs mean diameter in m
+println(circstrands.resistance)     # Outputs resistance in Ω/m
 ```
 
 # See also
@@ -67,11 +67,11 @@ println(wire_array.resistance)     # Outputs resistance in Ω/m
 - [`Material`](@ref)
 - [`ConductorGroup`](@ref)
 - [`calc_tubular_resistance`](@ref)
-- [`calc_wirearray_gmr`](@ref)
+- [`calc_circstrands_gmr`](@ref)
 - [`calc_helical_params`](@ref)
 """
-function WireArray(
-	radius_in::T,
+function CircStrands(
+	r_in::T,
 	radius_wire::T,
 	num_wires::U,
 	lay_ratio::T,
@@ -83,11 +83,12 @@ function WireArray(
 	rho = material_props.rho
 	T0 = material_props.T0
 	alpha = material_props.alpha
-	radius_ext = num_wires == 1 ? radius_wire : radius_in + 2 * radius_wire
+	r_ex = num_wires == 1 ? radius_wire : r_in + 2 * radius_wire # TODO: The resolved outer radius for stranded cores should account for compression. See rectstrands.jl for an example of area-preserving expansion. 
+	# Issue URL: https://github.com/Electa-Git/LineCableModels.jl/issues/32
 
 	mean_diameter, pitch_length, overlength = calc_helical_params(
-		radius_in,
-		radius_ext,
+		r_in,
+		r_ex,
 		lay_ratio,
 	)
 
@@ -98,17 +99,17 @@ function WireArray(
 		overlength
 	R_all_wires = R_wire / num_wires
 
-	gmr = calc_wirearray_gmr(
-		radius_in + radius_wire,
+	gmr = calc_circstrands_gmr(
+		r_in + radius_wire,
 		num_wires,
 		radius_wire,
 		material_props.mu_r,
 	)
 
 	# Initialize object
-	return WireArray(
-		radius_in,
-		radius_ext,
+	return CircStrands(
+		r_in,
+		r_ex,
 		radius_wire,
 		num_wires,
 		lay_ratio,
@@ -123,27 +124,27 @@ function WireArray(
 	)
 end
 
-const _REQ_WIREARRAY = (:radius_in, :radius_wire, :num_wires, :lay_ratio, :material_props)
-const _OPT_WIREARRAY = (:temperature, :lay_direction)
-const _DEFS_WIREARRAY = (T₀, 1)
+const _REQ_CIRCSTRANDS = (:r_in, :radius_wire, :num_wires, :lay_ratio, :material_props)
+const _OPT_CIRCSTRANDS = (:temperature, :lay_direction)
+const _DEFS_CIRCSTRANDS = (T₀, 1)
 
-Validation.has_radii(::Type{WireArray}) = false
-Validation.has_temperature(::Type{WireArray}) = true
-Validation.required_fields(::Type{WireArray}) = _REQ_WIREARRAY
-Validation.keyword_fields(::Type{WireArray}) = _OPT_WIREARRAY
-Validation.keyword_defaults(::Type{WireArray}) = _DEFS_WIREARRAY
+Validation.has_radii(::Type{CircStrands}) = false
+Validation.has_temperature(::Type{CircStrands}) = true
+Validation.required_fields(::Type{CircStrands}) = _REQ_CIRCSTRANDS
+Validation.keyword_fields(::Type{CircStrands}) = _OPT_CIRCSTRANDS
+Validation.keyword_defaults(::Type{CircStrands}) = _DEFS_CIRCSTRANDS
 
-Validation.coercive_fields(::Type{WireArray}) =
-	(:radius_in, :radius_wire, :lay_ratio, :material_props, :temperature)  # not :num_wires, :lay_direction
+Validation.coercive_fields(::Type{CircStrands}) =
+	(:r_in, :radius_wire, :lay_ratio, :material_props, :temperature)  # not :num_wires, :lay_direction
 # accept proxies for radii
-Validation.is_radius_input(::Type{WireArray}, ::Val{:radius_in},
+Validation.is_radius_input(::Type{CircStrands}, ::Val{:r_in},
 	x::AbstractCablePart) = true
-Validation.is_radius_input(::Type{WireArray}, ::Val{:radius_ext},
+Validation.is_radius_input(::Type{CircStrands}, ::Val{:r_ex},
 	x::Diameter) = true
 
-Validation.extra_rules(::Type{WireArray}) = (
+Validation.extra_rules(::Type{CircStrands}) = (
 	# radii (post-parse they must be numeric)
-	Normalized(:radius_in), Finite(:radius_in), Nonneg(:radius_in),
+	Normalized(:r_in), Finite(:r_in), Nonneg(:r_in),
 	Normalized(:radius_wire), Finite(:radius_wire), Positive(:radius_wire),
 
 	# counts and geometry params
@@ -157,12 +158,14 @@ Validation.extra_rules(::Type{WireArray}) = (
 	OneOf(:lay_direction, (-1, 1)),
 )
 
+maxfill(::Type{CircStrands}, rin::Real, rw::Real) =
+	rin == 0 ? 1 : floor(Int, π / asin(rw / (rin + rw)))
+
 # normalize proxies -> numbers
-Validation.parse(::Type{WireArray}, nt) = begin
-	rin, rw = _normalize_radii(WireArray, nt.radius_in, nt.radius_wire)
-	(; nt..., radius_in = rin, radius_wire = rw)
+Validation.parse(::Type{CircStrands}, nt) = begin
+	rin, rw = _normalize_radii(CircStrands, nt.r_in, nt.radius_wire)
+	(; nt..., r_in = rin, radius_wire = rw)
 end
 
-# This macro expands to a weakly-typed constructor for WireArray
-@construct WireArray _REQ_WIREARRAY _OPT_WIREARRAY _DEFS_WIREARRAY
-
+# This macro expands to a weakly-typed constructor for CircStrands
+@construct CircStrands _REQ_CIRCSTRANDS _OPT_CIRCSTRANDS _DEFS_CIRCSTRANDS
