@@ -2,9 +2,8 @@
 # ==========================================
 # THE VALIDATION BOUNDARY
 # ==========================================
-# Fallback: If a shape doesn't define rules, it passes. 
-# (Or make it throw an error to force yourself to write rules for everything).
-@inline validate(::Type{Shape}, payload::Tuple) where {Shape} = true
+# If a specific part doesn't define topological rules, it passes.
+@inline validate(part::AbstractCablePart) = part
 
 # ==========================================
 # THE BUILDER
@@ -25,7 +24,8 @@ end
 # 2. THE FUNCTOR (The Spatial Collapse - Restored)
 @inline function (b::PartBuilder{Target, Shape})(current_r) where {Target, Shape}
 	# This routes to the specific shape logic you write in solidcore.jl, etc.
-	return build_part(Target, Shape, b.grp, current_r, b.payload)
+	part = build_part(Target, Shape, b.grp, current_r, b.payload)
+	return validate(part)
 end
 
 # ==========================================
