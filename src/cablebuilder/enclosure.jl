@@ -1,28 +1,28 @@
-struct Enclosure{L, T <: Real, S <: AbstractShape{L, T}} <: AbstractShape{L, T}
+struct Enclosure{T <: Real, S <: AbstractShape{T}} <: AbstractShape{T}
 	base_shape::S
 	filler_material::Material{T}
 end
 
 function Enclosure(
-	base_shape::AbstractShape{L, T_shape},
+	base_shape::AbstractShape{T_shape},
 	filler::Material{T_mat},
-) where {L, T_shape <: Real, T_mat <: Real}
+) where {T_shape <: Real, T_mat <: Real}
 
 	T = promote_type(T_shape, T_mat)
 
-	s = convert(AbstractShape{L, T}, base_shape)   # must return concrete
+	s = convert(AbstractShape{T}, base_shape)   # must return concrete
 	f = convert(Material{T}, filler)
 
-	return Enclosure{L, T, typeof(s)}(s, f)
+	return Enclosure{T, typeof(s)}(s, f)
 end
 
-function Base.convert(::Type{<:AbstractShape{L, T}}, e::Enclosure{L}) where {L, T <: Real}
+function Base.convert(::Type{<:AbstractShape{T}}, e::Enclosure) where {T <: Real}
 	# Recursively upgrade the payload
-	s_converted = convert(AbstractShape{L, T}, e.base_shape)
+	s_converted = convert(AbstractShape{T}, e.base_shape)
 	f_converted = convert(Material{T}, e.filler_material)
 
 	# Lock them in a new Vault
-	return Enclosure{L, T, typeof(s_converted)}(s_converted, f_converted)
+	return Enclosure{T, typeof(s_converted)}(s_converted, f_converted)
 end
 
 # Override the global accessors because Enclosure is a diva
