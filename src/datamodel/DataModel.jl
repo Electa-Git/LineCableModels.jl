@@ -24,7 +24,7 @@ module DataModel
 # Export public API
 export Thickness, Diameter  # Type definitions
 export CircStrands, RectStrands, Strip, Tubular, SectorParams, Sector  # Conductor types
-export Semicon, Insulator  # Insulator types
+export Semicon, Insulator, SectorInsulator  # Insulator types
 export ConductorGroup, InsulatorGroup  # Group types
 export CableComponent, CableDesign  # Cable design types
 export CablePosition, LineCableSystem  # System types
