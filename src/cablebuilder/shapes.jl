@@ -1,14 +1,9 @@
-
-
-
-import .Validation:
-	Validation, required_fields, extra_rules, Normalized, Finite, Nonneg, Less, Positive
-
-
 # Global accessors
 @inline r_in(s::AbstractShape) = s.r_in
 @inline r_ex(s::AbstractShape) = s.r_ex
 
+
+include("primitives.jl")
 
 include("solidcore.jl")
 # include("tubular.jl")
