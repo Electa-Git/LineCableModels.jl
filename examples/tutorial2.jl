@@ -386,7 +386,7 @@ The earth return path significantly affects cable impedance calculations and nee
 
 # Define a frequency-dependent earth model (1 Hz to 1 MHz):
 f = 10.0 .^ range(0, stop = 6, length = 10)  # Frequency range
-earth_params = EarthModel(f, 100.0, 10.0, 1.0)  # 100 Ω·m resistivity, εr=10, μr=1
+earth_params = EarthModel(f, 100.0, 10.0, 1.0,0.0)  # 100 Ω·m resistivity, εr=10, μr=1
 
 # Earth model base (DC) properties:
 earthmodel_df = DataFrame(earth_params)

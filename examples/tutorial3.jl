@@ -36,11 +36,11 @@ set_backend!(:gl); #hide
 
 # Initialize library and the required materials for this design:
 materials = MaterialsLibrary(add_defaults = true)
-lead = Material(21.4e-8, 1.0, 0.999983, 20.0, 0.00400) # Lead or lead alloy
+lead = Material(21.4e-8, 1.0, 0.999983, 20.0, 0.00400,35) # Lead or lead alloy
 add!(materials, "lead", lead)
-steel = Material(13.8e-8, 1.0, 300.0, 20.0, 0.00450) # Steel
+steel = Material(13.8e-8, 1.0, 300.0, 20.0, 0.00450,50) # Steel
 add!(materials, "steel", steel)
-pp = Material(1e15, 2.8, 1.0, 20.0, 0.0) # Laminated paper propylene
+pp = Material(1e15, 2.8, 1.0, 20.0, 0.0,0.22) # Laminated paper propylene
 add!(materials, "pp", pp)
 
 # Inspect the contents of the materials library:
@@ -246,7 +246,7 @@ Define a constant frequency earth model:
 =#
 
 f = [1e-3] # Near DC frequency for the analysis
-earth_params = EarthModel(f, 100.0, 10.0, 1.0)  # 100 Ω·m resistivity, εr=10, μr=1
+earth_params = EarthModel(f, 100.0, 10.0, 1.0,0.0)  # 100 Ω·m resistivity, εr=10, μr=1
 
 # Earth model base (DC) properties:
 earthmodel_df = DataFrame(earth_params)
@@ -342,7 +342,6 @@ opts = (
 F = FormulationSet(:FEM,
 	impedance = Darwin(),
 	admittance = Electrodynamics(),
-	ehem_formula = EnforceLayer(3),
 	domain_radius = domain_radius,
 	domain_radius_inf = domain_radius * 1.25,
 	elements_per_length_conductor = 1,
