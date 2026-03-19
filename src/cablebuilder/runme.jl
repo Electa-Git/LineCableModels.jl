@@ -1,7 +1,7 @@
 using Revise
 include("CableBuilder.jl")
 using .CableBuilder
-import .CableBuilder: CableDesignSpec
+import .CableBuilder: CableDesign
 
 using BenchmarkTools
 
@@ -15,10 +15,12 @@ mat = Material(
 
 # 2. Define the Solid Core wrapping the Circle primitive
 # 5 variations of radius
-core = Conductor.Solid(:core, mat; r = Grid((0.01, 0.02, 0.03, 0.04, 0.05)))
+core = (
+	Conductor.Solid(:core, mat; r = Grid((0.01, 0.02, 0.03, 0.04, 0.05))),
+)
 
 # 3. Wrap it in the Design Blueprint
-spec = CableDesignSpec(core)
+spec = CableDesign(core)
 
 # 4. The strict function barrier
 # This forces the compiler to optimize the loop exactly as it would in production
