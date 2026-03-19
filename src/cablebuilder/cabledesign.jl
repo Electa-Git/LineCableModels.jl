@@ -25,8 +25,6 @@ end
 	return CableDesign{typeof(parts)}(parts)
 end
 
-# ---------------------------------------------------------
-# The DSL Hook (Replaces CableDesignSpec)
-# ---------------------------------------------------------
-# Just wrap your layers in Gridspace.
-@inline CableDesignSpec(layers...) = Gridspace{CableDesign}(layers)
+# The Tuple hook (no splatting required at call site)
+# Usage: parts = (Conductor.Solid(...), ...); CableDesign(parts)
+@inline CableDesign(layers::Tuple) = Gridspace{CableDesign}(layers)
