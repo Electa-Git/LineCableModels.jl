@@ -11,7 +11,6 @@ include("../commons/Commons.jl")
 include("../uncertainbessels/UncertainBessels.jl"
 )
 include("../utils/Utils.jl")
-include("../validation/Validation.jl")
 
 include("types.jl")
 include("partbuilder.jl")
@@ -29,14 +28,18 @@ export Grid, AbsoluteError
 export Conductor, Insulator
 module Conductor
 	import ..CableBuilder: ConductorPart, Builder
+	import ..CableBuilder: Circular, Rectangular
 	import ..CableBuilder: SolidCore
 	import ..CableBuilder: Grid
 	import ..CableBuilder: Material
 
 	@inline function Solid(grp::Symbol, mat; r)
-		# Order matters here: this sets the tuple layout for the functor.
-		# If PartBuilder expects `r, mat = b.payload`, you pass `r, mat` here.
-		return Builder(ConductorPart, SolidCore, grp, mat, r)
+		# The semicolon triggers the @gridspace kwarg interceptor.
+		# If `r` is a Grid, this returns a Gridspace{Circular}.
+		# If `r` is a Real, it returns a concrete Circular.
+		params = Circular(; r = r)
+
+		return Builder(ConductorPart, SolidCore, grp, mat, params)
 	end
 
 # @inline function Tubular(grp::Symbol, mat; t)
