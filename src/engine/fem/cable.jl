@@ -540,6 +540,9 @@ function _make_cablepart!(workspace::FEMWorkspace, part::SectorInsulator,
     workspace.unassigned_entities[marker] = entity_data
 
     register_physical_group!(workspace, physical_group_tag, part.material_props)
+end
+
+"""
 Create a cable part entity for all tubular shapes. This function is specialized for `Tubular` parts.
 
 # Arguments
