@@ -469,7 +469,7 @@ function _make_cablepart!(workspace::FEMWorkspace, part::Sector,
 
     # Calculate mesh size for this part
     num_elements = workspace.formulation.elements_per_length_conductor
-    mesh_size = _calc_mesh_size(part.radius_in, part.radius_ext, part.material_props, num_elements, workspace)
+    mesh_size = _calc_mesh_size(part.r_in, part.r_ex, part.material_props, num_elements, workspace)
 
     # Create the polygon in Gmsh
     @debug "the translated vertices are $translated_vertices \n they are of type $(typeof(translated_vertices))"
@@ -519,7 +519,7 @@ function _make_cablepart!(workspace::FEMWorkspace, part::SectorInsulator,
 
     # Calculate mesh size for this part
     num_elements = workspace.formulation.elements_per_length_insulator
-    mesh_size = _calc_mesh_size(part.radius_in, part.radius_ext, part.material_props, num_elements, workspace)
+    mesh_size = _calc_mesh_size(part.r_in, part.r_ex, part.material_props, num_elements, workspace)
 
     # Create the polygon with a hole using our new drawing primitive
     surface_tag, marker = draw_polygon_with_hole(outer_vertices_translated, inner_vertices_translated, mesh_size)
@@ -603,8 +603,8 @@ function _make_cablepart!(workspace::FEMWorkspace, part::Tubular,
 	)
 
 	# Extract parameters
-	radius_in = to_nominal(part.radius_in)
-	radius_ext = to_nominal(part.radius_ext)
+	r_in = to_nominal(part.r_in)
+	r_ex = to_nominal(part.r_ex)
 
 	# Calculate mesh size for this part
 	if part isa AbstractConductorPart
@@ -616,7 +616,7 @@ function _make_cablepart!(workspace::FEMWorkspace, part::Tubular,
 	end
 
 	mesh_size_current =
-		_calc_mesh_size(radius_in, radius_ext, part.material_props, num_elements, workspace)
+		_calc_mesh_size(r_in, r_ex, part.material_props, num_elements, workspace)
 
 	# Calculate mesh size for the next part
 	num_layers =
@@ -627,8 +627,8 @@ function _make_cablepart!(workspace::FEMWorkspace, part::Tubular,
 		nothing
 
 	if !isnothing(next_part)
-		next_radius_in = to_nominal(next_part.radius_in)
-		next_radius_ext = to_nominal(next_part.radius_ext)
+		next_radius_in = to_nominal(next_part.r_in)
+		next_radius_ext = to_nominal(next_part.r_ex)
 		mesh_size_next = _calc_mesh_size(
 			next_radius_in,
 			next_radius_ext,
@@ -648,17 +648,17 @@ function _make_cablepart!(workspace::FEMWorkspace, part::Tubular,
 	num_points_circumference = workspace.formulation.points_per_circumference
 
 	# Create annular shape and assign marker
-	if radius_in ≈ 0
+	if r_in ≈ 0
 		# Solid disk
 		_, _, marker, _ =
-			draw_disk(x_center, y_center, radius_ext, mesh_size, num_points_circumference)
+			draw_disk(x_center, y_center, r_ex, mesh_size, num_points_circumference)
 	else
 		# Annular shape
 		_, _, marker, _ = draw_annular(
 			x_center,
 			y_center,
-			radius_in,
-			radius_ext,
+			r_in,
+			r_ex,
 			mesh_size,
 			num_points_circumference,
 		)
