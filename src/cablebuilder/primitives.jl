@@ -5,7 +5,6 @@ abstract type AbstractShapeParams{T <: Real} end
 	r::T
 end
 
-
 @inline function validate(p::Circular)
 	p.r > zero(p.r) || throw(DomainError(p.r, "Circular radius must be strictly positive."))
 	return p
@@ -15,7 +14,6 @@ end
 	w::T
 	h::T
 end
-
 
 @inline function validate(p::Rectangular)
 	p.w > zero(p.w) ||
