@@ -87,5 +87,20 @@ end
 # end
 
 
+# ==========================================
+# SPATIAL MODIFIERS
+# ==========================================
+@inline function at(x::Real, y::Real, g::Gridspace{PartBuilder})
+	# We drill right into the tuple, bypass Target, Shape, and Grp, replace Slot 4, and tail the rest.
+	# Zero allocations. Complete type stability.
+	new_grids = (
+		g.grids[1],
+		g.grids[2],
+		g.grids[3],
+		Grid(((x, y),)),
+		Base.tail(Base.tail(Base.tail(Base.tail(g.grids))))...,
+	)
+	return Gridspace{PartBuilder}(new_grids)
+end
 
 end # module
