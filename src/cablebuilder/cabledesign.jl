@@ -13,7 +13,15 @@ end
 @inline function build_design(r, builders::Tuple)
 	b = first(builders)
 	target = b(r)
-	return (target, build_design(r_ex(target.shape), Base.tail(builders))...)
+
+	# Extract boundary logic respecting the new absolute origin
+	ox, oy = target.origin
+	part_boundary = sqrt(ox^2 + oy^2) + r_ex(target)
+
+	# The running radius must engulf the largest eccentric boundary
+	next_r = max(r, part_boundary)
+
+	return (target, build_design(next_r, Base.tail(builders))...)
 end
 
 # ---------------------------------------------------------
