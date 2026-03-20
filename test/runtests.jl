@@ -24,7 +24,7 @@ end
 	copper_props = Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393, 401.0)
 	aluminum_props = Material(2.8264e-8, 1.0, 1.0, 20.0, 0.00429, 237.0)
 	insulator_props = Material(1e14, 2.3, 1.0, 20.0, 0.0, 0.5)
-	semicon_props = Material(1000.0, 1000.0, 1.0, 20.0, 0.0, 148.0)
+	semicon_props = Material(1000.0, 1000.0, 1.0, 20.0, 0.0, 0.4)
 end
 
 @testsnippet cable_system_export begin

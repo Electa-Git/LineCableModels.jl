@@ -88,12 +88,12 @@ function _add_default_materials!(library::MaterialsLibrary)
 	add!(
 		library,
 		"semicon1",
-		Material(1000.0, 1000.0, 1.0, 20.0, 0.0, 148.0),
+		Material(1000.0, 1000.0, 1.0, 20.0, 0.0, 0.4),  # κ = 1/2.5 [W/(m·K)] (IEC 60287)
 	)
 	add!(
 		library,
 		"semicon2",
-		Material(500.0, 1000.0, 1.0, 20.0, 0.0, 148.0),
+		Material(500.0, 1000.0, 1.0, 20.0, 0.0, 0.4),  # κ = 1/2.5 [W/(m·K)] (IEC 60287)
 	)
 	add!(
 		library,

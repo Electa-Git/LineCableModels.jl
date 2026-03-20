@@ -518,6 +518,9 @@ function make_space_geometry(workspace::FEMWorkspace)
 		@debug "  Point $point_marker: ($(point_marker[1]), $(point_marker[2]), $(point_marker[3]))"
 	end
 
+	# Register earth-air interface as physical group for thermal Dirichlet BC
+	register_physical_group!(workspace, earth_interface_tag, get_earth_model_material(workspace, num_earth_layers))
+
     @info "Earth interfaces created"
 end
 

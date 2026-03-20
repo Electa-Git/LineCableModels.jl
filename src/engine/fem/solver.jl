@@ -30,7 +30,7 @@ struct DefineResolution end
 
     DefineJacobian()(getdp_problem, workspace)
     DefineIntegration()(getdp_problem)
-    DefineMaterialProps()(getdp_problem, workspace)
+    DefineMaterialProps()(getdp_problem, workspace; temp_dependent_sigma=false)
     DefineConstants()(getdp_problem, frequency)
     DefineDomainGroups()(getdp_problem, f, workspace, active_cond)
     DefineConstraint()(getdp_problem, f)
@@ -55,7 +55,7 @@ end
     
     DefineJacobian()(getdp_problem, workspace)
     DefineIntegration()(getdp_problem)
-    DefineMaterialProps()(getdp_problem, workspace)
+    DefineMaterialProps()(getdp_problem, workspace; temp_dependent_sigma=true)
     DefineConstants()(getdp_problem, frequency, workspace)
     DefineDomainGroups()(getdp_problem, f, workspace)
     DefineConstraint()(getdp_problem, workspace)
@@ -118,7 +118,8 @@ end
 
 end
 
-@inline function (f::DefineMaterialProps)(problem::GetDP.Problem, workspace::FEMWorkspace)
+@inline function (f::DefineMaterialProps)(problem::GetDP.Problem, workspace::FEMWorkspace;
+	temp_dependent_sigma::Bool=false)
 	# Create material properties function
 	func = GetDP.Function()
 
@@ -132,12 +133,20 @@ end
 			)
 			add_space!(func)
 			GetDP.add!(func, "nu", expression = 1 / (mat.mu_r * μ₀), region = [tag])
-			GetDP.add!(
-				func,
-				"sigma",
-				expression = isinf(mat.rho) ? 0.0 : 1 / mat.rho,
-				region = [tag],
-			)
+
+			sigma0 = isinf(mat.rho) ? 0.0 : 1 / mat.rho
+			if temp_dependent_sigma && sigma0 != 0.0 && mat.alpha != 0.0
+				# Temperature-dependent σ(T) = σ₀ / (1 + α·(T - T₀))
+				# $1 receives {T} (Kelvin) from sigma[{T}] in Galerkin terms
+				T0_K = mat.T0 + 273.15
+				GetDP.add!(func, "sigma",
+					expression = "$sigma0 / (1.0 + $(mat.alpha) * (\$1 - $T0_K))",
+					region = [tag])
+			else
+				# Constant sigma (insulator, no temp coeff, or non-thermal formulation)
+				GetDP.add!(func, "sigma", expression = sigma0, region = [tag])
+			end
+
 			GetDP.add!(func, "epsilon", expression = mat.eps_r * ε₀, region = [tag])
 			GetDP.add!(func, "k", expression = mat.kappa, region = [tag])
 		end
@@ -296,6 +305,7 @@ end
 	inds_reg = Int[]
 	cables_reg = Dict{Int, Vector{Int}}()
 	boundary_reg = Int[]
+	earth_surface_reg = Int[]
 	is_magneto_thermal = fem_formulation isa MagnetoThermal
 
 	for tag in keys(workspace.core.physical_groups)
@@ -320,7 +330,10 @@ end
 			surface_type == 3 && push!(material_reg[:DomainInf], tag)
 
 		else
-			decode_boundary_tag(tag)[1] == 2 && push!(boundary_reg, tag)
+			curve_type, layer_idx, _ = decode_boundary_tag(tag)
+			curve_type == 2 && push!(boundary_reg, tag)
+			# Earth-air interface (curve_type=3, layer_idx=1) for thermal Dirichlet BC
+			(curve_type == 3 && layer_idx == 1) && push!(earth_surface_reg, tag)
 		end
 	end
 	inds_reg = sort(inds_reg)
@@ -371,7 +384,7 @@ end
 
 	GetDP.add!(group, "Domain_Mag", ["DomainCC", "DomainC"], "Region")
 	GetDP.add!(group, "Sur_Dirichlet_Mag", boundary_reg, "Region")
-	GetDP.add!(group, "Sur_Dirichlet_The", boundary_reg, "Region")
+	GetDP.add!(group, "Sur_Dirichlet_The", vcat(boundary_reg, earth_surface_reg), "Region")
 	GetDP.add!(group, "Sur_Convection_Thermal", [], "Region")
 	
 	problem.group = group
@@ -429,9 +442,14 @@ end
 	case!(voltage, "")
 
 	# Current_2D
+	# GetDP's complex (frequency-domain) formulation uses peak amplitudes:
+	#   a(t) = Re[ Â · exp(jωt) ]
+	# Time-averaged Joule losses: P = 0.5·σ·|E|² = (I_peak/√2)²·R = I_rms²·R
+	# User specifies RMS currents, so we scale by √2 to get peak amplitudes.
 	current = assign!(constraint, "Current_2D")
 	for (idx, curr) in enumerate(workspace.energizations)
-		case!(current, "Con_$idx", value = "Complex[$(real(curr)), $(imag(curr))]")
+		peak_curr = curr * sqrt(2)  # RMS → peak conversion
+		case!(current, "Con_$idx", value = "Complex[$(real(peak_curr)), $(imag(peak_curr))]")
 	end
 
 	temp = assign!(constraint, "DirichletTemp")
@@ -1029,20 +1047,34 @@ end
 	output_dir = joinpath("results", lowercase(resolution_name))
 	output_dir = replace(output_dir, "\\" => "/")     # for compatibility with Windows paths
 
-	# Construct the final Operation vector
-	GetDP.add!(resolution, resolution_name, [sys_mag, sys_the],
-		Operation = [
-			"CreateDir[\"$(output_dir)\"]",
-			"InitSolution[Sys_Mag]",
-			"InitSolution[Sys_The]",
+	# Construct the final Operation vector with iterative Picard coupling
+	ops = [
+		"CreateDir[\"$(output_dir)\"]",
+		"InitSolution[Sys_Mag]",
+		"InitSolution[Sys_The]",
+		# Solve thermal with zero source to initialize T = Tambient everywhere
+		# (prevents negative sigma from T=0K initial condition)
+		"Generate[Sys_The]",
+		"Solve[Sys_The]",
+	]
+	# Picard iterations: Mag → The coupling with temperature-dependent σ
+	n_picard = 10
+	for _ in 1:n_picard
+		append!(ops, [
 			"Generate[Sys_Mag]",
 			"Solve[Sys_Mag]",
 			"Generate[Sys_The]",
 			"Solve[Sys_The]",
-			"SaveSolution[Sys_Mag]",
-			"SaveSolution[Sys_The]",
-			"PostOperation[LineParams]",
-		]
+		])
+	end
+	append!(ops, [
+		"SaveSolution[Sys_Mag]",
+		"SaveSolution[Sys_The]",
+		"PostOperation[LineParams]",
+	])
+
+	GetDP.add!(resolution, resolution_name, [sys_mag, sys_the],
+		Operation = ops
 	)
 	# Add the resolution to the problem
 	problem.resolution = resolution
