@@ -38,17 +38,18 @@ end
 	::Type{Target},
 	::Type{SolidCore},
 	grp::Symbol,
+	origin::Tuple{O1, O2},
 	current_r::T,
 	payload::Tuple{M, C},
-) where {Target, T <: Real, M <: Material, C <: Circular}
+) where {Target, O1 <: Real, O2 <: Real, T <: Real, M <: Material, C <: Circular}
 
 	mat, params = payload
 
-	current_r <= eps(T) || throw(DomainError(
-		current_r, "Topological violation: SolidCore must be at r=0.",
-	))
+	current_r <= eps(T) ||
+		throw(DomainError(current_r, "Topological violation: SolidCore must be at r=0."))
 
 	shape = SolidCore(current_r, params.r, params)
 
-	return Target(grp, shape, mat)
+	return Target(grp, origin, shape, mat)
 end
+
