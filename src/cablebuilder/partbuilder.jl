@@ -1,4 +1,3 @@
-
 # ==========================================
 # THE VALIDATION BOUNDARY
 # ==========================================
@@ -23,8 +22,11 @@ end
 
 # 2. THE FUNCTOR (The Spatial Collapse - Restored)
 @inline function (b::PartBuilder{Target, Shape})(current_r) where {Target, Shape}
-	# This routes to the specific shape logic you write in solidcore.jl, etc.
-	part = build_part(Target, Shape, b.grp, current_r, b.payload)
+	origin = b.payload[1]
+	shape_args = Base.tail(b.payload)
+
+	# Pass origin down to the concrete shape builder
+	part = build_part(Target, Shape, b.grp, origin, current_r, shape_args)
 	return validate(part)
 end
 
@@ -35,8 +37,14 @@ end
 	::Type{Target}, ::Type{Shape}, grp::Symbol, args...,
 ) where {Target, Shape}
 
-	# Wrap the types in Val{}() to make them 100% concrete for the tuple iteration
-	grids = (Grid(Val{Target}()), Grid(Val{Shape}()), Grid(grp), map(Grid, args)...)
+	# Slot 4 is always the origin. Default to concentric.
+	grids = (
+		Grid(Val{Target}()),
+		Grid(Val{Shape}()),
+		Grid(grp),
+		Grid(((0.0, 0.0),)),
+		map(Grid, args)...,
+	)
 
 	return Gridspace{PartBuilder}(grids)
 end
