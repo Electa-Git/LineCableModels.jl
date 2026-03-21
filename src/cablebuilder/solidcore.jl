@@ -37,11 +37,10 @@ end
 @inline function build_part(
 	::Type{Target},
 	::Type{SolidCore},
-	grp::Symbol,
-	origin::Tuple{O1, O2},
+	cmp::Symbol,
 	current_r::T,
 	payload::Tuple{M, C},
-) where {Target, O1 <: Real, O2 <: Real, T <: Real, M <: Material, C <: Circular}
+) where {Target, T <: Real, M <: Material, C <: Circular}
 
 	mat, params = payload
 
@@ -50,6 +49,6 @@ end
 
 	shape = SolidCore(current_r, params.r, params)
 
-	return Target(grp, origin, shape, mat)
+	return Target(cmp, shape, mat)
 end
 
