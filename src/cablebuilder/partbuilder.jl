@@ -52,25 +52,28 @@ end
 	return GroupBuilder{typeof(payload)}(payload)
 end
 
-@inline function (b::GroupBuilder)(current_r)
+@inline function (b::GroupBuilder)(prev_bound::Circular)
 	origin = b.payload[1]
 	n      = b.payload[2]
 	m      = b.payload[3]
 
 	inner_builders = Base.tail(Base.tail(Base.tail(b.payload)))
 
-	# 1. Local coaxial stacking
-	local_parts = build_design(0.0, inner_builders)
+	# 1. Local coaxial stacking 
+	# Kick off with a 0.0 primitive of the correct numeric type
+	T_local = typeof(prev_bound.r)
+	local_parts = build_design(Circular(zero(T_local)), inner_builders)
 	local_r_ex = r_ex(local_parts[end])
 
 	# 2. Global topological translation
 	ox, oy = origin
-	bound_r_in = current_r
+	r_prev = prev_bound.r # Extract the actual scalar radius from the primitive
+	bound_r_in = r_prev
 
 	if n == 1 && m == 1
-		bound_r_ex = max(current_r, sqrt(ox^2 + oy^2) + local_r_ex)
+		bound_r_ex = max(r_prev, sqrt(ox^2 + oy^2) + local_r_ex)
 	else
-		bound_r_ex = current_r + (m * 2 * local_r_ex)
+		bound_r_ex = r_prev + (m * 2 * local_r_ex)
 	end
 
 	T = promote_type(typeof(bound_r_in), typeof(bound_r_ex), typeof(ox), typeof(oy))
