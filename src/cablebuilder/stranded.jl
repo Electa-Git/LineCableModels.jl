@@ -43,7 +43,7 @@ end
 # 2. THE UNIVERSAL BUILDER
 # ==========================================
 struct StrandedBuilder{P, U <: Integer, W, H, T <: Real}
-	grp::Symbol
+	cmp::Symbol
 	n_w::U
 	wire_builder::W
 	pitch_builder::H
@@ -71,7 +71,7 @@ end
 	# 4. Lock it into the unified layer
 	shape = StrandedLayer(current_r, r_ex, b.n_w, wire, pitch_profile)
 
-	return P(b.grp, shape, b.mat)
+	return P(b.cmp, shape, b.mat)
 end
 
 # ==========================================
@@ -85,7 +85,7 @@ struct StrandedSpec{
 	H <: AbstractSpec,
 	M <: AbstractSpec{Material},
 } <: AbstractSpec{StrandedBuilder{P}}
-	grp::G
+	cmp::G
 	n_w::U
 	wire_spec::W
 	pitch_spec::H
