@@ -23,24 +23,24 @@ end
 # ==========================================
 # Holds the abstract thickness value.
 struct TubularLayerBuilder{P, T <: Real, M <: Real}
-	grp::Symbol
+	cmp::Symbol
 	t::T
 	mat::Material{M}
 end
 
 @inline function TubularLayerBuilder{P}(
-	grp::Symbol,
+	cmp::Symbol,
 	t::T,
 	mat::Material{M},
 ) where {P, T, M}
-	return TubularLayerBuilder{P, T, M}(grp, t, mat)
+	return TubularLayerBuilder{P, T, M}(cmp, t, mat)
 end
 
 @inline function (b::TubularLayerBuilder{P})(current_r::T) where {P, T <: Real}
 	# Physics reminder: r_ex = r_in + thickness. 
 	r_ex = current_r + b.t
 	shape = TubularLayer(current_r, r_ex)
-	return P(b.grp, shape, b.mat)
+	return P(b.cmp, shape, b.mat)
 end
 
 # ==========================================Tr
@@ -49,16 +49,16 @@ end
 # Flat fields. Measurements.jl will propagate the uncertainty of `t` cleanly.
 struct TubularLayerSpec{P, G, T, M <: AbstractSpec{Material}} <:
 	   AbstractSpec{TubularLayerBuilder{P}}
-	grp::G
+	cmp::G
 	t::T
 	mat::M
 end
 
 @inline function TubularLayerSpec(
 	::Type{P},
-	grp::G,
+	cmp::G,
 	t::T,
 	mat::M,
 ) where {P, G, T, M <: AbstractSpec{Material}}
-	return TubularLayerSpec{P, G, T, M}(grp, t, mat)
+	return TubularLayerSpec{P, G, T, M}(cmp, t, mat)
 end
