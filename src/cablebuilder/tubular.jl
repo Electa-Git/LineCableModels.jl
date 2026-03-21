@@ -1,64 +1,56 @@
 # ==========================================
-# 1. THE VAULT
+# THE VAULT
 # ==========================================
-struct TubularLayer{T <: Real} <: AbstractShape{T}
+@relax struct TubularLayer{T <: Real, P <: AbstractShapeParams{T}} <: AbstractShape{T}
 	r_in::T
 	r_ex::T
+	params::P
 end
 
-function TubularLayer(r_in, r_ex)
-	T = promote_type(typeof(r_in), typeof(r_ex))
-	return TubularLayer{T}(convert(T, r_in), convert(T, r_ex))
+# We use a Union to safely catch both Conductors and Insulators 
+# without introducing dynamic `isa` checks or type-pirating the base AbstractCablePart.
+@inline function validate(
+	part::Union{ConductorPart{T, <:TubularLayer}, InsulatorPart{T, <:TubularLayer}},
+) where {T}
+	shape = part.shape
+
+	# Cascade to intrinsic validation (checks t > 0)
+	validate(shape.params)
+
+	# Topological bounds check
+	shape.r_ex > shape.r_in || throw(
+		DomainError(
+			shape.r_ex,
+			"Physics violation: TubularLayer outer radius ($(shape.r_ex)) must be strictly greater than inner radius ($(shape.r_in)).",
+		),
+	)
+
+	return part
 end
 
-function Base.convert(
-	::Type{<:AbstractShape{T}},
-	s::TubularLayer,
-) where {T <: Real}
-	return TubularLayer{T}(convert(T, s.r_in), convert(T, s.r_ex))
-end
 
 # ==========================================
-# 2. THE BUILDER
+# THE FUNCTOR SPECIALIZATION (Spatial Collapse)
 # ==========================================
-# Holds the abstract thickness value.
-struct TubularLayerBuilder{P, T <: Real, M <: Real}
-	cmp::Symbol
-	t::T
-	mat::Material{M}
-end
-
-@inline function TubularLayerBuilder{P}(
+@inline function build_part(
+	::Type{Target},
+	::Type{TubularLayer},
 	cmp::Symbol,
-	t::T,
-	mat::Material{M},
-) where {P, T, M}
-	return TubularLayerBuilder{P, T, M}(cmp, t, mat)
-end
+	prev_bound::Circular{T},
+	payload::Tuple{M, A},
+) where {Target, T <: Real, M <: Material, A <: Annular}
 
-@inline function (b::TubularLayerBuilder{P})(current_r::T) where {P, T <: Real}
-	# Physics reminder: r_ex = r_in + thickness. 
-	r_ex = current_r + b.t
-	shape = TubularLayer(current_r, r_ex)
-	return P(b.cmp, shape, b.mat)
-end
+	mat, params = payload
 
-# ==========================================Tr
-# 3. THE BLUEPRINT
-# ==========================================
-# Flat fields. Measurements.jl will propagate the uncertainty of `t` cleanly.
-struct TubularLayerSpec{P, G, T, M <: AbstractSpec{Material}} <:
-	   AbstractSpec{TubularLayerBuilder{P}}
-	cmp::G
-	t::T
-	mat::M
-end
+	# Conformal anchor: The tube strictly wraps the inner circular boundary.
+	r_in = prev_bound.r
 
-@inline function TubularLayerSpec(
-	::Type{P},
-	cmp::G,
-	t::T,
-	mat::M,
-) where {P, G, T, M <: AbstractSpec{Material}}
-	return TubularLayerSpec{P, G, T, M}(cmp, t, mat)
+	# Extrusion: Expand by the intrinsic payload thickness.
+	r_ex = r_in + params.t
+
+	# Collapse the shape geometry
+	shape = TubularLayer(r_in, r_ex, params)
+
+	# Emit the atomic physics part (Zero 2D awareness here)
+	return Target(cmp, shape, mat)
 end
