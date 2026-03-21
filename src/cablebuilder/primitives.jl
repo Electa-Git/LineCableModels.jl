@@ -1,6 +1,9 @@
 # Shape params define the shape of a primitive, but not its material, group or location/layout.
 abstract type AbstractShapeParams{T <: Real} end
 
+# If a specific payload vault doesn't define intrinsic rules, it passes.
+@inline validate(params::AbstractShapeParams) = params
+
 @gridspace @relax struct Circular{T <: Real} <: AbstractShapeParams{T}
 	r::T
 end
@@ -23,5 +26,13 @@ end
 	return p
 end
 
-# If a specific payload vault doesn't define intrinsic rules, it passes.
-@inline validate(params::AbstractShapeParams) = params
+@gridspace @relax struct Annular{T <: Real} <: AbstractShapeParams{T}
+	t::T
+end
+
+@inline function validate(p::Annular)
+	p.t > zero(p.t) ||
+		throw(DomainError(p.t, "Annular thickness must be strictly positive."))
+	return p
+end
+
