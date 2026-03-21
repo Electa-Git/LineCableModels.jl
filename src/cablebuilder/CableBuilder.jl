@@ -18,14 +18,18 @@ include("shapes.jl")
 include("cabledesign.jl")
 
 
-export Material, CableDesign
-export Conductor, Insulator
+export Material, CableDesign, PartGroup
 export Grid, AbsoluteError
 
 # ==========================================
 # THE FRONTEND API (Compilation boundary)
 # ==========================================
-export Conductor, Insulator
+export Conductor, Insulator, Group
+
+@inline function Group(layers::Tuple; origin = (0.0, 0.0), n = 1, m = 1)
+	return Builder(PartGroup, origin, n, m, layers)
+end
+
 module Conductor
 	import ..CableBuilder: ConductorPart, Builder
 	import ..CableBuilder: Circular, Rectangular
@@ -33,27 +37,27 @@ module Conductor
 	import ..CableBuilder: Grid
 	import ..CableBuilder: Material
 
-	@inline function Solid(grp::Symbol, mat; r)
+	@inline function Solid(cmp::Symbol, mat; r)
 		# The semicolon triggers the @gridspace kwarg interceptor.
 		# If `r` is a Grid, this returns a Gridspace{Circular}.
 		# If `r` is a Real, it returns a concrete Circular.
 		params = Circular(; r = r)
 
-		return Builder(ConductorPart, SolidCore, grp, mat, params)
+		return Builder(ConductorPart, SolidCore, cmp, mat, params)
 	end
 
-# @inline function Tubular(grp::Symbol, mat; t)
+# @inline function Tubular(cmp::Symbol, mat; t)
 # 	mat_spec = convert(AbstractSpec{Material}, mat)
-# 	return TubularLayerSpec(ConductorPart, Grid(grp), Grid(t), mat_spec)
+# 	return TubularLayerSpec(ConductorPart, Grid(cmp), Grid(t), mat_spec)
 # end
 
-# @inline function Pipe(grp::Symbol, mat; t, filler, offset = 0.0)
-# 	inner = Tubular(grp, mat; t = t)          # tubular wall
+# @inline function Pipe(cmp::Symbol, mat; t, filler, offset = 0.0)
+# 	inner = Tubular(cmp, mat; t = t)          # tubular wall
 # 	return EnclosureSpec(ConductorPart, inner, filler; offset = offset)
 # end
 
 # @inline function Stranded(
-# 	grp::Symbol,
+# 	cmp::Symbol,
 # 	mat;
 # 	pattern::Symbol = :layer,
 # 	r_w,
@@ -64,7 +68,7 @@ module Conductor
 # 	mat_spec = convert(AbstractSpec{Material}, mat)
 # 	return CircStrandedSpec(
 # 		ConductorPart,
-# 		Grid(grp),
+# 		Grid(cmp),
 # 		Grid(r_w),
 # 		Grid(n_w),
 # 		Grid(lay_r),
@@ -80,27 +84,12 @@ end
 # 	import ..CableBuilder: AbstractSpec, Material, EnclosureSpec
 
 # 	# Insulators don't usually have solid cores, but the logic holds!
-# 	@inline function Tubular(grp::Symbol, mat; t)
+# 	@inline function Tubular(cmp::Symbol, mat; t)
 # 		mat_spec = convert(AbstractSpec{Material}, mat)
-# 		return TubularLayerSpec(InsulatorPart, Grid(grp), Grid(t), mat_spec)
+# 		return TubularLayerSpec(InsulatorPart, Grid(cmp), Grid(t), mat_spec)
 # 	end
 # end
 
 
-# ==========================================
-# SPATIAL MODIFIERS
-# ==========================================
-@inline function at(x::Real, y::Real, g::Gridspace{PartBuilder})
-	# We drill right into the tuple, bypass Target, Shape, and Grp, replace Slot 4, and tail the rest.
-	# Zero allocations. Complete type stability.
-	new_grids = (
-		g.grids[1],
-		g.grids[2],
-		g.grids[3],
-		Grid(((x, y),)),
-		Base.tail(Base.tail(Base.tail(Base.tail(g.grids))))...,
-	)
-	return Gridspace{PartBuilder}(new_grids)
-end
 
 end # module
