@@ -17,6 +17,8 @@ mat = Material(
 # 5 variations of radius
 core = (
 	Conductor.Solid(:core, mat; r = Grid((0.01, 0.02, 0.03, 0.04, 0.05))),
+	Conductor.Tubular(:sheath, mat; t = Grid((0.01, 0.02, 0.03, 0.04, 0.05))),
+	Insulator.Tubular(:sheath, mat; t = Grid((0.05))),
 )
 
 # 3. Wrap it in the Design Blueprint
@@ -42,7 +44,7 @@ exhaust_generator(spec)
 println("--- Combinatorial Allocation Test ---")
 @btime exhaust_generator($spec)
 
-des=first(spec, 10)
+des=first(spec, length(spec))
 # ms_cu = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393, 0.0, 0.0, 0.0, 0.0)
 # ms_vac = Material(Inf, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
