@@ -1,56 +1,59 @@
 abstract type AbstractShape{T <: Real} end
-
 abstract type AbstractCablePart end
 
 @inline r_ex(p::AbstractCablePart) = r_ex(p.shape)
+@inline r_in(p::AbstractCablePart) = r_in(p.shape)
 
 struct ConductorPart{T, S <: AbstractShape{T}} <: AbstractCablePart
-	grp::Symbol
-	origin::Tuple{T, T}
+	cmp::Symbol
 	shape::S
 	material::Material{T}
 end
 
 @inline function ConductorPart(
-	grp::Symbol,
-	origin::Tuple{O1, O2},
+	cmp::Symbol,
 	shape::AbstractShape{S},
 	mat::Material{M},
-) where {O1 <: Real, O2 <: Real, S <: Real, M <: Real}
-	# Ask the compiler what the safest common type is.
-	T = promote_type(O1, O2, S, M)
-
-	# Let native dispatch handle the translation.
-	o = (convert(T, origin[1]), convert(T, origin[2]))
+) where {S <: Real, M <: Real}
+	T = promote_type(S, M)
 	s = convert(AbstractShape{T}, shape)
 	m = convert(Material{T}, mat)
 
-	return ConductorPart{T, typeof(s)}(grp, o, s, m)
+	return ConductorPart{T, typeof(s)}(cmp, s, m)
 end
 
 struct InsulatorPart{T, S <: AbstractShape{T}} <: AbstractCablePart
-	grp::Symbol
-	origin::Tuple{T, T}
+	cmp::Symbol
 	shape::S
 	material::Material{T}
 end
 
 @inline function InsulatorPart(
-	grp::Symbol,
-	origin::Tuple{O1, O2},
+	cmp::Symbol,
 	shape::AbstractShape{S},
 	mat::Material{M},
-) where {O1 <: Real, O2 <: Real, S <: Real, M <: Real}
-	# Ask the compiler what the safest common type is.
-	T = promote_type(O1, O2, S, M)
-
-	# Let native dispatch handle the translation.
-	o = (convert(T, origin[1]), convert(T, origin[2]))
+) where {S <: Real, M <: Real}
+	T = promote_type(S, M)
 	s = convert(AbstractShape{T}, shape)
 	m = convert(Material{T}, mat)
 
-	return InsulatorPart{T, typeof(s)}(grp, o, s, m)
+	return InsulatorPart{T, typeof(s)}(cmp, s, m)
 end
+
+# ==========================================
+# THE TOPOLOGICAL VAULT
+# ==========================================
+struct PartGroup{T <: Real, P <: Tuple} <: AbstractCablePart
+	r_in::T
+	r_ex::T
+	origin::Tuple{T, T}
+	n::Int
+	m::Int
+	parts::P
+end
+
+@inline r_ex(g::PartGroup) = g.r_ex
+@inline r_in(g::PartGroup) = g.r_in
 
 # ---------------------------------------------------------
 # THE GLOBAL RECAST FALLBACKS
