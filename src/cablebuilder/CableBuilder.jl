@@ -33,8 +33,8 @@ end
 
 module Conductor
 	import ..CableBuilder: ConductorPart, Builder
-	import ..CableBuilder: Circular, Rectangular
-	import ..CableBuilder: SolidCore
+	import ..CableBuilder: Circular, Rectangular, Annular
+	import ..CableBuilder: SolidCore, TubularLayer
 	import ..CableBuilder: Grid
 	import ..CableBuilder: Material
 
@@ -47,10 +47,12 @@ module Conductor
 		return Builder(ConductorPart, SolidCore, cmp, mat, params)
 	end
 
-# @inline function Tubular(cmp::Symbol, mat; t)
-# 	mat_spec = convert(AbstractSpec{Material}, mat)
-# 	return TubularLayerSpec(ConductorPart, Grid(cmp), Grid(t), mat_spec)
-# end
+	@inline function Tubular(cmp::Symbol, mat; t)
+		params = Annular(; t = t)
+
+		return Builder(ConductorPart, TubularLayer, cmp, mat, params)
+	end
+
 
 # @inline function Pipe(cmp::Symbol, mat; t, filler, offset = 0.0)
 # 	inner = Tubular(cmp, mat; t = t)          # tubular wall
@@ -80,16 +82,21 @@ module Conductor
 
 end
 
-# module Insulator
-# 	import ..CableBuilder: SolidCoreSpec, TubularLayerSpec, InsulatorPart, Grid
-# 	import ..CableBuilder: AbstractSpec, Material, EnclosureSpec
+module Insulator
+	import ..CableBuilder: InsulatorPart, Builder
+	import ..CableBuilder: Circular, Rectangular, Annular
+	import ..CableBuilder: TubularLayer
 
-# 	# Insulators don't usually have solid cores, but the logic holds!
-# 	@inline function Tubular(cmp::Symbol, mat; t)
-# 		mat_spec = convert(AbstractSpec{Material}, mat)
-# 		return TubularLayerSpec(InsulatorPart, Grid(cmp), Grid(t), mat_spec)
-# 	end
-# end
+	import ..CableBuilder: Grid
+	import ..CableBuilder: Material
+
+	# Insulators don't usually have solid cores, but the logic holds!
+	@inline function Tubular(cmp::Symbol, mat; t)
+		params = Annular(; t = t)
+		return Builder(InsulatorPart, TubularLayer, cmp, mat, params)
+	end
+
+end
 
 
 
