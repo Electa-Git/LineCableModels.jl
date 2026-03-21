@@ -5,7 +5,7 @@
 
 
 include("solidcore.jl")
-# include("tubular.jl")
+include("tubular.jl")
 # include("enclosure.jl")
 # include("wires.jl")
 # include("helical.jl")
@@ -32,7 +32,7 @@ include("solidcore.jl")
 @inline boundary(s::SolidCore) = Circular(r_ex(s))
 
 # A Tubular's footprint is a circle at r_ex.
-# @inline boundary(s::Tubular) = Circular(r_ex(s))
+@inline boundary(s::TubularLayer) = Circular(r_ex(s))
 
 # A PartGroup's bounding footprint is currently a circumscribed circle.
 @inline boundary(g::PartGroup) = Circular(r_ex(g))
