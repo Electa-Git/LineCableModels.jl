@@ -37,18 +37,22 @@ end
 @inline function build_part(
 	::Type{Target},
 	::Type{SolidCore},
-	cmp::Symbol,
-	current_r::T,
+	grp::Symbol,
+	prev_bound::Circular{T},  # <-- Dispatches on the primitive
 	payload::Tuple{M, C},
 ) where {Target, T <: Real, M <: Material, C <: Circular}
 
 	mat, params = payload
 
-	current_r <= eps(T) ||
-		throw(DomainError(current_r, "Topological violation: SolidCore must be at r=0."))
+	prev_bound.r <= eps(T) ||
+		throw(
+			DomainError(
+				prev_bound.r,
+				"Topological violation: SolidCore must start at r=0.",
+			),
+		)
 
-	shape = SolidCore(current_r, params.r, params)
-
-	return Target(cmp, shape, mat)
+	shape = SolidCore(prev_bound.r, params.r, params)
+	return Target(grp, shape, mat)
 end
 
