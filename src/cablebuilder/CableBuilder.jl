@@ -13,6 +13,7 @@ include("../uncertainbessels/UncertainBessels.jl"
 include("../utils/Utils.jl")
 
 include("types.jl")
+include("primitives.jl")
 include("partbuilder.jl")
 include("shapes.jl")
 include("cabledesign.jl")
