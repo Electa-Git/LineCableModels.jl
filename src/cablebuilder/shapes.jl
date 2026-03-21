@@ -3,7 +3,6 @@
 @inline r_ex(s::AbstractShape) = s.r_ex
 
 
-include("primitives.jl")
 
 include("solidcore.jl")
 # include("tubular.jl")
@@ -22,3 +21,18 @@ include("solidcore.jl")
 # @inline char_len(s::TubularLayer) = r_ex(s) - r_in(s)
 # @inline char_len(s::CircularWire) = 2 * s.r
 # @inline char_len(s::RectangularWire) = s.h
+
+# ==========================================
+# THE TOPOLOGICAL FOOTPRINT
+# Extracts the absolute boundary as a concrete primitive.
+# ==========================================
+@inline boundary(p::AbstractCablePart) = boundary(p.shape)
+
+# A SolidCore's footprint is a circle at r_ex.
+@inline boundary(s::SolidCore) = Circular(r_ex(s))
+
+# A Tubular's footprint is a circle at r_ex.
+# @inline boundary(s::Tubular) = Circular(r_ex(s))
+
+# A PartGroup's bounding footprint is currently a circumscribed circle.
+@inline boundary(g::PartGroup) = Circular(r_ex(g))
