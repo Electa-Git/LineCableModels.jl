@@ -8,21 +8,18 @@ end
 # ---------------------------------------------------------
 # The Allocation-Free Stacking Engine
 # ---------------------------------------------------------
-@inline build_design(r, ::Tuple{}) = ()
+@inline build_design(bound::AbstractShapeParams, ::Tuple{}) = ()
 
-@inline function build_design(r, builders::Tuple)
+@inline function build_design(bound::AbstractShapeParams, builders::Tuple)
 	b = first(builders)
-	target = b(r)
 
-	# The part knows its own boundary envelope.
-	# Atomic parts return their 1D coaxial radius.
-	# PartGroups return their translated 2D boundary.
-	part_boundary = r_ex(target)
+	# The builder receives the absolute geometric primitive
+	target = b(bound)
 
-	# The running radius must engulf the boundary
-	next_r = max(r, part_boundary)
+	# Extract the new bounding primitive for the next layer
+	next_bound = boundary(target)
 
-	return (target, build_design(next_r, Base.tail(builders))...)
+	return (target, build_design(next_bound, Base.tail(builders))...)
 end
 
 # ---------------------------------------------------------
@@ -30,7 +27,7 @@ end
 # ---------------------------------------------------------
 # The generator splats the unrolled PartBuilders here.
 @inline function CableDesign(builders...)
-	parts = build_design(0.0, builders)
+	parts = build_design(Circular(0.0), builders)
 	return CableDesign{typeof(parts)}(parts)
 end
 
