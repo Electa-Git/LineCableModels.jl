@@ -1,8 +1,8 @@
 name = "LineCableModels"
 uuid = "dffb7669-8cd4-4628-99dd-7694e356ba37"
+version = "0.1.1-DEV"
 authors = ["Amauri Martins"]
 git_url = "https://github.com/Electa-Git/LineCableModels.jl"
-version = "0.1.1-DEV"
 
 [deps]
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
@@ -46,8 +46,9 @@ XLSX = "fdbf4ff8-1666-58a4-91e7-1b58723a45e0"
 GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 WGLMakie = "276b4fcb-3e11-5398-bf8b-a0c2d153d008"
 
-[sources]
-GetDP = {rev = "main", url = "https://github.com/Electa-Git/GetDP.jl"}
+[sources.GetDP]
+rev = "main"
+url = "https://github.com/Electa-Git/GetDP.jl"
 
 [compat]
 Aqua = "0.8"
@@ -88,7 +89,7 @@ Tables = "1.12.1"
 TestItemRunner = "1.1.0"
 UUIDs = "1.11.0"
 WGLMakie = "0.13"
-XLSX = "0.10.4"
+XLSX = "0.10.4, 0.11"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
