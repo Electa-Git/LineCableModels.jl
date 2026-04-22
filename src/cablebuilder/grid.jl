@@ -24,7 +24,6 @@ struct AbsoluteError{T <: Tuple}
 	vals::T
 end
 
-AbsoluteError(x::Tuple) = AbsoluteError{typeof(x)}(x)
 AbsoluteError(x::AbstractArray) = AbsoluteError(Tuple(x))
 AbsoluteError(x::Real) = AbsoluteError((x,))
 
