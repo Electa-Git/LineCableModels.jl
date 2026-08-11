@@ -105,7 +105,9 @@ Adds a new part to an existing [`InsulatorGroup`](@ref) object and updates its e
 
 !!! warning "Note"
 	- When an [`AbstractCablePart`](@ref) is provided as `r_in`, the constructor retrieves its `r_ex` value, allowing the new cable part to be placed directly over the existing part in a layered cable design.
-	- In case of uncertain measurements, if the added cable part is of a different type than the existing one, the uncertainty is removed from the radius value before being passed to the new component. This ensures that measurement uncertainties do not inappropriately cascade across different cable parts.
+	- For uncertain geometries, the preceding part's outer-radius derivative graph
+	  is retained. Adjacent layers therefore share one physical boundary and
+	  cumulative-radius covariance is preserved across different part types.
 
 # Examples
 
@@ -199,4 +201,3 @@ function _do_add!(
 end
 
 include("insulatorgroup/base.jl")
-
