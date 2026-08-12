@@ -1,7 +1,41 @@
+"""
+	mc(cbs::CableBuilderSpec; trials=nothing, distribution=:normal, seed=nothing,
+	   trial_sampler=nothing, conf=0.95, tol=0.02, print_step=1000,
+	   return_samples=false, return_pdf=false, nbins=nothing)
+
+Propagate cable-design uncertainty by Monte Carlo sampling.
+
+# Arguments
+
+- `cbs`: Cable-builder specification containing the uncertain primitives.
+- `trials`: Number of trials, or `nothing` to size the run with the DKW bound.
+- `distribution`: Primitive sampling law, either `:normal` or `:uniform`.
+- `seed`: Random-number seed, or `nothing` to preserve the active RNG state.
+- `trial_sampler`: Optional callback called as
+  `trial_sampler(deterministic_spec, trial_index, distribution)`. It must return
+  a sampled cable design accepted by `DataFrame(design, :baseparams)`.
+- `conf`: Confidence level used for DKW sizing and mean confidence intervals.
+- `tol`: DKW absolute CDF tolerance when `trials === nothing`.
+- `print_step`: Number of trials between progress messages.
+- `return_samples`: Retain the scalar R, L, and C trial arrays when `true`.
+- `return_pdf`: Construct histogram-based PDFs when `true`.
+- `nbins`: Histogram bin count, or `nothing` for automatic selection.
+
+# Returns
+
+- A `CableDesignMC` containing R, L, and C statistics and Measurements.jl values.
+
+# Notes
+
+`trial_sampler` permits callers to impose shared or correlated primitive draws.
+The callback receives one-based trial indices and is invoked exactly once per
+trial. Its result bypasses the package's default independent primitive sampler.
+"""
 function mc(cbs::CableBuilderSpec;
 	trials::Union{Int, Nothing} = nothing,
 	distribution::Symbol        = :normal,
 	seed::Union{Int, Nothing}   = nothing,
+	trial_sampler::Union{Nothing, Function} = nothing,
 	conf::Float64               = 0.95,
 	tol::Float64                = 0.02,     # used only if trials === nothing (DKW sizing)
 	print_step::Int             = 1000,
@@ -35,9 +69,14 @@ function mc(cbs::CableBuilderSpec;
 	μR = Vector{T}(undef, ntrials)
 	μL = Vector{T}(undef, ntrials)
 	μC = Vector{T}(undef, ntrials)
+	cbs_det = determinize(cbs)
 
 	@inline function _draw!(i::Int)
-		des    = sample(determinize(cbs); distribution = distribution) # cbs is transformed to deterministic ranges
+		des = if trial_sampler === nothing
+			sample(cbs_det; distribution = distribution)
+		else
+			trial_sampler(cbs_det, i, distribution)
+		end
 		params = DataFrame(des, :baseparams).computed  # invariant ordering: R, L, C
 		r      = params[1]
 		l      = params[2]
@@ -103,12 +142,54 @@ function mc(cbs::CableBuilderSpec;
 end
 
 
+"""
+	mc(sbs::SystemBuilderSpec, F::EMTFormulation; trials=nothing,
+	   distribution=:normal, seed=nothing, trial_sampler=nothing, conf=0.95,
+	   tol=0.02, print_step=1000, return_samples=false, return_pdf=false,
+	   per_length=true, nbins=nothing)
+
+Propagate system uncertainty through a frequency-domain EMT formulation.
+
+# Arguments
+
+- `sbs`: Cable-system specification containing the uncertain primitives and
+  frequency vector \\[Hz\\].
+- `F`: EMT formulation used to compute the series-impedance and shunt-admittance
+  matrices.
+- `trials`: Number of trials, or `nothing` to size the run with the DKW bound.
+- `distribution`: Primitive sampling law, either `:normal` or `:uniform`.
+- `seed`: Random-number seed, or `nothing` to preserve the active RNG state.
+- `trial_sampler`: Optional callback called as
+  `trial_sampler(deterministic_spec, trial_index, distribution)`. It must return
+  a sampled system specification accepted by `compute!`.
+- `conf`: Confidence level used for DKW sizing and mean confidence intervals.
+- `tol`: DKW absolute CDF tolerance when `trials === nothing`.
+- `print_step`: Number of trials between progress messages.
+- `return_samples`: Retain R, L, C, and G trial tensors when `true`.
+- `return_pdf`: Construct histogram-based PDFs when `true`.
+- `per_length`: Return per-unit-length quantities when `true`; otherwise scale
+  impedance and admittance by the physical line length \\[m\\].
+- `nbins`: Histogram bin count, or `nothing` for automatic selection.
+
+# Returns
+
+- A `LineParametersMC` containing entrywise R, L, C, and G statistics, optional
+  samples and PDFs, and a Measurements.jl-valued `LineParameters` object.
+
+# Notes
+
+The first sampled problem is solved before tensor allocation, so matrix size is
+taken from the actual solver result after bundling and reduction. When supplied,
+`trial_sampler` is invoked exactly once for every one-based trial index and its
+result bypasses the package's default independent primitive sampler.
+"""
 function mc(
 	sbs::SystemBuilderSpec,
 	F::EMTFormulation;
 	trials::Union{Int, Nothing} = nothing,
 	distribution::Symbol        = :normal,      # :uniform => Uniform(μ ± √3·σ), :normal => Normal(μ,σ)
 	seed::Union{Int, Nothing}   = nothing,
+	trial_sampler::Union{Nothing, Function} = nothing,
 	conf::Float64               = 0.95,
 	tol::Float64                = 0.02,
 	print_step::Int             = 1000,
@@ -132,7 +213,11 @@ function mc(
 	# Kron reduction, retained grounded terminals, and modal transformation), so
 	# it cannot be inferred reliably from position dictionaries alone.
 	sys_det = determinize(sbs)
-	first_problem = sample(sys_det; distribution = distribution)
+	first_problem = if trial_sampler === nothing
+		sample(sys_det; distribution = distribution)
+	else
+		trial_sampler(sys_det, 1, distribution)
+	end
 	first_ws, first_lp = compute!(first_problem, F)
 	nph = size(first_lp.Z, 1)
 	size(first_lp.Z) == size(first_lp.Y) ||
@@ -188,7 +273,11 @@ function mc(
 		if i == 1
 			ws, lp = first_ws, first_lp
 		else
-			prob = sample(sys_det; distribution = distribution)
+			prob = if trial_sampler === nothing
+				sample(sys_det; distribution = distribution)
+			else
+				trial_sampler(sys_det, i, distribution)
+			end
 			ws, lp = compute!(prob, F)     # lp::LineParameters{Tc, Tr}
 		end
 		domain(lp) === Dlp || throw(
