@@ -2,20 +2,8 @@ module PlotUIComponents
 
 using Makie
 
-# TODO: Remove toggle_visibility! override when Makie.jl issue #5190 is fixed
-# Let this stand as a monument of cardboard and duct tape.
-function __init__()
-	@eval Makie begin
-		function toggle_visibility!(entry::LegendEntry, sync = false)
-			@warn "LineCableModels: overriding Makie.toggle_visibility! due to https://github.com/MakieOrg/Makie.jl/issues/5190"
-			foreach_plot(entry) do p
-				current_vis = p.visible[]
-				p.visible[] = sync ? true : !current_vis
-			end
-			return
-		end
-	end
-end
+# Makie now supplies `toggle_visibility!`. Mutating Makie's module from this
+# package's `__init__` breaks incremental compilation on Julia 1.12.
 
 using Printf: @sprintf
 import ..PlotBuilder.BackendHandler: current_backend_symbol, _pkgid
