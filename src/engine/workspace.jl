@@ -43,6 +43,16 @@ $(TYPEDFIELDS)
 	eps_ins::Vector{T}
 	"Vector of insulator loss tangents."
 	tan_ins::Vector{T}
+	"Physical insulation-layer indices for each cable component."
+	insulator_layer_ranges::Vector{UnitRange{Int}}
+	"Vector of physical insulation-layer inner radii \\[m\\]."
+	r_ins_layer_in::Vector{T}
+	"Vector of physical insulation-layer outer radii \\[m\\]."
+	r_ins_layer_ext::Vector{T}
+	"Vector of physical insulation-layer resistivities \\[Ω·m\\]."
+	rho_ins_layer::Vector{T}
+	"Vector of physical insulation-layer relative permittivities \\[dimensionless\\]."
+	eps_ins_layer::Vector{T}
 	"Vector of phase mapping indices."
 	phase_map::Vector{Int}
 	"Vector of cable mapping indices."
@@ -95,6 +105,11 @@ function init_workspace(
 	system = problem.system
 	n_frequencies = length(problem.frequencies)
 	n_phases = sum(length(cable.design_data.components) for cable in system.cables)
+	n_insulator_layers = sum(
+		length(component.insulator_group.layers)
+		for cable in system.cables
+		for component in cable.design_data.components
+	)
 	n_cables = system.num_cables
 
 	# Pre-allocate 1D arrays
@@ -115,6 +130,11 @@ function init_workspace(
 	mu_ins = Vector{T}(undef, n_phases)
 	eps_ins = Vector{T}(undef, n_phases)
 	tan_ins = Vector{T}(undef, n_phases)   # Loss tangent for insulator
+	insulator_layer_ranges = Vector{UnitRange{Int}}(undef, n_phases)
+	r_ins_layer_in = Vector{T}(undef, n_insulator_layers)
+	r_ins_layer_ext = Vector{T}(undef, n_insulator_layers)
+	rho_ins_layer = Vector{T}(undef, n_insulator_layers)
+	eps_ins_layer = Vector{T}(undef, n_insulator_layers)
 	phase_map = Vector{Int}(undef, n_phases)
 	cable_map = Vector{Int}(undef, n_phases)
 	Z =
@@ -141,6 +161,7 @@ function init_workspace(
 	jω .= 1im * 2π * freq
 
 	idx = 0
+	layer_idx = 0
 	for (cable_idx, cable) in enumerate(system.cables)
 		for (comp_idx, component) in enumerate(cable.design_data.components)
 			idx += 1
@@ -166,6 +187,17 @@ function init_workspace(
 			C_eq = T(component.insulator_group.shunt_capacitance)
 			G_eq = T(component.insulator_group.shunt_conductance)
 			tan_ins[idx] = G_eq / (ω * C_eq)
+
+			# Preserve the physical dielectric stack for broadband lossy models.
+			first_layer_idx = layer_idx + 1
+			for layer in component.insulator_group.layers
+				layer_idx += 1
+				r_ins_layer_in[layer_idx] = T(layer.r_in)
+				r_ins_layer_ext[layer_idx] = T(layer.r_ex)
+				rho_ins_layer[layer_idx] = T(layer.material_props.rho)
+				eps_ins_layer[layer_idx] = T(layer.material_props.eps_r)
+			end
+			insulator_layer_ranges[idx] = first_layer_idx:layer_idx
 
 			# Mapping
 			phase_map[idx] = cable.conn[comp_idx]
@@ -194,7 +226,10 @@ function init_workspace(
 		r_ins_in = r_ins_in, r_ins_ext = r_ins_ext,
 		rho_cond = rho_cond, alpha_cond = alpha_cond, mu_cond = mu_cond,
 		eps_cond = eps_cond, rho_ins = rho_ins, mu_ins = mu_ins, eps_ins = eps_ins,
-		tan_ins = tan_ins, phase_map = phase_map, cable_map = cable_map, rho_g = rho_g,
+		tan_ins = tan_ins, insulator_layer_ranges = insulator_layer_ranges,
+		r_ins_layer_in = r_ins_layer_in, r_ins_layer_ext = r_ins_layer_ext,
+		rho_ins_layer = rho_ins_layer, eps_ins_layer = eps_ins_layer,
+		phase_map = phase_map, cable_map = cable_map, rho_g = rho_g,
 		eps_g = eps_g, mu_g = mu_g,
 		temp = temp, line_length = line_length, n_frequencies = n_frequencies,
 		n_phases = n_phases,

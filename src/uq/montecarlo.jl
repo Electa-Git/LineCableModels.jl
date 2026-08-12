@@ -124,8 +124,21 @@ function mc(
 	fvec  = sbs.frequencies
 	nfreq = length(fvec)
 
-	# number of physical phases from current mapping
-	nph = count(!=(0), vcat(values.(getproperty.(sbs.positions, :conn))...))
+	trials === nothing || trials > 0 ||
+		throw(ArgumentError("mc: trials must be greater than zero"))
+
+	# Materialize and solve the first draw before allocating result tensors. The
+	# output dimension depends on the complete solver reduction policy (bundling,
+	# Kron reduction, retained grounded terminals, and modal transformation), so
+	# it cannot be inferred reliably from position dictionaries alone.
+	sys_det = determinize(sbs)
+	first_problem = sample(sys_det; distribution = distribution)
+	first_ws, first_lp = compute!(first_problem, F)
+	nph = size(first_lp.Z, 1)
+	size(first_lp.Z) == size(first_lp.Y) ||
+		throw(DimensionMismatch("mc: first-trial Z and Y dimensions differ"))
+	size(first_lp.Z, 3) == nfreq ||
+		throw(DimensionMismatch("mc: first-trial frequency dimension differs from the specification"))
 
 	# Total scalar observables under DKW: Z & Y, Real & Imag, upper-triangular (incl. diag) per freq
 	M = 2 * nph * (nph + 1) * nfreq
@@ -166,27 +179,30 @@ function mc(
 	Gsamp = Array{U, 4}(undef, nph, nph, nfreq, ntrials)
 	Csamp = Array{U, 4}(undef, nph, nph, nfreq, ntrials)
 
-	# Determinize once
-	sys_det = determinize(sbs)
-
 	# ─────────────────────────────────────────────────────────────────────────
 	# Monte Carlo over FULL frequency vector: one LineParameters per trial
 	# ─────────────────────────────────────────────────────────────────────────
-	Dlp = nothing  # will hold ::Type{<:LineParamsDomain}
+	Dlp = domain(first_lp)
 
 	for i in 1:ntrials
-		prob = sample(sys_det; distribution = distribution)
-		ws, lp = compute!(prob, F)     # lp::LineParameters{Tc, Tr}
-		if Dlp === nothing
-			Dlp = domain(lp)  # e.g. PhaseDomain or ModalDomain (as a Type)
+		if i == 1
+			ws, lp = first_ws, first_lp
 		else
-			domain(lp) === Dlp || throw(
-				DomainError(
-					domain(lp),
-					"mc: inconsistent LineParameters domain across trials",
-				),
-			)
+			prob = sample(sys_det; distribution = distribution)
+			ws, lp = compute!(prob, F)     # lp::LineParameters{Tc, Tr}
 		end
+		domain(lp) === Dlp || throw(
+			DomainError(
+				domain(lp),
+				"mc: inconsistent LineParameters domain across trials",
+			),
+		)
+		size(lp.Z) == (nph, nph, nfreq) || throw(
+			DimensionMismatch("mc: LineParameters dimensions changed between trials"),
+		)
+		size(lp.Y) == (nph, nph, nfreq) || throw(
+			DimensionMismatch("mc: LineParameters dimensions changed between trials"),
+		)
 		if per_length
 			Zscaled = lp.Z.values
 			Yscaled = lp.Y.values
@@ -274,8 +290,6 @@ function mc(
 	end
 
 	# Frequency-dependent LineParameters using Measurements.jl types
-	Dlp === nothing &&
-		throw(ErrorException("mc: compute! produced no LineParameters (ntrials = 0?)"))
 	LP_meas = LineParameters(Dlp, Zmeas, Ymeas, fvec)
 
 	@info "mc[Z,Y]: done" total = ntrials nfreq = nfreq
