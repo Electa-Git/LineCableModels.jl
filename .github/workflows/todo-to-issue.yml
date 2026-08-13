@@ -1,6 +1,8 @@
 name: "Run TODO to Issue"
 on:
   push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       MANUAL_COMMIT_REF:
@@ -9,6 +11,9 @@ on:
       MANUAL_BASE_REF:
         description: "By default, the commit entered above is compared to the one directly before it; to go back further, enter an earlier SHA here"
         required: false
+concurrency:
+  group: todo-to-issue-main
+  cancel-in-progress: false
 jobs:
   build:
     runs-on: "ubuntu-latest"
@@ -17,7 +22,10 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: "actions/checkout@v5"
+      - uses: "actions/checkout@v6"
+        with:
+          # URL insertion commits back to main, regardless of the event source.
+          ref: main
       - name: "TODO to Issue"
         uses: "alstr/todo-to-issue-action@v5"
         env:
@@ -28,14 +36,15 @@ jobs:
           CLOSE_ISSUES: "true"
       - name: Set Git user
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
       - name: Commit and Push Changes
         run: |
-          git add -A
-          if [[ `git status --porcelain` ]]; then
+          # Only stage tracked files modified by URL insertion.
+          git add --update
+          if ! git diff --cached --quiet; then
             git commit -m "Automatically added GitHub issue links to TODOs"
-            git push origin main
+            git push origin HEAD:main
           else
             echo "No changes to commit"
           fi

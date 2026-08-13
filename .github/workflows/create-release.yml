@@ -12,23 +12,28 @@ jobs:
       contents: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Extract Changelog Section
         id: changelog
+        env:
+          TAG_NAME: ${{ github.ref_name }}
         run: |
-          # Grab the section for this tag from CHANGELOG.md
-          sed -n "/^## \[${{ github.ref_name }}\]/,/^## \[/p" CHANGELOG.md | \
-          sed '$d' > release_notes.md  # Exclude next section header
+          awk -v tag="$TAG_NAME" '
+            BEGIN { heading = "## [" tag "]" }
+            index($0, heading) == 1 { found = 1; print; next }
+            found && /^## \[/ { exit }
+            found && /^\[[^]]+\]:/ { exit }
+            found { print }
+          ' CHANGELOG.md > release_notes.md
+          test -s release_notes.md
           cat release_notes.md
 
       - name: Create GitHub Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
-          release_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
           body_path: release_notes.md
           draft: false
           prerelease: false
