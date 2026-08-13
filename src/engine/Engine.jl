@@ -1,7 +1,7 @@
 """
-	LineCableModels.Engine
+    LineCableModels.Engine
 
-The [`Engine`](@ref) module provides the main functionalities of the [`LineCableModels.jl`](index.md) package. This module implements data structures, methods and functions for calculating frequency-dependent electrical parameters (Z/Y matrices) of line and cable systems with uncertainty quantification. 
+The [`Engine`](@ref) module provides the main functionalities of the [`LineCableModels.jl`](index.md) package. This module implements data structures, methods and functions for calculating frequency-dependent electrical parameters (Z/Y matrices) of line and cable systems with uncertainty quantification.
 
 # Overview
 
@@ -18,16 +18,13 @@ The [`Engine`](@ref) module provides the main functionalities of the [`LineCable
 
 $(IMPORTS)
 
-# Exports
-
-$(EXPORTS)
 """
 module Engine
 
 # Export public API
 export LineParametersProblem,
-	LineParameters, SeriesImpedance, ShuntAdmittance, per_km,
-	per_m, kronify
+       LineParameters, SeriesImpedance, ShuntAdmittance, per_km,
+       per_m, kronify
 export EMTFormulation, FormulationSet, LineParamOptions
 
 export compute!, plot
@@ -90,11 +87,28 @@ include("workspace.jl")
 # Computation methods
 include("solver.jl")
 include("reduction.jl")
-include("plot.jl")
 
 # Override I/O methods
 include("base.jl")
+include("plotmetadata.jl")
 include("dataframe.jl")
+
+"""
+    plot(object; kwargs...)
+
+Plot computed line parameters with a loaded Makie backend.
+
+Load `CairoMakie`, `GLMakie`, or `WGLMakie` before calling this function.
+"""
+function plot end
+
+function plot(args...; kwargs...)
+    throw(
+        ArgumentError(
+        "Plotting is optional. Load CairoMakie, GLMakie, or WGLMakie before calling plot.",
+    ),
+    )
+end
 
 # Submodule `FEM`
 include("fem/FEM.jl")

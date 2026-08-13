@@ -1,5 +1,5 @@
 """
-	LineCableModels.ImportExport
+    LineCableModels.ImportExport
 
 The [`ImportExport`](@ref) module provides methods for serializing and deserializing data structures in [`LineCableModels.jl`](index.md), and data exchange with external programs.
 
@@ -18,9 +18,6 @@ and proper handling of Julia-specific types like `Measurement` objects and `Inf`
 
 $(IMPORTS)
 
-# Exports
-
-$(EXPORTS)
 """
 module ImportExport
 
@@ -36,8 +33,9 @@ using ..Utils: display_path, to_nominal, resolve_T, coerce_to_T, isdiag_approx
 using ..Materials: Material, MaterialsLibrary
 using ..EarthProps: EarthModel
 using ..DataModel: CablesLibrary, CableDesign, CableComponent, ConductorGroup,
-	InsulatorGroup, CircStrands, RectStrands, Strip, Tubular, Semicon, Insulator,
-	LineCableSystem, NominalData
+                   InsulatorGroup, CircStrands, RectStrands, Strip, Tubular, Semicon,
+                   Insulator,
+                   LineCableSystem, NominalData
 import ..Engine: LineParameters, SeriesImpedance, ShuntAdmittance
 using Measurements
 using EzXML
@@ -60,8 +58,9 @@ Export [`LineCableModels`](@ref) data for use in different EMT-type programs.
 $(METHODLIST)
 """
 # function export_data end
-export_data(backend::Symbol, args...; kwargs...) =
-	export_data(Val(backend), args...; kwargs...)
+function export_data(backend::Symbol, args...; kwargs...)
+    export_data(Val(backend), args...; kwargs...)
+end
 
 include("serialize.jl")
 include("deserialize.jl")

@@ -1,6 +1,7 @@
 
 using ..UnitHandler:
-	QuantityTag, default_unit, display_unit, get_label, get_symbol, scale_factor
+                     QuantityTag, default_unit, display_unit, get_label, get_symbol,
+                     scale_factor
 using ..PlotBuilder: AbstractPlotSpec, PlotBuilder
 
 struct MCStatsPlotSpec <: AbstractPlotSpec end
@@ -24,17 +25,22 @@ PlotBuilder.geom_axes(::Type{MCStatsPlotSpec}) = (:x, :y)
 PlotBuilder.index_keys(::Type{MCStatsPlotSpec}) = (:i, :j, :k)
 PlotBuilder.ranged_keys(::Type{MCStatsPlotSpec}) = (:k,)
 
-# X is always frequency; Y will depend on user kwarg, so the valid possible quantities are defined below. 
-PlotBuilder.axis_quantity(::Type{MCStatsPlotSpec}, ::Val{:x}, ::Val{:f}) =
-	QuantityTag{:freq}()
-PlotBuilder.axis_quantity(::Type{MCStatsPlotSpec}, ::Val{:y}, ::Val{:R}) =
-	QuantityTag{:resistance}()
-PlotBuilder.axis_quantity(::Type{MCStatsPlotSpec}, ::Val{:y}, ::Val{:L}) =
-	QuantityTag{:inductance}()
-PlotBuilder.axis_quantity(::Type{MCStatsPlotSpec}, ::Val{:y}, ::Val{:C}) =
-	QuantityTag{:capacitance}()
-PlotBuilder.axis_quantity(::Type{MCStatsPlotSpec}, ::Val{:y}, ::Val{:G}) =
-	QuantityTag{:conductance}()
+# X is always frequency; Y will depend on user kwarg, so the valid possible quantities are defined below.
+function PlotBuilder.axis_quantity(::Type{MCStatsPlotSpec}, ::Val{:x}, ::Val{:f})
+    QuantityTag{:freq}()
+end
+function PlotBuilder.axis_quantity(::Type{MCStatsPlotSpec}, ::Val{:y}, ::Val{:R})
+    QuantityTag{:resistance}()
+end
+function PlotBuilder.axis_quantity(::Type{MCStatsPlotSpec}, ::Val{:y}, ::Val{:L})
+    QuantityTag{:inductance}()
+end
+function PlotBuilder.axis_quantity(::Type{MCStatsPlotSpec}, ::Val{:y}, ::Val{:C})
+    QuantityTag{:capacitance}()
+end
+function PlotBuilder.axis_quantity(::Type{MCStatsPlotSpec}, ::Val{:y}, ::Val{:G})
+    QuantityTag{:conductance}()
+end
 
 PlotBuilder.data_container(::Type{MCStatsPlotSpec}, ::Val{:x}) = nothing         # obj.f
 PlotBuilder.data_container(::Type{MCStatsPlotSpec}, ::Val{:y}) = :stats          # obj.stats[Sym]
@@ -43,27 +49,27 @@ PlotBuilder.data_container(::Type{MCStatsPlotSpec}, ::Val{:y}) = :stats         
 
 # Define plot title
 function PlotBuilder.default_title(::Type{MCStatsPlotSpec}, nt::NamedTuple)
-	qx = nt.x_quantity
-	qy = nt.y_quantity
-	key = nt.field
+    qx = nt.x_quantity
+    qy = nt.y_quantity
+    key = nt.field
 
-	y_label = get_label(qy)  # "Series resistance"
-	x_label = get_label(qx)  # "Frequency"
+    y_label = get_label(qy)  # "Series resistance"
+    x_label = get_label(qx)  # "Frequency"
 
-	return string(y_label, " ", String(key), " vs. ", x_label)
+    return string(y_label, " ", String(key), " vs. ", x_label)
 end
 
 # Define legend labels
 function PlotBuilder.legend_labels(::Type{MCStatsPlotSpec}, nt::NamedTuple)
-	qy = nt.y_quantity
-	key = nt.field
-	i = nt.i
-	j = nt.j
+    qy = nt.y_quantity
+    key = nt.field
+    i = nt.i
+    j = nt.j
 
-	y_label = get_symbol(qy)
+    y_label = get_symbol(qy)
 
-	entry = string(y_label, "[", i, ",", j, "] ", String(key))
-	return [entry]
+    entry = string(y_label, "[", i, ",", j, "] ", String(key))
+    return [entry]
 end
 
 # Semantic knobs:
@@ -74,12 +80,14 @@ PlotBuilder.input_kwargs(::Type{MCStatsPlotSpec}) = (:field,)
 PlotBuilder.renderer_kwargs(::Type{MCStatsPlotSpec}) = ()
 
 # Defaults for semantic knobs, given the dispatched object
-PlotBuilder.input_defaults(::Type{MCStatsPlotSpec}, ::LineParametersMC) = (
-	x = :f,
-	y = :R,
-	field = :mean,
-	# i,j,k are handled via index_keys + parse_kwargs (default 1 or :)
-)
+function PlotBuilder.input_defaults(::Type{MCStatsPlotSpec}, ::LineParametersMC)
+    (
+        x = :f,
+        y = :R,
+        field = :mean
+        # i,j,k are handled via index_keys + parse_kwargs (default 1 or :)
+    )
+end
 
 PlotBuilder.select_field(::Type{MCStatsPlotSpec}, ::Val{:x}) = nothing
 PlotBuilder.select_field(::Type{MCStatsPlotSpec}, ::Val{:y}) = :field # or :mean directly

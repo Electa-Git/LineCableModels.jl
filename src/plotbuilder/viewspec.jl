@@ -1,5 +1,5 @@
 """
-	make_views(::Type{S}, nt, axes, series) where {S<:AbstractPlotSpec}
+    make_views(::Type{S}, nt, axes, series) where {S<:AbstractPlotSpec}
 
 Groups SeriesSpec into ViewSpec values.
 
@@ -14,18 +14,18 @@ should override this method and partition `series` accordingly, setting
 a meaningful `key` for each ViewSpec.
 """
 function make_views(
-	::Type{S},
-	nt::NamedTuple,
-	axes::NamedTuple,
-	series::Vector{SeriesSpec},
+        ::Type{S},
+        nt::NamedTuple,
+        axes::NamedTuple,
+        series::Vector{SeriesSpec}
 ) where {S <: AbstractPlotSpec}
-	title = default_title(S, nt)
-	key   = (;)
+    title = default_title(S, nt)
+    key = (;)
 
-	xaxis = axes.xaxis
-	yaxis = axes.yaxis
-	zaxis = axes.zaxis
+    xaxis = axes.xaxis
+    yaxis = axes.yaxis
+    zaxis = axes.zaxis
 
-	view = ViewSpec(xaxis, yaxis, zaxis, title, series, key)
-	return ViewSpec[view]
+    view = ViewSpec(xaxis, yaxis, zaxis, title, series, key)
+    return ViewSpec[view]
 end

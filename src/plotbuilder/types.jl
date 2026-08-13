@@ -10,18 +10,18 @@ AxisSpec is the fully decided axis descriptor used by plot areas (views).
 - `scale`    : :linear or :log10
 """
 struct AxisSpec
-	dim::Symbol
-	quantity::QuantityTag
-	units::Units
-	label::String
-	scale::Symbol
+    dim::Symbol
+    quantity::QuantityTag
+    units::Units
+    label::String
+    scale::Symbol
 end
 
 # --------------------------------------------------------------------------
 # Payload hierarchy: series → view → figure → renderer
 # --------------------------------------------------------------------------
 """
-	SeriesSpec
+    SeriesSpec
 
 Single plot primitive (one Makie call).
 
@@ -33,15 +33,15 @@ Fields:
 - `label`  : legend entry for this series, or `nothing` for no legend
 """
 struct SeriesSpec
-	kind  :: Symbol
-	xdata :: Union{Nothing, AbstractVector{<:Number}}
-	ydata :: Union{Nothing, AbstractArray{<:Number}}
-	zdata :: Union{Nothing, AbstractArray{<:Number}}
-	label :: Union{Nothing, String}
+    kind::Symbol
+    xdata::Union{Nothing, AbstractVector{<:Number}}
+    ydata::Union{Nothing, AbstractArray{<:Number}}
+    zdata::Union{Nothing, AbstractArray{<:Number}}
+    label::Union{Nothing, String}
 end
 
 """
-	ViewSpec
+    ViewSpec
 
 One plot view / axis system.
 
@@ -58,16 +58,16 @@ Fields:
 - `key`    : NamedTuple identifying the facet, or empty `NamedTuple` if none
 """
 struct ViewSpec
-	xaxis  :: Union{Nothing, AxisSpec}
-	yaxis  :: Union{Nothing, AxisSpec}
-	zaxis  :: Union{Nothing, AxisSpec}
-	title  :: String
-	series :: Vector{SeriesSpec}
-	key    :: NamedTuple
+    xaxis::Union{Nothing, AxisSpec}
+    yaxis::Union{Nothing, AxisSpec}
+    zaxis::Union{Nothing, AxisSpec}
+    title::String
+    series::Vector{SeriesSpec}
+    key::NamedTuple
 end
 
 """
-	PageSpec
+    PageSpec
 
 One logical figure / window.
 
@@ -79,15 +79,15 @@ Fields:
 - `kwargs`     : figure-level backend options (e.g. figsize)
 """
 struct PageSpec
-	title  :: String
-	size   :: Tuple{Int, Int}
-	layout :: Symbol
-	views  :: Vector{ViewSpec}
-	kwargs :: NamedTuple
+    title::String
+    size::Tuple{Int, Int}
+    layout::Symbol
+    views::Vector{ViewSpec}
+    kwargs::NamedTuple
 end
 
 """
-	RenderSpec{S}
+    RenderSpec{S}
 
 Final product of the grammar pipeline for spec type `S`.
 
@@ -99,6 +99,6 @@ The rendering backend (Makie) should only see RenderSpec values and must
 never touch domain objects or grammar logic.
 """
 struct RenderSpec{S <: AbstractPlotSpec}
-	spec    :: Type{S}
-	figures :: Vector{PageSpec}
+    spec::Type{S}
+    figures::Vector{PageSpec}
 end

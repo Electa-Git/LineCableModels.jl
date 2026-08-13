@@ -34,75 +34,76 @@ const EXPORT_EXTENSION = "svg"
 # Material UI icons
 # -----------------------------------------------------------------------------
 const MI_REFRESH = "\uE5D5"  # Material Icons: 'refresh'
-const MI_SAVE    = "\uE161"  # Material Icons: 'save'
+const MI_SAVE = "\uE161"  # Material Icons: 'save'
 
 # -----------------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------------
 
-with_icon(icon::AbstractString; text::AbstractString = "",
-	isize::Int = BUTTON_ICON_SIZE, tsize::Int = BUTTON_TEXT_FONT_SIZE, color = :black,
-	gap::Int = 2,
-	dy_icon::Float64 = -0.18, dy_text::Float64 = 0.0) =
-	text == "" ?
-	rich(icon; font = :icons, fontsize = isize, color = color, offset = (0, dy_icon)) :
-	rich(
-		rich(icon; font = :icons, fontsize = isize, color = color, offset = (0, dy_icon)),
-		rich(" "^gap; font = :regular, fontsize = tsize, color = color),
-		rich(text; font = :regular, fontsize = tsize, color = color, offset = (0, dy_text)),
-	)
+function with_icon(icon::AbstractString; text::AbstractString = "",
+        isize::Int = BUTTON_ICON_SIZE, tsize::Int = BUTTON_TEXT_FONT_SIZE, color = :black,
+        gap::Int = 2,
+        dy_icon::Float64 = -0.18, dy_text::Float64 = 0.0)
+    text == "" ?
+    rich(icon; font = :icons, fontsize = isize, color = color, offset = (0, dy_icon)) :
+    rich(
+        rich(icon; font = :icons, fontsize = isize, color = color, offset = (0, dy_icon)),
+        rich(" "^gap; font = :regular, fontsize = tsize, color = color),
+        rich(text; font = :regular, fontsize = tsize, color = color, offset = (0, dy_text))
+    )
+end
 
 """
-	make_theme(; interactive::Bool, use_latex_fonts::Bool)
+    make_theme(; interactive::Bool, use_latex_fonts::Bool)
 
 Returns the package-specific Theme delta.
 """
 function make_theme(; interactive::Bool, use_latex_fonts::Bool)
-	background = interactive ? BG_COLOR_INTERACTIVE : BG_COLOR_EXPORT
+    background = interactive ? BG_COLOR_INTERACTIVE : BG_COLOR_EXPORT
 
-	# Base configuration
-	config = Dict{Symbol, Any}(
-		:backgroundcolor => background,
-		:Axis => (
-			titlesize      = AXIS_TITLE_FONT_SIZE,
-			xlabelsize     = AXIS_LABEL_FONT_SIZE,
-			ylabelsize     = AXIS_LABEL_FONT_SIZE,
-			xticklabelsize = AXIS_TICK_FONT_SIZE,
-			yticklabelsize = AXIS_TICK_FONT_SIZE,
-			xtickformat    = TICKFORMATTER,
-			ytickformat    = TICKFORMATTER,
-		),
-		:Legend => (
-			fontsize = AXIS_LABEL_FONT_SIZE,
-			labelsize = AXIS_LABEL_FONT_SIZE,
-		),
-		:Colorbar => (
-			labelsize     = AXIS_LABEL_FONT_SIZE,
-			ticklabelsize = AXIS_TICK_FONT_SIZE,
-		),
-	)
+    # Base configuration
+    config = Dict{Symbol, Any}(
+        :backgroundcolor => background,
+        :Axis => (
+            titlesize = AXIS_TITLE_FONT_SIZE,
+            xlabelsize = AXIS_LABEL_FONT_SIZE,
+            ylabelsize = AXIS_LABEL_FONT_SIZE,
+            xticklabelsize = AXIS_TICK_FONT_SIZE,
+            yticklabelsize = AXIS_TICK_FONT_SIZE,
+            xtickformat = TICKFORMATTER,
+            ytickformat = TICKFORMATTER
+        ),
+        :Legend => (
+            fontsize = AXIS_LABEL_FONT_SIZE,
+            labelsize = AXIS_LABEL_FONT_SIZE
+        ),
+        :Colorbar => (
+            labelsize = AXIS_LABEL_FONT_SIZE,
+            ticklabelsize = AXIS_TICK_FONT_SIZE
+        )
+    )
 
-	# Conditional logic: Fonts
-	# 1. Latex fonts (Export only)
-	if use_latex_fonts && !interactive
-		# merge! is safe on Dicts
-		merge!(config, Makie.theme_latexfonts().attributes)
-	end
+    # Conditional logic: Fonts
+    # 1. Latex fonts (Export only)
+    if use_latex_fonts && !interactive
+        # merge! is safe on Dicts
+        merge!(config, Makie.theme_latexfonts().attributes)
+    end
 
-	# 2. Icon fonts (Always try to load)
-	font_path = joinpath(
-		pkgdir(@__MODULE__),
-		"assets",
-		"fonts",
-		"material-icons",
-		"MaterialIcons-Regular.ttf",
-	)
-	if isfile(font_path)
-		current_fonts = get(config, :fonts, (;))
-		# Convert to NamedTuple to simple merge
-		new_fonts = merge(current_fonts, (; icons = font_path))
-		config[:fonts] = new_fonts
-	end
+    # 2. Icon fonts (Always try to load)
+    font_path = joinpath(
+        pkgdir(@__MODULE__),
+        "assets",
+        "fonts",
+        "material-icons",
+        "MaterialIcons-Regular.ttf"
+    )
+    if isfile(font_path)
+        current_fonts = get(config, :fonts, (;))
+        # Convert to NamedTuple to simple merge
+        new_fonts = merge(current_fonts, (; icons = font_path))
+        config[:fonts] = new_fonts
+    end
 
-	return Makie.Theme(; config...)
+    return Makie.Theme(; config...)
 end

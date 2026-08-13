@@ -30,23 +30,17 @@ df = $(FUNCTIONNAME)(library)
 first(df, 5)  # Show the first 5 rows of the DataFrame
 ```
 
-# See also
-
-- [`CablesLibrary`](@ref)
-- [`CableDesign`](@ref)
-- [`add!`](@ref)
 """
 function DataFrame(library::CablesLibrary)::DataFrame
     ids = keys(library)
     nominal_data = [string(design.nominal_data) for design in values(library)]
-    components = [
-        join([comp.id for comp in design.components], ", ") for
-        design in values(library)
-    ]
+    components = [join([comp.id for comp in design.components], ", ")
+                  for
+                  design in values(library)]
     df = DataFrame(
-        cable_id=collect(ids),
-        nominal_data=nominal_data,
-        components=components,
+        cable_id = collect(ids),
+        nominal_data = nominal_data,
+        components = components
     )
     return (df)
 end

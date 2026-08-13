@@ -48,7 +48,7 @@ function Base.show(io::IO, ::MIME"text/plain", model::EarthModel)
     # Print header with key information
     println(
         io,
-        "EarthModel with $(num_layers-1) $(orientation) earth $(layer_word) ($(model_type)) and $(num_freq_samples) frequency $(freq_word)",
+        "EarthModel with $(num_layers-1) $(orientation) earth $(layer_word) ($(model_type)) and $(num_freq_samples) frequency $(freq_word)"
     )
 
     # Print layers in treeview style
@@ -69,7 +69,7 @@ function Base.show(io::IO, ::MIME"text/plain", model::EarthModel)
             "$prefix $layer_name: [rho_g=$(round(layer.base_rho_g, sigdigits=4)), " *
             "epsr_g=$(round(layer.base_epsr_g, sigdigits=4)), " *
             "mur_g=$(round(layer.base_mur_g, sigdigits=4)), " *
-            "t=$thickness_str]",
+            "t=$thickness_str]"
         )
     end
 
@@ -78,5 +78,4 @@ function Base.show(io::IO, ::MIME"text/plain", model::EarthModel)
         formulation_tag = get_description(model.freq_dependence)
         println(io, "   Frequency-dependent model: $(formulation_tag)")
     end
-
 end

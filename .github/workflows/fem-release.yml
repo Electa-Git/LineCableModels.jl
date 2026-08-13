@@ -1,0 +1,41 @@
+name: FEM release gate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fem:
+    name: FEM / Gmsh / GetDP 3.5.0
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GETDP_URL: https://getdp.info/bin/Linux/getdp-3.5.0-Linux64c.tgz
+      GETDP_SHA256: d3c28fa18f20d6147b4c7367d4dd802e9f7ddb58c608688bbb71919dbca8041d
+    steps:
+      - uses: actions/checkout@v6
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: "1.12"
+      - uses: julia-actions/cache@v3
+      - name: Download and verify GetDP
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="${RUNNER_TEMP}/getdp-3.5.0-Linux64c.tgz"
+          install_dir="${RUNNER_TEMP}/getdp-3.5.0"
+          curl --fail --location --output "${archive}" "${GETDP_URL}"
+          echo "${GETDP_SHA256}  ${archive}" | sha256sum --check -
+          mkdir -p "${install_dir}"
+          tar -xzf "${archive}" --strip-components=1 -C "${install_dir}"
+          echo "GETDP_EXECUTABLE=${install_dir}/bin/getdp" >> "${GITHUB_ENV}"
+      - name: Run FEM integration tests without coverage
+        shell: julia --project=. --startup-file=no --code-coverage=none --color=yes {0}
+        run: |
+          using Pkg
+          Pkg.activate(; temp = true)
+          Pkg.develop(PackageSpec(path = pwd()))
+          Pkg.add("Gmsh")
+          include(joinpath(pwd(), "integration", "fem", "runtests.jl"))

@@ -3,10 +3,10 @@
 $(TYPEDEF)
 
 Abstract base type for workspace containers in the FEM simulation framework.
-Workspace containers maintain the complete state of a simulation, including 
+Workspace containers maintain the complete state of a simulation, including
 intermediate data structures, identification mappings, and results.
 
-Concrete implementations should provide state tracking for all phases of the 
+Concrete implementations should provide state tracking for all phases of the
 simulation process from geometry creation through results analysis.
 """
 abstract type AbstractWorkspace end
@@ -26,12 +26,12 @@ Core entity data structure containing common properties for all entity types.
 $(TYPEDFIELDS)
 """
 struct CoreEntityData
-	"Encoded physical tag \\[dimensionless\\]."
-	physical_group_tag::Int
-	"Name of the elementary surface."
-	elementary_name::String
-	"Target mesh size \\[m\\]."
-	mesh_size::Float64
+    "Encoded physical tag \\[dimensionless\\]."
+    physical_group_tag::Int
+    "Name of the elementary surface."
+    elementary_name::String
+    "Target mesh size \\[m\\]."
+    mesh_size::Float64
 end
 
 """
@@ -42,10 +42,10 @@ Entity data structure for cable parts.
 $(TYPEDFIELDS)
 """
 struct CablePartEntity{T <: AbstractCablePart} <: AbstractEntityData
-	"Core entity data."
-	core::CoreEntityData
-	"Reference to original cable part."
-	cable_part::T
+    "Core entity data."
+    core::CoreEntityData
+    "Reference to original cable part."
+    cable_part::T
 end
 
 """
@@ -56,10 +56,10 @@ Entity data structure for domain surfaces external to cable parts.
 $(TYPEDFIELDS)
 """
 struct SurfaceEntity <: AbstractEntityData
-	"Core entity data."
-	core::CoreEntityData
-	"Material properties of the domain."
-	material::Material
+    "Core entity data."
+    core::CoreEntityData
+    "Material properties of the domain."
+    material::Material
 end
 
 """
@@ -70,10 +70,10 @@ Entity data structure for domain curves (boundaries and layer interfaces).
 $(TYPEDFIELDS)
 """
 struct CurveEntity <: AbstractEntityData
-	"Core entity data."
-	core::CoreEntityData
-	"Material properties of the domain."
-	material::Material
+    "Core entity data."
+    core::CoreEntityData
+    "Material properties of the domain."
+    material::Material
 end
 
 """
@@ -84,10 +84,10 @@ Entity container that associates Gmsh entity with metadata.
 $(TYPEDFIELDS)
 """
 struct GmshObject{T <: AbstractEntityData}
-	"Gmsh entity tag (will be defined after boolean fragmentation)."
-	tag::Int32
-	"Entity-specific data."
-	data::T
+    "Gmsh entity tag (will be defined after boolean fragmentation)."
+    tag::Int32
+    "Entity-specific data."
+    data::T
 end
 
 """
@@ -118,24 +118,23 @@ entity = $(FUNCTIONNAME)(1, domain_data)
 ```
 """
 function GmshObject(tag::Integer, data::T) where {T <: AbstractEntityData}
-	return GmshObject{T}(Int32(tag), data)
+    return GmshObject{T}(Int32(tag), data)
 end
 
 mutable struct Darwin <: AbstractImpedanceFormulation
-	problem::GetDP.Problem
-	resolution_name::String
+    problem::GetDP.Problem
+    resolution_name::String
 
-	function Darwin()
-		return new(GetDP.Problem(), "Darwin")
-	end
-
+    function Darwin()
+        return new(GetDP.Problem(), "Darwin")
+    end
 end
 
 mutable struct Electrodynamics <: AbstractAdmittanceFormulation
-	problem::GetDP.Problem
-	resolution_name::String
+    problem::GetDP.Problem
+    resolution_name::String
 
-	function Electrodynamics()
-		return new(GetDP.Problem(), "Electrodynamics")
-	end
+    function Electrodynamics()
+        return new(GetDP.Problem(), "Electrodynamics")
+    end
 end

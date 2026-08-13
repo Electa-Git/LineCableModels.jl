@@ -1,5 +1,5 @@
 """
-	LineCableModels.EarthProps
+    LineCableModels.EarthProps
 
 The [`EarthProps`](@ref) module provides functionality for modeling and computing earth properties within the [`LineCableModels.jl`](index.md) package. This module includes definitions for homogeneous and layered earth models, and formulations for frequency-dependent earth properties, to be used in impedance/admittance calculations.
 
@@ -14,16 +14,13 @@ The [`EarthProps`](@ref) module provides functionality for modeling and computin
 
 $(IMPORTS)
 
-# Exports
-
-$(EXPORTS)
 """
 module EarthProps
 
 # Export public API
 export CPEarth,
-	EarthLayer,
-	EarthModel
+       EarthLayer,
+       EarthModel
 
 # Module-specific dependencies
 using ..Commons
@@ -42,28 +39,28 @@ Represents one single earth layer in an [`EarthModel`](@ref) object, with base a
 $(TYPEDFIELDS)
 """
 struct EarthLayer{T <: REALSCALAR}
-	"Base (DC) electrical resistivity \\[Ω·m\\]."
-	base_rho_g::T
-	"Base (DC) relative permittivity \\[dimensionless\\]."
-	base_epsr_g::T
-	"Base (DC)  relative permeability \\[dimensionless\\]."
-	base_mur_g::T
-	"Thickness of the layer \\[m\\]."
-	t::T
-	"Computed resistivity values \\[Ω·m\\] at given frequencies."
-	rho_g::Vector{T}
-	"Computed permittivity values \\[F/m\\] at given frequencies."
-	eps_g::Vector{T}
-	"Computed permeability values \\[H/m\\] at given frequencies."
-	mu_g::Vector{T}
+    "Base (DC) electrical resistivity \\[Ω·m\\]."
+    base_rho_g::T
+    "Base (DC) relative permittivity \\[dimensionless\\]."
+    base_epsr_g::T
+    "Base (DC)  relative permeability \\[dimensionless\\]."
+    base_mur_g::T
+    "Thickness of the layer \\[m\\]."
+    t::T
+    "Computed resistivity values \\[Ω·m\\] at given frequencies."
+    rho_g::Vector{T}
+    "Computed permittivity values \\[F/m\\] at given frequencies."
+    eps_g::Vector{T}
+    "Computed permeability values \\[H/m\\] at given frequencies."
+    mu_g::Vector{T}
 
-	@doc """
-	Constructs an [`EarthLayer`](@ref) instance with specified base and frequency-dependent properties.
-	"""
-	function EarthLayer{T}(base_rho_g::T, base_epsr_g::T, base_mur_g::T, t::T,
-		rho_g::Vector{T}, eps_g::Vector{T}, mu_g::Vector{T}) where {T <: REALSCALAR}
-		new{T}(base_rho_g, base_epsr_g, base_mur_g, t, rho_g, eps_g, mu_g)
-	end
+    @doc """
+     Constructs an [`EarthLayer`](@ref) instance with specified base and frequency-dependent properties.
+     """
+    function EarthLayer{T}(base_rho_g::T, base_epsr_g::T, base_mur_g::T, t::T,
+            rho_g::Vector{T}, eps_g::Vector{T}, mu_g::Vector{T}) where {T <: REALSCALAR}
+        new{T}(base_rho_g, base_epsr_g, base_mur_g, t, rho_g, eps_g, mu_g)
+    end
 end
 
 """
@@ -94,48 +91,44 @@ println(layer.eps_g) # Output: [8.854e-11, 8.854e-11, 8.854e-11]
 println(layer.mu_g)  # Output: [1.2566e-6, 1.2566e-6, 1.2566e-6]
 ```
 
-# See also
-
-- [`CPEarth`](@ref)
 """
 function EarthLayer(
-	frequencies::Vector{T},
-	base_rho_g::T,
-	base_epsr_g::T,
-	base_mur_g::T,
-	t::T,
-	freq_dependence::AbstractFDEMFormulation,
+        frequencies::Vector{T},
+        base_rho_g::T,
+        base_epsr_g::T,
+        base_mur_g::T,
+        t::T,
+        freq_dependence::AbstractFDEMFormulation
 ) where {T <: REALSCALAR}
-
-	rho_g, eps_g, mu_g = freq_dependence(frequencies, base_rho_g, base_epsr_g, base_mur_g)
-	return EarthLayer{T}(
-		base_rho_g,
-		base_epsr_g,
-		base_mur_g,
-		t,
-		rho_g,
-		eps_g,
-		mu_g,
-	)
+    rho_g, eps_g, mu_g = freq_dependence(frequencies, base_rho_g, base_epsr_g, base_mur_g)
+    return EarthLayer{T}(
+        base_rho_g,
+        base_epsr_g,
+        base_mur_g,
+        t,
+        rho_g,
+        eps_g,
+        mu_g
+    )
 end
 
 function EarthLayer(
-	frequencies::AbstractVector,
-	base_rho_g,
-	base_epsr_g,
-	base_mur_g,
-	t,
-	freq_dependence,
+        frequencies::AbstractVector,
+        base_rho_g,
+        base_epsr_g,
+        base_mur_g,
+        t,
+        freq_dependence
 )
-	T = resolve_T(frequencies, base_rho_g, base_epsr_g, base_mur_g, t)
-	return EarthLayer(
-		coerce_to_T(frequencies, T),
-		coerce_to_T(base_rho_g, T),
-		coerce_to_T(base_epsr_g, T),
-		coerce_to_T(base_mur_g, T),
-		coerce_to_T(t, T),
-		freq_dependence,
-	)
+    T = resolve_T(frequencies, base_rho_g, base_epsr_g, base_mur_g, t)
+    return EarthLayer(
+        coerce_to_T(frequencies, T),
+        coerce_to_T(base_rho_g, T),
+        coerce_to_T(base_epsr_g, T),
+        coerce_to_T(base_mur_g, T),
+        coerce_to_T(t, T),
+        freq_dependence
+    )
 end
 
 """
@@ -146,21 +139,21 @@ Represents a multi-layered earth model with frequency-dependent properties, and 
 $(TYPEDFIELDS)
 """
 struct EarthModel{T <: REALSCALAR}
-	"Selected frequency-dependent formulation for earth properties."
-	freq_dependence::AbstractFDEMFormulation
-	"Boolean flag indicating whether the model is treated as vertically layered."
-	vertical_layers::Bool
-	"Vector of [`EarthLayer`](@ref) objects, starting with an air layer and the specified first earth layer."
-	layers::Vector{EarthLayer{T}}
+    "Selected frequency-dependent formulation for earth properties."
+    freq_dependence::AbstractFDEMFormulation
+    "Boolean flag indicating whether the model is treated as vertically layered."
+    vertical_layers::Bool
+    "Vector of [`EarthLayer`](@ref) objects, starting with an air layer and the specified first earth layer."
+    layers::Vector{EarthLayer{T}}
 
-	@doc """
-	Constructs an [`EarthModel`](@ref) instance with specified attributes.
-	"""
-	function EarthModel{T}(freq_dependence::AbstractFDEMFormulation,
-		vertical_layers::Bool,
-		layers::Vector{EarthLayer{T}}) where {T <: REALSCALAR}
-		new{T}(freq_dependence, vertical_layers, layers)
-	end
+    @doc """
+     Constructs an [`EarthModel`](@ref) instance with specified attributes.
+     """
+    function EarthModel{T}(freq_dependence::AbstractFDEMFormulation,
+            vertical_layers::Bool,
+            layers::Vector{EarthLayer{T}}) where {T <: REALSCALAR}
+        new{T}(freq_dependence, vertical_layers, layers)
+    end
 end
 
 """
@@ -192,81 +185,77 @@ println(length(earth_model.layers)) # Output: 2 (air + top layer)
 println(earth_model.rho_eff) # Output: missing
 ```
 
-# See also
-
-- [`EarthLayer`](@ref)
-- [`add!`](@ref)
 """
 function EarthModel(
-	frequencies::Vector{T},
-	rho_g::T,
-	epsr_g::T,
-	mur_g::T;
-	t::T = T(Inf),
-	freq_dependence::AbstractFDEMFormulation = CPEarth(),
-	vertical_layers::Bool = false,
-	air_layer::Union{EarthLayer{T}, Nothing} = nothing,
+        frequencies::Vector{T},
+        rho_g::T,
+        epsr_g::T,
+        mur_g::T;
+        t::T = T(Inf),
+        freq_dependence::AbstractFDEMFormulation = CPEarth(),
+        vertical_layers::Bool = false,
+        air_layer::Union{EarthLayer{T}, Nothing} = nothing
 ) where {T <: REALSCALAR}
 
-	# Validate inputs
-	@assert all(f -> f > 0, frequencies) "Frequencies must be positive"
-	@assert rho_g > 0 "Resistivity must be positive"
-	@assert epsr_g > 0 "Relative permittivity must be positive"
-	@assert mur_g > 0 "Relative permeability must be positive"
-	@assert t > 0 || isinf(t) "Layer thickness must be positive or infinite"
+    # Validate inputs
+    @assert all(f -> f > 0, frequencies) "Frequencies must be positive"
+    @assert rho_g > 0 "Resistivity must be positive"
+    @assert epsr_g > 0 "Relative permittivity must be positive"
+    @assert mur_g > 0 "Relative permeability must be positive"
+    @assert t > 0 || isinf(t) "Layer thickness must be positive or infinite"
 
-	# Enforce rule for vertical model initialization
-	if vertical_layers && !isinf(t)
-		Base.error(
-			"A vertically-layered model must be initialized with an infinite thickness (t=Inf).",
-		)
-	end
+    # Enforce rule for vertical model initialization
+    if vertical_layers && !isinf(t)
+        Base.error(
+            "A vertically-layered model must be initialized with an infinite thickness (t=Inf).",
+        )
+    end
 
-	# Create air layer if not provided
-	if air_layer === nothing
-		air_layer = EarthLayer(frequencies, T(Inf), T(1.0), T(1.0), T(Inf), freq_dependence)
-	end
+    # Create air layer if not provided
+    if air_layer === nothing
+        air_layer = EarthLayer(frequencies, T(Inf), T(1.0), T(1.0), T(Inf), freq_dependence)
+    end
 
-	# Create top earth layer
-	top_layer = EarthLayer(frequencies, rho_g, epsr_g, mur_g, t, freq_dependence)
+    # Create top earth layer
+    top_layer = EarthLayer(frequencies, rho_g, epsr_g, mur_g, t, freq_dependence)
 
-	return EarthModel{T}(
-		freq_dependence,
-		vertical_layers,
-		[air_layer, top_layer],
-	)
+    return EarthModel{T}(
+        freq_dependence,
+        vertical_layers,
+        [air_layer, top_layer]
+    )
 end
 
 function EarthModel(
-	frequencies::AbstractVector,
-	rho_g,
-	epsr_g,
-	mur_g;
-	t = Inf,
-	freq_dependence = CPEarth(),
-	vertical_layers = false,
-	air_layer = nothing,
+        frequencies::AbstractVector,
+        rho_g,
+        epsr_g,
+        mur_g;
+        t = Inf,
+        freq_dependence = CPEarth(),
+        vertical_layers = false,
+        air_layer = nothing
 )
-	T = resolve_T(
-		frequencies,
-		rho_g,
-		epsr_g,
-		mur_g,
-		t,
-		freq_dependence,
-		vertical_layers,
-		air_layer,
-	)
-	return EarthModel(
-		coerce_to_T(frequencies, T),
-		coerce_to_T(rho_g, T),
-		coerce_to_T(epsr_g, T),
-		coerce_to_T(mur_g, T);
-		t = coerce_to_T(t, T),
-		freq_dependence = freq_dependence,
-		vertical_layers = vertical_layers,
-		air_layer = air_layer === nothing ? nothing : coerce_to_T(air_layer, T),
-	)
+    T = resolve_T(
+        frequencies,
+        rho_g,
+        epsr_g,
+        mur_g,
+        t,
+        freq_dependence,
+        vertical_layers,
+        air_layer
+    )
+    return EarthModel(
+        coerce_to_T(frequencies, T),
+        coerce_to_T(rho_g, T),
+        coerce_to_T(epsr_g, T),
+        coerce_to_T(mur_g, T);
+        t = coerce_to_T(t, T),
+        freq_dependence = freq_dependence,
+        vertical_layers = vertical_layers,
+        air_layer = air_layer === nothing ? nothing : coerce_to_T(air_layer, T)
+    )
 end
 
 """
@@ -329,9 +318,9 @@ println(length(vert_earth_model.layers)) # Output: 3
 
 # Attempt to add a third infinite layer (invalid case)
 try
-	$(FUNCTIONNAME)(vert_earth_model, frequencies, 120, 12, 1, t=Inf)
+    $(FUNCTIONNAME)(vert_earth_model, frequencies, 120, 12, 1, t=Inf)
 catch e
-	println(e) # Error: Cannot add consecutive vertical layers with infinite thickness.
+    println(e) # Error: Cannot add consecutive vertical layers with infinite thickness.
 end
 
 # Fix: Set a finite thickness to the currently rightmost layer
@@ -342,102 +331,98 @@ $(FUNCTIONNAME)(vert_earth_model, frequencies, 120, 12, 1, t=Inf)
 println(length(vert_earth_model.layers)) # Output: 4
 ```
 
-# See also
-
-- [`EarthLayer`](@ref)
 """
 function add!(
-	model::EarthModel{T},
-	frequencies::Vector{T},
-	base_rho_g::T,
-	base_epsr_g::T,
-	base_mur_g::T;
-	t::T = T(Inf),
+        model::EarthModel{T},
+        frequencies::Vector{T},
+        base_rho_g::T,
+        base_epsr_g::T,
+        base_mur_g::T;
+        t::T = T(Inf)
 ) where {T <: REALSCALAR}
+    num_layers = length(model.layers)
 
-	num_layers = length(model.layers)
+    # Validate inputs following established pattern
+    @assert all(f -> f > 0, frequencies) "Frequencies must be positive"
+    @assert base_rho_g > 0 "Resistivity must be positive"
+    @assert base_epsr_g > 0 "Relative permittivity must be positive"
+    @assert base_mur_g > 0 "Relative permeability must be positive"
+    @assert t > 0 || isinf(t) "Layer thickness must be positive or infinite"
+    @assert eltype(frequencies) === T "frequencies eltype must match model T"
+    @assert all(x -> x isa T, (base_rho_g, base_epsr_g, base_mur_g)) "scalars must match model T"
 
-	# Validate inputs following established pattern
-	@assert all(f -> f > 0, frequencies) "Frequencies must be positive"
-	@assert base_rho_g > 0 "Resistivity must be positive"
-	@assert base_epsr_g > 0 "Relative permittivity must be positive"
-	@assert base_mur_g > 0 "Relative permeability must be positive"
-	@assert t > 0 || isinf(t) "Layer thickness must be positive or infinite"
-	@assert eltype(frequencies) === T "frequencies eltype must match model T"
-	@assert all(x -> x isa T, (base_rho_g, base_epsr_g, base_mur_g)) "scalars must match model T"
+    # Enforce thickness rules
+    if isinf(last(model.layers).t)
+        # The current last layer is infinite.
+        if model.vertical_layers && num_layers == 2
+            # This is the special case: adding the second earth layer to a vertical model.
+            # The new layer can be finite or infinite. No error.
+        else
+            # For all other cases (horizontal, or vertical with >2 earth layers),
+            # it's an error to add anything after an infinite layer.
+            model_type = model.vertical_layers ? "vertical" : "horizontal"
+            Base.error("Cannot add a $(model_type) layer after an infinite one.")
+        end
+    end
 
-	# Enforce thickness rules
-	if isinf(last(model.layers).t)
-		# The current last layer is infinite.
-		if model.vertical_layers && num_layers == 2
-			# This is the special case: adding the second earth layer to a vertical model.
-			# The new layer can be finite or infinite. No error.
-		else
-			# For all other cases (horizontal, or vertical with >2 earth layers),
-			# it's an error to add anything after an infinite layer.
-			model_type = model.vertical_layers ? "vertical" : "horizontal"
-			Base.error("Cannot add a $(model_type) layer after an infinite one.")
-		end
-	end
+    # Create the new earth layer
+    new_layer = EarthLayer(
+        frequencies,
+        base_rho_g,
+        base_epsr_g,
+        base_mur_g,
+        t,
+        model.freq_dependence
+    )
+    push!(model.layers, new_layer)
 
-	# Create the new earth layer
-	new_layer = EarthLayer(
-		frequencies,
-		base_rho_g,
-		base_epsr_g,
-		base_mur_g,
-		t,
-		model.freq_dependence,
-	)
-	push!(model.layers, new_layer)
-
-	model
+    model
 end
 
 function add!(
-	model::EarthModel,
-	frequencies::AbstractVector,
-	base_rho_g,
-	base_epsr_g,
-	base_mur_g;
-	t = Inf,
+        model::EarthModel,
+        frequencies::AbstractVector,
+        base_rho_g,
+        base_epsr_g,
+        base_mur_g;
+        t = Inf
 )
 
-	# Resolve the required type from ALL inputs (the model + the new layer)
-	T_new = resolve_T(model, frequencies, base_rho_g, base_epsr_g, base_mur_g, t)
-	T_old = eltype(model)
+    # Resolve the required type from ALL inputs (the model + the new layer)
+    T_new = resolve_T(model, frequencies, base_rho_g, base_epsr_g, base_mur_g, t)
+    T_old = eltype(model)
 
-	if T_new == T_old
-		# CASE 1: No promotion needed. The model already has the correct type.
-		# This is the fast path that mutates the existing model.
-		return add!(
-			model, # Pass the original model
-			coerce_to_T(frequencies, T_new),
-			coerce_to_T(base_rho_g, T_new),
-			coerce_to_T(base_epsr_g, T_new),
-			coerce_to_T(base_mur_g, T_new);
-			t = coerce_to_T(t, T_new),
-		)
-	else
-		# CASE 2: Promotion is required (e.g., from Float64 to Measurement).
-		@warn """
-		Adding a `$T_new` layer to a `$T_old` EarthModel created a new object and did NOT modify the original in-place.
-		You MUST capture the returned value to avoid losing changes, e.g.  `earth_model = add!(earth_model, ...)`
-		"""
+    if T_new == T_old
+        # CASE 1: No promotion needed. The model already has the correct type.
+        # This is the fast path that mutates the existing model.
+        return add!(
+            model, # Pass the original model
+            coerce_to_T(frequencies, T_new),
+            coerce_to_T(base_rho_g, T_new),
+            coerce_to_T(base_epsr_g, T_new),
+            coerce_to_T(base_mur_g, T_new);
+            t = coerce_to_T(t, T_new)
+        )
+    else
+        # CASE 2: Promotion is required (e.g., from Float64 to Measurement).
+        @warn """
+          Adding a `$T_new` layer to a `$T_old` EarthModel created a new object and did NOT modify the original in-place.
+          You MUST capture the returned value to avoid losing changes, e.g.  `earth_model = add!(earth_model, ...)`
+          """
 
-		# 1. Create a new model by coercing the original one to the new type.
-		promoted_model = coerce_to_T(model, T_new)
+        # 1. Create a new model by coercing the original one to the new type.
+        promoted_model = coerce_to_T(model, T_new)
 
-		# 2. Call the inner add! method on the NEWLY CREATED model.
-		return add!(
-			promoted_model,
-			coerce_to_T(frequencies, T_new),
-			coerce_to_T(base_rho_g, T_new),
-			coerce_to_T(base_epsr_g, T_new),
-			coerce_to_T(base_mur_g, T_new);
-			t = coerce_to_T(t, T_new),
-		)
-	end
+        # 2. Call the inner add! method on the NEWLY CREATED model.
+        return add!(
+            promoted_model,
+            coerce_to_T(frequencies, T_new),
+            coerce_to_T(base_rho_g, T_new),
+            coerce_to_T(base_epsr_g, T_new),
+            coerce_to_T(base_mur_g, T_new);
+            t = coerce_to_T(t, T_new)
+        )
+    end
 end
 
 include("typecoercion.jl")

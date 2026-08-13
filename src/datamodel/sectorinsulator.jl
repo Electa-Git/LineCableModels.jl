@@ -5,7 +5,7 @@ Represents an insulating layer surrounding a sector-shaped conductor.
 
 $(TYPEDFIELDS)
 """
-struct SectorInsulator{T<:REALSCALAR} <: AbstractInsulatorPart{T}
+struct SectorInsulator{T <: REALSCALAR} <: AbstractInsulatorPart{T}
     "Inner radius (not applicable, defined by inner sector) \\[m\\]."
     r_in::T
     "Outer radius (equivalent back radius of outer boundary) \\[m\\]."
@@ -28,13 +28,12 @@ struct SectorInsulator{T<:REALSCALAR} <: AbstractInsulatorPart{T}
     outer_vertices::Vector{Point{2, T}}
 end
 
-
 function SectorInsulator(
-    inner_sector::Sector{T},
-    thickness::T,
-    material_props::Material{T};
-    temperature::T=T₀,
-) where {T<:REALSCALAR}
+        inner_sector::Sector{T},
+        thickness::T,
+        material_props::Material{T};
+        temperature::T = T₀
+) where {T <: REALSCALAR}
 
     # 1. Calculate the outer vertices by offsetting the inner sector's geometry
     outer_vertices = _calculate_offset_polygon(inner_sector.vertices, thickness)
@@ -52,8 +51,6 @@ function SectorInsulator(
     #         @debug "(Sector) outer_vertices not closed — appended first point to close polygon."
     #     end
     # end
-
-
 
     #outer_area = PolygonOps.area(outer_vertices)
     outer_area = _shoelace_area(outer_vertices)
@@ -85,9 +82,10 @@ function SectorInsulator(
     )
 end
 
-# --- Geometric Helper Functions (internal) --- 
+# --- Geometric Helper Functions (internal) ---
 # REVISED: This function now takes vertices and thickness to compute a geometric offset.
-function _calculate_offset_polygon(vertices::Vector{Point{2, T}}, thickness::T) where {T<:REALSCALAR}
+function _calculate_offset_polygon(vertices::Vector{Point{2, T}}, thickness::T) where {T <:
+                                                                                       REALSCALAR}
     num_vertices = length(vertices)
     if num_vertices < 3
         error("Polygon must have at least 3 vertices.")
@@ -116,7 +114,7 @@ function _calculate_offset_polygon(vertices::Vector{Point{2, T}}, thickness::T) 
 
         # Angle between the two vectors to calculate the correct offset distance
         angle = acos(clamp(v1_norm ⋅ v2_norm, -1.0, 1.0))
-        
+
         # Miter length
         offset_distance = thickness / sin((π - angle) / 2)
 

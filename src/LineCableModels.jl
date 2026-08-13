@@ -9,7 +9,8 @@ export add!, set_verbosity!, set_backend!
 export Material, MaterialsLibrary
 
 # Data model (design + system):
-export Thickness, Diameter, WireArray, Strip, Tubular, Semicon, Insulator, Sector, SectorParams, SectorInsulator
+export Thickness, Diameter, WireArray, Strip, Tubular, Semicon, Insulator, Sector,
+       SectorParams, SectorInsulator
 export ConductorGroup, InsulatorGroup
 export CableComponent, CableDesign, NominalData
 export CablesLibrary
@@ -21,8 +22,8 @@ export EarthModel
 
 # Engine:
 export LineParametersProblem,
-	FormulationSet, compute!, SeriesImpedance, ShuntAdmittance, per_km, per_m, kronify,
-	LineParameters, PhaseDomain, ModalDomain
+       FormulationSet, compute!, SeriesImpedance, ShuntAdmittance, per_km, per_m, kronify,
+       LineParameters, PhaseDomain, ModalDomain
 
 # Parametric builder:
 # export make_stranded, make_screened
@@ -65,14 +66,16 @@ using .EarthProps: EarthModel
 # Submodule `DataModel`
 include("datamodel/DataModel.jl")
 using .DataModel: Thickness, Diameter, CircStrands, RectStrands, Strip, Tubular, Semicon,
-	Insulator, ConductorGroup, InsulatorGroup, CableComponent, CableDesign, NominalData,
-	CablesLibrary, CablePosition, LineCableSystem, trifoil_formation, flat_formation,
-	preview, equivalent, MaxFill, Sector, SectorParams, SectorInsulator
+                  Insulator, ConductorGroup, InsulatorGroup, CableComponent, CableDesign,
+                  NominalData,
+                  CablesLibrary, CablePosition, LineCableSystem, trifoil_formation,
+                  flat_formation,
+                  preview, equivalent, MaxFill, Sector, SectorParams, SectorInsulator
 
 # Submodule `Engine`
 include("engine/Engine.jl")
 using .Engine: LineParametersProblem, compute!, LineParameters, SeriesImpedance,
-	ShuntAdmittance, per_km, per_m, kronify, FormulationSet
+               ShuntAdmittance, per_km, per_m, kronify, FormulationSet
 
 # Submodule `ParametricBuilder`
 include("parametricbuilder/ParametricBuilder.jl")
