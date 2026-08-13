@@ -1,7 +1,4 @@
 using Test
-using Measurements
-using Measurements: measurement, uncertainty, value
-using DataFrames
 using Gmsh
 using LineCableModels
 using LineCableModels.Commons
