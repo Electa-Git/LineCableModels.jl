@@ -9,7 +9,7 @@ export add!, set_verbosity!, set_backend!
 export Material, MaterialsLibrary
 
 # Data model (design + system):
-export Thickness, Diameter, CircStrands, RectStrands, Strip, Tubular, Semicon, Insulator
+export Thickness, Diameter, WireArray, Strip, Tubular, Semicon, Insulator, Sector, SectorParams, SectorInsulator
 export ConductorGroup, InsulatorGroup
 export CableComponent, CableDesign, NominalData
 export CablesLibrary
@@ -67,7 +67,7 @@ include("datamodel/DataModel.jl")
 using .DataModel: Thickness, Diameter, CircStrands, RectStrands, Strip, Tubular, Semicon,
 	Insulator, ConductorGroup, InsulatorGroup, CableComponent, CableDesign, NominalData,
 	CablesLibrary, CablePosition, LineCableSystem, trifoil_formation, flat_formation,
-	preview, equivalent, MaxFill
+	preview, equivalent, MaxFill, Sector, SectorParams, SectorInsulator
 
 # Submodule `Engine`
 include("engine/Engine.jl")

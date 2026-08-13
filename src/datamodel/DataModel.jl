@@ -23,8 +23,8 @@ module DataModel
 
 # Export public API
 export Thickness, Diameter  # Type definitions
-export CircStrands, RectStrands, Strip, Tubular  # Conductor types
-export Semicon, Insulator  # Insulator types
+export CircStrands, RectStrands, Strip, Tubular, SectorParams, Sector  # Conductor types
+export Semicon, Insulator, SectorInsulator  # Insulator types
 export ConductorGroup, InsulatorGroup  # Group types
 export CableComponent, CableDesign  # Cable design types
 export CablePosition, LineCableSystem  # System types
@@ -52,7 +52,8 @@ using DataFrames
 using Colors
 using Plots
 using DisplayAs: DisplayAs
-
+using LinearAlgebra
+using Makie: Point, Point2f # otherwise will require adding GeometryBasics as a dependency
 # Abstract types & interfaces
 include("types.jl")
 include("radii.jl")
@@ -72,11 +73,13 @@ include("rectstrands.jl")
 include("strip.jl")
 include("tubular.jl")
 include("conductorgroup.jl")
+include("sector.jl")
 
 # Insulators
 include("insulator.jl")
 include("semicon.jl")
 include("insulatorgroup.jl")
+include("sectorinsulator.jl")
 
 
 # Groups
