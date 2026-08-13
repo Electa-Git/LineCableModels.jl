@@ -7,34 +7,34 @@ An EHEM formulation that creates a homogeneous earth model by enforcing the prop
 $(TYPEDFIELDS)
 """
 struct EnforceLayer <: AbstractEHEMFormulation
-	"Index of the earth layer to enforce. `-1` selects the bottommost layer."
-	layer::Int
+    "Index of the earth layer to enforce. `-1` selects the bottommost layer."
+    layer::Int
 
-	@doc """
-	$(TYPEDSIGNATURES)
+    @doc """
+     $(TYPEDSIGNATURES)
 
-	Constructs an `EnforceLayer` instance.
+     Constructs an `EnforceLayer` instance.
 
-	# Arguments
-	- `layer::Int`: The index of the layer to enforce.
-		- `-1` (default): Enforces the properties of the bottommost earth layer.
-		- `2`: Enforces the properties of the topmost earth layer (the one directly below the air).
-		- `> 2`: Enforces the properties of a specific layer by its index.
-	"""
-	function EnforceLayer(; layer::Int = -1)
-		@assert (layer == -1 || layer >= 2) "Invalid layer index. Must be -1 (bottommost) or >= 2."
-		new(layer)
-	end
+     # Arguments
+     - `layer::Int`: The index of the layer to enforce.
+         - `-1` (default): Enforces the properties of the bottommost earth layer.
+         - `2`: Enforces the properties of the topmost earth layer (the one directly below the air).
+         - `> 2`: Enforces the properties of a specific layer by its index.
+     """
+    function EnforceLayer(; layer::Int = -1)
+        @assert (layer == -1 || layer >= 2) "Invalid layer index. Must be -1 (bottommost) or >= 2."
+        new(layer)
+    end
 end
 
 function get_description(f::EnforceLayer)
-	if f.layer == -1
-		return "Assume bottom layer"
-	elseif f.layer == 2
-		return "Assume top earth layer"
-	else
-		return "Assume layer $(f.layer)"
-	end
+    if f.layer == -1
+        return "Assume bottom layer"
+    elseif f.layer == 2
+        return "Assume top earth layer"
+    else
+        return "Assume layer $(f.layer)"
+    end
 end
 
 """
@@ -50,38 +50,37 @@ Builds a 2-layer (air + one enforced earth layer) data pack as three matrices
   with row 1 = air, row 2 = enforced earth layer.
 """
 function (f::EnforceLayer)(
-	model::EarthModel,
-	freq::AbstractVector{<:REALSCALAR},
-	::Type{T},
+        model::EarthModel,
+        freq::AbstractVector{<:REALSCALAR},
+        ::Type{T}
 ) where {T <: REALSCALAR}
+    nL = length(model.layers)
+    nF = length(freq)
 
-	nL = length(model.layers)
-	nF = length(freq)
+    layer_idx = f.layer == -1 ? nL : f.layer
+    (2 <= layer_idx <= nL) || error(
+        "Invalid layer index: $layer_idx. Model has $nL layers (including air). " *
+        "Valid earth layer indices are 2:$nL.",
+    )
 
-	layer_idx = f.layer == -1 ? nL : f.layer
-	(2 <= layer_idx <= nL) || error(
-		"Invalid layer index: $layer_idx. Model has $nL layers (including air). " *
-		"Valid earth layer indices are 2:$nL.",
-	)
+    Lair = model.layers[1]
+    Lsel = model.layers[layer_idx]
 
-	Lair = model.layers[1]
-	Lsel = model.layers[layer_idx]
+    ρ = Matrix{T}(undef, 2, nF)
+    ε = similar(ρ)
+    μ = similar(ρ)
 
-	ρ = Matrix{T}(undef, 2, nF)
-	ε = similar(ρ)
-	μ = similar(ρ)
+    @inbounds for j in 1:nF
+        ρ[1, j] = T(Lair.rho_g[j])
+        ε[1, j] = T(Lair.eps_g[j])
+        μ[1, j] = T(Lair.mu_g[j])
 
-	@inbounds for j in 1:nF
-		ρ[1, j] = T(Lair.rho_g[j])
-		ε[1, j] = T(Lair.eps_g[j])
-		μ[1, j] = T(Lair.mu_g[j])
+        ρ[2, j] = T(Lsel.rho_g[j])
+        ε[2, j] = T(Lsel.eps_g[j])
+        μ[2, j] = T(Lsel.mu_g[j])
+    end
 
-		ρ[2, j] = T(Lsel.rho_g[j])
-		ε[2, j] = T(Lsel.eps_g[j])
-		μ[2, j] = T(Lsel.mu_g[j])
-	end
-
-	return ρ, ε, μ
+    return ρ, ε, μ
 end
 
 # """

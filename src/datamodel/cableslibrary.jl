@@ -6,44 +6,36 @@ Represents a library of cable designs stored as a dictionary.
 $(TYPEDFIELDS)
 """
 mutable struct CablesLibrary
-	"Dictionary mapping cable IDs to the respective CableDesign objects."
-	data::Dict{String, CableDesign}
+    "Dictionary mapping cable IDs to the respective CableDesign objects."
+    data::Dict{String, CableDesign}
 
-	@doc """
-	$(TYPEDSIGNATURES)
+    @doc """
+     $(TYPEDSIGNATURES)
 
-	Constructs an empty [`CablesLibrary`](@ref) instance.
+     Constructs an empty [`CablesLibrary`](@ref) instance.
 
-	# Arguments
+     # Arguments
 
-	- None.
+     - None.
 
-	# Returns
+     # Returns
 
-	- A [`CablesLibrary`](@ref) object with an empty dictionary of cable designs.
+     - A [`CablesLibrary`](@ref) object with an empty dictionary of cable designs.
 
-	# Examples
+     # Examples
 
-	```julia
-	# Create a new, empty library
-	library = $(FUNCTIONNAME)()
-	```
+     ```julia
+     # Create a new, empty library
+     library = $(FUNCTIONNAME)()
+     ```
 
-	# See also
-
-	- [`CableDesign`](@ref)
-	- [`add!`](@ref)
-	- [`delete!`](@ref)
-	- [`LineCableModels.ImportExport.save`](@ref)
-	- [`DataFrame`](@ref)
-	"""
-	function CablesLibrary()::CablesLibrary
-		library = new(Dict{String, CableDesign}())
-		@info "Initializing empty cables database..."
-		return library
-	end
+     """
+    function CablesLibrary()::CablesLibrary
+        library = new(Dict{String, CableDesign}())
+        @info "Initializing empty cables database..."
+        return library
+    end
 end
-
 
 """
 Stores a cable design in a [`CablesLibrary`](@ref) object.
@@ -64,20 +56,13 @@ design = CableDesign("example", ...) # Initialize CableDesign with required fiel
 add!(library, design)
 println(library) # Prints the updated dictionary containing the new cable design
 ```
-# See also
-
-- [`CablesLibrary`](@ref)
-- [`CableDesign`](@ref)
-- [`delete!`](@ref)
 """
 function add!(library::CablesLibrary, design::CableDesign)
-	library.data[design.cable_id] = design
-	@info "Cable design with ID `$(design.cable_id)` added to the library."
-	library
+    library.data[design.cable_id] = design
+    @info "Cable design with ID `$(design.cable_id)` added to the library."
+    library
 end
 
 include("cableslibrary/base.jl")
 include("cableslibrary/dataframe.jl")
 include("cableslibrary/vdeparse.jl")
-
-

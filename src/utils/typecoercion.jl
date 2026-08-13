@@ -33,9 +33,10 @@ $(FUNCTIONNAME)(Union{Int, Measurement{Float64}}) # true
 _hasmeas_type(::Type{<:Measurement}) = true
 _hasmeas_type(::Type{<:AbstractArray{S}}) where {S} = _hasmeas_type(S)
 _hasmeas_type(::Type{<:Tuple{}}) = false
-_hasmeas_type(::Type{T}) where {T<:Tuple} =
+function _hasmeas_type(::Type{T}) where {T <: Tuple}
     any(_hasmeas_type, Base.unwrap_unionall(T).parameters)
-_hasmeas_type(::Type{NamedTuple{N,T}}) where {N,T} = _hasmeas_type(T)
+end
+_hasmeas_type(::Type{NamedTuple{N, T}}) where {N, T} = _hasmeas_type(T)
 _hasmeas_type(T::Union) = _hasmeas_type(T.a) || _hasmeas_type(T.b)
 function _hasmeas_type(T::DataType)
     # FIX: Add guard against recursing into Complex, which is self-contained.
@@ -81,9 +82,10 @@ function _hascomplex_type end
 _hascomplex_type(::Type{<:Complex}) = true
 _hascomplex_type(::Type{<:AbstractArray{S}}) where {S} = _hascomplex_type(S)
 _hascomplex_type(::Type{<:Tuple{}}) = false
-_hascomplex_type(::Type{T}) where {T<:Tuple} =
+function _hascomplex_type(::Type{T}) where {T <: Tuple}
     any(_hascomplex_type, Base.unwrap_unionall(T).parameters)
-_hascomplex_type(::Type{NamedTuple{N,T}}) where {N,T} = _hascomplex_type(T)
+end
+_hascomplex_type(::Type{NamedTuple{N, T}}) where {N, T} = _hascomplex_type(T)
 _hascomplex_type(T::Union) = _hascomplex_type(T.a) || _hascomplex_type(T.b)
 function _hascomplex_type(T::DataType)
     # FIX: Add guard against recursing into Measurement, which is self-referential
@@ -204,15 +206,17 @@ $(FUNCTIONNAME)(missing, Float64)                     # missing
 $(METHODLIST)
 """
 function _coerce_elt_to_T end
-_coerce_elt_to_T(x::Number, ::Type{R}) where {R<:AbstractFloat} = convert(R, x)
-_coerce_elt_to_T(x::Number, ::Type{M}) where {M<:Measurement} = zero(M) + x
-_coerce_elt_to_T(m::Measurement, ::Type{M}) where {M<:Measurement} = convert(M, m)
-_coerce_elt_to_T(m::Measurement, ::Type{R}) where {R<:AbstractFloat} = convert(R, value(m))
+_coerce_elt_to_T(x::Number, ::Type{R}) where {R <: AbstractFloat} = convert(R, x)
+_coerce_elt_to_T(x::Number, ::Type{M}) where {M <: Measurement} = zero(M) + x
+_coerce_elt_to_T(m::Measurement, ::Type{M}) where {M <: Measurement} = convert(M, m)
+function _coerce_elt_to_T(m::Measurement, ::Type{R}) where {R <: AbstractFloat}
+    convert(R, value(m))
+end
 _coerce_elt_to_T(::Nothing, ::Type{T}) where {T} = nothing
 _coerce_elt_to_T(::Missing, ::Type{T}) where {T} = missing
-_coerce_elt_to_T(x::Bool, ::Type{M}) where {M<:Measurement} = x
-_coerce_elt_to_T(x::Bool, ::Type{R}) where {R<:AbstractFloat} = x
-_coerce_elt_to_T(x::Union{Symbol,String,Function,DataType}, ::Type{T}) where {T} = x
+_coerce_elt_to_T(x::Bool, ::Type{M}) where {M <: Measurement} = x
+_coerce_elt_to_T(x::Bool, ::Type{R}) where {R <: AbstractFloat} = x
+_coerce_elt_to_T(x::Union{Symbol, String, Function, DataType}, ::Type{T}) where {T} = x
 _coerce_elt_to_T(x, ::Type{T}) where {T} = x
 
 """
@@ -253,10 +257,6 @@ $(FUNCTIONNAME)((; a=1.0, b=2.0), Float32)            # (a = 1.0f0, b = 2.0f0)
 
 $(METHODLIST)
 
-# See also
-
-- [`_coerce_elt_to_T`](@ref)
-- [`resolve_T`](@ref)
 """
 function coerce_to_T end
 # --- No-op for exact type matches (universal short-circuit)
@@ -267,21 +267,22 @@ coerce_to_T(x::T, ::Type{T}) where {T} = x  # exact-type pass-through, no alloca
 # specialization: rebuilding a Measurement from only its nominal value and
 # standard uncertainty would turn a dependent quantity into a new independent
 # variable and destroy covariance information.
-coerce_to_T(x::M, ::Type{M}) where {M<:Measurement} = x
+coerce_to_T(x::M, ::Type{M}) where {M <: Measurement} = x
 
 # --- Numbers
 # Promote Real to Complex when target is Complex
-coerce_to_T(x::Real, ::Type{C}) where {P,C<:Complex{P}} = C(coerce_to_T(x, P))
+coerce_to_T(x::Real, ::Type{C}) where {P, C <: Complex{P}} = C(coerce_to_T(x, P))
 
 # Complex → same Complex{P}: pass-through (avoid rebuilding)
 coerce_to_T(x::Complex{P}, ::Type{Complex{P}}) where {P} = x
 
 # Complex → Complex{P′}: rebuild parts
-coerce_to_T(x::Complex{S}, ::Type{Complex{P}}) where {S,P} =
+function coerce_to_T(x::Complex{S}, ::Type{Complex{P}}) where {S, P}
     Complex{P}(coerce_to_T(real(x), P), coerce_to_T(imag(x), P))
+end
 
 # Complex → Real: drop imag
-coerce_to_T(x::Complex, ::Type{R}) where {R<:Real} = coerce_to_T(real(x), R)
+coerce_to_T(x::Complex, ::Type{R}) where {R <: Real} = coerce_to_T(real(x), R)
 
 # Generic numbers → element coercion
 coerce_to_T(x::Number, ::Type{T}) where {T} = _coerce_elt_to_T(x, T)
@@ -297,10 +298,11 @@ coerce_to_T(t::Tuple, ::Type{T}) where {T} = map(y -> coerce_to_T(y, T), t)
 
 # --- NamedTuples (two non-overlapping methods)
 # 1) Pass-through when every field is already T (strictly more specific)
-coerce_to_T(nt::NamedTuple{K,TT}, ::Type{T}) where {K,T,TT<:Tuple{Vararg{T}}} = nt
+coerce_to_T(nt::NamedTuple{K, TT}, ::Type{T}) where {K, T, TT <: Tuple{Vararg{T}}} = nt
 # 2) Fallback: rebuild with coerced values
-coerce_to_T(nt::NamedTuple{K,TT}, ::Type{T}) where {K,TT<:Tuple,T} =
+function coerce_to_T(nt::NamedTuple{K, TT}, ::Type{T}) where {K, TT <: Tuple, T}
     NamedTuple{K}(map(v -> coerce_to_T(v, T), values(nt)))
+end
 
 # --- Catch-all (must come last; pairs with the universal short-circuit above)
 coerce_to_T(x, ::Type{T}) where {T} = _coerce_elt_to_T(x, T)

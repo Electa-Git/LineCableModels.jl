@@ -1,13 +1,10 @@
 """
-	LineCableModels.Engine.EarthAdmittance
+    LineCableModels.Engine.EarthAdmittance
 
 # Dependencies
 
 $(IMPORTS)
 
-# Exports
-
-$(EXPORTS)
 """
 module EarthAdmittance
 

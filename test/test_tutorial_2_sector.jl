@@ -2,7 +2,7 @@
     # Replicate the setup from the tutorial
 
     # === Materials ===
-    materials = MaterialsLibrary(add_defaults=true)
+    materials = MaterialsLibrary(add_defaults = true)
     pvc = Material(Inf, 8.0, 1.0, 20.0, 0.1)
     add!(materials, "pvc", pvc)
     copper = get(materials, "copper")
@@ -72,7 +72,8 @@
         neutral_jacket = Insulator(neutral_wires, Thickness(outer_jacket_thickness), pvc)
         @test neutral_jacket isa Insulator
 
-        neutral_component = CableComponent("neutral", ConductorGroup(neutral_wires), InsulatorGroup(neutral_jacket))
+        neutral_component = CableComponent(
+            "neutral", ConductorGroup(neutral_wires), InsulatorGroup(neutral_jacket))
         @test neutral_component.id == "neutral"
     end
 
@@ -85,7 +86,8 @@
         r_corner_mm = 1.02
         theta_cond_deg = 119.0
         ins_thick = 1.1e-3
-        sector_params = SectorParams(n_sectors, r_back_mm/1000, d_sector_mm/1000, r_corner_mm/1000, theta_cond_deg, ins_thick)
+        sector_params = SectorParams(n_sectors, r_back_mm/1000, d_sector_mm/1000,
+            r_corner_mm/1000, theta_cond_deg, ins_thick)
         rot_angles = (0.0, 120.0, 240.0)
         sectors = [Sector(sector_params, ang, aluminum) for ang in rot_angles]
         insulators = [SectorInsulator(sectors[i], ins_thick, pvc) for i in 1:3]
@@ -101,9 +103,11 @@
         R_O = 17.25e-3
         inner_radius_neutral = R_N - r_strand
         outer_jacket_thickness = R_O - (R_N + r_strand)
-        neutral_wires = WireArray(inner_radius_neutral, Diameter(2*r_strand), n_neutral, 0.0, copper)
+        neutral_wires = WireArray(
+            inner_radius_neutral, Diameter(2*r_strand), n_neutral, 0.0, copper)
         neutral_jacket = Insulator(neutral_wires, Thickness(outer_jacket_thickness), pvc)
-        neutral_component = CableComponent("neutral", ConductorGroup(neutral_wires), InsulatorGroup(neutral_jacket))
+        neutral_component = CableComponent(
+            "neutral", ConductorGroup(neutral_wires), InsulatorGroup(neutral_jacket))
 
         design = CableDesign("NAYCWY_O_3x95_30x2_5", components[1])
         add!(design, components[2])
@@ -126,7 +130,8 @@
         r_corner_mm = 1.02
         theta_cond_deg = 119.0
         ins_thick = 1.1e-3
-        sector_params = SectorParams(n_sectors, r_back_mm/1000, d_sector_mm/1000, r_corner_mm/1000, theta_cond_deg, ins_thick)
+        sector_params = SectorParams(n_sectors, r_back_mm/1000, d_sector_mm/1000,
+            r_corner_mm/1000, theta_cond_deg, ins_thick)
         rot_angles = (0.0, 120.0, 240.0)
         sectors = [Sector(sector_params, ang, aluminum) for ang in rot_angles]
         insulators = [SectorInsulator(sectors[i], ins_thick, pvc) for i in 1:3]
@@ -141,9 +146,11 @@
         R_O = 17.25e-3
         inner_radius_neutral = R_N - r_strand
         outer_jacket_thickness = R_O - (R_N + r_strand)
-        neutral_wires = WireArray(inner_radius_neutral, Diameter(2*r_strand), n_neutral, 0.0, copper)
+        neutral_wires = WireArray(
+            inner_radius_neutral, Diameter(2*r_strand), n_neutral, 0.0, copper)
         neutral_jacket = Insulator(neutral_wires, Thickness(outer_jacket_thickness), pvc)
-        neutral_component = CableComponent("neutral", ConductorGroup(neutral_wires), InsulatorGroup(neutral_jacket))
+        neutral_component = CableComponent(
+            "neutral", ConductorGroup(neutral_wires), InsulatorGroup(neutral_jacket))
         design = CableDesign("NAYCWY_O_3x95_30x2_5", components[1])
         add!(design, components[2])
         add!(design, components[3])
@@ -154,15 +161,20 @@
         @test DataFrame(design, :components) isa DataFrame
         @test DataFrame(design, :baseparams) isa DataFrame
 
-        # Test that preview functions execute without error
-        @test preview(design, display_plot=false) isa Any
+        if get(ENV, "LINECABLEMODELS_TEST_PLOTTING", "false") == "true"
+            @test preview(design, display_plot = false) isa Any
+        end
     end
 
     @testset "Error handling" begin
         # Test invalid geometric parameters for Sector
-        @test_throws ArgumentError SectorParams(3, -10.24/1000, 9.14/1000, 1.02/1000, 119.0, 1.1e-3)
-        @test_throws ArgumentError SectorParams(3, 10.24/1000, -9.14/1000, 1.02/1000, 119.0, 1.1e-3)
-        @test_throws ArgumentError SectorParams(3, 10.24/1000, 9.14/1000, -1.02/1000, 119.0, 1.1e-3)
-        @test_throws ArgumentError SectorParams(3, 10.24/1000, 9.14/1000, 1.02/1000, 119.0, -1.1e-3)
+        @test_throws ArgumentError SectorParams(
+            3, -10.24/1000, 9.14/1000, 1.02/1000, 119.0, 1.1e-3)
+        @test_throws ArgumentError SectorParams(
+            3, 10.24/1000, -9.14/1000, 1.02/1000, 119.0, 1.1e-3)
+        @test_throws ArgumentError SectorParams(
+            3, 10.24/1000, 9.14/1000, -1.02/1000, 119.0, 1.1e-3)
+        @test_throws ArgumentError SectorParams(
+            3, 10.24/1000, 9.14/1000, 1.02/1000, 119.0, -1.1e-3)
     end
 end

@@ -1,91 +1,187 @@
 name: CI
+
 on:
   push:
-    branches:
-      - main
-    tags: ['*']
+    branches: [main]
+    tags: ["*"]
   pull_request:
   workflow_dispatch:
+
 concurrency:
-  # Skip intermediate builds: always.
-  # Cancel intermediate builds: only if it is a pull request build.
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+permissions:
+  contents: read
+
 jobs:
-  test:
-    if: ${{ !contains(github.event.head_commit.message, 'skip ci') }}
-    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }}
-    runs-on: ${{ matrix.os }}
+  core:
+    name: Core / Julia ${{ matrix.julia }}
+    runs-on: ubuntu-latest
     timeout-minutes: 60
-    permissions: # needed to allow julia-actions/cache to proactively delete old caches that it has created
-      actions: write
-      contents: read
     strategy:
       fail-fast: false
       matrix:
-        version:
-          - '1.12'
-          - 'pre'
-        os:
-          - ubuntu-latest
-        arch:
-          - x64
+        julia: ["1.12", "pre"]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v6
       - uses: julia-actions/setup-julia@v3
         with:
-          version: ${{ matrix.version }}
-          arch: ${{ matrix.arch }}
+          version: ${{ matrix.julia }}
       - uses: julia-actions/cache@v3
         with:
-          # Prerelease Julia builds change often, making compiled caches poor value.
-          cache-compiled: ${{ matrix.version != 'pre' }}
-          # Do not publish incomplete depots from failed test runs.
-          save-always: 'false'
+          cache-compiled: ${{ matrix.julia != 'pre' }}
+          save-always: "false"
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
       - uses: julia-actions/julia-processcoverage@v1
-        if: matrix.version == '1.12'
+        if: matrix.julia == '1.12'
       - uses: codecov/codecov-action@v7
-        if: matrix.version == '1.12'
+        if: matrix.julia == '1.12'
         with:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
+          fail_ci_if_error: true
+
+  plotting:
+    name: CairoMakie extension
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      LINECABLEMODELS_TEST_PLOTTING: "true"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: "1.12"
+      - uses: julia-actions/cache@v3
+      - name: Run plotting extension tests
+        shell: julia --startup-file=no --color=yes {0}
+        run: |
+          using Pkg
+          Pkg.activate(; temp = true)
+          Pkg.develop(PackageSpec(path = pwd()))
+          Pkg.add(PackageSpec(name = "Aqua", version = "0.8"))
+          Pkg.add(PackageSpec(name = "CairoMakie", version = "0.15"))
+          Pkg.add(PackageSpec(name = "TestItemRunner", version = "1"))
+          pushfirst!(LOAD_PATH, pwd())
+          include(joinpath(pwd(), "test", "runtests.jl"))
+
+  aqua:
+    name: Aqua
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: "1.12"
+      - uses: julia-actions/cache@v3
+      - name: Run Aqua independently
+        shell: julia --color=yes {0}
+        run: |
+          using Pkg
+          Pkg.activate(; temp = true)
+          Pkg.develop(PackageSpec(path = pwd()))
+          Pkg.add("Aqua")
+          using Aqua, LineCableModels
+          Aqua.test_all(LineCableModels)
+
+  formatting:
+    name: SciML formatting
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: "1.12"
+      - name: Check JuliaFormatter
+        shell: julia --color=yes {0}
+        run: |
+          using Pkg
+          Pkg.activate(; temp = true)
+          Pkg.add(PackageSpec(name = "JuliaFormatter", version = "2"))
+          using JuliaFormatter
+          @assert format(pwd(); overwrite = false, verbose = true)
+
+  gitlint:
+    name: Commit messages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Install gitlint
+        run: python -m pip install --disable-pip-version-check gitlint==0.19.1
+      - name: Check new commits
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "${EVENT_NAME}" == "pull_request" ]]; then
+            range="origin/${BASE_REF}..HEAD"
+          elif [[ -n "${BEFORE_SHA}" && ! "${BEFORE_SHA}" =~ ^0+$ ]]; then
+            range="${BEFORE_SHA}..${CURRENT_SHA}"
+          else
+            range="${CURRENT_SHA}^..${CURRENT_SHA}"
+          fi
+          gitlint --commits "${range}"
+
+  clean-install:
+    name: Clean installation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: "1.12"
+      - name: Install core into an empty depot
+        shell: bash
+        run: |
+          set -euo pipefail
+          export JULIA_DEPOT_PATH
+          JULIA_DEPOT_PATH="$(mktemp -d)"
+          julia --startup-file=no --color=yes -e '
+            using Pkg
+            Pkg.activate(; temp = true)
+            Pkg.develop(PackageSpec(path = pwd()))
+            using LineCableModels
+            @assert Base.get_extension(LineCableModels, :LineCableModelsMakieExt) === nothing
+            @assert Base.get_extension(LineCableModels, :LineCableModelsGmshExt) === nothing
+          '
+
   docs:
-    if: ${{ !contains(github.event.head_commit.message, 'skip ci') }}
     name: Documentation
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
-      actions: write # needed to allow julia-actions/cache to proactively delete old caches that it has created
       contents: write
       statuses: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v6
       - uses: julia-actions/setup-julia@v3
         with:
-          version: '1.12'
+          version: "1.12"
       - uses: julia-actions/cache@v3
         with:
-          # Documentation is rebuilt once per run, so compiled caches consume
-          # substantial storage without enough reuse to justify their size.
-          cache-compiled: 'false'
-          save-always: 'false'
-      - name: Configure doc environment
-        shell: julia --project=docs --color=yes {0}
-        run: |
-          using Pkg
-          Pkg.develop(PackageSpec(path=pwd()))
-          Pkg.instantiate()
-      - uses: julia-actions/julia-buildpkg@v1
+          cache-compiled: "false"
+          save-always: "false"
+      - name: Instantiate documentation
+        run: julia --project=docs --color=yes docs/instantiate.jl
       - name: Run doctests
-        shell: julia --project=docs --color=yes {0}
-        run: |
-          using Documenter: DocMeta, doctest
-          using LineCableModels
-          DocMeta.setdocmeta!(LineCableModels, :DocTestSetup, :(using LineCableModels); recursive=true)
-          doctest(LineCableModels)
-      - uses: julia-actions/julia-docdeploy@v1
+        run: julia --project=docs --color=yes docs/doctest.jl
+      - name: Build documentation
+        run: julia --project=docs --color=yes docs/make.jl
+      - name: Deploy documentation
+        if: github.event_name == 'push'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
+        run: julia --project=docs --color=yes docs/deploy.jl

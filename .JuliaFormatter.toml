@@ -1,0 +1,9 @@
+style = "sciml"
+ignore = [
+    "@INPROGRESS",
+    "bibliography",
+    "designs",
+    "ext/fem/getdp_frontend",
+    "papers",
+    "temp",
+]

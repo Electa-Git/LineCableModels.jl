@@ -23,4 +23,3 @@ using Measurements: Measurement
 const BASE_FLOAT = Float64
 const REALSCALAR = Union{BASE_FLOAT, Measurement{BASE_FLOAT}}
 const COMPLEXSCALAR = Union{Complex{BASE_FLOAT}, Complex{Measurement{BASE_FLOAT}}}
-

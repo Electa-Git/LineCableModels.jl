@@ -9,18 +9,18 @@ using Pluto
 println("Starting Pluto, check your browser...")
 
 try
-	# Run Pluto, telling it which notebook to open
-	Pluto.run(launch_browser = true)
+    # Run Pluto, telling it which notebook to open
+    Pluto.run(launch_browser = true)
 
-	# Keep the script alive so the Pluto server doesn't shut down immediately.
-	println("\nPluto server is running. Press Ctrl+C in this terminal to stop.")
-	wait(Condition()) # Waits indefinitely until interrupted (Ctrl+C)
+    # Keep the script alive so the Pluto server doesn't shut down immediately.
+    println("\nPluto server is running. Press Ctrl+C in this terminal to stop.")
+    wait(Condition()) # Waits indefinitely until interrupted (Ctrl+C)
 
-	println("\nAn error occurred while trying to run Pluto:")
-	showerror(stdout, e)
-	Base.show_backtrace(stdout, catch_backtrace())
+    println("\nAn error occurred while trying to run Pluto:")
+    showerror(stdout, e)
+    Base.show_backtrace(stdout, catch_backtrace())
 finally
-	println("\nPluto server stopped.")
+    println("\nPluto server stopped.")
 end
 
 println("Launcher script finished.")

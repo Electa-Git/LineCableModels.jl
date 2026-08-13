@@ -20,18 +20,17 @@ abstract type EarthAdmittanceFormulation <: AbstractAdmittanceFormulation end
 abstract type AbstractTransformFormulation <: AbstractFormulationSet end
 
 """
-	FormulationSet(...)
+    FormulationSet(...)
 
 Constructs a specific formulation object based on the provided keyword arguments.
 The system will infer the correct formulation type.
 """
 FormulationSet(engine::Symbol; kwargs...) = FormulationSet(Val(engine); kwargs...)
 
-
 """
 $(TYPEDEF)
 
-Abstract type representing different equivalent homogeneous earth models (EHEM). Used in the multi-dispatch implementation of [`_calc_ehem_properties!`](@ref).
+Abstract type representing different equivalent homogeneous earth models (EHEM). Used in the multi-dispatch implementation of `_calc_ehem_properties!`.
 
 # Currently available formulations
 
@@ -40,5 +39,3 @@ Abstract type representing different equivalent homogeneous earth models (EHEM).
 abstract type AbstractEHEMFormulation <: AbstractFormulationSet end
 
 abstract type AbstractFormulationOptions end
-
-

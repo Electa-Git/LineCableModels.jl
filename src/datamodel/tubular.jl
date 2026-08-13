@@ -6,20 +6,20 @@ Represents a tubular or solid (`r_in=0`) conductor with geometric and material p
 $(TYPEDFIELDS)
 """
 struct Tubular{T <: REALSCALAR} <: AbstractConductorPart{T}
-	"Internal radius of the tubular conductor \\[m\\]."
-	r_in::T
-	"External radius of the tubular conductor \\[m\\]."
-	r_ex::T
-	"A [`Material`](@ref) object representing the physical properties of the conductor material."
-	material_props::Material{T}
-	"Temperature at which the properties are evaluated \\[°C\\]."
-	temperature::T
-	"Cross-sectional area of the tubular conductor \\[m²\\]."
-	cross_section::T
-	"Electrical resistance (DC) of the tubular conductor \\[Ω/m\\]."
-	resistance::T
-	"Geometric mean radius of the tubular conductor \\[m\\]."
-	gmr::T
+    "Internal radius of the tubular conductor \\[m\\]."
+    r_in::T
+    "External radius of the tubular conductor \\[m\\]."
+    r_ex::T
+    "A [`Material`](@ref) object representing the physical properties of the conductor material."
+    material_props::Material{T}
+    "Temperature at which the properties are evaluated \\[°C\\]."
+    temperature::T
+    "Cross-sectional area of the tubular conductor \\[m²\\]."
+    cross_section::T
+    "Electrical resistance (DC) of the tubular conductor \\[Ω/m\\]."
+    resistance::T
+    "Geometric mean radius of the tubular conductor \\[m\\]."
+    gmr::T
 end
 
 """
@@ -47,39 +47,33 @@ println(tubular.cross_section) # Output: 0.000942 [m²]
 println(tubular.resistance)    # Output: Resistance value [Ω/m]
 ```
 
-# See also
-
-- [`Material`](@ref)
-- [`calc_tubular_resistance`](@ref)
-- [`calc_tubular_gmr`](@ref)
 """
 function Tubular(
-	r_in::T,
-	r_ex::T,
-	material_props::Material{T},
-	temperature::T,
+        r_in::T,
+        r_ex::T,
+        material_props::Material{T},
+        temperature::T
 ) where {T <: REALSCALAR}
+    rho = material_props.rho
+    T0 = material_props.T0
+    alpha = material_props.alpha
 
-	rho = material_props.rho
-	T0 = material_props.T0
-	alpha = material_props.alpha
+    cross_section = π * (r_ex^2 - r_in^2)
 
-	cross_section = π * (r_ex^2 - r_in^2)
+    R0 = calc_tubular_resistance(r_in, r_ex, rho, alpha, T0, temperature)
 
-	R0 = calc_tubular_resistance(r_in, r_ex, rho, alpha, T0, temperature)
+    gmr = calc_tubular_gmr(r_ex, r_in, material_props.mu_r)
 
-	gmr = calc_tubular_gmr(r_ex, r_in, material_props.mu_r)
-
-	# Initialize object
-	return Tubular(
-		r_in,
-		r_ex,
-		material_props,
-		temperature,
-		cross_section,
-		R0,
-		gmr,
-	)
+    # Initialize object
+    return Tubular(
+        r_in,
+        r_ex,
+        material_props,
+        temperature,
+        cross_section,
+        R0,
+        gmr
+    )
 end
 
 const _REQ_TUBULAR = (:r_in, :r_ex, :material_props)
@@ -101,12 +95,10 @@ Validation.is_radius_input(::Type{Tubular}, ::Val{:r_ex}, x::Diameter) = true
 Validation.extra_rules(::Type{Tubular}) = (IsA{Material}(:material_props),)
 
 # normalize proxies -> numbers
-Validation.parse(::Type{Tubular}, nt) = begin
-	rin, rex = _normalize_radii(Tubular, nt.r_in, nt.r_ex)
-	(; nt..., r_in = rin, r_ex = rex)
+function Validation.parse(::Type{Tubular}, nt)
+    rin, rex = _normalize_radii(Tubular, nt.r_in, nt.r_ex)
+    (; nt..., r_in = rin, r_ex = rex)
 end
 
 # This macro expands to a weakly-typed constructor for Tubular
 @construct Tubular _REQ_TUBULAR _OPT_TUBULAR _DEFS_TUBULAR
-
-
