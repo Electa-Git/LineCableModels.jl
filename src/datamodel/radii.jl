@@ -68,10 +68,12 @@ function _parse_radius_operand end
 @inline _parse_radius_operand(x::Number, ::Type{T}) where {T} = x
 @inline _parse_radius_operand(d::Diameter, ::Type{T}) where {T} = d.value / 2
 @inline _parse_radius_operand(p::Thickness, ::Type{T}) where {T} = p
-@inline function _parse_radius_operand(p::AbstractCablePart, ::Type{T}) where {T}
-	r = getproperty(p, :r_ex)                     # outer radius of prior layer
-	return (typeof(p) == T) ? r : to_certain(r)
-end
+# A part proxy denotes the exact physical interface shared by two adjacent
+# layers.  Preserve the complete Measurement derivative graph of that boundary;
+# stripping it here makes the same radius statistically different on each side
+# of the interface and breaks cumulative-geometry covariance.
+@inline _parse_radius_operand(p::AbstractCablePart, ::Type{T}) where {T} =
+	getproperty(p, :r_ex)
 @inline _parse_radius_operand(x::AbstractString, ::Type{T}) where {T} =
 	throw(
 		ArgumentError(

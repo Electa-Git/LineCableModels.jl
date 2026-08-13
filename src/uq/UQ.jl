@@ -1,7 +1,7 @@
 module UQ
 
 # Export public API
-export sample, mc, hist
+export sample, trial, mc, hist
 
 # Module-specific dependencies
 using ..Commons: BASE_FLOAT

@@ -179,7 +179,9 @@ Element‑wise coercion kernel. Converts a *single leaf value* to the target typ
 
 - `Number → R<:AbstractFloat`: uses `convert(R, x)`.
 - `Number → M<:Measurement`: embeds the number as a zero‑uncertainty measurement (i.e., `zero(M) + x`).
-- `Measurement → M<:Measurement`: recreates with the target inner type (value and uncertainty cast to `_meas_inner(M)`).
+- `Measurement → M<:Measurement`: uses `convert(M, measurement)`, which
+  preserves the source tag and derivative graph while converting the inner
+  floating-point type.
 - `Measurement → R<:AbstractFloat`: drops uncertainty and converts the nominal value.
 - `nothing` and `missing` pass through unchanged.
 - `Bool`, `Symbol`, `String`, `Function`, `DataType`: passed through unchanged for measurement/real targets.
@@ -204,8 +206,7 @@ $(METHODLIST)
 function _coerce_elt_to_T end
 _coerce_elt_to_T(x::Number, ::Type{R}) where {R<:AbstractFloat} = convert(R, x)
 _coerce_elt_to_T(x::Number, ::Type{M}) where {M<:Measurement} = zero(M) + x
-_coerce_elt_to_T(m::Measurement, ::Type{M}) where {M<:Measurement} =
-    measurement(_meas_inner(M)(value(m)), _meas_inner(M)(uncertainty(m)))
+_coerce_elt_to_T(m::Measurement, ::Type{M}) where {M<:Measurement} = convert(M, m)
 _coerce_elt_to_T(m::Measurement, ::Type{R}) where {R<:AbstractFloat} = convert(R, value(m))
 _coerce_elt_to_T(::Nothing, ::Type{T}) where {T} = nothing
 _coerce_elt_to_T(::Missing, ::Type{T}) where {T} = missing
@@ -260,6 +261,13 @@ $(METHODLIST)
 function coerce_to_T end
 # --- No-op for exact type matches (universal short-circuit)
 coerce_to_T(x::T, ::Type{T}) where {T} = x  # exact-type pass-through, no allocation
+
+# `Measurement <: Number`, so the generic Number method below is otherwise
+# more specific than the universal exact-type method above.  Keep this explicit
+# specialization: rebuilding a Measurement from only its nominal value and
+# standard uncertainty would turn a dependent quantity into a new independent
+# variable and destroy covariance information.
+coerce_to_T(x::M, ::Type{M}) where {M<:Measurement} = x
 
 # --- Numbers
 # Promote Real to Complex when target is Complex

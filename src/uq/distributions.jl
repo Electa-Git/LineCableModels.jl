@@ -1,3 +1,124 @@
+@inline function _stored_lineparameter_samples(res::LineParametersMC)
+	samples = res.samples
+	samples === nothing && throw(
+		ArgumentError(
+			"whole-trial sampling requires stored samples; " *
+			"rerun mc(...; return_samples=true)",
+		),
+	)
+	return samples
+end
+
+
+"""
+	trial(res::LineParametersMC, t::Integer)
+
+Reconstruct one complete empirical Monte Carlo realization.
+
+# Arguments
+
+- `res`: Monte Carlo line-parameter result created with `return_samples=true`.
+- `t`: Stored one-based trial index.
+
+# Returns
+
+- A `LineParameters` object containing the jointly observed series impedance and
+  shunt admittance at every matrix entry and frequency. Values are in \\[Ω/m\\]
+  and \\[S/m\\] when `res` was computed with `per_length=true`, or \\[Ω\\] and \\[S\\]
+  when it was computed with `per_length=false`.
+
+# Notes
+
+The same index `t` is used for every R, L, G, and C coordinate. The result is
+therefore one member of the original discrete empirical joint distribution,
+without independent marginal resampling or covariance approximation.
+
+# Errors
+
+- Throws `ArgumentError` when `res` does not contain raw samples.
+- Throws `BoundsError` when `t` is not a stored trial index.
+- Throws `DimensionMismatch` when stored sample tensors or frequencies have
+  inconsistent dimensions.
+
+# Examples
+
+```julia
+result = mc(spec, formulation; trials=100, return_samples=true)
+lp = trial(result, 7)
+```
+"""
+function trial(res::LineParametersMC, t::Integer)
+	samples = _stored_lineparameter_samples(res)
+	sample_size = size(samples.R)
+	all(size(values) == sample_size for values in (samples.L, samples.G, samples.C)) ||
+		throw(DimensionMismatch("stored R, L, G, and C sample tensors must have equal dimensions"))
+	sample_size[1] == sample_size[2] ||
+		throw(DimensionMismatch("stored line-parameter sample matrices must be square"))
+	sample_size[3] == length(res.f) ||
+		throw(DimensionMismatch("stored sample and frequency dimensions must agree"))
+	t in axes(samples.R, 4) || throw(BoundsError(res, t))
+
+	nph, _, nfreq, _ = sample_size
+	U = eltype(samples.R)
+	Z = Array{Complex{U}, 3}(undef, nph, nph, nfreq)
+	Y = Array{Complex{U}, 3}(undef, nph, nph, nfreq)
+	@inbounds for j1 in 1:nph, j2 in 1:nph, k in 1:nfreq
+		ω = 2π * res.f[k]
+		Z[j1, j2, k] = samples.R[j1, j2, k, t] + im * ω * samples.L[j1, j2, k, t]
+		Y[j1, j2, k] = samples.G[j1, j2, k, t] + im * ω * samples.C[j1, j2, k, t]
+	end
+	return LineParameters(domain(res), Z, Y, res.f)
+end
+
+
+"""
+	rand(rng::AbstractRNG, res::LineParametersMC)
+	rand(res::LineParametersMC)
+
+Draw one complete empirical Monte Carlo realization uniformly.
+
+# Arguments
+
+- `rng`: Random-number generator used to select the stored trial index.
+- `res`: Monte Carlo line-parameter result created with `return_samples=true`.
+
+# Returns
+
+- A `LineParameters` object reconstructed from one uniformly selected stored
+  trial.
+
+# Notes
+
+Exactly one trial index is drawn per returned `LineParameters`; that index is
+shared across all matrix entries, R/L/G/C components, and frequencies. The
+method without `rng` uses `Random.default_rng()`.
+
+# Errors
+
+- Throws `ArgumentError` when `res` does not contain raw samples or contains no
+  stored trials.
+
+# Examples
+
+```julia
+rng = Random.MersenneTwister(42)
+lp = rand(rng, result)
+```
+
+# See also
+
+- [`trial`](@ref)
+"""
+function Base.rand(rng::AbstractRNG, res::LineParametersMC)
+	samples = _stored_lineparameter_samples(res)
+	trial_indices = axes(samples.R, 4)
+	isempty(trial_indices) && throw(ArgumentError("whole-trial sampling requires at least one stored trial"))
+	return trial(res, rand(rng, trial_indices))
+end
+
+Base.rand(res::LineParametersMC) = rand(Random.default_rng(), res)
+
+
 """
 Freedman–Diaconis rule to guesstimate number of bins for histogram
 

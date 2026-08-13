@@ -21,3 +21,18 @@ get_description(::Lossless) = "Lossless insulation (ideal dielectric)"
 
 	return Complex{T}(log(r_ex / r_in) / (2π * eps_i))
 end
+
+@inline function potential_coefficient(
+	f::Lossless,
+	ws,
+	component_idx::Int,
+	jω::Complex{T},
+) where {T <: REALSCALAR}
+	return f(
+		ws.r_ins_in[component_idx],
+		ws.r_ins_ext[component_idx],
+		ws.eps_ins[component_idx],
+		jω,
+		ws.tan_ins[component_idx],
+	)
+end

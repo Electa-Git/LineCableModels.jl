@@ -233,20 +233,9 @@ const FIG_NO = Base.Threads.Atomic{Int}(1)
 next_fignum() = Base.Threads.atomic_add!(FIG_NO, 1)
 reset_fignum!(n::Int = 1) = (FIG_NO[] = n)
 
-# ---------------------------------------------------------------------------
-# Default backend at runtime load (safe: CairoMakie only)
-# ---------------------------------------------------------------------------
-
-function __init__()
-	try
-		# Only set a default if nothing looks active yet
-		if current_backend_symbol() in (:none, :unknown)
-			ensure_backend!(:cairo)
-		end
-	catch e
-		@warn "Failed to initialize default CairoMakie" exception=(e, catch_backtrace())
-	end
-end
+# Backend activation is deliberately lazy. Activating CairoMakie from `__init__`
+# evaluates into Makie's module while packages are restoring on Julia 1.12,
+# which breaks incremental compilation. Public rendering entry points already
+# call `ensure_backend!` before using a backend.
 
 end # module
-
