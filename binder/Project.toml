@@ -27,4 +27,4 @@ LineCableModels = {path = ".."}
 
 
 [compat]
-julia = "1.11.6"
+julia = "1.12"

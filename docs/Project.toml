@@ -1,14 +1,14 @@
 [deps]
 Changelog = "5217a498-cd5d-4ec6-b8c2-9b85a09b6e3e"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-DisplayAs = "0b91fe84-8a4c-11e9-3e1d-67c38462b6d6"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 DocumenterCitations = "daee34ce-89f3-4625-b898-19384cb65244"
-GetDP = "dbfd83e6-7aba-450b-9c2b-93ccd973023a"
-HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
-Pluto = "c3e4b0f8-55cb-11ea-2926-15256bba5781"
-PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 
-[sources]
-GetDP = {rev = "main", url = "https://github.com/Electa-Git/GetDP.jl"}
+[compat]
+Changelog = "1"
+DataFrames = "1"
+Documenter = "1"
+DocumenterCitations = "1"
+Literate = "2"
+julia = "1.12"
