@@ -4,30 +4,29 @@
     @testset "Basic Functionality" begin
         # Example from docstring: alpha = 0.00393, Top = 75.0, T0 = 20.0
         k = calc_temperature_correction(0.00393, 75.0, 20.0)
-        @test isapprox(k, 1.2161, atol = 1e-4)
+        @test isapprox(k, 1.2161, atol=1e-4)
 
         # Default T0 (should use T₀ constant)
         k2 = calc_temperature_correction(0.00393, 75.0)
         k2_ref = calc_temperature_correction(0.00393, 75.0, T₀)
-        @test isapprox(k2, k2_ref, atol = TEST_TOL)
+        @test isapprox(k2, k2_ref, atol=TEST_TOL)
     end
 
     # Edge Cases
     @testset "Edge Cases" begin
         # Zero temperature difference
-        @test isapprox(calc_temperature_correction(0.00393, 20.0, 20.0), 1.0, atol = TEST_TOL)
+        @test isapprox(calc_temperature_correction(0.00393, 20.0, 20.0), 1.0, atol=TEST_TOL)
         # Negative alpha (unusual, but mathematically valid)
-        @test isapprox(calc_temperature_correction(-0.001, 30.0, 20.0), 0.99, atol = TEST_TOL)
+        @test isapprox(calc_temperature_correction(-0.001, 30.0, 20.0), 0.99, atol=TEST_TOL)
         # Large temperature difference within ΔTmax
-        @test isapprox(calc_temperature_correction(0.00393, 20.0 + (ΔTmax - 1), 20.0),
-            1 + 0.00393 * (ΔTmax - 1), atol = TEST_TOL)
+        @test isapprox(calc_temperature_correction(0.00393, 20.0 + (ΔTmax - 1), 20.0), 1 + 0.00393 * (ΔTmax - 1), atol=TEST_TOL)
     end
 
     # Numerical Consistency
     @testset "Numerical Consistency" begin
         # Float32
         kf = calc_temperature_correction(Float32(0.00393), Float32(75.0), Float32(20.0))
-        @test isapprox(kf, 1.2161f0, atol = Float32(1e-4))
+        @test isapprox(kf, 1.2161f0, atol=Float32(1e-4))
     end
 
     # Physical Behavior
@@ -74,7 +73,7 @@
         # σ² = (Top-T0)²*σ_α² + α²*σ_Top² + α²*σ_T0²
         μ = 1 + 0.00393 * (75.0 - 20.0)
         σ2 = (75.0 - 20.0)^2 * 1e-5^2 + 0.00393^2 * 0.1^2 + 0.00393^2 * 0.1^2
-        @test isapprox(value(km), μ, atol = TEST_TOL)
-        @test isapprox(uncertainty(km), sqrt(σ2), atol = TEST_TOL)
+        @test isapprox(value(km), μ, atol=TEST_TOL)
+        @test isapprox(uncertainty(km), sqrt(σ2), atol=TEST_TOL)
     end
 end

@@ -1,10 +1,13 @@
 """
-    LineCableModels.Engine.InternalImpedance
+	LineCableModels.Engine.InternalImpedance
 
 # Dependencies
 
 $(IMPORTS)
 
+# Exports
+
+$(EXPORTS)
 """
 module InternalImpedance
 
@@ -23,3 +26,4 @@ using ...Utils: _to_σ
 include("scaledbessel.jl")
 
 end # module InternalImpedance
+

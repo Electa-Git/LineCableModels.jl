@@ -3,6 +3,7 @@ Utility functions for the FEMTools.jl module.
 These functions provide various utilities for file management, logging, etc.
 """
 
+
 """
 $(TYPEDSIGNATURES)
 
@@ -24,6 +25,7 @@ paths = $(FUNCTIONNAME)(solver, cable_system)
 ```
 """
 function setup_paths(cable_system::LineCableSystem, formulation::FEMFormulation)
+
     opts = formulation.options
     # Create base output directory if it doesn't exist
     if !isdir(opts.save_path)
@@ -56,14 +58,14 @@ function setup_paths(cable_system::LineCableSystem, formulation::FEMFormulation)
     admittance_file = joinpath(case_dir, "$(case_id)_$(admittance_res).pro")
 
     # Return compiled dictionary of paths
-    paths = Dict{Symbol, String}(
+    paths = Dict{Symbol,String}(
         :base_dir => opts.save_path,
         :case_dir => case_dir,
         :results_dir => results_dir,
         :mesh_file => mesh_file,
         :geo_file => geo_file,
         :impedance_file => impedance_file,
-        :admittance_file => admittance_file
+        :admittance_file => admittance_file,
     )
 
     @debug "Paths configured: $(join(["$(k): $(v)" for (k,v) in paths], ", "))"
@@ -91,16 +93,16 @@ Clean up files based on configuration flags.
 $(FUNCTIONNAME)(paths, solver)
 ```
 """
-function cleanup_files(paths::Dict{Symbol, String}, opts::NamedTuple)
+function cleanup_files(paths::Dict{Symbol,String}, opts::NamedTuple)
     if opts.force_remesh
         # If force_remesh is true, delete mesh-related files
         if isfile(paths[:mesh_file])
-            rm(paths[:mesh_file], force = true)
+            rm(paths[:mesh_file], force=true)
             @info "Removed existing mesh file: $(display_path(paths[:mesh_file]))"
         end
 
         if isfile(paths[:geo_file])
-            rm(paths[:geo_file], force = true)
+            rm(paths[:geo_file], force=true)
             @info "Removed existing geometry file: $(display_path(paths[:geo_file]))"
         end
     end
@@ -111,7 +113,7 @@ function cleanup_files(paths::Dict{Symbol, String}, opts::NamedTuple)
         for file in readdir(paths[:case_dir])
             if endswith(file, ".pro")
                 filepath = joinpath(paths[:case_dir], file)
-                rm(filepath, force = true)
+                rm(filepath, force=true)
                 @info "Removed existing problem file: $(display_path(filepath))"
             end
         end
@@ -121,7 +123,7 @@ function cleanup_files(paths::Dict{Symbol, String}, opts::NamedTuple)
             for file in readdir(paths[:results_dir])
                 filepath = joinpath(paths[:results_dir], file)
                 if isfile(filepath)
-                    rm(filepath, force = true)
+                    rm(filepath, force=true)
                 end
             end
             @info "Cleared existing results in: $(display_path(paths[:results_dir]))"
@@ -130,16 +132,19 @@ function cleanup_files(paths::Dict{Symbol, String}, opts::NamedTuple)
 end
 
 function read_results_file(
-        fem_formulation::Union{AbstractImpedanceFormulation, AbstractAdmittanceFormulation},
-        workspace::FEMWorkspace;
-        file::Union{String, Nothing} = nothing
+    fem_formulation::Union{AbstractImpedanceFormulation,AbstractAdmittanceFormulation},
+    workspace::FEMWorkspace;
+    file::Union{String,Nothing}=nothing,
 )
-    results_path = joinpath(workspace.paths[:results_dir], lowercase(fem_formulation.resolution_name))
+
+    results_path =
+        joinpath(workspace.paths[:results_dir], lowercase(fem_formulation.resolution_name))
 
     if isnothing(file)
-        file = fem_formulation isa AbstractImpedanceFormulation ? "Z.dat" :
-               fem_formulation isa AbstractAdmittanceFormulation ? "Y.dat" :
-               throw(ArgumentError("Invalid formulation type: $(typeof(fem_formulation))"))
+        file =
+            fem_formulation isa AbstractImpedanceFormulation ? "Z.dat" :
+            fem_formulation isa AbstractAdmittanceFormulation ? "Y.dat" :
+            throw(ArgumentError("Invalid formulation type: $(typeof(fem_formulation))"))
     end
 
     filepath = joinpath(results_path, file)
@@ -148,8 +153,8 @@ function read_results_file(
 
     # Read all lines from file
     lines = readlines(filepath)
-    n_rows = sum([length(c.design_data.components)
-                  for c in workspace.problem_def.system.cables])
+    n_rows =
+        sum([length(c.design_data.components) for c in workspace.problem_def.system.cables])
 
     # Pre-allocate result matrix
     matrix = zeros(ComplexF64, n_rows, n_rows)
@@ -162,12 +167,13 @@ function read_results_file(
         # Fill matrix row with complex values
         for j in 1:n_rows
             idx = 2j - 1  # Index for real part
-            matrix[i, j] = Complex(values[idx], values[idx + 1])
+            matrix[i, j] = Complex(values[idx], values[idx+1])
         end
     end
 
     return matrix
 end
+
 
 # Verbosity Levels in GetDP
 # Level	Output Description
@@ -213,10 +219,10 @@ function map_verbosity_to_gmsh(verbosity::Int)
 end
 
 function calc_domain_size(
-        earth_params::EarthModel,
-        f::Vector{<:Float64};
-        min_radius = 5.0,
-        max_radius = 5000.0
+    earth_params::EarthModel,
+    f::Vector{<:Float64};
+    min_radius=5.0,
+    max_radius=5000.0,
 )
     # Find the earth layer with the highest resistivity to determine the domain size
     if isempty(earth_params.layers)
@@ -238,19 +244,20 @@ end
 function archive_frequency_results(workspace::FEMWorkspace, frequency::Float64)
     try
         results_dir = workspace.paths[:results_dir]
-        freq_dir = joinpath(dirname(results_dir), "results_f=$(round(frequency, sigdigits=6))")
+        freq_dir =
+            joinpath(dirname(results_dir), "results_f=$(round(frequency, sigdigits=6))")
 
         if isdir(results_dir)
-            mv(results_dir, freq_dir, force = true)
+            mv(results_dir, freq_dir, force=true)
             @debug "Archived results for f=$frequency Hz"
         end
 
         # Move solver files
         for ext in [".res", ".pre"]
             case_files = filter(f -> endswith(f, ext),
-                readdir(workspace.paths[:case_dir], join = true))
+                readdir(workspace.paths[:case_dir], join=true))
             for f in case_files
-                mv(f, joinpath(freq_dir, basename(f)), force = true)
+                mv(f, joinpath(freq_dir, basename(f)), force=true)
             end
         end
     catch e
@@ -261,23 +268,48 @@ end
 # Run a command quietly; return true if it starts and exits with code 0.
 _run_ok(cmd::Cmd) =
     try
-        success(pipeline(cmd; stdout = devnull, stderr = devnull))
+        success(pipeline(cmd; stdout=devnull, stderr=devnull))
     catch
         false  # covers "file not found", spawn failures, etc.
     end
 
-# Does this path behave like a GetDP executable?
+# Does this path behave like a GetDP executable? 
 _is_valid_getdp_exe(path::AbstractString) = begin
     @debug "Probing GetDP via -info" path = path
     _run_ok(`$path -info`)
 end
 
-function _resolve_getdp_path(::NamedTuple)
-    path = GetDP.get_getdp_executable()
-    _is_valid_getdp_exe(path) ||
-        Base.error(
-            "GetDP failed its -info probe at $(repr(path)). " *
-            "Set GETDP_EXECUTABLE to a working executable or add getdp to PATH.",
-        )
-    return path
+# Resolve the GetDP path:
+# 1) If user provided :getdp_executable and it runs with -info, use it.
+# 2) Else ask GetDP.jl for its executable and use it if it runs with -info.
+# 3) Else, error.
+function _resolve_getdp_path(opts::NamedTuple)
+    user_path = get(opts, :getdp_executable, nothing)
+    @debug "Resolving GetDP path (simple probe)" user_path = user_path
+
+    if user_path isa AbstractString
+        if _is_valid_getdp_exe(user_path)
+            @debug "Using user-specified GetDP executable" path = user_path
+            return user_path
+        else
+            @warn "User-specified GetDP executable failed when invoked with -info" path = user_path
+        end
+    else
+        @debug "No user-specified GetDP path"
+    end
+
+    fallback = try
+        GetDP.get_getdp_executable()
+    catch
+        nothing
+    end
+    @debug "GetDP.get_getdp_executable() returned" path = fallback
+
+    if fallback isa AbstractString && _is_valid_getdp_exe(fallback)
+        @debug "Using dependency-provided GetDP executable" path = fallback
+        return fallback
+    end
+
+    Base.error("GetDP executable not found or not working (invocation with -info failed). " *
+               "Provide :getdp_executable in opts or ensure GetDP.jl is properly deployed.")
 end

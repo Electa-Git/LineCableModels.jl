@@ -1,5 +1,5 @@
 """
-    LineCableModels.UncertainBessels
+	LineCableModels.UncertainBessels
 
 Uncertainty-aware wrappers for Bessel functions.
 
@@ -31,12 +31,13 @@ $(IMPORTS)
 
 # Exports
 
+$(EXPORTS)
 
 # Usage
 
 ```julia
 # do not import SpecialFunctions directly
-using LineCableModels.UncertainBessels
+using LineCableModels.UncertainBessels 
 z = complex(1.0, 1.0 ± 0.5)
 J0_cpl = besselj(0, z) 			# Complex{Measurement}
 J0_nom = besselj(0, value(z)) 	# nominal comparison
@@ -49,6 +50,10 @@ I1 = besselix(1, z) 			# scaled I1 with uncertainty
 - Uncertainty propagation is first order (linearization at the nominal point).
   Large uncertainties or strong nonlinearity may reduce accuracy.
 
+# See also
+
+- [`LineCableModels.Engine.InternalImpedance`](@ref)
+- [`LineCableModels.Engine.EarthImpedance`](@ref)
 """
 module UncertainBessels
 
@@ -63,105 +68,76 @@ export besseli, besselk, besselj, bessely, besselh
 
 # Complex argument with measurement parts
 @inline function _lift_complex_measurement(f, ν, ẑ::Complex{<:Measurement})
-    return Measurements.result(
-        f(ν, Measurements.value(ẑ)),
-        vcat(
-            Calculus.gradient(
-                x -> real(f(ν, complex(x[1], x[2]))),
-                [reim(Measurements.value(ẑ))...]
-            ),
-            Calculus.gradient(
-                x -> imag(f(ν, complex(x[1], x[2]))),
-                [reim(Measurements.value(ẑ))...]
-            )
-        ),
-        ẑ
-    )
+	return Measurements.result(
+		f(ν, Measurements.value(ẑ)),
+		vcat(
+			Calculus.gradient(
+				x -> real(f(ν, complex(x[1], x[2]))),
+				[reim(Measurements.value(ẑ))...],
+			),
+			Calculus.gradient(
+				x -> imag(f(ν, complex(x[1], x[2]))),
+				[reim(Measurements.value(ẑ))...],
+			),
+		),
+		ẑ,
+	)
 end
 
 # Real argument with measurement
 @inline function _lift_real_measurement(f, ν, x::Measurements.Measurement)
-    x0 = Measurements.value(x)
-    y0 = f(ν, x0)
-    dy = Calculus.derivative(t -> f(ν, t), x0)
-    return Measurements.result(y0, (dy,), x)
+	x0 = Measurements.value(x)
+	y0 = f(ν, x0)
+	dy = Calculus.derivative(t -> f(ν, t), x0)
+	return Measurements.result(y0, (dy,), x)
 end
 
+
 # Complex inputs with uncertainty
-@inline besselix(ν,
-    z::Complex{<:Measurements.Measurement{T}}) where {T <:
-                                                      AbstractFloat} = _lift_complex_measurement(
-    SpecialFunctions.besselix, ν, z)
-@inline besselkx(ν,
-    z::Complex{<:Measurements.Measurement{T}}) where {T <:
-                                                      AbstractFloat} = _lift_complex_measurement(
-    SpecialFunctions.besselkx, ν, z)
-@inline besseljx(ν,
-    z::Complex{<:Measurements.Measurement{T}}) where {T <:
-                                                      AbstractFloat} = _lift_complex_measurement(
-    SpecialFunctions.besseljx, ν, z)
-@inline besselyx(ν,
-    z::Complex{<:Measurements.Measurement{T}}) where {T <:
-                                                      AbstractFloat} = _lift_complex_measurement(
-    SpecialFunctions.besselyx, ν, z)
-@inline besselhx(ν,
-    z::Complex{<:Measurements.Measurement{T}}) where {T <:
-                                                      AbstractFloat} = _lift_complex_measurement(
-    SpecialFunctions.besselhx, ν, z)
-@inline besselj(ν,
-    z::Complex{<:Measurements.Measurement{T}}) where {T <:
-                                                      AbstractFloat} = _lift_complex_measurement(
-    SpecialFunctions.besselj, ν, z)
-@inline bessely(ν,
-    z::Complex{<:Measurements.Measurement{T}}) where {T <:
-                                                      AbstractFloat} = _lift_complex_measurement(
-    SpecialFunctions.bessely, ν, z)
-@inline besseli(ν,
-    z::Complex{<:Measurements.Measurement{T}}) where {T <:
-                                                      AbstractFloat} = _lift_complex_measurement(
-    SpecialFunctions.besseli, ν, z)
-@inline besselk(ν,
-    z::Complex{<:Measurements.Measurement{T}}) where {T <:
-                                                      AbstractFloat} = _lift_complex_measurement(
-    SpecialFunctions.besselk, ν, z)
-@inline besselh(ν,
-    z::Complex{<:Measurements.Measurement{T}}) where {T <:
-                                                      AbstractFloat} = _lift_complex_measurement(
-    SpecialFunctions.besselh, ν, z)
+@inline besselix(ν, z::Complex{<:Measurements.Measurement{T}}) where {T <: AbstractFloat} =
+	_lift_complex_measurement(SpecialFunctions.besselix, ν, z)
+@inline besselkx(ν, z::Complex{<:Measurements.Measurement{T}}) where {T <: AbstractFloat} =
+	_lift_complex_measurement(SpecialFunctions.besselkx, ν, z)
+@inline besseljx(ν, z::Complex{<:Measurements.Measurement{T}}) where {T <: AbstractFloat} =
+	_lift_complex_measurement(SpecialFunctions.besseljx, ν, z)
+@inline besselyx(ν, z::Complex{<:Measurements.Measurement{T}}) where {T <: AbstractFloat} =
+	_lift_complex_measurement(SpecialFunctions.besselyx, ν, z)
+@inline besselhx(ν, z::Complex{<:Measurements.Measurement{T}}) where {T <: AbstractFloat} =
+	_lift_complex_measurement(SpecialFunctions.besselhx, ν, z)
+@inline besselj(ν, z::Complex{<:Measurements.Measurement{T}}) where {T <: AbstractFloat} =
+	_lift_complex_measurement(SpecialFunctions.besselj, ν, z)
+@inline bessely(ν, z::Complex{<:Measurements.Measurement{T}}) where {T <: AbstractFloat} =
+	_lift_complex_measurement(SpecialFunctions.bessely, ν, z)
+@inline besseli(ν, z::Complex{<:Measurements.Measurement{T}}) where {T <: AbstractFloat} =
+	_lift_complex_measurement(SpecialFunctions.besseli, ν, z)
+@inline besselk(ν, z::Complex{<:Measurements.Measurement{T}}) where {T <: AbstractFloat} =
+	_lift_complex_measurement(SpecialFunctions.besselk, ν, z)
+@inline besselh(ν, z::Complex{<:Measurements.Measurement{T}}) where {T <: AbstractFloat} =
+	_lift_complex_measurement(SpecialFunctions.besselh, ν, z)
 
 # Real inputs with uncertainty
-@inline besselix(ν, x::Measurements.Measurement{T}) where {T <:
-                                                           AbstractFloat} = _lift_real_measurement(
-    SpecialFunctions.besselix, ν, x)
-@inline besselkx(ν, x::Measurements.Measurement{T}) where {T <:
-                                                           AbstractFloat} = _lift_real_measurement(
-    SpecialFunctions.besselkx, ν, x)
-@inline besseljx(ν, x::Measurements.Measurement{T}) where {T <:
-                                                           AbstractFloat} = _lift_real_measurement(
-    SpecialFunctions.besseljx, ν, x)
-@inline besselyx(ν, x::Measurements.Measurement{T}) where {T <:
-                                                           AbstractFloat} = _lift_real_measurement(
-    SpecialFunctions.besselyx, ν, x)
-@inline besselhx(ν, x::Measurements.Measurement{T}) where {T <:
-                                                           AbstractFloat} = _lift_real_measurement(
-    SpecialFunctions.besselhx, ν, x)
-@inline besselj(ν, x::Measurements.Measurement{T}) where {T <:
-                                                          AbstractFloat} = _lift_real_measurement(
-    SpecialFunctions.besselj, ν, x)
-@inline bessely(ν, x::Measurements.Measurement{T}) where {T <:
-                                                          AbstractFloat} = _lift_real_measurement(
-    SpecialFunctions.bessely, ν, x)
-@inline besseli(ν, x::Measurements.Measurement{T}) where {T <:
-                                                          AbstractFloat} = _lift_real_measurement(
-    SpecialFunctions.besseli, ν, x)
-@inline besselk(ν, x::Measurements.Measurement{T}) where {T <:
-                                                          AbstractFloat} = _lift_real_measurement(
-    SpecialFunctions.besselk, ν, x)
-@inline besselh(ν, x::Measurements.Measurement{T}) where {T <:
-                                                          AbstractFloat} = _lift_real_measurement(
-    SpecialFunctions.besselh, ν, x)
+@inline besselix(ν, x::Measurements.Measurement{T}) where {T <: AbstractFloat} =
+	_lift_real_measurement(SpecialFunctions.besselix, ν, x)
+@inline besselkx(ν, x::Measurements.Measurement{T}) where {T <: AbstractFloat} =
+	_lift_real_measurement(SpecialFunctions.besselkx, ν, x)
+@inline besseljx(ν, x::Measurements.Measurement{T}) where {T <: AbstractFloat} =
+	_lift_real_measurement(SpecialFunctions.besseljx, ν, x)
+@inline besselyx(ν, x::Measurements.Measurement{T}) where {T <: AbstractFloat} =
+	_lift_real_measurement(SpecialFunctions.besselyx, ν, x)
+@inline besselhx(ν, x::Measurements.Measurement{T}) where {T <: AbstractFloat} =
+	_lift_real_measurement(SpecialFunctions.besselhx, ν, x)
+@inline besselj(ν, x::Measurements.Measurement{T}) where {T <: AbstractFloat} =
+	_lift_real_measurement(SpecialFunctions.besselj, ν, x)
+@inline bessely(ν, x::Measurements.Measurement{T}) where {T <: AbstractFloat} =
+	_lift_real_measurement(SpecialFunctions.bessely, ν, x)
+@inline besseli(ν, x::Measurements.Measurement{T}) where {T <: AbstractFloat} =
+	_lift_real_measurement(SpecialFunctions.besseli, ν, x)
+@inline besselk(ν, x::Measurements.Measurement{T}) where {T <: AbstractFloat} =
+	_lift_real_measurement(SpecialFunctions.besselk, ν, x)
+@inline besselh(ν, x::Measurements.Measurement{T}) where {T <: AbstractFloat} =
+	_lift_real_measurement(SpecialFunctions.besselh, ν, x)
 
-# Plain Float/Complex fallbacks
+# Plain Float/Complex fallbacks 
 @inline besselix(ν, z::T) where {T <: AbstractFloat} = SpecialFunctions.besselix(ν, z)
 @inline besselkx(ν, z::T) where {T <: AbstractFloat} = SpecialFunctions.besselkx(ν, z)
 @inline besseljx(ν, z::T) where {T <: AbstractFloat} = SpecialFunctions.besseljx(ν, z)
@@ -173,53 +149,25 @@ end
 @inline besselk(ν, z::T) where {T <: AbstractFloat} = SpecialFunctions.besselk(ν, z)
 @inline besselh(ν, z::T) where {T <: AbstractFloat} = SpecialFunctions.besselh(ν, z)
 
-@inline besselix(ν, z::Complex{T}) where {T <: AbstractFloat} = SpecialFunctions.besselix(ν, z)
-@inline besselkx(ν, z::Complex{T}) where {T <: AbstractFloat} = SpecialFunctions.besselkx(ν, z)
-@inline besseljx(ν, z::Complex{T}) where {T <: AbstractFloat} = SpecialFunctions.besseljx(ν, z)
-@inline besselyx(ν, z::Complex{T}) where {T <: AbstractFloat} = SpecialFunctions.besselyx(ν, z)
-@inline besselhx(ν, z::Complex{T}) where {T <: AbstractFloat} = SpecialFunctions.besselhx(ν, z)
-@inline besselj(ν, z::Complex{T}) where {T <: AbstractFloat} = SpecialFunctions.besselj(ν, z)
-@inline bessely(ν, z::Complex{T}) where {T <: AbstractFloat} = SpecialFunctions.bessely(ν, z)
-@inline besseli(ν, z::Complex{T}) where {T <: AbstractFloat} = SpecialFunctions.besseli(ν, z)
-@inline besselk(ν, z::Complex{T}) where {T <: AbstractFloat} = SpecialFunctions.besselk(ν, z)
-@inline besselh(ν, z::Complex{T}) where {T <: AbstractFloat} = SpecialFunctions.besselh(ν, z)
-
-function _bessel_doc(name::Symbol, scaled::Bool)
-    scaling = scaled ?
-              "Uses the scaled convention defined by `SpecialFunctions` to improve numerical stability." :
-              "Uses the unscaled convention defined by `SpecialFunctions`."
-    return """
-        $(name)(ν, z)
-
-    Evaluate the Bessel-family function of order `ν` at `z`, with uncertainty
-    propagation when `z` is a `Measurement` or `Complex{Measurement}`.
-
-    # Arguments
-
-    - `ν`: Bessel-function order.
-    - `z`: Real or complex argument, optionally containing measurement uncertainty.
-
-    # Returns
-
-    - The function value, with first-order propagated uncertainty when applicable.
-
-    # Notes
-
-    $(scaling) Plain numeric inputs delegate directly to `SpecialFunctions`.
-    Measurement inputs are linearized at their nominal value using numerical
-    derivatives.
-    """
-end
-
-@doc _bessel_doc(:besselj, false) besselj
-@doc _bessel_doc(:bessely, false) bessely
-@doc _bessel_doc(:besseli, false) besseli
-@doc _bessel_doc(:besselk, false) besselk
-@doc _bessel_doc(:besselh, false) besselh
-@doc _bessel_doc(:besseljx, true) besseljx
-@doc _bessel_doc(:besselyx, true) besselyx
-@doc _bessel_doc(:besselix, true) besselix
-@doc _bessel_doc(:besselkx, true) besselkx
-@doc _bessel_doc(:besselhx, true) besselhx
+@inline besselix(ν, z::Complex{T}) where {T <: AbstractFloat} =
+	SpecialFunctions.besselix(ν, z)
+@inline besselkx(ν, z::Complex{T}) where {T <: AbstractFloat} =
+	SpecialFunctions.besselkx(ν, z)
+@inline besseljx(ν, z::Complex{T}) where {T <: AbstractFloat} =
+	SpecialFunctions.besseljx(ν, z)
+@inline besselyx(ν, z::Complex{T}) where {T <: AbstractFloat} =
+	SpecialFunctions.besselyx(ν, z)
+@inline besselhx(ν, z::Complex{T}) where {T <: AbstractFloat} =
+	SpecialFunctions.besselhx(ν, z)
+@inline besselj(ν, z::Complex{T}) where {T <: AbstractFloat} =
+	SpecialFunctions.besselj(ν, z)
+@inline bessely(ν, z::Complex{T}) where {T <: AbstractFloat} =
+	SpecialFunctions.bessely(ν, z)
+@inline besseli(ν, z::Complex{T}) where {T <: AbstractFloat} =
+	SpecialFunctions.besseli(ν, z)
+@inline besselk(ν, z::Complex{T}) where {T <: AbstractFloat} =
+	SpecialFunctions.besselk(ν, z)
+@inline besselh(ν, z::Complex{T}) where {T <: AbstractFloat} =
+	SpecialFunctions.besselh(ν, z)
 
 end # module UncertainBessels

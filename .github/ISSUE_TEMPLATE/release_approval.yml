@@ -1,0 +1,146 @@
+name: "Release approval request"
+description: "Validation checklist before public release"
+title: "Release approval request"
+labels: ["release-approval"]
+assignees:
+  - amaurigmartins
+
+body:
+  - type: input
+    id: repository_name
+    attributes:
+      label: "Repository name"
+      description: "Select the repository being released"
+    validations:
+      required: true
+
+  - type: input
+    id: version_tag
+    attributes:
+      label: "Version tag"
+      description: "Version being released (must follow semantic versioning pattern vX.Y.Z)"
+      placeholder: "v1.2.3"
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 1. Intellectual Property (IP) and Legal Clearance
+        Complete all items before requesting approval.
+
+  - type: checkboxes
+    id: ip_legal
+    attributes:
+      label: "IP and Legal Requirements"
+      options:
+        - label: "Written consent secured from faculty advisor or PI"
+          required: true
+        - label: "Software disclosure submitted to tech transfer/IP office"
+          required: true
+        - label: "Funding/sponsorship contracts reviewed for restrictions or obligations"
+          required: true
+        - label: "Written consent secured from all co-developers and collaborators"
+          required: true
+        - label: "Verified no active or pending patents are compromised by open release"
+          required: true
+        - label: "Verified absence of sensitive data (personal, confidential, regulated tech)"
+          required: true
+        - label: "Third-party licenses audited and documented to confirm compatibility with the repository"
+          required: true
+        - label: "All  findings and products of the codebase being open-sourced have been published/accepted for publication with scientific journals"
+          required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 2. Code Quality and Basic QA
+
+  - type: checkboxes
+    id: code_quality
+    attributes:
+      label: "Code Quality Requirements"
+      options:
+        - label: "Codebase cleaned: no credentials, passwords, API keys, sensitive URLs, or debug code"
+          required: true
+        - label: "Out-of-the-box functionality confirmed in a clean environment"
+          required: true
+        - label: "Reproducibility ensured: scripts or datasets included to reproduce main results"
+          required: true
+        - label: "Dependencies clearly documented (requirements.txt, compiler info, etc.)"
+          required: true
+        - label: "Basic tests or validation scripts included demonstrating key functionality"
+          required: true
+        - label: "Peer or self-review performed for code readability and usability"
+          required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 3. Documentation and Licensing
+
+  - type: checkboxes
+    id: documentation
+    attributes:
+      label: "Documentation Requirements"
+      options:
+        - label: "Comprehensive README.md created with clear purpose, installation and usage instructions"
+          required: true
+        - label: "CHANGELOG.md created following proper standards (Keep a Changelog)"
+          required: true
+        - label: "Citation instructions provided (CITATION.cff, DOI links, publication references)"
+          required: true
+        - label: "Appropriate LICENSE.md file attached at repository root"
+          required: true
+        - label: "Funding agencies, institutional support, and contributors properly acknowledged"
+          required: true
+        - label: "Contributing guidelines included for external collaborators (if applicable)"
+          required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 4. Repository Finalization and Public Release
+
+  - type: checkboxes
+    id: finalization
+    attributes:
+      label: "Repository Finalization Requirements"
+      options:
+        - label: "Repository structure clearly organized (src/, examples/, docs/, etc.)"
+          required: true
+        - label: "Final pre-release sanity check performed (installation from scratch, test examples)"
+          required: true
+        - label: "Release clearly tagged and versioned (e.g., v1.0.0) with release notes"
+          required: true
+        - label: "Repository ready to be set to public visibility"
+          required: true
+        - label: "Release announcement prepared for internal and external channels"
+          required: true
+        - label: "Repository archived with DOI (optional, via Zenodo)"
+          required: false
+
+  - type: textarea
+    id: additional_notes
+    attributes:
+      label: "Additional Notes"
+      description: "Provide any additional context or special considerations"
+      placeholder: "Add any relevant information or clarifications here..."
+    validations:
+      required: false
+
+  - type: input
+    id: institutional_email
+    attributes:
+      label: "Institutional email"
+      description: "Provide your university/institutional email"
+      placeholder: "researcher.name@kuleuven.be"
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## Declaration
+
+        By submitting this form, I confirm that all required checks have been completed and this software is ready for public release under the institution standards.

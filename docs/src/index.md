@@ -26,37 +26,23 @@ Depth = 1
 
 ## Installation
 
-Install the registered package from Julia's package manager:
+Clone the package and add to the Julia environment:
 
 ```julia-repl
-pkg> add LineCableModels
+pkg> add https://github.com/Electa-Git/LineCableModels.jl.git
 ```
 
-Then load the core package:
+If you are using the finite-element solver, it is recommended to run the build script to retrieve the binaries needed by the [GetDP.jl](https://github.com/Electa-Git/GetDP.jl) front-end:
+
+```julia-repl
+pkg> build LineCableModels
+```
+
+Then, in your Julia code, import the package:
 
 ```julia
 using LineCableModels
 ```
-
-Plotting is optional. Load one backend explicitly before calling `preview` or
-`plot`:
-
-```julia
-using LineCableModels
-using CairoMakie
-```
-
-The transitional FEM integration is also optional. Load `Gmsh` explicitly and
-make a GetDP executable available through `GETDP_EXECUTABLE` or `PATH`:
-
-```julia
-using LineCableModels
-using Gmsh
-using LineCableModels.Engine.FEM
-```
-
-The legacy FEM API emits deprecation warnings because it will be simplified in
-a future release.
 
 ## License
 

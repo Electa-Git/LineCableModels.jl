@@ -9,7 +9,7 @@
         mu_r = 1.0
         gmr = calc_circstrands_gmr(lay_rad, N, rad_wire, mu_r)
         expected = exp((log(rad_wire * exp(-mu_r / 4) * N * lay_rad^(N - 1)) / N))
-        @test isapprox(gmr, expected; atol = TEST_TOL)
+        @test isapprox(gmr, expected; atol=TEST_TOL)
         @test gmr > 0
     end
 
@@ -21,7 +21,7 @@
         mu_r = 1.0
         gmr = calc_circstrands_gmr(lay_rad, N, rad_wire, mu_r)
         expected = rad_wire * exp(-mu_r / 4)
-        @test isapprox(gmr, expected; atol = TEST_TOL)
+        @test isapprox(gmr, expected; atol=TEST_TOL)
 
         # mu_r = 0 (non-magnetic)
         lay_rad = 0.05
@@ -30,7 +30,7 @@
         mu_r = 0.0
         gmr = calc_circstrands_gmr(lay_rad, N, rad_wire, mu_r)
         expected = exp((log(rad_wire * N * lay_rad^(N - 1)) / N))
-        @test isapprox(gmr, expected; atol = TEST_TOL)
+        @test isapprox(gmr, expected; atol=TEST_TOL)
 
         # rad_wire = 0 (degenerate wire)
         lay_rad = 0.05
@@ -55,7 +55,7 @@
         gmr1 = calc_circstrands_gmr(0.05, 7, 0.002, 1.0)
         # Measurement{Float64}
         gmr2 = calc_circstrands_gmr(measurement(0.05, 1e-4), 7, 0.002, 1.0)
-        @test isapprox(value(gmr2), gmr1; atol = TEST_TOL)
+        @test isapprox(value(gmr2), gmr1; atol=TEST_TOL)
         @test uncertainty(gmr2) > 0
     end
 

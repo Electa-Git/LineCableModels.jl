@@ -25,9 +25,8 @@ admittance calculation.
 """
 struct ParallelRC <: InsulationAdmittanceFormulation end
 
-function get_description(::ParallelRC)
-    "Parallel-RC insulation (constant conductivity and permittivity)"
-end
+get_description(::ParallelRC) =
+	"Parallel-RC insulation (constant conductivity and permittivity)"
 
 """
     (formulation::ParallelRC)(r_in, r_ex, rho, eps_r, s)
@@ -60,40 +59,40 @@ At infinite resistivity, the result reduces exactly to the lossless potential
 coefficient ``1/C``.
 """
 @inline function (f::ParallelRC)(
-        r_in::T,
-        r_ex::T,
-        rho::T,
-        eps_r::T,
-        s::Complex{T}
+	r_in::T,
+	r_ex::T,
+	rho::T,
+	eps_r::T,
+	s::Complex{T},
 ) where {T <: REALSCALAR}
-    if isapprox(r_in, 0.0, atol = eps(T)) || isapprox(r_in, r_ex, atol = eps(T))
-        # Keep bare-conductor handling consistent with Lossless.
-        return zero(Complex{T})
-    end
+	if isapprox(r_in, 0.0, atol = eps(T)) || isapprox(r_in, r_ex, atol = eps(T))
+		# Keep bare-conductor handling consistent with Lossless.
+		return zero(Complex{T})
+	end
 
-    log_ratio = log(r_ex / r_in)
-    capacitance = T(2π * ε₀) * eps_r / log_ratio
-    conductivity = _to_σ(rho)
-    conductance = T(2π) * conductivity / log_ratio
+	log_ratio = log(r_ex / r_in)
+	capacitance = T(2π * ε₀) * eps_r / log_ratio
+	conductivity = _to_σ(rho)
+	conductance = T(2π) * conductivity / log_ratio
 
-    return s / (conductance + s * capacitance)
+	return s / (conductance + s * capacitance)
 end
 
 @inline function potential_coefficient(
-        f::ParallelRC,
-        ws,
-        component_idx::Int,
-        s::Complex{T}
+	f::ParallelRC,
+	ws,
+	component_idx::Int,
+	s::Complex{T},
 ) where {T <: REALSCALAR}
-    p = zero(Complex{T})
-    @inbounds for layer_idx in ws.insulator_layer_ranges[component_idx]
-        p += f(
-            ws.r_ins_layer_in[layer_idx],
-            ws.r_ins_layer_ext[layer_idx],
-            ws.rho_ins_layer[layer_idx],
-            ws.eps_ins_layer[layer_idx],
-            s
-        )
-    end
-    return p
+	p = zero(Complex{T})
+	@inbounds for layer_idx in ws.insulator_layer_ranges[component_idx]
+		p += f(
+			ws.r_ins_layer_in[layer_idx],
+			ws.r_ins_layer_ext[layer_idx],
+			ws.rho_ins_layer[layer_idx],
+			ws.eps_ins_layer[layer_idx],
+			s,
+		)
+	end
+	return p
 end

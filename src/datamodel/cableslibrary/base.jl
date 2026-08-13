@@ -1,9 +1,7 @@
 
 # Implement the AbstractDict interface
 Base.length(lib::CablesLibrary) = length(lib.data)
-function Base.setindex!(lib::CablesLibrary, value::CableDesign, key::String)
-    (lib.data[key] = value)
-end
+Base.setindex!(lib::CablesLibrary, value::CableDesign, key::String) = (lib.data[key] = value)
 Base.iterate(lib::CablesLibrary, state...) = iterate(lib.data, state...)
 Base.keys(lib::CablesLibrary) = keys(lib.data)
 Base.values(lib::CablesLibrary) = values(lib.data)
@@ -40,8 +38,14 @@ missing_design = $(FUNCTIONNAME)(library, "nonexistent_id")
 println(missing_design === nothing)  # Prints true
 ```
 
+# See also
+
+- [`CablesLibrary`](@ref)
+- [`CableDesign`](@ref)
+- [`add!`](@ref)
+- [`delete!`](@ref)
 """
-function Base.get(library::CablesLibrary, cable_id::String, default = nothing)
+function Base.get(library::CablesLibrary, cable_id::String, default=nothing)
     if haskey(library, cable_id)
         @info "Cable design with ID `$cable_id` loaded from the library."
         return library[cable_id]
@@ -77,6 +81,10 @@ $(FUNCTIONNAME)(library, "example")
 haskey(library, "example")  # Returns false
 ```
 
+# See also
+
+- [`CablesLibrary`](@ref)
+- [`add!`](@ref)
 """
 function Base.delete!(library::CablesLibrary, cable_id::String)
     if haskey(library, cable_id)

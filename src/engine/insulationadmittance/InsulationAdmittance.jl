@@ -1,10 +1,13 @@
 """
-    LineCableModels.Engine.InsulationAdmittance
+	LineCableModels.Engine.InsulationAdmittance
 
 # Dependencies
 
 $(IMPORTS)
 
+# Exports
+
+$(EXPORTS)
 """
 module InsulationAdmittance
 

@@ -1,5 +1,5 @@
 """
-    LineCableModels.Materials
+	LineCableModels.Materials
 
 The [`Materials`](@ref) module provides functionality for managing and utilizing material properties within the [`LineCableModels.jl`](index.md) package. This module includes definitions for material properties, a library for storing and retrieving materials, and functions for manipulating material data.
 
@@ -15,6 +15,9 @@ The [`Materials`](@ref) module provides functionality for managing and utilizing
 
 $(IMPORTS)
 
+# Exports
+
+$(EXPORTS)
 """
 module Materials
 
@@ -36,26 +39,27 @@ Defines electromagnetic and thermal properties of a material used in cable model
 $(TYPEDFIELDS)
 """
 struct Material{T <: REALSCALAR}
-    "Electrical resistivity of the material \\[Ω·m\\]."
-    rho::T
-    "Relative permittivity \\[dimensionless\\]."
-    eps_r::T
-    "Relative permeability \\[dimensionless\\]."
-    mu_r::T
-    "Reference temperature for property evaluations \\[°C\\]."
-    T0::T
-    "Temperature coefficient of resistivity \\[1/°C\\]."
-    alpha::T
+	"Electrical resistivity of the material \\[Ω·m\\]."
+	rho::T
+	"Relative permittivity \\[dimensionless\\]."
+	eps_r::T
+	"Relative permeability \\[dimensionless\\]."
+	mu_r::T
+	"Reference temperature for property evaluations \\[°C\\]."
+	T0::T
+	"Temperature coefficient of resistivity \\[1/°C\\]."
+	alpha::T
 
-    @inline function Material{T}(
-            rho::T,
-            eps_r::T,
-            mu_r::T,
-            T0::T,
-            alpha::T
-    ) where {T <: REALSCALAR}
-        return new{T}(rho, eps_r, mu_r, T0, alpha)
-    end
+	@inline function Material{T}(
+		rho::T,
+		eps_r::T,
+		mu_r::T,
+		T0::T,
+		alpha::T,
+	) where {T <: REALSCALAR}
+		return new{T}(rho, eps_r, mu_r, T0, alpha)
+	end
+
 end
 
 """
@@ -75,14 +79,14 @@ coerces values to `T`, and calls the strict numeric kernel.
 - `Material{T}` where `T = resolve_T(rho, eps_r, mu_r, T0, alpha)`.
 """
 @inline function Material(rho, eps_r, mu_r, T0, alpha)
-    T = resolve_T(rho, eps_r, mu_r, T0, alpha)
-    return Material{T}(
-        coerce_to_T(rho, T),
-        coerce_to_T(eps_r, T),
-        coerce_to_T(mu_r, T),
-        coerce_to_T(T0, T),
-        coerce_to_T(alpha, T)
-    )
+	T = resolve_T(rho, eps_r, mu_r, T0, alpha)
+	return Material{T}(
+		coerce_to_T(rho, T),
+		coerce_to_T(eps_r, T),
+		coerce_to_T(mu_r, T),
+		coerce_to_T(T0, T),
+		coerce_to_T(alpha, T),
+	)
 end
 
 include("materialslibrary.jl")

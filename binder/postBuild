@@ -1,0 +1,78 @@
+#!/bin/bash
+set -euxo pipefail
+
+# TODO: Make this stupid Binder+Pluto setup bow to my will. Need to find some way to add the necessary (unregistered) packages to whatever is the default env under jupyterlab -> pluto.
+
+julia -e '
+using Pkg, TOML
+
+# 1) Activate the default versioned env, not a folder named "@v#.#"
+Pkg.activate("@v#.#")
+
+# 2) Develop the local repo (assume postBuild is running at repo root)
+try
+    Pkg.develop(path=".")
+catch e
+    @warn "Pkg.develop(path=\".\") failed" exception=(e, catch_backtrace())
+end
+
+# Helper to add deps from a Project.toml
+function add_deps_from(project_file::String)
+    if !isfile(project_file)
+        @info "No $project_file found"; return
+    end
+    proj = TOML.parsefile(project_file)
+    deps    = get(proj, "deps",    Dict{String,Any}())
+    compat  = get(proj, "compat",  Dict{String,Any}())
+    extras  = get(proj, "extras",  Dict{String,Any}())  # in case you keep dev/test stuff here
+    targets = get(proj, "targets", Dict{String,Any}())
+
+    # Collect package names to install (deps + optionally selected extras)
+    names = Set{String}(keys(deps))
+
+    # If you keep things like IJulia/Pluto in [extras] with a "binder" target, include them
+    if haskey(targets, "binder") && isa(targets["binder"], Vector)
+        for extra in targets["binder"]
+            extra in keys(extras) && push!(names, extra)
+        end
+    end
+
+    for name in sort(collect(names))
+        # Skip your own devved package if it appears in deps
+        if name == "LineCableModels"
+            continue
+        end
+        ver = get(compat, name, nothing)
+        spec = ver === nothing ? Pkg.PackageSpec(name=name) :
+                                 Pkg.PackageSpec(name=name, version=ver)
+        try
+            Pkg.add(spec)
+        catch e
+            @warn "Pkg.add failed for $name" exception=(e, catch_backtrace())
+        end
+    end
+end
+
+# Prefer binder/Project.toml, fall back to repo root
+add_deps_from("binder/Project.toml")
+add_deps_from("Project.toml")
+
+# 3) Nice-to-haves commonly needed in Binder + Pluto
+try
+    Pkg.add(["IJulia", "Pluto"])
+catch e
+    @warn "Optional adds failed" exception=(e, catch_backtrace())
+end
+
+# 4) Precompile for faster startup
+Pkg.precompile()
+
+# 5) Make sure the IJulia kernel points to the default env (useful in JupyterLab)
+try
+    using IJulia
+    envpath = Base.load_path_expand("@v#.#")
+    IJulia.installkernel("Julia (@v#.#)", env=envpath)
+catch e
+    @warn "IJulia kernel install failed (non-fatal)" exception=(e, catch_backtrace())
+end
+'

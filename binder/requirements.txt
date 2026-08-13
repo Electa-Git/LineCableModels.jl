@@ -1,0 +1,3 @@
+jupyterlab>=4
+jupyter-server-proxy>=4
+jupyter-pluto-proxy==0.1.1
