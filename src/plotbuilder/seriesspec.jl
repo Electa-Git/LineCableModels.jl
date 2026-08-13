@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------------
 
 """
-    axis_transform(::Type{S}, ::Val{dim}, ::Val{datakey}, nt, axis::AxisSpec, data) where {S,dim,datakey}
+	axis_transform(::Type{S}, ::Val{dim}, ::Val{datakey}, nt, axis::AxisSpec, data) where {S,dim,datakey}
 
 Per-spec hook to post-process the sliced axis data *before* unit scaling.
 
@@ -16,236 +16,239 @@ Per-spec hook to post-process the sliced axis data *before* unit scaling.
 
 Default is identity; in case of complex quantities defined by the trait `has_complex_qty`, the selector `as` defines what to extract: real, imaginary, magnitude, or phase components.
 """
-function axis_transform(
-        ::Type{S},
-        ::Val{dim},
-        ::Val{datakey},
-        nt::NamedTuple,
-        axis::AxisSpec,
-        data
-) where {S <: AbstractPlotSpec, dim, datakey}
-    has_complex_qty(S, Val(dim), Val(datakey)) || return data
-    (data isa AbstractArray && eltype(data) <: Number) || return data
+axis_transform(
+	::Type{S},
+	::Val{dim},
+	::Val{datakey},
+	nt::NamedTuple,
+	axis::AxisSpec,
+	data,
+) where {S <: AbstractPlotSpec, dim, datakey} = begin
+	has_complex_qty(S, Val(dim), Val(datakey)) || return data
+	(data isa AbstractArray && eltype(data) <: Number) || return data
 
-    ask = Symbol(dim, :_as)
-    haskey(nt, ask) || return data
-    as = getfield(nt, ask)
+	ask = Symbol(dim, :_as)
+	haskey(nt, ask) || return data
+	as = getfield(nt, ask)
 
-    # Warn if a "complex view" is requested but the materialized slice is real.
-    # This is mathematically valid (imag(real)=0, abs(real)=|real|, angle(real)=0/π),
-    # but it usually indicates the pipeline expected complex data and got real instead.
-    if as !== :re && !(eltype(data) <: Complex)
-        @warn "Complex view requested on real-valued data; did you materialize a real quantity where complex was expected?" spec=S dim=dim datakey=datakey as=as eltype=eltype(
-            data,
-        )
-    end
+	# Warn if a "complex view" is requested but the materialized slice is real.
+	# This is mathematically valid (imag(real)=0, abs(real)=|real|, angle(real)=0/π),
+	# but it usually indicates the pipeline expected complex data and got real instead.
+	if as !== :re && !(eltype(data) <: Complex)
+		@warn "Complex view requested on real-valued data; did you materialize a real quantity where complex was expected?" spec=S dim=dim datakey=datakey as=as eltype=eltype(
+			data,
+		)
+	end
 
-    as === :re && return real.(data)
-    as === :im && return imag.(data)
-    as === :abs && return abs.(data)
-    as === :angle && return angle.(data) .* (180 / pi)
+	as === :re && return real.(data)
+	as === :im && return imag.(data)
+	as === :abs && return abs.(data)
+	as === :angle && return angle.(data) .* (180 / pi)
 
-    Base.error(
-        "Unsupported as=$(as) for $(datakey) on axis $(dim). Valid options: :re, :im, :abs, :angle.",
-    )
+	Base.error(
+		"Unsupported as=$(as) for $(datakey) on axis $(dim). Valid options: :re, :im, :abs, :angle.",
+	)
 end
 
+
 """
-    axis_slice(::Type{S}, nt, axis::AxisSpec, ::Val{dim}) where {S<:AbstractPlotSpec}
+	axis_slice(::Type{S}, nt, axis::AxisSpec, ::Val{dim}) where {S<:AbstractPlotSpec}
 
 Return a 1D slice for axis `dim` using the grammar:
 
   * Use `data_container(S, Val(dim))` and the axis selector `nt.<dim>`
-    (e.g. `nt.x`, `nt.y`) to locate the raw storage in `nt.obj`.
+	(e.g. `nt.x`, `nt.y`) to locate the raw storage in `nt.obj`.
   * Apply indices `i, j` if present in `nt`, assuming the sample dimension
-    is the last array dimension.
+	is the last array dimension.
   * Optionally unwrap child fields using `select_field(S, Val(dim))` if it is
-    non-`nothing` and elements are NamedTuples.
+	non-`nothing` and elements are NamedTuples.
 
 No unit scaling and no numeric check happen here; those are handled by
 `axis_transform` and `make_series`.
 """
 function axis_slice(
-        ::Type{S},
-        nt::NamedTuple,
-        axis::AxisSpec,
-        ::Val{dim}
+	::Type{S},
+	nt::NamedTuple,
+	axis::AxisSpec,
+	::Val{dim},
 ) where {S <: AbstractPlotSpec, dim}
-    obj = nt.obj
 
-    # AxisSpec selector: what the user (or defaults) chose for this axis, e.g. :f, :R, ...
-    selector = getfield(nt, dim)::Symbol
+	obj = nt.obj
 
-    # --- Fetch raw array via centralized container logic ---
-    raw_arr = container_array(S, obj, dim, selector)
+	# AxisSpec selector: what the user (or defaults) chose for this axis, e.g. :f, :R, ...
+	selector = getfield(nt, dim)::Symbol
 
-    # --- Apply indices (i,j,k) → 1D slice along sample dimension ---
-    arr = raw_arr
-    nd = ndims(arr)
+	# --- Fetch raw array via centralized container logic ---
+	raw_arr = container_array(S, obj, dim, selector)
 
-    has_i = haskey(nt, :i)
-    has_j = haskey(nt, :j)
-    has_k = haskey(nt, :k)
+	# --- Apply indices (i,j,k) → 1D slice along sample dimension ---
+	arr = raw_arr
+	nd  = ndims(arr)
 
-    # First slice in i,j where applicable.
-    # Exception: allow :x to be a global 1D vector shared across all (i,j).
-    if has_i && has_j
-        if dim === :x && nd == 1
-            # global x; do nothing
-        elseif nd < 3
-            Base.error(
-                "Invalid axis storage for $(dim): spec uses indices :i and :j, " *
-                "but container_array($(S), $(dim)) returned an array with $(nd) dimension(s). " *
-                "When both :i and :j are active, the underlying array must be at least 3D " *
-                "(Ni, Nj, Nk...). Check index_keys($(S)) and container_array($(S), $(dim)).",
-            )
-        else
-            # canonical case: Ni×Nj×Nk...
-            arr = view(arr, nt.i, nt.j, :)
-        end
-    elseif has_i && !has_j
-        if dim === :x && nd == 1
-            # global x; do nothing
-        elseif nd >= 2
-            arr = view(arr, nt.i, :)
-        end
-    elseif has_j && !has_i
-        if dim === :x && nd == 1
-            # global x; do nothing
-        elseif nd >= 2
-            arr = view(arr, :, nt.j)
-        end
-    end
+	has_i = haskey(nt, :i)
+	has_j = haskey(nt, :j)
+	has_k = haskey(nt, :k)
 
-    # Then slice in k along last dimension (sample dim)
-    if has_k
-        k = nt.k
-        nd2 = ndims(arr)
+	# First slice in i,j where applicable.
+	# Exception: allow :x to be a global 1D vector shared across all (i,j).
+	if has_i && has_j
+		if dim === :x && nd == 1
+			# global x; do nothing
+		elseif nd < 3
+			Base.error(
+				"Invalid axis storage for $(dim): spec uses indices :i and :j, " *
+				"but container_array($(S), $(dim)) returned an array with $(nd) dimension(s). " *
+				"When both :i and :j are active, the underlying array must be at least 3D " *
+				"(Ni, Nj, Nk...). Check index_keys($(S)) and container_array($(S), $(dim)).",
+			)
+		else
+			# canonical case: Ni×Nj×Nk...
+			arr = view(arr, nt.i, nt.j, :)
+		end
+	elseif has_i && !has_j
+		if dim === :x && nd == 1
+			# global x; do nothing
+		elseif nd >= 2
+			arr = view(arr, nt.i, :)
+		end
+	elseif has_j && !has_i
+		if dim === :x && nd == 1
+			# global x; do nothing
+		elseif nd >= 2
+			arr = view(arr, :, nt.j)
+		end
+	end
 
-        if nd2 == 0
-            Base.error(
-                "AxisSpec $(dim) for $(S) has scalar data after i/j slicing; cannot apply k index.",
-            )
-        end
+	# Then slice in k along last dimension (sample dim)
+	if has_k
+		k = nt.k
+		nd2 = ndims(arr)
 
-        if nd2 == 1
-            if k isa Int
-                arr = view(arr, k:k)
-            elseif k isa AbstractUnitRange{<:Int} || k isa Colon
-                arr = view(arr, k)
-            else
-                Base.error(
-                    "Index :k must be Int, Int range, or `:` after normalization; " *
-                    "got $(typeof(k)) for spec $(S) on axis $(dim).",
-                )
-            end
-        else
-            # nd2 ≥ 2, index last dimension
-            lastdim = nd2
-            if k isa Int
-                inds = ntuple(d -> d == lastdim ? (k:k) : Colon(), lastdim)
-            elseif k isa AbstractUnitRange{<:Int} || k isa Colon
-                inds = ntuple(d -> d == lastdim ? k : Colon(), lastdim)
-            else
-                Base.error(
-                    "Index :k must be Int, Int range, or `:` after normalization; " *
-                    "got $(typeof(k)) for spec $(S) on axis $(dim).",
-                )
-            end
-            arr = view(arr, inds...)
-        end
-    end
+		if nd2 == 0
+			Base.error(
+				"AxisSpec $(dim) for $(S) has scalar data after i/j slicing; cannot apply k index.",
+			)
+		end
 
-    ndims(arr) == 1 ||
-        Base.error(
-            "AxisSpec $(dim) for $(S) expected to resolve to a 1D slice after indexing; " *
-            "got $(ndims(arr))-dimensional array.",
-        )
+		if nd2 == 1
+			if k isa Int
+				arr = view(arr, k:k)
+			elseif k isa AbstractUnitRange{<:Int} || k isa Colon
+				arr = view(arr, k)
+			else
+				Base.error(
+					"Index :k must be Int, Int range, or `:` after normalization; " *
+					"got $(typeof(k)) for spec $(S) on axis $(dim).",
+				)
+			end
+		else
+			# nd2 ≥ 2, index last dimension
+			lastdim = nd2
+			if k isa Int
+				inds = ntuple(d -> d == lastdim ? (k:k) : Colon(), lastdim)
+			elseif k isa AbstractUnitRange{<:Int} || k isa Colon
+				inds = ntuple(d -> d == lastdim ? k : Colon(), lastdim)
+			else
+				Base.error(
+					"Index :k must be Int, Int range, or `:` after normalization; " *
+					"got $(typeof(k)) for spec $(S) on axis $(dim).",
+				)
+			end
+			arr = view(arr, inds...)
+		end
+	end
 
-    vec_arr = arr
+	ndims(arr) == 1 ||
+		Base.error(
+			"AxisSpec $(dim) for $(S) expected to resolve to a 1D slice after indexing; " *
+			"got $(ndims(arr))-dimensional array.",
+		)
 
-    # --- NamedTuple unwrapping via select_field ---
-    kfield = select_field(S, Val(dim))
+	vec_arr = arr
 
-    if kfield === nothing
-        return collect(vec_arr)
-    else
-        # select_field is interpreted strictly as a spec field name that, when present
-        # in the resolved input `nt`, holds the Symbol of the NamedTuple field to
-        # extract. If the field is not present, we *do not* guess: we simply
-        # return the NamedTuple vector and let higher-level grammar decide what
-        # to do (overlay all fields, facet, etc.).
-        if haskey(nt, kfield)
-            v = getfield(nt, kfield)
-            v isa Symbol || Base.error(
-                "Field $(kfield) in resolved input for $(S) on axis $(dim) " *
-                "must be a Symbol; got $(typeof(v)).",
-            )
-            ksym = v
+	# --- NamedTuple unwrapping via select_field ---
+	kfield = select_field(S, Val(dim))
 
-            first_el = first(vec_arr)
-            first_el isa NamedTuple ||
-                Base.error(
-                    "select_field($(S), Val($(dim))) expects NamedTuple elements; " *
-                    "got $(typeof(first_el)).",
-                )
+	if kfield === nothing
+		return collect(vec_arr)
+	else
+		# select_field is interpreted strictly as a spec field name that, when present
+		# in the resolved input `nt`, holds the Symbol of the NamedTuple field to
+		# extract. If the field is not present, we *do not* guess: we simply
+		# return the NamedTuple vector and let higher-level grammar decide what
+		# to do (overlay all fields, facet, etc.).
+		if haskey(nt, kfield)
+			v = getfield(nt, kfield)
+			v isa Symbol || Base.error(
+				"Field $(kfield) in resolved input for $(S) on axis $(dim) " *
+				"must be a Symbol; got $(typeof(v)).",
+			)
+			ksym = v
 
-            haskey(first_el, ksym) || Base.error(
-                "NamedTuple elements on axis $(dim) for $(S) have no key $(ksym). " *
-                "Available keys: $(collect(keys(first_el))).",
-            )
+			first_el = first(vec_arr)
+			first_el isa NamedTuple ||
+				Base.error(
+					"select_field($(S), Val($(dim))) expects NamedTuple elements; " *
+					"got $(typeof(first_el)).",
+				)
 
-            return [el[ksym] for el in vec_arr]
-        else
-            # No leaf field bound yet; just enforce NamedTuple contract and return as-is.
-            first_el = first(vec_arr)
-            first_el isa NamedTuple ||
-                Base.error(
-                    "select_field($(S), Val($(dim))) is defined but resolved input has no " *
-                    "field $(kfield); data elements on axis $(dim) for $(S) must be " *
-                    "NamedTuple; got $(typeof(first_el)).",
-                )
-            return collect(vec_arr)
-        end
-    end
+			haskey(first_el, ksym) || Base.error(
+				"NamedTuple elements on axis $(dim) for $(S) have no key $(ksym). " *
+				"Available keys: $(collect(keys(first_el))).",
+			)
+
+			return [el[ksym] for el in vec_arr]
+		else
+			# No leaf field bound yet; just enforce NamedTuple contract and return as-is.
+			first_el = first(vec_arr)
+			first_el isa NamedTuple ||
+				Base.error(
+					"select_field($(S), Val($(dim))) is defined but resolved input has no " *
+					"field $(kfield); data elements on axis $(dim) for $(S) must be " *
+					"NamedTuple; got $(typeof(first_el)).",
+				)
+			return collect(vec_arr)
+		end
+	end
 end
+
 
 # Process one axis if present
 @inline function axis_data(
-        ::Type{S},
-        dim::Symbol,
-        nt::NamedTuple,
-        axis::Union{AxisSpec, Nothing}
+	::Type{S},
+	dim::Symbol,
+	nt::NamedTuple,
+	axis::Union{AxisSpec, Nothing},
 ) where {S <: AbstractPlotSpec}
-    axis === nothing && return nothing
+	axis === nothing && return nothing
 
-    # axis selector: nt.x / nt.y / nt.z
-    selector = getfield(nt, dim)::Symbol
+	# axis selector: nt.x / nt.y / nt.z
+	selector = getfield(nt, dim)::Symbol
 
-    # 1) slice + select_field unwrapping (no scaling)
-    raw_vec = axis_slice(S, nt, axis, Val(dim))
+	# 1) slice + select_field unwrapping (no scaling)
+	raw_vec = axis_slice(S, nt, axis, Val(dim))
 
-    # 2) spec-level transform
-    transformed = axis_transform(S, Val(dim), Val(selector), nt, axis, raw_vec)
+	# 2) spec-level transform
+	transformed = axis_transform(S, Val(dim), Val(selector), nt, axis, raw_vec)
 
-    # 3) numeric check
-    transformed isa AbstractArray ||
-        Base.error(
-            "AxisSpec $(dim) for $(S) did not resolve to an array; got $(typeof(transformed)).",
-        )
+	# 3) numeric check
+	transformed isa AbstractArray ||
+		Base.error(
+			"AxisSpec $(dim) for $(S) did not resolve to an array; got $(typeof(transformed)).",
+		)
 
-    eltype(transformed) <: Number ||
-        Base.error(
-            "AxisSpec $(dim) for $(S) did not resolve to numeric data; got eltype $(eltype(transformed)).",
-        )
+	eltype(transformed) <: Number ||
+		Base.error(
+			"AxisSpec $(dim) for $(S) did not resolve to numeric data; got eltype $(eltype(transformed)).",
+		)
 
-    # 4) unit scaling
-    sf = scale_factor(axis.quantity, axis.units)
-    return sf .* transformed
+	# 4) unit scaling
+	sf = scale_factor(axis.quantity, axis.units)
+	return sf .* transformed
 end
 
 """
-    make_series(::Type{S}, nt, axes) where {S<:AbstractPlotSpec}
+	make_series(::Type{S}, nt, axes) where {S<:AbstractPlotSpec}
 
 Builds the vector of SeriesSpec for the given spec and resolved input `nt`.
 
@@ -255,32 +258,32 @@ multiple traces (overlays, histogram + CDF, etc.) should override this
 method and typically still call `axis_data` under the hood.
 """
 function make_series(
-        ::Type{S},
-        nt::NamedTuple,
-        axes::NamedTuple
+	::Type{S},
+	nt::NamedTuple,
+	axes::NamedTuple,
 ) where {S <: AbstractPlotSpec}
-    dims = geom_axes(S)
-    dims = dims isa Tuple ? dims : (dims,)
+	dims = geom_axes(S)
+	dims = dims isa Tuple ? dims : (dims,)
 
-    xaxis = axes.xaxis
-    yaxis = axes.yaxis
-    zaxis = axes.zaxis
+	xaxis = axes.xaxis
+	yaxis = axes.yaxis
+	zaxis = axes.zaxis
 
-    xdata = :x in dims ? axis_data(S, :x, nt, xaxis) : nothing
-    ydata = :y in dims ? axis_data(S, :y, nt, yaxis) : nothing
-    zdata = :z in dims ? axis_data(S, :z, nt, zaxis) : nothing
+	xdata = :x in dims ? axis_data(S, :x, nt, xaxis) : nothing
+	ydata = :y in dims ? axis_data(S, :y, nt, yaxis) : nothing
+	zdata = :z in dims ? axis_data(S, :z, nt, zaxis) : nothing
 
-    kind = plot_kind(S)
-    labels = legend_labels(S, nt)
-    label = isempty(labels) ? nothing : first(labels)
+	kind   = plot_kind(S)
+	labels = legend_labels(S, nt)
+	label  = isempty(labels) ? nothing : first(labels)
 
-    series = SeriesSpec(
-        kind,
-        xdata,
-        ydata,
-        zdata,
-        label
-    )
+	series = SeriesSpec(
+		kind,
+		xdata,
+		ydata,
+		zdata,
+		label,
+	)
 
-    return SeriesSpec[series]
+	return SeriesSpec[series]
 end

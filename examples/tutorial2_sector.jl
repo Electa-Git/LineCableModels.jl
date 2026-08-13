@@ -9,7 +9,7 @@ using the [`LineCableModels.jl`](@ref) package. The objective is to build a comp
 **Tutorial outline**
 ```@contents
 Pages = [
-    "tutorial2_sector.md",
+	"tutorial2_sector.md",
 ]
 Depth = 2:3
 ```
@@ -47,11 +47,12 @@ We start by defining the materials. We will create a custom aluminum material wi
 =#
 
 # Initialize materials library and add a PVC material
-materials = MaterialsLibrary(add_defaults = true)
+materials = MaterialsLibrary(add_defaults=true)
 pvc = Material(Inf, 8.0, 1.0, 20.0, 0.1) # simple PVC
 add!(materials, "pvc", pvc)
 copper = get(materials, "copper")
 aluminum = get(materials, "aluminum")
+
 
 #=
 ## Sector-Shaped Core Conductors
@@ -142,7 +143,7 @@ println("Previewing cable design...")
 plt, _ = preview(design)
 plt #hide
 
-#=
+#= 
 ## Storing in a Library
 
 Finally, we can store the cable design in a `CablesLibrary` for future reference.
@@ -168,3 +169,4 @@ This tutorial has demonstrated how to model a three-core cable with sector-shape
 
 This detailed modeling capability allows for accurate analysis of various cable configurations.
 =#
+

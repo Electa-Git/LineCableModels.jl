@@ -17,6 +17,7 @@ Represents an earth model with constant properties (CP), i.e. frequency-invarian
 struct CPEarth <: AbstractFDEMFormulation end
 get_description(::CPEarth) = "Constant properties (CP)"
 
+
 """
 $(TYPEDSIGNATURES)
 
@@ -50,9 +51,12 @@ println(epsilon) # Output: [8.854e-11, 8.854e-11, 8.854e-11]
 println(mu)      # Output: [1.2566e-6, 1.2566e-6, 1.2566e-6]
 ```
 
+# See also
+
+- [`EarthLayer`](@ref)
 """
 function (f::CPEarth)(frequencies::Vector{T}, base_rho_g::T, base_epsr_g::T,
-        base_mur_g::T) where {T <: REALSCALAR}
+    base_mur_g::T) where {T<:REALSCALAR}
 
     # Preallocate for performance
     n_freq = length(frequencies)
@@ -74,6 +78,6 @@ function (f::CPEarth)(frequencies::AbstractVector, base_rho_g, base_epsr_g, base
         coerce_to_T(frequencies, T),
         coerce_to_T(base_rho_g, T),
         coerce_to_T(base_epsr_g, T),
-        coerce_to_T(base_mur_g, T)
+        coerce_to_T(base_mur_g, T),
     )
 end

@@ -19,9 +19,8 @@ Default policy for **inner** radius raw inputs: accept proxies that expose an ou
 Validation.is_radius_input(Tubular, Val(:r_in), prev_layer)  # true if prev_layer has :r_ex
 ```
 """
-function is_radius_input(::Type{T}, ::Val{:r_in}, p::AbstractCablePart) where {T}
-    hasproperty(p, :r_ex)
-end
+is_radius_input(::Type{T}, ::Val{:r_in}, p::AbstractCablePart) where {T} =
+	hasproperty(p, :r_ex)
 
 """
 $(TYPEDSIGNATURES)
@@ -79,9 +78,9 @@ Defaults may be a `NamedTuple` or a `Tuple` zipped against `Validation.keyword_f
 User keys always win.
 """
 @inline function _with_kwdefaults(::Type{C}, kwargs::NamedTuple) where {C}
-    defs = Validation.keyword_defaults(C)
-    defs === () && return kwargs
-    nt = defs isa NamedTuple ? defs :
-         NamedTuple{Validation.keyword_fields(C)}(defs)
-    return merge(nt, kwargs)
+	defs = Validation.keyword_defaults(C)
+	defs === () && return kwargs
+	nt = defs isa NamedTuple ? defs :
+		 NamedTuple{Validation.keyword_fields(C)}(defs)
+	return merge(nt, kwargs)
 end

@@ -1,10 +1,13 @@
 """
-    LineCableModels.Engine.EarthImpedance
+	LineCableModels.Engine.EarthImpedance
 
 # Dependencies
 
 $(IMPORTS)
 
+# Exports
+
+$(EXPORTS)
 """
 module EarthImpedance
 

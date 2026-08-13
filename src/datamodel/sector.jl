@@ -5,7 +5,7 @@ Holds the geometric parameters that define the shape of a sector conductor.
 
 $(TYPEDFIELDS)
 """
-struct SectorParams{T <: REALSCALAR}
+struct SectorParams{T<:REALSCALAR}
     "Number of sectors in the full cable (e.g., 3 or 4)."
     n_sectors::Int
     "Back radius of the sector (outermost curve) \\[m\\]."
@@ -19,43 +19,37 @@ struct SectorParams{T <: REALSCALAR}
     "Insulation thickness \\[m\\]."
     d_insulation::T  # needed to correct for the offset
 
-    function SectorParams(n_sectors::Int, r_back::T, d_sector::T, r_corner::T,
-            theta_cond_deg::T, d_insulation::T) where {T <: REALSCALAR}
-        # validation for the sector geometry constraints (angle limits, no overlap, discriminant check)
-        _validate_sector_params(
-            n_sectors, r_back, d_sector, r_corner, theta_cond_deg, d_insulation)
-        new{T}(n_sectors, r_back, d_sector, r_corner, theta_cond_deg, d_insulation)
+    function SectorParams(n_sectors::Int, r_back::T, d_sector::T, r_corner::T, theta_cond_deg::T, d_insulation::T) where {T<:REALSCALAR}
+         # validation for the sector geometry constraints (angle limits, no overlap, discriminant check)
+         _validate_sector_params(n_sectors, r_back, d_sector, r_corner, theta_cond_deg, d_insulation)
+         new{T}(n_sectors, r_back, d_sector, r_corner, theta_cond_deg, d_insulation)
     end
 end
 
-const _REQ_SECTOR_PARAMS = (
-    :n_sectors, :r_back, :d_sector, :r_corner, :theta_cond_deg, :d_insulation)
+const _REQ_SECTOR_PARAMS = (:n_sectors, :r_back, :d_sector, :r_corner, :theta_cond_deg, :d_insulation)
 
 Validation.has_radii(::Type{SectorParams}) = false
 Validation.required_fields(::Type{SectorParams}) = _REQ_SECTOR_PARAMS
-function Validation.coercive_fields(::Type{SectorParams})
-    (:r_back, :d_sector, :r_corner, :theta_cond_deg, :d_insulation)
-end
+Validation.coercive_fields(::Type{SectorParams}) = (:r_back, :d_sector, :r_corner, :theta_cond_deg, :d_insulation)
 
 # --- Geometry Logic Storage ---
-function _validate_sector_params(
-        n_sectors, r_back, d_sector, r_corner, theta_cond_deg, d_insulation)
+function _validate_sector_params(n_sectors, r_back, d_sector, r_corner, theta_cond_deg, d_insulation) 
     # 1. Basic Non-negativity (redundant with rules but kept for Core safety)
     if r_back < 0 || d_sector < 0 || r_corner < 0 || theta_cond_deg < 0 || d_insulation < 0
         throw(ArgumentError("Sector geometry parameters must be non-negative."))
     end
-
+    
     # 2. Basic constraints
     if theta_cond_deg >= 360.0
-        throw(ArgumentError("[SectorParams] theta_cond_deg ($theta_cond_deg) must be < 360"))
+         throw(ArgumentError("[SectorParams] theta_cond_deg ($theta_cond_deg) must be < 360"))
     end
     allowed_angle = 360.0 / n_sectors
     if theta_cond_deg > allowed_angle + 1e-4
-        throw(ArgumentError("[SectorParams] theta_cond_deg ($theta_cond_deg) exceeds allowed 360/n ($allowed_angle)"))
+         throw(ArgumentError("[SectorParams] theta_cond_deg ($theta_cond_deg) exceeds allowed 360/n ($allowed_angle)"))
     end
 
     if d_sector >= r_back
-        throw(ArgumentError("[SectorParams] d_sector ($d_sector) must be less than r_back ($r_back)"))
+         throw(ArgumentError("[SectorParams] d_sector ($d_sector) must be less than r_back ($r_back)"))
     end
 
     # 3. Geometric feasibility (Discriminant check)
@@ -63,12 +57,12 @@ function _validate_sector_params(
     phi_rad = deg2rad(phi_deg)
 
     if abs(cos(phi_rad)) < 1e-9
-        throw(ArgumentError("[SectorParams] theta_cond_deg too close to 180 (phi ~ 90), valid sector cannot be formed."))
+         throw(ArgumentError("[SectorParams] theta_cond_deg too close to 180 (phi ~ 90), valid sector cannot be formed."))
     end
-
+    
     d_base_corner = r_corner * (1.0 / cos(phi_rad) - 1.0)
     d_offset = r_back - d_sector - d_base_corner
-
+    
     k = r_corner / cos(phi_rad) + d_offset
     qa = 1.0 + tan(phi_rad)^2
     qb = 2.0 * k * tan(phi_rad)
@@ -91,25 +85,22 @@ end
 
 function Validation._apply(r::SectorGeometryValid, nt, ::Type{SectorParams})
     # Delegate to the shared validation function
-    # Note: Non-neg rules from Validation framework handle the basic checks,
+    # Note: Non-neg rules from Validation framework handle the basic checks, 
     # but _validate_sector_params repeats them safely.
-    _validate_sector_params(nt.n_sectors, nt.r_back, nt.d_sector,
-        nt.r_corner, nt.theta_cond_deg, nt.d_insulation)
+    _validate_sector_params(nt.n_sectors, nt.r_back, nt.d_sector, nt.r_corner, nt.theta_cond_deg, nt.d_insulation)
 end
 
-function Validation.extra_rules(::Type{SectorParams})
-    (
-        Validation.IntegerField(:n_sectors),
-        Validation.Positive(:n_sectors),
-        Validation.Nonneg(:r_back),
-        Validation.Nonneg(:d_sector),
-        Validation.Nonneg(:r_corner),
-        Validation.Nonneg(:theta_cond_deg),
-        Validation.Nonneg(:d_insulation),
-        Validation.Less(:d_sector, :r_back),
-        SectorGeometryValid(:sector_geometry)
-    )
-end
+Validation.extra_rules(::Type{SectorParams}) = (
+    Validation.IntegerField(:n_sectors),
+    Validation.Positive(:n_sectors),
+    Validation.Nonneg(:r_back),
+    Validation.Nonneg(:d_sector),
+    Validation.Nonneg(:r_corner),
+    Validation.Nonneg(:theta_cond_deg),
+    Validation.Nonneg(:d_insulation),
+    Validation.Less(:d_sector, :r_back),
+    SectorGeometryValid(:sector_geometry),
+)
 
 @construct SectorParams _REQ_SECTOR_PARAMS
 
@@ -120,7 +111,7 @@ Represents a single sector-shaped conductor with defined geometric and material 
 
 $(TYPEDFIELDS)
 """
-struct Sector{T <: REALSCALAR} <: AbstractConductorPart{T}
+struct Sector{T<:REALSCALAR} <: AbstractConductorPart{T}
     "Inner radius (not applicable, typically 0 for the central point) \\[m\\]."
     r_in::T
     "Outer radius (equivalent back radius) \\[m\\]."
@@ -140,17 +131,18 @@ struct Sector{T <: REALSCALAR} <: AbstractConductorPart{T}
     "Geometric mean radius (GMR) of the sector (approximated) \\[m\\]."
     gmr::T
     "Calculated vertices defining the polygon shape."
-    vertices::Vector{Point{2, T}}
+    vertices::Vector{Point{2,T}}
     "Geometric centroid of the sector shape."
-    centroid::Point{2, T}
+    centroid::Point{2,T}
 end
 
+
 function Sector(
-        params::SectorParams{T},
-        rotation_angle_deg::T,
-        material_props::Material{T};
-        temperature::T = T₀
-) where {T <: REALSCALAR}
+    params::SectorParams{T},
+    rotation_angle_deg::T,
+    material_props::Material{T};
+    temperature::T=T₀,
+) where {T<:REALSCALAR}
 
     # 1. Calculate the geometry and vertices for a base (unrotated) sector
     base_vertices = _calculate_sector_polygon_points(params)
@@ -175,13 +167,12 @@ function Sector(
     cross_section = _shoelace_area(rotated_vertices)
     #@debug "Sector cross-sectional area: $(cross_section*1e6) mm²"
     @debug "Sector cross-sectional area (Shoelace): $(cross_section*1e6) mm²"
-
+    
     # Calculate centroid
     centroid = _calculate_polygon_centroid(rotated_vertices)
     @debug "Sector numerically calculated centroid point is: $(centroid)"
     # 4. Calculate DC resistance
-    rho_eff = calc_temperature_correction(material_props.alpha, temperature, material_props.T0) *
-              material_props.rho
+    rho_eff = calc_temperature_correction(material_props.alpha, temperature, material_props.T0) * material_props.rho
     resistance = rho_eff / cross_section
 
     # 5. Approximate GMR based on a circle of equivalent area
@@ -199,9 +190,11 @@ function Sector(
         resistance,
         gmr,
         rotated_vertices,
-        centroid
+        centroid,
     )
 end
+
+
 
 # --- Geometric Helper Functions (internal) ---
 
@@ -215,17 +208,16 @@ function _calculate_sector_geometry(p::SectorParams)
         error("theta_cond_deg is too close to 180, leading to division by zero. Check parameters.")
     end
 
-    d_base_corner = p.r_corner * (1.0 / cos(phi_rad) - 1.0) # D_B
+    d_base_corner = p.r_corner * (1.0 / cos(phi_rad) - 1.0) # D_B 
     @debug "(Sector) d_base_corner (D_B) : $d_base_corner m"
     d_offset = p.r_back - p.d_sector - d_base_corner  # D_O
     @debug "(Sector) d_offset (D_O) : $d_offset m"
-    d_insulation_offset = (p.d_insulation / (cos((pi - ((2 * pi) / p.n_sectors)) / 2.0))) -
-                          d_offset # D_I
+    d_insulation_offset = (p.d_insulation / (cos((pi - ((2 * pi) / p.n_sectors)) / 2.0))) - d_offset # D_I
     @debug "(Sector) d_insulation_offset (D_I) : $d_insulation_offset m"
 
     # trick test (works though different that Urquhart's)
     #d_offset = (p.d_insulation / (cos((pi - ((2 * pi) / p.n_sectors)) / 2.0))) # D_I
-    #d_insulation_offset = 0.0
+    #d_insulation_offset = 0.0 
 
     x_base_corner = p.r_corner * sin(phi_rad) # X_A = -X_F
     y_base_corner = x_base_corner * tan(phi_rad) + d_offset # Y_A = Y_F
@@ -264,22 +256,22 @@ function _calculate_sector_geometry(p::SectorParams)
     node_C = Point2f(x_side_upper, y_side_upper + d_insulation_offset)
 
     nodes = (
-        A = node_A,
-        B = node_B,
-        C = node_C,
-        D = Point2f(-node_C[1], node_C[2]),
-        E = Point2f(-node_B[1], node_B[2]),
-        F = Point2f(-node_A[1], node_A[2])
+        A=node_A,
+        B=node_B,
+        C=node_C,
+        D=Point2f(-node_C[1], node_C[2]),
+        E=Point2f(-node_B[1], node_B[2]),
+        F=Point2f(-node_A[1], node_A[2])
     )
     @debug "(Sector) Nodes: $nodes"
     centers = (
-        Back = Point2f(0, 0 + d_insulation_offset),
-        Base = Point2f(0, d_offset + p.r_corner / cos(phi_rad) + d_insulation_offset),
-        RightSide = Point2f(x_side_center, y_side_center + d_insulation_offset),
-        LeftSide = Point2f(-x_side_center, y_side_center + d_insulation_offset)
+        Back=Point2f(0, 0+ d_insulation_offset),
+        Base=Point2f(0, d_offset + p.r_corner / cos(phi_rad) + d_insulation_offset),
+        RightSide=Point2f(x_side_center, y_side_center+ d_insulation_offset),
+        LeftSide=Point2f(-x_side_center, y_side_center+ d_insulation_offset)
     )
     @debug "(Sector) Centers: $centers"
-    return (Nodes = nodes, Centers = centers, Params = p)
+    return (Nodes=nodes, Centers=centers, Params=p)
 end
 
 function _generate_arc_points(center, radius, start_angle, end_angle, num_points)
@@ -293,13 +285,12 @@ function _generate_arc_points(center, radius, start_angle, end_angle, num_points
         end_angle -= 2pi
         @debug "(Sector) Adjusted end_angle to be less than start_angle: $(rad2deg(end_angle)) < $(rad2deg(start_angle))"
     end
-    angle_range = range(start_angle, stop = end_angle, length = num_points)
+    angle_range = range(start_angle, stop=end_angle, length=num_points)
     @debug "(Sector) ______________________________ ∠ $(rad2deg(start_angle-end_angle))."
-    return [Point2f(center[1] + radius * cos(a), center[2] + radius * sin(a))
-            for a in angle_range]
+    return [Point2f(center[1] + radius * cos(a), center[2] + radius * sin(a)) for a in angle_range]
 end
 
-function _calculate_sector_polygon_points(params; num_arc_points = 30) # increase `num_arc_points` for higher accuracy
+function _calculate_sector_polygon_points(params; num_arc_points=30) # increase `num_arc_points` for higher accuracy
     geom = _calculate_sector_geometry(params)
     nodes, centers = geom.Nodes, geom.Centers
 
@@ -313,8 +304,7 @@ function _calculate_sector_polygon_points(params; num_arc_points = 30) # increas
         end_angle = get_angle(nodes.A, centers.Base)
         @debug "Arc from F to A: end_angle=$(rad2deg(end_angle))"
         append!(poly_points,
-            _generate_arc_points(
-                centers.Base, params.r_corner, start_angle, end_angle, num_arc_points)[2:end])
+            _generate_arc_points(centers.Base, params.r_corner, start_angle, end_angle, num_arc_points)[2:end])
     else
         push!(poly_points, Point2f(0, params.r_back - params.d_sector), nodes.A)
     end
@@ -328,9 +318,7 @@ function _calculate_sector_polygon_points(params; num_arc_points = 30) # increas
         @debug "Arc from B to C: start_angle=$(rad2deg(start_angle))"
         end_angle = get_angle(nodes.C, centers.RightSide)
         @debug "Arc from B to C: end_angle=$(rad2deg(end_angle))"
-        append!(poly_points,
-            _generate_arc_points(centers.RightSide, params.r_corner,
-                start_angle, end_angle, num_arc_points)[2:end])
+        append!(poly_points, _generate_arc_points(centers.RightSide, params.r_corner, start_angle, end_angle, num_arc_points)[2:end])
     else
         push!(poly_points, nodes.C)
     end
@@ -340,9 +328,7 @@ function _calculate_sector_polygon_points(params; num_arc_points = 30) # increas
     @debug "Arc from C to D: start_angle=$(rad2deg(start_angle))"
     end_angle = get_angle(nodes.D, centers.Back)
     @debug "Arc from C to D: end_angle=$(rad2deg(end_angle))"
-    append!(poly_points,
-        _generate_arc_points(
-            centers.Back, params.r_back, start_angle, end_angle, num_arc_points)[2:end])
+    append!(poly_points, _generate_arc_points(centers.Back, params.r_back, start_angle, end_angle, num_arc_points)[2:end])
 
     # Arc D to E (Left Side)
     if params.r_corner > 1e-9
@@ -350,9 +336,7 @@ function _calculate_sector_polygon_points(params; num_arc_points = 30) # increas
         @debug "Arc from D to E: start_angle=$(rad2deg(start_angle))"
         end_angle = get_angle(nodes.E, centers.LeftSide)
         @debug "Arc from D to E: end_angle=$(rad2deg(end_angle))"
-        append!(poly_points,
-            _generate_arc_points(
-                centers.LeftSide, params.r_corner, start_angle, end_angle, num_arc_points)[2:end])
+        append!(poly_points, _generate_arc_points(centers.LeftSide, params.r_corner, start_angle, end_angle, num_arc_points)[2:end])
     else
         push!(poly_points, nodes.E)
     end
@@ -365,7 +349,8 @@ function _rotate_point(p::Point2f, angle_rad::Real)
     return Point2f(p[1] * cos_a - p[2] * sin_a, p[1] * sin_a + p[2] * cos_a)
 end
 
-function _shoelace_area(vertices::AbstractVector{Point{2, T}}) where {T <: Real}
+
+function _shoelace_area(vertices::AbstractVector{Point{2,T}}) where {T<:Real}
     n::Int = length(vertices)
     if n < 3
         @warn "Polygon must have at least 3 vertices to compute area. Returning 0 area"
@@ -380,13 +365,13 @@ function _shoelace_area(vertices::AbstractVector{Point{2, T}}) where {T <: Real}
     return abs(area) / T(2)
 end
 
-function _calculate_polygon_centroid(vertices::AbstractVector{Point{
-        2, T}}) where {T <: Real}
+function _calculate_polygon_centroid(vertices::AbstractVector{Point{2,T}}) where {T<:Real}
     n = length(vertices)
     if n < 3
         return Point2f(0, 0)
     end
 
+    
     Cx = zero(T)
     Cy = zero(T)
     signed_area = zero(T)

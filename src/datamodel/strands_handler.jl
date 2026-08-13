@@ -17,12 +17,12 @@ Fallback method for the [`maxfill`](@ref) interface. Throws an explicit error in
 - Nothing. Always throws an `ArgumentError`.
 """
 @noinline function maxfill(::Type{T}, args...) where {T}
-    throw(
-        ArgumentError(
-        "[$(_typename(T))] `maxfill` is not implemented. Any component using `MaxFill()` " *
-        "or the `PhysicalFillLimit` rule must overload `maxfill(::Type{$(_typename(T))}, args...)`.",
-    ),
-    )
+	throw(
+		ArgumentError(
+			"[$(_typename(T))] `maxfill` is not implemented. Any component using `MaxFill()` " *
+			"or the `PhysicalFillLimit` rule must overload `maxfill(::Type{$(_typename(T))}, args...)`.",
+		),
+	)
 end
 
 # The plumbing (Never needs to be touched again)

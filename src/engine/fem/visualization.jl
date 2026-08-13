@@ -23,6 +23,7 @@ $(FUNCTIONNAME)(workspace)
 ```
 """
 function preview_mesh(workspace::FEMWorkspace)
+
     if gmsh.is_initialized() == 0
         gmsh.initialize()
         @debug "Initialized Gmsh for mesh preview"

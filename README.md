@@ -4,92 +4,55 @@
 
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://electa-git.github.io/LineCableModels.jl/dev/)
 [![Build Status](https://github.com/Electa-Git/LineCableModels.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/Electa-Git/LineCableModels.jl/actions/workflows/CI.yml?query=branch%3Amain)
-[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 [![codecov](https://codecov.io/gh/Electa-Git/LineCableModels.jl/graph/badge.svg?token=6H12DDBZ0T)](https://codecov.io/gh/Electa-Git/LineCableModels.jl)
 
-LineCableModels.jl computes electrical parameters for underground and overhead
-power cables and supports uncertainty propagation through cable geometry and
-material data.
+`LineCableModels.jl` is a Julia package for computing the electrical parameters of arbitrary arrangements of underground and overhead power cables, with built-in uncertainty quantification. It is designed as a general-purpose and scalable toolbox to calculate transmission line parameters and to construct models for steady-state analysis and electromagnetic transient (EMT) simulations.
+  
+## Main features
 
-## Features
+- **Comprehensive cable modeling:** Detailed representation of conductors (solid, tubular, stranded), insulation layers, screens, armoring, and semicons.
+- **Line and cable constants:** Accurate DC and AC parameters (R, L, C, G) with correction factors for temperature, stranding, and helical effects.
+- **Propagation characteristics:** Rigorous electromagnetic   models for cable internal impedances and earth-return paths.
+- **Multiple solvers:** Analytical formulations, finite element modeling, and interfaces to EMT programs, including ATPDraw and PSCAD.
+- **Materials and cables library:** Store and reuse standardized material properties and cable designs across projects.
 
-- Solid, tubular, stranded, sector-shaped, screened, and armored cable models.
-- Frequency-dependent series impedance and shunt admittance calculations.
-- Earth-return, modal transformation, ATPDraw, and PSCAD integration.
-- Material and cable libraries with JSON import and export.
-- Optional Makie plotting and Gmsh/GetDP finite-element integration.
+## Documentation
 
-## Installation
+See the [full documentation](https://electa-git.github.io/LineCableModels.jl/) for detailed usage instructions, technical background, and examples.
 
-After version 0.2.0 is accepted into the Julia General registry:
+## Usage
 
-```julia-repl
-pkg> add LineCableModels
-```
-
-Until registration is complete, install the release commit from GitHub:
+Clone the package and add to the Julia environment:
 
 ```julia-repl
-pkg> add https://github.com/Electa-Git/LineCableModels.jl
+pkg> add https://github.com/Electa-Git/LineCableModels.jl.git
 ```
 
-Core usage has no plotting or FEM dependency:
+If you are using the finite-element solver, it is recommended to run the build script to retrieve the binaries needed by the [GetDP.jl](https://github.com/Electa-Git/GetDP.jl) front-end:
+
+```julia-repl
+pkg> build LineCableModels
+```
+
+Then, in your Julia code, import the package:
 
 ```julia
 using LineCableModels
 ```
 
-## Optional plotting
+For application examples, please refer to the [tutorials section](https://electa-git.github.io/LineCableModels.jl/) and the [examples folder](examples).
 
-Load one Makie backend explicitly before calling `preview`, `plot`, or
-`set_backend!`:
+## License
 
-```julia
-using LineCableModels
-using CairoMakie
-
-set_backend!(:cairo)
-```
-
-`GLMakie` and `WGLMakie` are supported in the same way. LineCableModels
-never imports or selects a backend dynamically.
-
-## Transitional FEM integration
-
-The v0.2 compatibility API requires Gmsh and an external GetDP executable:
-
-```julia
-using LineCableModels
-using Gmsh
-using LineCableModels.Engine.FEM
-
-formulation = FormulationSet(:FEM)
-```
-
-Set `GETDP_EXECUTABLE` to the absolute executable path or make `getdp`
-available on `PATH`. The legacy FEM/GetDP API emits deprecation warnings
-because it will be simplified in a future release.
-
-See the [documentation](https://electa-git.github.io/LineCableModels.jl/) and
-[examples](examples) for supported workflows.
-
-## License and citation
-
-LineCableModels.jl is distributed under the [BSD 3-Clause License](LICENSE).
-The private GetDP frontend snapshot retains its own BSD license and provenance
-under `ext/fem/getdp_frontend/`. The separate GetDP executable and its
-GPL-2.0-or-later license are described in
-[THIRD_PARTY_NOTICE.md](THIRD_PARTY_NOTICE.md). Citation metadata is provided
-in [CITATION.cff](CITATION.cff).
+The source code is provided under the [BSD 3-Clause License](LICENSE).
 
 ## Acknowledgements
 
-This work is supported by the Etch Competence Hub of EnergyVille, financed by
-the Flemish Government. The primary developer is Amauri Martins
-([@amaurigmartins](https://github.com/amaurigmartins)).
+This work is supported by the Etch Competence Hub of EnergyVille, financed by the Flemish Government. The primary developer is Amauri Martins ([@amaurigmartins](https://github.com/amaurigmartins)).
 
-<p align="left">
-  <br><img src="assets/img/ETCH_LOGO_RGB_NEG.svg" width="150" alt="Etch logo">
-  <br><img src="assets/img/ENERGYVILLE-LOGO.svg" width="150" alt="EnergyVille logo">
-  <br><img src="assets/img/kul_logo.svg" width="150" alt="KU Leuven logo">
+<p align = "left">
+  <p><br><img src="assets/img/ETCH_LOGO_RGB_NEG.svg" width="150" alt="Etch logo"></p>
+  <p><img src="assets/img/ENERGYVILLE-LOGO.svg" width="150" alt="EV logo"></p>
+  <p><img src="assets/img/kul_logo.svg" width="150" alt="KUL logo"></p>
 </p>

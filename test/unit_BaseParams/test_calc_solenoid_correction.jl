@@ -3,7 +3,7 @@
         # Example from docstring: 10 turns/m, conductor radius 5 mm, insulator radius 10 mm
         result = calc_solenoid_correction(10.0, 0.005, 0.01)
         expected = 1.0 + 2 * 10.0^2 * pi^2 * (0.01^2 - 0.005^2) / log(0.01 / 0.005)
-        @test isapprox(result, expected; atol = TEST_TOL)
+        @test isapprox(result, expected; atol=TEST_TOL)
         @test result > 1.0
 
         # Non-helical cable (NaN turns)
@@ -14,7 +14,7 @@
     @testset "Edge Cases" begin
         # Zero turns (should be 1.0)
         result = calc_solenoid_correction(0.0, 0.005, 0.01)
-        @test isapprox(result, 1.0; atol = TEST_TOL)
+        @test isapprox(result, 1.0; atol=TEST_TOL)
 
         # Collapsing geometry: radii nearly equal
         result = calc_solenoid_correction(10.0, 0.01, 0.010001)
@@ -34,7 +34,7 @@
         # Float32 vs Float64
         r = calc_solenoid_correction(Float32(10.0), Float32(0.005), Float32(0.01))
         d = calc_solenoid_correction(10.0, 0.005, 0.01)
-        @test isapprox(r, d; atol = TEST_TOL)
+        @test isapprox(r, d; atol=TEST_TOL)
     end
 
     @testset "Physical Behavior" begin

@@ -1,64 +1,62 @@
 abstract type Homogeneous <: EarthAdmittanceFormulation end
 
 struct Kernel{Tγ1, Tγ2, Tμ2}
-    "Layer where the source conductor is placed."
-    s::Int
-    "Layer where the target conductor is placed."
-    t::Int
-    "Primary field propagation constant (0 = lossless, 1 = air, 2 = earth)."
-    Γx::Int
-    "Air propagation constant γ₁(jω, μ, σ, ε)."
-    γ1::Tγ1
-    "Earth propagation constant γ₂(jω, μ, σ, ε)."
-    γ2::Tγ2
-    "Earth magnetic-constant assumption μ₂(μ)."
-    μ2::Tμ2
+	"Layer where the source conductor is placed."
+	s::Int
+	"Layer where the target conductor is placed."
+	t::Int
+	"Primary field propagation constant (0 = lossless, 1 = air, 2 = earth)."
+	Γx::Int
+	"Air propagation constant γ₁(jω, μ, σ, ε)."
+	γ1::Tγ1
+	"Earth propagation constant γ₂(jω, μ, σ, ε)."
+	γ2::Tγ2
+	"Earth magnetic-constant assumption μ₂(μ)."
+	μ2::Tμ2
 end
 
 struct Papadopoulos{Tγ1, Tγ2, Tμ2} <: Homogeneous
-    kernel::Kernel{Tγ1, Tγ2, Tμ2}
+	kernel::Kernel{Tγ1, Tγ2, Tμ2}
 end
 
-function Papadopoulos(; s::Int = 2, t::Int = 2, Γx::Int = 2,
-        γ1 = (jω, μ, σ, ε) -> sqrt(jω * μ * (σ + jω*ε)),
-        γ2 = (jω, μ, σ, ε) -> sqrt(jω * μ * (σ + jω*ε)),
-        μ2 = μ -> μ)
-    Papadopoulos(
-        Kernel{typeof(γ1), typeof(γ2), typeof(μ2)}(s, t, Γx, γ1, γ2, μ2),
-    )
-end
+Papadopoulos(; s::Int = 2, t::Int = 2, Γx::Int = 2,
+	γ1 = (jω, μ, σ, ε) -> sqrt(jω * μ * (σ + jω*ε)),
+	γ2 = (jω, μ, σ, ε) -> sqrt(jω * μ * (σ + jω*ε)),
+	μ2 = μ -> μ) =
+	Papadopoulos(
+		Kernel{typeof(γ1), typeof(γ2), typeof(μ2)}(s, t, Γx, γ1, γ2, μ2),
+	)
 
 get_description(::Papadopoulos) = "Papadopoulos"
 from_kernel(f::Papadopoulos) = f.kernel
 
+
 struct Pollaczek{Tγ1, Tγ2, Tμ2} <: Homogeneous
-    kernel::Kernel{Tγ1, Tγ2, Tμ2}
+	kernel::Kernel{Tγ1, Tγ2, Tμ2}
 end
 
-function Pollaczek(; s::Int = 2, t::Int = 2, Γx::Int = 0,
-        γ1 = (jω, μ, σ, ε) -> jω * sqrt(μ * ε₀),
-        γ2 = (jω, μ, σ, ε) -> jω * sqrt(μ * ε₀),
-        μ2 = μ -> oftype(μ, μ₀))
-    Pollaczek(
-        Kernel{typeof(γ1), typeof(γ2), typeof(μ2)}(s, t, Γx, γ1, γ2, μ2),
-    )
-end
+Pollaczek(; s::Int = 2, t::Int = 2, Γx::Int = 0,
+	γ1 = (jω, μ, σ, ε) -> jω * sqrt(μ * ε₀),
+	γ2 = (jω, μ, σ, ε) -> jω * sqrt(μ * ε₀),
+	μ2 = μ -> oftype(μ, μ₀)) =
+	Pollaczek(
+		Kernel{typeof(γ1), typeof(γ2), typeof(μ2)}(s, t, Γx, γ1, γ2, μ2),
+	)
 
 get_description(::Pollaczek) = "Pollaczek"
 from_kernel(f::Pollaczek) = f.kernel
 
 struct Images{Tγ1, Tγ2, Tμ2} <: Homogeneous
-    kernel::Kernel{Tγ1, Tγ2, Tμ2}
+	kernel::Kernel{Tγ1, Tγ2, Tμ2}
 end
 
-function Images(; s::Int = 1, t::Int = 1, Γx::Int = 0,
-        γ1 = (jω, μ, σ, ε) -> jω * sqrt(μ * ε₀),
-        γ2 = (jω, μ, σ, ε) -> jω * sqrt(μ * ε₀),
-        μ2 = μ -> oftype(μ, μ₀))
-    Images(
-        Kernel{typeof(γ1), typeof(γ2), typeof(μ2)}(s, t, Γx, γ1, γ2, μ2),
-    )
-end
+Images(; s::Int = 1, t::Int = 1, Γx::Int = 0,
+	γ1 = (jω, μ, σ, ε) -> jω * sqrt(μ * ε₀),
+	γ2 = (jω, μ, σ, ε) -> jω * sqrt(μ * ε₀),
+	μ2 = μ -> oftype(μ, μ₀)) =
+	Images(
+		Kernel{typeof(γ1), typeof(γ2), typeof(μ2)}(s, t, Γx, γ1, γ2, μ2),
+	)
 
 get_description(::Images) = "Electrostatic images"
 from_kernel(f::Images) = f.kernel
@@ -68,18 +66,18 @@ from_kernel(f::Images) = f.kernel
 
 # Functor implementation for all homogeneous earth impedance formulations.
 function (f::Homogeneous)(
-        form::Symbol,
-        h::AbstractVector{T},
-        yij::T,
-        rho_g::AbstractVector{T},
-        eps_g::AbstractVector{T},
-        mu_g::AbstractVector{T},
-        jω::Complex{T}
+	form::Symbol,
+	h::AbstractVector{T},
+	yij::T,
+	rho_g::AbstractVector{T},
+	eps_g::AbstractVector{T},
+	mu_g::AbstractVector{T},
+	jω::Complex{T},
 ) where {T <: REALSCALAR}
-    Base.@nospecialize form
-    return form === :self ? f(Val(:self), h, yij, rho_g, eps_g, mu_g, jω) :
-           form === :mutual ? f(Val(:mutual), h, yij, rho_g, eps_g, mu_g, jω) :
-           throw(ArgumentError("Unknown earth admittance form: $form"))
+	Base.@nospecialize form
+	return form === :self ? f(Val(:self), h, yij, rho_g, eps_g, mu_g, jω) :
+		   form === :mutual ? f(Val(:mutual), h, yij, rho_g, eps_g, mu_g, jω) :
+		   throw(ArgumentError("Unknown earth admittance form: $form"))
 end
 
 # function (f::Homogeneous)(
@@ -94,133 +92,137 @@ end
 # end
 
 function (f::Homogeneous)(
-        ::Val{:self},
-        h::AbstractVector{T},
-        yij::T,
-        rho_g::AbstractVector{T},
-        eps_g::AbstractVector{T},
-        mu_g::AbstractVector{T},
-        jω::Complex{T}
+	::Val{:self},
+	h::AbstractVector{T},
+	yij::T,
+	rho_g::AbstractVector{T},
+	eps_g::AbstractVector{T},
+	mu_g::AbstractVector{T},
+	jω::Complex{T},
 ) where {T <: REALSCALAR}
-    return f(Val(:mutual), h, yij, rho_g, eps_g, mu_g, jω)
+	return f(Val(:mutual), h, yij, rho_g, eps_g, mu_g, jω)
 end
 
-@inline _not(s::Int) = (s == 1 || s == 2) ? (3 - s) :
-                       throw(ArgumentError("s must be 1 or 2"))
+@inline _not(s::Int) =
+	(s == 1 || s == 2) ? (3 - s) :
+	throw(ArgumentError("s must be 1 or 2"))
 
-@inline _get_layer(z) = z > 0 ? 1 :
-                        (z < 0 ? 2 :
-                         throw(ArgumentError("Conductor at interface (h=0) is invalid")))
+@inline _get_layer(z) =
+	z > 0 ? 1 :
+	(z < 0 ? 2 : throw(ArgumentError("Conductor at interface (h=0) is invalid")))
 
 @noinline function _layer_mismatch(which::AbstractString, got::Int, expected::Int)
-    throw(
-        ArgumentError(
-        "conductor $which is in layer $got but formulation expects layer $expected",
-    ),
-    )
+	throw(
+		ArgumentError(
+			"conductor $which is in layer $got but formulation expects layer $expected",
+		),
+	)
 end
 
 @inline function validate_layers!(f::Homogeneous, h)
-    @boundscheck length(h) == 2 || throw(ArgumentError("h must have length 2"))
-    ℓ1 = _get_layer(h[1])
-    ℓ2 = _get_layer(h[2])
-    (ℓ1 == f.s) || _layer_mismatch("i (h[1])", ℓ1, f.s)
-    (ℓ2 == f.t) || _layer_mismatch("j (h[2])", ℓ2, f.t)
-    return nothing
+	@boundscheck length(h) == 2 || throw(ArgumentError("h must have length 2"))
+	ℓ1 = _get_layer(h[1])
+	ℓ2 = _get_layer(h[2])
+	(ℓ1 == f.s) || _layer_mismatch("i (h[1])", ℓ1, f.s)
+	(ℓ2 == f.t) || _layer_mismatch("j (h[2])", ℓ2, f.t)
+	return nothing
 end
 
 @inline function (f::Homogeneous)(
-        ::Val{:mutual},
-        h::AbstractVector{T},
-        yij::T,
-        rho_g::AbstractVector{T},
-        eps_g::AbstractVector{T},
-        mu_g::AbstractVector{T},
-        jω::Complex{T}
+	::Val{:mutual},
+	h::AbstractVector{T},
+	yij::T,
+	rho_g::AbstractVector{T},
+	eps_g::AbstractVector{T},
+	mu_g::AbstractVector{T},
+	jω::Complex{T},
 ) where {T <: REALSCALAR}
-    validate_layers!(f, h)
 
-    s = f.s # index of source layer
-    o = _not(s) # the other layer
-    nL = length(rho_g)
-    μ = similar(mu_g)
-    σ = similar(rho_g)
-    @inbounds for i in 1:nL
-        μ[i] = (i == 1) ? mu_g[i] : f.μ2(mu_g[i]) # μ₂ for earth layers
-        σ[i] = _to_σ(rho_g[i])
-    end
+	validate_layers!(f, h)
 
-    # construct propagation constants according to formulation assumptions
-    γ = Vector{Complex{T}}(undef, nL)
-    @inbounds for i in 1:nL
-        γ[i] = (i == 1 ? f.γ1 : f.γ2)(jω, μ[i], σ[i], eps_g[i])
-    end
-    γ_s = γ[s]
-    γ_o = γ[o]
-    γs_2 = γ_s^2
-    γo_2 = γ_o^2
+	s = f.s # index of source layer
+	o = _not(s) # the other layer
+	nL = length(rho_g)
+	μ = similar(mu_g);
+	σ = similar(rho_g);
+	@inbounds for i in 1:nL
+		μ[i] = (i == 1) ? mu_g[i] : f.μ2(mu_g[i]) # μ₂ for earth layers
+		σ[i] = _to_σ(rho_g[i])
+	end
 
-    # kx from struct: 0:none, 1:air, 2:source layer
-    kx_2 = if f.Γx == 0 # precalc squared
-        zero(γs_2)
-    else
-        ℓ = (f.Γx == 1) ? 1 : s
-        oftype(γs_2, (-jω^2) * μ[ℓ] * eps_g[ℓ])
-    end
+	# construct propagation constants according to formulation assumptions
+	γ = Vector{Complex{T}}(undef, nL)
+	@inbounds for i in 1:nL
+		γ[i] = (i == 1 ? f.γ1 : f.γ2)(jω, μ[i], σ[i], eps_g[i])
+	end
+	γ_s = γ[s];
+	γ_o = γ[o]
+	γs_2 = γ_s^2
+	γo_2 = γ_o^2
 
-    σ̃ = σ[s] + jω*eps_g[s] # complex conductivity of source layer
+	# kx from struct: 0:none, 1:air, 2:source layer
+	kx_2 = if f.Γx == 0 # precalc squared
+		zero(γs_2)
+	else
+		ℓ = (f.Γx == 1) ? 1 : s
+		oftype(γs_2, (-jω^2) * μ[ℓ] * eps_g[ℓ])
+	end
 
-    # unpack geometry
-    @inbounds hi, hj = abs(h[1]), abs(h[2])
-    dij = hypot(yij, hi - hj)          # √(y^2 + (hi - hj)^2) - conductor-conductor
-    Dij = hypot(yij, hi + hj)          # √(y^2 + (hi + hj)^2) - conductor-image
+	σ̃ = σ[s] + jω*eps_g[s] # complex conductivity of source layer
 
-    # perfectly conducting earth term in Bessel form
-    Λij = _bessel_diff(γ_s, dij, Dij)
+	# unpack geometry
+	@inbounds hi, hj = abs(h[1]), abs(h[2])
+	dij = hypot(yij, hi - hj)          # √(y^2 + (hi - hj)^2) - conductor-conductor
+	Dij = hypot(yij, hi + hj)          # √(y^2 + (hi + hj)^2) - conductor-image
 
-    # --- Overhead special case ---
-    # physics: source in AIR (s=t=1), kx = 0, σ_air ≈ 0,
-    #          earth propagation constant negligible γ_earth ≈ 0
-    # ⇒ Sij = Tij = 0, Pe = (jω)/(2π(σ_air+jωε_air)) * Λ ≡ (1/(2π ε0)) * Λ
-    if f.s == 1 && f.Γx == 0 && isapprox(to_nominal(real(γ_o)), 0.0, atol = TOL)
-        return (jω/(2π*σ̃)) * Λij #(1/(2π*ε₀)) * Λij
-    end
+	# perfectly conducting earth term in Bessel form
+	Λij = _bessel_diff(γ_s, dij, Dij)
 
-    # --- Underground,"no displacement currents" ---
-    # physics: source in EARTH (s=t=2), kx = 0, γ_earth ≈ 0
-    # ⇒ Pe = 0
-    if f.s == 2 && f.t == 2 && isapprox(to_nominal(real(γ_s)), 0.0, atol = TOL)
-        return (jω/(2π*σ̃)) * Λij
-    end
+	# --- Overhead special case ---
+	# physics: source in AIR (s=t=1), kx = 0, σ_air ≈ 0,
+	#          earth propagation constant negligible γ_earth ≈ 0
+	# ⇒ Sij = Tij = 0, Pe = (jω)/(2π(σ_air+jωε_air)) * Λ ≡ (1/(2π ε0)) * Λ
+	if f.s == 1 && f.Γx == 0 && isapprox(to_nominal(real(γ_o)), 0.0, atol = TOL)
+		return (jω/(2π*σ̃)) * Λij #(1/(2π*ε₀)) * Λij
+	end
 
-    # precompute scalars for integrand
-    μ_s = μ[s]
-    μ_o = μ[o]
-    H = hi + hj
+	# --- Underground,"no displacement currents" ---
+	# physics: source in EARTH (s=t=2), kx = 0, γ_earth ≈ 0
+	# ⇒ Pe = 0
+	if f.s == 2 && f.t == 2 && isapprox(to_nominal(real(γ_s)), 0.0, atol = TOL)
+		return (jω/(2π*σ̃)) * Λij
+	end
 
-    # S_ij + T_ij in one go: 2∫₀^∞ (Fij+Gij) cos(yij λ) dλ
-    # integrand = (λ) -> (Fij(λ) + Gij(λ)) * cos(yij * λ)
-    @inline function integrand(λ::Float64)::Complex{T}
-        as = sqrt(λ*λ + γs_2 + kx_2)
-        ao = sqrt(λ*λ + γo_2 + kx_2)
+	# precompute scalars for integrand
+	μ_s = μ[s]
+	μ_o = μ[o]
+	H = hi + hj
 
-        F = μ_o * exp(-as*H) / (as*μ_o + ao*μ_s)
+	# S_ij + T_ij in one go: 2∫₀^∞ (Fij+Gij) cos(yij λ) dλ
+	# integrand = (λ) -> (Fij(λ) + Gij(λ)) * cos(yij * λ)
+	@inline function integrand(λ::Float64)::Complex{T}
+		as = sqrt(λ*λ + γs_2 + kx_2)
+		ao = sqrt(λ*λ + γo_2 + kx_2)
 
-        num = μ_o*μ_s*as*(γs_2 - γo_2)*exp(-as*H)
-        den = (as*μ_o + ao*μ_s) * (as*γo_2*μ_s + ao*γs_2*μ_o)
-        G = num/den
+		F = μ_o * exp(-as*H) / (as*μ_o + ao*μ_s)
 
-        (F + G) * cos(yij*λ)
-    end
+		num = μ_o*μ_s*as*(γs_2 - γo_2)*exp(-as*H)
+		den = (as*μ_o + ao*μ_s) * (as*γo_2*μ_s + ao*γs_2*μ_o)
+		G = num/den
 
-    Iij, _ = quadgk(
-        integrand,
-        0.0,
-        Inf;
-        rtol = 1e-8,
-        norm = z -> abs(complex(value(real(z)), value(imag(z))))
-    )
-    Iij *= 2
+		(F + G) * cos(yij*λ)
+	end
 
-    return (jω / (2π * σ̃)) * (Λij + Iij)
+	Iij, _ = quadgk(
+		integrand,
+		0.0,
+		Inf;
+		rtol = 1e-8,
+		norm = z -> abs(complex(value(real(z)), value(imag(z)))),
+	)
+	Iij *= 2
+
+
+	return (jω / (2π * σ̃)) * (Λij + Iij)
+
 end

@@ -1,9 +1,9 @@
 struct SeriesImpedance{T} <: AbstractArray{T, 3}
-    values::Array{T, 3}   # n×n×nfreq, units: Ω/m
+	values::Array{T, 3}   # n×n×nfreq, units: Ω/m
 end
 
 struct ShuntAdmittance{T} <: AbstractArray{T, 3}
-    values::Array{T, 3}   # n×n×nfreq, units: S/m
+	values::Array{T, 3}   # n×n×nfreq, units: S/m
 end
 
 """
@@ -14,55 +14,54 @@ Represents the frequency-dependent line parameters (series impedance and shunt a
 $(TYPEDFIELDS)
 """
 struct LineParameters{T <: COMPLEXSCALAR, U <: REALSCALAR, D <: LineParamsDomain}
-    "Series impedance matrices \\[Ω/m\\]."
-    Z::SeriesImpedance{T}
-    "Shunt admittance matrices \\[S/m\\]."
-    Y::ShuntAdmittance{T}
-    "Frequencies \\[Hz\\]."
-    f::Vector{U}
+	"Series impedance matrices \\[Ω/m\\]."
+	Z::SeriesImpedance{T}
+	"Shunt admittance matrices \\[S/m\\]."
+	Y::ShuntAdmittance{T}
+	"Frequencies \\[Hz\\]."
+	f::Vector{U}
 
-    @doc """
-     $(TYPEDSIGNATURES)
+	@doc """
+	$(TYPEDSIGNATURES)
 
-     Constructs a [`LineParameters`](@ref) instance.
+	Constructs a [`LineParameters`](@ref) instance.
 
-     # Arguments
+	# Arguments
 
-     - `Z`: Series impedance matrices \\[Ω/m\\].
-     - `Y`: Shunt admittance matrices \\[S/m\\].
-     - `f`: Frequencies \\[Hz\\].
+	- `Z`: Series impedance matrices \\[Ω/m\\].
+	- `Y`: Shunt admittance matrices \\[S/m\\].
+	- `f`: Frequencies \\[Hz\\].
 
-     # Returns
+	# Returns
 
-     - A [`LineParameters`](@ref) object with prelocated impedance and admittance matrices for a given frequency range.
+	- A [`LineParameters`](@ref) object with prelocated impedance and admittance matrices for a given frequency range.
 
-     # Examples
+	# Examples
 
-     ```julia
-     params = $(FUNCTIONNAME)(Z, Y, f)
-     ```
-     """
-    function LineParameters(
-            ::Type{D},
-            Z::SeriesImpedance{T},
-            Y::ShuntAdmittance{T},
-            f::AbstractVector{U}
-    ) where {D <: LineParamsDomain, T <: COMPLEXSCALAR, U <: REALSCALAR}
-        size(Z, 1) == size(Z, 2) || throw(DimensionMismatch("Z must be square"))
-        size(Y, 1) == size(Y, 2) || throw(DimensionMismatch("Y must be square"))
-        size(Z, 3) == size(Y, 3) == length(f) ||
-            throw(DimensionMismatch("Z and Y must have same dimensions (n×n×nfreq)"))
-        new{T, U, D}(Z, Y, Vector{U}(f))
-    end
+	```julia
+	params = $(FUNCTIONNAME)(Z, Y, f)
+	```
+	"""
+	function LineParameters(
+		::Type{D},
+		Z::SeriesImpedance{T},
+		Y::ShuntAdmittance{T},
+		f::AbstractVector{U},
+	) where {D <: LineParamsDomain, T <: COMPLEXSCALAR, U <: REALSCALAR}
+		size(Z, 1) == size(Z, 2) || throw(DimensionMismatch("Z must be square"))
+		size(Y, 1) == size(Y, 2) || throw(DimensionMismatch("Y must be square"))
+		size(Z, 3) == size(Y, 3) == length(f) ||
+			throw(DimensionMismatch("Z and Y must have same dimensions (n×n×nfreq)"))
+		new{T, U, D}(Z, Y, Vector{U}(f))
+	end
 
-    # Backward-compatible constructor: defaults to PhaseDomain
-    function LineParameters(
-            Z::SeriesImpedance{T},
-            Y::ShuntAdmittance{T},
-            f::AbstractVector{U}
-    ) where {T <: COMPLEXSCALAR, U <: REALSCALAR}
-        LineParameters(PhaseDomain, Z, Y, f)
-    end
+	# Backward-compatible constructor: defaults to PhaseDomain
+	LineParameters(
+		Z::SeriesImpedance{T},
+		Y::ShuntAdmittance{T},
+		f::AbstractVector{U},
+	) where {T <: COMPLEXSCALAR, U <: REALSCALAR} =
+		LineParameters(PhaseDomain, Z, Y, f)
 end
 
 SeriesImpedance(A::AbstractArray{T, 3}) where {T} = SeriesImpedance{T}(Array(A))
@@ -76,23 +75,23 @@ $(TYPEDSIGNATURES)
 Construct from 3D arrays and frequency vector. Arrays are wrapped
 into `SeriesImpedance` and `ShuntAdmittance` automatically.
 """
-function LineParameters(
-        ::Type{D},
-        Z::AbstractArray{Tc, 3},
-        Y::AbstractArray{Tc, 3},
-        f::AbstractVector{U}
-) where {D <: LineParamsDomain, Tc <: COMPLEXSCALAR, U <: REALSCALAR}
-    LineParameters(D, SeriesImpedance(Z), ShuntAdmittance(Y), f)
-end
+LineParameters(
+	::Type{D},
+	Z::AbstractArray{Tc, 3},
+	Y::AbstractArray{Tc, 3},
+	f::AbstractVector{U},
+) where {D <: LineParamsDomain, Tc <: COMPLEXSCALAR, U <: REALSCALAR} =
+	LineParameters(D, SeriesImpedance(Z), ShuntAdmittance(Y), f)
+
 
 # Backward-compatible constructor: defaults to PhaseDomain
-function LineParameters(
-        Z::AbstractArray{Tc, 3},
-        Y::AbstractArray{Tc, 3},
-        f::AbstractVector{U}
-) where {Tc <: COMPLEXSCALAR, U <: REALSCALAR}
-    LineParameters(PhaseDomain, Z, Y, f)
-end
+LineParameters(
+	Z::AbstractArray{Tc, 3},
+	Y::AbstractArray{Tc, 3},
+	f::AbstractVector{U},
+) where {Tc <: COMPLEXSCALAR, U <: REALSCALAR} =
+	LineParameters(PhaseDomain, Z, Y, f)
+
 
 # """
 # $(TYPEDSIGNATURES)

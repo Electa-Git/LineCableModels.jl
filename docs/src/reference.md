@@ -1,108 +1,121 @@
 # API reference
 
-This page documents the public API and the documented implementation surface of
-`LineCableModels.jl`.
+This page provides a comprehensive API reference for the [`LineCableModels.jl`](@ref) package. It documents all public modules, types, functions, and constants, organized by functional area. Each section corresponds to a major module in the package, with detailed information about parameters, return values, and usage examples.
 
 ## Contents
-
 ```@contents
 Pages = ["reference.md"]
 Depth = 3
 ```
 
-## Core utilities
+---
 
+## Data model
 ```@autodocs
-Modules = [
-    LineCableModels,
-    LineCableModels.Commons,
-    LineCableModels.UnitHandler,
-    LineCableModels.Utils,
-]
+Modules = [LineCableModels.DataModel]
 Order = [:module, :constant, :type, :function, :macro]
 Public = true
-Private = true
+Private = false
 ```
 
-## Data model and materials
-
+### Base parameters (R, L, C, G)
 ```@autodocs
-Modules = [
-    LineCableModels.Materials,
-    LineCableModels.DataModel,
-    LineCableModels.DataModel.BaseParams,
-    LineCableModels.EarthProps,
-]
+Modules = [LineCableModels.DataModel.BaseParams]
 Order = [:module, :constant, :type, :function, :macro]
 Public = true
-Private = true
+Private = false
 ```
 
-## Line-parameter engine
+---
 
+## Earth properties
 ```@autodocs
-Modules = [
-    LineCableModels.Engine,
-    LineCableModels.Engine.EarthAdmittance,
-    LineCableModels.Engine.EarthImpedance,
-    LineCableModels.Engine.EHEM,
-    LineCableModels.Engine.FEM,
-    LineCableModels.Engine.InsulationAdmittance,
-    LineCableModels.Engine.InsulationImpedance,
-    LineCableModels.Engine.InternalImpedance,
-    LineCableModels.Engine.Transforms,
-]
+Modules = [LineCableModels.EarthProps]
 Order = [:module, :constant, :type, :function, :macro]
 Public = true
-Private = true
+Private = false
 ```
 
-## Parametric and uncertainty modeling
+---
 
-```@autodocs
-Modules = [
-    LineCableModels.ParametricBuilder,
-    LineCableModels.ParametricBuilder.WirePatterns,
-    LineCableModels.UQ,
-]
-Order = [:module, :constant, :type, :function, :macro]
-Public = true
-Private = true
-```
-
-## Plot specifications
-
-```@autodocs
-Modules = [
-    LineCableModels.PlotBuilder,
-    LineCableModels.PlotBuilder.BackendHandler,
-]
-Order = [:module, :constant, :type, :function, :macro]
-Public = true
-Private = true
-```
-
-## Import and export
-
+## Import & export
 ```@autodocs
 Modules = [LineCableModels.ImportExport]
 Order = [:module, :constant, :type, :function, :macro]
 Public = true
-Private = true
+Private = false
 ```
 
-## Uncertainty-aware Bessel functions
+---
 
+## Materials library
+```@autodocs
+Modules = [LineCableModels.Materials]
+Order = [:module, :constant, :type, :function, :macro]
+Public = true
+Private = false
+```
+
+---
+
+## Utilities
+```@autodocs
+Modules = [LineCableModels.Utils]
+Order = [:module, :constant, :type, :function, :macro]
+Public = true
+Private = false
+```
+
+---
+
+## Uncertain Bessels
 ```@autodocs
 Modules = [LineCableModels.UncertainBessels]
 Order = [:module, :constant, :type, :function, :macro]
 Public = true
+Private = false
+```
+
+---
+
+## Private API
+
+#### Data model
+```@autodocs
+Modules = [LineCableModels.DataModel]
+Order = [:module, :constant, :type, :function, :macro]
+Public = false
 Private = true
 ```
 
-## Index
-
-```@index
-Pages = ["reference.md"]
+#### Earth properties
+```@autodocs
+Modules = [LineCableModels.EarthProps]
 Order = [:module, :constant, :type, :function, :macro]
+Public = false
+Private = true
+```
+
+#### Materials library
+```@autodocs
+Modules = [LineCableModels.Materials]
+Order = [:module, :constant, :type, :function, :macro]
+Public = false
+Private = true
+```
+
+#### Utilities
+```@autodocs
+Modules = [LineCableModels.Utils]
+Order = [:module, :constant, :type, :function, :macro]
+Public = false
+Private = true
+```
+
+---
+
+## Index
+```@index
+Pages   = ["reference.md"]
+Order   = [:module, :constant, :type, :function, :macro]
 ```

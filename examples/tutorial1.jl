@@ -10,7 +10,7 @@ Beyond showcasing the API, this guide serves as a practical reference by providi
 **Tutorial outline**
 ```@contents
 Pages = [
-    "tutorial1.md",
+	"tutorial1.md",
 ]
 Depth = 2:3
 ```
@@ -27,8 +27,8 @@ fullfile(filename) = joinpath(@__DIR__, filename); #hide
 set_verbosity!(0); #hide
 
 #=
-The [`MaterialsLibrary`](@ref) is a container for storing electromagnetic properties of
-different materials used in power cables. By default, it initializes with several common
+The [`MaterialsLibrary`](@ref) is a container for storing electromagnetic properties of 
+different materials used in power cables. By default, it initializes with several common 
 materials with their standard properties.
 =#
 
@@ -45,7 +45,7 @@ The function [`DataFrame`](@ref) returns a `DataFrame` with all materials and th
 # ##   Adding new materials
 #=
 !!! note "Note"
-    New materials can be added to the library using the [`Material`](@ref) constructor followed by [`add!`](@ref).
+	New materials can be added to the library using the [`Material`](@ref) constructor followed by [`add!`](@ref).
 
 It might be useful to add other conductor materials with corrected properties based on recognized standards [cigre531](@cite) [IEC60287](@cite).
 =#
@@ -81,7 +81,7 @@ add!(materials, "conductive_paper", conductive_paper)
 # ##  Removing materials
 #=
 !!! note "Note"
-    Materials can be removed from the library with the [`delete!`](@ref) function.
+	Materials can be removed from the library with the [`delete!`](@ref) function.
 =#
 
 # Add a duplicate material by accident:
@@ -98,10 +98,11 @@ materials_df = DataFrame(materials)
 output_file = fullfile("materials_library.json")
 save(materials, file_name = output_file);
 
+
 # ##  Retrieving materials for use
 #=
 !!! note "Note"
-    To load from an existing JSON file, instantiate a new [`MaterialsLibrary`](@ref) followed by a call to the [`load!`](@ref) method. Materials can be retrieved from the library using the [`get`](@ref) function.
+	To load from an existing JSON file, instantiate a new [`MaterialsLibrary`](@ref) followed by a call to the [`load!`](@ref) method. Materials can be retrieved from the library using the [`get`](@ref) function.
 =#
 
 # Initialize a new [`MaterialsLibrary`](@ref) and load from the JSON file:
