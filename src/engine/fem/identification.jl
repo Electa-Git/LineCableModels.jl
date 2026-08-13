@@ -72,7 +72,6 @@ function process_fragments(workspace::FEMWorkspace)
     @debug "Before: $(length(surfaces)) surfaces, $(length(curves)) curves, $(length(points)) points"
     @debug "After: $(length(final_surfaces)) surfaces, $(length(final_curves)) curves, $(length(final_points)) points"
     @debug "Unique markers in workspace: $(length(workspace.unassigned_entities)) markers"
-
 end
 
 function identify_by_marker(workspace::FEMWorkspace)
@@ -159,10 +158,11 @@ function identify_by_marker(workspace::FEMWorkspace)
 end
 function assign_physical_groups(workspace::FEMWorkspace)
     # Group entities by physical tag and dimension
-    entities_by_physical_group_tag = Dict{Tuple{Int,Int},Vector{Int}}()
+    entities_by_physical_group_tag = Dict{Tuple{Int, Int}, Vector{Int}}()
 
     # Process all entity containers
-    for container in [workspace.conductors, workspace.insulators, workspace.space_regions, workspace.boundaries]
+    for container in [workspace.conductors, workspace.insulators,
+        workspace.space_regions, workspace.boundaries]
         for entity in container
             physical_group_tag = entity.data.core.physical_group_tag
             elementary_name = entity.data.core.elementary_name

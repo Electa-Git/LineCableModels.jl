@@ -3,14 +3,15 @@ module UIComponents
 using Makie
 
 import ..BackendHandler
+using ..PlotUIComponents: PlotAssembly
 
 import ..PlotBuilder: AbstractPlotSpec, RenderSpec, PageSpec, ViewSpec, SeriesSpec, AxisSpec
 
-export build, export_svg!,
-	UIContext, UILayoutSpec, UIContainerSpec, UISlotSpec,
-	UIFigure, UIPanel, PlotAssembly
+export build,
+       UIContext, UILayoutSpec, UIContainerSpec, UISlotSpec,
+       UIFigure, UIPanel, PlotAssembly
 
-export build_context, display!
+export display!
 
 include("themes.jl")
 include("types.jl")

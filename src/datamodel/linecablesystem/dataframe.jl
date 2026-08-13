@@ -29,10 +29,6 @@ println(df)
 # │ "Cable2"   │ 0.35 │ -1.25 │ core: 2, sheath: 0      │
 ```
 
-# See also
-
-- [`LineCableSystem`](@ref)
-- [`CablePosition`](@ref)
 """
 function DataFrame(system::LineCableSystem)::DataFrame
     cable_ids = String[]
@@ -47,16 +43,17 @@ function DataFrame(system::LineCableSystem)::DataFrame
 
         component_names = [comp.id for comp in cable_position.design_data.components]
         mapping_str = join(
-            ["$(name): $(phase)" for (name, phase) in zip(component_names, cable_position.conn)],
-            ", ",
+            ["$(name): $(phase)"
+             for (name, phase) in zip(component_names, cable_position.conn)],
+            ", "
         )
         push!(mappings, mapping_str)
     end
     data = DataFrame(
-        cable_id=cable_ids,
-        horz=horz_coords,
-        vert=vert_coords,
-        phase_mapping=mappings
+        cable_id = cable_ids,
+        horz = horz_coords,
+        vert = vert_coords,
+        phase_mapping = mappings
     )
     return data
 end

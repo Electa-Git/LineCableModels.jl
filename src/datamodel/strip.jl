@@ -6,32 +6,32 @@ Represents a flat conductive strip with defined geometric and material propertie
 $(TYPEDFIELDS)
 """
 struct Strip{T <: REALSCALAR} <: AbstractConductorPart{T}
-	"Internal radius of the strip \\[m\\]."
-	r_in::T
-	"External radius of the strip \\[m\\]."
-	r_ex::T
-	"Thickness of the strip \\[m\\]."
-	thickness::T
-	"Width of the strip \\[m\\]."
-	width::T
-	"Ratio defining the lay length of the strip (twisting factor) \\[dimensionless\\]."
-	lay_ratio::T
-	"Mean diameter of the strip's helical path \\[m\\]."
-	mean_diameter::T
-	"Pitch length of the strip's helical path \\[m\\]."
-	pitch_length::T
-	"Twisting direction of the strip (1 = unilay, -1 = contralay) \\[dimensionless\\]."
-	lay_direction::Int
-	"Material properties of the strip."
-	material_props::Material{T}
-	"Temperature at which the properties are evaluated \\[°C\\]."
-	temperature::T
-	"Cross-sectional area of the strip \\[m²\\]."
-	cross_section::T
-	"Electrical resistance of the strip \\[Ω/m\\]."
-	resistance::T
-	"Geometric mean radius of the strip \\[m\\]."
-	gmr::T
+    "Internal radius of the strip \\[m\\]."
+    r_in::T
+    "External radius of the strip \\[m\\]."
+    r_ex::T
+    "Thickness of the strip \\[m\\]."
+    thickness::T
+    "Width of the strip \\[m\\]."
+    width::T
+    "Ratio defining the lay length of the strip (twisting factor) \\[dimensionless\\]."
+    lay_ratio::T
+    "Mean diameter of the strip's helical path \\[m\\]."
+    mean_diameter::T
+    "Pitch length of the strip's helical path \\[m\\]."
+    pitch_length::T
+    "Twisting direction of the strip (1 = unilay, -1 = contralay) \\[dimensionless\\]."
+    lay_direction::Int
+    "Material properties of the strip."
+    material_props::Material{T}
+    "Temperature at which the properties are evaluated \\[°C\\]."
+    temperature::T
+    "Cross-sectional area of the strip \\[m²\\]."
+    cross_section::T
+    "Electrical resistance of the strip \\[Ω/m\\]."
+    resistance::T
+    "Geometric mean radius of the strip \\[m\\]."
+    gmr::T
 end
 
 """
@@ -62,59 +62,50 @@ println(strip.cross_section) # Output: 0.0001 [m²]
 println(strip.resistance)    # Output: Resistance value [Ω/m]
 ```
 
-# See also
-
-- [`Material`](@ref)
-- [`ConductorGroup`](@ref)
-- [`calc_strip_resistance`](@ref)
-- [`calc_tubular_gmr`](@ref)
-- [`calc_helical_params`](@ref)
 """
 function Strip(
-	r_in::T,
-	r_ex::T,
-	width::T,
-	lay_ratio::T,
-	material_props::Material{T},
-	temperature::T,
-	lay_direction::Int,
+        r_in::T,
+        r_ex::T,
+        width::T,
+        lay_ratio::T,
+        material_props::Material{T},
+        temperature::T,
+        lay_direction::Int
 ) where {T <: REALSCALAR}
+    thickness = r_ex - r_in
+    rho = material_props.rho
+    T0 = material_props.T0
+    alpha = material_props.alpha
 
-	thickness = r_ex - r_in
-	rho = material_props.rho
-	T0 = material_props.T0
-	alpha = material_props.alpha
+    mean_diameter, pitch_length, overlength = calc_helical_params(
+        r_in,
+        r_ex,
+        lay_ratio
+    )
 
-	mean_diameter, pitch_length, overlength = calc_helical_params(
-		r_in,
-		r_ex,
-		lay_ratio,
-	)
+    cross_section = thickness * width
 
-	cross_section = thickness * width
+    R_strip = calc_strip_resistance(thickness, width, rho, alpha, T0, temperature) *
+              overlength
 
-	R_strip =
-		calc_strip_resistance(thickness, width, rho, alpha, T0, temperature) *
-		overlength
+    gmr = calc_tubular_gmr(r_ex, r_in, material_props.mu_r)
 
-	gmr = calc_tubular_gmr(r_ex, r_in, material_props.mu_r)
-
-	# Initialize object
-	return Strip(
-		r_in,
-		r_ex,
-		thickness,
-		width,
-		lay_ratio,
-		mean_diameter,
-		pitch_length,
-		lay_direction,
-		material_props,
-		temperature,
-		cross_section,
-		R_strip,
-		gmr,
-	)
+    # Initialize object
+    return Strip(
+        r_in,
+        r_ex,
+        thickness,
+        width,
+        lay_ratio,
+        mean_diameter,
+        pitch_length,
+        lay_direction,
+        material_props,
+        temperature,
+        cross_section,
+        R_strip,
+        gmr
+    )
 end
 
 const _REQ_STRIP = (:r_in, :r_ex, :width, :lay_ratio, :material_props)
@@ -127,8 +118,9 @@ Validation.required_fields(::Type{Strip}) = _REQ_STRIP
 Validation.keyword_fields(::Type{Strip}) = _OPT_STRIP
 Validation.keyword_defaults(::Type{Strip}) = _DEFS_STRIP
 
-Validation.coercive_fields(::Type{Strip}) =
-	(:r_in, :r_ex, :width, :lay_ratio, :material_props, :temperature)  # not :lay_direction
+function Validation.coercive_fields(::Type{Strip})
+    (:r_in, :r_ex, :width, :lay_ratio, :material_props, :temperature)
+end  # not :lay_direction
 # accept proxies for radii
 
 Validation.is_radius_input(::Type{Strip}, ::Val{:r_in}, x::AbstractCablePart) = true
@@ -136,19 +128,21 @@ Validation.is_radius_input(::Type{Strip}, ::Val{:r_in}, x::Thickness) = true
 Validation.is_radius_input(::Type{Strip}, ::Val{:r_ex}, x::Thickness) = true
 Validation.is_radius_input(::Type{Strip}, ::Val{:r_ex}, x::Diameter) = true
 
-Validation.extra_rules(::Type{Strip}) = (
-	IsA{Material}(:material_props),
-	OneOf(:lay_direction, (-1, 1)),
-	Finite(:lay_ratio),
-	Nonneg(:lay_ratio),
-	Finite(:width),
-	Positive(:width),
-)
+function Validation.extra_rules(::Type{Strip})
+    (
+        IsA{Material}(:material_props),
+        OneOf(:lay_direction, (-1, 1)),
+        Finite(:lay_ratio),
+        Nonneg(:lay_ratio),
+        Finite(:width),
+        Positive(:width)
+    )
+end
 
 # normalize proxies -> numbers
-Validation.parse(::Type{Strip}, nt) = begin
-	rin, rex = _normalize_radii(Strip, nt.r_in, nt.r_ex)
-	(; nt..., r_in = rin, r_ex = rex)
+function Validation.parse(::Type{Strip}, nt)
+    rin, rex = _normalize_radii(Strip, nt.r_in, nt.r_ex)
+    (; nt..., r_in = rin, r_ex = rex)
 end
 
 # This macro expands to a weakly-typed constructor for Strip

@@ -3,21 +3,21 @@
         # Example from docstring: R=0.01 Ω, r_ext=0.02 m, r_in=0.01 m
         result = calc_equivalent_rho(0.01, 0.02, 0.01)
         expected = 0.01 * π * (0.02^2 - 0.01^2)
-        @test isapprox(result, expected; atol=TEST_TOL)
+        @test isapprox(result, expected; atol = TEST_TOL)
         @test result > 0
     end
 
     @testset "Edge Cases" begin
         # Zero resistance
         result = calc_equivalent_rho(0.0, 0.02, 0.01)
-        @test isapprox(result, 0.0; atol=TEST_TOL)
+        @test isapprox(result, 0.0; atol = TEST_TOL)
         # Zero thickness (r_ext == r_in)
         result = calc_equivalent_rho(0.01, 0.01, 0.01)
-        @test isapprox(result, 0.0; atol=TEST_TOL)
+        @test isapprox(result, 0.0; atol = TEST_TOL)
         # Very large radii
         result = calc_equivalent_rho(0.01, 1e6, 1e3)
         expected = 0.01 * π * (1e6^2 - 1e3^2)
-        @test isapprox(result, expected; atol=TEST_TOL)
+        @test isapprox(result, expected; atol = TEST_TOL)
         # Inf/NaN
         @test isnan(calc_equivalent_rho(NaN, 0.02, 0.01))
         @test isnan(calc_equivalent_rho(0.01, NaN, 0.01))
@@ -29,7 +29,7 @@
         # Float32 vs Float64
         r = calc_equivalent_rho(Float32(0.01), Float32(0.02), Float32(0.01))
         d = calc_equivalent_rho(0.01, 0.02, 0.01)
-        @test isapprox(r, d; atol=TEST_TOL)
+        @test isapprox(r, d; atol = TEST_TOL)
     end
 
     @testset "Physical Behavior" begin

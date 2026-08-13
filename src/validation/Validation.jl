@@ -1,5 +1,5 @@
 """
-	LineCableModels.Validation
+    LineCableModels.Validation
 
 The [`Validation`](@ref) module implements a trait-driven, three-phase input checking pipeline for component constructors in `LineCableModels`. Inputs are first *sanitized* (arity and shape checks on raw arguments), then *parsed* (proxy values normalized to numeric radii), and finally validated by a generated set of rules.
 
@@ -13,17 +13,15 @@ The [`Validation`](@ref) module implements a trait-driven, three-phase input che
 
 $(IMPORTS)
 
-# Exports
-
-$(EXPORTS)
 """
 module Validation
 
 # Export public API
 export validate!, has_radii, has_temperature, extra_rules,
-	sanitize, parse, is_radius_input, required_fields, keyword_fields, keyword_defaults,
-	coercive_fields, Finite, Nonneg, Positive, IntegerField, Less, LessEq, IsA, Normalized,
-	OneOf, GreaterEq, Greater, PhysicalFillLimit, Satisfies
+       sanitize, parse, is_radius_input, required_fields, keyword_fields, keyword_defaults,
+       coercive_fields, Finite, Nonneg, Positive, IntegerField, Less, LessEq, IsA,
+       Normalized,
+       OneOf, GreaterEq, Greater, PhysicalFillLimit, Satisfies
 
 # Module-specific dependencies
 using ..Commons
@@ -170,16 +168,13 @@ Validation.is_radius_input(Tubular, 0.01)  # true by default
 Validation.is_radius_input(Tubular, 1 + 0im)  # false (complex)
 ```
 
-# See also
-
-- [`sanitize`](@ref)
 """
 is_radius_input(::Type{T}, x) where {T} = (x isa Number) && !(x isa Complex)
 
 """
 $(TYPEDSIGNATURES)
 
-Field‑aware acceptance predicate used by `sanitize` to distinguish inner vs. outer radius policies. The default forwards to [`is_radius_input(::Type{T}, x)`](@ref) when no field‑specific method is defined.
+Field-aware acceptance predicate used by `sanitize` to distinguish inner vs. outer radius policies. The default forwards to `is_radius_input(::Type{T}, x)` when no field-specific method is defined.
 
 # Arguments
 
@@ -198,10 +193,6 @@ Validation.is_radius_input(Tubular, Val(:r_in), 0.01)   # true
 Validation.is_radius_input(Tubular, Val(:r_ex), 0.01)  # true
 ```
 
-# See also
-
-- [`sanitize`](@ref)
-- [`is_radius_input(::Type{T}, x)`](@ref)
 """
 is_radius_input(::Type{T}, ::Val{F}, x) where {T, F} = is_radius_input(T, x)
 
@@ -227,8 +218,9 @@ Validation.is_radius_input(Tubular, Val(:r_in), 0.0)   # true
 Validation.is_radius_input(Tubular, Val(:r_in), 1+0im) # false
 ```
 """
-is_radius_input(::Type{T}, ::Val{:r_in}, x::Number) where {T} =
-	(x isa Number) && !(x isa Complex)
+function is_radius_input(::Type{T}, ::Val{:r_in}, x::Number) where {T}
+    (x isa Number) && !(x isa Complex)
+end
 is_radius_input(::Type{T}, ::Val{:r_in}, ::Any) where {T} = false
 
 """
@@ -252,8 +244,9 @@ Default policy for **outer** radius raw inputs (annular shells): accept real num
 Validation.is_radius_input(Tubular, Val(:r_ex), 0.02)  # true
 ```
 """
-is_radius_input(::Type{T}, ::Val{:r_ex}, x::Number) where {T} =
-	(x isa Number) && !(x isa Complex)
+function is_radius_input(::Type{T}, ::Val{:r_ex}, x::Number) where {T}
+    (x isa Number) && !(x isa Complex)
+end
 is_radius_input(::Type{T}, ::Val{:r_ex}, ::Any) where {T} = false
 
 """
@@ -298,29 +291,24 @@ $(FUNCTIONNAME)(X)  # => (temperature = T₀, lay_direction = 1)
 $(FUNCTIONNAME)(Y)  # => (temperature = 25.0,)
 ````
 
-# See also
-
-* [`keyword_fields`](@ref)
-* [`keyword_defaults`](@ref)
-* [`sanitize`](@ref)
   """
 @inline function _kwdefaults_nt(::Type{T}) where {T}
-	defs = keyword_defaults(T)
-	defs === () && return NamedTuple()
-	if defs isa NamedTuple
-		return defs
-	elseif defs isa Tuple
-		keys = keyword_fields(T)
-		length(keys) == length(defs) ||
-			Base.error(
-				"[$(String(nameof(T)))] keyword_defaults length $(length(defs)) ≠ keyword_fields length $(length(keys))",
-			)
-		return NamedTuple{keys}(defs)
-	else
-		Base.error(
-			"[$(String(nameof(T)))] keyword_defaults must be NamedTuple or Tuple; got $(typeof(defs))",
-		)
-	end
+    defs = keyword_defaults(T)
+    defs === () && return NamedTuple()
+    if defs isa NamedTuple
+        return defs
+    elseif defs isa Tuple
+        keys = keyword_fields(T)
+        length(keys) == length(defs) ||
+            Base.error(
+                "[$(String(nameof(T)))] keyword_defaults length $(length(defs)) ≠ keyword_fields length $(length(keys))",
+            )
+        return NamedTuple{keys}(defs)
+    else
+        Base.error(
+            "[$(String(nameof(T)))] keyword_defaults must be NamedTuple or Tuple; got $(typeof(defs))",
+        )
+    end
 end
 
 """
@@ -353,61 +341,61 @@ nt = $(FUNCTIONNAME)(Tubular, (0.01, 0.02, material), (; temperature = 20.0,))
 ```
 """
 function sanitize(::Type{T}, args::Tuple, kwargs::NamedTuple) where {T}
-	# -- hard arity on required positionals --
-	req = required_fields(T)
-	kw = keyword_fields(T)
-	nreq = length(req)
-	na = length(args)
-	if na != nreq
-		names = join(string.(req), ", ")
-		throw(
-			ArgumentError(
-				"[$(_typename(T))] expected exactly $nreq positional args ($names); got $na. Optionals must be keywords.",
-			),
-		)
-	end
+    # -- hard arity on required positionals --
+    req = required_fields(T)
+    kw = keyword_fields(T)
+    nreq = length(req)
+    na = length(args)
+    if na != nreq
+        names = join(string.(req), ", ")
+        throw(
+            ArgumentError(
+            "[$(_typename(T))] expected exactly $nreq positional args ($names); got $na. Optionals must be keywords.",
+        ),
+        )
+    end
 
-	# positional -> named
-	nt_pos = (; (req[i] => args[i] for i ∈ 1:nreq)...)
+    # positional -> named
+    nt_pos = (; (req[i] => args[i] for i in 1:nreq)...)
 
-	# reject unknown keywords (strict)
-	for k in keys(kwargs)
-		if !(k in kw) && !(k in req)
-			throw(
-				ArgumentError(
-					"[$(_typename(T))] unknown keyword '$k'. Allowed keywords: $(join(string.(kw), ", ")).",
-				),
-			)
-		end
-	end
+    # reject unknown keywords (strict)
+    for k in keys(kwargs)
+        if !(k in kw) && !(k in req)
+            throw(
+                ArgumentError(
+                "[$(_typename(T))] unknown keyword '$k'. Allowed keywords: $(join(string.(kw), ", ")).",
+            ),
+            )
+        end
+    end
 
-	# user kw override positionals (if any same names)
-	nt = merge(nt_pos, kwargs)
+    # user kw override positionals (if any same names)
+    nt = merge(nt_pos, kwargs)
 
-	# backfill missing optional keywords with trait defaults ---
-	# defaults first, then user-provided values win
-	nt = merge(_kwdefaults_nt(T), nt)
+    # backfill missing optional keywords with trait defaults ---
+    # defaults first, then user-provided values win
+    nt = merge(_kwdefaults_nt(T), nt)
 
-	# radii raw acceptance (unchanged)
-	if has_radii(T)
-		haskey(nt, :r_in) ||
-			throw(ArgumentError("[$(_typename(T))] missing 'r_in'."))
-		haskey(nt, :r_ex) ||
-			throw(ArgumentError("[$(_typename(T))] missing 'r_ex'."))
-		is_radius_input(T, Val(:r_in), nt.r_in) ||
-			throw(
-				ArgumentError(
-					"[$(_typename(T))] r_in not an accepted input: $(typeof(nt.r_in))",
-				),
-			)
-		is_radius_input(T, Val(:r_ex), nt.r_ex) ||
-			throw(
-				ArgumentError(
-					"[$(_typename(T))] r_ex not an accepted input: $(typeof(nt.r_ex))",
-				),
-			)
-	end
-	return nt
+    # radii raw acceptance (unchanged)
+    if has_radii(T)
+        haskey(nt, :r_in) ||
+            throw(ArgumentError("[$(_typename(T))] missing 'r_in'."))
+        haskey(nt, :r_ex) ||
+            throw(ArgumentError("[$(_typename(T))] missing 'r_ex'."))
+        is_radius_input(T, Val(:r_in), nt.r_in) ||
+            throw(
+                ArgumentError(
+                "[$(_typename(T))] r_in not an accepted input: $(typeof(nt.r_in))",
+            ),
+            )
+        is_radius_input(T, Val(:r_ex), nt.r_ex) ||
+            throw(
+                ArgumentError(
+                "[$(_typename(T))] r_ex not an accepted input: $(typeof(nt.r_ex))",
+            ),
+            )
+    end
+    return nt
 end
 
 """
@@ -440,17 +428,17 @@ Generates (at compile time, via a `@generated` function) the tuple of rules to a
 - Tuple of [`Rule`](@ref) instances to apply in order.
 """
 @generated function _rules(::Type{T}) where {T}
-	:((
-		(
-			has_radii(T) ?
-			(Normalized(:r_in), Normalized(:r_ex),
-				Finite(:r_in), Nonneg(:r_in),
-				Finite(:r_ex), Nonneg(:r_ex),
-				Less(:r_in, :r_ex)) : ()
-		)...,
-		(has_temperature(T) ? (Finite(:temperature),) : ())...,
-		extra_rules(T)...,
-	))
+    :((
+        (
+            has_radii(T) ?
+            (Normalized(:r_in), Normalized(:r_ex),
+            Finite(:r_in), Nonneg(:r_in),
+            Finite(:r_ex), Nonneg(:r_ex),
+            Less(:r_in, :r_ex)) : ()
+        )...,
+        (has_temperature(T) ? (Finite(:temperature),) : ())...,
+        extra_rules(T)...
+    ))
 end
 
 """
@@ -479,22 +467,18 @@ nt = $(FUNCTIONNAME)(Tubular, 0.01, 0.02, material; temperature = 20.0)
 # use nt.r_in, nt.r_ex, nt.temperature thereafter
 ```
 
-# See also
-- [`sanitize`](@ref)
-- [`parse`](@ref)
-- [`coercive_fields`](@ref)
 """
 function validate!(::Type{T}, args...; kwargs...) where {T}
-	# One validate! to rule them all
+    # One validate! to rule them all
 
-	nt0 = sanitize(T, args, (; kwargs...))
-	nt1 = parse(T, nt0)
-	# if has_radii: Normalized ensures numbers post-parse; if not numbers, rules will throw
-	rules = _rules(T)
-	@inbounds for i in eachindex(rules)
-		_apply(rules[i], nt1, T)
-	end
-	return nt1
+    nt0 = sanitize(T, args, (; kwargs...))
+    nt1 = parse(T, nt0)
+    # if has_radii: Normalized ensures numbers post-parse; if not numbers, rules will throw
+    rules = _rules(T)
+    @inbounds for i in eachindex(rules)
+        _apply(rules[i], nt1, T)
+    end
+    return nt1
 end
 
 end # module Validation

@@ -1,7 +1,7 @@
 #=
 # Tutorial 3 - Computing line parameters
 
-This case file demonstrates how to model an armored high-voltage single-core power cable 
+This case file demonstrates how to model an armored high-voltage single-core power cable
 using the [`LineCableModels.jl`](@ref) package. The objective is to build a complete representation of a single-core 525 kV cable with a 1600 mm² copper conductor, 1.2 mm tubular lead sheath and 68 x 6 mm galvanized steel armor, based on the design described in [Karmokar2025](@cite).
 =#
 
@@ -9,7 +9,7 @@ using the [`LineCableModels.jl`](@ref) package. The objective is to build a comp
 **Tutorial outline**
 ```@contents
 Pages = [
-	"tutorial3.md",
+    "tutorial3.md",
 ]
 Depth = 2:3
 ```
@@ -52,7 +52,7 @@ num_co_wires = 127 # number of core wires
 num_ar_wires = 68  # number of armor wires
 d_core = 0.0463    # nominal core overall diameter
 d_w = 3.6649e-3    # nominal strand diameter of the core (minimum value to match datasheet)
-t_sc_in = 2e-3     # nominal internal semicon thickness 
+t_sc_in = 2e-3     # nominal internal semicon thickness
 t_ins = 26e-3      # nominal main insulation thickness
 t_sc_out = 1.8e-3  # nominal external semicon thickness
 t_wbt = .3e-3      # nominal thickness of the water blocking tape
@@ -84,14 +84,13 @@ push!(layers, ("Stranded wire armor", d_wa * 1000, d_overall * 1000)) #hide
 d_overall += 2 * t_jac #hide
 push!(layers, ("PP jacket", t_jac * 1000, d_overall * 1000)); #hide
 
-
 # The cable structure is summarized in a table for better visualization, with dimensions in milimiters:
 df = DataFrame( #hide
-	layer = first.(layers), #hide
-	thickness = [ #hide
-		ismissing(t) ? "-" : round(t, sigdigits = 2) for t in getindex.(layers, 2) #hide
-	], #hide
-	diameter = [round(d, digits = 2) for d in getindex.(layers, 3)], #hide
+    layer = first.(layers), #hide
+    thickness = [ #hide
+                 ismissing(t) ? "-" : round(t, sigdigits = 2) for t in getindex.(layers, 2) #hide
+                 ], #hide
+    diameter = [round(d, digits = 2) for d in getindex.(layers, 3)] #hide
 ) #hide
 
 #=
@@ -107,7 +106,7 @@ core = ConductorGroup(CircStrands(0.0, Diameter(d_w), 1, 0.0, material))
 n_strands = 6 # Strands per layer
 n_layers = 6 # Layers of strands
 for i in 1:n_layers
-	add!(core, CircStrands, Diameter(d_w), i * n_strands, 11.0, material)
+    add!(core, CircStrands, Diameter(d_w), i * n_strands, 11.0, material)
 end
 core
 
@@ -147,14 +146,14 @@ core_cc = CableComponent("core", core, main_insu)
 
 cable_id = "525kV_1600mm2"
 datasheet_info = NominalData(
-	designation_code = "(N)2XH(F)RK2Y",
-	U0 = 500.0,                        # Phase (pole)-to-ground voltage [kV]
-	U = 525.0,                         # Phase (pole)-to-phase (pole) voltage [kV]
-	conductor_cross_section = 1600.0,  # [mm²]
-	screen_cross_section = 1000.0,     # [mm²]
-	resistance = nothing,              # DC resistance [Ω/km]
-	capacitance = nothing,             # Capacitance [μF/km]
-	inductance = nothing,              # Inductance in trifoil [mH/km]
+    designation_code = "(N)2XH(F)RK2Y",
+    U0 = 500.0,                        # Phase (pole)-to-ground voltage [kV]
+    U = 525.0,                         # Phase (pole)-to-phase (pole) voltage [kV]
+    conductor_cross_section = 1600.0,  # [mm²]
+    screen_cross_section = 1000.0,     # [mm²]
+    resistance = nothing,              # DC resistance [Ω/km]
+    capacitance = nothing,             # Capacitance [μF/km]
+    inductance = nothing              # Inductance in trifoil [mH/km]
 )
 cable_design = CableDesign(cable_id, core_cc, nominal_data = datasheet_info)
 
@@ -188,7 +187,7 @@ add!(cable_design, sheath_cc)
 lay_ratio = 10.0 # typical value for wire screens
 material = get(materials, "steel")
 armor_con = ConductorGroup(
-	CircStrands(screen_insu, Diameter(d_wa), num_ar_wires, lay_ratio, material))
+    CircStrands(screen_insu, Diameter(d_wa), num_ar_wires, lay_ratio, material))
 
 # PP layer after armor:
 material = get(materials, "pp")
@@ -218,7 +217,6 @@ components_df = DataFrame(cable_design, :components)
 Load an existing [`CablesLibrary`](@ref) file or create a new one:
 =#
 
-
 library = CablesLibrary()
 library_file = fullfile("cables_library.json")
 load!(library, file_name = library_file)
@@ -234,7 +232,7 @@ save(library, file_name = library_file);
 =#
 
 #=
-### Earth model 
+### Earth model
 
 Define a constant frequency earth model:
 =#
@@ -255,12 +253,12 @@ xp, xn, y0 = -0.5, 0.5, -1.0;
 
 # Initialize the `LineCableSystem` with positive pole:
 cablepos = CablePosition(cable_design, xp, y0,
-	Dict("core" => 1, "sheath" => 0, "armor" => 0))
+    Dict("core" => 1, "sheath" => 0, "armor" => 0))
 cable_system = LineCableSystem("525kV_1600mm2_bipole", 1000.0, cablepos)
 
 # Add the other pole (negative) to the system:
 add!(cable_system, cable_design, xn, y0,
-	Dict("core" => 2, "sheath" => 0, "armor" => 0))
+    Dict("core" => 2, "sheath" => 0, "armor" => 0))
 
 #=
 ### Cable system preview
@@ -293,10 +291,10 @@ export_file = export_data(:atp, cable_system, earth_params, file_name = output_f
 
 # Define a LineParametersProblem with the cable system and earth model
 problem = LineParametersProblem(
-	cable_system,
-	temperature = 20.0,  # Operating temperature
-	earth_props = earth_params,
-	frequencies = f,   # Frequency for the analysis
+    cable_system,
+    temperature = 20.0,  # Operating temperature
+    earth_props = earth_params,
+    frequencies = f   # Frequency for the analysis
 );
 
 # Estimate domain size based on skin depth in the earth
@@ -304,54 +302,54 @@ domain_radius = 10.0; #calc_domain_size(earth_params, f);
 
 # Define custom mesh transitions around each cable
 mesh_transition1 = MeshTransition(
-	cable_system,
-	[1],
-	r_min = 0.08,
-	r_length = 0.25,
-	mesh_factor_min = 0.01 / (domain_radius / 5),
-	mesh_factor_max = 0.25 / (domain_radius / 5),
-	n_regions = 5)
+    cable_system,
+    [1],
+    r_min = 0.08,
+    r_length = 0.25,
+    mesh_factor_min = 0.01 / (domain_radius / 5),
+    mesh_factor_max = 0.25 / (domain_radius / 5),
+    n_regions = 5)
 
 mesh_transition2 = MeshTransition(
-	cable_system,
-	[2],
-	r_min = 0.08,
-	r_length = 0.25,
-	mesh_factor_min = 0.01 / (domain_radius / 5),
-	mesh_factor_max = 0.25 / (domain_radius / 5),
-	n_regions = 5);
+    cable_system,
+    [2],
+    r_min = 0.08,
+    r_length = 0.25,
+    mesh_factor_min = 0.01 / (domain_radius / 5),
+    mesh_factor_max = 0.25 / (domain_radius / 5),
+    n_regions = 5);
 
-# Define runtime options 
+# Define runtime options
 opts = (
-	force_remesh = true,                # Force remeshing
-	force_overwrite = true,             # Overwrite existing files
-	plot_field_maps = false,            # Do not compute/ plot field maps
-	mesh_only = true,                  # Preview the mesh
-	save_path = fullfile("fem_output"), # Results directory
-	keep_run_files = true,              # Archive files after each run
-	verbosity = 1,                      # Verbosity
+    force_remesh = true,                # Force remeshing
+    force_overwrite = true,             # Overwrite existing files
+    plot_field_maps = false,            # Do not compute/ plot field maps
+    mesh_only = true,                  # Preview the mesh
+    save_path = fullfile("fem_output"), # Results directory
+    keep_run_files = true,              # Archive files after each run
+    verbosity = 1                      # Verbosity
 );
 
 # Define the FEM formulation with the specified parameters
 F = FormulationSet(:FEM,
-	impedance = Darwin(),
-	admittance = Electrodynamics(),
-	domain_radius = domain_radius,
-	domain_radius_inf = domain_radius * 1.25,
-	elements_per_length_conductor = 1,
-	elements_per_length_insulator = 2,
-	elements_per_length_semicon = 1,
-	elements_per_length_interfaces = 5,
-	points_per_circumference = 16,
-	mesh_size_min = 1e-6,
-	mesh_size_max = domain_radius / 5,
-	# mesh_transitions = [mesh_transition1,
-	# 	mesh_transition2],
-	mesh_size_default = domain_radius / 10,
-	mesh_algorithm = 5,
-	mesh_max_retries = 20,
-	materials = materials,
-	options = opts,
+    impedance = Darwin(),
+    admittance = Electrodynamics(),
+    domain_radius = domain_radius,
+    domain_radius_inf = domain_radius * 1.25,
+    elements_per_length_conductor = 1,
+    elements_per_length_insulator = 2,
+    elements_per_length_semicon = 1,
+    elements_per_length_interfaces = 5,
+    points_per_circumference = 16,
+    mesh_size_min = 1e-6,
+    mesh_size_max = domain_radius / 5,
+    # mesh_transitions = [mesh_transition1,
+    # 	mesh_transition2],
+    mesh_size_default = domain_radius / 10,
+    mesh_algorithm = 5,
+    mesh_max_retries = 20,
+    materials = materials,
+    options = opts
 );
 
 # Run the FEM solver

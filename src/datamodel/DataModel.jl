@@ -1,5 +1,5 @@
 """
-	LineCableModels.DataModel
+    LineCableModels.DataModel
 
 The [`DataModel`](@ref) module provides data structures, constructors and utilities for modeling power cables within the [`LineCableModels.jl`](index.md) package. This module includes definitions for various cable components, and visualization tools for cable designs.
 
@@ -15,9 +15,6 @@ The [`DataModel`](@ref) module provides data structures, constructors and utilit
 
 $(IMPORTS)
 
-# Exports
-
-$(EXPORTS)
 """
 module DataModel
 
@@ -36,24 +33,21 @@ export preview, equivalent
 using ..Commons
 import ..Commons: add!
 using ..Utils:
-	resolve_T, to_certain, to_nominal, is_headless,
-	is_in_testset, to_lower, to_upper
+               resolve_T, to_certain, to_nominal, is_headless,
+               is_in_testset, to_lower, to_upper
 import ..Utils: coerce_to_T, to_lower
 using ..Materials: Material
-import ..PlotBuilder.BackendHandler: set_backend!, ensure_backend!, current_backend_symbol,
-	backend_available, renderfig, next_fignum
-import ..PlotBuilder.PlotUIComponents: gl_screen, with_icon, MI_REFRESH, MI_SAVE, ICON_TTF
 import ..Validation: Validation, sanitize, validate!, has_radii, has_temperature,
-	extra_rules, IntegerField, Positive, Finite, Normalized, IsA, required_fields,
-	coercive_fields, keyword_fields, keyword_defaults, _kwdefaults_nt, is_radius_input,
-	Nonneg, OneOf, Greater, PhysicalFillLimit, Satisfies
+                     extra_rules, IntegerField, Positive, Finite, Normalized, IsA,
+                     required_fields,
+                     coercive_fields, keyword_fields, keyword_defaults, _kwdefaults_nt,
+                     is_radius_input,
+                     Nonneg, OneOf, Greater, PhysicalFillLimit, Satisfies
 using Measurements
 using DataFrames
 using Colors
-using Plots
-using DisplayAs: DisplayAs
 using LinearAlgebra
-using Makie: Point, Point2f # otherwise will require adding GeometryBasics as a dependency
+using GeometryBasics: Point, Point2f
 # Abstract types & interfaces
 include("types.jl")
 include("radii.jl")
@@ -81,7 +75,6 @@ include("semicon.jl")
 include("insulatorgroup.jl")
 include("sectorinsulator.jl")
 
-
 # Groups
 include("nominaldata.jl")
 include("cablecomponent.jl")
@@ -93,9 +86,25 @@ include("linecablesystem.jl")
 
 # Helpers & overrides
 include("helpers.jl")
-include("preview.jl")
 include("io.jl")
 include("typecoercion.jl")
+
+"""
+    preview(object; kwargs...)
+
+Preview a cable design or cable system with a loaded Makie backend.
+
+Load `CairoMakie`, `GLMakie`, or `WGLMakie` before calling this function.
+"""
+function preview end
+
+function preview(args...; kwargs...)
+    throw(
+        ArgumentError(
+        "Plotting is optional. Load CairoMakie, GLMakie, or WGLMakie before calling preview.",
+    ),
+    )
+end
 
 # Aliases for backward compatibility
 const WireArray = CircStrands

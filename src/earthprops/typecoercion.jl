@@ -22,10 +22,6 @@ m64 = $(FUNCTIONNAME)(model, Float64)
 mM  = $(FUNCTIONNAME)(model, Measurement{Float64})
 ```
 
-# See also
-
-- [`coerce_to_T`](@ref)
-- [`resolve_T`](@ref)
 """
 function coerce_to_T(model::EarthModel, ::Type{T}) where {T}
     # 1. Coerce all existing layers recursively
@@ -63,10 +59,6 @@ machinery.
 ℓM  = $(FUNCTIONNAME)(layer, Measurement{Float64})
 ```
 
-# See also
-
-- [`coerce_to_T`](@ref)
-- [`resolve_T`](@ref)
 """
 function coerce_to_T(layer::EarthLayer, ::Type{T}) where {T}
     # Reconstruct the layer using the correct internal constructor.
@@ -82,4 +74,3 @@ function coerce_to_T(layer::EarthLayer, ::Type{T}) where {T}
         coerce_to_T(layer.mu_g, T)
     )
 end
-

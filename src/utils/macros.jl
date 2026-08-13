@@ -3,7 +3,7 @@ export @parameterize, @measurify
 using MacroTools
 
 macro parameterize(container_expr, union_expr)
-    # Evaluate the Union type from the provided expression 
+    # Evaluate the Union type from the provided expression
     local union_type
     try
         # Core.eval gets the *value* of the symbol passed in (e.g., the actual Union type)
@@ -20,7 +20,7 @@ macro parameterize(container_expr, union_expr)
     # Base.uniontypes gets the component types, e.g., (Float64, Measurement{Float64})
     component_types = Base.uniontypes(union_type)
 
-    # Define a recursive function to substitute the placeholder `_` 
+    # Define a recursive function to substitute the placeholder `_`
     function substitute_placeholder(expr, replacement_type)
         # If the current part of the expression is the placeholder symbol,
         # we replace it with the target type (e.g., Float64).
@@ -38,10 +38,11 @@ macro parameterize(container_expr, union_expr)
         end
     end
 
-    # Build the list of new, concrete types 
-    parameterized_types = [substitute_placeholder(container_expr, t) for t in component_types]
+    # Build the list of new, concrete types
+    parameterized_types = [substitute_placeholder(container_expr, t)
+                           for t in component_types]
 
-    # Wrap the new types in a single `Union{...}` expression and escape 
+    # Wrap the new types in a single `Union{...}` expression and escape
     final_expr = Expr(:curly, :Union, parameterized_types...)
     return esc(final_expr)
 end
@@ -66,13 +67,13 @@ macro measurify(def)
         end
         found
     end
-    function _relax_container_type(ty, typevars::Set{Symbol}, bounds::Dict{Symbol,Any})
+    function _relax_container_type(ty, typevars::Set{Symbol}, bounds::Dict{Symbol, Any})
         if ty isa Expr && ty.head == :curly
             head = ty.args[1]
             params = Any[_contains_tvar(p, typevars) ?
                          MacroTools.postwalk(p) do x
-                (x isa Symbol && haskey(bounds, x)) ? bounds[x] : x
-            end |> x -> Expr(:<:, x) :
+                             (x isa Symbol && haskey(bounds, x)) ? bounds[x] : x
+                         end |> x -> Expr(:<:, x) :
                          p
                          for p in ty.args[2:end]]
             return Expr(:curly, head, params...)
@@ -86,8 +87,8 @@ macro measurify(def)
         [:Vector, :Array, :AbstractVector, :AbstractArray,
         :Matrix, :AbstractMatrix, :UnitRange, :StepRange, :AbstractRange]
     )
-    _is_array_annot(ty) =
-        ty isa Expr && ty.head == :curly && ty.args[1] isa Symbol && (ty.args[1] in _ARRAY_HEADS)
+    _is_array_annot(ty) = ty isa Expr && ty.head == :curly && ty.args[1] isa Symbol &&
+                          (ty.args[1] in _ARRAY_HEADS)
     # --- end helpers ---
 
     # Normalize and split
@@ -100,7 +101,7 @@ macro measurify(def)
 
     where_items = get(dict, :whereparams, [])
     typevars = Set{Symbol}()
-    bounds = Dict{Symbol,Any}()
+    bounds = Dict{Symbol, Any}()
     for w in where_items
         tv, ub = w isa Expr && w.head == :(<:) ? (w.args[1], w.args[2]) : (w, :Any)
         push!(typevars, tv)
@@ -168,7 +169,8 @@ macro measurify(def)
     end
 
     # 2) If anchored, CONVERT the anchor only if its T differs (avoid clone-on-noop)
-    anchor_convert = anchor_sym === nothing ? nothing : quote
+    anchor_convert = anchor_sym === nothing ? nothing :
+                     quote
         Tcur = first(typeof($(anchor_sym)).parameters)
         if Tcur !== TargetType
             $(anchor_sym) = convert(EarthModel{TargetType}, $(anchor_sym))
@@ -181,7 +183,8 @@ macro measurify(def)
 
     # 4) Forward call
     arg_names = [MacroTools.splitarg(a)[1] for a in posargs]
-    kw_forwards = [Expr(:kw, MacroTools.splitarg(kw)[1], MacroTools.splitarg(kw)[1]) for kw in kwargs]
+    kw_forwards = [Expr(:kw, MacroTools.splitarg(kw)[1], MacroTools.splitarg(kw)[1])
+                   for kw in kwargs]
     forward_call = Expr(:call, dict[:name])
     !isempty(kw_forwards) && push!(forward_call.args, Expr(:parameters, kw_forwards...))
     append!(forward_call.args, arg_names)
@@ -196,7 +199,8 @@ macro measurify(def)
     # ----------------------
 
     # Drop where if no raw typevars remain in wrapper signature
-    needs_where = any(_contains_tvar(arg, typevars) for arg in [wrapper_pos..., wrapper_kw...])
+    needs_where = any(_contains_tvar(arg, typevars)
+    for arg in [wrapper_pos..., wrapper_kw...])
     if !needs_where
         delete!(wrapper_dict, :whereparams)
     end
@@ -224,7 +228,7 @@ Automatically exports public functions, types, and modules from a module. This i
 # Notes
 
 This macro scans the current module for all defined symbols and automatically generates an `export` statement for public functions, types, and submodules, excluding built-in and private names. Private names are considered those starting with an underscore ('_'), as per standard Julia conventions.
-	
+
 # Examples
 
 ```julia
@@ -235,7 +239,7 @@ macro autoexport()
     mod = __module__
 
     # Get all names defined in the module, including unexported ones
-    all_names = names(mod; all=true)
+    all_names = names(mod; all = true)
 
     # List of names to explicitly exclude
     excluded_names = Set([:eval, :include, :using, :import, :export, :require])

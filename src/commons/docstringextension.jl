@@ -1,7 +1,9 @@
 using Pkg
-using DocStringExtensions: DocStringExtensions, SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS, FIELDS, FUNCTIONNAME, IMPORTS, EXPORTS
+using DocStringExtensions: DocStringExtensions, SIGNATURES, TYPEDSIGNATURES, TYPEDEF,
+                           TYPEDFIELDS, FIELDS, FUNCTIONNAME, IMPORTS, EXPORTS
 
-export SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS, FIELDS, FUNCTIONNAME, METHODLIST, IMPORTS, EXPORTS
+export SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS, FIELDS, FUNCTIONNAME, METHODLIST,
+       IMPORTS, EXPORTS
 
 """
 Override `DocStringExtensions.format` for `METHODLIST`.
@@ -16,7 +18,7 @@ function DocStringExtensions.format(::_CleanMethodList, buf, doc)
     local typesig = doc.data[:typesig]
     local modname = doc.data[:module]
     local func = Docs.resolve(binding)
-    local groups = DocStringExtensions.methodgroups(func, typesig, modname; exact=false)
+    local groups = DocStringExtensions.methodgroups(func, typesig, modname; exact = false)
     if !isempty(groups)
         println(buf)
         local pkg_root = Pkg.pkgdir(modname) # Use Pkg.pkgdir here
@@ -34,15 +36,14 @@ function DocStringExtensions.format(::_CleanMethodList, buf, doc)
                 local method = group[1]
                 local file = string(method.file)
                 local line = method.line
-                local path =
-                    if pkg_root !== nothing && !isempty(file) &&
-                       startswith(file, pkg_root)
-                        basename(file) # relpath(file, pkg_root)
-                    # elseif !isempty(file) && isfile(file)
-                    # 	basename(file)
-                    else
-                        string(method.file) # Fallback
-                    end
+                local path = if pkg_root !== nothing && !isempty(file) &&
+                                startswith(file, pkg_root)
+                    basename(file) # relpath(file, pkg_root)
+                # elseif !isempty(file) && isfile(file)
+                # 	basename(file)
+                else
+                    string(method.file) # Fallback
+                end
                 local URL = DocStringExtensions.url(method)
                 isempty(URL) || println(buf, "defined at [`$path:$line`]($URL).")
             end

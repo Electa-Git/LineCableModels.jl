@@ -48,6 +48,7 @@ papers
 sprint
 */fem_output
 .github/*.md
+!.github/OSS_PUBLISH_CHECKLIST.md
 .github/instructions
 .github/prompts
 test/jl_*

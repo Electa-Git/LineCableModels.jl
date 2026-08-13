@@ -25,17 +25,17 @@ println(df)
 ```
 """
 function DataFrame(earth_model::EarthModel)
-  layers = earth_model.layers
+    layers = earth_model.layers
 
-  base_rho_g = [layer.base_rho_g for layer in layers]
-  base_epsr_g = [layer.base_epsr_g for layer in layers]
-  base_mur_g = [layer.base_mur_g for layer in layers]
-  thickness = [layer.t for layer in layers]
+    base_rho_g = [layer.base_rho_g for layer in layers]
+    base_epsr_g = [layer.base_epsr_g for layer in layers]
+    base_mur_g = [layer.base_mur_g for layer in layers]
+    thickness = [layer.t for layer in layers]
 
-  return DataFrame(
-    rho_g=base_rho_g,
-    epsr_g=base_epsr_g,
-    mur_g=base_mur_g,
-    thickness=thickness,
-  )
+    return DataFrame(
+        rho_g = base_rho_g,
+        epsr_g = base_epsr_g,
+        mur_g = base_mur_g,
+        thickness = thickness
+    )
 end

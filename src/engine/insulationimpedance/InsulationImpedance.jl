@@ -1,19 +1,15 @@
 """
-	LineCableModels.Engine.InsulationImpedance
+    LineCableModels.Engine.InsulationImpedance
 
 # Dependencies
 
 $(IMPORTS)
 
-# Exports
-
-$(EXPORTS)
 """
 module InsulationImpedance
 
 # Export public API
 export Lossless
-
 
 # Module-specific dependencies
 using ...Commons
