@@ -145,6 +145,7 @@ end
 end
 
 @testitem "UQ.mc: ParallelRC is sampled before line-parameter assembly" setup = [defaults] begin
+	using Random
 	using Statistics
 	using LineCableModels.ParametricBuilder:
 		CableBuilder, Conductor, Insulator, Material, Earth, SystemBuilder, at
@@ -190,7 +191,7 @@ end
 		length = 1000.0,
 		temperature = 20.0,
 		earth = Earth(rho = 100.0, eps_r = 10.0, mu_r = 1.0),
-		f = [50.0],
+		f = [50.0, 500.0],
 	)
 	formulation = FormulationSet(
 		Val(:EMT);
@@ -206,17 +207,110 @@ end
 	result = UQ.mc(
 		spec,
 		formulation;
-		trials = 24,
+		trials = 12,
 		distribution = :normal,
 		seed = 20260812,
 		print_step = 1000,
 		return_samples = true,
 	)
 
-	@test size(result.measurements.Y) == (2, 2, 1)
-	@test size(result.samples.G) == (2, 2, 1, 24)
+	@test size(result.measurements.Y) == (2, 2, 2)
+	@test size(result.samples.G) == (2, 2, 2, 12)
 	@test std(result.samples.G[1, 1, 1, :]) > 0
 	@test std(result.samples.C[1, 1, 1, :]) > 0
 	@test uncertainty(real(result.measurements.Y[1, 1, 1])) > 0
 	@test uncertainty(imag(result.measurements.Y[1, 1, 1])) > 0
+
+	ω = reshape(2π .* result.f, 1, 1, :)
+	Rmeas = real.(result.measurements.Z.values)
+	Lmeas = imag.(result.measurements.Z.values) ./ ω
+	Gmeas = real.(result.measurements.Y.values)
+	Cmeas = imag.(result.measurements.Y.values) ./ ω
+	X = vcat(
+		reshape(result.samples.R, :, 12),
+		reshape(result.samples.L, :, 12),
+		reshape(result.samples.G, :, 12),
+		reshape(result.samples.C, :, 12),
+	)
+	joint = vcat(vec(Rmeas), vec(Lmeas), vec(Gmeas), vec(Cmeas))
+	μ = vec(mean(X; dims = 2))
+	centered = X .- μ
+	empirical_covariance = centered * transpose(centered) / 11
+
+	@test value.(joint) ≈ μ
+	@test uncertainty.(joint) ≈ vec(std(X; dims = 2))
+	@test Measurements.cov(joint) ≈ empirical_covariance
+
+	for t in (1, 6, 12)
+		lp_trial = UQ.trial(result, t)
+		expected_Z =
+			result.samples.R[:, :, :, t] .+
+			im .* ω .* result.samples.L[:, :, :, t]
+		expected_Y =
+			result.samples.G[:, :, :, t] .+
+			im .* ω .* result.samples.C[:, :, :, t]
+		@test domain(lp_trial) === domain(result)
+		@test lp_trial.f == result.f
+		@test lp_trial.Z.values == expected_Z
+		@test lp_trial.Y.values == expected_Y
+	end
+	@test_throws BoundsError UQ.trial(result, 0)
+	@test_throws BoundsError UQ.trial(result, 13)
+
+	index_rng = MersenneTwister(9182)
+	adapter_rng = MersenneTwister(9182)
+	for _ in 1:5
+		t = rand(index_rng, axes(result.samples.R, 4))
+		expected = UQ.trial(result, t)
+		actual = rand(adapter_rng, result)
+		@test actual.Z.values == expected.Z.values
+		@test actual.Y.values == expected.Y.values
+	end
+	@test rand(result) isa LineParameters
+
+	for component in (:R, :L, :G, :C)
+		samples = getproperty(result.samples, component)
+		stats = getproperty(result.stats, component)
+		for index in CartesianIndices(stats)
+			trials = @view samples[index, :]
+			@test stats[index].mean ≈ mean(trials)
+			@test stats[index].std ≈ std(trials)
+		end
+	end
+
+	repeated = UQ.mc(
+		spec,
+		formulation;
+		trials = 12,
+		distribution = :normal,
+		seed = 20260812,
+		print_step = 1000,
+		return_samples = true,
+	)
+	@test repeated.samples == result.samples
+	@test value.(repeated.measurements.Z.values) == value.(result.measurements.Z.values)
+	@test value.(repeated.measurements.Y.values) == value.(result.measurements.Y.values)
+	@test Measurements.cov(vcat(
+		vec(real.(repeated.measurements.Z.values)),
+		vec(imag.(repeated.measurements.Z.values) ./ ω),
+		vec(real.(repeated.measurements.Y.values)),
+		vec(imag.(repeated.measurements.Y.values) ./ ω),
+	)) ≈ empirical_covariance
+
+	single = UQ.mc(
+		spec,
+		formulation;
+		trials = 1,
+		seed = 20260812,
+		print_step = 1000,
+	)
+	for component in (:R, :L, :G, :C)
+		@test all(iszero(stat.std) for stat in getproperty(single.stats, component))
+	end
+	@test all(iszero ∘ uncertainty ∘ real, single.measurements.Z.values)
+	@test all(iszero ∘ uncertainty ∘ imag, single.measurements.Z.values)
+	@test all(iszero ∘ uncertainty ∘ real, single.measurements.Y.values)
+	@test all(iszero ∘ uncertainty ∘ imag, single.measurements.Y.values)
+	@test_throws ArgumentError UQ.trial(single, 1)
+	@test_throws ArgumentError rand(MersenneTwister(1), single)
 end

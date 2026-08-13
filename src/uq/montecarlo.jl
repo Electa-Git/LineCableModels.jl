@@ -165,7 +165,9 @@ Propagate system uncertainty through a frequency-domain EMT formulation.
 - `conf`: Confidence level used for DKW sizing and mean confidence intervals.
 - `tol`: DKW absolute CDF tolerance when `trials === nothing`.
 - `print_step`: Number of trials between progress messages.
-- `return_samples`: Retain R, L, C, and G trial tensors when `true`.
+- `return_samples`: Retain R, L, C, and G trial tensors when `true`. Stored
+  samples are required by [`trial`](@ref) and `rand(::LineParametersMC)` for
+  exact empirical joint resampling.
 - `return_pdf`: Construct histogram-based PDFs when `true`.
 - `per_length`: Return per-unit-length quantities when `true`; otherwise scale
   impedance and admittance by the physical line length \\[m\\].
@@ -182,6 +184,25 @@ The first sampled problem is solved before tensor allocation, so matrix size is
 taken from the actual solver result after bundling and reduction. When supplied,
 `trial_sampler` is invoked exactly once for every one-based trial index and its
 result bypasses the package's default independent primitive sampler.
+
+The `measurements` field is a joint, moment-matched covariance surrogate. All
+R, L, G, and C coordinates use one shared set of latent standard measurements,
+so their empirical Monte Carlo means and covariances are retained across matrix
+entries, complex components, impedance and admittance, and frequencies. Sampling
+those latent variables normally produces a Gaussian surrogate. Sampling them
+from variance-equivalent uniform laws preserves the same mean and covariance,
+but neither surrogate reproduces a nonlinear or non-Gaussian Monte Carlo
+distribution.
+
+For `n > 1` trials, the surrogate uses the complete centered sample factor:
+
+```math
+x_i = \\mu_i + \\sum_{t=1}^{n} A_{it}\\xi_t, \\qquad
+A_{it} = \\frac{X_{it} - \\mu_i}{\\sqrt{n-1}},
+```
+
+where the ``\\xi_t`` are shared independent zero-mean, unit-variance primitives.
+For one trial, every output has zero uncertainty.
 """
 function mc(
 	sbs::SystemBuilderSpec,
@@ -246,8 +267,8 @@ function mc(
 	# Stats kernel on reals
 	_stats = function (arr::AbstractVector{<:Real})
 		m  = mean(arr)
-		s  = std(arr)
 		N  = length(arr)
+		s  = N == 1 ? zero(eltype(arr)) : std(arr)
 		ci = z * s / sqrt(N)
 		return (mean = m, std = s, min = minimum(arr),
 			q05 = quantile(arr, 0.05), q50 = quantile(arr, 0.50),
@@ -324,11 +345,6 @@ function mc(
 	# Aggregate statistics per element (j1,j2) and per frequency k
 	# ─────────────────────────────────────────────────────────────────────────
 
-	# Measurement-valued Z,Y (nph×nph×nfreq)
-	T = Complex{typeof(measurement(zero(U), zero(U)))}   # Measurement{BASE_FLOAT}
-	Zmeas = Array{T}(undef, nph, nph, nfreq)
-	Ymeas = Array{T}(undef, nph, nph, nfreq)
-
 	# 3D arrays of stats for R,L,C,G
 	Rstats = Array{NamedTuple, 3}(undef, nph, nph, nfreq)
 	Lstats = Array{NamedTuple, 3}(undef, nph, nph, nfreq)
@@ -342,9 +358,6 @@ function mc(
 	Cpdf = return_pdf ? Array{LineParametersPDF{U}, 3}(undef, nph, nph, nfreq) : nothing
 
 	@inbounds for j1 in 1:nph, j2 in 1:nph, k in 1:nfreq
-		fk = fvec[k]
-		ω = 2π * fk
-
 		rvec = @view Rsamp[j1, j2, k, :]
 		lvec = @view Lsamp[j1, j2, k, :]
 		gvec = @view Gsamp[j1, j2, k, :]
@@ -360,15 +373,6 @@ function mc(
 		Gstats[j1, j2, k] = sG
 		Cstats[j1, j2, k] = sC
 
-		# Z = R + j ω L, Y = G + j ω C
-		Zmeas[j1, j2, k] =
-			measurement(sR.mean, sR.std) +
-			1im * measurement(ω * sL.mean, ω * sL.std)
-
-		Ymeas[j1, j2, k] =
-			measurement(sG.mean, sG.std) +
-			1im * measurement(ω * sC.mean, ω * sC.std)
-
 		# Optional PDFs per (j1,j2,k)
 		if return_pdf
 			Rpdf[j1, j2, k] = _pdf_from_hist(rvec; nbins = nbins)
@@ -378,8 +382,9 @@ function mc(
 		end
 	end
 
-	# Frequency-dependent LineParameters using Measurements.jl types
-	LP_meas = LineParameters(Dlp, Zmeas, Ymeas, fvec)
+	# Frequency-dependent LineParameters whose entries all share the same latent
+	# primitive set and therefore retain the complete empirical covariance.
+	LP_meas = _joint_line_parameters(Dlp, Rsamp, Lsamp, Gsamp, Csamp, fvec)
 
 	@info "mc[Z,Y]: done" total = ntrials nfreq = nfreq
 
@@ -390,4 +395,72 @@ function mc(
 
 	return LineParametersMC(fvec, stats_nt, pdf_nt, samples_nt, LP_meas)
 
+end
+
+function _joint_measurements(
+	Rsamp::AbstractArray{U, 4},
+	Lsamp::AbstractArray{U, 4},
+	Gsamp::AbstractArray{U, 4},
+	Csamp::AbstractArray{U, 4},
+) where {U <: Real}
+	sample_size = size(Rsamp)
+	all(size(samples) == sample_size for samples in (Lsamp, Gsamp, Csamp)) ||
+		throw(DimensionMismatch("R, L, G, and C sample tensors must have equal dimensions"))
+
+	ntrials = sample_size[4]
+	ntrials > 0 || throw(ArgumentError("at least one Monte Carlo trial is required"))
+	tensor_size = (sample_size[1], sample_size[2], sample_size[3])
+	ncoordinates = prod(tensor_size)
+
+	# Rows are scalar R/L/G/C coordinates; columns are Monte Carlo trials. The
+	# centered matrix is used directly as a covariance factor, without forming
+	# the potentially prohibitive output covariance matrix.
+	X = vcat(
+		reshape(Rsamp, ncoordinates, ntrials),
+		reshape(Lsamp, ncoordinates, ntrials),
+		reshape(Gsamp, ncoordinates, ntrials),
+		reshape(Csamp, ncoordinates, ntrials),
+	)
+	μ = vec(mean(X; dims = 2))
+
+	joint = if ntrials == 1
+		map(x -> measurement(x, zero(U)), μ)
+	else
+		A = X
+		A .-= μ
+		A ./= sqrt(ntrials - 1)
+		ξ = [measurement(zero(U), one(U)) for _ in axes(A, 2)]
+		μ + A * ξ
+	end
+
+	block = ncoordinates
+	Rmeas = reshape(joint[1:block], tensor_size)
+	Lmeas = reshape(joint[(block+1):(2*block)], tensor_size)
+	Gmeas = reshape(joint[(2*block+1):(3*block)], tensor_size)
+	Cmeas = reshape(joint[(3*block+1):(4*block)], tensor_size)
+	return Rmeas, Lmeas, Gmeas, Cmeas
+end
+
+function _joint_line_parameters(
+	::Type{D},
+	Rsamp::AbstractArray{U, 4},
+	Lsamp::AbstractArray{U, 4},
+	Gsamp::AbstractArray{U, 4},
+	Csamp::AbstractArray{U, 4},
+	fvec::AbstractVector{U},
+) where {D <: LineParamsDomain, U <: Real}
+	Rmeas, Lmeas, Gmeas, Cmeas = _joint_measurements(Rsamp, Lsamp, Gsamp, Csamp)
+	nph, _, nfreq = size(Rmeas)
+	length(fvec) == nfreq ||
+		throw(DimensionMismatch("sample and frequency dimensions must agree"))
+
+	T = Complex{typeof(measurement(zero(U), zero(U)))}
+	Zmeas = Array{T}(undef, nph, nph, nfreq)
+	Ymeas = Array{T}(undef, nph, nph, nfreq)
+	@inbounds for j1 in 1:nph, j2 in 1:nph, k in 1:nfreq
+		ω = 2π * fvec[k]
+		Zmeas[j1, j2, k] = Rmeas[j1, j2, k] + im * ω * Lmeas[j1, j2, k]
+		Ymeas[j1, j2, k] = Gmeas[j1, j2, k] + im * ω * Cmeas[j1, j2, k]
+	end
+	return LineParameters(D, Zmeas, Ymeas, fvec)
 end

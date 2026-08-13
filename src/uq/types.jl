@@ -33,6 +33,21 @@ function LineParametersPDF(
 	return LineParametersPDF{T}(e, d)
 end
 
+"""
+	LineParametersMC{U, D}
+
+Store Monte Carlo summaries and a joint moment-matched line-parameter surrogate.
+
+# Notes
+
+The `measurements` field matches the empirical mean and covariance of all R, L,
+G, and C samples jointly. Normal downstream sampling therefore gives a Gaussian
+surrogate with those moments. Variance-equivalent uniform sampling also preserves
+the moments, but neither law reproduces the original nonlinear Monte Carlo
+distribution. Use `samples` or `pdf` when distribution shape is required.
+When `samples` are retained, [`trial`](@ref) and `rand` reconstruct complete
+members of the discrete empirical joint distribution.
+"""
 struct LineParametersMC{U <: Real, D <: LineParamsDomain}
 	"Frequencies \\[Hz\\]."
 	f::Vector{U}
@@ -76,7 +91,7 @@ struct LineParametersMC{U <: Real, D <: LineParamsDomain}
 		},
 	}
 
-	"Frequency-dependent LineParameters with Measurement-valued entries."
+	"Joint moment-matched `LineParameters` with covariance-preserving entries."
 	measurements::LineParameters{Complex{Measurement{U}}, U, D}
 end
 
