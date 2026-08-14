@@ -36,11 +36,9 @@ domain can define an `AbstractPlotSpec` and a `make_render` method without
 changing the renderer, provided its output uses the supported declarative
 vocabulary.
 
-The old experimental layer of generic tuple parsing and many independent trait
-functions is not part of the current implementation. It was replaced by Julia
-dispatch plus explicit, inspectable specification values. This removed a large
-amount of unproven machinery; it did not couple the renderer to the currently
-supported domains.
+Recipe decisions use Julia dispatch and explicit, inspectable specification
+values. Selection rules remain in each recipe, while rendering behavior remains
+in the Makie extension.
 
 `PlotBuilder` is a developer API in v0.2. The stable user entry points remain
 `plot`, `preview`, `show_material_scale`, and `export_svg`.
@@ -81,7 +79,7 @@ state.
 
 An `AxisSpec` contains:
 
-| Field | Contract |
+| Field | Meaning |
 |:--|:--|
 | `dim` | `:x` or `:y` in the current two-dimensional renderer. `:z` is reserved. |
 | `quantity` | A semantic `UnitHandler.QuantityTag`. |
@@ -145,12 +143,14 @@ not yet a general arbitrary-layout language.
 
 Recognized page keywords are:
 
-| Keyword | Contract |
+| Keyword | Meaning |
 |:--|:--|
 | `controls` | Result of `PlotBuilder.control_definitions`. |
 | `display_legend` | Whether to build the side legend. Defaults to `true`. |
 | `colorbars` | Tuple of declarative colorbar descriptors. |
 | `export_name` | Base name used for timestamped SVG exports. |
+| `export_theme` | `:default` for a faithful export or `:publication` for LaTeX-oriented typography. |
+| `open_export` | Open a successful export with the registered system application. Defaults to `true`. |
 | `x_exponent`, `y_exponent` | Base-ten display exponents for compact linear tick labels. |
 | `configuration` | Recipe options retained for inspection and parity tests. |
 
@@ -190,31 +190,63 @@ Line-parameter plotting returns `Vector{UIPlot}` because each physical
 quantity has its own page. Statistical plots and previews return one
 `UIPlot`.
 
-## Traits and accessors
+## SVG export
 
-There is no hidden list of required trait methods. The current extension
-contract has one required method:
+The save control reconstructs the current declarative page, including axis
+scales, axis limits, and series visibility, and renders it with explicitly
+loaded CairoMakie. It never captures the interactive window as a bitmap.
+
+Recipes select one of two export themes:
+
+- `export_theme=:default` keeps the current sizes, labels, styles, and limits
+  on a clean white background;
+- `export_theme=:publication` applies `Makie.theme_latexfonts()` together with
+  the established title, axis-label, tick-label, legend, and colorbar sizing.
+
+The selection is stored in each `PageSpec` and can be overridden for one call:
+
+```julia
+plots = plot(parameters; export_theme=:publication)
+export_svg(first(plots))
+
+# Batch or headless use
+export_svg(first(plots); path="series_resistance.svg", open_file=false)
+```
+
+Without an explicit path, PlotBuilder saves a sanitized, timestamped SVG in
+`pwd()`. If `pwd()` is the LineCableModels package directory or any directory
+inside it, PlotBuilder instead uses
+`joinpath(tempdir(), "linecablemodels-exports")`. An explicit path is always
+honored and an existing file is never overwritten.
+
+After a successful interactive export, PlotBuilder asks the operating system
+to open the SVG with its registered application: `open` on macOS, the Windows
+shell association on Windows, and `xdg-open` or `gio open` on Linux. The status
+bar and terminal report the absolute path. Set `open_export=false` in the
+recipe or `open_file=false` in `export_svg` for batch jobs.
+
+## Recipe interface and accessors
+
+There is no hidden list of required trait methods. A recipe adds one method:
 
 ```julia
 PlotBuilder.make_render(::Type{MyPlotSpec}, object::MyType; options...)
 ```
 
-Earlier PlotBuilder prototypes expressed the same decisions through many trait
-functions. Their current equivalents are explicit:
+The method states every plotting decision through the specification hierarchy:
 
-| Earlier trait concept | Current contract |
+| Recipe decision | Where it is defined |
 |:--|:--|
 | accepted domain type | The `object::MyType` dispatch signature. |
-| plot kind | `SeriesSpec.kind`. |
-| semantic input options and defaults | Typed `make_render` keywords and validation. |
-| axis quantity and unit | `AxisSpec.quantity` and `AxisSpec.units`. |
-| log-scale capability | `AxisSpec.scale` plus `controls.xlog` or `controls.ylog`. |
-| figure size | `PageSpec.size`. |
-| title and legend labels | `ViewSpec.title`, `PageSpec.title`, and `SeriesSpec.label`. |
-| grouping mode | How the method partitions series into views and views into pages. |
-| data container and field selection | Calls to domain accessors inside `make_render`. |
-| complex representation | Explicit component selection through UnitHandler and native `real`, `imag`, `abs`, and `angle`. |
-| renderer keywords | `SeriesSpec.attributes`, `ViewSpec.attributes`, and `PageSpec.kwargs`. |
+| semantic options and defaults | Typed `make_render` keywords and validation. |
+| primitive | `SeriesSpec.kind`. |
+| quantity and unit | `AxisSpec.quantity` and `AxisSpec.units`. |
+| log-scale availability | `AxisSpec.scale` plus `controls.xlog` or `controls.ylog`. |
+| title and legend text | `ViewSpec.title`, `PageSpec.title`, and `SeriesSpec.label`. |
+| overlay, panels, or pages | How series are partitioned into views and views into pages. |
+| data selection | Calls to domain accessors inside `make_render`. |
+| Cartesian or polar values | UnitHandler selection and native `real`, `imag`, `abs`, and `angle`. |
+| Makie styling | `SeriesSpec.attributes`, `ViewSpec.attributes`, and `PageSpec.kwargs`. |
 
 Recipes should use domain accessors instead of depending on container storage.
 For maintained result types, the relevant accessors include:
@@ -242,7 +274,7 @@ const UH = LineCableModels.UnitHandler
 
 struct ProfileResult
     frequency::Vector{Float64}
-    response::Vector{Float64}
+    response::Matrix{Float64}
 end
 
 struct ProfilePlotSpec <: PB.AbstractPlotSpec end
@@ -251,8 +283,15 @@ function PB.make_render(
     ::Type{ProfilePlotSpec},
     result::ProfileResult;
     color=:steelblue,
+    grouping::Symbol=:overlay,
     size=(800, 400),
+    export_theme::Symbol=:default,
+    open_export::Bool=true,
 )
+    grouping in (:overlay, :panels, :pages) ||
+        throw(ArgumentError("grouping must be :overlay, :panels, or :pages"))
+    export_theme in (:default, :publication) ||
+        throw(ArgumentError("export_theme must be :default or :publication"))
     xunit = UH.units(:base, :hertz)
     xaxis = PB.AxisSpec(
         :x,
@@ -268,53 +307,84 @@ function PB.make_render(
         "Response",
         :linear,
     )
-    series = PB.SeriesSpec(
-        :line,
-        result.frequency,
-        result.response,
-        nothing,
-        "response";
-        attributes=(; color, linewidth=2),
-    )
-    view = PB.ViewSpec(
+    series = [
+        PB.SeriesSpec(
+            :line,
+            result.frequency,
+            result.response[:, index],
+            nothing,
+            "response $index";
+            attributes=(;
+                color,
+                linewidth=2,
+                linestyle=index == 2 ? :dash : :solid,
+                group=Symbol("response_$index"),
+            ),
+        ) for index in axes(result.response, 2)
+    ]
+    make_view(items, title, key) = PB.ViewSpec(
         xaxis,
         yaxis,
         nothing,
-        "Frequency response",
-        [series],
-        (; quantity=:response),
+        title,
+        items,
+        key,
     )
-    page = PB.PageSpec(
-        "Frequency response",
+    views = grouping === :overlay ?
+            [make_view(series, "Frequency responses", (; group=:all))] :
+            [make_view([item], "Response $index", (; response=index))
+             for (index, item) in enumerate(series)]
+    make_page(page_views, title, export_name) = PB.PageSpec(
+        title,
         size,
-        :single,
-        [view],
+        grouping === :panels ? :grid : :single,
+        page_views,
         (;
+            export_theme,
+            open_export,
             controls=PB.control_definitions(xlog=true, ylog=true),
-            export_name="frequency_response",
-            configuration=(; color),
+            export_name,
+            configuration=(; color, grouping),
         ),
     )
-    return PB.RenderSpec(ProfilePlotSpec, [page])
+    pages = grouping === :pages ?
+            [make_page([view], view.title, "response_$index")
+             for (index, view) in enumerate(views)] :
+            [make_page(views, "Frequency responses", "frequency_responses")]
+    return PB.RenderSpec(ProfilePlotSpec, pages)
 end
 
-result = ProfileResult([50.0, 100.0, 500.0], [1.0, 1.5, 2.0])
-render = PB.make_render(ProfilePlotSpec, result; color=:navy)
-@assert render isa PB.RenderSpec{ProfilePlotSpec}
-@assert only(only(render.figures).views).series[1].attributes.color === :navy
+result = ProfileResult(
+    [50.0, 100.0, 500.0],
+    [1.0 1.2; 1.5 1.6; 2.0 2.1],
+)
+overlay = PB.make_render(ProfilePlotSpec, result; color=:navy)
+panels = PB.make_render(ProfilePlotSpec, result; grouping=:panels)
+pages = PB.make_render(ProfilePlotSpec, result; grouping=:pages)
+@assert length(only(only(overlay.figures).views).series) == 2
+@assert length(only(panels.figures).views) == 2
+@assert length(pages.figures) == 2
 nothing
 ```
+
+The hierarchy defines grouping without a renderer-specific grouping trait:
+
+- multiple `SeriesSpec` values in one `ViewSpec` overlay in one panel;
+- multiple `ViewSpec` values in one `PageSpec` produce separate panels in one
+  figure;
+- multiple `PageSpec` values in one `RenderSpec` produce separate figures or
+  native windows;
+- equal `attributes.group` values combine several primitives into one legend
+  entry and one visibility action.
 
 Inside LineCableModels, connect the recipe to the Makie extension by adding a
 narrow `plot` or `preview` method in `ext/LineCableModelsMakieExt.jl`. That
 method should only normalize Makie-facing arguments, call `make_render`, and
 pass the resulting specification to `UIComponents.build`.
 
-At v0.2, `UIComponents.build` is an internal extension entry point rather than
-a public PlotBuilder function. External packages can safely define and inspect
-custom `RenderSpec` values, but should not reach through `Base.get_extension`
-to render them. A public forwarding build hook should be introduced before
-advertising PlotBuilder as a third-party recipe ecosystem.
+`UIComponents.build` is currently an internal extension entry point. New
+LineCableModels recipes connect to it through a narrow method in
+`ext/LineCableModelsMakieExt.jl`.
 
 ## Customizing an existing recipe
 
@@ -322,9 +392,11 @@ Prefer semantic recipe options over post-build Makie mutation. Existing
 customization points include:
 
 - line parameters: `mode`, `coord`, `freq_unit`, `length_unit`,
-  `quantity_units`, `con`, `fig_size`, `xscale`, and `yscale`;
+  `quantity_units`, `con`, `fig_size`, `xscale`, `yscale`, `export_theme`, and
+  `open_export`;
 - Monte Carlo plots: `quantity`, `ijk`, `mode`, `data`, `length_unit`,
-  `quantity_units`, `nbins`, `normalization`, and `fig_size`;
+  `quantity_units`, `nbins`, `normalization`, `fig_size`, `export_theme`, and
+  `open_export`;
 - cable previews: offsets, size, ID, legend, and colorbar visibility;
 - system previews: earth model, zoom factor, size, ID, legend, and colorbar
   visibility.

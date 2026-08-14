@@ -67,7 +67,7 @@ either.
 ## Examples
 
 Prefer `jldoctest` for self-contained public examples. When textual output is
-not part of the contract, place assertions before the doctest's `# output`
+not part of the expected output, place assertions before the doctest's `# output`
 separator and leave the expected output empty. An example that needs an
 external executable, repository fixture, network access, or a graphical
 interaction belongs in integration documentation instead of a docstring.
