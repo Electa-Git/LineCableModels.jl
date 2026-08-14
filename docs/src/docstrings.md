@@ -31,8 +31,6 @@ unit notation, such as `\\[m\\]`, `\\[Ω·m\\]`, and
 
 A method that implements a physically meaningful equation has a `# Notes`
 section containing the equation and definitions used by the implementation.
-This requirement follows the implementation, regardless of whether the method
-name begins with `calc_`.
 
 For example:
 
