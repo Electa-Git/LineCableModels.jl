@@ -5,6 +5,15 @@ import ..UnitHandler: Units, QuantityTag
 export AbstractPlotSpec, AxisSpec, SeriesSpec, ViewSpec, PageSpec, RenderSpec, UIPlot
 export make_render, export_svg
 
+const EXPORT_THEMES = (:default, :publication)
+
+function _validate_export_theme(value::Symbol)
+    value in EXPORT_THEMES || throw(
+        ArgumentError("export_theme must be :default or :publication"),
+    )
+    return value
+end
+
 function control_definitions(;
         reset::Bool = true,
         export_svg::Bool = true,

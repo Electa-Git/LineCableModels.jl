@@ -24,7 +24,13 @@ parameters = LineParameters(
     frequency
 )
 
-plots = Makie.plot(parameters; mode = :RLCG, backend = :gl, display_plot = true)
+plots = Makie.plot(
+    parameters;
+    mode = :RLCG,
+    backend = :gl,
+    display_plot = true,
+    open_export = false
+)
 handle = first(plots)
 
 @testset "manual GL plotting gate without CairoMakie" begin

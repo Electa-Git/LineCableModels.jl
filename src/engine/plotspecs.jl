@@ -71,8 +71,11 @@ function _line_pages(
         con,
         fig_size::Tuple{Int, Int},
         xscale::Symbol,
-        yscale::Symbol
+        yscale::Symbol,
+        export_theme::Symbol,
+        open_export::Bool
 )
+    PlotBuilder._validate_export_theme(export_theme)
     all(isfinite, frequency_values) || throw(ArgumentError("frequencies must be finite"))
     if length(frequency_values) <= 1
         @warn "Frequency vector has $(length(frequency_values)) sample(s); nothing to plot."
@@ -172,6 +175,8 @@ function _line_pages(
                     component,
                     x_exponent,
                     y_exponent,
+                    export_theme,
+                    open_export,
                     controls = PlotBuilder.control_definitions(xlog = true, ylog = true),
                     configuration = (;
                         mode,
@@ -200,7 +205,9 @@ function PlotBuilder.make_render(
         con = nothing,
         fig_size::Tuple{Int, Int} = (800, 400),
         xscale::Symbol = :linear,
-        yscale::Symbol = :linear
+        yscale::Symbol = :linear,
+        export_theme::Symbol = :default,
+        open_export::Bool = true
 )
     pages = _line_pages(
         object,
@@ -213,7 +220,9 @@ function PlotBuilder.make_render(
         con,
         fig_size,
         xscale,
-        yscale
+        yscale,
+        export_theme,
+        open_export
     )
     return PlotBuilder.RenderSpec(LineParameterPlotSpec, pages)
 end

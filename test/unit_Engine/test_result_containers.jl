@@ -494,6 +494,8 @@ end
     @test render.figures[1].kwargs.configuration.coord === :cart
     @test render.figures[1].kwargs.configuration.length_unit === :kilo
     @test render.figures[1].kwargs.configuration.conductors == (1:2, 1:2)
+    @test all(page -> page.kwargs.export_theme === :default, render.figures)
+    @test all(page -> page.kwargs.open_export, render.figures)
     conductance_page = render.figures[3]
     first_conductance = first(only(conductance_page.views).series)
     @test conductance_page.kwargs.y_exponent == -6
@@ -521,6 +523,20 @@ end
           "Series resistance [mΩ/m]"
     @test only(series_render.figures[1].views).xaxis.scale === :log10
     @test only(series_render.figures[1].views).yaxis.scale === :log10
+
+    publication_render = LineCableModels.PlotBuilder.make_render(
+        LineCableModels.Engine.LineParameterPlotSpec,
+        parameters;
+        export_theme = :publication,
+        open_export = false
+    )
+    @test all(page -> page.kwargs.export_theme === :publication, publication_render.figures)
+    @test all(page -> !page.kwargs.open_export, publication_render.figures)
+    @test_throws ArgumentError LineCableModels.PlotBuilder.make_render(
+        LineCableModels.Engine.LineParameterPlotSpec,
+        parameters;
+        export_theme = :unsupported
+    )
 
     shunt_render = LineCableModels.PlotBuilder.make_render(
         LineCableModels.Engine.LineParameterPlotSpec,
@@ -589,6 +605,8 @@ end
         @test length(mc_render.figures) == 1
         @test only(mc_render.figures).kwargs.mode === mode
         @test only(mc_render.figures).kwargs.controls.export_svg
+        @test only(mc_render.figures).kwargs.export_theme === :default
+        @test only(mc_render.figures).kwargs.open_export
         @test !only(mc_render.figures).kwargs.controls.xlog
         @test !only(mc_render.figures).kwargs.controls.ylog
         @test only(mc_render.figures).kwargs.x_exponent == 3

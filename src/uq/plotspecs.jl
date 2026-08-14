@@ -168,8 +168,11 @@ function PlotBuilder.make_render(
         quantity_units = nothing,
         nbins::Union{Nothing, Int} = nothing,
         normalization::Symbol = :none,
-        fig_size::Tuple{Int, Int} = (800, 400)
+        fig_size::Tuple{Int, Int} = (800, 400),
+        export_theme::Symbol = :default,
+        open_export::Bool = true
 )
+    PlotBuilder._validate_export_theme(export_theme)
     data in (:samples, :pdf, :both) || throw(
         ArgumentError("data must be :samples, :pdf, or :both"),
     )
@@ -243,6 +246,8 @@ function PlotBuilder.make_render(
             data,
             x_exponent = _plot_exponent(series, :x),
             y_exponent = _plot_exponent(series, :y),
+            export_theme,
+            open_export,
             controls = PlotBuilder.control_definitions(xlog = false, ylog = false),
             configuration = (;
                 quantity,

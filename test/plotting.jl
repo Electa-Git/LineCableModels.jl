@@ -42,7 +42,13 @@
             frequency
         )
 
-        rlcg = Makie.plot(parameters; mode = :RLCG, backend = :cairo, display_plot = false)
+        rlcg = Makie.plot(
+            parameters;
+            mode = :RLCG,
+            backend = :cairo,
+            display_plot = false,
+            open_export = false
+        )
         cartesian = Makie.plot(
             parameters;
             mode = :ZY,
@@ -159,6 +165,19 @@
             LineCableModels,
             :LineCableModelsMakieExt
         ).UIComponents
+        default_export_theme = ui_components._theme(
+            export_mode = true,
+            export_theme = :default
+        )
+        publication_export_theme = ui_components._theme(
+            export_mode = true,
+            export_theme = :publication
+        )
+        @test !haskey(default_export_theme[:fonts], :regular)
+        @test haskey(publication_export_theme[:fonts], :regular)
+        @test haskey(publication_export_theme[:fonts], :italic)
+        @test publication_export_theme[:Axis][:titlesize][] == 15
+        @test publication_export_theme[:Axis][:xticklabelsize][] == 14
         current_page = ui_components._current_page(handle)
         current_view = only(current_page.views)
         @test current_view.xaxis.scale === :log10
@@ -220,23 +239,31 @@
 
         mktempdir() do directory
             svg_path = joinpath(directory, "line parameters.svg")
-            exported = export_svg(handle; path = svg_path)
+            exported = export_svg(handle; path = svg_path, open_file = false)
             @test exported == abspath(svg_path)
             @test handle.context.status[] == "Saved SVG to $exported"
             @test filesize(exported) > 100
             @test occursin("<svg", read(exported, String))
             @test !occursin("Export SVG", read(exported, String))
-            @test_throws ArgumentError export_svg(handle; path = svg_path)
+            @test_throws ArgumentError export_svg(handle; path = svg_path, open_file = false)
             @test_throws ArgumentError export_svg(
                 handle;
-                path = joinpath(directory, "not-an-svg.png")
+                path = joinpath(directory, "not-an-svg.png"),
+                open_file = false
+            )
+            @test_throws ArgumentError export_svg(
+                handle;
+                path = joinpath(directory, "unsupported-theme.svg"),
+                theme = :unsupported,
+                open_file = false
             )
             @test nameof(Makie.current_backend()) === :CairoMakie
 
             cd(directory) do
-                first_default = export_svg(handle)
-                second_default = export_svg(handle)
+                first_default = export_svg(handle; open_file = false)
+                second_default = export_svg(handle; open_file = false)
                 @test first_default != second_default
+                @test dirname(first_default) == directory
                 @test occursin(
                     r"^series_resistance_\d{8}_\d{6}(?:_\d+)?\.svg$",
                     basename(first_default)
@@ -244,7 +271,25 @@
                 @test occursin("rgb(100%, 100%, 100%)", read(first_default, String))
                 @test filesize(second_default) > 100
             end
+
+            publication_path = joinpath(directory, "publication.svg")
+            publication = export_svg(
+                handle;
+                path = publication_path,
+                theme = :publication,
+                open_file = false
+            )
+            @test publication == publication_path
+            @test filesize(publication) > 100
         end
+
+        fallback_export = cd(pkgdir(LineCableModels)) do
+            export_svg(handle; open_file = false)
+        end
+        @test dirname(fallback_export) ==
+              joinpath(tempdir(), "linecablemodels-exports")
+        @test filesize(fallback_export) > 100
+        rm(fallback_export)
 
         summary = SampleSummary([1.0, 2.0, 3.0, 4.0])
         distribution_model = HistogramPDF([1.0, 3.0, 5.0], [0.25, 0.25])

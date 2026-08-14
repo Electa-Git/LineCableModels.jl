@@ -39,6 +39,7 @@ const ICON_FONT = joinpath(
     "MaterialIcons-Regular.ttf"
 )
 const EXPORT_TIMESTAMP_FORMAT = "yyyymmdd_HHMMSS"
+const EXPORT_FALLBACK_DIRECTORY = "linecablemodels-exports"
 
 mutable struct UIContext
     backend::Symbol
@@ -56,9 +57,11 @@ struct UIPanel
     group_order::Vector{Symbol}
 end
 
-function _theme(; export_mode::Bool = false)
+function _theme(; export_mode::Bool = false, export_theme::Symbol = :default)
+    PlotBuilder._validate_export_theme(export_theme)
     background = export_mode ? BACKGROUND_EXPORT : BACKGROUND_INTERACTIVE
-    return Theme(
+    base = export_mode && export_theme === :publication ? Makie.theme_latexfonts() : Theme()
+    custom = Theme(
         backgroundcolor = background,
         fonts = (; icons = ICON_FONT),
         Axis = (
@@ -76,6 +79,7 @@ function _theme(; export_mode::Bool = false)
         Legend = (; fontsize = 14, labelsize = 14),
         Colorbar = (; labelsize = 14, ticklabelsize = 14)
     )
+    return merge(base, custom)
 end
 
 function _context(active::Symbol, display::Bool, title::AbstractString)
@@ -368,16 +372,66 @@ function _sanitize_filename(value::AbstractString)
     return isempty(sanitized) ? "linecablemodels_plot" : sanitized
 end
 
+function _normalized_path_parts(path::AbstractString)
+    parts = collect(splitpath(normpath(realpath(path))))
+    return Sys.iswindows() ? lowercase.(parts) : parts
+end
+
+function _path_within(path::AbstractString, root::AbstractString)
+    path_parts = _normalized_path_parts(path)
+    root_parts = _normalized_path_parts(root)
+    length(path_parts) >= length(root_parts) || return false
+    return path_parts[1:length(root_parts)] == root_parts
+end
+
+function _export_directory()
+    current = abspath(pwd())
+    package = abspath(pkgdir(PlotBuilder))
+    _path_within(current, package) || return current
+    fallback = joinpath(tempdir(), EXPORT_FALLBACK_DIRECTORY)
+    mkpath(fallback)
+    return fallback
+end
+
 function _available_path(page::PageSpec)
     base = _sanitize_filename(get(page.kwargs, :export_name, page.title))
     stamp = Dates.format(Dates.now(), EXPORT_TIMESTAMP_FORMAT)
-    candidate = joinpath(pwd(), "$(base)_$(stamp).svg")
+    directory = _export_directory()
+    candidate = joinpath(directory, "$(base)_$(stamp).svg")
     index = 2
     while ispath(candidate)
-        candidate = joinpath(pwd(), "$(base)_$(stamp)_$(index).svg")
+        candidate = joinpath(directory, "$(base)_$(stamp)_$(index).svg")
         index += 1
     end
     return candidate
+end
+
+function _open_command(path::AbstractString)
+    if Sys.iswindows()
+        return Cmd(["cmd", "/c", "start", "", path])
+    elseif Sys.isapple()
+        executable = Sys.which("open")
+        return executable === nothing ? nothing : `$executable $path`
+    end
+    executable = Sys.which("xdg-open")
+    executable !== nothing && return `$executable $path`
+    executable = Sys.which("gio")
+    return executable === nothing ? nothing : `$executable open $path`
+end
+
+function _open_export(path::AbstractString)
+    command = _open_command(path)
+    command === nothing && return false
+    try
+        process = run(pipeline(ignorestatus(command); stdout = devnull, stderr = devnull))
+        return success(process)
+    catch error
+        @warn "could not open exported SVG with the system application" path exception = (
+            error,
+            catch_backtrace()
+        )
+        return false
+    end
 end
 
 function _visibility_groups(panels)
@@ -624,12 +678,15 @@ function build(
         backend = nothing,
         display::Bool = true,
         controls::Bool = true,
-        export_mode::Bool = false
+        export_mode::Bool = false,
+        export_theme::Union{Nothing, Symbol} = nothing
 )
     active = BackendHandler.ensure_backend!(backend)
     built = UIPlot[]
-    with_theme(_theme(; export_mode)) do
-        for page in render_spec.figures
+    for page in render_spec.figures
+        page_export_theme = export_theme === nothing ?
+                            get(page.kwargs, :export_theme, :default) : export_theme
+        with_theme(_theme(; export_mode, export_theme = page_export_theme)) do
             context = _context(active, display, page.title)
             plot = _build_page(
                 render_spec,
@@ -709,13 +766,22 @@ function _current_page(plot::UIPlot)
         plot.page.title, plot.page.size, plot.page.layout, views, plot.page.kwargs)
 end
 
-function PlotBuilder.export_svg(plot::UIPlot; path::Union{Nothing, AbstractString} = nothing)
+function PlotBuilder.export_svg(
+        plot::UIPlot;
+        path::Union{Nothing, AbstractString} = nothing,
+        theme::Union{Nothing, Symbol} = nothing,
+        open_file::Union{Nothing, Bool} = nothing
+)
     BackendHandler.backend_available(:cairo) || throw(
         ArgumentError(
         "SVG export requires CairoMakie; load CairoMakie first with `using CairoMakie`",
     ),
     )
     output = path === nothing ? _available_path(plot.page) : abspath(String(path))
+    export_theme = theme === nothing ? get(plot.page.kwargs, :export_theme, :default) :
+                   theme
+    should_open = open_file === nothing ? get(plot.page.kwargs, :open_export, true) :
+                  open_file
     lowercase(splitext(output)[2]) == ".svg" || throw(
         ArgumentError("SVG export paths must use the .svg extension"),
     )
@@ -728,11 +794,19 @@ function PlotBuilder.export_svg(plot::UIPlot; path::Union{Nothing, AbstractStrin
             backend = :cairo,
             display = false,
             controls = false,
-            export_mode = true
+            export_mode = true,
+            export_theme
         )
         Makie.save(output, only(exported).figure)
     end
-    message = "Saved SVG to $output"
+    opened = should_open && _open_export(output)
+    message = if opened
+        "Saved SVG to $output and opened it with the system application"
+    elseif should_open
+        "Saved SVG to $output; automatic opening was unavailable"
+    else
+        "Saved SVG to $output"
+    end
     plot.context.status[] = message
     @info message
     return output

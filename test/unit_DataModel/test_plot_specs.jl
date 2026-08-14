@@ -27,6 +27,8 @@
     @test cable_page.kwargs.display_legend
     @test cable_page.kwargs.controls.reset
     @test cable_page.kwargs.controls.export_svg
+    @test cable_page.kwargs.export_theme === :default
+    @test cable_page.kwargs.open_export
     @test !cable_page.kwargs.controls.xlog
     @test !cable_page.kwargs.controls.ylog
     @test cable_page.kwargs.configuration.x_offset == 0.0
@@ -40,6 +42,20 @@
     )
     @test !only(cable_without_chrome.figures).kwargs.display_legend
     @test isempty(only(cable_without_chrome.figures).kwargs.colorbars)
+
+    publication_cable = plot_builder.make_render(
+        LineCableModels.DataModel.CablePreviewPlotSpec,
+        design;
+        export_theme = :publication,
+        open_export = false
+    )
+    @test only(publication_cable.figures).kwargs.export_theme === :publication
+    @test !only(publication_cable.figures).kwargs.open_export
+    @test_throws ArgumentError plot_builder.make_render(
+        LineCableModels.DataModel.CablePreviewPlotSpec,
+        design;
+        export_theme = :unsupported
+    )
 
     position = CablePosition(
         design,
@@ -103,5 +119,7 @@
     @test length(scale_page.kwargs.colorbars) == 3
     @test !scale_page.kwargs.controls.reset
     @test scale_page.kwargs.controls.export_svg
+    @test scale_page.kwargs.export_theme === :default
+    @test scale_page.kwargs.open_export
     @test !scale_page.kwargs.controls.legend
 end

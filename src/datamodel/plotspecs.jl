@@ -383,8 +383,11 @@ function PlotBuilder.make_render(
         display_legend::Bool = true,
         display_id::Bool = false,
         display_colorbars::Bool = true,
+        export_theme::Symbol = :default,
+        open_export::Bool = true,
         kwargs...
 )
+    PlotBuilder._validate_export_theme(export_theme)
     isempty(kwargs) || @warn "unused cable-preview keywords" keywords = keys(kwargs)
     xaxis, yaxis = _distance_axes()
     title = display_id ? "Cable design preview: $(design.cable_id)" : "Cable design preview"
@@ -407,6 +410,8 @@ function PlotBuilder.make_render(
             colorbars,
             display_legend,
             export_name = design.cable_id,
+            export_theme,
+            open_export,
             controls = PlotBuilder.control_definitions(xlog = false, ylog = false),
             configuration = (; x_offset, y_offset, display_id, display_colorbars)
         )
@@ -468,8 +473,11 @@ function PlotBuilder.make_render(
         display_legend::Bool = true,
         display_id::Bool = false,
         display_colorbars::Bool = true,
+        export_theme::Symbol = :default,
+        open_export::Bool = true,
         kwargs...
 )
+    PlotBuilder._validate_export_theme(export_theme)
     isempty(kwargs) || @warn "unused system-preview keywords" keywords = keys(kwargs)
     limits = _system_limits(system, zoom_factor)
     xaxis, yaxis = _distance_axes()
@@ -547,6 +555,8 @@ function PlotBuilder.make_render(
             colorbars,
             display_legend,
             export_name = system.system_id,
+            export_theme,
+            open_export,
             controls = PlotBuilder.control_definitions(xlog = false, ylog = false),
             configuration = (; zoom_factor, display_id, display_colorbars)
         )
@@ -557,8 +567,11 @@ end
 function PlotBuilder.make_render(
         ::Type{MaterialScalePlotSpec},
         ::Nothing = nothing;
-        size::Tuple{Int, Int} = (800, 400)
+        size::Tuple{Int, Int} = (800, 400),
+        export_theme::Symbol = :default,
+        open_export::Bool = true
 )
+    PlotBuilder._validate_export_theme(export_theme)
     colorbars = _colorbar_specs((_RHO_MIN, _RHO_MAX), (1.0, 300.0), (1.0, 1000.0))
     page = PlotBuilder.PageSpec(
         "Material property color scale",
@@ -569,6 +582,8 @@ function PlotBuilder.make_render(
             colorbars,
             display_legend = false,
             export_name = "material_scale",
+            export_theme,
+            open_export,
             controls = PlotBuilder.control_definitions(
                 reset = false,
                 xlog = false,
