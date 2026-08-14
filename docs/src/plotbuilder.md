@@ -10,7 +10,11 @@ The central boundary is:
 domain object and accessors
         │
         ▼
-make_render(::Type{<:AbstractPlotSpec}, object; options...)
+make_render(::Type{<:AbstractPlotSpec}, object; options...)  # defined once
+        │
+        ├─ parse_kwargs → resolve_input
+        ├─ recipe_mode → grouping_mode
+        └─ make_pages → make_views → make_series
         │
         ▼
 RenderSpec → PageSpec → ViewSpec → SeriesSpec
@@ -32,13 +36,14 @@ backend or construct Makie objects.
 The general-purpose intent is retained at the recipe boundary: the renderer
 knows about axes, series, pages, controls, and colorbars, but not about
 `CableDesign`, `LineParameters`, Monte Carlo results, or their storage. A new
-domain can define an `AbstractPlotSpec` and a `make_render` method without
-changing the renderer, provided its output uses the supported declarative
-vocabulary.
+domain defines an `AbstractPlotSpec` and specializes recipe accessors without
+replacing `make_render` or changing the renderer.
 
-Recipe decisions use Julia dispatch and explicit, inspectable specification
-values. Selection rules remain in each recipe, while rendering behavior remains
-in the Makie extension.
+The generic pipeline owns option parsing and the complete
+page/view/series hierarchy. Recipe types provide semantic decisions through
+multiple dispatch. Plot modes and grouping strategies are `Val`-dispatched, so
+adding a mode means adding methods for that value rather than branching inside
+a recipe builder.
 
 `PlotBuilder` is a developer API in v0.2. The stable user entry points remain
 `plot`, `preview`, `show_material_scale`, and `export_svg`.
@@ -73,7 +78,7 @@ struct TemperatureProfilePlotSpec <: PlotBuilder.AbstractPlotSpec end
 ```
 
 The type identifies the grammar. It should not contain plot data or mutable UI
-state.
+state, and it should not overload `make_render`.
 
 ### `AxisSpec`
 
@@ -227,26 +232,38 @@ recipe or `open_file=false` in `export_svg` for batch jobs.
 
 ## Recipe interface and accessors
 
-There is no hidden list of required trait methods. A recipe adds one method:
+`make_render` is defined once by PlotBuilder. It checks `dispatch_on`, parses
+the declared keywords, resolves the recipe, dispatches its plotting and
+grouping modes, and materializes the hierarchy. A recipe specializes only the
+decisions it owns.
 
-```julia
-PlotBuilder.make_render(::Type{MyPlotSpec}, object::MyType; options...)
-```
+The accessor families are:
 
-The method states every plotting decision through the specification hierarchy:
-
-| Recipe decision | Where it is defined |
+| Decision | Accessors |
 |:--|:--|
-| accepted domain type | The `object::MyType` dispatch signature. |
-| semantic options and defaults | Typed `make_render` keywords and validation. |
-| primitive | `SeriesSpec.kind`. |
-| quantity and unit | `AxisSpec.quantity` and `AxisSpec.units`. |
-| log-scale availability | `AxisSpec.scale` plus `controls.xlog` or `controls.ylog`. |
-| title and legend text | `ViewSpec.title`, `PageSpec.title`, and `SeriesSpec.label`. |
-| overlay, panels, or pages | How series are partitioned into views and views into pages. |
-| data selection | Calls to domain accessors inside `make_render`. |
-| Cartesian or polar values | UnitHandler selection and native `real`, `imag`, `abs`, and `angle`. |
-| Makie styling | `SeriesSpec.attributes`, `ViewSpec.attributes`, and `PageSpec.kwargs`. |
+| accepted object | `dispatch_on` |
+| semantic options | `input_kwargs`, `input_defaults`, `resolve_input` |
+| renderer options | `renderer_kwargs`, `renderer_defaults` |
+| plot specialization | `recipe_mode` |
+| hierarchy | `grouping_mode`, `page_facets`, `group_facets` |
+| axes | `geom_axes`, `axis_quantity`, `axis_unit`, `axis_label`, `axis_scale` |
+| primitives | `plot_kind`, `series_data`, `legend_label`, `series_attributes` |
+| views | `default_title`, `view_key`, `view_attributes` |
+| pages | `default_figsize`, `figure_layout`, `enable_logscale`, `page_kwargs` |
+
+`recipe_mode` and `grouping_mode` return `Val` values. The built-in grouping
+modes are:
+
+- `Val(:overlay)`: all `group_facets` become series in one view and one page;
+- `Val(:panels)`: every group facet becomes a view in one page;
+- `Val(:pages)`: every group facet becomes a page containing one view;
+- `Val(:faceted_pages)`: `page_facets` become pages and `group_facets` become
+  the overlaid series inside each page;
+- `Val(:empty)`: a page without axes, used by the standalone material scale.
+
+The grouping implementation lives in PlotBuilder. A recipe supplies semantic
+facet keys and data accessors; it does not construct pages or branch over
+layout choices.
 
 Recipes should use domain accessors instead of depending on container storage.
 For maintained result types, the relevant accessors include:
@@ -264,7 +281,9 @@ tick-formatting callbacks.
 
 ## Defining a new recipe
 
-The following is the minimum shape of a new recipe using existing primitives:
+The following recipe supports one panel with multiple lines, one panel per
+line, or one page per line. It does not construct an `AxisSpec`, `SeriesSpec`,
+`ViewSpec`, `PageSpec`, or `RenderSpec`:
 
 ```@example plotbuilder
 using LineCableModels
@@ -279,80 +298,94 @@ end
 
 struct ProfilePlotSpec <: PB.AbstractPlotSpec end
 
-function PB.make_render(
+PB.dispatch_on(::Type{ProfilePlotSpec}) = ProfileResult
+
+PB.input_kwargs(::Type{ProfilePlotSpec}) = (:grouping, :color)
+PB.input_defaults(::Type{ProfilePlotSpec}, ::ProfileResult) =
+    (; grouping=:overlay, color=:steelblue)
+
+PB.renderer_kwargs(::Type{ProfilePlotSpec}) = (:size,)
+PB.renderer_defaults(::Type{ProfilePlotSpec}, ::ProfileResult) =
+    (; size=(800, 400))
+
+PB.recipe_mode(::Type{ProfilePlotSpec}, recipe::NamedTuple) = Val(:profile)
+PB.grouping_mode(
     ::Type{ProfilePlotSpec},
-    result::ProfileResult;
-    color=:steelblue,
-    grouping::Symbol=:overlay,
-    size=(800, 400),
-    export_theme::Symbol=:default,
-    open_export::Bool=true,
+    ::Val{:profile},
+    recipe::NamedTuple,
+) = Val(recipe.input.grouping)
+
+PB.group_facets(
+    ::Type{ProfilePlotSpec},
+    ::Val{:profile},
+    recipe::NamedTuple,
+    page_key,
+) = axes(recipe.object.response, 2)
+
+PB.axis_quantity(
+    ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:x},
+    recipe::NamedTuple, page_key, view_key,
+) = UH.QuantityTag{:freq}()
+PB.axis_quantity(
+    ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:y},
+    recipe::NamedTuple, page_key, view_key,
+) = UH.QuantityTag{:dimensionless}()
+PB.axis_unit(
+    ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:x},
+    quantity::UH.QuantityTag, recipe::NamedTuple, page_key, view_key,
+) = UH.units(:base, :hertz)
+PB.axis_label(
+    ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:y},
+    quantity::UH.QuantityTag, unit::UH.Units, recipe::NamedTuple,
+    page_key, view_key,
+) = "Response"
+
+PB.series_data(
+    ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:x},
+    recipe::NamedTuple, page_key, view_key, series_key::Int,
+) = recipe.object.frequency
+PB.series_data(
+    ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:y},
+    recipe::NamedTuple, page_key, view_key, series_key::Int,
+) = recipe.object.response[:, series_key]
+PB.legend_label(
+    ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::NamedTuple,
+    page_key, view_key, series_key::Int,
+) = "response $series_key"
+
+profile_linestyle(::Val) = :solid
+profile_linestyle(::Val{2}) = :dash
+PB.series_attributes(
+    ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::NamedTuple,
+    page_key, view_key, series_key::Int,
+) = (;
+    color=recipe.input.color,
+    linewidth=2,
+    linestyle=profile_linestyle(Val(series_key)),
+    group=Symbol("response_$series_key"),
 )
-    grouping in (:overlay, :panels, :pages) ||
-        throw(ArgumentError("grouping must be :overlay, :panels, or :pages"))
-    export_theme in (:default, :publication) ||
-        throw(ArgumentError("export_theme must be :default or :publication"))
-    xunit = UH.units(:base, :hertz)
-    xaxis = PB.AxisSpec(
-        :x,
-        UH.QuantityTag{:freq}(),
-        xunit,
-        "Frequency [$(UH.get_label(xunit))]",
-        :linear,
-    )
-    yaxis = PB.AxisSpec(
-        :y,
-        UH.QuantityTag{:dimensionless}(),
-        UH.Units(),
-        "Response",
-        :linear,
-    )
-    series = [
-        PB.SeriesSpec(
-            :line,
-            result.frequency,
-            result.response[:, index],
-            nothing,
-            "response $index";
-            attributes=(;
-                color,
-                linewidth=2,
-                linestyle=index == 2 ? :dash : :solid,
-                group=Symbol("response_$index"),
-            ),
-        ) for index in axes(result.response, 2)
-    ]
-    make_view(items, title, key) = PB.ViewSpec(
-        xaxis,
-        yaxis,
-        nothing,
-        title,
-        items,
-        key,
-    )
-    views = grouping === :overlay ?
-            [make_view(series, "Frequency responses", (; group=:all))] :
-            [make_view([item], "Response $index", (; response=index))
-             for (index, item) in enumerate(series)]
-    make_page(page_views, title, export_name) = PB.PageSpec(
-        title,
-        size,
-        grouping === :panels ? :grid : :single,
-        page_views,
-        (;
-            export_theme,
-            open_export,
-            controls=PB.control_definitions(xlog=true, ylog=true),
-            export_name,
-            configuration=(; color, grouping),
-        ),
-    )
-    pages = grouping === :pages ?
-            [make_page([view], view.title, "response_$index")
-             for (index, view) in enumerate(views)] :
-            [make_page(views, "Frequency responses", "frequency_responses")]
-    return PB.RenderSpec(ProfilePlotSpec, pages)
-end
+
+profile_title(::Val{:overlay}, page_key, view_key) = "Frequency responses"
+profile_title(::Val{:panels}, page_key, view_key::Int) = "Response $view_key"
+profile_title(::Val{:panels}, page_key, ::Nothing) = "Frequency responses"
+profile_title(::Val{:pages}, page_key::Int, view_key) = "Response $page_key"
+PB.default_title(
+    ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::NamedTuple,
+    page_key, view_key,
+) = profile_title(Val(recipe.input.grouping), page_key, view_key)
+
+profile_layout(::Val{:overlay}) = :single
+profile_layout(::Val{:panels}) = :grid
+profile_layout(::Val{:pages}) = :single
+PB.figure_layout(
+    ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::NamedTuple, page_key,
+) = profile_layout(Val(recipe.input.grouping))
+PB.default_figsize(
+    ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::NamedTuple, page_key,
+) = recipe.renderer.size
+PB.enable_logscale(
+    ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::NamedTuple, page_key,
+) = (:x, :y)
 
 result = ProfileResult(
     [50.0, 100.0, 500.0],
@@ -360,22 +393,32 @@ result = ProfileResult(
 )
 overlay = PB.make_render(ProfilePlotSpec, result; color=:navy)
 panels = PB.make_render(ProfilePlotSpec, result; grouping=:panels)
-pages = PB.make_render(ProfilePlotSpec, result; grouping=:pages)
+pages = PB.make_render(
+    ProfilePlotSpec,
+    result;
+    grouping=:pages,
+    export_theme=:publication,
+)
 @assert length(only(only(overlay.figures).views).series) == 2
 @assert length(only(panels.figures).views) == 2
 @assert length(pages.figures) == 2
+@assert basename(String(which(PB.make_render, (Type{ProfilePlotSpec}, ProfileResult)).file)) ==
+        "grammar.jl"
 nothing
 ```
 
-The hierarchy defines grouping without a renderer-specific grouping trait:
+The generic hierarchy applies the grouping mode:
 
-- multiple `SeriesSpec` values in one `ViewSpec` overlay in one panel;
-- multiple `ViewSpec` values in one `PageSpec` produce separate panels in one
-  figure;
-- multiple `PageSpec` values in one `RenderSpec` produce separate figures or
-  native windows;
+- `:overlay` puts every response in one view;
+- `:panels` puts every response in its own view in one page;
+- `:pages` puts every response in its own page;
 - equal `attributes.group` values combine several primitives into one legend
   entry and one visibility action.
+
+The recipe owns no hierarchy construction. To add a new plot mode, return a
+new `Val` from `recipe_mode` and add methods specialized on that value for the
+facets, axes, data, labels, or styles that differ. Existing modes do not need
+editing.
 
 Inside LineCableModels, connect the recipe to the Makie extension by adding a
 narrow `plot` or `preview` method in `ext/LineCableModelsMakieExt.jl`. That
