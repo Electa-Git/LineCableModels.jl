@@ -3,6 +3,7 @@ module UIComponents
 using Makie
 using Measurements
 using Dates
+using Printf: @sprintf
 
 import LineCableModels.PlotBuilder
 using LineCableModels.PlotBuilder:
@@ -12,9 +13,28 @@ const BackendHandler = PlotBuilder.BackendHandler
 
 export build, export_svg
 
-const FIGURE_PADDING = (80, 60, 40, 40)
-const LEGEND_WIDTH = 220
+const FIGURE_PADDING = (20, 20, 28, 28)
 const COLORBAR_WIDTH = 160
+const GRID_ROW_GAP = 6
+const GRID_COLUMN_GAP = 6
+const LEGEND_GAP = 4
+const TOOLBAR_HEIGHT = 36
+const STATUSBAR_HEIGHT = 20
+const BUTTON_SIZE = 32
+const BUTTON_ICON_SIZE = 18
+const BACKGROUND_INTERACTIVE = :grey90
+const BACKGROUND_EXPORT = :white
+const BUTTON_BACKGROUND = Makie.RGBf(0.94, 0.94, 0.94)
+const ICON_COLOR = Makie.RGBAf(0.15, 0.15, 0.15, 1.0)
+const MI_REFRESH = "\uE5D5"
+const MI_SAVE = "\uE161"
+const ICON_FONT = joinpath(
+    pkgdir(PlotBuilder),
+    "assets",
+    "fonts",
+    "material-icons",
+    "MaterialIcons-Regular.ttf"
+)
 const EXPORT_TIMESTAMP_FORMAT = "yyyymmdd_HHMMSS"
 
 mutable struct UIContext
@@ -33,9 +53,10 @@ struct UIPanel
 end
 
 function _theme(; export_mode::Bool = false)
-    background = export_mode ? :white : :grey95
+    background = export_mode ? BACKGROUND_EXPORT : BACKGROUND_INTERACTIVE
     return Theme(
         backgroundcolor = background,
+        fonts = (; icons = ICON_FONT),
         Axis = (
             titlesize = 15,
             xlabelsize = 14,
@@ -43,20 +64,93 @@ function _theme(; export_mode::Bool = false)
             xticklabelsize = 14,
             yticklabelsize = 14
         ),
+        Button = (; buttoncolor = BUTTON_BACKGROUND),
         Legend = (; fontsize = 14, labelsize = 14),
         Colorbar = (; labelsize = 14, ticklabelsize = 14)
     )
 end
 
-function _context(backend, display)
-    active = BackendHandler.ensure_backend!(backend)
+function _context(active::Symbol, display::Bool, title::AbstractString)
     interactive = display && active in (:gl, :wgl)
     window = interactive && active === :gl ?
-             BackendHandler.make_screen("LineCableModels Plot"; backend = :gl) : nothing
+             BackendHandler.make_screen(
+        "Fig. $(BackendHandler.next_fignum()) – $title";
+        backend = :gl
+    ) : nothing
     return UIContext(active, interactive, window, Observable("Ready."))
 end
 
 _scale(symbol::Symbol) = symbol === :log10 ? Makie.log10 : Makie.identity
+
+function _linear_tickformat(exponent::Int)
+    scale = 10.0^exponent
+    return values -> [@sprintf("%.4g", value / scale) for value in values]
+end
+
+function _log_ticks(vmin, vmax)
+    isfinite(vmin) && isfinite(vmax) && 0 < vmin <= vmax || return (Float64[], String[])
+    values = Float64[]
+    labels = Any[]
+    first_exponent = floor(Int, log10(vmin))
+    last_exponent = floor(Int, log10(vmax))
+    for exponent in first_exponent:last_exponent
+        decade = 10.0^exponent
+        for multiplier in 1:9
+            value = multiplier * decade
+            vmin <= value <= vmax || continue
+            push!(values, value)
+            push!(
+                labels,
+                multiplier == 1 ?
+                Makie.rich("10", Makie.superscript(string(exponent))) : ""
+            )
+        end
+    end
+    return values, labels
+end
+
+function _axis_label(spec::Union{Nothing, AxisSpec}, exponent::Int, scale::Symbol)
+    spec === nothing && return ""
+    scale === :log10 && return spec.label
+    return iszero(exponent) ? spec.label : "$(spec.label)  × 10^$exponent"
+end
+
+function _tickformat(exponent::Int, scale::Symbol)
+    return scale === :log10 ? Makie.automatic : _linear_tickformat(exponent)
+end
+
+_ticks(scale::Symbol) = scale === :log10 ? _log_ticks : Makie.automatic
+
+function _set_axis_scale!(
+        axis, spec::Union{Nothing, AxisSpec}, dim::Symbol, exponent::Int, scale::Symbol)
+    ticks = _ticks(scale)
+    formatter = _tickformat(exponent, scale)
+    label = _axis_label(spec, exponent, scale)
+    if dim === :x
+        axis.xticks[] = ticks
+        axis.xtickformat[] = formatter
+        axis.xlabel[] = label
+        axis.xscale[] = _scale(scale)
+    elseif dim === :y
+        axis.yticks[] = ticks
+        axis.ytickformat[] = formatter
+        axis.ylabel[] = label
+        axis.yscale[] = _scale(scale)
+    else
+        throw(ArgumentError("axis dimension must be :x or :y"))
+    end
+    return axis
+end
+
+function _icon_label(glyph::AbstractString)
+    return Makie.rich(
+        glyph;
+        font = :icons,
+        fontsize = BUTTON_ICON_SIZE,
+        color = ICON_COLOR,
+        offset = (0, -0.18)
+    )
+end
 
 function _numeric_values(values)
     values === nothing && return nothing, nothing
@@ -139,18 +233,26 @@ function _draw!(axis, series::SeriesSpec)
     return plots
 end
 
-function _axis(parent, view::ViewSpec)
+function _axis(parent, view::ViewSpec, page::PageSpec)
     xaxis = view.xaxis
     yaxis = view.yaxis
+    x_exponent = get(page.kwargs, :x_exponent, 0)
+    y_exponent = get(page.kwargs, :y_exponent, 0)
+    xscale = xaxis === nothing ? :linear : xaxis.scale
+    yscale = yaxis === nothing ? :linear : yaxis.scale
     attributes = _without(view.attributes, (:aspect, :limits))
     aspect = get(view.attributes, :aspect, nothing)
     axis = Axis(
         parent;
-        xlabel = xaxis === nothing ? "" : xaxis.label,
-        ylabel = yaxis === nothing ? "" : yaxis.label,
+        xlabel = _axis_label(xaxis, x_exponent, xscale),
+        ylabel = _axis_label(yaxis, y_exponent, yscale),
         title = view.title,
-        xscale = xaxis === nothing ? Makie.identity : _scale(xaxis.scale),
-        yscale = yaxis === nothing ? Makie.identity : _scale(yaxis.scale),
+        xscale = _scale(xscale),
+        yscale = _scale(yscale),
+        xticks = _ticks(xscale),
+        yticks = _ticks(yscale),
+        xtickformat = _tickformat(x_exponent, xscale),
+        ytickformat = _tickformat(y_exponent, yscale),
         aspect = aspect === :data ? DataAspect() : aspect,
         attributes...
     )
@@ -233,7 +335,14 @@ function _legend!(slot, panels)
         push!(entries, groups[group])
         push!(labels, group_labels[group])
     end
-    return isempty(entries) ? nothing : Legend(slot, entries, labels; valign = :top)
+    return isempty(entries) ? nothing :
+           Legend(
+        slot,
+        entries,
+        labels;
+        halign = :right,
+        valign = :top
+    )
 end
 
 function _build_page(
@@ -244,6 +353,8 @@ function _build_page(
         export_mode::Bool
 )
     figure = Figure(size = page.size, figure_padding = FIGURE_PADDING)
+    figure.layout.default_rowgap = Fixed(GRID_ROW_GAP)
+    figure.layout.default_colgap = Fixed(GRID_COLUMN_GAP)
     toolbar_row = controls ? 1 : 0
     canvas_row = toolbar_row + 1
     status_row = canvas_row + 1
@@ -255,9 +366,11 @@ function _build_page(
     for (index, view) in enumerate(page.views)
         row = (index - 1) ÷ columns + 1
         column = (index - 1) % columns + 1
-        push!(panels, _axis(canvas[row, column], view))
+        push!(panels, _axis(canvas[row, column], view, page))
     end
     side = GridLayout()
+    side.default_rowgap = Fixed(LEGEND_GAP)
+    side.halign = :right
     side_column = isempty(page.views) ? 1 : 2
     figure[canvas_row, side_column] = side
     if isempty(page.views)
@@ -275,7 +388,7 @@ function _build_page(
         _colorbars!(side[side_row, 1], colorbars)
         side_row += 1
     end
-    isempty(page.views) || colsize!(figure.layout, 2, Fixed(LEGEND_WIDTH))
+    isempty(page.views) || colsize!(figure.layout, 2, Auto(true))
 
     widgets = Dict{Symbol, Any}()
     plot_reference = Ref{Any}(nothing)
@@ -286,10 +399,19 @@ function _build_page(
             PlotBuilder.control_definitions()
         )
         toolbar = GridLayout()
+        toolbar.default_colgap = Fixed(4)
+        toolbar.halign = :left
+        toolbar.valign = :center
         figure[1, 1:2] = toolbar
         column = 1
         if definitions.reset
-            reset = Button(toolbar[1, column], label = "Reset")
+            reset = Button(
+                toolbar[1, column];
+                label = _icon_label(MI_REFRESH),
+                width = BUTTON_SIZE,
+                height = BUTTON_SIZE,
+                buttoncolor = BUTTON_BACKGROUND
+            )
             column += 1
             widgets[:reset] = reset
             on(reset.clicks) do _
@@ -298,7 +420,13 @@ function _build_page(
             end
         end
         if definitions.export_svg
-            save_button = Button(toolbar[1, column], label = "Export SVG")
+            save_button = Button(
+                toolbar[1, column];
+                label = _icon_label(MI_SAVE),
+                width = BUTTON_SIZE,
+                height = BUTTON_SIZE,
+                buttoncolor = BUTTON_BACKGROUND
+            )
             column += 1
             widgets[:export_svg] = save_button
             on(save_button.clicks) do _
@@ -320,8 +448,17 @@ function _build_page(
             column += 1
             widgets[:xlog] = xlog
             on(xlog.active) do enabled
-                scale = enabled ? Makie.log10 : Makie.identity
-                foreach(panel -> panel.axis.xscale[] = scale, panels)
+                scale = enabled ? :log10 : :linear
+                foreach(
+                    panel -> _set_axis_scale!(
+                        panel.axis,
+                        panel.view.xaxis,
+                        :x,
+                        get(page.kwargs, :x_exponent, 0),
+                        scale
+                    ),
+                    panels
+                )
                 foreach(panel -> autolimits!(panel.axis), panels)
                 context.status[] = enabled ?
                                    "x-axis scale set to log" :
@@ -338,8 +475,17 @@ function _build_page(
             Label(toolbar[1, column], "log y")
             widgets[:ylog] = ylog
             on(ylog.active) do enabled
-                scale = enabled ? Makie.log10 : Makie.identity
-                foreach(panel -> panel.axis.yscale[] = scale, panels)
+                scale = enabled ? :log10 : :linear
+                foreach(
+                    panel -> _set_axis_scale!(
+                        panel.axis,
+                        panel.view.yaxis,
+                        :y,
+                        get(page.kwargs, :y_exponent, 0),
+                        scale
+                    ),
+                    panels
+                )
                 foreach(panel -> autolimits!(panel.axis), panels)
                 context.status[] = enabled ?
                                    "y-axis scale set to log" :
@@ -348,9 +494,9 @@ function _build_page(
         end
         definitions.legend && legend !== nothing && (widgets[:legend] = legend)
         Label(figure[status_row, 1:2], context.status; halign = :left, fontsize = 11)
-        rowsize!(figure.layout, 1, Fixed(48))
+        rowsize!(figure.layout, 1, Fixed(TOOLBAR_HEIGHT))
         rowsize!(figure.layout, canvas_row, Relative(1))
-        rowsize!(figure.layout, status_row, Fixed(24))
+        rowsize!(figure.layout, status_row, Fixed(STATUSBAR_HEIGHT))
     end
 
     built = UIPlot(render_spec, page, figure, panels, widgets, context)
@@ -365,10 +511,11 @@ function build(
         controls::Bool = true,
         export_mode::Bool = false
 )
-    context = _context(backend, display)
+    active = BackendHandler.ensure_backend!(backend)
     built = UIPlot[]
     with_theme(_theme(; export_mode)) do
         for page in render_spec.figures
+            context = _context(active, display, page.title)
             plot = _build_page(
                 render_spec,
                 page,

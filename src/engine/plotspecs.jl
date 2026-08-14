@@ -54,11 +54,10 @@ function _finite_exponent(curves)
     return abs(exponent) < 3 ? 0 : exponent
 end
 
-function _axis_label(quantity, unit, exponent::Int)
+function _axis_label(quantity, unit)
     label = UnitHandler.get_label(quantity)
     unit_label = UnitHandler.get_label(unit)
-    base = isempty(unit_label) ? label : "$label [$unit_label]"
-    return exponent == 0 ? base : "$base  × 10^$exponent"
+    return isempty(unit_label) ? label : "$label [$unit_label]"
 end
 
 function _line_pages(
@@ -100,7 +99,6 @@ function _line_pages(
         frequency_target
     )
     x_exponent = _finite_exponent((scaled_frequency,))
-    displayed_frequency = scaled_frequency ./ 10.0^x_exponent
     pairs = _conductor_pairs(object, con)
     pages = PlotBuilder.PageSpec[]
 
@@ -132,8 +130,8 @@ function _line_pages(
                 series,
                 PlotBuilder.SeriesSpec(
                     :line,
-                    displayed_frequency,
-                    curve ./ 10.0^y_exponent,
+                    scaled_frequency,
+                    curve,
                     nothing,
                     "$symbol[$i,$j]";
                     attributes = (; linewidth = 2)
@@ -145,14 +143,14 @@ function _line_pages(
             :x,
             frequency_quantity,
             frequency_target,
-            _axis_label(frequency_quantity, frequency_target, x_exponent),
+            _axis_label(frequency_quantity, frequency_target),
             xscale
         )
         yaxis = PlotBuilder.AxisSpec(
             :y,
             quantity,
             target_unit,
-            _axis_label(quantity, target_unit, y_exponent),
+            _axis_label(quantity, target_unit),
             yscale
         )
         view_spec = PlotBuilder.ViewSpec(

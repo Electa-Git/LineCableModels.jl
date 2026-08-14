@@ -494,6 +494,11 @@ end
     @test render.figures[1].kwargs.configuration.coord === :cart
     @test render.figures[1].kwargs.configuration.length_unit === :kilo
     @test render.figures[1].kwargs.configuration.conductors == (1:2, 1:2)
+    conductance_page = render.figures[3]
+    first_conductance = first(only(conductance_page.views).series)
+    @test conductance_page.kwargs.y_exponent == -6
+    @test only(conductance_page.views).yaxis.label == "Shunt conductance [S/km]"
+    @test first_conductance.ydata == fill(3.0e-6, length(frequency))
 
     series_render = LineCableModels.PlotBuilder.make_render(
         LineCableModels.Engine.LineParameterPlotSpec,

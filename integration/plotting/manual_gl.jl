@@ -41,9 +41,14 @@ set_backend!(:gl)
 @testset "manual GL plotting gate" begin
     @test plots isa Vector{UIPlot}
     @test length(plots) == 4
+    @test all(plot -> plot.context.window !== nothing, plots)
+    @test length(unique(objectid(plot.context.window) for plot in plots)) == length(plots)
     @test sort!(collect(keys(handle.controls))) ==
           [:export_svg, :legend, :reset, :xlog, :ylog]
     @test handle.context.backend === :gl
+    @test handle.figure.scene.backgroundcolor[] == Makie.to_color(:grey90)
+    @test occursin("\\ue5d5", sprint(show, handle.controls[:reset].label[]))
+    @test occursin("\\ue161", sprint(show, handle.controls[:export_svg].label[]))
 
     handle.controls[:xlog].active[] = true
     handle.controls[:ylog].active[] = true
@@ -72,6 +77,32 @@ set_backend!(:gl)
     end
     @test startswith(handle.context.status[], "Saved SVG to ")
     @test LineCableModels.PlotBuilder.BackendHandler.current_backend_symbol() === :gl
+
+    susceptance = last(Makie.plot(
+        parameters;
+        mode = :ZY,
+        coord = :cart,
+        backend = :gl,
+        display_plot = false
+    ))
+    susceptance.controls[:ylog].active[] = true
+    susceptance_axis = only(susceptance.panels).axis
+    @test susceptance_axis.yscale[] === Makie.log10
+    @test susceptance_axis.ytickformat[] === Makie.automatic
+    @test susceptance_axis.ylabel[] == "Capacitive susceptance [S/km]"
+    limits = susceptance_axis.finallimits[]
+    ymin = limits.origin[2]
+    ymax = ymin + limits.widths[2]
+    tick_values, tick_labels = Makie.get_ticks(
+        susceptance_axis.yticks[],
+        susceptance_axis.yscale[],
+        susceptance_axis.ytickformat[],
+        ymin,
+        ymax
+    )
+    @test length(tick_values) > 2
+    @test length(unique(round.(diff(log10.(tick_values)); digits = 8))) > 1
+    @test all(label -> label == "" || label isa Makie.RichText, tick_labels)
 end
 
 GLMakie.closeall()

@@ -63,6 +63,8 @@
         @test length(rlcg) == 4
         @test length(cartesian) == 4
         @test length(polar) == 4
+        @test rlcg[1].context !== rlcg[2].context
+        @test rlcg[1].context.status !== rlcg[2].context.status
         series_plots = Makie.plot(
             parameters.Z,
             frequency;
@@ -105,6 +107,16 @@
         test_golden(measurement_plot, "line_measurements")
 
         handle = first(rlcg)
+        @test handle.figure.scene.backgroundcolor[] == Makie.to_color(:grey90)
+        padding = handle.figure.layout.alignmode[].padding
+        @test (padding.left, padding.right, padding.bottom, padding.top) ==
+              (20.0, 20.0, 28.0, 28.0)
+        @test handle.figure.layout.colsizes[2] == Makie.Auto(true)
+        @test handle.figure.layout.addedrowgaps == fill(Makie.Fixed(6), 2)
+        @test handle.figure.layout.addedcolgaps == [Makie.Fixed(6)]
+        @test handle.controls[:reset].buttoncolor[] == Makie.RGBf(0.94, 0.94, 0.94)
+        @test occursin("\\ue5d5", sprint(show, handle.controls[:reset].label[]))
+        @test occursin("\\ue161", sprint(show, handle.controls[:export_svg].label[]))
         handle.controls[:xlog].active[] = true
         @test only(handle.panels).axis.xscale[] === Makie.log10
         handle.controls[:ylog].active[] = true
@@ -129,6 +141,31 @@
         @test collect(current_view.attributes.limits[1]) ≈ [100.0, 300.0]
         Makie.toggle_visibility!(first_entry)
         @test all(plot_object -> plot_object.visible[], only(handle.panels).plots)
+
+        susceptance_handle = last(cartesian)
+        susceptance_axis = only(susceptance_handle.panels).axis
+        @test occursin("× 10^-3", susceptance_axis.ylabel[])
+        susceptance_handle.controls[:ylog].active[] = true
+        @test susceptance_axis.yscale[] === Makie.log10
+        @test susceptance_axis.ytickformat[] === Makie.automatic
+        @test susceptance_axis.ylabel[] == "Capacitive susceptance [S/km]"
+        limits = susceptance_axis.finallimits[]
+        ymin = limits.origin[2]
+        ymax = ymin + limits.widths[2]
+        tick_values, tick_labels = Makie.get_ticks(
+            susceptance_axis.yticks[],
+            susceptance_axis.yscale[],
+            susceptance_axis.ytickformat[],
+            ymin,
+            ymax
+        )
+        @test length(tick_values) > 2
+        @test length(unique(round.(diff(log10.(tick_values)); digits = 8))) > 1
+        @test all(label -> label == "" || label isa Makie.RichText, tick_labels)
+        @test all(
+            label -> label == "" || !occursin(r"\d+\.\d+", sprint(show, label)),
+            tick_labels
+        )
 
         mktempdir() do directory
             svg_path = joinpath(directory, "line parameters.svg")
