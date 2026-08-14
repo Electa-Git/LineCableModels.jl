@@ -377,49 +377,143 @@ function _distance_axes()
     )
 end
 
-function PlotBuilder.make_render(
-        ::Type{CablePreviewPlotSpec},
-        design::CableDesign;
-        x_offset::Real = 0.0,
-        y_offset::Real = 0.0,
-        size::Tuple{Int, Int} = (900, 700),
-        display_legend::Bool = true,
-        display_id::Bool = false,
-        display_colorbars::Bool = true,
-        export_theme::Symbol = :default,
-        open_export::Bool = true,
-        kwargs...
-)
-    PlotBuilder._validate_export_theme(export_theme)
-    isempty(kwargs) || @warn "unused cable-preview keywords" keywords = keys(kwargs)
-    xaxis, yaxis = _distance_axes()
-    title = display_id ? "Cable design preview: $(design.cable_id)" : "Cable design preview"
-    view = PlotBuilder.ViewSpec(
-        xaxis,
-        yaxis,
-        nothing,
-        title,
-        _design_series(design, x_offset, y_offset; display_legend),
-        (; kind = :cable),
-        attributes = (; aspect = :data)
+PlotBuilder.dispatch_on(::Type{CablePreviewPlotSpec}) = CableDesign
+function PlotBuilder.input_kwargs(::Type{CablePreviewPlotSpec})
+    (
+        :x_offset,
+        :y_offset,
+        :display_legend,
+        :display_id,
+        :display_colorbars
     )
-    colorbars = display_colorbars ? _colorbar_specs(_property_ranges(design)...) : ()
-    page = PlotBuilder.PageSpec(
-        title,
-        size,
-        :preview,
-        [view],
-        (;
-            colorbars,
-            display_legend,
-            export_name = design.cable_id,
-            export_theme,
-            open_export,
-            controls = PlotBuilder.control_definitions(xlog = false, ylog = false),
-            configuration = (; x_offset, y_offset, display_id, display_colorbars)
+end
+PlotBuilder.renderer_kwargs(::Type{CablePreviewPlotSpec}) = (:size,)
+function PlotBuilder.input_defaults(::Type{CablePreviewPlotSpec}, ::CableDesign)
+    (;
+        x_offset = 0.0,
+        y_offset = 0.0,
+        display_legend = true,
+        display_id = false,
+        display_colorbars = true
+    )
+end
+function PlotBuilder.renderer_defaults(::Type{CablePreviewPlotSpec}, ::CableDesign)
+    (; size = (900, 700))
+end
+
+function PlotBuilder.resolve_input(::Type{CablePreviewPlotSpec}, recipe::NamedTuple)
+    recipe.input.x_offset isa Real || throw(ArgumentError("x_offset must be real"))
+    recipe.input.y_offset isa Real || throw(ArgumentError("y_offset must be real"))
+    all(name -> getproperty(recipe.input, name) isa Bool,
+        (:display_legend, :display_id, :display_colorbars)) || throw(
+        ArgumentError("display_legend, display_id, and display_colorbars must be Bool"),
+    )
+    recipe.renderer.size isa Tuple{Int, Int} || throw(
+        ArgumentError("size must be a tuple of two integers"),
+    )
+    return recipe
+end
+
+function PlotBuilder.make_axes(
+        ::Type{CablePreviewPlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key,
+        view_key
+)
+    xaxis, yaxis = _distance_axes()
+    return (; xaxis, yaxis, zaxis = nothing)
+end
+
+function PlotBuilder.make_series(
+        ::Type{CablePreviewPlotSpec},
+        mode::Val,
+        grouping::Val,
+        recipe::NamedTuple,
+        page_key,
+        view_key,
+        axes::NamedTuple
+)
+    return _design_series(
+        recipe.object,
+        recipe.input.x_offset,
+        recipe.input.y_offset;
+        display_legend = recipe.input.display_legend
+    )
+end
+
+_cable_title(::Val{false}, design) = "Cable design preview"
+_cable_title(::Val{true}, design) = "Cable design preview: $(design.cable_id)"
+
+_cable_colorbars(::Val{false}, design) = ()
+_cable_colorbars(::Val{true}, design) = _colorbar_specs(_property_ranges(design)...)
+
+function PlotBuilder.default_title(
+        ::Type{CablePreviewPlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key,
+        view_key
+)
+    return _cable_title(Val(recipe.input.display_id), recipe.object)
+end
+
+function PlotBuilder.view_key(
+        ::Type{CablePreviewPlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key,
+        view_key
+)
+    return (; kind = :cable)
+end
+
+function PlotBuilder.view_attributes(
+        ::Type{CablePreviewPlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key,
+        view_key
+)
+    return (; aspect = :data)
+end
+
+function PlotBuilder.default_figsize(
+        ::Type{CablePreviewPlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key
+)
+    return recipe.renderer.size
+end
+
+function PlotBuilder.figure_layout(
+        ::Type{CablePreviewPlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key
+)
+    return :preview
+end
+
+function PlotBuilder.page_kwargs(
+        ::Type{CablePreviewPlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key,
+        views::Vector{PlotBuilder.ViewSpec}
+)
+    return (;
+        colorbars = _cable_colorbars(Val(recipe.input.display_colorbars), recipe.object),
+        display_legend = recipe.input.display_legend,
+        export_name = recipe.object.cable_id,
+        configuration = (;
+            x_offset = recipe.input.x_offset,
+            y_offset = recipe.input.y_offset,
+            display_id = recipe.input.display_id,
+            display_colorbars = recipe.input.display_colorbars
         )
     )
-    return PlotBuilder.RenderSpec(CablePreviewPlotSpec, [page])
 end
 
 function _system_limits(system, zoom_factor)
@@ -467,25 +561,7 @@ function _earth_colorbars(earth_model)
         extrema(permittivities); alpha_value = 0.25)
 end
 
-function PlotBuilder.make_render(
-        ::Type{SystemPreviewPlotSpec},
-        system::LineCableSystem;
-        earth_model = nothing,
-        zoom_factor = nothing,
-        size::Tuple{Int, Int} = (900, 700),
-        display_legend::Bool = true,
-        display_id::Bool = false,
-        display_colorbars::Bool = true,
-        export_theme::Symbol = :default,
-        open_export::Bool = true,
-        kwargs...
-)
-    PlotBuilder._validate_export_theme(export_theme)
-    isempty(kwargs) || @warn "unused system-preview keywords" keywords = keys(kwargs)
-    limits = _system_limits(system, zoom_factor)
-    xaxis, yaxis = _distance_axes()
-    title = display_id ? "Cable system cross-section: $(system.system_id)" :
-            "Cable system cross-section"
+function _system_series(system, earth_model, limits, display_legend)
     series = PlotBuilder.SeriesSpec[
         PlotBuilder.SeriesSpec(
         :hline,
@@ -539,63 +615,224 @@ function PlotBuilder.make_render(
             )
         )
     end
-    view = PlotBuilder.ViewSpec(
-        xaxis,
-        yaxis,
-        nothing,
-        title,
-        series,
-        (; kind = :system),
-        attributes = (; aspect = :data, limits)
-    )
-    colorbars = display_colorbars ? _earth_colorbars(earth_model) : ()
-    page = PlotBuilder.PageSpec(
-        title,
-        size,
-        :preview,
-        [view],
-        (;
-            colorbars,
-            display_legend,
-            export_name = system.system_id,
-            export_theme,
-            open_export,
-            controls = PlotBuilder.control_definitions(xlog = false, ylog = false),
-            configuration = (; zoom_factor, display_id, display_colorbars)
-        )
-    )
-    return PlotBuilder.RenderSpec(SystemPreviewPlotSpec, [page])
+    return series
 end
 
-function PlotBuilder.make_render(
-        ::Type{MaterialScalePlotSpec},
-        ::Nothing = nothing;
-        size::Tuple{Int, Int} = (800, 400),
-        export_theme::Symbol = :default,
-        open_export::Bool = true
+PlotBuilder.dispatch_on(::Type{SystemPreviewPlotSpec}) = LineCableSystem
+function PlotBuilder.input_kwargs(::Type{SystemPreviewPlotSpec})
+    (
+        :earth_model,
+        :zoom_factor,
+        :display_legend,
+        :display_id,
+        :display_colorbars
+    )
+end
+PlotBuilder.renderer_kwargs(::Type{SystemPreviewPlotSpec}) = (:size,)
+function PlotBuilder.input_defaults(::Type{SystemPreviewPlotSpec}, ::LineCableSystem)
+    (;
+        earth_model = nothing,
+        zoom_factor = nothing,
+        display_legend = true,
+        display_id = false,
+        display_colorbars = true
+    )
+end
+function PlotBuilder.renderer_defaults(::Type{SystemPreviewPlotSpec}, ::LineCableSystem)
+    (; size = (900, 700))
+end
+
+function PlotBuilder.resolve_input(::Type{SystemPreviewPlotSpec}, recipe::NamedTuple)
+    _system_limits(recipe.object, recipe.input.zoom_factor)
+    all(name -> getproperty(recipe.input, name) isa Bool,
+        (:display_legend, :display_id, :display_colorbars)) || throw(
+        ArgumentError("display_legend, display_id, and display_colorbars must be Bool"),
+    )
+    recipe.renderer.size isa Tuple{Int, Int} || throw(
+        ArgumentError("size must be a tuple of two integers"),
+    )
+    return recipe
+end
+
+function PlotBuilder.make_axes(
+        ::Type{SystemPreviewPlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key,
+        view_key
 )
-    PlotBuilder._validate_export_theme(export_theme)
-    colorbars = _colorbar_specs((_RHO_MIN, _RHO_MAX), (1.0, 300.0), (1.0, 1000.0))
-    page = PlotBuilder.PageSpec(
-        "Material property color scale",
-        size,
-        :material_scale,
-        PlotBuilder.ViewSpec[],
-        (;
-            colorbars,
-            display_legend = false,
-            export_name = "material_scale",
-            export_theme,
-            open_export,
-            controls = PlotBuilder.control_definitions(
-                reset = false,
-                xlog = false,
-                ylog = false,
-                legend = false,
-                visibility = false,
-                zoom = false
-            )
+    xaxis, yaxis = _distance_axes()
+    return (; xaxis, yaxis, zaxis = nothing)
+end
+
+function PlotBuilder.make_series(
+        ::Type{SystemPreviewPlotSpec},
+        mode::Val,
+        grouping::Val,
+        recipe::NamedTuple,
+        page_key,
+        view_key,
+        axes::NamedTuple
+)
+    limits = _system_limits(recipe.object, recipe.input.zoom_factor)
+    return _system_series(
+        recipe.object,
+        recipe.input.earth_model,
+        limits,
+        recipe.input.display_legend
+    )
+end
+
+_system_title(::Val{false}, system) = "Cable system cross-section"
+_system_title(::Val{true}, system) = "Cable system cross-section: $(system.system_id)"
+
+_system_colorbars(::Val{false}, earth_model) = ()
+_system_colorbars(::Val{true}, earth_model) = _earth_colorbars(earth_model)
+
+function PlotBuilder.default_title(
+        ::Type{SystemPreviewPlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key,
+        view_key
+)
+    return _system_title(Val(recipe.input.display_id), recipe.object)
+end
+
+function PlotBuilder.view_key(
+        ::Type{SystemPreviewPlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key,
+        view_key
+)
+    return (; kind = :system)
+end
+
+function PlotBuilder.view_attributes(
+        ::Type{SystemPreviewPlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key,
+        view_key
+)
+    return (;
+        aspect = :data,
+        limits = _system_limits(recipe.object, recipe.input.zoom_factor)
+    )
+end
+
+function PlotBuilder.default_figsize(
+        ::Type{SystemPreviewPlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key
+)
+    return recipe.renderer.size
+end
+
+function PlotBuilder.figure_layout(
+        ::Type{SystemPreviewPlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key
+)
+    return :preview
+end
+
+function PlotBuilder.page_kwargs(
+        ::Type{SystemPreviewPlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key,
+        views::Vector{PlotBuilder.ViewSpec}
+)
+    return (;
+        colorbars = _system_colorbars(
+            Val(recipe.input.display_colorbars),
+            recipe.input.earth_model
+        ),
+        display_legend = recipe.input.display_legend,
+        export_name = recipe.object.system_id,
+        configuration = (;
+            zoom_factor = recipe.input.zoom_factor,
+            display_id = recipe.input.display_id,
+            display_colorbars = recipe.input.display_colorbars
         )
     )
-    return PlotBuilder.RenderSpec(MaterialScalePlotSpec, [page])
+end
+
+PlotBuilder.dispatch_on(::Type{MaterialScalePlotSpec}) = Nothing
+PlotBuilder.renderer_kwargs(::Type{MaterialScalePlotSpec}) = (:size,)
+function PlotBuilder.renderer_defaults(::Type{MaterialScalePlotSpec}, ::Nothing)
+    (; size = (800, 400))
+end
+
+function PlotBuilder.resolve_input(::Type{MaterialScalePlotSpec}, recipe::NamedTuple)
+    recipe.renderer.size isa Tuple{Int, Int} || throw(
+        ArgumentError("size must be a tuple of two integers"),
+    )
+    return recipe
+end
+
+function PlotBuilder.grouping_mode(
+        ::Type{MaterialScalePlotSpec},
+        mode::Val,
+        recipe::NamedTuple
+)
+    return Val(:empty)
+end
+
+function PlotBuilder.default_title(
+        ::Type{MaterialScalePlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key,
+        view_key
+)
+    return "Material property color scale"
+end
+
+function PlotBuilder.default_figsize(
+        ::Type{MaterialScalePlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key
+)
+    return recipe.renderer.size
+end
+
+function PlotBuilder.figure_layout(
+        ::Type{MaterialScalePlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key
+)
+    return :material_scale
+end
+
+function PlotBuilder.page_kwargs(
+        ::Type{MaterialScalePlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key,
+        views::Vector{PlotBuilder.ViewSpec}
+)
+    return (;
+        colorbars = _colorbar_specs(
+            (_RHO_MIN, _RHO_MAX),
+            (1.0, 300.0),
+            (1.0, 1000.0)
+        ),
+        display_legend = false,
+        export_name = "material_scale",
+        controls = PlotBuilder.control_definitions(
+            reset = false,
+            xlog = false,
+            ylog = false,
+            legend = false,
+            visibility = false,
+            zoom = false
+        )
+    )
 end

@@ -58,208 +58,464 @@ function _scaled_distribution(distribution_value::HistogramPDF, conversion)
     )
 end
 
-function _mc_plot_series(mode, data, values, model, bins, normalization)
-    series = PlotBuilder.SeriesSpec[]
-    if mode in (:hist, :pdf)
-        if mode === :hist && data in (:samples, :both)
-            values === nothing && throw(ArgumentError("samples were not retained"))
-            push!(
-                series,
-                PlotBuilder.SeriesSpec(
-                    :histogram,
-                    values,
-                    nothing,
-                    nothing,
-                    "samples";
-                    attributes = (; bins, normalization)
-                )
-            )
-        end
-        if mode === :pdf || data in (:pdf, :both)
-            model === nothing && throw(ArgumentError("distributions were not retained"))
-            y = [model.density; last(model.density)]
-            push!(
-                series,
-                PlotBuilder.SeriesSpec(
-                    :stairs,
-                    model.edges,
-                    y,
-                    nothing,
-                    "model PDF";
-                    attributes = (; step = :post, color = :red, linewidth = 2)
-                )
-            )
-        end
-    elseif mode === :ecdf
-        values === nothing &&
-            throw(ArgumentError("ECDF plotting requires retained samples"))
-        model === nothing &&
-            throw(ArgumentError("ECDF plotting requires retained distributions"))
-        lower, upper = extrema(model.edges)
-        padding = iszero(upper - lower) ? one(lower) : 0.05 * (upper - lower)
-        x = collect(range(lower - padding, upper + padding; length = 500))
-        empirical = StatsBase.ecdf(values)
-        push!(
-            series,
-            PlotBuilder.SeriesSpec(
-                :line,
-                x,
-                Distributions.cdf.(Ref(model), x),
-                nothing,
-                "model CDF";
-                attributes = (; color = :red, linewidth = 2)
-            )
-        )
-        push!(
-            series,
-            PlotBuilder.SeriesSpec(
-                :line,
-                x,
-                empirical.(x),
-                nothing,
-                "empirical";
-                attributes = (; color = :blue, linestyle = :dash, linewidth = 2)
-            )
-        )
-    elseif mode === :qq
-        values === nothing && throw(ArgumentError("Q-Q plotting requires retained samples"))
-        model === nothing &&
-            throw(ArgumentError("Q-Q plotting requires retained distributions"))
-        sample_quantiles = sort(values)
-        probabilities = ((1:length(values)) .- 0.5) ./ length(values)
-        model_quantiles = Distributions.quantile.(Ref(model), probabilities)
-        limits = extrema(vcat(sample_quantiles, model_quantiles))
-        push!(
-            series,
-            PlotBuilder.SeriesSpec(
-                :scatter,
-                sample_quantiles,
-                model_quantiles,
-                nothing,
-                "quantiles";
-                attributes = (; color = :steelblue, markersize = 6)
-            )
-        )
-        push!(
-            series,
-            PlotBuilder.SeriesSpec(
-                :line,
-                collect(limits),
-                collect(limits),
-                nothing,
-                "perfect fit";
-                attributes = (; color = :black, linestyle = :dash, linewidth = 2)
-            )
-        )
-    else
-        throw(ArgumentError("mode must be :hist, :pdf, :ecdf, or :qq"))
-    end
-    return series
+struct MCSeriesKey{K} end
+
+function _mc_input_defaults()
+    return (;
+        quantity = :R,
+        ijk = nothing,
+        mode = :hist,
+        data = :samples,
+        length_unit = :kilo,
+        quantity_units = nothing,
+        nbins = nothing,
+        normalization = :none
+    )
 end
 
-function PlotBuilder.make_render(
+function PlotBuilder.dispatch_on(::Type{MCDistributionPlotSpec})
+    Union{CableConstantsMC, LineParametersMC}
+end
+function PlotBuilder.input_kwargs(::Type{MCDistributionPlotSpec})
+    (
+        :quantity,
+        :ijk,
+        :mode,
+        :data,
+        :length_unit,
+        :quantity_units,
+        :nbins,
+        :normalization
+    )
+end
+PlotBuilder.renderer_kwargs(::Type{MCDistributionPlotSpec}) = (:fig_size,)
+function PlotBuilder.input_defaults(
         ::Type{MCDistributionPlotSpec},
-        result::Union{CableConstantsMC, LineParametersMC};
-        quantity::Symbol = :R,
-        ijk = nothing,
-        mode::Symbol = :hist,
-        data::Symbol = :samples,
-        length_unit::Symbol = :kilo,
-        quantity_units = nothing,
-        nbins::Union{Nothing, Int} = nothing,
-        normalization::Symbol = :none,
-        fig_size::Tuple{Int, Int} = (800, 400),
-        export_theme::Symbol = :default,
-        open_export::Bool = true
+        ::Union{CableConstantsMC, LineParametersMC}
 )
-    PlotBuilder._validate_export_theme(export_theme)
-    data in (:samples, :pdf, :both) || throw(
+    _mc_input_defaults()
+end
+function PlotBuilder.renderer_defaults(
+        ::Type{MCDistributionPlotSpec},
+        ::Union{CableConstantsMC, LineParametersMC}
+)
+    (; fig_size = (800, 400))
+end
+
+function PlotBuilder.resolve_input(::Type{MCDistributionPlotSpec}, recipe::NamedTuple)
+    input = recipe.input
+    input.mode in (:hist, :pdf, :ecdf, :qq) || throw(
+        ArgumentError("mode must be :hist, :pdf, :ecdf, or :qq"),
+    )
+    input.data in (:samples, :pdf, :both) || throw(
         ArgumentError("data must be :samples, :pdf, or :both"),
     )
-    nbins === nothing || nbins > 0 || throw(ArgumentError("nbins must be positive"))
-    sample_values, distribution_value, selection = _mc_selection(result, quantity, ijk)
-    tag, target, conversion = _mc_target_unit(
-        result,
-        quantity,
-        length_unit,
-        quantity_units
+    input.nbins === nothing || input.nbins isa Int ||
+        throw(
+            ArgumentError("nbins must be an integer or nothing"),
+        )
+    input.nbins === nothing || input.nbins > 0 ||
+        throw(ArgumentError("nbins must be positive"))
+    recipe.renderer.fig_size isa Tuple{Int, Int} || throw(
+        ArgumentError("fig_size must be a tuple of two integers"),
     )
-    scaled_values = sample_values === nothing ? nothing :
-                    collect(sample_values) .* conversion
-    scaled_distribution = distribution_value === nothing ? nothing :
-                          _scaled_distribution(distribution_value, conversion)
-    bin_count = isnothing(nbins) && scaled_values !== nothing ?
-                _auto_nbins(scaled_values) : nbins
-    bins = if scaled_distribution !== nothing
-        scaled_distribution.edges
-    elseif scaled_values !== nothing
-        collect(fit(Histogram, scaled_values; nbins = bin_count, closed = :left).edges[1])
+
+    sample_values, distribution_value, selection = _mc_selection(
+        recipe.object,
+        input.quantity,
+        input.ijk
+    )
+    tag, target, conversion = _mc_target_unit(
+        recipe.object,
+        input.quantity,
+        input.length_unit,
+        input.quantity_units
+    )
+    values = sample_values === nothing ? nothing : collect(sample_values) .* conversion
+    model = distribution_value === nothing ? nothing :
+            _scaled_distribution(distribution_value, conversion)
+    bin_count = input.nbins === nothing && values !== nothing ? _auto_nbins(values) :
+                input.nbins
+    bins = if model !== nothing
+        model.edges
+    elseif values !== nothing
+        collect(fit(Histogram, values; nbins = bin_count, closed = :left).edges[1])
     else
         Float64[]
     end
-    effective_normalization = data in (:pdf, :both) ? :pdf : normalization
-    series = _mc_plot_series(
-        mode,
-        data,
-        scaled_values,
-        scaled_distribution,
+    effective_normalization = input.data in (:pdf, :both) ? :pdf : input.normalization
+    resolved = (;
+        values,
+        model,
         bins,
-        effective_normalization
+        effective_normalization,
+        tag,
+        target,
+        selection
     )
-    symbol = UnitHandler.get_symbol(tag)
-    suffix = selection === nothing ? "" : "[$(join(selection, ','))]"
-    title = mode === :hist ? "$symbol$suffix histogram" :
-            mode === :pdf ? "$symbol$suffix probability density" :
-            mode === :ecdf ? "$symbol$suffix cumulative distribution" :
-            "$symbol$suffix Q-Q plot"
-    x_label = mode === :qq ? "sample quantiles [$(UnitHandler.get_label(target))]" :
-              "$(UnitHandler.get_label(tag)) [$(UnitHandler.get_label(target))]"
-    y_label = mode === :hist ? String(effective_normalization) :
-              mode === :pdf ? "density" :
-              mode === :ecdf ? "cumulative probability" :
-              "model quantiles [$(UnitHandler.get_label(target))]"
-    xaxis = PlotBuilder.AxisSpec(:x, tag, target, x_label, :linear)
-    yaxis = PlotBuilder.AxisSpec(
-        :y,
-        mode === :qq ? tag : UnitHandler.QuantityTag{:dimensionless}(),
-        mode === :qq ? target : UnitHandler.Units(),
-        y_label,
-        :linear
+    return merge(recipe, (; input = merge(input, resolved)))
+end
+
+function PlotBuilder.recipe_mode(::Type{MCDistributionPlotSpec}, recipe::NamedTuple)
+    return Val(recipe.input.mode)
+end
+
+function PlotBuilder.grouping_mode(
+        ::Type{MCDistributionPlotSpec},
+        mode::Val,
+        recipe::NamedTuple
+)
+    return Val(:overlay)
+end
+
+_mc_hist_facets(::Val{:samples}) = (MCSeriesKey{:samples}(),)
+_mc_hist_facets(::Val{:pdf}) = (MCSeriesKey{:model_pdf}(),)
+_mc_hist_facets(::Val{:both}) = (MCSeriesKey{:samples}(), MCSeriesKey{:model_pdf}())
+
+function PlotBuilder.group_facets(
+        ::Type{MCDistributionPlotSpec},
+        ::Val{:hist},
+        recipe::NamedTuple,
+        page_key
+)
+    return _mc_hist_facets(Val(recipe.input.data))
+end
+
+function PlotBuilder.group_facets(
+        ::Type{MCDistributionPlotSpec},
+        ::Val{:pdf},
+        recipe::NamedTuple,
+        page_key
+)
+    return (MCSeriesKey{:model_pdf}(),)
+end
+
+function PlotBuilder.group_facets(
+        ::Type{MCDistributionPlotSpec},
+        ::Val{:ecdf},
+        recipe::NamedTuple,
+        page_key
+)
+    return (MCSeriesKey{:model_cdf}(), MCSeriesKey{:empirical_cdf}())
+end
+
+function PlotBuilder.group_facets(
+        ::Type{MCDistributionPlotSpec},
+        ::Val{:qq},
+        recipe::NamedTuple,
+        page_key
+)
+    return (MCSeriesKey{:quantiles}(), MCSeriesKey{:reference}())
+end
+
+function _mc_values(recipe::NamedTuple)
+    recipe.input.values === nothing && throw(ArgumentError("samples were not retained"))
+    return recipe.input.values
+end
+
+function _mc_model(recipe::NamedTuple)
+    recipe.input.model === nothing &&
+        throw(ArgumentError("distributions were not retained"))
+    return recipe.input.model
+end
+
+function _mc_cdf_grid(recipe::NamedTuple)
+    model = _mc_model(recipe)
+    lower, upper = extrema(model.edges)
+    padding = iszero(upper - lower) ? one(lower) : 0.05 * (upper - lower)
+    return collect(range(lower - padding, upper + padding; length = 500))
+end
+
+function _mc_qq_values(recipe::NamedTuple)
+    values = sort(_mc_values(recipe))
+    model = _mc_model(recipe)
+    probabilities = ((1:length(values)) .- 0.5) ./ length(values)
+    model_values = Distributions.quantile.(Ref(model), probabilities)
+    return values, model_values
+end
+
+function PlotBuilder.plot_kind(
+        ::Type{MCDistributionPlotSpec}, mode::Val, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:samples})
+    :histogram
+end
+function PlotBuilder.plot_kind(
+        ::Type{MCDistributionPlotSpec}, mode::Val, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:model_pdf})
+    :stairs
+end
+function PlotBuilder.plot_kind(
+        ::Type{MCDistributionPlotSpec}, mode::Val, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:model_cdf})
+    :line
+end
+function PlotBuilder.plot_kind(
+        ::Type{MCDistributionPlotSpec}, mode::Val, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:empirical_cdf})
+    :line
+end
+function PlotBuilder.plot_kind(
+        ::Type{MCDistributionPlotSpec}, mode::Val, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:quantiles})
+    :scatter
+end
+function PlotBuilder.plot_kind(
+        ::Type{MCDistributionPlotSpec}, mode::Val, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:reference})
+    :line
+end
+
+function PlotBuilder.series_data(
+        ::Type{MCDistributionPlotSpec}, mode::Val, ::Val{:x}, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:samples})
+    return _mc_values(recipe)
+end
+function PlotBuilder.series_data(
+        ::Type{MCDistributionPlotSpec}, mode::Val, ::Val{:x}, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:model_pdf})
+    return _mc_model(recipe).edges
+end
+function PlotBuilder.series_data(
+        ::Type{MCDistributionPlotSpec}, mode::Val, ::Val{:y}, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:model_pdf})
+    model = _mc_model(recipe)
+    return [model.density; last(model.density)]
+end
+function PlotBuilder.series_data(
+        ::Type{MCDistributionPlotSpec}, mode::Val, ::Val{:x}, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:model_cdf})
+    return _mc_cdf_grid(recipe)
+end
+function PlotBuilder.series_data(
+        ::Type{MCDistributionPlotSpec}, mode::Val, ::Val{:y}, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:model_cdf})
+    x = _mc_cdf_grid(recipe)
+    return Distributions.cdf.(Ref(_mc_model(recipe)), x)
+end
+function PlotBuilder.series_data(
+        ::Type{MCDistributionPlotSpec}, mode::Val, ::Val{:x}, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:empirical_cdf})
+    return _mc_cdf_grid(recipe)
+end
+function PlotBuilder.series_data(
+        ::Type{MCDistributionPlotSpec}, mode::Val, ::Val{:y}, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:empirical_cdf})
+    x = _mc_cdf_grid(recipe)
+    return StatsBase.ecdf(_mc_values(recipe)).(x)
+end
+function PlotBuilder.series_data(
+        ::Type{MCDistributionPlotSpec}, mode::Val, ::Val{:x}, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:quantiles})
+    values, _ = _mc_qq_values(recipe)
+    return values
+end
+function PlotBuilder.series_data(
+        ::Type{MCDistributionPlotSpec}, mode::Val, ::Val{:y}, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:quantiles})
+    _, values = _mc_qq_values(recipe)
+    return values
+end
+function PlotBuilder.series_data(
+        ::Type{MCDistributionPlotSpec}, mode::Val, dim::Union{Val{:x}, Val{:y}},
+        recipe::NamedTuple, page_key, view_key, ::MCSeriesKey{:reference})
+    sample_values, model_values = _mc_qq_values(recipe)
+    return collect(extrema(vcat(sample_values, model_values)))
+end
+
+function PlotBuilder.legend_label(
+        ::Type{MCDistributionPlotSpec}, mode::Val, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:samples})
+    "samples"
+end
+function PlotBuilder.legend_label(
+        ::Type{MCDistributionPlotSpec}, mode::Val, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:model_pdf})
+    "model PDF"
+end
+function PlotBuilder.legend_label(
+        ::Type{MCDistributionPlotSpec}, mode::Val, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:model_cdf})
+    "model CDF"
+end
+function PlotBuilder.legend_label(
+        ::Type{MCDistributionPlotSpec}, mode::Val, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:empirical_cdf})
+    "empirical"
+end
+function PlotBuilder.legend_label(
+        ::Type{MCDistributionPlotSpec}, mode::Val, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:quantiles})
+    "quantiles"
+end
+function PlotBuilder.legend_label(
+        ::Type{MCDistributionPlotSpec}, mode::Val, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:reference})
+    "perfect fit"
+end
+
+function PlotBuilder.series_attributes(
+        ::Type{MCDistributionPlotSpec}, mode::Val, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:samples})
+    return (;
+        bins = recipe.input.bins, normalization = recipe.input.effective_normalization)
+end
+function PlotBuilder.series_attributes(
+        ::Type{MCDistributionPlotSpec}, mode::Val, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:model_pdf})
+    return (; step = :post, color = :red, linewidth = 2)
+end
+function PlotBuilder.series_attributes(
+        ::Type{MCDistributionPlotSpec}, mode::Val, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:model_cdf})
+    return (; color = :red, linewidth = 2)
+end
+function PlotBuilder.series_attributes(
+        ::Type{MCDistributionPlotSpec}, mode::Val, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:empirical_cdf})
+    return (; color = :blue, linestyle = :dash, linewidth = 2)
+end
+function PlotBuilder.series_attributes(
+        ::Type{MCDistributionPlotSpec}, mode::Val, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:quantiles})
+    return (; color = :steelblue, markersize = 6)
+end
+function PlotBuilder.series_attributes(
+        ::Type{MCDistributionPlotSpec}, mode::Val, recipe::NamedTuple,
+        page_key, view_key, ::MCSeriesKey{:reference})
+    return (; color = :black, linestyle = :dash, linewidth = 2)
+end
+
+function _mc_title(recipe::NamedTuple, suffix::AbstractString)
+    symbol = UnitHandler.get_symbol(recipe.input.tag)
+    selection = recipe.input.selection
+    indices = selection === nothing ? "" : "[$(join(selection, ','))]"
+    return "$symbol$indices $suffix"
+end
+
+function PlotBuilder.default_title(
+        ::Type{MCDistributionPlotSpec}, ::Val{:hist}, recipe::NamedTuple,
+        page_key, view_key)
+    _mc_title(recipe, "histogram")
+end
+function PlotBuilder.default_title(
+        ::Type{MCDistributionPlotSpec}, ::Val{:pdf}, recipe::NamedTuple,
+        page_key, view_key)
+    _mc_title(recipe, "probability density")
+end
+function PlotBuilder.default_title(
+        ::Type{MCDistributionPlotSpec}, ::Val{:ecdf}, recipe::NamedTuple,
+        page_key, view_key)
+    _mc_title(recipe, "cumulative distribution")
+end
+function PlotBuilder.default_title(
+        ::Type{MCDistributionPlotSpec}, ::Val{:qq}, recipe::NamedTuple,
+        page_key, view_key)
+    _mc_title(recipe, "Q-Q plot")
+end
+
+function PlotBuilder.axis_quantity(
+        ::Type{MCDistributionPlotSpec}, mode::Val, ::Val{:x}, recipe::NamedTuple,
+        page_key, view_key)
+    return recipe.input.tag
+end
+function PlotBuilder.axis_quantity(
+        ::Type{MCDistributionPlotSpec}, ::Val{:qq}, ::Val{:y}, recipe::NamedTuple,
+        page_key, view_key)
+    return recipe.input.tag
+end
+function PlotBuilder.axis_quantity(
+        ::Type{MCDistributionPlotSpec}, mode::Val, ::Val{:y}, recipe::NamedTuple,
+        page_key, view_key)
+    return UnitHandler.QuantityTag{:dimensionless}()
+end
+function PlotBuilder.axis_unit(
+        ::Type{MCDistributionPlotSpec}, mode::Val, ::Val{:x},
+        quantity::UnitHandler.QuantityTag, recipe::NamedTuple, page_key, view_key)
+    return recipe.input.target
+end
+function PlotBuilder.axis_unit(
+        ::Type{MCDistributionPlotSpec}, ::Val{:qq}, ::Val{:y},
+        quantity::UnitHandler.QuantityTag, recipe::NamedTuple, page_key, view_key)
+    return recipe.input.target
+end
+function PlotBuilder.axis_unit(
+        ::Type{MCDistributionPlotSpec}, mode::Val, ::Val{:y},
+        quantity::UnitHandler.QuantityTag, recipe::NamedTuple, page_key, view_key)
+    return UnitHandler.Units()
+end
+
+function PlotBuilder.axis_label(
+        ::Type{MCDistributionPlotSpec}, ::Val{:qq}, ::Val{:x},
+        quantity::UnitHandler.QuantityTag,
+        unit::UnitHandler.Units, recipe::NamedTuple, page_key, view_key)
+    return "sample quantiles [$(UnitHandler.get_label(unit))]"
+end
+function PlotBuilder.axis_label(
+        ::Type{MCDistributionPlotSpec}, mode::Val, ::Val{:x},
+        quantity::UnitHandler.QuantityTag,
+        unit::UnitHandler.Units, recipe::NamedTuple, page_key, view_key)
+    return "$(UnitHandler.get_label(quantity)) [$(UnitHandler.get_label(unit))]"
+end
+function PlotBuilder.axis_label(
+        ::Type{MCDistributionPlotSpec}, ::Val{:hist}, ::Val{:y},
+        quantity::UnitHandler.QuantityTag,
+        unit::UnitHandler.Units, recipe::NamedTuple, page_key, view_key)
+    return String(recipe.input.effective_normalization)
+end
+function PlotBuilder.axis_label(
+        ::Type{MCDistributionPlotSpec}, ::Val{:pdf}, ::Val{:y},
+        quantity::UnitHandler.QuantityTag,
+        unit::UnitHandler.Units, recipe::NamedTuple, page_key, view_key)
+    return "density"
+end
+function PlotBuilder.axis_label(
+        ::Type{MCDistributionPlotSpec}, ::Val{:ecdf}, ::Val{:y},
+        quantity::UnitHandler.QuantityTag,
+        unit::UnitHandler.Units, recipe::NamedTuple, page_key, view_key)
+    return "cumulative probability"
+end
+function PlotBuilder.axis_label(
+        ::Type{MCDistributionPlotSpec}, ::Val{:qq}, ::Val{:y},
+        quantity::UnitHandler.QuantityTag,
+        unit::UnitHandler.Units, recipe::NamedTuple, page_key, view_key)
+    return "model quantiles [$(UnitHandler.get_label(unit))]"
+end
+
+function PlotBuilder.view_key(
+        ::Type{MCDistributionPlotSpec}, mode::Val, recipe::NamedTuple,
+        page_key, view_key)
+    return (;
+        quantity = recipe.input.quantity,
+        selection = recipe.input.selection,
+        mode = recipe.input.mode
     )
-    view_spec = PlotBuilder.ViewSpec(
-        xaxis,
-        yaxis,
-        nothing,
-        title,
-        series,
-        (; quantity, selection, mode)
-    )
-    page = PlotBuilder.PageSpec(
-        title,
-        fig_size,
-        :single,
-        PlotBuilder.ViewSpec[view_spec],
-        (;
-            quantity,
-            selection,
-            mode,
-            data,
-            x_exponent = _plot_exponent(series, :x),
-            y_exponent = _plot_exponent(series, :y),
-            export_theme,
-            open_export,
-            controls = PlotBuilder.control_definitions(xlog = false, ylog = false),
-            configuration = (;
-                quantity,
-                selection,
-                mode,
-                data,
-                length_unit,
-                quantity_units,
-                nbins,
-                normalization
-            )
+end
+
+function PlotBuilder.default_figsize(
+        ::Type{MCDistributionPlotSpec}, mode::Val, recipe::NamedTuple, page_key)
+    return recipe.renderer.fig_size
+end
+
+function PlotBuilder.page_kwargs(
+        ::Type{MCDistributionPlotSpec}, mode::Val, recipe::NamedTuple,
+        page_key, views::Vector{PlotBuilder.ViewSpec})
+    series = only(views).series
+    return (;
+        quantity = recipe.input.quantity,
+        selection = recipe.input.selection,
+        mode = recipe.input.mode,
+        data = recipe.input.data,
+        x_exponent = _plot_exponent(series, :x),
+        y_exponent = _plot_exponent(series, :y),
+        configuration = (;
+            quantity = recipe.input.quantity,
+            selection = recipe.input.selection,
+            mode = recipe.input.mode,
+            data = recipe.input.data,
+            length_unit = recipe.input.length_unit,
+            quantity_units = recipe.input.quantity_units,
+            nbins = recipe.input.nbins,
+            normalization = recipe.input.normalization
         )
     )
-    return PlotBuilder.RenderSpec(MCDistributionPlotSpec, PlotBuilder.PageSpec[page])
 end

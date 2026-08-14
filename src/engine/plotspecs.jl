@@ -54,198 +54,384 @@ function _finite_exponent(curves)
     return abs(exponent) < 3 ? 0 : exponent
 end
 
-function _axis_label(quantity, unit)
-    label = UnitHandler.get_label(quantity)
-    unit_label = UnitHandler.get_label(unit)
-    return isempty(unit_label) ? label : "$label [$unit_label]"
+struct LinePageKey{K, C} end
+
+_line_parent(::LinePageKey{K, C}) where {K, C} = K
+_line_component(::LinePageKey{K, C}) where {K, C} = C
+
+_line_components(::Val{:series}, ::Val{(:RLCG, :cart)}) = (:R, :L)
+_line_components(::Val{:series}, ::Val{(:RLCG, :polar)}) = (:R, :L)
+_line_components(::Val{:shunt}, ::Val{(:RLCG, :cart)}) = (:G, :C)
+_line_components(::Val{:shunt}, ::Val{(:RLCG, :polar)}) = (:G, :C)
+_line_components(::Val{:series}, ::Val{(:ZY, :cart)}) = (:Z_re, :Z_im)
+_line_components(::Val{:series}, ::Val{(:ZY, :polar)}) = (:Z_abs, :Z_angle)
+_line_components(::Val{:shunt}, ::Val{(:ZY, :cart)}) = (:Y_re, :Y_im)
+_line_components(::Val{:shunt}, ::Val{(:ZY, :polar)}) = (:Y_abs, :Y_angle)
+
+function _line_page_keys(::Val{K}, mode::Val) where {K}
+    return Tuple(LinePageKey{K, component}()
+    for component in _line_components(Val(K), mode))
 end
 
-function _line_pages(
-        object,
-        frequency_values;
-        mode::Symbol,
-        coord::Symbol,
-        freq_unit::Symbol,
-        length_unit::Symbol,
-        quantity_units,
-        con,
-        fig_size::Tuple{Int, Int},
-        xscale::Symbol,
-        yscale::Symbol,
-        export_theme::Symbol,
-        open_export::Bool
-)
-    PlotBuilder._validate_export_theme(export_theme)
-    all(isfinite, frequency_values) || throw(ArgumentError("frequencies must be finite"))
-    if length(frequency_values) <= 1
-        @warn "Frequency vector has $(length(frequency_values)) sample(s); nothing to plot."
-        return PlotBuilder.PageSpec[]
-    end
-    size(object, 3) == length(frequency_values) || throw(
-        DimensionMismatch("frequency count does not match line-parameter samples"),
-    )
-    any(iszero, frequency_values) && mode === :RLCG &&
-        throw(
-            DomainError(frequency_values, "RLCG plotting is undefined at zero frequency"),
-        )
-    xscale in (:linear, :log10) || throw(ArgumentError("xscale must be :linear or :log10"))
-    yscale in (:linear, :log10) || throw(ArgumentError("yscale must be :linear or :log10"))
-    xscale === :log10 && any(<=(0), frequency_values) &&
-        throw(
-            DomainError(frequency_values, "logarithmic frequency axes require positive frequencies"),
-        )
+_line_sources(parameters::LineParameters) = (parameters.Z, parameters.Y)
+_line_sources(object::Union{SeriesImpedance, ShuntAdmittance}) = (object,)
 
-    frequency_quantity = UnitHandler.QuantityTag{:freq}()
-    frequency_target = UnitHandler.units(freq_unit, :hertz)
-    scaled_frequency = frequency_values .* UnitHandler.scale_factor(
-        UnitHandler.default_unit(frequency_quantity),
-        frequency_target
-    )
-    x_exponent = _finite_exponent((scaled_frequency,))
-    pairs = _conductor_pairs(object, con)
-    pages = PlotBuilder.PageSpec[]
+_line_source(object::SeriesImpedance, ::LinePageKey{:series, C}) where {C} = object
+_line_source(object::ShuntAdmittance, ::LinePageKey{:shunt, C}) where {C} = object
+_line_source(parameters::LineParameters, ::LinePageKey{:series, C}) where {C} = parameters.Z
+_line_source(parameters::LineParameters, ::LinePageKey{:shunt, C}) where {C} = parameters.Y
 
-    components = UnitHandler.line_components(_line_parameter_kind(object), mode, coord)
-    for component in components
-        quantity, target_unit, conversion = _component_unit(
-            component,
-            basis(object),
-            length_unit,
-            quantity_units
-        )
-        values = UnitHandler.line_component_values(
-            component,
-            object.values,
-            frequency_values
-        )
-        curves = [collect(view(values, i, j, :)) .* conversion for (i, j) in pairs]
-        active = [index
-                  for index in eachindex(curves)
-                  if
-                  any(value -> abs(Measurements.value(value)) > eps(Float64), curves[index])]
-        active_curves = curves[active]
-        active_pairs = pairs[active]
-        y_exponent = _finite_exponent(active_curves)
-        series = PlotBuilder.SeriesSpec[]
-        symbol = UnitHandler.get_symbol(quantity)
-        for (curve, (i, j)) in zip(active_curves, active_pairs)
-            push!(
-                series,
-                PlotBuilder.SeriesSpec(
-                    :line,
-                    scaled_frequency,
-                    curve,
-                    nothing,
-                    "$symbol[$i,$j]";
-                    attributes = (; linewidth = 2)
-                )
-            )
-        end
-        title = UnitHandler.get_label(quantity)
-        xaxis = PlotBuilder.AxisSpec(
-            :x,
-            frequency_quantity,
-            frequency_target,
-            _axis_label(frequency_quantity, frequency_target),
-            xscale
-        )
-        yaxis = PlotBuilder.AxisSpec(
-            :y,
-            quantity,
-            target_unit,
-            _axis_label(quantity, target_unit),
-            yscale
-        )
-        view_spec = PlotBuilder.ViewSpec(
-            xaxis,
-            yaxis,
-            nothing,
-            title,
-            series,
-            (; component)
-        )
-        push!(
-            pages,
-            PlotBuilder.PageSpec(
-                title,
-                fig_size,
-                :single,
-                PlotBuilder.ViewSpec[view_spec],
-                (;
-                    component,
-                    x_exponent,
-                    y_exponent,
-                    export_theme,
-                    open_export,
-                    controls = PlotBuilder.control_definitions(xlog = true, ylog = true),
-                    configuration = (;
-                        mode,
-                        coord,
-                        freq_unit,
-                        length_unit,
-                        quantity_units,
-                        conductors = con
-                    )
-                )
-            )
-        )
-    end
-    return pages
-end
-
-function PlotBuilder.make_render(
-        ::Type{LineParameterPlotSpec},
-        object::Union{SeriesImpedance, ShuntAdmittance};
+function _line_input_defaults(frequencies)
+    return (;
         frequencies,
-        mode::Symbol = :ZY,
-        coord::Symbol = :cart,
-        freq_unit::Symbol = :base,
-        length_unit::Symbol = :kilo,
+        mode = :ZY,
+        coord = :cart,
+        freq_unit = :base,
+        length_unit = :kilo,
         quantity_units = nothing,
         con = nothing,
-        fig_size::Tuple{Int, Int} = (800, 400),
-        xscale::Symbol = :linear,
-        yscale::Symbol = :linear,
-        export_theme::Symbol = :default,
-        open_export::Bool = true
-)
-    pages = _line_pages(
-        object,
-        collect(frequencies);
-        mode,
-        coord,
-        freq_unit,
-        length_unit,
-        quantity_units,
-        con,
-        fig_size,
-        xscale,
-        yscale,
-        export_theme,
-        open_export
+        xscale = :linear,
+        yscale = :linear
     )
-    return PlotBuilder.RenderSpec(LineParameterPlotSpec, pages)
 end
 
-function PlotBuilder.make_render(
+function PlotBuilder.dispatch_on(::Type{LineParameterPlotSpec})
+    Union{LineParameters, SeriesImpedance, ShuntAdmittance}
+end
+function PlotBuilder.input_kwargs(::Type{LineParameterPlotSpec})
+    (
+        :frequencies,
+        :mode,
+        :coord,
+        :freq_unit,
+        :length_unit,
+        :quantity_units,
+        :con,
+        :xscale,
+        :yscale
+    )
+end
+PlotBuilder.renderer_kwargs(::Type{LineParameterPlotSpec}) = (:fig_size,)
+function PlotBuilder.input_defaults(::Type{LineParameterPlotSpec}, parameters::LineParameters)
+    _line_input_defaults(parameters.f)
+end
+function PlotBuilder.input_defaults(
         ::Type{LineParameterPlotSpec},
-        parameters::LineParameters;
-        kwargs...
+        ::Union{SeriesImpedance, ShuntAdmittance}
 )
-    impedance = PlotBuilder.make_render(
-        LineParameterPlotSpec,
-        parameters.Z;
-        frequencies = parameters.f,
-        kwargs...
+    _line_input_defaults(nothing)
+end
+function PlotBuilder.renderer_defaults(
+        ::Type{LineParameterPlotSpec},
+        ::Union{LineParameters, SeriesImpedance, ShuntAdmittance}
+)
+    (; fig_size = (800, 400))
+end
+
+function PlotBuilder.resolve_input(::Type{LineParameterPlotSpec}, recipe::NamedTuple)
+    input = recipe.input
+    input.mode in (:RLCG, :ZY) || throw(ArgumentError("mode must be :RLCG or :ZY"))
+    input.coord in (:cart, :polar) || throw(ArgumentError("coord must be :cart or :polar"))
+    input.xscale in (:linear, :log10) || throw(
+        ArgumentError("xscale must be :linear or :log10"),
     )
-    admittance = PlotBuilder.make_render(
-        LineParameterPlotSpec,
-        parameters.Y;
-        frequencies = parameters.f,
-        kwargs...
+    input.yscale in (:linear, :log10) || throw(
+        ArgumentError("yscale must be :linear or :log10"),
     )
-    return PlotBuilder.RenderSpec(
+    input.frequencies === nothing && throw(
+        ArgumentError("frequencies are required for SeriesImpedance and ShuntAdmittance"),
+    )
+    frequencies = collect(input.frequencies)
+    all(isfinite, frequencies) || throw(ArgumentError("frequencies must be finite"))
+    input.xscale === :log10 && any(<=(0), frequencies) &&
+        throw(
+            DomainError(frequencies, "logarithmic frequency axes require positive frequencies"),
+        )
+    input.mode === :RLCG && any(iszero, frequencies) &&
+        throw(
+            DomainError(frequencies, "RLCG plotting is undefined at zero frequency"),
+        )
+    recipe.renderer.fig_size isa Tuple{Int, Int} || throw(
+        ArgumentError("fig_size must be a tuple of two integers"),
+    )
+    for source in _line_sources(recipe.object)
+        size(source, 3) == length(frequencies) || throw(
+            DimensionMismatch("frequency count does not match line-parameter samples"),
+        )
+        _conductor_pairs(source, input.con)
+    end
+    length(frequencies) <= 1 &&
+        @warn "Frequency vector has $(length(frequencies)) sample(s); nothing to plot."
+    return merge(recipe, (; input = merge(input, (; frequencies))))
+end
+
+function PlotBuilder.recipe_mode(::Type{LineParameterPlotSpec}, recipe::NamedTuple)
+    return Val((recipe.input.mode, recipe.input.coord))
+end
+
+function PlotBuilder.grouping_mode(
+        ::Type{LineParameterPlotSpec},
+        mode::Val,
+        recipe::NamedTuple
+)
+    return Val(:faceted_pages)
+end
+
+function PlotBuilder.page_facets(
+        ::Type{LineParameterPlotSpec},
+        mode::Val,
+        recipe::NamedTuple
+)
+    length(recipe.input.frequencies) <= 1 && return ()
+    return _line_page_facets(mode, recipe.object)
+end
+
+_line_page_facets(mode::Val, ::SeriesImpedance) = _line_page_keys(Val(:series), mode)
+_line_page_facets(mode::Val, ::ShuntAdmittance) = _line_page_keys(Val(:shunt), mode)
+function _line_page_facets(mode::Val, ::LineParameters)
+    return (_line_page_keys(Val(:series), mode)..., _line_page_keys(Val(:shunt), mode)...)
+end
+
+function _line_values(recipe::NamedTuple, page_key::LinePageKey)
+    source = _line_source(recipe.object, page_key)
+    component = _line_component(page_key)
+    _, _, conversion = _component_unit(
+        component,
+        basis(source),
+        recipe.input.length_unit,
+        recipe.input.quantity_units
+    )
+    values = UnitHandler.line_component_values(
+        component,
+        source.values,
+        recipe.input.frequencies
+    )
+    return values, conversion
+end
+
+function PlotBuilder.group_facets(
+        ::Type{LineParameterPlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key::LinePageKey
+)
+    source = _line_source(recipe.object, page_key)
+    pairs = _conductor_pairs(source, recipe.input.con)
+    values, conversion = _line_values(recipe, page_key)
+    return [pair
+            for pair in pairs
+            if any(
+        sample -> abs(Measurements.value(sample)) > eps(Float64),
+        view(values, pair[1], pair[2], :) .* conversion
+    )]
+end
+
+function PlotBuilder.axis_quantity(
+        ::Type{LineParameterPlotSpec},
+        mode::Val,
+        ::Val{:x},
+        recipe::NamedTuple,
+        page_key,
+        view_key
+)
+    return UnitHandler.QuantityTag{:freq}()
+end
+
+function PlotBuilder.axis_quantity(
+        ::Type{LineParameterPlotSpec},
+        mode::Val,
+        ::Val{:y},
+        recipe::NamedTuple,
+        page_key::LinePageKey,
+        view_key
+)
+    source = _line_source(recipe.object, page_key)
+    quantity, _, _ = _component_unit(
+        _line_component(page_key),
+        basis(source),
+        recipe.input.length_unit,
+        recipe.input.quantity_units
+    )
+    return quantity
+end
+
+function PlotBuilder.axis_unit(
+        ::Type{LineParameterPlotSpec},
+        mode::Val,
+        ::Val{:x},
+        quantity::UnitHandler.QuantityTag,
+        recipe::NamedTuple,
+        page_key,
+        view_key
+)
+    return UnitHandler.units(recipe.input.freq_unit, :hertz)
+end
+
+function PlotBuilder.axis_unit(
+        ::Type{LineParameterPlotSpec},
+        mode::Val,
+        ::Val{:y},
+        quantity::UnitHandler.QuantityTag,
+        recipe::NamedTuple,
+        page_key::LinePageKey,
+        view_key
+)
+    source = _line_source(recipe.object, page_key)
+    _, target, _ = _component_unit(
+        _line_component(page_key),
+        basis(source),
+        recipe.input.length_unit,
+        recipe.input.quantity_units
+    )
+    return target
+end
+
+function PlotBuilder.axis_scale(
+        ::Type{LineParameterPlotSpec},
+        mode::Val,
+        ::Val{:x},
+        recipe::NamedTuple,
+        page_key,
+        view_key
+)
+    return recipe.input.xscale
+end
+
+function PlotBuilder.axis_scale(
+        ::Type{LineParameterPlotSpec},
+        mode::Val,
+        ::Val{:y},
+        recipe::NamedTuple,
+        page_key,
+        view_key
+)
+    return recipe.input.yscale
+end
+
+function PlotBuilder.series_data(
+        ::Type{LineParameterPlotSpec},
+        mode::Val,
+        ::Val{:x},
+        recipe::NamedTuple,
+        page_key,
+        view_key,
+        series_key
+)
+    quantity = UnitHandler.QuantityTag{:freq}()
+    target = UnitHandler.units(recipe.input.freq_unit, :hertz)
+    conversion = UnitHandler.scale_factor(UnitHandler.default_unit(quantity), target)
+    return recipe.input.frequencies .* conversion
+end
+
+function PlotBuilder.series_data(
+        ::Type{LineParameterPlotSpec},
+        mode::Val,
+        ::Val{:y},
+        recipe::NamedTuple,
+        page_key::LinePageKey,
+        view_key,
+        series_key::Tuple{Int, Int}
+)
+    values, conversion = _line_values(recipe, page_key)
+    return collect(view(values, series_key[1], series_key[2], :)) .* conversion
+end
+
+function PlotBuilder.legend_label(
+        ::Type{LineParameterPlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key::LinePageKey,
+        view_key,
+        series_key::Tuple{Int, Int}
+)
+    quantity = PlotBuilder.axis_quantity(
         LineParameterPlotSpec,
-        vcat(impedance.figures, admittance.figures)
+        mode,
+        Val(:y),
+        recipe,
+        page_key,
+        view_key
+    )
+    return "$(UnitHandler.get_symbol(quantity))[$(series_key[1]),$(series_key[2])]"
+end
+
+function PlotBuilder.series_attributes(
+        ::Type{LineParameterPlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key,
+        view_key,
+        series_key
+)
+    return (; linewidth = 2)
+end
+
+function PlotBuilder.default_title(
+        ::Type{LineParameterPlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key::LinePageKey,
+        view_key
+)
+    quantity = PlotBuilder.axis_quantity(
+        LineParameterPlotSpec,
+        mode,
+        Val(:y),
+        recipe,
+        page_key,
+        view_key
+    )
+    return UnitHandler.get_label(quantity)
+end
+
+function PlotBuilder.view_key(
+        ::Type{LineParameterPlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key::LinePageKey,
+        view_key
+)
+    return (; component = _line_component(page_key))
+end
+
+function PlotBuilder.default_figsize(
+        ::Type{LineParameterPlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key
+)
+    return recipe.renderer.fig_size
+end
+
+function PlotBuilder.enable_logscale(
+        ::Type{LineParameterPlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key
+)
+    return (:x, :y)
+end
+
+function PlotBuilder.page_kwargs(
+        ::Type{LineParameterPlotSpec},
+        mode::Val,
+        recipe::NamedTuple,
+        page_key::LinePageKey,
+        views::Vector{PlotBuilder.ViewSpec}
+)
+    series = only(views).series
+    component = _line_component(page_key)
+    return (;
+        component,
+        x_exponent = _finite_exponent((item.xdata for item in series)),
+        y_exponent = _finite_exponent((item.ydata for item in series)),
+        configuration = (;
+            mode = recipe.input.mode,
+            coord = recipe.input.coord,
+            freq_unit = recipe.input.freq_unit,
+            length_unit = recipe.input.length_unit,
+            quantity_units = recipe.input.quantity_units,
+            conductors = recipe.input.con
+        )
     )
 end
