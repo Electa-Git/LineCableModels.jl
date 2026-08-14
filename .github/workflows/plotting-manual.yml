@@ -1,0 +1,38 @@
+name: Manual GL plotting gate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gl-plotting:
+    name: GLMakie UI and Cairo SVG export
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      LINECABLEMODELS_GL_ARTIFACTS: manual-gl-artifacts
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: "1.12"
+      - uses: julia-actions/cache@v3
+      - name: Install explicit plotting backends
+        shell: julia --startup-file=no --color=yes {0}
+        run: |
+          using Pkg
+          Pkg.activate(joinpath(pwd(), ".manual-gl-env"))
+          Pkg.develop(PackageSpec(path = pwd()))
+          Pkg.add(PackageSpec(name = "GLMakie", version = "0.13"))
+          Pkg.add(PackageSpec(name = "CairoMakie", version = "0.15"))
+      - name: Exercise the GL UI and one-click SVG export
+        run: xvfb-run --auto-servernum julia --startup-file=no --project=.manual-gl-env integration/plotting/manual_gl.jl
+      - name: Upload visual evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: linecablemodels-gl-plotting
+          path: manual-gl-artifacts
+          if-no-files-found: error
