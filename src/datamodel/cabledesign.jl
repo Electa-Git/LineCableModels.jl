@@ -258,4 +258,5 @@ function nonsensify(
 end
 
 include("cabledesign/base.jl")
+include("cabledesign/cableconstants.jl")
 include("cabledesign/dataframe.jl")

@@ -1,51 +1,31 @@
 module PlotBuilder
 
-using Base: @kwdef
+import ..UnitHandler: Units, QuantityTag
 
-import ..UnitHandler: Units, QuantityTag, get_label, get_symbol, display_unit, scale_factor
-import ..Commons: PhaseDomain, ModalDomain, domain
+export AbstractPlotSpec, AxisSpec, SeriesSpec, ViewSpec, PageSpec, RenderSpec, UIPlot
+export make_render, export_svg
 
-export make_render, RenderSpec
+function control_definitions(;
+        reset::Bool = true,
+        export_svg::Bool = true,
+        xlog::Bool = true,
+        ylog::Bool = true,
+        legend::Bool = true,
+        visibility::Bool = true,
+        zoom::Bool = true
+)
+    return (; reset, export_svg, xlog, ylog, legend, visibility, zoom)
+end
 
-# Submodule `BackendHandler`
 include("backendhandler/BackendHandler.jl")
 using .BackendHandler
 
 include("types.jl")
-include("traits.jl")
-include("axisspec.jl")
-include("parse.jl")
-include("seriesspec.jl")
-include("viewspec.jl")
-include("pagespec.jl")
 
-"""
-    make_render(::Type{S}, obj; kwargs...) where {S<:AbstractPlotSpec}
-
-High-level API: from domain object + keyword arguments to a RenderSpec.
-
-Checks that the object type is compatible with `dispatch_on(S)` and then
-runs:
-
-    parse_kwargs(S, obj; kwargs...)  → raw
-    resolve_input(S, raw)            → nt
-    make_pages(S, nt)             → figs
-
-`make_pages` returns a vector of PageSpec values; `make_render`
-wraps them into a RenderSpec that the UI layer will later assemble into
-actual windows/layouts.
-"""
-
-function make_render(::Type{S}, obj; kwargs...) where {S <: AbstractPlotSpec}
-    Tdispatch = dispatch_on(S)
-    obj isa Tdispatch ||
-        Base.error("Spec $(S) cannot dispatch on $(typeof(obj)); expected $(Tdispatch)")
-
-    raw = parse_kwargs(S, obj; kwargs...)
-    norm = resolve_input(S, raw)
-    pags = make_pages(S, norm)  # ::Vector{PageSpec}
-
-    return RenderSpec(S, pags)
+function make_render(::Type{S}, object; kwargs...) where {S <: AbstractPlotSpec}
+    throw(MethodError(make_render, (S, object)))
 end
+
+function export_svg end
 
 end # module PlotBuilder

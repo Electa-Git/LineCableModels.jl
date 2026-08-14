@@ -2,291 +2,176 @@ import DataFrames: DataFrame, metadata!
 
 const _LP_FREQ_COL = :frequency
 
-const _SERIES_DUMMY = SeriesImpedance(zeros(ComplexF64, 1, 1, 1))
-const _SHUNT_DUMMY = ShuntAdmittance(zeros(ComplexF64, 1, 1, 1))
-
-_freq_units_label(unit::Symbol) = unit_text(unit, "Hz")
-
-_length_unit(per::Symbol) = per
-
-function _column_name(meta::ComponentMetadata)
-    component = meta.component
-    if component in (:resistance, :inductance, :conductance, :capacitance)
-        return Symbol(meta.symbol)
-    else
-        return Symbol(component)
+function _frequency_vector(object, provided)
+    if provided === nothing
+        return Float64.(collect(axes(object, 3)))
     end
-end
-
-function _normalize_quantity_units(units)
-    return normalize_quantity_units(units)
-end
-
-function _frequency_vector(obj, freqs)
-    if freqs === nothing
-        return float.(collect(axes(obj, 3)))
-    else
-        f = collect(freqs)
-        length(f) == size(obj, 3) ||
-            Base.error("Frequency vector length does not match object samples")
-        return float.(f)
-    end
-end
-
-function _frequency_vector(slice::AbstractVector, freqs::AbstractVector)
-    f = collect(freqs)
-    length(f) == length(slice) ||
-        Base.error("Frequency vector length must match slice length")
-    return float.(f)
-end
-
-function _build_dataframe(
-        slice,
-        freq_raw::Vector{<:Real},
-        comps::Vector{ComponentMetadata},
-        units::Dict{Symbol, Symbol},
-        length_unit::Symbol,
-        freq_unit::Symbol,
-        tol::Real
-)
-    freq_scale = frequency_scale(freq_unit)
-    freq_values = freq_raw .* freq_scale
-    unit_map = Dict{Symbol, String}(
-        _LP_FREQ_COL => _freq_units_label(freq_unit),
+    values = Float64.(collect(provided))
+    length(values) == size(object, 3) || throw(
+        DimensionMismatch("frequency vector length does not match the parameter depth"),
     )
-    df = DataFrame(_LP_FREQ_COL => freq_values)
-    for meta in comps
-        q_prefix = resolve_quantity_prefix(meta.quantity, units)
-        scale = quantity_scale(q_prefix)
-        l_scale = meta.unit.per_length ? length_scale(length_unit) : 1.0
-        raw_vals = component_values(meta.component, slice, freq_raw)
-        col_data = map(raw_vals) do x
-            _clip_field(x * (scale * l_scale), tol)
-        end
-        col_name = _column_name(meta)
-        df[!, col_name] = col_data
-        unit_map[col_name] = composite_unit(q_prefix, meta.unit.symbol, meta.unit.per_length, length_unit)
+    all(isfinite, values) || throw(ArgumentError("frequencies must be finite"))
+    return values
+end
+
+function _dataframe_components(object, mode::Symbol, coord::Symbol)
+    mode in (:RLCG, :ZY) || throw(ArgumentError("mode must be :RLCG or :ZY"))
+    coord in (:cart, :polar) || throw(ArgumentError("coord must be :cart or :polar"))
+    if mode === :RLCG
+        object isa SeriesImpedance && return (:R, :L)
+        object isa ShuntAdmittance && return (:G, :C)
+    elseif object isa SeriesImpedance
+        return coord === :cart ? (:Z_re, :Z_im) : (:Z_abs, :Z_angle)
+    elseif object isa ShuntAdmittance
+        return coord === :cart ? (:Y_re, :Y_im) : (:Y_abs, :Y_angle)
     end
-    metadata!(df, "units", unit_map, style = :note)
-    return df
+    throw(ArgumentError("unsupported line-parameter object $(typeof(object))"))
+end
+
+const _DATAFRAME_COLUMN = Dict(
+    :R => :R,
+    :L => :L,
+    :G => :G,
+    :C => :C,
+    :Z_re => :real,
+    :Z_im => :imag,
+    :Z_abs => :magnitude,
+    :Z_angle => :angle,
+    :Y_re => :real,
+    :Y_im => :imag,
+    :Y_abs => :magnitude,
+    :Y_angle => :angle
+)
+
+function _clip_field(value::Real, tolerance)
+    isfinite(value) || return value
+    return abs(value) <= tolerance ? zero(value) : value
+end
+
+function _clip_field(value::Measurements.Measurement, tolerance)
+    nominal = abs(Measurements.value(value)) <= tolerance ? 0.0 : Measurements.value(value)
+    uncertainty_value = abs(Measurements.uncertainty(value)) <= tolerance ? 0.0 :
+                        Measurements.uncertainty(value)
+    return Measurements.measurement(nominal, uncertainty_value)
+end
+
+_clip_field(value, _) = value
+
+function _dataframe_unit_label(component, object_basis, length_unit, quantity_units)
+    quantity, target, factor = _component_unit(
+        component,
+        object_basis,
+        length_unit,
+        quantity_units
+    )
+    return quantity, target, factor, UnitHandler.get_label(target)
 end
 
 function _matrix_dataframes(
-        obj,
-        freq_raw::Vector{<:Real},
-        comps::Vector{ComponentMetadata},
-        units::Dict{Symbol, Symbol},
-        length_unit::Symbol,
-        freq_unit::Symbol,
-        tol::Real
+        object,
+        frequency_values;
+        mode,
+        coord,
+        frequency_unit,
+        length_unit,
+        quantity_units,
+        tolerance
 )
-    nx, ny, _ = size(obj.values)
-    result = Matrix{DataFrame}(undef, nx, ny)
-    for i in 1:nx, j in 1:ny
+    frequency_quantity = UnitHandler.QuantityTag{:freq}()
+    frequency_target = UnitHandler.units(frequency_unit, :hertz)
+    frequency_factor = UnitHandler.scale_factor(
+        UnitHandler.default_unit(frequency_quantity),
+        frequency_target
+    )
+    displayed_frequency = frequency_values .* frequency_factor
+    component_names = _dataframe_components(object, mode, coord)
+    component_arrays = Dict(
+        component => _component_values(component, object, frequency_values)
+    for
+    component in component_names
+    )
+    row_count, column_count, _ = size(object)
+    frames = Matrix{DataFrame}(undef, row_count, column_count)
 
-        slice = @view obj.values[i, j, :]
-        result[i, j] = _build_dataframe(
-            slice,
-            freq_raw,
-            comps,
-            units,
-            length_unit,
-            freq_unit,
-            tol
+    for row in 1:row_count, column in 1:column_count
+
+        frame = DataFrame(_LP_FREQ_COL => displayed_frequency)
+        unit_map = Dict{Symbol, String}(
+            _LP_FREQ_COL => UnitHandler.get_label(frequency_target),
         )
+        for component in component_names
+            _, target, factor, unit_label = _dataframe_unit_label(
+                component,
+                basis(object),
+                length_unit,
+                quantity_units
+            )
+            values = collect(view(component_arrays[component], row, column, :)) .* factor
+            column_name = _DATAFRAME_COLUMN[component]
+            frame[!, column_name] = _clip_field.(values, tolerance)
+            unit_map[column_name] = unit_label
+        end
+        metadata!(frame, "units", unit_map, style = :note)
+        frames[row, column] = frame
     end
-    return result
+    return frames
 end
 
-# function _slice_dataframe(
-# 	slice::AbstractVector,
-# 	kind::Symbol,
-# 	freq_raw::Vector{<:Real},
-# 	mode::Symbol,
-# 	coord::Symbol,
-# 	units::Dict{Symbol, Symbol},
-# 	length_unit::Symbol,
-# 	freq_unit::Symbol,
-# 	tol::Real,
-# )
-# 	resolved_kind = _resolve_kind(slice, kind, tol)
-# 	comps =
-# 		resolved_kind == :series_impedance ?
-# 		components_for(_SERIES_DUMMY, mode, coord) :
-# 		components_for(_SHUNT_DUMMY, mode, coord)
-# 	return _build_dataframe(
-# 		slice,
-# 		freq_raw,
-# 		comps,
-# 		units,
-# 		length_unit,
-# 		freq_unit,
-# 		tol,
-# 	)
-# end
-
 """
-    DataFrame(Z::SeriesImpedance; freqs=nothing, mode=:RLCG, coord=:cart,
-              freq_unit=:base, length_unit=:kilo, quantity_units=nothing,
-              tol=sqrt(eps(Float64)))
+    DataFrame(parameters::Union{SeriesImpedance,ShuntAdmittance}; kwargs...)
 
-Convert the entries of a `SeriesImpedance` object into per-element `DataFrame`s
-indexed by frequency. Returns an `n×n` matrix of `DataFrame`s whose rows
-correspond to conductor indices.
+Convert each matrix entry to a frequency-indexed `DataFrame`. The result is an
+`n × n` matrix of frames. `mode=:RLCG` returns physical components and
+`mode=:ZY` returns Cartesian or polar components selected by `coord`.
 
-- `freqs`: explicit frequency vector in Hz. Defaults to `1:length(freq axis)`.
-- `mode`: `:RLCG` (default) or `:ZY`. For `:ZY`, `coord` may be `:cart` or `:polar`.
-- `length_unit`: metric prefix for per-length units (e.g. `:kilo` ⇒ per km).
-- `quantity_units`: optional overrides for the quantity metric prefixes used in each column.
-- `tol`: absolute tolerance used to zero-out tiny numerical noise.
+Container [`basis`](@ref) determines whether units are per length or total.
 """
 function DataFrame(
-        Z::SeriesImpedance;
+        parameters::Union{SeriesImpedance, ShuntAdmittance};
         freqs = nothing,
         mode::Symbol = :RLCG,
         coord::Symbol = :cart,
         freq_unit::Symbol = :base,
         length_unit::Symbol = :kilo,
         quantity_units = nothing,
-        tol::Real = sqrt(eps(Float64)),
-        per_length::Bool = true
+        tol::Real = sqrt(eps(Float64))
 )
-    freq_raw = _frequency_vector(Z, freqs)
-    units = _normalize_quantity_units(quantity_units)
-    comps = components_for(Z, mode, coord; per_length = per_length)
+    frequency_values = _frequency_vector(parameters, freqs)
     return _matrix_dataframes(
-        Z,
-        freq_raw,
-        comps,
-        units,
+        parameters,
+        frequency_values;
+        mode,
+        coord,
+        frequency_unit = freq_unit,
         length_unit,
-        freq_unit,
-        float(tol)
+        quantity_units,
+        tolerance = float(tol)
     )
 end
 
 """
-    DataFrame(Y::ShuntAdmittance; freqs=nothing, mode=:RLCG, coord=:cart,
-              freq_unit=:base, length_unit=:kilo, quantity_units=nothing,
-              tol=sqrt(eps(Float64)))
+    DataFrame(parameters::LineParameters; kwargs...)
 
-Convert the entries of a `ShuntAdmittance` object into per-element `DataFrame`s
-indexed by frequency. Returns an `n×n` matrix of `DataFrame`s.
-
-Keyword arguments mirror those of `DataFrame(::SeriesImpedance)`.
+Return `(series, shunt)`, two matrices of frequency-indexed `DataFrame`s,
+using the frequencies, basis, and domain stored by `parameters`.
 """
 function DataFrame(
-        Y::ShuntAdmittance;
-        freqs = nothing,
+        parameters::LineParameters;
         mode::Symbol = :RLCG,
         coord::Symbol = :cart,
         freq_unit::Symbol = :base,
         length_unit::Symbol = :kilo,
         quantity_units = nothing,
-        tol::Real = sqrt(eps(Float64)),
-        per_length::Bool = true
+        tol::Real = sqrt(eps(Float64))
 )
-    freq_raw = _frequency_vector(Y, freqs)
-    units = _normalize_quantity_units(quantity_units)
-    comps = components_for(Y, mode, coord; per_length = per_length)
-    return _matrix_dataframes(
-        Y,
-        freq_raw,
-        comps,
-        units,
-        length_unit,
-        freq_unit,
-        float(tol)
-    )
-end
-
-function _clip_field(x::Real, tol)
-    isfinite(x) || return x
-    return _clip(x, tol)
-end
-
-function _clip_field(m::Measurements.Measurement, tol)
-    v = _clip(value(m), tol)
-    u = _clip(uncertainty(m), tol)
-    return Measurements.measurement(v, u)
-end
-
-_clip_field(x, _) = x
-
-function _resolve_kind(slice, kind::Symbol, tol::Real)
-    kind != :auto && return kind
-    max_real = 0.0
-    max_imag = 0.0
-    for z in slice
-        r = real(z)
-        i = imag(z)
-        val_r = _scalar_abs(r)
-        val_i = _scalar_abs(i)
-        isfinite(val_r) && val_r > max_real && (max_real = val_r)
-        isfinite(val_i) && val_i > max_imag && (max_imag = val_i)
-    end
-    if max_real <= tol && max_imag > tol
-        return :shunt_admittance
-    else
-        return :series_impedance
-    end
-end
-
-_scalar_abs(x::Real) = abs(x)
-_scalar_abs(m::Measurements.Measurement) = abs(value(m))
-
-"""
-    DataFrame(LP::LineParameters; mode=:RLCG, coord=:cart,
-              freq_unit=:base, length_unit=:kilo, quantity_units=nothing,
-              tol=sqrt(eps(Float64)))
-Convert `LP.Z` and `LP.Y` to per-element, frequency-indexed `DataFrame`s
-using `LP.f` as the authoritative frequency vector. Returns `(df_z, df_y)`,
-each an `n×n` `Matrix{DataFrame}`.
-"""
-function DataFrame(
-        LP::LineParameters;
-        mode::Symbol = :RLCG,
-        coord::Symbol = :cart,
-        freq_unit::Symbol = :base,
-        length_unit::Symbol = :kilo,
-        quantity_units = nothing,
-        tol::Real = sqrt(eps(Float64)),
-        per_length::Bool = true
-)
-    # --- validations: LP is the source of truth for frequency samples ----
-    @assert eltype(LP.f) <: Real "LP.f must be real-valued frequencies."
-    nzx, nzy, nfZ = size(LP.Z.values)
-    nyx, nyy, nfY = size(LP.Y.values)
-    nfZ == nfY ||
-        Base.error("Z and Y have different number of frequency samples: $nfZ ≠ $nfY.")
-    length(LP.f) == nfZ || Base.error(
-        "Length of LP.f ($(length(LP.f))) does not match samples in Z/Y ($nfZ).",
-    )
-
-    # --- delegate with LP.f explicitly (no guessing, no manual input) ----
-    df_z = DataFrame(
-        LP.Z;
-        freqs = LP.f,
+    common = (
+        freqs = frequencies(parameters),
         mode = mode,
         coord = coord,
         freq_unit = freq_unit,
         length_unit = length_unit,
         quantity_units = quantity_units,
-        tol = tol,
-        per_length = per_length
+        tol = tol
     )
-
-    df_y = DataFrame(
-        LP.Y;
-        freqs = LP.f,
-        mode = mode,
-        coord = coord,
-        freq_unit = freq_unit,
-        length_unit = length_unit,
-        quantity_units = quantity_units,
-        tol = tol,
-        per_length = per_length
-    )
-
-    return df_z, df_y
+    return DataFrame(parameters.Z; common...), DataFrame(parameters.Y; common...)
 end

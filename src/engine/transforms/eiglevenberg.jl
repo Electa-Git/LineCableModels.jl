@@ -33,8 +33,9 @@ transformation matrices and a **modal-domain** `LineParameters` holding the
 
 """
 function (f::Levenberg)(
-        lp::LineParameters{Tc, U, PhaseDomain},
-) where {Tc <: COMPLEXSCALAR, U <: REALSCALAR}
+        lp::LineParameters{
+        Tc, U, PhaseDomain, Basis},
+) where {Tc <: COMPLEXSCALAR, U <: REALSCALAR, Basis}
     n, n2, nfreq = size(lp.Z.values)
     n == n2 || throw(DimensionMismatch("Z must be square"))
     size(lp.Y.values) == (n, n, nfreq) || throw(DimensionMismatch("Y must be n×n×nfreq"))
@@ -86,7 +87,7 @@ function (f::Levenberg)(
     # 	_calc_modal_quantities(Ti, lp.Z.values, lp.Y.values)
     # Gdiag = _calc_gamma(Ti, lp.Z.values, lp.Y.values)
 
-    return Ti, LineParameters(ModalDomain, SeriesImpedance(Zm), ShuntAdmittance(Ym), lp.f)
+    return Ti, LineParameters(ModalDomain, Zm, Ym, lp.f; basis = basis(lp))
     # Keep  original return (Ti, modal characteristic) for compatibility,
     # but you now also have Zm, Ym, Zch, Ych, Gdiag available for downstream use.
     # return Ti, LineParameters(SeriesImpedance(Zc_mod), ShuntAdmittance(Yc_mod), lp.f),

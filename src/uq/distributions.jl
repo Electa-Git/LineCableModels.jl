@@ -1,631 +1,258 @@
-@inline function _stored_lineparameter_samples(res::LineParametersMC)
-    samples = res.samples
-    samples === nothing && throw(
-        ArgumentError(
-        "whole-trial sampling requires stored samples; " *
-        "rerun mc(...; return_samples=true)",
-    ),
+function HistogramPDF(
+        edges::AbstractVector{TE},
+        density::AbstractVector{TD}
+) where {TE <: Real, TD <: Real}
+    length(edges) == length(density) + 1 || throw(
+        ArgumentError("edges must contain exactly one more value than density"),
     )
-    return samples
+    isempty(density) && throw(ArgumentError("density must contain at least one bin"))
+    all(isfinite, edges) || throw(ArgumentError("histogram edges must be finite"))
+    all(isfinite, density) || throw(ArgumentError("histogram density must be finite"))
+    all(>=(zero(TD)), density) ||
+        throw(ArgumentError("histogram density must be nonnegative"))
+
+    T = float(promote_type(TE, TD))
+    copied_edges = Vector{T}(edges)
+    copied_density = Vector{T}(density)
+    widths = diff(copied_edges)
+    all(>(zero(T)), widths) || throw(
+        ArgumentError("histogram edges must be strictly increasing"),
+    )
+    area = dot(copied_density, widths)
+    area > zero(area) || throw(ArgumentError("histogram density must have positive area"))
+    copied_density ./= area
+    return HistogramPDF{T}(copied_edges, copied_density)
 end
 
-"""
-    trial(res::LineParametersMC, t::Integer)
-
-Reconstruct one complete empirical Monte Carlo realization.
-
-# Arguments
-
-- `res`: Monte Carlo line-parameter result created with `return_samples=true`.
-- `t`: Stored one-based trial index.
-
-# Returns
-
-- A `LineParameters` object containing the jointly observed series impedance and
-  shunt admittance at every matrix entry and frequency. Values are in \\[Ω/m\\]
-  and \\[S/m\\] when `res` was computed with `per_length=true`, or \\[Ω\\] and \\[S\\]
-  when it was computed with `per_length=false`.
-
-# Notes
-
-The same index `t` is used for every R, L, G, and C coordinate. The result is
-therefore one member of the original discrete empirical joint distribution,
-without independent marginal resampling or covariance approximation.
-
-# Errors
-
-- Throws `ArgumentError` when `res` does not contain raw samples.
-- Throws `BoundsError` when `t` is not a stored trial index.
-- Throws `DimensionMismatch` when stored sample tensors or frequencies have
-  inconsistent dimensions.
-
-# Examples
-
-```julia
-result = mc(spec, formulation; trials=100, return_samples=true)
-lp = trial(result, 7)
-```
-"""
-function trial(res::LineParametersMC, t::Integer)
-    samples = _stored_lineparameter_samples(res)
-    sample_size = size(samples.R)
-    all(size(values) == sample_size for values in (samples.L, samples.G, samples.C)) ||
-        throw(DimensionMismatch("stored R, L, G, and C sample tensors must have equal dimensions"))
-    sample_size[1] == sample_size[2] ||
-        throw(DimensionMismatch("stored line-parameter sample matrices must be square"))
-    sample_size[3] == length(res.f) ||
-        throw(DimensionMismatch("stored sample and frequency dimensions must agree"))
-    t in axes(samples.R, 4) || throw(BoundsError(res, t))
-
-    nph, _, nfreq, _ = sample_size
-    U = eltype(samples.R)
-    Z = Array{Complex{U}, 3}(undef, nph, nph, nfreq)
-    Y = Array{Complex{U}, 3}(undef, nph, nph, nfreq)
-    @inbounds for j1 in 1:nph, j2 in 1:nph, k in 1:nfreq
-        ω = 2π * res.f[k]
-        Z[j1, j2, k] = samples.R[j1, j2, k, t] + im * ω * samples.L[j1, j2, k, t]
-        Y[j1, j2, k] = samples.G[j1, j2, k, t] + im * ω * samples.C[j1, j2, k, t]
-    end
-    return LineParameters(domain(res), Z, Y, res.f)
-end
-
-"""
-    rand(rng::AbstractRNG, res::LineParametersMC)
-    rand(res::LineParametersMC)
-
-Draw one complete empirical Monte Carlo realization uniformly.
-
-# Arguments
-
-- `rng`: Random-number generator used to select the stored trial index.
-- `res`: Monte Carlo line-parameter result created with `return_samples=true`.
-
-# Returns
-
-- A `LineParameters` object reconstructed from one uniformly selected stored
-  trial.
-
-# Notes
-
-Exactly one trial index is drawn per returned `LineParameters`; that index is
-shared across all matrix entries, R/L/G/C components, and frequencies. The
-method without `rng` uses `Random.default_rng()`.
-
-# Errors
-
-- Throws `ArgumentError` when `res` does not contain raw samples or contains no
-  stored trials.
-
-# Examples
-
-```julia
-rng = Random.MersenneTwister(42)
-lp = rand(rng, result)
-```
-
-"""
-function Base.rand(rng::AbstractRNG, res::LineParametersMC)
-    samples = _stored_lineparameter_samples(res)
-    trial_indices = axes(samples.R, 4)
-    isempty(trial_indices) &&
-        throw(ArgumentError("whole-trial sampling requires at least one stored trial"))
-    return trial(res, rand(rng, trial_indices))
-end
-
-Base.rand(res::LineParametersMC) = rand(Random.default_rng(), res)
-
-"""
-Freedman–Diaconis rule to guesstimate number of bins for histogram
-
-For samples x:
-
-IQR = interquartile range = q75 - q25
-
-bin width
-h = 2 * IQR / N^(1/3)
-number of bins ~ (max(x) - min(x)) / h
-"""
-function _auto_nbins(x::AbstractVector{<:Real};
+function _auto_nbins(
+        values::AbstractVector{<:Real};
         nbins_min::Int = 10,
         nbins_max::Int = 200
 )
-    n = length(x)
-    n == 0 && error("Empty sample set.")
-
-    xs = sort(float.(x))
-    xmin, xmax = xs[1], xs[end]
-    span = xmax - xmin
-
-    # degenerate span: all samples equal (or numerically so)
-    if span <= 0 || !isfinite(span)
+    isempty(values) && throw(ArgumentError("cannot bin an empty sample"))
+    sorted_values = sort(float.(values))
+    span = last(sorted_values) - first(sorted_values)
+    if !(isfinite(span) && span > 0)
         return nbins_min
     end
-
-    q25 = quantile(xs, 0.25)
-    q75 = quantile(xs, 0.75)
-    iqr = q75 - q25
-
-    # iqr ~ 0 → data essentially degenerate → fallback
-    if iqr <= 0 || !isfinite(iqr)
-        return clamp(ceil(Int, sqrt(n)), nbins_min, nbins_max)
+    interquartile_range = StatsBase.quantile(sorted_values, 0.75) -
+                          StatsBase.quantile(sorted_values, 0.25)
+    if !(isfinite(interquartile_range) && interquartile_range > 0)
+        return clamp(ceil(Int, sqrt(length(values))), nbins_min, nbins_max)
     end
-
-    h = 2 * iqr / n^(1/3)
-
-    # h tiny or broken → fallback
-    if h <= 0 || !isfinite(h)
-        return clamp(ceil(Int, sqrt(n)), nbins_min, nbins_max)
-    end
-
-    raw = span / h
-
-    # If raw bin count is insane, just clamp **before** converting to Int
-    if !isfinite(raw) || raw <= nbins_min
-        return nbins_min
-    elseif raw >= nbins_max
-        return nbins_max
-    else
-        return ceil(Int, raw)
-    end
+    width = 2 * interquartile_range / cbrt(length(values))
+    raw_count = span / width
+    return isfinite(raw_count) ?
+           clamp(ceil(Int, raw_count), nbins_min, nbins_max) : nbins_max
 end
 
-# Build a piecewise-constant PDF from samples
-function _pdf_from_hist(x::AbstractVector{<:Real}; nbins::Union{Int, Nothing} = nothing)
-    n = length(x)
-    n == 0 && error("Empty sample set.")
-
-    nb = isnothing(nbins) ? _auto_nbins(x) : nbins
-
-    h = fit(Histogram, float.(x); nbins = nb, closed = :left)
-    edges = collect(h.edges[1])
-    widths = diff(edges)
-    dens = h.weights ./ (n .* widths)
-
-    return LineParametersPDF(edges, dens)  # ctor re-normalizes area
+function _pdf_from_hist(
+        values::AbstractVector{<:Real};
+        nbins::Union{Int, Nothing} = nothing
+)
+    isempty(values) && throw(ArgumentError("cannot fit a histogram to an empty sample"))
+    count = isnothing(nbins) ? _auto_nbins(values) : nbins
+    count > 0 || throw(ArgumentError("nbins must be positive"))
+    histogram = fit(Histogram, float.(values); nbins = count, closed = :left)
+    edges = collect(histogram.edges[1])
+    density = histogram.weights ./ (length(values) .* diff(edges))
+    return HistogramPDF(edges, density)
 end
 
-# Density at x0
-@inline function (hp::LineParametersPDF)(x0::Real)
-    i = searchsortedlast(hp.edges, float(x0))
-    (i < 1 || i >= length(hp.edges)) && return 0.0
-    return hp.dens[i]
+function _binindex(distribution::HistogramPDF, value::Real)
+    value < first(distribution.edges) && return 0
+    value > last(distribution.edges) && return 0
+    value == last(distribution.edges) && return length(distribution.density)
+    return searchsortedlast(distribution.edges, value)
 end
 
-"""
-Finds the index `i` of the bin `[edges[i], edges[i+1])` that `x` falls into.
-Returns 0 if `x` is out of bounds.
-Handles the right-most edge `x == edges[end]` correctly.
-"""
-function _binsearch(d::LineParametersPDF, x::Real)
-    if x < d.edges[1] || x > d.edges[end]
-        return 0 # Out of bounds
-    end
-
-    # Handle the maximum edge case, which searchsortedlast fucks up
-    if x == d.edges[end]
-        return length(d.dens) # Belongs to the last bin
-    end
-
-    # searchsortedlast finds the largest index i s.t. edges[i] <= x
-    # This is exactly the bin index we need.
-    i = searchsortedlast(d.edges, x)
-
-    # This should be redundant given the initial check, but belt and suspenders.
-    (i < 1 || i > length(d.dens)) && return 0
-
-    return i
+(distribution::HistogramPDF)(value::Real) = Distributions.pdf(distribution, value)
+Distributions.minimum(distribution::HistogramPDF) = first(distribution.edges)
+Distributions.maximum(distribution::HistogramPDF) = last(distribution.edges)
+function Distributions.insupport(distribution::HistogramPDF, value::Real)
+    minimum(distribution) <= value <= maximum(distribution)
 end
 
-"""
-Computes the stable integral of x^k over [a, b]
-Returns: (b^(k+1) - a^(k+1)) / (k+1)
-"""
-function _stable_pow_integral(a::T, b::T, k::Int) where {T <: Real}
-    n = k + 1
-    h = b - a # width
-
-    # If width is effectively zero, integral is zero
-    if h == 0
-        return zero(T)
-    end
-
-    # Use the stable factored form: (b-a)/n * sum(a^j * b^(n-1-j) for j=0..n-1)
-    # n-1 = k
-    s = zero(T)
-    @inbounds for j in 0:k
-        s += a^j * b^(k - j)
-    end
-
-    return s * h / n
+function Distributions.pdf(distribution::HistogramPDF{T}, value::Real) where {T}
+    index = _binindex(distribution, value)
+    return index == 0 ? zero(T) : distribution.density[index]
 end
 
-"""
-Computes raw moments m_1...m_K in a *single pass*.
-Returns a Vector m where m[k] = E[X^k].
-"""
-function _raw_moments(d::LineParametersPDF{T}, K::Int) where {T <: Real}
-    e = d.edges
-    dens = d.dens
-
-    # m[k] will hold the k-th raw moment
-    m = zeros(T, K)
-
-    @inbounds for i in 1:length(dens)
-        # Skip bins with zero density.
-        d_i = dens[i]
-        d_i == 0 && continue
-
-        a = e[i]
-        b = e[i + 1]
-
-        # Calculate all moments 1..K for this bin
-        for k in 1:K
-            # This is the numerically stable integral of x^k from a to b,
-            # which is (b^(k+1) - a^(k+1)) / (k+1).
-            integral_term = _stable_pow_integral(a, b, k)
-
-            # Add this bin's contribution to the k-th moment
-            m[k] += d_i * integral_term
-        end
-    end
-    return m
+function Distributions.logpdf(distribution::HistogramPDF, value::Real)
+    probability = Distributions.pdf(distribution, value)
+    return probability > 0 ? log(probability) : -Inf
 end
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Distributions.jl API
-# ─────────────────────────────────────────────────────────────────────────────
-
-# --- Basic properties ---
-
-Distributions.minimum(d::LineParametersPDF) = d.edges[1]
-Distributions.maximum(d::LineParametersPDF) = d.edges[end]
-
-function Distributions.insupport(d::LineParametersPDF, x::Real)
-    # Is it in the bounds? This isn't rocket science.
-    return d.edges[1] <= x <= d.edges[end]
-end
-
-# --- PDF / LOGPDF ---
-
-function Distributions.pdf(d::LineParametersPDF{T}, x::Real) where {T}
-    i = _binsearch(d, x)
-    # If index is 0 (out of bounds), density is 0. Otherwise, look it up.
-    return i == 0 ? zero(T) : d.dens[i]
-end
-
-function Distributions.logpdf(d::LineParametersPDF{T}, x::Real) where {T}
-    p = Distributions.pdf(d, x)
-    # Don't try to log(0). It's -Inf.
-    return p > 0 ? log(p) : -Inf
-end
-
-# --- CDF (Cumulative Distribution Function) ---
-
-function Distributions.cdf(d::LineParametersPDF{T}, x::Real) where {T}
-    if x < Distributions.minimum(d)
-        return zero(T)
-    end
-    if x >= Distributions.maximum(d)
-        return one(T)
-    end
-
-    i_x = _binsearch(d, x) # The bin that x is currently in
-    widths = diff(d.edges)
-
-    # 1. Sum the area of all *full* bins before the current one
-    area_full_bins = sum(
-        (d.dens[j] * widths[j] for j in 1:(i_x - 1));
+function Distributions.cdf(distribution::HistogramPDF{T}, value::Real) where {T}
+    value < minimum(distribution) && return zero(T)
+    value >= maximum(distribution) && return one(T)
+    index = _binindex(distribution, value)
+    widths = diff(distribution.edges)
+    prior = sum(
+        (distribution.density[j] * widths[j] for j in 1:(index - 1));
         init = zero(T)
     )
-
-    # 2. Add the partial area of the current bin
-    area_partial_bin = d.dens[i_x] * (x - d.edges[i_x])
-
-    return area_full_bins + area_partial_bin
+    return prior + distribution.density[index] * (value - distribution.edges[index])
 end
 
-# --- Quantile (Inverse CDF) ---
-
-"""
-Pre-calculates cumulative probabilities for efficient sampling.
-This is what `sampler` should actually be doing.
-"""
-struct LineParametersPDFSampler{T <: Real} <:
+struct HistogramPDFSampler{T <: Real} <:
        Distributions.Sampleable{Distributions.Univariate, Distributions.Continuous}
-    d::LineParametersPDF{T}
-    cum_probs::Vector{T} # Cumulative probability at the *end* of each bin
+    distribution::HistogramPDF{T}
+    cumulative_probability::Vector{T}
 end
 
-function Distributions.sampler(d::LineParametersPDF)
-    widths = diff(d.edges)
-    bin_probs = d.dens .* widths
-    cum_probs = cumsum(bin_probs)
-
-    # Ensure the last value is exactly 1.0 to avoid float rounding
-    # errors when sampling u=1.0
-    cum_probs[end] = 1.0
-
-    return LineParametersPDFSampler(d, cum_probs)
+function Distributions.sampler(distribution::HistogramPDF)
+    probabilities = distribution.density .* diff(distribution.edges)
+    cumulative = cumsum(probabilities)
+    cumulative[end] = one(eltype(cumulative))
+    return HistogramPDFSampler(distribution, cumulative)
 end
 
-function Distributions.quantile(s::LineParametersPDFSampler{T}, q::Real) where {T}
-    # This is the actual inverse-CDF logic.
-    d = s.d
+function Distributions.quantile(sampler::HistogramPDFSampler{T}, probability::Real) where {T}
+    probability <= 0 && return minimum(sampler.distribution)
+    probability >= 1 && return maximum(sampler.distribution)
+    index = searchsortedfirst(sampler.cumulative_probability, probability)
+    prior = index == 1 ? zero(T) : sampler.cumulative_probability[index - 1]
+    density = sampler.distribution.density[index]
+    density == 0 && return sampler.distribution.edges[index]
+    return sampler.distribution.edges[index] + (probability - prior) / density
+end
 
-    if q <= 0
-        return Distributions.minimum(d)
+function Distributions.quantile(distribution::HistogramPDF, probability::Real)
+    0 <= probability <= 1 || throw(
+        DomainError(probability, "probability must lie in [0, 1]"),
+    )
+    Distributions.quantile(Distributions.sampler(distribution), probability)
+end
+
+function Base.rand(rng::AbstractRNG, sampler::HistogramPDFSampler)
+    probability = rand(rng)
+    index = searchsortedfirst(sampler.cumulative_probability, probability)
+    prior = index == 1 ? zero(probability) : sampler.cumulative_probability[index - 1]
+    mass = sampler.cumulative_probability[index] - prior
+    fraction = iszero(mass) ? zero(probability) : (probability - prior) / mass
+    left = sampler.distribution.edges[index]
+    right = sampler.distribution.edges[index + 1]
+    return left + fraction * (right - left)
+end
+
+function Base.rand(rng::AbstractRNG, distribution::HistogramPDF)
+    rand(rng, Distributions.sampler(distribution))
+end
+
+function _raw_moment(distribution::HistogramPDF{T}, order::Integer) where {T}
+    order >= 0 || throw(ArgumentError("moment order must be nonnegative"))
+    total = zero(T)
+    exponent = order + 1
+    for index in eachindex(distribution.density)
+        left = distribution.edges[index]
+        right = distribution.edges[index + 1]
+        total += distribution.density[index] *
+                 (right^exponent - left^exponent) / exponent
     end
-    if q >= 1
-        return Distributions.maximum(d)
+    return total
+end
+
+function Distributions.moment(distribution::HistogramPDF, order::Integer)
+    _raw_moment(distribution, order)
+end
+Distributions.mean(distribution::HistogramPDF) = _raw_moment(distribution, 1)
+function Distributions.var(distribution::HistogramPDF)
+    value = _raw_moment(distribution, 2) - Distributions.mean(distribution)^2
+    return max(value, zero(value))
+end
+Distributions.std(distribution::HistogramPDF) = sqrt(Distributions.var(distribution))
+
+function Distributions.mode(distribution::HistogramPDF)
+    _, index = findmax(distribution.density)
+    return (distribution.edges[index] + distribution.edges[index + 1]) / 2
+end
+
+function Distributions.modes(distribution::HistogramPDF)
+    maximum_density = maximum(distribution.density)
+    indices = findall(value -> value ≈ maximum_density, distribution.density)
+    return [(distribution.edges[index] + distribution.edges[index + 1]) / 2
+            for
+            index in indices]
+end
+
+"""Return one retained scalar cable-constant trial."""
+function trial(result::CableConstantsMC, index::Integer)
+    resistance_values = samples(result, :R)
+    index in eachindex(resistance_values) || throw(BoundsError(result, index))
+    return CableConstants(
+        resistance_values[index],
+        samples(result, :L)[index],
+        samples(result, :C)[index]
+    )
+end
+
+"""Reconstruct one retained joint line-parameter trial."""
+function trial(
+        result::LineParametersMC{S, Samples, Distributions, Surrogate},
+        index::Integer
+) where {
+        S,
+        Samples,
+        Distributions,
+        T,
+        U,
+        D,
+        Basis,
+        Surrogate <: LineParameters{T, U, D, Basis}
+}
+    resistance_values = samples(result, :R)
+    inductance_values = samples(result, :L)
+    capacitance_values = samples(result, :C)
+    conductance_values = samples(result, :G)
+    sample_size = size(resistance_values)
+    all(
+        size(values) == sample_size
+    for
+    values in (inductance_values, capacitance_values, conductance_values)
+    ) ||
+        throw(DimensionMismatch("stored R, L, C, and G samples must have equal dimensions"))
+    sample_size[1] == sample_size[2] || throw(
+        DimensionMismatch("stored line-parameter matrices must be square"),
+    )
+    sample_size[3] == nfrequencies(result) || throw(
+        DimensionMismatch("stored samples and frequencies must agree"),
+    )
+    index in axes(resistance_values, 4) || throw(BoundsError(result, index))
+
+    matrix_count = sample_size[1]
+    frequency_count = sample_size[3]
+    scalar_type = eltype(resistance_values)
+    impedance = Array{Complex{scalar_type}, 3}(
+        undef,
+        matrix_count,
+        matrix_count,
+        frequency_count
+    )
+    admittance = similar(impedance)
+    frequency_values = frequencies(result)
+    for k in 1:frequency_count, j in 1:matrix_count, i in 1:matrix_count
+        omega = 2π * frequency_values[k]
+        impedance[i, j, k] = resistance_values[i, j, k, index] +
+                             im * omega * inductance_values[i, j, k, index]
+        admittance[i, j, k] = conductance_values[i, j, k, index] +
+                              im * omega * capacitance_values[i, j, k, index]
     end
-
-    # Find the first bin `i` where the cumulative probability >= q
-    i = findfirst(p -> p >= q, s.cum_probs)
-    # This should never be nothing thanks to the q >= 1 check, but...
-    if i === nothing
-        return Distributions.maximum(d)
-    end
-
-    # Get probability accumulated *before* this bin
-    q_prev = (i == 1) ? zero(T) : s.cum_probs[i - 1]
-
-    # How much more probability do we need *from this bin*?
-    q_needed = q - q_prev
-
-    # If density is zero, any width is fine, just return the start edge.
-    # Avoids a 0/0 NaN.
-    if d.dens[i] <= 0
-        return d.edges[i]
-    end
-
-    # Calculate the partial width into this bin
-    # width = probability / density
-    width_needed = q_needed / d.dens[i]
-
-    return d.edges[i] + width_needed
+    return LineParameters(
+        D,
+        SeriesImpedance{eltype(impedance), Basis}(impedance),
+        ShuntAdmittance{eltype(admittance), Basis}(admittance),
+        frequency_values
+    )
 end
 
-# `quantile(d, q)` will be slow as it builds the sampler *every time*.
-# This is the price you pay for a stateless distribution object.
-function Distributions.quantile(d::LineParametersPDF, q::Real)
-    return Distributions.quantile(Distributions.sampler(d), q)
+function Base.rand(rng::AbstractRNG, result::Union{CableConstantsMC, LineParametersMC})
+    has_samples(result) || throw(
+        ArgumentError("joint sampling requires mc(...; return_samples=true)"),
+    )
+    return trial(result, rand(rng, 1:ntrials(result)))
 end
 
-# --- RAND (Random Sampling) ---
-
-# Use the efficient sampler-based method
-function Base.rand(rng::AbstractRNG, s::LineParametersPDFSampler)
-    # 1. Draw a uniform random number between 0 and 1
-    u = rand(rng)
-
-    # 2. Find which bin 'u' falls into using binary search
-    idx = searchsortedfirst(s.cum_probs, u)
-
-    # 3. Get the cumulative probability up to the start of this bin
-    prev_cum_prob = idx == 1 ? zero(eltype(s.cum_probs)) : s.cum_probs[idx - 1]
-
-    # 4. Calculate how far 'u' is into this specific bin (as a fraction from 0 to 1)
-    prob_in_bin = s.cum_probs[idx] - prev_cum_prob
-    fraction = (u - prev_cum_prob) / prob_in_bin
-
-    # 5. Interpolate between the bin edges to get the continuous value
-    left_edge = s.d.edges[idx]
-    right_edge = s.d.edges[idx + 1]
-
-    return left_edge + fraction * (right_edge - left_edge)
-end
-
-# This one will be called if you just do `rand(d)`
-function Base.rand(rng::AbstractRNG, d::LineParametersPDF)
-    # This is inefficient as fuck. It builds the sampler on every. single. draw.
-    # But it's what the Distributions.jl API expects as a fallback.
-    # Use `rand(rng, sampler(d))` for batch sampling.
-    s = Distributions.sampler(d)
-    return Base.rand(rng, s)
-end
-
-# Get all moments up to k, then return the k-th
-Distributions.moment(d::LineParametersPDF, k::Integer) = _raw_moments(d, k)[k]
-
-function Distributions.mean(d::LineParametersPDF{T}) where {T}
-    # E[X] = ∫ x * p(x) dx
-    return Distributions.moment(d, 1)
-end
-
-function Distributions.var(d::LineParametersPDF{T}) where {T}
-    # Var(X) = E[X^2] - (E[X])^2
-    # E[X^2] = ∫ x^2 * p(x) dx
-    # For bin i, integral is d.dens[i] * ∫(from e_i to e_{i+1}) x^2 dx
-    m = _raw_moments(d, 2)
-    m1 = m[1]
-    m2 = m[2]
-
-    v = m2 - m1^2
-    # Handle floating point noise. Variance cannot be negative.
-    return v < 0 ? zero(T) : v
-end
-
-Distributions.std(d::LineParametersPDF) = sqrt(Distributions.var(d))
-
-function Distributions.skewness(d::LineParametersPDF{T}) where {T}
-    m = _raw_moments(d, 3)
-    m1, m2, m3 = m[1], m[2], m[3]
-
-    μ = m1
-    μ2 = m2 - μ^2 # Variance
-
-    # Degenerate case: variance is zero. Return NaN.
-    if μ2 <= eps(T) # Use machine epsilon for float comparison
-        return T(NaN)
-    end
-
-    μ3 = m3 - 3*μ*m2 + 2*μ^3
-    return μ3 / μ2^(3/2)
-end
-
-function Distributions.kurtosis(d::LineParametersPDF{T}) where {T}
-    # Pass `true` for excess kurtosis (subtracts 3)
-    return Distributions.kurtosis(d, true)
-end
-
-function Distributions.kurtosis(d::LineParametersPDF{T}, excess::Bool) where {T}
-    m = _raw_moments(d, 4)
-    m1, m2, m3, m4 = m[1], m[2], m[3], m[4]
-
-    μ = m1
-    μ2 = m2 - μ^2 # Variance
-
-    # Degenerate case: variance is zero. Return NaN.
-    if μ2 <= eps(T)
-        return T(NaN)
-    end
-
-    μ4 = m4 - 4*μ*m3 + 6*μ^2*m2 - 3*μ^4
-
-    kurt = μ4 / μ2^2
-    return excess ? (kurt - 3) : kurt
-end
-
-function Distributions.mode(d::LineParametersPDF)
-    # Returns *a* mode. The distribution is multi-modal
-    # if the max density spans multiple (or disjoint) bins.
-    # We'll just return the midpoint of the *first* bin with max density.
-
-    max_dens, i = findmax(d.dens)
-    return (d.edges[i] + d.edges[i + 1]) / 2
-end
-
-function Distributions.modes(d::LineParametersPDF{T}) where {T}
-    # The "modes" are technically *intervals*, not points.
-    # This is a pain in the ass.
-    # We'll just return the midpoints of all bins with max density.
-
-    max_dens = maximum(d.dens)
-    # Find all bins that are numerically close to the max
-    indices = findall(p -> p ≈ max_dens, d.dens)
-
-    return [(d.edges[i] + d.edges[i + 1]) / 2 for i in indices]
-end
-
-"""
-entropy(d::LineParametersPDF)
-
-Calculate the differential entropy (base e).
-H(X) = - ∫ f(x) * log(f(x)) dx
-     = - Σ ∫_{e_i}^{e_{i+1}} [d_i * log(d_i)] dx
-     = - Σ [d_i * log(d_i) * w_i]
-     = - Σ [p_i * log(d_i)]
-where p_i = d_i * w_i is the probability mass of bin i.
-"""
-function Distributions.entropy(d::LineParametersPDF{T}) where {T}
-    acc = zero(T)
-    widths = diff(d.edges)
-
-    @inbounds for i in 1:length(d.dens)
-        dens_i = d.dens[i]
-
-        # If density is 0, (f(x) * log(f(x))) -> 0.
-        # So we just skip the bin.
-        if dens_i > 0
-            width_i = widths[i]
-            prob_mass_i = dens_i * width_i
-
-            # This is base e (natural log)
-            acc -= prob_mass_i * log(dens_i)
-        end
-    end
-    return acc
-end
-
-"""
-entropy(d::LineParametersPDF, b::Real)
-
-Calculate the differential entropy with a specified base b.
-H_b(X) = H_e(X) / log(b)
-"""
-function Distributions.entropy(d::LineParametersPDF, b::Real)
-    (b > 0 && b != 1) ||
-        throw(ArgumentError("Entropy base must satisfy b > 0 and b ≠ 1, got b = $b"))
-
-    # Just convert the base e entropy.
-    return Distributions.entropy(d) / log(b)
-end
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Moment Generating & Characteristic Functions
-# ─────────────────────────────────────────────────────────────────────────────
-
-"""
-mgf(d::LineParametersPDF, t::Real)
-
-Moment Generating Function
-M(t) = E[e^(tX)] = ∫ e^(tx) * f(x) dx
-     = Σ ∫_{e_i}^{e_{i+1}} [d_i * e^(tx)] dx
-     = Σ d_i * [e^(tx) / t]_{e_i}^{e_{i+1}}
-     = Σ d_i/t * (e^(t*e_{i+1}) - e^(t*e_i))
-
-This is numerically catastrophic for t -> 0.
-We rewrite:
-Term_i = d_i * e^(t*e_i) * (e^(t*(e_{i+1}-e_i)) - 1) / t
-Let w_i = e_{i+1} - e_i.
-Term_i = d_i * e^(t*e_i) * w_i * (e^(t*w_i) - 1) / (t*w_i)
-Term_i = d_i * e^(t*e_i) * w_i * exprel(t*w_i)
-
-`Base.Math.exprel(x)` is the numerically stable (e^x - 1) / x.
-"""
-function Distributions.mgf(d::LineParametersPDF{T}, t::Real) where {T}
-    t == 0 && return one(T) # MGF(0) = 1
-
-    acc = zero(T)
-
-    @inbounds for i in 1:length(d.dens)
-        dens_i = d.dens[i]
-        dens_i == 0 && continue
-
-        a = d.edges[i]
-        b = d.edges[i + 1]
-        w = b - a
-
-        # This is the argument to exprel: z = t*w
-        z = t * w
-
-        # Calculate (e^z - 1) / z, handling z=0
-        # This is the stable implementation
-        exprel_z = iszero(z) ? one(z) : expm1(z) / z
-
-        # Term_i = d_i * e^(t*a) * w_i * exprel(t*w_i)
-        acc += dens_i * exp(t * a) * w * exprel_z
-    end
-    return acc
-end
-
-"""
-cf(d::LineParametersPDF, t::Real)
-
-Characteristic Function
-ϕ(t) = E[e^(itX)] = MGF(it)
-
-This is the exact same derivation as the MGF, just
-substituting `t` with `it`.
-"""
-function Distributions.cf(d::LineParametersPDF{T}, t::Real) where {T}
-    t == 0 && return one(Complex{T})
-
-    acc = zero(Complex{T})
-
-    @inbounds for i in 1:length(d.dens)
-        dens_i = d.dens[i]
-        dens_i == 0 && continue
-
-        a = d.edges[i]
-        b = d.edges[i + 1]
-        w = b - a
-
-        z = im * t * w
-
-        exprel_z = iszero(z) ? one(z) : expm1(z) / z
-
-        acc += dens_i * exp(im * t * a) * w * exprel_z
-    end
-    return acc
+function Base.rand(result::Union{CableConstantsMC, LineParametersMC})
+    rand(Random.default_rng(), result)
 end

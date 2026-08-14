@@ -2,10 +2,9 @@ module LineCableModelsMakieExt
 
 using LineCableModels
 using Makie
-using Dates: format, now
 
 const PlotBuilder = LineCableModels.PlotBuilder
-const BackendHandler = LineCableModels.PlotBuilder.BackendHandler
+const BackendHandler = PlotBuilder.BackendHandler
 
 function current_backend_symbol()
     name = nameof(Makie.current_backend())
@@ -15,65 +14,173 @@ function current_backend_symbol()
     return :unknown
 end
 
-renderfig(fig) = display(fig)
+renderfig(figure) = display(figure)
 
 include(joinpath(
-    @__DIR__, "..", "src", "plotbuilder", "plotuicomponents", "PlotUIComponents.jl"))
-include(joinpath(@__DIR__, "..", "src", "plotbuilder", "uicomponents", "UIComponents.jl"))
+    @__DIR__,
+    "..",
+    "src",
+    "plotbuilder",
+    "uicomponents",
+    "UIComponents.jl"
+))
+using .UIComponents
 
-using LineCableModels.PlotBuilder: AbstractPlotSpec
-using LineCableModels.PlotBuilder.BackendHandler: next_fignum
-using .PlotUIComponents: ControlButtonSpec, ControlReaction, ICON_TTF, MI_REFRESH, MI_SAVE,
-                         _make_window, _run_plot_pipeline, with_icon, with_plot_theme
+import LineCableModels.Engine: plot
+import LineCableModels.DataModel: preview, show_material_scale
 
-include(joinpath(@__DIR__, "..", "src", "plotbuilder", "plotspecs.jl"))
+function _scale_symbol(value)
+    value isa Symbol && return value
+    value === Makie.identity && return :linear
+    value === Makie.log10 && return :log10
+    throw(ArgumentError("axis scale must be :linear, :log10, Makie.identity, or Makie.log10"))
+end
 
-module DataModelPreview
+function plot(
+        object::LineCableModels.SeriesImpedance,
+        frequencies;
+        backend = nothing,
+        display_plot::Bool = true,
+        xscale = :linear,
+        yscale = :linear,
+        kwargs...
+)
+    render_spec = PlotBuilder.make_render(
+        LineCableModels.Engine.LineParameterPlotSpec,
+        object;
+        frequencies,
+        xscale = _scale_symbol(xscale),
+        yscale = _scale_symbol(yscale),
+        kwargs...
+    )
+    return UIComponents.build(render_spec; backend, display = display_plot)
+end
 
-using Makie
-using Colors
-using Printf
-using Dates
-using Statistics
-using LineCableModels.DataModel
-using LineCableModels.DataModel.BaseParams: calc_circstrands_coords
-import LineCableModels.DataModel: AbstractCablePart, preview
-using LineCableModels.Utils: is_in_testset, to_nominal
-using LineCableModels.PlotBuilder.BackendHandler: current_backend_symbol, ensure_backend!,
-                                                  next_fignum, renderfig
-using ..PlotUIComponents: ICON_TTF, MI_REFRESH, MI_SAVE, gl_screen, with_icon
+function Makie.plot(object::LineCableModels.SeriesImpedance, frequencies; kwargs...)
+    plot(object, frequencies; kwargs...)
+end
 
-include(joinpath(@__DIR__, "..", "src", "datamodel", "preview.jl"))
+function plot(
+        object::LineCableModels.ShuntAdmittance,
+        frequencies;
+        backend = nothing,
+        display_plot::Bool = true,
+        xscale = :linear,
+        yscale = :linear,
+        kwargs...
+)
+    render_spec = PlotBuilder.make_render(
+        LineCableModels.Engine.LineParameterPlotSpec,
+        object;
+        frequencies,
+        xscale = _scale_symbol(xscale),
+        yscale = _scale_symbol(yscale),
+        kwargs...
+    )
+    return UIComponents.build(render_spec; backend, display = display_plot)
+end
 
-end # module DataModelPreview
+function Makie.plot(object::LineCableModels.ShuntAdmittance, frequencies; kwargs...)
+    plot(object, frequencies; kwargs...)
+end
 
-module EnginePlots
+function plot(
+        parameters::LineCableModels.LineParameters;
+        backend = nothing,
+        display_plot::Bool = true,
+        xscale = :linear,
+        yscale = :linear,
+        kwargs...
+)
+    render_spec = PlotBuilder.make_render(
+        LineCableModels.Engine.LineParameterPlotSpec,
+        parameters;
+        xscale = _scale_symbol(xscale),
+        yscale = _scale_symbol(yscale),
+        kwargs...
+    )
+    return UIComponents.build(render_spec; backend, display = display_plot)
+end
 
-using Makie
-using Measurements: Measurements
-using LineCableModels.Engine
-import LineCableModels.Engine: get_description, plot
-using LineCableModels.Commons: ModalDomain, PhaseDomain, domain
-using LineCableModels.PlotBuilder
-using ..PlotUIComponents
+function Makie.plot(parameters::LineCableModels.LineParameters; kwargs...)
+    plot(parameters; kwargs...)
+end
 
-include(joinpath(@__DIR__, "..", "src", "engine", "plot.jl"))
+function _quantity_symbol(expression)
+    expression isa Symbol && return expression, nothing
+    if expression isa Expr && expression.head === :ref && length(expression.args) == 4
+        return Symbol(expression.args[1]), Tuple(Int.(expression.args[2:4]))
+    end
+    throw(ArgumentError("use a quantity Symbol and optional ijk=(i,j,k)"))
+end
 
-end # module EnginePlots
+function plot(
+        result::Union{LineCableModels.CableConstantsMC, LineCableModels.LineParametersMC},
+        expression = :R;
+        ijk = nothing,
+        backend = nothing,
+        display_plot::Bool = true,
+        kwargs...
+)
+    quantity, parsed_indices = _quantity_symbol(expression)
+    selection = ijk === nothing ? parsed_indices : ijk
+    render_spec = PlotBuilder.make_render(
+        LineCableModels.UQ.MCDistributionPlotSpec,
+        result;
+        quantity,
+        ijk = selection,
+        kwargs...
+    )
+    return only(UIComponents.build(render_spec; backend, display = display_plot))
+end
 
-module UQPlots
+function Makie.plot(
+        result::Union{LineCableModels.CableConstantsMC, LineCableModels.LineParametersMC},
+        expression = :R;
+        kwargs...
+)
+    plot(result, expression; kwargs...)
+end
 
-using Makie
-using Printf
-using Distributions
-using StatsBase
-using LineCableModels.UQ: CableDesignMC, LineParametersMC, LineParametersPDF
-using LineCableModels.PlotBuilder
-using ..EnginePlots
-using ..PlotUIComponents
+function preview(
+        design::LineCableModels.CableDesign;
+        backend = nothing,
+        display_plot::Bool = true,
+        kwargs...
+)
+    render_spec = PlotBuilder.make_render(
+        LineCableModels.DataModel.CablePreviewPlotSpec,
+        design;
+        kwargs...
+    )
+    return only(UIComponents.build(render_spec; backend, display = display_plot))
+end
 
-include(joinpath(@__DIR__, "..", "src", "uq", "plot.jl"))
+function preview(
+        system::LineCableModels.LineCableSystem;
+        backend = nothing,
+        display_plot::Bool = true,
+        kwargs...
+)
+    render_spec = PlotBuilder.make_render(
+        LineCableModels.DataModel.SystemPreviewPlotSpec,
+        system;
+        kwargs...
+    )
+    return only(UIComponents.build(render_spec; backend, display = display_plot))
+end
 
-end # module UQPlots
+function show_material_scale(
+        ; backend = nothing,
+        display_plot::Bool = true,
+        kwargs...
+)
+    render_spec = PlotBuilder.make_render(
+        LineCableModels.DataModel.MaterialScalePlotSpec,
+        nothing;
+        kwargs...
+    )
+    return only(UIComponents.build(render_spec; backend, display = display_plot))
+end
 
 end # module LineCableModelsMakieExt

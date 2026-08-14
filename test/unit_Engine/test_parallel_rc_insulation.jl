@@ -215,18 +215,18 @@ end
         return_samples = true
     )
 
-    @test size(result.measurements.Y) == (2, 2, 2)
+    @test size(surrogate(result).Y) == (2, 2, 2)
     @test size(result.samples.G) == (2, 2, 2, 12)
     @test std(result.samples.G[1, 1, 1, :]) > 0
     @test std(result.samples.C[1, 1, 1, :]) > 0
-    @test uncertainty(real(result.measurements.Y[1, 1, 1])) > 0
-    @test uncertainty(imag(result.measurements.Y[1, 1, 1])) > 0
+    @test uncertainty(real(surrogate(result).Y[1, 1, 1])) > 0
+    @test uncertainty(imag(surrogate(result).Y[1, 1, 1])) > 0
 
-    ω = reshape(2π .* result.f, 1, 1, :)
-    Rmeas = real.(result.measurements.Z.values)
-    Lmeas = imag.(result.measurements.Z.values) ./ ω
-    Gmeas = real.(result.measurements.Y.values)
-    Cmeas = imag.(result.measurements.Y.values) ./ ω
+    ω = reshape(2π .* frequencies(result), 1, 1, :)
+    Rmeas = real.(surrogate(result).Z.values)
+    Lmeas = imag.(surrogate(result).Z.values) ./ ω
+    Gmeas = real.(surrogate(result).Y.values)
+    Cmeas = imag.(surrogate(result).Y.values) ./ ω
     X = vcat(
         reshape(result.samples.R, :, 12),
         reshape(result.samples.L, :, 12),
@@ -249,7 +249,8 @@ end
         expected_Y = result.samples.G[:, :, :, t] .+
                      im .* ω .* result.samples.C[:, :, :, t]
         @test domain(lp_trial) === domain(result)
-        @test lp_trial.f == result.f
+        @test frequencies(lp_trial) == frequencies(result)
+        @test basis(lp_trial) == basis(result)
         @test lp_trial.Z.values == expected_Z
         @test lp_trial.Y.values == expected_Y
     end
@@ -269,7 +270,7 @@ end
 
     for component in (:R, :L, :G, :C)
         samples = getproperty(result.samples, component)
-        stats = getproperty(result.stats, component)
+        stats = getproperty(result.statistics, component)
         for index in CartesianIndices(stats)
             trials = @view samples[index, :]
             @test stats[index].mean ≈ mean(trials)
@@ -287,13 +288,13 @@ end
         return_samples = true
     )
     @test repeated.samples == result.samples
-    @test value.(repeated.measurements.Z.values) == value.(result.measurements.Z.values)
-    @test value.(repeated.measurements.Y.values) == value.(result.measurements.Y.values)
+    @test value.(surrogate(repeated).Z.values) == value.(surrogate(result).Z.values)
+    @test value.(surrogate(repeated).Y.values) == value.(surrogate(result).Y.values)
     @test Measurements.cov(vcat(
-        vec(real.(repeated.measurements.Z.values)),
-        vec(imag.(repeated.measurements.Z.values) ./ ω),
-        vec(real.(repeated.measurements.Y.values)),
-        vec(imag.(repeated.measurements.Y.values) ./ ω)
+        vec(real.(surrogate(repeated).Z.values)),
+        vec(imag.(surrogate(repeated).Z.values) ./ ω),
+        vec(real.(surrogate(repeated).Y.values)),
+        vec(imag.(surrogate(repeated).Y.values) ./ ω)
     )) ≈ empirical_covariance
 
     single = UQ.mc(
@@ -304,12 +305,29 @@ end
         print_step = 1000
     )
     for component in (:R, :L, :G, :C)
-        @test all(iszero(stat.std) for stat in getproperty(single.stats, component))
+        @test all(iszero(stat.std) for stat in getproperty(single.statistics, component))
     end
-    @test all(iszero ∘ uncertainty ∘ real, single.measurements.Z.values)
-    @test all(iszero ∘ uncertainty ∘ imag, single.measurements.Z.values)
-    @test all(iszero ∘ uncertainty ∘ real, single.measurements.Y.values)
-    @test all(iszero ∘ uncertainty ∘ imag, single.measurements.Y.values)
+    @test all(iszero ∘ uncertainty ∘ real, surrogate(single).Z.values)
+    @test all(iszero ∘ uncertainty ∘ imag, surrogate(single).Z.values)
+    @test all(iszero ∘ uncertainty ∘ real, surrogate(single).Y.values)
+    @test all(iszero ∘ uncertainty ∘ imag, surrogate(single).Y.values)
     @test_throws ArgumentError UQ.trial(single, 1)
     @test_throws ArgumentError rand(MersenneTwister(1), single)
+
+    total = UQ.mc(
+        spec,
+        formulation;
+        trials = 1,
+        seed = 20260812,
+        print_step = 1000,
+        return_samples = true,
+        per_length = false
+    )
+    @test basis(single) === :per_length
+    @test basis(total) === :total
+    for component in (:R, :L, :G, :C)
+        @test mean(total, component, 1, 1, 1) ≈
+              1000.0 * mean(single, component, 1, 1, 1)
+    end
+    @test basis(UQ.trial(total, 1)) === :total
 end

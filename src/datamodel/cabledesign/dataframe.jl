@@ -43,58 +43,10 @@ function DataFrame(
         rho_e::Number = 100.0
 )::DataFrame
     if format == :baseparams
-        # Core parameters calculation
-        # Get components from the vector
-        if length(design.components) < 2
-            throw(
-                ArgumentError(
-                "At least two components are required for :baseparams format.",
-            ),
-            )
-        end
-
-        cable_core = design.components[1]
-        cable_shield = design.components[2]
-        cable_outer = design.components[end]
-
-        # Determine separation distance if not provided
-        S = S === nothing ?
-            (
-        # Check if we need to use insulator or conductor radius
-            isnan(cable_outer.insulator_group.r_ex) ?
-            2 * cable_outer.conductor_group.r_ex :
-            2 * cable_outer.insulator_group.r_ex
-        ) : S
-
-        # Compute R, L, and C using given formulas - mapped to new data structure
-        # Cable core resistance
-        R = calc_tubular_resistance(
-            cable_core.conductor_group.r_in,
-            cable_core.conductor_group.r_ex,
-            cable_core.conductor_props.rho,
-            0.0, 20.0, 20.0
-        ) * 1e3
-
-        # Inductance calculation
-        L = calc_inductance_trifoil(
-            cable_core.conductor_group.r_in,
-            cable_core.conductor_group.r_ex,
-            cable_core.conductor_props.rho,
-            cable_core.conductor_props.mu_r,
-            cable_shield.conductor_group.r_in,
-            cable_shield.conductor_group.r_ex,
-            cable_shield.conductor_props.rho,
-            cable_shield.conductor_props.mu_r,
-            S,
-            rho_e = rho_e
-        ) * 1e6
-
-        # Capacitance calculation
-        C = calc_shunt_capacitance(
-                cable_core.conductor_group.r_ex,
-                cable_core.insulator_group.r_ex,
-                cable_core.insulator_props.eps_r
-            ) * 1e6 * 1e3
+        constants = CableConstants(design; S, rho_e)
+        R_display = constants.R * 1e3
+        L_display = constants.L * 1e6
+        C_display = constants.C * 1e9
 
         # Prepare nominal values from CableDesign
         nominals = [
@@ -104,7 +56,7 @@ function DataFrame(
         ]
 
         # Calculate differences
-        diffs = map(zip([R, L, C], nominals)) do (computed, nominal)
+        diffs = map(zip([R_display, L_display, C_display], nominals)) do (computed, nominal)
             if isnothing(nominal)
                 return missing
             else
@@ -115,7 +67,7 @@ function DataFrame(
         # Compute the comparison DataFrame
         data = DataFrame(
             parameter = ["R [Ω/km]", "L [mH/km]", "C [μF/km]"],
-            computed = [R, L, C],
+            computed = [R_display, L_display, C_display],
             nominal = to_nominal.(nominals)
         )
 
@@ -123,10 +75,14 @@ function DataFrame(
         data[!, "percent_diff"] = diffs
 
         # Handle measurement bounds if present
-        has_error_bounds = !(isnan(to_lower(R)) || isnan(to_upper(R)))
+        has_error_bounds = !(isnan(to_lower(R_display)) || isnan(to_upper(R_display)))
         if has_error_bounds
-            data[!, "lower"] = [to_lower(R), to_lower(L), to_lower(C)]
-            data[!, "upper"] = [to_upper(R), to_upper(L), to_upper(C)]
+            data[!, "lower"] = [
+                to_lower(R_display), to_lower(L_display), to_lower(C_display)
+            ]
+            data[!, "upper"] = [
+                to_upper(R_display), to_upper(L_display), to_upper(C_display)
+            ]
 
             # Add compliance column only for rows with non-nothing nominal values
             data[!, "in_range?"] = map(zip(data.nominal, data.lower, data.upper)) do (

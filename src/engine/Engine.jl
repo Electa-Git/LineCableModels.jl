@@ -23,8 +23,13 @@ module Engine
 
 # Export public API
 export LineParametersProblem,
-       LineParameters, SeriesImpedance, ShuntAdmittance, per_km,
-       per_m, kronify
+       LineParameters, SeriesImpedance, ShuntAdmittance,
+       Z, Y, R, X, L, G, B, C,
+       series_impedance, shunt_admittance,
+       resistance, reactance, inductance,
+       conductance, susceptance, capacitance,
+       frequencies, nconductors, nfrequencies, basis,
+       kronify
 export EMTFormulation, FormulationSet, LineParamOptions
 
 export compute!, plot
@@ -35,8 +40,15 @@ using Measurements
 using LinearAlgebra
 using ..Commons
 import ..Commons: get_description, LineParamsDomain, PhaseDomain, ModalDomain, domain
+import ..Commons: basis, Z, Y, R, X, L, G, B, C,
+                  series_impedance, shunt_admittance,
+                  resistance, reactance, inductance,
+                  conductance, susceptance, capacitance,
+                  frequencies, nconductors, nfrequencies
 
 using ..Utils
+using ..UnitHandler
+using ..PlotBuilder
 using ..Materials
 using ..EarthProps: EarthModel
 using ..DataModel: LineCableSystem
@@ -90,7 +102,7 @@ include("reduction.jl")
 
 # Override I/O methods
 include("base.jl")
-include("plotmetadata.jl")
+include("plotspecs.jl")
 include("dataframe.jl")
 
 """

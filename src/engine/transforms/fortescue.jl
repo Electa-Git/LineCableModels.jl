@@ -11,8 +11,9 @@ $(TYPEDSIGNATURES)
 Functor implementation for `Fortescue`.
 """
 function (f::Fortescue)(
-        lp::LineParameters{Tc, U, PhaseDomain},
-) where {Tc <: COMPLEXSCALAR, U <: REALSCALAR}
+        lp::LineParameters{
+        Tc, U, PhaseDomain, Basis},
+) where {Tc <: COMPLEXSCALAR, U <: REALSCALAR, Basis}
     _, nph, nfreq = size(lp.Z.values)
     Tr = typeof(real(zero(Tc)))
     Tv = fortescue_F(nph, Tr)           # unitary; inverse is F'
@@ -39,7 +40,7 @@ function (f::Fortescue)(
         Z012[:, :, k] = Matrix(Diagonal(diag(Zseq)))
         Y012[:, :, k] = Matrix(Diagonal(diag(Yseq)))
     end
-    return Tv, LineParameters(ModalDomain, Z012, Y012, lp.f)
+    return Tv, LineParameters(ModalDomain, Z012, Y012, lp.f; basis = basis(lp))
 end
 
 # Unitary N-point DFT (Fortescue) matrix

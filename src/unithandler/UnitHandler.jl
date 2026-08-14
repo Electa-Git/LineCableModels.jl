@@ -214,6 +214,33 @@ Example override (outside this module):
 """
 display_unit(q::QuantityTag{Q}) where {Q} = default_unit(q)
 
+function _with_basis(unit::Units, basis::Symbol; length_prefix::Symbol = :base)
+    basis in (:per_length, :total) || throw(
+        ArgumentError("basis must be :per_length or :total"),
+    )
+    has_length_denominator = any(item -> item.name == :meter, unit.per)
+    retained = Unit[item for item in unit.per if item.name != :meter]
+    if basis === :per_length && has_length_denominator
+        push!(retained, Unit(name = :meter, prefix = length_prefix))
+    end
+    return Units(base = copy(unit.base), per = retained)
+end
+
+function default_unit(quantity::QuantityTag, basis::Symbol)
+    _with_basis(default_unit(quantity), basis; length_prefix = :base)
+end
+function display_unit(
+        quantity::QuantityTag,
+        basis::Symbol;
+        length_prefix::Symbol = :kilo
+)
+    _with_basis(display_unit(quantity), basis; length_prefix)
+end
+
+function scale_factor(quantity::QuantityTag, basis::Symbol, target::Units)
+    return scale_factor(default_unit(quantity, basis), target)
+end
+
 """
 Human-readable label for the quantity, without units.
 

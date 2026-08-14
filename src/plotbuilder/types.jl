@@ -1,14 +1,5 @@
 abstract type AbstractPlotSpec end
 
-"""
-AxisSpec is the fully decided axis descriptor used by plot areas (views).
-
-- `dim`      : axis dimension (e.g. :x, :y, :z)
-- `quantity` : semantic quantity tag (from UnitHandler)
-- `units`    : unit system for this axis
-- `label`    : full label text, including unit symbol
-- `scale`    : :linear or :log10
-"""
 struct AxisSpec
     dim::Symbol
     quantity::QuantityTag
@@ -17,88 +8,72 @@ struct AxisSpec
     scale::Symbol
 end
 
-# --------------------------------------------------------------------------
-# Payload hierarchy: series → view → figure → renderer
-# --------------------------------------------------------------------------
-"""
-    SeriesSpec
-
-Single plot primitive (one Makie call).
-
-Fields:
-- `kind`   : plotting primitive kind (:line, :scatter, :hist, :heatmap, ...)
-- `xdata`  : x values \\[dimensionless or scaled\\]
-- `ydata`  : y values \\[dimensionless or scaled\\]
-- `zdata`  : z values if applicable, otherwise `nothing`
-- `label`  : legend entry for this series, or `nothing` for no legend
-"""
-struct SeriesSpec
+struct SeriesSpec{X, Y, Z, A <: NamedTuple}
     kind::Symbol
-    xdata::Union{Nothing, AbstractVector{<:Number}}
-    ydata::Union{Nothing, AbstractArray{<:Number}}
-    zdata::Union{Nothing, AbstractArray{<:Number}}
+    xdata::X
+    ydata::Y
+    zdata::Z
     label::Union{Nothing, String}
+    attributes::A
 end
 
-"""
-    ViewSpec
+function SeriesSpec(kind::Symbol, xdata, ydata, zdata, label; attributes = (;))
+    return SeriesSpec(kind, xdata, ydata, zdata, label, attributes)
+end
 
-One plot view / axis system.
-
-All SeriesSpec inside a ViewSpec share the same x/y(/z) axes. The `key`
-field encodes the semantic facet this area represents (e.g. \\(i,j\\),
-quantity, frequency).
-
-Fields:
-- `xaxis`  : x AxisSpec or `nothing` if unused
-- `yaxis`  : y AxisSpec or `nothing` if unused
-- `zaxis`  : z AxisSpec or `nothing` if unused
-- `title`  : view title
-- `series` : vector of SeriesSpec
-- `key`    : NamedTuple identifying the facet, or empty `NamedTuple` if none
-"""
-struct ViewSpec
+struct ViewSpec{A <: NamedTuple}
     xaxis::Union{Nothing, AxisSpec}
     yaxis::Union{Nothing, AxisSpec}
     zaxis::Union{Nothing, AxisSpec}
     title::String
     series::Vector{SeriesSpec}
     key::NamedTuple
+    attributes::A
 end
 
-"""
-    PageSpec
+function ViewSpec(xaxis, yaxis, zaxis, title, series, key; attributes = (;))
+    return ViewSpec(xaxis, yaxis, zaxis, title, SeriesSpec[series...], key, attributes)
+end
 
-One logical figure / window.
-
-Fields:
-- `title`      : optional figure-level title (may be empty)
-- `size`       : (width, height) in pixels
-- `layout`     : layout spec (:windows, :grid, :tabbed, ...)
-- `views`      : vector of ViewSpec values contained in this figure
-- `kwargs`     : figure-level backend options (e.g. figsize)
-"""
-struct PageSpec
+struct PageSpec{K <: NamedTuple}
     title::String
     size::Tuple{Int, Int}
     layout::Symbol
     views::Vector{ViewSpec}
-    kwargs::NamedTuple
+    kwargs::K
 end
 
-"""
-    RenderSpec{S}
+function PageSpec(title, size, layout, views::AbstractVector, kwargs::NamedTuple)
+    return PageSpec(title, size, layout, ViewSpec[views...], kwargs)
+end
 
-Final product of the grammar pipeline for spec type `S`.
-
-Carries only:
-- the spec type (the grammar definition),
-- a vector of PageSpec payloads.
-
-The rendering backend (Makie) should only see RenderSpec values and must
-never touch domain objects or grammar logic.
-"""
 struct RenderSpec{S <: AbstractPlotSpec}
     spec::Type{S}
     figures::Vector{PageSpec}
+end
+
+function RenderSpec(spec::Type{S}, figures::AbstractVector) where {S <: AbstractPlotSpec}
+    return RenderSpec(spec, PageSpec[figures...])
+end
+
+"""
+    UIPlot
+
+Hold a backend-neutral render specification together with one built figure,
+its panels, controls, and backend context. Line-parameter plotting returns a
+`Vector{UIPlot}`; previews and statistical plots return one `UIPlot`.
+"""
+struct UIPlot{S <: AbstractPlotSpec, F, P, W, C}
+    "Complete backend-neutral render specification."
+    render::RenderSpec{S}
+    "Page represented by this handle."
+    page::PageSpec
+    "Backend-built figure."
+    figure::F
+    "Built axes or panels."
+    panels::P
+    "Interactive control objects keyed by purpose."
+    controls::W
+    "Active backend and status context."
+    context::C
 end

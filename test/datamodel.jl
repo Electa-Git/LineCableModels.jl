@@ -665,24 +665,25 @@ end
             :cairo
         ) == :rendered
 
-        fig, ax = preview(
+        cable_plot = preview(
             cable_design,
             display_plot = false,
             display_legend = true
         )
-        @test fig isa CairoMakie.Figure
-        @test ax isa CairoMakie.Axis
-        fig, ax = preview(
+        @test cable_plot isa UIPlot
+        @test cable_plot.figure isa CairoMakie.Figure
+        @test only(cable_plot.panels).axis isa CairoMakie.Axis
+        cable_plot = preview(
             cable_design,
             display_plot = false,
             display_legend = false
         )
-        @test fig isa CairoMakie.Figure
-        @test ax isa CairoMakie.Axis
+        @test cable_plot isa UIPlot
 
-        fig, ax = preview(cable_system, zoom_factor = 0.5, display_plot = false)
-        @test fig isa CairoMakie.Figure
-        @test ax isa CairoMakie.Axis
+        system_plot = preview(cable_system, zoom_factor = 0.5, display_plot = false)
+        @test system_plot isa UIPlot
+        @test system_plot.figure isa CairoMakie.Figure
+        @test only(system_plot.panels).axis isa CairoMakie.Axis
 
         println("  Plotting functions executed without errors.")
     end

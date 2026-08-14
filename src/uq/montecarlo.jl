@@ -23,7 +23,8 @@ Propagate cable-design uncertainty by Monte Carlo sampling.
 
 # Returns
 
-- A `CableDesignMC` containing R, L, and C statistics and Measurements.jl values.
+- A `CableConstantsMC` containing R, L, and C statistics, optional samples and
+  distributions, and a covariance-preserving Measurements.jl surrogate.
 
 # Notes
 
@@ -43,9 +44,14 @@ function mc(cbs::CableBuilderSpec;
         return_pdf::Bool = false,
         nbins::Union{Int, Nothing} = nothing
 )
+    trials === nothing || trials > 0 || throw(ArgumentError("mc: trials must be positive"))
+    0 < conf < 1 || throw(ArgumentError("mc: conf must lie between zero and one"))
+    tol > 0 || throw(ArgumentError("mc: tol must be positive"))
+    print_step > 0 || throw(ArgumentError("mc: print_step must be positive"))
+    distribution in (:normal, :uniform) || throw(
+        ArgumentError("mc: distribution must be :normal or :uniform"),
+    )
     seed !== nothing && Random.seed!(seed)
-    z = quantile(Distributions.Normal(), 0.5 + conf/2)
-
     # 3 scalar observables: R, L, C
     M = 3
     ntrials = if trials === nothing
@@ -77,14 +83,11 @@ function mc(cbs::CableBuilderSpec;
         else
             trial_sampler(cbs_det, i, distribution)
         end
-        params = DataFrame(des, :baseparams).computed  # invariant ordering: R, L, C
-        r = params[1]
-        l = params[2]
-        c = params[3]
+        constants = CableConstants(des)
         @inbounds begin
-            μR[i] = T(r) / 1e3 # ohm/km to ohm/m
-            μL[i] = T(l) / 1e6 # mH/km to H/m
-            μC[i] = T(c) / 1e9 # μF/km to F/m
+            μR[i] = T(constants.R)
+            μL[i] = T(constants.L)
+            μC[i] = T(constants.C)
         end
         return nothing
     end
@@ -95,31 +98,12 @@ function mc(cbs::CableBuilderSpec;
     end
     @info "mc: done" total = ntrials
 
-    # stats kernel (scalar real vector → NamedTuple)
-    _stats = function (arr::AbstractVector{<:Real})
-        m = mean(arr)
-        s = std(arr)
-        N = length(arr)
-        ci = z * s / sqrt(N)
-        return (mean = m, std = s, min = minimum(arr),
-            q05 = quantile(arr, 0.05),
-            q50 = quantile(arr, 0.50),
-            q95 = quantile(arr, 0.95),
-            max = maximum(arr),
-            n = N,
-            ci_half = ci,
-            ci_rel = ci / max(abs(m), eps()))
-    end
-
-    sR = _stats(μR)
-    sL = _stats(μL)
-    sC = _stats(μC)
-
-    meas = Measurement{T}[
-        measurement(sR.mean, sR.std),
-        measurement(sL.mean, sL.std),
-        measurement(sC.mean, sC.std)
-    ]
+    summaries = CableConstants(
+        SampleSummary(μR),
+        SampleSummary(μL),
+        SampleSummary(μC)
+    )
+    surrogate_value = _joint_cable_constants(μR, μL, μC)
 
     # PDFs (optional)
     pdf_nt = nothing
@@ -127,17 +111,19 @@ function mc(cbs::CableBuilderSpec;
         pdfR = _pdf_from_hist(μR; nbins = nbins)
         pdfL = _pdf_from_hist(μL; nbins = nbins)
         pdfC = _pdf_from_hist(μC; nbins = nbins)
-        pdf_nt = (R = pdfR, L = pdfL, C = pdfC)
+        pdf_nt = CableConstants(pdfR, pdfL, pdfC)
     end
 
-    # Samples as NamedTuple of vectors (R,L,C) or nothing
-    samples_nt = return_samples ? (R = μR, L = μL, C = μC) : nothing
+    # Joint samples as a CableConstants of vectors, or nothing.
+    samples_value = return_samples ? CableConstants(μR, μL, μC) : nothing
 
-    return CableDesignMC{T}(
-        (R = sR, L = sL, C = sC),
+    return CableConstantsMC(
+        summaries,
+        samples_value,
         pdf_nt,
-        samples_nt,
-        meas
+        surrogate_value,
+        ntrials,
+        T(conf)
     )
 end
 
@@ -184,7 +170,7 @@ taken from the actual solver result after bundling and reduction. When supplied,
 `trial_sampler` is invoked exactly once for every one-based trial index and its
 result bypasses the package's default independent primitive sampler.
 
-The `measurements` field is a joint, moment-matched covariance surrogate. All
+The `surrogate` field is a joint, moment-matched covariance surrogate. All
 R, L, G, and C coordinates use one shared set of latent standard measurements,
 so their empirical Monte Carlo means and covariances are retained across matrix
 entries, complex components, impedance and admittance, and frequencies. Sampling
@@ -214,15 +200,23 @@ function mc(
         tol::Float64 = 0.02,
         print_step::Int = 1000,
         return_samples::Bool = false,         # returns Vector{LineParameters} (one per trial)
-        return_pdf::Bool = false,         # hist-based LineParametersPDF per R/L/C/G & freq
+        return_pdf::Bool = false,         # histogram PDFs per R/L/C/G and frequency
         per_length::Bool = true,         # scale results per length
         nbins::Union{Int, Nothing} = nothing
 )
+    0 < conf < 1 || throw(ArgumentError("mc: conf must lie between zero and one"))
+    tol > 0 || throw(ArgumentError("mc: tol must be positive"))
+    print_step > 0 || throw(ArgumentError("mc: print_step must be positive"))
+    distribution in (:normal, :uniform) || throw(
+        ArgumentError("mc: distribution must be :normal or :uniform"),
+    )
     seed !== nothing && Random.seed!(seed)
-    z = quantile(Distributions.Normal(), 0.5 + conf/2)
-
     fvec = sbs.frequencies
     nfreq = length(fvec)
+    all(isfinite, fvec) || throw(ArgumentError("mc: frequencies must be finite"))
+    any(iszero, fvec) && throw(
+        DomainError(fvec, "mc: L and C are undefined at zero frequency"),
+    )
 
     trials === nothing || trials > 0 ||
         throw(ArgumentError("mc: trials must be greater than zero"))
@@ -261,19 +255,6 @@ function mc(
     @info "mc[Z,Y]: starting" draws=ntrials conf=conf tol=tol distribution=(distribution===:uniform ?
                                                                             "Uniform(μ ± √3·σ)" :
                                                                             "Normal(μ, σ)")
-
-    # Stats kernel on reals
-    _stats = function (arr::AbstractVector{<:Real})
-        m = mean(arr)
-        N = length(arr)
-        s = N == 1 ? zero(eltype(arr)) : std(arr)
-        ci = z * s / sqrt(N)
-        return (mean = m, std = s, min = minimum(arr),
-            q05 = quantile(arr, 0.05), q50 = quantile(arr, 0.50),
-            q95 = quantile(arr, 0.95),
-            max = maximum(arr), n = N, conf = conf, z = z,
-            ci_half = ci, ci_rel = ci / max(abs(m), eps()))
-    end
 
     U = eltype(fvec)
 
@@ -344,16 +325,16 @@ function mc(
     # ─────────────────────────────────────────────────────────────────────────
 
     # 3D arrays of stats for R,L,C,G
-    Rstats = Array{NamedTuple, 3}(undef, nph, nph, nfreq)
-    Lstats = Array{NamedTuple, 3}(undef, nph, nph, nfreq)
-    Gstats = Array{NamedTuple, 3}(undef, nph, nph, nfreq)
-    Cstats = Array{NamedTuple, 3}(undef, nph, nph, nfreq)
+    Rstats = Array{SampleSummary{U}, 3}(undef, nph, nph, nfreq)
+    Lstats = Array{SampleSummary{U}, 3}(undef, nph, nph, nfreq)
+    Gstats = Array{SampleSummary{U}, 3}(undef, nph, nph, nfreq)
+    Cstats = Array{SampleSummary{U}, 3}(undef, nph, nph, nfreq)
 
     # Optional PDFs: same 3D shape, one distribution per scalar
-    Rpdf = return_pdf ? Array{LineParametersPDF{U}, 3}(undef, nph, nph, nfreq) : nothing
-    Lpdf = return_pdf ? Array{LineParametersPDF{U}, 3}(undef, nph, nph, nfreq) : nothing
-    Gpdf = return_pdf ? Array{LineParametersPDF{U}, 3}(undef, nph, nph, nfreq) : nothing
-    Cpdf = return_pdf ? Array{LineParametersPDF{U}, 3}(undef, nph, nph, nfreq) : nothing
+    Rpdf = return_pdf ? Array{HistogramPDF{U}, 3}(undef, nph, nph, nfreq) : nothing
+    Lpdf = return_pdf ? Array{HistogramPDF{U}, 3}(undef, nph, nph, nfreq) : nothing
+    Gpdf = return_pdf ? Array{HistogramPDF{U}, 3}(undef, nph, nph, nfreq) : nothing
+    Cpdf = return_pdf ? Array{HistogramPDF{U}, 3}(undef, nph, nph, nfreq) : nothing
 
     @inbounds for j1 in 1:nph, j2 in 1:nph, k in 1:nfreq
         rvec = @view Rsamp[j1, j2, k, :]
@@ -361,10 +342,10 @@ function mc(
         gvec = @view Gsamp[j1, j2, k, :]
         cvec = @view Csamp[j1, j2, k, :]
 
-        sR = _stats(rvec)
-        sL = _stats(lvec)
-        sG = _stats(gvec)
-        sC = _stats(cvec)
+        sR = SampleSummary(rvec)
+        sL = SampleSummary(lvec)
+        sG = SampleSummary(gvec)
+        sC = SampleSummary(cvec)
 
         Rstats[j1, j2, k] = sR
         Lstats[j1, j2, k] = sL
@@ -382,16 +363,59 @@ function mc(
 
     # Frequency-dependent LineParameters whose entries all share the same latent
     # primitive set and therefore retain the complete empirical covariance.
-    LP_meas = _joint_line_parameters(Dlp, Rsamp, Lsamp, Gsamp, Csamp, fvec)
+    result_basis = per_length ? :per_length : :total
+    LP_meas = _joint_line_parameters(
+        Dlp,
+        Rsamp,
+        Lsamp,
+        Gsamp,
+        Csamp,
+        fvec;
+        basis = result_basis
+    )
 
     @info "mc[Z,Y]: done" total=ntrials nfreq=nfreq
 
-    stats_nt = (R = Rstats, L = Lstats, C = Cstats, G = Gstats)
-    pdf_nt = return_pdf ? (R = Rpdf, L = Lpdf, C = Cpdf, G = Gpdf) : nothing
+    statistics_value = RLCG(Rstats, Lstats, Cstats, Gstats)
+    distribution_value = return_pdf ? RLCG(Rpdf, Lpdf, Cpdf, Gpdf) : nothing
+    samples_value = return_samples ? RLCG(Rsamp, Lsamp, Csamp, Gsamp) : nothing
 
-    samples_nt = return_samples ? (R = Rsamp, L = Lsamp, C = Csamp, G = Gsamp) : nothing
+    return LineParametersMC(
+        statistics_value,
+        samples_value,
+        distribution_value,
+        LP_meas,
+        ntrials,
+        U(conf)
+    )
+end
 
-    return LineParametersMC(fvec, stats_nt, pdf_nt, samples_nt, LP_meas)
+function _joint_cable_constants(
+        resistance_samples::AbstractVector{T},
+        inductance_samples::AbstractVector{T},
+        capacitance_samples::AbstractVector{T}
+) where {T <: Real}
+    sample_count = length(resistance_samples)
+    length(inductance_samples) == sample_count == length(capacitance_samples) || throw(
+        DimensionMismatch("R, L, and C sample vectors must have equal lengths"),
+    )
+    sample_count > 0 || throw(ArgumentError("at least one Monte Carlo trial is required"))
+
+    sample_matrix = permutedims(hcat(
+        resistance_samples,
+        inductance_samples,
+        capacitance_samples
+    ))
+    means = vec(mean(sample_matrix; dims = 2))
+    joint = if sample_count == 1
+        map(value -> measurement(value, zero(T)), means)
+    else
+        factor = sample_matrix .- means
+        factor ./= sqrt(sample_count - 1)
+        latent = [measurement(zero(T), one(T)) for _ in 1:sample_count]
+        means + factor * latent
+    end
+    return CableConstants(joint...)
 end
 
 function _joint_measurements(
@@ -444,7 +468,8 @@ function _joint_line_parameters(
         Lsamp::AbstractArray{U, 4},
         Gsamp::AbstractArray{U, 4},
         Csamp::AbstractArray{U, 4},
-        fvec::AbstractVector{U}
+        fvec::AbstractVector{U};
+        basis::Symbol = :per_length
 ) where {D <: LineParamsDomain, U <: Real}
     Rmeas, Lmeas, Gmeas, Cmeas = _joint_measurements(Rsamp, Lsamp, Gsamp, Csamp)
     nph, _, nfreq = size(Rmeas)
@@ -459,5 +484,5 @@ function _joint_line_parameters(
         Zmeas[j1, j2, k] = Rmeas[j1, j2, k] + im * ω * Lmeas[j1, j2, k]
         Ymeas[j1, j2, k] = Gmeas[j1, j2, k] + im * ω * Cmeas[j1, j2, k]
     end
-    return LineParameters(D, Zmeas, Ymeas, fvec)
+    return LineParameters(D, Zmeas, Ymeas, fvec; basis)
 end

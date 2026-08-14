@@ -1,45 +1,63 @@
 import DataFrames: DataFrame
 
-function DataFrame(res::LineParametersMC)
-    nph, _, nfreq = size(res.stats.R)
-    dfs = Array{DataFrame, 3}(undef, nph, nph, nfreq)
-    @inbounds for i in 1:nph, j in 1:nph, k in 1:nfreq
-        r = res.stats.R[i, j, k]
-        l = res.stats.L[i, j, k]
-        c = res.stats.C[i, j, k]
-        g = res.stats.G[i, j, k]
-        dfs[i, j, k] = DataFrame(
-            quantity = ["R", "L", "C", "G"],
-            mean = [r.mean, l.mean, c.mean, g.mean],
-            std = [r.std, l.std, c.std, g.std],
-            min = [r.min, l.min, c.min, g.min],
-            q05 = [r.q05, l.q05, c.q05, g.q05],
-            q50 = [r.q50, l.q50, c.q50, g.q50],
-            q95 = [r.q95, l.q95, c.q95, g.q95],
-            max = [r.max, l.max, c.max, g.max],
-            n = [r.n, l.n, c.n, g.n],
-            conf = [r.conf, l.conf, c.conf, g.conf],
-            z = [r.z, l.z, c.z, g.z],
-            ci_half = [r.ci_half, l.ci_half, c.ci_half, g.ci_half],
-            ci_rel = [r.ci_rel, l.ci_rel, c.ci_rel, g.ci_rel]
-        )
-    end
-    return dfs
+function _confidence_columns(summary::SampleSummary, result)
+    z = Distributions.quantile(
+        Distributions.Normal(),
+        0.5 + confidence(result) / 2
+    )
+    half_width = z * summary.std / sqrt(ntrials(result))
+    relative = half_width / max(abs(summary.mean), eps(typeof(summary.mean)))
+    return half_width, relative
 end
 
-function DataFrame(res::CableDesignMC)
-    sR, sL, sC = res.stats.R, res.stats.L, res.stats.C
-    DataFrame(
+function DataFrame(result::LineParametersMC)
+    shape = size(result.statistics.R)
+    frames = Array{DataFrame, 3}(undef, shape)
+    for k in axes(frames, 3), j in axes(frames, 2), i in axes(frames, 1)
+        summaries = (
+            statistics(result, :R, i, j, k),
+            statistics(result, :L, i, j, k),
+            statistics(result, :C, i, j, k),
+            statistics(result, :G, i, j, k)
+        )
+        confidence_values = _confidence_columns.(summaries, Ref(result))
+        frames[i, j, k] = DataFrame(
+            quantity = ["R", "L", "C", "G"],
+            mean = getproperty.(summaries, :mean),
+            std = getproperty.(summaries, :std),
+            min = getproperty.(summaries, :min),
+            q05 = getproperty.(summaries, :q05),
+            q50 = getproperty.(summaries, :q50),
+            q95 = getproperty.(summaries, :q95),
+            max = getproperty.(summaries, :max),
+            n = fill(ntrials(result), 4),
+            conf = fill(confidence(result), 4),
+            ci_half = first.(confidence_values),
+            ci_rel = last.(confidence_values)
+        )
+    end
+    return frames
+end
+
+function DataFrame(result::CableConstantsMC)
+    summaries = (
+        statistics(result, :R),
+        statistics(result, :L),
+        statistics(result, :C)
+    )
+    confidence_values = _confidence_columns.(summaries, Ref(result))
+    return DataFrame(
         variable = ["R", "L", "C"],
-        mean = [sR.mean, sL.mean, sC.mean],
-        std = [sR.std, sL.std, sC.std],
-        min = [sR.min, sL.min, sC.min],
-        q05 = [sR.q05, sL.q05, sC.q05],
-        q50 = [sR.q50, sL.q50, sC.q50],
-        q95 = [sR.q95, sL.q95, sC.q95],
-        max = [sR.max, sL.max, sC.max],
-        ntrials = fill(sR.n, 3),
-        ci_half = [sR.ci_half, sL.ci_half, sC.ci_half],
-        ci_rel = [sR.ci_rel, sL.ci_rel, sC.ci_rel]
+        mean = getproperty.(summaries, :mean),
+        std = getproperty.(summaries, :std),
+        min = getproperty.(summaries, :min),
+        q05 = getproperty.(summaries, :q05),
+        q50 = getproperty.(summaries, :q50),
+        q95 = getproperty.(summaries, :q95),
+        max = getproperty.(summaries, :max),
+        ntrials = fill(ntrials(result), 3),
+        confidence = fill(confidence(result), 3),
+        ci_half = first.(confidence_values),
+        ci_rel = last.(confidence_values)
     )
 end

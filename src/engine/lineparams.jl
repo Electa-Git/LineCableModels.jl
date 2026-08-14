@@ -1,119 +1,270 @@
-struct SeriesImpedance{T} <: AbstractArray{T, 3}
-    values::Array{T, 3}   # n×n×nfreq, units: Ω/m
-end
+const LINE_PARAMETER_BASES = (:per_length, :total)
 
-struct ShuntAdmittance{T} <: AbstractArray{T, 3}
-    values::Array{T, 3}   # n×n×nfreq, units: S/m
+@inline function _check_basis(value::Symbol)
+    value in LINE_PARAMETER_BASES || throw(
+        ArgumentError("basis must be :per_length or :total; got :$value"),
+    )
+    return value
 end
 
 """
-$(TYPEDEF)
+    SeriesImpedance{T, Basis}
 
-Represents the frequency-dependent line parameters (series impedance and shunt admittance matrices) for a cable or line system.
-
-$(TYPEDFIELDS)
+Store a square series-impedance matrix over frequency. Values use \\[Ω/m\\]
+when `Basis` is `:per_length` and \\[Ω\\] when it is `:total`.
 """
-struct LineParameters{T <: COMPLEXSCALAR, U <: REALSCALAR, D <: LineParamsDomain}
-    "Series impedance matrices \\[Ω/m\\]."
-    Z::SeriesImpedance{T}
-    "Shunt admittance matrices \\[S/m\\]."
-    Y::ShuntAdmittance{T}
-    "Frequencies \\[Hz\\]."
+struct SeriesImpedance{T, Basis} <: AbstractArray{T, 3}
+    "Complex series-impedance tensor with dimensions conductor × conductor × frequency."
+    values::Array{T, 3}
+end
+
+"""
+    ShuntAdmittance{T, Basis}
+
+Store a square shunt-admittance matrix over frequency. Values use \\[S/m\\]
+when `Basis` is `:per_length` and \\[S\\] when it is `:total`.
+"""
+struct ShuntAdmittance{T, Basis} <: AbstractArray{T, 3}
+    "Complex shunt-admittance tensor with dimensions conductor × conductor × frequency."
+    values::Array{T, 3}
+end
+
+function SeriesImpedance(A::AbstractArray{T, 3}; basis::Symbol = :per_length) where {T}
+    _check_basis(basis)
+    return SeriesImpedance{T, basis}(Array(A))
+end
+
+function ShuntAdmittance(A::AbstractArray{T, 3}; basis::Symbol = :per_length) where {T}
+    _check_basis(basis)
+    return ShuntAdmittance{T, basis}(Array(A))
+end
+
+@inline basis(::Type{<:SeriesImpedance{T, Basis}}) where {T, Basis} = Basis
+@inline basis(::SeriesImpedance{T, Basis}) where {T, Basis} = Basis
+@inline basis(::Type{<:ShuntAdmittance{T, Basis}}) where {T, Basis} = Basis
+@inline basis(::ShuntAdmittance{T, Basis}) where {T, Basis} = Basis
+
+"""
+    LineParameters{T, U, D, Basis}
+
+Frequency-dependent series-impedance and shunt-admittance matrices.
+
+`Basis` is either `:per_length` or `:total`. Per-length values are stored in
+Ω/m and S/m; total values are stored in Ω and S. Frequencies are stored in Hz.
+"""
+struct LineParameters{
+    T <: COMPLEXSCALAR,
+    U <: REALSCALAR,
+    D <: LineParamsDomain,
+    Basis
+}
+    "Frequency-dependent series impedance \\[Ω/m\\] or \\[Ω\\]."
+    Z::SeriesImpedance{T, Basis}
+    "Frequency-dependent shunt admittance \\[S/m\\] or \\[S\\]."
+    Y::ShuntAdmittance{T, Basis}
+    "Frequency samples \\[Hz\\]."
     f::Vector{U}
 
-    @doc """
-     $(TYPEDSIGNATURES)
-
-     Constructs a [`LineParameters`](@ref) instance.
-
-     # Arguments
-
-     - `Z`: Series impedance matrices \\[Ω/m\\].
-     - `Y`: Shunt admittance matrices \\[S/m\\].
-     - `f`: Frequencies \\[Hz\\].
-
-     # Returns
-
-     - A [`LineParameters`](@ref) object with prelocated impedance and admittance matrices for a given frequency range.
-
-     # Examples
-
-     ```julia
-     params = $(FUNCTIONNAME)(Z, Y, f)
-     ```
-     """
     function LineParameters(
             ::Type{D},
-            Z::SeriesImpedance{T},
-            Y::ShuntAdmittance{T},
+            Z::SeriesImpedance{T, Basis},
+            Y::ShuntAdmittance{T, Basis},
             f::AbstractVector{U}
-    ) where {D <: LineParamsDomain, T <: COMPLEXSCALAR, U <: REALSCALAR}
+    ) where {
+            D <: LineParamsDomain,
+            T <: COMPLEXSCALAR,
+            U <: REALSCALAR,
+            Basis
+    }
+        _check_basis(Basis)
         size(Z, 1) == size(Z, 2) || throw(DimensionMismatch("Z must be square"))
         size(Y, 1) == size(Y, 2) || throw(DimensionMismatch("Y must be square"))
-        size(Z, 3) == size(Y, 3) == length(f) ||
-            throw(DimensionMismatch("Z and Y must have same dimensions (n×n×nfreq)"))
-        new{T, U, D}(Z, Y, Vector{U}(f))
-    end
-
-    # Backward-compatible constructor: defaults to PhaseDomain
-    function LineParameters(
-            Z::SeriesImpedance{T},
-            Y::ShuntAdmittance{T},
-            f::AbstractVector{U}
-    ) where {T <: COMPLEXSCALAR, U <: REALSCALAR}
-        LineParameters(PhaseDomain, Z, Y, f)
+        size(Z) == size(Y) || throw(
+            DimensionMismatch("Z and Y must have equal n×n×nfreq dimensions"),
+        )
+        size(Z, 3) == length(f) || throw(
+            DimensionMismatch("frequency count must match the Z/Y third dimension"),
+        )
+        all(isfinite, f) || throw(ArgumentError("frequencies must be finite"))
+        return new{T, U, D, Basis}(Z, Y, Vector{U}(f))
     end
 end
 
-SeriesImpedance(A::AbstractArray{T, 3}) where {T} = SeriesImpedance{T}(Array(A))
-ShuntAdmittance(A::AbstractArray{T, 3}) where {T} = ShuntAdmittance{T}(Array(A))
+function LineParameters(
+        Z::SeriesImpedance{T, Basis},
+        Y::ShuntAdmittance{T, Basis},
+        f::AbstractVector{U}
+) where {T <: COMPLEXSCALAR, U <: REALSCALAR, Basis}
+    return LineParameters(PhaseDomain, Z, Y, f)
+end
 
-# --- Outer convenience constructors -------------------------------------------
+function LineParameters(
+        Z::SeriesImpedance{TZ, ZBasis},
+        Y::ShuntAdmittance{TY, YBasis},
+        f::AbstractVector{U}
+) where {
+        TZ <: COMPLEXSCALAR,
+        TY <: COMPLEXSCALAR,
+        U <: REALSCALAR,
+        ZBasis,
+        YBasis
+}
+    ZBasis === YBasis || throw(
+        ArgumentError("Z and Y must have the same basis; got :$ZBasis and :$YBasis"),
+    )
+    element_type = promote_type(TZ, TY)
+    return LineParameters(
+        PhaseDomain,
+        SeriesImpedance(convert(Array{element_type, 3}, Z.values); basis = ZBasis),
+        ShuntAdmittance(convert(Array{element_type, 3}, Y.values); basis = YBasis),
+        f
+    )
+end
 
-"""
-$(TYPEDSIGNATURES)
-
-Construct from 3D arrays and frequency vector. Arrays are wrapped
-into `SeriesImpedance` and `ShuntAdmittance` automatically.
-"""
 function LineParameters(
         ::Type{D},
-        Z::AbstractArray{Tc, 3},
-        Y::AbstractArray{Tc, 3},
-        f::AbstractVector{U}
-) where {D <: LineParamsDomain, Tc <: COMPLEXSCALAR, U <: REALSCALAR}
-    LineParameters(D, SeriesImpedance(Z), ShuntAdmittance(Y), f)
+        Z::AbstractArray{TZ, 3},
+        Y::AbstractArray{TY, 3},
+        f::AbstractVector{U};
+        basis::Symbol = :per_length
+) where {
+        D <: LineParamsDomain,
+        TZ <: COMPLEXSCALAR,
+        TY <: COMPLEXSCALAR,
+        U <: REALSCALAR
+}
+    _check_basis(basis)
+    element_type = promote_type(TZ, TY)
+    return LineParameters(
+        D,
+        SeriesImpedance(convert(Array{element_type, 3}, Z); basis),
+        ShuntAdmittance(convert(Array{element_type, 3}, Y); basis),
+        f
+    )
 end
 
-# Backward-compatible constructor: defaults to PhaseDomain
 function LineParameters(
-        Z::AbstractArray{Tc, 3},
-        Y::AbstractArray{Tc, 3},
-        f::AbstractVector{U}
-) where {Tc <: COMPLEXSCALAR, U <: REALSCALAR}
-    LineParameters(PhaseDomain, Z, Y, f)
+        Z::AbstractArray{TZ, 3},
+        Y::AbstractArray{TY, 3},
+        f::AbstractVector{U};
+        basis::Symbol = :per_length
+) where {
+        TZ <: COMPLEXSCALAR,
+        TY <: COMPLEXSCALAR,
+        U <: REALSCALAR
+}
+    return LineParameters(PhaseDomain, Z, Y, f; basis)
 end
 
-# """
-# $(TYPEDSIGNATURES)
-
-# Backward-compatible constructor without frequencies. A dummy equally-spaced
-# `Vector{BASE_FLOAT}` is used with length `size(Z,3)`.
-# """
-# function LineParameters(
-# 	Z::AbstractArray{Tc, 3},
-# 	Y::AbstractArray{Tc, 3},
-# ) where {Tc <: COMPLEXSCALAR}
-# 	nfreq = size(Z, 3)
-# 	(size(Y, 3) == nfreq) || throw(DimensionMismatch("Z and Y must have same nfreq"))
-# 	# Provide a placeholder frequency vector to preserve legacy call sites
-# 	f = collect(BASE_FLOAT.(1:nfreq))
-# 	return LineParameters(SeriesImpedance(Z), ShuntAdmittance(Y), f)
-# end
-
-# --- Tiny domain extractors ---------------------------------------------------
-"""
-Return the domain tag type for `LineParameters` objects.
-"""
 @inline domain(::Type{<:LineParameters{T, U, D}}) where {T, U, D <: LineParamsDomain} = D
 @inline domain(lp::LineParameters) = domain(typeof(lp))
+@inline basis(::Type{<:LineParameters{T, U, D, Basis}}) where {T, U, D, Basis} = Basis
+@inline basis(::LineParameters{T, U, D, Basis}) where {T, U, D, Basis} = Basis
+
+frequencies(lp::LineParameters) = lp.f
+nconductors(lp::LineParameters) = size(lp.Z, 1)
+nfrequencies(lp::LineParameters) = length(lp.f)
+
+series_impedance(lp::LineParameters) = lp.Z
+shunt_admittance(lp::LineParameters) = lp.Y
+series_impedance(impedance::SeriesImpedance) = impedance
+shunt_admittance(admittance::ShuntAdmittance) = admittance
+"""
+    Z(parameters[, i, j[, k]])
+    Y(parameters[, i, j[, k]])
+
+Return series impedance or shunt admittance. With `(i, j)`, return the complete
+frequency response at that matrix position. `k` may be one index, a range, or
+`:`. Stored units follow [`basis`](@ref): \\[Ω/m\\] and \\[S/m\\] for
+`:per_length`, or \\[Ω\\] and \\[S\\] for `:total`.
+"""
+Z(lp::LineParameters) = lp.Z
+Y(lp::LineParameters) = lp.Y
+
+Z(impedance::SeriesImpedance) = impedance.values
+Z(impedance::SeriesImpedance, i, j) = view(impedance.values, i, j, :)
+Z(impedance::SeriesImpedance, i, j, k) = impedance.values[i, j, k]
+Y(admittance::ShuntAdmittance) = admittance.values
+Y(admittance::ShuntAdmittance, i, j) = view(admittance.values, i, j, :)
+Y(admittance::ShuntAdmittance, i, j, k) = admittance.values[i, j, k]
+
+R(impedance::SeriesImpedance, args...) = real.(Z(impedance, args...))
+X(impedance::SeriesImpedance, args...) = imag.(Z(impedance, args...))
+G(admittance::ShuntAdmittance, args...) = real.(Y(admittance, args...))
+B(admittance::ShuntAdmittance, args...) = imag.(Y(admittance, args...))
+resistance(impedance::SeriesImpedance, args...) = R(impedance, args...)
+reactance(impedance::SeriesImpedance, args...) = X(impedance, args...)
+conductance(admittance::ShuntAdmittance, args...) = G(admittance, args...)
+susceptance(admittance::ShuntAdmittance, args...) = B(admittance, args...)
+
+@inline Z(lp::LineParameters, i, j) = view(lp.Z.values, i, j, :)
+@inline Y(lp::LineParameters, i, j) = view(lp.Y.values, i, j, :)
+@inline Z(lp::LineParameters, i, j, k) = lp.Z.values[i, j, k]
+@inline Y(lp::LineParameters, i, j, k) = lp.Y.values[i, j, k]
+
+R(lp::LineParameters, args...) = real.(Z(lp, args...))
+X(lp::LineParameters, args...) = imag.(Z(lp, args...))
+G(lp::LineParameters, args...) = real.(Y(lp, args...))
+B(lp::LineParameters, args...) = imag.(Y(lp, args...))
+
+@inline function _angular_frequencies(lp::LineParameters, k)
+    selected = lp.f[k]
+    any(iszero, selected isa Number ? (selected,) : selected) && throw(
+        DomainError(selected, "L and C are undefined at zero frequency"),
+    )
+    return 2π .* selected
+end
+
+"""
+    L(parameters[, i, j[, k]])
+
+Return series inductance using the same frequency-selection grammar as
+[`Z`](@ref). Units are \\[H/m\\] for `:per_length` and \\[H\\] for `:total`.
+
+# Notes
+
+```math
+L(f) = \\frac{\\operatorname{Im} Z(f)}{2\\pi f}.
+```
+
+# Errors
+
+Throws `DomainError` when a selected frequency is zero.
+"""
+function L(lp::LineParameters)
+    any(iszero, lp.f) && throw(DomainError(lp.f, "L is undefined at zero frequency"))
+    return imag.(lp.Z.values) ./ reshape(2π .* lp.f, 1, 1, :)
+end
+
+"""
+    C(parameters[, i, j[, k]])
+
+Return shunt capacitance using the same frequency-selection grammar as
+[`Y`](@ref). Units are \\[F/m\\] for `:per_length` and \\[F\\] for `:total`.
+
+# Notes
+
+```math
+C(f) = \\frac{\\operatorname{Im} Y(f)}{2\\pi f}.
+```
+
+# Errors
+
+Throws `DomainError` when a selected frequency is zero.
+"""
+function C(lp::LineParameters)
+    any(iszero, lp.f) && throw(DomainError(lp.f, "C is undefined at zero frequency"))
+    return imag.(lp.Y.values) ./ reshape(2π .* lp.f, 1, 1, :)
+end
+
+L(lp::LineParameters, i, j) = L(lp, i, j, :)
+C(lp::LineParameters, i, j) = C(lp, i, j, :)
+L(lp::LineParameters, i, j, k) = imag.(Z(lp, i, j, k)) ./ _angular_frequencies(lp, k)
+C(lp::LineParameters, i, j, k) = imag.(Y(lp, i, j, k)) ./ _angular_frequencies(lp, k)
+
+resistance(lp::LineParameters, args...) = R(lp, args...)
+reactance(lp::LineParameters, args...) = X(lp, args...)
+inductance(lp::LineParameters, args...) = L(lp, args...)
+conductance(lp::LineParameters, args...) = G(lp, args...)
+susceptance(lp::LineParameters, args...) = B(lp, args...)
+capacitance(lp::LineParameters, args...) = C(lp, args...)

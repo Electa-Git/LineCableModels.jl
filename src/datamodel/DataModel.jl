@@ -23,15 +23,18 @@ export Thickness, Diameter  # Type definitions
 export CircStrands, RectStrands, Strip, Tubular, SectorParams, Sector  # Conductor types
 export Semicon, Insulator, SectorInsulator  # Insulator types
 export ConductorGroup, InsulatorGroup  # Group types
-export CableComponent, CableDesign  # Cable design types
+export CableComponent, CableDesign, CableConstants  # Cable design types
 export CablePosition, LineCableSystem  # System types
 export CablesLibrary, NominalData  # Support types
 export trifoil_formation, flat_formation, get_outer_radius, MaxFill  # Helpers
-export preview, equivalent
+export preview, show_material_scale, equivalent
 
 # Module-specific dependencies
 using ..Commons
+import ..PlotBuilder
+import ..UnitHandler
 import ..Commons: add!
+import ..Commons: basis, R, L, C, resistance, inductance, capacitance
 using ..Utils:
                resolve_T, to_certain, to_nominal, is_headless,
                is_in_testset, to_lower, to_upper
@@ -47,7 +50,8 @@ using Measurements
 using DataFrames
 using Colors
 using LinearAlgebra
-using GeometryBasics: Point, Point2f
+using GeometryBasics: Point, Point2f, Polygon
+using Statistics: mean
 # Abstract types & interfaces
 include("types.jl")
 include("radii.jl")
@@ -88,6 +92,7 @@ include("linecablesystem.jl")
 include("helpers.jl")
 include("io.jl")
 include("typecoercion.jl")
+include("plotspecs.jl")
 
 """
     preview(object; kwargs...)
@@ -102,6 +107,22 @@ function preview(args...; kwargs...)
     throw(
         ArgumentError(
         "Plotting is optional. Load CairoMakie, GLMakie, or WGLMakie before calling preview.",
+    ),
+    )
+end
+
+"""
+    show_material_scale(; kwargs...)
+
+Display the resistivity, permeability, and permittivity color scales used by
+[`preview`](@ref). Load a Makie backend before calling this function.
+"""
+function show_material_scale end
+
+function show_material_scale(args...; kwargs...)
+    throw(
+        ArgumentError(
+        "Plotting is optional. Load CairoMakie, GLMakie, or WGLMakie before calling show_material_scale.",
     ),
     )
 end

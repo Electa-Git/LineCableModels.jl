@@ -47,7 +47,7 @@
 
     @test length(shared_draws) == 8
     @test result.samples !== nothing
-    @test result.stats.R.n == 8
+    @test ntrials(result) == 8
     @test all(isapprox(d / 0.02, t / 0.005; atol = 32eps()) for (d, t) in shared_draws)
     @test length(unique(first.(shared_draws))) > 1
 end

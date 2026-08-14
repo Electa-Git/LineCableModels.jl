@@ -4,6 +4,11 @@ module LineCableModels
 # -------------------------------------------------------------------------
 # Core generics:
 export add!, set_verbosity!, set_backend!
+export basis, domain, frequencies, nconductors, nfrequencies
+export Z, Y, R, X, L, G, B, C
+export series_impedance, shunt_admittance,
+       resistance, reactance, inductance,
+       conductance, susceptance, capacitance
 
 # Materials:
 export Material, MaterialsLibrary
@@ -12,17 +17,17 @@ export Material, MaterialsLibrary
 export Thickness, Diameter, WireArray, Strip, Tubular, Semicon, Insulator, Sector,
        SectorParams, SectorInsulator
 export ConductorGroup, InsulatorGroup
-export CableComponent, CableDesign, NominalData
+export CableComponent, CableDesign, CableConstants, NominalData
 export CablesLibrary
 export CablePosition, LineCableSystem
-export trifoil_formation, flat_formation, preview, equivalent, MaxFill
+export trifoil_formation, flat_formation, preview, show_material_scale, equivalent, MaxFill
 
 # Earth properties:
 export EarthModel
 
 # Engine:
 export LineParametersProblem,
-       FormulationSet, compute!, SeriesImpedance, ShuntAdmittance, per_km, per_m, kronify,
+       FormulationSet, compute!, SeriesImpedance, ShuntAdmittance, kronify,
        LineParameters, PhaseDomain, ModalDomain
 
 # Parametric builder:
@@ -37,7 +42,12 @@ import DocStringExtensions: DocStringExtensions
 
 # Submodule `Commons`
 include("commons/Commons.jl")
-using .Commons: IMPORTS, EXPORTS, add!, PhaseDomain, ModalDomain, domain
+using .Commons: IMPORTS, EXPORTS, add!, PhaseDomain, ModalDomain, domain,
+                basis, Z, Y, R, X, L, G, B, C,
+                series_impedance, shunt_admittance,
+                resistance, reactance, inductance,
+                conductance, susceptance, capacitance,
+                frequencies, nconductors, nfrequencies
 # Submodule `UncertainBessels`
 include("uncertainbessels/UncertainBessels.jl")
 
@@ -54,6 +64,8 @@ include("validation/Validation.jl")
 # Submodule `PlotBuilder`
 include("plotbuilder/PlotBuilder.jl")
 using .PlotBuilder.BackendHandler: set_backend!
+using .PlotBuilder: UIPlot, export_svg
+export UIPlot, export_svg
 
 # Submodule `Materials`
 include("materials/Materials.jl")
@@ -67,21 +79,31 @@ using .EarthProps: EarthModel
 include("datamodel/DataModel.jl")
 using .DataModel: Thickness, Diameter, CircStrands, RectStrands, Strip, Tubular, Semicon,
                   Insulator, ConductorGroup, InsulatorGroup, CableComponent, CableDesign,
+                  CableConstants,
                   NominalData,
                   CablesLibrary, CablePosition, LineCableSystem, trifoil_formation,
                   flat_formation,
-                  preview, equivalent, MaxFill, Sector, SectorParams, SectorInsulator
+                  preview, show_material_scale, equivalent, MaxFill, Sector, SectorParams,
+                  SectorInsulator
 
 # Submodule `Engine`
 include("engine/Engine.jl")
 using .Engine: LineParametersProblem, compute!, LineParameters, SeriesImpedance,
-               ShuntAdmittance, per_km, per_m, kronify, FormulationSet
+               ShuntAdmittance, kronify, FormulationSet
 
 # Submodule `ParametricBuilder`
 include("parametricbuilder/ParametricBuilder.jl")
 
 # Submodule `UQ`
 include("uq/UQ.jl")
+using .UQ: SampleSummary, RLCG, HistogramPDF, CableConstantsMC, LineParametersMC,
+           sample, trial, mc, statistics, has_samples, samples,
+           has_distributions, distribution, surrogate, ntrials, confidence,
+           mean, std, quantile
+export SampleSummary, RLCG, HistogramPDF, CableConstantsMC, LineParametersMC,
+       sample, trial, mc, statistics, has_samples, samples,
+       has_distributions, distribution, surrogate, ntrials, confidence,
+       mean, std, quantile
 
 # Submodule `ImportExport`
 include("importexport/ImportExport.jl")

@@ -1,26 +1,34 @@
 module UQ
 
 # Export public API
-export sample, trial, mc
+export SampleSummary, RLCG, HistogramPDF, CableConstantsMC, LineParametersMC
+export sample, trial, mc,
+       statistics, has_samples, samples, has_distributions, distribution,
+       surrogate, ntrials, confidence, mean, std, quantile
 
 # Module-specific dependencies
 using ..Commons: BASE_FLOAT
-import ..Commons: domain, PhaseDomain, ModalDomain,
-                  LineParamsDomain
+import ..Commons: domain, basis, frequencies, nconductors, nfrequencies,
+                  PhaseDomain, ModalDomain, LineParamsDomain
 using ..ParametricBuilder:
                            MaterialSpec, PartSpec, CableBuilderSpec, SystemBuilderSpec,
                            AbstractPositionSpec,
                            PositionSpec, PositionGroupSpec, build, iterate, _spec,
                            determinize
 using ..Engine:
-                EMTFormulation, compute!, LineParameters
-using ..DataModel: get_outer_radius
+                EMTFormulation, compute!, LineParameters, SeriesImpedance, ShuntAdmittance
+using ..DataModel: get_outer_radius, CableConstants
+using ..UnitHandler
+using ..PlotBuilder
 using Measurements: Measurement, measurement, value, uncertainty
 using Random, Statistics, DataFrames
+import Statistics: mean, std
 using Distributions:
                      Distributions, ContinuousUnivariateDistribution, Normal, Uniform, cdf,
                      sampler
-using StatsBase: fit, Histogram, normalize, quantile, ecdf
+using StatsBase: fit, Histogram, normalize, ecdf
+import StatsBase
+import StatsBase: quantile
 using LinearAlgebra
 
 # Draw once from a "range-like" spec
@@ -351,6 +359,6 @@ include("types.jl")
 include("distributions.jl")
 include("montecarlo.jl")
 include("dataframe.jl")
-include("plotspecs/mcstatsplotspec.jl")
+include("plotspecs.jl")
 
 end # module UQ
