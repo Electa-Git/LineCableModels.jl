@@ -225,7 +225,7 @@ function PlotBuilder.make_render(
             selection,
             mode,
             data,
-            controls = PlotBuilder.control_definitions(),
+            controls = PlotBuilder.control_definitions(xlog = false, ylog = false),
             configuration = (;
                 quantity,
                 selection,

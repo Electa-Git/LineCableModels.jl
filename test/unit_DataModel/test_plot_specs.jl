@@ -60,11 +60,19 @@
     @test system_view.attributes.aspect === :data
     @test any(series -> series.kind === :hline, system_view.series)
     @test any(series -> series.kind === :polygon, system_view.series)
-    earth_reference = only(series for series in system_view.series if series.kind === :hline)
+    earth_reference = only(series
+    for series in system_view.series if series.kind === :hline)
     @test earth_reference.ydata == [0.0]
     @test earth_reference.attributes.color === :black
     @test earth_reference.attributes.linewidth == 1.5
     @test length(system_page.kwargs.colorbars) == 3
+    @test all(
+        descriptor -> length(descriptor.ticks[1]) == 1 &&
+                      length(descriptor.ticks[2]) == 1,
+        system_page.kwargs.colorbars
+    )
+    @test getproperty.(system_page.kwargs.colorbars, :ticks) ==
+          (([0.5], ["100"]), ([0.5], ["1"]), ([0.5], ["10"]))
     @test system_page.kwargs.configuration.zoom_factor === nothing
 
     zoomed_render = plot_builder.make_render(

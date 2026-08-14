@@ -172,7 +172,7 @@ function _line_pages(
                     component,
                     x_exponent,
                     y_exponent,
-                    controls = PlotBuilder.control_definitions(),
+                    controls = PlotBuilder.control_definitions(xlog = true, ylog = true),
                     configuration = (;
                         mode,
                         coord,

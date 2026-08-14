@@ -51,6 +51,7 @@ using DataFrames
 using Colors
 using LinearAlgebra
 using GeometryBasics: Point, Point2f, Polygon
+using Printf: @sprintf
 using Statistics: mean
 # Abstract types & interfaces
 include("types.jl")

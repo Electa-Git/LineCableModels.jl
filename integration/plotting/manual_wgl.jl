@@ -181,8 +181,9 @@ app = Bonito.App() do
     return DOM.main(
         DOM.h1("LineCableModels WGL manual gallery"),
         DOM.p(
-            "Inspect reset, SVG export, logarithmic axes, legends, visibility, " *
-            "zoom/pan, previews, material toggling, histograms, PDFs, ECDFs, and Q-Q plots."
+            "Inspect reset, SVG export, line-parameter logarithmic axes, legends, " *
+            "visibility, zoom/pan, previews, material toggling, histograms without " *
+            "log controls, PDFs, ECDFs, and Q-Q plots."
         ),
         DOM.div(
             cards...;

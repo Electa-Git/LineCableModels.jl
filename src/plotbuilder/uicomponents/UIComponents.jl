@@ -15,6 +15,9 @@ export build, export_svg
 
 const FIGURE_PADDING = (20, 20, 28, 28)
 const COLORBAR_WIDTH = 160
+const COLORBAR_TICK_LABEL_SIZE = 12
+const COLORBAR_LABEL_SIZE = 14
+const COLORBAR_END_PADDING = 28
 const GRID_ROW_GAP = 6
 const GRID_COLUMN_GAP = 6
 const LEGEND_GAP = 4
@@ -62,7 +65,11 @@ function _theme(; export_mode::Bool = false)
             xlabelsize = 14,
             ylabelsize = 14,
             xticklabelsize = 14,
-            yticklabelsize = 14
+            yticklabelsize = 14,
+            xminorgridvisible = false,
+            yminorgridvisible = false,
+            xminorticksvisible = false,
+            yminorticksvisible = false
         ),
         Button = (; buttoncolor = BUTTON_BACKGROUND),
         Legend = (; fontsize = 14, labelsize = 14),
@@ -87,39 +94,43 @@ function _linear_tickformat(exponent::Int)
     return values -> [@sprintf("%.4g", value / scale) for value in values]
 end
 
-function _log_ticks(vmin, vmax)
+function _decade_ticks(vmin, vmax)
     isfinite(vmin) && isfinite(vmax) && 0 < vmin <= vmax || return (Float64[], String[])
-    values = Float64[]
-    labels = Any[]
-    first_exponent = floor(Int, log10(vmin))
+    first_exponent = ceil(Int, log10(vmin))
     last_exponent = floor(Int, log10(vmax))
-    for exponent in first_exponent:last_exponent
-        decade = 10.0^exponent
-        for multiplier in 1:9
-            value = multiplier * decade
-            vmin <= value <= vmax || continue
-            push!(values, value)
-            push!(
-                labels,
-                multiplier == 1 ?
-                Makie.rich("10", Makie.superscript(string(exponent))) : ""
-            )
-        end
-    end
+    first_exponent > last_exponent && return (Float64[], String[])
+    exponents = first_exponent:last_exponent
+    values = 10.0 .^ exponents
+    labels = [Makie.rich(
+                  "10",
+                  Makie.superscript(
+                      replace(string(exponent), "-" => "−");
+                      offset = Makie.Vec2f(0.1, 0.0)
+                  )
+              ) for exponent in exponents]
     return values, labels
 end
 
 function _axis_label(spec::Union{Nothing, AxisSpec}, exponent::Int, scale::Symbol)
     spec === nothing && return ""
     scale === :log10 && return spec.label
-    return iszero(exponent) ? spec.label : "$(spec.label)  × 10^$exponent"
+    iszero(exponent) && return spec.label
+    formatted_exponent = replace(string(exponent), "-" => "−")
+    return Makie.rich(
+        spec.label,
+        "  × 10",
+        Makie.superscript(
+            formatted_exponent;
+            offset = Makie.Vec2f(0.1, 0.0)
+        )
+    )
 end
 
 function _tickformat(exponent::Int, scale::Symbol)
     return scale === :log10 ? Makie.automatic : _linear_tickformat(exponent)
 end
 
-_ticks(scale::Symbol) = scale === :log10 ? _log_ticks : Makie.automatic
+_ticks(scale::Symbol) = scale === :log10 ? _decade_ticks : Makie.automatic
 
 function _set_axis_scale!(
         axis, spec::Union{Nothing, AxisSpec}, dim::Symbol, exponent::Int, scale::Symbol)
@@ -138,6 +149,69 @@ function _set_axis_scale!(
         axis.yscale[] = _scale(scale)
     else
         throw(ArgumentError("axis dimension must be :x or :y"))
+    end
+    return axis
+end
+
+function _axis_values(view::ViewSpec, dim::Symbol)
+    values = Float64[]
+    for series in view.series
+        data = dim === :x ? series.xdata : series.ydata
+        data === nothing && continue
+        for sample in data
+            nominal = Measurements.value(sample)
+            nominal isa Real || continue
+            numeric = Float64(nominal)
+            isfinite(numeric) && push!(values, numeric)
+        end
+    end
+    return values
+end
+
+function _nearly_constant(values)
+    isempty(values) && return false
+    lower, upper = extrema(values)
+    scale = max(abs(lower), abs(upper), floatmin(Float64))
+    return upper - lower <= 64eps(Float64) * scale
+end
+
+function _linear_constant_limits(values)
+    center = sum(extrema(values)) / 2
+    halfspan = iszero(center) ? 1.0 : 0.05abs(center)
+    return center - halfspan, center + halfspan
+end
+
+function _log_decade_limits(values)
+    all(>(0), values) || throw(
+        DomainError(values, "logarithmic axes require strictly positive data"),
+    )
+    lower, upper = extrema(values)
+    lower_exponent = floor(Int, log10(lower))
+    upper_exponent = ceil(Int, log10(upper))
+    if lower_exponent == upper_exponent
+        lower_exponent -= 1
+        upper_exponent += 1
+    end
+    return 10.0^lower_exponent, 10.0^upper_exponent
+end
+
+function _reset_panel_limits!(panel::UIPanel)
+    axis = panel.axis
+    view = panel.view
+    autolimits!(axis)
+    haskey(view.attributes, :limits) && return axis
+    for dim in (:x, :y)
+        values = _axis_values(view, dim)
+        isempty(values) && continue
+        scale = dim === :x ? axis.xscale[] : axis.yscale[]
+        limits = if scale === Makie.log10
+            _log_decade_limits(values)
+        elseif _nearly_constant(values)
+            _linear_constant_limits(values)
+        else
+            continue
+        end
+        dim === :x ? xlims!(axis, limits...) : ylims!(axis, limits...)
     end
     return axis
 end
@@ -272,6 +346,8 @@ function _axis(parent, view::ViewSpec, page::PageSpec)
         xlimits, ylimits = view.attributes.limits
         xlims!(axis, xlimits...)
         ylims!(axis, ylimits...)
+    else
+        _reset_panel_limits!(UIPanel(view, axis, plots, groups, group_labels))
     end
     return UIPanel(view, axis, plots, groups, group_labels)
 end
@@ -307,9 +383,32 @@ function _visibility_groups(panels)
     return groups, labels
 end
 
+function _rich_scientific_label(label::AbstractString)
+    matched = match(r"^([+−-]?[0-9]+(?:\.[0-9]+)?)e([+−-]?[0-9]+)$", label)
+    matched === nothing && return label
+    coefficient, raw_exponent = matched.captures
+    exponent = parse(Int, replace(raw_exponent, "−" => "-"))
+    formatted_exponent = replace(string(exponent), "-" => "−")
+    prefix = coefficient == "1" ? "" : coefficient == "-1" ? "−" : "$coefficient×"
+    return Makie.rich(
+        prefix,
+        "10",
+        Makie.superscript(
+            formatted_exponent;
+            offset = Makie.Vec2f(0.1, 0.0)
+        )
+    )
+end
+
+function _colorbar_ticks(ticks)
+    values, labels = ticks
+    return values, map(_rich_scientific_label, labels)
+end
+
 function _colorbars!(slot, descriptors)
     isempty(descriptors) && return nothing
     grid = GridLayout()
+    grid.default_colgap = Fixed(0)
     slot[] = grid
     colsize!(grid, 1, Relative(1))
     for (row, descriptor) in enumerate(descriptors)
@@ -317,13 +416,17 @@ function _colorbars!(slot, descriptors)
             grid[row, 1];
             colormap = descriptor.colormap,
             limits = descriptor.limits,
-            ticks = descriptor.ticks,
+            ticks = _colorbar_ticks(descriptor.ticks),
             label = descriptor.label,
             vertical = false,
             width = COLORBAR_WIDTH,
-            height = 14
+            height = 14,
+            ticklabelsize = COLORBAR_TICK_LABEL_SIZE,
+            labelsize = COLORBAR_LABEL_SIZE
         )
+        Label(grid[row, 2], ""; tellheight = false)
     end
+    colsize!(grid, 2, Fixed(COLORBAR_END_PADDING))
     return grid
 end
 
@@ -415,7 +518,7 @@ function _build_page(
             column += 1
             widgets[:reset] = reset
             on(reset.clicks) do _
-                foreach(panel -> autolimits!(panel.axis), panels)
+                foreach(_reset_panel_limits!, panels)
                 context.status[] = "Axis limits reset"
             end
         end
@@ -459,7 +562,7 @@ function _build_page(
                     ),
                     panels
                 )
-                foreach(panel -> autolimits!(panel.axis), panels)
+                foreach(_reset_panel_limits!, panels)
                 context.status[] = enabled ?
                                    "x-axis scale set to log" :
                                    "x-axis scale set to linear"
@@ -486,7 +589,7 @@ function _build_page(
                     ),
                     panels
                 )
-                foreach(panel -> autolimits!(panel.axis), panels)
+                foreach(_reset_panel_limits!, panels)
                 context.status[] = enabled ?
                                    "y-axis scale set to log" :
                                    "y-axis scale set to linear"

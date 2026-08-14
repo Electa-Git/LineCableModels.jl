@@ -302,13 +302,25 @@ function _color_samples(function_value, lower, upper; count::Int = 256)
     return [function_value(value) for value in values]
 end
 
+function _compact_number(value::Real)
+    numeric = Float64(value)
+    isfinite(numeric) || return string(numeric)
+    return @sprintf("%.4g", numeric)
+end
+
+function _colorbar_range(range)
+    lower, upper = Float64.(range)
+    if lower == upper
+        return lower, nextfloat(lower), ([0.5], [_compact_number(lower)])
+    end
+    return lower, upper,
+    ([0.0, 1.0], [_compact_number(lower), _compact_number(upper)])
+end
+
 function _colorbar_specs(rho_range, mu_range, eps_range; alpha_value = 1.0)
-    rho_lower, rho_upper = rho_range
-    mu_lower, mu_upper = max.(mu_range, 1.0)
-    eps_lower, eps_upper = max.(eps_range, 1.0)
-    rho_upper == rho_lower && (rho_upper = nextfloat(rho_lower))
-    mu_upper == mu_lower && (mu_upper = nextfloat(mu_lower))
-    eps_upper == eps_lower && (eps_upper = nextfloat(eps_lower))
+    rho_lower, rho_upper, rho_ticks = _colorbar_range(rho_range)
+    mu_lower, mu_upper, mu_ticks = _colorbar_range(max.(mu_range, 1.0))
+    eps_lower, eps_upper, eps_ticks = _colorbar_range(max.(eps_range, 1.0))
     gray = RGB(0.5, 0.5, 0.5)
     dark = RGB(0.1, 0.1, 0.1)
     return (
@@ -316,7 +328,7 @@ function _colorbar_specs(rho_range, mu_range, eps_range; alpha_value = 1.0)
             label = "ρ [Ω·m]",
             colormap = _color_samples(_base_material_color, rho_lower, rho_upper),
             limits = (0.0, 1.0),
-            ticks = ([0.0, 1.0], collect(string.((rho_lower, rho_upper))))
+            ticks = rho_ticks
         ),
         (
             label = "μᵣ",
@@ -332,7 +344,7 @@ function _colorbar_specs(rho_range, mu_range, eps_range; alpha_value = 1.0)
                 mu_upper
             ),
             limits = (0.0, 1.0),
-            ticks = ([0.0, 1.0], collect(string.((mu_lower, mu_upper))))
+            ticks = mu_ticks
         ),
         (
             label = "εᵣ",
@@ -348,7 +360,7 @@ function _colorbar_specs(rho_range, mu_range, eps_range; alpha_value = 1.0)
                 eps_upper
             ),
             limits = (0.0, 1.0),
-            ticks = ([0.0, 1.0], collect(string.((eps_lower, eps_upper))))
+            ticks = eps_ticks
         )
     )
 end

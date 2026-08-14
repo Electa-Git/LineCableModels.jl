@@ -489,7 +489,7 @@ end
     @test getproperty.(only(render.figures[1].views).series, :label) ==
           ["R[1,1]", "R[1,2]", "R[2,1]", "R[2,2]"]
     @test render.figures[1].kwargs.controls ==
-          LineCableModels.PlotBuilder.control_definitions()
+          LineCableModels.PlotBuilder.control_definitions(xlog = true, ylog = true)
     @test render.figures[1].kwargs.configuration.mode === :RLCG
     @test render.figures[1].kwargs.configuration.coord === :cart
     @test render.figures[1].kwargs.configuration.length_unit === :kilo
@@ -589,6 +589,8 @@ end
         @test length(mc_render.figures) == 1
         @test only(mc_render.figures).kwargs.mode === mode
         @test only(mc_render.figures).kwargs.controls.export_svg
+        @test !only(mc_render.figures).kwargs.controls.xlog
+        @test !only(mc_render.figures).kwargs.controls.ylog
         @test only(mc_render.figures).kwargs.configuration.mode === mode
         kinds = getproperty.(only(only(mc_render.figures).views).series, :kind)
         expected_kinds = mode === :hist ? [:histogram, :stairs] :

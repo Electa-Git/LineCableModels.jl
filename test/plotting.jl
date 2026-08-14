@@ -117,10 +117,19 @@
         @test handle.controls[:reset].buttoncolor[] == Makie.RGBf(0.94, 0.94, 0.94)
         @test occursin("\\ue5d5", sprint(show, handle.controls[:reset].label[]))
         @test occursin("\\ue161", sprint(show, handle.controls[:export_svg].label[]))
+        line_axis = only(handle.panels).axis
+        initial_line_limits = line_axis.finallimits[]
+        initial_xlabel = line_axis.xlabel[]
         handle.controls[:xlog].active[] = true
-        @test only(handle.panels).axis.xscale[] === Makie.log10
+        @test line_axis.xscale[] === Makie.log10
+        @test line_axis.xlabel[] == "Frequency [Hz]"
+        handle.controls[:xlog].active[] = false
+        @test line_axis.xscale[] === Makie.identity
+        @test line_axis.xlabel[] == initial_xlabel
+        @test line_axis.finallimits[] == initial_line_limits
+        handle.controls[:xlog].active[] = true
         handle.controls[:ylog].active[] = true
-        @test only(handle.panels).axis.yscale[] === Makie.log10
+        @test line_axis.yscale[] === Makie.log10
         handle.controls[:reset].clicks[] += 1
         @test handle.context.status[] == "Axis limits reset"
         legend = handle.controls[:legend]
@@ -144,7 +153,9 @@
 
         susceptance_handle = last(cartesian)
         susceptance_axis = only(susceptance_handle.panels).axis
-        @test occursin("× 10^-3", susceptance_axis.ylabel[])
+        @test susceptance_axis.ylabel[] isa Makie.RichText
+        @test occursin("−3", sprint(show, susceptance_axis.ylabel[]))
+        initial_susceptance_limits = susceptance_axis.finallimits[]
         susceptance_handle.controls[:ylog].active[] = true
         @test susceptance_axis.yscale[] === Makie.log10
         @test susceptance_axis.ytickformat[] === Makie.automatic
@@ -159,13 +170,35 @@
             ymin,
             ymax
         )
-        @test length(tick_values) > 2
-        @test length(unique(round.(diff(log10.(tick_values)); digits = 8))) > 1
-        @test all(label -> label == "" || label isa Makie.RichText, tick_labels)
-        @test all(
-            label -> label == "" || !occursin(r"\d+\.\d+", sprint(show, label)),
-            tick_labels
+        @test length(tick_values) in 2:4
+        @test all(isinteger, log10.(tick_values))
+        @test all(isone, round.(diff(log10.(tick_values)); digits = 8))
+        @test all(label -> label isa Makie.RichText, tick_labels)
+        susceptance_handle.controls[:ylog].active[] = false
+        @test susceptance_axis.yscale[] === Makie.identity
+        @test susceptance_axis.ylabel[] isa Makie.RichText
+        @test susceptance_axis.finallimits[] == initial_susceptance_limits
+
+        conductance_handle = rlcg[3]
+        conductance_axis = only(conductance_handle.panels).axis
+        conductance_handle.controls[:ylog].active[] = true
+        conductance_limits = conductance_axis.finallimits[]
+        @test conductance_limits.origin[2] == 1.0e-6
+        @test conductance_limits.origin[2] + conductance_limits.widths[2] == 1.0e-5
+        conductance_ticks, conductance_labels = Makie.get_ticks(
+            conductance_axis.yticks[],
+            conductance_axis.yscale[],
+            conductance_axis.ytickformat[],
+            1.0e-6,
+            1.0e-5
         )
+        @test conductance_ticks == [1.0e-6, 1.0e-5]
+        @test all(label -> label isa Makie.RichText, conductance_labels)
+
+        capacitance_axis = only(rlcg[4].panels).axis
+        capacitance_limits = capacitance_axis.finallimits[]
+        @test capacitance_limits.origin[2] == 0.38
+        @test capacitance_limits.origin[2] + capacitance_limits.widths[2] ≈ 0.42
 
         mktempdir() do directory
             svg_path = joinpath(directory, "line parameters.svg")
@@ -222,6 +255,8 @@
                 display_plot = false
             )
             @test mc_plot isa UIPlot
+            @test !haskey(mc_plot.controls, :xlog)
+            @test !haskey(mc_plot.controls, :ylog)
             test_golden(mc_plot, "mc_$mode")
         end
 

@@ -100,9 +100,10 @@ set_backend!(:gl)
         ymin,
         ymax
     )
-    @test length(tick_values) > 2
-    @test length(unique(round.(diff(log10.(tick_values)); digits = 8))) > 1
-    @test all(label -> label == "" || label isa Makie.RichText, tick_labels)
+    @test length(tick_values) in 2:4
+    @test all(isinteger, log10.(tick_values))
+    @test all(isone, round.(diff(log10.(tick_values)); digits = 8))
+    @test all(label -> label isa Makie.RichText, tick_labels)
 end
 
 GLMakie.closeall()

@@ -8,8 +8,8 @@ export make_render, export_svg
 function control_definitions(;
         reset::Bool = true,
         export_svg::Bool = true,
-        xlog::Bool = true,
-        ylog::Bool = true,
+        xlog::Bool = false,
+        ylog::Bool = false,
         legend::Bool = true,
         visibility::Bool = true,
         zoom::Bool = true
