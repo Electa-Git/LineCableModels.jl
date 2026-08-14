@@ -310,11 +310,14 @@ end
 
 function _colorbar_range(range)
     lower, upper = Float64.(range)
-    if lower == upper
-        return lower, nextfloat(lower), ([0.5], [_compact_number(lower)])
+    lower_label = _compact_number(lower)
+    upper_label = _compact_number(upper)
+    if lower_label == upper_label
+        representative = lower > 0 && upper > 0 ? sqrt(lower * upper) : (lower + upper) / 2
+        return representative, nextfloat(representative), ([0.5], [lower_label])
     end
     return lower, upper,
-    ([0.0, 1.0], [_compact_number(lower), _compact_number(upper)])
+    ([0.0, 1.0], [lower_label, upper_label])
 end
 
 function _colorbar_specs(rho_range, mu_range, eps_range; alpha_value = 1.0)

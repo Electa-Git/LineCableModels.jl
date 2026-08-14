@@ -281,6 +281,7 @@
             )
             @test publication == publication_path
             @test filesize(publication) > 100
+            @test read(publication) != read(exported)
         end
 
         fallback_export = cd(pkgdir(LineCableModels)) do

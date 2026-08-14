@@ -1,7 +1,11 @@
 using LineCableModels
 using Measurements: measurement
 
-function build_manual_plot_gallery(backend::Symbol; display_plot::Bool)
+function build_manual_plot_gallery(
+        backend::Symbol;
+        display_plot::Bool,
+        export_theme::Symbol = :publication
+)
     frequency = [10.0, 50.0, 100.0, 500.0, 1_000.0, 10_000.0]
     omega = reshape(2π .* frequency, 1, 1, :)
     resistance_values = reshape([1.0, 0.2, 0.2, 2.0], 2, 2, 1) .*
@@ -56,15 +60,29 @@ function build_manual_plot_gallery(backend::Symbol; display_plot::Bool)
 
     add_pages!(
         "Line parameters: RLCG",
-        Makie.plot(parameters; mode = :RLCG, backend, display_plot)
+        Makie.plot(parameters; mode = :RLCG, backend, display_plot, export_theme)
     )
     add_pages!(
         "Line parameters: Z/Y Cartesian",
-        Makie.plot(parameters; mode = :ZY, coord = :cart, backend, display_plot)
+        Makie.plot(
+            parameters;
+            mode = :ZY,
+            coord = :cart,
+            backend,
+            display_plot,
+            export_theme
+        )
     )
     add_pages!(
         "Line parameters: Z/Y polar",
-        Makie.plot(parameters; mode = :ZY, coord = :polar, backend, display_plot)
+        Makie.plot(
+            parameters;
+            mode = :ZY,
+            coord = :polar,
+            backend,
+            display_plot,
+            export_theme
+        )
     )
     add_pages!(
         "Line parameters: measurement error bars",
@@ -72,7 +90,8 @@ function build_manual_plot_gallery(backend::Symbol; display_plot::Bool)
             measurement_parameters;
             mode = :RLCG,
             backend,
-            display_plot
+            display_plot,
+            export_theme
         )
     )
 
@@ -85,7 +104,8 @@ function build_manual_plot_gallery(backend::Symbol; display_plot::Bool)
                 mode,
                 data = :both,
                 backend,
-                display_plot
+                display_plot,
+                export_theme
             )
         )
     end
@@ -95,7 +115,7 @@ function build_manual_plot_gallery(backend::Symbol; display_plot::Bool)
     design = first(values(library.data))
     push!(
         gallery,
-        "Cable preview" => preview(design; backend, display_plot)
+        "Cable preview" => preview(design; backend, display_plot, export_theme)
     )
 
     position = CablePosition(
@@ -113,16 +133,18 @@ function build_manual_plot_gallery(backend::Symbol; display_plot::Bool)
             system;
             earth_model = earth,
             backend,
-            display_plot
+            display_plot,
+            export_theme
         )
     )
     push!(
         gallery,
-        "Material scale" => show_material_scale(; backend, display_plot)
+        "Material scale" => show_material_scale(; backend, display_plot, export_theme)
     )
 
     @assert length(gallery) == 23
     @assert all(pair -> pair.second isa UIPlot, gallery)
     @assert all(pair -> pair.second.context.backend === backend, gallery)
+    @assert all(pair -> pair.second.page.kwargs.export_theme === export_theme, gallery)
     return gallery
 end

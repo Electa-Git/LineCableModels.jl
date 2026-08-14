@@ -24,6 +24,10 @@
         cable_view.series
     )
     @test length(cable_page.kwargs.colorbars) == 3
+    @test cable_page.kwargs.colorbars[2].ticks == ([0.5], ["1"])
+    @test all(
+        descriptor -> length(unique(descriptor.ticks[2])) == length(descriptor.ticks[2]),
+        cable_page.kwargs.colorbars)
     @test cable_page.kwargs.display_legend
     @test cable_page.kwargs.controls.reset
     @test cable_page.kwargs.controls.export_svg
