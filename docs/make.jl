@@ -122,6 +122,7 @@ makedocs(;
         "API reference" => "reference.md",
         "Development" => Any[
             "Conventions" => "conventions.md",
+            "PlotBuilder" => "plotbuilder.md",
             "Validation module" => "validation.md",
             "Docstrings" => "docstrings.md",
             "Contributing" => "contributing.md",
