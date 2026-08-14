@@ -55,3 +55,6 @@ test/jl_*
 *.sh
 .vscode/
 designs/
+src/parametricbuilder/gridspace/grid.jl
+src/parametricbuilder/gridspace/gridspace.jl
+src/parametricbuilder/gridspace/macros.jl
