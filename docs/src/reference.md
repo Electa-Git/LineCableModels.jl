@@ -3,6 +3,40 @@
 This page documents the public API and the documented implementation surface of
 `LineCableModels.jl`.
 
+## Result containers
+
+`CableConstants` stores canonical per-metre R/L/C values. `LineParameters`
+stores frequency-dependent Z/Y matrices together with their domain and either a
+`:per_length` or `:total` basis. Selecting matrix indices without a frequency
+index returns the complete frequency response.
+
+```jldoctest
+julia> using LineCableModels
+
+julia> f = [50.0, 100.0];
+
+julia> z = reshape(ComplexF64[1 + 2im, 3 + 4im], 1, 1, 2);
+
+julia> y = reshape(ComplexF64[5 + 6im, 7 + 8im], 1, 1, 2);
+
+julia> parameters = LineParameters(z, y, f);
+
+julia> basis(parameters)
+:per_length
+
+julia> R(parameters, 1, 1) == [1.0, 3.0]
+true
+
+julia> Z(parameters, 1, 1, 2)
+3.0 + 4.0im
+```
+
+Monte Carlo calculations return `CableConstantsMC` or `LineParametersMC`.
+Use `statistics`, `mean`, `std`, and `quantile` for summaries; `samples` and
+`trial` for retained joint trials; `distribution` for retained marginal
+histograms; and `surrogate` for the covariance-preserving Measurements.jl
+representation. `trial` and `rand` deliberately require retained joint samples.
+
 ## Contents
 
 ```@contents

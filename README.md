@@ -49,10 +49,33 @@ using LineCableModels
 using CairoMakie
 
 set_backend!(:cairo)
+
+plots = plot(line_parameters) # Vector{UIPlot}, one page per quantity
+export_svg(first(plots); path = "series_resistance.svg")
 ```
 
 `GLMakie` and `WGLMakie` are supported in the same way. LineCableModels
-never imports or selects a backend dynamically.
+never imports or selects a backend dynamically. `preview` and Monte Carlo
+distribution plots return one `UIPlot`; line-parameter plots always return a
+`Vector{UIPlot}`. The Export SVG control preserves the current declarative plot
+state and requires CairoMakie to have been loaded explicitly.
+
+## Result access
+
+`CableConstants` stores canonical per-metre R/L/C values. `LineParameters`
+stores its frequency domain and either a `:per_length` or `:total` basis:
+
+```julia
+basis(line_parameters)
+R(line_parameters, 1, 1)       # complete frequency response
+Z(line_parameters, 1, 1, 2:5) # selected frequency samples
+abs.(Z(line_parameters, 1, 1))
+```
+
+Monte Carlo results use first-class `CableConstantsMC` and `LineParametersMC`
+containers. Use `statistics`, `mean`, `std`, `quantile`, `samples`, `trial`,
+`distribution`, and `surrogate`; joint `trial`/`rand` calls require retained
+samples.
 
 ## Transitional FEM integration
 

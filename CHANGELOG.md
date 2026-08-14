@@ -16,6 +16,10 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Aqua, SciML formatting, gitlint, clean-install, and modular documentation
   checks.
 - Citation and contribution metadata.
+- Type-stable `CableConstants`, `SampleSummary`, `RLCG`, `CableConstantsMC`,
+  `LineParametersMC`, and `HistogramPDF` result containers.
+- A single declarative PlotBuilder renderer with interactive legends and
+  one-click, non-overwriting SVG export.
 
 ### Changed
 
@@ -28,6 +32,10 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Plotting requires the caller to load CairoMakie, GLMakie, or WGLMakie
   explicitly.
 - Documentation examples and development conventions were consolidated.
+- Line-parameter results now carry an explicit `:per_length` or `:total` basis,
+  and use `Z`, `Y`, `R`, `X`, `L`, `G`, `B`, and `C` accessors consistently.
+- `preview` and statistical plots return one `UIPlot`; line-parameter plots
+  return `Vector{UIPlot}`.
 
 ### Removed
 
@@ -37,6 +45,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   their tests remain.
 - The hard dependency on the external, unregistered GetDP.jl package.
 - The obsolete TODO scraper and duplicate tag-release workflow.
+- The old `ResultsView`, `CableDesignMC`, `LineParametersPDF`, `plotmetadata`,
+  duplicated plotting UIs, and direct Makie renderers.
 
 ### Migration
 
@@ -47,6 +57,9 @@ using LineCableModels
 
 using CairoMakie
 # preview(...) and plot(...) are now available
+
+R(line_parameters, 1, 1)       # complete frequency response
+R(line_parameters, 1, 1, 2:5)  # selected frequencies
 
 using Gmsh
 using LineCableModels.Engine.FEM

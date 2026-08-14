@@ -355,8 +355,10 @@ F = FormulationSet(:FEM,
 # Run the FEM solver
 @time ws, p = compute!(problem, F);
 
-# Display computation results
-per_km(p, 1; mode = :RLCG, tol = 1e-9)
+# Display computation results in per-kilometre units
+series_rl, shunt_gc = DataFrame(p; mode = :RLCG, length_unit = :kilo, tol = 1e-9)
+series_rl[1, 1]
+shunt_gc[1, 1]
 
 # Export ZY matrices to ATPDraw
 output_file = fullfile("ZY_export.xml")
@@ -366,7 +368,16 @@ export_file = export_data(:atp, p; file_name = output_file, cable_system = cable
 Tv, p012 = Fortescue(tol = 1e-5)(p);
 
 # Inspect the transformed matrices
-per_km(p012, 1; mode = :ZY, tol = 1e-9)
+series_zy, shunt_zy = DataFrame(p012; mode = :ZY, length_unit = :kilo, tol = 1e-9)
+series_zy[1, 1]
+shunt_zy[1, 1]
 
 # Or the corresponding lumped circuit quantities
-per_km(p012, 1; mode = :RLCG, tol = 1e-9)
+series_rl012, shunt_gc012 = DataFrame(
+    p012;
+    mode = :RLCG,
+    length_unit = :kilo,
+    tol = 1e-9
+)
+series_rl012[1, 1]
+shunt_gc012[1, 1]
