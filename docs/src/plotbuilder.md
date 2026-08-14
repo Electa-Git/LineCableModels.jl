@@ -1,4 +1,4 @@
-# PlotBuilder
+# PlotBuilder guide
 
 `PlotBuilder` is the declarative recipe layer between LineCableModels domain
 objects and Makie. Its purpose is to keep physical selection, unit conversion,
