@@ -1,5 +1,21 @@
 struct MCDistributionPlotSpec <: PlotBuilder.AbstractPlotSpec end
 
+function _plot_exponent(series, field::Symbol)
+    maximum_value = 0.0
+    for item in series
+        samples = field === :x ? item.xdata : item.ydata
+        samples === nothing && continue
+        for sample in samples
+            nominal = abs(value(sample))
+            nominal isa Real && isfinite(nominal) &&
+                (maximum_value = max(maximum_value, Float64(nominal)))
+        end
+    end
+    iszero(maximum_value) && return 0
+    exponent = floor(Int, log10(maximum_value))
+    return abs(exponent) < 3 ? 0 : exponent
+end
+
 function _mc_selection(result::CableConstantsMC, quantity::Symbol, ijk)
     ijk === nothing || throw(ArgumentError("CableConstantsMC does not use matrix indices"))
     sample_values = has_samples(result) ? samples(result, quantity) : nothing
@@ -225,6 +241,8 @@ function PlotBuilder.make_render(
             selection,
             mode,
             data,
+            x_exponent = _plot_exponent(series, :x),
+            y_exponent = _plot_exponent(series, :y),
             controls = PlotBuilder.control_definitions(xlog = false, ylog = false),
             configuration = (;
                 quantity,

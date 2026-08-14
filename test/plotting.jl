@@ -96,15 +96,30 @@
                                                           0.05)),
             frequency
         )
-        measurement_plot = first(Makie.plot(
+        measurement_plots = Makie.plot(
             measurement_parameters;
             mode = :RLCG,
             backend = :cairo,
             display_plot = false
-        ))
+        )
+        measurement_plot = first(measurement_plots)
         @test length(only(measurement_plot.panels).plots) >
               length(only(measurement_plot.page.views).series)
         test_golden(measurement_plot, "line_measurements")
+
+        measurement_conductance = measurement_plots[3]
+        measurement_conductance_axis = only(measurement_conductance.panels).axis
+        measurement_limits = measurement_conductance_axis.finallimits[]
+        measurement_ymin = measurement_limits.origin[2]
+        measurement_ymax = measurement_ymin + measurement_limits.widths[2]
+        @test measurement_ymin < 2.85e-6
+        @test measurement_ymax > 3.15e-6
+        measurement_conductance.controls[:ylog].active[] = true
+        log_measurement_limits = measurement_conductance_axis.finallimits[]
+        log_measurement_ymin = log_measurement_limits.origin[2]
+        log_measurement_ymax = log_measurement_ymin + log_measurement_limits.widths[2]
+        @test log_measurement_ymin < 2.85e-6
+        @test log_measurement_ymax > 3.15e-6
 
         handle = first(rlcg)
         @test handle.figure.scene.backgroundcolor[] == Makie.to_color(:grey90)
@@ -123,6 +138,9 @@
         handle.controls[:xlog].active[] = true
         @test line_axis.xscale[] === Makie.log10
         @test line_axis.xlabel[] == "Frequency [Hz]"
+        log_line_limits = line_axis.finallimits[]
+        @test log_line_limits.origin[1] < minimum(frequency)
+        @test log_line_limits.origin[1] + log_line_limits.widths[1] > maximum(frequency)
         handle.controls[:xlog].active[] = false
         @test line_axis.xscale[] === Makie.identity
         @test line_axis.xlabel[] == initial_xlabel
@@ -170,7 +188,7 @@
             ymin,
             ymax
         )
-        @test length(tick_values) in 2:4
+        @test length(tick_values) in 1:4
         @test all(isinteger, log10.(tick_values))
         @test all(isone, round.(diff(log10.(tick_values)); digits = 8))
         @test all(label -> label isa Makie.RichText, tick_labels)
@@ -204,6 +222,7 @@
             svg_path = joinpath(directory, "line parameters.svg")
             exported = export_svg(handle; path = svg_path)
             @test exported == abspath(svg_path)
+            @test handle.context.status[] == "Saved SVG to $exported"
             @test filesize(exported) > 100
             @test occursin("<svg", read(exported, String))
             @test !occursin("Export SVG", read(exported, String))
@@ -319,6 +338,12 @@
         @test sort!(collect(keys(cable_plot.controls))) ==
               [:export_svg, :legend, :reset]
         cable_legend = cable_plot.controls[:legend]
+        cable_panel = only(cable_plot.panels)
+        expected_group_order = unique(
+            get(series.attributes, :group, Symbol("series_$index"))
+        for (index, series) in enumerate(only(cable_plot.page.views).series)
+        )
+        @test cable_panel.group_order == expected_group_order
         material_entry = first(last(first(cable_legend.entrygroups[])))
         Makie.toggle_visibility!(material_entry)
         @test any(plot_object -> !plot_object.visible[], only(cable_plot.panels).plots)

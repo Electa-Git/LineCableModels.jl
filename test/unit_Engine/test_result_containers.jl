@@ -591,6 +591,9 @@ end
         @test only(mc_render.figures).kwargs.controls.export_svg
         @test !only(mc_render.figures).kwargs.controls.xlog
         @test !only(mc_render.figures).kwargs.controls.ylog
+        @test only(mc_render.figures).kwargs.x_exponent == 3
+        expected_y_exponent = mode in (:hist, :pdf) ? -4 : mode === :qq ? 3 : 0
+        @test only(mc_render.figures).kwargs.y_exponent == expected_y_exponent
         @test only(mc_render.figures).kwargs.configuration.mode === mode
         kinds = getproperty.(only(only(mc_render.figures).views).series, :kind)
         expected_kinds = mode === :hist ? [:histogram, :stairs] :

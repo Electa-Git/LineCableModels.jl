@@ -305,7 +305,7 @@ end
 function _compact_number(value::Real)
     numeric = Float64(value)
     isfinite(numeric) || return string(numeric)
-    return @sprintf("%.4g", numeric)
+    return @sprintf("%.3g", numeric)
 end
 
 function _colorbar_range(range)

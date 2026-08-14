@@ -14,7 +14,7 @@ const BackendHandler = PlotBuilder.BackendHandler
 export build, export_svg
 
 const FIGURE_PADDING = (20, 20, 28, 28)
-const COLORBAR_WIDTH = 160
+const COLORBAR_WIDTH = 140
 const COLORBAR_TICK_LABEL_SIZE = 12
 const COLORBAR_LABEL_SIZE = 14
 const COLORBAR_END_PADDING = 28
@@ -53,6 +53,7 @@ struct UIPanel
     plots::Vector{Any}
     groups::Dict{Symbol, Vector{Any}}
     group_labels::Dict{Symbol, String}
+    group_order::Vector{Symbol}
 end
 
 function _theme(; export_mode::Bool = false)
@@ -153,7 +154,7 @@ function _set_axis_scale!(
     return axis
 end
 
-function _axis_values(view::ViewSpec, dim::Symbol)
+function _axis_values(view::ViewSpec, dim::Symbol; include_uncertainty::Bool = false)
     values = Float64[]
     for series in view.series
         data = dim === :x ? series.xdata : series.ydata
@@ -162,7 +163,13 @@ function _axis_values(view::ViewSpec, dim::Symbol)
             nominal = Measurements.value(sample)
             nominal isa Real || continue
             numeric = Float64(nominal)
-            isfinite(numeric) && push!(values, numeric)
+            isfinite(numeric) || continue
+            uncertainty = abs(Float64(Measurements.uncertainty(sample)))
+            if include_uncertainty && isfinite(uncertainty) && !iszero(uncertainty)
+                push!(values, numeric - uncertainty, numeric + uncertainty)
+            else
+                push!(values, numeric)
+            end
         end
     end
     return values
@@ -175,9 +182,11 @@ function _nearly_constant(values)
     return upper - lower <= 64eps(Float64) * scale
 end
 
-function _linear_constant_limits(values)
+function _linear_constant_limits(values, interval_values)
     center = sum(extrema(values)) / 2
-    halfspan = iszero(center) ? 1.0 : 0.05abs(center)
+    base_halfspan = iszero(center) ? 1.0 : 0.05abs(center)
+    interval_halfspan = maximum(abs(value - center) for value in interval_values)
+    halfspan = max(base_halfspan, 2interval_halfspan)
     return center - halfspan, center + halfspan
 end
 
@@ -204,13 +213,11 @@ function _reset_panel_limits!(panel::UIPanel)
         values = _axis_values(view, dim)
         isempty(values) && continue
         scale = dim === :x ? axis.xscale[] : axis.yscale[]
-        limits = if scale === Makie.log10
-            _log_decade_limits(values)
-        elseif _nearly_constant(values)
-            _linear_constant_limits(values)
-        else
-            continue
-        end
+        _nearly_constant(values) || continue
+        interval_values = _axis_values(view, dim; include_uncertainty = true)
+        limits = scale === Makie.log10 ?
+                 _log_decade_limits(interval_values) :
+                 _linear_constant_limits(values, interval_values)
         dim === :x ? xlims!(axis, limits...) : ylims!(axis, limits...)
     end
     return axis
@@ -333,10 +340,12 @@ function _axis(parent, view::ViewSpec, page::PageSpec)
     plots = Any[]
     groups = Dict{Symbol, Vector{Any}}()
     group_labels = Dict{Symbol, String}()
+    group_order = Symbol[]
     for (index, series) in enumerate(view.series)
         drawn = _draw!(axis, series)
         append!(plots, drawn)
         group = get(series.attributes, :group, Symbol("series_$index"))
+        haskey(groups, group) || push!(group_order, group)
         append!(get!(groups, group, Any[]), drawn)
         if series.label !== nothing && !isempty(series.label)
             group_labels[group] = series.label
@@ -347,9 +356,9 @@ function _axis(parent, view::ViewSpec, page::PageSpec)
         xlims!(axis, xlimits...)
         ylims!(axis, ylimits...)
     else
-        _reset_panel_limits!(UIPanel(view, axis, plots, groups, group_labels))
+        _reset_panel_limits!(UIPanel(view, axis, plots, groups, group_labels, group_order))
     end
-    return UIPanel(view, axis, plots, groups, group_labels)
+    return UIPanel(view, axis, plots, groups, group_labels, group_order)
 end
 
 function _sanitize_filename(value::AbstractString)
@@ -374,13 +383,16 @@ end
 function _visibility_groups(panels)
     groups = Dict{Symbol, Vector{Any}}()
     labels = Dict{Symbol, String}()
+    order = Symbol[]
     for panel in panels
-        for (group, plots) in panel.groups
+        for group in panel.group_order
+            haskey(groups, group) || push!(order, group)
+            plots = panel.groups[group]
             append!(get!(groups, group, Any[]), plots)
         end
         merge!(labels, panel.group_labels)
     end
-    return groups, labels
+    return groups, labels, order
 end
 
 function _rich_scientific_label(label::AbstractString)
@@ -410,7 +422,7 @@ function _colorbars!(slot, descriptors)
     grid = GridLayout()
     grid.default_colgap = Fixed(0)
     slot[] = grid
-    colsize!(grid, 1, Relative(1))
+    colsize!(grid, 1, Fixed(COLORBAR_WIDTH))
     for (row, descriptor) in enumerate(descriptors)
         Colorbar(
             grid[row, 1];
@@ -431,10 +443,11 @@ function _colorbars!(slot, descriptors)
 end
 
 function _legend!(slot, panels)
-    groups, group_labels = _visibility_groups(panels)
+    groups, group_labels, group_order = _visibility_groups(panels)
     entries = Any[]
     labels = String[]
-    for group in sort!(collect(keys(group_labels)); by = string)
+    for group in group_order
+        haskey(group_labels, group) || continue
         push!(entries, groups[group])
         push!(labels, group_labels[group])
     end
@@ -477,7 +490,6 @@ function _build_page(
     side_column = isempty(page.views) ? 1 : 2
     figure[canvas_row, side_column] = side
     if isempty(page.views)
-        colsize!(figure.layout, 1, Relative(1))
         colsize!(side, 1, Relative(1))
     end
     side_row = 1
@@ -504,7 +516,7 @@ function _build_page(
         toolbar = GridLayout()
         toolbar.default_colgap = Fixed(4)
         toolbar.halign = :left
-        toolbar.valign = :center
+        toolbar.valign = :bottom
         figure[1, 1:2] = toolbar
         column = 1
         if definitions.reset
@@ -720,7 +732,9 @@ function PlotBuilder.export_svg(plot::UIPlot; path::Union{Nothing, AbstractStrin
         )
         Makie.save(output, only(exported).figure)
     end
-    plot.context.status[] = "Saved SVG to $(basename(output))"
+    message = "Saved SVG to $output"
+    plot.context.status[] = message
+    @info message
     return output
 end
 
