@@ -1,12 +1,5 @@
 struct MCDistributionPlotSpec <: PlotBuilder.AbstractPlotSpec end
 
-const _MC_PLOT_QUANTITY = Dict(
-    :R => (:resistance, :ohm, :base),
-    :L => (:inductance, :henry, :milli),
-    :C => (:capacitance, :farad, :micro),
-    :G => (:conductance, :siemens, :base)
-)
-
 function _mc_selection(result::CableConstantsMC, quantity::Symbol, ijk)
     ijk === nothing || throw(ArgumentError("CableConstantsMC does not use matrix indices"))
     sample_values = has_samples(result) ? samples(result, quantity) : nothing
@@ -26,31 +19,20 @@ function _mc_selection(result::LineParametersMC, quantity::Symbol, ijk)
 end
 
 function _mc_target_unit(result, quantity::Symbol, length_unit, quantity_units)
-    semantic, unit_name, fallback = get(_MC_PLOT_QUANTITY, quantity) do
+    quantity in (:R, :L, :C, :G) ||
         throw(ArgumentError("quantity must be :R, :L, :C, or :G"))
-    end
     result isa CableConstantsMC && quantity === :G &&
         throw(
             ArgumentError("CableConstantsMC does not contain conductance"),
         )
-    prefix = if quantity_units === nothing
-        fallback
-    elseif quantity_units isa Symbol
-        quantity_units
-    elseif haskey(quantity_units, quantity)
-        quantity_units[quantity]
-    elseif haskey(quantity_units, semantic)
-        quantity_units[semantic]
-    else
-        fallback
-    end
     result_basis = result isa CableConstantsMC ? :per_length : basis(result)
-    tag = UnitHandler.QuantityTag{semantic}()
-    target = result_basis === :per_length ?
-             UnitHandler.units(prefix, unit_name; per = (length_unit, :meter)) :
-             UnitHandler.units(prefix, unit_name)
-    conversion = UnitHandler.scale_factor(tag, result_basis, target)
-    return tag, target, conversion
+    resolved = UnitHandler.line_component_unit(
+        quantity,
+        result_basis;
+        length_unit,
+        quantity_units
+    )
+    return resolved.quantity, resolved.units, resolved.scale
 end
 
 function _scaled_distribution(distribution_value::HistogramPDF, conversion)
@@ -175,6 +157,7 @@ function PlotBuilder.make_render(
     data in (:samples, :pdf, :both) || throw(
         ArgumentError("data must be :samples, :pdf, or :both"),
     )
+    nbins === nothing || nbins > 0 || throw(ArgumentError("nbins must be positive"))
     sample_values, distribution_value, selection = _mc_selection(result, quantity, ijk)
     tag, target, conversion = _mc_target_unit(
         result,

@@ -16,6 +16,14 @@ when `Basis` is `:per_length` and \\[Ω\\] when it is `:total`.
 struct SeriesImpedance{T, Basis} <: AbstractArray{T, 3}
     "Complex series-impedance tensor with dimensions conductor × conductor × frequency."
     values::Array{T, 3}
+
+    function SeriesImpedance{T, Basis}(values::Array{T, 3}) where {T, Basis}
+        Basis isa Symbol || throw(
+            ArgumentError("basis must be :per_length or :total; got $(repr(Basis))"),
+        )
+        _check_basis(Basis)
+        return new{T, Basis}(values)
+    end
 end
 
 """
@@ -27,6 +35,14 @@ when `Basis` is `:per_length` and \\[S\\] when it is `:total`.
 struct ShuntAdmittance{T, Basis} <: AbstractArray{T, 3}
     "Complex shunt-admittance tensor with dimensions conductor × conductor × frequency."
     values::Array{T, 3}
+
+    function ShuntAdmittance{T, Basis}(values::Array{T, 3}) where {T, Basis}
+        Basis isa Symbol || throw(
+            ArgumentError("basis must be :per_length or :total; got $(repr(Basis))"),
+        )
+        _check_basis(Basis)
+        return new{T, Basis}(values)
+    end
 end
 
 function SeriesImpedance(A::AbstractArray{T, 3}; basis::Symbol = :per_length) where {T}

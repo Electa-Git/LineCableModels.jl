@@ -449,9 +449,14 @@ end
 
 function PlotBuilder.export_svg(plot::UIPlot; path::Union{Nothing, AbstractString} = nothing)
     BackendHandler.backend_available(:cairo) || throw(
-        ArgumentError("SVG export requires an explicitly loaded CairoMakie; run `using CairoMakie`"),
+        ArgumentError(
+        "SVG export requires CairoMakie; load CairoMakie first with `using CairoMakie`",
+    ),
     )
     output = path === nothing ? _available_path(plot.page) : abspath(String(path))
+    lowercase(splitext(output)[2]) == ".svg" || throw(
+        ArgumentError("SVG export paths must use the .svg extension"),
+    )
     ispath(output) && throw(ArgumentError("refusing to overwrite existing file: $output"))
     plot.context.status[] = "Exporting SVG..."
     BackendHandler.with_backend(:cairo) do

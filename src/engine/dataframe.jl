@@ -14,20 +14,6 @@ function _frequency_vector(object, provided)
     return values
 end
 
-function _dataframe_components(object, mode::Symbol, coord::Symbol)
-    mode in (:RLCG, :ZY) || throw(ArgumentError("mode must be :RLCG or :ZY"))
-    coord in (:cart, :polar) || throw(ArgumentError("coord must be :cart or :polar"))
-    if mode === :RLCG
-        object isa SeriesImpedance && return (:R, :L)
-        object isa ShuntAdmittance && return (:G, :C)
-    elseif object isa SeriesImpedance
-        return coord === :cart ? (:Z_re, :Z_im) : (:Z_abs, :Z_angle)
-    elseif object isa ShuntAdmittance
-        return coord === :cart ? (:Y_re, :Y_im) : (:Y_abs, :Y_angle)
-    end
-    throw(ArgumentError("unsupported line-parameter object $(typeof(object))"))
-end
-
 const _DATAFRAME_COLUMN = Dict(
     :R => :R,
     :L => :L,
@@ -84,9 +70,17 @@ function _matrix_dataframes(
         frequency_target
     )
     displayed_frequency = frequency_values .* frequency_factor
-    component_names = _dataframe_components(object, mode, coord)
+    component_names = UnitHandler.line_components(
+        _line_parameter_kind(object),
+        mode,
+        coord
+    )
     component_arrays = Dict(
-        component => _component_values(component, object, frequency_values)
+        component => UnitHandler.line_component_values(
+            component,
+            object.values,
+            frequency_values
+        )
     for
     component in component_names
     )
@@ -136,6 +130,9 @@ function DataFrame(
         quantity_units = nothing,
         tol::Real = sqrt(eps(Float64))
 )
+    isfinite(tol) && tol >= 0 || throw(
+        ArgumentError("tol must be finite and nonnegative"),
+    )
     frequency_values = _frequency_vector(parameters, freqs)
     return _matrix_dataframes(
         parameters,

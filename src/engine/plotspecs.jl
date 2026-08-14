@@ -1,52 +1,18 @@
 struct LineParameterPlotSpec <: PlotBuilder.AbstractPlotSpec end
 
-const _PLOT_QUANTITY = Dict(
-    :R => (:resistance, :ohm, :base),
-    :X => (:reactance, :ohm, :base),
-    :L => (:inductance, :henry, :milli),
-    :G => (:conductance, :siemens, :base),
-    :B => (:susceptance, :siemens, :base),
-    :C => (:capacitance, :farad, :micro),
-    :Z_re => (:resistance, :ohm, :base),
-    :Z_im => (:reactance, :ohm, :base),
-    :Z_abs => ((:impedance, :abs), :ohm, :base),
-    :Z_angle => ((:impedance, :angle), :degree, :base),
-    :Y_re => (:conductance, :siemens, :base),
-    :Y_im => (:susceptance, :siemens, :base),
-    :Y_abs => ((:admittance, :abs), :siemens, :base),
-    :Y_angle => ((:admittance, :angle), :degree, :base)
-)
-
-function _quantity_prefix(quantity_units, component::Symbol, semantic, fallback::Symbol)
-    quantity_units === nothing && return fallback
-    quantity_units isa Symbol && return quantity_units
-    if quantity_units isa NamedTuple || quantity_units isa AbstractDict
-        haskey(quantity_units, component) && return quantity_units[component]
-        semantic isa Symbol && haskey(quantity_units, semantic) &&
-            return quantity_units[semantic]
-        return fallback
-    end
-    throw(ArgumentError("quantity_units must be a Symbol, NamedTuple, dictionary, or nothing"))
-end
-
 function _component_unit(
         component::Symbol,
         parameter_basis::Symbol,
         length_unit::Symbol,
         quantity_units
 )
-    semantic, unit_name, fallback_prefix = _PLOT_QUANTITY[component]
-    tag = UnitHandler.QuantityTag{semantic}()
-    prefix = _quantity_prefix(quantity_units, component, semantic, fallback_prefix)
-    native = UnitHandler.default_unit(tag, parameter_basis)
-    target = if unit_name === :degree
-        UnitHandler.units(prefix, unit_name)
-    elseif parameter_basis === :per_length
-        UnitHandler.units(prefix, unit_name; per = (length_unit, :meter))
-    else
-        UnitHandler.units(prefix, unit_name)
-    end
-    return tag, target, UnitHandler.scale_factor(native, target)
+    resolved = UnitHandler.line_component_unit(
+        component,
+        parameter_basis;
+        length_unit,
+        quantity_units
+    )
+    return resolved.quantity, resolved.units, resolved.scale
 end
 
 function _indices(selector, count::Int)
@@ -60,6 +26,11 @@ end
 
 function _conductor_pairs(object, selector)
     row_count, column_count, _ = size(object)
+    selector === nothing ||
+        (selector isa Tuple && length(selector) == 2) ||
+        throw(
+            ArgumentError("conductor selection must be a tuple (rows, columns) or nothing"),
+        )
     row_selector, column_selector = selector === nothing ? (nothing, nothing) : selector
     rows = _indices(row_selector, row_count)
     columns = _indices(column_selector, column_count)
@@ -68,32 +39,8 @@ function _conductor_pairs(object, selector)
     return [(i, j) for i in rows for j in columns]
 end
 
-function _components(object, mode::Symbol, coord::Symbol)
-    mode in (:ZY, :RLCG) || throw(ArgumentError("mode must be :ZY or :RLCG"))
-    coord in (:cart, :polar) || throw(ArgumentError("coord must be :cart or :polar"))
-    if mode === :RLCG
-        object isa SeriesImpedance && return (:R, :L)
-        object isa ShuntAdmittance && return (:G, :C)
-    elseif object isa SeriesImpedance
-        return coord === :cart ? (:Z_re, :Z_im) : (:Z_abs, :Z_angle)
-    elseif object isa ShuntAdmittance
-        return coord === :cart ? (:Y_re, :Y_im) : (:Y_abs, :Y_angle)
-    end
-    throw(ArgumentError("unsupported line-parameter plot object $(typeof(object))"))
-end
-
-function _component_values(component::Symbol, object, frequency_values)
-    values = object.values
-    component in (:R, :Z_re) && return real.(values)
-    component in (:X, :Z_im) && return imag.(values)
-    component === :L && return imag.(values) ./ reshape(2π .* frequency_values, 1, 1, :)
-    component in (:G, :Y_re) && return real.(values)
-    component in (:B, :Y_im) && return imag.(values)
-    component === :C && return imag.(values) ./ reshape(2π .* frequency_values, 1, 1, :)
-    component in (:Z_abs, :Y_abs) && return abs.(values)
-    component in (:Z_angle, :Y_angle) && return angle.(values) .* (180 / π)
-    throw(ArgumentError("unsupported line-parameter component :$component"))
-end
+_line_parameter_kind(::SeriesImpedance) = :series
+_line_parameter_kind(::ShuntAdmittance) = :shunt
 
 function _finite_exponent(curves)
     maximum_value = 0.0
@@ -127,7 +74,11 @@ function _line_pages(
         xscale::Symbol,
         yscale::Symbol
 )
-    length(frequency_values) > 1 || return PlotBuilder.PageSpec[]
+    all(isfinite, frequency_values) || throw(ArgumentError("frequencies must be finite"))
+    if length(frequency_values) <= 1
+        @warn "Frequency vector has $(length(frequency_values)) sample(s); nothing to plot."
+        return PlotBuilder.PageSpec[]
+    end
     size(object, 3) == length(frequency_values) || throw(
         DimensionMismatch("frequency count does not match line-parameter samples"),
     )
@@ -137,6 +88,10 @@ function _line_pages(
         )
     xscale in (:linear, :log10) || throw(ArgumentError("xscale must be :linear or :log10"))
     yscale in (:linear, :log10) || throw(ArgumentError("yscale must be :linear or :log10"))
+    xscale === :log10 && any(<=(0), frequency_values) &&
+        throw(
+            DomainError(frequency_values, "logarithmic frequency axes require positive frequencies"),
+        )
 
     frequency_quantity = UnitHandler.QuantityTag{:freq}()
     frequency_target = UnitHandler.units(freq_unit, :hertz)
@@ -149,14 +104,19 @@ function _line_pages(
     pairs = _conductor_pairs(object, con)
     pages = PlotBuilder.PageSpec[]
 
-    for component in _components(object, mode, coord)
+    components = UnitHandler.line_components(_line_parameter_kind(object), mode, coord)
+    for component in components
         quantity, target_unit, conversion = _component_unit(
             component,
             basis(object),
             length_unit,
             quantity_units
         )
-        values = _component_values(component, object, frequency_values)
+        values = UnitHandler.line_component_values(
+            component,
+            object.values,
+            frequency_values
+        )
         curves = [collect(view(values, i, j, :)) .* conversion for (i, j) in pairs]
         active = [index
                   for index in eachindex(curves)

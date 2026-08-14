@@ -19,6 +19,34 @@ struct SampleSummary{T <: Real}
     q95::T
     "Maximum sampled value."
     max::T
+
+    function SampleSummary{T}(
+            mean::T,
+            std::T,
+            min::T,
+            q05::T,
+            q50::T,
+            q95::T,
+            max::T
+    ) where {T <: Real}
+        values = (mean, std, min, q05, q50, q95, max)
+        all(isfinite, values) || throw(ArgumentError("summary values must be finite"))
+        std >= zero(T) ||
+            throw(ArgumentError("summary standard deviation must be nonnegative"))
+        min <= q05 <= q50 <= q95 <= max || throw(
+            ArgumentError("summary quantiles must be ordered between min and max"),
+        )
+        min <= mean <= max || throw(
+            ArgumentError("summary mean must lie between min and max"),
+        )
+        return new{T}(mean, std, min, q05, q50, q95, max)
+    end
+end
+
+function SampleSummary(
+        mean::Real, std::Real, min::Real, q05::Real, q50::Real, q95::Real, max::Real)
+    values = promote(mean, std, min, q05, q50, q95, max)
+    return SampleSummary{typeof(first(values))}(values...)
 end
 
 function Base.:(==)(left::SampleSummary, right::SampleSummary)
@@ -29,6 +57,7 @@ end
 
 function SampleSummary(values::AbstractVector{T}) where {T <: Real}
     isempty(values) && throw(ArgumentError("cannot summarize an empty sample"))
+    all(isfinite, values) || throw(ArgumentError("sample values must be finite"))
     sigma = length(values) == 1 ? zero(float(first(values))) : Statistics.std(values)
     promoted = promote(
         Statistics.mean(values),
@@ -71,7 +100,7 @@ end
 Piecewise-constant univariate probability density. `edges` has one more entry
 than `density`; density is normalized by the constructor.
 """
-struct HistogramPDF{T <: Real} <: ContinuousUnivariateDistribution
+struct HistogramPDF{T <: AbstractFloat} <: ContinuousUnivariateDistribution
     "Strictly increasing histogram bin edges."
     edges::Vector{T}
     "Piecewise-constant probability density for each bin."
@@ -80,8 +109,27 @@ struct HistogramPDF{T <: Real} <: ContinuousUnivariateDistribution
     function HistogramPDF{T}(
             edges::Vector{T},
             density::Vector{T}
-    ) where {T <: Real}
-        return new{T}(edges, density)
+    ) where {T <: AbstractFloat}
+        length(edges) == length(density) + 1 || throw(
+            ArgumentError("edges must contain exactly one more value than density"),
+        )
+        isempty(density) && throw(ArgumentError("density must contain at least one bin"))
+        all(isfinite, edges) || throw(ArgumentError("histogram edges must be finite"))
+        all(isfinite, density) || throw(ArgumentError("histogram density must be finite"))
+        all(>=(zero(T)), density) ||
+            throw(ArgumentError("histogram density must be nonnegative"))
+        copied_edges = copy(edges)
+        copied_density = copy(density)
+        widths = diff(copied_edges)
+        all(>(zero(T)), widths) || throw(
+            ArgumentError("histogram edges must be strictly increasing"),
+        )
+        area = dot(copied_density, widths)
+        area > zero(area) || throw(
+            ArgumentError("histogram density must have positive area"),
+        )
+        copied_density ./= area
+        return new{T}(copied_edges, copied_density)
     end
 end
 
@@ -164,6 +212,12 @@ function CableConstantsMC(
     surrogate isa CableConstants || throw(
         ArgumentError("the cable-constant surrogate must be a CableConstants value"),
     )
+    all(value -> value isa Measurement, (surrogate.R, surrogate.L, surrogate.C)) ||
+        throw(
+            ArgumentError(
+            "the cable-constant surrogate must contain covariance-preserving Measurement values",
+        ),
+        )
     return CableConstantsMC{S, Samples, Distributions, Surrogate, T}(
         statistics,
         samples,
@@ -281,6 +335,11 @@ function LineParametersMC(
     end
     surrogate isa LineParameters || throw(
         ArgumentError("the line-parameter surrogate must be a LineParameters value"),
+    )
+    eltype(surrogate.Z) <: Complex{<:Measurement} || throw(
+        ArgumentError(
+        "the line-parameter surrogate must contain covariance-preserving Complex{Measurement} values",
+    ),
     )
     size(surrogate.Z) == statistic_size || throw(
         DimensionMismatch("surrogate and statistic dimensions must agree"),

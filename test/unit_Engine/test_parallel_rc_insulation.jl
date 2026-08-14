@@ -100,10 +100,18 @@ end
 
     problem = two_terminal_problem()
     ws, line_parameters = compute!(problem, formulation)
+    pre_refactor = include(joinpath(
+        pkgdir(LineCableModels),
+        "test",
+        "reference",
+        "result_fixtures.jl"
+    ))
 
     @test ws.insulator_layer_ranges == [1:2, 3:3]
     @test ws.r_ins_layer_in[2] ≈ ws.r_ins_layer_ext[1]
     @test size(line_parameters.Y) == (2, 2, 3)
+    @test line_parameters.Z.values ≈ pre_refactor.deterministic.Z rtol = 8eps()
+    @test line_parameters.Y.values ≈ pre_refactor.deterministic.Y rtol = 8eps()
 
     for k in eachindex(ws.freq)
         s = ws.jω[k]
@@ -214,6 +222,12 @@ end
         print_step = 1000,
         return_samples = true
     )
+    pre_refactor = include(joinpath(
+        pkgdir(LineCableModels),
+        "test",
+        "reference",
+        "result_fixtures.jl"
+    ))
 
     @test size(surrogate(result).Y) == (2, 2, 2)
     @test size(result.samples.G) == (2, 2, 2, 12)
@@ -221,6 +235,13 @@ end
     @test std(result.samples.C[1, 1, 1, :]) > 0
     @test uncertainty(real(surrogate(result).Y[1, 1, 1])) > 0
     @test uncertainty(imag(surrogate(result).Y[1, 1, 1])) > 0
+    for component in (:R, :L, :G, :C)
+        retained = getproperty(result.samples, component)
+        @test retained[:, :, :, 1] ≈
+              getproperty(pre_refactor.monte_carlo.first, component) rtol = 8eps()
+        @test retained[:, :, :, end] ≈
+              getproperty(pre_refactor.monte_carlo.last, component) rtol = 8eps()
+    end
 
     ω = reshape(2π .* frequencies(result), 1, 1, :)
     Rmeas = real.(surrogate(result).Z.values)

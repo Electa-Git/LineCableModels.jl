@@ -1,7 +1,6 @@
 using Test
 using LineCableModels
 using GLMakie
-using CairoMakie
 
 const ARTIFACT_DIRECTORY = abspath(get(
     ENV,
@@ -27,6 +26,17 @@ parameters = LineParameters(
 
 plots = Makie.plot(parameters; mode = :RLCG, backend = :gl, display_plot = true)
 handle = first(plots)
+
+@testset "manual GL plotting gate without CairoMakie" begin
+    @test !LineCableModels.PlotBuilder.BackendHandler.backend_available(:cairo)
+    handle.controls[:export_svg].clicks[] += 1
+    @test occursin("load CairoMakie", handle.context.status[])
+    @test Base.get_extension(LineCableModels, :LineCableModelsCairoMakieExt) === nothing
+    @test LineCableModels.PlotBuilder.BackendHandler.current_backend_symbol() === :gl
+end
+
+using CairoMakie
+set_backend!(:gl)
 
 @testset "manual GL plotting gate" begin
     @test plots isa Vector{UIPlot}

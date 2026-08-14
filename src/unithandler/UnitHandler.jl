@@ -70,8 +70,17 @@ const UNIT_SYMBOL = Dict(
     # extend this as your sadism requires
 )
 
-@inline _prefix_exp(p::Symbol) = get(METRIC_PREFIX_EXPONENT, p, 0)
-@inline _prefix_symbol(p::Symbol) = get(METRIC_PREFIX_SYMBOL, p, String(p))
+@inline function _prefix_exp(prefix::Symbol)
+    return get(METRIC_PREFIX_EXPONENT, prefix) do
+        throw(ArgumentError("unsupported metric prefix :$prefix"))
+    end
+end
+
+@inline function _prefix_symbol(prefix::Symbol)
+    return get(METRIC_PREFIX_SYMBOL, prefix) do
+        throw(ArgumentError("unsupported metric prefix :$prefix"))
+    end
+end
 
 # --------------------------------------------------------------------------
 # Core types
@@ -192,6 +201,135 @@ struct QuantityTag{Q} end
 
 QuantityTag(::Val{Q}) where {Q} = QuantityTag{Q}()
 QuantityTag(::Type{QuantityTag{Q}}) where {Q} = QuantityTag{Q}()
+
+const _LINE_COMPONENT_QUANTITY = Dict(
+    :R => (:resistance, :ohm, :base),
+    :X => (:reactance, :ohm, :base),
+    :L => (:inductance, :henry, :milli),
+    :G => (:conductance, :siemens, :base),
+    :B => (:susceptance, :siemens, :base),
+    :C => (:capacitance, :farad, :micro),
+    :Z_re => (:resistance, :ohm, :base),
+    :Z_im => (:reactance, :ohm, :base),
+    :Z_abs => ((:impedance, :abs), :ohm, :base),
+    :Z_angle => ((:impedance, :angle), :degree, :base),
+    :Y_re => (:conductance, :siemens, :base),
+    :Y_im => (:susceptance, :siemens, :base),
+    :Y_abs => ((:admittance, :abs), :siemens, :base),
+    :Y_angle => ((:admittance, :angle), :degree, :base)
+)
+
+"""
+    line_components(kind, mode, coordinate)
+
+Return the physical components selected for a series (`kind=:series`) or
+shunt (`kind=:shunt`) quantity. `mode` is `:RLCG` or `:ZY`; `coordinate` is
+`:cart` or `:polar`.
+"""
+function line_components(kind::Symbol, mode::Symbol, coordinate::Symbol)
+    kind in (:series, :shunt) ||
+        throw(ArgumentError("kind must be :series or :shunt"))
+    mode in (:RLCG, :ZY) || throw(ArgumentError("mode must be :RLCG or :ZY"))
+    coordinate in (:cart, :polar) ||
+        throw(ArgumentError("coordinate must be :cart or :polar"))
+    if mode === :RLCG
+        return kind === :series ? (:R, :L) : (:G, :C)
+    elseif kind === :series
+        return coordinate === :cart ? (:Z_re, :Z_im) : (:Z_abs, :Z_angle)
+    else
+        return coordinate === :cart ? (:Y_re, :Y_im) : (:Y_abs, :Y_angle)
+    end
+end
+
+"""
+    line_component_quantity(component)
+
+Return the semantic name and quantity tag, physical unit name, and default
+display prefix for a line-parameter component.
+"""
+function line_component_quantity(component::Symbol)
+    semantic, unit_name, prefix = get(_LINE_COMPONENT_QUANTITY, component) do
+        throw(ArgumentError("unsupported line-parameter component :$component"))
+    end
+    return (;
+        semantic,
+        tag = QuantityTag{semantic}(),
+        unit_name,
+        prefix
+    )
+end
+
+function _line_quantity_prefix(quantity_units, component, semantic, fallback)
+    quantity_units === nothing && return fallback
+    quantity_units isa Symbol && return quantity_units
+    if quantity_units isa NamedTuple || quantity_units isa AbstractDict
+        haskey(quantity_units, component) && return quantity_units[component]
+        semantic isa Symbol && haskey(quantity_units, semantic) &&
+            return quantity_units[semantic]
+        return fallback
+    end
+    throw(ArgumentError("quantity_units must be a Symbol, NamedTuple, dictionary, or nothing"))
+end
+
+"""
+    line_component_unit(component, basis; length_unit=:kilo, quantity_units=nothing)
+
+Resolve the display unit and numeric scale factor for a line-parameter
+component. `length_unit` is the metric prefix of the denominator for
+per-length quantities. `quantity_units` may override numerator prefixes with a
+single symbol or with component/semantic keys in a named tuple or dictionary.
+"""
+function line_component_unit(
+        component::Symbol,
+        basis::Symbol;
+        length_unit::Symbol = :kilo,
+        quantity_units = nothing
+)
+    quantity = line_component_quantity(component)
+    prefix = _line_quantity_prefix(
+        quantity_units,
+        component,
+        quantity.semantic,
+        quantity.prefix
+    )
+    prefix isa Symbol || throw(
+        ArgumentError("quantity unit prefixes must be symbols"),
+    )
+    target = if quantity.unit_name === :degree
+        units(prefix, quantity.unit_name)
+    elseif basis === :per_length
+        units(prefix, quantity.unit_name; per = (length_unit, :meter))
+    else
+        units(prefix, quantity.unit_name)
+    end
+    return (;
+        quantity = quantity.tag,
+        units = target,
+        scale = scale_factor(quantity.tag, basis, target)
+    )
+end
+
+"""
+    line_component_values(component, values, frequencies)
+
+Extract a Cartesian, polar, or RLCG component from complex line-parameter
+values. Inductance and capacitance are undefined at zero frequency.
+"""
+function line_component_values(component::Symbol, values, frequencies)
+    component in (:R, :Z_re) && return real.(values)
+    component in (:X, :Z_im) && return imag.(values)
+    if component in (:L, :C)
+        any(iszero, frequencies) && throw(
+            DomainError(frequencies, "$component is undefined at zero frequency"),
+        )
+        return imag.(values) ./ reshape(2π .* frequencies, 1, 1, :)
+    end
+    component in (:G, :Y_re) && return real.(values)
+    component in (:B, :Y_im) && return imag.(values)
+    component in (:Z_abs, :Y_abs) && return abs.(values)
+    component in (:Z_angle, :Y_angle) && return angle.(values) .* (180 / π)
+    throw(ArgumentError("unsupported line-parameter component :$component"))
+end
 
 """
 Native (storage/computational) unit for a quantity.

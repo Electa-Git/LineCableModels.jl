@@ -4,7 +4,9 @@
     library = CablesLibrary()
     load!(library; file_name = joinpath(pkgdir(LineCableModels), "test", "cable_test.json"))
     design = first(values(library.data))
-    constants = CableConstants(design)
+    constants = @inferred CableConstants(design)
+    @test @inferred(CableConstants(design; S = 0.25, rho_e = 150.0)) isa
+          CableConstants{Float64}
 
     # Plain numerical fixture captured before the result-container migration.
     @test constants.R ≈ 2.7567652874268654e-5 rtol = 2eps()
@@ -30,7 +32,16 @@
     capacitance_values = reshape(collect(37.0:48.0), 2, 2, 3) .* 1.0e-10
     impedance = complex.(resistance_values, inductance_values .* omega)
     admittance = complex.(conductance_values, capacitance_values .* omega)
-    parameters = LineParameters(impedance, admittance, frequency; basis = :total)
+    parameters = LineParameters(
+        impedance,
+        admittance,
+        frequency;
+        basis = :total
+    )
+    typed_series = @inferred SeriesImpedance{ComplexF64, :total}(copy(impedance))
+    typed_shunt = @inferred ShuntAdmittance{ComplexF64, :total}(copy(admittance))
+    typed_parameters = @inferred LineParameters(typed_series, typed_shunt, frequency)
+    @test basis(typed_parameters) === :total
 
     @test @inferred(basis(parameters)) === :total
     @test @inferred(frequencies(parameters)) == frequency
@@ -49,6 +60,12 @@
     @test G(parameters, 2, 1) == conductance_values[2, 1, :]
     @test B(parameters, 2, 1) == imag.(admittance[2, 1, :])
     @test C(parameters, 2, 1) ≈ capacitance_values[2, 1, :]
+    @test R(parameters, 1, 2, 2:3) == resistance_values[1, 2, 2:3]
+    @test X(parameters, 1, 2, 2) == imag(impedance[1, 2, 2])
+    @test L(parameters, 1, 2, 2:3) ≈ inductance_values[1, 2, 2:3]
+    @test G(parameters, 2, 1, :) == conductance_values[2, 1, :]
+    @test B(parameters, 2, 1, 2) == imag(admittance[2, 1, 2])
+    @test C(parameters, 2, 1, 1:2) ≈ capacitance_values[2, 1, 1:2]
     @test series_impedance(parameters) === parameters.Z
     @test shunt_admittance(parameters) === parameters.Y
     @test resistance(parameters, 1, 1) == R(parameters, 1, 1)
@@ -59,6 +76,43 @@
     @test capacitance(parameters, 1, 1) == C(parameters, 1, 1)
     @test abs.(Z(parameters, 1, 1)) == abs.(impedance[1, 1, :])
     @test angle.(Y(parameters, 1, 1)) == angle.(admittance[1, 1, :])
+
+    unit_handler = LineCableModels.UnitHandler
+    @test unit_handler.line_components(:series, :RLCG, :cart) == (:R, :L)
+    @test unit_handler.line_components(:shunt, :RLCG, :polar) == (:G, :C)
+    @test unit_handler.line_components(:series, :ZY, :polar) == (:Z_abs, :Z_angle)
+    @test unit_handler.line_components(:shunt, :ZY, :cart) == (:Y_re, :Y_im)
+    resistance_quantity = unit_handler.line_component_quantity(:R)
+    @test resistance_quantity.semantic === :resistance
+    @test resistance_quantity.unit_name === :ohm
+    @test resistance_quantity.prefix === :base
+    inductance_unit = unit_handler.line_component_unit(:L, :per_length)
+    @test unit_handler.get_label(inductance_unit.units) == "mH/km"
+    @test inductance_unit.scale == 1.0e6
+    total_resistance_unit = unit_handler.line_component_unit(:R, :total)
+    @test unit_handler.get_label(total_resistance_unit.units) == "Ω"
+    @test total_resistance_unit.scale == 1.0
+    @test unit_handler.line_component_values(:Z_abs, impedance, frequency) ==
+          abs.(impedance)
+    @test unit_handler.line_component_values(:Y_angle, admittance, frequency) ==
+          angle.(admittance) .* (180 / π)
+    @test_throws ArgumentError unit_handler.line_components(:invalid, :ZY, :cart)
+    @test_throws ArgumentError unit_handler.line_component_quantity(:invalid)
+    @test_throws ArgumentError unit_handler.line_component_unit(
+        :R,
+        :per_length;
+        quantity_units = 42
+    )
+    @test_throws ArgumentError unit_handler.line_component_unit(
+        :R,
+        :per_length;
+        length_unit = :kilometer
+    )
+    @test_throws ArgumentError unit_handler.line_component_unit(
+        :R,
+        :per_length;
+        quantity_units = (; R = 1)
+    )
 
     selected = @inferred parameters[2:3]
     @test basis(selected) === :total
@@ -76,11 +130,18 @@
     @test Y(shunt, 1, 1, :) == admittance[1, 1, :]
     @test G(shunt, 1, 1) == conductance_values[1, 1, :]
     @test B(shunt, 1, 1) == imag.(admittance[1, 1, :])
+    @test_throws ArgumentError SeriesImpedance{ComplexF64, :invalid}(
+        zeros(ComplexF64, 1, 1, 1)
+    )
+    @test_throws ArgumentError ShuntAdmittance{ComplexF64, 1}(
+        zeros(ComplexF64, 1, 1, 1)
+    )
 
     series_frames, shunt_frames = DataFrame(parameters)
     @test DataFrames.metadata(series_frames[1, 1], "units")[:R] == "Ω"
     @test DataFrames.metadata(series_frames[1, 1], "units")[:L] == "mH"
     @test DataFrames.metadata(shunt_frames[1, 1], "units")[:C] == "μF"
+    @test_throws ArgumentError DataFrame(parameters; tol = -1.0)
 
     zero_frequency = LineParameters(
         impedance[:, :, 1:1],
@@ -93,6 +154,7 @@
     @test B(zero_frequency, 1, 1, 1) == imag(admittance[1, 1, 1])
     @test_throws DomainError L(zero_frequency)
     @test_throws DomainError C(zero_frequency, 1, 1, 1)
+    @test_throws DomainError DataFrame(zero_frequency)
 
     @test_throws DimensionMismatch LineParameters(
         zeros(ComplexF64, 2, 3, 1),
@@ -124,15 +186,34 @@ end
 @testitem "Monte Carlo containers: optional storage and joint trials" setup = [defaults] begin
     using Random
     using Measurements: measurement
+    import Distributions
 
     values = [1.0, 2.0, 3.0, 4.0, 5.0]
-    summary = SampleSummary(values)
+    summary = @inferred SampleSummary(values)
     @test summary == SampleSummary(3.0, sqrt(2.5), 1.0, 1.2, 3.0, 4.8, 5.0)
     @test SampleSummary([1, 2, 3]).mean === 2.0
+    @test_throws ArgumentError SampleSummary(Float64[])
+    @test_throws ArgumentError SampleSummary([1.0, Inf])
+    @test_throws ArgumentError SampleSummary(2.0, -1.0, 1.0, 1.1, 2.0, 2.9, 3.0)
+    @test_throws ArgumentError SampleSummary(2.0, 1.0, 1.0, 2.1, 2.0, 2.9, 3.0)
 
-    model = HistogramPDF([1.0, 3.0, 5.0], [0.25, 0.25])
+    model = @inferred HistogramPDF([1.0, 3.0, 5.0], [0.25, 0.25])
     @test HistogramPDF([0, 1], [2]) isa HistogramPDF{Float64}
+    @test Distributions.pdf(model, 2.0) == 0.25
+    @test Distributions.pdf(model, 6.0) == 0.0
+    @test Distributions.cdf(model, 0.0) == 0.0
+    @test Distributions.cdf(model, 3.0) == 0.5
+    @test Distributions.cdf(model, 6.0) == 1.0
+    @test quantile(model, 0.25) == 2.0
+    @test isfinite(rand(MersenneTwister(91), model))
     @test_throws DomainError quantile(model, -0.1)
+    @test_throws ArgumentError HistogramPDF([0.0, 1.0], Float64[])
+    @test_throws ArgumentError HistogramPDF([0.0, 1.0, 2.0], [1.0])
+    @test_throws ArgumentError HistogramPDF([0.0, 1.0], [-1.0])
+    @test_throws ArgumentError HistogramPDF([0.0, 1.0], [0.0])
+    @test_throws ArgumentError HistogramPDF([0.0, 0.0], [1.0])
+    @test_throws ArgumentError HistogramPDF([0.0, Inf], [1.0])
+    @test_throws ArgumentError HistogramPDF{Float64}([0.0, 0.0], [1.0])
     constants_statistics = CableConstants(summary, summary, summary)
     constants_samples = CableConstants(values, 2values, 3values)
     constants_distributions = CableConstants(model, model, model)
@@ -141,7 +222,7 @@ end
         measurement(6.0, 2.0),
         measurement(9.0, 3.0)
     )
-    constants_result = CableConstantsMC(
+    constants_result = @inferred CableConstantsMC(
         constants_statistics,
         constants_samples,
         constants_distributions,
@@ -162,7 +243,7 @@ end
     @test has_distributions(constants_result)
     @test samples(constants_result, :L) == 2values
     @test distribution(constants_result, :C) === model
-    @test surrogate(constants_result) === constants_surrogate
+    @test @inferred(surrogate(constants_result)) === constants_surrogate
     @test basis(constants_result) === :per_length
     @test ntrials(constants_result) == 5
     @test confidence(constants_result) == 0.95
@@ -177,8 +258,16 @@ end
         5,
         0.95
     )
+    @test_throws ArgumentError CableConstantsMC(
+        constants_statistics,
+        constants_samples,
+        constants_distributions,
+        CableConstants(3.0, 6.0, 9.0),
+        5,
+        0.95
+    )
 
-    no_storage = CableConstantsMC(
+    no_storage = @inferred CableConstantsMC(
         constants_statistics,
         nothing,
         nothing,
@@ -193,6 +282,33 @@ end
     @test_throws ArgumentError quantile(no_storage, :R, 0.25)
     @test_throws ArgumentError trial(no_storage, 1)
     @test_throws ArgumentError rand(MersenneTwister(1), no_storage)
+
+    constants_samples_only = @inferred CableConstantsMC(
+        constants_statistics,
+        constants_samples,
+        nothing,
+        constants_surrogate,
+        5,
+        0.95
+    )
+    @test has_samples(constants_samples_only)
+    @test !has_distributions(constants_samples_only)
+    @test @inferred(samples(constants_samples_only, :R)) === values
+    @test @inferred(trial(constants_samples_only, 2)) == CableConstants(2.0, 4.0, 6.0)
+
+    constants_distributions_only = @inferred CableConstantsMC(
+        constants_statistics,
+        nothing,
+        constants_distributions,
+        constants_surrogate,
+        5,
+        0.95
+    )
+    @test !has_samples(constants_distributions_only)
+    @test has_distributions(constants_distributions_only)
+    @test @inferred(distribution(constants_distributions_only, :L)) === model
+    @test quantile(constants_distributions_only, :L, 0.25) == 2.0
+    @test_throws ArgumentError trial(constants_distributions_only, 1)
 
     frequency = [50.0, 100.0]
     sample_count = 5
@@ -233,7 +349,7 @@ end
         frequency;
         basis = :total
     )
-    line_result = LineParametersMC(
+    line_result = @inferred LineParametersMC(
         line_statistics,
         line_samples,
         line_distributions,
@@ -247,10 +363,12 @@ end
     @test frequencies(line_result) == frequency
     @test nconductors(line_result) == 1
     @test nfrequencies(line_result) == 2
-    @test statistics(line_result, :R, 1, 1, 2) == line_statistics.R[1, 1, 2]
+    @test @inferred(statistics(line_result, :R, 1, 1, 2)) ==
+          line_statistics.R[1, 1, 2]
     @test mean(line_result, :L, 1, 1, :) == getproperty.(line_statistics.L[1, 1, :], :mean)
-    @test samples(line_result, :C, 1, 1, 2) == capacitance_samples[1, 1, 2, :]
-    @test distribution(line_result, :G, 1, 1, 1) === model
+    @test @inferred(samples(line_result, :C, 1, 1, 2)) ==
+          capacitance_samples[1, 1, 2, :]
+    @test @inferred(distribution(line_result, :G, 1, 1, 1)) === model
     @test quantile(line_result, :R, 0.95, 1, 1, 1) == line_statistics.R[1, 1, 1].q95
     @test quantile(line_result, :R, 0.25, 1, 1, 1) ==
           quantile(resistance_samples[1, 1, 1, :], 0.25)
@@ -265,7 +383,7 @@ end
     @test G(retained_trial) == conductance_samples[:, :, :, 4]
     @test rand(MersenneTwister(9), line_result) isa LineParameters
 
-    distribution_only = LineParametersMC(
+    distribution_only = @inferred LineParametersMC(
         line_statistics,
         nothing,
         line_distributions,
@@ -275,6 +393,33 @@ end
     )
     @test quantile(distribution_only, :R, 0.25, 1, 1, 1) == 2.0
     @test_throws ArgumentError trial(distribution_only, 1)
+
+    samples_only = @inferred LineParametersMC(
+        line_statistics,
+        line_samples,
+        nothing,
+        surrogate_parameters,
+        sample_count,
+        0.90
+    )
+    @test has_samples(samples_only)
+    @test !has_distributions(samples_only)
+    @test @inferred(trial(samples_only, 1)) isa LineParameters
+    @test quantile(samples_only, :R, 0.25, 1, 1, 1) ==
+          quantile(resistance_samples[1, 1, 1, :], 0.25)
+
+    line_no_storage = @inferred LineParametersMC(
+        line_statistics,
+        nothing,
+        nothing,
+        surrogate_parameters,
+        sample_count,
+        0.90
+    )
+    @test !has_samples(line_no_storage)
+    @test !has_distributions(line_no_storage)
+    @test @inferred(surrogate(line_no_storage)) === surrogate_parameters
+    @test_throws ArgumentError quantile(line_no_storage, :R, 0.25, 1, 1, 1)
     @test_throws ArgumentError statistics(line_result, :Z)
     @test_throws ArgumentError samples(line_result, :Z)
     @test_throws ArgumentError distribution(line_result, :Z)
@@ -283,6 +428,19 @@ end
         nothing,
         nothing,
         surrogate_parameters,
+        sample_count,
+        0.90
+    )
+    @test_throws ArgumentError LineParametersMC(
+        line_statistics,
+        line_samples,
+        line_distributions,
+        LineParameters(
+            complex.(mean_R, mean_L .* omega),
+            complex.(mean_G, mean_C .* omega),
+            frequency;
+            basis = :total
+        ),
         sample_count,
         0.90
     )
@@ -323,13 +481,56 @@ end
     @test only(render.figures[2].views).yaxis.label == "Series inductance [mH/km]"
     @test length(only(render.figures[1].views).series) == 4
     @test all(series -> series.kind === :line, only(render.figures[1].views).series)
-    @test first(only(render.figures[1].views).series).label == "R[1,1]"
+    first_resistance = first(only(render.figures[1].views).series)
+    @test first_resistance.label == "R[1,1]"
+    @test first_resistance.xdata == frequency
+    @test first_resistance.ydata ≈ vec(resistance_values[1, 1, :]) .* 1.0e3
+    @test first_resistance.attributes.linewidth == 2
+    @test getproperty.(only(render.figures[1].views).series, :label) ==
+          ["R[1,1]", "R[1,2]", "R[2,1]", "R[2,2]"]
     @test render.figures[1].kwargs.controls ==
           LineCableModels.PlotBuilder.control_definitions()
     @test render.figures[1].kwargs.configuration.mode === :RLCG
     @test render.figures[1].kwargs.configuration.coord === :cart
     @test render.figures[1].kwargs.configuration.length_unit === :kilo
     @test render.figures[1].kwargs.configuration.conductors == (1:2, 1:2)
+
+    series_render = LineCableModels.PlotBuilder.make_render(
+        LineCableModels.Engine.LineParameterPlotSpec,
+        parameters.Z;
+        frequencies = frequency,
+        mode = :ZY,
+        coord = :cart,
+        freq_unit = :kilo,
+        length_unit = :base,
+        quantity_units = (; resistance = :milli),
+        con = ([1], [2]),
+        xscale = :log10,
+        yscale = :log10
+    )
+    @test length(series_render.figures) == 2
+    @test all(page -> length(only(page.views).series) == 1, series_render.figures)
+    @test first(only(series_render.figures[1].views).series).label == "R[1,2]"
+    @test only(series_render.figures[1].views).xaxis.label == "Frequency [kHz]"
+    @test only(series_render.figures[1].views).yaxis.label ==
+          "Series resistance [mΩ/m]"
+    @test only(series_render.figures[1].views).xaxis.scale === :log10
+    @test only(series_render.figures[1].views).yaxis.scale === :log10
+
+    shunt_render = LineCableModels.PlotBuilder.make_render(
+        LineCableModels.Engine.LineParameterPlotSpec,
+        parameters.Y;
+        frequencies = frequency,
+        mode = :ZY,
+        coord = :polar,
+        con = (2, :)
+    )
+    @test length(shunt_render.figures) == 2
+    @test all(page -> length(only(page.views).series) == 2, shunt_render.figures)
+    @test occursin(
+        "admittance magnitude",
+        lowercase(only(shunt_render.figures[1].views).yaxis.label)
+    )
 
     polar = LineCableModels.PlotBuilder.make_render(
         LineCableModels.Engine.LineParameterPlotSpec,
@@ -340,6 +541,23 @@ end
     @test length(polar.figures) == 4
     @test occursin("impedance magnitude", lowercase(only(polar.figures[1].views).yaxis.label))
     @test occursin("angle", lowercase(only(polar.figures[2].views).yaxis.label))
+    @test_throws ArgumentError LineCableModels.PlotBuilder.make_render(
+        LineCableModels.Engine.LineParameterPlotSpec,
+        parameters.Z;
+        frequencies = [50.0, NaN, 900.0]
+    )
+    @test_throws DomainError LineCableModels.PlotBuilder.make_render(
+        LineCableModels.Engine.LineParameterPlotSpec,
+        parameters.Z;
+        frequencies = [0.0, 50.0, 900.0],
+        xscale = :log10
+    )
+    @test_throws ArgumentError LineCableModels.PlotBuilder.make_render(
+        LineCableModels.Engine.LineParameterPlotSpec,
+        parameters.Z;
+        frequencies = frequency,
+        con = 1
+    )
 
     summary = SampleSummary([1.0, 2.0, 3.0, 4.0])
     model = HistogramPDF([1.0, 3.0, 5.0], [0.25, 0.25])
@@ -347,7 +565,11 @@ end
         CableConstants(summary, summary, summary),
         CableConstants([1.0, 2.0, 3.0, 4.0], [1.0, 2.0, 3.0, 4.0], [1.0, 2.0, 3.0, 4.0]),
         CableConstants(model, model, model),
-        CableConstants(2.5, 2.5, 2.5),
+        CableConstants(
+            measurement(2.5, 0.0),
+            measurement(2.5, 0.0),
+            measurement(2.5, 0.0)
+        ),
         4,
         0.95
     )
@@ -363,6 +585,88 @@ end
         @test only(mc_render.figures).kwargs.mode === mode
         @test only(mc_render.figures).kwargs.controls.export_svg
         @test only(mc_render.figures).kwargs.configuration.mode === mode
-        @test !isempty(only(only(mc_render.figures).views).series)
+        kinds = getproperty.(only(only(mc_render.figures).views).series, :kind)
+        expected_kinds = mode === :hist ? [:histogram, :stairs] :
+                         mode === :pdf ? [:stairs] :
+                         mode === :ecdf ? [:line, :line] : [:scatter, :line]
+        @test kinds == expected_kinds
+        if mode === :hist
+            histogram_series, pdf_series = only(mc_render.figures).views[1].series
+            @test histogram_series.xdata == [1000.0, 2000.0, 3000.0, 4000.0]
+            @test histogram_series.attributes.normalization === :pdf
+            @test pdf_series.xdata == [1000.0, 3000.0, 5000.0]
+            @test pdf_series.ydata == [0.00025, 0.00025, 0.00025]
+            @test pdf_series.attributes.color === :red
+            @test pdf_series.attributes.linewidth == 2
+        elseif mode === :qq
+            scatter_series = first(only(mc_render.figures).views[1].series)
+            @test scatter_series.attributes.color === :steelblue
+            @test scatter_series.attributes.markersize == 6
+        end
+    end
+    @test_throws ArgumentError LineCableModels.PlotBuilder.make_render(
+        LineCableModels.UQ.MCDistributionPlotSpec,
+        mc_result;
+        quantity = :R,
+        nbins = 0
+    )
+
+    line_samples = reshape(collect(1.0:12.0), 1, 1, 3, 4)
+    summarize(values) = map(
+        index -> SampleSummary(view(values, index.I..., :)),
+        CartesianIndices(size(values)[1:3])
+    )
+    line_statistics = RLCG(
+        summarize(line_samples),
+        summarize(line_samples .* 1.0e-3),
+        summarize(line_samples .* 1.0e-6),
+        summarize(line_samples .* 1.0e-4)
+    )
+    line_distributions = RLCG(
+        fill(model, 1, 1, 3),
+        fill(model, 1, 1, 3),
+        fill(model, 1, 1, 3),
+        fill(model, 1, 1, 3)
+    )
+    measured_parameters = LineParameters(
+        complex.(measurement.(real.(parameters.Z.values), 0.0),
+            measurement.(imag.(parameters.Z.values), 0.0)),
+        complex.(measurement.(real.(parameters.Y.values), 0.0),
+            measurement.(imag.(parameters.Y.values), 0.0)),
+        frequency
+    )
+    line_mc = LineParametersMC(
+        line_statistics,
+        RLCG(
+            line_samples,
+            line_samples .* 1.0e-3,
+            line_samples .* 1.0e-6,
+            line_samples .* 1.0e-4
+        ),
+        line_distributions,
+        LineParameters(
+            measured_parameters.Z.values[1:1, 1:1, :],
+            measured_parameters.Y.values[1:1, 1:1, :],
+            frequency
+        ),
+        4,
+        0.95
+    )
+    for mode in (:hist, :pdf, :ecdf, :qq)
+        line_mc_render = LineCableModels.PlotBuilder.make_render(
+            LineCableModels.UQ.MCDistributionPlotSpec,
+            line_mc;
+            quantity = :R,
+            ijk = (1, 1, 2),
+            mode,
+            data = :both
+        )
+        @test only(line_mc_render.figures).kwargs.selection == (1, 1, 2)
+        @test only(line_mc_render.figures).kwargs.mode === mode
+        @test !isempty(only(only(line_mc_render.figures).views).series)
+        if mode === :hist
+            retained = first(only(line_mc_render.figures).views[1].series)
+            @test retained.xdata == collect(line_samples[1, 1, 2, :]) .* 1.0e3
+        end
     end
 end

@@ -17,7 +17,7 @@ $(TYPEDSIGNATURES)
 Apply Levenberg–Marquardt modal decomposition to a frequency-dependent
 [`LineParameters`](@ref) object. Returns the (frequency-tracked) modal
 transformation matrices and a **modal-domain** `LineParameters` holding the
-**modal per-unit-length** impedance/admittance (diagonal per frequency).
+**modal impedance/admittance** (diagonal per frequency) with the input basis.
 
 # Arguments
 
@@ -27,9 +27,9 @@ transformation matrices and a **modal-domain** `LineParameters` holding the
 # Returns
 
 - `Ti`: Transformation matrices `T(•)` as a 3-tensor `n×n×nfreq` (columns are modes).
-- `LineParameters`: Modal-domain per-unit-length parameters:
-  - Series impedance `Zm` (diagonal per frequency) \\[Ω/m\\].
-  - Shunt admittance `Ym` (diagonal per frequency) \\[S/m\\].
+- `LineParameters`: Modal-domain parameters with the same basis as `lp`:
+  - Series impedance `Zm` (diagonal per frequency) \\[Ω/m\\] or \\[Ω\\].
+  - Shunt admittance `Ym` (diagonal per frequency) \\[S/m\\] or \\[S\\].
 
 """
 function (f::Levenberg)(

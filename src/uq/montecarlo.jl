@@ -268,6 +268,7 @@ function mc(
     # Monte Carlo over FULL frequency vector: one LineParameters per trial
     # ─────────────────────────────────────────────────────────────────────────
     Dlp = domain(first_lp)
+    source_basis = basis(first_lp)
 
     for i in 1:ntrials
         if i == 1
@@ -286,18 +287,25 @@ function mc(
             "mc: inconsistent LineParameters domain across trials"
         ),
         )
+        basis(lp) === source_basis || throw(
+            DomainError(
+            basis(lp),
+            "mc: inconsistent LineParameters basis across trials"
+        ),
+        )
         size(lp.Z) == (nph, nph, nfreq) || throw(
             DimensionMismatch("mc: LineParameters dimensions changed between trials"),
         )
         size(lp.Y) == (nph, nph, nfreq) || throw(
             DimensionMismatch("mc: LineParameters dimensions changed between trials"),
         )
-        if per_length
-            Zscaled = lp.Z.values
-            Yscaled = lp.Y.values
+        Zscaled, Yscaled = if source_basis === :per_length
+            per_length ? (lp.Z.values, lp.Y.values) :
+            (lp.Z.values .* ws.line_length, lp.Y.values .* ws.line_length)
         else
-            Zscaled = lp.Z.values .* ws.line_length
-            Yscaled = lp.Y.values .* ws.line_length
+            per_length ?
+            (lp.Z.values ./ ws.line_length, lp.Y.values ./ ws.line_length) :
+            (lp.Z.values, lp.Y.values)
         end
 
         @inbounds for j1 in 1:nph, j2 in 1:nph, k in 1:nfreq

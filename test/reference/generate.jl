@@ -59,7 +59,11 @@ mc_result = CableConstantsMC(
         [1.0, 2.0, 3.0, 4.0]
     ),
     CableConstants(distribution_model, distribution_model, distribution_model),
-    CableConstants(2.5, 2.5, 2.5),
+    CableConstants(
+        measurement(2.5, 0.0),
+        measurement(2.5, 0.0),
+        measurement(2.5, 0.0)
+    ),
     4,
     0.95
 )

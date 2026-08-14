@@ -403,6 +403,13 @@ function PlotBuilder.make_render(
 end
 
 function _system_limits(system, zoom_factor)
+    if zoom_factor !== nothing
+        zoom_factor isa Real ||
+            throw(ArgumentError("zoom_factor must be a positive real value"))
+        isfinite(zoom_factor) && zoom_factor > 0 || throw(
+            ArgumentError("zoom_factor must be finite and greater than zero"),
+        )
+    end
     horizontal = Float64[to_nominal(cable.horz) for cable in system.cables]
     vertical = Float64[to_nominal(cable.vert) for cable in system.cables]
     radii = Float64[max(

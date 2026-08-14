@@ -2,26 +2,8 @@ function HistogramPDF(
         edges::AbstractVector{TE},
         density::AbstractVector{TD}
 ) where {TE <: Real, TD <: Real}
-    length(edges) == length(density) + 1 || throw(
-        ArgumentError("edges must contain exactly one more value than density"),
-    )
-    isempty(density) && throw(ArgumentError("density must contain at least one bin"))
-    all(isfinite, edges) || throw(ArgumentError("histogram edges must be finite"))
-    all(isfinite, density) || throw(ArgumentError("histogram density must be finite"))
-    all(>=(zero(TD)), density) ||
-        throw(ArgumentError("histogram density must be nonnegative"))
-
     T = float(promote_type(TE, TD))
-    copied_edges = Vector{T}(edges)
-    copied_density = Vector{T}(density)
-    widths = diff(copied_edges)
-    all(>(zero(T)), widths) || throw(
-        ArgumentError("histogram edges must be strictly increasing"),
-    )
-    area = dot(copied_density, widths)
-    area > zero(area) || throw(ArgumentError("histogram density must have positive area"))
-    copied_density ./= area
-    return HistogramPDF{T}(copied_edges, copied_density)
+    return HistogramPDF{T}(Vector{T}(edges), Vector{T}(density))
 end
 
 function _auto_nbins(

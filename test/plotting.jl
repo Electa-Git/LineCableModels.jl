@@ -63,6 +63,24 @@
         @test length(rlcg) == 4
         @test length(cartesian) == 4
         @test length(polar) == 4
+        series_plots = Makie.plot(
+            parameters.Z,
+            frequency;
+            mode = :ZY,
+            backend = :cairo,
+            display_plot = false
+        )
+        shunt_plots = Makie.plot(
+            parameters.Y,
+            frequency;
+            mode = :RLCG,
+            backend = :cairo,
+            display_plot = false
+        )
+        @test series_plots isa Vector{UIPlot}
+        @test shunt_plots isa Vector{UIPlot}
+        @test length(series_plots) == 2
+        @test length(shunt_plots) == 2
         test_golden(first(rlcg), "line_rlcg")
         test_golden(first(cartesian), "line_zy_cartesian")
         test_golden(first(polar), "line_zy_polar")
@@ -97,6 +115,7 @@
         first_entry = first(last(first(legend.entrygroups[])))
         Makie.toggle_visibility!(first_entry)
         @test any(plot_object -> !plot_object.visible[], only(handle.panels).plots)
+        Makie.xlims!(only(handle.panels).axis, 100.0, 300.0)
         ui_components = Base.get_extension(
             LineCableModels,
             :LineCableModelsMakieExt
@@ -107,6 +126,7 @@
         @test current_view.yaxis.scale === :log10
         @test any(series -> !series.attributes.visible, current_view.series)
         @test haskey(current_view.attributes, :limits)
+        @test collect(current_view.attributes.limits[1]) ≈ [100.0, 300.0]
         Makie.toggle_visibility!(first_entry)
         @test all(plot_object -> plot_object.visible[], only(handle.panels).plots)
 
@@ -118,7 +138,23 @@
             @test occursin("<svg", read(exported, String))
             @test !occursin("Export SVG", read(exported, String))
             @test_throws ArgumentError export_svg(handle; path = svg_path)
+            @test_throws ArgumentError export_svg(
+                handle;
+                path = joinpath(directory, "not-an-svg.png")
+            )
             @test nameof(Makie.current_backend()) === :CairoMakie
+
+            cd(directory) do
+                first_default = export_svg(handle)
+                second_default = export_svg(handle)
+                @test first_default != second_default
+                @test occursin(
+                    r"^series_resistance_\d{8}_\d{6}(?:_\d+)?\.svg$",
+                    basename(first_default)
+                )
+                @test occursin("rgb(100%, 100%, 100%)", read(first_default, String))
+                @test filesize(second_default) > 100
+            end
         end
 
         summary = SampleSummary([1.0, 2.0, 3.0, 4.0])
@@ -131,7 +167,11 @@
                 [1.0, 2.0, 3.0, 4.0]
             ),
             CableConstants(distribution_model, distribution_model, distribution_model),
-            CableConstants(2.5, 2.5, 2.5),
+            CableConstants(
+                measurement(2.5, 0.0),
+                measurement(2.5, 0.0),
+                measurement(2.5, 0.0)
+            ),
             4,
             0.95
         )
@@ -148,6 +188,55 @@
             test_golden(mc_plot, "mc_$mode")
         end
 
+        line_samples = reshape(collect(1.0:12.0), 1, 1, 3, 4)
+        summarize(values) = map(
+            index -> SampleSummary(view(values, index.I..., :)),
+            CartesianIndices(size(values)[1:3])
+        )
+        line_statistics = RLCG(
+            summarize(line_samples),
+            summarize(line_samples .* 1.0e-3),
+            summarize(line_samples .* 1.0e-6),
+            summarize(line_samples .* 1.0e-4)
+        )
+        line_distributions = RLCG(
+            fill(distribution_model, 1, 1, 3),
+            fill(distribution_model, 1, 1, 3),
+            fill(distribution_model, 1, 1, 3),
+            fill(distribution_model, 1, 1, 3)
+        )
+        line_mc = LineParametersMC(
+            line_statistics,
+            RLCG(
+                line_samples,
+                line_samples .* 1.0e-3,
+                line_samples .* 1.0e-6,
+                line_samples .* 1.0e-4
+            ),
+            line_distributions,
+            LineParameters(
+                measurement_parameters.Z.values[1:1, 1:1, :],
+                measurement_parameters.Y.values[1:1, 1:1, :],
+                frequency
+            ),
+            4,
+            0.95
+        )
+        for mode in (:hist, :pdf, :ecdf, :qq)
+            line_mc_plot = Makie.plot(
+                line_mc,
+                :R;
+                ijk = (1, 1, 2),
+                mode,
+                data = :both,
+                backend = :cairo,
+                display_plot = false
+            )
+            @test line_mc_plot isa UIPlot
+            @test line_mc_plot.page.kwargs.selection == (1, 1, 2)
+            @test line_mc_plot.page.kwargs.mode === mode
+        end
+
         library = CablesLibrary()
         load!(library; file_name = joinpath(pkgdir(LineCableModels), "test", "cable_test.json"))
         design = first(values(library.data))
@@ -157,6 +246,12 @@
         @test length(cable_plot.page.kwargs.colorbars) == 3
         @test sort!(collect(keys(cable_plot.controls))) ==
               [:export_svg, :legend, :reset]
+        cable_legend = cable_plot.controls[:legend]
+        material_entry = first(last(first(cable_legend.entrygroups[])))
+        Makie.toggle_visibility!(material_entry)
+        @test any(plot_object -> !plot_object.visible[], only(cable_plot.panels).plots)
+        Makie.toggle_visibility!(material_entry)
+        @test all(plot_object -> plot_object.visible[], only(cable_plot.panels).plots)
         test_golden(cable_plot, "cable_preview"; tolerance = 0.025)
 
         position = CablePosition(
@@ -179,11 +274,81 @@
         @test only(system_plot.page.views).attributes.aspect === :data
         test_golden(system_plot, "system_preview"; tolerance = 0.025)
 
+        zoomed_system_plot = preview(
+            system;
+            earth_model = earth,
+            zoom_factor = 0.5,
+            backend = :cairo,
+            display_plot = false
+        )
+        default_limits = only(system_plot.page.views).attributes.limits
+        zoomed_limits = only(zoomed_system_plot.page.views).attributes.limits
+        @test zoomed_limits[1][2] - zoomed_limits[1][1] <
+              default_limits[1][2] - default_limits[1][1]
+        @test zoomed_limits[2][2] - zoomed_limits[2][1] <
+              default_limits[2][2] - default_limits[2][1]
+
         material_plot = show_material_scale(backend = :cairo, display_plot = false)
         @test material_plot isa UIPlot
         @test isempty(material_plot.page.views)
         @test length(material_plot.page.kwargs.colorbars) == 3
         @test collect(keys(material_plot.controls)) == [:export_svg]
         test_golden(material_plot, "material_scale")
+
+        primitive_axis = LineCableModels.PlotBuilder.AxisSpec(
+            :x,
+            LineCableModels.UnitHandler.QuantityTag{:dimensionless}(),
+            LineCableModels.UnitHandler.Units(),
+            "index",
+            :linear
+        )
+        primitive_view = LineCableModels.PlotBuilder.ViewSpec(
+            primitive_axis,
+            LineCableModels.PlotBuilder.AxisSpec(
+                :y,
+                LineCableModels.UnitHandler.QuantityTag{:dimensionless}(),
+                LineCableModels.UnitHandler.Units(),
+                "index",
+                :linear
+            ),
+            nothing,
+            "Heatmap primitive",
+            [
+                LineCableModels.PlotBuilder.SeriesSpec(
+                :heatmap,
+                [1.0, 2.0],
+                [1.0, 2.0],
+                [1.0 2.0; 3.0 4.0],
+                nothing
+            ),
+            ],
+            (; kind = :primitive)
+        )
+        primitive_page = LineCableModels.PlotBuilder.PageSpec(
+            "Heatmap primitive",
+            (400, 300),
+            :single,
+            [primitive_view],
+            (;
+                display_legend = false,
+                controls = LineCableModels.PlotBuilder.control_definitions(
+                    reset = false,
+                    export_svg = false,
+                    xlog = false,
+                    ylog = false,
+                    legend = false
+                )
+            )
+        )
+        primitive_render = LineCableModels.PlotBuilder.RenderSpec(
+            LineCableModels.DataModel.MaterialScalePlotSpec,
+            [primitive_page]
+        )
+        primitive_plot = only(ui_components.build(
+            primitive_render;
+            backend = :cairo,
+            display = false
+        ))
+        @test length(only(primitive_plot.panels).plots) == 1
     end
 end

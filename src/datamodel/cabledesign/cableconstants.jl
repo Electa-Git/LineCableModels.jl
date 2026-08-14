@@ -48,10 +48,10 @@ inductance, and coaxial-capacitance expressions historically used by
 not their physical calculation.
 """
 function CableConstants(
-        design::CableDesign;
+        design::CableDesign{T};
         S::Union{Nothing, Number} = nothing,
         rho_e::Number = 100.0
-)
+) where {T}
     length(design.components) >= 2 || throw(
         ArgumentError("at least two cable components are required"),
     )
@@ -77,17 +77,19 @@ function CableConstants(
         20.0,
         20.0
     )
+    inductance_type = promote_type(T, typeof(separation), typeof(rho_e))
     inductance_value = calc_inductance_trifoil(
-        cable_core.conductor_group.r_in,
-        cable_core.conductor_group.r_ex,
-        cable_core.conductor_props.rho,
-        cable_core.conductor_props.mu_r,
-        cable_shield.conductor_group.r_in,
-        cable_shield.conductor_group.r_ex,
-        cable_shield.conductor_props.rho,
-        cable_shield.conductor_props.mu_r,
-        separation;
-        rho_e = rho_e
+        coerce_to_T(cable_core.conductor_group.r_in, inductance_type),
+        coerce_to_T(cable_core.conductor_group.r_ex, inductance_type),
+        coerce_to_T(cable_core.conductor_props.rho, inductance_type),
+        coerce_to_T(cable_core.conductor_props.mu_r, inductance_type),
+        coerce_to_T(cable_shield.conductor_group.r_in, inductance_type),
+        coerce_to_T(cable_shield.conductor_group.r_ex, inductance_type),
+        coerce_to_T(cable_shield.conductor_props.rho, inductance_type),
+        coerce_to_T(cable_shield.conductor_props.mu_r, inductance_type),
+        coerce_to_T(separation, inductance_type),
+        coerce_to_T(rho_e, inductance_type),
+        coerce_to_T(f₀, inductance_type)
     )
     capacitance_value = calc_shunt_capacitance(
         cable_core.conductor_group.r_ex,
