@@ -7,3 +7,6 @@ line-length = 72
 
 [title-match-regex]
 regex = ^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)\([a-z0-9][a-z0-9._/-]*\)(!)?: [a-z0-9].*$
+
+[body-max-line-length]
+line-length = 140
