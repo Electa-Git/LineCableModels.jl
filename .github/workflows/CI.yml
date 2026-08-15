@@ -150,6 +150,10 @@ jobs:
           JULIA_DEPOT_PATH="$(mktemp -d)"
           julia --startup-file=no --color=yes -e '
             using Pkg
+            using TOML
+            package_dependencies = TOML.parsefile(joinpath(pwd(), "Project.toml"))["deps"]
+            @assert !haskey(package_dependencies, "Pluto")
+            @assert !haskey(package_dependencies, "PlutoUI")
             Pkg.activate(; temp = true)
             Pkg.develop(PackageSpec(path = pwd()))
             using LineCableModels
