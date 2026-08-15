@@ -109,7 +109,8 @@ function custom_layout_render_spec()
             PB.SlotSpec(:canvas, :plots, PB.GridArea(1, 1)),
             PB.SlotSpec(:status, :root, PB.GridArea(3, 1:2); halign = :left),
             PB.SlotSpec(:legend, :side, PB.GridArea(1, 1); halign = :right, valign = :top),
-            PB.SlotSpec(:colorbars, :side, PB.GridArea(2, 1); halign = :right, valign = :top)
+            PB.SlotSpec(
+                :colorbars, :side, PB.GridArea(2, 1); halign = :right, valign = :top)
         ]
     )
     page = PB.PageSpec(

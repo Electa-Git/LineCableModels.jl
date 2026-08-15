@@ -417,7 +417,7 @@ function _supports_log(series, dim::Symbol)
             nominal = Measurements.value(sample)
             uncertainty = abs(Measurements.uncertainty(sample))
             nominal isa Real && isfinite(nominal) && isfinite(uncertainty) &&
-                nominal - uncertainty > 0 || return false
+            nominal - uncertainty > 0 || return false
         end
     end
     return found

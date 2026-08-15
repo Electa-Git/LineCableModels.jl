@@ -772,7 +772,6 @@ function PlotBuilder.legend_spec(
     return PlotBuilder.LegendSpec(enabled = recipe.input.display_legend)
 end
 
-
 function PlotBuilder.page_identity(
         ::Type{SystemPreviewPlotSpec}, mode::Val,
         recipe::PlotBuilder.PlotRecipe, page_key)

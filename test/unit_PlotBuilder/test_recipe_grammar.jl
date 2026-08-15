@@ -4,7 +4,8 @@
 
     @test length(methods(PB.make_render)) == 1
     if get(ENV, "LINECABLEMODELS_TEST_PLOTTING", "false") != "true"
-        loaded_module_names = Set(nameof(module_value) for module_value in values(Base.loaded_modules))
+        loaded_module_names = Set(nameof(module_value)
+        for module_value in values(Base.loaded_modules))
         @test :Makie ∉ loaded_module_names
         @test :CairoMakie ∉ loaded_module_names
         @test :GLMakie ∉ loaded_module_names
@@ -25,7 +26,8 @@
         grouping = :overlay, color = :steelblue)
     PB.renderer_defaults(::Type{ProfilePlotSpec}, ::ProfileResult) = (; size = (800, 400))
     PB.recipe_mode(::Type{ProfilePlotSpec}, recipe::PB.PlotRecipe) = Val(:profile)
-    PB.grouping_mode(::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PB.PlotRecipe) = Val(recipe.input.grouping)
+    PB.grouping_mode(::Type{ProfilePlotSpec}, ::Val{:profile},
+        recipe::PB.PlotRecipe) = Val(recipe.input.grouping)
     PB.group_facets(
         ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PB.PlotRecipe, page_key) = axes(
         recipe.object.response, 2)

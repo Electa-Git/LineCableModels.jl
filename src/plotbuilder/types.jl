@@ -78,11 +78,13 @@ struct GridArea
     end
 end
 
-GridArea(row::Integer, column::Integer) = GridArea(Int(row):Int(row), Int(column):Int(column))
-GridArea(rows::UnitRange{<:Integer}, column::Integer) =
+function GridArea(row::Integer, column::Integer)
+    GridArea(Int(row):Int(row), Int(column):Int(column))
+end
+function GridArea(rows::UnitRange{<:Integer}, column::Integer)
     GridArea(rows, Int(column):Int(column))
-GridArea(row::Integer, columns::UnitRange{<:Integer}) =
-    GridArea(Int(row):Int(row), columns)
+end
+GridArea(row::Integer, columns::UnitRange{<:Integer}) = GridArea(Int(row):Int(row), columns)
 
 """
     GridSpec(name; parent, area, rows, columns, rowgap, columngap, padding)
@@ -218,8 +220,9 @@ struct ControlSpec
     slot::Symbol
 end
 
-ControlSpec(; reset::Bool = true, export_svg::Bool = true, slot::Symbol = :toolbar) =
+function ControlSpec(; reset::Bool = true, export_svg::Bool = true, slot::Symbol = :toolbar)
     ControlSpec(reset, export_svg, slot)
+end
 
 "Declare legend visibility, interactivity, and destination slot."
 struct LegendSpec
@@ -231,8 +234,9 @@ struct LegendSpec
     slot::Symbol
 end
 
-LegendSpec(; enabled::Bool = true, interactive::Bool = true, slot::Symbol = :legend) =
+function LegendSpec(; enabled::Bool = true, interactive::Bool = true, slot::Symbol = :legend)
     LegendSpec(enabled, interactive, slot)
+end
 
 """
     ColorbarSpec(label, colormap, limits, ticks; slot=:colorbars)
@@ -292,8 +296,9 @@ struct StatusSpec
     slot::Symbol
 end
 
-StatusSpec(; enabled::Bool = true, initial::AbstractString = "Ready.", slot::Symbol = :status) =
+function StatusSpec(; enabled::Bool = true, initial::AbstractString = "Ready.", slot::Symbol = :status)
     StatusSpec(enabled, String(initial), slot)
+end
 
 "Declare the SVG theme, base filename, and automatic-open behavior."
 struct ExportSpec
@@ -334,7 +339,7 @@ const AXIS_RESERVED_ATTRIBUTES = (
     :ytickformat,
     :ztickformat,
     :title,
-    :aspect,
+    :aspect
 )
 const SERIES_RESERVED_ATTRIBUTES = (:group, :visible, :label)
 const VIEW_RESERVED_ATTRIBUTES = (
@@ -353,7 +358,7 @@ const VIEW_RESERVED_ATTRIBUTES = (
     :xtickformat,
     :ytickformat,
     :ztickformat,
-    :title,
+    :title
 )
 
 function _reject_reserved(attributes::NamedTuple, reserved::Tuple, owner::AbstractString)
@@ -593,11 +598,13 @@ function RenderSpec(spec::Type{S}, figures::AbstractVector) where {S <: Abstract
     return render
 end
 
-const SUPPORTED_PRIMITIVES = (:line, :scatter, :histogram, :stairs, :heatmap, :polygon, :hline)
+const SUPPORTED_PRIMITIVES = (
+    :line, :scatter, :histogram, :stairs, :heatmap, :polygon, :hline)
 
-_overlaps(first::GridArea, second::GridArea) =
+function _overlaps(first::GridArea, second::GridArea)
     !isempty(intersect(first.rows, second.rows)) &&
-    !isempty(intersect(first.columns, second.columns))
+        !isempty(intersect(first.columns, second.columns))
+end
 
 function _validate_area(area::GridArea, rows::Int, columns::Int, owner::AbstractString)
     last(area.rows) <= rows && last(area.columns) <= columns || throw(
@@ -645,7 +652,8 @@ function validate(layout::LayoutSpec)
     )
     roots = filter(grid -> grid.parent === nothing, layout.grids)
     length(roots) == 1 || throw(ArgumentError("a layout requires exactly one root grid"))
-    only(roots).area === nothing || throw(ArgumentError("the root grid cannot have an area"))
+    only(roots).area === nothing ||
+        throw(ArgumentError("the root grid cannot have an area"))
     grids = Dict(grid.name => grid for grid in layout.grids)
     for grid in layout.grids
         grid.parent === nothing && continue
@@ -660,7 +668,8 @@ function validate(layout::LayoutSpec)
         visited = Set{Symbol}((grid.name,))
         ancestor = grid.parent
         while ancestor !== nothing
-            ancestor in visited && throw(ArgumentError("layout grid hierarchy contains a cycle"))
+            ancestor in visited &&
+                throw(ArgumentError("layout grid hierarchy contains a cycle"))
             push!(visited, ancestor)
             ancestor = grids[ancestor].parent
         end
@@ -749,9 +758,10 @@ function _validate_view_limits(view::ViewSpec)
         lower < upper || throw(
             ArgumentError("view limits must be strictly increasing"),
         )
-        :log10 in axis.allowed_scales && lower <= 0 && throw(
-            DomainError(limits, "logarithmic view limits must be positive"),
-        )
+        :log10 in axis.allowed_scales && lower <= 0 &&
+            throw(
+                DomainError(limits, "logarithmic view limits must be positive"),
+            )
     end
     return view
 end
@@ -789,15 +799,18 @@ function validate(page::PageSpec)
         foreach(_validate_series, view.series)
         _validate_view_limits(view)
         _validate_view_aspect(view)
-        view.xaxis === nothing || view.xaxis.dim === :x || throw(
-            ArgumentError("a view x-axis must declare dimension :x"),
-        )
-        view.yaxis === nothing || view.yaxis.dim === :y || throw(
-            ArgumentError("a view y-axis must declare dimension :y"),
-        )
-        view.zaxis === nothing || view.zaxis.dim === :z || throw(
-            ArgumentError("a view z-axis must declare dimension :z"),
-        )
+        view.xaxis === nothing || view.xaxis.dim === :x ||
+            throw(
+                ArgumentError("a view x-axis must declare dimension :x"),
+            )
+        view.yaxis === nothing || view.yaxis.dim === :y ||
+            throw(
+                ArgumentError("a view y-axis must declare dimension :y"),
+            )
+        view.zaxis === nothing || view.zaxis.dim === :z ||
+            throw(
+                ArgumentError("a view z-axis must declare dimension :z"),
+            )
         axes = [axis for axis in (view.xaxis, view.yaxis, view.zaxis) if axis !== nothing]
         foreach(axis -> _validate_log_axis(view, axis), axes)
         length(unique(axis.dim for axis in axes)) == length(axes) || throw(
@@ -811,9 +824,10 @@ function validate(page::PageSpec)
     for slot in unique(view.placement.slot for view in page.views)
         placements = [view.placement for view in page.views if view.placement.slot === slot]
         explicit = map(placement -> placement.area !== nothing, placements)
-        all(explicit) || all(!, explicit) || throw(
-            ArgumentError("views in slot :$slot cannot mix automatic and explicit placement"),
-        )
+        all(explicit) || all(!, explicit) ||
+            throw(
+                ArgumentError("views in slot :$slot cannot mix automatic and explicit placement"),
+            )
         all(explicit) && _check_sibling_overlap(placements)
     end
     return page

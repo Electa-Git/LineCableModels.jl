@@ -316,7 +316,6 @@ function draw!(axis, ::Val{:stairs}, series::SeriesSpec)
         label = series.label, visible = series.visible, series.attributes...)]
 end
 
-
 function draw!(axis, ::Val{:heatmap}, series::SeriesSpec)
     return Any[heatmap!(axis, series.xdata, series.ydata, series.zdata;
         visible = series.visible, series.attributes...)]
@@ -611,12 +610,14 @@ function _collapse_slot!(layout::LayoutSpec, materialized, name::Symbol)
     sibling_areas = GridArea[]
     append!(
         sibling_areas,
-        [grid.area for grid in layout.grids
+        [grid.area
+         for grid in layout.grids
          if grid.parent === slot.parent && grid.area !== nothing]
     )
     append!(
         sibling_areas,
-        [other.area for other in layout.slots
+        [other.area
+         for other in layout.slots
          if other.parent === slot.parent && other.name !== slot.name]
     )
     rows = filter(slot.area.rows) do row
@@ -645,12 +646,10 @@ function _view_positions(views::AbstractVector{<:ViewSpec})
     isempty(views) && return Tuple{ViewSpec, GridArea}[]
     if all(view -> view.placement.area === nothing, views)
         columns = max(1, ceil(Int, sqrt(length(views))))
-        return [
-            (
-                view,
-                GridArea((index - 1) ÷ columns + 1, (index - 1) % columns + 1)
-            ) for (index, view) in enumerate(views)
-        ]
+        return [(
+                    view,
+                    GridArea((index - 1) ÷ columns + 1, (index - 1) % columns + 1)
+                ) for (index, view) in enumerate(views)]
     end
     return [(view, view.placement.area) for view in views]
 end
@@ -694,7 +693,8 @@ end
 
 function _build_colorbars!(page::PageSpec, materialized)
     for slot_name in unique(colorbar.slot for colorbar in page.colorbars)
-        descriptors = [colorbar for colorbar in page.colorbars if colorbar.slot === slot_name]
+        descriptors = [colorbar
+                       for colorbar in page.colorbars if colorbar.slot === slot_name]
         _colorbars!(
             _slot_position(materialized, slot_name),
             descriptors,
@@ -729,7 +729,8 @@ function _build_page(
     end
     if isempty(page.colorbars)
         for slot in page.layout.slots
-            slot.name === :colorbars && _collapse_slot!(page.layout, materialized, slot.name)
+            slot.name === :colorbars &&
+                _collapse_slot!(page.layout, materialized, slot.name)
         end
     else
         _build_colorbars!(page, materialized)
@@ -747,94 +748,94 @@ function _build_page(
             toolbar = _slot_grid(materialized, definitions.slot)
             toolbar.default_colgap = Fixed(4)
             column = 1
-        if definitions.reset
-            reset = Button(
-                toolbar[1, column];
-                label = _icon_label(MI_REFRESH),
-                width = BUTTON_SIZE,
-                height = BUTTON_SIZE,
-                buttoncolor = BUTTON_BACKGROUND
-            )
-            column += 1
-            widgets[:reset] = reset
-            on(reset.clicks) do _
-                foreach(_reset_panel_limits!, panels)
-                context.status[] = "Axis limits reset"
-            end
-        end
-        if definitions.export_svg
-            save_button = Button(
-                toolbar[1, column];
-                label = _icon_label(MI_SAVE),
-                width = BUTTON_SIZE,
-                height = BUTTON_SIZE,
-                buttoncolor = BUTTON_BACKGROUND
-            )
-            column += 1
-            widgets[:export_svg] = save_button
-            on(save_button.clicks) do _
-                try
-                    PlotBuilder.export_svg(plot_reference[])
-                catch error
-                    context.status[] = sprint(showerror, error)
+            if definitions.reset
+                reset = Button(
+                    toolbar[1, column];
+                    label = _icon_label(MI_REFRESH),
+                    width = BUTTON_SIZE,
+                    height = BUTTON_SIZE,
+                    buttoncolor = BUTTON_BACKGROUND
+                )
+                column += 1
+                widgets[:reset] = reset
+                on(reset.clicks) do _
+                    foreach(_reset_panel_limits!, panels)
+                    context.status[] = "Axis limits reset"
                 end
             end
-        end
-        if xlog_available
-            active = !isempty(panels) && all(
-                panel -> panel.axis.xscale[] === Makie.log10,
-                panels
-            )
-            xlog = Toggle(toolbar[1, column], active = active)
-            column += 1
-            Label(toolbar[1, column], "log x")
-            column += 1
-            widgets[:xlog] = xlog
-            on(xlog.active) do enabled
-                scale = enabled ? :log10 : :linear
-                foreach(
-                    panel -> _set_axis_scale!(
-                        panel.axis,
-                        panel.view.xaxis,
-                        :x,
-                        panel.view.xaxis.exponent,
-                        scale
-                    ),
+            if definitions.export_svg
+                save_button = Button(
+                    toolbar[1, column];
+                    label = _icon_label(MI_SAVE),
+                    width = BUTTON_SIZE,
+                    height = BUTTON_SIZE,
+                    buttoncolor = BUTTON_BACKGROUND
+                )
+                column += 1
+                widgets[:export_svg] = save_button
+                on(save_button.clicks) do _
+                    try
+                        PlotBuilder.export_svg(plot_reference[])
+                    catch error
+                        context.status[] = sprint(showerror, error)
+                    end
+                end
+            end
+            if xlog_available
+                active = !isempty(panels) && all(
+                    panel -> panel.axis.xscale[] === Makie.log10,
                     panels
                 )
-                foreach(_reset_panel_limits!, panels)
-                context.status[] = enabled ?
-                                   "x-axis scale set to log" :
-                                   "x-axis scale set to linear"
+                xlog = Toggle(toolbar[1, column], active = active)
+                column += 1
+                Label(toolbar[1, column], "log x")
+                column += 1
+                widgets[:xlog] = xlog
+                on(xlog.active) do enabled
+                    scale = enabled ? :log10 : :linear
+                    foreach(
+                        panel -> _set_axis_scale!(
+                            panel.axis,
+                            panel.view.xaxis,
+                            :x,
+                            panel.view.xaxis.exponent,
+                            scale
+                        ),
+                        panels
+                    )
+                    foreach(_reset_panel_limits!, panels)
+                    context.status[] = enabled ?
+                                       "x-axis scale set to log" :
+                                       "x-axis scale set to linear"
+                end
             end
-        end
-        if ylog_available
-            active = !isempty(panels) && all(
-                panel -> panel.axis.yscale[] === Makie.log10,
-                panels
-            )
-            ylog = Toggle(toolbar[1, column], active = active)
-            column += 1
-            Label(toolbar[1, column], "log y")
-            widgets[:ylog] = ylog
-            on(ylog.active) do enabled
-                scale = enabled ? :log10 : :linear
-                foreach(
-                    panel -> _set_axis_scale!(
-                        panel.axis,
-                        panel.view.yaxis,
-                        :y,
-                        panel.view.yaxis.exponent,
-                        scale
-                    ),
+            if ylog_available
+                active = !isempty(panels) && all(
+                    panel -> panel.axis.yscale[] === Makie.log10,
                     panels
                 )
-                foreach(_reset_panel_limits!, panels)
-                context.status[] = enabled ?
-                                   "y-axis scale set to log" :
-                                   "y-axis scale set to linear"
+                ylog = Toggle(toolbar[1, column], active = active)
+                column += 1
+                Label(toolbar[1, column], "log y")
+                widgets[:ylog] = ylog
+                on(ylog.active) do enabled
+                    scale = enabled ? :log10 : :linear
+                    foreach(
+                        panel -> _set_axis_scale!(
+                            panel.axis,
+                            panel.view.yaxis,
+                            :y,
+                            panel.view.yaxis.exponent,
+                            scale
+                        ),
+                        panels
+                    )
+                    foreach(_reset_panel_limits!, panels)
+                    context.status[] = enabled ?
+                                       "y-axis scale set to log" :
+                                       "y-axis scale set to linear"
+                end
             end
-        end
         else
             _collapse_slot!(page.layout, materialized, page.controls.slot)
         end

@@ -53,15 +53,16 @@ function _select_kwargs(kwargs::NamedTuple, names::Tuple)
     return NamedTuple(selected)
 end
 
-function _validate_defaults(::Type{S}, defaults::NamedTuple, names::Tuple, accessor::Symbol) where {
+function _validate_defaults(::Type{S}, defaults::NamedTuple, names::Tuple,
+        accessor::Symbol) where {
         S <: AbstractPlotSpec,
 }
     actual = Tuple(keys(defaults))
     Set(actual) == Set(names) || throw(
         ArgumentError(
-            "$accessor($S) must define exactly the declared keywords; " *
-            "declared $(collect(names)), received $(collect(actual))"
-        ),
+        "$accessor($S) must define exactly the declared keywords; " *
+        "declared $(collect(names)), received $(collect(actual))"
+    ),
     )
     return defaults
 end
@@ -177,21 +178,32 @@ function group_facets(
     (nothing,)
 end
 
-page_keys(::Type{S}, mode::Val, ::Val{:overlay}, recipe::PlotRecipe) where {
-    S <: AbstractPlotSpec,
-} = (nothing,)
-page_keys(::Type{S}, mode::Val, ::Val{:panels}, recipe::PlotRecipe) where {
-    S <: AbstractPlotSpec,
-} = (nothing,)
-page_keys(::Type{S}, mode::Val, ::Val{:pages}, recipe::PlotRecipe) where {
-    S <: AbstractPlotSpec,
-} = group_facets(S, mode, recipe, nothing)
-page_keys(::Type{S}, mode::Val, ::Val{:faceted_pages}, recipe::PlotRecipe) where {
-    S <: AbstractPlotSpec,
-} = page_facets(S, mode, recipe)
-page_keys(::Type{S}, mode::Val, ::Val{:empty}, recipe::PlotRecipe) where {
-    S <: AbstractPlotSpec,
-} = (nothing,)
+function page_keys(::Type{S}, mode::Val, ::Val{:overlay}, recipe::PlotRecipe) where {
+        S <: AbstractPlotSpec,
+}
+    (nothing,)
+end
+function page_keys(::Type{S}, mode::Val, ::Val{:panels}, recipe::PlotRecipe) where {
+        S <: AbstractPlotSpec,
+}
+    (nothing,)
+end
+function page_keys(::Type{S}, mode::Val, ::Val{:pages}, recipe::PlotRecipe) where {
+        S <: AbstractPlotSpec,
+}
+    group_facets(S, mode, recipe, nothing)
+end
+function page_keys(::Type{S}, mode::Val, ::Val{:faceted_pages},
+        recipe::PlotRecipe) where {
+        S <: AbstractPlotSpec,
+}
+    page_facets(S, mode, recipe)
+end
+function page_keys(::Type{S}, mode::Val, ::Val{:empty}, recipe::PlotRecipe) where {
+        S <: AbstractPlotSpec,
+}
+    (nothing,)
+end
 function page_keys(
         ::Type{S},
         mode::Val,
@@ -207,51 +219,78 @@ function page_keys(
     )
 end
 
-view_keys(::Type{S}, mode::Val, ::Val{:overlay}, recipe::PlotRecipe, page_key) where {
-    S <: AbstractPlotSpec,
-} = (nothing,)
-view_keys(::Type{S}, mode::Val, ::Val{:panels}, recipe::PlotRecipe, page_key) where {
-    S <: AbstractPlotSpec,
-} = group_facets(S, mode, recipe, page_key)
-view_keys(::Type{S}, mode::Val, ::Val{:pages}, recipe::PlotRecipe, page_key) where {
-    S <: AbstractPlotSpec,
-} = (nothing,)
-view_keys(::Type{S}, mode::Val, ::Val{:faceted_pages}, recipe::PlotRecipe, page_key) where {
-    S <: AbstractPlotSpec,
-} = (nothing,)
-view_keys(::Type{S}, mode::Val, ::Val{:empty}, recipe::PlotRecipe, page_key) where {
-    S <: AbstractPlotSpec,
-} = ()
+function view_keys(::Type{S}, mode::Val, ::Val{:overlay}, recipe::PlotRecipe,
+        page_key) where {
+        S <: AbstractPlotSpec,
+}
+    (nothing,)
+end
+function view_keys(::Type{S}, mode::Val, ::Val{:panels}, recipe::PlotRecipe,
+        page_key) where {
+        S <: AbstractPlotSpec,
+}
+    group_facets(S, mode, recipe, page_key)
+end
+function view_keys(::Type{S}, mode::Val, ::Val{:pages}, recipe::PlotRecipe,
+        page_key) where {
+        S <: AbstractPlotSpec,
+}
+    (nothing,)
+end
+function view_keys(::Type{S}, mode::Val, ::Val{:faceted_pages},
+        recipe::PlotRecipe, page_key) where {
+        S <: AbstractPlotSpec,
+}
+    (nothing,)
+end
+function view_keys(::Type{S}, mode::Val, ::Val{:empty}, recipe::PlotRecipe,
+        page_key) where {
+        S <: AbstractPlotSpec,
+}
+    ()
+end
 
-series_keys(::Type{S}, mode::Val, ::Val{:overlay}, recipe::PlotRecipe,
-    page_key, view_key) where {S <: AbstractPlotSpec} =
+function series_keys(::Type{S}, mode::Val, ::Val{:overlay}, recipe::PlotRecipe,
+        page_key, view_key) where {S <: AbstractPlotSpec}
     group_facets(S, mode, recipe, page_key)
-series_keys(::Type{S}, mode::Val, ::Val{:panels}, recipe::PlotRecipe,
-    page_key, view_key) where {S <: AbstractPlotSpec} = (view_key,)
-series_keys(::Type{S}, mode::Val, ::Val{:pages}, recipe::PlotRecipe,
-    page_key, view_key) where {S <: AbstractPlotSpec} = (page_key,)
-series_keys(::Type{S}, mode::Val, ::Val{:faceted_pages}, recipe::PlotRecipe,
-    page_key, view_key) where {S <: AbstractPlotSpec} =
+end
+function series_keys(::Type{S}, mode::Val, ::Val{:panels}, recipe::PlotRecipe,
+        page_key, view_key) where {S <: AbstractPlotSpec}
+    (view_key,)
+end
+function series_keys(::Type{S}, mode::Val, ::Val{:pages}, recipe::PlotRecipe,
+        page_key, view_key) where {S <: AbstractPlotSpec}
+    (page_key,)
+end
+function series_keys(::Type{S}, mode::Val, ::Val{:faceted_pages}, recipe::PlotRecipe,
+        page_key, view_key) where {S <: AbstractPlotSpec}
     group_facets(S, mode, recipe, page_key)
+end
 
 """
     geom_axes(::Type{S}, mode, recipe, page_key, view_key)
 
 Return the dimensions used by a recipe view.
 """
-geom_axes(::Type{S}, mode::Val, recipe::PlotRecipe, page_key, view_key) where {
-    S <: AbstractPlotSpec,
-} = (:x, :y)
+function geom_axes(::Type{S}, mode::Val, recipe::PlotRecipe,
+        page_key, view_key) where {
+        S <: AbstractPlotSpec,
+}
+    (:x, :y)
+end
 
 """
     axis_quantity(::Type{S}, dim, recipe)
 
 Return the semantic quantity tag for one axis.
 """
-axis_quantity(::Type{S}, dim::Val, recipe::PlotRecipe) where {S <: AbstractPlotSpec} =
+function axis_quantity(::Type{S}, dim::Val, recipe::PlotRecipe) where {S <:
+                                                                       AbstractPlotSpec}
     QuantityTag{:unknown}()
+end
 function axis_quantity(
-        ::Type{S}, mode::Val, dim::Val, recipe::PlotRecipe, page_key, view_key
+        ::Type{S}, mode::Val, dim::Val, recipe::PlotRecipe,
+        page_key, view_key
 ) where {S <: AbstractPlotSpec}
     axis_quantity(S, dim, recipe)
 end
@@ -261,9 +300,12 @@ end
 
 Return the display units for one axis quantity.
 """
-axis_unit(::Type{S}, dim::Val, quantity::QuantityTag, recipe::PlotRecipe) where {
-    S <: AbstractPlotSpec,
-} = display_unit(quantity)
+function axis_unit(::Type{S}, dim::Val, quantity::QuantityTag,
+        recipe::PlotRecipe) where {
+        S <: AbstractPlotSpec,
+}
+    display_unit(quantity)
+end
 function axis_unit(
         ::Type{S}, mode::Val, dim::Val, quantity::QuantityTag,
         recipe::PlotRecipe, page_key, view_key
@@ -298,7 +340,8 @@ Return the initial scale for one axis.
 """
 axis_scale(::Type{S}, dim::Val, recipe::PlotRecipe) where {S <: AbstractPlotSpec} = :linear
 function axis_scale(
-        ::Type{S}, mode::Val, dim::Val, recipe::PlotRecipe, page_key, view_key
+        ::Type{S}, mode::Val, dim::Val, recipe::PlotRecipe,
+        page_key, view_key
 ) where {S <: AbstractPlotSpec}
     axis_scale(S, dim, recipe)
 end
@@ -309,7 +352,8 @@ end
 Return the scales available to one fully resolved axis.
 """
 function axis_scales(
-        ::Type{S}, dim::Val, recipe::PlotRecipe, series::Vector{SeriesSpec}
+        ::Type{S}, dim::Val, recipe::PlotRecipe,
+        series::Vector{SeriesSpec}
 ) where {S <: AbstractPlotSpec}
     (axis_scale(S, dim, recipe),)
 end
@@ -326,7 +370,8 @@ end
 Return the base-ten display exponent for linear ticks on one axis.
 """
 function axis_exponent(
-        ::Type{S}, dim::Val, recipe::PlotRecipe, series::Vector{SeriesSpec}
+        ::Type{S}, dim::Val, recipe::PlotRecipe,
+        series::Vector{SeriesSpec}
 ) where {S <: AbstractPlotSpec}
     0
 end
@@ -348,13 +393,15 @@ function axis_attributes(
     (;)
 end
 function axis_attributes(
-        ::Type{S}, mode::Val, dim::Val, recipe::PlotRecipe, page_key, view_key
+        ::Type{S}, mode::Val, dim::Val, recipe::PlotRecipe,
+        page_key, view_key
 ) where {S <: AbstractPlotSpec}
     axis_attributes(S, dim, recipe)
 end
 
 function _make_axis(
-        ::Type{S}, mode::Val, ::Val{dim}, recipe::PlotRecipe, page_key, view_key
+        ::Type{S}, mode::Val, ::Val{dim}, recipe::PlotRecipe, page_key,
+        view_key
 ) where {S <: AbstractPlotSpec, dim}
     quantity = axis_quantity(S, mode, Val(dim), recipe, page_key, view_key)
     unit = axis_unit(S, mode, Val(dim), quantity, recipe, page_key, view_key)
@@ -400,7 +447,8 @@ plot_kind(::Type{S}, recipe::PlotRecipe, series_key) where {
     S <: AbstractPlotSpec,
 } = :line
 function plot_kind(
-        ::Type{S}, mode::Val, recipe::PlotRecipe, page_key, view_key, series_key
+        ::Type{S}, mode::Val, recipe::PlotRecipe, page_key, view_key,
+        series_key
 ) where {S <: AbstractPlotSpec}
     plot_kind(S, recipe, series_key)
 end
@@ -410,9 +458,11 @@ end
 
 Return data for axis `dim` and one semantic series facet.
 """
-series_data(::Type{S}, dim::Val, recipe::PlotRecipe, series_key) where {
-    S <: AbstractPlotSpec,
-} = nothing
+function series_data(::Type{S}, dim::Val, recipe::PlotRecipe, series_key) where {
+        S <: AbstractPlotSpec,
+}
+    nothing
+end
 function series_data(
         ::Type{S}, mode::Val, dim::Val, recipe::PlotRecipe,
         page_key, view_key, series_key
@@ -425,9 +475,13 @@ end
 
 Return the legend label for one semantic series facet.
 """
-legend_label(::Type{S}, recipe::PlotRecipe, series_key) where {S <: AbstractPlotSpec} = nothing
+function legend_label(::Type{S}, recipe::PlotRecipe, series_key) where {S <:
+                                                                        AbstractPlotSpec}
+    nothing
+end
 function legend_label(
-        ::Type{S}, mode::Val, recipe::PlotRecipe, page_key, view_key, series_key
+        ::Type{S}, mode::Val, recipe::PlotRecipe, page_key, view_key,
+        series_key
 ) where {S <: AbstractPlotSpec}
     legend_label(S, recipe, series_key)
 end
@@ -437,9 +491,13 @@ end
 
 Return the visibility-group symbol for one semantic series facet.
 """
-series_group(::Type{S}, recipe::PlotRecipe, series_key) where {S <: AbstractPlotSpec} = nothing
+function series_group(::Type{S}, recipe::PlotRecipe, series_key) where {S <:
+                                                                        AbstractPlotSpec}
+    nothing
+end
 function series_group(
-        ::Type{S}, mode::Val, recipe::PlotRecipe, page_key, view_key, series_key
+        ::Type{S}, mode::Val, recipe::PlotRecipe, page_key, view_key,
+        series_key
 ) where {S <: AbstractPlotSpec}
     series_group(S, recipe, series_key)
 end
@@ -449,9 +507,13 @@ end
 
 Return the initial visibility of one semantic series facet.
 """
-series_visible(::Type{S}, recipe::PlotRecipe, series_key) where {S <: AbstractPlotSpec} = true
+function series_visible(::Type{S}, recipe::PlotRecipe, series_key) where {S <:
+                                                                          AbstractPlotSpec}
+    true
+end
 function series_visible(
-        ::Type{S}, mode::Val, recipe::PlotRecipe, page_key, view_key, series_key
+        ::Type{S}, mode::Val, recipe::PlotRecipe, page_key, view_key,
+        series_key
 ) where {S <: AbstractPlotSpec}
     series_visible(S, recipe, series_key)
 end
@@ -461,11 +523,14 @@ end
 
 Return backend-neutral visual attributes for one series facet.
 """
-series_attributes(::Type{S}, recipe::PlotRecipe, series_key) where {
-    S <: AbstractPlotSpec,
-} = (;)
+function series_attributes(::Type{S}, recipe::PlotRecipe, series_key) where {
+        S <: AbstractPlotSpec,
+}
+    (;)
+end
 function series_attributes(
-        ::Type{S}, mode::Val, recipe::PlotRecipe, page_key, view_key, series_key
+        ::Type{S}, mode::Val, recipe::PlotRecipe, page_key, view_key,
+        series_key
 ) where {S <: AbstractPlotSpec}
     series_attributes(S, recipe, series_key)
 end
@@ -491,7 +556,8 @@ function make_series(
                 legend_label(S, mode, recipe, page_key, view_key, series_key);
                 group = series_group(S, mode, recipe, page_key, view_key, series_key),
                 visible = series_visible(S, mode, recipe, page_key, view_key, series_key),
-                attributes = series_attributes(S, mode, recipe, page_key, view_key, series_key)
+                attributes = series_attributes(
+                    S, mode, recipe, page_key, view_key, series_key)
             )
         )
     end
@@ -551,7 +617,9 @@ end
 
 Return the named-slot placement for one view.
 """
-view_placement(::Type{S}, recipe::PlotRecipe) where {S <: AbstractPlotSpec} = PlacementSpec()
+function view_placement(::Type{S}, recipe::PlotRecipe) where {S <: AbstractPlotSpec}
+    PlacementSpec()
+end
 function view_placement(
         ::Type{S}, mode::Val, recipe::PlotRecipe, page_key, key
 ) where {S <: AbstractPlotSpec}
@@ -600,7 +668,8 @@ end
 Construct backend-neutral views for one semantic page facet.
 """
 function make_views(
-        ::Type{S}, mode::Val, grouping::Val, recipe::PlotRecipe, page_key
+        ::Type{S}, mode::Val, grouping::Val, recipe::PlotRecipe,
+        page_key
 ) where {S <: AbstractPlotSpec}
     views = ViewSpec[]
     for key in view_keys(S, mode, grouping, recipe, page_key)
@@ -719,7 +788,8 @@ function layout_spec(
 end
 
 function _resolve_layout(
-        ::Type{S}, mode::Val, recipe::PlotRecipe, page_key, view_count::Integer
+        ::Type{S}, mode::Val, recipe::PlotRecipe, page_key,
+        view_count::Integer
 ) where {S <: AbstractPlotSpec}
     selected = recipe.renderer.layout
     selected === nothing && (selected = layout_spec(S, mode, recipe, page_key))
@@ -811,7 +881,8 @@ function export_spec(
     )
 end
 function export_spec(
-        ::Type{S}, mode::Val, recipe::PlotRecipe, page_key, title::AbstractString
+        ::Type{S}, mode::Val, recipe::PlotRecipe, page_key,
+        title::AbstractString
 ) where {S <: AbstractPlotSpec}
     export_spec(S, recipe, title)
 end

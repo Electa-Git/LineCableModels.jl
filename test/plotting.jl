@@ -435,7 +435,7 @@
 
         material_plot = LineCableModels.DataModel.show_material_scale(
             backend = :cairo,
-            display_plot = false,
+            display_plot = false
         )
         @test material_plot isa UIPlot
         @test isempty(material_plot.page.views)
@@ -508,10 +508,8 @@
         @test custom_plot.page.views[1].placement.area ==
               LineCableModels.PlotBuilder.GridArea(1, 1:2)
         top_width = custom_plot.panels[1].axis.scene.viewport[].widths[1]
-        bottom_widths = [
-            panel.axis.scene.viewport[].widths[1]
-            for panel in custom_plot.panels[2:3]
-        ]
+        bottom_widths = [panel.axis.scene.viewport[].widths[1]
+                         for panel in custom_plot.panels[2:3]]
         @test top_width > maximum(bottom_widths)
         line_method = which(
             ui_components.draw!,
