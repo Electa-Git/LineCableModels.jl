@@ -84,20 +84,34 @@
     @test unit_handler.line_components(:shunt, :ZY, :cart) == (:Y_re, :Y_im)
     resistance_quantity = unit_handler.line_component_quantity(:R)
     @test resistance_quantity.semantic === :resistance
+    @test resistance_quantity.accessor === R
+    @test resistance_quantity.selector === nothing
     @test resistance_quantity.unit_name === :ohm
     @test resistance_quantity.prefix === :base
+    @test unit_handler.quantity(Z) isa unit_handler.QuantityTag{:impedance}
+    @test unit_handler.quantity(Y) isa unit_handler.QuantityTag{:admittance}
+    @test unit_handler.quantity(R) isa unit_handler.QuantityTag{:resistance}
+    @test unit_handler.quantity(L) isa unit_handler.QuantityTag{:inductance}
+    @test unit_handler.quantity(Z, :re) isa unit_handler.QuantityTag{:resistance}
+    @test unit_handler.quantity(Z, :im) isa unit_handler.QuantityTag{:reactance}
+    @test unit_handler.quantity(Z, :abs) isa
+          unit_handler.QuantityTag{(:impedance, :abs)}
+    @test unit_handler.quantity(Y, :angle) isa
+          unit_handler.QuantityTag{(:admittance, :angle)}
+    @test unit_handler.line_component_quantity(:Z_abs).accessor === Z
+    @test unit_handler.line_component_quantity(:Z_abs).selector === :abs
     inductance_unit = unit_handler.line_component_unit(:L, :per_length)
     @test unit_handler.get_label(inductance_unit.units) == "mH/km"
     @test inductance_unit.scale == 1.0e6
     total_resistance_unit = unit_handler.line_component_unit(:R, :total)
     @test unit_handler.get_label(total_resistance_unit.units) == "Ω"
     @test total_resistance_unit.scale == 1.0
-    @test unit_handler.line_component_values(:Z_abs, impedance, frequency) ==
-          abs.(impedance)
-    @test unit_handler.line_component_values(:Y_angle, admittance, frequency) ==
-          angle.(admittance) .* (180 / π)
+    @test !isdefined(unit_handler, :line_component_values)
     @test_throws ArgumentError unit_handler.line_components(:invalid, :ZY, :cart)
     @test_throws ArgumentError unit_handler.line_component_quantity(:invalid)
+    @test_throws ArgumentError unit_handler.quantity(Z, :magnitude)
+    @test_throws ArgumentError unit_handler.quantity(R, :abs)
+    @test_throws ArgumentError unit_handler.quantity(sin)
     @test_throws ArgumentError unit_handler.line_component_unit(
         :R,
         :per_length;
@@ -447,6 +461,13 @@ end
 end
 
 @testitem "PlotBuilder: result RenderSpec semantics" setup = [defaults] begin
+    plotspec_source = read(
+        joinpath(dirname(pathof(LineCableModels)), "engine", "plotspecs.jl"),
+        String
+    )
+    @test !occursin("source.values", plotspec_source)
+    @test !occursin("UnitHandler.line_component_values", plotspec_source)
+
     frequency = [50.0, 500.0, 900.0]
     resistance_values = reshape([1.0, 0.2, 0.2, 2.0], 2, 2, 1) .*
                         ones(1, 1, length(frequency)) .* 1.0e-4

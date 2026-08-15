@@ -10,7 +10,7 @@ stores frequency-dependent Z/Y matrices together with their domain and either a
 `:per_length` or `:total` basis. Selecting matrix indices without a frequency
 index returns the complete frequency response.
 
-```jldoctest
+```jldoctest result_containers
 julia> using LineCableModels
 
 julia> f = [50.0, 100.0];
@@ -31,11 +31,45 @@ julia> Z(parameters, 1, 1, 2)
 3.0 + 4.0im
 ```
 
+`ParametricSweep` stores deterministic cases and their results in one ordered,
+type-stable collection. Indexing returns a result; `cases` retains the matching
+input. A physical accessor accepts the case index before the normal result
+selection grammar. Shared `basis`, `domain`, and frequency accessors fail
+explicitly if those properties differ between cases.
+
+```jldoctest result_containers
+julia> second = LineParameters(2z, 2y, f);
+
+julia> sweep = ParametricSweep(
+           [(temperature=20.0,), (temperature=90.0,)],
+           [parameters, second],
+       );
+
+julia> ncases(sweep)
+2
+
+julia> R(sweep, 2, 1, 1)
+2-element Vector{Float64}:
+ 2.0
+ 6.0
+
+julia> frequencies(sweep)
+2-element Vector{Float64}:
+  50.0
+ 100.0
+```
+
 Monte Carlo calculations return `CableConstantsMC` or `LineParametersMC`.
 Use `statistics`, `mean`, `std`, and `quantile` for summaries; `samples` and
 `trial` for retained joint trials; `distribution` for retained marginal
 histograms; and `surrogate` for the covariance-preserving Measurements.jl
 representation. `trial` and `rand` deliberately require retained joint samples.
+
+`UnitHandler` maps result accessors to physical meaning independently of any
+container or plot. For example, `UnitHandler.quantity(Z)` identifies series
+impedance, while `UnitHandler.quantity(Z, :re)` identifies series resistance.
+The resulting `QuantityTag` selects canonical units, display units, labels,
+symbols, and scaling.
 
 ## Contents
 

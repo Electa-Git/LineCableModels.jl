@@ -44,7 +44,8 @@ end
 _clip_field(value, _) = value
 
 function _dataframe_unit_label(component, object_basis, length_unit, quantity_units)
-    quantity, target, factor = _component_unit(
+    quantity, target,
+    factor = _component_unit(
         component,
         object_basis,
         length_unit,
@@ -76,11 +77,7 @@ function _matrix_dataframes(
         coord
     )
     component_arrays = Dict(
-        component => UnitHandler.line_component_values(
-            component,
-            object.values,
-            frequency_values
-        )
+        component => _line_component_values(Val(component), object, frequency_values)
     for
     component in component_names
     )
@@ -94,7 +91,9 @@ function _matrix_dataframes(
             _LP_FREQ_COL => UnitHandler.get_label(frequency_target),
         )
         for component in component_names
-            _, target, factor, unit_label = _dataframe_unit_label(
+            _, target,
+            factor,
+            unit_label = _dataframe_unit_label(
                 component,
                 basis(object),
                 length_unit,
@@ -170,5 +169,5 @@ function DataFrame(
         quantity_units = quantity_units,
         tol = tol
     )
-    return DataFrame(parameters.Z; common...), DataFrame(parameters.Y; common...)
+    return DataFrame(Z(parameters); common...), DataFrame(Y(parameters); common...)
 end

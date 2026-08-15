@@ -59,27 +59,21 @@ struct LinePageKey{K, C} end
 _line_parent(::LinePageKey{K, C}) where {K, C} = K
 _line_component(::LinePageKey{K, C}) where {K, C} = C
 
-_line_components(::Val{:series}, ::Val{(:RLCG, :cart)}) = (:R, :L)
-_line_components(::Val{:series}, ::Val{(:RLCG, :polar)}) = (:R, :L)
-_line_components(::Val{:shunt}, ::Val{(:RLCG, :cart)}) = (:G, :C)
-_line_components(::Val{:shunt}, ::Val{(:RLCG, :polar)}) = (:G, :C)
-_line_components(::Val{:series}, ::Val{(:ZY, :cart)}) = (:Z_re, :Z_im)
-_line_components(::Val{:series}, ::Val{(:ZY, :polar)}) = (:Z_abs, :Z_angle)
-_line_components(::Val{:shunt}, ::Val{(:ZY, :cart)}) = (:Y_re, :Y_im)
-_line_components(::Val{:shunt}, ::Val{(:ZY, :polar)}) = (:Y_abs, :Y_angle)
-
-function _line_page_keys(::Val{K}, mode::Val) where {K}
+function _line_page_keys(::Val{K}, ::Val{Mode}) where {K, Mode}
+    mode, coordinates = Mode
     return Tuple(LinePageKey{K, component}()
-    for component in _line_components(Val(K), mode))
+    for component in UnitHandler.line_components(K, mode, coordinates))
 end
 
-_line_sources(parameters::LineParameters) = (parameters.Z, parameters.Y)
+_line_sources(parameters::LineParameters) = (Z(parameters), Y(parameters))
 _line_sources(object::Union{SeriesImpedance, ShuntAdmittance}) = (object,)
 
 _line_source(object::SeriesImpedance, ::LinePageKey{:series, C}) where {C} = object
 _line_source(object::ShuntAdmittance, ::LinePageKey{:shunt, C}) where {C} = object
-_line_source(parameters::LineParameters, ::LinePageKey{:series, C}) where {C} = parameters.Z
-_line_source(parameters::LineParameters, ::LinePageKey{:shunt, C}) where {C} = parameters.Y
+function _line_source(parameters::LineParameters, ::LinePageKey{:series, C}) where {C}
+    Z(parameters)
+end
+_line_source(parameters::LineParameters, ::LinePageKey{:shunt, C}) where {C} = Y(parameters)
 
 function _line_input_defaults(frequencies)
     return (;
@@ -113,7 +107,7 @@ function PlotBuilder.input_kwargs(::Type{LineParameterPlotSpec})
 end
 PlotBuilder.renderer_kwargs(::Type{LineParameterPlotSpec}) = (:fig_size,)
 function PlotBuilder.input_defaults(::Type{LineParameterPlotSpec}, parameters::LineParameters)
-    _line_input_defaults(parameters.f)
+    _line_input_defaults(frequencies(parameters))
 end
 function PlotBuilder.input_defaults(
         ::Type{LineParameterPlotSpec},
@@ -199,15 +193,16 @@ end
 function _line_values(recipe::PlotBuilder.PlotRecipe, page_key::LinePageKey)
     source = _line_source(recipe.object, page_key)
     component = _line_component(page_key)
-    _, _, conversion = _component_unit(
+    _, _,
+    conversion = _component_unit(
         component,
         basis(source),
         recipe.input.length_unit,
         recipe.input.quantity_units
     )
-    values = UnitHandler.line_component_values(
-        component,
-        source.values,
+    values = _line_component_values(
+        Val(component),
+        recipe.object,
         recipe.input.frequencies
     )
     return values, conversion
@@ -250,7 +245,8 @@ function PlotBuilder.axis_quantity(
         view_key
 )
     source = _line_source(recipe.object, page_key)
-    quantity, _, _ = _component_unit(
+    quantity, _,
+    _ = _component_unit(
         _line_component(page_key),
         basis(source),
         recipe.input.length_unit,
@@ -281,7 +277,8 @@ function PlotBuilder.axis_unit(
         view_key
 )
     source = _line_source(recipe.object, page_key)
-    _, target, _ = _component_unit(
+    _, target,
+    _ = _component_unit(
         _line_component(page_key),
         basis(source),
         recipe.input.length_unit,

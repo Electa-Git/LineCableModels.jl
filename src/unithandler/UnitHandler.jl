@@ -1,10 +1,11 @@
 module UnitHandler
 
 using Base: @kwdef
+import ..Commons: Z, Y, R, X, L, G, B, C
 
 export Unit, Units, units, get_label, get_symbol, get_exp,
        METRIC_PREFIX_EXPONENT, METRIC_PREFIX_SYMBOL, UNIT_SYMBOL,
-       QuantityTag, default_unit, display_unit, scale_factor
+       QuantityTag, quantity, default_unit, display_unit, scale_factor
 
 # --------------------------------------------------------------------------
 # Metric prefixes
@@ -66,8 +67,7 @@ const UNIT_SYMBOL = Dict(
     :meter => "m",
     :hertz => "Hz",
     :degree => "°",
-    :dimensionless => ""
-    # extend this as your sadism requires
+    :dimensionless => ""    # extend this as your sadism requires
 )
 
 @inline function _prefix_exp(prefix::Symbol)
@@ -201,22 +201,83 @@ struct QuantityTag{Q} end
 
 QuantityTag(::Val{Q}) where {Q} = QuantityTag{Q}()
 QuantityTag(::Type{QuantityTag{Q}}) where {Q} = QuantityTag{Q}()
+_quantity_name(::QuantityTag{Q}) where {Q} = Q
+
+"""
+    quantity(accessor[, selector])
+
+Return the physical quantity represented by a result accessor. `selector` may
+be `:re`, `:im`, `:abs`, or `:angle` for the complex `Z` and `Y` accessors.
+
+# Arguments
+
+- `accessor`: One of `Z`, `Y`, `R`, `X`, `L`, `G`, `B`, or `C`.
+- `selector`: Optional Cartesian or polar component of `Z` or `Y`.
+
+# Returns
+
+- A `QuantityTag` used to resolve canonical units, display units, labels, and
+  scaling.
+
+# Errors
+
+Throws `ArgumentError` for an unsupported accessor or selector.
+
+# Examples
+
+```julia
+LineCableModels.UnitHandler.quantity(Z)       # series impedance
+LineCableModels.UnitHandler.quantity(Z, :re)  # series resistance
+LineCableModels.UnitHandler.quantity(Y, :abs) # shunt-admittance magnitude
+```
+"""
+quantity(::typeof(Z)) = QuantityTag{:impedance}()
+quantity(::typeof(Y)) = QuantityTag{:admittance}()
+quantity(::typeof(R)) = QuantityTag{:resistance}()
+quantity(::typeof(X)) = QuantityTag{:reactance}()
+quantity(::typeof(L)) = QuantityTag{:inductance}()
+quantity(::typeof(G)) = QuantityTag{:conductance}()
+quantity(::typeof(B)) = QuantityTag{:susceptance}()
+quantity(::typeof(C)) = QuantityTag{:capacitance}()
+
+quantity(::typeof(Z), ::Val{:re}) = quantity(R)
+quantity(::typeof(Z), ::Val{:im}) = quantity(X)
+quantity(::typeof(Z), ::Val{:abs}) = QuantityTag{(:impedance, :abs)}()
+quantity(::typeof(Z), ::Val{:angle}) = QuantityTag{(:impedance, :angle)}()
+quantity(::typeof(Y), ::Val{:re}) = quantity(G)
+quantity(::typeof(Y), ::Val{:im}) = quantity(B)
+quantity(::typeof(Y), ::Val{:abs}) = QuantityTag{(:admittance, :abs)}()
+quantity(::typeof(Y), ::Val{:angle}) = QuantityTag{(:admittance, :angle)}()
+
+function quantity(accessor, selector::Symbol)
+    selector in (:re, :im, :abs, :angle) || throw(
+        ArgumentError("selector must be :re, :im, :abs, or :angle"),
+    )
+    applicable(quantity, accessor, Val(selector)) || throw(
+        ArgumentError("selector :$selector is not defined for accessor $accessor"),
+    )
+    return quantity(accessor, Val(selector))
+end
+
+function quantity(accessor)
+    throw(ArgumentError("unsupported physical-quantity accessor $accessor"))
+end
 
 const _LINE_COMPONENT_QUANTITY = Dict(
-    :R => (:resistance, :ohm, :base),
-    :X => (:reactance, :ohm, :base),
-    :L => (:inductance, :henry, :milli),
-    :G => (:conductance, :siemens, :base),
-    :B => (:susceptance, :siemens, :base),
-    :C => (:capacitance, :farad, :micro),
-    :Z_re => (:resistance, :ohm, :base),
-    :Z_im => (:reactance, :ohm, :base),
-    :Z_abs => ((:impedance, :abs), :ohm, :base),
-    :Z_angle => ((:impedance, :angle), :degree, :base),
-    :Y_re => (:conductance, :siemens, :base),
-    :Y_im => (:susceptance, :siemens, :base),
-    :Y_abs => ((:admittance, :abs), :siemens, :base),
-    :Y_angle => ((:admittance, :angle), :degree, :base)
+    :R => (R, nothing, :ohm, :base),
+    :X => (X, nothing, :ohm, :base),
+    :L => (L, nothing, :henry, :milli),
+    :G => (G, nothing, :siemens, :base),
+    :B => (B, nothing, :siemens, :base),
+    :C => (C, nothing, :farad, :micro),
+    :Z_re => (Z, :re, :ohm, :base),
+    :Z_im => (Z, :im, :ohm, :base),
+    :Z_abs => (Z, :abs, :ohm, :base),
+    :Z_angle => (Z, :angle, :degree, :base),
+    :Y_re => (Y, :re, :siemens, :base),
+    :Y_im => (Y, :im, :siemens, :base),
+    :Y_abs => (Y, :abs, :siemens, :base),
+    :Y_angle => (Y, :angle, :degree, :base)
 )
 
 """
@@ -248,12 +309,18 @@ Return the semantic name and quantity tag, physical unit name, and default
 display prefix for a line-parameter component.
 """
 function line_component_quantity(component::Symbol)
-    semantic, unit_name, prefix = get(_LINE_COMPONENT_QUANTITY, component) do
+    accessor, selector,
+    unit_name,
+    prefix = get(_LINE_COMPONENT_QUANTITY, component) do
         throw(ArgumentError("unsupported line-parameter component :$component"))
     end
+    tag = selector === nothing ? quantity(accessor) : quantity(accessor, selector)
+    semantic = _quantity_name(tag)
     return (;
         semantic,
-        tag = QuantityTag{semantic}(),
+        tag,
+        accessor,
+        selector,
         unit_name,
         prefix
     )
@@ -307,28 +374,6 @@ function line_component_unit(
         units = target,
         scale = scale_factor(quantity.tag, basis, target)
     )
-end
-
-"""
-    line_component_values(component, values, frequencies)
-
-Extract a Cartesian, polar, or RLCG component from complex line-parameter
-values. Inductance and capacitance are undefined at zero frequency.
-"""
-function line_component_values(component::Symbol, values, frequencies)
-    component in (:R, :Z_re) && return real.(values)
-    component in (:X, :Z_im) && return imag.(values)
-    if component in (:L, :C)
-        any(iszero, frequencies) && throw(
-            DomainError(frequencies, "$component is undefined at zero frequency"),
-        )
-        return imag.(values) ./ reshape(2π .* frequencies, 1, 1, :)
-    end
-    component in (:G, :Y_re) && return real.(values)
-    component in (:B, :Y_im) && return imag.(values)
-    component in (:Z_abs, :Y_abs) && return abs.(values)
-    component in (:Z_angle, :Y_angle) && return angle.(values) .* (180 / π)
-    throw(ArgumentError("unsupported line-parameter component :$component"))
 end
 
 """

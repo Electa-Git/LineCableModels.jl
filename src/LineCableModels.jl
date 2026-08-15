@@ -9,6 +9,7 @@ export Z, Y, R, X, L, G, B, C
 export series_impedance, shunt_admittance,
        resistance, reactance, inductance,
        conductance, susceptance, capacitance
+export ParametricSweep, cases, results, ncases
 
 # Materials:
 export Material, MaterialsLibrary
@@ -93,6 +94,7 @@ using .Engine: LineParametersProblem, compute!, LineParameters, SeriesImpedance,
 
 # Submodule `ParametricBuilder`
 include("parametricbuilder/ParametricBuilder.jl")
+using .ParametricBuilder: ParametricSweep, cases, results, ncases
 
 # Submodule `UQ`
 include("uq/UQ.jl")

@@ -5,10 +5,16 @@ export make_stranded, make_screened
 export Conductor, Insulator, Material, CableBuilder
 export at, trifoil, Earth, SystemBuilder
 export determinize
+export ParametricSweep, cases, results, ncases
 
 # Module-specific dependencies
 using ..Commons
-import ..Commons: add!
+import ..Commons: add!, domain, basis,
+                  Z, Y, R, X, L, G, B, C,
+                  series_impedance, shunt_admittance,
+                  resistance, reactance, inductance,
+                  conductance, susceptance, capacitance,
+                  frequencies, nconductors, nfrequencies
 using ..Materials: Materials
 using ..DataModel: DataModel, trifoil_formation, CableDesign, get_outer_radius
 using ..EarthProps: EarthModel
@@ -77,6 +83,7 @@ include("materialspec.jl")
 include("cablebuilderspec.jl")
 include("systembuilderspec.jl")
 include("determinize.jl")
+include("parametricsweep.jl")
 include("base.jl")
 
 # Submodule `WirePatterns`

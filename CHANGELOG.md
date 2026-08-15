@@ -18,6 +18,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Citation and contribution metadata.
 - Type-stable `CableConstants`, `SampleSummary`, `RLCG`, `CableConstantsMC`,
   `LineParametersMC`, and `HistogramPDF` result containers.
+- A type-stable `ParametricSweep` container for ordered deterministic cases and
+  their results, ready for later GridSpace integration.
 - A single declarative PlotBuilder renderer with interactive legends and
   one-click, non-overwriting SVG export.
 
@@ -34,6 +36,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Documentation examples and development conventions were consolidated.
 - Line-parameter results now carry an explicit `:per_length` or `:total` basis,
   and use `Z`, `Y`, `R`, `X`, `L`, `G`, `B`, and `C` accessors consistently.
+- `UnitHandler` now maps physical accessors to quantity, unit, label, symbol,
+  and scaling semantics without extracting values from result containers.
 - `preview` and statistical plots return one `UIPlot`; line-parameter plots
   return `Vector{UIPlot}`.
 
