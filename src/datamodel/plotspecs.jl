@@ -151,7 +151,8 @@ function _polygon_series(geometry, label, group, color; stroke = :black, width =
         nothing,
         geometry,
         label;
-        attributes = (; color, strokecolor = stroke, strokewidth = width, group)
+        group,
+        attributes = (; color, strokecolor = stroke, strokewidth = width)
     )
 end
 
@@ -326,46 +327,40 @@ function _colorbar_specs(rho_range, mu_range, eps_range; alpha_value = 1.0)
     eps_lower, eps_upper, eps_ticks = _colorbar_range(max.(eps_range, 1.0))
     gray = RGB(0.5, 0.5, 0.5)
     dark = RGB(0.1, 0.1, 0.1)
-    return (
-        (
-            label = "ρ [Ω·m]",
-            colormap = _color_samples(_base_material_color, rho_lower, rho_upper),
-            limits = (0.0, 1.0),
-            ticks = rho_ticks
+    function permeability_color(value)
+        fraction = _log_fraction(value, 1.0, 300.0)
+        tint = _gradient(_MU_COLORS, fraction)
+        overlay = RGBA(tint.r, tint.g, tint.b, 0.5 * fraction)
+        color = _alpha_composite(RGBA(gray.r, gray.g, gray.b, 1.0), overlay)
+        return RGBA(red(color), green(color), blue(color), alpha_value)
+    end
+    function permittivity_color(value)
+        fraction = _log_fraction(value, 1.0, 1000.0)
+        tint = _gradient(_EPS_COLORS, fraction)
+        overlay = RGBA(tint.r, tint.g, tint.b, 0.6 * fraction)
+        color = _alpha_composite(RGBA(dark.r, dark.g, dark.b, 1.0), overlay)
+        return RGBA(red(color), green(color), blue(color), alpha_value)
+    end
+    return PlotBuilder.ColorbarSpec[
+        PlotBuilder.ColorbarSpec(
+            "ρ [Ω·m]",
+            _color_samples(_base_material_color, rho_lower, rho_upper),
+            (0.0, 1.0),
+            rho_ticks
         ),
-        (
-            label = "μᵣ",
-            colormap = _color_samples(
-                value -> begin
-                    fraction = _log_fraction(value, 1.0, 300.0)
-                    tint = _gradient(_MU_COLORS, fraction)
-                    overlay = RGBA(tint.r, tint.g, tint.b, 0.5 * fraction)
-                    color = _alpha_composite(RGBA(gray.r, gray.g, gray.b, 1.0), overlay)
-                    RGBA(red(color), green(color), blue(color), alpha_value)
-                end,
-                mu_lower,
-                mu_upper
-            ),
-            limits = (0.0, 1.0),
-            ticks = mu_ticks
+        PlotBuilder.ColorbarSpec(
+            "μᵣ",
+            _color_samples(permeability_color, mu_lower, mu_upper),
+            (0.0, 1.0),
+            mu_ticks
         ),
-        (
-            label = "εᵣ",
-            colormap = _color_samples(
-                value -> begin
-                    fraction = _log_fraction(value, 1.0, 1000.0)
-                    tint = _gradient(_EPS_COLORS, fraction)
-                    overlay = RGBA(tint.r, tint.g, tint.b, 0.6 * fraction)
-                    color = _alpha_composite(RGBA(dark.r, dark.g, dark.b, 1.0), overlay)
-                    RGBA(red(color), green(color), blue(color), alpha_value)
-                end,
-                eps_lower,
-                eps_upper
-            ),
-            limits = (0.0, 1.0),
-            ticks = eps_ticks
+        PlotBuilder.ColorbarSpec(
+            "εᵣ",
+            _color_samples(permittivity_color, eps_lower, eps_upper),
+            (0.0, 1.0),
+            eps_ticks
         )
-    )
+    ]
 end
 
 function _distance_axes()
@@ -401,7 +396,7 @@ function PlotBuilder.renderer_defaults(::Type{CablePreviewPlotSpec}, ::CableDesi
     (; size = (900, 700))
 end
 
-function PlotBuilder.resolve_input(::Type{CablePreviewPlotSpec}, recipe::NamedTuple)
+function PlotBuilder.resolve_input(::Type{CablePreviewPlotSpec}, recipe::PlotBuilder.PlotRecipe)
     recipe.input.x_offset isa Real || throw(ArgumentError("x_offset must be real"))
     recipe.input.y_offset isa Real || throw(ArgumentError("y_offset must be real"))
     all(name -> getproperty(recipe.input, name) isa Bool,
@@ -417,7 +412,7 @@ end
 function PlotBuilder.make_axes(
         ::Type{CablePreviewPlotSpec},
         mode::Val,
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key,
         view_key
 )
@@ -429,7 +424,7 @@ function PlotBuilder.make_series(
         ::Type{CablePreviewPlotSpec},
         mode::Val,
         grouping::Val,
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key,
         view_key,
         axes::NamedTuple
@@ -445,13 +440,13 @@ end
 _cable_title(::Val{false}, design) = "Cable design preview"
 _cable_title(::Val{true}, design) = "Cable design preview: $(design.cable_id)"
 
-_cable_colorbars(::Val{false}, design) = ()
+_cable_colorbars(::Val{false}, design) = PlotBuilder.ColorbarSpec[]
 _cable_colorbars(::Val{true}, design) = _colorbar_specs(_property_ranges(design)...)
 
 function PlotBuilder.default_title(
         ::Type{CablePreviewPlotSpec},
         mode::Val,
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key,
         view_key
 )
@@ -461,58 +456,69 @@ end
 function PlotBuilder.view_key(
         ::Type{CablePreviewPlotSpec},
         mode::Val,
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key,
         view_key
 )
     return (; kind = :cable)
 end
 
-function PlotBuilder.view_attributes(
+function PlotBuilder.view_aspect(
         ::Type{CablePreviewPlotSpec},
         mode::Val,
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key,
         view_key
 )
-    return (; aspect = :data)
+    return :data
 end
 
 function PlotBuilder.default_figsize(
         ::Type{CablePreviewPlotSpec},
         mode::Val,
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key
 )
     return recipe.renderer.size
 end
 
-function PlotBuilder.figure_layout(
+function PlotBuilder.layout_spec(
         ::Type{CablePreviewPlotSpec},
         mode::Val,
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key
 )
     return :preview
 end
 
-function PlotBuilder.page_kwargs(
+function PlotBuilder.colorbar_specs(
         ::Type{CablePreviewPlotSpec},
         mode::Val,
-        recipe::NamedTuple,
-        page_key,
-        views::Vector{PlotBuilder.ViewSpec}
+        recipe::PlotBuilder.PlotRecipe,
+        page_key
 )
-    return (;
-        colorbars = _cable_colorbars(Val(recipe.input.display_colorbars), recipe.object),
-        display_legend = recipe.input.display_legend,
-        export_name = recipe.object.cable_id,
-        configuration = (;
-            x_offset = recipe.input.x_offset,
-            y_offset = recipe.input.y_offset,
-            display_id = recipe.input.display_id,
-            display_colorbars = recipe.input.display_colorbars
-        )
+    return _cable_colorbars(Val(recipe.input.display_colorbars), recipe.object)
+end
+
+function PlotBuilder.legend_spec(
+        ::Type{CablePreviewPlotSpec}, mode::Val,
+        recipe::PlotBuilder.PlotRecipe, page_key)
+    return PlotBuilder.LegendSpec(enabled = recipe.input.display_legend)
+end
+
+function PlotBuilder.page_identity(
+        ::Type{CablePreviewPlotSpec}, mode::Val,
+        recipe::PlotBuilder.PlotRecipe, page_key)
+    return (; kind = :cable, id = recipe.object.cable_id)
+end
+
+function PlotBuilder.export_spec(
+        ::Type{CablePreviewPlotSpec}, mode::Val,
+        recipe::PlotBuilder.PlotRecipe, page_key, title::AbstractString)
+    return PlotBuilder.ExportSpec(
+        theme = recipe.renderer.export_theme,
+        name = recipe.object.cable_id,
+        open_file = recipe.renderer.open_export
     )
 end
 
@@ -547,7 +553,7 @@ function _system_limits(system, zoom_factor)
 end
 
 function _earth_colorbars(earth_model)
-    earth_model === nothing && return ()
+    earth_model === nothing && return PlotBuilder.ColorbarSpec[]
     resistivities = Float64[]
     permeabilities = Float64[]
     permittivities = Float64[]
@@ -556,7 +562,7 @@ function _earth_colorbars(earth_model)
         push!(permeabilities, to_nominal(layer.base_mur_g))
         push!(permittivities, to_nominal(layer.base_epsr_g))
     end
-    isempty(resistivities) && return ()
+    isempty(resistivities) && return PlotBuilder.ColorbarSpec[]
     return _colorbar_specs(extrema(resistivities), extrema(permeabilities),
         extrema(permittivities); alpha_value = 0.25)
 end
@@ -569,7 +575,8 @@ function _system_series(system, earth_model, limits, display_legend)
         [0.0],
         nothing,
         nothing;
-        attributes = (; color = :black, linewidth = 1.5, group = :air_earth)
+        group = :air_earth,
+        attributes = (; color = :black, linewidth = 1.5)
     ),
     ]
     if earth_model !== nothing && !earth_model.vertical_layers
@@ -642,7 +649,7 @@ function PlotBuilder.renderer_defaults(::Type{SystemPreviewPlotSpec}, ::LineCabl
     (; size = (900, 700))
 end
 
-function PlotBuilder.resolve_input(::Type{SystemPreviewPlotSpec}, recipe::NamedTuple)
+function PlotBuilder.resolve_input(::Type{SystemPreviewPlotSpec}, recipe::PlotBuilder.PlotRecipe)
     _system_limits(recipe.object, recipe.input.zoom_factor)
     all(name -> getproperty(recipe.input, name) isa Bool,
         (:display_legend, :display_id, :display_colorbars)) || throw(
@@ -657,7 +664,7 @@ end
 function PlotBuilder.make_axes(
         ::Type{SystemPreviewPlotSpec},
         mode::Val,
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key,
         view_key
 )
@@ -669,7 +676,7 @@ function PlotBuilder.make_series(
         ::Type{SystemPreviewPlotSpec},
         mode::Val,
         grouping::Val,
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key,
         view_key,
         axes::NamedTuple
@@ -686,13 +693,13 @@ end
 _system_title(::Val{false}, system) = "Cable system cross-section"
 _system_title(::Val{true}, system) = "Cable system cross-section: $(system.system_id)"
 
-_system_colorbars(::Val{false}, earth_model) = ()
+_system_colorbars(::Val{false}, earth_model) = PlotBuilder.ColorbarSpec[]
 _system_colorbars(::Val{true}, earth_model) = _earth_colorbars(earth_model)
 
 function PlotBuilder.default_title(
         ::Type{SystemPreviewPlotSpec},
         mode::Val,
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key,
         view_key
 )
@@ -702,63 +709,83 @@ end
 function PlotBuilder.view_key(
         ::Type{SystemPreviewPlotSpec},
         mode::Val,
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key,
         view_key
 )
     return (; kind = :system)
 end
 
-function PlotBuilder.view_attributes(
+function PlotBuilder.view_aspect(
         ::Type{SystemPreviewPlotSpec},
         mode::Val,
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key,
         view_key
 )
-    return (;
-        aspect = :data,
-        limits = _system_limits(recipe.object, recipe.input.zoom_factor)
-    )
+    return :data
+end
+
+function PlotBuilder.view_limits(
+        ::Type{SystemPreviewPlotSpec},
+        mode::Val,
+        recipe::PlotBuilder.PlotRecipe,
+        page_key,
+        view_key
+)
+    return _system_limits(recipe.object, recipe.input.zoom_factor)
 end
 
 function PlotBuilder.default_figsize(
         ::Type{SystemPreviewPlotSpec},
         mode::Val,
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key
 )
     return recipe.renderer.size
 end
 
-function PlotBuilder.figure_layout(
+function PlotBuilder.layout_spec(
         ::Type{SystemPreviewPlotSpec},
         mode::Val,
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key
 )
     return :preview
 end
 
-function PlotBuilder.page_kwargs(
+function PlotBuilder.colorbar_specs(
         ::Type{SystemPreviewPlotSpec},
         mode::Val,
-        recipe::NamedTuple,
-        page_key,
-        views::Vector{PlotBuilder.ViewSpec}
+        recipe::PlotBuilder.PlotRecipe,
+        page_key
 )
-    return (;
-        colorbars = _system_colorbars(
-            Val(recipe.input.display_colorbars),
-            recipe.input.earth_model
-        ),
-        display_legend = recipe.input.display_legend,
-        export_name = recipe.object.system_id,
-        configuration = (;
-            zoom_factor = recipe.input.zoom_factor,
-            display_id = recipe.input.display_id,
-            display_colorbars = recipe.input.display_colorbars
-        )
+    return _system_colorbars(
+        Val(recipe.input.display_colorbars),
+        recipe.input.earth_model
+    )
+end
+
+function PlotBuilder.legend_spec(
+        ::Type{SystemPreviewPlotSpec}, mode::Val,
+        recipe::PlotBuilder.PlotRecipe, page_key)
+    return PlotBuilder.LegendSpec(enabled = recipe.input.display_legend)
+end
+
+
+function PlotBuilder.page_identity(
+        ::Type{SystemPreviewPlotSpec}, mode::Val,
+        recipe::PlotBuilder.PlotRecipe, page_key)
+    return (; kind = :system, id = recipe.object.system_id)
+end
+
+function PlotBuilder.export_spec(
+        ::Type{SystemPreviewPlotSpec}, mode::Val,
+        recipe::PlotBuilder.PlotRecipe, page_key, title::AbstractString)
+    return PlotBuilder.ExportSpec(
+        theme = recipe.renderer.export_theme,
+        name = recipe.object.system_id,
+        open_file = recipe.renderer.open_export
     )
 end
 
@@ -768,7 +795,7 @@ function PlotBuilder.renderer_defaults(::Type{MaterialScalePlotSpec}, ::Nothing)
     (; size = (800, 400))
 end
 
-function PlotBuilder.resolve_input(::Type{MaterialScalePlotSpec}, recipe::NamedTuple)
+function PlotBuilder.resolve_input(::Type{MaterialScalePlotSpec}, recipe::PlotBuilder.PlotRecipe)
     recipe.renderer.size isa Tuple{Int, Int} || throw(
         ArgumentError("size must be a tuple of two integers"),
     )
@@ -778,7 +805,7 @@ end
 function PlotBuilder.grouping_mode(
         ::Type{MaterialScalePlotSpec},
         mode::Val,
-        recipe::NamedTuple
+        recipe::PlotBuilder.PlotRecipe
 )
     return Val(:empty)
 end
@@ -786,7 +813,7 @@ end
 function PlotBuilder.default_title(
         ::Type{MaterialScalePlotSpec},
         mode::Val,
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key,
         view_key
 )
@@ -796,43 +823,58 @@ end
 function PlotBuilder.default_figsize(
         ::Type{MaterialScalePlotSpec},
         mode::Val,
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key
 )
     return recipe.renderer.size
 end
 
-function PlotBuilder.figure_layout(
+function PlotBuilder.layout_spec(
         ::Type{MaterialScalePlotSpec},
         mode::Val,
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key
 )
     return :material_scale
 end
 
-function PlotBuilder.page_kwargs(
+function PlotBuilder.colorbar_specs(
         ::Type{MaterialScalePlotSpec},
         mode::Val,
-        recipe::NamedTuple,
-        page_key,
-        views::Vector{PlotBuilder.ViewSpec}
+        recipe::PlotBuilder.PlotRecipe,
+        page_key
 )
-    return (;
-        colorbars = _colorbar_specs(
-            (_RHO_MIN, _RHO_MAX),
-            (1.0, 300.0),
-            (1.0, 1000.0)
-        ),
-        display_legend = false,
-        export_name = "material_scale",
-        controls = PlotBuilder.control_definitions(
-            reset = false,
-            xlog = false,
-            ylog = false,
-            legend = false,
-            visibility = false,
-            zoom = false
-        )
+    return _colorbar_specs(
+        (_RHO_MIN, _RHO_MAX),
+        (1.0, 300.0),
+        (1.0, 1000.0)
+    )
+end
+
+function PlotBuilder.control_spec(
+        ::Type{MaterialScalePlotSpec}, mode::Val,
+        recipe::PlotBuilder.PlotRecipe, page_key)
+    return PlotBuilder.ControlSpec(reset = false)
+end
+
+function PlotBuilder.legend_spec(
+        ::Type{MaterialScalePlotSpec}, mode::Val,
+        recipe::PlotBuilder.PlotRecipe, page_key)
+    return PlotBuilder.LegendSpec(enabled = false)
+end
+
+function PlotBuilder.page_identity(
+        ::Type{MaterialScalePlotSpec}, mode::Val,
+        recipe::PlotBuilder.PlotRecipe, page_key)
+    return (; kind = :material_scale)
+end
+
+function PlotBuilder.export_spec(
+        ::Type{MaterialScalePlotSpec}, mode::Val,
+        recipe::PlotBuilder.PlotRecipe, page_key, title::AbstractString)
+    return PlotBuilder.ExportSpec(
+        theme = recipe.renderer.export_theme,
+        name = "material_scale",
+        open_file = recipe.renderer.open_export
     )
 end

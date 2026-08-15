@@ -128,7 +128,7 @@ function PlotBuilder.renderer_defaults(
     (; fig_size = (800, 400))
 end
 
-function PlotBuilder.resolve_input(::Type{LineParameterPlotSpec}, recipe::NamedTuple)
+function PlotBuilder.resolve_input(::Type{LineParameterPlotSpec}, recipe::PlotBuilder.PlotRecipe)
     input = recipe.input
     input.mode in (:RLCG, :ZY) || throw(ArgumentError("mode must be :RLCG or :ZY"))
     input.coord in (:cart, :polar) || throw(ArgumentError("coord must be :cart or :polar"))
@@ -162,17 +162,21 @@ function PlotBuilder.resolve_input(::Type{LineParameterPlotSpec}, recipe::NamedT
     end
     length(frequencies) <= 1 &&
         @warn "Frequency vector has $(length(frequencies)) sample(s); nothing to plot."
-    return merge(recipe, (; input = merge(input, (; frequencies))))
+    return PlotBuilder.PlotRecipe(
+        recipe.object,
+        merge(input, (; frequencies)),
+        recipe.renderer
+    )
 end
 
-function PlotBuilder.recipe_mode(::Type{LineParameterPlotSpec}, recipe::NamedTuple)
+function PlotBuilder.recipe_mode(::Type{LineParameterPlotSpec}, recipe::PlotBuilder.PlotRecipe)
     return Val((recipe.input.mode, recipe.input.coord))
 end
 
 function PlotBuilder.grouping_mode(
         ::Type{LineParameterPlotSpec},
         mode::Val,
-        recipe::NamedTuple
+        recipe::PlotBuilder.PlotRecipe
 )
     return Val(:faceted_pages)
 end
@@ -180,7 +184,7 @@ end
 function PlotBuilder.page_facets(
         ::Type{LineParameterPlotSpec},
         mode::Val,
-        recipe::NamedTuple
+        recipe::PlotBuilder.PlotRecipe
 )
     length(recipe.input.frequencies) <= 1 && return ()
     return _line_page_facets(mode, recipe.object)
@@ -192,7 +196,7 @@ function _line_page_facets(mode::Val, ::LineParameters)
     return (_line_page_keys(Val(:series), mode)..., _line_page_keys(Val(:shunt), mode)...)
 end
 
-function _line_values(recipe::NamedTuple, page_key::LinePageKey)
+function _line_values(recipe::PlotBuilder.PlotRecipe, page_key::LinePageKey)
     source = _line_source(recipe.object, page_key)
     component = _line_component(page_key)
     _, _, conversion = _component_unit(
@@ -212,7 +216,7 @@ end
 function PlotBuilder.group_facets(
         ::Type{LineParameterPlotSpec},
         mode::Val,
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey
 )
     source = _line_source(recipe.object, page_key)
@@ -230,7 +234,7 @@ function PlotBuilder.axis_quantity(
         ::Type{LineParameterPlotSpec},
         mode::Val,
         ::Val{:x},
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key,
         view_key
 )
@@ -241,7 +245,7 @@ function PlotBuilder.axis_quantity(
         ::Type{LineParameterPlotSpec},
         mode::Val,
         ::Val{:y},
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey,
         view_key
 )
@@ -260,7 +264,7 @@ function PlotBuilder.axis_unit(
         mode::Val,
         ::Val{:x},
         quantity::UnitHandler.QuantityTag,
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key,
         view_key
 )
@@ -272,7 +276,7 @@ function PlotBuilder.axis_unit(
         mode::Val,
         ::Val{:y},
         quantity::UnitHandler.QuantityTag,
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey,
         view_key
 )
@@ -290,7 +294,7 @@ function PlotBuilder.axis_scale(
         ::Type{LineParameterPlotSpec},
         mode::Val,
         ::Val{:x},
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key,
         view_key
 )
@@ -301,7 +305,7 @@ function PlotBuilder.axis_scale(
         ::Type{LineParameterPlotSpec},
         mode::Val,
         ::Val{:y},
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key,
         view_key
 )
@@ -312,7 +316,7 @@ function PlotBuilder.series_data(
         ::Type{LineParameterPlotSpec},
         mode::Val,
         ::Val{:x},
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key,
         view_key,
         series_key
@@ -327,7 +331,7 @@ function PlotBuilder.series_data(
         ::Type{LineParameterPlotSpec},
         mode::Val,
         ::Val{:y},
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey,
         view_key,
         series_key::Tuple{Int, Int}
@@ -339,7 +343,7 @@ end
 function PlotBuilder.legend_label(
         ::Type{LineParameterPlotSpec},
         mode::Val,
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey,
         view_key,
         series_key::Tuple{Int, Int}
@@ -358,7 +362,7 @@ end
 function PlotBuilder.series_attributes(
         ::Type{LineParameterPlotSpec},
         mode::Val,
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key,
         view_key,
         series_key
@@ -369,7 +373,7 @@ end
 function PlotBuilder.default_title(
         ::Type{LineParameterPlotSpec},
         mode::Val,
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey,
         view_key
 )
@@ -387,7 +391,7 @@ end
 function PlotBuilder.view_key(
         ::Type{LineParameterPlotSpec},
         mode::Val,
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey,
         view_key
 )
@@ -397,41 +401,65 @@ end
 function PlotBuilder.default_figsize(
         ::Type{LineParameterPlotSpec},
         mode::Val,
-        recipe::NamedTuple,
+        recipe::PlotBuilder.PlotRecipe,
         page_key
 )
     return recipe.renderer.fig_size
 end
 
-function PlotBuilder.enable_logscale(
-        ::Type{LineParameterPlotSpec},
-        mode::Val,
-        recipe::NamedTuple,
-        page_key
-)
-    return (:x, :y)
+function _supports_log(series, dim::Symbol)
+    found = false
+    for item in series
+        samples = dim === :x ? item.xdata : item.ydata
+        samples === nothing && continue
+        for sample in samples
+            found = true
+            nominal = Measurements.value(sample)
+            uncertainty = abs(Measurements.uncertainty(sample))
+            nominal isa Real && isfinite(nominal) && isfinite(uncertainty) &&
+                nominal - uncertainty > 0 || return false
+        end
+    end
+    return found
 end
 
-function PlotBuilder.page_kwargs(
+function PlotBuilder.axis_scales(
         ::Type{LineParameterPlotSpec},
         mode::Val,
-        recipe::NamedTuple,
+        ::Val{dim},
+        recipe::PlotBuilder.PlotRecipe,
+        page_key,
+        view_key,
+        series::Vector{PlotBuilder.SeriesSpec}
+) where {dim}
+    return _supports_log(series, dim) ? (:linear, :log10) : (:linear,)
+end
+
+function PlotBuilder.axis_exponent(
+        ::Type{LineParameterPlotSpec},
+        mode::Val,
+        ::Val{dim},
+        recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey,
-        views::Vector{PlotBuilder.ViewSpec}
+        view_key,
+        series::Vector{PlotBuilder.SeriesSpec}
+) where {dim}
+    return _finite_exponent(
+        (dim === :x ? item.xdata : item.ydata for item in series)
+    )
+end
+
+function PlotBuilder.page_identity(
+        ::Type{LineParameterPlotSpec},
+        mode::Val,
+        recipe::PlotBuilder.PlotRecipe,
+        page_key::LinePageKey
 )
-    series = only(views).series
-    component = _line_component(page_key)
     return (;
-        component,
-        x_exponent = _finite_exponent((item.xdata for item in series)),
-        y_exponent = _finite_exponent((item.ydata for item in series)),
-        configuration = (;
-            mode = recipe.input.mode,
-            coord = recipe.input.coord,
-            freq_unit = recipe.input.freq_unit,
-            length_unit = recipe.input.length_unit,
-            quantity_units = recipe.input.quantity_units,
-            conductors = recipe.input.con
-        )
+        family = _line_parent(page_key),
+        component = _line_component(page_key),
+        mode = recipe.input.mode,
+        coordinates = recipe.input.coord,
+        conductors = recipe.input.con
     )
 end

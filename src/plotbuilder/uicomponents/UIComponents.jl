@@ -7,22 +7,20 @@ using Printf: @sprintf
 
 import LineCableModels.PlotBuilder
 using LineCableModels.PlotBuilder:
-                                   AxisSpec, SeriesSpec, ViewSpec, PageSpec,
-                                   RenderSpec, UIPlot
+                                   AbstractTrackSize, FixedTrack, RelativeTrack,
+                                   ContentTrack, GridArea, GridSpec, SlotSpec,
+                                   LayoutSpec, AxisSpec, SeriesSpec, ViewSpec,
+                                   PageSpec, RenderSpec, UIPlot
 const BackendHandler = PlotBuilder.BackendHandler
 
 export build, export_svg
 
-const FIGURE_PADDING = (20, 20, 28, 28)
 const COLORBAR_WIDTH = 140
 const COLORBAR_TICK_LABEL_SIZE = 12
 const COLORBAR_LABEL_SIZE = 14
 const COLORBAR_END_PADDING = 28
 const GRID_ROW_GAP = 6
 const GRID_COLUMN_GAP = 6
-const LEGEND_GAP = 4
-const TOOLBAR_HEIGHT = 36
-const STATUSBAR_HEIGHT = 20
 const BUTTON_SIZE = 32
 const BUTTON_ICON_SIZE = 18
 const BACKGROUND_INTERACTIVE = :grey90
@@ -82,14 +80,19 @@ function _theme(; export_mode::Bool = false, export_theme::Symbol = :default)
     return merge(base, custom)
 end
 
-function _context(active::Symbol, display::Bool, title::AbstractString)
+function _context(
+        active::Symbol,
+        display::Bool,
+        title::AbstractString,
+        initial_status::AbstractString
+)
     interactive = display && active in (:gl, :wgl)
     window = interactive && active === :gl ?
              BackendHandler.make_screen(
         "Fig. $(BackendHandler.next_fignum()) – $title";
         backend = :gl
     ) : nothing
-    return UIContext(active, interactive, window, Observable("Ready."))
+    return UIContext(active, interactive, window, Observable(String(initial_status)))
 end
 
 _scale(symbol::Symbol) = symbol === :log10 ? Makie.log10 : Makie.identity
@@ -139,6 +142,10 @@ _ticks(scale::Symbol) = scale === :log10 ? _decade_ticks : Makie.automatic
 
 function _set_axis_scale!(
         axis, spec::Union{Nothing, AxisSpec}, dim::Symbol, exponent::Int, scale::Symbol)
+    spec === nothing && throw(ArgumentError("cannot set an absent axis scale"))
+    scale in spec.allowed_scales || throw(
+        ArgumentError("axis :$dim does not allow scale :$scale"),
+    )
     ticks = _ticks(scale)
     formatter = _tickformat(exponent, scale)
     label = _axis_label(spec, exponent, scale)
@@ -212,7 +219,7 @@ function _reset_panel_limits!(panel::UIPanel)
     axis = panel.axis
     view = panel.view
     autolimits!(axis)
-    haskey(view.attributes, :limits) && return axis
+    view.limits !== nothing && return axis
     for dim in (:x, :y)
         values = _axis_values(view, dim)
         isempty(values) && continue
@@ -244,89 +251,109 @@ function _numeric_values(values)
     return nominal, any(error -> !iszero(error), errors) ? errors : nothing
 end
 
-function _without(attributes::NamedTuple, excluded::Tuple)
-    return (; (key => value for (key, value) in pairs(attributes) if key ∉ excluded)...)
-end
-
-function _draw!(axis, series::SeriesSpec)
-    attributes = _without(series.attributes, (:group,))
-    plots = Any[]
-    if series.kind === :line
-        x, xerror = _numeric_values(series.xdata)
-        y, yerror = _numeric_values(series.ydata)
-        line = lines!(axis, x, y; label = series.label, attributes...)
-        push!(plots, line)
-        if yerror !== nothing
-            push!(
-                plots,
-                errorbars!(
-                    axis,
-                    x,
-                    y,
-                    yerror;
-                    color = :black,
-                    direction = :y,
-                    whiskerwidth = 3,
-                    linewidth = 1
-                )
-            )
-        end
-        if xerror !== nothing
-            push!(
-                plots,
-                errorbars!(
-                    axis,
-                    x,
-                    y,
-                    xerror;
-                    color = :black,
-                    direction = :x,
-                    whiskerwidth = 3,
-                    linewidth = 1
-                )
-            )
-        end
-    elseif series.kind === :scatter
-        x, _ = _numeric_values(series.xdata)
-        y, _ = _numeric_values(series.ydata)
-        push!(plots, scatter!(axis, x, y; label = series.label, attributes...))
-    elseif series.kind === :histogram
-        values, _ = _numeric_values(series.xdata)
-        push!(plots, hist!(axis, values; label = series.label, attributes...))
-    elseif series.kind === :stairs
-        x, _ = _numeric_values(series.xdata)
-        y, _ = _numeric_values(series.ydata)
-        push!(plots, stairs!(axis, x, y; label = series.label, attributes...))
-    elseif series.kind === :heatmap
+function _line_errors!(plots, axis, series::SeriesSpec, x, y, xerror, yerror)
+    if yerror !== nothing
         push!(
             plots,
-            heatmap!(
+            errorbars!(
                 axis,
-                series.xdata,
-                series.ydata,
-                series.zdata;
-                attributes...
+                x,
+                y,
+                yerror;
+                color = :black,
+                direction = :y,
+                whiskerwidth = 3,
+                linewidth = 1,
+                visible = series.visible
             )
         )
-    elseif series.kind === :polygon
-        push!(plots, poly!(axis, series.zdata; label = series.label, attributes...))
-    elseif series.kind === :hline
-        push!(plots, hlines!(axis, series.ydata; label = series.label, attributes...))
-    else
-        throw(ArgumentError("unsupported PlotBuilder primitive :$(series.kind)"))
+    end
+    if xerror !== nothing
+        push!(
+            plots,
+            errorbars!(
+                axis,
+                x,
+                y,
+                xerror;
+                color = :black,
+                direction = :x,
+                whiskerwidth = 3,
+                linewidth = 1,
+                visible = series.visible
+            )
+        )
     end
     return plots
+end
+
+function draw!(axis, ::Val{:line}, series::SeriesSpec)
+    plots = Any[]
+    x, xerror = _numeric_values(series.xdata)
+    y, yerror = _numeric_values(series.ydata)
+    push!(plots, lines!(
+        axis, x, y; label = series.label, visible = series.visible, series.attributes...))
+    return _line_errors!(plots, axis, series, x, y, xerror, yerror)
+end
+
+function draw!(axis, ::Val{:scatter}, series::SeriesSpec)
+    x, _ = _numeric_values(series.xdata)
+    y, _ = _numeric_values(series.ydata)
+    return Any[scatter!(axis, x, y;
+        label = series.label, visible = series.visible, series.attributes...)]
+end
+
+function draw!(axis, ::Val{:histogram}, series::SeriesSpec)
+    values, _ = _numeric_values(series.xdata)
+    return Any[hist!(axis, values;
+        label = series.label, visible = series.visible, series.attributes...)]
+end
+
+function draw!(axis, ::Val{:stairs}, series::SeriesSpec)
+    x, _ = _numeric_values(series.xdata)
+    y, _ = _numeric_values(series.ydata)
+    return Any[stairs!(axis, x, y;
+        label = series.label, visible = series.visible, series.attributes...)]
+end
+
+
+function draw!(axis, ::Val{:heatmap}, series::SeriesSpec)
+    return Any[heatmap!(axis, series.xdata, series.ydata, series.zdata;
+        visible = series.visible, series.attributes...)]
+end
+
+function draw!(axis, ::Val{:polygon}, series::SeriesSpec)
+    return Any[poly!(axis, series.zdata;
+        label = series.label, visible = series.visible, series.attributes...)]
+end
+
+function draw!(axis, ::Val{:hline}, series::SeriesSpec)
+    return Any[hlines!(axis, series.ydata;
+        label = series.label, visible = series.visible, series.attributes...)]
+end
+
+function draw!(axis, ::Val{kind}, series::SeriesSpec) where {kind}
+    throw(ArgumentError("unsupported PlotBuilder primitive :$kind"))
+end
+
+function _axis_attributes(view::ViewSpec)
+    axes = (view.xaxis, view.yaxis, view.zaxis)
+    axis_attributes = foldl(
+        merge,
+        (axis.attributes for axis in axes if axis !== nothing);
+        init = (;)
+    )
+    return merge(axis_attributes, view.attributes)
 end
 
 function _axis(parent, view::ViewSpec, page::PageSpec)
     xaxis = view.xaxis
     yaxis = view.yaxis
-    x_exponent = get(page.kwargs, :x_exponent, 0)
-    y_exponent = get(page.kwargs, :y_exponent, 0)
+    x_exponent = xaxis === nothing ? 0 : xaxis.exponent
+    y_exponent = yaxis === nothing ? 0 : yaxis.exponent
     xscale = xaxis === nothing ? :linear : xaxis.scale
     yscale = yaxis === nothing ? :linear : yaxis.scale
-    attributes = _without(view.attributes, (:aspect, :limits))
-    aspect = get(view.attributes, :aspect, nothing)
+    attributes = _axis_attributes(view)
     axis = Axis(
         parent;
         xlabel = _axis_label(xaxis, x_exponent, xscale),
@@ -338,7 +365,7 @@ function _axis(parent, view::ViewSpec, page::PageSpec)
         yticks = _ticks(yscale),
         xtickformat = _tickformat(x_exponent, xscale),
         ytickformat = _tickformat(y_exponent, yscale),
-        aspect = aspect === :data ? DataAspect() : aspect,
+        aspect = view.aspect === :data ? DataAspect() : view.aspect,
         attributes...
     )
     plots = Any[]
@@ -346,17 +373,17 @@ function _axis(parent, view::ViewSpec, page::PageSpec)
     group_labels = Dict{Symbol, String}()
     group_order = Symbol[]
     for (index, series) in enumerate(view.series)
-        drawn = _draw!(axis, series)
+        drawn = draw!(axis, Val(series.kind), series)
         append!(plots, drawn)
-        group = get(series.attributes, :group, Symbol("series_$index"))
+        group = series.group === nothing ? Symbol("series_$index") : series.group
         haskey(groups, group) || push!(group_order, group)
         append!(get!(groups, group, Any[]), drawn)
         if series.label !== nothing && !isempty(series.label)
             group_labels[group] = series.label
         end
     end
-    if haskey(view.attributes, :limits)
-        xlimits, ylimits = view.attributes.limits
+    if view.limits !== nothing
+        xlimits, ylimits = view.limits
         xlims!(axis, xlimits...)
         ylims!(axis, ylimits...)
     else
@@ -394,7 +421,7 @@ function _export_directory()
 end
 
 function _available_path(page::PageSpec)
-    base = _sanitize_filename(get(page.kwargs, :export_name, page.title))
+    base = _sanitize_filename(page.export_spec.name)
     stamp = Dates.format(Dates.now(), EXPORT_TIMESTAMP_FORMAT)
     directory = _export_directory()
     candidate = joinpath(directory, "$(base)_$(stamp).svg")
@@ -471,9 +498,14 @@ function _colorbar_ticks(ticks)
     return values, map(_rich_scientific_label, labels)
 end
 
-function _colorbars!(slot, descriptors)
+_makie_alignment(value::Symbol) = value === :stretch ? :center : value
+
+function _colorbars!(slot, descriptors, specification::SlotSpec)
     isempty(descriptors) && return nothing
-    grid = GridLayout()
+    grid = GridLayout(
+        halign = _makie_alignment(specification.halign),
+        valign = _makie_alignment(specification.valign)
+    )
     grid.default_colgap = Fixed(0)
     slot[] = grid
     colsize!(grid, 1, Fixed(COLORBAR_WIDTH))
@@ -496,7 +528,7 @@ function _colorbars!(slot, descriptors)
     return grid
 end
 
-function _legend!(slot, panels)
+function _legend!(slot, panels, specification::SlotSpec)
     groups, group_labels, group_order = _visibility_groups(panels)
     entries = Any[]
     labels = String[]
@@ -510,9 +542,166 @@ function _legend!(slot, panels)
         slot,
         entries,
         labels;
-        halign = :right,
-        valign = :top
+        halign = _makie_alignment(specification.halign),
+        valign = _makie_alignment(specification.valign)
     )
+end
+
+_track_size(track::FixedTrack) = Fixed(track.value)
+_track_size(track::RelativeTrack) = Relative(track.weight)
+_track_size(::ContentTrack) = Auto(true)
+
+function _apply_grid_spec!(grid, specification::GridSpec)
+    grid.default_rowgap = Fixed(specification.rowgap)
+    grid.default_colgap = Fixed(specification.columngap)
+    isempty(grid.addedrowgaps) || rowgap!(grid, Fixed(specification.rowgap))
+    isempty(grid.addedcolgaps) || colgap!(grid, Fixed(specification.columngap))
+    for (index, track) in enumerate(specification.rows)
+        index <= length(grid.rowsizes) && rowsize!(grid, index, _track_size(track))
+    end
+    for (index, track) in enumerate(specification.columns)
+        index <= length(grid.colsizes) && colsize!(grid, index, _track_size(track))
+    end
+    return grid
+end
+
+function _grid_position(parent, area::GridArea)
+    return parent[area.rows, area.columns]
+end
+
+function _materialize_layout(figure, specification::LayoutSpec)
+    PlotBuilder.validate(specification)
+    root_specification = only(filter(grid -> grid.parent === nothing, specification.grids))
+    grids = Dict{Symbol, Any}(root_specification.name => figure.layout)
+
+    pending = [grid for grid in specification.grids if grid.parent !== nothing]
+    while !isempty(pending)
+        progressed = false
+        for grid_specification in copy(pending)
+            haskey(grids, grid_specification.parent) || continue
+            padding = grid_specification.padding
+            grid = GridLayout(
+                length(grid_specification.rows),
+                length(grid_specification.columns);
+                alignmode = all(iszero, padding) ? Inside() : Outside(padding...)
+            )
+            _grid_position(grids[grid_specification.parent], grid_specification.area)[] = grid
+            grids[grid_specification.name] = grid
+            deleteat!(pending, findfirst(==(grid_specification), pending))
+            progressed = true
+        end
+        progressed || error("validated layout could not be materialized")
+    end
+
+    slot_specs = Dict{Symbol, SlotSpec}()
+    for slot_specification in specification.slots
+        slot_specs[slot_specification.name] = slot_specification
+    end
+    for grid_specification in specification.grids
+        _apply_grid_spec!(grids[grid_specification.name], grid_specification)
+    end
+    return (; grids, slot_specs, collapsed = Set{Tuple{Symbol, Int}}())
+end
+
+function _collapse_slot!(layout::LayoutSpec, materialized, name::Symbol)
+    index = findfirst(slot -> slot.name === name, layout.slots)
+    index === nothing && return nothing
+    slot = layout.slots[index]
+    parent = materialized.grids[slot.parent]
+    sibling_areas = GridArea[]
+    append!(
+        sibling_areas,
+        [grid.area for grid in layout.grids
+         if grid.parent === slot.parent && grid.area !== nothing]
+    )
+    append!(
+        sibling_areas,
+        [other.area for other in layout.slots
+         if other.parent === slot.parent && other.name !== slot.name]
+    )
+    rows = filter(slot.area.rows) do row
+        all(area -> row ∉ area.rows, sibling_areas)
+    end
+    foreach(row -> push!(materialized.collapsed, (slot.parent, row)), rows)
+    foreach(
+        row -> row <= length(parent.rowsizes) && rowsize!(parent, row, Fixed(0)),
+        rows
+    )
+    return nothing
+end
+
+function _apply_layout_specs!(layout::LayoutSpec, materialized)
+    for specification in layout.grids
+        _apply_grid_spec!(materialized.grids[specification.name], specification)
+    end
+    for (grid_name, row) in materialized.collapsed
+        parent = materialized.grids[grid_name]
+        row <= length(parent.rowsizes) && rowsize!(parent, row, Fixed(0))
+    end
+    return nothing
+end
+
+function _view_positions(views::AbstractVector{<:ViewSpec})
+    isempty(views) && return Tuple{ViewSpec, GridArea}[]
+    if all(view -> view.placement.area === nothing, views)
+        columns = max(1, ceil(Int, sqrt(length(views))))
+        return [
+            (
+                view,
+                GridArea((index - 1) ÷ columns + 1, (index - 1) % columns + 1)
+            ) for (index, view) in enumerate(views)
+        ]
+    end
+    return [(view, view.placement.area) for view in views]
+end
+
+function _slot_position(materialized, name::Symbol)
+    specification = materialized.slot_specs[name]
+    return _grid_position(materialized.grids[specification.parent], specification.area)
+end
+
+function _slot_grid(materialized, name::Symbol)
+    specification = materialized.slot_specs[name]
+    grid = GridLayout(
+        halign = _makie_alignment(specification.halign),
+        valign = _makie_alignment(specification.valign)
+    )
+    _slot_position(materialized, name)[] = grid
+    return grid
+end
+
+function _build_panels(page::PageSpec, materialized)
+    panels = UIPanel[]
+    for slot_name in unique(view.placement.slot for view in page.views)
+        slot = _slot_grid(materialized, slot_name)
+        slot.default_rowgap = Fixed(GRID_ROW_GAP)
+        slot.default_colgap = Fixed(GRID_COLUMN_GAP)
+        views = [view for view in page.views if view.placement.slot === slot_name]
+        for (view, area) in _view_positions(views)
+            push!(panels, _axis(_grid_position(slot, area), view, page))
+        end
+    end
+    return panels
+end
+
+function _page_supports_log(panels, dim::Symbol)
+    isempty(panels) && return false
+    return all(panels) do panel
+        specification = dim === :x ? panel.view.xaxis : panel.view.yaxis
+        specification !== nothing && :log10 in specification.allowed_scales
+    end
+end
+
+function _build_colorbars!(page::PageSpec, materialized)
+    for slot_name in unique(colorbar.slot for colorbar in page.colorbars)
+        descriptors = [colorbar for colorbar in page.colorbars if colorbar.slot === slot_name]
+        _colorbars!(
+            _slot_position(materialized, slot_name),
+            descriptors,
+            materialized.slot_specs[slot_name]
+        )
+    end
+    return nothing
 end
 
 function _build_page(
@@ -522,57 +711,42 @@ function _build_page(
         controls::Bool,
         export_mode::Bool
 )
-    figure = Figure(size = page.size, figure_padding = FIGURE_PADDING)
-    figure.layout.default_rowgap = Fixed(GRID_ROW_GAP)
-    figure.layout.default_colgap = Fixed(GRID_COLUMN_GAP)
-    toolbar_row = controls ? 1 : 0
-    canvas_row = toolbar_row + 1
-    status_row = canvas_row + 1
-    canvas = GridLayout()
-    figure[canvas_row, 1] = canvas
-    panel_count = length(page.views)
-    columns = max(1, ceil(Int, sqrt(panel_count)))
-    panels = UIPanel[]
-    for (index, view) in enumerate(page.views)
-        row = (index - 1) ÷ columns + 1
-        column = (index - 1) % columns + 1
-        push!(panels, _axis(canvas[row, column], view, page))
-    end
-    side = GridLayout()
-    side.default_rowgap = Fixed(LEGEND_GAP)
-    side.halign = :right
-    side_column = isempty(page.views) ? 1 : 2
-    figure[canvas_row, side_column] = side
-    if isempty(page.views)
-        colsize!(side, 1, Relative(1))
-    end
-    side_row = 1
+    PlotBuilder.validate(render_spec)
+    root = only(filter(grid -> grid.parent === nothing, page.layout.grids))
+    figure = Figure(size = page.size, figure_padding = root.padding)
+    materialized = _materialize_layout(figure, page.layout)
+    panels = _build_panels(page, materialized)
     legend = nothing
-    if get(page.kwargs, :display_legend, true)
-        legend = _legend!(side[side_row, 1], panels)
-        side_row += 1
+    if page.legend.enabled
+        legend = _legend!(
+            _slot_position(materialized, page.legend.slot),
+            panels,
+            materialized.slot_specs[page.legend.slot]
+        )
+        legend === nothing && _collapse_slot!(page.layout, materialized, page.legend.slot)
+    else
+        _collapse_slot!(page.layout, materialized, page.legend.slot)
     end
-    colorbars = get(page.kwargs, :colorbars, ())
-    if !isempty(colorbars)
-        _colorbars!(side[side_row, 1], colorbars)
-        side_row += 1
+    if isempty(page.colorbars)
+        for slot in page.layout.slots
+            slot.name === :colorbars && _collapse_slot!(page.layout, materialized, slot.name)
+        end
+    else
+        _build_colorbars!(page, materialized)
     end
-    isempty(page.views) || colsize!(figure.layout, 2, Auto(true))
 
     widgets = Dict{Symbol, Any}()
     plot_reference = Ref{Any}(nothing)
     if controls
-        definitions = get(
-            page.kwargs,
-            :controls,
-            PlotBuilder.control_definitions()
-        )
-        toolbar = GridLayout()
-        toolbar.default_colgap = Fixed(4)
-        toolbar.halign = :left
-        toolbar.valign = :bottom
-        figure[1, 1:2] = toolbar
-        column = 1
+        definitions = page.controls
+        xlog_available = _page_supports_log(panels, :x)
+        ylog_available = _page_supports_log(panels, :y)
+        toolbar_enabled = definitions.reset || definitions.export_svg ||
+                          xlog_available || ylog_available
+        if toolbar_enabled
+            toolbar = _slot_grid(materialized, definitions.slot)
+            toolbar.default_colgap = Fixed(4)
+            column = 1
         if definitions.reset
             reset = Button(
                 toolbar[1, column];
@@ -606,7 +780,7 @@ function _build_page(
                 end
             end
         end
-        if definitions.xlog
+        if xlog_available
             active = !isempty(panels) && all(
                 panel -> panel.axis.xscale[] === Makie.log10,
                 panels
@@ -623,7 +797,7 @@ function _build_page(
                         panel.axis,
                         panel.view.xaxis,
                         :x,
-                        get(page.kwargs, :x_exponent, 0),
+                        panel.view.xaxis.exponent,
                         scale
                     ),
                     panels
@@ -634,7 +808,7 @@ function _build_page(
                                    "x-axis scale set to linear"
             end
         end
-        if definitions.ylog
+        if ylog_available
             active = !isempty(panels) && all(
                 panel -> panel.axis.yscale[] === Makie.log10,
                 panels
@@ -650,7 +824,7 @@ function _build_page(
                         panel.axis,
                         panel.view.yaxis,
                         :y,
-                        get(page.kwargs, :y_exponent, 0),
+                        panel.view.yaxis.exponent,
                         scale
                     ),
                     panels
@@ -661,13 +835,26 @@ function _build_page(
                                    "y-axis scale set to linear"
             end
         end
-        definitions.legend && legend !== nothing && (widgets[:legend] = legend)
-        Label(figure[status_row, 1:2], context.status; halign = :left, fontsize = 11)
-        rowsize!(figure.layout, 1, Fixed(TOOLBAR_HEIGHT))
-        rowsize!(figure.layout, canvas_row, Relative(1))
-        rowsize!(figure.layout, status_row, Fixed(STATUSBAR_HEIGHT))
+        else
+            _collapse_slot!(page.layout, materialized, page.controls.slot)
+        end
+        page.legend.interactive && legend !== nothing && (widgets[:legend] = legend)
+        if page.status.enabled
+            Label(
+                _slot_position(materialized, page.status.slot),
+                context.status;
+                halign = :left,
+                fontsize = 11
+            )
+        else
+            _collapse_slot!(page.layout, materialized, page.status.slot)
+        end
+    else
+        _collapse_slot!(page.layout, materialized, page.controls.slot)
+        _collapse_slot!(page.layout, materialized, page.status.slot)
     end
 
+    _apply_layout_specs!(page.layout, materialized)
     built = UIPlot(render_spec, page, figure, panels, widgets, context)
     plot_reference[] = built
     return built
@@ -681,13 +868,14 @@ function build(
         export_mode::Bool = false,
         export_theme::Union{Nothing, Symbol} = nothing
 )
+    PlotBuilder.validate(render_spec)
     active = BackendHandler.ensure_backend!(backend)
     built = UIPlot[]
     for page in render_spec.figures
         page_export_theme = export_theme === nothing ?
-                            get(page.kwargs, :export_theme, :default) : export_theme
+                            page.export_spec.theme : export_theme
         with_theme(_theme(; export_mode, export_theme = page_export_theme)) do
-            context = _context(active, display, page.title)
+            context = _context(active, display, page.title, page.status.initial)
             plot = _build_page(
                 render_spec,
                 page,
@@ -716,7 +904,16 @@ end
 
 function _axis_with_scale(spec::Union{Nothing, AxisSpec}, scale)
     spec === nothing && return nothing
-    return AxisSpec(spec.dim, spec.quantity, spec.units, spec.label, _current_scale(scale))
+    return AxisSpec(
+        spec.dim,
+        spec.quantity,
+        spec.units,
+        spec.label,
+        _current_scale(scale);
+        allowed_scales = spec.allowed_scales,
+        exponent = spec.exponent,
+        attributes = spec.attributes
+    )
 end
 
 function _current_limits(axis)
@@ -727,23 +924,23 @@ function _current_limits(axis)
 end
 
 function _current_series(series::SeriesSpec, panel::UIPanel, index::Int)
-    group = get(series.attributes, :group, Symbol("series_$index"))
+    group = series.group === nothing ? Symbol("series_$index") : series.group
     visible = all(plot_object -> plot_object.visible[], panel.groups[group])
-    attributes = merge(series.attributes, (; visible))
     return SeriesSpec(
         series.kind,
         series.xdata,
         series.ydata,
         series.zdata,
         series.label;
-        attributes
+        group = series.group,
+        visible,
+        attributes = series.attributes
     )
 end
 
 function _current_view(view::ViewSpec, panel::UIPanel)
     series = [_current_series(item, panel, index)
               for (index, item) in enumerate(view.series)]
-    attributes = merge(view.attributes, (; limits = _current_limits(panel.axis)))
     return ViewSpec(
         _axis_with_scale(view.xaxis, panel.axis.xscale[]),
         _axis_with_scale(view.yaxis, panel.axis.yscale[]),
@@ -751,7 +948,10 @@ function _current_view(view::ViewSpec, panel::UIPanel)
         view.title,
         series,
         view.key;
-        attributes
+        placement = view.placement,
+        aspect = view.aspect,
+        limits = _current_limits(panel.axis),
+        attributes = view.attributes
     )
 end
 
@@ -763,7 +963,17 @@ function _current_page(plot::UIPlot)
     views = [_current_view(view, panel)
              for (view, panel) in zip(plot.page.views, plot.panels)]
     return PageSpec(
-        plot.page.title, plot.page.size, plot.page.layout, views, plot.page.kwargs)
+        plot.page.title,
+        plot.page.size,
+        plot.page.key,
+        plot.page.layout,
+        views;
+        controls = plot.page.controls,
+        legend = plot.page.legend,
+        colorbars = plot.page.colorbars,
+        status = plot.page.status,
+        export_spec = plot.page.export_spec
+    )
 end
 
 function PlotBuilder.export_svg(
@@ -778,10 +988,8 @@ function PlotBuilder.export_svg(
     ),
     )
     output = path === nothing ? _available_path(plot.page) : abspath(String(path))
-    export_theme = theme === nothing ? get(plot.page.kwargs, :export_theme, :default) :
-                   theme
-    should_open = open_file === nothing ? get(plot.page.kwargs, :open_export, true) :
-                  open_file
+    export_theme = theme === nothing ? plot.page.export_spec.theme : theme
+    should_open = open_file === nothing ? plot.page.export_spec.open_file : open_file
     lowercase(splitext(output)[2]) == ".svg" || throw(
         ArgumentError("SVG export paths must use the .svg extension"),
     )
