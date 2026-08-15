@@ -27,7 +27,7 @@ export CableComponent, CableDesign, CableConstants  # Cable design types
 export CablePosition, LineCableSystem  # System types
 export CablesLibrary, NominalData  # Support types
 export trifoil_formation, flat_formation, get_outer_radius, MaxFill  # Helpers
-export preview, show_material_scale, equivalent
+export preview, equivalent
 
 # Module-specific dependencies
 using ..Commons
@@ -116,7 +116,8 @@ end
     show_material_scale(; kwargs...)
 
 Display the resistivity, permeability, and permittivity color scales used by
-[`preview`](@ref). Load a Makie backend before calling this function.
+[`preview`](@ref). This internal helper supports preview development and visual
+regression tests. Load a Makie backend before calling it.
 """
 function show_material_scale end
 

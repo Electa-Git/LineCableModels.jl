@@ -15,8 +15,9 @@ PlotBuilder follows five non-negotiable rules:
    supply a preset or `LayoutSpec` without changing a recipe implementation.
 
 These rules apply to every maintained plot family. The user-facing `plot`,
-`preview`, `show_material_scale`, and `export_svg` methods remain narrow
-adapters over the same recipe and renderer path.
+`preview`, and `export_svg` methods remain narrow adapters over the same recipe
+and renderer path. Material-scale rendering is an internal, reusable preview
+component rather than a separate public entry point.
 
 The developer API may evolve before LineCableModels 1.0, but changes must keep
 the separation between domain recipes, backend-neutral specifications, and

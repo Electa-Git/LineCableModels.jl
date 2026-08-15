@@ -1,4 +1,7 @@
 @testitem "PlotBuilder: cable and system preview RenderSpec semantics" setup = [defaults] begin
+    @test :show_material_scale ∉ names(LineCableModels)
+    @test :show_material_scale ∉ names(LineCableModels.DataModel)
+
     library = CablesLibrary()
     load!(library; file_name = joinpath(pkgdir(LineCableModels), "test", "cable_test.json"))
     design = first(values(library.data))

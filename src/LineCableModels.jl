@@ -20,7 +20,7 @@ export ConductorGroup, InsulatorGroup
 export CableComponent, CableDesign, CableConstants, NominalData
 export CablesLibrary
 export CablePosition, LineCableSystem
-export trifoil_formation, flat_formation, preview, show_material_scale, equivalent, MaxFill
+export trifoil_formation, flat_formation, preview, equivalent, MaxFill
 
 # Earth properties:
 export EarthModel
@@ -83,7 +83,7 @@ using .DataModel: Thickness, Diameter, CircStrands, RectStrands, Strip, Tubular,
                   NominalData,
                   CablesLibrary, CablePosition, LineCableSystem, trifoil_formation,
                   flat_formation,
-                  preview, show_material_scale, equivalent, MaxFill, Sector, SectorParams,
+                  preview, equivalent, MaxFill, Sector, SectorParams,
                   SectorInsulator
 
 # Submodule `Engine`

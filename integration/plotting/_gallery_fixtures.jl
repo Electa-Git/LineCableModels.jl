@@ -139,7 +139,9 @@ function build_manual_plot_gallery(
     )
     push!(
         gallery,
-        "Material scale" => show_material_scale(; backend, display_plot, export_theme)
+        "Material scale" => LineCableModels.DataModel.show_material_scale(
+            ; backend, display_plot, export_theme
+        )
     )
 
     @assert length(gallery) == 23

@@ -433,7 +433,10 @@
         @test zoomed_limits[2][2] - zoomed_limits[2][1] <
               default_limits[2][2] - default_limits[2][1]
 
-        material_plot = show_material_scale(backend = :cairo, display_plot = false)
+        material_plot = LineCableModels.DataModel.show_material_scale(
+            backend = :cairo,
+            display_plot = false,
+        )
         @test material_plot isa UIPlot
         @test isempty(material_plot.page.views)
         @test length(material_plot.page.colorbars) == 3
