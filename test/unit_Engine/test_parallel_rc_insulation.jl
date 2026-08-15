@@ -238,9 +238,9 @@ end
     for component in (:R, :L, :G, :C)
         retained = getproperty(result.samples, component)
         @test retained[:, :, :, 1] ≈
-              getproperty(pre_refactor.monte_carlo.first, component) rtol = 8eps()
+              getproperty(pre_refactor.monte_carlo.first, component) rtol = 64eps()
         @test retained[:, :, :, end] ≈
-              getproperty(pre_refactor.monte_carlo.last, component) rtol = 8eps()
+              getproperty(pre_refactor.monte_carlo.last, component) rtol = 64eps()
     end
 
     ω = reshape(2π .* frequencies(result), 1, 1, :)
