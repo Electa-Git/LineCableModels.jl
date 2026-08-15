@@ -123,6 +123,7 @@ makedocs(;
         "Development" => Any[
             "Conventions" => "conventions.md",
             "PlotBuilder" => "plotbuilder.md",
+            "PlotBuilder architecture" => "plotbuilder_architecture.md",
             "Validation module" => "validation.md",
             "Docstrings" => "docstrings.md",
             "Contributing" => "contributing.md",
