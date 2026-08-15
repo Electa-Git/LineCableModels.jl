@@ -475,7 +475,7 @@ end
         "Shunt conductance",
         "Shunt capacitance"
     ]
-    @test all(page -> page.layout === :single, render.figures)
+    @test all(page -> page.layout.name === :single, render.figures)
     @test all(page -> only(page.views).xaxis.label == "Frequency [Hz]", render.figures)
     @test only(render.figures[1].views).yaxis.label == "Series resistance [Ω/km]"
     @test only(render.figures[2].views).yaxis.label == "Series inductance [mH/km]"
@@ -488,17 +488,18 @@ end
     @test first_resistance.attributes.linewidth == 2
     @test getproperty.(only(render.figures[1].views).series, :label) ==
           ["R[1,1]", "R[1,2]", "R[2,1]", "R[2,2]"]
-    @test render.figures[1].kwargs.controls ==
-          LineCableModels.PlotBuilder.control_definitions(xlog = true, ylog = true)
-    @test render.figures[1].kwargs.configuration.mode === :RLCG
-    @test render.figures[1].kwargs.configuration.coord === :cart
-    @test render.figures[1].kwargs.configuration.length_unit === :kilo
-    @test render.figures[1].kwargs.configuration.conductors == (1:2, 1:2)
-    @test all(page -> page.kwargs.export_theme === :default, render.figures)
-    @test all(page -> page.kwargs.open_export, render.figures)
+    @test render.figures[1].controls.reset
+    @test render.figures[1].controls.export_svg
+    @test only(render.figures[1].views).xaxis.allowed_scales == (:linear, :log10)
+    @test only(render.figures[1].views).yaxis.allowed_scales == (:linear, :log10)
+    @test render.figures[1].key.mode === :RLCG
+    @test render.figures[1].key.coordinates === :cart
+    @test render.figures[1].key.conductors == (1:2, 1:2)
+    @test all(page -> page.export_spec.theme === :default, render.figures)
+    @test all(page -> page.export_spec.open_file, render.figures)
     conductance_page = render.figures[3]
     first_conductance = first(only(conductance_page.views).series)
-    @test conductance_page.kwargs.y_exponent == -6
+    @test only(conductance_page.views).yaxis.exponent == -6
     @test only(conductance_page.views).yaxis.label == "Shunt conductance [S/km]"
     @test first_conductance.ydata == fill(3.0e-6, length(frequency))
 
@@ -530,8 +531,8 @@ end
         export_theme = :publication,
         open_export = false
     )
-    @test all(page -> page.kwargs.export_theme === :publication, publication_render.figures)
-    @test all(page -> !page.kwargs.open_export, publication_render.figures)
+    @test all(page -> page.export_spec.theme === :publication, publication_render.figures)
+    @test all(page -> !page.export_spec.open_file, publication_render.figures)
     @test_throws ArgumentError LineCableModels.PlotBuilder.make_render(
         LineCableModels.Engine.LineParameterPlotSpec,
         parameters;
@@ -603,16 +604,15 @@ end
             data = :both
         )
         @test length(mc_render.figures) == 1
-        @test only(mc_render.figures).kwargs.mode === mode
-        @test only(mc_render.figures).kwargs.controls.export_svg
-        @test only(mc_render.figures).kwargs.export_theme === :default
-        @test only(mc_render.figures).kwargs.open_export
-        @test !only(mc_render.figures).kwargs.controls.xlog
-        @test !only(mc_render.figures).kwargs.controls.ylog
-        @test only(mc_render.figures).kwargs.x_exponent == 3
+        @test only(mc_render.figures).key.mode === mode
+        @test only(mc_render.figures).controls.export_svg
+        @test only(mc_render.figures).export_spec.theme === :default
+        @test only(mc_render.figures).export_spec.open_file
+        @test only(only(mc_render.figures).views).xaxis.allowed_scales == (:linear,)
+        @test only(only(mc_render.figures).views).yaxis.allowed_scales == (:linear,)
+        @test only(only(mc_render.figures).views).xaxis.exponent == 3
         expected_y_exponent = mode in (:hist, :pdf) ? -4 : mode === :qq ? 3 : 0
-        @test only(mc_render.figures).kwargs.y_exponent == expected_y_exponent
-        @test only(mc_render.figures).kwargs.configuration.mode === mode
+        @test only(only(mc_render.figures).views).yaxis.exponent == expected_y_exponent
         kinds = getproperty.(only(only(mc_render.figures).views).series, :kind)
         expected_kinds = mode === :hist ? [:histogram, :stairs] :
                          mode === :pdf ? [:stairs] :
@@ -689,8 +689,8 @@ end
             mode,
             data = :both
         )
-        @test only(line_mc_render.figures).kwargs.selection == (1, 1, 2)
-        @test only(line_mc_render.figures).kwargs.mode === mode
+        @test only(line_mc_render.figures).key.selection == (1, 1, 2)
+        @test only(line_mc_render.figures).key.mode === mode
         @test !isempty(only(only(line_mc_render.figures).views).series)
         if mode === :hist
             retained = first(only(line_mc_render.figures).views[1].series)

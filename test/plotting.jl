@@ -5,6 +5,8 @@
         using CairoMakie
         using Measurements: measurement
 
+        include(joinpath(@__DIR__, "reference", "custom_layout_fixture.jl"))
+
         function pixel_error(current, reference)
             size(current) == size(reference) || return Inf
             channel_error = abs.(Makie.red.(current) .- Makie.red.(reference)) .+
@@ -182,9 +184,9 @@
         current_view = only(current_page.views)
         @test current_view.xaxis.scale === :log10
         @test current_view.yaxis.scale === :log10
-        @test any(series -> !series.attributes.visible, current_view.series)
-        @test haskey(current_view.attributes, :limits)
-        @test collect(current_view.attributes.limits[1]) ≈ [100.0, 300.0]
+        @test any(series -> !series.visible, current_view.series)
+        @test current_view.limits !== nothing
+        @test collect(current_view.limits[1]) ≈ [100.0, 300.0]
         Makie.toggle_visibility!(first_entry)
         @test all(plot_object -> plot_object.visible[], only(handle.panels).plots)
 
@@ -370,8 +372,8 @@
                 display_plot = false
             )
             @test line_mc_plot isa UIPlot
-            @test line_mc_plot.page.kwargs.selection == (1, 1, 2)
-            @test line_mc_plot.page.kwargs.mode === mode
+            @test line_mc_plot.page.key.selection == (1, 1, 2)
+            @test line_mc_plot.page.key.mode === mode
         end
 
         library = CablesLibrary()
@@ -380,13 +382,13 @@
         cable_plot = preview(design; backend = :cairo, display_plot = false)
         @test cable_plot isa UIPlot
         @test !isempty(only(cable_plot.page.views).series)
-        @test length(cable_plot.page.kwargs.colorbars) == 3
+        @test length(cable_plot.page.colorbars) == 3
         @test sort!(collect(keys(cable_plot.controls))) ==
               [:export_svg, :legend, :reset]
         cable_legend = cable_plot.controls[:legend]
         cable_panel = only(cable_plot.panels)
         expected_group_order = unique(
-            get(series.attributes, :group, Symbol("series_$index"))
+            something(series.group, Symbol("series_$index"))
         for (index, series) in enumerate(only(cable_plot.page.views).series)
         )
         @test cable_panel.group_order == expected_group_order
@@ -414,7 +416,7 @@
             display_plot = false
         )
         @test system_plot isa UIPlot
-        @test only(system_plot.page.views).attributes.aspect === :data
+        @test only(system_plot.page.views).aspect === :data
         test_golden(system_plot, "system_preview"; tolerance = 0.025)
 
         zoomed_system_plot = preview(
@@ -424,8 +426,8 @@
             backend = :cairo,
             display_plot = false
         )
-        default_limits = only(system_plot.page.views).attributes.limits
-        zoomed_limits = only(zoomed_system_plot.page.views).attributes.limits
+        default_limits = only(system_plot.page.views).limits
+        zoomed_limits = only(zoomed_system_plot.page.views).limits
         @test zoomed_limits[1][2] - zoomed_limits[1][1] <
               default_limits[1][2] - default_limits[1][1]
         @test zoomed_limits[2][2] - zoomed_limits[2][1] <
@@ -434,7 +436,7 @@
         material_plot = show_material_scale(backend = :cairo, display_plot = false)
         @test material_plot isa UIPlot
         @test isempty(material_plot.page.views)
-        @test length(material_plot.page.kwargs.colorbars) == 3
+        @test length(material_plot.page.colorbars) == 3
         @test collect(keys(material_plot.controls)) == [:export_svg]
         test_golden(material_plot, "material_scale")
 
@@ -443,7 +445,8 @@
             LineCableModels.UnitHandler.QuantityTag{:dimensionless}(),
             LineCableModels.UnitHandler.Units(),
             "index",
-            :linear
+            :linear;
+            attributes = (; xgridvisible = false)
         )
         primitive_view = LineCableModels.PlotBuilder.ViewSpec(
             primitive_axis,
@@ -470,18 +473,14 @@
         primitive_page = LineCableModels.PlotBuilder.PageSpec(
             "Heatmap primitive",
             (400, 300),
-            :single,
+            (; kind = :primitive),
+            LineCableModels.PlotBuilder.layout_preset(Val(:single), 1),
             [primitive_view],
-            (;
-                display_legend = false,
-                controls = LineCableModels.PlotBuilder.control_definitions(
-                    reset = false,
-                    export_svg = false,
-                    xlog = false,
-                    ylog = false,
-                    legend = false
-                )
-            )
+            controls = LineCableModels.PlotBuilder.ControlSpec(
+                reset = false,
+                export_svg = false
+            ),
+            legend = LineCableModels.PlotBuilder.LegendSpec(enabled = false)
         )
         primitive_render = LineCableModels.PlotBuilder.RenderSpec(
             LineCableModels.DataModel.MaterialScalePlotSpec,
@@ -493,5 +492,52 @@
             display = false
         ))
         @test length(only(primitive_plot.panels).plots) == 1
+        @test !only(primitive_plot.panels).axis.xgridvisible[]
+
+        custom_render = custom_layout_render_spec()
+        custom_plot = only(ui_components.build(
+            custom_render;
+            backend = :cairo,
+            display = false
+        ))
+        @test custom_plot.page.layout.name === :nested_dashboard
+        @test length(custom_plot.panels) == 3
+        @test custom_plot.page.views[1].placement.area ==
+              LineCableModels.PlotBuilder.GridArea(1, 1:2)
+        top_width = custom_plot.panels[1].axis.scene.viewport[].widths[1]
+        bottom_widths = [
+            panel.axis.scene.viewport[].widths[1]
+            for panel in custom_plot.panels[2:3]
+        ]
+        @test top_width > maximum(bottom_widths)
+        line_method = which(
+            ui_components.draw!,
+            (
+                typeof(custom_plot.panels[1].axis),
+                Val{:line},
+                typeof(custom_plot.page.views[1].series[1])
+            )
+        )
+        @test basename(String(line_method.file)) == "UIComponents.jl"
+        test_golden(custom_plot, "custom_layout"; tolerance = 0.02)
+        custom_export_render = only(ui_components.build(
+            custom_render;
+            backend = :cairo,
+            display = false,
+            controls = false,
+            export_mode = true
+        ))
+        @test custom_export_render.figure.layout.rowsizes[1] == Makie.Fixed(0)
+        @test length(custom_export_render.figure.layout.rowsizes) == 2 ||
+              custom_export_render.figure.layout.rowsizes[3] == Makie.Fixed(0)
+        mktempdir() do directory
+            custom_svg = export_svg(
+                custom_plot;
+                path = joinpath(directory, "custom-layout.svg"),
+                open_file = false
+            )
+            @test filesize(custom_svg) > 100
+            @test occursin("<svg", read(custom_svg, String))
+        end
     end
 end

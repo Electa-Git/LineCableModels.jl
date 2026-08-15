@@ -3,6 +3,8 @@ if lowercase(get(ENV, "LINECABLEMODELS_UPDATE_PLOT_REFERENCES", "false")) == "tr
     using CairoMakie
     using Measurements: measurement
 
+    include("custom_layout_fixture.jl")
+
     reference_directory = @__DIR__
 
     function save_reference(name, plot_handle)
@@ -112,5 +114,16 @@ if lowercase(get(ENV, "LINECABLEMODELS_UPDATE_PLOT_REFERENCES", "false")) == "tr
     save_reference(
         "material_scale",
         show_material_scale(backend = :cairo, display_plot = false)
+    )
+    save_reference(
+        "custom_layout",
+        only(Base.get_extension(
+            LineCableModels,
+            :LineCableModelsMakieExt
+        ).UIComponents.build(
+            custom_layout_render_spec();
+            backend = :cairo,
+            display = false
+        ))
     )
 end
