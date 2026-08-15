@@ -32,3 +32,8 @@ Physical quantities state their SI units. A docstring for implemented
 physically meaningful mathematics includes a `# Notes` section with the
 equation and definitions used by the code. This requirement follows the
 implementation, not a naming prefix.
+
+Docstrings use `DocStringExtensions` abbreviations as the codebase-wide default
+for generated signatures, type declarations, fields, and module inventories.
+The complete templates, unit notation, mathematical requirements, and example
+rules are documented in [Docstrings](@ref).
