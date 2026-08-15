@@ -12,6 +12,7 @@ const REPOSITORY_URL = "https://github.com/$(REPOSITORY)"
 const CANONICAL_URL = "https://electa-git.github.io/LineCableModels.jl"
 const TUTORIAL_SOURCE = joinpath(ROOT_DIR, "examples")
 const TUTORIAL_OUTPUT = joinpath(DOCS_SRC_DIR, "tutorials")
+const PLOTBUILDER_SOURCE = joinpath(@__DIR__, "literate", "plotbuilder.jl")
 
 function project_metadata()
     project = TOML.parsefile(joinpath(ROOT_DIR, "Project.toml"))
@@ -29,6 +30,8 @@ function strip_literate_footer(content::AbstractString)
         r"(?ms)^---\s*\n\*This page was generated using \[Literate\.jl\]\(.*?\)\.\*\s*$" => "Back to [Tutorials](../tutorials.md)\n"
     )
 end
+
+normalize_literate_page(content::AbstractString) = rstrip(content) * "\n"
 
 function tutorial_title(path::AbstractString)
     content = read(path, String)
@@ -67,6 +70,13 @@ function generate_maintained_pages!()
         repo = REPOSITORY
     )
     cp(joinpath(ROOT_DIR, "TODO.md"), joinpath(DOCS_SRC_DIR, "TODO.md"); force = true)
+    Literate.markdown(
+        PLOTBUILDER_SOURCE,
+        DOCS_SRC_DIR;
+        documenter = true,
+        credit = false,
+        postprocess = normalize_literate_page
+    )
     return nothing
 end
 
@@ -122,8 +132,7 @@ makedocs(;
         "API reference" => "reference.md",
         "Development" => Any[
             "Conventions" => "conventions.md",
-            "PlotBuilder" => "plotbuilder.md",
-            "PlotBuilder architecture" => "plotbuilder_architecture.md",
+            "PlotBuilder guide" => "plotbuilder.md",
             "Validation module" => "validation.md",
             "Docstrings" => "docstrings.md",
             "Contributing" => "contributing.md",

@@ -1,3 +1,7 @@
+```@meta
+EditURL = "../literate/plotbuilder.jl"
+```
+
 # PlotBuilder guide
 
 `PlotBuilder` is the backend-neutral recipe layer used by LineCableModels. It
@@ -25,6 +29,32 @@ PlotBuilder is a documented developer API in v0.2 and may evolve before 1.0.
 The user-facing result accessors and plotting entry points have their normal
 SemVer guarantees.
 
+## Architecture
+
+PlotBuilder follows five non-negotiable rules:
+
+1. `make_render` is one generic pipeline. Domain recipes specialize accessors;
+   they do not replace the pipeline.
+2. Recipe variation uses Julia dispatch, including `Val` dispatch for modes,
+   grouping, and primitive rendering.
+3. `PlotRecipe`, `RenderSpec`, layouts, axes, series, views, and page components
+   are backend-neutral. Makie objects exist only in the Makie extension.
+4. Scientific selection, units, labels, grouping, and page identity remain
+   declarative. Interactive state is reconstructed into the same typed model
+   for export.
+5. Layouts are named grid trees. Recipes provide defaults and callers may
+   supply a preset or `LayoutSpec` without changing a recipe implementation.
+
+These rules apply to every maintained plot family. The user-facing `plot`,
+`preview`, and `export_svg` methods remain narrow adapters over the same recipe
+and renderer path. Material-scale rendering is an internal, reusable preview
+component rather than a separate public entry point.
+
+The developer API may evolve before LineCableModels 1.0, but changes must keep
+the separation between domain recipes, backend-neutral specifications, and
+backend rendering. Architectural tests enforce the single pipeline and the
+absence of Makie from core specification construction.
+
 ## Supported recipe families
 
 | Module | Specification | Input | Entry point |
@@ -48,45 +78,113 @@ previews; it is not a public plotting entry point.
 Every recipe is represented internally by `PlotRecipe{O,I,R}`. `object` is the
 domain value, `input` is a typed `NamedTuple` of semantic options, and
 `renderer` is a typed `NamedTuple` of rendering options. The following example
-uses the maintained line-parameter recipe and runs without Makie:
+uses the maintained line-parameter recipe. Specification construction itself
+remains backend-neutral; this documentation loads CairoMakie only so later
+sections can show what the specifications render.
 
-```@example plotbuilder_builtin
+````@example plotbuilder
 using LineCableModels
+using LineCableModels.PlotBuilder
+using LineCableModels.UnitHandler
+using LineCableModels.Engine: LineParameterPlotSpec
+import LineCableModels.PlotBuilder: axis_label #hide
+import LineCableModels.PlotBuilder: axis_quantity #hide
+import LineCableModels.PlotBuilder: axis_scales #hide
+import LineCableModels.PlotBuilder: axis_unit #hide
+import LineCableModels.PlotBuilder: colorbar_specs #hide
+import LineCableModels.PlotBuilder: default_figsize #hide
+import LineCableModels.PlotBuilder: default_title #hide
+import LineCableModels.PlotBuilder: dispatch_on #hide
+import LineCableModels.PlotBuilder: group_facets #hide
+import LineCableModels.PlotBuilder: grouping_mode #hide
+import LineCableModels.PlotBuilder: input_defaults #hide
+import LineCableModels.PlotBuilder: input_kwargs #hide
+import LineCableModels.PlotBuilder: layout_spec #hide
+import LineCableModels.PlotBuilder: legend_label #hide
+import LineCableModels.PlotBuilder: recipe_mode #hide
+import LineCableModels.PlotBuilder: renderer_defaults #hide
+import LineCableModels.PlotBuilder: renderer_kwargs #hide
+import LineCableModels.PlotBuilder: resolve_input #hide
+import LineCableModels.PlotBuilder: series_attributes #hide
+import LineCableModels.PlotBuilder: series_data #hide
+import LineCableModels.PlotBuilder: series_group #hide
+using CairoMakie #hide
+CairoMakie.activate!() #hide
+nothing; #hide
+nothing #hide
+````
 
-const PB = LineCableModels.PlotBuilder
+The guide uses one deterministic two-conductor fixture throughout. Its
+construction is hidden in the generated page so the examples stay focused
+on PlotBuilder decisions rather than synthetic matrix bookkeeping.
 
-# Build a small but real LineParameters result: two conductors at three
-# frequencies. PlotBuilder only needs this scientific object and its accessors.
-frequency = [50.0, 500.0, 1_000.0]
-Rvalues = fill(1.0e-4, 2, 2, length(frequency))
-Lvalues = fill(2.0e-7, 2, 2, length(frequency))
-Gvalues = fill(3.0e-9, 2, 2, length(frequency))
-Cvalues = fill(4.0e-10, 2, 2, length(frequency))
-omega = reshape(2π .* frequency, 1, 1, :)
+````@example plotbuilder
+frequency = 10.0 .^ range(log10(50.0), log10(100_000.0); length = 80) #hide
+frequency_scale = frequency ./ first(frequency) #hide
+resistance_curve = 1.2e-4 .* (1 .+ 0.12 .* sqrt.(frequency_scale)) #hide
+inductance_curve = 4.5e-7 .* (1 .- 0.025 .* log10.(frequency_scale)) #hide
+conductance_curve = 2.0e-9 .* (1 .+ 0.08 .* log10.(frequency_scale)) #hide
+capacitance_curve = 2.8e-10 .* (1 .- 0.01 .* log10.(frequency_scale)) #hide
+Rvalues = zeros(2, 2, length(frequency)) #hide
+Lvalues = zeros(2, 2, length(frequency)) #hide
+Gvalues = zeros(2, 2, length(frequency)) #hide
+Cvalues = zeros(2, 2, length(frequency)) #hide
+for index in eachindex(frequency) #hide
+    Rvalues[:, :, index] .= resistance_curve[index] .* [1.0 0.18; 0.18 1.15] #hide
+    Lvalues[:, :, index] .= inductance_curve[index] .* [1.0 0.22; 0.22 1.08] #hide
+    Gvalues[:, :, index] .= conductance_curve[index] .* [1.0 0.12; 0.12 1.1] #hide
+    Cvalues[:, :, index] .= capacitance_curve[index] .* [1.0 0.16; 0.16 1.05] #hide
+end #hide
+omega = reshape(2π .* frequency, 1, 1, :) #hide
+parameters = LineParameters( #hide
+    complex.(Rvalues, Lvalues .* omega), #hide
+    complex.(Gvalues, Cvalues .* omega), #hide
+    frequency #hide
+) #hide
 
-parameters = LineParameters(
-    complex.(Rvalues, Lvalues .* omega),
-    complex.(Gvalues, Cvalues .* omega),
-    frequency,
-)
+function documentation_figure( #hide
+        render_spec, #hide
+        page_index::Integer = 1; #hide
+        export_mode::Bool = false, #hide
+        export_theme = nothing #hide
+) #hide
+    extension = Base.get_extension(LineCableModels, :LineCableModelsMakieExt) #hide
+    selected = RenderSpec( #hide
+        render_spec.spec, #hide
+        [render_spec.figures[Int(page_index)]] #hide
+    ) #hide
+    handles = extension.UIComponents.build( #hide
+        selected; #hide
+        backend = :cairo, #hide
+        display = false, #hide
+        controls = false, #hide
+        export_mode, #hide
+        export_theme #hide
+    ) #hide
+    return only(handles).figure #hide
+end; #hide
+nothing #hide
+````
 
-# parse_kwargs applies the recipe defaults, validates the caller's keywords,
-# and separates scientific choices from renderer choices.
-recipe = PB.parse_kwargs(
-    LineCableModels.Engine.LineParameterPlotSpec,
+parse_kwargs applies the recipe defaults, validates the caller's keywords,
+and separates scientific choices from renderer choices.
+
+````@example plotbuilder
+recipe = parse_kwargs(
+    LineParameterPlotSpec,
     parameters;
-    mode=:ZY,
-    coord=:polar,
-    export_theme=:publication,
+    mode = :ZY,
+    coord = :polar,
+    export_theme = :publication
 )
 
 (;
-    object_type=typeof(recipe.object),
-    mode=recipe.input.mode,
-    coordinates=recipe.input.coord,
-    export_theme=recipe.renderer.export_theme,
+    object_type = typeof(recipe.object),
+    mode = recipe.input.mode,
+    coordinates = recipe.input.coord,
+    export_theme = recipe.renderer.export_theme
 )
-```
+````
 
 A recipe declares semantic options with `input_kwargs` and `input_defaults`,
 and renderer options with `renderer_kwargs` and `renderer_defaults`. Defaults
@@ -101,16 +199,31 @@ Calling the generic `make_render` resolves that recipe and assembles the typed
 page tree. Inspecting the result is useful when developing a recipe because it
 tests the complete declarative path without opening a window:
 
-```@example plotbuilder_builtin
-render = PB.make_render(
-    LineCableModels.Engine.LineParameterPlotSpec,
+````@example plotbuilder
+render = make_render(
+    LineParameterPlotSpec,
     parameters;
-    mode=:ZY,
-    coord=:polar,
+    mode = :ZY,
+    coord = :polar
 )
+````
 
-# Polar Z/Y produces magnitude and angle pages for both matrix families.
+Polar Z/Y produces magnitude and angle pages for both matrix families.
+
+````@example plotbuilder
 [(page.title, only(page.views).yaxis.label) for page in render.figures]
+````
+
+The value above proves that the declarative page tree contains the expected
+semantics. The first page below is that same `RenderSpec` materialized by the
+Cairo renderer. The recipe did not construct this figure.
+
+````@example plotbuilder
+documentation_figure(render, 1) #hide
+````
+
+```@raw html
+<br>
 ```
 
 ## Specification types
@@ -238,7 +351,9 @@ therefore preserves the declared content layout without interactive chrome.
 
 ## Accessor grammar
 
-`make_render` is defined once in `src/plotbuilder/grammar.jl`. Recipes
+`make_render` is defined once in
+[`src/plotbuilder/grammar.jl`](https://github.com/Electa-Git/LineCableModels.jl/blob/main/src/plotbuilder/grammar.jl).
+Recipes
 specialize these accessors:
 
 | Decision | Accessors |
@@ -269,14 +384,17 @@ specifications but may not construct Makie objects or replace `make_render`.
 Recipes should read domain objects through their public accessors. For current
 result types these include `frequencies`, `basis`, `domain`, `Z`, `Y`, `R`,
 `X`, `L`, `G`, `B`, `C`, `statistics`, `samples`, `distribution`, and
-`surrogate`. Unit selection and scaling belong in the recipe through
-`UnitHandler`; the renderer receives display-ready data.
+`surrogate`. `UnitHandler.quantity` binds the physical accessors to semantic
+quantity tags; `UnitHandler` then supplies their units, labels, symbols, and
+scaling. It does not extract values from result containers. The renderer
+receives display-ready data.
 
 ## Build a recipe with accessors
 
 This complete recipe has one frequency vector and any number of response
-columns. Each code block is executable and shares the `plotbuilder_recipe`
-example module, so the example develops in the same order as a real recipe.
+columns. Every block is executed in one Literate/Documenter session, so the
+example develops in the same order as a real recipe and fails the docs build
+if an accessor signature becomes stale.
 
 ### 1. Declare the domain type and its options
 
@@ -284,53 +402,67 @@ The domain type contains scientific data only. The empty specification type
 identifies the recipe. Its accessors declare the exact accepted object and
 keywords; PlotBuilder rejects anything else before it assembles a page.
 
-```@example plotbuilder_recipe
-using LineCableModels
+The rows of response correspond to frequency samples. Each column will
+become a separate series, panel, or page depending on the grouping mode.
 
-const PB = LineCableModels.PlotBuilder
-const UH = LineCableModels.UnitHandler
-
-# The rows of response correspond to frequency samples. Each column will
-# become a separate series, panel, or page depending on the grouping mode.
+````@example plotbuilder
 struct ProfileResult
     frequency::Vector{Float64}
     response::Matrix{Float64}
 end
+nothing; #hide
+nothing #hide
+````
 
-# A specification type carries no state. Accessor methods supply its behavior.
-struct ProfilePlotSpec <: PB.AbstractPlotSpec end
+A specification type carries no state. Accessor methods supply its behavior.
 
-# This recipe accepts ProfileResult and exactly two scientific options.
-PB.dispatch_on(::Type{ProfilePlotSpec}) = ProfileResult
-PB.input_kwargs(::Type{ProfilePlotSpec}) = (:grouping, :color)
-PB.input_defaults(::Type{ProfilePlotSpec}, ::ProfileResult) =
-    (; grouping=:overlay, color=:steelblue)
+````@example plotbuilder
+struct ProfilePlotSpec <: AbstractPlotSpec end
+nothing; #hide
+nothing #hide
+````
 
-# Figure size affects rendering, so it belongs to renderer options instead.
-PB.renderer_kwargs(::Type{ProfilePlotSpec}) = (:size,)
-PB.renderer_defaults(::Type{ProfilePlotSpec}, ::ProfileResult) =
-    (; size=(800, 400))
+This recipe accepts ProfileResult and exactly two scientific options.
 
-nothing
-```
+````@example plotbuilder
+dispatch_on(::Type{ProfilePlotSpec}) = ProfileResult
+input_kwargs(::Type{ProfilePlotSpec}) = (:grouping, :color)
+function input_defaults(::Type{ProfilePlotSpec}, ::ProfileResult)
+    (; grouping = :overlay, color = :steelblue)
+end
+nothing; #hide
+nothing #hide
+````
+
+Figure size affects rendering, so it belongs to renderer options instead.
+
+````@example plotbuilder
+renderer_kwargs(::Type{ProfilePlotSpec}) = (:size,)
+renderer_defaults(::Type{ProfilePlotSpec}, ::ProfileResult) = (; size = (800, 400))
+
+nothing; #hide
+nothing #hide
+````
 
 Common renderer keywords—`layout`, `export_theme`, and `open_export`—are
 provided by PlotBuilder and must not be redeclared. A real recipe should use
 `resolve_input` to validate its values and to cache any expensive derived data.
 This example validates its array dimensions and grouping through dispatch:
 
-```@example plotbuilder_recipe
-# Each supported grouping has a method. The fallback produces an actionable
-# error without putting a grouping conditional in the generic pipeline.
+Each supported grouping has a method. The fallback produces an actionable
+error without putting a grouping conditional in the generic pipeline.
+
+````@example plotbuilder
 profile_grouping(::Val{:overlay}) = Val(:overlay)
 profile_grouping(::Val{:panels}) = Val(:panels)
 profile_grouping(::Val{:pages}) = Val(:pages)
-profile_grouping(::Val{G}) where {G} =
+function profile_grouping(::Val{G}) where {G}
     throw(ArgumentError("unsupported profile grouping :$G"))
+end
 
-function PB.resolve_input(
-    ::Type{ProfilePlotSpec},
-    recipe::PB.PlotRecipe,
+function resolve_input(
+        ::Type{ProfilePlotSpec},
+        recipe::PlotRecipe
 )
     length(recipe.object.frequency) == size(recipe.object.response, 1) ||
         throw(DimensionMismatch("each response row needs one frequency"))
@@ -342,8 +474,9 @@ function PB.resolve_input(
     return recipe
 end
 
-nothing
-```
+nothing; #hide
+nothing #hide
+````
 
 ### 2. Select the mode, grouping, and axes
 
@@ -351,49 +484,74 @@ nothing
 the generic overlay, panel, or page assemblers, while `group_facets` identifies
 the response columns to assemble.
 
-```@example plotbuilder_recipe
-PB.recipe_mode(::Type{ProfilePlotSpec}, recipe::PB.PlotRecipe) = Val(:profile)
-PB.grouping_mode(
-    ::Type{ProfilePlotSpec},
-    ::Val{:profile},
-    recipe::PB.PlotRecipe,
-) = profile_grouping(Val(recipe.input.grouping))
-PB.group_facets(
-    ::Type{ProfilePlotSpec},
-    ::Val{:profile},
-    recipe::PB.PlotRecipe,
-    page_key,
-) = axes(recipe.object.response, 2)
+````@example plotbuilder
+recipe_mode(::Type{ProfilePlotSpec}, recipe::PlotRecipe) = Val(:profile)
+function grouping_mode(
+        ::Type{ProfilePlotSpec},
+        ::Val{:profile},
+        recipe::PlotRecipe
+)
+    profile_grouping(Val(recipe.input.grouping))
+end
+function group_facets(
+        ::Type{ProfilePlotSpec},
+        ::Val{:profile},
+        recipe::PlotRecipe,
+        page_key
+)
+    axes(recipe.object.response, 2)
+end
+nothing; #hide
+nothing #hide
+````
 
-# Axis accessors describe physical meaning and display units. No Makie object
-# is created here; UnitHandler remains the authority for unit labels.
-PB.axis_quantity(
-    ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:x},
-    recipe::PB.PlotRecipe, page_key, view_key,
-) = UH.QuantityTag{:freq}()
-PB.axis_quantity(
-    ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:y},
-    recipe::PB.PlotRecipe, page_key, view_key,
-) = UH.QuantityTag{:dimensionless}()
-PB.axis_unit(
-    ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:x},
-    quantity::UH.QuantityTag, recipe::PB.PlotRecipe, page_key, view_key,
-) = UH.units(:base, :hertz)
-PB.axis_label(
-    ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:y},
-    quantity::UH.QuantityTag, unit::UH.Units, recipe::PB.PlotRecipe,
-    page_key, view_key,
-) = "Response"
+Axis accessors describe physical meaning and display units. No Makie object
+is created here; UnitHandler remains the authority for unit labels.
 
-# Both dimensions are positive in this example, so the renderer may expose a
-# linear/logarithmic toggle for each axis.
-PB.axis_scales(
-    ::Type{ProfilePlotSpec}, dim::Val, recipe::PB.PlotRecipe,
-    series::Vector{PB.SeriesSpec},
-) = (:linear, :log10)
+````@example plotbuilder
+function axis_quantity(
+        ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:x},
+        recipe::PlotRecipe, page_key, view_key
+)
+    QuantityTag{:freq}()
+end
+function axis_quantity(
+        ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:y},
+        recipe::PlotRecipe, page_key, view_key
+)
+    QuantityTag{:dimensionless}()
+end
+function axis_unit(
+        ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:x},
+        quantity::QuantityTag, recipe::PlotRecipe, page_key, view_key
+)
+    units(:base, :hertz)
+end
+function axis_label(
+        ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:y},
+        quantity::QuantityTag, unit::Units, recipe::PlotRecipe,
+        page_key, view_key
+)
+    "Response"
+end
+nothing; #hide
+nothing #hide
+````
 
-nothing
-```
+Both dimensions are positive in this example, so the renderer may expose a
+linear/logarithmic toggle for each axis.
+
+````@example plotbuilder
+function axis_scales(
+        ::Type{ProfilePlotSpec}, dim::Val, recipe::PlotRecipe,
+        series::Vector{SeriesSpec}
+)
+    (:linear, :log10)
+end
+
+nothing; #hide
+nothing #hide
+````
 
 ### 3. Describe series data and appearance
 
@@ -401,39 +559,55 @@ The generic assembler calls these methods once for every facet. Data, labels,
 groups, and visibility are semantic accessors. Only visual Makie properties
 belong in `series_attributes`.
 
-```@example plotbuilder_recipe
-PB.series_data(
-    ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:x},
-    recipe::PB.PlotRecipe, page_key, view_key, series_key::Int,
-) = recipe.object.frequency
-PB.series_data(
-    ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:y},
-    recipe::PB.PlotRecipe, page_key, view_key, series_key::Int,
-) = recipe.object.response[:, series_key]
-PB.legend_label(
-    ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PB.PlotRecipe,
-    page_key, view_key, series_key::Int,
-) = "response $series_key"
-PB.series_group(
-    ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PB.PlotRecipe,
-    page_key, view_key, series_key::Int,
-) = Symbol("response_$series_key")
+````@example plotbuilder
+function series_data(
+        ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:x},
+        recipe::PlotRecipe, page_key, view_key, series_key::Int
+)
+    recipe.object.frequency
+end
+function series_data(
+        ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:y},
+        recipe::PlotRecipe, page_key, view_key, series_key::Int
+)
+    recipe.object.response[:, series_key]
+end
+function legend_label(
+        ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PlotRecipe,
+        page_key, view_key, series_key::Int
+)
+    "response $series_key"
+end
+function series_group(
+        ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PlotRecipe,
+        page_key, view_key, series_key::Int
+)
+    Symbol("response_$series_key")
+end
+nothing; #hide
+nothing #hide
+````
 
-# Dispatch selects a special line style for the second response. Adding a
-# third specialization does not change the recipe assembler.
+Dispatch selects a special line style for the second response. Adding a
+third specialization does not change the recipe assembler.
+
+````@example plotbuilder
 profile_linestyle(::Val) = :solid
 profile_linestyle(::Val{2}) = :dash
-PB.series_attributes(
-    ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PB.PlotRecipe,
-    page_key, view_key, series_key::Int,
-) = (;
-    color=recipe.input.color,
-    linewidth=2,
-    linestyle=profile_linestyle(Val(series_key)),
+function series_attributes(
+        ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PlotRecipe,
+        page_key, view_key, series_key::Int
 )
+    (;
+        color = recipe.input.color,
+        linewidth = 2,
+        linestyle = profile_linestyle(Val(series_key))
+    )
+end
 
-nothing
-```
+nothing; #hide
+nothing #hide
+````
 
 ### 4. Describe views and pages
 
@@ -441,64 +615,118 @@ Titles and layouts vary by grouping through small dispatch functions. The
 recipe still does not construct `ViewSpec` or `PageSpec`; the one generic
 `make_render` pipeline does that from these decisions.
 
-```@example plotbuilder_recipe
+````@example plotbuilder
 profile_title(::Val{:overlay}, page_key, view_key) = "Frequency responses"
 profile_title(::Val{:panels}, page_key, view_key::Int) = "Response $view_key"
 profile_title(::Val{:panels}, page_key, ::Nothing) = "Frequency responses"
 profile_title(::Val{:pages}, page_key::Int, view_key) = "Response $page_key"
-PB.default_title(
-    ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PB.PlotRecipe,
-    page_key, view_key,
-) = profile_title(Val(recipe.input.grouping), page_key, view_key)
+function default_title(
+        ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PlotRecipe,
+        page_key, view_key
+)
+    profile_title(Val(recipe.input.grouping), page_key, view_key)
+end
 
 profile_layout(::Val{:overlay}) = :single
 profile_layout(::Val{:panels}) = :grid
 profile_layout(::Val{:pages}) = :single
-PB.layout_spec(
-    ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PB.PlotRecipe, page_key,
-) = profile_layout(Val(recipe.input.grouping))
-PB.default_figsize(
-    ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PB.PlotRecipe, page_key,
-) = recipe.renderer.size
+function layout_spec(
+        ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PlotRecipe, page_key
+)
+    profile_layout(Val(recipe.input.grouping))
+end
+function default_figsize(
+        ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PlotRecipe, page_key
+)
+    recipe.renderer.size
+end
+nothing; #hide
+nothing #hide
+````
 
-# Typed page components are also supplied by accessors. This colorbar docks in
-# the preset's :colorbars slot and can be replaced by another specialization.
-PB.colorbar_specs(
-    ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PB.PlotRecipe, page_key,
-) = [PB.ColorbarSpec(
-    "Response scale",
-    :viridis,
-    (0.0, 2.5),
-    ([0.0, 1.25, 2.5], ["0", "1.25", "2.5"]),
-)]
+Typed page components are also supplied by accessors. This colorbar docks in
+the preset's :colorbars slot and can be replaced by another specialization.
 
-nothing
-```
+````@example plotbuilder
+function colorbar_specs(
+        ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PlotRecipe, page_key
+)
+    [ColorbarSpec(
+        "Response scale",
+        :viridis,
+        (0.0, 2.5),
+        ([0.0, 1.25, 2.5], ["0", "1.25", "2.5"])
+    )]
+end
+
+nothing; #hide
+nothing #hide
+````
 
 ### 5. Assemble overlay, panel, and page variants
 
 All three variants use the same data and recipe methods. Only the grouping
 value changes. These assertions execute during the documentation build.
 
-```@example plotbuilder_recipe
+````@example plotbuilder
 result = ProfileResult(
     [50.0, 100.0, 500.0],
-    [1.0 1.2; 1.5 1.6; 2.0 2.1],
+    [1.0 1.2; 1.5 1.6; 2.0 2.1]
 )
 
-overlay = PB.make_render(ProfilePlotSpec, result; color=:navy)
-panels = PB.make_render(ProfilePlotSpec, result; grouping=:panels)
-pages = PB.make_render(ProfilePlotSpec, result; grouping=:pages)
+overlay = make_render(ProfilePlotSpec, result; color = :navy)
+panels = make_render(ProfilePlotSpec, result; grouping = :panels)
+pages = make_render(ProfilePlotSpec, result; grouping = :pages)
 
 (;
-    overlay_series=length(only(only(overlay.figures).views).series),
-    panel_views=length(only(panels.figures).views),
-    separate_pages=length(pages.figures),
-    pipeline_file=basename(String(which(
-        PB.make_render,
-        (Type{ProfilePlotSpec}, ProfileResult),
-    ).file)),
+    overlay_series = length(only(only(overlay.figures).views).series),
+    panel_views = length(only(panels.figures).views),
+    separate_pages = length(pages.figures),
+    pipeline_file = basename(String(which(
+        make_render,
+        (Type{ProfilePlotSpec}, ProfileResult)
+    ).file))
 )
+````
+
+#### Overlay
+
+`Val(:overlay)` places every response in one `ViewSpec`. The legend remains
+outside the canvas because its destination is declared separately by the
+page's `LegendSpec`.
+
+````@example plotbuilder
+documentation_figure(overlay) #hide
+````
+
+```@raw html
+<br>
+```
+
+#### Panels
+
+`Val(:panels)` reuses the same two `SeriesSpec` values but gives each one its
+own view. The `:grid` layout preset automatically arranges those views.
+
+````@example plotbuilder
+documentation_figure(panels) #hide
+````
+
+```@raw html
+<br>
+```
+
+#### Pages
+
+`Val(:pages)` produces one page per response. Showing the second page makes
+the difference from panels explicit without duplicating both figures here.
+
+````@example plotbuilder
+documentation_figure(pages, 2) #hide
+````
+
+```@raw html
+<br>
 ```
 
 ## Override the layout without changing the recipe
@@ -507,61 +735,90 @@ The same recipe accepts a caller-provided named layout. This example creates a
 root grid with toolbar and status rows, a plot grid, and a side grid where the
 legend and colorbar are docked.
 
-```@example plotbuilder_recipe
-dashboard = PB.LayoutSpec(
+The root reserves content-sized outer tracks and a flexible center.
+
+````@example plotbuilder
+root_grid = GridSpec(
+    :root;
+    rows = AbstractTrackSize[
+        FixedTrack(36), RelativeTrack(), FixedTrack(20)
+    ],
+    columns = AbstractTrackSize[ContentTrack(), ContentTrack()],
+    rowgap = 6,
+    columngap = 12,
+    padding = (20, 20, 28, 28)
+)
+````
+
+The canvas occupies the flexible left side of the center row.
+
+````@example plotbuilder
+plot_grid = GridSpec(
+    :plots;
+    parent = :root,
+    area = GridArea(2, 1),
+    rows = AbstractTrackSize[RelativeTrack()],
+    columns = AbstractTrackSize[RelativeTrack()]
+)
+````
+
+The right side stacks legend and colorbar content.
+
+````@example plotbuilder
+side_grid = GridSpec(
+    :side;
+    parent = :root,
+    area = GridArea(2, 2),
+    rows = AbstractTrackSize[ContentTrack(), ContentTrack()],
+    columns = AbstractTrackSize[ContentTrack()],
+    rowgap = 4
+)
+````
+
+Components target slots by name; the renderer materializes them.
+
+````@example plotbuilder
+dashboard_slots = [
+    SlotSpec(:toolbar, :root, GridArea(1, 1:2)),
+    SlotSpec(:canvas, :plots, GridArea(1, 1)),
+    SlotSpec(:legend, :side, GridArea(1, 1); halign = :left, valign = :top),
+    SlotSpec(:colorbars, :side, GridArea(2, 1); halign = :left, valign = :top),
+    SlotSpec(:status, :root, GridArea(3, 1:2))
+]
+````
+
+`LayoutSpec` validates the complete named tree before a renderer sees it.
+
+````@example plotbuilder
+dashboard = LayoutSpec(
     :dashboard,
-    [
-        # The root reserves content-sized outer tracks and a flexible center.
-        PB.GridSpec(
-            :root;
-            rows=PB.AbstractTrackSize[
-                PB.FixedTrack(36), PB.RelativeTrack(), PB.FixedTrack(20),
-            ],
-            columns=PB.AbstractTrackSize[PB.ContentTrack(), PB.ContentTrack()],
-            rowgap=6,
-            columngap=6,
-            padding=(20, 20, 28, 28),
-        ),
-        # The canvas occupies the flexible left side of the center row.
-        PB.GridSpec(
-            :plots;
-            parent=:root,
-            area=PB.GridArea(2, 1),
-            rows=PB.AbstractTrackSize[PB.RelativeTrack()],
-            columns=PB.AbstractTrackSize[PB.RelativeTrack()],
-        ),
-        # The right side stacks legend and colorbar content.
-        PB.GridSpec(
-            :side;
-            parent=:root,
-            area=PB.GridArea(2, 2),
-            rows=PB.AbstractTrackSize[PB.ContentTrack(), PB.ContentTrack()],
-            columns=PB.AbstractTrackSize[PB.ContentTrack()],
-            rowgap=4,
-        ),
-    ],
-    [
-        # Components target slots by name; the renderer materializes them.
-        PB.SlotSpec(:toolbar, :root, PB.GridArea(1, 1:2)),
-        PB.SlotSpec(:canvas, :plots, PB.GridArea(1, 1)),
-        PB.SlotSpec(:legend, :side, PB.GridArea(1, 1)),
-        PB.SlotSpec(:colorbars, :side, PB.GridArea(2, 1)),
-        PB.SlotSpec(:status, :root, PB.GridArea(3, 1:2)),
-    ],
+    [root_grid, plot_grid, side_grid],
+    dashboard_slots
 )
 
-custom = PB.make_render(
+custom = make_render(
     ProfilePlotSpec,
     result;
-    grouping=:panels,
-    layout=dashboard,
+    grouping = :panels,
+    layout = dashboard
 )
 
 (;
-    layout=only(custom.figures).layout.name,
-    slots=getproperty.(dashboard.slots, :name),
-    views=length(only(custom.figures).views),
+    layout = only(custom.figures).layout.name,
+    slots = getproperty.(dashboard.slots, :name),
+    views = length(only(custom.figures).views)
 )
+````
+
+The recipe accessors are unchanged. Only the caller-provided named grid moves
+the canvas, legend, colorbar, toolbar, and status destinations.
+
+````@example plotbuilder
+documentation_figure(custom) #hide
+````
+
+```@raw html
+<br>
 ```
 
 For explicit faceting, specialize `view_placement` and return
@@ -583,6 +840,29 @@ loaded CairoMakie. It never imports CairoMakie dynamically.
 plots = plot(parameters; export_theme=:publication)
 export_svg(first(plots))
 export_svg(first(plots); path="series_resistance.svg", open_file=false)
+```
+
+This headless rendering uses the same export path without writing a file. The
+toolbar and status tracks collapse, and `:publication` applies the configured
+LaTeX-font theme to the declarative page state.
+
+````@example plotbuilder
+publication = make_render(
+    LineParameterPlotSpec,
+    parameters;
+    mode = :RLCG,
+    export_theme = :publication
+)
+documentation_figure( #hide
+    publication, #hide
+    1; #hide
+    export_mode = true, #hide
+    export_theme = :publication #hide
+) #hide
+````
+
+```@raw html
+<br>
 ```
 
 Without `path`, export uses `pwd()`. When `pwd()` is inside the package source,
