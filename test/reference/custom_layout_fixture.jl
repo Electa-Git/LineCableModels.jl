@@ -85,7 +85,7 @@ function custom_layout_render_spec()
                     PB.FixedTrack(36), PB.RelativeTrack(), PB.FixedTrack(20)],
                 columns = PB.AbstractTrackSize[PB.ContentTrack(), PB.ContentTrack()],
                 rowgap = 6,
-                columngap = 6,
+                columngap = 12,
                 padding = (20, 20, 28, 28)
             ),
             PB.GridSpec(
@@ -108,9 +108,9 @@ function custom_layout_render_spec()
             PB.SlotSpec(:toolbar, :root, PB.GridArea(1, 1:2); halign = :left),
             PB.SlotSpec(:canvas, :plots, PB.GridArea(1, 1)),
             PB.SlotSpec(:status, :root, PB.GridArea(3, 1:2); halign = :left),
-            PB.SlotSpec(:legend, :side, PB.GridArea(1, 1); halign = :right, valign = :top),
+            PB.SlotSpec(:legend, :side, PB.GridArea(1, 1); halign = :left, valign = :top),
             PB.SlotSpec(
-                :colorbars, :side, PB.GridArea(2, 1); halign = :right, valign = :top)
+                :colorbars, :side, PB.GridArea(2, 1); halign = :left, valign = :top)
         ]
     )
     page = PB.PageSpec(

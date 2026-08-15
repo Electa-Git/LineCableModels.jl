@@ -715,7 +715,7 @@ function _standard_layout(name::Symbol)
         rows = AbstractTrackSize[FixedTrack(36), RelativeTrack(), FixedTrack(20)],
         columns = AbstractTrackSize[ContentTrack(), ContentTrack()],
         rowgap = 6,
-        columngap = 6,
+        columngap = 12,
         padding = (20, 20, 28, 28)
     )
     side = GridSpec(
@@ -730,8 +730,8 @@ function _standard_layout(name::Symbol)
         SlotSpec(:toolbar, :root, GridArea(1, 1:2); halign = :left, valign = :bottom),
         SlotSpec(:canvas, :root, GridArea(2, 1); halign = :stretch, valign = :stretch),
         SlotSpec(:status, :root, GridArea(3, 1:2); halign = :left, valign = :center),
-        SlotSpec(:legend, :side, GridArea(1, 1); halign = :right, valign = :top),
-        SlotSpec(:colorbars, :side, GridArea(2, 1); halign = :right, valign = :top)
+        SlotSpec(:legend, :side, GridArea(1, 1); halign = :left, valign = :top),
+        SlotSpec(:colorbars, :side, GridArea(2, 1); halign = :left, valign = :top)
     ]
     return LayoutSpec(name, [root, side], slots)
 end
@@ -767,7 +767,7 @@ function layout_preset(::Val{:material_scale}, view_count::Integer)
     slots = [
         SlotSpec(:toolbar, :root, GridArea(1, 1); halign = :left, valign = :bottom),
         SlotSpec(:status, :root, GridArea(3, 1); halign = :left, valign = :center),
-        SlotSpec(:colorbars, :side, GridArea(1, 1); halign = :right, valign = :center)
+        SlotSpec(:colorbars, :side, GridArea(1, 1); halign = :left, valign = :center)
     ]
     return LayoutSpec(:material_scale, [root, side], slots)
 end

@@ -136,7 +136,7 @@
               (20.0, 20.0, 28.0, 28.0)
         @test handle.figure.layout.colsizes[2] == Makie.Auto(true)
         @test handle.figure.layout.addedrowgaps == fill(Makie.Fixed(6), 2)
-        @test handle.figure.layout.addedcolgaps == [Makie.Fixed(6)]
+        @test handle.figure.layout.addedcolgaps == [Makie.Fixed(12)]
         @test handle.controls[:reset].buttoncolor[] == Makie.RGBf(0.94, 0.94, 0.94)
         @test occursin("\\ue5d5", sprint(show, handle.controls[:reset].label[]))
         @test occursin("\\ue161", sprint(show, handle.controls[:export_svg].label[]))
@@ -503,6 +503,8 @@
             backend = :cairo,
             display = false
         ))
+        @test sprint(show, MIME"text/plain"(), custom_plot) ==
+              "UIPlot(title=\"Nested PlotBuilder layout\", panels=3, backend=:cairo)"
         @test custom_plot.page.layout.name === :nested_dashboard
         @test length(custom_plot.panels) == 3
         @test custom_plot.page.views[1].placement.area ==
@@ -511,6 +513,13 @@
         bottom_widths = [panel.axis.scene.viewport[].widths[1]
                          for panel in custom_plot.panels[2:3]]
         @test top_width > maximum(bottom_widths)
+        legend = custom_plot.controls[:legend]
+        colorbar = only(filter(block -> block isa Makie.Colorbar, custom_plot.figure.content))
+        legend_box = legend.layoutobservables.computedbbox[]
+        colorbar_box = colorbar.layoutobservables.computedbbox[]
+        @test legend.halign[] === :left
+        @test legend_box.origin[1] ≈ colorbar_box.origin[1] atol = 1
+        @test legend_box.widths[1] ≈ colorbar_box.widths[1] atol = 1
         line_method = which(
             ui_components.draw!,
             (

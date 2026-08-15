@@ -19,6 +19,7 @@ const COLORBAR_WIDTH = 140
 const COLORBAR_TICK_LABEL_SIZE = 12
 const COLORBAR_LABEL_SIZE = 14
 const COLORBAR_END_PADDING = 28
+const SIDE_DOCK_WIDTH = COLORBAR_WIDTH
 const GRID_ROW_GAP = 6
 const GRID_COLUMN_GAP = 6
 const BUTTON_SIZE = 32
@@ -527,7 +528,7 @@ function _colorbars!(slot, descriptors, specification::SlotSpec)
     return grid
 end
 
-function _legend!(slot, panels, specification::SlotSpec)
+function _legend!(slot, panels, specification::SlotSpec; width = nothing)
     groups, group_labels, group_order = _visibility_groups(panels)
     entries = Any[]
     labels = String[]
@@ -536,14 +537,29 @@ function _legend!(slot, panels, specification::SlotSpec)
         push!(entries, groups[group])
         push!(labels, group_labels[group])
     end
-    return isempty(entries) ? nothing :
-           Legend(
+    isempty(entries) && return nothing
+    dimensions = width === nothing ? (;) : (; width)
+    return Legend(
         slot,
         entries,
         labels;
+        dimensions...,
         halign = _makie_alignment(specification.halign),
         valign = _makie_alignment(specification.valign)
     )
+end
+
+function _legend_dock_width(page::PageSpec)
+    legend_slot = only(slot for slot in page.layout.slots if slot.name === page.legend.slot)
+    for colorbar_slot_name in unique(colorbar.slot for colorbar in page.colorbars)
+        colorbar_slot = only(
+            slot for slot in page.layout.slots if slot.name === colorbar_slot_name)
+        if legend_slot.parent === colorbar_slot.parent &&
+           legend_slot.area.columns == colorbar_slot.area.columns
+            return SIDE_DOCK_WIDTH
+        end
+    end
+    return nothing
 end
 
 _track_size(track::FixedTrack) = Fixed(track.value)
@@ -721,7 +737,8 @@ function _build_page(
         legend = _legend!(
             _slot_position(materialized, page.legend.slot),
             panels,
-            materialized.slot_specs[page.legend.slot]
+            materialized.slot_specs[page.legend.slot];
+            width = _legend_dock_width(page)
         )
         legend === nothing && _collapse_slot!(page.layout, materialized, page.legend.slot)
     else

@@ -101,6 +101,47 @@
     @test only(panels.figures).layout.name === :grid
     @test length(pages.figures) == 2
     @test all(page -> length(only(page.views).series) == 1, pages.figures)
+    overlay_page = only(overlay.figures)
+    overlay_view = only(overlay_page.views)
+    root_grid = only(grid for grid in overlay_page.layout.grids if grid.parent === nothing)
+    side_slots = Dict(slot.name => slot for slot in overlay_page.layout.slots)
+    @test root_grid.columngap == 12
+    @test side_slots[:legend].halign === :left
+    @test side_slots[:colorbars].halign === :left
+    compact_objects = Any[
+        PB.parse_kwargs(ProfilePlotSpec, result),
+        PB.FixedTrack(36),
+        PB.RelativeTrack(),
+        PB.ContentTrack(),
+        PB.GridArea(1, 1:2),
+        first(overlay_page.layout.grids),
+        first(overlay_page.layout.slots),
+        overlay_page.layout,
+        overlay_view.placement,
+        overlay_page.controls,
+        overlay_page.legend,
+        PB.ColorbarSpec(
+            "Response scale",
+            :viridis,
+            (0.0, 2.5),
+            ([0.0, 2.5], ["0", "2.5"])
+        ),
+        overlay_page.status,
+        overlay_page.export_spec,
+        overlay_view.xaxis,
+        first(overlay_view.series),
+        overlay_view,
+        overlay_page,
+        overlay
+    ]
+    for object in compact_objects
+        representation = sprint(show, MIME"text/plain"(), object)
+        @test count(==('\n'), representation) == 0
+        @test ncodeunits(representation) < 180
+        @test !occursin("[50.0, 100.0, 500.0]", representation)
+    end
+    @test sprint(show, MIME"text/plain"(), overlay) ==
+          "RenderSpec(spec=:ProfilePlotSpec, pages=1)"
     @test_throws ArgumentError PB.make_render(
         ProfilePlotSpec, result; grouping = :unsupported)
     @test_throws ArgumentError PB.make_render(ProfilePlotSpec, [1.0, 2.0])
