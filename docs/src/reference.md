@@ -114,7 +114,6 @@ Modules = [
     LineCableModels.Engine.EarthAdmittance,
     LineCableModels.Engine.EarthImpedance,
     LineCableModels.Engine.EHEM,
-    LineCableModels.Engine.FEM,
     LineCableModels.Engine.InsulationAdmittance,
     LineCableModels.Engine.InsulationImpedance,
     LineCableModels.Engine.InternalImpedance,

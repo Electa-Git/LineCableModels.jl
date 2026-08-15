@@ -13,11 +13,11 @@ material data.
 
 ## Features
 
-- Solid, tubular, stranded, sector-shaped, screened, and armored cable models.
+- Solid, tubular, stranded, screened, and armored cable models.
 - Frequency-dependent series impedance and shunt admittance calculations.
 - Earth-return, modal transformation, ATPDraw, and PSCAD integration.
 - Material and cable libraries with JSON import and export.
-- Optional Makie plotting and Gmsh/GetDP finite-element integration.
+- Optional Makie plotting through explicit backend extensions.
 
 ## Installation
 
@@ -33,7 +33,7 @@ Until registration is complete, install the release commit from GitHub:
 pkg> add https://github.com/Electa-Git/LineCableModels.jl
 ```
 
-Core usage has no plotting or FEM dependency:
+Core usage has no plotting dependency:
 
 ```julia
 using LineCableModels
@@ -77,21 +77,16 @@ containers. Use `statistics`, `mean`, `std`, `quantile`, `samples`, `trial`,
 `distribution`, and `surrogate`; joint `trial`/`rand` calls require retained
 samples.
 
-## Transitional FEM integration
+## Retired FEM and sector support
 
-The v0.2 compatibility API requires Gmsh and an external GetDP executable:
+FEM/GetDP integration and sector-shaped cable support were removed before the
+v0.2 release. Their final snapshot is branch `legacy/fem-sector` at commit
+`b75dd2723f90a83ec090b20605ea42af57f4a9c3`. To use that historical version in
+the current Julia project:
 
-```julia
-using LineCableModels
-using Gmsh
-using LineCableModels.Engine.FEM
-
-formulation = FormulationSet(:FEM)
+```sh
+julia --project=. -e "using Pkg; Pkg.add(Pkg.PackageSpec(url=ARGS[1], rev=ARGS[2]))" https://github.com/Electa-Git/LineCableModels.jl.git b75dd2723f90a83ec090b20605ea42af57f4a9c3
 ```
-
-Set `GETDP_EXECUTABLE` to the absolute executable path or make `getdp`
-available on `PATH`. The legacy FEM/GetDP API emits deprecation warnings
-because it will be simplified in a future release.
 
 See the [documentation](https://electa-git.github.io/LineCableModels.jl/) and
 [examples](examples) for supported workflows.
@@ -99,11 +94,7 @@ See the [documentation](https://electa-git.github.io/LineCableModels.jl/) and
 ## License and citation
 
 LineCableModels.jl is distributed under the [BSD 3-Clause License](LICENSE).
-The private GetDP frontend snapshot retains its own BSD license and provenance
-under `ext/fem/getdp_frontend/`. The separate GetDP executable and its
-GPL-2.0-or-later license are described in
-[THIRD_PARTY_NOTICE.md](THIRD_PARTY_NOTICE.md). Citation metadata is provided
-in [CITATION.cff](CITATION.cff).
+Citation metadata is provided in [CITATION.cff](CITATION.cff).
 
 ## Acknowledgements
 

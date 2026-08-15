@@ -46,23 +46,6 @@ struct RectStrands{T <: REALSCALAR, S <: RectStrandsShape} <: AbstractStrandsLay
     shape::S
 end
 
-# struct SectorCore{T <: REALSCALAR, S <: SectorShape} <: AbstractStrandsLayer{T}
-# 	"Internal radial boundary \\[m\\]."
-# 	r_in::T
-# 	"External radial boundary \\[m\\]."
-# 	r_ex::T
-# 	"Material properties of the conductive strands."
-# 	material_props::Material{T}
-# 	"Operating temperature of the layer \\[°C\\]."
-# 	temperature::T
-# 	"Equivalent electrical resistance of the layer \\[Ω/m\\]."
-# 	resistance::T
-# 	"Geometric mean radius (GMR) of the layer \\[m\\]."
-# 	gmr::T
-# 	"Shape payload defining the internal geometric layout."
-# 	shape::S
-# end
-
 # struct CircCore{T <: REALSCALAR, S <: Concentric} <: AbstractStrandsLayer{T}
 # 	"Internal radial boundary \\[m\\]."
 # 	r_in::T

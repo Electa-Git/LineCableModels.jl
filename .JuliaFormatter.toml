@@ -3,7 +3,6 @@ ignore = [
     "@INPROGRESS",
     "bibliography",
     "designs",
-    "ext/fem/getdp_frontend",
     "papers",
     "src/parametricbuilder/gridspace",
     "temp",

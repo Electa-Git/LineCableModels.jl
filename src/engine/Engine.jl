@@ -40,6 +40,7 @@ using Measurements
 using LinearAlgebra
 using ..Commons
 import ..Commons: get_description, LineParamsDomain, PhaseDomain, ModalDomain, domain
+import ..Commons: retired_fem_sector
 import ..Commons: basis, Z, Y, R, X, L, G, B, C,
                   series_impedance, shunt_admittance,
                   resistance, reactance, inductance,
@@ -122,8 +123,8 @@ function plot(args...; kwargs...)
     )
 end
 
-# Submodule `FEM`
-include("fem/FEM.jl")
+# Removed FEM entry points
+include("retired.jl")
 
 @reexport using .InternalImpedance: InternalImpedance
 @reexport using .InsulationImpedance: InsulationImpedance

@@ -206,16 +206,6 @@ function _layer_series!(series, layer, label, group, xcenter, ycenter; include_l
             _layer_series!(series, nested, label, group, xcenter, ycenter;
                 include_label = index == 1 && include_label)
         end
-    elseif layer isa Sector
-        geometry = Point2f[(vertex[1] + xcenter, vertex[2] + ycenter)
-                           for vertex in layer.vertices]
-        push!(series, _polygon_series(geometry, first_label, group, color))
-    elseif layer isa SectorInsulator
-        outer = Point2f[(vertex[1] + xcenter, vertex[2] + ycenter)
-                        for vertex in layer.outer_vertices]
-        inner = reverse(Point2f[(vertex[1] + xcenter, vertex[2] + ycenter)
-                                for vertex in layer.inner_sector.vertices])
-        push!(series, _polygon_series(Polygon(outer, [inner]), first_label, group, color))
     else
         @warn "unsupported cable-preview layer" layer_type = typeof(layer)
     end

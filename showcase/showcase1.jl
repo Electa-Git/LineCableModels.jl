@@ -1023,7 +1023,6 @@ end;
 begin
     using LineCableModels.Engine
     using LineCableModels.Engine.Transforms: Fortescue
-    using LineCableModels.Engine.FEM
     F = FormulationSet(:EMT,
         internal_impedance = InternalImpedance.ScaledBessel(),
         insulation_impedance = InsulationImpedance.Lossless(),
@@ -1156,9 +1155,6 @@ html"""
     <li style="font-size: 2rem; margin: .25rem 0;">Construction of additional cable models, detailed investigations on uncertainty quantification.</li>
     <li style="font-size: 2rem; margin: .25rem 0;">
       Development of novel formulations for cables composed of N concentrical layers, allowing for accurate representations of semiconductor materials.
-    </li>
-<li style="font-size: 2rem; margin: .25rem 0;">
-      Additional tests and validations using the FEM solver.
     </li>
   </ul>
 </div>

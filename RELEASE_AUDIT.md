@@ -1,5 +1,24 @@
 # v0.2.0 release audit
 
+## Superseding FEM and sector decision
+
+FEM/GetDP integration and sector-shaped cable support were removed from the
+v0.2 release scope on 2026-08-15. The final pre-removal snapshot is branch
+`legacy/fem-sector` at commit
+`b75dd2723f90a83ec090b20605ea42af57f4a9c3`. FEM- and sector-related findings
+below are retained as historical audit evidence for that snapshot; they no
+longer describe the maintained release tree.
+
+Post-removal verification:
+
+- Tutorial 3 completes with the maintained `:EMT` formulation.
+- The core suite passes 2,235 assertions with the existing one broken test.
+  This is exactly the previous suite minus the 25 deleted sector assertions.
+- The CairoMakie extension suite passes all 2,402 assertions, including all
+  161 plotting assertions.
+- Aqua, SciML formatting, doctests, strict documentation, and a clean core-only
+  load pass without Gmsh, GetDP, Makie, or a Makie backend loaded by core.
+
 Audit baseline: `main` at
 `88f5de54202f5a97c7556b4ceac662b997f13de2`, before release-preparation
 edits. The baseline test evidence was 1,750 package assertions and 19 FEM

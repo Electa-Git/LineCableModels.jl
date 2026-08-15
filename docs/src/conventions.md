@@ -7,9 +7,7 @@ using JuliaFormatter
 format(".")
 ```
 
-before committing. The vendored GetDP frontend under
-`ext/fem/getdp_frontend/` is a provenance-pinned compatibility snapshot; its
-documented loader and namespace adaptations are excluded from formatting.
+before committing.
 
 Versions follow [Semantic Versioning](https://semver.org/). Public behavior is
 kept compatible within a minor release; deprecations must provide a migration
@@ -19,11 +17,11 @@ Commit subjects use scoped Conventional Commits, start with a lowercase
 description, and remain within 72 characters. For example:
 
 ```text
-fix(fem): resolve getdp from the configured executable
+fix(engine): reject unsupported formulation options
 ```
 
 Changes must include tests at the lowest useful level. Core tests must not load
-optional integrations. CairoMakie and FEM/GetDP are verified in separate gates.
+optional integrations. CairoMakie is verified in a separate gate.
 Examples in docstrings should be executable and self-contained; examples that
 require fixtures, user interfaces, or external executables belong in integration
 documentation instead.

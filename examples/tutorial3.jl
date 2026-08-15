@@ -26,13 +26,15 @@ HVDC cables are constructed around a central conductor enclosed by a triple-extr
 
 # Load the package and set up the environment:
 using LineCableModels
-using LineCableModels.Engine.FEM
+using LineCableModels.DataModel: CircStrands
+using LineCableModels.Engine
 using LineCableModels.Engine.Transforms: Fortescue
+import CairoMakie
 using DataFrames
 using Printf
 fullfile(filename) = joinpath(@__DIR__, filename); #hide
 set_verbosity!(0); #hide
-set_backend!(:gl); #hide
+set_backend!(:cairo); #hide
 
 # Initialize library and the required materials for this design:
 materials = MaterialsLibrary(add_defaults = true)
@@ -197,7 +199,7 @@ armor_insu = InsulatorGroup(Insulator(armor_con, Thickness(t_jac), material))
 add!(cable_design, "armor", armor_con, armor_insu)
 
 # Inspect the finished cable design:
-plt1, _ = preview(cable_design)
+plt1 = preview(cable_design)
 plt1 #hide
 
 #=
@@ -270,7 +272,7 @@ In this section the complete bipole cable system is examined.
 system_df = DataFrame(cable_system)
 
 # Visualize the cross-section of the three-phase system:
-plt2, _ = preview(cable_system, earth_model = earth_params, zoom_factor = 2.0)
+plt2 = preview(cable_system, earth_model = earth_params, zoom_factor = 2.0)
 plt2 #hide
 
 #=
@@ -286,7 +288,7 @@ output_file = fullfile("atp_export.xml")
 export_file = export_data(:atp, cable_system, earth_params, file_name = output_file);
 
 #=
-## FEM calculations
+## EMT calculations
 =#
 
 # Define a LineParametersProblem with the cable system and earth model
@@ -297,62 +299,26 @@ problem = LineParametersProblem(
     frequencies = f   # Frequency for the analysis
 );
 
-# Estimate domain size based on skin depth in the earth
-domain_radius = 10.0; #calc_domain_size(earth_params, f);
-
-# Define custom mesh transitions around each cable
-mesh_transition1 = MeshTransition(
-    cable_system,
-    [1],
-    r_min = 0.08,
-    r_length = 0.25,
-    mesh_factor_min = 0.01 / (domain_radius / 5),
-    mesh_factor_max = 0.25 / (domain_radius / 5),
-    n_regions = 5)
-
-mesh_transition2 = MeshTransition(
-    cable_system,
-    [2],
-    r_min = 0.08,
-    r_length = 0.25,
-    mesh_factor_min = 0.01 / (domain_radius / 5),
-    mesh_factor_max = 0.25 / (domain_radius / 5),
-    n_regions = 5);
-
-# Define runtime options
+# Define runtime options for the analytical EMT solver
 opts = (
-    force_remesh = true,                # Force remeshing
-    force_overwrite = true,             # Overwrite existing files
-    plot_field_maps = false,            # Do not compute/ plot field maps
-    mesh_only = true,                  # Preview the mesh
-    save_path = fullfile("fem_output"), # Results directory
-    keep_run_files = true,              # Archive files after each run
-    verbosity = 1                      # Verbosity
+    force_overwrite = true,
+    save_path = fullfile("lineparams_output"),
+    verbosity = 0
 );
 
-# Define the FEM formulation with the specified parameters
-F = FormulationSet(:FEM,
-    impedance = Darwin(),
-    admittance = Electrodynamics(),
-    domain_radius = domain_radius,
-    domain_radius_inf = domain_radius * 1.25,
-    elements_per_length_conductor = 1,
-    elements_per_length_insulator = 2,
-    elements_per_length_semicon = 1,
-    elements_per_length_interfaces = 5,
-    points_per_circumference = 16,
-    mesh_size_min = 1e-6,
-    mesh_size_max = domain_radius / 5,
-    # mesh_transitions = [mesh_transition1,
-    # 	mesh_transition2],
-    mesh_size_default = domain_radius / 10,
-    mesh_algorithm = 5,
-    mesh_max_retries = 20,
-    materials = materials,
+# Define the EMT formulation with the maintained analytical models
+F = FormulationSet(
+    :EMT;
+    internal_impedance = InternalImpedance.ScaledBessel(),
+    insulation_impedance = InsulationImpedance.Lossless(),
+    earth_impedance = EarthImpedance.Papadopoulos(),
+    insulation_admittance = InsulationAdmittance.Lossless(),
+    earth_admittance = EarthAdmittance.Papadopoulos(),
+    equivalent_earth = EHEM.EnforceLayer(layer = -1),
     options = opts
 );
 
-# Run the FEM solver
+# Run the analytical EMT solver
 @time ws, p = compute!(problem, F);
 
 # Display computation results in per-kilometre units

@@ -15,8 +15,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- Julia package extensions for Gmsh and the Makie backends.
-- A manual, checksum-verified FEM release gate.
+- Julia package extensions for the Makie backends.
 - Aqua, SciML formatting, gitlint, clean-install, and modular documentation
   checks.
 - Citation and contribution metadata.
@@ -29,12 +28,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- Gmsh and Makie are optional dependencies. Core loading no longer imports
-  Gmsh, Makie, CairoMakie, GLMakie, WGLMakie, or GetDP.
-- The legacy `Engine.FEM` API delegates to the Gmsh extension and emits
-  deprecation warnings.
-- The compatible GetDP frontend is now a private, licensed source snapshot.
-  GetDP itself must be supplied through `GETDP_EXECUTABLE` or `PATH`.
+- Makie is an optional dependency. Core loading no longer imports Makie,
+  CairoMakie, GLMakie, or WGLMakie.
 - Plotting requires the caller to load CairoMakie, GLMakie, or WGLMakie
   explicitly.
 - Documentation examples and development conventions were consolidated.
@@ -49,9 +44,10 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Binder experiments and Binder-specific notebook bootstrapping.
 - The accidental standalone `src/cablebuilder` subsystem. The maintained
-  `ParametricBuilder.CableBuilder`, sector support, covariance work, and
-  their tests remain.
-- The hard dependency on the external, unregistered GetDP.jl package.
+  `ParametricBuilder.CableBuilder`, covariance work, and its tests remain.
+- FEM/Gmsh/GetDP integration and sector-shaped cable support. The final
+  pre-removal snapshot is `legacy/fem-sector` at commit
+  `b75dd2723f90a83ec090b20605ea42af57f4a9c3`.
 - The obsolete TODO scraper and duplicate tag-release workflow.
 - The old `ResultsView`, `CableDesignMC`, `LineParametersPDF`, `plotmetadata`,
   duplicated plotting UIs, and direct Makie renderers.
@@ -68,14 +64,14 @@ using CairoMakie
 
 R(line_parameters, 1, 1)       # complete frequency response
 R(line_parameters, 1, 1, 2:5)  # selected frequencies
-
-using Gmsh
-using LineCableModels.Engine.FEM
-formulation = FormulationSet(:FEM)
 ```
 
-Set `GETDP_EXECUTABLE=/absolute/path/to/getdp` or place `getdp` on
-`PATH` before invoking the transitional FEM solver.
+Projects that require the removed FEM or sector APIs must pin the archived
+snapshot:
+
+```sh
+julia --project=. -e "using Pkg; Pkg.add(Pkg.PackageSpec(url=ARGS[1], rev=ARGS[2]))" https://github.com/Electa-Git/LineCableModels.jl.git b75dd2723f90a83ec090b20605ea42af57f4a9c3
+```
 
 ## [0.1.0] - 2025-03-29
 

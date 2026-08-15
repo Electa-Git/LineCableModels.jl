@@ -2,6 +2,7 @@ module Commons
 
 include("docstringextension.jl")
 include("consts.jl")
+include("retired.jl")
 
 export get_description, add!, domain, basis,
        Z, Y, R, X, L, G, B, C,

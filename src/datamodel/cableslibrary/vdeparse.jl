@@ -116,11 +116,11 @@ end
 # Trailing specs (anchored at start of tail)
 const RX_CORES_X_CSA = r"^(\d+)\s*[x×]\s*(\d+(?:\.\d+)?)(?:\s*/\s*(\d+(?:\.\d+)?))?"
 const RX_VOLTAGE = r"^(\d+(?:\.\d+)?)\s*/\s*(\d+(?:\.\d+)?)\s*(?:kV|KV|kv)\b"
-const RX_TYPE = r"^([RSEMOH]{1,3})(?:\s*/\s*V)?\b"   # RM, SE, OH, … + optional /V
+const RX_TYPE = r"^([REMOH]{1,3})(?:\s*/\s*V)?\b"   # RM, OH, … + optional /V
 
 # KISS conductor type mapping
 const TYPE_MAP = Dict(
-    'R' => "round", 'S' => "sector", 'O' => "oval",
+    'R' => "round", 'O' => "oval",
     'E' => "solid", 'M' => "stranded", 'H' => "hollow",
     'V' => "compact"
 )

@@ -46,17 +46,10 @@ using LineCableModels
 using CairoMakie
 ```
 
-The transitional FEM integration is also optional. Load `Gmsh` explicitly and
-make a GetDP executable available through `GETDP_EXECUTABLE` or `PATH`:
-
-```julia
-using LineCableModels
-using Gmsh
-using LineCableModels.Engine.FEM
-```
-
-The legacy FEM API emits deprecation warnings because it will be simplified in
-a future release.
+FEM/GetDP integration and sector-shaped cable support were removed before the
+v0.2 release. The last version containing those experimental paths is preserved
+on branch `legacy/fem-sector` at commit
+`b75dd2723f90a83ec090b20605ea42af57f4a9c3`.
 
 ## License
 

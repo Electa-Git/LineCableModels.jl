@@ -20,8 +20,9 @@ module DataModel
 
 # Export public API
 export Thickness, Diameter  # Type definitions
-export CircStrands, RectStrands, Strip, Tubular, SectorParams, Sector  # Conductor types
-export Semicon, Insulator, SectorInsulator  # Insulator types
+export CircStrands, RectStrands, Strip, Tubular  # Conductor types
+export Semicon, Insulator  # Insulator types
+export SectorParams, Sector, SectorInsulator  # Removed API tombstones
 export ConductorGroup, InsulatorGroup  # Group types
 export CableComponent, CableDesign, CableConstants  # Cable design types
 export CablePosition, LineCableSystem  # System types
@@ -35,6 +36,7 @@ import ..PlotBuilder
 import ..UnitHandler
 import ..Commons: add!
 import ..Commons: basis, R, L, C, resistance, inductance, capacitance
+import ..Commons: retired_fem_sector
 using ..Utils:
                resolve_T, to_certain, to_nominal, is_headless,
                is_in_testset, to_lower, to_upper
@@ -64,6 +66,7 @@ using .BaseParams
 # Constructors
 include("macros.jl")
 include("validation.jl")
+include("retired.jl")
 
 # Conductors
 include("strands_handler.jl")
@@ -72,13 +75,11 @@ include("rectstrands.jl")
 include("strip.jl")
 include("tubular.jl")
 include("conductorgroup.jl")
-include("sector.jl")
 
 # Insulators
 include("insulator.jl")
 include("semicon.jl")
 include("insulatorgroup.jl")
-include("sectorinsulator.jl")
 
 # Groups
 include("nominaldata.jl")

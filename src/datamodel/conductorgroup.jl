@@ -13,15 +13,6 @@ properties that represent the composite behavior of the entire assembly.
 $(TYPEDFIELDS)
 """
 
-# mutable struct ConductorGroup{T <: REALSCALAR, L <: AbstractLayout} <:
-# 			   AbstractConductorPart{T}
-# 	# MultiCoreGroup...... under CableDesign?
-# 	#  L<: Concentric, SectorShaped
-# 	# Concentric -> stacks over radii
-# 	# SectorShaped -> stacks over angles
-
-# end
-
 mutable struct ConductorGroup{T <: REALSCALAR} <: AbstractConductorPart{T}
     "Inner radius of the conductor group \\[m\\]."
     r_in::T

@@ -82,5 +82,5 @@ function (::Type{T})(args::Vararg{Any, N}; kwargs...) where {T <: AbstractCableP
     )
 end
 
-### Provisions for the new types currently under development: RectStrandsShape and SectorShape
+### Provisions for the new rectangular-strand geometry
 abstract type AbstractShapeGeometry end

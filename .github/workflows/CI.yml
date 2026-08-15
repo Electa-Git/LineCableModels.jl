@@ -158,7 +158,6 @@ jobs:
             Pkg.develop(PackageSpec(path = pwd()))
             using LineCableModels
             @assert Base.get_extension(LineCableModels, :LineCableModelsMakieExt) === nothing
-            @assert Base.get_extension(LineCableModels, :LineCableModelsGmshExt) === nothing
           '
 
   docs:

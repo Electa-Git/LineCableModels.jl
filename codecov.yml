@@ -1,5 +1,0 @@
-ignore:
-  - "src/engine/fem/**"
-  - "ext/LineCableModelsGmshExt.jl"
-  - "ext/fem/getdp_frontend/**"
-  - "integration/fem/**"
