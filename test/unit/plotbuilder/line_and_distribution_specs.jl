@@ -89,6 +89,35 @@
         frequencies = [0.0, 50.0],
         quantities = (L,)
     )
+
+    residual_conductance=fill(1.0e-17, size(shunt))
+    lossless=LineParameters(
+        copy(Z(parameters).values),
+        complex.(residual_conductance, imag.(Y(parameters).values)),
+        frequencies(parameters)
+    )
+    lossless_render=PB.make_render(
+        E.LineParameterPlotSpec,
+        lossless;
+        quantities = (G,)
+    )
+    lossless_series=only(only(lossless_render.figures).views).series
+    @test all(series_spec -> all(iszero, series_spec.ydata), lossless_series)
+    @test all(==(1.0e-17), G(lossless))
+
+    small_conductance=fill(1.0e-12, size(shunt))
+    lossy=LineParameters(
+        copy(Z(parameters).values),
+        complex.(small_conductance, imag.(Y(parameters).values)),
+        frequencies(parameters)
+    )
+    lossy_render=PB.make_render(E.LineParameterPlotSpec, lossy; quantities = (G,))
+    lossy_series=only(only(lossy_render.figures).views).series
+    @test all(
+        series_spec -> all(==(1.0e-9), series_spec.ydata),
+        lossy_series
+    )
+    @test all(==(1.0e-12), G(lossy))
 end
 
 @testitem "Computation / plot specification / empirical and model distributions" tags=[:unit] setup=[

@@ -109,6 +109,55 @@
     @test root_grid.columngap == 12
     @test side_slots[:legend].halign === :left
     @test side_slots[:colorbars].halign === :left
+    side_grid=only(grid for grid in overlay_page.layout.grids if grid.name===:side)
+    @test side_grid.rows[1] isa PB.RelativeTrack
+    @test side_grid.rows[2] isa PB.ContentTrack
+    @test overlay_page.legend.overflow === :ellipsis
+    @test PB.LegendSpec(overflow = :show_all).overflow === :show_all
+    @test_throws ArgumentError PB.LegendSpec(overflow = :truncate)
+
+    content_legend_grids=map(overlay_page.layout.grids) do grid
+        grid.name===:side||return grid
+        return PB.GridSpec(
+            grid.name;
+            parent = grid.parent,
+            area = grid.area,
+            rows = PB.AbstractTrackSize[PB.ContentTrack(), PB.ContentTrack()],
+            columns = grid.columns,
+            rowgap = grid.rowgap,
+            columngap = grid.columngap,
+            padding = grid.padding
+        )
+    end
+    content_legend_layout=PB.LayoutSpec(
+        :content_legend,
+        content_legend_grids,
+        overlay_page.layout.slots
+    )
+    @test_throws ArgumentError PB.PageSpec(
+        overlay_page.title,
+        overlay_page.size,
+        overlay_page.key,
+        content_legend_layout,
+        overlay_page.views;
+        controls = overlay_page.controls,
+        legend = PB.LegendSpec(overflow = :ellipsis),
+        colorbars = overlay_page.colorbars,
+        status = overlay_page.status,
+        export_spec = overlay_page.export_spec
+    )
+    @test PB.PageSpec(
+        overlay_page.title,
+        overlay_page.size,
+        overlay_page.key,
+        content_legend_layout,
+        overlay_page.views;
+        controls = overlay_page.controls,
+        legend = PB.LegendSpec(overflow = :show_all),
+        colorbars = overlay_page.colorbars,
+        status = overlay_page.status,
+        export_spec = overlay_page.export_spec
+    ).legend.overflow === :show_all
     compact_objects=Any[
         PB.parse_kwargs(ProfilePlotSpec, result),
         PB.FixedTrack(36),
@@ -456,6 +505,56 @@
         (; kind = :reversed_limits),
         PB.layout_preset(Val(:single), 1),
         [reversed_limits_view]
+    )
+
+    switchable_axis=PB.AxisSpec(
+        :y,
+        UH.QuantityTag{:dimensionless}(),
+        UH.Units(),
+        "switchable",
+        :linear;
+        allowed_scales = (:linear, :log10)
+    )
+    switchable_view=PB.ViewSpec(
+        axis,
+        switchable_axis,
+        nothing,
+        "linear limits",
+        [line],
+        (; kind = :linear_limits);
+        limits = ((1.0, 2.0), (-1.0, 1.0))
+    )
+    @test PB.PageSpec(
+        "linear limits",
+        (400, 300),
+        (; kind = :linear_limits),
+        PB.layout_preset(Val(:single), 1),
+        [switchable_view]
+    ) isa PB.PageSpec
+
+    active_log_axis=PB.AxisSpec(
+        :y,
+        UH.QuantityTag{:dimensionless}(),
+        UH.Units(),
+        "active log",
+        :log10;
+        allowed_scales = (:linear, :log10)
+    )
+    active_log_view=PB.ViewSpec(
+        axis,
+        active_log_axis,
+        nothing,
+        "invalid logarithmic limits",
+        [line],
+        (; kind = :invalid_log_limits);
+        limits = ((1.0, 2.0), (-1.0, 1.0))
+    )
+    @test_throws DomainError PB.PageSpec(
+        "invalid logarithmic limits",
+        (400, 300),
+        (; kind = :invalid_log_limits),
+        PB.layout_preset(Val(:single), 1),
+        [active_log_view]
     )
 
     invalid_aspect_view=PB.ViewSpec(

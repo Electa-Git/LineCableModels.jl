@@ -105,7 +105,7 @@ function custom_layout_render_spec()
                 :side;
                 parent = :root,
                 area = PB.GridArea(2, 2),
-                rows = PB.AbstractTrackSize[PB.ContentTrack(), PB.ContentTrack()],
+                rows = PB.AbstractTrackSize[PB.RelativeTrack(), PB.ContentTrack()],
                 columns = PB.AbstractTrackSize[PB.ContentTrack()],
                 rowgap = 4
             )

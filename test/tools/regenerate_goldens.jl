@@ -105,6 +105,15 @@ if lowercase(get(ENV, "LINECABLEMODELS_UPDATE_PLOT_REFERENCES", "false")) == "tr
         "cable_preview",
         preview(design; backend = :cairo, display_plot = false)
     )
+    save_reference(
+        "cable_preview_compact",
+        preview(
+            design;
+            size = (900, 350),
+            backend = :cairo,
+            display_plot = false
+        )
+    )
 
     position = CablePosition(
         design,

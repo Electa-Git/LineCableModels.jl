@@ -44,6 +44,24 @@
             return nothing
         end
 
+        function block_bounds(block)
+            layout=block.layoutobservables
+            bounding_box=layout.computedbbox[]
+            protrusions=layout.protrusions[]
+            return (;
+                left = bounding_box.origin[1]-protrusions.left,
+                right = bounding_box.origin[1]+bounding_box.widths[1]+protrusions.right,
+                bottom = bounding_box.origin[2]-protrusions.bottom,
+                top = bounding_box.origin[2]+bounding_box.widths[2]+protrusions.top
+            )
+        end
+
+        visibility_state(handle) = Bool[plot_object.visible[]
+                                        for panel in handle.panels
+                                        for plot_object in panel.plots]
+        legend_labels(legend) = [entry.label[]
+                                 for entry in last(first(legend.entrygroups[]))]
+
         frequency=[50.0, 100.0, 500.0]
         omega=reshape(2π .* frequency, 1, 1, :)
         resistance_values=reshape([1.0, 0.2, 0.2, 2.0], 2, 2, 1) .*
@@ -209,6 +227,59 @@
             plot_object -> plot_object.visible[],
             Iterators.flatten(panel.plots for panel in handle.panels)
         )
+
+        contrast_conductance=repeat(
+            [1.0e-3 1.0e-9; 1.0e-9 2.0e-9],
+            1,
+            1,
+            length(frequency)
+        )
+        contrast_parameters=LineParameters(
+            copy(parameters.Z.values),
+            complex.(contrast_conductance, capacitance_values .* omega),
+            frequency
+        )
+        contrast_plot=only(Makie.plot(
+            contrast_parameters,
+            (G,);
+            backend = :cairo,
+            display_plot = false
+        ))
+        contrast_axis=only(contrast_plot.panels).axis
+        initial_contrast_limits=contrast_axis.finallimits[]
+        initial_contrast_max=initial_contrast_limits.origin[2]+
+        initial_contrast_limits.widths[2]
+        @test initial_contrast_limits.origin[2] < 0
+        mktempdir() do directory
+            untouched_svg=export_svg(
+                contrast_plot;
+                path = joinpath(directory, "untouched-linear.svg"),
+                open_file = false
+            )
+            @test filesize(untouched_svg) > 100
+            @test occursin("<svg", read(untouched_svg, String))
+        end
+        contrast_legend=contrast_plot.controls[:legend]
+        dominant_entry=first(last(first(contrast_legend.entrygroups[])))
+        Makie.toggle_visibility!(dominant_entry)
+        Makie.update_state_before_display!(contrast_plot.figure)
+        hidden_contrast_limits=contrast_axis.finallimits[]
+        hidden_contrast_max=hidden_contrast_limits.origin[2]+
+        hidden_contrast_limits.widths[2]
+        @test hidden_contrast_max < initial_contrast_max * 1.0e-3
+        @test contrast_plot.context.status[] == "Axis limits fitted to visible series"
+        current_contrast_page=ui_components._current_page(contrast_plot)
+        @test !first(only(current_contrast_page.views).series).visible
+        @test collect(current_contrast_page.views[1].limits[2]) ≈ [
+            hidden_contrast_limits.origin[2],
+            hidden_contrast_max
+        ]
+        Makie.toggle_visibility!(dominant_entry)
+        Makie.update_state_before_display!(contrast_plot.figure)
+        restored_contrast_limits=contrast_axis.finallimits[]
+        restored_contrast_max=restored_contrast_limits.origin[2]+
+        restored_contrast_limits.widths[2]
+        @test restored_contrast_max ≈ initial_contrast_max
 
         susceptance_handle=last(cartesian)
         susceptance_axis=last(susceptance_handle.panels).axis
@@ -420,6 +491,14 @@
         @test sort!(collect(keys(cable_plot.controls))) ==
               [:export_svg, :legend, :reset]
         cable_legend=cable_plot.controls[:legend]
+        cable_entries=last(first(cable_legend.entrygroups[]))
+        cable_elements=Iterators.flatten(entry.elements for entry in cable_entries)
+        for element in cable_elements
+            element isa Makie.PolyElement||continue
+            @test Makie.to_color(element.attributes[:polystrokecolor][]) ==
+                  Makie.to_color(:transparent)
+            @test iszero(element.attributes[:polystrokewidth][])
+        end
         cable_panel=only(cable_plot.panels)
         expected_group_order=unique(
             something(series.group, Symbol("series_$index"))
@@ -432,6 +511,118 @@
         Makie.toggle_visibility!(material_entry)
         @test all(plot_object -> plot_object.visible[], only(cable_plot.panels).plots)
         test_golden(cable_plot, "cable_preview"; tolerance = 0.025)
+
+        compact_cable_plot=preview(
+            design;
+            size = (900, 350),
+            backend = :cairo,
+            display_plot = false,
+            open_export = false
+        )
+        compact_legend=compact_cable_plot.controls[:legend]
+        compact_panel=only(compact_cable_plot.panels)
+        complete_labels=[compact_panel.group_labels[group]
+                         for group in compact_panel.group_order
+                         if haskey(compact_panel.group_labels, group)]
+        compact_entries=last(first(compact_legend.entrygroups[]))
+        compact_labels=legend_labels(compact_legend)
+        @test last(compact_labels) == "(...)"
+        @test compact_labels[1:(end - 1)] ==
+              complete_labels[1:(length(compact_labels) - 1)]
+        @test length(compact_labels) < length(complete_labels)
+        @test length(filter(block -> block isa Makie.Colorbar,
+            compact_cable_plot.figure.content)) == 3
+
+        first_compact_entry=first(compact_entries)
+        Makie.toggle_visibility!(first_compact_entry)
+        hidden_state=visibility_state(compact_cable_plot)
+        @test any(!, hidden_state)
+        Makie.resize!(compact_cable_plot.figure, 900, 700)
+        Makie.update_state_before_display!(compact_cable_plot.figure)
+        @test legend_labels(compact_legend) == complete_labels
+        @test visibility_state(compact_cable_plot) == hidden_state
+        Makie.resize!(compact_cable_plot.figure, 900, 350)
+        Makie.update_state_before_display!(compact_cable_plot.figure)
+        compact_entries=last(first(compact_legend.entrygroups[]))
+        @test last(compact_entries).label[] == "(...)"
+        @test visibility_state(compact_cable_plot) == hidden_state
+        Makie.toggle_visibility!(last(compact_entries))
+        @test visibility_state(compact_cable_plot) == hidden_state
+
+        legend_bounds=block_bounds(compact_legend)
+        canvas_bounds=block_bounds(compact_panel.axis)
+        scale_blocks=filter(
+            block->block isa Makie.Colorbar,
+            compact_cable_plot.figure.content
+        )
+        scale_bounds=block_bounds.(scale_blocks)
+        material_labels=filter(compact_cable_plot.figure.content) do block
+            block isa Makie.Label||return false
+            block_bounds(block).left>=legend_bounds.left-1
+        end
+        material_label_bounds=block_bounds.(material_labels)
+        @test length(material_labels) == 3
+        @test canvas_bounds.right < legend_bounds.left
+        @test all(bounds -> bounds.right < scale_bounds[1].left,
+            material_label_bounds)
+        @test all(bounds -> bounds.left >= canvas_bounds.right, material_label_bounds)
+        @test all(bounds -> bounds.right <= legend_bounds.right, scale_bounds)
+        @test legend_bounds.bottom > maximum(getfield.(scale_bounds, :top))
+        @test all(
+            block -> iszero(block.layoutobservables.protrusions[].left) &&
+                     iszero(block.layoutobservables.protrusions[].right),
+            scale_blocks)
+
+        current_compact_page=ui_components._current_page(compact_cable_plot)
+        @test any(!series.visible for view in current_compact_page.views
+        for series in view.series)
+        exported_compact=only(ui_components.build(
+            LineCableModels.PlotBuilder.RenderSpec(
+                compact_cable_plot.render.spec,
+                [current_compact_page]
+            );
+            backend = :cairo,
+            display = false,
+            controls = false,
+            export_mode = true
+        ))
+        exported_legend=only(filter(
+            block->block isa Makie.Legend,
+            exported_compact.figure.content
+        ))
+        @test legend_labels(exported_legend) == complete_labels
+        fitted_export_size=ui_components._fit_export_content!(
+            exported_compact.figure,
+            exported_compact.page
+        )
+        @test fitted_export_size[2] > compact_cable_plot.page.size[2]
+        exported_legend_bounds=block_bounds(exported_legend)
+        exported_scale_bounds=block_bounds.(filter(
+            block->block isa Makie.Colorbar,
+            exported_compact.figure.content
+        ))
+        @test exported_legend_bounds.bottom >
+              maximum(getfield.(exported_scale_bounds, :top))
+        @test any(!plot_object.visible[] for panel in exported_compact.panels
+        for plot_object in panel.plots)
+
+        mktempdir() do directory
+            responsive_svg=export_svg(
+                compact_cable_plot;
+                path = joinpath(directory, "responsive-preview.svg"),
+                open_file = false
+            )
+            svg=read(responsive_svg, String)
+            height_match=match(r"<svg[^>]*height=\"([0-9]+)\"", svg)
+            @test height_match !== nothing
+            @test parse(Int, only(height_match.captures)) > compact_cable_plot.page.size[2]
+            @test filesize(responsive_svg) > 100
+        end
+        @test last(last(first(compact_legend.entrygroups[]))).label[] == "(...)"
+        @test visibility_state(compact_cable_plot) == hidden_state
+        Makie.toggle_visibility!(first(last(first(compact_legend.entrygroups[]))))
+        @test all(visibility_state(compact_cable_plot))
+        test_golden(compact_cable_plot, "cable_preview_compact"; tolerance = 0.025)
 
         position=CablePosition(
             design,
@@ -551,8 +742,15 @@
         colorbar=only(filter(block->block isa Makie.Colorbar, custom_plot.figure.content))
         legend_box=legend.layoutobservables.computedbbox[]
         colorbar_box=colorbar.layoutobservables.computedbbox[]
+        colorbar_label=only(filter(custom_plot.figure.content) do block
+            block isa Makie.Label||return false
+            block_bounds(block).left>=legend_box.origin[1]-1
+        end)
+        colorbar_label_box=colorbar_label.layoutobservables.computedbbox[]
         @test legend.halign[] === :left
-        @test legend_box.origin[1] ≈ colorbar_box.origin[1] atol = 1
+        @test colorbar_label_box.origin[1] ≈ legend_box.origin[1] atol = 1
+        @test colorbar_label_box.origin[1]+colorbar_label_box.widths[1] <
+              colorbar_box.origin[1]
         @test legend_box.widths[1] ≈ ui_components.LEGEND_DOCK_WIDTH atol = 1
         @test colorbar_box.widths[1] ≈ ui_components.COLORBAR_WIDTH atol = 1
         line_method=which(

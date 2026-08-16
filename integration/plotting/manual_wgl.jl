@@ -50,7 +50,7 @@ app = Bonito.App() do
         DOM.p(
             "Inspect reset, SVG export, line-parameter logarithmic axes, legends, " *
             "visibility, zoom/pan, previews, material toggling, histograms without " *
-            "log controls, PDFs, ECDFs, and Q-Q plots."
+            "log controls, PDFs, ECDFs, Q-Q plots, and responsive legend restoration."
         ),
         DOM.div(
             cards...;

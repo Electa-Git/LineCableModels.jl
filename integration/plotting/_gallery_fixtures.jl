@@ -21,6 +21,29 @@ function build_manual_plot_gallery(
         frequency
     )
 
+    residual_curve = 1.0e-20 .* sin.(eachindex(frequency))
+    lossless_conductance = cat(
+        ([value -value / 2; -value / 2 1.2value] for value in residual_curve)...;
+        dims = 3
+    )
+    lossless_parameters = LineParameters(
+        copy(parameters.Z.values),
+        complex.(lossless_conductance, capacitance_values .* omega),
+        frequency
+    )
+
+    contrast_conductance = repeat(
+        [1.0e-3 1.0e-9; 1.0e-9 2.0e-9],
+        1,
+        1,
+        length(frequency)
+    )
+    contrast_parameters = LineParameters(
+        copy(parameters.Z.values),
+        complex.(contrast_conductance, capacitance_values .* omega),
+        frequency
+    )
+
     measurement_parameters = LineParameters(
         complex.(
             measurement.(resistance_values, resistance_values .* 0.05),
@@ -41,7 +64,7 @@ function build_manual_plot_gallery(
         CableConstants(
             [1.0, 2.0, 3.0, 4.0],
             [1.0, 2.0, 3.0, 4.0],
-            [1.0, 2.0, 3.0, 4.0],
+            [1.0, 2.0, 3.0, 4.0]
         ),
         CableConstants(histogram, histogram, histogram),
         nothing,
@@ -50,7 +73,7 @@ function build_manual_plot_gallery(
         0.02,
         :normal,
         UInt64(1),
-        (hash="gallery-fixture",),
+        (hash = "gallery-fixture",)
     )
 
     gallery = Pair{String, UIPlot}[]
@@ -94,6 +117,26 @@ function build_manual_plot_gallery(
             export_theme
         )
     )
+    add_pages!(
+        "Line parameters: lossless numerical zero",
+        Makie.plot(
+            lossless_parameters,
+            (G,);
+            backend,
+            display_plot,
+            export_theme
+        )
+    )
+    add_pages!(
+        "Line parameters: visibility-aware limits",
+        Makie.plot(
+            contrast_parameters,
+            (G,);
+            backend,
+            display_plot,
+            export_theme
+        )
+    )
 
     for mode in (:hist, :pdf, :ecdf, :qq)
         push!(
@@ -102,20 +145,37 @@ function build_manual_plot_gallery(
                 mc_result,
                 :R;
                 mode,
-                data=:both,
+                data = :both,
                 backend,
                 display_plot,
-                export_theme,
-            ),
+                export_theme
+            )
         )
     end
 
     library = CablesLibrary()
-    load!(library; file_name = joinpath(pkgdir(LineCableModels), "test", "cable_test.json"))
+    load!(library;
+        file_name = joinpath(
+            pkgdir(LineCableModels),
+            "test",
+            "fixtures",
+            "data",
+            "mv_cable_design.json"
+        ))
     design = first(values(library.data))
     push!(
         gallery,
         "Cable preview" => preview(design; backend, display_plot, export_theme)
+    )
+    push!(
+        gallery,
+        "Cable preview: compact responsive dock" => preview(
+            design;
+            size = (900, 350),
+            backend,
+            display_plot,
+            export_theme
+        )
     )
 
     position = CablePosition(
@@ -144,7 +204,7 @@ function build_manual_plot_gallery(
         )
     )
 
-    @assert length(gallery) == 23
+    @assert length(gallery) == 18
     @assert all(pair -> pair.second isa UIPlot, gallery)
     @assert all(pair -> pair.second.context.backend === backend, gallery)
     @assert all(pair -> pair.second.page.export_spec.theme === export_theme, gallery)
