@@ -22,6 +22,7 @@ const COLORBAR_LABEL_GAP = 8
 const COLORBAR_ROW_GAP = 8
 const LEGEND_DOCK_WIDTH = 220
 const LEGEND_HEIGHT_TOLERANCE = 1
+const LEGEND_MARGIN = (3.0f0, 3.0f0, 3.0f0, 3.0f0)
 const GRID_ROW_GAP = 6
 const GRID_COLUMN_GAP = 6
 const BUTTON_SIZE = 32
@@ -88,7 +89,7 @@ function _theme(; export_mode::Bool = false, export_theme::Symbol = :default)
             yminorticksvisible = false
         ),
         Button = (; buttoncolor = BUTTON_BACKGROUND),
-        Legend = (; fontsize = 14, labelsize = 14),
+        Legend = (; fontsize = 14, labelsize = 14, margin = LEGEND_MARGIN),
         Colorbar = (; labelsize = 14, ticklabelsize = 14)
     )
     return merge(base, custom)
