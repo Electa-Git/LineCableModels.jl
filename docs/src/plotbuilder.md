@@ -33,8 +33,8 @@ SemVer guarantees.
 
 PlotBuilder follows five non-negotiable rules:
 
-1. `make_render` is one generic pipeline. Domain recipes specialize accessors;
-   they do not replace the pipeline.
+1. `make_render` is one generic rendering sequence. Domain recipes specialize
+   accessors; they do not replace that sequence.
 2. Recipe variation uses Julia dispatch, including `Val` dispatch for modes,
    grouping, and primitive rendering.
 3. `PlotRecipe`, `RenderSpec`, layouts, axes, series, views, and page components
@@ -52,24 +52,26 @@ component rather than a separate public entry point.
 
 The developer API may evolve before LineCableModels 1.0, but changes must keep
 the separation between domain recipes, backend-neutral specifications, and
-backend rendering. Architectural tests enforce the single pipeline and the
+backend rendering. Structural tests enforce the single rendering sequence and the
 absence of Makie from core specification construction.
 
 ## Supported recipe families
 
 | Module | Specification | Input | Entry point |
 |:--|:--|:--|:--|
-| `Engine` | `LineParameterPlotSpec` | `SeriesImpedance` and frequencies | `plot(series, frequencies)` |
-| `Engine` | `LineParameterPlotSpec` | `ShuntAdmittance` and frequencies | `plot(shunt, frequencies)` |
-| `Engine` | `LineParameterPlotSpec` | `LineParameters` | `plot(parameters)` |
-| `UQ` | `MCDistributionPlotSpec` | `CableConstantsMC` | `plot(result, quantity)` |
-| `UQ` | `MCDistributionPlotSpec` | `LineParametersMC` | `plot(result, quantity; ijk)` |
+| `Engine` | `LineParameterPlotSpec` | `SeriesImpedance` and frequencies | `plot(series, frequencies[, accessors])` |
+| `Engine` | `LineParameterPlotSpec` | `ShuntAdmittance` and frequencies | `plot(shunt, frequencies[, accessors])` |
+| `Engine` | `LineParameterPlotSpec` | `LineParameters` | `plot(parameters[, accessors])` |
+| `Computation` | `MCDistributionPlotSpec` | `MonteCarloResult` | `plot(result, quantity)` |
 | `DataModel` | `CablePreviewPlotSpec` | `CableDesign` | `preview(design)` |
 | `DataModel` | `SystemPreviewPlotSpec` | `LineCableSystem` | `preview(system)` |
 
-Line-parameter recipes provide RLCG, Cartesian Z/Y, and polar Z/Y pages. UQ
-recipes provide histogram, PDF, ECDF, and Q-Q views. DataModel recipes provide
-cable and system previews. `MaterialScalePlotSpec` is an internal reusable
+`plot(parameters)` produces separate Z and Y pages, each with real and
+imaginary parts in adjacent views. An accessor tuple selects another
+representation, for example `(R, L, G, C)` or `(abs, angle)`. The
+Monte Carlo recipe provides histogram, PDF, empirical/histogram CDF, and Q-Q
+views for retained marginal results.
+DataModel recipes provide cable and system previews. `MaterialScalePlotSpec` is an internal reusable
 component for composing and testing the material-property scales used by those
 previews; it is not a public plotting entry point.
 
@@ -172,16 +174,15 @@ and separates scientific choices from renderer choices.
 ````@example plotbuilder
 recipe = parse_kwargs(
     LineParameterPlotSpec,
-    parameters;
-    mode = :ZY,
-    coord = :polar,
+    Z(parameters);
+    frequencies = frequencies(parameters),
+    quantities = (abs, angle),
     export_theme = :publication
 )
 
 (;
     object_type = typeof(recipe.object),
-    mode = recipe.input.mode,
-    coordinates = recipe.input.coord,
+    quantities = recipe.input.quantities,
     export_theme = recipe.renderer.export_theme
 )
 ````
@@ -202,16 +203,16 @@ tests the complete declarative path without opening a window:
 ````@example plotbuilder
 render = make_render(
     LineParameterPlotSpec,
-    parameters;
-    mode = :ZY,
-    coord = :polar
+    Z(parameters);
+    frequencies = frequencies(parameters),
+    quantities = (abs, angle)
 )
 ````
 
-Polar Z/Y produces magnitude and angle pages for both matrix families.
+Magnitude and angle occupy adjacent views on the impedance page.
 
 ````@example plotbuilder
-[(page.title, only(page.views).yaxis.label) for page in render.figures]
+[(page.title, getproperty.(page.views, :title)) for page in render.figures]
 ````
 
 The value above proves that the declarative page tree contains the expected
@@ -450,7 +451,7 @@ provided by PlotBuilder and must not be redeclared. A real recipe should use
 This example validates its array dimensions and grouping through dispatch:
 
 Each supported grouping has a method. The fallback produces an actionable
-error without putting a grouping conditional in the generic pipeline.
+error without putting a grouping conditional in the generic rendering sequence.
 
 ````@example plotbuilder
 profile_grouping(::Val{:overlay}) = Val(:overlay)
@@ -613,7 +614,7 @@ nothing #hide
 
 Titles and layouts vary by grouping through small dispatch functions. The
 recipe still does not construct `ViewSpec` or `PageSpec`; the one generic
-`make_render` pipeline does that from these decisions.
+`make_render` derives them from these decisions.
 
 ````@example plotbuilder
 profile_title(::Val{:overlay}, page_key, view_key) = "Frequency responses"
@@ -850,7 +851,7 @@ LaTeX-font theme to the declarative page state.
 publication = make_render(
     LineParameterPlotSpec,
     parameters;
-    mode = :RLCG,
+    quantities = (R, L, G, C),
     export_theme = :publication
 )
 documentation_figure( #hide

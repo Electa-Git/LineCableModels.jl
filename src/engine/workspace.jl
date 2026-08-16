@@ -74,17 +74,17 @@ $(TYPEDFIELDS)
     "Number of cables in the system."
     n_cables::Int
     "Full component-based Z matrix (before bundling/reduction)."
-    Z::Array{Complex{T}, 3}
+    Z::Union{Nothing,Array{Complex{T},3}}
     "Full component-based P matrix (before bundling/reduction)."
-    P::Array{Complex{T}, 3}
+    P::Union{Nothing,Array{Complex{T},3}}
     "Full internal impedance matrix (before bundling/reduction)."
-    Zin::Array{Complex{T}, 3}
+    Zin::Union{Nothing,Array{Complex{T},3}}
     "Full internal potential coefficient matrix (before bundling/reduction)."
-    Pin::Array{Complex{T}, 3}
+    Pin::Union{Nothing,Array{Complex{T},3}}
     "Earth impedance matrix (n_cables x n_cables)."
-    Zg::Array{Complex{T}, 3}
+    Zg::Union{Nothing,Array{Complex{T},3}}
     "Earth potential coefficient matrix (n_cables x n_cables)."
-    Pg::Array{Complex{T}, 3}
+    Pg::Union{Nothing,Array{Complex{T},3}}
 end
 
 """
@@ -95,9 +95,10 @@ Initializes and populates the [`EMTWorkspace`](@ref) by normalizing a
 """
 function init_workspace(
         problem::LineParametersProblem{T},
-        formulation::EMTFormulation
+        formulation::EMTFormulation,
+        compute_options::ComputeOptions,
 ) where {T}
-    opts = formulation.options
+    opts = compute_options
 
     system = problem.system
     n_frequencies = length(problem.frequencies)

@@ -155,11 +155,46 @@ end
 """
 $(TYPEDEF)
 
-Represents the electromagnetic transient (EMT) formulation set for cable or line systems, containing all required impedance and admittance models for internal and earth effects.
+Define an explicit cable-constant calculation for one materialized cable
+design.
 
 $(TYPEDFIELDS)
 """
-struct EMTFormulation <: AbstractFormulationSet
+struct CableConstantsProblem{D<:CableDesign,S,R<:Real} <: ProblemDefinition
+    "Materialized cable design to analyze."
+    design::D
+
+    "Optional center-to-center cable separation `\\[m\\]`."
+    separation::S
+
+    "Earth resistivity used by the trifoil inductance estimate `\\[Ω·m\\]`."
+    earth_resistivity::R
+
+    function CableConstantsProblem(
+        design::D;
+        separation::Union{Nothing,Real}=nothing,
+        earth_resistivity::Real=100.0,
+    ) where {D<:CableDesign}
+        separation === nothing || separation > zero(separation) ||
+            throw(ArgumentError("separation must be positive"))
+        earth_resistivity > zero(earth_resistivity) ||
+            throw(ArgumentError("earth_resistivity must be positive"))
+        return new{D,typeof(separation),typeof(earth_resistivity)}(
+            design,
+            separation,
+            earth_resistivity,
+        )
+    end
+end
+
+"""
+$(TYPEDEF)
+
+Represents the electromagnetic transient (EMT) formulation for cable or line systems, containing all required impedance and admittance models for internal and earth effects.
+
+$(TYPEDFIELDS)
+"""
+struct EMTFormulation <: AbstractFormulation
     "Internal impedance formulation."
     internal_impedance::InternalImpedanceFormulation
     "Insulation impedance formulation."
@@ -221,7 +256,7 @@ struct EMTFormulation <: AbstractFormulationSet
     end
 end
 
-function FormulationSet(::Val{:EMT};
+function Formulation(::Val{:EMT};
         internal_impedance::InternalImpedanceFormulation = InternalImpedance.ScaledBessel(),
         insulation_impedance::InsulationImpedanceFormulation = InsulationImpedance.Lossless(),
         earth_impedance::EarthImpedanceFormulation = EarthImpedance.Papadopoulos(),
@@ -231,7 +266,7 @@ function FormulationSet(::Val{:EMT};
         equivalent_earth::Union{AbstractEHEMFormulation, Nothing} = nothing,
         options = (;)
 )
-    emt_opts = build_options(EMTOptions, options; strict = true)
+    emt_opts = formulation_options(options)
     return EMTFormulation(; internal_impedance, insulation_impedance, earth_impedance,
         insulation_admittance, earth_admittance, modal_transform, equivalent_earth,
         options = emt_opts

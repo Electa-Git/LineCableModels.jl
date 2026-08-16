@@ -9,12 +9,8 @@ Extracts and displays data from a [`CableDesign`](@ref).
 
 - `design`: A [`CableDesign`](@ref) object to extract data from.
 - `format`: Symbol indicating the level of detail:
-  - `:baseparams`: Basic RLC parameters with nominal value comparison (default).
-  - `:components`: Component-level equivalent properties.
+  - `:components`: Component-level equivalent properties (default).
   - `:detailed`: Individual cable part properties with layer-by-layer breakdown.
-- `S`: Separation distance between cables \\[m\\] (only used for `:baseparams` format). Default: outermost cable diameter.
-- `rho_e`: Resistivity of the earth \\[Ω·m\\] (only used for `:baseparams` format). Default: 100.
-
 # Returns
 
 - A `DataFrame` containing the requested cable data in the specified format.
@@ -22,75 +18,23 @@ Extracts and displays data from a [`CableDesign`](@ref).
 # Examples
 
 ```julia
-# Get basic RLC parameters
-data = DataFrame(design)  # Default is :baseparams format
-
 # Get component-level data
-comp_data = DataFrame(design, :components)
+comp_data = DataFrame(design)
 
 # Get detailed part-by-part breakdown
 detailed_data = DataFrame(design, :detailed)
 
-# Specify earth parameters for core calculations
-core_data = DataFrame(design, :baseparams, S=0.5, rho_e=150)
+# Compute before rendering numerical cable constants
+constants = compute!(CableConstantsProblem(design), Formulation())
+constants_data = DataFrame(constants)
 ```
 
 """
-function DataFrame(
-        design::CableDesign,
-        format::Symbol = :baseparams;
-        S::Union{Nothing, Number} = nothing,
-        rho_e::Number = 100.0
-)::DataFrame
+function DataFrame(design::CableDesign, format::Symbol=:components)::DataFrame
     if format == :baseparams
-        constants = CableConstants(design; S, rho_e)
-        R_display = constants.R * 1e3
-        L_display = constants.L * 1e6
-        C_display = constants.C * 1e9
-
-        # Prepare nominal values from CableDesign
-        nominals = [
-            design.nominal_data.resistance,
-            design.nominal_data.inductance,
-            design.nominal_data.capacitance
-        ]
-
-        # Calculate differences
-        diffs = map(zip([R_display, L_display, C_display], nominals)) do (computed, nominal)
-            if isnothing(nominal)
-                return missing
-            else
-                return to_nominal(abs(nominal - computed) / nominal * 100)
-            end
-        end
-
-        # Compute the comparison DataFrame
-        data = DataFrame(
-            parameter = ["R [Ω/km]", "L [mH/km]", "C [μF/km]"],
-            computed = [R_display, L_display, C_display],
-            nominal = to_nominal.(nominals)
-        )
-
-        # Add percent_diff column only for rows with non-nothing nominal values
-        data[!, "percent_diff"] = diffs
-
-        # Handle measurement bounds if present
-        has_error_bounds = !(isnan(to_lower(R_display)) || isnan(to_upper(R_display)))
-        if has_error_bounds
-            data[!, "lower"] = [
-                to_lower(R_display), to_lower(L_display), to_lower(C_display)
-            ]
-            data[!, "upper"] = [
-                to_upper(R_display), to_upper(L_display), to_upper(C_display)
-            ]
-
-            # Add compliance column only for rows with non-nothing nominal values
-            data[!, "in_range?"] = map(zip(data.nominal, data.lower, data.upper)) do (
-                nom, low, up)
-                isnothing(nom) ? missing : (nom >= low && nom <= up)
-            end
-        end
-
+        throw(ArgumentError(
+            "DataFrame(CableDesign, :baseparams) no longer performs a calculation; create a CableConstantsProblem, call compute!, then render DataFrame(constants)",
+        ))
     elseif format == :components
         # Component-level properties
         properties = [
@@ -187,11 +131,24 @@ function DataFrame(
         end
     else
         Base.error(
-            "Unsupported format: $format. Use :baseparams, :components, or :detailed",
+            "Unsupported format: $format. Use :components or :detailed",
         )
     end
 
     return data
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Render already-computed cable constants without performing a calculation.
+"""
+function DataFrame(constants::CableConstants)::DataFrame
+    return DataFrame(
+        parameter=["R", "L", "C"],
+        value=[constants.R, constants.L, constants.C],
+        unit=["Ω/m", "H/m", "F/m"],
+    )
 end
 
 """

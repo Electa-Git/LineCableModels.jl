@@ -1,73 +1,103 @@
-# Use lib/material nominal; kw is either percent-only or (value,pct)
-function _pair_from_nominal(nom, x)
-    x === nothing ? (nom, nothing) :
-    (x isa Tuple && length(x)==2) ? x :
-    (nom, x)
+@gridspace Materials.Material @relax struct MaterialParameters{T<:Real}
+    rho::T
+    eps_r::T=1.0
+    mu_r::T=1.0
+    T0::T=20.0
+    alpha::T=0.0
 end
-
-# -------------------- material spec --------------------
 
 """
-MaterialSpec: pass specs for fields (value spec + optional %unc)
+$(TYPEDSIGNATURES)
 
-Example:
-  MaterialSpec(; rho=(2.826e-8, nothing),
-                 eps_r=(1.0, nothing),
-                 mu_r=(1.0, nothing),
-                 T0=(20.0, nothing),
-                 alpha=(4.0e-3, nothing))
+Construct electromagnetic and thermal material properties. Scalar property
+inputs return a [`Material`](@ref) directly. An explicit [`Grid`](@ref) or
+numeric [`AbstractSpec`](@ref) lifts the same declaration to a
+[`Gridspace{Material}`](@ref).
+
+# Keywords
+
+- `rho`: Electrical resistivity \\[Ω·m\\].
+- `eps_r=1.0`: Relative permittivity \\[dimensionless\\].
+- `mu_r=1.0`: Relative permeability \\[dimensionless\\].
+- `T0=20.0`: Reference temperature \\[°C\\].
+- `alpha=0.0`: Temperature coefficient of resistivity \\[1/°C\\].
+- `combine=:product`: Local composition rule when an input varies.
+
+# Returns
+
+- A [`Material`](@ref) for scalar inputs, or a [`Gridspace{Material}`](@ref)
+  when at least one input is a `Grid` or `AbstractSpec`.
 """
-struct MaterialSpec
-    rho::Any
-    eps_r::Any
-    mu_r::Any
-    T0::Any
-    alpha::Any
-end
-MaterialSpec(; rho, eps_r, mu_r, T0, alpha) = MaterialSpec(rho, eps_r, mu_r, T0, alpha)
-
-# --- 1) Ad-hoc numeric: values (or (value,pct)) ---
-function Material(; rho, eps_r = 1.0, mu_r = 1.0, T0 = 20.0, alpha = 0.0)
-    MaterialSpec(
-        rho = _spec(rho),
-        eps_r = _spec(eps_r),
-        mu_r = _spec(mu_r),
-        T0 = _spec(T0),
-        alpha = _spec(alpha)
-    )
-end
-
-# --- 2) From an existing Material: append %unc by default, or override with (value,pct) ---
-function Material(
-        m::Materials.Material;
-        rho = nothing,
-        eps_r = nothing,
-        mu_r = nothing,
-        T0 = nothing,
-        alpha = nothing
+function Material(;
+    rho,
+    eps_r=1.0,
+    mu_r=1.0,
+    T0=20.0,
+    alpha=0.0,
+    combine::Symbol=:product,
 )
-    MaterialSpec(
-        rho = _pair_from_nominal(m.rho, rho),
-        eps_r = _pair_from_nominal(m.eps_r, eps_r),
-        mu_r = _pair_from_nominal(m.mu_r, mu_r),
-        T0 = _pair_from_nominal(m.T0, T0),
-        alpha = _pair_from_nominal(m.alpha, alpha)
-    )
+    combine in (:product, :zip) ||
+        throw(ArgumentError("combine must be :product or :zip; got :$combine"))
+    values = (rho, eps_r, mu_r, T0, alpha)
+    any(value -> value isa Union{AbstractGrid,AbstractSpec}, values) &&
+        return MaterialParameters(; rho, eps_r, mu_r, T0, alpha, combine)
+    return Materials.Material(rho, eps_r, mu_r, T0, alpha)
 end
 
-# --- 3) From a MaterialsLibrary + name ---
-function Material(lib::Materials.MaterialsLibrary, name::AbstractString; kwargs...)
-    Material(get(lib, name); kwargs...)
-end
-function Material(lib::Materials.MaterialsLibrary, name::Symbol; kwargs...)
-    Material(lib, String(name); kwargs...)
+function Material(
+    material::Materials.Material;
+    rho=material.rho,
+    eps_r=material.eps_r,
+    mu_r=material.mu_r,
+    T0=material.T0,
+    alpha=material.alpha,
+    combine::Symbol=:product,
+)
+    return Material(; rho, eps_r, mu_r, T0, alpha, combine)
 end
 
-function _make_range(ms::MaterialSpec)
-    ρs = _make_range(ms.rho[1]; pct = ms.rho[2])
-    εs = _make_range(ms.eps_r[1]; pct = ms.eps_r[2])
-    μs = _make_range(ms.mu_r[1]; pct = ms.mu_r[2])
-    Ts = _make_range(ms.T0[1]; pct = ms.T0[2])
-    αs = _make_range(ms.alpha[1]; pct = ms.alpha[2])
-    [Materials.Material(ρ, ε, μ, T, α) for (ρ, ε, μ, T, α) in product(ρs, εs, μs, Ts, αs)]
+function Material(
+    library::Materials.MaterialsLibrary,
+    name::Union{AbstractString,Symbol};
+    kwargs...,
+)
+    material = get(library, String(name), nothing)
+    material === nothing && throw(KeyError(String(name)))
+    return Material(material; kwargs...)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Add the single deterministic material described by `spec` to a
+[`LineCableModels.MaterialsLibrary`](@ref). The specification is materialized
+through the same [`Gridspace`](@ref) grammar used by the cable builder.
+
+# Arguments
+
+- `library`: Material library to modify.
+- `name`: Material key.
+- `spec`: Deterministic parameterized material specification.
+
+# Returns
+
+- The modified material library.
+
+# Errors
+
+- Throws `ArgumentError` when `spec` contains uncertainty or describes more
+  than one material configuration.
+"""
+function add!(
+    library::Materials.MaterialsLibrary,
+    name::Union{AbstractString,Symbol},
+    spec::AbstractSpec{Materials.Material},
+)
+    has_uncertainty(spec) && throw(ArgumentError(
+        "a reusable material-library entry must be deterministic",
+    ))
+    length(spec) == 1 || throw(ArgumentError(
+        "a reusable material-library entry must describe exactly one material; got $(length(spec)) configurations",
+    ))
+    return add!(library, String(name), only(spec))
 end

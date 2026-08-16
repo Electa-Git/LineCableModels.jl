@@ -78,9 +78,14 @@ InsulatorGroup(ins::AbstractInsulatorPart{T}) where {T} = InsulatorGroup{T}(ins)
 """
 $(TYPEDSIGNATURES)
 
-Adds a new part to an existing [`InsulatorGroup`](@ref) object and updates its equivalent electrical parameters.
+Add a new part to an [`InsulatorGroup`](@ref) and update its equivalent
+electrical parameters.
 
-# Behavior:
+This updates `shunt_capacitance`, `shunt_conductance`, `r_ex`, and
+`cross_section`. The new part inner radius defaults to the external radius of
+the existing group.
+
+# Behavior
 
 1. Apply part-level keyword defaults (from `Validation.keyword_defaults`).
 2. Default `r_in` to `group.r_ex` if absent.
@@ -96,25 +101,34 @@ Adds a new part to an existing [`InsulatorGroup`](@ref) object and updates its e
 
 # Returns
 
-- The function modifies the [`InsulatorGroup`](@ref) instance in place and does not return a value.
-
-# Notes
-
-- Updates `shunt_capacitance`, `shunt_conductance`, `r_ex`, and `cross_section` to account for the new part.
-- The `r_in` of the new part defaults to the external radius of the existing insulator group if not specified.
+- The updated [`InsulatorGroup`](@ref). This is `group` when its numeric type
+  is unchanged, or a promoted group when the new part requires another numeric
+  type.
 
 !!! warning "Note"
-    - When an [`AbstractCablePart`](@ref) is provided as `r_in`, the constructor retrieves its `r_ex` value, allowing the new cable part to be placed directly over the existing part in a layered cable design.
-    - For uncertain geometries, the preceding part's outer-radius derivative graph
-      is retained. Adjacent layers therefore share one physical boundary and
-      cumulative-radius covariance is preserved across different part types.
+    - The current outer radius is supplied automatically as `r_in`. Pass
+      exactly one of `radius` or `thickness`; do not pass a layer object as a
+      constructor input.
+    - For uncertain geometries, the existing outer-radius derivative graph is
+      retained. Adjacent layers therefore share one physical boundary and
+      cumulative-radius covariance is preserved across part types.
 
 # Examples
 
-```julia
-material_props = Material(1e10, 3.0, 1.0, 20.0, 0.0)
-insulator_group = InsulatorGroup(Insulator(0.01, 0.015, material_props))
-$(FUNCTIONNAME)(insulator_group, Semicon, 0.015, 0.018, material_props)
+```jldoctest
+using LineCableModels.DataModel: Insulator, InsulatorGroup, Semicon
+using LineCableModels.Materials: Material
+
+material = Material(1e10, 3.0, 1.0, 20.0, 0.0)
+insulator_group = InsulatorGroup(Insulator(0.01, 0.015, material))
+insulator_group = $(FUNCTIONNAME)(
+    insulator_group,
+    Semicon,
+    material;
+    thickness=0.003,
+)
+@assert length(insulator_group.layers) == 2
+# output
 ```
 
 """
@@ -133,19 +147,21 @@ function add!(
     rin = get(kwv, :r_in, group.r_ex)
     kwv = haskey(kwv, :r_in) ? kwv : merge(kwv, (; r_in = rin))
 
+    part_args, kwv = _resolve_group_radial_args(C, rin, args, kwv)
+
     # 3) Decide target numeric type using *current group + raw inputs + f*
-    Tnew = resolve_T(group, rin, args..., values(kwv)..., f)
+    Tnew = resolve_T(group, rin, part_args..., values(kwv)..., f)
 
     if Tnew === T
         # 4a) Fast path: mutate in place
-        return _do_add!(group, C, args...; f, kwv...)
+        return _do_add!(group, C, part_args...; f, kwv...)
     else
         @warn """
           Adding a `$Tnew` part to an `InsulatorGroup{$T}` returns a **promoted** group.
           Capture the result:  group = add!(group, $C, …)
           """
         promoted = coerce_to_T(group, Tnew)
-        return _do_add!(promoted, C, args...; f, kwv...)
+        return _do_add!(promoted, C, part_args...; f, kwv...)
     end
 end
 
@@ -170,13 +186,26 @@ function _do_add!(
     # Materialize keyword args into a NamedTuple
     kw = (; kwargs...)
 
-    # Validate + parse with the part’s own pipeline (proxies resolved here)
+    # Validate and parse with the part's own numeric input sequence.
     ntv = Validation.validate!(C, kw.r_in, args...; kw...)
 
     # Build argument order and coerce validated values to group’s T
     order = (Validation.required_fields(C)..., Validation.keyword_fields(C)...)
     coerced = _coerced_args(C, ntv, Tg, order)   # respects coercive_fields(C)
     new_part = C(coerced...)                      # call strict numeric core
+
+    return _append_insulator!(group, new_part; f)
+end
+
+function _append_insulator!(
+    group::InsulatorGroup{Tg},
+    new_part::AbstractInsulatorPart{Tg};
+    f::Number=f₀,
+) where {Tg}
+    isapprox(new_part.r_in, group.r_ex) || throw(ArgumentError(
+        "new insulator layer must start at the group's current outer radius " *
+        "$(group.r_ex); got $(new_part.r_in)",
+    ))
 
     # Parallel admittances at frequency f
     ω = Tg(2π) * coerce_to_T(f, Tg)
@@ -192,6 +221,23 @@ function _do_add!(
 
     push!(group.layers, new_part)
     return group
+end
+
+function add!(
+    group::InsulatorGroup{T},
+    new_part::AbstractInsulatorPart{U};
+    f::Number=f₀,
+) where {T,U}
+    target_type = resolve_T(group, new_part, f)
+    if target_type === T
+        return _append_insulator!(group, coerce_to_T(new_part, T); f)
+    end
+    promoted = coerce_to_T(group, target_type)
+    return _append_insulator!(
+        promoted,
+        coerce_to_T(new_part, target_type);
+        f=coerce_to_T(f, target_type),
+    )
 end
 
 include("insulatorgroup/base.jl")

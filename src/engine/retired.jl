@@ -1,13 +1,13 @@
-function FormulationSet(::Val{:FEM}; kwargs...)
-    retired_fem_sector("FormulationSet(:FEM)")
+function Formulation(::Val{:FEM}; kwargs...)
+    retired_fem_sector("Formulation(:FEM)")
 end
 
 module FEM
 
 import ...Commons: retired_fem_sector
-import ...Engine: FormulationSet
+import ...Engine: Formulation
 
-export Darwin, Electrodynamics, FormulationSet, MeshTransition, calc_domain_size,
+export Darwin, Electrodynamics, Formulation, MeshTransition, calc_domain_size,
        preview_results
 
 Darwin(args...; kwargs...) = retired_fem_sector("Darwin")

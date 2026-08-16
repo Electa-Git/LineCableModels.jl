@@ -131,15 +131,6 @@ function _serialize_value(value)
     if isnothing(value)
         return nothing
 
-    elseif value isa Measurements.Measurement
-        v = Measurements.value(value)
-        u = Measurements.uncertainty(value)
-        return Dict(
-            "__type__" => "Measurement",
-            "value" => _serialize_value(v),
-            "uncertainty" => _serialize_value(u)
-        )
-
     elseif value isa Number && !isfinite(value)
         # Inf / -Inf / NaN stay tagged
         local val_str

@@ -3,7 +3,7 @@
     @testset "Basic Functionality" begin
         # Example from docstring
         material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
-        strip = Strip(0.01, Thickness(0.002), 0.05, 10, material_props)
+        strip = Strip(0.01, 0.05, 10, material_props; thickness=0.002)
         circstrands = CircStrands(0.02, 0.002, 7, 15, material_props)
         gmr_eq = calc_equivalent_gmr(strip, circstrands)
         @test gmr_eq > 0

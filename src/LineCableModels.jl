@@ -9,31 +9,25 @@ export Z, Y, R, X, L, G, B, C
 export series_impedance, shunt_admittance,
        resistance, reactance, inductance,
        conductance, susceptance, capacitance
-export ParametricSweep, cases, results, ncases
+# High-level modeling grammar:
+export Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGrid
+export AbstractGrid, AbstractUncertainGrid, UncertainValue
+export AbstractSpec, Gridspace, Configuration, configurations, materialize
+export has_uncertainty, configuration_manifest, nominal, standard_uncertainty
+export Material, MaterialsLibrary, Conductor, Insulator, CableBuilder
+export at, trifoil, hflat, vflat, Earth, SystemBuilder
+export make_stranded, make_screened
 
-# Materials:
-export Material, MaterialsLibrary
-
-# Data model (design + system):
-export Thickness, Diameter, WireArray, Strip, Tubular, Semicon, Insulator, Sector,
-       SectorParams, SectorInsulator
-export ConductorGroup, InsulatorGroup
-export CableComponent, CableDesign, CableConstants, NominalData
-export CablesLibrary
-export CablePosition, LineCableSystem
-export trifoil_formation, flat_formation, preview, equivalent, MaxFill
-
-# Earth properties:
-export EarthModel
+# Materialized results, reusable designs, and presentation:
+export CableConstants, CableConstantsProblem, LineParameters, CablesLibrary, preview
 
 # Engine:
-export LineParametersProblem,
-       FormulationSet, compute!, SeriesImpedance, ShuntAdmittance, kronify,
+export Formulation, compute!, SeriesImpedance, ShuntAdmittance, kronify,
        LineParameters, PhaseDomain, ModalDomain
-
-# Parametric builder:
-# export make_stranded, make_screened
-# export conductor, insulator
+export Fortescue
+export FullParametric, MonteCarlo, FullParametricResult, MonteCarloResult
+export CalculationManifest, ConfigurationFailure, SampleSummary, HistogramPDF, RLCG
+export result, statistics, samples, histograms, uncertain_value, manifest
 
 # Import/Export:
 export export_data, save, load!
@@ -49,9 +43,6 @@ using .Commons: IMPORTS, EXPORTS, add!, PhaseDomain, ModalDomain, domain,
                 resistance, reactance, inductance,
                 conductance, susceptance, capacitance,
                 frequencies, nconductors, nfrequencies
-# Submodule `UncertainBessels`
-include("uncertainbessels/UncertainBessels.jl")
-
 # Submodule `Utils`
 include("utils/Utils.jl")
 using .Utils: set_verbosity!
@@ -70,49 +61,43 @@ export UIPlot, export_svg
 
 # Submodule `Materials`
 include("materials/Materials.jl")
+import .Materials
 using .Materials: Material, MaterialsLibrary
 
 # Submodule `EarthProps`
 include("earthprops/EarthProps.jl")
-using .EarthProps: EarthModel
+import .EarthProps
 
 # Submodule `DataModel`
 include("datamodel/DataModel.jl")
-using .DataModel: Thickness, Diameter, CircStrands, RectStrands, Strip, Tubular, Semicon,
-                  Insulator, ConductorGroup, InsulatorGroup, CableComponent, CableDesign,
-                  CableConstants,
-                  NominalData,
-                  CablesLibrary, CablePosition, LineCableSystem, trifoil_formation,
-                  flat_formation,
-                  preview, equivalent, MaxFill, Sector, SectorParams,
-                  SectorInsulator
+using .DataModel: CableConstants, CablesLibrary, preview
 
 # Submodule `Engine`
 include("engine/Engine.jl")
-using .Engine: LineParametersProblem, compute!, LineParameters, SeriesImpedance,
-               ShuntAdmittance, kronify, FormulationSet
+using .Engine: compute!, LineParameters, SeriesImpedance,
+               ShuntAdmittance, kronify, Formulation, CableConstantsProblem
+using .Engine.Transforms: Fortescue
 
 # Submodule `ParametricBuilder`
 include("parametricbuilder/ParametricBuilder.jl")
-using .ParametricBuilder: ParametricSweep, cases, results, ncases
+using .ParametricBuilder:
+    Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGrid,
+    AbstractGrid, AbstractUncertainGrid, UncertainValue,
+    AbstractSpec, Gridspace, Configuration, configurations, materialize,
+    has_uncertainty, configuration_manifest, nominal, standard_uncertainty,
+    Conductor, Insulator, CableBuilder,
+    at, trifoil, hflat, vflat, Earth, SystemBuilder,
+    make_stranded, make_screened
 
-# Submodule `UQ`
-include("uq/UQ.jl")
-using .UQ: SampleSummary, RLCG, HistogramPDF, CableConstantsMC, LineParametersMC,
-           sample, trial, mc, statistics, has_samples, samples,
-           has_distributions, distribution, surrogate, ntrials, confidence,
-           mean, std, quantile
-export SampleSummary, RLCG, HistogramPDF, CableConstantsMC, LineParametersMC,
-       sample, trial, mc, statistics, has_samples, samples,
-       has_distributions, distribution, surrogate, ntrials, confidence,
-       mean, std, quantile
+# Unified Gridspace computation policies and typed result grammar.
+include("computation/Computation.jl")
+using .Computation:
+    FullParametric, MonteCarlo, FullParametricResult, MonteCarloResult,
+    CalculationManifest, ConfigurationFailure, SampleSummary, HistogramPDF, RLCG,
+    result, statistics, samples, histograms, uncertain_value, manifest
 
 # Submodule `ImportExport`
 include("importexport/ImportExport.jl")
 using .ImportExport: export_data, load!, save
-
-# Aliases for backward compatibility
-const WireArray = CircStrands  # alias for now
-export WireArray  # export aliases
 
 end

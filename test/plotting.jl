@@ -45,52 +45,53 @@
         )
 
         rlcg = Makie.plot(
-            parameters;
-            mode = :RLCG,
+            parameters,
+            (R, L, G, C);
             backend = :cairo,
             display_plot = false,
             open_export = false
         )
         cartesian = Makie.plot(
             parameters;
-            mode = :ZY,
-            coord = :cart,
             backend = :cairo,
             display_plot = false
         )
         polar = Makie.plot(
-            parameters;
-            mode = :ZY,
-            coord = :polar,
+            parameters,
+            (abs, angle);
             backend = :cairo,
             display_plot = false
         )
         @test rlcg isa Vector{UIPlot}
         @test cartesian isa Vector{UIPlot}
         @test polar isa Vector{UIPlot}
-        @test length(rlcg) == 4
-        @test length(cartesian) == 4
-        @test length(polar) == 4
+        @test length(rlcg) == 2
+        @test length(cartesian) == 2
+        @test length(polar) == 2
+        @test all(handle -> length(handle.panels) == 2, cartesian)
+        @test all(handle -> length(handle.panels) == 2, polar)
+        @test all(handle -> length(handle.panels) == 2, rlcg)
         @test rlcg[1].context !== rlcg[2].context
         @test rlcg[1].context.status !== rlcg[2].context.status
         series_plots = Makie.plot(
-            parameters.Z,
+            Z(parameters),
             frequency;
-            mode = :ZY,
             backend = :cairo,
             display_plot = false
         )
         shunt_plots = Makie.plot(
-            parameters.Y,
-            frequency;
-            mode = :RLCG,
+            Y(parameters),
+            frequency,
+            (G, C);
             backend = :cairo,
             display_plot = false
         )
         @test series_plots isa Vector{UIPlot}
         @test shunt_plots isa Vector{UIPlot}
-        @test length(series_plots) == 2
-        @test length(shunt_plots) == 2
+        @test length(series_plots) == 1
+        @test length(shunt_plots) == 1
+        @test length(only(series_plots).panels) == 2
+        @test length(only(shunt_plots).panels) == 2
         test_golden(first(rlcg), "line_rlcg")
         test_golden(first(cartesian), "line_zy_cartesian")
         test_golden(first(polar), "line_zy_polar")
@@ -105,18 +106,18 @@
             frequency
         )
         measurement_plots = Makie.plot(
-            measurement_parameters;
-            mode = :RLCG,
+            measurement_parameters,
+            (R, L, G, C);
             backend = :cairo,
             display_plot = false
         )
         measurement_plot = first(measurement_plots)
-        @test length(only(measurement_plot.panels).plots) >
-              length(only(measurement_plot.page.views).series)
+        @test length(first(measurement_plot.panels).plots) >
+              length(first(measurement_plot.page.views).series)
         test_golden(measurement_plot, "line_measurements")
 
-        measurement_conductance = measurement_plots[3]
-        measurement_conductance_axis = only(measurement_conductance.panels).axis
+        measurement_conductance = measurement_plots[2]
+        measurement_conductance_axis = first(measurement_conductance.panels).axis
         measurement_limits = measurement_conductance_axis.finallimits[]
         measurement_ymin = measurement_limits.origin[2]
         measurement_ymax = measurement_ymin + measurement_limits.widths[2]
@@ -140,7 +141,7 @@
         @test handle.controls[:reset].buttoncolor[] == Makie.RGBf(0.94, 0.94, 0.94)
         @test occursin("\\ue5d5", sprint(show, handle.controls[:reset].label[]))
         @test occursin("\\ue161", sprint(show, handle.controls[:export_svg].label[]))
-        line_axis = only(handle.panels).axis
+        line_axis = first(handle.panels).axis
         initial_line_limits = line_axis.finallimits[]
         initial_xlabel = line_axis.xlabel[]
         handle.controls[:xlog].active[] = true
@@ -161,8 +162,11 @@
         legend = handle.controls[:legend]
         first_entry = first(last(first(legend.entrygroups[])))
         Makie.toggle_visibility!(first_entry)
-        @test any(plot_object -> !plot_object.visible[], only(handle.panels).plots)
-        Makie.xlims!(only(handle.panels).axis, 100.0, 300.0)
+        @test any(
+            plot_object -> !plot_object.visible[],
+            Iterators.flatten(panel.plots for panel in handle.panels),
+        )
+        Makie.xlims!(first(handle.panels).axis, 100.0, 300.0)
         ui_components = Base.get_extension(
             LineCableModels,
             :LineCableModelsMakieExt
@@ -181,17 +185,20 @@
         @test publication_export_theme[:Axis][:titlesize][] == 15
         @test publication_export_theme[:Axis][:xticklabelsize][] == 14
         current_page = ui_components._current_page(handle)
-        current_view = only(current_page.views)
+        current_view = first(current_page.views)
         @test current_view.xaxis.scale === :log10
         @test current_view.yaxis.scale === :log10
         @test any(series -> !series.visible, current_view.series)
         @test current_view.limits !== nothing
         @test collect(current_view.limits[1]) ≈ [100.0, 300.0]
         Makie.toggle_visibility!(first_entry)
-        @test all(plot_object -> plot_object.visible[], only(handle.panels).plots)
+        @test all(
+            plot_object -> plot_object.visible[],
+            Iterators.flatten(panel.plots for panel in handle.panels),
+        )
 
         susceptance_handle = last(cartesian)
-        susceptance_axis = only(susceptance_handle.panels).axis
+        susceptance_axis = last(susceptance_handle.panels).axis
         @test susceptance_axis.ylabel[] isa Makie.RichText
         @test occursin("−3", sprint(show, susceptance_axis.ylabel[]))
         initial_susceptance_limits = susceptance_axis.finallimits[]
@@ -218,8 +225,8 @@
         @test susceptance_axis.ylabel[] isa Makie.RichText
         @test susceptance_axis.finallimits[] == initial_susceptance_limits
 
-        conductance_handle = rlcg[3]
-        conductance_axis = only(conductance_handle.panels).axis
+        conductance_handle = rlcg[2]
+        conductance_axis = first(conductance_handle.panels).axis
         conductance_handle.controls[:ylog].active[] = true
         conductance_limits = conductance_axis.finallimits[]
         @test conductance_limits.origin[2] == 1.0e-6
@@ -234,7 +241,8 @@
         @test conductance_ticks == [1.0e-6, 1.0e-5]
         @test all(label -> label isa Makie.RichText, conductance_labels)
 
-        capacitance_axis = only(rlcg[4].panels).axis
+        conductance_handle.controls[:ylog].active[] = false
+        capacitance_axis = last(rlcg[2].panels).axis
         capacitance_limits = capacitance_axis.finallimits[]
         @test capacitance_limits.origin[2] == 0.38
         @test capacitance_limits.origin[2] + capacitance_limits.widths[2] ≈ 0.42
@@ -267,7 +275,7 @@
                 @test first_default != second_default
                 @test dirname(first_default) == directory
                 @test occursin(
-                    r"^series_resistance_\d{8}_\d{6}(?:_\d+)?\.svg$",
+                    r"^series_impedance_\d{8}_\d{6}(?:_\d+)?\.svg$",
                     basename(first_default)
                 )
                 @test occursin("rgb(100%, 100%, 100%)", read(first_default, String))
@@ -295,31 +303,32 @@
         rm(fallback_export)
 
         summary = SampleSummary([1.0, 2.0, 3.0, 4.0])
-        distribution_model = HistogramPDF([1.0, 3.0, 5.0], [0.25, 0.25])
-        mc_result = CableConstantsMC(
+        histogram = HistogramPDF([1.0, 3.0, 5.0], [0.25, 0.25])
+        mc_result = MonteCarloResult(
+            CableConstants(2.5, 2.5, 2.5),
             CableConstants(summary, summary, summary),
             CableConstants(
                 [1.0, 2.0, 3.0, 4.0],
                 [1.0, 2.0, 3.0, 4.0],
-                [1.0, 2.0, 3.0, 4.0]
+                [1.0, 2.0, 3.0, 4.0],
             ),
-            CableConstants(distribution_model, distribution_model, distribution_model),
-            CableConstants(
-                measurement(2.5, 0.0),
-                measurement(2.5, 0.0),
-                measurement(2.5, 0.0)
-            ),
+            CableConstants(histogram, histogram, histogram),
+            nothing,
             4,
-            0.95
+            0.95,
+            0.02,
+            :normal,
+            UInt64(1),
+            (hash="plot-fixture",),
         )
         for mode in (:hist, :pdf, :ecdf, :qq)
             mc_plot = Makie.plot(
                 mc_result,
                 :R;
                 mode,
-                data = :both,
-                backend = :cairo,
-                display_plot = false
+                data=:both,
+                backend=:cairo,
+                display_plot=false,
             )
             @test mc_plot isa UIPlot
             @test !haskey(mc_plot.controls, :xlog)
@@ -329,47 +338,52 @@
 
         line_samples = reshape(collect(1.0:12.0), 1, 1, 3, 4)
         summarize(values) = map(
-            index -> SampleSummary(view(values, index.I..., :)),
-            CartesianIndices(size(values)[1:3])
+            index -> SampleSummary(collect(view(values, index.I..., :))),
+            CartesianIndices(size(values)[1:3]),
         )
         line_statistics = RLCG(
             summarize(line_samples),
             summarize(line_samples .* 1.0e-3),
             summarize(line_samples .* 1.0e-6),
-            summarize(line_samples .* 1.0e-4)
+            summarize(line_samples .* 1.0e-4),
         )
-        line_distributions = RLCG(
-            fill(distribution_model, 1, 1, 3),
-            fill(distribution_model, 1, 1, 3),
-            fill(distribution_model, 1, 1, 3),
-            fill(distribution_model, 1, 1, 3)
+        line_histograms = RLCG(
+            fill(histogram, 1, 1, 3),
+            fill(histogram, 1, 1, 3),
+            fill(histogram, 1, 1, 3),
+            fill(histogram, 1, 1, 3),
         )
-        line_mc = LineParametersMC(
+        line_mc = MonteCarloResult(
+            LineParameters(
+                Z(parameters)[1:1, 1:1, :],
+                Y(parameters)[1:1, 1:1, :],
+                frequency,
+            ),
             line_statistics,
             RLCG(
                 line_samples,
                 line_samples .* 1.0e-3,
                 line_samples .* 1.0e-6,
-                line_samples .* 1.0e-4
+                line_samples .* 1.0e-4,
             ),
-            line_distributions,
-            LineParameters(
-                measurement_parameters.Z.values[1:1, 1:1, :],
-                measurement_parameters.Y.values[1:1, 1:1, :],
-                frequency
-            ),
+            line_histograms,
+            nothing,
             4,
-            0.95
+            0.95,
+            0.02,
+            :normal,
+            UInt64(2),
+            (hash="line-plot-fixture",),
         )
         for mode in (:hist, :pdf, :ecdf, :qq)
             line_mc_plot = Makie.plot(
                 line_mc,
                 :R;
-                ijk = (1, 1, 2),
+                ijk=(1, 1, 2),
                 mode,
-                data = :both,
-                backend = :cairo,
-                display_plot = false
+                data=:both,
+                backend=:cairo,
+                display_plot=false,
             )
             @test line_mc_plot isa UIPlot
             @test line_mc_plot.page.key.selection == (1, 1, 2)
@@ -519,7 +533,8 @@
         colorbar_box = colorbar.layoutobservables.computedbbox[]
         @test legend.halign[] === :left
         @test legend_box.origin[1] ≈ colorbar_box.origin[1] atol = 1
-        @test legend_box.widths[1] ≈ colorbar_box.widths[1] atol = 1
+        @test legend_box.widths[1] ≈ ui_components.LEGEND_DOCK_WIDTH atol = 1
+        @test colorbar_box.widths[1] ≈ ui_components.COLORBAR_WIDTH atol = 1
         line_method = which(
             ui_components.draw!,
             (

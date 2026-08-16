@@ -2,6 +2,8 @@ if lowercase(get(ENV, "LINECABLEMODELS_UPDATE_PLOT_REFERENCES", "false")) == "tr
     using LineCableModels
     using CairoMakie
     using Measurements: measurement
+    using LineCableModels.DataModel: CablePosition, LineCableSystem
+    using LineCableModels.EarthProps: EarthModel
 
     include("custom_layout_fixture.jl")
 
@@ -27,17 +29,15 @@ if lowercase(get(ENV, "LINECABLEMODELS_UPDATE_PLOT_REFERENCES", "false")) == "tr
 
     save_reference(
         "line_rlcg",
-        first(plot(parameters; mode = :RLCG, backend = :cairo, display_plot = false))
+        first(plot(parameters, (R, L, G, C); backend = :cairo, display_plot = false))
     )
     save_reference(
         "line_zy_cartesian",
-        first(plot(
-            parameters; mode = :ZY, coord = :cart, backend = :cairo, display_plot = false))
+        first(plot(parameters; backend = :cairo, display_plot = false))
     )
     save_reference(
         "line_zy_polar",
-        first(plot(
-            parameters; mode = :ZY, coord = :polar, backend = :cairo, display_plot = false))
+        first(plot(parameters, (abs, angle); backend = :cairo, display_plot = false))
     )
 
     measurement_parameters = LineParameters(
@@ -49,26 +49,32 @@ if lowercase(get(ENV, "LINECABLEMODELS_UPDATE_PLOT_REFERENCES", "false")) == "tr
     )
     save_reference(
         "line_measurements",
-        first(plot(measurement_parameters; mode = :RLCG, backend = :cairo, display_plot = false))
+        first(plot(
+            measurement_parameters,
+            (R, L, G, C);
+            backend = :cairo,
+            display_plot = false,
+        ))
     )
 
     summary = SampleSummary([1.0, 2.0, 3.0, 4.0])
-    distribution_model = HistogramPDF([1.0, 3.0, 5.0], [0.25, 0.25])
-    mc_result = CableConstantsMC(
+    histogram = HistogramPDF([1.0, 3.0, 5.0], [0.25, 0.25])
+    mc_result = MonteCarloResult(
+        CableConstants(2.5, 2.5, 2.5),
         CableConstants(summary, summary, summary),
         CableConstants(
             [1.0, 2.0, 3.0, 4.0],
             [1.0, 2.0, 3.0, 4.0],
-            [1.0, 2.0, 3.0, 4.0]
+            [1.0, 2.0, 3.0, 4.0],
         ),
-        CableConstants(distribution_model, distribution_model, distribution_model),
-        CableConstants(
-            measurement(2.5, 0.0),
-            measurement(2.5, 0.0),
-            measurement(2.5, 0.0)
-        ),
+        CableConstants(histogram, histogram, histogram),
+        nothing,
         4,
-        0.95
+        0.95,
+        0.02,
+        :normal,
+        UInt64(1),
+        (hash="reference-fixture",),
     )
     for mode in (:hist, :pdf, :ecdf, :qq)
         save_reference(
@@ -77,10 +83,10 @@ if lowercase(get(ENV, "LINECABLEMODELS_UPDATE_PLOT_REFERENCES", "false")) == "tr
                 mc_result,
                 :R;
                 mode,
-                data = :both,
-                backend = :cairo,
-                display_plot = false
-            )
+                data=:both,
+                backend=:cairo,
+                display_plot=false,
+            ),
         )
     end
 

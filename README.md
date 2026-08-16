@@ -17,6 +17,9 @@ material data.
 - Frequency-dependent series impedance and shunt admittance calculations.
 - Earth-return, modal transformation, ATPDraw, and PSCAD integration.
 - Material and cable libraries with JSON import and export.
+- One typed `Grid`/`Gridspace` grammar for deterministic and uncertain designs.
+- Ordinary, full-parametric, and conditional Monte Carlo execution through
+  `compute!`.
 - Optional Makie plotting through explicit backend extensions.
 
 ## Installation
@@ -39,6 +42,29 @@ Core usage has no plotting dependency:
 using LineCableModels
 ```
 
+The default modeling API is declarative:
+
+```julia
+copper = Material(; rho=1.7241e-8)
+xlpe = Material(; rho=1.97e14, eps_r=2.5)
+
+design = CableBuilder(
+    "example",
+    Conductor.Solid(:core; radius=10e-3, material=copper),
+    Insulator.Tubular(:core; thickness=8e-3, material=xlpe),
+    Conductor.Tubular(:screen; thickness=1e-3, material=copper),
+    Insulator.Tubular(:screen; thickness=2e-3, material=xlpe),
+)
+
+constants = compute!(CableConstantsProblem(only(design)), Formulation())
+```
+
+`Material` is the materialized type as well as the public declarative
+constructor: scalar keywords return one material, while explicit `Grid` inputs
+return a `Gridspace{Material}`. The stricter cable and system constructors
+remain available from explicit submodules such as `LineCableModels.DataModel`
+and `LineCableModels.EarthProps`.
+
 ## Optional plotting
 
 Load one Makie backend explicitly before calling `preview`, `plot`, or
@@ -55,14 +81,14 @@ export_svg(first(plots); path = "series_resistance.svg")
 ```
 
 `GLMakie` and `WGLMakie` are supported in the same way. LineCableModels
-never imports or selects a backend dynamically. `preview` and Monte Carlo
-distribution plots return one `UIPlot`; line-parameter plots always return a
+never imports or selects a backend dynamically. `preview` returns one `UIPlot`;
+line-parameter plots always return a
 `Vector{UIPlot}`. The Export SVG control preserves the current declarative plot
 state and requires CairoMakie to have been loaded explicitly.
 
 ## Result access
 
-`CableConstants` stores canonical per-metre R/L/C values. `LineParameters`
+`CableConstants` stores R/L/C values per metre. `LineParameters`
 stores its frequency domain and either a `:per_length` or `:total` basis:
 
 ```julia
@@ -72,10 +98,21 @@ Z(line_parameters, 1, 1, 2:5) # selected frequency samples
 abs.(Z(line_parameters, 1, 1))
 ```
 
-Monte Carlo results use first-class `CableConstantsMC` and `LineParametersMC`
-containers. Use `statistics`, `mean`, `std`, `quantile`, `samples`, `trial`,
-`distribution`, and `surrogate`; joint `trial`/`rand` calls require retained
-samples.
+Complete parameter traversals return `FullParametricResult{T}`. One conditional
+Monte Carlo analysis returns `MonteCarloResult{T}`; multiple outer
+configurations therefore return
+`FullParametricResult{MonteCarloResult{T}}`. Use `statistics`, `samples`,
+`histograms`, `uncertain_value`, and `manifest` to inspect the analysis.
+`DataFrame(monte_carlo_result)` renders marginal summaries, while
+`plot(monte_carlo_result, :R; mode=:hist, data=:both)` and the `:pdf`, `:ecdf`,
+and `:qq` modes display retained distribution information after a Makie package
+is loaded.
+
+Physics and numerical-method choices belong to `Formulation`; execution choices
+belong to `ComputeOptions`. For a materialized line system, pass
+`options=(output_basis=:total,)` to `compute!` to scale both Z and Y by the line
+length. The same formulation can be reused for ordinary, full-parametric, and
+Monte Carlo runs.
 
 ## Retired FEM and sector support
 

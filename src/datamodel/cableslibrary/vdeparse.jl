@@ -72,7 +72,7 @@ const MAP = Dict{Symbol, Dict{String, String}}(
     )
 )
 
-# Canonical order of appearance within the stub
+# Expected order of appearance within the stub
 const ORDER = [
     :designation,
     :conductor,

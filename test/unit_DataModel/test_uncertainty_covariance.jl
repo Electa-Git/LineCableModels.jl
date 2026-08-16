@@ -43,9 +43,9 @@ end
     insulation_thickness = measurement(0.01, 0.001)
     semicon_thickness = measurement(0.005, 0.0005)
 
-    core = Tubular(0.0, Diameter(diameter), copper_props)
+    core = Tubular(0.0, copper_props; radius=diameter / 2)
     insulators = InsulatorGroup(
-        Insulator(core, Thickness(insulation_thickness), insulator_props),
+        Insulator(core.r_ex, insulator_props; thickness=insulation_thickness),
     )
 
     @test insulators.r_in === core.r_ex
@@ -54,8 +54,8 @@ end
     insulators = add!(
         insulators,
         Semicon,
-        Thickness(semicon_thickness),
-        semicon_props
+        semicon_props;
+        thickness=semicon_thickness,
     )
 
     expected_radius = diameter / 2 + insulation_thickness + semicon_thickness

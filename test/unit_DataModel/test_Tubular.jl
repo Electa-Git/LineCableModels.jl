@@ -35,7 +35,7 @@
         @test t.material_props == material
         @test isapprox(t.temperature, 20.0, atol = TEST_TOL)
         @test isapprox(t.cross_section, π * (0.02^2 - 0.01^2), atol = TEST_TOL)
-        t2 = Tubular(t, Thickness(0.02), material)
+        t2 = Tubular(t.r_ex, material; thickness=0.02)
         @test t2 isa Tubular
         @test isapprox(t2.r_in, t.r_ex, atol = TEST_TOL)
     end
@@ -83,28 +83,20 @@
         @test t5.material_props.rho isa Measurement
     end
 
-    @testset "Radius Input Parsing" begin
+    @testset "Strict numeric radii and named radial declarations" begin
         import LineCableModels.DataModel: _normalize_radii
-        # inner:Number, outer:Thickness
-        @test _normalize_radii(Tubular, 0.01, Thickness(0.02)) == (0.01, 0.03)
-
-        # inner:Thickness, outer:Number
-        rin, rex = _normalize_radii(Tubular, Thickness(0.002), 0.02)
-        @test isapprox(rin, 0.018; atol = TEST_TOL)
-        @test isapprox(rex, 0.02; atol = TEST_TOL)
-
-        # inner:Thickness too large
-        @test_throws ArgumentError _normalize_radii(Tubular, Thickness(0.03), 0.02)
-
-        # both Thickness → error
-        @test_throws ArgumentError _normalize_radii(
-            Tubular,
-            Thickness(0.001),
-            Thickness(0.002)
+        material = Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
+        @test _normalize_radii(Tubular, 0.01, 0.03) == (0.01, 0.03)
+        @test_throws ArgumentError _normalize_radii(Tubular, :previous, 0.03)
+        @test_throws ArgumentError _normalize_radii(Tubular, 0.01, :diameter)
+        @test Tubular(0.01, material; radius=0.03).r_ex == 0.03
+        @test Tubular(0.01, material; thickness=0.02).r_ex == 0.03
+        @test_throws ArgumentError Tubular(0.01, material)
+        @test_throws ArgumentError Tubular(
+            0.01,
+            material;
+            radius=0.03,
+            thickness=0.02,
         )
-
-        # diameter on either side collapses in parse:
-        @test _normalize_radii(Tubular, Diameter(0.02), 0.03) == (0.01, 0.03)
-        @test _normalize_radii(Tubular, 0.01, Diameter(0.02)) == (0.01, 0.01)
     end
 end

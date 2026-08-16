@@ -86,15 +86,8 @@ Validation.required_fields(::Type{Tubular}) = _REQ_TUBULAR
 Validation.keyword_fields(::Type{Tubular}) = _OPT_TUBULAR
 Validation.keyword_defaults(::Type{Tubular}) = _DEFS_TUBULAR
 
-# accept proxies for radii
-Validation.is_radius_input(::Type{Tubular}, ::Val{:r_in}, x::AbstractCablePart) = true
-Validation.is_radius_input(::Type{Tubular}, ::Val{:r_in}, x::Thickness) = true
-Validation.is_radius_input(::Type{Tubular}, ::Val{:r_ex}, x::Thickness) = true
-Validation.is_radius_input(::Type{Tubular}, ::Val{:r_ex}, x::Diameter) = true
-
 Validation.extra_rules(::Type{Tubular}) = (IsA{Material}(:material_props),)
 
-# normalize proxies -> numbers
 function Validation.parse(::Type{Tubular}, nt)
     rin, rex = _normalize_radii(Tubular, nt.r_in, nt.r_ex)
     (; nt..., r_in = rin, r_ex = rex)
@@ -102,3 +95,14 @@ end
 
 # This macro expands to a weakly-typed constructor for Tubular
 @construct Tubular _REQ_TUBULAR _OPT_TUBULAR _DEFS_TUBULAR
+
+function Tubular(
+    r_in::Real,
+    material_props::Material;
+    radius::Union{Nothing,Real}=nothing,
+    thickness::Union{Nothing,Real}=nothing,
+    temperature::Real=T₀,
+)
+    r_ex = _resolve_outer_radius(Tubular, r_in; radius, thickness)
+    return Tubular(r_in, r_ex, material_props; temperature)
+end

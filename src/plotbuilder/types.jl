@@ -724,10 +724,10 @@ function _validate_log_axis(view::ViewSpec, axis::AxisSpec)
                   axis.dim === :y ? series.ydata : series.zdata
         samples === nothing && continue
         for sample in samples
-            nominal = value(sample)
+            nominal = to_nominal(sample)
             nominal isa Real || continue
             found = true
-            lower = nominal - abs(uncertainty(sample))
+            lower = nominal - abs(uncertainty_value(sample))
             isfinite(nominal) && isfinite(lower) && lower > 0 || throw(
                 DomainError(sample, "logarithmic axes require positive finite data and uncertainty bounds"),
             )

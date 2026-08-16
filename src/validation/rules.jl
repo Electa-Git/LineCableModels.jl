@@ -126,7 +126,7 @@ end
 """
 $(TYPEDEF)
 
-Rule that enforces that a field has already been normalized to a numeric value during parsing. Intended to guard that `parse` has executed and removed proxies.
+Rule that enforces that a field has already been normalized to a numeric value during parsing.
 
 $(TYPEDFIELDS)
 """

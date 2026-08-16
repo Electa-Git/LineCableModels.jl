@@ -14,8 +14,10 @@ end
     using LineCableModels
     using LineCableModels.Commons
     using LineCableModels.Utils
-    using LineCableModels.Materials
+    using LineCableModels.Materials: MaterialsLibrary
+    import LineCableModels.Materials: Material
     using LineCableModels.DataModel
+    import LineCableModels.DataModel: Insulator
     using LineCableModels.EarthProps
     using LineCableModels.DataModel.BaseParams
     using LineCableModels.Engine
@@ -64,4 +66,8 @@ end
     )
 end
 
-@run_package_tests(verbose = true)
+test_filter = isempty(ARGS) ? nothing : testitem -> any(ARGS) do selector
+    occursin(selector, testitem.filename) || occursin(selector, String(testitem.name))
+end
+
+@run_package_tests(filter=test_filter, verbose=true)

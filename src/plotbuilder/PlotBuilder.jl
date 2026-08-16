@@ -6,8 +6,10 @@ Makie extensions render the resulting `RenderSpec` values.
 """
 module PlotBuilder
 
+using DocStringExtensions: TYPEDSIGNATURES
+
 import ..UnitHandler: Units, QuantityTag, display_unit, get_label
-import Measurements: value, uncertainty
+import ..Utils: to_nominal, uncertainty_value
 
 export AbstractPlotSpec, PlotRecipe
 export AbstractTrackSize, FixedTrack, RelativeTrack, ContentTrack
@@ -42,7 +44,7 @@ include("types.jl")
 include("grammar.jl")
 
 """
-    export_svg(plot; path=nothing, theme=nothing, open_file=nothing)
+$(TYPEDSIGNATURES)
 
 Export the current typed state of a `UIPlot` through an explicitly loaded
 CairoMakie extension.

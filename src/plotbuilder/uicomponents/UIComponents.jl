@@ -1,11 +1,11 @@
 module UIComponents
 
 using Makie
-using Measurements
 using Dates
 using Printf: @sprintf
 
 import LineCableModels.PlotBuilder
+using LineCableModels.Utils: to_nominal, uncertainty_value
 using LineCableModels.PlotBuilder:
                                    AbstractTrackSize, FixedTrack, RelativeTrack,
                                    ContentTrack, GridArea, GridSpec, SlotSpec,
@@ -19,7 +19,7 @@ const COLORBAR_WIDTH = 140
 const COLORBAR_TICK_LABEL_SIZE = 12
 const COLORBAR_LABEL_SIZE = 14
 const COLORBAR_END_PADDING = 28
-const SIDE_DOCK_WIDTH = COLORBAR_WIDTH
+const LEGEND_DOCK_WIDTH = 220
 const GRID_ROW_GAP = 6
 const GRID_COLUMN_GAP = 6
 const BUTTON_SIZE = 32
@@ -172,11 +172,11 @@ function _axis_values(view::ViewSpec, dim::Symbol; include_uncertainty::Bool = f
         data = dim === :x ? series.xdata : series.ydata
         data === nothing && continue
         for sample in data
-            nominal = Measurements.value(sample)
+            nominal = to_nominal(sample)
             nominal isa Real || continue
             numeric = Float64(nominal)
             isfinite(numeric) || continue
-            uncertainty = abs(Float64(Measurements.uncertainty(sample)))
+            uncertainty = abs(Float64(uncertainty_value(sample)))
             if include_uncertainty && isfinite(uncertainty) && !iszero(uncertainty)
                 push!(values, numeric - uncertainty, numeric + uncertainty)
             else
@@ -247,8 +247,8 @@ end
 
 function _numeric_values(values)
     values === nothing && return nothing, nothing
-    nominal = Measurements.value.(values)
-    errors = Measurements.uncertainty.(values)
+    nominal = to_nominal.(values)
+    errors = uncertainty_value.(values)
     return nominal, any(error -> !iszero(error), errors) ? errors : nothing
 end
 
@@ -556,7 +556,7 @@ function _legend_dock_width(page::PageSpec)
             slot for slot in page.layout.slots if slot.name === colorbar_slot_name)
         if legend_slot.parent === colorbar_slot.parent &&
            legend_slot.area.columns == colorbar_slot.area.columns
-            return SIDE_DOCK_WIDTH
+            return LEGEND_DOCK_WIDTH
         end
     end
     return nothing

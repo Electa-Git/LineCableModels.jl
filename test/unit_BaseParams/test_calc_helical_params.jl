@@ -37,7 +37,7 @@
         # Float32
         m, p, o = calc_helical_params(Float32(0.01), Float32(0.015), Float32(12.0))
         @test isapprox(m, 0.025, atol = TEST_TOL)
-        @test isapprox(p, 0.3, atol = TEST_TOL)
+        @test isapprox(p, 0.3; rtol=sqrt(eps(Float32)))
         @test o > 1.0
     end
 

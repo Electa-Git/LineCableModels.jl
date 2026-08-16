@@ -43,7 +43,6 @@ export calc_equivalent_lossfact
 export calc_sigma_lossfact
 
 # Module-specific dependencies
-using Measurements
 using ...Commons
 import ..DataModel: AbstractCablePart
 using ...Utils: resolve_T, coerce_to_T
@@ -52,8 +51,6 @@ using ...Utils: resolve_T, coerce_to_T
 $(TYPEDSIGNATURES)
 
 Calculates the equivalent temperature coefficient of resistance (`alpha`) when two conductors are connected in parallel, by cross-weighted-resistance averaging:
-
-# Notes
 
 ```math
 \\alpha_{eq} = \\frac{\\alpha_1 R_2 + \\alpha_2 R1}{R_1 + R_2}
@@ -101,8 +98,6 @@ end
 $(TYPEDSIGNATURES)
 
 Calculates the parallel equivalent of two impedances (or series equivalent of two admittances):
-
-# Notes
 
 ```math
 Z_{eq} = \\frac{Z_1 Z_2}{Z_1 + Z_2}
@@ -247,8 +242,6 @@ $(TYPEDSIGNATURES)
 
 Calculates the DC resistance of a strip conductor based on its geometric and material properties, using the basic resistance formula in terms of the resistivity and cross-sectional area:
 
-# Notes
-
 ```math
 R = \\rho \\frac{\\ell}{W T}
 ```
@@ -311,8 +304,6 @@ $(TYPEDSIGNATURES)
 
 Calculates the temperature correction factor for material properties based on the standard linear temperature model [cigre345](@cite):
 
-# Notes
-
 ```math
 k(T) = 1 + \\alpha (T - T_0)
 ```
@@ -360,8 +351,6 @@ end
 $(TYPEDSIGNATURES)
 
 Calculates the DC resistance of a tubular conductor based on its geometric and material properties, using the resistivity and cross-sectional area of a hollow cylinder with radii ``r_{in}`` and ``r_{ext}``:
-
-# Notes
 
 ```math
 R = \\rho \\frac{\\ell}{\\pi (r_{ext}^2 - r_{in}^2)}
@@ -425,8 +414,6 @@ $(TYPEDSIGNATURES)
 
 Calculates the inductance of a tubular conductor per unit length, disregarding skin-effects (DC approximation) [916943](@cite) [cigre345](@cite) [1458878](@cite):
 
-# Notes
-
 ```math
 L = \\frac{\\mu_r \\mu_0}{2 \\pi} \\log \\left( \\frac{r_{ext}}{r_{in}} \\right)
 ```
@@ -474,7 +461,16 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Calculates the center coordinates of wires arranged in a circular pattern.
+Calculates the center coordinates of wires arranged in a circular pattern. For
+wire index ``i = 0, \\ldots, N-1`` and layout radius
+``r_l = r_{in} + r_w``, the implementation uses
+
+```math
+x_i = C_x + r_l \\cos\\left(\\frac{2\\pi i}{N}\\right), \\qquad
+y_i = C_y + r_l \\sin\\left(\\frac{2\\pi i}{N}\\right).
+```
+
+For a single wire, ``r_l`` is set to zero.
 
 # Arguments
 
@@ -486,18 +482,6 @@ Calculates the center coordinates of wires arranged in a circular pattern.
 # Returns
 
 - Vector of tuples, where each tuple contains the `(x, y)` coordinates \\[m\\] of the center of a wire.
-
-# Notes
-
-For wire index ``i = 0, \\ldots, N-1`` and layout radius
-``r_l = r_{in} + r_w``, the implementation uses
-
-```math
-x_i = C_x + r_l \\cos\\left(\\frac{2\\pi i}{N}\\right), \\qquad
-y_i = C_y + r_l \\sin\\left(\\frac{2\\pi i}{N}\\right).
-```
-
-For a single wire, ``r_l`` is set to zero.
 
 # Examples
 
@@ -549,8 +533,6 @@ end
 $(TYPEDSIGNATURES)
 
 Calculates the positive-sequence inductance of a trifoil-configured cable system composed of core/screen assuming solid bonding, using the formula given under section 4.2.4.3 of CIGRE TB-531:
-
-# Notes
 
 ```math
 Z_d = \\left[Z_a - Z_x\\right] - \\frac{\\left( Z_m - Z_x \\right)^2}{Z_s - Z_x}
@@ -692,8 +674,6 @@ $(TYPEDSIGNATURES)
 
 Calculates the geometric mean radius (GMR) of a circular wire array, using formula (62), page 335, of the book by Edward Rosa [rosa1908](@cite):
 
-# Notes
-
 ```math
 GMR = \\sqrt[n] {r n a^{n-1}}
 ```
@@ -748,8 +728,6 @@ end
 $(TYPEDSIGNATURES)
 
 Calculates the geometric mean radius (GMR) of a tubular conductor, using [6521501](@cite):
-
-# Notes
 
 ```math
 \\log GMR = \\log r_2 - \\mu_r \\left[ \\frac{r_1^4}{\\left(r_2^2 - r_1^2\\right)^2} \\log\\left(\\frac{r_2}{r_1}\\right) - \\frac{3r_1^2 - r_2^2}{4\\left(r_2^2 - r_1^2\\right)} \\right]
@@ -901,8 +879,6 @@ $(TYPEDSIGNATURES)
 
 Calculates the shunt capacitance per unit length of a coaxial structure, using the standard formula for the capacitance of a coaxial structure [cigre531](@cite) [916943](@cite) [1458878](@cite):
 
-# Notes
-
 ```math
 C = \\frac{2 \\pi \\varepsilon_0 \\varepsilon_r}{\\log \\left(\\frac{r_{ext}}{r_{in}}\\right)}
 ```
@@ -951,8 +927,6 @@ $(TYPEDSIGNATURES)
 
 Calculates the shunt conductance per unit length of a coaxial structure, using the improved model reported in [916943](@cite) [Karmokar2025](@cite) [4389974](@cite):
 
-# Notes
-
 ```math
 G = \\frac{2\\pi\\sigma}{\\log(\\frac{r_{ext}}{r_{in}})}
 ```
@@ -996,8 +970,6 @@ end
 $(TYPEDSIGNATURES)
 
 Calculates the equivalent geometric mean radius (GMR) of a conductor after adding a new layer, by recursive application of the multizone stranded conductor defined as [yang2008gmr](@cite):
-
-# Notes
 
 ```math
 GMR_{eq} = {GMR_{i-1}}^{\\beta^2} \\cdot {GMR_{i}}^{(1-\\beta)^2} \\cdot {GMD}^{2\\beta(1-\\beta)}
@@ -1137,8 +1109,6 @@ $(TYPEDSIGNATURES)
 
 Calculates the solenoid correction factor for magnetic permeability in insulated cables with helical conductors (`CircStrands`), using the formula from Gudmundsdottir et al. [5743045](@cite):
 
-# Notes
-
 ```math
 \\mu_{r, sol} = 1 + \\frac{2 \\pi^2 N^2 (r_{ins, ext}^2 - r_{con, ext}^2)}{\\log(r_{ins, ext}/r_{con, ext})}
 ```
@@ -1203,8 +1173,6 @@ $(TYPEDSIGNATURES)
 
 Calculates the equivalent resistivity of a solid tubular conductor, using the formula [916943](@cite):
 
-# Notes
-
 ```math
 \\rho_{eq} = R_{eq} S_{eff} = R_{eq} \\pi (r_{ext}^2 - r_{in}^2)
 ```
@@ -1252,8 +1220,6 @@ $(TYPEDSIGNATURES)
 
 Calculates the equivalent permittivity for a coaxial cable insulation, using the formula [916943](@cite):
 
-# Notes
-
 ```math
 \\varepsilon_{eq} = \\frac{C_{eq} \\log(\\frac{r_{ext}}{r_{in}})}{2\\pi \\varepsilon_0}
 ```
@@ -1297,8 +1263,6 @@ $(TYPEDSIGNATURES)
 
 Calculates the equivalent loss factor (tangent) of a dielectric material:
 
-# Notes
-
 ```math
 \\tan \\delta = \\frac{G_{eq}}{\\omega \\cdot C_{eq}}
 ```
@@ -1340,8 +1304,6 @@ end
 $(TYPEDSIGNATURES)
 
 Calculates the effective conductivity of a dielectric material from the known conductance (related to the loss factor ``\\tan \\delta``) via [916943](@cite) [Karmokar2025](@cite) [4389974](@cite):
-
-# Notes
 
 ```math
 \\sigma_{eq} = \\frac{G_{eq}}{2\\pi} \\log(\\frac{r_{ext}}{r_{in}})

@@ -1,10 +1,12 @@
 """
-    CableConstants{T}
+$(TYPEDEF)
 
-Canonical per-unit-length cable constants.
+Store cable constants per unit length.
 
 The fields `R`, `L`, and `C` are stored in Ω/m, H/m, and F/m respectively.
 Display conversions belong to `UnitHandler` and presentation adapters.
+
+$(TYPEDFIELDS)
 """
 struct CableConstants{T}
     "Series resistance per unit length \\[Ω/m\\]."
@@ -25,9 +27,12 @@ function CableConstants(R::Real, L::Real, C::Real)
 end
 
 """
-    CableConstants(design::CableDesign; S=nothing, rho_e=100.0)
+$(TYPEDSIGNATURES)
 
 Compute the scalar cable constants represented by `design`.
+
+The calculation uses tubular resistance, trefoil inductance, and coaxial
+capacitance. Presentation is handled separately after the result exists.
 
 # Arguments
 
@@ -39,15 +44,8 @@ Compute the scalar cable constants represented by `design`.
 
 A [`CableConstants`](@ref) value storing `R` in Ω/m, `L` in H/m, and `C` in
 F/m.
-
-# Notes
-
-The implemented expressions are the same tubular-resistance, trefoil-
-inductance, and coaxial-capacitance expressions historically used by
-`DataFrame(design, :baseparams)`. This constructor changes their storage units,
-not their physical calculation.
 """
-function CableConstants(
+function _compute_cable_constants(
         design::CableDesign{T};
         S::Union{Nothing, Number} = nothing,
         rho_e::Number = 100.0

@@ -16,7 +16,6 @@ using ...Commons
 using ...EarthProps: EarthModel
 import ...Commons: get_description
 import ..Engine: AbstractEHEMFormulation
-using Measurements
 
 include("enforcelayer.jl")
 

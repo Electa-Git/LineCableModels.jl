@@ -11,6 +11,29 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased](https://github.com/Electa-Git/LineCableModels.jl/compare/v0.2.0...HEAD)
 
+### Changed
+
+- Replaced the prototype parameter and uncertainty pipelines with the typed
+  `Grid`, `AbstractSpec`, and `Gridspace` grammar.
+- Unified ordinary, full-parametric, and conditional Monte Carlo execution
+  under `compute!(problem, Formulation(); run=...)`.
+- Made the declarative builder the default modeling API while retaining strict
+  materialized constructors through explicit submodule imports.
+- Moved Measurements.jl and Distributions.jl integrations into package
+  extensions.
+- Restricted radial declarations to numeric radius or thickness semantics.
+- Line-parameter plots and tables now select quantities with accessor tuples,
+  such as `(R, L, G, C)` or `(abs, angle)`. Direct plotting of
+  `LineParameters` produces separate Z and Y figures with real and imaginary
+  parts in side-by-side panels.
+
+### Removed
+
+- Removed the former parameter tuple grammar, duplicate execution entrypoints,
+  specialized analysis containers, and radial proxy wrapper types.
+- Removed the `mode=:ZY`/`:RLCG` and `coord=:cart`/`:polar` keywords from
+  line-parameter presentation.
+
 ## [0.2.0] - 2026-08-13
 
 ### Added
@@ -19,10 +42,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Aqua, SciML formatting, gitlint, clean-install, and modular documentation
   checks.
 - Citation and contribution metadata.
-- Type-stable `CableConstants`, `SampleSummary`, `RLCG`, `CableConstantsMC`,
-  `LineParametersMC`, and `HistogramPDF` result containers.
-- A type-stable `ParametricSweep` container for ordered deterministic cases and
-  their results, ready for later GridSpace integration.
+- Type-stable primitive and statistical result containers.
 - A single declarative PlotBuilder renderer with interactive legends and
   one-click, non-overwriting SVG export.
 

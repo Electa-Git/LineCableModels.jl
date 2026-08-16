@@ -28,10 +28,14 @@
         materials = MaterialsLibrary(add_defaults = false)  # start clean for deterministic tests
 
         # Define tutorial materials (subset representative of file)
-        copper_corrected = Material(1.835e-8, 1.0, 0.999994, 20.0, 0.00393)
-        aluminum_corrected = Material(3.03e-8, 1.0, 0.999994, 20.0, 0.00403)
-        epr = Material(1e15, 3.0, 1.0, 20.0, 0.005)
-        pvc = Material(1e15, 8.0, 1.0, 20.0, 0.1)
+        copper_corrected = LineCableModels.Material(
+            rho=1.835e-8, eps_r=1.0, mu_r=0.999994, T0=20.0, alpha=0.00393)
+        aluminum_corrected = LineCableModels.Material(
+            rho=3.03e-8, eps_r=1.0, mu_r=0.999994, T0=20.0, alpha=0.00403)
+        epr = LineCableModels.Material(
+            rho=1e15, eps_r=3.0, mu_r=1.0, T0=20.0, alpha=0.005)
+        pvc = LineCableModels.Material(
+            rho=1e15, eps_r=8.0, mu_r=1.0, T0=20.0, alpha=0.1)
 
         add!(materials, "copper_corrected", copper_corrected)
         add!(materials, "aluminum_corrected", aluminum_corrected)
@@ -51,7 +55,8 @@
 
     @testset "remove duplicate" begin
         materials = MaterialsLibrary(add_defaults = false)
-        epr = Material(1e15, 3.0, 1.0, 20.0, 0.005)
+        epr = LineCableModels.Material(
+            rho=1e15, eps_r=3.0, mu_r=1.0, T0=20.0, alpha=0.005)
         add!(materials, "epr", epr)
 
         # Add duplicate and then remove it
@@ -65,8 +70,10 @@
         materials = MaterialsLibrary(add_defaults = false)
 
         # Add a small set of materials
-        copper_corrected = Material(1.835e-8, 1.0, 0.999994, 20.0, 0.00393)
-        epr = Material(1e15, 3.0, 1.0, 20.0, 0.005)
+        copper_corrected = LineCableModels.Material(
+            rho=1.835e-8, eps_r=1.0, mu_r=0.999994, T0=20.0, alpha=0.00393)
+        epr = LineCableModels.Material(
+            rho=1e15, eps_r=3.0, mu_r=1.0, T0=20.0, alpha=0.005)
         add!(materials, "copper_corrected", copper_corrected)
         add!(materials, "epr", epr)
 
@@ -120,19 +127,28 @@
         materials = MaterialsLibrary(add_defaults = false)
 
         # Add the full tutorial list used in examples (representative)
-        add!(materials, "copper_corrected", Material(
-            1.835e-8, 1.0, 0.999994, 20.0, 0.00393))
-        add!(materials, "aluminum_corrected", Material(
-            3.03e-8, 1.0, 0.999994, 20.0, 0.00403))
-        add!(materials, "lead", Material(21.4e-8, 1.0, 0.999983, 20.0, 0.00400))
-        add!(materials, "steel", Material(13.8e-8, 1.0, 300.0, 20.0, 0.00450))
-        add!(materials, "bronze", Material(3.5e-8, 1.0, 1.0, 20.0, 0.00300))
-        add!(materials, "stainless_steel", Material(70.0e-8, 1.0, 500.0, 20.0, 0.0))
-        add!(materials, "epr", Material(1e15, 3.0, 1.0, 20.0, 0.005))
-        add!(materials, "pvc", Material(1e15, 8.0, 1.0, 20.0, 0.1))
-        add!(materials, "laminated_paper", Material(1e15, 2.8, 1.0, 20.0, 0.0))
-        add!(materials, "carbon_pe", Material(0.06, 1e3, 1.0, 20.0, 0.0))
-        add!(materials, "conductive_paper", Material(18.5, 8.6, 1.0, 20.0, 0.0))
+        add!(materials, "copper_corrected", LineCableModels.Material(
+            rho=1.835e-8, eps_r=1.0, mu_r=0.999994, T0=20.0, alpha=0.00393))
+        add!(materials, "aluminum_corrected", LineCableModels.Material(
+            rho=3.03e-8, eps_r=1.0, mu_r=0.999994, T0=20.0, alpha=0.00403))
+        add!(materials, "lead", LineCableModels.Material(
+            rho=21.4e-8, eps_r=1.0, mu_r=0.999983, T0=20.0, alpha=0.00400))
+        add!(materials, "steel", LineCableModels.Material(
+            rho=13.8e-8, eps_r=1.0, mu_r=300.0, T0=20.0, alpha=0.00450))
+        add!(materials, "bronze", LineCableModels.Material(
+            rho=3.5e-8, eps_r=1.0, mu_r=1.0, T0=20.0, alpha=0.00300))
+        add!(materials, "stainless_steel", LineCableModels.Material(
+            rho=70.0e-8, eps_r=1.0, mu_r=500.0, T0=20.0, alpha=0.0))
+        add!(materials, "epr", LineCableModels.Material(
+            rho=1e15, eps_r=3.0, mu_r=1.0, T0=20.0, alpha=0.005))
+        add!(materials, "pvc", LineCableModels.Material(
+            rho=1e15, eps_r=8.0, mu_r=1.0, T0=20.0, alpha=0.1))
+        add!(materials, "laminated_paper", LineCableModels.Material(
+            rho=1e15, eps_r=2.8, mu_r=1.0, T0=20.0, alpha=0.0))
+        add!(materials, "carbon_pe", LineCableModels.Material(
+            rho=0.06, eps_r=1e3, mu_r=1.0, T0=20.0, alpha=0.0))
+        add!(materials, "conductive_paper", LineCableModels.Material(
+            rho=18.5, eps_r=8.6, mu_r=1.0, T0=20.0, alpha=0.0))
 
         # Duplicate add and delete
         add!(materials, "epr_dupe", get(materials, "epr"))

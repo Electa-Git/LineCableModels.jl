@@ -1,17 +1,20 @@
 """
     LineCableModels.Engine
 
-The [`Engine`](@ref) module provides the main functionalities of the [`LineCableModels.jl`](index.md) package. This module implements data structures, methods and functions for calculating frequency-dependent electrical parameters (Z/Y matrices) of line and cable systems with uncertainty quantification.
+The [`Engine`](@ref) module provides the main numerical functionality of
+[`LineCableModels.jl`](index.md). It implements the materialized problems,
+formulations, and primitive results used to calculate frequency-dependent
+electrical parameters (Z/Y matrices) of line and cable systems.
 
 # Overview
 
 - Calculation of frequency-dependent series impedance (Z) and shunt admittance (Y) matrices.
-- Uncertainty propagation for geometric and material parameters using `Measurements.jl`.
+- Direct uncertainty propagation through the optional Measurements extension.
 - Internal impedance computation for solid, tubular and multi-layered coaxial conductors.
 - Earth return impedances/admittances for overhead lines and underground cables (valid up to 10 MHz).
 - Support for frequency-dependent soil properties.
 - Handling of arbitrary polyphase systems with multiple conductors per phase.
-- Phase and sequence domain calculations with uncertainty quantification.
+- Phase and sequence domain calculations for ordinary and uncertain values.
 - Novel N-layer concentric cable formulation with semiconductor modeling.
 
 # Dependencies
@@ -22,7 +25,7 @@ $(IMPORTS)
 module Engine
 
 # Export public API
-export LineParametersProblem,
+export CableConstantsProblem, LineParametersProblem,
        LineParameters, SeriesImpedance, ShuntAdmittance,
        Z, Y, R, X, L, G, B, C,
        series_impedance, shunt_admittance,
@@ -30,13 +33,12 @@ export LineParametersProblem,
        conductance, susceptance, capacitance,
        frequencies, nconductors, nfrequencies, basis,
        kronify
-export EMTFormulation, FormulationSet, LineParamOptions
+export AbstractFormulation, EMTFormulation, Formulation, EMTOptions, ComputeOptions
 
 export compute!, plot
 
 # Module-specific dependencies
 using Reexport, ForceImport
-using Measurements
 using LinearAlgebra
 using ..Commons
 import ..Commons: get_description, LineParamsDomain, PhaseDomain, ModalDomain, domain
@@ -52,7 +54,8 @@ using ..UnitHandler
 using ..PlotBuilder
 using ..Materials
 using ..EarthProps: EarthModel
-using ..DataModel: LineCableSystem
+using ..DataModel: CableDesign, CableConstants, LineCableSystem
+import ..DataModel
 using ..Utils: levelfrom, TimestampLogger
 using Logging, LoggingExtras
 
@@ -107,11 +110,23 @@ include("plotspecs.jl")
 include("dataframe.jl")
 
 """
-    plot(object; kwargs...)
+    plot(parameters[, quantities]; kwargs...)
+    plot(impedance, frequencies[, quantities]; kwargs...)
+    plot(admittance, frequencies[, quantities]; kwargs...)
 
-Plot computed line parameters with a loaded Makie backend.
+Plot computed line parameters with a loaded Makie backend. `quantities` is a
+tuple of accessors such as `(R, L, G, C)` or `(abs, angle)`.
+
+Without an explicit selection, [`LineParameters`](@ref) produces separate
+series-impedance and shunt-admittance figures. Each figure places the real part
+on the left and the imaginary part on the right. Every selected matrix element
+is represented by one data series.
 
 Load `CairoMakie`, `GLMakie`, or `WGLMakie` before calling this function.
+
+# Returns
+
+- A `Vector{UIPlot}` containing one figure for each selected matrix family.
 """
 function plot end
 

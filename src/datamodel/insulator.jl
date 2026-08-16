@@ -34,7 +34,7 @@ Constructs an [`Insulator`](@ref) object with specified geometric and material p
 # Arguments
 
 - `r_in`: Internal radius of the insulating layer \\[m\\].
-- `r_ex`: External radius or thickness of the layer \\[m\\].
+- `r_ex`: External radius of the layer \\[m\\].
 - `material_props`: Material properties of the insulating material.
 - `temperature`: Operating temperature of the insulator \\[°C\\].
 
@@ -91,15 +91,8 @@ Validation.required_fields(::Type{Insulator}) = _REQ_INSULATOR
 Validation.keyword_fields(::Type{Insulator}) = _OPT_INSULATOR
 Validation.keyword_defaults(::Type{Insulator}) = _DEFS_INSULATOR
 
-# accept proxies for radii
-Validation.is_radius_input(::Type{Insulator}, ::Val{:r_in}, x::AbstractCablePart) = true
-Validation.is_radius_input(::Type{Insulator}, ::Val{:r_in}, x::Thickness) = true
-Validation.is_radius_input(::Type{Insulator}, ::Val{:r_ex}, x::Thickness) = true
-Validation.is_radius_input(::Type{Insulator}, ::Val{:r_ex}, x::Diameter) = true
-
 Validation.extra_rules(::Type{Insulator}) = (IsA{Material}(:material_props),)
 
-# normalize proxies -> numbers
 function Validation.parse(::Type{Insulator}, nt)
     rin, rex = _normalize_radii(Insulator, nt.r_in, nt.r_ex)
     (; nt..., r_in = rin, r_ex = rex)
@@ -107,3 +100,14 @@ end
 
 # This macro expands to a weakly-typed constructor for Insulator
 @construct Insulator _REQ_INSULATOR _OPT_INSULATOR _DEFS_INSULATOR
+
+function Insulator(
+    r_in::Real,
+    material_props::Material;
+    radius::Union{Nothing,Real}=nothing,
+    thickness::Union{Nothing,Real}=nothing,
+    temperature::Real=T₀,
+)
+    r_ex = _resolve_outer_radius(Insulator, r_in; radius, thickness)
+    return Insulator(r_in, r_ex, material_props; temperature)
+end

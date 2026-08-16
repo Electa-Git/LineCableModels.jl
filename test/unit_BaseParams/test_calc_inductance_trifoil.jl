@@ -6,7 +6,7 @@
     Parameters are explicitly separated into positional and keyword arguments
     to match the function signature. This makes all test calls clean and robust.
     =#
-    const CANONICAL_POS_ARGS = (
+    const REFERENCE_POS_ARGS = (
         r_in_co = 10e-3,
         r_ext_co = 15e-3,
         rho_co = 1.72e-8,
@@ -18,49 +18,49 @@
         S = 100e-3
     )
 
-    const CANONICAL_KW_ARGS = (rho_e = 100.0, f = 50.0)
+    const REFERENCE_KW_ARGS = (rho_e = 100.0, f = 50.0)
 
-    @testset "Basic functionality: canonical example" begin
-        L = calc_inductance_trifoil(values(CANONICAL_POS_ARGS)...; CANONICAL_KW_ARGS...)
+    @testset "Basic functionality: reference example" begin
+        L = calc_inductance_trifoil(values(REFERENCE_POS_ARGS)...; REFERENCE_KW_ARGS...)
         expected_L = 1.573964832699787e-7 # H/m
         @test L ≈ expected_L atol = TEST_TOL
     end
 
     @testset "Physical behavior" begin
-        L_base = calc_inductance_trifoil(values(CANONICAL_POS_ARGS)...; CANONICAL_KW_ARGS...)
+        L_base = calc_inductance_trifoil(values(REFERENCE_POS_ARGS)...; REFERENCE_KW_ARGS...)
 
-        pos_args_better_screen = merge(CANONICAL_POS_ARGS, (rho_scr = CANONICAL_POS_ARGS.rho_scr /
+        pos_args_better_screen = merge(REFERENCE_POS_ARGS, (rho_scr = REFERENCE_POS_ARGS.rho_scr /
                                                                       10,))
-        L_better_screen = calc_inductance_trifoil(values(pos_args_better_screen)...; CANONICAL_KW_ARGS...)
+        L_better_screen = calc_inductance_trifoil(values(pos_args_better_screen)...; REFERENCE_KW_ARGS...)
         @test L_better_screen < L_base
 
-        pos_args_higher_mu = merge(CANONICAL_POS_ARGS, (mu_r_co = CANONICAL_POS_ARGS.mu_r_co *
+        pos_args_higher_mu = merge(REFERENCE_POS_ARGS, (mu_r_co = REFERENCE_POS_ARGS.mu_r_co *
                                                                   2,))
-        L_higher_mu = calc_inductance_trifoil(values(pos_args_higher_mu)...; CANONICAL_KW_ARGS...)
+        L_higher_mu = calc_inductance_trifoil(values(pos_args_higher_mu)...; REFERENCE_KW_ARGS...)
         @test L_higher_mu > L_base
 
         # Override a keyword argument directly in the call
-        L_60Hz = calc_inductance_trifoil(values(CANONICAL_POS_ARGS)...; CANONICAL_KW_ARGS..., f = 60.0)
+        L_60Hz = calc_inductance_trifoil(values(REFERENCE_POS_ARGS)...; REFERENCE_KW_ARGS..., f = 60.0)
         @test L_60Hz < L_base
     end
 
     @testset "Edge cases" begin
-        pos_args_solid_core = merge(CANONICAL_POS_ARGS, (r_in_co = 0.0,))
-        L_solid_core = calc_inductance_trifoil(values(pos_args_solid_core)...; CANONICAL_KW_ARGS...)
+        pos_args_solid_core = merge(REFERENCE_POS_ARGS, (r_in_co = 0.0,))
+        L_solid_core = calc_inductance_trifoil(values(pos_args_solid_core)...; REFERENCE_KW_ARGS...)
         @test isfinite(L_solid_core)
         @test L_solid_core > 0.0
 
-        pos_args_perfect_screen = merge(CANONICAL_POS_ARGS, (rho_scr = 0.0,))
-        L_perfect_screen = calc_inductance_trifoil(values(pos_args_perfect_screen)...; CANONICAL_KW_ARGS...)
+        pos_args_perfect_screen = merge(REFERENCE_POS_ARGS, (rho_scr = 0.0,))
+        L_perfect_screen = calc_inductance_trifoil(values(pos_args_perfect_screen)...; REFERENCE_KW_ARGS...)
         @test isfinite(L_perfect_screen)
         @test L_perfect_screen <
-              calc_inductance_trifoil(values(CANONICAL_POS_ARGS)...; CANONICAL_KW_ARGS...)
+              calc_inductance_trifoil(values(REFERENCE_POS_ARGS)...; REFERENCE_KW_ARGS...)
     end
 
     @testset "Type stability and promotion with Measurements.jl" begin
         # Base values
-        p_pos = CANONICAL_POS_ARGS
-        p_kw = CANONICAL_KW_ARGS
+        p_pos = REFERENCE_POS_ARGS
+        p_kw = REFERENCE_KW_ARGS
 
         # Create Measurement versions
         p_pos_meas = map(x -> x ± (x * 0.01), p_pos)

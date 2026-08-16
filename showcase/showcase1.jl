@@ -38,6 +38,11 @@ end
 begin
     using CairoMakie, PlutoUI, Colors
     using LineCableModels
+    using LineCableModels.DataModel
+    using LineCableModels.EarthProps
+    using LineCableModels.Materials: MaterialsLibrary
+    import LineCableModels.DataModel: Insulator
+    import LineCableModels.Materials: Material
     using DataFrames
     using HypertextLiteral
 end
@@ -56,12 +61,12 @@ begin
 
     function build_core(materials, d_wire_mm::Real, d_wire_pct::Real, n_layers::Int)
         d = _with_unc(d_wire_mm, d_wire_pct)  # Measurement
-        core = ConductorGroup(CircStrands(0, Diameter(d), 1, 0, get(materials, "aluminum")))
+        core = ConductorGroup(CircStrands(0, d/2, 1, 0, get(materials, "aluminum")))
         for ℓ in 1:n_layers
             add!(
                 core,
                 CircStrands,
-                Diameter(d),
+                d/2,
                 6*ℓ,
                 pitch_for_layer(ℓ),
                 get(materials, "aluminum")
@@ -88,12 +93,12 @@ begin
 
         # Insulation group
         main_insu = InsulatorGroup(
-            Semicon(core, Thickness(t_sct), get(materials, "polyacrylate")),
+            Semicon(core.r_ex, get(materials, "polyacrylate"); thickness = t_sct),
         )
-        add!(main_insu, Semicon, Thickness(t_sc_in), get(materials, "semicon1"))
-        add!(main_insu, Insulator, Thickness(t_ins), get(materials, "pe"))
-        add!(main_insu, Semicon, Thickness(t_sc_out), get(materials, "semicon2"))
-        add!(main_insu, Semicon, Thickness(t_sct), get(materials, "polyacrylate"))
+        add!(main_insu, Semicon, get(materials, "semicon1"); thickness = t_sc_in)
+        add!(main_insu, Insulator, get(materials, "pe"); thickness = t_ins)
+        add!(main_insu, Semicon, get(materials, "semicon2"); thickness = t_sc_out)
+        add!(main_insu, Semicon, get(materials, "polyacrylate"); thickness = t_sct)
 
         core_cc = CableComponent("core", core, main_insu)
         return core_cc, main_insu
@@ -766,8 +771,8 @@ begin
     lay_ratio = 10 # typical value for wire screens
     screen_con = ConductorGroup(
         CircStrands(
-        main_insu,
-        Diameter(d_ws),
+        main_insu.r_ex,
+        d_ws/2,
         num_sc_wires,
         lay_ratio,
         get(materials, "copper")
@@ -777,15 +782,15 @@ begin
     add!(
         screen_con,
         Strip,
-        Thickness(t_cut),
         w_cut,
         lay_ratio,
-        get(materials, "copper")
+        get(materials, "copper");
+        thickness = t_cut,
     )
 
     # Water blocking tape over screen:
     screen_insu = InsulatorGroup(
-        Semicon(screen_con, Thickness(t_wbt), get(materials, "polyacrylate")),
+        Semicon(screen_con.r_ex, get(materials, "polyacrylate"); thickness = t_wbt),
     )
 
     # Group sheath components and assign to design:
@@ -793,20 +798,20 @@ begin
 
     # Add the aluminum foil (moisture barrier):
     jacket_con = ConductorGroup(
-        Tubular(screen_insu, Thickness(t_alt), get(materials, "aluminum")),
+        Tubular(screen_insu.r_ex, get(materials, "aluminum"); thickness = t_alt),
     )
 
     # PE layer after aluminum foil:
     jacket_insu = InsulatorGroup(
-        Insulator(jacket_con, Thickness(t_pet), get(materials, "pe")),
+        Insulator(jacket_con.r_ex, get(materials, "pe"); thickness = t_pet),
     )
 
     # PE jacket (outer mechanical protection):
     add!(
         jacket_insu,
         Insulator,
-        Thickness(t_jac),
-        get(materials, "pe")
+        get(materials, "pe");
+        thickness = t_jac,
     )
 
     cable_id = "showcase"
@@ -815,7 +820,7 @@ begin
     add!(cable_design, "jacket", jacket_con, jacket_insu)
 
     backend_sym = :cairo
-    plt, _ = preview(cable_design; size = (800, 500), backend = backend_sym)
+    plt = preview(cable_design; size = (800, 500), backend = backend_sym)
     plt
 end
 
@@ -836,7 +841,7 @@ md"""
 
 # ╔═╡ 9ddcccbe-86c8-4335-8d65-35af4ce755ab
 begin
-    core_df = DataFrame(cable_design, :baseparams)
+    core_df = DataFrame(compute!(CableConstantsProblem(cable_design), Formulation()))
     core_df
 end
 
@@ -845,12 +850,12 @@ cable_emt = equivalent(cable_design)
 
 # ╔═╡ ae1749c8-0f6d-4487-8857-12826eb57db3
 begin
-    plt2, _ = preview(cable_design; size = (800, 500), backend = backend_sym)
+    plt2 = preview(cable_design; size = (800, 500), backend = backend_sym)
 end
 
 # ╔═╡ 3d9239df-523e-40be-b6e9-f0d538638bd8
 begin
-    plt3, _ = preview(cable_emt; size = (800, 500), backend = backend_sym)
+    plt3 = preview(cable_emt; size = (800, 500), backend = backend_sym)
     plt3
 end
 
@@ -899,7 +904,7 @@ end
 
 # ╔═╡ 6ee6d16d-326c-4436-a750-077ecc2b3b9c
 begin
-    plt4, _ = preview(
+    plt4 = preview(
         cable_system,
         earth_model = earth_params,
         zoom_factor = 2.0,
@@ -940,8 +945,8 @@ begin
     # Build the wire screens on top of the previous layer:
     sscreen_con = ConductorGroup(
         CircStrands(
-        main_insu,
-        Diameter(d_ws),
+        mmain_insu.r_ex,
+        d_ws/2,
         num_sc_wires,
         lay_ratio,
         get(materials, "copper")
@@ -951,15 +956,15 @@ begin
     add!(
         sscreen_con,
         Strip,
-        Thickness(t_cut),
         w_cut,
         lay_ratio,
-        get(materials, "copper")
+        get(materials, "copper");
+        thickness = t_cut,
     )
 
     # Water blocking tape over screen:
     sscreen_insu = InsulatorGroup(
-        Semicon(sscreen_con, Thickness(t_wbt), get(materials, "polyacrylate")),
+        Semicon(sscreen_con.r_ex, get(materials, "polyacrylate"); thickness = t_wbt),
     )
 
     # Group sheath components and assign to design:
@@ -967,20 +972,20 @@ begin
 
     # Add the aluminum foil (moisture barrier):
     jjacket_con = ConductorGroup(
-        Tubular(sscreen_insu, Thickness(t_alt), get(materials, "aluminum")),
+        Tubular(sscreen_insu.r_ex, get(materials, "aluminum"); thickness = t_alt),
     )
 
     # PE layer after aluminum foil:
     jjacket_insu = InsulatorGroup(
-        Insulator(jjacket_con, Thickness(t_pet), get(materials, "pe")),
+        Insulator(jjacket_con.r_ex, get(materials, "pe"); thickness = t_pet),
     )
 
     # PE jacket (outer mechanical protection):
     add!(
         jjacket_insu,
         Insulator,
-        Thickness(t_jac),
-        get(materials, "pe")
+        get(materials, "pe");
+        thickness = t_jac,
     )
 
     ccable_design = CableDesign(cable_id, ccore_cc; nominal_data = datasheet_info)
@@ -1011,19 +1016,14 @@ begin
         frequencies = f  # Frequency for the analysis
     )
 
-    # Define runtime options
-    opts = (
-        force_overwrite = true,                    # Overwrite existing files
-        save_path = fullfile("lineparams_output"), # Results directory
-        verbosity = 0                             # Verbosity
-    )
+    compute_options = (verbosity = 0,)
 end;
 
 # ╔═╡ cb44ffb8-7e33-4603-a97e-47dbc507f813
 begin
     using LineCableModels.Engine
     using LineCableModels.Engine.Transforms: Fortescue
-    F = FormulationSet(:EMT,
+    F = Formulation(:EMT,
         internal_impedance = InternalImpedance.ScaledBessel(),
         insulation_impedance = InsulationImpedance.Lossless(),
         earth_impedance = EarthImpedance.Papadopoulos(),
@@ -1031,7 +1031,6 @@ begin
         earth_admittance = EarthAdmittance.Papadopoulos(),
         modal_transform = Transforms.Fortescue(),
         equivalent_earth = EHEM.EnforceLayer(layer = -1),  # Use the last layer as effective earth
-        options = opts
     )
 end;
 
@@ -1116,22 +1115,21 @@ end
 # ╔═╡ e8117400-adf3-45e3-bf56-59933f01e6d0
 # ╠═╡ show_logs = false
 begin
-    @time ws, p012 = compute!(problem, F)
+    @time p012 = compute!(problem, F; options = compute_options)
     #Tv, p012 = Fortescue(tol = 1e-5)(p)
 end;
 
 # ╔═╡ cebe81ec-a183-43d7-be36-6627a46de3bf
 begin
     fig = plot(
-        p012;
+        p012,
+        (R, L, G, C);
         backend = :cairo,
-        mode = :RLCG,
         length_unit = :kilo,
-        xscale = log10,
-        per_length = true
+        xscale = :log10
     )
 
-    fig[(:series_impedance, :resistance)].figure
+    first(fig).figure
 end
 
 # ╔═╡ c6cdfb66-1405-4208-808b-12f3e0949ed1

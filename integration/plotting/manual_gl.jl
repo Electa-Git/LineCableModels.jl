@@ -25,8 +25,8 @@ parameters = LineParameters(
 )
 
 plots = Makie.plot(
-    parameters;
-    mode = :RLCG,
+    parameters,
+    (R, L, G, C);
     backend = :gl,
     display_plot = true,
     open_export = false
@@ -46,7 +46,7 @@ set_backend!(:gl)
 
 @testset "manual GL plotting gate" begin
     @test plots isa Vector{UIPlot}
-    @test length(plots) == 4
+    @test length(plots) == 2
     @test all(plot -> plot.context.window !== nothing, plots)
     @test length(unique(objectid(plot.context.window) for plot in plots)) == length(plots)
     @test sort!(collect(keys(handle.controls))) ==
@@ -58,13 +58,16 @@ set_backend!(:gl)
 
     handle.controls[:xlog].active[] = true
     handle.controls[:ylog].active[] = true
-    @test only(handle.panels).axis.xscale[] === Makie.log10
-    @test only(handle.panels).axis.yscale[] === Makie.log10
+    @test all(panel -> panel.axis.xscale[] === Makie.log10, handle.panels)
+    @test all(panel -> panel.axis.yscale[] === Makie.log10, handle.panels)
 
     legend = handle.controls[:legend]
     entry = first(last(first(legend.entrygroups[])))
     Makie.toggle_visibility!(entry)
-    @test any(plot_object -> !plot_object.visible[], only(handle.panels).plots)
+    @test any(
+        plot_object -> !plot_object.visible[],
+        Iterators.flatten(panel.plots for panel in handle.panels),
+    )
     Makie.toggle_visibility!(entry)
 
     handle.controls[:reset].clicks[] += 1
@@ -86,13 +89,11 @@ set_backend!(:gl)
 
     susceptance = last(Makie.plot(
         parameters;
-        mode = :ZY,
-        coord = :cart,
         backend = :gl,
         display_plot = false
     ))
     susceptance.controls[:ylog].active[] = true
-    susceptance_axis = only(susceptance.panels).axis
+    susceptance_axis = last(susceptance.panels).axis
     @test susceptance_axis.yscale[] === Makie.log10
     @test susceptance_axis.ytickformat[] === Makie.automatic
     @test susceptance_axis.ylabel[] == "Capacitive susceptance [S/km]"

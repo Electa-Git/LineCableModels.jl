@@ -7,9 +7,6 @@
 stringify(x) = string(x)  # fallback (rarely reached)
 stringify(::Missing) = ""
 stringify(x::Real) = @sprintf("%.12g", float(x))
-function stringify(x::Measurements.Measurement)
-    @sprintf("%.12g ± %.6g", Measurements.value(x), Measurements.uncertainty(x))
-end
 
 function df_to_strings(df::DataFrame)
     DataFrame((name => stringify.(df[!, name]) for name in names(df))...; copycols = false)

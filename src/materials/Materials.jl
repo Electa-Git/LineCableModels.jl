@@ -24,7 +24,6 @@ export Material, MaterialsLibrary
 # Module-specific dependencies
 using ..Commons
 using ..Utils: resolve_T
-using Measurements
 import ..Commons: add!
 import ..Utils: coerce_to_T
 

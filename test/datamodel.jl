@@ -166,7 +166,7 @@ end
 
     println("Constructing core conductor group...")
     material_alu = get(materials, "aluminum")
-    core = ConductorGroup(CircStrands(0.0, Diameter(d_w), 1, 0.0, material_alu))
+    core = ConductorGroup(CircStrands(0.0, d_w / 2, 1, 0.0, material_alu))
     @test core isa ConductorGroup
     @test length(core.layers) == 1
     @test core.r_in == 0
@@ -174,20 +174,20 @@ end
     @test core.resistance > 0
     @test core.gmr > 0
 
-    add!(core, CircStrands, Diameter(d_w), 6, 15.0, material_alu)
+    add!(core, CircStrands, d_w / 2, 6, 15.0, material_alu)
     @test length(core.layers) == 2
     @test core.r_ex ≈ (d_w / 2.0) * 3 # Approximation for 1+6 wires
     @test core.resistance > 0 # Resistance should decrease
 
-    add!(core, CircStrands, Diameter(d_w), 12, 13.5, material_alu)
+    add!(core, CircStrands, d_w / 2, 12, 13.5, material_alu)
     @test length(core.layers) == 3
     @test core.r_ex ≈ (d_w / 2.0) * 5 # Approximation for 1+6+12 wires
 
-    add!(core, CircStrands, Diameter(d_w), 18, 12.5, material_alu)
+    add!(core, CircStrands, d_w / 2, 18, 12.5, material_alu)
     @test length(core.layers) == 4
     @test core.r_ex ≈ (d_w / 2.0) * 7 # Approximation
 
-    add!(core, CircStrands, Diameter(d_w), 24, 11.0, material_alu)
+    add!(core, CircStrands, d_w / 2, 24, 11.0, material_alu)
     @test length(core.layers) == 5
     @test core.r_ex ≈ (d_w / 2.0) * 9 # Approximation
     # Check final calculated radius against nominal diameter
@@ -199,7 +199,7 @@ end
     println("Constructing main insulation group...")
     # Inner semiconductive tape
     material_sc_tape = get(materials, "polyacrylate")
-    main_insu = InsulatorGroup(Semicon(core, Thickness(t_sct), material_sc_tape))
+    main_insu = InsulatorGroup(Semicon(core.r_ex, material_sc_tape; thickness=t_sct))
     @test main_insu isa InsulatorGroup
     @test length(main_insu.layers) == 1
     @test main_insu.r_in ≈ final_core_radius
@@ -207,24 +207,24 @@ end
 
     # Inner semiconductor
     material_sc1 = get(materials, "semicon1")
-    add!(main_insu, Semicon, Thickness(t_sc_in), material_sc1)
+    add!(main_insu, Semicon, material_sc1; thickness=t_sc_in)
     @test length(main_insu.layers) == 2
     @test main_insu.r_ex ≈ final_core_radius + t_sct + t_sc_in
 
     # Main insulation (XLPE)
     material_pe = get(materials, "pe")
-    add!(main_insu, Insulator, Thickness(t_ins), material_pe)
+    add!(main_insu, Insulator, material_pe; thickness=t_ins)
     @test length(main_insu.layers) == 3
     @test main_insu.r_ex ≈ final_core_radius + t_sct + t_sc_in + t_ins
 
     # Outer semiconductor
     material_sc2 = get(materials, "semicon2")
-    add!(main_insu, Semicon, Thickness(t_sc_out), material_sc2)
+    add!(main_insu, Semicon, material_sc2; thickness=t_sc_out)
     @test length(main_insu.layers) == 4
     @test main_insu.r_ex ≈ final_core_radius + t_sct + t_sc_in + t_ins + t_sc_out
 
     # Outer semiconductive tape
-    add!(main_insu, Semicon, Thickness(t_sct), material_sc_tape)
+    add!(main_insu, Semicon, material_sc_tape; thickness=t_sct)
     @test length(main_insu.layers) == 5
     @test main_insu.r_ex ≈
           final_core_radius + t_sct + t_sc_in + t_ins + t_sc_out + t_sct
@@ -255,8 +255,8 @@ end
     material_cu = get(materials, "copper")
     screen_con = ConductorGroup(
         CircStrands(
-        main_insu,
-        Diameter(d_ws),
+        main_insu.r_ex,
+        d_ws / 2,
         num_sc_wires,
         lay_ratio_screen,
         material_cu
@@ -270,17 +270,17 @@ end
     add!(
         screen_con,
         Strip,
-        Thickness(t_cut),
         w_cut,
         lay_ratio_screen,
-        material_cu
+        material_cu;
+        thickness=t_cut,
     )
     @test screen_con.r_ex ≈ final_insu_radius + d_ws + t_cut
     final_screen_con_radius = screen_con.r_ex
 
     # Water blocking tape
     material_wbt = get(materials, "polyacrylate") # Assuming same as sc tape
-    screen_insu = InsulatorGroup(Semicon(screen_con, Thickness(t_wbt), material_wbt))
+    screen_insu = InsulatorGroup(Semicon(screen_con.r_ex, material_wbt; thickness=t_wbt))
     @test screen_insu.r_ex ≈ final_screen_con_radius + t_wbt
     final_screen_insu_radius = screen_insu.r_ex
 
@@ -294,17 +294,17 @@ end
     println("Constructing jacket group...")
     # Aluminum foil
     material_alu = get(materials, "aluminum") # Re-get just in case
-    jacket_con = ConductorGroup(Tubular(screen_insu, Thickness(t_alt), material_alu))
+    jacket_con = ConductorGroup(Tubular(screen_insu.r_ex, material_alu; thickness=t_alt))
     @test jacket_con.r_ex ≈ final_screen_insu_radius + t_alt
     final_jacket_con_radius = jacket_con.r_ex
 
     # PE layer after foil
     material_pe = get(materials, "pe") # Re-get just in case
-    jacket_insu = InsulatorGroup(Insulator(jacket_con, Thickness(t_pet), material_pe))
+    jacket_insu = InsulatorGroup(Insulator(jacket_con.r_ex, material_pe; thickness=t_pet))
     @test jacket_insu.r_ex ≈ final_jacket_con_radius + t_pet
 
     # PE jacket
-    add!(jacket_insu, Insulator, Thickness(t_jac), material_pe)
+    add!(jacket_insu, Insulator, material_pe; thickness=t_jac)
     @test jacket_insu.r_ex ≈ final_jacket_con_radius + t_pet + t_jac
     final_jacket_insu_radius = jacket_insu.r_ex
 
@@ -317,7 +317,9 @@ end
           final_jacket_insu_radius
 
     println("Checking DataFrame...")
-    @test DataFrame(cable_design, :baseparams) isa DataFrame
+    cable_constants = compute!(CableConstantsProblem(cable_design), Formulation())
+    @test DataFrame(cable_constants) isa DataFrame
+    @test_throws ArgumentError DataFrame(cable_design, :baseparams)
     @test DataFrame(cable_design, :components) isa DataFrame
     @test DataFrame(cable_design, :detailed) isa DataFrame
 
@@ -692,18 +694,9 @@ end
 
     # Reuse the fully constructed cable_design
     println("  Testing DataFrame...")
-    df_core = DataFrame(cable_design, :baseparams)
+    df_core = DataFrame(compute!(CableConstantsProblem(cable_design), Formulation()))
     @test df_core isa DataFrame
-    @test names(df_core) == ["parameter", "computed", "nominal", "percent_diff"] ||
-          names(df_core) == [
-        "parameter",
-        "computed",
-        "nominal",
-        "percent_diff",
-        "lower",
-        "upper",
-        "in_range?"
-    ] # Allow for uncertainty columns
+    @test names(df_core) == ["parameter", "value", "unit"]
     @test nrow(df_core) == 3
 
     df_comp = DataFrame(cable_design, :components)

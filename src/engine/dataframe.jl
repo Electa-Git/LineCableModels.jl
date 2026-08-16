@@ -34,13 +34,6 @@ function _clip_field(value::Real, tolerance)
     return abs(value) <= tolerance ? zero(value) : value
 end
 
-function _clip_field(value::Measurements.Measurement, tolerance)
-    nominal = abs(Measurements.value(value)) <= tolerance ? 0.0 : Measurements.value(value)
-    uncertainty_value = abs(Measurements.uncertainty(value)) <= tolerance ? 0.0 :
-                        Measurements.uncertainty(value)
-    return Measurements.measurement(nominal, uncertainty_value)
-end
-
 _clip_field(value, _) = value
 
 function _dataframe_unit_label(component, object_basis, length_unit, quantity_units)
@@ -56,14 +49,16 @@ end
 
 function _matrix_dataframes(
         object,
-        frequency_values;
-        mode,
-        coord,
+        frequency_values,
+        component_names;
         frequency_unit,
         length_unit,
         quantity_units,
         tolerance
 )
+    isempty(component_names) && throw(
+        ArgumentError("at least one quantity is required for each matrix family"),
+    )
     frequency_quantity = UnitHandler.QuantityTag{:freq}()
     frequency_target = UnitHandler.units(frequency_unit, :hertz)
     frequency_factor = UnitHandler.scale_factor(
@@ -71,11 +66,6 @@ function _matrix_dataframes(
         frequency_target
     )
     displayed_frequency = frequency_values .* frequency_factor
-    component_names = UnitHandler.line_components(
-        _line_parameter_kind(object),
-        mode,
-        coord
-    )
     component_arrays = Dict(
         component => _line_component_values(Val(component), object, frequency_values)
     for
@@ -111,19 +101,19 @@ function _matrix_dataframes(
 end
 
 """
-    DataFrame(parameters::Union{SeriesImpedance,ShuntAdmittance}; kwargs...)
+$(TYPEDSIGNATURES)
 
 Convert each matrix entry to a frequency-indexed `DataFrame`. The result is an
-`n × n` matrix of frames. `mode=:RLCG` returns physical components and
-`mode=:ZY` returns Cartesian or polar components selected by `coord`.
+`n × n` matrix of frames. The optional accessor tuple selects the displayed
+quantities. By default, series impedance is represented by its real and
+imaginary parts, and shunt admittance is represented likewise.
 
 Container [`basis`](@ref) determines whether units are per length or total.
 """
 function DataFrame(
-        parameters::Union{SeriesImpedance, ShuntAdmittance};
+        parameters::Union{SeriesImpedance, ShuntAdmittance},
+        quantities::Tuple = ();
         freqs = nothing,
-        mode::Symbol = :RLCG,
-        coord::Symbol = :cart,
         freq_unit::Symbol = :base,
         length_unit::Symbol = :kilo,
         quantity_units = nothing,
@@ -133,11 +123,11 @@ function DataFrame(
         ArgumentError("tol must be finite and nonnegative"),
     )
     frequency_values = _frequency_vector(parameters, freqs)
+    components = _resolve_line_components(parameters, quantities)
     return _matrix_dataframes(
         parameters,
-        frequency_values;
-        mode,
-        coord,
+        frequency_values,
+        components;
         frequency_unit = freq_unit,
         length_unit,
         quantity_units,
@@ -146,28 +136,54 @@ function DataFrame(
 end
 
 """
-    DataFrame(parameters::LineParameters; kwargs...)
+$(TYPEDSIGNATURES)
 
 Return `(series, shunt)`, two matrices of frequency-indexed `DataFrame`s,
-using the frequencies, basis, and domain stored by `parameters`.
+using the frequencies, basis, and domain stored by `parameters`. The optional
+accessor tuple must select at least one series and one shunt quantity.
 """
 function DataFrame(
-        parameters::LineParameters;
-        mode::Symbol = :RLCG,
-        coord::Symbol = :cart,
+        parameters::LineParameters,
+        quantities::Tuple = ();
         freq_unit::Symbol = :base,
         length_unit::Symbol = :kilo,
         quantity_units = nothing,
         tol::Real = sqrt(eps(Float64))
 )
-    common = (
-        freqs = frequencies(parameters),
-        mode = mode,
-        coord = coord,
-        freq_unit = freq_unit,
-        length_unit = length_unit,
-        quantity_units = quantity_units,
-        tol = tol
+    isfinite(tol) && tol >= 0 || throw(
+        ArgumentError("tol must be finite and nonnegative"),
     )
-    return DataFrame(Z(parameters); common...), DataFrame(Y(parameters); common...)
+    components = _resolve_line_components(parameters, quantities)
+    series_components = Tuple(
+        component for component in components if component in _SERIES_COMPONENTS
+    )
+    shunt_components = Tuple(
+        component for component in components if component in _SHUNT_COMPONENTS
+    )
+    isempty(series_components) && throw(ArgumentError(
+        "LineParameters presentation requires a series accessor; use DataFrame(Y(parameters), ...) for a shunt-only table",
+    ))
+    isempty(shunt_components) && throw(ArgumentError(
+        "LineParameters presentation requires a shunt accessor; use DataFrame(Z(parameters), ...) for a series-only table",
+    ))
+    frequency_values = frequencies(parameters)
+    common = (;
+        frequency_unit = freq_unit,
+        length_unit,
+        quantity_units,
+        tolerance = float(tol),
+    )
+    series = _matrix_dataframes(
+        Z(parameters),
+        frequency_values,
+        series_components;
+        common...,
+    )
+    shunt = _matrix_dataframes(
+        Y(parameters),
+        frequency_values,
+        shunt_components;
+        common...,
+    )
+    return series, shunt
 end

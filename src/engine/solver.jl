@@ -1,16 +1,17 @@
-function compute!(
+function _compute_with_workspace(
         problem::LineParametersProblem{T},
-        formulation::EMTFormulation
+        formulation::EMTFormulation,
+        execution::ComputeOptions,
 ) where {T <: REALSCALAR}
-    lvl = levelfrom(formulation.options.common.verbosity)
-    sink = isnothing(formulation.options.logfile) ?
+    lvl = levelfrom(execution.verbosity)
+    sink = isnothing(execution.logfile) ?
            ConsoleLogger(stderr, lvl) :
            TeeLogger(ConsoleLogger(stderr, lvl),
-        FileLogger(formulation.options.logfile, lvl))
+        FileLogger(execution.logfile, lvl))
     with_logger(TimestampLogger(sink)) do
         @info "Preallocating arrays"
 
-        ws = init_workspace(problem, formulation)
+        ws = init_workspace(problem, formulation, execution)
         nph, nfreq = ws.n_phases, ws.n_frequencies
 
         # --- full matrices are built per slice (no 3D alloc) ----------------------
@@ -86,7 +87,7 @@ function compute!(
         I_nph = Matrix{Complex{T}}(I, nph, nph)      # identity for full size
         I_nkeep = Matrix{Complex{T}}(I, nkeep, nkeep)   # identity for reduced size
 
-        # --- per-frequency pipeline ------------------------------------------------
+        # --- per-frequency calculation --------------------------------------------
         @info "Starting line parameters computation"
         for k in 1:nfreq
             compute_impedance_matrix!(Ztmp, ws, k, formulation)
@@ -142,9 +143,49 @@ function compute!(
             lp = LineParameters(PhaseDomain, Zout, Yout, ws.freq)
         end
 
+        if execution.output_basis === :total
+            scale = problem.system.line_length
+            lp = LineParameters(
+                domain(lp),
+                lp.Z.values .* scale,
+                lp.Y.values .* scale,
+                lp.f;
+                basis=:total,
+            )
+        end
+
         @info "Line parameters computation completed successfully"
         return ws, lp
     end
+end
+
+function compute!(
+    problem::LineParametersProblem,
+    formulation::EMTFormulation;
+    options=ComputeOptions(),
+)
+    _, result = _compute_with_workspace(
+        problem,
+        formulation,
+        compute_options(options),
+    )
+    return result
+end
+
+function compute!(
+    problem::CableConstantsProblem,
+    ::EMTFormulation;
+    options=ComputeOptions(),
+)
+    execution = compute_options(options)
+    execution.output_basis === :per_length || throw(ArgumentError(
+        "CableConstantsProblem has no system length and supports only output_basis=:per_length",
+    ))
+    return DataModel._compute_cable_constants(
+        problem.design;
+        S=problem.separation,
+        rho_e=problem.earth_resistivity,
+    )
 end
 
 @inline function stash!(slice_or_nothing, k::Int, src::AbstractMatrix)
@@ -298,7 +339,7 @@ function compute_admittance_matrix!(
     # Earth return admittance (Nc×Nc)
     Pext = Matrix{Complex{T}}(undef, Nc, Nc)
     compute_earth_return_matrix!(Pext, cables, ws, k, formulation.earth_admittance)
-    ws.Pg[:, :, k] .= Pext # store in workspace for later use
+    stash!(ws.Pg, k, Pext)
 
     # --- internal Maxwell coefficients (Ametani tail-sum) -------------------------
     pinsfunctor = formulation.insulation_admittance

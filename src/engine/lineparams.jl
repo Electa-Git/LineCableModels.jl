@@ -232,16 +232,16 @@ B(lp::LineParameters, args...) = imag.(Y(lp, args...))
 end
 
 """
-    L(parameters[, i, j[, k]])
+$(TYPEDSIGNATURES)
 
 Return series inductance using the same frequency-selection grammar as
-[`Z`](@ref). Units are \\[H/m\\] for `:per_length` and \\[H\\] for `:total`.
-
-# Notes
+[`Z`](@ref), evaluated as:
 
 ```math
 L(f) = \\frac{\\operatorname{Im} Z(f)}{2\\pi f}.
 ```
+
+Units are \\[H/m\\] for `:per_length` and \\[H\\] for `:total`.
 
 # Errors
 
@@ -253,16 +253,16 @@ function L(lp::LineParameters)
 end
 
 """
-    C(parameters[, i, j[, k]])
+$(TYPEDSIGNATURES)
 
 Return shunt capacitance using the same frequency-selection grammar as
-[`Y`](@ref). Units are \\[F/m\\] for `:per_length` and \\[F\\] for `:total`.
-
-# Notes
+[`Y`](@ref), evaluated as:
 
 ```math
 C(f) = \\frac{\\operatorname{Im} Y(f)}{2\\pi f}.
 ```
+
+Units are \\[F/m\\] for `:per_length` and \\[F\\] for `:total`.
 
 # Errors
 

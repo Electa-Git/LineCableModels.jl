@@ -157,14 +157,6 @@ function Validation.coercive_fields(::Type{RectStrands})
     (:r_in, :thickness, :width, :lay_ratio, :material_props, :temperature)
 end
 
-Validation.is_radius_input(
-    ::Type{RectStrands},
-    ::Val{:r_in},
-    x::AbstractCablePart
-) = true
-
-Validation.is_radius_input(::Type{RectStrands}, ::Val{:r_in}, x::Thickness) = true
-
 # Specific for rectangular strands
 Validation.maxfill(::Type{RectStrands}, rin::Real, w::Real) = floor(Int, 2 * π * rin / w)
 

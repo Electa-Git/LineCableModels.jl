@@ -15,9 +15,8 @@ export ScaledBessel
 using ...Commons
 import ...Commons: get_description
 import ..Engine: InternalImpedanceFormulation
-using Measurements
 using LinearAlgebra
-using ...UncertainBessels: besselix, besselkx
+using SpecialFunctions: besselix, besselkx
 using ...Utils: _to_σ
 
 include("scaledbessel.jl")

@@ -107,20 +107,19 @@ identified by `__julia_type__`. Ensures plain dictionaries use Symbol keys.
 # Returns
 - The deserialized Julia value.
 """
+function _deserialize_extension end
+
 function _deserialize_value(value)
     if value isa Dict
         # Check for special type markers first
         if haskey(value, "__type__")
             type_marker = value["__type__"]
             if type_marker == "Measurement"
-                # Reconstruct Measurement
-                uncval = get_as(value, "uncertainty", nothing, Measurement)
-                if isa(uncval, Measurement)
-                    return uncval
-                else
-                    @warn "Could not reconstruct Measurement from input: value=$(typeof(get_as(value, "value", nothing, BASE_FLOAT))), uncertainty=$(typeof(get_as(value, "uncertainty", nothing, BASE_FLOAT))). Returning original Dict."
-                    return value # Return original dict if parts are invalid
-                end
+                applicable(_deserialize_extension, Val(:Measurement), value) ||
+                    throw(ArgumentError(
+                        "deserializing Measurement values requires loading Measurements.jl",
+                    ))
+                return _deserialize_extension(Val(:Measurement), value)
 
             elseif type_marker == "SpecialFloat"
                 # Reconstruct Inf/NaN

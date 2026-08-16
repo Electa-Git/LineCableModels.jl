@@ -922,7 +922,8 @@ end
     make_render(::Type{S}, object; kwargs...)
 
 Materialize a domain object through the uniform PlotBuilder grammar. Plot
-specifications specialize accessors; they do not replace this pipeline.
+specifications specialize accessors; they do not replace this rendering
+sequence.
 """
 function make_render(::Type{S}, object; kwargs...) where {S <: AbstractPlotSpec}
     expected = dispatch_on(S)

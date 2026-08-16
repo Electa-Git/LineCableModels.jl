@@ -38,9 +38,11 @@ end
 
 function plot(
         object::LineCableModels.SeriesImpedance,
-        frequencies;
+        frequencies,
+        quantities::Tuple = ();
         backend = nothing,
         display_plot::Bool = true,
+        controls::Bool = true,
         xscale = :linear,
         yscale = :linear,
         kwargs...
@@ -49,22 +51,30 @@ function plot(
         LineCableModels.Engine.LineParameterPlotSpec,
         object;
         frequencies,
+        quantities,
         xscale = _scale_symbol(xscale),
         yscale = _scale_symbol(yscale),
         kwargs...
     )
-    return UIComponents.build(render_spec; backend, display = display_plot)
+    return UIComponents.build(render_spec; backend, display = display_plot, controls)
 end
 
-function Makie.plot(object::LineCableModels.SeriesImpedance, frequencies; kwargs...)
-    plot(object, frequencies; kwargs...)
+function Makie.plot(
+        object::LineCableModels.SeriesImpedance,
+        frequencies,
+        quantities::Tuple = ();
+        kwargs...
+)
+    plot(object, frequencies, quantities; kwargs...)
 end
 
 function plot(
         object::LineCableModels.ShuntAdmittance,
-        frequencies;
+        frequencies,
+        quantities::Tuple = ();
         backend = nothing,
         display_plot::Bool = true,
+        controls::Bool = true,
         xscale = :linear,
         yscale = :linear,
         kwargs...
@@ -73,21 +83,29 @@ function plot(
         LineCableModels.Engine.LineParameterPlotSpec,
         object;
         frequencies,
+        quantities,
         xscale = _scale_symbol(xscale),
         yscale = _scale_symbol(yscale),
         kwargs...
     )
-    return UIComponents.build(render_spec; backend, display = display_plot)
+    return UIComponents.build(render_spec; backend, display = display_plot, controls)
 end
 
-function Makie.plot(object::LineCableModels.ShuntAdmittance, frequencies; kwargs...)
-    plot(object, frequencies; kwargs...)
+function Makie.plot(
+        object::LineCableModels.ShuntAdmittance,
+        frequencies,
+        quantities::Tuple = ();
+        kwargs...
+)
+    plot(object, frequencies, quantities; kwargs...)
 end
 
 function plot(
-        parameters::LineCableModels.LineParameters;
+        parameters::LineCableModels.LineParameters,
+        quantities::Tuple = ();
         backend = nothing,
         display_plot::Bool = true,
+        controls::Bool = true,
         xscale = :linear,
         yscale = :linear,
         kwargs...
@@ -95,18 +113,23 @@ function plot(
     render_spec = PlotBuilder.make_render(
         LineCableModels.Engine.LineParameterPlotSpec,
         parameters;
+        quantities,
         xscale = _scale_symbol(xscale),
         yscale = _scale_symbol(yscale),
         kwargs...
     )
-    return UIComponents.build(render_spec; backend, display = display_plot)
+    return UIComponents.build(render_spec; backend, display = display_plot, controls)
 end
 
-function Makie.plot(parameters::LineCableModels.LineParameters; kwargs...)
-    plot(parameters; kwargs...)
+function Makie.plot(
+        parameters::LineCableModels.LineParameters,
+        quantities::Tuple = ();
+        kwargs...
+)
+    plot(parameters, quantities; kwargs...)
 end
 
-function _quantity_symbol(expression)
+function _monte_carlo_quantity(expression)
     expression isa Symbol && return expression, nothing
     if expression isa Expr && expression.head === :ref && length(expression.args) == 4
         return Symbol(expression.args[1]), Tuple(Int.(expression.args[2:4]))
@@ -115,37 +138,39 @@ function _quantity_symbol(expression)
 end
 
 function plot(
-        result::Union{LineCableModels.CableConstantsMC, LineCableModels.LineParametersMC},
-        expression = :R;
-        ijk = nothing,
-        backend = nothing,
-        display_plot::Bool = true,
-        kwargs...
+    result::LineCableModels.MonteCarloResult,
+    expression=:R;
+    ijk=nothing,
+    backend=nothing,
+    display_plot::Bool=true,
+    controls::Bool=true,
+    kwargs...,
 )
-    quantity, parsed_indices = _quantity_symbol(expression)
+    quantity, parsed_indices = _monte_carlo_quantity(expression)
     selection = ijk === nothing ? parsed_indices : ijk
     render_spec = PlotBuilder.make_render(
-        LineCableModels.UQ.MCDistributionPlotSpec,
+        LineCableModels.Computation.MCDistributionPlotSpec,
         result;
         quantity,
-        ijk = selection,
-        kwargs...
+        ijk=selection,
+        kwargs...,
     )
-    return only(UIComponents.build(render_spec; backend, display = display_plot))
+    return only(UIComponents.build(render_spec; backend, display=display_plot, controls))
 end
 
 function Makie.plot(
-        result::Union{LineCableModels.CableConstantsMC, LineCableModels.LineParametersMC},
-        expression = :R;
-        kwargs...
+    result::LineCableModels.MonteCarloResult,
+    expression=:R;
+    kwargs...,
 )
-    plot(result, expression; kwargs...)
+    return plot(result, expression; kwargs...)
 end
 
 function preview(
-        design::LineCableModels.CableDesign;
+        design::LineCableModels.DataModel.CableDesign;
         backend = nothing,
         display_plot::Bool = true,
+        controls::Bool = true,
         kwargs...
 )
     render_spec = PlotBuilder.make_render(
@@ -153,13 +178,14 @@ function preview(
         design;
         kwargs...
     )
-    return only(UIComponents.build(render_spec; backend, display = display_plot))
+    return only(UIComponents.build(render_spec; backend, display = display_plot, controls))
 end
 
 function preview(
-        system::LineCableModels.LineCableSystem;
+        system::LineCableModels.DataModel.LineCableSystem;
         backend = nothing,
         display_plot::Bool = true,
+        controls::Bool = true,
         kwargs...
 )
     render_spec = PlotBuilder.make_render(
@@ -167,12 +193,13 @@ function preview(
         system;
         kwargs...
     )
-    return only(UIComponents.build(render_spec; backend, display = display_plot))
+    return only(UIComponents.build(render_spec; backend, display = display_plot, controls))
 end
 
 function show_material_scale(
         ; backend = nothing,
         display_plot::Bool = true,
+        controls::Bool = true,
         kwargs...
 )
     render_spec = PlotBuilder.make_render(
@@ -180,7 +207,7 @@ function show_material_scale(
         nothing;
         kwargs...
     )
-    return only(UIComponents.build(render_spec; backend, display = display_plot))
+    return only(UIComponents.build(render_spec; backend, display = display_plot, controls))
 end
 
 end # module LineCableModelsMakieExt

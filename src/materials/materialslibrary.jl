@@ -127,12 +127,13 @@ $(FUNCTIONNAME)(library, "copper", material)
 """
 function add!(
         library::MaterialsLibrary,
-        name::AbstractString,
+        name::Union{AbstractString,Symbol},
         material::Material
 )
-    if haskey(library, name)
-        Base.error("Material $name already exists in the library.")
+    key = String(name)
+    if haskey(library, key)
+        Base.error("Material $key already exists in the library.")
     end
-    library[String(name)] = material
+    library[key] = material
     library
 end

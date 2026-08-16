@@ -212,6 +212,39 @@ function _layer_series!(series, layer, label, group, xcenter, ycenter; include_l
     return series
 end
 
+_preview_layer_name(::CircStrands) = "round wires"
+_preview_layer_name(::RectStrands) = "sector strands"
+_preview_layer_name(::Strip) = "strip"
+_preview_layer_name(::Tubular) = "tubular conductor"
+_preview_layer_name(::Semicon) = "semiconductor"
+_preview_layer_name(::Insulator) = "insulation"
+_preview_layer_name(::ConductorGroup) = "conductor group"
+_preview_layer_name(layer) = lowercase(string(nameof(typeof(layer))))
+
+function _preview_layer_identities(component_id, layers, role::Symbol)
+    names = _preview_layer_name.(layers)
+    totals = Dict{String, Int}()
+    for name in names
+        totals[name] = get(totals, name, 0) + 1
+    end
+
+    seen = Dict{String, Int}()
+    component_name = uppercasefirst(replace(String(component_id), '_' => ' '))
+    identities = Tuple{String, Symbol}[]
+    for (index, name) in enumerate(names)
+        occurrence = get(seen, name, 0) + 1
+        seen[name] = occurrence
+        suffix = totals[name] == 1 ? "" : " $occurrence"
+        label = "$component_name: $name$suffix"
+        key = replace(
+            "preview_$(component_id)_$(role)_$index",
+            r"[^0-9A-Za-z]+" => "_",
+        )
+        push!(identities, (label, Symbol(key)))
+    end
+    return identities
+end
+
 function _design_series(design, xcenter, ycenter; display_legend::Bool)
     series = PlotBuilder.SeriesSpec[]
     outer_radius = try
@@ -224,27 +257,24 @@ function _design_series(design, xcenter, ycenter; display_legend::Bool)
             _polygon_series(_circle_points(outer_radius, xcenter, ycenter), nothing,
                 :background, :white; stroke = :transparent, width = 0.0))
     end
-    function preview_identity(layer, layer_name)
-        hasproperty(layer, :material_props) || return layer_name, Symbol(layer_name)
-        material = layer.material_props
-        rho = to_nominal(material.rho)
-        mu_r = to_nominal(material.mu_r)
-        eps_r = to_nominal(material.eps_r)
-        displayed_rho = isfinite(rho) ? round(Float64(rho); sigdigits = 2) : rho
-        label = "$layer_name ρ=$displayed_rho"
-        key = replace("$(layer_name)_$(rho)_$(mu_r)_$(eps_r)", r"[^0-9A-Za-z]+" => "_")
-        return label, Symbol(key)
-    end
     for component in design.components
-        for layer in component.conductor_group.layers
-            layer_name = lowercase(string(nameof(typeof(layer))))
-            label, group = preview_identity(layer, layer_name)
+        conductor_layers = component.conductor_group.layers
+        conductor_identities = _preview_layer_identities(
+            component.id,
+            conductor_layers,
+            :conductor,
+        )
+        for (layer, (label, group)) in zip(conductor_layers, conductor_identities)
             _layer_series!(series, layer, label, group, xcenter,
                 ycenter; include_label = display_legend)
         end
-        for layer in component.insulator_group.layers
-            layer_name = lowercase(string(nameof(typeof(layer))))
-            label, group = preview_identity(layer, layer_name)
+        insulator_layers = component.insulator_group.layers
+        insulator_identities = _preview_layer_identities(
+            component.id,
+            insulator_layers,
+            :insulator,
+        )
+        for (layer, (label, group)) in zip(insulator_layers, insulator_identities)
             _layer_series!(series, layer, label, group, xcenter,
                 ycenter; include_label = display_legend)
         end

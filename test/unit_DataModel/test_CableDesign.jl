@@ -1,5 +1,5 @@
 # -------------------------
-# Test fixtures (canonical parts)
+# Test fixtures (reference parts)
 # -------------------------
 @testsnippet cable_fixtures begin
 
@@ -20,32 +20,32 @@
     rin0 = 0.0
 
     # One of each conductor type
-    core_wire = DM.CircStrands(rin0, DM.Diameter(d_wire), 1, 0.0, copper_props)
+    core_wire = DM.CircStrands(rin0, d_wire / 2, 1, 0.0, copper_props)
     # outer wire layer
-    outer_wire = DM.CircStrands(core_wire.r_ex, DM.Diameter(d_wire), 6, 10.0, copper_props)
+    outer_wire = DM.CircStrands(core_wire.r_ex, d_wire / 2, 6, 10.0, copper_props)
     # strip (placed over outer wire layer)
-    strip1 = DM.Strip(outer_wire.r_ex, DM.Thickness(0.5e-3), 0.02, 8.0, copper_props)
+    strip1 = DM.Strip(outer_wire.r_ex, 0.02, 8.0, copper_props; thickness=0.5e-3)
     # tubular (placed over strip)
-    tube1 = DM.Tubular(strip1.r_ex, DM.Thickness(0.8e-3), copper_props)
+    tube1 = DM.Tubular(strip1.r_ex, copper_props; thickness=0.8e-3)
 
     # Build a conductor group with mixed parts
     function make_conductor_group()
         g = DM.ConductorGroup(core_wire)
-        add!(g, DM.CircStrands, DM.Diameter(d_wire), 6, 10.0, copper_props)
-        add!(g, DM.Strip, DM.Thickness(0.5e-3), 0.02, 8.0, copper_props)
-        add!(g, DM.Tubular, DM.Thickness(0.8e-3), copper_props)
+        add!(g, DM.CircStrands, d_wire / 2, 6, 10.0, copper_props)
+        add!(g, DM.Strip, 0.02, 8.0, copper_props; thickness=0.5e-3)
+        add!(g, DM.Tubular, copper_props; thickness=0.8e-3)
         g
     end
 
     # Insulation parts
-    ins1 = DM.Insulator(tube1.r_ex, DM.Thickness(2.0e-3), xlpe_props)
-    semi = DM.Semicon(ins1.r_ex, DM.Thickness(0.8e-3), semi_props)
-    ins2 = DM.Insulator(semi.r_ex, DM.Thickness(2.0e-3), xlpe_props)
+    ins1 = DM.Insulator(tube1.r_ex, xlpe_props; thickness=2.0e-3)
+    semi = DM.Semicon(ins1.r_ex, semi_props; thickness=0.8e-3)
+    ins2 = DM.Insulator(semi.r_ex, xlpe_props; thickness=2.0e-3)
 
     function make_insulator_group()
         ig = DM.InsulatorGroup(ins1)
-        add!(ig, DM.Semicon, DM.Thickness(0.8e-3), semi_props)
-        add!(ig, DM.Insulator, DM.Thickness(2.0e-3), xlpe_props)
+        add!(ig, DM.Semicon, semi_props; thickness=0.8e-3)
+        add!(ig, DM.Insulator, xlpe_props; thickness=2.0e-3)
         ig
     end
 
@@ -66,8 +66,8 @@ end
         bad_ins = DM.InsulatorGroup(
             DM.Insulator(
             g.r_ex + 1e-4,
-            DM.Thickness(1e-3),
-            MAT.Material(1e10, 3.0, 1.0, 20.0, 0.0)
+            MAT.Material(1e10, 3.0, 1.0, 20.0, 0.0);
+            thickness=1e-3,
         ),
         )
         @test_throws ArgumentError DM.CableComponent("core", g, bad_ins)

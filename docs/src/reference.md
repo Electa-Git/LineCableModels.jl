@@ -1,75 +1,137 @@
 # API reference
 
-This page documents the public API and the documented implementation surface of
-`LineCableModels.jl`.
+## Modeling and execution grammar
 
-## Result containers
+The top-level namespace exposes the declarative modeling API. `Grid` is the
+only parameter-variation syntax, `Gridspace{Target}` is a lazy space of complete
+targets, and `AbstractSpec{Target}` supports both deterministic iteration and
+stochastic materialization.
 
-`CableConstants` stores canonical per-metre R/L/C values. `LineParameters`
-stores frequency-dependent Z/Y matrices together with their domain and either a
-`:per_length` or `:total` basis. Selecting matrix indices without a frequency
-index returns the complete frequency response.
+Ordinary collections remain ordinary constructor values. Wrap a collection in
+`Grid` only when it is intended to vary. Reusing the same `Grid` deliberately
+couples the selection and stochastic realization wherever that grid appears.
 
-```jldoctest result_containers
-julia> using LineCableModels
-
-julia> f = [50.0, 100.0];
-
-julia> z = reshape(ComplexF64[1 + 2im, 3 + 4im], 1, 1, 2);
-
-julia> y = reshape(ComplexF64[5 + 6im, 7 + 8im], 1, 1, 2);
-
-julia> parameters = LineParameters(z, y, f);
-
-julia> basis(parameters)
-:per_length
-
-julia> R(parameters, 1, 1) == [1.0, 3.0]
-true
-
-julia> Z(parameters, 1, 1, 2)
-3.0 + 4.0im
+```julia
+earth = Earth(
+    rho=Grid((10.0, 100.0, 1000.0)),
+    eps_r=Grid((100.0, 10.0, 5.0));
+    combine=:zip,
+)
 ```
 
-`ParametricSweep` stores deterministic cases and their results in one ordered,
-type-stable collection. Indexing returns a result; `cases` retains the matching
-input. A physical accessor accepts the case index before the normal result
-selection grammar. Shared `basis`, `domain`, and frequency accessors fail
-explicitly if those properties differ between cases.
+Composition is local to each Gridspace node. The example above admits exactly
+three earth configurations; its resolved `EarthParameters` objects can still
+participate in a Cartesian product at a parent problem node.
 
-```jldoctest result_containers
-julia> second = LineParameters(2z, 2y, f);
+All numerical work follows `problem → Formulation → compute!`:
 
-julia> sweep = ParametricSweep(
-           [(temperature=20.0,), (temperature=90.0,)],
-           [parameters, second],
-       );
-
-julia> ncases(sweep)
-2
-
-julia> R(sweep, 2, 1, 1)
-2-element Vector{Float64}:
- 2.0
- 6.0
-
-julia> frequencies(sweep)
-2-element Vector{Float64}:
-  50.0
- 100.0
+```julia
+compute!(problem, Formulation())
+compute!(problem, Formulation(); run=FullParametric())
+compute!(problem, Formulation(); run=MonteCarlo(trials=1000, cdf_tol=0.02))
 ```
 
-Monte Carlo calculations return `CableConstantsMC` or `LineParametersMC`.
-Use `statistics`, `mean`, `std`, and `quantile` for summaries; `samples` and
-`trial` for retained joint trials; `distribution` for retained marginal
-histograms; and `surrogate` for the covariance-preserving Measurements.jl
-representation. `trial` and `rand` deliberately require retained joint samples.
+Deterministic spaces default to `FullParametric()`. Uncertainty-bearing spaces
+require the caller to choose direct propagation or Monte Carlo explicitly.
+Monte Carlo enumerates every outer configuration and samples realizations only
+within the selected configuration.
 
-`UnitHandler` maps result accessors to physical meaning independently of any
-container or plot. For example, `UnitHandler.quantity(Z)` identifies series
-impedance, while `UnitHandler.quantity(Z, :re)` identifies series resistance.
-The resulting `QuantityTag` selects canonical units, display units, labels,
-symbols, and scaling.
+`Formulation` owns physics and numerical-method choices. The separate
+`ComputeOptions` value is shared unchanged by ordinary, full-parametric, and
+Monte Carlo execution. For example, a materialized line system can request
+total rather than per-length Z/Y matrices without altering its formulation:
+
+```julia
+compute!(problem, formulation; options=(output_basis=:total,))
+```
+
+`output_basis=:total` scales both impedance and admittance by the materialized
+system length. `CableConstantsProblem` has no line length and therefore accepts
+only the default `:per_length` basis.
+
+## Results and provenance
+
+`CableConstants` stores R/L/C values per metre. `LineParameters`
+stores frequency-dependent Z/Y matrices with their domain and `:per_length` or
+`:total` basis.
+
+A complete configuration traversal returns `FullParametricResult{T}`. A single
+conditional Monte Carlo analysis returns `MonteCarloResult{T}`. Applying Monte
+Carlo to several outer configurations therefore returns
+`FullParametricResult{MonteCarloResult{T}}`.
+
+Use `result`, `statistics`, `samples`, `histograms`, `uncertain_value`, and
+`manifest` to inspect results. A calculation manifest contains a stable SHA-256
+hash over the resolved parameterization, original problem assumptions,
+formulation, solver identity, execution policy, and calculation options.
+
+`DataFrame(result::MonteCarloResult)` renders the stored marginal summaries
+without repeating the calculation. Cable-constant results produce one R/L/C
+table; line-parameter results produce one R/L/C/G table for every matrix entry
+and frequency. The displayed `confidence` and `cdf_tol` values describe the DKW
+bound below and must not be interpreted as confidence intervals for the sample
+mean.
+
+After loading a Makie package, retained samples and histograms can be displayed
+through the maintained Monte Carlo recipe:
+
+```julia
+using CairoMakie
+
+plot(result, :R; mode=:hist, data=:both)
+plot(result, :R; mode=:pdf)
+plot(result, :R; mode=:ecdf, data=:both)
+plot(result, :R; mode=:qq)
+
+# Select one line-parameter matrix entry and frequency:
+plot(line_result, :L; ijk=(1, 1, 3), mode=:hist)
+```
+
+The `:pdf`, `:ecdf`, and `:qq` views use the retained piecewise-constant
+`HistogramPDF`. When only samples were retained, the recipe derives the
+histogram needed for presentation.
+
+When `MonteCarlo(trials=nothing)` is used, the trial count follows a simultaneous
+Dvoretzky–Kiefer–Wolfowitz bound. For `M` scalar marginals and confidence
+`1-α`, the implementation selects
+`ceil(log(2M/α) / (2*cdf_tol^2))` trials. A union bound therefore controls the
+largest empirical-CDF deviation among those marginals. `M` is three for cable
+constants and four real R/L/G/C upper-triangular coordinates per frequency for
+line parameters. `cdf_tol` is not a solver tolerance and does not bound mean
+error or the joint distribution.
+
+## Optional uncertainty integrations
+
+The core Grid/Gridspace grammar does not load Measurements.jl or
+Distributions.jl. Loading Measurements enables direct propagation and
+`Measurements.measurement(result::MonteCarloResult)`. Retained joint samples
+allow covariance-preserving reconstruction; without retained samples the
+conversion warns and reconstructs independent marginal values. Loading
+Distributions enables arbitrary compatible univariate distributions as Monte
+Carlo samplers and `pdf`/`cdf` evaluation of `HistogramPDF`. A supplied
+distribution is standardized to the Grid descriptor's nominal value and
+standard deviation, so it must have a finite mean and a positive finite
+standard deviation.
+
+## Strict materialized API
+
+The eager cable and system model remains the materialized boundary but is not
+exported at top level. Import those types explicitly when strict construction
+is required. `Material`, `MaterialsLibrary`, and `CablesLibrary` are public
+because they are shared by both modeling modes:
+
+```julia
+using LineCableModels: Material
+import LineCableModels.DataModel
+import LineCableModels.EarthProps
+
+copper = Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
+core = DataModel.Tubular(0.0, copper; radius=10e-3)
+```
+
+Strict radial constructors accept numeric inner/outer radii, or exactly one
+named numeric `radius`/`thickness` declaration. Group `add!` uses the current
+outer radius as the next inner boundary.
 
 ## Contents
 
@@ -84,6 +146,7 @@ Depth = 3
 Modules = [
     LineCableModels,
     LineCableModels.Commons,
+    LineCableModels.Computation,
     LineCableModels.UnitHandler,
     LineCableModels.Utils,
 ]
@@ -124,13 +187,12 @@ Public = true
 Private = true
 ```
 
-## Parametric and uncertainty modeling
+## Parametric modeling
 
 ```@autodocs
 Modules = [
     LineCableModels.ParametricBuilder,
     LineCableModels.ParametricBuilder.WirePatterns,
-    LineCableModels.UQ,
 ]
 Order = [:module, :constant, :type, :function, :macro]
 Public = true
@@ -153,15 +215,6 @@ Private = true
 
 ```@autodocs
 Modules = [LineCableModels.ImportExport]
-Order = [:module, :constant, :type, :function, :macro]
-Public = true
-Private = true
-```
-
-## Uncertainty-aware Bessel functions
-
-```@autodocs
-Modules = [LineCableModels.UncertainBessels]
 Order = [:module, :constant, :type, :function, :macro]
 Public = true
 Private = true

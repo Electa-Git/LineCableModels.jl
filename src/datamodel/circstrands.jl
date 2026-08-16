@@ -57,7 +57,7 @@ Constructs a [`CircStrands`](@ref) instance based on specified geometric and mat
 
 ```julia
 material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
-circstrands = $(FUNCTIONNAME)(0.01, Diameter(0.002), 7, 10, material_props, temperature=25)
+circstrands = $(FUNCTIONNAME)(0.01, 0.001, 7, 10, material_props, temperature=25)
 println(circstrands.mean_diameter)  # Outputs mean diameter in m
 println(circstrands.resistance)     # Outputs resistance in Ω/m
 ```
@@ -128,12 +128,6 @@ Validation.keyword_defaults(::Type{CircStrands}) = _DEFS_CIRCSTRANDS
 function Validation.coercive_fields(::Type{CircStrands})
     (:r_in, :radius_wire, :lay_ratio, :material_props, :temperature)
 end  # not :num_wires, :lay_direction
-# accept proxies for radii
-Validation.is_radius_input(::Type{CircStrands}, ::Val{:r_in},
-    x::AbstractCablePart) = true
-Validation.is_radius_input(::Type{CircStrands}, ::Val{:r_ex},
-    x::Diameter) = true
-
 function Validation.extra_rules(::Type{CircStrands})
     (
         # radii (post-parse they must be numeric)
@@ -156,7 +150,6 @@ function maxfill(::Type{CircStrands}, rin::Real, rw::Real)
     rin == 0 ? 1 : floor(Int, π / asin(rw / (rin + rw)))
 end
 
-# normalize proxies -> numbers
 function Validation.parse(::Type{CircStrands}, nt)
     rin, rw = _normalize_radii(CircStrands, nt.r_in, nt.radius_wire)
     (; nt..., r_in = rin, radius_wire = rw)

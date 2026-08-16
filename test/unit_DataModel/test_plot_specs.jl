@@ -21,6 +21,13 @@
     @test all(series -> series.kind === :polygon, cable_view.series)
     @test all(series -> series.group isa Symbol, cable_view.series)
     @test all(series -> haskey(series.attributes, :color), cable_view.series)
+    legend_labels = String[
+        series.label for series in cable_view.series if series.label !== nothing
+    ]
+    @test !isempty(legend_labels)
+    @test all(label -> !occursin("ρ=", label), legend_labels)
+    @test all(label -> occursin(": ", label), legend_labels)
+    @test length(unique(legend_labels)) == length(legend_labels)
     @test any(
         series -> hasproperty(series.zdata, :interiors) &&
                   !isempty(series.zdata.interiors),

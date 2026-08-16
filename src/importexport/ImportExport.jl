@@ -37,7 +37,6 @@ using ..DataModel: CablesLibrary, CableDesign, CableComponent, ConductorGroup,
                    Insulator,
                    LineCableSystem, NominalData
 import ..Engine: LineParameters, SeriesImpedance, ShuntAdmittance
-using Measurements
 using EzXML
 using Dates
 using Printf # For ATP export

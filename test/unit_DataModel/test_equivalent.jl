@@ -15,19 +15,19 @@
     rin0 = 0.0
 
     function make_conductor_group()
-        core = DM.CircStrands(rin0, DM.Diameter(d_wire), 1, 0.0, copper_props)
+        core = DM.CircStrands(rin0, d_wire / 2, 1, 0.0, copper_props)
         g = DM.ConductorGroup(core)
-        add!(g, DM.CircStrands, DM.Diameter(d_wire), 6, 10.0, copper_props)
-        add!(g, DM.Strip, DM.Thickness(0.5e-3), 0.02, 8.0, copper_props)
-        add!(g, DM.Tubular, DM.Thickness(0.8e-3), copper_props)
+        add!(g, DM.CircStrands, d_wire / 2, 6, 10.0, copper_props)
+        add!(g, DM.Strip, 0.02, 8.0, copper_props; thickness=0.5e-3)
+        add!(g, DM.Tubular, copper_props; thickness=0.8e-3)
         g
     end
 
     function make_insulator_group(conductor_group)
-        ins1 = DM.Insulator(conductor_group.r_ex, DM.Thickness(2.0e-3), xlpe_props)
+        ins1 = DM.Insulator(conductor_group.r_ex, xlpe_props; thickness=2.0e-3)
         ig = DM.InsulatorGroup(ins1)
-        add!(ig, DM.Semicon, DM.Thickness(0.8e-3), semi_props)
-        add!(ig, DM.Insulator, DM.Thickness(2.0e-3), xlpe_props)
+        add!(ig, DM.Semicon, semi_props; thickness=0.8e-3)
+        add!(ig, DM.Insulator, xlpe_props; thickness=2.0e-3)
         ig
     end
 

@@ -37,7 +37,6 @@ function Base.getindex(
     )
 end
 
-_has_uncertainty_type(::Type{Complex{S}}) where {S} = S <: Measurement
 _has_uncertainty_type(::Type) = false
 
 @inline function _basis_units(value, per_length_unit, total_unit)

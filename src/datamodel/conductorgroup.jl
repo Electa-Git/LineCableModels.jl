@@ -96,10 +96,15 @@ ConductorGroup(con::AbstractConductorPart{T}) where {T} = ConductorGroup{T}(con)
 """
 $(TYPEDSIGNATURES)
 
-Add a new conductor part to a [`ConductorGroup`](@ref), validating raw inputs,
-normalizing proxies, and **promoting** the group’s numeric type if required.
+Add a new conductor part to a [`ConductorGroup`](@ref), validate its numeric
+inputs, and promote the group’s numeric type when required.
 
-# Behavior:
+This updates `gmr`, `resistance`, `alpha`, `r_ex`, `cross_section`, and
+`num_wires`. The new part temperature defaults to the temperature of the
+first layer, and its inner radius defaults to the external radius of the
+existing group.
+
+# Behavior
 
 1. Apply part-level keyword defaults.
 2. Default `r_in` to `group.r_ex` if absent.
@@ -115,26 +120,29 @@ normalizing proxies, and **promoting** the group’s numeric type if required.
 
 # Returns
 
-- The function modifies the [`ConductorGroup`](@ref) instance in place and does not return a value.
-
-# Notes
-
-- Updates `gmr`, `resistance`, `alpha`, `r_ex`, `cross_section`, and `num_wires` to account for the new part.
-- The `temperature` of the new part defaults to the temperature of the first layer if not specified.
-- The `r_in` of the new part defaults to the external radius of the existing conductor if not specified.
+- The updated [`ConductorGroup`](@ref). This is `group` when its numeric type
+  is unchanged, or a promoted group when the new part requires another numeric
+  type.
 
 !!! warning "Note"
-    - When an [`AbstractCablePart`](@ref) is provided as `r_in`, the constructor retrieves its `r_ex` value, allowing the new cable part to be placed directly over the existing part in a layered cable design.
-    - For uncertain geometries, the preceding part's outer-radius derivative graph
-      is retained. Adjacent layers therefore share one physical boundary and
-      cumulative-radius covariance is preserved across different part types.
+    - The current outer radius is supplied automatically as `r_in`. For radial
+      parts, pass exactly one of `radius` or `thickness`; do not pass a layer
+      object as a constructor input.
+    - For uncertain geometries, the existing outer-radius derivative graph is
+      retained. Adjacent layers therefore share one physical boundary and
+      cumulative-radius covariance is preserved across part types.
 
 # Examples
 
-```julia
-material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
-conductor = ConductorGroup(Strip(0.01, 0.002, 0.05, 10, material_props))
-$(FUNCTIONNAME)(conductor, CircStrands, 0.02, 0.002, 7, 15, material_props, temperature = 25)
+```jldoctest
+using LineCableModels.DataModel: CircStrands, ConductorGroup
+using LineCableModels.Materials: Material
+
+material = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
+conductor = ConductorGroup(CircStrands(0.0, 0.001, 1, 0.0, material))
+conductor = $(FUNCTIONNAME)(conductor, CircStrands, 0.001, 6, 15.0, material)
+@assert length(conductor.layers) == 2
+# output
 ```
 
 """
@@ -152,19 +160,21 @@ function add!(
     rin = get(kwv, :r_in, group.r_ex)
     kwv = haskey(kwv, :r_in) ? kwv : merge(kwv, (; r_in = rin))
 
+    part_args, kwv = _resolve_group_radial_args(C, rin, args, kwv)
+
     # 3) Decide target numeric type using *current group + raw inputs*
-    Tnew = resolve_T(group, rin, args..., values(kwv)...)
+    Tnew = resolve_T(group, rin, part_args..., values(kwv)...)
 
     if Tnew === T
         # 4a) Fast path: mutate in place
-        return _do_add!(group, C, args...; kwv...)
+        return _do_add!(group, C, part_args...; kwv...)
     else
         @warn """
           Adding a `$Tnew` part to a `ConductorGroup{$T}` returns a **promoted** group.
           Capture the result:  group = add!(group, $C, …)
           """
         promoted = coerce_to_T(group, Tnew)
-        return _do_add!(promoted, C, args...; kwv...)
+        return _do_add!(promoted, C, part_args...; kwv...)
     end
 end
 
@@ -184,13 +194,25 @@ function _do_add!(
     # Materialize keyword args into a NamedTuple (never poke Base.Pairs internals)
     kw = (; kwargs...)
 
-    # Validate + parse with the part’s own pipeline (proxies resolved here)
+    # Validate and parse with the part's own numeric input sequence.
     ntv = Validation.validate!(C, kw.r_in, args...; kw...)
 
     # Coerce validated values to group’s T and call strict numeric core
     order = (Validation.required_fields(C)..., Validation.keyword_fields(C)...)
     coerced = _coerced_args(C, ntv, Tg, order)      # respects coercive_fields(C)
     new_part = C(coerced...)
+
+    return _append_conductor!(group, new_part)
+end
+
+function _append_conductor!(
+    group::ConductorGroup{T},
+    new_part::AbstractConductorPart{T},
+) where {T}
+    isapprox(new_part.r_in, group.r_ex) || throw(ArgumentError(
+        "new conductor layer must start at the group's current outer radius " *
+        "$(group.r_ex); got $(new_part.r_in)",
+    ))
 
     # Update equivalent properties
     group.gmr = calc_equivalent_gmr(group, new_part)
@@ -213,6 +235,18 @@ function _do_add!(
 
     push!(group.layers, new_part)
     return group
+end
+
+function add!(
+    group::ConductorGroup{T},
+    new_part::AbstractConductorPart{U},
+) where {T,U}
+    target_type = promote_type(T, U)
+    if target_type === T
+        return _append_conductor!(group, coerce_to_T(new_part, T))
+    end
+    promoted = coerce_to_T(group, target_type)
+    return _append_conductor!(promoted, coerce_to_T(new_part, target_type))
 end
 
 include("conductorgroup/base.jl")

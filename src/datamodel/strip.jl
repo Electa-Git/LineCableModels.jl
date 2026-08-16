@@ -42,7 +42,7 @@ Constructs a [`Strip`](@ref) object with specified geometric and material parame
 # Arguments
 
 - `r_in`: Internal radius of the strip \\[m\\].
-- `r_ex`: External radius or thickness of the strip \\[m\\].
+- `r_ex`: External radius of the strip \\[m\\].
 - `width`: Width of the strip \\[m\\].
 - `lay_ratio`: Ratio defining the lay length of the strip \\[dimensionless\\].
 - `material_props`: Material properties of the strip.
@@ -57,7 +57,7 @@ Constructs a [`Strip`](@ref) object with specified geometric and material parame
 
 ```julia
 material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
-strip = $(FUNCTIONNAME)(0.01, Thickness(0.002), 0.05, 10, material_props, temperature=25)
+strip = $(FUNCTIONNAME)(0.01, 0.012, 0.05, 10, material_props, temperature=25)
 println(strip.cross_section) # Output: 0.0001 [m²]
 println(strip.resistance)    # Output: Resistance value [Ω/m]
 ```
@@ -121,13 +121,6 @@ Validation.keyword_defaults(::Type{Strip}) = _DEFS_STRIP
 function Validation.coercive_fields(::Type{Strip})
     (:r_in, :r_ex, :width, :lay_ratio, :material_props, :temperature)
 end  # not :lay_direction
-# accept proxies for radii
-
-Validation.is_radius_input(::Type{Strip}, ::Val{:r_in}, x::AbstractCablePart) = true
-Validation.is_radius_input(::Type{Strip}, ::Val{:r_in}, x::Thickness) = true
-Validation.is_radius_input(::Type{Strip}, ::Val{:r_ex}, x::Thickness) = true
-Validation.is_radius_input(::Type{Strip}, ::Val{:r_ex}, x::Diameter) = true
-
 function Validation.extra_rules(::Type{Strip})
     (
         IsA{Material}(:material_props),
@@ -139,7 +132,6 @@ function Validation.extra_rules(::Type{Strip})
     )
 end
 
-# normalize proxies -> numbers
 function Validation.parse(::Type{Strip}, nt)
     rin, rex = _normalize_radii(Strip, nt.r_in, nt.r_ex)
     (; nt..., r_in = rin, r_ex = rex)
@@ -147,3 +139,25 @@ end
 
 # This macro expands to a weakly-typed constructor for Strip
 @construct Strip _REQ_STRIP _OPT_STRIP _DEFS_STRIP
+
+function Strip(
+    r_in::Real,
+    width::Real,
+    lay_ratio::Real,
+    material_props::Material;
+    radius::Union{Nothing,Real}=nothing,
+    thickness::Union{Nothing,Real}=nothing,
+    temperature::Real=T₀,
+    lay_direction::Int=1,
+)
+    r_ex = _resolve_outer_radius(Strip, r_in; radius, thickness)
+    return Strip(
+        r_in,
+        r_ex,
+        width,
+        lay_ratio,
+        material_props;
+        temperature,
+        lay_direction,
+    )
+end

@@ -27,8 +27,6 @@ using ..Commons
 using ..Utils: resolve_T
 import ..Commons: get_description, add!
 import ..Utils: coerce_to_T
-using Measurements
-
 include("fdprops.jl")
 
 """

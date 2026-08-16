@@ -1,7 +1,10 @@
 """
     LineCableModels.Validation
 
-The [`Validation`](@ref) module implements a trait-driven, three-phase input checking pipeline for component constructors in `LineCableModels`. Inputs are first *sanitized* (arity and shape checks on raw arguments), then *parsed* (proxy values normalized to numeric radii), and finally validated by a generated set of rules.
+The [`Validation`](@ref) module implements a trait-driven, three-phase input
+checking sequence for component constructors in `LineCableModels`. Inputs are
+first *sanitized* (arity and shape checks), then *parsed* into their normalized
+numeric representation, and finally validated by a generated set of rules.
 
 # Overview
 
@@ -150,7 +153,8 @@ coercive_fields(::Type{T}) where {T} = (required_fields(T)..., keyword_fields(T)
 """
 $(TYPEDSIGNATURES)
 
-Trait predicate that defines admissible *raw* radius inputs for a component type during `sanitize`. The default accepts real, non‑complex numbers only. Component code may extend this to allow proxies (e.g., `AbstractCablePart`, `Thickness`, `Diameter`).
+Trait predicate that defines admissible raw radius inputs during `sanitize`.
+Only real, non-complex numeric radii are accepted.
 
 # Arguments
 
@@ -226,7 +230,7 @@ is_radius_input(::Type{T}, ::Val{:r_in}, ::Any) where {T} = false
 """
 $(TYPEDSIGNATURES)
 
-Default policy for **outer** radius raw inputs (annular shells): accept real numbers. Proxies are rejected at this stage to prevent zero‑thickness stacking.
+Default policy for **outer** radius inputs (annular shells): accept real numbers.
 
 # Arguments
 
@@ -252,7 +256,7 @@ is_radius_input(::Type{T}, ::Val{:r_ex}, ::Any) where {T} = false
 """
 $(TYPEDSIGNATURES)
 
-Internal helper that canonicalizes `keyword_defaults(T)` into a `NamedTuple`
+Internal helper that normalizes `keyword_defaults(T)` into a `NamedTuple`
 keyed by `keyword_fields(T)`. Accepts:
 
 - `()` → returns an empty `NamedTuple()`.
@@ -314,7 +318,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Performs raw input checks and shapes the input into a `NamedTuple` without parsing proxies. Responsibilities: arity validation, positional→named mapping, required field presence, and raw acceptance of radius inputs via `is_radius_input` when `has_radii(T)` is true.
+Performs input checks and shapes the input into a `NamedTuple`. Responsibilities: arity validation, positional→named mapping, required field presence, and acceptance of real numeric radius inputs via `is_radius_input` when `has_radii(T)` is true.
 
 # Arguments
 
@@ -401,7 +405,9 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Parses and normalizes raw inputs produced by [`sanitize`](@ref) into the canonical form expected by rules. Default is identity; component code overrides this to resolve proxy radii to numeric values while preserving uncertainty semantics.
+Parse and normalize inputs produced by [`sanitize`](@ref) into the form expected
+by the rules. The default is identity; component code may override this method
+for component-specific normalization.
 
 # Arguments
 
@@ -444,7 +450,9 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Runs the full validation pipeline for a component type: `sanitize` (arity and raw checks), `parse` (proxy normalization), then application of the generated rule set. Intended to be called from convenience constructors.
+Runs the full validation sequence for a component type: `sanitize` (arity and
+input checks), `parse` (normalization), then application of the generated
+rule set. Intended to be called from convenience constructors.
 
 # Arguments
 

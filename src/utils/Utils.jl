@@ -21,6 +21,7 @@ export resolve_T, coerce_to_T, is_headless, is_in_testset, display_path
 export set_verbosity!
 
 export to_nominal,
+       uncertainty_value,
        to_certain,
        percent_to_uncertain,
        bias_to_uncertain,
@@ -32,8 +33,7 @@ export _to_σ, _bessel_diff, symtrans!, line_transpose!
 
 # Module-specific dependencies
 using ..Commons
-using ..UncertainBessels: besselk
-using Measurements: Measurement, value, uncertainty, measurement, ±, Measurements, result
+using SpecialFunctions: besselk
 using Statistics
 using LinearAlgebra
 
@@ -63,7 +63,6 @@ $(FUNCTIONNAME)(1.0)  # Output: 1.0
 $(FUNCTIONNAME)(5.2 ± 0.3)  # Output: 5.2
 ```
 """
-to_nominal(x::Measurement) = value(x)
 to_nominal(z::Complex) = complex(to_nominal(real(z)), to_nominal(imag(z)))
 to_nominal(A::AbstractArray) = to_nominal.(A)
 to_nominal(x) = x
@@ -91,9 +90,7 @@ y = 10.0
 result = $(FUNCTIONNAME)(y)  # Output: 10.0
 ```
 """
-function to_certain(value)
-    return value isa Measurement ? (Measurements.value(value) ± 0.0) : value
-end
+to_certain(value) = value
 
 """
 $(TYPEDSIGNATURES)
@@ -118,8 +115,8 @@ $(FUNCTIONNAME)(100.0, 5)  # Output: 100.0 ± 5.0
 $(FUNCTIONNAME)(10.0, 10)  # Output: 10.0 ± 1.0
 ```
 """
-function percent_to_uncertain(val, perc) #perc from 0 to 100
-    measurement(val, (perc * val) / 100)
+function percent_to_uncertain(::Any, ::Any)
+    throw(ArgumentError("percent_to_uncertain requires the Measurements.jl extension"))
 end
 
 """
@@ -152,14 +149,8 @@ result = $(FUNCTIONNAME)(nominal, measurements)
 println(result)  # Output: Measurement with adjusted uncertainty
 ```
 """
-function bias_to_uncertain(nominal::Float64, measurements::Vector{<:Measurement})
-    # Compute the mean value and uncertainty from the measurements
-    mean_measurement = mean(measurements)
-    mean_value = Measurements.value(mean_measurement)  # Central value
-    sigma_mean = Measurements.uncertainty(mean_measurement)  # Uncertainty of the mean
-    # Compute the bias (deterministic nominal value minus mean measurement)
-    bias = abs(nominal - mean_value)
-    return mean_value ± (sigma_mean + bias)
+function bias_to_uncertain(::Any, ::Any)
+    throw(ArgumentError("bias_to_uncertain requires the Measurements.jl extension"))
 end
 
 """
@@ -188,13 +179,7 @@ not_a_measurement = 5.0
 upper_invalid = $(FUNCTIONNAME)(not_a_measurement)  # Output: NaN
 ```
 """
-function to_upper(m::Number)
-    if m isa Measurement
-        return Measurements.value(m) + Measurements.uncertainty(m)
-    else
-        return NaN
-    end
-end
+to_upper(::Number) = NaN
 
 """
 $(TYPEDSIGNATURES)
@@ -222,13 +207,7 @@ not_a_measurement = 5.0
 lower_invalid = $(FUNCTIONNAME)(not_a_measurement)  # Output: NaN
 ```
 """
-function to_lower(m::Number)
-    if m isa Measurement
-        return Measurements.value(m) - Measurements.uncertainty(m)
-    else
-        return NaN
-    end
-end
+to_lower(::Number) = NaN
 
 """
 $(TYPEDSIGNATURES)
@@ -256,40 +235,21 @@ not_a_measurement = 5.0
 percent_err_invalid = $(FUNCTIONNAME)(not_a_measurement)  # Output: NaN
 ```
 """
-function percent_error(m::Number)
-    if m isa Measurement
-        return 100 * Measurements.uncertainty(m) / Measurements.value(m)
-    else
-        return NaN
-    end
-end
+percent_error(::Number) = NaN
+
+"""Return absolute scalar uncertainty; deterministic values return zero."""
+uncertainty_value(value::Number) = zero(to_nominal(value))
+uncertainty_value(::Any) = 0.0
 
 @inline _nudge_float(x::AbstractFloat) = isfinite(x) && x == trunc(x) ? nextfloat(x) : x #redundant and I dont care
 
 function _coerce_args_to_T(args...)
-    any(x -> x isa Measurement, args) ? Measurement{BASE_FLOAT} : BASE_FLOAT
+    return resolve_T(args...)
 end
 
-# Promote scalar to T if T is Measurement; otherwise take nominal if x is Measurement.
-function _coerce_scalar_to_T(x, ::Type{T}) where {T}
-    if T <: Measurement
-        return x isa Measurement ? x : (zero(T) + x)
-    else
-        return x isa Measurement ? T(value(x)) : convert(T, x)
-    end
-end
+_coerce_scalar_to_T(x, ::Type{T}) where {T} = coerce_to_T(x, T)
 
-# Arrays: promote/demote elementwise, preserving shape. Arrays NEVER decide T.
-function _coerce_array_to_T(A::AbstractArray, ::Type{T}) where {T}
-    if T <: Measurement
-        return (eltype(A) === T) ? A : (A .+ zero(T))             # Real → Measurement(σ=0)
-    elseif eltype(A) <: Measurement
-        B = value.(A)                                             # Measurement → Real (nominal)
-        return (eltype(B) === T) ? B : convert.(T, B)
-    else
-        return (eltype(A) === T) ? A : convert.(T, A)
-    end
-end
+_coerce_array_to_T(A::AbstractArray, ::Type{T}) where {T} = coerce_to_T(A, T)
 
 """
 $(TYPEDSIGNATURES)

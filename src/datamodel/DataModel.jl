@@ -19,7 +19,6 @@ $(IMPORTS)
 module DataModel
 
 # Export public API
-export Thickness, Diameter  # Type definitions
 export CircStrands, RectStrands, Strip, Tubular  # Conductor types
 export Semicon, Insulator  # Insulator types
 export SectorParams, Sector, SectorInsulator  # Removed API tombstones
@@ -46,9 +45,7 @@ import ..Validation: Validation, sanitize, validate!, has_radii, has_temperature
                      extra_rules, IntegerField, Positive, Finite, Normalized, IsA,
                      required_fields,
                      coercive_fields, keyword_fields, keyword_defaults, _kwdefaults_nt,
-                     is_radius_input,
                      Nonneg, OneOf, Greater, PhysicalFillLimit, Satisfies
-using Measurements
 using DataFrames
 using Colors
 using LinearAlgebra
@@ -97,7 +94,7 @@ include("typecoercion.jl")
 include("plotspecs.jl")
 
 """
-    preview(object; kwargs...)
+$(TYPEDSIGNATURES)
 
 Preview a cable design or cable system with a loaded Makie backend.
 
@@ -114,7 +111,7 @@ function preview(args...; kwargs...)
 end
 
 """
-    show_material_scale(; kwargs...)
+$(TYPEDSIGNATURES)
 
 Display the resistivity, permeability, and permittivity color scales used by
 [`preview`](@ref). This internal helper supports preview development and visual

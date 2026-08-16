@@ -151,7 +151,8 @@
     maintained_recipes = (
         (LineCableModels.Engine.LineParameterPlotSpec,
             LineCableModels.Engine.LineParameters),
-        (LineCableModels.UQ.MCDistributionPlotSpec, LineCableModels.UQ.CableConstantsMC),
+        (LineCableModels.Computation.MCDistributionPlotSpec,
+            LineCableModels.MonteCarloResult),
         (LineCableModels.DataModel.CablePreviewPlotSpec,
             LineCableModels.DataModel.CableDesign),
         (LineCableModels.DataModel.SystemPreviewPlotSpec,
@@ -162,6 +163,56 @@
         method = which(PB.make_render, (Type{specification}, object_type))
         @test basename(String(method.file)) == "grammar.jl"
     end
+
+    summary = SampleSummary([1.0, 2.0, 3.0, 4.0])
+    histogram = HistogramPDF([1.0, 3.0, 5.0], [0.25, 0.25])
+    mc_result = MonteCarloResult(
+        CableConstants(2.5, 2.5, 2.5),
+        CableConstants(summary, summary, summary),
+        CableConstants(
+            [1.0, 2.0, 3.0, 4.0],
+            [1.0, 2.0, 3.0, 4.0],
+            [1.0, 2.0, 3.0, 4.0],
+        ),
+        CableConstants(histogram, histogram, histogram),
+        nothing,
+        4,
+        0.95,
+        0.02,
+        :normal,
+        UInt64(1),
+        (hash="plot-fixture",),
+    )
+    for mode in (:hist, :pdf, :ecdf, :qq)
+        rendered = PB.make_render(
+            LineCableModels.Computation.MCDistributionPlotSpec,
+            mc_result;
+            mode,
+            data=:both,
+        )
+        page = only(rendered.figures)
+        @test page.key.mode === mode
+        @test page.key.quantity === :R
+        @test only(page.views).key.selection === nothing
+    end
+    samples_only = MonteCarloResult(
+        mc_result.representation,
+        mc_result.statistics,
+        mc_result.samples,
+        nothing,
+        nothing,
+        mc_result.trials,
+        mc_result.confidence,
+        mc_result.cdf_tol,
+        mc_result.distribution,
+        mc_result.seed,
+        mc_result.manifest,
+    )
+    @test PB.make_render(
+        LineCableModels.Computation.MCDistributionPlotSpec,
+        samples_only;
+        mode=:pdf,
+    ) isa PB.RenderSpec
 
     custom_layout = PB.LayoutSpec(
         :profile_dashboard,

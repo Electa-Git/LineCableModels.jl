@@ -15,7 +15,6 @@ export Papadopoulos
 using ...Commons
 import ...Commons: get_description
 import ..Engine: EarthAdmittanceFormulation
-using Measurements: Measurement, value
 using QuadGK: quadgk
 using ...Utils: _to_σ, _bessel_diff, to_nominal
 

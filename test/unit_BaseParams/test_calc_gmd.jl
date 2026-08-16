@@ -3,7 +3,7 @@
     @testset "Basic Functionality" begin
         material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
         circ_strands = CircStrands(
-            0.01, Diameter(0.002), 7, 10, material_props, temperature = 25)
+            0.01, 0.001, 7, 10, material_props, temperature = 25)
         tubular = Tubular(0.01, 0.02, material_props, temperature = 25)
         gmd = calc_gmd(circ_strands, tubular)
         @test gmd > 0
@@ -20,7 +20,7 @@
         @test isapprox(gmd_same, 0.02, atol = TEST_TOL)
         # CircStrands with itself
         circ_strands = CircStrands(
-            0.01, Diameter(0.002), 7, 10, material_props, temperature = 25)
+            0.01, 0.001, 7, 10, material_props, temperature = 25)
         gmd_wa = calc_gmd(circ_strands, circ_strands)
         @test gmd_wa > 0
     end
@@ -29,7 +29,7 @@
         material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
         circ_strands_f32 = CircStrands(
             Float32(0.01),
-            Diameter(Float32(0.002)),
+            Float32(0.001),
             7,
             Float32(10),
             material_props,
@@ -38,7 +38,7 @@
         tubular_f32 = Tubular(Float32(0.01), Float32(0.02), material_props, temperature = 25)
         gmd_f32 = calc_gmd(circ_strands_f32, tubular_f32)
         circ_strands_f64 = CircStrands(
-            0.01, Diameter(0.002), 7, 10, material_props, temperature = 25)
+            0.01, 0.001, 7, 10, material_props, temperature = 25)
         tubular_f64 = Tubular(0.01, 0.02, material_props, temperature = 25)
         gmd_f64 = calc_gmd(circ_strands_f64, tubular_f64)
         @test isapprox(gmd_f32, gmd_f64, atol = TEST_TOL)
@@ -46,8 +46,8 @@
 
     @testset "Physical Behavior" begin
         material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
-        wa1 = CircStrands(0.01, Diameter(0.002), 7, 10, material_props, temperature = 25)
-        wa2 = CircStrands(0.02, Diameter(0.002), 7, 10, material_props, temperature = 25)
+        wa1 = CircStrands(0.01, 0.001, 7, 10, material_props, temperature = 25)
+        wa2 = CircStrands(0.02, 0.001, 7, 10, material_props, temperature = 25)
         tubular = Tubular(0.01, 0.02, material_props, temperature = 25)
         gmd1 = calc_gmd(wa1, tubular)
         gmd2 = calc_gmd(wa2, tubular)
@@ -56,11 +56,11 @@
 
     @testset "Type Stability & Promotion" begin
         material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
-        wa = CircStrands(0.01, Diameter(0.002), 7, 10, material_props, temperature = 25)
+        wa = CircStrands(0.01, 0.001, 7, 10, material_props, temperature = 25)
         tub = Tubular(0.01, 0.02, material_props, temperature = 25)
         mwa = CircStrands(
             0.01,
-            Diameter(measurement(0.002, 1e-4)),
+            measurement(0.001, 5e-5),
             7,
             10,
             material_props,
@@ -86,11 +86,11 @@
 
     @testset "Uncertainty Quantification" begin
         material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
-        wa = CircStrands(0.01, Diameter(0.002), 7, 10, material_props, temperature = 25)
+        wa = CircStrands(0.01, 0.001, 7, 10, material_props, temperature = 25)
         tub = Tubular(0.01, 0.02, material_props, temperature = 25)
         mwa = CircStrands(
             measurement(0.01, 1e-4),
-            Diameter(0.002),
+            0.001,
             7,
             10,
             material_props,

@@ -28,7 +28,7 @@ function basis end
 """
     Z(parameters[, i, j[, k]])
 
-Return series impedance in the canonical units selected by [`basis`](@ref).
+Return series impedance in the units selected by [`basis`](@ref).
 Index selection is defined by the concrete result container.
 """
 function Z end
@@ -36,7 +36,7 @@ function Z end
 """
     Y(parameters[, i, j[, k]])
 
-Return shunt admittance in the canonical units selected by [`basis`](@ref).
+Return shunt admittance in the units selected by [`basis`](@ref).
 Index selection is defined by the concrete result container.
 """
 function Y end

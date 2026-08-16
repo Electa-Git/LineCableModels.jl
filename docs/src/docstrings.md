@@ -22,7 +22,8 @@ contents remain synchronized with the implementation.
    colloquialisms, and ambiguous wording.
 
 Dedicated cross-reference sections are not maintained. Use an inline link such
-as [`CableDesign`](@ref) where a relationship materially helps the explanation.
+as [`LineCableModels.DataModel.CableDesign`](@ref) where a relationship
+materially helps the explanation.
 
 ## Physical unit formatting
 
@@ -45,8 +46,7 @@ physical quantity states its SI unit.
 
 Use LaTeX whenever an implementation directly evaluates a mathematical
 expression, reduction, approximation, or physical law that matters to its
-meaning. Put the expression in a `math` block within `# Notes`, followed by the
-definitions of symbols that are not already unambiguous from `# Arguments`.
+meaning. Put the expression in a `math` block within the method description, followed by the definitions of symbols that are not already unambiguous from `# Arguments`.
 
 This requirement follows the implementation, not a function-name convention.
 Simple accessors, wrappers, dispatch helpers, and bookkeeping functions generally do not need a
@@ -58,7 +58,14 @@ Within a Julia docstring, escape LaTeX commands with a second backslash:
 """
 $(TYPEDSIGNATURES)
 
-Return the series impedance at a specified frequency.
+Return the series impedance at a specified frequency, evaluated as:
+
+```math
+Z(f) = R + \\mathrm{j} 2 \\pi f L,
+```
+
+where ``R`` is the resistance, ``L`` is the inductance, and ``f`` is the
+frequency.
 
 # Arguments
 
@@ -69,17 +76,6 @@ Return the series impedance at a specified frequency.
 # Returns
 
 - Complex series impedance `\\[Ω\\]`.
-
-# Notes
-
-This function implements
-
-```math
-Z(f) = R + \\mathrm{j} 2 \\pi f L,
-```
-
-where ``R`` is the resistance, ``L`` is the inductance, and ``f`` is the
-frequency.
 
 # Examples
 
@@ -92,7 +88,7 @@ z = $(FUNCTIONNAME)(0.1, 1e-3, 50.0) # [Ω]
 function series_impedance_at(resistance, inductance, frequency)
 ````
 
-Preserve every correct existing mathematical `# Notes` section. If the
+Preserve every correct existing mathematical description. If the
 implementation and its documentation disagree, inspect and test the
 implementation before changing either.
 
@@ -265,12 +261,12 @@ an ordinary immediately preceding docstring for a method outside it.
 
 Start with `$(TYPEDSIGNATURES)` and use the following section order:
 
-1. Description, without a heading.
+1. Description, without a heading, including the mathematical formulation when applicable.
 2. `# Arguments`.
 3. `# Keywords`, when keyword arguments need documentation.
 4. `# Returns`.
 5. `# Notes`, when the implementation requires assumptions, limitations, or
-   mathematical explanation.
+   additional mathematical explanation.
 6. `# Errors`, for deliberate exceptions callers should anticipate.
 7. `# Examples`.
 
@@ -301,7 +297,7 @@ Describe the function's implemented purpose concisely.
 # Notes
 
 Include only implementation-relevant assumptions, limitations, or
-mathematics.
+mathematical explanations.
 
 # Errors
 

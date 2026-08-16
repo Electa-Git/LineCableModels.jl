@@ -1,10 +1,8 @@
 """
-    ParallelRC
+$(TYPEDEF)
 
 Represent each concentric insulation layer as a frequency-independent shunt
 conductance in parallel with its capacitance.
-
-# Notes
 
 For a layer with inner radius ``r_i`` \\[m\\], outer radius ``r_o`` \\[m\\],
 resistivity ``\\rho`` \\[Ω·m\\], and relative permittivity
@@ -30,9 +28,18 @@ function get_description(::ParallelRC)
 end
 
 """
-    (formulation::ParallelRC)(r_in, r_ex, rho, eps_r, s)
+$(TYPEDSIGNATURES)
 
-Calculate the potential coefficient of one concentric lossy dielectric layer.
+Calculate the potential coefficient of one concentric lossy dielectric layer:
+
+```math
+p(s) = \\frac{s}{G+sC}
+     = \\frac{\\ln(r_o/r_i)}{2\\pi}
+       \\frac{s}{1/\\rho+s\\varepsilon_0\\varepsilon_r}.
+```
+
+At infinite resistivity, the result reduces exactly to the lossless potential
+coefficient ``1/C``.
 
 # Arguments
 
@@ -45,19 +52,6 @@ Calculate the potential coefficient of one concentric lossy dielectric layer.
 # Returns
 
 - Complex potential coefficient per unit length \\[m/F\\].
-
-# Notes
-
-This method implements
-
-```math
-p(s) = \\frac{s}{G+sC}
-     = \\frac{\\ln(r_o/r_i)}{2\\pi}
-       \\frac{s}{1/\\rho+s\\varepsilon_0\\varepsilon_r}.
-```
-
-At infinite resistivity, the result reduces exactly to the lossless potential
-coefficient ``1/C``.
 """
 @inline function (f::ParallelRC)(
         r_in::T,

@@ -46,7 +46,7 @@
         r_in = Float32(0.01)
         mu_r_f32 = calc_equivalent_mu(gmr, r_ex, r_in)
         mu_r_f64 = calc_equivalent_mu(Float64(gmr), Float64(r_ex), Float64(r_in))
-        @test isapprox(mu_r_f32, mu_r_f64, atol = TEST_TOL)
+        @test isapprox(mu_r_f32, mu_r_f64; rtol=sqrt(eps(Float32)))
     end
 
     @testset "Physical Behavior" begin

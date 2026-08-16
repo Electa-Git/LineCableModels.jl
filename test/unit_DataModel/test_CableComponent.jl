@@ -5,7 +5,7 @@
     const DM = LM.DataModel
     const MAT = LM.Materials
 
-    # --- Canonical materials (fallbacks in case `defs_materials` lacks a key) ---
+    # --- Reference materials (fallbacks if `defs_materials` lacks a key) ---
     copper = get(materials, "copper", MAT.Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393))
     aluminum = get(materials, "aluminum", MAT.Material(2.826e-8, 1.0, 1.0, 20.0, 0.00429))
     polyeth = get(materials, "polyethylene", MAT.Material(1e12, 2.3, 1.0, 20.0, 0.0))
@@ -15,20 +15,20 @@
     make_conductor_group_F = function ()
         # core: 1 wire at center (diameter d_w)
         d_w = 3e-3
-        g = DM.ConductorGroup(DM.CircStrands(0.0, DM.Diameter(d_w), 1, 0.0, aluminum))
+        g = DM.ConductorGroup(DM.CircStrands(0.0, d_w / 2, 1, 0.0, aluminum))
         # add helical wire layer (defaults: r_in = group.r_ex)
-        DM.add!(g, DM.CircStrands, DM.Diameter(d_w), 6, 10.0, aluminum)
+        DM.add!(g, DM.CircStrands, d_w / 2, 6, 10.0, aluminum)
         # add thin strip layer
-        DM.add!(g, DM.Strip, DM.Thickness(5e-4), 1.0e-2, 15.0, aluminum)
+        DM.add!(g, DM.Strip, 1.0e-2, 15.0, aluminum; thickness=5e-4)
         # add tubular sheath (thickness)
-        DM.add!(g, DM.Tubular, DM.Thickness(1e-3), aluminum)
+        DM.add!(g, DM.Tubular, aluminum; thickness=1e-3)
         return g
     end
 
     make_insulator_group_F = function (rin::Real)
         # Build from inner radius `rin` outward
-        g = DM.InsulatorGroup(DM.Insulator(rin, DM.Thickness(4e-3), polyeth))
-        DM.add!(g, DM.Semicon, DM.Thickness(5e-4), semimat)
+        g = DM.InsulatorGroup(DM.Insulator(rin, polyeth; thickness=4e-3))
+        DM.add!(g, DM.Semicon, semimat; thickness=5e-4)
         return g
     end
 
@@ -40,8 +40,8 @@
         gC = make_conductor_group_F()
         # make insulator group that *does not* start exactly at gC.r_ex
         bad_rin = gC.r_ex + 1e-6
-        gI_bad = DM.InsulatorGroup(DM.Insulator(bad_rin, DM.Thickness(4e-3), polyeth))
-        DM.add!(gI_bad, DM.Semicon, DM.Thickness(5e-4), semimat)
+        gI_bad = DM.InsulatorGroup(DM.Insulator(bad_rin, polyeth; thickness=4e-3))
+        DM.add!(gI_bad, DM.Semicon, semimat; thickness=5e-4)
         @test_throws ArgumentError DM.CableComponent("bad", gC, gI_bad)
     end
 
@@ -73,7 +73,7 @@
 
     # --- Edge Cases ------------------------------------------------------------
     @testset "Edge Cases" begin
-        gC = DM.ConductorGroup(DM.CircStrands(0.0, DM.Diameter(2e-3), 1, 0.0, copper))
+        gC = DM.ConductorGroup(DM.CircStrands(0.0, 1e-3, 1, 0.0, copper))
         # hairline insulator: nearly zero thickness, but non-zero
         gI = DM.InsulatorGroup(DM.Insulator(gC.r_ex, gC.r_ex + 1e-6, polyeth))
         cc = DM.CableComponent("thin", gC, gI)
@@ -90,8 +90,8 @@
         # Conductor alpha propagated
         @test isapprox(cc.conductor_props.alpha, gC.alpha; atol = TEST_TOL)
 
-        gI2 = DM.InsulatorGroup(DM.Insulator(gC.r_ex, DM.Thickness(6e-3), polyeth))
-        DM.add!(gI2, DM.Semicon, DM.Thickness(5e-4), semimat)
+        gI2 = DM.InsulatorGroup(DM.Insulator(gC.r_ex, polyeth; thickness=6e-3))
+        DM.add!(gI2, DM.Semicon, semimat; thickness=5e-4)
         cc2 = DM.CableComponent("phys2", gC, gI2)
         @test cc2.insulator_group.shunt_capacitance < cc.insulator_group.shunt_capacitance
     end
@@ -125,9 +125,9 @@
 
         # Mixed raw creation using measurements inside groups
         gC_mix = DM.ConductorGroup(DM.CircStrands(
-            0.0, DM.Diameter(m(3e-3)), 1, 0.0, aluminum))
-        DM.add!(gC_mix, DM.Tubular, DM.Thickness(m(5e-4)), copper)
-        gI_mix = DM.InsulatorGroup(DM.Insulator(gC_mix.r_ex, DM.Thickness(2e-3), polyeth))
+            0.0, m(3e-3) / 2, 1, 0.0, aluminum))
+        DM.add!(gC_mix, DM.Tubular, copper; thickness=m(5e-4))
+        gI_mix = DM.InsulatorGroup(DM.Insulator(gC_mix.r_ex, polyeth; thickness=2e-3))
         cc_mix = DM.CableComponent("mix", gC_mix, gI_mix)
         @test eltype(cc_mix) <: Measurement
     end
@@ -135,8 +135,8 @@
     # --- Combinatorial Type Testing (constructor path inside groups) -----------
     @testset "Combinatorial Type Testing" begin
         # Base floats
-        gC = DM.ConductorGroup(DM.CircStrands(0.0, DM.Diameter(2e-3), 1, 0.0, aluminum))
-        gI = DM.InsulatorGroup(DM.Insulator(gC.r_ex, DM.Thickness(3e-3), polyeth))
+        gC = DM.ConductorGroup(DM.CircStrands(0.0, 1e-3, 1, 0.0, aluminum))
+        gI = DM.InsulatorGroup(DM.Insulator(gC.r_ex, polyeth; thickness=3e-3))
 
         # Case A: Float + Measurement (insulator group)
         gI_A = DM.coerce_to_T(gI, Measurement{Float64})

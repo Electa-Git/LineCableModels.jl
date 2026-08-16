@@ -1,38 +1,3 @@
-# To handle radius-related operations
-abstract type AbstractRadius <: Number end
-
-"""
-$(TYPEDEF)
-
-Represents the thickness of a cable component.
-
-$(TYPEDFIELDS)
-"""
-struct Thickness{T <: Real} <: AbstractRadius
-    "Numerical value of the thickness \\[m\\]."
-    value::T
-    function Thickness(value::T) where {T <: Real}
-        value >= 0 || throw(ArgumentError("Thickness must be a non-negative number."))
-        new{T}(value)
-    end
-end
-
-"""
-$(TYPEDEF)
-
-Represents the diameter of a cable component.
-
-$(TYPEDFIELDS)
-"""
-struct Diameter{T <: Real} <: AbstractRadius
-    "Numerical value of the diameter \\[m\\]."
-    value::T
-    function Diameter(value::T) where {T <: Real}
-        value > 0 || throw(ArgumentError("Diameter must be a positive number."))
-        new{T}(value)
-    end
-end
-
 """
 $(TYPEDEF)
 

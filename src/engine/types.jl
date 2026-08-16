@@ -1,31 +1,38 @@
 """
 $(TYPEDEF)
 
-Abstract base type for all problem definitions in the [`LineCableModels.jl`](index.md) computation framework.
+Abstract type for numerical problem definitions in
+[`LineCableModels.jl`](index.md).
 """
 abstract type ProblemDefinition end
 
 # Formulation abstract types
-abstract type AbstractFormulationSet end
+"""
+$(TYPEDEF)
 
-abstract type AbstractImpedanceFormulation <: AbstractFormulationSet end
+Abstract type for formulations that select physical and numerical methods.
+"""
+abstract type AbstractFormulation end
+
+abstract type AbstractImpedanceFormulation <: AbstractFormulation end
 abstract type InternalImpedanceFormulation <: AbstractImpedanceFormulation end
 abstract type InsulationImpedanceFormulation <: AbstractImpedanceFormulation end
 abstract type EarthImpedanceFormulation <: AbstractImpedanceFormulation end
 
-abstract type AbstractAdmittanceFormulation <: AbstractFormulationSet end
+abstract type AbstractAdmittanceFormulation <: AbstractFormulation end
 abstract type InsulationAdmittanceFormulation <: AbstractAdmittanceFormulation end
 abstract type EarthAdmittanceFormulation <: AbstractAdmittanceFormulation end
 
-abstract type AbstractTransformFormulation <: AbstractFormulationSet end
+abstract type AbstractTransformFormulation <: AbstractFormulation end
 
 """
-    FormulationSet(...)
+$(TYPEDSIGNATURES)
 
-Constructs a specific formulation object based on the provided keyword arguments.
-The system will infer the correct formulation type.
+Construct a formulation selected by `engine`, using the EMT formulation by
+default.
 """
-FormulationSet(engine::Symbol; kwargs...) = FormulationSet(Val(engine); kwargs...)
+Formulation(engine::Symbol; kwargs...) = Formulation(Val(engine); kwargs...)
+Formulation(; kwargs...) = Formulation(Val(:EMT); kwargs...)
 
 """
 $(TYPEDEF)
@@ -36,6 +43,6 @@ Abstract type representing different equivalent homogeneous earth models (EHEM).
 
 - [`EnforceLayer`](@ref): Effective parameters defined according to a specific earth layer.
 """
-abstract type AbstractEHEMFormulation <: AbstractFormulationSet end
+abstract type AbstractEHEMFormulation <: AbstractFormulation end
 
 abstract type AbstractFormulationOptions end

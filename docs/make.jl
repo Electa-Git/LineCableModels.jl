@@ -9,7 +9,7 @@ const ROOT_DIR = normpath(joinpath(@__DIR__, ".."))
 const DOCS_SRC_DIR = joinpath(@__DIR__, "src")
 const REPOSITORY = "Electa-Git/LineCableModels.jl"
 const REPOSITORY_URL = "https://github.com/$(REPOSITORY)"
-const CANONICAL_URL = "https://electa-git.github.io/LineCableModels.jl"
+const SITE_URL = "https://electa-git.github.io/LineCableModels.jl"
 const TUTORIAL_SOURCE = joinpath(ROOT_DIR, "examples")
 const TUTORIAL_OUTPUT = joinpath(DOCS_SRC_DIR, "tutorials")
 const PLOTBUILDER_SOURCE = joinpath(@__DIR__, "literate", "plotbuilder.jl")
@@ -37,7 +37,7 @@ function tutorial_title(path::AbstractString)
     content = read(path, String)
     matchobj = match(r"(?m)^#\s+(.+)$", content)
     isnothing(matchobj) ||
-        return String(matchobj.captures[1])
+        return replace(String(matchobj.captures[1]), r"^#+\s*" => "")
     stem = splitext(basename(path))[1]
     return titlecase(replace(stem, "_" => " ", "-" => " "))
 end
@@ -51,7 +51,7 @@ function build_tutorials!()
         Literate.markdown(
             joinpath(TUTORIAL_SOURCE, file),
             TUTORIAL_OUTPUT;
-            documenter = false,
+            documenter = true,
             postprocess = strip_literate_footer
         )
     end
@@ -102,7 +102,7 @@ makedocs(;
     authors = metadata.authors,
     sitename = "$(metadata.name).jl",
     format = Documenter.HTML(;
-        canonical = CANONICAL_URL,
+        canonical = SITE_URL,
         edit_link = "main",
         assets = [
             "assets/citations.css",

@@ -15,7 +15,6 @@ export Lossless
 using ...Commons
 import ...Commons: get_description
 import ..Engine: InsulationImpedanceFormulation
-using Measurements
 
 include("lossless.jl")
 

@@ -6,52 +6,7 @@ common floating-point type. If any value (frequencies, geometric properties,
 material properties, or earth properties) is a `Measurement`, the function
 returns `Measurement{Float64}`. Otherwise, it returns `Float64`.
 """
-function _find_common_type(problem::LineParametersProblem)
-    # Check frequencies
-    any(x -> x isa Measurement, problem.frequencies) && return Measurement{Float64}
-
-    # Check cable system properties
-    for cable in problem.system.cables
-        (cable.horz isa Measurement || cable.vert isa Measurement) &&
-            return Measurement{Float64}
-        for component in cable.design_data.components
-            if any(
-                x -> x isa Measurement,
-                (
-                    component.conductor_group.r_in,
-                    component.conductor_group.r_ex,
-                    component.insulator_group.r_in,
-                    component.insulator_group.r_ex,
-                    component.conductor_props.rho, component.conductor_props.mu_r,
-                    component.conductor_props.eps_r,
-                    component.insulator_props.rho, component.insulator_props.mu_r,
-                    component.insulator_props.eps_r,
-                    component.insulator_group.shunt_capacitance,
-                    component.insulator_group.shunt_conductance
-                )
-            )
-                return Measurement{Float64}
-            end
-        end
-    end
-
-    # Check earth model properties
-    if !isnothing(problem.earth_props)
-        for layer in problem.earth_props.layers
-            if any(x -> x isa Measurement, (layer.rho_g, layer.mu_g, layer.eps_g))
-                return Measurement{Float64}
-            end
-        end
-    end
-
-    if !isnothing(problem.temperature)
-        if problem.temperature isa Measurement
-            return Measurement{Float64}
-        end
-    end
-
-    return Float64
-end
+_find_common_type(problem::LineParametersProblem) = resolve_T(problem)
 
 function _get_earth_data(
         functor::AbstractEHEMFormulation,
@@ -81,9 +36,9 @@ function _get_earth_data(::Nothing,
         @assert length(L.rho_g) == nF && length(L.eps_g) == nF && length(L.mu_g) == nF
         # Fill elementwise to avoid temp vectors
         for j in 1:nF
-            ρ[i, j] = T(to_nominal(L.rho_g[j]))
-            ε[i, j] = T(to_nominal(L.eps_g[j]))
-            μ[i, j] = T(to_nominal(L.mu_g[j]))
+            ρ[i, j] = coerce_to_T(L.rho_g[j], T)
+            ε[i, j] = coerce_to_T(L.eps_g[j], T)
+            μ[i, j] = coerce_to_T(L.mu_g[j], T)
         end
     end
 

@@ -216,7 +216,7 @@ be `:re`, `:im`, `:abs`, or `:angle` for the complex `Z` and `Y` accessors.
 
 # Returns
 
-- A `QuantityTag` used to resolve canonical units, display units, labels, and
+- A `QuantityTag` used to resolve primary units, display units, labels, and
   scaling.
 
 # Errors
@@ -279,28 +279,6 @@ const _LINE_COMPONENT_QUANTITY = Dict(
     :Y_abs => (Y, :abs, :siemens, :base),
     :Y_angle => (Y, :angle, :degree, :base)
 )
-
-"""
-    line_components(kind, mode, coordinate)
-
-Return the physical components selected for a series (`kind=:series`) or
-shunt (`kind=:shunt`) quantity. `mode` is `:RLCG` or `:ZY`; `coordinate` is
-`:cart` or `:polar`.
-"""
-function line_components(kind::Symbol, mode::Symbol, coordinate::Symbol)
-    kind in (:series, :shunt) ||
-        throw(ArgumentError("kind must be :series or :shunt"))
-    mode in (:RLCG, :ZY) || throw(ArgumentError("mode must be :RLCG or :ZY"))
-    coordinate in (:cart, :polar) ||
-        throw(ArgumentError("coordinate must be :cart or :polar"))
-    if mode === :RLCG
-        return kind === :series ? (:R, :L) : (:G, :C)
-    elseif kind === :series
-        return coordinate === :cart ? (:Z_re, :Z_im) : (:Z_abs, :Z_angle)
-    else
-        return coordinate === :cart ? (:Y_re, :Y_im) : (:Y_abs, :Y_angle)
-    end
-end
 
 """
     line_component_quantity(component)

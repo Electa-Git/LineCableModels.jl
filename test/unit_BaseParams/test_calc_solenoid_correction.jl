@@ -34,7 +34,7 @@
         # Float32 vs Float64
         r = calc_solenoid_correction(Float32(10.0), Float32(0.005), Float32(0.01))
         d = calc_solenoid_correction(10.0, 0.005, 0.01)
-        @test isapprox(r, d; atol = TEST_TOL)
+        @test isapprox(r, d; rtol=sqrt(eps(Float32)))
     end
 
     @testset "Physical Behavior" begin

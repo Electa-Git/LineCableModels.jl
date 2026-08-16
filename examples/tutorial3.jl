@@ -24,14 +24,10 @@ HVDC cables are constructed around a central conductor enclosed by a triple-extr
 ## Getting started
 =#
 
-# Load the package and set up the environment:
+# Load the public modeling API and the packages used for presentation:
 using LineCableModels
-using LineCableModels.DataModel: CircStrands
-using LineCableModels.Engine
-using LineCableModels.Engine.Transforms: Fortescue
 import CairoMakie
 using DataFrames
-using Printf
 fullfile(filename) = joinpath(@__DIR__, filename); #hide
 set_verbosity!(0); #hide
 set_backend!(:cairo); #hide
@@ -98,19 +94,33 @@ df = DataFrame( #hide
 #=
 ## Core and main insulation
 
-Initialize the conductor object and assign the central wire:
+The conductor has a central wire and six concentric layers. `Conductor.Stranded`
+generates the (1/6/12/18/24/30/36) wire pattern while retaining the specified
+lay ratio for the helical corrections.
 =#
 
-material = get(materials, "copper")
-core = ConductorGroup(CircStrands(0.0, Diameter(d_w), 1, 0.0, material))
+# Select reusable materials from the library:
+copper = Material(materials, :copper)
+semicon1 = Material(materials, :semicon1)
+semicon2 = Material(materials, :semicon2)
+pe = Material(materials, :pe)
+polyacrylate = Material(materials, :polyacrylate)
+lead = Material(materials, :lead)
+pp = Material(materials, :pp)
+steel = Material(materials, :steel)
 
-# Add the subsequent layers of wires and inspect the object:
+# Check the reported strand count and describe the complete conductor:
 n_strands = 6 # Strands per layer
 n_layers = 6 # Layers of strands
-for i in 1:n_layers
-    add!(core, CircStrands, Diameter(d_w), i * n_strands, 11.0, material)
-end
-core
+@assert 1 + n_strands * sum(1:n_layers) == num_co_wires
+core_conductor = Conductor.Stranded(
+    :core;
+    layers=n_layers + 1,
+    wire_radius=d_w / 2,
+    num_wires=n_strands,
+    lay_ratio=11.0,
+    material=copper,
+)
 
 #=
 ### Inner semiconductor
@@ -118,8 +128,8 @@ core
 Inner semiconductor (1000 Ω.m as per IEC 840):
 =#
 
-material = get(materials, "semicon1")
-main_insu = InsulatorGroup(Semicon(core, Thickness(t_sc_in), material))
+inner_semiconductor =
+    Insulator.Semicon(:core; thickness=t_sc_in, material=semicon1)
 
 #=
 ### Main insulation
@@ -127,8 +137,7 @@ main_insu = InsulatorGroup(Semicon(core, Thickness(t_sc_in), material))
 Add the insulation layer:
 =#
 
-material = get(materials, "pe")
-add!(main_insu, Insulator, Thickness(t_ins), material)
+main_insulation = Insulator.Tubular(:core; thickness=t_ins, material=pe)
 
 #=
 ### Outer semiconductor
@@ -136,18 +145,24 @@ add!(main_insu, Insulator, Thickness(t_ins), material)
 Outer semiconductor (500 Ω.m as per IEC 840):
 =#
 
-material = get(materials, "semicon2")
-add!(main_insu, Semicon, Thickness(t_sc_out), material)
+outer_semiconductor =
+    Insulator.Semicon(:core; thickness=t_sc_out, material=semicon2)
 
 # Water blocking (swellable) tape:
-material = get(materials, "polyacrylate")
-add!(main_insu, Semicon, Thickness(t_wbt), material)
+swellable_tape =
+    Insulator.Semicon(:core; thickness=t_wbt, material=polyacrylate)
 
-# Group core-related components:
-core_cc = CableComponent("core", core, main_insu)
+# Group the declarations associated with the core component:
+core_parts = (
+    core_conductor,
+    inner_semiconductor,
+    main_insulation,
+    outer_semiconductor,
+    swellable_tape,
+)
 
 cable_id = "525kV_1600mm2"
-datasheet_info = NominalData(
+datasheet_info = (
     designation_code = "(N)2XH(F)RK2Y",
     U0 = 500.0,                        # Phase (pole)-to-ground voltage [kV]
     U = 525.0,                         # Phase (pole)-to-phase (pole) voltage [kV]
@@ -155,60 +170,68 @@ datasheet_info = NominalData(
     screen_cross_section = 1000.0,     # [mm²]
     resistance = nothing,              # DC resistance [Ω/km]
     capacitance = nothing,             # Capacitance [μF/km]
-    inductance = nothing              # Inductance in trifoil [mH/km]
+    inductance = nothing,               # Inductance in trifoil [mH/km]
 )
-cable_design = CableDesign(cable_id, core_cc, nominal_data = datasheet_info)
 
 #=
 ### Lead screen/sheath
 
-Build the wire screens on top of the previous layer:
+The lead sheath is described by its radial thickness, followed by the PE inner
+sheath and PP bedding. These declarations are stacked over the resolved core.
 =#
 
-material = get(materials, "lead")
-screen_con = ConductorGroup(Tubular(main_insu, Thickness(t_sc), material))
-
-# PE inner sheath:
-material = get(materials, "pe")
-screen_insu = InsulatorGroup(Insulator(screen_con, Thickness(t_pe), material))
-
-# PP bedding:
-material = get(materials, "pp")
-add!(screen_insu, Insulator, Thickness(t_bed), material)
-
-# Group sheath components and assign to design:
-sheath_cc = CableComponent("sheath", screen_con, screen_insu)
-add!(cable_design, sheath_cc)
+sheath_parts = (
+    Conductor.Tubular(:sheath; thickness=t_sc, material=lead),
+    Insulator.Tubular(:sheath; thickness=t_pe, material=pe),
+    Insulator.Tubular(:sheath; thickness=t_bed, material=pp),
+)
 
 #=
 ### Armor and outer jacket components
 
 =#
 
-# Add the armor wires on top of the previous layer:
+# Describe the armor wires and the PP outer jacket:
 lay_ratio = 10.0 # typical value for wire screens
-material = get(materials, "steel")
-armor_con = ConductorGroup(
-    CircStrands(screen_insu, Diameter(d_wa), num_ar_wires, lay_ratio, material))
+armor_parts = (
+    Conductor.Wires(
+        :armor;
+        wire_radius=d_wa / 2,
+        num_wires=num_ar_wires,
+        lay_ratio,
+        material=steel,
+    ),
+    Insulator.Tubular(:armor; thickness=t_jac, material=pp),
+)
 
-# PP layer after armor:
-material = get(materials, "pp")
-armor_insu = InsulatorGroup(Insulator(armor_con, Thickness(t_jac), material))
-
-# Assign the armor parts directly to the design:
-add!(cable_design, "armor", armor_con, armor_insu)
+# Resolve the complete deterministic cable description:
+cable_design = only(CableBuilder(
+    cable_id,
+    core_parts,
+    sheath_parts,
+    armor_parts;
+    nominal=datasheet_info,
+))
 
 # Inspect the finished cable design:
-plt1 = preview(cable_design)
-plt1 #hide
+plt1 = preview(
+    cable_design,
+    display_plot=false, #hide
+    controls=false, #hide
+)
+plt1.figure #hide
 
 #=
 ## Examining the cable parameters (RLC)
 
 =#
 
-# Summarize DC lumped parameters (R, L, C):
-core_df = DataFrame(cable_design, :baseparams)
+# Calculate and summarize the cable constants explicitly:
+constants = compute!(
+    CableConstantsProblem(cable_design),
+    Formulation(),
+)
+core_df = DataFrame(constants)
 
 # Obtain the equivalent electromagnetic properties of the cable:
 components_df = DataFrame(cable_design, :components)
@@ -221,12 +244,17 @@ Load an existing [`CablesLibrary`](@ref) file or create a new one:
 
 library = CablesLibrary()
 library_file = fullfile("cables_library.json")
-load!(library, file_name = library_file)
+isfile(library_file) && load!(library, file_name=library_file)
 add!(library, cable_design)
 library_df = DataFrame(library)
 
 # Save to file for later use:
 save(library, file_name = library_file);
+
+# Verify that the saved cable can be recovered in a fresh session:
+loaded_library = CablesLibrary()
+load!(loaded_library, file_name=library_file)
+loaded_design = get(loaded_library, cable_id)
 
 #=
 ## Defining a cable system
@@ -236,31 +264,41 @@ save(library, file_name = library_file);
 #=
 ### Earth model
 
-Define a constant frequency earth model:
+Define an earth model over a logarithmic frequency scan. Earth properties are
+declared independently of frequency; they are evaluated when the complete
+problem is resolved.
 =#
 
-f = [1e-3] # Near DC frequency for the analysis
-earth_params = EarthModel(f, 100.0, 10.0, 1.0)  # 100 Ω·m resistivity, εr=10, μr=1
-
-# Earth model base (DC) properties:
-earthmodel_df = DataFrame(earth_params)
+f = collect(10.0 .^ range(0, stop=6, length=61)) # 1 Hz to 1 MHz
+earth = Earth(rho=100.0, eps_r=10.0, mu_r=1.0)
 
 #=
 ### Underground bipole configuration
 
 =#
 
-# Define the coordinates for both cables:
+# Define the coordinates and phase mapping for both poles:
 xp, xn, y0 = -0.5, 0.5, -1.0;
+positions = (
+    at(x=xp, y=y0, phases=(:core => 1, :sheath => 0, :armor => 0)),
+    at(x=xn, y=y0, phases=(:core => 2, :sheath => 0, :armor => 0)),
+)
 
-# Initialize the `LineCableSystem` with positive pole:
-cablepos = CablePosition(cable_design, xp, y0,
-    Dict("core" => 1, "sheath" => 0, "armor" => 0))
-cable_system = LineCableSystem("525kV_1600mm2_bipole", 1000.0, cablepos)
+# Build the complete bipole line-parameter problem from the loaded design:
+problem = only(SystemBuilder(
+    "525kV_1600mm2_bipole",
+    loaded_design,
+    positions;
+    length=1000.0,
+    temperature=20.0,
+    earth,
+    frequencies=f,
+))
+cable_system = problem.system
+earth_params = problem.earth_props
 
-# Add the other pole (negative) to the system:
-add!(cable_system, cable_design, xn, y0,
-    Dict("core" => 2, "sheath" => 0, "armor" => 0))
+# Inspect the frequency-dependent earth model produced for this problem:
+earthmodel_df = DataFrame(earth_params)
 
 #=
 ### Cable system preview
@@ -272,8 +310,14 @@ In this section the complete bipole cable system is examined.
 system_df = DataFrame(cable_system)
 
 # Visualize the cross-section of the three-phase system:
-plt2 = preview(cable_system, earth_model = earth_params, zoom_factor = 2.0)
-plt2 #hide
+plt2 = preview(
+    cable_system,
+    earth_model=earth_params,
+    zoom_factor=2.0,
+    display_plot=false, #hide
+    controls=false, #hide
+)
+plt2.figure #hide
 
 #=
 ## PSCAD & ATPDraw export
@@ -288,62 +332,118 @@ output_file = fullfile("atp_export.xml")
 export_file = export_data(:atp, cable_system, earth_params, file_name = output_file);
 
 #=
-## EMT calculations
+## Frequency-dependent line parameters
+
+[`Formulation`](@ref) selects the physical and numerical methods. The default
+EMT formulation uses the scaled-Bessel internal-impedance method, lossless
+insulation impedance/admittance, and the Papadopoulos earth-return methods. The
+same formulation value can be reused for ordinary, parametric, or Monte Carlo
+execution.
 =#
 
-# Define a LineParametersProblem with the cable system and earth model
-problem = LineParametersProblem(
-    cable_system,
-    temperature = 20.0,  # Operating temperature
-    earth_props = earth_params,
-    frequencies = f   # Frequency for the analysis
-);
+# Define the formulation and run the 1 Hz–1 MHz frequency scan:
+formulation = Formulation()
+@time line_parameters =
+    compute!(problem, formulation; options=(verbosity=0,));
 
-# Define runtime options for the analytical EMT solver
-opts = (
-    force_overwrite = true,
-    save_path = fullfile("lineparams_output"),
-    verbosity = 0
-);
+# Obtain the series and shunt results in per-kilometre units:
+series_rl, shunt_gc = DataFrame(
+    line_parameters, (R, L, G, C); length_unit=:kilo, tol=1e-9);
 
-# Define the EMT formulation with the maintained analytical models
-F = FormulationSet(
-    :EMT;
-    internal_impedance = InternalImpedance.ScaledBessel(),
-    insulation_impedance = InsulationImpedance.Lossless(),
-    earth_impedance = EarthImpedance.Papadopoulos(),
-    insulation_admittance = InsulationAdmittance.Lossless(),
-    earth_admittance = EarthAdmittance.Papadopoulos(),
-    equivalent_earth = EHEM.EnforceLayer(layer = -1),
-    options = opts
-);
-
-# Run the analytical EMT solver
-@time ws, p = compute!(problem, F);
-
-# Display computation results in per-kilometre units
-series_rl, shunt_gc = DataFrame(p; mode = :RLCG, length_unit = :kilo, tol = 1e-9)
+# Display the series resistance and inductance table:
 series_rl[1, 1]
+
+# Display the corresponding shunt conductance and capacitance table:
 shunt_gc[1, 1]
+
+# Plot the R/L and G/C frequency responses on logarithmic frequency axes. The
+# accessors select the displayed quantities; each matrix family occupies one
+# page with its two quantities side by side:
+rlcg_plots = CairoMakie.plot(
+    line_parameters,
+    (R, L, G, C);
+    xscale=:log10,
+    length_unit=:kilo,
+    fig_size=(1100, 450),
+    display_plot=false, #hide
+    controls=false, #hide
+)
+rlcg_plots[1].figure #hide
+
+# The shunt conductance and capacitance responses:
+rlcg_plots[2].figure #hide
+
+# Plot the real and imaginary parts of the complex Z/Y matrices. Each generated
+# page places the two components side by side so their frequency dependence can
+# be compared directly:
+zy_plots = CairoMakie.plot(
+    line_parameters;
+    xscale=:log10,
+    length_unit=:kilo,
+    fig_size=(1100, 450),
+    display_plot=false, #hide
+    controls=false, #hide
+)
+zy_plots[1].figure #hide
+
+# The shunt-admittance page uses the same real/imaginary arrangement:
+zy_plots[2].figure #hide
 
 # Export ZY matrices to ATPDraw
 output_file = fullfile("ZY_export.xml")
-export_file = export_data(:atp, p; file_name = output_file, cable_system = cable_system);
+export_file = export_data(
+    :atp, line_parameters; file_name=output_file, cable_system);
 
 # Obtain the symmetrical components via Fortescue transformation
-Tv, p012 = Fortescue(tol = 1e-5)(p);
+Tv, sequence_parameters = Fortescue(tol=1e-5)(line_parameters);
 
-# Inspect the transformed matrices
-series_zy, shunt_zy = DataFrame(p012; mode = :ZY, length_unit = :kilo, tol = 1e-9)
+# Obtain the transformed series and shunt matrices:
+series_zy, shunt_zy = DataFrame(
+    sequence_parameters; length_unit=:kilo, tol=1e-9);
+
+# Display the transformed series matrix:
 series_zy[1, 1]
+
+# Display the transformed shunt matrix:
 shunt_zy[1, 1]
 
-# Or the corresponding lumped circuit quantities
+# Obtain the corresponding lumped circuit quantities:
 series_rl012, shunt_gc012 = DataFrame(
-    p012;
-    mode = :RLCG,
-    length_unit = :kilo,
-    tol = 1e-9
-)
+    sequence_parameters,
+    (R, L, G, C);
+    length_unit=:kilo,
+    tol=1e-9,
+);
+
+# Display the sequence-domain series table:
 series_rl012[1, 1]
+
+# Display the sequence-domain shunt table:
 shunt_gc012[1, 1]
+
+# Plot the sequence-domain R/L and G/C responses:
+sequence_plots = CairoMakie.plot(
+    sequence_parameters,
+    (R, L, G, C);
+    xscale=:log10,
+    length_unit=:kilo,
+    fig_size=(1100, 450),
+    display_plot=false, #hide
+    controls=false, #hide
+)
+sequence_plots[1].figure #hide
+
+# The sequence-domain shunt response:
+sequence_plots[2].figure #hide
+
+#=
+## Conclusion
+
+This tutorial has demonstrated how to:
+
+1. Describe and preview a detailed armored HVDC cable.
+2. Save and reload the cable design.
+3. Place two cables in an underground bipole system.
+4. Preview and export the physical system for PSCAD and ATPDraw.
+5. Compute, tabulate, plot, transform, and export frequency-dependent line parameters.
+=#

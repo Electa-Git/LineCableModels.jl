@@ -34,7 +34,7 @@ Constructs a [`Semicon`](@ref) instance with calculated electrical and geometric
 # Arguments
 
 - `r_in`: Internal radius of the semiconducting layer \\[m\\].
-- `r_ex`: External radius or thickness of the layer \\[m\\].
+- `r_ex`: External radius of the layer \\[m\\].
 - `material_props`: Material properties of the semiconducting material.
 - `temperature`: Operating temperature of the layer \\[°C\\] (default: T₀).
 
@@ -46,7 +46,7 @@ Constructs a [`Semicon`](@ref) instance with calculated electrical and geometric
 
 ```julia
 material_props = Material(1e6, 2.3, 1.0, 20.0, 0.00393)
-semicon_layer = $(FUNCTIONNAME)(0.01, Thickness(0.002), material_props, temperature=25)
+semicon_layer = $(FUNCTIONNAME)(0.01, 0.012, material_props, temperature=25)
 println(semicon_layer.cross_section)      # Expected output: ~6.28e-5 [m²]
 println(semicon_layer.resistance)         # Expected output: Resistance in [Ω/m]
 println(semicon_layer.gmr)                # Expected output: GMR in [m]
@@ -96,15 +96,8 @@ Validation.required_fields(::Type{Semicon}) = _REQ_SEMICON
 Validation.keyword_fields(::Type{Semicon}) = _OPT_SEMICON
 Validation.keyword_defaults(::Type{Semicon}) = _DEFS_SEMICON
 
-# accept proxies for radii
-Validation.is_radius_input(::Type{Semicon}, ::Val{:r_in}, x::AbstractCablePart) = true
-Validation.is_radius_input(::Type{Semicon}, ::Val{:r_in}, x::Thickness) = true
-Validation.is_radius_input(::Type{Semicon}, ::Val{:r_ex}, x::Thickness) = true
-Validation.is_radius_input(::Type{Semicon}, ::Val{:r_ex}, x::Diameter) = true
-
 Validation.extra_rules(::Type{Semicon}) = (IsA{Material}(:material_props),)
 
-# normalize proxies -> numbers
 function Validation.parse(::Type{Semicon}, nt)
     rin, rex = _normalize_radii(Semicon, nt.r_in, nt.r_ex)
     (; nt..., r_in = rin, r_ex = rex)
@@ -112,3 +105,14 @@ end
 
 # This macro expands to a weakly-typed constructor for Semicon
 @construct Semicon _REQ_SEMICON _OPT_SEMICON _DEFS_SEMICON
+
+function Semicon(
+    r_in::Real,
+    material_props::Material;
+    radius::Union{Nothing,Real}=nothing,
+    thickness::Union{Nothing,Real}=nothing,
+    temperature::Real=T₀,
+)
+    r_ex = _resolve_outer_radius(Semicon, r_in; radius, thickness)
+    return Semicon(r_in, r_ex, material_props; temperature)
+end

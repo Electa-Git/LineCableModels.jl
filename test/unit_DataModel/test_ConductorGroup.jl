@@ -1,5 +1,5 @@
 @testsnippet defs_con_group begin
-    # Canonical geometry and helpers reused across tests
+    # Reference geometry and helpers reused across tests
     # Materials come from `defs_materials` (e.g., `copper_props`, `materials`)
     using Measurements
 
@@ -20,7 +20,8 @@
     )
 
     # Convenience: a Float64 Tubular sleeve over the given inner radius
-    make_tubular_over(rin, t, mat) = Tubular(rin, Thickness(t), mat; temperature = 20.0)
+    make_tubular_over(rin, t, mat) =
+        Tubular(rin, mat; thickness=t, temperature=20.0)
 
     # Measurement helpers
     m(x, u) = measurement(x, u)
@@ -98,9 +99,9 @@ end
         @test g.r_in == 0.0
         @test g.r_ex ≈ rad_wire0 atol = TEST_TOL
 
-        # Add another wire layer using Diameter convenience + defaults (r_in auto = g.r_ex)
+        # Add another wire layer by radius; r_in defaults to g.r_ex.
         d_w = 2 * rad_wire0
-        g = add!(g, CircStrands, Diameter(d_w), 6, 15.0, copper_props)  # lay_direction defaults to 1
+        g = add!(g, CircStrands, d_w / 2, 6, 15.0, copper_props)  # lay_direction defaults to 1
         @test g isa ConductorGroup
         @test length(g.layers) == 2
         @test g.layers[end] isa CircStrands
@@ -110,9 +111,9 @@ end
         @test g.r_ex > rad_wire0
         @test g.resistance < g.layers[1].resistance
 
-        # Add an outer tubular sleeve by thickness proxy
+        # Add an outer tubular sleeve by named thickness.
         outer_before = g.r_ex
-        g = add!(g, Tubular, Thickness(0.002), copper_props)  # temperature default from keyword_defaults(Tubular)
+        g = add!(g, Tubular, copper_props; thickness=0.002)  # temperature default from keyword_defaults(Tubular)
         @test g.layers[end] isa Tubular
         @test g.r_ex ≈ outer_before + 0.002 atol = TEST_TOL
     end
@@ -121,7 +122,7 @@ end
         # Very thin sleeve
         g = make_core_group()
         outer0 = g.r_ex
-        g = add!(g, Tubular, Thickness(1e-6), copper_props)
+        g = add!(g, Tubular, copper_props; thickness=1e-6)
         @test g.r_ex ≈ outer0 + 1e-6 atol = TEST_TOL
 
         # CircStrands with lay_ratio very small but positive

@@ -1,4 +1,6 @@
 using LineCableModels
+using LineCableModels.DataModel
+using LineCableModels.EarthProps
 using Measurements: measurement
 
 function build_manual_plot_gallery(
@@ -32,22 +34,23 @@ function build_manual_plot_gallery(
     )
 
     summary = SampleSummary([1.0, 2.0, 3.0, 4.0])
-    distribution_model = HistogramPDF([1.0, 3.0, 5.0], [0.25, 0.25])
-    mc_result = CableConstantsMC(
+    histogram = HistogramPDF([1.0, 3.0, 5.0], [0.25, 0.25])
+    mc_result = MonteCarloResult(
+        CableConstants(2.5, 2.5, 2.5),
         CableConstants(summary, summary, summary),
         CableConstants(
             [1.0, 2.0, 3.0, 4.0],
             [1.0, 2.0, 3.0, 4.0],
-            [1.0, 2.0, 3.0, 4.0]
+            [1.0, 2.0, 3.0, 4.0],
         ),
-        CableConstants(distribution_model, distribution_model, distribution_model),
-        CableConstants(
-            measurement(2.5, 0.5),
-            measurement(2.5, 0.5),
-            measurement(2.5, 0.5)
-        ),
+        CableConstants(histogram, histogram, histogram),
+        nothing,
         4,
-        0.95
+        0.95,
+        0.02,
+        :normal,
+        UInt64(1),
+        (hash="gallery-fixture",),
     )
 
     gallery = Pair{String, UIPlot}[]
@@ -60,14 +63,12 @@ function build_manual_plot_gallery(
 
     add_pages!(
         "Line parameters: RLCG",
-        Makie.plot(parameters; mode = :RLCG, backend, display_plot, export_theme)
+        Makie.plot(parameters, (R, L, G, C); backend, display_plot, export_theme)
     )
     add_pages!(
         "Line parameters: Z/Y Cartesian",
         Makie.plot(
             parameters;
-            mode = :ZY,
-            coord = :cart,
             backend,
             display_plot,
             export_theme
@@ -76,9 +77,8 @@ function build_manual_plot_gallery(
     add_pages!(
         "Line parameters: Z/Y polar",
         Makie.plot(
-            parameters;
-            mode = :ZY,
-            coord = :polar,
+            parameters,
+            (abs, angle);
             backend,
             display_plot,
             export_theme
@@ -87,8 +87,8 @@ function build_manual_plot_gallery(
     add_pages!(
         "Line parameters: measurement error bars",
         Makie.plot(
-            measurement_parameters;
-            mode = :RLCG,
+            measurement_parameters,
+            (R, L, G, C);
             backend,
             display_plot,
             export_theme
@@ -102,11 +102,11 @@ function build_manual_plot_gallery(
                 mc_result,
                 :R;
                 mode,
-                data = :both,
+                data=:both,
                 backend,
                 display_plot,
-                export_theme
-            )
+                export_theme,
+            ),
         )
     end
 

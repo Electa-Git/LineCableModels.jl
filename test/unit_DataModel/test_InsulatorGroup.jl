@@ -1,6 +1,6 @@
 @testsnippet defs_ins_group begin
     using Measurements
-    # Canonical dielectric material for tests
+    # Reference dielectric material for tests
     const ins_props = Material(1e10, 3.0, 1.0, 20.0, 0.0)
 
     # Fresh inner insulator (Float64)
@@ -38,10 +38,10 @@ end
         @test g.r_in ≈ 0.02 atol = TEST_TOL
         @test g.r_ex ≈ 0.025 atol = TEST_TOL
 
-        # Add a Semicon by thickness proxy (outer radius = rin + t). r_in defaults to group.r_ex
+        # Add a Semicon by named thickness; r_in defaults to group.r_ex.
         t = 0.002
         rin_before = g.r_ex
-        g = add!(g, Semicon, Thickness(t), ins_props; f = 60.0)
+        g = add!(g, Semicon, ins_props; thickness=t, f=60.0)
         @test g.layers[end] isa Semicon
         @test g.r_ex ≈ rin_before + t atol = TEST_TOL
     end
@@ -50,7 +50,7 @@ end
         g = make_ins_group()
         tsmall = 1e-6
         re0 = g.r_ex
-        g = add!(g, Semicon, Thickness(tsmall), ins_props; f = 60.0)
+        g = add!(g, Semicon, ins_props; thickness=tsmall, f=60.0)
         @test g.r_ex ≈ re0 + tsmall atol = TEST_TOL
     end
 
@@ -84,7 +84,7 @@ end
         # Already Measurement → in place
         gM = LineCableModels.DataModel.coerce_to_T(make_ins_group(), Measurement{Float64})
         id0 = objectid(gM)
-        gM2 = add!(gM, Semicon, Thickness(m(0.001, 1e-6)), ins_props; f = 60.0)
+        gM2 = add!(gM, Semicon, ins_props; thickness=m(0.001, 1e-6), f=60.0)
         @test gM2 === gM
         @test objectid(gM) == id0
         @test eltype(gM) <: Measurement

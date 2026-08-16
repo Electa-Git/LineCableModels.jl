@@ -18,8 +18,8 @@ const ΔTmax = 150.0
 "Default tolerance for floating-point comparisons, TOL = 1e-6."
 const TOL = 1e-6
 
-# Define aliases for the type constraints
-using Measurements: Measurement
+# Dependency-free numeric interfaces. Optional scalar packages such as
+# Measurements.jl participate through ordinary `Real` promotion in extensions.
 const BASE_FLOAT = Float64
-const REALSCALAR = Union{BASE_FLOAT, Measurement{BASE_FLOAT}}
-const COMPLEXSCALAR = Union{Complex{BASE_FLOAT}, Complex{Measurement{BASE_FLOAT}}}
+const REALSCALAR = Real
+const COMPLEXSCALAR = Complex{T} where {T<:Real}

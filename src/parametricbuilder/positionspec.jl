@@ -1,79 +1,233 @@
-struct PositionSpec <: AbstractPositionSpec
-    x0::Real
-    y0::Real
-    dx::Any
-    dy::Any
-    conn::Dict{String, Int}
+struct PositionBuilder{Kind,P<:Tuple,C<:Tuple}
+    parameters::P
+    connections::C
 end
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Phase mapping helpers
-# Accepts:
-#   :core => 1
-#   ("core", 1)
-#   (:core, 1)
-#   [ :core => 1, :sheath => 0 ]
-# etc.
-# ─────────────────────────────────────────────────────────────────────────────
-const _PhaseMapInputs = Union{
-    Tuple{Symbol, Any},
-    Tuple{String, Any},
-    Pair{Symbol, Any},
-    Pair{String, Any}
+_position_kind(::PositionBuilder{Kind}) where {Kind} = Kind
+
+function PositionBuilder(::Val{Kind}, parameters::P, connections::C) where {
+    Kind,P<:Tuple,C<:Tuple
+}
+    all(value -> value isa Real, parameters) || throw(ArgumentError(
+        "position coordinates and spacing must resolve to real numbers",
+    ))
+    return PositionBuilder{Kind,P,C}(parameters, connections)
+end
+
+const _PhaseEntry = Union{
+    Pair{Symbol,<:Any},
+    Pair{String,<:Any},
+    Tuple{Symbol,<:Any},
+    Tuple{String,<:Any},
 }
 
-# normalize phases input to a splattable tuple of _PhaseMapInputs
-_normalize_phase_map(p::_PhaseMapInputs) = (p,)
-_normalize_phase_map(p::Tuple) = p
-_normalize_phase_map(v::AbstractVector) = Tuple(v)
-_normalize_phase_map(::Nothing) = ()
+_phase_entries(entry::_PhaseEntry) = (entry,)
+_phase_entries(entries::Tuple) = entries
+_phase_entries(entries::AbstractVector) = Tuple(entries)
+_phase_entries(::Nothing) = ()
 
-"""
-    make_phase_maps(phases, n::Int)
-
-Unified helper to process phase DSL inputs.
-- If `n=1`, returns a vector with one Dict (used by `at`).
-- If `n>1`, distributes values:
-  - Scalars (e.g. `1`) are broadcast to all `n` legs.
-  - Tuples/Vectors (e.g. `(1,2,3)`) are distributed to respective legs.
-"""
-function make_phase_maps(phases, n::Int)
-    items = _normalize_phase_map(phases)
-    out = [Dict{String, Int}() for _ in 1:n]
-
-    for item in items
-        # Extract key/value
-        key_raw, val_raw = item isa Pair ? (first(item), last(item)) : (item[1], item[2])
-        key = string(key_raw)
-
-        # Distribute
-        if val_raw isa Integer
-            # Scalar broadcast
-            v = Int(val_raw)
-            for i in 1:n
-                out[i][key] = v
+function _phase_maps(phases, count::Int)
+    maps = [Dict{String,Int}() for _ in 1:count]
+    for entry in _phase_entries(phases)
+        key_raw, value = entry isa Pair ?
+            (first(entry), last(entry)) : (entry[1], entry[2])
+        key = String(key_raw)
+        if value isa Integer
+            for map in maps
+                map[key] = Int(value)
             end
-        elseif (val_raw isa Tuple || val_raw isa AbstractVector)
-            # Vector distribution
-            if length(val_raw) != n
-                error(
-                    "Dimension mismatch for phase '$key': expected $n elements, got $(length(val_raw))",
-                )
-            end
-            for i in 1:n
-                out[i][key] = Int(val_raw[i])
+        elseif value isa Tuple || value isa AbstractVector
+            length(value) == count || throw(DimensionMismatch(
+                "phase '$key' requires $count assignments; got $(length(value))",
+            ))
+            for index in 1:count
+                value[index] isa Integer || throw(ArgumentError(
+                    "phase assignments must be integers",
+                ))
+                maps[index][key] = Int(value[index])
             end
         else
-            error(
-                "Invalid phase value for '$key': expected Integer or collection of length $n, got $(typeof(val_raw))",
-            )
+            throw(ArgumentError(
+                "phase '$key' must be an integer or a collection of $count integers",
+            ))
         end
     end
-    return out
+    return Tuple(maps)
 end
 
-function at(; x, y, dx = 0.0, dy = 0.0, phases = nothing)
-    # n=1 for single position
-    maps = make_phase_maps(phases, 1)
-    return PositionSpec(x, y, dx, dy, maps[1])
+_point_builder(x, y, connections) =
+    PositionBuilder(Val(:point), (x, y), connections)
+_trifoil_builder(x, y, spacing, connections) =
+    PositionBuilder(Val(:trifoil), (x, y, spacing), connections)
+_hflat_builder(x, y, spacing, connections) =
+    PositionBuilder(Val(:hflat), (x, y, spacing), connections)
+_vflat_builder(x, y, spacing, connections) =
+    PositionBuilder(Val(:vflat), (x, y, spacing), connections)
+
+"""
+$(TYPEDSIGNATURES)
+
+Describe one cable position for use by [`SystemBuilder`](@ref).
+
+# Keywords
+
+- `x`: Horizontal coordinate \\[m\\].
+- `y`: Vertical coordinate \\[m\\].
+- `phases=nothing`: Phase or conductor assignments. Supply pairs such as
+  `:core => 1` and `:sheath => 2`.
+- `combine=:product`: Local composition rule for direct varying inputs. Use
+  `:zip` to pair compatible axes.
+
+# Returns
+
+- A [`Gridspace`](@ref) of position declarations. The parent system builder
+  converts each resolved declaration into a cable position.
+"""
+function at(; x, y, phases=nothing, combine::Symbol=:product)
+    connections = _phase_maps(phases, 1)
+    return Gridspace{PositionBuilder}(
+        _point_builder,
+        (_gridspace_axis(x), _gridspace_axis(y), _gridspace_axis(connections)),
+        (:x, :y, :phases);
+        combine,
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Describe three identical cables arranged in equilateral trifoil formation.
+The formation is resolved when the parent [`SystemBuilder`](@ref) materializes
+the cable system, so its spacing is checked against the cable outer diameter.
+
+# Keywords
+
+- `x=0.0`: Horizontal coordinate of the formation centre \\[m\\].
+- `y`: Vertical coordinate of the formation centre \\[m\\].
+- `spacing`: Centre-to-centre distance between adjacent cables \\[m\\].
+- `phases`: Phase or conductor assignments. Each assignment may contain three
+  integers, one for each cable, for example `:core => (1, 2, 3)`.
+- `combine=:product`: Local composition rule for direct varying inputs. Use
+  `:zip` to pair compatible axes.
+
+# Returns
+
+- A [`Gridspace`](@ref) of trifoil declarations. Each resolved declaration is
+  one object-valued input to its parent system specification.
+
+# Errors
+
+- System materialization throws `ArgumentError` when `spacing` is nonpositive
+  or smaller than the cable outer diameter.
+- Throws `DimensionMismatch` when a phase assignment does not provide three
+  values.
+"""
+function trifoil(;
+    x=0.0,
+    y,
+    spacing,
+    phases,
+    combine::Symbol=:product,
+)
+    connections = _phase_maps(phases, 3)
+    return Gridspace{PositionBuilder}(
+        _trifoil_builder,
+        (_gridspace_axis(x), _gridspace_axis(y), _gridspace_axis(spacing), _gridspace_axis(connections)),
+        (:x, :y, :spacing, :phases);
+        combine,
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Describe `n` identical cables in a horizontal flat formation. The first cable
+is placed at `(x, y)` and subsequent cables are placed at increasing horizontal
+coordinates.
+
+# Keywords
+
+- `x=0.0`: Horizontal coordinate of the first cable \\[m\\].
+- `y=0.0`: Vertical coordinate shared by all cables \\[m\\].
+- `spacing`: Centre-to-centre distance between adjacent cables \\[m\\].
+- `phases`: Phase or conductor assignments. An assignment may provide one
+  integer for every cable.
+- `n=3`: Number of cables.
+- `combine=:product`: Local composition rule for direct varying inputs. Use
+  `:zip` to pair compatible axes.
+
+# Returns
+
+- A [`Gridspace`](@ref) of horizontal flat-formation declarations.
+
+# Errors
+
+- Throws `ArgumentError` when `n` is nonpositive. System materialization also
+  rejects nonpositive spacing and overlapping cables.
+- Throws `DimensionMismatch` when a phase assignment does not provide `n`
+  values.
+"""
+function hflat(;
+    x=0.0,
+    y=0.0,
+    spacing,
+    phases,
+    n::Int=3,
+    combine::Symbol=:product,
+)
+    n > 0 || throw(ArgumentError("n must be positive"))
+    connections = _phase_maps(phases, n)
+    return Gridspace{PositionBuilder}(
+        _hflat_builder,
+        (_gridspace_axis(x), _gridspace_axis(y), _gridspace_axis(spacing), _gridspace_axis(connections)),
+        (:x, :y, :spacing, :phases);
+        combine,
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Describe `n` identical cables in a vertical flat formation. The first cable is
+placed at `(x, y)` and subsequent cables are placed at decreasing vertical
+coordinates.
+
+# Keywords
+
+- `x=0.0`: Horizontal coordinate shared by all cables \\[m\\].
+- `y=0.0`: Vertical coordinate of the first cable \\[m\\].
+- `spacing`: Centre-to-centre distance between adjacent cables \\[m\\].
+- `phases`: Phase or conductor assignments. An assignment may provide one
+  integer for every cable.
+- `n=3`: Number of cables.
+- `combine=:product`: Local composition rule for direct varying inputs. Use
+  `:zip` to pair compatible axes.
+
+# Returns
+
+- A [`Gridspace`](@ref) of vertical flat-formation declarations.
+
+# Errors
+
+- Throws `ArgumentError` when `n` is nonpositive. System materialization also
+  rejects nonpositive spacing and overlapping cables.
+- Throws `DimensionMismatch` when a phase assignment does not provide `n`
+  values.
+"""
+function vflat(;
+    x=0.0,
+    y=0.0,
+    spacing,
+    phases,
+    n::Int=3,
+    combine::Symbol=:product,
+)
+    n > 0 || throw(ArgumentError("n must be positive"))
+    connections = _phase_maps(phases, n)
+    return Gridspace{PositionBuilder}(
+        _vflat_builder,
+        (_gridspace_axis(x), _gridspace_axis(y), _gridspace_axis(spacing), _gridspace_axis(connections)),
+        (:x, :y, :spacing, :phases);
+        combine,
+    )
 end

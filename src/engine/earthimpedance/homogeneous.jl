@@ -197,7 +197,7 @@ end
         0.0,
         1.0;
         rtol = 1e-8,
-        norm = z -> abs(complex(value(real(z)), value(imag(z))))
+        norm = z -> abs(complex(to_nominal(real(z)), to_nominal(imag(z))))
     )
     Sij *= 2
 
