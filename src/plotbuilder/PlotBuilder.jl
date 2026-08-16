@@ -6,7 +6,7 @@ Makie extensions render the resulting `RenderSpec` values.
 """
 module PlotBuilder
 
-using DocStringExtensions: TYPEDSIGNATURES
+using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 
 import ..UnitHandler: Units, QuantityTag, display_unit, get_label
 import ..Utils: to_nominal, uncertainty_value

@@ -224,7 +224,15 @@ function ControlSpec(; reset::Bool = true, export_svg::Bool = true, slot::Symbol
     ControlSpec(reset, export_svg, slot)
 end
 
-"Declare legend visibility, interactivity, and destination slot."
+const LEGEND_OVERFLOW_MODES = (:ellipsis, :show_all)
+
+"""
+$(TYPEDEF)
+
+Declare legend visibility, interactivity, destination slot, and overflow mode.
+
+$(TYPEDFIELDS)
+"""
 struct LegendSpec
     "Whether to render a legend."
     enabled::Bool
@@ -232,10 +240,41 @@ struct LegendSpec
     interactive::Bool
     "Destination legend slot."
     slot::Symbol
+    "Overflow mode, either `:ellipsis` or `:show_all`."
+    overflow::Symbol
 end
 
-function LegendSpec(; enabled::Bool = true, interactive::Bool = true, slot::Symbol = :legend)
-    LegendSpec(enabled, interactive, slot)
+"""
+$(TYPEDSIGNATURES)
+
+Construct a [`LegendSpec`](@ref).
+
+# Keywords
+
+- `enabled`: Render the legend. Default: `true`.
+- `interactive`: Let legend entries control series visibility. Default: `true`.
+- `slot`: Destination layout slot. Default: `:legend`.
+- `overflow`: Use `:ellipsis` to show the largest fitting entry prefix followed
+  by `(...)`, or `:show_all` to render every entry. Default: `:ellipsis`.
+
+# Returns
+
+- A validated [`LegendSpec`](@ref).
+
+# Errors
+
+- Throws `ArgumentError` when `overflow` is unsupported.
+"""
+function LegendSpec(;
+        enabled::Bool = true,
+        interactive::Bool = true,
+        slot::Symbol = :legend,
+        overflow::Symbol = :ellipsis
+)
+    overflow in LEGEND_OVERFLOW_MODES || throw(
+        ArgumentError("legend overflow must be :ellipsis or :show_all"),
+    )
+    return LegendSpec(enabled, interactive, slot, overflow)
 end
 
 """
@@ -758,7 +797,7 @@ function _validate_view_limits(view::ViewSpec)
         lower < upper || throw(
             ArgumentError("view limits must be strictly increasing"),
         )
-        :log10 in axis.allowed_scales && lower <= 0 &&
+        axis.scale === :log10 && lower <= 0 &&
             throw(
                 DomainError(limits, "logarithmic view limits must be positive"),
             )
@@ -788,6 +827,21 @@ function _required_slots(page::PageSpec)
     return unique(required)
 end
 
+function _validate_legend_slot(page::PageSpec)
+    page.legend.enabled || return page
+    page.legend.overflow === :ellipsis || return page
+    slot = only(filter(item -> item.name === page.legend.slot, page.layout.slots))
+    parent = only(filter(grid -> grid.name === slot.parent, page.layout.grids))
+    tracks = parent.rows[slot.area.rows]
+    any(track -> track isa ContentTrack, tracks) && throw(
+        ArgumentError(
+        "responsive legend slot :$(slot.name) must use fixed or relative row tracks; " *
+        "use `overflow=:show_all` for a content-sized legend row",
+    ),
+    )
+    return page
+end
+
 function validate(page::PageSpec)
     validate(page.layout)
     slots = Set(getfield.(page.layout.slots, :name))
@@ -795,6 +849,7 @@ function validate(page::PageSpec)
     isempty(missing) || throw(
         ArgumentError("page content references missing layout slots: $(join(missing, ", "))"),
     )
+    _validate_legend_slot(page)
     for view in page.views
         foreach(_validate_series, view.series)
         _validate_view_limits(view)
@@ -944,7 +999,8 @@ function Base.show(io::IO, value::LegendSpec)
         "LegendSpec",
         :enabled => value.enabled,
         :interactive => value.interactive,
-        :slot => value.slot
+        :slot => value.slot,
+        :overflow => value.overflow
     )
 end
 function Base.show(io::IO, value::ColorbarSpec)

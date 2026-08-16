@@ -722,7 +722,7 @@ function _standard_layout(name::Symbol)
         :side;
         parent = :root,
         area = GridArea(2, 2),
-        rows = AbstractTrackSize[ContentTrack(), ContentTrack()],
+        rows = AbstractTrackSize[RelativeTrack(), ContentTrack()],
         columns = AbstractTrackSize[ContentTrack()],
         rowgap = 4
     )

@@ -18,8 +18,10 @@ export build, export_svg
 const COLORBAR_WIDTH = 140
 const COLORBAR_TICK_LABEL_SIZE = 12
 const COLORBAR_LABEL_SIZE = 14
-const COLORBAR_END_PADDING = 28
+const COLORBAR_LABEL_GAP = 8
+const COLORBAR_ROW_GAP = 8
 const LEGEND_DOCK_WIDTH = 220
+const LEGEND_HEIGHT_TOLERANCE = 1
 const GRID_ROW_GAP = 6
 const GRID_COLUMN_GAP = 6
 const BUTTON_SIZE = 32
@@ -45,6 +47,7 @@ mutable struct UIContext
     interactive::Bool
     window::Any
     status::Observable{String}
+    observers::Vector{Any}
 end
 
 struct UIPanel
@@ -54,6 +57,16 @@ struct UIPanel
     groups::Dict{Symbol, Vector{Any}}
     group_labels::Dict{Symbol, String}
     group_order::Vector{Symbol}
+end
+
+mutable struct ResponsiveLegend
+    legend::Any
+    title::Any
+    entries::Any
+    ellipsis_entry::Any
+    capacity::Int
+    heights::Dict{Int, Float64}
+    fitting::Bool
 end
 
 function _theme(; export_mode::Bool = false, export_theme::Symbol = :default)
@@ -93,7 +106,13 @@ function _context(
         "Fig. $(BackendHandler.next_fignum()) – $title";
         backend = :gl
     ) : nothing
-    return UIContext(active, interactive, window, Observable(String(initial_status)))
+    return UIContext(
+        active,
+        interactive,
+        window,
+        Observable(String(initial_status)),
+        Any[]
+    )
 end
 
 _scale(symbol::Symbol) = symbol === :log10 ? Makie.log10 : Makie.identity
@@ -166,9 +185,19 @@ function _set_axis_scale!(
     return axis
 end
 
-function _axis_values(view::ViewSpec, dim::Symbol; include_uncertainty::Bool = false)
+function _series_group(series::SeriesSpec, index::Int)
+    return series.group === nothing ? Symbol("series_$index") : series.group
+end
+
+function _series_visible(panel::UIPanel, series::SeriesSpec, index::Int)
+    group = _series_group(series, index)
+    return all(plot_object -> plot_object.visible[], panel.groups[group])
+end
+
+function _axis_values(panel::UIPanel, dim::Symbol; include_uncertainty::Bool = false)
     values = Float64[]
-    for series in view.series
+    for (index, series) in enumerate(panel.view.series)
+        _series_visible(panel, series, index) || continue
         data = dim === :x ? series.xdata : series.ydata
         data === nothing && continue
         for sample in data
@@ -219,20 +248,38 @@ end
 function _reset_panel_limits!(panel::UIPanel)
     axis = panel.axis
     view = panel.view
+    all(isempty(_axis_values(panel, dim)) for dim in (:x, :y)) && return axis
     autolimits!(axis)
     view.limits !== nothing && return axis
     for dim in (:x, :y)
-        values = _axis_values(view, dim)
+        values = _axis_values(panel, dim)
         isempty(values) && continue
         scale = dim === :x ? axis.xscale[] : axis.yscale[]
         _nearly_constant(values) || continue
-        interval_values = _axis_values(view, dim; include_uncertainty = true)
+        interval_values = _axis_values(panel, dim; include_uncertainty = true)
         limits = scale === Makie.log10 ?
                  _log_decade_limits(interval_values) :
                  _linear_constant_limits(values, interval_values)
         dim === :x ? xlims!(axis, limits...) : ylims!(axis, limits...)
     end
     return axis
+end
+
+function _observe_visibility_limits!(panels, context::UIContext)
+    for panel in panels
+        panel.view.limits === nothing || continue
+        panel.view.aspect === :data && continue
+        for plots in values(panel.groups), plot_object in plots
+
+            observer = on(plot_object.visible) do _
+                _reset_panel_limits!(panel)
+                context.status[] = "Axis limits fitted to visible series"
+                return nothing
+            end
+            push!(context.observers, observer)
+        end
+    end
+    return panels
 end
 
 function _icon_label(glyph::AbstractString)
@@ -503,32 +550,108 @@ _makie_alignment(value::Symbol) = value === :stretch ? :center : value
 function _colorbars!(slot, descriptors, specification::SlotSpec)
     isempty(descriptors) && return nothing
     grid = GridLayout(
+        width = LEGEND_DOCK_WIDTH,
+        tellwidth = true,
         halign = _makie_alignment(specification.halign),
         valign = _makie_alignment(specification.valign)
     )
-    grid.default_colgap = Fixed(0)
+    grid.default_colgap = Fixed(COLORBAR_LABEL_GAP)
+    grid.default_rowgap = Fixed(COLORBAR_ROW_GAP)
     slot[] = grid
-    colsize!(grid, 1, Fixed(COLORBAR_WIDTH))
     for (row, descriptor) in enumerate(descriptors)
+        Label(
+            grid[row, 1],
+            descriptor.label;
+            halign = :right,
+            valign = :center,
+            fontsize = COLORBAR_LABEL_SIZE
+        )
         Colorbar(
-            grid[row, 1];
+            grid[row, 2];
             colormap = descriptor.colormap,
             limits = descriptor.limits,
             ticks = _colorbar_ticks(descriptor.ticks),
-            label = descriptor.label,
+            label = "",
+            labelvisible = false,
             vertical = false,
-            width = COLORBAR_WIDTH,
             height = 14,
             ticklabelsize = COLORBAR_TICK_LABEL_SIZE,
-            labelsize = COLORBAR_LABEL_SIZE
+            alignmode = Mixed(left = 0, right = 0),
+            tellwidth = false
         )
-        Label(grid[row, 2], ""; tellheight = false)
     end
-    colsize!(grid, 2, Fixed(COLORBAR_END_PADDING))
+    colsize!(grid, 1, Auto(true))
+    colsize!(grid, 2, Fixed(COLORBAR_WIDTH))
     return grid
 end
 
-function _legend!(slot, panels, specification::SlotSpec; width = nothing)
+function _set_legend_capacity!(state::ResponsiveLegend, capacity::Int)
+    total = length(state.entries)
+    0 <= capacity <= total || throw(BoundsError(state.entries, capacity))
+    capacity == state.capacity && return state
+    displayed = copy(state.entries[1:capacity])
+    capacity < total && push!(displayed, state.ellipsis_entry)
+    state.legend.entrygroups[] = [(state.title, displayed)]
+    state.capacity = capacity
+    return state
+end
+
+function _legend_height!(state::ResponsiveLegend, capacity::Int)
+    return get!(state.heights, capacity) do
+        _set_legend_capacity!(state, capacity)
+        height = state.legend.layoutobservables.autosize[][2]
+        height === nothing && return 0.0
+        return Float64(height)
+    end
+end
+
+function _fit_legend!(state::ResponsiveLegend, available_height::Real)
+    state.fitting && return state
+    state.fitting = true
+    try
+        total = length(state.entries)
+        available = max(0.0, Float64(available_height) - LEGEND_HEIGHT_TOLERANCE)
+        if _legend_height!(state, total) <= available
+            return _set_legend_capacity!(state, total)
+        end
+        lower = 0
+        upper = max(0, total - 1)
+        best = 0
+        while lower <= upper
+            middle = (lower + upper) ÷ 2
+            if _legend_height!(state, middle) <= available
+                best = middle
+                lower = middle + 1
+            else
+                upper = middle - 1
+            end
+        end
+        return _set_legend_capacity!(state, best)
+    finally
+        state.fitting = false
+    end
+end
+
+function _observe_legend!(
+        state::ResponsiveLegend,
+        slot_grid,
+        context::UIContext
+)
+    observer = on(slot_grid.layoutobservables.computedbbox) do bounding_box
+        _fit_legend!(state, bounding_box.widths[2])
+        return nothing
+    end
+    push!(context.observers, observer)
+    return state
+end
+
+function _legend!(
+        slot,
+        panels,
+        specification::SlotSpec;
+        width = nothing,
+        overflow::Symbol = :ellipsis
+)
     groups, group_labels, group_order = _visibility_groups(panels)
     entries = Any[]
     labels = String[]
@@ -539,27 +662,50 @@ function _legend!(slot, panels, specification::SlotSpec; width = nothing)
     end
     isempty(entries) && return nothing
     dimensions = width === nothing ? (;) : (; width)
-    return Legend(
+    ellipsis = PolyElement(color = :transparent, strokecolor = :transparent)
+    legend_entries = [entry => (; polystrokecolor = :transparent, polystrokewidth = 0)
+                      for entry in entries]
+    contents = overflow === :ellipsis ? Any[legend_entries..., ellipsis] : legend_entries
+    legend_labels = overflow === :ellipsis ? [labels; "(...)"] : labels
+    legend = Legend(
         slot,
-        entries,
-        labels;
+        contents,
+        legend_labels;
         dimensions...,
+        tellheight = overflow === :show_all,
         halign = _makie_alignment(specification.halign),
         valign = _makie_alignment(specification.valign)
     )
+    overflow === :show_all && return (; legend, responsive = nothing)
+    title, legend_entries = only(legend.entrygroups[])
+    complete_entries = copy(legend_entries[1:(end - 1)])
+    responsive = ResponsiveLegend(
+        legend,
+        title,
+        complete_entries,
+        last(legend_entries),
+        -1,
+        Dict{Int, Float64}(),
+        false
+    )
+    _set_legend_capacity!(responsive, length(complete_entries))
+    return (; legend, responsive)
+end
+
+function _shares_side_dock(page::PageSpec, colorbar_slot_name::Symbol)
+    page.legend.enabled || return false
+    legend_slot = only(slot for slot in page.layout.slots if slot.name === page.legend.slot)
+    colorbar_slot = only(
+        slot for slot in page.layout.slots if slot.name === colorbar_slot_name)
+    return legend_slot.parent === colorbar_slot.parent &&
+           legend_slot.area.columns == colorbar_slot.area.columns &&
+           last(legend_slot.area.rows) < first(colorbar_slot.area.rows)
 end
 
 function _legend_dock_width(page::PageSpec)
-    legend_slot = only(slot for slot in page.layout.slots if slot.name === page.legend.slot)
-    for colorbar_slot_name in unique(colorbar.slot for colorbar in page.colorbars)
-        colorbar_slot = only(
-            slot for slot in page.layout.slots if slot.name === colorbar_slot_name)
-        if legend_slot.parent === colorbar_slot.parent &&
-           legend_slot.area.columns == colorbar_slot.area.columns
-            return LEGEND_DOCK_WIDTH
-        end
-    end
-    return nothing
+    any(colorbar -> _shares_side_dock(page, colorbar.slot), page.colorbars) ||
+        return nothing
+    return LEGEND_DOCK_WIDTH
 end
 
 _track_size(track::FixedTrack) = Fixed(track.value)
@@ -675,9 +821,20 @@ function _slot_position(materialized, name::Symbol)
     return _grid_position(materialized.grids[specification.parent], specification.area)
 end
 
-function _slot_grid(materialized, name::Symbol)
+function _slot_grid(
+        materialized,
+        name::Symbol;
+        width = Auto(),
+        height = Auto(),
+        tellwidth::Bool = true,
+        tellheight::Bool = true
+)
     specification = materialized.slot_specs[name]
     grid = GridLayout(
+        width = width,
+        height = height,
+        tellwidth = tellwidth,
+        tellheight = tellheight,
         halign = _makie_alignment(specification.halign),
         valign = _makie_alignment(specification.valign)
     )
@@ -733,14 +890,32 @@ function _build_page(
     materialized = _materialize_layout(figure, page.layout)
     panels = _build_panels(page, materialized)
     legend = nothing
+    responsive_legend = nothing
+    legend_slot_grid = nothing
     if page.legend.enabled
-        legend = _legend!(
-            _slot_position(materialized, page.legend.slot),
+        overflow = export_mode ? :show_all : page.legend.overflow
+        dock_width = _legend_dock_width(page)
+        responsive = overflow === :ellipsis
+        legend_slot_grid = _slot_grid(
+            materialized,
+            page.legend.slot;
+            width = dock_width === nothing ? Auto() : dock_width,
+            height = responsive ? nothing : Auto(),
+            tellheight = !responsive
+        )
+        built_legend = _legend!(
+            legend_slot_grid[1, 1],
             panels,
             materialized.slot_specs[page.legend.slot];
-            width = _legend_dock_width(page)
+            width = dock_width,
+            overflow
         )
-        legend === nothing && _collapse_slot!(page.layout, materialized, page.legend.slot)
+        if built_legend === nothing
+            _collapse_slot!(page.layout, materialized, page.legend.slot)
+        else
+            legend = built_legend.legend
+            responsive_legend = built_legend.responsive
+        end
     else
         _collapse_slot!(page.layout, materialized, page.legend.slot)
     end
@@ -873,6 +1048,14 @@ function _build_page(
     end
 
     _apply_layout_specs!(page.layout, materialized)
+    if responsive_legend !== nothing
+        _observe_legend!(responsive_legend, legend_slot_grid, context)
+        Makie.update_state_before_display!(figure)
+        bounding_box = legend_slot_grid.layoutobservables.computedbbox[]
+        _fit_legend!(responsive_legend, bounding_box.widths[2])
+    end
+    page.legend.interactive && legend !== nothing &&
+        _observe_visibility_limits!(panels, context)
     built = UIPlot(render_spec, page, figure, panels, widgets, context)
     plot_reference[] = built
     return built
@@ -942,8 +1125,7 @@ function _current_limits(axis)
 end
 
 function _current_series(series::SeriesSpec, panel::UIPanel, index::Int)
-    group = series.group === nothing ? Symbol("series_$index") : series.group
-    visible = all(plot_object -> plot_object.visible[], panel.groups[group])
+    visible = _series_visible(panel, series, index)
     return SeriesSpec(
         series.kind,
         series.xdata,
@@ -994,6 +1176,60 @@ function _current_page(plot::UIPlot)
     )
 end
 
+function _block_vertical_bounds(block)
+    layout = block.layoutobservables
+    bounding_box = layout.computedbbox[]
+    protrusions = layout.protrusions[]
+    bottom = bounding_box.origin[2] - protrusions.bottom
+    top = bounding_box.origin[2] + bounding_box.widths[2] + protrusions.top
+    return Float64(bottom), Float64(top)
+end
+
+function _export_dock_growth(figure, page::PageSpec)
+    legends = filter(block -> block isa Legend, figure.content)
+    isempty(legends) && return 0.0
+    legend_bottom = minimum(first(_block_vertical_bounds(legend)) for legend in legends)
+    all_colorbars = filter(block -> block isa Colorbar, figure.content)
+    rendered_slots = Symbol[]
+    for slot_name in unique(colorbar.slot for colorbar in page.colorbars)
+        descriptor_count = count(colorbar -> colorbar.slot === slot_name, page.colorbars)
+        append!(rendered_slots, fill(slot_name, descriptor_count))
+    end
+    length(all_colorbars) == length(rendered_slots) || error(
+        "rendered colorbars no longer match the declarative page",
+    )
+    shared_indices = findall(
+        slot_name -> _shares_side_dock(page, slot_name),
+        rendered_slots
+    )
+    colorbar_content = all_colorbars[shared_indices]
+    required_bottom = 0.0
+    if !isempty(colorbar_content)
+        scale_top = mapreduce(
+            block -> last(_block_vertical_bounds(block)),
+            max,
+            colorbar_content
+        )
+        required_bottom = scale_top + COLORBAR_ROW_GAP
+    end
+    return max(0.0, required_bottom - legend_bottom)
+end
+
+function _fit_export_content!(figure, page::PageSpec)
+    fitted_size = Makie.resize_to_layout!(figure)
+    target_size = Tuple(max.(page.size, ceil.(Int, fitted_size)))
+    Makie.resize!(figure, target_size...)
+    for _ in 1:4
+        Makie.update_state_before_display!(figure)
+        growth = _export_dock_growth(figure, page)
+        growth <= LEGEND_HEIGHT_TOLERANCE && break
+        target_size = (target_size[1], target_size[2] + ceil(Int, growth))
+        Makie.resize!(figure, target_size...)
+    end
+    Makie.update_state_before_display!(figure)
+    return target_size
+end
+
 function PlotBuilder.export_svg(
         plot::UIPlot;
         path::Union{Nothing, AbstractString} = nothing,
@@ -1023,7 +1259,9 @@ function PlotBuilder.export_svg(
             export_mode = true,
             export_theme
         )
-        Makie.save(output, only(exported).figure)
+        exported_plot = only(exported)
+        _fit_export_content!(exported_plot.figure, exported_plot.page)
+        Makie.save(output, exported_plot.figure)
     end
     opened = should_open && _open_export(output)
     message = if opened

@@ -60,6 +60,8 @@ _line_parent(::LineFamilyKey{K}) where {K} = K
 
 const _SERIES_COMPONENTS = (:R, :X, :L, :Z_re, :Z_im, :Z_abs, :Z_angle)
 const _SHUNT_COMPONENTS = (:G, :B, :C, :Y_re, :Y_im, :Y_abs, :Y_angle)
+const _CARTESIAN_COMPONENTS = (:R, :X, :G, :B, :Z_re, :Z_im, :Y_re, :Y_im)
+const _DISPLAY_ZERO_RTOL = sqrt(eps(Float64))
 
 function _line_page_keys(::Val{K}, ::Val{Components}) where {K, Components}
     allowed = K === :series ? _SERIES_COMPONENTS : _SHUNT_COMPONENTS
@@ -109,10 +111,13 @@ end
 
 function _resolve_line_components(object, quantities)
     quantities isa Tuple || throw(ArgumentError("quantities must be a tuple of accessors"))
-    selected = isempty(quantities) ? _default_line_components(object) : Tuple(
-        component for accessor in quantities for component in _line_components(object, accessor)
+    selected = isempty(quantities) ? _default_line_components(object) :
+               Tuple(
+        component for accessor in quantities
+    for component in _line_components(object, accessor)
     )
-    isempty(selected) && throw(ArgumentError("at least one line-parameter accessor is required"))
+    isempty(selected) &&
+        throw(ArgumentError("at least one line-parameter accessor is required"))
     length(unique(selected)) == length(selected) || throw(
         ArgumentError("line-parameter accessors select duplicate quantities"),
     )
@@ -235,7 +240,7 @@ end
 function _line_component_facets(
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
-        ::LineFamilyKey{K},
+        ::LineFamilyKey{K}
 ) where {K}
     return _line_page_keys(Val(K), mode)
 end
@@ -244,12 +249,13 @@ function PlotBuilder.page_keys(
         ::Type{LineParameterPlotSpec},
         mode::Val,
         ::Val{:panels},
-        recipe::PlotBuilder.PlotRecipe,
+        recipe::PlotBuilder.PlotRecipe
 )
     length(recipe.input.frequencies) <= 1 && return ()
     return Tuple(
-        family for family in _line_family_facets(recipe.object)
-        if !isempty(_line_component_facets(mode, recipe, family))
+        family
+    for family in _line_family_facets(recipe.object)
+    if !isempty(_line_component_facets(mode, recipe, family))
     )
 end
 
@@ -258,7 +264,7 @@ function PlotBuilder.view_keys(
         mode::Val,
         ::Val{:panels},
         recipe::PlotBuilder.PlotRecipe,
-        page_key::LineFamilyKey,
+        page_key::LineFamilyKey
 )
     return _line_component_facets(mode, recipe, page_key)
 end
@@ -269,7 +275,7 @@ function PlotBuilder.series_keys(
         ::Val{:panels},
         recipe::PlotBuilder.PlotRecipe,
         page_key::LineFamilyKey,
-        view_key::LinePageKey,
+        view_key::LinePageKey
 )
     source = _line_source(recipe.object, view_key)
     return _conductor_pairs(source, recipe.input.con)
@@ -290,7 +296,29 @@ function _line_values(recipe::PlotBuilder.PlotRecipe, page_key::LinePageKey)
         recipe.object,
         recipe.input.frequencies
     )
-    return values, conversion
+    return _display_values(values, source, component), conversion
+end
+
+function _maximum_nominal_magnitude(values)
+    return mapreduce(
+        value -> begin
+            magnitude = abs(to_nominal(value))
+            isfinite(magnitude) ? Float64(magnitude) : 0.0
+        end,
+        max,
+        values;
+        init = 0.0
+    )
+end
+
+function _display_values(values, source, component::Symbol)
+    component in _CARTESIAN_COMPONENTS || return values
+    component_scale = _maximum_nominal_magnitude(values)
+    iszero(component_scale) && return values
+    reference_scale = _maximum_nominal_magnitude(source)
+    iszero(reference_scale) && return values
+    component_scale <= _DISPLAY_ZERO_RTOL * reference_scale || return values
+    return zero.(values)
 end
 
 function PlotBuilder.axis_quantity(
@@ -329,7 +357,7 @@ function PlotBuilder.axis_quantity(
         ::Val{:y},
         recipe::PlotBuilder.PlotRecipe,
         page_key::LineFamilyKey,
-        view_key::LinePageKey,
+        view_key::LinePageKey
 )
     return PlotBuilder.axis_quantity(
         LineParameterPlotSpec,
@@ -337,7 +365,7 @@ function PlotBuilder.axis_quantity(
         Val(:y),
         recipe,
         view_key,
-        nothing,
+        nothing
     )
 end
 
@@ -380,7 +408,7 @@ function PlotBuilder.axis_unit(
         quantity::UnitHandler.QuantityTag,
         recipe::PlotBuilder.PlotRecipe,
         page_key::LineFamilyKey,
-        view_key::LinePageKey,
+        view_key::LinePageKey
 )
     return PlotBuilder.axis_unit(
         LineParameterPlotSpec,
@@ -389,7 +417,7 @@ function PlotBuilder.axis_unit(
         quantity,
         recipe,
         view_key,
-        nothing,
+        nothing
     )
 end
 
@@ -450,7 +478,7 @@ function PlotBuilder.series_data(
         recipe::PlotBuilder.PlotRecipe,
         page_key::LineFamilyKey,
         view_key::LinePageKey,
-        series_key::Tuple{Int, Int},
+        series_key::Tuple{Int, Int}
 )
     return PlotBuilder.series_data(
         LineParameterPlotSpec,
@@ -459,7 +487,7 @@ function PlotBuilder.series_data(
         recipe,
         view_key,
         nothing,
-        series_key,
+        series_key
     )
 end
 
@@ -488,7 +516,7 @@ function PlotBuilder.legend_label(
         recipe::PlotBuilder.PlotRecipe,
         page_key::LineFamilyKey{K},
         view_key::LinePageKey,
-        series_key::Tuple{Int, Int},
+        series_key::Tuple{Int, Int}
 ) where {K}
     symbol = K === :series ? "Z" : "Y"
     return "$symbol[$(series_key[1]),$(series_key[2])]"
@@ -500,7 +528,7 @@ function PlotBuilder.series_group(
         recipe::PlotBuilder.PlotRecipe,
         page_key::LineFamilyKey{K},
         view_key::LinePageKey,
-        series_key::Tuple{Int, Int},
+        series_key::Tuple{Int, Int}
 ) where {K}
     return Symbol("$(K)_$(series_key[1])_$(series_key[2])")
 end
@@ -534,13 +562,12 @@ function PlotBuilder.default_title(
     return UnitHandler.get_label(quantity)
 end
 
-
 function PlotBuilder.default_title(
         ::Type{LineParameterPlotSpec},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key::LineFamilyKey{:series},
-        ::Nothing,
+        ::Nothing
 )
     return "Series impedance"
 end
@@ -550,7 +577,7 @@ function PlotBuilder.default_title(
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key::LineFamilyKey{:shunt},
-        ::Nothing,
+        ::Nothing
 )
     return "Shunt admittance"
 end
@@ -560,14 +587,14 @@ function PlotBuilder.default_title(
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key::LineFamilyKey,
-        view_key::LinePageKey,
+        view_key::LinePageKey
 )
     return PlotBuilder.default_title(
         LineParameterPlotSpec,
         mode,
         recipe,
         view_key,
-        nothing,
+        nothing
     )
 end
 
@@ -586,7 +613,7 @@ function PlotBuilder.view_key(
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key::LineFamilyKey,
-        view_key::LinePageKey,
+        view_key::LinePageKey
 )
     return (; component = _line_component(view_key))
 end
@@ -595,7 +622,7 @@ function PlotBuilder.layout_spec(
         ::Type{LineParameterPlotSpec},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
-        page_key::LineFamilyKey,
+        page_key::LineFamilyKey
 )
     return :grid
 end
@@ -648,8 +675,8 @@ function PlotBuilder.axis_scales(
         series::Vector{PlotBuilder.SeriesSpec}
 ) where {dim}
     supports_log = dim === :x ?
-        _supports_log_values(recipe.input.frequencies) :
-        _supports_log(series, dim)
+                   _supports_log_values(recipe.input.frequencies) :
+                   _supports_log(series, dim)
     return supports_log ? (:linear, :log10) : (:linear,)
 end
 
@@ -674,7 +701,7 @@ function PlotBuilder.axis_exponent(
         recipe::PlotBuilder.PlotRecipe,
         page_key::LineFamilyKey,
         view_key::LinePageKey,
-        series::Vector{PlotBuilder.SeriesSpec},
+        series::Vector{PlotBuilder.SeriesSpec}
 )
     return PlotBuilder.axis_exponent(
         LineParameterPlotSpec,
@@ -683,7 +710,7 @@ function PlotBuilder.axis_exponent(
         recipe,
         view_key,
         nothing,
-        series,
+        series
     )
 end
 
@@ -701,19 +728,18 @@ function PlotBuilder.page_identity(
     )
 end
 
-
 function PlotBuilder.page_identity(
         ::Type{LineParameterPlotSpec},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
-        page_key::LineFamilyKey,
+        page_key::LineFamilyKey
 )
     return (;
         family = _line_parent(page_key),
         components = Tuple(
             _line_component(component)
-            for component in _line_component_facets(mode, recipe, page_key)
+        for component in _line_component_facets(mode, recipe, page_key)
         ),
-        conductors = recipe.input.con,
+        conductors = recipe.input.con
     )
 end
