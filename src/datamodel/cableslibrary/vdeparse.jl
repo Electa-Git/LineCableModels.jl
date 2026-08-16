@@ -131,7 +131,7 @@ function decode_type(code::AbstractString; has_compact::Bool = false)
         if haskey(TYPE_MAP, c)
             push!(words, TYPE_MAP[c])
         else
-            @warn "Unknown conductor type letter ignored." letter=String(c)
+            @warn "Unknown conductor type letter ignored." letter=string(c)
         end
     end
     if has_compact

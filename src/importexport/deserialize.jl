@@ -143,7 +143,13 @@ function _deserialize_value(value)
                 return get_as(value, "value", nothing, Int)
 
             elseif type_marker == "Complex"
-                return get_as(value, "value", nothing, Complex)
+                haskey(value, "re") && haskey(value, "im") || throw(
+                    ArgumentError("serialized Complex value requires 're' and 'im' fields"),
+                )
+                return complex(
+                    _deserialize_value(value["re"]),
+                    _deserialize_value(value["im"])
+                )
 
             else
                 @warn "Unknown __type__ marker: '$type_marker'. Processing as regular dictionary."

@@ -139,8 +139,8 @@ function _calc_transformation_matrix_LM(
 ) where {T <: Complex, U <: Real}
 
     # Constants
-    ε0 = U(ε₀)     # [F/m]
-    μ0 = U(μ₀)
+    ε0 = _typed_ε₀(U)     # [F/m]
+    μ0 = _typed_μ₀(U)
 
     nfreq = size(Z, 3)
     Ti = zeros(T, n, n, nfreq)

@@ -13,7 +13,7 @@ export Fortescue
 
 # Module-specific dependencies
 using ...Commons
-import ...Commons: get_description, PhaseDomain, ModalDomain
+import ...Commons: get_description, PhaseDomain, ModalDomain, _typed_ε₀, _typed_μ₀
 import ...Commons: basis
 import ...Utils: symtrans, symtrans!, offdiag_ratio, to_nominal
 import ..Engine:

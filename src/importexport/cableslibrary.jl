@@ -158,10 +158,7 @@ function _load_cableslibrary_jls!(library::CablesLibrary, file_name::String)
     if isa(loaded_data, Dict{String, CableDesign})
         # Replace the existing designs
         library.data = loaded_data
-        println(
-            "Cables library successfully loaded via Julia deserialization from: ",
-            display_path(file_name)
-        )
+        @info "Cables library successfully loaded via Julia deserialization from: $(display_path(file_name))"
     else
         # This indicates the .jls file did not contain the expected dictionary structure
         @error "Invalid data format in '$(display_path(file_name))'. Expected Dict{String, CableDesign}, got $(typeof(loaded_data)). Library not loaded."

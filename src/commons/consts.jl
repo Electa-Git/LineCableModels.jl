@@ -22,4 +22,11 @@ const TOL = 1e-6
 # Measurements.jl participate through ordinary `Real` promotion in extensions.
 const BASE_FLOAT = Float64
 const REALSCALAR = Real
-const COMPLEXSCALAR = Complex{T} where {T<:Real}
+const COMPLEXSCALAR = Complex{T} where {T <: Real}
+
+# Preserve the source definitions when a generic numerical kernel requests more
+# precision than the public Float64 constants carry.
+@inline _typed_ε₀(::Type{T}) where {T <: Real} = T(ε₀)
+@inline _typed_ε₀(::Type{BigFloat}) = parse(BigFloat, "8.8541878128e-12")
+@inline _typed_μ₀(::Type{T}) where {T <: Real} = T(μ₀)
+@inline _typed_μ₀(::Type{BigFloat}) = BigFloat(4) * BigFloat(π) * parse(BigFloat, "1e-7")

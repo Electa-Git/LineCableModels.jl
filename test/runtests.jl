@@ -1,73 +1,25 @@
-using LineCableModels
-using Test
 using TestItemRunner
 
-if get(ENV, "LINECABLEMODELS_TEST_PLOTTING", "false") == "true"
-    using CairoMakie
+const DEFAULT_EXCLUDED_TAGS = Set((:quality, :visual, :core_only))
+
+function matches_selector(testitem, selector::AbstractString)
+    if startswith(selector, "tag:")
+        tag = Symbol(chop(selector; head = 4, tail = 0))
+        return tag in testitem.tags
+    end
+    return occursin(selector, testitem.filename) ||
+           occursin(selector, String(testitem.name))
 end
 
-@testsnippet defaults begin
-    const TEST_TOL = 1e-8
-    using Measurements
-    using Measurements: measurement, uncertainty, value
-    using DataFrames
-    using LineCableModels
-    using LineCableModels.Commons
-    using LineCableModels.Utils
-    using LineCableModels.Materials: MaterialsLibrary
-    import LineCableModels.Materials: Material
-    using LineCableModels.DataModel
-    import LineCableModels.DataModel: Insulator
-    using LineCableModels.EarthProps
-    using LineCableModels.DataModel.BaseParams
-    using LineCableModels.Engine
-    using LineCableModels.ImportExport
+function selected(testitem)
+    if isempty(ARGS)
+        return isempty(intersect(DEFAULT_EXCLUDED_TAGS, Set(testitem.tags)))
+    end
+    explicitly_core_only=any(==("tag:core_only"), ARGS)
+    explicit_name_or_file=any(selector->!startswith(selector, "tag:"), ARGS)
+    selected_by_argument=any(selector->matches_selector(testitem, selector), ARGS)
+    return selected_by_argument &&
+           (explicitly_core_only || explicit_name_or_file || :core_only ∉ testitem.tags)
 end
 
-@testsnippet defs_materials begin
-    materials = MaterialsLibrary(add_defaults = true)
-    copper_props = Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
-    aluminum_props = Material(2.8264e-8, 1.0, 1.0, 20.0, 0.00429)
-    insulator_props = Material(1e14, 2.3, 1.0, 20.0, 0.0)
-    semicon_props = Material(1000.0, 1000.0, 1.0, 20.0, 0.0)
-end
-
-@testsnippet cable_system_export begin
-    cables_library = CablesLibrary()
-    @show file_name = joinpath(@__DIR__, "cable_test.json")
-    cables_library = load!(cables_library, file_name = file_name)
-
-    # Retrieve the reloaded design
-    cable_design = collect(values(cables_library.data))[1]
-    x0, y0 = 0.0, -1.0
-    xa, ya, xb, yb, xc, yc = trifoil_formation(x0, y0, 0.035)
-
-    # Initialize the `LineCableSystem` with the first cable (phase A):
-    cablepos = CablePosition(cable_design, xa, ya,
-        Dict("core" => 1, "sheath" => 0, "jacket" => 0))
-    cable_system = LineCableSystem("test_cable_sys", 1000.0, cablepos)
-
-    # Add remaining cables (phases B and C):
-    add!(cable_system, cable_design, xb, yb,
-        Dict("core" => 2, "sheath" => 0, "jacket" => 0))
-    add!(cable_system, cable_design, xc, yc,
-        Dict("core" => 3, "sheath" => 0, "jacket" => 0))
-
-    freqs = [50.0]
-    earth_props = EarthModel(freqs, 100.0, 10.0, 1.0)
-    num_phases = cable_system.num_phases
-
-    # Create minimal mock objects for the other required arguments
-    problem_atp = LineParametersProblem(
-        cable_system,
-        temperature = 20.0,  # Operating temperature
-        earth_props = earth_props,
-        frequencies = freqs   # Frequency for the analysis
-    )
-end
-
-test_filter = isempty(ARGS) ? nothing : testitem -> any(ARGS) do selector
-    occursin(selector, testitem.filename) || occursin(selector, String(testitem.name))
-end
-
-@run_package_tests(filter=test_filter, verbose=true)
+@run_package_tests(filter=selected, verbose=true)

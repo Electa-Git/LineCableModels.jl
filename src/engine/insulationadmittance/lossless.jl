@@ -15,9 +15,9 @@ get_description(::Lossless) = "Lossless insulation (ideal dielectric)"
     end
 
     # Constants
-    eps_i = T(ε₀) * epsr_i
+    eps_i = _typed_ε₀(T) * epsr_i
 
-    return Complex{T}(log(r_ex / r_in) / (2π * eps_i))
+    return Complex{T}(log(r_ex / r_in) / (T(2) * T(π) * eps_i))
 end
 
 @inline function potential_coefficient(

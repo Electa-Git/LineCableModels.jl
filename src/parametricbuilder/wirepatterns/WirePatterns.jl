@@ -285,7 +285,7 @@ function make_screened(A_req_mm2::Real, Dm_mm::Real;
     # AWG sizes + optional customs
     sizes = awg_sizes(nmin, nmax)
     for d in custom_diameters_mm
-        push!(sizes, ("custom($(round(d; digits=3)) mm)", Float64(d)))
+        push!(sizes, ("custom($(round(d; digits=3)) mm)", Float64(d) / 1000.0))
     end
     @assert !isempty(sizes)
 

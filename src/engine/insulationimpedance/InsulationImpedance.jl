@@ -13,7 +13,7 @@ export Lossless
 
 # Module-specific dependencies
 using ...Commons
-import ...Commons: get_description
+import ...Commons: get_description, _typed_μ₀
 import ..Engine: InsulationImpedanceFormulation
 
 include("lossless.jl")

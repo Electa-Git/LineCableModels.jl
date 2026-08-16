@@ -109,7 +109,7 @@ function RectStrands(
     r_ex = num_wires == 1 ? Base.error("num_wires must be > 1") :
            sqrt(r_in^2 + (num_wires * A0) / T(π))
     thickness_effective=r_ex-r_in
-    @info "Calculating outer radius to preserve total cross-sectional area of strands." r_ex radius_ext_without_correction=r_in+thickness thickness_effective thickness num_wires
+    @debug "Calculated area-preserving rectangular-strand radius." r_ex radius_ext_without_correction=r_in+thickness thickness_effective thickness num_wires
     mean_diameter, pitch_length, overlength = calc_helical_params(r_in, r_ex, lay_ratio)
 
     cross_section = num_wires * A0

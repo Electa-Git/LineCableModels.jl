@@ -15,7 +15,7 @@ get_description(::Lossless) = "Lossless insulation (ideal dielectric)"
     end
 
     # Constants
-    mu_i = T(μ₀) * mur_i
+    mu_i = _typed_μ₀(T) * mur_i
 
-    return Complex{T}(jω * mu_i * log(r_ex / r_in) / 2π)
+    return Complex{T}(jω * mu_i * log(r_ex / r_in) / (T(2) * T(π)))
 end

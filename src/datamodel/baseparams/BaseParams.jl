@@ -44,6 +44,7 @@ export calc_sigma_lossfact
 
 # Module-specific dependencies
 using ...Commons
+import ...Commons: _typed_ε₀, _typed_μ₀
 import ..DataModel: AbstractCablePart
 using ...Utils: resolve_T, coerce_to_T
 
@@ -446,7 +447,7 @@ function calc_tubular_inductance(
         r_ex::T,
         mu_r::T
 ) where {T <: REALSCALAR}
-    return mu_r * μ₀ / (2 * π) * log(r_ex / r_in)
+    return mu_r * _typed_μ₀(T) / (T(2) * T(π)) * log(r_ex / r_in)
 end
 
 function calc_tubular_inductance(r_in, r_ex, mu_r)
@@ -910,7 +911,7 @@ function calc_shunt_capacitance(
         r_ex::T,
         epsr::T
 ) where {T <: REALSCALAR}
-    return 2 * π * ε₀ * epsr / log(r_ex / r_in)
+    return T(2) * T(π) * _typed_ε₀(T) * epsr / log(r_ex / r_in)
 end
 
 function calc_shunt_capacitance(r_in, r_ex, epsr)
@@ -954,7 +955,7 @@ g = calc_shunt_conductance(r_in, r_ex, rho)
 ```
 """
 function calc_shunt_conductance(r_in::T, r_ex::T, rho::T) where {T <: REALSCALAR}
-    return 2 * π * (1 / rho) / log(r_ex / r_in)
+    return T(2) * T(π) * (one(T) / rho) / log(r_ex / r_in)
 end
 
 function calc_shunt_conductance(r_in, r_ex, rho)

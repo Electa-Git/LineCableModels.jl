@@ -13,7 +13,7 @@ export Lossless, ParallelRC
 
 # Module-specific dependencies
 using ...Commons
-import ...Commons: get_description
+import ...Commons: get_description, _typed_ε₀
 using ...Utils: _to_σ
 import ..Engine: InsulationAdmittanceFormulation
 

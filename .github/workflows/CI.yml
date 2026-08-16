@@ -34,19 +34,11 @@ jobs:
           save-always: "false"
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
-      - uses: julia-actions/julia-processcoverage@v1
-        if: matrix.julia == '1.12'
-      - uses: codecov/codecov-action@v7
-        if: matrix.julia == '1.12'
-        with:
-          files: lcov.info
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: true
 
-  plotting:
-    name: CairoMakie extension
+  coverage:
+    name: Merged production coverage
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       LINECABLEMODELS_TEST_PLOTTING: "true"
     steps:
@@ -55,20 +47,56 @@ jobs:
         with:
           version: "1.12"
       - uses: julia-actions/cache@v3
-      - name: Run plotting extension tests
-        shell: julia --startup-file=no --color=yes {0}
+      - name: Instantiate coverage tools
+        run: julia --project=test/coverage --color=yes -e 'using Pkg; Pkg.instantiate()'
+      - name: Remove stale coverage traces
+        run: julia --project=test/coverage --color=yes test/coverage.jl clean
+      - name: Collect core and non-graphical extension coverage
+        run: julia --project=. --color=yes -e 'using Pkg; Pkg.test(coverage = true)'
+      - name: Collect core-only boundary coverage
+        run: |
+          julia --project=test/core --code-coverage=@. --color=yes -e '
+            using Pkg
+            Pkg.instantiate()
+            push!(ARGS, "tag:core_only")
+            include("test/runtests.jl")
+          '
+      - name: Collect Cairo and visual coverage
+        run: |
+          julia --project=test/visual --code-coverage=@. --color=yes -e '
+            using Pkg
+            Pkg.instantiate()
+            append!(ARGS, ["tag:visual", "loaded extension activation"])
+            include("test/runtests.jl")
+          '
+      - name: Collect GLMakie boundary coverage
+        shell: julia --startup-file=no --code-coverage=@. --color=yes {0}
         run: |
           using Pkg
           Pkg.activate(; temp = true)
           Pkg.develop(PackageSpec(path = pwd()))
-          Pkg.add(PackageSpec(name = "Aqua", version = "0.8"))
-          Pkg.add(PackageSpec(name = "CairoMakie", version = "0.15"))
-          Pkg.add(PackageSpec(name = "Calculus", version = "0.5"))
-          Pkg.add(PackageSpec(name = "Distributions", version = "0.25"))
-          Pkg.add(PackageSpec(name = "Measurements", version = "2"))
+          Pkg.add(PackageSpec(name = "GLMakie", version = "0.13"))
           Pkg.add(PackageSpec(name = "TestItemRunner", version = "1"))
-          pushfirst!(LOAD_PATH, pwd())
+          push!(ARGS, "loaded extension activation")
           include(joinpath(pwd(), "test", "runtests.jl"))
+      - name: Collect WGLMakie boundary coverage
+        run: |
+          julia --project=. --code-coverage=@. --color=yes -e '
+            using Pkg
+            Pkg.activate(; temp = true)
+            Pkg.develop(PackageSpec(path = pwd()))
+            Pkg.add(PackageSpec(name = "WGLMakie", version = "0.13"))
+            Pkg.add(PackageSpec(name = "TestItemRunner", version = "1"))
+            push!(ARGS, "loaded extension activation")
+            include(joinpath(pwd(), "test", "runtests.jl"))
+          '
+      - name: Enforce source-amended 95% coverage
+        run: julia --project=test/coverage --color=yes test/coverage.jl check
+      - uses: codecov/codecov-action@v7
+        with:
+          files: lcov.info
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
 
   aqua:
     name: Aqua

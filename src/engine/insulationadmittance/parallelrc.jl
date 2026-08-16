@@ -66,9 +66,9 @@ coefficient ``1/C``.
     end
 
     log_ratio = log(r_ex / r_in)
-    capacitance = T(2π * ε₀) * eps_r / log_ratio
+    capacitance = T(2) * T(π) * _typed_ε₀(T) * eps_r / log_ratio
     conductivity = _to_σ(rho)
-    conductance = T(2π) * conductivity / log_ratio
+    conductance = T(2) * T(π) * conductivity / log_ratio
 
     return s / (conductance + s * capacitance)
 end

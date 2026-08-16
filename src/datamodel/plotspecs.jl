@@ -157,54 +157,68 @@ function _polygon_series(geometry, label, group, color; stroke = :black, width =
 end
 
 function _layer_series!(series, layer, label, group, xcenter, ycenter; include_label = true)
-    color = _material_color(layer.material_props)
     first_label = include_label ? label : nothing
-    if layer isa CircStrands
-        wire_radius = to_nominal(layer.radius_wire)
-        lay_radius = layer.num_wires == 1 ? 0.0 : to_nominal(layer.r_in)
-        coordinates = calc_circstrands_coords(
-            layer.num_wires,
-            wire_radius,
-            lay_radius;
-            C = (xcenter, ycenter)
-        )
-        for (index, (xvalue, yvalue)) in enumerate(coordinates)
-            push!(
-                series,
-                _polygon_series(
-                    _circle_points(wire_radius, xvalue, yvalue),
-                    index == 1 ? first_label : nothing,
-                    group,
-                    color
-                )
-            )
-        end
-    elseif layer isa RectStrands
-        for index in 1:layer.num_wires
-            angle = (index - 1) * 2π / layer.num_wires
-            geometry = _radial_wedge(
-                to_nominal(layer.r_in),
-                to_nominal(layer.r_ex),
-                to_nominal(layer.width),
-                angle,
-                xcenter,
-                ycenter
-            )
-            push!(series, _polygon_series(geometry, index == 1 ? first_label : nothing, group, color))
-        end
-    elseif layer isa Union{Strip, Tubular, Semicon, Insulator}
-        geometry = _annulus_polygon(
-            to_nominal(layer.r_in),
-            to_nominal(layer.r_ex),
-            xcenter,
-            ycenter
-        )
-        push!(series, _polygon_series(
-            geometry, first_label, group, color; stroke = :transparent, width = 0.0))
-    elseif layer isa ConductorGroup
+    if layer isa ConductorGroup
         for (index, nested) in enumerate(layer.layers)
             _layer_series!(series, nested, label, group, xcenter, ycenter;
                 include_label = index == 1 && include_label)
+        end
+    elseif layer isa Union{CircStrands, RectStrands, Strip, Tubular, Semicon, Insulator}
+        color = _material_color(layer.material_props)
+        if layer isa CircStrands
+            wire_radius = to_nominal(layer.radius_wire)
+            lay_radius = layer.num_wires == 1 ? 0.0 : to_nominal(layer.r_in)
+            coordinates = calc_circstrands_coords(
+                layer.num_wires,
+                wire_radius,
+                lay_radius;
+                C = (xcenter, ycenter)
+            )
+            for (index, (xvalue, yvalue)) in enumerate(coordinates)
+                push!(
+                    series,
+                    _polygon_series(
+                        _circle_points(wire_radius, xvalue, yvalue),
+                        index == 1 ? first_label : nothing,
+                        group,
+                        color
+                    )
+                )
+            end
+        elseif layer isa RectStrands
+            for index in 1:layer.num_wires
+                angle = (index - 1) * 2π / layer.num_wires
+                geometry = _radial_wedge(
+                    to_nominal(layer.r_in),
+                    to_nominal(layer.r_ex),
+                    to_nominal(layer.width),
+                    angle,
+                    xcenter,
+                    ycenter
+                )
+                push!(series, _polygon_series(
+                    geometry,
+                    index == 1 ? first_label : nothing,
+                    group,
+                    color
+                ))
+            end
+        else
+            geometry = _annulus_polygon(
+                to_nominal(layer.r_in),
+                to_nominal(layer.r_ex),
+                xcenter,
+                ycenter
+            )
+            push!(series,
+                _polygon_series(
+                    geometry,
+                    first_label,
+                    group,
+                    color;
+                    stroke = :transparent,
+                    width = 0.0
+                ))
         end
     else
         @warn "unsupported cable-preview layer" layer_type = typeof(layer)
@@ -238,7 +252,7 @@ function _preview_layer_identities(component_id, layers, role::Symbol)
         label = "$component_name: $name$suffix"
         key = replace(
             "preview_$(component_id)_$(role)_$index",
-            r"[^0-9A-Za-z]+" => "_",
+            r"[^0-9A-Za-z]+" => "_"
         )
         push!(identities, (label, Symbol(key)))
     end
@@ -262,7 +276,7 @@ function _design_series(design, xcenter, ycenter; display_legend::Bool)
         conductor_identities = _preview_layer_identities(
             component.id,
             conductor_layers,
-            :conductor,
+            :conductor
         )
         for (layer, (label, group)) in zip(conductor_layers, conductor_identities)
             _layer_series!(series, layer, label, group, xcenter,
@@ -272,7 +286,7 @@ function _design_series(design, xcenter, ycenter; display_legend::Bool)
         insulator_identities = _preview_layer_identities(
             component.id,
             insulator_layers,
-            :insulator,
+            :insulator
         )
         for (layer, (label, group)) in zip(insulator_layers, insulator_identities)
             _layer_series!(series, layer, label, group, xcenter,

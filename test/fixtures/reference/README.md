@@ -1,0 +1,19 @@
+# Numerical references
+
+Files in this directory are static, implementation-independent numerical oracles. Each
+record states its units, input values, working precision, provenance, and generation
+method. Tests may read these files but must never update them.
+
+`coaxial_capacitance.toml` evaluates the analytical capacitance per unit length of a
+coaxial geometry at 256-bit precision using the CODATA 2018 vacuum permittivity. The
+calculation was performed without loading LineCableModels. It supports the
+cross-precision convergence contract for the generic dielectric kernel and records the
+corresponding 50 Hz lossless impedance and potential-coefficient values.
+The same record includes the independent 256-bit tubular-inductance value for the
+documented 4π×10⁻⁷ H/m permeability convention.
+It also records the conductance of the same geometry at 2×10¹¹ Ω·m for the lossy
+ParallelRC formulation.
+
+Regression output produced by LineCableModels is deliberately not stored here because
+it would repeat the implementation under test rather than provide an independent
+oracle.
