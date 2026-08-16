@@ -36,7 +36,7 @@ backend_available(backend::Symbol) = _backend_extension(backend) !== nothing
 "Return the active Makie backend as `:cairo`, `:gl`, `:wgl`, `:unknown`, or `:none`."
 function current_backend_symbol()
     ext = _makie_extension()
-    return ext === nothing ? :none : ext.current_backend_symbol()
+    return ext === nothing ? :none : Base.invokelatest(ext.current_backend_symbol)
 end
 
 """
@@ -53,7 +53,7 @@ function set_backend!(backend::Symbol; force::Bool = false)
         "Backend :$(backend) is not loaded. Run `using $(_backend_package(backend))` first.",
     ),
     )
-    return ext.activate!()
+    return Base.invokelatest(ext.activate!)
 end
 
 function _backend_package(backend::Symbol)
@@ -95,7 +95,7 @@ function make_screen(
         kwargs...
 )
     ext = _backend_extension(backend)
-    return ext === nothing ? nothing : ext.make_screen(String(title); kwargs...)
+    return ext === nothing ? nothing : Base.invokelatest(ext.make_screen, String(title); kwargs...)
 end
 
 function make_screen(backend::Symbol, title::AbstractString; kwargs...)
@@ -110,7 +110,7 @@ function renderfig(fig)
         "Makie is not loaded. Load CairoMakie, GLMakie, or WGLMakie first.",
     ),
     )
-    return ext.renderfig(fig)
+    return Base.invokelatest(ext.renderfig, fig)
 end
 
 next_fignum() = Base.Threads.atomic_add!(FIG_NO, 1)

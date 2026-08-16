@@ -1,6 +1,6 @@
 using Logging
 using Logging: AbstractLogger, LogLevel, Info, global_logger
-using LoggingExtras: TeeLogger, FileLogger
+using LoggingExtras: TeeLogger, FileLogger, MinLevelLogger
 using Dates
 using Printf
 
@@ -42,7 +42,7 @@ function set_verbosity!(verbosity::Int, logfile::Union{String, Nothing} = nothin
     else
         # Try to set up file logging with fallback to console-only
         try
-            file_logger = FileLogger(logfile, level)
+            file_logger = MinLevelLogger(FileLogger(logfile), level)
             combined_logger = TeeLogger(console_logger, file_logger)
             global_logger(TimestampLogger(combined_logger))
         catch e

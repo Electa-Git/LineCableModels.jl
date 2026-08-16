@@ -68,9 +68,16 @@ end
     @test occursin("material-1", summary)
     @test occursin("... and 2 more", summary)
 
+    reverse_library=MaterialsLibrary(add_defaults = false)
+    for index in 7:-1:1
+        add!(reverse_library, "material-$index", Material(index, 1.0, 1.0, 20.0, 0.0))
+    end
+    @test sprint(show, MIME"text/plain"(), reverse_library) == summary
+
     dictionary_summary=sprint(show, MIME"text/plain"(), library.data)
     @test occursin("Dict{String, Material} with 7 materials", dictionary_summary)
     @test occursin("... and 2 more", dictionary_summary)
+    @test sprint(show, MIME"text/plain"(), reverse_library.data) == dictionary_summary
     singleton_summary=sprint(show, MIME"text/plain"(),
         Dict{String, Material}(
             "only"=>Material(1.0, 1.0, 1.0, 20.0, 0.0),

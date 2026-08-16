@@ -133,7 +133,7 @@ function Base.show(io::IO, ::MIME"text/plain", library::MaterialsLibrary)
         print(io, ":")
         # Optional: list the first few materials
         shown_materials = min(5, num_materials)
-        material_names = collect(keys(library))[1:shown_materials]
+        material_names = sort!(collect(keys(library)))[1:shown_materials]
 
         for (i, name) in enumerate(material_names)
             print(io, "\n$(i == shown_materials ? "└─" : "├─") $name")
@@ -170,7 +170,7 @@ function Base.show(io::IO, ::MIME"text/plain", dict::Dict{String, Material})
         print(io, ":")
         # List the first few materials
         shown_materials = min(5, num_materials)
-        material_names = collect(keys(dict))[1:shown_materials]
+        material_names = sort!(collect(keys(dict)))[1:shown_materials]
 
         for (i, name) in enumerate(material_names)
             print(io, "\n$(i == shown_materials ? "└─" : "├─") $name")

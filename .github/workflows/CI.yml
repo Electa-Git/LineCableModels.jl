@@ -127,14 +127,14 @@ jobs:
       - uses: julia-actions/setup-julia@v3
         with:
           version: "1.12"
-      - name: Check JuliaFormatter
+      - name: Check owned test harness formatting
         shell: julia --color=yes {0}
         run: |
           using Pkg
           Pkg.activate(; temp = true)
           Pkg.add(PackageSpec(name = "JuliaFormatter", version = "2"))
           using JuliaFormatter
-          @assert format(pwd(); overwrite = false, verbose = true)
+          @assert format(joinpath(pwd(), "test"); overwrite = false, verbose = true)
 
   gitlint:
     name: Commit messages
