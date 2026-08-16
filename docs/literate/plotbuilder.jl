@@ -98,6 +98,7 @@ import LineCableModels.PlotBuilder: input_defaults #hide
 import LineCableModels.PlotBuilder: input_kwargs #hide
 import LineCableModels.PlotBuilder: layout_spec #hide
 import LineCableModels.PlotBuilder: legend_label #hide
+import LineCableModels.PlotBuilder: legend_spec #hide
 import LineCableModels.PlotBuilder: recipe_mode #hide
 import LineCableModels.PlotBuilder: renderer_defaults #hide
 import LineCableModels.PlotBuilder: renderer_kwargs #hide
@@ -264,9 +265,10 @@ documentation_figure(render, 1) #hide
 # `placement`, `aspect`, and `limits` are real fields and are rejected inside the
 # attribute bag. `aspect` accepts `nothing`, `:data`, or a positive finite ratio.
 # Explicit limits are finite, strictly increasing x/y pairs and must be positive
-# where logarithmic scaling is available. Without explicit limits, the renderer
-# uses Makie's normal margins and stabilizes effectively constant data, including
-# measurement uncertainty.
+# when the corresponding logarithmic scale is active. A linear axis may retain
+# limits that cross zero even when its UI offers a logarithmic toggle. Without
+# explicit limits, the renderer uses Makie's normal margins and stabilizes
+# effectively constant data, including measurement uncertainty.
 #
 # ### Pages
 #
@@ -285,7 +287,12 @@ documentation_figure(render, 1) #hide
 # a Julia keyword.
 #
 # `ControlSpec` declares reset and SVG buttons. Scale toggles come from axes.
-# `LegendSpec` controls legend visibility and legend-driven series visibility.
+# `LegendSpec` controls legend visibility, legend-driven series visibility, and
+# overflow. Its default `overflow=:ellipsis` keeps the legend inside a bounded
+# fixed or relative row: the renderer shows the largest prefix that fits and
+# appends an inert `(...)` entry. `overflow=:show_all` lets all legend entries
+# determine the required height and may therefore use a `ContentTrack` row.
+# Responsive legends in content-sized rows are rejected before rendering.
 # `ColorbarSpec` contains a label, colormap, limits, ticks, and destination slot.
 # Tick positions must be finite, lie within the color limits, and have one label
 # per position.
@@ -325,8 +332,16 @@ documentation_figure(render, 1) #hide
 # slot. Enabled toolbar, legend, colorbar, status, and view content must all have
 # destination slots.
 #
-# Toolbar and status tracks collapse for headless and SVG rendering. The SVG
-# therefore preserves the declared content layout without interactive chrome.
+# The standard side dock gives its material-scale row content height and assigns
+# the remaining height to the legend row. GLMakie and WGLMakie recompute the
+# fitting prefix from Makie's reported slot bounds when a window is resized;
+# plotted series and their visibility states are untouched. Material scales are
+# never shortened. Toggling a legend entry asks Makie to recompute limits from
+# the currently visible series; a later zoom or pan remains the final state.
+# Toolbar and status tracks collapse for headless and SVG rendering. SVG export
+# always rebuilds the complete legend, preserves the final visibility, scales,
+# and limits, expands the output height when needed, and leaves a compact
+# interactive legend unchanged.
 #
 # ## Accessor grammar
 #
@@ -595,6 +610,15 @@ function colorbar_specs(
     )]
 end
 
+# The default responsive mode is explicit here so a reader can find the legend
+# policy alongside the other page components. The legend row in every built-in
+# side dock is relative-sized, as required by `overflow=:ellipsis`.
+function legend_spec(
+        ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PlotRecipe, page_key
+)
+    LegendSpec(overflow = :ellipsis)
+end
+
 nothing; #hide
 #
 # ### 5. Assemble overlay, panel, and page variants
@@ -679,12 +703,14 @@ plot_grid = GridSpec(
     columns = AbstractTrackSize[RelativeTrack()]
 )
 #
-# The right side stacks legend and colorbar content.
+# The right side gives material scales their reported content height. The
+# legend receives the remaining bounded height, so its responsive prefix can be
+# calculated from the actual Makie slot bounds.
 side_grid = GridSpec(
     :side;
     parent = :root,
     area = GridArea(2, 2),
-    rows = AbstractTrackSize[ContentTrack(), ContentTrack()],
+    rows = AbstractTrackSize[RelativeTrack(), ContentTrack()],
     columns = AbstractTrackSize[ContentTrack()],
     rowgap = 4
 )
@@ -726,6 +752,52 @@ documentation_figure(custom) #hide
 #md # <br>
 #md # ```
 #
+# ## Responsive side docks
+#
+# A compact page may not have enough vertical space for every legend entry and
+# its material scales. `overflow=:ellipsis` gives material scales priority and
+# shortens only the displayed legend. The following hidden fixture has sixteen
+# response columns, so the two declared sizes exercise both states without any
+# recipe or renderer changes.
+responsive_values = reduce(hcat, [ #hide
+                                  [1.0 + 0.05index, 1.5 + 0.04index, 2.0 + 0.03index] #hide
+                                  for index in 1:16 #hide
+                                  ]) #hide
+responsive_result = ProfileResult( #hide
+    [50.0, 100.0, 500.0], #hide
+    responsive_values #hide
+) #hide
+compact = make_render( #hide
+    ProfilePlotSpec, #hide
+    responsive_result; #hide
+    size = (900, 350) #hide
+) #hide
+full = make_render( #hide
+    ProfilePlotSpec, #hide
+    responsive_result; #hide
+    size = (900, 700) #hide
+) #hide
+
+# At compact height the maximum safe prefix is followed by `(...)`. That entry
+# has no visibility action; the visible entries retain their normal legend
+# toggles.
+documentation_figure(compact) #hide
+#md # ```@raw html
+#md # <br>
+#md # ```
+#
+# With more height, the same specification displays every entry. Interactive GL
+# and WGL windows move between these two states automatically as their viewport
+# changes.
+documentation_figure(full) #hide
+#md # ```@raw html
+#md # <br>
+#md # ```
+#
+# Use `LegendSpec(overflow=:show_all)` only when the complete legend should
+# determine layout height. Its destination may then be a `ContentTrack`; the
+# page is intentionally allowed to grow instead of presenting an ellipsis.
+#
 # For explicit faceting, specialize `view_placement` and return
 # `PlacementSpec(slot, GridArea(rows, columns))`. All views assigned to one slot
 # must use either automatic placement or explicit placement; mixing the two is
@@ -735,7 +807,10 @@ documentation_figure(custom) #hide
 #
 # The save button reconstructs the current typed page state, including scales,
 # limits, visibility, layout, and placement, and renders it through explicitly
-# loaded CairoMakie. It never imports CairoMakie dynamically.
+# loaded CairoMakie. It never imports CairoMakie dynamically. Export reconstructs
+# the complete declarative legend even when the interactive window currently
+# shows `(...)`; native block bounds determine any additional SVG height, and
+# the interactive figure is not resized.
 #
 # - `:default` preserves the interactive styling on a white background.
 # - `:publication` applies `Makie.theme_latexfonts()` and the established

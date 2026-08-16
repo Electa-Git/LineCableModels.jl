@@ -115,11 +115,11 @@ n_layers = 6 # Layers of strands
 @assert 1 + n_strands * sum(1:n_layers) == num_co_wires
 core_conductor = Conductor.Stranded(
     :core;
-    layers=n_layers + 1,
-    wire_radius=d_w / 2,
-    num_wires=n_strands,
-    lay_ratio=11.0,
-    material=copper,
+    layers = n_layers + 1,
+    wire_radius = d_w / 2,
+    num_wires = n_strands,
+    lay_ratio = 11.0,
+    material = copper
 )
 
 #=
@@ -128,8 +128,7 @@ core_conductor = Conductor.Stranded(
 Inner semiconductor (1000 Ω.m as per IEC 840):
 =#
 
-inner_semiconductor =
-    Insulator.Semicon(:core; thickness=t_sc_in, material=semicon1)
+inner_semiconductor = Insulator.Semicon(:core; thickness = t_sc_in, material = semicon1)
 
 #=
 ### Main insulation
@@ -137,7 +136,7 @@ inner_semiconductor =
 Add the insulation layer:
 =#
 
-main_insulation = Insulator.Tubular(:core; thickness=t_ins, material=pe)
+main_insulation = Insulator.Tubular(:core; thickness = t_ins, material = pe)
 
 #=
 ### Outer semiconductor
@@ -145,12 +144,10 @@ main_insulation = Insulator.Tubular(:core; thickness=t_ins, material=pe)
 Outer semiconductor (500 Ω.m as per IEC 840):
 =#
 
-outer_semiconductor =
-    Insulator.Semicon(:core; thickness=t_sc_out, material=semicon2)
+outer_semiconductor = Insulator.Semicon(:core; thickness = t_sc_out, material = semicon2)
 
 # Water blocking (swellable) tape:
-swellable_tape =
-    Insulator.Semicon(:core; thickness=t_wbt, material=polyacrylate)
+swellable_tape = Insulator.Semicon(:core; thickness = t_wbt, material = polyacrylate)
 
 # Group the declarations associated with the core component:
 core_parts = (
@@ -158,7 +155,7 @@ core_parts = (
     inner_semiconductor,
     main_insulation,
     outer_semiconductor,
-    swellable_tape,
+    swellable_tape
 )
 
 cable_id = "525kV_1600mm2"
@@ -170,7 +167,7 @@ datasheet_info = (
     screen_cross_section = 1000.0,     # [mm²]
     resistance = nothing,              # DC resistance [Ω/km]
     capacitance = nothing,             # Capacitance [μF/km]
-    inductance = nothing,               # Inductance in trifoil [mH/km]
+    inductance = nothing               # Inductance in trifoil [mH/km]
 )
 
 #=
@@ -181,9 +178,9 @@ sheath and PP bedding. These declarations are stacked over the resolved core.
 =#
 
 sheath_parts = (
-    Conductor.Tubular(:sheath; thickness=t_sc, material=lead),
-    Insulator.Tubular(:sheath; thickness=t_pe, material=pe),
-    Insulator.Tubular(:sheath; thickness=t_bed, material=pp),
+    Conductor.Tubular(:sheath; thickness = t_sc, material = lead),
+    Insulator.Tubular(:sheath; thickness = t_pe, material = pe),
+    Insulator.Tubular(:sheath; thickness = t_bed, material = pp)
 )
 
 #=
@@ -196,12 +193,12 @@ lay_ratio = 10.0 # typical value for wire screens
 armor_parts = (
     Conductor.Wires(
         :armor;
-        wire_radius=d_wa / 2,
-        num_wires=num_ar_wires,
+        wire_radius = d_wa / 2,
+        num_wires = num_ar_wires,
         lay_ratio,
-        material=steel,
+        material = steel
     ),
-    Insulator.Tubular(:armor; thickness=t_jac, material=pp),
+    Insulator.Tubular(:armor; thickness = t_jac, material = pp)
 )
 
 # Resolve the complete deterministic cable description:
@@ -210,16 +207,23 @@ cable_design = only(CableBuilder(
     core_parts,
     sheath_parts,
     armor_parts;
-    nominal=datasheet_info,
+    nominal = datasheet_info
 ))
 
 # Inspect the finished cable design:
 plt1 = preview(
     cable_design,
-    display_plot=false, #hide
-    controls=false, #hide
+    display_plot = false, #hide
+    controls = false #hide
 )
 plt1.figure #hide
+
+#=
+The preview keeps its material scales visible when the side dock is short. If
+the complete layer legend does not fit, it ends with `(...)`; resizing an
+interactive GLMakie or WGLMakie window restores entries as space becomes
+available. SVG export always includes the complete legend.
+=#
 
 #=
 ## Examining the cable parameters (RLC)
@@ -229,7 +233,7 @@ plt1.figure #hide
 # Calculate and summarize the cable constants explicitly:
 constants = compute!(
     CableConstantsProblem(cable_design),
-    Formulation(),
+    Formulation()
 )
 core_df = DataFrame(constants)
 
@@ -244,7 +248,7 @@ Load an existing [`CablesLibrary`](@ref) file or create a new one:
 
 library = CablesLibrary()
 library_file = fullfile("cables_library.json")
-isfile(library_file) && load!(library, file_name=library_file)
+isfile(library_file) && load!(library, file_name = library_file)
 add!(library, cable_design)
 library_df = DataFrame(library)
 
@@ -253,7 +257,7 @@ save(library, file_name = library_file);
 
 # Verify that the saved cable can be recovered in a fresh session:
 loaded_library = CablesLibrary()
-load!(loaded_library, file_name=library_file)
+load!(loaded_library, file_name = library_file)
 loaded_design = get(loaded_library, cable_id)
 
 #=
@@ -269,8 +273,8 @@ declared independently of frequency; they are evaluated when the complete
 problem is resolved.
 =#
 
-f = collect(10.0 .^ range(0, stop=6, length=61)) # 1 Hz to 1 MHz
-earth = Earth(rho=100.0, eps_r=10.0, mu_r=1.0)
+f = collect(10.0 .^ range(0, stop = 6, length = 61)) # 1 Hz to 1 MHz
+earth = Earth(rho = 100.0, eps_r = 10.0, mu_r = 1.0)
 
 #=
 ### Underground bipole configuration
@@ -280,8 +284,8 @@ earth = Earth(rho=100.0, eps_r=10.0, mu_r=1.0)
 # Define the coordinates and phase mapping for both poles:
 xp, xn, y0 = -0.5, 0.5, -1.0;
 positions = (
-    at(x=xp, y=y0, phases=(:core => 1, :sheath => 0, :armor => 0)),
-    at(x=xn, y=y0, phases=(:core => 2, :sheath => 0, :armor => 0)),
+    at(x = xp, y = y0, phases = (:core => 1, :sheath => 0, :armor => 0)),
+    at(x = xn, y = y0, phases = (:core => 2, :sheath => 0, :armor => 0))
 )
 
 # Build the complete bipole line-parameter problem from the loaded design:
@@ -289,10 +293,10 @@ problem = only(SystemBuilder(
     "525kV_1600mm2_bipole",
     loaded_design,
     positions;
-    length=1000.0,
-    temperature=20.0,
+    length = 1000.0,
+    temperature = 20.0,
     earth,
-    frequencies=f,
+    frequencies = f
 ))
 cable_system = problem.system
 earth_params = problem.earth_props
@@ -312,10 +316,10 @@ system_df = DataFrame(cable_system)
 # Visualize the cross-section of the three-phase system:
 plt2 = preview(
     cable_system,
-    earth_model=earth_params,
-    zoom_factor=2.0,
-    display_plot=false, #hide
-    controls=false, #hide
+    earth_model = earth_params,
+    zoom_factor = 2.0,
+    display_plot = false, #hide
+    controls = false #hide
 )
 plt2.figure #hide
 
@@ -343,12 +347,11 @@ execution.
 
 # Define the formulation and run the 1 Hz–1 MHz frequency scan:
 formulation = Formulation()
-@time line_parameters =
-    compute!(problem, formulation; options=(verbosity=0,));
+@time line_parameters = compute!(problem, formulation; options = (verbosity = 0,));
 
 # Obtain the series and shunt results in per-kilometre units:
 series_rl, shunt_gc = DataFrame(
-    line_parameters, (R, L, G, C); length_unit=:kilo, tol=1e-9);
+    line_parameters, (R, L, G, C); length_unit = :kilo, tol = 1e-9);
 
 # Display the series resistance and inductance table:
 series_rl[1, 1]
@@ -362,11 +365,11 @@ shunt_gc[1, 1]
 rlcg_plots = CairoMakie.plot(
     line_parameters,
     (R, L, G, C);
-    xscale=:log10,
-    length_unit=:kilo,
-    fig_size=(1100, 450),
-    display_plot=false, #hide
-    controls=false, #hide
+    xscale = :log10,
+    length_unit = :kilo,
+    fig_size = (1100, 450),
+    display_plot = false, #hide
+    controls = false #hide
 )
 rlcg_plots[1].figure #hide
 
@@ -378,11 +381,11 @@ rlcg_plots[2].figure #hide
 # be compared directly:
 zy_plots = CairoMakie.plot(
     line_parameters;
-    xscale=:log10,
-    length_unit=:kilo,
-    fig_size=(1100, 450),
-    display_plot=false, #hide
-    controls=false, #hide
+    xscale = :log10,
+    length_unit = :kilo,
+    fig_size = (1100, 450),
+    display_plot = false, #hide
+    controls = false #hide
 )
 zy_plots[1].figure #hide
 
@@ -392,14 +395,14 @@ zy_plots[2].figure #hide
 # Export ZY matrices to ATPDraw
 output_file = fullfile("ZY_export.xml")
 export_file = export_data(
-    :atp, line_parameters; file_name=output_file, cable_system);
+    :atp, line_parameters; file_name = output_file, cable_system);
 
 # Obtain the symmetrical components via Fortescue transformation
-Tv, sequence_parameters = Fortescue(tol=1e-5)(line_parameters);
+Tv, sequence_parameters = Fortescue(tol = 1e-5)(line_parameters);
 
 # Obtain the transformed series and shunt matrices:
 series_zy, shunt_zy = DataFrame(
-    sequence_parameters; length_unit=:kilo, tol=1e-9);
+    sequence_parameters; length_unit = :kilo, tol = 1e-9);
 
 # Display the transformed series matrix:
 series_zy[1, 1]
@@ -411,8 +414,8 @@ shunt_zy[1, 1]
 series_rl012, shunt_gc012 = DataFrame(
     sequence_parameters,
     (R, L, G, C);
-    length_unit=:kilo,
-    tol=1e-9,
+    length_unit = :kilo,
+    tol = 1e-9
 );
 
 # Display the sequence-domain series table:
@@ -425,11 +428,11 @@ shunt_gc012[1, 1]
 sequence_plots = CairoMakie.plot(
     sequence_parameters,
     (R, L, G, C);
-    xscale=:log10,
-    length_unit=:kilo,
-    fig_size=(1100, 450),
-    display_plot=false, #hide
-    controls=false, #hide
+    xscale = :log10,
+    length_unit = :kilo,
+    fig_size = (1100, 450),
+    display_plot = false, #hide
+    controls = false #hide
 )
 sequence_plots[1].figure #hide
 
