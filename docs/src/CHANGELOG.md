@@ -13,6 +13,19 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Refactored the eager `Material`-to-`compute!` path around natural Julia promotion,
+  owner-local validation, explicit Specs, immutable solver input, and scoped console
+  logging.
+- Cable parts and `CableDesign` now represent the common material reference state.
+  Operating temperature is owned by the line problem and applied once to local
+  resistivity values inside `compute!`.
+- Earth models now store static physical layers only. Analysis frequencies belong to the
+  problem and frequency-dependent earth properties belong to the formulation.
+- Mathematical functions use short physical names without the former `calc_` prefix.
+- Material and cable JSON files use an explicit versioned schema and type registry.
+  JLS loading remains supported for trusted matching package types only.
+- Wire-pattern searches return typed `WireEstimate` results, including ranked
+  best-effort candidates for feasible search inputs that cannot meet every limit.
 - Replaced the prototype parameter and uncertainty pipelines with the typed
   `Grid`, `AbstractSpec`, and `Gridspace` grammar.
 - Unified ordinary, full-parametric, and conditional Monte Carlo execution
@@ -29,6 +42,12 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Removed
 
+- Removed `Commons`, `Utils`, package scalar-union aliases, coercion macros,
+  operating-temperature cable fields, `EMTWorkspace`, primitive-storage options, file
+  logging, and the constructor proxy types `MaxFill` and `WireArray`.
+- Retired unversioned and legacy JSON loading. The error identifies commit
+  `a71bdfe1ac832f27a0c88b1d02596194aac46ec7` as the last snapshot able to migrate those
+  files.
 - Removed the former parameter tuple grammar, duplicate execution entrypoints,
   specialized analysis containers, and radial proxy wrapper types.
 - Removed the `mode=:ZY`/`:RLCG` and `coord=:cart`/`:polar` keywords from

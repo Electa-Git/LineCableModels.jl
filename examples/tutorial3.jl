@@ -29,7 +29,6 @@ using LineCableModels
 import CairoMakie
 using DataFrames
 fullfile(filename) = joinpath(@__DIR__, filename); #hide
-set_verbosity!(0); #hide
 set_backend!(:cairo); #hide
 
 # Initialize library and the required materials for this design:
@@ -268,7 +267,7 @@ loaded_design = get(loaded_library, cable_id)
 #=
 ### Earth model
 
-Define an earth model over a logarithmic frequency scan. Earth properties are
+Define a static earth model and a logarithmic frequency scan. Earth properties are
 declared independently of frequency; they are evaluated when the complete
 problem is resolved.
 =#
@@ -347,7 +346,11 @@ execution.
 
 # Define the formulation and run the 1 Hz–1 MHz frequency scan:
 formulation = Formulation()
-@time line_parameters = compute!(problem, formulation; options = (verbosity = 0,));
+@time line_parameters = compute!(
+    problem,
+    formulation;
+    options = (verbosity = (default = 0,),)
+);
 
 # Obtain the series and shunt results in per-kilometre units:
 series_rl, shunt_gc = DataFrame(

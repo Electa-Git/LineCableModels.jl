@@ -20,7 +20,7 @@ earth = Earth(
 ```
 
 Composition is local to each Gridspace node. The example above admits exactly
-three earth configurations; its resolved `EarthParameters` objects can still
+three earth configurations; its resolved `EarthSpec` objects can still
 participate in a Cartesian product at a parent problem node.
 
 All numerical work follows `problem → Formulation → compute!`:
@@ -126,12 +126,70 @@ import LineCableModels.DataModel
 import LineCableModels.EarthProps
 
 copper = Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
-core = DataModel.Tubular(0.0, copper; radius=10e-3)
+core = DataModel.Tubular(0.0, 10e-3, copper)
 ```
 
-Strict radial constructors accept numeric inner/outer radii, or exactly one
-named numeric `radius`/`thickness` declaration. Group `add!` uses the current
-outer radius as the next inner boundary.
+Materialized radial constructors accept resolved numeric inner and outer radii.
+Radius-versus-thickness intent and repetition belong to the builder Specs. Group
+`add!` accepts a fully materialized part of the same scalar type as its destination.
+
+All eager cable quantities are evaluated at the common material reference temperature.
+The materialized `CableDesign` therefore rejects layers with different `T0` values.
+Operating temperature belongs only to `LineParametersProblem`; `SystemBuilder` exposes
+that setting and [`compute!`](@ref LineCableModels.Engine.compute!) applies the
+resistivity correction locally.
+
+## Static earth and solver inspection
+
+`EarthModel` stores only the physical layer description. Frequencies belong to
+`LineParametersProblem`, while frequency-dependent earth-property selection belongs to
+the EMT formulation:
+
+```julia
+using LineCableModels
+import LineCableModels.Engine
+
+formulation = Formulation(
+    :EMT;
+    earth_properties=Engine.EarthProperties.CPEarth(),
+)
+```
+
+Ordinary `compute!` returns only `LineParameters`. For inspection of completed internal
+matrices, request an [`EMTTrace`](@ref) explicitly:
+
+```julia
+trace = compute!(problem, formulation; inspect=true)
+parameters = trace.result
+```
+
+The trace owns `Zin`, `Pin`, `Zg`, `Pg`, `Z`, and `P` tensors. Normal computation does
+not allocate these three-dimensional snapshots.
+
+Component-specific verbosity is configured with `Engine.ComputeOptions`. A missing key
+uses `default`, and logging remains scoped to the calculation:
+
+```julia
+options = Engine.ComputeOptions(
+    verbosity=(default=0, LineCableModels=1, NLsolve=0, QuadGK=0),
+)
+compute!(problem, formulation; options)
+```
+
+## Wire estimates
+
+[`make_stranded`](@ref) and [`make_screened`](@ref) return a [`WireEstimate`](@ref).
+A physically valid search that cannot meet every requested limit still returns ranked
+best-effort candidates and concise reasons:
+
+```julia
+estimate = make_stranded(1000.0)
+closest = estimate[Val(:match)]
+fewest_layers = estimate[Val(:layers)]
+```
+
+The `:match`, `:layers`, `:wires`, and `:diameter` selectors use dispatch and never
+rewrite the retained candidate order.
 
 ## Contents
 
@@ -145,10 +203,8 @@ Depth = 3
 ```@autodocs
 Modules = [
     LineCableModels,
-    LineCableModels.Commons,
     LineCableModels.Computation,
     LineCableModels.UnitHandler,
-    LineCableModels.Utils,
 ]
 Order = [:module, :constant, :type, :function, :macro]
 Public = true
@@ -175,6 +231,7 @@ Private = true
 Modules = [
     LineCableModels.Engine,
     LineCableModels.Engine.EarthAdmittance,
+    LineCableModels.Engine.EarthProperties,
     LineCableModels.Engine.EarthImpedance,
     LineCableModels.Engine.EHEM,
     LineCableModels.Engine.InsulationAdmittance,

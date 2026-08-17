@@ -118,9 +118,10 @@ legacy style.
 - `$(EXPORTS)` inserts names exported by a documented module.
 
 Use only abbreviations that add useful rendered information. Never repeat their
-generated content manually. Package modules obtain these names from
-`LineCableModels.Commons`; a module that does not otherwise use `Commons`
-imports the required abbreviations explicitly.
+generated content manually. Each package module imports the required
+`DocStringExtensions` abbreviations explicitly. The package's root-level
+`METHODLIST` formatter preserves concise source locations while hiding CI runner and
+workspace prefixes.
 
 ## Documentation templates
 

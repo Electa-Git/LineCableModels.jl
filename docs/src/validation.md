@@ -1,4 +1,4 @@
-# Validation module
+# Validation
 
 ## Contents
 
@@ -7,94 +7,84 @@ Pages = ["validation.md"]
 Depth = 3
 ```
 
-The strict materialized constructors use a trait-driven validation sequence:
+[`validate`](@ref) is the common validation entry point. It returns its argument
+unchanged when the value is valid and throws a native Julia exception when it is not:
 
 ```julia
-sanitize(Type, args, kwargs) → parse(Type, values) → apply rules → construct
+validated = validate(value)
+@assert validated === value
 ```
 
-This layer accepts numeric physical state. It does not interpret tuples,
-previous/next layer objects, or radial wrapper types. Parameter variation belongs
-to `Grid` and declarative construction belongs to `Gridspace` builders.
+Validation never converts, fills defaults, rewrites nested values, or mutates its input.
+Constructors first promote their complete input with Julia's ordinary `promote` and
+`convert` mechanisms, then validate the resulting immutable record. Mutable operations
+calculate and validate a complete candidate state before changing the owned collection.
 
-## Radial inputs
+## Declarative rules
 
-The typed physical constructors accept numeric inner and outer radii:
+Types with simple field constraints specialize
+`LineCableModels.Validation.rules(::Type)`. The generic `Validation.check` evaluates
+those rules and returns the original value:
 
 ```julia
-Tubular(r_in, r_ex, material)
+import LineCableModels: validate
+import LineCableModels.Validation: Positive, Less, check, rules
+
+struct Annulus{T <: Real}
+    r_in::T
+    r_ex::T
+end
+
+rules(::Type{<:Annulus}) = (Positive(:r_ex), Less(:r_in, :r_ex))
+validate(value::Annulus) = check(typeof(value), value)
 ```
 
-Their narrow named convenience accepts one forward declaration:
+Available primitive rules cover finite, positive, nonnegative, integer, type,
+membership, field-ordering, and cable-packing checks. Cross-field rules that require
+domain knowledge remain beside their owning type. A direct `validate(::OwnedType)`
+method is appropriate when dispatch expresses the check more clearly than a new generic
+rule.
+
+The failure type communicates the category:
+
+- `ArgumentError` for invalid choices or value kinds;
+- `DomainError` for values outside a physical or mathematical domain;
+- `DimensionMismatch` for incompatible shapes;
+- `MethodError` when no supported operation exists for the supplied types;
+- `KeyError` for missing library entries.
+
+## Materialized constructors
+
+Cable-part constructors accept resolved numeric geometry. For example:
 
 ```julia
-Tubular(r_in, material; radius = r_ex)
-Tubular(r_in, material; thickness = delta_r)
+part = Tubular(r_in, r_ex, material)
 ```
 
-Exactly one of `radius` and `thickness` is required. Group `add!` methods retain
-the useful stacking operation by supplying the group's current numeric outer
-radius as the new layer's inner radius:
+Radius-versus-thickness intent, repetition, and variation belong to the builder Specs.
+The Specs promote all intent before materializing the first cable object. Materialized
+objects therefore contain one scalar type and one unambiguous geometry.
+
+`add!` on a materialized group, design, earth model, or system accepts only the same
+scalar type as the destination. A mixed-scalar insertion throws before mutation; use an
+explicit `convert` or build through a Spec when whole-description promotion is wanted.
+
+Operating temperature is not a cable-part constructor input. Cable designs represent
+the common material reference state and reject mixed material reference temperatures.
+The line problem owns the operating temperature, and [`compute!`](@ref) applies its
+correction without mutating the design.
+
+## Packing limits
+
+[`maxfill`](@ref) is the single source for cable packing limits:
 
 ```julia
-add!(group, Tubular, material; thickness = delta_r)
+maxfill(CircStrands, r_in, wire_radius)
+maxfill(RectStrands, lay_radius, width)
 ```
 
-No layer object is accepted as a radius proxy by the physical constructors.
-
-## Validation sequence
-
-- `sanitize` checks positional arity, accepted keywords, defaults, and real
-  numeric radii.
-- `parse` normalizes component-specific fields. It is the identity by
-  default.
-- `_rules(T)` assembles the standard trait-driven rules and `extra_rules(T)`.
-- `validate!` runs the complete sequence used by convenience constructors.
-
-The principal traits are:
-
-- `has_radii(::Type)` for annular radius rules;
-- `has_temperature(::Type)` for temperature finiteness;
-- `required_fields`, `keyword_fields`, and `keyword_defaults` for constructor
-  shape;
-- `coercive_fields` for numeric promotion;
-- `extra_rules` for component-specific constraints.
-
-## Rules
-
-Rules are small `Rule` values applied to the normalized `NamedTuple`. Standard
-rules include `Normalized`, `Finite`, `Nonneg`, `Positive`, `IntegerField`,
-`Less`, `LessEq`, `IsA`, and `OneOf`. Logical violations throw
-`ArgumentError`; non-finite numerical values throw `DomainError`.
-
-For an annular component, the core trait setup is:
-
-```julia
-Validation.has_radii(::Type{Tubular}) = true
-Validation.has_temperature(::Type{Tubular}) = true
-Validation.required_fields(::Type{Tubular}) = (:r_in, :r_ex, :material_props)
-Validation.keyword_fields(::Type{Tubular}) = (:temperature,)
-Validation.keyword_defaults(::Type{Tubular}) = (T₀,)
-Validation.extra_rules(::Type{Tubular}) = (IsA{Material}(:material_props),)
-```
-
-`has_radii` adds numeric normalization, finiteness, non-negativity, and the
-strict `r_in < r_ex` ordering check.
-
-## Component checklist
-
-When adding a physical part:
-
-1. implement the fully typed numeric core;
-2. declare required, optional, default, and coercive fields;
-3. opt into standard geometry and temperature bundles;
-4. add only the component-specific rules;
-5. normalize fields in `parse` when necessary;
-6. route the convenience constructor through `validate!`.
-
-Tests should cover arity, rejected strings/complex radii, non-finite and
-inverted geometry, type promotion, and equivalence between the convenience and
-typed-core construction paths.
+The cable-part validators and WirePatterns estimators call these same methods, so direct
+construction and best-effort estimation use identical geometric limits.
 
 ## API reference
 

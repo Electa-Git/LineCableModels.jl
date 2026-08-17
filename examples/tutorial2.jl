@@ -38,7 +38,6 @@ using LineCableModels
 import CairoMakie
 using DataFrames
 fullfile(filename) = joinpath(@__DIR__, filename); #hide
-set_verbosity!(0); #hide
 set_backend!(:cairo); #hide
 
 # Initialize materials library with default values:
@@ -224,15 +223,15 @@ core_wire_counts = (1, 6, 12, 18, 24)
 @assert sum(core_wire_counts) == num_co_wires
 core_conductors = (
     Conductor.Wires(
-        :core; wire_radius=d_w / 2, num_wires=1, lay_ratio=0.0, material=aluminum),
+        :core; wire_radius = d_w / 2, num_wires = 1, lay_ratio = 0.0, material = aluminum),
     Conductor.Wires(
-        :core; wire_radius=d_w / 2, num_wires=6, lay_ratio=15.0, material=aluminum),
+        :core; wire_radius = d_w / 2, num_wires = 6, lay_ratio = 15.0, material = aluminum),
     Conductor.Wires(
-        :core; wire_radius=d_w / 2, num_wires=12, lay_ratio=13.5, material=aluminum),
+        :core; wire_radius = d_w / 2, num_wires = 12, lay_ratio = 13.5, material = aluminum),
     Conductor.Wires(
-        :core; wire_radius=d_w / 2, num_wires=18, lay_ratio=12.5, material=aluminum),
+        :core; wire_radius = d_w / 2, num_wires = 18, lay_ratio = 12.5, material = aluminum),
     Conductor.Wires(
-        :core; wire_radius=d_w / 2, num_wires=24, lay_ratio=11.0, material=aluminum),
+        :core; wire_radius = d_w / 2, num_wires = 24, lay_ratio = 11.0, material = aluminum)
 )
 
 #=
@@ -251,8 +250,8 @@ the conductor and insulation, eliminating air gaps and reducing field concentrat
 
 # Describe the inner semiconductive tape and semiconductor (1000 Ω·m as per IEC 840):
 inner_layers = (
-    Insulator.Semicon(:core; thickness=t_sct, material=polyacrylate),
-    Insulator.Semicon(:core; thickness=t_sc_in, material=semicon1),
+    Insulator.Semicon(:core; thickness = t_sct, material = polyacrylate),
+    Insulator.Semicon(:core; thickness = t_sc_in, material = semicon1)
 )
 
 #=
@@ -263,7 +262,7 @@ medium and high voltage cables due to its excellent dielectric properties.
 =#
 
 # Describe the main insulation layer:
-main_insulation = Insulator.Tubular(:core; thickness=t_ins, material=pe)
+main_insulation = Insulator.Tubular(:core; thickness = t_ins, material = pe)
 
 #=
 ### Outer semiconductor
@@ -274,8 +273,8 @@ transition from insulation to the metallic screen.
 
 # Describe the outer semiconductor (500 Ω·m as per IEC 840) and tape:
 outer_layers = (
-    Insulator.Semicon(:core; thickness=t_sc_out, material=semicon2),
-    Insulator.Semicon(:core; thickness=t_sct, material=polyacrylate),
+    Insulator.Semicon(:core; thickness = t_sc_out, material = semicon2),
+    Insulator.Semicon(:core; thickness = t_sct, material = polyacrylate)
 )
 
 # Assemble all declarations associated with the core component:
@@ -295,17 +294,17 @@ datasheet_info = (
     screen_cross_section = 35.0,      # [mm²]
     resistance = 0.0291,              # DC resistance [Ω/km]
     capacitance = 0.39,               # Capacitance [μF/km]
-    inductance = 0.3,                 # Inductance in trifoil [mH/km]
+    inductance = 0.3                 # Inductance in trifoil [mH/km]
 )
 
 # Resolve the deterministic core description into a materialized cable design:
-core_design = only(CableBuilder(cable_id, core_parts; nominal=datasheet_info))
+core_design = only(CableBuilder(cable_id, core_parts; nominal = datasheet_info))
 
 # At this point, it becomes possible to preview the cable design:
 plt1 = preview(
     core_design,
-    display_plot=false, #hide
-    controls=false, #hide
+    display_plot = false, #hide
+    controls = false #hide
 )
 plt1.figure #hide
 
@@ -324,30 +323,30 @@ lay_ratio = 10.0 # typical value for wire screens
 sheath_parts = (
     Conductor.Wires(
         :sheath;
-        wire_radius=d_ws / 2,
-        num_wires=num_sc_wires,
+        wire_radius = d_ws / 2,
+        num_wires = num_sc_wires,
         lay_ratio,
-        material=copper,
+        material = copper
     ),
     Conductor.Strip(
         :sheath;
-        thickness=t_cut,
-        width=w_cut,
+        thickness = t_cut,
+        width = w_cut,
         lay_ratio,
-        material=copper,
+        material = copper
     ),
-    Insulator.Semicon(:sheath; thickness=t_wbt, material=polyacrylate),
+    Insulator.Semicon(:sheath; thickness = t_wbt, material = polyacrylate)
 )
 
 # Resolve and examine the core plus metallic screen:
 screened_design = only(CableBuilder(
-    cable_id, core_parts, sheath_parts; nominal=datasheet_info))
+    cable_id, core_parts, sheath_parts; nominal = datasheet_info))
 
 # Examine the newly added components:
 plt2 = preview(
     screened_design,
-    display_plot=false, #hide
-    controls=false, #hide
+    display_plot = false, #hide
+    controls = false #hide
 )
 plt2.figure #hide
 
@@ -360,9 +359,9 @@ and PE (polyethylene) outer jacket for mechanical protection.
 
 # Describe the aluminum moisture barrier, bonded PE face, and outer PE jacket:
 jacket_parts = (
-    Conductor.Tubular(:jacket; thickness=t_alt, material=aluminum),
-    Insulator.Tubular(:jacket; thickness=t_pet, material=pe),
-    Insulator.Tubular(:jacket; thickness=t_jac, material=pe),
+    Conductor.Tubular(:jacket; thickness = t_alt, material = aluminum),
+    Insulator.Tubular(:jacket; thickness = t_pet, material = pe),
+    Insulator.Tubular(:jacket; thickness = t_jac, material = pe)
 )
 
 #=
@@ -378,14 +377,14 @@ cable_design = only(CableBuilder(
     core_parts,
     sheath_parts,
     jacket_parts;
-    nominal=datasheet_info,
+    nominal = datasheet_info
 ))
 
 # Inspect the finished cable design:
 plt3 = preview(
     cable_design,
-    display_plot=false, #hide
-    controls=false, #hide
+    display_plot = false, #hide
+    controls = false #hide
 )
 plt3.figure #hide
 
@@ -407,9 +406,9 @@ core_df = DataFrame(
     datasheet = [
         datasheet_info.resistance,
         datasheet_info.inductance,
-        datasheet_info.capacitance,
+        datasheet_info.capacitance
     ],
-    unit = ["Ω/km", "mH/km", "μF/km"],
+    unit = ["Ω/km", "mH/km", "μF/km"]
 )
 
 # Obtain the equivalent electromagnetic properties of the cable:
@@ -436,7 +435,7 @@ save(library, file_name = output_file);
 
 # Load the saved design into a fresh library and retrieve it by identifier:
 loaded_library = CablesLibrary()
-load!(loaded_library, file_name=output_file)
+load!(loaded_library, file_name = output_file)
 loaded_design = get(loaded_library, cable_id)
 loaded_library_df = DataFrame(loaded_library)
 
@@ -447,7 +446,7 @@ loaded_library_df = DataFrame(loaded_library)
     [`SystemBuilder`](@ref) combines a cable design, its positions, length,
     operating temperature, earth properties, and analysis frequencies. Resolving
     this description produces the complete line-parameter problem used by
-    [`compute!`](@ref), preview, and export routines.
+    [`compute!`](@ref LineCableModels.Engine.compute!), preview, and export routines.
 =#
 
 #=
@@ -457,8 +456,8 @@ The earth return path significantly affects cable impedance calculations and nee
 =#
 
 # Define a frequency scan and typical homogeneous-soil properties:
-f = collect(10.0 .^ range(0, stop=6, length=10)) # 1 Hz to 1 MHz
-earth = Earth(rho=100.0, eps_r=10.0, mu_r=1.0)
+f = collect(10.0 .^ range(0, stop = 6, length = 10)) # 1 Hz to 1 MHz
+earth = Earth(rho = 100.0, eps_r = 10.0, mu_r = 1.0)
 
 #=
 ### Three-phase system in trifoil configuration
@@ -469,14 +468,14 @@ This section ilustrates the construction of a cable system with three identical 
 # Describe three cables touching in trifoil at 1 m burial depth. The spacing is
 # the center-to-center distance:
 formation = trifoil(
-    x=0.0,
-    y=-1.0,
-    spacing=70e-3,
-    phases=(
+    x = 0.0,
+    y = -1.0,
+    spacing = 70e-3,
+    phases = (
         :core => (1, 2, 3),
         :sheath => 0,
-        :jacket => 0,
-    ),
+        :jacket => 0
+    )
 )
 
 # Combine the loaded design, formation, earth, and frequency scan:
@@ -484,10 +483,10 @@ problem = only(SystemBuilder(
     "18kV_1000mm2_trifoil",
     loaded_design,
     formation;
-    length=1000.0,
-    temperature=20.0,
+    length = 1000.0,
+    temperature = 20.0,
     earth,
-    frequencies=f,
+    frequencies = f
 ))
 cable_system = problem.system
 earth_params = problem.earth_props
@@ -515,10 +514,10 @@ system_df = DataFrame(cable_system)
 # Visualize the cross-section of the three-phase system:
 plt4 = preview(
     cable_system,
-    earth_model=earth_params,
-    zoom_factor=2.0,
-    display_plot=false, #hide
-    controls=false, #hide
+    earth_model = earth_params,
+    zoom_factor = 2.0,
+    display_plot = false, #hide
+    controls = false #hide
 )
 plt4.figure #hide
 
