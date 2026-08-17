@@ -25,6 +25,7 @@ docs/src/tutorials/
 # environment.
 Manifest.toml
 */Manifest.toml
+!gauntlet/Manifest.toml
 
 # the hidden folder of shame
 temp/
@@ -57,3 +58,8 @@ test/jl_*
 .vscode/
 designs/
 benchmarks/
+
+# Local Gauntlet corpus staging and artifact bindings
+gauntlet/.artifacts/
+gauntlet/Artifacts.local.toml
+gauntlet/reports/
