@@ -1,0 +1,87 @@
+assumptions = []
+family = "coax"
+id = "a6f668b9bab278fecadfa305395eee97dd8f5cf35a889a3218bb3bf17bb0a3bd"
+reason = "[{\"label\":\"build\",\"name\":\"\",\"scope\":\"\",\"status\":\"normal\",\"link\":0,\"text\":\"ACLine segment manual solve: started.\",\"group\":100012,\"classid\":\"CmpNavigator\"},{\"label\":\"build\",\"name\":\"\",\"scope\":\"\",\"status\":\"error\",\"link\":0,\"text\":\"An alert was issued while solving line constants, check the log file 'Cable51.log' for details.\",\"group\":326503,\"classid\":\"CmpNavigator\"},{\"label\":\"build\",\"name\":\"\",\"scope\":\"\",\"status\":\"normal\",\"link\":0,\"text\":\"ACLine segment manual solve: complete.\",\"group\":0,\"classid\":\"CmpNavigator\"}]"
+reduction = "retained"
+schema_version = 1
+source = "Z:\\Documents\\KUL\\From Eros\\LineCableBenchmarks\\donors\\original\\guidelines_2023\\examples_line_cable\\PSCADV5\\line_models_comparison.pscx"
+
+[line]
+component_type = "Cable"
+definition = "model_comp2:NoCrossbonding"
+iid = 2103805498
+name = "Cable51"
+
+[mutations.frequency]
+CPASS = "SCAN_ONLY"
+DCCOR = "FUNCTIONAL_FORM"
+DCenab = "ENABLED"
+FDIS = "LOG_LINEAR"
+FE = 10000000
+FEP = 10000000
+FS = 0.001
+FSP = 0.001
+Interp1 = "YES"
+NFP = 100
+Numf = 100
+Output = "YES"
+
+[mutations.ground]
+EarthForm = "DIRECT_NUMERICAL_INTEGRATION"
+GRRES = 10
+GrRho = "CONSTANT_RESISTIVITY"
+
+[[mutations.reduction]]
+component = "line_models_comparison:Cable_Coax"
+iid = 1738767599
+
+    [mutations.reduction.parameters]
+    LC = "NONE"
+[[mutations.reduction]]
+component = "line_models_comparison:Cable_Coax"
+iid = 751843126
+
+    [mutations.reduction.parameters]
+    LC = "NONE"
+[[mutations.reduction]]
+component = "line_models_comparison:Cable_Coax"
+iid = 213621276
+
+    [mutations.reduction.parameters]
+    LC = "NONE"
+
+[provenance]
+campaign = "PSCAD-reference-v1"
+case_sha256 = "a6f668b9bab278fecadfa305395eee97dd8f5cf35a889a3218bb3bf17bb0a3bd"
+cohort = "28903ab03a9c4c8ed93c13be4dbe1164e7e571f7dfa0ea292442833b44b53909"
+definition = "model_comp2:NoCrossbonding"
+elapsed_seconds = 5.035412999999608
+source = "pscad"
+source_sha256 = "630ba999df532e3f3a7ac5697a66e89dd6e3fcdd509820bce5424e1104a1e410"
+specification_sha256 = "00ebe0cf18c3e8e2638bd6e3cdef9b56054e1dc76d5935044c082cb14e63cd8f"
+version = "5.1.0"
+
+    [provenance.artifact_sha256]
+    "Cable51.cli" = "855c91c18f96c567b7d4f894e8ae8b5b0e42fdd96f0fdc27ae510d86c51f599b"
+    "Cable51.log" = "15de2bd0918fcc9ccb0140e50079103a6d1fe4619993aef1d991012403c72d0c"
+    "Cable51_hmm.out" = "f434465625be8621e4275373372c6d1bfc6c351bd8aa001279823eb35612e17c"
+    "Cable51_hmp.out" = "01ce6eb60575d3d9f3a5651e0b6b24f5b603e45645023946cce74a63c6319e20"
+    "Cable51_hpm.out" = "f81c379e69f9fd968cafa8cd6f6f90dde67ab44876309081640c84c34ed38633"
+    "Cable51_hpp.out" = "bf9452572236b10663bb0953cac2ac2b475be1f6f9c7512e800dc6282b68c824"
+    "Cable51_lamdam.out" = "919c7968ee39f89d2f13d224fd5049f6924446276cc5acdcf1f56d7100f90704"
+    "Cable51_lamdap.out" = "0f22838abde2f05cbedc7bb89f1713ba4c1f2fd32df13aa6c87e871f83b2fd40"
+    "Cable51_timp.out" = "168b113b2b3e80b722d8edff1628f9564adf86e14a0db38c07847cce539f9a50"
+    "Cable51_tipp.out" = "88845761db55d75c13add13446588f0f77b8c7fe1c46a388f481ec2a36e02933"
+    "Cable51_ycmp.out" = "1edcf6f82c1d85267d250d9bd7dfe459ab638a1cff8fa1bc4980c7d1f87aa14b"
+    "Cable51_ycpp.out" = "aef7e523b2e044c260d54608f408f51e083b5df5766920f565a6cb6aecef1d1c"
+    "Cable51_ym.out" = "5745de332d9d52e095f75968600b3705d3773efd1620210890628ec979b93bbf"
+    "Cable51_yp.out" = "a6f7a3919b01a57a64a70de9a52978de27bb65f89c87a7da51691ec0034a1f61"
+    "Cable51_zm.out" = "76fc9c6ae8f95e5a6ae9252199af82891a27a8a83f2f851cf0f6d72c3dd2c19f"
+    "Cable51_zp.out" = "08eeeb0ef464ed9a0d8459e59b73515f4a2cff8f0bef45e4d13a9515707a9c23"
+
+[variant]
+reduction = "retained"
+resistivity_ohm_m = 10
+
+    [variant.formulations]
+    EarthForm = "DIRECT_NUMERICAL_INTEGRATION"

@@ -1,0 +1,41 @@
+detailed_cases = 10
+recovered_fits = 0
+schema_version = 1
+source_manifest_sha256 = "fc5c78cecf673ecd5272ef992181bcca8c8a853602db534d43815d1e36931b65"
+sparse_cases = 5
+
+[cases]
+01244ac2d707b0e07ae4069944d895f99ec6c428cea208b3baf87008e78d61e7 = "cases/01244ac2d707b0e07ae4069944d895f99ec6c428cea208b3baf87008e78d61e7.jld2"
+01b3737f738cf216ffd372c427bdbc5aaf08f7faad3d331427f8e441eaf1271d = "cases/01b3737f738cf216ffd372c427bdbc5aaf08f7faad3d331427f8e441eaf1271d.jld2"
+03539a71df66e42ebf154c91061f7834544c4dfa501b6d68a76d9c42b30179e4 = "cases/03539a71df66e42ebf154c91061f7834544c4dfa501b6d68a76d9c42b30179e4.jld2"
+03da3e2b25a908914c3ab7fad99dbbdba55aed6c32ad4f65a18248feb29df97a = "cases/03da3e2b25a908914c3ab7fad99dbbdba55aed6c32ad4f65a18248feb29df97a.jld2"
+0510a23195a2e0fbf044cbb904fd211892354aa8ad2dcf6bf174e76c2abc9e44 = "cases/0510a23195a2e0fbf044cbb904fd211892354aa8ad2dcf6bf174e76c2abc9e44.jld2"
+054193bf849cf6de1e64f06d4205bde5ead9be3cbd9638ad73f6bb6e24466b18 = "cases/054193bf849cf6de1e64f06d4205bde5ead9be3cbd9638ad73f6bb6e24466b18.jld2"
+062960cfacf941b4543c9160d067757f1b2f757a9308a1fa11dab198d2ab105c = "cases/062960cfacf941b4543c9160d067757f1b2f757a9308a1fa11dab198d2ab105c.jld2"
+07287cae7e1f5cdce5562613cc42ea372db780c87686ade3159129931bd07c61 = "cases/07287cae7e1f5cdce5562613cc42ea372db780c87686ade3159129931bd07c61.jld2"
+07a34a318668e01782dfbaff5f814dc15ce5b7e6ec74c5e88782bca39feefd5f = "cases/07a34a318668e01782dfbaff5f814dc15ce5b7e6ec74c5e88782bca39feefd5f.jld2"
+254e84affff8b12a0a61c90a30879568cfd56426646d85e21b8598e55240dfa8 = "cases/254e84affff8b12a0a61c90a30879568cfd56426646d85e21b8598e55240dfa8.jld2"
+29b9150df4fe52667d41f6e8d423b5bbaace24ee148a3c523c55070840b2ce03 = "cases/29b9150df4fe52667d41f6e8d423b5bbaace24ee148a3c523c55070840b2ce03.jld2"
+718754def331f244f8412e20c41e34018163e94a750fc73ecbd6937c0c1c004b = "cases/718754def331f244f8412e20c41e34018163e94a750fc73ecbd6937c0c1c004b.jld2"
+86d18b3ad8127ca2abaed797659bc56034767628d8b2e63f02eb291cdb1f13c7 = "cases/86d18b3ad8127ca2abaed797659bc56034767628d8b2e63f02eb291cdb1f13c7.jld2"
+9c16b9ce3bd1843eef242e853d1bfd7b741091d1e903b2794303cb02496ef819 = "cases/9c16b9ce3bd1843eef242e853d1bfd7b741091d1e903b2794303cb02496ef819.jld2"
+f4ee07e0b8a0332a460db9df83c27d24a7bd62d460e9ef15996b9c317e0dc842 = "cases/f4ee07e0b8a0332a460db9df83c27d24a7bd62d460e9ef15996b9c317e0dc842.jld2"
+
+[[excluded]]
+reason = "not a frequency-dependent phase model in the donor PSCAD datamodel"
+source = "Z:\\Documents\\KUL\\From Eros\\LineCableBenchmarks\\donors\\original\\guidelines_2023\\examples_line_cable\\PSCADV5\\line_models_comparison.pscx"
+
+    [excluded.line]
+    component_type = "TLine"
+    definition = "model_comp2:TLine_3"
+    iid = 1265561733
+    name = "TLine_3"
+
+[family_counts]
+coax = 4
+mixed = 1
+overhead = 8
+pipe = 2
+
+[rejections]
+a6f668b9bab278fecadfa305395eee97dd8f5cf35a889a3218bb3bf17bb0a3bd = "rejections/a6f668b9bab278fecadfa305395eee97dd8f5cf35a889a3218bb3bf17bb0a3bd.toml"

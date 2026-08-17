@@ -1,0 +1,7 @@
+admittance_unit = "S/m"
+angle_unit = "rad"
+complex_storage = "ComplexF64 arrays"
+frequency_unit = "Hz"
+impedance_unit = "ohm/m"
+missing_channels = "absent fields"
+schema_version = 1
