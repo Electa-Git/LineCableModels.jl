@@ -13,7 +13,7 @@ on success.
 - `cable_system::LineCableSystem`: The system to export. Each entry in `cable_system.cables` provides one phase position and its associated [`CableDesign`](@ref). The number of phases exported equals `length(cable_system.cables)`.
 - `earth_props::EarthModel`: Ground model used to populate ATP soil parameters. The exporter
 uses the **last** layer’s base resistivity as *Grnd resis*.
-- `base_freq::Number = f₀` \\[Hz\\]: System frequency written to ATP (`SysFreq`) and stored in component metadata. *This exporter does not recompute R/L/C/G; it writes the values as
+- `base_freq::Number = 50.0` \\[Hz\\]: System frequency written to ATP (`SysFreq`) and stored in component metadata. *This exporter does not recompute R/L/C/G; it writes the values as
 present in the groups/components at the time of export.*
 - `file_name::String = "*_export.xml"`: Output file name or path. If a relative path is given, it is resolved against the exporter’s source directory. The absolute path of the saved file is returned.
 
@@ -33,12 +33,12 @@ present in the groups/components at the time of export.*
    * Write one `<conductor>` element with fields (all per unit length):
 
      * `Rin`, `Rout` — from the component’s conductor group,
-     * `rho` — conductor equivalence via [`LineCableModels.DataModel.BaseParams.calc_equivalent_rho`](@ref),
-     * `muC` — conductor relative permeability via [`LineCableModels.DataModel.BaseParams.calc_equivalent_mu`](@ref),
+     * `rho` — conductor equivalence via [`LineCableModels.DataModel.BaseParams.equivalent_rho`](@ref),
+     * `muC` — conductor relative permeability via [`LineCableModels.DataModel.BaseParams.equivalent_mu`](@ref),
      * `muI` — insulator relative permeability (taken from the first insulating layer’s material),
-     * `epsI` — insulation relative permittivity via [`LineCableModels.DataModel.BaseParams.calc_equivalent_eps`](@ref),
+     * `epsI` — insulation relative permittivity via [`LineCableModels.DataModel.BaseParams.equivalent_eps`](@ref),
      * `Cext`, `Gext` — shunt capacitance and conductance from the component’s insulator group.
-4. Soil resistivity is written as *Grnd resis* using `earth_props.layers[end].base_rho_g`.
+4. Soil resistivity is written as *Grnd resis* using `earth_props.layers[end].rho`.
 5. The XML is pretty‑printed and written to `file_name`. On I/O error, the function logs an error and returns `nothing`.
 
 # Units
@@ -56,8 +56,9 @@ Units are printed in the XML file according to the ATPDraw specifications:
 
 # Notes
 
-* The exporter assumes each component’s equivalent parameters (R/G/C and derived ρ/ε/μ) were
-  already computed by the design/group constructors at the operating conditions of interest.
+* The exporter writes each component’s eager equivalent parameters (R/G/C and derived ρ/ε/μ)
+  at the common material reference state. Operating-temperature correction belongs to
+  [`compute!`](@ref LineCableModels.Engine.compute!) and is not applied by this exporter.
 * Mixed numeric types are supported; values are stringified for XML output. When using
   uncertainty types (e.g., `Measurements.Measurement`), the uncertainty is removed.
 * Overlap checks between cables are enforced when building the system, not during export.
@@ -75,7 +76,7 @@ println("Exported to: ", file)
 function export_data(::Val{:atp},
         cable_system::LineCableSystem,
         earth_props::EarthModel;
-        base_freq = f₀,
+        base_freq = 50.0,
         file_name::Union{String, Nothing} = nothing
 )::Union{String, Nothing}
     function _set_attributes!(element::EzXML.Node, attrs::Dict)
@@ -168,8 +169,8 @@ function export_data(::Val{:atp},
         end
     end
 
-    line_length = to_nominal(cable_system.line_length)
-    soil_rho = to_nominal(earth_props.layers[end].base_rho_g)
+    line_length = nominal(cable_system.line_length)
+    soil_rho = nominal(earth_props.layers[end].rho)
     for (name, value) in [
         ("Length", line_length), ("Freq", base_freq), ("Grnd resis", soil_rho)]
         data_node = addelement!(comp_content, "data")
@@ -197,15 +198,15 @@ function export_data(::Val{:atp},
         cable_node = addelement!(cable_header, "cable")
 
         num_components = length(cable.design_data.components)
-        outermost_radius = to_nominal(cable.design_data.components[end].insulator_group.r_ex)
+        outermost_radius = nominal(cable.design_data.components[end].insulator_group.r_ex)
 
         _set_attributes!(
             cable_node,
             Dict(
                 "NumCond" => num_components,
                 "Rout" => outermost_radius,
-                "PosX" => to_nominal(cable.horz),
-                "PosY" => to_nominal(cable.vert)
+                "PosX" => nominal(cable.horz),
+                "PosY" => nominal(cable.vert)
             )
         )
 
@@ -225,14 +226,14 @@ function export_data(::Val{:atp},
             _set_attributes!(
                 conductor_node,
                 Dict(
-                    "Rin" => to_nominal(cond_group.r_in),
-                    "Rout" => to_nominal(cond_group.r_ex),
-                    "rho" => to_nominal(rho_eq),
-                    "muC" => to_nominal(mu_r_cond),
-                    "muI" => to_nominal(mu_r_ins),
-                    "epsI" => to_nominal(eps_eq),
-                    "Cext" => to_nominal(ins_group.shunt_capacitance),
-                    "Gext" => to_nominal(ins_group.shunt_conductance)
+                    "Rin" => nominal(cond_group.r_in),
+                    "Rout" => nominal(cond_group.r_ex),
+                    "rho" => nominal(rho_eq),
+                    "muC" => nominal(mu_r_cond),
+                    "muI" => nominal(mu_r_ins),
+                    "epsI" => nominal(eps_eq),
+                    "Cext" => nominal(ins_group.shunt_capacitance),
+                    "Gext" => nominal(ins_group.shunt_conductance)
                 )
             )
         end
@@ -245,10 +246,10 @@ function export_data(::Val{:atp},
         open(file_name, "w") do fid
             prettyprint(fid, doc)
         end
-        @info "XML file saved to: $(display_path(file_name))"
+        @info "XML file saved to: $(_display_path(file_name))"
         return file_name
     catch e
-        @error "Failed to write XML file '$(display_path(file_name))'" exception = (
+        @error "Failed to write XML file '$(_display_path(file_name))'" exception = (
             e, catch_backtrace())
         return nothing
     end
@@ -280,7 +281,6 @@ function read_data end
 #     cable_system::LineCableSystem,
 #     freq::AbstractFloat;
 #     file_name::String="$(cable_system.system_id)_1.lis"
-# )::Union{Array{COMPLEXSCALAR,2},Nothing}
 #     # --- Inner helper function to parse a matrix block from text lines ---
 #     function parse_block(block_lines::Vector{String})
 #         data_lines = filter(line -> !isempty(strip(line)), block_lines)
@@ -448,7 +448,7 @@ function export_data(::Val{:atp},
         :cable_system_type => (isnothing(cable_system) ? :nothing : typeof(cable_system)),
         :file_name_in => file_name)
 
-    cable_length = isnothing(cable_system) ? 1.0 : to_nominal(cable_system.line_length)
+    cable_length = isnothing(cable_system) ? 1.0 : nominal(cable_system.line_length)
     atp_format = "G+Bi"
     # file_name = isabspath(file_name) ? file_name : joinpath(@__DIR__, file_name)
 
@@ -464,12 +464,12 @@ function export_data(::Val{:atp},
 
         # --- Z Matrix Printing ---
         for (k, freq_val) in enumerate(freq)
-            @printf(fid, "  <Z Freq=\"%.16E\">\n", to_nominal(freq_val))
+            @printf(fid, "  <Z Freq=\"%.16E\">\n", nominal(freq_val))
             for i in 1:num_phases
                 row_str = join(
                     [@sprintf("%.16E%+.16Ei",
-                         to_nominal(real(line_params.Z[i, j, k])),
-                         to_nominal(imag(line_params.Z[i, j, k]))) for j in 1:num_phases],
+                         nominal(real(line_params.Z[i, j, k])),
+                         nominal(imag(line_params.Z[i, j, k]))) for j in 1:num_phases],
                     ","
                 )
                 println(fid, row_str)
@@ -479,12 +479,12 @@ function export_data(::Val{:atp},
 
         # --- Y Matrix Printing ---
         if atp_format == "C"
-            freq1 = to_nominal(freq[1])
+            freq1 = nominal(freq[1])
             @printf(fid, "  <Y Freq=\"%.16E\">\n", freq1)
             for i in 1:num_phases
                 row_str = join(
                     [@sprintf("%.16E",
-                         to_nominal(imag(line_params.Y[i, j, 1]) / (2 * pi * freq1)))
+                         nominal(imag(line_params.Y[i, j, 1]) / (2 * pi * freq1)))
                      for j in 1:num_phases],
                     ","
                 )
@@ -493,12 +493,12 @@ function export_data(::Val{:atp},
             @printf(fid, "  </Y>\n")
         else # Case for "G+Bi"
             for (k, freq_val) in enumerate(freq)
-                @printf(fid, "  <Y Freq=\"%.16E\">\n", to_nominal(freq_val))
+                @printf(fid, "  <Y Freq=\"%.16E\">\n", nominal(freq_val))
                 for i in 1:num_phases
                     row_str = join(
                         [@sprintf("%.16E%+.16Ei",
-                             to_nominal(real(line_params.Y[i, j, k])),
-                             to_nominal(imag(line_params.Y[i, j, k])))
+                             nominal(real(line_params.Y[i, j, k])),
+                             nominal(imag(line_params.Y[i, j, k])))
                          for j in 1:num_phases],
                         ","
                     )
@@ -515,11 +515,11 @@ function export_data(::Val{:atp},
         # Use pretty print option for debugging comparisons if needed
         # open(filename, "w") do io; prettyprint(io, doc); end
         if isfile(file_name)
-            @info "XML file saved to: $(display_path(file_name))"
+            @info "XML file saved to: $(_display_path(file_name))"
         end
         return file_name
     catch e
-        @error "Failed to write XML file '$(display_path(file_name))': $(e)"
+        @error "Failed to write XML file '$(_display_path(file_name))': $(e)"
         isa(e, SystemError) && println("SystemError details: ", e.extrainfo)
         return nothing
     end

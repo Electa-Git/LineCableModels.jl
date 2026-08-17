@@ -3,13 +3,13 @@ const _TRALIN_COMP = ("CORE", "SHEATH", "ARMOUR")
 function export_data(::Val{:tralin},
         cable_system::LineCableSystem,
         earth_props::EarthModel;
-        freq = f₀,
+        freq = 50.0,
         file_name::Union{String, Nothing} = nothing
 )::Union{String, Nothing}
 
     # -- helpers ---------------------------------------------------------------
     _freqs(x) = x isa AbstractVector ? collect(x) : [x]
-    _fmt(x) = string(round(Float64(to_nominal(x)); digits = 6))
+    _fmt(x) = string(round(Float64(nominal(x)); digits = 6))
     _maybe(x) = (x === nothing) ? "" : _fmt(x)
 
     # Resolve output file name (prefix "tr_"; mirror  XML semantics)
@@ -26,7 +26,7 @@ function export_data(::Val{:tralin},
     end
 
     num_phases = length(cable_system.cables)
-    freqs = map(f -> to_nominal(f), _freqs(freq))
+    freqs = map(f -> nominal(f), _freqs(freq))
 
     # -- build TRALIN lines ----------------------------------------------------
     lines = String[]
@@ -59,9 +59,9 @@ function export_data(::Val{:tralin},
     if nlayers == 2
         # [AIR, SOIL] => uniform semi-infinite earth
         soil = earth_props.layers[end]
-        rho = _fmt(getproperty(soil, :base_rho_g))
-        mu_r = hasfield(typeof(soil), :mu_r) ? _fmt(getproperty(soil, :mu_r)) : "1"
-        eps_r = hasfield(typeof(soil), :eps_r) ? _fmt(getproperty(soil, :eps_r)) : "1"
+        rho = _fmt(soil.rho)
+        mu_r = _fmt(soil.mu_r)
+        eps_r = _fmt(soil.eps_r)
         push!(lines, "SOIL-TYPE")
         push!(lines, "UNIFORM,$rho,$mu_r,$eps_r")
     else
@@ -78,11 +78,9 @@ function export_data(::Val{:tralin},
                 vcat("TOP", fill("CENTRAL", n_earth - 2), "BOTTOM")
 
         for (eidx, (lname, layer)) in enumerate(zip(names, earth_props.layers[2:end]))
-            rho = _fmt(getproperty(layer, :base_rho_g))
-            mu_r = hasfield(typeof(layer), :base_mur_g) ?
-                   _fmt(getproperty(layer, :base_mur_g)) : "1"
-            eps_r = hasfield(typeof(layer), :base_epsr_g) ?
-                    _fmt(getproperty(layer, :base_epsr_g)) : "1"
+            rho = _fmt(layer.rho)
+            mu_r = _fmt(layer.mu_r)
+            eps_r = _fmt(layer.eps_r)
 
             if eidx == n_earth
                 # BOTTOM: no thickness -> explicit empty field `,,`
@@ -90,10 +88,9 @@ function export_data(::Val{:tralin},
             else
                 # TOP/CENTRAL: include thickness if available; otherwise leave it empty to keep the slot
                 thk = (
-                    hasfield(typeof(layer), :t) &&
-                    getproperty(layer, :t) !== nothing
+                    isfinite(layer.thickness)
                 ) ?
-                      _fmt(getproperty(layer, :t)) : ""
+                      _fmt(layer.thickness) : ""
                 push!(lines, "    LAYER,$lname,$rho,$thk,$mu_r,$eps_r")
             end
         end
@@ -115,7 +112,7 @@ function export_data(::Val{:tralin},
             )
         end
         # Outer radius for CABLE line
-        outer_R = to_nominal(comps_vec[end].insulator_group.r_ex)
+        outer_R = nominal(comps_vec[end].insulator_group.r_ex)
         push!(lines, "CABLE,CA-$(pidx),$(_fmt(outer_R))")
 
         # Strict connection vector
@@ -150,7 +147,7 @@ function export_data(::Val{:tralin},
 
             rin = _fmt(cond_group.r_in)
             rex = _fmt(cond_group.r_ex)
-            rho = _fmt(cond_props.rho/ρ₀) # values in TRALIN are normalized to match the annealed copper
+            rho = _fmt(cond_props.rho / 1.724e-8)
             muC = _fmt(cond_props.mu_r)
             epsI = _fmt(ins_props.eps_r)  # coating εr
 
@@ -168,10 +165,10 @@ function export_data(::Val{:tralin},
                 write(fid, '\n')
             end
         end
-        @info "TRALIN file saved to: $(display_path(file_name))"
+        @info "TRALIN file saved to: $(_display_path(file_name))"
         return file_name
     catch e
-        @error "Failed to write TRALIN file '$(display_path(file_name))'" exception = (
+        @error "Failed to write TRALIN file '$(_display_path(file_name))'" exception = (
             e, catch_backtrace())
         return nothing
     end

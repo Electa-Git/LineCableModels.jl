@@ -107,8 +107,11 @@ function export_data(
     nyx, nyy = size(df_y)
 
     # Diagonal-only logic (modal parameters)
-    Z_isdiag = isdiag_approx(line_params.Z[:, :, 1])
-    Y_isdiag = isdiag_approx(line_params.Y[:, :, 1])
+    is_diagonal(matrix) = isapprox(
+        matrix, Diagonal(diag(matrix)); rtol = 1.0e-8, atol = 1.0e-8
+    )
+    Z_isdiag = is_diagonal(line_params.Z[:, :, 1])
+    Y_isdiag = is_diagonal(line_params.Y[:, :, 1])
 
     if Z_isdiag
         @warn "Z appears modal/diagonal (isdiag_approx=true). Exporting ONLY diagonal elements Z[i,i]; off-diagonals are intentionally omitted."

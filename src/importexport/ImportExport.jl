@@ -28,8 +28,10 @@ export save
 export load!
 
 # Module-specific dependencies
-using ..Commons
-using ..Utils: display_path, to_nominal, resolve_T, coerce_to_T, isdiag_approx
+using DocStringExtensions: IMPORTS, TYPEDSIGNATURES, METHODLIST, FUNCTIONNAME,
+                           TYPEDEF, TYPEDFIELDS
+import ..LineCableModels: add!, validate, nominal, standard_uncertainty
+import ..LineCableModels: retired_legacy_json
 using ..Materials: Material, MaterialsLibrary
 using ..EarthProps: EarthModel
 using ..DataModel: CablesLibrary, CableDesign, CableComponent, ConductorGroup,
@@ -46,6 +48,23 @@ using LinearAlgebra
 using XLSX
 using Tables
 using DataFrames
+
+_display_path(path::AbstractString) =
+    try
+        relpath(abspath(path), pwd())
+    catch
+        basename(path)
+    end
+
+function _json_path(file_name::AbstractString)
+    path = isabspath(file_name) ? String(file_name) : abspath(file_name)
+    extension = lowercase(splitext(path)[2])
+    isempty(extension) && return path * ".json"
+    extension == ".json" || throw(ArgumentError(
+        "JSON output requires a .json extension; got '$extension'",
+    ))
+    return path
+end
 
 """
 $(TYPEDSIGNATURES)
