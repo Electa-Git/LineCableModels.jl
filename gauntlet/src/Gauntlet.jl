@@ -9,7 +9,9 @@ module Gauntlet
 using BenchmarkTools
 using CodecZlib
 using Dates
+using Downloads
 using DocStringExtensions: FUNCTIONNAME, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
+using EzXML
 import JLD2
 using JSON3
 using LineCableModels
@@ -20,6 +22,7 @@ using Statistics
 using TOML
 using Tables
 using Tar
+using ZipFile
 
 import Base: getindex, iterate, keys, length, show
 import LineCableModels: Z, Y, basis, compute!, domain, frequencies
@@ -37,6 +40,7 @@ export Approximate,
        Comparison,
        Datasource,
        Dataset,
+       Deferred,
        Diagnostic,
        Exact,
        ExactOnly,
@@ -85,9 +89,11 @@ export Approximate,
        load,
        performance_baseline,
        provenance,
+       pending,
        reference,
        stage_artifacts,
        stage_smoke,
+       verify,
        write_report
 
 include("types.jl")
@@ -106,5 +112,11 @@ include("pscad/load.jl")
 include("pscad/ingest.jl")
 include("pscad/calibration.jl")
 include("pscad/artifacts.jl")
+include("pscad/harvest.jl")
+include("pscad/harvest_cli.jl")
+
+function (@main)(arguments)
+    exit(harvest_main(arguments))
+end
 
 end

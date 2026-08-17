@@ -65,8 +65,9 @@ dataset = Dataset(:smoke)
 (length = length(dataset), first_ids = first(keys(dataset), 3))
 ````
 
-Select a sparse coaxial reference. Its `problem` and `formulation` are native
-LineCableModels values reconstructed through the normal public modeling API.
+Select a coaxial reference. Its 101-point phase matrices are independent
+evidence; its `problem` and `formulation` are native LineCableModels values
+reconstructed through the normal public modeling API.
 
 ````@example gauntlet
 case_id = "29b9150df4fe52667d41f6e8d423b5bbaace24ee148a3c523c55070840b2ce03"
@@ -82,6 +83,21 @@ definition, campaign, hashes, and PSCAD version.
 assumptions(case)
 origin = provenance(case)
 (origin.datasource, origin.version, origin.definition, origin.case_sha256)
+````
+
+Pipe-type records retain the same complete reference surface, but native pipe
+physics is deliberately deferred. They remain first-class dataset assets and
+do not run an unrelated substitute model.
+
+````@example gauntlet
+pipe = dataset["0510a23195a2e0fbf044cbb904fd211892354aa8ad2dcf6bf174e76c2abc9e44"]
+pipe_trial = gauntlet(pipe)
+(
+    fidelity = nameof(typeof(pipe.fidelity)),
+    reference_points = length(frequencies(reference(pipe).phase)),
+    native_problem = pipe.problem,
+    verdict = nameof(typeof(only(pipe_trial.comparisons).verdict))
+)
 ````
 
 ## Run a case and inspect matrix diagnostics
@@ -192,6 +208,7 @@ diagnostics, while exact cases alone gate frozen numerical tolerances.
 (
     exact = count(value -> value.fidelity isa Exact, dataset),
     approximate = count(value -> value.fidelity isa Approximate, dataset),
+    deferred = count(value -> value.fidelity isa Deferred, dataset),
     rejected = count(value -> value.fidelity isa Rejected, dataset)
 )
 ````
@@ -226,9 +243,40 @@ full_report = gauntlet(Suite(:full; dataset = full))
 write_report("gauntlet-full.json", full_report)
 ```
 
+The amended PSCAD dataset contains full 101-point Z/Y evidence for all 869
+successful canonical cases. Its 72 pipe cases load as `Deferred` until the
+package implements the corresponding model.
+
 The command-line equivalent is:
 
 ```bash
 julia --project=gauntlet gauntlet/bin/run.jl full \
     --artifact-dir /path/to/pscad-normalized-v1
 ```
+
+## Harvest and verify PSCAD evidence
+
+The project-local Julia app exposes the owned harvester vocabulary. After
+installing it with `Pkg.Apps.develop(path="gauntlet")`, static completeness
+and ingestion actions use the same command without Python or PSCAD:
+
+```bash
+linecablebenchmark pending dataset_manifest.json
+linecablebenchmark verify dataset_manifest.json runs/pendingcases
+linecablebenchmark ingest . staging --amendments runs/pendingcases
+```
+
+Live PSCAD commands use an isolated environment. Point PythonCall at the
+interpreter containing `mhi.pscad` and instantiate that environment once:
+
+```powershell
+$env:JULIA_CONDAPKG_BACKEND = "Null"
+$env:JULIA_PYTHONCALL_EXE = "C:\path\to\python.exe"
+julia --project=gauntlet/harvest/pscad/live -e 'using Pkg; Pkg.instantiate()'
+linecablebenchmark inspect SOURCE.pscx
+```
+
+`inspect`, `case`, and `batch` then activate the PythonCall extension. That
+narrow boundary calls the external `mhi.pscad` automation package; all
+planning, mutation records, hashing, verification, and artifact handling
+remain Julia.

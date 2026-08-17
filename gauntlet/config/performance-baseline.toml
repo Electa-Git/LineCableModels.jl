@@ -43,19 +43,6 @@ arch = "x86_64"
 threads = 1
 blas = "LBTConfig([ILP64] libopenblas64_.so)"
 
-[cases.0510a23195a2e0fbf044cbb904fd211892354aa8ad2dcf6bf174e76c2abc9e44]
-minimum_seconds = 0.030945908
-median_seconds = 0.03200702650000001
-bytes = 3802096
-allocations = 36761
-frequencies = 102
-conductors = 3
-julia = "1.12.6"
-os = "Linux"
-arch = "x86_64"
-threads = 1
-blas = "LBTConfig([ILP64] libopenblas64_.so)"
-
 [cases.29b9150df4fe52667d41f6e8d423b5bbaace24ee148a3c523c55070840b2ce03]
 minimum_seconds = 0.021490425
 median_seconds = 0.0222863435

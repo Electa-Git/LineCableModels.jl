@@ -94,6 +94,11 @@ Mark a reconstruction containing one or more declared approximations.
 struct Approximate <: Fidelity end
 """$(TYPEDEF)
 
+Mark complete reference evidence whose native implementation is deferred.
+"""
+struct Deferred <: Fidelity end
+"""$(TYPEDEF)
+
 Mark a case rejected by the source solver before reference output existed.
 """
 struct Rejected <: Fidelity end

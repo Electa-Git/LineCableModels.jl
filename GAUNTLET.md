@@ -44,6 +44,35 @@ remain datasource-neutral. New datasource adapters must normalize evidence into
 the existing typed `Reference` surface; source-specific records and file-format
 rules remain below their datasource directory.
 
+## PSCAD capture repair checkpoint
+
+This amendment began from clean branch checkpoint `11bba25f` after the initial
+Gauntlet implementation was committed.
+
+The original campaign index classified 180 successful cases as sparse because
+the harvester watched PSCAD's temporary directory while those detailed files
+were emitted into the process working directory. The solver configuration was
+not sparse: `Output=YES` was already set. The repaired runner captured the
+missing quartet from both output locations.
+
+The ignored amendment at `runs/pendingcases` contains 180 identity-matched
+records: 72 coaxial, 72 overhead, and 36 pipe-type. Gauntlet independently
+verified 720/720 `_zm`, `_zp`, `_ym`, and `_yp` files, square matrix dimensions,
+artifact hashes, and the shared 101-point range from `1e-3` to `1e7` Hz. The
+Julia harvester observes PSCAD's temporary directory, the process working
+directory, and the generated project directory as one completion set, so this
+output-location split cannot force a false timeout. The
+repair report SHA-256 is
+`2a9c01631e951e6b52804416ff1628f881b9bda932c558caa773995d6532873c`;
+the source verification record is
+`ade67569822c6cd5431950081ddc466aa5e46de81ac59183fa5850f705068fc0`.
+
+The amended dataset therefore contains 869 detailed successes and zero sparse
+successes. All 72 pipe references are retained with `Deferred` fidelity. They
+load and remain searchable, but have no native problem/formulation and are not
+computed or included in performance or tolerance calibration until native pipe
+physics exists.
+
 ## Original dataset
 
 The ignored source dataset was inspected at
@@ -60,8 +89,10 @@ The ignored source dataset was inspected at
 | PSCAD solver rejections | 199 |
 | Excluded non-frequency-dependent definitions | 1 |
 | Unique successful cases after alias removal | 869 |
-| Detailed full-frequency cases | 689 |
-| Sparse successful cases | 180 |
+| Detailed full-frequency cases in original capture | 689 |
+| Missing detailed captures repaired by amendment | 180 |
+| Detailed full-frequency cases after amendment | 869 |
+| Sparse successful cases after amendment | 0 |
 | Coaxial cases | 288 |
 | Overhead cases | 240 |
 | Mixed overhead/cable cases | 269 |
@@ -106,22 +137,30 @@ Disposable parser evidence:
 | Donor downloads | remove after provenance capture | none | pinned source descriptors only | excluded from staged artifacts |
 | Routine logs and stale diagnostics | remove | none | none | excluded from staged artifacts |
 | MATLAB and parser PDF | remove after verified Julia port | none | hashes in this ledger | port verified; disposable source deleted |
-| Python harvester | source/configuration only | none | `gauntlet/harvest/pscad` | verified slim boundary |
-| Python caches and generated runs | remove | none | none | excluded from maintained harvester |
+| Julia harvester | source/configuration only | none | `gauntlet/harvest/pscad` | owned pure-Julia app |
+| Python source, caches, and generated runs | remove | none | none | no project-owned Python retained |
 
 The original ignored dataset was deleted only after both staged archives, the
 tracked smoke dataset, two deterministic normalization runs, extraction tests,
 hash verification, and full-dataset accounting succeeded.
 
+The maintained harvester is a Julia Pkg app named `linecablebenchmark`. Static
+commands (`pending`, `verify`, `ingest`, `catalog`, and `sources`) load no Python
+runtime. Live `inspect`, `case`, and `batch` commands enter a pinned, isolated
+environment and activate `GauntletPythonCallExt`, whose only job is to call the
+external `mhi.pscad` automation API. Configuration is TOML and all planning,
+identity, hashing, capture, verification, and staging code is Julia. No
+compatibility launcher or project-owned `.py` file remains.
+
 Final local artifact identities:
 
 | Artifact | Tree SHA-256 | Archive SHA-256 | Files | Uncompressed bytes |
 |---|---|---|---:|---:|
-| `pscad-raw-v1.tar.gz` | `55bb88973ee3bbb183cea1342d45ea3da5493123a968232477a25af3e21d1140` | `cb78519befb85de37ed1773c5d597f40694294d4bb077124ded515f27f4eb7cd` | 13,821 | 1,151,403,828 |
-| `pscad-normalized-v1.tar.gz` | `957397f155673fd54ac3fd361a6cc60815eed01e6d1fa29e8ac62bb1ae20f6fd` | `05d173f623de420cd34e98fd56c8767aa75f9dd7feb5c049dc991c213b57896c` | 1,071 | 321,801,296 |
+| `pscad-raw-v1.tar.gz` | `cd72caef3905cd6847b47f4d20948d787f779cb393b43443bedd6abbb3255a07` | `475ee211cda031d09a0882f5d9bf18848456757c7bbf0bba45a20f75e429eb43` | 16,485 | 1,306,876,339 |
+| `pscad-normalized-v1.tar.gz` | `4f3b195b9de3baf80d12089bb0f369b3a2d658d0fa73fa20bdcd7b0bcaedc794` | `f3516d641bf4e6810cc5ac49bc569b827f8dfa73afd72d25a1f1578b01d61294` | 1,071 | 349,208,379 |
 
-Independent `ingest-v9` and `ingest-v10` runs produced identical raw and
-normalized tree hashes. Both archives were extracted into temporary storage,
+Independent final amendment ingestions produced identical raw and normalized
+tree hashes. Both archives were extracted into temporary storage,
 rehash-verified, and the extracted normalized index was opened as a `Dataset`.
 The datasource-aligned normalized archive was rebuilt from that verified tree;
 all 869 cases and 199 rejections were loaded again, and archive extraction
@@ -141,15 +180,14 @@ arrays and fields. JLD2 is a container, not an opaque Julia object snapshot.
 | Port ordering | explicit identifiers stored with every matrix family |
 | Missing output | absent field; never a fabricated array |
 | Reduction | `Retained`, `Reduced`, or `NoReduction` |
-| Fidelity | `Exact`, `Approximate`, or `Rejected` |
+| Fidelity | `Exact`, `Approximate`, `Deferred`, or `Rejected` |
 
 Detailed cases consume every available phase, sequence, modal, calculated,
-and fitted channel. Sparse cases compare ordinary 60 Hz Z/Y and sequence data
-and evaluate fitted Yc/H over their available range. Full-frequency Z/Y is not
-inferred from sparse fitted propagation data.
+and fitted channel. The amended dataset has no sparse successes; missing
+channels remain absent rather than inferred from fitted propagation data.
 
 Final normalized channel counts are 869 phase references, 568 sequence
-references, 689 modal references, 868 vector fits, and 72 terminal-response
+references, 869 modal references, 868 vector fits, and 96 terminal-response
 records. Case
 `de4f15dc8a3dbe15e94065c7c6ff7d81b098d480f5cc643fb4f5bd5499cee4d3`
 contains the single source fit file with no coefficient payload and therefore
@@ -162,7 +200,7 @@ records the fit as absent.
 | Coaxial | existing materials, cable DSL, positions, Earth, problem, formulation | approximate pending formulation equivalence | 288/288 materialized |
 | Overhead | existing materialized conductor/system/problem path | approximate pending earth formulation equivalence | 240/240 materialized |
 | Mixed | existing heterogeneous materialized system path | diagnostic approximation | 269/269 materialized |
-| Pipe type | closest valid native common-enclosure/coaxial representation | diagnostic approximation | 72/72 materialized |
+| Pipe type | no substitute materialization | deferred until native pipe physics exists | 72/72 references retained |
 
 Saad, Wedepohl, Deri–Semlyen, Ametani, and Lucca names are never presented as
 implemented LineCableModels formulations unless genuine numerical equivalence
@@ -172,8 +210,10 @@ excluded from pass/fail tolerance calibration.
 No PSCAD case is currently promoted to `Exact`. This is deliberate: the live
 comparisons show useful agreement but do not yet demonstrate complete geometry
 and formulation equivalence. Materialization, computation, port alignment, and
-comparison exceptions remain hard failures regardless of fidelity; only a
-successfully evaluated numerical discrepancy may be diagnostic.
+comparison exceptions remain hard failures for implemented families; only a
+successfully evaluated numerical discrepancy may be diagnostic. A `Deferred`
+pipe trial reports one `Unavailable` implementation check without invoking
+`compute!`.
 
 ## Numerical comparison
 
@@ -196,14 +236,14 @@ factor-of-two margin, 1–2–5 rounding, and a maximum gating relative toleranc
 of `1e-3`. Thresholds will be frozen in `gauntlet/config/tolerances.toml` and
 will never recalibrate during ordinary validation.
 
-The source-internal vector-fit calibration produced two frozen classes within
-the `1e-3` cap:
+The source-internal vector-fit calibration produced one frozen implemented
+class within the `1e-3` cap:
 
 | Quantity/family | Calibration cases | Held-out cases | Calibration maximum | Held-out maximum | Frozen relative tolerance |
 |---|---:|---:|---:|---:|---:|
 | Yc / overhead | 146 | 22 | `2.46178e-5` | `9.52933e-6` | `5e-5` |
-| Yc / pipe | 28 | 8 | `1.80072e-4` | `1.81587e-4` | `5e-4` |
 
+Pipe calibration is intentionally absent while the family is deferred.
 Coaxial and mixed Yc coefficients and every H family contain source-internal
 outliers above the cap. They remain explicit diagnostics rather than causing
 tolerance inflation. Ordinary 60 Hz output is not itself a detailed-grid
@@ -221,15 +261,14 @@ speed ratio.
 
 | Case | Baseline | Current | Status |
 |---|---|---|---|
-| Tutorial 3 EMT | 17.47/19.03 ms min/median; 2,098,496 bytes; 14,056 allocations | 17.26/18.63 ms; 2,098,496 bytes; 14,056 allocations | pass |
-| Overhead | 108.06/111.91 ms; 11,304,744 bytes; 57,485 allocations | 96.78/100.32 ms; 11,306,952 bytes; 57,485 allocations | pass |
-| Mixed | 75.38/80.99 ms; 6,639,136 bytes; 69,814 allocations | 67.26/71.63 ms; 6,639,136 bytes; 69,814 allocations | pass |
-| Pipe | 30.95/32.01 ms; 3,802,096 bytes; 36,761 allocations | 27.01/28.59 ms; 3,802,128 bytes; 36,761 allocations | pass |
-| Coaxial, retained | 21.49/22.29 ms; 2,895,624 bytes; 26,524 allocations | 19.38/20.19 ms; 2,895,688 bytes; 26,524 allocations | pass |
-| Coaxial, no reduction | 21.44/22.18 ms; 2,895,624 bytes; 26,524 allocations | 19.93/20.53 ms; 2,895,656 bytes; 26,524 allocations | pass |
+| Tutorial 3 EMT | 17.47/19.03 ms min/median; 2,098,496 bytes; 14,056 allocations | 19.39/19.84 ms; 2,098,496 bytes; 14,056 allocations | pass |
+| Overhead | 108.06/111.91 ms; 11,304,744 bytes; 57,485 allocations | 99.16/102.99 ms; 11,306,888 bytes; 57,485 allocations | pass |
+| Mixed | 75.38/80.99 ms; 6,639,136 bytes; 69,814 allocations | 66.13/71.54 ms; 6,639,136 bytes; 69,814 allocations | pass |
+| Coaxial, retained | 21.49/22.29 ms; 2,895,624 bytes; 26,524 allocations | 18.81/19.22 ms; 2,895,656 bytes; 26,524 allocations | pass |
+| Coaxial, no reduction | 21.44/22.18 ms; 2,895,624 bytes; 26,524 allocations | 18.08/19.42 ms; 2,895,656 bytes; 26,524 allocations | pass |
 
 Every representative allocation count is unchanged; byte ratios range from
-`1.0` to `1.00020`, within the frozen five-percent gate. Timings are trends and
+`1.0` to `1.00019`, within the frozen five-percent gate. Timings are trends and
 are not used as correctness gates.
 
 ## Verification ledger
@@ -237,20 +276,21 @@ are not used as correctness gates.
 | Gate | Evidence | Status |
 |---|---|---|
 | Datasource alignment | `Datasource`, `Dataset`, symbol dispatch, external fixture datasource, PSCAD `ingest`/`load`/`decode`, FEM not-implemented paths, and generic-loader isolation | 24/24 focused assertions passed |
-| Datasource-aligned full dataset | all 869 PSCAD cases and 199 rejections loaded through the new dataset dispatch; normalized archive extraction reproduced `957397f155673fd54ac3fd361a6cc60815eed01e6d1fa29e8ac62bb1ae20f6fd` | verified |
+| Datasource-aligned full dataset | all 869 PSCAD cases and 199 rejections loaded through dataset dispatch; normalized archive extraction reproduced `4f3b195b9de3baf80d12089bb0f369b3a2d658d0fa73fa20bdcd7b0bcaedc794` | verified |
 | Root package baseline | 2,880/2,880 tests passed from baseline SHA | verified |
 | Parser unit tests | input, ordinary, detailed, terminal, fit, malformed/truncated/checksum, modal assignment, port order, Kron, reports | all application tests passed |
-| Sixteen-case tracked smoke suite | fixed IDs in `gauntlet/config/smoke.toml`; datasource-aligned tree `b696494f6ffc51274ec541e5c85349e4480a76d18cd32c41b9f3a75a28d82355` | passed before and after source-dataset deletion; zero hard failures |
-| 869 successful canonical materializations | performed during each ingestion pass | verified |
-| 869 successful canonical computations | full extracted-artifact run | verified |
+| Sixteen-case tracked smoke suite | fixed IDs in `gauntlet/config/smoke.toml`; amended tree `ddbf13f6a85cb6e01b9c745912c896c694cd2a323b070c1053486d8b93344047`; 14 acceptable and two deferred pipe trials, zero failures | passed |
+| 797 implemented canonical materializations | performed during each ingestion pass; 72 pipe references deferred | verified |
+| 797 implemented canonical computations | full extracted-artifact run; pipe references not computed | verified |
 | 199 rejection records | indexed and lazily loadable | verified |
-| Detailed/sparse channel accounting | 689 detailed; 180 sparse; per-channel counts recorded above | verified |
+| Detailed/sparse channel accounting | 869 detailed; zero sparse after verified amendment | verified |
 | Deterministic normalization | identical v9/v10 raw and normalized trees | verified |
 | Raw archive extraction and digest | tree and archive hashes above | verified |
 | Normalized archive extraction and digest | tree and archive hashes above; `Dataset` opened | verified |
-| Full local artifact suite | 1,068 canonical trials: 869 computed successes and 199 source rejections; 10,715 diagnostic, 1,022 pass, 360 unavailable, 199 source-rejected comparison rows, zero fail rows | passed |
-| Allocation regression suite | six warmed cases; byte and allocation ratios below 1.05 | passed |
-| Gauntlet application tests | parser, comparison, smoke, reports, archive identity, opt-in full accounting | passed |
+| Full local artifact suite | 1,068 trials and 12,392 comparisons; 996 acceptable, 72 deferred pipe trials, zero failures | passed |
+| Allocation regression suite | five warmed implemented cases; unchanged allocation counts and at most 1.00019 byte ratio; pipe excluded until implemented | passed |
+| Gauntlet application tests | parser, comparison, smoke, structured reports, archive identity, and optional full accounting; 115/115 default and 122/122 artifact-enabled assertions | passed |
+| Harvester boundary | exact `linecablebenchmark` Pkg app; static command remained Python-free; isolated live command activated PythonCall and reached the external `mhi.pscad` import | passed |
 | Strict documentation | Literate generation, doctests, cross-references, document checks, and HTML rendering | passed |
 | Root package suite | 2,880/2,880 in 5m07s | passed |
 | Core-only boundary | 32/32 | passed |
@@ -262,11 +302,9 @@ are not used as correctness gates.
 | Literate documentation | `docs/literate/gauntlet.jl` uses the tracked typed records; strict doctests and HTML build | passed |
 | Original dataset removal | deleted after all archive, extraction, full-suite, and smoke gates; recoverable from the raw archive or the user's backup | complete |
 
-`Report(smoke, 11/16 acceptable trials)` and
-`Report(full, 888/1068 acceptable trials)` are not failure counts. Every native
-execution succeeded. The lower summary count reflects intentionally
-non-gating `Approximate`, `Unavailable`, and `ReferenceRejected` evidence; the
-CLI exits nonzero for any `Fail` verdict, and both runs exited zero.
+Report summaries are not failure counts. Implemented native executions must
+succeed; `Approximate`, `Deferred`, and `ReferenceRejected` evidence remains
+explicit. The CLI exits nonzero for any `Fail` verdict.
 
 ## Delivery restrictions
 

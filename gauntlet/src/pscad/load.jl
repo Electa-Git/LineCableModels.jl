@@ -12,6 +12,7 @@ function _fidelity(name::AbstractString)
     symbol = Symbol(name)
     symbol === :exact && return Exact()
     symbol === :approximate && return Approximate()
+    symbol === :deferred && return Deferred()
     symbol === :rejected && return Rejected()
     throw(ArgumentError("unknown fidelity '$name'"))
 end
@@ -170,7 +171,9 @@ function load(source::PSCAD, record::PSCADCase)
     family = _family(String(payload["family"]))
     reduction = _reduction(String(payload["reduction"]))
     input = PSCADIO.ParsedInput(Symbol(payload["input_kind"]), _dict_block(payload["input"]))
-    problem, fallback_ports = materialize(family, input, reduction, id)
+    problem, formulation, fallback_ports = _native_case(
+        fidelity, family, input, reduction, id
+    )
     reference_value = decode(source, record, fallback_ports)
     return Case(
         id,
@@ -178,12 +181,21 @@ function load(source::PSCAD, record::PSCADCase)
         fidelity,
         reduction,
         problem,
-        _formulation(input, reduction),
+        formulation,
         reference_value,
         _checks(reference_value),
         _assumptions(payload["assumptions"]),
         _pscad_provenance(payload["provenance"])
     )
+end
+
+function _native_case(::Deferred, ::Pipe, input, reduction, id)
+    return nothing, nothing, Port[]
+end
+
+function _native_case(::Fidelity, family, input, reduction, id)
+    problem, ports = materialize(family, input, reduction, id)
+    return problem, _formulation(input, reduction), ports
 end
 
 function load(source::PSCAD, record::PSCADRejection)

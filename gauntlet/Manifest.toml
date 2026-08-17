@@ -2,7 +2,7 @@
 
 julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "dbd59b23f8cd224e1e826553ed33596b74a74730"
+project_hash = "4ac94296c887b740d1fa635dd23eea42c474d7d0"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "5970c86505ae9c07bf5bc521ef2bbbb3849e8b7b"
@@ -369,10 +369,16 @@ uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
 version = "1.11.0"
 
 [[deps.Gauntlet]]
-deps = ["BenchmarkTools", "CodecZlib", "Dates", "DocStringExtensions", "JLD2", "JSON3", "LineCableModels", "LinearAlgebra", "Printf", "SHA", "Statistics", "TOML", "Tables", "Tar"]
+deps = ["BenchmarkTools", "CodecZlib", "Dates", "DocStringExtensions", "Downloads", "EzXML", "JLD2", "JSON3", "LineCableModels", "LinearAlgebra", "Printf", "SHA", "Statistics", "TOML", "Tables", "Tar", "ZipFile"]
 path = "."
 uuid = "9a130420-8a0e-41d3-a67e-4ba01f820763"
 version = "0.1.0"
+
+    [deps.Gauntlet.extensions]
+    GauntletPythonCallExt = "PythonCall"
+
+    [deps.Gauntlet.weakdeps]
+    PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
 
 [[deps.GeometryBasics]]
 deps = ["EarCut_jll", "LinearAlgebra", "PrecompileTools", "Random", "StaticArrays"]
@@ -922,6 +928,12 @@ deps = ["ArgCheck", "CodecInflate64", "CodecZlib", "InputBuffers", "PrecompileTo
 git-tree-sha1 = "83f728ecb873c58b794964f8b4bed811814d4b0d"
 uuid = "49080126-0e18-4c2a-b176-c102e4b3760c"
 version = "2.6.0"
+
+[[deps.ZipFile]]
+deps = ["Libdl", "Printf", "Zlib_jll"]
+git-tree-sha1 = "f492b7fe1698e623024e873244f10d89c95c340a"
+uuid = "a5390f91-8eb1-5f08-bee0-b1d1ffed6cea"
+version = "0.10.1"
 
 [[deps.Zlib_jll]]
 deps = ["Libdl"]

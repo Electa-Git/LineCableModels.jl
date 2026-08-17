@@ -1,9 +1,9 @@
 datasource = "pscad"
-detailed_cases = 10
+detailed_cases = 15
 recovered_fits = 0
 schema_version = 1
 source_manifest_sha256 = "fc5c78cecf673ecd5272ef992181bcca8c8a853602db534d43815d1e36931b65"
-sparse_cases = 5
+sparse_cases = 0
 
 [cases]
 01244ac2d707b0e07ae4069944d895f99ec6c428cea208b3baf87008e78d61e7 = "cases/01244ac2d707b0e07ae4069944d895f99ec6c428cea208b3baf87008e78d61e7.jld2"

@@ -307,7 +307,8 @@ function _assumptions(input::PSCADIO.ParsedInput, family::Family)
     family isa Pipe && push!(assumptions,
         Assumption(
             :pipe,
-            "The common pipe is represented by the closest independent-coax geometry."
+            "The common-enclosure model is not implemented in LineCableModels; " *
+            "the complete PSCAD reference is retained for the planned implementation."
         ))
     any(section -> Int(_field(section, "Layers")) < 3,
         PSCADIO.block(input.root, "Coax Cable")) && push!(assumptions,
@@ -539,57 +540,10 @@ materialize(::Mixed, input, reduction, id) = _mixed_problem(input, reduction, id
 materialize(::Overhead, input, reduction, id) = _overhead_problem(input, reduction, id)
 
 function materialize(::Pipe, input, reduction, id)
-    pipe = only(PSCADIO.block(input.root, "Pipe-Type Cable"))
-    synthetic = PSCADIO.ParsedInput(:coax, PSCADIO.Block("root"))
-    for name in ("Cable Summary", "Frequency Dep. (Phase) Model Options",
-        "Line Constants Ground Data")
-        append!(synthetic.root.children, PSCADIO.block(input.root, name))
-    end
-    pipe_position = Float64.(_field(pipe, "P1"))
-    for child in PSCADIO.block(pipe, "Coax Cable")
-        copied = deepcopy(child)
-        local_position = Float64.(_field(copied, "P1"))
-        copied.fields["P1"] = [
-            pipe_position[1] + local_position[1],
-            abs(pipe_position[2]) + local_position[2]
-        ]
-        push!(synthetic.root.children, copied)
-    end
-    pipe_outer = Float64(_field(pipe, "Outer Insulator Outer Radius"))
-    independent_pipe = PSCADIO.Block("Coax Cable")
-    merge!(independent_pipe.fields,
-        Dict{String, Any}(
-            "Cable Number" => Int(_field(pipe, "Number of Inner Cables")) + 1,
-            # The native model has no common-enclosure geometry. Keeping the pipe
-            # as a separate, nonoverlapping tubular conductor preserves its port
-            # and material data while the case remains explicitly approximate.
-            "P1" => [pipe_position[1] + 10pipe_outer, abs(pipe_position[2])],
-            "Layers" => 1,
-            "Ground Last Layer" => Int(_field(pipe, "Ground Pipe", 0)),
-            "Conductor Inner Radius" => Float64(_field(
-                pipe, "Inner Insulator Outer Radius"
-            )),
-            "Conductor Outer Radius" => Float64(_field(
-                pipe, "Conductor Outer Radius"
-            )),
-            "Conductor Resistivity" => Float64(_field(pipe, "Conductor Resistivity")),
-            "Conductor Permeability" => Float64(_field(pipe, "Conductor Permeability")),
-            "Insulator 1 Outer Radius" => pipe_outer,
-            "Insulator 1 Relative Permittivity" => Float64(_field(
-                pipe, "Outer Ins. Relative Permittivity"
-            )),
-            "Insulator 1 Relative Permeability" => Float64(_field(
-                pipe, "Outer Ins. Relative Permeability"
-            )),
-            "Insulator 1 Loss Tangent" => Float64(_field(
-                pipe, "Outer Ins. Loss Tangent", 0.0
-            )),
-            "Frequency for loss tangent" => Float64(_field(
-                pipe, "Frequency for loss tangent", 60.0
-            ))
-        ))
-    push!(synthetic.root.children, independent_pipe)
-    return _coax_problem(synthetic, Coax(), reduction, id)
+    throw(ErrorException(
+        "pipe-type cable materialization is not implemented; its PSCAD reference " *
+        "remains available as a deferred Gauntlet case"
+    ))
 end
 
 function _fidelity(family::Family, input::PSCADIO.ParsedInput)

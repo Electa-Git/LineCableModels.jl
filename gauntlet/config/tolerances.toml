@@ -52,10 +52,6 @@ atol = 1.0e-12
 rtol = 5.0e-5
 atol = 1.0e-12
 
-[fit.Yc.pipe]
-rtol = 5.0e-4
-atol = 1.0e-12
-
 [fit.H]
 rtol = 1.0e-3
 atol = 1.0e-12

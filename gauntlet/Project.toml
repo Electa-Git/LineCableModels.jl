@@ -7,6 +7,8 @@ BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 CodecZlib = "944b1d66-785c-5afd-91f1-9de20f533193"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
+Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
+EzXML = "8f5d6c58-4d21-5cfd-889c-e3ad7ee6a615"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
 LineCableModels = "dffb7669-8cd4-4628-99dd-7694e356ba37"
@@ -17,9 +19,16 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
 Tar = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
+ZipFile = "a5390f91-8eb1-5f08-bee0-b1d1ffed6cea"
+
+[weakdeps]
+PythonCall = "6099a3de-0909-46bc-b1f4-468b9a2dfc0d"
 
 [sources]
 LineCableModels = {path = ".."}
+
+[extensions]
+GauntletPythonCallExt = "PythonCall"
 
 [compat]
 BenchmarkTools = "1.8"
@@ -27,8 +36,12 @@ CodecZlib = "0.7"
 DocStringExtensions = "0.9"
 JLD2 = "0.6"
 JSON3 = "1.14"
+PythonCall = "0.9"
 Tables = "1.13"
+ZipFile = "0.10"
 julia = "1.12"
+
+[apps.linecablebenchmark]
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

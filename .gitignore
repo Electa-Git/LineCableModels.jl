@@ -61,5 +61,6 @@ benchmarks/
 
 # Local Gauntlet corpus staging and artifact bindings
 gauntlet/.artifacts/
+gauntlet/harvest/pscad/live/.CondaPkg/
 gauntlet/Artifacts.local.toml
 gauntlet/reports/

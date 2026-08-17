@@ -391,6 +391,17 @@ function gauntlet(
         )
         return Trial(case, nothing, Comparison[comparison], nothing)
     end
+    if case.fidelity isa Deferred
+        comparison = Comparison(
+            PhysicalCheck{:implementation}(),
+            Unavailable(),
+            Tolerance(0.0, 0.0),
+            nothing,
+            "$(nameof(typeof(case.family))) references are complete, but the native " *
+            "implementation is deferred"
+        )
+        return Trial(case, nothing, Comparison[comparison], nothing)
+    end
     actual = try
         compute!(case.problem, case.formulation)
     catch error

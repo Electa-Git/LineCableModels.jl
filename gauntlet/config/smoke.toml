@@ -1,9 +1,9 @@
 schema_version = 1
 
 # Fixed SHA-derived canonical identifiers. Selection covers all four source
-# families, detailed and sparse references, CLO and TLO fits, retained and
-# reduced systems, all six earth resistivities, PSCAD 5.0.2 and 5.1.0, and one
-# source-side solver rejection.
+# families, full-frequency references, CLO and TLO fits, retained and reduced
+# systems, deferred pipe evidence, all six earth resistivities, PSCAD 5.0.2 and
+# 5.1.0, and one source-side solver rejection.
 cases = [
     "86d18b3ad8127ca2abaed797659bc56034767628d8b2e63f02eb291cdb1f13c7",
     "29b9150df4fe52667d41f6e8d423b5bbaace24ee148a3c523c55070840b2ce03",

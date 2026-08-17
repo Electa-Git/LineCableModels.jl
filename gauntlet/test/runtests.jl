@@ -1,4 +1,5 @@
 using Gauntlet
+using JSON3
 using LineCableModels
 using LinearAlgebra
 using Tables
@@ -79,6 +80,73 @@ end
     generic_dataset = read(joinpath(@__DIR__, "..", "src", "dataset.jl"), String)
     @test !occursin("PSCADIO", generic_dataset)
     @test !occursin(r"\.(cli|tli|clo|tlo)", lowercase(generic_dataset))
+end
+
+@testset "Julia harvester boundary" begin
+    python_id = Base.PkgId(
+        Base.UUID("6099a3de-0909-46bc-b1f4-468b9a2dfc0d"), "PythonCall"
+    )
+    @test !haskey(Base.loaded_modules, python_id)
+    @test Base.get_extension(Gauntlet, :GauntletPythonCallExt) === nothing
+
+    project = TOML.parsefile(joinpath(@__DIR__, "..", "Project.toml"))
+    @test Set(keys(project["apps"])) == Set(["linecablebenchmark"])
+    @test project["extensions"]["GauntletPythonCallExt"] == "PythonCall"
+
+    source_root = joinpath(@__DIR__, "..", "harvest", "pscad")
+    live = TOML.parsefile(joinpath(source_root, "live", "Project.toml"))
+    @test live["deps"]["PythonCall"] == project["weakdeps"]["PythonCall"]
+    @test live["sources"]["Gauntlet"]["path"] == "../../.."
+    maintained = [joinpath(directory, name)
+                  for (directory, _, names) in walkdir(source_root) for name in names]
+    @test !any(path -> lowercase(splitext(path)[2]) == ".py", maintained)
+    @test !any(path -> occursin("linecablemodels", lowercase(basename(path))), maintained)
+
+    help = IOBuffer()
+    Gauntlet._cli_help(help)
+    help_text = String(take!(help))
+    @test startswith(help_text, "linecablebenchmark <command>")
+    @test !occursin("linecablemodels <command>", lowercase(help_text))
+
+    requirement = Gauntlet.required(PSCAD())
+    @test requirement.suffixes == ("_zm.out", "_zp.out", "_ym.out", "_yp.out")
+    @test requirement.rows == 101
+    @test requirement.frequency_range == (1.0e-3, 1.0e7)
+
+    temporary_file("<Project name=\"sample\" version=\"5.1.0\"/>", ".pscx") do path
+        @test Gauntlet._project_identity(path) == (name = "sample", version = "5.1.0")
+    end
+    temporary_file("sample input\r\n", ".cli") do path
+        @test Gauntlet._case_id("5.1.0", [path]) == Gauntlet._case_id("5.1.0", [path])
+    end
+
+    mktempdir() do root
+        temp = joinpath(root, "temp")
+        process = joinpath(root, "process")
+        project_root = joinpath(root, "project")
+        mkpath.((temp, process, project_root))
+        before = Gauntlet._snapshot(temp)
+        process_before = Gauntlet._snapshot(process; recursive = false)
+        project_before = Gauntlet._snapshot(project_root; recursive = false)
+        writer = @async begin
+            sleep(0.1)
+            write(joinpath(temp, "case.cli"), "input")
+            write(joinpath(process, "case_zm.out"), "output")
+        end
+        after = Gauntlet._wait_for_artifacts(
+            temp,
+            before;
+            timeout = 2.0,
+            quiet = 0.05,
+            process_root = process,
+            process_before,
+            project_root,
+            project_before
+        )
+        wait(writer)
+        @test haskey(after.temp, "case.cli")
+        @test haskey(after.process, "case_zm.out")
+    end
 end
 
 @testset "PSCAD input grammar" begin
@@ -362,8 +430,19 @@ end
     @test length(keys(dataset)) == 16
     @test all(case -> case isa Case, dataset)
     @test count(case -> case.fidelity isa Rejected, dataset) == 1
+    @test count(case -> case.fidelity isa Deferred, dataset) == 2
     @test Set(nameof(typeof(case.family)) for case in dataset) ==
           Set((:Coax, :Overhead, :Mixed, :Pipe))
+    deferred = [case for case in dataset if case.fidelity isa Deferred]
+    @test all(case -> case.family isa Gauntlet.Pipe, deferred)
+    @test all(case -> case.problem === nothing && case.formulation === nothing, deferred)
+    @test all(case -> length(frequencies(reference(case).phase)) == 101, deferred)
+    for case in deferred
+        trial = gauntlet(case)
+        @test trial.actual === nothing
+        @test only(trial.comparisons).check isa PhysicalCheck{:implementation}
+        @test only(trial.comparisons).verdict isa Unavailable
+    end
     rejected = only(case for case in dataset if case.fidelity isa Rejected)
     trial = gauntlet(rejected)
     @test only(trial.comparisons).verdict isa Gauntlet.ReferenceRejected
@@ -411,6 +490,11 @@ end
             path = write_report(joinpath(destination, "report.$extension"), report)
             @test filesize(path) > 0
         end
+        rows = JSON3.read(read(joinpath(destination, "report.json"), String))
+        @test rows isa AbstractVector
+        @test length(rows) == 1
+        @test String(only(rows).case_id) == rejected.id
+        @test hasproperty(only(rows), :verdict)
     end
     @test Gauntlet.tree_hash(joinpath(@__DIR__, "..", "fixtures", "smoke")) ==
           Gauntlet.tree_hash(joinpath(@__DIR__, "..", "fixtures", "smoke"))
@@ -427,6 +511,9 @@ end
         @test length(dataset.rejections) == 199
         @test length(dataset.aliases) == 36
         @test length(index["excluded"]) == 1
+        @test index["detailed_cases"] == 869
+        @test index["sparse_cases"] == 0
         @test count(case -> case.fidelity isa Rejected, dataset) == 199
+        @test count(case -> case.fidelity isa Deferred, dataset) == 72
     end
 end

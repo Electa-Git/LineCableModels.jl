@@ -63,13 +63,13 @@ end
 """Write a structured Gauntlet report selected by its filename extension."""
 function write_report(path::AbstractString, report::Report)
     extension = lowercase(splitext(path)[2])
-    extension == ".json" && return _write_json(path, report)
+    extension == ".json" && return _write_report_json(path, report)
     extension == ".csv" && return _write_csv(path, report)
     extension in (".md", ".markdown") && return _write_markdown(path, report)
     throw(ArgumentError("report extension must be .json, .csv, or .md"))
 end
 
-function _write_json(path, report)
+function _write_report_json(path, report)
     open(path, "w") do io
         JSON3.pretty(io, _json_rows(report))
         println(io)

@@ -19,6 +19,7 @@ function _fit_calibration(
     tolerance = Tolerance(1e-3, Float64(atol))
     for id in keys(dataset.cases)
         case = dataset[id]
+        case.fidelity isa Deferred && continue
         case.family isa family || continue
         comparison = compare_fit(
             case.reference.fit, case.reference.modes, check, tolerance

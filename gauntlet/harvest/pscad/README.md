@@ -1,28 +1,39 @@
-# PSCAD harvester boundary
+# PSCAD harvester
 
-This directory preserves the narrow Python boundary that launches PSCAD's
-Line Constants Program and captures content-addressed evidence. It is not used
-by Gauntlet's parser, smoke suite, documentation, or full-dataset validation.
-Those paths are implemented in Julia and operate without Python or PSCAD.
-
-The harvester requires Windows, a licensed PSCAD installation, `mhi.pscad`,
-`mhi.xml`, and PyYAML. It compiles selected frequency-dependent line or cable
-definitions; it does not run an EMTDC time-domain simulation.
-
-From this directory in PowerShell:
+The maintained harvester is Julia code. Install its project-local Julia app
+once from the repository root and ensure `~/.julia/bin` is on `PATH`:
 
 ```powershell
-.\linecablebenchmark.cmd --help
-.\linecablebenchmark.cmd harvest --verify-only --no-extract
-.\linecablebenchmark.cmd inspect --file SOURCE.pscx
-.\linecablebenchmark.cmd case --file SOURCE.pscx --dry-run
-.\linecablebenchmark.cmd batch
+julia -e 'using Pkg; Pkg.Apps.develop(path="gauntlet")'
 ```
 
-`benchmark.yml` defines the frequency sweep, soil resistivities, reduction
-states, and formulation axes. `official_sources.yml` pins the external donor
-sources and hashes. Generated donor trees, copied projects, runs, caches,
-diagnostics, and dataset manifests deliberately do not live here.
+The installed command is `linecablebenchmark`. Gauntlet owns planning,
+completeness checks, hashing, capture, normalization, and reporting.
+
+Static commands need neither PSCAD nor Python:
+
+```powershell
+linecablebenchmark pending dataset_manifest.json
+linecablebenchmark verify dataset_manifest.json runs/pendingcases
+linecablebenchmark ingest . staging --amendments runs/pendingcases
+```
+
+Live PSCAD automation is the one external runtime boundary. Point PythonCall at
+the Python installation containing the external `mhi.pscad` package, then
+instantiate its isolated environment once. The CLI starts that environment and
+loads the Gauntlet extension only for a live command:
+
+```powershell
+$env:JULIA_CONDAPKG_BACKEND = "Null"
+$env:JULIA_PYTHONCALL_EXE = "C:\path\to\python.exe"
+julia --project=gauntlet/harvest/pscad/live -e 'using Pkg; Pkg.instantiate()'
+linecablebenchmark inspect SOURCE.pscx
+linecablebenchmark case SOURCE.pscx --output runs
+```
+
+`benchmark.toml` defines the frequency sweep, soil resistivities, reduction
+states, and formulation axes. `sources.toml` pins external donors and hashes.
+No project-owned Python source is retained.
 
 Each successful run records the normalized `.cli` or `.tli` input, ordinary
 and detailed outputs, a `.clo` or `.tlo` fit when emitted, hashes, PSCAD

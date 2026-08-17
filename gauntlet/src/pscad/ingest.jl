@@ -384,7 +384,9 @@ function _reference(files, input, ports)
     matrix_size = phase === nothing ?
                   modes === nothing || modes.transform === nothing ? length(ports) :
                   size(modes.transform, 1) : size(Z(phase), 1)
-    selected_ports = if length(ports) == matrix_size
+    selected_ports = if isempty(ports)
+        [Port("source:$index", index, "source", index) for index in 1:matrix_size]
+    elseif length(ports) == matrix_size
         ports
     else
         active = filter(port -> port.phase > 0, ports)
@@ -487,8 +489,13 @@ function _write_success(
     input = PSCADIO.read_input(input_path)
     family = _family(input)
     reduction = _case_reduction(record["variant"]["reduction"])
-    problem, ports = materialize(family, input, reduction, id)
     assumptions_value = _assumptions(input, family)
+    ports = if family isa Pipe
+        Port[]
+    else
+        _, native_ports = materialize(family, input, reduction, id)
+        native_ports
+    end
     recovered = _recover_truncated_fit!(files, hashes, case_root, assumptions_value)
     reference_value = _reference(files, input, ports)
     earth_name = String(get(record["variant"]["formulations"], "EarthForm", "UNKNOWN"))
@@ -499,7 +506,8 @@ function _write_success(
             "PSCAD $earth_name has no like-named native implementation and is diagnostic."
         )
     )
-    fidelity = earth_name == "DIRECT_NUMERICAL_INTEGRATION" ?
+    fidelity = family isa Pipe ? Deferred() :
+               earth_name == "DIRECT_NUMERICAL_INTEGRATION" ?
                _fidelity(family, input) : Approximate()
     provenance_value = _record_provenance(record, manifest, hashes)
 
@@ -547,9 +555,9 @@ function _write_success(
     JLD2.jldopen(target, "w"; compress = true) do file
         file["record"] = record_payload
     end
-    # Loading the complete object here proves that each normalized successful
-    # case still materializes through the current LineCableModels API.
-    _load_success(target)
+    # Loading proves that each normalized record reconstructs. Deferred families
+    # deliberately retain reference evidence without a native problem.
+    load(PSCAD(), target)
     return (; target, raw_record, recovered)
 end
 
@@ -620,7 +628,8 @@ function ingest(
         ::PSCAD,
         source::AbstractString,
         destination::AbstractString;
-        ids = nothing
+        ids = nothing,
+        amendments::Union{Nothing, AbstractString} = nothing
 )
     source_root = abspath(source)
     destination_root = abspath(destination)
@@ -635,6 +644,15 @@ function ingest(
     length(records) == Int(dataset["unique_effective_case_count"]) ||
         throw(DimensionMismatch("canonical record count differs from the source manifest"))
     full_campaign = ids === nothing
+    amendment_paths = amendments === nothing ? Dict{String, String}() :
+                      _amendment_map(dataset_path, amendments)
+    if full_campaign && amendments === nothing
+        missing = pending(PSCAD(), dataset_path)
+        isempty(missing) || throw(ArgumentError(
+            "the canonical PSCAD campaign is missing $(length(missing)) detailed " *
+            "records; pass their verified directory with `amendments`",
+        ))
+    end
     if !full_campaign
         selected = Set(String.(ids))
         missing_ids = setdiff(selected, keys(records))
@@ -669,8 +687,13 @@ function ingest(
             @info("Ingesting PSCAD dataset", case=position, total=length(ordered_ids), id)
         record = records[id]
         try
-            case_root = joinpath(source_root, _native_path(String(record["path"])))
-            manifest_path = joinpath(case_root, "manifest.json")
+            original_root = joinpath(source_root, _native_path(String(record["path"])))
+            manifest_path = get(
+                amendment_paths,
+                String(record["specification_sha256"]),
+                joinpath(original_root, "manifest.json")
+            )
+            case_root = dirname(manifest_path)
             manifest = _json_dict(manifest_path)
             String(manifest["case_id"]) == id || throw(ArgumentError(
                 "case identifier differs between dataset and case manifest: $id",
@@ -738,11 +761,11 @@ function ingest(
         "expected $expected_rejections rejections, found $(length(rejection_index))",
     ))
     if full_campaign
-        detailed == 689 || throw(DimensionMismatch(
-            "expected 689 detailed cases, found $detailed",
+        detailed == 869 || throw(DimensionMismatch(
+            "expected 869 detailed cases after amendment, found $detailed",
         ))
-        sparse == 180 || throw(DimensionMismatch(
-            "expected 180 sparse cases, found $sparse",
+        sparse == 0 || throw(DimensionMismatch(
+            "the amended campaign must not contain sparse cases; found $sparse",
         ))
         family_counts == Dict(
             "coax" => 288,
@@ -766,6 +789,10 @@ function ingest(
         "sparse_cases" => sparse,
         "recovered_fits" => recovered_fits
     )
+    isempty(amendment_paths) || (index["amendment_manifest_sha256"] = _sha256_json(Dict(
+        specification => _sha256(path)
+    for (specification, path) in amendment_paths
+    )))
     _case_toml(joinpath(normalized_root, "index.toml"), index)
     raw_index = copy(index)
     raw_index["artifact_kind"] = "raw"
