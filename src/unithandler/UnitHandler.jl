@@ -1,7 +1,7 @@
 module UnitHandler
 
 using Base: @kwdef
-import ..Commons: Z, Y, R, X, L, G, B, C
+import ..LineCableModels: Z, Y, R, X, L, G, B, C
 
 export Unit, Units, units, get_label, get_symbol, get_exp,
        METRIC_PREFIX_EXPONENT, METRIC_PREFIX_SYMBOL, UNIT_SYMBOL,

@@ -95,7 +95,8 @@ function make_screen(
         kwargs...
 )
     ext = _backend_extension(backend)
-    return ext === nothing ? nothing : Base.invokelatest(ext.make_screen, String(title); kwargs...)
+    return ext === nothing ? nothing :
+           Base.invokelatest(ext.make_screen, String(title); kwargs...)
 end
 
 function make_screen(backend::Symbol, title::AbstractString; kwargs...)

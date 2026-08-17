@@ -9,7 +9,7 @@ module PlotBuilder
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 
 import ..UnitHandler: Units, QuantityTag, display_unit, get_label
-import ..Utils: to_nominal, uncertainty_value
+import ..LineCableModels: nominal, standard_uncertainty, validate
 
 export AbstractPlotSpec, PlotRecipe
 export AbstractTrackSize, FixedTrack, RelativeTrack, ContentTrack

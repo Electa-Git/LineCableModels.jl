@@ -5,7 +5,7 @@ using Dates
 using Printf: @sprintf
 
 import LineCableModels.PlotBuilder
-using LineCableModels.Utils: to_nominal, uncertainty_value
+using LineCableModels: nominal, standard_uncertainty
 using LineCableModels.PlotBuilder:
                                    AbstractTrackSize, FixedTrack, RelativeTrack,
                                    ContentTrack, GridArea, GridSpec, SlotSpec,
@@ -202,11 +202,11 @@ function _axis_values(panel::UIPanel, dim::Symbol; include_uncertainty::Bool = f
         data = dim === :x ? series.xdata : series.ydata
         data === nothing && continue
         for sample in data
-            nominal = to_nominal(sample)
-            nominal isa Real || continue
-            numeric = Float64(nominal)
+            nominal_value = nominal(sample)
+            nominal_value isa Real || continue
+            numeric = Float64(nominal_value)
             isfinite(numeric) || continue
-            uncertainty = abs(Float64(uncertainty_value(sample)))
+            uncertainty = abs(Float64(standard_uncertainty(sample)))
             if include_uncertainty && isfinite(uncertainty) && !iszero(uncertainty)
                 push!(values, numeric - uncertainty, numeric + uncertainty)
             else
@@ -295,9 +295,9 @@ end
 
 function _numeric_values(values)
     values === nothing && return nothing, nothing
-    nominal = to_nominal.(values)
-    errors = uncertainty_value.(values)
-    return nominal, any(error -> !iszero(error), errors) ? errors : nothing
+    nominal_values = nominal.(values)
+    errors = standard_uncertainty.(values)
+    return nominal_values, any(error -> !iszero(error), errors) ? errors : nothing
 end
 
 function _line_errors!(plots, axis, series::SeriesSpec, x, y, xerror, yerror)
