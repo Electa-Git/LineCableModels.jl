@@ -1,0 +1,66 @@
+schema_version: 1
+
+pscad:
+  version: "5.1.0"
+  # V4 projects resolve their legacy master-library definitions correctly in
+  # the locally installed PSCAD 5.0.2, but not in 5.1.0.
+  compatibility_version: "5.0.2"
+  x64: true
+  minimize: true
+  acquire_certificate: true
+  launch_timeout_seconds: 60
+  # High-port mixed OHL/cable direct numerical integrations can exceed five
+  # minutes over ten decades. Completed variants are resumable, so this is a
+  # per-variant ceiling rather than a campaign-wide timeout.
+  artifact_timeout_seconds: 1800
+  artifact_quiet_seconds: 2.0
+
+frequency_dependent_phase:
+  enabled: true
+  start_hz: 0.001
+  end_hz: 10000000.0
+  # Ten decades (1e-3 through 1e7 Hz) at 10 requested samples/decade.
+  samples: 100
+  distribution: LOG_LINEAR
+  detailed_output: true
+  interpolate_travel_time: true
+  dc_correction: true
+  dc_correction_method: FUNCTIONAL_FORM
+  passivity:
+    # PSCAD 5.1's enforcement step can stack-overflow for high-port mutual
+    # models. SCAN_ONLY preserves the passivity diagnostic without modifying
+    # or losing the completed phase-domain fit.
+    mode: SCAN_ONLY
+    samples: 100
+    start_hz: 0.001
+    end_hz: 10000000.0
+
+axes:
+  earth_resistivity:
+    enabled: true
+    values_ohm_m: [0.1, 1, 10, 100, 1000, 10000]
+
+  earth_formulation:
+    enabled: true
+    # "available" means use every choice PSCAD reports for the applicable
+    # geometry. Override with explicit enum names to restrict a campaign.
+    aerial: available
+    underground: available
+    mixed: available
+
+  kron_reduction:
+    enabled: true
+    states: [retained, reduced]
+
+output:
+  root: runs
+  keep_working_project: true
+  copy_all_temp_artifacts: true
+
+batch:
+  root: donors/original
+  include: ["**/*.pscx"]
+  # V5 copies are the default campaign. Remove this exclusion to also run the
+  # duplicate PSCAD 4.6.3 editions preserved in the donor archive.
+  exclude: ["**/PSCAD463/**"]
+  resume: true

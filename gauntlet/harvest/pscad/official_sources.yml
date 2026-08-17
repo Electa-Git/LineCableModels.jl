@@ -1,0 +1,48 @@
+schema_version: 1
+sources:
+  - id: guidelines_2023_pdf
+    article: https://www.pscad.com/knowledge-base/article/872
+    url: https://www.pscad.com/knowledge-base/download/Overhead%20Lines%20and%20Cable%20Modeling%20Guidelines%20for%20PSCAD.pdf
+    filename: guidelines-2023.pdf
+    sha256: 5ef544cb9082d94b623adfe5544baF46e19e23c8bda78849aa0cead180210079
+    kind: document
+
+  - id: guidelines_2023_examples
+    article: https://www.pscad.com/knowledge-base/article/872
+    url: https://www.pscad.com/knowledge-base/download/examples-line-cable.zip
+    filename: examples-line-cable.zip
+    sha256: 9f182acafb6b2cdfa253fdcc9430b9dcf3c7bb5b8edf50dafafedcc8f99222bf
+    kind: archive
+    extract_to: donors/original/guidelines_2023/examples_line_cable
+
+  - id: cable_modeling
+    article: https://www.pscad.com/knowledge-base/article/249
+    url: https://www.pscad.com/knowledge-base/download/cable_example.zip
+    filename: cable_example.zip
+    sha256: 756215655cff55efe38d100e744944427ee42897f61f1e97faeb275be6574a35
+    kind: archive
+    extract_to: donors/original/cable_model
+
+  - id: pipe_type_modeling
+    article: https://www.pscad.com/knowledge-base/article/249
+    url: https://www.pscad.com/knowledge-base/download/pipe_type_example.zip
+    filename: pipe_type_example.zip
+    sha256: 0c2e41953ba0caccd8f677b45c8da0ba1e0a028316660ad9af8050eda0cab10b
+    kind: archive
+    extract_to: donors/original/pipe_type
+
+  - id: simple_mutual_coupling
+    article: https://www.pscad.com/knowledge-base/article/252
+    url: https://www.pscad.com/knowledge-base/download/simple-mutual-coupling-example.zip
+    filename: simple-mutual-coupling-example.zip
+    sha256: e5517eeb6adefb9d47fd62fdb295d1e45a339eb79d43414d27d696cf6a0c10b7
+    kind: archive
+    extract_to: donors/original/simple_mutual_coupling
+
+  - id: intermediate_v50
+    article: https://www.pscad.com/knowledge-base/article/808
+    url: https://www.pscad.com/knowledge-base/download/v50intermediate.zip
+    filename: v50intermediate.zip
+    sha256: 2f29405bec6c2a84db3601473a01ad49c7fec1b7892a48dbb0d7c8a22cd70df9
+    kind: archive
+    extract_to: donors/original/intermediate_v50
