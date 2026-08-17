@@ -1,187 +1,39 @@
-@testsnippet simplify_fixtures begin
-    # Aliases
-    const LM = LineCableModels
-    const DM = LM.DataModel
-    const MAT = LM.Materials
-    using Measurements: measurement
+@testitem "DataModel / equivalent and nonsensify / geometry-preserving reconstruction" tags=[:unit] setup=[
+    DataModelTestSupport,
+    UseDataModelSupport,
+    TestFixtures
+] begin
+    source=TestFixtures.mv_cable_design()
+    flattened=equivalent(source)
+    simplified=LineCableModels.DataModel.nonsensify(source)
 
-    # Basic materials
-    copper_props = MAT.Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
-    xlpe_props = MAT.Material(1e10, 2.3, 1.0, 20.0, 0.0)
-    semi_props = MAT.Material(1e3, 2.6, 1.0, 20.0, 0.0)
+    @test flattened.cable_id == source.cable_id*"_equivalent"
+    @test simplified.cable_id == source.cable_id*"_nonsense"
+    @test length(flattened.components) == length(source.components)
+    @test length(simplified.components) == length(source.components)
+    @test flattened.nominal_data === source.nominal_data
+    @test simplified.nominal_data === source.nominal_data
+    @test validate(flattened) === flattened
+    @test validate(simplified) === simplified
 
-    # Geometry helpers
-    d_wire = 3e-3
-    rin0 = 0.0
-
-    function make_conductor_group()
-        core = DM.CircStrands(rin0, d_wire / 2, 1, 0.0, copper_props)
-        g = DM.ConductorGroup(core)
-        add!(g, DM.CircStrands, d_wire / 2, 6, 10.0, copper_props)
-        add!(g, DM.Strip, 0.02, 8.0, copper_props; thickness = 0.5e-3)
-        add!(g, DM.Tubular, copper_props; thickness = 0.8e-3)
-        g
+    for (original, reduced, plain) in zip(
+        source.components,
+        flattened.components,
+        simplified.components
+    )
+        @test length(reduced.conductor_group.layers) == 1
+        @test length(reduced.insulator_group.layers) == 1
+        @test length(plain.conductor_group.layers) == 1
+        @test length(plain.insulator_group.layers) == 1
+        @test reduced.conductor_group.r_in == original.conductor_group.r_in
+        @test reduced.conductor_group.r_ex == original.conductor_group.r_ex
+        @test reduced.insulator_group.r_ex == original.insulator_group.r_ex
+        @test reduced.conductor_props.rho ≈ original.conductor_props.rho
+        @test reduced.insulator_props.eps_r ≈ original.insulator_props.eps_r
+        @test plain.conductor_group.r_in == original.conductor_group.r_in
+        @test plain.insulator_group.r_ex == original.insulator_group.r_ex
     end
 
-    function make_insulator_group(conductor_group)
-        ins1 = DM.Insulator(conductor_group.r_ex, xlpe_props; thickness = 2.0e-3)
-        ig = DM.InsulatorGroup(ins1)
-        add!(ig, DM.Semicon, semi_props; thickness = 0.8e-3)
-        add!(ig, DM.Insulator, xlpe_props; thickness = 2.0e-3)
-        ig
-    end
-
-    function make_component(id::AbstractString)
-        g = make_conductor_group()
-        ig = make_insulator_group(g)
-        DM.CableComponent(String(id), g, ig)
-    end
-
-    function make_design(id::AbstractString; ncomponents::Int = 1)
-        comps = [make_component(n == 1 ? "core" : "comp$(n)") for n in 1:ncomponents]
-        des = DM.CableDesign(String(id), comps[1])
-        for c in comps[2:end]
-            add!(des, c.id, c.conductor_group, c.insulator_group)
-        end
-        des
-    end
-end
-
-@testitem "DataModel / equivalent / simplification contracts" tags=[:unit] setup=[
-    DataModelTestSupport, UseDataModelSupport, TestNumerics, TestFixtures, MaterialFixtures, simplify_fixtures] begin
-    const DM=LineCableModels.DataModel
-
-    @testset "Input Validation" begin
-        des = make_design("CAB-V-0")
-
-        # Missing required positional argument
-        @test_throws MethodError DM.equivalent()
-
-        # Invalid first argument type
-        @test_throws MethodError DM.equivalent(42)
-
-        # Invalid keyword type for new_id
-        @test_throws TypeError DM.equivalent(des; new_id = 123)
-    end
-
-    @testset "Basic Functionality" begin
-        des = make_design("CAB-BASIC"; ncomponents = 2)
-        des_s = DM.equivalent(des)
-
-        @test des_s isa DM.CableDesign
-        @test des_s.cable_id == "CAB-BASIC_equivalent"
-        @test length(des_s.components) == length(des.components)
-
-        # Geometry continuity: outer radius preserved by equivalence
-        for (orig, simp) in zip(des.components, des_s.components)
-            @test simp.conductor_group.r_in ≈ orig.conductor_group.r_in atol = TestNumerics.absolute_floor(Float64)
-            @test simp.conductor_group.r_ex ≈ orig.conductor_group.r_ex atol = TestNumerics.absolute_floor(Float64)
-            @test simp.insulator_group.r_ex ≈ orig.insulator_group.r_ex atol = TestNumerics.absolute_floor(Float64)
-            @test simp.id == orig.id
-        end
-
-        # new_id override
-        des_s2 = DM.equivalent(des; new_id = "CAB-SIMPLE")
-        @test des_s2.cable_id == "CAB-SIMPLE"
-    end
-
-    @testset "Equivalence Preservation" begin
-        # The simplified design must preserve the component-equivalent properties
-        des = make_design("CAB-EQ"; ncomponents = 2)
-        des_s = DM.equivalent(des)
-
-        for (orig, simp) in zip(des.components, des_s.components)
-            # Compare equivalent material properties (conductor)
-            @test simp.conductor_props.rho ≈ orig.conductor_props.rho atol = TestNumerics.absolute_floor(Float64)
-            @test simp.conductor_props.eps_r ≈ orig.conductor_props.eps_r atol = TestNumerics.absolute_floor(Float64)
-            @test simp.conductor_props.mu_r ≈ orig.conductor_props.mu_r atol = TestNumerics.absolute_floor(Float64)
-            @test simp.conductor_props.T0 ≈ orig.conductor_props.T0 atol = TestNumerics.absolute_floor(Float64)
-            @test simp.conductor_props.alpha ≈ orig.conductor_props.alpha atol = TestNumerics.absolute_floor(Float64)
-
-            # Compare equivalent material properties (insulator)
-            @test simp.insulator_props.rho ≈ orig.insulator_props.rho atol = TestNumerics.absolute_floor(Float64)
-            @test simp.insulator_props.eps_r ≈ orig.insulator_props.eps_r atol = TestNumerics.absolute_floor(Float64)
-            @test simp.insulator_props.mu_r ≈ orig.insulator_props.mu_r atol = TestNumerics.absolute_floor(Float64)
-            @test simp.insulator_props.T0 ≈ orig.insulator_props.T0 atol = TestNumerics.absolute_floor(Float64)
-            @test simp.insulator_props.alpha ≈ orig.insulator_props.alpha atol = TestNumerics.absolute_floor(Float64)
-
-            # Compare group lumped parameters (should be preserved by construction)
-            @test simp.conductor_group.resistance ≈ orig.conductor_group.resistance atol = TestNumerics.absolute_floor(Float64)
-            @test simp.conductor_group.gmr ≈ orig.conductor_group.gmr atol = TestNumerics.absolute_floor(Float64)
-            @test simp.insulator_group.shunt_capacitance ≈
-                  orig.insulator_group.shunt_capacitance atol = TestNumerics.absolute_floor(Float64)
-            @test simp.insulator_group.shunt_conductance ≈
-                  orig.insulator_group.shunt_conductance atol = TestNumerics.absolute_floor(Float64)
-        end
-    end
-
-    @testset "Edge Cases" begin
-        # Use Measurement geometry to ensure robustness with promoted numeric types
-        des = make_design("CAB-EDGE")
-        desM = DM.CableDesign(
-            "CAB-EDGE-M",
-            DM.CableComponent(
-                des.components[1].id,
-                DM.coerce_to_T(
-                    des.components[1].conductor_group,
-                    Measurements.Measurement{Float64}
-                ),
-                DM.coerce_to_T(
-                    des.components[1].insulator_group,
-                    Measurements.Measurement{Float64}
-                )
-            )
-        )
-
-        des_sM = DM.equivalent(desM)
-        @test typeof(des_sM.components[1].conductor_group.r_in) <:
-              Measurements.Measurement
-        @test typeof(des_sM.components[1].conductor_group.r_ex) <:
-              Measurements.Measurement
-        @test typeof(des_sM.components[1].insulator_group.r_in) <:
-              Measurements.Measurement
-        @test typeof(des_sM.components[1].insulator_group.r_ex) <:
-              Measurements.Measurement
-    end
-
-    @testset "Physical Behavior" begin
-        des = make_design("CAB-PHYS")
-        des_s = DM.equivalent(des)
-        for comp in des_s.components
-            @test comp.conductor_props.rho > 0
-            @test comp.conductor_group.gmr > 0
-            @test comp.insulator_props.eps_r > 0
-            @test comp.insulator_group.shunt_capacitance > 0
-        end
-    end
-
-    @testset "Type Stability & Promotion" begin
-        des = make_design("CAB-TYPES")
-        cF = des.components[1]
-
-        # Base: Float64 -> Float64
-        desF = DM.CableDesign("CAB-F", cF)
-        sF = DM.equivalent(desF)
-        @test eltype([sF.components[1].conductor_group.r_in]) == Float64
-
-        # Fully promoted: Measurement -> Measurement
-        gM = DM.coerce_to_T(cF.conductor_group, Measurements.Measurement{Float64})
-        igM = DM.coerce_to_T(cF.insulator_group, Measurements.Measurement{Float64})
-        desM = DM.CableDesign("CAB-M", DM.CableComponent("coreM", gM, igM))
-        sM = DM.equivalent(desM)
-        @test typeof(sM.components[1].conductor_group.r_in) <: Measurements.Measurement
-        @test typeof(sM.components[1].insulator_group.r_ex) <:
-              Measurements.Measurement
-
-        # Mixed cases
-        desC = DM.CableDesign("CAB-C", DM.CableComponent("c1", gM, cF.insulator_group))
-        sC = DM.equivalent(desC)
-        @test typeof(sC.components[1].conductor_group.r_in) <: Measurements.Measurement
-        @test typeof(sC.components[1].insulator_group.r_in) <: Measurements.Measurement
-
-        desI = DM.CableDesign("CAB-I", DM.CableComponent("c2", cF.conductor_group, igM))
-        sI = DM.equivalent(desI)
-        @test typeof(sI.components[1].conductor_group.r_in) <: Measurements.Measurement
-        @test typeof(sI.components[1].insulator_group.r_in) <: Measurements.Measurement
-    end
+    @test equivalent(source; new_id = "flat").cable_id == "flat"
+    @test LineCableModels.DataModel.nonsensify(source; new_id = "plain").cable_id == "plain"
 end

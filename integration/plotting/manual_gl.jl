@@ -66,7 +66,7 @@ set_backend!(:gl)
     Makie.toggle_visibility!(entry)
     @test any(
         plot_object -> !plot_object.visible[],
-        Iterators.flatten(panel.plots for panel in handle.panels),
+        Iterators.flatten(panel.plots for panel in handle.panels)
     )
     Makie.toggle_visibility!(entry)
 

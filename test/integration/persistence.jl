@@ -1,177 +1,102 @@
-@testitem "ImportExport / CablesLibrary / JSON and Julia round trips" tags=[:integration] setup=[
+@testitem "ImportExport / CablesLibrary / versioned JSON and trusted JLS" tags=[:integration] setup=[
     EngineTestSupport,
     UseEngineSupport,
-    TestFixtures,
-    TestAssertions
+    TestFixtures
 ] begin
     design=TestFixtures.mv_cable_design()
     library=CablesLibrary()
     add!(library, design)
-    reference_constants=compute!(CableConstantsProblem(design), Formulation())
+    reference=compute!(CableConstantsProblem(design), Formulation())
 
     mktempdir() do directory
         for extension in ("json", "jls")
             destination=joinpath(directory, "cables.$extension")
-            saved_path=@test_logs (:info, r"Cables library saved") save(
-                library;
-                file_name = destination
-            )
-            @test saved_path == destination
-            @test isfile(saved_path)
-            @test filesize(saved_path) > 0
+            @test save(library; file_name = destination) == destination
+            @test isfile(destination)
+            @test filesize(destination) > 0
 
             restored=CablesLibrary()
-            @test_logs (:info, r"loaded|loading") match_mode = :any load!(
-                restored;
-                file_name = saved_path
-            )
+            @test load!(restored; file_name = destination) === restored
             @test collect(keys(restored)) == collect(keys(library))
-
             restored_design=restored[design.cable_id]
             @test restored_design !== design
-            @test restored_design.cable_id == design.cable_id
-            @test length(restored_design.components) == length(design.components)
             @test compute!(CableConstantsProblem(restored_design), Formulation()) ==
-                  reference_constants
+                  reference
         end
     end
 end
 
-@testitem "ImportExport / CablesLibrary / malformed and missing inputs" tags=[:integration] setup=[
-    EngineTestSupport,
-    UseEngineSupport
-] begin
-    mktempdir() do directory
-        library=CablesLibrary()
-        @test_throws ErrorException load!(
-            library;
-            file_name = joinpath(directory, "missing.json")
-        )
-
-        malformed=joinpath(directory, "malformed.json")
-        write(malformed, "{not valid json")
-        returned=redirect_stderr(devnull) do
-            @test_logs (:error, r"Error loading CablesLibrary") match_mode = :any load!(
-                library;
-                file_name = malformed
-            )
-        end
-        @test returned === library
-        @test isempty(library.data)
-
-        unsupported=joinpath(directory, "library.unsupported")
-        write(unsupported, "fixture")
-        returned=redirect_stderr(devnull) do
-            @test_logs (
-                :warn,
-                r"Unrecognized file extension"
-            ) (:error, r"Error loading CablesLibrary") match_mode = :any load!(
-                library;
-                file_name = unsupported
-            )
-        end
-        @test returned === library
-        @test isempty(library.data)
-    end
-end
-
-@testitem "ImportExport / CablesLibrary / format dispatch and partial recovery" tags=[:integration] setup=[
+@testitem "ImportExport / CablesLibrary / failures are atomic" tags=[:integration] setup=[
     EngineTestSupport,
     UseEngineSupport,
     TestFixtures
 ] begin
     using JSON3
-    using Logging
     using Serialization
+    import LineCableModels.ImportExport as IE
 
+    library=CablesLibrary()
     design=TestFixtures.mv_cable_design()
-    source=CablesLibrary()
-    add!(source, design)
+    add!(library, design)
 
     mktempdir() do directory
-        fallback_request=joinpath(directory, "library.archive")
-        fallback_path=@test_logs (
-            :warn,
-            r"Unrecognized file extension"
-        ) (:info, r"saved") save(source; file_name = fallback_request)
-        @test fallback_path == fallback_request * ".json"
-        @test isfile(fallback_path)
-
-        failed_save=redirect_stderr(devnull) do
-            @test_logs (:error, r"Error saving CablesLibrary") save(
-                source;
-                file_name = joinpath(directory, "absent", "library.json")
-            )
+        function unchanged_after(path)
+            before=library.data
+            exception=try
+                load!(library; file_name = path)
+                nothing
+            catch caught
+                caught
+            end
+            @test exception !== nothing
+            @test library.data === before
+            @test library[design.cable_id] === design
+            return exception
         end
-        @test failed_save === nothing
 
-        canonical=joinpath(directory, "canonical.json")
-        @test_logs (:info, r"saved") save(source; file_name = canonical)
-        parsed=JSON3.read(read(canonical, String), Dict{String, Any})
-        direct=joinpath(directory, "direct.json")
-        open(direct, "w") do io
-            JSON3.pretty(io, parsed["data"])
+        @test unchanged_after(joinpath(directory, "missing.json")) isa ArgumentError
+
+        malformed=joinpath(directory, "malformed.json")
+        write(malformed, "{not valid json")
+        @test unchanged_after(malformed) isa Exception
+
+        unsupported=joinpath(directory, "library.unsupported")
+        write(unsupported, "fixture")
+        @test unchanged_after(unsupported) isa ArgumentError
+
+        invalid_jls=joinpath(directory, "invalid.jls")
+        serialize(invalid_jls, 42)
+        @test unchanged_after(invalid_jls) isa ArgumentError
+
+        invalid_document=IE._json_document(library)
+        invalid_document["cables"][design.cable_id]["type"]="Material"
+        invalid_json=joinpath(directory, "invalid-entry.json")
+        open(invalid_json, "w") do io
+            JSON3.pretty(io, invalid_document)
         end
-        restored=CablesLibrary()
-        @test_logs match_mode = :any (
-            :info,
-            r"Assuming top-level JSON"
-        ) (:info, r"Successfully loaded") load!(restored; file_name = direct)
-        @test haskey(restored, design.cable_id)
+        @test unchanged_after(invalid_json) isa ArgumentError
 
-        invalid_binary=joinpath(directory, "invalid.jls")
-        serialize(invalid_binary, 42)
-        @test_logs (:error, r"Invalid data format") load!(
-            restored;
-            file_name = invalid_binary
+        wrong_schema=IE._json_document(library)
+        wrong_schema["schema"]="LineCableModels.MaterialsLibrary"
+        schema_path=joinpath(directory, "wrong-schema.json")
+        open(schema_path, "w") do io
+            JSON3.pretty(io, wrong_schema)
+        end
+        @test unchanged_after(schema_path) isa ArgumentError
+
+        legacy=joinpath(directory, "legacy.json")
+        write(legacy, "{\"data\":{}}")
+        before=library.data
+        @test_logs (:warn, r"Unversioned LineCableModels JSON is retired") begin
+            @test_throws ArgumentError load!(library; file_name = legacy)
+        end
+        @test library.data === before
+
+        @test_throws ArgumentError save(
+            library; file_name = joinpath(directory, "cables.archive")
         )
-        @test haskey(restored, design.cable_id)
-
-        unreadable_binary=joinpath(directory, "unreadable.jls")
-        write(unreadable_binary, UInt8[])
-        returned=redirect_stderr(devnull) do
-            @test_logs (:error, r"Error loading CablesLibrary") load!(
-                restored;
-                file_name = unreadable_binary
-            )
-        end
-        @test returned === restored
-
-        unrecognizable=joinpath(directory, "unrecognizable.json")
-        write(unrecognizable, "{\"metadata\": 3}")
-        @test_logs (:error, r"does not contain a recognizable") load!(
-            restored;
-            file_name = unrecognizable
+        @test_throws SystemError save(
+            library; file_name = joinpath(directory, "absent", "cables.json")
         )
-        @test isempty(restored.data)
-
-        partial=joinpath(directory, "partial.json")
-        open(partial, "w") do io
-            JSON3.pretty(io, Dict("data"=>Dict("bad-entry"=>3)))
-        end
-        @test_logs match_mode = :any (
-            :warn,
-            r"Skipping entry 'bad-entry'"
-        ) (:info, r"failed to load 1") load!(restored; file_name = partial)
-        @test isempty(restored.data)
-
-        broken_design=joinpath(directory, "broken-design.json")
-        open(broken_design, "w") do io
-            JSON3.pretty(io, Dict(
-                "data"=>Dict(
-                "broken"=>Dict(
-                "nominal_data"=>3,
-                "components"=>Any[]
-            ),
-            ),
-            ))
-        end
-        redirect_stderr(devnull) do
-            @test_logs match_mode = :any (
-                :error,
-                r"Failed to reconstruct cable design"
-            ) (:info, r"failed to load 1") load!(restored; file_name = broken_design)
-        end
-        @test isempty(restored.data)
     end
 end

@@ -1,216 +1,46 @@
-@testsnippet defs_con_group begin
-    # Reference geometry and helpers reused across tests
-    # Materials come from `TestFixtures, MaterialFixtures` (e.g., `copper_props`, `materials`)
-    using Measurements
-
-    const rad_wire0 = 0.0015           # 1.5 mm wire radius
-    const lay_ratio0 = 12.0            # arbitrary, > 0
-
-    # A fresh single‑wire core (center conductor)
-    make_core_group() = ConductorGroup(
-        CircStrands(
-        0.0,
-        rad_wire0,
-        1,
-        0.0,
-        copper_props;
-        temperature = 20.0,
-        lay_direction = 1
-    ),
+@testitem "DataModel / ConductorGroup / strict atomic insertion" tags=[:unit] setup=[
+    DataModelTestSupport,
+    UseDataModelSupport,
+    TestFixtures,
+    MaterialFixtures
+] begin
+    first_layer=Tubular(0.0, 0.005, copper_props)
+    second_layer=Tubular(0.005, 0.006, copper_props)
+    group=ConductorGroup(first_layer)
+    expected_resistance=parallel(first_layer.resistance, second_layer.resistance)
+    expected_alpha=equivalent_alpha(
+        group.alpha,
+        group.resistance,
+        second_layer.material_props.alpha,
+        second_layer.resistance
     )
 
-    # Convenience: a Float64 Tubular sleeve over the given inner radius
-    make_tubular_over(rin, t, mat) = Tubular(rin, mat; thickness = t, temperature = 20.0)
+    @test add!(group, second_layer) === group
+    @test length(group.layers) == 2
+    @test group.r_in == 0.0
+    @test group.r_ex == 0.006
+    @test group.resistance ≈ expected_resistance
+    @test group.alpha ≈ expected_alpha
+    @test validate(group) === group
 
-    # Measurement helpers
-    m(x, u) = measurement(x, u)
-end
+    snapshot=deepcopy(group)
+    @test_throws DomainError add!(group, Tubular(0.007, 0.008, copper_props))
+    @test group.r_ex == snapshot.r_ex
+    @test length(group.layers) == length(snapshot.layers)
 
-@testitem "DataModel / ConductorGroup.add! / unit tests" tags=[:unit] setup=[
-    DataModelTestSupport, UseDataModelSupport, TestNumerics, TestFixtures, MaterialFixtures, defs_con_group] begin
-    using Measurements
+    material32=convert(Material{Float32}, copper_props)
+    layer32=Tubular(Float32(0.006), Float32(0.007), material32)
+    @test_throws ArgumentError add!(group, layer32)
+    @test group.r_ex == snapshot.r_ex
 
-    @testset "Input Validation (wrapper triggers validate!)" begin
-        g = make_core_group()
+    different_reference=Material(1.7241e-8, 1.0, 1.0, 25.0, 0.00393)
+    @test_throws ArgumentError add!(
+        group,
+        Tubular(group.r_ex, 0.007, different_reference)
+    )
 
-        # Missing required args for CircStrands (radius_wire, num_wires, lay_ratio, material)
-        @test_throws ArgumentError add!(g, CircStrands)
-        @test_throws ArgumentError add!(g, CircStrands, rad_wire0)
-        @test_throws ArgumentError add!(g, CircStrands, rad_wire0, 6)
-        @test_throws ArgumentError add!(g, CircStrands, rad_wire0, 6, lay_ratio0)
-
-        # Invalid types forwarded to part validator
-        @test_throws ArgumentError add!(g, CircStrands, "bad", 6, lay_ratio0, copper_props)
-        @test_throws ArgumentError add!(
-            g,
-            CircStrands,
-            rad_wire0,
-            "bad",
-            lay_ratio0,
-            copper_props
-        )
-        @test_throws ArgumentError add!(g, CircStrands, rad_wire0, 6, "bad", copper_props)
-        @test_throws ArgumentError add!(
-            g,
-            CircStrands,
-            rad_wire0,
-            6,
-            lay_ratio0,
-            "not_a_material"
-        )
-
-        # Out of range / geometry violations caught by rules
-        @test_throws ArgumentError add!(
-            g,
-            CircStrands,
-            -rad_wire0,
-            6,
-            lay_ratio0,
-            copper_props
-        )
-        @test_throws ArgumentError add!(g, CircStrands, 0.0, 6, lay_ratio0, copper_props)  # radius_wire > 0
-        @test_throws ArgumentError add!(
-            g,
-            CircStrands,
-            rad_wire0,
-            0,
-            lay_ratio0,
-            copper_props
-        ) # num_wires > 0
-
-        # Unknown keyword should be rejected by sanitize/keyword_fields policy (if enforced upstream)
-        # NOTE: If this currently passes, add rejection in `sanitize` for unknown keywords.
-        @test_throws ArgumentError add!(
-            g,
-            CircStrands,
-            rad_wire0,
-            6,
-            lay_ratio0,
-            copper_props;
-            not_a_kw = 1
-        )
-    end
-
-    @testset "Basic Functionality (Float64)" begin
-        g = make_core_group()
-        @test g isa ConductorGroup
-        @test length(g.layers) == 1
-        @test g.r_in == 0.0
-        @test g.r_ex ≈ rad_wire0 atol = TestNumerics.absolute_floor(Float64)
-
-        # Add another wire layer by radius; r_in DataModelTestSupport, UseDataModelSupport, TestNumerics to g.r_ex.
-        d_w = 2 * rad_wire0
-        g = add!(g, CircStrands, d_w / 2, 6, 15.0, copper_props)  # lay_direction DataModelTestSupport, UseDataModelSupport, TestNumerics to 1
-        @test g isa ConductorGroup
-        @test length(g.layers) == 2
-        @test g.layers[end] isa CircStrands
-        @test g.layers[end].lay_direction == 1  # came from keyword_defaults for CircStrands
-
-        # Geometry stacks outward and resistance decreases (parallel)
-        @test g.r_ex > rad_wire0
-        @test g.resistance < g.layers[1].resistance
-
-        # Add an outer tubular sleeve by named thickness.
-        outer_before = g.r_ex
-        g = add!(g, Tubular, copper_props; thickness = 0.002)  # temperature default from keyword_defaults(Tubular)
-        @test g.layers[end] isa Tubular
-        @test g.r_ex ≈ outer_before + 0.002 atol = TestNumerics.absolute_floor(Float64)
-    end
-
-    @testset "Edge Cases" begin
-        # Very thin sleeve
-        g = make_core_group()
-        outer0 = g.r_ex
-        g = add!(g, Tubular, copper_props; thickness = 1e-6)
-        @test g.r_ex ≈ outer0 + 1e-6 atol = TestNumerics.absolute_floor(Float64)
-
-        # CircStrands with lay_ratio very small but positive
-        g = make_core_group()
-        g = add!(g, CircStrands, rad_wire0, 3, 1e-6, copper_props)
-        @test g.layers[end] isa CircStrands
-    end
-
-    @testset "Physical Behavior" begin
-        g = make_core_group()
-        # Add two conductor layers: resistance should drop further
-        R0 = g.resistance
-        g = add!(g, CircStrands, rad_wire0, 6, 10.0, copper_props)
-        R1 = g.resistance
-        g = add!(g, CircStrands, rad_wire0, 12, 10.0, copper_props)
-        R2 = g.resistance
-        @test R1 < R0
-        @test R2 < R1
-
-        # Cross-section should be monotone increasing
-        @test g.cross_section > 0
-        cs = [p.cross_section
-              for
-              p in g.layers if p isa LineCableModels.DataModel.AbstractConductorPart]
-        @test all(>(0), cs)
-    end
-
-    @testset "Type Stability & Promotion (group)" begin
-        # Base: purely Float64 group
-        gF = make_core_group()
-        @test eltype(gF) == Float64
-        @test typeof(gF.r_ex) == Float64
-
-        # Promote by adding a Measurement argument (e.g., temperature)
-        gF_before_id = objectid(gF)
-        gP = @test_logs (:warn, r"promoted") add!(
-            gF,
-            CircStrands,
-            rad_wire0,
-            6,
-            10.0,
-            copper_props;
-            temperature = m(20.0, 0.1)
-        )
-        @test gP !== gF                     # returned a promoted group
-        @test eltype(gP) <: Measurement
-        @test typeof(gP.r_ex) <: Measurement
-        # Original left intact
-        @test objectid(gF) == gF_before_id
-        @test length(gF.layers) == 1
-
-        # In‑place when already Measurement
-        gM = LineCableModels.DataModel.coerce_to_T(make_core_group(), Measurement{Float64})
-        id_before = objectid(gM)
-        gM2 = add!(gM, CircStrands, m(rad_wire0, 1e-6), 6, 10.0, copper_props)
-        @test gM2 === gM                    # mutated in place
-        @test objectid(gM) == id_before
-        @test eltype(gM) <: Measurement
-    end
-
-    @testset "Combinatorial Type Testing (constructor path of added part)" begin
-        # All Float64
-        g = make_core_group()
-        g1 = add!(g, CircStrands, rad_wire0, 6, 10.0, copper_props)
-        @test eltype(g1) == Float64
-
-        # All Measurement (radius_wire, lay_ratio, temperature)
-        g = make_core_group()
-        g2 = @test_logs (:warn, r"promoted") add!(
-            g,
-            CircStrands,
-            m(rad_wire0, 1e-6),
-            6,
-            m(10.0, 0.1),
-            copper_props;
-            temperature = m(20.0, 0.1)
-        )
-        @test eltype(g2) <: Measurement
-
-        # Mixed case A: first numeric arg is Measurement
-        g = make_core_group()
-        g3 = @test_logs (:warn, r"promoted") add!(
-            g, CircStrands, m(rad_wire0, 1e-6), 6, 10.0, copper_props)
-        @test eltype(g3) <: Measurement
-
-        # Mixed case B: middle arg (lay_ratio) is Measurement
-        g = make_core_group()
-        g4 = @test_logs (:warn, r"promoted") add!(
-            g, CircStrands, rad_wire0, 6, m(10.0, 0.1), copper_props)
-        @test eltype(g4) <: Measurement
-    end
+    converted=convert(ConductorGroup{Float32}, group)
+    @test converted isa ConductorGroup{Float32}
+    @test converted !== group
+    @test convert(ConductorGroup{Float64}, group) === group
 end

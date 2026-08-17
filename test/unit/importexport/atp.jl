@@ -43,7 +43,7 @@ end
         @test parse(
             Float64,
             findfirst("data[@Name='Grnd resis']", comp_content_node)["Value"]
-        ) ≈ problem_atp.earth_props.layers[end].base_rho_g
+        ) ≈ problem_atp.earth_props.layers[end].rho
 
         # 4. ASSERT: Detailed validation of ALL cables and conductors
         lcc_node=findfirst("/project/objects/comp/LCC", root_node)

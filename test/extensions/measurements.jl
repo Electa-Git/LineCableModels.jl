@@ -5,15 +5,10 @@
     import LineCableModels
 
     @test Base.get_extension(LineCableModels, :LineCableModelsMeasurementsExt) === nothing
-    utils=LineCableModels.Utils
-    @test_throws ArgumentError utils.percent_to_uncertain(10.0, 5.0)
-    @test_throws ArgumentError utils.bias_to_uncertain(10.0, [9.0, 11.0])
-    @test isnan(utils.to_upper(1.0))
-    @test isnan(utils.to_lower(1.0))
-    @test isnan(utils.percent_error(1.0))
-    @test utils.to_nominal(1.0) == 1.0
-    @test utils.uncertainty_value(1.0) == 0.0
-    @test utils.to_certain(1.0) == 1.0
+    @test !isdefined(LineCableModels, :Utils)
+    @test LineCableModels.nominal(1.0) == 1.0
+    @test LineCableModels.nominal(1.0 + 2.0im) == 1.0 + 2.0im
+    @test LineCableModels.standard_uncertainty(1.0) == 0.0
 
     encoded_measurement=Dict(
         "__type__"=>"Measurement",
@@ -25,38 +20,28 @@
     )
 end
 
-@testitem "Utils / Measurements / covariance-preserving coercion" tags=[:extension] setup=[
+@testitem "Measurements / natural promotion preserves covariance" tags=[:extension] setup=[
     DataModelTestSupport, UseDataModelSupport, TestNumerics] begin
     using Measurements
     import Measurements: derivative
 
-    @testset "Exact-type coercion is an identity operation" begin
+    @testset "Owned constructors preserve primitive dependencies" begin
         x = measurement(2.0, 0.1)
-        y = 3x
+        material = Material(x, 1.0f0, 1, 20, 0.004)
 
-        @test coerce_to_T(x, typeof(x)) === x
-        @test coerce_to_T(y, typeof(y)) === y
-        @test derivative(coerce_to_T(y, typeof(y)), x) ≈ 3.0
-    end
-
-    @testset "Inner precision conversion retains the dependency graph" begin
-        x = measurement(2.0, 0.1)
-        y = 3x
-        x32 = coerce_to_T(x, Measurement{Float32})
-        y32 = coerce_to_T(y, Measurement{Float32})
-
-        @test x32.tag == x.tag
-        @test y32.tag == y.tag
-        @test derivative(y32, x32) ≈ Float32(3.0)
+        @test eltype(material) === Measurement{Float64}
+        @test derivative(material.rho, x) ≈ 1.0
+        @test nominal(material.rho) == value(x)
+        @test standard_uncertainty(material.rho) == uncertainty(x)
     end
 
     @testset "Mixed BaseParams calls retain primitive sensitivities" begin
         r_ex = measurement(0.02, 0.001)
         rho = measurement(1.7241e-8, 1.0e-9)
-        R = calc_tubular_resistance(0.0, r_ex, rho, 0.0, 20.0, 20.0)
+        resistance = tubular_resistance(0.0, r_ex, rho, 0.0, 20.0, 20.0)
 
-        @test !iszero(derivative(R, r_ex))
-        @test !iszero(derivative(R, rho))
+        @test !iszero(derivative(resistance, r_ex))
+        @test !iszero(derivative(resistance, rho))
     end
 end
 
@@ -72,20 +57,19 @@ end
     insulation_thickness=measurement(0.01, 0.001)
     semicon_thickness=measurement(0.005, 0.0005)
 
-    core=Tubular(0.0, copper_props; radius = diameter/2)
+    core=Tubular(0.0, diameter/2, copper_props)
     insulators=InsulatorGroup(
-        Insulator(core.r_ex, insulator_props; thickness = insulation_thickness),
+        Insulator(core.r_ex, core.r_ex+insulation_thickness, insulator_props),
     )
 
     @test insulators.r_in === core.r_ex
     @test iszero(uncertainty(core.r_ex - insulators.r_in))
 
-    insulators=add!(
-        insulators,
-        Semicon,
-        semicon_props;
-        thickness = semicon_thickness
-    )
+    insulators=add!(insulators, Semicon(
+        insulators.r_ex,
+        insulators.r_ex+semicon_thickness,
+        semicon_props
+    ))
 
     expected_radius=diameter/2+insulation_thickness+semicon_thickness
     @test value(insulators.r_ex) ≈ value(expected_radius)
@@ -107,7 +91,7 @@ end
     @test derivative(assembled_radius, semicon_thickness) ≈ 1.0
 end
 
-@testitem "Measurements / adapters / uncertainty, persistence, and numerical kernels" tags=[:extension] setup=[
+@testitem "Measurements / external boundaries and numerical kernels" tags=[:extension] setup=[
     EngineTestSupport, UseEngineSupport, TestNumerics] begin
     using Measurements
     using SpecialFunctions
@@ -116,21 +100,11 @@ end
     extension_module=Base.get_extension(LineCableModels, :LineCableModelsMeasurementsExt)
     @test extension_module !== nothing
 
-    uncertain=LineCableModels.Utils.percent_to_uncertain(-20.0, 5.0)
+    uncertain=measurement(-20.0, 1.0)
     @test value(uncertain) == -20.0
     @test uncertainty(uncertain) == 1.0
-    @test LineCableModels.Utils.to_upper(uncertain) == -19.0
-    @test LineCableModels.Utils.to_lower(uncertain) == -21.0
-    @test LineCableModels.Utils.percent_error(uncertain) == -5.0
-    @test LineCableModels.Utils.uncertainty_value(uncertain) == 1.0
-    @test uncertainty(LineCableModels.Utils.to_certain(uncertain)) == 0.0
-
-    biased=LineCableModels.Utils.bias_to_uncertain(
-        12.0,
-        [measurement(10.0, 0.2), measurement(12.0, 0.2)]
-    )
-    @test value(biased) ≈ 11.0
-    @test uncertainty(biased) > 1.0
+    @test LineCableModels.nominal(uncertain) == -20.0
+    @test LineCableModels.standard_uncertainty(uncertain) == 1.0
 
     clipped=LineCableModels.Engine._clip_field(measurement(1.0e-12, 2.0e-12), 1.0e-9)
     @test value(clipped) == 0.0

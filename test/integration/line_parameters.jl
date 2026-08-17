@@ -17,34 +17,44 @@
             temperature_correction = true
         )
     )
-    workspace, parameters=LineCableModels.Engine._compute_with_workspace(
-        problem,
-        formulation,
-        ComputeOptions(store_primitive_matrices = true)
-    )
+    trace=compute!(problem, formulation; inspect = true)
+    parameters=trace.result
 
     @test domain(parameters) === ModalDomain
     @test size(parameters.Z) == (3, 3, 2)
     @test all(isfinite, parameters.Z)
     @test all(isfinite, parameters.Y)
-    @test workspace.Zg !== nothing
-    @test workspace.Pg !== nothing
+    @test trace isa EMTTrace
+    @test trace.frequencies == problem.frequencies
+    @test trace.phase_map == [1, 0, 0, 2, 0, 0, 3, 0, 0]
+    @test trace.cable_map == repeat(1:3; inner = 3)
+    @test size(trace.Zin) == (9, 9, 2)
+    @test size(trace.Pin) == (9, 9, 2)
+    @test size(trace.Z) == (9, 9, 2)
+    @test size(trace.P) == (9, 9, 2)
+    @test size(trace.Zg) == (3, 3, 2)
+    @test size(trace.Pg) == (3, 3, 2)
     for frequency_index in eachindex(problem.frequencies)
         @test TestNumerics.isapprox_scaled(
-            workspace.Zg[:, :, frequency_index],
-            transpose(workspace.Zg[:, :, frequency_index])
+            trace.Zg[:, :, frequency_index],
+            transpose(trace.Zg[:, :, frequency_index])
         )
         @test TestNumerics.isapprox_scaled(
-            workspace.Pg[:, :, frequency_index],
-            transpose(workspace.Pg[:, :, frequency_index])
+            trace.Pg[:, :, frequency_index],
+            transpose(trace.Pg[:, :, frequency_index])
         )
         @test any(!iszero,
-            workspace.Zg[:, :, frequency_index] .-
-            Diagonal(diag(workspace.Zg[:, :, frequency_index])))
+            trace.Zg[:, :, frequency_index] .-
+            Diagonal(diag(trace.Zg[:, :, frequency_index])))
         @test any(!iszero,
-            workspace.Pg[:, :, frequency_index] .-
-            Diagonal(diag(workspace.Pg[:, :, frequency_index])))
+            trace.Pg[:, :, frequency_index] .-
+            Diagonal(diag(trace.Pg[:, :, frequency_index])))
     end
+
+    input=LineCableModels.Engine.EMTInput(problem)
+    LineCableModels.Engine._trace_buffers(Float64, input, false)
+    @test @allocated(LineCableModels.Engine._trace_buffers(Float64, input, false)) == 0
+    @test LineCableModels.Engine._trace_buffers(Float64, input, false) === nothing
 end
 
 @testitem "Engine / solver / bundle-only and singleton reduction policies" tags=[:integration] setup=[
@@ -57,7 +67,7 @@ end
     duplicate_position=CablePosition(design, 0.0, -1.0, duplicate_mapping)
     duplicate_system=LineCableSystem("duplicate-bundle", 500.0, duplicate_position)
     frequencies=[50.0]
-    earth=EarthModel(frequencies, 100.0, 10.0, 1.0)
+    earth=EarthModel(100.0, 10.0, 1.0)
     duplicate_problem=LineParametersProblem(
         duplicate_system;
         earth_props = earth,
@@ -72,11 +82,7 @@ end
             temperature_correction = false
         )
     )
-    duplicate_result=compute!(
-        duplicate_problem,
-        bundle_only;
-        options = ComputeOptions(store_primitive_matrices = false)
-    )
+    duplicate_result=compute!(duplicate_problem, bundle_only)
     @test size(duplicate_result.Z) == (2, 2, 1)
     @test all(isfinite, duplicate_result.Z)
     @test all(isfinite, duplicate_result.Y)

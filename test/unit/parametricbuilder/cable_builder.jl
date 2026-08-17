@@ -149,7 +149,7 @@ end
     @test_throws ArgumentError only(PB.CableBuilder("no-insulator", conductor))
     @test_throws ArgumentError only(PB.CableBuilder("no-conductor", insulation))
 
-    bad_mode=PB.PartBuilder(
+    @test_throws ArgumentError PB.PartSpec(
         Val(:conductor),
         Val(LineCableModels.DataModel.Tubular),
         Val(:unsupported),
@@ -159,9 +159,8 @@ end
         (),
         conductor_material
     )
-    @test_throws ArgumentError PB._resolved_outer_radius(bad_mode, 0.0)
 
-    bad_part=PB.PartBuilder(
+    bad_part=PB.PartSpec(
         Val(:conductor),
         Val(Int),
         Val(:radius),

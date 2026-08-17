@@ -51,60 +51,57 @@
     end
 end
 
-@testitem "ImportExport / MaterialsLibrary / JSON round trip and malformed entries" tags=[:integration] setup=[
+@testitem "ImportExport / MaterialsLibrary / versioned and atomic JSON" tags=[:integration] setup=[
     ImportExportTestSupport,
     UseImportExportSupport
 ] begin
     using JSON3
-    using Logging
+    import LineCableModels.ImportExport as IE
 
     library=MaterialsLibrary(add_defaults = false)
     copper=Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
     add!(library, "copper", copper)
 
     mktempdir() do directory
-        requested=joinpath(directory, "materials.dat")
-        saved=@test_logs (:warn, r"Forcing extension") (:info, r"saved") save(
-            library;
-            file_name = requested
-        )
+        saved=save(library; file_name = joinpath(directory, "materials.json"))
         @test saved == joinpath(directory, "materials.json")
         @test isfile(saved)
 
         restored=MaterialsLibrary(add_defaults = false)
-        @test_logs (:info, r"Loading materials") (:info, r"Successfully loaded") load!(
-            restored;
-            file_name = saved
-        )
+        @test load!(restored; file_name = saved) === restored
         @test collect(keys(restored)) == ["copper"]
         @test restored["copper"] == copper
 
+        @test_throws ArgumentError save(
+            library; file_name = joinpath(directory, "materials.dat")
+        )
         unsupported=joinpath(directory, "materials.txt")
         write(unsupported, "not json")
-        @test_logs (:error, r"only supports") load!(restored; file_name = unsupported)
+        before=restored.data
+        @test_throws ArgumentError load!(restored; file_name = unsupported)
+        @test restored.data === before
         @test haskey(restored, "copper")
-        @test_throws ErrorException load!(
+        @test_throws ArgumentError load!(
             restored;
             file_name = joinpath(directory, "missing.json")
         )
 
-        partial=joinpath(directory, "partial.json")
-        open(partial, "w") do io
-            JSON3.pretty(
-                io,
-                Dict(
-                    "not-a-material"=>3,
-                    "unknown-type"=>Dict("__julia_type__"=>"Missing.Type")
-                )
-            )
+        invalid=IE._json_document(library)
+        invalid["materials"]["copper"]["type"]="CableDesign"
+        invalid_path=joinpath(directory, "invalid.json")
+        open(invalid_path, "w") do io
+            JSON3.pretty(io, invalid)
         end
-        redirect_stderr(devnull) do
-            @test_logs (:warn, r"Skipping material") min_level=Logging.Warn match_mode=:any load!(
-                restored;
-                file_name = partial
-            )
+        before=restored.data
+        @test_throws ArgumentError load!(restored; file_name = invalid_path)
+        @test restored.data === before
+
+        legacy=joinpath(directory, "legacy.json")
+        write(legacy, "{\"copper\":{}}")
+        @test_logs (:warn, r"Unversioned LineCableModels JSON is retired") begin
+            @test_throws ArgumentError load!(restored; file_name = legacy)
         end
-        @test isempty(restored)
+        @test restored.data === before
     end
 end
 
@@ -166,7 +163,7 @@ end
                                          take_complex_list
 
     system=TestFixtures.three_phase_system()
-    homogeneous=EarthModel([50.0, 500.0], 100.0, 10.0, 1.0)
+    homogeneous=EarthModel(100.0, 10.0, 1.0)
 
     mktempdir() do directory
         exported=@test_logs (:info, r"TRALIN file saved") export_data(
@@ -179,13 +176,13 @@ end
         @test basename(exported) == "tr_case.f05"
         text=read(exported, String)
         @test occursin("RUN-IDENTIFICATION,$(system.system_id)", text)
-        @test occursin("UNIFORM,100.0,1,1", text)
+        @test occursin("UNIFORM,100.0,1.0,10.0", text)
         @test length(collect(eachmatch(r"FREQUENCY", text))) == 2
         @test count(line -> startswith(line, "GROUP,PH-"), readlines(exported)) == 3
         @test all(label -> occursin(label, text), ("CORE,", "SHEATH,", "ARMOUR,"))
 
-        layered=EarthModel([50.0], 80.0, 8.0, 1.0; t = 4.0)
-        add!(layered, [50.0], 300.0, 12.0, 1.0; t = Inf)
+        layered=EarthModel(80.0, 8.0, 1.0; thickness = 4.0)
+        add!(layered, EarthLayer(300.0, 12.0, 1.0))
         layered_path=export_data(
             :tralin,
             system,
@@ -197,16 +194,10 @@ end
         @test occursin("LAYER,TOP,80.0,4.0,1.0,8.0", layered_text)
         @test occursin("LAYER,BOTTOM,300.0,,1.0,12.0", layered_text)
 
-        oversized_design=deepcopy(TestFixtures.mv_cable_design())
-        extra=deepcopy(last(oversized_design.components))
-        push!(oversized_design.components, extra)
-        oversized_position=CablePosition{Float64}(
-            oversized_design,
-            0.0,
-            -1.0,
-            [1, 0, 0, 0]
-        )
-        oversized_system=LineCableSystem("oversized", 1000.0, oversized_position)
+        oversized_system=deepcopy(system)
+        extra=deepcopy(last(first(oversized_system.cables).design_data.components))
+        push!(first(oversized_system.cables).design_data.components, extra)
+        push!(first(oversized_system.cables).conn, 0)
         @test_throws ArgumentError export_data(
             :tralin,
             oversized_system,
@@ -214,13 +205,8 @@ end
             file_name = joinpath(directory, "oversized.f05")
         )
 
-        short_position=CablePosition{Float64}(
-            TestFixtures.mv_cable_design(),
-            0.0,
-            -1.0,
-            [1]
-        )
-        short_system=LineCableSystem("short-mapping", 1000.0, short_position)
+        short_system=deepcopy(system)
+        resize!(first(short_system.cables).conn, 1)
         @test_throws ArgumentError export_data(
             :tralin,
             short_system,

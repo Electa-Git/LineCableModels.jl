@@ -1,5 +1,4 @@
 @testitem "Extensions / backend dispatch / loaded extension activation" tags=[:extension] begin
-    using Pkg
     import LineCableModels
 
     backends=LineCableModels.PlotBuilder.BackendHandler
@@ -8,8 +7,7 @@
         (:gl, :GLMakie, :LineCableModelsGLMakieExt),
         (:wgl, :WGLMakie, :LineCableModelsWGLMakieExt)
     )
-    active_dependencies=keys(Pkg.project().dependencies)
-    installed=filter(entry->String(entry[2]) in active_dependencies, packages)
+    installed=filter(entry->Base.find_package(String(entry[2])) !== nothing, packages)
 
     if isempty(installed)
         @test backends.current_backend_symbol() === :none

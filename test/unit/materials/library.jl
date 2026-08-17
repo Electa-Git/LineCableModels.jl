@@ -3,8 +3,8 @@
     UseDataModelSupport
 ] begin
     ordinary=Material(Float32(1.7e-8), big"2.3", 1, 20, Float32(0.004))
-    @test ordinary isa Material{Float64}
-    @test eltype(ordinary) === Float64
+    @test ordinary isa Material{BigFloat}
+    @test eltype(ordinary) === BigFloat
 
     converted=convert(Material{Float32}, ordinary)
     @test converted isa Material{Float32}
@@ -34,17 +34,17 @@ end
     @test add!(empty_library, :copper, copper) === empty_library
     @test empty_library["copper"] === copper
     @test collect(keys(empty_library)) == ["copper"]
-    @test_throws ErrorException add!(empty_library, "copper", copper)
+    @test_throws ArgumentError add!(empty_library, "copper", copper)
 
     fallback=Material(Inf, 1.0, 1.0, 20.0, 0.0)
     @test get(empty_library, "missing", fallback) === fallback
-    @test_logs (:warn, r"not found") get(empty_library, "missing")
+    @test get(empty_library, "missing") === nothing
 
-    @test_logs (:info, r"removed") delete!(empty_library, "copper")
+    @test delete!(empty_library, "copper") === empty_library
     @test isempty(empty_library)
-    @test_logs (:error, r"not found") @test_throws KeyError delete!(empty_library, "missing")
+    @test_throws KeyError delete!(empty_library, "missing")
 
-    defaults=@test_logs (:info, r"Initializing default materials") MaterialsLibrary()
+    defaults=MaterialsLibrary()
     @test all(name -> haskey(defaults, name), ("air", "copper", "xlpe", "steel"))
     table=DataFrame(defaults)
     @test nrow(table) == length(defaults)

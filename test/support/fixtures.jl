@@ -44,7 +44,7 @@
 
     function line_parameters_problem(; frequencies = [50.0])
         system = three_phase_system()
-        earth = EarthModel(frequencies, 100.0, 10.0, 1.0)
+        earth = EarthModel(100.0, 10.0, 1.0)
         return LineCableModels.Engine.LineParametersProblem(
             system;
             temperature = 20.0,
@@ -119,5 +119,5 @@ end
     problem_atp = TestFixtures.line_parameters_problem()
     earth_props = problem_atp.earth_props
     freqs = problem_atp.frequencies
-    num_phases = cable_system.num_phases
+    num_phases = LineCableModels.nphases(cable_system)
 end

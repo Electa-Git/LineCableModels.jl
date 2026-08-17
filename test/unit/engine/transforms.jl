@@ -49,7 +49,7 @@ end
     using LinearAlgebra
     const Transforms=LineCableModels.Engine.Transforms
 
-    @test get_description(Transforms.Levenberg()) ==
+    @test description(Transforms.Levenberg()) ==
           "Levenberg–Marquardt (frequency-tracked eigen decomposition)"
     imaginary=ComplexF64[1 + 2im, -3 + 4im]
     @test Transforms.imag!(imaginary) === imaginary
@@ -82,11 +82,11 @@ end
             Diagonal(diag(modal.Y.values[:, :, frequency_index]))) < 1e-12
     end
 
-    gamma=Transforms._calc_gamma(transformation, impedance, admittance)
+    gamma=Transforms.gamma(transformation, impedance, admittance)
     @test size(gamma) == size(impedance)
     @test all(index -> isdiag(gamma[:, :, index]), eachindex(frequencies))
 
-    modal_products=Transforms._calc_modal_quantities(
+    modal_products=Transforms.modal_quantities(
         transformation,
         impedance,
         admittance

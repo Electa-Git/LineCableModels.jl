@@ -2,31 +2,33 @@
     EngineTestSupport,
     UseEngineSupport
 ] begin
-    frequencies=[50.0, 500.0]
-    model=EarthModel(frequencies, 80.0, 8.0, 1.0; t = 4.0)
-    add!(model, frequencies, 300.0, 12.0, 1.0; t = Inf)
+    frequencies=Float32[50, 500]
+    model=EarthModel(80.0f0, 8.0f0, 1.0f0; thickness = 4.0f0)
+    add!(model, EarthLayer(300.0f0, 12.0f0, 1.0f0))
+    evaluated=EarthProperties.evaluate(CPEarth(), model, frequencies)
 
     bottom=EHEM.EnforceLayer()
     top=EHEM.EnforceLayer(layer = 2)
     middle=EHEM.EnforceLayer(layer = 3)
-    @test get_description(bottom) == "Assume bottom layer"
-    @test get_description(top) == "Assume top earth layer"
-    @test get_description(middle) == "Assume layer 3"
+    @test description(bottom) == "Assume bottom layer"
+    @test description(top) == "Assume top earth layer"
+    @test description(middle) == "Assume layer 3"
 
     for (selector, source_index) in ((bottom, 3), (top, 2), (middle, 3))
-        rho, epsilon, mu=selector(model, frequencies, Float32)
+        selected=selector(evaluated, model)
+        rho, epsilon, mu=selected.rho, selected.epsilon, selected.mu
         @test size(rho) == (2, 2)
         @test eltype(rho) === Float32
         @test eltype(epsilon) === Float32
         @test eltype(mu) === Float32
-        @test rho[1, :] == Float32.(model.layers[1].rho_g)
-        @test rho[2, :] == Float32.(model.layers[source_index].rho_g)
-        @test epsilon[2, :] == Float32.(model.layers[source_index].eps_g)
-        @test mu[2, :] == Float32.(model.layers[source_index].mu_g)
+        @test rho[1, :] == fill(model.layers[1].rho, 2)
+        @test rho[2, :] == fill(model.layers[source_index].rho, 2)
+        @test epsilon[2, :] == evaluated.epsilon[source_index, :]
+        @test mu[2, :] == evaluated.mu[source_index, :]
     end
 
-    @test_throws AssertionError EHEM.EnforceLayer(layer = 0)
-    @test_throws ErrorException EHEM.EnforceLayer(layer = 4)(model, frequencies, Float64)
+    @test_throws DomainError EHEM.EnforceLayer(layer = 0)
+    @test_throws BoundsError EHEM.EnforceLayer(layer = 4)(evaluated, model)
 end
 
 @testitem "Engine / insulation formulations / analytical limits across precision" tags=[:unit] setup=[
@@ -38,8 +40,8 @@ end
 
     impedance_formulation=InsulationImpedance.Lossless()
     admittance_formulation=InsulationAdmittance.Lossless()
-    @test get_description(impedance_formulation) == "Lossless insulation (ideal dielectric)"
-    @test get_description(admittance_formulation) ==
+    @test description(impedance_formulation) == "Lossless insulation (ideal dielectric)"
+    @test description(admittance_formulation) ==
           "Lossless insulation (ideal dielectric)"
     reference=TOML.parsefile(joinpath(
         pkgdir(LineCableModels),
@@ -97,7 +99,7 @@ end
     UseEngineSupport
 ] begin
     formulation=InternalImpedance.ScaledBessel()
-    @test get_description(formulation) == "Scaled Bessel (Schelkunoff)"
+    @test description(formulation) == "Scaled Bessel (Schelkunoff)"
 
     r_in=0.005
     r_ex=0.01
@@ -135,9 +137,11 @@ end
 ] begin
     impedance_module=LineCableModels.Engine.EarthImpedance
     admittance_module=LineCableModels.Engine.EarthAdmittance
+    epsilon0=8.8541878128e-12
+    mu0=4π*1.0e-7
     rho=[Inf, 100.0]
-    epsilon=[ε₀, 10ε₀]
-    mu=[μ₀, μ₀]
+    epsilon=[epsilon0, 10epsilon0]
+    mu=[mu0, mu0]
     s=ComplexF64(0.0, 2π*50.0)
 
     impedance_cases=(
@@ -146,9 +150,9 @@ end
         (impedance_module.Carson(), [10.0, 12.0]),
         (impedance_module.Papadopoulos(Γx = 1), [-1.0, -1.2])
     )
-    @test get_description(first(impedance_cases)[1]) == "Papadopoulos"
-    @test get_description(impedance_cases[2][1]) == "Pollaczek"
-    @test get_description(impedance_cases[3][1]) == "Carson"
+    @test description(first(impedance_cases)[1]) == "Papadopoulos"
+    @test description(impedance_cases[2][1]) == "Pollaczek"
+    @test description(impedance_cases[3][1]) == "Carson"
     for (formulation, heights) in impedance_cases
         mutual=formulation(:mutual, heights, 0.25, rho, epsilon, mu, s)
         reciprocal=formulation(:mutual, reverse(heights), 0.25, rho, epsilon, mu, s)
@@ -164,9 +168,9 @@ end
         (admittance_module.Images(), [10.0, 12.0]),
         (admittance_module.Papadopoulos(Γx = 1), [-1.0, -1.2])
     )
-    @test get_description(first(admittance_cases)[1]) == "Papadopoulos"
-    @test get_description(admittance_cases[2][1]) == "Pollaczek"
-    @test get_description(admittance_cases[3][1]) == "Electrostatic images"
+    @test description(first(admittance_cases)[1]) == "Papadopoulos"
+    @test description(admittance_cases[2][1]) == "Pollaczek"
+    @test description(admittance_cases[3][1]) == "Electrostatic images"
     for (formulation, heights) in admittance_cases
         mutual=formulation(:mutual, heights, 0.25, rho, epsilon, mu, s)
         reciprocal=formulation(:mutual, reverse(heights), 0.25, rho, epsilon, mu, s)

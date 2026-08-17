@@ -1,130 +1,38 @@
-@testsnippet defs_ins_group begin
-    using Measurements
-    # Reference dielectric material for tests
-    const ins_props = Material(1e10, 3.0, 1.0, 20.0, 0.0)
-
-    # Fresh inner insulator (Float64)
-    make_ins_group() = InsulatorGroup(
-        Insulator(0.02, 0.025, ins_props; temperature = 20.0),
+@testitem "DataModel / InsulatorGroup / reference-frequency insertion" tags=[:unit] setup=[
+    DataModelTestSupport,
+    UseDataModelSupport,
+    TestFixtures,
+    MaterialFixtures
+] begin
+    first_layer=Insulator(0.006, 0.008, insulator_props)
+    second_layer=Insulator(0.008, 0.010, insulator_props)
+    group=InsulatorGroup(first_layer; reference_frequency = 60.0)
+    ω=2π*group.reference_frequency
+    expected=parallel(
+        complex(group.shunt_conductance, ω*group.shunt_capacitance),
+        complex(second_layer.shunt_conductance, ω*second_layer.shunt_capacitance)
     )
 
-    # Measurement helper
-    m(x, u) = measurement(x, u)
-end
+    @test add!(group, second_layer) === group
+    @test length(group.layers) == 2
+    @test group.r_ex == second_layer.r_ex
+    @test group.shunt_conductance ≈ real(expected)
+    @test group.shunt_capacitance ≈ imag(expected)/ω
+    @test group.reference_frequency == 60.0
+    @test validate(group) === group
 
-@testitem "DataModel / InsulatorGroup.add! / unit tests" tags=[:unit] setup=[
-    DataModelTestSupport, UseDataModelSupport, TestNumerics, TestFixtures, MaterialFixtures, defs_ins_group] begin
-    using Measurements
+    snapshot=deepcopy(group)
+    @test_throws DomainError add!(group, Insulator(0.011, 0.012, insulator_props))
+    @test group.r_ex == snapshot.r_ex
+    @test length(group.layers) == length(snapshot.layers)
 
-    @testset "Input Validation (wrapper triggers validate!)" begin
-        g = make_ins_group()
+    material32=convert(Material{Float32}, insulator_props)
+    layer32=Insulator(Float32(0.010), Float32(0.011), material32)
+    @test_throws ArgumentError add!(group, layer32)
+    @test group.r_ex == snapshot.r_ex
 
-        # Missing required args for Insulator: (r_in provided by wrapper), need r_ex, material
-        @test_throws ArgumentError add!(g, Insulator)
-        @test_throws ArgumentError add!(g, Insulator, 0.03)
-
-        # Invalid types
-        @test_throws ArgumentError add!(g, Insulator, "bad", ins_props)
-        @test_throws ArgumentError add!(g, Insulator, 0.03, "not_a_material")
-
-        # Geometry violations
-        @test_throws ArgumentError add!(g, Insulator, 0.0, ins_props)   # outer cannot be 0 beyond rin
-    end
-
-    @testset "Basic Functionality (Float64)" begin
-        g = make_ins_group()
-        @test g isa InsulatorGroup
-        @test length(g.layers) == 1
-        @test g.r_in ≈ 0.02 atol = TestNumerics.absolute_floor(Float64)
-        @test g.r_ex ≈ 0.025 atol = TestNumerics.absolute_floor(Float64)
-
-        # Add a Semicon by named thickness; r_in DataModelTestSupport, UseDataModelSupport, TestNumerics to group.r_ex.
-        t = 0.002
-        rin_before = g.r_ex
-        g = add!(g, Semicon, ins_props; thickness = t, f = 60.0)
-        @test g.layers[end] isa Semicon
-        @test g.r_ex ≈ rin_before + t atol = TestNumerics.absolute_floor(Float64)
-    end
-
-    @testset "Edge Cases" begin
-        g = make_ins_group()
-        tsmall = 1e-6
-        re0 = g.r_ex
-        g = add!(g, Semicon, ins_props; thickness = tsmall, f = 60.0)
-        @test g.r_ex ≈ re0 + tsmall atol = TestNumerics.absolute_floor(Float64)
-    end
-
-    @testset "Physical Behavior (admittance parallel update)" begin
-        g = make_ins_group()
-        # Capture before
-        C0 = g.shunt_capacitance
-        G0 = g.shunt_conductance
-
-        # Add another dielectric shell; admittances should combine → values typically decrease
-        g = add!(g, Insulator, 0.03, ins_props; f = 60.0)
-        @test g.shunt_capacitance <= C0   # decreasing typical
-        @test g.shunt_conductance <= G0   # decreasing typical
-    end
-
-    @testset "Type Stability & Promotion (group)" begin
-        # Base Float64 group
-        gF = make_ins_group()
-        @test eltype(gF) == Float64
-        @test typeof(gF.r_ex) == Float64
-
-        # Promote by Measurement temperature in part DataModelTestSupport, UseDataModelSupport, TestNumerics
-        gF_before = objectid(gF)
-        gP = @test_logs (:warn, r"promoted") add!(
-            gF,
-            Insulator,
-            0.03,
-            ins_props;
-            f = 60.0,
-            temperature = m(20.0, 0.2)
-        )
-        @test gP !== gF
-        @test eltype(gP) <: Measurement
-        @test typeof(gP.r_ex) <: Measurement
-        @test objectid(gF) == gF_before
-        @test length(gF.layers) == 1
-
-        # Already Measurement → in place
-        gM = LineCableModels.DataModel.coerce_to_T(make_ins_group(), Measurement{Float64})
-        id0 = objectid(gM)
-        gM2 = add!(gM, Semicon, ins_props; thickness = m(0.001, 1e-6), f = 60.0)
-        @test gM2 === gM
-        @test objectid(gM) == id0
-        @test eltype(gM) <: Measurement
-    end
-
-    @testset "Combinatorial Type Testing" begin
-        # All Float64
-        g = make_ins_group()
-        g1 = add!(g, Insulator, 0.03, ins_props; f = 60.0)
-        @test eltype(g1) == Float64
-
-        # All Measurement
-        g = make_ins_group()
-        g2 = @test_logs (:warn, r"promoted") add!(
-            g,
-            Insulator,
-            m(0.03, 1e-6),
-            ins_props;
-            f = 60.0,
-            temperature = m(20.0, 0.1)
-        )
-        @test eltype(g2) <: Measurement
-
-        # Mixed A: r_ex is Measurement
-        g = make_ins_group()
-        g3 = @test_logs (:warn, r"promoted") add!(
-            g, Insulator, m(0.03, 1e-6), ins_props; f = 60.0)
-        @test eltype(g3) <: Measurement
-
-        # Mixed B: pass Measurement frequency (promotes group by wrapper decision)
-        g = make_ins_group()
-        g4 = @test_logs (:warn, r"promoted") add!(
-            g, Insulator, 0.03, ins_props; f = m(60.0, 0.5))
-        @test eltype(g4) <: Measurement
-    end
+    converted=convert(InsulatorGroup{Float32}, group)
+    @test converted isa InsulatorGroup{Float32}
+    @test converted.reference_frequency isa Float32
+    @test convert(InsulatorGroup{Float64}, group) === group
 end

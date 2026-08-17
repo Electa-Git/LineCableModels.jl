@@ -50,9 +50,10 @@
     rho=2.0e11
     eps_r=2.4
     s=Complex(0.0, 2π*50.0)
+    epsilon0=8.8541878128e-12
 
     log_ratio=log(r_ex/r_in)
-    capacitance=2π*ε₀*eps_r/log_ratio
+    capacitance=2π*epsilon0*eps_r/log_ratio
     conductance=2π/(rho*log_ratio)
     coefficient=formulation(r_in, r_ex, rho, eps_r, s)
 
@@ -87,29 +88,27 @@ end
         dielectric_2=Material(8.0e10, 3.6, 1.0, 20.0, 0.0)
         outer_dielectric=Material(1.0e14, 2.3, 1.0, 20.0, 0.0)
 
-        core_conductor=ConductorGroup(Tubular(0.0, copper; radius = 0.010))
+        core_conductor=ConductorGroup(Tubular(0.0, 0.010, copper))
         core_insulation=InsulatorGroup(Insulator(
             core_conductor.r_ex,
-            dielectric_1;
-            thickness = thickness_1
+            core_conductor.r_ex+thickness_1,
+            dielectric_1
         ))
         core_insulation=add!(
             core_insulation,
-            Insulator,
-            dielectric_2;
-            thickness = 4.0e-3
+            Insulator(core_insulation.r_ex, core_insulation.r_ex+4.0e-3, dielectric_2)
         )
         core=CableComponent("core", core_conductor, core_insulation)
 
         sheath_conductor=ConductorGroup(Tubular(
             core_insulation.r_ex,
-            copper;
-            thickness = 1.0e-3
+            core_insulation.r_ex+1.0e-3,
+            copper
         ))
         sheath_insulation=InsulatorGroup(Insulator(
             sheath_conductor.r_ex,
-            outer_dielectric;
-            thickness = 2.0e-3
+            sheath_conductor.r_ex+2.0e-3,
+            outer_dielectric
         ))
         sheath=CableComponent("sheath", sheath_conductor, sheath_insulation)
 
@@ -122,7 +121,7 @@ end
         )
         system=LineCableSystem("parallel-rc-test", 1000.0, position)
         frequency=[1.0e-3, 50.0, 1.0e6]
-        earth=EarthModel(frequency, 100.0, 10.0, 1.0)
+        earth=EarthModel(100.0, 10.0, 1.0)
         return LineParametersProblem(
             system;
             temperature = 20.0,
@@ -141,33 +140,30 @@ end
             ideal_transposition = true
         )
     )
-    execution=ComputeOptions(store_primitive_matrices = true)
     problem=two_terminal_problem()
-    workspace, parameters=Engine._compute_with_workspace(
-        problem,
-        formulation,
-        execution
-    )
-    public_parameters=compute!(problem, formulation; options = execution)
-    @test public_parameters.Z.values == parameters.Z.values
-    @test public_parameters.Y.values == parameters.Y.values
-    @test workspace.insulator_layer_ranges == [1:2, 3:3]
-    @test workspace.r_ins_layer_in[2] ≈ workspace.r_ins_layer_ext[1]
+    input=Engine.EMTInput(problem)
+    trace=compute!(problem, formulation; inspect = true)
+    parameters=trace.result
+    public_parameters=compute!(problem, formulation)
+    @test public_parameters.Z.values == trace.result.Z.values
+    @test public_parameters.Y.values == trace.result.Y.values
+    @test input.insulator_layer_ranges == [1:2, 3:3]
+    @test input.r_ins_layer_in[2] ≈ input.r_ins_layer_ext[1]
     @test size(parameters.Y) == (2, 2, 3)
 
-    for frequency_index in eachindex(workspace.freq)
-        s=workspace.jω[frequency_index]
+    for frequency_index in eachindex(input.freq)
+        s=input.jω[frequency_index]
         expected=sum(
             formulation.insulation_admittance(
-                workspace.r_ins_layer_in[layer_index],
-                workspace.r_ins_layer_ext[layer_index],
-                workspace.rho_ins_layer[layer_index],
-                workspace.eps_ins_layer[layer_index],
+                input.r_ins_layer_in[layer_index],
+                input.r_ins_layer_ext[layer_index],
+                input.rho_ins_layer[layer_index],
+                input.eps_ins_layer[layer_index],
                 s
             )
-        for layer_index in workspace.insulator_layer_ranges[1]
+        for layer_index in input.insulator_layer_ranges[1]
         )
-        @test workspace.Pin[1, 1, frequency_index] ≈ expected
+        @test trace.Pin[1, 1, frequency_index] ≈ expected
 
         admittance=parameters.Y.values[:, :, frequency_index]
         @test admittance ≈ transpose(admittance)
@@ -178,8 +174,8 @@ end
         @test minimum(eigvals(Symmetric(conductance))) >= -tolerance
     end
 
-    near_dc=workspace.jω[1]/workspace.Pin[1, 1, 1]
-    high_frequency=workspace.jω[end]/workspace.Pin[1, 1, end]
+    near_dc=input.jω[1]/trace.Pin[1, 1, 1]
+    high_frequency=input.jω[end]/trace.Pin[1, 1, end]
     @test real(near_dc) > imag(near_dc)
     @test imag(high_frequency) > real(high_frequency)
 

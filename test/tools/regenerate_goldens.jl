@@ -9,8 +9,10 @@ if lowercase(get(ENV, "LINECABLEMODELS_UPDATE_PLOT_REFERENCES", "false")) == "tr
     using .GoldenFixtures: custom_layout_render_spec
 
     reference_directory = joinpath(@__DIR__, "..", "fixtures", "golden")
+    requested_reference = get(ENV, "LINECABLEMODELS_PLOT_REFERENCE", "")
 
     function save_reference(name, plot_handle)
+        isempty(requested_reference) || name == requested_reference || return nothing
         CairoMakie.save(joinpath(reference_directory, "$name.png"), plot_handle.figure)
         return nothing
     end
@@ -124,7 +126,7 @@ if lowercase(get(ENV, "LINECABLEMODELS_UPDATE_PLOT_REFERENCES", "false")) == "tr
         (index, component) in enumerate(design.components))
     )
     system = LineCableSystem("reference-system", 1000.0, position)
-    earth = EarthModel(frequency, 100.0, 10.0, 1.0)
+    earth = EarthModel(100.0, 10.0, 1.0)
     save_reference(
         "system_preview",
         preview(

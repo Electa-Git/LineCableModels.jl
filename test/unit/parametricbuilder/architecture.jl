@@ -81,7 +81,7 @@ end
         eps_r = Grid((100.0, 10.0, 5.0));
         combine = :zip
     )
-    @test [(item.rho, item.eps_r) for item in earth] == [
+    @test [(item.layers[end].rho, item.layers[end].eps_r) for item in earth] == [
         (10.0, 100.0),
         (100.0, 10.0),
         (1000.0, 5.0)
@@ -245,7 +245,7 @@ end
     parametric=compute!(
         deterministic_problem,
         formulation;
-        options = (verbosity = 0,)
+        options = (verbosity = (default = 0,),)
     )
     @test parametric isa FullParametricResult{<:LineParameters}
     @test length(parametric) == 2
@@ -314,7 +314,7 @@ end
     )
     problem=CableConstantsProblem(design; separation = Grid((-1.0, -2.0)))
 
-    @test_throws ArgumentError compute!(problem, Formulation(); run = FullParametric())
+    @test_throws DomainError compute!(problem, Formulation(); run = FullParametric())
     skipped=compute!(
         problem,
         Formulation();
@@ -323,10 +323,10 @@ end
     @test skipped isa FullParametricResult
     @test isempty(skipped)
     @test length(skipped.failures) == 2
-    @test all(failure -> failure.exception_type == "ArgumentError", skipped.failures)
+    @test all(failure -> failure.exception_type == "DomainError", skipped.failures)
 end
 
-@testitem "DataModel / DataFrame / presentation does not compute" tags=[:unit] setup=[
+@testitem "DataModel / DataFrame / eager base-state presentation" tags=[:unit] setup=[
     EngineTestSupport, UseEngineSupport, TestNumerics] begin
     import LineCableModels.ParametricBuilder as PB
 
@@ -367,7 +367,9 @@ end
         column -> all(!ismissing, column[2:6]),
         eachcol(detailed[:, Not(:property)])
     )
-    @test_throws ArgumentError DataFrame(design, :baseparams)
+    base_parameters=DataFrame(design, :baseparams)
+    @test base_parameters.parameter == ["R", "L", "C"]
+    @test base_parameters.unit == ["Ω/m", "H/m", "F/m"]
     @test_throws ErrorException DataFrame(design, :unsupported)
     constants=compute!(CableConstantsProblem(design), Formulation())
     rendered=DataFrame(constants)

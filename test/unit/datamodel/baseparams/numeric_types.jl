@@ -12,12 +12,12 @@
             reference_temperature=T(20)
             operating_temperature=T(75)
 
-            correction=calc_temperature_correction(
+            correction=temperature_factor(
                 alpha,
                 operating_temperature,
                 reference_temperature
             )
-            resistance=calc_tubular_resistance(
+            resistance=tubular_resistance(
                 r_in,
                 r_ex,
                 rho,
@@ -25,9 +25,9 @@
                 reference_temperature,
                 operating_temperature
             )
-            capacitance=calc_shunt_capacitance(r_in, r_ex, T(2.3))
-            conductance=calc_shunt_conductance(r_in, r_ex, T(1e9))
-            inductance=calc_tubular_inductance(r_in, r_ex, one(T))
+            capacitance=shunt_capacitance(r_in, r_ex, T(2.3))
+            conductance=shunt_conductance(r_in, r_ex, T(1e9))
+            inductance=tubular_inductance(r_in, r_ex, one(T))
 
             @test correction isa T
             @test resistance isa T
@@ -52,12 +52,12 @@
         end
     end
 
-    @test calc_parallel_equivalent(1 // 2, 1 // 3) == 1 // 5
-    complex_result=calc_parallel_equivalent(ComplexF32(1, 2), ComplexF32(3, 4))
+    @test parallel(1 // 2, 1 // 3) == 1 // 5
+    complex_result=parallel(ComplexF32(1, 2), ComplexF32(3, 4))
     @test complex_result isa ComplexF32
 
-    normalized=calc_shunt_capacitance(Float32(0.01), 0.02, big"2.3")
-    @test normalized isa Float64
+    normalized=shunt_capacitance(Float32(0.01), 0.02, big"2.3")
+    @test normalized isa BigFloat
 end
 
 @testitem "BaseParams / numeric matrix / cross-precision convergence" tags=[:unit] setup=[
@@ -78,10 +78,10 @@ end
     end
 
     approximations=(
-        calc_shunt_capacitance(Float32(0.01), Float32(0.02), Float32(2.3)),
-        calc_shunt_capacitance(0.01, 0.02, 2.3),
+        shunt_capacitance(Float32(0.01), Float32(0.02), Float32(2.3)),
+        shunt_capacitance(0.01, 0.02, 2.3),
         setprecision(BigFloat, 128) do
-            calc_shunt_capacitance(big"0.01", big"0.02", big"2.3")
+            shunt_capacitance(big"0.01", big"0.02", big"2.3")
         end
     )
     errors=map(value->abs(BigFloat(value)-oracle)/abs(oracle), approximations)

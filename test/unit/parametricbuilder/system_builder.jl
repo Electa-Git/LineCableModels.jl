@@ -20,7 +20,7 @@
         phases = (:core=>[3, 4],),
         n = 2
     )
-    earth=EarthModel([50.0], 100.0, 10.0, 1.0)
+    earth=EarthModel(100.0, 10.0, 1.0)
     specification=PB.SystemBuilder(
         "flat-formations",
         design,
@@ -35,8 +35,7 @@
     @test [(position.horz, position.vert) for position in positions] ==
           [(0.0, -1.0), (0.1, -1.0), (1.0, -1.0), (1.0, -1.1)]
     @test map(position -> first(position.conn), positions) == [1, 2, 3, 4]
-    @test problem.earth_props.layers[end].base_rho_g ==
-          earth.layers[end].base_rho_g
+    @test problem.earth_props.layers[end].rho == earth.layers[end].rho
 
     unconnected=only(PB.at(x = 0.0, y = -1.0, phases = nothing))
     @test only(unconnected.connections) == Dict{String, Int}()
@@ -59,7 +58,7 @@
         n = 2
     )
     @test_throws ArgumentError PB.at(x = 0.0, y = -1.0, phases = :core => 1.5)
-    @test_throws ArgumentError PB.PositionBuilder(
+    @test_throws ArgumentError PB.PositionSpec(
         Val(:point),
         ("not-real", -1.0),
         (Dict("core" => 1),)
@@ -71,7 +70,7 @@
         n = 2
     ))
     @test_throws ArgumentError PB._position_coordinates(too_close, design)
-    unsupported=PB.PositionBuilder(
+    unsupported=PB.PositionSpec(
         Val(:unsupported),
         (0.0, -1.0, 0.10),
         (Dict("core"=>1),)

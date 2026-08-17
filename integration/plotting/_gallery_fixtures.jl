@@ -186,7 +186,7 @@ function build_manual_plot_gallery(
         for (index, component) in enumerate(design.components))
     )
     system = LineCableSystem("manual-system", 1000.0, position)
-    earth = EarthModel(frequency, 100.0, 10.0, 1.0)
+    earth = EarthModel(100.0, 10.0, 1.0)
     push!(
         gallery,
         "System preview" => preview(

@@ -1,145 +1,26 @@
-@testitem "DataModel / Insulator / constructor unit tests" tags=[:unit] setup=[
-    DataModelTestSupport, UseDataModelSupport, TestNumerics, TestFixtures, MaterialFixtures] begin
-    using Measurements
+@testitem "DataModel / Insulator / exact geometry and base-state values" tags=[:unit] setup=[
+    DataModelTestSupport,
+    UseDataModelSupport,
+    TestFixtures,
+    MaterialFixtures
+] begin
+    layer=Insulator(0.01, 0.015, insulator_props)
 
-    @testset "Input Validation" begin
-        # Missing required arguments
-        @test_throws ArgumentError Insulator()
-        @test_throws ArgumentError Insulator(r_in = 0.01)
-        @test_throws ArgumentError Insulator(r_in = 0.01, r_ex = 0.015)
+    @test layer isa Insulator{Float64}
+    @test layer.shunt_capacitance ≈ shunt_capacitance(0.01, 0.015, insulator_props.eps_r)
+    @test layer.shunt_conductance ≈ shunt_conductance(0.01, 0.015, insulator_props.rho)
+    @test layer.shunt_conductance >= 0
+    @test validate(layer) === layer
+    @test !hasproperty(layer, :temperature)
+    @test_throws MethodError Insulator(0.01, 0.015, insulator_props; temperature = 80.0)
 
-        # Invalid types
-        @test_throws ArgumentError Insulator(
-            "foo",
-            0.015,
-            insulator_props,
-            temperature = 20.0
-        )
-        @test_throws ArgumentError Insulator(
-            0.01,
-            "bar",
-            insulator_props,
-            temperature = 20.0
-        )
-        @test_throws ArgumentError Insulator(
-            0.01,
-            0.015,
-            "not_a_material",
-            temperature = 20.0
-        )
-        @test_throws ArgumentError Insulator(
-            0.01,
-            0.015,
-            insulator_props,
-            temperature = "not_a_temp"
-        )
+    @test_throws DomainError Insulator(-0.01, 0.015, insulator_props)
+    @test_throws DomainError Insulator(0.015, 0.01, insulator_props)
+    @test_throws MethodError Insulator(0.01, 0.015, nothing)
 
-        # Out-of-range values
-        @test_throws ArgumentError Insulator(
-            -0.01,
-            0.015,
-            insulator_props,
-            temperature = 20.0
-        )
-        @test_throws ArgumentError Insulator(
-            0.01,
-            -0.015,
-            insulator_props,
-            temperature = 20.0
-        )
-
-        # Geometrically impossible values
-        @test_throws ArgumentError Insulator(
-            0.015,
-            0.01,
-            insulator_props,
-            temperature = 20.0
-        )
-        @test_throws ArgumentError Insulator(
-            0.01,
-            0.01,
-            insulator_props,
-            temperature = 20.0
-        )
-
-        # Invalid nothing/missing
-        @test_throws ArgumentError Insulator(
-            nothing,
-            0.015,
-            insulator_props,
-            temperature = 20.0
-        )
-        @test_throws ArgumentError Insulator(
-            0.01,
-            nothing,
-            insulator_props,
-            temperature = 20.0
-        )
-        @test_throws ArgumentError Insulator(0.01, 0.015, nothing, temperature = 20.0)
-        @test_throws ArgumentError Insulator(
-            0.01,
-            0.015,
-            insulator_props,
-            temperature = nothing
-        )
-    end
-
-    @testset "Basic Functionality" begin
-        i = Insulator(0.01, 0.015, insulator_props, temperature = 20.0)
-        @test i isa Insulator
-        @test i.r_in ≈ 0.01 atol = TestNumerics.absolute_floor(Float64)
-        @test i.r_ex ≈ 0.015 atol = TestNumerics.absolute_floor(Float64)
-        @test i.material_props === insulator_props
-        @test i.temperature ≈ 20.0 atol = TestNumerics.absolute_floor(Float64)
-        @test i.cross_section ≈ π * (0.015^2 - 0.01^2) atol = TestNumerics.absolute_floor(Float64)
-        # Measurement type
-        i2 = Insulator(
-            measurement(0.01, 1e-5),
-            measurement(0.015, 1e-5),
-            insulator_props,
-            temperature = measurement(20.0, 0.1)
-        )
-        @test i2 isa Insulator
-        @test value(i2.r_in) ≈ 0.01 atol = TestNumerics.absolute_floor(Float64)
-        @test value(i2.r_ex) ≈ 0.015 atol = TestNumerics.absolute_floor(Float64)
-        @test value(i2.temperature) ≈ 20.0 atol = TestNumerics.absolute_floor(Float64)
-    end
-
-    @testset "Edge Cases" begin
-        # r_in very close to r_ex
-        i = Insulator(1e-6, 1.0001e-6, insulator_props, temperature = 20.0)
-        @test i.r_in ≈ 1e-6 atol = TestNumerics.absolute_floor(Float64)
-    end
-
-    @testset "Physical Behavior" begin
-        # Cross-section increases with r_ex
-        i_small = Insulator(0.01, 0.012, insulator_props, temperature = 20.0)
-        i_large = Insulator(0.01, 0.018, insulator_props, temperature = 20.0)
-        @test i_large.cross_section > i_small.cross_section
-        # but the capacitance decreases (2 pi eps / log(rex/rin))
-        @test i_large.shunt_capacitance < i_small.shunt_capacitance
-    end
-
-    @testset "Type Stability & Promotion" begin
-        # All Float64
-        i = Insulator(0.01, 0.015, insulator_props, temperature = 20.0)
-        @test typeof(i.r_in) == Float64
-        # All Measurement
-        iM = Insulator(
-            measurement(0.01, 1e-5),
-            measurement(0.015, 1e-5),
-            insulator_props,
-            temperature = measurement(20.0, 0.1)
-        )
-        @test typeof(iM.r_in) <: Measurement
-        # Mixed: r_in as Measurement
-        iMix1 = Insulator(measurement(0.01, 1e-5), 0.015, insulator_props, temperature = 20.0)
-        @test typeof(iMix1.r_in) <: Measurement
-        # Mixed: temperature as Measurement
-        iMix2 = Insulator(0.01, 0.015, insulator_props, temperature = measurement(20.0, 0.1))
-        @test typeof(iMix2.temperature) <: Measurement
-        mmat = Material(1e14, measurement(5.0, 0.1), 1.0, 20.0, 0.0)
-        iMix3 = Insulator(0.01, 0.015, mmat, temperature = 20.0)
-        @test typeof(iMix3.shunt_conductance) <: Measurement
-    end
+    material32=convert(Material{Float32}, insulator_props)
+    layer32=Insulator(Float32(0.01), Float32(0.015), material32)
+    @test layer32 isa Insulator{Float32}
+    @test convert(LineCableModels.DataModel.AbstractInsulatorPart{Float64}, layer32) isa
+          Insulator{Float64}
 end

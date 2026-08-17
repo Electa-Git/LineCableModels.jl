@@ -1,62 +1,74 @@
-@testitem "DataModel / RectStrands / area and electrical invariants" tags=[:unit] setup=[
+@testitem "DataModel / RectStrands / packing and area-preserving geometry" tags=[:unit] setup=[
     DataModelTestSupport,
     UseDataModelSupport,
-    TestNumerics
+    TestFixtures,
+    MaterialFixtures
 ] begin
-    material=Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
     r_in=0.01
     thickness=0.001
     width=0.002
-    num_wires=12
+    count=12
+    r_ex=sqrt(r_in^2+count*width*thickness/π)
     layer=RectStrands(
         r_in,
+        r_ex,
         thickness,
         width,
-        num_wires,
+        count,
         12.0,
-        material;
-        temperature = 40.0,
-        lay_direction = -1
+        copper_props
     )
 
-    metallic_area=num_wires*thickness*width
-    annular_area=π*(layer.r_ex^2-layer.r_in^2)
-    @test TestNumerics.isapprox_scaled(annular_area, metallic_area)
-    @test layer.shape.cross_section == metallic_area
-    @test layer.shape.thickness == layer.r_ex - layer.r_in
-    @test layer.shape.num_wires == num_wires
-    @test layer.shape.lay_direction == -1
-    @test layer.resistance > 0
-    @test layer.gmr > layer.r_in
-    @test layer.gmr < layer.r_ex
+    @test layer isa RectStrands{Float64}
+    @test layer.cross_section ≈ count*width*thickness
+    @test layer.thickness == layer.shape.thickness == thickness
+    @test layer.width == layer.shape.width == width
+    @test :width in propertynames(layer)
+    @test maxfill(RectStrands, r_in, width) == floor(Int, 2π*r_in/width)
+    @test validate(layer) === layer
+    @test !hasproperty(Tubular(0.0, 0.01, copper_props), :width)
 
-    warmer=RectStrands(
-        r_in, thickness, width, num_wires, 12.0, material; temperature = 80.0)
-    @test warmer.resistance > layer.resistance
-
-    max_fill=RectStrands(r_in, thickness, width, MaxFill(), 12.0, material)
-    @test max_fill.shape.num_wires == floor(Int, 2π * r_in / width)
-end
-
-@testitem "DataModel / RectStrands / representative invalid geometry" tags=[:unit] setup=[
-    DataModelTestSupport,
-    UseDataModelSupport
-] begin
-    material=Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
-    valid_tail=(0.001, 0.002, 12, 12.0, material)
-
-    @test_throws ArgumentError RectStrands(-0.01, valid_tail...)
-    @test_throws ArgumentError RectStrands(0.01, -0.001, 0.002, 12, 12.0, material)
-    @test_throws ArgumentError RectStrands(0.01, 0.001, -0.002, 12, 12.0, material)
-    @test_throws ArgumentError RectStrands(0.01, 0.001, 0.002, 100, 12.0, material)
-    @test_throws ArgumentError RectStrands(
-        0.01,
-        0.001,
-        0.002,
-        12,
+    @test_throws DomainError RectStrands(
+        r_in,
+        r_ex+0.001,
+        thickness,
+        width,
+        count,
         12.0,
-        material;
-        lay_direction = 0
+        copper_props
     )
-    @test_throws ErrorException RectStrands(0.01, 0.001, 0.002, 1, 12.0, material)
+    @test_throws DomainError RectStrands(
+        r_in,
+        r_ex,
+        thickness,
+        width,
+        maxfill(RectStrands, r_in, width)+1,
+        12.0,
+        copper_props
+    )
+
+    material32=convert(Material{Float32}, copper_props)
+    rin32=Float32(r_in)
+    thick32=Float32(thickness)
+    width32=Float32(width)
+    rex32=sqrt(rin32^2+count*width32*thick32/(one(Float32)*π))
+    layer32=RectStrands(
+        rin32,
+        rex32,
+        thick32,
+        width32,
+        count,
+        Float32(12),
+        material32
+    )
+    converted=convert(LineCableModels.DataModel.AbstractConductorPart{Float64}, layer32)
+    @test layer32 isa RectStrands{Float32}
+    @test converted isa RectStrands{Float64}
+    @test isapprox(
+        converted.r_ex,
+        sqrt(converted.r_in^2 +
+             converted.num_wires*converted.width*converted.thickness/π);
+        atol = sqrt(eps(Float64)),
+        rtol = sqrt(eps(Float64))
+    )
 end

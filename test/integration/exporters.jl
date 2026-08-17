@@ -5,9 +5,13 @@
 ] begin
     using EzXML
 
+    function parameters(node)
+        Dict(parameter["name"]=>parameter["value"]
+        for parameter in findall("./paramlist/param", node))
+    end
+
     system=TestFixtures.three_phase_system()
-    frequencies=[50.0, 500.0]
-    earth=EarthModel(frequencies, 100.0, 10.0, 1.0)
+    earth=EarthModel(100.0, 10.0, 1.0)
 
     mktempdir() do directory
         requested=joinpath(directory, "system.pscx")
@@ -20,7 +24,49 @@
         project=root(document)
         @test nodename(project) == "project"
         @test project["name"] == system.system_id
-        @test !isempty(findall("//User", document))
-        @test occursin("LineCableModels", read(output, String))
+
+        components=findall("//User", document)
+        @test length(components) == length(system.cables) + 2
+        @test getindex.(components, "id") ==
+              string.(100000010:(100000011 + length(system.cables)))
+
+        frequency=only(filter(
+            node->node["defn"]==
+            "master:Line_FrePhase_Options", components))
+        cables=filter(node->node["defn"]=="master:Cable_Coax", components)
+        ground=only(filter(node->node["defn"]=="master:Line_Ground", components))
+        @test length(cables) == length(system.cables)
+        @test parameters(frequency) == Dict(
+            "FS" => "0.5",
+            "FE" => "1.0E6",
+            "Numf" => "100",
+            "DCCOR" => "1",
+            "CPASS" => "0"
+        )
+
+        for (index, (node, position)) in enumerate(zip(cables, system.cables))
+            values=parameters(node)
+            @test values["CABNUM"] == string(index)
+            @test values["Name"] == position.design_data.cable_id
+            @test parse(Float64, values["X"]) ≈ position.horz rtol=1e-5
+            @test parse(Float64, values["Y"]) ≈ abs(position.vert) rtol=1e-5
+            @test values["OHC"] == "0"
+            @test values["LL"] == string(2length(position.design_data.components) - 1)
+            @test values["CONNAM1"] ==
+                  uppercasefirst(first(position.design_data.components).id)
+            @test parse(Float64, values["R1"]) ≈
+                  first(position.design_data.components).conductor_group.r_in rtol=1e-5
+        end
+
+        ground_values=parameters(ground)
+        @test ground_values["GRRES"] == "100.0"
+        @test ground_values["GPERM"] == "1.0"
+        @test ground_values["GRP"] == "10.0"
+
+        definition=only(findall("//Definition", document))
+        @test definition["name"] == "CableSystem"
+        @test only(findall("./schematic", definition))["classid"] == "RowCanvas"
+        @test isempty(findall("//Wire", document))
+        @test occursin("LineCableModels.jl", read(output, String))
     end
 end

@@ -39,8 +39,11 @@
                 reverse(reference; dims = 2),
                 reverse(reverse(reference; dims = 1); dims = 2)
             )
-            @test minimum(pixel_error(current, candidate) for candidate in alternatives) <
-                  tolerance
+            error_value=minimum(pixel_error(current, candidate)
+            for candidate in alternatives)
+            @testset "golden: $name" begin
+                @test error_value<tolerance
+            end
             return nothing
         end
 
@@ -633,7 +636,7 @@
             (index, component) in enumerate(design.components))
         )
         system=LineCableSystem("reference-system", 1000.0, position)
-        earth=EarthModel(frequency, 100.0, 10.0, 1.0)
+        earth=EarthModel(100.0, 10.0, 1.0)
         system_plot=preview(
             system;
             earth_model = earth,

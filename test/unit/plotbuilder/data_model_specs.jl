@@ -83,7 +83,7 @@
         for (index, component) in enumerate(design.components))
     )
     system=LineCableSystem("render-spec-system", 1000.0, position)
-    earth=EarthModel([50.0, 100.0], 100.0, 10.0, 1.0)
+    earth=EarthModel(100.0, 10.0, 1.0)
     system_render=plot_builder.make_render(
         LineCableModels.DataModel.SystemPreviewPlotSpec,
         system;
@@ -152,7 +152,8 @@ end
     conductor=LineCableModels.Materials.Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
     dielectric=LineCableModels.Materials.Material(1.0e14, 2.3, 1.0, 20.0, 0.0)
     semiconductor=LineCableModels.Materials.Material(1000.0, 1000.0, 1.0, 20.0, 0.0)
-    strands=RectStrands(0.01, 0.001, 0.002, 12, 12.0, conductor)
+    outer=sqrt(0.01^2+12*0.002*0.001/π)
+    strands=RectStrands(0.01, outer, 0.001, 0.002, 12, 12.0, conductor)
 
     wedge=DM._radial_wedge(0.01, strands.r_ex, strands.width, 0.0, 1.0, -2.0)
     @test length(wedge) == 64
