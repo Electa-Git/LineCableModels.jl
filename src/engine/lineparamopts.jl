@@ -8,56 +8,50 @@ $(TYPEDFIELDS)
 Base.@kwdef struct EMTOptions <: AbstractFormulationOptions
     "Whether bundled conductors are reduced to an equivalent conductor."
     reduce_bundle::Bool=true
-
     "Whether unassigned conductors are eliminated by Kron reduction."
     kron_reduction::Bool=true
-
     "Whether ideal transposition is applied."
     ideal_transposition::Bool=true
-
-    "Whether material resistivity is corrected to the operating temperature."
+    "Whether conductor resistivity is corrected to operating temperature."
     temperature_correction::Bool=true
 end
 
 """
 $(TYPEDEF)
 
-Execution options shared by ordinary, full-parametric, and Monte Carlo runs.
-`output_basis=:total` scales computed line impedances and admittances by the
-materialized system length; cable constants have no system length and therefore
-support only `:per_length`.
+Execution settings for ordinary and parametric calculations.
+
+Verbosity is a named tuple whose `default` value applies when no component
+key is present. Levels are `0` for warnings, `1` for information, and `2` for
+debugging.
 
 $(TYPEDFIELDS)
 """
-struct ComputeOptions
-    "Whether unreduced impedance and admittance matrices are retained."
-    store_primitive_matrices::Bool
-
-    "Logging verbosity."
-    verbosity::Int
-
-    "Optional path for calculation logs."
-    logfile::Union{Nothing,String}
-
+struct ComputeOptions{V <: NamedTuple}
+    "Per-component verbosity settings."
+    verbosity::V
     "Output basis: `:per_length` or `:total`."
     output_basis::Symbol
 
     function ComputeOptions(;
-        store_primitive_matrices::Bool=true,
-        verbosity::Integer=0,
-        logfile::Union{Nothing,AbstractString}=nothing,
-        output_basis::Symbol=:per_length,
+            verbosity::NamedTuple = (default = 0,),
+            output_basis::Symbol = :per_length
     )
+        haskey(verbosity, :default) || throw(ArgumentError(
+            "verbosity must define a default level",
+        ))
+        all(value -> value isa Integer && value in 0:2, values(verbosity)) ||
+            throw(ArgumentError("verbosity levels must be integers from 0 to 2"))
         output_basis in (:per_length, :total) || throw(ArgumentError(
             "output_basis must be :per_length or :total; got :$output_basis",
         ))
-        return new(
-            store_primitive_matrices,
-            Int(verbosity),
-            logfile === nothing ? nothing : String(logfile),
-            output_basis,
-        )
+        levels = NamedTuple{keys(verbosity)}(Int.(values(verbosity)))
+        return new{typeof(levels)}(levels, output_basis)
     end
+end
+
+function verbosity(options::ComputeOptions, key::Symbol)
+    get(options.verbosity, key, options.verbosity.default)
 end
 
 _to_namedtuple(options::NamedTuple) = options

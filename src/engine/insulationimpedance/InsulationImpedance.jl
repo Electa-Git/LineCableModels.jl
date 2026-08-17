@@ -12,8 +12,8 @@ module InsulationImpedance
 export Lossless
 
 # Module-specific dependencies
-using ...Commons
-import ...Commons: get_description, _typed_μ₀
+using DocStringExtensions: IMPORTS, TYPEDSIGNATURES
+import ...LineCableModels: description
 import ..Engine: InsulationImpedanceFormulation
 
 include("lossless.jl")

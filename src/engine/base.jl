@@ -1,9 +1,5 @@
-Base.eltype(::LineParametersProblem{T}) where {T} = T
-Base.eltype(::Type{LineParametersProblem{T}}) where {T} = T
 Base.eltype(::LineParameters{T}) where {T} = T
 Base.eltype(::Type{LineParameters{T}}) where {T} = T
-Base.eltype(::EMTWorkspace{T}) where {T} = T
-Base.eltype(::Type{EMTWorkspace{T}}) where {T} = T
 
 Base.size(value::SeriesImpedance) = size(value.values)
 Base.size(value::SeriesImpedance, dimension::Int) = size(value.values, dimension)

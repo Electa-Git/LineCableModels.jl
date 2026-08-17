@@ -1,411 +1,439 @@
-function _compute_with_workspace(
+struct ConsoleVerbosityLogger{L <: AbstractLogger, V <: NamedTuple} <: AbstractLogger
+    console::L
+    levels::V
+end
+
+Logging.min_enabled_level(::ConsoleVerbosityLogger) = Logging.Debug
+Logging.catch_exceptions(::ConsoleVerbosityLogger) = false
+
+function _log_level(level::Integer)
+    level == 0 ? Logging.Warn :
+    level == 1 ? Logging.Info : Logging.Debug
+end
+
+function _log_key(source::Module)
+    path = Base.fullname(source)
+    return isempty(path) ? :default : first(path)
+end
+
+function Logging.shouldlog(
+        logger::ConsoleVerbosityLogger,
+        level,
+        source,
+        group,
+        id
+)
+    selected = get(logger.levels, _log_key(source), logger.levels.default)
+    return level >= _log_level(selected) &&
+           Logging.shouldlog(logger.console, level, source, group, id)
+end
+
+function Logging.handle_message(
+        logger::ConsoleVerbosityLogger,
+        level,
+        message,
+        source,
+        group,
+        id,
+        file,
+        line;
+        kwargs...
+)
+    return Logging.handle_message(
+        logger.console, level, message, source, group, id, file, line; kwargs...
+    )
+end
+
+function _trace_buffers(::Type{T}, input::EMTInput{T}, inspect::Bool) where {T}
+    inspect || return nothing
+    n, nc, nf = input.n_phases, input.n_cables, input.n_frequencies
+    return (
+        Zin = Array{Complex{T}, 3}(undef, n, n, nf),
+        Pin = Array{Complex{T}, 3}(undef, n, n, nf),
+        Zg = Array{Complex{T}, 3}(undef, nc, nc, nf),
+        Pg = Array{Complex{T}, 3}(undef, nc, nc, nf),
+        Z = Array{Complex{T}, 3}(undef, n, n, nf),
+        P = Array{Complex{T}, 3}(undef, n, n, nf)
+    )
+end
+
+@inline function _stash!(destination, frequency::Int, source::AbstractMatrix)
+    destination === nothing && return nothing
+    @views copyto!(destination[:, :, frequency], source)
+    return nothing
+end
+
+_trace_target(::Nothing, ::Symbol) = nothing
+_trace_target(trace, name::Symbol) = getproperty(trace, name)
+
+@inline function _reorder_into!(destination, source, permutation)
+    @inbounds for column in eachindex(permutation), row in eachindex(permutation)
+
+        destination[row, column] = source[permutation[row], permutation[column]]
+    end
+    return destination
+end
+
+function _reduction_map(phase_map, formulation)
+    permutation = reorder_indices(phase_map)
+    reordered = phase_map[permutation]
+    reduced = copy(reordered)
+    seen = Set{Int}()
+    @inbounds for (index, phase) in pairs(reordered)
+        if phase > 0 && phase in seen
+            reduced[index] = 0
+        elseif phase > 0
+            push!(seen, phase)
+        end
+    end
+    kron_map = if formulation.options.reduce_bundle
+        if formulation.options.kron_reduction
+            reduced
+        else
+            map(eachindex(reduced)) do index
+                reordered[index] == 0 ? -1 : reduced[index]
+            end
+        end
+    else
+        formulation.options.kron_reduction ? reordered : nothing
+    end
+    return permutation, reordered, kron_map
+end
+
+function _operating_resistivity(
+        input::EMTInput{T},
+        problem::LineParametersProblem{T},
+        formulation::EMTFormulation
+) where {T <: Real}
+    rho = copy(input.rho0_cond)
+    formulation.options.temperature_correction || return rho
+    @inbounds for index in eachindex(rho)
+        rho[index] *= DataModel.temperature_factor(
+            input.alpha_cond[index], problem.temperature, input.T0_cond[index]
+        )
+    end
+    return rho
+end
+
+function _solve(
         problem::LineParametersProblem{T},
         formulation::EMTFormulation,
-        execution::ComputeOptions,
-) where {T <: REALSCALAR}
-    lvl = levelfrom(execution.verbosity)
-    sink = isnothing(execution.logfile) ?
-           ConsoleLogger(stderr, lvl) :
-           TeeLogger(ConsoleLogger(stderr, lvl),
-        FileLogger(execution.logfile, lvl))
-    with_logger(TimestampLogger(sink)) do
-        @info "Preallocating arrays"
+        execution::ComputeOptions;
+        inspect::Bool = false
+) where {T <: Real}
+    validate(problem)
+    input = EMTInput(problem)
+    rho_cond = _operating_resistivity(input, problem, formulation)
+    n, nf = input.n_phases, input.n_frequencies
 
-        ws = init_workspace(problem, formulation, execution)
-        nph, nfreq = ws.n_phases, ws.n_frequencies
+    Zbuffer = Matrix{Complex{T}}(undef, n, n)
+    Pbuffer = Matrix{Complex{T}}(undef, n, n)
+    Zprimitive = similar(Zbuffer)
+    Pprimitive = similar(Pbuffer)
+    Pinverse = similar(Pbuffer)
+    earth = _earth_data(formulation, input)
+    trace = _trace_buffers(T, input, inspect)
 
-        # --- full matrices are built per slice (no 3D alloc) ----------------------
-        Zbuf = Matrix{Complex{T}}(undef, nph, nph)   # reordered scratch (mutated by merge_bundles!)
-        Pbuf = Matrix{Complex{T}}(undef, nph, nph)
-        inv_Pbuf = similar(Pbuf) # buffer to hold inv(Pbuf)
+    permutation, reordered_map, kron_map = _reduction_map(input.phase_map, formulation)
+    nkeep = kron_map === nothing ? n : count(!=(0), kron_map)
+    Zout = Array{Complex{T}, 3}(undef, nkeep, nkeep, nf)
+    Yout = Array{Complex{T}, 3}(undef, nkeep, nkeep, nf)
+    reduced = Matrix{Complex{T}}(undef, nkeep, nkeep)
+    reduced_inverse = similar(reduced)
+    identity_full = Matrix{Complex{T}}(I, n, n)
+    identity_reduced = Matrix{Complex{T}}(I, nkeep, nkeep)
 
-        Ztmp = Matrix{Complex{T}}(undef, nph, nph)   # raw slice coming from builders
-        Ptmp = Matrix{Complex{T}}(undef, nph, nph)
-
-        # --- index plan (constant across k) ---------------------------------------
-        phase_map = ws.phase_map::Vector{Int}
-        perm = reorder_indices(phase_map)
-        map_r = phase_map[perm]                  # reordered map
-
-        # bundle tails mask (same logic as merge_bundles!, but map-only)
-        reduced_map = let m = copy(map_r), seen = Set{Int}()
-            @inbounds for (i, p) in pairs(map_r)
-                if p > 0 && (p in seen)
-                    m[i]=0
-                else
-                    p>0 && push!(seen, p)
-                end
-            end
-            m
+    @info "Starting line parameters computation"
+    for frequency in 1:nf
+        compute_impedance_matrix!(
+            Zprimitive, input, rho_cond, earth, frequency, formulation, trace
+        )
+        compute_admittance_matrix!(
+            Pprimitive, input, earth, frequency, formulation, trace
+        )
+        _reorder_into!(Zbuffer, Zprimitive, permutation)
+        _reorder_into!(Pbuffer, Pprimitive, permutation)
+        if formulation.options.reduce_bundle
+            merge_bundles!(Zbuffer, reordered_map)
+            merge_bundles!(Pbuffer, reordered_map)
         end
 
-        # decide what Kron shall smite upon
-        kron_map = if formulation.options.reduce_bundle
-            if formulation.options.kron_reduction
-                reduced_map                      # kill tails and keep nonzero labels
-            else
-                km = copy(reduced_map)           # kill only tails; keep phase-0 explicit
-                @inbounds for i in eachindex(km)
-                    if map_r[i] == 0
-                        km[i] = -1
-                    end
-                end
-                km
-            end
+        if kron_map === nothing
+            reciprocity!(Zbuffer)
+            formulation.options.ideal_transposition && ideal_transposition!(Zbuffer)
+            @views Zout[:, :, frequency] .= Zbuffer
+
+            factorization = lu!(Pbuffer)
+            ldiv!(Pinverse, factorization, identity_full)
+            Pinverse .*= input.jω[frequency]
+            reciprocity!(Pinverse)
+            formulation.options.ideal_transposition && ideal_transposition!(Pinverse)
+            @views Yout[:, :, frequency] .= Pinverse
         else
-            formulation.options.kron_reduction ? map_r : nothing
+            kronify!(Zbuffer, kron_map, reduced)
+            reciprocity!(reduced)
+            formulation.options.ideal_transposition && ideal_transposition!(reduced)
+            @views Zout[:, :, frequency] .= reduced
+
+            kronify!(Pbuffer, kron_map, reduced)
+            factorization = lu!(reduced)
+            ldiv!(reduced_inverse, factorization, identity_reduced)
+            reduced_inverse .*= input.jω[frequency]
+            reciprocity!(reduced_inverse)
+            formulation.options.ideal_transposition && ideal_transposition!(reduced_inverse)
+            @views Yout[:, :, frequency] .= reduced_inverse
         end
-
-        nkeep = kron_map === nothing ? nph : count(!=(0), kron_map)
-        Zout = Array{Complex{T}, 3}(undef, nkeep, nkeep, nfreq)
-        Yout = Array{Complex{T}, 3}(undef, nkeep, nkeep, nfreq)
-        Mred = Matrix{Complex{T}}(undef, nkeep, nkeep) # buffer to hold Mred
-        inv_Mred = similar(Mred) # buffer to hold inv(Mred)
-
-        # tiny gather helper to avoid per-slice allocs
-        @inline function _reorder_into!(dest::AbstractMatrix{Complex{T}},
-                src::AbstractMatrix{Complex{T}},
-                perm::AbstractVector{Int})
-            n = length(perm)
-            @inbounds for j in 1:n, i in 1:n
-
-                dest[i, j] = src[perm[i], perm[j]]
-            end
-            return dest
-        end
-
-        # apply temperature correction if needed
-        if formulation.options.temperature_correction
-            ΔT = ws.temp - T₀
-            @. ws.rho_cond *= 1 + ws.alpha_cond * ΔT
-        end
-
-        # Pre-allocate identities for potential-coefficient matrix inversion.
-        # P is complex symmetric, not Hermitian, whenever dielectric or earth
-        # losses are present. LU is therefore required; wrapping P in Hermitian
-        # changes the matrix that is being solved.
-        I_nph = Matrix{Complex{T}}(I, nph, nph)      # identity for full size
-        I_nkeep = Matrix{Complex{T}}(I, nkeep, nkeep)   # identity for reduced size
-
-        # --- per-frequency calculation --------------------------------------------
-        @info "Starting line parameters computation"
-        for k in 1:nfreq
-            compute_impedance_matrix!(Ztmp, ws, k, formulation)
-            compute_admittance_matrix!(Ptmp, ws, k, formulation)
-
-            # 1) reorder
-            _reorder_into!(Zbuf, Ztmp, perm)
-            _reorder_into!(Pbuf, Ptmp, perm)
-
-            # 2) bundle reduction (in-place)
-            if formulation.options.reduce_bundle
-                merge_bundles!(Zbuf, map_r)
-                merge_bundles!(Pbuf, map_r)
-            end
-
-            # 3) kron
-            if kron_map === nothing
-                symtrans!(Zbuf)
-                formulation.options.ideal_transposition || line_transpose!(Zbuf)
-                @views @inbounds Zout[:, :, k] .= Zbuf
-
-                F = lu!(Pbuf)
-                ldiv!(inv_Pbuf, F, I_nph)                    # inv_Pbuf := P^{-1}
-                # inv_Pbuf = pBuf
-                inv_Pbuf .*= ws.jω[k]
-                symtrans!(inv_Pbuf)
-                formulation.options.ideal_transposition || line_transpose!(inv_Pbuf)
-                @views @inbounds Yout[:, :, k] .= inv_Pbuf
-            else
-                kronify!(Zbuf, kron_map, Mred)
-                symtrans!(Mred)
-                formulation.options.ideal_transposition || line_transpose!(Mred)
-                @views @inbounds Zout[:, :, k] .= Mred
-
-                kronify!(Pbuf, kron_map, Mred)
-                F = lu!(Mred)
-                ldiv!(inv_Mred, F, I_nkeep)
-                # inv_Mred = Mred
-                inv_Mred .*= ws.jω[k]
-                symtrans!(inv_Mred)
-                formulation.options.ideal_transposition && line_transpose!(inv_Mred)
-
-                @views @inbounds Yout[:, :, k] .= inv_Mred
-            end
-        end
-
-        if !isnothing(formulation.modal_transform)
-            # apply modal transformation
-            _, lp = formulation.modal_transform(
-                LineParameters(PhaseDomain, Zout, Yout, ws.freq),
-            )
-        else
-            lp = LineParameters(PhaseDomain, Zout, Yout, ws.freq)
-        end
-
-        if execution.output_basis === :total
-            scale = problem.system.line_length
-            lp = LineParameters(
-                domain(lp),
-                lp.Z.values .* scale,
-                lp.Y.values .* scale,
-                lp.f;
-                basis=:total,
-            )
-        end
-
-        @info "Line parameters computation completed successfully"
-        return ws, lp
     end
-end
 
-function compute!(
-    problem::LineParametersProblem,
-    formulation::EMTFormulation;
-    options=ComputeOptions(),
-)
-    _, result = _compute_with_workspace(
-        problem,
-        formulation,
-        compute_options(options),
+    parameters = LineParameters(PhaseDomain, Zout, Yout, input.freq)
+    if formulation.modal_transform !== nothing
+        _, parameters = formulation.modal_transform(parameters)
+    end
+    if execution.output_basis === :total
+        parameters = LineParameters(
+            domain(parameters),
+            parameters.Z.values .* input.line_length,
+            parameters.Y.values .* input.line_length,
+            parameters.f;
+            basis = :total
+        )
+    end
+    @info "Line parameters computation completed successfully"
+    inspect || return parameters
+    return EMTTrace(
+        parameters, copy(input.freq), copy(input.phase_map), copy(input.cable_map),
+        trace.Zin, trace.Pin, trace.Zg, trace.Pg, trace.Z, trace.P
     )
-    return result
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Compute frequency-dependent line parameters for one materialized problem.
+
+The problem and formulation are validated, immutable solver input is flattened once,
+and operating-temperature resistivity is calculated into a local array before the
+frequency loop. Neither the problem nor its cable design is mutated.
+
+# Keywords
+
+- `options=ComputeOptions()`: Execution verbosity and output basis.
+- `inspect=false`: Return an [`EMTTrace`](@ref) with completed primitive matrices when
+  `true`; otherwise return [`LineParameters`](@ref) without allocating trace tensors.
+
+# Returns
+
+- [`LineParameters`](@ref) when `inspect=false`.
+- [`EMTTrace`](@ref) when `inspect=true`.
+"""
 function compute!(
-    problem::CableConstantsProblem,
-    ::EMTFormulation;
-    options=ComputeOptions(),
+        problem::LineParametersProblem,
+        formulation::EMTFormulation;
+        options = ComputeOptions(),
+        inspect::Bool = false
 )
     execution = compute_options(options)
+    console = ConsoleLogger(stderr, Logging.Debug)
+    logger = ConsoleVerbosityLogger(console, execution.verbosity)
+    return with_logger(logger) do
+        _solve(problem, formulation, execution; inspect)
+    end
+end
+
+function compute!(
+        problem::CableConstantsProblem,
+        ::EMTFormulation;
+        options = ComputeOptions(),
+        inspect::Bool = false
+)
+    inspect && throw(ArgumentError("inspection is available only for line calculations"))
+    execution = compute_options(options)
     execution.output_basis === :per_length || throw(ArgumentError(
-        "CableConstantsProblem has no system length and supports only output_basis=:per_length",
+        "CableConstantsProblem supports only output_basis=:per_length",
     ))
     return DataModel._compute_cable_constants(
-        problem.design;
-        S=problem.separation,
-        rho_e=problem.earth_resistivity,
+        problem.design; S = problem.separation, rho_e = problem.earth_resistivity
     )
 end
 
-@inline function stash!(slice_or_nothing, k::Int, src::AbstractMatrix)
-    slice_or_nothing === nothing && return nothing
-    @views copyto!(slice_or_nothing[:, :, k], src)
-    nothing
-end
-
-# Builds an Nc×Nc earth matrix using the functors f(h, y, ρ[:,k], ε[:,k], μ[:,k], jω)
 @inline function compute_earth_return_matrix!(
-        E::AbstractMatrix{Complex{T}},
+        destination::AbstractMatrix{Complex{T}},
         cables::AbstractVector{Int},
-        ws,
-        k::Int,
-        functor                         # formulation.earth_impedance or .earth_admittance
-) where {T}
-    ρ = @view ws.rho_g[:, k]
-    ε = @view ws.eps_g[:, k]
-    μ = @view ws.mu_g[:, k]
-    jω = ws.jω[k]
+        input::EMTInput{T},
+        earth,
+        frequency::Int,
+        formulation
+) where {T <: Real}
+    rho = @view earth.rho[:, frequency]
+    epsilon = @view earth.epsilon[:, frequency]
+    mu = @view earth.mu[:, frequency]
+    s = input.jω[frequency]
+    @inbounds for column in eachindex(cables), row in eachindex(cables)
 
-    Nc = length(cables)
-
-    @inbounds for cj in 1:Nc
-        i = cables[cj]
-        for ck in 1:Nc
-            j = cables[ck]
-            # y: diagonal blocks use cable outer radius; off-diagonals use center distance
-            yij = ws.horz_sep[i, j]
-            hij = @view ws.vert[[i, j]]
-            E[cj, ck] = cj == ck ? functor(Val(:self), hij, yij, ρ, ε, μ, jω) :
-                        functor(Val(:mutual), hij, yij, ρ, ε, μ, jω)
-        end
+        left = cables[row]
+        right = cables[column]
+        separation = input.horz_sep[left, right]
+        heights = (input.vert[left], input.vert[right])
+        kind = row == column ? Val(:self) : Val(:mutual)
+        destination[row, column] = formulation(
+            kind, heights, separation, rho, epsilon, mu, s
+        )
     end
-
-    return nothing
+    return destination
 end
 
 function compute_impedance_matrix!(
-        Ztmp::AbstractMatrix{Complex{T}},
-        ws,
-        k::Int,
-        formulation
-) where {T <: REALSCALAR}
-    @inbounds fill!(Ztmp, zero(Complex{T}))
-    @assert length(ws.r_ins_ext) == ws.n_phases "ws.r_ins_ext length mismatch"
-    @assert length(ws.mu_ins) == ws.n_phases "ws.mu_ins length mismatch"
+        destination::AbstractMatrix{Complex{T}},
+        input::EMTInput{T},
+        rho_cond::AbstractVector{T},
+        earth,
+        frequency::Int,
+        formulation::EMTFormulation,
+        trace
+) where {T <: Real}
+    fill!(destination, zero(Complex{T}))
+    indices, cables = _cable_indices(input)
+    earth_matrix = Matrix{Complex{T}}(undef, input.n_cables, input.n_cables)
+    compute_earth_return_matrix!(
+        earth_matrix, cables, input, earth, frequency,
+        formulation.earth_impedance
+    )
+    _stash!(_trace_target(trace, :Zg), frequency, earth_matrix)
+    s = input.jω[frequency]
 
-    Nc = ws.n_cables
-    jω = ws.jω[k]
+    @inbounds for cable in 1:input.n_cables
+        conductors = indices[cable]
+        count = length(conductors)
+        for position in count:-1:1
+            index = conductors[position]
+            inner = input.r_in[index]
+            outer = input.r_ext[index]
+            rho = rho_cond[index]
+            mu = input.mu_cond[index]
+            outside = formulation.internal_impedance(:outer, inner, outer, rho, mu, s)
+            inside = position < count ?
+                     formulation.internal_impedance(
+                :inner,
+                input.r_in[conductors[position + 1]],
+                input.r_ext[conductors[position + 1]],
+                rho_cond[conductors[position + 1]],
+                input.mu_cond[conductors[position + 1]],
+                s
+            ) : zero(outside)
+            mutual = formulation.internal_impedance(:mutual, inner, outer, rho, mu, s)
+            insulation = formulation.insulation_impedance(
+                outer, input.r_ins_ext[index], input.mu_ins[index], s
+            )
+            loop = outside + inside + insulation
+            if position > 1
+                for row in 1:(position - 1), column in 1:(position - 1)
 
-    cons_in_cable, cables = _get_cable_indices(ws)
-
-    # Earth return impedance (Nc×Nc)
-    Zext = Matrix{Complex{T}}(undef, Nc, Nc)
-    compute_earth_return_matrix!(Zext, cables, ws, k, formulation.earth_impedance)
-    stash!(ws.Zg, k, Zext)
-
-    # ws.Zg[:, :, k] .= Zext # store in workspace for later use
-
-    zinfunctor = formulation.internal_impedance
-    zinsfunctor = formulation.insulation_impedance
-
-    @inbounds for c in 1:Nc
-        cons = cons_in_cable[c]
-        n = length(cons)
-
-        for p in n:-1:1
-            i = cons[p]
-            rin = ws.r_in[i]
-            rex = ws.r_ext[i]
-            ρc = ws.rho_cond[i]
-            μrc = ws.mu_cond[i]
-
-            z_outer = zinfunctor(:outer, rin, rex, ρc, μrc, jω)
-            z_inner = (p < n) ?
-                      zinfunctor(:inner,
-                ws.r_in[cons[p + 1]],
-                ws.r_ext[cons[p + 1]],
-                ws.rho_cond[cons[p + 1]],
-                ws.mu_cond[cons[p + 1]], jω) : zero(z_outer)
-            z_mutual = zinfunctor(:mutual, rin, rex, ρc, μrc, jω)
-
-            # insulation series
-            r_ins_ext = ws.r_ins_ext[i]
-            μr_ins = ws.mu_ins[i]
-            z_ins = zinsfunctor(rex, r_ins_ext, μr_ins, jω)
-
-            z_loop = z_outer + z_inner + z_ins
-
-            if p > 1
-                for a in 1:(p - 1), b in 1:(p - 1)
-
-                    Ztmp[cons[a], cons[b]] += (z_loop - 2*z_mutual)
+                    destination[conductors[row], conductors[column]] += loop - 2 * mutual
                 end
-                for a in 1:(p - 1)
-                    Ztmp[cons[p], cons[a]] += (z_loop - z_mutual)
-                    Ztmp[cons[a], cons[p]] += (z_loop - z_mutual)
+                for row in 1:(position - 1)
+                    destination[conductors[position], conductors[row]] += loop - mutual
+                    destination[conductors[row], conductors[position]] += loop - mutual
                 end
             end
-            Ztmp[cons[p], cons[p]] += z_loop
-        end
-
-        stash!(ws.Zin, k, Ztmp)
-
-        # self earth-return on intra-cable block
-        zgself = Zext[c, c]
-        for a in 1:n, b in 1:n
-
-            Ztmp[cons[a], cons[b]] += zgself
+            destination[index, index] += loop
         end
     end
+    _stash!(_trace_target(trace, :Zin), frequency, destination)
 
-    # mutual earth-return off-blocks
-    @inbounds for cj in 1:(Nc - 1)
-        cons_j = cons_in_cable[cj]
-        nj = length(cons_j)
-        for ck in (cj + 1):Nc
-            zgmut = Zext[cj, ck]
-            cons_k = cons_in_cable[ck]
-            nk = length(cons_k)
-            for a in 1:nj, b in 1:nk
+    @inbounds for cable in 1:input.n_cables
+        conductors = indices[cable]
+        self = earth_matrix[cable, cable]
+        for row in conductors, column in conductors
 
-                Ztmp[cons_j[a], cons_k[b]] += zgmut
-                Ztmp[cons_k[b], cons_j[a]] += zgmut
+            destination[row, column] += self
+        end
+    end
+    @inbounds for left in 1:(input.n_cables - 1)
+        for right in (left + 1):input.n_cables
+            mutual = earth_matrix[left, right]
+            for row in indices[left], column in indices[right]
+
+                destination[row, column] += mutual
+                destination[column, row] += mutual
             end
         end
     end
-
-    stash!(ws.Z, k, Ztmp)
-    return nothing
+    _stash!(_trace_target(trace, :Z), frequency, destination)
+    return destination
 end
 
 function compute_admittance_matrix!(
-        Ptmp::AbstractMatrix{Complex{T}},
-        ws,
-        k::Int,
-        formulation
-) where {T <: REALSCALAR}
+        destination::AbstractMatrix{Complex{T}},
+        input::EMTInput{T},
+        earth,
+        frequency::Int,
+        formulation::EMTFormulation,
+        trace
+) where {T <: Real}
+    fill!(destination, zero(Complex{T}))
+    indices, cables = _cable_indices(input)
+    earth_matrix = Matrix{Complex{T}}(undef, input.n_cables, input.n_cables)
+    compute_earth_return_matrix!(
+        earth_matrix, cables, input, earth, frequency,
+        formulation.earth_admittance
+    )
+    _stash!(_trace_target(trace, :Pg), frequency, earth_matrix)
+    s = input.jω[frequency]
 
-    # Earth return (Nc×Nc)
-    @inbounds fill!(Ptmp, zero(Complex{T}))
-    @assert length(ws.r_ins_ext) == ws.n_phases "ws.r_ins_ext length mismatch"
-    @assert length(ws.mu_ins) == ws.n_phases "ws.mu_ins length mismatch"
-
-    Nc = ws.n_cables
-    jω = ws.jω[k]
-
-    cons_in_cable, cables = _get_cable_indices(ws)
-
-    # Earth return admittance (Nc×Nc)
-    Pext = Matrix{Complex{T}}(undef, Nc, Nc)
-    compute_earth_return_matrix!(Pext, cables, ws, k, formulation.earth_admittance)
-    stash!(ws.Pg, k, Pext)
-
-    # --- internal Maxwell coefficients (Ametani tail-sum) -------------------------
-    pinsfunctor = formulation.insulation_admittance
-    @inbounds for c in 1:Nc
-        cons = cons_in_cable[c]
-        n = length(cons)
-        if n <= 1
-            continue
-        end
-
-        # gap coefficients p_g for gaps g = 1..n-1 (between cons[g] and cons[g+1])
-        p = Vector{Complex{T}}(undef, n-1)
-        @inbounds for g in 1:(n - 1)
-            i = cons[g]
-            p[g] = InsulationAdmittance.potential_coefficient(
-                pinsfunctor,
-                ws,
-                i,
-                jω
+    @inbounds for cable in 1:input.n_cables
+        conductors = indices[cable]
+        count = length(conductors)
+        count <= 1 && continue
+        coefficients = Vector{Complex{T}}(undef, count - 1)
+        for gap in 1:(count - 1)
+            coefficients[gap] = InsulationAdmittance.potential_coefficient(
+                formulation.insulation_admittance, input, conductors[gap], s
             )
         end
-
-        # tail sums S[k] = sum_{g=k}^{n-1} p_g, with S[n] = 0
-        S = Vector{Complex{T}}(undef, n)
-        S[n] = zero(Complex{T})
-        @inbounds for k in (n - 1):-1:1
-            S[k] = p[k] + S[k + 1]
+        tails = Vector{Complex{T}}(undef, count)
+        tails[count] = zero(Complex{T})
+        for gap in (count - 1):-1:1
+            tails[gap] = coefficients[gap] + tails[gap + 1]
         end
+        for row in 1:count, column in 1:count
 
-        # P_in[a,b] = S[max(a,b)]
-        @inbounds for a in 1:n
-            ia = cons[a]
-            for b in 1:n
-                Ptmp[ia, cons[b]] += S[max(a, b)]
+            destination[conductors[row], conductors[column]] += tails[max(row, column)]
+        end
+    end
+    _stash!(_trace_target(trace, :Pin), frequency, destination)
+
+    @inbounds for cable in 1:input.n_cables
+        self = earth_matrix[cable, cable]
+        for row in indices[cable], column in indices[cable]
+
+            destination[row, column] += self
+        end
+    end
+    @inbounds for left in 1:(input.n_cables - 1)
+        for right in (left + 1):input.n_cables
+            mutual = earth_matrix[left, right]
+            for row in indices[left], column in indices[right]
+
+                destination[row, column] += mutual
+                destination[column, row] += mutual
             end
         end
     end
-    stash!(ws.Pin, k, Ptmp)
-
-    # stamp earth terms
-    @inbounds for c in 1:Nc
-        cons = cons_in_cable[c]
-        n = length(cons)
-        pgself = Pext[c, c]
-        for a in 1:n, b in 1:n
-
-            Ptmp[cons[a], cons[b]] += pgself
-        end
+    _stash!(_trace_target(trace, :P), frequency, destination)
+    return destination
+end
+function _cable_indices(input)
+    indices = [Int[] for _ in 1:input.n_cables]
+    @inbounds for index in 1:input.n_phases
+        push!(indices[input.cable_map[index]], index)
     end
+    return indices, first.(indices)
+end
 
-    @inbounds for cj in 1:(Nc - 1)
-        cons_j = cons_in_cable[cj]
-        nj = length(cons_j)
-        for ck in (cj + 1):Nc
-            pgmut = Pext[cj, ck]
-            cons_k = cons_in_cable[ck]
-            nk = length(cons_k)
-            for a in 1:nj, b in 1:nk
-
-                Ptmp[cons_j[a], cons_k[b]] += pgmut
-                Ptmp[cons_k[b], cons_j[a]] += pgmut
-            end
-        end
-    end
-
-    stash!(ws.P, k, Ptmp)
-
-    return nothing
+function _earth_data(formulation::EMTFormulation, input::EMTInput)
+    evaluated = EarthProperties.evaluate(
+        formulation.earth_properties, input.earth, input.freq
+    )
+    formulation.equivalent_earth === nothing && return evaluated
+    return formulation.equivalent_earth(evaluated, input.earth)
 end

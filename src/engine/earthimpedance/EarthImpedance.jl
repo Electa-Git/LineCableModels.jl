@@ -12,11 +12,13 @@ module EarthImpedance
 export Papadopoulos
 
 # Module-specific dependencies
-using ...Commons
-import ...Commons: get_description
+using DocStringExtensions: IMPORTS, TYPEDSIGNATURES
+import ...LineCableModels: description, nominal
 import ..Engine: EarthImpedanceFormulation
+import ..Engine: conductivity, bessel_difference
 using QuadGK: quadgk
-using ...Utils: _to_σ, _bessel_diff, to_nominal
+
+vacuum_permeability(value) = one(value) * 4 * (one(value) * π) * (one(value) * 10)^(-7)
 
 include("homogeneous.jl")
 include("base.jl")

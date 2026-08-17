@@ -23,7 +23,7 @@ admittance calculation.
 """
 struct ParallelRC <: InsulationAdmittanceFormulation end
 
-function get_description(::ParallelRC)
+function description(::ParallelRC)
     "Parallel-RC insulation (constant conductivity and permittivity)"
 end
 
@@ -59,16 +59,18 @@ coefficient ``1/C``.
         rho::T,
         eps_r::T,
         s::Complex{T}
-) where {T <: REALSCALAR}
+) where {T <: Real}
     if isapprox(r_in, 0.0, atol = eps(T)) || isapprox(r_in, r_ex, atol = eps(T))
         # Keep bare-conductor handling consistent with Lossless.
         return zero(Complex{T})
     end
 
     log_ratio = log(r_ex / r_in)
-    capacitance = T(2) * T(π) * _typed_ε₀(T) * eps_r / log_ratio
-    conductivity = _to_σ(rho)
-    conductance = T(2) * T(π) * conductivity / log_ratio
+    eps0 = one(r_in) * 88541878128 * (one(r_in) * 10)^(-22)
+    circumference = 2 * (one(r_in) * π)
+    capacitance = circumference * eps0 * eps_r / log_ratio
+    sigma = conductivity(rho)
+    conductance = circumference * sigma / log_ratio
 
     return s / (conductance + s * capacitance)
 end
@@ -78,7 +80,7 @@ end
         ws,
         component_idx::Int,
         s::Complex{T}
-) where {T <: REALSCALAR}
+) where {T <: Real}
     p = zero(Complex{T})
     @inbounds for layer_idx in ws.insulator_layer_ranges[component_idx]
         p += f(

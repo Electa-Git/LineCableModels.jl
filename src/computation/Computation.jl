@@ -8,10 +8,8 @@ export result, statistics, samples, histograms, uncertain_value, manifest
 using Random
 using SHA
 using Statistics
-
-using ..Commons:
-    PhaseDomain, basis, domain, frequencies, TYPEDEF, TYPEDFIELDS,
-    TYPEDSIGNATURES
+using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
+import ..LineCableModels: PhaseDomain, basis, domain, frequencies
 import ..DataModel
 import ..Engine
 import ..Engine: compute!
@@ -19,33 +17,34 @@ import ..ParametricBuilder
 import ..PlotBuilder
 import ..UnitHandler
 using ..ParametricBuilder:
-    AbstractSpec, Configuration, UncertainValue, AbsoluteUncertainty,
-    configurations, configuration_manifest, has_uncertainty, materialize
+                           AbstractSpec, Configuration, UncertainValue, AbsoluteUncertainty,
+                           configurations, configuration_manifest, has_uncertainty,
+                           materialize
 
 struct CableConstantsMaterializer end
 function (::CableConstantsMaterializer)(design, separation, earth_resistivity)
     return Engine.CableConstantsProblem(
         design;
         separation,
-        earth_resistivity,
+        earth_resistivity
     )
 end
 
 function Engine.CableConstantsProblem(
-    design::AbstractSpec{<:DataModel.CableDesign};
-    separation=nothing,
-    earth_resistivity=100.0,
-    combine::Symbol=:product,
+        design::AbstractSpec{<:DataModel.CableDesign};
+        separation = nothing,
+        earth_resistivity = 100.0,
+        combine::Symbol = :product
 )
     return ParametricBuilder.Gridspace{Engine.CableConstantsProblem}(
         CableConstantsMaterializer(),
         (
             ParametricBuilder._gridspace_axis(design),
             ParametricBuilder._gridspace_axis(separation),
-            ParametricBuilder._gridspace_axis(earth_resistivity),
+            ParametricBuilder._gridspace_axis(earth_resistivity)
         ),
         (:design, :separation, :earth_resistivity);
-        combine,
+        combine
     )
 end
 
@@ -70,7 +69,7 @@ struct FullParametric <: AbstractRunPolicy
     "Handling of invalid configurations: `:error` or `:skip`."
     invalid::Symbol
 
-    function FullParametric(; invalid::Symbol=:error)
+    function FullParametric(; invalid::Symbol = :error)
         invalid in (:error, :skip) || throw(ArgumentError(
             "invalid must be :error or :skip; got :$invalid",
         ))
@@ -92,9 +91,9 @@ mean error, or joint-distribution error.
 
 $(TYPEDFIELDS)
 """
-struct MonteCarlo{D,S} <: AbstractRunPolicy
+struct MonteCarlo{D, S} <: AbstractRunPolicy
     "Requested number of realizations, or `nothing` for DKW-based sizing."
-    trials::Union{Nothing,Int}
+    trials::Union{Nothing, Int}
 
     "Simultaneous marginal-CDF confidence level."
     confidence::Float64
@@ -115,21 +114,21 @@ struct MonteCarlo{D,S} <: AbstractRunPolicy
     return_histograms::Bool
 
     "Requested number of histogram bins, or `nothing` for automatic selection."
-    bins::Union{Nothing,Int}
+    bins::Union{Nothing, Int}
 
     "Handling of invalid configurations: `:error` or `:skip`."
     invalid::Symbol
 
     function MonteCarlo(;
-        trials::Union{Nothing,Integer}=nothing,
-        confidence::Real=0.95,
-        cdf_tol::Real=0.02,
-        distribution=:normal,
-        seed::Union{Nothing,Integer}=nothing,
-        return_samples::Bool=false,
-        return_histograms::Bool=false,
-        bins::Union{Nothing,Integer}=nothing,
-        invalid::Symbol=:error,
+            trials::Union{Nothing, Integer} = nothing,
+            confidence::Real = 0.95,
+            cdf_tol::Real = 0.02,
+            distribution = :normal,
+            seed::Union{Nothing, Integer} = nothing,
+            return_samples::Bool = false,
+            return_histograms::Bool = false,
+            bins::Union{Nothing, Integer} = nothing,
+            invalid::Symbol = :error
     )
         trials === nothing || trials > 0 ||
             throw(ArgumentError("trials must be positive"))
@@ -147,7 +146,7 @@ struct MonteCarlo{D,S} <: AbstractRunPolicy
                 "unsupported distribution :$distribution; expected :normal, :uniform, a sampler function, or an extension-supported distribution",
             ))
         actual_seed = seed === nothing ? nothing : UInt64(seed)
-        return new{typeof(distribution),typeof(actual_seed)}(
+        return new{typeof(distribution), typeof(actual_seed)}(
             trials === nothing ? nothing : Int(trials),
             Float64(confidence),
             Float64(cdf_tol),
@@ -156,7 +155,7 @@ struct MonteCarlo{D,S} <: AbstractRunPolicy
             return_samples,
             return_histograms,
             bins === nothing ? nothing : Int(bins),
-            invalid,
+            invalid
         )
     end
 end
@@ -168,7 +167,7 @@ Store descriptive statistics for one scalar Monte Carlo observable.
 
 $(TYPEDFIELDS)
 """
-struct SampleSummary{T<:Real}
+struct SampleSummary{T <: Real}
     "Sample mean, in the physical unit of the observable."
     mean::T
 
@@ -191,14 +190,14 @@ struct SampleSummary{T<:Real}
     max::T
 
     function SampleSummary(
-        mean::T,
-        std::T,
-        min::T,
-        q05::T,
-        q50::T,
-        q95::T,
-        max::T,
-    ) where {T<:Real}
+            mean::T,
+            std::T,
+            min::T,
+            q05::T,
+            q50::T,
+            q95::T,
+            max::T
+    ) where {T <: Real}
         all(isfinite, (mean, std, min, q05, q50, q95, max)) ||
             throw(ArgumentError("sample summary values must be finite"))
         std >= zero(std) || throw(ArgumentError(
@@ -226,7 +225,7 @@ function SampleSummary(values::AbstractVector{<:Real})
     promoted = promote(
         Statistics.mean(values), sigma, minimum(values),
         Statistics.quantile(values, 0.05), Statistics.quantile(values, 0.50),
-        Statistics.quantile(values, 0.95), maximum(values),
+        Statistics.quantile(values, 0.95), maximum(values)
     )
     return SampleSummary(promoted...)
 end
@@ -238,14 +237,14 @@ Represent a normalized piecewise-constant marginal probability density.
 
 $(TYPEDFIELDS)
 """
-struct HistogramPDF{T<:AbstractFloat}
+struct HistogramPDF{T <: AbstractFloat}
     "Bin edges in the physical unit of the observable."
     edges::Vector{T}
 
     "Probability densities, in the reciprocal unit of the observable."
     density::Vector{T}
 
-    function HistogramPDF(edges::Vector{T}, density::Vector{T}) where {T<:AbstractFloat}
+    function HistogramPDF(edges::Vector{T}, density::Vector{T}) where {T <: AbstractFloat}
         length(edges) == length(density) + 1 || throw(ArgumentError(
             "histogram edges must contain one more value than density",
         ))
@@ -269,8 +268,8 @@ $(TYPEDSIGNATURES)
 Construct and normalize a piecewise-constant histogram density.
 """
 function HistogramPDF(
-    edges::AbstractVector{<:Real},
-    density::AbstractVector{<:Real},
+        edges::AbstractVector{<:Real},
+        density::AbstractVector{<:Real}
 )
     T = promote_type(float(eltype(edges)), float(eltype(density)))
     isconcretetype(T) || (T = Float64)
@@ -306,7 +305,7 @@ and their stable digest.
 
 $(TYPEDFIELDS)
 """
-struct CalculationManifest{R,P,F,S,E,O}
+struct CalculationManifest{R, P, F, S, E, O}
     "Resolved Gridspace parameterization."
     resolved_parameterization::R
 
@@ -335,20 +334,20 @@ $(TYPEDSIGNATURES)
 Create a reproducible calculation manifest and its SHA-256 digest.
 """
 function CalculationManifest(
-    resolved_parameterization,
-    problem_assumptions,
-    formulation,
-    execution_policy,
-    calculation_options,
+        resolved_parameterization,
+        problem_assumptions,
+        formulation,
+        execution_policy,
+        calculation_options
 )
     solver = string(typeof(formulation))
     payload = (
-        resolved_parameterization=resolved_parameterization,
-        problem_assumptions=problem_assumptions,
-        formulation=_manifest_tree(formulation),
+        resolved_parameterization = resolved_parameterization,
+        problem_assumptions = problem_assumptions,
+        formulation = _manifest_tree(formulation),
         solver,
-        execution_policy=_manifest_tree(execution_policy),
-        calculation_options=_manifest_tree(calculation_options),
+        execution_policy = _manifest_tree(execution_policy),
+        calculation_options = _manifest_tree(calculation_options)
     )
     digest = bytes2hex(sha256(_stable_bytes(payload)))
     return CalculationManifest(
@@ -358,7 +357,7 @@ function CalculationManifest(
         payload.solver,
         payload.execution_policy,
         payload.calculation_options,
-        digest,
+        digest
     )
 end
 
@@ -390,7 +389,7 @@ Store the results and parameter values from a complete Gridspace traversal.
 
 $(TYPEDFIELDS)
 """
-struct FullParametricResult{T,C,F,M} <: AbstractVector{T}
+struct FullParametricResult{T, C, F, M} <: AbstractVector{T}
     "Primitive result for each successfully evaluated configuration."
     values::Vector{T}
 
@@ -417,7 +416,7 @@ Store one Monte Carlo analysis of primitive result type `T`.
 
 $(TYPEDFIELDS)
 """
-struct MonteCarloResult{T,S,Sa,H,U,D,M}
+struct MonteCarloResult{T, S, Sa, H, U, D, M}
     "Complete primitive result reconstructed from the sample means."
     representation::T
 
@@ -494,66 +493,65 @@ $(TYPEDSIGNATURES)
 
 Return the calculation manifest associated with a result.
 """
-manifest(value::Union{FullParametricResult,MonteCarloResult}) = value.manifest
+manifest(value::Union{FullParametricResult, MonteCarloResult}) = value.manifest
 
 # Stable serialization deliberately avoids Julia's session-randomized hash
 # and object addresses. Automatic Grid coupling identities are assigned stable
 # first-occurrence labels during structural traversal.
 mutable struct _ManifestState
-    automatic_keys::IdDict{Any,Int}
+    automatic_keys::IdDict{Any, Int}
 end
-_ManifestState() = _ManifestState(IdDict{Any,Int}())
+_ManifestState() = _ManifestState(IdDict{Any, Int}())
 
 function _manifest_tree(value, state::_ManifestState)
     if value isa ParametricBuilder.AutomaticGridKey
         label = get!(state.automatic_keys, value.token) do
             length(state.automatic_keys) + 1
         end
-        return (automatic_grid=label,)
+        return (automatic_grid = label,)
     elseif value isa ParametricBuilder.NamedGridKey
-        return (named_grid=_manifest_tree(value.value, state),)
+        return (named_grid = _manifest_tree(value.value, state),)
     elseif value isa Type
         return string(value)
     elseif value isa Function
         names = fieldnames(typeof(value))
         fields = map(
             name -> _manifest_tree(getfield(value, name), state),
-            names,
+            names
         )
         return (
-            function_type=string(typeof(value)),
-            fields=NamedTuple{names}(fields),
+            function_type = string(typeof(value)),
+            fields = NamedTuple{names}(fields)
         )
     elseif value isa NamedTuple
         return NamedTuple{keys(value)}(map(item -> _manifest_tree(item, state), values(value)))
     elseif value isa AbstractDict
-        entries = [
-            (_manifest_tree(key, state), _manifest_tree(item, state))
-            for (key, item) in pairs(value)
-        ]
-        sort!(entries; by=entry -> String(_stable_bytes(first(entry))))
-        return (type=string(typeof(value)), entries=tuple(entries...))
+        entries = [(_manifest_tree(key, state), _manifest_tree(item, state))
+                   for (key, item) in pairs(value)]
+        sort!(entries; by = entry -> String(_stable_bytes(first(entry))))
+        return (type = string(typeof(value)), entries = tuple(entries...))
     elseif value isa AbstractSet
         entries = [_manifest_tree(item, state) for item in value]
-        sort!(entries; by=entry -> String(_stable_bytes(entry)))
-        return (type=string(typeof(value)), entries=tuple(entries...))
+        sort!(entries; by = entry -> String(_stable_bytes(entry)))
+        return (type = string(typeof(value)), entries = tuple(entries...))
     elseif value isa Tuple
         return map(item -> _manifest_tree(item, state), value)
     elseif value isa AbstractArray
-        return (type=string(typeof(value)), size=size(value), values=map(
-            item -> _manifest_tree(item, state), Tuple(value),
-        ))
-    elseif value isa Union{Nothing,Missing,Bool,Number,Symbol,AbstractString,Char}
+        return (type = string(typeof(value)), size = size(value),
+            values = map(
+                item -> _manifest_tree(item, state), Tuple(value)
+            ))
+    elseif value isa Union{Nothing, Missing, Bool, Number, Symbol, AbstractString, Char}
         return value
     elseif isstructtype(typeof(value))
         names = fieldnames(typeof(value))
         fields = map(
             name -> _manifest_tree(getfield(value, name), state),
-            names,
+            names
         )
-        return (type=string(typeof(value)), fields=NamedTuple{names}(fields))
+        return (type = string(typeof(value)), fields = NamedTuple{names}(fields))
     end
-    return (type=string(typeof(value)), representation=repr(value))
+    return (type = string(typeof(value)), representation = repr(value))
 end
 
 _manifest_tree(value) = _manifest_tree(value, _ManifestState())
@@ -608,16 +606,18 @@ function _configuration_failure(index, configuration, exception)
         index,
         configuration_manifest(configuration),
         string(typeof(exception)),
-        sprint(showerror, exception),
+        sprint(showerror, exception)
     )
 end
 
-_skippable_configuration_error(exception) = exception isa Union{
-    ArgumentError,
-    AssertionError,
-    DimensionMismatch,
-    DomainError,
-}
+function _skippable_configuration_error(exception)
+    exception isa Union{
+        ArgumentError,
+        AssertionError,
+        DimensionMismatch,
+        DomainError
+    }
+end
 
 function _full_result(values, resolved, failures, problem, formulation, run, options)
     typed_values = values === nothing ? Union{}[] : values
@@ -626,13 +626,13 @@ function _full_result(values, resolved, failures, problem, formulation, run, opt
         _manifest_tree(problem),
         formulation,
         run,
-        options,
+        options
     )
     return FullParametricResult(
         typed_values,
         resolved,
         failures,
-        calculation_manifest,
+        calculation_manifest
     )
 end
 
@@ -660,10 +660,10 @@ omitted. Specifications containing uncertainty require an explicit
 [`FullParametric`](@ref) or [`MonteCarlo`](@ref) policy.
 """
 function compute!(
-    problem::AbstractSpec{<:Engine.ProblemDefinition},
-    formulation::Engine.AbstractFormulation;
-    run=nothing,
-    options=Engine.ComputeOptions(),
+        problem::AbstractSpec{<:Engine.ProblemDefinition},
+        formulation::Engine.AbstractFormulation;
+        run = nothing,
+        options = Engine.ComputeOptions()
 )
     selected_run = if run === nothing
         has_uncertainty(problem) && throw(ArgumentError(
@@ -690,7 +690,7 @@ function _compute_gridspace(problem, formulation, run::FullParametric, options)
             materialized = materialize(configuration)
             values = _append_result(
                 values,
-                Engine.compute!(materialized, formulation; options),
+                Engine.compute!(materialized, formulation; options)
             )
             push!(resolved, parameterization)
         catch exception
@@ -710,8 +710,7 @@ function _compute_gridspace(problem, formulation, run::MonteCarlo, options)
     root_seed = run.seed === nothing ? rand(Random.RandomDevice(), UInt64) : run.seed
     for (index, configuration) in enumerate(configurations(problem))
         parameterization = configuration_manifest(configuration)
-        configuration_seed =
-            root_seed ⊻ (UInt64(index - 1) * 0x9e3779b97f4a7c15)
+        configuration_seed = root_seed ⊻ (UInt64(index - 1) * 0x9e3779b97f4a7c15)
         try
             values = _append_result(
                 values,
@@ -723,8 +722,8 @@ function _compute_gridspace(problem, formulation, run::MonteCarlo, options)
                     run,
                     options,
                     root_seed,
-                    configuration_seed,
-                ),
+                    configuration_seed
+                )
             )
             push!(resolved, parameterization)
         catch exception
@@ -735,11 +734,11 @@ function _compute_gridspace(problem, formulation, run::MonteCarlo, options)
         end
     end
     manifest_run = (
-        policy=_manifest_tree(run),
-        actual_root_seed=root_seed,
+        policy = _manifest_tree(run),
+        actual_root_seed = root_seed
     )
     values === nothing && return _full_result(
-        values, resolved, failures, problem, formulation, manifest_run, options,
+        values, resolved, failures, problem, formulation, manifest_run, options
     )
     if length(values) == 1 && isempty(failures)
         return only(values)
@@ -751,7 +750,7 @@ function _compute_gridspace(problem, formulation, run::MonteCarlo, options)
         problem,
         formulation,
         manifest_run,
-        options,
+        options
     )
 end
 
@@ -768,26 +767,26 @@ function _observable_count(value::Engine.LineParameters)
 end
 
 function _monte_carlo(
-    problem,
-    configuration,
-    parameterization,
-    formulation,
-    run,
-    options,
-    root_seed,
-    seed,
+        problem,
+        configuration,
+        parameterization,
+        formulation,
+        run,
+        options,
+        root_seed,
+        seed
 )
     rng = Random.Xoshiro(seed)
-    first_problem = rand(rng, configuration; distribution=run.distribution)
+    first_problem = rand(rng, configuration; distribution = run.distribution)
     first_result = Engine.compute!(first_problem, formulation; options)
     ntrials = something(
         run.trials,
-        _dkw_trials(_observable_count(first_result), run.confidence, run.cdf_tol),
+        _dkw_trials(_observable_count(first_result), run.confidence, run.cdf_tol)
     )
     draws = Vector{typeof(first_result)}(undef, ntrials)
     draws[1] = first_result
     for trial in 2:ntrials
-        realization = rand(rng, configuration; distribution=run.distribution)
+        realization = rand(rng, configuration; distribution = run.distribution)
         draws[trial] = Engine.compute!(realization, formulation; options)
     end
     aggregated = _aggregate(draws, run)
@@ -798,12 +797,12 @@ function _monte_carlo(
         merge(
             _manifest_tree(run),
             (
-                actual_trials=ntrials,
-                actual_root_seed=root_seed,
-                actual_seed=seed,
-            ),
+                actual_trials = ntrials,
+                actual_root_seed = root_seed,
+                actual_seed = seed
+            )
         ),
-        options,
+        options
     )
     return MonteCarloResult(
         aggregated.representation,
@@ -813,30 +812,30 @@ function _monte_carlo(
         UncertainValue(
             aggregated.representation,
             aggregated.uncertainty,
-            AbsoluteUncertainty(),
+            AbsoluteUncertainty()
         ),
         ntrials,
         run.confidence,
         run.cdf_tol,
         run.distribution,
         seed,
-        calculation_manifest,
+        calculation_manifest
     )
 end
 
-function _histogram(values::AbstractVector{<:Real}, bins::Union{Nothing,Int})
+function _histogram(values::AbstractVector{<:Real}, bins::Union{Nothing, Int})
     lo, hi = extrema(values)
     if lo == hi
         width = max(abs(float(lo)) * sqrt(eps(Float64)), sqrt(eps(Float64)))
         edges = [float(lo) - width, float(hi) + width]
     else
         count = something(bins, max(1, ceil(Int, sqrt(length(values)))))
-        edges = collect(range(float(lo), float(hi); length=count + 1))
+        edges = collect(range(float(lo), float(hi); length = count + 1))
     end
     counts = zeros(Float64, length(edges) - 1)
     for value in values
         index = value == last(edges) ? length(counts) :
-            clamp(searchsortedlast(edges, value), 1, length(counts))
+                clamp(searchsortedlast(edges, value), 1, length(counts))
         counts[index] += 1
     end
     density = counts ./ (length(values) .* diff(edges))
@@ -848,22 +847,23 @@ function _aggregate(draws::Vector{<:DataModel.CableConstants}, run)
     Ls = [value.L for value in draws]
     Cs = [value.C for value in draws]
     summaries = DataModel.CableConstants(
-        SampleSummary(Rs), SampleSummary(Ls), SampleSummary(Cs),
+        SampleSummary(Rs), SampleSummary(Ls), SampleSummary(Cs)
     )
     representation = DataModel.CableConstants(
-        summaries.R.mean, summaries.L.mean, summaries.C.mean,
+        summaries.R.mean, summaries.L.mean, summaries.C.mean
     )
     uncertainty = DataModel.CableConstants(
-        summaries.R.std, summaries.L.std, summaries.C.std,
+        summaries.R.std, summaries.L.std, summaries.C.std
     )
     retained = run.return_samples ? DataModel.CableConstants(Rs, Ls, Cs) : nothing
-    hist = run.return_histograms ? DataModel.CableConstants(
+    hist = run.return_histograms ?
+           DataModel.CableConstants(
         _histogram(Rs, run.bins),
         _histogram(Ls, run.bins),
-        _histogram(Cs, run.bins),
+        _histogram(Cs, run.bins)
     ) : nothing
-    return (representation, statistics=summaries, samples=retained,
-        histograms=hist, uncertainty)
+    return (representation, statistics = summaries, samples = retained,
+        histograms = hist, uncertainty)
 end
 
 function _rlcg_samples(draws::Vector{<:Engine.LineParameters})
@@ -889,7 +889,7 @@ function _rlcg_samples(draws::Vector{<:Engine.LineParameters})
     return RLCG(Rs, Ls, Cs, Gs)
 end
 
-function _map_observables(function_value, samples::Array{<:Real,4})
+function _map_observables(function_value, samples::Array{<:Real, 4})
     output_size = size(samples)[1:3]
     indices = CartesianIndices(output_size)
     first_index = first(indices)
@@ -906,31 +906,32 @@ function _aggregate(draws::Vector{<:Engine.LineParameters}, run)
     sample_values = _rlcg_samples(draws)
     summaries = RLCG((
         _map_observables(SampleSummary, values)
-        for values in (sample_values.R, sample_values.L, sample_values.C, sample_values.G)
+    for values in (sample_values.R, sample_values.L, sample_values.C, sample_values.G)
     )...)
 
-    means = RLCG((map(summary -> summary.mean, values) for values in
-        (summaries.R, summaries.L, summaries.C, summaries.G))...)
-    deviations = RLCG((map(summary -> summary.std, values) for values in
-        (summaries.R, summaries.L, summaries.C, summaries.G))...)
+    means = RLCG((map(summary -> summary.mean, values)
+    for values in (summaries.R, summaries.L, summaries.C, summaries.G))...)
+    deviations = RLCG((map(summary -> summary.std, values)
+    for values in (summaries.R, summaries.L, summaries.C, summaries.G))...)
     first_result = first(draws)
     angular = reshape(2π .* first_result.f, 1, 1, :)
     mean_Z = complex.(means.R, means.L .* angular)
     mean_Y = complex.(means.G, means.C .* angular)
     representation = Engine.LineParameters(
         domain(first_result), mean_Z, mean_Y, first_result.f;
-        basis=basis(first_result),
+        basis = basis(first_result)
     )
-    hist = run.return_histograms ? RLCG((
+    hist = run.return_histograms ?
+           RLCG((
         _map_observables(
             values -> _histogram(values, run.bins),
-            samples,
-        ) for samples in
-        (sample_values.R, sample_values.L, sample_values.C, sample_values.G)
+            samples
+        )
+    for samples in (sample_values.R, sample_values.L, sample_values.C, sample_values.G)
     )...) : nothing
     retained = run.return_samples ? sample_values : nothing
-    return (representation, statistics=summaries, samples=retained,
-        histograms=hist, uncertainty=deviations)
+    return (representation, statistics = summaries, samples = retained,
+        histograms = hist, uncertainty = deviations)
 end
 
 include("dataframe.jl")

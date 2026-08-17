@@ -62,7 +62,7 @@ end
 function kronify(
         M::Matrix{Complex{T}},
         phase_map::Vector{Int}
-) where {T <: REALSCALAR}
+) where {T <: Real}
     keep = findall(!=(0), phase_map)
     eliminate = findall(==(0), phase_map)
 
@@ -82,7 +82,7 @@ function kronify!(
         M::Matrix{Complex{T}},
         phase_map::Vector{Int},
         Mred::Matrix{Complex{T}}
-) where {T <: REALSCALAR}
+) where {T <: Real}
     keep = findall(!=(0), phase_map)
     eliminate = findall(==(0), phase_map)
 

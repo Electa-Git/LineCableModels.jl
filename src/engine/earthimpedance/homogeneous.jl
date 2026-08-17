@@ -28,7 +28,7 @@ function Papadopoulos(; s::Int = 2, t::Int = 2, Γx::Int = 2,
     )
 end
 
-get_description(::Papadopoulos) = "Papadopoulos"
+description(::Papadopoulos) = "Papadopoulos"
 from_kernel(f::Papadopoulos) = f.kernel
 
 struct Pollaczek{Tγ1, Tγ2, Tμ2} <: Homogeneous
@@ -38,13 +38,13 @@ end
 function Pollaczek(; s::Int = 2, t::Int = 2, Γx::Int = 0,
         γ1 = (jω, μ, σ, ε) -> jω * sqrt(μ * ε),
         γ2 = (jω, μ, σ, ε) -> sqrt(jω * μ * σ),
-        μ2 = μ -> oftype(μ, μ₀))
+        μ2 = vacuum_permeability)
     Pollaczek(
         Kernel{typeof(γ1), typeof(γ2), typeof(μ2)}(s, t, Γx, γ1, γ2, μ2),
     )
 end
 
-get_description(::Pollaczek) = "Pollaczek"
+description(::Pollaczek) = "Pollaczek"
 from_kernel(f::Pollaczek) = f.kernel
 
 struct Carson{Tγ1, Tγ2, Tμ2} <: Homogeneous
@@ -54,13 +54,13 @@ end
 function Carson(; s::Int = 1, t::Int = 1, Γx::Int = 0,
         γ1 = (jω, μ, σ, ε) -> jω * sqrt(μ * ε),
         γ2 = (jω, μ, σ, ε) -> sqrt(jω * μ * σ),
-        μ2 = μ -> oftype(μ, μ₀))
+        μ2 = vacuum_permeability)
     Carson(
         Kernel{typeof(γ1), typeof(γ2), typeof(μ2)}(s, t, Γx, γ1, γ2, μ2),
     )
 end
 
-get_description(::Carson) = "Carson"
+description(::Carson) = "Carson"
 from_kernel(f::Carson) = f.kernel
 
 # ρ, ε, μ = ws.rho_g, ws.eps_g, ws.mu_g
@@ -69,13 +69,13 @@ from_kernel(f::Carson) = f.kernel
 # Functor implementation for all homogeneous earth impedance formulations.
 function (f::Homogeneous)(
         form::Symbol,
-        h::AbstractVector{T},
+        h::Union{Tuple{T, T}, AbstractVector{T}},
         yij::T,
         rho_g::AbstractVector{T},
         eps_g::AbstractVector{T},
         mu_g::AbstractVector{T},
         jω::Complex{T}
-) where {T <: REALSCALAR}
+) where {T <: Real}
     Base.@nospecialize form
     return form === :self ? f(Val(:self), h, yij, rho_g, eps_g, mu_g, jω) :
            form === :mutual ? f(Val(:mutual), h, yij, rho_g, eps_g, mu_g, jω) :
@@ -83,25 +83,25 @@ function (f::Homogeneous)(
 end
 
 # function (f::Homogeneous)(
-# 	h::AbstractVector{T},
+# 	h::Union{Tuple{T,T},AbstractVector{T}},
 # 	yij::T,
 # 	rho_g::AbstractVector{T},
 # 	eps_g::AbstractVector{T},
 # 	mu_g::AbstractVector{T},
 # 	jω::Complex{T},
-# ) where {T <: REALSCALAR}
+# ) where {T <: Real}
 # 	return f(Val(:mutual), h, yij, rho_g, eps_g, mu_g, jω)
 # end
 
 function (f::Homogeneous)(
         ::Val{:self},
-        h::AbstractVector{T},
+        h::Union{Tuple{T, T}, AbstractVector{T}},
         yij::T,
         rho_g::AbstractVector{T},
         eps_g::AbstractVector{T},
         mu_g::AbstractVector{T},
         jω::Complex{T}
-) where {T <: REALSCALAR}
+) where {T <: Real}
     return f(Val(:mutual), h, yij, rho_g, eps_g, mu_g, jω)
 end
 
@@ -131,13 +131,13 @@ end
 
 @inline function (f::Homogeneous)(
         ::Val{:mutual},
-        h::AbstractVector{T},
+        h::Union{Tuple{T, T}, AbstractVector{T}},
         yij::T,
         rho_g::AbstractVector{T},
         eps_g::AbstractVector{T},
         mu_g::AbstractVector{T},
         jω::Complex{T}
-) where {T <: REALSCALAR}
+) where {T <: Real}
     validate_layers!(f, h)
 
     s = f.s # index of source layer
@@ -147,7 +147,7 @@ end
     σ = similar(rho_g)
     @inbounds for i in 1:nL
         μ[i] = (i == 1) ? mu_g[i] : f.μ2(mu_g[i]) # μ₂ for earth layers
-        σ[i] = _to_σ(rho_g[i])
+        σ[i] = conductivity(rho_g[i])
     end
 
     # construct propagation constants according to formulation assumptions
@@ -174,7 +174,7 @@ end
     Dij = hypot(yij, hi + hj)          # √(y^2 + (hi + hj)^2) - conductor-image
 
     # perfectly conducting earth term in Bessel form
-    Λij = _bessel_diff(γ_s, dij, Dij)
+    Λij = bessel_difference(γ_s, dij, Dij)
 
     # precompute scalars for integrand
     μ_s = μ[s]
@@ -183,7 +183,7 @@ end
 
     # Sij = 2 ∫_0^∞ Fij(λ) cos(yij λ) dλ
     # integrand = (λ) -> Fij(λ) * cos(yij * λ)
-    @inline function integrand(λ::Float64)::Complex{T}
+    @inline function integrand(λ::Real)
         as = sqrt(λ*λ + γs_2 + kx_2)
         ao = sqrt(λ*λ + γo_2 + kx_2)
 
@@ -192,12 +192,14 @@ end
         F * cos(yij*λ)
     end
 
+    R = typeof(float(nominal(one(T))))
+    tolerance = max(R(1e-8), eps(R))
     Sij, _ = quadgk(
         integrand,
-        0.0,
-        1.0;
-        rtol = 1e-8,
-        norm = z -> abs(complex(to_nominal(real(z)), to_nominal(imag(z))))
+        zero(R),
+        one(R);
+        rtol = tolerance,
+        norm = z -> abs(complex(nominal(real(z)), nominal(imag(z))))
     )
     Sij *= 2
 

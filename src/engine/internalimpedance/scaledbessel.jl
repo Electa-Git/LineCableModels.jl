@@ -1,6 +1,6 @@
 
 struct ScaledBessel <: InternalImpedanceFormulation end
-get_description(::ScaledBessel) = "Scaled Bessel (Schelkunoff)"
+description(::ScaledBessel) = "Scaled Bessel (Schelkunoff)"
 
 @inline function (f::ScaledBessel)(
         form::Symbol,
@@ -9,7 +9,7 @@ get_description(::ScaledBessel) = "Scaled Bessel (Schelkunoff)"
         rho_c::T,
         mur_c::T,
         jω::Complex{T}
-) where {T <: REALSCALAR}
+) where {T <: Real}
     Base.@nospecialize form
     return form === :inner ? f(Val(:inner), r_in, r_ex, rho_c, mur_c, jω) :
            form === :outer ? f(Val(:outer), r_in, r_ex, rho_c, mur_c, jω) :
@@ -24,10 +24,10 @@ end
         rho_c::T,
         mur_c::T,
         jω::Complex{T}
-) where {T <: REALSCALAR}
+) where {T <: Real}
     # Constants
-    mu_c = T(μ₀) * mur_c
-    sigma_c = _to_σ(rho_c)
+    mu_c = vacuum_permeability(r_in) * mur_c
+    sigma_c = conductivity(rho_c)
 
     # Calculate the reciprocal of the skin depth
     m = sqrt(jω * mu_c * sigma_c)
@@ -43,17 +43,17 @@ end
         sc = sc_in / sc_ex
 
         # Bessel function terms with uncertainty handling
-        N = (besselkx(0, w_in)) *
-            (besselix(1, w_ex)) +
+        N = (special_besselkx(0, w_in)) *
+            (special_besselix(1, w_ex)) +
             sc *
-            (besselix(0, w_in)) *
-            (besselkx(1, w_ex))
+            (special_besselix(0, w_in)) *
+            (special_besselkx(1, w_ex))
 
-        D = (besselkx(1, w_in)) *
-            (besselix(1, w_ex)) -
+        D = (special_besselkx(1, w_in)) *
+            (special_besselix(1, w_ex)) -
             sc *
-            (besselix(1, w_in)) *
-            (besselkx(1, w_ex))
+            (special_besselix(1, w_in)) *
+            (special_besselkx(1, w_ex))
 
         return Complex{T}((jω * mu_c / 2π) * (1 / w_in) * (N / D))
     end
@@ -66,10 +66,10 @@ end
         rho_c::T,
         mur_c::T,
         jω::Complex{T}
-) where {T <: REALSCALAR}
+) where {T <: Real}
     # Constants
-    mu_c = T(μ₀) * mur_c
-    sigma_c = _to_σ(rho_c)
+    mu_c = vacuum_permeability(r_in) * mur_c
+    sigma_c = conductivity(rho_c)
 
     # Calculate the reciprocal of the skin depth
     m = sqrt(jω * mu_c * sigma_c)
@@ -77,8 +77,8 @@ end
 
     if isapprox(r_in, 0.0, atol = eps(T)) # solid conductor
         @debug "Using closed form for solid conductor"
-        N = besselix(0, w_ex)
-        D = besselix(1, w_ex)
+        N = special_besselix(0, w_ex)
+        D = special_besselix(1, w_ex)
 
     else
         w_in = m * r_in
@@ -88,17 +88,17 @@ end
         sc = sc_in / sc_ex
 
         # Bessel function terms with uncertainty handling
-        N = (besselix(0, w_ex)) *
-            (besselkx(1, w_in)) +
+        N = (special_besselix(0, w_ex)) *
+            (special_besselkx(1, w_in)) +
             sc *
-            (besselkx(0, w_ex)) *
-            (besselix(1, w_in))
+            (special_besselkx(0, w_ex)) *
+            (special_besselix(1, w_in))
 
-        D = (besselix(1, w_ex)) *
-            (besselkx(1, w_in)) -
+        D = (special_besselix(1, w_ex)) *
+            (special_besselkx(1, w_in)) -
             sc *
-            (besselkx(1, w_ex)) *
-            (besselix(1, w_in))
+            (special_besselkx(1, w_ex)) *
+            (special_besselix(1, w_in))
     end
 
     return Complex{T}((jω * mu_c / 2π) * (1 / w_ex) * (N / D))
@@ -111,10 +111,10 @@ end
         rho_c::T,
         mur_c::T,
         jω::Complex{T}
-) where {T <: REALSCALAR}
+) where {T <: Real}
     # Constants
-    mu_c = T(μ₀) * mur_c
-    sigma_c = _to_σ(rho_c)
+    mu_c = vacuum_permeability(r_in) * mur_c
+    sigma_c = conductivity(rho_c)
 
     # Calculate the reciprocal of the skin depth
     m = sqrt(jω * mu_c * sigma_c)
@@ -132,13 +132,13 @@ end
         sc = sc_in / sc_ex
 
         # Bessel function terms with uncertainty handling
-        N = 1.0 / sc_ex
+        N = one(sc_ex) / sc_ex
 
-        D = (besselix(1, w_ex)) *
-            (besselkx(1, w_in)) -
+        D = (special_besselix(1, w_ex)) *
+            (special_besselkx(1, w_in)) -
             sc *
-            (besselix(1, w_in)) *
-            (besselkx(1, w_ex))
+            (special_besselix(1, w_in)) *
+            (special_besselkx(1, w_ex))
 
         return Complex{T}((1 / (2π * r_in * r_ex * sigma_c)) * (N / D))
     end

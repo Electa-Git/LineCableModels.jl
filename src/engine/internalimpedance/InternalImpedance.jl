@@ -12,12 +12,14 @@ module InternalImpedance
 export ScaledBessel
 
 # Module-specific dependencies
-using ...Commons
-import ...Commons: get_description
+using DocStringExtensions: IMPORTS, TYPEDSIGNATURES
+import ...LineCableModels: description
 import ..Engine: InternalImpedanceFormulation
+import ..Engine: conductivity
 using LinearAlgebra
-using SpecialFunctions: besselix, besselkx
-using ...Utils: _to_σ
+import ..Engine: special_besselix, special_besselkx
+
+vacuum_permeability(value) = one(value) * 4 * (one(value) * π) * (one(value) * 10)^(-7)
 
 include("scaledbessel.jl")
 

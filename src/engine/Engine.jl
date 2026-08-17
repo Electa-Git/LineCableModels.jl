@@ -34,32 +34,43 @@ export CableConstantsProblem, LineParametersProblem,
        frequencies, nconductors, nfrequencies, basis,
        kronify
 export AbstractFormulation, EMTFormulation, Formulation, EMTOptions, ComputeOptions
+export EarthProperties, CPEarth, EMTTrace, verbosity
+export InternalImpedance, InsulationImpedance, EarthImpedance
+export InsulationAdmittance, EarthAdmittance, EHEM, Transforms
 
 export compute!, plot
 
 # Module-specific dependencies
-using Reexport, ForceImport
 using LinearAlgebra
-using ..Commons
-import ..Commons: get_description, LineParamsDomain, PhaseDomain, ModalDomain, domain
-import ..Commons: retired_fem_sector
-import ..Commons: basis, Z, Y, R, X, L, G, B, C,
-                  series_impedance, shunt_admittance,
-                  resistance, reactance, inductance,
-                  conductance, susceptance, capacitance,
-                  frequencies, nconductors, nfrequencies
+using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES,
+                           METHODLIST, FUNCTIONNAME
+import ..LineCableModels: description, LineParamsDomain, PhaseDomain, ModalDomain, domain
+import ..LineCableModels: retired_fem_sector, _RETIRED_FEM
+import ..LineCableModels: basis, Z, Y, R, X, L, G, B, C,
+                          series_impedance, shunt_admittance,
+                          resistance, reactance, inductance,
+                          conductance, susceptance, capacitance,
+                          frequencies, nconductors, nfrequencies
+import ..LineCableModels: nominal, standard_uncertainty
 
-using ..Utils
 using ..UnitHandler
 using ..PlotBuilder
 using ..Materials
 using ..EarthProps: EarthModel
 using ..DataModel: CableDesign, CableConstants, LineCableSystem
 import ..DataModel
-using ..Utils: levelfrom, TimestampLogger
-using Logging, LoggingExtras
+import ..LineCableModels: validate, ncables, nphases
+using Logging
+using SpecialFunctions
+using QuadGK: quadgk
+
+const FEM = _RETIRED_FEM
 
 include("types.jl")
+include("earthkernels.jl")
+
+include("earthproperties/EarthProperties.jl")
+using .EarthProperties: CPEarth
 
 # Problem definitions
 include("lineparamopts.jl")
@@ -89,16 +100,15 @@ using .EarthAdmittance: EarthAdmittance
 # Submodule `Transforms`
 include("transforms/Transforms.jl")
 using .Transforms
+using .Transforms: reciprocity!, ideal_transposition!
 
 # Submodule `EHEM`
 include("ehem/EHEM.jl")
 using .EHEM
 
-# Helpers
-include("helpers.jl")
-
-# Workspace definition
-include("workspace.jl")
+# Immutable solver input and shared numerical ownership
+include("input.jl")
+include("trace.jl")
 
 # Computation methods
 include("solver.jl")
@@ -137,15 +147,5 @@ function plot(args...; kwargs...)
     ),
     )
 end
-
-# Removed FEM entry points
-include("retired.jl")
-
-@reexport using .InternalImpedance: InternalImpedance
-@reexport using .InsulationImpedance: InsulationImpedance
-@reexport using .EarthImpedance: EarthImpedance
-@reexport using .InsulationAdmittance: InsulationAdmittance
-@reexport using .EarthAdmittance: EarthAdmittance
-@reexport using .EHEM, .Transforms
 
 end # module Engine

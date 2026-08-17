@@ -1,11 +1,10 @@
-struct Levenberg <: AbstractTransformFormulation
-    tol::BASE_FLOAT
+struct Levenberg{T <: Real} <: AbstractTransformFormulation
+    tol::T
 end
 
-# Convenient ctor
-Levenberg(; tol::BASE_FLOAT = BASE_FLOAT(1e-8)) = Levenberg(tol)
+Levenberg(; tol::Real = 1e-8) = Levenberg(float(tol))
 
-function get_description(
+function description(
         ::Levenberg,
 )
     "Levenberg–Marquardt (frequency-tracked eigen decomposition)"
@@ -35,16 +34,16 @@ transformation matrices and a **modal-domain** `LineParameters` holding the
 function (f::Levenberg)(
         lp::LineParameters{
         Tc, U, PhaseDomain, Basis},
-) where {Tc <: COMPLEXSCALAR, U <: REALSCALAR, Basis}
+) where {Tc <: Complex, U <: Real, Basis}
     n, n2, nfreq = size(lp.Z.values)
     n == n2 || throw(DimensionMismatch("Z must be square"))
     size(lp.Y.values) == (n, n, nfreq) || throw(DimensionMismatch("Y must be n×n×nfreq"))
 
     # 1) Deterministic eigen/LM on nominal arrays
-    Z_nom = to_nominal(lp.Z.values)
-    Y_nom = to_nominal(lp.Y.values)
-    f_nom = to_nominal(lp.f)
-    Ti, _g_nom = _calc_transformation_matrix_LM(n, Z_nom, Y_nom, f_nom; tol = f.tol)
+    Z_nom = nominal(lp.Z.values)
+    Y_nom = nominal(lp.Y.values)
+    f_nom = nominal(lp.f)
+    Ti, _g_nom = levenberg_transform(n, Z_nom, Y_nom, f_nom; tol = f.tol)
     _rot_min_imag!(Ti)
 
     Zm = similar(lp.Z.values)
@@ -60,22 +59,22 @@ function (f::Levenberg)(
         invT .= inv(Tk)
         @views begin # enforce reciprocity
             copyto!(Zk, lp.Z.values[:, :, k])
-            symtrans!(Zk)
+            reciprocity!(Zk)
             copyto!(Yk, lp.Y.values[:, :, k])
-            symtrans!(Yk)
+            reciprocity!(Yk)
         end
         # Modal matrices (carry uncertainties)
         @views Zm[:, :, k] .= transpose(Tk) * Zk * Tk
         @views Ym[:, :, k] .= invT * Yk * transpose(invT)
 
         fname = String(nameof(typeof(f)))
-        offdiagZ = offdiag_ratio(Zm[:, :, k])
+        offdiagZ = offdiagonal_ratio(Zm[:, :, k])
         if offdiagZ > f.tol
             @warn "$fname: transformed Z not diagonal within tolerance, check your results" ratio = offdiagZ
         else
             @views Zm[:, :, k] .= Diagonal(diag(Zm[:, :, k]))  # enforce exact diagonal
         end
-        offdiagY = offdiag_ratio(Ym[:, :, k])
+        offdiagY = offdiagonal_ratio(Ym[:, :, k])
         if offdiagY > f.tol
             @warn "$fname: transformed Y not diagonal within tolerance, check your results" ratio = offdiagY
         else
@@ -84,8 +83,8 @@ function (f::Levenberg)(
     end
     # 2) Apply deterministic T to uncertain (or plain) inputs for *physical* outputs
     # Zm, Ym, Zc_mod, Yc_mod, Zch, Ych =
-    # 	_calc_modal_quantities(Ti, lp.Z.values, lp.Y.values)
-    # Gdiag = _calc_gamma(Ti, lp.Z.values, lp.Y.values)
+    # 	modal_quantities(Ti, lp.Z.values, lp.Y.values)
+    # Gdiag = gamma(Ti, lp.Z.values, lp.Y.values)
 
     return Ti, LineParameters(ModalDomain, Zm, Ym, lp.f; basis = basis(lp))
     # Keep  original return (Ti, modal characteristic) for compatibility,
@@ -101,11 +100,11 @@ Internals
 
 # Propagate γ with uncertainty WITHOUT eigen():
 # γ̂_k = sqrt.( diag( inv(T_k) * (Y_k*Z_k) * T_k ) )
-function _calc_gamma(
+function gamma(
         Ti::AbstractArray{Tc, 3},
         Z::AbstractArray{Tu, 3},
         Y::AbstractArray{Tu, 3}
-) where {Tc <: Complex, Tu <: COMPLEXSCALAR}
+) where {Tc <: Complex, Tu <: Complex}
     n, n2, nfreq = size(Ti)
     n == n2 || throw(DimensionMismatch("Ti must be n×n×nfreq"))
     size(Z) == size(Y) == (n, n, nfreq) || throw(DimensionMismatch("Z,Y must be n×n×nfreq"))
@@ -130,17 +129,16 @@ function _calc_gamma(
 end
 
 # Frequency-tracked Levenberg–Marquardt eigen solution
-function _calc_transformation_matrix_LM(
+function levenberg_transform(
         n::Int,
         Z::AbstractArray{T, 3},
         Y::AbstractArray{T, 3},
         f::AbstractVector{U};
-        tol::U = LMTOL
+        tol::Real = one(first(f)) * 1.0e-8
 ) where {T <: Complex, U <: Real}
-
-    # Constants
-    ε0 = _typed_ε₀(U)     # [F/m]
-    μ0 = _typed_μ₀(U)
+    unit = one(first(f))
+    ε0 = unit * 88541878128 * (unit * 10)^(-22)
+    μ0 = unit * 4 * (unit * π) * (unit * 10)^(-7)
 
     nfreq = size(Z, 3)
     Ti = zeros(T, n, n, nfreq)
@@ -166,7 +164,7 @@ function _calc_transformation_matrix_LM(
         S = Yk * Zk
 
         # Normalize as in legacy: (S / norm_val) - I
-        ω = 2π * f[k]
+        ω = 2 * (one(f[k]) * π) * f[k]
         nrm = -(ω^2) * ε0 * μ0
         S̃ = (S ./ nrm) - I
 
@@ -222,8 +220,8 @@ function _calc_transformation_matrix_LM(
             x0;
             method = :trust_region,
             autodiff = :forward,
-            xtol = tol,
-            ftol = tol
+            xtol = convert(U, tol),
+            ftol = convert(U, tol)
         )
 
         if !converged(sol)
@@ -272,11 +270,11 @@ end
 #   Zm, Ym      :: n×n×nfreq   (modal-domain series/shunt matrices)
 #   Zc_mod,Yc_mod :: n×n×nfreq (diagonal: per-mode characteristic)
 #   Zch, Ych    :: n×n×nfreq   (phase-domain characteristic back-projected)
-function _calc_modal_quantities(
+function modal_quantities(
         Ti::AbstractArray{Tc, 3},
         Z::AbstractArray{Tu, 3},
         Y::AbstractArray{Tu, 3}
-) where {Tc <: Complex, Tu <: COMPLEXSCALAR}
+) where {Tc <: Complex, Tu <: Complex}
     n, n2, nfreq = size(Ti)
     n == n2 || throw(DimensionMismatch("Ti must be n×n×nfreq"))
     size(Z) == size(Y) == (n, n, nfreq) || throw(DimensionMismatch("Z,Y must be n×n×nfreq"))
@@ -317,7 +315,7 @@ function _calc_modal_quantities(
 end
 
 # column rotation to minimize imag parts
-function rot!(S::AbstractMatrix{T}) where {T <: COMPLEXSCALAR}
+function rot!(S::AbstractMatrix{T}) where {T <: Complex}
     n, m = size(S)
     n == m || throw(DimensionMismatch("Input must be square"))
     @inbounds for j in 1:n
@@ -326,10 +324,11 @@ function rot!(S::AbstractMatrix{T}) where {T <: COMPLEXSCALAR}
         # optimal angle
         num = -2 * sum(real.(col) .* imag.(col))             # real
         den = sum(real.(col) .^ 2 .- imag.(col) .^ 2)           # real
-        ang = BASE_FLOAT(0.5) * atan(num, den)               # real
+        R = typeof(real(zero(T)))
+        ang = R(0.5) * atan(num, den)               # real
 
         s1 = cis(ang)
-        s2 = cis(ang + BASE_FLOAT(pi/2))
+        s2 = cis(ang + R(pi / 2))
 
         A = col .* s1
         B = col .* s2

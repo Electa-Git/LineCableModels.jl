@@ -43,8 +43,8 @@ function _finite_exponent(curves)
     maximum_value = 0.0
     for curve in curves, sample in curve
 
-        nominal = abs(to_nominal(sample))
-        isfinite(nominal) && (maximum_value = max(maximum_value, nominal))
+        value = abs(nominal(sample))
+        isfinite(value) && (maximum_value = max(maximum_value, value))
     end
     iszero(maximum_value) && return 0
     exponent = floor(Int, log10(maximum_value))
@@ -302,7 +302,7 @@ end
 function _maximum_nominal_magnitude(values)
     return mapreduce(
         value -> begin
-            magnitude = abs(to_nominal(value))
+            magnitude = abs(nominal(value))
             isfinite(magnitude) ? Float64(magnitude) : 0.0
         end,
         max,
@@ -641,10 +641,10 @@ function _supports_log_values(samples)
     samples === nothing && return false
     for sample in samples
         found = true
-        nominal = to_nominal(sample)
-        uncertainty = abs(uncertainty_value(sample))
-        nominal isa Real && isfinite(nominal) && isfinite(uncertainty) &&
-        nominal - uncertainty > 0 || return false
+        value = nominal(sample)
+        uncertainty = abs(standard_uncertainty(sample))
+        value isa Real && isfinite(value) && isfinite(uncertainty) &&
+        value - uncertainty > 0 || return false
     end
     return found
 end
@@ -656,10 +656,10 @@ function _supports_log(series, dim::Symbol)
         samples === nothing && continue
         for sample in samples
             found = true
-            nominal = to_nominal(sample)
-            uncertainty = abs(uncertainty_value(sample))
-            nominal isa Real && isfinite(nominal) && isfinite(uncertainty) &&
-            nominal - uncertainty > 0 || return false
+            value = nominal(sample)
+            uncertainty = abs(standard_uncertainty(sample))
+            value isa Real && isfinite(value) && isfinite(uncertainty) &&
+            value - uncertainty > 0 || return false
         end
     end
     return found

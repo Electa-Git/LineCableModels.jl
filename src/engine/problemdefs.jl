@@ -1,188 +1,108 @@
-
 """
 $(TYPEDEF)
 
-Represents a line parameters computation problem for a given physical cable system.
+Define one materialized line-parameter calculation. This is the sole owner of
+operating temperature and analysis frequencies.
 
 $(TYPEDFIELDS)
 """
-struct LineParametersProblem{T <: REALSCALAR} <: ProblemDefinition
-    "The physical cable system to analyze."
+struct LineParametersProblem{T <: Real} <: ProblemDefinition
+    "Physical cable system."
     system::LineCableSystem{T}
     "Operating temperature \\[°C\\]."
     temperature::T
-    "Earth properties model."
+    "Static earth model."
     earth_props::EarthModel{T}
-    "Frequencies at which to perform the analysis \\[Hz\\]."
+    "Strictly positive, sorted analysis frequencies \\[Hz\\]."
     frequencies::Vector{T}
+end
 
-    @doc """
-     $(TYPEDSIGNATURES)
+Base.eltype(::LineParametersProblem{T}) where {T} = T
+Base.eltype(::Type{LineParametersProblem{T}}) where {T} = T
 
-     Constructs a [`LineParametersProblem`](@ref) instance.
-
-     # Arguments
-
-     - `system`: The cable system to analyze ([`LineCableSystem`](@ref)).
-     - `temperature`: Operating temperature \\[°C\\]. Default: `T₀`.
-     - `earth_props`: Earth properties model ([`EarthModel`](@ref)).
-     - `frequencies`: Frequencies for analysis \\[Hz\\]. Default: [`f₀`](@ref).
-
-     # Returns
-
-     - A [`LineParametersProblem`](@ref) object with validated cable system, temperature, earth model, and frequency vector.
-
-     # Examples
-
-     ```julia
-     prob = $(FUNCTIONNAME)(system; temperature=25.0, earth_props=earth, frequencies=[50.0, 60.0, 100.0])
-     ```
-     """
-    function LineParametersProblem(
-            system::LineCableSystem;
-            temperature::REALSCALAR = (T₀),
-            earth_props::EarthModel,
-            frequencies::Vector{<:Number} = [f₀]
-    )
-
-        # 1. System structure validation
-        @assert !isempty(system.cables) "LineCableSystem must contain at least one cable"
-
-        # 2. Phase assignment validation
-        phase_numbers = unique(vcat([cable.conn for cable in system.cables]...))
-        @assert !isempty(filter(x -> x > 0, phase_numbers)) "At least one conductor must be assigned to a phase (>0)"
-        @assert maximum(phase_numbers) <= system.num_phases "Invalid phase number detected"
-
-        # 3. Cable components validation
-        for (i, cable) in enumerate(system.cables)
-            @assert !isempty(cable.design_data.components) "Cable $i has no components defined"
-
-            # Validate conductor-insulator pairs
-            for (j, comp) in enumerate(cable.design_data.components)
-                @assert !isempty(comp.conductor_group.layers) "Component $j in cable $i has no conductor layers"
-                @assert !isempty(comp.insulator_group.layers) "Component $j in cable $i has no insulator layers"
-
-                # Validate monotonic increase of radii
-                @assert comp.conductor_group.r_ex > comp.conductor_group.r_in "Component $j in cable $i: conductor outer radius must be larger than inner radius"
-                @assert comp.insulator_group.r_ex > comp.insulator_group.r_in "Component $j in cable $i: insulator outer radius must be larger than inner radius"
-
-                # Validate geometric continuity between conductor and insulator
-                r_ext_cond = comp.conductor_group.r_ex
-                r_in_ins = comp.insulator_group.r_in
-                @assert abs(r_ext_cond - r_in_ins) < 1e-10 "Geometric mismatch in cable $i component $j: conductor outer radius ≠ insulator inner radius"
-
-                # Validate electromagnetic properties
-                # Conductor properties
-                @assert comp.conductor_props.rho > 0 "Component $j in cable $i: conductor resistivity must be positive"
-                @assert comp.conductor_props.mu_r > 0 "Component $j in cable $i: conductor relative permeability must be positive"
-                @assert comp.conductor_props.eps_r >= 0 "Component $j in cable $i: conductor relative permittivity grater than or equal to zero"
-
-                # Insulator properties
-                @assert comp.insulator_props.rho > 0 "Component $j in cable $i: insulator resistivity must be positive"
-                @assert comp.insulator_props.mu_r > 0 "Component $j in cable $i: insulator relative permeability must be positive"
-                @assert comp.insulator_props.eps_r > 0 "Component $j in cable $i: insulator relative permittivity must be positive"
-            end
-        end
-
-        # 4. Temperature range validation
-        @assert abs(temperature - T₀) < ΔTmax """
-        Temperature is outside the valid range for linear resistivity model:
-        T = $temperature
-        T₀ = $T₀
-        ΔTmax = $ΔTmax
-        |T - T₀| = $(abs(temperature - T₀))"""
-
-        # 5. Frequency range validation
-        @assert !isempty(frequencies) "Frequency vector cannot be empty"
-        @assert all(f -> f > 0, frequencies) "All frequencies must be positive"
-        @assert issorted(frequencies) "Frequency vector must be monotonically increasing"
-        if maximum(frequencies) > 1e8
-            @warn "Frequencies above 100 MHz exceed quasi-TEM validity limit. High-frequency results should be interpreted with caution." maxfreq = maximum(frequencies)
-        end
-
-        # 6. Earth model validation
-        @assert length(earth_props.layers[end].rho_g) == length(frequencies) """Earth model frequencies must match analysis frequencies
-          Earth model frequencies = $(length(earth_props.layers[end].rho_g))
-          Analysis frequencies = $(length(frequencies))
-          """
-
-        # 7. Geometric validation
-        positions = [(
-                         cable.horz,
-                         cable.vert,
-                         maximum(
-                             comp.insulator_group.r_ex
-                         for comp in cable.design_data.components
-                         )
-                     )
-                     for cable in system.cables]
-
-        for i in eachindex(positions)
-            for j in (i + 1):lastindex(positions)
-                # Calculate center-to-center distance
-                dist = sqrt(
-                    (positions[i][1] - positions[j][1])^2 +
-                    (positions[i][2] - positions[j][2])^2,
-                )
-
-                # Get outermost radii for both cables
-                r_outer_i = positions[i][3]
-                r_outer_j = positions[j][3]
-
-                # Check if cables overlap
-                min_allowed = r_outer_i + r_outer_j
-                tol = 1e-8 * max(min_allowed, 1.0)
-
-                @assert dist + tol >= min_allowed """
-                     Cables $i and $j overlap!
-                     Center-to-center distance: $(dist + tol) m
-                     Minimum required distance: $(min_allowed) m
-                     Cable $i outer radius: $(r_outer_i) m
-                     Cable $j outer radius: $(r_outer_j) m"""
-            end
-        end
-
-        T = resolve_T(system, temperature, earth_props, frequencies)
-        return new{T}(
-            coerce_to_T(system, T),
-            coerce_to_T(temperature, T),
-            coerce_to_T(earth_props, T),
-            coerce_to_T(frequencies, T)
-        )
+function validate(problem::LineParametersProblem)
+    validate(problem.system)
+    validate(problem.earth_props)
+    phases = unique(collect(Iterators.flatten(
+        position.conn for position in problem.system.cables
+    )))
+    positive = filter(>(0), phases)
+    isempty(positive) && throw(ArgumentError(
+        "at least one conductor must be assigned to a positive phase",
+    ))
+    maximum(positive) <= nphases(problem.system) || throw(DomainError(
+        positive,
+        "a phase assignment exceeds the number of distinct positive phases"
+    ))
+    for cable in problem.system.cables
+        reference = cable.design_data.components[1].conductor_props.T0
+        abs(problem.temperature - reference) < oftype(problem.temperature, 150) ||
+            throw(DomainError(
+                problem.temperature,
+                "operating temperature is outside the linear resistivity model range"
+            ))
     end
+    isempty(problem.frequencies) && throw(ArgumentError("frequencies cannot be empty"))
+    all(>(zero(eltype(problem))), problem.frequencies) || throw(DomainError(
+        problem.frequencies, "frequencies must be positive"
+    ))
+    issorted(problem.frequencies) || throw(ArgumentError("frequencies must be sorted"))
+    maximum(problem.frequencies) > oftype(first(problem.frequencies), 1e8) &&
+        @warn("Frequencies above 100 MHz exceed the quasi-TEM validity range.",
+            max_frequency=maximum(problem.frequencies),)
+    return problem
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct a problem after promoting the system, operating temperature, static
+earth model, and frequencies to one real scalar type.
+"""
+function LineParametersProblem(
+        system::LineCableSystem;
+        temperature::Real = oftype(float(system.line_length), 20),
+        earth_props::EarthModel,
+        frequencies::AbstractVector{<:Real} = [oftype(float(system.line_length), 50)]
+)
+    isempty(frequencies) && throw(ArgumentError("frequencies cannot be empty"))
+    T = promote_type(
+        eltype(system), typeof(float(temperature)), eltype(earth_props),
+        typeof(float(first(frequencies)))
+    )
+    problem = LineParametersProblem{T}(
+        convert(LineCableSystem{T}, system),
+        convert(T, float(temperature)),
+        convert(EarthModel{T}, earth_props),
+        T[convert(T, float(value)) for value in frequencies]
+    )
+    return validate(problem)
 end
 
 """
 $(TYPEDEF)
 
-Define an explicit cable-constant calculation for one materialized cable
-design.
+Define an explicit cable-constant calculation for one materialized design.
 
 $(TYPEDFIELDS)
 """
-struct CableConstantsProblem{D<:CableDesign,S,R<:Real} <: ProblemDefinition
-    "Materialized cable design to analyze."
+struct CableConstantsProblem{D <: CableDesign, S, R <: Real} <: ProblemDefinition
     design::D
-
-    "Optional center-to-center cable separation `\\[m\\]`."
     separation::S
-
-    "Earth resistivity used by the trifoil inductance estimate `\\[Ω·m\\]`."
     earth_resistivity::R
 
     function CableConstantsProblem(
-        design::D;
-        separation::Union{Nothing,Real}=nothing,
-        earth_resistivity::Real=100.0,
-    ) where {D<:CableDesign}
+            design::D;
+            separation::Union{Nothing, Real} = nothing,
+            earth_resistivity::Real = oftype(float(first(design.components).conductor_props.rho), 100)
+    ) where {D <: CableDesign}
         separation === nothing || separation > zero(separation) ||
-            throw(ArgumentError("separation must be positive"))
-        earth_resistivity > zero(earth_resistivity) ||
-            throw(ArgumentError("earth_resistivity must be positive"))
-        return new{D,typeof(separation),typeof(earth_resistivity)}(
-            design,
-            separation,
-            earth_resistivity,
+            throw(DomainError(separation, "separation must be positive"))
+        earth_resistivity > zero(earth_resistivity) || throw(DomainError(
+            earth_resistivity, "earth_resistivity must be positive"
+        ))
+        return new{D, typeof(separation), typeof(earth_resistivity)}(
+            design, separation, earth_resistivity
         )
     end
 end
@@ -190,85 +110,55 @@ end
 """
 $(TYPEDEF)
 
-Represents the electromagnetic transient (EMT) formulation for cable or line systems, containing all required impedance and admittance models for internal and earth effects.
+Store the concrete physical formulations selected for an EMT calculation.
 
 $(TYPEDFIELDS)
 """
-struct EMTFormulation <: AbstractFormulation
-    "Internal impedance formulation."
-    internal_impedance::InternalImpedanceFormulation
-    "Insulation impedance formulation."
-    insulation_impedance::InsulationImpedanceFormulation
-    "Earth impedance formulation."
-    earth_impedance::EarthImpedanceFormulation
-    "Insulation admittance formulation."
-    insulation_admittance::InsulationAdmittanceFormulation
-    "Earth admittance formulation."
-    earth_admittance::EarthAdmittanceFormulation
-    "Modal transformation method."
-    modal_transform::Union{AbstractTransformFormulation, Nothing}
-    "Equivalent homogeneous earth model (EHEM) formulation."
-    equivalent_earth::Union{AbstractEHEMFormulation, Nothing}
-    "Solver options for EMT-type computations."
-    options::EMTOptions
-
-    @doc """
-     $(TYPEDSIGNATURES)
-
-     Constructs an [`EMTFormulation`](@ref) instance.
-
-     # Arguments
-
-     - `internal_impedance`: Internal impedance formulation.
-     - `insulation_impedance`: Insulation impedance formulation.
-     - `earth_impedance`: Earth impedance formulation.
-     - `insulation_admittance`: Insulation admittance formulation.
-     - `earth_admittance`: Earth admittance formulation.
-     - `modal_transform`: Modal transformation method.
-     - `equivalent_earth`: Equivalent homogeneous earth model (EHEM) formulation.
-     - `options`: Solver options for EMT-type computations.
-
-     # Returns
-
-     - An [`EMTFormulation`](@ref) object containing the specified methods.
-
-     # Examples
-
-     ```julia
-     emt = $(FUNCTIONNAME)(...)
-     ```
-     """
-    function EMTFormulation(;
-            internal_impedance::InternalImpedanceFormulation,
-            insulation_impedance::InsulationImpedanceFormulation,
-            earth_impedance::EarthImpedanceFormulation,
-            insulation_admittance::InsulationAdmittanceFormulation,
-            earth_admittance::EarthAdmittanceFormulation,
-            modal_transform::Union{AbstractTransformFormulation, Nothing},
-            equivalent_earth::Union{AbstractEHEMFormulation, Nothing},
-            options::EMTOptions
-    )
-        return new(
-            internal_impedance, insulation_impedance, earth_impedance,
-            insulation_admittance, earth_admittance, modal_transform, equivalent_earth,
-            options
-        )
-    end
+struct EMTFormulation{II, IS, EI, IA, EA, EP, MT, EH, O} <: AbstractFormulation
+    internal_impedance::II
+    insulation_impedance::IS
+    earth_impedance::EI
+    insulation_admittance::IA
+    earth_admittance::EA
+    earth_properties::EP
+    modal_transform::MT
+    equivalent_earth::EH
+    options::O
 end
 
-function Formulation(::Val{:EMT};
+function EMTFormulation(;
+        internal_impedance::InternalImpedanceFormulation,
+        insulation_impedance::InsulationImpedanceFormulation,
+        earth_impedance::EarthImpedanceFormulation,
+        insulation_admittance::InsulationAdmittanceFormulation,
+        earth_admittance::EarthAdmittanceFormulation,
+        earth_properties,
+        modal_transform::Union{AbstractTransformFormulation, Nothing},
+        equivalent_earth::Union{AbstractEHEMFormulation, Nothing},
+        options::EMTOptions
+)
+    return EMTFormulation(
+        internal_impedance, insulation_impedance, earth_impedance,
+        insulation_admittance, earth_admittance, earth_properties,
+        modal_transform, equivalent_earth, options
+    )
+end
+
+function Formulation(
+        ::Val{:EMT};
         internal_impedance::InternalImpedanceFormulation = InternalImpedance.ScaledBessel(),
         insulation_impedance::InsulationImpedanceFormulation = InsulationImpedance.Lossless(),
         earth_impedance::EarthImpedanceFormulation = EarthImpedance.Papadopoulos(),
         insulation_admittance::InsulationAdmittanceFormulation = InsulationAdmittance.Lossless(),
         earth_admittance::EarthAdmittanceFormulation = EarthAdmittance.Papadopoulos(),
+        earth_properties = EarthProperties.CPEarth(),
         modal_transform::Union{AbstractTransformFormulation, Nothing} = nothing,
         equivalent_earth::Union{AbstractEHEMFormulation, Nothing} = nothing,
         options = (;)
 )
-    emt_opts = formulation_options(options)
-    return EMTFormulation(; internal_impedance, insulation_impedance, earth_impedance,
-        insulation_admittance, earth_admittance, modal_transform, equivalent_earth,
-        options = emt_opts
+    return EMTFormulation(;
+        internal_impedance, insulation_impedance, earth_impedance,
+        insulation_admittance, earth_admittance, earth_properties,
+        modal_transform, equivalent_earth, options = formulation_options(options)
     )
 end

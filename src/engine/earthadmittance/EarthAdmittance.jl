@@ -12,11 +12,14 @@ module EarthAdmittance
 export Papadopoulos
 
 # Module-specific dependencies
-using ...Commons
-import ...Commons: get_description
+using DocStringExtensions: IMPORTS, TYPEDSIGNATURES
+import ...LineCableModels: description, nominal
 import ..Engine: EarthAdmittanceFormulation
+import ..Engine: conductivity, bessel_difference
 using QuadGK: quadgk
-using ...Utils: _to_σ, _bessel_diff, to_nominal
+
+vacuum_permittivity(value) = one(value) * 88541878128 * (one(value) * 10)^(-22)
+vacuum_permeability(value) = one(value) * 4 * (one(value) * π) * (one(value) * 10)^(-7)
 
 include("homogeneous.jl")
 include("base.jl")

@@ -12,9 +12,9 @@ module EHEM
 export EnforceLayer
 
 # Module-specific dependencies
-using ...Commons
+using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using ...EarthProps: EarthModel
-import ...Commons: get_description
+import ...LineCableModels: description
 import ..Engine: AbstractEHEMFormulation
 
 include("enforcelayer.jl")

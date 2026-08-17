@@ -7,68 +7,36 @@ using SpecialFunctions
 using Statistics
 
 import LineCableModels
-const Utils = LineCableModels.Utils
 const PB = LineCableModels.ParametricBuilder
 const Engine = LineCableModels.Engine
 const DataModel = LineCableModels.DataModel
 const ImportExport = LineCableModels.ImportExport
 const Computation = LineCableModels.Computation
 
-# Numeric promotion and presentation hooks.
-Utils._direct_optional_scalar_type(::Type{<:Measurements.Measurement}) =
-    Measurements.Measurement{LineCableModels.Commons.BASE_FLOAT}
-Utils._hascomplex_type(::Type{<:Measurements.Measurement}) = false
-Utils.to_nominal(value::Measurements.Measurement) = Measurements.value(value)
-Utils.uncertainty_value(value::Measurements.Measurement) =
-    Measurements.uncertainty(value)
-Utils.to_certain(value::Measurements.Measurement) =
-    Measurements.measurement(Measurements.value(value), 0.0)
-Utils.percent_to_uncertain(value::Real, percent::Real) =
-    Measurements.measurement(value, abs(value) * percent / 100)
-function Utils.bias_to_uncertain(
-    nominal::Real,
-    values::AbstractVector{<:Measurements.Measurement},
-)
-    average = Statistics.mean(values)
-    bias = abs(nominal - Measurements.value(average))
-    return Measurements.measurement(
-        Measurements.value(average),
-        Measurements.uncertainty(average) + bias,
-    )
-end
-Utils.to_upper(value::Measurements.Measurement) =
-    Measurements.value(value) + Measurements.uncertainty(value)
-Utils.to_lower(value::Measurements.Measurement) =
-    Measurements.value(value) - Measurements.uncertainty(value)
-Utils.percent_error(value::Measurements.Measurement) =
-    100 * Measurements.uncertainty(value) / Measurements.value(value)
+import LineCableModels: nominal, standard_uncertainty
 
-Utils._coerce_elt_to_T(value::Number, ::Type{M}) where {M<:Measurements.Measurement} =
-    zero(M) + value
-Utils._coerce_elt_to_T(
-    value::Measurements.Measurement,
-    ::Type{M},
-) where {M<:Measurements.Measurement} = convert(M, value)
-Utils._coerce_elt_to_T(
-    value::Measurements.Measurement,
-    ::Type{T},
-) where {T<:AbstractFloat} = convert(T, Measurements.value(value))
+# Numeric presentation hooks.
+nominal(value::Measurements.Measurement) = Measurements.value(value)
+standard_uncertainty(value::Measurements.Measurement) = Measurements.uncertainty(value)
 
 # Gridspace direct propagation. The realization cache in Gridspace guarantees
 # that one shared Grid becomes one shared Measurement variable, including
 # across nested object boundaries.
-PB._direct_value(value::PB.UncertainValue{<:Real}) =
+function PB._direct_value(value::PB.UncertainValue{<:Real})
     Measurements.measurement(value.nominal, value.sigma)
+end
 PB.materialize(value::PB.UncertainValue{<:Real}) = PB._direct_value(value)
 
-Engine._has_uncertainty_type(
-    ::Type{Complex{T}},
-) where {T<:Measurements.Measurement} = true
+function Engine._has_uncertainty_type(
+        ::Type{Complex{T}},
+) where {T <: Measurements.Measurement}
+    true
+end
 function Engine._clip_field(value::Measurements.Measurement, tolerance)
     nominal = abs(Measurements.value(value)) <= tolerance ?
-        0.0 : Measurements.value(value)
+              0.0 : Measurements.value(value)
     uncertainty = abs(Measurements.uncertainty(value)) <= tolerance ?
-        0.0 : Measurements.uncertainty(value)
+                  0.0 : Measurements.uncertainty(value)
     return Measurements.measurement(nominal, uncertainty)
 end
 
@@ -76,7 +44,7 @@ function ImportExport._serialize_value(value::Measurements.Measurement)
     return Dict(
         "__type__" => "Measurement",
         "value" => ImportExport._serialize_value(Measurements.value(value)),
-        "uncertainty" => ImportExport._serialize_value(Measurements.uncertainty(value)),
+        "uncertainty" => ImportExport._serialize_value(Measurements.uncertainty(value))
     )
 end
 function ImportExport._deserialize_extension(::Val{:Measurement}, value)
@@ -84,12 +52,11 @@ function ImportExport._deserialize_extension(::Val{:Measurement}, value)
     uncertainty = ImportExport._deserialize_value(value["uncertainty"])
     return Measurements.measurement(nominal, uncertainty)
 end
-ImportExport.stringify(value::Measurements.Measurement) =
-    Printf.@sprintf(
-        "%.12g ± %.6g",
+function ImportExport.stringify(value::Measurements.Measurement)
+    Printf.@sprintf("%.12g ± %.6g",
         Measurements.value(value),
-        Measurements.uncertainty(value),
-    )
+        Measurements.uncertainty(value),)
+end
 
 # Uncertainty-aware SpecialFunctions methods used by the numerical kernels.
 function _lift_complex(function_value, order, value::Complex{<:Measurements.Measurement})
@@ -99,35 +66,35 @@ function _lift_complex(function_value, order, value::Complex{<:Measurements.Meas
         vcat(
             Calculus.gradient(
                 point -> real(function_value(order, complex(point...))),
-                collect(reim(nominal)),
+                collect(reim(nominal))
             ),
             Calculus.gradient(
                 point -> imag(function_value(order, complex(point...))),
-                collect(reim(nominal)),
-            ),
+                collect(reim(nominal))
+            )
         ),
-        value,
+        value
     )
 end
 
 for name in (
     :besselix, :besselkx, :besseljx, :besselyx, :besselhx,
-    :besseli, :besselk, :besselj, :bessely, :besselh,
+    :besseli, :besselk, :besselj, :bessely, :besselh
 )
     @eval begin
         function SpecialFunctions.$name(
-            order::Real,
-            value::Complex{<:Measurements.Measurement},
+                order::Real,
+                value::Complex{<:Measurements.Measurement}
         )
             return _lift_complex(SpecialFunctions.$name, order, value)
         end
     end
 end
 
-function _joint_coordinates(matrix::AbstractMatrix{T}) where {T<:Real}
-    means = vec(Statistics.mean(matrix; dims=2))
+function _joint_coordinates(matrix::AbstractMatrix{T}) where {T <: Real}
+    means = vec(Statistics.mean(matrix; dims = 2))
     size(matrix, 2) == 1 && return map(
-        value -> Measurements.measurement(value, zero(T)), means,
+        value -> Measurements.measurement(value, zero(T)), means
     )
     factor = matrix .- means
     factor ./= sqrt(size(matrix, 2) - 1)
@@ -147,13 +114,13 @@ function Measurements.measurement(result::Computation.MonteCarloResult{<:DataMod
         return DataModel.CableConstants(
             Measurements.measurement(mean.R, sigma.R),
             Measurements.measurement(mean.L, sigma.L),
-            Measurements.measurement(mean.C, sigma.C),
+            Measurements.measurement(mean.C, sigma.C)
         )
     end
     matrix = permutedims(hcat(
         result.samples.R,
         result.samples.L,
-        result.samples.C,
+        result.samples.C
     ))
     return DataModel.CableConstants(_joint_coordinates(matrix)...)
 end
@@ -168,13 +135,13 @@ function _line_measurements(result::Computation.MonteCarloResult{<:Engine.LinePa
             real.(nominal.Z.values),
             imag.(nominal.Z.values) ./ reshape(2π .* nominal.f, 1, 1, :),
             real.(nominal.Y.values),
-            imag.(nominal.Y.values) ./ reshape(2π .* nominal.f, 1, 1, :),
+            imag.(nominal.Y.values) ./ reshape(2π .* nominal.f, 1, 1, :)
         )
         deviations = result.uncertain.sigma
         blocks = map(
             _independent_coordinates,
             means,
-            (deviations.R, deviations.L, deviations.G, deviations.C),
+            (deviations.R, deviations.L, deviations.G, deviations.C)
         )
     else
         sample_values = result.samples
@@ -183,13 +150,15 @@ function _line_measurements(result::Computation.MonteCarloResult{<:Engine.LinePa
             reshape(sample_values.R, coordinate_count, trial_count),
             reshape(sample_values.L, coordinate_count, trial_count),
             reshape(sample_values.G, coordinate_count, trial_count),
-            reshape(sample_values.C, coordinate_count, trial_count),
+            reshape(sample_values.C, coordinate_count, trial_count)
         )
         joint = _joint_coordinates(matrix)
-        blocks = ntuple(index -> reshape(
-            joint[((index - 1) * coordinate_count + 1):(index * coordinate_count)],
-            tensor_size,
-        ), 4)
+        blocks = ntuple(
+            index -> reshape(
+                joint[((index - 1) * coordinate_count + 1):(index * coordinate_count)],
+                tensor_size
+            ),
+            4)
     end
     resistance, inductance, conductance, capacitance = blocks
     angular = reshape(2π .* nominal.f, 1, 1, :)
@@ -200,11 +169,12 @@ function _line_measurements(result::Computation.MonteCarloResult{<:Engine.LinePa
         impedance,
         admittance,
         nominal.f;
-        basis=LineCableModels.basis(nominal),
+        basis = LineCableModels.basis(nominal)
     )
 end
 
-Measurements.measurement(result::Computation.MonteCarloResult{<:Engine.LineParameters}) =
+function Measurements.measurement(result::Computation.MonteCarloResult{<:Engine.LineParameters})
     _line_measurements(result)
+end
 
 end

@@ -24,6 +24,7 @@ abstract type InsulationAdmittanceFormulation <: AbstractAdmittanceFormulation e
 abstract type EarthAdmittanceFormulation <: AbstractAdmittanceFormulation end
 
 abstract type AbstractTransformFormulation <: AbstractFormulation end
+abstract type AbstractEarthPropertiesFormulation <: AbstractFormulation end
 
 """
 $(TYPEDSIGNATURES)
@@ -33,11 +34,13 @@ default.
 """
 Formulation(engine::Symbol; kwargs...) = Formulation(Val(engine); kwargs...)
 Formulation(; kwargs...) = Formulation(Val(:EMT); kwargs...)
+Formulation(::Val{:FEM}; kwargs...) = retired_fem_sector("FEM formulation")
 
 """
 $(TYPEDEF)
 
-Abstract type representing different equivalent homogeneous earth models (EHEM). Used in the multi-dispatch implementation of `_calc_ehem_properties!`.
+Abstract type representing equivalent homogeneous earth models used by the
+multi-dispatch earth-property evaluation.
 
 # Currently available formulations
 

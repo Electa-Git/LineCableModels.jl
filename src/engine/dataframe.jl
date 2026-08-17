@@ -171,19 +171,19 @@ function DataFrame(
         frequency_unit = freq_unit,
         length_unit,
         quantity_units,
-        tolerance = float(tol),
+        tolerance = float(tol)
     )
     series = _matrix_dataframes(
         Z(parameters),
         frequency_values,
         series_components;
-        common...,
+        common...
     )
     shunt = _matrix_dataframes(
         Y(parameters),
         frequency_values,
         shunt_components;
-        common...,
+        common...
     )
     return series, shunt
 end

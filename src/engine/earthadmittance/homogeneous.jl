@@ -28,7 +28,7 @@ function Papadopoulos(; s::Int = 2, t::Int = 2, Γx::Int = 2,
     )
 end
 
-get_description(::Papadopoulos) = "Papadopoulos"
+description(::Papadopoulos) = "Papadopoulos"
 from_kernel(f::Papadopoulos) = f.kernel
 
 struct Pollaczek{Tγ1, Tγ2, Tμ2} <: Homogeneous
@@ -36,15 +36,15 @@ struct Pollaczek{Tγ1, Tγ2, Tμ2} <: Homogeneous
 end
 
 function Pollaczek(; s::Int = 2, t::Int = 2, Γx::Int = 0,
-        γ1 = (jω, μ, σ, ε) -> jω * sqrt(μ * ε₀),
-        γ2 = (jω, μ, σ, ε) -> jω * sqrt(μ * ε₀),
-        μ2 = μ -> oftype(μ, μ₀))
+        γ1 = (jω, μ, σ, ε) -> jω * sqrt(μ * vacuum_permittivity(ε)),
+        γ2 = (jω, μ, σ, ε) -> jω * sqrt(μ * vacuum_permittivity(ε)),
+        μ2 = vacuum_permeability)
     Pollaczek(
         Kernel{typeof(γ1), typeof(γ2), typeof(μ2)}(s, t, Γx, γ1, γ2, μ2),
     )
 end
 
-get_description(::Pollaczek) = "Pollaczek"
+description(::Pollaczek) = "Pollaczek"
 from_kernel(f::Pollaczek) = f.kernel
 
 struct Images{Tγ1, Tγ2, Tμ2} <: Homogeneous
@@ -52,15 +52,15 @@ struct Images{Tγ1, Tγ2, Tμ2} <: Homogeneous
 end
 
 function Images(; s::Int = 1, t::Int = 1, Γx::Int = 0,
-        γ1 = (jω, μ, σ, ε) -> jω * sqrt(μ * ε₀),
-        γ2 = (jω, μ, σ, ε) -> jω * sqrt(μ * ε₀),
-        μ2 = μ -> oftype(μ, μ₀))
+        γ1 = (jω, μ, σ, ε) -> jω * sqrt(μ * vacuum_permittivity(ε)),
+        γ2 = (jω, μ, σ, ε) -> jω * sqrt(μ * vacuum_permittivity(ε)),
+        μ2 = vacuum_permeability)
     Images(
         Kernel{typeof(γ1), typeof(γ2), typeof(μ2)}(s, t, Γx, γ1, γ2, μ2),
     )
 end
 
-get_description(::Images) = "Electrostatic images"
+description(::Images) = "Electrostatic images"
 from_kernel(f::Images) = f.kernel
 
 # ρ, ε, μ = ws.rho_g, ws.eps_g, ws.mu_g
@@ -69,13 +69,13 @@ from_kernel(f::Images) = f.kernel
 # Functor implementation for all homogeneous earth impedance formulations.
 function (f::Homogeneous)(
         form::Symbol,
-        h::AbstractVector{T},
+        h::Union{Tuple{T, T}, AbstractVector{T}},
         yij::T,
         rho_g::AbstractVector{T},
         eps_g::AbstractVector{T},
         mu_g::AbstractVector{T},
         jω::Complex{T}
-) where {T <: REALSCALAR}
+) where {T <: Real}
     Base.@nospecialize form
     return form === :self ? f(Val(:self), h, yij, rho_g, eps_g, mu_g, jω) :
            form === :mutual ? f(Val(:mutual), h, yij, rho_g, eps_g, mu_g, jω) :
@@ -83,25 +83,25 @@ function (f::Homogeneous)(
 end
 
 # function (f::Homogeneous)(
-# 	h::AbstractVector{T},
+# 	h::Union{Tuple{T,T},AbstractVector{T}},
 # 	yij::T,
 # 	rho_g::AbstractVector{T},
 # 	eps_g::AbstractVector{T},
 # 	mu_g::AbstractVector{T},
 # 	jω::Complex{T},
-# ) where {T <: REALSCALAR}
+# ) where {T <: Real}
 # 	return f(Val(:mutual), h, yij, rho_g, eps_g, mu_g, jω)
 # end
 
 function (f::Homogeneous)(
         ::Val{:self},
-        h::AbstractVector{T},
+        h::Union{Tuple{T, T}, AbstractVector{T}},
         yij::T,
         rho_g::AbstractVector{T},
         eps_g::AbstractVector{T},
         mu_g::AbstractVector{T},
         jω::Complex{T}
-) where {T <: REALSCALAR}
+) where {T <: Real}
     return f(Val(:mutual), h, yij, rho_g, eps_g, mu_g, jω)
 end
 
@@ -131,13 +131,13 @@ end
 
 @inline function (f::Homogeneous)(
         ::Val{:mutual},
-        h::AbstractVector{T},
+        h::Union{Tuple{T, T}, AbstractVector{T}},
         yij::T,
         rho_g::AbstractVector{T},
         eps_g::AbstractVector{T},
         mu_g::AbstractVector{T},
         jω::Complex{T}
-) where {T <: REALSCALAR}
+) where {T <: Real}
     validate_layers!(f, h)
 
     s = f.s # index of source layer
@@ -147,7 +147,7 @@ end
     σ = similar(rho_g)
     @inbounds for i in 1:nL
         μ[i] = (i == 1) ? mu_g[i] : f.μ2(mu_g[i]) # μ₂ for earth layers
-        σ[i] = _to_σ(rho_g[i])
+        σ[i] = conductivity(rho_g[i])
     end
 
     # construct propagation constants according to formulation assumptions
@@ -176,20 +176,20 @@ end
     Dij = hypot(yij, hi + hj)          # √(y^2 + (hi + hj)^2) - conductor-image
 
     # perfectly conducting earth term in Bessel form
-    Λij = _bessel_diff(γ_s, dij, Dij)
+    Λij = bessel_difference(γ_s, dij, Dij)
 
     # --- Overhead special case ---
     # physics: source in AIR (s=t=1), kx = 0, σ_air ≈ 0,
     #          earth propagation constant negligible γ_earth ≈ 0
     # ⇒ Sij = Tij = 0, Pe = (jω)/(2π(σ_air+jωε_air)) * Λ ≡ (1/(2π ε0)) * Λ
-    if f.s == 1 && f.Γx == 0 && isapprox(to_nominal(real(γ_o)), 0.0, atol = TOL)
+    if f.s == 1 && f.Γx == 0 && isapprox(nominal(real(γ_o)), 0.0, atol = 1.0e-6)
         return (jω/(2π*σ̃)) * Λij #(1/(2π*ε₀)) * Λij
     end
 
     # --- Underground,"no displacement currents" ---
     # physics: source in EARTH (s=t=2), kx = 0, γ_earth ≈ 0
     # ⇒ Pe = 0
-    if f.s == 2 && f.t == 2 && isapprox(to_nominal(real(γ_s)), 0.0, atol = TOL)
+    if f.s == 2 && f.t == 2 && isapprox(nominal(real(γ_s)), 0.0, atol = 1.0e-6)
         return (jω/(2π*σ̃)) * Λij
     end
 
@@ -200,7 +200,7 @@ end
 
     # S_ij + T_ij in one go: 2∫₀^∞ (Fij+Gij) cos(yij λ) dλ
     # integrand = (λ) -> (Fij(λ) + Gij(λ)) * cos(yij * λ)
-    @inline function integrand(λ::Float64)::Complex{T}
+    @inline function integrand(λ::Real)
         as = sqrt(λ*λ + γs_2 + kx_2)
         ao = sqrt(λ*λ + γo_2 + kx_2)
 
@@ -213,12 +213,14 @@ end
         (F + G) * cos(yij*λ)
     end
 
+    R = typeof(float(nominal(one(T))))
+    tolerance = max(R(1e-8), eps(R))
     Iij, _ = quadgk(
         integrand,
-        0.0,
-        Inf;
-        rtol = 1e-8,
-        norm = z -> abs(complex(to_nominal(real(z)), to_nominal(imag(z))))
+        zero(R),
+        R(Inf);
+        rtol = tolerance,
+        norm = z -> abs(complex(nominal(real(z)), nominal(imag(z))))
     )
     Iij *= 2
 

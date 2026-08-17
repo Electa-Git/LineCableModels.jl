@@ -12,9 +12,9 @@ module InsulationAdmittance
 export Lossless, ParallelRC
 
 # Module-specific dependencies
-using ...Commons
-import ...Commons: get_description, _typed_ε₀
-using ...Utils: _to_σ
+using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDSIGNATURES
+import ...LineCableModels: description
+import ..Engine: conductivity
 import ..Engine: InsulationAdmittanceFormulation
 
 include("lossless.jl")

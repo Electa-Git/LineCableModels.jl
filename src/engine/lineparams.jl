@@ -69,8 +69,8 @@ Frequency-dependent series-impedance and shunt-admittance matrices.
 Ω/m and S/m; total values are stored in Ω and S. Frequencies are stored in Hz.
 """
 struct LineParameters{
-    T <: COMPLEXSCALAR,
-    U <: REALSCALAR,
+    T <: Complex,
+    U <: Real,
     D <: LineParamsDomain,
     Basis
 }
@@ -88,8 +88,8 @@ struct LineParameters{
             f::AbstractVector{U}
     ) where {
             D <: LineParamsDomain,
-            T <: COMPLEXSCALAR,
-            U <: REALSCALAR,
+            T <: Complex,
+            U <: Real,
             Basis
     }
         _check_basis(Basis)
@@ -110,7 +110,7 @@ function LineParameters(
         Z::SeriesImpedance{T, Basis},
         Y::ShuntAdmittance{T, Basis},
         f::AbstractVector{U}
-) where {T <: COMPLEXSCALAR, U <: REALSCALAR, Basis}
+) where {T <: Complex, U <: Real, Basis}
     return LineParameters(PhaseDomain, Z, Y, f)
 end
 
@@ -119,9 +119,9 @@ function LineParameters(
         Y::ShuntAdmittance{TY, YBasis},
         f::AbstractVector{U}
 ) where {
-        TZ <: COMPLEXSCALAR,
-        TY <: COMPLEXSCALAR,
-        U <: REALSCALAR,
+        TZ <: Complex,
+        TY <: Complex,
+        U <: Real,
         ZBasis,
         YBasis
 }
@@ -145,9 +145,9 @@ function LineParameters(
         basis::Symbol = :per_length
 ) where {
         D <: LineParamsDomain,
-        TZ <: COMPLEXSCALAR,
-        TY <: COMPLEXSCALAR,
-        U <: REALSCALAR
+        TZ <: Complex,
+        TY <: Complex,
+        U <: Real
 }
     _check_basis(basis)
     element_type = promote_type(TZ, TY)
@@ -165,9 +165,9 @@ function LineParameters(
         f::AbstractVector{U};
         basis::Symbol = :per_length
 ) where {
-        TZ <: COMPLEXSCALAR,
-        TY <: COMPLEXSCALAR,
-        U <: REALSCALAR
+        TZ <: Complex,
+        TY <: Complex,
+        U <: Real
 }
     return LineParameters(PhaseDomain, Z, Y, f; basis)
 end

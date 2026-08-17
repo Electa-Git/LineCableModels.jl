@@ -138,13 +138,13 @@ function _monte_carlo_quantity(expression)
 end
 
 function plot(
-    result::LineCableModels.MonteCarloResult,
-    expression=:R;
-    ijk=nothing,
-    backend=nothing,
-    display_plot::Bool=true,
-    controls::Bool=true,
-    kwargs...,
+        result::LineCableModels.MonteCarloResult,
+        expression = :R;
+        ijk = nothing,
+        backend = nothing,
+        display_plot::Bool = true,
+        controls::Bool = true,
+        kwargs...
 )
     quantity, parsed_indices = _monte_carlo_quantity(expression)
     selection = ijk === nothing ? parsed_indices : ijk
@@ -152,16 +152,16 @@ function plot(
         LineCableModels.Computation.MCDistributionPlotSpec,
         result;
         quantity,
-        ijk=selection,
-        kwargs...,
+        ijk = selection,
+        kwargs...
     )
-    return only(UIComponents.build(render_spec; backend, display=display_plot, controls))
+    return only(UIComponents.build(render_spec; backend, display = display_plot, controls))
 end
 
 function Makie.plot(
-    result::LineCableModels.MonteCarloResult,
-    expression=:R;
-    kwargs...,
+        result::LineCableModels.MonteCarloResult,
+        expression = :R;
+        kwargs...
 )
     return plot(result, expression; kwargs...)
 end
