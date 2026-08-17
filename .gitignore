@@ -56,3 +56,4 @@ test/jl_*
 *.sh
 .vscode/
 designs/
+benchmarks/
