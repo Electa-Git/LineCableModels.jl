@@ -1,0 +1,83 @@
+schema_version = 1
+baseline_commit = "475d953f5c3cc57e0ee76d3a2374f24ba06189d3"
+platform = "Julia 1.12 Linux x86_64"
+
+[cases]
+
+[cases.tutorial3-emt]
+minimum_seconds = 0.017465425
+median_seconds = 0.0190337125
+bytes = 2098496
+allocations = 14056
+frequencies = 61
+conductors = 2
+julia = "1.12.6"
+os = "Linux"
+arch = "x86_64"
+threads = 1
+blas = "LBTConfig([ILP64] libopenblas64_.so)"
+
+[cases.86d18b3ad8127ca2abaed797659bc56034767628d8b2e63f02eb291cdb1f13c7]
+minimum_seconds = 0.10805727300000001
+median_seconds = 0.1119111395
+bytes = 11304744
+allocations = 57485
+frequencies = 102
+conductors = 3
+julia = "1.12.6"
+os = "Linux"
+arch = "x86_64"
+threads = 1
+blas = "LBTConfig([ILP64] libopenblas64_.so)"
+
+[cases.054193bf849cf6de1e64f06d4205bde5ead9be3cbd9638ad73f6bb6e24466b18]
+minimum_seconds = 0.07538210000000001
+median_seconds = 0.08098840000000002
+bytes = 6639136
+allocations = 69814
+frequencies = 102
+conductors = 4
+julia = "1.12.6"
+os = "Linux"
+arch = "x86_64"
+threads = 1
+blas = "LBTConfig([ILP64] libopenblas64_.so)"
+
+[cases.0510a23195a2e0fbf044cbb904fd211892354aa8ad2dcf6bf174e76c2abc9e44]
+minimum_seconds = 0.030945908
+median_seconds = 0.03200702650000001
+bytes = 3802096
+allocations = 36761
+frequencies = 102
+conductors = 3
+julia = "1.12.6"
+os = "Linux"
+arch = "x86_64"
+threads = 1
+blas = "LBTConfig([ILP64] libopenblas64_.so)"
+
+[cases.29b9150df4fe52667d41f6e8d423b5bbaace24ee148a3c523c55070840b2ce03]
+minimum_seconds = 0.021490425
+median_seconds = 0.0222863435
+bytes = 2895624
+allocations = 26524
+frequencies = 102
+conductors = 3
+julia = "1.12.6"
+os = "Linux"
+arch = "x86_64"
+threads = 1
+blas = "LBTConfig([ILP64] libopenblas64_.so)"
+
+[cases.07a34a318668e01782dfbaff5f814dc15ce5b7e6ec74c5e88782bca39feefd5f]
+minimum_seconds = 0.021435832000000002
+median_seconds = 0.022179196
+bytes = 2895624
+allocations = 26524
+frequencies = 102
+conductors = 3
+julia = "1.12.6"
+os = "Linux"
+arch = "x86_64"
+threads = 1
+blas = "LBTConfig([ILP64] libopenblas64_.so)"
