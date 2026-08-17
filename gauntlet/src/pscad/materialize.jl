@@ -1,6 +1,3 @@
-const DM = LineCableModels.DataModel
-const EP = LineCableModels.EarthProps
-const EN = LineCableModels.Engine
 const _EPSILON_0 = 8.8541878128e-12
 
 _family(::Val{:coax}) = Coax()

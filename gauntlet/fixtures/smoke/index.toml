@@ -1,3 +1,4 @@
+datasource = "pscad"
 detailed_cases = 10
 recovered_fits = 0
 schema_version = 1

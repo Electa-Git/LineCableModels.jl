@@ -10,4 +10,4 @@ elseif length(ARGS) == 1
 else
     error("invalid artifact-staging arguments")
 end
-display(stage_artifacts(ARGS[1]; repeat_normalized))
+display(stage_artifacts(:pscad, ARGS[1]; repeat_normalized))

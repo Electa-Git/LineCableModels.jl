@@ -2,9 +2,9 @@ using Gauntlet
 using TOML
 
 length(ARGS) in (1, 2) || error(
-    "usage: source_consistency.jl <raw-corpus> [evidence.toml]",
+    "usage: source_consistency.jl <raw-dataset> [evidence.toml]",
 )
-record = Gauntlet.ordinary_consistency(ARGS[1])
+record = Gauntlet.ordinary_consistency(:pscad, ARGS[1])
 payload = Dict(String(key) => value for (key, value) in pairs(record))
 payload["schema_version"] = 1
 if length(ARGS) == 2

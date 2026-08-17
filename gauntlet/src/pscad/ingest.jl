@@ -99,7 +99,7 @@ end
 
 function _provenance_dict(provenance::Provenance)
     return Dict{String, Any}(
-        "source" => String(provenance.source),
+        "datasource" => String(provenance.datasource),
         "version" => provenance.version,
         "campaign" => provenance.campaign,
         "definition" => provenance.definition,
@@ -605,6 +605,7 @@ function _write_schema(root)
     _case_toml(joinpath(root, "schema.toml"),
         Dict(
             "schema_version" => 1,
+            "datasource" => "pscad",
             "frequency_unit" => "Hz",
             "impedance_unit" => "ohm/m",
             "admittance_unit" => "S/m",
@@ -614,7 +615,7 @@ function _write_schema(root)
         ))
 end
 
-"""Ingest an authoritative PSCAD campaign into raw and normalized corpora."""
+"""Ingest an authoritative PSCAD campaign into raw and normalized datasets."""
 function ingest(
         ::PSCAD,
         source::AbstractString,
@@ -665,7 +666,7 @@ function ingest(
     ordered_ids = sort!(collect(keys(records)))
     for (position, id) in enumerate(ordered_ids)
         (position == 1 || position % 25 == 0) &&
-            @info("Ingesting PSCAD corpus", case=position, total=length(ordered_ids), id)
+            @info("Ingesting PSCAD dataset", case=position, total=length(ordered_ids), id)
         record = records[id]
         try
             case_root = joinpath(source_root, _native_path(String(record["path"])))
@@ -755,6 +756,7 @@ function ingest(
 
     index = Dict{String, Any}(
         "schema_version" => 1,
+        "datasource" => "pscad",
         "source_manifest_sha256" => _sha256(dataset_path),
         "cases" => success_index,
         "rejections" => rejection_index,
@@ -781,9 +783,9 @@ function ingest(
     end
 
     # Final load proves the index and every lazy path are self-consistent.
-    corpus = Corpus(normalized_root)
-    length(corpus) == length(records) || throw(DimensionMismatch(
-        "normalized corpus length differs from the canonical source",
+    dataset = Dataset(normalized_root)
+    length(dataset) == length(records) || throw(DimensionMismatch(
+        "normalized dataset length differs from the canonical source",
     ))
     return (;
         raw = raw_root,

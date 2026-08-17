@@ -7,17 +7,17 @@ end
 
 isempty(ARGS) && usage()
 mode = Symbol(first(ARGS))
-corpus = if mode === :smoke
+dataset = if mode === :smoke
     length(ARGS) == 1 || usage()
-    Corpus(:smoke)
+    Dataset(:smoke)
 elseif mode === :full
     length(ARGS) == 3 && ARGS[2] == "--artifact-dir" || usage()
-    Corpus(ARGS[3])
+    Dataset(ARGS[3])
 else
     usage()
 end
 
-suite = Suite(mode; corpus)
+suite = Suite(mode; dataset)
 report = gauntlet(suite)
 output = joinpath(@__DIR__, "..", "reports")
 mkpath(output)

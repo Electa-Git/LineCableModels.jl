@@ -1,6 +1,7 @@
 admittance_unit = "S/m"
 angle_unit = "rad"
 complex_storage = "ComplexF64 arrays"
+datasource = "pscad"
 frequency_unit = "Hz"
 impedance_unit = "ohm/m"
 missing_channels = "absent fields"

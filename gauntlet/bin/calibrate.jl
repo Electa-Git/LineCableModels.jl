@@ -2,9 +2,9 @@ using Gauntlet
 using TOML
 
 length(ARGS) in (1, 2) || error(
-    "usage: calibrate.jl <normalized-corpus> [evidence.toml]",
+    "usage: calibrate.jl <normalized-dataset> [evidence.toml]",
 )
-records = Gauntlet.calibrate_fit(Corpus(ARGS[1]))
+records = Gauntlet.calibrate_fit(Dataset(ARGS[1]))
 payload = Dict(
     "schema_version" => 1,
     "note" => "evidence only; ordinary validation never rewrites tolerances.toml",

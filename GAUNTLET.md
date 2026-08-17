@@ -1,6 +1,6 @@
 # Gauntlet implementation ledger
 
-This file is the persistent source of truth for the PSCAD validation corpus and
+This file is the persistent source of truth for the PSCAD validation dataset and
 Gauntlet harness. Inventory rows are updated with evidence as work proceeds;
 completed evidence is not silently discarded.
 
@@ -19,9 +19,34 @@ Gauntlet is a separate Julia application. It may depend on LineCableModels but
 must not add dependencies, exports, or validation-only entry points to the root
 package.
 
-## Original corpus
+## Datasource alignment checkpoint
 
-The ignored source corpus was inspected at
+The first Gauntlet implementation completed the PSCAD campaign but left its
+dataset loader and native reconstruction path coupled to PSCAD records. This
+checkpoint aligns the owned API before any artifact is published:
+
+- `Datasource` is the abstract origin of external benchmark evidence;
+- `PSCAD` is the first complete datasource and owns its parser, ingestion,
+  decoding, loading, reconstruction, and calibration specializations;
+- `FEM` is registered as a datasource provision and fails explicitly as not
+  implemented until a finite-element format is selected;
+- `Dataset` is the source-neutral lazy collection of cases and rejections;
+- `ingest`, `load`, and `decode` are the short dispatch verbs;
+- datasource symbols are registered through `Val`, with `:pscad` supported
+  end to end and `:fem` reserved;
+- the normalized dataset index declares its datasource explicitly;
+- the previous source-type and collection names, including the old suite field,
+  are removed without aliases because no Gauntlet API or artifact has been
+  released.
+
+The comparison, modal-alignment, tolerance, reporting, and performance layers
+remain datasource-neutral. New datasource adapters must normalize evidence into
+the existing typed `Reference` surface; source-specific records and file-format
+rules remain below their datasource directory.
+
+## Original dataset
+
+The ignored source dataset was inspected at
 `benchmarks/PSCAD-reference-v1`. Its authoritative index is
 `dataset_manifest.json`, schema version 1, SHA-256
 `fc5c78cecf673ecd5272ef992181bcca8c8a853602db534d43815d1e36931b65`.
@@ -68,7 +93,7 @@ Disposable parser evidence:
 
 ## Artifact disposition
 
-| Source class | Raw artifact | Normalized artifact | Maintained tree | Status |
+| Artifact class | Raw artifact | Normalized artifact | Maintained tree | Status |
 |---|---|---|---|---|
 | Authoritative dataset index | retain | normalized index | counts and digest in this ledger | verified |
 | Canonical `.cli`/`.tli` inputs | retain once per effective case | typed source records | representative parser fixtures only | verified |
@@ -84,20 +109,23 @@ Disposable parser evidence:
 | Python harvester | source/configuration only | none | `gauntlet/harvest/pscad` | verified slim boundary |
 | Python caches and generated runs | remove | none | none | excluded from maintained harvester |
 
-The original ignored corpus was deleted only after both staged archives, the
-tracked smoke corpus, two deterministic normalization runs, extraction tests,
-hash verification, and full-corpus accounting succeeded.
+The original ignored dataset was deleted only after both staged archives, the
+tracked smoke dataset, two deterministic normalization runs, extraction tests,
+hash verification, and full-dataset accounting succeeded.
 
 Final local artifact identities:
 
 | Artifact | Tree SHA-256 | Archive SHA-256 | Files | Uncompressed bytes |
 |---|---|---|---:|---:|
 | `pscad-raw-v1.tar.gz` | `55bb88973ee3bbb183cea1342d45ea3da5493123a968232477a25af3e21d1140` | `cb78519befb85de37ed1773c5d597f40694294d4bb077124ded515f27f4eb7cd` | 13,821 | 1,151,403,828 |
-| `pscad-normalized-v1.tar.gz` | `5458c98484e57a4274938ddb7d3659556e5a6c78f9e25ae64a71f6f67ac85722` | `64a648f6968e4d6fce52c3790169838bf91202e90fb8932450367e40483a49e7` | 1,071 | 321,803,642 |
+| `pscad-normalized-v1.tar.gz` | `957397f155673fd54ac3fd361a6cc60815eed01e6d1fa29e8ac62bb1ae20f6fd` | `05d173f623de420cd34e98fd56c8767aa75f9dd7feb5c049dc991c213b57896c` | 1,071 | 321,801,296 |
 
 Independent `ingest-v9` and `ingest-v10` runs produced identical raw and
 normalized tree hashes. Both archives were extracted into temporary storage,
-rehash-verified, and the extracted normalized index was opened as a `Corpus`.
+rehash-verified, and the extracted normalized index was opened as a `Dataset`.
+The datasource-aligned normalized archive was rebuilt from that verified tree;
+all 869 cases and 199 rejections were loaded again, and archive extraction
+reproduced the aligned tree hash above.
 
 ## Normalized schema and units
 
@@ -208,19 +236,22 @@ are not used as correctness gates.
 
 | Gate | Evidence | Status |
 |---|---|---|
+| Datasource alignment | `Datasource`, `Dataset`, symbol dispatch, external fixture datasource, PSCAD `ingest`/`load`/`decode`, FEM not-implemented paths, and generic-loader isolation | 24/24 focused assertions passed |
+| Datasource-aligned full dataset | all 869 PSCAD cases and 199 rejections loaded through the new dataset dispatch; normalized archive extraction reproduced `957397f155673fd54ac3fd361a6cc60815eed01e6d1fa29e8ac62bb1ae20f6fd` | verified |
 | Root package baseline | 2,880/2,880 tests passed from baseline SHA | verified |
 | Parser unit tests | input, ordinary, detailed, terminal, fit, malformed/truncated/checksum, modal assignment, port order, Kron, reports | all application tests passed |
-| Sixteen-case tracked smoke suite | fixed IDs in `gauntlet/config/smoke.toml`; tree `9320da19e02c9098b1a8cf0c1e3cc4076469414c1dcdeff50af8c02cbf49d07a` | passed before and after source-corpus deletion; zero hard failures |
+| Sixteen-case tracked smoke suite | fixed IDs in `gauntlet/config/smoke.toml`; datasource-aligned tree `b696494f6ffc51274ec541e5c85349e4480a76d18cd32c41b9f3a75a28d82355` | passed before and after source-dataset deletion; zero hard failures |
 | 869 successful canonical materializations | performed during each ingestion pass | verified |
 | 869 successful canonical computations | full extracted-artifact run | verified |
 | 199 rejection records | indexed and lazily loadable | verified |
 | Detailed/sparse channel accounting | 689 detailed; 180 sparse; per-channel counts recorded above | verified |
 | Deterministic normalization | identical v9/v10 raw and normalized trees | verified |
 | Raw archive extraction and digest | tree and archive hashes above | verified |
-| Normalized archive extraction and digest | tree and archive hashes above; `Corpus` opened | verified |
+| Normalized archive extraction and digest | tree and archive hashes above; `Dataset` opened | verified |
 | Full local artifact suite | 1,068 canonical trials: 869 computed successes and 199 source rejections; 10,715 diagnostic, 1,022 pass, 360 unavailable, 199 source-rejected comparison rows, zero fail rows | passed |
 | Allocation regression suite | six warmed cases; byte and allocation ratios below 1.05 | passed |
 | Gauntlet application tests | parser, comparison, smoke, reports, archive identity, opt-in full accounting | passed |
+| Strict documentation | Literate generation, doctests, cross-references, document checks, and HTML rendering | passed |
 | Root package suite | 2,880/2,880 in 5m07s | passed |
 | Core-only boundary | 32/32 | passed |
 | Aqua | ambiguities, undefined exports, stale dependencies, compat, piracy, persistent tasks | passed |
@@ -229,7 +260,7 @@ are not used as correctness gates.
 | GL gallery smoke | 18 panels built without native windows | passed |
 | Clean installation | empty depot; Makie extension remained unloaded | passed |
 | Literate documentation | `docs/literate/gauntlet.jl` uses the tracked typed records; strict doctests and HTML build | passed |
-| Original corpus removal | deleted after all archive, extraction, full-suite, and smoke gates; recoverable from the raw archive or the user's backup | complete |
+| Original dataset removal | deleted after all archive, extraction, full-suite, and smoke gates; recoverable from the raw archive or the user's backup | complete |
 
 `Report(smoke, 11/16 acceptable trials)` and
 `Report(full, 888/1068 acceptable trials)` are not failure counts. Every native

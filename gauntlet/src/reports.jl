@@ -12,6 +12,7 @@ function Tables.rows(report::Report)
     return (
         (
             case_id = trial.case.id,
+            datasource = trial.case.provenance.datasource,
             family = lowercase(String(nameof(typeof(trial.case.family)))),
             fidelity = lowercase(String(nameof(typeof(trial.case.fidelity)))),
             check = _check_name(comparison.check),
@@ -117,12 +118,14 @@ function _write_markdown(path, report)
         println(io, "# Gauntlet report: `$(report.suite.name)`\n")
         println(io, "Started: $(report.started_at)  ")
         println(io, "Finished: $(report.finished_at)\n")
-        println(io, "| Case | Family | Fidelity | Check | Verdict | Max relative error |")
-        println(io, "|---|---|---|---|---|---:|")
+        println(io,
+            "| Case | Datasource | Family | Fidelity | Check | Verdict | Max relative error |"
+        )
+        println(io, "|---|---|---|---|---|---|---:|")
         for row in rows
             relative = ismissing(row.max_rel) ? "—" : @sprintf("%.6g", row.max_rel)
             println(io,
-                "| `$(row.case_id)` | $(row.family) | $(row.fidelity) | " *
+                "| `$(row.case_id)` | $(row.datasource) | $(row.family) | $(row.fidelity) | " *
                 "$(row.check) | $(row.verdict) | $relative |")
         end
     end

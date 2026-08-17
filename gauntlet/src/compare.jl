@@ -6,7 +6,6 @@ _quantity(::ModalCheck{:Y}, result) = Array(Y(result))
 function _frequency_indices(actual, reference)
     indices = Int[]
     for frequency in reference
-        # Detailed PSCAD tables print frequency with eight significant digits.
         index = findfirst(value -> isapprox(value, frequency; rtol = 1e-7, atol = 0), actual)
         index === nothing && throw(DimensionMismatch(
             "actual result has no sample at reference frequency $frequency Hz",
@@ -103,7 +102,7 @@ end
 
 function _sequence_matrix(transform, ports, n)
     transform === nothing && throw(ArgumentError(
-        "the PSCAD sequence transform is unavailable",
+        "the reference sequence transform is unavailable",
     ))
     q = LinearAlgebra.checksquare(transform)
     length(ports) == n || throw(DimensionMismatch(
@@ -171,7 +170,7 @@ function compare(
         _verdict(metrics, tolerance),
         Tolerance(Float64(tolerance.rtol), Float64(tolerance.atol)),
         metrics,
-        "applied the recorded PSCAD sequence transform to aligned port groups"
+        "applied the recorded reference sequence transform to aligned port groups"
     )
 end
 
@@ -321,7 +320,7 @@ function _case_comparison(case::Case, _, check::PhysicalCheck{:terminal})
         finite ? Pass() : Fail(),
         _tolerance(check),
         nothing,
-        "validated PSCAD open/short channels; empty source outputs: " *
+        "validated imported open/short channels; empty source outputs: " *
         (isempty(terminal.empty) ? "none" : join(terminal.empty, ", "))
     )
 end
@@ -388,7 +387,7 @@ function gauntlet(
             ReferenceRejected(),
             Tolerance(0.0, 0.0),
             nothing,
-            "PSCAD rejected this source case; no Julia failure is inferred"
+            "$(case.provenance.datasource) rejected this source case; no Julia failure is inferred"
         )
         return Trial(case, nothing, Comparison[comparison], nothing)
     end
@@ -599,7 +598,7 @@ function gauntlet(suite::Suite)
             case=index,
             total=length(suite.ids),
             id)
-        case = suite.corpus[id]
+        case = suite.dataset[id]
         push!(trials,
             gauntlet(
                 case;

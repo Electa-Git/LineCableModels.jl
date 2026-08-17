@@ -4,8 +4,15 @@ using LinearAlgebra
 using Tables
 using Test
 using TOML
+import JLD2
 
 const IO = Gauntlet.PSCADIO
+
+struct FixtureDatasource <: Datasource end
+Gauntlet.datasource(::Val{:fixture}) = FixtureDatasource()
+Gauntlet.decode(::FixtureDatasource, record) = (; decoded = record)
+Gauntlet.load(source::FixtureDatasource, record) = decode(source, record)
+Gauntlet.ingest(::FixtureDatasource, source, destination) = (; source, destination)
 
 function temporary_file(test, content, extension)
     mktemp() do path, stream
@@ -20,6 +27,58 @@ function temporary_file(test, content, extension)
             rm(target; force = true)
         end
     end
+end
+
+@testset "Datasource grammar" begin
+    @test datasource(:pscad) isa PSCAD
+    @test datasource(:fem) isa FEM
+    @test datasource(:fixture) isa FixtureDatasource
+    @test_throws ArgumentError datasource(:unknown)
+    @test !isdefined(Gauntlet, :Source)
+    @test !isdefined(Gauntlet, :Corpus)
+
+    dataset = Dataset(:smoke)
+    @test dataset.datasource isa PSCAD
+    suite_fields = fieldnames(Base.unwrap_unionall(Suite))
+    @test :dataset in suite_fields
+    @test !(:corpus in suite_fields)
+
+    id = first(keys(dataset.cases))
+    path = joinpath(dataset.root, dataset.cases[id])
+    @test load(:pscad, path).id == id
+    record = Gauntlet.PSCADCase(JLD2.load(path, "record"))
+    @test decode(:pscad, record) isa Reference
+    @test load(:fixture, :record) == (; decoded = :record)
+    @test decode(:fixture, :record) == (; decoded = :record)
+    @test ingest(:fixture, :source, :destination) ==
+          (; source = :source, destination = :destination)
+
+    for action in (
+        () -> ingest(:fem, "source", "destination"),
+        () -> load(:fem, "record"),
+        () -> decode(:fem, "record")
+    )
+        exception = try
+            action()
+            nothing
+        catch error
+            error
+        end
+        @test exception isa ErrorException
+        @test occursin("FEM datasource is not implemented", sprint(showerror, exception))
+    end
+
+    mktempdir() do root
+        open(joinpath(root, "index.toml"), "w") do io
+            TOML.print(io, Dict("schema_version" => 1))
+        end
+        @test_throws ArgumentError Dataset(root)
+        @test_throws ArgumentError ingest(:pscad, root, joinpath(root, "output"))
+    end
+
+    generic_dataset = read(joinpath(@__DIR__, "..", "src", "dataset.jl"), String)
+    @test !occursin("PSCADIO", generic_dataset)
+    @test !occursin(r"\.(cli|tli|clo|tlo)", lowercase(generic_dataset))
 end
 
 @testset "PSCAD input grammar" begin
@@ -297,20 +356,20 @@ end
           Set(("physical.kron_Z", "physical.kron_Y"))
 end
 
-@testset "Tracked smoke corpus" begin
-    corpus = Corpus(:smoke)
-    @test length(corpus) == 16
-    @test length(keys(corpus)) == 16
-    @test all(case -> case isa Case, corpus)
-    @test count(case -> case.fidelity isa Rejected, corpus) == 1
-    @test Set(nameof(typeof(case.family)) for case in corpus) ==
+@testset "Tracked smoke dataset" begin
+    dataset = Dataset(:smoke)
+    @test length(dataset) == 16
+    @test length(keys(dataset)) == 16
+    @test all(case -> case isa Case, dataset)
+    @test count(case -> case.fidelity isa Rejected, dataset) == 1
+    @test Set(nameof(typeof(case.family)) for case in dataset) ==
           Set((:Coax, :Overhead, :Mixed, :Pipe))
-    rejected = only(case for case in corpus if case.fidelity isa Rejected)
+    rejected = only(case for case in dataset if case.fidelity isa Rejected)
     trial = gauntlet(rejected)
     @test only(trial.comparisons).verdict isa Gauntlet.ReferenceRejected
     suite = Suite(
         :typed;
-        corpus,
+        dataset,
         ids = [rejected.id],
         policy = AllCases(),
         performance = String[]
@@ -342,9 +401,9 @@ end
     )
     @test only(interpolated) ≈ sqrt(10.0)
 
-    corpus = Corpus(:smoke)
-    rejected = only(case for case in corpus if case.fidelity isa Rejected)
-    suite = Suite(:parser; corpus, ids = [rejected.id])
+    dataset = Dataset(:smoke)
+    rejected = only(case for case in dataset if case.fidelity isa Rejected)
+    suite = Suite(:parser; dataset, ids = [rejected.id])
     report = gauntlet(suite)
     @test length(collect(Tables.rows(report))) == 1
     mktempdir() do destination
@@ -362,12 +421,12 @@ end
     if isempty(artifact)
         @test true
     else
-        corpus = Corpus(artifact)
+        dataset = Dataset(artifact)
         index = TOML.parsefile(joinpath(artifact, "index.toml"))
-        @test length(corpus.cases) == 869
-        @test length(corpus.rejections) == 199
-        @test length(corpus.aliases) == 36
+        @test length(dataset.cases) == 869
+        @test length(dataset.rejections) == 199
+        @test length(dataset.aliases) == 36
         @test length(index["excluded"]) == 1
-        @test count(case -> case.fidelity isa Rejected, corpus) == 199
+        @test count(case -> case.fidelity isa Rejected, dataset) == 199
     end
 end

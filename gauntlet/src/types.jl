@@ -1,11 +1,55 @@
 """$(TYPEDEF)
 
-Base type for external sources of validation evidence.
+Base type for external origins of validation evidence.
 """
-abstract type Source end
+abstract type Datasource end
 
-"""Identify PSCAD as the source of imported validation evidence."""
-struct PSCAD <: Source end
+"""Identify PSCAD as a datasource of imported validation evidence."""
+struct PSCAD <: Datasource end
+
+"""Reserve finite-element solvers as a future validation datasource."""
+struct FEM <: Datasource end
+
+"""Resolve a registered datasource symbol through dispatch."""
+datasource(name::Symbol) = datasource(Val(name))
+datasource(::Val{:pscad}) = PSCAD()
+datasource(::Val{:fem}) = FEM()
+function datasource(::Val{name}) where {name}
+    throw(ArgumentError("unregistered Gauntlet datasource :$name"))
+end
+
+"""
+    ingest(datasource, source, destination; kwargs...)
+
+Normalize external benchmark evidence into a Gauntlet dataset.
+"""
+function ingest end
+
+"""
+    load(datasource, record)
+
+Reconstruct one native [`Case`](@ref) from a normalized datasource record.
+"""
+function load end
+
+"""
+    decode(datasource, record)
+
+Decode one datasource record into normalized [`Reference`](@ref) evidence.
+"""
+function decode end
+
+ingest(name::Symbol, args...; kwargs...) = ingest(datasource(name), args...; kwargs...)
+load(name::Symbol, args...; kwargs...) = load(datasource(name), args...; kwargs...)
+decode(name::Symbol, args...; kwargs...) = decode(datasource(name), args...; kwargs...)
+
+function _fem_not_implemented()
+    throw(ErrorException("FEM datasource is not implemented"))
+end
+
+ingest(::FEM, args...; kwargs...) = _fem_not_implemented()
+load(::FEM, args...; kwargs...) = _fem_not_implemented()
+decode(::FEM, args...; kwargs...) = _fem_not_implemented()
 
 """$(TYPEDEF)
 
@@ -133,7 +177,7 @@ Mark a reference channel that the source did not emit.
 struct Unavailable <: Verdict end
 """$(TYPEDEF)
 
-Mark a case that PSCAD rejected and therefore has no numerical reference.
+Mark a case that its source solver rejected before producing a reference.
 """
 struct ReferenceRejected <: Verdict end
 
@@ -150,7 +194,7 @@ struct AllCases <: Policy end
 """
 $(TYPEDEF)
 
-Identify one PSCAD matrix terminal and its native phase mapping.
+Identify one source matrix terminal and its native phase mapping.
 
 $(TYPEDFIELDS)
 """
@@ -187,13 +231,13 @@ Preserve the origin and immutable identity of imported evidence.
 $(TYPEDFIELDS)
 """
 struct Provenance
-    "Source tool identifier."
-    source::Symbol
-    "Source-tool version."
+    "Datasource identifier."
+    datasource::Symbol
+    "Datasource version."
     version::String
     "Harvest campaign identifier."
     campaign::String
-    "Source component definition."
+    "Datasource component definition."
     definition::String
     "SHA-256 digest of the donor source."
     source_sha256::String
@@ -203,7 +247,7 @@ struct Provenance
     case_sha256::String
     "Reported source-tool execution time \\[s\\], when available."
     elapsed_seconds::Union{Nothing, Float64}
-    "Source artifact names and SHA-256 digests."
+    "Datasource artifact names and SHA-256 digests."
     artifact_sha256::Dict{String, String}
     "SHA-256 identity shared by reduction variants of one physical case."
     cohort::String
@@ -263,7 +307,7 @@ end
 """
 $(TYPEDEF)
 
-Represent imported PSCAD characteristic-admittance and propagation fits.
+Represent imported characteristic-admittance and propagation fits.
 
 $(TYPEDFIELDS)
 """
@@ -304,7 +348,7 @@ end
 """
 $(TYPEDEF)
 
-Hold PSCAD modal transforms, propagation eigenvalues, and transfer channels.
+Hold imported modal transforms, propagation eigenvalues, and transfer channels.
 
 $(TYPEDFIELDS)
 """
@@ -355,7 +399,7 @@ end
 """
 $(TYPEDEF)
 
-Hold PSCAD open- and short-circuit terminal responses.
+Hold imported open- and short-circuit terminal responses.
 
 $(TYPEDFIELDS)
 """
@@ -366,7 +410,7 @@ struct Terminal{T <: Real}
     open::Union{Nothing, Matrix{Complex{T}}}
     "Short-circuit terminal response, when emitted."
     short::Union{Nothing, Matrix{Complex{T}}}
-    "Source output families that contained headers but no samples."
+    "Datasource output families that contained headers but no samples."
     empty::Vector{Symbol}
 
     function Terminal(
@@ -404,7 +448,7 @@ struct Reference{P, S, M, F, X, T}
     phase::P
     "Sequence-domain line parameters, when available."
     sequence::S
-    "PSCAD sequence transformation matrix, when available."
+    "Datasource sequence transformation matrix, when available."
     sequence_transform::X
     "Modal and propagation evidence, when available."
     modes::M
@@ -429,6 +473,40 @@ function Reference(; phase = nothing, sequence = nothing, sequence_transform = n
     )
 end
 
+function _checks(reference::Reference)
+    values = Check[]
+    reference.phase === nothing || append!(values, (MatrixCheck{:Z}(), MatrixCheck{:Y}()))
+    reference.sequence === nothing || append!(
+        values, (ModalCheck{:Z}(), ModalCheck{:Y}())
+    )
+    if reference.modes !== nothing
+        reference.modes.transform === nothing || append!(values, (
+            ModalCheck{:transform}(), ModalCheck{:reconstruction}()
+        ))
+        reference.modes.propagation === nothing || push!(
+            values, ModalCheck{:propagation}()
+        )
+        reference.modes.characteristic === nothing || push!(
+            values, ModalCheck{:characteristic}()
+        )
+        reference.modes.phase_propagation === nothing || push!(
+            values, ModalCheck{:phase_propagation}()
+        )
+        reference.modes.modal_propagation === nothing || push!(
+            values, ModalCheck{:modal_propagation}()
+        )
+    end
+    reference.fit === nothing || append!(values, (FitCheck{:Yc}(), FitCheck{:H}()))
+    reference.terminal === nothing || push!(values, PhysicalCheck{:terminal}())
+    append!(values,
+        (
+            PhysicalCheck{:symmetry}(),
+            PhysicalCheck{:reciprocity}(),
+            PhysicalCheck{:positive_real}()
+        ))
+    return tuple(values...)
+end
+
 """
 $(TYPEDEF)
 
@@ -439,11 +517,11 @@ $(TYPEDFIELDS)
 struct Case{P, F, R, G <: Family, D <: Fidelity, U <: Reduction, C <: Tuple}
     "SHA-derived case identifier."
     id::String
-    "Physical source family."
+    "Physical case family."
     family::G
     "Scientific fidelity of the native reconstruction."
     fidelity::D
-    "Source conductor-reduction state."
+    "Datasource conductor-reduction state."
     reduction::U
     "Native `LineParametersProblem`, or `nothing` for a source rejection."
     problem::P
@@ -455,7 +533,7 @@ struct Case{P, F, R, G <: Family, D <: Fidelity, U <: Reduction, C <: Tuple}
     checks::C
     "Deliberate reconstruction assumptions."
     assumptions::Vector{Assumption}
-    "Source and artifact provenance."
+    "Datasource and artifact provenance."
     provenance::Provenance
 end
 
@@ -487,15 +565,15 @@ Tolerance(; rtol = 1e-6, atol = 0.0) = Tolerance(promote(rtol, atol)...)
 """
 $(TYPEDEF)
 
-Select an indexed corpus, checks, fidelity policy, and performance cases.
+Select an indexed dataset, checks, fidelity policy, and performance cases.
 
 $(TYPEDFIELDS)
 """
 struct Suite{C, K, P <: Policy}
     "Suite identifier."
     name::Symbol
-    "Indexed source corpus."
-    corpus::C
+    "Indexed source dataset."
+    dataset::C
     "Selected case identifiers."
     ids::Vector{String}
     "Check override; `nothing` uses each case's available checks."
@@ -643,7 +721,7 @@ end
 """
     reference(case::Case)
 
-Return the immutable PSCAD reference associated with `case`.
+Return the immutable external reference associated with `case`.
 """
 reference(case::Case) = case.reference
 
@@ -657,7 +735,7 @@ assumptions(case::Case) = copy(case.assumptions)
 """
     provenance(case::Case)
 
-Return the PSCAD campaign and artifact provenance associated with `case`.
+Return the datasource campaign and artifact provenance associated with `case`.
 """
 provenance(case::Case) = case.provenance
 

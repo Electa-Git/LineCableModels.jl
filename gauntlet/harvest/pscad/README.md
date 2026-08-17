@@ -2,7 +2,7 @@
 
 This directory preserves the narrow Python boundary that launches PSCAD's
 Line Constants Program and captures content-addressed evidence. It is not used
-by Gauntlet's parser, smoke suite, documentation, or full-corpus validation.
+by Gauntlet's parser, smoke suite, documentation, or full-dataset validation.
 Those paths are implemented in Julia and operate without Python or PSCAD.
 
 The harvester requires Windows, a licensed PSCAD installation, `mhi.pscad`,
@@ -28,7 +28,7 @@ Each successful run records the normalized `.cli` or `.tli` input, ordinary
 and detailed outputs, a `.clo` or `.tlo` fit when emitted, hashes, PSCAD
 version, source definition, mutations, and elapsed time. Terminal PSCAD solver
 rejections remain evidence. Gauntlet's Julia ingester deduplicates these runs,
-normalizes units and ordering, and stages the immutable corpus archives.
+normalizes units and ordering, and stages the immutable dataset archives.
 
 The source campaign used for `pscad-raw-v1` and `pscad-normalized-v1` is
 inventoried in the repository's `GAUNTLET.md`. Raw artifact publication still

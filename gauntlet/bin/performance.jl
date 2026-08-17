@@ -1,11 +1,11 @@
 using Gauntlet
 using TOML
 
-corpus = Corpus(:smoke)
+dataset = Dataset(:smoke)
 configuration = TOML.parsefile(joinpath(@__DIR__, "..", "config", "performance.toml"))
 suite = Suite(
     :performance;
-    corpus,
+    dataset,
     ids = configuration["cases"],
     checks = (),
     performance = true

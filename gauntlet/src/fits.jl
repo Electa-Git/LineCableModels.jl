@@ -1,4 +1,4 @@
-"""Evaluate one PSCAD vector fit at positive frequencies in hertz."""
+"""Evaluate one imported vector fit at positive frequencies in hertz."""
 function evaluate(fit::Fit{T}, frequency::AbstractVector{<:Real}) where {T}
     f = T.(frequency)
     all(value -> isfinite(value) && value > zero(T), f) || throw(DomainError(

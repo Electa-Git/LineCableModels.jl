@@ -1,8 +1,8 @@
 """
     Gauntlet
 
-Provide a typed validation application for comparing native LineCableModels
-results with independently harvested PSCAD evidence.
+Provide a typed, datasource-agnostic validation application for comparing
+native LineCableModels results with independently produced evidence.
 """
 module Gauntlet
 
@@ -10,7 +10,7 @@ using BenchmarkTools
 using CodecZlib
 using Dates
 using DocStringExtensions: FUNCTIONNAME, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-using JLD2
+import JLD2
 using JSON3
 using LineCableModels
 using LinearAlgebra
@@ -24,6 +24,10 @@ using Tar
 import Base: getindex, iterate, keys, length, show
 import LineCableModels: Z, Y, basis, compute!, domain, frequencies
 
+const DM = LineCableModels.DataModel
+const EP = LineCableModels.EarthProps
+const EN = LineCableModels.Engine
+
 export Approximate,
        AllCases,
        Assumption,
@@ -31,7 +35,8 @@ export Approximate,
        Check,
        Coax,
        Comparison,
-       Corpus,
+       Datasource,
+       Dataset,
        Diagnostic,
        Exact,
        ExactOnly,
@@ -40,6 +45,7 @@ export Approximate,
        Fidelity,
        Fit,
        FitCheck,
+       FEM,
        MatrixCheck,
        Metrics,
        Mixed,
@@ -63,7 +69,6 @@ export Approximate,
        Rejected,
        Report,
        Retained,
-       Source,
        Suite,
        Tolerance,
        Terminal,
@@ -72,9 +77,12 @@ export Approximate,
        Verdict,
        assumptions,
        compare,
+       datasource,
+       decode,
        evaluate,
        gauntlet,
        ingest,
+       load,
        performance_baseline,
        provenance,
        reference,
@@ -84,16 +92,19 @@ export Approximate,
 
 include("types.jl")
 include("fits.jl")
-include("pscad.jl")
-include("materialize.jl")
-include("corpus.jl")
+include("dataset.jl")
 include("compare.jl")
 include("modal.jl")
 include("calibration.jl")
 include("fixtures.jl")
 include("performance.jl")
 include("reports.jl")
-include("ingest.jl")
 include("artifacts.jl")
+include("pscad/io.jl")
+include("pscad/materialize.jl")
+include("pscad/load.jl")
+include("pscad/ingest.jl")
+include("pscad/calibration.jl")
+include("pscad/artifacts.jl")
 
 end

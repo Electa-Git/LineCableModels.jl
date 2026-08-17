@@ -10,15 +10,15 @@ function _round125(value::Real)
 end
 
 function _fit_calibration(
-        corpus::Corpus,
+        dataset::Dataset,
         check::FitCheck,
         family::Type{<:Family};
         atol::Real = 1e-12
 )
     records = NamedTuple[]
     tolerance = Tolerance(1e-3, Float64(atol))
-    for id in keys(corpus.cases)
-        case = corpus[id]
+    for id in keys(dataset.cases)
+        case = dataset[id]
         case.family isa family || continue
         comparison = compare_fit(
             case.reference.fit, case.reference.modes, check, tolerance
@@ -51,11 +51,11 @@ function _fit_calibration(
 end
 
 """Derive source-internal fit thresholds without changing frozen configuration."""
-function calibrate_fit(corpus::Corpus)
+function calibrate_fit(dataset::Dataset)
     result = NamedTuple[]
     for check in (FitCheck{:Yc}(), FitCheck{:H}())
         for family in (Coax, Overhead, Mixed, Pipe)
-            record = _fit_calibration(corpus, check, family)
+            record = _fit_calibration(dataset, check, family)
             record === nothing || push!(result, record)
         end
     end
@@ -79,40 +79,4 @@ function _polar_log_interpolate(values, frequency, target)
         weight .* log.(abs.(last_value))
     )
     return magnitude .* cis.(first_phase .+ weight .* phase_step)
-end
-
-"""Cross-check ordinary 60 Hz matrices against interpolated detailed evidence."""
-function ordinary_consistency(raw::AbstractString)
-    root = joinpath(abspath(raw), "cases")
-    isdir(root) || throw(ArgumentError("raw corpus has no cases directory: $raw"))
-    impedance = Float64[]
-    admittance = Float64[]
-    unavailable = 0
-    for id in readdir(root)
-        directory = joinpath(root, id)
-        names = readdir(directory)
-        any(endswith(lowercase(name), "_zm.out") for name in names) || continue
-        files = Dict(name => joinpath(directory, name) for name in names)
-        phase, _ = _phase_reference(files)
-        ordinary = _ordinary(files)
-        f = frequencies(phase)
-        if ordinary === nothing || ordinary.Z === nothing ||
-           !(first(f) < ordinary.frequency < last(f))
-            unavailable += 1
-            continue
-        end
-        z = _polar_log_interpolate(Array(Z(phase)), f, ordinary.frequency)
-        y = _polar_log_interpolate(Array(Y(phase)), f, ordinary.frequency)
-        push!(impedance, norm(z - ordinary.Z) / max(norm(ordinary.Z), eps()))
-        push!(admittance, norm(y - ordinary.Y) / max(norm(ordinary.Y), eps()))
-    end
-    return (;
-        method = "polar interpolation on log frequency",
-        checked = length(impedance),
-        unavailable,
-        impedance_max = maximum(impedance; init = 0.0),
-        impedance_median = isempty(impedance) ? 0.0 : median(impedance),
-        admittance_max = maximum(admittance; init = 0.0),
-        admittance_median = isempty(admittance) ? 0.0 : median(admittance)
-    )
 end

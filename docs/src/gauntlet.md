@@ -2,15 +2,18 @@
 EditURL = "../literate/gauntlet.jl"
 ```
 
-# Gauntlet: validating against PSCAD
+# Gauntlet datasets and datasource adapters
 
-Gauntlet is a separate validation application for LineCableModels. It turns
-independently harvested PSCAD evidence into typed cases, runs the native
-`compute!` path, and retains enough diagnostics to locate a discrepancy by
-frequency and matrix entry. The root package does not depend on Gauntlet.
+Gauntlet is a separate, datasource-agnostic validation application for
+LineCableModels. It turns independently produced evidence into typed cases,
+runs the native `compute!` path, and retains enough diagnostics to locate a
+discrepancy by frequency and matrix entry. The root package does not depend
+on Gauntlet.
 
-The tracked smoke corpus works offline and contains 16 fixed SHA-derived
-records. A full corpus uses the same objects and functions.
+PSCAD is the first datasource implemented end to end. Its tracked smoke
+dataset works offline and contains 16 fixed SHA-derived records. A full PSCAD
+dataset and datasets from future datasources use the same owned objects and
+verbs.
 
 ````@example gauntlet
 using Gauntlet
@@ -18,14 +21,48 @@ using LineCableModels
 using DataFrames
 ````
 
-## Open and inspect a corpus
+## Datasource dispatch
 
-`Corpus` is indexed lazily: opening it reads only the small index. A case is
-materialized from its normalized JLD2 record when requested.
+A datasource owns external parsing, reference decoding, native case loading,
+and ingestion. Symbols resolve through `Val` specializations,
+following the same style as the package's external-format exports.
 
 ````@example gauntlet
-corpus = Corpus(:smoke)
-(length = length(corpus), first_ids = first(keys(corpus), 3))
+registered = (pscad = datasource(:pscad), fem = datasource(:fem))
+````
+
+`:pscad` supports `ingest`, `load`, and `decode`. `:fem` is deliberately
+registered so the vocabulary is stable, but those actions currently throw
+`FEM datasource is not implemented`. A new implementation extends the same
+short verbs for its own record types:
+
+```julia
+struct SolverData <: Datasource end
+Gauntlet.datasource(::Val{:solverdata}) = SolverData()
+function Gauntlet.ingest(::SolverData, source, destination)
+    # Normalize the external dataset.
+end
+function Gauntlet.load(::SolverData, record)
+    # Reconstruct one native `Case` from a normalized record.
+end
+function Gauntlet.decode(::SolverData, record)
+    # Decode its normalized evidence into a `Reference`.
+end
+```
+
+`Dataset(path)` reads the required `datasource` key from `index.toml` and
+routes case loading to that datasource. The dataset layer never interprets
+`.cli`, `.tli`, `.clo`, `.tlo`, finite-element files, or any other external
+format itself.
+
+## Open and inspect a dataset
+
+`Dataset` is indexed lazily: opening it reads only the small index. A case is
+materialized from its datasource-owned normalized record when requested.
+
+````@example gauntlet
+dataset = Dataset(:smoke)
+(length = length(dataset), first_ids = first(keys(dataset), 3))
 ````
 
 Select a sparse coaxial reference. Its `problem` and `formulation` are native
@@ -33,18 +70,18 @@ LineCableModels values reconstructed through the normal public modeling API.
 
 ````@example gauntlet
 case_id = "29b9150df4fe52667d41f6e8d423b5bbaace24ee148a3c523c55070840b2ce03"
-case = corpus[case_id]
+case = dataset[case_id]
 case
 ````
 
 Scientific context is explicit. Assumptions explain deliberate
-PSCAD-to-LineCableModels approximations; provenance identifies the source,
+PSCAD-to-LineCableModels approximations; provenance identifies the datasource,
 definition, campaign, hashes, and PSCAD version.
 
 ````@example gauntlet
 assumptions(case)
-source = provenance(case)
-(source.version, source.definition, source.case_sha256)
+origin = provenance(case)
+(origin.datasource, origin.version, origin.definition, origin.case_sha256)
 ````
 
 ## Run a case and inspect matrix diagnostics
@@ -96,7 +133,7 @@ phase therefore do not become false discrepancies.
 
 ````@example gauntlet
 detailed_id = "07a34a318668e01782dfbaff5f814dc15ce5b7e6ec74c5e88782bca39feefd5f"
-detailed = corpus[detailed_id]
+detailed = dataset[detailed_id]
 modal = reference(detailed).modes
 (
     frequencies = length(modal.frequency),
@@ -130,8 +167,8 @@ performance selection. Rejected PSCAD cases are preserved as searchable
 source evidence; they never masquerade as Julia solver failures.
 
 ````@example gauntlet
-rejected = only(value for value in corpus if value.fidelity isa Rejected)
-suite = Suite(:guide; corpus, ids = [rejected.id])
+rejected = only(value for value in dataset if value.fidelity isa Rejected)
+suite = Suite(:guide; dataset, ids = [rejected.id])
 report = gauntlet(suite)
 DataFrame(report)
 ````
@@ -146,16 +183,16 @@ write_report(report_path, report)
 first(split(read(report_path, String), '\n'), 8)
 ````
 
-The smoke corpus currently contains no native reconstruction promoted to
+The smoke dataset currently contains no native reconstruction promoted to
 `Exact`: formulation equivalence has not yet been demonstrated. This is a
 scientific status, not a missing result. Approximate cases retain all
 diagnostics, while exact cases alone gate frozen numerical tolerances.
 
 ````@example gauntlet
 (
-    exact = count(value -> value.fidelity isa Exact, corpus),
-    approximate = count(value -> value.fidelity isa Approximate, corpus),
-    rejected = count(value -> value.fidelity isa Rejected, corpus)
+    exact = count(value -> value.fidelity isa Exact, dataset),
+    approximate = count(value -> value.fidelity isa Approximate, dataset),
+    rejected = count(value -> value.fidelity isa Rejected, dataset)
 )
 ````
 
@@ -182,10 +219,10 @@ The full suite is explicit and network-free once an artifact has been
 extracted. It uses the same grammar as the smoke examples:
 
 ```julia
-full = Corpus("/path/to/pscad-normalized-v1")
+full = Dataset("/path/to/pscad-normalized-v1")
 full_case = full["canonical-case-sha256"]
 full_trial = gauntlet(full_case)
-full_report = gauntlet(Suite(:full; corpus = full))
+full_report = gauntlet(Suite(:full; dataset = full))
 write_report("gauntlet-full.json", full_report)
 ```
 

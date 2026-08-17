@@ -105,13 +105,13 @@ function _modal_alignment(actual::Modes, reference::Modes, tolerance::Tolerance)
         "native modal transformation is unavailable",
     ))
     reference.transform === nothing && throw(ArgumentError(
-        "PSCAD modal transformation is unavailable",
+        "reference modal transformation is unavailable",
     ))
     indices = _frequency_indices(actual.frequency, reference.frequency)
     observed = actual.transform[:, :, indices]
     target = reference.transform
     size(observed) == size(target) || throw(DimensionMismatch(
-        "native and PSCAD modal transforms have different dimensions",
+        "native and reference modal transforms have different dimensions",
     ))
     n, _, count = size(target)
     aligned = similar(observed)
@@ -221,7 +221,7 @@ function _modal_metrics(values, target, frequency, tolerance)
     observed = ndims(values) == 2 ? reshape(values, size(values, 1), 1, :) : values
     expected = ndims(target) == 2 ? reshape(target, size(target, 1), 1, :) : target
     size(observed) == size(expected) || throw(DimensionMismatch(
-        "native and PSCAD modal channels must have equal dimensions",
+        "native and reference modal channels must have equal dimensions",
     ))
     difference = observed .- expected
     absolute_error = abs.(difference)
@@ -273,7 +273,7 @@ function _fit_comparison(check, metrics, tolerance, detail)
         metrics,
         verdict isa Pass ? detail :
         detail *
-        "; exported coefficients disagree with PSCAD's detailed fitted channel"
+        "; imported coefficients disagree with the detailed fitted channel"
     )
 end
 
@@ -335,7 +335,7 @@ function _phase_modal_comparison(state, reference, check, tolerance, field::Symb
         check,
         metrics,
         tolerance,
-        "compared calculated PSCAD $(replace(String(field), '_' => ' '))"
+        "compared calculated reference $(replace(String(field), '_' => ' '))"
     )
 end
 
@@ -441,7 +441,7 @@ function compare_fit(fit::Fit, modes::Modes, check::FitCheck{:Yc}, tolerance)
         tolerance
     )
     return _fit_comparison(
-        check, metrics, tolerance, "evaluated PSCAD characteristic-admittance fit"
+        check, metrics, tolerance, "evaluated imported characteristic-admittance fit"
     )
 end
 
@@ -457,6 +457,6 @@ function compare_fit(fit::Fit, modes::Modes, check::FitCheck{:H}, tolerance)
         tolerance
     )
     return _fit_comparison(
-        check, metrics, tolerance, "evaluated PSCAD propagation fit"
+        check, metrics, tolerance, "evaluated imported propagation fit"
     )
 end
