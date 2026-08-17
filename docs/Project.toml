@@ -4,7 +4,13 @@ Changelog = "5217a498-cd5d-4ec6-b8c2-9b85a09b6e3e"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 DocumenterCitations = "daee34ce-89f3-4625-b898-19384cb65244"
+Gauntlet = "9a130420-8a0e-41d3-a67e-4ba01f820763"
+LineCableModels = "dffb7669-8cd4-4628-99dd-7694e356ba37"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
+
+[sources]
+Gauntlet = {path = "../gauntlet"}
+LineCableModels = {path = ".."}
 
 [compat]
 CairoMakie = "0.15"
@@ -12,5 +18,7 @@ Changelog = "1"
 DataFrames = "1"
 Documenter = "1"
 DocumenterCitations = "1"
+Gauntlet = "0.1"
+LineCableModels = "0.2"
 Literate = "2"
 julia = "1.12"

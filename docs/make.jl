@@ -13,6 +13,7 @@ const SITE_URL = "https://electa-git.github.io/LineCableModels.jl"
 const TUTORIAL_SOURCE = joinpath(ROOT_DIR, "examples")
 const TUTORIAL_OUTPUT = joinpath(DOCS_SRC_DIR, "tutorials")
 const PLOTBUILDER_SOURCE = joinpath(@__DIR__, "literate", "plotbuilder.jl")
+const GAUNTLET_SOURCE = joinpath(@__DIR__, "literate", "gauntlet.jl")
 
 function project_metadata()
     project = TOML.parsefile(joinpath(ROOT_DIR, "Project.toml"))
@@ -77,6 +78,13 @@ function generate_maintained_pages!()
         credit = false,
         postprocess = normalize_literate_page
     )
+    Literate.markdown(
+        GAUNTLET_SOURCE,
+        DOCS_SRC_DIR;
+        documenter = true,
+        credit = false,
+        postprocess = normalize_literate_page
+    )
     return nothing
 end
 
@@ -133,6 +141,7 @@ makedocs(;
         "Development" => Any[
             "Conventions" => "conventions.md",
             "PlotBuilder guide" => "plotbuilder.md",
+            "Gauntlet validation" => "gauntlet.md",
             "Validation module" => "validation.md",
             "Docstrings" => "docstrings.md",
             "Contributing" => "contributing.md",
