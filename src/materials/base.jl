@@ -39,12 +39,9 @@ $(FUNCTIONNAME)(library, "copper")
 
 """
 function Base.delete!(library::MaterialsLibrary, name::String)
-    if !haskey(library, name)
-        @error "Material '$name' not found in the library; cannot delete."
-        throw(KeyError(name))
-    end
+    haskey(library, name) || throw(KeyError(name))
     delete!(library.data, name)
-    @info "Material '$name' removed from the library."
+    return library
 end
 
 """
@@ -70,11 +67,7 @@ material = $(FUNCTIONNAME)(library, "copper")
 
 """
 function Base.get(library::MaterialsLibrary, name::String, default = nothing)
-    material = get(library.data, name, default)
-    if material === nothing
-        @warn "Material '$name' not found in the library; returning default."
-    end
-    return material
+    return get(library.data, name, default)
 end
 
 """
@@ -183,7 +176,9 @@ function Base.show(io::IO, ::MIME"text/plain", dict::Dict{String, Material})
     end
 end
 
-function Base.convert(::Type{Material{T}}, m::Material) where {T <: REALSCALAR}
+function Base.convert(::Type{Material{T}}, m::Material) where {T <: Real}
     Material{T}(convert(T, m.rho), convert(T, m.eps_r), convert(T, m.mu_r),
         convert(T, m.T0), convert(T, m.alpha))
 end
+
+Base.convert(::Type{Material{T}}, material::Material{T}) where {T <: Real} = material

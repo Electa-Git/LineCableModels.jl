@@ -30,11 +30,9 @@ constants_data = DataFrame(constants)
 ```
 
 """
-function DataFrame(design::CableDesign, format::Symbol=:components)::DataFrame
+function DataFrame(design::CableDesign, format::Symbol = :components)::DataFrame
     if format == :baseparams
-        throw(ArgumentError(
-            "DataFrame(CableDesign, :baseparams) no longer performs a calculation; create a CableConstantsProblem, call compute!, then render DataFrame(constants)",
-        ))
+        return DataFrame(CableConstants(design))
     elseif format == :components
         # Component-level properties
         properties = [
@@ -59,7 +57,7 @@ function DataFrame(design::CableDesign, format::Symbol=:components)::DataFrame
 
             # For each component, we need to map new structure to old column names
             # Calculate loss factor from resistivity
-            ω = 2 * π * f₀  # Using default frequency
+            ω = 2 * π * component.insulator_group.reference_frequency
             C_eq = component.insulator_group.shunt_capacitance
             G_eq = component.insulator_group.shunt_conductance
             loss_factor = G_eq / (ω * C_eq)
@@ -145,9 +143,9 @@ Render already-computed cable constants without performing a calculation.
 """
 function DataFrame(constants::CableConstants)::DataFrame
     return DataFrame(
-        parameter=["R", "L", "C"],
-        value=[constants.R, constants.L, constants.C],
-        unit=["Ω/m", "H/m", "F/m"],
+        parameter = ["R", "L", "C"],
+        value = [constants.R, constants.L, constants.C],
+        unit = ["Ω/m", "H/m", "F/m"]
     )
 end
 

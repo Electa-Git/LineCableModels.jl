@@ -42,13 +42,7 @@ println(missing_design === nothing)  # Prints true
 
 """
 function Base.get(library::CablesLibrary, cable_id::String, default = nothing)
-    if haskey(library, cable_id)
-        @info "Cable design with ID `$cable_id` loaded from the library."
-        return library[cable_id]
-    else
-        @warn "Cable design with ID `$cable_id` not found in the library; returning default."
-        return default
-    end
+    return get(library.data, cable_id, default)
 end
 
 """
@@ -79,11 +73,7 @@ haskey(library, "example")  # Returns false
 
 """
 function Base.delete!(library::CablesLibrary, cable_id::String)
-    if haskey(library, cable_id)
-        delete!(library.data, cable_id)
-        @info "Cable design with ID `$cable_id` removed from the library."
-    else
-        @error "Cable design with ID `$cable_id` not found in the library; cannot delete."
-        throw(KeyError(cable_id))
-    end
+    haskey(library, cable_id) || throw(KeyError(cable_id))
+    delete!(library.data, cable_id)
+    return library
 end

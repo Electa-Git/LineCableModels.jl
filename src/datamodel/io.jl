@@ -1,5 +1,5 @@
-# Full inheritance over composition madness
-function Base.getproperty(part::AbstractCablePart, sym::Symbol)
+# RectStrands deliberately exposes the owned shape fields as part of its geometry.
+function Base.getproperty(part::RectStrands, sym::Symbol)
     # Fast path: Is it a real field on the top-level struct? (r_in, gmr, shape)
     if hasfield(typeof(part), sym)
         return getfield(part, sym) # MUST use getfield here to prevent infinite recursion
@@ -18,7 +18,7 @@ function Base.getproperty(part::AbstractCablePart, sym::Symbol)
     return getfield(part, sym)
 end
 
-function Base.hasproperty(part::AbstractCablePart, sym::Symbol)
+function Base.hasproperty(part::RectStrands, sym::Symbol)
     # 1. Does it exist at the top level?
     if hasfield(typeof(part), sym)
         return true
@@ -32,7 +32,7 @@ function Base.hasproperty(part::AbstractCablePart, sym::Symbol)
     return false
 end
 
-function Base.propertynames(part::AbstractCablePart, private::Bool = false)
+function Base.propertynames(part::RectStrands, private::Bool = false)
     top_fields = fieldnames(typeof(part))
 
     if hasfield(typeof(part), :shape)

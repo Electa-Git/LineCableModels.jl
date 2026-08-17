@@ -1,30 +1,47 @@
-@gridspace @relax struct EarthParameters{T<:Real}
-    rho::T
-    eps_r::T=1.0
-    mu_r::T=1.0
-    thickness::T=Inf
+struct EarthSpec{R, E, M, H, C} <: AbstractSpec{EarthProps.EarthModel}
+    rho::R
+    eps_r::E
+    mu_r::M
+    thickness::H
+    combine::C
+end
+
+function _earth_model(rho, eps_r, mu_r, thickness)
+    EarthProps.EarthModel(rho, eps_r, mu_r; thickness)
+end
+_earth_model(rho, eps_r, mu_r, ::Nothing) = EarthProps.EarthModel(rho, eps_r, mu_r)
+
+function gridspace(spec::EarthSpec)
+    return Gridspace{EarthProps.EarthModel}(
+        _earth_model,
+        map(_gridspace_axis, (spec.rho, spec.eps_r, spec.mu_r, spec.thickness)),
+        (:rho, :eps_r, :mu_r, :thickness);
+        combine = _valof(spec.combine)
+    )
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Describe earth properties independently of analysis frequencies. The
-frequency-dependent materialized `EarthModel` is constructed when the parent
-problem is materialized.
+Describe static earth properties independently of analysis frequencies. The
+materialized `EarthModel` is constructed when the parent problem is materialized;
+frequency-dependent evaluation remains an Engine formulation choice.
 """
 function Earth(;
-    rho,
-    eps_r=1.0,
-    mu_r=1.0,
-    thickness=Inf,
-    combine::Symbol=:product,
+        rho,
+        eps_r = 1.0,
+        mu_r = 1.0,
+        thickness = nothing,
+        combine::Symbol = :product
 )
-    return EarthParameters(; rho, eps_r, mu_r, thickness, combine)
+    combine in (:product, :zip) ||
+        throw(ArgumentError("combine must be :product or :zip"))
+    return EarthSpec(rho, eps_r, mu_r, thickness, Val(combine))
 end
 
 function _position_coordinates(
-    position::PositionBuilder,
-    design::DataModel.CableDesign,
+        position::PositionSpec,
+        design::DataModel.CableDesign
 )
     kind = _position_kind(position)
     if kind === :point
@@ -35,7 +52,7 @@ function _position_coordinates(
     x, y, spacing = position.parameters
     spacing > zero(spacing) ||
         throw(ArgumentError("formation spacing must be positive"))
-    minimum_spacing = 2 * DataModel.get_outer_radius(design)
+    minimum_spacing = 2 * DataModel.outer_radius(design)
     spacing >= minimum_spacing || throw(ArgumentError(
         "formation spacing $spacing is smaller than the minimum non-overlap distance $minimum_spacing",
     ))
@@ -48,12 +65,12 @@ function _position_coordinates(
     elseif kind === :hflat
         ntuple(
             index -> (x + (index - 1) * spacing, y),
-            length(position.connections),
+            length(position.connections)
         )
     elseif kind === :vflat
         ntuple(
             index -> (x, y - (index - 1) * spacing),
-            length(position.connections),
+            length(position.connections)
         )
     else
         throw(ArgumentError("unsupported position kind :$kind"))
@@ -62,30 +79,10 @@ function _position_coordinates(
         index -> (
             coordinates[index][1],
             coordinates[index][2],
-            position.connections[index],
+            position.connections[index]
         ),
-        length(position.connections),
+        length(position.connections)
     )
-end
-
-function _materialize_earth(
-    earth::EarthParameters,
-    frequencies,
-)
-    return EarthProps.EarthModel(
-        collect(frequencies),
-        earth.rho,
-        earth.eps_r,
-        earth.mu_r;
-        t=earth.thickness,
-    )
-end
-
-function _materialize_earth(
-    earth::EarthProps.EarthModel,
-    ::AbstractVector,
-)
-    return earth
 end
 
 struct SystemMaterializer
@@ -113,9 +110,27 @@ function (materializer::SystemMaterializer)(identifier, design, values...)
     frequencies isa AbstractVector ||
         throw(ArgumentError("frequencies must be an ordinary vector"))
 
+    earth isa EarthProps.EarthModel || throw(ArgumentError(
+        "earth must resolve to a static EarthModel",
+    ))
+    scalar_types = Any[
+        eltype(design), eltype(earth), typeof(float(line_length)),
+        typeof(float(temperature)), eltype(frequencies)
+    ]
+    for position in positions, value in position.parameters
+
+        value isa Real && push!(scalar_types, typeof(float(value)))
+    end
+    T = promote_type(scalar_types...)
+    design = convert(DataModel.CableDesign{T}, design)
+    earth = convert(EarthProps.EarthModel{T}, earth)
+    line_length = convert(T, float(line_length))
+    temperature = convert(T, float(temperature))
+    frequencies = T[convert(T, float(value)) for value in frequencies]
+
     layouts = tuple((
         _position_coordinates(position, design)
-        for position in positions
+    for position in positions
     )...)
     coordinates = tuple(Iterators.flatten(layouts)...)
     isempty(coordinates) &&
@@ -125,22 +140,21 @@ function (materializer::SystemMaterializer)(identifier, design, values...)
     system = DataModel.LineCableSystem(
         String(identifier),
         line_length,
-        DataModel.CablePosition(design, x, y, connections),
+        DataModel.CablePosition(design, x, y, connections)
     )
     for (next_x, next_y, next_connections) in Iterators.drop(coordinates, 1)
         system = add!(system, design, next_x, next_y, next_connections)
     end
 
-    earth_model = _materialize_earth(earth, frequencies)
     return Engine.LineParametersProblem(
         system;
         temperature,
-        earth_props=earth_model,
-        frequencies=collect(frequencies),
+        earth_props = earth,
+        frequencies
     )
 end
 
-struct SystemBuilderSpec{D,P<:Tuple,L,T,E,F,C} <:
+struct SystemSpec{D, P <: Tuple, L, T, E, F, C} <:
        AbstractSpec{Engine.LineParametersProblem}
     identifier::String
     design::D
@@ -152,17 +166,15 @@ struct SystemBuilderSpec{D,P<:Tuple,L,T,E,F,C} <:
     combine::C
 end
 
-_flatten_positions(position::Gridspace{PositionBuilder}) = (position,)
-function _flatten_positions(positions::Union{Tuple,AbstractVector})
-    flattened = ()
-    for position in positions
-        flattened = (flattened..., _flatten_positions(position)...)
-    end
-    return flattened
+_flatten_positions(position::Gridspace{PositionSpec}) = (position,)
+function _flatten_positions(positions::Union{Tuple, AbstractVector})
+    tuple(Iterators.flatten(map(_flatten_positions, positions))...)
 end
-_flatten_positions(value) = throw(ArgumentError(
-    "SystemBuilder positions must be created by at/trifoil/hflat/vflat; got $(typeof(value))",
-))
+function _flatten_positions(value)
+    throw(ArgumentError(
+        "SystemBuilder positions must be created by at/trifoil/hflat/vflat; got $(typeof(value))",
+    ))
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -208,20 +220,20 @@ the numerical analysis.
   other invalid physical inputs from the materialized cable-system model.
 """
 function SystemBuilder(
-    identifier::AbstractString,
-    design,
-    positions;
-    length=1000.0,
-    temperature=20.0,
-    earth,
-    frequencies,
-    combine::Symbol=:product,
+        identifier::AbstractString,
+        design,
+        positions;
+        length = 1000.0,
+        temperature = 20.0,
+        earth,
+        frequencies,
+        combine::Symbol = :product
 )
-    design isa Union{DataModel.CableDesign,AbstractSpec{DataModel.CableDesign}} ||
+    design isa Union{DataModel.CableDesign, AbstractSpec{DataModel.CableDesign}} ||
         throw(ArgumentError("design must be a materialized CableDesign or CableBuilder spec"))
-    earth isa Union{EarthProps.EarthModel,AbstractSpec{EarthParameters}} ||
+    earth isa Union{EarthProps.EarthModel, AbstractSpec{EarthProps.EarthModel}} ||
         throw(ArgumentError("earth must be a materialized EarthModel or Earth spec"))
-    frequencies isa Union{AbstractVector,AbstractGrid} || throw(ArgumentError(
+    frequencies isa Union{AbstractVector, AbstractGrid} || throw(ArgumentError(
         "frequencies must be an ordinary vector or a Grid of complete vectors",
     ))
     combine in (:product, :zip) ||
@@ -229,7 +241,7 @@ function SystemBuilder(
     position_tuple = _flatten_positions(positions)
     isempty(position_tuple) &&
         throw(ArgumentError("SystemBuilder requires at least one position"))
-    return SystemBuilderSpec(
+    return SystemSpec(
         String(identifier),
         design,
         position_tuple,
@@ -237,11 +249,11 @@ function SystemBuilder(
         temperature,
         earth,
         frequencies,
-        Val(combine),
+        Val(combine)
     )
 end
 
-function gridspace(spec::SystemBuilderSpec)
+function gridspace(spec::SystemSpec)
     axes = (
         _gridspace_axis(spec.identifier),
         _gridspace_axis(spec.design),
@@ -249,7 +261,7 @@ function gridspace(spec::SystemBuilderSpec)
         _gridspace_axis(spec.line_length),
         _gridspace_axis(spec.temperature),
         _gridspace_axis(spec.earth),
-        _gridspace_axis(spec.frequencies),
+        _gridspace_axis(spec.frequencies)
     )
     names = (
         :identifier,
@@ -258,12 +270,12 @@ function gridspace(spec::SystemBuilderSpec)
         :length,
         :temperature,
         :earth,
-        :frequencies,
+        :frequencies
     )
     return Gridspace{Engine.LineParametersProblem}(
         SystemMaterializer(length(spec.positions)),
         axes,
         names;
-        combine=_valof(spec.combine),
+        combine = _valof(spec.combine)
     )
 end

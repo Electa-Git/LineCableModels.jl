@@ -26,26 +26,24 @@ export ConductorGroup, InsulatorGroup  # Group types
 export CableComponent, CableDesign, CableConstants  # Cable design types
 export CablePosition, LineCableSystem  # System types
 export CablesLibrary, NominalData  # Support types
-export trifoil_formation, flat_formation, get_outer_radius, MaxFill  # Helpers
+export trifoil_formation, flat_formation, outer_radius, maxfill  # Geometry
+export ncables, nphases
 export preview, equivalent
 
 # Module-specific dependencies
-using ..Commons
+using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES,
+                           FUNCTIONNAME, METHODLIST
 import ..PlotBuilder
 import ..UnitHandler
-import ..Commons: add!
-import ..Commons: basis, R, L, C, resistance, inductance, capacitance
-import ..Commons: retired_fem_sector
-using ..Utils:
-               resolve_T, to_certain, to_nominal, is_headless,
-               is_in_testset, to_lower, to_upper
-import ..Utils: coerce_to_T, to_lower
+import ..LineCableModels: add!, validate, maxfill, nominal, standard_uncertainty
+import ..LineCableModels: basis, R, L, C, resistance, inductance, capacitance
+import ..LineCableModels: ncables, nphases
+import ..LineCableModels: retired_fem_sector
+import ..LineCableModels: SectorParams, Sector, SectorInsulator
 using ..Materials: Material
-import ..Validation: Validation, sanitize, validate!, has_radii, has_temperature,
-                     extra_rules, IntegerField, Positive, Finite, Normalized, IsA,
-                     required_fields,
-                     coercive_fields, keyword_fields, keyword_defaults, _kwdefaults_nt,
-                     Nonneg, OneOf, Greater, PhysicalFillLimit, Satisfies
+import ..Validation
+using ..Validation: IntegerField, Positive, Finite, IsA, Nonnegative, OneOf,
+                    Greater, Less, PhysicalFillLimit
 using DataFrames
 using Colors
 using LinearAlgebra
@@ -54,17 +52,12 @@ using Printf: @sprintf
 using Statistics: mean
 # Abstract types & interfaces
 include("types.jl")
-include("radii.jl")
 
 # Submodule `BaseParams`
 include("baseparams/BaseParams.jl")
 using .BaseParams
 
 # Constructors
-include("macros.jl")
-include("validation.jl")
-include("retired.jl")
-
 # Conductors
 include("strands_handler.jl")
 include("circstrands.jl")
@@ -88,9 +81,8 @@ include("cableslibrary.jl")
 include("linecablesystem.jl")
 
 # Helpers & overrides
-include("helpers.jl")
+include("geometry.jl")
 include("io.jl")
-include("typecoercion.jl")
 include("plotspecs.jl")
 
 """
@@ -126,9 +118,5 @@ function show_material_scale(args...; kwargs...)
     ),
     )
 end
-
-# Aliases for backward compatibility
-const WireArray = CircStrands
-export WireArray
 
 end # module DataModel

@@ -1,341 +1,435 @@
 module WirePatterns
 
-# ────────────────────────────────────────────────────────────────────────────
-# Public API
-# ────────────────────────────────────────────────────────────────────────────
+using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 
-# export ScreenPattern, HexaPattern
-export make_stranded, make_screened
+import ...LineCableModels: maxfill, nominal
 
-# ────────────────────────────────────────────────────────────────────────────
-# Types
-# ────────────────────────────────────────────────────────────────────────────
+export WireEstimate, make_stranded, make_screened
 
 """
-    struct HexaPattern
+$(TYPEDEF)
 
-Result for a single design choice.
+A candidate concentric, hexagonally packed stranded conductor.
 
-Fields:
-- `layers::Int`               — number of concentric layers (1 = center only).
-- `wires::Int`                — total number of wires, N(L) = 1 + 3L(L-1).
-- `wire_diameter_m::Float64`  — strand diameter [m].
-- `total_area_m2::Float64`    — summed metallic area [m²].
-- `awg::String`               — AWG label from the table (informative).
+$(TYPEDFIELDS)
 """
-struct HexaPattern
+struct HexaPattern{T <: Real}
     layers::Int
     wires::Int
-    wire_diameter_m::Float64
-    total_area_m2::Float64
+    wire_diameter_m::T
+    total_area_m2::T
     awg::String
 end
 
 """
-    struct ScreenPattern
+$(TYPEDEF)
 
-Screen wires design.
+A candidate single-layer wire screen.
 
-Fields:
-- `wires::Int`               — number of wires on the wire array (N).
-- `wire_diameter_m::Float64` — strand diameter [m].
-- `lay_diameter_m::Float64`  — laying diameter Dm [m].
-- `radius_m::Float64`        — wire array centerline radius = (Dm + d)/2 [m].
-- `total_area_m2::Float64`   — N * π/4 * d^2 [m²].
-- `coverage_pct::Float64`    — 100 * N*d / (π*Dm*sinα) [%].
-- `awg::String`              — AWG label from the table (informative).
+$(TYPEDFIELDS)
 """
-struct ScreenPattern
+struct ScreenPattern{T <: Real}
     wires::Int
-    wire_diameter_m::Float64
-    lay_diameter_m::Float64
-    radius_m::Float64
-    total_area_m2::Float64
-    coverage_pct::Float64
+    wire_diameter_m::T
+    lay_diameter_m::T
+    radius_m::T
+    total_area_m2::T
+    coverage_pct::T
     awg::String
 end
 
-# ────────────────────────────────────────────────────────────────────────────
-# Utils
-# ────────────────────────────────────────────────────────────────────────────
+"""
+$(TYPEDEF)
 
-_wire_area(dw::Real) = (pi/4) * (dw^2)  # area of one wire
+Best-effort result of a wire-pattern search.
 
-# ---- AWG exact formulas (solid wire) ----
-const _AWG_BASE = 92.0
-const _D0_MM = 0.127            # 0.005 in in mm
-const _AREA0_MM2 = 0.012668         # (π/4)*0.127^2
-const _LN_BASE = log(_AWG_BASE)
+`feasible` states whether the retained candidates satisfy every requested
+constraint. An infeasible result still contains the closest candidates that
+the search could construct and explains the limiting constraints in `reasons`.
+Use `estimate[Val(:match)]`, `estimate[Val(:layers)]`,
+`estimate[Val(:wires)]`, or `estimate[Val(:diameter)]` to select a candidate.
 
-awg_to_d_mm(n::Real) = _D0_MM * (_AWG_BASE ^ ((36 - n)/39))
-awg_to_area_mm2(n::Real) = _AREA0_MM2 * (_AWG_BASE ^ ((36 - n)/19.5))
+$(TYPEDFIELDS)
+"""
+struct WireEstimate{T <: Real, P}
+    target::T
+    candidates::Vector{P}
+    feasible::Bool
+    status::Symbol
+    reasons::Vector{String}
 
-d_mm_to_awg(d_mm::Real) = 36 - 39 * (log(d_mm/_D0_MM) / _LN_BASE)
-area_mm2_to_awg(A_mm2::Real) = 36 - 19.5 * (log(A_mm2/_AREA0_MM2) / _LN_BASE)
-
-function awg_label(n::Integer)
-    n == -3 && return "0000 (4/0)"
-    n == -2 && return "000 (3/0)"
-    n == -1 && return "00 (2/0)"
-    n == 0 && return "0 (1/0)"
-    return string(n)
-end
-
-"Generate (label, diameter_m) for AWG n in [nmin, nmax]."
-function awg_sizes(nmin::Integer = -3, nmax::Integer = 40)
-    out = Tuple{String, Float64}[]
-    @inbounds for n in nmin:nmax
-        d_m = awg_to_d_mm(n) / 1000.0
-        push!(out, (awg_label(n), d_m))
+    function WireEstimate(
+            target::T,
+            candidates::Vector{P},
+            feasible::Bool,
+            status::Symbol,
+            reasons::Vector{String}
+    ) where {T <: Real, P}
+        status in (:feasible, :infeasible) || throw(ArgumentError(
+            "wire-estimate status must be :feasible or :infeasible",
+        ))
+        feasible == (status === :feasible) || throw(ArgumentError(
+            "wire-estimate feasibility and status disagree",
+        ))
+        isempty(candidates) && throw(ArgumentError(
+            "a wire estimate must retain at least one candidate",
+        ))
+        return new{T, P}(target, candidates, feasible, status, reasons)
     end
-    return out
 end
 
-"Apply a compaction/fill factor to solid area to approximate stranded metallic CSA."
-stranded_area_mm2(n::Real; fill_factor::Real = 0.94) = fill_factor * awg_to_area_mm2(n)
+Base.length(estimate::WireEstimate) = length(estimate.candidates)
+Base.iterate(estimate::WireEstimate, state...) = iterate(estimate.candidates, state...)
 
-# ────────────────────────────────────────────────────────────────────────────
-# Hexagonal strand patterns
-# ────────────────────────────────────────────────────────────────────────────
+_area(pattern::Union{HexaPattern, ScreenPattern}) = pattern.total_area_m2
+_diameter(pattern::Union{HexaPattern, ScreenPattern}) = pattern.wire_diameter_m
+_selected(estimate::WireEstimate, key) = argmin(key, estimate.candidates)
 
-# ---- wire-count constraints per target area (mm²) ----
+function Base.getindex(estimate::WireEstimate, ::Val{:match})
+    _selected(estimate, pattern -> (abs(_area(pattern) - estimate.target),
+        _diameter(pattern)))
+end
+function Base.getindex(estimate::WireEstimate{<:Real, <:HexaPattern}, ::Val{:layers})
+    _selected(estimate, pattern -> (pattern.layers,
+        abs(_area(pattern) - estimate.target), _diameter(pattern)))
+end
+function Base.getindex(estimate::WireEstimate, ::Val{:wires})
+    _selected(estimate, pattern -> (pattern.wires,
+        abs(_area(pattern) - estimate.target), _diameter(pattern)))
+end
+function Base.getindex(estimate::WireEstimate, ::Val{:diameter})
+    _selected(estimate, pattern -> (_diameter(pattern),
+        abs(_area(pattern) - estimate.target), pattern.wires))
+end
+
+function Base.getindex(::WireEstimate, ::Val{selector}) where {selector}
+    throw(ArgumentError(
+        "unknown wire-estimate selector :$selector; use :match, :layers, " *
+        ":wires, or :diameter",
+    ))
+end
+
+_wire_area(diameter::Real) = (one(diameter) * pi / 4) * diameter^2
+
+const _AWG_BASE = 92
+const _D0_MM = 0.127
+const _AREA0_MM2 = 0.012668
+
+function awg_to_d_mm(number::Real)
+    oftype(float(number), _D0_MM) *
+    oftype(float(number), _AWG_BASE) ^
+    ((oftype(float(number), 36) - number) / oftype(float(number), 39))
+end
+function awg_to_area_mm2(number::Real)
+    oftype(float(number), _AREA0_MM2) *
+    oftype(float(number), _AWG_BASE) ^
+    ((oftype(float(number), 36) - number) / oftype(float(number), 19.5))
+end
+
+function d_mm_to_awg(diameter_mm::Real)
+    oftype(float(diameter_mm), 36) -
+    oftype(float(diameter_mm), 39) *
+    log(diameter_mm / oftype(float(diameter_mm), _D0_MM)) /
+    log(oftype(float(diameter_mm), _AWG_BASE))
+end
+function area_mm2_to_awg(area_mm2::Real)
+    oftype(float(area_mm2), 36) -
+    oftype(float(area_mm2), 19.5) *
+    log(area_mm2 / oftype(float(area_mm2), _AREA0_MM2)) /
+    log(oftype(float(area_mm2), _AWG_BASE))
+end
+
+function awg_label(number::Integer)
+    number == -3 && return "0000 (4/0)"
+    number == -2 && return "000 (3/0)"
+    number == -1 && return "00 (2/0)"
+    number == 0 && return "0 (1/0)"
+    return string(number)
+end
+
+function awg_sizes(::Type{T}, nmin::Integer = -3, nmax::Integer = 40) where {T <: Real}
+    nmin <= nmax || throw(ArgumentError("nmin must not exceed nmax"))
+    return [(awg_label(number), convert(T, awg_to_d_mm(number)) / T(1000))
+            for number in nmin:nmax]
+end
+
+awg_sizes(nmin::Integer = -3, nmax::Integer = 40) = awg_sizes(Float64, nmin, nmax)
+
+"Apply a fill factor to solid area to approximate stranded metallic area."
+function stranded_area_mm2(number::Real; fill_factor::Real = 0.94)
+    factor, area = promote(float(fill_factor), float(awg_to_area_mm2(number)))
+    return factor * area
+end
+
 const _WIRE_RULES = Tuple{Int, Int, Union{Int, Nothing}}[
-    (10, 6, 7),
-    (16, 6, 7),
-    (25, 6, 7),
-    (35, 6, 7),
-    (50, 6, 19),
-    (70, 12, 19),
-    (95, 15, 19),
-    (120, 15, 37),
-    (150, 15, 37),
-    (185, 30, 37),
-    (240, 30, 37),
-    (300, 30, 61),
-    (400, 53, 61),
-    (500, 53, 61),
-    (630, 53, 91),
-    (800, 53, 91),
+    (10, 6, 7), (16, 6, 7), (25, 6, 7), (35, 6, 7),
+    (50, 6, 19), (70, 12, 19), (95, 15, 19), (120, 15, 37),
+    (150, 15, 37), (185, 30, 37), (240, 30, 37), (300, 30, 61),
+    (400, 53, 61), (500, 53, 61), (630, 53, 91), (800, 53, 91),
     (1000, 53, 91)
 ]
 
+_hex_wires(layers::Int) = 1 + 3layers * (layers - 1)
+
+function _allowed_wires(target_mm2::Real)
+    for (threshold, minimum, maximum) in _WIRE_RULES
+        target_mm2 <= threshold && return minimum, maximum
+    end
+    return 53, nothing
+end
+
+function _allowed_wires(wires::Int, minimum::Int, maximum::Union{Int, Nothing})
+    return maximum === nothing ? wires >= minimum : minimum <= wires <= maximum
+end
+
 """
-    make_stranded(target_area_m2::Real; nmin::Integer=-3, nmax::Integer=40)
+$(TYPEDSIGNATURES)
 
-Compute hexagonal-pattern strand layouts that approximate or meet the target metallic cross-section, imposing allowed total-wire ranges by target area.
+Estimate hexagonally packed strand patterns for `target_mm2` of metal.
 
-Inputs:
-- `target_mm2`     — target metallic area [mm²].
-- `nmin`,`nmax`    — AWG range to consider (default 4/0 … 40).
-
-Returns:
-- `best_match` — within allowed N(L), minimize |A − target|.
-- `min_layers` — within allowed N(L) and A ≥ target, minimize layers (tie: smallest excess, then smaller diameter).
-                 Fallback: within allowed, pick largest A < target (tie: smaller L, then smaller diameter).
-- `min_diam`   — within allowed N(L) and A ≥ target, minimize diameter, then layers, then excess.
-                 Fallback: within allowed, pick smallest diameter with largest A < target (then smallest L).
+The returned [`WireEstimate`](@ref) retains ranked candidates. A valid search
+that cannot reach the target returns `status == :infeasible` rather than
+throwing.
 """
 function make_stranded(target_mm2::Real; nmin::Integer = -3, nmax::Integer = 40)
-    @assert target_mm2 > 0 "Target cross-section must be positive."
-    @assert nmin <= nmax "nmin must be ≤ nmax."
+    target_mm2 > zero(target_mm2) || throw(DomainError(
+        target_mm2, "target cross-section must be positive"
+    ))
+    nmin <= nmax || throw(ArgumentError("nmin must not exceed nmax"))
 
-    target_area_m2 = target_mm2 * 1e-6  # m²
-    # ---- hex geometry ----
-    _hex_N(L::Int) = 1 + 3L*(L - 1)         # total wires after L layers
-    _to_choice((dw, L, N, A, awg)) = HexaPattern(L, N, dw, A, awg)
+    target_value = float(target_mm2)
+    T = typeof(target_value)
+    target = target_value * T(1e-6)
+    minimum, maximum_wires = _allowed_wires(target_value)
+    candidates = HexaPattern{T}[]
 
-    # Return (minN, maxN::Union{Int,Nothing}) for target in mm²
-    function _allowed_wires(target_mm2::Real)
-        for (thr, minN, maxN) in _WIRE_RULES
-            if target_mm2 <= thr
-                return (minN, maxN)
-            end
-        end
-        return (53, nothing)  # > 1000 mm² -> min 53, no maximum
-    end
-
-    @inline function _allowed_N(N::Int, minN::Int, maxN::Union{Int, Nothing})
-        maxN === nothing ? (N >= minN) : (N >= minN && N <= maxN)
-    end
-
-    # Allowed wire-count range from target (mm²)
-    minN, maxN = _allowed_wires(target_mm2)
-
-    # AWG sizes (label, d_m)
-    sizes = awg_sizes(nmin, nmax)
-    @assert !isempty(sizes) "AWG range produced no sizes."
-
-    # Build allowed candidates: (dw, L, N, A, awg)
-    candidates = Vector{Tuple{Float64, Int, Int, Float64, String}}()
-    for (awg, dw) in sizes
-        a1 = _wire_area(dw)
-        @inbounds for L in 1:300
-            N = _hex_N(L)
-            if _allowed_N(N, minN, maxN)
-                A = N * a1
-                push!(candidates, (dw, L, N, A, awg))
-            end
-            if maxN !== nothing && N > maxN
-                break
-            end
+    for (awg, diameter) in awg_sizes(T, nmin, nmax)
+        area = _wire_area(diameter)
+        for layers in 1:300
+            wires = _hex_wires(layers)
+            _allowed_wires(wires, minimum, maximum_wires) && push!(
+                candidates,
+                HexaPattern(layers, wires, diameter, wires * area, awg)
+            )
+            maximum_wires !== nothing && wires > maximum_wires && break
         end
     end
-    @assert !isempty(candidates) "No allowed candidates under the imposed wire-count span."
+    isempty(candidates) && throw(ArgumentError(
+        "the AWG range and permitted wire counts produced no candidates",
+    ))
 
-    # ---- best_match: minimize |A - target| (tie: smaller dw, then smaller L) ----
-    rank_keys = [(abs(A - target_area_m2), dw, L) for (dw, L, N, A, _) in candidates]
-    best_match = _to_choice(candidates[argmin(rank_keys)])
-    if best_match.wires > 271
-        @warn "Best match stranded pattern with a very high wire count ($(best_match.wires) wires). Consider revising the target cross-section or choosing a different wire configuration."
-    end
-
-    # Split feasible/infeasible for next selectors
-    feas = filter(((dw, L, N, A, awg),)->A >= target_area_m2, candidates)
-    infeas = filter(((dw, L, N, A, awg),)->A < target_area_m2, candidates)
-
-    # ---- min_layers ----
-    if !isempty(feas)
-        # minimal layers, then minimal excess, then smaller diameter
-        keys_L = [(L, A - target_area_m2, dw) for (dw, L, N, A, _) in feas]
-        min_layers = _to_choice(feas[argmin(keys_L)])
-    else
-        # fallback: closest from below (largest A), then minimal L, then smaller dw
-        keys_fb = [(-A, L, dw) for (dw, L, N, A, _) in infeas]
-        min_layers = _to_choice(infeas[argmin(keys_fb)])
-    end
-
-    # ---- min_diam ----
-    if !isempty(feas)
-        # smallest diameter; for it, minimal layers; then smallest excess
-        sort!(feas, by = x -> (x[1], x[2], x[4] - target_area_m2))  # (dw asc, L asc, excess asc)
-        min_diam = _to_choice(first(feas))
-    else
-        # fallback: smallest diameter with best undershoot; then minimal layers
-        sort!(infeas, by = x -> (x[1], -(x[4]), x[2]))             # (dw asc, A desc, L asc)
-        min_diam = _to_choice(first(infeas))
-    end
-
-    return (; best_match, min_layers, min_diam)
+    sort!(candidates;
+        by = pattern -> (
+            abs(pattern.total_area_m2 - target), pattern.wire_diameter_m,
+            pattern.layers
+        ))
+    feasible = any(pattern -> pattern.total_area_m2 >= target, candidates)
+    reasons = feasible ? String[] :
+              [
+        "no permitted strand pattern reaches the requested metallic area",
+    ]
+    estimate = WireEstimate(
+        target, candidates, feasible, feasible ? :feasible : :infeasible, reasons
+    )
+    estimate[Val(:match)].wires > 271 &&
+        @warn("The closest stranded pattern has a very high wire count.",
+            wires=estimate[Val(:match)].wires,)
+    return estimate
 end
 
-# ────────────────────────────────────────────────────────────────────────────
-# Screen (single wire array) patterns
-# ────────────────────────────────────────────────────────────────────────────
-
 """
-    make_screened(A_req_m2::Real, Dm_m::Real;
-                alpha_deg::Real=15.0, coverage_min_pct::Real=85.0,
-                gap_frac::Real=0.0, min_wires::Int=3, extra_span::Int=8,
-                nmin::Integer=-3, nmax::Integer=40)
+$(TYPEDSIGNATURES)
 
-Compute screen wire layouts that approximate or meet the target metallic cross-section, imposing:
+Return the maximum number of screen wires that fit on `lay_radius`.
 
-  1) CSA:   N * (π/4) * d^2 ≥ A_req_m2
-  2) Cover: (N*d)/(π*Dm*sinα) * 100 ≥ coverage_min_pct
-
-while enforcing no-overlap wire array geometry (with optional clearance `gap_frac`).
-
-Arguments:
-- `A_req_mm2`         — required metallic cross-section [mm²].
-- `Dm_mm`             — laying diameter (screen centerline) [mm].
-- `alpha_deg`         — lay angle α in degrees (default 20°).
-- `coverage_min_pct`  — required geometric coverage (default 85%).
-- `gap_frac`          — extra clearance fraction in the no-overlap check (default 0).
-- `min_wires`         — lower bound on N to avoid degenerate “non-wire-array" cases (default 3; set 6 for stronger symmetry).
-- `extra_span`        — consider up to this many extra wires above the minimal requirement for better best_match search.
-- `nmin`,`nmax`       — AWG range to consider (default 4/0 … 40).
-
-Returns:
-- `min_wires` — minimal N (≥ min_wires) that satisfies both CSA & coverage & geometry;
-                tie-break: smaller d, then smaller excess area.
-- `min_diam`  — smallest d that can satisfy both constraints; for it, minimal feasible N;
-                tie-break: smaller excess area.
-- `best_match`— among all feasible combos, area closest to A_req_m2; tie: smaller N, then smaller d.
+`wire_radius` and `lay_radius` are center-to-center geometric radii in the same
+unit. `gap_frac` adds a fractional clearance between adjacent wires.
 """
-function make_screened(A_req_mm2::Real, Dm_mm::Real;
-        alpha_deg::Real = 15.0, coverage_min_pct::Real = 85.0,
-        gap_frac::Real = 0.0, min_wires::Int = 6, extra_span::Int = 8,
-        nmin::Integer = -3, nmax::Integer = 40,
-        coverage_max_pct::Real = 100.0,               # NEW: cap coverage to a single layer
-        max_overshoot_pct::Real = 10.0,                # NEW: optional cap on A overshoot (∞ to disable)
-        custom_diameters_mm::AbstractVector{<:Real} = Float64[])
-    @assert 0.0 < coverage_min_pct <= 100.0
-    @assert coverage_max_pct >= coverage_min_pct
-    @assert max_overshoot_pct ≥ 0
-    @assert A_req_mm2 > 0
-    @assert Dm_mm > 0
-
-    A_req_m2 = A_req_mm2 * 1e-6  # m²
-    Dm_m = Dm_mm * 1e-3      # m
-
-    # --- helpers ---
-    function _max_wires_single_layer(Dm::Real, d::Real; gap_frac::Real = 0.0)
-        s = d*(1 + gap_frac) / (Dm + d)
-        if !(0.0 < s < 1.0)
-            return 0
-        end
-        return max(0, floor(Int, pi / asin(s)))
-    end
-    _to_choice((N, d, Dm, A, cov, awg)) = ScreenPattern(N, d, Dm, 0.5*(Dm + d), A, cov, awg)
-
-    α = deg2rad(alpha_deg)
-    sα = sin(α)
-    @assert sα > 0
-
-    # AWG sizes + optional customs
-    sizes = awg_sizes(nmin, nmax)
-    for d in custom_diameters_mm
-        push!(sizes, ("custom($(round(d; digits=3)) mm)", Float64(d) / 1000.0))
-    end
-    @assert !isempty(sizes)
-
-    # Build candidates that satisfy BOTH constraints + geometry + coverage upper bound
-    candidates = Tuple{Int, Float64, Float64, Float64, Float64, String}[]  # (N,d,Dm,A,cov,awg)
-
-    for (awg, d) in sizes
-        a1 = _wire_area(d)
-        N_csa = ceil(Int, A_req_m2 / a1)
-        N_cov = ceil(Int, (coverage_min_pct/100.0) * (pi*Dm_m*sα) / d)
-        N_min = max(min_wires, N_csa, N_cov)
-        N_max = _max_wires_single_layer(Dm_m, d; gap_frac = gap_frac)
-        if N_max <= 0 || N_min > N_max
-            continue
-        end
-
-        # Try N from N_min upward but reject coverage > coverage_max_pct and overshoot > max_overshoot_pct
-        upper = min(N_min + extra_span, N_max)
-        @inbounds for N in N_min:upper
-            A = N * a1
-            cov = 100.0 * (N*d) / (pi*Dm_m*sα)
-            if cov > coverage_max_pct
-                break  # for fixed d, cov grows linearly with N; larger N will also violate
-            end
-            if isfinite(max_overshoot_pct)
-                if A > A_req_m2 * (1 + max_overshoot_pct/100)
-                    continue
-                end
-            end
-            push!(candidates, (N, d, Dm_m, A, cov, awg))
-        end
-    end
-
-    @assert !isempty(candidates) "No feasible screen with given CSA, Dm, α, coverage bounds, and geometry."
-
-    # --- selectors (tweaked) ---
-
-    # 1) min_wires: minimize N; tie → minimize |A−Areq|; then smaller d
-    keys_minN = [(N, abs(A - A_req_m2), d) for (N, d, _, A, _, _) in candidates]
-    min_wires = _to_choice(candidates[argmin(keys_minN)])
-
-    # 2) min_diam: smallest d; for it, minimal |A−Areq|; then minimal N
-    sort!(candidates, by = x -> (x[2], abs(x[4] - A_req_m2), x[1]))  # (d asc, |ΔA| asc, N asc)
-    min_diam = _to_choice(first(candidates))
-
-    # 3) best_match: closest area to A_req; tie → smaller N, then smaller d
-    keys_best = [(abs(A - A_req_m2), N, d) for (N, d, _, A, _, _) in candidates]
-    best_match = _to_choice(candidates[argmin(keys_best)])
-
-    return (; min_wires, min_diam, best_match)
+function maxfill(
+        ::Type{ScreenPattern},
+        lay_radius::Real,
+        wire_radius::Real;
+        gap_frac::Real = 0
+)
+    lay_radius > zero(lay_radius) || throw(DomainError(
+        lay_radius, "lay radius must be positive"
+    ))
+    wire_radius > zero(wire_radius) || throw(DomainError(
+        wire_radius, "wire radius must be positive"
+    ))
+    gap_frac >= zero(gap_frac) || throw(DomainError(
+        gap_frac, "gap fraction must be nonnegative"
+    ))
+    ratio = wire_radius * (one(gap_frac) + gap_frac) / lay_radius
+    nominal_ratio = float(nominal(ratio))
+    zero(nominal_ratio) < nominal_ratio < one(nominal_ratio) || return 0
+    count = pi / asin(nominal_ratio)
+    return max(0, floor(Int, count + 8eps(count)))
 end
 
-end # module
+function _screen_candidate(
+        wires::Int,
+        diameter::T,
+        lay_diameter::T,
+        sine_angle::T,
+        awg::String
+) where {T <: Real}
+    area = wires * _wire_area(diameter)
+    coverage = T(100) * wires * diameter /
+               (T(pi) * lay_diameter * sine_angle)
+    return ScreenPattern(
+        wires, diameter, lay_diameter, (lay_diameter + diameter) / T(2),
+        area, coverage, awg
+    )
+end
+
+function _screen_feasible(
+        pattern::ScreenPattern,
+        target,
+        coverage_min,
+        coverage_max,
+        overshoot_max
+)
+    enough_area = pattern.total_area_m2 >= target
+    coverage_ok = coverage_min <= pattern.coverage_pct <= coverage_max
+    T = typeof(target)
+    overshoot = T(100) * (pattern.total_area_m2 / target - one(T))
+    overshoot_ok = !isfinite(overshoot_max) || overshoot <= overshoot_max
+    return enough_area && coverage_ok && overshoot_ok
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Estimate single-layer wire-screen patterns for the required area and laying
+diameter, both expressed in millimetre-based input units.
+
+Geometrically valid candidates must meet the requested area, coverage, and
+overshoot bounds to make the result feasible. Otherwise the returned
+[`WireEstimate`](@ref) contains ranked best-effort candidates and reasons.
+"""
+function make_screened(
+        required_area_mm2::Real,
+        lay_diameter_mm::Real;
+        alpha_deg::Real = 15,
+        coverage_min_pct::Real = 85,
+        gap_frac::Real = 0,
+        min_wires::Integer = 6,
+        extra_span::Integer = 8,
+        nmin::Integer = -3,
+        nmax::Integer = 40,
+        coverage_max_pct::Real = 100,
+        max_overshoot_pct::Real = 10,
+        custom_diameters_mm::AbstractVector{<:Real} = Float64[]
+)
+    required_area_mm2 > zero(required_area_mm2) || throw(DomainError(
+        required_area_mm2, "required cross-section must be positive"
+    ))
+    lay_diameter_mm > zero(lay_diameter_mm) || throw(DomainError(
+        lay_diameter_mm, "laying diameter must be positive"
+    ))
+    zero(coverage_min_pct) < coverage_min_pct <= 100 || throw(DomainError(
+        coverage_min_pct, "minimum coverage must be in (0, 100]"
+    ))
+    coverage_max_pct >= coverage_min_pct || throw(DomainError(
+        coverage_max_pct, "maximum coverage must not be below its minimum"
+    ))
+    max_overshoot_pct >= zero(max_overshoot_pct) || throw(DomainError(
+        max_overshoot_pct, "maximum overshoot must be nonnegative"
+    ))
+    gap_frac >= zero(gap_frac) || throw(DomainError(
+        gap_frac, "gap fraction must be nonnegative"
+    ))
+    min_wires >= 1 || throw(DomainError(min_wires, "minimum wires must be positive"))
+    extra_span >= 0 || throw(DomainError(extra_span, "extra span must be nonnegative"))
+    nmin <= nmax || throw(ArgumentError("nmin must not exceed nmax"))
+    all(>(0), custom_diameters_mm) || throw(DomainError(
+        custom_diameters_mm, "custom wire diameters must be positive"
+    ))
+
+    custom_types = isempty(custom_diameters_mm) ? () : (eltype(custom_diameters_mm),)
+    T = promote_type(
+        typeof(float(required_area_mm2)), typeof(float(lay_diameter_mm)),
+        typeof(float(alpha_deg)), typeof(float(coverage_min_pct)),
+        typeof(float(coverage_max_pct)), typeof(float(max_overshoot_pct)),
+        typeof(float(gap_frac)), custom_types...
+    )
+    target = convert(T, required_area_mm2) * T(1e-6)
+    lay_diameter = convert(T, lay_diameter_mm) * T(1e-3)
+    angle = deg2rad(convert(T, alpha_deg))
+    sine_angle = sin(angle)
+    sine_angle > zero(T) || throw(DomainError(
+        alpha_deg, "lay angle must have a positive sine"
+    ))
+    coverage_min = convert(T, coverage_min_pct)
+    coverage_max = convert(T, coverage_max_pct)
+    overshoot_max = convert(T, max_overshoot_pct)
+    gap = convert(T, gap_frac)
+
+    sizes = awg_sizes(T, nmin, nmax)
+    append!(sizes,
+        [("custom($(round(diameter; digits=3)) mm)", convert(T, diameter) / T(1000))
+         for diameter in custom_diameters_mm])
+
+    geometric = ScreenPattern{T}[]
+    for (awg, diameter) in sizes
+        area = _wire_area(diameter)
+        required_by_area = ceil(Int, target / area)
+        required_by_coverage = ceil(
+            Int, coverage_min * T(pi) * lay_diameter * sine_angle /
+                 (T(100) * diameter)
+        )
+        required = max(Int(min_wires), required_by_area, required_by_coverage)
+        lay_radius = (lay_diameter + diameter) / T(2)
+        maximum_wires = maxfill(
+            ScreenPattern, lay_radius, diameter / T(2); gap_frac = gap
+        )
+        upper = min(maximum_wires, required + Int(extra_span))
+        if upper >= min_wires
+            append!(geometric,
+                [_screen_candidate(wires, diameter, lay_diameter, sine_angle, awg)
+                 for wires in Int(min_wires):upper])
+        elseif maximum_wires > 0
+            push!(geometric, _screen_candidate(
+                maximum_wires, diameter, lay_diameter, sine_angle, awg
+            ))
+        end
+    end
+    isempty(geometric) && throw(ArgumentError(
+        "the supplied diameters cannot form even one wire on this laying radius",
+    ))
+
+    feasible_candidates = filter(
+        pattern -> _screen_feasible(
+            pattern, target, coverage_min, coverage_max, overshoot_max
+        ),
+        geometric
+    )
+    feasible = !isempty(feasible_candidates)
+    candidates = feasible ? feasible_candidates : geometric
+    sort!(candidates;
+        by = pattern -> (
+            abs(pattern.total_area_m2 - target), pattern.wires,
+            pattern.wire_diameter_m
+        ))
+
+    reasons = String[]
+    if !feasible
+        maximum_area = Base.maximum(pattern.total_area_m2 for pattern in geometric)
+        maximum_coverage = Base.maximum(pattern.coverage_pct for pattern in geometric)
+        maximum_area < target && push!(
+            reasons, "available single-layer patterns do not reach the requested area"
+        )
+        maximum_coverage < coverage_min && push!(
+            reasons, "available single-layer patterns do not reach minimum coverage"
+        )
+        isempty(reasons) && push!(
+            reasons, "coverage or overshoot limits reject every geometric candidate"
+        )
+    end
+    return WireEstimate(
+        target, candidates, feasible, feasible ? :feasible : :infeasible, reasons
+    )
+end
+
+end

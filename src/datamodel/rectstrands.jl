@@ -1,185 +1,133 @@
-"""
-$(TYPEDEF)
-
-Holds the pure geometric layout for a concentric layer of rectangular/flat strands.
-"""
-struct RectStrandsShape{T <: REALSCALAR, U <: Int} <: AbstractShapeGeometry
-    "Thickness of the individual rectangular strip \\[m\\]."
+"Pure geometric state of one rectangular-strand layer."
+struct RectStrandsShape{T <: Real, U <: Integer} <: AbstractShapeGeometry
     thickness::T
-    "Width of the individual rectangular strip \\[m\\]."
     width::T
-    "Number of wires in the layer \\[dimensionless\\]."
     num_wires::U
-    "Ratio defining the lay length of the wires \\[dimensionless\\]."
     lay_ratio::T
-    "Twisting direction of the strands (1 = unilay, -1 = contralay) \\[dimensionless\\]."
     lay_direction::U
-    "Mean diameter of the wire layer \\[m\\]."
     mean_diameter::T
-    "Pitch length of the wire layer \\[m\\]."
     pitch_length::T
-    "Total cross-sectional area of the conductive metal in this layer \\[m²\\]."
     cross_section::T
 end
 
 """
 $(TYPEDEF)
 
-Represents a concentric layer of rectangular strands with defined geometric, material, and electrical properties:
+Represent one area-preserving rectangular-strand layer at material reference
+temperature.
 
 $(TYPEDFIELDS)
 """
-struct RectStrands{T <: REALSCALAR, S <: RectStrandsShape} <: AbstractStrandsLayer{T}
-    "Internal radial boundary \\[m\\]."
+struct RectStrands{T <: Real, S <: RectStrandsShape} <: AbstractStrandsLayer{T}
     r_in::T
-    "External radial boundary \\[m\\]."
     r_ex::T
-    "Material properties of the conductive strands."
     material_props::Material{T}
-    "Operating temperature of the layer \\[°C\\]."
-    temperature::T
-    "Equivalent electrical resistance of the layer \\[Ω/m\\]."
     resistance::T
-    "Geometric mean radius (GMR) of the layer \\[m\\]."
     gmr::T
-    "Shape payload defining the internal geometric layout."
     shape::S
 end
 
-# struct CircCore{T <: REALSCALAR, S <: Concentric} <: AbstractStrandsLayer{T}
-# 	"Internal radial boundary \\[m\\]."
-# 	r_in::T
-# 	"External radial boundary \\[m\\]."
-# 	r_ex::T
-# 	"Material properties of the conductive strands."
-# 	material_props::Material{T}
-# 	"Operating temperature of the layer \\[°C\\]."
-# 	temperature::T
-# 	"Equivalent electrical resistance of the layer \\[Ω/m\\]."
-# 	resistance::T
-# 	"Geometric mean radius (GMR) of the layer \\[m\\]."
-# 	gmr::T
-# 	"Shape payload defining the internal geometric layout."
-# 	shape::S
-# end
+function Validation.rules(::Type{RectStrands})
+    return (
+        Finite(:r_in), Finite(:r_ex), Finite(:thickness), Finite(:width),
+        Finite(:lay_ratio),
+        Nonnegative(:r_in), Positive(:r_ex), Less(:r_in, :r_ex),
+        Positive(:thickness), Positive(:width), IntegerField(:num_wires),
+        Positive(:num_wires), Nonnegative(:lay_ratio),
+        OneOf(:lay_direction, (-1, 1)),
+        PhysicalFillLimit(:num_wires, (:r_in, :width))
+    )
+end
 
-"""
-$(TYPEDSIGNATURES)
+function validate(layer::RectStrands)
+    Validation.check(RectStrands,
+        (
+            r_in = layer.r_in,
+            r_ex = layer.r_ex,
+            thickness = layer.shape.thickness,
+            width = layer.shape.width,
+            num_wires = layer.shape.num_wires,
+            lay_ratio = layer.shape.lay_ratio,
+            lay_direction = layer.shape.lay_direction
+        ))
+    expected = sqrt(
+        layer.r_in^2 +
+        layer.shape.num_wires * layer.shape.width *
+        layer.shape.thickness / (one(layer.r_in) * π),
+    )
+    isapprox(
+        layer.r_ex, expected;
+        rtol = sqrt(eps(typeof(float(nominal(layer.r_ex))))),
+        atol = sqrt(eps(Float64))
+    ) || throw(DomainError(
+        layer.r_ex,
+        "RectStrands outer radius is inconsistent with its area-preserving geometry"
+    ))
+    return layer
+end
 
-Constructs a [`RectStrands`](@ref) instance.
-
-# Arguments
-
-- `r_in`: Internal radius of the layer \\[m\\].
-- `thickness`: Radial thickness of the strands \\[m\\].
-- `width`: Width of the individual rectangular strip \\[m\\].
-- `num_wires`: Number of strands in the layer \\[dimensionless\\].
-- `lay_ratio`: Ratio defining the lay length of the strands \\[dimensionless\\].
-- `material_props`: A [`Material`](@ref) object containing physical properties.
-- `temperature`: Operating temperature \\[°C\\].
-- `lay_direction`: Twisting direction (1 = unilay, -1 = contralay) \\[dimensionless\\].
-
-# Returns
-
-- A [`RectStrands`](@ref) object with calculated geometric and electrical properties.
-
-# Examples
-
-```julia
-material = Material(1.724e-8, 1.0, 1.0, 20.0, 0.00393)
-layer = $(FUNCTIONNAME)(0.01, 0.002, 0.005, 10, 12.0, material, 25.0, 1)
-```
-"""
 function RectStrands(
-        r_in::T,
-        thickness::T,
-        width::T,
-        num_wires::U,
-        lay_ratio::T,
-        material_props::Material{T},
-        temperature::T,
-        lay_direction::U
-) where {T <: REALSCALAR, U <: Int}
-
-    # Target Area (the 'invariant' property)
-    A0 = width * thickness
-
-    # Area-Preserving Radial Expansion
-    # This solves A_total = pi * (r_ext^2 - r_in^2)
-    r_ex = num_wires == 1 ? Base.error("num_wires must be > 1") :
-           sqrt(r_in^2 + (num_wires * A0) / T(π))
-    thickness_effective=r_ex-r_in
-    @debug "Calculated area-preserving rectangular-strand radius." r_ex radius_ext_without_correction=r_in+thickness thickness_effective thickness num_wires
-    mean_diameter, pitch_length, overlength = calc_helical_params(r_in, r_ex, lay_ratio)
-
-    cross_section = num_wires * A0
-
-    shape_payload = RectStrandsShape(
-        thickness_effective, width, num_wires, lay_ratio, lay_direction,
-        mean_diameter, pitch_length, cross_section
+        r_in::Real,
+        r_ex::Real,
+        thickness::Real,
+        width::Real,
+        num_wires::Integer,
+        lay_ratio::Real,
+        material::Material;
+        lay_direction::Integer = 1
+)
+    T = promote_type(
+        Float32,
+        typeof(float(r_in)), typeof(float(r_ex)), typeof(float(thickness)),
+        typeof(float(width)), typeof(float(lay_ratio)), eltype(material)
     )
+    rin, rex, thick, w, ratio = convert.(
+        T, (r_in, r_ex, thickness, width, lay_ratio)
+    )
+    props = convert(Material{T}, material)
+    candidate = (; r_in = rin, r_ex = rex, thickness = thick, width = w, num_wires,
+        lay_ratio = ratio, lay_direction)
+    Validation.check(RectStrands, candidate)
+    expected = sqrt(rin^2 + num_wires * w * thick / (one(rin) * π))
+    isapprox(rex, expected; rtol = sqrt(eps(T)), atol = sqrt(eps(Float64))) ||
+        throw(DomainError(
+            rex,
+            "RectStrands outer radius must equal the area-preserving radius $expected"
+        ))
+    mean_diameter, pitch_length, overlength = helix(rin, rex, ratio)
+    cross_section = num_wires * w * thick
+    shape = RectStrandsShape(
+        thick, w, num_wires, ratio, lay_direction, mean_diameter,
+        pitch_length, cross_section
+    )
+    resistance = strip_resistance(
+        thick, w, props.rho, props.alpha, props.T0, props.T0
+    ) * overlength / num_wires
+    return validate(RectStrands(
+        rin, rex, props, resistance, tubular_gmr(rex, rin, props.mu_r), shape
+    ))
+end
 
-    # Electrical properties
-    rho = material_props.rho
-    T0 = material_props.T0
-    alpha = material_props.alpha
+function maxfill(::Type{RectStrands}, lay_radius::Real, width::Real)
+    lay_radius >= zero(lay_radius) ||
+        throw(DomainError(lay_radius, "lay radius must be nonnegative"))
+    width > zero(width) || throw(DomainError(width, "width must be positive"))
+    count = 2π * lay_radius / width
+    value = float(nominal(count))
+    return floor(Int, value + 8eps(value))
+end
 
-    R_wire = calc_strip_resistance(thickness, width, rho, alpha, T0, temperature) *
-             overlength
-    R_layer = R_wire / num_wires
-
-    gmr_layer = calc_tubular_gmr(r_ex, r_in, material_props.mu_r)
-
-    # 3. Instantiate the concrete struct
+function Base.convert(
+        ::Type{AbstractConductorPart{T}},
+        layer::RectStrands
+) where {T <: Real}
+    rin = convert(T, layer.r_in)
+    thickness = convert(T, layer.shape.thickness)
+    width = convert(T, layer.shape.width)
     return RectStrands(
-        r_in,
-        r_ex,
-        material_props,
-        temperature,
-        R_layer,
-        gmr_layer,
-        shape_payload
+        rin, convert(T, layer.r_ex), thickness, width,
+        layer.shape.num_wires, convert(T, layer.shape.lay_ratio),
+        convert(Material{T}, layer.material_props);
+        lay_direction = layer.shape.lay_direction
     )
 end
-
-const _REQ_RECTSTRANDS = (
-    :r_in, :thickness, :width, :num_wires, :lay_ratio, :material_props)
-const _OPT_RECTSTRANDS = (:temperature, :lay_direction)
-const _DEFS_RECTSTRANDS = (T₀, 1)
-
-Validation.has_radii(::Type{RectStrands}) = false
-Validation.has_temperature(::Type{RectStrands}) = true
-Validation.required_fields(::Type{RectStrands}) = _REQ_RECTSTRANDS
-Validation.keyword_fields(::Type{RectStrands}) = _OPT_RECTSTRANDS
-Validation.keyword_defaults(::Type{RectStrands}) = _DEFS_RECTSTRANDS
-
-function Validation.coercive_fields(::Type{RectStrands})
-    (:r_in, :thickness, :width, :lay_ratio, :material_props, :temperature)
-end
-
-# Specific for rectangular strands
-Validation.maxfill(::Type{RectStrands}, rin::Real, w::Real) = floor(Int, 2 * π * rin / w)
-
-function Validation.extra_rules(::Type{RectStrands})
-    (
-        Normalized(:r_in), Finite(:r_in), Nonneg(:r_in),
-        Normalized(:thickness), Finite(:thickness), Positive(:thickness),
-        IntegerField(:num_wires), Positive(:num_wires),
-        Finite(:lay_ratio), Nonneg(:lay_ratio),
-        IsA{Material}(:material_props),
-        OneOf(:lay_direction, (-1, 1)), Finite(:width),
-        Positive(:width),
-        PhysicalFillLimit(:num_wires, (:r_in, :width)) # THE BOUNCER
-    )
-end
-
-function Validation.parse(::Type{RectStrands}, nt)
-    rin, rw = _normalize_radii(RectStrands, nt.r_in, nt.thickness)
-
-    # Resolves to Int using the generic interface
-    n_wires = _resolve_strands(nt.num_wires, RectStrands, rin, nt.width)
-
-    return (; nt..., r_in = rin, thickness = rw, num_wires = n_wires)
-end
-
-@construct RectStrands _REQ_RECTSTRANDS _OPT_RECTSTRANDS _DEFS_RECTSTRANDS

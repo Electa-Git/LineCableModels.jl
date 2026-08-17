@@ -1,261 +1,167 @@
-
 """
 $(TYPEDEF)
 
-Represents the design of a cable, including its unique identifier, nominal data, and components.
+Store a materialized cable design at one common material reference temperature.
 
 $(TYPEDFIELDS)
 """
-mutable struct CableDesign{T <: REALSCALAR}
-    "Unique identifier for the cable design."
+mutable struct CableDesign{T <: Real}
     cable_id::String
-    "Informative reference data."
     nominal_data::Union{Nothing, NominalData{T}}
-    "Vector of cable components."
     components::Vector{CableComponent{T}}
-
-    @doc """
-     $(TYPEDSIGNATURES)
-
-     **Strict numeric kernel**: constructs a `CableDesign{T}` from one component
-     (typed) and optional nominal data (typed or `nothing`). Assumes all inputs
-     are already at scalar type `T`.
-
-     # Arguments
-
-     - `cable_id`: Unique identifier for the cable design.
-     - `component`: Initial [`CableComponent`](@ref) for the design.
-     - `nominal_data`: Reference data for the cable design. Default: `NominalData()`.
-
-     # Returns
-
-     - A [`CableDesign`](@ref) object with the specified properties.
-
-     # Examples
-
-     ```julia
-     conductor_group = ConductorGroup(central_conductor)
-     insulator_group = InsulatorGroup(main_insulator)
-     component = CableComponent(conductor_group, insulator_group)
-     design = $(FUNCTIONNAME)("example", component)
-     ```
-
-     """
-    @inline function CableDesign{T}(
-            cable_id::String,
-            component::CableComponent{T};
-            nominal_data::Union{Nothing, NominalData{T}} = nothing
-    ) where {T <: REALSCALAR}
-        new{T}(cable_id, nominal_data, CableComponent{T}[component])
-    end
-
-    @inline function CableDesign{T}(
-            cable_id::String,
-            components::Vector{CableComponent{T}};
-            nominal_data::Union{Nothing, NominalData{T}} = nothing
-    ) where {T <: REALSCALAR}
-        new{T}(cable_id, nominal_data, components)
-    end
 end
 
-"""
-$(TYPEDSIGNATURES)
+function _design_reference_temperature(components)
+    isempty(components) && throw(ArgumentError("a cable design requires one component"))
+    reference = _component_reference_temperature(first(components))
+    all(component -> isapprox(_component_reference_temperature(component), reference),
+        components) || throw(ArgumentError(
+        "all cable materials must share one reference temperature",
+    ))
+    return reference
+end
 
-**Weakly-typed constructor** that infers the scalar type from the `component` (and nominal data if present), coerces values to that type, and calls the typed kernel.
-"""
+function validate(design::CableDesign)
+    isempty(design.cable_id) && throw(ArgumentError("cable_id cannot be empty"))
+    _design_reference_temperature(design.components)
+    ids = getproperty.(design.components, :id)
+    allunique(ids) || throw(ArgumentError("component identifiers must be unique"))
+    for (left, right) in zip(design.components, Iterators.drop(design.components, 1))
+        isapprox(left.insulator_group.r_ex, right.conductor_group.r_in) ||
+            throw(DomainError(
+                (left.insulator_group.r_ex, right.conductor_group.r_in),
+                "adjacent cable-component boundaries must coincide"
+            ))
+    end
+    return design
+end
+
 function CableDesign(
-        cable_id::String,
-        component::CableComponent;
-        nominal_data::NominalData = NominalData()
+        cable_id::AbstractString,
+        component::CableComponent{T};
+        nominal_data::Union{Nothing, NominalData} = nothing
+) where {T <: Real}
+    nominal = nominal_data === nothing ? nothing : convert(NominalData{T}, nominal_data)
+    return validate(CableDesign{T}(
+        String(cable_id), nominal, CableComponent{T}[component]
+    ))
+end
+
+function CableDesign(
+        cable_id::AbstractString,
+        components::AbstractVector{<:CableComponent};
+        nominal_data::Union{Nothing, NominalData} = nothing
 )
-    # Resolve T from component and nominal_data (ignoring `nothing` fields in the latter)
-    T = resolve_T(component, nominal_data)
-
-    compT = coerce_to_T(component, T)
-    ndT = coerce_to_T(nominal_data, T)  # identity if already T
-
-    return CableDesign{T}(cable_id, compT; nominal_data = ndT)
+    isempty(components) && throw(ArgumentError("a cable design requires one component"))
+    T = promote_type(eltype.(components)...)
+    converted = CableComponent{T}[convert(CableComponent{T}, item) for item in components]
+    nominal = nominal_data === nothing ? nothing : convert(NominalData{T}, nominal_data)
+    return validate(CableDesign{T}(String(cable_id), nominal, converted))
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Constructs a [`CableDesign`](@ref) instance **from conductor and insulator groups**.
-Convenience wrapper that builds the component with reduced boilerplate.
-"""
 function CableDesign(
-        cable_id::String,
+        cable_id::AbstractString,
         conductor_group::ConductorGroup,
         insulator_group::InsulatorGroup;
-        component_id::String = "component1",
-        nominal_data::NominalData = NominalData()
+        component_id::AbstractString = "component1",
+        nominal_data::Union{Nothing, NominalData} = nothing
 )
-    component = CableComponent(component_id, conductor_group, insulator_group)
-    return CableDesign(cable_id, component; nominal_data)
+    return CableDesign(
+        cable_id,
+        CableComponent(component_id, conductor_group, insulator_group);
+        nominal_data
+    )
 end
 
-function add!(design::CableDesign{T}, component::CableComponent) where {T}
-    Tnew = resolve_T(design, component)
-
-    if Tnew === T
-        compT = coerce_to_T(component, T)
-        if (idx = findfirst(c -> c.id == compT.id, design.components)) !== nothing
-            @warn "Component with ID '$(compT.id)' already exists and will be overwritten."
-            design.components[idx] = compT
-        else
-            push!(design.components, compT)
-        end
-        return design
-    else
-        @warn """
-          Adding a `$Tnew` component to a `CableDesign{$T}` returns a **promoted** design.
-          Capture the result:  design = add!(design, component)
-          """
-        # promote whole design, then insert coerced component
-        promoted = coerce_to_T(design, Tnew)
-        compT = coerce_to_T(component, Tnew)
-        if (idx = findfirst(c -> c.id == compT.id, promoted.components)) !== nothing
-            promoted.components[idx] = compT
-        else
-            push!(promoted.components, compT)
-        end
-        return promoted
-    end
+function add!(design::CableDesign{T}, component::CableComponent{T}) where {T}
+    any(item -> item.id == component.id, design.components) && throw(ArgumentError(
+        "component '$(component.id)' already exists",
+    ))
+    reference = _design_reference_temperature(design.components)
+    isapprox(_component_reference_temperature(component), reference) ||
+        throw(ArgumentError("component materials have a different reference temperature"))
+    isempty(design.components) ||
+        isapprox(
+            last(design.components).insulator_group.r_ex,
+            component.conductor_group.r_in
+        ) ||
+        throw(DomainError(
+            component.conductor_group.r_in,
+            "component must start at the current cable outer radius"
+        ))
+    push!(design.components, component)
+    return validate(design)
 end
 
-# --- add!(design, by groups): wraps the above ---
+function add!(design::CableDesign{T}, component::CableComponent{U}) where {T, U}
+    throw(ArgumentError(
+        "cannot add CableComponent{$U} to CableDesign{$T}; explicitly convert the " *
+        "complete design before mutation",
+    ))
+end
+
 function add!(
-        design::CableDesign{T},
-        component_id::String,
+        design::CableDesign,
+        component_id::AbstractString,
         conductor_group::ConductorGroup,
         insulator_group::InsulatorGroup
-) where {T}
-    comp = CableComponent(component_id, conductor_group, insulator_group)
-    add!(design, comp)  # may return the same or a promoted design
+)
+    return add!(design, CableComponent(component_id, conductor_group, insulator_group))
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Builds a simplified [`CableDesign`](@ref) by replacing each component with a
-homogeneous equivalent and leverages shorthand constructors:
-
-- `ConductorGroup(component::CableComponent{T}) = ConductorGroup(Tubular(component))`
-- `InsulatorGroup(component::CableComponent{T}) = InsulatorGroup(Insulator(component))`
-
-The geometry is preserved from the original component, while materials are
-derived from the component's effective conductor and insulator properties.
-"""
-function equivalent(
-        original_design::CableDesign;
-        new_id::String = ""
-)::CableDesign
-    if isempty(original_design.components)
-        throw(ArgumentError("CableDesign must contain at least one component."))
-    end
-
-    # Determine the ID for the new equivalent cable.
-    equivalent_id = isempty(new_id) ? original_design.cable_id * "_equivalent" : new_id
-
-    equivalent_design = nothing
-
-    for (i, original_component) in enumerate(original_design.components)
-        new_cond_group = ConductorGroup(original_component)
-        new_ins_group = InsulatorGroup(original_component)
-
-        if i == 1
-            new_component = CableComponent(original_component.id, new_cond_group, new_ins_group)
-            equivalent_design = CableDesign(
-                equivalent_id,
-                new_component,
-                nominal_data = original_design.nominal_data
-            )
-        else
-            add!(equivalent_design, original_component.id, new_cond_group, new_ins_group)
-        end
-    end
-
-    return equivalent_design
+function equivalent(original::CableDesign; new_id::AbstractString = "")
+    target = isempty(new_id) ? original.cable_id * "_equivalent" : String(new_id)
+    components = CableComponent[CableComponent(
+                                    component.id,
+                                    ConductorGroup(component),
+                                    InsulatorGroup(component)
+                                ) for component in original.components]
+    return CableDesign(target, components; nominal_data = original.nominal_data)
 end
 
-"""
-nonsensify(original_design::CableDesign; new_id::String="")::CableDesign
-
-Recreates a cable design by bulldozing reality into a "simplified" shape
-with only the so-called "main" material properties.
-
-Translation: if you wanted physics, you came to the wrong neighborhood.
-
-For each component, this abomination does:
-- `ConductorGroup(Tubular(...))` with radii stolen from the first and last
-  conductor layers, and material blindly copied from the first conductor layer.
-  Because high-fidelity is for losers.
-
-- `InsulatorGroup(Insulator(...))` spanning from the new conductor outer radius
-  to the original insulator group's outer radius; material is taken from the
-  first `Insulator` layer available (or whatever warm body it can find).
-
-⚠ WARNING: This is *deliberately* nonsensical. It laughs in the face of proper
-equivalent property corrections and just slaps the "main" props on like duct tape.
-Use only when you don’t give a damn about accuracy and just want something
-that looks cable-ish, e.g., never.
-"""
-function nonsensify(
-        original_design::CableDesign;
-        new_id::String = ""
-)::CableDesign
-    if isempty(original_design.components)
-        throw(ArgumentError("CableDesign must contain at least one component."))
+function nonsensify(original::CableDesign; new_id::AbstractString = "")
+    target = isempty(new_id) ? original.cable_id * "_nonsense" : String(new_id)
+    components = CableComponent[]
+    for component in original.components
+        conductors = component.conductor_group
+        insulators = component.insulator_group
+        conductor = Tubular(
+            first(conductors.layers).r_in,
+            last(conductors.layers).r_ex,
+            first(conductors.layers).material_props
+        )
+        dielectric_index = something(
+            findfirst(layer -> layer isa Insulator, insulators.layers),
+            1
+        )
+        dielectric = Insulator(
+            conductor.r_ex,
+            insulators.r_ex,
+            insulators.layers[dielectric_index].material_props
+        )
+        push!(components,
+            CableComponent(
+                component.id,
+                ConductorGroup(conductor),
+                InsulatorGroup(
+                    dielectric;
+                    reference_frequency = insulators.reference_frequency
+                )
+            ))
     end
-
-    # Determine the ID for the new cable.
-    target_id = isempty(new_id) ? original_design.cable_id * "_nonsense" : new_id
-
-    rebuilt_design = nothing
-
-    for (i, original_component) in enumerate(original_design.components)
-        # Source data from original component
-        cg = original_component.conductor_group
-        ig = original_component.insulator_group
-
-        # Radii from conductor group layers
-        rin = cg.layers[1].r_in
-        rex = cg.layers[end].r_ex
-
-        # "Main" material props and temperature for conductor from first conductor layer
-        mat_con = cg.layers[1].material_props
-        temp_con = cg.layers[1].temperature
-
-        # Build simplified parts and groups
-        tubular = Tubular(rin, rex, mat_con, temp_con)
-        new_cond_group = ConductorGroup(tubular)
-
-        ins_rin = new_cond_group.r_ex           # ensure interface matches
-        ins_rex = ig.r_ex                        # keep original outer boundary
-
-        # Pick first Insulator layer in insulator group (skip Semicon); fallback to first layer
-        idx_ins = findfirst(x -> x isa Insulator, ig.layers)
-        idx_ins = isnothing(idx_ins) ? 1 : idx_ins
-        mat_ins = ig.layers[idx_ins].material_props
-        temp_ins = ig.layers[idx_ins].temperature
-
-        ins = Insulator(ins_rin, ins_rex, mat_ins, temp_ins)
-        new_ins_group = InsulatorGroup(ins)
-
-        if i == 1
-            new_component = CableComponent(original_component.id, new_cond_group, new_ins_group)
-            rebuilt_design = CableDesign(
-                target_id,
-                new_component,
-                nominal_data = original_design.nominal_data
-            )
-        else
-            add!(rebuilt_design, original_component.id, new_cond_group, new_ins_group)
-        end
-    end
-
-    return rebuilt_design
+    return CableDesign(target, components; nominal_data = original.nominal_data)
 end
+
+function Base.convert(::Type{CableDesign{T}}, design::CableDesign) where {T <: Real}
+    return CableDesign(
+        design.cable_id,
+        CableComponent{T}[convert(CableComponent{T}, item) for item in design.components];
+        nominal_data = design.nominal_data === nothing ? nothing :
+                       convert(NominalData{T}, design.nominal_data)
+    )
+end
+
+Base.convert(::Type{CableDesign{T}}, design::CableDesign{T}) where {T <: Real} = design
 
 include("cabledesign/base.jl")
 include("cabledesign/cableconstants.jl")

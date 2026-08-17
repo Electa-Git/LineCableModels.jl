@@ -90,9 +90,9 @@ function _alpha_composite(background::RGBA, foreground::RGBA)
 end
 
 function _material_color(material; alpha_value::Real = 1.0)
-    resistivity = to_nominal(material.rho)
-    relative_permittivity = to_nominal(material.eps_r)
-    relative_permeability = to_nominal(material.mu_r)
+    resistivity = nominal(material.rho)
+    relative_permittivity = nominal(material.eps_r)
+    relative_permeability = nominal(material.mu_r)
     base = _minimum_lightness(_base_material_color(resistivity))
     lightness = HSL(base).l
 
@@ -166,9 +166,9 @@ function _layer_series!(series, layer, label, group, xcenter, ycenter; include_l
     elseif layer isa Union{CircStrands, RectStrands, Strip, Tubular, Semicon, Insulator}
         color = _material_color(layer.material_props)
         if layer isa CircStrands
-            wire_radius = to_nominal(layer.radius_wire)
-            lay_radius = layer.num_wires == 1 ? 0.0 : to_nominal(layer.r_in)
-            coordinates = calc_circstrands_coords(
+            wire_radius = nominal(layer.radius_wire)
+            lay_radius = layer.num_wires == 1 ? 0.0 : nominal(layer.r_in)
+            coordinates = wire_coordinates(
                 layer.num_wires,
                 wire_radius,
                 lay_radius;
@@ -189,9 +189,9 @@ function _layer_series!(series, layer, label, group, xcenter, ycenter; include_l
             for index in 1:layer.num_wires
                 angle = (index - 1) * 2π / layer.num_wires
                 geometry = _radial_wedge(
-                    to_nominal(layer.r_in),
-                    to_nominal(layer.r_ex),
-                    to_nominal(layer.width),
+                    nominal(layer.r_in),
+                    nominal(layer.r_ex),
+                    nominal(layer.width),
                     angle,
                     xcenter,
                     ycenter
@@ -205,8 +205,8 @@ function _layer_series!(series, layer, label, group, xcenter, ycenter; include_l
             end
         else
             geometry = _annulus_polygon(
-                to_nominal(layer.r_in),
-                to_nominal(layer.r_ex),
+                nominal(layer.r_in),
+                nominal(layer.r_ex),
                 xcenter,
                 ycenter
             )
@@ -262,7 +262,7 @@ end
 function _design_series(design, xcenter, ycenter; display_legend::Bool)
     series = PlotBuilder.SeriesSpec[]
     outer_radius = try
-        to_nominal(design.components[end].insulator_group.r_ex)
+        nominal(design.components[end].insulator_group.r_ex)
     catch
         NaN
     end
@@ -316,9 +316,9 @@ function _property_ranges(design)
     permeabilities = Float64[]
     permittivities = Float64[]
     _each_material(design) do material
-        resistivity = to_nominal(material.rho)
-        permeability = to_nominal(material.mu_r)
-        permittivity = to_nominal(material.eps_r)
+        resistivity = nominal(material.rho)
+        permeability = nominal(material.mu_r)
+        permittivity = nominal(material.eps_r)
         isfinite(resistivity) && push!(resistivities, resistivity)
         isfinite(permeability) && push!(permeabilities, permeability)
         isfinite(permittivity) && push!(permittivities, permittivity)
@@ -564,11 +564,11 @@ function _system_limits(system, zoom_factor)
             ArgumentError("zoom_factor must be finite and greater than zero"),
         )
     end
-    horizontal = Float64[to_nominal(cable.horz) for cable in system.cables]
-    vertical = Float64[to_nominal(cable.vert) for cable in system.cables]
+    horizontal = Float64[nominal(cable.horz) for cable in system.cables]
+    vertical = Float64[nominal(cable.vert) for cable in system.cables]
     radii = Float64[max(
-                        to_nominal(last(cable.design_data.components).conductor_group.r_ex),
-                        to_nominal(last(cable.design_data.components).insulator_group.r_ex)
+                        nominal(last(cable.design_data.components).conductor_group.r_ex),
+                        nominal(last(cable.design_data.components).insulator_group.r_ex)
                     ) for cable in system.cables]
     center_x = isempty(horizontal) ? 0.0 : mean(horizontal)
     center_y = isempty(vertical) ? -1.0 : mean(vertical)
@@ -592,9 +592,9 @@ function _earth_colorbars(earth_model)
     permeabilities = Float64[]
     permittivities = Float64[]
     for layer in earth_model.layers[2:end]
-        push!(resistivities, to_nominal(layer.base_rho_g))
-        push!(permeabilities, to_nominal(layer.base_mur_g))
-        push!(permittivities, to_nominal(layer.base_epsr_g))
+        push!(resistivities, nominal(layer.rho))
+        push!(permeabilities, nominal(layer.mu_r))
+        push!(permittivities, nominal(layer.eps_r))
     end
     isempty(resistivities) && return PlotBuilder.ColorbarSpec[]
     return _colorbar_specs(extrema(resistivities), extrema(permeabilities),
@@ -619,13 +619,13 @@ function _system_series(system, earth_model, limits, display_legend)
         fill_horizontal = (limits[1][1] - 5.0, limits[1][2] + 5.0)
         for (index, layer) in enumerate(earth_model.layers[2:end])
             top = cumulative_depth
-            bottom = if isinf(layer.t)
+            bottom = if isinf(layer.thickness)
                 fill_minimum
             else
-                cumulative_depth -= to_nominal(layer.t)
+                cumulative_depth -= nominal(layer.thickness)
             end
             material = (;
-                rho = layer.base_rho_g, eps_r = layer.base_epsr_g, mu_r = layer.base_mur_g)
+                rho = layer.rho, eps_r = layer.eps_r, mu_r = layer.mu_r)
             geometry = Point2f[
                 (fill_horizontal[1], top),
                 (fill_horizontal[2], top),
@@ -650,8 +650,8 @@ function _system_series(system, earth_model, limits, display_legend)
             series,
             _design_series(
                 cable.design_data,
-                to_nominal(cable.horz),
-                to_nominal(cable.vert);
+                nominal(cable.horz),
+                nominal(cable.vert);
                 display_legend = false
             )
         )

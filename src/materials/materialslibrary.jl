@@ -35,7 +35,6 @@ function MaterialsLibrary(; add_defaults::Bool = true)::MaterialsLibrary
     library = MaterialsLibrary(Dict{String, Material}())
 
     if add_defaults
-        @info "Initializing default materials database..."
         _add_default_materials!(library)
     end
 
@@ -127,13 +126,11 @@ $(FUNCTIONNAME)(library, "copper", material)
 """
 function add!(
         library::MaterialsLibrary,
-        name::Union{AbstractString,Symbol},
+        name::Union{AbstractString, Symbol},
         material::Material
 )
     key = String(name)
-    if haskey(library, key)
-        Base.error("Material $key already exists in the library.")
-    end
+    haskey(library, key) && throw(ArgumentError("material '$key' already exists"))
     library[key] = material
     library
 end

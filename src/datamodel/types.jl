@@ -38,14 +38,8 @@ Subtypes implement specific configurations:
 """
 abstract type AbstractInsulatorPart{T} <: AbstractCablePart{T} end
 
-# If a correct ctor exists, Julia will pick it; this runs only when arity is wrong.
-function (::Type{T})(args::Vararg{Any, N}; kwargs...) where {T <: AbstractCablePart, N}
-    throw(
-        ArgumentError(
-        "[$(nameof(T))] constructor: invalid number of positional args ($N).",
-    ),
-    )
-end
+Base.eltype(::AbstractCablePart{T}) where {T} = T
+Base.eltype(::Type{<:AbstractCablePart{T}}) where {T} = T
 
 ### Provisions for the new rectangular-strand geometry
 abstract type AbstractShapeGeometry end

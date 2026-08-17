@@ -1,159 +1,130 @@
 """
 $(TYPEDEF)
 
-Represents an array of wires equally spaced around a circumference of arbitrary radius, with attributes:
+Represent one circular-wire layer at the material reference temperature.
 
 $(TYPEDFIELDS)
 """
-struct CircStrands{T <: REALSCALAR, U <: Int} <: AbstractStrandsLayer{T}
-    "Internal radius of the wire array \\[m\\]."
+struct CircStrands{T <: Real, U <: Integer} <: AbstractStrandsLayer{T}
+    "Inner radial boundary \\[m\\]."
     r_in::T
-    "External radius of the wire array \\[m\\]."
+    "Outer radial boundary \\[m\\]."
     r_ex::T
-    "Radius of each individual wire \\[m\\]."
+    "Wire radius \\[m\\]."
     radius_wire::T
-    "Number of wires in the array \\[dimensionless\\]."
+    "Number of wires \\[dimensionless\\]."
     num_wires::U
-    "Ratio defining the lay length of the wires (twisting factor) \\[dimensionless\\]."
+    "Lay-length ratio \\[dimensionless\\]."
     lay_ratio::T
-    "Mean diameter of the wire array \\[m\\]."
+    "Mean helix diameter \\[m\\]."
     mean_diameter::T
-    "Pitch length of the wire array \\[m\\]."
+    "Helix pitch length \\[m\\]."
     pitch_length::T
-    "Twisting direction of the strands (1 = unilay, -1 = contralay) \\[dimensionless\\]."
+    "Lay direction: `1` or `-1` \\[dimensionless\\]."
     lay_direction::U
-    "Material object representing the physical properties of the wire material."
+    "Wire material at its reference state."
     material_props::Material{T}
-    "Temperature at which the properties are evaluated \\[°C\\]."
-    temperature::T
-    "Cross-sectional area of all wires in the array \\[m²\\]."
+    "Total metallic cross-section \\[m²\\]."
     cross_section::T
-    "Electrical resistance per wire in the array \\[Ω/m\\]."
+    "Layer resistance \\[Ω/m\\]."
     resistance::T
-    "Geometric mean radius of the wire array \\[m\\]."
+    "Geometric mean radius \\[m\\]."
     gmr::T
+end
+
+function BaseParams.gmd_elements(layer::CircStrands)
+    coordinates = wire_coordinates(
+        layer.num_wires, layer.radius_wire, layer.r_in
+    )
+    return (coordinates, layer.radius_wire, π * layer.radius_wire^2)
+end
+
+function Validation.rules(::Type{CircStrands})
+    return (
+        Finite(:r_in), Finite(:r_ex), Finite(:radius_wire), Finite(:lay_ratio),
+        Nonnegative(:r_in), Positive(:r_ex), Less(:r_in, :r_ex),
+        Positive(:radius_wire), IntegerField(:num_wires), Positive(:num_wires),
+        Nonnegative(:lay_ratio), OneOf(:lay_direction, (-1, 1)),
+        PhysicalFillLimit(:num_wires, (:r_in, :radius_wire))
+    )
+end
+
+function validate(layer::CircStrands)
+    Validation.check(CircStrands, layer)
+    isapprox(layer.r_ex,
+        layer.num_wires == 1 ? layer.radius_wire :
+        layer.r_in + 2 * layer.radius_wire;
+        rtol = sqrt(eps(typeof(float(nominal(layer.r_ex))))),
+        atol = sqrt(eps(Float64))) || throw(DomainError(
+        layer.r_ex,
+        "CircStrands outer radius is inconsistent with its wire geometry"
+    ))
+    return layer
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Constructs a [`CircStrands`](@ref) instance based on specified geometric and material parameters.
-
-# Arguments
-
-- `r_in`: Internal radius of the wire array \\[m\\].
-- `radius_wire`: Radius of each individual wire \\[m\\].
-- `num_wires`: Number of wires in the array \\[dimensionless\\].
-- `lay_ratio`: Ratio defining the lay length of the wires (twisting factor) \\[dimensionless\\].
-- `material_props`: A [`Material`](@ref) object representing the material properties.
-- `temperature`: Temperature at which the properties are evaluated \\[°C\\].
-- `lay_direction`: Twisting direction of the strands (1 = unilay, -1 = contralay) \\[dimensionless\\].
-
-# Returns
-
-- A [`CircStrands`](@ref) object with calculated geometric and electrical properties.
-
-# Examples
-
-```julia
-material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
-circstrands = $(FUNCTIONNAME)(0.01, 0.001, 7, 10, material_props, temperature=25)
-println(circstrands.mean_diameter)  # Outputs mean diameter in m
-println(circstrands.resistance)     # Outputs resistance in Ω/m
-```
-
+Construct a circular-wire layer from resolved radial geometry. Electrical
+properties are evaluated at `material.T0`.
 """
 function CircStrands(
-        r_in::T,
-        radius_wire::T,
-        num_wires::U,
-        lay_ratio::T,
-        material_props::Material{T},
-        temperature::T,
-        lay_direction::U
-) where {T <: REALSCALAR, U <: Int}
-    rho = material_props.rho
-    T0 = material_props.T0
-    alpha = material_props.alpha
-    r_ex = num_wires == 1 ? radius_wire : r_in + 2 * radius_wire # TODO: The resolved outer radius for stranded cores should account for compression. See rectstrands.jl for an example of area-preserving expansion.
-    # Issue URL: https://github.com/Electa-Git/LineCableModels.jl/issues/32
-
-    mean_diameter, pitch_length, overlength = calc_helical_params(
-        r_in,
-        r_ex,
-        lay_ratio
+        r_in::Real,
+        r_ex::Real,
+        radius_wire::Real,
+        num_wires::Integer,
+        lay_ratio::Real,
+        material::Material;
+        lay_direction::Integer = 1
+)
+    T = promote_type(
+        Float32,
+        typeof(float(r_in)), typeof(float(r_ex)), typeof(float(radius_wire)),
+        typeof(float(lay_ratio)), eltype(material)
     )
-
-    cross_section = num_wires * (π * radius_wire^2)
-
-    R_wire = calc_tubular_resistance(0.0, radius_wire, rho, alpha, T0, temperature) *
-             overlength
-    R_all_wires = R_wire / num_wires
-
-    gmr = calc_circstrands_gmr(
-        r_in + radius_wire,
-        num_wires,
-        radius_wire,
-        material_props.mu_r
+    rin, rex, rw, ratio = convert.(T, (r_in, r_ex, radius_wire, lay_ratio))
+    props = convert(Material{T}, material)
+    candidate = (; r_in = rin, r_ex = rex, radius_wire = rw, num_wires,
+        lay_ratio = ratio, lay_direction)
+    Validation.check(CircStrands, candidate)
+    expected = num_wires == 1 ? rw : rin + 2 * rw
+    isapprox(rex, expected; rtol = sqrt(eps(T)), atol = sqrt(eps(Float64))) ||
+        throw(DomainError(
+            rex,
+            "CircStrands outer radius must equal $expected for the supplied wires"
+        ))
+    mean_diameter, pitch_length, overlength = helix(rin, rex, ratio)
+    cross_section = num_wires * (one(rin) * π) * rw^2
+    resistance = tubular_resistance(
+        zero(T), rw, props.rho, props.alpha, props.T0, props.T0
+    ) * overlength / num_wires
+    layer = CircStrands(
+        rin, rex, rw, num_wires, ratio, mean_diameter, pitch_length,
+        lay_direction, props, cross_section, resistance,
+        strand_gmr(rin + rw, num_wires, rw, props.mu_r)
     )
+    return validate(layer)
+end
 
-    # Initialize object
+function maxfill(::Type{CircStrands}, r_in::Real, wire_radius::Real)
+    r_in >= zero(r_in) || throw(DomainError(r_in, "inner radius must be nonnegative"))
+    wire_radius > zero(wire_radius) ||
+        throw(DomainError(wire_radius, "wire radius must be positive"))
+    iszero(r_in) && return 1
+    count = π / asin(wire_radius / (r_in + wire_radius))
+    value = float(nominal(count))
+    return floor(Int, value + 8eps(value))
+end
+
+function Base.convert(
+        ::Type{AbstractConductorPart{T}},
+        layer::CircStrands
+) where {T <: Real}
+    rin = convert(T, layer.r_in)
+    radius = convert(T, layer.radius_wire)
     return CircStrands(
-        r_in,
-        r_ex,
-        radius_wire,
-        num_wires,
-        lay_ratio,
-        mean_diameter,
-        pitch_length,
-        lay_direction,
-        material_props,
-        temperature,
-        cross_section,
-        R_all_wires,
-        gmr
+        rin, convert(T, layer.r_ex), radius, layer.num_wires,
+        convert(T, layer.lay_ratio), convert(Material{T}, layer.material_props);
+        lay_direction = layer.lay_direction
     )
 end
-
-const _REQ_CIRCSTRANDS = (:r_in, :radius_wire, :num_wires, :lay_ratio, :material_props)
-const _OPT_CIRCSTRANDS = (:temperature, :lay_direction)
-const _DEFS_CIRCSTRANDS = (T₀, 1)
-
-Validation.has_radii(::Type{CircStrands}) = false
-Validation.has_temperature(::Type{CircStrands}) = true
-Validation.required_fields(::Type{CircStrands}) = _REQ_CIRCSTRANDS
-Validation.keyword_fields(::Type{CircStrands}) = _OPT_CIRCSTRANDS
-Validation.keyword_defaults(::Type{CircStrands}) = _DEFS_CIRCSTRANDS
-
-function Validation.coercive_fields(::Type{CircStrands})
-    (:r_in, :radius_wire, :lay_ratio, :material_props, :temperature)
-end  # not :num_wires, :lay_direction
-function Validation.extra_rules(::Type{CircStrands})
-    (
-        # radii (post-parse they must be numeric)
-        Normalized(:r_in), Finite(:r_in), Nonneg(:r_in),
-        Normalized(:radius_wire), Finite(:radius_wire), Positive(:radius_wire),
-
-        # counts and geometry params
-        IntegerField(:num_wires), Positive(:num_wires),
-        Finite(:lay_ratio), Nonneg(:lay_ratio),
-
-        # material type
-        IsA{Material}(:material_props),
-
-        # lay direction constraint (pin to -1 or +1)
-        OneOf(:lay_direction, (-1, 1))
-    )
-end
-
-function maxfill(::Type{CircStrands}, rin::Real, rw::Real)
-    rin == 0 ? 1 : floor(Int, π / asin(rw / (rin + rw)))
-end
-
-function Validation.parse(::Type{CircStrands}, nt)
-    rin, rw = _normalize_radii(CircStrands, nt.r_in, nt.radius_wire)
-    (; nt..., r_in = rin, radius_wire = rw)
-end
-
-# This macro expands to a weakly-typed constructor for CircStrands
-@construct CircStrands _REQ_CIRCSTRANDS _OPT_CIRCSTRANDS _DEFS_CIRCSTRANDS

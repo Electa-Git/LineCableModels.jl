@@ -1,243 +1,115 @@
-
 """
 $(TYPEDEF)
 
-Represents a composite coaxial insulator group assembled from multiple insulating layers.
-
-This structure serves as a container for different [`AbstractInsulatorPart`](@ref) elements
-(such as insulators and semiconductors) arranged in concentric layers.
-The `InsulatorGroup` aggregates these individual parts and provides equivalent electrical
-properties that represent the composite behavior of the entire assembly, stored in the attributes:
+Store concentric dielectric layers and their eager equivalent parallel-RC
+value at `reference_frequency`.
 
 $(TYPEDFIELDS)
 """
-mutable struct InsulatorGroup{T <: REALSCALAR} <: AbstractInsulatorPart{T}
-    "Inner radius of the insulator group \\[m\\]."
+mutable struct InsulatorGroup{T <: Real} <: AbstractInsulatorPart{T}
     r_in::T
-    "Outer radius of the insulator group \\[m\\]."
     r_ex::T
-    "Cross-sectional area of the entire insulator group \\[m²\\]."
     cross_section::T
-    "Shunt capacitance per unit length of the insulator group \\[F/m\\]."
     shunt_capacitance::T
-    "Shunt conductance per unit length of the insulator group \\[S·m\\]."
     shunt_conductance::T
-    "Vector of insulator layer components."
+    reference_frequency::T
     layers::Vector{AbstractInsulatorPart{T}}
-
-    @doc """
-     $(TYPEDSIGNATURES)
-
-     Constructs an [`InsulatorGroup`](@ref) instance initializing with the initial insulator part.
-
-     # Arguments
-
-     - `initial_insulator`: An [`AbstractInsulatorPart`](@ref) object located at the innermost position of the insulator group.
-
-     # Returns
-
-     - An [`InsulatorGroup`](@ref) object initialized with geometric and electrical properties derived from the initial insulator.
-
-     # Examples
-
-     ```julia
-     material_props = Material(1e10, 3.0, 1.0, 20.0, 0.0)
-     initial_insulator = Insulator(0.01, 0.015, material_props)
-     insulator_group = $(FUNCTIONNAME)(initial_insulator)
-     println(insulator_group.layers)           # Output: [initial_insulator]
-     println(insulator_group.shunt_capacitance) # Output: Capacitance in [F/m]
-     ```
-     """
-    function InsulatorGroup{T}(
-            r_in::T,
-            r_ex::T,
-            cross_section::T,
-            shunt_capacitance::T,
-            shunt_conductance::T,
-            layers::Vector{AbstractInsulatorPart{T}}
-    ) where {T}
-        return new{T}(r_in, r_ex, cross_section,
-            shunt_capacitance, shunt_conductance, layers)
-    end
-
-    function InsulatorGroup{T}(initial_insulator::AbstractInsulatorPart{T}) where {T}
-        return new{T}(
-            initial_insulator.r_in,
-            initial_insulator.r_ex,
-            initial_insulator.cross_section,
-            initial_insulator.shunt_capacitance,
-            initial_insulator.shunt_conductance,
-            AbstractInsulatorPart{T}[initial_insulator]
-        )
-    end
 end
 
-# Convenience outer
-InsulatorGroup(ins::AbstractInsulatorPart{T}) where {T} = InsulatorGroup{T}(ins)
+Base.eltype(::InsulatorGroup{T}) where {T} = T
+Base.eltype(::Type{InsulatorGroup{T}}) where {T} = T
 
-"""
-$(TYPEDSIGNATURES)
-
-Add a new part to an [`InsulatorGroup`](@ref) and update its equivalent
-electrical parameters.
-
-This updates `shunt_capacitance`, `shunt_conductance`, `r_ex`, and
-`cross_section`. The new part inner radius defaults to the external radius of
-the existing group.
-
-# Behavior
-
-1. Apply part-level keyword defaults (from `Validation.keyword_defaults`).
-2. Default `r_in` to `group.r_ex` if absent.
-3. Compute `Tnew = resolve_T(group, r_in, args..., values(kwargs)..., f)`.
-4. If `Tnew === T`, mutate in place; else `coerce_to_T(group, Tnew)` then mutate and **return the promoted group**.
-
-# Arguments
-
-- `group`: [`InsulatorGroup`](@ref) object to which the new part will be added.
-- `part_type`: Type of insulator part to add ([`AbstractInsulatorPart`](@ref)).
-- `args...`: Positional arguments specific to the constructor of the `part_type` ([`AbstractInsulatorPart`](@ref)) \\[various\\].
-- `kwargs...`: Named arguments for the constructor including optional values specific to the constructor of the `part_type` ([`AbstractInsulatorPart`](@ref)) \\[various\\].
-
-# Returns
-
-- The updated [`InsulatorGroup`](@ref). This is `group` when its numeric type
-  is unchanged, or a promoted group when the new part requires another numeric
-  type.
-
-!!! warning "Note"
-    - The current outer radius is supplied automatically as `r_in`. Pass
-      exactly one of `radius` or `thickness`; do not pass a layer object as a
-      constructor input.
-    - For uncertain geometries, the existing outer-radius derivative graph is
-      retained. Adjacent layers therefore share one physical boundary and
-      cumulative-radius covariance is preserved across part types.
-
-# Examples
-
-```jldoctest
-using LineCableModels.DataModel: Insulator, InsulatorGroup, Semicon
-using LineCableModels.Materials: Material
-
-material = Material(1e10, 3.0, 1.0, 20.0, 0.0)
-insulator_group = InsulatorGroup(Insulator(0.01, 0.015, material))
-insulator_group = $(FUNCTIONNAME)(
-    insulator_group,
-    Semicon,
-    material;
-    thickness=0.003,
-)
-@assert length(insulator_group.layers) == 2
-# output
-```
-
-"""
-function add!(
-        group::InsulatorGroup{T},
-        part_type::Type{C},
-        args...;
-        f::Number = f₀,
-        kwargs...
-) where {T, C <: AbstractInsulatorPart}
-
-    # 1) Merge declared keyword defaults for this part type
-    kwv = _with_kwdefaults(C, (; kwargs...))
-
-    # 2) Default stacking: inner radius = current outer radius unless overridden
-    rin = get(kwv, :r_in, group.r_ex)
-    kwv = haskey(kwv, :r_in) ? kwv : merge(kwv, (; r_in = rin))
-
-    part_args, kwv = _resolve_group_radial_args(C, rin, args, kwv)
-
-    # 3) Decide target numeric type using *current group + raw inputs + f*
-    Tnew = resolve_T(group, rin, part_args..., values(kwv)..., f)
-
-    if Tnew === T
-        # 4a) Fast path: mutate in place
-        return _do_add!(group, C, part_args...; f, kwv...)
-    else
-        @warn """
-          Adding a `$Tnew` part to an `InsulatorGroup{$T}` returns a **promoted** group.
-          Capture the result:  group = add!(group, $C, …)
-          """
-        promoted = coerce_to_T(group, Tnew)
-        return _do_add!(promoted, C, part_args...; f, kwv...)
-    end
+function _reference_temperature(layers::AbstractVector{<:AbstractInsulatorPart})
+    isempty(layers) && throw(ArgumentError("an insulator group requires one layer"))
+    reference = first(layers).material_props.T0
+    all(layer -> isapprox(layer.material_props.T0, reference), layers) ||
+        throw(ArgumentError("all insulator materials must share one reference temperature"))
+    return reference
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Do the actual insertion for `InsulatorGroup` with the group already at the
-correct scalar type. Validates/parses the part, coerces to the group’s `T`,
-constructs the strict numeric core, and updates geometry and admittances at the
-provided frequency.
-
-Returns the mutated group (same object).
-"""
-function _do_add!(
-        group::InsulatorGroup{Tg},
-        C::Type{<:AbstractInsulatorPart},
-        args...;
-        f::Number = f₀,
-        kwargs...
-) where {Tg}
-
-    # Materialize keyword args into a NamedTuple
-    kw = (; kwargs...)
-
-    # Validate and parse with the part's own numeric input sequence.
-    ntv = Validation.validate!(C, kw.r_in, args...; kw...)
-
-    # Build argument order and coerce validated values to group’s T
-    order = (Validation.required_fields(C)..., Validation.keyword_fields(C)...)
-    coerced = _coerced_args(C, ntv, Tg, order)   # respects coercive_fields(C)
-    new_part = C(coerced...)                      # call strict numeric core
-
-    return _append_insulator!(group, new_part; f)
-end
-
-function _append_insulator!(
-    group::InsulatorGroup{Tg},
-    new_part::AbstractInsulatorPart{Tg};
-    f::Number=f₀,
-) where {Tg}
-    isapprox(new_part.r_in, group.r_ex) || throw(ArgumentError(
-        "new insulator layer must start at the group's current outer radius " *
-        "$(group.r_ex); got $(new_part.r_in)",
+function validate(group::InsulatorGroup)
+    isempty(group.layers) && throw(ArgumentError("an insulator group cannot be empty"))
+    _reference_temperature(group.layers)
+    group.reference_frequency > zero(group.reference_frequency) || throw(DomainError(
+        group.reference_frequency,
+        "reference frequency must be positive"
     ))
-
-    # Parallel admittances at frequency f
-    ω = Tg(2π) * coerce_to_T(f, Tg)
-    Yg = Complex(group.shunt_conductance, ω * group.shunt_capacitance)
-    Yp = Complex(new_part.shunt_conductance, ω * new_part.shunt_capacitance)
-    Ye = calc_parallel_equivalent(Yg, Yp)
-    group.shunt_conductance = real(Ye)
-    group.shunt_capacitance = imag(Ye) / ω
-
-    # Update geometry
-    group.r_ex += new_part.r_ex - new_part.r_in
-    group.cross_section += new_part.cross_section
-
-    push!(group.layers, new_part)
+    group.r_in == first(group.layers).r_in ||
+        throw(DomainError(group.r_in, "group inner radius differs from its first layer"))
+    group.r_ex == last(group.layers).r_ex ||
+        throw(DomainError(group.r_ex, "group outer radius differs from its last layer"))
     return group
 end
 
-function add!(
-    group::InsulatorGroup{T},
-    new_part::AbstractInsulatorPart{U};
-    f::Number=f₀,
-) where {T,U}
-    target_type = resolve_T(group, new_part, f)
-    if target_type === T
-        return _append_insulator!(group, coerce_to_T(new_part, T); f)
-    end
-    promoted = coerce_to_T(group, target_type)
-    return _append_insulator!(
-        promoted,
-        coerce_to_T(new_part, target_type);
-        f=coerce_to_T(f, target_type),
-    )
+function InsulatorGroup(
+        layer::AbstractInsulatorPart{T};
+        reference_frequency::Real = oftype(layer.r_in, 50)
+) where {T <: Real}
+    frequency = convert(T, reference_frequency)
+    return validate(InsulatorGroup{T}(
+        layer.r_in,
+        layer.r_ex,
+        layer.cross_section,
+        layer.shunt_capacitance,
+        layer.shunt_conductance,
+        frequency,
+        AbstractInsulatorPart{T}[layer]
+    ))
 end
 
-include("insulatorgroup/base.jl")
+Base.convert(::Type{InsulatorGroup{T}}, group::InsulatorGroup{T}) where {T <: Real} = group
+
+"""
+$(TYPEDSIGNATURES)
+
+Append one concentric dielectric layer using the group's fixed reference
+frequency. The layer must use the group's scalar type and reference temperature.
+"""
+function add!(group::InsulatorGroup{T}, layer::AbstractInsulatorPart{T}) where {T}
+    isapprox(layer.r_in, group.r_ex) || throw(DomainError(
+        layer.r_in,
+        "new insulator layer must start at radius $(group.r_ex)"
+    ))
+    isapprox(layer.material_props.T0, _reference_temperature(group.layers)) ||
+        throw(ArgumentError("new insulator material has a different reference temperature"))
+
+    angular_frequency = (2 * (one(group.reference_frequency) * π)) *
+                        group.reference_frequency
+    group_admittance = complex(
+        group.shunt_conductance,
+        angular_frequency * group.shunt_capacitance
+    )
+    layer_admittance = complex(
+        layer.shunt_conductance,
+        angular_frequency * layer.shunt_capacitance
+    )
+    equivalent = parallel(group_admittance, layer_admittance)
+    next_conductance = real(equivalent)
+    next_capacitance = imag(equivalent) / angular_frequency
+    next_cross_section = group.cross_section + layer.cross_section
+
+    group.shunt_conductance = next_conductance
+    group.shunt_capacitance = next_capacitance
+    group.cross_section = next_cross_section
+    group.r_ex = layer.r_ex
+    push!(group.layers, layer)
+    return validate(group)
+end
+
+function add!(group::InsulatorGroup{T}, layer::AbstractInsulatorPart{U}) where {T, U}
+    throw(ArgumentError(
+        "cannot add $(typeof(layer)) to InsulatorGroup{$T}; explicitly convert the " *
+        "complete design before mutation",
+    ))
+end
+
+function Base.convert(::Type{InsulatorGroup{T}}, group::InsulatorGroup) where {T <: Real}
+    layers = AbstractInsulatorPart{T}[convert(AbstractInsulatorPart{T}, layer)
+                                      for layer in group.layers]
+    return validate(InsulatorGroup{T}(
+        convert(T, group.r_in), convert(T, group.r_ex),
+        convert(T, group.cross_section), convert(T, group.shunt_capacitance),
+        convert(T, group.shunt_conductance), convert(T, group.reference_frequency),
+        layers
+    ))
+end

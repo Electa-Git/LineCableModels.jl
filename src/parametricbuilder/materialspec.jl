@@ -1,9 +1,21 @@
-@gridspace Materials.Material @relax struct MaterialParameters{T<:Real}
-    rho::T
-    eps_r::T=1.0
-    mu_r::T=1.0
-    T0::T=20.0
-    alpha::T=0.0
+struct MaterialSpec{R, E, M, T, A, C} <: AbstractSpec{Materials.Material}
+    rho::R
+    eps_r::E
+    mu_r::M
+    T0::T
+    alpha::A
+    combine::C
+end
+
+function gridspace(spec::MaterialSpec)
+    return Gridspace{Materials.Material}(
+        Materials.Material,
+        map(_gridspace_axis, (
+            spec.rho, spec.eps_r, spec.mu_r, spec.T0, spec.alpha
+        )),
+        (:rho, :eps_r, :mu_r, :T0, :alpha);
+        combine = _valof(spec.combine)
+    )
 end
 
 """
@@ -29,37 +41,37 @@ numeric [`AbstractSpec`](@ref) lifts the same declaration to a
   when at least one input is a `Grid` or `AbstractSpec`.
 """
 function Material(;
-    rho,
-    eps_r=1.0,
-    mu_r=1.0,
-    T0=20.0,
-    alpha=0.0,
-    combine::Symbol=:product,
+        rho,
+        eps_r = 1.0,
+        mu_r = 1.0,
+        T0 = 20.0,
+        alpha = 0.0,
+        combine::Symbol = :product
 )
     combine in (:product, :zip) ||
         throw(ArgumentError("combine must be :product or :zip; got :$combine"))
     values = (rho, eps_r, mu_r, T0, alpha)
-    any(value -> value isa Union{AbstractGrid,AbstractSpec}, values) &&
-        return MaterialParameters(; rho, eps_r, mu_r, T0, alpha, combine)
+    any(value -> value isa Union{AbstractGrid, AbstractSpec}, values) &&
+        return MaterialSpec(rho, eps_r, mu_r, T0, alpha, Val(combine))
     return Materials.Material(rho, eps_r, mu_r, T0, alpha)
 end
 
 function Material(
-    material::Materials.Material;
-    rho=material.rho,
-    eps_r=material.eps_r,
-    mu_r=material.mu_r,
-    T0=material.T0,
-    alpha=material.alpha,
-    combine::Symbol=:product,
+        material::Materials.Material;
+        rho = material.rho,
+        eps_r = material.eps_r,
+        mu_r = material.mu_r,
+        T0 = material.T0,
+        alpha = material.alpha,
+        combine::Symbol = :product
 )
     return Material(; rho, eps_r, mu_r, T0, alpha, combine)
 end
 
 function Material(
-    library::Materials.MaterialsLibrary,
-    name::Union{AbstractString,Symbol};
-    kwargs...,
+        library::Materials.MaterialsLibrary,
+        name::Union{AbstractString, Symbol};
+        kwargs...
 )
     material = get(library, String(name), nothing)
     material === nothing && throw(KeyError(String(name)))
@@ -89,9 +101,9 @@ through the same [`Gridspace`](@ref) grammar used by the cable builder.
   than one material configuration.
 """
 function add!(
-    library::Materials.MaterialsLibrary,
-    name::Union{AbstractString,Symbol},
-    spec::AbstractSpec{Materials.Material},
+        library::Materials.MaterialsLibrary,
+        name::Union{AbstractString, Symbol},
+        spec::AbstractSpec{Materials.Material}
 )
     has_uncertainty(spec) && throw(ArgumentError(
         "a reusable material-library entry must be deterministic",

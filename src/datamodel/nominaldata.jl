@@ -1,97 +1,59 @@
-
 """
 $(TYPEDEF)
 
-Stores nominal electrical and geometric parameters for a cable design.
+Store optional cable-datasheet values.
 
 $(TYPEDFIELDS)
 """
-struct NominalData{T <: REALSCALAR}
-    "Cable designation as per DIN VDE 0271/0276."
+struct NominalData{T <: Real}
     designation_code::Union{Nothing, String}
-    "Rated phase-to-earth voltage \\[kV\\]."
     U0::Union{Nothing, T}
-    "Rated phase-to-phase voltage \\[kV\\]."
     U::Union{Nothing, T}
-    "Cross-sectional area of the conductor \\[mm²\\]."
     conductor_cross_section::Union{Nothing, T}
-    "Cross-sectional area of the screen \\[mm²\\]."
     screen_cross_section::Union{Nothing, T}
-    "Cross-sectional area of the armor \\[mm²\\]."
     armor_cross_section::Union{Nothing, T}
-    "Base (DC) resistance of the cable core \\[Ω/km\\]."
     resistance::Union{Nothing, T}
-    "Capacitance of the main insulation \\[μF/km\\]."
     capacitance::Union{Nothing, T}
-    "Inductance of the cable (trifoil formation) \\[mH/km\\]."
     inductance::Union{Nothing, T}
-
-    # --- Tight / typed kernel: assumes values already coerced to T (or nothing)
-    @inline function NominalData{T}(;
-            designation_code::Union{Nothing, String} = nothing,
-            U0::Union{Nothing, T} = nothing,
-            U::Union{Nothing, T} = nothing,
-            conductor_cross_section::Union{Nothing, T} = nothing,
-            screen_cross_section::Union{Nothing, T} = nothing,
-            armor_cross_section::Union{Nothing, T} = nothing,
-            resistance::Union{Nothing, T} = nothing,
-            capacitance::Union{Nothing, T} = nothing,
-            inductance::Union{Nothing, T} = nothing
-    ) where {T <: REALSCALAR}
-        new{T}(
-            designation_code,
-            U0,
-            U,
-            conductor_cross_section,
-            screen_cross_section,
-            armor_cross_section,
-            resistance,
-            capacitance,
-            inductance
-        )
-    end
 end
 
-"""
-$(TYPEDSIGNATURES)
+Base.eltype(::NominalData{T}) where {T} = T
+Base.eltype(::Type{NominalData{T}}) where {T} = T
 
-Weakly-typed constructor that infers the target scalar type `T` from the **provided numeric kwargs** (ignoring `nothing` and the string designation), coerces numerics to `T`, and calls the strict kernel.
-
-If no numeric kwargs are provided, it defaults to `Float64`.
-"""
-@inline function NominalData(;
-        designation_code::Union{Nothing, String} = nothing,
-        U0::Union{Nothing, Number} = nothing,
-        U::Union{Nothing, Number} = nothing,
-        conductor_cross_section::Union{Nothing, Number} = nothing,
-        screen_cross_section::Union{Nothing, Number} = nothing,
-        armor_cross_section::Union{Nothing, Number} = nothing,
-        resistance::Union{Nothing, Number} = nothing,
-        capacitance::Union{Nothing, Number} = nothing,
-        inductance::Union{Nothing, Number} = nothing
+function NominalData(;
+        designation_code::Union{Nothing, AbstractString} = nothing,
+        U0::Union{Nothing, Real} = nothing,
+        U::Union{Nothing, Real} = nothing,
+        conductor_cross_section::Union{Nothing, Real} = nothing,
+        screen_cross_section::Union{Nothing, Real} = nothing,
+        armor_cross_section::Union{Nothing, Real} = nothing,
+        resistance::Union{Nothing, Real} = nothing,
+        capacitance::Union{Nothing, Real} = nothing,
+        inductance::Union{Nothing, Real} = nothing
 )
-    # collect provided numerics (skip `nothing`)
-    nums = Tuple(x
-    for x in (U0, U, conductor_cross_section, screen_cross_section, armor_cross_section,
-            resistance, capacitance, inductance) if x !== nothing)
-
-    # infer T from numerics, fallback to Float64 if none
-    T = isempty(nums) ? Float64 : resolve_T(nums...)
-
-    return NominalData{T}(;
-        designation_code = designation_code,
-        U0 = (U0 === nothing ? nothing : coerce_to_T(U0, T)),
-        U = (U === nothing ? nothing : coerce_to_T(U, T)),
-        conductor_cross_section = (conductor_cross_section === nothing ? nothing :
-                                   coerce_to_T(conductor_cross_section, T)),
-        screen_cross_section = (screen_cross_section === nothing ? nothing :
-                                coerce_to_T(screen_cross_section, T)),
-        armor_cross_section = (armor_cross_section === nothing ? nothing :
-                               coerce_to_T(armor_cross_section, T)),
-        resistance = (resistance === nothing ? nothing : coerce_to_T(resistance, T)),
-        capacitance = (capacitance === nothing ? nothing : coerce_to_T(capacitance, T)),
-        inductance = (inductance === nothing ? nothing : coerce_to_T(inductance, T))
+    source = (
+        U0, U, conductor_cross_section, screen_cross_section,
+        armor_cross_section, resistance, capacitance, inductance
+    )
+    present = filter(!isnothing, source)
+    T = isempty(present) ? Float64 : promote_type(typeof.(float.(present))...)
+    values = map(value -> value === nothing ? nothing : convert(T, float(value)), source)
+    return NominalData{T}(
+        designation_code === nothing ? nothing : String(designation_code),
+        values...
     )
 end
 
-include("nominaldata/base.jl")
+function Base.convert(::Type{NominalData{T}}, data::NominalData) where {T <: Real}
+    values = map(
+        value -> value === nothing ? nothing : convert(T, value),
+        (
+            data.U0, data.U, data.conductor_cross_section,
+            data.screen_cross_section, data.armor_cross_section,
+            data.resistance, data.capacitance, data.inductance
+        )
+    )
+    return NominalData{T}(data.designation_code, values...)
+end
+
+Base.convert(::Type{NominalData{T}}, data::NominalData{T}) where {T <: Real} = data

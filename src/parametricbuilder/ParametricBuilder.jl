@@ -8,10 +8,10 @@ export @gridspace, @relax
 
 export Material, Conductor, Insulator, CableBuilder
 export at, trifoil, hflat, vflat, Earth, SystemBuilder
-export make_stranded, make_screened
+export WireEstimate, make_stranded, make_screened
 
-using ..Commons: f₀, T₀, SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
-import ..Commons: add!
+using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
+import ..LineCableModels: add!, nominal, standard_uncertainty, maxfill
 import ..Materials
 import ..Materials: Material
 import ..DataModel
@@ -28,6 +28,6 @@ include("positionspec.jl")
 include("systembuilderspec.jl")
 
 include("wirepatterns/WirePatterns.jl")
-using .WirePatterns: make_stranded, make_screened
+using .WirePatterns: WireEstimate, make_stranded, make_screened
 
 end

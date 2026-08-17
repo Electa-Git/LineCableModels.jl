@@ -1,81 +1,20 @@
-
-Base.eltype(::EarthModel{T}) where {T} = T
-Base.eltype(::EarthLayer{T}) where {T} = T
-
-function Base.convert(::Type{EarthModel{T}}, model::EarthModel) where {T}
-    # If the model is already the target type, return it without modification.
-    model isa EarthModel{T} && return model
-
-    # Delegate the actual conversion logic to the existing coerce_to_T function.
-    return coerce_to_T(model, T)
-end
-
-function Base.convert(::Type{EarthLayer{T}}, layer::EarthLayer) where {T}
-    # Avoid unnecessary work if the layer is already the correct type.
-    layer isa EarthLayer{T} && return layer
-
-    # Delegate the conversion logic to the specialized coerce_to_T function.
-    return coerce_to_T(layer, T)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Defines the display representation of a [`EarthModel`](@ref) object for REPL or text output.
-
-# Arguments
-
-- `io`: The output stream to write the representation to \\[IO\\].
-- `mime`: The MIME type for plain text output \\[MIME"text/plain"\\].
-- `model`: The [`EarthModel`](@ref) instance to be displayed.
-
-
-# Returns
-
-- Nothing. Modifies `io` to format the output.
-"""
 function Base.show(io::IO, ::MIME"text/plain", model::EarthModel)
-    # Determine model type based on num_layers and vertical_layers flag
-    num_layers = length(model.layers)
-    model_type = num_layers == 2 ? "homogeneous" : "multilayer"
+    earth_count = length(model.layers) - 1
     orientation = model.vertical_layers ? "vertical" : "horizontal"
-    layer_word = (num_layers - 1) == 1 ? "layer" : "layers"
-
-    # Count frequency samples from the first layer's property arrays
-    num_freq_samples = length(model.layers[1].rho_g)
-    freq_word = (num_freq_samples) == 1 ? "sample" : "samples"
-
-    # Print header with key information
-    println(
-        io,
-        "EarthModel with $(num_layers-1) $(orientation) earth $(layer_word) ($(model_type)) and $(num_freq_samples) frequency $(freq_word)"
-    )
-
-    # Print layers in treeview style
-    for i in 1:num_layers
-        layer = model.layers[i]
-        # Determine prefix based on whether it's the last layer
-        prefix = i == num_layers ? "└─" : "├─"
-
-        # Format thickness value
-        thickness_str = isinf(layer.t) ? "Inf" : "$(round(layer.t, sigdigits=4))"
-
-        # Format layer name
-        layer_name = i == 1 ? "Layer $i (air)" : "Layer $i"
-
-        # Print layer properties with proper formatting
+    kind = earth_count == 1 ? "homogeneous" : "multilayer"
+    println(io,
+        "EarthModel with $earth_count $orientation earth " *
+        "$(earth_count == 1 ? "layer" : "layers") ($kind)")
+    for (index, layer) in enumerate(model.layers)
+        prefix = index == length(model.layers) ? "└─" : "├─"
+        name = index == 1 ? "Layer 1 (air)" : "Layer $index"
+        thickness = isinf(layer.thickness) ? "Inf" :
+                    string(round(layer.thickness; sigdigits = 4))
         println(
             io,
-            "$prefix $layer_name: [rho_g=$(round(layer.base_rho_g, sigdigits=4)), " *
-            "epsr_g=$(round(layer.base_epsr_g, sigdigits=4)), " *
-            "mur_g=$(round(layer.base_mur_g, sigdigits=4)), " *
-            "t=$thickness_str]"
+            "$prefix $name: [rho=$(round(layer.rho; sigdigits=4)), " *
+            "eps_r=$(round(layer.eps_r; sigdigits=4)), " *
+            "mu_r=$(round(layer.mu_r; sigdigits=4)), thickness=$thickness]"
         )
-    end
-
-    # Add formulation information as child nodes
-    if !isnothing(model.freq_dependence)
-        formulation_tag = get_description(model.freq_dependence)
-        println(io, "   Frequency-dependent model: $(formulation_tag)")
     end
 end

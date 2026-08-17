@@ -31,9 +31,7 @@ mutable struct CablesLibrary
 
      """
     function CablesLibrary()::CablesLibrary
-        library = new(Dict{String, CableDesign}())
-        @info "Initializing empty cables database..."
-        return library
+        return new(Dict{String, CableDesign}())
     end
 end
 
@@ -58,9 +56,11 @@ println(library) # Prints the updated dictionary containing the new cable design
 ```
 """
 function add!(library::CablesLibrary, design::CableDesign)
+    haskey(library, design.cable_id) && throw(ArgumentError(
+        "cable design '$(design.cable_id)' already exists",
+    ))
     library.data[design.cable_id] = design
-    @info "Cable design with ID `$(design.cable_id)` added to the library."
-    library
+    return library
 end
 
 include("cableslibrary/base.jl")

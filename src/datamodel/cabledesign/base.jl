@@ -22,20 +22,20 @@ function Base.show(io::IO, ::MIME"text/plain", design::CableDesign)
     print(io, "$(length(design.components))-element CableDesign \"$(design.cable_id)\"")
 
     # Add nominal values if available
-    nominal_values = []
-    if design.nominal_data.resistance !== nothing
+    nominal_values = String[]
+    if design.nominal_data !== nothing && design.nominal_data.resistance !== nothing
         push!(
             nominal_values,
             "resistance=$(round(design.nominal_data.resistance, sigdigits=4))"
         )
     end
-    if design.nominal_data.inductance !== nothing
+    if design.nominal_data !== nothing && design.nominal_data.inductance !== nothing
         push!(
             nominal_values,
             "inductance=$(round(design.nominal_data.inductance, sigdigits=4))"
         )
     end
-    if design.nominal_data.capacitance !== nothing
+    if design.nominal_data !== nothing && design.nominal_data.capacitance !== nothing
         push!(
             nominal_values,
             "capacitance=$(round(design.nominal_data.capacitance, sigdigits=4))"

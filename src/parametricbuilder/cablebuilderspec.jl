@@ -1,27 +1,30 @@
-struct PartBuilder{Role,Part,Mode,C,D,A<:Tuple,M}
+struct PartSpec{Role, Part, Mode, C, D, A <: Tuple, M}
     component::C
     layers::Int
     dimension::D
     args::A
     material::M
 
-    function PartBuilder(
-        ::Val{Role},
-        ::Val{Part},
-        ::Val{Mode},
-        component,
-        layers,
-        dimension,
-        args::A,
-        material,
-    ) where {Role,Part,Mode,A<:Tuple}
+    function PartSpec(
+            ::Val{Role},
+            ::Val{Part},
+            ::Val{Mode},
+            component,
+            layers,
+            dimension,
+            args::A,
+            material
+    ) where {Role, Part, Mode, A <: Tuple}
         component isa Symbol ||
             throw(ArgumentError("part component must be a Symbol"))
         layers isa Integer && layers > 0 ||
             throw(ArgumentError("part layers must be a positive integer"))
-        Mode in (:radius, :solid) && layers != 1 && throw(ArgumentError(
-            "absolute radius is valid only for a single layer; use thickness for repeated stacking",
-        ))
+        Mode in (:radius, :solid, :thickness, :wire_radius) ||
+            throw(ArgumentError("unsupported radial mode :$Mode"))
+        Mode in (:radius, :solid) && layers != 1 &&
+            throw(ArgumentError(
+                "absolute radius is valid only for a single layer; use thickness for repeated stacking",
+            ))
         dimension isa Real && dimension > zero(dimension) ||
             throw(ArgumentError("part radius/thickness must be a positive real number"))
         material isa Materials.Material ||
@@ -33,44 +36,44 @@ struct PartBuilder{Role,Part,Mode,C,D,A<:Tuple,M}
             typeof(component),
             typeof(dimension),
             A,
-            typeof(material),
+            typeof(material)
         }(component, Int(layers), dimension, args, material)
     end
 end
 
-_part_role(::PartBuilder{Role}) where {Role} = Role
-_part_type(::PartBuilder{Role,Part}) where {Role,Part} = Part
-_part_mode(::PartBuilder{Role,Part,Mode}) where {Role,Part,Mode} = Mode
+_part_role(::PartSpec{Role}) where {Role} = Role
+_part_type(::PartSpec{Role, Part}) where {Role, Part} = Part
+_part_mode(::PartSpec{Role, Part, Mode}) where {Role, Part, Mode} = Mode
 _valof(::Val{Value}) where {Value} = Value
 
 function _simple_part_builder(
-    role::Val,
-    part::Val,
-    mode::Val,
-    component,
-    layers,
-    dimension,
-    material,
+        role::Val,
+        part::Val,
+        mode::Val,
+        component,
+        layers,
+        dimension,
+        material
 )
-    return PartBuilder(role, part, mode, component, layers, dimension, (), material)
+    return PartSpec(role, part, mode, component, layers, dimension, (), material)
 end
 
 function _wire_part_builder(
-    role::Val,
-    part::Val,
-    mode::Val,
-    component,
-    layers,
-    wire_radius,
-    num_wires,
-    lay_ratio,
-    material,
+        role::Val,
+        part::Val,
+        mode::Val,
+        component,
+        layers,
+        wire_radius,
+        num_wires,
+        lay_ratio,
+        material
 )
     num_wires isa Integer && num_wires > 0 ||
         throw(ArgumentError("num_wires must be a positive integer"))
     lay_ratio isa Real && lay_ratio >= zero(lay_ratio) ||
         throw(ArgumentError("lay_ratio must be a nonnegative real number"))
-    return PartBuilder(
+    return PartSpec(
         role,
         part,
         mode,
@@ -78,26 +81,26 @@ function _wire_part_builder(
         layers,
         wire_radius,
         (Int(num_wires), lay_ratio),
-        material,
+        material
     )
 end
 
 function _strip_part_builder(
-    role::Val,
-    part::Val,
-    mode::Val,
-    component,
-    layers,
-    dimension,
-    width,
-    lay_ratio,
-    material,
+        role::Val,
+        part::Val,
+        mode::Val,
+        component,
+        layers,
+        dimension,
+        width,
+        lay_ratio,
+        material
 )
     width isa Real && width > zero(width) ||
         throw(ArgumentError("strip width must be a positive real number"))
     lay_ratio isa Real && lay_ratio >= zero(lay_ratio) ||
         throw(ArgumentError("lay_ratio must be a nonnegative real number"))
-    return PartBuilder(
+    return PartSpec(
         role,
         part,
         mode,
@@ -105,16 +108,16 @@ function _strip_part_builder(
         layers,
         dimension,
         (width, lay_ratio),
-        material,
+        material
     )
 end
 
-function _part_space(target, axes::Tuple, names::Tuple; combine::Symbol=:product)
-    return Gridspace{PartBuilder}(
+function _part_space(target, axes::Tuple, names::Tuple; combine::Symbol = :product)
+    return Gridspace{PartSpec}(
         target,
         map(_gridspace_axis, axes),
         names;
-        combine,
+        combine
     )
 end
 
@@ -129,15 +132,16 @@ end
 module Conductor
 
 using ..ParametricBuilder:
-    Gridspace, PartBuilder, _part_space, _radial_declaration,
-    _simple_part_builder, _wire_part_builder, _strip_part_builder, _valof
+                           Gridspace, PartSpec, _part_space, _radial_declaration,
+                           _simple_part_builder, _wire_part_builder, _strip_part_builder,
+                           _valof
 import ...DataModel
 
 function Solid(
-    component::Symbol;
-    radius,
-    material,
-    combine::Symbol=:product,
+        component::Symbol;
+        radius,
+        material,
+        combine::Symbol = :product
 )
     return _part_space(
         _simple_part_builder,
@@ -148,20 +152,20 @@ function Solid(
             component,
             1,
             radius,
-            material,
+            material
         ),
         (:role, :part, :mode, :component, :layers, :radius, :material);
-        combine,
+        combine
     )
 end
 
 function Tubular(
-    component::Symbol;
-    layers=1,
-    radius=nothing,
-    thickness=nothing,
-    material,
-    combine::Symbol=:product,
+        component::Symbol;
+        layers = 1,
+        radius = nothing,
+        thickness = nothing,
+        material,
+        combine::Symbol = :product
 )
     mode, dimension = _radial_declaration(radius, thickness)
     return _part_space(
@@ -173,21 +177,21 @@ function Tubular(
             component,
             layers,
             dimension,
-            material,
+            material
         ),
         (:role, :part, :mode, :component, :layers, _valof(mode), :material);
-        combine,
+        combine
     )
 end
 
 function Wires(
-    component::Symbol;
-    layers=1,
-    wire_radius,
-    num_wires,
-    lay_ratio=11.0,
-    material,
-    combine::Symbol=:product,
+        component::Symbol;
+        layers = 1,
+        wire_radius,
+        num_wires,
+        lay_ratio = 11.0,
+        material,
+        combine::Symbol = :product
 )
     return _part_space(
         _wire_part_builder,
@@ -200,7 +204,7 @@ function Wires(
             wire_radius,
             num_wires,
             lay_ratio,
-            material,
+            material
         ),
         (
             :role,
@@ -211,21 +215,21 @@ function Wires(
             :wire_radius,
             :num_wires,
             :lay_ratio,
-            :material,
+            :material
         );
-        combine,
+        combine
     )
 end
 
 function Strip(
-    component::Symbol;
-    layers=1,
-    radius=nothing,
-    thickness=nothing,
-    width,
-    lay_ratio=0.0,
-    material,
-    combine::Symbol=:product,
+        component::Symbol;
+        layers = 1,
+        radius = nothing,
+        thickness = nothing,
+        width,
+        lay_ratio = 0.0,
+        material,
+        combine::Symbol = :product
 )
     mode, dimension = _radial_declaration(radius, thickness)
     return _part_space(
@@ -239,7 +243,7 @@ function Strip(
             dimension,
             width,
             lay_ratio,
-            material,
+            material
         ),
         (
             :role,
@@ -250,40 +254,40 @@ function Strip(
             _valof(mode),
             :width,
             :lay_ratio,
-            :material,
+            :material
         );
-        combine,
+        combine
     )
 end
 
 function Stranded(
-    component::Symbol;
-    layers::Int,
-    wire_radius,
-    num_wires::Int=6,
-    lay_ratio=11.0,
-    material,
-    combine::Symbol=:product,
+        component::Symbol;
+        layers::Int,
+        wire_radius,
+        num_wires::Int = 6,
+        lay_ratio = 11.0,
+        material,
+        combine::Symbol = :product
 )
     layers >= 1 || throw(ArgumentError("layers must be at least one"))
     central = Wires(
         component;
-        layers=1,
+        layers = 1,
         wire_radius,
-        num_wires=1,
-        lay_ratio=0.0,
+        num_wires = 1,
+        lay_ratio = 0.0,
         material,
-        combine,
+        combine
     )
     layers == 1 && return (central,)
     rings = Wires(
         component;
-        layers=layers - 1,
+        layers = layers - 1,
         wire_radius,
         num_wires,
         lay_ratio,
         material,
-        combine,
+        combine
     )
     return (central, rings)
 end
@@ -293,17 +297,17 @@ end
 module Insulator
 
 using ..ParametricBuilder:
-    _part_space, _radial_declaration, _simple_part_builder, _valof
+                           _part_space, _radial_declaration, _simple_part_builder, _valof
 import ...DataModel
 
 function _annular(
-    part,
-    component::Symbol;
-    layers=1,
-    radius=nothing,
-    thickness=nothing,
-    material,
-    combine::Symbol=:product,
+        part,
+        component::Symbol;
+        layers = 1,
+        radius = nothing,
+        thickness = nothing,
+        material,
+        combine::Symbol = :product
 )
     mode, dimension = _radial_declaration(radius, thickness)
     return _part_space(
@@ -315,67 +319,120 @@ function _annular(
             component,
             layers,
             dimension,
-            material,
+            material
         ),
         (:role, :part, :mode, :component, :layers, _valof(mode), :material);
-        combine,
+        combine
     )
 end
 
-Tubular(component::Symbol; kwargs...) =
-    _annular(DataModel.Insulator, component; kwargs...)
-Semicon(component::Symbol; kwargs...) =
-    _annular(DataModel.Semicon, component; kwargs...)
+Tubular(component::Symbol; kwargs...) = _annular(DataModel.Insulator, component; kwargs...)
+Semicon(component::Symbol; kwargs...) = _annular(DataModel.Semicon, component; kwargs...)
 
 end
 
-function _resolved_outer_radius(builder::PartBuilder, r_in)
-    mode = _part_mode(builder)
-    mode === :radius && return builder.dimension
-    mode === :solid && return builder.dimension
-    mode === :thickness && return r_in + builder.dimension
-    throw(ArgumentError("part mode :$mode does not define an annular outer radius"))
+_resolved_outer_radius(builder::PartSpec{<:Any, <:Any, :radius}, _) = builder.dimension
+_resolved_outer_radius(builder::PartSpec{<:Any, <:Any, :solid}, _) = builder.dimension
+function _resolved_outer_radius(builder::PartSpec{<:Any, <:Any, :thickness}, r_in)
+    r_in + builder.dimension
 end
 
-function _materialize_part(builder::PartBuilder, r_in, layer::Int)
-    role = _part_role(builder)
-    part = _part_type(builder)
-    mode = _part_mode(builder)
+function _materialize_part(
+        builder::PartSpec{:conductor, DataModel.CircStrands},
+        r_in,
+        layer::Int
+)
+    num_wires, lay_ratio = builder.args
+    layer_count = num_wires == 1 ? 1 : layer * num_wires
+    r_ex = layer_count == 1 ? builder.dimension : r_in + 2 * builder.dimension
+    return DataModel.CircStrands(
+        r_in, r_ex, builder.dimension, layer_count, lay_ratio, builder.material
+    )
+end
 
-    if part === DataModel.CircStrands
-        num_wires, lay_ratio = builder.args
-        layer_count = num_wires == 1 ? 1 : layer * num_wires
-        return DataModel.CircStrands(
-            r_in,
-            builder.dimension,
-            layer_count,
-            lay_ratio,
-            builder.material,
-        )
-    elseif part === DataModel.Strip
-        width, lay_ratio = builder.args
-        r_ex = _resolved_outer_radius(builder, r_in)
-        return DataModel.Strip(
-            r_in,
-            r_ex,
-            width,
-            lay_ratio,
-            builder.material,
-        )
-    elseif part === DataModel.Tubular
-        mode === :solid && !iszero(r_in) && throw(ArgumentError(
-            "solid conductors must start at radius zero",
-        ))
-        r_ex = _resolved_outer_radius(builder, r_in)
-        return DataModel.Tubular(r_in, r_ex, builder.material)
-    elseif part === DataModel.Insulator
-        r_ex = _resolved_outer_radius(builder, r_in)
-        return DataModel.Insulator(r_in, r_ex, builder.material)
-    elseif part === DataModel.Semicon
-        r_ex = _resolved_outer_radius(builder, r_in)
-        return DataModel.Semicon(r_in, r_ex, builder.material)
+function _materialize_part(
+        builder::PartSpec{:conductor, DataModel.Strip},
+        r_in,
+        ::Int
+)
+    width, lay_ratio = builder.args
+    return DataModel.Strip(
+        r_in, _resolved_outer_radius(builder, r_in), width, lay_ratio,
+        builder.material
+    )
+end
+
+function _materialize_part(
+        builder::PartSpec{:conductor, DataModel.Tubular, :solid},
+        r_in,
+        ::Int
+)
+    iszero(r_in) || throw(ArgumentError("solid conductors must start at radius zero"))
+    return DataModel.Tubular(r_in, builder.dimension, builder.material)
+end
+
+function _materialize_part(
+        builder::PartSpec{:conductor, DataModel.Tubular},
+        r_in,
+        ::Int
+)
+    return DataModel.Tubular(
+        r_in, _resolved_outer_radius(builder, r_in), builder.material
+    )
+end
+
+function _materialize_part(
+        builder::PartSpec{:insulator, DataModel.Insulator},
+        r_in,
+        ::Int
+)
+    return DataModel.Insulator(
+        r_in, _resolved_outer_radius(builder, r_in), builder.material
+    )
+end
+
+function _materialize_part(
+        builder::PartSpec{:insulator, DataModel.Semicon},
+        r_in,
+        ::Int
+)
+    return DataModel.Semicon(
+        r_in, _resolved_outer_radius(builder, r_in), builder.material
+    )
+end
+
+function _materialize_part(builder::PartSpec, r_in, layer::Int)
+    throw(ArgumentError(
+        "unsupported part declaration $(_part_role(builder)) / " *
+        "$(_part_type(builder)) / $(_part_mode(builder)) at layer $layer",
+    ))
+end
+
+function _part_scalar(builder::PartSpec)
+    promote_type(
+        typeof(float(builder.dimension)), eltype(builder.material),
+        (typeof(float(value))
+        for value in builder.args if value isa Real && !(value isa Integer))...
+    )
+end
+
+function _convert_part(::Type{T}, builder::PartSpec{
+        Role, Part, Mode}) where {
+        T <: Real, Role, Part, Mode
+}
+    args = map(builder.args) do value
+        value isa Integer ? value : value isa Real ? convert(T, float(value)) : value
     end
-    throw(ArgumentError("unsupported materialized part type $part for role :$role"))
+    return PartSpec(
+        Val(Role), Val(Part), Val(Mode), builder.component, builder.layers,
+        convert(T, float(builder.dimension)), args,
+        convert(Materials.Material{T}, builder.material)
+    )
+end
+
+function _promote_parts(builders::Tuple)
+    T = promote_type((_part_scalar(builder) for builder in builders)...)
+    return map(builder -> _convert_part(T, builder), builders), T
 end
 
 function _component_names(builders::Tuple)
@@ -395,8 +452,8 @@ function _build_component(component::Symbol, builders::Tuple, base_radius)
         for layer in 1:builder.layers
             part = _materialize_part(builder, current_radius, layer)
             conductor_group = conductor_group === nothing ?
-                DataModel.ConductorGroup(part) :
-                add!(conductor_group, part)
+                              DataModel.ConductorGroup(part) :
+                              add!(conductor_group, part)
             current_radius = conductor_group.r_ex
         end
     end
@@ -411,8 +468,8 @@ function _build_component(component::Symbol, builders::Tuple, base_radius)
         for layer in 1:builder.layers
             part = _materialize_part(builder, current_radius, layer)
             insulator_group = insulator_group === nothing ?
-                DataModel.InsulatorGroup(part) :
-                add!(insulator_group, part)
+                              DataModel.InsulatorGroup(part) :
+                              add!(insulator_group, part)
             current_radius = insulator_group.r_ex
         end
     end
@@ -421,7 +478,7 @@ function _build_component(component::Symbol, builders::Tuple, base_radius)
     return DataModel.CableComponent(
         String(component),
         conductor_group,
-        insulator_group,
+        insulator_group
     )
 end
 
@@ -432,25 +489,27 @@ end
 _nominal_data(::Nothing) = nothing
 _nominal_data(nominal::DataModel.NominalData) = nominal
 _nominal_data(nominal::NamedTuple) = DataModel.NominalData(; nominal...)
-_nominal_data(nominal) = throw(ArgumentError(
-    "nominal data must be a NamedTuple, NominalData, or nothing; got $(typeof(nominal))",
-))
+function _nominal_data(nominal)
+    throw(ArgumentError(
+        "nominal data must be a NamedTuple, NominalData, or nothing; got $(typeof(nominal))",
+    ))
+end
 
 function (materializer::DesignMaterializer)(identifier, builders...)
     isempty(builders) && throw(ArgumentError("CableBuilder requires at least one part"))
-    parts = tuple(builders...)
+    parts, T = _promote_parts(tuple(builders...))
     names = _component_names(parts)
     isempty(names) && throw(ArgumentError("CableBuilder has no components"))
 
-    first_component = _build_component(first(names), parts, 0.0)
+    first_component = _build_component(first(names), parts, zero(T))
     nominal = _nominal_data(materializer.nominal)
     design = nominal === nothing ?
-        DataModel.CableDesign(String(identifier), first_component) :
-        DataModel.CableDesign(
-            String(identifier),
-            first_component;
-            nominal_data=nominal,
-        )
+             DataModel.CableDesign(String(identifier), first_component) :
+             DataModel.CableDesign(
+        String(identifier),
+        first_component;
+        nominal_data = nominal
+    )
     for name in Iterators.drop(names, 1)
         base_radius = design.components[end].insulator_group.r_ex
         add!(design, _build_component(name, parts, base_radius))
@@ -458,24 +517,22 @@ function (materializer::DesignMaterializer)(identifier, builders...)
     return design
 end
 
-struct CableDesignSpec{P<:Tuple,N,C} <: AbstractSpec{DataModel.CableDesign}
+struct CableDesignSpec{P <: Tuple, N, C} <: AbstractSpec{DataModel.CableDesign}
     identifier::String
     parts::P
     nominal::N
     combine::C
 end
 
-_flatten_parts(part::Gridspace{PartBuilder}) = (part,)
-function _flatten_parts(parts::Union{Tuple,AbstractVector})
-    flattened = ()
-    for part in parts
-        flattened = (flattened..., _flatten_parts(part)...)
-    end
-    return flattened
+_flatten_parts(part::Gridspace{PartSpec}) = (part,)
+function _flatten_parts(parts::Union{Tuple, AbstractVector})
+    tuple(Iterators.flatten(map(_flatten_parts, parts))...)
 end
-_flatten_parts(value) = throw(ArgumentError(
-    "CableBuilder expects part Gridspaces; got $(typeof(value))",
-))
+function _flatten_parts(value)
+    throw(ArgumentError(
+        "CableBuilder expects part Gridspaces; got $(typeof(value))",
+    ))
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -517,10 +574,10 @@ cable-part, group, and component calculations.
   errors from the materialized cable model.
 """
 function CableBuilder(
-    identifier::AbstractString,
-    parts...;
-    nominal=nothing,
-    combine::Symbol=:product,
+        identifier::AbstractString,
+        parts...;
+        nominal = nothing,
+        combine::Symbol = :product
 )
     combine in (:product, :zip) ||
         throw(ArgumentError("combine must be :product or :zip"))
@@ -531,7 +588,7 @@ function CableBuilder(
         String(identifier),
         flattened,
         nominal,
-        Val(combine),
+        Val(combine)
     )
 end
 
@@ -542,6 +599,6 @@ function gridspace(spec::CableDesignSpec)
         DesignMaterializer(spec.nominal),
         axes,
         names;
-        combine=_valof(spec.combine),
+        combine = _valof(spec.combine)
     )
 end

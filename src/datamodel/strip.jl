@@ -1,163 +1,70 @@
 """
 $(TYPEDEF)
 
-Represents a flat conductive strip with defined geometric and material properties given by the attributes:
+Represent a helical conductive strip at material reference temperature.
 
 $(TYPEDFIELDS)
 """
-struct Strip{T <: REALSCALAR} <: AbstractConductorPart{T}
-    "Internal radius of the strip \\[m\\]."
+struct Strip{T <: Real} <: AbstractConductorPart{T}
     r_in::T
-    "External radius of the strip \\[m\\]."
     r_ex::T
-    "Thickness of the strip \\[m\\]."
     thickness::T
-    "Width of the strip \\[m\\]."
     width::T
-    "Ratio defining the lay length of the strip (twisting factor) \\[dimensionless\\]."
     lay_ratio::T
-    "Mean diameter of the strip's helical path \\[m\\]."
     mean_diameter::T
-    "Pitch length of the strip's helical path \\[m\\]."
     pitch_length::T
-    "Twisting direction of the strip (1 = unilay, -1 = contralay) \\[dimensionless\\]."
     lay_direction::Int
-    "Material properties of the strip."
     material_props::Material{T}
-    "Temperature at which the properties are evaluated \\[°C\\]."
-    temperature::T
-    "Cross-sectional area of the strip \\[m²\\]."
     cross_section::T
-    "Electrical resistance of the strip \\[Ω/m\\]."
     resistance::T
-    "Geometric mean radius of the strip \\[m\\]."
     gmr::T
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Constructs a [`Strip`](@ref) object with specified geometric and material parameters.
-
-# Arguments
-
-- `r_in`: Internal radius of the strip \\[m\\].
-- `r_ex`: External radius of the strip \\[m\\].
-- `width`: Width of the strip \\[m\\].
-- `lay_ratio`: Ratio defining the lay length of the strip \\[dimensionless\\].
-- `material_props`: Material properties of the strip.
-- `temperature`: Temperature at which the properties are evaluated \\[°C\\]. Defaults to [`T₀`](@ref).
-- `lay_direction`: Twisting direction of the strip (1 = unilay, -1 = contralay) \\[dimensionless\\]. Defaults to 1.
-
-# Returns
-
-- A [`Strip`](@ref) object with calculated geometric and electrical properties.
-
-# Examples
-
-```julia
-material_props = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
-strip = $(FUNCTIONNAME)(0.01, 0.012, 0.05, 10, material_props, temperature=25)
-println(strip.cross_section) # Output: 0.0001 [m²]
-println(strip.resistance)    # Output: Resistance value [Ω/m]
-```
-
-"""
-function Strip(
-        r_in::T,
-        r_ex::T,
-        width::T,
-        lay_ratio::T,
-        material_props::Material{T},
-        temperature::T,
-        lay_direction::Int
-) where {T <: REALSCALAR}
-    thickness = r_ex - r_in
-    rho = material_props.rho
-    T0 = material_props.T0
-    alpha = material_props.alpha
-
-    mean_diameter, pitch_length, overlength = calc_helical_params(
-        r_in,
-        r_ex,
-        lay_ratio
-    )
-
-    cross_section = thickness * width
-
-    R_strip = calc_strip_resistance(thickness, width, rho, alpha, T0, temperature) *
-              overlength
-
-    gmr = calc_tubular_gmr(r_ex, r_in, material_props.mu_r)
-
-    # Initialize object
-    return Strip(
-        r_in,
-        r_ex,
-        thickness,
-        width,
-        lay_ratio,
-        mean_diameter,
-        pitch_length,
-        lay_direction,
-        material_props,
-        temperature,
-        cross_section,
-        R_strip,
-        gmr
-    )
-end
-
-const _REQ_STRIP = (:r_in, :r_ex, :width, :lay_ratio, :material_props)
-const _OPT_STRIP = (:temperature, :lay_direction)
-const _DEFS_STRIP = (T₀, 1)
-
-Validation.has_radii(::Type{Strip}) = true
-Validation.has_temperature(::Type{Strip}) = true
-Validation.required_fields(::Type{Strip}) = _REQ_STRIP
-Validation.keyword_fields(::Type{Strip}) = _OPT_STRIP
-Validation.keyword_defaults(::Type{Strip}) = _DEFS_STRIP
-
-function Validation.coercive_fields(::Type{Strip})
-    (:r_in, :r_ex, :width, :lay_ratio, :material_props, :temperature)
-end  # not :lay_direction
-function Validation.extra_rules(::Type{Strip})
+function Validation.rules(::Type{Strip})
     (
-        IsA{Material}(:material_props),
-        OneOf(:lay_direction, (-1, 1)),
-        Finite(:lay_ratio),
-        Nonneg(:lay_ratio),
-        Finite(:width),
-        Positive(:width)
+        Finite(:r_in), Finite(:r_ex), Finite(:width), Finite(:lay_ratio),
+        Nonnegative(:r_in), Positive(:r_ex), Less(:r_in, :r_ex), Positive(:width),
+        Nonnegative(:lay_ratio), OneOf(:lay_direction, (-1, 1))
     )
 end
-
-function Validation.parse(::Type{Strip}, nt)
-    rin, rex = _normalize_radii(Strip, nt.r_in, nt.r_ex)
-    (; nt..., r_in = rin, r_ex = rex)
-end
-
-# This macro expands to a weakly-typed constructor for Strip
-@construct Strip _REQ_STRIP _OPT_STRIP _DEFS_STRIP
+validate(layer::Strip) = Validation.check(Strip, layer)
 
 function Strip(
-    r_in::Real,
-    width::Real,
-    lay_ratio::Real,
-    material_props::Material;
-    radius::Union{Nothing,Real}=nothing,
-    thickness::Union{Nothing,Real}=nothing,
-    temperature::Real=T₀,
-    lay_direction::Int=1,
+        r_in::Real,
+        r_ex::Real,
+        width::Real,
+        lay_ratio::Real,
+        material::Material;
+        lay_direction::Integer = 1
 )
-    r_ex = _resolve_outer_radius(Strip, r_in; radius, thickness)
+    T = promote_type(
+        Float32,
+        typeof(float(r_in)), typeof(float(r_ex)), typeof(float(width)),
+        typeof(float(lay_ratio)), eltype(material)
+    )
+    rin, rex, w, ratio = convert.(T, (r_in, r_ex, width, lay_ratio))
+    props = convert(Material{T}, material)
+    Validation.check(Strip, (; r_in = rin, r_ex = rex, width = w, lay_ratio = ratio,
+        lay_direction))
+    thickness = rex - rin
+    mean_diameter, pitch_length, overlength = helix(rin, rex, ratio)
+    resistance = strip_resistance(
+        thickness, w, props.rho, props.alpha, props.T0, props.T0
+    ) * overlength
+    return validate(Strip(
+        rin, rex, thickness, w, ratio, mean_diameter, pitch_length,
+        Int(lay_direction), props, thickness * w, resistance,
+        tubular_gmr(rex, rin, props.mu_r)
+    ))
+end
+
+function Base.convert(
+        ::Type{AbstractConductorPart{T}},
+        layer::Strip
+) where {T <: Real}
     return Strip(
-        r_in,
-        r_ex,
-        width,
-        lay_ratio,
-        material_props;
-        temperature,
-        lay_direction,
+        convert(T, layer.r_in), convert(T, layer.r_ex), convert(T, layer.width),
+        convert(T, layer.lay_ratio), convert(Material{T}, layer.material_props);
+        lay_direction = layer.lay_direction
     )
 end
