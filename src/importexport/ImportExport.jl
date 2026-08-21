@@ -23,6 +23,7 @@ module ImportExport
 
 # Export public API
 export export_data
+export import_data
 export read_data
 export save
 export load!
@@ -36,7 +37,7 @@ using ..Materials: Material, MaterialsLibrary
 using ..EarthProps: EarthModel
 using ..DataModel: CablesLibrary, CableDesign, CableComponent, ConductorGroup,
                    InsulatorGroup, CircStrands, RectStrands, Strip, Tubular, Semicon,
-                   Insulator,
+                   Insulator, CablePosition,
                    LineCableSystem, NominalData
 import ..Engine: LineParameters, SeriesImpedance, ShuntAdmittance
 using EzXML
@@ -78,6 +79,32 @@ $(METHODLIST)
 # function export_data end
 function export_data(backend::Symbol, args...; kwargs...)
     export_data(Val(backend), args...; kwargs...)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Import external data through a format-specific backend.
+
+# Arguments
+
+- `backend`: Registered backend name.
+- `args`: Backend-specific input arguments.
+
+# Keywords
+
+Backend-specific options.
+
+# Returns
+
+Backend-specific materialized objects.
+
+# Methods
+
+$(METHODLIST)
+"""
+function import_data(backend::Symbol, args...; kwargs...)
+    import_data(Val(backend), args...; kwargs...)
 end
 
 include("serialize.jl")

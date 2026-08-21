@@ -107,3 +107,61 @@
         @test occursin("LineCableModels.jl", read(output, String))
     end
 end
+
+@testitem "ImportExport / PSCAD / materialized round trip" tags=[:integration] setup=[
+    ImportExportTestSupport,
+    UseImportExportSupport,
+    TestFixtures
+] begin
+    system=TestFixtures.three_phase_system()
+    earth=EarthModel(100.0, 10.0, 1.0)
+
+    mktempdir() do directory
+        output=export_data(
+            :pscad,
+            system,
+            earth;
+            file_name = joinpath(directory, "system.pscx")
+        )
+        imported_earth, imported_system=import_data(:pscad, output)
+
+        @test imported_earth isa EarthModel{Float64}
+        @test imported_system isa LineCableSystem{Float64}
+        @test imported_system.system_id == system.system_id
+        @test imported_system.line_length ≈ system.line_length
+        @test ncables(imported_system) == ncables(system)
+        @test nphases(imported_system) == nphases(system)
+        @test last(imported_earth.layers).rho ≈ last(earth.layers).rho
+        @test last(imported_earth.layers).eps_r ≈ last(earth.layers).eps_r
+        @test last(imported_earth.layers).mu_r ≈ last(earth.layers).mu_r
+
+        for (imported, original) in zip(imported_system.cables, system.cables)
+            @test imported.horz ≈ original.horz rtol=1e-5
+            @test imported.vert ≈ original.vert rtol=1e-5
+            @test imported.conn == original.conn
+            @test imported.design_data.cable_id == original.design_data.cable_id
+            @test getproperty.(imported.design_data.components, :id) ==
+                  getproperty.(original.design_data.components, :id)
+            for (actual, expected) in zip(
+                imported.design_data.components,
+                original.design_data.components
+            )
+                @test actual.conductor_group.r_in ≈ expected.conductor_group.r_in rtol=1e-5
+                @test actual.conductor_group.r_ex ≈ expected.conductor_group.r_ex rtol=1e-5
+                @test actual.insulator_group.r_ex ≈ expected.insulator_group.r_ex rtol=1e-5
+                @test actual.conductor_props.rho ≈ expected.conductor_props.rho rtol=1e-5
+                @test actual.conductor_props.mu_r ≈ expected.conductor_props.mu_r rtol=1e-5
+                @test actual.insulator_props.eps_r ≈ expected.insulator_props.eps_r rtol=1e-5
+                dielectric=only(actual.insulator_group.layers).material_props
+                @test dielectric.rho > 0
+                @test dielectric.mu_r ≈ expected.insulator_props.mu_r rtol=1e-5
+            end
+        end
+
+        @test_throws ArgumentError import_data(:pscad, output * ".xml")
+        @test_throws ArgumentError import_data(
+            :pscad,
+            joinpath(directory, "missing.pscx")
+        )
+    end
+end

@@ -31,7 +31,7 @@ export CalculationManifest, ConfigurationFailure, SampleSummary, HistogramPDF, R
 export result, statistics, samples, histograms, uncertain_value, manifest
 
 # Import/Export:
-export export_data, save, load!
+export export_data, import_data, save, load!
 # -------------------------------------------------------------------------
 
 import DocStringExtensions: DocStringExtensions
@@ -95,6 +95,6 @@ using .Computation:
 
 # Submodule `ImportExport`
 include("importexport/ImportExport.jl")
-using .ImportExport: export_data, load!, save
+using .ImportExport: export_data, import_data, load!, save
 
 end

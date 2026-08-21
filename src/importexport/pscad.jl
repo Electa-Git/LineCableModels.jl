@@ -1,5 +1,6 @@
 include("pscad/schema.jl")
 include("pscad/project.jl")
+include("pscad/import.jl")
 
 """
 $(TYPEDSIGNATURES)
