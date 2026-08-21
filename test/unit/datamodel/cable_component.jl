@@ -22,6 +22,12 @@
         insulation.r_ex,
         insulation.r_in
     )
+    @test component.insulator_props.mu_r ≈
+          equivalent_mu(insulation) * solenoid_factor(
+        conductor.num_turns,
+        conductor.r_ex,
+        insulation.r_ex
+    )
     @test component.conductor_props.T0 == component.insulator_props.T0 == 20.0
     @test validate(component) === component
 
@@ -42,4 +48,15 @@
     @test flattened_conductor.r_in == conductor.r_in
     @test flattened_conductor.r_ex == conductor.r_ex
     @test flattened_insulator.reference_frequency == insulation.reference_frequency
+
+    magnetic_inner=Material(1e14, 2.0, 2.0, 20.0, 0.0)
+    magnetic_outer=Material(1e14, 2.0, 4.0, 20.0, 0.0)
+    magnetic_group=InsulatorGroup(Insulator(0.006, 0.008, magnetic_inner))
+    add!(magnetic_group, Insulator(0.008, 0.010, magnetic_outer))
+    magnetic_component=CableComponent("magnetic", conductor, magnetic_group)
+    expected_mu=(
+        2.0*log(0.008/0.006)+4.0*log(0.010/0.008)
+    )/log(0.010/0.006)
+    @test equivalent_mu(magnetic_group) ≈ expected_mu
+    @test magnetic_component.insulator_props.mu_r ≈ expected_mu
 end

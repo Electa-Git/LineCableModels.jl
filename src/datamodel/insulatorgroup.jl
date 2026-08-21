@@ -19,6 +19,30 @@ end
 Base.eltype(::InsulatorGroup{T}) where {T} = T
 Base.eltype(::Type{InsulatorGroup{T}}) where {T} = T
 
+"""
+$(TYPEDSIGNATURES)
+
+Calculate the log-radius-weighted relative magnetic permeability of concentric
+insulation layers:
+
+```math
+\\mu_{r,\\mathrm{eq}} =
+\\frac{\\sum_k \\mu_{r,k}\\log(r_{k,\\mathrm{ex}}/r_{k,\\mathrm{in}})}
+{\\log(r_\\mathrm{ex}/r_\\mathrm{in})}.
+```
+"""
+function BaseParams.equivalent_mu(group::InsulatorGroup)
+    group.r_in > zero(group.r_in) || throw(DomainError(
+        group.r_in,
+        "equivalent insulation permeability requires a positive inner radius"
+    ))
+    weighted = zero(group.r_in)
+    for layer in group.layers
+        weighted += layer.material_props.mu_r * log(layer.r_ex / layer.r_in)
+    end
+    return weighted / log(group.r_ex / group.r_in)
+end
+
 function _reference_temperature(layers::AbstractVector{<:AbstractInsulatorPart})
     isempty(layers) && throw(ArgumentError("an insulator group requires one layer"))
     reference = first(layers).material_props.T0

@@ -76,10 +76,15 @@ function CableComponent(
         insulators.r_in,
         insulators.r_ex
     )
+    insulator_mu = equivalent_mu(insulators) * solenoid_factor(
+        conductors.num_turns,
+        conductors.r_ex,
+        insulators.r_ex
+    )
     insulator_props = Material{T}(
         inv(conductivity),
         insulator_eps,
-        solenoid_factor(conductors.num_turns, conductors.r_ex, insulators.r_ex),
+        insulator_mu,
         reference_temperature,
         zero(T)
     )
