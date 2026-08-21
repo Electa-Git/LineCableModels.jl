@@ -401,7 +401,10 @@ function _axis(parent, view::ViewSpec, page::PageSpec)
     y_exponent = yaxis === nothing ? 0 : yaxis.exponent
     xscale = xaxis === nothing ? :linear : xaxis.scale
     yscale = yaxis === nothing ? :linear : yaxis.scale
-    attributes = _axis_attributes(view)
+    attributes = merge(
+        (; tellwidth = false, tellheight = false),
+        _axis_attributes(view)
+    )
     axis = Axis(
         parent;
         xlabel = _axis_label(xaxis, x_exponent, xscale),
@@ -704,13 +707,11 @@ function _shares_side_dock(page::PageSpec, colorbar_slot_name::Symbol)
 end
 
 function _legend_dock_width(page::PageSpec)
-    any(colorbar -> _shares_side_dock(page, colorbar.slot), page.colorbars) ||
-        return nothing
-    return LEGEND_DOCK_WIDTH
+    return page.legend.enabled ? LEGEND_DOCK_WIDTH : nothing
 end
 
 _track_size(track::FixedTrack) = Fixed(track.value)
-_track_size(track::RelativeTrack) = Relative(track.weight)
+_track_size(track::RelativeTrack) = Auto(false, track.weight)
 _track_size(::ContentTrack) = Auto(true)
 
 function _apply_grid_spec!(grid, specification::GridSpec)
@@ -805,6 +806,20 @@ function _apply_layout_specs!(layout::LayoutSpec, materialized)
     return nothing
 end
 
+function _collapse_empty_dock!(page::PageSpec, materialized, legend)
+    legend === nothing && isempty(page.colorbars) || return nothing
+    slot_index = findfirst(slot -> slot.name === page.legend.slot, page.layout.slots)
+    slot_index === nothing && return nothing
+    dock_name = page.layout.slots[slot_index].parent
+    dock_index = findfirst(grid -> grid.name === dock_name, page.layout.grids)
+    dock_index === nothing && return nothing
+    page.layout.grids[dock_index].parent === nothing && return nothing
+    dock = materialized.grids[dock_name]
+    dock.width[] = 0
+    dock.tellwidth[] = true
+    return nothing
+end
+
 function _view_positions(views::AbstractVector{<:ViewSpec})
     isempty(views) && return Tuple{ViewSpec, GridArea}[]
     if all(view -> view.placement.area === nothing, views)
@@ -846,7 +861,12 @@ end
 function _build_panels(page::PageSpec, materialized)
     panels = UIPanel[]
     for slot_name in unique(view.placement.slot for view in page.views)
-        slot = _slot_grid(materialized, slot_name)
+        slot = _slot_grid(
+            materialized,
+            slot_name;
+            tellwidth = false,
+            tellheight = false
+        )
         slot.default_rowgap = Fixed(GRID_ROW_GAP)
         slot.default_colgap = Fixed(GRID_COLUMN_GAP)
         views = [view for view in page.views if view.placement.slot === slot_name]
@@ -1048,6 +1068,7 @@ function _build_page(
         _collapse_slot!(page.layout, materialized, page.status.slot)
     end
 
+    _collapse_empty_dock!(page, materialized, legend)
     _apply_layout_specs!(page.layout, materialized)
     if responsive_legend !== nothing
         _observe_legend!(responsive_legend, legend_slot_grid, context)
