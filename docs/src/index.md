@@ -56,6 +56,17 @@ v0.2 release. The last version containing those experimental paths is preserved
 on branch `legacy/fem-sector` at commit
 `b75dd2723f90a83ec090b20605ea42af57f4a9c3`.
 
+## User statistics
+
+![Top Julia package-server regions observed for LineCableModels.jl](assets/user-statistics.svg)
+
+The map is generated in CI from Julia's public package-server request logs. It
+shows the top server regions by the sum of `request_addrs` for requests marked
+as user traffic. These regional aggregates are useful adoption indicators, but
+they are not a count of distinct people and must not be read as country-level
+telemetry.
+
+
 ## License
 
 The source code is provided under the [BSD 3-Clause License](https://github.com/Electa-Git/LineCableModels.jl/LICENSE).

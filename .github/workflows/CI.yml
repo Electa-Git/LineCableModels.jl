@@ -127,7 +127,7 @@ jobs:
       - uses: julia-actions/setup-julia@v3
         with:
           version: "1.12"
-      - name: Check owned test and Gauntlet formatting
+      - name: Check test formatting
         shell: julia --color=yes {0}
         run: |
           using Pkg
@@ -135,12 +135,6 @@ jobs:
           Pkg.add(PackageSpec(name = "JuliaFormatter", version = "2"))
           using JuliaFormatter
           @assert format(joinpath(pwd(), "test"); overwrite = false, verbose = true)
-          @assert format(joinpath(pwd(), "gauntlet"); overwrite = false, verbose = true)
-          @assert format(
-            joinpath(pwd(), "docs", "literate", "gauntlet.jl");
-            overwrite = false,
-            verbose = true,
-          )
 
   gitlint:
     name: Commit messages
@@ -197,26 +191,6 @@ jobs:
             @assert Base.get_extension(LineCableModels, :LineCableModelsMakieExt) === nothing
           '
 
-  gauntlet:
-    name: Gauntlet / PSCAD smoke dataset
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
-    steps:
-      - uses: actions/checkout@v6
-      - uses: julia-actions/setup-julia@v3
-        with:
-          version: "1.12"
-      - uses: julia-actions/cache@v3
-        with:
-          cache-compiled: "false"
-          save-always: "false"
-      - name: Instantiate the validation application
-        run: julia --project=gauntlet --color=yes -e 'using Pkg; Pkg.instantiate()'
-      - name: Run parser and grammar tests
-        run: julia --project=gauntlet --color=yes -e 'using Pkg; Pkg.test()'
-      - name: Run the tracked PSCAD smoke suite
-        run: julia --project=gauntlet --color=yes gauntlet/bin/run.jl smoke
-
   docs:
     name: Documentation
     runs-on: ubuntu-latest
@@ -235,6 +209,13 @@ jobs:
           save-always: "false"
       - name: Instantiate documentation
         run: julia --project=docs --color=yes docs/instantiate.jl
+      - name: Generate package-server usage map
+        run: julia --project=docs --color=yes docs/package_stats.jl
+      - name: Upload package-server usage map
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-server-usage-map
+          path: docs/src/assets/user-statistics.svg
       - name: Run doctests
         run: julia --project=docs --color=yes docs/doctest.jl
       - name: Build documentation

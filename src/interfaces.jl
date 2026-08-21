@@ -48,8 +48,11 @@ nominal(values::AbstractArray) = nominal.(values)
 standard_uncertainty(value::Number) = zero(nominal(value))
 standard_uncertainty(::Any) = 0.0
 
+"Abstract tag for the physical domain represented by line-parameter matrices."
 abstract type LineParamsDomain end
+"Tag line parameters expressed in the physical phase domain."
 struct PhaseDomain <: LineParamsDomain end
+"Tag line parameters obtained from a calculated modal transformation."
 struct ModalDomain <: LineParamsDomain end
 
 "Return the domain tag type of a value, or `nothing` when it has no domain."
