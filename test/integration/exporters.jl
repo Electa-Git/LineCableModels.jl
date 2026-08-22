@@ -54,6 +54,18 @@
             "CPASS" => "0"
         )
 
+        @test any(
+            length(component.conductor_group.layers) > 1 ||
+                length(component.insulator_group.layers) > 1
+        for position in system.cables for component in position.design_data.components
+        )
+        outer_radii=("R2", "R4", "R6", "R8")
+        insulation_radii=("R3", "R5", "R7", "R9")
+        resistivities=("RHOC", "RHOS", "RHOA", "RHOO")
+        conductor_mus=("PERMC", "PERMS", "PERMA", "PERMO")
+        permittivities=("EPS1", "EPS2", "EPS3", "EPS4")
+        insulation_mus=("PERM1", "PERM2", "PERM3", "PERM4")
+        losses=("LT1", "LT2", "LT3", "LT4")
         for (index, (node, position)) in enumerate(zip(cables, system.cables))
             values=parameters(node)
             @test values["CABNUM"] == string(index)
@@ -66,6 +78,29 @@
                   uppercasefirst(first(position.design_data.components).id)
             @test parse(Float64, values["R1"]) ≈
                   first(position.design_data.components).conductor_group.r_in rtol=1e-5
+            for (component_index, component) in enumerate(position.design_data.components)
+                @test parse(Float64, values[outer_radii[component_index]]) ≈
+                      component.conductor_group.r_ex rtol=1e-5
+                @test parse(Float64, values[insulation_radii[component_index]]) ≈
+                      component.insulator_group.r_ex rtol=1e-5
+                @test parse(Float64, values[resistivities[component_index]]) ≈
+                      component.conductor_props.rho rtol=1e-5
+                @test parse(Float64, values[conductor_mus[component_index]]) ≈
+                      component.conductor_props.mu_r rtol=1e-5
+                @test parse(Float64, values[permittivities[component_index]]) ≈
+                      component.insulator_props.eps_r rtol=1e-5
+                @test parse(Float64, values[insulation_mus[component_index]]) ≈
+                      component.insulator_props.mu_r rtol=1e-5
+                capacitance=component.insulator_group.shunt_capacitance
+                expected_loss=iszero(capacitance) ? 0.0 :
+                              min(
+                    component.insulator_group.shunt_conductance/
+                    (2π*50.0*capacitance),
+                    10.0
+                )
+                @test parse(Float64, values[losses[component_index]])≈
+                expected_loss rtol=1e-5 atol=1e-12
+            end
         end
 
         ground_values=parameters(ground)
@@ -105,6 +140,53 @@
         @test cable_call["view"] == "true"
         @test length(findall("//Wire", document)) == 2
         @test occursin("LineCableModels.jl", read(output, String))
+    end
+end
+
+@testitem "ImportExport / PSCAD / four-component limit" tags=[:integration] setup=[
+    ImportExportTestSupport,
+    UseImportExportSupport
+] begin
+    using LineCableModels
+    import LineCableModels.DataModel
+
+    metal=Material(1.7e-8, 1.0, 1.0, 20.0, 0.0039)
+    dielectric=Material(1.0e14, 2.3, 1.0, 20.0, 0.0)
+    components=let radius=0.0
+        values=DataModel.CableComponent[]
+        for index in 1:5
+            conductor=DataModel.Tubular(radius, radius+1.0e-3, metal)
+            insulation=DataModel.Insulator(
+                radius+1.0e-3,
+                radius+2.0e-3,
+                dielectric
+            )
+            push!(values,
+                DataModel.CableComponent(
+                    "component$index",
+                    DataModel.ConductorGroup(conductor),
+                    DataModel.InsulatorGroup(insulation)
+                ))
+            radius+=2.0e-3
+        end
+        values
+    end
+    design=DataModel.CableDesign("five-components", components)
+    connections=Dict(component.id=>index for (index, component) in enumerate(components))
+    system=DataModel.LineCableSystem(
+        "five-components",
+        1_000.0,
+        DataModel.CablePosition(design, 0.0, -1.0, connections)
+    )
+    earth=EarthModel(100.0, 1.0, 1.0)
+    mktempdir() do directory
+        @test_throws ArgumentError export_data(
+            :pscad,
+            system,
+            earth;
+            file_name = joinpath(directory, "invalid.pscx")
+        )
+        @test isempty(readdir(directory))
     end
 end
 

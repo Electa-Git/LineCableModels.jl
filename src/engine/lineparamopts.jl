@@ -27,7 +27,7 @@ debugging.
 
 $(TYPEDFIELDS)
 """
-struct ComputeOptions{V <: NamedTuple}
+struct ComputeOptions{V <: NamedTuple, Basis}
     "Per-component verbosity settings."
     verbosity::V
     "Output basis: `:per_length` or `:total`."
@@ -46,9 +46,11 @@ struct ComputeOptions{V <: NamedTuple}
             "output_basis must be :per_length or :total; got :$output_basis",
         ))
         levels = NamedTuple{keys(verbosity)}(Int.(values(verbosity)))
-        return new{typeof(levels)}(levels, output_basis)
+        return new{typeof(levels), output_basis}(levels, output_basis)
     end
 end
+
+@inline _output_basis(::ComputeOptions{V, Basis}) where {V, Basis} = Basis
 
 function verbosity(options::ComputeOptions, key::Symbol)
     get(options.verbosity, key, options.verbosity.default)

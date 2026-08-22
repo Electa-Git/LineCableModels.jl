@@ -44,8 +44,9 @@ function Logging.handle_message(
     )
 end
 
-function _trace_buffers(::Type{T}, input::EMTInput{T}, inspect::Bool) where {T}
-    inspect || return nothing
+_trace_buffers(::Type, ::EMTInput, ::Val{false}) = nothing
+
+function _trace_buffers(::Type{T}, input::EMTInput{T}, ::Val{true}) where {T}
     n, nc, nf = input.n_phases, input.n_cables, input.n_frequencies
     return (
         Zin = Array{Complex{T}, 3}(undef, n, n, nf),
@@ -54,6 +55,41 @@ function _trace_buffers(::Type{T}, input::EMTInput{T}, inspect::Bool) where {T}
         Pg = Array{Complex{T}, 3}(undef, nc, nc, nf),
         Z = Array{Complex{T}, 3}(undef, n, n, nf),
         P = Array{Complex{T}, 3}(undef, n, n, nf)
+    )
+end
+
+_solve_result(parameters, ::EMTInput, ::Nothing, ::Val{false}) = parameters
+
+function _solve_result(parameters, input::EMTInput, trace, ::Val{true})
+    return EMTTrace(
+        parameters, copy(input.freq), copy(input.phase_map), copy(input.cable_map),
+        trace.Zin, trace.Pin, trace.Zg, trace.Pg, trace.Z, trace.P
+    )
+end
+
+_modal_result(parameters, ::Nothing) = parameters
+
+function _modal_result(parameters, transform::AbstractTransformFormulation)
+    _, transformed = transform(parameters)
+    return transformed
+end
+
+function _basis_result(parameters, ::EMTInput, ::ComputeOptions{V, :per_length}) where {V}
+    parameters
+end
+
+function _basis_result(
+        parameters::LineParameters{T, U, D},
+        input::EMTInput,
+        ::ComputeOptions{V, :total}
+) where {T, U, D, V}
+    impedance = parameters.Z.values .* input.line_length
+    admittance = parameters.Y.values .* input.line_length
+    return LineParameters(
+        D,
+        SeriesImpedance{eltype(impedance), :total}(impedance),
+        ShuntAdmittance{eltype(admittance), :total}(admittance),
+        parameters.f
     )
 end
 
@@ -119,8 +155,8 @@ function _solve(
         problem::LineParametersProblem{T},
         formulation::EMTFormulation,
         execution::ComputeOptions;
-        inspect::Bool = false
-) where {T <: Real}
+        inspect::Val{Inspect} = Val(false)
+) where {T <: Real, Inspect}
     validate(problem)
     input = EMTInput(problem)
     rho_cond = _operating_resistivity(input, problem, formulation)
@@ -185,25 +221,16 @@ function _solve(
         end
     end
 
-    parameters = LineParameters(PhaseDomain, Zout, Yout, input.freq)
-    if formulation.modal_transform !== nothing
-        _, parameters = formulation.modal_transform(parameters)
-    end
-    if execution.output_basis === :total
-        parameters = LineParameters(
-            domain(parameters),
-            parameters.Z.values .* input.line_length,
-            parameters.Y.values .* input.line_length,
-            parameters.f;
-            basis = :total
-        )
-    end
-    @info "Line parameters computation completed successfully"
-    inspect || return parameters
-    return EMTTrace(
-        parameters, copy(input.freq), copy(input.phase_map), copy(input.cable_map),
-        trace.Zin, trace.Pin, trace.Zg, trace.Pg, trace.Z, trace.P
+    parameters = LineParameters(
+        PhaseDomain,
+        SeriesImpedance{Complex{T}, :per_length}(Zout),
+        ShuntAdmittance{Complex{T}, :per_length}(Yout),
+        input.freq
     )
+    parameters = _modal_result(parameters, formulation.modal_transform)
+    parameters = _basis_result(parameters, input, execution)
+    @info "Line parameters computation completed successfully"
+    return _solve_result(parameters, input, trace, inspect)
 end
 
 """
@@ -219,7 +246,7 @@ frequency loop. Neither the problem nor its cable design is mutated.
 
 - `options=ComputeOptions()`: Execution verbosity and output basis.
 - `inspect=false`: Return an [`EMTTrace`](@ref) with completed primitive matrices when
-  `true`; otherwise return [`LineParameters`](@ref) without allocating trace tensors.
+  set to `true`; otherwise return [`LineParameters`](@ref) without allocating trace tensors.
 
 # Returns
 
@@ -236,7 +263,7 @@ function compute!(
     console = ConsoleLogger(stderr, Logging.Debug)
     logger = ConsoleVerbosityLogger(console, execution.verbosity)
     return with_logger(logger) do
-        _solve(problem, formulation, execution; inspect)
+        _solve(problem, formulation, execution; inspect = Val(inspect))
     end
 end
 
@@ -248,7 +275,7 @@ function compute!(
 )
     inspect && throw(ArgumentError("inspection is available only for line calculations"))
     execution = compute_options(options)
-    execution.output_basis === :per_length || throw(ArgumentError(
+    _output_basis(execution) === :per_length || throw(ArgumentError(
         "CableConstantsProblem supports only output_basis=:per_length",
     ))
     return DataModel._compute_cable_constants(
@@ -383,15 +410,14 @@ function compute_admittance_matrix!(
     @inbounds for cable in 1:input.n_cables
         conductors = indices[cable]
         count = length(conductors)
-        count <= 1 && continue
-        coefficients = Vector{Complex{T}}(undef, count - 1)
-        for gap in 1:(count - 1)
-            coefficients[gap] = InsulationAdmittance.potential_coefficient(
-                formulation.insulation_admittance, input, conductors[gap], s
+        coefficients = Vector{Complex{T}}(undef, count)
+        for component in 1:count
+            coefficients[component] = InsulationAdmittance.potential_coefficient(
+                formulation.insulation_admittance, input, conductors[component], s
             )
         end
         tails = Vector{Complex{T}}(undef, count)
-        tails[count] = zero(Complex{T})
+        tails[count] = coefficients[count]
         for gap in (count - 1):-1:1
             tails[gap] = coefficients[gap] + tails[gap + 1]
         end

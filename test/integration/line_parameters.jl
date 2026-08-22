@@ -52,9 +52,11 @@
     end
 
     input=LineCableModels.Engine.EMTInput(problem)
-    LineCableModels.Engine._trace_buffers(Float64, input, false)
-    @test @allocated(LineCableModels.Engine._trace_buffers(Float64, input, false)) == 0
-    @test LineCableModels.Engine._trace_buffers(Float64, input, false) === nothing
+    LineCableModels.Engine._trace_buffers(Float64, input, Val(false))
+    @test @allocated(LineCableModels.Engine._trace_buffers(
+        Float64, input, Val(false))) == 0
+    @test LineCableModels.Engine._trace_buffers(
+        Float64, input, Val(false)) === nothing
 end
 
 @testitem "Engine / solver / bundle-only and singleton reduction policies" tags=[:integration] setup=[
@@ -82,7 +84,7 @@ end
             temperature_correction = false
         )
     )
-    duplicate_result=compute!(duplicate_problem, bundle_only)
+    duplicate_result=@inferred compute!(duplicate_problem, bundle_only)
     @test size(duplicate_result.Z) == (2, 2, 1)
     @test all(isfinite, duplicate_result.Z)
     @test all(isfinite, duplicate_result.Y)

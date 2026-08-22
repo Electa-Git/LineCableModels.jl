@@ -10,7 +10,7 @@ const PSCAD_FORMULATIONS = Dict(
         pscad_parameter = :EarthForm,
         pscad_value = 0,
         earth_impedance = "Pollaczek",
-        earth_admittance = "Pollaczek",
+        earth_admittance = "Ideal ground reference",
         insulation_admittance = "Lossless insulation (ideal dielectric)"
     )
 )

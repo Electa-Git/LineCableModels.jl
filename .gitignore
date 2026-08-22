@@ -62,3 +62,5 @@ benchmarks/
 # Local PSCAD gauntlet configuration and disposable case output
 test/gauntlet/local.jl
 test/gauntlet/cases/.work/
+test/gauntlet/.artifacts/*
+!test/gauntlet/.artifacts/.gitkeep

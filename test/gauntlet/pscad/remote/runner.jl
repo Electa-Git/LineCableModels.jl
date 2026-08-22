@@ -50,6 +50,35 @@ function _set!(component, name::AbstractString, value; readback = value)
     return value
 end
 
+function _disabled(value)
+    value isa Number && return iszero(value)
+    return uppercase(strip(string(value))) in
+           ("0", "NO", "FALSE", "DISABLE", "DISABLED", "RETAIN", "NONE")
+end
+
+function _verify_retained_ports(components)
+    cables = filter(
+        component -> _definition(component) == "master:cable_coax",
+        components
+    )
+    isempty(cables) && throw(ArgumentError(
+        "generated PSCAD project exposes no master:Cable_Coax components",
+    ))
+    for cable in cables
+        parameters = _parameters(cable)
+        elimination_fields = sort!(filter(
+            field -> occursin(r"^elim\d+$", field),
+            collect(keys(parameters))
+        ))
+        for field in elimination_fields
+            _disabled(parameters[field]) || throw(ArgumentError(
+                "PSCAD field $field requests conductor elimination; gauntlet ports must be retained",
+            ))
+        end
+    end
+    return nothing
+end
+
 function _messages(project)
     messages = try
         _components(project.messages())
@@ -165,6 +194,8 @@ function main(arguments)
             2,
             "Applied frequency range $fs Hz to $fe Hz and formulation $formulation"
         )
+        _verify_retained_ports(components)
+        _report(console, verbosity, 2, "Verified that all cable terminals are retained")
         project.save()
         if verbosity >= 2
             load_messages = _messages(project)

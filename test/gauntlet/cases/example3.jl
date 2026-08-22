@@ -115,17 +115,27 @@
     ))
     formulation=Formulation(
         earth_impedance = EarthImpedance.Pollaczek(),
-        earth_admittance = EarthAdmittance.Pollaczek(),
-        insulation_admittance = InsulationAdmittance.Lossless()
+        earth_admittance = EarthAdmittance.IdealGround(),
+        insulation_admittance = InsulationAdmittance.Lossless(),
+        options = (
+            kron_reduction = false,
+            reduce_bundle = false,
+            ideal_transposition = false
+        )
     )
     tolerances=(
-        local_vs_pscad = (
+        reference = (
             Z = (absolute = 1.0e-6, relative = 5.0e-2),
             Y = (absolute = 1.0e-9, relative = 5.0e-2)
         ),
-        legacy_vs_current = (
-            Z = (absolute = 1.0e-9, relative = 1.0e-4),
-            Y = (absolute = 1.0e-12, relative = 1.0e-4)
+        regression = (
+            Z = (absolute = 1.0e-9, relative = 1.0e-6),
+            Y = (absolute = 1.0e-12, relative = 1.0e-6)
+        ),
+        performance = (
+            median_time_ratio = 1.20,
+            bytes_ratio = 1.05,
+            allocations_ratio = 1.05
         )
     )
     case=GauntletCase(
@@ -134,11 +144,12 @@
         problem,
         formulation,
         :underground_wedepohl_pollaczek_lossless,
-        ["positive:core", "negative:core"],
-        true,
-        (2, 2, length(frequencies_value)),
-        tolerances,
-        true
+        [
+            "cable:1:core", "cable:1:sheath", "cable:1:armor",
+            "cable:2:core", "cable:2:sheath", "cable:2:armor"
+        ],
+        (6, 6, length(frequencies_value)),
+        tolerances
     )
 
     if !ISHEADLESS
@@ -147,27 +158,24 @@
         display(DataFrame(problem.earth_props))
     end
 
+    inferred=@inferred compute!(problem, formulation)
+    @test size(Z(inferred)) == (6, 6, 101)
     outcome=run_case(case)
     @test outcome.reference isa LineParameters
     @test outcome.candidate isa LineParameters
-    @test size(Z(outcome.reference)) == (2, 2, 101)
-    @test size(Y(outcome.reference)) == (2, 2, 101)
+    @test size(Z(outcome.reference)) == (6, 6, 101)
+    @test size(Y(outcome.reference)) == (6, 6, 101)
     @test frequencies(outcome.reference) == frequencies_value
-    @test outcome.comparison.Z.absolute <= tolerances.local_vs_pscad.Z.absolute ||
-          outcome.comparison.Z.relative <= tolerances.local_vs_pscad.Z.relative
-    @test outcome.comparison.Y.absolute <= tolerances.local_vs_pscad.Y.absolute ||
-          outcome.comparison.Y.relative <= tolerances.local_vs_pscad.Y.relative
+    @test comparison_passes(outcome.comparison.Z, tolerances.reference.Z)
+    @test comparison_passes(outcome.comparison.Y, tolerances.reference.Y)
 
-    if outcome.mode!==:snapshot
-        @test outcome.legacy.reference isa LineParameters
-        @test outcome.legacy.comparison.Z.absolute <=
-              tolerances.legacy_vs_current.Z.absolute ||
-              outcome.legacy.comparison.Z.relative <=
-              tolerances.legacy_vs_current.Z.relative
-        @test outcome.legacy.comparison.Y.absolute <=
-              tolerances.legacy_vs_current.Y.absolute ||
-              outcome.legacy.comparison.Y.relative <=
-              tolerances.legacy_vs_current.Y.relative
+    if outcome.mode===:snapshot
+        @test comparison_passes(outcome.regression.Z, tolerances.regression.Z)
+        @test comparison_passes(outcome.regression.Y, tolerances.regression.Y)
+        if outcome.performance.comparable
+            @test outcome.performance.passes
+        end
+    else
         @test outcome.pscad.exit_code == 0
         @test isfile(outcome.pscad.console_path)
         @test outcome.timings.pscad >= 0

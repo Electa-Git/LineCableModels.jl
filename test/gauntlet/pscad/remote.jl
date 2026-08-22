@@ -176,7 +176,12 @@ function _run_remote(
 end
 
 function _load_config()
-    path = joinpath(GAUNTLET_ROOT, "local.jl")
+    path = get(
+        ENV,
+        "LINECABLEMODELS_GAUNTLET_CONFIG",
+        joinpath(GAUNTLET_ROOT, "local.jl")
+    )
+    path = abspath(path)
     isfile(path) || throw(ArgumentError(
         "live PSCAD validation requires $path; copy and edit local.example",
     ))
@@ -375,39 +380,45 @@ function run_remote_pscad(
     )
 end
 
-function _assert_error(error, tolerance)
-    error.absolute <= tolerance.absolute || error.relative <= tolerance.relative
-end
-
-function _assert_recordable(case::GauntletCase, current, legacy)
-    tolerances = case.tolerances
-    _assert_error(current.Z, tolerances.local_vs_pscad.Z) || throw(ArgumentError(
-        "Example PSCAD/local Z comparison exceeds the case tolerance",
-    ))
-    _assert_error(current.Y, tolerances.local_vs_pscad.Y) || throw(ArgumentError(
-        "Example PSCAD/local Y comparison exceeds the case tolerance",
-    ))
-    if case.compare_legacy_exporter
-        _assert_error(legacy.Z, tolerances.legacy_vs_current.Z) || throw(ArgumentError(
-            "legacy/current PSCAD Z comparison exceeds the case tolerance",
-        ))
-        _assert_error(legacy.Y, tolerances.legacy_vs_current.Y) || throw(ArgumentError(
-            "legacy/current PSCAD Y comparison exceeds the case tolerance",
+function _assert_comparison(comparison, tolerance, label::AbstractString)
+    for quantity in (:Z, :Y)
+        error = getproperty(comparison, quantity)
+        limit = getproperty(tolerance, quantity)
+        comparison_passes(error, limit) && continue
+        failures = findall(.!((error.absolute .<= limit.absolute) .|
+        (error.relative .<= limit.relative)))
+        throw(ArgumentError(
+            "$label $quantity comparison exceeds tolerance at matrix terms " *
+            join(string.(Tuple.(failures)), ", "),
         ))
     end
+    return nothing
+end
+
+function _assert_recordable(case::GauntletCase, reference, regression, performance)
+    _assert_comparison(reference, case.tolerances.reference, "PSCAD reference")
+    regression === nothing || _assert_comparison(
+        regression,
+        case.tolerances.regression,
+        "accepted regression"
+    )
+    performance === nothing || performance.passes === nothing ||
+        performance.passes ||
+        throw(ArgumentError(
+            "local solver performance exceeds the accepted artifact tolerances",
+        ))
     return nothing
 end
 
 function run_live(case::GauntletCase; record::Bool = false)
     validate_formulation(case)
     config = _load_config()
+    prior = record ? load_prior_snapshot(case) : nothing
     root = work_path(case)
     @info "Starting PSCAD gauntlet case" case=case.name mode=record ? :record : :live work_directory=root
     isdir(root) && rm(root; recursive = true)
     current_root = joinpath(root, "current")
-    legacy_root = joinpath(root, "legacy")
     mkpath(current_root)
-    mkpath(legacy_root)
     system = case.problem.system
     earth = case.problem.earth_props
     @info "Exporting current PSCAD project" case = case.name
@@ -423,28 +434,11 @@ function run_live(case::GauntletCase; record::Bool = false)
     current_copy = joinpath(current_root, "generated.pscx")
     current_project == current_copy || cp(current_project, current_copy; force = true)
     current_project = current_copy
-    @info "Exporting legacy PSCAD project" case = case.name
-    legacy_project = export_legacy_pscad(
-        system,
-        earth;
-        file_name = joinpath(legacy_root, "generated.pscx")
-    )
-    legacy_copy = joinpath(legacy_root, "generated.pscx")
-    legacy_project == legacy_copy || cp(legacy_project, legacy_copy; force = true)
-    legacy_project = legacy_copy
     @info "Running current PSCAD export" case = case.name
     current_run = run_remote_pscad(
         config,
         current_project,
         joinpath(current_root, "outputs"),
-        case.pscad_formulation,
-        case.problem.frequencies
-    )
-    @info "Running legacy PSCAD export" case = case.name
-    legacy_run = run_remote_pscad(
-        config,
-        legacy_project,
-        joinpath(legacy_root, "outputs"),
         case.pscad_formulation,
         case.problem.frequencies
     )
@@ -454,30 +448,32 @@ function run_live(case::GauntletCase; record::Bool = false)
         case.problem.frequencies,
         case.expected_size
     )
-    legacy_reference = read_pscad_result(
-        legacy_run.output_dir,
-        case.problem.frequencies,
-        case.expected_size
-    )
     @info "Computing LineCableModels reference" case = case.name
     candidate = compute!(case.problem, case.formulation)
     validate_structure(case, reference)
-    validate_structure(case, legacy_reference)
     validate_structure(case, candidate)
     current_comparison = compare(reference, candidate)
-    legacy_comparison = compare(reference, legacy_reference)
     @info "Benchmarking LineCableModels calculation" case = case.name
     local_timing = benchmark_local(case)
-    record && _assert_recordable(case, current_comparison, legacy_comparison)
+    regression = prior === nothing ? nothing : compare(prior.accepted, candidate)
+    performance = prior === nothing ? nothing :
+                  performance_comparison(
+        prior.metadata["julia_benchmark"],
+        local_timing,
+        case.tolerances.performance
+    )
+    record && _assert_recordable(case, current_comparison, regression, performance)
+    persisted = nothing
     if record
-        @info "Recording PSCAD snapshot" case=case.name destination=snapshot_path(case)
-        write_snapshot(
-            snapshot_path(case),
+        @info "Recording PSCAD artifact" case = case.name
+        persisted = persist_snapshot(
             case,
-            reference;
+            reference,
+            candidate,
+            current_comparison,
+            local_timing;
             pscad_version = config.pscad_version,
-            pscad_elapsed_seconds = current_run.elapsed_seconds,
-            julia_benchmark = local_timing
+            pscad_elapsed_seconds = current_run.elapsed_seconds
         )
     end
     @info "PSCAD gauntlet case completed" case=case.name mode=record ? :record : :live
@@ -486,13 +482,11 @@ function run_live(case::GauntletCase; record::Bool = false)
         reference,
         candidate,
         comparison = current_comparison,
+        regression,
+        performance,
         metadata = nothing,
         pscad = current_run,
-        legacy = (
-            reference = legacy_reference,
-            comparison = legacy_comparison,
-            run = legacy_run
-        ),
+        artifact = persisted,
         timings = (pscad = current_run.elapsed_seconds, julia = local_timing)
     )
 end

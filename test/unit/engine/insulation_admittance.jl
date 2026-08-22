@@ -153,7 +153,7 @@ end
 
     for frequency_index in eachindex(input.freq)
         s=input.jω[frequency_index]
-        expected=sum(
+        inner=sum(
             formulation.insulation_admittance(
                 input.r_ins_layer_in[layer_index],
                 input.r_ins_layer_ext[layer_index],
@@ -163,7 +163,18 @@ end
             )
         for layer_index in input.insulator_layer_ranges[1]
         )
-        @test trace.Pin[1, 1, frequency_index] ≈ expected
+        outer=sum(
+            formulation.insulation_admittance(
+                input.r_ins_layer_in[layer_index],
+                input.r_ins_layer_ext[layer_index],
+                input.rho_ins_layer[layer_index],
+                input.eps_ins_layer[layer_index],
+                s
+            )
+        for layer_index in input.insulator_layer_ranges[2]
+        )
+        @test trace.Pin[:, :, frequency_index] ≈ [inner+outer outer
+                                                  outer outer]
 
         admittance=parameters.Y.values[:, :, frequency_index]
         @test admittance ≈ transpose(admittance)
@@ -174,8 +185,21 @@ end
         @test minimum(eigvals(Symmetric(conductance))) >= -tolerance
     end
 
-    near_dc=input.jω[1]/trace.Pin[1, 1, 1]
-    high_frequency=input.jω[end]/trace.Pin[1, 1, end]
+    function component_coefficient(component_index, frequency_index)
+        s=input.jω[frequency_index]
+        return sum(
+            formulation.insulation_admittance(
+                input.r_ins_layer_in[layer_index],
+                input.r_ins_layer_ext[layer_index],
+                input.rho_ins_layer[layer_index],
+                input.eps_ins_layer[layer_index],
+                s
+            )
+        for layer_index in input.insulator_layer_ranges[component_index]
+        )
+    end
+    near_dc=input.jω[1]/component_coefficient(1, 1)
+    high_frequency=input.jω[end]/component_coefficient(1, length(input.jω))
     @test real(near_dc) > imag(near_dc)
     @test imag(high_frequency) > real(high_frequency)
 

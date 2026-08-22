@@ -1,6 +1,7 @@
 using TestItemRunner
 
-const DEFAULT_EXCLUDED_TAGS = Set((:quality, :visual, :core_only, :gauntlet))
+const DEFAULT_EXCLUDED_TAGS = Set((
+    :quality, :visual, :core_only, :gauntlet, :gauntlet_toolkit))
 
 function matches_selector(testitem, selector::AbstractString)
     if startswith(selector, "tag:")

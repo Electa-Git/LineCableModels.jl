@@ -179,6 +179,11 @@ end
         @test formulation(:self, heights, 0.25, rho, epsilon, mu, s) == mutual
     end
 
+    ideal_ground=admittance_module.IdealGround()
+    @test description(ideal_ground) == "Ideal ground reference"
+    @test iszero(ideal_ground(Val(:self), [-1.0, -1.2], 0.25, rho, epsilon, mu, s))
+    @test iszero(ideal_ground(Val(:mutual), [-1.0, -1.2], 0.25, rho, epsilon, mu, s))
+
     underground_impedance=impedance_module.Papadopoulos()
     underground_admittance=admittance_module.Papadopoulos()
     for formulation in (underground_impedance, underground_admittance)

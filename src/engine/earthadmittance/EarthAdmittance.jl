@@ -9,10 +9,10 @@ $(IMPORTS)
 module EarthAdmittance
 
 # Export public API
-export Papadopoulos
+export IdealGround, Papadopoulos
 
 # Module-specific dependencies
-using DocStringExtensions: IMPORTS, TYPEDSIGNATURES
+using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDSIGNATURES
 import ...LineCableModels: description, nominal
 import ..Engine: EarthAdmittanceFormulation
 import ..Engine: conductivity, bessel_difference

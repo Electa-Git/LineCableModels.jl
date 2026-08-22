@@ -1,4 +1,4 @@
-@testitem "Gauntlet / mode and snapshot behavior" tags=[:unit] setup=[
+@testitem "Gauntlet / mode and snapshot behavior" tags=[:gauntlet_toolkit] setup=[
     GauntletSupport,
     TestFixtures
 ] begin
@@ -11,80 +11,134 @@
     @test !isdefined(GauntletSupport, :PSCADHarness)
     @test all(package.name != "PythonCall" for package in keys(Base.loaded_modules))
 
-    mktempdir() do directory
-        source=joinpath(directory, "case.jl")
-        write(source, "# deliberate case source\n")
-        parameters=LineParameters(
-            PhaseDomain,
-            reshape(ComplexF64[1 + 2im, 2 + 3im], 1, 1, :),
-            reshape(ComplexF64[2im, 4im], 1, 1, :),
-            [1.0, 10.0]
-        )
-        case=GauntletCase(
-            :fixture,
-            source,
-            nothing,
-            nothing,
-            :underground_wedepohl_pollaczek_lossless,
-            ["core"],
-            false,
-            (1, 1, 2),
-            (;),
-            false
-        )
-        snapshot=joinpath(directory, "fixture.jld2")
-        write_snapshot(
-            snapshot,
-            case,
-            parameters;
-            pscad_version = "5.1.0",
-            pscad_elapsed_seconds = 1.25
-        )
-        loaded=load_snapshot(case; path = snapshot)
-        @test loaded.reference isa LineParameters
-        @test Z(loaded.reference) == Z(parameters)
-        @test loaded.metadata["port_order"] == ["core"]
-        @test loaded.metadata["kron_reduced"] === false
-
-        write(source, "# changed source\n")
-        @test_throws ArgumentError load_snapshot(case; path = snapshot)
-        @test_throws ArgumentError load_snapshot(
-            case; path = joinpath(directory, "missing.jld2")
-        )
-
-        write(source, "# executable snapshot case\n")
+    function fixture_case(source)
         problem=TestFixtures.line_parameters_problem(; frequencies = [50.0])
-        formulation=Formulation()
-        reference=compute!(problem, formulation)
-        executable=GauntletCase(
-            :executable,
+        next_phase=1
+        ports=String[]
+        for (cable_index, position) in enumerate(problem.system.cables)
+            for component_index in eachindex(position.conn)
+                position.conn[component_index]=next_phase
+                component=position.design_data.components[component_index]
+                push!(ports, "cable:$cable_index:$(component.id)")
+                next_phase+=1
+            end
+        end
+        formulation=Formulation(
+            earth_impedance = EarthImpedance.Pollaczek(),
+            earth_admittance = EarthAdmittance.IdealGround(),
+            insulation_admittance = InsulationAdmittance.Lossless(),
+            options = (kron_reduction = false, reduce_bundle = false)
+        )
+        tolerances=(
+            reference = (
+                Z = (absolute = 1.0e-6, relative = 1.0e-3),
+                Y = (absolute = 1.0e-9, relative = 1.0e-3)
+            ),
+            regression = (
+                Z = (absolute = 1.0e-12, relative = 1.0e-9),
+                Y = (absolute = 1.0e-15, relative = 1.0e-9)
+            ),
+            performance = (
+                median_time_ratio = 1.20,
+                bytes_ratio = 1.05,
+                allocations_ratio = 1.05
+            )
+        )
+        count=length(ports)
+        return GauntletCase(
+            :fixture,
             source,
             problem,
             formulation,
             :underground_wedepohl_pollaczek_lossless,
-            ["phase:1", "phase:2", "phase:3"],
-            true,
-            size(Z(reference)),
-            (;),
-            false
+            ports,
+            (count, count, 1),
+            tolerances
         )
-        executable_snapshot=joinpath(directory, "executable.jld2")
-        write_snapshot(
-            executable_snapshot,
-            executable,
-            reference;
+    end
+
+    mktempdir() do directory
+        source=joinpath(directory, "case.jl")
+        write(source, "# deliberate case source\n")
+        case=fixture_case(source)
+        parameters=compute!(case.problem, case.formulation)
+        comparison=compare(parameters, parameters)
+        benchmark=(
+            minimum_seconds = 1.0,
+            median_seconds = 1.1,
+            bytes = 100,
+            allocations = 10,
+            samples = 10,
+            environment = (
+                julia_version = string(VERSION), kernel = string(Sys.KERNEL),
+                architecture = string(Sys.ARCH), threads = Threads.nthreads(),
+                blas = "fixture"
+            )
+        )
+        artifact_root=joinpath(directory, ".artifacts")
+        artifacts_toml=joinpath(directory, "Artifacts.toml")
+        persisted=persist_snapshot(
+            case,
+            parameters,
+            parameters,
+            comparison,
+            benchmark;
             pscad_version = "5.1.0",
-            pscad_elapsed_seconds = 1.25
+            pscad_elapsed_seconds = 1.25,
+            artifact_root,
+            artifacts_toml
         )
-        outcome=run_snapshot(executable; path = executable_snapshot)
+        @test isfile(joinpath(persisted.path, "snapshot.jld2"))
+        @test isfile(joinpath(persisted.path, "snapshot.sha256"))
+        @test isfile(joinpath(persisted.path, "fixture.tar.gz"))
+        @test isfile(snapshot_path(case; artifacts_toml))
+        published=publish_artifact(
+            :fixture,
+            "file://$(abspath(joinpath(persisted.path, "fixture.tar.gz")))";
+            artifact_root,
+            artifacts_toml
+        )
+        @test published.artifact == "pscad_gauntlet_fixture"
+        @test occursin("file://", read(artifacts_toml, String))
+
+        loaded=load_snapshot(case; artifacts_toml)
+        @test loaded.reference isa LineParameters
+        @test loaded.accepted isa LineParameters
+        @test Z(loaded.reference) == Z(parameters)
+        @test loaded.metadata["port_order"] == case.port_order
+        @test loaded.metadata["formulation"] isa NamedTuple
+        @test loaded.metadata["formulation"].pscad ==
+              "underground_wedepohl_pollaczek_lossless"
+
+        outcome=run_snapshot(
+            case;
+            artifacts_toml,
+            benchmark_samples = 1,
+            benchmark_seconds = 1
+        )
         @test outcome.mode === :snapshot
-        @test outcome.comparison.Z == RMSError(0.0, 0.0)
-        @test outcome.comparison.Y == RMSError(0.0, 0.0)
+        @test outcome.comparison.Z.absolute ==
+              zeros(size(Z(parameters), 1), size(Z(parameters), 2))
+        @test outcome.regression.Y.relative ==
+              zeros(size(Y(parameters), 1), size(Y(parameters), 2))
         @test !isdefined(GauntletSupport, :PSCADHarness)
+
+        write(source, "# changed source\n")
+        @test_throws ArgumentError load_snapshot(case; artifacts_toml)
+        empty_toml=joinpath(directory, "empty.toml")
+        write(empty_toml, "")
+        @test_throws ArgumentError snapshot_path(case; artifacts_toml = empty_toml)
+
+        snapshot=joinpath(persisted.path, "snapshot.jld2")
+        open(snapshot, "a") do io
+            write(io, UInt8(0))
+        end
+        @test_throws ArgumentError load_snapshot(case; path = snapshot)
     end
 
     previous=get(ENV, "LINECABLEMODELS_GAUNTLET_MODE", nothing)
     previous_ci=get(ENV, "CI", nothing)
+    previous_persist=get(ENV, "LINECABLEMODELS_GAUNTLET_PERSIST", nothing)
     try
         delete!(ENV, "CI")
         for mode in ("snapshot", "live", "record")
@@ -96,14 +150,87 @@
         ENV["CI"]="true"
         ENV["LINECABLEMODELS_GAUNTLET_MODE"]="live"
         @test_throws ArgumentError gauntlet_mode()
+        delete!(ENV, "CI")
+        ENV["LINECABLEMODELS_GAUNTLET_MODE"]="record"
+        delete!(ENV, "LINECABLEMODELS_GAUNTLET_PERSIST")
+        source=tempname()
+        write(source, "# persist guard\n")
+        @test_throws ArgumentError run_case(fixture_case(source))
     finally
         previous===nothing ? delete!(ENV, "LINECABLEMODELS_GAUNTLET_MODE") :
         (ENV["LINECABLEMODELS_GAUNTLET_MODE"]=previous)
         previous_ci===nothing ? delete!(ENV, "CI") : (ENV["CI"]=previous_ci)
+        previous_persist===nothing ? delete!(ENV, "LINECABLEMODELS_GAUNTLET_PERSIST") :
+        (ENV["LINECABLEMODELS_GAUNTLET_PERSIST"]=previous_persist)
     end
 end
 
-@testitem "Gauntlet / PSCAD parser and fixed mappings" tags=[:unit] setup=[
+@testitem "Gauntlet / explicit ports and phase-domain results" tags=[:gauntlet_toolkit] setup=[
+    GauntletSupport
+] begin
+    using Test
+    using LineCableModels.Engine
+    using .GauntletSupport
+
+    tolerances=(
+        reference = (
+            Z = (absolute = 1.0, relative = 1.0),
+            Y = (absolute = 1.0, relative = 1.0)
+        ),
+        regression = (
+            Z = (absolute = 1.0, relative = 1.0),
+            Y = (absolute = 1.0, relative = 1.0)
+        ),
+        performance = (
+            median_time_ratio = 1.2,
+            bytes_ratio = 1.05,
+            allocations_ratio = 1.05
+        )
+    )
+    function make_case(assignments; kron = false, bundle = false)
+        problem=(
+            system = (cables = [(conn = collect(assignments),)],),
+            frequencies = [1.0, 10.0]
+        )
+        formulation=(options = (kron_reduction = kron, reduce_bundle = bundle),)
+        count=length(assignments)
+        return GauntletCase(
+            :ports,
+            @__FILE__,
+            problem,
+            formulation,
+            :underground_wedepohl_pollaczek_lossless,
+            ["port:$index" for index in 1:count],
+            (count, count, 2),
+            tolerances
+        )
+    end
+
+    valid=make_case([1, 2, 3])
+    @test validate_case(valid) === valid
+    @test_throws ArgumentError make_case([1, 0, 3])
+    @test_throws ArgumentError make_case([1, 1, 2])
+    @test_throws ArgumentError make_case([1, 2, 4])
+    @test_throws ArgumentError make_case([1, 2, 3]; kron = true)
+    @test_throws ArgumentError make_case([1, 2, 3]; bundle = true)
+
+    modal=LineParameters(
+        ModalDomain,
+        zeros(ComplexF64, 3, 3, 2),
+        zeros(ComplexF64, 3, 3, 2),
+        [1.0, 10.0]
+    )
+    error=try
+        validate_structure(valid, modal)
+        nothing
+    catch caught
+        caught
+    end
+    @test error isa ArgumentError
+    @test occursin("does not provide modal Z and Y", sprint(showerror, error))
+end
+
+@testitem "Gauntlet / PSCAD parser and fixed mappings" tags=[:gauntlet_toolkit] setup=[
     GauntletSupport
 ] begin
     using Base64: base64decode
@@ -143,7 +270,7 @@ end
         @test size(Z(result)) == (2, 2, 2)
         @test Z(result)[:, :, 1] == ComplexF64[1 2; 3 4]
         @test Y(result)[:, :, 2] == ComplexF64[5 6; 7 8] .* 1.0e-6
-        rounded_frequency=[1.0, 10.0 * (1 + 4.0e-8)]
+        rounded_frequency=[1.0, 10.0*(1+4.0e-8)]
         rounded_result=harness.read_pscad_result(
             directory, rounded_frequency, (2, 2, 2)
         )
@@ -152,7 +279,8 @@ end
             directory, [1.0, 11.0], (2, 2, 2)
         )
         mv(joinpath(directory, "result_zm.out"), joinpath(directory, "raw_zm.out"))
-        @test_throws ArgumentError harness.read_pscad_result(directory, frequency, (2, 2, 2))
+        @test_throws ArgumentError harness.read_pscad_result(directory, frequency, (
+            2, 2, 2))
     end
 
     config=harness.RemoteConfig(
@@ -307,48 +435,26 @@ end
         String
     )
     @test occursin("Starting PSCAD line-constants calculation", runner)
+    @test occursin("_verify_retained_ports(components)", runner)
+    @test occursin("r\"^elim\\d+\$\"", runner)
+    @test !occursin("parameters[\"LC\"]", runner)
+    @test !occursin("parameters[\"LL\"]", runner)
+    @test occursin("requests conductor elimination", runner)
     @test occursin("line.compile()", runner)
     @test !occursin("line._command", runner)
 end
 
-@testitem "Gauntlet / private legacy PSCAD exporter" tags=[:unit] setup=[
+@testitem "Gauntlet / local performance comparison" tags=[:gauntlet_toolkit] setup=[
     GauntletSupport,
     TestFixtures
 ] begin
     using Test
-    using LineCableModels.ImportExport
+    using LineCableModels
     using .GauntletSupport
     using .TestFixtures
 
-    harness=GauntletSupport._load_live_support!()
-    system=TestFixtures.three_phase_system()
     problem=TestFixtures.line_parameters_problem()
-    earth=problem.earth_props
-    mktempdir() do directory
-        current=export_data(
-            :pscad,
-            system,
-            earth;
-            file_name = joinpath(directory, "current.pscx")
-        )
-        legacy=harness.export_legacy_pscad(
-            system,
-            earth;
-            file_name = joinpath(directory, "legacy.pscx")
-        )
-        @test isfile(current)
-        @test isfile(legacy)
-        for path in (current, legacy)
-            content=read(path, String)
-            @test occursin("master:Line_FrePhase_Options", content)
-            @test occursin("master:Cable_Coax", content)
-            @test occursin("master:Line_Ground", content)
-            @test occursin("name=\"Main\"", content)
-            @test occursin("name=\"CableSystem\"", content)
-        end
-    end
-
-    timing=harness.benchmark_local(
+    timing=benchmark_local(
         (; problem, formulation = LineCableModels.Formulation()); samples = 1, seconds = 1
     )
     @test timing.samples == 1
@@ -356,4 +462,23 @@ end
     @test timing.median_seconds >= timing.minimum_seconds
     @test timing.bytes >= 0
     @test timing.allocations >= 0
+    @test timing.environment.julia_version == string(VERSION)
+
+    tolerance=(median_time_ratio = 1.2, bytes_ratio = 1.05, allocations_ratio = 1.05)
+    accepted=(;
+        timing...,
+        median_seconds = timing.median_seconds/1.1,
+        bytes = max(timing.bytes, 1),
+        allocations = max(timing.allocations, 1)
+    )
+    compared=performance_comparison(accepted, timing, tolerance)
+    @test compared.comparable
+    @test compared.passes isa Bool
+    other_environment=(;
+        accepted...,
+        environment = (; accepted.environment..., julia_version = "different")
+    )
+    diagnostic=performance_comparison(other_environment, timing, tolerance)
+    @test !diagnostic.comparable
+    @test diagnostic.passes === nothing
 end
