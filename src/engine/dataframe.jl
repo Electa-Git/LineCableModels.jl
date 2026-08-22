@@ -187,3 +187,86 @@ function DataFrame(
     )
     return series, shunt
 end
+
+function _comparison_floor(zero_atol::NamedTuple, quantity::Symbol)
+    names = propertynames(zero_atol)
+    length(names) == 2 && all(name -> name in names, (:Z, :Y)) || throw(ArgumentError(
+        "zero_atol must contain exactly the Z and Y fields",
+    ))
+    value = getproperty(zero_atol, quantity)
+    value isa Real || throw(ArgumentError(
+        "zero_atol.$quantity must be a real number",
+    ))
+    isfinite(value) && value >= 0 || throw(ArgumentError(
+        "zero_atol.$quantity must be finite and nonnegative",
+    ))
+    return value
+end
+
+function _comparison_rows(quantity::Symbol, error::RMSError, floor::Real)
+    T = eltype(error.absolute)
+    rows = Int[]
+    columns = Int[]
+    absolute = T[]
+    relative = Union{Missing, T}[]
+    relative_status = Symbol[]
+    for index in CartesianIndices(error.absolute)
+        below_floor = floor > 0 && error.absolute[index] <= floor
+        push!(rows, index[1])
+        push!(columns, index[2])
+        push!(absolute, error.absolute[index])
+        push!(relative, below_floor ? missing : error.relative[index])
+        push!(relative_status, below_floor ? :below_absolute_floor : :reported)
+    end
+    return DataFrame(
+        quantity = fill(quantity, length(rows)),
+        row = rows,
+        column = columns,
+        rms_absolute = absolute,
+        rms_relative = relative,
+        relative_status = relative_status
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Convert the element-wise RMS errors in a [`LineParametersComparison`](@ref) to a long-form `DataFrame`.
+
+The `zero_atol` keyword declares separate absolute display floors for Z and Y. When an absolute RMS error is at or below its floor, `rms_relative` is `missing` and `relative_status` is `:below_absolute_floor`. This prevents a large relative value on a physically negligible term from dominating the displayed table. The stored [`RMSError`](@ref) matrices remain unchanged.
+
+# Arguments
+
+- `comparison`: Element-wise Z/Y comparison.
+
+# Keywords
+
+- `zero_atol`: Named tuple containing nonnegative `Z` and `Y` display floors. `Z` uses the impedance units of the compared result, while `Y` uses its admittance units. A zero floor disables masking for that quantity.
+
+# Returns
+
+- A `DataFrame` with quantity, matrix indices, absolute RMS, displayed relative RMS, and relative-reporting state.
+
+# Errors
+
+- `ArgumentError` when `zero_atol` does not contain exactly `Z` and `Y`, or when either floor is invalid.
+"""
+function DataFrame(
+        comparison::LineParametersComparison;
+        zero_atol::NamedTuple = (Z = 0.0, Y = 0.0)
+)
+    impedance_floor = _comparison_floor(zero_atol, :Z)
+    admittance_floor = _comparison_floor(zero_atol, :Y)
+    frame = vcat(
+        _comparison_rows(:Z, comparison.Z, impedance_floor),
+        _comparison_rows(:Y, comparison.Y, admittance_floor)
+    )
+    metadata!(
+        frame,
+        "relative RMS",
+        "rms_relative is missing when rms_absolute is at or below the corresponding zero_atol display floor; the comparison object retains the raw value",
+        style = :note
+    )
+    metadata!(frame, "zero_atol", zero_atol, style = :note)
+    return frame
+end
