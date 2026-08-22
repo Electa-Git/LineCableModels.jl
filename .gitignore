@@ -25,6 +25,7 @@ docs/src/tutorials/
 # environment.
 Manifest.toml
 */Manifest.toml
+!test/gauntlet/pscad/remote/Manifest.toml
 
 # the hidden folder of shame
 temp/
@@ -57,3 +58,7 @@ test/jl_*
 .vscode/
 designs/
 benchmarks/
+
+# Local PSCAD gauntlet configuration and disposable case output
+test/gauntlet/local.jl
+test/gauntlet/cases/.work/

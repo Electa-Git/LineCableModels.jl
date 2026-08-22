@@ -27,6 +27,7 @@ module Engine
 # Export public API
 export CableConstantsProblem, LineParametersProblem,
        LineParameters, SeriesImpedance, ShuntAdmittance,
+       RMSError, LineParametersComparison, compare,
        Z, Y, R, X, L, G, B, C,
        series_impedance, shunt_admittance,
        resistance, reactance, inductance,
@@ -76,6 +77,7 @@ using .EarthProperties: CPEarth
 include("lineparamopts.jl")
 include("problemdefs.jl")
 include("lineparams.jl")
+include("comparison.jl")
 
 # Submodule `InternalImpedance`
 include("internalimpedance/InternalImpedance.jl")

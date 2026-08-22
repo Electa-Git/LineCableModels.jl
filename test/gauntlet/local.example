@@ -1,0 +1,28 @@
+# Copy this file to local.jl and replace every path with the corresponding
+# value on the PSCAD host. The last expression must be a RemoteConfig.
+
+RemoteConfig(
+    "pscad-host",
+    raw"Z:\path\to\LineCableModels\test\gauntlet\cases\.work",
+    raw"C:\LineCableModelsGauntlet",
+    raw"C:\Users\operator\.julia\juliaup\julia-1.12.7+0.x64.w64.mingw32\bin\julia.exe",
+    raw"C:\Python311\python.exe";
+    pscad_version = "5.1.0",
+    transport = :ssh,
+    verbosity = 1,
+    timeout_seconds = 1800,
+)
+
+# To use the existing Tailscale wrapper, change transport to :tailscale and
+# define this narrow command-construction method in local.jl:
+#
+# remote_command(::Val{:tailscale}, config::RemoteConfig, powershell::AbstractString) =
+#     Cmd(vcat(
+#         [
+#             "ts", "ssh", config.host, "--direct",
+#             "-o", "ServerAliveInterval=15",
+#             "-o", "ServerAliveCountMax=3",
+#             "--",
+#         ],
+#         _powershell_argv(powershell),
+#     ))
