@@ -13,7 +13,7 @@ TestItemRunner = "f8b46487-2199-4994-9208-9a1283c18c0a"
 LineCableModels = {path = "../.."}
 
 [compat]
-CairoMakie = "0.15"
+CairoMakie = "=0.15.13"
 Calculus = "0.5"
 Distributions = "0.25"
 DataFrames = "1"

@@ -401,10 +401,7 @@ function _axis(parent, view::ViewSpec, page::PageSpec)
     y_exponent = yaxis === nothing ? 0 : yaxis.exponent
     xscale = xaxis === nothing ? :linear : xaxis.scale
     yscale = yaxis === nothing ? :linear : yaxis.scale
-    attributes = merge(
-        (; tellwidth = false, tellheight = false),
-        _axis_attributes(view)
-    )
+    attributes = _axis_attributes(view)
     axis = Axis(
         parent;
         xlabel = _axis_label(xaxis, x_exponent, xscale),
@@ -707,11 +704,13 @@ function _shares_side_dock(page::PageSpec, colorbar_slot_name::Symbol)
 end
 
 function _legend_dock_width(page::PageSpec)
-    return page.legend.enabled ? LEGEND_DOCK_WIDTH : nothing
+    any(colorbar -> _shares_side_dock(page, colorbar.slot), page.colorbars) ||
+        return nothing
+    return LEGEND_DOCK_WIDTH
 end
 
 _track_size(track::FixedTrack) = Fixed(track.value)
-_track_size(track::RelativeTrack) = Auto(false, track.weight)
+_track_size(track::RelativeTrack) = Relative(track.weight)
 _track_size(::ContentTrack) = Auto(true)
 
 function _apply_grid_spec!(grid, specification::GridSpec)
@@ -861,12 +860,7 @@ end
 function _build_panels(page::PageSpec, materialized)
     panels = UIPanel[]
     for slot_name in unique(view.placement.slot for view in page.views)
-        slot = _slot_grid(
-            materialized,
-            slot_name;
-            tellwidth = false,
-            tellheight = false
-        )
+        slot = _slot_grid(materialized, slot_name)
         slot.default_rowgap = Fixed(GRID_ROW_GAP)
         slot.default_colgap = Fixed(GRID_COLUMN_GAP)
         views = [view for view in page.views if view.placement.slot === slot_name]
