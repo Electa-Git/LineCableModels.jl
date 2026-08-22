@@ -8,6 +8,7 @@ DocumenterCitations = "daee34ce-89f3-4625-b898-19384cb65244"
 Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 LineCableModels = "dffb7669-8cd4-4628-99dd-7694e356ba37"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 
 [sources]
 LineCableModels = {path = ".."}
@@ -21,4 +22,5 @@ Documenter = "1"
 DocumenterCitations = "1"
 LineCableModels = "0.2"
 Literate = "2"
+JLD2 = "0.6"
 julia = "1.12"

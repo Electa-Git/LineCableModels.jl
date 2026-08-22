@@ -20,11 +20,24 @@ Pkg.test(test_args = ["tag:integration"])
 Pkg.test(test_args = ["Engine / solver"])
 ```
 
-The supported tags are `unit`, `integration`, `extension`, `visual`, `quality`, and
-`gauntlet`. Visual, quality, `core_only`, and gauntlet items are intentionally excluded
-from the default run and execute in dedicated environments. See
+The supported tags are `unit`, `integration`, `extension`, `visual`, `quality`, `gauntlet`, and `gauntlet_toolkit`. Visual, quality, `core_only`, and both gauntlet tags are intentionally excluded from the default run and execute in dedicated environments. See
 [`gauntlet/README.md`](gauntlet/README.md) for the explicit snapshot, live, and record
 commands.
+
+Instantiate the gauntlet environment and run every gauntlet case through the native package-test selector with:
+
+```sh
+julia --project=test/gauntlet -e 'using Pkg; Pkg.instantiate()'
+LINECABLEMODELS_GAUNTLET_MODE=snapshot julia --project=test/gauntlet \
+  -e 'push!(ARGS, "tag:gauntlet"); include("test/runtests.jl")'
+```
+
+Run the reusable gauntlet toolkit checks separately with:
+
+```sh
+julia --project=test/gauntlet --startup-file=no \
+  -e 'push!(ARGS, "tag:gauntlet_toolkit"); include("test/runtests.jl")'
+```
 
 The deterministic Cairo suite has its own environment and may be run headlessly with:
 
