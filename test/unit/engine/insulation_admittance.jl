@@ -141,7 +141,7 @@ end
         )
     )
     problem=two_terminal_problem()
-    input=Engine.EMTInput(problem)
+    input=Engine.AnalyticalInput(problem)
     trace_formulation=Formulation(
         :analytical;
         internal_impedance = formulation.internal_impedance,

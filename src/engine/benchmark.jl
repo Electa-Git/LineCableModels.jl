@@ -1,7 +1,7 @@
 """
 $(TYPEDEF)
 
-Store element-wise absolute and reference-normalized root-mean-square errors.
+Store element-wise absolute and reference-normalized root-mean-square benchmark errors.
 
 Each matrix entry contains the error for the corresponding line-parameter
 term evaluated across its complete frequency vector.

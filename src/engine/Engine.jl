@@ -81,7 +81,7 @@ using .EarthProperties: CPEarth
 include("lineparamopts.jl")
 include("problemdefs.jl")
 include("lineparams.jl")
-include("comparison.jl")
+include("benchmark.jl")
 
 # Submodule `InternalImpedance`
 include("internalimpedance/InternalImpedance.jl")
@@ -123,7 +123,7 @@ include("reduction.jl")
 # Override I/O methods
 include("base.jl")
 include("plotspecs.jl")
-include("comparisonplot.jl")
+include("benchmarkplot.jl")
 include("dataframe.jl")
 
 """

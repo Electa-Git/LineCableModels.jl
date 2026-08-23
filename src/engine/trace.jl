@@ -6,7 +6,7 @@ primitive matrices from one analytical line-parameter calculation.
 
 $(TYPEDFIELDS)
 """
-struct LineParametersTrace{R, T <: Real} <: AbstractProblemResult
+struct LineParametersTrace{R <: LineParameters, T <: Real} <: AbstractProblemResult
     result::R
     frequencies::Vector{T}
     phase_map::Vector{Int}
@@ -19,7 +19,7 @@ struct LineParametersTrace{R, T <: Real} <: AbstractProblemResult
     P::Array{Complex{T}, 3}
 end
 
-Base.eltype(::LineParametersTrace{<:Any, T}) where {T} = T
+Base.eltype(::LineParametersTrace{<:LineParameters, T}) where {T} = T
 
 observables(trace::LineParametersTrace) = observables(trace.result)
 

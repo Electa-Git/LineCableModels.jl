@@ -8,7 +8,7 @@ temperature correction is calculated into a local array by [`compute`](@ref).
 
 $(TYPEDFIELDS)
 """
-struct EMTInput{T <: Real, E <: EarthModel{T}}
+struct AnalyticalInput{T <: Real, E <: EarthModel{T}}
     freq::Vector{T}
     jω::Vector{Complex{T}}
     horz::Vector{T}
@@ -41,10 +41,10 @@ struct EMTInput{T <: Real, E <: EarthModel{T}}
     n_cables::Int
 end
 
-Base.eltype(::EMTInput{T}) where {T} = T
-Base.eltype(::Type{<:EMTInput{T}}) where {T} = T
+Base.eltype(::AnalyticalInput{T}) where {T} = T
+Base.eltype(::Type{<:AnalyticalInput{T}}) where {T} = T
 
-function _check_emt_input(input::EMTInput)
+function _check_analytical_input(input::AnalyticalInput)
     n = input.n_phases
     input.n_frequencies == length(input.freq) || throw(DimensionMismatch(
         "frequency count differs from the frequency vector",
@@ -60,7 +60,7 @@ function _check_emt_input(input::EMTInput)
         input.insulator_layer_ranges
     )
         length(values) == n || throw(DimensionMismatch(
-            "flattened EMT input arrays must have $n component entries",
+            "flattened analytical input arrays must have $n component entries",
         ))
     end
     size(input.horz_sep) == (n, n) || throw(DimensionMismatch(
@@ -69,11 +69,11 @@ function _check_emt_input(input::EMTInput)
     return nothing
 end
 
-function Validation.rules(::Type{<:EMTInput})
-    (Validation.OwnerRule(:emt_input_dimensions, _check_emt_input),)
+function Validation.rules(::Type{<:AnalyticalInput})
+    (Validation.OwnerRule(:analytical_input_dimensions, _check_analytical_input),)
 end
 
-function EMTInput(problem::LineParametersProblem{T}) where {T <: Real}
+function AnalyticalInput(problem::LineParametersProblem{T}) where {T <: Real}
     system = problem.system
     n_frequencies = length(problem.frequencies)
     n_phases = sum(
@@ -152,7 +152,7 @@ function EMTInput(problem::LineParametersProblem{T}) where {T <: Real}
         end
     end
     horizontal_separation!(horz_sep, horz, r_ext, r_ins_ext, cable_map)
-    return validate(EMTInput(
+    return validate(AnalyticalInput(
         freq, jω, horz, horz_sep, vert, r_in, r_ext, r_ins_in, r_ins_ext,
         rho0_cond, T0_cond, alpha_cond, mu_cond, eps_cond, rho_ins, mu_ins,
         eps_ins, tan_ins, insulator_layer_ranges, r_ins_layer_in,

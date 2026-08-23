@@ -3,7 +3,7 @@ import Colors: HSV, RGB
 """
 $(TYPEDEF)
 
-Build one matrix-grid page for each selected quantity when comparing two or
+Build one matrix-grid page for each selected benchmark quantity when comparing two or
 more [`LineParameters`](@ref) results. Each page places matrix term ``(i,j)``
 at grid position ``(i,j)`` and overlays one solid line per result.
 """

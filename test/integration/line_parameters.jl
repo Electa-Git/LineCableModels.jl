@@ -26,6 +26,7 @@
     @test all(isfinite, parameters.Z)
     @test all(isfinite, parameters.Y)
     @test trace isa LineParametersTrace
+    @test fieldtype(typeof(trace), :result) <: LineParameters
     @test observables(trace) == observables(parameters)
     @test trace.frequencies == problem.frequencies
     @test trace.phase_map == [1, 0, 0, 2, 0, 0, 3, 0, 0]
@@ -53,7 +54,7 @@
             Diagonal(diag(trace.Pg[:, :, frequency_index])))
     end
 
-    input=LineCableModels.Engine.EMTInput(problem)
+    input=LineCableModels.Engine.AnalyticalInput(problem)
     LineCableModels.Engine._trace_buffers(Float64, input, Val(:parameters))
     @test @allocated(LineCableModels.Engine._trace_buffers(
         Float64, input, Val(:parameters))) == 0

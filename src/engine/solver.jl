@@ -44,9 +44,9 @@ function Logging.handle_message(
     )
 end
 
-_trace_buffers(::Type, ::EMTInput, ::Val{:parameters}) = nothing
+_trace_buffers(::Type, ::AnalyticalInput, ::Val{:parameters}) = nothing
 
-function _trace_buffers(::Type{T}, input::EMTInput{T}, ::Val{:trace}) where {T}
+function _trace_buffers(::Type{T}, input::AnalyticalInput{T}, ::Val{:trace}) where {T}
     n, nc, nf = input.n_phases, input.n_cables, input.n_frequencies
     return (
         Zin = Array{Complex{T}, 3}(undef, n, n, nf),
@@ -58,9 +58,9 @@ function _trace_buffers(::Type{T}, input::EMTInput{T}, ::Val{:trace}) where {T}
     )
 end
 
-_solve_result(parameters, ::EMTInput, ::Nothing, ::Val{:parameters}) = parameters
+_solve_result(parameters, ::AnalyticalInput, ::Nothing, ::Val{:parameters}) = parameters
 
-function _solve_result(parameters, input::EMTInput, trace, ::Val{:trace})
+function _solve_result(parameters, input::AnalyticalInput, trace, ::Val{:trace})
     return LineParametersTrace(
         parameters, copy(input.freq), copy(input.phase_map), copy(input.cable_map),
         trace.Zin, trace.Pin, trace.Zg, trace.Pg, trace.Z, trace.P
@@ -74,13 +74,13 @@ function _modal_result(parameters, transform::AbstractTransformFormulation)
     return transformed
 end
 
-function _basis_result(parameters, ::EMTInput, ::Val{:per_length})
+function _basis_result(parameters, ::AnalyticalInput, ::Val{:per_length})
     parameters
 end
 
 function _basis_result(
         parameters::LineParameters{T, U, D},
-        input::EMTInput,
+        input::AnalyticalInput,
         ::Val{:total}
 ) where {T, U, D}
     impedance = parameters.Z.values .* input.line_length
@@ -137,7 +137,7 @@ function _reduction_map(phase_map, formulation)
 end
 
 function _operating_resistivity(
-        input::EMTInput{T},
+        input::AnalyticalInput{T},
         problem::LineParametersProblem{T},
         formulation::AnalyticalFormulation
 ) where {T <: Real}
@@ -151,14 +151,23 @@ function _operating_resistivity(
     return rho
 end
 
+_input(problem::LineParametersProblem, ::AnalyticalFormulation) = AnalyticalInput(problem)
+
+function _prepare(
+        problem::LineParametersProblem,
+        input::AnalyticalInput,
+        formulation::AnalyticalFormulation
+)
+    return _operating_resistivity(input, problem, formulation),
+        _earth_data(formulation, input)
+end
+
 function _solve(
-        problem::LineParametersProblem{T},
-        formulation::AnalyticalFormulation,
-        execution::NamedTuple
+        input::AnalyticalInput{T},
+        rho_cond::AbstractVector{T},
+        earth,
+        formulation::AnalyticalFormulation
 ) where {T <: Real}
-    validate(problem)
-    input = EMTInput(problem)
-    rho_cond = _operating_resistivity(input, problem, formulation)
     n, nf = input.n_phases, input.n_frequencies
 
     Zbuffer = Matrix{Complex{T}}(undef, n, n)
@@ -166,7 +175,6 @@ function _solve(
     Zprimitive = similar(Zbuffer)
     Pprimitive = similar(Pbuffer)
     Pinverse = similar(Pbuffer)
-    earth = _earth_data(formulation, input)
     output = formulation.options.output
     trace = _trace_buffers(T, input, output)
 
@@ -227,10 +235,36 @@ function _solve(
         ShuntAdmittance{Complex{T}, :per_length}(Yout),
         input.freq
     )
-    parameters = _modal_result(parameters, formulation.modal_transform)
+    return parameters, trace
+end
+
+function _transform(parameters::LineParameters, formulation::AnalyticalFormulation)
+    return _modal_result(parameters, formulation.modal_transform)
+end
+
+function _finish(
+        parameters::LineParameters,
+        input::AnalyticalInput,
+        trace,
+        formulation::AnalyticalFormulation,
+        execution::NamedTuple
+)
     parameters = _basis_result(parameters, input, execution.output_basis)
     @info "Line parameters computation completed successfully"
-    return _solve_result(parameters, input, trace, output)
+    return _solve_result(parameters, input, trace, formulation.options.output)
+end
+
+function _compute_analytical(
+        problem::LineParametersProblem,
+        formulation::AnalyticalFormulation,
+        execution::NamedTuple
+)
+    validate(problem)
+    input = _input(problem, formulation)
+    rho_cond, earth = _prepare(problem, input, formulation)
+    parameters, trace = _solve(input, rho_cond, earth, formulation)
+    parameters = _transform(parameters, formulation)
+    return _finish(parameters, input, trace, formulation, execution)
 end
 
 """
@@ -267,7 +301,7 @@ function compute(
     console = ConsoleLogger(stderr, Logging.Debug)
     logger = ConsoleVerbosityLogger(console, execution.verbosity)
     return with_logger(logger) do
-        _solve(problem, formulation, execution)
+        _compute_analytical(problem, formulation, execution)
     end
 end
 
@@ -295,7 +329,7 @@ end
 @inline function compute_earth_return_matrix!(
         destination::AbstractMatrix{Complex{T}},
         cables::AbstractVector{Int},
-        input::EMTInput{T},
+        input::AnalyticalInput{T},
         earth,
         frequency::Int,
         formulation
@@ -320,7 +354,7 @@ end
 
 function compute_impedance_matrix!(
         destination::AbstractMatrix{Complex{T}},
-        input::EMTInput{T},
+        input::AnalyticalInput{T},
         rho_cond::AbstractVector{T},
         earth,
         frequency::Int,
@@ -400,7 +434,7 @@ end
 
 function compute_admittance_matrix!(
         destination::AbstractMatrix{Complex{T}},
-        input::EMTInput{T},
+        input::AnalyticalInput{T},
         earth,
         frequency::Int,
         formulation::AnalyticalFormulation,
@@ -465,7 +499,7 @@ function _cable_indices(input)
     return indices, first.(indices)
 end
 
-function _earth_data(formulation::AnalyticalFormulation, input::EMTInput)
+function _earth_data(formulation::AnalyticalFormulation, input::AnalyticalInput)
     evaluated = EarthProperties.evaluate(
         formulation.earth_properties, input.earth, input.freq
     )

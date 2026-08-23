@@ -84,8 +84,6 @@ end
     EngineTestSupport, UseEngineSupport] begin
     const Grammar=LineCableModels.Grammar
     const Engine=LineCableModels.Engine
-    struct TestFormulationFamily<:Engine._FormulationFamily end
-
     formulation=Formulation()
     @test formulation isa AnalyticalFormulation
     @test formulation.backend == Val(:analytical)
@@ -98,12 +96,10 @@ end
     @test_throws ArgumentError Formulation(:analytical; options = (output = :unknown,))
     @test_throws ArgumentError Formulation(:analytical; options = (kron_reduction = :yes,))
 
-    family=Engine._LineParameterFormulationFamily
-    @test Engine._active_formulation_backend(family) === :analytical
-    @test Engine._activate_formulation_backend!(TestFormulationFamily, :unimplemented) ===
-          :unimplemented
-    @test Engine._active_formulation_backend(TestFormulationFamily) === :unimplemented
-    @test Engine._active_formulation_backend(family) === :analytical
+    @test !isdefined(Engine, :_FormulationFamily)
+    @test !isdefined(Engine, :_ACTIVE_FORMULATION_BACKENDS)
+    @test !isdefined(Engine, :_active_formulation_backend)
+    @test !isdefined(Engine, :_activate_formulation_backend!)
     @test Formulation(:analytical) isa AnalyticalFormulation
     @test Formulation() isa AnalyticalFormulation
 

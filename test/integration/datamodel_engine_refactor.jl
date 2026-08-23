@@ -43,8 +43,8 @@
     @test repeated.Z.values == cold.Z.values
     @test repeated.Y.values == cold.Y.values
 
-    cold_input=LineCableModels.Engine.EMTInput(cold_problem)
-    hot_input=LineCableModels.Engine.EMTInput(hot_problem)
+    cold_input=LineCableModels.Engine.AnalyticalInput(cold_problem)
+    hot_input=LineCableModels.Engine.AnalyticalInput(hot_problem)
     cold_rho=LineCableModels.Engine._operating_resistivity(
         cold_input, cold_problem, formulation
     )

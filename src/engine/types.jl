@@ -16,26 +16,6 @@ abstract type EarthAdmittanceFormulation <: AbstractAdmittanceFormulation end
 abstract type AbstractTransformFormulation <: AbstractFormulation end
 abstract type AbstractEarthPropertiesFormulation <: AbstractFormulation end
 
-abstract type _FormulationFamily end
-struct _LineParameterFormulationFamily <: _FormulationFamily end
-
-const _ACTIVE_FORMULATION_BACKENDS = Dict{DataType, Symbol}(
-    _LineParameterFormulationFamily => :analytical,
-)
-
-function _active_formulation_backend(::Type{F}) where {F <: _FormulationFamily}
-    return get(_ACTIVE_FORMULATION_BACKENDS, F) do
-        throw(ArgumentError("no active backend is registered for formulation family $F"))
-    end
-end
-
-function _activate_formulation_backend!(
-        ::Type{F}, backend::Symbol
-) where {F <: _FormulationFamily}
-    _ACTIVE_FORMULATION_BACKENDS[F] = backend
-    return backend
-end
-
 """
 $(TYPEDSIGNATURES)
 
@@ -43,10 +23,7 @@ Construct a formulation selected by `backend`, using the analytical formulation 
 default.
 """
 Formulation(backend::Symbol; kwargs...) = Formulation(Val(backend); kwargs...)
-function Formulation(; kwargs...)
-    backend = _active_formulation_backend(_LineParameterFormulationFamily)
-    return Formulation(Val(backend); kwargs...)
-end
+Formulation(; kwargs...) = Formulation(:analytical; kwargs...)
 Formulation(::Val{:FEM}; kwargs...) = retired_fem_sector("FEM formulation")
 
 """
