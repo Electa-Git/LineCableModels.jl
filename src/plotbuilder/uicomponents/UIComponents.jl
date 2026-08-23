@@ -23,6 +23,7 @@ const COLORBAR_ROW_GAP = 8
 const LEGEND_DOCK_WIDTH = 220
 const LEGEND_HEIGHT_TOLERANCE = 1
 const LEGEND_MARGIN = (3.0f0, 3.0f0, 3.0f0, 3.0f0)
+const OUTER_WINDOW_INSET = 3.0
 const GRID_ROW_GAP = 6
 const GRID_COLUMN_GAP = 6
 const BUTTON_SIZE = 32
@@ -401,7 +402,10 @@ function _axis(parent, view::ViewSpec, page::PageSpec)
     y_exponent = yaxis === nothing ? 0 : yaxis.exponent
     xscale = xaxis === nothing ? :linear : xaxis.scale
     yscale = yaxis === nothing ? :linear : yaxis.scale
-    attributes = _axis_attributes(view)
+    attributes = merge(
+        (; tellwidth = false, tellheight = false),
+        _axis_attributes(view)
+    )
     axis = Axis(
         parent;
         xlabel = _axis_label(xaxis, x_exponent, xscale),
@@ -709,9 +713,10 @@ function _legend_dock_width(page::PageSpec)
     return LEGEND_DOCK_WIDTH
 end
 
-_track_size(track::FixedTrack) = Fixed(track.value)
-_track_size(track::RelativeTrack) = Relative(track.weight)
-_track_size(::ContentTrack) = Auto(true)
+_track_size(track::FixedTrack, ::Val) = Fixed(track.value)
+_track_size(track::RelativeTrack, ::Val{:row}) = Relative(track.weight)
+_track_size(track::RelativeTrack, ::Val{:column}) = Auto(false, track.weight)
+_track_size(::ContentTrack, ::Val) = Auto(true)
 
 function _apply_grid_spec!(grid, specification::GridSpec)
     grid.default_rowgap = Fixed(specification.rowgap)
@@ -719,10 +724,12 @@ function _apply_grid_spec!(grid, specification::GridSpec)
     isempty(grid.addedrowgaps) || rowgap!(grid, Fixed(specification.rowgap))
     isempty(grid.addedcolgaps) || colgap!(grid, Fixed(specification.columngap))
     for (index, track) in enumerate(specification.rows)
-        index <= length(grid.rowsizes) && rowsize!(grid, index, _track_size(track))
+        index <= length(grid.rowsizes) &&
+            rowsize!(grid, index, _track_size(track, Val(:row)))
     end
     for (index, track) in enumerate(specification.columns)
-        index <= length(grid.colsizes) && colsize!(grid, index, _track_size(track))
+        index <= length(grid.colsizes) &&
+            colsize!(grid, index, _track_size(track, Val(:column)))
     end
     return grid
 end
@@ -763,6 +770,10 @@ function _materialize_layout(figure, specification::LayoutSpec)
         _apply_grid_spec!(grids[grid_specification.name], grid_specification)
     end
     return (; grids, slot_specs, collapsed = Set{Tuple{Symbol, Int}}())
+end
+
+function _window_padding(padding::NTuple{4, <:Real})
+    return ntuple(index -> max(OUTER_WINDOW_INSET, padding[index]), 4)
 end
 
 function _collapse_slot!(layout::LayoutSpec, materialized, name::Symbol)
@@ -860,7 +871,12 @@ end
 function _build_panels(page::PageSpec, materialized)
     panels = UIPanel[]
     for slot_name in unique(view.placement.slot for view in page.views)
-        slot = _slot_grid(materialized, slot_name)
+        slot = _slot_grid(
+            materialized,
+            slot_name;
+            tellwidth = false,
+            tellheight = false
+        )
         slot.default_rowgap = Fixed(GRID_ROW_GAP)
         slot.default_colgap = Fixed(GRID_COLUMN_GAP)
         views = [view for view in page.views if view.placement.slot === slot_name]
@@ -901,7 +917,7 @@ function _build_page(
 )
     PlotBuilder.validate(render_spec)
     root = only(filter(grid -> grid.parent === nothing, page.layout.grids))
-    figure = Figure(size = page.size, figure_padding = root.padding)
+    figure = Figure(size = page.size, figure_padding = _window_padding(root.padding))
     materialized = _materialize_layout(figure, page.layout)
     panels = _build_panels(page, materialized)
     legend = nothing

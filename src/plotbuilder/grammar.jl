@@ -713,7 +713,7 @@ function _standard_layout(name::Symbol)
     root = GridSpec(
         :root;
         rows = AbstractTrackSize[FixedTrack(36), RelativeTrack(), FixedTrack(20)],
-        columns = AbstractTrackSize[ContentTrack(), ContentTrack()],
+        columns = AbstractTrackSize[RelativeTrack(), ContentTrack()],
         rowgap = 6,
         columngap = 12,
         padding = (20, 20, 28, 28)

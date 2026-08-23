@@ -63,7 +63,7 @@ jobs:
           '
       - name: Collect Cairo and visual coverage
         run: |
-          julia --project=test/visual --code-coverage=@. --color=yes -e '
+          julia --project=test/visual --compiled-modules=no --code-coverage=@. --color=yes -e '
             using Pkg
             Pkg.instantiate()
             append!(ARGS, ["tag:visual", "loaded extension activation"])

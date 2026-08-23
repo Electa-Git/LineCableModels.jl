@@ -107,6 +107,7 @@
     root_grid=only(grid for grid in overlay_page.layout.grids if grid.parent===nothing)
     side_slots=Dict(slot.name=>slot for slot in overlay_page.layout.slots)
     @test root_grid.columngap == 12
+    @test root_grid.columns[1] isa PB.RelativeTrack
     @test side_slots[:legend].halign === :left
     @test side_slots[:colorbars].halign === :left
     side_grid=only(grid for grid in overlay_page.layout.grids if grid.name===:side)
@@ -201,6 +202,11 @@
     maintained_recipes=(
         (LineCableModels.Engine.LineParameterPlotSpec,
             LineCableModels.Engine.LineParameters),
+        (LineCableModels.Engine.LineParametersComparisonPlotSpec,
+            Tuple{
+                LineCableModels.Engine.LineParameters,
+                LineCableModels.Engine.LineParameters
+            }),
         (LineCableModels.Computation.MCDistributionPlotSpec,
             LineCableModels.MonteCarloResult),
         (LineCableModels.DataModel.CablePreviewPlotSpec,
