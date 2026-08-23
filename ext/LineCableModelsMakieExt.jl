@@ -129,6 +129,41 @@ function Makie.plot(
     plot(parameters, quantities; kwargs...)
 end
 
+function plot(
+        first::LineCableModels.LineParameters,
+        second::LineCableModels.LineParameters,
+        rest::LineCableModels.LineParameters...;
+        legend,
+        quantities::Tuple = (),
+        backend = nothing,
+        display_plot::Bool = true,
+        controls::Bool = true,
+        xscale = :linear,
+        yscale = :linear,
+        kwargs...
+)
+    parameters = (first, second, rest...)
+    render_spec = PlotBuilder.make_render(
+        LineCableModels.Engine.LineParametersComparisonPlotSpec,
+        parameters;
+        legend,
+        quantities,
+        xscale = _scale_symbol(xscale),
+        yscale = _scale_symbol(yscale),
+        kwargs...
+    )
+    return UIComponents.build(render_spec; backend, display = display_plot, controls)
+end
+
+function Makie.plot(
+        first::LineCableModels.LineParameters,
+        second::LineCableModels.LineParameters,
+        rest::LineCableModels.LineParameters...;
+        kwargs...
+)
+    return plot(first, second, rest...; kwargs...)
+end
+
 function _monte_carlo_quantity(expression)
     expression isa Symbol && return expression, nothing
     if expression isa Expr && expression.head === :ref && length(expression.args) == 4

@@ -119,15 +119,22 @@ include("reduction.jl")
 # Override I/O methods
 include("base.jl")
 include("plotspecs.jl")
+include("comparisonplot.jl")
 include("dataframe.jl")
 
 """
     plot(parameters[, quantities]; kwargs...)
+    plot(first, second, rest...; legend, quantities=(), kwargs...)
     plot(impedance, frequencies[, quantities]; kwargs...)
     plot(admittance, frequencies[, quantities]; kwargs...)
 
 Plot computed line parameters with a loaded Makie backend. `quantities` is a
 tuple of accessors such as `(R, L, G, C)` or `(abs, angle)`.
+
+With two or more positional [`LineParameters`](@ref) results, create one
+matrix-grid page per selected quantity. Grid position `(i, j)` overlays the
+corresponding frequency series from every result. The required `legend` tuple
+must contain one label per result.
 
 Without an explicit selection, [`LineParameters`](@ref) produces separate
 series-impedance and shunt-admittance figures. Each figure places the real part

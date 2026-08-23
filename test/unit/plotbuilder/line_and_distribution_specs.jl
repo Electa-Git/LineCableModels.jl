@@ -120,6 +120,161 @@
     @test all(==(1.0e-12), G(lossy))
 end
 
+@testitem "Engine / plot specification / line-parameter comparison grid" tags=[:unit] setup=[
+    PlotBuilderTestSupport,
+    UsePlotBuilderSupport
+] begin
+    const E=LineCableModels.Engine
+    const PB=LineCableModels.PlotBuilder
+
+    frequency=[10.0, 100.0, 1_000.0]
+    resistance=[1.0 0.2 0.1; 0.2 1.2 0.15; 0.1 0.15 1.4] .* 1.0e-4
+    inductance=[2.0 0.4 0.3; 0.4 2.2 0.35; 0.3 0.35 2.4] .* 1.0e-7
+    conductance=[3.0 0.5 0.4; 0.5 3.2 0.45; 0.4 0.45 3.4] .* 1.0e-9
+    capacitance=[4.0 0.8 0.6; 0.8 4.2 0.7; 0.6 0.7 4.4] .* 1.0e-10
+    function result(scale; result_frequency = frequency, result_domain = PhaseDomain,
+            result_basis = :per_length)
+        impedance=repeat(scale .* resistance, 1, 1, length(result_frequency)) .+
+                  im .* repeat(scale .* inductance, 1, 1, length(result_frequency)) .*
+                  reshape(2π .* result_frequency, 1, 1, :)
+        admittance=repeat(scale .* conductance, 1, 1, length(result_frequency)) .+
+                   im .* repeat(scale .* capacitance, 1, 1, length(result_frequency)) .*
+                   reshape(2π .* result_frequency, 1, 1, :)
+        return LineParameters(
+            result_domain,
+            impedance,
+            admittance,
+            result_frequency;
+            basis = result_basis
+        )
+    end
+
+    parameters=Tuple(result(1+0.01index) for index in 0:4)
+    labels=Tuple("Formulation $index" for index in eachindex(parameters))
+    render=PB.make_render(
+        E.LineParametersComparisonPlotSpec,
+        parameters;
+        legend = labels,
+        quantities = (R, C),
+        xscale = :log10
+    )
+
+    @test length(render.figures) == 2
+    @test all(page -> page.size == (1200, 800), render.figures)
+    @test all(page -> length(page.views) == 9, render.figures)
+    @test first(first(render.figures).views).title ==
+          "Z[1,1] · Series resistance"
+    @test all(
+        view -> length(view.series) == length(parameters),
+        (view for page in render.figures for view in page.views)
+    )
+    @test Set(
+        (first(view.placement.area.rows), first(view.placement.area.columns))
+    for view in first(render.figures).views
+    ) == Set((row, column) for row in 1:3 for column in 1:3)
+    @test Set(
+        series.label
+    for view in first(render.figures).views
+    for series in view.series
+    ) == Set(labels)
+    @test Set(
+        series.group
+    for view in first(render.figures).views
+    for series in view.series
+    ) == Set(Symbol("line_parameters_$index") for index in eachindex(parameters))
+    @test all(
+        series -> series.attributes.linestyle === :solid,
+        (series for page in render.figures for view in page.views
+        for series in view.series)
+    )
+    first_panel=first(first(render.figures).views)
+    @test length(unique(series.attributes.color for series in first_panel.series)) ==
+          length(parameters)
+    @test all(
+        page -> [series.attributes.color for series in first(page.views).series] ==
+                [series.attributes.color for series in first_panel.series],
+        render.figures
+    )
+
+    page=first(render.figures)
+    root=only(page.layout.grids)
+    @test page.layout.name === :line_parameters_comparison
+    @test root.rows isa Vector{PB.AbstractTrackSize}
+    @test root.rows[2] isa PB.RelativeTrack
+    @test root.columns[1] isa PB.RelativeTrack
+    @test root.columns[2] isa PB.ContentTrack
+    @test Set(slot.name for slot in page.layout.slots) ==
+          Set((:toolbar, :canvas, :legend, :status))
+    @test page.controls.reset
+    @test page.controls.export_svg
+    @test page.legend.interactive
+    @test page.legend.overflow === :ellipsis
+    @test page.status.initial == "Ready."
+
+    default_render=PB.make_render(
+        E.LineParametersComparisonPlotSpec,
+        parameters[1:2];
+        legend = labels[1:2]
+    )
+    @test getfield.(getproperty.(default_render.figures, :key), :component) ==
+          [:Z_re, :Z_im, :Y_re, :Y_im]
+
+    @test_throws ArgumentError PB.make_render(
+        E.LineParametersComparisonPlotSpec,
+        (first(parameters),);
+        legend = ("one",)
+    )
+    @test_throws ArgumentError PB.make_render(
+        E.LineParametersComparisonPlotSpec,
+        parameters
+    )
+    @test_throws ArgumentError PB.make_render(
+        E.LineParametersComparisonPlotSpec,
+        parameters;
+        legend = collect(labels)
+    )
+    @test_throws DimensionMismatch PB.make_render(
+        E.LineParametersComparisonPlotSpec,
+        parameters;
+        legend = labels[1:2]
+    )
+    smaller=LineParameters(
+        PhaseDomain,
+        Z(first(parameters)).values[1:2, 1:2, :],
+        Y(first(parameters)).values[1:2, 1:2, :],
+        frequency
+    )
+    @test_throws DimensionMismatch PB.make_render(
+        E.LineParametersComparisonPlotSpec,
+        (first(parameters), smaller);
+        legend = ("three conductors", "two conductors")
+    )
+    @test_throws ArgumentError PB.make_render(
+        E.LineParametersComparisonPlotSpec,
+        (parameters[1], result(1.0; result_frequency = [10.0, 100.0, 2_000.0]));
+        legend = ("first", "frequency mismatch")
+    )
+    @test_throws ArgumentError PB.make_render(
+        E.LineParametersComparisonPlotSpec,
+        (parameters[1], result(1.0; result_domain = ModalDomain));
+        legend = ("phase", "modal")
+    )
+    @test_throws ArgumentError PB.make_render(
+        E.LineParametersComparisonPlotSpec,
+        (parameters[1], result(1.0; result_basis = :total));
+        legend = ("per length", "total")
+    )
+    @test_throws DomainError PB.make_render(
+        E.LineParametersComparisonPlotSpec,
+        (
+            result(1.0; result_frequency = [0.0, 10.0, 100.0]),
+            result(1.1; result_frequency = [0.0, 10.0, 100.0])
+        );
+        legend = ("first", "second"),
+        quantities = (L,)
+    )
+end
+
 @testitem "Computation / plot specification / empirical and model distributions" tags=[:unit] setup=[
     PlotBuilderTestSupport,
     UsePlotBuilderSupport,
