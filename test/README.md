@@ -24,13 +24,15 @@ The supported tags are `unit`, `integration`, `extension`, `visual`, `quality`, 
 [`gauntlet/README.md`](gauntlet/README.md) for the explicit snapshot, live, and record
 commands.
 
-Instantiate the gauntlet environment and run every gauntlet case through the native package-test selector with:
+Instantiate the gauntlet environment and run every tagged case through the dedicated TestItemRunner entry point:
 
 ```sh
 julia --project=test/gauntlet -e 'using Pkg; Pkg.instantiate()'
 LINECABLEMODELS_GAUNTLET_MODE=snapshot julia --project=test/gauntlet \
-  -e 'push!(ARGS, "tag:gauntlet"); include("test/runtests.jl")'
+  test/gauntlet/runtests.jl
 ```
+
+`test/gauntlet/runtests.jl` uses `@run_package_tests(filter=ti -> :gauntlet in ti.tags, verbose=true)`. TestItemRunner discovers every case file; the command does not maintain a second file list.
 
 Run the reusable gauntlet toolkit checks separately with:
 
@@ -78,7 +80,8 @@ julia --project=test/coverage test/coverage.jl clean
 julia --project=. -e 'using Pkg; Pkg.test(coverage=true)'
 julia --project=test/core --code-coverage=@. \
   -e 'push!(ARGS, "tag:core_only"); include("test/runtests.jl")'
-LINECABLEMODELS_TEST_PLOTTING=true julia --project=test/visual --code-coverage=@. \
+LINECABLEMODELS_TEST_PLOTTING=true julia --project=test/visual \
+  --compiled-modules=no --code-coverage=@. \
   -e 'append!(ARGS, ["tag:visual", "loaded extension activation"]); include("test/runtests.jl")'
 julia --project=test/coverage test/coverage.jl check
 ```

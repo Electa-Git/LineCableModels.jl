@@ -17,6 +17,7 @@ to inspect.
 ````@example gauntlet
 using LineCableModels
 using LineCableModels.Engine
+using CairoMakie
 using DataFrames
 using JLD2
 
@@ -56,11 +57,17 @@ JLD2.jldsave( #hide
     fixture_path; #hide
     reference_comparison = fixture_comparison, #hide
     julia_benchmark = fixture_benchmark, #hide
-    pscad_elapsed_seconds = 0.112 #hide
+    reference_execution = ( #hide
+        backend = :fixture, #hide
+        version = "1.0", #hide
+        elapsed_seconds = 0.112 #hide
+    ) #hide
 ) #hide
 
 snapshot_path = joinpath(
-    "test", "gauntlet", ".artifacts", "example3", "snapshot.jld2"
+    "test", "gauntlet", ".artifacts",
+    "pscad", "v1.0.0", "cases",
+    "benchmark_525kV_1600mm2_bipole_pscad", "snapshot.jld2"
 )
 snapshot_path = fixture_path #hide
 snapshot = JLD2.load(snapshot_path)
@@ -105,9 +112,41 @@ noise_row = only(eachrow(errors[(errors.quantity .== :Y) .& (errors.row .== 1) .
 )
 ````
 
+## Impedance plots
+
+The comparison recipe accepts two or more `LineParameters` results and one
+legend entry for each result. Selecting `Z` produces separate real and
+imaginary impedance pages. Every matrix position keeps its own panel and the
+corresponding series are overlaid across frequency.
+
+````@example gauntlet
+impedance_plots = CairoMakie.plot(
+    reference,
+    candidate;
+    legend = ("Reference", "LineCableModels"),
+    quantities = (Z,),
+    xscale = :log10,
+    fig_size = (1000, 650),
+    display_plot = false, #hide
+    controls = false #hide
+)
+````
+
+The real part of the impedance matrix:
+
+````@example gauntlet
+impedance_plots[1].figure #hide
+````
+
+The imaginary part of the impedance matrix:
+
+````@example gauntlet
+impedance_plots[2].figure #hide
+````
+
 ## Execution measurements
 
-The snapshot keeps the accepted local benchmark and PSCAD wall time. Timing
+The snapshot keeps the accepted local benchmark and reference wall time. Timing
 gates apply only when the current and recorded environment identities match.
 
 ````@example gauntlet
@@ -115,7 +154,7 @@ benchmark = snapshot["julia_benchmark"]
 DataFrame(
     metric = [
         "Julia minimum", "Julia median", "allocated bytes",
-        "allocations", "samples", "PSCAD wall time"
+        "allocations", "samples", "reference wall time"
     ],
     value = [
         1.0e3 * benchmark.minimum_seconds,
@@ -123,7 +162,7 @@ DataFrame(
         benchmark.bytes,
         benchmark.allocations,
         benchmark.samples,
-        snapshot["pscad_elapsed_seconds"]
+        snapshot["reference_execution"].elapsed_seconds
     ],
     unit = ["ms", "ms", "bytes", "count", "count", "s"]
 )
