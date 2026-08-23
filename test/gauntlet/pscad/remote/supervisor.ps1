@@ -10,7 +10,15 @@ param(
     [Parameter(Mandatory = $true)]
     [string] $ProjectName,
     [Parameter(Mandatory = $true)]
+    [string] $OutputStem,
+    [Parameter(Mandatory = $true)]
     [string] $Formulation,
+    [Parameter(Mandatory = $true)]
+    [string] $EarthField,
+    [Parameter(Mandatory = $true)]
+    [int] $EarthValue,
+    [Parameter(Mandatory = $true)]
+    [string] $EarthReadback,
     [Parameter(Mandatory = $true)]
     [double] $FrequencyStart,
     [Parameter(Mandatory = $true)]
@@ -28,6 +36,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
 
 function Stop-OwnedRunner {
     param(
@@ -161,7 +170,11 @@ $commandValues = @(
     $projectFile,
     $result,
     $ProjectName,
+    $OutputStem,
     $Formulation,
+    $EarthField,
+    "$EarthValue",
+    $EarthReadback,
     $stdoutPath,
     $stderrPath,
     $exitPath
@@ -178,7 +191,11 @@ $runnerArguments = @(
     "`"$projectFile`"",
     "`"$result`"",
     "`"$ProjectName`"",
+    "`"$OutputStem`"",
     "`"$Formulation`"",
+    "`"$EarthField`"",
+    "`"$EarthValue`"",
+    "`"$EarthReadback`"",
     "`"$FrequencyStart`"",
     "`"$FrequencyEnd`"",
     "`"$FrequencyIncrements`"",

@@ -6,4 +6,5 @@ ignore = [
     "papers",
     "src/parametricbuilder/gridspace",
     "temp",
+    "test/gauntlet/local.jl",
 ]

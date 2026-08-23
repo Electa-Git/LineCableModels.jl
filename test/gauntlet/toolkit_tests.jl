@@ -8,11 +8,16 @@
     using .GauntletSupport
     using .TestFixtures
 
-    @test !isdefined(GauntletSupport, :PSCADHarness)
+    @test isdefined(GauntletSupport, :PSCADBenchmarks)
+    @test gauntlet_instrumented() == (
+        !iszero(Base.JLOptions().code_coverage) ||
+        !iszero(Base.JLOptions().malloc_log)
+    )
     @test all(package.name != "PythonCall" for package in keys(Base.loaded_modules))
 
-    function fixture_case(source)
+    function fixture_case(source; backend = :fixture)
         problem=TestFixtures.line_parameters_problem(; frequencies = [50.0])
+        problem.system.system_id="fixture"
         next_phase=1
         ports=String[]
         for (cable_index, position) in enumerate(problem.system.cables)
@@ -28,6 +33,16 @@
             earth_admittance = EarthAdmittance.IdealGround(),
             insulation_admittance = InsulationAdmittance.Lossless(),
             options = (kron_reduction = false, reduce_bundle = false)
+        )
+        reference_problem=LineParametersProblem(
+            problem.system;
+            temperature = problem.temperature,
+            earth_props = problem.earth_props,
+            frequencies = problem.frequencies
+        )
+        reference_formulation=Formulation(
+            :pscad;
+            earth_impedance = EarthImpedance.Wedepohl()
         )
         tolerances=(
             reference = (
@@ -47,10 +62,12 @@
         count=length(ports)
         return GauntletCase(
             :fixture,
+            backend,
             source,
+            reference_problem,
+            reference_formulation,
             problem,
             formulation,
-            :underground_wedepohl_pollaczek_lossless,
             ports,
             (count, count, 1),
             tolerances
@@ -61,6 +78,8 @@
         source=joinpath(directory, "case.jl")
         write(source, "# deliberate case source\n")
         case=fixture_case(source)
+        @test case.backend === :fixture
+        @test_throws ArgumentError fixture_case(source; backend = :PSCAD)
         parameters=compute!(case.problem, case.formulation)
         comparison=compare(parameters, parameters)
         benchmark=(
@@ -83,22 +102,35 @@
             parameters,
             comparison,
             benchmark;
-            pscad_version = "5.1.0",
-            pscad_elapsed_seconds = 1.25,
-            artifact_root,
-            artifacts_toml
+            reference_execution = (
+                backend = :fixture,
+                version = "1.0",
+                elapsed_seconds = 1.25
+            ),
+            artifact_root
         )
         @test isfile(joinpath(persisted.path, "snapshot.jld2"))
         @test isfile(joinpath(persisted.path, "snapshot.sha256"))
-        @test isfile(joinpath(persisted.path, "fixture.tar.gz"))
+        @test persisted.backend === :fixture
+        @test persisted.gauntlet_version == GAUNTLET_VERSION
+        collections=finalize_artifacts(; artifact_root, artifacts_toml)
+        @test only(collections).backend === :fixture
+        @test basename(only(collections).archive) ==
+              "benchmarks-fixture-v$(GAUNTLET_VERSION).tar.gz"
+        @test isfile(only(collections).archive)
         @test isfile(snapshot_path(case; artifacts_toml))
+        @test_throws ArgumentError finalize_artifacts(; artifact_root, artifacts_toml)
+        forced=finalize_artifacts(; artifact_root, artifacts_toml, force = true)
+        @test only(forced).tree_hash == only(collections).tree_hash
         published=publish_artifact(
             :fixture,
-            "file://$(abspath(joinpath(persisted.path, "fixture.tar.gz")))";
+            "file://$(abspath(only(collections).archive))";
             artifact_root,
             artifacts_toml
         )
-        @test published.artifact == "pscad_gauntlet_fixture"
+        @test published.artifact == "gauntlet_fixture_v1_0_0"
+        @test release_tag() == "gauntlet-v1.0.0"
+        @test backend_archive_name(:fixture) == "benchmarks-fixture-v1.0.0.tar.gz"
         @test occursin("file://", read(artifacts_toml, String))
 
         loaded=load_snapshot(case; artifacts_toml)
@@ -107,8 +139,7 @@
         @test Z(loaded.reference) == Z(parameters)
         @test loaded.metadata["port_order"] == case.port_order
         @test loaded.metadata["formulation"] isa NamedTuple
-        @test loaded.metadata["formulation"].pscad ==
-              "underground_wedepohl_pollaczek_lossless"
+        @test loaded.metadata["formulation"] == formulation_record(case)
 
         outcome=run_snapshot(
             case;
@@ -121,7 +152,7 @@
               zeros(size(Z(parameters), 1), size(Z(parameters), 2))
         @test outcome.regression.Y.relative ==
               zeros(size(Y(parameters), 1), size(Y(parameters), 2))
-        @test !isdefined(GauntletSupport, :PSCADHarness)
+        @test all(package.name != "PythonCall" for package in keys(Base.loaded_modules))
 
         write(source, "# changed source\n")
         @test_throws ArgumentError load_snapshot(case; artifacts_toml)
@@ -134,11 +165,18 @@
             write(io, UInt8(0))
         end
         @test_throws ArgumentError load_snapshot(case; path = snapshot)
+
+        @test_throws ArgumentError prepare_artifacts(; artifact_root, artifacts_toml)
+        prepare_artifacts(; artifact_root, artifacts_toml, force = true)
+        @test !ispath(backend_stage(:fixture; artifact_root))
     end
 
     previous=get(ENV, "LINECABLEMODELS_GAUNTLET_MODE", nothing)
     previous_ci=get(ENV, "CI", nothing)
     previous_persist=get(ENV, "LINECABLEMODELS_GAUNTLET_PERSIST", nothing)
+    previous_runner=get(ENV, "LINECABLEMODELS_GAUNTLET_RUNNER", nothing)
+    previous_cleanup=get(ENV, "LINECABLEMODELS_GAUNTLET_CLEANUP", nothing)
+    previous_force=get(ENV, "LINECABLEMODELS_GAUNTLET_FORCE", nothing)
     try
         delete!(ENV, "CI")
         for mode in ("snapshot", "live", "record")
@@ -147,6 +185,16 @@
         end
         ENV["LINECABLEMODELS_GAUNTLET_MODE"]="automatic"
         @test_throws ArgumentError gauntlet_mode()
+        delete!(ENV, "LINECABLEMODELS_GAUNTLET_CLEANUP")
+        delete!(ENV, "LINECABLEMODELS_GAUNTLET_FORCE")
+        @test !gauntlet_cleanup()
+        @test !gauntlet_force()
+        ENV["LINECABLEMODELS_GAUNTLET_CLEANUP"]="true"
+        ENV["LINECABLEMODELS_GAUNTLET_FORCE"]="TRUE"
+        @test gauntlet_cleanup()
+        @test gauntlet_force()
+        ENV["LINECABLEMODELS_GAUNTLET_FORCE"]="yes"
+        @test_throws ArgumentError gauntlet_force()
         ENV["CI"]="true"
         ENV["LINECABLEMODELS_GAUNTLET_MODE"]="live"
         @test_throws ArgumentError gauntlet_mode()
@@ -156,12 +204,30 @@
         source=tempname()
         write(source, "# persist guard\n")
         @test_throws ArgumentError run_case(fixture_case(source))
+        ENV["LINECABLEMODELS_GAUNTLET_PERSIST"]="true"
+        delete!(ENV, "LINECABLEMODELS_GAUNTLET_RUNNER")
+        @test_throws ArgumentError run_case(fixture_case(source))
     finally
         previous===nothing ? delete!(ENV, "LINECABLEMODELS_GAUNTLET_MODE") :
         (ENV["LINECABLEMODELS_GAUNTLET_MODE"]=previous)
         previous_ci===nothing ? delete!(ENV, "CI") : (ENV["CI"]=previous_ci)
         previous_persist===nothing ? delete!(ENV, "LINECABLEMODELS_GAUNTLET_PERSIST") :
         (ENV["LINECABLEMODELS_GAUNTLET_PERSIST"]=previous_persist)
+        previous_runner===nothing ? delete!(ENV, "LINECABLEMODELS_GAUNTLET_RUNNER") :
+        (ENV["LINECABLEMODELS_GAUNTLET_RUNNER"]=previous_runner)
+        previous_cleanup===nothing ?
+        delete!(ENV, "LINECABLEMODELS_GAUNTLET_CLEANUP") :
+        (ENV["LINECABLEMODELS_GAUNTLET_CLEANUP"]=previous_cleanup)
+        previous_force===nothing ? delete!(ENV, "LINECABLEMODELS_GAUNTLET_FORCE") :
+        (ENV["LINECABLEMODELS_GAUNTLET_FORCE"]=previous_force)
+    end
+
+    mktempdir() do directory
+        work_root=joinpath(directory, ".work")
+        mkpath(work_root)
+        write(joinpath(work_root, "output.txt"), "disposable\n")
+        @test cleanup_work(; work_root) == work_root
+        @test !ispath(work_root)
     end
 end
 
@@ -169,6 +235,7 @@ end
     GauntletSupport
 ] begin
     using Test
+    using LineCableModels: ModalDomain
     using LineCableModels.Engine
     using .GauntletSupport
 
@@ -189,17 +256,19 @@ end
     )
     function make_case(assignments; kron = false, bundle = false)
         problem=(
-            system = (cables = [(conn = collect(assignments),)],),
+            system = (system_id = "ports", cables = [(conn = collect(assignments),)]),
             frequencies = [1.0, 10.0]
         )
         formulation=(options = (kron_reduction = kron, reduce_bundle = bundle),)
         count=length(assignments)
         return GauntletCase(
             :ports,
+            :fixture,
             @__FILE__,
             problem,
+            (kind = :reference,),
+            problem,
             formulation,
-            :underground_wedepohl_pollaczek_lossless,
             ["port:$index" for index in 1:count],
             (count, count, 2),
             tolerances
@@ -227,7 +296,7 @@ end
         caught
     end
     @test error isa ArgumentError
-    @test occursin("does not provide modal Z and Y", sprint(showerror, error))
+    @test occursin("modal Gauntlet comparison", sprint(showerror, error))
 end
 
 @testitem "Gauntlet / PSCAD parser and fixed mappings" tags=[:gauntlet_toolkit] setup=[
@@ -235,13 +304,63 @@ end
 ] begin
     using Base64: base64decode
     using Test
+    using LineCableModels: description
     using LineCableModels.Engine
     using .GauntletSupport
 
-    harness=GauntletSupport._load_live_support!()
-    @test harness.formulation_spec(:overhead_deri_carson_lossless).pscad_parameter ===
-          :EarthForm2
-    @test_throws ArgumentError harness.formulation_spec(:unknown)
+    harness=GauntletSupport.PSCADBenchmarks
+    overhead=Formulation(:pscad; earth_impedance = EarthImpedance.Deri())
+    underground=Formulation(:pscad; earth_impedance = EarthImpedance.Wedepohl())
+    @test overhead isa harness.PSCADFormulation
+    @test underground isa harness.PSCADFormulation
+    @test hasmethod(
+        compute!,
+        Tuple{LineParametersProblem, harness.PSCADFormulation}
+    )
+    @test hasmethod(
+        benchmark_metadata,
+        Tuple{LineParametersProblem, harness.PSCADFormulation}
+    )
+    @test harness.pscad_field(overhead.earth_impedance) === :EarthForm2
+    @test harness.pscad_value(overhead.earth_impedance) == 0
+    @test harness.pscad_readback(overhead.earth_impedance) == "DERISEMLYEN"
+    @test harness.pscad_field(underground.earth_impedance) === :EarthForm
+    @test harness.pscad_readback(underground.earth_impedance) == "WEDEPOHL"
+    @test description(overhead.earth_admittance) == "PSCAD native earth admittance"
+    @test description(overhead.insulation_admittance) ==
+          "PSCAD native insulation admittance"
+    @test harness._formulation_label(overhead) ==
+          "Deri-Semlyen/PSCAD native earth admittance/PSCAD native insulation admittance"
+    @test overhead.options.output_stem == "gauntlet"
+    named=Formulation(
+        :pscad;
+        earth_impedance = EarthImpedance.Wedepohl(),
+        options = harness.PSCADOptions(output_stem = "525kV_bipole")
+    )
+    @test named.options.output_stem == "525kV_bipole"
+    @test_throws ArgumentError harness.PSCADOptions(
+        output_stem = "benchmark_525kV_1600mm2_bipole_pscad"
+    )
+
+    methods=(
+        EarthImpedance.Deri(),
+        EarthImpedance.DirectNumericalIntegration(:overhead),
+        EarthImpedance.Wedepohl(),
+        EarthImpedance.DirectNumericalIntegration(:underground),
+        EarthImpedance.Saad(),
+        EarthImpedance.Ametani(),
+        EarthImpedance.Lucca()
+    )
+    @test all(
+        method -> Formulation(:pscad; earth_impedance = method) isa
+                  harness.PSCADFormulation, methods)
+    @test harness.pscad_field(EarthImpedance.Saad()) === :EarthForm
+    @test harness.pscad_readback(EarthImpedance.Lucca()) == "LUCCA"
+    @test_throws ErrorException EarthImpedance.Wedepohl()(:self)
+    @test_throws TypeError Formulation(
+        :pscad;
+        earth_impedance = EarthImpedance.Carson()
+    )
 
     mktempdir() do directory
         frequency=[1.0, 10.0]
@@ -290,7 +409,6 @@ end
         "julia",
         "python";
         transport = :ssh,
-        verbosity = 2,
         timeout_seconds = 60
     )
     powershell="[IO.Directory]::CreateDirectory('C:\\gauntlet') | Out-Null"
@@ -301,23 +419,47 @@ end
     encoded=command.exec[end]
     bytes=base64decode(encoded)
     decoded=transcode(String, ltoh.(collect(reinterpret(UInt16, bytes))))
-    @test decoded == powershell
+    @test decoded == "\$ProgressPreference='SilentlyContinue'; $powershell"
     @test !occursin("Out-Null", encoded)
     @test harness._remote_project_name(raw"C:\gauntlet\case\generated.pscx") ==
           "generated"
-    @test_throws ArgumentError harness.RemoteConfig(
-        "host", "shared", "remote", "julia", "python"; verbosity = 3
+    backend_output=joinpath(
+        GauntletSupport.WORK_ROOT,
+        "pscad",
+        "benchmark_525kV_1600mm2_bipole_pscad",
+        "reference",
+        "outputs"
+    )
+    work_parts=harness._work_parts(backend_output)
+    @test work_parts == [
+        "pscad", "benchmark_525kV_1600mm2_bipole_pscad", "reference"
+    ]
+    @test harness._remote_path(config.shared_root, work_parts...) ==
+          raw"Z:\gauntlet\cases\.work\pscad\benchmark_525kV_1600mm2_bipole_pscad\reference"
+    @test_throws ArgumentError harness._work_parts(
+        joinpath(GauntletSupport.WORK_ROOT, "case", "reference", "outputs")
     )
     @test_throws ArgumentError harness.RemoteConfig(
         "host", "shared", "remote", "julia", "python"; timeout_seconds = 0
     )
+    verbosity_error=try
+        harness.RemoteConfig(
+            "host", "shared", "remote", "julia", "python"; verbosity = 2
+        )
+        nothing
+    catch error
+        error
+    end
+    @test verbosity_error isa ArgumentError
+    @test occursin("ComputeOptions", sprint(showerror, verbosity_error))
     @test_throws ArgumentError harness._supervisor_command(
         config,
         raw"Z:\gauntlet\cases\.work\case\current",
         raw"C:\gauntlet\case\current",
         "case",
-        :overhead_deri_carson_lossless,
-        [1.0, 3.0, 10.0]
+        overhead,
+        [1.0, 3.0, 10.0];
+        verbosity = 2
     )
     @test_throws ArgumentError harness._validate_frequencies(
         collect(10.0 .^ range(0, stop = 6, length = 61))
@@ -329,14 +471,19 @@ end
         raw"Z:\gauntlet\cases\.work\case\current",
         raw"C:\gauntlet\case\current",
         "generated",
-        :overhead_deri_carson_lossless,
-        frequency_probe
+        overhead,
+        frequency_probe;
+        verbosity = 2
     )
     @test occursin("supervisor.ps1", supervisor_command)
     @test occursin(raw"Z:\gauntlet\cases\.work\case\current", supervisor_command)
     @test occursin(raw"C:\gauntlet\case\current", supervisor_command)
+    @test occursin("-OutputStem 'gauntlet'", supervisor_command)
     @test occursin("-Verbosity '2'", supervisor_command)
     @test occursin("-TimeoutSeconds '60'", supervisor_command)
+    @test occursin("-EarthField 'EarthForm2'", supervisor_command)
+    @test occursin("-EarthValue '0'", supervisor_command)
+    @test occursin("-EarthReadback 'DERISEMLYEN'", supervisor_command)
     @test !occursin("OpenStandardInput", supervisor_command)
     cancel_command=harness._cancel_command(raw"C:\gauntlet\case\current")
     @test occursin("owner.txt", cancel_command)
@@ -354,9 +501,46 @@ end
         @test sort(readdir(staged)) == [
             "Manifest.toml",
             "Project.toml",
+            "files.jl",
             "runner.jl",
             "supervisor.ps1"
         ]
+    end
+
+    mktempdir() do directory
+        partial=joinpath(directory, "fixture_zm.out")
+        write(partial, "header\n")
+        writer=@async begin
+            sleep(0.05)
+            open(partial, "a") do io
+                println(io, "0.0 1.0 2.0")
+                println(io, "1.0 10.0 3.0")
+            end
+        end
+        completed=harness._wait_output(
+            [directory], "_zm.out", 2;
+            timeout_seconds = 1,
+            poll_seconds = 0.01
+        )
+        wait(writer)
+        @test completed == realpath(partial)
+        @test harness._data_rows(completed) == 2
+    end
+    mktempdir() do directory
+        partial=joinpath(directory, "fixture_zm.out")
+        write(partial, "header\n")
+        error=try
+            harness._wait_output(
+                [directory], "_zm.out", 2;
+                timeout_seconds = 0.05,
+                poll_seconds = 0.01
+            )
+            nothing
+        catch caught
+            caught
+        end
+        @test error isa ArgumentError
+        @test occursin("0 of 2 rows", sprint(showerror, error))
     end
 
     Core.eval(
@@ -423,6 +607,7 @@ end
         String
     )
     @test occursin("Stop-OwnedRunner", supervisor)
+    @test occursin("\$ProgressPreference = \"SilentlyContinue\"", supervisor)
     @test occursin("taskkill.exe /PID", supervisor)
     @test occursin("TimeoutSeconds", supervisor)
     @test occursin("Copy-Result", supervisor)
@@ -441,6 +626,10 @@ end
     @test !occursin("parameters[\"LL\"]", runner)
     @test occursin("requests conductor elimination", runner)
     @test occursin("line.compile()", runner)
+    @test occursin("_set!(line, \"Name\", output_stem)", runner)
+    @test occursin("_wait_output(roots, suffix, expected_rows)", runner)
+    @test occursin("PSCAD diagnostics at failure", runner)
+    @test !occursin("FORMULATIONS", runner)
     @test !occursin("line._command", runner)
 end
 
@@ -481,4 +670,13 @@ end
     diagnostic=performance_comparison(other_environment, timing, tolerance)
     @test !diagnostic.comparable
     @test diagnostic.passes === nothing
+
+    instrumented=performance_comparison(
+        accepted,
+        timing,
+        tolerance;
+        instrumented = true
+    )
+    @test !instrumented.comparable
+    @test instrumented.passes === nothing
 end

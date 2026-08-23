@@ -9,7 +9,6 @@ RemoteConfig(
     raw"C:\Python311\python.exe";
     pscad_version = "5.1.0",
     transport = :ssh,
-    verbosity = 1,
     timeout_seconds = 1800,
 )
 

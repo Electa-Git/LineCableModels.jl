@@ -8,12 +8,18 @@ function _performance_identity()
     )
 end
 
-function benchmark_local(case; samples::Int = 10, seconds::Real = 10)
-    compute!(case.problem, case.formulation)
-    compute!(case.problem, case.formulation)
+function benchmark_local(
+        case;
+        options::ComputeOptions = ComputeOptions(),
+        samples::Int = 10,
+        seconds::Real = 10
+)
+    compute!(case.problem, case.formulation; options)
+    compute!(case.problem, case.formulation; options)
     problem = case.problem
     formulation = case.formulation
-    benchmark = BenchmarkTools.@benchmarkable compute!($problem, $formulation) samples=samples seconds=seconds evals=1
+    execution = options
+    benchmark = BenchmarkTools.@benchmarkable compute!($problem, $formulation; options = $execution) samples=samples seconds=seconds evals=1
     trial = BenchmarkTools.run(benchmark)
     times = Float64.(trial.times) .* 1.0e-9
     return (
@@ -26,8 +32,13 @@ function benchmark_local(case; samples::Int = 10, seconds::Real = 10)
     )
 end
 
-function performance_comparison(accepted, current, tolerance)
-    same_environment = accepted.environment == current.environment
+function performance_comparison(
+        accepted,
+        current,
+        tolerance;
+        instrumented::Bool = gauntlet_instrumented()
+)
+    same_environment = accepted.environment == current.environment && !instrumented
     ratios = (
         median_time = current.median_seconds / accepted.median_seconds,
         bytes = accepted.bytes == 0 ? (current.bytes == 0 ? 1.0 : Inf) :

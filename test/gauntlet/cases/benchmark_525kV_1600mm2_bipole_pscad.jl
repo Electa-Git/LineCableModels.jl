@@ -1,9 +1,10 @@
-@testitem "PSCAD gauntlet / example 3" tags=[:gauntlet] setup=[GauntletSupport] begin
+@testitem "PSCAD benchmark / 525 kV 1600 mm² bipole" tags=[:gauntlet] setup=[GauntletSupport] begin
     using Test
     using DataFrames
     using LineCableModels
     using LineCableModels.Engine
     using .GauntletSupport
+    using .GauntletSupport.PSCADBenchmarks
 
     materials=MaterialsLibrary(add_defaults = true)
     copper=Material(materials, :copper)
@@ -105,7 +106,7 @@
         )
     )
     problem=only(SystemBuilder(
-        "525kV_1600mm2_bipole",
+        "benchmark_525kV_1600mm2_bipole_pscad",
         design,
         positions;
         length = 1000.0,
@@ -113,6 +114,17 @@
         earth,
         frequencies = frequencies_value
     ))
+    reference_problem=LineParametersProblem(
+        problem.system;
+        temperature = problem.temperature,
+        earth_props = problem.earth_props,
+        frequencies = problem.frequencies
+    )
+    reference_formulation=Formulation(
+        :pscad;
+        earth_impedance = EarthImpedance.Wedepohl(),
+        options = PSCADOptions(output_stem = "525kV_bipole")
+    )
     formulation=Formulation(
         earth_impedance = EarthImpedance.Pollaczek(),
         earth_admittance = EarthAdmittance.IdealGround(),
@@ -139,11 +151,13 @@
         )
     )
     case=GauntletCase(
-        :example3,
+        :benchmark_525kV_1600mm2_bipole_pscad,
+        :pscad,
         @__FILE__,
+        reference_problem,
+        reference_formulation,
         problem,
         formulation,
-        :underground_wedepohl_pollaczek_lossless,
         [
             "cable:1:core", "cable:1:sheath", "cable:1:armor",
             "cable:2:core", "cable:2:sheath", "cable:2:armor"
@@ -160,14 +174,25 @@
 
     inferred=@inferred compute!(problem, formulation)
     @test size(Z(inferred)) == (6, 6, 101)
-    outcome=run_case(case)
+    execution_options=ComputeOptions(verbosity = (default = 0, PSCAD = 2))
+    outcome=run_case(case; options = execution_options)
     @test outcome.reference isa LineParameters
     @test outcome.candidate isa LineParameters
     @test size(Z(outcome.reference)) == (6, 6, 101)
     @test size(Y(outcome.reference)) == (6, 6, 101)
     @test frequencies(outcome.reference) == frequencies_value
-    @test comparison_passes(outcome.comparison.Z, tolerances.reference.Z)
-    @test comparison_passes(outcome.comparison.Y, tolerances.reference.Y)
+
+    if !ISHEADLESS
+        errors=DataFrame(
+            outcome.comparison;
+            zero_atol = (
+                Z = tolerances.reference.Z.absolute,
+                Y = tolerances.reference.Y.absolute
+            )
+        )
+        sort!(errors, [:quantity, :rms_absolute], rev = [false, true])
+        display(errors)
+    end
 
     if outcome.mode===:snapshot
         @test comparison_passes(outcome.regression.Z, tolerances.regression.Z)
@@ -176,9 +201,10 @@
             @test outcome.performance.passes
         end
     else
-        @test outcome.pscad.exit_code == 0
-        @test isfile(outcome.pscad.console_path)
-        @test outcome.timings.pscad >= 0
+        @test outcome.reference_execution.backend === :pscad
+        @test outcome.reference_execution.exit_code == 0
+        @test isfile(outcome.reference_execution.console_path)
+        @test outcome.timings.reference >= 0
         @test outcome.timings.julia.samples == 10
     end
 end

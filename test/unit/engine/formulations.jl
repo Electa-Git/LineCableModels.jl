@@ -31,6 +31,34 @@
     @test_throws BoundsError EHEM.EnforceLayer(layer = 4)(evaluated, model)
 end
 
+@testitem "Engine / external earth-impedance vocabulary" tags=[:unit] setup=[
+    UseEngineSupport
+] begin
+    earth_impedance=LineCableModels.Engine.EarthImpedance
+    formulations=(
+        earth_impedance.Deri()=>"Deri-Semlyen",
+        earth_impedance.Wedepohl()=>"Wedepohl",
+        earth_impedance.Saad()=>"Saad",
+        earth_impedance.Ametani()=>"Ametani",
+        earth_impedance.Lucca()=>"Lucca",
+        earth_impedance.DirectNumericalIntegration(:overhead)=>"Direct numerical integration (overhead)",
+        earth_impedance.DirectNumericalIntegration(:underground)=>"Direct numerical integration (underground)"
+    )
+    for (formulation, label) in formulations
+        @test formulation isa LineCableModels.Engine.EarthImpedanceFormulation
+        @test description(formulation) == label
+        error=try
+            formulation(:self)
+            nothing
+        catch caught
+            caught
+        end
+        @test error isa ErrorException
+        @test occursin("not implemented for the EMT backend", sprint(showerror, error))
+    end
+    @test_throws ArgumentError earth_impedance.DirectNumericalIntegration(:mutual)
+end
+
 @testitem "Engine / insulation formulations / analytical limits across precision" tags=[:unit] setup=[
     EngineTestSupport,
     UseEngineSupport,

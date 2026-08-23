@@ -6,7 +6,6 @@ struct RemoteConfig
     python_executable::String
     pscad_version::String
     transport::Symbol
-    verbosity::Int
     timeout_seconds::Int
 end
 
@@ -18,9 +17,13 @@ function RemoteConfig(
         python_executable::AbstractString;
         pscad_version::AbstractString = "5.1.0",
         transport::Symbol = :ssh,
-        verbosity::Integer = 1,
+        verbosity = nothing,
         timeout_seconds::Integer = 1800
 )
+    verbosity === nothing || throw(ArgumentError(
+        "RemoteConfig no longer owns verbosity; set it with " *
+        "ComputeOptions(verbosity = (default = 0, PSCAD = 2)) in the case file",
+    ))
     isempty(strip(host)) && throw(ArgumentError("PSCAD host cannot be empty"))
     isempty(strip(shared_root)) && throw(ArgumentError(
         "PSCAD shared root cannot be empty",
@@ -35,9 +38,6 @@ function RemoteConfig(
     pscad_version == "5.1.0" || throw(ArgumentError(
         "the gauntlet supports PSCAD 5.1.0 only",
     ))
-    verbosity in 0:2 || throw(ArgumentError(
-        "PSCAD verbosity must be 0, 1, or 2",
-    ))
     timeout_seconds > 0 || throw(ArgumentError(
         "PSCAD timeout_seconds must be positive",
     ))
@@ -49,18 +49,28 @@ function RemoteConfig(
         String(python_executable),
         String(pscad_version),
         transport,
-        Int(verbosity),
         Int(timeout_seconds)
     )
 end
 
 function _powershell_argv(powershell::AbstractString)
-    utf16 = htol.(transcode(UInt16, String(powershell)))
+    command="\$ProgressPreference='SilentlyContinue'; $(String(powershell))"
+    utf16 = htol.(transcode(UInt16, command))
     encoded = base64encode(reinterpret(UInt8, utf16))
     return [
         "powershell.exe", "-NoProfile", "-NonInteractive",
         "-EncodedCommand", encoded
     ]
+end
+
+function _formulation_label(formulation::PSCADFormulation)
+    return join(
+        (
+            description(formulation.earth_impedance),
+            description(formulation.earth_admittance),
+            description(formulation.insulation_admittance)
+        ),
+        '/')
 end
 
 function remote_command(::Val{:ssh}, config::RemoteConfig, powershell::AbstractString)
@@ -187,7 +197,7 @@ function _load_config()
     ))
     config = Base.include(@__MODULE__, path)
     config isa RemoteConfig || throw(ArgumentError(
-        "$path must return PSCADHarness.RemoteConfig",
+        "$path must return PSCADBenchmarks.RemoteConfig",
     ))
     return config
 end
@@ -216,10 +226,13 @@ function _supervisor_command(
         shared_case::AbstractString,
         remote_case::AbstractString,
         project_name::AbstractString,
-        formulation::Symbol,
-        frequencies_value::AbstractVector
+        formulation::PSCADFormulation,
+        frequencies_value::AbstractVector;
+        verbosity::Integer = 0
 )
     _validate_frequencies(frequencies_value)
+    earth = formulation.earth_impedance
+    label = _formulation_label(formulation)
     increments = length(frequencies_value) - 1
     shared_supervisor = _remote_path(shared_case, "toolkit", "supervisor.ps1")
     return join(
@@ -230,12 +243,16 @@ function _supervisor_command(
             "-Julia $(_ps_quote(config.julia_executable))",
             "-Python $(_ps_quote(config.python_executable))",
             "-ProjectName $(_ps_quote(project_name))",
-            "-Formulation $(_ps_quote(string(formulation)))",
+            "-OutputStem $(_ps_quote(formulation.options.output_stem))",
+            "-Formulation $(_ps_quote(label))",
+            "-EarthField $(_ps_quote(string(pscad_field(earth))))",
+            "-EarthValue $(_ps_quote(string(pscad_value(earth))))",
+            "-EarthReadback $(_ps_quote(pscad_readback(earth)))",
             "-FrequencyStart $(_ps_quote(string(first(frequencies_value))))",
             "-FrequencyEnd $(_ps_quote(string(last(frequencies_value))))",
             "-FrequencyIncrements $(_ps_quote(string(increments)))",
             "-PSCADVersion $(_ps_quote(config.pscad_version))",
-            "-Verbosity $(_ps_quote(string(config.verbosity)))",
+            "-Verbosity $(_ps_quote(string(verbosity)))",
             "-TimeoutSeconds $(_ps_quote(string(config.timeout_seconds)))"
         ),
         ' ')
@@ -263,8 +280,12 @@ function _cancel_command(remote_case::AbstractString)
            "Remove-Item -LiteralPath \$ownerPath -Force -ErrorAction SilentlyContinue"
 end
 
-function _cancel_remote(config::RemoteConfig, remote_case::AbstractString)
-    _run_remote(config, _cancel_command(remote_case); stream = config.verbosity >= 2)
+function _cancel_remote(
+        config::RemoteConfig,
+        remote_case::AbstractString;
+        verbosity::Integer = 0
+)
+    _run_remote(config, _cancel_command(remote_case); stream = verbosity >= 2)
     return nothing
 end
 
@@ -281,7 +302,9 @@ function _stage_toolkit(local_project::AbstractString, local_output::AbstractStr
     toolkit_stage = joinpath(variant_root, "toolkit")
     isdir(toolkit_stage) && rm(toolkit_stage; recursive = true)
     mkpath(toolkit_stage)
-    for name in ("Project.toml", "Manifest.toml", "runner.jl", "supervisor.ps1")
+    for name in (
+        "Project.toml", "Manifest.toml", "files.jl", "runner.jl", "supervisor.ps1"
+    )
         source = joinpath(toolkit_source, name)
         isfile(source) || throw(ArgumentError("PSCAD toolkit file is missing: $source"))
         cp(source, joinpath(toolkit_stage, name); force = true)
@@ -289,26 +312,44 @@ function _stage_toolkit(local_project::AbstractString, local_output::AbstractStr
     return toolkit_stage
 end
 
+function _diagnostic_tail(path::AbstractString; count::Integer = 12)
+    isfile(path) || return "PSCAD produced no diagnostic log."
+    lines=filter(!isempty, strip.(readlines(path)))
+    isempty(lines) && return "PSCAD diagnostic log is empty."
+    return join(last(lines, min(count, length(lines))), '\n')
+end
+
+function _work_parts(local_output::AbstractString)
+    output=abspath(local_output)
+    basename(output) == "outputs" || throw(ArgumentError(
+        "PSCAD output directory must end in 'outputs': $local_output",
+    ))
+    relative=relpath(dirname(output), abspath(WORK_ROOT))
+    parts=splitpath(relative)
+    length(parts) == 3 && all(part -> part ∉ ("", ".", ".."), parts) ||
+        throw(ArgumentError(
+            "PSCAD work directory must be WORK_ROOT/<backend>/<case>/<variant>",
+        ))
+    return parts
+end
+
 function run_remote_pscad(
         config::RemoteConfig,
         local_project::AbstractString,
         local_output::AbstractString,
-        formulation::Symbol,
-        frequencies_value::AbstractVector
+        formulation::PSCADFormulation,
+        frequencies_value::AbstractVector;
+        verbosity::Integer = 0
 )
-    formulation_spec(formulation)
+    verbosity in 0:2 || throw(ArgumentError("PSCAD verbosity must be 0, 1, or 2"))
     _validate_frequencies(frequencies_value)
     isdir(local_output) && rm(local_output; recursive = true)
     mkpath(local_output)
-    variant = basename(dirname(local_output))
-    case_name = basename(dirname(dirname(local_output)))
+    work_parts = _work_parts(local_output)
+    variant = last(work_parts)
     _stage_toolkit(local_project, local_output)
-    shared_case = _remote_path(config.shared_root, case_name, variant)
-    remote_case = _remote_path(
-        config.remote_root,
-        case_name,
-        variant
-    )
+    shared_case = _remote_path(config.shared_root, work_parts...)
+    remote_case = _remote_path(config.remote_root, work_parts...)
     stdout_path = joinpath(local_output, "stdout.txt")
     stderr_path = joinpath(local_output, "stderr.txt")
     transport_stdout = joinpath(local_output, "transport-stdout.txt")
@@ -319,23 +360,24 @@ function run_remote_pscad(
         remote_case,
         _remote_project_name(local_project),
         formulation,
-        frequencies_value
+        frequencies_value;
+        verbosity
     )
-    @info "Executing PSCAD frequency scan" host=config.host variant formulation frequencies=length(frequencies_value) timeout_seconds=config.timeout_seconds
+    @info "Executing PSCAD frequency scan" host=config.host variant formulation=_formulation_label(formulation) frequencies=length(frequencies_value) timeout_seconds=config.timeout_seconds
     execution_error = try
         _run_remote(
             config,
             command;
             stdout_path = transport_stdout,
             stderr_path = transport_stderr,
-            stream = config.verbosity >= 2,
-            on_interrupt = () -> _cancel_remote(config, remote_case)
+            stream = verbosity >= 2,
+            on_interrupt = () -> _cancel_remote(config, remote_case; verbosity)
         )
         nothing
     catch error
         if !(error isa InterruptException)
             try
-                _cancel_remote(config, remote_case)
+                _cancel_remote(config, remote_case; verbosity)
             catch cancellation_error
                 @warn "Remote PSCAD cancellation could not be confirmed" host=config.host variant exception=(
                     cancellation_error, catch_backtrace())
@@ -352,9 +394,12 @@ function run_remote_pscad(
                 "PSCAD did not produce a console log before the remote failure.\n"
             )
         end
+        summary=first(split(sprint(showerror, execution_error), '\n'))
         throw(ErrorException(
-            sprint(showerror, execution_error) *
-            "\nPSCAD diagnostics: $console_path" *
+            "$summary\nLast PSCAD diagnostics:\n$(_diagnostic_tail(console_path))" *
+            "\nFull PSCAD diagnostics: $console_path" *
+            "\nTransport stdout: $transport_stdout" *
+            "\nTransport stderr: $transport_stderr" *
             "\nRemote scratch: $remote_case",
         ))
     end
@@ -380,113 +425,117 @@ function run_remote_pscad(
     )
 end
 
-function _assert_comparison(comparison, tolerance, label::AbstractString)
-    for quantity in (:Z, :Y)
-        error = getproperty(comparison, quantity)
-        limit = getproperty(tolerance, quantity)
-        comparison_passes(error, limit) && continue
-        failures = findall(.!((error.absolute .<= limit.absolute) .|
-        (error.relative .<= limit.relative)))
-        throw(ArgumentError(
-            "$label $quantity comparison exceeds tolerance at matrix terms " *
-            join(string.(Tuple.(failures)), ", "),
-        ))
-    end
-    return nothing
-end
-
-function _assert_recordable(case::GauntletCase, reference, regression, performance)
-    _assert_comparison(reference, case.tolerances.reference, "PSCAD reference")
-    regression === nothing || _assert_comparison(
-        regression,
-        case.tolerances.regression,
-        "accepted regression"
-    )
-    performance === nothing || performance.passes === nothing ||
-        performance.passes ||
-        throw(ArgumentError(
-            "local solver performance exceeds the accepted artifact tolerances",
-        ))
-    return nothing
-end
-
-function run_live(case::GauntletCase; record::Bool = false)
-    validate_formulation(case)
-    config = _load_config()
-    prior = record ? load_prior_snapshot(case) : nothing
-    root = work_path(case)
-    @info "Starting PSCAD gauntlet case" case=case.name mode=record ? :record : :live work_directory=root
-    isdir(root) && rm(root; recursive = true)
-    current_root = joinpath(root, "current")
-    mkpath(current_root)
-    system = case.problem.system
-    earth = case.problem.earth_props
-    @info "Exporting current PSCAD project" case = case.name
-    current_project = export_data(
-        :pscad,
-        system,
-        earth;
-        file_name = joinpath(current_root, "generated.pscx")
-    )
-    current_project isa AbstractString && isfile(current_project) || throw(ArgumentError(
-        "the current PSCAD exporter did not create the case project",
+function _pscad_size(problem::LineParametersProblem)
+    assignments = collect(Iterators.flatten(
+        position.conn for position in problem.system.cables
     ))
-    current_copy = joinpath(current_root, "generated.pscx")
-    current_project == current_copy || cp(current_project, current_copy; force = true)
-    current_project = current_copy
-    @info "Running current PSCAD export" case = case.name
-    current_run = run_remote_pscad(
+    isempty(assignments) && throw(ArgumentError(
+        "PSCAD benchmark requires at least one explicit terminal",
+    ))
+    any(iszero, assignments) && throw(ArgumentError(
+        "PSCAD benchmark does not permit conductor elimination",
+    ))
+    all(>(0), assignments) || throw(ArgumentError(
+        "PSCAD benchmark phase assignments must be positive",
+    ))
+    length(unique(assignments)) == length(assignments) || throw(ArgumentError(
+        "PSCAD benchmark does not permit bundled terminals",
+    ))
+    sort(assignments) == collect(1:length(assignments)) || throw(ArgumentError(
+        "PSCAD benchmark phase assignments must be contiguous from 1",
+    ))
+    return (length(assignments), length(assignments), length(problem.frequencies))
+end
+
+function _pscad_root(problem::LineParametersProblem)
+    return joinpath(WORK_ROOT, "pscad", problem.system.system_id, "reference")
+end
+
+function _pscad_basis(parameters, ::LineParametersProblem, ::ComputeOptions{
+        V, :per_length}) where {V}
+    parameters
+end
+
+function _pscad_basis(
+        parameters::LineParameters,
+        problem::LineParametersProblem,
+        ::ComputeOptions{V, :total}
+) where {V}
+    return LineParameters(
+        PhaseDomain,
+        Z(parameters) .* problem.system.line_length,
+        Y(parameters) .* problem.system.line_length,
+        frequencies(parameters);
+        basis = :total
+    )
+end
+
+function compute!(
+        problem::LineParametersProblem,
+        formulation::PSCADFormulation;
+        options::ComputeOptions = ComputeOptions()
+)
+    config = _load_config()
+    root = _pscad_root(problem)
+    isdir(root) && rm(root; recursive = true)
+    mkpath(root)
+    @info "Exporting PSCAD benchmark project" system = problem.system.system_id
+    project = export_data(
+        :pscad,
+        problem.system,
+        problem.earth_props;
+        file_name = joinpath(root, "generated.pscx")
+    )
+    project isa AbstractString && isfile(project) || throw(ArgumentError(
+        "the PSCAD exporter did not create the benchmark project",
+    ))
+    staged = joinpath(root, "generated.pscx")
+    project == staged || cp(project, staged; force = true)
+    @info "Computing PSCAD line parameters" system = problem.system.system_id
+    execution = run_remote_pscad(
         config,
-        current_project,
-        joinpath(current_root, "outputs"),
-        case.pscad_formulation,
-        case.problem.frequencies
+        staged,
+        joinpath(root, "outputs"),
+        formulation,
+        problem.frequencies;
+        verbosity = verbosity(options, :PSCAD)
     )
-    @info "Parsing PSCAD line-parameter outputs" case = case.name
-    reference = read_pscad_result(
-        current_run.output_dir,
-        case.problem.frequencies,
-        case.expected_size
-    )
-    @info "Computing LineCableModels reference" case = case.name
-    candidate = compute!(case.problem, case.formulation)
-    validate_structure(case, reference)
-    validate_structure(case, candidate)
-    current_comparison = compare(reference, candidate)
-    @info "Benchmarking LineCableModels calculation" case = case.name
-    local_timing = benchmark_local(case)
-    regression = prior === nothing ? nothing : compare(prior.accepted, candidate)
-    performance = prior === nothing ? nothing :
-                  performance_comparison(
-        prior.metadata["julia_benchmark"],
-        local_timing,
-        case.tolerances.performance
-    )
-    record && _assert_recordable(case, current_comparison, regression, performance)
-    persisted = nothing
-    if record
-        @info "Recording PSCAD artifact" case = case.name
-        persisted = persist_snapshot(
-            case,
-            reference,
-            candidate,
-            current_comparison,
-            local_timing;
-            pscad_version = config.pscad_version,
-            pscad_elapsed_seconds = current_run.elapsed_seconds
+    write(joinpath(root, "pscad-version.txt"), config.pscad_version)
+    parameters = try
+        read_pscad_result(
+            execution.output_dir,
+            problem.frequencies,
+            _pscad_size(problem)
         )
+    catch error
+        console_path=execution.console_path
+        throw(ErrorException(
+            "PSCAD result validation failed: $(sprint(showerror, error))" *
+            "\nLast PSCAD diagnostics:\n$(_diagnostic_tail(console_path))" *
+            "\nFull PSCAD diagnostics: $console_path",
+        ))
     end
-    @info "PSCAD gauntlet case completed" case=case.name mode=record ? :record : :live
+    return _pscad_basis(parameters, problem, options)
+end
+
+function benchmark_metadata(
+        problem::LineParametersProblem,
+        ::PSCADFormulation
+)
+    root = _pscad_root(problem)
+    output = joinpath(root, "outputs")
+    timing_path = joinpath(output, "timing.txt")
+    version_path = joinpath(root, "pscad-version.txt")
+    isfile(timing_path) || throw(ArgumentError("PSCAD timing is missing: $timing_path"))
+    isfile(version_path) || throw(ArgumentError("PSCAD version is missing: $version_path"))
     return (
-        mode = record ? :record : :live,
-        reference,
-        candidate,
-        comparison = current_comparison,
-        regression,
-        performance,
-        metadata = nothing,
-        pscad = current_run,
-        artifact = persisted,
-        timings = (pscad = current_run.elapsed_seconds, julia = local_timing)
+        backend = :pscad,
+        elapsed_seconds = parse(Float64, strip(read(timing_path, String))),
+        exit_code = 0,
+        stdout_path = joinpath(output, "stdout.txt"),
+        stderr_path = joinpath(output, "stderr.txt"),
+        console_path = joinpath(output, "pscad-console.txt"),
+        output_dir = output,
+        pscad_version = strip(read(version_path, String))
     )
 end

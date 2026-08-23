@@ -1,36 +1,39 @@
-artifact_name(name::Symbol) = "pscad_gauntlet_$(name)"
-artifact_name(case::GauntletCase) = artifact_name(case.name)
-
 function _bound_hash(
         case::GauntletCase;
         artifacts_toml::AbstractString = ARTIFACTS_TOML
 )
     isfile(artifacts_toml) || return nothing
-    return artifact_hash(artifact_name(case), artifacts_toml)
+    return artifact_hash(artifact_name(case.backend), artifacts_toml)
 end
 
 function snapshot_path(
         case::GauntletCase;
         artifacts_toml::AbstractString = ARTIFACTS_TOML
 )
+    artifact = artifact_name(case.backend)
     hash = _bound_hash(case; artifacts_toml)
     hash === nothing && throw(ArgumentError(
-        "Gauntlet artifact $(artifact_name(case)) is not bound in $artifacts_toml. " *
-        "Record and persist it explicitly before running snapshot mode.",
+        "Gauntlet collection $artifact is not bound in $artifacts_toml. " *
+        "Record and publish $(release_tag()) explicitly before running snapshot mode.",
     ))
     if !artifact_exists(hash)
         try
-            ensure_artifact_installed(artifact_name(case), artifacts_toml)
+            ensure_artifact_installed(artifact, artifacts_toml)
         catch error
             throw(ErrorException(
-                "Gauntlet artifact $(artifact_name(case)) is not installed and has no " *
-                "usable published download. Original error: $(sprint(showerror, error))",
+                "Gauntlet collection $artifact is not installed and has no usable " *
+                "download. Original error: $(sprint(showerror, error))",
             ))
         end
     end
-    path = joinpath(artifact_path(hash), "snapshot.jld2")
+    path = joinpath(
+        artifact_path(hash),
+        "cases",
+        string(case.name),
+        "snapshot.jld2"
+    )
     isfile(path) || throw(ArgumentError(
-        "Gauntlet artifact $(artifact_name(case)) has no snapshot.jld2",
+        "Gauntlet collection $artifact has no snapshot for $(case.name)",
     ))
     return path
 end
@@ -42,30 +45,35 @@ function _write_snapshot(
         candidate::LineParameters,
         reference_comparison::LineParametersComparison,
         julia_benchmark;
-        pscad_version::AbstractString,
-        pscad_elapsed_seconds::Real
+        reference_execution::NamedTuple
 )
     validate_structure(case, reference)
     validate_structure(case, candidate)
+    reference_execution.backend === case.backend || throw(ArgumentError(
+        "reference execution backend $(reference_execution.backend) does not match " *
+        "case backend $(case.backend)",
+    ))
     mkpath(dirname(path))
     temporary = path * ".new"
     isfile(temporary) && rm(temporary; force = true)
     try
         JLD2.jldsave(
             temporary;
-            format_version = SNAPSHOT_FORMAT_VERSION,
+            gauntlet_version = string(GAUNTLET_VERSION),
             case_name = string(case.name),
+            backend = string(case.backend),
             case_sha256 = case_digest(case),
-            problem = case.problem,
+            problem = (
+                reference = case.reference_problem,
+                candidate = case.problem
+            ),
             formulation = formulation_record(case),
             port_order = case.port_order,
             frequencies = copy(case.problem.frequencies),
-            pscad_version = String(pscad_version),
-            pscad_formulation = string(case.pscad_formulation),
+            reference_execution,
             reference,
             accepted = candidate,
             reference_comparison,
-            pscad_elapsed_seconds = Float64(pscad_elapsed_seconds),
             julia_benchmark,
             recorded_at_utc = string(now(UTC))
         )
@@ -99,13 +107,10 @@ function persist_snapshot(
         candidate::LineParameters,
         reference_comparison::LineParametersComparison,
         julia_benchmark;
-        pscad_version::AbstractString,
-        pscad_elapsed_seconds::Real,
-        artifact_root::AbstractString = ARTIFACT_ROOT,
-        artifacts_toml::AbstractString = ARTIFACTS_TOML
+        reference_execution::NamedTuple,
+        artifact_root::AbstractString = ARTIFACT_ROOT
 )
-    mkpath(artifact_root)
-    destination = joinpath(artifact_root, string(case.name))
+    destination = case_stage(case.backend, case.name; artifact_root)
     temporary = destination * ".new"
     ispath(temporary) && rm(temporary; recursive = true, force = true)
     mkpath(temporary)
@@ -117,70 +122,17 @@ function persist_snapshot(
         candidate,
         reference_comparison,
         julia_benchmark;
-        pscad_version,
-        pscad_elapsed_seconds
+        reference_execution
     )
     digest = _snapshot_digest(snapshot)
     write(joinpath(temporary, "snapshot.sha256"), "$digest  snapshot.jld2\n")
-
-    hash = create_artifact() do directory
-        cp(snapshot, joinpath(directory, "snapshot.jld2"))
-        cp(
-            joinpath(temporary, "snapshot.sha256"),
-            joinpath(directory, "snapshot.sha256")
-        )
-    end
-    archive = joinpath(temporary, "$(case.name).tar.gz")
-    archive_sha256 = archive_artifact(hash, archive)
-    mkpath(dirname(artifacts_toml))
-    bind_artifact!(
-        artifacts_toml,
-        artifact_name(case),
-        hash;
-        lazy = true,
-        force = true
-    )
     _atomic_stage!(temporary, destination)
     return (
         path = destination,
         snapshot_sha256 = digest,
-        archive_sha256,
-        tree_hash = string(hash),
-        artifact = artifact_name(case)
+        backend = case.backend,
+        gauntlet_version = GAUNTLET_VERSION
     )
-end
-
-function publish_artifact(
-        name::Symbol,
-        url::AbstractString;
-        artifact_root::AbstractString = ARTIFACT_ROOT,
-        artifacts_toml::AbstractString = ARTIFACTS_TOML
-)
-    isempty(strip(url)) && throw(ArgumentError("artifact download URL cannot be empty"))
-    isfile(artifacts_toml) || throw(ArgumentError(
-        "Gauntlet Artifacts.toml is missing: $artifacts_toml",
-    ))
-    artifact = artifact_name(name)
-    hash = artifact_hash(artifact, artifacts_toml)
-    hash === nothing && throw(ArgumentError(
-        "record $artifact before publishing it",
-    ))
-    archive = joinpath(artifact_root, string(name), "$name.tar.gz")
-    isfile(archive) || throw(ArgumentError("Gauntlet archive is missing: $archive"))
-    archive_sha256 = bytes2hex(sha256(read(archive)))
-    bind_artifact!(
-        artifacts_toml,
-        artifact,
-        hash;
-        download_info = [(String(url), archive_sha256)],
-        lazy = true,
-        force = true
-    )
-    return (; artifact, tree_hash = string(hash), archive_sha256)
-end
-
-function publish_artifact(case::GauntletCase, url::AbstractString; kwargs...)
-    publish_artifact(case.name, url; kwargs...)
 end
 
 function _load_snapshot_path(case::GauntletCase, path::AbstractString)
@@ -197,29 +149,30 @@ function _load_snapshot_path(case::GauntletCase, path::AbstractString)
 
     snapshot = JLD2.load(path)
     required = (
-        "format_version", "case_name", "case_sha256", "problem", "formulation",
-        "port_order", "frequencies", "pscad_version", "pscad_formulation",
-        "reference", "accepted", "reference_comparison",
-        "pscad_elapsed_seconds", "julia_benchmark", "recorded_at_utc"
+        "gauntlet_version", "case_name", "backend", "case_sha256", "problem",
+        "formulation", "port_order", "frequencies", "reference_execution",
+        "reference", "accepted", "reference_comparison", "julia_benchmark",
+        "recorded_at_utc"
     )
     missing = filter(key -> !haskey(snapshot, key), required)
     isempty(missing) || throw(ArgumentError(
         "Gauntlet snapshot $path is missing fields: $(join(missing, ", "))",
     ))
-    snapshot["format_version"] == SNAPSHOT_FORMAT_VERSION || throw(ArgumentError(
-        "Gauntlet snapshot $path has unsupported format version $(snapshot["format_version"])",
+    snapshot["gauntlet_version"] == string(GAUNTLET_VERSION) || throw(ArgumentError(
+        "Gauntlet snapshot $path uses version $(snapshot["gauntlet_version"]), " *
+        "expected $(GAUNTLET_VERSION)",
     ))
     snapshot["case_name"] == string(case.name) || throw(ArgumentError(
         "Gauntlet snapshot $path belongs to case $(snapshot["case_name"]), not $(case.name)",
+    ))
+    snapshot["backend"] == string(case.backend) || throw(ArgumentError(
+        "Gauntlet snapshot $path belongs to backend $(snapshot["backend"]), " *
+        "not $(case.backend)",
     ))
     snapshot["case_sha256"] == case_digest(case) || throw(ArgumentError(
         "Gauntlet snapshot $path does not match $(case.source_file). " *
         "Review the case and record it explicitly.",
     ))
-    snapshot["pscad_formulation"] == string(case.pscad_formulation) ||
-        throw(ArgumentError(
-            "Gauntlet snapshot PSCAD formulation does not match the case definition",
-        ))
     snapshot["formulation"] == formulation_record(case) || throw(ArgumentError(
         "Gauntlet snapshot formulation does not match the case definition",
     ))
@@ -263,16 +216,18 @@ function run_snapshot(
         case::GauntletCase;
         path::Union{Nothing, AbstractString} = nothing,
         artifacts_toml::AbstractString = ARTIFACTS_TOML,
+        options::ComputeOptions = ComputeOptions(),
         benchmark_samples::Int = 10,
         benchmark_seconds::Real = 10
 )
     loaded = load_snapshot(case; path, artifacts_toml)
-    candidate = compute!(case.problem, case.formulation)
+    candidate = compute!(case.problem, case.formulation; options)
     validate_structure(case, candidate)
     reference_comparison = compare(loaded.reference, candidate)
     regression_comparison = compare(loaded.accepted, candidate)
     timing = benchmark_local(
         case;
+        options,
         samples = benchmark_samples,
         seconds = benchmark_seconds
     )
@@ -290,7 +245,10 @@ function run_snapshot(
         regression = regression_comparison,
         performance,
         metadata = loaded.metadata,
-        pscad = nothing,
-        timings = (pscad = loaded.metadata["pscad_elapsed_seconds"], julia = timing)
+        reference_execution = loaded.metadata["reference_execution"],
+        timings = (
+            reference = loaded.metadata["reference_execution"].elapsed_seconds,
+            julia = timing
+        )
     )
 end

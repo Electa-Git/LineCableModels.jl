@@ -1,28 +1,84 @@
-# PSCAD validation gauntlet
+# Validation gauntlet
 
-Each file in `cases/` owns one complete validation case. The case defines the LineCableModels problem, formulation, exact frequency samples, explicit terminal order, tolerances, and assertions. Gauntlet cases retain every terminal: phase assignments must be the contiguous integers `1:n`, and both Kron and bundle reduction must be disabled. Disposable exports and diagnostics remain in `cases/.work/<case>/`.
+Each file in `cases/` owns one complete validation case. The case declares its reference backend, separate reference and LineCableModels problems and formulations, exact frequency samples, explicit terminal order, tolerances, and assertions. Both calculations use the ordinary `ProblemDefinition`, `Formulation`, and `compute!` grammar. Gauntlet cases retain every terminal: phase assignments must be the contiguous integers `1:n`, and both Kron and bundle reduction must be disabled. Disposable exports and diagnostics remain in `cases/.work/<backend>/<case>/`.
 
-The gauntlet has three modes. `snapshot` reads an existing reference and never loads the PSCAD code. `live` executes PSCAD without changing the reference. `record` completes the live checks before replacing the reference. A failed operation never switches modes.
+The gauntlet has three modes. `snapshot` reads an existing reference and never loads host configuration, starts a process, initializes Python, or contacts an external backend. `live` executes each case's declared backend without changing the reference. `record` completes the live checks before replacing the reference. A failed operation never switches modes.
 
-| Mode | PSCAD | Network | Reads accepted artifact | May replace artifact |
+| Mode | Live backend | Network | Reads accepted artifact | May replace artifact |
 |:--|:--:|:--:|:--:|:--:|
 | `snapshot` | No | No | Yes | No |
 | `live` | Yes | Yes | No | No |
-| `record` | Yes | Yes | Yes, when one exists | Yes, with `LINECABLEMODELS_GAUNTLET_PERSIST=true` |
+| `record` | Yes | Yes | Yes, when one exists | Yes, with persistence enabled; an existing version also requires force |
 
 ## Comparisons
 
-The live calculation compares the phase-domain `Z[i,j,:]` and `Y[i,j,:]` series returned by PSCAD with the corresponding LineCableModels series. Absolute and relative RMS errors are calculated separately for every matrix term across frequency. Gauntlet does not flatten the matrices, combine matrix terms, reorder terminals, interpolate frequencies, or post-process PSCAD results.
+The live calculation compares the phase-domain `Z[i,j,:]` and `Y[i,j,:]` series returned by the reference formulation with the corresponding LineCableModels series. Absolute and relative RMS errors are calculated separately for every matrix term across frequency. Gauntlet does not flatten the matrices, combine matrix terms, reorder terminals, interpolate frequencies, or post-process external results.
 
-PSCAD does not emit modal `Z` and `Y` for the supported frequency-dependent model. A modal `LineParameters` result therefore throws a clear not-implemented error instead of being compared through a derived proxy.
+The current PSCAD frequency-dependent model does not emit modal `Z` and `Y`. A modal `LineParameters` result therefore throws a clear not-implemented error instead of being compared through a derived proxy.
 
-Each case has three tolerance groups:
+Each case has three metric groups:
 
-- `reference` checks LineCableModels against PSCAD.
+- `reference` reports LineCableModels against PSCAD. It never passes or fails a test and never blocks recording.
 - `regression` checks the current LineCableModels result against the accepted result stored in the artifact.
 - `performance` checks time, bytes, and allocations against the accepted artifact only when the Julia, operating system, architecture, thread count, and BLAS configuration are identical.
 
 Performance from different environments is reported as non-comparable and cannot pass or fail the case.
+
+Interactive runs display the reference RMS table. Relative values whose absolute RMS is already below the case's display floor appear as `missing`; the underlying comparison remains unchanged.
+
+## Problem and formulation selection
+
+The case constructs the physical problem once, then creates separate problem and formulation objects for PSCAD and the owned EMT solver:
+
+```julia
+reference_problem = LineParametersProblem(
+    problem.system;
+    temperature = problem.temperature,
+    earth_props = problem.earth_props,
+    frequencies = problem.frequencies,
+)
+
+reference_formulation = Formulation(
+    :pscad;
+    earth_impedance = EarthImpedance.Wedepohl(),
+)
+
+formulation = Formulation(
+    :EMT;
+    earth_impedance = EarthImpedance.Pollaczek(),
+    earth_admittance = EarthAdmittance.IdealGround(),
+    insulation_admittance = InsulationAdmittance.Lossless(),
+    options = (
+        kron_reduction = false,
+        reduce_bundle = false,
+        ideal_transposition = false,
+    ),
+)
+```
+
+`Formulation(:pscad)` accepts these explicit earth-impedance method objects:
+
+| Model | Method object | PSCAD field |
+|:--|:--|:--|
+| Overhead | `EarthImpedance.Deri()` | `EarthForm2` |
+| Overhead | `EarthImpedance.DirectNumericalIntegration(:overhead)` | `EarthForm2` |
+| Underground | `EarthImpedance.Wedepohl()` | `EarthForm` |
+| Underground | `EarthImpedance.DirectNumericalIntegration(:underground)` | `EarthForm` |
+| Underground | `EarthImpedance.Saad()` | `EarthForm` |
+| Aerial/underground mutual | `EarthImpedance.Ametani()` | `EarthForm3` |
+| Aerial/underground mutual | `EarthImpedance.Lucca()` | `EarthForm3` |
+
+The PSCAD formulation uses `NativeEarthAdmittance()` and `NativeInsulationAdmittance()` for the calculations owned by PSCAD's line-data model. The EMT formulation selects its own earth and insulation admittance methods independently. No validator forces those choices to resemble each other. A deliberately mismatched pair runs normally and the RMS result exposes the consequence.
+
+`Deri`, `Wedepohl`, `Saad`, `Ametani`, `Lucca`, and direct numerical integration are Engine-owned method concepts. They can be selected by external backends. Calling them through `Formulation(:EMT)` produces a clear not-implemented error because the owned EMT kernels do not currently implement those methods.
+
+Live and record modes call the same public operation for both solvers:
+
+```julia
+reference = compute!(reference_problem, reference_formulation; options)
+candidate = compute!(problem, formulation; options)
+comparison = compare(reference, candidate)
+```
 
 ## Live setup
 
@@ -48,8 +104,14 @@ Copy `local.example` to the ignored `local.jl` file and set the host, shared wor
 | `python_executable` | Python executable containing `mhi.pscad`. |
 | `pscad_version` | Supported PSCAD version. It must be `5.1.0`. |
 | `transport` | `:ssh` or a symbol implemented by a method in `local.jl`. |
-| `verbosity` | `0` for errors, `1` for milestones, or `2` for streamed runner output. |
 | `timeout_seconds` | Maximum duration of one remote PSCAD calculation. |
+
+Runner verbosity belongs to the ordinary Engine execution options, not the host configuration. A case can stream PSCAD milestones without changing local solver logging:
+
+```julia
+options = ComputeOptions(verbosity = (default = 0, PSCAD = 2))
+outcome = run_case(case; options)
+```
 
 Set `LINECABLEMODELS_GAUNTLET_CONFIG` when the configuration file is stored elsewhere. Relative paths are resolved from the repository root. Live and record modes load this file; snapshot mode does not.
 
@@ -90,7 +152,6 @@ RemoteConfig(
     raw"C:\path\to\julia.exe",
     raw"C:\path\to\python.exe";
     transport = :ssh,
-    verbosity = 1,
     timeout_seconds = 1800,
 )
 ```
@@ -99,11 +160,11 @@ OpenSSH owns authentication and host-key verification. The gauntlet does not acc
 
 ### Direct Tailscale SSH
 
-The local `ts` wrapper can expose the VM's QEMU user-network SSH port on `127.0.0.1:10022`. Recreate the current `win11-vm` entry from a Linux terminal with:
+The local `ts` wrapper can expose the VM's QEMU user-network SSH port on `127.0.0.1:10022`. Create an entry for the PSCAD worker from a Linux terminal with:
 
 ```bash
-ts ssh direct set win11-vm \
-    --libvirt-user-domain win11 \
+ts ssh direct set pscad-worker \
+    --libvirt-user-domain pscad-worker \
     --libvirt-uri qemu:///system \
     --host-address 127.0.0.1 \
     --port 10022 \
@@ -115,8 +176,8 @@ ts ssh direct set win11-vm \
 Inspect the entry and test the connection with:
 
 ```bash
-ts ssh direct show win11-vm
-ts ssh win11-vm --direct -- cmd.exe /d /s /c ver
+ts ssh direct show pscad-worker
+ts ssh pscad-worker --direct -- cmd.exe /d /s /c ver
 ```
 
 The `--` before the remote command is required. Without it, an argument such as PowerShell's `-NoProfile` can be parsed as an SSH option.
@@ -143,28 +204,27 @@ function remote_command(
 end
 
 RemoteConfig(
-    "win11-vm",
-    raw"Z:\Documents\KUL\LineCableModels\test\gauntlet\cases\.work",
-    raw"C:\Users\Amauri\AppData\Local\LineCableModels\Gauntlet\Remote",
-    raw"C:\Users\Amauri\AppData\Local\Microsoft\WindowsApps\julia.exe",
-    raw"C:\Users\Amauri\AppData\Local\LineCableModels\Gauntlet\PSCAD\py3.14\Scripts\python.exe";
+    "pscad-worker",
+    raw"Z:\test\gauntlet\cases\.work",
+    raw"C:\LineCableModelsGauntlet",
+    raw"C:\path\to\julia.exe",
+    raw"C:\path\to\python.exe";
     pscad_version = "5.1.0",
     transport = :tailscale,
-    verbosity = 2,
     timeout_seconds = 1800,
 )
 ```
 
-Change the executable paths if Julia or Python moves. `verbosity = 2` prints runner progress while PSCAD is active. Use `1` for major local progress messages or `0` for errors only. `timeout_seconds` bounds one PSCAD run. Authentication remains under the installed `ts` and OpenSSH configuration.
+Change the executable paths if Julia or Python moves. `timeout_seconds` bounds one PSCAD run. Set the `PSCAD` entry in `ComputeOptions.verbosity` to `2` to stream runner progress, `1` for milestones, or `0` for warnings only. Authentication remains under the installed `ts` and OpenSSH configuration.
 
 Any other wrapper uses the same narrow seam. Set `transport` to a new symbol and define `remote_command(::Val{:symbol}, config, powershell)` in `local.jl`. The method must return the complete `Cmd` and pass `_powershell_argv(powershell)` unchanged to the Windows host. There is no transport fallback.
 
 ### VirtioFS host share
 
-The `win11` libvirt domain exposes `/home/amartins` to Windows with the mount tag `home`. Windows mounts it as `Z:`. Inspect the active domain from Linux with:
+The `pscad-worker` libvirt domain exposes the repository to Windows with the mount tag `linecablemodels`. Windows mounts it as `Z:`. Inspect the active domain from Linux with:
 
 ```bash
-virsh -c qemu:///system dumpxml win11
+virsh -c qemu:///system dumpxml pscad-worker
 ```
 
 The domain must contain shared memory and the VirtioFS device:
@@ -178,8 +238,8 @@ The domain must contain shared memory and the VirtioFS device:
 <filesystem type='mount' accessmode='passthrough'>
   <driver type='virtiofs' queue='1024'/>
   <binary path='/usr/libexec/virtiofsd'/>
-  <source dir='/home/amartins'/>
-  <target dir='home'/>
+  <source dir='/path/to/LineCableModels'/>
+  <target dir='linecablemodels'/>
 </filesystem>
 ```
 
@@ -195,7 +255,7 @@ Get-Service VirtioFsSvc, WinFsp.Launcher
 sc.exe query VirtioFsDrv
 
 Measure-Command {
-    Get-ChildItem "Z:\Documents\KUL\LineCableModels" -Force | Out-Null
+    Get-ChildItem "Z:\" -Force | Out-Null
 }
 ```
 
@@ -269,7 +329,7 @@ VirtioFS for Windows is documented by the [virtio-win project](https://github.co
 
 ### Remote file and process lifecycle
 
-SSH carries commands and text logs only. The gauntlet writes the generated project and fixed runner files below `cases/.work/<case>/<variant>/`. Windows sees the same directory through `Z:` and copies it once into the local `C:` scratch directory. PSCAD runs from `C:`. The Windows supervisor copies the completed outputs back to `Z:` before it exits.
+SSH carries commands and text logs only. The PSCAD formulation writes the generated project and fixed runner files below `cases/.work/pscad/<case>/reference/`. Windows sees the same directory through `Z:` and copies it once into the local `C:` scratch directory. PSCAD runs from `C:`. The Windows supervisor copies the completed outputs back to `Z:` before it exits.
 
 The supervisor records the Julia runner PID and its exact script path in `owner.txt`. A timeout stops that PID tree with `taskkill /T`, never by executable name. A local interruption sends the same targeted cancellation command before returning control to Julia. The next run checks any remaining owner file before replacing the scratch directory. It refuses to terminate a PID whose command line does not contain the recorded case runner path.
 
@@ -279,86 +339,129 @@ At debug verbosity, the terminal shows each runner milestone as it is written. P
 
 ## Commands
 
-Run Example 3 against PSCAD:
+The dedicated runner contains the native TestItemRunner selection:
+
+```julia
+@run_package_tests(filter=ti -> :gauntlet in ti.tags, verbose=true)
+```
+
+TestItemRunner discovers every case file. There is no file list to update.
+
+Two optional boolean controls apply to the complete runner. Both accept only `true` or `false` and default to `false`.
+
+| Variable | Effect |
+|:--|:--|
+| `LINECABLEMODELS_GAUNTLET_CLEANUP` | Removes only `test/gauntlet/cases/.work/` when the runner exits, including after a failed test. Snapshots and backend archives are untouched. |
+| `LINECABLEMODELS_GAUNTLET_FORCE` | Permits `record` to replace the current Gauntlet version's staged backend collections and `Artifacts.toml` bindings. It has no effect in `snapshot` or `live` mode. |
+
+Record mode checks for a staged collection or artifact binding with the same backend name and Gauntlet version before it starts any case. The runner stops and lists every collision unless `LINECABLEMODELS_GAUNTLET_FORCE=true` is set. A forced run deletes only the current version's ignored staging directories. It replaces the artifact bindings only after all cases finish successfully.
+
+Run every case against its declared live backend:
 
 ```bash
 LINECABLEMODELS_GAUNTLET_MODE=live \
-julia --project=test/gauntlet --startup-file=no -e \
-'push!(ARGS, "test/gauntlet/cases/example3.jl"); include("test/runtests.jl")'
+julia --project=test/gauntlet --startup-file=no test/gauntlet/runtests.jl
 ```
 
-This requires the live setup. It writes `test/gauntlet/cases/.work/example3/` and cannot replace the snapshot.
+This requires the setup for every selected backend. Each case writes below `cases/.work/<backend>/<case>/`. No accepted collection is replaced.
 
-Run every gauntlet case against PSCAD:
-
-```bash
-LINECABLEMODELS_GAUNTLET_MODE=live \
-julia --project=test/gauntlet --startup-file=no -e \
-'push!(ARGS, "tag:gauntlet"); include("test/runtests.jl")'
-```
-
-This requires the live setup. Each case writes its own directory below `cases/.work/`. No snapshot is replaced.
-
-Record or replace the Example 3 snapshot:
+Record every case and build one collection per backend:
 
 ```bash
 LINECABLEMODELS_GAUNTLET_PERSIST=true \
 LINECABLEMODELS_GAUNTLET_MODE=record \
-julia --project=test/gauntlet --startup-file=no -e \
-'push!(ARGS, "test/gauntlet/cases/example3.jl"); include("test/runtests.jl")'
+julia --project=test/gauntlet --startup-file=no test/gauntlet/runtests.jl
 ```
 
-This requires the live setup. Both environment variables are mandatory. The command replaces the ignored staging collection under `.artifacts/example3/` and updates the local tree binding in `Artifacts.toml` only after PSCAD execution, parsing, structural checks, numerical comparisons, and case tolerances succeed.
+Both environment variables are mandatory. Record mode is accepted only through this runner. Each case first writes its snapshot into ignored staging. TestItemRunner must finish every selected case successfully before the runner creates or binds any backend archive. A reference comparison remains diagnostic and cannot block recording. Regression and comparable performance limits against an existing accepted collection remain gates.
 
-Record every gauntlet case and bind all local artifacts with one package-test run:
+Replace an existing collection with the same name and version, then remove the disposable working files after the runner exits:
 
 ```bash
+LINECABLEMODELS_GAUNTLET_CLEANUP=true \
+LINECABLEMODELS_GAUNTLET_FORCE=true \
 LINECABLEMODELS_GAUNTLET_PERSIST=true \
 LINECABLEMODELS_GAUNTLET_MODE=record \
-julia --project=test/gauntlet --startup-file=no -e \
-'push!(ARGS, "tag:gauntlet"); include("test/runtests.jl")'
+julia --project=test/gauntlet --startup-file=no test/gauntlet/runtests.jl
 ```
 
-The staged collection contains `snapshot.jld2`, its direct SHA-256 file, and `example3.tar.gz`. The JLD2 file records the problem, a declarative formulation record, the PSCAD reference, the accepted LineCableModels result, the reference comparison, the PSCAD wall time, and the local benchmark. The artifact tree hash is handled by `Pkg.Artifacts`; there are no campaign hashes or hash-derived directories.
+Use cleanup without force when the collection does not already exist. Use force without cleanup when the generated PSCAD projects and logs should remain available for inspection.
 
-Artifact names are stable, such as `pscad_gauntlet_example3`. Recording a new accepted result changes the tree hash bound in `Artifacts.toml`. Git history retains the previous binding. `SNAPSHOT_FORMAT_VERSION` changes only when the JLD2 schema is incompatible. The recording timestamp remains metadata and never becomes part of the artifact name.
+The source-owned version is `GAUNTLET_VERSION = v"1.0.0"`. Staging is grouped by backend:
 
-After uploading `example3.tar.gz`, bind its real download URL:
+```text
+test/gauntlet/.artifacts/
+└── pscad/
+    └── v1.0.0/
+        ├── cases/
+        │   └── benchmark_525kV_1600mm2_bipole_pscad/
+        │       ├── snapshot.jld2
+        │       └── snapshot.sha256
+        └── benchmarks-pscad-v1.0.0.tar.gz
+```
+
+Every case must declare one lowercase backend symbol. One backend archive contains all snapshots recorded for that backend and version. `Pkg.Artifacts` binds the complete collection under a name such as `gauntlet_pscad_v1_0_0`. A snapshot stores the backend and Gauntlet version along with both problems, declarative formulation records, the external reference, the accepted LineCableModels result, comparisons, and timings.
+
+The Gauntlet version is independent of the package version. Bump the patch slot for a corrected rerun with unchanged stored fields and KPIs. Bump the minor slot when adding retained data, cases, or a backend without invalidating existing readers. Bump the major slot when changing snapshot fields, KPI meaning, or loading behavior. Every change to an already published immutable collection requires a new version.
+
+Use one immutable GitHub release for the Gauntlet version and one asset per backend:
+
+```bash
+REPO="Electa-Git/LineCableModels.jl"
+BACKEND="pscad"
+VERSION="$(julia --project=test/gauntlet --startup-file=no -e \
+    'include("test/gauntlet/artifacts.jl"); using .GauntletArtifacts; print(GAUNTLET_VERSION)')"
+TAG="gauntlet-v${VERSION}"
+ASSET="benchmarks-${BACKEND}-v${VERSION}.tar.gz"
+REPO_URL="https://github.com/$REPO"
+GAUNTLET_ARTIFACT_URL="$REPO_URL/releases/download/$TAG/$ASSET"
+```
+
+Enable [GitHub release immutability](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases). Create `gauntlet-v1.0.0` as a draft, upload all backend assets, then publish it. Published immutable assets cannot be replaced or deleted individually. If an accepted publication is wrong, leave it intact and publish the correction under the next Gauntlet version.
+
+Create the draft and upload the recorded PSCAD collection with:
+
+```bash
+gh release create "$TAG" \
+    --repo "$REPO" \
+    --draft \
+    --title "Gauntlet v${VERSION}" \
+    --notes "Accepted validation references for Gauntlet v${VERSION}."
+
+gh release upload "$TAG" \
+    "test/gauntlet/.artifacts/${BACKEND}/v${VERSION}/${ASSET}" \
+    --repo "$REPO"
+```
+
+Upload every backend archive to the same draft before publishing it. Publish the draft only after checking its asset list.
+
+After uploading a backend archive, bind its real download URL:
 
 ```bash
 test -n "$GAUNTLET_ARTIFACT_URL"
 julia --project=test/gauntlet --startup-file=no -e \
-'using TestItemRunner; include("test/gauntlet/support.jl"); using .GauntletSupport; publish_artifact(:example3, ARGS[1])' \
-"$GAUNTLET_ARTIFACT_URL"
+'include("test/gauntlet/artifacts.jl"); using .GauntletArtifacts; publish_artifact(Symbol(ARGS[1]), ARGS[2])' \
+"$BACKEND" "$GAUNTLET_ARTIFACT_URL"
 ```
 
-Set `GAUNTLET_ARTIFACT_URL` to the real immutable archive URL first. The command calculates the archive SHA-256 and adds the download entry to `test/gauntlet/Artifacts.toml`. It fails if the case was not recorded locally or the archive is missing. Do not commit an invented URL.
+The command calculates the archive SHA-256 and adds the download entry to `test/gauntlet/Artifacts.toml`. It fails if the backend collection was not recorded locally or its archive is missing. Do not commit an invented URL.
 
-Run Example 3 from its snapshot:
+Run every case from the accepted backend collections:
 
 ```bash
 LINECABLEMODELS_GAUNTLET_MODE=snapshot \
-julia --project=test/gauntlet --startup-file=no -e \
-'push!(ARGS, "test/gauntlet/cases/example3.jl"); include("test/runtests.jl")'
+julia --project=test/gauntlet --startup-file=no test/gauntlet/runtests.jl
 ```
 
-This resolves `pscad_gauntlet_example3` through `Artifacts.toml`. It does not require PSCAD, Python, SSH, Tailscale, or `local.jl`. A missing binding, unavailable download, malformed artifact, digest mismatch, or stale case definition fails immediately.
-
-Run every snapshot case locally:
-
-```bash
-LINECABLEMODELS_GAUNTLET_MODE=snapshot \
-julia --project=test/gauntlet --startup-file=no -e \
-'push!(ARGS, "tag:gauntlet"); include("test/runtests.jl")'
-```
+Each case resolves the collection named by its backend and `GAUNTLET_VERSION`, then loads its human-readable path below `cases/`. Snapshot mode does not require PSCAD, Python, SSH, Tailscale, or `local.jl`. A missing binding, missing case, unavailable download, malformed snapshot, digest mismatch, backend mismatch, version mismatch, or stale case definition fails immediately.
 
 Run the same snapshot selection used by CI:
 
 ```bash
 CI=true \
 LINECABLEMODELS_GAUNTLET_MODE=snapshot \
-julia --project=test/gauntlet --startup-file=no --code-coverage=@. -e \
-'push!(ARGS, "tag:gauntlet"); include("test/runtests.jl")'
+julia --project=test/gauntlet --startup-file=no --code-coverage=@. \
+test/gauntlet/runtests.jl
 ```
 
 CI rejects `live` and `record` instead of changing them to `snapshot`.
@@ -377,7 +480,8 @@ using DataFrames
 using JLD2
 
 snapshot = JLD2.load(
-    "test/gauntlet/.artifacts/example3/snapshot.jld2",
+    "test/gauntlet/.artifacts/pscad/v1.0.0/cases/" *
+    "benchmark_525kV_1600mm2_bipole_pscad/snapshot.jld2",
 )
 comparison = snapshot["reference_comparison"]
 ```
@@ -389,11 +493,17 @@ installed or downloaded artifact instead, resolve the binding explicitly:
 using Pkg.Artifacts
 
 artifacts_toml = "test/gauntlet/Artifacts.toml"
-hash = artifact_hash("pscad_gauntlet_example3", artifacts_toml)
-hash === nothing && error("example3 is not bound in $artifacts_toml")
+artifact = "gauntlet_pscad_v1_0_0"
+hash = artifact_hash(artifact, artifacts_toml)
+hash === nothing && error("$artifact is not bound in $artifacts_toml")
 artifact_exists(hash) ||
-    ensure_artifact_installed("pscad_gauntlet_example3", artifacts_toml)
-snapshot = JLD2.load(joinpath(artifact_path(hash), "snapshot.jld2"))
+    ensure_artifact_installed(artifact, artifacts_toml)
+snapshot = JLD2.load(joinpath(
+    artifact_path(hash),
+    "cases",
+    "benchmark_525kV_1600mm2_bipole_pscad",
+    "snapshot.jld2",
+))
 comparison = snapshot["reference_comparison"]
 ```
 
@@ -427,7 +537,7 @@ display((
     bytes = benchmark.bytes,
     allocations = benchmark.allocations,
     samples = benchmark.samples,
-    pscad_seconds = snapshot["pscad_elapsed_seconds"],
+    reference_seconds = snapshot["reference_execution"].elapsed_seconds,
     environment = benchmark.environment,
 ))
 ```
@@ -436,6 +546,6 @@ The generated [PSCAD gauntlet developer guide](../../docs/src/gauntlet.md) runs 
 
 ## Files written by live execution
 
-The current exporter writes below `cases/.work/<case>/current/`. The directory retains the generated PSCX project, staged runner files, PSCAD matrix outputs, `stdout.txt`, `stderr.txt`, `transport-stdout.txt`, `transport-stderr.txt`, `pscad-console.txt`, and `timing.txt`. A nonzero remote exit preserves the shared files and the local Windows scratch directory for inspection.
+The PSCAD formulation writes below `cases/.work/pscad/<case>/reference/`. The directory retains the generated PSCX project, staged runner files, PSCAD matrix outputs, `stdout.txt`, `stderr.txt`, `transport-stdout.txt`, `transport-stderr.txt`, `pscad-console.txt`, and `timing.txt`. A nonzero remote exit preserves the shared files and the local Windows scratch directory for inspection.
 
 The stored case SHA-256 binds the snapshot to the bytes of its case file. The separate snapshot SHA-256 detects damage to the JLD2 payload. Either mismatch requires review and an explicit record run; neither can trigger regeneration automatically.
