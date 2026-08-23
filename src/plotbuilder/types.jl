@@ -1,9 +1,9 @@
 """
-    AbstractPlotSpec
+    AbstractPlotDefinition
 
 Supertype for backend-neutral PlotBuilder recipe identifiers.
 """
-abstract type AbstractPlotSpec end
+abstract type AbstractPlotDefinition end
 
 """
     PlotRecipe(object, input, renderer)
@@ -624,14 +624,15 @@ end
 
 Store validated pages produced for one plot specification type.
 """
-struct RenderSpec{S <: AbstractPlotSpec}
+struct RenderSpec{S <: AbstractPlotDefinition}
     "Plot specification type."
     spec::Type{S}
     "Validated render pages."
     figures::Vector{PageSpec}
 end
 
-function RenderSpec(spec::Type{S}, figures::AbstractVector) where {S <: AbstractPlotSpec}
+function RenderSpec(spec::Type{S}, figures::AbstractVector) where {S <:
+                                                                   AbstractPlotDefinition}
     render = RenderSpec(spec, PageSpec[figures...])
     validate(render)
     return render
@@ -904,7 +905,7 @@ Hold a backend-neutral render specification together with one built figure,
 its panels, controls, and backend context. Line-parameter plotting returns a
 `Vector{UIPlot}`; previews and statistical plots return one `UIPlot`.
 """
-struct UIPlot{S <: AbstractPlotSpec, F, P, W, C}
+struct UIPlot{S <: AbstractPlotDefinition, F, P, W, C}
     "Complete backend-neutral render specification."
     render::RenderSpec{S}
     "Page represented by this handle."

@@ -23,11 +23,20 @@ admittance of two [`LineParameters`](@ref) objects.
 
 $(TYPEDFIELDS)
 """
-struct LineParametersBenchmark{T <: Real}
+struct LineParametersBenchmark{T <: Real} <: AbstractProblemResult
     "Series-impedance error."
     Z::RMSError{T}
     "Shunt-admittance error."
     Y::RMSError{T}
+end
+
+function observables(benchmark::LineParametersBenchmark)
+    (
+        series_impedance_absolute_error = copy(benchmark.Z.absolute),
+        series_impedance_relative_error = copy(benchmark.Z.relative),
+        shunt_admittance_absolute_error = copy(benchmark.Y.absolute),
+        shunt_admittance_relative_error = copy(benchmark.Y.relative)
+    )
 end
 
 function _rms_series(reference::AbstractVector, candidate::AbstractVector)

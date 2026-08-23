@@ -1,17 +1,17 @@
-struct PositionSpec{Kind, P <: Tuple, C <: Tuple}
+struct PositionDefinition{Kind, P <: Tuple, C <: Tuple}
     parameters::P
     connections::C
 end
 
-_position_kind(::PositionSpec{Kind}) where {Kind} = Kind
+_position_kind(::PositionDefinition{Kind}) where {Kind} = Kind
 
-function PositionSpec(::Val{Kind}, parameters::P, connections::C) where {
+function PositionDefinition(::Val{Kind}, parameters::P, connections::C) where {
         Kind, P <: Tuple, C <: Tuple
 }
     all(value -> value isa Real, parameters) || throw(ArgumentError(
         "position coordinates and spacing must resolve to real numbers",
     ))
-    return PositionSpec{Kind, P, C}(parameters, connections)
+    return PositionDefinition{Kind, P, C}(parameters, connections)
 end
 
 const _PhaseEntry = Union{
@@ -55,15 +55,15 @@ function _phase_maps(phases, count::Int)
     return Tuple(maps)
 end
 
-_point_builder(x, y, connections) = PositionSpec(Val(:point), (x, y), connections)
+_point_builder(x, y, connections) = PositionDefinition(Val(:point), (x, y), connections)
 function _trifoil_builder(x, y, spacing, connections)
-    PositionSpec(Val(:trifoil), (x, y, spacing), connections)
+    PositionDefinition(Val(:trifoil), (x, y, spacing), connections)
 end
 function _hflat_builder(x, y, spacing, connections)
-    PositionSpec(Val(:hflat), (x, y, spacing), connections)
+    PositionDefinition(Val(:hflat), (x, y, spacing), connections)
 end
 function _vflat_builder(x, y, spacing, connections)
-    PositionSpec(Val(:vflat), (x, y, spacing), connections)
+    PositionDefinition(Val(:vflat), (x, y, spacing), connections)
 end
 
 """
@@ -87,7 +87,7 @@ Describe one cable position for use by [`SystemBuilder`](@ref).
 """
 function at(; x, y, phases = nothing, combine::Symbol = :product)
     connections = _phase_maps(phases, 1)
-    return Gridspace{PositionSpec}(
+    return Gridspace{PositionDefinition}(
         _point_builder,
         (_gridspace_axis(x), _gridspace_axis(y), _gridspace_axis(connections)),
         (:x, :y, :phases);
@@ -132,7 +132,7 @@ function trifoil(;
         combine::Symbol = :product
 )
     connections = _phase_maps(phases, 3)
-    return Gridspace{PositionSpec}(
+    return Gridspace{PositionDefinition}(
         _trifoil_builder,
         (_gridspace_axis(x), _gridspace_axis(y),
             _gridspace_axis(spacing), _gridspace_axis(connections)),
@@ -180,7 +180,7 @@ function hflat(;
 )
     n > 0 || throw(ArgumentError("n must be positive"))
     connections = _phase_maps(phases, n)
-    return Gridspace{PositionSpec}(
+    return Gridspace{PositionDefinition}(
         _hflat_builder,
         (_gridspace_axis(x), _gridspace_axis(y),
             _gridspace_axis(spacing), _gridspace_axis(connections)),
@@ -228,7 +228,7 @@ function vflat(;
 )
     n > 0 || throw(ArgumentError("n must be positive"))
     connections = _phase_maps(phases, n)
-    return Gridspace{PositionSpec}(
+    return Gridspace{PositionDefinition}(
         _vflat_builder,
         (_gridspace_axis(x), _gridspace_axis(y),
             _gridspace_axis(spacing), _gridspace_axis(connections)),

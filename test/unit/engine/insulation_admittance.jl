@@ -131,7 +131,7 @@ end
     end
 
     formulation=Formulation(
-        Val(:EMT);
+        Val(:analytical);
         insulation_admittance = InsulationAdmittance.ParallelRC(),
         modal_transform = nothing,
         options = (
@@ -142,9 +142,29 @@ end
     )
     problem=two_terminal_problem()
     input=Engine.EMTInput(problem)
-    trace=compute!(problem, formulation; inspect = true)
+    trace_formulation=Formulation(
+        :analytical;
+        internal_impedance = formulation.internal_impedance,
+        insulation_impedance = formulation.insulation_impedance,
+        earth_impedance = formulation.earth_impedance,
+        insulation_admittance = formulation.insulation_admittance,
+        earth_admittance = formulation.earth_admittance,
+        earth_properties = formulation.earth_properties,
+        modal_transform = formulation.modal_transform,
+        equivalent_earth = formulation.equivalent_earth,
+        options = merge(
+            (
+                reduce_bundle = formulation.options.reduce_bundle,
+                kron_reduction = formulation.options.kron_reduction,
+                ideal_transposition = formulation.options.ideal_transposition,
+                temperature_correction = formulation.options.temperature_correction
+            ),
+            (output = :trace,)
+        )
+    )
+    trace=compute(problem, trace_formulation)
     parameters=trace.result
-    public_parameters=compute!(problem, formulation)
+    public_parameters=compute(problem, formulation)
     @test public_parameters.Z.values == trace.result.Z.values
     @test public_parameters.Y.values == trace.result.Y.values
     @test input.insulator_layer_ranges == [1:2, 3:3]
@@ -203,11 +223,11 @@ end
     @test real(near_dc) > imag(near_dc)
     @test imag(high_frequency) > real(high_frequency)
 
-    uncertain_parameters=compute!(two_terminal_problem(uncertain = true), formulation)
+    uncertain_parameters=compute(two_terminal_problem(uncertain = true), formulation)
     @test uncertainty(real(uncertain_parameters.Y[1, 1, 2])) > 0
     @test uncertainty(imag(uncertain_parameters.Y[1, 1, 2])) > 0
 
-    total=compute!(
+    total=compute(
         problem,
         formulation;
         options = (output_basis = :total,)
@@ -264,7 +284,7 @@ end
         frequencies = [50.0, 500.0]
     )
     formulation=Formulation(
-        Val(:EMT);
+        Val(:analytical);
         insulation_admittance = InsulationAdmittance.ParallelRC(),
         modal_transform = nothing,
         options = (
@@ -274,59 +294,48 @@ end
         )
     )
     policy=MonteCarlo(
+        formulation;
         trials = 12,
         distribution = :normal,
         seed = 20260812,
         return_samples = true
     )
 
-    sampled=compute!(problem, formulation; run = policy)
+    parametric_problem=ParametricProblem(Gridspace(problem))
+    sampled=compute(parametric_problem, policy)
     @test sampled isa MonteCarloResult{<:LineParameters}
-    @test size(samples(sampled).G) == (2, 2, 2, 12)
-    @test std(samples(sampled).G[1, 1, 1, :]) > 0
-    @test std(samples(sampled).C[1, 1, 1, :]) > 0
+    @test size(only(samples(sampled)).G) == (2, 2, 2, 12)
+    @test std(only(samples(sampled)).G[1, 1, 1, :]) > 0
+    @test std(only(samples(sampled)).C[1, 1, 1, :]) > 0
 
-    reconstructed=Measurements.measurement(sampled)
-    @test uncertainty(real(reconstructed.Y[1, 1, 1])) > 0
-    @test uncertainty(imag(reconstructed.Y[1, 1, 1])) > 0
-
-    angular=reshape(2π .* frequencies(reconstructed), 1, 1, :)
-    joint=vcat(
-        vec(real.(reconstructed.Z.values)),
-        vec(imag.(reconstructed.Z.values) ./ angular),
-        vec(real.(reconstructed.Y.values)),
-        vec(imag.(reconstructed.Y.values) ./ angular)
-    )
     retained=samples(sampled)
+    @test !applicable(Measurements.measurement, sampled)
     sample_matrix=vcat(
-        reshape(retained.R, :, 12),
-        reshape(retained.L, :, 12),
-        reshape(retained.G, :, 12),
-        reshape(retained.C, :, 12)
+        reshape(only(retained).R, :, 12),
+        reshape(only(retained).L, :, 12),
+        reshape(only(retained).G, :, 12),
+        reshape(only(retained).C, :, 12)
     )
     means=vec(mean(sample_matrix; dims = 2))
     centered=sample_matrix .- means
     empirical_covariance=centered*transpose(centered)/11
-    @test value.(joint) ≈ means
-    @test uncertainty.(joint) ≈ vec(std(sample_matrix; dims = 2))
-    @test Measurements.cov(joint) ≈ empirical_covariance
+    @test all(isfinite, empirical_covariance)
+    @test any(!iszero, empirical_covariance)
 
-    repeated=compute!(problem, formulation; run = policy)
+    repeated=compute(parametric_problem, policy)
     for component in (:R, :L, :G, :C)
-        @test getproperty(samples(repeated), component) ==
-              getproperty(samples(sampled), component)
+        @test getproperty(only(samples(repeated)), component) ==
+              getproperty(only(samples(sampled)), component)
     end
 
-    total=compute!(
-        problem,
-        formulation;
-        run = policy,
-        options = (output_basis = :total,)
+    total=compute(
+        ParametricProblem(Gridspace(problem), (output_basis = :total,)),
+        policy
     )
-    @test basis(LineCableModels.result(sampled)) === :per_length
-    @test basis(LineCableModels.result(total)) === :total
+    @test basis(only(LineCableModels.result(sampled))) === :per_length
+    @test basis(only(LineCableModels.result(total))) === :total
     for component in (:R, :L, :G, :C)
-        @test getproperty(samples(total), component) ≈
-              1000.0 .* getproperty(samples(sampled), component)
+        @test getproperty(only(samples(total)), component) ≈
+              1000.0 .* getproperty(only(samples(sampled)), component)
     end
 end

@@ -288,7 +288,7 @@ I would do this in four passes:
 
 With pragmatic guards instead of implementing every unfinished model, this looks like roughly **one focused week plus however long independent earth/solver validation takes**. Fully validating sector, rectangular, multilayer-earth, and Levenberg functionality is a separate research-grade project.
 
-The audit was read-only. I did not modify either of the already-dirty files, [RELEASE_AUDIT.md](/home/amartins/Documents/KUL/LineCableModels/RELEASE_AUDIT.md) or [docstrings.md](/home/amartins/Documents/KUL/LineCableModels/docs/src/docstrings.md). The Unslopifier quality gate could not run because this repository is not enrolled and has no `.unslopifier.toml`; that was diagnosed as missing setup, not counted as a package failure. The Julia docstring criteria were used to inspect mathematical notes and examples, and the GitHub audit supplied the issue and CI findings above.
+The audit was read-only. I did not modify either of the already-dirty files, [RELEASE_AUDIT.md](/home/amartins/Documents/KUL/LineCableModels/RELEASE_AUDIT.md) or [docstrings.md](/home/amartins/Documents/KUL/LineCableModels/docs/src/docstrings.md). The Julia docstring criteria were used to inspect mathematical notes and examples, and the GitHub audit supplied the issue and CI findings above.
 
 ---
 

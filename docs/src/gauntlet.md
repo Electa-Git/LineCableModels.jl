@@ -2,7 +2,7 @@
 EditURL = "../literate/gauntlet.jl"
 ```
 
-# Inspecting PSCAD gauntlet results
+# Inspecting benchmark results
 
 A recorded gauntlet snapshot contains the external reference, the accepted
 LineCableModels result, their element-wise comparison, and execution timing.

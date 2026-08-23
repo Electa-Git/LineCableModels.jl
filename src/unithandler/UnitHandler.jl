@@ -192,7 +192,8 @@ QuantityTag{Q} is a semantic tag for a physical quantity.
 
 Examples of Q (to be extended as needed):
 
-- :freq, :Z, :R, :L, :C, :G, :X, :B
+- :frequency, :series_impedance, :resistance, :inductance
+- :shunt_admittance, :conductance, :capacitance
 - :angle, :index, :distance, :magnitude...
 
 These tags are used across plotting, exporting, reporting, etc.
@@ -231,8 +232,8 @@ LineCableModels.UnitHandler.quantity(Z, :re)  # series resistance
 LineCableModels.UnitHandler.quantity(Y, :abs) # shunt-admittance magnitude
 ```
 """
-quantity(::typeof(Z)) = QuantityTag{:impedance}()
-quantity(::typeof(Y)) = QuantityTag{:admittance}()
+quantity(::typeof(Z)) = QuantityTag{:series_impedance}()
+quantity(::typeof(Y)) = QuantityTag{:shunt_admittance}()
 quantity(::typeof(R)) = QuantityTag{:resistance}()
 quantity(::typeof(X)) = QuantityTag{:reactance}()
 quantity(::typeof(L)) = QuantityTag{:inductance}()
@@ -242,12 +243,12 @@ quantity(::typeof(C)) = QuantityTag{:capacitance}()
 
 quantity(::typeof(Z), ::Val{:re}) = quantity(R)
 quantity(::typeof(Z), ::Val{:im}) = quantity(X)
-quantity(::typeof(Z), ::Val{:abs}) = QuantityTag{(:impedance, :abs)}()
-quantity(::typeof(Z), ::Val{:angle}) = QuantityTag{(:impedance, :angle)}()
+quantity(::typeof(Z), ::Val{:abs}) = QuantityTag{(:series_impedance, :abs)}()
+quantity(::typeof(Z), ::Val{:angle}) = QuantityTag{(:series_impedance, :angle)}()
 quantity(::typeof(Y), ::Val{:re}) = quantity(G)
 quantity(::typeof(Y), ::Val{:im}) = quantity(B)
-quantity(::typeof(Y), ::Val{:abs}) = QuantityTag{(:admittance, :abs)}()
-quantity(::typeof(Y), ::Val{:angle}) = QuantityTag{(:admittance, :angle)}()
+quantity(::typeof(Y), ::Val{:abs}) = QuantityTag{(:shunt_admittance, :abs)}()
+quantity(::typeof(Y), ::Val{:angle}) = QuantityTag{(:shunt_admittance, :angle)}()
 
 function quantity(accessor, selector::Symbol)
     selector in (:re, :im, :abs, :angle) || throw(
@@ -263,42 +264,40 @@ function quantity(accessor)
     throw(ArgumentError("unsupported physical-quantity accessor $accessor"))
 end
 
-const _LINE_COMPONENT_QUANTITY = Dict(
-    :R => (R, nothing, :ohm, :base),
-    :X => (X, nothing, :ohm, :base),
-    :L => (L, nothing, :henry, :milli),
-    :G => (G, nothing, :siemens, :base),
-    :B => (B, nothing, :siemens, :base),
-    :C => (C, nothing, :farad, :micro),
-    :Z_re => (Z, :re, :ohm, :base),
-    :Z_im => (Z, :im, :ohm, :base),
-    :Z_abs => (Z, :abs, :ohm, :base),
-    :Z_angle => (Z, :angle, :degree, :base),
-    :Y_re => (Y, :re, :siemens, :base),
-    :Y_im => (Y, :im, :siemens, :base),
-    :Y_abs => (Y, :abs, :siemens, :base),
-    :Y_angle => (Y, :angle, :degree, :base)
+const _SCIENTIFIC_QUANTITY = Dict(
+    :frequency => (QuantityTag{:frequency}(), :hertz, :base),
+    :series_impedance => (quantity(Z), :ohm, :base),
+    :shunt_admittance => (quantity(Y), :siemens, :base),
+    :resistance => (quantity(R), :ohm, :base),
+    :reactance => (quantity(X), :ohm, :base),
+    :inductance => (quantity(L), :henry, :milli),
+    :conductance => (quantity(G), :siemens, :base),
+    :susceptance => (quantity(B), :siemens, :base),
+    :capacitance => (quantity(C), :farad, :micro),
+    :angle => (QuantityTag{:angle}(), :degree, :base),
+    :series_impedance_absolute_error =>
+        (QuantityTag{:series_impedance_absolute_error}(), :ohm, :base),
+    :series_impedance_relative_error =>
+        (QuantityTag{:series_impedance_relative_error}(), :dimensionless, :base),
+    :shunt_admittance_absolute_error =>
+        (QuantityTag{:shunt_admittance_absolute_error}(), :siemens, :base),
+    :shunt_admittance_relative_error =>
+        (QuantityTag{:shunt_admittance_relative_error}(), :dimensionless, :base)
 )
 
 """
-    line_component_quantity(component)
+    line_component_quantity(key)
 
-Return the semantic name and quantity tag, physical unit name, and default
-display prefix for a line-parameter component.
+Return the quantity tag, physical unit name, and default display prefix for a
+scientific observable key.
 """
-function line_component_quantity(component::Symbol)
-    accessor, selector,
-    unit_name,
-    prefix = get(_LINE_COMPONENT_QUANTITY, component) do
-        throw(ArgumentError("unsupported line-parameter component :$component"))
+function line_component_quantity(key::Symbol)
+    tag, unit_name, prefix = get(_SCIENTIFIC_QUANTITY, key) do
+        throw(ArgumentError("unsupported scientific quantity :$key"))
     end
-    tag = selector === nothing ? quantity(accessor) : quantity(accessor, selector)
-    semantic = _quantity_name(tag)
     return (;
-        semantic,
+        semantic = key,
         tag,
-        accessor,
-        selector,
         unit_name,
         prefix
     )
@@ -325,22 +324,22 @@ per-length quantities. `quantity_units` may override numerator prefixes with a
 single symbol or with component/semantic keys in a named tuple or dictionary.
 """
 function line_component_unit(
-        component::Symbol,
+        key::Symbol,
         basis::Symbol;
         length_unit::Symbol = :kilo,
         quantity_units = nothing
 )
-    quantity = line_component_quantity(component)
+    quantity = line_component_quantity(key)
     prefix = _line_quantity_prefix(
         quantity_units,
-        component,
+        key,
         quantity.semantic,
         quantity.prefix
     )
     prefix isa Symbol || throw(
         ArgumentError("quantity unit prefixes must be symbols"),
     )
-    target = if quantity.unit_name === :degree
+    target = if quantity.unit_name in (:degree, :hertz, :dimensionless)
         units(prefix, quantity.unit_name)
     elseif basis === :per_length
         units(prefix, quantity.unit_name; per = (length_unit, :meter))
@@ -478,7 +477,7 @@ i.e. q_disp = q_raw * scale_factor(u)
 """
 scale_factor(u::Units) = 10.0^(-get_exp(u))
 
-# Convenience: call with Val{:freq} etc.
+# Convenience: call with `Val{:frequency}` and other scientific keys.
 default_unit(::Val{Q}) where {Q} = default_unit(QuantityTag{Q}())
 
 display_unit(::Val{Q}) where {Q} = display_unit(QuantityTag{Q}())
@@ -497,10 +496,10 @@ get_label(q::Symbol) = get_label(Val(q))
 # --------------------------------------------------------------------------
 
 # Frequency
-default_unit(::QuantityTag{:freq}) = units(:base, :hertz)
-display_unit(::QuantityTag{:freq}) = units(:base, :hertz)
-get_label(::QuantityTag{:freq}) = "Frequency"
-get_symbol(::QuantityTag{:freq}) = "f"
+default_unit(::QuantityTag{:frequency}) = units(:base, :hertz)
+display_unit(::QuantityTag{:frequency}) = units(:base, :hertz)
+get_label(::QuantityTag{:frequency}) = "Frequency"
+get_symbol(::QuantityTag{:frequency}) = "f"
 
 # Series resistance
 default_unit(::QuantityTag{:resistance}) = units(:base, :ohm; per = (:base, :meter))    # Ω/m
@@ -527,16 +526,20 @@ get_label(::QuantityTag{:conductance}) = "Shunt conductance"
 get_symbol(::QuantityTag{:conductance}) = "G"
 
 # Series impedance
-default_unit(::QuantityTag{:impedance}) = units(:base, :ohm; per = (:base, :meter))
-display_unit(::QuantityTag{:impedance}) = units(:base, :ohm; per = (:kilo, :meter))
-get_label(::QuantityTag{:impedance}) = "Series impedance"
-get_symbol(::QuantityTag{:impedance}) = "Z"
+default_unit(::QuantityTag{:series_impedance}) = units(:base, :ohm; per = (:base, :meter))
+display_unit(::QuantityTag{:series_impedance}) = units(:base, :ohm; per = (:kilo, :meter))
+get_label(::QuantityTag{:series_impedance}) = "Series impedance"
+get_symbol(::QuantityTag{:series_impedance}) = "Z"
 
 # Shunt admittance
-default_unit(::QuantityTag{:admittance}) = units(:base, :siemens; per = (:base, :meter))
-display_unit(::QuantityTag{:admittance}) = units(:base, :siemens; per = (:kilo, :meter))
-get_label(::QuantityTag{:admittance}) = "Shunt admittance"
-get_symbol(::QuantityTag{:admittance}) = "Y"
+function default_unit(::QuantityTag{:shunt_admittance})
+    units(:base, :siemens; per = (:base, :meter))
+end
+function display_unit(::QuantityTag{:shunt_admittance})
+    units(:base, :siemens; per = (:kilo, :meter))
+end
+get_label(::QuantityTag{:shunt_admittance}) = "Shunt admittance"
+get_symbol(::QuantityTag{:shunt_admittance}) = "Y"
 
 # Inductive reactance
 default_unit(::QuantityTag{:reactance}) = units(:base, :ohm; per = (:base, :meter))
@@ -557,21 +560,63 @@ get_label(::QuantityTag{:angle}) = "Angle"
 get_symbol(::QuantityTag{:angle}) = "∠"
 
 # magnitude uses same unit as base quantity
-default_unit(::QuantityTag{(:impedance, :re)}) = default_unit(QuantityTag{:resistance}())
-default_unit(::QuantityTag{(:impedance, :im)}) = default_unit(QuantityTag{:reactance}())
-default_unit(::QuantityTag{(:impedance, :abs)}) = default_unit(QuantityTag{:impedance}())
-default_unit(::QuantityTag{(:admittance, :re)}) = default_unit(QuantityTag{:conductance}())
-default_unit(::QuantityTag{(:admittance, :im)}) = default_unit(QuantityTag{:susceptance}())
-default_unit(::QuantityTag{(:admittance, :abs)}) = default_unit(QuantityTag{:admittance}())
+function default_unit(::QuantityTag{(:series_impedance, :re)})
+    default_unit(QuantityTag{:resistance}())
+end
+function default_unit(::QuantityTag{(:series_impedance, :im)})
+    default_unit(QuantityTag{:reactance}())
+end
+function default_unit(::QuantityTag{(:series_impedance, :abs)})
+    default_unit(QuantityTag{:series_impedance}())
+end
+function default_unit(::QuantityTag{(:shunt_admittance, :re)})
+    default_unit(QuantityTag{:conductance}())
+end
+function default_unit(::QuantityTag{(:shunt_admittance, :im)})
+    default_unit(QuantityTag{:susceptance}())
+end
+function default_unit(::QuantityTag{(:shunt_admittance, :abs)})
+    default_unit(QuantityTag{:shunt_admittance}())
+end
 
 # angle unit
-default_unit(::QuantityTag{(:impedance, :angle)}) = default_unit(QuantityTag{:angle}())
-default_unit(::QuantityTag{(:admittance, :angle)}) = default_unit(QuantityTag{:angle}())
+function default_unit(::QuantityTag{(:series_impedance, :angle)})
+    default_unit(QuantityTag{:angle}())
+end
+function default_unit(::QuantityTag{(:shunt_admittance, :angle)})
+    default_unit(QuantityTag{:angle}())
+end
 
 # labels
-get_label(::QuantityTag{(:impedance, :abs)}) = "Series impedance magnitude"
-get_label(::QuantityTag{(:impedance, :angle)}) = "Series impedance angle"
-get_label(::QuantityTag{(:admittance, :abs)}) = "Shunt admittance magnitude"
-get_label(::QuantityTag{(:admittance, :angle)}) = "Shunt admittance angle"
+get_label(::QuantityTag{(:series_impedance, :abs)}) = "Series impedance magnitude"
+get_label(::QuantityTag{(:series_impedance, :angle)}) = "Series impedance angle"
+get_label(::QuantityTag{(:shunt_admittance, :abs)}) = "Shunt admittance magnitude"
+get_label(::QuantityTag{(:shunt_admittance, :angle)}) = "Shunt admittance angle"
+
+for (key, source, label, symbol) in (
+    (:series_impedance_absolute_error, :series_impedance,
+    "Series impedance absolute error", "ΔZ"),
+    (:shunt_admittance_absolute_error, :shunt_admittance,
+    "Shunt admittance absolute error", "ΔY")
+)
+    @eval begin
+        default_unit(::QuantityTag{$(QuoteNode(key))}) = default_unit(QuantityTag{$(QuoteNode(source))}())
+        display_unit(::QuantityTag{$(QuoteNode(key))}) = display_unit(QuantityTag{$(QuoteNode(source))}())
+        get_label(::QuantityTag{$(QuoteNode(key))}) = $label
+        get_symbol(::QuantityTag{$(QuoteNode(key))}) = $symbol
+    end
+end
+
+for (key, label, symbol) in (
+    (:series_impedance_relative_error, "Series impedance relative error", "εZ"),
+    (:shunt_admittance_relative_error, "Shunt admittance relative error", "εY")
+)
+    @eval begin
+        default_unit(::QuantityTag{$(QuoteNode(key))}) = units(:base, :dimensionless)
+        display_unit(::QuantityTag{$(QuoteNode(key))}) = units(:base, :dimensionless)
+        get_label(::QuantityTag{$(QuoteNode(key))}) = $label
+        get_symbol(::QuantityTag{$(QuoteNode(key))}) = $symbol
+    end
+end
 
 end # module UnitHandler

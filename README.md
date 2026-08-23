@@ -56,7 +56,7 @@ design = CableBuilder(
     Insulator.Tubular(:screen; thickness=2e-3, material=xlpe),
 )
 
-constants = compute!(CableConstantsProblem(only(design)), Formulation())
+constants = compute(CableConstantsProblem(only(design)), Formulation())
 ```
 
 `Material` is the materialized type as well as the public declarative
@@ -98,21 +98,20 @@ Z(line_parameters, 1, 1, 2:5) # selected frequency samples
 abs.(Z(line_parameters, 1, 1))
 ```
 
-Complete parameter traversals return `FullParametricResult{T}`. One conditional
-Monte Carlo analysis returns `MonteCarloResult{T}`; multiple outer
-configurations therefore return
-`FullParametricResult{MonteCarloResult{T}}`. Use `statistics`, `samples`,
-`histograms`, `uncertain_value`, and `manifest` to inspect the analysis.
+Complete parameter traversals return `ParametricResult{T}`, including a space
+with cardinality one. Conditional Monte Carlo propagation returns
+`MonteCarloResult{T}`. Use `statistics`, `samples`, `histograms`,
+`uncertain_value`, and `manifest` to inspect the analysis.
 `DataFrame(monte_carlo_result)` renders marginal summaries, while
 `plot(monte_carlo_result, :R; mode=:hist, data=:both)` and the `:pdf`, `:ecdf`,
 and `:qq` modes display retained distribution information after a Makie package
 is loaded.
 
 Physics and numerical-method choices belong to `Formulation`; execution choices
-belong to `ComputeOptions`. For a materialized line system, pass
-`options=(output_basis=:total,)` to `compute!` to scale both Z and Y by the line
-length. The same formulation can be reused for ordinary, full-parametric, and
-Monte Carlo runs.
+are passed as a named tuple. For a materialized line system, pass
+`options=(output_basis=:total,)` to `compute` to scale both Z and Y by the line
+length. Composite calculations select their operation explicitly, for example
+`compute(ParametricProblem(space), Combinatorial(Formulation()))`.
 
 ## Retired FEM and sector support
 

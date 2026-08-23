@@ -9,7 +9,7 @@ function _strip_escapes(expression)
     return expression
 end
 
-function _struct_nodes(expression, nodes=Expr[])
+function _struct_nodes(expression, nodes = Expr[])
     expression isa Expr || return nodes
     expression.head === :struct && push!(nodes, expression)
     for argument in expression.args
@@ -33,8 +33,8 @@ function _replace_struct(expression, old_struct, new_struct)
         expression.head,
         map(
             argument -> _replace_struct(argument, old_struct, new_struct),
-            expression.args,
-        )...,
+            expression.args
+        )...
     )
 end
 
@@ -103,25 +103,26 @@ function _rebuild_ast(expression, old_struct, new_struct, generated)
     return Expr(:block, replaced, generated...)
 end
 
-recast(::Type{T}, value::Number) where {T<:Real} = convert(T, value)
-recast(::Type{T}, values::AbstractArray) where {T<:Real} =
+recast(::Type{T}, value::Number) where {T <: Real} = convert(T, value)
+function recast(::Type{T}, values::AbstractArray) where {T <: Real}
     map(value -> recast(T, value), values)
-recast(::Type{T}, values::Tuple) where {T<:Real} =
+end
+recast(::Type{T}, values::Tuple) where {T <: Real} = map(value -> recast(T, value), values)
+function recast(::Type{T}, values::NamedTuple) where {T <: Real}
     map(value -> recast(T, value), values)
-recast(::Type{T}, values::NamedTuple) where {T<:Real} =
-    map(value -> recast(T, value), values)
+end
 recast(::Type{<:Real}, value) = value
 
 _relax_eltype(value::Number) = typeof(value)
 _relax_eltype(values::AbstractArray{<:Number}) = eltype(values)
-_relax_eltype(values::Tuple) =
-    isempty(values) ? nothing : _promoted_numeric_type(values)
-_relax_eltype(value) = try
-    candidate = eltype(typeof(value))
-    candidate <: Number ? candidate : nothing
-catch
-    nothing
-end
+_relax_eltype(values::Tuple) = isempty(values) ? nothing : _promoted_numeric_type(values)
+_relax_eltype(value) =
+    try
+        candidate = eltype(typeof(value))
+        candidate <: Number ? candidate : nothing
+    catch
+        nothing
+    end
 
 function _promoted_numeric_type(values::Tuple)
     types = filter(!isnothing, map(_relax_eltype, values))
@@ -141,8 +142,8 @@ generated space materializes that target instead of the vault struct itself.
 macro gridspace(arguments...)
     length(arguments) in (1, 2) ||
         throw(ArgumentError("@gridspace accepts a struct and optional target"))
-    target_expression, expression =
-        length(arguments) == 1 ? (nothing, arguments[1]) : arguments
+    target_expression, expression = length(arguments) == 1 ? (nothing, arguments[1]) :
+                                    arguments
     raw = _strip_escapes(expression)
     struct_node = _get_struct_node(raw)
     struct_name = _extract_struct_name(struct_node)
@@ -153,7 +154,7 @@ macro gridspace(arguments...)
         :struct,
         struct_node.args[1],
         struct_node.args[2],
-        Expr(:block, clean_body...),
+        Expr(:block, clean_body...)
     )
     keywords = Any[]
     axes = Any[]
@@ -161,7 +162,7 @@ macro gridspace(arguments...)
         push!(
             keywords,
             field.has_default ?
-                Expr(:kw, field.name, field.default) : field.name,
+            Expr(:kw, field.name, field.default) : field.name
         )
         push!(axes, :($(GlobalRef(@__MODULE__, :_gridspace_axis))($(field.name))))
     end
@@ -169,14 +170,16 @@ macro gridspace(arguments...)
     signature = Expr(:call, struct_name, Expr(:parameters, keywords...))
     names = Expr(:tuple, map(field -> QuoteNode(field.name), fields)...)
     values = Expr(:tuple, axes...)
-    constructor = Expr(:function, signature, quote
-        return $(GlobalRef(@__MODULE__, :Gridspace)){$target}(
-            $target,
-            $values,
-            $names;
-            combine=combine,
-        )
-    end)
+    constructor = Expr(:function,
+        signature,
+        quote
+            return $(GlobalRef(@__MODULE__, :Gridspace)){$target}(
+                $target,
+                $values,
+                $names;
+                combine = combine
+            )
+        end)
     return esc(_rebuild_ast(raw, struct_node, clean_struct, (constructor,)))
 end
 
@@ -201,56 +204,51 @@ macro relax(expression)
 
     field_names = map(field -> field.name, fields)
     values = Expr(:tuple, field_names...)
-    recasts = [
-        :($(GlobalRef(@__MODULE__, :recast))(promoted_type, $(field.name)))
-        for field in fields
-    ]
-    target_recasts = [
-        :($(GlobalRef(@__MODULE__, :recast))(TargetScalar, value.$(field.name)))
-        for field in fields
-    ]
+    recasts = [:($(GlobalRef(@__MODULE__, :recast))(promoted_type, $(field.name)))
+               for field in fields]
+    target_recasts = [:($(GlobalRef(@__MODULE__, :recast))(TargetScalar, value.$(field.name)))
+                      for field in fields]
     abstract_supertype = _extract_parametric_supertype(struct_node)
 
     promoted_constructor = quote
         @inline function $struct_name($(field_names...))
-            promoted_type =
-                $(GlobalRef(@__MODULE__, :_promoted_numeric_type))($values)
+            promoted_type = $(GlobalRef(@__MODULE__, :_promoted_numeric_type))($values)
             return $struct_name{promoted_type}($(recasts...))
         end
     end
     concrete_converter = quote
         @inline function Base.convert(
-            ::Type{<:$struct_name{TargetScalar}},
-            value::$struct_name,
-        ) where {TargetScalar<:Real}
+                ::Type{<:$struct_name{TargetScalar}},
+                value::$struct_name
+        ) where {TargetScalar <: Real}
             return $struct_name{TargetScalar}($(target_recasts...))
         end
         @inline Base.eltype(::Type{<:$struct_name{Scalar}}) where {Scalar} = Scalar
         @inline Base.eltype(::$struct_name{Scalar}) where {Scalar} = Scalar
         @inline $(GlobalRef(@__MODULE__, :recast))(
             ::Type{TargetScalar},
-            value::$struct_name,
-        ) where {TargetScalar<:Real} =
-            $struct_name{TargetScalar}($(target_recasts...))
+            value::$struct_name
+        ) where {TargetScalar <: Real} = $struct_name{TargetScalar}($(target_recasts...))
     end
 
-    abstract_converter = abstract_supertype === nothing ? nothing : quote
+    abstract_converter = abstract_supertype === nothing ? nothing :
+                         quote
         @inline function Base.convert(
-            ::Type{<:$abstract_supertype{TargetScalar}},
-            value::$struct_name,
-        ) where {TargetScalar<:Real}
+                ::Type{<:$abstract_supertype{TargetScalar}},
+                value::$struct_name
+        ) where {TargetScalar <: Real}
             return $struct_name{TargetScalar}($(target_recasts...))
         end
     end
 
     generated = abstract_converter === nothing ?
-        (promoted_constructor, concrete_converter) :
-        (promoted_constructor, concrete_converter, abstract_converter)
+                (promoted_constructor, concrete_converter) :
+                (promoted_constructor, concrete_converter, abstract_converter)
     rebuilt = _rebuild_ast(
         raw,
         struct_node,
         struct_node,
-        generated,
+        generated
     )
     return esc(rebuilt)
 end

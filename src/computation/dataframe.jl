@@ -1,16 +1,47 @@
 import DataFrames: DataFrame, metadata!
 
+const _MC_SCIENTIFIC_QUANTITY = Dict(
+    :R => :resistance,
+    :L => :inductance,
+    :C => :capacitance,
+    :G => :conductance
+)
+
 function _mc_unit(quantity::Symbol, result_basis, length_unit, quantity_units)
+    scientific = get(_MC_SCIENTIFIC_QUANTITY, quantity) do
+        throw(ArgumentError("unsupported Monte Carlo quantity :$quantity"))
+    end
     return UnitHandler.line_component_unit(
-        quantity,
+        scientific,
         result_basis;
         length_unit,
         quantity_units
     )
 end
 
+function _mc_entry(result::MonteCarloResult)
+    length(result) == 1 || throw(ArgumentError(
+        "DataFrame requires one Monte Carlo configuration; select a configuration explicitly",
+    ))
+    random = result.details[:random]
+    return (
+        representation = only(result.values),
+        statistics = only(result.stats),
+        samples = result.details[:samples].values === nothing ? nothing :
+                  only(result.details[:samples].values),
+        histograms = result.details[:histograms].values === nothing ? nothing :
+                     only(result.details[:histograms].values),
+        trials = only(random.trials),
+        confidence = random.confidence,
+        cdf_tol = random.cdf_tol,
+        distribution = random.distribution,
+        seed = only(random.configuration_seeds),
+        manifest = result.details[:manifest].value
+    )
+end
+
 function _mc_summary_frame(
-        result::MonteCarloResult,
+        entry,
         quantities::Tuple,
         summaries::Tuple,
         result_basis::Symbol;
@@ -18,12 +49,7 @@ function _mc_summary_frame(
         quantity_units
 )
     resolved_units = map(
-        quantity -> _mc_unit(
-            quantity,
-            result_basis,
-            length_unit,
-            quantity_units
-        ),
+        quantity -> _mc_unit(quantity, result_basis, length_unit, quantity_units),
         quantities
     )
     scales = getproperty.(resolved_units, :scale)
@@ -33,40 +59,37 @@ function _mc_summary_frame(
         std = collect(map((summary, scale) -> summary.std * abs(scale), summaries, scales)),
         min = collect(map((summary, scale) -> summary.min * scale, summaries, scales)),
         q05 = collect(map((summary, scale) -> summary.q05 * scale, summaries, scales)),
-        q50 = collect(map((summary, scale) -> summary.q50 * scale, summaries, scales)),
+        median = collect(map((summary, scale) -> summary.median * scale, summaries, scales)),
         q95 = collect(map((summary, scale) -> summary.q95 * scale, summaries, scales)),
         max = collect(map((summary, scale) -> summary.max * scale, summaries, scales)),
+        n = getproperty.(summaries, :n),
         unit = collect(UnitHandler.get_label.(getproperty.(resolved_units, :units))),
-        trials = fill(result.trials, length(quantities)),
-        confidence = fill(result.confidence, length(quantities)),
-        cdf_tol = fill(result.cdf_tol, length(quantities))
+        trials = fill(entry.trials, length(quantities)),
+        confidence = fill(entry.confidence, length(quantities)),
+        cdf_tol = fill(entry.cdf_tol, length(quantities))
     )
     metadata!(
         frame,
         "monte_carlo",
         (
-            trials = result.trials,
-            confidence = result.confidence,
-            cdf_tol = result.cdf_tol,
-            distribution = string(result.distribution),
-            seed = result.seed,
-            manifest_hash = result.manifest.hash
+            trials = entry.trials,
+            confidence = entry.confidence,
+            cdf_tol = entry.cdf_tol,
+            distribution = string(entry.distribution),
+            seed = entry.seed,
+            manifest_hash = entry.manifest.hash
         );
         style = :note
     )
     return frame
 end
 
-function _montecarlo_dataframe(
-        result::MonteCarloResult,
-        ::DataModel.CableConstants;
-        length_unit::Symbol,
-        quantity_units
-)
+function _montecarlo_dataframe(entry, ::DataModel.CableConstants;
+        length_unit::Symbol, quantity_units)
     quantities = (:R, :L, :C)
-    summaries = map(quantity -> getproperty(result.statistics, quantity), quantities)
+    summaries = map(quantity -> getproperty(entry.statistics, quantity), quantities)
     return _mc_summary_frame(
-        result,
+        entry,
         quantities,
         summaries,
         :per_length;
@@ -75,22 +98,18 @@ function _montecarlo_dataframe(
     )
 end
 
-function _montecarlo_dataframe(
-        result::MonteCarloResult,
-        representation::Engine.LineParameters;
-        length_unit::Symbol,
-        quantity_units
-)
+function _montecarlo_dataframe(entry, representation::Engine.LineParameters;
+        length_unit::Symbol, quantity_units)
     quantities = (:R, :L, :C, :G)
-    shape = size(result.statistics.R)
+    shape = size(entry.statistics.R)
     frames = Array{DataFrame, 3}(undef, shape)
     for index in CartesianIndices(frames)
         summaries = map(
-            quantity -> getproperty(result.statistics, quantity)[index],
+            quantity -> getproperty(entry.statistics, quantity)[index],
             quantities
         )
         frames[index] = _mc_summary_frame(
-            result,
+            entry,
             quantities,
             summaries,
             basis(representation);
@@ -101,49 +120,21 @@ function _montecarlo_dataframe(
     return frames
 end
 
-function _montecarlo_dataframe(
-        result::MonteCarloResult,
-        representation;
-        length_unit::Symbol,
-        quantity_units
-)
+function _montecarlo_dataframe(entry, representation; kwargs...)
     throw(ArgumentError(
         "DataFrame presentation is not defined for MonteCarloResult{$(typeof(representation))}",
     ))
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Render the marginal summaries of a [`MonteCarloResult`](@ref) without
-performing a calculation.
-
-Cable-constant results produce one table with R, L, and C rows. Line-parameter
-results produce an `n × n × n_frequency` array of tables with R, L, C, and G
-rows. The DKW confidence and `cdf_tol` columns describe the simultaneous
-marginal empirical-CDF bound used for automatic trial sizing; they are not
-confidence intervals for the sample mean.
-
-# Keywords
-
-- `length_unit`: Metric prefix for the denominator of per-length quantities.
-  Default: `:kilo`.
-- `quantity_units`: Optional numerator-prefix override accepted by
-  `UnitHandler.line_component_unit`.
-
-# Returns
-
-- A `DataFrame` for cable constants, or an array of `DataFrame`s for line
-  parameters.
-"""
 function DataFrame(
         result::MonteCarloResult;
         length_unit::Symbol = :kilo,
         quantity_units = nothing
 )
+    entry = _mc_entry(result)
     return _montecarlo_dataframe(
-        result,
-        result.representation;
+        entry,
+        entry.representation;
         length_unit,
         quantity_units
     )

@@ -81,7 +81,7 @@
         case=fixture_case(source)
         @test case.backend === :fixture
         @test_throws ArgumentError fixture_case(source; backend = :PSCAD)
-        parameters=compute!(case.problem, case.formulation)
+        parameters=compute(case.problem, case.formulation)
         comparison=compare(parameters, parameters)
         benchmark=(
             minimum_seconds = 1.0,
@@ -358,7 +358,7 @@ end
     @test overhead isa harness.PSCADFormulation
     @test underground isa harness.PSCADFormulation
     @test hasmethod(
-        compute!,
+        compute,
         Tuple{LineParametersProblem, harness.PSCADFormulation}
     )
     @test hasmethod(
@@ -379,11 +379,12 @@ end
     named=Formulation(
         :pscad;
         earth_impedance = EarthImpedance.Wedepohl(),
-        options = harness.PSCADOptions(output_stem = "525kV_bipole")
+        options = (output_stem = "525kV_bipole",)
     )
     @test named.options.output_stem == "525kV_bipole"
-    @test_throws ArgumentError harness.PSCADOptions(
-        output_stem = "benchmark_525kV_1600mm2_bipole_pscad"
+    @test_throws ArgumentError Formulation(
+        :pscad;
+        options = (output_stem = "benchmark_525kV_1600mm2_bipole_pscad",)
     )
 
     methods=(
@@ -495,7 +496,7 @@ end
         error
     end
     @test verbosity_error isa ArgumentError
-    @test occursin("ComputeOptions", sprint(showerror, verbosity_error))
+    @test occursin("options=(verbosity=", sprint(showerror, verbosity_error))
     @test_throws ArgumentError harness._supervisor_command(
         config,
         raw"Z:\gauntlet\cases\.work\case\current",

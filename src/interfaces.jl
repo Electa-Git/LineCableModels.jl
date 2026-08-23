@@ -39,15 +39,6 @@ function nfrequencies end
 function ncables end
 function nphases end
 
-"Return the nominal value of a deterministic or uncertain quantity."
-nominal(value) = value
-nominal(value::Complex) = complex(nominal(real(value)), nominal(imag(value)))
-nominal(values::AbstractArray) = nominal.(values)
-
-"Return the standard uncertainty of a quantity; deterministic numbers return zero."
-standard_uncertainty(value::Number) = zero(nominal(value))
-standard_uncertainty(::Any) = 0.0
-
 "Abstract tag for the physical domain represented by line-parameter matrices."
 abstract type LineParamsDomain end
 "Tag line parameters expressed in the physical phase domain."

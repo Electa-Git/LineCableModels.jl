@@ -59,7 +59,7 @@ function _matrix_dataframes(
     isempty(component_names) && throw(
         ArgumentError("at least one quantity is required for each matrix family"),
     )
-    frequency_quantity = UnitHandler.QuantityTag{:freq}()
+    frequency_quantity = UnitHandler.QuantityTag{:frequency}()
     frequency_target = UnitHandler.units(frequency_unit, :hertz)
     frequency_factor = UnitHandler.scale_factor(
         UnitHandler.default_unit(frequency_quantity),
@@ -166,7 +166,8 @@ function DataFrame(
     isempty(shunt_components) && throw(ArgumentError(
         "LineParameters presentation requires a shunt accessor; use DataFrame(Z(parameters), ...) for a series-only table",
     ))
-    frequency_values = frequencies(parameters)
+    values = observables(parameters)
+    frequency_values = values.frequency
     common = (;
         frequency_unit = freq_unit,
         length_unit,
@@ -174,13 +175,13 @@ function DataFrame(
         tolerance = float(tol)
     )
     series = _matrix_dataframes(
-        Z(parameters),
+        values.series_impedance,
         frequency_values,
         series_components;
         common...
     )
     shunt = _matrix_dataframes(
-        Y(parameters),
+        values.shunt_admittance,
         frequency_values,
         shunt_components;
         common...
@@ -257,9 +258,24 @@ function DataFrame(
 )
     impedance_floor = _comparison_floor(zero_atol, :Z)
     admittance_floor = _comparison_floor(zero_atol, :Y)
+    values = observables(comparison)
     frame = vcat(
-        _comparison_rows(:Z, comparison.Z, impedance_floor),
-        _comparison_rows(:Y, comparison.Y, admittance_floor)
+        _comparison_rows(
+            :Z,
+            RMSError(
+                values.series_impedance_absolute_error,
+                values.series_impedance_relative_error
+            ),
+            impedance_floor
+        ),
+        _comparison_rows(
+            :Y,
+            RMSError(
+                values.shunt_admittance_absolute_error,
+                values.shunt_admittance_relative_error
+            ),
+            admittance_floor
+        )
     )
     metadata!(
         frame,

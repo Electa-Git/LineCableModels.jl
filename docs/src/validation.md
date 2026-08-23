@@ -1,4 +1,4 @@
-# Validation
+# Data entry validation
 
 ## Contents
 
@@ -61,8 +61,8 @@ Cable-part constructors accept resolved numeric geometry. For example:
 part = Tubular(r_in, r_ex, material)
 ```
 
-Radius-versus-thickness intent, repetition, and variation belong to the builder Specs.
-The Specs promote all intent before materializing the first cable object. Materialized
+Radius-versus-thickness intent, repetition, and variation belong to the builder
+definitions. The definitions promote all intent before materializing the first cable object. Materialized
 objects therefore contain one scalar type and one unambiguous geometry.
 
 `add!` on a materialized group, design, earth model, or system accepts only the same
@@ -71,7 +71,7 @@ explicit `convert` or build through a Spec when whole-description promotion is w
 
 Operating temperature is not a cable-part constructor input. Cable designs represent
 the common material reference state and reject mixed material reference temperatures.
-The line problem owns the operating temperature, and [`compute!`](@ref) applies its
+The line problem owns the operating temperature, and [`compute`](@ref) applies its
 correction without mutating the design.
 
 ## Packing limits

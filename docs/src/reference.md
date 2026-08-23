@@ -4,8 +4,8 @@
 
 The top-level namespace exposes the declarative modeling API. `Grid` is the
 only parameter-variation syntax, `Gridspace{Target}` is a lazy space of complete
-targets, and `AbstractSpec{Target}` supports both deterministic iteration and
-stochastic materialization.
+targets, and `Gridspace(definition)` is the explicit materialization boundary
+for cable, position, earth, and system definitions.
 
 Ordinary collections remain ordinary constructor values. Wrap a collection in
 `Grid` only when it is intended to vary. Reusing the same `Grid` deliberately
@@ -20,29 +20,38 @@ earth = Earth(
 ```
 
 Composition is local to each Gridspace node. The example above admits exactly
-three earth configurations; its resolved `EarthSpec` objects can still
-participate in a Cartesian product at a parent problem node.
+three earth configurations after `Gridspace(earth)` is constructed; the earth
+definition can still participate in a Cartesian product at a parent problem
+node.
 
-All numerical work follows `problem → Formulation → compute!`:
+All numerical work follows `problem → formulation → compute`:
 
 ```julia
-compute!(problem, Formulation())
-compute!(problem, Formulation(); run=FullParametric())
-compute!(problem, Formulation(); run=MonteCarlo(trials=1000, cdf_tol=0.02))
+compute(problem, Formulation())
+
+space = Gridspace(problem_definition)
+compute(ParametricProblem(space), Combinatorial(Formulation()))
+compute(ParametricProblem(space), LinearError(Formulation()))
+compute(
+    ParametricProblem(space),
+    MonteCarlo(Formulation(); trials=1000, cdf_tol=0.02),
+)
 ```
 
-Deterministic spaces default to `FullParametric()`. Uncertainty-bearing spaces
-require the caller to choose direct propagation or Monte Carlo explicitly.
-Monte Carlo enumerates every outer configuration and samples realizations only
-within the selected configuration.
+The higher-order formulation is always explicit. `Combinatorial` evaluates
+every admitted configuration, `LinearError` selects established direct
+propagation, and `MonteCarlo` samples realizations within each selected outer
+configuration. Every cardinality, including one, returns the corresponding
+composite result family.
 
 `Formulation` owns physics and numerical-method choices. The separate
-`ComputeOptions` value is shared unchanged by ordinary, full-parametric, and
-Monte Carlo execution. For example, a materialized line system can request
-total rather than per-length Z/Y matrices without altering its formulation:
+computation-options named tuple is shared unchanged by ordinary,
+combinatorial, and uncertainty calculations. A materialized line system can
+request total rather than per-length Z/Y matrices without altering its
+formulation:
 
 ```julia
-compute!(problem, formulation; options=(output_basis=:total,))
+compute(problem, formulation; options=(output_basis=:total,))
 ```
 
 `output_basis=:total` scales both impedance and admittance by the materialized
@@ -51,26 +60,42 @@ only the default `:per_length` basis.
 
 ## Results and provenance
 
-`CableConstants` stores R/L/C values per metre. `LineParameters`
-stores frequency-dependent Z/Y matrices with their domain and `:per_length` or
+`CableConstants` stores R/L/C values per metre. `LineParameters` stores
+frequency-dependent Z/Y matrices with their domain and `:per_length` or
 `:total` basis.
 
-A complete configuration traversal returns `FullParametricResult{T}`. A single
-conditional Monte Carlo analysis returns `MonteCarloResult{T}`. Applying Monte
-Carlo to several outer configurations therefore returns
-`FullParametricResult{MonteCarloResult{T}}`.
+`observables(result)` publishes the stable scientific quantities used by
+tables and plots as an immutable named tuple. Array-valued entries use detached
+storage, so presentation code cannot mutate the completed result. The primary
+keys are:
+
+- `CableConstants`: `:resistance`, `:inductance`, and `:capacitance`;
+- `LineParameters`: `:frequency`, `:series_impedance`, and
+  `:shunt_admittance`;
+- `LineParametersBenchmark`: full series/shunt absolute and relative RMS-error
+  keys.
+
+The mathematical `Z`, `Y`, `R`, `X`, `L`, `G`, `B`, and `C` accessors remain
+available for explicit derived selection. Plot-only component spellings do not
+belong to the common observable grammar.
+
+A complete deterministic traversal returns `ParametricResult{T}`. Direct
+propagation returns `LinearErrorResult{T}`, and conditional sampling returns
+`MonteCarloResult{T}`. In every family, `T` is the primitive `CableConstants`
+or `LineParameters` result rather than another composite result.
 
 Use `result`, `statistics`, `samples`, `histograms`, `uncertain_value`, and
-`manifest` to inspect results. A calculation manifest contains a stable SHA-256
-hash over the resolved parameterization, original problem assumptions,
-formulation, solver identity, execution policy, and calculation options.
+`manifest` to inspect results. Every result details dictionary has the keys
+`:failures`, `:samples`, `:histograms`, `:random`, and `:manifest`. A
+calculation manifest contains a stable SHA-256 hash over the resolved
+parameterization, original problem assumptions, formulation, solver identity,
+execution policy, and calculation options.
 
-`DataFrame(result::MonteCarloResult)` renders the stored marginal summaries
+`DataFrame(result::MonteCarloResult)` renders stored marginal summaries
 without repeating the calculation. Cable-constant results produce one R/L/C
 table; line-parameter results produce one R/L/C/G table for every matrix entry
 and frequency. The displayed `confidence` and `cdf_tol` values describe the DKW
-bound below and must not be interpreted as confidence intervals for the sample
-mean.
+bound below and are not confidence intervals for the sample mean.
 
 After loading a Makie package, retained samples and histograms can be displayed
 through the maintained Monte Carlo recipe:
@@ -88,30 +113,29 @@ plot(line_result, :L; ijk=(1, 1, 3), mode=:hist)
 ```
 
 The `:pdf`, `:ecdf`, and `:qq` views use the retained piecewise-constant
-`HistogramPDF`. When only samples were retained, the recipe derives the
+`HistogramDensity`. When only samples were retained, the recipe derives the
 histogram needed for presentation.
 
 When `MonteCarlo(trials=nothing)` is used, the trial count follows a simultaneous
 Dvoretzky–Kiefer–Wolfowitz bound. For `M` scalar marginals and confidence
-`1-α`, the implementation selects
-`ceil(log(2M/α) / (2*cdf_tol^2))` trials. A union bound therefore controls the
-largest empirical-CDF deviation among those marginals. `M` is three for cable
-constants and four real R/L/G/C upper-triangular coordinates per frequency for
-line parameters. `cdf_tol` is not a solver tolerance and does not bound mean
-error or the joint distribution.
+`1-α`, the implementation selects `ceil(log(2M/α) / (2*cdf_tol^2))` trials.
+A union bound therefore controls the largest empirical-CDF deviation among
+those marginals. `M` is three for cable constants and four real R/L/G/C
+upper-triangular coordinates per frequency for line parameters. `cdf_tol` is
+not a solver tolerance and does not bound mean error or the joint distribution.
 
 ## Optional uncertainty integrations
 
 The core Grid/Gridspace grammar does not load Measurements.jl or
-Distributions.jl. Loading Measurements enables direct propagation and
-`Measurements.measurement(result::MonteCarloResult)`. Retained joint samples
-allow covariance-preserving reconstruction; without retained samples the
-conversion warns and reconstructs independent marginal values. Loading
-Distributions enables arbitrary compatible univariate distributions as Monte
-Carlo samplers and `pdf`/`cdf` evaluation of `HistogramPDF`. A supplied
-distribution is standardized to the Grid descriptor's nominal value and
-standard deviation, so it must have a finite mean and a positive finite
-standard deviation.
+Distributions.jl. Loading Measurements enables direct `LinearError(inner)`
+propagation while preserving shared variables and correlations.
+`MonteCarloResult` has no implicit conversion to Measurements values.
+Empirical reconstruction is an explicit consumer operation and requires
+retained joint samples. Loading Distributions enables compatible univariate
+distributions as Monte Carlo samplers and `pdf`/`cdf` evaluation of
+`HistogramDensity`. A supplied distribution is standardized to the Grid
+descriptor's nominal value and standard deviation, so it must have a finite
+mean and a positive finite standard deviation.
 
 ## Strict materialized API
 
@@ -130,50 +154,55 @@ core = DataModel.Tubular(0.0, 10e-3, copper)
 ```
 
 Materialized radial constructors accept resolved numeric inner and outer radii.
-Radius-versus-thickness intent and repetition belong to the builder Specs. Group
-`add!` accepts a fully materialized part of the same scalar type as its destination.
+Radius-versus-thickness intent and repetition belong to builder definitions.
+Group `add!` accepts a fully materialized part of the same scalar type as its
+destination.
 
-All eager cable quantities are evaluated at the common material reference temperature.
-The materialized `CableDesign` therefore rejects layers with different `T0` values.
-Operating temperature belongs only to `LineParametersProblem`; `SystemBuilder` exposes
-that setting and [`compute!`](@ref LineCableModels.Engine.compute!) applies the
-resistivity correction locally.
+All eager cable quantities are evaluated at the common material reference
+temperature. The materialized `CableDesign` therefore rejects layers with
+different `T0` values. Operating temperature belongs only to
+`LineParametersProblem`; `SystemBuilder` exposes that setting and [`compute`](@ref)
+applies the resistivity correction locally.
 
 ## Static earth and solver inspection
 
 `EarthModel` stores only the physical layer description. Frequencies belong to
-`LineParametersProblem`, while frequency-dependent earth-property selection belongs to
-the EMT formulation:
+`LineParametersProblem`, while frequency-dependent earth-property selection
+belongs to the analytical formulation:
 
 ```julia
 using LineCableModels
 import LineCableModels.Engine
 
 formulation = Formulation(
-    :EMT;
+    :analytical;
     earth_properties=Engine.EarthProperties.CPEarth(),
 )
 ```
 
-Ordinary `compute!` returns only `LineParameters`. For inspection of completed internal
-matrices, request an [`EMTTrace`](@ref) explicitly:
+Ordinary `compute` returns `LineParameters`. Select trace output on the
+formulation when completed internal matrices are required:
 
 ```julia
-trace = compute!(problem, formulation; inspect=true)
+trace_formulation = Formulation(
+    :analytical;
+    earth_properties=Engine.EarthProperties.CPEarth(),
+    options=(output=:trace,),
+)
+trace = compute(problem, trace_formulation)
 parameters = trace.result
 ```
 
-The trace owns `Zin`, `Pin`, `Zg`, `Pg`, `Z`, and `P` tensors. Normal computation does
-not allocate these three-dimensional snapshots.
+The trace owns `Zin`, `Pin`, `Zg`, `Pg`, `Z`, and `P` tensors. Parameter-only
+calculation does not allocate these three-dimensional snapshots.
 
-Component-specific verbosity is configured with `Engine.ComputeOptions`. A missing key
-uses `default`, and logging remains scoped to the calculation:
+Component-specific verbosity is configured with the computation-options named
+tuple. A missing key uses `default`, and logging remains scoped to the
+calculation:
 
 ```julia
-options = Engine.ComputeOptions(
-    verbosity=(default=0, LineCableModels=1, NLsolve=0, QuadGK=0),
-)
-compute!(problem, formulation; options)
+options = (verbosity=(default=0, LineCableModels=1, NLsolve=0, QuadGK=0),)
+compute(problem, formulation; options)
 ```
 
 ## Wire estimates
@@ -203,6 +232,7 @@ Depth = 3
 ```@autodocs
 Modules = [
     LineCableModels,
+    LineCableModels.Grammar,
     LineCableModels.Computation,
     LineCableModels.UnitHandler,
 ]
@@ -256,7 +286,7 @@ Public = true
 Private = true
 ```
 
-## Plot specifications
+## Plot definitions and recipes
 
 ```@autodocs
 Modules = [

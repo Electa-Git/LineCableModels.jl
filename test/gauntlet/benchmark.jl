@@ -10,16 +10,16 @@ end
 
 function benchmark_local(
         case;
-        options::ComputeOptions = ComputeOptions(),
+        options::NamedTuple = (;),
         samples::Int = 10,
         seconds::Real = 10
 )
-    compute!(case.problem, case.formulation; options)
-    compute!(case.problem, case.formulation; options)
+    compute(case.problem, case.formulation; options)
+    compute(case.problem, case.formulation; options)
     problem = case.problem
     formulation = case.formulation
     execution = options
-    benchmark = BenchmarkTools.@benchmarkable compute!($problem, $formulation; options = $execution) samples=samples seconds=seconds evals=1
+    benchmark = BenchmarkTools.@benchmarkable compute($problem, $formulation; options = $execution) samples=samples seconds=seconds evals=1
     trial = BenchmarkTools.run(benchmark)
     times = Float64.(trial.times) .* 1.0e-9
     return (

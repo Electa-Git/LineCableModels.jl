@@ -1,6 +1,6 @@
 # Validation gauntlet
 
-Each file in `cases/` owns one complete validation case. The case declares its reference backend, separate reference and LineCableModels problems and formulations, exact frequency samples, explicit terminal order, tolerances, and assertions. Both calculations use the ordinary `ProblemDefinition`, `Formulation`, and `compute!` grammar. Gauntlet cases retain every terminal: phase assignments must be the contiguous integers `1:n`, and both Kron and bundle reduction must be disabled. Disposable exports and diagnostics remain in `cases/.work/<backend>/<case>/`.
+Each file in `cases/` owns one complete validation case. The case declares its reference backend, separate reference and LineCableModels problems and formulations, exact frequency samples, explicit terminal order, tolerances, and assertions. Both calculations use the shared problem, `Formulation`, and `compute` grammar. Gauntlet cases retain every terminal: phase assignments must be the contiguous integers `1:n`, and both Kron and bundle reduction must be disabled. Disposable exports and diagnostics remain in `cases/.work/<backend>/<case>/`.
 
 The gauntlet has three modes. `snapshot` reads an existing reference and never loads host configuration, starts a process, initializes Python, or contacts an external backend. `live` executes each case's declared backend without changing the reference. `record` completes the live checks before replacing the reference. A failed operation never switches modes.
 
@@ -28,7 +28,7 @@ Interactive runs display the reference RMS table. Relative values whose absolute
 
 ## Problem and formulation selection
 
-The case constructs the physical problem once, then creates separate problem and formulation objects for PSCAD and the owned EMT solver:
+The case constructs the physical problem once, then creates separate problem and formulation objects for PSCAD and the built-in analytical solver:
 
 ```julia
 reference_problem = LineParametersProblem(
@@ -44,7 +44,7 @@ reference_formulation = Formulation(
 )
 
 formulation = Formulation(
-    :EMT;
+    :analytical;
     earth_impedance = EarthImpedance.Pollaczek(),
     earth_admittance = EarthAdmittance.IdealGround(),
     insulation_admittance = InsulationAdmittance.Lossless(),
@@ -68,15 +68,15 @@ formulation = Formulation(
 | Aerial/underground mutual | `EarthImpedance.Ametani()` | `EarthForm3` |
 | Aerial/underground mutual | `EarthImpedance.Lucca()` | `EarthForm3` |
 
-The PSCAD formulation uses `NativeEarthAdmittance()` and `NativeInsulationAdmittance()` for the calculations owned by PSCAD's line-data model. The EMT formulation selects its own earth and insulation admittance methods independently. No validator forces those choices to resemble each other. A deliberately mismatched pair runs normally and the RMS result exposes the consequence.
+The PSCAD formulation uses `NativeEarthAdmittance()` and `NativeInsulationAdmittance()` for the calculations owned by PSCAD's line-data model. The analytical formulation selects its own earth and insulation admittance methods independently. No validator forces those choices to resemble each other. A deliberately mismatched pair runs normally and the RMS result exposes the consequence.
 
-`Deri`, `Wedepohl`, `Saad`, `Ametani`, `Lucca`, and direct numerical integration are Engine-owned method concepts. They can be selected by external backends. Calling them through `Formulation(:EMT)` produces a clear not-implemented error because the owned EMT kernels do not currently implement those methods.
+`Deri`, `Wedepohl`, `Saad`, `Ametani`, `Lucca`, and direct numerical integration are Engine-owned method concepts. They can be selected by external backends. Calling them through `Formulation(:analytical)` produces a clear not-implemented error because the built-in analytical kernels do not currently implement those methods.
 
 Live and record modes call the same public operation for both solvers:
 
 ```julia
-reference = compute!(reference_problem, reference_formulation; options)
-candidate = compute!(problem, formulation; options)
+reference = compute(reference_problem, reference_formulation; options)
+candidate = compute(problem, formulation; options)
 comparison = compare(reference, candidate)
 ```
 
@@ -109,7 +109,7 @@ Copy `local.example` to the ignored `local.jl` file and set the host, shared wor
 Runner verbosity belongs to the ordinary Engine execution options, not the host configuration. A case can stream PSCAD milestones without changing local solver logging:
 
 ```julia
-options = ComputeOptions(verbosity = (default = 0, PSCAD = 2))
+options = (verbosity = (default = 0, PSCAD = 2),)
 outcome = run_case(case; options)
 ```
 
@@ -215,7 +215,7 @@ RemoteConfig(
 )
 ```
 
-Change the executable paths if Julia or Python moves. `timeout_seconds` bounds one PSCAD run. Set the `PSCAD` entry in `ComputeOptions.verbosity` to `2` to stream runner progress, `1` for milestones, or `0` for warnings only. Authentication remains under the installed `ts` and OpenSSH configuration.
+Change the executable paths if Julia or Python moves. `timeout_seconds` bounds one PSCAD run. Set the `PSCAD` entry in the computation-options `verbosity` tuple to `2` to stream runner progress, `1` for milestones, or `0` for warnings only. Authentication remains under the installed `ts` and OpenSSH configuration.
 
 Any other wrapper uses the same narrow seam. Set `transport` to a new symbol and define `remote_command(::Val{:symbol}, config, powershell)` in `local.jl`. The method must return the complete `Cmd` and pass `_powershell_argv(powershell)` unchanged to the Windows host. There is no transport fallback.
 

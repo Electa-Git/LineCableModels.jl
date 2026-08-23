@@ -16,7 +16,7 @@
     plot_builder=LineCableModels.PlotBuilder
 
     cable_render=plot_builder.make_render(
-        LineCableModels.DataModel.CablePreviewPlotSpec,
+        LineCableModels.DataModel.CablePreviewPlotDefinition,
         design
     )
     @test length(cable_render.figures) == 1
@@ -53,7 +53,7 @@
     @test cable_page.key == (; kind = :cable, id = design.cable_id)
 
     cable_without_chrome=plot_builder.make_render(
-        LineCableModels.DataModel.CablePreviewPlotSpec,
+        LineCableModels.DataModel.CablePreviewPlotDefinition,
         design;
         display_legend = false,
         display_colorbars = false
@@ -62,7 +62,7 @@
     @test isempty(only(cable_without_chrome.figures).colorbars)
 
     publication_cable=plot_builder.make_render(
-        LineCableModels.DataModel.CablePreviewPlotSpec,
+        LineCableModels.DataModel.CablePreviewPlotDefinition,
         design;
         export_theme = :publication,
         open_export = false
@@ -70,7 +70,7 @@
     @test only(publication_cable.figures).export_spec.theme === :publication
     @test !only(publication_cable.figures).export_spec.open_file
     @test_throws ArgumentError plot_builder.make_render(
-        LineCableModels.DataModel.CablePreviewPlotSpec,
+        LineCableModels.DataModel.CablePreviewPlotDefinition,
         design;
         export_theme = :unsupported
     )
@@ -85,7 +85,7 @@
     system=LineCableSystem("render-spec-system", 1000.0, position)
     earth=EarthModel(100.0, 10.0, 1.0)
     system_render=plot_builder.make_render(
-        LineCableModels.DataModel.SystemPreviewPlotSpec,
+        LineCableModels.DataModel.SystemPreviewPlotDefinition,
         system;
         earth_model = earth
     )
@@ -109,7 +109,7 @@
           [([0.5], ["100"]), ([0.5], ["1"]), ([0.5], ["10"])]
 
     zoomed_render=plot_builder.make_render(
-        LineCableModels.DataModel.SystemPreviewPlotSpec,
+        LineCableModels.DataModel.SystemPreviewPlotDefinition,
         system;
         earth_model = earth,
         zoom_factor = 0.5
@@ -121,13 +121,13 @@
     @test zoomed_limits[2][2] - zoomed_limits[2][1] <
           default_limits[2][2] - default_limits[2][1]
     @test_throws ArgumentError plot_builder.make_render(
-        LineCableModels.DataModel.SystemPreviewPlotSpec,
+        LineCableModels.DataModel.SystemPreviewPlotDefinition,
         system;
         zoom_factor = 0.0
     )
 
     scale_render=plot_builder.make_render(
-        LineCableModels.DataModel.MaterialScalePlotSpec,
+        LineCableModels.DataModel.MaterialScalePlotDefinition,
         nothing
     )
     scale_page=only(scale_render.figures)

@@ -94,6 +94,7 @@ end
 @testitem "Measurements / external boundaries and numerical kernels" tags=[:extension] setup=[
     EngineTestSupport, UseEngineSupport, TestNumerics] begin
     using Measurements
+    using Statistics
     using SpecialFunctions
     import LineCableModels
 
@@ -130,105 +131,52 @@ end
         @test uncertainty(imag(propagated)) > 0
     end
 
-    singleton=extension_module._joint_coordinates(reshape([3.0, 4.0], 2, 1))
-    @test value.(singleton) == [3.0, 4.0]
-    @test all(iszero, uncertainty.(singleton))
-
-    coordinates=extension_module._joint_coordinates([1.0 2.0 3.0; 2.0 4.0 6.0])
-    @test value.(coordinates) ≈ [2.0, 4.0]
-    @test uncertainty(coordinates[1]) ≈ 1.0
-    @test uncertainty(coordinates[2] - 2 * coordinates[1]) ≤ 10 * eps(Float64)
+    @test !isdefined(extension_module, :_joint_coordinates)
 end
 
-@testitem "Measurements / Monte Carlo / retained and marginal reconstruction" tags=[:extension] setup=[
+@testitem "Measurements / Monte Carlo / no implicit completed-result conversion" tags=[:extension] setup=[
     EngineTestSupport, UseEngineSupport, TestNumerics] begin
     using Measurements
-    import LineCableModels.ParametricBuilder: AbsoluteUncertainty, UncertainValue
+    using Statistics
+    formulation=MonteCarlo(Formulation(); trials = 3, seed = 9,
+        return_samples = true)
+    values=[CableConstants(2.0, 20.0, 200.0)]
+    stats=[CableConstants(
+        SampleSummary(2.0, 1.0, 1.0, 1.1, 2.0, 2.9, 3.0, 3),
+        SampleSummary(20.0, 10.0, 10.0, 11.0, 20.0, 29.0, 30.0, 3),
+        SampleSummary(200.0, 100.0, 100.0, 110.0, 200.0, 290.0, 300.0, 3)
+    )]
+    details=Dict{Symbol, NamedTuple}(
+        :failures=>(values = ConfigurationFailure[],),
+        :samples=>(values = [CableConstants(
+            [1.0, 2.0, 3.0],
+            [10.0, 20.0, 30.0],
+            [100.0, 200.0, 300.0]
+        )],),
+        :histograms=>(values = nothing,),
+        :random=>(
+            root_seed = UInt64(9),
+            configuration_seeds = UInt64[9],
+            trials = [3],
+            confidence = 0.95,
+            cdf_tol = 0.02,
+            distribution = :normal
+        ),
+        :manifest=>(value = nothing,)
+    )
+    completed=MonteCarloResult(formulation, values, nothing, stats, details)
 
-    samples=CableConstants(
-        [1.0, 2.0, 3.0],
-        [10.0, 20.0, 30.0],
-        [100.0, 200.0, 300.0]
+    @test !applicable(Measurements.measurement, completed)
+    retained=only(samples(completed))
+    sample_matrix=vcat(
+        reshape(retained.R, 1, :),
+        reshape(retained.L, 1, :),
+        reshape(retained.C, 1, :)
     )
-    nominal=CableConstants(2.0, 20.0, 200.0)
-    deviations=CableConstants(1.0, 10.0, 100.0)
-    retained=MonteCarloResult(
-        nominal,
-        nothing,
-        samples,
-        nothing,
-        UncertainValue(nominal, deviations, AbsoluteUncertainty()),
-        3,
-        0.95,
-        0.02,
-        :normal,
-        UInt64(9),
-        (hash = "measurement-retained",)
-    )
-    correlated=Measurements.measurement(retained)
-    @test value(correlated.R) ≈ 2.0
-    @test uncertainty(correlated.R) ≈ 1.0
-    @test uncertainty(correlated.L - 10 * correlated.R) ≤ 10 * eps(Float64)
-
-    marginal=MonteCarloResult(
-        nominal,
-        nothing,
-        nothing,
-        nothing,
-        UncertainValue(nominal, deviations, AbsoluteUncertainty()),
-        3,
-        0.95,
-        0.02,
-        :normal,
-        UInt64(10),
-        (hash = "measurement-marginal",)
-    )
-    reconstructed=@test_logs (
-        :warn,
-        r"discarding output correlations"
-    ) Measurements.measurement(marginal)
-    @test value(reconstructed.R) == nominal.R
-    @test value(reconstructed.L) == nominal.L
-    @test value(reconstructed.C) == nominal.C
-    @test uncertainty(reconstructed.R) == deviations.R
-    @test Measurements.cov(reconstructed.R, reconstructed.L) == 0.0
-
-    frequencies=[50.0, 100.0]
-    resistance=reshape([1.0, 2.0], 1, 1, :)
-    inductance=reshape([1.0e-3, 2.0e-3], 1, 1, :)
-    conductance=reshape([1.0e-6, 2.0e-6], 1, 1, :)
-    capacitance=reshape([1.0e-9, 2.0e-9], 1, 1, :)
-    angular=reshape(2π .* frequencies, 1, 1, :)
-    line_nominal=LineParameters(
-        complex.(resistance, inductance .* angular),
-        complex.(conductance, capacitance .* angular),
-        frequencies
-    )
-    line_deviations=RLCG(
-        fill(0.1, 1, 1, 2),
-        fill(1.0e-4, 1, 1, 2),
-        fill(1.0e-10, 1, 1, 2),
-        fill(1.0e-7, 1, 1, 2)
-    )
-    line_marginal=MonteCarloResult(
-        line_nominal,
-        nothing,
-        nothing,
-        nothing,
-        UncertainValue(line_nominal, line_deviations, AbsoluteUncertainty()),
-        3,
-        0.95,
-        0.02,
-        :normal,
-        UInt64(11),
-        (hash = "line-marginal",)
-    )
-    line_reconstructed=@test_logs (
-        :warn,
-        r"discarding output correlations"
-    ) Measurements.measurement(line_marginal)
-    @test value(real(Z(line_reconstructed, 1, 1, 1))) == resistance[1]
-    @test uncertainty(real(Z(line_reconstructed, 1, 1, 1))) == line_deviations.R[1]
-    @test uncertainty(imag(Y(line_reconstructed, 1, 1, 2))) ≈
-          angular[2] * line_deviations.C[2]
+    means=vec(mean(sample_matrix; dims = 2))
+    centered=sample_matrix .- means
+    covariance=centered*transpose(centered)/(size(sample_matrix, 2)-1)
+    coordinates=Measurements.correlated_values(means, covariance)
+    @test value.(coordinates) ≈ [2.0, 20.0, 200.0]
+    @test uncertainty(coordinates[2] - 10 * coordinates[1]) ≤ 20 * eps(Float64)
 end

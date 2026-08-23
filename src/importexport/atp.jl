@@ -58,7 +58,7 @@ Units are printed in the XML file according to the ATPDraw specifications:
 
 * The exporter writes each component’s eager equivalent parameters (R/G/C and derived ρ/ε/μ)
   at the common material reference state. Operating-temperature correction belongs to
-  [`compute!`](@ref LineCableModels.Engine.compute!) and is not applied by this exporter.
+  `compute` and is not applied by this exporter.
 * Mixed numeric types are supported; values are stringified for XML output. When using
   uncertainty types (e.g., `Measurements.Measurement`), the uncertainty is removed.
 * Overlap checks between cables are enforced when building the system, not during export.

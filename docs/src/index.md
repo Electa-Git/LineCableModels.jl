@@ -17,7 +17,7 @@ Depth = 1
 ## Features
 
 - Describes deterministic and uncertain designs through one typed
-  `Grid`/`Gridspace` grammar, then evaluates them through `compute!`.
+  `Grid`/`Gridspace` grammar, then evaluates them through `compute`.
 - Calculates base cable parameters for solid, tubular or stranded cores,
   semiconductors, screens, armors, sheaths, tapes, and water-blocking materials.
 - Correction factors to account for temperature, stranding and twisting effects on the DC resistance [app14198982](@cite), GMR [6521501](@cite) and base inductance of stranded cores and wire screens [yang2008gmr](@cite).

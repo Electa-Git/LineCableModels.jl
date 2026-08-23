@@ -11,7 +11,7 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..UnitHandler: Units, QuantityTag, display_unit, get_label
 import ..LineCableModels: nominal, standard_uncertainty, validate
 
-export AbstractPlotSpec, PlotRecipe
+export AbstractPlotDefinition, PlotRecipe
 export AbstractTrackSize, FixedTrack, RelativeTrack, ContentTrack
 export GridArea, GridSpec, SlotSpec, LayoutSpec, PlacementSpec
 export ControlSpec, LegendSpec, ColorbarSpec, StatusSpec, ExportSpec

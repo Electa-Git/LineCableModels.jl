@@ -4,16 +4,6 @@ $(TYPEDEF)
 Abstract type for numerical problem definitions in
 [`LineCableModels.jl`](index.md).
 """
-abstract type ProblemDefinition end
-
-# Formulation abstract types
-"""
-$(TYPEDEF)
-
-Abstract type for formulations that select physical and numerical methods.
-"""
-abstract type AbstractFormulation end
-
 abstract type AbstractImpedanceFormulation <: AbstractFormulation end
 abstract type InternalImpedanceFormulation <: AbstractImpedanceFormulation end
 abstract type InsulationImpedanceFormulation <: AbstractImpedanceFormulation end
@@ -26,14 +16,37 @@ abstract type EarthAdmittanceFormulation <: AbstractAdmittanceFormulation end
 abstract type AbstractTransformFormulation <: AbstractFormulation end
 abstract type AbstractEarthPropertiesFormulation <: AbstractFormulation end
 
+abstract type _FormulationFamily end
+struct _LineParameterFormulationFamily <: _FormulationFamily end
+
+const _ACTIVE_FORMULATION_BACKENDS = Dict{DataType, Symbol}(
+    _LineParameterFormulationFamily => :analytical,
+)
+
+function _active_formulation_backend(::Type{F}) where {F <: _FormulationFamily}
+    return get(_ACTIVE_FORMULATION_BACKENDS, F) do
+        throw(ArgumentError("no active backend is registered for formulation family $F"))
+    end
+end
+
+function _activate_formulation_backend!(
+        ::Type{F}, backend::Symbol
+) where {F <: _FormulationFamily}
+    _ACTIVE_FORMULATION_BACKENDS[F] = backend
+    return backend
+end
+
 """
 $(TYPEDSIGNATURES)
 
-Construct a formulation selected by `engine`, using the EMT formulation by
+Construct a formulation selected by `backend`, using the analytical formulation by
 default.
 """
-Formulation(engine::Symbol; kwargs...) = Formulation(Val(engine); kwargs...)
-Formulation(; kwargs...) = Formulation(Val(:EMT); kwargs...)
+Formulation(backend::Symbol; kwargs...) = Formulation(Val(backend); kwargs...)
+function Formulation(; kwargs...)
+    backend = _active_formulation_backend(_LineParameterFormulationFamily)
+    return Formulation(Val(backend); kwargs...)
+end
 Formulation(::Val{:FEM}; kwargs...) = retired_fem_sector("FEM formulation")
 
 """
@@ -47,5 +60,3 @@ multi-dispatch earth-property evaluation.
 - [`EnforceLayer`](@ref): Effective parameters defined according to a specific earth layer.
 """
 abstract type AbstractEHEMFormulation <: AbstractFormulation end
-
-abstract type AbstractFormulationOptions end

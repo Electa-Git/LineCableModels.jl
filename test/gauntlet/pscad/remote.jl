@@ -22,7 +22,7 @@ function RemoteConfig(
 )
     verbosity === nothing || throw(ArgumentError(
         "RemoteConfig no longer owns verbosity; set it with " *
-        "ComputeOptions(verbosity = (default = 0, PSCAD = 2)) in the case file",
+        "options=(verbosity=(default=0, PSCAD=2),) in the case file",
     ))
     isempty(strip(host)) && throw(ArgumentError("PSCAD host cannot be empty"))
     isempty(strip(shared_root)) && throw(ArgumentError(
@@ -451,16 +451,15 @@ function _pscad_root(problem::LineParametersProblem)
     return joinpath(WORK_ROOT, "pscad", problem.system.system_id, "reference")
 end
 
-function _pscad_basis(parameters, ::LineParametersProblem, ::ComputeOptions{
-        V, :per_length}) where {V}
+function _pscad_basis(parameters, ::LineParametersProblem, ::Val{:per_length})
     parameters
 end
 
 function _pscad_basis(
         parameters::LineParameters,
         problem::LineParametersProblem,
-        ::ComputeOptions{V, :total}
-) where {V}
+        ::Val{:total}
+)
     return LineParameters(
         PhaseDomain,
         Z(parameters) .* problem.system.line_length,
@@ -470,11 +469,12 @@ function _pscad_basis(
     )
 end
 
-function compute!(
+function compute(
         problem::LineParametersProblem,
         formulation::PSCADFormulation;
-        options::ComputeOptions = ComputeOptions()
+        options::NamedTuple = (;)
 )
+    execution_options = computation_options(options)
     config = _load_config()
     root = _pscad_root(problem)
     isdir(root) && rm(root; recursive = true)
@@ -498,7 +498,7 @@ function compute!(
         joinpath(root, "outputs"),
         formulation,
         problem.frequencies;
-        verbosity = verbosity(options, :PSCAD)
+        verbosity = verbosity(execution_options, :PSCAD)
     )
     write(joinpath(root, "pscad-version.txt"), config.pscad_version)
     parameters = try
@@ -515,7 +515,7 @@ function compute!(
             "\nFull PSCAD diagnostics: $console_path",
         ))
     end
-    return _pscad_basis(parameters, problem, options)
+    return _pscad_basis(parameters, problem, execution_options.output_basis)
 end
 
 function benchmark_metadata(

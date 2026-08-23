@@ -141,8 +141,8 @@ makedocs(;
         "Development" => Any[
             "Conventions" => "conventions.md",
             "PlotBuilder guide" => "plotbuilder.md",
-            "PSCAD gauntlet" => "gauntlet.md",
-            "Validation module" => "validation.md",
+            "Gauntlet benchmarks" => "gauntlet.md",
+            "Data entry validation" => "validation.md",
             "Docstrings" => "docstrings.md",
             "Contributing" => "contributing.md",
             "TODO" => "TODO.md",

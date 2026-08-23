@@ -5,8 +5,9 @@ EditURL = "../literate/plotbuilder.jl"
 # PlotBuilder guide
 
 `PlotBuilder` is the backend-neutral recipe layer used by LineCableModels. It
-turns scientific objects into declarative specifications; the Makie extension
-renders those specifications and owns all interactive state.
+turns scientific objects and declarative plot definitions into resolved
+recipes; the Makie extension renders those recipes and owns all interactive
+state.
 
 ```text
 domain object
@@ -51,27 +52,27 @@ and renderer path. Material-scale rendering is an internal, reusable preview
 component rather than a separate public entry point.
 
 The developer API may evolve before LineCableModels 1.0, but changes must keep
-the separation between domain recipes, backend-neutral specifications, and
+the separation between plot definitions, backend-neutral recipes, and
 backend rendering. Structural tests enforce the single rendering sequence and the
-absence of Makie from core specification construction.
+absence of Makie from core recipe construction.
 
 ## Supported recipe families
 
-| Module | Specification | Input | Entry point |
+| Module | Definition | Input | Entry point |
 |:--|:--|:--|:--|
-| `Engine` | `LineParameterPlotSpec` | `SeriesImpedance` and frequencies | `plot(series, frequencies[, accessors])` |
-| `Engine` | `LineParameterPlotSpec` | `ShuntAdmittance` and frequencies | `plot(shunt, frequencies[, accessors])` |
-| `Engine` | `LineParameterPlotSpec` | `LineParameters` | `plot(parameters[, accessors])` |
-| `Computation` | `MCDistributionPlotSpec` | `MonteCarloResult` | `plot(result, quantity)` |
-| `DataModel` | `CablePreviewPlotSpec` | `CableDesign` | `preview(design)` |
-| `DataModel` | `SystemPreviewPlotSpec` | `LineCableSystem` | `preview(system)` |
+| `Engine` | `LineParameterPlotDefinition` | `SeriesImpedance` and frequencies | `plot(series, frequencies[, accessors])` |
+| `Engine` | `LineParameterPlotDefinition` | `ShuntAdmittance` and frequencies | `plot(shunt, frequencies[, accessors])` |
+| `Engine` | `LineParameterPlotDefinition` | `LineParameters` | `plot(parameters[, accessors])` |
+| `Computation` | `MCDistributionPlotDefinition` | `MonteCarloResult` | `plot(result, quantity)` |
+| `DataModel` | `CablePreviewPlotDefinition` | `CableDesign` | `preview(design)` |
+| `DataModel` | `SystemPreviewPlotDefinition` | `LineCableSystem` | `preview(system)` |
 
 `plot(parameters)` produces separate Z and Y pages, each with real and
 imaginary parts in adjacent views. An accessor tuple selects another
 representation, for example `(R, L, G, C)` or `(abs, angle)`. The
 Monte Carlo recipe provides histogram, PDF, empirical/histogram CDF, and Q-Q
 views for retained marginal results.
-DataModel recipes provide cable and system previews. `MaterialScalePlotSpec` is an internal reusable
+DataModel recipes provide cable and system previews. `MaterialScalePlotDefinition` is an internal reusable
 component for composing and testing the material-property scales used by those
 previews; it is not a public plotting entry point.
 
@@ -80,15 +81,15 @@ previews; it is not a public plotting entry point.
 Every recipe is represented internally by `PlotRecipe{O,I,R}`. `object` is the
 domain value, `input` is a typed `NamedTuple` of semantic options, and
 `renderer` is a typed `NamedTuple` of rendering options. The following example
-uses the maintained line-parameter recipe. Specification construction itself
+uses the maintained line-parameter recipe. Recipe construction itself
 remains backend-neutral; this documentation loads CairoMakie only so later
-sections can show what the specifications render.
+sections can show what the definitions render.
 
 ````@example plotbuilder
 using LineCableModels
 using LineCableModels.PlotBuilder
 using LineCableModels.UnitHandler
-using LineCableModels.Engine: LineParameterPlotSpec
+using LineCableModels.Engine: LineParameterPlotDefinition
 import LineCableModels.PlotBuilder: axis_label #hide
 import LineCableModels.PlotBuilder: axis_quantity #hide
 import LineCableModels.PlotBuilder: axis_scales #hide
@@ -174,7 +175,7 @@ and separates scientific choices from renderer choices.
 
 ````@example plotbuilder
 recipe = parse_kwargs(
-    LineParameterPlotSpec,
+    LineParameterPlotDefinition,
     Z(parameters);
     frequencies = frequencies(parameters),
     quantities = (abs, angle),
@@ -203,7 +204,7 @@ tests the complete declarative path without opening a window:
 
 ````@example plotbuilder
 render = make_render(
-    LineParameterPlotSpec,
+    LineParameterPlotDefinition,
     Z(parameters);
     frequencies = frequencies(parameters),
     quantities = (abs, angle)
@@ -271,7 +272,7 @@ order determines legend order. Visual Makie keywords such as `color`,
 
 The renderer dispatches through `draw!(axis, Val(series.kind), series)`. A new
 primitive therefore requires a core validation entry, one renderer method,
-and specification plus Cairo tests. Recipes using existing primitives need no
+and definition plus Cairo tests. Recipes using existing primitives need no
 renderer changes.
 
 ### Views
@@ -395,15 +396,13 @@ are:
 
 `make_axes`, `make_series`, `make_views`, and `make_pages` remain advanced
 backend-neutral hooks for geometry-heavy or unusual recipes. They may return
-specifications but may not construct Makie objects or replace `make_render`.
+recipe components but may not construct Makie objects or replace `make_render`.
 
-Recipes should read domain objects through their public accessors. For current
-result types these include `frequencies`, `basis`, `domain`, `Z`, `Y`, `R`,
-`X`, `L`, `G`, `B`, `C`, `statistics`, `samples`, `distribution`, and
-`surrogate`. `UnitHandler.quantity` binds the physical accessors to semantic
-quantity tags; `UnitHandler` then supplies their units, labels, symbols, and
-scaling. It does not extract values from result containers. The renderer
-receives display-ready data.
+Plot definitions read completed scientific results through `observables` and
+use mathematical accessors such as `Z`, `Y`, `R`, `L`, `G`, and `C` only for
+explicitly derived selections. `UnitHandler` binds the resulting full
+scientific keys to quantity tags, units, labels, symbols, and scaling. The
+renderer receives display-ready data and never interprets result containers.
 
 ## Build a recipe with accessors
 
@@ -414,7 +413,7 @@ if an accessor signature becomes stale.
 
 ### 1. Declare the domain type and its options
 
-The domain type contains scientific data only. The empty specification type
+The domain type contains scientific data only. The empty definition type
 identifies the recipe. Its accessors declare the exact accepted object and
 keywords; PlotBuilder rejects anything else before it assembles a page.
 
@@ -430,10 +429,10 @@ nothing; #hide
 nothing #hide
 ````
 
-A specification type carries no state. Accessor methods supply its behavior.
+A definition type carries no state. Accessor methods supply its behavior.
 
 ````@example plotbuilder
-struct ProfilePlotSpec <: AbstractPlotSpec end
+struct ProfilePlotDefinition <: AbstractPlotDefinition end
 nothing; #hide
 nothing #hide
 ````
@@ -441,9 +440,9 @@ nothing #hide
 This recipe accepts ProfileResult and exactly two scientific options.
 
 ````@example plotbuilder
-dispatch_on(::Type{ProfilePlotSpec}) = ProfileResult
-input_kwargs(::Type{ProfilePlotSpec}) = (:grouping, :color)
-function input_defaults(::Type{ProfilePlotSpec}, ::ProfileResult)
+dispatch_on(::Type{ProfilePlotDefinition}) = ProfileResult
+input_kwargs(::Type{ProfilePlotDefinition}) = (:grouping, :color)
+function input_defaults(::Type{ProfilePlotDefinition}, ::ProfileResult)
     (; grouping = :overlay, color = :steelblue)
 end
 nothing; #hide
@@ -453,8 +452,8 @@ nothing #hide
 Figure size affects rendering, so it belongs to renderer options instead.
 
 ````@example plotbuilder
-renderer_kwargs(::Type{ProfilePlotSpec}) = (:size,)
-renderer_defaults(::Type{ProfilePlotSpec}, ::ProfileResult) = (; size = (800, 400))
+renderer_kwargs(::Type{ProfilePlotDefinition}) = (:size,)
+renderer_defaults(::Type{ProfilePlotDefinition}, ::ProfileResult) = (; size = (800, 400))
 
 nothing; #hide
 nothing #hide
@@ -477,7 +476,7 @@ function profile_grouping(::Val{G}) where {G}
 end
 
 function resolve_input(
-        ::Type{ProfilePlotSpec},
+        ::Type{ProfilePlotDefinition},
         recipe::PlotRecipe
 )
     length(recipe.object.frequency) == size(recipe.object.response, 1) ||
@@ -501,16 +500,16 @@ the generic overlay, panel, or page assemblers, while `group_facets` identifies
 the response columns to assemble.
 
 ````@example plotbuilder
-recipe_mode(::Type{ProfilePlotSpec}, recipe::PlotRecipe) = Val(:profile)
+recipe_mode(::Type{ProfilePlotDefinition}, recipe::PlotRecipe) = Val(:profile)
 function grouping_mode(
-        ::Type{ProfilePlotSpec},
+        ::Type{ProfilePlotDefinition},
         ::Val{:profile},
         recipe::PlotRecipe
 )
     profile_grouping(Val(recipe.input.grouping))
 end
 function group_facets(
-        ::Type{ProfilePlotSpec},
+        ::Type{ProfilePlotDefinition},
         ::Val{:profile},
         recipe::PlotRecipe,
         page_key
@@ -526,25 +525,25 @@ is created here; UnitHandler remains the authority for unit labels.
 
 ````@example plotbuilder
 function axis_quantity(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:x},
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:x},
         recipe::PlotRecipe, page_key, view_key
 )
     QuantityTag{:freq}()
 end
 function axis_quantity(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:y},
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:y},
         recipe::PlotRecipe, page_key, view_key
 )
     QuantityTag{:dimensionless}()
 end
 function axis_unit(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:x},
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:x},
         quantity::QuantityTag, recipe::PlotRecipe, page_key, view_key
 )
     units(:base, :hertz)
 end
 function axis_label(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:y},
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:y},
         quantity::QuantityTag, unit::Units, recipe::PlotRecipe,
         page_key, view_key
 )
@@ -559,7 +558,7 @@ linear/logarithmic toggle for each axis.
 
 ````@example plotbuilder
 function axis_scales(
-        ::Type{ProfilePlotSpec}, dim::Val, recipe::PlotRecipe,
+        ::Type{ProfilePlotDefinition}, dim::Val, recipe::PlotRecipe,
         series::Vector{SeriesSpec}
 )
     (:linear, :log10)
@@ -577,25 +576,25 @@ belong in `series_attributes`.
 
 ````@example plotbuilder
 function series_data(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:x},
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:x},
         recipe::PlotRecipe, page_key, view_key, series_key::Int
 )
     recipe.object.frequency
 end
 function series_data(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:y},
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:y},
         recipe::PlotRecipe, page_key, view_key, series_key::Int
 )
     recipe.object.response[:, series_key]
 end
 function legend_label(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PlotRecipe,
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PlotRecipe,
         page_key, view_key, series_key::Int
 )
     "response $series_key"
 end
 function series_group(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PlotRecipe,
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PlotRecipe,
         page_key, view_key, series_key::Int
 )
     Symbol("response_$series_key")
@@ -611,7 +610,7 @@ third specialization does not change the recipe assembler.
 profile_linestyle(::Val) = :solid
 profile_linestyle(::Val{2}) = :dash
 function series_attributes(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PlotRecipe,
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PlotRecipe,
         page_key, view_key, series_key::Int
 )
     (;
@@ -637,7 +636,7 @@ profile_title(::Val{:panels}, page_key, view_key::Int) = "Response $view_key"
 profile_title(::Val{:panels}, page_key, ::Nothing) = "Frequency responses"
 profile_title(::Val{:pages}, page_key::Int, view_key) = "Response $page_key"
 function default_title(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PlotRecipe,
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PlotRecipe,
         page_key, view_key
 )
     profile_title(Val(recipe.input.grouping), page_key, view_key)
@@ -647,12 +646,12 @@ profile_layout(::Val{:overlay}) = :single
 profile_layout(::Val{:panels}) = :grid
 profile_layout(::Val{:pages}) = :single
 function layout_spec(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PlotRecipe, page_key
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PlotRecipe, page_key
 )
     profile_layout(Val(recipe.input.grouping))
 end
 function default_figsize(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PlotRecipe, page_key
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PlotRecipe, page_key
 )
     recipe.renderer.size
 end
@@ -665,7 +664,7 @@ the preset's :colorbars slot and can be replaced by another specialization.
 
 ````@example plotbuilder
 function colorbar_specs(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PlotRecipe, page_key
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PlotRecipe, page_key
 )
     [ColorbarSpec(
         "Response scale",
@@ -682,7 +681,7 @@ side dock is relative-sized, as required by `overflow=:ellipsis`.
 
 ````@example plotbuilder
 function legend_spec(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PlotRecipe, page_key
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PlotRecipe, page_key
 )
     LegendSpec(overflow = :ellipsis)
 end
@@ -702,9 +701,9 @@ result = ProfileResult(
     [1.0 1.2; 1.5 1.6; 2.0 2.1]
 )
 
-overlay = make_render(ProfilePlotSpec, result; color = :navy)
-panels = make_render(ProfilePlotSpec, result; grouping = :panels)
-pages = make_render(ProfilePlotSpec, result; grouping = :pages)
+overlay = make_render(ProfilePlotDefinition, result; color = :navy)
+panels = make_render(ProfilePlotDefinition, result; grouping = :panels)
+pages = make_render(ProfilePlotDefinition, result; grouping = :pages)
 
 (;
     overlay_series = length(only(only(overlay.figures).views).series),
@@ -712,7 +711,7 @@ pages = make_render(ProfilePlotSpec, result; grouping = :pages)
     separate_pages = length(pages.figures),
     pipeline_file = basename(String(which(
         make_render,
-        (Type{ProfilePlotSpec}, ProfileResult)
+        (Type{ProfilePlotDefinition}, ProfileResult)
     ).file))
 )
 ````
@@ -827,7 +826,7 @@ dashboard = LayoutSpec(
 )
 
 custom = make_render(
-    ProfilePlotSpec,
+    ProfilePlotDefinition,
     result;
     grouping = :panels,
     layout = dashboard
@@ -869,12 +868,12 @@ responsive_result = ProfileResult( #hide
     responsive_values #hide
 ) #hide
 compact = make_render( #hide
-    ProfilePlotSpec, #hide
+    ProfilePlotDefinition, #hide
     responsive_result; #hide
     size = (900, 350) #hide
 ) #hide
 full = make_render( #hide
-    ProfilePlotSpec, #hide
+    ProfilePlotDefinition, #hide
     responsive_result; #hide
     size = (900, 700) #hide
 ) #hide
@@ -892,7 +891,7 @@ documentation_figure(compact) #hide
 <br>
 ```
 
-With more height, the same specification displays every entry. Interactive GL
+With more height, the same definition displays every entry. Interactive GL
 and WGL windows move between these two states automatically as their viewport
 changes.
 
@@ -938,7 +937,7 @@ LaTeX-font theme to the declarative page state.
 
 ````@example plotbuilder
 publication = make_render(
-    LineParameterPlotSpec,
+    LineParameterPlotDefinition,
     parameters;
     quantities = (R, L, G, C),
     export_theme = :publication

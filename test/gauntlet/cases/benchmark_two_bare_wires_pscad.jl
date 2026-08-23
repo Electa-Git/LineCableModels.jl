@@ -26,11 +26,11 @@
         )
     )
     nominal_data=LineCableModels.DataModel.NominalData()
-    design=only(CableBuilder(
+    design=only(Gridspace(CableBuilder(
         "two_bare_wires",
         core_parts;
         nominal = nominal_data
-    ))
+    )))
 
     earth=Earth(rho = 0.1, eps_r = 1.0, mu_r = 1.0)
     frequencies_value=collect(10.0 .^ range(0, stop = 6, length = 101))
@@ -46,7 +46,7 @@
             phases = (:core=>2,)
         )
     )
-    problem=only(SystemBuilder(
+    problem=only(Gridspace(SystemBuilder(
         "benchmark_two_bare_wires_pscad",
         design,
         positions;
@@ -54,7 +54,7 @@
         temperature = 20.0,
         earth,
         frequencies = frequencies_value
-    ))
+    )))
     reference_problem=LineParametersProblem(
         problem.system;
         temperature = problem.temperature,
@@ -64,7 +64,7 @@
     reference_formulation=Formulation(
         :pscad;
         earth_impedance = EarthImpedance.Wedepohl(),
-        options = PSCADOptions(output_stem = "two_bare_wires")
+        options = (output_stem = "two_bare_wires",)
     )
     formulation=Formulation(
         earth_impedance = EarthImpedance.Pollaczek(),
@@ -110,9 +110,9 @@
         display(DataFrame(problem.earth_props))
     end
 
-    inferred=@inferred compute!(problem, formulation)
+    inferred=@inferred compute(problem, formulation)
     @test size(Z(inferred)) == (2, 2, 101)
-    execution_options=ComputeOptions(verbosity = (default = 0, PSCAD = 2))
+    execution_options=(verbosity = (default = 0, PSCAD = 2),)
     outcome=run_case(case; options = execution_options)
     @test outcome.reference isa LineParameters
     @test outcome.candidate isa LineParameters

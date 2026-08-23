@@ -201,13 +201,13 @@ armor_parts = (
 )
 
 # Resolve the complete deterministic cable description:
-cable_design = only(CableBuilder(
+cable_design = only(Gridspace(CableBuilder(
     cable_id,
     core_parts,
     sheath_parts,
     armor_parts;
     nominal = datasheet_info
-))
+)))
 
 # Inspect the finished cable design:
 plt1 = preview(
@@ -230,7 +230,7 @@ available. SVG export always includes the complete legend.
 =#
 
 # Calculate and summarize the cable constants explicitly:
-constants = compute!(
+constants = compute(
     CableConstantsProblem(cable_design),
     Formulation()
 )
@@ -288,7 +288,7 @@ positions = (
 )
 
 # Build the complete bipole line-parameter problem from the loaded design:
-problem = only(SystemBuilder(
+problem = only(Gridspace(SystemBuilder(
     "525kV_1600mm2_bipole",
     loaded_design,
     positions;
@@ -296,7 +296,7 @@ problem = only(SystemBuilder(
     temperature = 20.0,
     earth,
     frequencies = f
-))
+)))
 cable_system = problem.system
 earth_params = problem.earth_props
 
@@ -338,7 +338,7 @@ export_file = export_data(:atp, cable_system, earth_params, file_name = output_f
 ## Frequency-dependent line parameters
 
 [`Formulation`](@ref) selects the physical and numerical methods. The default
-EMT formulation uses the scaled-Bessel internal-impedance method, lossless
+analytical formulation uses the scaled-Bessel internal-impedance method, lossless
 insulation impedance/admittance, and the Papadopoulos earth-return methods. The
 same formulation value can be reused for ordinary, parametric, or Monte Carlo
 execution.
@@ -346,7 +346,7 @@ execution.
 
 # Define the formulation and run the 1 Hz–1 MHz frequency scan:
 formulation = Formulation()
-@time line_parameters = compute!(
+@time line_parameters = compute(
     problem,
     formulation;
     options = (verbosity = (default = 0,),)

@@ -1,6 +1,6 @@
-struct CablePreviewPlotSpec <: PlotBuilder.AbstractPlotSpec end
-struct SystemPreviewPlotSpec <: PlotBuilder.AbstractPlotSpec end
-struct MaterialScalePlotSpec <: PlotBuilder.AbstractPlotSpec end
+struct CablePreviewPlotDefinition <: PlotBuilder.AbstractPlotDefinition end
+struct SystemPreviewPlotDefinition <: PlotBuilder.AbstractPlotDefinition end
+struct MaterialScalePlotDefinition <: PlotBuilder.AbstractPlotDefinition end
 
 const _RHO_MIN = 1.0e-9
 const _RHO_METAL_MAX = 1.0e-6
@@ -406,8 +406,8 @@ function _distance_axes()
     )
 end
 
-PlotBuilder.dispatch_on(::Type{CablePreviewPlotSpec}) = CableDesign
-function PlotBuilder.input_kwargs(::Type{CablePreviewPlotSpec})
+PlotBuilder.dispatch_on(::Type{CablePreviewPlotDefinition}) = CableDesign
+function PlotBuilder.input_kwargs(::Type{CablePreviewPlotDefinition})
     (
         :x_offset,
         :y_offset,
@@ -416,8 +416,8 @@ function PlotBuilder.input_kwargs(::Type{CablePreviewPlotSpec})
         :display_colorbars
     )
 end
-PlotBuilder.renderer_kwargs(::Type{CablePreviewPlotSpec}) = (:size,)
-function PlotBuilder.input_defaults(::Type{CablePreviewPlotSpec}, ::CableDesign)
+PlotBuilder.renderer_kwargs(::Type{CablePreviewPlotDefinition}) = (:size,)
+function PlotBuilder.input_defaults(::Type{CablePreviewPlotDefinition}, ::CableDesign)
     (;
         x_offset = 0.0,
         y_offset = 0.0,
@@ -426,11 +426,11 @@ function PlotBuilder.input_defaults(::Type{CablePreviewPlotSpec}, ::CableDesign)
         display_colorbars = true
     )
 end
-function PlotBuilder.renderer_defaults(::Type{CablePreviewPlotSpec}, ::CableDesign)
+function PlotBuilder.renderer_defaults(::Type{CablePreviewPlotDefinition}, ::CableDesign)
     (; size = (900, 700))
 end
 
-function PlotBuilder.resolve_input(::Type{CablePreviewPlotSpec}, recipe::PlotBuilder.PlotRecipe)
+function PlotBuilder.resolve_input(::Type{CablePreviewPlotDefinition}, recipe::PlotBuilder.PlotRecipe)
     recipe.input.x_offset isa Real || throw(ArgumentError("x_offset must be real"))
     recipe.input.y_offset isa Real || throw(ArgumentError("y_offset must be real"))
     all(name -> getproperty(recipe.input, name) isa Bool,
@@ -444,7 +444,7 @@ function PlotBuilder.resolve_input(::Type{CablePreviewPlotSpec}, recipe::PlotBui
 end
 
 function PlotBuilder.make_axes(
-        ::Type{CablePreviewPlotSpec},
+        ::Type{CablePreviewPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key,
@@ -455,7 +455,7 @@ function PlotBuilder.make_axes(
 end
 
 function PlotBuilder.make_series(
-        ::Type{CablePreviewPlotSpec},
+        ::Type{CablePreviewPlotDefinition},
         mode::Val,
         grouping::Val,
         recipe::PlotBuilder.PlotRecipe,
@@ -478,7 +478,7 @@ _cable_colorbars(::Val{false}, design) = PlotBuilder.ColorbarSpec[]
 _cable_colorbars(::Val{true}, design) = _colorbar_specs(_property_ranges(design)...)
 
 function PlotBuilder.default_title(
-        ::Type{CablePreviewPlotSpec},
+        ::Type{CablePreviewPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key,
@@ -488,7 +488,7 @@ function PlotBuilder.default_title(
 end
 
 function PlotBuilder.view_key(
-        ::Type{CablePreviewPlotSpec},
+        ::Type{CablePreviewPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key,
@@ -498,7 +498,7 @@ function PlotBuilder.view_key(
 end
 
 function PlotBuilder.view_aspect(
-        ::Type{CablePreviewPlotSpec},
+        ::Type{CablePreviewPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key,
@@ -508,7 +508,7 @@ function PlotBuilder.view_aspect(
 end
 
 function PlotBuilder.default_figsize(
-        ::Type{CablePreviewPlotSpec},
+        ::Type{CablePreviewPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key
@@ -517,7 +517,7 @@ function PlotBuilder.default_figsize(
 end
 
 function PlotBuilder.layout_spec(
-        ::Type{CablePreviewPlotSpec},
+        ::Type{CablePreviewPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key
@@ -526,7 +526,7 @@ function PlotBuilder.layout_spec(
 end
 
 function PlotBuilder.colorbar_specs(
-        ::Type{CablePreviewPlotSpec},
+        ::Type{CablePreviewPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key
@@ -535,19 +535,19 @@ function PlotBuilder.colorbar_specs(
 end
 
 function PlotBuilder.legend_spec(
-        ::Type{CablePreviewPlotSpec}, mode::Val,
+        ::Type{CablePreviewPlotDefinition}, mode::Val,
         recipe::PlotBuilder.PlotRecipe, page_key)
     return PlotBuilder.LegendSpec(enabled = recipe.input.display_legend)
 end
 
 function PlotBuilder.page_identity(
-        ::Type{CablePreviewPlotSpec}, mode::Val,
+        ::Type{CablePreviewPlotDefinition}, mode::Val,
         recipe::PlotBuilder.PlotRecipe, page_key)
     return (; kind = :cable, id = recipe.object.cable_id)
 end
 
 function PlotBuilder.export_spec(
-        ::Type{CablePreviewPlotSpec}, mode::Val,
+        ::Type{CablePreviewPlotDefinition}, mode::Val,
         recipe::PlotBuilder.PlotRecipe, page_key, title::AbstractString)
     return PlotBuilder.ExportSpec(
         theme = recipe.renderer.export_theme,
@@ -659,8 +659,8 @@ function _system_series(system, earth_model, limits, display_legend)
     return series
 end
 
-PlotBuilder.dispatch_on(::Type{SystemPreviewPlotSpec}) = LineCableSystem
-function PlotBuilder.input_kwargs(::Type{SystemPreviewPlotSpec})
+PlotBuilder.dispatch_on(::Type{SystemPreviewPlotDefinition}) = LineCableSystem
+function PlotBuilder.input_kwargs(::Type{SystemPreviewPlotDefinition})
     (
         :earth_model,
         :zoom_factor,
@@ -669,8 +669,8 @@ function PlotBuilder.input_kwargs(::Type{SystemPreviewPlotSpec})
         :display_colorbars
     )
 end
-PlotBuilder.renderer_kwargs(::Type{SystemPreviewPlotSpec}) = (:size,)
-function PlotBuilder.input_defaults(::Type{SystemPreviewPlotSpec}, ::LineCableSystem)
+PlotBuilder.renderer_kwargs(::Type{SystemPreviewPlotDefinition}) = (:size,)
+function PlotBuilder.input_defaults(::Type{SystemPreviewPlotDefinition}, ::LineCableSystem)
     (;
         earth_model = nothing,
         zoom_factor = nothing,
@@ -679,11 +679,11 @@ function PlotBuilder.input_defaults(::Type{SystemPreviewPlotSpec}, ::LineCableSy
         display_colorbars = true
     )
 end
-function PlotBuilder.renderer_defaults(::Type{SystemPreviewPlotSpec}, ::LineCableSystem)
+function PlotBuilder.renderer_defaults(::Type{SystemPreviewPlotDefinition}, ::LineCableSystem)
     (; size = (900, 700))
 end
 
-function PlotBuilder.resolve_input(::Type{SystemPreviewPlotSpec}, recipe::PlotBuilder.PlotRecipe)
+function PlotBuilder.resolve_input(::Type{SystemPreviewPlotDefinition}, recipe::PlotBuilder.PlotRecipe)
     _system_limits(recipe.object, recipe.input.zoom_factor)
     all(name -> getproperty(recipe.input, name) isa Bool,
         (:display_legend, :display_id, :display_colorbars)) || throw(
@@ -696,7 +696,7 @@ function PlotBuilder.resolve_input(::Type{SystemPreviewPlotSpec}, recipe::PlotBu
 end
 
 function PlotBuilder.make_axes(
-        ::Type{SystemPreviewPlotSpec},
+        ::Type{SystemPreviewPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key,
@@ -707,7 +707,7 @@ function PlotBuilder.make_axes(
 end
 
 function PlotBuilder.make_series(
-        ::Type{SystemPreviewPlotSpec},
+        ::Type{SystemPreviewPlotDefinition},
         mode::Val,
         grouping::Val,
         recipe::PlotBuilder.PlotRecipe,
@@ -731,7 +731,7 @@ _system_colorbars(::Val{false}, earth_model) = PlotBuilder.ColorbarSpec[]
 _system_colorbars(::Val{true}, earth_model) = _earth_colorbars(earth_model)
 
 function PlotBuilder.default_title(
-        ::Type{SystemPreviewPlotSpec},
+        ::Type{SystemPreviewPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key,
@@ -741,7 +741,7 @@ function PlotBuilder.default_title(
 end
 
 function PlotBuilder.view_key(
-        ::Type{SystemPreviewPlotSpec},
+        ::Type{SystemPreviewPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key,
@@ -751,7 +751,7 @@ function PlotBuilder.view_key(
 end
 
 function PlotBuilder.view_aspect(
-        ::Type{SystemPreviewPlotSpec},
+        ::Type{SystemPreviewPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key,
@@ -761,7 +761,7 @@ function PlotBuilder.view_aspect(
 end
 
 function PlotBuilder.view_limits(
-        ::Type{SystemPreviewPlotSpec},
+        ::Type{SystemPreviewPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key,
@@ -771,7 +771,7 @@ function PlotBuilder.view_limits(
 end
 
 function PlotBuilder.default_figsize(
-        ::Type{SystemPreviewPlotSpec},
+        ::Type{SystemPreviewPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key
@@ -780,7 +780,7 @@ function PlotBuilder.default_figsize(
 end
 
 function PlotBuilder.layout_spec(
-        ::Type{SystemPreviewPlotSpec},
+        ::Type{SystemPreviewPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key
@@ -789,7 +789,7 @@ function PlotBuilder.layout_spec(
 end
 
 function PlotBuilder.colorbar_specs(
-        ::Type{SystemPreviewPlotSpec},
+        ::Type{SystemPreviewPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key
@@ -801,19 +801,19 @@ function PlotBuilder.colorbar_specs(
 end
 
 function PlotBuilder.legend_spec(
-        ::Type{SystemPreviewPlotSpec}, mode::Val,
+        ::Type{SystemPreviewPlotDefinition}, mode::Val,
         recipe::PlotBuilder.PlotRecipe, page_key)
     return PlotBuilder.LegendSpec(enabled = recipe.input.display_legend)
 end
 
 function PlotBuilder.page_identity(
-        ::Type{SystemPreviewPlotSpec}, mode::Val,
+        ::Type{SystemPreviewPlotDefinition}, mode::Val,
         recipe::PlotBuilder.PlotRecipe, page_key)
     return (; kind = :system, id = recipe.object.system_id)
 end
 
 function PlotBuilder.export_spec(
-        ::Type{SystemPreviewPlotSpec}, mode::Val,
+        ::Type{SystemPreviewPlotDefinition}, mode::Val,
         recipe::PlotBuilder.PlotRecipe, page_key, title::AbstractString)
     return PlotBuilder.ExportSpec(
         theme = recipe.renderer.export_theme,
@@ -822,13 +822,13 @@ function PlotBuilder.export_spec(
     )
 end
 
-PlotBuilder.dispatch_on(::Type{MaterialScalePlotSpec}) = Nothing
-PlotBuilder.renderer_kwargs(::Type{MaterialScalePlotSpec}) = (:size,)
-function PlotBuilder.renderer_defaults(::Type{MaterialScalePlotSpec}, ::Nothing)
+PlotBuilder.dispatch_on(::Type{MaterialScalePlotDefinition}) = Nothing
+PlotBuilder.renderer_kwargs(::Type{MaterialScalePlotDefinition}) = (:size,)
+function PlotBuilder.renderer_defaults(::Type{MaterialScalePlotDefinition}, ::Nothing)
     (; size = (800, 400))
 end
 
-function PlotBuilder.resolve_input(::Type{MaterialScalePlotSpec}, recipe::PlotBuilder.PlotRecipe)
+function PlotBuilder.resolve_input(::Type{MaterialScalePlotDefinition}, recipe::PlotBuilder.PlotRecipe)
     recipe.renderer.size isa Tuple{Int, Int} || throw(
         ArgumentError("size must be a tuple of two integers"),
     )
@@ -836,7 +836,7 @@ function PlotBuilder.resolve_input(::Type{MaterialScalePlotSpec}, recipe::PlotBu
 end
 
 function PlotBuilder.grouping_mode(
-        ::Type{MaterialScalePlotSpec},
+        ::Type{MaterialScalePlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe
 )
@@ -844,7 +844,7 @@ function PlotBuilder.grouping_mode(
 end
 
 function PlotBuilder.default_title(
-        ::Type{MaterialScalePlotSpec},
+        ::Type{MaterialScalePlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key,
@@ -854,7 +854,7 @@ function PlotBuilder.default_title(
 end
 
 function PlotBuilder.default_figsize(
-        ::Type{MaterialScalePlotSpec},
+        ::Type{MaterialScalePlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key
@@ -863,7 +863,7 @@ function PlotBuilder.default_figsize(
 end
 
 function PlotBuilder.layout_spec(
-        ::Type{MaterialScalePlotSpec},
+        ::Type{MaterialScalePlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key
@@ -872,7 +872,7 @@ function PlotBuilder.layout_spec(
 end
 
 function PlotBuilder.colorbar_specs(
-        ::Type{MaterialScalePlotSpec},
+        ::Type{MaterialScalePlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key
@@ -885,25 +885,25 @@ function PlotBuilder.colorbar_specs(
 end
 
 function PlotBuilder.control_spec(
-        ::Type{MaterialScalePlotSpec}, mode::Val,
+        ::Type{MaterialScalePlotDefinition}, mode::Val,
         recipe::PlotBuilder.PlotRecipe, page_key)
     return PlotBuilder.ControlSpec(reset = false)
 end
 
 function PlotBuilder.legend_spec(
-        ::Type{MaterialScalePlotSpec}, mode::Val,
+        ::Type{MaterialScalePlotDefinition}, mode::Val,
         recipe::PlotBuilder.PlotRecipe, page_key)
     return PlotBuilder.LegendSpec(enabled = false)
 end
 
 function PlotBuilder.page_identity(
-        ::Type{MaterialScalePlotSpec}, mode::Val,
+        ::Type{MaterialScalePlotDefinition}, mode::Val,
         recipe::PlotBuilder.PlotRecipe, page_key)
     return (; kind = :material_scale)
 end
 
 function PlotBuilder.export_spec(
-        ::Type{MaterialScalePlotSpec}, mode::Val,
+        ::Type{MaterialScalePlotDefinition}, mode::Val,
         recipe::PlotBuilder.PlotRecipe, page_key, title::AbstractString)
     return PlotBuilder.ExportSpec(
         theme = recipe.renderer.export_theme,

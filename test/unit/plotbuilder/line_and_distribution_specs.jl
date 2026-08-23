@@ -47,7 +47,7 @@
     @test_throws ArgumentError E._line_components(parameters, identity)
 
     render=PB.make_render(
-        E.LineParameterPlotSpec,
+        E.LineParameterPlotDefinition,
         parameters;
         quantities = (R, L, G, C),
         con = (1:2, [1, 2])
@@ -69,22 +69,22 @@
         "Y[1,1]", "Y[1,2]", "Y[2,1]", "Y[2,2]"])
 
     @test_throws ArgumentError PB.make_render(
-        E.LineParameterPlotSpec,
+        E.LineParameterPlotDefinition,
         parameters;
         quantities = [R]
     )
     @test_throws ArgumentError PB.make_render(
-        E.LineParameterPlotSpec,
+        E.LineParameterPlotDefinition,
         parameters;
         quantities = (Z, real)
     )
     @test_throws DimensionMismatch PB.make_render(
-        E.LineParameterPlotSpec,
+        E.LineParameterPlotDefinition,
         series;
         frequencies = [50.0]
     )
     @test_throws DomainError PB.make_render(
-        E.LineParameterPlotSpec,
+        E.LineParameterPlotDefinition,
         series;
         frequencies = [0.0, 50.0],
         quantities = (L,)
@@ -97,7 +97,7 @@
         frequencies(parameters)
     )
     lossless_render=PB.make_render(
-        E.LineParameterPlotSpec,
+        E.LineParameterPlotDefinition,
         lossless;
         quantities = (G,)
     )
@@ -111,7 +111,7 @@
         complex.(small_conductance, imag.(Y(parameters).values)),
         frequencies(parameters)
     )
-    lossy_render=PB.make_render(E.LineParameterPlotSpec, lossy; quantities = (G,))
+    lossy_render=PB.make_render(E.LineParameterPlotDefinition, lossy; quantities = (G,))
     lossy_series=only(only(lossy_render.figures).views).series
     @test all(
         series_spec -> all(==(1.0e-9), series_spec.ydata),
@@ -152,7 +152,7 @@ end
     parameters=Tuple(result(1+0.01index) for index in 0:4)
     labels=Tuple("Formulation $index" for index in eachindex(parameters))
     render=PB.make_render(
-        E.LineParametersBenchmarkPlotSpec,
+        E.LineParametersBenchmarkPlotDefinition,
         parameters;
         legend = labels,
         quantities = (R, C),
@@ -212,7 +212,7 @@ end
     @test page.status.initial == "Ready."
 
     default_render=PB.make_render(
-        E.LineParametersBenchmarkPlotSpec,
+        E.LineParametersBenchmarkPlotDefinition,
         parameters[1:2];
         legend = labels[1:2]
     )
@@ -220,21 +220,21 @@ end
           [:Z_re, :Z_im, :Y_re, :Y_im]
 
     @test_throws ArgumentError PB.make_render(
-        E.LineParametersBenchmarkPlotSpec,
+        E.LineParametersBenchmarkPlotDefinition,
         (first(parameters),);
         legend = ("one",)
     )
     @test_throws ArgumentError PB.make_render(
-        E.LineParametersBenchmarkPlotSpec,
+        E.LineParametersBenchmarkPlotDefinition,
         parameters
     )
     @test_throws ArgumentError PB.make_render(
-        E.LineParametersBenchmarkPlotSpec,
+        E.LineParametersBenchmarkPlotDefinition,
         parameters;
         legend = collect(labels)
     )
     @test_throws DimensionMismatch PB.make_render(
-        E.LineParametersBenchmarkPlotSpec,
+        E.LineParametersBenchmarkPlotDefinition,
         parameters;
         legend = labels[1:2]
     )
@@ -245,27 +245,27 @@ end
         frequency
     )
     @test_throws DimensionMismatch PB.make_render(
-        E.LineParametersBenchmarkPlotSpec,
+        E.LineParametersBenchmarkPlotDefinition,
         (first(parameters), smaller);
         legend = ("three conductors", "two conductors")
     )
     @test_throws ArgumentError PB.make_render(
-        E.LineParametersBenchmarkPlotSpec,
+        E.LineParametersBenchmarkPlotDefinition,
         (parameters[1], result(1.0; result_frequency = [10.0, 100.0, 2_000.0]));
         legend = ("first", "frequency mismatch")
     )
     @test_throws ArgumentError PB.make_render(
-        E.LineParametersBenchmarkPlotSpec,
+        E.LineParametersBenchmarkPlotDefinition,
         (parameters[1], result(1.0; result_domain = ModalDomain));
         legend = ("phase", "modal")
     )
     @test_throws ArgumentError PB.make_render(
-        E.LineParametersBenchmarkPlotSpec,
+        E.LineParametersBenchmarkPlotDefinition,
         (parameters[1], result(1.0; result_basis = :total));
         legend = ("per length", "total")
     )
     @test_throws DomainError PB.make_render(
-        E.LineParametersBenchmarkPlotSpec,
+        E.LineParametersBenchmarkPlotDefinition,
         (
             result(1.0; result_frequency = [0.0, 10.0, 100.0]),
             result(1.1; result_frequency = [0.0, 10.0, 100.0])
@@ -282,7 +282,7 @@ end
 ] begin
     const Cmp=LineCableModels.Computation
     const PB=LineCableModels.PlotBuilder
-    const Spec=Cmp.MCDistributionPlotSpec
+    const Spec=Cmp.MCDistributionPlotDefinition
 
     result=TestFixtures.cable_monte_carlo_result()
     expected_kinds=Dict(
@@ -305,7 +305,7 @@ end
         end
     end
 
-    histogram=result.histograms.R
+    histogram=only(Cmp.histograms(result)).R
     @test Cmp._mc_histogram_cdf(histogram, first(histogram.edges) - 1) == 0.0
     @test Cmp._mc_histogram_cdf(histogram, last(histogram.edges) + 1) == 1.0
     @test Cmp._mc_histogram_cdf(histogram, 2.0) ≈ 0.25
@@ -314,18 +314,14 @@ end
     @test Cmp._mc_histogram_quantile(histogram, 0.5) ≈ 3.0
     @test_throws DomainError Cmp._mc_histogram_quantile(histogram, -eps())
 
+    sample_details=copy(result.details)
+    sample_details[:histograms]=(values = nothing,)
     samples_only=Cmp.MonteCarloResult(
-        result.representation,
-        result.statistics,
-        result.samples,
-        nothing,
-        nothing,
-        result.trials,
-        result.confidence,
-        result.cdf_tol,
-        result.distribution,
-        result.seed,
-        result.manifest
+        result.formulation,
+        result.values,
+        result.space,
+        result.stats,
+        sample_details
     )
     derived=PB.make_render(Spec, samples_only; mode = :pdf, nbins = 2)
     derived_series=only(only(only(derived.figures).views).series)
@@ -364,18 +360,14 @@ end
         LineCableModels.UnitHandler.Units()
     ) == "dimensionless"
 
+    histogram_details=copy(result.details)
+    histogram_details[:samples]=(values = nothing,)
     histogram_only=Cmp.MonteCarloResult(
-        result.representation,
-        result.statistics,
-        nothing,
-        result.histograms,
-        nothing,
-        result.trials,
-        result.confidence,
-        result.cdf_tol,
-        result.distribution,
-        result.seed,
-        result.manifest
+        result.formulation,
+        result.values,
+        result.space,
+        result.stats,
+        histogram_details
     )
     @test PB.make_render(Spec, histogram_only; mode = :ecdf, data = :pdf) isa
           PB.RenderSpec

@@ -117,13 +117,13 @@
         capacitance = 0.39,
         inductance = 0.3
     )
-    design=only(CableBuilder(
+    design=only(Gridspace(CableBuilder(
         "18kV_1000mm2",
         core_parts,
         sheath_parts,
         jacket_parts;
         nominal = nominal_data
-    ))
+    )))
 
     earth=Earth(rho = 100.0, eps_r = 10.0, mu_r = 1.0)
     frequencies_value=collect(10.0 .^ range(0, stop = 6, length = 101))
@@ -139,7 +139,7 @@
         )
     )
     )
-    problem=only(SystemBuilder(
+    problem=only(Gridspace(SystemBuilder(
         "benchmark_18kV_1000mm2_trifoil_pscad",
         design,
         positions;
@@ -147,7 +147,7 @@
         temperature = 20.0,
         earth,
         frequencies = frequencies_value
-    ))
+    )))
     reference_problem=LineParametersProblem(
         problem.system;
         temperature = problem.temperature,
@@ -157,7 +157,7 @@
     reference_formulation=Formulation(
         :pscad;
         earth_impedance = EarthImpedance.Wedepohl(),
-        options = PSCADOptions(output_stem = "18kV_1000_trif")
+        options = (output_stem = "18kV_1000_trif",)
     )
     formulation=Formulation(
         earth_impedance = EarthImpedance.Pollaczek(),
@@ -207,9 +207,9 @@
         display(DataFrame(problem.earth_props))
     end
 
-    inferred=@inferred compute!(problem, formulation)
+    inferred=@inferred compute(problem, formulation)
     @test size(Z(inferred)) == (9, 9, 101)
-    execution_options=ComputeOptions(verbosity = (default = 0, PSCAD = 2))
+    execution_options=(verbosity = (default = 0, PSCAD = 2),)
     outcome=run_case(case; options = execution_options)
     @test outcome.reference isa LineParameters
     @test outcome.candidate isa LineParameters

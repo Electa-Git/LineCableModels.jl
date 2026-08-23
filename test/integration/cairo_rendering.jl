@@ -1,5 +1,5 @@
 @testitem "PlotBuilder / Cairo / golden renders and callbacks" tags=[:visual] setup=[
-    PlotBuilderTestSupport, UsePlotBuilderSupport, TestNumerics] begin
+    PlotBuilderTestSupport, UsePlotBuilderSupport, TestNumerics, TestFixtures] begin
     if get(ENV, "LINECABLEMODELS_TEST_PLOTTING", "false")!="true"
         error("set LINECABLEMODELS_TEST_PLOTTING=true to run the visual contract")
     else
@@ -389,25 +389,8 @@
         @test filesize(fallback_export) > 100
         rm(fallback_export)
 
-        summary=SampleSummary([1.0, 2.0, 3.0, 4.0])
-        histogram=HistogramPDF([1.0, 3.0, 5.0], [0.25, 0.25])
-        mc_result=MonteCarloResult(
-            CableConstants(2.5, 2.5, 2.5),
-            CableConstants(summary, summary, summary),
-            CableConstants(
-                [1.0, 2.0, 3.0, 4.0],
-                [1.0, 2.0, 3.0, 4.0],
-                [1.0, 2.0, 3.0, 4.0]
-            ),
-            CableConstants(histogram, histogram, histogram),
-            nothing,
-            4,
-            0.95,
-            0.02,
-            :normal,
-            UInt64(1),
-            (hash = "plot-fixture",)
-        )
+        mc_result=TestFixtures.cable_monte_carlo_result()
+        histogram=only(histograms(mc_result)).R
         for mode in (:hist, :pdf, :ecdf, :qq)
             mc_plot=Makie.plot(
                 mc_result,
@@ -440,27 +423,37 @@
             fill(histogram, 1, 1, 3),
             fill(histogram, 1, 1, 3)
         )
+        line_representation=LineParameters(
+            Z(parameters)[1:1, 1:1, :],
+            Y(parameters)[1:1, 1:1, :],
+            frequency
+        )
+        line_sample_values=RLCG(
+            line_samples,
+            line_samples .* 1.0e-3,
+            line_samples .* 1.0e-6,
+            line_samples .* 1.0e-4
+        )
+        line_formulation=MonteCarlo(
+            Formulation(); trials = 4, seed = 2,
+            return_samples = true, return_histograms = true
+        )
+        line_details=Dict{Symbol, NamedTuple}(
+            :failures=>(values = ConfigurationFailure[],),
+            :samples=>(values = [line_sample_values],),
+            :histograms=>(values = [line_histograms],),
+            :random=>(
+                root_seed = UInt64(2), configuration_seeds = UInt64[2], trials = [4],
+                confidence = 0.95, cdf_tol = 0.02, distribution = :normal
+            ),
+            :manifest=>(value = (hash = "line-plot-fixture",),)
+        )
         line_mc=MonteCarloResult(
-            LineParameters(
-                Z(parameters)[1:1, 1:1, :],
-                Y(parameters)[1:1, 1:1, :],
-                frequency
-            ),
-            line_statistics,
-            RLCG(
-                line_samples,
-                line_samples .* 1.0e-3,
-                line_samples .* 1.0e-6,
-                line_samples .* 1.0e-4
-            ),
-            line_histograms,
+            line_formulation,
+            [line_representation],
             nothing,
-            4,
-            0.95,
-            0.02,
-            :normal,
-            UInt64(2),
-            (hash = "line-plot-fixture",)
+            [line_statistics],
+            line_details
         )
         for mode in (:hist, :pdf, :ecdf, :qq)
             line_mc_plot=Makie.plot(
@@ -714,7 +707,7 @@
             legend = LineCableModels.PlotBuilder.LegendSpec(enabled = false)
         )
         primitive_render=LineCableModels.PlotBuilder.RenderSpec(
-            LineCableModels.DataModel.MaterialScalePlotSpec,
+            LineCableModels.DataModel.MaterialScalePlotDefinition,
             [primitive_page]
         )
         primitive_plot=only(ui_components.build(

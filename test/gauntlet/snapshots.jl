@@ -191,13 +191,22 @@ function _load_snapshot_path(case::GauntletCase, path::AbstractString)
         "Gauntlet snapshot $path belongs to backend $(snapshot["backend"]), " *
         "not $(case.backend)",
     ))
-    snapshot["case_sha256"] == case_digest(case) || throw(ArgumentError(
-        "Gauntlet snapshot $path does not match $(case.source_file). " *
-        "Review the case and record it explicitly.",
+    snapshot["case_sha256"] == _reference_source_digest(case) || throw(ArgumentError(
+        "Gauntlet snapshot $path does not match its immutable v1 source archive.",
     ))
-    snapshot["formulation"] == formulation_record(case) || throw(ArgumentError(
+    _semantic_formulation_pair(snapshot["formulation"]) ==
+    _semantic_formulation_pair(formulation_record(case)) || throw(ArgumentError(
         "Gauntlet snapshot formulation does not match the case definition",
     ))
+    stored_problem = snapshot["problem"]
+    _same_problem_structure(stored_problem.reference, case.reference_problem) ||
+        throw(ArgumentError(
+            "Gauntlet snapshot reference problem structure does not match the case definition",
+        ))
+    _same_problem_structure(stored_problem.candidate, case.problem) ||
+        throw(ArgumentError(
+            "Gauntlet snapshot candidate problem structure does not match the case definition",
+        ))
     snapshot["frequencies"] == case.problem.frequencies || throw(ArgumentError(
         "Gauntlet snapshot frequencies do not match the case definition",
     ))
@@ -259,12 +268,12 @@ function run_snapshot(
         case::GauntletCase;
         path::Union{Nothing, AbstractString} = nothing,
         artifacts_toml::AbstractString = ARTIFACTS_TOML,
-        options::ComputeOptions = ComputeOptions(),
+        options::NamedTuple = (;),
         benchmark_samples::Int = 10,
         benchmark_seconds::Real = 10
 )
     loaded = load_snapshot(case; path, artifacts_toml)
-    candidate = compute!(case.problem, case.formulation; options)
+    candidate = compute(case.problem, case.formulation; options)
     validate_structure(case, candidate)
     reference_comparison = compare(loaded.reference, candidate)
     regression_comparison = compare(loaded.accepted, candidate)

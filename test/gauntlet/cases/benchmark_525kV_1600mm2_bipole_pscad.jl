@@ -83,13 +83,13 @@
         capacitance = nothing,
         inductance = nothing
     )
-    design=only(CableBuilder(
+    design=only(Gridspace(CableBuilder(
         "525kV_1600mm2",
         core_parts,
         sheath_parts,
         armor_parts;
         nominal = nominal_data
-    ))
+    )))
 
     earth=Earth(rho = 100.0, eps_r = 10.0, mu_r = 1.0)
     frequencies_value=collect(10.0 .^ range(0, stop = 6, length = 101))
@@ -105,7 +105,7 @@
             phases = (:core=>4, :sheath=>5, :armor=>6)
         )
     )
-    problem=only(SystemBuilder(
+    problem=only(Gridspace(SystemBuilder(
         "benchmark_525kV_1600mm2_bipole_pscad",
         design,
         positions;
@@ -113,7 +113,7 @@
         temperature = 20.0,
         earth,
         frequencies = frequencies_value
-    ))
+    )))
     reference_problem=LineParametersProblem(
         problem.system;
         temperature = problem.temperature,
@@ -123,7 +123,7 @@
     reference_formulation=Formulation(
         :pscad;
         earth_impedance = EarthImpedance.Wedepohl(),
-        options = PSCADOptions(output_stem = "525kV_bipole")
+        options = (output_stem = "525kV_bipole",)
     )
     formulation=Formulation(
         earth_impedance = EarthImpedance.Pollaczek(),
@@ -172,9 +172,9 @@
         display(DataFrame(problem.earth_props))
     end
 
-    inferred=@inferred compute!(problem, formulation)
+    inferred=@inferred compute(problem, formulation)
     @test size(Z(inferred)) == (6, 6, 101)
-    execution_options=ComputeOptions(verbosity = (default = 0, PSCAD = 2))
+    execution_options=(verbosity = (default = 0, PSCAD = 2),)
     outcome=run_case(case; options = execution_options)
     @test outcome.reference isa LineParameters
     @test outcome.candidate isa LineParameters

@@ -24,12 +24,12 @@ end
     @test UH.get_symbol(UH.quantity(L)) == "L"
     @test UH.get_label(UH.quantity(C)) == "Shunt capacitance"
     @test UH.get_symbol(UH.quantity(Z, :angle)) == "Z"
-    @test UH.get_label(UH.line_component_unit(:R, :per_length).units) == "Ω/km"
-    @test UH.line_component_unit(:L, :per_length).scale == 1e6
-    @test UH.line_component_unit(:C, :total).scale == 1e6
+    @test UH.get_label(UH.line_component_unit(:resistance, :per_length).units) == "Ω/km"
+    @test UH.line_component_unit(:inductance, :per_length).scale == 1e6
+    @test UH.line_component_unit(:capacitance, :total).scale == 1e6
 
     custom = UH.line_component_unit(
-        :C,
+        :capacitance,
         :per_length;
         length_unit = :base,
         quantity_units = (capacitance = :nano,)
@@ -40,7 +40,7 @@ end
     @test_throws ArgumentError UH.quantity(R, :abs)
     @test_throws ArgumentError UH.quantity(identity)
     @test_throws ArgumentError UH.line_component_quantity(:unknown)
-    @test_throws ArgumentError UH.line_component_unit(:R, :invalid)
+    @test_throws ArgumentError UH.line_component_unit(:resistance, :invalid)
 end
 
 @testitem "UnitHandler / quantities / complete display policy" tags = [:unit] begin
@@ -62,13 +62,17 @@ end
     @test UH.get_label(UH.display_unit(tag)) == UH.get_label(UH.default_unit(tag))
 
     component_expectations = Dict(
-        :R => ("Ω/km", "R"), :X => ("Ω/km", "X"),
-        :L => ("mH/km", "L"), :G => ("S/km", "G"),
-        :B => ("S/km", "B"), :C => ("μF/km", "C"),
-        :Z_re => ("Ω/km", "R"), :Z_im => ("Ω/km", "X"),
-        :Z_abs => ("Ω/km", "Z"), :Z_angle => ("°", "Z"),
-        :Y_re => ("S/km", "G"), :Y_im => ("S/km", "B"),
-        :Y_abs => ("S/km", "Y"), :Y_angle => ("°", "Y")
+        :frequency => ("Hz", "f"),
+        :resistance => ("Ω/km", "R"), :reactance => ("Ω/km", "X"),
+        :inductance => ("mH/km", "L"), :conductance => ("S/km", "G"),
+        :susceptance => ("S/km", "B"), :capacitance => ("μF/km", "C"),
+        :series_impedance => ("Ω/km", "Z"),
+        :shunt_admittance => ("S/km", "Y"),
+        :angle => ("°", "∠"),
+        :series_impedance_absolute_error => ("Ω/km", "ΔZ"),
+        :series_impedance_relative_error => ("", "εZ"),
+        :shunt_admittance_absolute_error => ("S/km", "ΔY"),
+        :shunt_admittance_relative_error => ("", "εY")
     )
     for (component, (unit_label, symbol)) in component_expectations
         specification = UH.line_component_quantity(component)
@@ -78,17 +82,17 @@ end
         @test resolved.scale > 0
     end
 
-    @test UH.quantity(Z) isa UH.QuantityTag{:impedance}
-    @test UH.quantity(Y) isa UH.QuantityTag{:admittance}
+    @test UH.quantity(Z) isa UH.QuantityTag{:series_impedance}
+    @test UH.quantity(Y) isa UH.QuantityTag{:shunt_admittance}
     @test UH.get_label(UH.quantity(Z, :abs)) == "Series impedance magnitude"
     @test UH.get_label(UH.quantity(Y, :abs)) == "Shunt admittance magnitude"
     @test UH.get_label(UH.quantity(Z, :angle)) == "Series impedance angle"
     @test UH.get_label(UH.quantity(Y, :angle)) == "Shunt admittance angle"
     @test_throws ArgumentError UH.quantity(Z, :unsupported)
 
-    @test UH.get_label(UH.default_unit(Val(:freq))) == "Hz"
-    @test UH.get_label(UH.display_unit(:freq)) == "Hz"
-    @test UH.get_label(Val(:freq)) == "Frequency"
+    @test UH.get_label(UH.default_unit(Val(:frequency))) == "Hz"
+    @test UH.get_label(UH.display_unit(:frequency)) == "Hz"
+    @test UH.get_label(Val(:frequency)) == "Frequency"
     @test UH.get_label(:angle) == "Angle"
     @test UH.scale_factor(UH.display_unit(:resistance)) == 1_000.0
     @test UH.scale_factor(
@@ -103,34 +107,35 @@ end
         length_prefix = :mega
     )) == "Ω/Mm"
 
-    by_component = UH.line_component_unit(:R, :per_length; quantity_units = Dict(:R =>
-        :milli))
+    by_component = UH.line_component_unit(
+        :resistance, :per_length; quantity_units = Dict(:resistance =>
+            :milli))
     by_semantic = UH.line_component_unit(
-        :R,
+        :resistance,
         :per_length;
         quantity_units = Dict(:resistance => :micro)
     )
     @test UH.get_label(by_component.units) == "mΩ/km"
     @test UH.get_label(by_semantic.units) == "μΩ/km"
     @test UH.get_label(UH.line_component_unit(
-        :R,
+        :resistance,
         :per_length;
         quantity_units = Dict(:unrelated => :nano)
     ).units) == "Ω/km"
-    @test_throws ArgumentError UH.line_component_unit(:R, :per_length; quantity_units = 1)
+    @test_throws ArgumentError UH.line_component_unit(:resistance, :per_length; quantity_units = 1)
     @test_throws ArgumentError UH.line_component_unit(
-        :R,
+        :resistance,
         :per_length;
-        quantity_units = Dict(:R => "milli")
+        quantity_units = Dict(:resistance => "milli")
     )
 
     quantity_expectations = Dict(
-        :freq => ("Frequency", "f", "Hz"),
+        :frequency => ("Frequency", "f", "Hz"),
         :inductance => ("Series inductance", "L", "mH/km"),
         :capacitance => ("Shunt capacitance", "C", "μF/km"),
         :conductance => ("Shunt conductance", "G", "S/km"),
-        :impedance => ("Series impedance", "Z", "Ω/km"),
-        :admittance => ("Shunt admittance", "Y", "S/km"),
+        :series_impedance => ("Series impedance", "Z", "Ω/km"),
+        :shunt_admittance => ("Shunt admittance", "Y", "S/km"),
         :reactance => ("Inductive reactance", "X", "Ω/km"),
         :susceptance => ("Capacitive susceptance", "B", "S/km"),
         :angle => ("Angle", "∠", "°")
@@ -146,8 +151,8 @@ end
         UH.QuantityTag{:resistance}(),
         UH.display_unit(UH.QuantityTag{:resistance}())
     ) == 1000.0
-    @test UH.get_label(UH.default_unit(UH.QuantityTag{(:impedance, :re)}())) == "Ω/m"
-    @test UH.get_label(UH.default_unit(UH.QuantityTag{(:impedance, :im)}())) == "Ω/m"
-    @test UH.get_label(UH.default_unit(UH.QuantityTag{(:admittance, :re)}())) == "S/m"
-    @test UH.get_label(UH.default_unit(UH.QuantityTag{(:admittance, :im)}())) == "S/m"
+    @test UH.get_label(UH.default_unit(UH.QuantityTag{(:series_impedance, :re)}())) == "Ω/m"
+    @test UH.get_label(UH.default_unit(UH.QuantityTag{(:series_impedance, :im)}())) == "Ω/m"
+    @test UH.get_label(UH.default_unit(UH.QuantityTag{(:shunt_admittance, :re)}())) == "S/m"
+    @test UH.get_label(UH.default_unit(UH.QuantityTag{(:shunt_admittance, :im)}())) == "S/m"
 end

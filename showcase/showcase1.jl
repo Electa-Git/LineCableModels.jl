@@ -785,7 +785,7 @@ begin
         w_cut,
         lay_ratio,
         get(materials, "copper");
-        thickness = t_cut,
+        thickness = t_cut
     )
 
     # Water blocking tape over screen:
@@ -811,7 +811,7 @@ begin
         jacket_insu,
         Insulator,
         get(materials, "pe");
-        thickness = t_jac,
+        thickness = t_jac
     )
 
     cable_id = "showcase"
@@ -841,7 +841,7 @@ md"""
 
 # ╔═╡ 9ddcccbe-86c8-4335-8d65-35af4ce755ab
 begin
-    core_df = DataFrame(compute!(CableConstantsProblem(cable_design), Formulation()))
+    core_df = DataFrame(compute(CableConstantsProblem(cable_design), Formulation()))
     core_df
 end
 
@@ -959,7 +959,7 @@ begin
         w_cut,
         lay_ratio,
         get(materials, "copper");
-        thickness = t_cut,
+        thickness = t_cut
     )
 
     # Water blocking tape over screen:
@@ -985,7 +985,7 @@ begin
         jjacket_insu,
         Insulator,
         get(materials, "pe");
-        thickness = t_jac,
+        thickness = t_jac
     )
 
     ccable_design = CableDesign(cable_id, ccore_cc; nominal_data = datasheet_info)
@@ -1023,14 +1023,14 @@ end;
 begin
     using LineCableModels.Engine
     using LineCableModels.Engine.Transforms: Fortescue
-    F = Formulation(:EMT,
+    F = Formulation(:analytical,
         internal_impedance = InternalImpedance.ScaledBessel(),
         insulation_impedance = InsulationImpedance.Lossless(),
         earth_impedance = EarthImpedance.Papadopoulos(),
         insulation_admittance = InsulationAdmittance.Lossless(),
         earth_admittance = EarthAdmittance.Papadopoulos(),
         modal_transform = Transforms.Fortescue(),
-        equivalent_earth = EHEM.EnforceLayer(layer = -1),  # Use the last layer as effective earth
+        equivalent_earth = EHEM.EnforceLayer(layer = -1)  # Use the last layer as effective earth
     )
 end;
 
@@ -1115,7 +1115,7 @@ end
 # ╔═╡ e8117400-adf3-45e3-bf56-59933f01e6d0
 # ╠═╡ show_logs = false
 begin
-    @time p012 = compute!(problem, F; options = compute_options)
+    @time p012 = compute(problem, F; options = compute_options)
     #Tv, p012 = Fortescue(tol = 1e-5)(p)
 end;
 

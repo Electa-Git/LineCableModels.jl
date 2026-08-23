@@ -112,7 +112,7 @@
             phases = (:core=>4, :sheath=>5, :jacket=>6)
         )
     )
-    problem=only(SystemBuilder(
+    problem=only(Gridspace(SystemBuilder(
         "benchmark_640kV_2000mm2_bipole_pscad",
         design,
         positions;
@@ -120,7 +120,7 @@
         temperature = 20.0,
         earth,
         frequencies = frequencies_value
-    ))
+    )))
     reference_problem=LineParametersProblem(
         problem.system;
         temperature = problem.temperature,
@@ -130,7 +130,7 @@
     reference_formulation=Formulation(
         :pscad;
         earth_impedance = EarthImpedance.Wedepohl(),
-        options = PSCADOptions(output_stem = "640kV_2000_bipole")
+        options = (output_stem = "640kV_2000_bipole",)
     )
     formulation=Formulation(
         earth_impedance = EarthImpedance.Pollaczek(),
@@ -179,9 +179,9 @@
         display(DataFrame(problem.earth_props))
     end
 
-    inferred=@inferred compute!(problem, formulation)
+    inferred=@inferred compute(problem, formulation)
     @test size(Z(inferred)) == (6, 6, 101)
-    execution_options=ComputeOptions(verbosity = (default = 0, PSCAD = 2))
+    execution_options=(verbosity = (default = 0, PSCAD = 2),)
     outcome=run_case(case; options = execution_options)
     @test outcome.reference isa LineParameters
     @test outcome.candidate isa LineParameters

@@ -61,23 +61,35 @@ if lowercase(get(ENV, "LINECABLEMODELS_UPDATE_PLOT_REFERENCES", "false")) == "tr
     )
 
     summary = SampleSummary([1.0, 2.0, 3.0, 4.0])
-    histogram = HistogramPDF([1.0, 3.0, 5.0], [0.25, 0.25])
-    mc_result = MonteCarloResult(
-        CableConstants(2.5, 2.5, 2.5),
-        CableConstants(summary, summary, summary),
-        CableConstants(
-            [1.0, 2.0, 3.0, 4.0],
-            [1.0, 2.0, 3.0, 4.0],
-            [1.0, 2.0, 3.0, 4.0]
+    histogram = HistogramDensity([1.0, 3.0, 5.0], [0.25, 0.25])
+    representation = CableConstants(2.5, 2.5, 2.5)
+    statistics_value = CableConstants(summary, summary, summary)
+    samples_value = CableConstants(
+        [1.0, 2.0, 3.0, 4.0],
+        [1.0, 2.0, 3.0, 4.0],
+        [1.0, 2.0, 3.0, 4.0]
+    )
+    histograms_value = CableConstants(histogram, histogram, histogram)
+    mc_formulation = MonteCarlo(
+        Formulation(); trials = 4, seed = 1,
+        return_samples = true, return_histograms = true
+    )
+    mc_details = Dict{Symbol, NamedTuple}(
+        :failures => (values = ConfigurationFailure[],),
+        :samples => (values = [samples_value],),
+        :histograms => (values = [histograms_value],),
+        :random => (
+            root_seed = UInt64(1), configuration_seeds = UInt64[1], trials = [4],
+            confidence = 0.95, cdf_tol = 0.02, distribution = :normal
         ),
-        CableConstants(histogram, histogram, histogram),
+        :manifest => (value = (hash = "reference-fixture",),)
+    )
+    mc_result = MonteCarloResult(
+        mc_formulation,
+        [representation],
         nothing,
-        4,
-        0.95,
-        0.02,
-        :normal,
-        UInt64(1),
-        (hash = "reference-fixture",)
+        [statistics_value],
+        mc_details
     )
     for mode in (:hist, :pdf, :ecdf, :qq)
         save_reference(

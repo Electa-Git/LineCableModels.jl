@@ -25,14 +25,14 @@ comp_data = DataFrame(design)
 detailed_data = DataFrame(design, :detailed)
 
 # Compute before rendering numerical cable constants
-constants = compute!(CableConstantsProblem(design), Formulation())
+constants = compute(CableConstantsProblem(design), Formulation())
 constants_data = DataFrame(constants)
 ```
 
 """
 function DataFrame(design::CableDesign, format::Symbol = :components)::DataFrame
     if format == :baseparams
-        return DataFrame(CableConstants(design))
+        return DataFrame(_base_parameters(design))
     elseif format == :components
         # Component-level properties
         properties = [
@@ -142,9 +142,10 @@ $(TYPEDSIGNATURES)
 Render already-computed cable constants without performing a calculation.
 """
 function DataFrame(constants::CableConstants)::DataFrame
+    values = observables(constants)
     return DataFrame(
         parameter = ["R", "L", "C"],
-        value = [constants.R, constants.L, constants.C],
+        value = collect(values),
         unit = ["Ω/m", "H/m", "F/m"]
     )
 end

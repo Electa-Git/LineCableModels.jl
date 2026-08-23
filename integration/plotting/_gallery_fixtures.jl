@@ -57,7 +57,7 @@ function build_manual_plot_gallery(
     )
 
     summary = SampleSummary([1.0, 2.0, 3.0, 4.0])
-    histogram = HistogramPDF([1.0, 3.0, 5.0], [0.25, 0.25])
+    histogram = HistogramDensity([1.0, 3.0, 5.0], [0.25, 0.25])
     mc_result = MonteCarloResult(
         CableConstants(2.5, 2.5, 2.5),
         CableConstants(summary, summary, summary),

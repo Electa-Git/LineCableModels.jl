@@ -73,7 +73,7 @@ struct LineParameters{
     U <: Real,
     D <: LineParamsDomain,
     Basis
-}
+} <: AbstractProblemResult
     "Frequency-dependent series impedance \\[Ω/m\\] or \\[Ω\\]."
     Z::SeriesImpedance{T, Basis}
     "Frequency-dependent shunt admittance \\[S/m\\] or \\[S\\]."
@@ -181,6 +181,20 @@ frequencies(lp::LineParameters) = lp.f
 nconductors(lp::LineParameters) = size(lp.Z, 1)
 nfrequencies(lp::LineParameters) = length(lp.f)
 
+function observables(parameters::LineParameters)
+    (
+        frequency = copy(parameters.f),
+        series_impedance = SeriesImpedance(
+            parameters.Z.values;
+            basis = basis(parameters)
+        ),
+        shunt_admittance = ShuntAdmittance(
+            parameters.Y.values;
+            basis = basis(parameters)
+        )
+    )
+end
+
 series_impedance(lp::LineParameters) = lp.Z
 shunt_admittance(lp::LineParameters) = lp.Y
 series_impedance(impedance::SeriesImpedance) = impedance
@@ -284,37 +298,3 @@ inductance(lp::LineParameters, args...) = L(lp, args...)
 conductance(lp::LineParameters, args...) = G(lp, args...)
 susceptance(lp::LineParameters, args...) = B(lp, args...)
 capacitance(lp::LineParameters, args...) = C(lp, args...)
-
-_line_component_values(::Val{:R}, object, frequencies) = R(object)
-_line_component_values(::Val{:X}, object, frequencies) = X(object)
-_line_component_values(::Val{:G}, object, frequencies) = G(object)
-_line_component_values(::Val{:B}, object, frequencies) = B(object)
-_line_component_values(::Val{:Z_re}, object, frequencies) = R(object)
-_line_component_values(::Val{:Z_im}, object, frequencies) = X(object)
-_line_component_values(::Val{:Z_abs}, object, frequencies) = abs.(Z(object))
-function _line_component_values(::Val{:Z_angle}, object, frequencies)
-    angle.(Z(object)) .* (180 / π)
-end
-_line_component_values(::Val{:Y_re}, object, frequencies) = G(object)
-_line_component_values(::Val{:Y_im}, object, frequencies) = B(object)
-_line_component_values(::Val{:Y_abs}, object, frequencies) = abs.(Y(object))
-function _line_component_values(::Val{:Y_angle}, object, frequencies)
-    angle.(Y(object)) .* (180 / π)
-end
-
-_line_component_values(::Val{:L}, parameters::LineParameters, frequencies) = L(parameters)
-_line_component_values(::Val{:C}, parameters::LineParameters, frequencies) = C(parameters)
-
-function _frequency_component_values(component::Symbol, reactive, frequencies)
-    any(iszero, frequencies) && throw(
-        DomainError(frequencies, "$component is undefined at zero frequency"),
-    )
-    return reactive ./ reshape(2π .* frequencies, 1, 1, :)
-end
-
-function _line_component_values(::Val{:L}, object::SeriesImpedance, frequencies)
-    _frequency_component_values(:L, X(object), frequencies)
-end
-function _line_component_values(::Val{:C}, object::ShuntAdmittance, frequencies)
-    _frequency_component_values(:C, B(object), frequencies)
-end

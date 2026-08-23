@@ -5,7 +5,7 @@
     TestNumerics
 ] begin
     design=TestFixtures.mv_cable_design()
-    constants=compute!(CableConstantsProblem(design), Formulation())
+    constants=compute(CableConstantsProblem(design), Formulation())
     nominal=design.nominal_data
 
     @test constants.R > 0
@@ -20,7 +20,7 @@
     @test isapprox(1e6 * constants.L, nominal.inductance; rtol = 0.06)
     @test isapprox(1e9 * constants.C, nominal.capacitance; rtol = 0.06)
 
-    separated=compute!(
+    separated=compute(
         CableConstantsProblem(design; separation = 2.5*outer_radius(design)),
         Formulation()
     )
@@ -55,7 +55,9 @@ end
     first_monte_carlo=TestFixtures.cable_monte_carlo_result()
     second_monte_carlo=TestFixtures.cable_monte_carlo_result()
     @test first_monte_carlo !== second_monte_carlo
-    @test first_monte_carlo.samples.R !== second_monte_carlo.samples.R
-    first_monte_carlo.samples.R[1]=Inf
-    @test all(isfinite, second_monte_carlo.samples.R)
+    first_samples=only(samples(first_monte_carlo))
+    second_samples=only(samples(second_monte_carlo))
+    @test first_samples.R !== second_samples.R
+    first_samples.R[1]=Inf
+    @test all(isfinite, second_samples.R)
 end

@@ -1,4 +1,27 @@
-struct LineParameterPlotSpec <: PlotBuilder.AbstractPlotSpec end
+struct LineParameterPlotDefinition <: PlotBuilder.AbstractPlotDefinition end
+
+const _LINE_COMPONENT_OBSERVABLE = Dict(
+    :R => :resistance,
+    :X => :reactance,
+    :L => :inductance,
+    :G => :conductance,
+    :B => :susceptance,
+    :C => :capacitance,
+    :Z_re => :resistance,
+    :Z_im => :reactance,
+    :Z_abs => :series_impedance,
+    :Z_angle => :angle,
+    :Y_re => :conductance,
+    :Y_im => :susceptance,
+    :Y_abs => :shunt_admittance,
+    :Y_angle => :angle
+)
+
+function _component_observable(component::Symbol)
+    return get(_LINE_COMPONENT_OBSERVABLE, component) do
+        throw(ArgumentError("unsupported line-parameter component :$component"))
+    end
+end
 
 function _component_unit(
         component::Symbol,
@@ -7,7 +30,7 @@ function _component_unit(
         quantity_units
 )
     resolved = UnitHandler.line_component_unit(
-        component,
+        _component_observable(component),
         parameter_basis;
         length_unit,
         quantity_units
@@ -62,6 +85,40 @@ const _SERIES_COMPONENTS = (:R, :X, :L, :Z_re, :Z_im, :Z_abs, :Z_angle)
 const _SHUNT_COMPONENTS = (:G, :B, :C, :Y_re, :Y_im, :Y_abs, :Y_angle)
 const _CARTESIAN_COMPONENTS = (:R, :X, :G, :B, :Z_re, :Z_im, :Y_re, :Y_im)
 const _DISPLAY_ZERO_RTOL = sqrt(eps(Float64))
+
+_line_component_values(::Val{:R}, object, frequencies) = R(object)
+_line_component_values(::Val{:X}, object, frequencies) = X(object)
+_line_component_values(::Val{:G}, object, frequencies) = G(object)
+_line_component_values(::Val{:B}, object, frequencies) = B(object)
+_line_component_values(::Val{:Z_re}, object, frequencies) = R(object)
+_line_component_values(::Val{:Z_im}, object, frequencies) = X(object)
+_line_component_values(::Val{:Z_abs}, object, frequencies) = abs.(Z(object))
+function _line_component_values(::Val{:Z_angle}, object, frequencies)
+    angle.(Z(object)) .* (180 / π)
+end
+_line_component_values(::Val{:Y_re}, object, frequencies) = G(object)
+_line_component_values(::Val{:Y_im}, object, frequencies) = B(object)
+_line_component_values(::Val{:Y_abs}, object, frequencies) = abs.(Y(object))
+function _line_component_values(::Val{:Y_angle}, object, frequencies)
+    angle.(Y(object)) .* (180 / π)
+end
+
+_line_component_values(::Val{:L}, parameters::LineParameters, frequencies) = L(parameters)
+_line_component_values(::Val{:C}, parameters::LineParameters, frequencies) = C(parameters)
+
+function _frequency_component_values(component::Symbol, reactive, frequencies)
+    any(iszero, frequencies) && throw(
+        DomainError(frequencies, "$component is undefined at zero frequency"),
+    )
+    return reactive ./ reshape(2π .* frequencies, 1, 1, :)
+end
+
+function _line_component_values(::Val{:L}, object::SeriesImpedance, frequencies)
+    _frequency_component_values(:L, X(object), frequencies)
+end
+function _line_component_values(::Val{:C}, object::ShuntAdmittance, frequencies)
+    _frequency_component_values(:C, B(object), frequencies)
+end
 
 function _line_page_keys(::Val{K}, ::Val{Components}) where {K, Components}
     allowed = K === :series ? _SERIES_COMPONENTS : _SHUNT_COMPONENTS
@@ -124,15 +181,20 @@ function _resolve_line_components(object, quantities)
     return selected
 end
 
-_line_sources(parameters::LineParameters) = (Z(parameters), Y(parameters))
+function _line_sources(parameters::LineParameters)
+    values = observables(parameters)
+    return (values.series_impedance, values.shunt_admittance)
+end
 _line_sources(object::Union{SeriesImpedance, ShuntAdmittance}) = (object,)
 
 _line_source(object::SeriesImpedance, ::LinePageKey{:series, C}) where {C} = object
 _line_source(object::ShuntAdmittance, ::LinePageKey{:shunt, C}) where {C} = object
 function _line_source(parameters::LineParameters, ::LinePageKey{:series, C}) where {C}
-    Z(parameters)
+    observables(parameters).series_impedance
 end
-_line_source(parameters::LineParameters, ::LinePageKey{:shunt, C}) where {C} = Y(parameters)
+function _line_source(parameters::LineParameters, ::LinePageKey{:shunt, C}) where {C}
+    observables(parameters).shunt_admittance
+end
 
 function _line_input_defaults(frequencies)
     return (;
@@ -147,10 +209,10 @@ function _line_input_defaults(frequencies)
     )
 end
 
-function PlotBuilder.dispatch_on(::Type{LineParameterPlotSpec})
+function PlotBuilder.dispatch_on(::Type{LineParameterPlotDefinition})
     Union{LineParameters, SeriesImpedance, ShuntAdmittance}
 end
-function PlotBuilder.input_kwargs(::Type{LineParameterPlotSpec})
+function PlotBuilder.input_kwargs(::Type{LineParameterPlotDefinition})
     (
         :frequencies,
         :quantities,
@@ -162,24 +224,24 @@ function PlotBuilder.input_kwargs(::Type{LineParameterPlotSpec})
         :yscale
     )
 end
-PlotBuilder.renderer_kwargs(::Type{LineParameterPlotSpec}) = (:fig_size,)
-function PlotBuilder.input_defaults(::Type{LineParameterPlotSpec}, parameters::LineParameters)
+PlotBuilder.renderer_kwargs(::Type{LineParameterPlotDefinition}) = (:fig_size,)
+function PlotBuilder.input_defaults(::Type{LineParameterPlotDefinition}, parameters::LineParameters)
     _line_input_defaults(frequencies(parameters))
 end
 function PlotBuilder.input_defaults(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         ::Union{SeriesImpedance, ShuntAdmittance}
 )
     _line_input_defaults(nothing)
 end
 function PlotBuilder.renderer_defaults(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         ::Union{LineParameters, SeriesImpedance, ShuntAdmittance}
 )
     (; fig_size = (800, 400))
 end
 
-function PlotBuilder.resolve_input(::Type{LineParameterPlotSpec}, recipe::PlotBuilder.PlotRecipe)
+function PlotBuilder.resolve_input(::Type{LineParameterPlotDefinition}, recipe::PlotBuilder.PlotRecipe)
     input = recipe.input
     components = _resolve_line_components(recipe.object, input.quantities)
     input.xscale in (:linear, :log10) || throw(
@@ -219,12 +281,12 @@ function PlotBuilder.resolve_input(::Type{LineParameterPlotSpec}, recipe::PlotBu
     )
 end
 
-function PlotBuilder.recipe_mode(::Type{LineParameterPlotSpec}, recipe::PlotBuilder.PlotRecipe)
+function PlotBuilder.recipe_mode(::Type{LineParameterPlotDefinition}, recipe::PlotBuilder.PlotRecipe)
     return Val(recipe.input.components)
 end
 
 function PlotBuilder.grouping_mode(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe
 )
@@ -246,7 +308,7 @@ function _line_component_facets(
 end
 
 function PlotBuilder.page_keys(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:panels},
         recipe::PlotBuilder.PlotRecipe
@@ -260,7 +322,7 @@ function PlotBuilder.page_keys(
 end
 
 function PlotBuilder.view_keys(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:panels},
         recipe::PlotBuilder.PlotRecipe,
@@ -270,7 +332,7 @@ function PlotBuilder.view_keys(
 end
 
 function PlotBuilder.series_keys(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:panels},
         recipe::PlotBuilder.PlotRecipe,
@@ -322,18 +384,18 @@ function _display_values(values, source, component::Symbol)
 end
 
 function PlotBuilder.axis_quantity(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:x},
         recipe::PlotBuilder.PlotRecipe,
         page_key,
         view_key
 )
-    return UnitHandler.QuantityTag{:freq}()
+    return UnitHandler.QuantityTag{:frequency}()
 end
 
 function PlotBuilder.axis_quantity(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:y},
         recipe::PlotBuilder.PlotRecipe,
@@ -352,7 +414,7 @@ function PlotBuilder.axis_quantity(
 end
 
 function PlotBuilder.axis_quantity(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:y},
         recipe::PlotBuilder.PlotRecipe,
@@ -360,7 +422,7 @@ function PlotBuilder.axis_quantity(
         view_key::LinePageKey
 )
     return PlotBuilder.axis_quantity(
-        LineParameterPlotSpec,
+        LineParameterPlotDefinition,
         mode,
         Val(:y),
         recipe,
@@ -370,7 +432,7 @@ function PlotBuilder.axis_quantity(
 end
 
 function PlotBuilder.axis_unit(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:x},
         quantity::UnitHandler.QuantityTag,
@@ -382,7 +444,7 @@ function PlotBuilder.axis_unit(
 end
 
 function PlotBuilder.axis_unit(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:y},
         quantity::UnitHandler.QuantityTag,
@@ -402,7 +464,7 @@ function PlotBuilder.axis_unit(
 end
 
 function PlotBuilder.axis_unit(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:y},
         quantity::UnitHandler.QuantityTag,
@@ -411,7 +473,7 @@ function PlotBuilder.axis_unit(
         view_key::LinePageKey
 )
     return PlotBuilder.axis_unit(
-        LineParameterPlotSpec,
+        LineParameterPlotDefinition,
         mode,
         Val(:y),
         quantity,
@@ -422,7 +484,7 @@ function PlotBuilder.axis_unit(
 end
 
 function PlotBuilder.axis_scale(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:x},
         recipe::PlotBuilder.PlotRecipe,
@@ -433,7 +495,7 @@ function PlotBuilder.axis_scale(
 end
 
 function PlotBuilder.axis_scale(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:y},
         recipe::PlotBuilder.PlotRecipe,
@@ -444,7 +506,7 @@ function PlotBuilder.axis_scale(
 end
 
 function PlotBuilder.series_data(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:x},
         recipe::PlotBuilder.PlotRecipe,
@@ -452,14 +514,14 @@ function PlotBuilder.series_data(
         view_key,
         series_key
 )
-    quantity = UnitHandler.QuantityTag{:freq}()
+    quantity = UnitHandler.QuantityTag{:frequency}()
     target = UnitHandler.units(recipe.input.freq_unit, :hertz)
     conversion = UnitHandler.scale_factor(UnitHandler.default_unit(quantity), target)
     return recipe.input.frequencies .* conversion
 end
 
 function PlotBuilder.series_data(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:y},
         recipe::PlotBuilder.PlotRecipe,
@@ -472,7 +534,7 @@ function PlotBuilder.series_data(
 end
 
 function PlotBuilder.series_data(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:y},
         recipe::PlotBuilder.PlotRecipe,
@@ -481,7 +543,7 @@ function PlotBuilder.series_data(
         series_key::Tuple{Int, Int}
 )
     return PlotBuilder.series_data(
-        LineParameterPlotSpec,
+        LineParameterPlotDefinition,
         mode,
         Val(:y),
         recipe,
@@ -492,7 +554,7 @@ function PlotBuilder.series_data(
 end
 
 function PlotBuilder.legend_label(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey,
@@ -500,7 +562,7 @@ function PlotBuilder.legend_label(
         series_key::Tuple{Int, Int}
 )
     quantity = PlotBuilder.axis_quantity(
-        LineParameterPlotSpec,
+        LineParameterPlotDefinition,
         mode,
         Val(:y),
         recipe,
@@ -511,7 +573,7 @@ function PlotBuilder.legend_label(
 end
 
 function PlotBuilder.legend_label(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key::LineFamilyKey{K},
@@ -523,7 +585,7 @@ function PlotBuilder.legend_label(
 end
 
 function PlotBuilder.series_group(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key::LineFamilyKey{K},
@@ -534,7 +596,7 @@ function PlotBuilder.series_group(
 end
 
 function PlotBuilder.series_attributes(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key,
@@ -545,14 +607,14 @@ function PlotBuilder.series_attributes(
 end
 
 function PlotBuilder.default_title(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey,
         view_key
 )
     quantity = PlotBuilder.axis_quantity(
-        LineParameterPlotSpec,
+        LineParameterPlotDefinition,
         mode,
         Val(:y),
         recipe,
@@ -563,7 +625,7 @@ function PlotBuilder.default_title(
 end
 
 function PlotBuilder.default_title(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key::LineFamilyKey{:series},
@@ -573,7 +635,7 @@ function PlotBuilder.default_title(
 end
 
 function PlotBuilder.default_title(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key::LineFamilyKey{:shunt},
@@ -583,14 +645,14 @@ function PlotBuilder.default_title(
 end
 
 function PlotBuilder.default_title(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key::LineFamilyKey,
         view_key::LinePageKey
 )
     return PlotBuilder.default_title(
-        LineParameterPlotSpec,
+        LineParameterPlotDefinition,
         mode,
         recipe,
         view_key,
@@ -599,7 +661,7 @@ function PlotBuilder.default_title(
 end
 
 function PlotBuilder.view_key(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey,
@@ -609,7 +671,7 @@ function PlotBuilder.view_key(
 end
 
 function PlotBuilder.view_key(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key::LineFamilyKey,
@@ -619,7 +681,7 @@ function PlotBuilder.view_key(
 end
 
 function PlotBuilder.layout_spec(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key::LineFamilyKey
@@ -628,7 +690,7 @@ function PlotBuilder.layout_spec(
 end
 
 function PlotBuilder.default_figsize(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key
@@ -666,7 +728,7 @@ function _supports_log(series, dim::Symbol)
 end
 
 function PlotBuilder.axis_scales(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{dim},
         recipe::PlotBuilder.PlotRecipe,
@@ -681,7 +743,7 @@ function PlotBuilder.axis_scales(
 end
 
 function PlotBuilder.axis_exponent(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{dim},
         recipe::PlotBuilder.PlotRecipe,
@@ -695,7 +757,7 @@ function PlotBuilder.axis_exponent(
 end
 
 function PlotBuilder.axis_exponent(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         dim::Val,
         recipe::PlotBuilder.PlotRecipe,
@@ -704,7 +766,7 @@ function PlotBuilder.axis_exponent(
         series::Vector{PlotBuilder.SeriesSpec}
 )
     return PlotBuilder.axis_exponent(
-        LineParameterPlotSpec,
+        LineParameterPlotDefinition,
         mode,
         dim,
         recipe,
@@ -715,7 +777,7 @@ function PlotBuilder.axis_exponent(
 end
 
 function PlotBuilder.page_identity(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey
@@ -729,7 +791,7 @@ function PlotBuilder.page_identity(
 end
 
 function PlotBuilder.page_identity(
-        ::Type{LineParameterPlotSpec},
+        ::Type{LineParameterPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
         page_key::LineFamilyKey

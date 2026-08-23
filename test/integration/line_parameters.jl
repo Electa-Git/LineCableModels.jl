@@ -8,23 +8,25 @@
 
     problem=TestFixtures.line_parameters_problem(frequencies = [50.0, 500.0])
     formulation=Formulation(
-        Val(:EMT);
+        Val(:analytical);
         modal_transform = Fortescue(),
         options = (
             reduce_bundle = true,
             kron_reduction = true,
             ideal_transposition = false,
-            temperature_correction = true
+            temperature_correction = true,
+            output = :trace
         )
     )
-    trace=compute!(problem, formulation; inspect = true)
+    trace=compute(problem, formulation)
     parameters=trace.result
 
     @test domain(parameters) === ModalDomain
     @test size(parameters.Z) == (3, 3, 2)
     @test all(isfinite, parameters.Z)
     @test all(isfinite, parameters.Y)
-    @test trace isa EMTTrace
+    @test trace isa LineParametersTrace
+    @test observables(trace) == observables(parameters)
     @test trace.frequencies == problem.frequencies
     @test trace.phase_map == [1, 0, 0, 2, 0, 0, 3, 0, 0]
     @test trace.cable_map == repeat(1:3; inner = 3)
@@ -52,11 +54,11 @@
     end
 
     input=LineCableModels.Engine.EMTInput(problem)
-    LineCableModels.Engine._trace_buffers(Float64, input, Val(false))
+    LineCableModels.Engine._trace_buffers(Float64, input, Val(:parameters))
     @test @allocated(LineCableModels.Engine._trace_buffers(
-        Float64, input, Val(false))) == 0
+        Float64, input, Val(:parameters))) == 0
     @test LineCableModels.Engine._trace_buffers(
-        Float64, input, Val(false)) === nothing
+        Float64, input, Val(:parameters)) === nothing
 end
 
 @testitem "Engine / solver / bundle-only and singleton reduction policies" tags=[:integration] setup=[
@@ -76,7 +78,7 @@ end
         frequencies
     )
     bundle_only=Formulation(
-        Val(:EMT);
+        Val(:analytical);
         options = (
             reduce_bundle = true,
             kron_reduction = false,
@@ -84,7 +86,7 @@ end
             temperature_correction = false
         )
     )
-    duplicate_result=@inferred compute!(duplicate_problem, bundle_only)
+    duplicate_result=@inferred compute(duplicate_problem, bundle_only)
     @test size(duplicate_result.Z) == (2, 2, 1)
     @test all(isfinite, duplicate_result.Z)
     @test all(isfinite, duplicate_result.Y)
@@ -103,7 +105,7 @@ end
         frequencies
     )
     unreduced=Formulation(
-        Val(:EMT);
+        Val(:analytical);
         options = (
             reduce_bundle = false,
             kron_reduction = false,
@@ -111,7 +113,7 @@ end
             temperature_correction = false
         )
     )
-    singleton_result=compute!(singleton_problem, unreduced)
+    singleton_result=compute(singleton_problem, unreduced)
     @test size(singleton_result.Z) == (1, 1, 1)
     @test real(singleton_result.Z[1, 1, 1]) > 0
     @test imag(singleton_result.Y[1, 1, 1]) > 0

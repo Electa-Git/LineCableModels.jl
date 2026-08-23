@@ -2,11 +2,11 @@
 $(TYPEDEF)
 
 Inspection result containing the public line parameters and selected completed
-primitive matrices from one EMT calculation.
+primitive matrices from one analytical line-parameter calculation.
 
 $(TYPEDFIELDS)
 """
-struct EMTTrace{R, T <: Real}
+struct LineParametersTrace{R, T <: Real} <: AbstractProblemResult
     result::R
     frequencies::Vector{T}
     phase_map::Vector{Int}
@@ -19,9 +19,11 @@ struct EMTTrace{R, T <: Real}
     P::Array{Complex{T}, 3}
 end
 
-Base.eltype(::EMTTrace{<:Any, T}) where {T} = T
+Base.eltype(::LineParametersTrace{<:Any, T}) where {T} = T
 
-function Base.show(io::IO, trace::EMTTrace)
-    print(io, "EMTTrace(", length(trace.frequencies), " frequencies, ",
+observables(trace::LineParametersTrace) = observables(trace.result)
+
+function Base.show(io::IO, trace::LineParametersTrace)
+    print(io, "LineParametersTrace(", length(trace.frequencies), " frequencies, ",
         length(trace.phase_map), " primitive conductors)")
 end

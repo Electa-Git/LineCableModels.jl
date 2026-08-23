@@ -12,9 +12,9 @@
     problem_at(temperature) = LineParametersProblem(
         system; temperature, earth_props = earth, frequencies
     )
-    formulation=Formulation(Val(:EMT); options = (ideal_transposition = false,))
+    formulation=Formulation(Val(:analytical); options = (ideal_transposition = false,))
     uncorrected=Formulation(
-        Val(:EMT);
+        Val(:analytical);
         options = (ideal_transposition = false, temperature_correction = false)
     )
 
@@ -27,9 +27,9 @@
                   ) for component in design.components]
     cold_problem=problem_at(20.0)
     hot_problem=problem_at(90.0)
-    cold=compute!(cold_problem, formulation)
-    hot=compute!(hot_problem, formulation)
-    repeated=compute!(cold_problem, formulation)
+    cold=compute(cold_problem, formulation)
+    hot=compute(hot_problem, formulation)
+    repeated=compute(cold_problem, formulation)
 
     @test hot_problem.temperature == 90.0
     @test all(!hasfield(typeof(layer), :temperature)
@@ -56,8 +56,8 @@
           hot_input.rho0_cond .* [temperature_factor(alpha, 90.0, reference)
            for (alpha, reference) in zip(hot_input.alpha_cond, hot_input.T0_cond)]
 
-    cold_base=compute!(cold_problem, uncorrected)
-    hot_base=compute!(hot_problem, uncorrected)
+    cold_base=compute(cold_problem, uncorrected)
+    hot_base=compute(hot_problem, uncorrected)
     @test hot_base.Z.values == cold_base.Z.values
     @test hot_base.Y.values == cold_base.Y.values
     @test eager_before == [(
@@ -90,7 +90,7 @@ end
         Tuple(Int.(node["size"]))
     )
     design=TestFixtures.mv_cable_design()
-    constants=compute!(CableConstantsProblem(design), Formulation())
+    constants=compute(CableConstantsProblem(design), Formulation())
     @test TestNumerics.isapprox_scaled(constants.R, baseline["cable_constants"]["R"])
     @test TestNumerics.isapprox_scaled(constants.L, baseline["cable_constants"]["L"])
     @test TestNumerics.isapprox_scaled(constants.C, baseline["cable_constants"]["C"])
@@ -116,11 +116,11 @@ end
     problem=TestFixtures.line_parameters_problem(
         frequencies = Float64.(baseline["frequencies"]),
     )
-    ordinary=compute!(problem, Formulation(
-        Val(:EMT); options = (ideal_transposition = false,)
+    ordinary=compute(problem, Formulation(
+        Val(:analytical); options = (ideal_transposition = false,)
     ))
-    transposed=compute!(problem, Formulation(
-        Val(:EMT); options = (ideal_transposition = true,)
+    transposed=compute(problem, Formulation(
+        Val(:analytical); options = (ideal_transposition = true,)
     ))
 
     # The baseline applied the flag to opposite matrix families. These crossed
@@ -174,17 +174,17 @@ end
             earth = PB.Earth(rho = T(100), eps_r = T(10), mu_r = one(T)),
             frequencies = T[50]
         )
-        return only(specification)
+        return only(Gridspace(specification))
     end
 
     half=compact_problem(Float16)
     @test eltype(half) === Float32
     @test eltype(first(half.system.cables).design_data) === Float32
-    @test eltype(compute!(half, Formulation())) === ComplexF32
+    @test eltype(compute(half, Formulation())) === ComplexF32
 
     for T in (Float32, Float64, BigFloat)
         problem=compact_problem(T)
-        result=compute!(problem, Formulation())
+        result=compute(problem, Formulation())
         @test eltype(problem) === T
         @test eltype(result) === Complex{T}
         @test all(isfinite, result.Z.values)
@@ -209,9 +209,9 @@ end
     using Logging
     import NLsolve
 
-    options=ComputeOptions(verbosity = (
+    options=LineCableModels.Engine.computation_options((verbosity = (
         default = 0, LineCableModels = 2, NLsolve = 1, QuadGK = 0
-    ))
+    ),))
     @test verbosity(options, :LineCableModels) == 2
     @test verbosity(options, :NLsolve) == 1
     @test verbosity(options, :unlisted) == 0
@@ -227,8 +227,12 @@ end
     @test Logging.shouldlog(logger, Logging.Warn, Base, :test, :warn)
 
     caller=current_logger()
-    compute!(TestFixtures.line_parameters_problem(), Formulation())
+    compute(TestFixtures.line_parameters_problem(), Formulation())
     @test current_logger() === caller
-    @test_throws ArgumentError ComputeOptions(verbosity = (LineCableModels = 1,))
-    @test_throws ArgumentError ComputeOptions(verbosity = (default = 3,))
+    @test_throws ArgumentError LineCableModels.Engine.computation_options((
+        verbosity = (LineCableModels = 1,),
+    ))
+    @test_throws ArgumentError LineCableModels.Engine.computation_options((
+        verbosity = (default = 3,),
+    ))
 end

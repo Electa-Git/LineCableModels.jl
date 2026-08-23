@@ -15,33 +15,35 @@ line-data model.
 struct NativeInsulationAdmittance <: InsulationAdmittanceFormulation end
 
 """
-    PSCADOptions
-
-Options owned by the PSCAD benchmark formulation.
-"""
-struct PSCADOptions <: AbstractFormulationOptions
-    output_stem::String
-
-    function PSCADOptions(; output_stem::AbstractString = "gauntlet")
-        stem=String(output_stem)
-        occursin(r"^[A-Za-z0-9][A-Za-z0-9_]{0,19}$", stem) ||
-            throw(ArgumentError(
-                "PSCAD output_stem must contain 1–20 ASCII letters, digits, or underscores",
-            ))
-        return new(stem)
-    end
-end
-
-"""
     PSCADFormulation
 
 Store the physical methods selected for a PSCAD line-constants calculation.
 """
-struct PSCADFormulation{EI, EA, IA, O} <: AbstractFormulation
-    earth_impedance::EI
-    earth_admittance::EA
-    insulation_admittance::IA
+struct PSCADFormulation{B, M <: NamedTuple, O <: NamedTuple} <: AbstractFormulation
+    backend::B
+    methods::M
     options::O
+end
+
+function Base.getproperty(formulation::PSCADFormulation, name::Symbol)
+    name in fieldnames(typeof(formulation)) && return getfield(formulation, name)
+    methods = getfield(formulation, :methods)
+    haskey(methods, name) && return getproperty(methods, name)
+    return getfield(formulation, name)
+end
+
+function _pscad_options(options)
+    options isa NamedTuple ||
+        throw(ArgumentError("PSCAD formulation options must be a named tuple"))
+    unknown = setdiff(Set(keys(options)), Set((:output_stem,)))
+    isempty(unknown) || throw(ArgumentError(
+        "unknown PSCAD formulation options: $(sort!(collect(unknown)))",
+    ))
+    stem = String(get(options, :output_stem, "gauntlet"))
+    occursin(r"^[A-Za-z0-9][A-Za-z0-9_]{0,19}$", stem) || throw(ArgumentError(
+        "PSCAD output_stem must contain 1–20 ASCII letters, digits, or underscores",
+    ))
+    return (output_stem = stem,)
 end
 
 function Formulation(
@@ -51,13 +53,13 @@ function Formulation(
         earth_admittance::NativeEarthAdmittance = NativeEarthAdmittance(),
         insulation_admittance::NativeInsulationAdmittance =
         NativeInsulationAdmittance(),
-        options::PSCADOptions = PSCADOptions()
+        options::NamedTuple = (;)
 )
+    methods = (; earth_impedance, earth_admittance, insulation_admittance)
     return PSCADFormulation(
-        earth_impedance,
-        earth_admittance,
-        insulation_admittance,
-        options
+        Val(:pscad),
+        methods,
+        _pscad_options(options)
     )
 end
 
@@ -130,8 +132,7 @@ function formulation_record(formulation::PSCADFormulation)
             description = description(insulation_admittance)
         ),
         options = (
-            type = string(parentmodule(PSCADOptions), ".PSCADOptions"),
-            output_stem = formulation.options.output_stem
+            output_stem = formulation.options.output_stem,
         )
     )
 end

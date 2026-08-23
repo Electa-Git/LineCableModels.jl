@@ -54,7 +54,7 @@ end
             caught
         end
         @test error isa ErrorException
-        @test occursin("not implemented for the EMT backend", sprint(showerror, error))
+        @test occursin("not implemented for the analytical backend", sprint(showerror, error))
     end
     @test_throws ArgumentError earth_impedance.DirectNumericalIntegration(:mutual)
 end

@@ -22,12 +22,16 @@
     end
     @test all(!occursin("@assert", contents) for contents in values(source))
 
-    macro_path=joinpath("src", "parametricbuilder", "gridspace", "macros.jl")
+    macro_path=joinpath("src", "grammar", "macros.jl")
+    macro_facades=Set((
+        joinpath("src", "Grammar.jl"),
+        joinpath("src", "LineCableModels.jl"),
+        joinpath("src", "parametricbuilder", "ParametricBuilder.jl")
+    ))
     for (path, contents) in source
         path == macro_path && continue
-        if path == joinpath("src", "parametricbuilder", "ParametricBuilder.jl")
-            @test length(findall("@relax", contents)) == 1
-            @test occursin("export @gridspace, @relax", contents)
+        if path in macro_facades
+            @test occursin("@relax", contents)
             @test !occursin(r"\brecast\b", contents)
             continue
         end

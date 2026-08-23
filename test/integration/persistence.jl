@@ -6,7 +6,7 @@
     design=TestFixtures.mv_cable_design()
     library=CablesLibrary()
     add!(library, design)
-    reference=compute!(CableConstantsProblem(design), Formulation())
+    reference=compute(CableConstantsProblem(design), Formulation())
 
     mktempdir() do directory
         for extension in ("json", "jls")
@@ -20,7 +20,7 @@
             @test collect(keys(restored)) == collect(keys(library))
             restored_design=restored[design.cable_id]
             @test restored_design !== design
-            @test compute!(CableConstantsProblem(restored_design), Formulation()) ==
+            @test compute(CableConstantsProblem(restored_design), Formulation()) ==
                   reference
         end
     end

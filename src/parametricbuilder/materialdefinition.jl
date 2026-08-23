@@ -1,4 +1,4 @@
-struct MaterialSpec{R, E, M, T, A, C} <: AbstractSpec{Materials.Material}
+struct MaterialDefinition{R, E, M, T, A, C} <: _AbstractDefinition{Materials.Material}
     rho::R
     eps_r::E
     mu_r::M
@@ -7,7 +7,7 @@ struct MaterialSpec{R, E, M, T, A, C} <: AbstractSpec{Materials.Material}
     combine::C
 end
 
-function gridspace(spec::MaterialSpec)
+function Gridspace(spec::MaterialDefinition)
     return Gridspace{Materials.Material}(
         Materials.Material,
         map(_gridspace_axis, (
@@ -23,7 +23,7 @@ $(TYPEDSIGNATURES)
 
 Construct electromagnetic and thermal material properties. Scalar property
 inputs return a [`Material`](@ref) directly. An explicit [`Grid`](@ref) or
-numeric [`AbstractSpec`](@ref) lifts the same declaration to a
+numeric construction definition(@ref) lifts the same declaration to a
 [`Gridspace{Material}`](@ref).
 
 # Keywords
@@ -38,7 +38,7 @@ numeric [`AbstractSpec`](@ref) lifts the same declaration to a
 # Returns
 
 - A [`Material`](@ref) for scalar inputs, or a [`Gridspace{Material}`](@ref)
-  when at least one input is a `Grid` or `AbstractSpec`.
+  when at least one input is a `Grid` or `_AbstractDefinition`.
 """
 function Material(;
         rho,
@@ -51,8 +51,8 @@ function Material(;
     combine in (:product, :zip) ||
         throw(ArgumentError("combine must be :product or :zip; got :$combine"))
     values = (rho, eps_r, mu_r, T0, alpha)
-    any(value -> value isa Union{AbstractGrid, AbstractSpec}, values) &&
-        return MaterialSpec(rho, eps_r, mu_r, T0, alpha, Val(combine))
+    any(value -> value isa Union{AbstractGrid, _AbstractDefinition}, values) &&
+        return MaterialDefinition(rho, eps_r, mu_r, T0, alpha, Val(combine))
     return Materials.Material(rho, eps_r, mu_r, T0, alpha)
 end
 
@@ -103,13 +103,14 @@ through the same [`Gridspace`](@ref) grammar used by the cable builder.
 function add!(
         library::Materials.MaterialsLibrary,
         name::Union{AbstractString, Symbol},
-        spec::AbstractSpec{Materials.Material}
+        spec::_AbstractDefinition{Materials.Material}
 )
     has_uncertainty(spec) && throw(ArgumentError(
         "a reusable material-library entry must be deterministic",
     ))
-    length(spec) == 1 || throw(ArgumentError(
-        "a reusable material-library entry must describe exactly one material; got $(length(spec)) configurations",
+    space = Gridspace(spec)
+    length(space) == 1 || throw(ArgumentError(
+        "a reusable material-library entry must describe exactly one material; got $(length(space)) configurations",
     ))
-    return add!(library, String(name), only(spec))
+    return add!(library, String(name), only(space))
 end

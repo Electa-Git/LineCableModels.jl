@@ -74,7 +74,7 @@
     function cable_monte_carlo_result()
         values = [1.0, 2.0, 3.0, 4.0]
         summary = LineCableModels.Computation.SampleSummary(values)
-        histogram = LineCableModels.Computation.HistogramPDF(
+        histogram = LineCableModels.Computation.HistogramDensity(
             [1.0, 3.0, 5.0],
             [0.25, 0.25]
         )
@@ -90,18 +90,33 @@
             histogram,
             histogram
         )
-        return LineCableModels.Computation.MonteCarloResult(
-            representation,
-            statistics,
-            samples,
-            histograms,
+        formulation = LineCableModels.MonteCarlo(
+            LineCableModels.Formulation();
+            trials = length(values),
+            seed = 1,
+            return_samples = true,
+            return_histograms = true
+        )
+        details = Dict{Symbol, NamedTuple}(
+            :failures => (values = LineCableModels.ConfigurationFailure[],),
+            :samples => (values = [samples],),
+            :histograms => (values = [histograms],),
+            :random => (
+                root_seed = UInt64(1),
+                configuration_seeds = UInt64[1],
+                trials = [length(values)],
+                confidence = 0.95,
+                cdf_tol = 0.02,
+                distribution = :normal
+            ),
+            :manifest => (value = (hash = "plot-fixture",),)
+        )
+        return LineCableModels.MonteCarloResult(
+            formulation,
+            [representation],
             nothing,
-            length(values),
-            0.95,
-            0.02,
-            :normal,
-            UInt64(1),
-            (hash = "plot-fixture",)
+            [statistics],
+            details
         )
     end
 end

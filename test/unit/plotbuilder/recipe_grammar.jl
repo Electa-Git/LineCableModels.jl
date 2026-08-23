@@ -1,5 +1,5 @@
 @testitem "PlotBuilder / grammar / dispatch and render construction" tags=[:unit] setup=[
-    PlotBuilderTestSupport, UsePlotBuilderSupport, TestNumerics] begin
+    PlotBuilderTestSupport, UsePlotBuilderSupport, TestNumerics, TestFixtures] begin
     const PB=LineCableModels.PlotBuilder
     const UH=LineCableModels.UnitHandler
 
@@ -18,55 +18,56 @@
         response::Matrix{Float64}
     end
 
-    struct ProfilePlotSpec<:PB.AbstractPlotSpec end
+    struct ProfilePlotDefinition<:PB.AbstractPlotDefinition end
 
-    PB.dispatch_on(::Type{ProfilePlotSpec}) = ProfileResult
-    PB.input_kwargs(::Type{ProfilePlotSpec}) = (:grouping, :color)
-    PB.renderer_kwargs(::Type{ProfilePlotSpec}) = (:size,)
-    PB.input_defaults(::Type{ProfilePlotSpec}, ::ProfileResult) = (;
+    PB.dispatch_on(::Type{ProfilePlotDefinition}) = ProfileResult
+    PB.input_kwargs(::Type{ProfilePlotDefinition}) = (:grouping, :color)
+    PB.renderer_kwargs(::Type{ProfilePlotDefinition}) = (:size,)
+    PB.input_defaults(::Type{ProfilePlotDefinition}, ::ProfileResult) = (;
         grouping = :overlay, color = :steelblue)
-    PB.renderer_defaults(::Type{ProfilePlotSpec}, ::ProfileResult) = (; size = (800, 400))
-    PB.recipe_mode(::Type{ProfilePlotSpec}, recipe::PB.PlotRecipe) = Val(:profile)
-    PB.grouping_mode(::Type{ProfilePlotSpec}, ::Val{:profile},
+    PB.renderer_defaults(::Type{ProfilePlotDefinition}, ::ProfileResult) = (;
+        size = (800, 400))
+    PB.recipe_mode(::Type{ProfilePlotDefinition}, recipe::PB.PlotRecipe) = Val(:profile)
+    PB.grouping_mode(::Type{ProfilePlotDefinition}, ::Val{:profile},
         recipe::PB.PlotRecipe) = Val(recipe.input.grouping)
     PB.group_facets(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PB.PlotRecipe, page_key) = axes(
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PB.PlotRecipe, page_key) = axes(
         recipe.object.response, 2)
 
     PB.axis_quantity(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:x}, recipe::PB.PlotRecipe,
-        page_key, view_key) = UH.QuantityTag{:freq}()
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:x}, recipe::PB.PlotRecipe,
+        page_key, view_key) = UH.QuantityTag{:frequency}()
     PB.axis_quantity(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:y}, recipe::PB.PlotRecipe,
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:y}, recipe::PB.PlotRecipe,
         page_key, view_key) = UH.QuantityTag{:dimensionless}()
     PB.axis_unit(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:x},
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:x},
         quantity::UH.QuantityTag, recipe::PB.PlotRecipe, page_key, view_key) = UH.units(:base, :hertz)
     PB.axis_label(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:y},
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:y},
         quantity::UH.QuantityTag, unit::UH.Units, recipe::PB.PlotRecipe,
         page_key, view_key) = "Response"
 
     PB.series_data(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:x}, recipe::PB.PlotRecipe,
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:x}, recipe::PB.PlotRecipe,
         page_key, view_key, series_key::Int) = recipe.object.frequency
     PB.series_data(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, ::Val{:y}, recipe::PB.PlotRecipe,
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:y}, recipe::PB.PlotRecipe,
         page_key, view_key, series_key::Int) = recipe.object.response[:, series_key]
     PB.legend_label(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PB.PlotRecipe,
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PB.PlotRecipe,
         page_key, view_key, series_key::Int) = "response $series_key"
     profile_linestyle(::Val) = :solid
     profile_linestyle(::Val{2}) = :dash
     PB.series_attributes(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PB.PlotRecipe,
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PB.PlotRecipe,
         page_key, view_key, series_key::Int) = (;
         color = recipe.input.color,
         linewidth = 2,
         linestyle = profile_linestyle(Val(series_key))
     )
     PB.series_group(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PB.PlotRecipe,
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PB.PlotRecipe,
         page_key, view_key, series_key::Int) = Symbol("response_$series_key")
 
     profile_title(::Val{:overlay}, page_key, view_key) = "Frequency responses"
@@ -74,26 +75,26 @@
     profile_title(::Val{:panels}, page_key, ::Nothing) = "Frequency responses"
     profile_title(::Val{:pages}, page_key::Int, view_key) = "Response $page_key"
     PB.default_title(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PB.PlotRecipe,
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PB.PlotRecipe,
         page_key, view_key) = profile_title(Val(recipe.input.grouping), page_key, view_key)
 
     profile_layout(::Val{:overlay}) = :single
     profile_layout(::Val{:panels}) = :grid
     profile_layout(::Val{:pages}) = :single
     PB.layout_spec(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PB.PlotRecipe,
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PB.PlotRecipe,
         page_key) = profile_layout(Val(recipe.input.grouping))
     PB.default_figsize(
-        ::Type{ProfilePlotSpec}, ::Val{:profile}, recipe::PB.PlotRecipe, page_key) = recipe.renderer.size
+        ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PB.PlotRecipe, page_key) = recipe.renderer.size
 
     result=ProfileResult(
         [50.0, 100.0, 500.0],
         [1.0 1.2; 1.5 1.6; 2.0 2.1]
     )
 
-    overlay=PB.make_render(ProfilePlotSpec, result; color = :navy)
-    panels=PB.make_render(ProfilePlotSpec, result; grouping = :panels)
-    pages=PB.make_render(ProfilePlotSpec, result; grouping = :pages)
+    overlay=PB.make_render(ProfilePlotDefinition, result; color = :navy)
+    panels=PB.make_render(ProfilePlotDefinition, result; grouping = :panels)
+    pages=PB.make_render(ProfilePlotDefinition, result; grouping = :pages)
 
     @test length(only(only(overlay.figures).views).series) == 2
     @test only(only(overlay.figures).views).series[1].attributes.color === :navy
@@ -160,7 +161,7 @@
         export_spec = overlay_page.export_spec
     ).legend.overflow === :show_all
     compact_objects=Any[
-        PB.parse_kwargs(ProfilePlotSpec, result),
+        PB.parse_kwargs(ProfilePlotDefinition, result),
         PB.FixedTrack(36),
         PB.RelativeTrack(),
         PB.ContentTrack(),
@@ -192,56 +193,39 @@
         @test !occursin("[50.0, 100.0, 500.0]", representation)
     end
     @test sprint(show, MIME"text/plain"(), overlay) ==
-          "RenderSpec(spec=:ProfilePlotSpec, pages=1)"
+          "RenderSpec(spec=:ProfilePlotDefinition, pages=1)"
     @test_throws ArgumentError PB.make_render(
-        ProfilePlotSpec, result; grouping = :unsupported)
-    @test_throws ArgumentError PB.make_render(ProfilePlotSpec, [1.0, 2.0])
-    @test basename(String(which(PB.make_render, (Type{ProfilePlotSpec}, ProfileResult)).file)) ==
+        ProfilePlotDefinition, result; grouping = :unsupported)
+    @test_throws ArgumentError PB.make_render(ProfilePlotDefinition, [1.0, 2.0])
+    @test basename(String(which(PB.make_render, (
+        Type{ProfilePlotDefinition}, ProfileResult)).file)) ==
           "grammar.jl"
 
     maintained_recipes=(
-        (LineCableModels.Engine.LineParameterPlotSpec,
+        (LineCableModels.Engine.LineParameterPlotDefinition,
             LineCableModels.Engine.LineParameters),
-        (LineCableModels.Engine.LineParametersBenchmarkPlotSpec,
+        (LineCableModels.Engine.LineParametersBenchmarkPlotDefinition,
             Tuple{
                 LineCableModels.Engine.LineParameters,
                 LineCableModels.Engine.LineParameters
             }),
-        (LineCableModels.Computation.MCDistributionPlotSpec,
+        (LineCableModels.Computation.MCDistributionPlotDefinition,
             LineCableModels.MonteCarloResult),
-        (LineCableModels.DataModel.CablePreviewPlotSpec,
+        (LineCableModels.DataModel.CablePreviewPlotDefinition,
             LineCableModels.DataModel.CableDesign),
-        (LineCableModels.DataModel.SystemPreviewPlotSpec,
+        (LineCableModels.DataModel.SystemPreviewPlotDefinition,
             LineCableModels.DataModel.LineCableSystem),
-        (LineCableModels.DataModel.MaterialScalePlotSpec, Nothing)
+        (LineCableModels.DataModel.MaterialScalePlotDefinition, Nothing)
     )
     for (specification, object_type) in maintained_recipes
         method=which(PB.make_render, (Type{specification}, object_type))
         @test basename(String(method.file)) == "grammar.jl"
     end
 
-    summary=SampleSummary([1.0, 2.0, 3.0, 4.0])
-    histogram=HistogramPDF([1.0, 3.0, 5.0], [0.25, 0.25])
-    mc_result=MonteCarloResult(
-        CableConstants(2.5, 2.5, 2.5),
-        CableConstants(summary, summary, summary),
-        CableConstants(
-            [1.0, 2.0, 3.0, 4.0],
-            [1.0, 2.0, 3.0, 4.0],
-            [1.0, 2.0, 3.0, 4.0]
-        ),
-        CableConstants(histogram, histogram, histogram),
-        nothing,
-        4,
-        0.95,
-        0.02,
-        :normal,
-        UInt64(1),
-        (hash = "plot-fixture",)
-    )
+    mc_result=TestFixtures.cable_monte_carlo_result()
     for mode in (:hist, :pdf, :ecdf, :qq)
         rendered=PB.make_render(
-            LineCableModels.Computation.MCDistributionPlotSpec,
+            LineCableModels.Computation.MCDistributionPlotDefinition,
             mc_result;
             mode,
             data = :both
@@ -251,21 +235,17 @@
         @test page.key.quantity === :R
         @test only(page.views).key.selection === nothing
     end
+    sample_details=copy(mc_result.details)
+    sample_details[:histograms]=(values = nothing,)
     samples_only=MonteCarloResult(
-        mc_result.representation,
-        mc_result.statistics,
-        mc_result.samples,
-        nothing,
-        nothing,
-        mc_result.trials,
-        mc_result.confidence,
-        mc_result.cdf_tol,
-        mc_result.distribution,
-        mc_result.seed,
-        mc_result.manifest
+        mc_result.formulation,
+        mc_result.values,
+        mc_result.space,
+        mc_result.stats,
+        sample_details
     )
     @test PB.make_render(
-        LineCableModels.Computation.MCDistributionPlotSpec,
+        LineCableModels.Computation.MCDistributionPlotDefinition,
         samples_only;
         mode = :pdf
     ) isa PB.RenderSpec
@@ -298,37 +278,40 @@
         ]
     )
     custom=PB.make_render(
-        ProfilePlotSpec,
+        ProfilePlotDefinition,
         result;
         grouping = :panels,
         layout = custom_layout
     )
     @test only(custom.figures).layout === custom_layout
     @test all(view -> view.placement.slot === :canvas, only(custom.figures).views)
-    @test only(PB.make_render(ProfilePlotSpec, result; layout = :grid).figures).layout.name ===
+    @test only(PB.make_render(ProfilePlotDefinition, result; layout = :grid).figures).layout.name ===
           :grid
-    @test_throws ArgumentError PB.make_render(ProfilePlotSpec, result; layout = :unknown)
-    @test_throws ArgumentError PB.make_render(ProfilePlotSpec, result; typo = true)
+    @test_throws ArgumentError PB.make_render(ProfilePlotDefinition, result; layout = :unknown)
+    @test_throws ArgumentError PB.make_render(ProfilePlotDefinition, result; typo = true)
 
-    struct BadDefaultsPlotSpec<:PB.AbstractPlotSpec end
-    PB.dispatch_on(::Type{BadDefaultsPlotSpec}) = ProfileResult
-    PB.input_kwargs(::Type{BadDefaultsPlotSpec}) = (:mode,)
-    PB.input_defaults(::Type{BadDefaultsPlotSpec}, ::ProfileResult) = (;)
-    @test_throws ArgumentError PB.make_render(BadDefaultsPlotSpec, result)
+    struct BadDefaultsPlotDefinition<:PB.AbstractPlotDefinition end
+    PB.dispatch_on(::Type{BadDefaultsPlotDefinition}) = ProfileResult
+    PB.input_kwargs(::Type{BadDefaultsPlotDefinition}) = (:mode,)
+    PB.input_defaults(::Type{BadDefaultsPlotDefinition}, ::ProfileResult) = (;)
+    @test_throws ArgumentError PB.make_render(BadDefaultsPlotDefinition, result)
 
-    struct DuplicateOptionPlotSpec<:PB.AbstractPlotSpec end
-    PB.dispatch_on(::Type{DuplicateOptionPlotSpec}) = ProfileResult
-    PB.input_kwargs(::Type{DuplicateOptionPlotSpec}) = (:mode,)
-    PB.renderer_kwargs(::Type{DuplicateOptionPlotSpec}) = (:mode,)
-    PB.input_defaults(::Type{DuplicateOptionPlotSpec}, ::ProfileResult) = (; mode = :a)
-    PB.renderer_defaults(::Type{DuplicateOptionPlotSpec}, ::ProfileResult) = (; mode = :b)
-    @test_throws ArgumentError PB.make_render(DuplicateOptionPlotSpec, result)
+    struct DuplicateOptionPlotDefinition<:PB.AbstractPlotDefinition end
+    PB.dispatch_on(::Type{DuplicateOptionPlotDefinition}) = ProfileResult
+    PB.input_kwargs(::Type{DuplicateOptionPlotDefinition}) = (:mode,)
+    PB.renderer_kwargs(::Type{DuplicateOptionPlotDefinition}) = (:mode,)
+    PB.input_defaults(::Type{DuplicateOptionPlotDefinition}, ::ProfileResult) = (;
+        mode = :a)
+    PB.renderer_defaults(::Type{DuplicateOptionPlotDefinition}, ::ProfileResult) = (;
+        mode = :b)
+    @test_throws ArgumentError PB.make_render(DuplicateOptionPlotDefinition, result)
 
-    struct CommonOptionPlotSpec<:PB.AbstractPlotSpec end
-    PB.dispatch_on(::Type{CommonOptionPlotSpec}) = ProfileResult
-    PB.input_kwargs(::Type{CommonOptionPlotSpec}) = (:layout,)
-    PB.input_defaults(::Type{CommonOptionPlotSpec}, ::ProfileResult) = (; layout = :single)
-    @test_throws ArgumentError PB.make_render(CommonOptionPlotSpec, result)
+    struct CommonOptionPlotDefinition<:PB.AbstractPlotDefinition end
+    PB.dispatch_on(::Type{CommonOptionPlotDefinition}) = ProfileResult
+    PB.input_kwargs(::Type{CommonOptionPlotDefinition}) = (:layout,)
+    PB.input_defaults(::Type{CommonOptionPlotDefinition}, ::ProfileResult) = (;
+        layout = :single)
+    @test_throws ArgumentError PB.make_render(CommonOptionPlotDefinition, result)
 
     @test_throws ArgumentError PB.AxisSpec(
         :x,
@@ -601,7 +584,7 @@ end
     const PB=LineCableModels.PlotBuilder
     const UH=LineCableModels.UnitHandler
 
-    struct DefaultHookSpec<:PB.AbstractPlotSpec end
+    struct DefaultHookSpec<:PB.AbstractPlotDefinition end
     recipe=PB.parse_kwargs(DefaultHookSpec, :payload)
     mode=PB.recipe_mode(DefaultHookSpec, recipe)
 

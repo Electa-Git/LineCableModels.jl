@@ -2,7 +2,7 @@
 $(TYPEDEF)
 
 Abstract marker for an earth-return method implemented by an external
-calculation backend but not by the EMT solver.
+calculation backend but not by the built-in analytical solver.
 """
 abstract type ReferenceEarthImpedance <: EarthImpedanceFormulation end
 
@@ -61,13 +61,15 @@ description(::Wedepohl) = "Wedepohl"
 description(::Saad) = "Saad"
 description(::Ametani) = "Ametani"
 description(::Lucca) = "Lucca"
-description(::DirectNumericalIntegration{:overhead}) =
+function description(::DirectNumericalIntegration{:overhead})
     "Direct numerical integration (overhead)"
-description(::DirectNumericalIntegration{:underground}) =
+end
+function description(::DirectNumericalIntegration{:underground})
     "Direct numerical integration (underground)"
+end
 
 function (formulation::ReferenceEarthImpedance)(args...)
     throw(ErrorException(
-        "$(description(formulation)) earth impedance is not implemented for the EMT backend",
+        "$(description(formulation)) earth impedance is not implemented for the analytical backend",
     ))
 end

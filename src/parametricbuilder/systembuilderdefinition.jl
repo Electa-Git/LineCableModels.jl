@@ -1,4 +1,4 @@
-struct EarthSpec{R, E, M, H, C} <: AbstractSpec{EarthProps.EarthModel}
+struct EarthDefinition{R, E, M, H, C} <: _AbstractDefinition{EarthProps.EarthModel}
     rho::R
     eps_r::E
     mu_r::M
@@ -11,7 +11,7 @@ function _earth_model(rho, eps_r, mu_r, thickness)
 end
 _earth_model(rho, eps_r, mu_r, ::Nothing) = EarthProps.EarthModel(rho, eps_r, mu_r)
 
-function gridspace(spec::EarthSpec)
+function Gridspace(spec::EarthDefinition)
     return Gridspace{EarthProps.EarthModel}(
         _earth_model,
         map(_gridspace_axis, (spec.rho, spec.eps_r, spec.mu_r, spec.thickness)),
@@ -36,11 +36,11 @@ function Earth(;
 )
     combine in (:product, :zip) ||
         throw(ArgumentError("combine must be :product or :zip"))
-    return EarthSpec(rho, eps_r, mu_r, thickness, Val(combine))
+    return EarthDefinition(rho, eps_r, mu_r, thickness, Val(combine))
 end
 
 function _position_coordinates(
-        position::PositionSpec,
+        position::PositionDefinition,
         design::DataModel.CableDesign
 )
     kind = _position_kind(position)
@@ -154,8 +154,8 @@ function (materializer::SystemMaterializer)(identifier, design, values...)
     )
 end
 
-struct SystemSpec{D, P <: Tuple, L, T, E, F, C} <:
-       AbstractSpec{Engine.LineParametersProblem}
+struct SystemDefinition{D, P <: Tuple, L, T, E, F, C} <:
+       _AbstractDefinition{Engine.LineParametersProblem}
     identifier::String
     design::D
     positions::P
@@ -166,7 +166,7 @@ struct SystemSpec{D, P <: Tuple, L, T, E, F, C} <:
     combine::C
 end
 
-_flatten_positions(position::Gridspace{PositionSpec}) = (position,)
+_flatten_positions(position::Gridspace{PositionDefinition}) = (position,)
 function _flatten_positions(positions::Union{Tuple, AbstractVector})
     tuple(Iterators.flatten(map(_flatten_positions, positions))...)
 end
@@ -180,8 +180,8 @@ end
 $(TYPEDSIGNATURES)
 
 Describe a line-cable analysis problem from a cable design, its spatial
-arrangement, earth properties, and analysis frequencies. Iterating the
-returned specification materializes
+arrangement, earth properties, and analysis frequencies. Passing the returned
+definition to [`Gridspace`](@ref) creates a lazy space of
 [`LineCableModels.Engine.LineParametersProblem`](@ref) objects without running
 the numerical analysis.
 
@@ -207,9 +207,8 @@ the numerical analysis.
 
 # Returns
 
-- A line-parameter problem specification. Pass it to
-  [`LineCableModels.Engine.compute!`](@ref) with a
-  [`LineCableModels.Engine.Formulation`](@ref) to evaluate its materialized
+- A line-parameter problem definition. Construct its [`Gridspace`](@ref), then
+  use an explicit higher-order formulation to evaluate its materialized
   configurations.
 
 # Errors
@@ -229,9 +228,9 @@ function SystemBuilder(
         frequencies,
         combine::Symbol = :product
 )
-    design isa Union{DataModel.CableDesign, AbstractSpec{DataModel.CableDesign}} ||
+    design isa Union{DataModel.CableDesign, _AbstractDefinition{DataModel.CableDesign}} ||
         throw(ArgumentError("design must be a materialized CableDesign or CableBuilder spec"))
-    earth isa Union{EarthProps.EarthModel, AbstractSpec{EarthProps.EarthModel}} ||
+    earth isa Union{EarthProps.EarthModel, _AbstractDefinition{EarthProps.EarthModel}} ||
         throw(ArgumentError("earth must be a materialized EarthModel or Earth spec"))
     frequencies isa Union{AbstractVector, AbstractGrid} || throw(ArgumentError(
         "frequencies must be an ordinary vector or a Grid of complete vectors",
@@ -241,7 +240,7 @@ function SystemBuilder(
     position_tuple = _flatten_positions(positions)
     isempty(position_tuple) &&
         throw(ArgumentError("SystemBuilder requires at least one position"))
-    return SystemSpec(
+    return SystemDefinition(
         String(identifier),
         design,
         position_tuple,
@@ -253,7 +252,7 @@ function SystemBuilder(
     )
 end
 
-function gridspace(spec::SystemSpec)
+function Gridspace(spec::SystemDefinition)
     axes = (
         _gridspace_axis(spec.identifier),
         _gridspace_axis(spec.design),

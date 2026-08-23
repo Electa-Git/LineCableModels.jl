@@ -21,8 +21,8 @@ contents remain synchronized with the implementation.
 6. **Tone:** Use precise scientific language. Avoid contractions,
    colloquialisms, and ambiguous wording.
 
-Dedicated cross-reference sections are not maintained. Use an inline link such
-as [`LineCableModels.DataModel.CableDesign`](@ref) where a relationship
+Dedicated cross-reference sections are not maintained. Use an inline link to a
+locally resolvable binding such as `DataModel.CableDesign` where a relationship
 materially helps the explanation.
 
 ## Physical unit formatting

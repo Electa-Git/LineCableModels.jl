@@ -26,6 +26,27 @@
         frequencies_value
     )
     comparison=compare(reference, candidate)
+    comparison_observables=observables(comparison)
+    @test comparison_observables isa NamedTuple
+    @test keys(comparison_observables) == (
+        :series_impedance_absolute_error,
+        :series_impedance_relative_error,
+        :shunt_admittance_absolute_error,
+        :shunt_admittance_relative_error
+    )
+    @test comparison_observables.series_impedance_absolute_error ==
+          comparison.Z.absolute
+    @test comparison_observables.series_impedance_relative_error ==
+          comparison.Z.relative
+    @test comparison_observables.shunt_admittance_absolute_error ==
+          comparison.Y.absolute
+    @test comparison_observables.shunt_admittance_relative_error ==
+          comparison.Y.relative
+    @test comparison_observables.series_impedance_absolute_error !==
+          comparison.Z.absolute
+    @test comparison_observables.shunt_admittance_relative_error !==
+          comparison.Y.relative
+    @test !ismutabletype(typeof(comparison_observables))
     @test comparison.Z.absolute ≈ [1.0 3.0; 2.0 4.0]
     @test comparison.Z.relative[1, 1] ≈
           sqrt(2 / sum(abs2, impedance[1, 1, :]))

@@ -37,6 +37,7 @@ import ..PlotBuilder
 import ..UnitHandler
 import ..LineCableModels: add!, validate, maxfill, nominal, standard_uncertainty
 import ..LineCableModels: basis, R, L, C, resistance, inductance, capacitance
+import ..Grammar: AbstractProblemResult, observables
 import ..LineCableModels: ncables, nphases
 import ..LineCableModels: retired_fem_sector
 import ..LineCableModels: SectorParams, Sector, SectorInsulator
@@ -50,6 +51,9 @@ using LinearAlgebra
 using GeometryBasics: Point, Point2f, Polygon
 using Printf: @sprintf
 using Statistics: mean
+
+function _base_parameters end
+
 # Abstract types & interfaces
 include("types.jl")
 

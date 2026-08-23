@@ -4,7 +4,7 @@ $(TYPEDEF)
 Immutable flattened solver input derived from one validated problem.
 
 The conductor resistivities stored here are base-state values. Operating
-temperature correction is calculated into a local array by `compute!`.
+temperature correction is calculated into a local array by [`compute`](@ref).
 
 $(TYPEDFIELDS)
 """

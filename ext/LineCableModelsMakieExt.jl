@@ -48,7 +48,7 @@ function plot(
         kwargs...
 )
     render_spec = PlotBuilder.make_render(
-        LineCableModels.Engine.LineParameterPlotSpec,
+        LineCableModels.Engine.LineParameterPlotDefinition,
         object;
         frequencies,
         quantities,
@@ -80,7 +80,7 @@ function plot(
         kwargs...
 )
     render_spec = PlotBuilder.make_render(
-        LineCableModels.Engine.LineParameterPlotSpec,
+        LineCableModels.Engine.LineParameterPlotDefinition,
         object;
         frequencies,
         quantities,
@@ -111,7 +111,7 @@ function plot(
         kwargs...
 )
     render_spec = PlotBuilder.make_render(
-        LineCableModels.Engine.LineParameterPlotSpec,
+        LineCableModels.Engine.LineParameterPlotDefinition,
         parameters;
         quantities,
         xscale = _scale_symbol(xscale),
@@ -144,7 +144,7 @@ function plot(
 )
     parameters = (first, second, rest...)
     render_spec = PlotBuilder.make_render(
-        LineCableModels.Engine.LineParametersBenchmarkPlotSpec,
+        LineCableModels.Engine.LineParametersBenchmarkPlotDefinition,
         parameters;
         legend,
         quantities,
@@ -184,7 +184,7 @@ function plot(
     quantity, parsed_indices = _monte_carlo_quantity(expression)
     selection = ijk === nothing ? parsed_indices : ijk
     render_spec = PlotBuilder.make_render(
-        LineCableModels.Computation.MCDistributionPlotSpec,
+        LineCableModels.Computation.MCDistributionPlotDefinition,
         result;
         quantity,
         ijk = selection,
@@ -209,7 +209,7 @@ function preview(
         kwargs...
 )
     render_spec = PlotBuilder.make_render(
-        LineCableModels.DataModel.CablePreviewPlotSpec,
+        LineCableModels.DataModel.CablePreviewPlotDefinition,
         design;
         kwargs...
     )
@@ -224,7 +224,7 @@ function preview(
         kwargs...
 )
     render_spec = PlotBuilder.make_render(
-        LineCableModels.DataModel.SystemPreviewPlotSpec,
+        LineCableModels.DataModel.SystemPreviewPlotDefinition,
         system;
         kwargs...
     )
@@ -238,7 +238,7 @@ function show_material_scale(
         kwargs...
 )
     render_spec = PlotBuilder.make_render(
-        LineCableModels.DataModel.MaterialScalePlotSpec,
+        LineCableModels.DataModel.MaterialScalePlotDefinition,
         nothing;
         kwargs...
     )

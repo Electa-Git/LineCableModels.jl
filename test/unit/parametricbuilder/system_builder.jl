@@ -28,7 +28,7 @@
         earth,
         frequencies = [50.0]
     )
-    problem=only(specification)
+    problem=only(PB.Gridspace(specification))
     positions=problem.system.cables
 
     @test length(positions) == 4
@@ -58,7 +58,7 @@
         n = 2
     )
     @test_throws ArgumentError PB.at(x = 0.0, y = -1.0, phases = :core => 1.5)
-    @test_throws ArgumentError PB.PositionSpec(
+    @test_throws ArgumentError PB.PositionDefinition(
         Val(:point),
         ("not-real", -1.0),
         (Dict("core" => 1),)
@@ -70,7 +70,7 @@
         n = 2
     ))
     @test_throws ArgumentError PB._position_coordinates(too_close, design)
-    unsupported=PB.PositionSpec(
+    unsupported=PB.PositionDefinition(
         Val(:unsupported),
         (0.0, -1.0, 0.10),
         (Dict("core"=>1),)

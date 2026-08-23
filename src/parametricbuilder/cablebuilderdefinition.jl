@@ -1,11 +1,11 @@
-struct PartSpec{Role, Part, Mode, C, D, A <: Tuple, M}
+struct PartDefinition{Role, Part, Mode, C, D, A <: Tuple, M}
     component::C
     layers::Int
     dimension::D
     args::A
     material::M
 
-    function PartSpec(
+    function PartDefinition(
             ::Val{Role},
             ::Val{Part},
             ::Val{Mode},
@@ -41,9 +41,9 @@ struct PartSpec{Role, Part, Mode, C, D, A <: Tuple, M}
     end
 end
 
-_part_role(::PartSpec{Role}) where {Role} = Role
-_part_type(::PartSpec{Role, Part}) where {Role, Part} = Part
-_part_mode(::PartSpec{Role, Part, Mode}) where {Role, Part, Mode} = Mode
+_part_role(::PartDefinition{Role}) where {Role} = Role
+_part_type(::PartDefinition{Role, Part}) where {Role, Part} = Part
+_part_mode(::PartDefinition{Role, Part, Mode}) where {Role, Part, Mode} = Mode
 _valof(::Val{Value}) where {Value} = Value
 
 function _simple_part_builder(
@@ -55,7 +55,7 @@ function _simple_part_builder(
         dimension,
         material
 )
-    return PartSpec(role, part, mode, component, layers, dimension, (), material)
+    return PartDefinition(role, part, mode, component, layers, dimension, (), material)
 end
 
 function _wire_part_builder(
@@ -73,7 +73,7 @@ function _wire_part_builder(
         throw(ArgumentError("num_wires must be a positive integer"))
     lay_ratio isa Real && lay_ratio >= zero(lay_ratio) ||
         throw(ArgumentError("lay_ratio must be a nonnegative real number"))
-    return PartSpec(
+    return PartDefinition(
         role,
         part,
         mode,
@@ -100,7 +100,7 @@ function _strip_part_builder(
         throw(ArgumentError("strip width must be a positive real number"))
     lay_ratio isa Real && lay_ratio >= zero(lay_ratio) ||
         throw(ArgumentError("lay_ratio must be a nonnegative real number"))
-    return PartSpec(
+    return PartDefinition(
         role,
         part,
         mode,
@@ -113,7 +113,7 @@ function _strip_part_builder(
 end
 
 function _part_space(target, axes::Tuple, names::Tuple; combine::Symbol = :product)
-    return Gridspace{PartSpec}(
+    return Gridspace{PartDefinition}(
         target,
         map(_gridspace_axis, axes),
         names;
@@ -132,7 +132,7 @@ end
 module Conductor
 
 using ..ParametricBuilder:
-                           Gridspace, PartSpec, _part_space, _radial_declaration,
+                           Gridspace, PartDefinition, _part_space, _radial_declaration,
                            _simple_part_builder, _wire_part_builder, _strip_part_builder,
                            _valof
 import ...DataModel
@@ -331,14 +331,16 @@ Semicon(component::Symbol; kwargs...) = _annular(DataModel.Semicon, component; k
 
 end
 
-_resolved_outer_radius(builder::PartSpec{<:Any, <:Any, :radius}, _) = builder.dimension
-_resolved_outer_radius(builder::PartSpec{<:Any, <:Any, :solid}, _) = builder.dimension
-function _resolved_outer_radius(builder::PartSpec{<:Any, <:Any, :thickness}, r_in)
+function _resolved_outer_radius(builder::PartDefinition{<:Any, <:Any, :radius}, _)
+    builder.dimension
+end
+_resolved_outer_radius(builder::PartDefinition{<:Any, <:Any, :solid}, _) = builder.dimension
+function _resolved_outer_radius(builder::PartDefinition{<:Any, <:Any, :thickness}, r_in)
     r_in + builder.dimension
 end
 
 function _materialize_part(
-        builder::PartSpec{:conductor, DataModel.CircStrands},
+        builder::PartDefinition{:conductor, DataModel.CircStrands},
         r_in,
         layer::Int
 )
@@ -351,7 +353,7 @@ function _materialize_part(
 end
 
 function _materialize_part(
-        builder::PartSpec{:conductor, DataModel.Strip},
+        builder::PartDefinition{:conductor, DataModel.Strip},
         r_in,
         ::Int
 )
@@ -363,7 +365,7 @@ function _materialize_part(
 end
 
 function _materialize_part(
-        builder::PartSpec{:conductor, DataModel.Tubular, :solid},
+        builder::PartDefinition{:conductor, DataModel.Tubular, :solid},
         r_in,
         ::Int
 )
@@ -372,7 +374,7 @@ function _materialize_part(
 end
 
 function _materialize_part(
-        builder::PartSpec{:conductor, DataModel.Tubular},
+        builder::PartDefinition{:conductor, DataModel.Tubular},
         r_in,
         ::Int
 )
@@ -382,7 +384,7 @@ function _materialize_part(
 end
 
 function _materialize_part(
-        builder::PartSpec{:insulator, DataModel.Insulator},
+        builder::PartDefinition{:insulator, DataModel.Insulator},
         r_in,
         ::Int
 )
@@ -392,7 +394,7 @@ function _materialize_part(
 end
 
 function _materialize_part(
-        builder::PartSpec{:insulator, DataModel.Semicon},
+        builder::PartDefinition{:insulator, DataModel.Semicon},
         r_in,
         ::Int
 )
@@ -401,14 +403,14 @@ function _materialize_part(
     )
 end
 
-function _materialize_part(builder::PartSpec, r_in, layer::Int)
+function _materialize_part(builder::PartDefinition, r_in, layer::Int)
     throw(ArgumentError(
         "unsupported part declaration $(_part_role(builder)) / " *
         "$(_part_type(builder)) / $(_part_mode(builder)) at layer $layer",
     ))
 end
 
-function _part_scalar(builder::PartSpec)
+function _part_scalar(builder::PartDefinition)
     promote_type(
         typeof(float(builder.dimension)), eltype(builder.material),
         (typeof(float(value))
@@ -416,14 +418,14 @@ function _part_scalar(builder::PartSpec)
     )
 end
 
-function _convert_part(::Type{T}, builder::PartSpec{
+function _convert_part(::Type{T}, builder::PartDefinition{
         Role, Part, Mode}) where {
         T <: Real, Role, Part, Mode
 }
     args = map(builder.args) do value
         value isa Integer ? value : value isa Real ? convert(T, float(value)) : value
     end
-    return PartSpec(
+    return PartDefinition(
         Val(Role), Val(Part), Val(Mode), builder.component, builder.layers,
         convert(T, float(builder.dimension)), args,
         convert(Materials.Material{T}, builder.material)
@@ -517,14 +519,14 @@ function (materializer::DesignMaterializer)(identifier, builders...)
     return design
 end
 
-struct CableDesignSpec{P <: Tuple, N, C} <: AbstractSpec{DataModel.CableDesign}
+struct CableDesignDefinition{P <: Tuple, N, C} <: _AbstractDefinition{DataModel.CableDesign}
     identifier::String
     parts::P
     nominal::N
     combine::C
 end
 
-_flatten_parts(part::Gridspace{PartSpec}) = (part,)
+_flatten_parts(part::Gridspace{PartDefinition}) = (part,)
 function _flatten_parts(parts::Union{Tuple, AbstractVector})
     tuple(Iterators.flatten(map(_flatten_parts, parts))...)
 end
@@ -538,8 +540,8 @@ end
 $(TYPEDSIGNATURES)
 
 Describe a cable design using the radial parts declared by `Conductor` and
-`Insulator`. Iterating the returned specification materializes
-[`LineCableModels.DataModel.CableDesign`](@ref) objects through the existing
+`Insulator`. Iterating the returned definition materializes
+[`DataModel.CableDesign`](@ref) objects through the existing
 cable-part, group, and component calculations.
 
 # Arguments
@@ -584,7 +586,7 @@ function CableBuilder(
     flattened = _flatten_parts(parts)
     isempty(flattened) &&
         throw(ArgumentError("CableBuilder requires at least one part"))
-    return CableDesignSpec(
+    return CableDesignDefinition(
         String(identifier),
         flattened,
         nominal,
@@ -592,7 +594,7 @@ function CableBuilder(
     )
 end
 
-function gridspace(spec::CableDesignSpec)
+function Gridspace(spec::CableDesignDefinition)
     axes = (_gridspace_axis(spec.identifier), map(_gridspace_axis, spec.parts)...)
     names = (:identifier, ntuple(index -> Symbol(:part_, index), length(spec.parts))...)
     return Gridspace{DataModel.CableDesign}(

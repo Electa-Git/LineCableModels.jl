@@ -6,7 +6,7 @@ operating temperature and analysis frequencies.
 
 $(TYPEDFIELDS)
 """
-struct LineParametersProblem{T <: Real} <: ProblemDefinition
+struct LineParametersProblem{T <: Real} <: AbstractProblemDefinition
     "Physical cable system."
     system::LineCableSystem{T}
     "Operating temperature \\[°C\\]."
@@ -86,7 +86,7 @@ Define an explicit cable-constant calculation for one materialized design.
 
 $(TYPEDFIELDS)
 """
-struct CableConstantsProblem{D <: CableDesign, S, R <: Real} <: ProblemDefinition
+struct CableConstantsProblem{D <: CableDesign, S, R <: Real} <: AbstractProblemDefinition
     design::D
     separation::S
     earth_resistivity::R
@@ -110,23 +110,17 @@ end
 """
 $(TYPEDEF)
 
-Store the concrete physical formulations selected for an EMT calculation.
+Store the concrete physical methods selected for an analytical calculation.
 
 $(TYPEDFIELDS)
 """
-struct EMTFormulation{II, IS, EI, IA, EA, EP, MT, EH, O} <: AbstractFormulation
-    internal_impedance::II
-    insulation_impedance::IS
-    earth_impedance::EI
-    insulation_admittance::IA
-    earth_admittance::EA
-    earth_properties::EP
-    modal_transform::MT
-    equivalent_earth::EH
+struct AnalyticalFormulation{B, M <: NamedTuple, O <: NamedTuple} <: AbstractFormulation
+    backend::B
+    methods::M
     options::O
 end
 
-function EMTFormulation(;
+function AnalyticalFormulation(;
         internal_impedance::InternalImpedanceFormulation,
         insulation_impedance::InsulationImpedanceFormulation,
         earth_impedance::EarthImpedanceFormulation,
@@ -135,17 +129,25 @@ function EMTFormulation(;
         earth_properties,
         modal_transform::Union{AbstractTransformFormulation, Nothing},
         equivalent_earth::Union{AbstractEHEMFormulation, Nothing},
-        options::EMTOptions
+        options::NamedTuple
 )
-    return EMTFormulation(
+    methods = (;
         internal_impedance, insulation_impedance, earth_impedance,
         insulation_admittance, earth_admittance, earth_properties,
-        modal_transform, equivalent_earth, options
+        modal_transform, equivalent_earth
     )
+    return AnalyticalFormulation(Val(:analytical), methods, options)
+end
+
+function Base.getproperty(formulation::AnalyticalFormulation, name::Symbol)
+    name in fieldnames(typeof(formulation)) && return getfield(formulation, name)
+    methods = getfield(formulation, :methods)
+    haskey(methods, name) && return getproperty(methods, name)
+    return getfield(formulation, name)
 end
 
 function Formulation(
-        ::Val{:EMT};
+        ::Val{:analytical};
         internal_impedance::InternalImpedanceFormulation = InternalImpedance.ScaledBessel(),
         insulation_impedance::InsulationImpedanceFormulation = InsulationImpedance.Lossless(),
         earth_impedance::EarthImpedanceFormulation = EarthImpedance.Papadopoulos(),
@@ -156,7 +158,7 @@ function Formulation(
         equivalent_earth::Union{AbstractEHEMFormulation, Nothing} = nothing,
         options = (;)
 )
-    return EMTFormulation(;
+    return AnalyticalFormulation(;
         internal_impedance, insulation_impedance, earth_impedance,
         insulation_admittance, earth_admittance, earth_properties,
         modal_transform, equivalent_earth, options = formulation_options(options)

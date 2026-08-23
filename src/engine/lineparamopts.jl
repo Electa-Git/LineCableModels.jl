@@ -1,76 +1,68 @@
-"""
-$(TYPEDEF)
+const _FORMULATION_DEFAULTS = (
+    reduce_bundle = true,
+    kron_reduction = true,
+    ideal_transposition = true,
+    temperature_correction = true,
+    output = :parameters
+)
 
-Select the physical reductions and corrections used by an EMT formulation.
-
-$(TYPEDFIELDS)
-"""
-Base.@kwdef struct EMTOptions <: AbstractFormulationOptions
-    "Whether bundled conductors are reduced to an equivalent conductor."
-    reduce_bundle::Bool=true
-    "Whether unassigned conductors are eliminated by Kron reduction."
-    kron_reduction::Bool=true
-    "Whether ideal transposition is applied."
-    ideal_transposition::Bool=true
-    "Whether conductor resistivity is corrected to operating temperature."
-    temperature_correction::Bool=true
-end
-
-"""
-$(TYPEDEF)
-
-Execution settings for ordinary and parametric calculations.
-
-Verbosity is a named tuple whose `default` value applies when no component
-key is present. Levels are `0` for warnings, `1` for information, and `2` for
-debugging.
-
-$(TYPEDFIELDS)
-"""
-struct ComputeOptions{V <: NamedTuple, Basis}
-    "Per-component verbosity settings."
-    verbosity::V
-    "Output basis: `:per_length` or `:total`."
-    output_basis::Symbol
-
-    function ComputeOptions(;
-            verbosity::NamedTuple = (default = 0,),
-            output_basis::Symbol = :per_length
-    )
-        haskey(verbosity, :default) || throw(ArgumentError(
-            "verbosity must define a default level",
-        ))
-        all(value -> value isa Integer && value in 0:2, values(verbosity)) ||
-            throw(ArgumentError("verbosity levels must be integers from 0 to 2"))
-        output_basis in (:per_length, :total) || throw(ArgumentError(
-            "output_basis must be :per_length or :total; got :$output_basis",
-        ))
-        levels = NamedTuple{keys(verbosity)}(Int.(values(verbosity)))
-        return new{typeof(levels), output_basis}(levels, output_basis)
-    end
-end
-
-@inline _output_basis(::ComputeOptions{V, Basis}) where {V, Basis} = Basis
-
-function verbosity(options::ComputeOptions, key::Symbol)
-    get(options.verbosity, key, options.verbosity.default)
-end
+const _COMPUTATION_DEFAULTS = (
+    verbosity = (default = 0,),
+    output_basis = :per_length
+)
 
 _to_namedtuple(options::NamedTuple) = options
 _to_namedtuple(options::Base.Pairs) = (; options...)
 _to_namedtuple(options::AbstractDict) = (; options...)
 _to_namedtuple(::Nothing) = (;)
 
-function _strict_options(::Type{Options}, options) where {Options}
-    options isa Options && return options
+function _strict_namedtuple(options, defaults::NamedTuple, owner::AbstractString)
     values = _to_namedtuple(options)
-    allowed = Set(fieldnames(Options))
-    unknown = setdiff(Set(keys(values)), allowed)
+    unknown = setdiff(Set(keys(values)), Set(keys(defaults)))
     isempty(unknown) || throw(ArgumentError(
-        "unknown options for $Options: $(sort!(collect(unknown)))",
+        "unknown $owner options: $(sort!(collect(unknown)))",
     ))
-    return Options(; values...)
+    return merge(defaults, values)
 end
 
-formulation_options(options) = _strict_options(EMTOptions, options)
-compute_options(options) = _strict_options(ComputeOptions, options)
+function formulation_options(options)::FormulationOptions
+    normalized = _strict_namedtuple(options, _FORMULATION_DEFAULTS, "formulation")
+    all(name -> getproperty(normalized, name) isa Bool,
+        (:reduce_bundle, :kron_reduction, :ideal_transposition,
+            :temperature_correction)) || throw(ArgumentError(
+        "reduction, transposition, and temperature-correction options must be Bool",
+    ))
+    output = normalized.output
+    output in (:parameters, :trace) || throw(ArgumentError(
+        "formulation output must be :parameters or :trace; got $(repr(output))",
+    ))
+    return merge(normalized, (output = Val(output),))
+end
+
+function computation_options(options)::ComputationOptions
+    normalized = _strict_namedtuple(options, _COMPUTATION_DEFAULTS, "computation")
+    verbosity_values = normalized.verbosity
+    verbosity_values isa NamedTuple || throw(ArgumentError(
+        "verbosity must be a named tuple",
+    ))
+    haskey(verbosity_values, :default) || throw(ArgumentError(
+        "verbosity must define a default level",
+    ))
+    all(value -> value isa Integer && value in 0:2, values(verbosity_values)) ||
+        throw(ArgumentError("verbosity levels must be integers from 0 to 2"))
+    basis_value = normalized.output_basis
+    basis_value in (:per_length, :total) || throw(ArgumentError(
+        "output_basis must be :per_length or :total; got $(repr(basis_value))",
+    ))
+    levels = NamedTuple{keys(verbosity_values)}(Int.(values(verbosity_values)))
+    return (verbosity = levels, output_basis = Val(basis_value))
+end
+
+@inline _output_basis(options::NamedTuple) = typeof(options.output_basis).parameters[1]
+
+function verbosity(options::NamedTuple, key::Symbol)
+    haskey(options, :verbosity) || throw(ArgumentError(
+        "computation options do not define verbosity",
+    ))
+    return get(options.verbosity, key, options.verbosity.default)
+end

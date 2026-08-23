@@ -6,11 +6,12 @@ using Statistics
 
 import LineCableModels
 const PB = LineCableModels.ParametricBuilder
+const Grammar = LineCableModels.Grammar
 const Computation = LineCableModels.Computation
 
-function PB._sample_uncertainty(
+function Grammar._sample_uncertainty(
         rng::Random.AbstractRNG,
-        value::PB.UncertainValue{<:Real},
+        value::Grammar.UncertainValue{<:Real},
         distribution::Distributions.UnivariateDistribution
 )
     standardized = rand(rng, distribution)
@@ -28,7 +29,7 @@ function PB._sample_uncertainty(
            (standardized - distribution_mean) / distribution_std
 end
 
-function Distributions.pdf(distribution::Computation.HistogramPDF, value::Real)
+function Distributions.pdf(distribution::Computation.HistogramDensity, value::Real)
     value < first(distribution.edges) && return 0.0
     value > last(distribution.edges) && return 0.0
     index = value == last(distribution.edges) ? length(distribution.density) :
@@ -36,27 +37,29 @@ function Distributions.pdf(distribution::Computation.HistogramPDF, value::Real)
     return distribution.density[index]
 end
 
-function (distribution::Computation.HistogramPDF)(value::Real)
+function (distribution::Computation.HistogramDensity)(value::Real)
     Distributions.pdf(distribution, value)
 end
-Distributions.minimum(distribution::Computation.HistogramPDF) = first(distribution.edges)
-Distributions.maximum(distribution::Computation.HistogramPDF) = last(distribution.edges)
+function Distributions.minimum(distribution::Computation.HistogramDensity)
+    first(distribution.edges)
+end
+Distributions.maximum(distribution::Computation.HistogramDensity) = last(distribution.edges)
 function Distributions.insupport(
-        distribution::Computation.HistogramPDF,
+        distribution::Computation.HistogramDensity,
         value::Real
 )
     minimum(distribution) <= value <= maximum(distribution)
 end
 
 function Distributions.logpdf(
-        distribution::Computation.HistogramPDF,
+        distribution::Computation.HistogramDensity,
         value::Real
 )
     probability = Distributions.pdf(distribution, value)
     return probability > 0 ? log(probability) : -Inf
 end
 
-function Distributions.cdf(distribution::Computation.HistogramPDF, value::Real)
+function Distributions.cdf(distribution::Computation.HistogramDensity, value::Real)
     value <= first(distribution.edges) && return 0.0
     value >= last(distribution.edges) && return 1.0
     index = searchsortedlast(distribution.edges, value)
@@ -67,20 +70,20 @@ function Distributions.cdf(distribution::Computation.HistogramPDF, value::Real)
                    (value - distribution.edges[index])
 end
 
-struct HistogramPDFSampler{H, T} <:
+struct HistogramDensitySampler{H, T} <:
        Distributions.Sampleable{Distributions.Univariate, Distributions.Continuous}
     distribution::H
     cumulative_probability::Vector{T}
 end
 
-function Distributions.sampler(distribution::Computation.HistogramPDF)
+function Distributions.sampler(distribution::Computation.HistogramDensity)
     probabilities = distribution.density .* diff(distribution.edges)
     cumulative = cumsum(probabilities)
     cumulative[end] = one(eltype(cumulative))
-    return HistogramPDFSampler(distribution, cumulative)
+    return HistogramDensitySampler(distribution, cumulative)
 end
 
-function Distributions.quantile(sampler::HistogramPDFSampler, probability::Real)
+function Distributions.quantile(sampler::HistogramDensitySampler, probability::Real)
     probability <= 0 && return minimum(sampler.distribution)
     probability >= 1 && return maximum(sampler.distribution)
     index = searchsortedfirst(sampler.cumulative_probability, probability)
@@ -92,7 +95,7 @@ function Distributions.quantile(sampler::HistogramPDFSampler, probability::Real)
 end
 
 function Distributions.quantile(
-        distribution::Computation.HistogramPDF,
+        distribution::Computation.HistogramDensity,
         probability::Real
 )
     0 <= probability <= 1 || throw(DomainError(
@@ -102,7 +105,7 @@ function Distributions.quantile(
     return Distributions.quantile(Distributions.sampler(distribution), probability)
 end
 
-function Base.rand(rng::Random.AbstractRNG, sampler::HistogramPDFSampler)
+function Base.rand(rng::Random.AbstractRNG, sampler::HistogramDensitySampler)
     probability = rand(rng)
     index = searchsortedfirst(sampler.cumulative_probability, probability)
     prior = index == 1 ? zero(probability) :
@@ -114,11 +117,11 @@ function Base.rand(rng::Random.AbstractRNG, sampler::HistogramPDFSampler)
     return left + fraction * (right - left)
 end
 
-function Base.rand(rng::Random.AbstractRNG, distribution::Computation.HistogramPDF)
+function Base.rand(rng::Random.AbstractRNG, distribution::Computation.HistogramDensity)
     rand(rng, Distributions.sampler(distribution))
 end
 
-function _raw_moment(distribution::Computation.HistogramPDF, order::Integer)
+function _raw_moment(distribution::Computation.HistogramDensity, order::Integer)
     order >= 0 || throw(ArgumentError("moment order must be nonnegative"))
     T = eltype(distribution.density)
     total = zero(T)
@@ -132,22 +135,24 @@ function _raw_moment(distribution::Computation.HistogramPDF, order::Integer)
     return total
 end
 
-function Distributions.moment(distribution::Computation.HistogramPDF, order::Integer)
+function Distributions.moment(distribution::Computation.HistogramDensity, order::Integer)
     _raw_moment(distribution, order)
 end
-Statistics.mean(distribution::Computation.HistogramPDF) = _raw_moment(distribution, 1)
-function Statistics.var(distribution::Computation.HistogramPDF)
+Statistics.mean(distribution::Computation.HistogramDensity) = _raw_moment(distribution, 1)
+function Statistics.var(distribution::Computation.HistogramDensity)
     variance = _raw_moment(distribution, 2) - Statistics.mean(distribution)^2
     return max(variance, zero(variance))
 end
-Statistics.std(distribution::Computation.HistogramPDF) = sqrt(Statistics.var(distribution))
+function Statistics.std(distribution::Computation.HistogramDensity)
+    sqrt(Statistics.var(distribution))
+end
 
-function Distributions.mode(distribution::Computation.HistogramPDF)
+function Distributions.mode(distribution::Computation.HistogramDensity)
     _, index = findmax(distribution.density)
     return (distribution.edges[index] + distribution.edges[index + 1]) / 2
 end
 
-function Distributions.modes(distribution::Computation.HistogramPDF)
+function Distributions.modes(distribution::Computation.HistogramDensity)
     maximum_density = maximum(distribution.density)
     indices = findall(==(maximum_density), distribution.density)
     return [(distribution.edges[index] + distribution.edges[index + 1]) / 2

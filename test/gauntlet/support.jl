@@ -164,7 +164,7 @@
         description = description(value)
     )
 
-    function formulation_record(formulation::EMTFormulation)
+    function formulation_record(formulation::AnalyticalFormulation)
         options = formulation.options
         return (
             type = string(parentmodule(typeof(formulation)), ".", nameof(typeof(formulation))),
@@ -191,6 +191,117 @@
     )
 
     case_digest(case::GauntletCase) = bytes2hex(sha256(read(case.source_file)))
+
+    const _IMMUTABLE_V1_CASES = Set((
+        :benchmark_132kV_630mm2_flathor_pscad,
+        :benchmark_18kV_1000mm2_trifoil_pscad,
+        :benchmark_380kV_2000mm2_flatver_pscad,
+        :benchmark_525kV_1600mm2_bipole_pscad,
+        :benchmark_640kV_2000mm2_bipole_pscad,
+        :benchmark_solid_1000mm2_single_pscad,
+        :benchmark_two_bare_wires_pscad
+    ))
+
+    function _reference_source_path(case::GauntletCase)
+        return joinpath(
+            GAUNTLET_ROOT,
+            "reference_sources",
+            "gauntlet_pscad_v1_0_0",
+            basename(case.source_file) * ".source"
+        )
+    end
+
+    function _reference_source_digest(case::GauntletCase)
+        case.name in _IMMUTABLE_V1_CASES || return case_digest(case)
+        path = _reference_source_path(case)
+        isfile(path) || throw(ArgumentError(
+            "immutable Gauntlet v1 source is missing: $path",
+        ))
+        return bytes2hex(sha256(read(path)))
+    end
+
+    _record_value(record::NamedTuple, key::Symbol, default = nothing) = get(record, key, default)
+    _record_value(record::AbstractDict, key::Symbol, default = nothing) = get(
+        record, key, get(record, String(key), default))
+
+    function _semantic_method_record(record)
+        record === nothing && return nothing
+        return (description = String(_record_value(record, :description)),)
+    end
+
+    function _semantic_options(record; analytical::Bool)
+        output = _record_value(record, :output, :parameters)
+        output isa Val && (output = only(typeof(output).parameters))
+        common = (
+            reduce_bundle = _record_value(record, :reduce_bundle),
+            kron_reduction = _record_value(record, :kron_reduction),
+            ideal_transposition = _record_value(record, :ideal_transposition),
+            temperature_correction = _record_value(record, :temperature_correction)
+        )
+        return analytical ? merge(common, (output = output,)) : record
+    end
+
+    function _semantic_formulation_record(record)
+        type_name = String(_record_value(record, :type, ""))
+        if occursin("EMTFormulation", type_name) ||
+           occursin("AnalyticalFormulation", type_name)
+            return (
+                backend = :analytical,
+                internal_impedance = _semantic_method_record(_record_value(record, :internal_impedance)),
+                insulation_impedance = _semantic_method_record(_record_value(record, :insulation_impedance)),
+                earth_impedance = _semantic_method_record(_record_value(record, :earth_impedance)),
+                insulation_admittance = _semantic_method_record(_record_value(record, :insulation_admittance)),
+                earth_admittance = _semantic_method_record(_record_value(record, :earth_admittance)),
+                earth_properties = _semantic_method_record(_record_value(record, :earth_properties)),
+                modal_transform = _semantic_method_record(_record_value(record, :modal_transform)),
+                equivalent_earth = _semantic_method_record(_record_value(record, :equivalent_earth)),
+                options = _semantic_options(_record_value(record, :options); analytical = true)
+            )
+        elseif occursin("PSCADFormulation", type_name)
+            options = _record_value(record, :options)
+            return (
+                backend = :pscad,
+                earth_impedance = (
+                    description = String(_record_value(
+                        _record_value(record, :earth_impedance), :description
+                    )),
+                    pscad_field = _record_value(_record_value(record, :earth_impedance), :pscad_field),
+                    pscad_value = _record_value(_record_value(record, :earth_impedance), :pscad_value),
+                    pscad_readback = _record_value(_record_value(record, :earth_impedance), :pscad_readback)
+                ),
+                earth_admittance = _semantic_method_record(_record_value(record, :earth_admittance)),
+                insulation_admittance = _semantic_method_record(_record_value(record, :insulation_admittance)),
+                options = (output_stem = String(_record_value(options, :output_stem)),)
+            )
+        end
+        throw(ArgumentError("unsupported Gauntlet formulation record $type_name"))
+    end
+
+    function _semantic_formulation_pair(record)
+        return (
+            reference = _semantic_formulation_record(_record_value(record, :reference)),
+            candidate = _semantic_formulation_record(_record_value(record, :candidate))
+        )
+    end
+
+    function _same_problem_structure(left, right)
+        typeof(left) === typeof(right) || return false
+        if left isa AbstractDict
+            keys(left) == keys(right) || return false
+            return all(key -> _same_problem_structure(left[key], right[key]), keys(left))
+        elseif left isa AbstractArray || left isa Tuple
+            size(left) == size(right) || return false
+            return all(_same_problem_structure.(left, right))
+        elseif left isa Union{Nothing, Missing, Bool, Number, Symbol, AbstractString, Char}
+            return isequal(left, right)
+        elseif isstructtype(typeof(left))
+            return all(
+                name -> _same_problem_structure(getfield(left, name), getfield(right, name)),
+                fieldnames(typeof(left))
+            )
+        end
+        return isequal(left, right)
+    end
 
     work_path(case::GauntletCase; root::AbstractString = WORK_ROOT) = joinpath(
         root, string(case.backend), string(case.name))
@@ -256,12 +367,12 @@
     function _run_live(
             case::GauntletCase;
             record::Bool = false,
-            options::ComputeOptions = ComputeOptions()
+            options::NamedTuple = (;)
     )
         prior = record ? load_prior_snapshot(case) : nothing
         root = work_path(case)
         @info "Starting external benchmark" case=case.name mode=record ? :record : :live work_directory=root
-        reference = compute!(
+        reference = compute(
             case.reference_problem,
             case.reference_formulation;
             options
@@ -275,7 +386,7 @@
             "case backend $(case.backend)",
         ))
         @info "Computing LineCableModels result" case = case.name
-        candidate = compute!(case.problem, case.formulation; options)
+        candidate = compute(case.problem, case.formulation; options)
         validate_structure(case, reference)
         validate_structure(case, candidate)
         reference_comparison = compare(reference, candidate)
@@ -319,7 +430,7 @@
         )
     end
 
-    function run_case(case::GauntletCase; options::ComputeOptions = ComputeOptions())
+    function run_case(case::GauntletCase; options::NamedTuple = (;))
         validate_case(case)
         mode = gauntlet_mode()
         mode === :snapshot && return run_snapshot(case; options)

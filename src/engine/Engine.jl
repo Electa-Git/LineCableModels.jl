@@ -34,12 +34,12 @@ export CableConstantsProblem, LineParametersProblem,
        conductance, susceptance, capacitance,
        frequencies, nconductors, nfrequencies, basis,
        kronify
-export AbstractFormulation, EMTFormulation, Formulation, EMTOptions, ComputeOptions
-export EarthProperties, CPEarth, EMTTrace, verbosity
+export AbstractFormulation, AnalyticalFormulation, Formulation
+export EarthProperties, CPEarth, LineParametersTrace, verbosity
 export InternalImpedance, InsulationImpedance, EarthImpedance
 export InsulationAdmittance, EarthAdmittance, EHEM, Transforms
 
-export compute!, plot
+export compute, plot
 
 # Module-specific dependencies
 using LinearAlgebra
@@ -53,6 +53,9 @@ import ..LineCableModels: basis, Z, Y, R, X, L, G, B, C,
                           conductance, susceptance, capacitance,
                           frequencies, nconductors, nfrequencies
 import ..LineCableModels: nominal, standard_uncertainty
+import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
+                  AbstractProblemResult, FormulationOptions, ComputationOptions,
+                  compute, observables
 
 using ..UnitHandler
 using ..PlotBuilder

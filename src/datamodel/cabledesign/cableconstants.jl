@@ -8,7 +8,7 @@ Display conversions belong to `UnitHandler` and presentation adapters.
 
 $(TYPEDFIELDS)
 """
-struct CableConstants{T}
+struct CableConstants{T} <: AbstractProblemResult
     "Series resistance per unit length \\[Ω/m\\]."
     R::T
     "Series inductance per unit length \\[H/m\\]."
@@ -97,8 +97,6 @@ function _compute_cable_constants(
     return CableConstants(resistance_value, inductance_value, capacitance_value)
 end
 
-CableConstants(design::CableDesign; kwargs...) = _compute_cable_constants(design; kwargs...)
-
 R(constants::CableConstants) = constants.R
 L(constants::CableConstants) = constants.L
 C(constants::CableConstants) = constants.C
@@ -106,3 +104,11 @@ basis(::CableConstants) = :per_length
 resistance(constants::CableConstants) = R(constants)
 inductance(constants::CableConstants) = L(constants)
 capacitance(constants::CableConstants) = C(constants)
+
+function observables(constants::CableConstants)
+    (
+        resistance = constants.R,
+        inductance = constants.L,
+        capacitance = constants.C
+    )
+end

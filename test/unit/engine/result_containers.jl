@@ -14,7 +14,7 @@
         )
     )
     design=first(values(library.data))
-    constants=compute!(CableConstantsProblem(design), Formulation())
+    constants=compute(CableConstantsProblem(design), Formulation())
     @test constants isa CableConstants{Float64}
     @test constants.R ≈ 2.7567652874268654e-5 rtol=2eps()
     @test constants.L ≈ 2.8718381083175005e-7 rtol=2eps()
@@ -23,8 +23,13 @@
     @test resistance(constants) === constants.R
     @test inductance(constants) === constants.L
     @test capacitance(constants) === constants.C
+    constants_observables=observables(constants)
+    @test constants_observables isa NamedTuple
+    @test keys(constants_observables) == (:resistance, :inductance, :capacitance)
+    @test values(constants_observables) == (constants.R, constants.L, constants.C)
+    @test !ismutabletype(typeof(constants_observables))
     @test DataFrame(constants).value == [constants.R, constants.L, constants.C]
-    @test_throws ArgumentError compute!(
+    @test_throws ArgumentError compute(
         CableConstantsProblem(design),
         Formulation();
         options = (output_basis = :total,)
@@ -70,6 +75,17 @@
     @test capacitance(parameters, 1, 1, 1) ≈ C(parameters, 1, 1, 1)
     @test L(parameters) ≈ inductance_values
     @test C(parameters) ≈ capacitance_values
+    parameter_observables=observables(parameters)
+    @test parameter_observables isa NamedTuple
+    @test keys(parameter_observables) ==
+          (:frequency, :series_impedance, :shunt_admittance)
+    @test parameter_observables.frequency == parameters.f
+    @test parameter_observables.series_impedance == parameters.Z
+    @test parameter_observables.shunt_admittance == parameters.Y
+    @test parameter_observables.frequency !== parameters.f
+    @test parameter_observables.series_impedance.values !== parameters.Z.values
+    @test parameter_observables.shunt_admittance.values !== parameters.Y.values
+    @test !ismutabletype(typeof(parameter_observables))
 
     series=SeriesImpedance(impedance; basis = :total)
     shunt=ShuntAdmittance(admittance; basis = :total)
@@ -191,15 +207,16 @@ end
 
     values=[1.0, 2.0, 3.0, 4.0, 5.0]
     summary=SampleSummary(values)
-    @test summary == SampleSummary(3.0, sqrt(2.5), 1.0, 1.2, 3.0, 4.8, 5.0)
+    @test summary == SampleSummary(3.0, sqrt(2.5), 1.0, 1.2, 3.0, 4.8, 5.0, 5)
     @test SampleSummary([1, 2, 3]).mean === 2.0
     @test_throws ArgumentError SampleSummary(Float64[])
     @test_throws ArgumentError SampleSummary([1.0, Inf])
-    @test_throws ArgumentError SampleSummary(2.0, -1.0, 1.0, 1.1, 2.0, 2.9, 3.0)
-    @test_throws ArgumentError SampleSummary(2.0, 1.0, 1.0, 2.1, 2.0, 2.9, 3.0)
+    @test_throws ArgumentError SampleSummary(2.0, -1.0, 1.0, 1.1, 2.0, 2.9, 3.0, 3)
+    @test_throws ArgumentError SampleSummary(2.0, 1.0, 1.0, 2.1, 2.0, 2.9, 3.0, 3)
+    @test_throws ArgumentError SampleSummary(2.0, 1.0, 1.0, 1.1, 2.0, 2.9, 3.0, 0)
 
-    density=HistogramPDF([1.0, 3.0, 5.0], [0.25, 0.25])
-    @test HistogramPDF([0, 1], [2]) isa HistogramPDF{Float64}
+    density=HistogramDensity([1.0, 3.0, 5.0], [0.25, 0.25])
+    @test HistogramDensity([0, 1], [2]) isa HistogramDensity{Float64}
     @test pdf(density, 2.0) == 0.25
     @test density(2.0) == 0.25
     @test pdf(density, 6.0) == 0.0
@@ -215,10 +232,10 @@ end
     @test !isempty(modes(density))
     @test isfinite(rand(MersenneTwister(91), density))
     @test_throws DomainError quantile(density, -0.1)
-    @test_throws ArgumentError HistogramPDF([0.0, 1.0], Float64[])
-    @test_throws ArgumentError HistogramPDF([0.0, 1.0, 2.0], [1.0])
-    @test_throws ArgumentError HistogramPDF([0.0, 1.0], [-1.0])
-    @test_throws ArgumentError HistogramPDF([0.0, 1.0], [0.0])
-    @test_throws ArgumentError HistogramPDF([0.0, 0.0], [1.0])
-    @test_throws ArgumentError HistogramPDF([0.0, Inf], [1.0])
+    @test_throws ArgumentError HistogramDensity([0.0, 1.0], Float64[])
+    @test_throws ArgumentError HistogramDensity([0.0, 1.0, 2.0], [1.0])
+    @test_throws ArgumentError HistogramDensity([0.0, 1.0], [-1.0])
+    @test_throws ArgumentError HistogramDensity([0.0, 1.0], [0.0])
+    @test_throws ArgumentError HistogramDensity([0.0, 0.0], [1.0])
+    @test_throws ArgumentError HistogramDensity([0.0, Inf], [1.0])
 end

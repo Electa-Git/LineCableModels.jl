@@ -44,9 +44,9 @@ function Logging.handle_message(
     )
 end
 
-_trace_buffers(::Type, ::EMTInput, ::Val{false}) = nothing
+_trace_buffers(::Type, ::EMTInput, ::Val{:parameters}) = nothing
 
-function _trace_buffers(::Type{T}, input::EMTInput{T}, ::Val{true}) where {T}
+function _trace_buffers(::Type{T}, input::EMTInput{T}, ::Val{:trace}) where {T}
     n, nc, nf = input.n_phases, input.n_cables, input.n_frequencies
     return (
         Zin = Array{Complex{T}, 3}(undef, n, n, nf),
@@ -58,10 +58,10 @@ function _trace_buffers(::Type{T}, input::EMTInput{T}, ::Val{true}) where {T}
     )
 end
 
-_solve_result(parameters, ::EMTInput, ::Nothing, ::Val{false}) = parameters
+_solve_result(parameters, ::EMTInput, ::Nothing, ::Val{:parameters}) = parameters
 
-function _solve_result(parameters, input::EMTInput, trace, ::Val{true})
-    return EMTTrace(
+function _solve_result(parameters, input::EMTInput, trace, ::Val{:trace})
+    return LineParametersTrace(
         parameters, copy(input.freq), copy(input.phase_map), copy(input.cable_map),
         trace.Zin, trace.Pin, trace.Zg, trace.Pg, trace.Z, trace.P
     )
@@ -74,15 +74,15 @@ function _modal_result(parameters, transform::AbstractTransformFormulation)
     return transformed
 end
 
-function _basis_result(parameters, ::EMTInput, ::ComputeOptions{V, :per_length}) where {V}
+function _basis_result(parameters, ::EMTInput, ::Val{:per_length})
     parameters
 end
 
 function _basis_result(
         parameters::LineParameters{T, U, D},
         input::EMTInput,
-        ::ComputeOptions{V, :total}
-) where {T, U, D, V}
+        ::Val{:total}
+) where {T, U, D}
     impedance = parameters.Z.values .* input.line_length
     admittance = parameters.Y.values .* input.line_length
     return LineParameters(
@@ -139,7 +139,7 @@ end
 function _operating_resistivity(
         input::EMTInput{T},
         problem::LineParametersProblem{T},
-        formulation::EMTFormulation
+        formulation::AnalyticalFormulation
 ) where {T <: Real}
     rho = copy(input.rho0_cond)
     formulation.options.temperature_correction || return rho
@@ -153,10 +153,9 @@ end
 
 function _solve(
         problem::LineParametersProblem{T},
-        formulation::EMTFormulation,
-        execution::ComputeOptions;
-        inspect::Val{Inspect} = Val(false)
-) where {T <: Real, Inspect}
+        formulation::AnalyticalFormulation,
+        execution::NamedTuple
+) where {T <: Real}
     validate(problem)
     input = EMTInput(problem)
     rho_cond = _operating_resistivity(input, problem, formulation)
@@ -168,7 +167,8 @@ function _solve(
     Pprimitive = similar(Pbuffer)
     Pinverse = similar(Pbuffer)
     earth = _earth_data(formulation, input)
-    trace = _trace_buffers(T, input, inspect)
+    output = formulation.options.output
+    trace = _trace_buffers(T, input, output)
 
     permutation, reordered_map, kron_map = _reduction_map(input.phase_map, formulation)
     nkeep = kron_map === nothing ? n : count(!=(0), kron_map)
@@ -228,9 +228,9 @@ function _solve(
         input.freq
     )
     parameters = _modal_result(parameters, formulation.modal_transform)
-    parameters = _basis_result(parameters, input, execution)
+    parameters = _basis_result(parameters, input, execution.output_basis)
     @info "Line parameters computation completed successfully"
-    return _solve_result(parameters, input, trace, inspect)
+    return _solve_result(parameters, input, trace, output)
 end
 
 """
@@ -244,43 +244,52 @@ frequency loop. Neither the problem nor its cable design is mutated.
 
 # Keywords
 
-- `options=ComputeOptions()`: Execution verbosity and output basis.
-- `inspect=false`: Return an [`EMTTrace`](@ref) with completed primitive matrices when
-  set to `true`; otherwise return [`LineParameters`](@ref) without allocating trace tensors.
+- `options=(verbosity=(default=0,), output_basis=:per_length)`: Execution
+  verbosity and output basis.
+
+Trace output is selected by the formulation:
+
+```julia
+Formulation(:analytical; options = (output = :trace,))
+```
 
 # Returns
 
-- [`LineParameters`](@ref) when `inspect=false`.
-- [`EMTTrace`](@ref) when `inspect=true`.
+- [`LineParameters`](@ref) for `output=:parameters`.
+- [`LineParametersTrace`](@ref) for `output=:trace`.
 """
-function compute!(
+function compute(
         problem::LineParametersProblem,
-        formulation::EMTFormulation;
-        options = ComputeOptions(),
-        inspect::Bool = false
+        formulation::AnalyticalFormulation;
+        options = (;)
 )
-    execution = compute_options(options)
+    execution = computation_options(options)
     console = ConsoleLogger(stderr, Logging.Debug)
     logger = ConsoleVerbosityLogger(console, execution.verbosity)
     return with_logger(logger) do
-        _solve(problem, formulation, execution; inspect = Val(inspect))
+        _solve(problem, formulation, execution)
     end
 end
 
-function compute!(
+function compute(
         problem::CableConstantsProblem,
-        ::EMTFormulation;
-        options = ComputeOptions(),
-        inspect::Bool = false
+        formulation::AnalyticalFormulation;
+        options = (;)
 )
-    inspect && throw(ArgumentError("inspection is available only for line calculations"))
-    execution = compute_options(options)
+    formulation.options.output isa Val{:parameters} || throw(ArgumentError(
+        "CableConstantsProblem supports only formulation output=:parameters",
+    ))
+    execution = computation_options(options)
     _output_basis(execution) === :per_length || throw(ArgumentError(
         "CableConstantsProblem supports only output_basis=:per_length",
     ))
     return DataModel._compute_cable_constants(
         problem.design; S = problem.separation, rho_e = problem.earth_resistivity
     )
+end
+
+function DataModel._base_parameters(design::CableDesign)
+    compute(CableConstantsProblem(design), Formulation())
 end
 
 @inline function compute_earth_return_matrix!(
@@ -315,7 +324,7 @@ function compute_impedance_matrix!(
         rho_cond::AbstractVector{T},
         earth,
         frequency::Int,
-        formulation::EMTFormulation,
+        formulation::AnalyticalFormulation,
         trace
 ) where {T <: Real}
     fill!(destination, zero(Complex{T}))
@@ -394,7 +403,7 @@ function compute_admittance_matrix!(
         input::EMTInput{T},
         earth,
         frequency::Int,
-        formulation::EMTFormulation,
+        formulation::AnalyticalFormulation,
         trace
 ) where {T <: Real}
     fill!(destination, zero(Complex{T}))
@@ -456,7 +465,7 @@ function _cable_indices(input)
     return indices, first.(indices)
 end
 
-function _earth_data(formulation::EMTFormulation, input::EMTInput)
+function _earth_data(formulation::AnalyticalFormulation, input::EMTInput)
     evaluated = EarthProperties.evaluate(
         formulation.earth_properties, input.earth, input.freq
     )

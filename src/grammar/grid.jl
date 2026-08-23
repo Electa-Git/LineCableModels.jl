@@ -18,7 +18,7 @@ descriptor.
 abstract type AbstractUncertainGrid <: AbstractGrid end
 
 abstract type AbstractUncertaintyStyle end
-struct RelativeUncertainty{T<:Real} <: AbstractUncertaintyStyle
+struct RelativeUncertainty{T <: Real} <: AbstractUncertaintyStyle
     percent::T
 end
 struct AbsoluteUncertainty <: AbstractUncertaintyStyle end
@@ -32,7 +32,7 @@ absolute [`Grid`](@ref) declaration.
 
 $(TYPEDFIELDS)
 """
-struct UncertainValue{T,S<:AbstractUncertaintyStyle,E}
+struct UncertainValue{T, S <: AbstractUncertaintyStyle, E}
     "Nominal parameter value."
     nominal::T
 
@@ -43,7 +43,7 @@ struct UncertainValue{T,S<:AbstractUncertaintyStyle,E}
     style::S
 
     function UncertainValue(nominal::T, sigma::E, style::S) where {
-        T,S<:AbstractUncertaintyStyle,E
+            T, S <: AbstractUncertaintyStyle, E
     }
         if nominal isa Real && sigma isa Real
             isfinite(nominal) || throw(ArgumentError(
@@ -56,7 +56,7 @@ struct UncertainValue{T,S<:AbstractUncertaintyStyle,E}
                 "uncertainty must be nonnegative; got $sigma",
             ))
         end
-        return new{T,S,E}(nominal, sigma, style)
+        return new{T, S, E}(nominal, sigma, style)
     end
 end
 
@@ -99,7 +99,7 @@ Represent one axis of deterministic parameter values.
 
 $(TYPEDFIELDS)
 """
-struct DeterministicGrid{V<:Tuple,K} <: AbstractGrid
+struct DeterministicGrid{V <: Tuple, K} <: AbstractGrid
     "Values admitted by the axis."
     vals::V
 
@@ -114,7 +114,7 @@ Represent nominal parameter values and relative standard uncertainties.
 
 $(TYPEDFIELDS)
 """
-struct RelativeGrid{V<:Tuple,P<:Tuple,K} <: AbstractUncertainGrid
+struct RelativeGrid{V <: Tuple, P <: Tuple, K} <: AbstractUncertainGrid
     "Nominal values admitted by the axis."
     vals::V
 
@@ -124,9 +124,9 @@ struct RelativeGrid{V<:Tuple,P<:Tuple,K} <: AbstractUncertainGrid
     "Identity used to couple a selection with another axis."
     key::K
 
-    function RelativeGrid(vals::V, rel_err::P, key::K) where {V<:Tuple,P<:Tuple,K}
+    function RelativeGrid(vals::V, rel_err::P, key::K) where {V <: Tuple, P <: Tuple, K}
         _validate_uncertainty(vals, rel_err, "relative")
-        return new{V,P,K}(vals, rel_err, key)
+        return new{V, P, K}(vals, rel_err, key)
     end
 end
 
@@ -137,7 +137,7 @@ Represent nominal parameter values and absolute standard uncertainties.
 
 $(TYPEDFIELDS)
 """
-struct AbsoluteGrid{V<:Tuple,P<:Tuple,K} <: AbstractUncertainGrid
+struct AbsoluteGrid{V <: Tuple, P <: Tuple, K} <: AbstractUncertainGrid
     "Nominal values admitted by the axis."
     vals::V
 
@@ -147,9 +147,9 @@ struct AbsoluteGrid{V<:Tuple,P<:Tuple,K} <: AbstractUncertainGrid
     "Identity used to couple a selection with another axis."
     key::K
 
-    function AbsoluteGrid(vals::V, abs_err::P, key::K) where {V<:Tuple,P<:Tuple,K}
+    function AbsoluteGrid(vals::V, abs_err::P, key::K) where {V <: Tuple, P <: Tuple, K}
         _validate_uncertainty(vals, abs_err, "absolute")
-        return new{V,P,K}(vals, abs_err, key)
+        return new{V, P, K}(vals, abs_err, key)
     end
 end
 
@@ -161,11 +161,11 @@ Mark values as absolute standard uncertainties for
 
 $(TYPEDFIELDS)
 """
-struct AbsoluteError{T<:Tuple}
+struct AbsoluteError{T <: Tuple}
     "Absolute standard uncertainties."
     vals::T
 
-    function AbsoluteError(vals::T) where {T<:Tuple}
+    function AbsoluteError(vals::T) where {T <: Tuple}
         _validate_errors(vals, "absolute")
         return new{T}(vals)
     end
@@ -178,19 +178,24 @@ _grid_values(value) = (value,)
 function _validate_errors(errors::Tuple, kind::AbstractString)
     isempty(errors) && throw(ArgumentError("$kind uncertainty cannot be empty"))
     for error in errors
-        error isa Real || throw(ArgumentError("$kind errors must be real; got $(typeof(error))"))
+        error isa Real ||
+            throw(ArgumentError("$kind errors must be real; got $(typeof(error))"))
         isfinite(error) || throw(ArgumentError("$kind errors must be finite; got $error"))
-        error >= zero(error) || throw(ArgumentError("$kind errors must be nonnegative; got $error"))
+        error >= zero(error) ||
+            throw(ArgumentError("$kind errors must be nonnegative; got $error"))
     end
     return nothing
 end
 
 function _validate_uncertainty(values::Tuple, errors::Tuple, kind::AbstractString)
-    isempty(values) && throw(ArgumentError("$kind uncertainty cannot have an empty nominal axis"))
+    isempty(values) &&
+        throw(ArgumentError("$kind uncertainty cannot have an empty nominal axis"))
     _validate_errors(errors, kind)
     for value in values
-        value isa Real || throw(ArgumentError("$kind uncertainty requires real nominal values; got $(typeof(value))"))
-        isfinite(value) || throw(ArgumentError("$kind nominal values must be finite; got $value"))
+        value isa Real ||
+            throw(ArgumentError("$kind uncertainty requires real nominal values; got $(typeof(value))"))
+        isfinite(value) ||
+            throw(ArgumentError("$kind nominal values must be finite; got $value"))
     end
     return nothing
 end
@@ -205,13 +210,17 @@ only when passed explicitly to `Grid`; constructors otherwise treat them as
 ordinary atomic values. Reusing one Grid instance couples its selections.
 `key` couples separately-created Grids deliberately.
 """
-Grid(grid::AbstractGrid; key=nothing) = key === nothing ? grid :
+function Grid(grid::AbstractGrid; key = nothing)
+    key === nothing ? grid :
     throw(ArgumentError("cannot replace the coupling key of an existing Grid"))
-Grid(value; key=nothing) = DeterministicGrid(_grid_values(value), _grid_key(key))
-Grid(value, error::AbsoluteError; key=nothing) =
+end
+Grid(value; key = nothing) = DeterministicGrid(_grid_values(value), _grid_key(key))
+function Grid(value, error::AbsoluteError; key = nothing)
     AbsoluteGrid(_grid_values(value), error.vals, _grid_key(key))
-Grid(value, relative_error; key=nothing) =
+end
+function Grid(value, relative_error; key = nothing)
     RelativeGrid(_grid_values(value), _grid_values(relative_error), _grid_key(key))
+end
 
 iterate(grid::DeterministicGrid, state...) = iterate(grid.vals, state...)
 length(grid::DeterministicGrid) = length(grid.vals)
@@ -263,9 +272,9 @@ function extrema(grid::AbsoluteGrid)
 end
 
 function _sample_uncertainty(
-    rng::Random.AbstractRNG,
-    value::UncertainValue{<:Real,<:AbstractUncertaintyStyle,<:Real},
-    distribution::Symbol,
+        rng::Random.AbstractRNG,
+        value::UncertainValue{<:Real, <:AbstractUncertaintyStyle, <:Real},
+        distribution::Symbol
 )
     distribution === :normal && return value.nominal + value.sigma * randn(rng)
     distribution === :uniform &&
@@ -273,21 +282,22 @@ function _sample_uncertainty(
     throw(ArgumentError("unsupported distribution :$distribution; expected :normal or :uniform"))
 end
 
-_sample_uncertainty(rng::Random.AbstractRNG, value::UncertainValue{<:Real}, sampler::Function) =
+function _sample_uncertainty(rng::Random.AbstractRNG, value::UncertainValue{<:Real}, sampler::Function)
     sampler(rng, value.nominal, value.sigma)
+end
 
 function _sample_uncertainty(::Random.AbstractRNG, ::UncertainValue, distribution)
     throw(ArgumentError("unsupported distribution $(typeof(distribution)); load its package extension or pass a sampler function"))
 end
 
-function rand(rng::Random.AbstractRNG, value::UncertainValue{<:Real}; distribution=:normal)
+function rand(rng::Random.AbstractRNG, value::UncertainValue{<:Real}; distribution = :normal)
     iszero(value.sigma) && return float(value.nominal)
     return _sample_uncertainty(rng, value, distribution)
 end
 
 rand(value::UncertainValue; kwargs...) = rand(Random.default_rng(), value; kwargs...)
 
-function rand(rng::Random.AbstractRNG, grid::AbstractGrid; distribution=:normal)
+function rand(rng::Random.AbstractRNG, grid::AbstractGrid; distribution = :normal)
     length(grid) == 1 ||
         throw(ArgumentError("rand(Grid) requires one configuration; select a configuration before sampling"))
     value = first(grid)
