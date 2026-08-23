@@ -73,8 +73,8 @@
 
     function cable_monte_carlo_result()
         values = [1.0, 2.0, 3.0, 4.0]
-        summary = LineCableModels.Computation.SampleSummary(values)
-        histogram = LineCableModels.Computation.HistogramDensity(
+        summary = LineCableModels.UQ.SampleSummary(values)
+        histogram = LineCableModels.UQ.HistogramDensity(
             [1.0, 3.0, 5.0],
             [0.25, 0.25]
         )

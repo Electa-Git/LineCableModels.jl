@@ -199,7 +199,7 @@
     )
 end
 
-@testitem "Computation / result products / statistical invariants" tags=[:unit] setup=[
+@testitem "UQ / result products / statistical invariants" tags=[:unit] setup=[
     EngineTestSupport, UseEngineSupport, TestNumerics] begin
     using Distributions
     using Random

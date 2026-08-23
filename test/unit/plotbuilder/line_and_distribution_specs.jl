@@ -275,12 +275,12 @@ end
     )
 end
 
-@testitem "Computation / plot specification / empirical and model distributions" tags=[:unit] setup=[
+@testitem "UQ / plot specification / empirical and model distributions" tags=[:unit] setup=[
     PlotBuilderTestSupport,
     UsePlotBuilderSupport,
     TestFixtures
 ] begin
-    const Cmp=LineCableModels.Computation
+    const Cmp=LineCableModels.UQ
     const PB=LineCableModels.PlotBuilder
     const Spec=Cmp.MCDistributionPlotDefinition
 

@@ -36,7 +36,7 @@ end
     @test standard_draw == shifted_draw
     @test isfinite(standard_draw)
 
-    density=LineCableModels.Computation.HistogramDensity(
+    density=LineCableModels.UQ.HistogramDensity(
         [1.0, 3.0, 5.0],
         [0.25, 0.25]
     )

@@ -6,12 +6,11 @@ using Statistics
 
 import LineCableModels
 const PB = LineCableModels.ParametricBuilder
-const Grammar = LineCableModels.Grammar
-const Computation = LineCableModels.Computation
+const UQ = LineCableModels.UQ
 
-function Grammar._sample_uncertainty(
+function PB._sample_uncertainty(
         rng::Random.AbstractRNG,
-        value::Grammar.UncertainValue{<:Real},
+        value::PB.UncertainValue{<:Real},
         distribution::Distributions.UnivariateDistribution
 )
     standardized = rand(rng, distribution)
@@ -29,7 +28,7 @@ function Grammar._sample_uncertainty(
            (standardized - distribution_mean) / distribution_std
 end
 
-function Distributions.pdf(distribution::Computation.HistogramDensity, value::Real)
+function Distributions.pdf(distribution::UQ.HistogramDensity, value::Real)
     value < first(distribution.edges) && return 0.0
     value > last(distribution.edges) && return 0.0
     index = value == last(distribution.edges) ? length(distribution.density) :
@@ -37,29 +36,29 @@ function Distributions.pdf(distribution::Computation.HistogramDensity, value::Re
     return distribution.density[index]
 end
 
-function (distribution::Computation.HistogramDensity)(value::Real)
+function (distribution::UQ.HistogramDensity)(value::Real)
     Distributions.pdf(distribution, value)
 end
-function Distributions.minimum(distribution::Computation.HistogramDensity)
+function Distributions.minimum(distribution::UQ.HistogramDensity)
     first(distribution.edges)
 end
-Distributions.maximum(distribution::Computation.HistogramDensity) = last(distribution.edges)
+Distributions.maximum(distribution::UQ.HistogramDensity) = last(distribution.edges)
 function Distributions.insupport(
-        distribution::Computation.HistogramDensity,
+        distribution::UQ.HistogramDensity,
         value::Real
 )
     minimum(distribution) <= value <= maximum(distribution)
 end
 
 function Distributions.logpdf(
-        distribution::Computation.HistogramDensity,
+        distribution::UQ.HistogramDensity,
         value::Real
 )
     probability = Distributions.pdf(distribution, value)
     return probability > 0 ? log(probability) : -Inf
 end
 
-function Distributions.cdf(distribution::Computation.HistogramDensity, value::Real)
+function Distributions.cdf(distribution::UQ.HistogramDensity, value::Real)
     value <= first(distribution.edges) && return 0.0
     value >= last(distribution.edges) && return 1.0
     index = searchsortedlast(distribution.edges, value)
@@ -76,7 +75,7 @@ struct HistogramDensitySampler{H, T} <:
     cumulative_probability::Vector{T}
 end
 
-function Distributions.sampler(distribution::Computation.HistogramDensity)
+function Distributions.sampler(distribution::UQ.HistogramDensity)
     probabilities = distribution.density .* diff(distribution.edges)
     cumulative = cumsum(probabilities)
     cumulative[end] = one(eltype(cumulative))
@@ -95,7 +94,7 @@ function Distributions.quantile(sampler::HistogramDensitySampler, probability::R
 end
 
 function Distributions.quantile(
-        distribution::Computation.HistogramDensity,
+        distribution::UQ.HistogramDensity,
         probability::Real
 )
     0 <= probability <= 1 || throw(DomainError(
@@ -117,11 +116,11 @@ function Base.rand(rng::Random.AbstractRNG, sampler::HistogramDensitySampler)
     return left + fraction * (right - left)
 end
 
-function Base.rand(rng::Random.AbstractRNG, distribution::Computation.HistogramDensity)
+function Base.rand(rng::Random.AbstractRNG, distribution::UQ.HistogramDensity)
     rand(rng, Distributions.sampler(distribution))
 end
 
-function _raw_moment(distribution::Computation.HistogramDensity, order::Integer)
+function _raw_moment(distribution::UQ.HistogramDensity, order::Integer)
     order >= 0 || throw(ArgumentError("moment order must be nonnegative"))
     T = eltype(distribution.density)
     total = zero(T)
@@ -135,24 +134,24 @@ function _raw_moment(distribution::Computation.HistogramDensity, order::Integer)
     return total
 end
 
-function Distributions.moment(distribution::Computation.HistogramDensity, order::Integer)
+function Distributions.moment(distribution::UQ.HistogramDensity, order::Integer)
     _raw_moment(distribution, order)
 end
-Statistics.mean(distribution::Computation.HistogramDensity) = _raw_moment(distribution, 1)
-function Statistics.var(distribution::Computation.HistogramDensity)
+Statistics.mean(distribution::UQ.HistogramDensity) = _raw_moment(distribution, 1)
+function Statistics.var(distribution::UQ.HistogramDensity)
     variance = _raw_moment(distribution, 2) - Statistics.mean(distribution)^2
     return max(variance, zero(variance))
 end
-function Statistics.std(distribution::Computation.HistogramDensity)
+function Statistics.std(distribution::UQ.HistogramDensity)
     sqrt(Statistics.var(distribution))
 end
 
-function Distributions.mode(distribution::Computation.HistogramDensity)
+function Distributions.mode(distribution::UQ.HistogramDensity)
     _, index = findmax(distribution.density)
     return (distribution.edges[index] + distribution.edges[index + 1]) / 2
 end
 
-function Distributions.modes(distribution::Computation.HistogramDensity)
+function Distributions.modes(distribution::UQ.HistogramDensity)
     maximum_density = maximum(distribution.density)
     indices = findall(==(maximum_density), distribution.density)
     return [(distribution.edges[index] + distribution.edges[index + 1]) / 2

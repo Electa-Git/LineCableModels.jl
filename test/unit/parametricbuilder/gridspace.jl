@@ -166,7 +166,6 @@ end
     EngineTestSupport, UseEngineSupport] begin
     using Random
     import LineCableModels.ParametricBuilder as PB
-    import LineCableModels.Grammar as G
 
     deterministic=PB.Grid((1, 3, 2))
     @test PB.Grid(deterministic) === deterministic
@@ -180,16 +179,16 @@ end
     absolute=PB.Grid((10.0, 20.0), PB.AbsoluteError((0.5, 2.0)))
     @test size(relative) == (4,)
     @test relative[4] isa PB.UncertainValue
-    @test G.uncertainty_style(relative[1]) isa G.RelativeUncertainty
-    @test G.uncertainty_style(absolute[1]) isa G.AbsoluteUncertainty
+    @test PB.uncertainty_style(relative[1]) isa PB.RelativeUncertainty
+    @test PB.uncertainty_style(absolute[1]) isa PB.AbsoluteUncertainty
     @test extrema(relative) == (-11.0, 22.0)
     @test extrema(absolute) == (8.0, 22.0)
     @test_throws BoundsError relative[0]
     @test_throws BoundsError absolute[5]
 
-    first_key=G.AutomaticGridKey(Ref(nothing))
-    alias_key=G.AutomaticGridKey(first_key.token)
-    other_key=G.AutomaticGridKey(Ref(nothing))
+    first_key=PB.AutomaticGridKey(Ref(nothing))
+    alias_key=PB.AutomaticGridKey(first_key.token)
+    other_key=PB.AutomaticGridKey(Ref(nothing))
     @test first_key == alias_key
     @test isequal(first_key, alias_key)
     @test first_key != other_key
@@ -219,11 +218,10 @@ end
     EngineTestSupport, UseEngineSupport] begin
     using Random
     import LineCableModels.ParametricBuilder as PB
-    import LineCableModels.Grammar as G
 
     space=PB.Gridspace{Pair}((PB.Grid((1, 2)), :fixed))
-    @test G.target_type(typeof(space)) === Pair
-    @test G.target_type(space) === Pair
+    @test PB.target_type(typeof(space)) === Pair
+    @test PB.target_type(space) === Pair
     @test PB.Grid(space) === space
     @test_throws ArgumentError PB.Grid(space; key = :coupled)
     @test size(space) == (2,)
@@ -231,13 +229,13 @@ end
     @test eltype(typeof(space)) === Pair
 
     configuration=first(PB.configurations(space))
-    @test G.target_type(typeof(configuration)) === Pair
-    @test G.target_type(configuration) === Pair
+    @test PB.target_type(typeof(configuration)) === Pair
+    @test PB.target_type(configuration) === Pair
     @test !PB.has_uncertainty(configuration)
     @test !PB.has_uncertainty(space)
     @test !PB.has_uncertainty(:constant)
 
-    axis=G.ConstantAxis(:only)
+    axis=PB.ConstantAxis(:only)
     @test length(axis) == 1
     @test axis[1] === :only
     @test collect(axis) == [:only]
@@ -255,19 +253,19 @@ end
     missing_definition=MissingGridspaceDefinition()
     @test_throws MethodError PB.Gridspace(missing_definition)
 
-    @test G.recast(Float32, [1.0, 2.0]) == Float32[1, 2]
-    @test G.recast(Float32, (1.0, :fixed)) == (Float32(1), :fixed)
-    @test G.recast(Float32, (value = 1.0, label = :fixed)) ==
+    @test PB.recast(Float32, [1.0, 2.0]) == Float32[1, 2]
+    @test PB.recast(Float32, (1.0, :fixed)) == (Float32(1), :fixed)
+    @test PB.recast(Float32, (value = 1.0, label = :fixed)) ==
           (value = Float32(1), label = :fixed)
-    @test G.recast(Float32, :fixed) === :fixed
-    @test G._promoted_numeric_type((Float32[1], (2.0,), :fixed)) === Float64
-    @test_throws ArgumentError G._promoted_numeric_type((:left, :right))
+    @test PB.recast(Float32, :fixed) === :fixed
+    @test PB._promoted_numeric_type((Float32[1], (2.0,), :fixed)) === Float64
+    @test_throws ArgumentError PB._promoted_numeric_type((:left, :right))
 
     escaped=Expr(:escape, Expr(:call, :identity, :x))
-    @test G._strip_escapes(escaped) == Expr(:call, :identity, :x)
-    @test_throws ArgumentError G._get_struct_node(:(begin
+    @test PB._strip_escapes(escaped) == Expr(:call, :identity, :x)
+    @test_throws ArgumentError PB._get_struct_node(:(begin
     end))
-    @test_throws ArgumentError G._get_struct_node(:(begin
+    @test_throws ArgumentError PB._get_struct_node(:(begin
         struct A
             x
         end
@@ -275,11 +273,11 @@ end
             y
         end
     end))
-    @test_throws ArgumentError G._parse_fields(:(begin
+    @test_throws ArgumentError PB._parse_fields(:(begin
         println("no field")
     end))
     malformed=Expr(:struct, false, Expr(:call, :Bad), Expr(:block, :x))
-    @test_throws ArgumentError G._extract_struct_name(malformed)
+    @test_throws ArgumentError PB._extract_struct_name(malformed)
 
     @relax struct RelaxedCollections{T <: Real}
         scalar::T
@@ -300,5 +298,5 @@ end
     @test eltype(typeof(relaxed)) === Float64
     relaxed32=convert(RelaxedCollections{Float32}, relaxed)
     @test relaxed32 isa RelaxedCollections{Float32}
-    @test G.recast(Float32, relaxed) isa RelaxedCollections{Float32}
+    @test PB.recast(Float32, relaxed) isa RelaxedCollections{Float32}
 end

@@ -1,9 +1,9 @@
-@testitem "Computation / manifests / deterministic structural identity" tags=[:unit] setup=[
+@testitem "ParametricBuilder / manifests / deterministic structural identity" tags=[:unit] setup=[
     EngineTestSupport,
     UseEngineSupport
 ] begin
-    const Cmp=LineCableModels.Computation
     const PB=LineCableModels.ParametricBuilder
+    const UQ=LineCableModels.UQ
 
     automatic=Grid((1.0, 2.0))
     named=Grid((1.0, 2.0); key = :shared)
@@ -27,8 +27,8 @@
         (dictionary = Dict(:a=>1, :b=>2), set = Set((2, 3, 1)))
     )
 
-    first_tree=Cmp._manifest_tree(first_payload)
-    second_tree=Cmp._manifest_tree(second_payload)
+    first_tree=PB._manifest_tree(first_payload)
+    second_tree=PB._manifest_tree(second_payload)
     @test isequal(first_tree, second_tree)
     @test first_tree.automatic == (automatic_grid = 1,)
     @test first_tree.repeated == first_tree.automatic
@@ -37,16 +37,16 @@
     @test occursin("var\"#", first_tree.transform.function_type)
     @test first_tree.array.size == (1, 2)
     @test first_tree.summary.fields.mean == 2.0
-    @test Cmp._stable_bytes(first_tree) == Cmp._stable_bytes(second_tree)
+    @test PB._stable_bytes(first_tree) == PB._stable_bytes(second_tree)
 
-    manifest_a=Cmp.CalculationManifest(
+    manifest_a=PB.CalculationManifest(
         (radius = 0.01,),
         first_tree,
         Formulation(),
         (policy = :full,),
         (verbosity = 0,)
     )
-    manifest_b=Cmp.CalculationManifest(
+    manifest_b=PB.CalculationManifest(
         (radius = 0.01,),
         second_tree,
         Formulation(),
@@ -57,13 +57,13 @@
     @test length(manifest_a.hash) == 64
     @test manifest_a.solver == string(typeof(Formulation()))
 
-    same_type=Cmp._append_result(Int[1], 2)
+    same_type=PB._append_result(Int[1], 2)
     @test same_type == [1, 2]
-    widened=Cmp._append_result(Int[1], 2.5)
+    widened=PB._append_result(Int[1], 2.5)
     @test widened == Real[1, 2.5]
     @test eltype(widened) === Real
-    @test Cmp._append_result(nothing, 2.5) == [2.5]
-    @test_throws ArgumentError Cmp._append_result(Int[1], "incompatible")
+    @test PB._append_result(nothing, 2.5) == [2.5]
+    @test_throws ArgumentError PB._append_result(Int[1], "incompatible")
 
     configuration=PB.Configuration{Float64}(
         identity,
@@ -71,17 +71,17 @@
         (:radius,),
         ()
     )
-    failure=Cmp._configuration_failure(2, configuration, DomainError(-1.0))
+    failure=PB._configuration_failure(2, configuration, DomainError(-1.0))
     @test failure.index == 2
     @test failure.configuration == (radius = -1.0,)
     @test occursin("DomainError", failure.exception_type)
     @test occursin("-1.0", failure.message)
-    @test all(Cmp._skippable_configuration_error,
+    @test all(PB._skippable_configuration_error,
         (ArgumentError("invalid"), AssertionError("invalid"),
             DimensionMismatch("invalid"), DomainError(0)))
-    @test !Cmp._skippable_configuration_error(ErrorException("unexpected"))
+    @test !PB._skippable_configuration_error(ErrorException("unexpected"))
 
-    constant_histogram=Cmp._histogram(fill(2.0, 4), nothing)
+    constant_histogram=UQ._histogram(fill(2.0, 4), nothing)
     @test length(constant_histogram.density) == 1
     @test first(constant_histogram.edges) < 2.0 < last(constant_histogram.edges)
     @test sum(constant_histogram.density .* diff(constant_histogram.edges)) ≈ 1.0

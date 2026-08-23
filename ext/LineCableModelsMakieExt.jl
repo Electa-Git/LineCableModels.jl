@@ -184,7 +184,7 @@ function plot(
     quantity, parsed_indices = _monte_carlo_quantity(expression)
     selection = ijk === nothing ? parsed_indices : ijk
     render_spec = PlotBuilder.make_render(
-        LineCableModels.Computation.MCDistributionPlotDefinition,
+        LineCableModels.UQ.MCDistributionPlotDefinition,
         result;
         quantity,
         ijk = selection,

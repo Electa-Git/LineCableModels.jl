@@ -46,23 +46,14 @@ include("docstrings.jl")
 include("interfaces.jl")
 include("retired.jl")
 
-# Package-local scientific and parameter-space grammar.
+# Package-local shared calculation grammar.
 include("Grammar.jl")
 using .Grammar:
                 AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult,
                 AbstractParametricResult, AbstractUncertaintyResult,
                 FormulationOptions, ComputationOptions,
                 compute, observables, primitives, preprocess,
-                Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGrid,
-                AbstractGrid, AbstractUncertainGrid, UncertainValue,
-                Gridspace, Configuration, configurations, materialize,
-                has_uncertainty, configuration_manifest, nominal, standard_uncertainty,
-                @gridspace, @relax,
-                Combinatorial, LinearError, MonteCarlo, ParametricProblem,
-                ParametricResult, LinearErrorResult, MonteCarloResult,
-                CalculationManifest, ConfigurationFailure, SampleSummary,
-                HistogramDensity, RLCG,
-                result, statistics, samples, histograms, uncertain_value, manifest
+                nominal, standard_uncertainty
 
 # Submodule `UnitHandler`
 include("unithandler/UnitHandler.jl")
@@ -99,12 +90,23 @@ using .Engine.Transforms: Fortescue
 # Submodule `ParametricBuilder`
 include("parametricbuilder/ParametricBuilder.jl")
 using .ParametricBuilder:
+                          Grid, AbsoluteError, DeterministicGrid, RelativeGrid,
+                          AbsoluteGrid, AbstractGrid, AbstractUncertainGrid,
+                          UncertainValue, Gridspace, Configuration, configurations,
+                          materialize, has_uncertainty, configuration_manifest,
+                          @gridspace, @relax,
+                          Combinatorial, ParametricProblem, ParametricResult,
+                          CalculationManifest, ConfigurationFailure, result, manifest,
                           Conductor, Insulator, CableBuilder,
                           at, trifoil, hflat, vflat, Earth, SystemBuilder,
                           WireEstimate, make_stranded, make_screened
 
-# Unified Gridspace computation policies and typed result grammar.
-include("computation/Computation.jl")
+# Submodule `UQ`
+include("uq/UQ.jl")
+using .UQ:
+           LinearError, MonteCarlo, LinearErrorResult, MonteCarloResult,
+           SampleSummary, HistogramDensity, RLCG,
+           statistics, samples, histograms, uncertain_value
 
 # Submodule `ImportExport`
 include("importexport/ImportExport.jl")

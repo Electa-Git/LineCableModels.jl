@@ -1,5 +1,3 @@
-import DataFrames: DataFrame, metadata!
-
 const _MC_SCIENTIFIC_QUANTITY = Dict(
     :R => :resistance,
     :L => :inductance,

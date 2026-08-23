@@ -1,9 +1,9 @@
-@testitem "ParametricBuilder / public API / explicit materialized boundary" tags=[:unit] setup=[
+@testitem "ParametricBuilder and UQ / public API / calculation ownership" tags=[:unit] setup=[
     EngineTestSupport, UseEngineSupport, TestNumerics] begin
     import LineCableModels.ParametricBuilder as PB
     const Grammar=LineCableModels.Grammar
     const Engine=LineCableModels.Engine
-    const Computation=LineCableModels.Computation
+    const UQ=LineCableModels.UQ
 
     @test LineCableModels.AbstractProblemDefinition === Grammar.AbstractProblemDefinition
     @test LineCableModels.AbstractFormulation === Grammar.AbstractFormulation
@@ -21,24 +21,30 @@
         :AbstractGrid, :AbstractUncertainGrid, :UncertainValue,
         :Gridspace, :Configuration
     )
-        @test getproperty(LineCableModels, name) === getproperty(Grammar, name)
-        @test getproperty(PB, name) === getproperty(Grammar, name)
+        @test getproperty(LineCableModels, name) === getproperty(PB, name)
+        @test parentmodule(getproperty(PB, name)) === PB
     end
     for name in (
-        :Combinatorial, :LinearError, :MonteCarlo, :ParametricProblem,
-        :ParametricResult, :LinearErrorResult, :MonteCarloResult,
-        :CalculationManifest, :ConfigurationFailure, :SampleSummary,
-        :HistogramDensity, :RLCG
+        :Combinatorial, :ParametricProblem, :ParametricResult,
+        :CalculationManifest, :ConfigurationFailure
     )
-        @test getproperty(LineCableModels, name) === getproperty(Grammar, name)
-        @test getproperty(Computation, name) === getproperty(Grammar, name)
+        @test getproperty(LineCableModels, name) === getproperty(PB, name)
+        @test parentmodule(getproperty(PB, name)) === PB
     end
-    @test getproperty(PB, Symbol("@gridspace")) ===
-          getproperty(Grammar, Symbol("@gridspace"))
-    @test getproperty(PB, Symbol("@relax")) ===
-          getproperty(Grammar, Symbol("@relax"))
-    @test Computation.Combinatorial === Grammar.Combinatorial
-    @test Computation.ParametricResult === Grammar.ParametricResult
+    for name in (
+        :LinearError, :MonteCarlo, :LinearErrorResult, :MonteCarloResult,
+        :SampleSummary, :HistogramDensity, :RLCG
+    )
+        @test getproperty(LineCableModels, name) === getproperty(UQ, name)
+        @test parentmodule(getproperty(UQ, name)) === UQ
+    end
+    @test getproperty(LineCableModels, Symbol("@gridspace")) ===
+          getproperty(PB, Symbol("@gridspace"))
+    @test getproperty(LineCableModels, Symbol("@relax")) ===
+          getproperty(PB, Symbol("@relax"))
+    @test !isdefined(LineCableModels, :Computation)
+    @test !isdefined(Grammar, :Gridspace)
+    @test !isdefined(Grammar, :MonteCarlo)
     @test Engine.AbstractProblemDefinition === Grammar.AbstractProblemDefinition
     @test Engine.AbstractFormulation === Grammar.AbstractFormulation
 
@@ -201,12 +207,12 @@ end
     ) ≈ 0.05
 end
 
-@testitem "Computation / compute / deterministic parametric and Monte Carlo ownership" tags=[:unit] setup=[
+@testitem "ParametricBuilder and UQ / compute / deterministic and uncertainty ownership" tags=[:unit] setup=[
     EngineTestSupport, UseEngineSupport, TestNumerics] begin
     using Random
     using Distributions
     import LineCableModels.ParametricBuilder as PB
-    import LineCableModels.Computation as Computation
+    import LineCableModels.UQ as UQ
 
     copper=PB.Material(; rho = 1.7241e-8)
     xlpe=PB.Material(; rho = 1.0e14, eps_r = 2.3)
@@ -310,14 +316,14 @@ end
         )
     )
     @test only(automatic_run.details[:random].trials) ==
-          Computation._dkw_trials(3, 0.5, 0.9)
+          UQ._dkw_trials(3, 0.5, 0.9)
 
     propagated=compute(ParametricProblem(space), LinearError(formulation))
     @test propagated isa LinearErrorResult{<:CableConstants}
     @test Measurements.cov(first(propagated).R, first(propagated).L) != 0
     @test !applicable(Measurements.measurement, monte_carlo)
 
-    @test Computation._dkw_trials(3, 0.95, 0.02) ==
+    @test UQ._dkw_trials(3, 0.95, 0.02) ==
           ceil(Int, log(2 * 3 / 0.05) / (2 * 0.02^2))
 end
 
@@ -411,7 +417,7 @@ end
     @test all(==("Ω/km"), line_frames[1, 1, 1].unit[1:1])
 end
 
-@testitem "Computation / invalid configurations / strict and auditable handling" tags=[:unit] setup=[
+@testitem "ParametricBuilder / invalid configurations / strict and auditable handling" tags=[:unit] setup=[
     EngineTestSupport, UseEngineSupport, TestNumerics] begin
     import LineCableModels.ParametricBuilder as PB
 

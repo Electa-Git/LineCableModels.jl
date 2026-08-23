@@ -1,9 +1,9 @@
 """
     LineCableModels.Grammar
 
-Own the package-local calculation, result, and parameter-space vocabulary used
-by LineCableModels. Scientific problem and result types specialize this grammar
-in their concept-owning modules.
+Own the shared calculation roots and action generics used by LineCableModels.
+Scientific and higher-order types specialize this vocabulary in their
+concept-owning modules.
 """
 module Grammar
 
@@ -11,17 +11,9 @@ export AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult
 export AbstractParametricResult, AbstractUncertaintyResult
 export FormulationOptions, ComputationOptions
 export compute, observables, primitives, preprocess
-export Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGrid
-export AbstractGrid, AbstractUncertainGrid, UncertainValue
-export Gridspace, Configuration, configurations, materialize
-export has_uncertainty, configuration_manifest, nominal, standard_uncertainty
-export @gridspace, @relax
-export Combinatorial, LinearError, MonteCarlo, ParametricProblem
-export ParametricResult, LinearErrorResult, MonteCarloResult
-export CalculationManifest, ConfigurationFailure, SampleSummary, HistogramDensity, RLCG
-export result, statistics, samples, histograms, uncertain_value, manifest
+export nominal, standard_uncertainty
 
-using DocStringExtensions: SIGNATURES, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
+using DocStringExtensions: SIGNATURES, TYPEDEF
 
 """
 $(TYPEDEF)
@@ -108,10 +100,5 @@ nominal(values::AbstractArray) = nominal.(values)
 "Return the standard uncertainty of a quantity; deterministic numbers return zero."
 standard_uncertainty(value::Number) = zero(nominal(value))
 standard_uncertainty(::Any) = 0.0
-
-include("grammar/grid.jl")
-include("grammar/gridspace.jl")
-include("grammar/macros.jl")
-include("grammar/computation.jl")
 
 end

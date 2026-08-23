@@ -40,7 +40,7 @@ end
     using LineCableModels.EarthProps
     using LineCableModels.Engine
     using LineCableModels.ParametricBuilder
-    using LineCableModels.Computation
+    using LineCableModels.UQ
     using LineCableModels.ImportExport
     import LineCableModels.DataModel: Insulator
 end
@@ -56,7 +56,7 @@ end
     using LineCableModels.EarthProps
     using LineCableModels.Engine
     using LineCableModels.PlotBuilder
-    using LineCableModels.Computation
+    using LineCableModels.UQ
     import LineCableModels.DataModel: Insulator
 end
 

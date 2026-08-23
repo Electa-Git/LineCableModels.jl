@@ -22,9 +22,8 @@
     end
     @test all(!occursin("@assert", contents) for contents in values(source))
 
-    macro_path=joinpath("src", "grammar", "macros.jl")
+    macro_path=joinpath("src", "parametricbuilder", "macros.jl")
     macro_facades=Set((
-        joinpath("src", "Grammar.jl"),
         joinpath("src", "LineCableModels.jl"),
         joinpath("src", "parametricbuilder", "ParametricBuilder.jl")
     ))

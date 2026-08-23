@@ -115,7 +115,7 @@ using .EHEM
 include("input.jl")
 include("trace.jl")
 
-# Computation methods
+# Calculation methods
 include("solver.jl")
 include("reduction.jl")
 

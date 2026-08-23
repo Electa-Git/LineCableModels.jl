@@ -7,6 +7,7 @@ using SpecialFunctions
 
 import LineCableModels
 const Grammar = LineCableModels.Grammar
+const ParametricBuilder = LineCableModels.ParametricBuilder
 const Engine = LineCableModels.Engine
 const ImportExport = LineCableModels.ImportExport
 
@@ -19,10 +20,12 @@ standard_uncertainty(value::Measurements.Measurement) = Measurements.uncertainty
 # Gridspace direct propagation. The realization cache in Gridspace guarantees
 # that one shared Grid becomes one shared Measurement variable, including
 # across nested object boundaries.
-function Grammar._direct_value(value::Grammar.UncertainValue{<:Real})
+function ParametricBuilder._direct_value(value::ParametricBuilder.UncertainValue{<:Real})
     Measurements.measurement(value.nominal, value.sigma)
 end
-Grammar.materialize(value::Grammar.UncertainValue{<:Real}) = Grammar._direct_value(value)
+function ParametricBuilder.materialize(value::ParametricBuilder.UncertainValue{<:Real})
+    ParametricBuilder._direct_value(value)
+end
 
 function Engine._has_uncertainty_type(
         ::Type{Complex{T}},

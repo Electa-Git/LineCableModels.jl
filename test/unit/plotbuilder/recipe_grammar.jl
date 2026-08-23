@@ -209,7 +209,7 @@
                 LineCableModels.Engine.LineParameters,
                 LineCableModels.Engine.LineParameters
             }),
-        (LineCableModels.Computation.MCDistributionPlotDefinition,
+        (LineCableModels.UQ.MCDistributionPlotDefinition,
             LineCableModels.MonteCarloResult),
         (LineCableModels.DataModel.CablePreviewPlotDefinition,
             LineCableModels.DataModel.CableDesign),
@@ -225,7 +225,7 @@
     mc_result=TestFixtures.cable_monte_carlo_result()
     for mode in (:hist, :pdf, :ecdf, :qq)
         rendered=PB.make_render(
-            LineCableModels.Computation.MCDistributionPlotDefinition,
+            LineCableModels.UQ.MCDistributionPlotDefinition,
             mc_result;
             mode,
             data = :both
@@ -245,7 +245,7 @@
         sample_details
     )
     @test PB.make_render(
-        LineCableModels.Computation.MCDistributionPlotDefinition,
+        LineCableModels.UQ.MCDistributionPlotDefinition,
         samples_only;
         mode = :pdf
     ) isa PB.RenderSpec
