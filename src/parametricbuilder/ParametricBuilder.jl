@@ -2,7 +2,7 @@ module ParametricBuilder
 
 export Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGrid
 export AbstractGrid, AbstractUncertainGrid, UncertainValue
-export Gridspace, Configuration, configurations, materialize
+export Gridspace, configurations, materialize
 export has_uncertainty, configuration_manifest, nominal, standard_uncertainty
 export @gridspace, @relax
 

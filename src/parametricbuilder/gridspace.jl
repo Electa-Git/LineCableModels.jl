@@ -113,6 +113,7 @@ end
 
 _gridspace_axis(value::ConstantAxis) = value
 _gridspace_axis(value::Union{AbstractGrid, Gridspace}) = value
+_gridspace_axis(value::Union{Tuple, AbstractArray}) = Grid(value)
 _gridspace_axis(value) = ConstantAxis(value)
 
 struct AxisSelection{V, K}
@@ -375,8 +376,7 @@ has_uncertainty(space::Gridspace) = any(has_uncertainty, configurations(space))
 function _manifest_value(value::UncertainValue)
     (
         nominal = value.nominal,
-        sigma = value.sigma,
-        style = value.style isa RelativeUncertainty ? :relative : :absolute
+        sigma = value.sigma
     )
 end
 _manifest_value(value::ResolvedGridValue) = _manifest_value(value.value)

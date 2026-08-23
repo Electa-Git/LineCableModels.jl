@@ -28,7 +28,7 @@
         earth,
         frequencies = [50.0]
     )
-    problem=only(PB.Gridspace(specification))
+    problem=only(specification)
     positions=problem.system.cables
 
     @test length(positions) == 4

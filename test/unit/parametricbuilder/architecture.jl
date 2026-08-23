@@ -22,7 +22,7 @@
     for name in (
         :Grid, :AbsoluteError, :DeterministicGrid, :RelativeGrid, :AbsoluteGrid,
         :AbstractGrid, :AbstractUncertainGrid, :UncertainValue,
-        :Gridspace, :Configuration
+        :Gridspace
     )
         @test getproperty(LineCableModels, name) === getproperty(PB, name)
         @test parentmodule(getproperty(PB, name)) === PB
@@ -78,6 +78,7 @@
     @test PB.SystemDefinition !== nothing
     @test isdefined(LineCableModels.DataModel, :Tubular)
     @test isdefined(LineCableModels.Materials, :Material)
+    @test !isdefined(LineCableModels, :Configuration)
 end
 
 @testitem "Engine / grammar / strict analytical and computation options" tags=[:unit] setup=[
@@ -165,7 +166,7 @@ end
         )
     )
 
-    designs=collect(Gridspace(design_spec))
+    designs=collect(design_spec)
     @test length(designs) == 2
     @test all(design -> design isa LineCableModels.DataModel.CableDesign, designs)
     @test designs[1].components[1].conductor_group.r_ex == 0.010
@@ -180,7 +181,7 @@ end
         eps_r = Grid((100.0, 10.0, 5.0));
         combine = :zip
     )
-    @test [(item.layers[end].rho, item.layers[end].eps_r) for item in Gridspace(earth)] == [
+    @test [(item.layers[end].rho, item.layers[end].eps_r) for item in earth] == [
         (10.0, 100.0),
         (100.0, 10.0),
         (1000.0, 5.0)
@@ -194,7 +195,7 @@ end
         earth = PB.Earth(rho = 100.0),
         frequencies = frequencies_grid
     )
-    system_space=Gridspace(systems)
+    system_space=systems
     @test length(system_space) == 2
     @test map(problem -> problem.frequencies, collect(system_space)) ==
           [[50.0], [50.0, 500.0]]
@@ -353,7 +354,7 @@ end
         frequencies = [50.0]
     )
 
-    deterministic_space=Gridspace(deterministic_problem)
+    deterministic_space=deterministic_problem
     ordinary=compute(first(deterministic_space), formulation)
     @test ordinary isa LineParameters
     parametric=compute(
@@ -385,7 +386,7 @@ end
         frequencies = [50.0]
     )
 
-    uncertain_space=Gridspace(uncertain_problem)
+    uncertain_space=uncertain_problem
     @test_throws MethodError compute(uncertain_space, formulation)
     direct=compute(ParametricProblem(uncertain_space), LinearError(formulation))
     @test direct isa LinearErrorResult{<:LineParameters}
@@ -450,13 +451,13 @@ end
 
     copper=PB.Material(; rho = 1.7241e-8)
     xlpe=PB.Material(; rho = 1.0e14, eps_r = 2.3)
-    design=only(Gridspace(PB.CableBuilder(
+    design=only(PB.CableBuilder(
         "presentation-cable",
         PB.Conductor.Solid(:core; radius = 0.010, material = copper),
         PB.Insulator.Tubular(:core; thickness = 0.004, material = xlpe),
         PB.Conductor.Tubular(:screen; thickness = 0.001, material = copper),
         PB.Insulator.Tubular(:screen; thickness = 0.002, material = xlpe)
-    )))
+    ))
 
     @test names(DataFrame(design))[1] == "property"
     components=DataFrame(design, :components)

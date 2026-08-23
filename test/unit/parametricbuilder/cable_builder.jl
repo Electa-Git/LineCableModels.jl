@@ -41,13 +41,13 @@
         thickness = 0.001,
         material = semiconductor_material
     )
-    design=only(PB.Gridspace(PB.CableBuilder(
+    design=only(PB.CableBuilder(
         "staged-wire-strip",
         stranded,
         core_insulation,
         [screen, screen_semicon],
         nominal = NominalData()
-    )))
+    ))
 
     @test design.cable_id == "staged-wire-strip"
     @test length(design.components) == 2
@@ -140,14 +140,14 @@ end
         thickness = 0.002,
         material = dielectric_material
     )
-    @test_throws ArgumentError only(PB.Gridspace(PB.CableBuilder(
+    @test_throws ArgumentError only(PB.CableBuilder(
         "bad-nominal",
         conductor,
         insulation;
         nominal = 3
-    )))
-    @test_throws ArgumentError only(PB.Gridspace(PB.CableBuilder("no-insulator", conductor)))
-    @test_throws ArgumentError only(PB.Gridspace(PB.CableBuilder("no-conductor", insulation)))
+    ))
+    @test_throws ArgumentError only(PB.CableBuilder("no-insulator", conductor))
+    @test_throws ArgumentError only(PB.CableBuilder("no-conductor", insulation))
 
     @test_throws ArgumentError PB.PartDefinition(
         Val(:conductor),

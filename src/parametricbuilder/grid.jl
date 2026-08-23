@@ -17,34 +17,22 @@ descriptor.
 """
 abstract type AbstractUncertainGrid <: AbstractGrid end
 
-abstract type AbstractUncertaintyStyle end
-struct RelativeUncertainty{T <: Real} <: AbstractUncertaintyStyle
-    percent::T
-end
-struct AbsoluteUncertainty <: AbstractUncertaintyStyle end
-
 """
 $(TYPEDEF)
 
 A dependency-free uncertainty descriptor. `sigma` is always an absolute
-standard deviation. `style` retains whether it originated from a relative or
-absolute [`Grid`](@ref) declaration.
+standard deviation.
 
 $(TYPEDFIELDS)
 """
-struct UncertainValue{T, S <: AbstractUncertaintyStyle, E}
+struct UncertainValue{T, E}
     "Nominal parameter value."
     nominal::T
 
     "Absolute standard uncertainty in the same unit as `nominal`."
     sigma::E
 
-    "Origin of the uncertainty declaration."
-    style::S
-
-    function UncertainValue(nominal::T, sigma::E, style::S) where {
-            T, S <: AbstractUncertaintyStyle, E
-    }
+    function UncertainValue(nominal::T, sigma::E) where {T, E}
         if nominal isa Real && sigma isa Real
             isfinite(nominal) || throw(ArgumentError(
                 "uncertain nominal values must be finite; got $nominal",
@@ -56,7 +44,7 @@ struct UncertainValue{T, S <: AbstractUncertaintyStyle, E}
                 "uncertainty must be nonnegative; got $sigma",
             ))
         end
-        return new{T, S, E}(nominal, sigma, style)
+        return new{T, E}(nominal, sigma)
     end
 end
 
@@ -74,7 +62,6 @@ Return the absolute standard uncertainty stored in an
 [`UncertainValue`](@ref), in the same unit as its nominal value.
 """
 standard_uncertainty(value::UncertainValue) = value.sigma
-uncertainty_style(value::UncertainValue) = value.style
 
 # A reused Grid instance carries the same automatic key. Separately-created
 # equal Grids deliberately do not couple. Named keys provide explicit coupling.
@@ -234,14 +221,14 @@ function iterate(grid::RelativeGrid, state...)
     item === nothing && return nothing
     (value, percent), next_state = item
     sigma = abs(value) * percent / 100
-    return UncertainValue(value, sigma, RelativeUncertainty(percent)), next_state
+    return UncertainValue(value, sigma), next_state
 end
 
 function iterate(grid::AbsoluteGrid, state...)
     item = iterate(Iterators.product(grid.vals, grid.abs_err), state...)
     item === nothing && return nothing
     (value, error), next_state = item
-    return UncertainValue(value, error, AbsoluteUncertainty()), next_state
+    return UncertainValue(value, error), next_state
 end
 
 length(grid::RelativeGrid) = length(grid.vals) * length(grid.rel_err)
@@ -273,7 +260,7 @@ end
 
 function _sample_uncertainty(
         rng::Random.AbstractRNG,
-        value::UncertainValue{<:Real, <:AbstractUncertaintyStyle, <:Real},
+        value::UncertainValue{<:Real, <:Real},
         distribution::Symbol
 )
     distribution === :normal && return value.nominal + value.sigma * randn(rng)

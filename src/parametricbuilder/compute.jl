@@ -5,7 +5,7 @@ function (::CableConstantsMaterializer)(design, separation, earth_resistivity)
 end
 
 function Engine.CableConstantsProblem(
-        design::_AbstractDefinition{<:DataModel.CableDesign};
+        design::Gridspace{<:DataModel.CableDesign};
         separation = nothing,
         earth_resistivity = 100.0,
         combine::Symbol = :product

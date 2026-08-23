@@ -27,7 +27,7 @@
 
     direct_constant=Gridspace{Tuple}(
         tuple,
-        (Grid((1, 2)), :fixed, [10, 20]),
+        (Grid((1, 2)), :fixed, Grid(([10, 20],))),
         (:value, :tag, :atomic_collection)
     )
     @test collect(direct_constant) == [
@@ -105,7 +105,7 @@
     )
     configuration=only(configurations(uncertain_space))
     @test has_uncertainty(configuration)
-    @test configuration_manifest(configuration).value.style == :relative
+    @test configuration_manifest(configuration).value == (nominal = 10.0, sigma = 0.5)
     direct=materialize(configuration)
     @test direct[1] isa Measurement
     draw=rand(MersenneTwister(42), configuration)
@@ -144,6 +144,9 @@
         ReverseMacroVault(3.0, :default),
         ReverseMacroVault(4.0, :default)
     ]
+    scalar_macro=MacroVault(; value = 1.0)
+    @test scalar_macro isa Gridspace{MacroVault}
+    @test only(scalar_macro) == MacroVault(1.0, :default)
     @test MacroVault(Float32(1), :stable) isa MacroVault{Float32}
 
     abstract type AbstractMacroVault{T} end
@@ -158,8 +161,18 @@
         payload::T
     end
     matrix=[1.0 2.0; 3.0 4.0]
-    atomic=only(AtomicCollections(; payload = matrix))
+    matrix_axis=AtomicCollections(; payload = matrix)
+    @test collect(item.payload for item in matrix_axis) == vec(matrix)
+    atomic=only(AtomicCollections(; payload = Grid((matrix,))))
     @test atomic.payload === matrix
+
+    nested=AtomicCollections(;
+        payload = MacroVault(; value = 1:2, label = (:left, :right))
+    )
+    @test length(nested) == 4
+    @test [(item.payload.value, item.payload.label) for item in nested] == [
+        (1, :left), (2, :left), (1, :right), (2, :right)
+    ]
 end
 
 @testitem "ParametricBuilder / Grid / indexing, extrema, and local sampling" tags=[:unit] setup=[
@@ -179,8 +192,8 @@ end
     absolute=PB.Grid((10.0, 20.0), PB.AbsoluteError((0.5, 2.0)))
     @test size(relative) == (4,)
     @test relative[4] isa PB.UncertainValue
-    @test PB.uncertainty_style(relative[1]) isa PB.RelativeUncertainty
-    @test PB.uncertainty_style(absolute[1]) isa PB.AbsoluteUncertainty
+    @test fieldnames(typeof(relative[1])) == (:nominal, :sigma)
+    @test fieldnames(typeof(absolute[1])) == (:nominal, :sigma)
     @test extrema(relative) == (-11.0, 22.0)
     @test extrema(absolute) == (8.0, 22.0)
     @test_throws BoundsError relative[0]
@@ -194,10 +207,10 @@ end
     @test first_key != other_key
     @test hash(first_key) == hash(alias_key)
 
-    zero_sigma=PB.UncertainValue(4, 0, PB.AbsoluteUncertainty())
+    zero_sigma=PB.UncertainValue(4, 0)
     @test rand(MersenneTwister(1), zero_sigma) === 4.0
     @test rand(zero_sigma) === 4.0
-    uncertain=PB.UncertainValue(10.0, 2.0, PB.AbsoluteUncertainty())
+    uncertain=PB.UncertainValue(10.0, 2.0)
     normal=rand(MersenneTwister(10), uncertain; distribution = :normal)
     uniform=rand(MersenneTwister(10), uncertain; distribution = :uniform)
     custom=rand(

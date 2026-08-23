@@ -301,7 +301,7 @@ end
         return_samples = true
     )
 
-    parametric_problem=ParametricProblem(Gridspace(problem))
+    parametric_problem=ParametricProblem(problem)
     sampled=compute(parametric_problem, policy)
     @test sampled isa MonteCarloResult{<:LineParameters}
     @test size(only(samples(sampled)).G) == (2, 2, 2, 12)
@@ -329,7 +329,7 @@ end
     end
 
     total=compute(
-        ParametricProblem(Gridspace(problem), (output_basis = :total,)),
+        ParametricProblem(problem, (output_basis = :total,)),
         policy
     )
     @test basis(only(LineCableModels.result(sampled))) === :per_length

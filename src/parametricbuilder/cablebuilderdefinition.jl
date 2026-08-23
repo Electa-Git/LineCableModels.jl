@@ -586,12 +586,12 @@ function CableBuilder(
     flattened = _flatten_parts(parts)
     isempty(flattened) &&
         throw(ArgumentError("CableBuilder requires at least one part"))
-    return CableDesignDefinition(
+    return Gridspace(CableDesignDefinition(
         String(identifier),
         flattened,
         nominal,
         Val(combine)
-    )
+    ))
 end
 
 function Gridspace(spec::CableDesignDefinition)

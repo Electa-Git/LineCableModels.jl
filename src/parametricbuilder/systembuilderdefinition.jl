@@ -36,7 +36,7 @@ function Earth(;
 )
     combine in (:product, :zip) ||
         throw(ArgumentError("combine must be :product or :zip"))
-    return EarthDefinition(rho, eps_r, mu_r, thickness, Val(combine))
+    return Gridspace(EarthDefinition(rho, eps_r, mu_r, thickness, Val(combine)))
 end
 
 function _position_coordinates(
@@ -228,9 +228,9 @@ function SystemBuilder(
         frequencies,
         combine::Symbol = :product
 )
-    design isa Union{DataModel.CableDesign, _AbstractDefinition{DataModel.CableDesign}} ||
+    design isa Union{DataModel.CableDesign, Gridspace{DataModel.CableDesign}} ||
         throw(ArgumentError("design must be a materialized CableDesign or CableBuilder spec"))
-    earth isa Union{EarthProps.EarthModel, _AbstractDefinition{EarthProps.EarthModel}} ||
+    earth isa Union{EarthProps.EarthModel, Gridspace{EarthProps.EarthModel}} ||
         throw(ArgumentError("earth must be a materialized EarthModel or Earth spec"))
     frequencies isa Union{AbstractVector, AbstractGrid} || throw(ArgumentError(
         "frequencies must be an ordinary vector or a Grid of complete vectors",
@@ -240,7 +240,7 @@ function SystemBuilder(
     position_tuple = _flatten_positions(positions)
     isempty(position_tuple) &&
         throw(ArgumentError("SystemBuilder requires at least one position"))
-    return SystemDefinition(
+    return Gridspace(SystemDefinition(
         String(identifier),
         design,
         position_tuple,
@@ -249,7 +249,7 @@ function SystemBuilder(
         earth,
         frequencies,
         Val(combine)
-    )
+    ))
 end
 
 function Gridspace(spec::SystemDefinition)
@@ -260,7 +260,10 @@ function Gridspace(spec::SystemDefinition)
         _gridspace_axis(spec.line_length),
         _gridspace_axis(spec.temperature),
         _gridspace_axis(spec.earth),
-        _gridspace_axis(spec.frequencies)
+        _gridspace_axis(
+            spec.frequencies isa AbstractGrid ?
+            spec.frequencies : Grid((spec.frequencies,))
+        )
     )
     names = (
         :identifier,

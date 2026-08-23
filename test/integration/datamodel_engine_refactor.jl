@@ -174,7 +174,7 @@ end
             earth = PB.Earth(rho = T(100), eps_r = T(10), mu_r = one(T)),
             frequencies = T[50]
         )
-        return only(Gridspace(specification))
+        return only(specification)
     end
 
     half=compact_problem(Float16)

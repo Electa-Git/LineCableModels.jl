@@ -51,8 +51,8 @@ function Material(;
     combine in (:product, :zip) ||
         throw(ArgumentError("combine must be :product or :zip; got :$combine"))
     values = (rho, eps_r, mu_r, T0, alpha)
-    any(value -> value isa Union{AbstractGrid, _AbstractDefinition}, values) &&
-        return MaterialDefinition(rho, eps_r, mu_r, T0, alpha, Val(combine))
+    any(value -> value isa Union{AbstractGrid, Gridspace, _AbstractDefinition}, values) &&
+        return Gridspace(MaterialDefinition(rho, eps_r, mu_r, T0, alpha, Val(combine)))
     return Materials.Material(rho, eps_r, mu_r, T0, alpha)
 end
 
@@ -103,12 +103,11 @@ through the same [`Gridspace`](@ref) grammar used by the cable builder.
 function add!(
         library::Materials.MaterialsLibrary,
         name::Union{AbstractString, Symbol},
-        spec::_AbstractDefinition{Materials.Material}
+        space::Gridspace{Materials.Material}
 )
-    has_uncertainty(spec) && throw(ArgumentError(
+    has_uncertainty(space) && throw(ArgumentError(
         "a reusable material-library entry must be deterministic",
     ))
-    space = Gridspace(spec)
     length(space) == 1 || throw(ArgumentError(
         "a reusable material-library entry must describe exactly one material; got $(length(space)) configurations",
     ))
