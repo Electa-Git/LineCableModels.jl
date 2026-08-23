@@ -17,11 +17,10 @@ struct Semicon{T <: Real} <: AbstractInsulatorPart{T}
     shunt_conductance::T
 end
 
-function Validation.rules(::Type{Semicon})
+function Validation.rules(::Type{<:Semicon})
     (Finite(:r_in), Finite(:r_ex), Nonnegative(:r_in), Positive(:r_ex),
         Less(:r_in, :r_ex))
 end
-validate(layer::Semicon) = Validation.check(Semicon, layer)
 
 function Semicon(r_in::Real, r_ex::Real, material::Material)
     T = promote_type(

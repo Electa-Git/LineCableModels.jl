@@ -25,6 +25,7 @@ export Material, MaterialsLibrary, add!
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES,
                            FUNCTIONNAME
 import ..LineCableModels: add!, validate
+import ..Validation
 
 """
 $(TYPEDEF)
@@ -76,7 +77,7 @@ Construct a material after floating and promoting its real-valued properties.
     return Material{typeof(first(values))}(values...)
 end
 
-function validate(material::Material)
+function _check_material(material::Material)
     isnan(material.rho) && throw(DomainError(material.rho, "resistivity cannot be NaN"))
     material.rho > zero(material.rho) ||
         throw(DomainError(material.rho, "resistivity must be positive"))
@@ -88,7 +89,11 @@ function validate(material::Material)
         throw(DomainError(material.T0, "reference temperature must be finite"))
     isfinite(material.alpha) ||
         throw(DomainError(material.alpha, "temperature coefficient must be finite"))
-    return material
+    return nothing
+end
+
+function Validation.rules(::Type{<:Material})
+    (Validation.OwnerRule(:material_properties, _check_material),)
 end
 
 include("materialslibrary.jl")

@@ -12,6 +12,7 @@ export EarthLayer, EarthModel
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using DataFrames
 import ..LineCableModels: add!, validate
+import ..Validation
 
 """
 $(TYPEDEF)
@@ -38,7 +39,7 @@ end
 Base.eltype(::EarthLayer{T}) where {T} = T
 Base.eltype(::Type{EarthLayer{T}}) where {T} = T
 
-function validate(layer::EarthLayer)
+function _check_earth_layer(layer::EarthLayer)
     isnan(layer.rho) && throw(DomainError(layer.rho, "resistivity cannot be NaN"))
     layer.rho > zero(layer.rho) ||
         throw(DomainError(layer.rho, "resistivity must be positive"))
@@ -48,7 +49,11 @@ function validate(layer::EarthLayer)
         throw(DomainError(layer.mu_r, "relative permeability must be positive and finite"))
     layer.thickness > zero(layer.thickness) ||
         throw(DomainError(layer.thickness, "thickness must be positive"))
-    return layer
+    return nothing
+end
+
+function Validation.rules(::Type{<:EarthLayer})
+    (Validation.OwnerRule(:earth_layer_properties, _check_earth_layer),)
 end
 
 """
@@ -120,10 +125,14 @@ function _valid_layer_sequence(vertical::Bool, layers)
     return layers
 end
 
-function validate(model::EarthModel)
+function _check_earth_model(model::EarthModel)
     foreach(validate, model.layers)
     _valid_layer_sequence(model.vertical_layers, model.layers)
-    return model
+    return nothing
+end
+
+function Validation.rules(::Type{<:EarthModel})
+    (Validation.OwnerRule(:earth_model_geometry, _check_earth_model),)
 end
 
 """
@@ -168,9 +177,9 @@ Base.convert(::Type{EarthModel{T}}, model::EarthModel{T}) where {T <: Real} = mo
 
 function add!(model::EarthModel{T}, layer::EarthLayer{T}) where {T}
     candidate = EarthLayer{T}[model.layers; layer]
-    _valid_layer_sequence(model.vertical_layers, candidate)
-    push!(model.layers, layer)
-    return validate(model)
+    validated = validate(EarthModel{T}(model.vertical_layers, candidate))
+    model.layers = validated.layers
+    return model
 end
 
 function add!(model::EarthModel{T}, layer::EarthLayer{U}) where {T, U}

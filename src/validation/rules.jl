@@ -50,3 +50,17 @@ struct PhysicalFillLimit <: Rule
     count::Symbol
     geometry::Tuple{Vararg{Symbol}}
 end
+
+"""
+$(TYPEDEF)
+
+Run a named cross-field check declared beside its owning type.
+
+$(TYPEDFIELDS)
+"""
+struct OwnerRule{F} <: Rule
+    "Stable rule name used in diagnostics and tests."
+    name::Symbol
+    "Nonmutating callable that checks one complete value."
+    check::F
+end

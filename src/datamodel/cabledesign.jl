@@ -21,7 +21,7 @@ function _design_reference_temperature(components)
     return reference
 end
 
-function validate(design::CableDesign)
+function _check_cable_design(design::CableDesign)
     isempty(design.cable_id) && throw(ArgumentError("cable_id cannot be empty"))
     _design_reference_temperature(design.components)
     ids = getproperty.(design.components, :id)
@@ -33,7 +33,11 @@ function validate(design::CableDesign)
                 "adjacent cable-component boundaries must coincide"
             ))
     end
-    return design
+    return nothing
+end
+
+function Validation.rules(::Type{<:CableDesign})
+    (Validation.OwnerRule(:cable_design_structure, _check_cable_design),)
 end
 
 function CableDesign(
@@ -89,8 +93,13 @@ function add!(design::CableDesign{T}, component::CableComponent{T}) where {T}
             component.conductor_group.r_in,
             "component must start at the current cable outer radius"
         ))
-    push!(design.components, component)
-    return validate(design)
+    candidate = validate(CableDesign{T}(
+        design.cable_id,
+        design.nominal_data,
+        CableComponent{T}[design.components; component]
+    ))
+    design.components = candidate.components
+    return design
 end
 
 function add!(design::CableDesign{T}, component::CableComponent{U}) where {T, U}

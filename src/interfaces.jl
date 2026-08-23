@@ -1,9 +1,6 @@
 "Add one owned value to a mutable collection."
 function add! end
 
-"Validate a value and return it unchanged, or throw a native exception."
-validate(value) = value
-
 "Return a short scientific description of a formulation or model."
 function description end
 

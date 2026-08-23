@@ -51,7 +51,7 @@ function _reference_temperature(layers::AbstractVector{<:AbstractInsulatorPart})
     return reference
 end
 
-function validate(group::InsulatorGroup)
+function _check_insulator_group(group::InsulatorGroup)
     isempty(group.layers) && throw(ArgumentError("an insulator group cannot be empty"))
     _reference_temperature(group.layers)
     group.reference_frequency > zero(group.reference_frequency) || throw(DomainError(
@@ -62,7 +62,11 @@ function validate(group::InsulatorGroup)
         throw(DomainError(group.r_in, "group inner radius differs from its first layer"))
     group.r_ex == last(group.layers).r_ex ||
         throw(DomainError(group.r_ex, "group outer radius differs from its last layer"))
-    return group
+    return nothing
+end
+
+function Validation.rules(::Type{<:InsulatorGroup})
+    (Validation.OwnerRule(:insulator_group_structure, _check_insulator_group),)
 end
 
 function InsulatorGroup(
@@ -112,12 +116,21 @@ function add!(group::InsulatorGroup{T}, layer::AbstractInsulatorPart{T}) where {
     next_capacitance = imag(equivalent) / angular_frequency
     next_cross_section = group.cross_section + layer.cross_section
 
-    group.shunt_conductance = next_conductance
-    group.shunt_capacitance = next_capacitance
-    group.cross_section = next_cross_section
-    group.r_ex = layer.r_ex
-    push!(group.layers, layer)
-    return validate(group)
+    candidate = validate(InsulatorGroup{T}(
+        group.r_in,
+        layer.r_ex,
+        next_cross_section,
+        next_capacitance,
+        next_conductance,
+        group.reference_frequency,
+        AbstractInsulatorPart{T}[group.layers; layer]
+    ))
+    group.r_ex = candidate.r_ex
+    group.cross_section = candidate.cross_section
+    group.shunt_capacitance = candidate.shunt_capacitance
+    group.shunt_conductance = candidate.shunt_conductance
+    group.layers = candidate.layers
+    return group
 end
 
 function add!(group::InsulatorGroup{T}, layer::AbstractInsulatorPart{U}) where {T, U}

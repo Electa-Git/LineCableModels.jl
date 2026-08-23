@@ -64,6 +64,7 @@ using ..EarthProps: EarthModel
 using ..DataModel: CableDesign, CableConstants, LineCableSystem
 import ..DataModel
 import ..LineCableModels: validate, ncables, nphases
+import ..Validation
 using Logging
 using SpecialFunctions
 using QuadGK: quadgk

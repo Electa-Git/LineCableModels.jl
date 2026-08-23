@@ -131,6 +131,7 @@ function add!(
 )
     key = String(name)
     haskey(library, key) && throw(ArgumentError("material '$key' already exists"))
-    library[key] = material
-    library
+    candidate = validate(material)
+    library[key] = candidate
+    return library
 end

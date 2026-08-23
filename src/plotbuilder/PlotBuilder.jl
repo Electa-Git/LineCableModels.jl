@@ -10,6 +10,7 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 
 import ..UnitHandler: Units, QuantityTag, display_unit, get_label
 import ..LineCableModels: nominal, standard_uncertainty, validate
+import ..Validation
 
 export AbstractPlotDefinition, PlotRecipe
 export AbstractTrackSize, FixedTrack, RelativeTrack, ContentTrack

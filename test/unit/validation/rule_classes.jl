@@ -25,7 +25,7 @@
     )
 
     valid=RuleInput(1.0, 0.0, 1.0, 2, 1.0, 2.0, :first, "value")
-    @test V.check(RuleInput, valid) === valid
+    @test V.validate(valid) === valid
 
     failures=(
         RuleInput(Inf, 0.0, 1.0, 2, 1.0, 2.0, :first, "value"),
@@ -34,23 +34,25 @@
         RuleInput(1.0, 0.0, 1.0, 2, 3.0, 2.0, :first, "value")
     )
     for value in failures
-        @test_throws DomainError V.check(RuleInput, value)
+        @test_throws DomainError V.validate(value)
     end
-    @test_throws ArgumentError V.check(
-        RuleInput,
+    @test_throws ArgumentError V.validate(
         RuleInput(1.0, 0.0, 1.0, 2, 1.0, 2.0, :unknown, "value")
     )
-    @test_throws ArgumentError V.check(
-        RuleInput,
+    @test_throws ArgumentError V.validate(
         RuleInput(1.0, 0.0, 1.0, 2, 1.0, 2.0, :first, 7)
     )
 
-    source=(left = 1.0, right = 2.0)
-    @test V.apply(V.Less(:left, :right), source, NamedTuple) === true
-    @test source == (left = 1.0, right = 2.0)
-    @test_throws ArgumentError V.apply(
-        V.Less(:left, :right),
-        (left = 1.0 + 1.0im, right = 2.0),
-        NamedTuple
+    mutable struct OrderedInput
+        order::Vector{Symbol}
+    end
+    first_rule=value->push!(value.order, :first)
+    second_rule=value->push!(value.order, :second)
+    V.rules(::Type{OrderedInput}) = (
+        V.OwnerRule(:first, first_rule),
+        V.OwnerRule(:second, second_rule)
     )
+    ordered=OrderedInput(Symbol[])
+    @test V.validate(ordered) === ordered
+    @test ordered.order == [:first, :second]
 end

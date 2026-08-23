@@ -81,11 +81,17 @@ function apply(rule::PhysicalFillLimit, value, owner::Type)
     count isa Integer || return nothing
     geometry = map(field -> _field(value, field), rule.geometry)
     all(candidate -> candidate isa Real, geometry) || return nothing
-    limit = maxfill(owner, geometry...)
+    rule_owner = owner isa UnionAll ? owner : Base.typename(owner).wrapper
+    limit = maxfill(rule_owner, geometry...)
     count <= limit || throw(DomainError(
         count,
         "[$(_owner_name(owner))] $(rule.count) exceeds packing limit $limit"
     ))
+end
+
+function apply(rule::OwnerRule, value, ::Type)
+    rule.check(value)
+    return nothing
 end
 
 "Apply `rules(owner)` to `value` and return `value` unchanged."

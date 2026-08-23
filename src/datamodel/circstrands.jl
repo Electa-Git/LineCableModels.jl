@@ -39,18 +39,7 @@ function BaseParams.gmd_elements(layer::CircStrands)
     return (coordinates, layer.radius_wire, π * layer.radius_wire^2)
 end
 
-function Validation.rules(::Type{CircStrands})
-    return (
-        Finite(:r_in), Finite(:r_ex), Finite(:radius_wire), Finite(:lay_ratio),
-        Nonnegative(:r_in), Positive(:r_ex), Less(:r_in, :r_ex),
-        Positive(:radius_wire), IntegerField(:num_wires), Positive(:num_wires),
-        Nonnegative(:lay_ratio), OneOf(:lay_direction, (-1, 1)),
-        PhysicalFillLimit(:num_wires, (:r_in, :radius_wire))
-    )
-end
-
-function validate(layer::CircStrands)
-    Validation.check(CircStrands, layer)
+function _check_circular_strand_geometry(layer::CircStrands)
     isapprox(layer.r_ex,
         layer.num_wires == 1 ? layer.radius_wire :
         layer.r_in + 2 * layer.radius_wire;
@@ -59,7 +48,23 @@ function validate(layer::CircStrands)
         layer.r_ex,
         "CircStrands outer radius is inconsistent with its wire geometry"
     ))
-    return layer
+    return nothing
+end
+
+const _CIRCSTRANDS_FIELD_RULES = (
+        Finite(:r_in), Finite(:r_ex), Finite(:radius_wire), Finite(:lay_ratio),
+        Nonnegative(:r_in), Positive(:r_ex), Less(:r_in, :r_ex),
+        Positive(:radius_wire), IntegerField(:num_wires), Positive(:num_wires),
+        Nonnegative(:lay_ratio), OneOf(:lay_direction, (-1, 1)),
+        PhysicalFillLimit(:num_wires, (:r_in, :radius_wire))
+)
+
+Validation.rules(::Type{CircStrands}) = _CIRCSTRANDS_FIELD_RULES
+function Validation.rules(::Type{<:CircStrands})
+    return (
+        _CIRCSTRANDS_FIELD_RULES...,
+        Validation.OwnerRule(:circular_strand_geometry, _check_circular_strand_geometry)
+    )
 end
 
 """

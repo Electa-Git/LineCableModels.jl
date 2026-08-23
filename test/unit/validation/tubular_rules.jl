@@ -8,7 +8,7 @@
 
     layer=Tubular(0.01, 0.02, material)
     @test validate(layer) === layer
-    @test V.check(TubularType, layer) === layer
+    @test V.validate(layer) === layer
     @test any(rule -> rule isa V.Less &&
                       rule.left == :r_in && rule.right == :r_ex,
         V.rules(TubularType))

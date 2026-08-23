@@ -21,14 +21,18 @@ function _component_reference_temperature(component::CableComponent)
     ))
 end
 
-function validate(component::CableComponent)
+function _check_cable_component(component::CableComponent)
     isapprox(component.conductor_group.r_ex, component.insulator_group.r_in) ||
         throw(DomainError(
             (component.conductor_group.r_ex, component.insulator_group.r_in),
             "conductor and insulator boundaries must coincide"
         ))
     _component_reference_temperature(component)
-    return component
+    return nothing
+end
+
+function Validation.rules(::Type{<:CableComponent})
+    (Validation.OwnerRule(:cable_component_boundaries, _check_cable_component),)
 end
 
 function CableComponent(

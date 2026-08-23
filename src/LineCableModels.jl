@@ -60,6 +60,7 @@ include("unithandler/UnitHandler.jl")
 
 # Submodule `Validation`
 include("validation/Validation.jl")
+using .Validation: validate
 
 # Submodule `PlotBuilder`
 include("plotbuilder/PlotBuilder.jl")

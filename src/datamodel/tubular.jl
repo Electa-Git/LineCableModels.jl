@@ -14,11 +14,10 @@ struct Tubular{T <: Real} <: AbstractConductorPart{T}
     gmr::T
 end
 
-function Validation.rules(::Type{Tubular})
+function Validation.rules(::Type{<:Tubular})
     (Finite(:r_in), Finite(:r_ex), Nonnegative(:r_in), Positive(:r_ex),
         Less(:r_in, :r_ex))
 end
-validate(layer::Tubular) = Validation.check(Tubular, layer)
 
 function Tubular(r_in::Real, r_ex::Real, material::Material)
     T = promote_type(

@@ -15,7 +15,7 @@ end
 Base.eltype(::CablePosition{T}) where {T} = T
 Base.eltype(::Type{CablePosition{T}}) where {T} = T
 
-function validate(position::CablePosition)
+function _check_cable_position(position::CablePosition)
     length(position.conn) == length(position.design_data.components) ||
         throw(DimensionMismatch("phase mapping must match the component count"))
     all(>=(0), position.conn) ||
@@ -29,7 +29,11 @@ function validate(position::CablePosition)
         position.vert,
         "the cable cross-section crosses the air/earth interface"
     ))
-    return position
+    return nothing
+end
+
+function Validation.rules(::Type{<:CablePosition})
+    (Validation.OwnerRule(:cable_position_geometry, _check_cable_position),)
 end
 
 function CablePosition(
@@ -95,7 +99,7 @@ function nphases(system::LineCableSystem)
     return count(>(0), assignments)
 end
 
-function validate(system::LineCableSystem)
+function _check_line_cable_system(system::LineCableSystem)
     isempty(system.system_id) && throw(ArgumentError("system_id cannot be empty"))
     system.line_length > zero(system.line_length) ||
         throw(DomainError(system.line_length, "line length must be positive"))
@@ -110,7 +114,11 @@ function validate(system::LineCableSystem)
                 ))
         end
     end
-    return system
+    return nothing
+end
+
+function Validation.rules(::Type{<:LineCableSystem})
+    (Validation.OwnerRule(:line_cable_system_structure, _check_line_cable_system),)
 end
 
 function LineCableSystem(
@@ -162,8 +170,13 @@ function add!(system::LineCableSystem{T}, position::CablePosition{T}) where {T}
             "cable cross-sections overlap"
         ))
     end
-    push!(system.cables, position)
-    return validate(system)
+    candidate = validate(LineCableSystem{T}(
+        system.system_id,
+        system.line_length,
+        CablePosition{T}[system.cables; position]
+    ))
+    system.cables = candidate.cables
+    return system
 end
 
 function add!(system::LineCableSystem{T}, position::CablePosition{U}) where {T, U}

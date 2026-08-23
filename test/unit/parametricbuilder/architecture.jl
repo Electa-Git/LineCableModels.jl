@@ -11,6 +11,9 @@
     @test LineCableModels.AbstractParametricResult === Grammar.AbstractParametricResult
     @test LineCableModels.AbstractUncertaintyResult === Grammar.AbstractUncertaintyResult
     @test LineCableModels.compute === Grammar.compute === Engine.compute
+    @test LineCableModels.validate === LineCableModels.Validation.validate
+    @test parentmodule(LineCableModels.validate) === LineCableModels.Validation
+    @test length(methods(LineCableModels.validate)) == 1
     @test LineCableModels.observables === Grammar.observables
     @test LineCableModels.primitives === Grammar.primitives
     @test LineCableModels.preprocess === Grammar.preprocess

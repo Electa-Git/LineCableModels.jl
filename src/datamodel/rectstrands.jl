@@ -27,29 +27,19 @@ struct RectStrands{T <: Real, S <: RectStrandsShape} <: AbstractStrandsLayer{T}
     shape::S
 end
 
-function Validation.rules(::Type{RectStrands})
+function _rectangular_strand_fields(layer::RectStrands)
     return (
-        Finite(:r_in), Finite(:r_ex), Finite(:thickness), Finite(:width),
-        Finite(:lay_ratio),
-        Nonnegative(:r_in), Positive(:r_ex), Less(:r_in, :r_ex),
-        Positive(:thickness), Positive(:width), IntegerField(:num_wires),
-        Positive(:num_wires), Nonnegative(:lay_ratio),
-        OneOf(:lay_direction, (-1, 1)),
-        PhysicalFillLimit(:num_wires, (:r_in, :width))
+        r_in = layer.r_in,
+        r_ex = layer.r_ex,
+        thickness = layer.shape.thickness,
+        width = layer.shape.width,
+        num_wires = layer.shape.num_wires,
+        lay_ratio = layer.shape.lay_ratio,
+        lay_direction = layer.shape.lay_direction
     )
 end
 
-function validate(layer::RectStrands)
-    Validation.check(RectStrands,
-        (
-            r_in = layer.r_in,
-            r_ex = layer.r_ex,
-            thickness = layer.shape.thickness,
-            width = layer.shape.width,
-            num_wires = layer.shape.num_wires,
-            lay_ratio = layer.shape.lay_ratio,
-            lay_direction = layer.shape.lay_direction
-        ))
+function _check_rectangular_strand_geometry(layer::RectStrands)
     expected = sqrt(
         layer.r_in^2 +
         layer.shape.num_wires * layer.shape.width *
@@ -63,7 +53,27 @@ function validate(layer::RectStrands)
         layer.r_ex,
         "RectStrands outer radius is inconsistent with its area-preserving geometry"
     ))
-    return layer
+    return nothing
+end
+
+const _RECTSTRANDS_FIELD_RULES = (
+    Finite(:r_in), Finite(:r_ex), Finite(:thickness), Finite(:width),
+    Finite(:lay_ratio),
+    Nonnegative(:r_in), Positive(:r_ex), Less(:r_in, :r_ex),
+    Positive(:thickness), Positive(:width), IntegerField(:num_wires),
+    Positive(:num_wires), Nonnegative(:lay_ratio),
+    OneOf(:lay_direction, (-1, 1)),
+    PhysicalFillLimit(:num_wires, (:r_in, :width))
+)
+
+Validation.rules(::Type{RectStrands}) = _RECTSTRANDS_FIELD_RULES
+function Validation.rules(::Type{<:RectStrands})
+    return (
+        Validation.OwnerRule(:rectangular_strand_fields, layer ->
+            Validation.check(RectStrands, _rectangular_strand_fields(layer))),
+        Validation.OwnerRule(:rectangular_strand_geometry,
+            _check_rectangular_strand_geometry)
+    )
 end
 
 function RectStrands(

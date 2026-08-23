@@ -20,14 +20,13 @@ struct Strip{T <: Real} <: AbstractConductorPart{T}
     gmr::T
 end
 
-function Validation.rules(::Type{Strip})
+function Validation.rules(::Type{<:Strip})
     (
         Finite(:r_in), Finite(:r_ex), Finite(:width), Finite(:lay_ratio),
         Nonnegative(:r_in), Positive(:r_ex), Less(:r_in, :r_ex), Positive(:width),
         Nonnegative(:lay_ratio), OneOf(:lay_direction, (-1, 1))
     )
 end
-validate(layer::Strip) = Validation.check(Strip, layer)
 
 function Strip(
         r_in::Real,

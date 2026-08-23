@@ -44,7 +44,7 @@ end
 Base.eltype(::EMTInput{T}) where {T} = T
 Base.eltype(::Type{<:EMTInput{T}}) where {T} = T
 
-function validate(input::EMTInput)
+function _check_emt_input(input::EMTInput)
     n = input.n_phases
     input.n_frequencies == length(input.freq) || throw(DimensionMismatch(
         "frequency count differs from the frequency vector",
@@ -66,7 +66,11 @@ function validate(input::EMTInput)
     size(input.horz_sep) == (n, n) || throw(DimensionMismatch(
         "horizontal separation matrix must be $n×$n",
     ))
-    return input
+    return nothing
+end
+
+function Validation.rules(::Type{<:EMTInput})
+    (Validation.OwnerRule(:emt_input_dimensions, _check_emt_input),)
 end
 
 function EMTInput(problem::LineParametersProblem{T}) where {T <: Real}

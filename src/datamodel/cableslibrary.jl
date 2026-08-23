@@ -59,7 +59,7 @@ function add!(library::CablesLibrary, design::CableDesign)
     haskey(library, design.cable_id) && throw(ArgumentError(
         "cable design '$(design.cable_id)' already exists",
     ))
-    library.data[design.cable_id] = design
+    library.data[design.cable_id] = validate(design)
     return library
 end
 

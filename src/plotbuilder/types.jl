@@ -677,7 +677,7 @@ Validate a layout, page, or complete render specification and return it.
 - `ArgumentError`, `DimensionMismatch`, or `DomainError` when semantic fields,
   data shapes, layout relationships, placements, or logarithmic data are invalid.
 """
-function validate(layout::LayoutSpec)
+function _check_layout(layout::LayoutSpec)
     isempty(layout.grids) && throw(ArgumentError("a layout requires at least one grid"))
     grid_names = getfield.(layout.grids, :name)
     slot_names = getfield.(layout.slots, :name)
@@ -726,7 +726,11 @@ function validate(layout::LayoutSpec)
         append!(children, [slot for slot in layout.slots if slot.parent === parent.name])
         _check_sibling_overlap(children)
     end
-    return layout
+    return nothing
+end
+
+function Validation.rules(::Type{<:LayoutSpec})
+    (Validation.OwnerRule(:plot_layout, _check_layout),)
 end
 
 function _validate_series(series::SeriesSpec)
@@ -843,7 +847,7 @@ function _validate_legend_slot(page::PageSpec)
     return page
 end
 
-function validate(page::PageSpec)
+function _check_page(page::PageSpec)
     validate(page.layout)
     slots = Set(getfield.(page.layout.slots, :name))
     missing = setdiff(_required_slots(page), collect(slots))
@@ -886,16 +890,24 @@ function validate(page::PageSpec)
             )
         all(explicit) && _check_sibling_overlap(placements)
     end
-    return page
+    return nothing
 end
 
-function validate(render::RenderSpec)
+function Validation.rules(::Type{<:PageSpec})
+    (Validation.OwnerRule(:plot_page, _check_page),)
+end
+
+function _check_render(render::RenderSpec)
     foreach(validate, render.figures)
     keys = [page.key for page in render.figures if !isempty(page.key)]
     length(unique(keys)) == length(keys) || throw(
         ArgumentError("render pages must have unique nonempty semantic keys"),
     )
-    return render
+    return nothing
+end
+
+function Validation.rules(::Type{<:RenderSpec})
+    (Validation.OwnerRule(:plot_render, _check_render),)
 end
 
 """

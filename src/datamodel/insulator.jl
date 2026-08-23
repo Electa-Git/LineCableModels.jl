@@ -17,11 +17,10 @@ struct Insulator{T <: Real} <: AbstractInsulatorPart{T}
     shunt_conductance::T
 end
 
-function Validation.rules(::Type{Insulator})
+function Validation.rules(::Type{<:Insulator})
     (Finite(:r_in), Finite(:r_ex), Nonnegative(:r_in), Positive(:r_ex),
         Less(:r_in, :r_ex))
 end
-validate(layer::Insulator) = Validation.check(Insulator, layer)
 
 function Insulator(r_in::Real, r_ex::Real, material::Material)
     T = promote_type(

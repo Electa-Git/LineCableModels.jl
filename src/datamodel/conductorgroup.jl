@@ -45,14 +45,18 @@ function _reference_temperature(layers)
     return reference
 end
 
-function validate(group::ConductorGroup)
+function _check_conductor_group(group::ConductorGroup)
     isempty(group.layers) && throw(ArgumentError("a conductor group cannot be empty"))
     _reference_temperature(group.layers)
     group.r_in == first(group.layers).r_in ||
         throw(DomainError(group.r_in, "group inner radius differs from its first layer"))
     group.r_ex == last(group.layers).r_ex ||
         throw(DomainError(group.r_ex, "group outer radius differs from its last layer"))
-    return group
+    return nothing
+end
+
+function Validation.rules(::Type{<:ConductorGroup})
+    (Validation.OwnerRule(:conductor_group_structure, _check_conductor_group),)
 end
 
 function ConductorGroup(layer::AbstractConductorPart{T}) where {T <: Real}
@@ -99,15 +103,26 @@ function add!(group::ConductorGroup{T}, layer::AbstractConductorPart{T}) where {
                  (group.num_wires * group.num_turns + added_wires * _turn_count(layer)) /
                  next_wires
 
-    group.gmr = next_gmr
-    group.alpha = next_alpha
-    group.resistance = next_resistance
-    group.r_ex = layer.r_ex
-    group.cross_section = next_cross_section
-    group.num_wires = next_wires
-    group.num_turns = next_turns
-    push!(group.layers, layer)
-    return validate(group)
+    candidate = validate(ConductorGroup{T}(
+        group.r_in,
+        layer.r_ex,
+        next_cross_section,
+        next_wires,
+        next_turns,
+        next_resistance,
+        next_alpha,
+        next_gmr,
+        AbstractConductorPart{T}[group.layers; layer]
+    ))
+    group.r_ex = candidate.r_ex
+    group.cross_section = candidate.cross_section
+    group.num_wires = candidate.num_wires
+    group.num_turns = candidate.num_turns
+    group.resistance = candidate.resistance
+    group.alpha = candidate.alpha
+    group.gmr = candidate.gmr
+    group.layers = candidate.layers
+    return group
 end
 
 function add!(group::ConductorGroup{T}, layer::AbstractConductorPart{U}) where {T, U}
