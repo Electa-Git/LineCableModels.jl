@@ -8,7 +8,7 @@
            formulation_record,
            load_prior_snapshot, load_snapshot, performance_comparison, persist_snapshot,
            prepare_artifacts, publish_artifact, release_tag,
-           run_case, run_snapshot, snapshot_path,
+           report, run_case, run_snapshot, snapshot_path,
            validate_case, validate_structure, work_path
 
     include(joinpath(@__DIR__, "artifacts.jl"))

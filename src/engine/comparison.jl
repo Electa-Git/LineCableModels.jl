@@ -23,7 +23,7 @@ admittance of two [`LineParameters`](@ref) objects.
 
 $(TYPEDFIELDS)
 """
-struct LineParametersComparison{T <: Real}
+struct LineParametersBenchmark{T <: Real}
     "Series-impedance error."
     Z::RMSError{T}
     "Shunt-admittance error."
@@ -85,7 +85,7 @@ identical candidate term and `Inf` otherwise.
 
 # Returns
 
-- A [`LineParametersComparison`](@ref). Absolute Z errors use the impedance
+- A [`LineParametersBenchmark`](@ref). Absolute Z errors use the impedance
   units selected by the result basis, and absolute Y errors use the corresponding
   admittance units. Relative errors are dimensionless.
 
@@ -118,7 +118,7 @@ function compare(reference::LineParameters, candidate::LineParameters)
     impedance = _rms_error(reference.Z.values, candidate.Z.values)
     admittance = _rms_error(reference.Y.values, candidate.Y.values)
     T = promote_type(eltype(impedance.absolute), eltype(admittance.absolute))
-    return LineParametersComparison{T}(
+    return LineParametersBenchmark{T}(
         RMSError{T}(Matrix{T}(impedance.absolute), Matrix{T}(impedance.relative)),
         RMSError{T}(Matrix{T}(admittance.absolute), Matrix{T}(admittance.relative))
     )

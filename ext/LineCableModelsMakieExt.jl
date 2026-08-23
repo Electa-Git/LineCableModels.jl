@@ -144,7 +144,7 @@ function plot(
 )
     parameters = (first, second, rest...)
     render_spec = PlotBuilder.make_render(
-        LineCableModels.Engine.LineParametersComparisonPlotSpec,
+        LineCableModels.Engine.LineParametersBenchmarkPlotSpec,
         parameters;
         legend,
         quantities,

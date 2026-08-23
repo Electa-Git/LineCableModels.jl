@@ -6,6 +6,7 @@ using .GauntletArtifacts
 const GAUNTLET_FILTER = testitem -> :gauntlet in testitem.tags
 
 cleanup = gauntlet_cleanup()
+completed = false
 
 try
     force = gauntlet_force()
@@ -26,9 +27,12 @@ try
             @info "Recorded Gauntlet backend collection" backend=collection.backend version=collection.gauntlet_version archive=collection.archive
         end
     end
+    global completed = true
 finally
-    if cleanup
+    if cleanup && completed
         work_root = cleanup_work()
         @info "Cleaned Gauntlet working directory" path=work_root
+    elseif cleanup
+        @warn "Preserving Gauntlet working directory after failed run" path=GauntletArtifacts.WORK_ROOT
     end
 end

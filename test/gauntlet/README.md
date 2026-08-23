@@ -8,7 +8,7 @@ The gauntlet has three modes. `snapshot` reads an existing reference and never l
 |:--|:--:|:--:|:--:|:--:|
 | `snapshot` | No | No | Yes | No |
 | `live` | Yes | Yes | No | No |
-| `record` | Yes | Yes | Yes, when one exists | Yes, with persistence enabled; an existing version also requires force |
+| `record` | Yes | Yes | No | Yes, with persistence enabled; an existing version also requires force |
 
 ## Comparisons
 
@@ -351,10 +351,10 @@ Two optional boolean controls apply to the complete runner. Both accept only `tr
 
 | Variable | Effect |
 |:--|:--|
-| `LINECABLEMODELS_GAUNTLET_CLEANUP` | Removes only `test/gauntlet/cases/.work/` when the runner exits, including after a failed test. Snapshots and backend archives are untouched. |
-| `LINECABLEMODELS_GAUNTLET_FORCE` | Permits `record` to replace the current Gauntlet version's staged backend collections and `Artifacts.toml` bindings. It has no effect in `snapshot` or `live` mode. |
+| `LINECABLEMODELS_GAUNTLET_CLEANUP` | Removes only `test/gauntlet/cases/.work/` after every selected case succeeds. Failed runs retain their working files and diagnostics. Snapshots and backend archives are untouched. |
+| `LINECABLEMODELS_GAUNTLET_FORCE` | Makes `record` rebuild the current Gauntlet version without loading its accepted snapshots, then replace its staged backend collections and `Artifacts.toml` bindings. It has no effect in `snapshot` or `live` mode. |
 
-Record mode checks for a staged collection or artifact binding with the same backend name and Gauntlet version before it starts any case. The runner stops and lists every collision unless `LINECABLEMODELS_GAUNTLET_FORCE=true` is set. A forced run deletes only the current version's ignored staging directories. It replaces the artifact bindings only after all cases finish successfully.
+Record mode checks for a staged collection or artifact binding with the same backend name and Gauntlet version before it starts any case. The runner stops and lists every collision unless `LINECABLEMODELS_GAUNTLET_FORCE=true` is set. A forced run deletes only the current version's ignored staging directories and does not use the bound collection for regression or performance checks. It replaces the artifact bindings only after all cases finish successfully.
 
 Run every case against its declared live backend:
 
@@ -373,7 +373,7 @@ LINECABLEMODELS_GAUNTLET_MODE=record \
 julia --project=test/gauntlet --startup-file=no test/gauntlet/runtests.jl
 ```
 
-Both environment variables are mandatory. Record mode is accepted only through this runner. Each case first writes its snapshot into ignored staging. TestItemRunner must finish every selected case successfully before the runner creates or binds any backend archive. A reference comparison remains diagnostic and cannot block recording. Regression and comparable performance limits against an existing accepted collection remain gates.
+Both environment variables are mandatory. Record mode is accepted only through this runner. Each case first writes its snapshot into ignored staging. TestItemRunner must finish every selected case successfully before the runner creates or binds any backend archive. A reference comparison remains diagnostic and cannot block recording. Snapshot mode applies regression and comparable performance limits against the accepted collection.
 
 Replace an existing collection with the same name and version, then remove the disposable working files after the runner exits:
 
@@ -394,13 +394,17 @@ test/gauntlet/.artifacts/
 └── pscad/
     └── v1.0.0/
         ├── cases/
-        │   └── benchmark_525kV_1600mm2_bipole_pscad/
-        │       ├── snapshot.jld2
-        │       └── snapshot.sha256
+        │   ├── benchmark_525kV_1600mm2_bipole_pscad/
+        │   │   ├── snapshot.jld2
+        │   │   └── snapshot.sha256
+        │   └── ...
+        ├── report.jld2
+        ├── report.tsv
+        ├── report.sha256
         └── benchmarks-pscad-v1.0.0.tar.gz
 ```
 
-Every case must declare one lowercase backend symbol. One backend archive contains all snapshots recorded for that backend and version. `Pkg.Artifacts` binds the complete collection under a name such as `gauntlet_pscad_v1_0_0`. A snapshot stores the backend and Gauntlet version along with both problems, declarative formulation records, the external reference, the accepted LineCableModels result, comparisons, and timings.
+Every case must declare one lowercase backend symbol. One backend archive contains all snapshots recorded for that backend and version. `Pkg.Artifacts` binds the complete collection under a name such as `gauntlet_pscad_v1_0_0`. A snapshot stores the backend and Gauntlet version along with both problems, declarative formulation records, the external reference, the accepted LineCableModels result, comparisons, and timings. Finalization recomputes each stored comparison and writes one aggregate row per case to `report.jld2` and `report.tsv`.
 
 The Gauntlet version is independent of the package version. Bump the patch slot for a corrected rerun with unchanged stored fields and KPIs. Bump the minor slot when adding retained data, cases, or a backend without invalidating existing readers. Bump the major slot when changing snapshot fields, KPI meaning, or loading behavior. Every change to an already published immutable collection requires a new version.
 
@@ -419,21 +423,26 @@ GAUNTLET_ARTIFACT_URL="$REPO_URL/releases/download/$TAG/$ASSET"
 
 Enable [GitHub release immutability](https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases). Create `gauntlet-v1.0.0` as a draft, upload all backend assets, then publish it. Published immutable assets cannot be replaced or deleted individually. If an accepted publication is wrong, leave it intact and publish the correction under the next Gauntlet version.
 
+Commit the reviewed case files and `Artifacts.toml` before creating the release tag. Create and push the annotated tag from that exact commit:
+
+```bash
+git tag -a "$TAG" -m "Gauntlet v${VERSION}"
+git push origin "$TAG"
+```
+
 Create the draft and upload the recorded PSCAD collection with:
 
 ```bash
 gh release create "$TAG" \
+    "test/gauntlet/.artifacts/${BACKEND}/v${VERSION}/${ASSET}" \
     --repo "$REPO" \
+    --verify-tag \
     --draft \
     --title "Gauntlet v${VERSION}" \
     --notes "Accepted validation references for Gauntlet v${VERSION}."
-
-gh release upload "$TAG" \
-    "test/gauntlet/.artifacts/${BACKEND}/v${VERSION}/${ASSET}" \
-    --repo "$REPO"
 ```
 
-Upload every backend archive to the same draft before publishing it. Publish the draft only after checking its asset list.
+Upload only backend archives such as `benchmarks-pscad-v1.0.0.tar.gz`. Each archive already contains its aggregate report and report digest. Upload every backend archive to the same draft before publishing it. Publish the draft only after checking its tag target, asset list, archive SHA-256, and extracted report.
 
 After uploading a backend archive, bind its real download URL:
 
@@ -465,6 +474,31 @@ test/gauntlet/runtests.jl
 ```
 
 CI rejects `live` and `record` instead of changing them to `snapshot`.
+
+## Aggregate report
+
+Display one row per recorded PSCAD case from the staged collection:
+
+```bash
+julia --project=test/gauntlet --startup-file=no \
+test/gauntlet/report.jl pscad
+```
+
+This command does not execute a case or contact the reference backend. It verifies every snapshot and digest, requires a successful recorded reference exit status, checks frequencies and terminal dimensions, and recomputes each stored `LineParametersBenchmark` from the stored reference and accepted results.
+
+The report retains the raw maximum relative RMS for Z and Y. Its display-safe relative columns exclude terms whose absolute RMS is at or below `Z = 1e-6` Ω/m or `Y = 1e-9` S/m. The absolute RMS, raw relative RMS, and complete per-term comparison remain unchanged.
+
+For the accepted PSCAD Gauntlet v1.0.0 checkpoint:
+
+| Evidence | Value |
+|:--|:--|
+| Cases | 7 |
+| Frequency samples per case | 101 |
+| Snapshot replay | 65/65 assertions passed |
+| Artifact tree SHA-1 | `ec9bd7850a744dad14a9547ad4c0e0555363459a` |
+| Archive SHA-256 | `02972c090884e53fa5ea6b165516a0b715a86ebdde36520f17e523dad8046bf3` |
+
+The accepted status means that the reference runs completed, the stored evidence passed the report integrity checks, and the current code reproduced every accepted LineCableModels result within the case-owned regression and performance limits. External-reference RMS values remain reported measurements rather than pass/fail criteria.
 
 ## Inspecting an accepted result
 
@@ -516,7 +550,7 @@ comparison.Y.absolute
 comparison.Y.relative
 ```
 
-Use the case's absolute reference tolerances as display floors. `DataFrame` reports the relative value as `missing` when the absolute error is already at or below that floor, and `relative_status` explains that the relative metric is not meaningful there. The raw `LineParametersComparison` remains unchanged.
+Use the case's absolute reference tolerances as display floors. `DataFrame` reports the relative value as `missing` when the absolute error is already at or below that floor, and `relative_status` explains that the relative metric is not meaningful there. The raw `LineParametersBenchmark` remains unchanged.
 
 ```julia
 errors = DataFrame(

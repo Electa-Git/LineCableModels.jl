@@ -7,7 +7,7 @@ EditURL = "../literate/gauntlet.jl"
 A recorded gauntlet snapshot contains the external reference, the accepted
 LineCableModels result, their element-wise comparison, and execution timing.
 The snapshot uses the package's `LineParameters` and
-`LineParametersComparison` types. No PSCAD-specific result tensor survives
+`LineParametersBenchmark` types. No PSCAD-specific result tensor survives
 past parsing.
 
 This example creates a small hidden snapshot with the same fields as a

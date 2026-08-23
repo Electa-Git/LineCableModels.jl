@@ -231,7 +231,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Convert the element-wise RMS errors in a [`LineParametersComparison`](@ref) to a long-form `DataFrame`.
+Convert the element-wise RMS errors in a [`LineParametersBenchmark`](@ref) to a long-form `DataFrame`.
 
 The `zero_atol` keyword declares separate absolute display floors for Z and Y. When an absolute RMS error is at or below its floor, `rms_relative` is `missing` and `relative_status` is `:below_absolute_floor`. This prevents a large relative value on a physically negligible term from dominating the displayed table. The stored [`RMSError`](@ref) matrices remain unchanged.
 
@@ -252,7 +252,7 @@ The `zero_atol` keyword declares separate absolute display floors for Z and Y. W
 - `ArgumentError` when `zero_atol` does not contain exactly `Z` and `Y`, or when either floor is invalid.
 """
 function DataFrame(
-        comparison::LineParametersComparison;
+        comparison::LineParametersBenchmark;
         zero_atol::NamedTuple = (Z = 0.0, Y = 0.0)
 )
     impedance_floor = _comparison_floor(zero_atol, :Z)

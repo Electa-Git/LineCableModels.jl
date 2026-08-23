@@ -152,7 +152,7 @@ end
     parameters=Tuple(result(1+0.01index) for index in 0:4)
     labels=Tuple("Formulation $index" for index in eachindex(parameters))
     render=PB.make_render(
-        E.LineParametersComparisonPlotSpec,
+        E.LineParametersBenchmarkPlotSpec,
         parameters;
         legend = labels,
         quantities = (R, C),
@@ -212,7 +212,7 @@ end
     @test page.status.initial == "Ready."
 
     default_render=PB.make_render(
-        E.LineParametersComparisonPlotSpec,
+        E.LineParametersBenchmarkPlotSpec,
         parameters[1:2];
         legend = labels[1:2]
     )
@@ -220,21 +220,21 @@ end
           [:Z_re, :Z_im, :Y_re, :Y_im]
 
     @test_throws ArgumentError PB.make_render(
-        E.LineParametersComparisonPlotSpec,
+        E.LineParametersBenchmarkPlotSpec,
         (first(parameters),);
         legend = ("one",)
     )
     @test_throws ArgumentError PB.make_render(
-        E.LineParametersComparisonPlotSpec,
+        E.LineParametersBenchmarkPlotSpec,
         parameters
     )
     @test_throws ArgumentError PB.make_render(
-        E.LineParametersComparisonPlotSpec,
+        E.LineParametersBenchmarkPlotSpec,
         parameters;
         legend = collect(labels)
     )
     @test_throws DimensionMismatch PB.make_render(
-        E.LineParametersComparisonPlotSpec,
+        E.LineParametersBenchmarkPlotSpec,
         parameters;
         legend = labels[1:2]
     )
@@ -245,27 +245,27 @@ end
         frequency
     )
     @test_throws DimensionMismatch PB.make_render(
-        E.LineParametersComparisonPlotSpec,
+        E.LineParametersBenchmarkPlotSpec,
         (first(parameters), smaller);
         legend = ("three conductors", "two conductors")
     )
     @test_throws ArgumentError PB.make_render(
-        E.LineParametersComparisonPlotSpec,
+        E.LineParametersBenchmarkPlotSpec,
         (parameters[1], result(1.0; result_frequency = [10.0, 100.0, 2_000.0]));
         legend = ("first", "frequency mismatch")
     )
     @test_throws ArgumentError PB.make_render(
-        E.LineParametersComparisonPlotSpec,
+        E.LineParametersBenchmarkPlotSpec,
         (parameters[1], result(1.0; result_domain = ModalDomain));
         legend = ("phase", "modal")
     )
     @test_throws ArgumentError PB.make_render(
-        E.LineParametersComparisonPlotSpec,
+        E.LineParametersBenchmarkPlotSpec,
         (parameters[1], result(1.0; result_basis = :total));
         legend = ("per length", "total")
     )
     @test_throws DomainError PB.make_render(
-        E.LineParametersComparisonPlotSpec,
+        E.LineParametersBenchmarkPlotSpec,
         (
             result(1.0; result_frequency = [0.0, 10.0, 100.0]),
             result(1.1; result_frequency = [0.0, 10.0, 100.0])

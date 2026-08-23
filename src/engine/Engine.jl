@@ -27,7 +27,7 @@ module Engine
 # Export public API
 export CableConstantsProblem, LineParametersProblem,
        LineParameters, SeriesImpedance, ShuntAdmittance,
-       RMSError, LineParametersComparison, compare,
+       RMSError, LineParametersBenchmark, compare,
        Z, Y, R, X, L, G, B, C,
        series_impedance, shunt_admittance,
        resistance, reactance, inductance,

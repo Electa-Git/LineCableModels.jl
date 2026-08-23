@@ -202,7 +202,7 @@
     maintained_recipes=(
         (LineCableModels.Engine.LineParameterPlotSpec,
             LineCableModels.Engine.LineParameters),
-        (LineCableModels.Engine.LineParametersComparisonPlotSpec,
+        (LineCableModels.Engine.LineParametersBenchmarkPlotSpec,
             Tuple{
                 LineCableModels.Engine.LineParameters,
                 LineCableModels.Engine.LineParameters

@@ -1,6 +1,10 @@
 module GauntletArtifacts
 
 import Pkg
+using DataFrames
+using JLD2
+using LineCableModels: basis, domain
+using LineCableModels.Engine: LineParameters, LineParametersBenchmark, RMSError, compare
 using Pkg.Artifacts
 using SHA
 
@@ -8,7 +12,7 @@ export ARTIFACT_ROOT, ARTIFACTS_TOML, GAUNTLET_VERSION,
        artifact_name, backend_archive_name, backend_stage, case_stage,
        cleanup_work, finalize_artifacts, gauntlet_cleanup, gauntlet_force,
        gauntlet_instrumented, gauntlet_mode, prepare_artifacts,
-       publish_artifact, release_tag
+       publish_artifact, release_tag, report
 
 const GAUNTLET_ROOT = @__DIR__
 const ARTIFACT_ROOT = joinpath(GAUNTLET_ROOT, ".artifacts")
@@ -65,6 +69,8 @@ end
 
 gauntlet_cleanup() = _boolean_setting("LINECABLEMODELS_GAUNTLET_CLEANUP")
 gauntlet_force() = _boolean_setting("LINECABLEMODELS_GAUNTLET_FORCE")
+
+include("reporting.jl")
 
 function gauntlet_instrumented()
     options = Base.JLOptions()
@@ -153,8 +159,16 @@ function _finalize_backend(
     ))
     archive = joinpath(stage, backend_archive_name(backend))
     isfile(archive) && !force && throw(_collision_error([archive]))
+    report_files = _write_report(backend, stage)
     hash = create_artifact() do directory
         cp(cases, joinpath(directory, "cases"))
+        for path in (
+            report_files.jld2_path,
+            report_files.tsv_path,
+            report_files.digest_path
+        )
+            cp(path, joinpath(directory, basename(path)))
+        end
         write(joinpath(directory, "backend.txt"), "$(backend)\n")
         write(
             joinpath(directory, "gauntlet-version.txt"),
@@ -169,7 +183,8 @@ function _finalize_backend(
         archive_sha256,
         tree_hash = string(hash),
         artifact = artifact_name(backend),
-        gauntlet_version = GAUNTLET_VERSION
+        gauntlet_version = GAUNTLET_VERSION,
+        report = report_files.frame
     )
 end
 

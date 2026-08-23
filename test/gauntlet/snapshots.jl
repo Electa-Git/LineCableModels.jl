@@ -43,7 +43,7 @@ function _write_snapshot(
         case::GauntletCase,
         reference::LineParameters,
         candidate::LineParameters,
-        reference_comparison::LineParametersComparison,
+        reference_comparison::LineParametersBenchmark,
         julia_benchmark;
         reference_execution::NamedTuple
 )
@@ -56,6 +56,7 @@ function _write_snapshot(
     mkpath(dirname(path))
     temporary = path * ".new"
     isfile(temporary) && rm(temporary; force = true)
+    execution = _execution_record(reference_execution)
     try
         JLD2.jldsave(
             temporary;
@@ -70,7 +71,7 @@ function _write_snapshot(
             formulation = formulation_record(case),
             port_order = case.port_order,
             frequencies = copy(case.problem.frequencies),
-            reference_execution,
+            reference_execution = execution,
             reference,
             accepted = candidate,
             reference_comparison,
@@ -83,6 +84,27 @@ function _write_snapshot(
         rethrow()
     end
     return path
+end
+
+function _execution_record(execution::NamedTuple)
+    required = (:backend, :elapsed_seconds, :exit_code)
+    missing = filter(field -> !hasproperty(execution, field), required)
+    isempty(missing) || throw(ArgumentError(
+        "reference execution is missing fields: $(join(missing, ", "))",
+    ))
+    version = if hasproperty(execution, :version)
+        execution.version
+    elseif hasproperty(execution, :pscad_version)
+        execution.pscad_version
+    else
+        throw(ArgumentError("reference execution is missing its backend version"))
+    end
+    return (
+        backend = execution.backend,
+        version = String(version),
+        elapsed_seconds = execution.elapsed_seconds,
+        exit_code = execution.exit_code
+    )
 end
 
 _snapshot_digest(path::AbstractString) = bytes2hex(sha256(read(path)))
@@ -105,7 +127,7 @@ function persist_snapshot(
         case::GauntletCase,
         reference::LineParameters,
         candidate::LineParameters,
-        reference_comparison::LineParametersComparison,
+        reference_comparison::LineParametersBenchmark,
         julia_benchmark;
         reference_execution::NamedTuple,
         artifact_root::AbstractString = ARTIFACT_ROOT
@@ -206,10 +228,31 @@ end
 
 function load_prior_snapshot(
         case::GauntletCase;
-        artifacts_toml::AbstractString = ARTIFACTS_TOML
+        artifacts_toml::AbstractString = ARTIFACTS_TOML,
+        force::Bool = gauntlet_force()
 )
-    _bound_hash(case; artifacts_toml) === nothing && return nothing
-    return load_snapshot(case; artifacts_toml)
+    force && return nothing
+    hash = _bound_hash(case; artifacts_toml)
+    hash === nothing && return nothing
+    if !artifact_exists(hash)
+        artifact = artifact_name(case.backend)
+        try
+            ensure_artifact_installed(artifact, artifacts_toml)
+        catch error
+            throw(ErrorException(
+                "Gauntlet collection $artifact is not installed and has no usable " *
+                "download. Original error: $(sprint(showerror, error))",
+            ))
+        end
+    end
+    path = joinpath(
+        artifact_path(hash),
+        "cases",
+        string(case.name),
+        "snapshot.jld2"
+    )
+    isfile(path) || return nothing
+    return _load_snapshot_path(case, path)
 end
 
 function run_snapshot(

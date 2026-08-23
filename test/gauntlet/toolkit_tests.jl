@@ -5,6 +5,7 @@
     using Test
     using LineCableModels
     using LineCableModels.Engine
+    using Pkg.Artifacts
     using .GauntletSupport
     using .TestFixtures
 
@@ -15,9 +16,9 @@
     )
     @test all(package.name != "PythonCall" for package in keys(Base.loaded_modules))
 
-    function fixture_case(source; backend = :fixture)
+    function fixture_case(source; name = :fixture, backend = :fixture)
         problem=TestFixtures.line_parameters_problem(; frequencies = [50.0])
-        problem.system.system_id="fixture"
+        problem.system.system_id=string(name)
         next_phase=1
         ports=String[]
         for (cable_index, position) in enumerate(problem.system.cables)
@@ -61,7 +62,7 @@
         )
         count=length(ports)
         return GauntletCase(
-            :fixture,
+            name,
             backend,
             source,
             reference_problem,
@@ -105,7 +106,8 @@
             reference_execution = (
                 backend = :fixture,
                 version = "1.0",
-                elapsed_seconds = 1.25
+                elapsed_seconds = 1.25,
+                exit_code = 0
             ),
             artifact_root
         )
@@ -113,11 +115,39 @@
         @test isfile(joinpath(persisted.path, "snapshot.sha256"))
         @test persisted.backend === :fixture
         @test persisted.gauntlet_version == GAUNTLET_VERSION
+        aggregate=report(:fixture; artifact_root)
+        @test size(aggregate) == (1, 39)
+        @test only(aggregate.case) == "fixture"
+        @test only(aggregate.basis) == "per_length"
+        @test only(aggregate.domain) == "PhaseDomain"
+        @test only(aggregate.Z_zero_atol) == 1.0e-6
+        @test only(aggregate.Z_rms_absolute) == 0.0
+        @test ismissing(only(aggregate.Z_rms_relative))
+        @test only(aggregate.Z_rms_relative_raw) == 0.0
+        @test only(aggregate.Y_rms_absolute) == 0.0
+        @test ismissing(only(aggregate.Y_rms_relative))
+        @test only(aggregate.Y_rms_relative_raw) == 0.0
+        @test only(aggregate.Y_zero_atol) == 1.0e-9
+        @test only(aggregate.reference_seconds) == 1.25
+        @test only(aggregate.snapshot_sha256) == persisted.snapshot_sha256
+        @test_throws ArgumentError report(
+            :fixture;
+            artifact_root,
+            zero_atol = (Z = -1.0, Y = 0.0)
+        )
         collections=finalize_artifacts(; artifact_root, artifacts_toml)
         @test only(collections).backend === :fixture
         @test basename(only(collections).archive) ==
               "benchmarks-fixture-v$(GAUNTLET_VERSION).tar.gz"
         @test isfile(only(collections).archive)
+        @test isfile(joinpath(only(collections).path, "report.jld2"))
+        @test isfile(joinpath(only(collections).path, "report.tsv"))
+        @test isfile(joinpath(only(collections).path, "report.sha256"))
+        @test isequal(only(collections).report, aggregate)
+        installed=artifact_path(Base.SHA1(only(collections).tree_hash))
+        @test isfile(joinpath(installed, "report.jld2"))
+        @test isfile(joinpath(installed, "report.tsv"))
+        @test isfile(joinpath(installed, "report.sha256"))
         @test isfile(snapshot_path(case; artifacts_toml))
         @test_throws ArgumentError finalize_artifacts(; artifact_root, artifacts_toml)
         forced=finalize_artifacts(; artifact_root, artifacts_toml, force = true)
@@ -140,6 +170,19 @@
         @test loaded.metadata["port_order"] == case.port_order
         @test loaded.metadata["formulation"] isa NamedTuple
         @test loaded.metadata["formulation"] == formulation_record(case)
+        @test loaded.metadata["reference_execution"] == (
+            backend = :fixture,
+            version = "1.0",
+            elapsed_seconds = 1.25,
+            exit_code = 0
+        )
+        @test load_prior_snapshot(case; artifacts_toml) !== nothing
+        @test load_prior_snapshot(case; artifacts_toml, force = true) === nothing
+
+        new_source=joinpath(directory, "new_case.jl")
+        write(new_source, "# new case with no accepted baseline\n")
+        new_case=fixture_case(new_source; name = :new_fixture)
+        @test load_prior_snapshot(new_case; artifacts_toml) === nothing
 
         outcome=run_snapshot(
             case;
@@ -165,6 +208,7 @@
             write(io, UInt8(0))
         end
         @test_throws ArgumentError load_snapshot(case; path = snapshot)
+        @test_throws ArgumentError report(:fixture; artifact_root)
 
         @test_throws ArgumentError prepare_artifacts(; artifact_root, artifacts_toml)
         prepare_artifacts(; artifact_root, artifacts_toml, force = true)

@@ -65,7 +65,7 @@
     modal=LineParameters(ModalDomain, impedance, admittance, frequencies_value)
     @test_throws ArgumentError compare(reference, modal)
 
-    displayed=LineParametersComparison(
+    displayed=LineParametersBenchmark(
         RMSError([2.0e-20 1.0e-5; 2.0e-5 3.0e-5], [0.5 0.01; 0.02 0.03]),
         RMSError([3.0e-20 2.0e-8; 3.0e-8 4.0e-8], [0.4 0.001; 0.002 0.003])
     )

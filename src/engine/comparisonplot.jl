@@ -7,10 +7,10 @@ Build one matrix-grid page for each selected quantity when comparing two or
 more [`LineParameters`](@ref) results. Each page places matrix term ``(i,j)``
 at grid position ``(i,j)`` and overlays one solid line per result.
 """
-struct LineParametersComparisonPlotSpec <: PlotBuilder.AbstractPlotSpec end
+struct LineParametersBenchmarkPlotSpec <: PlotBuilder.AbstractPlotSpec end
 
-const _LineParametersComparisonTuple =
-    Tuple{LineParameters, LineParameters, Vararg{LineParameters}}
+const _LineParametersBenchmarkTuple = Tuple{
+    LineParameters, LineParameters, Vararg{LineParameters}}
 
 function _comparison_page_key(component::Symbol)
     component in _SERIES_COMPONENTS && return LinePageKey{:series, component}()
@@ -34,7 +34,7 @@ function _comparison_color(index::Int)
     return RGB(HSV(hue, 0.72, 0.78))
 end
 
-function _validate_comparison_inputs(parameters::_LineParametersComparisonTuple)
+function _validate_comparison_inputs(parameters::_LineParametersBenchmarkTuple)
     reference = first(parameters)
     nconductors(reference) > 0 || throw(ArgumentError(
         "line-parameter comparison requires at least one conductor",
@@ -62,7 +62,7 @@ function _validate_comparison_inputs(parameters::_LineParametersComparisonTuple)
     return parameters
 end
 
-function _comparison_input_defaults(parameters::_LineParametersComparisonTuple)
+function _comparison_input_defaults(parameters::_LineParametersBenchmarkTuple)
     return (;
         quantities = (),
         legend = nothing,
@@ -74,11 +74,11 @@ function _comparison_input_defaults(parameters::_LineParametersComparisonTuple)
     )
 end
 
-function PlotBuilder.dispatch_on(::Type{LineParametersComparisonPlotSpec})
-    return _LineParametersComparisonTuple
+function PlotBuilder.dispatch_on(::Type{LineParametersBenchmarkPlotSpec})
+    return _LineParametersBenchmarkTuple
 end
 
-function PlotBuilder.input_kwargs(::Type{LineParametersComparisonPlotSpec})
+function PlotBuilder.input_kwargs(::Type{LineParametersBenchmarkPlotSpec})
     return (
         :quantities,
         :legend,
@@ -90,24 +90,24 @@ function PlotBuilder.input_kwargs(::Type{LineParametersComparisonPlotSpec})
     )
 end
 
-PlotBuilder.renderer_kwargs(::Type{LineParametersComparisonPlotSpec}) = (:fig_size,)
+PlotBuilder.renderer_kwargs(::Type{LineParametersBenchmarkPlotSpec}) = (:fig_size,)
 
 function PlotBuilder.input_defaults(
-        ::Type{LineParametersComparisonPlotSpec},
-        parameters::_LineParametersComparisonTuple
+        ::Type{LineParametersBenchmarkPlotSpec},
+        parameters::_LineParametersBenchmarkTuple
 )
     return _comparison_input_defaults(parameters)
 end
 
 function PlotBuilder.renderer_defaults(
-        ::Type{LineParametersComparisonPlotSpec},
-        parameters::_LineParametersComparisonTuple
+        ::Type{LineParametersBenchmarkPlotSpec},
+        parameters::_LineParametersBenchmarkTuple
 )
     return (; fig_size = (1200, 800))
 end
 
 function PlotBuilder.resolve_input(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         recipe::PlotBuilder.PlotRecipe
 )
     parameters = _validate_comparison_inputs(recipe.object)
@@ -121,13 +121,14 @@ function PlotBuilder.resolve_input(
         ArgumentError("yscale must be :linear or :log10"),
     )
     frequency = frequencies(first(parameters))
-    input.xscale === :log10 && any(<=(0), frequency) && throw(
-        DomainError(frequency, "logarithmic frequency axes require positive frequencies"),
-    )
+    input.xscale === :log10 && any(<=(0), frequency) &&
+        throw(
+            DomainError(frequency, "logarithmic frequency axes require positive frequencies"),
+        )
     any(component -> component in (:L, :C), components) && any(iszero, frequency) &&
         throw(DomainError(
             frequency,
-            "inductance and capacitance are undefined at zero frequency",
+            "inductance and capacitance are undefined at zero frequency"
         ))
     recipe.renderer.fig_size isa Tuple{Int, Int} || throw(
         ArgumentError("fig_size must be a tuple of two integers"),
@@ -146,14 +147,14 @@ function PlotBuilder.resolve_input(
 end
 
 function PlotBuilder.recipe_mode(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         recipe::PlotBuilder.PlotRecipe
 )
     return Val(:comparison)
 end
 
 function PlotBuilder.grouping_mode(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         recipe::PlotBuilder.PlotRecipe
 )
@@ -161,7 +162,7 @@ function PlotBuilder.grouping_mode(
 end
 
 function PlotBuilder.page_keys(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         ::Val{:panels},
         recipe::PlotBuilder.PlotRecipe
@@ -171,7 +172,7 @@ function PlotBuilder.page_keys(
 end
 
 function PlotBuilder.view_keys(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         ::Val{:panels},
         recipe::PlotBuilder.PlotRecipe,
@@ -182,7 +183,7 @@ function PlotBuilder.view_keys(
 end
 
 function PlotBuilder.series_keys(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         ::Val{:panels},
         recipe::PlotBuilder.PlotRecipe,
@@ -219,7 +220,7 @@ function _comparison_values(
 end
 
 function PlotBuilder.axis_quantity(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         ::Val{:x},
         recipe::PlotBuilder.PlotRecipe,
@@ -230,7 +231,7 @@ function PlotBuilder.axis_quantity(
 end
 
 function PlotBuilder.axis_quantity(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         ::Val{:y},
         recipe::PlotBuilder.PlotRecipe,
@@ -248,7 +249,7 @@ function PlotBuilder.axis_quantity(
 end
 
 function PlotBuilder.axis_unit(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         ::Val{:x},
         quantity::UnitHandler.QuantityTag,
@@ -260,7 +261,7 @@ function PlotBuilder.axis_unit(
 end
 
 function PlotBuilder.axis_unit(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         ::Val{:y},
         quantity::UnitHandler.QuantityTag,
@@ -279,7 +280,7 @@ function PlotBuilder.axis_unit(
 end
 
 function PlotBuilder.axis_scale(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         ::Val{:x},
         recipe::PlotBuilder.PlotRecipe,
@@ -290,7 +291,7 @@ function PlotBuilder.axis_scale(
 end
 
 function PlotBuilder.axis_scale(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         ::Val{:y},
         recipe::PlotBuilder.PlotRecipe,
@@ -301,7 +302,7 @@ function PlotBuilder.axis_scale(
 end
 
 function PlotBuilder.axis_scales(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         ::Val{dim},
         recipe::PlotBuilder.PlotRecipe,
@@ -316,7 +317,7 @@ function PlotBuilder.axis_scales(
 end
 
 function PlotBuilder.axis_exponent(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         ::Val{dim},
         recipe::PlotBuilder.PlotRecipe,
@@ -330,7 +331,7 @@ function PlotBuilder.axis_exponent(
 end
 
 function PlotBuilder.series_data(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         ::Val{:x},
         recipe::PlotBuilder.PlotRecipe,
@@ -345,7 +346,7 @@ function PlotBuilder.series_data(
 end
 
 function PlotBuilder.series_data(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         ::Val{:y},
         recipe::PlotBuilder.PlotRecipe,
@@ -359,7 +360,7 @@ function PlotBuilder.series_data(
 end
 
 function PlotBuilder.legend_label(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey,
@@ -370,7 +371,7 @@ function PlotBuilder.legend_label(
 end
 
 function PlotBuilder.series_group(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey,
@@ -381,7 +382,7 @@ function PlotBuilder.series_group(
 end
 
 function PlotBuilder.series_attributes(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey,
@@ -396,14 +397,14 @@ function PlotBuilder.series_attributes(
 end
 
 function PlotBuilder.default_title(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey,
         ::Nothing
 )
     quantity = PlotBuilder.axis_quantity(
-        LineParametersComparisonPlotSpec,
+        LineParametersBenchmarkPlotSpec,
         Val(:comparison),
         Val(:y),
         recipe,
@@ -414,7 +415,7 @@ function PlotBuilder.default_title(
 end
 
 function PlotBuilder.default_title(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey{K},
@@ -422,7 +423,7 @@ function PlotBuilder.default_title(
 ) where {K}
     symbol = K === :series ? "Z" : "Y"
     quantity = PlotBuilder.axis_quantity(
-        LineParametersComparisonPlotSpec,
+        LineParametersBenchmarkPlotSpec,
         Val(:comparison),
         Val(:y),
         recipe,
@@ -435,7 +436,7 @@ function PlotBuilder.default_title(
 end
 
 function PlotBuilder.view_key(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey,
@@ -446,7 +447,7 @@ function PlotBuilder.view_key(
 end
 
 function PlotBuilder.view_placement(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey,
@@ -457,7 +458,7 @@ function PlotBuilder.view_placement(
 end
 
 function PlotBuilder.view_attributes(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey,
@@ -513,7 +514,7 @@ function _comparison_layout()
 end
 
 function PlotBuilder.layout_spec(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey
@@ -522,7 +523,7 @@ function PlotBuilder.layout_spec(
 end
 
 function PlotBuilder.default_figsize(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey
@@ -531,7 +532,7 @@ function PlotBuilder.default_figsize(
 end
 
 function PlotBuilder.control_spec(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey
@@ -540,7 +541,7 @@ function PlotBuilder.control_spec(
 end
 
 function PlotBuilder.legend_spec(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey
@@ -554,7 +555,7 @@ function PlotBuilder.legend_spec(
 end
 
 function PlotBuilder.colorbar_specs(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey
@@ -563,7 +564,7 @@ function PlotBuilder.colorbar_specs(
 end
 
 function PlotBuilder.status_spec(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey
@@ -572,7 +573,7 @@ function PlotBuilder.status_spec(
 end
 
 function PlotBuilder.page_identity(
-        ::Type{LineParametersComparisonPlotSpec},
+        ::Type{LineParametersBenchmarkPlotSpec},
         ::Val{:comparison},
         recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey
