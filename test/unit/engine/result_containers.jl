@@ -23,11 +23,15 @@
     @test resistance(constants) === constants.R
     @test inductance(constants) === constants.L
     @test capacitance(constants) === constants.C
-    constants_observables=observables(constants)
-    @test constants_observables isa NamedTuple
+    @test observe(constants, R) === constants.R
+    @test observables(typeof(constants)) == (R, L, C)
+    constants_observables=observables(
+        constants,
+        (resistance = R, inductance = L, capacitance = C)
+    )
     @test keys(constants_observables) == (:resistance, :inductance, :capacitance)
-    @test values(constants_observables) == (constants.R, constants.L, constants.C)
-    @test !ismutabletype(typeof(constants_observables))
+    @test constants_observables.resistance.values ≈ 1_000constants.R
+    @test keys(constants_observables.resistance) == (:values, :quantity, :unit)
     @test DataFrame(constants).value == [constants.R, constants.L, constants.C]
     @test_throws ArgumentError compute(
         CableConstantsProblem(design),
@@ -65,8 +69,8 @@
     @test G(parameters, 2, 1) == conductance_values[2, 1, :]
     @test B(parameters, 2, 1, 2) == imag(admittance[2, 1, 2])
     @test C(parameters, 2, 1, 1:2) ≈ capacitance_values[2, 1, 1:2]
-    @test series_impedance(parameters) === parameters.Z
-    @test shunt_admittance(parameters) === parameters.Y
+    @test series_impedance(parameters) === parameters.Z.values
+    @test shunt_admittance(parameters) === parameters.Y.values
     @test resistance(parameters, 1, 1, 1) == R(parameters, 1, 1, 1)
     @test reactance(parameters, 1, 1, 1) == X(parameters, 1, 1, 1)
     @test inductance(parameters, 1, 1, 1) ≈ L(parameters, 1, 1, 1)
@@ -75,22 +79,29 @@
     @test capacitance(parameters, 1, 1, 1) ≈ C(parameters, 1, 1, 1)
     @test L(parameters) ≈ inductance_values
     @test C(parameters) ≈ capacitance_values
-    parameter_observables=observables(parameters)
-    @test parameter_observables isa NamedTuple
+    @test observe(parameters, Z) === parameters.Z.values
+    @test observe(parameters, Y) === parameters.Y.values
+    parameter_observables=observables(
+        parameters,
+        (
+            frequency = (frequencies, Colon()),
+            resistance = (R, 1, 2, Colon()),
+            impedance_magnitude = (Z, abs, 1, 2, Colon()),
+            impedance_angle = (Z, angle, 1, 2, Colon())
+        )
+    )
     @test keys(parameter_observables) ==
-          (:frequency, :series_impedance, :shunt_admittance)
-    @test parameter_observables.frequency == parameters.f
-    @test parameter_observables.series_impedance == parameters.Z
-    @test parameter_observables.shunt_admittance == parameters.Y
-    @test parameter_observables.frequency === parameters.f
-    @test parameter_observables.series_impedance === parameters.Z
-    @test parameter_observables.shunt_admittance === parameters.Y
-    @test !ismutabletype(typeof(parameter_observables))
+          (:frequency, :resistance, :impedance_magnitude, :impedance_angle)
+    @test parameter_observables.frequency.values == frequency
+    @test parameter_observables.resistance.values == resistance_values[1, 2, :]
+    @test parameter_observables.impedance_angle.values ≈
+          rad2deg.(angle.(impedance[1, 2, :]))
+    @test parameter_observables.frequency.values !== parameters.f
 
     series=SeriesImpedance(impedance; basis = :total)
     shunt=ShuntAdmittance(admittance; basis = :total)
-    @test series_impedance(series) === series
-    @test shunt_admittance(shunt) === shunt
+    @test series_impedance(series) === series.values
+    @test shunt_admittance(shunt) === shunt.values
     @test Z(series) == impedance
     @test Y(shunt) == admittance
     @test resistance(series, 1, 2, 2) == resistance_values[1, 2, 2]

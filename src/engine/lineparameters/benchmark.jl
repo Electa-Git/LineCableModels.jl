@@ -23,21 +23,48 @@ admittance of two [`LineParameters`](@ref) objects.
 
 $(TYPEDFIELDS)
 """
-struct LineParametersBenchmark{T <: Real} <: AbstractProblemResult
+struct LineParametersBenchmark{T <: Real, Basis} <: AbstractProblemResult
     "Series-impedance error."
     Z::RMSError{T}
     "Shunt-admittance error."
     Y::RMSError{T}
 end
 
-function observables(benchmark::LineParametersBenchmark)
-    (
-        series_impedance_absolute_error = benchmark.Z.absolute,
-        series_impedance_relative_error = benchmark.Z.relative,
-        shunt_admittance_absolute_error = benchmark.Y.absolute,
-        shunt_admittance_relative_error = benchmark.Y.relative
-    )
+function LineParametersBenchmark(
+        impedance::RMSError{T},
+        admittance::RMSError{T};
+        basis::Symbol = :per_length
+) where {T <: Real}
+    _check_basis(basis)
+    return LineParametersBenchmark{T, basis}(impedance, admittance)
 end
+
+basis(::LineParametersBenchmark{T, Basis}) where {T, Basis} = Basis
+
+observe(benchmark::LineParametersBenchmark, ::typeof(Z), ::typeof(absolute_error), indices...) =
+    getindex(benchmark.Z.absolute, indices...)
+observe(benchmark::LineParametersBenchmark, ::typeof(Z), ::typeof(relative_error), indices...) =
+    getindex(benchmark.Z.relative, indices...)
+observe(benchmark::LineParametersBenchmark, ::typeof(Y), ::typeof(absolute_error), indices...) =
+    getindex(benchmark.Y.absolute, indices...)
+observe(benchmark::LineParametersBenchmark, ::typeof(Y), ::typeof(relative_error), indices...) =
+    getindex(benchmark.Y.relative, indices...)
+
+observe(benchmark::LineParametersBenchmark, ::typeof(Z), ::typeof(absolute_error)) =
+    benchmark.Z.absolute
+observe(benchmark::LineParametersBenchmark, ::typeof(Z), ::typeof(relative_error)) =
+    benchmark.Z.relative
+observe(benchmark::LineParametersBenchmark, ::typeof(Y), ::typeof(absolute_error)) =
+    benchmark.Y.absolute
+observe(benchmark::LineParametersBenchmark, ::typeof(Y), ::typeof(relative_error)) =
+    benchmark.Y.relative
+
+observables(::Type{<:LineParametersBenchmark}) = (
+    (Z, absolute_error),
+    (Z, relative_error),
+    (Y, absolute_error),
+    (Y, relative_error)
+)
 
 function _rms_series(reference::AbstractVector, candidate::AbstractVector)
     difference_norm = sum(abs2, reference .- candidate)
@@ -127,8 +154,9 @@ function compare(reference::LineParameters, candidate::LineParameters)
     impedance = _rms_error(reference.Z.values, candidate.Z.values)
     admittance = _rms_error(reference.Y.values, candidate.Y.values)
     T = promote_type(eltype(impedance.absolute), eltype(admittance.absolute))
-    return LineParametersBenchmark{T}(
+    return LineParametersBenchmark(
         RMSError{T}(Matrix{T}(impedance.absolute), Matrix{T}(impedance.relative)),
-        RMSError{T}(Matrix{T}(admittance.absolute), Matrix{T}(admittance.relative))
+        RMSError{T}(Matrix{T}(admittance.absolute), Matrix{T}(admittance.relative));
+        basis = basis(reference)
     )
 end

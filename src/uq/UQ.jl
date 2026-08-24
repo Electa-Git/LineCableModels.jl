@@ -14,11 +14,11 @@ using Random
 using Statistics
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import DataFrames: DataFrame, metadata!
-import ..LineCableModels: PhaseDomain, basis, domain, frequencies
+import ..LineCableModels: PhaseDomain, basis, domain, frequencies, R, L, C
 import ..DataModel
 import ..Engine
 import ..Grammar
-import ..Grammar: compute, observables
+import ..Grammar: compute, observe, observables
 import ..ParametricBuilder
 import ..ParametricBuilder: result
 import ..PlotBuilder

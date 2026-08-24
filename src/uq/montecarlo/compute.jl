@@ -4,12 +4,11 @@ function _dkw_trials(observable_count::Integer, confidence::Real, cdf_tol::Real)
     return ceil(Int, log(2 * observable_count / alpha) / (2 * cdf_tol^2))
 end
 
-_observable_count(value::DataModel.CableConstants) = length(observables(value))
+_observable_count(::DataModel.CableConstants) = 3
 
 function _observable_count(value::Engine.LineParameters)
-    observed = observables(value)
-    n = size(observed.series_impedance, 1)
-    return 2 * n * (n + 1) * length(observed.frequency)
+    n = size(observe(value, Engine.Z), 1)
+    return 2 * n * (n + 1) * length(observe(value, Engine.frequencies))
 end
 
 function _histogram(values::AbstractVector{<:Real}, bins::Union{Nothing, Int})
@@ -52,26 +51,27 @@ end
 
 function _rlcg_samples(draws::Vector{<:Engine.LineParameters})
     first_result = first(draws)
-    first_observed = observables(first_result)
-    dimensions = (size(first_observed.series_impedance)..., length(draws))
+    first_impedance = observe(first_result, Engine.Z)
+    first_frequencies = observe(first_result, Engine.frequencies)
+    dimensions = (size(first_impedance)..., length(draws))
     Rs = Array{Float64}(undef, dimensions)
     Ls = similar(Rs)
     Cs = similar(Rs)
     Gs = similar(Rs)
-    angular = reshape(2π .* first_observed.frequency, 1, 1, :)
     for (trial, value) in enumerate(draws)
-        observed = observables(value)
-        size(observed.series_impedance) == size(first_observed.series_impedance) ||
+        impedance = observe(value, Engine.Z)
+        frequencies_value = observe(value, Engine.frequencies)
+        size(impedance) == size(first_impedance) ||
             throw(DimensionMismatch(
                 "Monte Carlo realisations produced incompatible impedance dimensions",
             ))
-        observed.frequency == first_observed.frequency || throw(DimensionMismatch(
+        frequencies_value == first_frequencies || throw(DimensionMismatch(
             "Monte Carlo realisations produced incompatible frequency axes",
         ))
-        @views Rs[:, :, :, trial] .= real.(observed.series_impedance.values)
-        @views Ls[:, :, :, trial] .= imag.(observed.series_impedance.values) ./ angular
-        @views Gs[:, :, :, trial] .= real.(observed.shunt_admittance.values)
-        @views Cs[:, :, :, trial] .= imag.(observed.shunt_admittance.values) ./ angular
+        @views Rs[:, :, :, trial] .= observe(value, R)
+        @views Ls[:, :, :, trial] .= observe(value, L)
+        @views Gs[:, :, :, trial] .= observe(value, Engine.G)
+        @views Cs[:, :, :, trial] .= observe(value, C)
     end
     return RLCG(Rs, Ls, Cs, Gs)
 end
@@ -100,12 +100,12 @@ function _aggregate(draws::Vector{<:Engine.LineParameters}, formulation::MonteCa
     for values in (summaries.R, summaries.L, summaries.C, summaries.G)
     )...)
     first_result = first(draws)
-    angular = reshape(2π .* first_result.f, 1, 1, :)
+    angular = reshape(2π .* observe(first_result, Engine.frequencies), 1, 1, :)
     representation = Engine.LineParameters(
         domain(first_result),
         complex.(means.R, means.L .* angular),
         complex.(means.G, means.C .* angular),
-        first_result.f;
+        observe(first_result, Engine.frequencies);
         basis = basis(first_result)
     )
     hist = formulation.return_histograms ?

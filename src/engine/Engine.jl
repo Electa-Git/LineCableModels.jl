@@ -24,6 +24,7 @@ module Engine
 export CableConstantsProblem, LineParametersProblem,
        LineParameters, SeriesImpedance, ShuntAdmittance,
        RMSError, LineParametersBenchmark, compare,
+       absolute_error, relative_error,
        Z, Y, R, X, L, G, B, C,
        series_impedance, shunt_admittance,
        resistance, reactance, inductance,
@@ -46,7 +47,7 @@ import ..LineCableModels: basis, R, L, C, resistance, inductance, capacitance
 import ..LineCableModels: nominal, standard_uncertainty
 import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
                   AbstractProblemResult, FormulationOptions, ComputationOptions,
-                  formulation_options, computation_options, compute, observables
+                  formulation_options, computation_options, compute, observe, observables
 
 using ..Units
 using ..PlotBuilder

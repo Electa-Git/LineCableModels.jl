@@ -30,7 +30,8 @@
     @test sprint(show, trace) ==
           "LineParametersTrace(2 frequencies, 9 primitive conductors)"
     @test fieldtype(typeof(trace), :result) <: LineParameters
-    @test observables(trace) == observables(parameters)
+    @test observe(trace, Z) == observe(parameters, Z)
+    @test observe(trace, Y) == observe(parameters, Y)
     @test trace.frequencies == problem.frequencies
     @test trace.phase_map == [1, 0, 0, 2, 0, 0, 3, 0, 0]
     @test trace.cable_map == repeat(1:3; inner = 3)

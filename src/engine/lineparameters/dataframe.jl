@@ -166,8 +166,7 @@ function DataFrame(
     isempty(shunt_components) && throw(ArgumentError(
         "LineParameters presentation requires a shunt accessor; use DataFrame(Z(parameters), ...) for a series-only table",
     ))
-    values = observables(parameters)
-    frequency_values = values.frequency
+    frequency_values = frequencies(parameters)
     common = (;
         frequency_unit = freq_unit,
         length_unit,
@@ -175,13 +174,13 @@ function DataFrame(
         tolerance = float(tol)
     )
     series = _matrix_dataframes(
-        values.series_impedance,
+        parameters.Z,
         frequency_values,
         series_components;
         common...
     )
     shunt = _matrix_dataframes(
-        values.shunt_admittance,
+        parameters.Y,
         frequency_values,
         shunt_components;
         common...
@@ -262,21 +261,20 @@ function DataFrame(
 )
     impedance_floor = _comparison_floor(zero_atol, :Z)
     admittance_floor = _comparison_floor(zero_atol, :Y)
-    values = observables(comparison)
     frame = vcat(
         _comparison_rows(
             :Z,
             RMSError(
-                values.series_impedance_absolute_error,
-                values.series_impedance_relative_error
+                observe(comparison, Z, absolute_error),
+                observe(comparison, Z, relative_error)
             ),
             impedance_floor
         ),
         _comparison_rows(
             :Y,
             RMSError(
-                values.shunt_admittance_absolute_error,
-                values.shunt_admittance_relative_error
+                observe(comparison, Y, absolute_error),
+                observe(comparison, Y, relative_error)
             ),
             admittance_floor
         )

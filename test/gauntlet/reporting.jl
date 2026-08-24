@@ -1,5 +1,22 @@
 const DEFAULT_REPORT_FLOOR = (Z = 1.0e-6, Y = 1.0e-9)
 
+function _primitive_values(parameters::LineParameters)
+    return (
+        frequency = observe(parameters, frequencies),
+        series_impedance = observe(parameters, Z),
+        shunt_admittance = observe(parameters, Y)
+    )
+end
+
+function _comparison_values(comparison::LineParametersBenchmark)
+    return (
+        series_impedance_absolute_error = observe(comparison, Z, absolute_error),
+        series_impedance_relative_error = observe(comparison, Z, relative_error),
+        shunt_admittance_absolute_error = observe(comparison, Y, absolute_error),
+        shunt_admittance_relative_error = observe(comparison, Y, relative_error)
+    )
+end
+
 function _snapshot_digest(path::AbstractString)
     return bytes2hex(sha256(read(path)))
 end
@@ -51,13 +68,13 @@ function _snapshot_case(path::AbstractString, backend::Symbol)
         "Gauntlet snapshot $path has no LineParametersBenchmark",
     ))
     observed = compare(reference, accepted)
-    isequal(observables(comparison), observables(observed)) || throw(ArgumentError(
+    isequal(_comparison_values(comparison), _comparison_values(observed)) || throw(ArgumentError(
         "stored comparison does not match the recorded results in $path",
     ))
 
     frequencies_value = snapshot["frequencies"]
-    reference_values = observables(reference)
-    accepted_values = observables(accepted)
+    reference_values = _primitive_values(reference)
+    accepted_values = _primitive_values(accepted)
     frequencies_value == reference_values.frequency || throw(ArgumentError(
         "Gauntlet snapshot frequencies do not match its reference result: $path",
     ))
@@ -122,7 +139,7 @@ end
 function _report_row(path::AbstractString, backend::Symbol, zero_atol::NamedTuple)
     loaded = _snapshot_case(path, backend)
     snapshot = loaded.snapshot
-    comparison = observables(loaded.comparison)
+    comparison = _comparison_values(loaded.comparison)
     impedance = _error_summary(
         comparison.series_impedance_absolute_error,
         comparison.series_impedance_relative_error,
@@ -134,7 +151,7 @@ function _report_row(path::AbstractString, backend::Symbol, zero_atol::NamedTupl
         zero_atol.Y
     )
     reference = snapshot["reference"]
-    reference_values = observables(reference)
+    reference_values = _primitive_values(reference)
     execution = snapshot["reference_execution"]
     benchmark = snapshot["julia_benchmark"]
     formulation = snapshot["formulation"]

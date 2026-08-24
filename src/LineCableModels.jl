@@ -18,7 +18,7 @@ export AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult
 export AbstractParametricResult, AbstractUncertaintyResult
 export FormulationOptions, ComputationOptions
 export formulation_options, computation_options
-export compute, observables, primitives, preprocess
+export compute, observe, observables, primitives, preprocess
 export basis, domain, frequencies, nconductors, nfrequencies, ncables, nphases
 export Z, Y, R, X, L, G, B, C
 export series_impedance, shunt_admittance,
@@ -57,6 +57,9 @@ include("docstrings.jl")
 include("interfaces.jl")
 include("retired.jl")
 
+# Submodule `Units`
+include("units/Units.jl")
+
 # Package-local shared calculation grammar.
 include("grammar/Grammar.jl")
 using .Grammar:
@@ -64,11 +67,8 @@ using .Grammar:
                 AbstractParametricResult, AbstractUncertaintyResult,
                 FormulationOptions, ComputationOptions,
                 formulation_options, computation_options,
-                compute, observables, primitives, preprocess,
+                compute, observe, observables, primitives, preprocess,
                 nominal, standard_uncertainty
-
-# Submodule `Units`
-include("units/Units.jl")
 
 # Submodule `Validation`
 include("validation/Validation.jl")

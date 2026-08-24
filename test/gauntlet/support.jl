@@ -393,10 +393,10 @@
         domain(parameters) === PhaseDomain || throw(ArgumentError(
             "modal Gauntlet comparison is not implemented; compare canonical phase-domain Z and Y",
         ))
-        values = observables(parameters)
-        size(values.series_impedance) == case.expected_size || throw(DimensionMismatch(
+        impedance = observe(parameters, Z)
+        size(impedance) == case.expected_size || throw(DimensionMismatch(
             "$(case.name) expected Z/Y size $(case.expected_size), got " *
-            "$(size(values.series_impedance))",
+            "$(size(impedance))",
         ))
         port_order == case.port_order || throw(ArgumentError(
             "$(case.name) retained-conductor order does not match the case definition",

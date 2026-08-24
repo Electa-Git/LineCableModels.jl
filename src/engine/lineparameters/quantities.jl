@@ -14,3 +14,12 @@ Units.quantity(::typeof(Y), ::typeof(abs)) =
     Units.QuantityTag{(:shunt_admittance, :magnitude)}()
 Units.quantity(::typeof(Y), ::typeof(angle)) =
     Units.QuantityTag{(:shunt_admittance, :phase_angle)}()
+
+Units.quantity(::typeof(Z), ::typeof(absolute_error)) =
+    Units.QuantityTag{:series_impedance_absolute_error}()
+Units.quantity(::typeof(Z), ::typeof(relative_error)) =
+    Units.QuantityTag{:series_impedance_relative_error}()
+Units.quantity(::typeof(Y), ::typeof(absolute_error)) =
+    Units.QuantityTag{:shunt_admittance_absolute_error}()
+Units.quantity(::typeof(Y), ::typeof(relative_error)) =
+    Units.QuantityTag{:shunt_admittance_relative_error}()

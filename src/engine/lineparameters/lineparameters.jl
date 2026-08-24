@@ -177,22 +177,30 @@ end
 @inline basis(::Type{<:LineParameters{T, U, D, Basis}}) where {T, U, D, Basis} = Basis
 @inline basis(::LineParameters{T, U, D, Basis}) where {T, U, D, Basis} = Basis
 
-frequencies(lp::LineParameters) = lp.f
+observe(lp::LineParameters, ::typeof(frequencies)) = lp.f
+observe(lp::LineParameters, ::typeof(frequencies), indices...) = getindex(lp.f, indices...)
+frequencies(lp::LineParameters, indices...) = observe(lp, frequencies, indices...)
 nconductors(lp::LineParameters) = size(lp.Z, 1)
 nfrequencies(lp::LineParameters) = length(lp.f)
 
-function observables(parameters::LineParameters)
-    (
-        frequency = parameters.f,
-        series_impedance = parameters.Z,
-        shunt_admittance = parameters.Y
-    )
-end
+observables(::Type{<:LineParameters}) = (
+    frequencies,
+    Z,
+    Y,
+    R,
+    X,
+    L,
+    G,
+    B,
+    C,
+    (Z, abs),
+    (Z, angle),
+    (Y, abs),
+    (Y, angle)
+)
 
-series_impedance(lp::LineParameters) = lp.Z
-shunt_admittance(lp::LineParameters) = lp.Y
-series_impedance(impedance::SeriesImpedance) = impedance
-shunt_admittance(admittance::ShuntAdmittance) = admittance
+series_impedance(value::Union{LineParameters, SeriesImpedance}) = Z(value)
+shunt_admittance(value::Union{LineParameters, ShuntAdmittance}) = Y(value)
 """
     Z(parameters[, i, j[, k]])
     Y(parameters[, i, j[, k]])
@@ -202,34 +210,59 @@ frequency response at that matrix position. `k` may be one index, a range, or
 `:`. Stored units follow [`basis`](@ref): \\[Ω/m\\] and \\[S/m\\] for
 `:per_length`, or \\[Ω\\] and \\[S\\] for `:total`.
 """
-Z(lp::LineParameters) = lp.Z
-Y(lp::LineParameters) = lp.Y
+@inline _observe_array(values::AbstractArray) = values
+@inline _observe_array(values::AbstractArray, i, j) = view(values, i, j, :)
+@inline _observe_array(values::AbstractArray, indices...) = getindex(values, indices...)
 
-Z(impedance::SeriesImpedance) = impedance.values
-Z(impedance::SeriesImpedance, i, j) = view(impedance.values, i, j, :)
-Z(impedance::SeriesImpedance, i, j, k) = impedance.values[i, j, k]
-Y(admittance::ShuntAdmittance) = admittance.values
-Y(admittance::ShuntAdmittance, i, j) = view(admittance.values, i, j, :)
-Y(admittance::ShuntAdmittance, i, j, k) = admittance.values[i, j, k]
+observe(impedance::SeriesImpedance, ::typeof(Z), indices...) =
+    _observe_array(impedance.values, indices...)
+observe(admittance::ShuntAdmittance, ::typeof(Y), indices...) =
+    _observe_array(admittance.values, indices...)
+observe(lp::LineParameters, ::typeof(Z), indices...) =
+    _observe_array(lp.Z.values, indices...)
+observe(lp::LineParameters, ::typeof(Y), indices...) =
+    _observe_array(lp.Y.values, indices...)
 
-R(impedance::SeriesImpedance, args...) = real.(Z(impedance, args...))
-X(impedance::SeriesImpedance, args...) = imag.(Z(impedance, args...))
-G(admittance::ShuntAdmittance, args...) = real.(Y(admittance, args...))
-B(admittance::ShuntAdmittance, args...) = imag.(Y(admittance, args...))
-resistance(impedance::SeriesImpedance, args...) = R(impedance, args...)
-reactance(impedance::SeriesImpedance, args...) = X(impedance, args...)
-conductance(admittance::ShuntAdmittance, args...) = G(admittance, args...)
-susceptance(admittance::ShuntAdmittance, args...) = B(admittance, args...)
+observe(value::Union{LineParameters, SeriesImpedance}, ::typeof(R), indices...) =
+    real.(observe(value, Z, indices...))
+observe(value::Union{LineParameters, SeriesImpedance}, ::typeof(X), indices...) =
+    imag.(observe(value, Z, indices...))
+observe(value::Union{LineParameters, ShuntAdmittance}, ::typeof(G), indices...) =
+    real.(observe(value, Y, indices...))
+observe(value::Union{LineParameters, ShuntAdmittance}, ::typeof(B), indices...) =
+    imag.(observe(value, Y, indices...))
 
-@inline Z(lp::LineParameters, i, j) = view(lp.Z.values, i, j, :)
-@inline Y(lp::LineParameters, i, j) = view(lp.Y.values, i, j, :)
-@inline Z(lp::LineParameters, i, j, k) = lp.Z.values[i, j, k]
-@inline Y(lp::LineParameters, i, j, k) = lp.Y.values[i, j, k]
+observe(value::LineParameters, ::typeof(Z), ::typeof(abs), indices...) =
+    abs.(observe(value, Z, indices...))
+observe(value::SeriesImpedance, ::typeof(Z), ::typeof(abs), indices...) =
+    abs.(observe(value, Z, indices...))
+observe(value::LineParameters, ::typeof(Z), ::typeof(angle), indices...) =
+    angle.(observe(value, Z, indices...))
+observe(value::SeriesImpedance, ::typeof(Z), ::typeof(angle), indices...) =
+    angle.(observe(value, Z, indices...))
+observe(value::LineParameters, ::typeof(Y), ::typeof(abs), indices...) =
+    abs.(observe(value, Y, indices...))
+observe(value::ShuntAdmittance, ::typeof(Y), ::typeof(abs), indices...) =
+    abs.(observe(value, Y, indices...))
+observe(value::LineParameters, ::typeof(Y), ::typeof(angle), indices...) =
+    angle.(observe(value, Y, indices...))
+observe(value::ShuntAdmittance, ::typeof(Y), ::typeof(angle), indices...) =
+    angle.(observe(value, Y, indices...))
 
-R(lp::LineParameters, args...) = real.(Z(lp, args...))
-X(lp::LineParameters, args...) = imag.(Z(lp, args...))
-G(lp::LineParameters, args...) = real.(Y(lp, args...))
-B(lp::LineParameters, args...) = imag.(Y(lp, args...))
+observables(::Type{<:SeriesImpedance}) = (Z, R, X, (Z, abs), (Z, angle))
+observables(::Type{<:ShuntAdmittance}) = (Y, G, B, (Y, abs), (Y, angle))
+
+Z(value::Union{LineParameters, SeriesImpedance}, indices...) = observe(value, Z, indices...)
+Y(value::Union{LineParameters, ShuntAdmittance}, indices...) = observe(value, Y, indices...)
+R(value::Union{LineParameters, SeriesImpedance}, indices...) = observe(value, R, indices...)
+X(value::Union{LineParameters, SeriesImpedance}, indices...) = observe(value, X, indices...)
+G(value::Union{LineParameters, ShuntAdmittance}, indices...) = observe(value, G, indices...)
+B(value::Union{LineParameters, ShuntAdmittance}, indices...) = observe(value, B, indices...)
+
+resistance(value::Union{LineParameters, SeriesImpedance}, args...) = R(value, args...)
+reactance(value::Union{LineParameters, SeriesImpedance}, args...) = X(value, args...)
+conductance(value::Union{LineParameters, ShuntAdmittance}, args...) = G(value, args...)
+susceptance(value::Union{LineParameters, ShuntAdmittance}, args...) = B(value, args...)
 
 @inline function _angular_frequencies(lp::LineParameters, k)
     selected = lp.f[k]
@@ -255,7 +288,7 @@ Units are \\[H/m\\] for `:per_length` and \\[H\\] for `:total`.
 
 Throws `DomainError` when a selected frequency is zero.
 """
-function L(lp::LineParameters)
+function observe(lp::LineParameters, ::typeof(L))
     any(iszero, lp.f) && throw(DomainError(lp.f, "L is undefined at zero frequency"))
     return imag.(lp.Z.values) ./ reshape(2π .* lp.f, 1, 1, :)
 end
@@ -276,19 +309,19 @@ Units are \\[F/m\\] for `:per_length` and \\[F\\] for `:total`.
 
 Throws `DomainError` when a selected frequency is zero.
 """
-function C(lp::LineParameters)
+function observe(lp::LineParameters, ::typeof(C))
     any(iszero, lp.f) && throw(DomainError(lp.f, "C is undefined at zero frequency"))
     return imag.(lp.Y.values) ./ reshape(2π .* lp.f, 1, 1, :)
 end
 
-L(lp::LineParameters, i, j) = L(lp, i, j, :)
-C(lp::LineParameters, i, j) = C(lp, i, j, :)
-L(lp::LineParameters, i, j, k) = imag.(Z(lp, i, j, k)) ./ _angular_frequencies(lp, k)
-C(lp::LineParameters, i, j, k) = imag.(Y(lp, i, j, k)) ./ _angular_frequencies(lp, k)
+observe(lp::LineParameters, ::typeof(L), i, j) = observe(lp, L, i, j, :)
+observe(lp::LineParameters, ::typeof(C), i, j) = observe(lp, C, i, j, :)
+observe(lp::LineParameters, ::typeof(L), i, j, k) =
+    observe(lp, X, i, j, k) ./ _angular_frequencies(lp, k)
+observe(lp::LineParameters, ::typeof(C), i, j, k) =
+    observe(lp, B, i, j, k) ./ _angular_frequencies(lp, k)
 
-resistance(lp::LineParameters, args...) = R(lp, args...)
-reactance(lp::LineParameters, args...) = X(lp, args...)
+L(lp::LineParameters, args...) = observe(lp, L, args...)
+C(lp::LineParameters, args...) = observe(lp, C, args...)
 inductance(lp::LineParameters, args...) = L(lp, args...)
-conductance(lp::LineParameters, args...) = G(lp, args...)
-susceptance(lp::LineParameters, args...) = B(lp, args...)
 capacitance(lp::LineParameters, args...) = C(lp, args...)

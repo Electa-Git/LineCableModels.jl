@@ -21,7 +21,9 @@ end
 
 Base.eltype(::LineParametersTrace{<:LineParameters, T}) where {T} = T
 
-observables(trace::LineParametersTrace) = observables(trace.result)
+basis(trace::LineParametersTrace) = basis(trace.result)
+observe(trace::LineParametersTrace, selector, args...) = observe(trace.result, selector, args...)
+observables(::Type{<:LineParametersTrace}) = observables(LineParameters)
 
 function Base.show(io::IO, trace::LineParametersTrace)
     print(io, "LineParametersTrace(", length(trace.frequencies), " frequencies, ",

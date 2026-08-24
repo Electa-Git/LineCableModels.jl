@@ -18,6 +18,10 @@ function susceptance end
 function frequencies end
 function nconductors end
 function nfrequencies end
+"Return absolute numerical errors from an owned comparison result."
+function absolute_error end
+"Return reference-normalised numerical errors from an owned comparison result."
+function relative_error end
 
 "Abstract tag for the physical domain represented by line-parameter matrices."
 abstract type LineParamsDomain end

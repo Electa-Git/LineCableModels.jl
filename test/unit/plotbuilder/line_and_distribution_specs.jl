@@ -7,8 +7,8 @@
     const PB=LineCableModels.PlotBuilder
 
     parameters=TestFixtures.two_conductor_results()
-    series=Z(parameters)
-    shunt=Y(parameters)
+    series=parameters.Z
+    shunt=parameters.Y
 
     @test E._indices(nothing, 3) == [1, 2, 3]
     @test E._indices(:, 3) == [1, 2, 3]
@@ -92,8 +92,8 @@
 
     residual_conductance=fill(1.0e-17, size(shunt))
     lossless=LineParameters(
-        copy(Z(parameters).values),
-        complex.(residual_conductance, imag.(Y(parameters).values)),
+        copy(Z(parameters)),
+        complex.(residual_conductance, imag.(Y(parameters))),
         frequencies(parameters)
     )
     lossless_render=PB.make_render(
@@ -107,8 +107,8 @@
 
     small_conductance=fill(1.0e-12, size(shunt))
     lossy=LineParameters(
-        copy(Z(parameters).values),
-        complex.(small_conductance, imag.(Y(parameters).values)),
+        copy(Z(parameters)),
+        complex.(small_conductance, imag.(Y(parameters))),
         frequencies(parameters)
     )
     lossy_render=PB.make_render(E.LineParameterPlotDefinition, lossy; quantities = (G,))
@@ -240,8 +240,8 @@ end
     )
     smaller=LineParameters(
         PhaseDomain,
-        Z(first(parameters)).values[1:2, 1:2, :],
-        Y(first(parameters)).values[1:2, 1:2, :],
+        Z(first(parameters))[1:2, 1:2, :],
+        Y(first(parameters))[1:2, 1:2, :],
         frequency
     )
     @test_throws DimensionMismatch PB.make_render(

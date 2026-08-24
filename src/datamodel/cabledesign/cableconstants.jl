@@ -4,7 +4,8 @@ $(TYPEDEF)
 Store cable constants per unit length.
 
 The fields `R`, `L`, and `C` are stored in Ω/m, H/m, and F/m respectively.
-Display conversions belong to `Units` and presentation adapters.
+Display conversions belong to [`LineCableModels.Units`](@ref) and presentation
+adapters.
 
 $(TYPEDFIELDS)
 """
@@ -97,18 +98,16 @@ function _compute_cable_constants(
     return CableConstants(resistance_value, inductance_value, capacitance_value)
 end
 
-R(constants::CableConstants) = constants.R
-L(constants::CableConstants) = constants.L
-C(constants::CableConstants) = constants.C
+observe(constants::CableConstants, ::typeof(R)) = constants.R
+observe(constants::CableConstants, ::typeof(L)) = constants.L
+observe(constants::CableConstants, ::typeof(C)) = constants.C
+
+R(constants::CableConstants) = observe(constants, R)
+L(constants::CableConstants) = observe(constants, L)
+C(constants::CableConstants) = observe(constants, C)
 basis(::CableConstants) = :per_length
 resistance(constants::CableConstants) = R(constants)
 inductance(constants::CableConstants) = L(constants)
 capacitance(constants::CableConstants) = C(constants)
 
-function observables(constants::CableConstants)
-    (
-        resistance = constants.R,
-        inductance = constants.L,
-        capacitance = constants.C
-    )
-end
+observables(::Type{<:CableConstants}) = (R, L, C)

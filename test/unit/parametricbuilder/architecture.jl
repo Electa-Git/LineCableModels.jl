@@ -16,10 +16,12 @@
     @test parentmodule(LineCableModels.validate) === LineCableModels.Validation
     @test length(methods(LineCableModels.validate)) == 1
     @test LineCableModels.observables === Grammar.observables
+    @test LineCableModels.observe === Grammar.observe
     @test LineCableModels.primitives === Grammar.primitives
     @test LineCableModels.preprocess === Grammar.preprocess
     @test parentmodule(Grammar.compute) === Grammar
     @test parentmodule(Grammar.observables) === Grammar
+    @test parentmodule(Grammar.observe) === Grammar
     @test parentmodule(Grammar.primitives) === Grammar
     @test parentmodule(Grammar.preprocess) === Grammar
     @test isempty(methods(Grammar.primitives))

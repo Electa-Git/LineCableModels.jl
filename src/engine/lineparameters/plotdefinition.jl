@@ -137,8 +137,8 @@ function _line_components(parameters::LineParameters, accessor)
     accessor === imag && return (:Z_im, :Y_im)
     accessor === abs && return (:Z_abs, :Y_abs)
     accessor === angle && return (:Z_angle, :Y_angle)
-    accessor in (R, X, L) && return _line_components(Z(parameters), accessor)
-    accessor in (G, B, C) && return _line_components(Y(parameters), accessor)
+    accessor in (R, X, L) && return _line_components(parameters.Z, accessor)
+    accessor in (G, B, C) && return _line_components(parameters.Y, accessor)
     throw(ArgumentError("accessor $(accessor) is not defined for LineParameters presentation"))
 end
 
@@ -158,18 +158,17 @@ function _resolve_line_components(object, quantities)
 end
 
 function _line_sources(parameters::LineParameters)
-    values = observables(parameters)
-    return (values.series_impedance, values.shunt_admittance)
+    return (parameters.Z, parameters.Y)
 end
 _line_sources(object::Union{SeriesImpedance, ShuntAdmittance}) = (object,)
 
 _line_source(object::SeriesImpedance, ::LinePageKey{:series, C}) where {C} = object
 _line_source(object::ShuntAdmittance, ::LinePageKey{:shunt, C}) where {C} = object
 function _line_source(parameters::LineParameters, ::LinePageKey{:series, C}) where {C}
-    observables(parameters).series_impedance
+    parameters.Z
 end
 function _line_source(parameters::LineParameters, ::LinePageKey{:shunt, C}) where {C}
-    observables(parameters).shunt_admittance
+    parameters.Y
 end
 
 function _line_input_defaults(frequencies)
