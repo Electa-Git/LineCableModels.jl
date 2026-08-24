@@ -11,10 +11,9 @@ function _mc_entry(result::MonteCarloResult)
     length(result) == 1 || throw(ArgumentError(
         "DataFrame requires one Monte Carlo point; select one result explicitly",
     ))
-    observed = observables(result)
     return (
-        representation = only(observed.result),
-        statistics = only(observed.statistics),
+        representation = only(UQ.result(result)),
+        statistics = only(statistics(result)),
         samples = samples(result) === nothing ? nothing : only(samples(result)),
         histograms = histograms(result) === nothing ? nothing : only(histograms(result)),
         trials = only(result.trial_counts),
@@ -73,7 +72,8 @@ end
 function _montecarlo_dataframe(entry, ::DataModel.CableConstants;
         length_unit::Symbol, quantity_units)
     quantities = (:R, :L, :C)
-    summaries = map(quantity -> getproperty(entry.statistics, quantity), quantities)
+    selectors = (R, L, C)
+    summaries = map(selector -> observe(entry.statistics, selector), selectors)
     return _mc_summary_frame(
         entry,
         quantities,
@@ -87,12 +87,13 @@ end
 function _montecarlo_dataframe(entry, representation::Engine.LineParameters;
         length_unit::Symbol, quantity_units)
     quantities = (:R, :L, :C, :G)
-    shape = size(entry.statistics.R)
+    selectors = (R, L, C, Engine.G)
+    shape = size(observe(entry.statistics, R))
     frames = Array{DataFrame, 3}(undef, shape)
     for index in CartesianIndices(frames)
         summaries = map(
-            quantity -> getproperty(entry.statistics, quantity)[index],
-            quantities
+            selector -> observe(entry.statistics, selector, index.I...),
+            selectors
         )
         frames[index] = _mc_summary_frame(
             entry,

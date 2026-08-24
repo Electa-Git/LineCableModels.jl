@@ -261,9 +261,7 @@ end
     @test length(direct) == 2
     @test all(value -> value.R isa Measurement, direct)
     @test fieldnames(typeof(direct)) == (:formulation, :values)
-    direct_observables=observables(direct)
-    @test keys(direct_observables) == (:result,)
-    @test direct_observables.result === result(direct)
+    @test_throws MethodError observables(direct)
 
     fixed_design=PB.CableBuilder(
         "fixed-compute-cable",
@@ -300,13 +298,13 @@ end
     @test minimum(samples(monte_carlo)[1].R) >
           maximum(samples(monte_carlo)[2].R)
     @test monte_carlo.root_seed == UInt64(0x1234)
-    monte_carlo_observables=observables(monte_carlo)
-    @test keys(monte_carlo_observables) ==
-          (:result, :statistics, :samples, :histograms)
-    @test monte_carlo_observables.result === result(monte_carlo)
-    @test monte_carlo_observables.statistics === statistics(monte_carlo)
-    @test monte_carlo_observables.samples === samples(monte_carlo)
-    @test monte_carlo_observables.histograms === histograms(monte_carlo)
+    @test_throws MethodError observables(monte_carlo)
+    @test observe(first(statistics(monte_carlo)), R, mean) ==
+          mean(first(samples(monte_carlo)).R)
+    @test observe(first(samples(monte_carlo)), R, :) ==
+          first(samples(monte_carlo)).R
+    @test observe(first(histograms(monte_carlo)), R) ===
+          first(histograms(monte_carlo)).R
 
     resistance_pdf=first(histograms(monte_carlo)).R
     @test cdf(resistance_pdf, maximum(resistance_pdf)) == 1.0
@@ -366,8 +364,7 @@ end
     propagated=compute(ParametricProblem(space), LinearError(formulation))
     @test propagated isa LinearErrorResult{<:CableConstants}
     @test fieldnames(typeof(propagated)) == (:formulation, :values)
-    propagated_observables=observables(propagated)
-    @test keys(propagated_observables) == (:result,)
+    @test_throws MethodError observables(propagated)
     @test Measurements.cov(first(propagated).R, first(propagated).L) != 0
     @test !applicable(Measurements.measurement, monte_carlo)
 
@@ -378,6 +375,7 @@ end
 @testitem "Engine / Formulation / materialized and Gridspace line problems" tags=[:unit] setup=[
     EngineTestSupport, UseEngineSupport, TestNumerics] begin
     import LineCableModels.ParametricBuilder as PB
+    using Statistics
 
     copper=PB.Material(; rho = 1.7241e-8)
     xlpe=PB.Material(; rho = 1.0e14, eps_r = 2.3)
@@ -457,6 +455,13 @@ end
     @test only(samples(monte_carlo)) isa RLCG
     @test only(histograms(monte_carlo)) isa RLCG
     @test first(only(histograms(monte_carlo)).R) isa HistogramDensity
+    @test basis(only(statistics(monte_carlo))) === :per_length
+    @test observe(only(statistics(monte_carlo)), R, Statistics.mean) ==
+          Statistics.mean.(only(statistics(monte_carlo)).R)
+    @test observe(only(samples(monte_carlo)), R, 1, 1, 1, :) ==
+          only(samples(monte_carlo)).R[1, 1, 1, :]
+    @test observe(only(histograms(monte_carlo)), R, 1, 1, 1) ===
+          only(histograms(monte_carlo)).R[1, 1, 1]
     @test !applicable(Measurements.measurement, monte_carlo)
 
     line_frames=DataFrame(monte_carlo)

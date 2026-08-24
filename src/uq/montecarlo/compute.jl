@@ -29,17 +29,45 @@ function _histogram(values::AbstractVector{<:Real}, bins::Union{Nothing, Int})
     return HistogramDensity(edges, counts ./ (length(values) .* diff(edges)))
 end
 
-function _aggregate(draws::Vector{<:DataModel.CableConstants}, formulation::MonteCarlo)
-    Rs = [value.R for value in draws]
-    Ls = [value.L for value in draws]
-    Cs = [value.C for value in draws]
+function _sample_storage(first_result::DataModel.CableConstants, trials::Int)
+    T = typeof(observe(first_result, R))
+    return DataModel.CableConstants(
+        Vector{T}(undef, trials),
+        Vector{T}(undef, trials),
+        Vector{T}(undef, trials)
+    )
+end
+
+function _record_sample!(
+        storage::DataModel.CableConstants,
+        value::DataModel.CableConstants,
+        trial::Int,
+        ::Nothing
+)
+    observe(storage, R)[trial] = observe(value, R)
+    observe(storage, L)[trial] = observe(value, L)
+    observe(storage, C)[trial] = observe(value, C)
+    return storage
+end
+
+_sample_axis(::DataModel.CableConstants) = nothing
+_sample_axis(value::Engine.LineParameters) = observe(value, Engine.frequencies)
+
+function _aggregate(
+        sample_values::DataModel.CableConstants,
+        ::DataModel.CableConstants,
+        formulation::MonteCarlo
+)
+    Rs = observe(sample_values, R)
+    Ls = observe(sample_values, L)
+    Cs = observe(sample_values, C)
     summaries = DataModel.CableConstants(SampleSummary(Rs), SampleSummary(Ls), SampleSummary(Cs))
     representation = DataModel.CableConstants(
-        summaries.R.mean,
-        summaries.L.mean,
-        summaries.C.mean
+        observe(summaries, R, Statistics.mean),
+        observe(summaries, L, Statistics.mean),
+        observe(summaries, C, Statistics.mean)
     )
-    retained = formulation.return_samples ? DataModel.CableConstants(Rs, Ls, Cs) : nothing
+    retained = formulation.return_samples ? sample_values : nothing
     hist = formulation.return_histograms ?
            DataModel.CableConstants(
         _histogram(Rs, formulation.bins),
@@ -49,34 +77,43 @@ function _aggregate(draws::Vector{<:DataModel.CableConstants}, formulation::Mont
     return (; representation, statistics = summaries, samples = retained, histograms = hist)
 end
 
-function _rlcg_samples(draws::Vector{<:Engine.LineParameters})
-    first_result = first(draws)
+function _sample_storage(first_result::Engine.LineParameters, trials::Int)
     first_impedance = observe(first_result, Engine.Z)
-    first_frequencies = observe(first_result, Engine.frequencies)
-    dimensions = (size(first_impedance)..., length(draws))
+    dimensions = (size(first_impedance)..., trials)
     Rs = Array{Float64}(undef, dimensions)
     Ls = similar(Rs)
     Cs = similar(Rs)
     Gs = similar(Rs)
-    for (trial, value) in enumerate(draws)
-        impedance = observe(value, Engine.Z)
-        frequencies_value = observe(value, Engine.frequencies)
-        size(impedance) == size(first_impedance) ||
-            throw(DimensionMismatch(
-                "Monte Carlo realisations produced incompatible impedance dimensions",
-            ))
-        frequencies_value == first_frequencies || throw(DimensionMismatch(
-            "Monte Carlo realisations produced incompatible frequency axes",
-        ))
-        @views Rs[:, :, :, trial] .= observe(value, R)
-        @views Ls[:, :, :, trial] .= observe(value, L)
-        @views Gs[:, :, :, trial] .= observe(value, Engine.G)
-        @views Cs[:, :, :, trial] .= observe(value, C)
-    end
-    return RLCG(Rs, Ls, Cs, Gs)
+    return RLCG(Rs, Ls, Cs, Gs; basis = basis(first_result))
 end
 
-function _map_observables(function_value, sample_values::Array{<:Real, 4})
+function _record_sample!(
+        storage::RLCG,
+        value::Engine.LineParameters,
+        trial::Int,
+        expected_frequencies
+)
+    impedance = observe(value, Engine.Z)
+    size(impedance) == size(storage.R)[1:3] || throw(DimensionMismatch(
+        "Monte Carlo realisations produced incompatible impedance dimensions",
+    ))
+    observe(value, Engine.frequencies) == expected_frequencies || throw(DimensionMismatch(
+        "Monte Carlo realisations produced incompatible frequency axes",
+    ))
+    basis(value) === basis(storage) || throw(ArgumentError(
+        "Monte Carlo realisations produced incompatible result bases",
+    ))
+    for index in CartesianIndices(size(impedance))
+        i, j, k = index.I
+        storage.R[i, j, k, trial] = observe(value, R, i, j, k)
+        storage.L[i, j, k, trial] = observe(value, L, i, j, k)
+        storage.G[i, j, k, trial] = observe(value, Engine.G, i, j, k)
+        storage.C[i, j, k, trial] = observe(value, C, i, j, k)
+    end
+    return storage
+end
+
+function _map_samples(function_value, sample_values::Array{<:Real, 4})
     output_size = size(sample_values)[1:3]
     indices = CartesianIndices(output_size)
     first_index = first(indices)
@@ -89,17 +126,23 @@ function _map_observables(function_value, sample_values::Array{<:Real, 4})
     return output
 end
 
-function _aggregate(draws::Vector{<:Engine.LineParameters}, formulation::MonteCarlo)
-    sample_values = _rlcg_samples(draws)
-    summaries = RLCG((
-        _map_observables(SampleSummary, values)
+function _aggregate(
+        sample_values::RLCG,
+        first_result::Engine.LineParameters,
+        formulation::MonteCarlo
+)
+    summary_values = (
+        _map_samples(SampleSummary, values)
     for values in (sample_values.R, sample_values.L, sample_values.C, sample_values.G)
-    )...)
-    means = RLCG((
-        map(summary -> summary.mean, values)
-    for values in (summaries.R, summaries.L, summaries.C, summaries.G)
-    )...)
-    first_result = first(draws)
+    )
+    summaries = RLCG(summary_values...; basis = basis(sample_values))
+    means = RLCG(
+        observe(summaries, R, Statistics.mean),
+        observe(summaries, L, Statistics.mean),
+        observe(summaries, C, Statistics.mean),
+        observe(summaries, Engine.G, Statistics.mean);
+        basis = basis(summaries)
+    )
     angular = reshape(2π .* observe(first_result, Engine.frequencies), 1, 1, :)
     representation = Engine.LineParameters(
         domain(first_result),
@@ -110,9 +153,9 @@ function _aggregate(draws::Vector{<:Engine.LineParameters}, formulation::MonteCa
     )
     hist = formulation.return_histograms ?
            RLCG((
-        _map_observables(values -> _histogram(values, formulation.bins), samples)
+        _map_samples(values -> _histogram(values, formulation.bins), samples)
     for samples in (sample_values.R, sample_values.L, sample_values.C, sample_values.G)
-    )...) : nothing
+    )...; basis = basis(sample_values)) : nothing
     retained = formulation.return_samples ? sample_values : nothing
     return (; representation, statistics = summaries, samples = retained, histograms = hist)
 end
@@ -125,13 +168,21 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed)
         formulation.trials,
         _dkw_trials(_observable_count(first_result), formulation.confidence, formulation.cdf_tol)
     )
-    draws = Vector{typeof(first_result)}(undef, ntrials)
-    draws[1] = first_result
+    sample_values = _sample_storage(first_result, ntrials)
+    sample_axis = _sample_axis(first_result)
+    _record_sample!(sample_values, first_result, 1, sample_axis)
     for trial in 2:ntrials
         realization = ParametricBuilder.realize(rng, point, formulation.distribution)
-        draws[trial] = compute(realization, formulation.inner; options)
+        value = compute(realization, formulation.inner; options)
+        typeof(value) === typeof(first_result) || throw(ArgumentError(
+            "Monte Carlo realisations produced incompatible result types",
+        ))
+        _record_sample!(sample_values, value, trial, sample_axis)
     end
-    return merge(_aggregate(draws, formulation), (; trials = ntrials, seed))
+    return merge(
+        _aggregate(sample_values, first_result, formulation),
+        (; trials = ntrials, seed)
+    )
 end
 
 function compute(problem::ParametricProblem, formulation::MonteCarlo)

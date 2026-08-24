@@ -281,10 +281,34 @@ end
         complete.point_seeds,
         complete.trial_counts
     )
-    @test keys(observables(complete)) ==
-          (:result, :statistics, :samples, :histograms)
-    @test keys(observables(sample_only)) == (:result, :statistics, :samples)
-    @test keys(observables(histogram_only)) ==
-          (:result, :statistics, :histograms)
-    @test keys(observables(summaries_only)) == (:result, :statistics)
+    @test_throws MethodError observables(complete)
+    @test_throws MethodError observables(sample_only)
+    @test_throws MethodError observables(histogram_only)
+    @test_throws MethodError observables(summaries_only)
+
+    summary_product=only(statistics(complete))
+    sample_product=only(samples(complete))
+    histogram_product=only(histograms(complete))
+    @test observe(summary_product, R) === summary_product.R
+    @test observe(summary_product, R, mean) == summary_product.R.mean
+    @test observe(summary_product, R, std) == summary_product.R.std
+    @test observe(sample_product, R, :) == sample_product.R[:]
+    @test observe(histogram_product, R) === histogram_product.R
+    published=observables(summary_product, (mean_resistance = (R, mean),))
+    @test published.mean_resistance.values == summary_product.R.mean * 1_000
+    @test keys(published.mean_resistance) == (:values, :quantity, :unit)
+
+    frequency=[50.0, 100.0]
+    impedance=fill(1.0e-4 + 2.0e-4im, 2, 2, 2)
+    admittance=fill(3.0e-8 + 4.0e-8im, 2, 2, 2)
+    parameters=LineParameters(impedance, admittance, frequency)
+    storage=LineCableModels.UQ._sample_storage(parameters, 2)
+    LineCableModels.UQ._record_sample!(storage, parameters, 1, frequency)
+    LineCableModels.UQ._record_sample!(storage, parameters, 2, frequency)
+    @test @allocated(
+        LineCableModels.UQ._record_sample!(storage, parameters, 2, frequency)
+    ) == 0
+    @test observe(storage, R, 1, 1, 1, :) == fill(1.0e-4, 2)
+    @test observe(storage, L, 1, 1, 1, :) ==
+          fill(2.0e-4 / (2π * frequency[1]), 2)
 end

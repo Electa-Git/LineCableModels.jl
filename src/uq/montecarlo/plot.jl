@@ -6,6 +6,14 @@ cumulative distributions, and Q-Q plots.
 """
 struct MCDistributionPlotDefinition <: PlotBuilder.AbstractPlotDefinition end
 
+function _mc_selector(quantity::Symbol)
+    quantity === :R && return R
+    quantity === :L && return L
+    quantity === :C && return C
+    quantity === :G && return Engine.G
+    throw(ArgumentError("unsupported Monte Carlo quantity :$quantity"))
+end
+
 function _mc_plot_exponent(series, field::Symbol)
     maximum_value = 0.0
     for item in series
@@ -36,10 +44,11 @@ function _mc_selection(
         ArgumentError("cable-constant Monte Carlo results do not use matrix indices"),
     )
     entry = _mc_entry(result)
+    selector = _mc_selector(quantity)
     sample_values = entry.samples === nothing ? nothing :
-                    getproperty(entry.samples, quantity)
+                    observe(entry.samples, selector)
     histogram_value = entry.histograms === nothing ? nothing :
-                      getproperty(entry.histograms, quantity)
+                      observe(entry.histograms, selector)
     return sample_values, histogram_value, nothing
 end
 
@@ -57,23 +66,22 @@ function _mc_selection(
         ArgumentError("ijk must be a tuple (i, j, k)"),
     )
     entry = _mc_entry(result)
-    observable = getproperty(entry.statistics, quantity)
+    selector = _mc_selector(quantity)
+    observable = observe(entry.statistics, selector)
     checkbounds(observable, selection...)
     sample_values = entry.samples === nothing ? nothing :
-                    collect(
-        view(getproperty(entry.samples, quantity), selection..., :),
-    )
+                    collect(observe(entry.samples, selector, selection..., :))
     histogram_value = entry.histograms === nothing ? nothing :
-                      getproperty(entry.histograms, quantity)[selection...]
+                      observe(entry.histograms, selector, selection...)
     return sample_values, histogram_value, selection
 end
 
 function _mc_selection(result::MonteCarloResult, quantity::Symbol, ijk)
-    return _mc_selection(result, only(observables(result).result), quantity, ijk)
+    return _mc_selection(result, only(UQ.result(result)), quantity, ijk)
 end
 
 function _mc_target_unit(result::MonteCarloResult, quantity, length_unit, quantity_units)
-    representation = only(observables(result).result)
+    representation = only(UQ.result(result))
     result_basis = representation isa DataModel.CableConstants ?
                    :per_length : basis(representation)
     resolved = _mc_unit(

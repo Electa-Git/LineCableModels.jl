@@ -1,7 +1,7 @@
 """
 $(TYPEDEF)
 
-Store scalar Monte Carlo statistics for one declared real observable.
+Store scalar Monte Carlo statistics for one real-valued observation.
 
 $(TYPEDFIELDS)
 """
@@ -69,6 +69,12 @@ function SampleSummary(values::AbstractVector{<:Real})
     return SampleSummary(promoted..., length(values))
 end
 
+Statistics.mean(summary::SampleSummary) = summary.mean
+Statistics.std(summary::SampleSummary) = summary.std
+Statistics.median(summary::SampleSummary) = summary.median
+Base.minimum(summary::SampleSummary) = summary.min
+Base.maximum(summary::SampleSummary) = summary.max
+
 """
 $(TYPEDEF)
 
@@ -111,11 +117,14 @@ end
 """
 $(TYPEDEF)
 
-Group resistance, inductance, capacitance, and conductance values.
+Group resistance, inductance, capacitance, and conductance products.
+
+`Basis` is `:per_length` or `:total` and applies to all four fields. `T` is
+the common representation used for samples, summaries, or histograms.
 
 $(TYPEDFIELDS)
 """
-struct RLCG{T}
+struct RLCG{T, Basis}
     "Resistance values."
     R::T
     "Inductance values."
@@ -125,3 +134,13 @@ struct RLCG{T}
     "Conductance values."
     G::T
 end
+
+
+function RLCG(R::T, L::T, C::T, G::T; basis::Symbol = :per_length) where {T}
+    basis in (:per_length, :total) || throw(
+        ArgumentError("basis must be :per_length or :total; got :$basis"),
+    )
+    return RLCG{T, basis}(R, L, C, G)
+end
+
+basis(::RLCG{T, Basis}) where {T, Basis} = Basis

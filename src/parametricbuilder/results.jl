@@ -63,5 +63,3 @@ Base.IndexStyle(::Type{<:ParametricResult}) = IndexLinear()
 
 "Return the primitive results of a parametric calculation."
 result(value::ParametricResult) = value.values
-
-observables(value::ParametricResult) = (result = result(value),)
