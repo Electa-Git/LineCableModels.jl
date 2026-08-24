@@ -67,6 +67,12 @@
     shunt=ShuntAdmittance(admittance)
     @test observe(series, Z) === series.values
     @test observe(series, Z, abs, 1, 1, :) == abs.(impedance[1, 1, :])
+    @test observe(series, L, frequency) ≈ inductance
+    @test_throws DimensionMismatch observe(series, L, [50.0])
+    @test_throws DomainError observe(series, L, [0.0, 100.0])
     @test observe(shunt, Y) === shunt.values
     @test observe(shunt, Y, angle, 1, 1, :) == angle.(admittance[1, 1, :])
+    @test observe(shunt, C, frequency) ≈ capacitance
+    @test_throws DimensionMismatch observe(shunt, C, [50.0])
+    @test_throws DomainError observe(shunt, C, [50.0, 0.0])
 end

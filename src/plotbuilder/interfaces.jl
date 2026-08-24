@@ -94,12 +94,12 @@ function _validate_defaults(::Type{S}, defaults::NamedTuple, names::Tuple,
 end
 
 """
-    parse_kwargs(::Type{S}, object, kwargs)
+    parse(::Type{S}, object, kwargs)
 
 Validate and split caller input into the semantic and renderer options declared
 by a recipe. Unsupported keywords are errors.
 """
-function parse_kwargs(
+function parse(
         ::Type{S},
         object,
         kwargs::NamedTuple
@@ -146,6 +146,6 @@ function parse_kwargs(
     return PlotRecipe(S, object, input, renderer)
 end
 
-function parse_kwargs(::Type{S}, object; kwargs...) where {S <: AbstractPlotDefinition}
-    parse_kwargs(S, object, (; kwargs...))
+function parse(::Type{S}, object; kwargs...) where {S <: AbstractPlotDefinition}
+    parse(S, object, (; kwargs...))
 end

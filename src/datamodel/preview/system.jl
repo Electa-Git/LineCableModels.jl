@@ -125,8 +125,16 @@ function PlotBuilder.renderer_defaults(::Type{SystemPreviewPlotDefinition}, ::Li
     (; size = (900, 700))
 end
 
-function PlotBuilder.resolve_input(::Type{SystemPreviewPlotDefinition}, recipe::PlotBuilder.PlotRecipe)
-    _system_limits(recipe.object, recipe.input.zoom_factor)
+function PlotBuilder.resolve(::Type{SystemPreviewPlotDefinition}, recipe::PlotBuilder.PlotRecipe)
+    zoom_factor = recipe.input.zoom_factor
+    if zoom_factor !== nothing
+        zoom_factor isa Real || throw(
+            ArgumentError("zoom_factor must be a positive real value"),
+        )
+        isfinite(zoom_factor) && zoom_factor > 0 || throw(
+            ArgumentError("zoom_factor must be finite and greater than zero"),
+        )
+    end
     all(name -> getproperty(recipe.input, name) isa Bool,
         (:display_legend, :display_id, :display_colorbars)) || throw(
         ArgumentError("display_legend, display_id, and display_colorbars must be Bool"),
@@ -135,6 +143,30 @@ function PlotBuilder.resolve_input(::Type{SystemPreviewPlotDefinition}, recipe::
         ArgumentError("size must be a tuple of two integers"),
     )
     return recipe
+end
+
+function PlotBuilder.fetch(::Type{SystemPreviewPlotDefinition}, recipe::PlotBuilder.PlotRecipe)
+    system = recipe.object
+    limits = _system_limits(system, recipe.input.zoom_factor)
+    series = _system_series(
+        system,
+        recipe.input.earth_model,
+        limits,
+        recipe.input.display_legend
+    )
+    title = _system_title(Val(recipe.input.display_id), system)
+    colorbars = _system_colorbars(
+        Val(recipe.input.display_colorbars),
+        recipe.input.earth_model
+    )
+    identity = (; kind = :system, id = system.system_id)
+    export_name = system.system_id
+    return PlotBuilder.PlotRecipe(
+        SystemPreviewPlotDefinition,
+        system,
+        merge(recipe.input, (; limits, series, title, colorbars, identity, export_name)),
+        recipe.renderer
+    )
 end
 
 function PlotBuilder.make_axes(
@@ -157,13 +189,7 @@ function PlotBuilder.make_series(
         view_key,
         axes::NamedTuple
 )
-    limits = _system_limits(recipe.object, recipe.input.zoom_factor)
-    return _system_series(
-        recipe.object,
-        recipe.input.earth_model,
-        limits,
-        recipe.input.display_legend
-    )
+    return recipe.input.series
 end
 
 _system_title(::Val{false}, system) = "Cable system cross-section"
@@ -179,7 +205,7 @@ function PlotBuilder.default_title(
         page_key,
         view_key
 )
-    return _system_title(Val(recipe.input.display_id), recipe.object)
+    return recipe.input.title
 end
 
 function PlotBuilder.view_key(
@@ -209,7 +235,7 @@ function PlotBuilder.view_limits(
         page_key,
         view_key
 )
-    return _system_limits(recipe.object, recipe.input.zoom_factor)
+    return recipe.input.limits
 end
 
 function PlotBuilder.default_figsize(
@@ -236,10 +262,7 @@ function PlotBuilder.colorbar_specs(
         recipe::PlotBuilder.PlotRecipe,
         page_key
 )
-    return _system_colorbars(
-        Val(recipe.input.display_colorbars),
-        recipe.input.earth_model
-    )
+    return recipe.input.colorbars
 end
 
 function PlotBuilder.legend_spec(
@@ -251,7 +274,7 @@ end
 function PlotBuilder.page_identity(
         ::Type{SystemPreviewPlotDefinition}, mode::Val,
         recipe::PlotBuilder.PlotRecipe, page_key)
-    return (; kind = :system, id = recipe.object.system_id)
+    return recipe.input.identity
 end
 
 function PlotBuilder.export_spec(
@@ -259,7 +282,7 @@ function PlotBuilder.export_spec(
         recipe::PlotBuilder.PlotRecipe, page_key, title::AbstractString)
     return PlotBuilder.ExportSpec(
         theme = recipe.renderer.export_theme,
-        name = recipe.object.system_id,
+        name = recipe.input.export_name,
         open_file = recipe.renderer.open_export
     )
 end

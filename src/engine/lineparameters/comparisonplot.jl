@@ -106,11 +106,11 @@ function PlotBuilder.renderer_defaults(
     return (; fig_size = (1200, 800))
 end
 
-function PlotBuilder.resolve_input(
+function PlotBuilder.resolve(
         ::Type{LineParametersBenchmarkPlotDefinition},
         recipe::PlotBuilder.PlotRecipe
 )
-    parameters = _validate_comparison_inputs(recipe.object)
+    parameters = recipe.object
     input = recipe.input
     components = _resolve_line_components(first(parameters), input.quantities)
     labels = _comparison_labels(input.legend, length(parameters))
@@ -120,29 +120,37 @@ function PlotBuilder.resolve_input(
     input.yscale in (:linear, :log10) || throw(
         ArgumentError("yscale must be :linear or :log10"),
     )
-    frequency = frequencies(first(parameters))
-    input.xscale === :log10 && any(<=(0), frequency) &&
-        throw(
-            DomainError(frequency, "logarithmic frequency axes require positive frequencies"),
-        )
-    any(component -> component in (:L, :C), components) && any(iszero, frequency) &&
-        throw(DomainError(
-            frequency,
-            "inductance and capacitance are undefined at zero frequency"
-        ))
     recipe.renderer.fig_size isa Tuple{Int, Int} || throw(
         ArgumentError("fig_size must be a tuple of two integers"),
     )
     all(>(0), recipe.renderer.fig_size) || throw(
         ArgumentError("fig_size dimensions must be positive"),
     )
-    length(frequency) <= 1 &&
-        @warn "Frequency vector has $(length(frequency)) sample(s); nothing to plot."
     colors = Tuple(_comparison_color(index) for index in eachindex(parameters))
     return PlotBuilder.PlotRecipe(
         LineParametersBenchmarkPlotDefinition,
         parameters,
-        merge(input, (; components, frequencies = frequency, legend = labels, colors)),
+        merge(input, (; components, legend = labels, colors)),
+        recipe.renderer
+    )
+end
+
+function PlotBuilder.fetch(
+        ::Type{LineParametersBenchmarkPlotDefinition},
+        recipe::PlotBuilder.PlotRecipe
+)
+    parameters = _validate_comparison_inputs(recipe.object)
+    internal_input = merge(recipe.input, (; frequencies = nothing, con = nothing))
+    published = Tuple(
+        _publish_line_source(parameters[index], internal_input, recipe.input.components)
+    for index in eachindex(parameters)
+    )
+    frequency = first(published).frequency
+    input = merge(recipe.input, (; frequency, published))
+    return PlotBuilder.PlotRecipe(
+        LineParametersBenchmarkPlotDefinition,
+        parameters,
+        input,
         recipe.renderer
     )
 end
@@ -168,7 +176,7 @@ function PlotBuilder._page_keys(
         ::Val{:panels},
         recipe::PlotBuilder.PlotRecipe
 )
-    length(recipe.input.frequencies) <= 1 && return ()
+    length(recipe.input.frequency.values) <= 1 && return ()
     return Tuple(_comparison_page_key(component) for component in recipe.input.components)
 end
 
@@ -179,7 +187,8 @@ function PlotBuilder._view_keys(
         recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey
 )
-    count = nconductors(first(recipe.object))
+    first_payload = first(Base.values(first(recipe.input.published).component_payloads))
+    count = size(first_payload.values, 1)
     return Tuple((row, column) for row in 1:count for column in 1:count)
 end
 
@@ -191,11 +200,7 @@ function PlotBuilder._series_keys(
         page_key::LinePageKey,
         view_key::Tuple{Int, Int}
 )
-    return eachindex(recipe.object)
-end
-
-function _comparison_source(parameters::LineParameters, page_key::LinePageKey)
-    return _line_source(parameters, page_key)
+    return eachindex(recipe.input.published)
 end
 
 function _comparison_values(
@@ -203,24 +208,14 @@ function _comparison_values(
         page_key::LinePageKey,
         result_index::Int
 )
-    parameters = recipe.object[result_index]
-    source = _comparison_source(parameters, page_key)
     component = _line_component(page_key)
-    _, _, conversion = _component_unit(
-        component,
-        basis(source),
-        recipe.input.length_unit,
-        recipe.input.quantity_units
-    )
-    values = _line_component_values(
-        Val(component),
-        parameters,
-        recipe.input.frequencies
-    )
-    return _display_values(values, source, component), conversion
+    return getproperty(
+        recipe.input.published[result_index].component_payloads,
+        component
+    ).values
 end
 
-function PlotBuilder.axis_quantity(
+function PlotBuilder.axis_payload(
         ::Type{LineParametersBenchmarkPlotDefinition},
         ::Val{:comparison},
         ::Val{:x},
@@ -228,10 +223,10 @@ function PlotBuilder.axis_quantity(
         page_key::LinePageKey,
         view_key::Tuple{Int, Int}
 )
-    return Units.QuantityTag{:frequency}()
+    return recipe.input.frequency
 end
 
-function PlotBuilder.axis_quantity(
+function PlotBuilder.axis_payload(
         ::Type{LineParametersBenchmarkPlotDefinition},
         ::Val{:comparison},
         ::Val{:y},
@@ -239,45 +234,10 @@ function PlotBuilder.axis_quantity(
         page_key::LinePageKey,
         view_key::Tuple{Int, Int}
 )
-    source = _comparison_source(first(recipe.object), page_key)
-    quantity, _, _ = _component_unit(
-        _line_component(page_key),
-        basis(source),
-        recipe.input.length_unit,
-        recipe.input.quantity_units
+    return getproperty(
+        first(recipe.input.published).component_payloads,
+        _line_component(page_key)
     )
-    return quantity
-end
-
-function PlotBuilder.axis_unit(
-        ::Type{LineParametersBenchmarkPlotDefinition},
-        ::Val{:comparison},
-        ::Val{:x},
-        quantity::Units.QuantityTag,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key::LinePageKey,
-        view_key::Tuple{Int, Int}
-)
-    return Units.units(recipe.input.freq_unit, :hertz)
-end
-
-function PlotBuilder.axis_unit(
-        ::Type{LineParametersBenchmarkPlotDefinition},
-        ::Val{:comparison},
-        ::Val{:y},
-        quantity::Units.QuantityTag,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key::LinePageKey,
-        view_key::Tuple{Int, Int}
-)
-    source = _comparison_source(first(recipe.object), page_key)
-    _, target, _ = _component_unit(
-        _line_component(page_key),
-        basis(source),
-        recipe.input.length_unit,
-        recipe.input.quantity_units
-    )
-    return target
 end
 
 function PlotBuilder.axis_scale(
@@ -312,7 +272,7 @@ function PlotBuilder.axis_scales(
         series::Vector{PlotBuilder.SeriesSpec}
 ) where {dim}
     supports_log = dim === :x ?
-                   _supports_log_values(recipe.input.frequencies) :
+                   _supports_log_values(recipe.input.frequency.values) :
                    _supports_log(series, dim)
     return supports_log ? (:linear, :log10) : (:linear,)
 end
@@ -331,7 +291,7 @@ function PlotBuilder.axis_exponent(
     )
 end
 
-function PlotBuilder.series_data(
+function PlotBuilder.series_values(
         ::Type{LineParametersBenchmarkPlotDefinition},
         ::Val{:comparison},
         ::Val{:x},
@@ -340,13 +300,10 @@ function PlotBuilder.series_data(
         view_key::Tuple{Int, Int},
         result_index::Int
 )
-    quantity = Units.QuantityTag{:frequency}()
-    target = Units.units(recipe.input.freq_unit, :hertz)
-    conversion = Units.scale_factor(Units.native_unit(quantity), target)
-    return recipe.input.frequencies .* conversion
+    return recipe.input.frequency.values
 end
 
-function PlotBuilder.series_data(
+function PlotBuilder.series_values(
         ::Type{LineParametersBenchmarkPlotDefinition},
         ::Val{:comparison},
         ::Val{:y},
@@ -355,9 +312,9 @@ function PlotBuilder.series_data(
         view_key::Tuple{Int, Int},
         result_index::Int
 )
-    values, conversion = _comparison_values(recipe, page_key, result_index)
+    values = _comparison_values(recipe, page_key, result_index)
     row, column = view_key
-    return collect(view(values, row, column, :)) .* conversion
+    return collect(view(values, row, column, :))
 end
 
 function PlotBuilder.legend_label(
@@ -404,14 +361,14 @@ function PlotBuilder.default_title(
         page_key::LinePageKey,
         ::Nothing
 )
-    quantity = PlotBuilder.axis_quantity(
+    quantity = PlotBuilder.axis_payload(
         LineParametersBenchmarkPlotDefinition,
         Val(:comparison),
         Val(:y),
         recipe,
         page_key,
         (1, 1)
-    )
+    ).quantity
     return "$(Units.label(quantity)) comparison"
 end
 
@@ -423,14 +380,14 @@ function PlotBuilder.default_title(
         view_key::Tuple{Int, Int}
 ) where {K}
     symbol = K === :series ? "Z" : "Y"
-    quantity = PlotBuilder.axis_quantity(
+    quantity = PlotBuilder.axis_payload(
         LineParametersBenchmarkPlotDefinition,
         Val(:comparison),
         Val(:y),
         recipe,
         page_key,
         view_key
-    )
+    ).quantity
     label = Units.label(quantity)
     row, column = view_key
     return "$symbol[$row,$column] · $label"
@@ -466,7 +423,8 @@ function PlotBuilder.view_attributes(
         view_key::Tuple{Int, Int}
 )
     row, column = view_key
-    count = nconductors(first(recipe.object))
+    payload = first(Base.values(first(recipe.input.published).component_payloads))
+    count = size(payload.values, 1)
     return (;
         xlabelvisible = row == count,
         xticklabelsvisible = row == count,
@@ -579,9 +537,10 @@ function PlotBuilder.page_identity(
         recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey
 )
+    payload = first(Base.values(first(recipe.input.published).component_payloads))
     return (;
         component = _line_component(page_key),
-        results = length(recipe.object),
-        conductors = nconductors(first(recipe.object))
+        results = length(recipe.input.published),
+        conductors = size(payload.values, 1)
     )
 end

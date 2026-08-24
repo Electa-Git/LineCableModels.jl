@@ -199,16 +199,19 @@ function export_spec(
 end
 
 """
-    make_pages(::Type{S}, mode, grouping, recipe)
+    make_pages(::Type{S}, mode, grouping, recipe, view_entries)
 
-Construct every renderer-independent page for a resolved recipe.
+Construct every renderer-independent page from the completed view stage.
 """
 function make_pages(
-        ::Type{S}, mode::Val, grouping::Val, recipe::PlotRecipe
+        ::Type{S}, mode::Val, grouping::Val, recipe::PlotRecipe,
+        view_entries::AbstractVector
 ) where {S <: AbstractPlotDefinition}
     pages = PageSpec[]
     for page_key in _page_keys(S, mode, grouping, recipe)
-        views = make_views(S, mode, grouping, recipe, page_key)
+        views = ViewSpec[
+            entry.view for entry in view_entries if isequal(entry.page_key, page_key)
+        ]
         title = default_title(S, mode, recipe, page_key, nothing)
         push!(
             pages,

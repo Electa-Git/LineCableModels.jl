@@ -54,6 +54,9 @@ end
     @test U.label(U.native_unit(U.quantity(R), :per_length)) == "Ω/m"
     @test U.label(U.display_unit(U.quantity(R), :total)) == "Ω"
     @test U.label(U.display_unit(U.quantity(C), :total)) == "μF"
+    @test U.label(U.display_unit(U.quantity(R), :per_length; prefix = :milli)) ==
+          "mΩ/km"
+    @test U.label(U.display_unit(U.quantity(C), :total; prefix = :nano)) == "nF"
     @test_throws ArgumentError U.display_unit(U.quantity(R), :invalid)
 end
 

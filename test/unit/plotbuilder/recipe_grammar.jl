@@ -20,6 +20,23 @@
 
     struct ProfilePlotDefinition<:PB.AbstractPlotDefinition end
 
+    profile_frequency(result::ProfileResult) = result.frequency
+    profile_response(result::ProfileResult) = result.response
+
+    LineCableModels.basis(::ProfileResult) = :total
+    LineCableModels.observe(result::ProfileResult, ::typeof(profile_frequency), indices...) =
+        isempty(indices) ? result.frequency : getindex(result.frequency, indices...)
+    LineCableModels.observe(result::ProfileResult, ::typeof(profile_response), indices...) =
+        isempty(indices) ? result.response : getindex(result.response, indices...)
+    LineCableModels.observables(::Type{<:ProfileResult}) =
+        (profile_frequency, profile_response)
+    UH.quantity(::typeof(profile_frequency)) = UH.QuantityTag{:frequency}()
+    UH.quantity(::typeof(profile_response)) = UH.QuantityTag{:test_response}()
+    UH.native_unit(::UH.QuantityTag{:test_response}) = UH.UnitExpr()
+    UH.display_unit(::UH.QuantityTag{:test_response}) = UH.UnitExpr()
+    UH.label(::UH.QuantityTag{:test_response}) = "Response"
+    UH.symbol(::UH.QuantityTag{:test_response}) = "u"
+
     PB.dispatch_on(::Type{ProfilePlotDefinition}) = ProfileResult
     PB.input_kwargs(::Type{ProfilePlotDefinition}) = (:grouping, :color)
     PB.renderer_kwargs(::Type{ProfilePlotDefinition}) = (:size,)
@@ -27,33 +44,39 @@
         grouping = :overlay, color = :steelblue)
     PB.renderer_defaults(::Type{ProfilePlotDefinition}, ::ProfileResult) = (;
         size = (800, 400))
+    function PB.fetch(::Type{ProfilePlotDefinition}, recipe::PB.PlotRecipe)
+        published = observables(
+            recipe.object,
+            (frequency = profile_frequency, response = profile_response,)
+        )
+        return PB.PlotRecipe(
+            ProfilePlotDefinition,
+            recipe.object,
+            merge(recipe.input, (; published)),
+            recipe.renderer
+        )
+    end
     PB._recipe_variant(::Type{ProfilePlotDefinition}, recipe::PB.PlotRecipe) = Val(:profile)
     PB._composition(::Type{ProfilePlotDefinition}, ::Val{:profile},
         recipe::PB.PlotRecipe) = Val(recipe.input.grouping)
     PB._series_items(
         ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PB.PlotRecipe, page_key) = axes(
-        recipe.object.response, 2)
+        recipe.input.published.response.values, 2)
 
-    PB.axis_quantity(
+    PB.axis_payload(
         ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:x}, recipe::PB.PlotRecipe,
-        page_key, view_key) = UH.QuantityTag{:frequency}()
-    PB.axis_quantity(
+        page_key, view_key) = recipe.input.published.frequency
+    PB.axis_payload(
         ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:y}, recipe::PB.PlotRecipe,
-        page_key, view_key) = UH.QuantityTag{:dimensionless}()
-    PB.axis_unit(
-        ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:x},
-        quantity::UH.QuantityTag, recipe::PB.PlotRecipe, page_key, view_key) = UH.units(:base, :hertz)
-    PB.axis_label(
-        ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:y},
-        quantity::UH.QuantityTag, unit::UH.UnitExpr, recipe::PB.PlotRecipe,
-        page_key, view_key) = "Response"
+        page_key, view_key) = recipe.input.published.response
 
-    PB.series_data(
+    PB.series_values(
         ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:x}, recipe::PB.PlotRecipe,
-        page_key, view_key, series_key::Int) = recipe.object.frequency
-    PB.series_data(
+        page_key, view_key, series_key::Int) = recipe.input.published.frequency.values
+    PB.series_values(
         ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:y}, recipe::PB.PlotRecipe,
-        page_key, view_key, series_key::Int) = recipe.object.response[:, series_key]
+        page_key, view_key, series_key::Int) =
+        recipe.input.published.response.values[:, series_key]
     PB.legend_label(
         ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PB.PlotRecipe,
         page_key, view_key, series_key::Int) = "response $series_key"
@@ -161,7 +184,7 @@
         export_spec = overlay_page.export_spec
     ).legend.overflow === :show_all
     compact_objects=Any[
-        PB.parse_kwargs(ProfilePlotDefinition, result),
+        PB.parse(ProfilePlotDefinition, result),
         PB.FixedTrack(36),
         PB.RelativeTrack(),
         PB.ContentTrack(),
@@ -578,6 +601,88 @@
     )
 end
 
+@testitem "PlotBuilder / grammar / locked stage order" tags=[:unit] setup=[
+    PlotBuilderTestSupport,
+    UsePlotBuilderSupport
+] begin
+    const PB=LineCableModels.PlotBuilder
+    struct StageOrderDefinition<:PB.AbstractPlotDefinition end
+    calls=Symbol[]
+
+    function PB.entitle(::Type{StageOrderDefinition}, object)
+        push!(calls, :entitle)
+        return object
+    end
+    function PB.parse(::Type{StageOrderDefinition}, object; kwargs...)
+        push!(calls, :parse)
+        return PB.PlotRecipe(StageOrderDefinition, object, (;), (;))
+    end
+    function PB.resolve(::Type{StageOrderDefinition}, recipe::PB.PlotRecipe)
+        push!(calls, :resolve)
+        return recipe
+    end
+    function PB.fetch(::Type{StageOrderDefinition}, recipe::PB.PlotRecipe)
+        push!(calls, :fetch)
+        return recipe
+    end
+    function PB.make_axes(
+            ::Type{StageOrderDefinition}, ::Val, ::Val, recipe::PB.PlotRecipe)
+        push!(calls, :make_axes)
+        return NamedTuple[]
+    end
+    function PB.make_series(
+            ::Type{StageOrderDefinition}, ::Val, ::Val,
+            recipe::PB.PlotRecipe, axes::AbstractVector)
+        push!(calls, :make_series)
+        return NamedTuple[]
+    end
+    function PB.make_views(
+            ::Type{StageOrderDefinition}, ::Val, ::Val,
+            recipe::PB.PlotRecipe, series::AbstractVector)
+        push!(calls, :make_views)
+        return NamedTuple[]
+    end
+    function PB.make_pages(
+            ::Type{StageOrderDefinition}, ::Val, ::Val,
+            recipe::PB.PlotRecipe, views::AbstractVector)
+        push!(calls, :make_pages)
+        return PB.PageSpec[]
+    end
+    function PB.decorate(
+            ::Type{StageOrderDefinition}, recipe::PB.PlotRecipe,
+            pages::Vector{PB.PageSpec})
+        push!(calls, :decorate)
+        return pages
+    end
+    function PB.finish(
+            ::Type{StageOrderDefinition}, recipe::PB.PlotRecipe,
+            pages::Vector{PB.PageSpec})
+        push!(calls, :finish)
+        return PB.PlotRecipe(
+            StageOrderDefinition,
+            recipe.object,
+            recipe.input,
+            recipe.renderer,
+            pages
+        )
+    end
+
+    @test PB.make_render(StageOrderDefinition, :source) isa PB.PlotRecipe
+    @test calls == [
+        :entitle,
+        :parse,
+        :resolve,
+        :fetch,
+        :make_axes,
+        :make_series,
+        :make_views,
+        :make_pages,
+        :decorate,
+        :finish
+    ]
+    @test all(==(1), count(==(stage), calls) for stage in calls)
+end
+
 @testitem "PlotBuilder / grammar / default hook contracts" tags=[:unit] setup=[
     PlotBuilderTestSupport,
     UsePlotBuilderSupport
@@ -586,12 +691,12 @@ end
     const UH=LineCableModels.Units
 
     struct DefaultHookSpec<:PB.AbstractPlotDefinition end
-    recipe=PB.parse_kwargs(DefaultHookSpec, :payload)
+    recipe=PB.parse(DefaultHookSpec, :payload)
     variant=PB._recipe_variant(DefaultHookSpec, recipe)
 
     @test PB.dispatch_on(DefaultHookSpec) === Any
-    @test PB.resolve_input(DefaultHookSpec, recipe) === recipe
-    @test PB.observe(DefaultHookSpec, recipe) === recipe
+    @test PB.resolve(DefaultHookSpec, recipe) === recipe
+    @test PB.fetch(DefaultHookSpec, recipe) === recipe
     @test variant === Val(:default)
     @test !isdefined(PB, :recipe_mode)
     @test !isdefined(PB, :grouping_mode)
@@ -603,6 +708,12 @@ end
     @test !isdefined(PB, :RenderSpec)
     @test !isdefined(PB, :LineFamilyKey)
     @test !isdefined(PB, :MCSeriesKey)
+    @test !isdefined(PB, :parse_kwargs)
+    @test !isdefined(PB, :resolve_input)
+    @test !isdefined(PB, :observe)
+    @test !isdefined(PB, :axis_quantity)
+    @test !isdefined(PB, :axis_unit)
+    @test !isdefined(PB, :series_data)
     @test all(name -> name ∉ names(PB),
         (
             :AxisSpec, :SeriesSpec, :ViewSpec, :PageSpec, :LayoutSpec,
@@ -610,24 +721,29 @@ end
         ))
     @test PB.geom_axes(DefaultHookSpec, variant, recipe, nothing, nothing) == (:x, :y)
 
-    quantity=PB.axis_quantity(DefaultHookSpec, Val(:x), recipe)
-    @test quantity isa UH.QuantityTag{:dimensionless}
-    @test PB.axis_quantity(
+    payload=PB.axis_payload(DefaultHookSpec, Val(:x), recipe)
+    @test payload.quantity isa UH.QuantityTag{:dimensionless}
+    @test PB.axis_payload(
         DefaultHookSpec,
         variant,
         Val(:x),
         recipe,
         nothing,
         nothing
-    ) === quantity
-    unit=PB.axis_unit(DefaultHookSpec, Val(:x), quantity, recipe)
-    @test PB.axis_label(DefaultHookSpec, Val(:x), quantity, unit, recipe) == "Dimensionless"
+    ) == payload
+    @test PB.axis_label(
+        DefaultHookSpec,
+        Val(:x),
+        payload.quantity,
+        payload.unit,
+        recipe
+    ) == "Dimensionless"
     @test PB.axis_scale(DefaultHookSpec, Val(:x), recipe) === :linear
     @test PB.axis_scales(DefaultHookSpec, Val(:x), recipe, PB.SeriesSpec[]) == (:linear,)
     @test PB.axis_exponent(DefaultHookSpec, Val(:x), recipe, PB.SeriesSpec[]) == 0
 
     @test PB.plot_kind(DefaultHookSpec, recipe, nothing) === :line
-    @test PB.series_data(DefaultHookSpec, Val(:x), recipe, nothing) === nothing
+    @test PB.series_values(DefaultHookSpec, Val(:x), recipe, nothing) === nothing
     @test PB.legend_label(DefaultHookSpec, recipe, nothing) === nothing
     @test PB.series_group(DefaultHookSpec, recipe, nothing) === nothing
     @test PB.series_visible(DefaultHookSpec, recipe, nothing)

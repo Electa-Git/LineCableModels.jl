@@ -22,7 +22,7 @@ function PlotBuilder.renderer_defaults(::Type{CablePreviewPlotDefinition}, ::Cab
     (; size = (900, 700))
 end
 
-function PlotBuilder.resolve_input(::Type{CablePreviewPlotDefinition}, recipe::PlotBuilder.PlotRecipe)
+function PlotBuilder.resolve(::Type{CablePreviewPlotDefinition}, recipe::PlotBuilder.PlotRecipe)
     recipe.input.x_offset isa Real || throw(ArgumentError("x_offset must be real"))
     recipe.input.y_offset isa Real || throw(ArgumentError("y_offset must be real"))
     all(name -> getproperty(recipe.input, name) isa Bool,
@@ -33,6 +33,26 @@ function PlotBuilder.resolve_input(::Type{CablePreviewPlotDefinition}, recipe::P
         ArgumentError("size must be a tuple of two integers"),
     )
     return recipe
+end
+
+function PlotBuilder.fetch(::Type{CablePreviewPlotDefinition}, recipe::PlotBuilder.PlotRecipe)
+    design = recipe.object
+    series = _design_series(
+        design,
+        recipe.input.x_offset,
+        recipe.input.y_offset;
+        display_legend = recipe.input.display_legend
+    )
+    title = _cable_title(Val(recipe.input.display_id), design)
+    colorbars = _cable_colorbars(Val(recipe.input.display_colorbars), design)
+    identity = (; kind = :cable, id = design.cable_id)
+    export_name = design.cable_id
+    return PlotBuilder.PlotRecipe(
+        CablePreviewPlotDefinition,
+        design,
+        merge(recipe.input, (; series, title, colorbars, identity, export_name)),
+        recipe.renderer
+    )
 end
 
 function PlotBuilder.make_axes(
@@ -55,12 +75,7 @@ function PlotBuilder.make_series(
         view_key,
         axes::NamedTuple
 )
-    return _design_series(
-        recipe.object,
-        recipe.input.x_offset,
-        recipe.input.y_offset;
-        display_legend = recipe.input.display_legend
-    )
+    return recipe.input.series
 end
 
 _cable_title(::Val{false}, design) = "Cable design preview"
@@ -76,7 +91,7 @@ function PlotBuilder.default_title(
         page_key,
         view_key
 )
-    return _cable_title(Val(recipe.input.display_id), recipe.object)
+    return recipe.input.title
 end
 
 function PlotBuilder.view_key(
@@ -123,7 +138,7 @@ function PlotBuilder.colorbar_specs(
         recipe::PlotBuilder.PlotRecipe,
         page_key
 )
-    return _cable_colorbars(Val(recipe.input.display_colorbars), recipe.object)
+    return recipe.input.colorbars
 end
 
 function PlotBuilder.legend_spec(
@@ -135,7 +150,7 @@ end
 function PlotBuilder.page_identity(
         ::Type{CablePreviewPlotDefinition}, mode::Val,
         recipe::PlotBuilder.PlotRecipe, page_key)
-    return (; kind = :cable, id = recipe.object.cable_id)
+    return recipe.input.identity
 end
 
 function PlotBuilder.export_spec(
@@ -143,7 +158,7 @@ function PlotBuilder.export_spec(
         recipe::PlotBuilder.PlotRecipe, page_key, title::AbstractString)
     return PlotBuilder.ExportSpec(
         theme = recipe.renderer.export_theme,
-        name = recipe.object.cable_id,
+        name = recipe.input.export_name,
         open_file = recipe.renderer.open_export
     )
 end

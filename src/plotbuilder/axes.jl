@@ -11,37 +11,23 @@ function geom_axes(::Type{S}, mode::Val, recipe::PlotRecipe,
 end
 
 """
-    axis_quantity(::Type{S}, dim, recipe)
+    axis_payload(::Type{S}, dim, recipe)
 
-Return the semantic quantity tag for one axis.
+Return the published or synthetic payload used to define one axis.
 """
-function axis_quantity(::Type{S}, dim::Val, recipe::PlotRecipe) where {S <:
-                                                                       AbstractPlotDefinition}
-    QuantityTag{:dimensionless}()
+function axis_payload(::Type{S}, dim::Val, recipe::PlotRecipe) where {S <:
+                                                                      AbstractPlotDefinition}
+    return (
+        values = nothing,
+        quantity = QuantityTag{:dimensionless}(),
+        unit = units(:base, :dimensionless)
+    )
 end
-function axis_quantity(
+function axis_payload(
         ::Type{S}, mode::Val, dim::Val, recipe::PlotRecipe,
         page_key, view_key
 ) where {S <: AbstractPlotDefinition}
-    axis_quantity(S, dim, recipe)
-end
-
-"""
-    axis_unit(::Type{S}, dim, quantity, recipe)
-
-Return the display units for one axis quantity.
-"""
-function axis_unit(::Type{S}, dim::Val, quantity::QuantityTag,
-        recipe::PlotRecipe) where {
-        S <: AbstractPlotDefinition,
-}
-    display_unit(quantity)
-end
-function axis_unit(
-        ::Type{S}, mode::Val, dim::Val, quantity::QuantityTag,
-        recipe::PlotRecipe, page_key, view_key
-) where {S <: AbstractPlotDefinition}
-    axis_unit(S, dim, quantity, recipe)
+    axis_payload(S, dim, recipe)
 end
 
 """
@@ -137,8 +123,12 @@ function _make_axis(
         ::Type{S}, mode::Val, ::Val{dim}, recipe::PlotRecipe, page_key,
         view_key
 ) where {S <: AbstractPlotDefinition, dim}
-    quantity = axis_quantity(S, mode, Val(dim), recipe, page_key, view_key)
-    unit = axis_unit(S, mode, Val(dim), quantity, recipe, page_key, view_key)
+    payload = axis_payload(S, mode, Val(dim), recipe, page_key, view_key)
+    keys(payload) == (:values, :quantity, :unit) || throw(
+        ArgumentError("axis payloads must contain values, quantity, and unit"),
+    )
+    quantity = payload.quantity
+    unit = payload.unit
     label = axis_label(S, mode, Val(dim), quantity, unit, recipe, page_key, view_key)
     scale = axis_scale(S, mode, Val(dim), recipe, page_key, view_key)
     return AxisSpec(
@@ -171,4 +161,21 @@ function make_axes(
     yaxis = :y in dims ? _make_axis(S, mode, Val(:y), recipe, page_key, view_key) : nothing
     zaxis = :z in dims ? _make_axis(S, mode, Val(:z), recipe, page_key, view_key) : nothing
     return (; xaxis, yaxis, zaxis)
+end
+
+"Construct the axes for every page/view facet in one stage."
+function make_axes(
+        ::Type{S}, mode::Val, grouping::Val, recipe::PlotRecipe
+) where {S <: AbstractPlotDefinition}
+    entries = NamedTuple[]
+    for page_key in _page_keys(S, mode, grouping, recipe)
+        for view_key in _view_keys(S, mode, grouping, recipe, page_key)
+            push!(entries, (;
+                page_key,
+                view_key,
+                axes = make_axes(S, mode, recipe, page_key, view_key)
+            ))
+        end
+    end
+    return entries
 end

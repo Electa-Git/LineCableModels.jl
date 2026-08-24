@@ -47,9 +47,17 @@ native_unit(quantity::QuantityTag, basis::Symbol) = _with_basis(native_unit(quan
 function display_unit(
         quantity::QuantityTag,
         basis::Symbol;
-        length_prefix::Symbol = :kilo
+        length_prefix::Symbol = :kilo,
+        prefix::Union{Nothing, Symbol} = nothing
 )
-    return _with_basis(display_unit(quantity), basis; length_prefix)
+    expression = _with_basis(display_unit(quantity), basis; length_prefix)
+    prefix === nothing && return expression
+    isempty(expression.numerator) && return expression
+    numerator = (
+        Unit(first(expression.numerator).name, prefix),
+        Base.tail(expression.numerator)...
+    )
+    return UnitExpr(numerator, expression.denominator)
 end
 
 scale_factor(quantity::QuantityTag, target::UnitExpr) =

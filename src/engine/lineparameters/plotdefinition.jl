@@ -1,20 +1,5 @@
 struct LineParameterPlotDefinition <: PlotBuilder.AbstractPlotDefinition end
 
-function _component_unit(
-        component::Symbol,
-        parameter_basis::Symbol,
-        length_unit::Symbol,
-        quantity_units
-)
-    resolved = Units.line_component_unit(
-        component,
-        parameter_basis;
-        length_unit,
-        quantity_units
-    )
-    return resolved.quantity, resolved.units, resolved.scale
-end
-
 function _indices(selector, count::Int)
     selector === nothing && return collect(1:count)
     selector isa Colon && return collect(1:count)
@@ -62,38 +47,49 @@ const _SHUNT_COMPONENTS = (:G, :B, :C, :Y_re, :Y_im, :Y_abs, :Y_angle)
 const _CARTESIAN_COMPONENTS = (:R, :X, :G, :B, :Z_re, :Z_im, :Y_re, :Y_im)
 const _DISPLAY_ZERO_RTOL = sqrt(eps(Float64))
 
-_line_component_values(::Val{:R}, object, frequencies) = R(object)
-_line_component_values(::Val{:X}, object, frequencies) = X(object)
-_line_component_values(::Val{:G}, object, frequencies) = G(object)
-_line_component_values(::Val{:B}, object, frequencies) = B(object)
-_line_component_values(::Val{:Z_re}, object, frequencies) = R(object)
-_line_component_values(::Val{:Z_im}, object, frequencies) = X(object)
-_line_component_values(::Val{:Z_abs}, object, frequencies) = abs.(Z(object))
-function _line_component_values(::Val{:Z_angle}, object, frequencies)
-    angle.(Z(object)) .* (180 / π)
-end
-_line_component_values(::Val{:Y_re}, object, frequencies) = G(object)
-_line_component_values(::Val{:Y_im}, object, frequencies) = B(object)
-_line_component_values(::Val{:Y_abs}, object, frequencies) = abs.(Y(object))
-function _line_component_values(::Val{:Y_angle}, object, frequencies)
-    angle.(Y(object)) .* (180 / π)
+_component_request(::Val{:R}, frequencies) = R
+_component_request(::Val{:X}, frequencies) = X
+_component_request(::Val{:L}, frequencies) = frequencies === nothing ? L : (L, frequencies)
+_component_request(::Val{:G}, frequencies) = G
+_component_request(::Val{:B}, frequencies) = B
+_component_request(::Val{:C}, frequencies) = frequencies === nothing ? C : (C, frequencies)
+_component_request(::Val{:Z_re}, frequencies) = R
+_component_request(::Val{:Z_im}, frequencies) = X
+_component_request(::Val{:Z_abs}, frequencies) = (Z, abs)
+_component_request(::Val{:Z_angle}, frequencies) = (Z, angle)
+_component_request(::Val{:Y_re}, frequencies) = G
+_component_request(::Val{:Y_im}, frequencies) = B
+_component_request(::Val{:Y_abs}, frequencies) = (Y, abs)
+_component_request(::Val{:Y_angle}, frequencies) = (Y, angle)
+
+function _request_quantity(request)
+    request isa Function && return Units.quantity(request)
+    return Units.quantity(request[1], request[2])
 end
 
-_line_component_values(::Val{:L}, parameters::LineParameters, frequencies) = L(parameters)
-_line_component_values(::Val{:C}, parameters::LineParameters, frequencies) = C(parameters)
-
-function _frequency_component_values(component::Symbol, reactive, frequencies)
-    any(iszero, frequencies) && throw(
-        DomainError(frequencies, "$component is undefined at zero frequency"),
+function _quantity_prefix(quantity_units, component::Symbol, fallback::Symbol)
+    quantity_units === nothing && return fallback
+    quantity_units isa Symbol && return quantity_units
+    quantity_units isa NamedTuple || quantity_units isa AbstractDict || throw(
+        ArgumentError("quantity_units must be a prefix, keyed collection, or nothing"),
     )
-    return reactive ./ reshape(2π .* frequencies, 1, 1, :)
+    return haskey(quantity_units, component) ? quantity_units[component] : fallback
 end
 
-function _line_component_values(::Val{:L}, object::SeriesImpedance, frequencies)
-    _frequency_component_values(:L, X(object), frequencies)
-end
-function _line_component_values(::Val{:C}, object::ShuntAdmittance, frequencies)
-    _frequency_component_values(:C, B(object), frequencies)
+function _component_target(component, request, parameter_basis, length_unit, quantity_units)
+    scientific_quantity = _request_quantity(request)
+    default = Units.display_unit(scientific_quantity, parameter_basis; length_prefix = length_unit)
+    isempty(default.numerator) && return default
+    fallback = first(default.numerator).prefix
+    selected = _quantity_prefix(quantity_units, component, fallback)
+    selected isa Units.UnitExpr && return selected
+    selected isa Symbol || throw(ArgumentError("quantity-unit overrides must be prefixes or UnitExpr values"))
+    return Units.display_unit(
+        scientific_quantity,
+        parameter_basis;
+        length_prefix = length_unit,
+        prefix = selected
+    )
 end
 
 function _line_page_keys(::Val{K}, ::Val{Components}) where {K, Components}
@@ -137,8 +133,12 @@ function _line_components(parameters::LineParameters, accessor)
     accessor === imag && return (:Z_im, :Y_im)
     accessor === abs && return (:Z_abs, :Y_abs)
     accessor === angle && return (:Z_angle, :Y_angle)
-    accessor in (R, X, L) && return _line_components(parameters.Z, accessor)
-    accessor in (G, B, C) && return _line_components(parameters.Y, accessor)
+    accessor === R && return (:R,)
+    accessor === X && return (:X,)
+    accessor === L && return (:L,)
+    accessor === G && return (:G,)
+    accessor === B && return (:B,)
+    accessor === C && return (:C,)
     throw(ArgumentError("accessor $(accessor) is not defined for LineParameters presentation"))
 end
 
@@ -155,20 +155,6 @@ function _resolve_line_components(object, quantities)
         ArgumentError("line-parameter accessors select duplicate quantities"),
     )
     return selected
-end
-
-function _line_sources(parameters::LineParameters)
-    return (parameters.Z, parameters.Y)
-end
-_line_sources(object::Union{SeriesImpedance, ShuntAdmittance}) = (object,)
-
-_line_source(object::SeriesImpedance, ::LinePageKey{:series, C}) where {C} = object
-_line_source(object::ShuntAdmittance, ::LinePageKey{:shunt, C}) where {C} = object
-function _line_source(parameters::LineParameters, ::LinePageKey{:series, C}) where {C}
-    parameters.Z
-end
-function _line_source(parameters::LineParameters, ::LinePageKey{:shunt, C}) where {C}
-    parameters.Y
 end
 
 function _line_input_defaults(frequencies)
@@ -201,7 +187,7 @@ function PlotBuilder.input_kwargs(::Type{LineParameterPlotDefinition})
 end
 PlotBuilder.renderer_kwargs(::Type{LineParameterPlotDefinition}) = (:fig_size,)
 function PlotBuilder.input_defaults(::Type{LineParameterPlotDefinition}, parameters::LineParameters)
-    _line_input_defaults(frequencies(parameters))
+    _line_input_defaults(nothing)
 end
 function PlotBuilder.input_defaults(
         ::Type{LineParameterPlotDefinition},
@@ -216,7 +202,7 @@ function PlotBuilder.renderer_defaults(
     (; fig_size = (800, 400))
 end
 
-function PlotBuilder.resolve_input(::Type{LineParameterPlotDefinition}, recipe::PlotBuilder.PlotRecipe)
+function PlotBuilder.resolve(::Type{LineParameterPlotDefinition}, recipe::PlotBuilder.PlotRecipe)
     input = recipe.input
     components = _resolve_line_components(recipe.object, input.quantities)
     input.xscale in (:linear, :log10) || throw(
@@ -225,34 +211,127 @@ function PlotBuilder.resolve_input(::Type{LineParameterPlotDefinition}, recipe::
     input.yscale in (:linear, :log10) || throw(
         ArgumentError("yscale must be :linear or :log10"),
     )
-    input.frequencies === nothing && throw(
+    recipe.object isa Union{SeriesImpedance, ShuntAdmittance} &&
+        input.frequencies === nothing && throw(
         ArgumentError("frequencies are required for SeriesImpedance and ShuntAdmittance"),
     )
-    frequencies = collect(input.frequencies)
-    all(isfinite, frequencies) || throw(ArgumentError("frequencies must be finite"))
-    input.xscale === :log10 && any(<=(0), frequencies) &&
-        throw(
+    frequencies = input.frequencies === nothing ? nothing : collect(input.frequencies)
+    if frequencies !== nothing
+        all(isfinite, frequencies) || throw(ArgumentError("frequencies must be finite"))
+        input.xscale === :log10 && any(<=(0), frequencies) && throw(
             DomainError(frequencies, "logarithmic frequency axes require positive frequencies"),
         )
-    any(component -> component in (:L, :C), components) && any(iszero, frequencies) &&
-        throw(
-            DomainError(frequencies, "inductance and capacitance are undefined at zero frequency"),
-        )
+        any(component -> component in (:L, :C), components) && any(iszero, frequencies) &&
+            throw(DomainError(
+                frequencies,
+                "inductance and capacitance are undefined at zero frequency"
+            ))
+    end
     recipe.renderer.fig_size isa Tuple{Int, Int} || throw(
         ArgumentError("fig_size must be a tuple of two integers"),
     )
-    for source in _line_sources(recipe.object)
-        size(source, 3) == length(frequencies) || throw(
-            DimensionMismatch("frequency count does not match line-parameter samples"),
-        )
-        _conductor_pairs(source, input.con)
-    end
-    length(frequencies) <= 1 &&
-        @warn "Frequency vector has $(length(frequencies)) sample(s); nothing to plot."
     return PlotBuilder.PlotRecipe(
         LineParameterPlotDefinition,
         recipe.object,
         merge(input, (; frequencies, components)),
+        recipe.renderer
+    )
+end
+
+function _frequency_payload(values, target)
+    native = Units.units(:base, :hertz)
+    factor = Units.scale_factor(native, target)
+    return (
+        values = map(value -> value * factor, values),
+        quantity = Units.QuantityTag{:frequency}(),
+        unit = target
+    )
+end
+
+function _published_frequency(object, input)
+    target = Units.units(input.freq_unit, :hertz)
+    object isa LineParameters || return _frequency_payload(
+        input.frequencies,
+        target
+    )
+    published = observables(
+        object,
+        (frequency = (frequencies, Colon()),);
+        units = (frequency = target,)
+    ).frequency
+    if input.frequencies !== nothing
+        supplied = _frequency_payload(input.frequencies, target)
+        supplied.values == published.values || throw(
+            ArgumentError("supplied frequencies do not match the LineParameters frequency axis"),
+        )
+    end
+    return published
+end
+
+function _reference_payload(object, component, target)
+    parent = component in _SERIES_COMPONENTS ? Z : Y
+    return observables(
+        object,
+        (reference = parent,);
+        units = (reference = target,)
+    ).reference
+end
+
+function _suppress_display_residue(payload, reference, component)
+    component in _CARTESIAN_COMPONENTS || return payload
+    component_scale = _maximum_nominal_magnitude(payload.values)
+    iszero(component_scale) && return payload
+    reference_scale = _maximum_nominal_magnitude(reference.values)
+    iszero(reference_scale) && return payload
+    component_scale <= _DISPLAY_ZERO_RTOL * reference_scale || return payload
+    return (; values = zero.(payload.values), quantity = payload.quantity, unit = payload.unit)
+end
+
+function _publish_line_source(object, input, components)
+    frequency = _published_frequency(object, input)
+    native_frequencies = object isa LineParameters ? nothing : input.frequencies
+    requests = NamedTuple{components}(map(
+        component -> _component_request(Val(component), native_frequencies),
+        components
+    ))
+    targets = NamedTuple{components}(map(components) do component
+        request = _component_request(Val(component), native_frequencies)
+        _component_target(
+            component,
+            request,
+            basis(object),
+            input.length_unit,
+            input.quantity_units
+        )
+    end)
+    published = observables(object, requests; units = targets)
+    payloads = map(
+        components,
+        Base.values(published),
+        Base.values(targets)
+    ) do component, payload, target
+        component in _CARTESIAN_COMPONENTS || return payload
+        reference = _reference_payload(object, component, target)
+        _suppress_display_residue(payload, reference, component)
+    end
+    component_payloads = NamedTuple{components}(payloads)
+    sample = first(Base.values(component_payloads))
+    size(sample.values, 3) == length(frequency.values) || throw(
+        DimensionMismatch("frequency count does not match line-parameter samples"),
+    )
+    _conductor_pairs(sample.values, input.con)
+    length(frequency.values) <= 1 &&
+        @warn "Frequency vector has $(length(frequency.values)) sample(s); nothing to plot."
+    return (; frequency, component_payloads)
+end
+
+function PlotBuilder.fetch(::Type{LineParameterPlotDefinition}, recipe::PlotBuilder.PlotRecipe)
+    published = _publish_line_source(recipe.object, recipe.input, recipe.input.components)
+    input = merge(recipe.input, published)
+    return PlotBuilder.PlotRecipe(
+        LineParameterPlotDefinition,
+        recipe.object,
+        input,
         recipe.renderer
     )
 end
@@ -289,7 +368,7 @@ function PlotBuilder._page_keys(
         ::Val{:panels},
         recipe::PlotBuilder.PlotRecipe
 )
-    length(recipe.input.frequencies) <= 1 && return ()
+    length(recipe.input.frequency.values) <= 1 && return ()
     return Tuple(
         family
     for family in _line_family_facets(recipe.object)
@@ -315,26 +394,8 @@ function PlotBuilder._series_keys(
         page_key::Val,
         view_key::LinePageKey
 )
-    source = _line_source(recipe.object, view_key)
-    return _conductor_pairs(source, recipe.input.con)
-end
-
-function _line_values(recipe::PlotBuilder.PlotRecipe, page_key::LinePageKey)
-    source = _line_source(recipe.object, page_key)
-    component = _line_component(page_key)
-    _, _,
-    conversion = _component_unit(
-        component,
-        basis(source),
-        recipe.input.length_unit,
-        recipe.input.quantity_units
-    )
-    values = _line_component_values(
-        Val(component),
-        recipe.object,
-        recipe.input.frequencies
-    )
-    return _display_values(values, source, component), conversion
+    payload = getproperty(recipe.input.component_payloads, _line_component(view_key))
+    return _conductor_pairs(payload.values, recipe.input.con)
 end
 
 function _maximum_nominal_magnitude(values)
@@ -349,17 +410,7 @@ function _maximum_nominal_magnitude(values)
     )
 end
 
-function _display_values(values, source, component::Symbol)
-    component in _CARTESIAN_COMPONENTS || return values
-    component_scale = _maximum_nominal_magnitude(values)
-    iszero(component_scale) && return values
-    reference_scale = _maximum_nominal_magnitude(source)
-    iszero(reference_scale) && return values
-    component_scale <= _DISPLAY_ZERO_RTOL * reference_scale || return values
-    return zero.(values)
-end
-
-function PlotBuilder.axis_quantity(
+function PlotBuilder.axis_payload(
         ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:x},
@@ -367,10 +418,10 @@ function PlotBuilder.axis_quantity(
         page_key,
         view_key
 )
-    return Units.QuantityTag{:frequency}()
+    return recipe.input.frequency
 end
 
-function PlotBuilder.axis_quantity(
+function PlotBuilder.axis_payload(
         ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:y},
@@ -378,18 +429,10 @@ function PlotBuilder.axis_quantity(
         page_key::LinePageKey,
         view_key
 )
-    source = _line_source(recipe.object, page_key)
-    quantity, _,
-    _ = _component_unit(
-        _line_component(page_key),
-        basis(source),
-        recipe.input.length_unit,
-        recipe.input.quantity_units
-    )
-    return quantity
+    return getproperty(recipe.input.component_payloads, _line_component(page_key))
 end
 
-function PlotBuilder.axis_quantity(
+function PlotBuilder.axis_payload(
         ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:y},
@@ -397,62 +440,10 @@ function PlotBuilder.axis_quantity(
         page_key::Val,
         view_key::LinePageKey
 )
-    return PlotBuilder.axis_quantity(
+    return PlotBuilder.axis_payload(
         LineParameterPlotDefinition,
         mode,
         Val(:y),
-        recipe,
-        view_key,
-        nothing
-    )
-end
-
-function PlotBuilder.axis_unit(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        ::Val{:x},
-        quantity::Units.QuantityTag,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key,
-        view_key
-)
-    return Units.units(recipe.input.freq_unit, :hertz)
-end
-
-function PlotBuilder.axis_unit(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        ::Val{:y},
-        quantity::Units.QuantityTag,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key::LinePageKey,
-        view_key
-)
-    source = _line_source(recipe.object, page_key)
-    _, target,
-    _ = _component_unit(
-        _line_component(page_key),
-        basis(source),
-        recipe.input.length_unit,
-        recipe.input.quantity_units
-    )
-    return target
-end
-
-function PlotBuilder.axis_unit(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        ::Val{:y},
-        quantity::Units.QuantityTag,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key::Val,
-        view_key::LinePageKey
-)
-    return PlotBuilder.axis_unit(
-        LineParameterPlotDefinition,
-        mode,
-        Val(:y),
-        quantity,
         recipe,
         view_key,
         nothing
@@ -481,7 +472,7 @@ function PlotBuilder.axis_scale(
     return recipe.input.yscale
 end
 
-function PlotBuilder.series_data(
+function PlotBuilder.series_values(
         ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:x},
@@ -490,13 +481,10 @@ function PlotBuilder.series_data(
         view_key,
         series_key
 )
-    quantity = Units.QuantityTag{:frequency}()
-    target = Units.units(recipe.input.freq_unit, :hertz)
-    conversion = Units.scale_factor(Units.native_unit(quantity), target)
-    return recipe.input.frequencies .* conversion
+    return recipe.input.frequency.values
 end
 
-function PlotBuilder.series_data(
+function PlotBuilder.series_values(
         ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:y},
@@ -505,11 +493,11 @@ function PlotBuilder.series_data(
         view_key,
         series_key::Tuple{Int, Int}
 )
-    values, conversion = _line_values(recipe, page_key)
-    return collect(view(values, series_key[1], series_key[2], :)) .* conversion
+    payload = getproperty(recipe.input.component_payloads, _line_component(page_key))
+    return collect(view(payload.values, series_key[1], series_key[2], :))
 end
 
-function PlotBuilder.series_data(
+function PlotBuilder.series_values(
         ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:y},
@@ -518,7 +506,7 @@ function PlotBuilder.series_data(
         view_key::LinePageKey,
         series_key::Tuple{Int, Int}
 )
-    return PlotBuilder.series_data(
+    return PlotBuilder.series_values(
         LineParameterPlotDefinition,
         mode,
         Val(:y),
@@ -537,14 +525,14 @@ function PlotBuilder.legend_label(
         view_key,
         series_key::Tuple{Int, Int}
 )
-    quantity = PlotBuilder.axis_quantity(
+    quantity = PlotBuilder.axis_payload(
         LineParameterPlotDefinition,
         mode,
         Val(:y),
         recipe,
         page_key,
         view_key
-    )
+    ).quantity
     return "$(Units.symbol(quantity))[$(series_key[1]),$(series_key[2])]"
 end
 
@@ -589,14 +577,14 @@ function PlotBuilder.default_title(
         page_key::LinePageKey,
         view_key
 )
-    quantity = PlotBuilder.axis_quantity(
+    quantity = PlotBuilder.axis_payload(
         LineParameterPlotDefinition,
         mode,
         Val(:y),
         recipe,
         page_key,
         view_key
-    )
+    ).quantity
     return Units.label(quantity)
 end
 
@@ -713,7 +701,7 @@ function PlotBuilder.axis_scales(
         series::Vector{PlotBuilder.SeriesSpec}
 ) where {dim}
     supports_log = dim === :x ?
-                   _supports_log_values(recipe.input.frequencies) :
+                   _supports_log_values(recipe.input.frequency.values) :
                    _supports_log(series, dim)
     return supports_log ? (:linear, :log10) : (:linear,)
 end

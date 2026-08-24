@@ -76,3 +76,11 @@ for (selector, field) in ((R, :R), (L, :L), (C, :C))
 end
 
 observables(::Type{<:RLCG}) = (R, L, C, Engine.G)
+
+function Grammar._detach_and_scale(histogram::HistogramDensity, factor)
+    factor > zero(factor) || throw(ArgumentError("histogram conversion must be positive"))
+    return HistogramDensity(
+        histogram.edges .* factor,
+        histogram.density ./ factor
+    )
+end

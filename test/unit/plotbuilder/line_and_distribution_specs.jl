@@ -305,6 +305,13 @@ end
         end
     end
 
+    pdf_view=only(only(PB.make_render(Spec, result; mode = :pdf).figures).views)
+    @test pdf_view.yaxis.quantity isa
+          LineCableModels.Units.QuantityTag{:probability_density}
+    @test pdf_view.yaxis.units == inv(pdf_view.xaxis.units)
+    @test pdf_view.yaxis.label ==
+          LineCableModels.Units.label(pdf_view.yaxis.quantity, pdf_view.yaxis.units)
+
     histogram=only(Cmp.histograms(result)).R
     @test Cmp._mc_histogram_cdf(histogram, first(histogram.edges) - 1) == 0.0
     @test Cmp._mc_histogram_cdf(histogram, last(histogram.edges) + 1) == 1.0
@@ -329,9 +336,12 @@ end
     @test derived_series.kind === :stairs
     @test length(derived_series.xdata) == 3
 
-    samples_recipe=PB.resolve_input(
+    samples_recipe=PB.fetch(
         Spec,
-        PB.parse_kwargs(Spec, samples_only; mode = :hist, data = :samples)
+        PB.resolve(
+            Spec,
+            PB.parse(Spec, samples_only; mode = :hist, data = :samples)
+        )
     )
     @test samples_recipe.input.histogram === nothing
     @test first(samples_recipe.input.bins) == minimum(samples_recipe.input.values)
@@ -356,7 +366,7 @@ end
         @test PB.legend_label(Spec, Val(:hist), samples_recipe, nothing, nothing, key) ==
               label
     end
-    @test Cmp._mc_quantity_label(
+    @test LineCableModels.Units.label(
         LineCableModels.Units.QuantityTag{:dimensionless}(),
         LineCableModels.Units.UnitExpr()
     ) == "Dimensionless"
@@ -373,9 +383,12 @@ end
     )
     @test PB.make_render(Spec, histogram_only; mode = :ecdf, data = :pdf) isa
           PB.PlotRecipe
-    histogram_recipe=PB.resolve_input(
+    histogram_recipe=PB.fetch(
         Spec,
-        PB.parse_kwargs(Spec, histogram_only; mode = :ecdf, data = :pdf)
+        PB.resolve(
+            Spec,
+            PB.parse(Spec, histogram_only; mode = :ecdf, data = :pdf)
+        )
     )
     @test_throws ArgumentError Cmp._mc_values(histogram_recipe)
     @test_throws ArgumentError PB.make_render(

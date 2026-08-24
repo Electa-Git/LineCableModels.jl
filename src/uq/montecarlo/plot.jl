@@ -6,6 +6,27 @@ cumulative distributions, and Q-Q plots.
 """
 struct MCDistributionPlotDefinition <: PlotBuilder.AbstractPlotDefinition end
 
+for (name, text, notation) in (
+        (:sample_count, "Count", "n"),
+        (:probability, "Probability", "p"),
+        (:cumulative_probability, "Cumulative probability", "F"),
+        (:probability_density, "Probability density", "p")
+)
+    @eval begin
+        Units.label(::Units.QuantityTag{$(QuoteNode(name))}) = $text
+        Units.symbol(::Units.QuantityTag{$(QuoteNode(name))}) = $notation
+    end
+end
+
+for name in (:sample_count, :probability, :cumulative_probability)
+    @eval begin
+        Units.native_unit(::Units.QuantityTag{$(QuoteNode(name))}) =
+            Units.units(:base, :dimensionless)
+        Units.display_unit(::Units.QuantityTag{$(QuoteNode(name))}) =
+            Units.units(:base, :dimensionless)
+    end
+end
+
 function _mc_selector(quantity::Symbol)
     quantity === :R && return R
     quantity === :L && return L
@@ -31,30 +52,19 @@ function _mc_plot_exponent(series, field::Symbol)
     return abs(exponent) < 3 ? 0 : exponent
 end
 
-function _mc_selection(
-        result::MonteCarloResult,
-        ::DataModel.CableConstants,
-        quantity::Symbol,
-        ijk
-)
+function _mc_selection(::DataModel.CableConstants, statistics, quantity::Symbol, ijk)
     quantity in (:R, :L, :C) || throw(
         ArgumentError("cable-constant quantities are :R, :L, and :C"),
     )
     ijk === nothing || throw(
         ArgumentError("cable-constant Monte Carlo results do not use matrix indices"),
     )
-    entry = _mc_entry(result)
-    selector = _mc_selector(quantity)
-    sample_values = entry.samples === nothing ? nothing :
-                    observe(entry.samples, selector)
-    histogram_value = entry.histograms === nothing ? nothing :
-                      observe(entry.histograms, selector)
-    return sample_values, histogram_value, nothing
+    return nothing
 end
 
 function _mc_selection(
-        result::MonteCarloResult,
         ::Engine.LineParameters,
+        statistics,
         quantity::Symbol,
         ijk
 )
@@ -65,42 +75,45 @@ function _mc_selection(
     selection isa NTuple{3, Int} || throw(
         ArgumentError("ijk must be a tuple (i, j, k)"),
     )
-    entry = _mc_entry(result)
     selector = _mc_selector(quantity)
-    observable = observe(entry.statistics, selector)
+    observable = observe(statistics, selector)
     checkbounds(observable, selection...)
-    sample_values = entry.samples === nothing ? nothing :
-                    collect(observe(entry.samples, selector, selection..., :))
-    histogram_value = entry.histograms === nothing ? nothing :
-                      observe(entry.histograms, selector, selection...)
-    return sample_values, histogram_value, selection
+    return selection
 end
 
-function _mc_selection(result::MonteCarloResult, quantity::Symbol, ijk)
-    return _mc_selection(result, only(UQ.result(result)), quantity, ijk)
+function _mc_request(selector, selection, retained_samples::Bool)
+    selection === nothing && return selector
+    return retained_samples ? (selector, selection..., Colon()) : (selector, selection...)
 end
 
-function _mc_target_unit(result::MonteCarloResult, quantity, length_unit, quantity_units)
-    representation = only(UQ.result(result))
-    result_basis = representation isa DataModel.CableConstants ?
-                   :per_length : basis(representation)
-    resolved = _mc_unit(
+function _mc_quantity_prefix(quantity_units, quantity::Symbol, fallback::Symbol)
+    quantity_units === nothing && return fallback
+    quantity_units isa Symbol && return quantity_units
+    quantity_units isa NamedTuple || quantity_units isa AbstractDict || throw(
+        ArgumentError("quantity_units must be a prefix, keyed collection, or nothing"),
+    )
+    return haskey(quantity_units, quantity) ? quantity_units[quantity] : fallback
+end
+
+function _mc_target_unit(product, quantity::Symbol, length_unit, quantity_units)
+    tag = Units.quantity(_mc_selector(quantity))
+    default = Units.display_unit(tag, basis(product); length_prefix = length_unit)
+    prefix = _mc_quantity_prefix(
+        quantity_units,
         quantity,
-        result_basis,
-        length_unit,
-        quantity_units
+        first(default.numerator).prefix
     )
-    return resolved.quantity, resolved.units, resolved.scale
-end
-
-function _scaled_histogram(histogram::HistogramDensity, conversion)
-    conversion > zero(conversion) || throw(
-        ArgumentError("unit conversion must be positive"),
+    prefix isa Units.UnitExpr && return tag, prefix
+    prefix isa Symbol || throw(
+        ArgumentError("quantity-unit overrides must be prefixes or UnitExpr values"),
     )
-    return HistogramDensity(
-        histogram.edges .* conversion,
-        histogram.density ./ conversion
+    target = Units.display_unit(
+        tag,
+        basis(product);
+        length_prefix = length_unit,
+        prefix
     )
+    return tag, target
 end
 
 function _mc_histogram_cdf(histogram::HistogramDensity, x::Real)
@@ -183,7 +196,7 @@ function _mc_required_data(mode::Symbol, data::Symbol)
     return needs_samples, needs_histogram
 end
 
-function PlotBuilder.resolve_input(
+function PlotBuilder.resolve(
         ::Type{MCDistributionPlotDefinition},
         recipe::PlotBuilder.PlotRecipe
 )
@@ -209,23 +222,61 @@ function PlotBuilder.resolve_input(
     recipe.renderer.fig_size isa Tuple{Int, Int} || throw(
         ArgumentError("fig_size must be a tuple of two integers"),
     )
-
-    sample_values, histogram_value, selection = _mc_selection(
+    selector = _mc_selector(input.quantity)
+    return PlotBuilder.PlotRecipe(
+        MCDistributionPlotDefinition,
         recipe.object,
+        merge(input, (; selector)),
+        recipe.renderer
+    )
+end
+
+function PlotBuilder.fetch(
+        ::Type{MCDistributionPlotDefinition},
+        recipe::PlotBuilder.PlotRecipe
+)
+    length(recipe.object) == 1 || throw(ArgumentError(
+        "Monte Carlo distribution plots require one outer Gridspace point",
+    ))
+    input = recipe.input
+    representation = only(UQ.result(recipe.object))
+    statistic_product = only(statistics(recipe.object))
+    selection = _mc_selection(
+        representation,
+        statistic_product,
         input.quantity,
         input.ijk
     )
-    tag, target, conversion = _mc_target_unit(
-        recipe.object,
+    tag, target = _mc_target_unit(
+        statistic_product,
         input.quantity,
         input.length_unit,
         input.quantity_units
     )
-    values = sample_values === nothing ? nothing :
-             collect(sample_values) .* conversion
-    histogram = histogram_value === nothing ? nothing :
-                _scaled_histogram(histogram_value, conversion)
-
+    sample_products = samples(recipe.object)
+    histogram_products = histograms(recipe.object)
+    sample_payload = if sample_products === nothing
+        nothing
+    else
+        request = _mc_request(input.selector, selection, true)
+        observables(
+            only(sample_products),
+            (selected = request,);
+            units = (selected = target,)
+        ).selected
+    end
+    histogram_payload = if histogram_products === nothing
+        nothing
+    else
+        request = _mc_request(input.selector, selection, false)
+        observables(
+            only(histogram_products),
+            (selected = request,);
+            units = (selected = target,)
+        ).selected
+    end
+    values = sample_payload === nothing ? nothing : sample_payload.values
+    histogram = histogram_payload === nothing ? nothing : histogram_payload.values
     needs_samples, needs_histogram = _mc_required_data(input.mode, input.data)
     needs_samples && values === nothing &&
         throw(
@@ -250,13 +301,14 @@ function PlotBuilder.resolve_input(
     end
     effective_normalization = input.data in (:pdf, :both) ? :pdf :
                               input.normalization
+    quantity_payload = sample_payload === nothing ?
+                       (; values = nothing, quantity = tag, unit = target) : sample_payload
     resolved = (;
         values,
         histogram,
         bins,
         effective_normalization,
-        tag,
-        target,
+        quantity_payload,
         selection
     )
     return PlotBuilder.PlotRecipe(
@@ -401,7 +453,7 @@ function PlotBuilder.plot_kind(
     :line
 end
 
-function PlotBuilder.series_data(
+function PlotBuilder.series_values(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:x},
         recipe::PlotBuilder.PlotRecipe, page_key, view_key,
         ::Val{:samples}
@@ -409,7 +461,7 @@ function PlotBuilder.series_data(
     return _mc_values(recipe)
 end
 
-function PlotBuilder.series_data(
+function PlotBuilder.series_values(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:x},
         recipe::PlotBuilder.PlotRecipe, page_key, view_key,
         ::Val{:histogram_pdf}
@@ -417,7 +469,7 @@ function PlotBuilder.series_data(
     return _mc_histogram_model(recipe).edges
 end
 
-function PlotBuilder.series_data(
+function PlotBuilder.series_values(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:y},
         recipe::PlotBuilder.PlotRecipe, page_key, view_key,
         ::Val{:histogram_pdf}
@@ -426,7 +478,7 @@ function PlotBuilder.series_data(
     return [density; last(density)]
 end
 
-function PlotBuilder.series_data(
+function PlotBuilder.series_values(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:x},
         recipe::PlotBuilder.PlotRecipe, page_key, view_key,
         ::Union{Val{:histogram_cdf}, Val{:empirical_cdf}}
@@ -434,7 +486,7 @@ function PlotBuilder.series_data(
     return _mc_cdf_grid(recipe)
 end
 
-function PlotBuilder.series_data(
+function PlotBuilder.series_values(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:y},
         recipe::PlotBuilder.PlotRecipe, page_key, view_key,
         ::Val{:histogram_cdf}
@@ -444,7 +496,7 @@ function PlotBuilder.series_data(
     return _mc_histogram_cdf.(Ref(histogram), grid)
 end
 
-function PlotBuilder.series_data(
+function PlotBuilder.series_values(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:y},
         recipe::PlotBuilder.PlotRecipe, page_key, view_key,
         ::Val{:empirical_cdf}
@@ -454,7 +506,7 @@ function PlotBuilder.series_data(
     return _mc_empirical_cdf.(Ref(values), grid)
 end
 
-function PlotBuilder.series_data(
+function PlotBuilder.series_values(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:x},
         recipe::PlotBuilder.PlotRecipe, page_key, view_key,
         ::Val{:quantiles}
@@ -463,7 +515,7 @@ function PlotBuilder.series_data(
     return values
 end
 
-function PlotBuilder.series_data(
+function PlotBuilder.series_values(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:y},
         recipe::PlotBuilder.PlotRecipe, page_key, view_key,
         ::Val{:quantiles}
@@ -472,7 +524,7 @@ function PlotBuilder.series_data(
     return values
 end
 
-function PlotBuilder.series_data(
+function PlotBuilder.series_values(
         ::Type{MCDistributionPlotDefinition}, ::Val,
         ::Union{Val{:x}, Val{:y}}, recipe::PlotBuilder.PlotRecipe,
         page_key, view_key, ::Val{:reference}
@@ -559,7 +611,7 @@ function PlotBuilder.series_attributes(
 end
 
 function _mc_title(recipe::PlotBuilder.PlotRecipe, suffix::AbstractString)
-    symbol = Units.symbol(recipe.input.tag)
+    symbol = Units.symbol(recipe.input.quantity_payload.quantity)
     selection = recipe.input.selection
     indices = selection === nothing ? "" : "[$(join(selection, ','))]"
     return "$symbol$indices $suffix"
@@ -590,51 +642,51 @@ function PlotBuilder.default_title(
     _mc_title(recipe, "Q-Q plot")
 end
 
-function PlotBuilder.axis_quantity(
+function PlotBuilder.axis_payload(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:x},
         recipe::PlotBuilder.PlotRecipe, page_key, view_key
 )
-    return recipe.input.tag
+    return recipe.input.quantity_payload
 end
-function PlotBuilder.axis_quantity(
+function PlotBuilder.axis_payload(
         ::Type{MCDistributionPlotDefinition}, ::Val{:qq}, ::Val{:y},
         recipe::PlotBuilder.PlotRecipe, page_key, view_key
 )
-    return recipe.input.tag
+    return recipe.input.quantity_payload
 end
-function PlotBuilder.axis_quantity(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:y},
+
+function _statistical_payload(tag::Symbol, unit::Units.UnitExpr = Units.UnitExpr())
+    return (; values = nothing, quantity = Units.QuantityTag{tag}(), unit)
+end
+
+function PlotBuilder.axis_payload(
+        ::Type{MCDistributionPlotDefinition}, ::Val{:hist}, ::Val{:y},
         recipe::PlotBuilder.PlotRecipe, page_key, view_key
 )
-    return Units.QuantityTag{:dimensionless}()
+    normalization = recipe.input.effective_normalization
+    normalization === :none && return _statistical_payload(:sample_count)
+    normalization === :probability && return _statistical_payload(:probability)
+    return _statistical_payload(
+        :probability_density,
+        inv(recipe.input.quantity_payload.unit)
+    )
 end
 
-function PlotBuilder.axis_unit(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:x},
-        quantity::Units.QuantityTag, recipe::PlotBuilder.PlotRecipe,
-        page_key, view_key
+function PlotBuilder.axis_payload(
+        ::Type{MCDistributionPlotDefinition}, ::Val{:pdf}, ::Val{:y},
+        recipe::PlotBuilder.PlotRecipe, page_key, view_key
 )
-    return recipe.input.target
-end
-function PlotBuilder.axis_unit(
-        ::Type{MCDistributionPlotDefinition}, ::Val{:qq}, ::Val{:y},
-        quantity::Units.QuantityTag, recipe::PlotBuilder.PlotRecipe,
-        page_key, view_key
-)
-    return recipe.input.target
-end
-function PlotBuilder.axis_unit(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:y},
-        quantity::Units.QuantityTag, recipe::PlotBuilder.PlotRecipe,
-        page_key, view_key
-)
-    return Units.UnitExpr()
+    return _statistical_payload(
+        :probability_density,
+        inv(recipe.input.quantity_payload.unit)
+    )
 end
 
-function _mc_quantity_label(quantity, unit)
-    unit_label = Units.label(unit)
-    return isempty(unit_label) ? Units.label(quantity) :
-           "$(Units.label(quantity)) [$unit_label]"
+function PlotBuilder.axis_payload(
+        ::Type{MCDistributionPlotDefinition}, ::Val{:ecdf}, ::Val{:y},
+        recipe::PlotBuilder.PlotRecipe, page_key, view_key
+)
+    return _statistical_payload(:cumulative_probability)
 end
 
 function PlotBuilder.axis_label(
@@ -642,43 +694,14 @@ function PlotBuilder.axis_label(
         quantity::Units.QuantityTag, unit::Units.UnitExpr,
         recipe::PlotBuilder.PlotRecipe, page_key, view_key
 )
-    return "sample quantiles [$(Units.label(unit))]"
-end
-function PlotBuilder.axis_label(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:x},
-        quantity::Units.QuantityTag, unit::Units.UnitExpr,
-        recipe::PlotBuilder.PlotRecipe, page_key, view_key
-)
-    return _mc_quantity_label(quantity, unit)
-end
-function PlotBuilder.axis_label(
-        ::Type{MCDistributionPlotDefinition}, ::Val{:hist}, ::Val{:y},
-        quantity::Units.QuantityTag, unit::Units.UnitExpr,
-        recipe::PlotBuilder.PlotRecipe, page_key, view_key
-)
-    normalization = recipe.input.effective_normalization
-    return normalization === :none ? "count" : String(normalization)
-end
-function PlotBuilder.axis_label(
-        ::Type{MCDistributionPlotDefinition}, ::Val{:pdf}, ::Val{:y},
-        quantity::Units.QuantityTag, unit::Units.UnitExpr,
-        recipe::PlotBuilder.PlotRecipe, page_key, view_key
-)
-    "probability density"
-end
-function PlotBuilder.axis_label(
-        ::Type{MCDistributionPlotDefinition}, ::Val{:ecdf}, ::Val{:y},
-        quantity::Units.QuantityTag, unit::Units.UnitExpr,
-        recipe::PlotBuilder.PlotRecipe, page_key, view_key
-)
-    "cumulative probability"
+    return "Sample quantiles [$(Units.label(unit))]"
 end
 function PlotBuilder.axis_label(
         ::Type{MCDistributionPlotDefinition}, ::Val{:qq}, ::Val{:y},
         quantity::Units.QuantityTag, unit::Units.UnitExpr,
         recipe::PlotBuilder.PlotRecipe, page_key, view_key
 )
-    return "model quantiles [$(Units.label(unit))]"
+    return "Model quantiles [$(Units.label(unit))]"
 end
 
 function PlotBuilder.view_key(

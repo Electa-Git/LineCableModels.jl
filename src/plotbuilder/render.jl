@@ -20,14 +20,14 @@ specialise its methods without replacing the sequence.
 """
 function make_render(::Type{S}, object; kwargs...) where {S <: AbstractPlotDefinition}
     entitled = entitle(S, object)
-    recipe = parse_kwargs(S, entitled; kwargs...)
-    recipe = resolve_input(S, recipe)
+    recipe = parse(S, entitled; kwargs...)
+    recipe = resolve(S, recipe)
     recipe isa PlotRecipe || throw(
-        ArgumentError("resolve_input($S) must return PlotRecipe"),
+        ArgumentError("resolve($S) must return PlotRecipe"),
     )
-    recipe = observe(S, recipe)
+    recipe = fetch(S, recipe)
     recipe isa PlotRecipe || throw(
-        ArgumentError("observe($S) must return PlotRecipe"),
+        ArgumentError("fetch($S) must return PlotRecipe"),
     )
     mode = _recipe_variant(S, recipe)
     mode isa Val || throw(ArgumentError("plot definition variant must be a Val"))
@@ -35,7 +35,10 @@ function make_render(::Type{S}, object; kwargs...) where {S <: AbstractPlotDefin
     grouping isa Val || throw(
         ArgumentError("plot definition composition must be a Val"),
     )
-    pages = make_pages(S, mode, grouping, recipe)
+    axes = make_axes(S, mode, grouping, recipe)
+    series = make_series(S, mode, grouping, recipe, axes)
+    views = make_views(S, mode, grouping, recipe, series)
+    pages = make_pages(S, mode, grouping, recipe, views)
     pages = decorate(S, recipe, pages)
     return finish(S, recipe, pages)
 end

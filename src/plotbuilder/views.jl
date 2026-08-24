@@ -74,34 +74,42 @@ function view_attributes(
 end
 
 """
-    make_views(::Type{S}, mode, grouping, recipe, page_key)
+    make_views(::Type{S}, mode, grouping, recipe, series_entries)
 
-Construct renderer-independent views for one semantic page facet.
+Construct renderer-independent views from the completed series stage.
 """
 function make_views(
         ::Type{S}, mode::Val, grouping::Val, recipe::PlotRecipe,
-        page_key
+        series_entries::AbstractVector
 ) where {S <: AbstractPlotDefinition}
-    views = ViewSpec[]
-    for key in _view_keys(S, mode, grouping, recipe, page_key)
-        axes = make_axes(S, mode, recipe, page_key, key)
-        series = make_series(S, mode, grouping, recipe, page_key, key, axes)
-        xaxis = _decorate_axis(axes.xaxis, S, mode, Val(:x), recipe, page_key, key, series)
-        yaxis = _decorate_axis(axes.yaxis, S, mode, Val(:y), recipe, page_key, key, series)
-        zaxis = _decorate_axis(axes.zaxis, S, mode, Val(:z), recipe, page_key, key, series)
+    views = NamedTuple[]
+    for entry in series_entries
+        page_key = entry.page_key
+        key = entry.view_key
+        axes = entry.axes
+        series = entry.series
+        xaxis = _decorate_axis(
+            axes.xaxis, S, mode, Val(:x), recipe, page_key, key, series)
+        yaxis = _decorate_axis(
+            axes.yaxis, S, mode, Val(:y), recipe, page_key, key, series)
+        zaxis = _decorate_axis(
+            axes.zaxis, S, mode, Val(:z), recipe, page_key, key, series)
         push!(
             views,
-            ViewSpec(
-                xaxis,
-                yaxis,
-                zaxis,
-                default_title(S, mode, recipe, page_key, key),
-                series,
-                view_key(S, mode, recipe, page_key, key);
-                placement = view_placement(S, mode, recipe, page_key, key),
-                aspect = view_aspect(S, mode, recipe, page_key, key),
-                limits = view_limits(S, mode, recipe, page_key, key),
-                attributes = view_attributes(S, mode, recipe, page_key, key)
+            (;
+                page_key,
+                view = ViewSpec(
+                    xaxis,
+                    yaxis,
+                    zaxis,
+                    default_title(S, mode, recipe, page_key, key),
+                    series,
+                    view_key(S, mode, recipe, page_key, key);
+                    placement = view_placement(S, mode, recipe, page_key, key),
+                    aspect = view_aspect(S, mode, recipe, page_key, key),
+                    limits = view_limits(S, mode, recipe, page_key, key),
+                    attributes = view_attributes(S, mode, recipe, page_key, key)
+                )
             )
         )
     end

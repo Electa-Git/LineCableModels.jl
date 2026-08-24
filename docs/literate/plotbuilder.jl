@@ -125,11 +125,11 @@ function documentation_figure( #hide
     return only(handles).figure #hide
 end; #hide
 
-# `parse_kwargs` applies definition-owned defaults, validates caller keywords,
+# `parse` applies definition-owned defaults, validates caller keywords,
 # and separates scientific input from renderer options. `make_render` runs the
 # entitlement check before parsing. Unsupported keywords are errors.
 #
-parsed = parse_kwargs(
+parsed = parse(
     LineParameterPlotDefinition,
     Z(parameters);
     frequencies = frequencies(parameters),
@@ -150,7 +150,7 @@ parsed = parse_kwargs(
 # `export_theme`, and `open_export`. A name cannot occur in both groups, and
 # defaults must contain exactly their declared keys.
 #
-# `resolve_input` validates and enriches parsed input. `observe` then resolves
+# `resolve` validates and enriches parsed input. `observe` then resolves
 # the scientific observations consumed by the remaining stages. Expensive
 # statistical transformations belong in one of those stages so they are not
 # repeated by views or by the renderer.
@@ -187,11 +187,11 @@ documentation_figure(recipe) #hide
 # | Stage | Responsibility | Main hooks |
 # |:--|:--|:--|
 # | entitlement | accept one domain type | `dispatch_on`, `entitle` |
-# | parsing | split and validate keywords | `input_kwargs`, `input_defaults`, `renderer_kwargs`, `renderer_defaults`, `parse_kwargs` |
-# | resolution | normalise semantic input once | `resolve_input` |
-# | observation | obtain immutable scientific values | `observe`, `observables` |
-# | axes | quantities, units, labels, scales | `geom_axes`, `axis_quantity`, `axis_unit`, `axis_label`, `axis_scale`, `axis_scales`, `axis_exponent`, `axis_attributes`, `make_axes` |
-# | series | primitive data and appearance | `plot_kind`, `series_data`, `legend_label`, `series_group`, `series_visible`, `series_attributes`, `make_series` |
+# | parsing | split and validate keywords | `input_kwargs`, `input_defaults`, `renderer_kwargs`, `renderer_defaults`, `parse` |
+# | resolution | normalise semantic input once | `resolve` |
+# | publication | fetch requested observations | `fetch`, `observables` |
+# | axes | payload-derived quantities, units, labels, scales | `geom_axes`, `axis_payload`, `axis_label`, `axis_scale`, `axis_scales`, `axis_exponent`, `axis_attributes`, `make_axes` |
+# | series | primitive data and appearance | `plot_kind`, `series_values`, `legend_label`, `series_group`, `series_visible`, `series_attributes`, `make_series` |
 # | views | titles, placement, aspect, limits | `default_title`, `view_key`, `view_placement`, `view_aspect`, `view_limits`, `view_attributes`, `make_views` |
 # | pages and layout | size, identity, named layout, controls | `default_figsize`, `page_identity`, `layout_spec`, `control_spec`, `legend_spec`, `colorbar_specs`, `status_spec`, `export_spec`, `make_pages` |
 # | completion | final decoration and validation | `decorate`, `finish` |
@@ -216,12 +216,19 @@ documentation_figure(recipe) #hide
 # For line parameters, the published quantities are independent of their
 # presentation:
 #
-observed = observables(parameters)
+observed = observables(
+    parameters,
+    (
+        frequency = (frequencies, Colon()),
+        series_impedance = Z,
+        shunt_admittance = Y,
+    )
+)
 (;
     keys = keys(observed),
-    frequency_count = length(observed.frequency),
-    impedance_size = size(observed.series_impedance),
-    admittance_size = size(observed.shunt_admittance)
+    frequency_count = length(observed.frequency.values),
+    impedance_size = size(observed.series_impedance.values),
+    admittance_size = size(observed.shunt_admittance.values)
 )
 #
 # Mathematical accessors remain available when the caller explicitly asks for

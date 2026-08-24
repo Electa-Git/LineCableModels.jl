@@ -1,12 +1,12 @@
 """
-    resolve_input(::Type{S}, recipe)
+    resolve(::Type{S}, recipe)
 
 Validate and enrich parsed recipe input before materialisation.
 """
-resolve_input(::Type{S}, recipe::PlotRecipe) where {S <: AbstractPlotDefinition} = recipe
+resolve(::Type{S}, recipe::PlotRecipe) where {S <: AbstractPlotDefinition} = recipe
 
 "Resolve the semantic observations consumed by subsequent plot stages."
-observe(::Type{S}, recipe::PlotRecipe) where {S <: AbstractPlotDefinition} = recipe
+fetch(::Type{S}, recipe::PlotRecipe) where {S <: AbstractPlotDefinition} = recipe
 
 """
     _recipe_variant(::Type{S}, recipe)

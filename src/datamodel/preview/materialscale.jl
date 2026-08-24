@@ -4,7 +4,7 @@ function PlotBuilder.renderer_defaults(::Type{MaterialScalePlotDefinition}, ::No
     (; size = (800, 400))
 end
 
-function PlotBuilder.resolve_input(::Type{MaterialScalePlotDefinition}, recipe::PlotBuilder.PlotRecipe)
+function PlotBuilder.resolve(::Type{MaterialScalePlotDefinition}, recipe::PlotBuilder.PlotRecipe)
     recipe.renderer.size isa Tuple{Int, Int} || throw(
         ArgumentError("size must be a tuple of two integers"),
     )

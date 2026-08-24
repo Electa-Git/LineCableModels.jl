@@ -249,8 +249,8 @@ observe(value::LineParameters, ::typeof(Y), ::typeof(angle), indices...) =
 observe(value::ShuntAdmittance, ::typeof(Y), ::typeof(angle), indices...) =
     angle.(observe(value, Y, indices...))
 
-observables(::Type{<:SeriesImpedance}) = (Z, R, X, (Z, abs), (Z, angle))
-observables(::Type{<:ShuntAdmittance}) = (Y, G, B, (Y, abs), (Y, angle))
+observables(::Type{<:SeriesImpedance}) = (Z, R, X, L, (Z, abs), (Z, angle))
+observables(::Type{<:ShuntAdmittance}) = (Y, G, B, C, (Y, abs), (Y, angle))
 
 Z(value::Union{LineParameters, SeriesImpedance}, indices...) = observe(value, Z, indices...)
 Y(value::Union{LineParameters, ShuntAdmittance}, indices...) = observe(value, Y, indices...)
@@ -270,6 +270,35 @@ susceptance(value::Union{LineParameters, ShuntAdmittance}, args...) = B(value, a
         DomainError(selected, "L and C are undefined at zero frequency"),
     )
     return 2π .* selected
+end
+
+function _angular_frequencies(frequencies::AbstractVector)
+    any(iszero, frequencies) && throw(
+        DomainError(frequencies, "L and C are undefined at zero frequency"),
+    )
+    return reshape(2π .* frequencies, 1, 1, :)
+end
+
+function observe(
+        impedance::SeriesImpedance,
+        ::typeof(L),
+        frequencies::AbstractVector
+)
+    size(impedance, 3) == length(frequencies) || throw(
+        DimensionMismatch("frequency count must match the impedance third dimension"),
+    )
+    return imag.(impedance.values) ./ _angular_frequencies(frequencies)
+end
+
+function observe(
+        admittance::ShuntAdmittance,
+        ::typeof(C),
+        frequencies::AbstractVector
+)
+    size(admittance, 3) == length(frequencies) || throw(
+        DimensionMismatch("frequency count must match the admittance third dimension"),
+    )
+    return imag.(admittance.values) ./ _angular_frequencies(frequencies)
 end
 
 """
