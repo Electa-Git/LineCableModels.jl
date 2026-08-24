@@ -128,11 +128,11 @@ function realize(rng::Random.AbstractRNG, point::GridPoint, distribution)
     point.build(map(value -> realize(rng, value, distribution), point.args)...)
 end
 
-function Base.iterate(space::Gridspace, state...)
+function Base.iterate(space::Gridspace{Target}, state...) where {Target}
     item = iterate(points(space), state...)
     item === nothing && return nothing
     point, next_state = item
-    return materialize(point), next_state
+    return materialize(point)::Target, next_state
 end
 
 Base.IteratorSize(::Type{<:Gridspace}) = Base.HasShape{1}()

@@ -18,12 +18,13 @@
         candidate = (;),
         benchmark = (samples = 10, seconds = 10.0)
     )
-    routed=LineCableModels.computation_options(run_owner, (
-        output_basis = :total,
-        reference = (solver = :external,),
-        candidate = (solver = :native,),
-        benchmark = (samples = 2, seconds = 0.5)
-    ))
+    routed=LineCableModels.computation_options(run_owner,
+        (
+            output_basis = :total,
+            reference = (solver = :external,),
+            candidate = (solver = :native,),
+            benchmark = (samples = 2, seconds = 0.5)
+        ))
     @test routed.reference == (solver = :external,)
     @test routed.candidate == (solver = :native,)
     @test routed.benchmark == (samples = 2, seconds = 0.5)
@@ -500,22 +501,24 @@ end
         (output_stem = "case",)
     )
     @test_throws ArgumentError LineCableModels.computation_options(owner, (;))
-    execution=LineCableModels.computation_options(owner, (
-        output_stem = "case",
-        remote = config,
-        verbosity = (default = 0, PSCAD = 2),
-        output_basis = :total
-    ))
+    execution=LineCableModels.computation_options(owner,
+        (
+            output_stem = "case",
+            remote = config,
+            verbosity = (default = 0, PSCAD = 2),
+            output_basis = :total
+        ))
     @test execution == (
         output_stem = "case",
         remote = config,
         verbosity = (default = 0, PSCAD = 2),
         output_basis = Val(:total)
     )
-    @test_throws ArgumentError LineCableModels.computation_options(owner, (
-        output_stem = "benchmark_525kV_1600mm2_bipole_pscad",
-        remote = config
-    ))
+    @test_throws ArgumentError LineCableModels.computation_options(
+        owner, (
+            output_stem = "benchmark_525kV_1600mm2_bipole_pscad",
+            remote = config
+        ))
     @test_throws MethodError LineCableModels.computation_options(
         Val(:pscad),
         (remote = config,)

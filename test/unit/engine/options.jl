@@ -5,7 +5,7 @@
     const Grammar=LineCableModels.Grammar
     const Engine=LineCableModels.Engine
 
-    struct UnregisteredFormulation <: Grammar.AbstractFormulation end
+    struct UnregisteredFormulation<:Grammar.AbstractFormulation end
 
     @test LineCableModels.FormulationOptions === Grammar.FormulationOptions === NamedTuple
     @test LineCableModels.ComputationOptions === Grammar.ComputationOptions === NamedTuple
@@ -54,10 +54,11 @@
 
     default_execution=@inferred Grammar.computation_options(owner, (;))
     @test default_execution.output_basis == Val(:per_length)
-    execution=Grammar.computation_options(owner, (
-        verbosity = (default = 1, NLsolve = 0),
-        output_basis = :total
-    ))
+    execution=Grammar.computation_options(
+        owner, (
+            verbosity = (default = 1, NLsolve = 0),
+            output_basis = :total
+        ))
     @test execution == (
         verbosity = (default = 1, NLsolve = 0),
         output_basis = Val(:total)

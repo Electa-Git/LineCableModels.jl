@@ -122,10 +122,11 @@ end
     @test Formulation(:analytical) isa AnalyticalFormulation
     @test Formulation() isa AnalyticalFormulation
 
-    options=LineCableModels.computation_options(Val(AnalyticalFormulation), (
-        verbosity = (default = 1, NLsolve = 0),
-        output_basis = :total
-    ))
+    options=LineCableModels.computation_options(Val(AnalyticalFormulation),
+        (
+            verbosity = (default = 1, NLsolve = 0),
+            output_basis = :total
+        ))
     @test options isa ComputationOptions
     @test options.output_basis == Val(:total)
     @test Engine.verbosity(options, :NLsolve) == 0
@@ -294,6 +295,8 @@ end
     @test monte_carlo.trial_counts == [12, 12]
     @test length(samples(monte_carlo)) == 2
     @test length(histograms(monte_carlo)) == 2
+    @test minimum(samples(monte_carlo)[1].R) >
+          maximum(samples(monte_carlo)[2].R)
     @test monte_carlo.root_seed == UInt64(0x1234)
     monte_carlo_observables=observables(monte_carlo)
     @test keys(monte_carlo_observables) ==

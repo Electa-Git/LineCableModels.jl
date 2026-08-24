@@ -200,7 +200,7 @@
 end
 
 @testitem "UQ / result products / statistical invariants" tags=[:unit] setup=[
-    EngineTestSupport, UseEngineSupport, TestNumerics] begin
+    EngineTestSupport, UseEngineSupport, TestNumerics, TestFixtures] begin
     using Distributions
     using Random
     using Statistics
@@ -238,4 +238,42 @@ end
     @test_throws ArgumentError HistogramDensity([0.0, 1.0], [0.0])
     @test_throws ArgumentError HistogramDensity([0.0, 0.0], [1.0])
     @test_throws ArgumentError HistogramDensity([0.0, Inf], [1.0])
+
+    complete=TestFixtures.cable_monte_carlo_result()
+    sample_only=MonteCarloResult(
+        complete.formulation,
+        complete.values,
+        complete.stats,
+        complete.sample_values,
+        nothing,
+        complete.root_seed,
+        complete.point_seeds,
+        complete.trial_counts
+    )
+    histogram_only=MonteCarloResult(
+        complete.formulation,
+        complete.values,
+        complete.stats,
+        nothing,
+        complete.histogram_values,
+        complete.root_seed,
+        complete.point_seeds,
+        complete.trial_counts
+    )
+    summaries_only=MonteCarloResult(
+        complete.formulation,
+        complete.values,
+        complete.stats,
+        nothing,
+        nothing,
+        complete.root_seed,
+        complete.point_seeds,
+        complete.trial_counts
+    )
+    @test keys(observables(complete)) ==
+          (:result, :statistics, :samples, :histograms)
+    @test keys(observables(sample_only)) == (:result, :statistics, :samples)
+    @test keys(observables(histogram_only)) ==
+          (:result, :statistics, :histograms)
+    @test keys(observables(summaries_only)) == (:result, :statistics)
 end
