@@ -42,9 +42,9 @@
           comparison.Y.absolute
     @test comparison_observables.shunt_admittance_relative_error ==
           comparison.Y.relative
-    @test comparison_observables.series_impedance_absolute_error !==
+    @test comparison_observables.series_impedance_absolute_error ===
           comparison.Z.absolute
-    @test comparison_observables.shunt_admittance_relative_error !==
+    @test comparison_observables.shunt_admittance_relative_error ===
           comparison.Y.relative
     @test !ismutabletype(typeof(comparison_observables))
     @test comparison.Z.absolute ≈ [1.0 3.0; 2.0 4.0]

@@ -1,16 +1,6 @@
-const _MC_SCIENTIFIC_QUANTITY = Dict(
-    :R => :resistance,
-    :L => :inductance,
-    :C => :capacitance,
-    :G => :conductance
-)
-
 function _mc_unit(quantity::Symbol, result_basis, length_unit, quantity_units)
-    scientific = get(_MC_SCIENTIFIC_QUANTITY, quantity) do
-        throw(ArgumentError("unsupported Monte Carlo quantity :$quantity"))
-    end
     return UnitHandler.line_component_unit(
-        scientific,
+        quantity,
         result_basis;
         length_unit,
         quantity_units
@@ -21,20 +11,19 @@ function _mc_entry(result::MonteCarloResult)
     length(result) == 1 || throw(ArgumentError(
         "DataFrame requires one Monte Carlo configuration; select a configuration explicitly",
     ))
-    random = result.details[:random]
+    observed = observables(result)
+    random = observed.details[:random]
     return (
-        representation = only(result.values),
-        statistics = only(result.stats),
-        samples = result.details[:samples].values === nothing ? nothing :
-                  only(result.details[:samples].values),
-        histograms = result.details[:histograms].values === nothing ? nothing :
-                     only(result.details[:histograms].values),
+        representation = only(observed.result),
+        statistics = only(observed.statistics),
+        samples = observed.samples === nothing ? nothing : only(observed.samples),
+        histograms = observed.histograms === nothing ? nothing : only(observed.histograms),
         trials = only(random.trials),
         confidence = random.confidence,
         cdf_tol = random.cdf_tol,
         distribution = random.distribution,
         seed = only(random.configuration_seeds),
-        manifest = result.details[:manifest].value
+        manifest = observed.manifest
     )
 end
 

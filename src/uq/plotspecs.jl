@@ -71,11 +71,11 @@ function _mc_selection(
 end
 
 function _mc_selection(result::MonteCarloResult, quantity::Symbol, ijk)
-    return _mc_selection(result, only(result.values), quantity, ijk)
+    return _mc_selection(result, only(observables(result).result), quantity, ijk)
 end
 
 function _mc_target_unit(result::MonteCarloResult, quantity, length_unit, quantity_units)
-    representation = only(result.values)
+    representation = only(observables(result).result)
     result_basis = representation isa DataModel.CableConstants ?
                    :per_length : basis(representation)
     resolved = _mc_unit(

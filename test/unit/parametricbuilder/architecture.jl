@@ -233,6 +233,11 @@ end
     @test direct isa ParametricResult{<:CableConstants}
     @test length(direct) == 2
     @test all(value -> value.R isa Measurement, direct)
+    direct_observables=observables(direct)
+    @test keys(direct_observables) == (:result, :details, :manifest)
+    @test direct_observables.result === result(direct)
+    @test direct_observables.details === direct.details
+    @test direct_observables.manifest === manifest(direct)
 
     fixed_design=PB.CableBuilder(
         "fixed-compute-cable",
@@ -263,6 +268,15 @@ end
     @test length(histograms(monte_carlo)) == 2
     @test length(manifest(monte_carlo).hash) == 64
     @test monte_carlo.details[:random].root_seed == UInt64(0x1234)
+    monte_carlo_observables=observables(monte_carlo)
+    @test keys(monte_carlo_observables) ==
+          (:result, :statistics, :samples, :histograms, :details, :manifest)
+    @test monte_carlo_observables.result === result(monte_carlo)
+    @test monte_carlo_observables.statistics === statistics(monte_carlo)
+    @test monte_carlo_observables.samples === samples(monte_carlo)
+    @test monte_carlo_observables.histograms === histograms(monte_carlo)
+    @test monte_carlo_observables.details === monte_carlo.details
+    @test monte_carlo_observables.manifest === manifest(monte_carlo)
 
     resistance_pdf=first(histograms(monte_carlo)).R
     @test cdf(resistance_pdf, maximum(resistance_pdf)) == 1.0
@@ -320,6 +334,10 @@ end
 
     propagated=compute(ParametricProblem(space), LinearError(formulation))
     @test propagated isa LinearErrorResult{<:CableConstants}
+    propagated_observables=observables(propagated)
+    @test keys(propagated_observables) == (:result, :details, :manifest)
+    @test propagated_observables.details === propagated.details
+    @test propagated_observables.manifest === manifest(propagated)
     @test Measurements.cov(first(propagated).R, first(propagated).L) != 0
     @test !applicable(Measurements.measurement, monte_carlo)
 

@@ -134,3 +134,11 @@ result(value::ParametricResult) = value.values
 
 "Return the deterministic calculation manifest stored by a composite result."
 manifest(value::ParametricResult) = value.details[:manifest].value
+
+function observables(value::ParametricResult)
+    return (
+        result = result(value),
+        details = value.details,
+        manifest = manifest(value)
+    )
+end

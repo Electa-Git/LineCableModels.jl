@@ -18,7 +18,7 @@ import ..LineCableModels: PhaseDomain, basis, domain, frequencies
 import ..DataModel
 import ..Engine
 import ..Grammar
-import ..Grammar: compute
+import ..Grammar: compute, observables
 import ..ParametricBuilder
 import ..ParametricBuilder: result, manifest
 import ..PlotBuilder

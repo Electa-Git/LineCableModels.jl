@@ -8,11 +8,12 @@ function _dkw_trials(observable_count::Integer, confidence::Real, cdf_tol::Real)
     return ceil(Int, log(2 * observable_count / alpha) / (2 * cdf_tol^2))
 end
 
-_observable_count(::DataModel.CableConstants) = 3
+_observable_count(value::DataModel.CableConstants) = length(observables(value))
 
 function _observable_count(value::Engine.LineParameters)
-    n = size(value.Z, 1)
-    return 2 * n * (n + 1) * length(value.f)
+    observed = observables(value)
+    n = size(observed.series_impedance, 1)
+    return 2 * n * (n + 1) * length(observed.frequency)
 end
 
 function _histogram(values::AbstractVector{<:Real}, bins::Union{Nothing, Int})
@@ -55,23 +56,26 @@ end
 
 function _rlcg_samples(draws::Vector{<:Engine.LineParameters})
     first_result = first(draws)
-    dimensions = (size(first_result.Z)..., length(draws))
+    first_observed = observables(first_result)
+    dimensions = (size(first_observed.series_impedance)..., length(draws))
     Rs = Array{Float64}(undef, dimensions)
     Ls = similar(Rs)
     Cs = similar(Rs)
     Gs = similar(Rs)
-    angular = reshape(2π .* first_result.f, 1, 1, :)
+    angular = reshape(2π .* first_observed.frequency, 1, 1, :)
     for (trial, value) in enumerate(draws)
-        size(value.Z) == size(first_result.Z) || throw(DimensionMismatch(
+        observed = observables(value)
+        size(observed.series_impedance) == size(first_observed.series_impedance) ||
+            throw(DimensionMismatch(
             "Monte Carlo realizations produced incompatible impedance dimensions",
         ))
-        value.f == first_result.f || throw(DimensionMismatch(
+        observed.frequency == first_observed.frequency || throw(DimensionMismatch(
             "Monte Carlo realizations produced incompatible frequency axes",
         ))
-        @views Rs[:, :, :, trial] .= real.(value.Z.values)
-        @views Ls[:, :, :, trial] .= imag.(value.Z.values) ./ angular
-        @views Gs[:, :, :, trial] .= real.(value.Y.values)
-        @views Cs[:, :, :, trial] .= imag.(value.Y.values) ./ angular
+        @views Rs[:, :, :, trial] .= real.(observed.series_impedance.values)
+        @views Ls[:, :, :, trial] .= imag.(observed.series_impedance.values) ./ angular
+        @views Gs[:, :, :, trial] .= real.(observed.shunt_admittance.values)
+        @views Cs[:, :, :, trial] .= imag.(observed.shunt_admittance.values) ./ angular
     end
     return RLCG(Rs, Ls, Cs, Gs)
 end

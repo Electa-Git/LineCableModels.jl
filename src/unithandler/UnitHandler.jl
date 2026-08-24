@@ -264,26 +264,33 @@ function quantity(accessor)
     throw(ArgumentError("unsupported physical-quantity accessor $accessor"))
 end
 
-const _SCIENTIFIC_QUANTITY = Dict(
-    :frequency => (QuantityTag{:frequency}(), :hertz, :base),
-    :series_impedance => (quantity(Z), :ohm, :base),
-    :shunt_admittance => (quantity(Y), :siemens, :base),
-    :resistance => (quantity(R), :ohm, :base),
-    :reactance => (quantity(X), :ohm, :base),
-    :inductance => (quantity(L), :henry, :milli),
-    :conductance => (quantity(G), :siemens, :base),
-    :susceptance => (quantity(B), :siemens, :base),
-    :capacitance => (quantity(C), :farad, :micro),
-    :angle => (QuantityTag{:angle}(), :degree, :base),
-    :series_impedance_absolute_error =>
-        (QuantityTag{:series_impedance_absolute_error}(), :ohm, :base),
-    :series_impedance_relative_error =>
-        (QuantityTag{:series_impedance_relative_error}(), :dimensionless, :base),
-    :shunt_admittance_absolute_error =>
-        (QuantityTag{:shunt_admittance_absolute_error}(), :siemens, :base),
-    :shunt_admittance_relative_error =>
-        (QuantityTag{:shunt_admittance_relative_error}(), :dimensionless, :base)
+for (key, accessor) in (
+    (:series_impedance, Z), (:resistance, R), (:reactance, X), (:inductance, L),
+    (:shunt_admittance, Y), (:conductance, G), (:susceptance, B), (:capacitance, C),
+    (:R, R), (:X, X), (:L, L), (:G, G), (:B, B), (:C, C),
+    (:Z_re, R), (:Z_im, X), (:Z_abs, Z),
+    (:Y_re, G), (:Y_im, B), (:Y_abs, Y)
 )
+    @eval quantity(::Val{$(QuoteNode(key))}) = quantity($accessor)
+end
+
+for key in (
+    :frequency, :angle,
+    :series_impedance_absolute_error, :series_impedance_relative_error,
+    :shunt_admittance_absolute_error, :shunt_admittance_relative_error
+)
+    @eval quantity(::Val{$(QuoteNode(key))}) = QuantityTag{$(QuoteNode(key))}()
+end
+
+quantity(::Val{:Z_angle}) = quantity(Val(:angle))
+quantity(::Val{:Y_angle}) = quantity(Val(:angle))
+
+function quantity(key::Symbol)
+    applicable(quantity, Val(key)) || throw(
+        ArgumentError("unsupported scientific quantity :$key"),
+    )
+    return quantity(Val(key))
+end
 
 """
     line_component_quantity(key)
@@ -292,14 +299,20 @@ Return the quantity tag, physical unit name, and default display prefix for a
 scientific observable key.
 """
 function line_component_quantity(key::Symbol)
-    tag, unit_name, prefix = get(_SCIENTIFIC_QUANTITY, key) do
-        throw(ArgumentError("unsupported scientific quantity :$key"))
-    end
+    tag = quantity(key)
+    native = default_unit(tag)
+    displayed = display_unit(tag)
+    length(native.base) == 1 || throw(ArgumentError(
+        "scientific quantity :$key must have one numerator unit",
+    ))
+    length(displayed.base) == 1 || throw(ArgumentError(
+        "scientific quantity :$key must have one display numerator unit",
+    ))
     return (;
-        semantic = key,
+        semantic = _quantity_name(tag),
         tag,
-        unit_name,
-        prefix
+        unit_name = only(native.base).name,
+        prefix = only(displayed.base).prefix
     )
 end
 

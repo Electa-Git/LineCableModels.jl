@@ -32,10 +32,10 @@ end
 
 function observables(benchmark::LineParametersBenchmark)
     (
-        series_impedance_absolute_error = copy(benchmark.Z.absolute),
-        series_impedance_relative_error = copy(benchmark.Z.relative),
-        shunt_admittance_absolute_error = copy(benchmark.Y.absolute),
-        shunt_admittance_relative_error = copy(benchmark.Y.relative)
+        series_impedance_absolute_error = benchmark.Z.absolute,
+        series_impedance_relative_error = benchmark.Z.relative,
+        shunt_admittance_absolute_error = benchmark.Y.absolute,
+        shunt_admittance_relative_error = benchmark.Y.relative
     )
 end
 

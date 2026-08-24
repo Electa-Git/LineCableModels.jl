@@ -84,6 +84,9 @@ end
 
     @test UH.quantity(Z) isa UH.QuantityTag{:series_impedance}
     @test UH.quantity(Y) isa UH.QuantityTag{:shunt_admittance}
+    @test UH.quantity(:R) === UH.quantity(R)
+    @test UH.quantity(:Z_abs) === UH.quantity(Z)
+    @test UH.quantity(:Y_angle) === UH.quantity(:angle)
     @test UH.get_label(UH.quantity(Z, :abs)) == "Series impedance magnitude"
     @test UH.get_label(UH.quantity(Y, :abs)) == "Shunt admittance magnitude"
     @test UH.get_label(UH.quantity(Z, :angle)) == "Series impedance angle"

@@ -293,3 +293,22 @@ samples(value::MonteCarloResult) = value.details[:samples].values
 histograms(value::MonteCarloResult) = value.details[:histograms].values
 uncertain_value(value::LinearErrorResult) = value.values
 manifest(value::Union{LinearErrorResult, MonteCarloResult}) = value.details[:manifest].value
+
+function observables(value::LinearErrorResult)
+    return (
+        result = result(value),
+        details = value.details,
+        manifest = manifest(value)
+    )
+end
+
+function observables(value::MonteCarloResult)
+    return (
+        result = result(value),
+        statistics = statistics(value),
+        samples = samples(value),
+        histograms = histograms(value),
+        details = value.details,
+        manifest = manifest(value)
+    )
+end

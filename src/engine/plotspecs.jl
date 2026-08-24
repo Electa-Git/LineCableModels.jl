@@ -1,28 +1,5 @@
 struct LineParameterPlotDefinition <: PlotBuilder.AbstractPlotDefinition end
 
-const _LINE_COMPONENT_OBSERVABLE = Dict(
-    :R => :resistance,
-    :X => :reactance,
-    :L => :inductance,
-    :G => :conductance,
-    :B => :susceptance,
-    :C => :capacitance,
-    :Z_re => :resistance,
-    :Z_im => :reactance,
-    :Z_abs => :series_impedance,
-    :Z_angle => :angle,
-    :Y_re => :conductance,
-    :Y_im => :susceptance,
-    :Y_abs => :shunt_admittance,
-    :Y_angle => :angle
-)
-
-function _component_observable(component::Symbol)
-    return get(_LINE_COMPONENT_OBSERVABLE, component) do
-        throw(ArgumentError("unsupported line-parameter component :$component"))
-    end
-end
-
 function _component_unit(
         component::Symbol,
         parameter_basis::Symbol,
@@ -30,7 +7,7 @@ function _component_unit(
         quantity_units
 )
     resolved = UnitHandler.line_component_unit(
-        _component_observable(component),
+        component,
         parameter_basis;
         length_unit,
         quantity_units

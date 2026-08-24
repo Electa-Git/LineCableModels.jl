@@ -82,9 +82,9 @@
     @test parameter_observables.frequency == parameters.f
     @test parameter_observables.series_impedance == parameters.Z
     @test parameter_observables.shunt_admittance == parameters.Y
-    @test parameter_observables.frequency !== parameters.f
-    @test parameter_observables.series_impedance.values !== parameters.Z.values
-    @test parameter_observables.shunt_admittance.values !== parameters.Y.values
+    @test parameter_observables.frequency === parameters.f
+    @test parameter_observables.series_impedance === parameters.Z
+    @test parameter_observables.shunt_admittance === parameters.Y
     @test !ismutabletype(typeof(parameter_observables))
 
     series=SeriesImpedance(impedance; basis = :total)

@@ -183,15 +183,9 @@ nfrequencies(lp::LineParameters) = length(lp.f)
 
 function observables(parameters::LineParameters)
     (
-        frequency = copy(parameters.f),
-        series_impedance = SeriesImpedance(
-            parameters.Z.values;
-            basis = basis(parameters)
-        ),
-        shunt_admittance = ShuntAdmittance(
-            parameters.Y.values;
-            basis = basis(parameters)
-        )
+        frequency = parameters.f,
+        series_impedance = parameters.Z,
+        shunt_admittance = parameters.Y
     )
 end
 
