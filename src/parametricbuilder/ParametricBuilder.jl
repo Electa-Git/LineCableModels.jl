@@ -7,8 +7,7 @@ export has_uncertainty, configuration_manifest, nominal, standard_uncertainty
 export @gridspace, @relax
 
 export Combinatorial, ParametricProblem, ParametricResult
-export CalculationManifest, ConfigurationFailure
-export result, manifest
+export result
 
 export Material, Conductor, Insulator, CableBuilder
 export at, trifoil, hflat, vflat, Earth, SystemBuilder
@@ -16,7 +15,6 @@ export WireEstimate, make_stranded, make_screened
 
 using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
 using Random
-using SHA
 import ..LineCableModels: add!, maxfill
 import ..Grammar
 import ..Grammar: compute, observables, nominal, standard_uncertainty

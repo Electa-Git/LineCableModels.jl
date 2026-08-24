@@ -295,9 +295,9 @@ Formulation(:analytical; options = (output = :trace,))
 function compute(
         problem::LineParametersProblem,
         formulation::AnalyticalFormulation;
-        options = (;)
+        options::NamedTuple = (;)
 )
-    execution = computation_options(options)
+    execution = computation_options(Val(AnalyticalFormulation), options)
     console = ConsoleLogger(stderr, Logging.Debug)
     logger = ConsoleVerbosityLogger(console, execution.verbosity)
     return with_logger(logger) do
@@ -308,13 +308,13 @@ end
 function compute(
         problem::CableConstantsProblem,
         formulation::AnalyticalFormulation;
-        options = (;)
+        options::NamedTuple = (;)
 )
     formulation.options.output isa Val{:parameters} || throw(ArgumentError(
         "CableConstantsProblem supports only formulation output=:parameters",
     ))
-    execution = computation_options(options)
-    _output_basis(execution) === :per_length || throw(ArgumentError(
+    execution = computation_options(Val(AnalyticalFormulation), options)
+    execution.output_basis == Val(:per_length) || throw(ArgumentError(
         "CableConstantsProblem supports only output_basis=:per_length",
     ))
     return DataModel._compute_cable_constants(

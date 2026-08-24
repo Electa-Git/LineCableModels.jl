@@ -61,22 +61,27 @@ formulation = Formulation(
 | Model | Method object | PSCAD field |
 |:--|:--|:--|
 | Overhead | `EarthImpedance.Deri()` | `EarthForm2` |
-| Overhead | `EarthImpedance.DirectNumericalIntegration(:overhead)` | `EarthForm2` |
+| Overhead | `PSCADBenchmarks.DirectNumericalIntegration(:overhead)` | `EarthForm2` |
 | Underground | `EarthImpedance.Wedepohl()` | `EarthForm` |
-| Underground | `EarthImpedance.DirectNumericalIntegration(:underground)` | `EarthForm` |
+| Underground | `PSCADBenchmarks.DirectNumericalIntegration(:underground)` | `EarthForm` |
 | Underground | `EarthImpedance.Saad()` | `EarthForm` |
 | Aerial/underground mutual | `EarthImpedance.Ametani()` | `EarthForm3` |
 | Aerial/underground mutual | `EarthImpedance.Lucca()` | `EarthForm3` |
 
 The PSCAD formulation uses `NativeEarthAdmittance()` and `NativeInsulationAdmittance()` for the calculations owned by PSCAD's line-data model. The analytical formulation selects its own earth and insulation admittance methods independently. No validator forces those choices to resemble each other. A deliberately mismatched pair runs normally and the RMS result exposes the consequence.
 
-`Deri`, `Wedepohl`, `Saad`, `Ametani`, `Lucca`, and direct numerical integration are Engine-owned method concepts. They can be selected by external backends. Calling them through `Formulation(:analytical)` produces a clear not-implemented error because the built-in analytical kernels do not currently implement those methods.
+`Deri`, `Wedepohl`, `Saad`, `Ametani`, and `Lucca` are Engine-owned formulation concepts. Backends implement the formulations they support through dispatch. Calling one through `Formulation(:analytical)` fails with `MethodError` because the built-in analytical kernels do not currently implement it. Direct numerical integration is PSCAD-specific because that backend conflates its solver setting with formula selection; the selector is therefore quarantined in `PSCADBenchmarks`.
 
 Live and record modes call the same public operation for both solvers:
 
 ```julia
-reference = compute(reference_problem, reference_formulation; options)
-candidate = compute(problem, formulation; options)
+run = computation_options(Val(GauntletCase), options)
+reference_options = haskey(run.reference, :remote) ? run.reference :
+                    merge(run.reference, (remote = configured_remote,))
+reference_options = merge(reference_options, (output_basis = run.output_basis,))
+candidate_options = merge(run.candidate, (output_basis = run.output_basis,))
+reference = compute(reference_problem, reference_formulation; options=reference_options)
+candidate = compute(problem, formulation; options=candidate_options)
 comparison = compare(reference, candidate)
 ```
 

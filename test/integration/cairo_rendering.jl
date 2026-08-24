@@ -438,20 +438,23 @@
             Formulation(); trials = 4, seed = 2,
             return_samples = true, return_histograms = true
         )
+        line_random=(
+            root_seed = UInt64(2), configuration_seeds = UInt64[2], trials = [4],
+            confidence = 0.95, cdf_tol = 0.02, distribution = :normal
+        )
         line_details=Dict{Symbol, NamedTuple}(
-            :failures=>(values = ConfigurationFailure[],),
+            :failures=>(entries = NamedTuple[],),
             :samples=>(values = [line_sample_values],),
             :histograms=>(values = [line_histograms],),
-            :random=>(
-                root_seed = UInt64(2), configuration_seeds = UInt64[2], trials = [4],
-                confidence = 0.95, cdf_tol = 0.02, distribution = :normal
-            ),
-            :manifest=>(value = (hash = "line-plot-fixture",),)
+            :manifest=>(
+                backend = (name = :fixture,), options = (;), random = line_random,
+                coupling = (;)
+            )
         )
         line_mc=MonteCarloResult(
             line_formulation,
             [line_representation],
-            nothing,
+            [(fixture = 1,)],
             [line_statistics],
             line_details
         )

@@ -74,20 +74,22 @@ if lowercase(get(ENV, "LINECABLEMODELS_UPDATE_PLOT_REFERENCES", "false")) == "tr
         Formulation(); trials = 4, seed = 1,
         return_samples = true, return_histograms = true
     )
+    random = (
+        root_seed = UInt64(1), configuration_seeds = UInt64[1], trials = [4],
+        confidence = 0.95, cdf_tol = 0.02, distribution = :normal
+    )
     mc_details = Dict{Symbol, NamedTuple}(
-        :failures => (values = ConfigurationFailure[],),
+        :failures => (entries = NamedTuple[],),
         :samples => (values = [samples_value],),
         :histograms => (values = [histograms_value],),
-        :random => (
-            root_seed = UInt64(1), configuration_seeds = UInt64[1], trials = [4],
-            confidence = 0.95, cdf_tol = 0.02, distribution = :normal
-        ),
-        :manifest => (value = (hash = "reference-fixture",),)
+        :manifest => (
+            backend = (name = :fixture,), options = (;), random, coupling = (;)
+        )
     )
     mc_result = MonteCarloResult(
         mc_formulation,
         [representation],
-        nothing,
+        [(fixture = 1,)],
         [statistics_value],
         mc_details
     )

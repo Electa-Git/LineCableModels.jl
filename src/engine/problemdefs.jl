@@ -160,11 +160,12 @@ function Formulation(
         earth_properties = EarthProperties.CPEarth(),
         modal_transform::Union{AbstractTransformFormulation, Nothing} = nothing,
         equivalent_earth::Union{AbstractEHEMFormulation, Nothing} = nothing,
-        options = (;)
+        options::NamedTuple = (;)
 )
     return AnalyticalFormulation(;
         internal_impedance, insulation_impedance, earth_impedance,
         insulation_admittance, earth_admittance, earth_properties,
-        modal_transform, equivalent_earth, options = formulation_options(options)
+        modal_transform, equivalent_earth,
+        options = formulation_options(Val(AnalyticalFormulation), options)
     )
 end

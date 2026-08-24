@@ -100,8 +100,9 @@ abs.(Z(line_parameters, 1, 1))
 
 Complete parameter traversals return `ParametricResult{T}`, including a space
 with cardinality one. Conditional Monte Carlo propagation returns
-`MonteCarloResult{T}`. Use `statistics`, `samples`, `histograms`,
-`uncertain_value`, and `manifest` to inspect the analysis.
+`MonteCarloResult{T}`. Use `statistics`, `samples`, `histograms`, and
+`uncertain_value` to inspect the analysis; successful resolved coordinates and
+contingent calculation metadata are available through `space` and `details`.
 `DataFrame(monte_carlo_result)` renders marginal summaries, while
 `plot(monte_carlo_result, :R; mode=:hist, data=:both)` and the `:pdf`, `:ecdf`,
 and `:qq` modes display retained distribution information after a Makie package

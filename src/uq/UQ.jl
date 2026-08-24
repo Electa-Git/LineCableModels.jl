@@ -8,7 +8,7 @@ module UQ
 
 export LinearError, MonteCarlo, LinearErrorResult, MonteCarloResult
 export SampleSummary, HistogramDensity, RLCG
-export result, statistics, samples, histograms, uncertain_value, manifest
+export result, statistics, samples, histograms, uncertain_value
 
 using Random
 using Statistics
@@ -20,14 +20,14 @@ import ..Engine
 import ..Grammar
 import ..Grammar: compute, observables
 import ..ParametricBuilder
-import ..ParametricBuilder: result, manifest
+import ..ParametricBuilder: result
 import ..PlotBuilder
 import ..UnitHandler
 using ..Grammar:
                  AbstractFormulation, AbstractProblemResult, AbstractUncertaintyResult
 using ..ParametricBuilder:
-                          ParametricProblem, ConfigurationFailure,
-                          configurations, configuration_manifest, materialize
+                           ParametricProblem, configurations,
+                           configuration_manifest, materialize
 
 include("types.jl")
 include("compute.jl")

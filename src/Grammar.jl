@@ -10,6 +10,7 @@ module Grammar
 export AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult
 export AbstractParametricResult, AbstractUncertaintyResult
 export FormulationOptions, ComputationOptions
+export formulation_options, computation_options
 export compute, observables, primitives, preprocess
 export nominal, standard_uncertainty
 
@@ -52,10 +53,52 @@ is `T`.
 """
 abstract type AbstractUncertaintyResult{T} <: AbstractProblemResult end
 
-"Alias for validated, formulation-owned named-tuple options."
+"Alias identifying a formulation-owned named-tuple option record."
 const FormulationOptions = NamedTuple
-"Alias for validated, execution-owned named-tuple options."
+"Alias identifying an execution-owned named-tuple option record."
 const ComputationOptions = NamedTuple
+
+"""
+$(SIGNATURES)
+
+Validate and normalize the options owned by a formulation type.
+
+Backends extend this function with an owner token of the form
+`Val(FormulationType)`. LineCableModels defines no broad fallback: a formulation
+without an option grammar fails through ordinary Julia dispatch.
+
+# Arguments
+
+- `owner`: Formulation-type dispatch token.
+- `options`: Mergeable named tuple supplied by the caller.
+
+# Returns
+
+- A formulation-owned [`FormulationOptions`](@ref) named tuple with a fixed set
+  of keys for the selected owner.
+"""
+function formulation_options end
+
+"""
+$(SIGNATURES)
+
+Validate and normalize the options owned by one computation or orchestrator.
+
+Backends and orchestrators extend this function with an owner token of the form
+`Val(OwnerType)`. LineCableModels defines no broad fallback: an owner without a
+computation-option grammar fails through ordinary Julia dispatch.
+
+# Arguments
+
+- `owner`: Computation-owner dispatch token.
+- `options`: Mergeable named tuple supplied by the caller.
+
+# Returns
+
+- A computation-owned [`ComputationOptions`](@ref) named tuple with a fixed set
+  of outer keys for the selected owner.
+"""
+function computation_options end
 
 """
 $(SIGNATURES)

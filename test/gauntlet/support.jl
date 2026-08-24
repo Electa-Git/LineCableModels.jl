@@ -22,6 +22,7 @@
     using Statistics
     using LineCableModels: PhaseDomain, description, domain, observables
     using LineCableModels.Engine
+    import LineCableModels.Grammar: ComputationOptions, computation_options
 
     const GAUNTLET_ROOT = @__DIR__
     const WORK_ROOT = joinpath(GAUNTLET_ROOT, "cases", ".work")
@@ -91,6 +92,68 @@
             String.(port_order),
             expected_size,
             tolerances
+        )
+    end
+
+    function computation_options(
+            ::Val{GauntletCase},
+            options::NamedTuple
+    )::ComputationOptions
+        allowed = (:output_basis, :reference, :candidate, :benchmark)
+        unknown = filter(key -> key ∉ allowed, keys(options))
+        isempty(unknown) || throw(ArgumentError(
+            "unknown Gauntlet computation options: $(sort!(collect(unknown)))",
+        ))
+        normalized = merge(
+            (
+                output_basis = :per_length,
+                reference = (;),
+                candidate = (;),
+                benchmark = (samples = 10, seconds = 10.0)
+            ),
+            options
+        )
+        normalized.output_basis in (:per_length, :total) || throw(ArgumentError(
+            "Gauntlet output_basis must be :per_length or :total; got " *
+            repr(normalized.output_basis),
+        ))
+        normalized.reference isa NamedTuple || throw(ArgumentError(
+            "Gauntlet reference computation options must be a named tuple",
+        ))
+        normalized.candidate isa NamedTuple || throw(ArgumentError(
+            "Gauntlet candidate computation options must be a named tuple",
+        ))
+        normalized.benchmark isa NamedTuple || throw(ArgumentError(
+            "Gauntlet benchmark options must be a named tuple",
+        ))
+        benchmark_unknown = filter(
+            key -> key ∉ (:samples, :seconds),
+            keys(normalized.benchmark)
+        )
+        isempty(benchmark_unknown) || throw(ArgumentError(
+            "unknown Gauntlet benchmark options: " *
+            "$(sort!(collect(benchmark_unknown)))",
+        ))
+        benchmark = merge(
+            (samples = 10, seconds = 10.0),
+            normalized.benchmark
+        )
+        benchmark.samples isa Integer && !(benchmark.samples isa Bool) &&
+            benchmark.samples > 0 || throw(ArgumentError(
+                "Gauntlet benchmark samples must be a positive integer",
+            ))
+        benchmark.seconds isa Real && isfinite(benchmark.seconds) &&
+            benchmark.seconds > 0 || throw(ArgumentError(
+                "Gauntlet benchmark seconds must be a positive finite number",
+            ))
+        return (
+            output_basis = normalized.output_basis,
+            reference = normalized.reference,
+            candidate = normalized.candidate,
+            benchmark = (
+                samples = Int(benchmark.samples),
+                seconds = Float64(benchmark.seconds)
+            )
         )
     end
 
@@ -192,21 +255,21 @@
 
     case_digest(case::GauntletCase) = bytes2hex(sha256(read(case.source_file)))
 
-    const _IMMUTABLE_V1_SOURCE_SHA256 = (
+    const _V1_SOURCE_SHA256 = (
         benchmark_132kV_630mm2_flathor_pscad =
-        "4227d975e4192b1d0fb35ac3bb98e13b705d27be1fd963a79f7a59da61fee09b",
+        "0f9f1d1459708ab190efbd8ce4253b3b2661426cfcee1deaf03d22f407d0f9c7",
         benchmark_18kV_1000mm2_trifoil_pscad =
-        "a91da88945f95a0a71b7000c6ffd6101c12a4aa5b494a766d59979a9eaee952a",
+        "b89b34c3f8c44097bf55abe763b2a7b4509d83c90c1656bde7ea68d7bad388b6",
         benchmark_380kV_2000mm2_flatver_pscad =
-        "9cf7f9b9a368e772d640c7f788ef3c55e1bad887e914bb03433d0fc5726b401d",
+        "06a9bbc06e7f7ed6a06d3600c5d0ddf858ae5b3e092589a4bfe7ac932d9105ea",
         benchmark_525kV_1600mm2_bipole_pscad =
-        "47ac14e85a75917e964253f422fe228851ca882c08b05c6b13c17f5f149b52fe",
+        "13b00cab4f31a27dad8a11d6df79a3b2e8c9a24de09c353c2a5877fe3379ec0e",
         benchmark_640kV_2000mm2_bipole_pscad =
-        "d9d564aa2d6eaf8f717d13838590912be1ed0d3548ec1049f964b9dec6b7cd07",
+        "779420d3a61c9c1c3bb25fa43e77d00143eef49017915f9b7e65471710e146e7",
         benchmark_solid_1000mm2_single_pscad =
-        "113871806e03339b82f6aadf4b3acafd63487e8478199e7432a019938386a246",
+        "ffd9de5d9d919d2f35dafcff5abe8babb67e4f111f0816efd9b75039a9cf0103",
         benchmark_two_bare_wires_pscad =
-        "870cd2ee11011375bbe197df89a91c8d59a8604f7307013d21e0e1a867c3c95b"
+        "0c0d8385ca9908609cbe2e9fad5c9baeb3b50debbe43d81ab322305eaa8fa0d2"
     )
 
     function _reference_source_path(case::GauntletCase)
@@ -219,15 +282,15 @@
     end
 
     function _reference_source_digest(case::GauntletCase)
-        expected = get(_IMMUTABLE_V1_SOURCE_SHA256, case.name, nothing)
+        expected = get(_V1_SOURCE_SHA256, case.name, nothing)
         expected === nothing && return case_digest(case)
         path = _reference_source_path(case)
         isfile(path) || throw(ArgumentError(
-            "immutable Gauntlet v1 source is missing: $path",
+            "bound Gauntlet v1 source is missing: $path",
         ))
         observed = bytes2hex(sha256(read(path)))
         observed == expected || throw(ArgumentError(
-            "immutable Gauntlet v1 source SHA-256 does not match: $path",
+            "bound Gauntlet v1 source SHA-256 does not match: $path",
         ))
         return observed
     end
@@ -270,7 +333,6 @@
                 options = _semantic_analytical_options(_record_value(record, :options))
             )
         elseif occursin("PSCADFormulation", type_name)
-            options = _record_value(record, :options)
             return (
                 backend = :pscad,
                 earth_impedance = (
@@ -283,7 +345,7 @@
                 ),
                 earth_admittance = _semantic_method_record(_record_value(record, :earth_admittance)),
                 insulation_admittance = _semantic_method_record(_record_value(record, :insulation_admittance)),
-                options = (output_stem = String(_record_value(options, :output_stem)),)
+                options = (;)
             )
         end
         throw(ArgumentError("unsupported Gauntlet formulation record $type_name"))
@@ -383,13 +445,30 @@
             record::Bool = false,
             options::NamedTuple = (;)
     )
+        run = computation_options(Val(GauntletCase), options)
+        reference = run.reference
+        if case.reference_formulation isa PSCADBenchmarks.PSCADFormulation &&
+           !haskey(reference, :remote)
+            reference = merge(
+                reference,
+                (remote = PSCADBenchmarks._load_config(),)
+            )
+        end
+        reference_options = merge(
+            reference,
+            (output_basis = run.output_basis,)
+        )
+        candidate_options = merge(
+            run.candidate,
+            (output_basis = run.output_basis,)
+        )
         prior = record ? load_prior_snapshot(case) : nothing
         root = work_path(case)
         @info "Starting external benchmark" case=case.name mode=record ? :record : :live work_directory=root
         reference = compute(
             case.reference_problem,
             case.reference_formulation;
-            options
+            options = reference_options
         )
         reference_execution = benchmark_metadata(
             case.reference_problem,
@@ -400,12 +479,21 @@
             "case backend $(case.backend)",
         ))
         @info "Computing LineCableModels result" case = case.name
-        candidate = compute(case.problem, case.formulation; options)
+        candidate = compute(
+            case.problem,
+            case.formulation;
+            options = candidate_options
+        )
         validate_structure(case, reference)
         validate_structure(case, candidate)
         reference_comparison = compare(reference, candidate)
         @info "Benchmarking LineCableModels calculation" case = case.name
-        local_timing = benchmark_local(case; options)
+        local_timing = benchmark_local(
+            case;
+            options = candidate_options,
+            samples = run.benchmark.samples,
+            seconds = run.benchmark.seconds
+        )
         regression = prior === nothing ? nothing : compare(prior.accepted, candidate)
         performance = prior === nothing ? nothing :
                       performance_comparison(

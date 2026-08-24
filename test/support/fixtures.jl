@@ -97,24 +97,29 @@
             return_samples = true,
             return_histograms = true
         )
+        random = (
+            root_seed = UInt64(1),
+            configuration_seeds = UInt64[1],
+            trials = [length(values)],
+            confidence = 0.95,
+            cdf_tol = 0.02,
+            distribution = :normal
+        )
         details = Dict{Symbol, NamedTuple}(
-            :failures => (values = LineCableModels.ConfigurationFailure[],),
+            :failures => (entries = NamedTuple[],),
             :samples => (values = [samples],),
             :histograms => (values = [histograms],),
-            :random => (
-                root_seed = UInt64(1),
-                configuration_seeds = UInt64[1],
-                trials = [length(values)],
-                confidence = 0.95,
-                cdf_tol = 0.02,
-                distribution = :normal
-            ),
-            :manifest => (value = (hash = "plot-fixture",),)
+            :manifest => (
+                backend = (name = :fixture,),
+                options = (;),
+                random,
+                coupling = (;)
+            )
         )
         return LineCableModels.MonteCarloResult(
             formulation,
             [representation],
-            nothing,
+            [(fixture = 1,)],
             [statistics],
             details
         )

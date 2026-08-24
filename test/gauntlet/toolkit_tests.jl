@@ -10,6 +10,35 @@
     using .TestFixtures
 
     @test isdefined(GauntletSupport, :PSCADBenchmarks)
+    run_owner=Val(GauntletCase)
+    run_defaults=LineCableModels.computation_options(run_owner, (;))
+    @test run_defaults == (
+        output_basis = :per_length,
+        reference = (;),
+        candidate = (;),
+        benchmark = (samples = 10, seconds = 10.0)
+    )
+    routed=LineCableModels.computation_options(run_owner, (
+        output_basis = :total,
+        reference = (solver = :external,),
+        candidate = (solver = :native,),
+        benchmark = (samples = 2, seconds = 0.5)
+    ))
+    @test routed.reference == (solver = :external,)
+    @test routed.candidate == (solver = :native,)
+    @test routed.benchmark == (samples = 2, seconds = 0.5)
+    @test_throws ArgumentError LineCableModels.computation_options(
+        run_owner,
+        (verbosity = (default = 0,),)
+    )
+    @test_throws ArgumentError LineCableModels.computation_options(
+        run_owner,
+        (reference = Dict{Symbol, Any}(),)
+    )
+    @test_throws ArgumentError LineCableModels.computation_options(
+        run_owner,
+        (benchmark = (samples = 0,),)
+    )
     @test gauntlet_instrumented() == (
         !iszero(Base.JLOptions().code_coverage) ||
         !iszero(Base.JLOptions().malloc_log)
@@ -187,8 +216,11 @@
         outcome=run_snapshot(
             case;
             artifacts_toml,
-            benchmark_samples = 1,
-            benchmark_seconds = 1
+            options = (
+                output_basis = :per_length,
+                candidate = (output_basis = :total,),
+                benchmark = (samples = 1, seconds = 1)
+            )
         )
         @test outcome.mode === :snapshot
         @test outcome.comparison.Z.absolute ==
@@ -375,23 +407,20 @@ end
           "PSCAD native insulation admittance"
     @test harness._formulation_label(overhead) ==
           "Deri-Semlyen/PSCAD native earth admittance/PSCAD native insulation admittance"
-    @test overhead.options.output_stem == "gauntlet"
-    named=Formulation(
+    @test overhead.options == (;)
+    @test_throws ArgumentError Formulation(
         :pscad;
         earth_impedance = EarthImpedance.Wedepohl(),
         options = (output_stem = "525kV_bipole",)
     )
-    @test named.options.output_stem == "525kV_bipole"
-    @test_throws ArgumentError Formulation(
-        :pscad;
-        options = (output_stem = "benchmark_525kV_1600mm2_bipole_pscad",)
-    )
+    @test !isdefined(EarthImpedance, :ReferenceEarthImpedance)
+    @test !isdefined(EarthImpedance, :DirectNumericalIntegration)
 
     methods=(
         EarthImpedance.Deri(),
-        EarthImpedance.DirectNumericalIntegration(:overhead),
+        harness.DirectNumericalIntegration(:overhead),
         EarthImpedance.Wedepohl(),
-        EarthImpedance.DirectNumericalIntegration(:underground),
+        harness.DirectNumericalIntegration(:underground),
         EarthImpedance.Saad(),
         EarthImpedance.Ametani(),
         EarthImpedance.Lucca()
@@ -399,13 +428,21 @@ end
     @test all(
         method -> Formulation(:pscad; earth_impedance = method) isa
                   harness.PSCADFormulation, methods)
+    @test all(
+        method -> supertype(typeof(method)) ===
+                  LineCableModels.Engine.EarthImpedanceFormulation,
+        methods
+    )
     @test harness.pscad_field(EarthImpedance.Saad()) === :EarthForm
     @test harness.pscad_readback(EarthImpedance.Lucca()) == "LUCCA"
-    @test_throws ErrorException EarthImpedance.Wedepohl()(:self)
-    @test_throws TypeError Formulation(
+    @test_throws MethodError EarthImpedance.Wedepohl()(:self)
+    unsupported=Formulation(
         :pscad;
         earth_impedance = EarthImpedance.Carson()
     )
+    @test unsupported isa harness.PSCADFormulation
+    @test_throws MethodError harness.pscad_field(unsupported.earth_impedance)
+    @test_throws ArgumentError harness.DirectNumericalIntegration(:mutual)
 
     mktempdir() do directory
         frequency=[1.0, 10.0]
@@ -456,6 +493,33 @@ end
         transport = :ssh,
         timeout_seconds = 60
     )
+    owner=Val(harness.PSCADFormulation)
+    @test LineCableModels.formulation_options(owner, (;)) == (;)
+    @test_throws ArgumentError LineCableModels.formulation_options(
+        owner,
+        (output_stem = "case",)
+    )
+    @test_throws ArgumentError LineCableModels.computation_options(owner, (;))
+    execution=LineCableModels.computation_options(owner, (
+        output_stem = "case",
+        remote = config,
+        verbosity = (default = 0, PSCAD = 2),
+        output_basis = :total
+    ))
+    @test execution == (
+        output_stem = "case",
+        remote = config,
+        verbosity = (default = 0, PSCAD = 2),
+        output_basis = Val(:total)
+    )
+    @test_throws ArgumentError LineCableModels.computation_options(owner, (
+        output_stem = "benchmark_525kV_1600mm2_bipole_pscad",
+        remote = config
+    ))
+    @test_throws MethodError LineCableModels.computation_options(
+        Val(:pscad),
+        (remote = config,)
+    )
     powershell="[IO.Directory]::CreateDirectory('C:\\gauntlet') | Out-Null"
     command=harness.remote_command(config, powershell)
     @test command.exec[1] == "ssh"
@@ -496,7 +560,7 @@ end
         error
     end
     @test verbosity_error isa ArgumentError
-    @test occursin("options=(verbosity=", sprint(showerror, verbosity_error))
+    @test occursin("options=(reference=(verbosity=", sprint(showerror, verbosity_error))
     @test_throws ArgumentError harness._supervisor_command(
         config,
         raw"Z:\gauntlet\cases\.work\case\current",
@@ -504,6 +568,7 @@ end
         "case",
         overhead,
         [1.0, 3.0, 10.0];
+        output_stem = "gauntlet",
         verbosity = 2
     )
     @test_throws ArgumentError harness._validate_frequencies(
@@ -518,6 +583,7 @@ end
         "generated",
         overhead,
         frequency_probe;
+        output_stem = "gauntlet",
         verbosity = 2
     )
     @test occursin("supervisor.ps1", supervisor_command)
@@ -530,6 +596,19 @@ end
     @test occursin("-EarthValue '0'", supervisor_command)
     @test occursin("-EarthReadback 'DERISEMLYEN'", supervisor_command)
     @test !occursin("OpenStandardInput", supervisor_command)
+    saad_command=harness._supervisor_command(
+        config,
+        raw"Z:\gauntlet\cases\.work\case\current",
+        raw"C:\gauntlet\case\current",
+        "generated",
+        Formulation(:pscad; earth_impedance = EarthImpedance.Saad()),
+        frequency_probe;
+        output_stem = "saad",
+        verbosity = 0
+    )
+    @test occursin("-EarthField 'EarthForm'", saad_command)
+    @test occursin("-EarthValue '3'", saad_command)
+    @test occursin("-EarthReadback 'SAAD'", saad_command)
     cancel_command=harness._cancel_command(raw"C:\gauntlet\case\current")
     @test occursin("owner.txt", cancel_command)
     @test occursin("taskkill.exe /PID", cancel_command)

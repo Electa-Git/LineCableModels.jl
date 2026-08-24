@@ -55,7 +55,7 @@ import ..LineCableModels: basis, Z, Y, R, X, L, G, B, C,
 import ..LineCableModels: nominal, standard_uncertainty
 import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
                   AbstractProblemResult, FormulationOptions, ComputationOptions,
-                  compute, observables
+                  formulation_options, computation_options, compute, observables
 
 using ..UnitHandler
 using ..PlotBuilder
@@ -78,8 +78,8 @@ include("earthproperties/EarthProperties.jl")
 using .EarthProperties: CPEarth
 
 # Problem definitions
-include("lineparamopts.jl")
 include("problemdefs.jl")
+include("lineparamopts.jl")
 include("lineparams.jl")
 include("benchmark.jl")
 

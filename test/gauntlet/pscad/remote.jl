@@ -22,7 +22,7 @@ function RemoteConfig(
 )
     verbosity === nothing || throw(ArgumentError(
         "RemoteConfig no longer owns verbosity; set it with " *
-        "options=(verbosity=(default=0, PSCAD=2),) in the case file",
+        "options=(reference=(verbosity=(default=0, PSCAD=2),),) in the case file",
     ))
     isempty(strip(host)) && throw(ArgumentError("PSCAD host cannot be empty"))
     isempty(strip(shared_root)) && throw(ArgumentError(
@@ -50,6 +50,59 @@ function RemoteConfig(
         String(pscad_version),
         transport,
         Int(timeout_seconds)
+    )
+end
+
+function computation_options(
+        ::Val{PSCADFormulation},
+        options::NamedTuple
+)::ComputationOptions
+    allowed = (:output_stem, :remote, :verbosity, :output_basis)
+    unknown = filter(key -> key ∉ allowed, keys(options))
+    isempty(unknown) || throw(ArgumentError(
+        "unknown PSCAD computation options: $(sort!(collect(unknown)))",
+    ))
+    haskey(options, :remote) || throw(ArgumentError(
+        "PSCAD computation options must define remote::RemoteConfig",
+    ))
+    options.remote isa RemoteConfig || throw(ArgumentError(
+        "PSCAD computation option remote must be a RemoteConfig",
+    ))
+    normalized = merge(
+        (
+            output_stem = "gauntlet",
+            verbosity = (default = 0,),
+            output_basis = :per_length
+        ),
+        options
+    )
+    normalized.output_stem isa AbstractString || throw(ArgumentError(
+        "PSCAD output_stem must be a string",
+    ))
+    output_stem = String(normalized.output_stem)
+    occursin(r"^[A-Za-z0-9][A-Za-z0-9_]{0,19}$", output_stem) ||
+        throw(ArgumentError(
+            "PSCAD output_stem must contain 1–20 ASCII letters, digits, or underscores",
+        ))
+    verbosity_values = normalized.verbosity
+    verbosity_values isa NamedTuple || throw(ArgumentError(
+        "verbosity must be a named tuple",
+    ))
+    haskey(verbosity_values, :default) || throw(ArgumentError(
+        "verbosity must define a default level",
+    ))
+    all(value -> value isa Integer && value in 0:2, values(verbosity_values)) ||
+        throw(ArgumentError("verbosity levels must be integers from 0 to 2"))
+    basis_value = normalized.output_basis
+    basis_value in (:per_length, :total) || throw(ArgumentError(
+        "output_basis must be :per_length or :total; got $(repr(basis_value))",
+    ))
+    levels = NamedTuple{keys(verbosity_values)}(Int.(values(verbosity_values)))
+    return (
+        output_stem,
+        remote = options.remote,
+        verbosity = levels,
+        output_basis = Val(basis_value)
     )
 end
 
@@ -228,6 +281,7 @@ function _supervisor_command(
         project_name::AbstractString,
         formulation::PSCADFormulation,
         frequencies_value::AbstractVector;
+        output_stem::AbstractString,
         verbosity::Integer = 0
 )
     _validate_frequencies(frequencies_value)
@@ -243,7 +297,7 @@ function _supervisor_command(
             "-Julia $(_ps_quote(config.julia_executable))",
             "-Python $(_ps_quote(config.python_executable))",
             "-ProjectName $(_ps_quote(project_name))",
-            "-OutputStem $(_ps_quote(formulation.options.output_stem))",
+            "-OutputStem $(_ps_quote(output_stem))",
             "-Formulation $(_ps_quote(label))",
             "-EarthField $(_ps_quote(string(pscad_field(earth))))",
             "-EarthValue $(_ps_quote(string(pscad_value(earth))))",
@@ -339,6 +393,7 @@ function run_remote_pscad(
         local_output::AbstractString,
         formulation::PSCADFormulation,
         frequencies_value::AbstractVector;
+        output_stem::AbstractString,
         verbosity::Integer = 0
 )
     verbosity in 0:2 || throw(ArgumentError("PSCAD verbosity must be 0, 1, or 2"))
@@ -361,6 +416,7 @@ function run_remote_pscad(
         _remote_project_name(local_project),
         formulation,
         frequencies_value;
+        output_stem,
         verbosity
     )
     @info "Executing PSCAD frequency scan" host=config.host variant formulation=_formulation_label(formulation) frequencies=length(frequencies_value) timeout_seconds=config.timeout_seconds
@@ -474,8 +530,8 @@ function compute(
         formulation::PSCADFormulation;
         options::NamedTuple = (;)
 )
-    execution_options = computation_options(options)
-    config = _load_config()
+    execution_options = computation_options(Val(PSCADFormulation), options)
+    config = execution_options.remote
     root = _pscad_root(problem)
     isdir(root) && rm(root; recursive = true)
     mkpath(root)
@@ -498,6 +554,7 @@ function compute(
         joinpath(root, "outputs"),
         formulation,
         problem.frequencies;
+        output_stem = execution_options.output_stem,
         verbosity = verbosity(execution_options, :PSCAD)
     )
     write(joinpath(root, "pscad-version.txt"), config.pscad_version)

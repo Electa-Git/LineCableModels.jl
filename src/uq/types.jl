@@ -226,21 +226,25 @@ Store ordered primitive results from a [`LinearError`](@ref) calculation.
 
 $(TYPEDFIELDS)
 """
-struct LinearErrorResult{T, F, S, D <: Dict{Symbol, NamedTuple}} <:
+struct LinearErrorResult{
+    T, F, S <: AbstractVector{<:NamedTuple}, D <: Dict{Symbol, NamedTuple}} <:
        AbstractUncertaintyResult{T}
     "Resolved higher-order formulation."
     formulation::F
     "Successful uncertainty-bearing primitive results."
     values::Vector{T}
-    "Source parameter space."
+    "Successful resolved coordinates, aligned with `values`."
     space::S
-    "Failures, retained data, replay data, and manifest entries."
+    "Contingent failure and replay metadata."
     details::D
 
     function LinearErrorResult(formulation::F, values::Vector{T}, space::S,
-            details::D) where {T, F, S, D <: Dict{Symbol, NamedTuple}}
+            details::D) where {
+            T, F, S <: AbstractVector{<:NamedTuple}, D <: Dict{Symbol, NamedTuple}}
         ParametricBuilder._primitive_result_type(T)
-        ParametricBuilder._validate_details(details)
+        length(space) == length(values) || throw(DimensionMismatch(
+            "resolved coordinates must contain one entry per primitive result",
+        ))
         return new{T, F, S, D}(formulation, values, space, details)
     end
 end
@@ -252,24 +256,28 @@ Store primitive mean representations and real-valued Monte Carlo summaries.
 
 $(TYPEDFIELDS)
 """
-struct MonteCarloResult{T, F, S, ST <: AbstractVector, D <: Dict{Symbol, NamedTuple}} <:
+struct MonteCarloResult{T, F, S <: AbstractVector{<:NamedTuple},
+    ST <: AbstractVector, D <: Dict{Symbol, NamedTuple}} <:
        AbstractUncertaintyResult{T}
     "Resolved higher-order formulation."
     formulation::F
     "Successful primitive mean representations."
     values::Vector{T}
-    "Source parameter space."
+    "Successful resolved coordinates, aligned with `values`."
     space::S
     "Per-observable sample summaries."
     stats::ST
-    "Failures, retained data, replay data, and manifest entries."
+    "Contingent failure, replay, and retained-sample metadata."
     details::D
 
     function MonteCarloResult(formulation::F, values::Vector{T}, space::S,
             stats::ST, details::D) where {
-            T, F, S, ST <: AbstractVector, D <: Dict{Symbol, NamedTuple}}
+            T, F, S <: AbstractVector{<:NamedTuple}, ST <: AbstractVector,
+            D <: Dict{Symbol, NamedTuple}}
         ParametricBuilder._primitive_result_type(T)
-        ParametricBuilder._validate_details(details)
+        length(space) == length(values) || throw(DimensionMismatch(
+            "resolved coordinates must contain one entry per primitive result",
+        ))
         length(stats) == length(values) || throw(DimensionMismatch(
             "Monte Carlo statistics must contain one entry per primitive result",
         ))
@@ -292,13 +300,10 @@ statistics(value::MonteCarloResult) = value.stats
 samples(value::MonteCarloResult) = value.details[:samples].values
 histograms(value::MonteCarloResult) = value.details[:histograms].values
 uncertain_value(value::LinearErrorResult) = value.values
-manifest(value::Union{LinearErrorResult, MonteCarloResult}) = value.details[:manifest].value
-
 function observables(value::LinearErrorResult)
     return (
         result = result(value),
-        details = value.details,
-        manifest = manifest(value)
+        details = value.details
     )
 end
 
@@ -308,7 +313,6 @@ function observables(value::MonteCarloResult)
         statistics = statistics(value),
         samples = samples(value),
         histograms = histograms(value),
-        details = value.details,
-        manifest = manifest(value)
+        details = value.details
     )
 end

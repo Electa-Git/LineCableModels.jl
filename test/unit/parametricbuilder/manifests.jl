@@ -1,4 +1,4 @@
-@testitem "ParametricBuilder / manifests / deterministic structural identity" tags=[:unit] setup=[
+@testitem "ParametricBuilder / details / contingent metadata records" tags=[:unit] setup=[
     EngineTestSupport,
     UseEngineSupport
 ] begin
@@ -37,25 +37,18 @@
     @test occursin("var\"#", first_tree.transform.function_type)
     @test first_tree.array.size == (1, 2)
     @test first_tree.summary.fields.mean == 2.0
-    @test PB._stable_bytes(first_tree) == PB._stable_bytes(second_tree)
 
-    manifest_a=PB.CalculationManifest(
-        (radius = 0.01,),
-        first_tree,
-        Formulation(),
-        (policy = :full,),
-        (verbosity = 0,)
-    )
-    manifest_b=PB.CalculationManifest(
-        (radius = 0.01,),
-        second_tree,
-        Formulation(),
-        (policy = :full,),
-        (verbosity = 0,)
-    )
-    @test manifest_a.hash == manifest_b.hash
-    @test length(manifest_a.hash) == 64
-    @test manifest_a.solver == string(typeof(Formulation()))
+    space=Gridspace{Float64}(identity, (Grid((1.0, 2.0)),), (:radius,))
+    problem=ParametricProblem(space, (verbosity = 0,))
+    policy=Combinatorial(Formulation())
+    binding_sets=[configuration.bindings for configuration in configurations(space)]
+    manifest=PB._manifest(policy.inner, problem.options, binding_sets)
+    @test keys(manifest) == (:backend, :options, :random, :coupling)
+    @test manifest.random === nothing
+    @test manifest.options == (verbosity = 0,)
+    @test manifest.coupling isa NamedTuple
+    @test length(manifest.coupling.entries) == length(space)
+    @test only(first(manifest.coupling.entries)).index == 1
 
     same_type=PB._append_result(Int[1], 2)
     @test same_type == [1, 2]
@@ -71,10 +64,10 @@
         (:radius,),
         ()
     )
-    failure=PB._configuration_failure(2, configuration, DomainError(-1.0))
-    @test failure.index == 2
-    @test failure.configuration == (radius = -1.0,)
-    @test occursin("DomainError", failure.exception_type)
+    failure=PB._configuration_failure(configuration, DomainError(-1.0))
+    @test keys(failure) == (:coordinate, :exception, :message)
+    @test failure.coordinate == (radius = -1.0,)
+    @test failure.exception isa DomainError
     @test occursin("-1.0", failure.message)
     @test all(PB._skippable_configuration_error,
         (ArgumentError("invalid"), AssertionError("invalid"),

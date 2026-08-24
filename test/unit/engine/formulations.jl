@@ -32,7 +32,8 @@
 end
 
 @testitem "Engine / external earth-impedance vocabulary" tags=[:unit] setup=[
-    UseEngineSupport
+    UseEngineSupport,
+    TestFixtures
 ] begin
     earth_impedance=LineCableModels.Engine.EarthImpedance
     formulations=(
@@ -40,23 +41,22 @@ end
         earth_impedance.Wedepohl()=>"Wedepohl",
         earth_impedance.Saad()=>"Saad",
         earth_impedance.Ametani()=>"Ametani",
-        earth_impedance.Lucca()=>"Lucca",
-        earth_impedance.DirectNumericalIntegration(:overhead)=>"Direct numerical integration (overhead)",
-        earth_impedance.DirectNumericalIntegration(:underground)=>"Direct numerical integration (underground)"
+        earth_impedance.Lucca()=>"Lucca"
     )
     for (formulation, label) in formulations
-        @test formulation isa LineCableModels.Engine.EarthImpedanceFormulation
+        @test supertype(typeof(formulation)) ===
+              LineCableModels.Engine.EarthImpedanceFormulation
         @test description(formulation) == label
-        error=try
-            formulation(:self)
-            nothing
-        catch caught
-            caught
-        end
-        @test error isa ErrorException
-        @test occursin("not implemented for the analytical backend", sprint(showerror, error))
     end
-    @test_throws ArgumentError earth_impedance.DirectNumericalIntegration(:mutual)
+    @test !isdefined(earth_impedance, :ReferenceEarthImpedance)
+    @test !isdefined(earth_impedance, :DirectNumericalIntegration)
+
+    problem=TestFixtures.line_parameters_problem()
+    formulation=Formulation(
+        :analytical;
+        earth_impedance = earth_impedance.Saad()
+    )
+    @test_throws MethodError compute(problem, formulation)
 end
 
 @testitem "Engine / insulation formulations / analytical limits across precision" tags=[:unit] setup=[

@@ -26,6 +26,8 @@
     @test isempty(methods(Grammar.preprocess))
     @test LineCableModels.FormulationOptions === Grammar.FormulationOptions === NamedTuple
     @test LineCableModels.ComputationOptions === Grammar.ComputationOptions === NamedTuple
+    @test LineCableModels.formulation_options === Grammar.formulation_options
+    @test LineCableModels.computation_options === Grammar.computation_options
     for name in (
         :Grid, :AbsoluteError, :DeterministicGrid, :RelativeGrid, :AbsoluteGrid,
         :AbstractGrid, :AbstractUncertainGrid, :UncertainValue,
@@ -34,10 +36,7 @@
         @test getproperty(LineCableModels, name) === getproperty(PB, name)
         @test parentmodule(getproperty(PB, name)) === PB
     end
-    for name in (
-        :Combinatorial, :ParametricProblem, :ParametricResult,
-        :CalculationManifest, :ConfigurationFailure
-    )
+    for name in (:Combinatorial, :ParametricProblem, :ParametricResult)
         @test getproperty(LineCableModels, name) === getproperty(PB, name)
         @test parentmodule(getproperty(PB, name)) === PB
     end
@@ -54,6 +53,12 @@
           getproperty(PB, Symbol("@relax"))
     @test !isdefined(LineCableModels, :Computation)
     @test !isdefined(LineCableModels, Symbol("compute!"))
+    @test !isdefined(LineCableModels, :CalculationManifest)
+    @test !isdefined(LineCableModels, :ConfigurationFailure)
+    @test !isdefined(LineCableModels, :manifest)
+    @test !isdefined(PB, :CalculationManifest)
+    @test !isdefined(PB, :ConfigurationFailure)
+    @test !isdefined(PB, :manifest)
     @test !isdefined(Grammar, :Gridspace)
     @test !isdefined(Grammar, :MonteCarlo)
     @test Engine.AbstractProblemDefinition === Grammar.AbstractProblemDefinition
@@ -115,7 +120,7 @@ end
     @test Formulation(:analytical) isa AnalyticalFormulation
     @test Formulation() isa AnalyticalFormulation
 
-    options=Engine.computation_options((
+    options=LineCableModels.computation_options(Val(AnalyticalFormulation), (
         verbosity = (default = 1, NLsolve = 0),
         output_basis = :total
     ))
@@ -123,13 +128,14 @@ end
     @test options.output_basis == Val(:total)
     @test Engine.verbosity(options, :NLsolve) == 0
     @test Engine.verbosity(options, :unlisted) == 1
-    @test Engine.computation_options(nothing).output_basis == Val(:per_length)
-    @test Engine.computation_options(Dict(:output_basis=>:total)).output_basis ==
-          Val(:total)
-    @test Engine.computation_options(pairs((output_basis = :total,))).output_basis ==
-          Val(:total)
-    @test_throws ArgumentError Engine.computation_options((unknown = true,))
-    @test_throws ArgumentError Engine.computation_options((output_basis = :unknown,))
+    @test_throws ArgumentError LineCableModels.computation_options(
+        Val(AnalyticalFormulation),
+        (unknown = true,)
+    )
+    @test_throws ArgumentError LineCableModels.computation_options(
+        Val(AnalyticalFormulation),
+        (output_basis = :unknown,)
+    )
     @test isempty(methods(Grammar.preprocess))
 end
 
@@ -249,14 +255,33 @@ end
     @test direct isa ParametricResult{<:CableConstants}
     @test length(direct) == 2
     @test all(value -> value.R isa Measurement, direct)
-    expected_detail_keys=Set((:failures, :samples, :histograms, :random, :manifest))
+    expected_detail_keys=Set((:failures, :manifest))
     @test direct.details isa Dict{Symbol, NamedTuple}
     @test Set(keys(direct.details)) == expected_detail_keys
+    @test length(direct.space) == length(direct)
+    @test all(coordinate -> coordinate isa NamedTuple, direct.space)
+    @test keys(direct.details[:manifest]) == (:backend, :options, :random, :coupling)
+    @test direct.details[:manifest].random === nothing
+    @test length(direct.details[:manifest].coupling.entries) == length(direct.space)
+    extended_details=copy(direct.details)
+    extended_details[:diagnostic]=(value = :retained,)
+    extended=ParametricResult(
+        direct.formulation,
+        direct.values,
+        direct.space,
+        extended_details
+    )
+    @test extended.details[:diagnostic] == (value = :retained,)
+    @test_throws DimensionMismatch ParametricResult(
+        direct.formulation,
+        direct.values,
+        NamedTuple[],
+        direct.details
+    )
     direct_observables=observables(direct)
-    @test keys(direct_observables) == (:result, :details, :manifest)
+    @test keys(direct_observables) == (:result, :details)
     @test direct_observables.result === result(direct)
     @test direct_observables.details === direct.details
-    @test direct_observables.manifest === manifest(direct)
 
     fixed_design=PB.CableBuilder(
         "fixed-compute-cable",
@@ -282,22 +307,22 @@ end
     monte_carlo=compute(ParametricProblem(space), policy)
     @test monte_carlo isa MonteCarloResult{<:CableConstants}
     @test monte_carlo.details isa Dict{Symbol, NamedTuple}
-    @test Set(keys(monte_carlo.details)) == expected_detail_keys
+    @test Set(keys(monte_carlo.details)) ==
+          Set((:failures, :samples, :histograms, :manifest))
     @test length(monte_carlo) == 2
-    @test monte_carlo.details[:random].trials == [12, 12]
+    @test length(monte_carlo.space) == length(monte_carlo)
+    @test monte_carlo.details[:manifest].random.trials == [12, 12]
     @test length(samples(monte_carlo)) == 2
     @test length(histograms(monte_carlo)) == 2
-    @test length(manifest(monte_carlo).hash) == 64
-    @test monte_carlo.details[:random].root_seed == UInt64(0x1234)
+    @test monte_carlo.details[:manifest].random.root_seed == UInt64(0x1234)
     monte_carlo_observables=observables(monte_carlo)
     @test keys(monte_carlo_observables) ==
-          (:result, :statistics, :samples, :histograms, :details, :manifest)
+          (:result, :statistics, :samples, :histograms, :details)
     @test monte_carlo_observables.result === result(monte_carlo)
     @test monte_carlo_observables.statistics === statistics(monte_carlo)
     @test monte_carlo_observables.samples === samples(monte_carlo)
     @test monte_carlo_observables.histograms === histograms(monte_carlo)
     @test monte_carlo_observables.details === monte_carlo.details
-    @test monte_carlo_observables.manifest === manifest(monte_carlo)
 
     resistance_pdf=first(histograms(monte_carlo)).R
     @test cdf(resistance_pdf, maximum(resistance_pdf)) == 1.0
@@ -306,7 +331,7 @@ end
     @test first(resistance_pdf.edges) <= pdf_draw <= last(resistance_pdf.edges)
 
     repeated=compute(ParametricProblem(space), policy)
-    @test manifest(repeated).hash == manifest(monte_carlo).hash
+    @test repeated.details[:manifest] == monte_carlo.details[:manifest]
     @test result(repeated) == result(monte_carlo)
 
     distribution_problem=CableConstantsProblem(PB.CableBuilder(
@@ -326,14 +351,14 @@ end
             return_samples = true, return_histograms = true)
     )
     @test distribution_run isa MonteCarloResult{<:CableConstants}
-    @test distribution_run.details[:random].root_seed == UInt64(7)
+    @test distribution_run.details[:manifest].random.root_seed == UInt64(7)
     constants_frame=DataFrame(distribution_run)
     @test constants_frame.quantity == ["R", "L", "C"]
     @test constants_frame.trials == fill(4, 3)
     @test constants_frame.cdf_tol == fill(0.02, 3)
     @test !(:ci_half in propertynames(constants_frame))
-    @test DataFrames.metadata(constants_frame, "monte_carlo").manifest_hash ==
-          manifest(distribution_run).hash
+    @test DataFrames.metadata(constants_frame, "monte_carlo").manifest ==
+          distribution_run.details[:manifest]
     descriptor=only(Grid(1.0, AbsoluteError(0.1)))
     @test_throws ArgumentError rand(
         MersenneTwister(9),
@@ -350,17 +375,17 @@ end
             seed = 8
         )
     )
-    @test only(automatic_run.details[:random].trials) ==
+    @test only(automatic_run.details[:manifest].random.trials) ==
           UQ._dkw_trials(3, 0.5, 0.9)
 
     propagated=compute(ParametricProblem(space), LinearError(formulation))
     @test propagated isa LinearErrorResult{<:CableConstants}
     @test propagated.details isa Dict{Symbol, NamedTuple}
     @test Set(keys(propagated.details)) == expected_detail_keys
+    @test length(propagated.space) == length(propagated)
     propagated_observables=observables(propagated)
-    @test keys(propagated_observables) == (:result, :details, :manifest)
+    @test keys(propagated_observables) == (:result, :details)
     @test propagated_observables.details === propagated.details
-    @test propagated_observables.manifest === manifest(propagated)
     @test Measurements.cov(first(propagated).R, first(propagated).L) != 0
     @test !applicable(Measurements.measurement, monte_carlo)
 
@@ -445,7 +470,7 @@ end
         )
     )
     @test monte_carlo isa MonteCarloResult{<:LineParameters}
-    @test only(monte_carlo.details[:random].trials) == 3
+    @test only(monte_carlo.details[:manifest].random.trials) == 3
     @test only(statistics(monte_carlo)) isa RLCG
     @test only(samples(monte_carlo)) isa RLCG
     @test only(histograms(monte_carlo)) isa RLCG
@@ -481,9 +506,23 @@ end
     )
     @test skipped isa ParametricResult
     @test isempty(skipped)
-    failures=skipped.details[:failures].values
+    failures=skipped.details[:failures].entries
     @test length(failures) == 2
-    @test all(failure -> failure.exception_type == "DomainError", failures)
+    @test all(failure -> failure.exception isa DomainError, failures)
+    @test isempty(skipped.space)
+
+    partial_problem=CableConstantsProblem(
+        design;
+        separation = Grid((nothing, -1.0))
+    )
+    partial=compute(
+        ParametricProblem(partial_problem),
+        Combinatorial(Formulation(); invalid = :skip)
+    )
+    @test length(partial) == length(partial.space) == 1
+    partial_failure=only(partial.details[:failures].entries)
+    @test keys(partial_failure) == (:coordinate, :exception, :message)
+    @test partial_failure.coordinate.separation == -1.0
 end
 
 @testitem "DataModel / DataFrame / eager base-state presentation" tags=[:unit] setup=[

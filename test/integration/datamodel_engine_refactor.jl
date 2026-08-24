@@ -209,7 +209,7 @@ end
     using Logging
     import NLsolve
 
-    options=LineCableModels.Engine.computation_options((verbosity = (
+    options=LineCableModels.computation_options(Val(AnalyticalFormulation), (verbosity = (
         default = 0, LineCableModels = 2, NLsolve = 1, QuadGK = 0
     ),))
     @test verbosity(options, :LineCableModels) == 2
@@ -229,10 +229,10 @@ end
     caller=current_logger()
     compute(TestFixtures.line_parameters_problem(), Formulation())
     @test current_logger() === caller
-    @test_throws ArgumentError LineCableModels.Engine.computation_options((
+    @test_throws ArgumentError LineCableModels.computation_options(Val(AnalyticalFormulation), (
         verbosity = (LineCableModels = 1,),
     ))
-    @test_throws ArgumentError LineCableModels.Engine.computation_options((
+    @test_throws ArgumentError LineCableModels.computation_options(Val(AnalyticalFormulation), (
         verbosity = (default = 3,),
     ))
 end

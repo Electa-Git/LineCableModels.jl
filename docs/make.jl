@@ -140,6 +140,7 @@ makedocs(;
         "API reference" => "reference.md",
         "Development" => Any[
             "Conventions" => "conventions.md",
+            "Computational engine" => "engine.md",
             "PlotBuilder guide" => "plotbuilder.md",
             "Gauntlet benchmarks" => "gauntlet.md",
             "Data entry validation" => "validation.md",

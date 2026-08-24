@@ -38,63 +38,11 @@ end
 
 ParametricProblem(space) = ParametricProblem(space, (;))
 
-"""
-$(TYPEDEF)
-
-Record one explicitly skipped Gridspace configuration.
-
-$(TYPEDFIELDS)
-"""
-struct ConfigurationFailure{C}
-    "One-based configuration index."
-    index::Int
-    "Stable materialization coordinates."
-    configuration::C
-    "Concrete exception type name."
-    exception_type::String
-    "Rendered exception message."
-    message::String
-end
-
-"""
-$(TYPEDEF)
-
-Record the stable inputs and SHA-256 identity of one composite calculation.
-
-$(TYPEDFIELDS)
-"""
-struct CalculationManifest{R, P, F, S, E, O}
-    "Successfully resolved parameter coordinates."
-    resolved_parameterization::R
-    "Original parameter-space assumptions."
-    problem_assumptions::P
-    "Resolved scientific formulation record."
-    formulation::F
-    "Primitive solver identity."
-    solver::S
-    "Higher-order formulation record."
-    execution_policy::E
-    "Primitive computation options."
-    calculation_options::O
-    "Stable SHA-256 digest."
-    hash::String
-end
-
 function _primitive_result_type(::Type{T}) where {T}
     T <: Union{AbstractParametricResult, AbstractUncertaintyResult} && throw(ArgumentError(
         "composite results cannot contain another composite result as their primitive type",
     ))
     return T
-end
-
-const _DETAIL_KEYS = Set((:failures, :samples, :histograms, :random, :manifest))
-
-function _validate_details(details::Dict{Symbol, NamedTuple})
-    Set(keys(details)) == _DETAIL_KEYS || throw(ArgumentError(
-        "result details must define exactly :failures, :samples, :histograms, " *
-        ":random, and :manifest",
-    ))
-    return details
 end
 
 """
@@ -104,21 +52,25 @@ Store ordered primitive results from a [`Combinatorial`](@ref) calculation.
 
 $(TYPEDFIELDS)
 """
-struct ParametricResult{T, F, S, D <: Dict{Symbol, NamedTuple}} <:
+struct ParametricResult{
+    T, F, S <: AbstractVector{<:NamedTuple}, D <: Dict{Symbol, NamedTuple}} <:
        AbstractParametricResult{T}
     "Resolved higher-order formulation."
     formulation::F
     "Successful primitive results in Gridspace order."
     values::Vector{T}
-    "Source parameter space."
+    "Successful resolved coordinates, aligned with `values`."
     space::S
-    "Failures, retained data, replay data, and manifest entries."
+    "Contingent failure and replay metadata."
     details::D
 
     function ParametricResult(formulation::F, values::Vector{T}, space::S,
-            details::D) where {T, F, S, D <: Dict{Symbol, NamedTuple}}
+            details::D) where {
+            T, F, S <: AbstractVector{<:NamedTuple}, D <: Dict{Symbol, NamedTuple}}
         _primitive_result_type(T)
-        _validate_details(details)
+        length(space) == length(values) || throw(DimensionMismatch(
+            "resolved coordinates must contain one entry per primitive result",
+        ))
         return new{T, F, S, D}(formulation, values, space, details)
     end
 end
@@ -132,13 +84,9 @@ Base.IndexStyle(::Type{<:ParametricResult}) = IndexLinear()
 "Return the ordered primitive results of a composite calculation."
 result(value::ParametricResult) = value.values
 
-"Return the deterministic calculation manifest stored by a composite result."
-manifest(value::ParametricResult) = value.details[:manifest].value
-
 function observables(value::ParametricResult)
     return (
         result = result(value),
-        details = value.details,
-        manifest = manifest(value)
+        details = value.details
     )
 end

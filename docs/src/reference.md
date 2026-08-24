@@ -46,11 +46,12 @@ propagation, and `MonteCarlo` samples realizations within each selected outer
 configuration. Every cardinality, including one, returns the corresponding
 composite result family.
 
-`Formulation` owns physics and numerical-method choices. The separate
-computation-options named tuple is shared unchanged by ordinary,
-combinatorial, and uncertainty calculations. A materialized line system can
-request total rather than per-length Z/Y matrices without altering its
-formulation:
+`Formulation` owns physics and numerical-method choices. A computation owner
+validates its execution tuple through [`computation_options`](@ref); an
+orchestrator routes separate tuples when it invokes different backends. See
+[Computational engine](@ref) for the ownership and extension contract. A
+materialized line system can request total rather than per-length Z/Y matrices
+without altering its formulation:
 
 ```julia
 compute(problem, formulation; options=(output_basis=:total,))
@@ -86,14 +87,15 @@ propagation returns `LinearErrorResult{T}`, and conditional sampling returns
 `MonteCarloResult{T}`. In every family, `T` is the primitive `CableConstants`
 or `LineParameters` result rather than another composite result.
 
-Use `result`, `statistics`, `samples`, `histograms`, `uncertain_value`, and
-`manifest` to inspect results. Every composite result retains a
-`Dict{Symbol,NamedTuple}` named `details` with exactly the keys `:failures`,
-`:samples`, `:histograms`, `:random`, and `:manifest`. A
-[`CalculationManifest`](@ref), owned by `ParametricBuilder`, contains a
-deterministic SHA-256 identity over the resolved parameterization, original
-problem assumptions, formulation, solver identity, execution policy, and
-calculation options.
+Use `result`, `statistics`, `samples`, `histograms`, and `uncertain_value` to
+inspect results. The `space` field contains the successful resolved coordinates
+in the same order as the primitive values. Contingent information remains in
+`details::Dict{Symbol,NamedTuple}` rather than entering the result grammar.
+`details[:failures].entries` contains records with `coordinate`, `exception`,
+and `message` fields. `details[:manifest]` is a named tuple with `backend`,
+`options`, `random`, and `coupling` fields. Monte Carlo results additionally
+retain `:samples` and `:histograms` entries when requested; random replay data
+is nested under `details[:manifest].random`.
 
 `primitives` and `preprocess` are reserved action generics for explicitly
 selected future calculation orderings. LineCableModels intentionally defines

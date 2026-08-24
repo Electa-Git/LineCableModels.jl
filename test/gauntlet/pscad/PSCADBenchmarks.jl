@@ -14,8 +14,10 @@ import LineCableModels.Engine: AbstractAdmittanceFormulation,
                                Formulation,
                                InsulationAdmittanceFormulation,
                                LineParametersProblem,
-                               computation_options, verbosity
-import LineCableModels.Grammar: AbstractFormulation, compute
+                               verbosity
+import LineCableModels.Grammar: AbstractFormulation, ComputationOptions,
+                                FormulationOptions, computation_options, compute,
+                                formulation_options
 import ..GauntletSupport: GAUNTLET_ROOT, WORK_ROOT,
                           benchmark_metadata, formulation_record
 

@@ -12,7 +12,8 @@ function _mc_entry(result::MonteCarloResult)
         "DataFrame requires one Monte Carlo configuration; select a configuration explicitly",
     ))
     observed = observables(result)
-    random = observed.details[:random]
+    manifest = observed.details[:manifest]
+    random = manifest.random
     return (
         representation = only(observed.result),
         statistics = only(observed.statistics),
@@ -23,7 +24,7 @@ function _mc_entry(result::MonteCarloResult)
         cdf_tol = random.cdf_tol,
         distribution = random.distribution,
         seed = only(random.configuration_seeds),
-        manifest = observed.manifest
+        manifest
     )
 end
 
@@ -64,7 +65,7 @@ function _mc_summary_frame(
             cdf_tol = entry.cdf_tol,
             distribution = string(entry.distribution),
             seed = entry.seed,
-            manifest_hash = entry.manifest.hash
+            manifest = entry.manifest
         );
         style = :note
     )

@@ -192,7 +192,7 @@ function _load_snapshot_path(case::GauntletCase, path::AbstractString)
         "not $(case.backend)",
     ))
     snapshot["case_sha256"] == _reference_source_digest(case) || throw(ArgumentError(
-        "Gauntlet snapshot $path does not match its immutable v1 source archive.",
+        "Gauntlet snapshot $path does not match its bound v1 source archive.",
     ))
     _semantic_formulation_pair(snapshot["formulation"]) ==
     _semantic_formulation_pair(formulation_record(case)) || throw(ArgumentError(
@@ -268,20 +268,27 @@ function run_snapshot(
         case::GauntletCase;
         path::Union{Nothing, AbstractString} = nothing,
         artifacts_toml::AbstractString = ARTIFACTS_TOML,
-        options::NamedTuple = (;),
-        benchmark_samples::Int = 10,
-        benchmark_seconds::Real = 10
+        options::NamedTuple = (;)
 )
+    run = computation_options(Val(GauntletCase), options)
+    candidate_options = merge(
+        run.candidate,
+        (output_basis = run.output_basis,)
+    )
     loaded = load_snapshot(case; path, artifacts_toml)
-    candidate = compute(case.problem, case.formulation; options)
+    candidate = compute(
+        case.problem,
+        case.formulation;
+        options = candidate_options
+    )
     validate_structure(case, candidate)
     reference_comparison = compare(loaded.reference, candidate)
     regression_comparison = compare(loaded.accepted, candidate)
     timing = benchmark_local(
         case;
-        options,
-        samples = benchmark_samples,
-        seconds = benchmark_seconds
+        options = candidate_options,
+        samples = run.benchmark.samples,
+        seconds = run.benchmark.seconds
     )
     performance = performance_comparison(
         loaded.metadata["julia_benchmark"],

@@ -58,8 +58,7 @@
     )
     reference_formulation=Formulation(
         :pscad;
-        earth_impedance = EarthImpedance.Wedepohl(),
-        options = PSCADOptions(output_stem = "solid_1000mm2")
+        earth_impedance = EarthImpedance.Wedepohl()
     )
     formulation=Formulation(
         earth_impedance = EarthImpedance.Pollaczek(),
@@ -105,9 +104,12 @@
         display(DataFrame(problem.earth_props))
     end
 
-    inferred=@inferred compute!(problem, formulation)
+    inferred=@inferred compute(problem, formulation)
     @test size(Z(inferred)) == (1, 1, 101)
-    execution_options=ComputeOptions(verbosity = (default = 0, PSCAD = 2))
+    execution_options=(reference = (
+        output_stem = "solid_1000mm2",
+        verbosity = (default = 0, PSCAD = 2)
+    ),)
     outcome=run_case(case; options = execution_options)
     @test outcome.reference isa LineParameters
     @test outcome.candidate isa LineParameters

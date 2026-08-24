@@ -67,8 +67,8 @@ function _rlcg_samples(draws::Vector{<:Engine.LineParameters})
         observed = observables(value)
         size(observed.series_impedance) == size(first_observed.series_impedance) ||
             throw(DimensionMismatch(
-            "Monte Carlo realizations produced incompatible impedance dimensions",
-        ))
+                "Monte Carlo realizations produced incompatible impedance dimensions",
+            ))
         observed.frequency == first_observed.frequency || throw(DimensionMismatch(
             "Monte Carlo realizations produced incompatible frequency axes",
         ))
@@ -144,7 +144,8 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
     sample_values = Any[]
     histogram_values = Any[]
     resolved = NamedTuple[]
-    failures = ConfigurationFailure[]
+    resolved_bindings = Tuple[]
+    failures = NamedTuple[]
     seeds = UInt64[]
     trial_counts = Int[]
     root_seed = formulation.seed === nothing ? rand(Random.RandomDevice(), UInt64) :
@@ -166,18 +167,17 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
             push!(seeds, aggregate.seed)
             push!(trial_counts, aggregate.trials)
             push!(resolved, parameterization)
+            push!(resolved_bindings, configuration.bindings)
         catch exception
             exception isa InterruptException && rethrow()
             (formulation.invalid === :error ||
              !ParametricBuilder._skippable_configuration_error(exception)) && rethrow()
             push!(failures, ParametricBuilder._configuration_failure(
-                index, configuration, exception))
+                configuration, exception))
         end
     end
     typed_values = values === nothing ? AbstractProblemResult[] : values
     typed_stats = stats_values === nothing ? Any[] : stats_values
-    manifest_value = ParametricBuilder._manifest(
-        problem, formulation.inner, resolved, formulation, problem.options)
     random_value = (
         root_seed = root_seed,
         configuration_seeds = seeds,
@@ -186,17 +186,24 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
         cdf_tol = formulation.cdf_tol,
         distribution = formulation.distribution
     )
+    manifest_value = ParametricBuilder._manifest(
+        formulation.inner,
+        problem.options,
+        resolved_bindings;
+        random = random_value
+    )
+    details = ParametricBuilder._details(; failures, manifest = manifest_value)
+    details[:samples] = (
+        values = formulation.return_samples ? sample_values : nothing,
+    )
+    details[:histograms] = (
+        values = formulation.return_histograms ? histogram_values : nothing,
+    )
     return MonteCarloResult(
         formulation,
         typed_values,
-        problem.space,
+        resolved,
         typed_stats,
-        ParametricBuilder._details(
-            ; failures,
-            manifest_value,
-            samples_value = formulation.return_samples ? sample_values : nothing,
-            histograms_value = formulation.return_histograms ? histogram_values : nothing,
-            random_value
-        )
+        details
     )
 end

@@ -22,34 +22,6 @@ function Engine.CableConstantsProblem(
     )
 end
 
-function CalculationManifest(
-        resolved_parameterization,
-        problem_assumptions,
-        formulation,
-        execution_policy,
-        calculation_options
-)
-    solver = string(typeof(formulation))
-    payload = (
-        resolved_parameterization = resolved_parameterization,
-        problem_assumptions = problem_assumptions,
-        formulation = _manifest_tree(formulation),
-        solver,
-        execution_policy = _manifest_tree(execution_policy),
-        calculation_options = _manifest_tree(calculation_options)
-    )
-    digest = bytes2hex(sha256(_stable_bytes(payload)))
-    return CalculationManifest(
-        payload.resolved_parameterization,
-        payload.problem_assumptions,
-        payload.formulation,
-        payload.solver,
-        payload.execution_policy,
-        payload.calculation_options,
-        digest
-    )
-end
-
 mutable struct _ManifestState
     automatic_keys::IdDict{Any, Int}
 end
@@ -75,11 +47,11 @@ function _manifest_tree(value, state::_ManifestState)
     elseif value isa AbstractDict
         entries = [(_manifest_tree(key, state), _manifest_tree(item, state))
                    for (key, item) in pairs(value)]
-        sort!(entries; by = entry -> String(_stable_bytes(first(entry))))
+        sort!(entries; by = entry -> repr(first(entry)))
         return (type = string(typeof(value)), entries = tuple(entries...))
     elseif value isa AbstractSet
         entries = [_manifest_tree(item, state) for item in value]
-        sort!(entries; by = entry -> String(_stable_bytes(entry)))
+        sort!(entries; by = repr)
         return (type = string(typeof(value)), entries = tuple(entries...))
     elseif value isa Tuple
         return map(item -> _manifest_tree(item, state), value)
@@ -101,57 +73,11 @@ end
 
 _manifest_tree(value) = _manifest_tree(value, _ManifestState())
 
-function _stable_bytes(value)
-    io = IOBuffer()
-    _write_stable(io, value)
-    return take!(io)
-end
-
-function _write_stable(io::IO, value)
-    if value isa NamedTuple
-        print(io, "named{")
-        for key in keys(value)
-            print(io, repr(key), '=')
-            _write_stable(io, getproperty(value, key))
-            print(io, ';')
-        end
-        print(io, '}')
-    elseif value isa Tuple
-        print(io, "tuple[")
-        for item in value
-            _write_stable(io, item)
-            print(io, ';')
-        end
-        print(io, ']')
-    elseif value isa AbstractArray
-        print(io, "array", repr(size(value)), '[')
-        for item in value
-            _write_stable(io, item)
-            print(io, ';')
-        end
-        print(io, ']')
-    elseif value isa AbstractFloat
-        print(io, string(typeof(value)), ':', bitstring(value))
-    elseif value isa Complex
-        print(io, "complex(")
-        _write_stable(io, real(value))
-        print(io, ',')
-        _write_stable(io, imag(value))
-        print(io, ')')
-    elseif value isa Number
-        print(io, string(typeof(value)), ':', repr(value))
-    else
-        print(io, string(typeof(value)), ':', repr(value))
-    end
-    return io
-end
-
-function _configuration_failure(index, configuration, exception)
-    return ConfigurationFailure(
-        index,
-        configuration_manifest(configuration),
-        string(typeof(exception)),
-        sprint(showerror, exception)
+function _configuration_failure(configuration, exception)
+    return (
+        coordinate = configuration_manifest(configuration),
+        exception,
+        message = sprint(showerror, exception)
     )
 end
 
@@ -175,32 +101,42 @@ function _append_result(values::Vector{T}, value) where {T}
     return widened
 end
 
-function _details(; failures, manifest_value, samples_value = nothing,
-        histograms_value = nothing, random_value = nothing)
+function _details(; failures, manifest)
     return Dict{Symbol, NamedTuple}(
-        :failures => (values = failures,),
-        :samples => (values = samples_value,),
-        :histograms => (values = histograms_value,),
-        :random => random_value === nothing ? (value = nothing,) : random_value,
-        :manifest => (value = manifest_value,)
+        :failures => (entries = failures,),
+        :manifest => manifest
     )
 end
 
-function _manifest(problem, formulation, resolved, policy, options)
-    return CalculationManifest(
-        tuple(resolved...),
-        _manifest_tree(problem.space),
-        formulation,
-        policy,
-        options
+function _coupling_manifest(binding_sets)
+    state = _ManifestState()
+    entries = map(binding_sets) do bindings
+        map(bindings) do binding
+            (
+                key = _manifest_tree(binding.key, state),
+                index = binding.index,
+                cardinality = binding.cardinality
+            )
+        end
+    end
+    return (entries = entries,)
+end
+
+function _manifest(formulation, options, binding_sets; random = nothing)
+    return (
+        backend = _manifest_tree(formulation),
+        options = _manifest_tree(options),
+        random,
+        coupling = _coupling_manifest(binding_sets)
     )
 end
 
 function _traverse(problem::ParametricProblem, formulation, result_type)
     values = nothing
     resolved = NamedTuple[]
-    failures = ConfigurationFailure[]
-    for (index, configuration) in enumerate(configurations(problem.space))
+    resolved_bindings = Tuple[]
+    failures = NamedTuple[]
+    for configuration in configurations(problem.space)
         parameterization = configuration_manifest(configuration)
         try
             materialized = materialize(configuration)
@@ -209,21 +145,21 @@ function _traverse(problem::ParametricProblem, formulation, result_type)
                 compute(materialized, formulation.inner; options = problem.options)
             )
             push!(resolved, parameterization)
+            push!(resolved_bindings, configuration.bindings)
         catch exception
             exception isa InterruptException && rethrow()
             (formulation.invalid === :error ||
              !_skippable_configuration_error(exception)) && rethrow()
-            push!(failures, _configuration_failure(index, configuration, exception))
+            push!(failures, _configuration_failure(configuration, exception))
         end
     end
     typed_values = values === nothing ? AbstractProblemResult[] : values
-    manifest_value = _manifest(
-        problem, formulation.inner, resolved, formulation, problem.options)
+    manifest_value = _manifest(formulation.inner, problem.options, resolved_bindings)
     return result_type(
         formulation,
         typed_values,
-        problem.space,
-        _details(; failures, manifest_value)
+        resolved,
+        _details(; failures, manifest = manifest_value)
     )
 end
 

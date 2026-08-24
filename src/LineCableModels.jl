@@ -7,6 +7,7 @@ export add!, validate, description, maxfill, set_backend!
 export AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult
 export AbstractParametricResult, AbstractUncertaintyResult
 export FormulationOptions, ComputationOptions
+export formulation_options, computation_options
 export compute, observables, primitives, preprocess
 export basis, domain, frequencies, nconductors, nfrequencies, ncables, nphases
 export Z, Y, R, X, L, G, B, C
@@ -21,8 +22,8 @@ export has_uncertainty, configuration_manifest, nominal, standard_uncertainty
 export @gridspace, @relax
 export Combinatorial, LinearError, MonteCarlo, ParametricProblem
 export ParametricResult, LinearErrorResult, MonteCarloResult
-export CalculationManifest, ConfigurationFailure, SampleSummary, HistogramDensity, RLCG
-export result, statistics, samples, histograms, uncertain_value, manifest
+export SampleSummary, HistogramDensity, RLCG
+export result, statistics, samples, histograms, uncertain_value
 export Material, MaterialsLibrary, Conductor, Insulator, CableBuilder
 export at, trifoil, hflat, vflat, Earth, SystemBuilder
 export make_stranded, make_screened, WireEstimate
@@ -52,6 +53,7 @@ using .Grammar:
                 AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult,
                 AbstractParametricResult, AbstractUncertaintyResult,
                 FormulationOptions, ComputationOptions,
+                formulation_options, computation_options,
                 compute, observables, primitives, preprocess,
                 nominal, standard_uncertainty
 
@@ -97,7 +99,7 @@ using .ParametricBuilder:
                           materialize, has_uncertainty, configuration_manifest,
                           @gridspace, @relax,
                           Combinatorial, ParametricProblem, ParametricResult,
-                          CalculationManifest, ConfigurationFailure, result, manifest,
+                          result,
                           Conductor, Insulator, CableBuilder,
                           at, trifoil, hflat, vflat, Earth, SystemBuilder,
                           WireEstimate, make_stranded, make_screened

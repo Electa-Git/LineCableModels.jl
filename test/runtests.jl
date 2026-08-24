@@ -2,6 +2,7 @@ using TestItemRunner
 
 const DEFAULT_EXCLUDED_TAGS = Set((
     :quality, :visual, :core_only, :gauntlet, :gauntlet_toolkit))
+const TEST_ROOT_PREFIX = abspath(@__DIR__) * Base.Filesystem.path_separator
 
 function matches_selector(testitem, selector::AbstractString)
     if startswith(selector, "tag:")
@@ -14,6 +15,7 @@ function matches_selector(testitem, selector::AbstractString)
 end
 
 function selected(testitem)
+    startswith(abspath(testitem.filename), TEST_ROOT_PREFIX) || return false
     if isempty(ARGS)
         return isempty(intersect(DEFAULT_EXCLUDED_TAGS, Set(testitem.tags)))
     end

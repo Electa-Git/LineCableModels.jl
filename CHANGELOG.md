@@ -27,8 +27,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Replaced the prototype parameter and uncertainty paths with typed `Grid` and
   inferred `Gridspace` construction from the public declarative builders.
 - Converged calculation ownership around `Grammar` action generics,
-  `ParametricBuilder` deterministic traversal and manifests, `UQ` uncertainty
-  propagation, and end-to-end analytical execution in `Engine`.
+  `ParametricBuilder` deterministic traversal and contingent metadata, `UQ`
+  uncertainty propagation, and end-to-end analytical execution in `Engine`.
 - Converged PlotBuilder on definition-driven recipes and one fixed sequence:
   entitle, parse, resolve, observe, axes, series, views, pages, layout,
   decorate, and finish.

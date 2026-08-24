@@ -15,6 +15,24 @@ line-data model.
 struct NativeInsulationAdmittance <: InsulationAdmittanceFormulation end
 
 """
+    DirectNumericalIntegration(placement)
+
+Select PSCAD's direct numerical integration mode for an `:overhead` or
+`:underground` line model.
+
+This selector is local to the PSCAD backend because PSCAD represents the
+numerical solver choice as an earth-formulation setting.
+"""
+struct DirectNumericalIntegration{Placement} <: EarthImpedanceFormulation
+    function DirectNumericalIntegration(placement::Symbol)
+        placement in (:overhead, :underground) || throw(ArgumentError(
+            "PSCAD direct numerical integration placement must be :overhead or :underground",
+        ))
+        return new{placement}()
+    end
+end
+
+"""
     PSCADFormulation
 
 Store the physical methods selected for a PSCAD line-constants calculation.
@@ -32,24 +50,17 @@ function Base.getproperty(formulation::PSCADFormulation, name::Symbol)
     return getfield(formulation, name)
 end
 
-function _pscad_options(options)
-    options isa NamedTuple ||
-        throw(ArgumentError("PSCAD formulation options must be a named tuple"))
-    unknown = setdiff(Set(keys(options)), Set((:output_stem,)))
-    isempty(unknown) || throw(ArgumentError(
-        "unknown PSCAD formulation options: $(sort!(collect(unknown)))",
-    ))
-    stem = String(get(options, :output_stem, "gauntlet"))
-    occursin(r"^[A-Za-z0-9][A-Za-z0-9_]{0,19}$", stem) || throw(ArgumentError(
-        "PSCAD output_stem must contain 1–20 ASCII letters, digits, or underscores",
-    ))
-    return (output_stem = stem,)
+function formulation_options(
+        ::Val{PSCADFormulation},
+        options::NamedTuple
+)::FormulationOptions
+    isempty(options) || throw(ArgumentError("PSCAD has no formulation options"))
+    return (;)
 end
 
 function Formulation(
         ::Val{:pscad};
-        earth_impedance::EarthImpedance.ReferenceEarthImpedance =
-        EarthImpedance.Wedepohl(),
+        earth_impedance::EarthImpedanceFormulation = EarthImpedance.Wedepohl(),
         earth_admittance::NativeEarthAdmittance = NativeEarthAdmittance(),
         insulation_admittance::NativeInsulationAdmittance =
         NativeInsulationAdmittance(),
@@ -59,20 +70,26 @@ function Formulation(
     return PSCADFormulation(
         Val(:pscad),
         methods,
-        _pscad_options(options)
+        formulation_options(Val(PSCADFormulation), options)
     )
 end
 
 description(::NativeEarthAdmittance) = "PSCAD native earth admittance"
 description(::NativeInsulationAdmittance) = "PSCAD native insulation admittance"
+function description(::DirectNumericalIntegration{:overhead})
+    "PSCAD direct numerical integration (overhead)"
+end
+function description(::DirectNumericalIntegration{:underground})
+    "PSCAD direct numerical integration (underground)"
+end
 
 pscad_field(::EarthImpedance.Deri) = :EarthForm2
 pscad_value(::EarthImpedance.Deri) = 0
 pscad_readback(::EarthImpedance.Deri) = "DERISEMLYEN"
 
-pscad_field(::EarthImpedance.DirectNumericalIntegration{:overhead}) = :EarthForm2
-pscad_value(::EarthImpedance.DirectNumericalIntegration{:overhead}) = 2
-function pscad_readback(::EarthImpedance.DirectNumericalIntegration{:overhead})
+pscad_field(::DirectNumericalIntegration{:overhead}) = :EarthForm2
+pscad_value(::DirectNumericalIntegration{:overhead}) = 2
+function pscad_readback(::DirectNumericalIntegration{:overhead})
     "DIRECT_NUMERICAL_INTEGRATION"
 end
 
@@ -80,9 +97,9 @@ pscad_field(::EarthImpedance.Wedepohl) = :EarthForm
 pscad_value(::EarthImpedance.Wedepohl) = 0
 pscad_readback(::EarthImpedance.Wedepohl) = "WEDEPOHL"
 
-pscad_field(::EarthImpedance.DirectNumericalIntegration{:underground}) = :EarthForm
-pscad_value(::EarthImpedance.DirectNumericalIntegration{:underground}) = 2
-function pscad_readback(::EarthImpedance.DirectNumericalIntegration{:underground})
+pscad_field(::DirectNumericalIntegration{:underground}) = :EarthForm
+pscad_value(::DirectNumericalIntegration{:underground}) = 2
+function pscad_readback(::DirectNumericalIntegration{:underground})
     "DIRECT_NUMERICAL_INTEGRATION"
 end
 
@@ -131,8 +148,6 @@ function formulation_record(formulation::PSCADFormulation)
             ),
             description = description(insulation_admittance)
         ),
-        options = (
-            output_stem = formulation.options.output_stem,
-        )
+        options = formulation.options
     )
 end
