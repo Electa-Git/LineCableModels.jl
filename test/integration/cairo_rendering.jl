@@ -573,7 +573,7 @@
         @test any(!series.visible for view in current_compact_page.views
         for series in view.series)
         exported_compact=only(ui_components.build(
-            LineCableModels.PlotBuilder.RenderSpec(
+            LineCableModels.PlotBuilder.PlotRecipe(
                 compact_cable_plot.render.spec,
                 [current_compact_page]
             );
@@ -706,7 +706,7 @@
             ),
             legend = LineCableModels.PlotBuilder.LegendSpec(enabled = false)
         )
-        primitive_render=LineCableModels.PlotBuilder.RenderSpec(
+        primitive_render=LineCableModels.PlotBuilder.PlotRecipe(
             LineCableModels.DataModel.MaterialScalePlotDefinition,
             [primitive_page]
         )

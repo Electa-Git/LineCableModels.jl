@@ -10,7 +10,7 @@ using LineCableModels.PlotBuilder:
                                    AbstractTrackSize, FixedTrack, RelativeTrack,
                                    ContentTrack, GridArea, GridSpec, SlotSpec,
                                    LayoutSpec, AxisSpec, SeriesSpec, ViewSpec,
-                                   PageSpec, RenderSpec, UIPlot
+                                   PageSpec, PlotRecipe, UIPlot
 const BackendHandler = PlotBuilder.BackendHandler
 
 export build, export_svg
@@ -909,13 +909,13 @@ function _build_colorbars!(page::PageSpec, materialized)
 end
 
 function _build_page(
-        render_spec::RenderSpec,
+        recipe::PlotRecipe,
         page::PageSpec,
         context::UIContext;
         controls::Bool,
         export_mode::Bool
 )
-    PlotBuilder.validate(render_spec)
+    PlotBuilder.validate(recipe)
     root = only(filter(grid -> grid.parent === nothing, page.layout.grids))
     figure = Figure(size = page.size, figure_padding = _window_padding(root.padding))
     materialized = _materialize_layout(figure, page.layout)
@@ -1088,29 +1088,29 @@ function _build_page(
     end
     page.legend.interactive && legend !== nothing &&
         _observe_visibility_limits!(panels, context)
-    built = UIPlot(render_spec, page, figure, panels, widgets, context)
+    built = UIPlot(recipe, page, figure, panels, widgets, context)
     plot_reference[] = built
     return built
 end
 
 function build(
-        render_spec::RenderSpec;
+        recipe::PlotRecipe;
         backend = nothing,
         display::Bool = true,
         controls::Bool = true,
         export_mode::Bool = false,
         export_theme::Union{Nothing, Symbol} = nothing
 )
-    PlotBuilder.validate(render_spec)
+    PlotBuilder.validate(recipe)
     active = BackendHandler.ensure_backend!(backend)
     built = UIPlot[]
-    for page in render_spec.figures
+    for page in recipe.figures
         page_export_theme = export_theme === nothing ?
                             page.export_spec.theme : export_theme
         with_theme(_theme(; export_mode, export_theme = page_export_theme)) do
             context = _context(active, display, page.title, page.status.initial)
             plot = _build_page(
-                render_spec,
+                recipe,
                 page,
                 context;
                 controls,
@@ -1282,7 +1282,13 @@ function PlotBuilder.export_svg(
     ispath(output) && throw(ArgumentError("refusing to overwrite existing file: $output"))
     plot.context.status[] = "Exporting SVG..."
     BackendHandler.with_backend(:cairo) do
-        one_page = RenderSpec(plot.render.spec, PageSpec[_current_page(plot)])
+        one_page = PlotRecipe(
+            plot.render.spec,
+            plot.render.object,
+            plot.render.input,
+            plot.render.renderer,
+            PageSpec[_current_page(plot)]
+        )
         exported = build(
             one_page;
             backend = :cairo,

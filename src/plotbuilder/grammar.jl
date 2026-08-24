@@ -1,5 +1,14 @@
 const COMMON_RENDERER_KWARGS = (:export_theme, :open_export, :layout)
 
+"Return the domain object accepted by a plot definition."
+function entitle(::Type{S}, object) where {S <: AbstractPlotDefinition}
+    expected = dispatch_on(S)
+    object isa expected || throw(
+        ArgumentError("$S accepts $expected, not $(typeof(object))"),
+    )
+    return object
+end
+
 """
     dispatch_on(::Type{S})
 
@@ -118,7 +127,7 @@ function parse_kwargs(
     renderer.layout isa Union{Nothing, Symbol, LayoutSpec} || throw(
         ArgumentError("layout must be nothing, a preset symbol, or LayoutSpec"),
     )
-    return PlotRecipe(object, input, renderer)
+    return PlotRecipe(S, object, input, renderer)
 end
 
 function parse_kwargs(::Type{S}, object; kwargs...) where {S <: AbstractPlotDefinition}
@@ -132,21 +141,24 @@ Validate and enrich parsed recipe input before materialization.
 """
 resolve_input(::Type{S}, recipe::PlotRecipe) where {S <: AbstractPlotDefinition} = recipe
 
+"Resolve the semantic observations consumed by subsequent plot stages."
+observe(::Type{S}, recipe::PlotRecipe) where {S <: AbstractPlotDefinition} = recipe
+
 """
-    recipe_mode(::Type{S}, recipe)
+    _recipe_variant(::Type{S}, recipe)
 
 Return the value-dispatched plotting mode for a resolved recipe.
 """
-function recipe_mode(::Type{S}, recipe::PlotRecipe) where {S <: AbstractPlotDefinition}
+function _recipe_variant(::Type{S}, recipe::PlotRecipe) where {S <: AbstractPlotDefinition}
     Val(:default)
 end
 
 """
-    grouping_mode(::Type{S}, mode, recipe)
+    _composition(::Type{S}, variant, recipe)
 
 Return the value-dispatched grouping mode for a resolved recipe.
 """
-function grouping_mode(
+function _composition(
         ::Type{S},
         mode::Val,
         recipe::PlotRecipe
@@ -155,11 +167,11 @@ function grouping_mode(
 end
 
 """
-    page_facets(::Type{S}, mode, recipe)
+    _page_items(::Type{S}, variant, recipe)
 
 Return semantic page facets for recipes using `:faceted_pages`.
 """
-function page_facets(
+function _page_items(
         ::Type{S},
         mode::Val,
         recipe::PlotRecipe
@@ -168,11 +180,11 @@ function page_facets(
 end
 
 """
-    group_facets(::Type{S}, mode, recipe, page_key)
+    _series_items(::Type{S}, variant, recipe, page_key)
 
 Return semantic series facets for the selected recipe page.
 """
-function group_facets(
+function _series_items(
         ::Type{S},
         mode::Val,
         recipe::PlotRecipe,
@@ -181,35 +193,35 @@ function group_facets(
     (nothing,)
 end
 
-function page_keys(::Type{S}, mode::Val, ::Val{:overlay},
+function _page_keys(::Type{S}, mode::Val, ::Val{:overlay},
         recipe::PlotRecipe) where {
         S <: AbstractPlotDefinition,
 }
     (nothing,)
 end
-function page_keys(::Type{S}, mode::Val, ::Val{:panels},
+function _page_keys(::Type{S}, mode::Val, ::Val{:panels},
         recipe::PlotRecipe) where {
         S <: AbstractPlotDefinition,
 }
     (nothing,)
 end
-function page_keys(::Type{S}, mode::Val, ::Val{:pages}, recipe::PlotRecipe) where {
+function _page_keys(::Type{S}, mode::Val, ::Val{:pages}, recipe::PlotRecipe) where {
         S <: AbstractPlotDefinition,
 }
-    group_facets(S, mode, recipe, nothing)
+    _series_items(S, mode, recipe, nothing)
 end
-function page_keys(::Type{S}, mode::Val, ::Val{:faceted_pages},
+function _page_keys(::Type{S}, mode::Val, ::Val{:faceted_pages},
         recipe::PlotRecipe) where {
         S <: AbstractPlotDefinition,
 }
-    page_facets(S, mode, recipe)
+    _page_items(S, mode, recipe)
 end
-function page_keys(::Type{S}, mode::Val, ::Val{:empty}, recipe::PlotRecipe) where {
+function _page_keys(::Type{S}, mode::Val, ::Val{:empty}, recipe::PlotRecipe) where {
         S <: AbstractPlotDefinition,
 }
     (nothing,)
 end
-function page_keys(
+function _page_keys(
         ::Type{S},
         mode::Val,
         grouping::Val,
@@ -219,57 +231,57 @@ function page_keys(
     throw(
         ArgumentError(
         "unsupported grouping mode :$grouping_name for $S; " *
-        "specialize PlotBuilder.page_keys for this Val mode"
+            "specialize PlotBuilder._page_keys for this local definition variant"
     ),
     )
 end
 
-function view_keys(::Type{S}, mode::Val, ::Val{:overlay}, recipe::PlotRecipe,
+function _view_keys(::Type{S}, mode::Val, ::Val{:overlay}, recipe::PlotRecipe,
         page_key) where {
         S <: AbstractPlotDefinition,
 }
     (nothing,)
 end
-function view_keys(::Type{S}, mode::Val, ::Val{:panels}, recipe::PlotRecipe,
+function _view_keys(::Type{S}, mode::Val, ::Val{:panels}, recipe::PlotRecipe,
         page_key) where {
         S <: AbstractPlotDefinition,
 }
-    group_facets(S, mode, recipe, page_key)
+    _series_items(S, mode, recipe, page_key)
 end
-function view_keys(::Type{S}, mode::Val, ::Val{:pages}, recipe::PlotRecipe,
+function _view_keys(::Type{S}, mode::Val, ::Val{:pages}, recipe::PlotRecipe,
         page_key) where {
         S <: AbstractPlotDefinition,
 }
     (nothing,)
 end
-function view_keys(::Type{S}, mode::Val, ::Val{:faceted_pages},
+function _view_keys(::Type{S}, mode::Val, ::Val{:faceted_pages},
         recipe::PlotRecipe, page_key) where {
         S <: AbstractPlotDefinition,
 }
     (nothing,)
 end
-function view_keys(::Type{S}, mode::Val, ::Val{:empty}, recipe::PlotRecipe,
+function _view_keys(::Type{S}, mode::Val, ::Val{:empty}, recipe::PlotRecipe,
         page_key) where {
         S <: AbstractPlotDefinition,
 }
     ()
 end
 
-function series_keys(::Type{S}, mode::Val, ::Val{:overlay}, recipe::PlotRecipe,
+function _series_keys(::Type{S}, mode::Val, ::Val{:overlay}, recipe::PlotRecipe,
         page_key, view_key) where {S <: AbstractPlotDefinition}
-    group_facets(S, mode, recipe, page_key)
+    _series_items(S, mode, recipe, page_key)
 end
-function series_keys(::Type{S}, mode::Val, ::Val{:panels}, recipe::PlotRecipe,
+function _series_keys(::Type{S}, mode::Val, ::Val{:panels}, recipe::PlotRecipe,
         page_key, view_key) where {S <: AbstractPlotDefinition}
     (view_key,)
 end
-function series_keys(::Type{S}, mode::Val, ::Val{:pages}, recipe::PlotRecipe,
+function _series_keys(::Type{S}, mode::Val, ::Val{:pages}, recipe::PlotRecipe,
         page_key, view_key) where {S <: AbstractPlotDefinition}
     (page_key,)
 end
-function series_keys(::Type{S}, mode::Val, ::Val{:faceted_pages}, recipe::PlotRecipe,
+function _series_keys(::Type{S}, mode::Val, ::Val{:faceted_pages}, recipe::PlotRecipe,
         page_key, view_key) where {S <: AbstractPlotDefinition}
-    group_facets(S, mode, recipe, page_key)
+    _series_items(S, mode, recipe, page_key)
 end
 
 """
@@ -556,7 +568,7 @@ function make_series(
         page_key, view_key, axes::NamedTuple
 ) where {S <: AbstractPlotDefinition}
     series = SeriesSpec[]
-    for series_key in series_keys(S, mode, grouping, recipe, page_key, view_key)
+    for series_key in _series_keys(S, mode, grouping, recipe, page_key, view_key)
         push!(
             series,
             SeriesSpec(
@@ -684,7 +696,7 @@ function make_views(
         page_key
 ) where {S <: AbstractPlotDefinition}
     views = ViewSpec[]
-    for key in view_keys(S, mode, grouping, recipe, page_key)
+    for key in _view_keys(S, mode, grouping, recipe, page_key)
         axes = make_axes(S, mode, recipe, page_key, key)
         series = make_series(S, mode, grouping, recipe, page_key, key, axes)
         xaxis = _decorate_axis(axes.xaxis, S, mode, Val(:x), recipe, page_key, key, series)
@@ -918,7 +930,7 @@ function make_pages(
         ::Type{S}, mode::Val, grouping::Val, recipe::PlotRecipe
 ) where {S <: AbstractPlotDefinition}
     pages = PageSpec[]
-    for page_key in page_keys(S, mode, grouping, recipe)
+    for page_key in _page_keys(S, mode, grouping, recipe)
         views = make_views(S, mode, grouping, recipe, page_key)
         title = default_title(S, mode, recipe, page_key, nothing)
         push!(
@@ -940,6 +952,20 @@ function make_pages(
     return pages
 end
 
+"Apply page-level decorations after layout resolution."
+function decorate(
+        ::Type{S}, recipe::PlotRecipe, pages::Vector{PageSpec}
+) where {S <: AbstractPlotDefinition}
+    return pages
+end
+
+"Finish a completed backend-neutral plot recipe."
+function finish(
+        ::Type{S}, recipe::PlotRecipe, pages::Vector{PageSpec}
+) where {S <: AbstractPlotDefinition}
+    return PlotRecipe(S, recipe.object, recipe.input, recipe.renderer, pages)
+end
+
 """
     make_render(::Type{S}, object; kwargs...)
 
@@ -948,19 +974,23 @@ specifications specialize accessors; they do not replace this rendering
 sequence.
 """
 function make_render(::Type{S}, object; kwargs...) where {S <: AbstractPlotDefinition}
-    expected = dispatch_on(S)
-    object isa expected || throw(
-        ArgumentError("$S accepts $expected, not $(typeof(object))"),
-    )
-    recipe = resolve_input(S, parse_kwargs(S, object; kwargs...))
+    entitled = entitle(S, object)
+    recipe = parse_kwargs(S, entitled; kwargs...)
+    recipe = resolve_input(S, recipe)
     recipe isa PlotRecipe || throw(
         ArgumentError("resolve_input($S) must return PlotRecipe"),
     )
-    mode = recipe_mode(S, recipe)
-    mode isa Val || throw(ArgumentError("recipe_mode($S) must return Val(mode)"))
-    grouping = grouping_mode(S, mode, recipe)
-    grouping isa Val || throw(
-        ArgumentError("grouping_mode($S) must return Val(mode)"),
+    recipe = observe(S, recipe)
+    recipe isa PlotRecipe || throw(
+        ArgumentError("observe($S) must return PlotRecipe"),
     )
-    return RenderSpec(S, make_pages(S, mode, grouping, recipe))
+    mode = _recipe_variant(S, recipe)
+    mode isa Val || throw(ArgumentError("plot definition variant must be a Val"))
+    grouping = _composition(S, mode, recipe)
+    grouping isa Val || throw(
+        ArgumentError("plot definition composition must be a Val"),
+    )
+    pages = make_pages(S, mode, grouping, recipe)
+    pages = decorate(S, recipe, pages)
+    return finish(S, recipe, pages)
 end

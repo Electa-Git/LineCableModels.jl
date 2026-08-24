@@ -133,7 +133,7 @@ function custom_layout_render_spec()
         )],
         export_spec = PB.ExportSpec(name = "nested_dashboard", open_file = false)
     )
-    return PB.RenderSpec(LineCableModels.DataModel.MaterialScalePlotDefinition, [page])
+    return PB.PlotRecipe(LineCableModels.DataModel.MaterialScalePlotDefinition, [page])
 end
 
 end

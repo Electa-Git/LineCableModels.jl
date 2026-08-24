@@ -227,7 +227,7 @@ function _layer_series!(series, layer, label, group, xcenter, ycenter; include_l
 end
 
 _preview_layer_name(::CircStrands) = "round wires"
-_preview_layer_name(::RectStrands) = "sector strands"
+_preview_layer_name(::RectStrands) = "rectangular strands"
 _preview_layer_name(::Strip) = "strip"
 _preview_layer_name(::Tubular) = "tubular conductor"
 _preview_layer_name(::Semicon) = "semiconductor"
@@ -835,7 +835,7 @@ function PlotBuilder.resolve_input(::Type{MaterialScalePlotDefinition}, recipe::
     return recipe
 end
 
-function PlotBuilder.grouping_mode(
+function PlotBuilder._composition(
         ::Type{MaterialScalePlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe

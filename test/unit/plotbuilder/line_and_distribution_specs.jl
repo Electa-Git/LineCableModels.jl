@@ -342,12 +342,12 @@ end
     @test last(cdf_grid) > maximum(samples_recipe.input.values)
 
     series_contracts=(
-        (Cmp.MCSeriesKey{:samples}(), :histogram, "samples"),
-        (Cmp.MCSeriesKey{:histogram_pdf}(), :stairs, "model PDF"),
-        (Cmp.MCSeriesKey{:histogram_cdf}(), :line, "model CDF"),
-        (Cmp.MCSeriesKey{:empirical_cdf}(), :line, "empirical CDF"),
-        (Cmp.MCSeriesKey{:quantiles}(), :scatter, "quantiles"),
-        (Cmp.MCSeriesKey{:reference}(), :line, "perfect fit")
+        (Val(:samples), :histogram, "samples"),
+        (Val(:histogram_pdf), :stairs, "model PDF"),
+        (Val(:histogram_cdf), :line, "model CDF"),
+        (Val(:empirical_cdf), :line, "empirical CDF"),
+        (Val(:quantiles), :scatter, "quantiles"),
+        (Val(:reference), :line, "perfect fit")
     )
     for (key, kind, label) in series_contracts
         @test PB.plot_kind(Spec, Val(:hist), samples_recipe, nothing, nothing, key) ===
@@ -370,7 +370,7 @@ end
         histogram_details
     )
     @test PB.make_render(Spec, histogram_only; mode = :ecdf, data = :pdf) isa
-          PB.RenderSpec
+          PB.PlotRecipe
     histogram_recipe=PB.resolve_input(
         Spec,
         PB.parse_kwargs(Spec, histogram_only; mode = :ecdf, data = :pdf)

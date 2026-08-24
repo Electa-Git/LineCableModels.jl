@@ -52,11 +52,10 @@ function _finite_exponent(curves)
 end
 
 struct LinePageKey{K, C} end
-struct LineFamilyKey{K} end
 
 _line_parent(::LinePageKey{K, C}) where {K, C} = K
 _line_component(::LinePageKey{K, C}) where {K, C} = C
-_line_parent(::LineFamilyKey{K}) where {K} = K
+_line_parent(::Val{K}) where {K} = K
 
 const _SERIES_COMPONENTS = (:R, :X, :L, :Z_re, :Z_im, :Z_abs, :Z_angle)
 const _SHUNT_COMPONENTS = (:G, :B, :C, :Y_re, :Y_im, :Y_abs, :Y_angle)
@@ -252,17 +251,18 @@ function PlotBuilder.resolve_input(::Type{LineParameterPlotDefinition}, recipe::
     length(frequencies) <= 1 &&
         @warn "Frequency vector has $(length(frequencies)) sample(s); nothing to plot."
     return PlotBuilder.PlotRecipe(
+        LineParameterPlotDefinition,
         recipe.object,
         merge(input, (; frequencies, components)),
         recipe.renderer
     )
 end
 
-function PlotBuilder.recipe_mode(::Type{LineParameterPlotDefinition}, recipe::PlotBuilder.PlotRecipe)
+function PlotBuilder._recipe_variant(::Type{LineParameterPlotDefinition}, recipe::PlotBuilder.PlotRecipe)
     return Val(recipe.input.components)
 end
 
-function PlotBuilder.grouping_mode(
+function PlotBuilder._composition(
         ::Type{LineParameterPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe
@@ -270,21 +270,21 @@ function PlotBuilder.grouping_mode(
     return Val(:panels)
 end
 
-_line_family_facets(::SeriesImpedance) = (LineFamilyKey{:series}(),)
-_line_family_facets(::ShuntAdmittance) = (LineFamilyKey{:shunt}(),)
+_line_family_facets(::SeriesImpedance) = (Val(:series),)
+_line_family_facets(::ShuntAdmittance) = (Val(:shunt),)
 function _line_family_facets(::LineParameters)
-    return (LineFamilyKey{:series}(), LineFamilyKey{:shunt}())
+    return (Val(:series), Val(:shunt))
 end
 
 function _line_component_facets(
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
-        ::LineFamilyKey{K}
+        ::Val{K}
 ) where {K}
     return _line_page_keys(Val(K), mode)
 end
 
-function PlotBuilder.page_keys(
+function PlotBuilder._page_keys(
         ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:panels},
@@ -298,22 +298,22 @@ function PlotBuilder.page_keys(
     )
 end
 
-function PlotBuilder.view_keys(
+function PlotBuilder._view_keys(
         ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:panels},
         recipe::PlotBuilder.PlotRecipe,
-        page_key::LineFamilyKey
+        page_key::Val
 )
     return _line_component_facets(mode, recipe, page_key)
 end
 
-function PlotBuilder.series_keys(
+function PlotBuilder._series_keys(
         ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:panels},
         recipe::PlotBuilder.PlotRecipe,
-        page_key::LineFamilyKey,
+        page_key::Val,
         view_key::LinePageKey
 )
     source = _line_source(recipe.object, view_key)
@@ -395,7 +395,7 @@ function PlotBuilder.axis_quantity(
         mode::Val,
         ::Val{:y},
         recipe::PlotBuilder.PlotRecipe,
-        page_key::LineFamilyKey,
+        page_key::Val,
         view_key::LinePageKey
 )
     return PlotBuilder.axis_quantity(
@@ -446,7 +446,7 @@ function PlotBuilder.axis_unit(
         ::Val{:y},
         quantity::UnitHandler.QuantityTag,
         recipe::PlotBuilder.PlotRecipe,
-        page_key::LineFamilyKey,
+        page_key::Val,
         view_key::LinePageKey
 )
     return PlotBuilder.axis_unit(
@@ -515,7 +515,7 @@ function PlotBuilder.series_data(
         mode::Val,
         ::Val{:y},
         recipe::PlotBuilder.PlotRecipe,
-        page_key::LineFamilyKey,
+        page_key::Val,
         view_key::LinePageKey,
         series_key::Tuple{Int, Int}
 )
@@ -553,7 +553,7 @@ function PlotBuilder.legend_label(
         ::Type{LineParameterPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
-        page_key::LineFamilyKey{K},
+        page_key::Val{K},
         view_key::LinePageKey,
         series_key::Tuple{Int, Int}
 ) where {K}
@@ -565,7 +565,7 @@ function PlotBuilder.series_group(
         ::Type{LineParameterPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
-        page_key::LineFamilyKey{K},
+        page_key::Val{K},
         view_key::LinePageKey,
         series_key::Tuple{Int, Int}
 ) where {K}
@@ -605,7 +605,7 @@ function PlotBuilder.default_title(
         ::Type{LineParameterPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
-        page_key::LineFamilyKey{:series},
+        page_key::Val{:series},
         ::Nothing
 )
     return "Series impedance"
@@ -615,7 +615,7 @@ function PlotBuilder.default_title(
         ::Type{LineParameterPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
-        page_key::LineFamilyKey{:shunt},
+        page_key::Val{:shunt},
         ::Nothing
 )
     return "Shunt admittance"
@@ -625,7 +625,7 @@ function PlotBuilder.default_title(
         ::Type{LineParameterPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
-        page_key::LineFamilyKey,
+        page_key::Val,
         view_key::LinePageKey
 )
     return PlotBuilder.default_title(
@@ -651,7 +651,7 @@ function PlotBuilder.view_key(
         ::Type{LineParameterPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
-        page_key::LineFamilyKey,
+        page_key::Val,
         view_key::LinePageKey
 )
     return (; component = _line_component(view_key))
@@ -661,7 +661,7 @@ function PlotBuilder.layout_spec(
         ::Type{LineParameterPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
-        page_key::LineFamilyKey
+        page_key::Val
 )
     return :grid
 end
@@ -738,7 +738,7 @@ function PlotBuilder.axis_exponent(
         mode::Val,
         dim::Val,
         recipe::PlotBuilder.PlotRecipe,
-        page_key::LineFamilyKey,
+        page_key::Val,
         view_key::LinePageKey,
         series::Vector{PlotBuilder.SeriesSpec}
 )
@@ -771,7 +771,7 @@ function PlotBuilder.page_identity(
         ::Type{LineParameterPlotDefinition},
         mode::Val,
         recipe::PlotBuilder.PlotRecipe,
-        page_key::LineFamilyKey
+        page_key::Val
 )
     return (;
         family = _line_parent(page_key),

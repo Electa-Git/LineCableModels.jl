@@ -1,4 +1,4 @@
-@testitem "PlotBuilder / data models / preview RenderSpec semantics" tags=[:unit] setup=[
+@testitem "PlotBuilder / data models / preview PlotRecipe semantics" tags=[:unit] setup=[
     PlotBuilderTestSupport, UsePlotBuilderSupport, TestNumerics] begin
     @test :show_material_scale ∉ names(LineCableModels)
     @test :show_material_scale ∉ names(LineCableModels.DataModel)
@@ -176,7 +176,7 @@ end
 
     semicon=Semicon(strands.r_ex, strands.r_ex+0.001, semiconductor)
     insulator=Insulator(semicon.r_ex, semicon.r_ex+0.002, dielectric)
-    @test DM._preview_layer_name(strands) == "sector strands"
+    @test DM._preview_layer_name(strands) == "rectangular strands"
     @test DM._preview_layer_name(semicon) == "semiconductor"
     @test DM._preview_layer_name(insulator) == "insulation"
     @test DM._preview_layer_name(group) == "conductor group"

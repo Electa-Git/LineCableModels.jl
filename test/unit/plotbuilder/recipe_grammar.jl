@@ -27,10 +27,10 @@
         grouping = :overlay, color = :steelblue)
     PB.renderer_defaults(::Type{ProfilePlotDefinition}, ::ProfileResult) = (;
         size = (800, 400))
-    PB.recipe_mode(::Type{ProfilePlotDefinition}, recipe::PB.PlotRecipe) = Val(:profile)
-    PB.grouping_mode(::Type{ProfilePlotDefinition}, ::Val{:profile},
+    PB._recipe_variant(::Type{ProfilePlotDefinition}, recipe::PB.PlotRecipe) = Val(:profile)
+    PB._composition(::Type{ProfilePlotDefinition}, ::Val{:profile},
         recipe::PB.PlotRecipe) = Val(recipe.input.grouping)
-    PB.group_facets(
+    PB._series_items(
         ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PB.PlotRecipe, page_key) = axes(
         recipe.object.response, 2)
 
@@ -193,7 +193,7 @@
         @test !occursin("[50.0, 100.0, 500.0]", representation)
     end
     @test sprint(show, MIME"text/plain"(), overlay) ==
-          "RenderSpec(spec=:ProfilePlotDefinition, pages=1)"
+          "PlotRecipe(spec=:ProfilePlotDefinition, pages=1, object=:ProfileResult)"
     @test_throws ArgumentError PB.make_render(
         ProfilePlotDefinition, result; grouping = :unsupported)
     @test_throws ArgumentError PB.make_render(ProfilePlotDefinition, [1.0, 2.0])
@@ -248,7 +248,7 @@
         LineCableModels.UQ.MCDistributionPlotDefinition,
         samples_only;
         mode = :pdf
-    ) isa PB.RenderSpec
+    ) isa PB.PlotRecipe
 
     custom_layout=PB.LayoutSpec(
         :profile_dashboard,
@@ -586,43 +586,30 @@ end
 
     struct DefaultHookSpec<:PB.AbstractPlotDefinition end
     recipe=PB.parse_kwargs(DefaultHookSpec, :payload)
-    mode=PB.recipe_mode(DefaultHookSpec, recipe)
+    variant=PB._recipe_variant(DefaultHookSpec, recipe)
 
     @test PB.dispatch_on(DefaultHookSpec) === Any
     @test PB.resolve_input(DefaultHookSpec, recipe) === recipe
-    @test mode === Val(:default)
-    @test PB.grouping_mode(DefaultHookSpec, mode, recipe) === Val(:overlay)
-    @test PB.page_facets(DefaultHookSpec, mode, recipe) == (nothing,)
-    @test PB.group_facets(DefaultHookSpec, mode, recipe, nothing) == (nothing,)
-    @test PB.page_keys(DefaultHookSpec, mode, Val(:overlay), recipe) == (nothing,)
-    @test PB.page_keys(DefaultHookSpec, mode, Val(:panels), recipe) == (nothing,)
-    @test PB.page_keys(DefaultHookSpec, mode, Val(:pages), recipe) == (nothing,)
-    @test PB.page_keys(DefaultHookSpec, mode, Val(:faceted_pages), recipe) == (nothing,)
-    @test PB.page_keys(DefaultHookSpec, mode, Val(:empty), recipe) == (nothing,)
-    @test_throws ArgumentError PB.page_keys(
-        DefaultHookSpec,
-        mode,
-        Val(:unsupported),
-        recipe
-    )
-
-    @test PB.view_keys(DefaultHookSpec, mode, Val(:faceted_pages), recipe, nothing) ==
-          (nothing,)
-    @test PB.series_keys(
-        DefaultHookSpec,
-        mode,
-        Val(:faceted_pages),
-        recipe,
-        nothing,
-        nothing
-    ) == (nothing,)
-    @test PB.geom_axes(DefaultHookSpec, mode, recipe, nothing, nothing) == (:x, :y)
+    @test PB.observe(DefaultHookSpec, recipe) === recipe
+    @test variant === Val(:default)
+    @test !isdefined(PB, :recipe_mode)
+    @test !isdefined(PB, :grouping_mode)
+    @test !isdefined(PB, :page_facets)
+    @test !isdefined(PB, :group_facets)
+    @test !isdefined(PB, :page_keys)
+    @test !isdefined(PB, :view_keys)
+    @test !isdefined(PB, :series_keys)
+    @test all(name -> name ∉ names(PB), (
+        :AxisSpec, :SeriesSpec, :ViewSpec, :PageSpec, :LayoutSpec,
+        :ControlSpec, :LegendSpec, :ColorbarSpec, :StatusSpec, :ExportSpec
+    ))
+    @test PB.geom_axes(DefaultHookSpec, variant, recipe, nothing, nothing) == (:x, :y)
 
     quantity=PB.axis_quantity(DefaultHookSpec, Val(:x), recipe)
     @test quantity isa UH.QuantityTag{:unknown}
     @test PB.axis_quantity(
         DefaultHookSpec,
-        mode,
+        variant,
         Val(:x),
         recipe,
         nothing,

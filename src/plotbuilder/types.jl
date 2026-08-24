@@ -5,20 +5,6 @@ Supertype for backend-neutral PlotBuilder recipe identifiers.
 """
 abstract type AbstractPlotDefinition end
 
-"""
-    PlotRecipe(object, input, renderer)
-
-Store a domain object together with typed semantic and renderer options.
-"""
-struct PlotRecipe{O, I <: NamedTuple, R <: NamedTuple}
-    "Domain object being plotted."
-    object::O
-    "Validated semantic recipe options."
-    input::I
-    "Validated renderer options."
-    renderer::R
-end
-
 "Abstract supertype for backend-neutral grid track sizes."
 abstract type AbstractTrackSize end
 
@@ -620,22 +606,36 @@ function PageSpec(
 end
 
 """
-    RenderSpec(spec, figures)
+    PlotRecipe(spec, object, input, renderer, figures)
 
-Store validated pages produced for one plot specification type.
+Store a domain declaration, its resolved options, and its completed validated
+plot pages.
 """
-struct RenderSpec{S <: AbstractPlotDefinition}
-    "Plot specification type."
+struct PlotRecipe{S <: AbstractPlotDefinition, O, I <: NamedTuple, R <: NamedTuple}
+    "Plot definition type."
     spec::Type{S}
-    "Validated render pages."
+    "Domain object being plotted."
+    object::O
+    "Validated semantic recipe options."
+    input::I
+    "Validated renderer options."
+    renderer::R
+    "Completed plot pages."
     figures::Vector{PageSpec}
 end
 
-function RenderSpec(spec::Type{S}, figures::AbstractVector) where {S <:
-                                                                   AbstractPlotDefinition}
-    render = RenderSpec(spec, PageSpec[figures...])
-    validate(render)
-    return render
+function PlotRecipe(
+        spec::Type{S}, object::O, input::I, renderer::R,
+        figures::AbstractVector = PageSpec[]
+) where {S <: AbstractPlotDefinition, O, I <: NamedTuple, R <: NamedTuple}
+    recipe = PlotRecipe{S, O, I, R}(spec, object, input, renderer, PageSpec[figures...])
+    validate(recipe)
+    return recipe
+end
+
+function PlotRecipe(spec::Type{S}, figures::AbstractVector) where {S <:
+                                                                  AbstractPlotDefinition}
+    return PlotRecipe(spec, nothing, (;), (;), figures)
 end
 
 const SUPPORTED_PRIMITIVES = (
@@ -897,17 +897,17 @@ function Validation.rules(::Type{<:PageSpec})
     (Validation.OwnerRule(:plot_page, _check_page),)
 end
 
-function _check_render(render::RenderSpec)
-    foreach(validate, render.figures)
-    keys = [page.key for page in render.figures if !isempty(page.key)]
+function _check_recipe(recipe::PlotRecipe)
+    foreach(validate, recipe.figures)
+    keys = [page.key for page in recipe.figures if !isempty(page.key)]
     length(unique(keys)) == length(keys) || throw(
         ArgumentError("render pages must have unique nonempty semantic keys"),
     )
     return nothing
 end
 
-function Validation.rules(::Type{<:RenderSpec})
-    (Validation.OwnerRule(:plot_render, _check_render),)
+function Validation.rules(::Type{<:PlotRecipe})
+    (Validation.OwnerRule(:plot_recipe, _check_recipe),)
 end
 
 """
@@ -919,7 +919,7 @@ its panels, controls, and backend context. Line-parameter plotting returns a
 """
 struct UIPlot{S <: AbstractPlotDefinition, F, P, W, C}
     "Complete backend-neutral render specification."
-    render::RenderSpec{S}
+    render::PlotRecipe{S}
     "Page represented by this handle."
     page::PageSpec
     "Backend-built figure."
@@ -956,15 +956,6 @@ end
 Base.show(io::IO, ::ContentTrack) = print(io, "ContentTrack()")
 function Base.show(io::IO, value::GridArea)
     _show_summary(io, "GridArea", :rows => value.rows, :columns => value.columns)
-end
-function Base.show(io::IO, value::PlotRecipe)
-    _show_summary(
-        io,
-        "PlotRecipe",
-        :object => nameof(typeof(value.object)),
-        :input => keys(value.input),
-        :renderer => keys(value.renderer)
-    )
 end
 function Base.show(io::IO, value::GridSpec)
     _show_summary(
@@ -1080,12 +1071,13 @@ function Base.show(io::IO, value::PageSpec)
         :layout => value.layout.name
     )
 end
-function Base.show(io::IO, value::RenderSpec)
+function Base.show(io::IO, value::PlotRecipe)
     _show_summary(
         io,
-        "RenderSpec",
+        "PlotRecipe",
         :spec => nameof(value.spec),
-        :pages => length(value.figures)
+        :pages => length(value.figures),
+        :object => nameof(typeof(value.object))
     )
 end
 function Base.show(io::IO, value::UIPlot)
@@ -1119,7 +1111,6 @@ const _CompactPlotBuilderObject = Union{
     SeriesSpec,
     ViewSpec,
     PageSpec,
-    RenderSpec,
     UIPlot
 }
 

@@ -140,20 +140,21 @@ function PlotBuilder.resolve_input(
         @warn "Frequency vector has $(length(frequency)) sample(s); nothing to plot."
     colors = Tuple(_comparison_color(index) for index in eachindex(parameters))
     return PlotBuilder.PlotRecipe(
+        LineParametersBenchmarkPlotDefinition,
         parameters,
         merge(input, (; components, frequencies = frequency, legend = labels, colors)),
         recipe.renderer
     )
 end
 
-function PlotBuilder.recipe_mode(
+function PlotBuilder._recipe_variant(
         ::Type{LineParametersBenchmarkPlotDefinition},
         recipe::PlotBuilder.PlotRecipe
 )
     return Val(:comparison)
 end
 
-function PlotBuilder.grouping_mode(
+function PlotBuilder._composition(
         ::Type{LineParametersBenchmarkPlotDefinition},
         ::Val{:comparison},
         recipe::PlotBuilder.PlotRecipe
@@ -161,7 +162,7 @@ function PlotBuilder.grouping_mode(
     return Val(:panels)
 end
 
-function PlotBuilder.page_keys(
+function PlotBuilder._page_keys(
         ::Type{LineParametersBenchmarkPlotDefinition},
         ::Val{:comparison},
         ::Val{:panels},
@@ -171,7 +172,7 @@ function PlotBuilder.page_keys(
     return Tuple(_comparison_page_key(component) for component in recipe.input.components)
 end
 
-function PlotBuilder.view_keys(
+function PlotBuilder._view_keys(
         ::Type{LineParametersBenchmarkPlotDefinition},
         ::Val{:comparison},
         ::Val{:panels},
@@ -182,7 +183,7 @@ function PlotBuilder.view_keys(
     return Tuple((row, column) for row in 1:count for column in 1:count)
 end
 
-function PlotBuilder.series_keys(
+function PlotBuilder._series_keys(
         ::Type{LineParametersBenchmarkPlotDefinition},
         ::Val{:comparison},
         ::Val{:panels},

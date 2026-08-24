@@ -1,8 +1,8 @@
 """
     PlotBuilder
 
-Build backend-neutral plotting specifications from domain recipes. Optional
-Makie extensions render the resulting `RenderSpec` values.
+Build backend-neutral plotting recipes from domain definitions. Optional Makie
+extensions render the completed `PlotRecipe` values.
 """
 module PlotBuilder
 
@@ -13,21 +13,18 @@ import ..LineCableModels: nominal, standard_uncertainty, validate
 import ..Validation
 
 export AbstractPlotDefinition, PlotRecipe
-export AbstractTrackSize, FixedTrack, RelativeTrack, ContentTrack
-export GridArea, GridSpec, SlotSpec, LayoutSpec, PlacementSpec
-export ControlSpec, LegendSpec, ColorbarSpec, StatusSpec, ExportSpec
-export AxisSpec, SeriesSpec, ViewSpec, PageSpec, RenderSpec, UIPlot
+export UIPlot
 export make_render, export_svg
 export dispatch_on, input_kwargs, renderer_kwargs, input_defaults, renderer_defaults
-export parse_kwargs, resolve_input, recipe_mode, grouping_mode
-export page_facets, group_facets, geom_axes, axis_quantity, axis_unit, axis_label
+export entitle, parse_kwargs, resolve_input, observe
+export geom_axes, axis_quantity, axis_unit, axis_label
 export axis_scale, axis_scales, axis_exponent, axis_attributes
 export plot_kind, series_data, legend_label, series_group, series_visible,
        series_attributes
 export default_title, default_figsize, layout_spec, layout_preset, page_identity
 export view_key, view_placement, view_aspect, view_limits, view_attributes
 export control_spec, legend_spec, colorbar_specs, status_spec, export_spec
-export make_axes, make_series, make_views, make_pages, validate
+export make_axes, make_series, make_views, make_pages, decorate, finish, validate
 
 const EXPORT_THEMES = (:default, :publication)
 

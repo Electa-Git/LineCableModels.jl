@@ -6,8 +6,6 @@ cumulative distributions, and Q-Q plots.
 """
 struct MCDistributionPlotDefinition <: PlotBuilder.AbstractPlotDefinition end
 
-struct MCSeriesKey{K} end
-
 function _mc_plot_exponent(series, field::Symbol)
     maximum_value = 0.0
     for item in series
@@ -254,20 +252,21 @@ function PlotBuilder.resolve_input(
         selection
     )
     return PlotBuilder.PlotRecipe(
+        MCDistributionPlotDefinition,
         recipe.object,
         merge(input, resolved),
         recipe.renderer
     )
 end
 
-function PlotBuilder.recipe_mode(
+function PlotBuilder._recipe_variant(
         ::Type{MCDistributionPlotDefinition},
         recipe::PlotBuilder.PlotRecipe
 )
     return Val(recipe.input.mode)
 end
 
-function PlotBuilder.grouping_mode(
+function PlotBuilder._composition(
         ::Type{MCDistributionPlotDefinition},
         ::Val,
         ::PlotBuilder.PlotRecipe
@@ -279,7 +278,7 @@ _mc_data_facets(::Val{:samples}, sample, density) = (sample,)
 _mc_data_facets(::Val{:pdf}, sample, density) = (density,)
 _mc_data_facets(::Val{:both}, sample, density) = (sample, density)
 
-function PlotBuilder.group_facets(
+function PlotBuilder._series_items(
         ::Type{MCDistributionPlotDefinition},
         ::Val{:hist},
         recipe::PlotBuilder.PlotRecipe,
@@ -287,21 +286,21 @@ function PlotBuilder.group_facets(
 )
     return _mc_data_facets(
         Val(recipe.input.data),
-        MCSeriesKey{:samples}(),
-        MCSeriesKey{:histogram_pdf}()
+        Val(:samples),
+        Val(:histogram_pdf)
     )
 end
 
-function PlotBuilder.group_facets(
+function PlotBuilder._series_items(
         ::Type{MCDistributionPlotDefinition},
         ::Val{:pdf},
         recipe::PlotBuilder.PlotRecipe,
         page_key
 )
-    return (MCSeriesKey{:histogram_pdf}(),)
+    return (Val(:histogram_pdf),)
 end
 
-function PlotBuilder.group_facets(
+function PlotBuilder._series_items(
         ::Type{MCDistributionPlotDefinition},
         ::Val{:ecdf},
         recipe::PlotBuilder.PlotRecipe,
@@ -309,18 +308,18 @@ function PlotBuilder.group_facets(
 )
     return _mc_data_facets(
         Val(recipe.input.data),
-        MCSeriesKey{:empirical_cdf}(),
-        MCSeriesKey{:histogram_cdf}()
+        Val(:empirical_cdf),
+        Val(:histogram_cdf)
     )
 end
 
-function PlotBuilder.group_facets(
+function PlotBuilder._series_items(
         ::Type{MCDistributionPlotDefinition},
         ::Val{:qq},
         recipe::PlotBuilder.PlotRecipe,
         page_key
 )
-    return (MCSeriesKey{:quantiles}(), MCSeriesKey{:reference}())
+    return (Val(:quantiles), Val(:reference))
 end
 
 function _mc_values(recipe::PlotBuilder.PlotRecipe)
@@ -359,37 +358,37 @@ end
 
 function PlotBuilder.plot_kind(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::MCSeriesKey{:samples}
+        page_key, view_key, ::Val{:samples}
 )
     :histogram
 end
 function PlotBuilder.plot_kind(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::MCSeriesKey{:histogram_pdf}
+        page_key, view_key, ::Val{:histogram_pdf}
 )
     :stairs
 end
 function PlotBuilder.plot_kind(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::MCSeriesKey{:histogram_cdf}
+        page_key, view_key, ::Val{:histogram_cdf}
 )
     :line
 end
 function PlotBuilder.plot_kind(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::MCSeriesKey{:empirical_cdf}
+        page_key, view_key, ::Val{:empirical_cdf}
 )
     :line
 end
 function PlotBuilder.plot_kind(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::MCSeriesKey{:quantiles}
+        page_key, view_key, ::Val{:quantiles}
 )
     :scatter
 end
 function PlotBuilder.plot_kind(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::MCSeriesKey{:reference}
+        page_key, view_key, ::Val{:reference}
 )
     :line
 end
@@ -397,7 +396,7 @@ end
 function PlotBuilder.series_data(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:x},
         recipe::PlotBuilder.PlotRecipe, page_key, view_key,
-        ::MCSeriesKey{:samples}
+        ::Val{:samples}
 )
     return _mc_values(recipe)
 end
@@ -405,7 +404,7 @@ end
 function PlotBuilder.series_data(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:x},
         recipe::PlotBuilder.PlotRecipe, page_key, view_key,
-        ::MCSeriesKey{:histogram_pdf}
+        ::Val{:histogram_pdf}
 )
     return _mc_histogram_model(recipe).edges
 end
@@ -413,7 +412,7 @@ end
 function PlotBuilder.series_data(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:y},
         recipe::PlotBuilder.PlotRecipe, page_key, view_key,
-        ::MCSeriesKey{:histogram_pdf}
+        ::Val{:histogram_pdf}
 )
     density = _mc_histogram_model(recipe).density
     return [density; last(density)]
@@ -422,7 +421,7 @@ end
 function PlotBuilder.series_data(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:x},
         recipe::PlotBuilder.PlotRecipe, page_key, view_key,
-        ::Union{MCSeriesKey{:histogram_cdf}, MCSeriesKey{:empirical_cdf}}
+        ::Union{Val{:histogram_cdf}, Val{:empirical_cdf}}
 )
     return _mc_cdf_grid(recipe)
 end
@@ -430,7 +429,7 @@ end
 function PlotBuilder.series_data(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:y},
         recipe::PlotBuilder.PlotRecipe, page_key, view_key,
-        ::MCSeriesKey{:histogram_cdf}
+        ::Val{:histogram_cdf}
 )
     grid = _mc_cdf_grid(recipe)
     histogram = _mc_histogram_model(recipe)
@@ -440,7 +439,7 @@ end
 function PlotBuilder.series_data(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:y},
         recipe::PlotBuilder.PlotRecipe, page_key, view_key,
-        ::MCSeriesKey{:empirical_cdf}
+        ::Val{:empirical_cdf}
 )
     grid = _mc_cdf_grid(recipe)
     values = sort(_mc_values(recipe))
@@ -450,7 +449,7 @@ end
 function PlotBuilder.series_data(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:x},
         recipe::PlotBuilder.PlotRecipe, page_key, view_key,
-        ::MCSeriesKey{:quantiles}
+        ::Val{:quantiles}
 )
     values, _ = _mc_qq_values(recipe)
     return values
@@ -459,7 +458,7 @@ end
 function PlotBuilder.series_data(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:y},
         recipe::PlotBuilder.PlotRecipe, page_key, view_key,
-        ::MCSeriesKey{:quantiles}
+        ::Val{:quantiles}
 )
     _, values = _mc_qq_values(recipe)
     return values
@@ -468,7 +467,7 @@ end
 function PlotBuilder.series_data(
         ::Type{MCDistributionPlotDefinition}, ::Val,
         ::Union{Val{:x}, Val{:y}}, recipe::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::MCSeriesKey{:reference}
+        page_key, view_key, ::Val{:reference}
 )
     sample_values, histogram_values = _mc_qq_values(recipe)
     return collect(extrema(vcat(sample_values, histogram_values)))
@@ -476,44 +475,44 @@ end
 
 function PlotBuilder.legend_label(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::MCSeriesKey{:samples}
+        page_key, view_key, ::Val{:samples}
 )
     "samples"
 end
 function PlotBuilder.legend_label(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::MCSeriesKey{:histogram_pdf}
+        page_key, view_key, ::Val{:histogram_pdf}
 )
     "model PDF"
 end
 function PlotBuilder.legend_label(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::MCSeriesKey{:histogram_cdf}
+        page_key, view_key, ::Val{:histogram_cdf}
 )
     "model CDF"
 end
 function PlotBuilder.legend_label(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::MCSeriesKey{:empirical_cdf}
+        page_key, view_key, ::Val{:empirical_cdf}
 )
     "empirical CDF"
 end
 function PlotBuilder.legend_label(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::MCSeriesKey{:quantiles}
+        page_key, view_key, ::Val{:quantiles}
 )
     "quantiles"
 end
 function PlotBuilder.legend_label(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::MCSeriesKey{:reference}
+        page_key, view_key, ::Val{:reference}
 )
     "perfect fit"
 end
 
 function PlotBuilder.series_attributes(
         ::Type{MCDistributionPlotDefinition}, ::Val, recipe::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::MCSeriesKey{:samples}
+        page_key, view_key, ::Val{:samples}
 )
     return (;
         bins = recipe.input.bins,
@@ -522,31 +521,31 @@ function PlotBuilder.series_attributes(
 end
 function PlotBuilder.series_attributes(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::MCSeriesKey{:histogram_pdf}
+        page_key, view_key, ::Val{:histogram_pdf}
 )
     (; step = :post, color = :red, linewidth = 2)
 end
 function PlotBuilder.series_attributes(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::MCSeriesKey{:histogram_cdf}
+        page_key, view_key, ::Val{:histogram_cdf}
 )
     (; color = :red, linewidth = 2)
 end
 function PlotBuilder.series_attributes(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::MCSeriesKey{:empirical_cdf}
+        page_key, view_key, ::Val{:empirical_cdf}
 )
     (; color = :blue, linestyle = :dash, linewidth = 2)
 end
 function PlotBuilder.series_attributes(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::MCSeriesKey{:quantiles}
+        page_key, view_key, ::Val{:quantiles}
 )
     (; color = :steelblue, markersize = 6)
 end
 function PlotBuilder.series_attributes(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::MCSeriesKey{:reference}
+        page_key, view_key, ::Val{:reference}
 )
     (; color = :black, linestyle = :dash, linewidth = 2)
 end
