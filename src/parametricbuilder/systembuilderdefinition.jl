@@ -14,8 +14,7 @@ _earth_model(rho, eps_r, mu_r, ::Nothing) = EarthProps.EarthModel(rho, eps_r, mu
 function Gridspace(spec::EarthDefinition)
     return Gridspace{EarthProps.EarthModel}(
         _earth_model,
-        map(_gridspace_axis, (spec.rho, spec.eps_r, spec.mu_r, spec.thickness)),
-        (:rho, :eps_r, :mu_r, :thickness);
+        map(_gridspace_axis, (spec.rho, spec.eps_r, spec.mu_r, spec.thickness));
         combine = _valof(spec.combine)
     )
 end
@@ -265,19 +264,9 @@ function Gridspace(spec::SystemDefinition)
             spec.frequencies : Grid((spec.frequencies,))
         )
     )
-    names = (
-        :identifier,
-        :design,
-        ntuple(index -> Symbol(:position_, index), length(spec.positions))...,
-        :length,
-        :temperature,
-        :earth,
-        :frequencies
-    )
     return Gridspace{Engine.LineParametersProblem}(
         SystemMaterializer(length(spec.positions)),
-        axes,
-        names;
+        axes;
         combine = _valof(spec.combine)
     )
 end

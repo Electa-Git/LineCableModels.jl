@@ -121,9 +121,9 @@ function _aggregate(draws::Vector{<:Engine.LineParameters}, formulation::MonteCa
     return (; representation, statistics = summaries, samples = retained, histograms = hist)
 end
 
-function _monte_carlo(configuration, formulation::MonteCarlo, options, seed)
+function _monte_carlo(point, formulation::MonteCarlo, options, seed)
     rng = Random.Xoshiro(seed)
-    first_problem = rand(rng, configuration; distribution = formulation.distribution)
+    first_problem = ParametricBuilder.realize(rng, point, formulation.distribution)
     first_result = compute(first_problem, formulation.inner; options)
     ntrials = something(
         formulation.trials,
@@ -132,7 +132,7 @@ function _monte_carlo(configuration, formulation::MonteCarlo, options, seed)
     draws = Vector{typeof(first_result)}(undef, ntrials)
     draws[1] = first_result
     for trial in 2:ntrials
-        realization = rand(rng, configuration; distribution = formulation.distribution)
+        realization = ParametricBuilder.realize(rng, point, formulation.distribution)
         draws[trial] = compute(realization, formulation.inner; options)
     end
     return merge(_aggregate(draws, formulation), (; trials = ntrials, seed))
@@ -141,69 +141,45 @@ end
 function compute(problem::ParametricProblem, formulation::MonteCarlo)
     values = nothing
     stats_values = nothing
-    sample_values = Any[]
-    histogram_values = Any[]
-    resolved = NamedTuple[]
-    resolved_bindings = Tuple[]
-    failures = NamedTuple[]
+    sample_values = nothing
+    histogram_values = nothing
     seeds = UInt64[]
     trial_counts = Int[]
     root_seed = formulation.seed === nothing ? rand(Random.RandomDevice(), UInt64) :
                 formulation.seed
-    for (index, configuration) in enumerate(configurations(problem.space))
-        parameterization = configuration_manifest(configuration)
-        configuration_seed = root_seed ⊻ (UInt64(index - 1) * 0x9e3779b97f4a7c15)
-        try
-            aggregate = _monte_carlo(
-                configuration,
-                formulation,
-                problem.options,
-                configuration_seed
-            )
-            values = ParametricBuilder._append_result(values, aggregate.representation)
-            stats_values = ParametricBuilder._append_result(stats_values, aggregate.statistics)
-            push!(sample_values, aggregate.samples)
-            push!(histogram_values, aggregate.histograms)
-            push!(seeds, aggregate.seed)
-            push!(trial_counts, aggregate.trials)
-            push!(resolved, parameterization)
-            push!(resolved_bindings, configuration.bindings)
-        catch exception
-            exception isa InterruptException && rethrow()
-            (formulation.invalid === :error ||
-             !ParametricBuilder._skippable_configuration_error(exception)) && rethrow()
-            push!(failures, ParametricBuilder._configuration_failure(
-                configuration, exception))
-        end
+    for (index, point) in enumerate(ParametricBuilder.points(problem.space))
+        point_seed = root_seed ⊻ (UInt64(index - 1) * 0x9e3779b97f4a7c15)
+        aggregate = _monte_carlo(
+            point,
+            formulation,
+            problem.options,
+            point_seed
+        )
+        values = ParametricBuilder._append_result(values, aggregate.representation)
+        stats_values = ParametricBuilder._append_result(stats_values, aggregate.statistics)
+        formulation.return_samples &&
+            (sample_values = ParametricBuilder._append_result(
+                sample_values,
+                aggregate.samples
+            ))
+        formulation.return_histograms &&
+            (histogram_values = ParametricBuilder._append_result(
+                histogram_values,
+                aggregate.histograms
+            ))
+        push!(seeds, aggregate.seed)
+        push!(trial_counts, aggregate.trials)
     end
     typed_values = values === nothing ? AbstractProblemResult[] : values
     typed_stats = stats_values === nothing ? Any[] : stats_values
-    random_value = (
-        root_seed = root_seed,
-        configuration_seeds = seeds,
-        trials = trial_counts,
-        confidence = formulation.confidence,
-        cdf_tol = formulation.cdf_tol,
-        distribution = formulation.distribution
-    )
-    manifest_value = ParametricBuilder._manifest(
-        formulation.inner,
-        problem.options,
-        resolved_bindings;
-        random = random_value
-    )
-    details = ParametricBuilder._details(; failures, manifest = manifest_value)
-    details[:samples] = (
-        values = formulation.return_samples ? sample_values : nothing,
-    )
-    details[:histograms] = (
-        values = formulation.return_histograms ? histogram_values : nothing,
-    )
     return MonteCarloResult(
         formulation,
         typed_values,
-        resolved,
         typed_stats,
-        details
+        formulation.return_samples ? something(sample_values, Any[]) : nothing,
+        formulation.return_histograms ? something(histogram_values, Any[]) : nothing,
+        root_seed,
+        seeds,
+        trial_counts
     )
 end

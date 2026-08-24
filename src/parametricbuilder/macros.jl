@@ -168,15 +168,13 @@ macro gridspace(arguments...)
     end
     push!(keywords, Expr(:kw, :combine, QuoteNode(:product)))
     signature = Expr(:call, struct_name, Expr(:parameters, keywords...))
-    names = Expr(:tuple, map(field -> QuoteNode(field.name), fields)...)
     values = Expr(:tuple, axes...)
     constructor = Expr(:function,
         signature,
         quote
             return $(GlobalRef(@__MODULE__, :Gridspace)){$target}(
                 $target,
-                $values,
-                $names;
+                $values;
                 combine = combine
             )
         end)

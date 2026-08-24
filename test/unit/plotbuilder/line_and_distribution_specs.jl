@@ -314,14 +314,15 @@ end
     @test Cmp._mc_histogram_quantile(histogram, 0.5) ≈ 3.0
     @test_throws DomainError Cmp._mc_histogram_quantile(histogram, -eps())
 
-    sample_details=copy(result.details)
-    sample_details[:histograms]=(values = nothing,)
     samples_only=Cmp.MonteCarloResult(
         result.formulation,
         result.values,
-        result.space,
         result.stats,
-        sample_details
+        result.sample_values,
+        nothing,
+        result.root_seed,
+        result.point_seeds,
+        result.trial_counts
     )
     derived=PB.make_render(Spec, samples_only; mode = :pdf, nbins = 2)
     derived_series=only(only(only(derived.figures).views).series)
@@ -360,14 +361,15 @@ end
         LineCableModels.UnitHandler.Units()
     ) == "dimensionless"
 
-    histogram_details=copy(result.details)
-    histogram_details[:samples]=(values = nothing,)
     histogram_only=Cmp.MonteCarloResult(
         result.formulation,
         result.values,
-        result.space,
         result.stats,
-        histogram_details
+        nothing,
+        result.histogram_values,
+        result.root_seed,
+        result.point_seeds,
+        result.trial_counts
     )
     @test PB.make_render(Spec, histogram_only; mode = :ecdf, data = :pdf) isa
           PB.PlotRecipe

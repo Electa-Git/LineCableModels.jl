@@ -89,8 +89,7 @@ function at(; x, y, phases = nothing, combine::Symbol = :product)
     connections = _phase_maps(phases, 1)
     return Gridspace{PositionDefinition}(
         _point_builder,
-        (_gridspace_axis(x), _gridspace_axis(y), Grid((connections,))),
-        (:x, :y, :phases);
+        (_gridspace_axis(x), _gridspace_axis(y), Grid((connections,)));
         combine
     )
 end
@@ -135,8 +134,7 @@ function trifoil(;
     return Gridspace{PositionDefinition}(
         _trifoil_builder,
         (_gridspace_axis(x), _gridspace_axis(y),
-            _gridspace_axis(spacing), Grid((connections,))),
-        (:x, :y, :spacing, :phases);
+            _gridspace_axis(spacing), Grid((connections,)));
         combine
     )
 end
@@ -183,8 +181,7 @@ function hflat(;
     return Gridspace{PositionDefinition}(
         _hflat_builder,
         (_gridspace_axis(x), _gridspace_axis(y),
-            _gridspace_axis(spacing), Grid((connections,))),
-        (:x, :y, :spacing, :phases);
+            _gridspace_axis(spacing), Grid((connections,)));
         combine
     )
 end
@@ -231,8 +228,7 @@ function vflat(;
     return Gridspace{PositionDefinition}(
         _vflat_builder,
         (_gridspace_axis(x), _gridspace_axis(y),
-            _gridspace_axis(spacing), Grid((connections,))),
-        (:x, :y, :spacing, :phases);
+            _gridspace_axis(spacing), Grid((connections,)));
         combine
     )
 end

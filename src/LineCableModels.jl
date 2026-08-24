@@ -17,8 +17,8 @@ export series_impedance, shunt_admittance,
 # High-level modeling grammar:
 export Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGrid
 export AbstractGrid, AbstractUncertainGrid, UncertainValue
-export Gridspace, configurations, materialize
-export has_uncertainty, configuration_manifest, nominal, standard_uncertainty
+export Gridspace
+export has_uncertainty, nominal, standard_uncertainty
 export @gridspace, @relax
 export Combinatorial, LinearError, MonteCarlo, ParametricProblem
 export ParametricResult, LinearErrorResult, MonteCarloResult
@@ -95,8 +95,7 @@ include("parametricbuilder/ParametricBuilder.jl")
 using .ParametricBuilder:
                           Grid, AbsoluteError, DeterministicGrid, RelativeGrid,
                           AbsoluteGrid, AbstractGrid, AbstractUncertainGrid,
-                          UncertainValue, Gridspace, configurations,
-                          materialize, has_uncertainty, configuration_manifest,
+                          UncertainValue, Gridspace, has_uncertainty,
                           @gridspace, @relax,
                           Combinatorial, ParametricProblem, ParametricResult,
                           result,

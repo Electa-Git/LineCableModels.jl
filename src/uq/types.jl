@@ -8,16 +8,6 @@ $(TYPEDFIELDS)
 struct LinearError{F <: AbstractFormulation} <: AbstractFormulation
     "Formulation used for each materialized problem."
     inner::F
-    "Invalid-configuration policy: `:error` or `:skip`."
-    invalid::Symbol
-
-    function LinearError(inner::F; invalid::Symbol = :error) where {F <:
-                                                                    AbstractFormulation}
-        invalid in (:error, :skip) || throw(ArgumentError(
-            "invalid must be :error or :skip; got $(repr(invalid))",
-        ))
-        return new{F}(inner, invalid)
-    end
 end
 
 """
@@ -48,9 +38,6 @@ struct MonteCarlo{F <: AbstractFormulation, D, S} <: AbstractFormulation
     return_histograms::Bool
     "Optional histogram bin count."
     bins::Union{Nothing, Int}
-    "Invalid-configuration policy: `:error` or `:skip`."
-    invalid::Symbol
-
     function MonteCarlo(
             inner::F;
             trials::Union{Nothing, Integer} = nothing,
@@ -60,17 +47,13 @@ struct MonteCarlo{F <: AbstractFormulation, D, S} <: AbstractFormulation
             seed::Union{Nothing, Integer} = nothing,
             return_samples::Bool = false,
             return_histograms::Bool = false,
-            bins::Union{Nothing, Integer} = nothing,
-            invalid::Symbol = :error
+            bins::Union{Nothing, Integer} = nothing
     ) where {F <: AbstractFormulation}
         trials === nothing || trials > 0 || throw(ArgumentError("trials must be positive"))
         0 < confidence < 1 ||
             throw(ArgumentError("confidence must lie between zero and one"))
         0 < cdf_tol < 1 || throw(ArgumentError("cdf_tol must lie between zero and one"))
         bins === nothing || bins > 0 || throw(ArgumentError("bins must be positive"))
-        invalid in (:error, :skip) || throw(ArgumentError(
-            "invalid must be :error or :skip; got $(repr(invalid))",
-        ))
         distribution isa Symbol && distribution ∉ (:normal, :uniform) &&
             throw(ArgumentError(
                 "unsupported distribution $(repr(distribution)); expected :normal, :uniform, a sampler function, or an extension-supported distribution",
@@ -85,8 +68,7 @@ struct MonteCarlo{F <: AbstractFormulation, D, S} <: AbstractFormulation
             actual_seed,
             return_samples,
             return_histograms,
-            bins === nothing ? nothing : Int(bins),
-            invalid
+            bins === nothing ? nothing : Int(bins)
         )
     end
 end
@@ -226,26 +208,15 @@ Store ordered primitive results from a [`LinearError`](@ref) calculation.
 
 $(TYPEDFIELDS)
 """
-struct LinearErrorResult{
-    T, F, S <: AbstractVector{<:NamedTuple}, D <: Dict{Symbol, NamedTuple}} <:
-       AbstractUncertaintyResult{T}
-    "Resolved higher-order formulation."
+struct LinearErrorResult{T, F} <: AbstractUncertaintyResult{T}
+    "Higher-order formulation used for the calculation."
     formulation::F
-    "Successful uncertainty-bearing primitive results."
+    "Uncertainty-bearing primitive results in Gridspace traversal order."
     values::Vector{T}
-    "Successful resolved coordinates, aligned with `values`."
-    space::S
-    "Contingent failure and replay metadata."
-    details::D
 
-    function LinearErrorResult(formulation::F, values::Vector{T}, space::S,
-            details::D) where {
-            T, F, S <: AbstractVector{<:NamedTuple}, D <: Dict{Symbol, NamedTuple}}
+    function LinearErrorResult(formulation::F, values::Vector{T}) where {T, F}
         ParametricBuilder._primitive_result_type(T)
-        length(space) == length(values) || throw(DimensionMismatch(
-            "resolved coordinates must contain one entry per primitive result",
-        ))
-        return new{T, F, S, D}(formulation, values, space, details)
+        return new{T, F}(formulation, values)
     end
 end
 
@@ -256,32 +227,63 @@ Store primitive mean representations and real-valued Monte Carlo summaries.
 
 $(TYPEDFIELDS)
 """
-struct MonteCarloResult{T, F, S <: AbstractVector{<:NamedTuple},
-    ST <: AbstractVector, D <: Dict{Symbol, NamedTuple}} <:
+struct MonteCarloResult{T, F, ST <: AbstractVector, S, H} <:
        AbstractUncertaintyResult{T}
-    "Resolved higher-order formulation."
+    "Higher-order formulation used for the calculation."
     formulation::F
-    "Successful primitive mean representations."
+    "Primitive mean representations in Gridspace traversal order."
     values::Vector{T}
-    "Successful resolved coordinates, aligned with `values`."
-    space::S
     "Per-observable sample summaries."
     stats::ST
-    "Contingent failure, replay, and retained-sample metadata."
-    details::D
+    "Retained joint samples, or `nothing` when not requested."
+    sample_values::S
+    "Retained marginal histograms, or `nothing` when not requested."
+    histogram_values::H
+    "Resolved root random seed."
+    root_seed::UInt64
+    "Deterministic random seed for each Gridspace point."
+    point_seeds::Vector{UInt64}
+    "Trial count used for each Gridspace point."
+    trial_counts::Vector{Int}
 
-    function MonteCarloResult(formulation::F, values::Vector{T}, space::S,
-            stats::ST, details::D) where {
-            T, F, S <: AbstractVector{<:NamedTuple}, ST <: AbstractVector,
-            D <: Dict{Symbol, NamedTuple}}
+    function MonteCarloResult(
+            formulation::F,
+            values::Vector{T},
+            stats::ST,
+            sample_values::S,
+            histogram_values::H,
+            root_seed::UInt64,
+            point_seeds::Vector{UInt64},
+            trial_counts::Vector{Int}
+    ) where {T, F, ST <: AbstractVector, S, H}
         ParametricBuilder._primitive_result_type(T)
-        length(space) == length(values) || throw(DimensionMismatch(
-            "resolved coordinates must contain one entry per primitive result",
-        ))
         length(stats) == length(values) || throw(DimensionMismatch(
             "Monte Carlo statistics must contain one entry per primitive result",
         ))
-        return new{T, F, S, ST, D}(formulation, values, space, stats, details)
+        length(point_seeds) == length(values) || throw(DimensionMismatch(
+            "Monte Carlo seeds must contain one entry per primitive result",
+        ))
+        length(trial_counts) == length(values) || throw(DimensionMismatch(
+            "Monte Carlo trial counts must contain one entry per primitive result",
+        ))
+        sample_values === nothing || length(sample_values) == length(values) ||
+            throw(DimensionMismatch(
+                "retained samples must contain one entry per primitive result",
+            ))
+        histogram_values === nothing || length(histogram_values) == length(values) ||
+            throw(DimensionMismatch(
+                "retained histograms must contain one entry per primitive result",
+            ))
+        return new{T, F, ST, S, H}(
+            formulation,
+            values,
+            stats,
+            sample_values,
+            histogram_values,
+            root_seed,
+            point_seeds,
+            trial_counts
+        )
     end
 end
 
@@ -297,22 +299,39 @@ end
 
 result(value::Union{LinearErrorResult, MonteCarloResult}) = value.values
 statistics(value::MonteCarloResult) = value.stats
-samples(value::MonteCarloResult) = value.details[:samples].values
-histograms(value::MonteCarloResult) = value.details[:histograms].values
+samples(value::MonteCarloResult) = value.sample_values
+histograms(value::MonteCarloResult) = value.histogram_values
 uncertain_value(value::LinearErrorResult) = value.values
-function observables(value::LinearErrorResult)
+observables(value::LinearErrorResult) = (result = result(value),)
+
+function observables(
+        value::MonteCarloResult{<:Any, <:Any, <:AbstractVector, Nothing, Nothing},
+)
+    return (result = result(value), statistics = statistics(value))
+end
+function observables(
+        value::MonteCarloResult{<:Any, <:Any, <:AbstractVector, <:Any, Nothing},
+)
     return (
         result = result(value),
-        details = value.details
+        statistics = statistics(value),
+        samples = samples(value)
     )
 end
-
+function observables(
+        value::MonteCarloResult{<:Any, <:Any, <:AbstractVector, Nothing, <:Any},
+)
+    return (
+        result = result(value),
+        statistics = statistics(value),
+        histograms = histograms(value)
+    )
+end
 function observables(value::MonteCarloResult)
     return (
         result = result(value),
         statistics = statistics(value),
         samples = samples(value),
-        histograms = histograms(value),
-        details = value.details
+        histograms = histograms(value)
     )
 end

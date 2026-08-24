@@ -1,24 +1,13 @@
 """
 $(TYPEDEF)
 
-Evaluate every admitted configuration with `inner` while applying the selected
-invalid-configuration policy.
+Evaluate every point in a [`ParametricProblem`](@ref) with `inner`.
 
 $(TYPEDFIELDS)
 """
 struct Combinatorial{F <: AbstractFormulation} <: AbstractFormulation
-    "Formulation used for each materialized problem."
+    "Formulation used for each primitive problem."
     inner::F
-    "Invalid-configuration policy: `:error` or `:skip`."
-    invalid::Symbol
-
-    function Combinatorial(inner::F; invalid::Symbol = :error) where {F <:
-                                                                      AbstractFormulation}
-        invalid in (:error, :skip) || throw(ArgumentError(
-            "invalid must be :error or :skip; got $(repr(invalid))",
-        ))
-        return new{F}(inner, invalid)
-    end
 end
 
 """
@@ -32,46 +21,37 @@ $(TYPEDFIELDS)
 struct ParametricProblem{S, O <: NamedTuple} <: AbstractProblemDefinition
     "Lazy space of complete primitive problems."
     space::S
-    "Options forwarded to each primitive calculation."
+    "Options supplied to each primitive calculation."
     options::O
 end
 
 ParametricProblem(space) = ParametricProblem(space, (;))
 
 function _primitive_result_type(::Type{T}) where {T}
-    T <: Union{AbstractParametricResult, AbstractUncertaintyResult} && throw(ArgumentError(
+    T <: Union{AbstractParametricResult, AbstractUncertaintyResult} && throw(
+        ArgumentError(
         "composite results cannot contain another composite result as their primitive type",
-    ))
+    ),
+    )
     return T
 end
 
 """
 $(TYPEDEF)
 
-Store ordered primitive results from a [`Combinatorial`](@ref) calculation.
+Store primitive results in Gridspace traversal order.
 
 $(TYPEDFIELDS)
 """
-struct ParametricResult{
-    T, F, S <: AbstractVector{<:NamedTuple}, D <: Dict{Symbol, NamedTuple}} <:
-       AbstractParametricResult{T}
-    "Resolved higher-order formulation."
+struct ParametricResult{T, F} <: AbstractParametricResult{T}
+    "Higher-order formulation used for the calculation."
     formulation::F
-    "Successful primitive results in Gridspace order."
+    "Primitive results in Gridspace traversal order."
     values::Vector{T}
-    "Successful resolved coordinates, aligned with `values`."
-    space::S
-    "Contingent failure and replay metadata."
-    details::D
 
-    function ParametricResult(formulation::F, values::Vector{T}, space::S,
-            details::D) where {
-            T, F, S <: AbstractVector{<:NamedTuple}, D <: Dict{Symbol, NamedTuple}}
+    function ParametricResult(formulation::F, values::Vector{T}) where {T, F}
         _primitive_result_type(T)
-        length(space) == length(values) || throw(DimensionMismatch(
-            "resolved coordinates must contain one entry per primitive result",
-        ))
-        return new{T, F, S, D}(formulation, values, space, details)
+        return new{T, F}(formulation, values)
     end
 end
 
@@ -81,12 +61,7 @@ Base.getindex(value::ParametricResult, index::Integer) = value.values[index]
 Base.iterate(value::ParametricResult, state...) = iterate(value.values, state...)
 Base.IndexStyle(::Type{<:ParametricResult}) = IndexLinear()
 
-"Return the ordered primitive results of a composite calculation."
+"Return the primitive results of a parametric calculation."
 result(value::ParametricResult) = value.values
 
-function observables(value::ParametricResult)
-    return (
-        result = result(value),
-        details = value.details
-    )
-end
+observables(value::ParametricResult) = (result = result(value),)

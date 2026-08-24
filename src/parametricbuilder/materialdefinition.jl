@@ -10,10 +10,7 @@ end
 function Gridspace(spec::MaterialDefinition)
     return Gridspace{Materials.Material}(
         Materials.Material,
-        map(_gridspace_axis, (
-            spec.rho, spec.eps_r, spec.mu_r, spec.T0, spec.alpha
-        )),
-        (:rho, :eps_r, :mu_r, :T0, :alpha);
+        map(_gridspace_axis, (spec.rho, spec.eps_r, spec.mu_r, spec.T0, spec.alpha));
         combine = _valof(spec.combine)
     )
 end

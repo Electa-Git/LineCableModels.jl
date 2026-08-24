@@ -238,7 +238,7 @@ end
 
     copper=PB.Material(; rho = 1.7241e-8)
     xlpe=PB.Material(; rho = 1.0e14, eps_r = 2.3)
-    uncertain_radius=Grid((0.010, 0.012), 2.0; key = :core_radius)
+    uncertain_radius=Grid((0.010, 0.012), 2.0)
     design_spec=PB.CableBuilder(
         "compute-cable",
         PB.Conductor.Solid(:core; radius = uncertain_radius, material = copper),
@@ -255,33 +255,10 @@ end
     @test direct isa ParametricResult{<:CableConstants}
     @test length(direct) == 2
     @test all(value -> value.R isa Measurement, direct)
-    expected_detail_keys=Set((:failures, :manifest))
-    @test direct.details isa Dict{Symbol, NamedTuple}
-    @test Set(keys(direct.details)) == expected_detail_keys
-    @test length(direct.space) == length(direct)
-    @test all(coordinate -> coordinate isa NamedTuple, direct.space)
-    @test keys(direct.details[:manifest]) == (:backend, :options, :random, :coupling)
-    @test direct.details[:manifest].random === nothing
-    @test length(direct.details[:manifest].coupling.entries) == length(direct.space)
-    extended_details=copy(direct.details)
-    extended_details[:diagnostic]=(value = :retained,)
-    extended=ParametricResult(
-        direct.formulation,
-        direct.values,
-        direct.space,
-        extended_details
-    )
-    @test extended.details[:diagnostic] == (value = :retained,)
-    @test_throws DimensionMismatch ParametricResult(
-        direct.formulation,
-        direct.values,
-        NamedTuple[],
-        direct.details
-    )
+    @test fieldnames(typeof(direct)) == (:formulation, :values)
     direct_observables=observables(direct)
-    @test keys(direct_observables) == (:result, :details)
+    @test keys(direct_observables) == (:result,)
     @test direct_observables.result === result(direct)
-    @test direct_observables.details === direct.details
 
     fixed_design=PB.CableBuilder(
         "fixed-compute-cable",
@@ -306,23 +283,18 @@ end
     )
     monte_carlo=compute(ParametricProblem(space), policy)
     @test monte_carlo isa MonteCarloResult{<:CableConstants}
-    @test monte_carlo.details isa Dict{Symbol, NamedTuple}
-    @test Set(keys(monte_carlo.details)) ==
-          Set((:failures, :samples, :histograms, :manifest))
     @test length(monte_carlo) == 2
-    @test length(monte_carlo.space) == length(monte_carlo)
-    @test monte_carlo.details[:manifest].random.trials == [12, 12]
+    @test monte_carlo.trial_counts == [12, 12]
     @test length(samples(monte_carlo)) == 2
     @test length(histograms(monte_carlo)) == 2
-    @test monte_carlo.details[:manifest].random.root_seed == UInt64(0x1234)
+    @test monte_carlo.root_seed == UInt64(0x1234)
     monte_carlo_observables=observables(monte_carlo)
     @test keys(monte_carlo_observables) ==
-          (:result, :statistics, :samples, :histograms, :details)
+          (:result, :statistics, :samples, :histograms)
     @test monte_carlo_observables.result === result(monte_carlo)
     @test monte_carlo_observables.statistics === statistics(monte_carlo)
     @test monte_carlo_observables.samples === samples(monte_carlo)
     @test monte_carlo_observables.histograms === histograms(monte_carlo)
-    @test monte_carlo_observables.details === monte_carlo.details
 
     resistance_pdf=first(histograms(monte_carlo)).R
     @test cdf(resistance_pdf, maximum(resistance_pdf)) == 1.0
@@ -331,7 +303,9 @@ end
     @test first(resistance_pdf.edges) <= pdf_draw <= last(resistance_pdf.edges)
 
     repeated=compute(ParametricProblem(space), policy)
-    @test repeated.details[:manifest] == monte_carlo.details[:manifest]
+    @test repeated.root_seed == monte_carlo.root_seed
+    @test repeated.point_seeds == monte_carlo.point_seeds
+    @test repeated.trial_counts == monte_carlo.trial_counts
     @test result(repeated) == result(monte_carlo)
 
     distribution_problem=CableConstantsProblem(PB.CableBuilder(
@@ -351,14 +325,13 @@ end
             return_samples = true, return_histograms = true)
     )
     @test distribution_run isa MonteCarloResult{<:CableConstants}
-    @test distribution_run.details[:manifest].random.root_seed == UInt64(7)
+    @test distribution_run.root_seed == UInt64(7)
     constants_frame=DataFrame(distribution_run)
     @test constants_frame.quantity == ["R", "L", "C"]
     @test constants_frame.trials == fill(4, 3)
     @test constants_frame.cdf_tol == fill(0.02, 3)
     @test !(:ci_half in propertynames(constants_frame))
-    @test DataFrames.metadata(constants_frame, "monte_carlo").manifest ==
-          distribution_run.details[:manifest]
+    @test DataFrames.metadata(constants_frame, "monte_carlo").root_seed == UInt64(7)
     descriptor=only(Grid(1.0, AbsoluteError(0.1)))
     @test_throws ArgumentError rand(
         MersenneTwister(9),
@@ -375,17 +348,14 @@ end
             seed = 8
         )
     )
-    @test only(automatic_run.details[:manifest].random.trials) ==
+    @test only(automatic_run.trial_counts) ==
           UQ._dkw_trials(3, 0.5, 0.9)
 
     propagated=compute(ParametricProblem(space), LinearError(formulation))
     @test propagated isa LinearErrorResult{<:CableConstants}
-    @test propagated.details isa Dict{Symbol, NamedTuple}
-    @test Set(keys(propagated.details)) == expected_detail_keys
-    @test length(propagated.space) == length(propagated)
+    @test fieldnames(typeof(propagated)) == (:formulation, :values)
     propagated_observables=observables(propagated)
-    @test keys(propagated_observables) == (:result, :details)
-    @test propagated_observables.details === propagated.details
+    @test keys(propagated_observables) == (:result,)
     @test Measurements.cov(first(propagated).R, first(propagated).L) != 0
     @test !applicable(Measurements.measurement, monte_carlo)
 
@@ -470,7 +440,7 @@ end
         )
     )
     @test monte_carlo isa MonteCarloResult{<:LineParameters}
-    @test only(monte_carlo.details[:manifest].random.trials) == 3
+    @test only(monte_carlo.trial_counts) == 3
     @test only(statistics(monte_carlo)) isa RLCG
     @test only(samples(monte_carlo)) isa RLCG
     @test only(histograms(monte_carlo)) isa RLCG
@@ -483,7 +453,7 @@ end
     @test all(==("Ω/km"), line_frames[1, 1, 1].unit[1:1])
 end
 
-@testitem "ParametricBuilder / invalid configurations / strict and auditable handling" tags=[:unit] setup=[
+@testitem "ParametricBuilder / invalid points / natural failure" tags=[:unit] setup=[
     EngineTestSupport, UseEngineSupport, TestNumerics] begin
     import LineCableModels.ParametricBuilder as PB
 
@@ -500,29 +470,9 @@ end
 
     parameterized=ParametricProblem(problem)
     @test_throws DomainError compute(parameterized, Combinatorial(Formulation()))
-    skipped=compute(
-        parameterized,
-        Combinatorial(Formulation(); invalid = :skip)
-    )
-    @test skipped isa ParametricResult
-    @test isempty(skipped)
-    failures=skipped.details[:failures].entries
-    @test length(failures) == 2
-    @test all(failure -> failure.exception isa DomainError, failures)
-    @test isempty(skipped.space)
-
-    partial_problem=CableConstantsProblem(
-        design;
-        separation = Grid((nothing, -1.0))
-    )
-    partial=compute(
-        ParametricProblem(partial_problem),
-        Combinatorial(Formulation(); invalid = :skip)
-    )
-    @test length(partial) == length(partial.space) == 1
-    partial_failure=only(partial.details[:failures].entries)
-    @test keys(partial_failure) == (:coordinate, :exception, :message)
-    @test partial_failure.coordinate.separation == -1.0
+    @test_throws MethodError Combinatorial(Formulation(); invalid = :skip)
+    @test_throws MethodError LinearError(Formulation(); invalid = :skip)
+    @test_throws MethodError MonteCarlo(Formulation(); invalid = :skip)
 end
 
 @testitem "DataModel / DataFrame / eager base-state presentation" tags=[:unit] setup=[

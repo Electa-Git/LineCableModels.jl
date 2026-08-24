@@ -2,8 +2,8 @@ module ParametricBuilder
 
 export Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGrid
 export AbstractGrid, AbstractUncertainGrid, UncertainValue
-export Gridspace, configurations, materialize
-export has_uncertainty, configuration_manifest, nominal, standard_uncertainty
+export Gridspace
+export has_uncertainty, nominal, standard_uncertainty
 export @gridspace, @relax
 
 export Combinatorial, ParametricProblem, ParametricResult
@@ -37,11 +37,10 @@ abstract type _AbstractDefinition{Target} end
 target_type(::Type{<:_AbstractDefinition{Target}}) where {Target} = Target
 target_type(definition::_AbstractDefinition) = target_type(typeof(definition))
 
-_gridspace_axis(definition::_AbstractDefinition) = definition
-_axis_cases(definition::_AbstractDefinition) = configurations(Gridspace(definition))
-function has_uncertainty(definition::_AbstractDefinition)
-    any(has_uncertainty, configurations(Gridspace(definition)))
-end
+_gridspace_axis(definition::_AbstractDefinition) = Gridspace(definition)
+_gridspace_axis(value::Union{AbstractGrid, Gridspace}) = value
+_gridspace_axis(value) = Grid((value,))
+has_uncertainty(definition::_AbstractDefinition) = has_uncertainty(Gridspace(definition))
 
 include("materialdefinition.jl")
 include("cablebuilderdefinition.jl")

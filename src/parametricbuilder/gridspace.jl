@@ -1,65 +1,24 @@
-struct ConstantAxis{T}
-    value::T
-end
-
-Base.iterate(axis::ConstantAxis) = (axis.value, nothing)
-Base.iterate(::ConstantAxis, ::Nothing) = nothing
-Base.length(::ConstantAxis) = 1
-function Base.getindex(axis::ConstantAxis, index::Integer)
-    index == 1 ? axis.value : throw(BoundsError(axis, index))
-end
-
-struct GridBinding{K}
-    key::K
-    index::Int
-    cardinality::Int
+"A selected but unresolved argument tuple from a [`Gridspace`](@ref)."
+struct GridPoint{F, A <: Tuple}
+    build::F
+    args::A
 end
 
 """
 $(TYPEDEF)
 
-Represent one resolved deterministic choice while retaining any uncertainty
-descriptors for later realization.
+Represent a typed finite space assembled from explicit [`Grid`](@ref) or
+nested `Gridspace` sources. `combine` is encoded in the type and may be
+`:product` or `:zip`.
 
 $(TYPEDFIELDS)
 """
-struct Configuration{Target, F, V <: Tuple, N <: Tuple, B <: Tuple}
-    "Callable that constructs `Target` from the resolved axis values."
-    target::F
+struct Gridspace{Target, F, G <: Tuple, C}
+    "Callable that constructs `Target` from one selected argument tuple."
+    build::F
 
-    "Resolved values supplied to `target`."
-    values::V
-
-    "Parameter names corresponding to `values`."
-    names::N
-
-    "Selections retained for coupled axes."
-    bindings::B
-end
-
-target_type(::Type{<:Configuration{Target}}) where {Target} = Target
-target_type(configuration::Configuration) = target_type(typeof(configuration))
-
-"""
-$(TYPEDEF)
-
-A lazy space of complete `Target` configurations. `combine` is local to this
-node and may be `:product` or `:zip`.
-
-$(TYPEDFIELDS)
-"""
-struct Gridspace{Target, F, A <: Tuple, N <: Tuple, C}
-    "Callable that constructs `Target` from one selection of the direct axes."
-    target::F
-
-    "Direct parameter or object-valued axes."
-    axes::A
-
-    "Parameter names corresponding to `axes`."
-    names::N
-
-    "Local composition rule, represented by `Val{:product}` or `Val{:zip}`."
-    combine::C
+    "Explicit Grid or nested Gridspace sources."
+    grids::G
 end
 
 target_type(::Type{<:Gridspace{Target}}) where {Target} = Target
@@ -68,328 +27,127 @@ target_type(space::Gridspace) = target_type(typeof(space))
 """
 $(TYPEDSIGNATURES)
 
-Construct a lazy space of complete `Target` configurations from `axes`.
+Construct a lazy space from explicit finite sources. Product composition uses
+Julia's product order, with the first source varying fastest. Zip composition
+pairs equal-length sources and broadcasts singleton sources.
 
-`combine=:product` forms the Cartesian product of the direct axes.
-`combine=:zip` pairs axes of equal cardinality while treating singleton axes
-as constants. A nested [`Gridspace`](@ref) applies its own composition rule
-before entering its parent as one object-valued axis.
+# Errors
+
+- Throws `ArgumentError` when `combine` is unsupported or an input is not a
+  `Grid` or nested `Gridspace`.
+- Throws `DimensionMismatch` when zip source lengths are incompatible.
 """
 function Gridspace{Target}(
-        target::F,
-        axes::A,
-        names::N = ();
+        build::F,
+        grids::G;
         combine::Symbol = :product
-) where {Target, F, A <: Tuple, N <: Tuple}
+) where {Target, F, G <: Tuple}
     combine in (:product, :zip) ||
         throw(ArgumentError("combine must be :product or :zip; got :$combine"))
-    isempty(names) || length(names) == length(axes) ||
-        throw(DimensionMismatch("Gridspace names and axes must have equal lengths"))
-    normalized_axes = map(_gridspace_axis, axes)
-    normalized_names = isempty(names) ?
-                       ntuple(index -> Symbol(:arg, index), length(axes)) : names
-    return Gridspace{
-        Target,
-        F,
-        typeof(normalized_axes),
-        typeof(normalized_names),
-        Val{combine}
-    }(
-        target,
-        normalized_axes,
-        normalized_names,
-        Val(combine)
+    all(grid -> grid isa Union{AbstractGrid, Gridspace}, grids) || throw(
+        ArgumentError("Gridspace sources must be Grid or Gridspace values"),
     )
+    space = Gridspace{Target, F, G, Val{combine}}(build, grids)
+    combine === :zip && _zip_length(space)
+    return space
 end
 
-function Gridspace{Target}(axes::Tuple; combine::Symbol = :product) where {Target}
-    Gridspace{Target}(Target, axes; combine)
+function Gridspace{Target}(grids::Tuple; combine::Symbol = :product) where {Target}
+    Gridspace{Target}(Target, grids; combine)
 end
 
-function Grid(space::Gridspace; key = nothing)
-    key === nothing ? space :
-    throw(ArgumentError("Gridspace coupling is defined by its child Grids"))
+Grid(space::Gridspace) = space
+
+points(grid::AbstractGrid) = grid
+
+_product_combinations(::Tuple{}) = ((),)
+function _product_combinations(grids::Tuple)
+    Iterators.product(map(points, grids)...)
 end
 
-_gridspace_axis(value::ConstantAxis) = value
-_gridspace_axis(value::Union{AbstractGrid, Gridspace}) = value
-_gridspace_axis(value::Union{Tuple, AbstractArray}) = Grid(value)
-_gridspace_axis(value) = ConstantAxis(value)
-
-struct AxisSelection{V, K}
-    value::V
-    key::K
-    index::Int
-    cardinality::Int
-end
-
-"""A resolved axis value retaining its coupling identity for realization."""
-struct ResolvedGridValue{V, K}
-    value::V
-    key::K
-end
-
-_axis_cases(axis::ConstantAxis) = axis
-
-function _axis_cases(grid::AbstractGrid)
-    return (
-        AxisSelection(value, grid.key, index, length(grid))
-    for (index, value) in enumerate(grid)
-    )
-end
-
-_axis_cases(space::Gridspace) = configurations(space)
-
-_axis_value(selection::AxisSelection) = ResolvedGridValue(selection.value, selection.key)
-_axis_value(configuration::Configuration) = configuration
-_axis_value(value) = value
-
-function _axis_bindings(selection::AxisSelection)
-    (GridBinding(selection.key, selection.index, selection.cardinality),)
-end
-_axis_bindings(configuration::Configuration) = configuration.bindings
-_axis_bindings(::Any) = ()
-
-_same_grid_key(left, right) = left == right
-
-function _compatible_bindings(items::Tuple)
-    bindings = tuple((_axis_bindings(item) for item in items)...)
-    flat = tuple(Iterators.flatten(bindings)...)
-    for i in eachindex(flat), j in (i + 1):length(flat)
-
-        if _same_grid_key(flat[i].key, flat[j].key)
-            flat[i].cardinality == flat[j].cardinality || throw(DimensionMismatch(
-                "coupled Grids have incompatible cardinalities $(flat[i].cardinality) and $(flat[j].cardinality)",
-            ))
-            flat[i].index != flat[j].index && return false
-        end
-    end
-    return true
-end
-
-function _merged_bindings(items::Tuple)
-    groups = tuple((_axis_bindings(item) for item in items)...)
-    all_bindings = tuple(Iterators.flatten(groups)...)
-    return tuple((
-        binding
-    for (index, binding) in pairs(all_bindings)
-    if all(
-        previous -> !_same_grid_key(previous.key, binding.key),
-        all_bindings[1:(index - 1)]
-    )
-    )...)
-end
-
-function _product_combinations(axes::Tuple)
-    isempty(axes) && return ((),)
-    iterators = map(_axis_cases, axes)
-    return Iterators.product(iterators...)
-end
-
-function _nth(iterator, index::Int)
-    item = iterate(Iterators.drop(iterator, index - 1))
-    item === nothing && throw(BoundsError(iterator, index))
-    return item[1]
-end
-
-function _zip_combinations(axes::Tuple, names::Tuple)
-    isempty(axes) && return ((),)
-    iterators = map(_axis_cases, axes)
-    counts = map(length, axes)
+_zip_length(::Gridspace{<:Any, <:Any, Tuple{}, Val{:zip}}) = 1
+function _zip_length(space::Gridspace{<:Any, <:Any, <:Tuple, Val{:zip}})
+    counts = map(length, space.grids)
     target_count = maximum(counts)
-    for index in eachindex(counts)
-        counts[index] in (1, target_count) || throw(DimensionMismatch(
-            "zip axis $(names[index]) has cardinality $(counts[index]); expected 1 or $target_count",
-        ))
-    end
-    return (
-        map(
-            (iterator, count) -> _nth(iterator, count == 1 ? 1 : row),
-            iterators,
-            counts
-        )
-    for row in 1:target_count
+    all(count -> count == 1 || count == target_count, counts) || throw(
+        DimensionMismatch(
+        "zip sources must have equal cardinality or be singletons; got $(Tuple(counts))",
+    ),
     )
+    return target_count
 end
 
-function _combinations(space::Gridspace{<:Any, <:Any, <:Any, <:Any, Val{:product}})
-    _product_combinations(space.axes)
-end
-function _combinations(space::Gridspace{<:Any, <:Any, <:Any, <:Any, Val{:zip}})
-    _zip_combinations(space.axes, space.names)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return a lazy iterator over the resolved configurations admitted by a
-[`Gridspace`](@ref).
-"""
-function configurations(space::Gridspace{Target}) where {Target}
-    compatible = Iterators.filter(_compatible_bindings, _combinations(space))
-    return (
-        Configuration{Target}(
-            space.target,
-            map(_axis_value, items),
-            space.names,
-            _merged_bindings(items)
-        )
-    for items in compatible
-    )
+function _zip_source(source, target_count::Int)
+    length(source) == 1 &&
+        return Iterators.repeated(only(points(source)), target_count)
+    return points(source)
 end
 
-# Partial parameter constructor used above while retaining fully concrete field
-# parameters in the actual value.
-function Configuration{Target}(target::F, values::V, names::N,
-        bindings::B) where {
-        Target, F, V <: Tuple, N <: Tuple, B <: Tuple
-}
-    return Configuration{Target, F, V, N, B}(target, values, names, bindings)
+_zip_combinations(::Gridspace{<:Any, <:Any, Tuple{}, Val{:zip}}) = ((),)
+function _zip_combinations(space::Gridspace{<:Any, <:Any, <:Tuple, Val{:zip}})
+    target_count = _zip_length(space)
+    iterators = map(source -> _zip_source(source, target_count), space.grids)
+    return Iterators.zip(iterators...)
 end
 
-function _direct_value(value::UncertainValue)
+function _combinations(space::Gridspace{<:Any, <:Any, <:Any, Val{:product}})
+    _product_combinations(space.grids)
+end
+function _combinations(space::Gridspace{<:Any, <:Any, <:Any, Val{:zip}})
+    _zip_combinations(space)
+end
+
+"Return the lazy unresolved points of a Gridspace."
+function points(space::Gridspace)
+    (GridPoint(space.build, args) for args in _combinations(space))
+end
+
+"Return a value unchanged during deterministic point materialization."
+materialize(value) = value
+
+function materialize(value::UncertainValue)
     throw(ArgumentError(
-        "direct materialization of uncertain configurations requires Measurements.jl",
+        "materializing uncertainty descriptors requires Measurements.jl",
     ))
 end
-_direct_value(configuration::Configuration) = materialize(configuration)
-_direct_value(value) = value
 
-function _resolved_direct(value::ResolvedGridValue, cache::Dict)
-    return get!(cache, value.key) do
-        _direct_value(value.value)
-    end
-end
-function _resolved_direct(configuration::Configuration, cache::Dict)
-    _materialize(configuration, cache)
-end
-_resolved_direct(value, ::Dict) = _direct_value(value)
-
-function _materialize(configuration::Configuration, cache::Dict)
-    values = map(value -> _resolved_direct(value, cache), configuration.values)
-    return configuration.target(values...)
+"Recursively materialize a selected Gridspace point."
+function materialize(point::GridPoint)
+    point.build(map(materialize, point.args)...)
 end
 
-"""
-$(TYPEDSIGNATURES)
+"Return a deterministic value unchanged during stochastic realization."
+realize(::Random.AbstractRNG, value, _) = value
 
-Materialize a resolved configuration through its target constructor.
-"""
-function materialize(configuration::Configuration)
-    return _materialize(configuration, Dict{Any, Any}())
+function realize(rng::Random.AbstractRNG, value::UncertainValue, distribution)
+    rand(rng, value; distribution)
 end
 
-function _random_value(
-        rng::Random.AbstractRNG,
-        value::ResolvedGridValue,
-        distribution,
-        cache::Dict
-)
-    return get!(cache, value.key) do
-        value.value isa UncertainValue ?
-        rand(rng, value.value; distribution) : value.value
-    end
-end
-function _random_value(
-        rng::Random.AbstractRNG,
-        configuration::Configuration,
-        distribution,
-        cache::Dict
-)
-    _random_materialize(rng, configuration, distribution, cache)
-end
-_random_value(::Random.AbstractRNG, value, distribution, ::Dict) = value
-
-function _random_materialize(rng, configuration, distribution, cache)
-    values = map(
-        value -> _random_value(rng, value, distribution, cache),
-        configuration.values
-    )
-    return configuration.target(values...)
+"Recursively realize a selected Gridspace point using the caller's RNG."
+function realize(rng::Random.AbstractRNG, point::GridPoint, distribution)
+    point.build(map(value -> realize(rng, value, distribution), point.args)...)
 end
 
-function Base.rand(
-        rng::Random.AbstractRNG,
-        configuration::Configuration;
-        distribution = :normal
-)
-    return _random_materialize(
-        rng,
-        configuration,
-        distribution,
-        Dict{Any, Any}()
-    )
-end
-
-function Base.rand(configuration::Configuration; kwargs...)
-    rand(Random.default_rng(), configuration; kwargs...)
-end
-
-function Base.rand(rng::Random.AbstractRNG, space::Gridspace; distribution = :normal)
-    iterator = configurations(space)
-    first_item = iterate(iterator)
-    first_item === nothing && throw(ArgumentError("cannot sample an empty Gridspace"))
-    configuration, state = first_item
-    iterate(iterator, state) === nothing || throw(ArgumentError(
-        "rand(Gridspace) requires exactly one outer configuration; enumerate configurations and sample one explicitly",
-    ))
-    return rand(rng, configuration; distribution)
-end
-
-Base.rand(space::Gridspace; kwargs...) = rand(Random.default_rng(), space; kwargs...)
-
-function Base.iterate(space::Gridspace)
-    iterator = configurations(space)
-    item = iterate(iterator)
+function Base.iterate(space::Gridspace, state...)
+    item = iterate(points(space), state...)
     item === nothing && return nothing
-    configuration, state = item
-    return materialize(configuration), state
+    point, next_state = item
+    return materialize(point), next_state
 end
 
-function Base.iterate(space::Gridspace, state)
-    iterator = configurations(space)
-    item = iterate(iterator, state)
-    item === nothing && return nothing
-    configuration, next_state = item
-    return materialize(configuration), next_state
-end
-
-Base.IteratorSize(::Type{<:Gridspace}) = Base.HasLength()
+Base.IteratorSize(::Type{<:Gridspace}) = Base.HasShape{1}()
 Base.IteratorEltype(::Type{<:Gridspace}) = Base.HasEltype()
 Base.eltype(::Type{<:Gridspace{Target}}) where {Target} = Target
-Base.length(space::Gridspace) = count(_ -> true, configurations(space))
+function Base.length(space::Gridspace{<:Any, <:Any, <:Any, Val{:product}})
+    prod(length, space.grids; init = 1)
+end
+Base.length(space::Gridspace{<:Any, <:Any, <:Any, Val{:zip}}) = _zip_length(space)
 Base.size(space::Gridspace) = (length(space),)
-Base.getindex(space::Gridspace, index::Integer) = first(Iterators.drop(space, index - 1))
 
-"""
-$(TYPEDSIGNATURES)
-
-Return whether a value, configuration, or definition contains an
-uncertainty descriptor.
-"""
-has_uncertainty(value::UncertainValue) = true
-has_uncertainty(value::ResolvedGridValue) = has_uncertainty(value.value)
-has_uncertainty(configuration::Configuration) = any(has_uncertainty, configuration.values)
+"Return whether a value structurally contains an uncertainty descriptor."
+has_uncertainty(::UncertainValue) = true
+has_uncertainty(grid::AbstractUncertainGrid) = true
+has_uncertainty(grid::DeterministicGrid) = any(has_uncertainty, grid.vals)
+has_uncertainty(point::GridPoint) = any(has_uncertainty, point.args)
+has_uncertainty(space::Gridspace) = any(has_uncertainty, space.grids)
 has_uncertainty(::Any) = false
-has_uncertainty(space::Gridspace) = any(has_uncertainty, configurations(space))
-
-function _manifest_value(value::UncertainValue)
-    (
-        nominal = value.nominal,
-        sigma = value.sigma
-    )
-end
-_manifest_value(value::ResolvedGridValue) = _manifest_value(value.value)
-_manifest_value(configuration::Configuration) = configuration_manifest(configuration)
-_manifest_value(value) = value
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the named resolved parameterization of a configuration in a stable,
-serializable form.
-"""
-function configuration_manifest(configuration::Configuration)
-    values = map(_manifest_value, configuration.values)
-    return NamedTuple{configuration.names}(values)
-end

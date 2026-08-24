@@ -235,14 +235,15 @@
         @test page.key.quantity === :R
         @test only(page.views).key.selection === nothing
     end
-    sample_details=copy(mc_result.details)
-    sample_details[:histograms]=(values = nothing,)
     samples_only=MonteCarloResult(
         mc_result.formulation,
         mc_result.values,
-        mc_result.space,
         mc_result.stats,
-        sample_details
+        mc_result.sample_values,
+        nothing,
+        mc_result.root_seed,
+        mc_result.point_seeds,
+        mc_result.trial_counts
     )
     @test PB.make_render(
         LineCableModels.UQ.MCDistributionPlotDefinition,

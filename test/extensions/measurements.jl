@@ -146,27 +146,15 @@ end
         SampleSummary(20.0, 10.0, 10.0, 11.0, 20.0, 29.0, 30.0, 3),
         SampleSummary(200.0, 100.0, 100.0, 110.0, 200.0, 290.0, 300.0, 3)
     )]
-    random=(
-        root_seed = UInt64(9),
-        configuration_seeds = UInt64[9],
-        trials = [3],
-        confidence = 0.95,
-        cdf_tol = 0.02,
-        distribution = :normal
+    sample_values=[CableConstants(
+        [1.0, 2.0, 3.0],
+        [10.0, 20.0, 30.0],
+        [100.0, 200.0, 300.0]
+    )]
+    completed=MonteCarloResult(
+        formulation, values, stats, sample_values, nothing,
+        UInt64(9), UInt64[9], [3]
     )
-    details=Dict{Symbol, NamedTuple}(
-        :failures=>(entries = NamedTuple[],),
-        :samples=>(values = [CableConstants(
-            [1.0, 2.0, 3.0],
-            [10.0, 20.0, 30.0],
-            [100.0, 200.0, 300.0]
-        )],),
-        :histograms=>(values = nothing,),
-        :manifest=>(
-            backend = (name = :fixture,), options = (;), random, coupling = (;)
-        )
-    )
-    completed=MonteCarloResult(formulation, values, [(fixture = 1,)], stats, details)
 
     @test !applicable(Measurements.measurement, completed)
     retained=only(samples(completed))

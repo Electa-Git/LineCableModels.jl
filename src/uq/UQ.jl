@@ -26,8 +26,7 @@ import ..UnitHandler
 using ..Grammar:
                  AbstractFormulation, AbstractProblemResult, AbstractUncertaintyResult
 using ..ParametricBuilder:
-                           ParametricProblem, configurations,
-                           configuration_manifest, materialize
+                           ParametricProblem
 
 include("types.jl")
 include("compute.jl")

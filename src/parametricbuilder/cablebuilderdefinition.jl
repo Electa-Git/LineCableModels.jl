@@ -115,8 +115,7 @@ end
 function _part_space(target, axes::Tuple, names::Tuple; combine::Symbol = :product)
     return Gridspace{PartDefinition}(
         target,
-        map(_gridspace_axis, axes),
-        names;
+        map(_gridspace_axis, axes);
         combine
     )
 end
@@ -596,11 +595,9 @@ end
 
 function Gridspace(spec::CableDesignDefinition)
     axes = (_gridspace_axis(spec.identifier), map(_gridspace_axis, spec.parts)...)
-    names = (:identifier, ntuple(index -> Symbol(:part_, index), length(spec.parts))...)
     return Gridspace{DataModel.CableDesign}(
         DesignMaterializer(spec.nominal),
-        axes,
-        names;
+        axes;
         combine = _valof(spec.combine)
     )
 end
