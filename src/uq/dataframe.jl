@@ -9,7 +9,7 @@ end
 
 function _mc_entry(result::MonteCarloResult)
     length(result) == 1 || throw(ArgumentError(
-        "DataFrame requires one Monte Carlo configuration; select a configuration explicitly",
+        "DataFrame requires one Monte Carlo point; select one result explicitly",
     ))
     observed = observables(result)
     return (

@@ -298,7 +298,7 @@ datasheet_info = (
 )
 
 # Resolve the deterministic core description into a materialized cable design:
-core_design = only(CableBuilder(cable_id, core_parts; nominal = datasheet_info))
+core_design = CableBuilder(cable_id, core_parts; nominal = datasheet_info)
 
 # At this point, it becomes possible to preview the cable design:
 plt1 = preview(
@@ -339,8 +339,8 @@ sheath_parts = (
 )
 
 # Resolve and examine the core plus metallic screen:
-screened_design = only(CableBuilder(
-    cable_id, core_parts, sheath_parts; nominal = datasheet_info))
+screened_design = CableBuilder(
+    cable_id, core_parts, sheath_parts; nominal = datasheet_info)
 
 # Examine the newly added components:
 plt2 = preview(
@@ -372,13 +372,13 @@ jacket_parts = (
 =#
 
 # Resolve the complete cable description:
-cable_design = only(CableBuilder(
+cable_design = CableBuilder(
     cable_id,
     core_parts,
     sheath_parts,
     jacket_parts;
     nominal = datasheet_info
-))
+)
 
 # Inspect the finished cable design:
 plt3 = preview(
@@ -479,7 +479,7 @@ formation = trifoil(
 )
 
 # Combine the loaded design, formation, earth, and frequency scan:
-problem = only(SystemBuilder(
+problem = SystemBuilder(
     "18kV_1000mm2_trifoil",
     loaded_design,
     formation;
@@ -487,7 +487,7 @@ problem = only(SystemBuilder(
     temperature = 20.0,
     earth,
     frequencies = f
-))
+)
 cable_system = problem.system
 earth_params = problem.earth_props
 

@@ -6,12 +6,13 @@ The top-level namespace exposes the declarative modeling API. `Grid` is the
 only parameter-variation syntax, and `Gridspace{Target}` is a lazy space of
 complete targets. Scalar `Material` keywords return one materialized value,
 while varying inputs return a `Gridspace`. `CableBuilder`, `Earth`, and
-`SystemBuilder` return their inferred `Gridspace` directly; callers do not wrap
-their definitions in another materialization step.
+`SystemBuilder` likewise return eager domain values for scalar input and a
+`Gridspace` only when an input is explicitly varied.
 
 Ordinary collections remain ordinary constructor values. Wrap a collection in
-`Grid` only when it is intended to vary. Reusing the same `Grid` deliberately
-couples the selection and stochastic realization wherever that grid appears.
+`Grid` only when it is intended to vary. Reusing the same `Grid` object has no
+hidden effect: `:product` still forms the Cartesian product and `:zip` still
+pairs rows.
 
 ```julia
 earth = Earth(
@@ -22,8 +23,11 @@ earth = Earth(
 ```
 
 Composition is local to each Gridspace node. The example above is already a
-space with exactly three earth configurations. It can still participate in a
+space with exactly three earth points. It can still participate in a
 Cartesian product at a parent problem node.
+
+See the [Gridspace manual](gridspace.md) for the complete composition, eager-boundary,
+uncertainty-realization, and extension contracts.
 
 All numerical work follows `problem → formulation → compute`:
 
@@ -41,10 +45,9 @@ compute(
 ```
 
 The higher-order formulation is always explicit. `Combinatorial` evaluates
-every admitted configuration, `LinearError` selects established direct
-propagation, and `MonteCarlo` samples realizations within each selected outer
-configuration. Every cardinality, including one, returns the corresponding
-composite result family.
+every selected point, `LinearError` selects established direct propagation,
+and `MonteCarlo` samples realizations within each selected outer point. Every
+cardinality, including one, returns the corresponding composite result family.
 
 `Formulation` owns physics and numerical-method choices. A computation owner
 validates its execution tuple through [`computation_options`](@ref); an
@@ -61,7 +64,7 @@ compute(problem, formulation; options=(output_basis=:total,))
 system length. `CableConstantsProblem` has no line length and therefore accepts
 only the default `:per_length` basis.
 
-## Results and provenance
+## Results
 
 `CableConstants` stores R/L/C values per metre. `LineParameters` stores
 frequency-dependent Z/Y matrices with their domain and `:per_length` or
@@ -88,14 +91,11 @@ propagation returns `LinearErrorResult{T}`, and conditional sampling returns
 or `LineParameters` result rather than another composite result.
 
 Use `result`, `statistics`, `samples`, `histograms`, and `uncertain_value` to
-inspect results. The `space` field contains the successful resolved coordinates
-in the same order as the primitive values. Contingent information remains in
-`details::Dict{Symbol,NamedTuple}` rather than entering the result grammar.
-`details[:failures].entries` contains records with `coordinate`, `exception`,
-and `message` fields. `details[:manifest]` is a named tuple with `backend`,
-`options`, `random`, and `coupling` fields. Monte Carlo results additionally
-retain `:samples` and `:histograms` entries when requested; random replay data
-is nested under `details[:manifest].random`.
+inspect results. `ParametricResult` and `LinearErrorResult` store only their
+formulation and ordered primitive values. `MonteCarloResult` additionally owns
+typed statistics, optional retained samples and histograms, its root seed,
+per-point seeds, and per-point trial counts. No completed result stores the
+temporary Gridspace point or a copy of traversal internals.
 
 `primitives` and `preprocess` are reserved action generics for explicitly
 selected future calculation orderings. LineCableModels intentionally defines
@@ -140,7 +140,9 @@ not a solver tolerance and does not bound mean error or the joint distribution.
 
 The core Grid/Gridspace grammar does not load Measurements.jl or
 Distributions.jl. Loading Measurements enables direct `LinearError(inner)`
-propagation while preserving shared variables and correlations.
+propagation. When one selected uncertain argument is passed once to a callable
+builder and used more than once there, all uses preserve that exact variable's
+covariance. Distinct uncertain arguments remain independent.
 `MonteCarloResult` has no implicit conversion to Measurements values.
 Empirical reconstruction is an explicit consumer operation and requires
 retained joint samples. Loading Distributions enables compatible univariate

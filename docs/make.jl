@@ -141,6 +141,7 @@ makedocs(;
         "Development" => Any[
             "Conventions" => "conventions.md",
             "Computational engine" => "engine.md",
+            "Gridspace manual" => "gridspace.md",
             "PlotBuilder guide" => "plotbuilder.md",
             "Gauntlet benchmarks" => "gauntlet.md",
             "Data entry validation" => "validation.md",

@@ -56,7 +56,7 @@ design = CableBuilder(
     Insulator.Tubular(:screen; thickness=2e-3, material=xlpe),
 )
 
-constants = compute(CableConstantsProblem(only(design)), Formulation())
+constants = compute(CableConstantsProblem(design), Formulation())
 ```
 
 `Material` is the materialized type as well as the public declarative
@@ -101,8 +101,9 @@ abs.(Z(line_parameters, 1, 1))
 Complete parameter traversals return `ParametricResult{T}`, including a space
 with cardinality one. Conditional Monte Carlo propagation returns
 `MonteCarloResult{T}`. Use `statistics`, `samples`, `histograms`, and
-`uncertain_value` to inspect the analysis; successful resolved coordinates and
-contingent calculation metadata are available through `space` and `details`.
+`uncertain_value` to inspect the owned calculation products. Result order is
+the Gridspace iteration order; traversal state is not copied into completed
+results.
 `DataFrame(monte_carlo_result)` renders marginal summaries, while
 `plot(monte_carlo_result, :R; mode=:hist, data=:both)` and the `:pdf`, `:ecdf`,
 and `:qq` modes display retained distribution information after a Makie package

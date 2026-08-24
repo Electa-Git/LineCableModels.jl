@@ -31,8 +31,12 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Replaced the prototype parameter and uncertainty paths with typed `Grid` and
   inferred `Gridspace` construction from the public declarative builders.
 - Converged calculation ownership around `Grammar` action generics,
-  `ParametricBuilder` deterministic traversal and contingent metadata, `UQ`
-  uncertainty propagation, and end-to-end analytical execution in `Engine`.
+  `ParametricBuilder` deterministic traversal, `UQ` uncertainty propagation,
+  and end-to-end analytical execution in `Engine`.
+- Reduced Gridspace to explicit finite `Grid` sources, local product or zip
+  composition, one internal unresolved point, and recursive materialization or
+  realization through concrete callable builders. Scalar public builder calls
+  now construct eager domain values.
 - Converged PlotBuilder on definition-driven recipes and one fixed sequence:
   entitle, parse, resolve, observe, axes, series, views, pages, layout,
   decorate, and finish.
@@ -61,6 +65,9 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   files.
 - Removed the former parameter tuple grammar, duplicate execution entrypoints,
   specialized analysis containers, and radial proxy wrapper types.
+- Removed Grid identity and binding machinery, public temporary point records,
+  traversal coordinates and metadata, result-side failure dictionaries, and
+  passive forwarding definitions from the parametric construction path.
 - Removed the `mode=:ZY`/`:RLCG` and `coord=:cart`/`:polar` keywords from
   line-parameter presentation.
 
