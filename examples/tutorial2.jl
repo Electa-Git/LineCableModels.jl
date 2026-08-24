@@ -400,15 +400,19 @@ constants = compute(CableConstantsProblem(cable_design), Formulation())
 
 # Compare the calculated values with the datasheet information in the units
 # conventionally used by cable manufacturers:
+published_constants = observables(constants, (R = R, L = L, C = C))
+constant_payloads = values(published_constants)
 core_df = DataFrame(
-    parameter = ["R", "L", "C"],
-    calculated = [constants.R * 1e3, constants.L * 1e6, constants.C * 1e9],
+    parameter = [LineCableModels.Units.symbol(payload.quantity)
+                 for payload in constant_payloads],
+    calculated = [payload.values for payload in constant_payloads],
     datasheet = [
         datasheet_info.resistance,
         datasheet_info.inductance,
         datasheet_info.capacitance
     ],
-    unit = ["Ω/km", "mH/km", "μF/km"]
+    unit = [LineCableModels.Units.label(payload.unit)
+            for payload in constant_payloads]
 )
 
 # Obtain the equivalent electromagnetic properties of the cable:

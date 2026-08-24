@@ -35,8 +35,9 @@ end
 
 _has_uncertainty_type(::Type) = false
 
-@inline function _basis_units(value, per_length_unit, total_unit)
-    return basis(value) === :per_length ? per_length_unit : total_unit
+function _result_unit(value, selector)
+    quantity = Units.quantity(selector)
+    return Units.native_unit(quantity, basis(value))
 end
 
 function Base.show(io::IO, value::SeriesImpedance)
@@ -45,7 +46,7 @@ function Base.show(io::IO, value::SeriesImpedance)
         "SeriesImpedance ",
         join(size(value), '×'),
         " [",
-        _basis_units(value, "Ω/m", "Ω"),
+        Units.label(_result_unit(value, Z)),
         "]"
     )
 end
@@ -56,7 +57,7 @@ function Base.show(io::IO, value::ShuntAdmittance)
         "ShuntAdmittance ",
         join(size(value), '×'),
         " [",
-        _basis_units(value, "S/m", "S"),
+        Units.label(_result_unit(value, Y)),
         "]"
     )
 end
@@ -66,7 +67,7 @@ function Base.show(io::IO, lp::LineParameters)
     print(
         io,
         "LineParameters{$element_type} ",
-        join(size(lp.Z), '×'),
+        join(size(observe(lp, Z)), '×'),
         " [",
         basis(lp),
         "]"
@@ -75,12 +76,27 @@ function Base.show(io::IO, lp::LineParameters)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", lp::LineParameters)
-    impedance_unit = _basis_units(lp, "Ω/m", "Ω")
-    admittance_unit = _basis_units(lp, "S/m", "S")
-    println(io, join(size(lp.Z), '×'), " LineParameters [", basis(lp), "]")
+    impedance_quantity = Units.quantity(Z)
+    admittance_quantity = Units.quantity(Y)
+    impedance_unit = _result_unit(lp, Z)
+    admittance_unit = _result_unit(lp, Y)
+    println(io, join(size(observe(lp, Z)), '×'), " LineParameters [", basis(lp), "]")
     println(io, "domain: ", nameof(domain(lp)), ", frequencies: ", nfrequencies(lp))
-    println(io, "Z [$impedance_unit], first frequency slice:")
-    show(io, MIME"text/plain"(), view(lp.Z.values, :, :, 1))
-    print(io, "\nY [$admittance_unit], first frequency slice:\n")
-    show(io, MIME"text/plain"(), view(lp.Y.values, :, :, 1))
+    println(
+        io,
+        Units.symbol(impedance_quantity),
+        " [",
+        Units.label(impedance_unit),
+        "], first frequency slice:"
+    )
+    show(io, MIME"text/plain"(), observe(lp, Z, :, :, 1))
+    print(
+        io,
+        "\n",
+        Units.symbol(admittance_quantity),
+        " [",
+        Units.label(admittance_unit),
+        "], first frequency slice:\n"
+    )
+    show(io, MIME"text/plain"(), observe(lp, Y, :, :, 1))
 end

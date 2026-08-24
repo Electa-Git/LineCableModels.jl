@@ -145,7 +145,7 @@
         @test isfile(joinpath(persisted.path, "snapshot.sha256"))
         @test persisted.backend === :fixture
         @test persisted.gauntlet_version == GAUNTLET_VERSION
-        aggregate=report(:fixture; artifact_root)
+        aggregate=GauntletSupport.report(:fixture; artifact_root)
         @test size(aggregate) == (1, 39)
         @test only(aggregate.case) == "fixture"
         @test only(aggregate.basis) == "per_length"
@@ -160,7 +160,7 @@
         @test only(aggregate.Y_zero_atol) == 1.0e-9
         @test only(aggregate.reference_seconds) == 1.25
         @test only(aggregate.snapshot_sha256) == persisted.snapshot_sha256
-        @test_throws ArgumentError report(
+        @test_throws ArgumentError GauntletSupport.report(
             :fixture;
             artifact_root,
             zero_atol = (Z = -1.0, Y = 0.0)
@@ -241,7 +241,7 @@
             write(io, UInt8(0))
         end
         @test_throws ArgumentError load_snapshot(case; path = snapshot)
-        @test_throws ArgumentError report(:fixture; artifact_root)
+        @test_throws ArgumentError GauntletSupport.report(:fixture; artifact_root)
 
         @test_throws ArgumentError prepare_artifacts(; artifact_root, artifacts_toml)
         prepare_artifacts(; artifact_root, artifacts_toml, force = true)

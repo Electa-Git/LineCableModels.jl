@@ -77,8 +77,7 @@ end
     @test U.label(U.native_unit(z_angle)) == "rad"
     @test U.label(U.display_unit(z_angle)) == "°"
     @test U.scale_factor(U.native_unit(z_angle), U.display_unit(z_angle)) ≈ 180 / π
-    @test U.quantity(Z, :abs) === z_magnitude
-    @test_throws ArgumentError U.quantity(Z, :unsupported)
+    @test_throws MethodError U.quantity(Z, :abs)
     @test_throws MethodError U.quantity(identity)
 end
 
@@ -86,8 +85,8 @@ end
     const U = LineCableModels.Units
 
     for name in (
-            :Unit, :UnitExpr, :QuantityTag, :units, :quantity, :native_unit,
-            :display_unit, :scale_factor, :label, :symbol
+        :Unit, :UnitExpr, :QuantityTag, :units, :quantity, :native_unit,
+        :display_unit, :scale_factor, :label, :symbol
     )
         @test name in names(U)
     end
@@ -95,4 +94,6 @@ end
     @test !isdefined(U, :default_unit)
     @test !isdefined(U, :get_label)
     @test !isdefined(U, :get_symbol)
+    @test !isdefined(U, :line_component_quantity)
+    @test !isdefined(U, :line_component_unit)
 end

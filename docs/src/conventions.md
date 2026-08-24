@@ -81,7 +81,7 @@ src/
 │   ├── cabledesign/
 │   │   ├── cabledesign.jl
 │   │   ├── cableconstants.jl
-│   │   └── dataframe.jl
+│   │   └── dataframe.jl               # authored-design tables only
 │   └── preview/                       # renderer-independent preview definitions
 ├── engine/
 │   ├── Engine.jl
@@ -91,7 +91,6 @@ src/
 │   └── lineparameters/
 │       ├── lineparameters.jl
 │       ├── quantities.jl              # Engine ↔ Units methods
-│       ├── dataframe.jl
 │       └── plotdefinition.jl          # renderer-independent plot definition
 ├── plotbuilder/
 │   ├── PlotBuilder.jl
@@ -105,6 +104,11 @@ src/
 │   └── montecarlo/
 │       ├── compute.jl
 │       └── plot.jl
+├── reportbuilder/
+│   ├── ReportBuilder.jl               # report owner and index
+│   ├── grammar.jl                     # fixed report action
+│   ├── tables.jl                      # completed-result tables
+│   └── montecarlo.jl                  # UQ summary projection
 └── importexport/
     ├── ImportExport.jl
     ├── interfaces.jl

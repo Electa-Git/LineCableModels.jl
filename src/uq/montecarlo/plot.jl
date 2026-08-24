@@ -6,26 +6,22 @@ cumulative distributions, and Q-Q plots.
 """
 struct MCDistributionPlotDefinition <: PlotBuilder.AbstractPlotDefinition end
 
-for (name, text, notation) in (
-        (:sample_count, "Count", "n"),
-        (:probability, "Probability", "p"),
-        (:cumulative_probability, "Cumulative probability", "F"),
-        (:probability_density, "Probability density", "p")
-)
-    @eval begin
-        Units.label(::Units.QuantityTag{$(QuoteNode(name))}) = $text
-        Units.symbol(::Units.QuantityTag{$(QuoteNode(name))}) = $notation
-    end
-end
+Units.label(::Units.QuantityTag{:sample_count}) = "Count"
+Units.symbol(::Units.QuantityTag{:sample_count}) = "n"
+Units.label(::Units.QuantityTag{:probability}) = "Probability"
+Units.symbol(::Units.QuantityTag{:probability}) = "p"
+Units.label(::Units.QuantityTag{:cumulative_probability}) = "Cumulative probability"
+Units.symbol(::Units.QuantityTag{:cumulative_probability}) = "F"
+Units.label(::Units.QuantityTag{:probability_density}) = "Probability density"
+Units.symbol(::Units.QuantityTag{:probability_density}) = "p"
 
-for name in (:sample_count, :probability, :cumulative_probability)
-    @eval begin
-        Units.native_unit(::Units.QuantityTag{$(QuoteNode(name))}) =
-            Units.units(:base, :dimensionless)
-        Units.display_unit(::Units.QuantityTag{$(QuoteNode(name))}) =
-            Units.units(:base, :dimensionless)
-    end
-end
+const _DimensionlessStatisticalQuantity = Union{
+    Units.QuantityTag{:sample_count},
+    Units.QuantityTag{:probability},
+    Units.QuantityTag{:cumulative_probability}
+}
+Units.native_unit(::_DimensionlessStatisticalQuantity) = Units.units(:base, :dimensionless)
+Units.display_unit(::_DimensionlessStatisticalQuantity) = Units.units(:base, :dimensionless)
 
 function _mc_selector(quantity::Symbol)
     quantity === :R && return R
@@ -89,9 +85,10 @@ end
 function _mc_quantity_prefix(quantity_units, quantity::Symbol, fallback::Symbol)
     quantity_units === nothing && return fallback
     quantity_units isa Symbol && return quantity_units
-    quantity_units isa NamedTuple || quantity_units isa AbstractDict || throw(
-        ArgumentError("quantity_units must be a prefix, keyed collection, or nothing"),
-    )
+    quantity_units isa NamedTuple || quantity_units isa AbstractDict ||
+        throw(
+            ArgumentError("quantity_units must be a prefix, keyed collection, or nothing"),
+        )
     return haskey(quantity_units, quantity) ? quantity_units[quantity] : fallback
 end
 

@@ -20,6 +20,11 @@
     @test constants.L ≈ 2.8718381083175005e-7 rtol=2eps()
     @test constants.C ≈ 4.1335723330313053e-10 rtol=2eps()
     @test basis(constants) === :per_length
+    constants_display=sprint(show, constants)
+    @test occursin("CableConstants(R=", constants_display)
+    @test occursin("Ω/m", constants_display)
+    @test occursin("H/m", constants_display)
+    @test occursin("F/m", constants_display)
     @test resistance(constants) === constants.R
     @test inductance(constants) === constants.L
     @test capacitance(constants) === constants.C
@@ -300,15 +305,14 @@ end
     @test keys(published.mean_resistance) == (:values, :quantity, :unit)
 
     frequency=[50.0, 100.0]
-    impedance=fill(1.0e-4 + 2.0e-4im, 2, 2, 2)
-    admittance=fill(3.0e-8 + 4.0e-8im, 2, 2, 2)
+    impedance=fill(1.0e-4+2.0e-4im, 2, 2, 2)
+    admittance=fill(3.0e-8+4.0e-8im, 2, 2, 2)
     parameters=LineParameters(impedance, admittance, frequency)
     storage=LineCableModels.UQ._sample_storage(parameters, 2)
     LineCableModels.UQ._record_sample!(storage, parameters, 1, frequency)
     LineCableModels.UQ._record_sample!(storage, parameters, 2, frequency)
-    @test @allocated(
-        LineCableModels.UQ._record_sample!(storage, parameters, 2, frequency)
-    ) == 0
+    @test @allocated(LineCableModels.UQ._record_sample!(storage, parameters, 2, frequency)) ==
+          0
     @test observe(storage, R, 1, 1, 1, :) == fill(1.0e-4, 2)
     @test observe(storage, L, 1, 1, 1, :) ==
           fill(2.0e-4 / (2π * frequency[1]), 2)

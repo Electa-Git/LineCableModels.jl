@@ -68,9 +68,10 @@ function _snapshot_case(path::AbstractString, backend::Symbol)
         "Gauntlet snapshot $path has no LineParametersBenchmark",
     ))
     observed = compare(reference, accepted)
-    isequal(_comparison_values(comparison), _comparison_values(observed)) || throw(ArgumentError(
-        "stored comparison does not match the recorded results in $path",
-    ))
+    isequal(_comparison_values(comparison), _comparison_values(observed)) ||
+        throw(ArgumentError(
+            "stored comparison does not match the recorded results in $path",
+        ))
 
     frequencies_value = snapshot["frequencies"]
     reference_values = _primitive_values(reference)

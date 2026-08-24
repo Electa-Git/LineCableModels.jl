@@ -23,6 +23,57 @@ earth formula and requires separate overhead and underground variants.
 `PSCADBenchmarks.DirectNumericalIntegration` therefore remains local to that
 backend and is not part of `Engine.EarthImpedance`.
 
+## Completed-result read side
+
+Primitive calculation results own their scientific extraction methods.
+[`observe`](@ref) reads native numerical values through function-object
+selectors:
+
+```julia
+observe(parameters, Z)
+observe(parameters, L, 1, 1, Colon())
+observe(parameters, Y, angle, 1, 1, Colon())
+```
+
+The public `Z`, `L`, and other laconic accessors delegate to these methods.
+Consumers do not inspect `LineParameters` storage or repeat the R/X/L/G/B/C
+formulae.
+
+[`observables`](@ref) publishes only explicitly requested values:
+
+```julia
+published = observables(
+    parameters,
+    (
+        frequency = (frequencies, Colon()),
+        resistance = (R, 1, 1, Colon()),
+    );
+    units = (
+        resistance = LineCableModels.Units.units(
+            :base,
+            :ohm;
+            per = (:kilo, :meter),
+        ),
+    ),
+)
+```
+
+Every published field contains only `values`, `quantity`, and `unit`.
+Publication converts and detaches `values`; it does not attach labels, result
+objects, execution options, Gridspace points, or Monte Carlo context.
+
+`LineCableModels.Units` owns `Unit`, `UnitExpr`, `QuantityTag`, `units`,
+`quantity`, `native_unit`, `display_unit`, `scale_factor`, `label`, and
+`symbol`. PlotBuilder derives scientific axes from publication payloads.
+ReportBuilder derives human-facing tables through `report`. Neither consumer
+owns a quantity map, physical transform, or ordinary scientific unit string.
+
+Higher-order results remain containers of owned products. `result`,
+`statistics`, `samples`, and `histograms` select those products; they are not
+zero-argument aliases for publication. UQ reads primitive trials with
+`observe`, while its retained statistics, samples, and histograms implement
+the same selector grammar for later publication.
+
 ## Formulation options
 
 [`formulation_options`](@ref) validates values that alter the mathematical

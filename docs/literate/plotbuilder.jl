@@ -9,10 +9,10 @@
 # domain object + plot definition
 #     │
 #     ▼
-# entitle → parse → resolve → observe
+# entitle → parse → resolve → fetch
 #     │
 #     ▼
-# axes → series → views → pages → layout → decorate → finish
+# make_axes → make_series → make_views → make_pages → decorate → finish
 #     │
 #     ▼
 # PlotRecipe → Makie extension → UIPlot
@@ -35,9 +35,9 @@
 # 2. `PlotRecipe` is the completed renderer-independent value. Its pages,
 #    axes, series, layouts, and controls are implementation details of that
 #    representation rather than parallel public render models.
-# 3. Definitions read completed calculations through `observables`. Explicit
-#    mathematical accessors such as `Z`, `Y`, `R`, `L`, `G`, and `C` are used
-#    only for derived selections requested by the caller.
+# 3. `fetch` publishes explicit requests through `observables`. Selector
+#    functions such as `Z`, `Y`, `R`, `L`, `G`, and `C` identify those requests;
+#    later stages consume only the returned payloads.
 # 4. Makie figures, observables, widgets, and callbacks exist only in the Makie
 #    extension. SVG export reconstructs the current typed recipe state.
 #
@@ -129,10 +129,9 @@ end; #hide
 # and separates scientific input from renderer options. `make_render` runs the
 # entitlement check before parsing. Unsupported keywords are errors.
 #
-parsed = parse(
+parsed = LineCableModels.PlotBuilder.parse(
     LineParameterPlotDefinition,
-    Z(parameters);
-    frequencies = frequencies(parameters),
+    parameters;
     quantities = (abs, angle),
     export_theme = :publication
 )
@@ -150,18 +149,16 @@ parsed = parse(
 # `export_theme`, and `open_export`. A name cannot occur in both groups, and
 # defaults must contain exactly their declared keys.
 #
-# `resolve` validates and enriches parsed input. `observe` then resolves
-# the scientific observations consumed by the remaining stages. Expensive
-# statistical transformations belong in one of those stages so they are not
-# repeated by views or by the renderer.
+# `resolve` validates and enriches parsed input. `fetch` then obtains detached
+# scientific publication payloads. Statistical products must already be owned
+# by UQ before publication; views and renderers do not recompute them.
 #
 # `make_render` runs the complete fixed sequence and returns another
 # `PlotRecipe`, now with validated pages:
 #
 recipe = make_render(
     LineParameterPlotDefinition,
-    Z(parameters);
-    frequencies = frequencies(parameters),
+    parameters;
     quantities = (abs, angle)
 )
 
@@ -221,7 +218,7 @@ observed = observables(
     (
         frequency = (frequencies, Colon()),
         series_impedance = Z,
-        shunt_admittance = Y,
+        shunt_admittance = Y
     )
 )
 (;

@@ -16,18 +16,10 @@ uncertain_value(value::LinearErrorResult) = value.values
 @inline _product_value(value, ::Tuple{}) = value
 @inline _product_value(value, indices::Tuple) = getindex(value, indices...)
 
-@inline function _observe_product(product::RLCG, field::Symbol, indices...)
-    return _product_value(getfield(product, field), indices)
-end
-
-observe(product::RLCG, ::typeof(R), indices...) =
-    _observe_product(product, :R, indices...)
-observe(product::RLCG, ::typeof(L), indices...) =
-    _observe_product(product, :L, indices...)
-observe(product::RLCG, ::typeof(C), indices...) =
-    _observe_product(product, :C, indices...)
-observe(product::RLCG, ::typeof(Engine.G), indices...) =
-    _observe_product(product, :G, indices...)
+observe(product::RLCG, ::typeof(R), indices...) = _product_value(product.R, indices)
+observe(product::RLCG, ::typeof(L), indices...) = _product_value(product.L, indices)
+observe(product::RLCG, ::typeof(C), indices...) = _product_value(product.C, indices)
+observe(product::RLCG, ::typeof(Engine.G), indices...) = _product_value(product.G, indices)
 
 @inline _statistic(transform, value::AbstractArray) = map(transform, value)
 @inline _statistic(transform, value) = transform(value)
@@ -40,39 +32,66 @@ const _StatisticSelector = Union{
     typeof(maximum)
 }
 
-for selector in (R, L, C, Engine.G)
-    @eval function observe(
-            product::RLCG,
-            ::typeof($selector),
-            transform::_StatisticSelector,
-            indices...
-    )
-        return _statistic(transform, observe(product, $selector, indices...))
-    end
+function observe(product::RLCG, ::typeof(R), transform::_StatisticSelector, indices...)
+    _statistic(transform, observe(product, R, indices...))
+end
+function observe(product::RLCG, ::typeof(L), transform::_StatisticSelector, indices...)
+    _statistic(transform, observe(product, L, indices...))
+end
+function observe(product::RLCG, ::typeof(C), transform::_StatisticSelector, indices...)
+    _statistic(transform, observe(product, C, indices...))
+end
+function observe(product::RLCG, ::typeof(Engine.G), transform::_StatisticSelector, indices...)
+    _statistic(transform, observe(product, Engine.G, indices...))
 end
 
 const _CableUQValue = Union{SampleSummary, HistogramDensity, AbstractArray}
 
-@inline function _observe_cable_product(product, field::Symbol, indices...)
-    return _product_value(getfield(product, field), indices)
+function observe(
+        product::DataModel.CableConstants{<:_CableUQValue},
+        ::typeof(R),
+        indices...
+)
+    _product_value(product.R, indices)
+end
+function observe(
+        product::DataModel.CableConstants{<:_CableUQValue},
+        ::typeof(L),
+        indices...
+)
+    _product_value(product.L, indices)
+end
+function observe(
+        product::DataModel.CableConstants{<:_CableUQValue},
+        ::typeof(C),
+        indices...
+)
+    _product_value(product.C, indices)
 end
 
-for (selector, field) in ((R, :R), (L, :L), (C, :C))
-    @eval function observe(
-            product::DataModel.CableConstants{<:_CableUQValue},
-            ::typeof($selector),
-            indices...
-    )
-        return _observe_cable_product(product, $(QuoteNode(field)), indices...)
-    end
-    @eval function observe(
-            product::DataModel.CableConstants{<:_CableUQValue},
-            ::typeof($selector),
-            transform::_StatisticSelector,
-            indices...
-    )
-        return _statistic(transform, observe(product, $selector, indices...))
-    end
+function observe(
+        product::DataModel.CableConstants{<:_CableUQValue},
+        ::typeof(R),
+        transform::_StatisticSelector,
+        indices...
+)
+    _statistic(transform, observe(product, R, indices...))
+end
+function observe(
+        product::DataModel.CableConstants{<:_CableUQValue},
+        ::typeof(L),
+        transform::_StatisticSelector,
+        indices...
+)
+    _statistic(transform, observe(product, L, indices...))
+end
+function observe(
+        product::DataModel.CableConstants{<:_CableUQValue},
+        ::typeof(C),
+        transform::_StatisticSelector,
+        indices...
+)
+    _statistic(transform, observe(product, C, indices...))
 end
 
 observables(::Type{<:RLCG}) = (R, L, C, Engine.G)

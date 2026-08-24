@@ -89,6 +89,14 @@
         frequencies = [0.0, 50.0],
         quantities = (L,)
     )
+    standalone_shunt=PB.make_render(
+        E.LineParameterPlotDefinition,
+        shunt;
+        frequencies = frequencies(parameters),
+        quantities = (G, C)
+    )
+    @test length(standalone_shunt.figures) == 1
+    @test length(only(standalone_shunt.figures).views) == 2
 
     residual_conductance=fill(1.0e-17, size(shunt))
     lossless=LineParameters(

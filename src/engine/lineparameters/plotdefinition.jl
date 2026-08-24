@@ -64,15 +64,19 @@ _component_request(::Val{:Y_angle}, frequencies) = (Y, angle)
 
 function _request_quantity(request)
     request isa Function && return Units.quantity(request)
-    return Units.quantity(request[1], request[2])
+    selector = first(request)
+    length(request) >= 2 && applicable(Units.quantity, selector, request[2]) &&
+        return Units.quantity(selector, request[2])
+    return Units.quantity(selector)
 end
 
 function _quantity_prefix(quantity_units, component::Symbol, fallback::Symbol)
     quantity_units === nothing && return fallback
     quantity_units isa Symbol && return quantity_units
-    quantity_units isa NamedTuple || quantity_units isa AbstractDict || throw(
-        ArgumentError("quantity_units must be a prefix, keyed collection, or nothing"),
-    )
+    quantity_units isa NamedTuple || quantity_units isa AbstractDict ||
+        throw(
+            ArgumentError("quantity_units must be a prefix, keyed collection, or nothing"),
+        )
     return haskey(quantity_units, component) ? quantity_units[component] : fallback
 end
 
@@ -83,7 +87,8 @@ function _component_target(component, request, parameter_basis, length_unit, qua
     fallback = first(default.numerator).prefix
     selected = _quantity_prefix(quantity_units, component, fallback)
     selected isa Units.UnitExpr && return selected
-    selected isa Symbol || throw(ArgumentError("quantity-unit overrides must be prefixes or UnitExpr values"))
+    selected isa Symbol ||
+        throw(ArgumentError("quantity-unit overrides must be prefixes or UnitExpr values"))
     return Units.display_unit(
         scientific_quantity,
         parameter_basis;
@@ -212,15 +217,17 @@ function PlotBuilder.resolve(::Type{LineParameterPlotDefinition}, recipe::PlotBu
         ArgumentError("yscale must be :linear or :log10"),
     )
     recipe.object isa Union{SeriesImpedance, ShuntAdmittance} &&
-        input.frequencies === nothing && throw(
-        ArgumentError("frequencies are required for SeriesImpedance and ShuntAdmittance"),
-    )
+        input.frequencies === nothing &&
+        throw(
+            ArgumentError("frequencies are required for SeriesImpedance and ShuntAdmittance"),
+        )
     frequencies = input.frequencies === nothing ? nothing : collect(input.frequencies)
     if frequencies !== nothing
         all(isfinite, frequencies) || throw(ArgumentError("frequencies must be finite"))
-        input.xscale === :log10 && any(<=(0), frequencies) && throw(
-            DomainError(frequencies, "logarithmic frequency axes require positive frequencies"),
-        )
+        input.xscale === :log10 && any(<=(0), frequencies) &&
+            throw(
+                DomainError(frequencies, "logarithmic frequency axes require positive frequencies"),
+            )
         any(component -> component in (:L, :C), components) && any(iszero, frequencies) &&
             throw(DomainError(
                 frequencies,
@@ -284,7 +291,8 @@ function _suppress_display_residue(payload, reference, component)
     reference_scale = _maximum_nominal_magnitude(reference.values)
     iszero(reference_scale) && return payload
     component_scale <= _DISPLAY_ZERO_RTOL * reference_scale || return payload
-    return (; values = zero.(payload.values), quantity = payload.quantity, unit = payload.unit)
+    return (;
+        values = zero.(payload.values), quantity = payload.quantity, unit = payload.unit)
 end
 
 function _publish_line_source(object, input, components)
@@ -595,7 +603,7 @@ function PlotBuilder.default_title(
         page_key::Val{:series},
         ::Nothing
 )
-    return "Series impedance"
+    return Units.label(Units.quantity(Z))
 end
 
 function PlotBuilder.default_title(
@@ -605,7 +613,7 @@ function PlotBuilder.default_title(
         page_key::Val{:shunt},
         ::Nothing
 )
-    return "Shunt admittance"
+    return Units.label(Units.quantity(Y))
 end
 
 function PlotBuilder.default_title(

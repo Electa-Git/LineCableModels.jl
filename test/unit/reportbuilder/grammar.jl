@@ -159,17 +159,17 @@ end
 ] begin
     using DataFrames
 
-    const RB = LineCableModels.ReportBuilder
-    constants = LineCableModels.CableConstants(1.0, 2.0, 3.0)
-    expected = report(RB.CableConstantsTable(), constants).table
-    actual = DataFrame(constants)
+    const RB=LineCableModels.ReportBuilder
+    constants=LineCableModels.CableConstants(1.0, 2.0, 3.0)
+    expected=report(RB.CableConstantsTable(), constants).table
+    actual=DataFrame(constants)
 
     @test actual == expected
     @test parentmodule(which(DataFrame, (typeof(constants),))) === RB
     @test actual.parameter == ["R", "L", "C"]
     @test actual.unit == ["Ω/m", "H/m", "F/m"]
 
-    monte_carlo = TestFixtures.cable_monte_carlo_result()
+    monte_carlo=TestFixtures.cable_monte_carlo_result()
     @test DataFrame(monte_carlo) == report(
         RB.MonteCarloTable(:kilo, nothing),
         monte_carlo

@@ -3,8 +3,10 @@ module GauntletArtifacts
 import Pkg
 using DataFrames
 using JLD2
-using LineCableModels: basis, domain, observables
-using LineCableModels.Engine: LineParameters, LineParametersBenchmark, compare
+using LineCableModels: basis, domain, observe, observables
+using LineCableModels.Engine: LineParameters, LineParametersBenchmark,
+                              absolute_error, compare, frequencies,
+                              relative_error, Z, Y
 using Pkg.Artifacts
 using SHA
 

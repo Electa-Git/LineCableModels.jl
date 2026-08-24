@@ -15,7 +15,9 @@
 
     forbidden=(
         "resolve_T", "coerce_to_T", "BASE_FLOAT", "REALSCALAR", "COMPLEXSCALAR",
-        "@construct", "@parameterize", "@measurify", "Meta.parse", "global_logger("
+        "@construct", "@parameterize", "@measurify", "Meta.parse", "global_logger(",
+        "line_component_quantity", "line_component_unit", "parse_kwargs",
+        "resolve_input", "axis_quantity", "axis_unit", "series_data"
     )
     for token in forbidden
         @test all(!occursin(token, contents) for contents in values(source))
@@ -78,6 +80,7 @@ end
         joinpath("src", "datamodel", "DataModel.jl"),
         joinpath("src", "engine", "Engine.jl"),
         joinpath("src", "uq", "UQ.jl"),
+        joinpath("src", "reportbuilder", "ReportBuilder.jl"),
         joinpath("src", "importexport", "ImportExport.jl"),
         joinpath("ext", "LineCableModelsMakieExt", "LineCableModelsMakieExt.jl")
     )
@@ -91,6 +94,8 @@ end
         joinpath("src", "engine", "lineparameters", "quantities.jl"),
         joinpath("src", "engine", "earthreturn.jl"),
         joinpath("src", "uq", "montecarlo", "compute.jl"),
+        joinpath("src", "reportbuilder", "grammar.jl"),
+        joinpath("src", "reportbuilder", "tables.jl"),
         joinpath("src", "importexport", "pscad", "pscad.jl"),
         joinpath("ext", "LineCableModelsMakieExt", "UIComponents.jl"),
         joinpath("dev", "plotting", "Project.toml")
@@ -105,6 +110,8 @@ end
         joinpath("src", "datamodel", "strands_handler.jl"),
         joinpath("src", "engine", "solver.jl"),
         joinpath("src", "uq", "plotspecs.jl"),
+        joinpath("src", "engine", "lineparameters", "dataframe.jl"),
+        joinpath("src", "uq", "dataframe.jl"),
         joinpath("integration", "plotting")
     )
     @test all(!ispath(joinpath(root, path)) for path in obsolete_paths)
@@ -120,7 +127,24 @@ end
     @test parentmodule(LineCableModels.ncables) === LineCableModels.DataModel
     @test parentmodule(LineCableModels.nphases) === LineCableModels.DataModel
     @test parentmodule(LineCableModels.compute) === LineCableModels.Grammar
+    @test parentmodule(LineCableModels.observe) === LineCableModels.Grammar
+    @test parentmodule(LineCableModels.observables) === LineCableModels.Grammar
+    @test parentmodule(LineCableModels.Units.quantity) === LineCableModels.Units
+    @test parentmodule(LineCableModels.report) === LineCableModels.ReportBuilder
     @test parentmodule(LineCableModels.validate) === LineCableModels.Validation
+
+    presentation_paths=filter(keys(source)) do path
+        startswith(path, joinpath("src", "plotbuilder")) ||
+            startswith(path, joinpath("src", "reportbuilder")) ||
+            endswith(path, "plotdefinition.jl") ||
+            endswith(path, "comparisonplot.jl") ||
+            endswith(path, joinpath("montecarlo", "plot.jl"))
+    end
+    for path in presentation_paths
+        contents=source[path]
+        @test !occursin(r"\.(Z|Y|f)\b", contents)
+        @test !occursin(r"\b(Ω/m|Ω/km|H/m|mH/km|S/m|S/km|F/m|μF/km)\b", contents)
+    end
 
     @test all(!occursin("@eval", contents) for contents in values(source))
     @test all(!occursin(r"^\s*(using|import)\s+.*Makie"m, contents)

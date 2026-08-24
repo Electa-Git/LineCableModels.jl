@@ -110,8 +110,8 @@ function export_data(
     is_diagonal(matrix) = isapprox(
         matrix, Diagonal(diag(matrix)); rtol = 1.0e-8, atol = 1.0e-8
     )
-    Z_isdiag = is_diagonal(line_params.Z[:, :, 1])
-    Y_isdiag = is_diagonal(line_params.Y[:, :, 1])
+    Z_isdiag = is_diagonal(observe(line_params, Z, :, :, 1))
+    Y_isdiag = is_diagonal(observe(line_params, Y, :, :, 1))
 
     if Z_isdiag
         @warn "Z is diagonal within the selected tolerance. Exporting Z[i,i] and omitting off-diagonal elements."
@@ -131,6 +131,7 @@ function export_data(
             end
         else
             for i in 1:nzx, j in 1:nzy
+
                 _write_sheet!(xf, "Z($i,$j)", df_z[i, j]; use_first_sheet = first_sheet)
                 first_sheet = false
             end
@@ -144,6 +145,7 @@ function export_data(
             end
         else
             for i in 1:nyx, j in 1:nyy
+
                 _write_sheet!(xf, "Y($i,$j)", df_y[i, j]; use_first_sheet = first_sheet)
                 first_sheet = false
             end

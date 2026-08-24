@@ -285,7 +285,7 @@ function export_data(::Val{:atp},
         end
     end
 
-    freq = line_params.f
+    freq = observe(line_params, frequencies)
 
     @debug ("ZY export called",
         :method => "ZY",
@@ -298,7 +298,7 @@ function export_data(::Val{:atp},
     # file_name = isabspath(file_name) ? file_name : joinpath(@__DIR__, file_name)
 
     open(file_name, "w") do fid
-        num_phases = size(line_params.Z, 1)
+        num_phases = size(observe(line_params, Z), 1)
         y_fmt = (atp_format == "C") ? "C" : "G+Bi"
 
         @printf(fid,
@@ -313,8 +313,9 @@ function export_data(::Val{:atp},
             for i in 1:num_phases
                 row_str = join(
                     [@sprintf("%.16E%+.16Ei",
-                         nominal(real(line_params.Z[i, j, k])),
-                         nominal(imag(line_params.Z[i, j, k]))) for j in 1:num_phases],
+                         nominal(real(observe(line_params, Z, i, j, k))),
+                         nominal(imag(observe(line_params, Z, i, j, k))))
+                     for j in 1:num_phases],
                     ","
                 )
                 println(fid, row_str)
@@ -329,7 +330,7 @@ function export_data(::Val{:atp},
             for i in 1:num_phases
                 row_str = join(
                     [@sprintf("%.16E",
-                         nominal(imag(line_params.Y[i, j, 1]) / (2 * pi * freq1)))
+                         nominal(observe(line_params, C, i, j, 1)))
                      for j in 1:num_phases],
                     ","
                 )
@@ -342,8 +343,8 @@ function export_data(::Val{:atp},
                 for i in 1:num_phases
                     row_str = join(
                         [@sprintf("%.16E%+.16Ei",
-                             nominal(real(line_params.Y[i, j, k])),
-                             nominal(imag(line_params.Y[i, j, k])))
+                             nominal(real(observe(line_params, Y, i, j, k))),
+                             nominal(imag(observe(line_params, Y, i, j, k))))
                          for j in 1:num_phases],
                         ","
                     )

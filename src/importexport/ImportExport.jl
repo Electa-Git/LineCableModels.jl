@@ -27,13 +27,15 @@ using DocStringExtensions: IMPORTS, TYPEDSIGNATURES, METHODLIST, FUNCTIONNAME,
                            TYPEDEF, TYPEDFIELDS
 import ..LineCableModels: add!, validate, nominal, standard_uncertainty
 import ..LineCableModels: retired_legacy_json
+import ..Grammar: observe
 using ..Materials: Material, MaterialsLibrary
 using ..EarthProps: EarthModel
 using ..DataModel: CablesLibrary, CableDesign, CableComponent, ConductorGroup,
                    InsulatorGroup, CircStrands, RectStrands, Strip, Tubular, Semicon,
                    Insulator, CablePosition,
                    LineCableSystem, NominalData
-import ..Engine: LineParameters, SeriesImpedance, ShuntAdmittance
+import ..Engine: LineParameters, SeriesImpedance, ShuntAdmittance,
+                 frequencies, Z, Y, C
 using EzXML
 using Dates
 using Printf # For ATP export

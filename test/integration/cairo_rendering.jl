@@ -72,11 +72,9 @@
         inductance_values=fill(2.0e-7, 2, 2, length(frequency))
         conductance_values=fill(3.0e-9, 2, 2, length(frequency))
         capacitance_values=fill(4.0e-10, 2, 2, length(frequency))
-        parameters=LineParameters(
-            complex.(resistance_values, inductance_values .* omega),
-            complex.(conductance_values, capacitance_values .* omega),
-            frequency
-        )
+        series=SeriesImpedance(complex.(resistance_values, inductance_values .* omega))
+        shunt=ShuntAdmittance(complex.(conductance_values, capacitance_values .* omega))
+        parameters=LineParameters(series, shunt, frequency)
 
         rlcg=Makie.plot(
             parameters,
@@ -108,13 +106,13 @@
         @test rlcg[1].context !== rlcg[2].context
         @test rlcg[1].context.status !== rlcg[2].context.status
         series_plots=Makie.plot(
-            Z(parameters),
+            series,
             frequency;
             backend = :cairo,
             display_plot = false
         )
         shunt_plots=Makie.plot(
-            Y(parameters),
+            shunt,
             frequency,
             (G, C);
             backend = :cairo,
@@ -238,7 +236,7 @@
             length(frequency)
         )
         contrast_parameters=LineParameters(
-            copy(parameters.Z.values),
+            copy(observe(parameters, Z)),
             complex.(contrast_conductance, capacitance_values .* omega),
             frequency
         )
@@ -292,7 +290,15 @@
         susceptance_handle.controls[:ylog].active[]=true
         @test susceptance_axis.yscale[] === Makie.log10
         @test susceptance_axis.ytickformat[] === Makie.automatic
-        @test susceptance_axis.ylabel[] == "Capacitive susceptance [S/km]"
+        susceptance_quantity=LineCableModels.Units.quantity(B)
+        susceptance_unit=LineCableModels.Units.display_unit(
+            susceptance_quantity,
+            basis(parameters)
+        )
+        @test susceptance_axis.ylabel[] == LineCableModels.Units.label(
+            susceptance_quantity,
+            susceptance_unit
+        )
         limits=susceptance_axis.finallimits[]
         ymin=limits.origin[2]
         ymax=ymin+limits.widths[2]
@@ -604,7 +610,8 @@
             svg=read(responsive_svg, String)
             height_match=match(r"<svg[^>]*height=\"([0-9]+)\"", svg)
             @test height_match !== nothing
-            @test parse(Int, only(height_match.captures)) > compact_cable_plot.page.size[2]
+            @test Base.parse(Int, only(height_match.captures)) >
+                  compact_cable_plot.page.size[2]
             @test filesize(responsive_svg) > 100
         end
         @test last(last(first(compact_legend.entrygroups[]))).label[] == "(...)"

@@ -24,12 +24,16 @@
     profile_response(result::ProfileResult) = result.response
 
     LineCableModels.basis(::ProfileResult) = :total
-    LineCableModels.observe(result::ProfileResult, ::typeof(profile_frequency), indices...) =
-        isempty(indices) ? result.frequency : getindex(result.frequency, indices...)
-    LineCableModels.observe(result::ProfileResult, ::typeof(profile_response), indices...) =
-        isempty(indices) ? result.response : getindex(result.response, indices...)
-    LineCableModels.observables(::Type{<:ProfileResult}) =
-        (profile_frequency, profile_response)
+    LineCableModels.observe(result::ProfileResult, ::typeof(profile_frequency), indices...) = isempty(indices) ?
+                                                                                              result.frequency :
+                                                                                              getindex(
+        result.frequency, indices...)
+    LineCableModels.observe(result::ProfileResult, ::typeof(profile_response), indices...) = isempty(indices) ?
+                                                                                             result.response :
+                                                                                             getindex(
+        result.response, indices...)
+    LineCableModels.observables(::Type{<:ProfileResult}) = (
+        profile_frequency, profile_response)
     UH.quantity(::typeof(profile_frequency)) = UH.QuantityTag{:frequency}()
     UH.quantity(::typeof(profile_response)) = UH.QuantityTag{:test_response}()
     UH.native_unit(::UH.QuantityTag{:test_response}) = UH.UnitExpr()
@@ -45,9 +49,9 @@
     PB.renderer_defaults(::Type{ProfilePlotDefinition}, ::ProfileResult) = (;
         size = (800, 400))
     function PB.fetch(::Type{ProfilePlotDefinition}, recipe::PB.PlotRecipe)
-        published = observables(
+        published=observables(
             recipe.object,
-            (frequency = profile_frequency, response = profile_response,)
+            (frequency = profile_frequency, response = profile_response)
         )
         return PB.PlotRecipe(
             ProfilePlotDefinition,
@@ -75,8 +79,7 @@
         page_key, view_key, series_key::Int) = recipe.input.published.frequency.values
     PB.series_values(
         ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:y}, recipe::PB.PlotRecipe,
-        page_key, view_key, series_key::Int) =
-        recipe.input.published.response.values[:, series_key]
+        page_key, view_key, series_key::Int) = recipe.input.published.response.values[:, series_key]
     PB.legend_label(
         ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PB.PlotRecipe,
         page_key, view_key, series_key::Int) = "response $series_key"

@@ -71,20 +71,38 @@ only the default `:per_length` basis.
 frequency-dependent Z/Y matrices with their domain and `:per_length` or
 `:total` basis.
 
-`observables(result)` publishes the scientific quantities used by
-tables and plots as an immutable named tuple. Array-valued entries use detached
-storage, so presentation code cannot mutate the completed result. The primary
-keys are:
+[`observe`](@ref) reads one native numerical meaning from a completed result.
+Selectors are the existing function objects:
 
-- `CableConstants`: `:resistance`, `:inductance`, and `:capacitance`.
-- `LineParameters`: `:frequency`, `:series_impedance`, and
-  `:shunt_admittance`.
-- `LineParametersBenchmark`: full series/shunt absolute and relative RMS-error
-  keys.
+```julia
+observe(parameters, frequencies)
+observe(parameters, R, 1, 1, Colon())
+observe(parameters, Z, angle, 1, 1, Colon())
+```
 
-The mathematical `Z`, `Y`, `R`, `X`, `L`, `G`, `B`, and `C` accessors remain
-available for explicit derived selection. Plot-only component spellings do not
-belong to the common observable grammar.
+The laconic `Z`, `Y`, `R`, `X`, `L`, `G`, `B`, and `C` accessors delegate to
+the same methods. `observe` performs no display conversion and returns no
+metadata wrapper.
+
+[`observables`](@ref) is the detached presentation boundary. It requires an
+explicit named tuple of requests:
+
+```julia
+published = observables(
+    parameters,
+    (
+        frequency = (frequencies, Colon()),
+        resistance = (R, 1, 1, Colon()),
+        phase = (Z, angle, 1, 1, Colon()),
+    ),
+)
+```
+
+Each field has exactly `values`, `quantity`, and `unit`. `values` is detached
+from the result and expressed in `unit`; `quantity` is its precise scientific
+identity. Labels and symbols are derived from `LineCableModels.Units`, not
+copied into the payload. `observables(typeof(result))` declares the supported
+selector vocabulary. There is no zero-argument result publication method.
 
 A complete deterministic traversal returns `ParametricResult{T}`. Direct
 propagation returns `LinearErrorResult{T}`, and conditional sampling returns
@@ -104,11 +122,15 @@ either generic: there is no zero-argument conversion, broad
 fallback, or implicit transformation. Unsupported orderings fail through
 ordinary Julia dispatch.
 
-`DataFrame(result::MonteCarloResult)` renders stored marginal summaries
-without repeating the calculation. Cable-constant results produce one R/L/C
-table. Line-parameter results produce one R/L/C/G table for every matrix entry
-and frequency. The displayed `confidence` and `cdf_tol` values describe the DKW
-bound below and are not confidence intervals for the sample mean.
+[`report`](@ref) builds human-facing tables from explicit publication requests.
+Its fixed sequence is `entitle → select → tabulate → illustrate →
+encode → write → finish`. Existing `DataFrame` methods for completed
+results delegate to this boundary. `DataFrame(result::MonteCarloResult)` renders
+stored marginal summaries without repeating the calculation. Cable-constant
+results produce one R/L/C table. Line-parameter results produce one R/L/C/G
+table for every matrix entry and frequency. The displayed `confidence` and
+`cdf_tol` values describe the DKW bound below and are not confidence intervals
+for the sample mean.
 
 After loading a Makie package, retained samples and histograms can be displayed
 through the maintained Monte Carlo recipe:
@@ -309,6 +331,15 @@ Private = true
 Modules = [
     LineCableModels.PlotBuilder,
 ]
+Order = [:module, :constant, :type, :function, :macro]
+Public = true
+Private = true
+```
+
+## Reports and tables
+
+```@autodocs
+Modules = [LineCableModels.ReportBuilder]
 Order = [:module, :constant, :type, :function, :macro]
 Public = true
 Private = true

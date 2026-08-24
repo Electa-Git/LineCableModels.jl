@@ -20,7 +20,7 @@
     using Pkg.Artifacts
     using SHA
     using Statistics
-    using LineCableModels: PhaseDomain, description, domain, observables
+    using LineCableModels: PhaseDomain, description, domain, observe, observables
     using LineCableModels.Engine
     import LineCableModels.Grammar: ComputationOptions, computation_options
 
