@@ -26,6 +26,9 @@
     @test all(isfinite, parameters.Z)
     @test all(isfinite, parameters.Y)
     @test trace isa LineParametersTrace
+    @test eltype(trace) === Float64
+    @test sprint(show, trace) ==
+          "LineParametersTrace(2 frequencies, 9 primitive conductors)"
     @test fieldtype(typeof(trace), :result) <: LineParameters
     @test observables(trace) == observables(parameters)
     @test trace.frequencies == problem.frequencies

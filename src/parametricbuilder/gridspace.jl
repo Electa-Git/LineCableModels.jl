@@ -364,7 +364,7 @@ Base.getindex(space::Gridspace, index::Integer) = first(Iterators.drop(space, in
 """
 $(TYPEDSIGNATURES)
 
-Return whether a value, configuration, or specification contains an
+Return whether a value, configuration, or definition contains an
 uncertainty descriptor.
 """
 has_uncertainty(value::UncertainValue) = true

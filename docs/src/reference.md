@@ -3,9 +3,11 @@
 ## Modeling and execution grammar
 
 The top-level namespace exposes the declarative modeling API. `Grid` is the
-only parameter-variation syntax, `Gridspace{Target}` is a lazy space of complete
-targets, and `Gridspace(definition)` is the explicit materialization boundary
-for cable, position, earth, and system definitions.
+only parameter-variation syntax, and `Gridspace{Target}` is a lazy space of
+complete targets. Scalar `Material` keywords return one materialized value,
+while varying inputs return a `Gridspace`. `CableBuilder`, `Earth`, and
+`SystemBuilder` return their inferred `Gridspace` directly; callers do not wrap
+their definitions in another materialization step.
 
 Ordinary collections remain ordinary constructor values. Wrap a collection in
 `Grid` only when it is intended to vary. Reusing the same `Grid` deliberately
@@ -19,21 +21,21 @@ earth = Earth(
 )
 ```
 
-Composition is local to each Gridspace node. The example above admits exactly
-three earth configurations after `Gridspace(earth)` is constructed; the earth
-definition can still participate in a Cartesian product at a parent problem
-node.
+Composition is local to each Gridspace node. The example above is already a
+space with exactly three earth configurations. It can still participate in a
+Cartesian product at a parent problem node.
 
 All numerical work follows `problem → formulation → compute`:
 
-```julia
-compute(problem, Formulation())
+Here, `problem_space` is the `Gridspace` returned by `SystemBuilder`.
 
-space = Gridspace(problem_definition)
-compute(ParametricProblem(space), Combinatorial(Formulation()))
-compute(ParametricProblem(space), LinearError(Formulation()))
+```julia
+compute(first(problem_space), Formulation())
+
+compute(ParametricProblem(problem_space), Combinatorial(Formulation()))
+compute(ParametricProblem(problem_space), LinearError(Formulation()))
 compute(
-    ParametricProblem(space),
+    ParametricProblem(problem_space),
     MonteCarlo(Formulation(); trials=1000, cdf_tol=0.02),
 )
 ```
@@ -85,11 +87,19 @@ propagation returns `LinearErrorResult{T}`, and conditional sampling returns
 or `LineParameters` result rather than another composite result.
 
 Use `result`, `statistics`, `samples`, `histograms`, `uncertain_value`, and
-`manifest` to inspect results. Every result details dictionary has the keys
-`:failures`, `:samples`, `:histograms`, `:random`, and `:manifest`. A
-calculation manifest contains a stable SHA-256 hash over the resolved
-parameterization, original problem assumptions, formulation, solver identity,
-execution policy, and calculation options.
+`manifest` to inspect results. Every composite result retains a
+`Dict{Symbol,NamedTuple}` named `details` with exactly the keys `:failures`,
+`:samples`, `:histograms`, `:random`, and `:manifest`. A
+[`CalculationManifest`](@ref), owned by `ParametricBuilder`, contains a
+deterministic SHA-256 identity over the resolved parameterization, original
+problem assumptions, formulation, solver identity, execution policy, and
+calculation options.
+
+`primitives` and `preprocess` are reserved action generics for explicitly
+selected future calculation orderings. LineCableModels intentionally defines
+no methods for either generic: there is no zero-argument conversion, broad
+fallback, or implicit transformation. Unsupported orderings fail through
+ordinary Julia dispatch.
 
 `DataFrame(result::MonteCarloResult)` renders stored marginal summaries
 without repeating the calculation. Cable-constant results produce one R/L/C
@@ -233,7 +243,6 @@ Depth = 3
 Modules = [
     LineCableModels,
     LineCableModels.Grammar,
-    LineCableModels.Computation,
     LineCableModels.UnitHandler,
 ]
 Order = [:module, :constant, :type, :function, :macro]
@@ -274,12 +283,13 @@ Public = true
 Private = true
 ```
 
-## Parametric modeling
+## Parametric and uncertainty modeling
 
 ```@autodocs
 Modules = [
     LineCableModels.ParametricBuilder,
     LineCableModels.ParametricBuilder.WirePatterns,
+    LineCableModels.UQ,
 ]
 Order = [:module, :constant, :type, :function, :macro]
 Public = true

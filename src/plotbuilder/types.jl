@@ -668,9 +668,9 @@ function _check_sibling_overlap(children)
 end
 
 """
-    validate(specification)
+    validate(value)
 
-Validate a layout, page, or complete render specification and return it.
+Validate a layout, page, or completed plot recipe and return it.
 
 # Errors
 
@@ -913,12 +913,12 @@ end
 """
     UIPlot
 
-Hold a backend-neutral render specification together with one built figure,
+Hold a completed backend-neutral plot recipe together with one built figure,
 its panels, controls, and backend context. Line-parameter plotting returns a
 `Vector{UIPlot}`; previews and statistical plots return one `UIPlot`.
 """
 struct UIPlot{S <: AbstractPlotDefinition, F, P, W, C}
-    "Complete backend-neutral render specification."
+    "Completed backend-neutral plot recipe."
     render::PlotRecipe{S}
     "Page represented by this handle."
     page::PageSpec

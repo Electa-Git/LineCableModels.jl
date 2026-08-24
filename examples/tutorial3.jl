@@ -201,13 +201,13 @@ armor_parts = (
 )
 
 # Resolve the complete deterministic cable description:
-cable_design = only(Gridspace(CableBuilder(
+cable_design = only(CableBuilder(
     cable_id,
     core_parts,
     sheath_parts,
     armor_parts;
     nominal = datasheet_info
-)))
+))
 
 # Inspect the finished cable design:
 plt1 = preview(
@@ -288,7 +288,7 @@ positions = (
 )
 
 # Build the complete bipole line-parameter problem from the loaded design:
-problem = only(Gridspace(SystemBuilder(
+problem = only(SystemBuilder(
     "525kV_1600mm2_bipole",
     loaded_design,
     positions;
@@ -296,7 +296,7 @@ problem = only(Gridspace(SystemBuilder(
     temperature = 20.0,
     earth,
     frequencies = f
-)))
+))
 cable_system = problem.system
 earth_params = problem.earth_props
 

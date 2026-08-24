@@ -115,7 +115,7 @@ the cable system, so its spacing is checked against the cable outer diameter.
 # Returns
 
 - A [`Gridspace`](@ref) of trifoil declarations. Each resolved declaration is
-  one object-valued input to its parent system specification.
+  one object-valued input to its parent system definition.
 
 # Errors
 

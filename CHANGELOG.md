@@ -22,10 +22,16 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   JLS loading remains supported for trusted matching package types only.
 - Wire-pattern searches return typed `WireEstimate` results, including ranked
   best-effort candidates for feasible search inputs that cannot meet every limit.
-- Consolidated problem, formulation, result, Gridspace, composite-calculation,
-  observable, unit, and plotting declarations under `LineCableModels.Grammar`.
+- Consolidated shared problem, formulation, and result roots plus the common
+  action generics under `LineCableModels.Grammar`.
 - Replaced the prototype parameter and uncertainty paths with typed `Grid` and
-  `Gridspace(definition)` materialization.
+  inferred `Gridspace` construction from the public declarative builders.
+- Converged calculation ownership around `Grammar` action generics,
+  `ParametricBuilder` deterministic traversal and manifests, `UQ` uncertainty
+  propagation, and end-to-end analytical execution in `Engine`.
+- Converged PlotBuilder on definition-driven recipes and one fixed sequence:
+  entitle, parse, resolve, observe, axes, series, views, pages, layout,
+  decorate, and finish.
 - Unified ordinary and higher-order execution under `compute`, with
   `Combinatorial(inner)`, `LinearError(inner)`, and `MonteCarlo(inner)` selected
   explicitly.

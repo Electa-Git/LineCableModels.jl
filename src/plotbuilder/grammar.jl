@@ -12,21 +12,21 @@ end
 """
     dispatch_on(::Type{S})
 
-Return the domain type accepted by plot specification `S`.
+Return the domain type accepted by plot definition `S`.
 """
 dispatch_on(::Type{S}) where {S <: AbstractPlotDefinition} = Any
 
 """
     input_kwargs(::Type{S})
 
-Return semantic keyword names accepted by plot specification `S`.
+Return semantic keyword names accepted by plot definition `S`.
 """
 input_kwargs(::Type{S}) where {S <: AbstractPlotDefinition} = ()
 
 """
     renderer_kwargs(::Type{S})
 
-Return recipe-specific renderer keyword names accepted by plot specification `S`.
+Return recipe-specific renderer keyword names accepted by plot definition `S`.
 """
 renderer_kwargs(::Type{S}) where {S <: AbstractPlotDefinition} = ()
 
@@ -561,7 +561,7 @@ end
 """
     make_series(::Type{S}, mode, grouping, recipe, page_key, view_key, axes)
 
-Construct backend-neutral primitive specifications for one view.
+Construct backend-neutral primitive declarations for one view.
 """
 function make_series(
         ::Type{S}, mode::Val, grouping::Val, recipe::PlotRecipe,
@@ -970,7 +970,7 @@ end
     make_render(::Type{S}, object; kwargs...)
 
 Materialize a domain object through the uniform PlotBuilder grammar. Plot
-specifications specialize accessors; they do not replace this rendering
+definitions specialize accessors; they do not replace this rendering
 sequence.
 """
 function make_render(::Type{S}, object; kwargs...) where {S <: AbstractPlotDefinition}

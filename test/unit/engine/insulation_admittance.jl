@@ -75,7 +75,7 @@
           lossless(r_in, r_ex, eps_r, s, 0.0)
 end
 
-@testitem "Engine / ParallelRC / strict layers reach direct compute!" tags=[:unit] setup=[
+@testitem "Engine / ParallelRC / strict layers reach direct computation" tags=[:unit] setup=[
     EngineTestSupport, UseEngineSupport, TestNumerics] begin
     using LinearAlgebra
 

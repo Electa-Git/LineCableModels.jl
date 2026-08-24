@@ -188,8 +188,8 @@ the numerical analysis.
 # Arguments
 
 - `identifier`: Name assigned to the materialized cable system.
-- `design`: A materialized cable design or a [`CableBuilder`](@ref)
-  specification.
+- `design`: A materialized cable design or a [`Gridspace`](@ref) returned by
+  [`CableBuilder`](@ref).
 - `positions`: One position declaration, or a tuple or vector of declarations
   created by [`at`](@ref), [`trifoil`](@ref), [`hflat`](@ref), or
   [`vflat`](@ref).
@@ -207,9 +207,9 @@ the numerical analysis.
 
 # Returns
 
-- A line-parameter problem definition. Construct its [`Gridspace`](@ref), then
-  use an explicit higher-order formulation to evaluate its materialized
-  configurations.
+- A line-parameter problem [`Gridspace`](@ref). Iterate it for primitive
+  problems, or pass it to [`ParametricProblem`](@ref) with an explicit
+  higher-order formulation.
 
 # Errors
 
@@ -229,9 +229,9 @@ function SystemBuilder(
         combine::Symbol = :product
 )
     design isa Union{DataModel.CableDesign, Gridspace{DataModel.CableDesign}} ||
-        throw(ArgumentError("design must be a materialized CableDesign or CableBuilder spec"))
+        throw(ArgumentError("design must be a materialized CableDesign or CableBuilder result"))
     earth isa Union{EarthProps.EarthModel, Gridspace{EarthProps.EarthModel}} ||
-        throw(ArgumentError("earth must be a materialized EarthModel or Earth spec"))
+        throw(ArgumentError("earth must be a materialized EarthModel or Earth result"))
     frequencies isa Union{AbstractVector, AbstractGrid} || throw(ArgumentError(
         "frequencies must be an ordinary vector or a Grid of complete vectors",
     ))

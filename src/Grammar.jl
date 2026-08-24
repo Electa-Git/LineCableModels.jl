@@ -79,16 +79,18 @@ function observables end
 """
 $(SIGNATURES)
 
-Convert a completed result through an explicitly selected receiving
-formulation. LineCableModels defines no implicit or zero-argument conversion.
+Reserved extension point for converting completed results through explicitly
+selected future mathematics. LineCableModels defines no methods, including no
+zero-argument or broad fallback method.
 """
 function primitives end
 
 """
 $(SIGNATURES)
 
-Construct a subsequent LineCableModels problem through explicitly selected
-mathematics. Unsupported calculation orderings have no fallback method.
+Reserved extension point for constructing a subsequent problem through
+explicitly selected future mathematics. LineCableModels defines no methods;
+unsupported calculation orderings fail through ordinary Julia dispatch.
 """
 function preprocess end
 

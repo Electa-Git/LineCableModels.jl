@@ -599,10 +599,14 @@ end
     @test !isdefined(PB, :page_keys)
     @test !isdefined(PB, :view_keys)
     @test !isdefined(PB, :series_keys)
-    @test all(name -> name ∉ names(PB), (
-        :AxisSpec, :SeriesSpec, :ViewSpec, :PageSpec, :LayoutSpec,
-        :ControlSpec, :LegendSpec, :ColorbarSpec, :StatusSpec, :ExportSpec
-    ))
+    @test !isdefined(PB, :RenderSpec)
+    @test !isdefined(PB, :LineFamilyKey)
+    @test !isdefined(PB, :MCSeriesKey)
+    @test all(name -> name ∉ names(PB),
+        (
+            :AxisSpec, :SeriesSpec, :ViewSpec, :PageSpec, :LayoutSpec,
+            :ControlSpec, :LegendSpec, :ColorbarSpec, :StatusSpec, :ExportSpec
+        ))
     @test PB.geom_axes(DefaultHookSpec, variant, recipe, nothing, nothing) == (:x, :y)
 
     quantity=PB.axis_quantity(DefaultHookSpec, Val(:x), recipe)

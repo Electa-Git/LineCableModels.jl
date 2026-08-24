@@ -3,6 +3,7 @@
     import LineCableModels.ParametricBuilder as PB
     const Grammar=LineCableModels.Grammar
     const Engine=LineCableModels.Engine
+    const ImportExport=LineCableModels.ImportExport
     const UQ=LineCableModels.UQ
 
     @test LineCableModels.AbstractProblemDefinition === Grammar.AbstractProblemDefinition
@@ -17,6 +18,12 @@
     @test LineCableModels.observables === Grammar.observables
     @test LineCableModels.primitives === Grammar.primitives
     @test LineCableModels.preprocess === Grammar.preprocess
+    @test parentmodule(Grammar.compute) === Grammar
+    @test parentmodule(Grammar.observables) === Grammar
+    @test parentmodule(Grammar.primitives) === Grammar
+    @test parentmodule(Grammar.preprocess) === Grammar
+    @test isempty(methods(Grammar.primitives))
+    @test isempty(methods(Grammar.preprocess))
     @test LineCableModels.FormulationOptions === Grammar.FormulationOptions === NamedTuple
     @test LineCableModels.ComputationOptions === Grammar.ComputationOptions === NamedTuple
     for name in (
@@ -46,10 +53,14 @@
     @test getproperty(LineCableModels, Symbol("@relax")) ===
           getproperty(PB, Symbol("@relax"))
     @test !isdefined(LineCableModels, :Computation)
+    @test !isdefined(LineCableModels, Symbol("compute!"))
     @test !isdefined(Grammar, :Gridspace)
     @test !isdefined(Grammar, :MonteCarlo)
     @test Engine.AbstractProblemDefinition === Grammar.AbstractProblemDefinition
     @test Engine.AbstractFormulation === Grammar.AbstractFormulation
+    @test parentmodule(Engine.AnalyticalInput) === Engine
+    @test !isdefined(Engine, :EMTInput)
+    @test !isdefined(ImportExport, :read_data)
 
     @test LineCableModels.Material === PB.Material
     @test LineCableModels.Material === LineCableModels.Materials.Material
@@ -112,6 +123,11 @@ end
     @test options.output_basis == Val(:total)
     @test Engine.verbosity(options, :NLsolve) == 0
     @test Engine.verbosity(options, :unlisted) == 1
+    @test Engine.computation_options(nothing).output_basis == Val(:per_length)
+    @test Engine.computation_options(Dict(:output_basis=>:total)).output_basis ==
+          Val(:total)
+    @test Engine.computation_options(pairs((output_basis = :total,))).output_basis ==
+          Val(:total)
     @test_throws ArgumentError Engine.computation_options((unknown = true,))
     @test_throws ArgumentError Engine.computation_options((output_basis = :unknown,))
     @test isempty(methods(Grammar.preprocess))
@@ -233,6 +249,9 @@ end
     @test direct isa ParametricResult{<:CableConstants}
     @test length(direct) == 2
     @test all(value -> value.R isa Measurement, direct)
+    expected_detail_keys=Set((:failures, :samples, :histograms, :random, :manifest))
+    @test direct.details isa Dict{Symbol, NamedTuple}
+    @test Set(keys(direct.details)) == expected_detail_keys
     direct_observables=observables(direct)
     @test keys(direct_observables) == (:result, :details, :manifest)
     @test direct_observables.result === result(direct)
@@ -262,6 +281,8 @@ end
     )
     monte_carlo=compute(ParametricProblem(space), policy)
     @test monte_carlo isa MonteCarloResult{<:CableConstants}
+    @test monte_carlo.details isa Dict{Symbol, NamedTuple}
+    @test Set(keys(monte_carlo.details)) == expected_detail_keys
     @test length(monte_carlo) == 2
     @test monte_carlo.details[:random].trials == [12, 12]
     @test length(samples(monte_carlo)) == 2
@@ -334,6 +355,8 @@ end
 
     propagated=compute(ParametricProblem(space), LinearError(formulation))
     @test propagated isa LinearErrorResult{<:CableConstants}
+    @test propagated.details isa Dict{Symbol, NamedTuple}
+    @test Set(keys(propagated.details)) == expected_detail_keys
     propagated_observables=observables(propagated)
     @test keys(propagated_observables) == (:result, :details, :manifest)
     @test propagated_observables.details === propagated.details

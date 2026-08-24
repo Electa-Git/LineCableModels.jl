@@ -18,8 +18,8 @@ material data.
 - Earth-return, modal transformation, ATPDraw, and PSCAD integration.
 - Material and cable libraries with JSON import and export.
 - One typed `Grid`/`Gridspace` grammar for deterministic and uncertain designs.
-- Ordinary, full-parametric, and conditional Monte Carlo execution through
-  `compute!`.
+- Ordinary, combinatorial, and conditional Monte Carlo execution through
+  `compute`.
 - Optional Makie plotting through explicit backend extensions.
 
 ## Installation

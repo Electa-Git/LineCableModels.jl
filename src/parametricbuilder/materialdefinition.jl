@@ -23,7 +23,7 @@ $(TYPEDSIGNATURES)
 
 Construct electromagnetic and thermal material properties. Scalar property
 inputs return a [`Material`](@ref) directly. An explicit [`Grid`](@ref) or
-numeric construction definition(@ref) lifts the same declaration to a
+nested declarative input lifts the same declaration to a
 [`Gridspace{Material}`](@ref).
 
 # Keywords
@@ -82,14 +82,14 @@ end
 $(TYPEDSIGNATURES)
 
 Add the single deterministic material described by `spec` to a
-[`LineCableModels.MaterialsLibrary`](@ref). The specification is materialized
+[`LineCableModels.MaterialsLibrary`](@ref). The definition is materialized
 through the same [`Gridspace`](@ref) grammar used by the cable builder.
 
 # Arguments
 
 - `library`: Material library to modify.
 - `name`: Material key.
-- `spec`: Deterministic parameterized material specification.
+- `spec`: Deterministic parameterized material definition.
 
 # Returns
 

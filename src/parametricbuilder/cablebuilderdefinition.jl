@@ -564,7 +564,7 @@ cable-part, group, and component calculations.
 
 # Returns
 
-- A cable-design specification. Ordinary iteration enumerates deterministic
+- A cable-design [`Gridspace`](@ref). Ordinary iteration enumerates deterministic
   configurations; `rand` draws a realization from its uncertainty-bearing
   configuration.
 

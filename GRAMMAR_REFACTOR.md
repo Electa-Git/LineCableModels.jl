@@ -56,11 +56,10 @@ behavior is retained. The following retirement paths remain actionable:
 - Versioned material and cable persistence remains supported.
 - Plot backend `force` remains an accepted no-op source-compatibility keyword.
 
-The following current names are confirmed absent from v0.1.0 and are therefore
-unreleased: Engine problem/formulation/results, public `compute!`, current
-Gridspace and computational `*Spec` grammar, calculation policies and
-composite result layouts, `CableConstants` calculation, and the Gauntlet.
-They receive direct replacements without aliases.
+The transitional v0.2 calculation, parameterization, and result names were
+confirmed absent from v0.1.0. They were therefore replaced directly, without
+compatibility aliases. The released `CableConstants` behavior and Gauntlet
+evidence remain protected independently of those ownership changes.
 
 ### Method-level v0.1 audit
 
@@ -87,28 +86,21 @@ the audited v0.2 baseline by owner-local constants, `nominal`,
 `standard_uncertainty`, Grid uncertainty declarations, and optional extension
 methods. This goal does not reintroduce global constants or a `Utils` module.
 
-## API migration ledger
+## Converged ownership ledger
 
-| Current | Final | Status |
+| Owner | Final responsibility | Evidence |
 | --- | --- | --- |
-| `Engine.ProblemDefinition` | `Grammar.AbstractProblemDefinition` | implemented; identity tests pass |
-| `Engine.AbstractFormulation` | `Grammar.AbstractFormulation` | implemented; identity tests pass |
-| no common result root | `Grammar.AbstractProblemResult` | implemented for primitive and composite results |
-| `EMTFormulation` | `AnalyticalFormulation` | implemented without alias |
-| `EMTTrace` | `LineParametersTrace` | implemented without alias |
-| public `compute!` | `Grammar.compute` | implemented; mutating kernels retain `!` |
-| `EMTOptions`, `ComputeOptions` | named-tuple option aliases | implemented with strict key/value validation |
-| ParametricBuilder-owned Gridspace | Grammar-owned Gridspace | implemented; identity and ordering tests pass |
-| computational `*Spec` | computational `*Definition` | implemented without aliases |
-| `FullParametric` and `run=` | `Combinatorial(inner)` and `compute` | implemented without aliases |
-| `FullParametricResult` | `ParametricResult` | implemented without alias |
-| old Monte Carlo layout | `Grammar.MonteCarloResult` | implemented with stable statistics and detail keys |
-| `HistogramPDF` | `HistogramDensity` | implemented without alias |
-| plot-only quantity keys | scientific `observables` | implemented; presentation migration in verification |
+| `Grammar` | shared problem, formulation, and result roots; `compute`, `observables`, `primitives`, and `preprocess` generics | owner identity and no-fallback guards |
+| `Engine` | analytical formulation, immutable solver input, primitive calculation, traces, and benchmarks | formulation and integration fixtures |
+| `ParametricBuilder` | Grid/Gridspace definitions, deterministic traversal, composite results, and `CalculationManifest` | ordering, details-schema, and deterministic-identity tests |
+| `UQ` | direct propagation, conditional Monte Carlo, statistics, samples, and histogram densities | replay, covariance, and extension tests |
+| `PlotBuilder` | definition-driven `PlotRecipe` construction through one fixed stage sequence | architecture, Cairo, and backend-isolation tests |
+| `ImportExport` | explicit format dispatch and path-or-throw write boundaries | persistence and exporter tests |
 
-No concrete parametric-to-uncertainty or uncertainty-to-parametric
-`preprocess` method is introduced in this goal. Unsupported orderings fail by
-ordinary Julia dispatch.
+`primitives` and `preprocess` are protected future provisions. The package
+defines no method for either generic, so unsupported calculation orderings fail
+by ordinary Julia dispatch. Every composite result retains its details
+dictionary and manifest independently of those reserved operations.
 
 ## Result and manifest freeze
 
@@ -126,18 +118,19 @@ ordinary Julia dispatch.
 
 | Gate | Baseline | Final |
 | --- | --- | --- |
-| Root package suite | 3,146/3,146 | 3,262/3,262 |
+| Root package suite | 3,146/3,146 | 3,311/3,311 |
 | Seven-case Gauntlet snapshot suite | 65/65 | 65/65; accepted arrays and sources unchanged |
 | Gauntlet toolkit tests | 183/183 | 183/183 |
 | DataModel/Engine integration fixture | included in root: 68/68 | 68/68 |
 | Independent coaxial-capacitance fixture | included in root baseline | passes in Engine formulation tests |
 | Gridspace and construction tests | pending | 593/593 focused ParametricBuilder tests |
-| Deterministic and uncertainty tests | pending | 26/26 manifest and 139/139 result-container tests |
-| Measurements/Distributions extensions | pending | 70/70 focused extension tests |
-| Persistence and compatibility | pending | 43/43 persistence, 224/224 exporters, and 26/26 cable constants |
-| Plotting and visual smoke tests | pending | 458/458 Cairo render/responsiveness and 7/7 isolated backend activation |
+| Deterministic and uncertainty tests | pending | 26/26 manifest and 152/152 result-container tests |
+| Measurements/Distributions extensions | pending | 62/62 optional-adapter tests in the root suite |
+| Persistence and compatibility | pending | 43/43 persistence, 225/225 exporters, and 26/26 cable constants |
+| Plotting and visual smoke tests | pending | 470/470 visual tests; isolated GLMakie 6/6 and WGLMakie 12/12 activation tests |
 | Documentation and doctests | pending | documentation build and 1/1 doctest pass |
 | Formatting, Aqua, clean installation | pending | JuliaFormatter clean; Aqua clean; isolated core 32/32; empty-depot install/import passes |
+| Source-amended production coverage | pending | 6,757/7,111 lines (95.02%) |
 
 Comparable performance remains within the accepted per-case limits: median
 time ratio `1.20`, bytes ratio `1.05`, and allocation ratio `1.05`. Evidence
@@ -148,13 +141,10 @@ run. An earlier batch contained one transient 380 kV timing outlier; its
 immediate isolated rerun and the final complete replay both passed. No
 tolerance, accepted result, snapshot, or artifact binding was modified.
 
-The Cairo suite exercised the real renderer and golden images. A direct
-GLMakie activation was also attempted, but this verification host has no X
-server (`X11: Failed to open display :0`) and neither `Xvfb` nor `xvfb-run` is
-installed. The failure occurred while initializing GLFW, before package
-extension behavior was exercised. The isolated backend check passed with the
-dedicated Cairo project, and the existing CI and manual GL boundaries remain
-unchanged.
+The Cairo suite exercised the real renderer and golden images. Dedicated
+isolated checks also activated the GLMakie and WGLMakie extensions without
+rendering a display-dependent scene. The existing CI and manual graphical
+boundaries remain unchanged.
 
 ## Final integrity evidence
 
@@ -163,9 +153,9 @@ unchanged.
   `ec9bd7850a744dad14a9547ad4c0e0555363459a`.
 - All seven archived source files match the `case_sha256` values accepted by
   the immutable snapshot reader.
-- The maintained tree contains no removed unreleased names except the
-  deliberate removal guards and the test-local decoder for the immutable v1
-  `EMTFormulation` metadata record.
+- The maintained tree contains no removed unreleased names except deliberate
+  absence guards and the test-local decoder for the immutable v1 formulation
+  metadata record.
 - Production sources contain no dependency or reference to CableHosting or
   PowerImpedance.
 - A clean installation from an empty depot resolved, precompiled, and imported
@@ -175,7 +165,7 @@ unchanged.
 
 ## Execution status
 
-All twelve approved implementation steps are complete. The refactor changes
+All nine planned commits are complete. The refactor changes
 ownership, naming, dispatch, and result organization only. No scientific
 equation, physical constant, accepted numerical value, persistence version,
 Gauntlet tolerance, or performance limit changed. No compatibility alias was

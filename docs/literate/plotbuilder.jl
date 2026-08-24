@@ -1,119 +1,83 @@
 # # PlotBuilder guide
 #
-# `PlotBuilder` is the backend-neutral recipe layer used by LineCableModels. It
-# turns scientific objects and declarative plot definitions into resolved
-# recipes; the Makie extension renders those recipes and owns all interactive
-# state.
+# `PlotBuilder` is the backend-neutral recipe layer used by LineCableModels. A
+# plot definition selects scientific observations and completes one
+# `PlotRecipe`; an explicitly loaded Makie extension renders that recipe and
+# owns interactive state.
 #
 # ```text
-# domain object
+# domain object + plot definition
 #     │
 #     ▼
-# one generic make_render
-#     │  recipe accessors and Val dispatch
+# entitle → parse → resolve → observe
+#     │
 #     ▼
-# RenderSpec → PageSpec → ViewSpec → AxisSpec / SeriesSpec
-#     │  named LayoutSpec and typed page components
+# axes → series → views → pages → layout → decorate → finish
+#     │
 #     ▼
-# Makie extension → UIPlot
+# PlotRecipe → Makie extension → UIPlot
 # ```
 #
-# Loading `LineCableModels` does not load Makie or a backend. Recipes must not
-# construct Makie objects. Users explicitly load CairoMakie, GLMakie, or
+# Loading `LineCableModels` does not load Makie or select a backend. Core recipe
+# construction cannot create Makie objects. Users load CairoMakie, GLMakie, or
 # WGLMakie before calling `plot` or `preview`.
 #
-# PlotBuilder is a documented developer API in v0.2 and may evolve before 1.0.
-# The user-facing result accessors and plotting entry points have their normal
+# PlotBuilder is a developer API in v0.2 and may evolve before 1.0. The
+# user-facing scientific accessors and plotting entry points have their normal
 # SemVer guarantees.
 #
 # ## Architecture
 #
-# PlotBuilder follows five non-negotiable rules:
+# Every maintained plot family follows four rules:
 #
-# 1. `make_render` is one generic rendering sequence. Domain recipes specialize
-#    accessors; they do not replace that sequence.
-# 2. Recipe variation uses Julia dispatch, including `Val` dispatch for modes,
-#    grouping, and primitive rendering.
-# 3. `PlotRecipe`, `RenderSpec`, layouts, axes, series, views, and page components
-#    are backend-neutral. Makie objects exist only in the Makie extension.
-# 4. Scientific selection, units, labels, grouping, and page identity remain
-#    declarative. Interactive state is reconstructed into the same typed model
-#    for export.
-# 5. Layouts are named grid trees. Recipes provide defaults and callers may
-#    supply a preset or `LayoutSpec` without changing a recipe implementation.
+# 1. `make_render` is the sole orchestration method. Definitions specialize
+#    stage hooks; they do not replace the sequence.
+# 2. `PlotRecipe` is the completed backend-neutral representation. Its pages,
+#    axes, series, layouts, and controls are implementation details of that
+#    representation rather than parallel public render models.
+# 3. Definitions read completed calculations through `observables`. Explicit
+#    mathematical accessors such as `Z`, `Y`, `R`, `L`, `G`, and `C` are used
+#    only for derived selections requested by the caller.
+# 4. Makie figures, observables, widgets, and callbacks exist only in the Makie
+#    extension. SVG export reconstructs the current typed recipe state.
 #
-# These rules apply to every maintained plot family. The user-facing `plot`,
-# `preview`, and `export_svg` methods remain narrow adapters over the same recipe
-# and renderer path. Material-scale rendering is an internal, reusable preview
-# component rather than a separate public entry point.
+# Public mode, facet, and key-enumeration hook vocabularies are intentionally absent.
+# Variation belongs to the definition that owns a recipe family and is resolved
+# within the common stages. This keeps presentation branching from becoming a
+# second calculation grammar.
 #
-# The developer API may evolve before LineCableModels 1.0, but changes must keep
-# the separation between plot definitions, backend-neutral recipes, and
-# backend rendering. Structural tests enforce the single rendering sequence and the
-# absence of Makie from core recipe construction.
+# ## Maintained recipe families
 #
-# ## Supported recipe families
-#
-# | Module | Definition | Input | Entry point |
+# | Owner | Definition | Input | Entry point |
 # |:--|:--|:--|:--|
-# | `Engine` | `LineParameterPlotDefinition` | `SeriesImpedance` and frequencies | `plot(series, frequencies[, accessors])` |
-# | `Engine` | `LineParameterPlotDefinition` | `ShuntAdmittance` and frequencies | `plot(shunt, frequencies[, accessors])` |
-# | `Engine` | `LineParameterPlotDefinition` | `LineParameters` | `plot(parameters[, accessors])` |
-# | `Computation` | `MCDistributionPlotDefinition` | `MonteCarloResult` | `plot(result, quantity)` |
+# | `Engine` | `LineParameterPlotDefinition` | `SeriesImpedance`, `ShuntAdmittance`, or `LineParameters` | `plot(...)` |
+# | `Engine` | `LineParametersBenchmarkPlotDefinition` | two `LineParameters` results | benchmark plots |
+# | `UQ` | `MCDistributionPlotDefinition` | `MonteCarloResult` | `plot(result, quantity)` |
 # | `DataModel` | `CablePreviewPlotDefinition` | `CableDesign` | `preview(design)` |
 # | `DataModel` | `SystemPreviewPlotDefinition` | `LineCableSystem` | `preview(system)` |
 #
-# `plot(parameters)` produces separate Z and Y pages, each with real and
-# imaginary parts in adjacent views. An accessor tuple selects another
-# representation, for example `(R, L, G, C)` or `(abs, angle)`. The
-# Monte Carlo recipe provides histogram, PDF, empirical/histogram CDF, and Q-Q
-# views for retained marginal results.
-# DataModel recipes provide cable and system previews. `MaterialScalePlotDefinition` is an internal reusable
-# component for composing and testing the material-property scales used by those
-# previews; it is not a public plotting entry point.
+# Material scales are an internal reusable definition used by previews. They
+# are not a separate user-facing plotting entry point.
 #
-# ## Recipe state and options
+# `plot(parameters)` produces separate impedance and admittance pages with real
+# and imaginary parts in adjacent views. An accessor tuple selects a different
+# representation, for example `(R, L, G, C)` or `(abs, angle)`. Monte Carlo
+# plots provide histogram, density, empirical-CDF, histogram-CDF, and Q-Q views
+# when the required retained observations are present.
 #
-# Every recipe is represented internally by `PlotRecipe{O,I,R}`. `object` is the
-# domain value, `input` is a typed `NamedTuple` of semantic options, and
-# `renderer` is a typed `NamedTuple` of rendering options. The following example
-# uses the maintained line-parameter recipe. Recipe construction itself
-# remains backend-neutral; this documentation loads CairoMakie only so later
-# sections can show what the definitions render.
+# ## Recipe options and completed state
+#
+# The following deterministic two-conductor fixture keeps the examples focused
+# on recipe behavior. CairoMakie is loaded only to render selected completed
+# pages later in the guide.
 #
 using LineCableModels
 using LineCableModels.PlotBuilder
-using LineCableModels.UnitHandler
 using LineCableModels.Engine: LineParameterPlotDefinition
-import LineCableModels.PlotBuilder: axis_label #hide
-import LineCableModels.PlotBuilder: axis_quantity #hide
-import LineCableModels.PlotBuilder: axis_scales #hide
-import LineCableModels.PlotBuilder: axis_unit #hide
-import LineCableModels.PlotBuilder: colorbar_specs #hide
-import LineCableModels.PlotBuilder: default_figsize #hide
-import LineCableModels.PlotBuilder: default_title #hide
-import LineCableModels.PlotBuilder: dispatch_on #hide
-import LineCableModels.PlotBuilder: group_facets #hide
-import LineCableModels.PlotBuilder: grouping_mode #hide
-import LineCableModels.PlotBuilder: input_defaults #hide
-import LineCableModels.PlotBuilder: input_kwargs #hide
-import LineCableModels.PlotBuilder: layout_spec #hide
-import LineCableModels.PlotBuilder: legend_label #hide
-import LineCableModels.PlotBuilder: legend_spec #hide
-import LineCableModels.PlotBuilder: recipe_mode #hide
-import LineCableModels.PlotBuilder: renderer_defaults #hide
-import LineCableModels.PlotBuilder: renderer_kwargs #hide
-import LineCableModels.PlotBuilder: resolve_input #hide
-import LineCableModels.PlotBuilder: series_attributes #hide
-import LineCableModels.PlotBuilder: series_data #hide
-import LineCableModels.PlotBuilder: series_group #hide
 using CairoMakie #hide
 CairoMakie.activate!() #hide
 nothing; #hide
 
-# The guide uses one deterministic two-conductor fixture throughout. Its
-# construction is hidden in the generated page so the examples stay focused
-# on PlotBuilder decisions rather than synthetic matrix bookkeeping.
 frequency = 10.0 .^ range(log10(50.0), log10(100_000.0); length = 80) #hide
 frequency_scale = frequency ./ first(frequency) #hide
 resistance_curve = 1.2e-4 .* (1 .+ 0.12 .* sqrt.(frequency_scale)) #hide
@@ -138,15 +102,18 @@ parameters = LineParameters( #hide
 ) #hide
 
 function documentation_figure( #hide
-        render_spec, #hide
+        recipe::PlotRecipe, #hide
         page_index::Integer = 1; #hide
         export_mode::Bool = false, #hide
         export_theme = nothing #hide
 ) #hide
     extension = Base.get_extension(LineCableModels, :LineCableModelsMakieExt) #hide
-    selected = RenderSpec( #hide
-        render_spec.spec, #hide
-        [render_spec.figures[Int(page_index)]] #hide
+    selected = PlotRecipe( #hide
+        recipe.spec, #hide
+        recipe.object, #hide
+        recipe.input, #hide
+        recipe.renderer, #hide
+        [recipe.figures[Int(page_index)]] #hide
     ) #hide
     handles = extension.UIComponents.build( #hide
         selected; #hide
@@ -159,9 +126,11 @@ function documentation_figure( #hide
     return only(handles).figure #hide
 end; #hide
 
-# parse_kwargs applies the recipe defaults, validates the caller's keywords,
-# and separates scientific choices from renderer choices.
-recipe = parse_kwargs(
+# `parse_kwargs` applies definition-owned defaults, validates caller keywords,
+# and separates scientific input from renderer options. `make_render` runs the
+# entitlement check before parsing. Unsupported keywords are errors.
+#
+parsed = parse_kwargs(
     LineParameterPlotDefinition,
     Z(parameters);
     frequencies = frequencies(parameters),
@@ -170,650 +139,141 @@ recipe = parse_kwargs(
 )
 
 (;
-    object_type = typeof(recipe.object),
-    quantities = recipe.input.quantities,
-    export_theme = recipe.renderer.export_theme
+    object_type = typeof(parsed.object),
+    quantities = parsed.input.quantities,
+    export_theme = parsed.renderer.export_theme,
+    completed_pages = length(parsed.figures)
 )
 #
-# A recipe declares semantic options with `input_kwargs` and `input_defaults`,
-# and renderer options with `renderer_kwargs` and `renderer_defaults`. Defaults
-# must contain exactly the declared keys. A name cannot occur in both groups or
-# collide with the common renderer options `layout`, `export_theme`, and
-# `open_export`. Unsupported keywords are errors.
+# Semantic options are declared by `input_kwargs` and `input_defaults`.
+# Definition-specific renderer options use `renderer_kwargs` and
+# `renderer_defaults`. The common renderer options are `layout`,
+# `export_theme`, and `open_export`. A name cannot occur in both groups, and
+# defaults must contain exactly their declared keys.
 #
-# `resolve_input` validates and enriches a `PlotRecipe`. Expensive conversions
-# or repeated statistical transformations should be performed there once.
+# `resolve_input` validates and enriches parsed input. `observe` then resolves
+# the scientific observations consumed by the remaining stages. Expensive
+# statistical transformations belong in one of those stages so they are not
+# repeated by views or by the renderer.
 #
-# Calling the generic `make_render` resolves that recipe and assembles the typed
-# page tree. Inspecting the result is useful when developing a recipe because it
-# tests the complete declarative path without opening a window:
+# `make_render` runs the complete fixed sequence and returns another
+# `PlotRecipe`, now with validated pages:
 #
-render = make_render(
+recipe = make_render(
     LineParameterPlotDefinition,
     Z(parameters);
     frequencies = frequencies(parameters),
     quantities = (abs, angle)
 )
 
-# Magnitude and angle occupy adjacent views on the impedance page.
-[(page.title, getproperty.(page.views, :title)) for page in render.figures]
+(;
+    recipe_type = typeof(recipe),
+    page_count = length(recipe.figures),
+    page_titles = getproperty.(recipe.figures, :title),
+    view_titles = [getproperty.(page.views, :title) for page in recipe.figures]
+)
 #
-# The value above proves that the declarative page tree contains the expected
-# semantics. The first page below is that same `RenderSpec` materialized by the
-# Cairo renderer. The recipe did not construct this figure.
+# The same completed recipe is materialized below by CairoMakie. Recipe
+# construction itself created no figure.
 
-documentation_figure(render, 1) #hide
+documentation_figure(recipe) #hide
 #md # ```@raw html
 #md # <br>
 #md # ```
 #
-# ## Specification types
+# ## The fixed operation grammar
 #
-# ### Axes
+# Definitions specialize the narrowest stage that owns a decision:
 #
-# `AxisSpec` stores its dimension, `UnitHandler.QuantityTag`, display units,
-# label, current scale, allowed scales, display exponent, and visual attributes.
-#
-# - Current and allowed scales are `:linear` or `:log10`.
-# - The current scale must be present in `allowed_scales`.
-# - Declaring `:log10` requires positive finite plotted values and positive
-#   uncertainty lower bounds.
-# - The renderer derives scale toggles from `allowed_scales`; recipes do not
-#   declare separate log widgets.
-# - `exponent` applies compact base-ten scaling to linear tick labels. Logarithmic
-#   ticks are rendered at decades with typographic superscripts.
-#
-# The attribute bag is for Makie axis styling. Semantic or renderer-owned keys,
-# including labels, scales, tick definitions, `title`, and `aspect`, are rejected
-# there. Axis and view visual attributes are merged when the Makie axis is built;
-# view attributes take precedence on duplicate visual keys.
-#
-# ### Series
-#
-# `SeriesSpec` represents one primitive:
-#
-# | `kind` | Required data | Renderer operation |
+# | Stage | Responsibility | Main hooks |
 # |:--|:--|:--|
-# | `:line` | equal-length `xdata`, `ydata` | `lines!`, plus measurement error bars |
-# | `:scatter` | equal-length `xdata`, `ydata` | `scatter!` |
-# | `:histogram` | `xdata` | `hist!` |
-# | `:stairs` | equal-length `xdata`, `ydata` | `stairs!` |
-# | `:heatmap` | `xdata`, `ydata`, matching `zdata` | `heatmap!` |
-# | `:polygon` | geometry in `zdata` | `poly!` |
-# | `:hline` | `ydata` | `hlines!` |
+# | entitlement | accept one domain type | `dispatch_on`, `entitle` |
+# | parsing | split and validate keywords | `input_kwargs`, `input_defaults`, `renderer_kwargs`, `renderer_defaults`, `parse_kwargs` |
+# | resolution | normalize semantic input once | `resolve_input` |
+# | observation | obtain immutable scientific values | `observe`, `observables` |
+# | axes | quantities, units, labels, scales | `geom_axes`, `axis_quantity`, `axis_unit`, `axis_label`, `axis_scale`, `axis_scales`, `axis_exponent`, `axis_attributes`, `make_axes` |
+# | series | primitive data and appearance | `plot_kind`, `series_data`, `legend_label`, `series_group`, `series_visible`, `series_attributes`, `make_series` |
+# | views | titles, placement, aspect, limits | `default_title`, `view_key`, `view_placement`, `view_aspect`, `view_limits`, `view_attributes`, `make_views` |
+# | pages and layout | size, identity, named layout, controls | `default_figsize`, `page_identity`, `layout_spec`, `control_spec`, `legend_spec`, `colorbar_specs`, `status_spec`, `export_spec`, `make_pages` |
+# | completion | final decoration and validation | `decorate`, `finish` |
 #
-# `label`, `group`, and `visible` are semantic fields. Several primitives with
-# the same `group` form one legend entry and visibility action. Declaration
-# order determines legend order. Visual Makie keywords such as `color`,
-# `linewidth`, `linestyle`, `markersize`, `bins`, and `normalization` belong in
-# `attributes`; `label`, `group`, and `visible` are rejected there.
+# `make_axes`, `make_series`, `make_views`, and `make_pages` are advanced
+# backend-neutral hooks for definitions whose geometry cannot be expressed by
+# the narrower accessors. They may return recipe components but cannot create
+# Makie objects or replace `make_render`.
 #
-# The renderer dispatches through `draw!(axis, Val(series.kind), series)`. A new
-# primitive therefore requires a core validation entry, one renderer method,
-# and definition plus Cairo tests. Recipes using existing primitives need no
-# renderer changes.
+# A new drawing primitive requires core validation and one renderer method
+# dispatched on its primitive symbol. Definitions that reuse an existing
+# primitive require no renderer change.
 #
-# ### Views
+# ## Scientific observations and units
 #
-# `ViewSpec` owns up to three axes, a title, series, a semantic `key`, and:
+# Plot definitions consume the immutable named tuples returned by
+# `observables`. Presentation code does not read result fields as an alternate
+# result protocol. `UnitHandler` maps the resulting scientific keys to quantity
+# tags, display units, labels, symbols, and scaling. The renderer receives
+# display-ready series and does not interpret calculation containers.
 #
-# - `placement::PlacementSpec`, selecting a named layout slot and optionally an
-#   explicit grid area;
-# - `aspect`, including `:data` for a physical 1:1 aspect ratio;
-# - `limits`, as `(xlimits, ylimits)` when the recipe defines bounds;
-# - an attribute bag forwarded to `Makie.Axis`.
+# For line parameters, the published quantities are independent of their
+# presentation:
 #
-# `placement`, `aspect`, and `limits` are real fields and are rejected inside the
-# attribute bag. `aspect` accepts `nothing`, `:data`, or a positive finite ratio.
-# Explicit limits are finite, strictly increasing x/y pairs and must be positive
-# when the corresponding logarithmic scale is active. A linear axis may retain
-# limits that cross zero even when its UI offers a logarithmic toggle. Without
-# explicit limits, the renderer uses Makie's normal margins and stabilizes
-# effectively constant data, including measurement uncertainty.
-#
-# ### Pages
-#
-# `PageSpec` contains:
-#
-# - `title` and pixel `size`;
-# - a semantic `key::NamedTuple`;
-# - a backend-neutral `LayoutSpec`;
-# - `views`;
-# - `ControlSpec`, `LegendSpec`, `Vector{ColorbarSpec}`, `StatusSpec`, and
-#   `ExportSpec`.
-#
-# There is no general-purpose page keyword bag. Recipe identity belongs in
-# `key`; display and UI behavior belongs in the corresponding typed component.
-# The Julia field holding `ExportSpec` is named `export_spec` because `export` is
-# a Julia keyword.
-#
-# `ControlSpec` declares reset and SVG buttons. Scale toggles come from axes.
-# `LegendSpec` controls legend visibility, legend-driven series visibility, and
-# overflow. Its default `overflow=:ellipsis` keeps the legend inside a bounded
-# fixed or relative row: the renderer shows the largest prefix that fits and
-# appends an inert `(...)` entry. `overflow=:show_all` lets all legend entries
-# determine the required height and may therefore use a `ContentTrack` row.
-# Responsive legends in content-sized rows are rejected before rendering.
-# `ColorbarSpec` contains a label, colormap, limits, ticks, and destination slot.
-# Tick positions must be finite, lie within the color limits, and have one label
-# per position.
-# `StatusSpec` controls the status line. `ExportSpec` contains the theme, base
-# filename, and automatic-open preference.
-#
-# `RenderSpec` contains the recipe type and its pages. `validate(render)` runs
-# after generic assembly and again before rendering.
-#
-# ## Named layouts
-#
-# `LayoutSpec` is a named tree of `GridSpec` and `SlotSpec` values:
-#
-# - `GridSpec` declares a unique name, parent grid, parent `GridArea`, row and
-#   column tracks, gaps, and padding.
-# - `SlotSpec` declares a unique content name, parent grid, `GridArea`, and
-#   horizontal and vertical alignment.
-# - `GridArea` uses one-based row and column ranges and supports spans.
-# - `PlacementSpec(:canvas)` requests automatic view placement.
-# - `PlacementSpec(:canvas, GridArea(...))` requests explicit placement inside
-#   the slot.
-#
-# Track sizes are `FixedTrack(pixels)`, `RelativeTrack(weight)`, and
-# `ContentTrack()`. Built-in presets are `:single`, `:grid`, `:preview`, and
-# `:material_scale`. Automatic view placement uses
-# `ceil(Int, sqrt(number_of_views))` columns.
-#
-# Callers may pass `layout=:grid` or a complete `LayoutSpec`. Precedence is:
-#
-# 1. caller `layout`;
-# 2. recipe `layout_spec`;
-# 3. `:single`.
-#
-# Validation rejects duplicate names, missing parents, cycles, areas outside
-# declared tracks, sibling overlap, invalid tracks, missing content slots,
-# overlapping view placements, and mixed automatic/explicit placement in one
-# slot. Enabled toolbar, legend, colorbar, status, and view content must all have
-# destination slots.
-#
-# The standard side dock gives its material-scale row content height and assigns
-# the remaining height to the legend row. GLMakie and WGLMakie recompute the
-# fitting prefix from Makie's reported slot bounds when a window is resized;
-# plotted series and their visibility states are untouched. Material scales are
-# never shortened. Toggling a legend entry asks Makie to recompute limits from
-# the currently visible series; a later zoom or pan remains the final state.
-# Toolbar and status tracks collapse for headless and SVG rendering. SVG export
-# always rebuilds the complete legend, preserves the final visibility, scales,
-# and limits, expands the output height when needed, and leaves a compact
-# interactive legend unchanged.
-#
-# ## Accessor grammar
-#
-# `make_render` is defined once in
-# [`src/plotbuilder/grammar.jl`](https://github.com/Electa-Git/LineCableModels.jl/blob/main/src/plotbuilder/grammar.jl).
-# Recipes
-# specialize these accessors:
-#
-# | Decision | Accessors |
-# |:--|:--|
-# | accepted object | `dispatch_on` |
-# | semantic options | `input_kwargs`, `input_defaults`, `resolve_input` |
-# | renderer options | `renderer_kwargs`, `renderer_defaults` |
-# | modes and facets | `recipe_mode`, `grouping_mode`, `page_facets`, `group_facets` |
-# | axes | `geom_axes`, `axis_quantity`, `axis_unit`, `axis_label`, `axis_scale`, `axis_scales`, `axis_exponent`, `axis_attributes` |
-# | primitives | `plot_kind`, `series_data`, `legend_label`, `series_group`, `series_visible`, `series_attributes` |
-# | views | `default_title`, `view_key`, `view_placement`, `view_aspect`, `view_limits`, `view_attributes` |
-# | pages | `default_figsize`, `layout_spec`, `page_identity`, `control_spec`, `legend_spec`, `colorbar_specs`, `status_spec`, `export_spec` |
-#
-# `recipe_mode` and `grouping_mode` return `Val` values. Built-in grouping modes
-# are:
-#
-# - `Val(:overlay)`: all group facets become series in one view;
-# - `Val(:panels)`: each group facet becomes a view in one page;
-# - `Val(:pages)`: each group facet becomes one page;
-# - `Val(:faceted_pages)`: page facets become pages and group facets become
-#   overlaid series;
-# - `Val(:empty)`: one page without axes.
-#
-# `make_axes`, `make_series`, `make_views`, and `make_pages` remain advanced
-# backend-neutral hooks for geometry-heavy or unusual recipes. They may return
-# recipe components but may not construct Makie objects or replace `make_render`.
-#
-# Plot definitions read completed scientific results through `observables` and
-# use mathematical accessors such as `Z`, `Y`, `R`, `L`, `G`, and `C` only for
-# explicitly derived selections. `UnitHandler` binds the resulting full
-# scientific keys to quantity tags, units, labels, symbols, and scaling. The
-# renderer receives display-ready data and never interprets result containers.
-#
-# ## Build a recipe with accessors
-#
-# This complete recipe has one frequency vector and any number of response
-# columns. Every block is executed in one Literate/Documenter session, so the
-# example develops in the same order as a real recipe and fails the docs build
-# if an accessor signature becomes stale.
-#
-# ### 1. Declare the domain type and its options
-#
-# The domain type contains scientific data only. The empty definition type
-# identifies the recipe. Its accessors declare the exact accepted object and
-# keywords; PlotBuilder rejects anything else before it assembles a page.
-#
-# The rows of response correspond to frequency samples. Each column will
-# become a separate series, panel, or page depending on the grouping mode.
-struct ProfileResult
-    frequency::Vector{Float64}
-    response::Matrix{Float64}
-end
-nothing; #hide
-
-# A definition type carries no state. Accessor methods supply its behavior.
-struct ProfilePlotDefinition <: AbstractPlotDefinition end
-nothing; #hide
-
-# This recipe accepts ProfileResult and exactly two scientific options.
-dispatch_on(::Type{ProfilePlotDefinition}) = ProfileResult
-input_kwargs(::Type{ProfilePlotDefinition}) = (:grouping, :color)
-function input_defaults(::Type{ProfilePlotDefinition}, ::ProfileResult)
-    (; grouping = :overlay, color = :steelblue)
-end
-nothing; #hide
-
-# Figure size affects rendering, so it belongs to renderer options instead.
-renderer_kwargs(::Type{ProfilePlotDefinition}) = (:size,)
-renderer_defaults(::Type{ProfilePlotDefinition}, ::ProfileResult) = (; size = (800, 400))
-
-nothing; #hide
-#
-# Common renderer keywords—`layout`, `export_theme`, and `open_export`—are
-# provided by PlotBuilder and must not be redeclared. A real recipe should use
-# `resolve_input` to validate its values and to cache any expensive derived data.
-# This example validates its array dimensions and grouping through dispatch:
-#
-# Each supported grouping has a method. The fallback produces an actionable
-# error without putting a grouping conditional in the generic rendering sequence.
-profile_grouping(::Val{:overlay}) = Val(:overlay)
-profile_grouping(::Val{:panels}) = Val(:panels)
-profile_grouping(::Val{:pages}) = Val(:pages)
-function profile_grouping(::Val{G}) where {G}
-    throw(ArgumentError("unsupported profile grouping :$G"))
-end
-
-function resolve_input(
-        ::Type{ProfilePlotDefinition},
-        recipe::PlotRecipe
-)
-    length(recipe.object.frequency) == size(recipe.object.response, 1) ||
-        throw(DimensionMismatch("each response row needs one frequency"))
-    all(isfinite, recipe.object.frequency) ||
-        throw(ArgumentError("frequencies must be finite"))
-    all(isfinite, recipe.object.response) ||
-        throw(ArgumentError("responses must be finite"))
-    profile_grouping(Val(recipe.input.grouping))
-    return recipe
-end
-
-nothing; #hide
-#
-# ### 2. Select the mode, grouping, and axes
-#
-# `recipe_mode` gives this family a semantic mode. `grouping_mode` selects one of
-# the generic overlay, panel, or page assemblers, while `group_facets` identifies
-# the response columns to assemble.
-#
-recipe_mode(::Type{ProfilePlotDefinition}, recipe::PlotRecipe) = Val(:profile)
-function grouping_mode(
-        ::Type{ProfilePlotDefinition},
-        ::Val{:profile},
-        recipe::PlotRecipe
-)
-    profile_grouping(Val(recipe.input.grouping))
-end
-function group_facets(
-        ::Type{ProfilePlotDefinition},
-        ::Val{:profile},
-        recipe::PlotRecipe,
-        page_key
-)
-    axes(recipe.object.response, 2)
-end
-nothing; #hide
-
-# Axis accessors describe physical meaning and display units. No Makie object
-# is created here; UnitHandler remains the authority for unit labels.
-function axis_quantity(
-        ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:x},
-        recipe::PlotRecipe, page_key, view_key
-)
-    QuantityTag{:freq}()
-end
-function axis_quantity(
-        ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:y},
-        recipe::PlotRecipe, page_key, view_key
-)
-    QuantityTag{:dimensionless}()
-end
-function axis_unit(
-        ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:x},
-        quantity::QuantityTag, recipe::PlotRecipe, page_key, view_key
-)
-    units(:base, :hertz)
-end
-function axis_label(
-        ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:y},
-        quantity::QuantityTag, unit::Units, recipe::PlotRecipe,
-        page_key, view_key
-)
-    "Response"
-end
-nothing; #hide
-
-# Both dimensions are positive in this example, so the renderer may expose a
-# linear/logarithmic toggle for each axis.
-function axis_scales(
-        ::Type{ProfilePlotDefinition}, dim::Val, recipe::PlotRecipe,
-        series::Vector{SeriesSpec}
-)
-    (:linear, :log10)
-end
-
-nothing; #hide
-#
-# ### 3. Describe series data and appearance
-#
-# The generic assembler calls these methods once for every facet. Data, labels,
-# groups, and visibility are semantic accessors. Only visual Makie properties
-# belong in `series_attributes`.
-#
-function series_data(
-        ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:x},
-        recipe::PlotRecipe, page_key, view_key, series_key::Int
-)
-    recipe.object.frequency
-end
-function series_data(
-        ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:y},
-        recipe::PlotRecipe, page_key, view_key, series_key::Int
-)
-    recipe.object.response[:, series_key]
-end
-function legend_label(
-        ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PlotRecipe,
-        page_key, view_key, series_key::Int
-)
-    "response $series_key"
-end
-function series_group(
-        ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PlotRecipe,
-        page_key, view_key, series_key::Int
-)
-    Symbol("response_$series_key")
-end
-nothing; #hide
-
-# Dispatch selects a special line style for the second response. Adding a
-# third specialization does not change the recipe assembler.
-profile_linestyle(::Val) = :solid
-profile_linestyle(::Val{2}) = :dash
-function series_attributes(
-        ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PlotRecipe,
-        page_key, view_key, series_key::Int
-)
-    (;
-        color = recipe.input.color,
-        linewidth = 2,
-        linestyle = profile_linestyle(Val(series_key))
-    )
-end
-
-nothing; #hide
-#
-# ### 4. Describe views and pages
-#
-# Titles and layouts vary by grouping through small dispatch functions. The
-# recipe still does not construct `ViewSpec` or `PageSpec`; the one generic
-# `make_render` derives them from these decisions.
-#
-profile_title(::Val{:overlay}, page_key, view_key) = "Frequency responses"
-profile_title(::Val{:panels}, page_key, view_key::Int) = "Response $view_key"
-profile_title(::Val{:panels}, page_key, ::Nothing) = "Frequency responses"
-profile_title(::Val{:pages}, page_key::Int, view_key) = "Response $page_key"
-function default_title(
-        ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PlotRecipe,
-        page_key, view_key
-)
-    profile_title(Val(recipe.input.grouping), page_key, view_key)
-end
-
-profile_layout(::Val{:overlay}) = :single
-profile_layout(::Val{:panels}) = :grid
-profile_layout(::Val{:pages}) = :single
-function layout_spec(
-        ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PlotRecipe, page_key
-)
-    profile_layout(Val(recipe.input.grouping))
-end
-function default_figsize(
-        ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PlotRecipe, page_key
-)
-    recipe.renderer.size
-end
-nothing; #hide
-
-# Typed page components are also supplied by accessors. This colorbar docks in
-# the preset's :colorbars slot and can be replaced by another specialization.
-function colorbar_specs(
-        ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PlotRecipe, page_key
-)
-    [ColorbarSpec(
-        "Response scale",
-        :viridis,
-        (0.0, 2.5),
-        ([0.0, 1.25, 2.5], ["0", "1.25", "2.5"])
-    )]
-end
-
-# The default responsive mode is explicit here so a reader can find the legend
-# policy alongside the other page components. The legend row in every built-in
-# side dock is relative-sized, as required by `overflow=:ellipsis`.
-function legend_spec(
-        ::Type{ProfilePlotDefinition}, ::Val{:profile}, recipe::PlotRecipe, page_key
-)
-    LegendSpec(overflow = :ellipsis)
-end
-
-nothing; #hide
-#
-# ### 5. Assemble overlay, panel, and page variants
-#
-# All three variants use the same data and recipe methods. Only the grouping
-# value changes. These assertions execute during the documentation build.
-#
-result = ProfileResult(
-    [50.0, 100.0, 500.0],
-    [1.0 1.2; 1.5 1.6; 2.0 2.1]
-)
-
-overlay = make_render(ProfilePlotDefinition, result; color = :navy)
-panels = make_render(ProfilePlotDefinition, result; grouping = :panels)
-pages = make_render(ProfilePlotDefinition, result; grouping = :pages)
-
+observed = observables(parameters)
 (;
-    overlay_series = length(only(only(overlay.figures).views).series),
-    panel_views = length(only(panels.figures).views),
-    separate_pages = length(pages.figures),
-    pipeline_file = basename(String(which(
-        make_render,
-        (Type{ProfilePlotDefinition}, ProfileResult)
-    ).file))
+    keys = keys(observed),
+    frequency_count = length(observed.frequency),
+    impedance_size = size(observed.series_impedance),
+    admittance_size = size(observed.shunt_admittance)
 )
 #
-# #### Overlay
+# Mathematical accessors remain available when the caller explicitly asks for
+# a derived view. They are not replaced by plot-only quantity keys.
 #
-# `Val(:overlay)` places every response in one `ViewSpec`. The legend remains
-# outside the canvas because its destination is declared separately by the
-# page's `LegendSpec`.
-
-documentation_figure(overlay) #hide
-#md # ```@raw html
-#md # <br>
-#md # ```
+# ## Layout and responsive state
 #
-# #### Panels
+# Layouts are named grid trees owned by the completed recipe. Callers may
+# select a maintained preset with `layout=:single`, `:grid`, `:preview`, or
+# `:material_scale`; definitions may supply a complete structured layout.
+# Caller selection takes precedence over the definition default.
 #
-# `Val(:panels)` reuses the same two `SeriesSpec` values but gives each one its
-# own view. The `:grid` layout preset automatically arranges those views.
-
-documentation_figure(panels) #hide
-#md # ```@raw html
-#md # <br>
-#md # ```
+# The common renderer validates layouts before rendering. It rejects missing
+# destinations, overlapping areas, invalid tracks, and mixed automatic and
+# explicit placement. Toolbars and status rows collapse for headless and SVG
+# rendering.
 #
-# #### Pages
+# Responsive legends preserve semantic series and visibility state. When a
+# bounded legend cannot fit, the interactive renderer shows the largest safe
+# prefix followed by an inert `(...)` entry. Material scales are not shortened.
+# SVG export reconstructs the complete legend and expands the output height if
+# required without resizing the interactive figure.
 #
-# `Val(:pages)` produces one page per response. Showing the second page makes
-# the difference from panels explicit without duplicating both figures here.
-
-documentation_figure(pages, 2) #hide
-#md # ```@raw html
-#md # <br>
-#md # ```
+# Passing another maintained preset changes placement without changing the
+# definition or scientific observations:
 #
-# ## Override the layout without changing the recipe
-#
-# The same recipe accepts a caller-provided named layout. This example creates a
-# root grid with toolbar and status rows, a plot grid, and a side grid where the
-# legend and colorbar are docked.
-#
-# The root reserves content-sized outer tracks and a flexible center.
-root_grid = GridSpec(
-    :root;
-    rows = AbstractTrackSize[
-        FixedTrack(36), RelativeTrack(), FixedTrack(20)
-    ],
-    columns = AbstractTrackSize[ContentTrack(), ContentTrack()],
-    rowgap = 6,
-    columngap = 12,
-    padding = (20, 20, 28, 28)
-)
-#
-# The canvas occupies the flexible left side of the center row.
-plot_grid = GridSpec(
-    :plots;
-    parent = :root,
-    area = GridArea(2, 1),
-    rows = AbstractTrackSize[RelativeTrack()],
-    columns = AbstractTrackSize[RelativeTrack()]
-)
-#
-# The right side gives material scales their reported content height. The
-# legend receives the remaining bounded height, so its responsive prefix can be
-# calculated from the actual Makie slot bounds.
-side_grid = GridSpec(
-    :side;
-    parent = :root,
-    area = GridArea(2, 2),
-    rows = AbstractTrackSize[RelativeTrack(), ContentTrack()],
-    columns = AbstractTrackSize[ContentTrack()],
-    rowgap = 4
-)
-#
-# Components target slots by name; the renderer materializes them.
-dashboard_slots = [
-    SlotSpec(:toolbar, :root, GridArea(1, 1:2)),
-    SlotSpec(:canvas, :plots, GridArea(1, 1)),
-    SlotSpec(:legend, :side, GridArea(1, 1); halign = :left, valign = :top),
-    SlotSpec(:colorbars, :side, GridArea(2, 1); halign = :left, valign = :top),
-    SlotSpec(:status, :root, GridArea(3, 1:2))
-]
-#
-# `LayoutSpec` validates the complete named tree before a renderer sees it.
-dashboard = LayoutSpec(
-    :dashboard,
-    [root_grid, plot_grid, side_grid],
-    dashboard_slots
-)
-
-custom = make_render(
-    ProfilePlotDefinition,
-    result;
-    grouping = :panels,
-    layout = dashboard
+grid_recipe = make_render(
+    LineParameterPlotDefinition,
+    parameters;
+    quantities = (R, L, G, C),
+    layout = :grid
 )
 
 (;
-    layout = only(custom.figures).layout.name,
-    slots = getproperty.(dashboard.slots, :name),
-    views = length(only(custom.figures).views)
+    page_layouts = getproperty.(getproperty.(grid_recipe.figures, :layout), :name),
+    pages = length(grid_recipe.figures)
 )
-#
-# The recipe accessors are unchanged. Only the caller-provided named grid moves
-# the canvas, legend, colorbar, toolbar, and status destinations.
 
-documentation_figure(custom) #hide
+documentation_figure(grid_recipe) #hide
 #md # ```@raw html
 #md # <br>
 #md # ```
-#
-# ## Responsive side docks
-#
-# A compact page may not have enough vertical space for every legend entry and
-# its material scales. `overflow=:ellipsis` gives material scales priority and
-# shortens only the displayed legend. The following hidden fixture has sixteen
-# response columns, so the two declared sizes exercise both states without any
-# recipe or renderer changes.
-responsive_values = reduce(hcat, [ #hide
-                                  [1.0 + 0.05index, 1.5 + 0.04index, 2.0 + 0.03index] #hide
-                                  for index in 1:16 #hide
-                                  ]) #hide
-responsive_result = ProfileResult( #hide
-    [50.0, 100.0, 500.0], #hide
-    responsive_values #hide
-) #hide
-compact = make_render( #hide
-    ProfilePlotDefinition, #hide
-    responsive_result; #hide
-    size = (900, 350) #hide
-) #hide
-full = make_render( #hide
-    ProfilePlotDefinition, #hide
-    responsive_result; #hide
-    size = (900, 700) #hide
-) #hide
-
-# At compact height the maximum safe prefix is followed by `(...)`. That entry
-# has no visibility action; the visible entries retain their normal legend
-# toggles.
-documentation_figure(compact) #hide
-#md # ```@raw html
-#md # <br>
-#md # ```
-#
-# With more height, the same definition displays every entry. Interactive GL
-# and WGL windows move between these two states automatically as their viewport
-# changes.
-documentation_figure(full) #hide
-#md # ```@raw html
-#md # <br>
-#md # ```
-#
-# Use `LegendSpec(overflow=:show_all)` only when the complete legend should
-# determine layout height. Its destination may then be a `ContentTrack`; the
-# page is intentionally allowed to grow instead of presenting an ellipsis.
-#
-# For explicit faceting, specialize `view_placement` and return
-# `PlacementSpec(slot, GridArea(rows, columns))`. All views assigned to one slot
-# must use either automatic placement or explicit placement; mixing the two is
-# an error.
 #
 # ## SVG export
 #
-# The save button reconstructs the current typed page state, including scales,
-# limits, visibility, layout, and placement, and renders it through explicitly
-# loaded CairoMakie. It never imports CairoMakie dynamically. Export reconstructs
-# the complete declarative legend even when the interactive window currently
-# shows `(...)`; native block bounds determine any additional SVG height, and
-# the interactive figure is not resized.
+# The export control reconstructs scales, limits, visibility, layout, and
+# placement from the current typed state and renders it through explicitly
+# loaded CairoMakie. It never imports CairoMakie dynamically.
 #
-# - `:default` preserves the interactive styling on a white background.
-# - `:publication` applies `Makie.theme_latexfonts()` and the established
-#   publication sizing.
+# - `:default` preserves interactive styling on a white background.
+# - `:publication` applies the established publication font and sizing theme.
 #
 # ```julia
 # plots = plot(parameters; export_theme=:publication)
@@ -821,10 +281,8 @@ documentation_figure(full) #hide
 # export_svg(first(plots); path="series_resistance.svg", open_file=false)
 # ```
 #
-# This headless rendering uses the same export path without writing a file. The
-# toolbar and status tracks collapse, and `:publication` applies the configured
-# LaTeX-font theme to the declarative page state.
-
+# The next figure exercises that publication path without writing a file:
+#
 publication = make_render(
     LineParameterPlotDefinition,
     parameters;
@@ -841,24 +299,22 @@ documentation_figure( #hide
 #md # <br>
 #md # ```
 #
-# Without `path`, export uses `pwd()`. When `pwd()` is inside the package source,
-# it falls back to `joinpath(tempdir(), "linecablemodels-exports")`. Filenames
-# are sanitized and timestamped, and existing files are never overwritten.
-# Interactive export asks the operating system to open the result. Both the
-# status line and terminal report the absolute path.
+# Without `path`, export uses `pwd()`. When that directory is inside the
+# package source, it falls back to
+# `joinpath(tempdir(), "linecablemodels-exports")`. Filenames are sanitized and
+# timestamped, and existing files are never overwritten.
 #
-# ## Testing a recipe
+# ## Testing a definition
 #
-# Test each recipe at three levels:
+# Test a maintained definition at three boundaries:
 #
-# 1. Build `RenderSpec` without Makie and assert data, units, labels, grouping,
-#    semantic keys, scales, layout, placements, and typed components.
-# 2. Build with CairoMakie and test callbacks, visibility, scale changes,
+# 1. Complete a `PlotRecipe` without Makie and assert scientific data, units,
+#    labels, scales, layout, and semantic identities.
+# 2. Render with CairoMakie and test callbacks, visibility, scale changes,
 #    current-state SVG export, and backend restoration.
 # 3. Compare representative Cairo output with tolerant golden images and add
-#    interactive recipes to the manual GL gallery.
+#    interactive cases to the manual GL gallery.
 #
-# The architecture tests additionally ensure that maintained recipes resolve to
-# the one generic `make_render`, core construction loads no Makie backend,
-# layouts affect renderer placement, and primitives render through `Val`
-# dispatch.
+# Architecture tests also keep `make_render` singular, ensure core construction
+# loads no Makie backend, verify that removed public mode/facet/key-enumeration
+# hooks remain absent, and exercise renderer primitive dispatch.
