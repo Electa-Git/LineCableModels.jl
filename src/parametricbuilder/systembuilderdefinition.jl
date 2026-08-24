@@ -1,30 +1,14 @@
-struct EarthDefinition{R, E, M, H, C} <: _AbstractDefinition{EarthProps.EarthModel}
-    rho::R
-    eps_r::E
-    mu_r::M
-    thickness::H
-    combine::C
-end
-
 function _earth_model(rho, eps_r, mu_r, thickness)
     EarthProps.EarthModel(rho, eps_r, mu_r; thickness)
 end
 _earth_model(rho, eps_r, mu_r, ::Nothing) = EarthProps.EarthModel(rho, eps_r, mu_r)
 
-function Gridspace(spec::EarthDefinition)
-    return Gridspace{EarthProps.EarthModel}(
-        _earth_model,
-        map(_gridspace_axis, (spec.rho, spec.eps_r, spec.mu_r, spec.thickness));
-        combine = _valof(spec.combine)
-    )
-end
-
 """
 $(TYPEDSIGNATURES)
 
-Describe static earth properties independently of analysis frequencies. The
-materialized `EarthModel` is constructed when the parent problem is materialized;
-frequency-dependent evaluation remains an Engine formulation choice.
+Construct static earth properties independently of analysis frequencies.
+Frequency-dependent evaluation remains an Engine formulation choice. Scalar
+inputs return an `EarthModel`; explicit variation returns a `Gridspace`.
 """
 function Earth(;
         rho,
@@ -35,7 +19,14 @@ function Earth(;
 )
     combine in (:product, :zip) ||
         throw(ArgumentError("combine must be :product or :zip"))
-    return Gridspace(EarthDefinition(rho, eps_r, mu_r, thickness, Val(combine)))
+    values = (rho, eps_r, mu_r, thickness)
+    if any(value -> value isa Union{AbstractGrid, Gridspace}, values)
+        grids = map(values) do value
+            value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
+        end
+        return Gridspace{EarthProps.EarthModel}(_earth_model, grids; combine)
+    end
+    return _earth_model(values...)
 end
 
 function _position_coordinates(
@@ -153,18 +144,7 @@ function (materializer::SystemMaterializer)(identifier, design, values...)
     )
 end
 
-struct SystemDefinition{D, P <: Tuple, L, T, E, F, C} <:
-       _AbstractDefinition{Engine.LineParametersProblem}
-    identifier::String
-    design::D
-    positions::P
-    line_length::L
-    temperature::T
-    earth::E
-    frequencies::F
-    combine::C
-end
-
+_flatten_positions(position::PositionDefinition) = (position,)
 _flatten_positions(position::Gridspace{PositionDefinition}) = (position,)
 function _flatten_positions(positions::Union{Tuple, AbstractVector})
     tuple(Iterators.flatten(map(_flatten_positions, positions))...)
@@ -178,11 +158,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Describe a line-cable analysis problem from a cable design, its spatial
-arrangement, earth properties, and analysis frequencies. Passing the returned
-definition to [`Gridspace`](@ref) creates a lazy space of
-[`LineCableModels.Engine.LineParametersProblem`](@ref) objects without running
-the numerical analysis.
+Construct a line-cable analysis problem from a cable design, its spatial
+arrangement, earth properties, and analysis frequencies.
 
 # Arguments
 
@@ -206,9 +183,8 @@ the numerical analysis.
 
 # Returns
 
-- A line-parameter problem [`Gridspace`](@ref). Iterate it for primitive
-  problems, or pass it to [`ParametricProblem`](@ref) with an explicit
-  higher-order formulation.
+- A primitive `LineParametersProblem` for scalar inputs, or a
+  `Gridspace{LineParametersProblem}` when a direct input varies.
 
 # Errors
 
@@ -239,34 +215,16 @@ function SystemBuilder(
     position_tuple = _flatten_positions(positions)
     isempty(position_tuple) &&
         throw(ArgumentError("SystemBuilder requires at least one position"))
-    return Gridspace(SystemDefinition(
-        String(identifier),
-        design,
-        position_tuple,
-        length,
-        temperature,
-        earth,
-        frequencies,
-        Val(combine)
-    ))
-end
-
-function Gridspace(spec::SystemDefinition)
-    axes = (
-        _gridspace_axis(spec.identifier),
-        _gridspace_axis(spec.design),
-        map(_gridspace_axis, spec.positions)...,
-        _gridspace_axis(spec.line_length),
-        _gridspace_axis(spec.temperature),
-        _gridspace_axis(spec.earth),
-        _gridspace_axis(
-            spec.frequencies isa AbstractGrid ?
-            spec.frequencies : Grid((spec.frequencies,))
-        )
+    build = SystemMaterializer(Base.length(position_tuple))
+    values = (
+        String(identifier), design, position_tuple..., length, temperature,
+        earth, frequencies
     )
-    return Gridspace{Engine.LineParametersProblem}(
-        SystemMaterializer(length(spec.positions)),
-        axes;
-        combine = _valof(spec.combine)
-    )
+    if any(value -> value isa Union{AbstractGrid, Gridspace}, values)
+        grids = map(values) do value
+            value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
+        end
+        return Gridspace{Engine.LineParametersProblem}(build, grids; combine)
+    end
+    return build(values...)
 end

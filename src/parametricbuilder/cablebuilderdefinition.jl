@@ -1,11 +1,11 @@
-struct PartDefinition{Role, Part, Mode, C, D, A <: Tuple, M}
+struct PartBuilder{Role, Part, Mode, C, D, A <: Tuple, M}
     component::C
     layers::Int
     dimension::D
     args::A
     material::M
 
-    function PartDefinition(
+    function PartBuilder(
             ::Val{Role},
             ::Val{Part},
             ::Val{Mode},
@@ -41,12 +41,10 @@ struct PartDefinition{Role, Part, Mode, C, D, A <: Tuple, M}
     end
 end
 
-_part_role(::PartDefinition{Role}) where {Role} = Role
-_part_type(::PartDefinition{Role, Part}) where {Role, Part} = Part
-_part_mode(::PartDefinition{Role, Part, Mode}) where {Role, Part, Mode} = Mode
-_valof(::Val{Value}) where {Value} = Value
-
-function _simple_part_builder(
+_part_role(::PartBuilder{Role}) where {Role} = Role
+_part_type(::PartBuilder{Role, Part}) where {Role, Part} = Part
+_part_mode(::PartBuilder{Role, Part, Mode}) where {Role, Part, Mode} = Mode
+function PartBuilder(
         role::Val,
         part::Val,
         mode::Val,
@@ -55,12 +53,12 @@ function _simple_part_builder(
         dimension,
         material
 )
-    return PartDefinition(role, part, mode, component, layers, dimension, (), material)
+    return PartBuilder(role, part, mode, component, layers, dimension, (), material)
 end
 
-function _wire_part_builder(
+function PartBuilder(
         role::Val,
-        part::Val,
+        part::Val{DataModel.CircStrands},
         mode::Val,
         component,
         layers,
@@ -73,7 +71,7 @@ function _wire_part_builder(
         throw(ArgumentError("num_wires must be a positive integer"))
     lay_ratio isa Real && lay_ratio >= zero(lay_ratio) ||
         throw(ArgumentError("lay_ratio must be a nonnegative real number"))
-    return PartDefinition(
+    return PartBuilder(
         role,
         part,
         mode,
@@ -85,9 +83,9 @@ function _wire_part_builder(
     )
 end
 
-function _strip_part_builder(
+function PartBuilder(
         role::Val,
-        part::Val,
+        part::Val{DataModel.Strip},
         mode::Val,
         component,
         layers,
@@ -100,7 +98,7 @@ function _strip_part_builder(
         throw(ArgumentError("strip width must be a positive real number"))
     lay_ratio isa Real && lay_ratio >= zero(lay_ratio) ||
         throw(ArgumentError("lay_ratio must be a nonnegative real number"))
-    return PartDefinition(
+    return PartBuilder(
         role,
         part,
         mode,
@@ -109,14 +107,6 @@ function _strip_part_builder(
         dimension,
         (width, lay_ratio),
         material
-    )
-end
-
-function _part_space(target, axes::Tuple, names::Tuple; combine::Symbol = :product)
-    return Gridspace{PartDefinition}(
-        target,
-        map(_gridspace_axis, axes);
-        combine
     )
 end
 
@@ -131,9 +121,8 @@ end
 module Conductor
 
 using ..ParametricBuilder:
-                           Gridspace, PartDefinition, _part_space, _radial_declaration,
-                           _simple_part_builder, _wire_part_builder, _strip_part_builder,
-                           _valof
+                           AbstractGrid, Grid, Gridspace, PartBuilder,
+                           _radial_declaration
 import ...DataModel
 
 function Solid(
@@ -142,20 +131,19 @@ function Solid(
         material,
         combine::Symbol = :product
 )
-    return _part_space(
-        _simple_part_builder,
-        (
-            Val(:conductor),
-            Val(DataModel.Tubular),
-            Val(:solid),
-            component,
-            1,
-            radius,
-            material
-        ),
-        (:role, :part, :mode, :component, :layers, :radius, :material);
-        combine
+    combine in (:product, :zip) ||
+        throw(ArgumentError("combine must be :product or :zip"))
+    values = (
+        Val(:conductor), Val(DataModel.Tubular), Val(:solid), component, 1,
+        radius, material
     )
+    if any(value -> value isa Union{AbstractGrid, Gridspace}, values)
+        grids = map(values) do value
+            value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
+        end
+        return Gridspace{PartBuilder}(PartBuilder, grids; combine)
+    end
+    return PartBuilder(values...)
 end
 
 function Tubular(
@@ -166,21 +154,20 @@ function Tubular(
         material,
         combine::Symbol = :product
 )
+    combine in (:product, :zip) ||
+        throw(ArgumentError("combine must be :product or :zip"))
     mode, dimension = _radial_declaration(radius, thickness)
-    return _part_space(
-        _simple_part_builder,
-        (
-            Val(:conductor),
-            Val(DataModel.Tubular),
-            mode,
-            component,
-            layers,
-            dimension,
-            material
-        ),
-        (:role, :part, :mode, :component, :layers, _valof(mode), :material);
-        combine
+    values = (
+        Val(:conductor), Val(DataModel.Tubular), mode, component, layers,
+        dimension, material
     )
+    if any(value -> value isa Union{AbstractGrid, Gridspace}, values)
+        grids = map(values) do value
+            value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
+        end
+        return Gridspace{PartBuilder}(PartBuilder, grids; combine)
+    end
+    return PartBuilder(values...)
 end
 
 function Wires(
@@ -192,32 +179,19 @@ function Wires(
         material,
         combine::Symbol = :product
 )
-    return _part_space(
-        _wire_part_builder,
-        (
-            Val(:conductor),
-            Val(DataModel.CircStrands),
-            Val(:wire_radius),
-            component,
-            layers,
-            wire_radius,
-            num_wires,
-            lay_ratio,
-            material
-        ),
-        (
-            :role,
-            :part,
-            :mode,
-            :component,
-            :layers,
-            :wire_radius,
-            :num_wires,
-            :lay_ratio,
-            :material
-        );
-        combine
+    combine in (:product, :zip) ||
+        throw(ArgumentError("combine must be :product or :zip"))
+    values = (
+        Val(:conductor), Val(DataModel.CircStrands), Val(:wire_radius),
+        component, layers, wire_radius, num_wires, lay_ratio, material
     )
+    if any(value -> value isa Union{AbstractGrid, Gridspace}, values)
+        grids = map(values) do value
+            value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
+        end
+        return Gridspace{PartBuilder}(PartBuilder, grids; combine)
+    end
+    return PartBuilder(values...)
 end
 
 function Strip(
@@ -230,33 +204,20 @@ function Strip(
         material,
         combine::Symbol = :product
 )
+    combine in (:product, :zip) ||
+        throw(ArgumentError("combine must be :product or :zip"))
     mode, dimension = _radial_declaration(radius, thickness)
-    return _part_space(
-        _strip_part_builder,
-        (
-            Val(:conductor),
-            Val(DataModel.Strip),
-            mode,
-            component,
-            layers,
-            dimension,
-            width,
-            lay_ratio,
-            material
-        ),
-        (
-            :role,
-            :part,
-            :mode,
-            :component,
-            :layers,
-            _valof(mode),
-            :width,
-            :lay_ratio,
-            :material
-        );
-        combine
+    values = (
+        Val(:conductor), Val(DataModel.Strip), mode, component, layers,
+        dimension, width, lay_ratio, material
     )
+    if any(value -> value isa Union{AbstractGrid, Gridspace}, values)
+        grids = map(values) do value
+            value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
+        end
+        return Gridspace{PartBuilder}(PartBuilder, grids; combine)
+    end
+    return PartBuilder(values...)
 end
 
 function Stranded(
@@ -296,7 +257,8 @@ end
 module Insulator
 
 using ..ParametricBuilder:
-                           _part_space, _radial_declaration, _simple_part_builder, _valof
+                           AbstractGrid, Grid, Gridspace, PartBuilder,
+                           _radial_declaration
 import ...DataModel
 
 function _annular(
@@ -308,21 +270,19 @@ function _annular(
         material,
         combine::Symbol = :product
 )
+    combine in (:product, :zip) ||
+        throw(ArgumentError("combine must be :product or :zip"))
     mode, dimension = _radial_declaration(radius, thickness)
-    return _part_space(
-        _simple_part_builder,
-        (
-            Val(:insulator),
-            Val(part),
-            mode,
-            component,
-            layers,
-            dimension,
-            material
-        ),
-        (:role, :part, :mode, :component, :layers, _valof(mode), :material);
-        combine
+    values = (
+        Val(:insulator), Val(part), mode, component, layers, dimension, material
     )
+    if any(value -> value isa Union{AbstractGrid, Gridspace}, values)
+        grids = map(values) do value
+            value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
+        end
+        return Gridspace{PartBuilder}(PartBuilder, grids; combine)
+    end
+    return PartBuilder(values...)
 end
 
 Tubular(component::Symbol; kwargs...) = _annular(DataModel.Insulator, component; kwargs...)
@@ -330,16 +290,15 @@ Semicon(component::Symbol; kwargs...) = _annular(DataModel.Semicon, component; k
 
 end
 
-function _resolved_outer_radius(builder::PartDefinition{<:Any, <:Any, :radius}, _)
+function _resolved_outer_radius(builder::PartBuilder{<:Any, <:Any, :radius}, _)
     builder.dimension
 end
-_resolved_outer_radius(builder::PartDefinition{<:Any, <:Any, :solid}, _) = builder.dimension
-function _resolved_outer_radius(builder::PartDefinition{<:Any, <:Any, :thickness}, r_in)
+_resolved_outer_radius(builder::PartBuilder{<:Any, <:Any, :solid}, _) = builder.dimension
+function _resolved_outer_radius(builder::PartBuilder{<:Any, <:Any, :thickness}, r_in)
     r_in + builder.dimension
 end
 
-function _materialize_part(
-        builder::PartDefinition{:conductor, DataModel.CircStrands},
+function (builder::PartBuilder{:conductor, DataModel.CircStrands})(
         r_in,
         layer::Int
 )
@@ -351,8 +310,7 @@ function _materialize_part(
     )
 end
 
-function _materialize_part(
-        builder::PartDefinition{:conductor, DataModel.Strip},
+function (builder::PartBuilder{:conductor, DataModel.Strip})(
         r_in,
         ::Int
 )
@@ -363,8 +321,7 @@ function _materialize_part(
     )
 end
 
-function _materialize_part(
-        builder::PartDefinition{:conductor, DataModel.Tubular, :solid},
+function (builder::PartBuilder{:conductor, DataModel.Tubular, :solid})(
         r_in,
         ::Int
 )
@@ -372,8 +329,7 @@ function _materialize_part(
     return DataModel.Tubular(r_in, builder.dimension, builder.material)
 end
 
-function _materialize_part(
-        builder::PartDefinition{:conductor, DataModel.Tubular},
+function (builder::PartBuilder{:conductor, DataModel.Tubular})(
         r_in,
         ::Int
 )
@@ -382,8 +338,7 @@ function _materialize_part(
     )
 end
 
-function _materialize_part(
-        builder::PartDefinition{:insulator, DataModel.Insulator},
+function (builder::PartBuilder{:insulator, DataModel.Insulator})(
         r_in,
         ::Int
 )
@@ -392,8 +347,7 @@ function _materialize_part(
     )
 end
 
-function _materialize_part(
-        builder::PartDefinition{:insulator, DataModel.Semicon},
+function (builder::PartBuilder{:insulator, DataModel.Semicon})(
         r_in,
         ::Int
 )
@@ -402,14 +356,14 @@ function _materialize_part(
     )
 end
 
-function _materialize_part(builder::PartDefinition, r_in, layer::Int)
+function (builder::PartBuilder)(r_in, layer::Int)
     throw(ArgumentError(
         "unsupported part declaration $(_part_role(builder)) / " *
         "$(_part_type(builder)) / $(_part_mode(builder)) at layer $layer",
     ))
 end
 
-function _part_scalar(builder::PartDefinition)
+function _part_scalar(builder::PartBuilder)
     promote_type(
         typeof(float(builder.dimension)), eltype(builder.material),
         (typeof(float(value))
@@ -417,14 +371,14 @@ function _part_scalar(builder::PartDefinition)
     )
 end
 
-function _convert_part(::Type{T}, builder::PartDefinition{
+function _convert_part(::Type{T}, builder::PartBuilder{
         Role, Part, Mode}) where {
         T <: Real, Role, Part, Mode
 }
     args = map(builder.args) do value
         value isa Integer ? value : value isa Real ? convert(T, float(value)) : value
     end
-    return PartDefinition(
+    return PartBuilder(
         Val(Role), Val(Part), Val(Mode), builder.component, builder.layers,
         convert(T, float(builder.dimension)), args,
         convert(Materials.Material{T}, builder.material)
@@ -451,7 +405,7 @@ function _build_component(component::Symbol, builders::Tuple, base_radius)
         builder.component === component && _part_role(builder) === :conductor ||
             continue
         for layer in 1:builder.layers
-            part = _materialize_part(builder, current_radius, layer)
+            part = builder(current_radius, layer)
             conductor_group = conductor_group === nothing ?
                               DataModel.ConductorGroup(part) :
                               add!(conductor_group, part)
@@ -467,7 +421,7 @@ function _build_component(component::Symbol, builders::Tuple, base_radius)
         builder.component === component && _part_role(builder) === :insulator ||
             continue
         for layer in 1:builder.layers
-            part = _materialize_part(builder, current_radius, layer)
+            part = builder(current_radius, layer)
             insulator_group = insulator_group === nothing ?
                               DataModel.InsulatorGroup(part) :
                               add!(insulator_group, part)
@@ -518,30 +472,22 @@ function (materializer::DesignMaterializer)(identifier, builders...)
     return design
 end
 
-struct CableDesignDefinition{P <: Tuple, N, C} <: _AbstractDefinition{DataModel.CableDesign}
-    identifier::String
-    parts::P
-    nominal::N
-    combine::C
-end
-
-_flatten_parts(part::Gridspace{PartDefinition}) = (part,)
+_flatten_parts(part::PartBuilder) = (part,)
+_flatten_parts(part::Gridspace{PartBuilder}) = (part,)
 function _flatten_parts(parts::Union{Tuple, AbstractVector})
     tuple(Iterators.flatten(map(_flatten_parts, parts))...)
 end
 function _flatten_parts(value)
     throw(ArgumentError(
-        "CableBuilder expects part Gridspaces; got $(typeof(value))",
+        "CableBuilder expects conductor or insulator part builders; got $(typeof(value))",
     ))
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Describe a cable design using the radial parts declared by `Conductor` and
-`Insulator`. Iterating the returned definition materializes
-[`DataModel.CableDesign`](@ref) objects through the existing
-cable-part, group, and component calculations.
+Construct a cable design from radial parts declared by `Conductor` and
+`Insulator`.
 
 # Arguments
 
@@ -563,16 +509,15 @@ cable-part, group, and component calculations.
 
 # Returns
 
-- A cable-design [`Gridspace`](@ref). Ordinary iteration enumerates deterministic
-  configurations; `rand` draws a realization from its uncertainty-bearing
-  configuration.
+- A [`DataModel.CableDesign`](@ref) when every part is scalar, or a
+  `Gridspace{CableDesign}` when a part varies explicitly.
 
 # Errors
 
 - Throws `ArgumentError` when no parts are supplied, a value is not a cable
   part declaration, or `combine` is neither `:product` nor `:zip`.
-- Materialization reports invalid radial geometry and other physical input
-  errors from the materialized cable model.
+- Construction reports invalid radial geometry and other physical input errors
+  from the cable model.
 """
 function CableBuilder(
         identifier::AbstractString,
@@ -585,19 +530,13 @@ function CableBuilder(
     flattened = _flatten_parts(parts)
     isempty(flattened) &&
         throw(ArgumentError("CableBuilder requires at least one part"))
-    return Gridspace(CableDesignDefinition(
-        String(identifier),
-        flattened,
-        nominal,
-        Val(combine)
-    ))
-end
-
-function Gridspace(spec::CableDesignDefinition)
-    axes = (_gridspace_axis(spec.identifier), map(_gridspace_axis, spec.parts)...)
-    return Gridspace{DataModel.CableDesign}(
-        DesignMaterializer(spec.nominal),
-        axes;
-        combine = _valof(spec.combine)
-    )
+    build = DesignMaterializer(nominal)
+    values = (String(identifier), flattened...)
+    if any(value -> value isa Union{AbstractGrid, Gridspace}, values)
+        grids = map(values) do value
+            value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
+        end
+        return Gridspace{DataModel.CableDesign}(build, grids; combine)
+    end
+    return build(values...)
 end

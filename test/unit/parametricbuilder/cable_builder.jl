@@ -41,14 +41,19 @@
         thickness = 0.001,
         material = semiconductor_material
     )
-    design=only(PB.CableBuilder(
+    @test all(
+        part -> part isa PB.PartBuilder,
+        (core_insulation, screen, screen_semicon)
+    )
+    design=PB.CableBuilder(
         "staged-wire-strip",
         stranded,
         core_insulation,
         [screen, screen_semicon],
         nominal = NominalData()
-    ))
+    )
 
+    @test design isa CableDesign
     @test design.cable_id == "staged-wire-strip"
     @test length(design.components) == 2
     @test length(design.components[1].conductor_group.layers) == 3
@@ -84,14 +89,13 @@ end
         (num_wires = 6, lay_ratio = -1.0)
     )
     for case in wire_cases
-        grid=PB.Conductor.Wires(
+        @test_throws ArgumentError PB.Conductor.Wires(
             :core;
             wire_radius = 0.001,
             num_wires = case.num_wires,
             lay_ratio = case.lay_ratio,
             material = conductor_material
         )
-        @test_throws ArgumentError first(grid)
     end
 
     strip_cases=(
@@ -99,14 +103,13 @@ end
         (width = 0.001, lay_ratio = -1.0)
     )
     for case in strip_cases
-        grid=PB.Conductor.Strip(
+        @test_throws ArgumentError PB.Conductor.Strip(
             :screen;
             thickness = 0.001,
             width = case.width,
             lay_ratio = case.lay_ratio,
             material = conductor_material
         )
-        @test_throws ArgumentError first(grid)
     end
 
     @test_throws ArgumentError PB.Conductor.Stranded(
@@ -140,16 +143,18 @@ end
         thickness = 0.002,
         material = dielectric_material
     )
-    @test_throws ArgumentError only(PB.CableBuilder(
+    @test conductor isa PB.PartBuilder
+    @test insulation isa PB.PartBuilder
+    @test_throws ArgumentError PB.CableBuilder(
         "bad-nominal",
         conductor,
         insulation;
         nominal = 3
-    ))
-    @test_throws ArgumentError only(PB.CableBuilder("no-insulator", conductor))
-    @test_throws ArgumentError only(PB.CableBuilder("no-conductor", insulation))
+    )
+    @test_throws ArgumentError PB.CableBuilder("no-insulator", conductor)
+    @test_throws ArgumentError PB.CableBuilder("no-conductor", insulation)
 
-    @test_throws ArgumentError PB.PartDefinition(
+    @test_throws ArgumentError PB.PartBuilder(
         Val(:conductor),
         Val(LineCableModels.DataModel.Tubular),
         Val(:unsupported),
@@ -160,7 +165,7 @@ end
         conductor_material
     )
 
-    bad_part=PB.PartDefinition(
+    bad_part=PB.PartBuilder(
         Val(:conductor),
         Val(Int),
         Val(:radius),
@@ -170,5 +175,5 @@ end
         (),
         conductor_material
     )
-    @test_throws ArgumentError PB._materialize_part(bad_part, 0.0, 1)
+    @test_throws ArgumentError bad_part(0.0, 1)
 end

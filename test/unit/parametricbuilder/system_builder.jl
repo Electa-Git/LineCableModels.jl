@@ -20,6 +20,8 @@
         phases = (:core=>[3, 4],),
         n = 2
     )
+    @test horizontal isa PB.PositionDefinition
+    @test vertical isa PB.PositionDefinition
     earth=EarthModel(100.0, 10.0, 1.0)
     specification=PB.SystemBuilder(
         "flat-formations",
@@ -28,7 +30,8 @@
         earth,
         frequencies = [50.0]
     )
-    problem=only(specification)
+    problem=specification
+    @test problem isa LineParametersProblem
     positions=problem.system.cables
 
     @test length(positions) == 4
@@ -37,9 +40,9 @@
     @test map(position -> first(position.conn), positions) == [1, 2, 3, 4]
     @test problem.earth_props.layers[end].rho == earth.layers[end].rho
 
-    unconnected=only(PB.at(x = 0.0, y = -1.0, phases = nothing))
+    unconnected=PB.at(x = 0.0, y = -1.0, phases = nothing)
     @test only(unconnected.connections) == Dict{String, Int}()
-    uniform=only(PB.at(x = 0.0, y = -1.0, phases = :core=>2))
+    uniform=PB.at(x = 0.0, y = -1.0, phases = :core=>2)
     @test only(uniform.connections) == Dict("core" => 2)
 
     @test_throws ArgumentError PB.hflat(
@@ -64,11 +67,11 @@
         (Dict("core" => 1),)
     )
 
-    too_close=only(PB.hflat(
+    too_close=PB.hflat(
         spacing = eps(),
         phases = :core=>(1, 2),
         n = 2
-    ))
+    )
     @test_throws ArgumentError PB._position_coordinates(too_close, design)
     unsupported=PB.PositionDefinition(
         Val(:unsupported),

@@ -32,16 +32,6 @@ include("gridspace.jl")
 include("macros.jl")
 include("results.jl")
 
-abstract type _AbstractDefinition{Target} end
-
-target_type(::Type{<:_AbstractDefinition{Target}}) where {Target} = Target
-target_type(definition::_AbstractDefinition) = target_type(typeof(definition))
-
-_gridspace_axis(definition::_AbstractDefinition) = Gridspace(definition)
-_gridspace_axis(value::Union{AbstractGrid, Gridspace}) = value
-_gridspace_axis(value) = Grid((value,))
-has_uncertainty(definition::_AbstractDefinition) = has_uncertainty(Gridspace(definition))
-
 include("materialdefinition.jl")
 include("cablebuilderdefinition.jl")
 include("positiondefinition.jl")

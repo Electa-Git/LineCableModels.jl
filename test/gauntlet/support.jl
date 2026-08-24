@@ -139,13 +139,13 @@
             normalized.benchmark
         )
         benchmark.samples isa Integer && !(benchmark.samples isa Bool) &&
-            benchmark.samples > 0 || throw(ArgumentError(
-                "Gauntlet benchmark samples must be a positive integer",
-            ))
+        benchmark.samples > 0 || throw(ArgumentError(
+            "Gauntlet benchmark samples must be a positive integer",
+        ))
         benchmark.seconds isa Real && isfinite(benchmark.seconds) &&
-            benchmark.seconds > 0 || throw(ArgumentError(
-                "Gauntlet benchmark seconds must be a positive finite number",
-            ))
+        benchmark.seconds > 0 || throw(ArgumentError(
+            "Gauntlet benchmark seconds must be a positive finite number",
+        ))
         return (
             output_basis = normalized.output_basis,
             reference = normalized.reference,
@@ -257,19 +257,19 @@
 
     const _V1_SOURCE_SHA256 = (
         benchmark_132kV_630mm2_flathor_pscad =
-        "0f9f1d1459708ab190efbd8ce4253b3b2661426cfcee1deaf03d22f407d0f9c7",
+        "7356f6fa0c07fa683f0232cecd6c7211b62aadf255bde23c8f6b5d9d2d4f1944",
         benchmark_18kV_1000mm2_trifoil_pscad =
-        "b89b34c3f8c44097bf55abe763b2a7b4509d83c90c1656bde7ea68d7bad388b6",
+        "1acf908cabd9f7d0c67d46117be192dc307b9bb3b7e36fc00e0183e9f109df11",
         benchmark_380kV_2000mm2_flatver_pscad =
-        "06a9bbc06e7f7ed6a06d3600c5d0ddf858ae5b3e092589a4bfe7ac932d9105ea",
+        "6166cc55bf919431c123d567f2eeea7b5d94fa7debebb70b8b0e9a76d57445a2",
         benchmark_525kV_1600mm2_bipole_pscad =
-        "13b00cab4f31a27dad8a11d6df79a3b2e8c9a24de09c353c2a5877fe3379ec0e",
+        "591beb80cc6cdf94dac3079f256a28e6d3a0c2634279ddac20aca2fe64dc4122",
         benchmark_640kV_2000mm2_bipole_pscad =
-        "779420d3a61c9c1c3bb25fa43e77d00143eef49017915f9b7e65471710e146e7",
+        "ecab5bc069c2a5302d91c9c11f54c4784fedb1e98b874ab9216e2cfc40c217e1",
         benchmark_solid_1000mm2_single_pscad =
-        "ffd9de5d9d919d2f35dafcff5abe8babb67e4f111f0816efd9b75039a9cf0103",
+        "e8579862a5b943f0ef25be3431c3073930235f9fdc8a9940c71dda5b535f9e1b",
         benchmark_two_bare_wires_pscad =
-        "0c0d8385ca9908609cbe2e9fad5c9baeb3b50debbe43d81ab322305eaa8fa0d2"
+        "dedcb5e2f2bf6aa234eedc90574b90b30cddacd2876ea7b2d502936f3b537683"
     )
 
     function _reference_source_path(case::GauntletCase)

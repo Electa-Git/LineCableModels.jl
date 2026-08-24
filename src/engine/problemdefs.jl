@@ -96,19 +96,38 @@ struct CableConstantsProblem{D <: CableDesign, S, R <: Real} <: AbstractProblemD
     earth_resistivity::R
 
     function CableConstantsProblem(
-            design::D;
-            separation::Union{Nothing, Real} = nothing,
-            earth_resistivity::Real = oftype(float(first(design.components).conductor_props.rho), 100)
-    ) where {D <: CableDesign}
+            design::D,
+            separation::S,
+            earth_resistivity::R
+    ) where {D <: CableDesign, S <: Union{Nothing, Real}, R <: Real}
         separation === nothing || separation > zero(separation) ||
             throw(DomainError(separation, "separation must be positive"))
         earth_resistivity > zero(earth_resistivity) || throw(DomainError(
             earth_resistivity, "earth_resistivity must be positive"
         ))
-        return new{D, typeof(separation), typeof(earth_resistivity)}(
+        return new{D, S, R}(
             design, separation, earth_resistivity
         )
     end
+end
+
+function CableConstantsProblem(
+        design::CableDesign;
+        separation = nothing,
+        earth_resistivity = oftype(
+            float(first(design.components).conductor_props.rho),
+            100
+        )
+)
+    _cable_constants_problem(design, separation, earth_resistivity)
+end
+
+function _cable_constants_problem(
+        design::CableDesign,
+        separation::Union{Nothing, Real},
+        earth_resistivity::Real
+)
+    CableConstantsProblem(design, separation, earth_resistivity)
 end
 
 """

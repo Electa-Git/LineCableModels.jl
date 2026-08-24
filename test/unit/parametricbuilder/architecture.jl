@@ -86,12 +86,14 @@
     )
         @test !isdefined(LineCableModels, removed)
     end
-    @test PB.MaterialDefinition !== nothing
-    @test PB.PartDefinition !== nothing
-    @test PB.CableDesignDefinition !== nothing
+    @test PB.PartBuilder !== nothing
     @test PB.PositionDefinition !== nothing
-    @test PB.EarthDefinition !== nothing
-    @test PB.SystemDefinition !== nothing
+    @test !isdefined(PB, :MaterialDefinition)
+    @test !isdefined(PB, :PartDefinition)
+    @test !isdefined(PB, :CableDesignDefinition)
+    @test !isdefined(PB, :EarthDefinition)
+    @test !isdefined(PB, :SystemDefinition)
+    @test !isdefined(PB, :_AbstractDefinition)
     @test isdefined(LineCableModels.DataModel, :Tubular)
     @test isdefined(LineCableModels.Materials, :Material)
     @test !isdefined(LineCableModels, :Configuration)
@@ -267,8 +269,13 @@ end
         PB.Conductor.Tubular(:screen; thickness = 0.001, material = copper),
         PB.Insulator.Tubular(:screen; thickness = 0.002, material = xlpe)
     )
+    fixed_problem=CableConstantsProblem(fixed_design)
+    singleton_space=PB.Gridspace{CableConstantsProblem}(
+        identity,
+        (Grid(fixed_problem),)
+    )
     singleton=compute(
-        ParametricProblem(CableConstantsProblem(fixed_design)),
+        ParametricProblem(singleton_space),
         Combinatorial(formulation)
     )
     @test singleton isa ParametricResult{<:CableConstants}
@@ -481,13 +488,13 @@ end
 
     copper=PB.Material(; rho = 1.7241e-8)
     xlpe=PB.Material(; rho = 1.0e14, eps_r = 2.3)
-    design=only(PB.CableBuilder(
+    design=PB.CableBuilder(
         "presentation-cable",
         PB.Conductor.Solid(:core; radius = 0.010, material = copper),
         PB.Insulator.Tubular(:core; thickness = 0.004, material = xlpe),
         PB.Conductor.Tubular(:screen; thickness = 0.001, material = copper),
         PB.Insulator.Tubular(:screen; thickness = 0.002, material = xlpe)
-    ))
+    )
 
     @test names(DataFrame(design))[1] == "property"
     components=DataFrame(design, :components)

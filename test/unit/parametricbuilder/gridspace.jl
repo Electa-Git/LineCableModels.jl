@@ -144,7 +144,9 @@ end
         MacroVault(1.0, :ok),
         MacroVault(2.0, :ok)
     ]
-    @test only(MacroVault(; value = 1.0)) == MacroVault(1.0, :default)
+    scalar=MacroVault(; value = 1.0)
+    @test scalar isa MacroVault
+    @test scalar == MacroVault(1.0, :default)
     @test collect(ReverseMacroVault(; value = PB.Grid((3.0, 4.0)))) == [
         ReverseMacroVault(3.0, :default),
         ReverseMacroVault(4.0, :default)
@@ -155,7 +157,7 @@ end
         label::Symbol=:default
     end
     matrix=[1.0 2.0; 3.0 4.0]
-    @test only(AtomicCollections(; payload = matrix)).payload === matrix
+    @test AtomicCollections(; payload = matrix).payload === matrix
     varied=AtomicCollections(; payload = matrix, label = PB.Grid((:a, :b)))
     @test all(value -> value.payload === matrix, varied)
 end

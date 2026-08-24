@@ -157,26 +157,42 @@ macro gridspace(arguments...)
         Expr(:block, clean_body...)
     )
     keywords = Any[]
-    axes = Any[]
     for field in fields
         push!(
             keywords,
             field.has_default ?
             Expr(:kw, field.name, field.default) : field.name
         )
-        push!(axes, :($(GlobalRef(@__MODULE__, :_gridspace_axis))($(field.name))))
     end
     push!(keywords, Expr(:kw, :combine, QuoteNode(:product)))
     signature = Expr(:call, struct_name, Expr(:parameters, keywords...))
-    values = Expr(:tuple, axes...)
+    values = Expr(:tuple, map(field -> field.name, fields)...)
     constructor = Expr(:function,
         signature,
         quote
-            return $(GlobalRef(@__MODULE__, :Gridspace)){$target}(
-                $target,
-                $values;
-                combine = combine
+            combine in (:product, :zip) ||
+                throw(ArgumentError("combine must be :product or :zip"))
+            values = $values
+            if any(
+                value -> value isa Union{
+                    $(GlobalRef(@__MODULE__, :AbstractGrid)),
+                    $(GlobalRef(@__MODULE__, :Gridspace))
+                },
+                values
             )
+                grids = map(values) do value
+                    value isa Union{
+                        $(GlobalRef(@__MODULE__, :AbstractGrid)),
+                        $(GlobalRef(@__MODULE__, :Gridspace))
+                    } ? value : $(GlobalRef(@__MODULE__, :Grid))((value,))
+                end
+                return $(GlobalRef(@__MODULE__, :Gridspace)){$target}(
+                    $target,
+                    grids;
+                    combine
+                )
+            end
+            return $target(values...)
         end)
     return esc(_rebuild_ast(raw, struct_node, clean_struct, (constructor,)))
 end

@@ -31,24 +31,24 @@ function _phase_maps(phases, count::Int)
     for entry in _phase_entries(phases)
         key_raw, value = entry isa Pair ?
                          (first(entry), last(entry)) : (entry[1], entry[2])
-        key = String(key_raw)
+        name = String(key_raw)
         if value isa Integer
             for map in maps
-                map[key] = Int(value)
+                map[name] = Int(value)
             end
         elseif value isa Tuple || value isa AbstractVector
             length(value) == count || throw(DimensionMismatch(
-                "phase '$key' requires $count assignments; got $(length(value))",
+                "phase '$name' requires $count assignments; got $(length(value))",
             ))
             for index in 1:count
                 value[index] isa Integer || throw(ArgumentError(
                     "phase assignments must be integers",
                 ))
-                maps[index][key] = Int(value[index])
+                maps[index][name] = Int(value[index])
             end
         else
             throw(ArgumentError(
-                "phase '$key' must be an integer or a collection of $count integers",
+                "phase '$name' must be an integer or a collection of $count integers",
             ))
         end
     end
@@ -82,16 +82,21 @@ Describe one cable position for use by [`SystemBuilder`](@ref).
 
 # Returns
 
-- A [`Gridspace`](@ref) of position declarations. The parent system builder
-  converts each resolved declaration into a cable position.
+- One position declaration for scalar inputs, or a `Gridspace` of position
+  declarations when a direct input varies.
 """
 function at(; x, y, phases = nothing, combine::Symbol = :product)
+    combine in (:product, :zip) ||
+        throw(ArgumentError("combine must be :product or :zip"))
     connections = _phase_maps(phases, 1)
-    return Gridspace{PositionDefinition}(
-        _point_builder,
-        (_gridspace_axis(x), _gridspace_axis(y), Grid((connections,)));
-        combine
-    )
+    values = (x, y, connections)
+    if any(value -> value isa Union{AbstractGrid, Gridspace}, values)
+        grids = map(values) do value
+            value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
+        end
+        return Gridspace{PositionDefinition}(_point_builder, grids; combine)
+    end
+    return _point_builder(values...)
 end
 
 """
@@ -113,8 +118,8 @@ the cable system, so its spacing is checked against the cable outer diameter.
 
 # Returns
 
-- A [`Gridspace`](@ref) of trifoil declarations. Each resolved declaration is
-  one object-valued input to its parent system definition.
+- One trifoil declaration for scalar inputs, or a `Gridspace` of declarations
+  when a direct input varies.
 
 # Errors
 
@@ -130,13 +135,17 @@ function trifoil(;
         phases,
         combine::Symbol = :product
 )
+    combine in (:product, :zip) ||
+        throw(ArgumentError("combine must be :product or :zip"))
     connections = _phase_maps(phases, 3)
-    return Gridspace{PositionDefinition}(
-        _trifoil_builder,
-        (_gridspace_axis(x), _gridspace_axis(y),
-            _gridspace_axis(spacing), Grid((connections,)));
-        combine
-    )
+    values = (x, y, spacing, connections)
+    if any(value -> value isa Union{AbstractGrid, Gridspace}, values)
+        grids = map(values) do value
+            value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
+        end
+        return Gridspace{PositionDefinition}(_trifoil_builder, grids; combine)
+    end
+    return _trifoil_builder(values...)
 end
 
 """
@@ -159,7 +168,8 @@ coordinates.
 
 # Returns
 
-- A [`Gridspace`](@ref) of horizontal flat-formation declarations.
+- One horizontal formation declaration for scalar inputs, or a `Gridspace` of
+  declarations when a direct input varies.
 
 # Errors
 
@@ -177,13 +187,17 @@ function hflat(;
         combine::Symbol = :product
 )
     n > 0 || throw(ArgumentError("n must be positive"))
+    combine in (:product, :zip) ||
+        throw(ArgumentError("combine must be :product or :zip"))
     connections = _phase_maps(phases, n)
-    return Gridspace{PositionDefinition}(
-        _hflat_builder,
-        (_gridspace_axis(x), _gridspace_axis(y),
-            _gridspace_axis(spacing), Grid((connections,)));
-        combine
-    )
+    values = (x, y, spacing, connections)
+    if any(value -> value isa Union{AbstractGrid, Gridspace}, values)
+        grids = map(values) do value
+            value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
+        end
+        return Gridspace{PositionDefinition}(_hflat_builder, grids; combine)
+    end
+    return _hflat_builder(values...)
 end
 
 """
@@ -206,7 +220,8 @@ coordinates.
 
 # Returns
 
-- A [`Gridspace`](@ref) of vertical flat-formation declarations.
+- One vertical formation declaration for scalar inputs, or a `Gridspace` of
+  declarations when a direct input varies.
 
 # Errors
 
@@ -224,11 +239,15 @@ function vflat(;
         combine::Symbol = :product
 )
     n > 0 || throw(ArgumentError("n must be positive"))
+    combine in (:product, :zip) ||
+        throw(ArgumentError("combine must be :product or :zip"))
     connections = _phase_maps(phases, n)
-    return Gridspace{PositionDefinition}(
-        _vflat_builder,
-        (_gridspace_axis(x), _gridspace_axis(y),
-            _gridspace_axis(spacing), Grid((connections,)));
-        combine
-    )
+    values = (x, y, spacing, connections)
+    if any(value -> value isa Union{AbstractGrid, Gridspace}, values)
+        grids = map(values) do value
+            value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
+        end
+        return Gridspace{PositionDefinition}(_vflat_builder, grids; combine)
+    end
+    return _vflat_builder(values...)
 end
