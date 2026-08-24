@@ -44,7 +44,7 @@ function _dataframe_unit_label(component, object_basis, length_unit, quantity_un
         length_unit,
         quantity_units
     )
-    return quantity, target, factor, QuantityUnits.get_label(target)
+    return quantity, target, factor, Units.label(target)
 end
 
 function _matrix_dataframes(
@@ -59,10 +59,10 @@ function _matrix_dataframes(
     isempty(component_names) && throw(
         ArgumentError("at least one quantity is required for each matrix family"),
     )
-    frequency_quantity = QuantityUnits.QuantityTag{:frequency}()
-    frequency_target = QuantityUnits.units(frequency_unit, :hertz)
-    frequency_factor = QuantityUnits.scale_factor(
-        QuantityUnits.default_unit(frequency_quantity),
+    frequency_quantity = Units.QuantityTag{:frequency}()
+    frequency_target = Units.units(frequency_unit, :hertz)
+    frequency_factor = Units.scale_factor(
+        Units.native_unit(frequency_quantity),
         frequency_target
     )
     displayed_frequency = frequency_values .* frequency_factor
@@ -78,7 +78,7 @@ function _matrix_dataframes(
 
         frame = DataFrame(_LP_FREQ_COL => displayed_frequency)
         unit_map = Dict{Symbol, String}(
-            _LP_FREQ_COL => QuantityUnits.get_label(frequency_target),
+            _LP_FREQ_COL => Units.label(frequency_target),
         )
         for component in component_names
             _, target,

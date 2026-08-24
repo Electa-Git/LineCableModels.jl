@@ -72,7 +72,7 @@ end
 
     expected_entries=(
         joinpath("src", "grammar", "Grammar.jl"),
-        joinpath("src", "quantityunits", "QuantityUnits.jl"),
+        joinpath("src", "units", "Units.jl"),
         joinpath("src", "validation", "Validation.jl"),
         joinpath("src", "plotbuilder", "PlotBuilder.jl"),
         joinpath("src", "datamodel", "DataModel.jl"),

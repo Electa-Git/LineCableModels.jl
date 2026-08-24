@@ -8,7 +8,7 @@ module PlotBuilder
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 
-import ..QuantityUnits: Units, QuantityTag, display_unit, get_label
+import ..Units: UnitExpr, QuantityTag, display_unit, label
 import ..LineCableModels: nominal, standard_uncertainty, validate
 import ..Validation
 

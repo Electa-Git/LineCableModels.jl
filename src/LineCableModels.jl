@@ -67,8 +67,8 @@ using .Grammar:
                 compute, observables, primitives, preprocess,
                 nominal, standard_uncertainty
 
-# Submodule `QuantityUnits`
-include("quantityunits/QuantityUnits.jl")
+# Submodule `Units`
+include("units/Units.jl")
 
 # Submodule `Validation`
 include("validation/Validation.jl")

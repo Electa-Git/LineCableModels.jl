@@ -551,7 +551,7 @@ function PlotBuilder.series_attributes(
 end
 
 function _mc_title(recipe::PlotBuilder.PlotRecipe, suffix::AbstractString)
-    symbol = QuantityUnits.get_symbol(recipe.input.tag)
+    symbol = Units.symbol(recipe.input.tag)
     selection = recipe.input.selection
     indices = selection === nothing ? "" : "[$(join(selection, ','))]"
     return "$symbol$indices $suffix"
@@ -598,54 +598,54 @@ function PlotBuilder.axis_quantity(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:y},
         recipe::PlotBuilder.PlotRecipe, page_key, view_key
 )
-    return QuantityUnits.QuantityTag{:dimensionless}()
+    return Units.QuantityTag{:dimensionless}()
 end
 
 function PlotBuilder.axis_unit(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:x},
-        quantity::QuantityUnits.QuantityTag, recipe::PlotBuilder.PlotRecipe,
+        quantity::Units.QuantityTag, recipe::PlotBuilder.PlotRecipe,
         page_key, view_key
 )
     return recipe.input.target
 end
 function PlotBuilder.axis_unit(
         ::Type{MCDistributionPlotDefinition}, ::Val{:qq}, ::Val{:y},
-        quantity::QuantityUnits.QuantityTag, recipe::PlotBuilder.PlotRecipe,
+        quantity::Units.QuantityTag, recipe::PlotBuilder.PlotRecipe,
         page_key, view_key
 )
     return recipe.input.target
 end
 function PlotBuilder.axis_unit(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:y},
-        quantity::QuantityUnits.QuantityTag, recipe::PlotBuilder.PlotRecipe,
+        quantity::Units.QuantityTag, recipe::PlotBuilder.PlotRecipe,
         page_key, view_key
 )
-    return QuantityUnits.Units()
+    return Units.UnitExpr()
 end
 
 function _mc_quantity_label(quantity, unit)
-    unit_label = QuantityUnits.get_label(unit)
-    return isempty(unit_label) ? QuantityUnits.get_label(quantity) :
-           "$(QuantityUnits.get_label(quantity)) [$unit_label]"
+    unit_label = Units.label(unit)
+    return isempty(unit_label) ? Units.label(quantity) :
+           "$(Units.label(quantity)) [$unit_label]"
 end
 
 function PlotBuilder.axis_label(
         ::Type{MCDistributionPlotDefinition}, ::Val{:qq}, ::Val{:x},
-        quantity::QuantityUnits.QuantityTag, unit::QuantityUnits.Units,
+        quantity::Units.QuantityTag, unit::Units.UnitExpr,
         recipe::PlotBuilder.PlotRecipe, page_key, view_key
 )
-    return "sample quantiles [$(QuantityUnits.get_label(unit))]"
+    return "sample quantiles [$(Units.label(unit))]"
 end
 function PlotBuilder.axis_label(
         ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:x},
-        quantity::QuantityUnits.QuantityTag, unit::QuantityUnits.Units,
+        quantity::Units.QuantityTag, unit::Units.UnitExpr,
         recipe::PlotBuilder.PlotRecipe, page_key, view_key
 )
     return _mc_quantity_label(quantity, unit)
 end
 function PlotBuilder.axis_label(
         ::Type{MCDistributionPlotDefinition}, ::Val{:hist}, ::Val{:y},
-        quantity::QuantityUnits.QuantityTag, unit::QuantityUnits.Units,
+        quantity::Units.QuantityTag, unit::Units.UnitExpr,
         recipe::PlotBuilder.PlotRecipe, page_key, view_key
 )
     normalization = recipe.input.effective_normalization
@@ -653,24 +653,24 @@ function PlotBuilder.axis_label(
 end
 function PlotBuilder.axis_label(
         ::Type{MCDistributionPlotDefinition}, ::Val{:pdf}, ::Val{:y},
-        quantity::QuantityUnits.QuantityTag, unit::QuantityUnits.Units,
+        quantity::Units.QuantityTag, unit::Units.UnitExpr,
         recipe::PlotBuilder.PlotRecipe, page_key, view_key
 )
     "probability density"
 end
 function PlotBuilder.axis_label(
         ::Type{MCDistributionPlotDefinition}, ::Val{:ecdf}, ::Val{:y},
-        quantity::QuantityUnits.QuantityTag, unit::QuantityUnits.Units,
+        quantity::Units.QuantityTag, unit::Units.UnitExpr,
         recipe::PlotBuilder.PlotRecipe, page_key, view_key
 )
     "cumulative probability"
 end
 function PlotBuilder.axis_label(
         ::Type{MCDistributionPlotDefinition}, ::Val{:qq}, ::Val{:y},
-        quantity::QuantityUnits.QuantityTag, unit::QuantityUnits.Units,
+        quantity::Units.QuantityTag, unit::Units.UnitExpr,
         recipe::PlotBuilder.PlotRecipe, page_key, view_key
 )
-    return "model quantiles [$(QuantityUnits.get_label(unit))]"
+    return "model quantiles [$(Units.label(unit))]"
 end
 
 function PlotBuilder.view_key(

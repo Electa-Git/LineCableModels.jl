@@ -65,8 +65,8 @@ src/
 │   ├── types.jl
 │   ├── interfaces.jl
 │   └── uncertainty.jl
-├── quantityunits/
-│   ├── QuantityUnits.jl               # unit/quantity owner
+├── units/
+│   ├── Units.jl               # unit/quantity owner
 │   ├── quantities.jl
 │   ├── definitions.jl
 │   └── scaling.jl
@@ -90,7 +90,7 @@ src/
 │   ├── earthreturn.jl                 # named physical algorithm
 │   └── lineparameters/
 │       ├── lineparameters.jl
-│       ├── quantities.jl              # Engine ↔ QuantityUnits methods
+│       ├── quantities.jl              # Engine ↔ Units methods
 │       ├── dataframe.jl
 │       └── plotdefinition.jl          # renderer-independent plot definition
 ├── plotbuilder/

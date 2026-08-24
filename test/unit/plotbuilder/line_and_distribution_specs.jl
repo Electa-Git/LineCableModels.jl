@@ -357,9 +357,9 @@ end
               label
     end
     @test Cmp._mc_quantity_label(
-        LineCableModels.QuantityUnits.QuantityTag{:dimensionless}(),
-        LineCableModels.QuantityUnits.Units()
-    ) == "dimensionless"
+        LineCableModels.Units.QuantityTag{:dimensionless}(),
+        LineCableModels.Units.UnitExpr()
+    ) == "Dimensionless"
 
     histogram_only=Cmp.MonteCarloResult(
         result.formulation,

@@ -248,7 +248,7 @@ Depth = 3
 Modules = [
     LineCableModels,
     LineCableModels.Grammar,
-    LineCableModels.QuantityUnits,
+    LineCableModels.Units,
 ]
 Order = [:module, :constant, :type, :function, :macro]
 Public = true

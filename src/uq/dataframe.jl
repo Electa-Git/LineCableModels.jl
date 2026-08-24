@@ -1,5 +1,5 @@
 function _mc_unit(quantity::Symbol, result_basis, length_unit, quantity_units)
-    return QuantityUnits.line_component_unit(
+    return Units.line_component_unit(
         quantity,
         result_basis;
         length_unit,
@@ -49,7 +49,7 @@ function _mc_summary_frame(
         q95 = collect(map((summary, scale) -> summary.q95 * scale, summaries, scales)),
         max = collect(map((summary, scale) -> summary.max * scale, summaries, scales)),
         n = getproperty.(summaries, :n),
-        unit = collect(QuantityUnits.get_label.(getproperty.(resolved_units, :units))),
+        unit = collect(Units.label.(getproperty.(resolved_units, :units))),
         trials = fill(entry.trials, length(quantities)),
         confidence = fill(entry.confidence, length(quantities)),
         cdf_tol = fill(entry.cdf_tol, length(quantities))

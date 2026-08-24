@@ -6,7 +6,7 @@ function _component_unit(
         length_unit::Symbol,
         quantity_units
 )
-    resolved = QuantityUnits.line_component_unit(
+    resolved = Units.line_component_unit(
         component,
         parameter_basis;
         length_unit,
@@ -368,7 +368,7 @@ function PlotBuilder.axis_quantity(
         page_key,
         view_key
 )
-    return QuantityUnits.QuantityTag{:frequency}()
+    return Units.QuantityTag{:frequency}()
 end
 
 function PlotBuilder.axis_quantity(
@@ -412,19 +412,19 @@ function PlotBuilder.axis_unit(
         ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:x},
-        quantity::QuantityUnits.QuantityTag,
+        quantity::Units.QuantityTag,
         recipe::PlotBuilder.PlotRecipe,
         page_key,
         view_key
 )
-    return QuantityUnits.units(recipe.input.freq_unit, :hertz)
+    return Units.units(recipe.input.freq_unit, :hertz)
 end
 
 function PlotBuilder.axis_unit(
         ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:y},
-        quantity::QuantityUnits.QuantityTag,
+        quantity::Units.QuantityTag,
         recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey,
         view_key
@@ -444,7 +444,7 @@ function PlotBuilder.axis_unit(
         ::Type{LineParameterPlotDefinition},
         mode::Val,
         ::Val{:y},
-        quantity::QuantityUnits.QuantityTag,
+        quantity::Units.QuantityTag,
         recipe::PlotBuilder.PlotRecipe,
         page_key::Val,
         view_key::LinePageKey
@@ -491,9 +491,9 @@ function PlotBuilder.series_data(
         view_key,
         series_key
 )
-    quantity = QuantityUnits.QuantityTag{:frequency}()
-    target = QuantityUnits.units(recipe.input.freq_unit, :hertz)
-    conversion = QuantityUnits.scale_factor(QuantityUnits.default_unit(quantity), target)
+    quantity = Units.QuantityTag{:frequency}()
+    target = Units.units(recipe.input.freq_unit, :hertz)
+    conversion = Units.scale_factor(Units.native_unit(quantity), target)
     return recipe.input.frequencies .* conversion
 end
 
@@ -546,7 +546,7 @@ function PlotBuilder.legend_label(
         page_key,
         view_key
     )
-    return "$(QuantityUnits.get_symbol(quantity))[$(series_key[1]),$(series_key[2])]"
+    return "$(Units.symbol(quantity))[$(series_key[1]),$(series_key[2])]"
 end
 
 function PlotBuilder.legend_label(
@@ -598,7 +598,7 @@ function PlotBuilder.default_title(
         page_key,
         view_key
     )
-    return QuantityUnits.get_label(quantity)
+    return Units.label(quantity)
 end
 
 function PlotBuilder.default_title(

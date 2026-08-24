@@ -35,7 +35,7 @@ export preview, equivalent
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES,
                            FUNCTIONNAME, METHODLIST
 import ..PlotBuilder
-import ..QuantityUnits
+import ..Units
 import ..LineCableModels: add!, validate, maxfill, nominal, standard_uncertainty
 import ..LineCableModels: basis, R, L, C, resistance, inductance, capacitance
 import ..Grammar: AbstractProblemResult, observables

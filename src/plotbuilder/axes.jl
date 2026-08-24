@@ -17,7 +17,7 @@ Return the semantic quantity tag for one axis.
 """
 function axis_quantity(::Type{S}, dim::Val, recipe::PlotRecipe) where {S <:
                                                                        AbstractPlotDefinition}
-    QuantityTag{:unknown}()
+    QuantityTag{:dimensionless}()
 end
 function axis_quantity(
         ::Type{S}, mode::Val, dim::Val, recipe::PlotRecipe,
@@ -50,15 +50,15 @@ end
 Return the displayed label for one axis.
 """
 function axis_label(
-        ::Type{S}, dim::Val, quantity::QuantityTag, unit::Units,
+        ::Type{S}, dim::Val, quantity::QuantityTag, unit::UnitExpr,
         recipe::PlotRecipe
 ) where {S <: AbstractPlotDefinition}
-    quantity_label = get_label(quantity)
-    unit_label = get_label(unit)
+    quantity_label = label(quantity)
+    unit_label = label(unit)
     return isempty(unit_label) ? quantity_label : "$quantity_label [$unit_label]"
 end
 function axis_label(
-        ::Type{S}, mode::Val, dim::Val, quantity::QuantityTag, unit::Units,
+        ::Type{S}, mode::Val, dim::Val, quantity::QuantityTag, unit::UnitExpr,
         recipe::PlotRecipe, page_key, view_key
 ) where {S <: AbstractPlotDefinition}
     axis_label(S, dim, quantity, unit, recipe)

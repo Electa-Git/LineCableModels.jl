@@ -6,18 +6,18 @@ export custom_layout_render_spec
 
 function custom_layout_render_spec()
     PB = LineCableModels.PlotBuilder
-    UH = LineCableModels.QuantityUnits
+    UH = LineCableModels.Units
 
     xaxis = PB.AxisSpec(
         :x,
         UH.QuantityTag{:dimensionless}(),
-        UH.Units(),
+        UH.UnitExpr(),
         "x"
     )
     yaxis = PB.AxisSpec(
         :y,
         UH.QuantityTag{:dimensionless}(),
-        UH.Units(),
+        UH.UnitExpr(),
         "y"
     )
     line_view = PB.ViewSpec(

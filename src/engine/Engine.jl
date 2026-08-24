@@ -48,7 +48,7 @@ import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
                   AbstractProblemResult, FormulationOptions, ComputationOptions,
                   formulation_options, computation_options, compute, observables
 
-using ..QuantityUnits
+using ..Units
 using ..PlotBuilder
 using ..Materials
 using ..EarthProps: EarthModel

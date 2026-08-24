@@ -1,23 +1,16 @@
 # Engine-owned line-parameter quantity and unit accessors.
-QuantityUnits.quantity(::typeof(Z)) = QuantityUnits.QuantityTag{:series_impedance}()
-QuantityUnits.quantity(::typeof(Y)) = QuantityUnits.QuantityTag{:shunt_admittance}()
-QuantityUnits.quantity(::typeof(X)) = QuantityUnits.QuantityTag{:reactance}()
-QuantityUnits.quantity(::typeof(G)) = QuantityUnits.QuantityTag{:conductance}()
-QuantityUnits.quantity(::typeof(B)) = QuantityUnits.QuantityTag{:susceptance}()
+Units.quantity(::typeof(frequencies)) = Units.QuantityTag{:frequency}()
+Units.quantity(::typeof(Z)) = Units.QuantityTag{:series_impedance}()
+Units.quantity(::typeof(Y)) = Units.QuantityTag{:shunt_admittance}()
+Units.quantity(::typeof(X)) = Units.QuantityTag{:series_reactance}()
+Units.quantity(::typeof(G)) = Units.QuantityTag{:shunt_conductance}()
+Units.quantity(::typeof(B)) = Units.QuantityTag{:shunt_susceptance}()
 
-QuantityUnits.quantity(::typeof(Z), ::Val{:re}) = QuantityUnits.quantity(R)
-QuantityUnits.quantity(::typeof(Z), ::Val{:im}) = QuantityUnits.quantity(X)
-function QuantityUnits.quantity(::typeof(Z), ::Val{:abs})
-    QuantityUnits.QuantityTag{(:series_impedance, :abs)}()
-end
-function QuantityUnits.quantity(::typeof(Z), ::Val{:angle})
-    QuantityUnits.QuantityTag{(:series_impedance, :angle)}()
-end
-QuantityUnits.quantity(::typeof(Y), ::Val{:re}) = QuantityUnits.quantity(G)
-QuantityUnits.quantity(::typeof(Y), ::Val{:im}) = QuantityUnits.quantity(B)
-function QuantityUnits.quantity(::typeof(Y), ::Val{:abs})
-    QuantityUnits.QuantityTag{(:shunt_admittance, :abs)}()
-end
-function QuantityUnits.quantity(::typeof(Y), ::Val{:angle})
-    QuantityUnits.QuantityTag{(:shunt_admittance, :angle)}()
-end
+Units.quantity(::typeof(Z), ::typeof(abs)) =
+    Units.QuantityTag{(:series_impedance, :magnitude)}()
+Units.quantity(::typeof(Z), ::typeof(angle)) =
+    Units.QuantityTag{(:series_impedance, :phase_angle)}()
+Units.quantity(::typeof(Y), ::typeof(abs)) =
+    Units.QuantityTag{(:shunt_admittance, :magnitude)}()
+Units.quantity(::typeof(Y), ::typeof(angle)) =
+    Units.QuantityTag{(:shunt_admittance, :phase_angle)}()

@@ -659,8 +659,8 @@
 
         primitive_axis=LineCableModels.PlotBuilder.AxisSpec(
             :x,
-            LineCableModels.QuantityUnits.QuantityTag{:dimensionless}(),
-            LineCableModels.QuantityUnits.Units(),
+            LineCableModels.Units.QuantityTag{:dimensionless}(),
+            LineCableModels.Units.UnitExpr(),
             "index",
             :linear;
             attributes = (; xgridvisible = false)
@@ -669,8 +669,8 @@
             primitive_axis,
             LineCableModels.PlotBuilder.AxisSpec(
                 :y,
-                LineCableModels.QuantityUnits.QuantityTag{:dimensionless}(),
-                LineCableModels.QuantityUnits.Units(),
+                LineCableModels.Units.QuantityTag{:dimensionless}(),
+                LineCableModels.Units.UnitExpr(),
                 "index",
                 :linear
             ),

@@ -93,7 +93,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Documentation examples and development conventions were consolidated.
 - Line-parameter results now carry an explicit `:per_length` or `:total` basis,
   and use `Z`, `Y`, `R`, `X`, `L`, `G`, `B`, and `C` accessors consistently.
-- `QuantityUnits` now maps physical accessors to quantity, unit, label, symbol,
+- `Units` now maps physical accessors to quantity, unit, label, symbol,
   and scaling semantics without extracting values from result containers.
 - `preview` and statistical plots return one `UIPlot`. Line-parameter plots
   return `Vector{UIPlot}`.

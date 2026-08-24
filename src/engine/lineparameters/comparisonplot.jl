@@ -228,7 +228,7 @@ function PlotBuilder.axis_quantity(
         page_key::LinePageKey,
         view_key::Tuple{Int, Int}
 )
-    return QuantityUnits.QuantityTag{:frequency}()
+    return Units.QuantityTag{:frequency}()
 end
 
 function PlotBuilder.axis_quantity(
@@ -253,19 +253,19 @@ function PlotBuilder.axis_unit(
         ::Type{LineParametersBenchmarkPlotDefinition},
         ::Val{:comparison},
         ::Val{:x},
-        quantity::QuantityUnits.QuantityTag,
+        quantity::Units.QuantityTag,
         recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey,
         view_key::Tuple{Int, Int}
 )
-    return QuantityUnits.units(recipe.input.freq_unit, :hertz)
+    return Units.units(recipe.input.freq_unit, :hertz)
 end
 
 function PlotBuilder.axis_unit(
         ::Type{LineParametersBenchmarkPlotDefinition},
         ::Val{:comparison},
         ::Val{:y},
-        quantity::QuantityUnits.QuantityTag,
+        quantity::Units.QuantityTag,
         recipe::PlotBuilder.PlotRecipe,
         page_key::LinePageKey,
         view_key::Tuple{Int, Int}
@@ -340,9 +340,9 @@ function PlotBuilder.series_data(
         view_key::Tuple{Int, Int},
         result_index::Int
 )
-    quantity = QuantityUnits.QuantityTag{:frequency}()
-    target = QuantityUnits.units(recipe.input.freq_unit, :hertz)
-    conversion = QuantityUnits.scale_factor(QuantityUnits.default_unit(quantity), target)
+    quantity = Units.QuantityTag{:frequency}()
+    target = Units.units(recipe.input.freq_unit, :hertz)
+    conversion = Units.scale_factor(Units.native_unit(quantity), target)
     return recipe.input.frequencies .* conversion
 end
 
@@ -412,7 +412,7 @@ function PlotBuilder.default_title(
         page_key,
         (1, 1)
     )
-    return "$(QuantityUnits.get_label(quantity)) comparison"
+    return "$(Units.label(quantity)) comparison"
 end
 
 function PlotBuilder.default_title(
@@ -431,7 +431,7 @@ function PlotBuilder.default_title(
         page_key,
         view_key
     )
-    label = QuantityUnits.get_label(quantity)
+    label = Units.label(quantity)
     row, column = view_key
     return "$symbol[$row,$column] · $label"
 end

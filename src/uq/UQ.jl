@@ -22,7 +22,7 @@ import ..Grammar: compute, observables
 import ..ParametricBuilder
 import ..ParametricBuilder: result
 import ..PlotBuilder
-import ..QuantityUnits
+import ..Units
 using ..Grammar:
                  AbstractFormulation, AbstractProblemResult, AbstractUncertaintyResult
 using ..ParametricBuilder:

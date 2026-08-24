@@ -1,7 +1,7 @@
 @testitem "PlotBuilder / grammar / dispatch and render construction" tags=[:unit] setup=[
     PlotBuilderTestSupport, UsePlotBuilderSupport, TestNumerics, TestFixtures] begin
     const PB=LineCableModels.PlotBuilder
-    const UH=LineCableModels.QuantityUnits
+    const UH=LineCableModels.Units
 
     @test length(methods(PB.make_render)) == 1
     if get(ENV, "LINECABLEMODELS_TEST_PLOTTING", "false")!="true"
@@ -45,7 +45,7 @@
         quantity::UH.QuantityTag, recipe::PB.PlotRecipe, page_key, view_key) = UH.units(:base, :hertz)
     PB.axis_label(
         ::Type{ProfilePlotDefinition}, ::Val{:profile}, ::Val{:y},
-        quantity::UH.QuantityTag, unit::UH.Units, recipe::PB.PlotRecipe,
+        quantity::UH.QuantityTag, unit::UH.UnitExpr, recipe::PB.PlotRecipe,
         page_key, view_key) = "Response"
 
     PB.series_data(
@@ -317,7 +317,7 @@
     @test_throws ArgumentError PB.AxisSpec(
         :x,
         UH.QuantityTag{:dimensionless}(),
-        UH.Units(),
+        UH.UnitExpr(),
         "x",
         :log10;
         allowed_scales = (:linear,)
@@ -325,7 +325,7 @@
     @test_throws ArgumentError PB.AxisSpec(
         :x,
         UH.QuantityTag{:dimensionless}(),
-        UH.Units(),
+        UH.UnitExpr(),
         "x";
         attributes = (; xlabel = "hidden semantic override")
     )
@@ -412,13 +412,13 @@
     axis=PB.AxisSpec(
         :x,
         UH.QuantityTag{:dimensionless}(),
-        UH.Units(),
+        UH.UnitExpr(),
         "x"
     )
     yaxis=PB.AxisSpec(
         :y,
         UH.QuantityTag{:dimensionless}(),
-        UH.Units(),
+        UH.UnitExpr(),
         "y"
     )
     line=PB.SeriesSpec(:line, [1.0], [2.0], nothing, "line")
@@ -459,7 +459,7 @@
     negative_axis=PB.AxisSpec(
         :y,
         UH.QuantityTag{:dimensionless}(),
-        UH.Units(),
+        UH.UnitExpr(),
         "negative",
         :linear;
         allowed_scales = (:linear, :log10)
@@ -500,7 +500,7 @@
     switchable_axis=PB.AxisSpec(
         :y,
         UH.QuantityTag{:dimensionless}(),
-        UH.Units(),
+        UH.UnitExpr(),
         "switchable",
         :linear;
         allowed_scales = (:linear, :log10)
@@ -525,7 +525,7 @@
     active_log_axis=PB.AxisSpec(
         :y,
         UH.QuantityTag{:dimensionless}(),
-        UH.Units(),
+        UH.UnitExpr(),
         "active log",
         :log10;
         allowed_scales = (:linear, :log10)
@@ -583,7 +583,7 @@ end
     UsePlotBuilderSupport
 ] begin
     const PB=LineCableModels.PlotBuilder
-    const UH=LineCableModels.QuantityUnits
+    const UH=LineCableModels.Units
 
     struct DefaultHookSpec<:PB.AbstractPlotDefinition end
     recipe=PB.parse_kwargs(DefaultHookSpec, :payload)
@@ -611,7 +611,7 @@ end
     @test PB.geom_axes(DefaultHookSpec, variant, recipe, nothing, nothing) == (:x, :y)
 
     quantity=PB.axis_quantity(DefaultHookSpec, Val(:x), recipe)
-    @test quantity isa UH.QuantityTag{:unknown}
+    @test quantity isa UH.QuantityTag{:dimensionless}
     @test PB.axis_quantity(
         DefaultHookSpec,
         variant,
@@ -621,7 +621,7 @@ end
         nothing
     ) === quantity
     unit=PB.axis_unit(DefaultHookSpec, Val(:x), quantity, recipe)
-    @test PB.axis_label(DefaultHookSpec, Val(:x), quantity, unit, recipe) == "unknown"
+    @test PB.axis_label(DefaultHookSpec, Val(:x), quantity, unit, recipe) == "Dimensionless"
     @test PB.axis_scale(DefaultHookSpec, Val(:x), recipe) === :linear
     @test PB.axis_scales(DefaultHookSpec, Val(:x), recipe, PB.SeriesSpec[]) == (:linear,)
     @test PB.axis_exponent(DefaultHookSpec, Val(:x), recipe, PB.SeriesSpec[]) == 0

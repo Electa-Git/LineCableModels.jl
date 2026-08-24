@@ -223,7 +223,7 @@ primitive require no renderer change.
 
 Plot definitions consume the immutable named tuples returned by
 `observables`. Presentation code does not read result fields as an alternate
-result protocol. `QuantityUnits` maps the resulting scientific keys to quantity
+result protocol. `Units` maps the resulting scientific keys to quantity
 tags, display units, labels, symbols, and scaling. The renderer receives
 display-ready series and does not interpret calculation containers.
 

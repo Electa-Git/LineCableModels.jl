@@ -405,7 +405,7 @@ struct AxisSpec{A <: NamedTuple}
     "Semantic quantity tag."
     quantity::QuantityTag
     "Display units."
-    units::Units
+    units::UnitExpr
     "Displayed axis label."
     label::String
     "Current scale."
@@ -421,7 +421,7 @@ end
 function AxisSpec(
         dim::Symbol,
         quantity::QuantityTag,
-        units::Units,
+        units::UnitExpr,
         label::AbstractString,
         scale::Symbol = :linear;
         allowed_scales = (scale,),
