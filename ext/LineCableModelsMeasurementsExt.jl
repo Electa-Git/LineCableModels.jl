@@ -15,6 +15,7 @@ import LineCableModels
 const Grammar = LineCableModels.Grammar
 const ParametricBuilder = LineCableModels.ParametricBuilder
 const Engine = LineCableModels.Engine
+const ReportBuilder = LineCableModels.ReportBuilder
 const ImportExport = LineCableModels.ImportExport
 
 import LineCableModels: nominal, standard_uncertainty
@@ -32,7 +33,7 @@ function Engine._has_uncertainty_type(
 ) where {T <: Measurements.Measurement}
     true
 end
-function Engine._clip_field(value::Measurements.Measurement, tolerance)
+function ReportBuilder._clip_field(value::Measurements.Measurement, tolerance)
     nominal = abs(Measurements.value(value)) <= tolerance ?
               0.0 : Measurements.value(value)
     uncertainty = abs(Measurements.uncertainty(value)) <= tolerance ?

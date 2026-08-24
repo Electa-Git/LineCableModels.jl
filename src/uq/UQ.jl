@@ -13,7 +13,6 @@ export result, statistics, samples, histograms, uncertain_value
 using Random
 using Statistics
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import DataFrames: DataFrame, metadata!
 import ..LineCableModels: PhaseDomain, basis, domain, frequencies, R, L, C
 import ..DataModel
 import ..Engine
@@ -35,7 +34,6 @@ include("base.jl")
 include("observations.jl")
 include("linearerror.jl")
 include("montecarlo/compute.jl")
-include("dataframe.jl")
 include("montecarlo/plot.jl")
 
 end

@@ -129,20 +129,6 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Render already-computed cable constants without performing a calculation.
-"""
-function DataFrame(constants::CableConstants)::DataFrame
-    values = (R(constants), L(constants), C(constants))
-    return DataFrame(
-        parameter = ["R", "L", "C"],
-        value = collect(values),
-        unit = ["Ω/m", "H/m", "F/m"]
-    )
-end
-
-"""
-$(TYPEDSIGNATURES)
-
 Return the fixed row values used by the `:detailed` cable-design table.
 
 # Arguments

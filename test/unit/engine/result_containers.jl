@@ -188,7 +188,8 @@
     @test standalone_shunt[1, 1].frequency == frequency
     @test names(standalone_series[1, 1]) == ["frequency", "real", "imag"]
     @test names(standalone_shunt[1, 1]) == ["frequency", "G", "C"]
-    @test Engine._clip_field(1.0 + 2.0im, 1.0) == 1.0 + 2.0im
+    @test LineCableModels.ReportBuilder._clip_field(1.0 + 2.0im, 1.0) ==
+          1.0 + 2.0im
     @test_throws DimensionMismatch DataFrame(series; freqs = [50.0])
     @test_throws ArgumentError DataFrame(series; freqs = [50.0, Inf, 200.0])
     @test_throws ArgumentError DataFrame(series; tol = Inf)

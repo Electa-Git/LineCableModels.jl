@@ -123,6 +123,5 @@ include("lineparameters/base.jl")
 include("lineparameters/plot.jl")
 include("lineparameters/plotdefinition.jl")
 include("lineparameters/comparisonplot.jl")
-include("lineparameters/dataframe.jl")
 
 end # module Engine

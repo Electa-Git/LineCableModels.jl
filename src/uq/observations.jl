@@ -77,6 +77,26 @@ end
 
 observables(::Type{<:RLCG}) = (R, L, C, Engine.G)
 
+function Grammar._detach_and_scale(summary::SampleSummary, factor)
+    return SampleSummary(
+        summary.mean * factor,
+        summary.std * abs(factor),
+        summary.min * factor,
+        summary.q05 * factor,
+        summary.median * factor,
+        summary.q95 * factor,
+        summary.max * factor,
+        summary.n
+    )
+end
+
+function Grammar._detach_and_scale(
+        summaries::AbstractArray{<:SampleSummary},
+        factor
+)
+    return map(summary -> Grammar._detach_and_scale(summary, factor), summaries)
+end
+
 function Grammar._detach_and_scale(histogram::HistogramDensity, factor)
     factor > zero(factor) || throw(ArgumentError("histogram conversion must be positive"))
     return HistogramDensity(

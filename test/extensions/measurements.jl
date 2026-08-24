@@ -107,10 +107,16 @@ end
     @test LineCableModels.nominal(uncertain) == -20.0
     @test LineCableModels.standard_uncertainty(uncertain) == 1.0
 
-    clipped=LineCableModels.Engine._clip_field(measurement(1.0e-12, 2.0e-12), 1.0e-9)
+    clipped=LineCableModels.ReportBuilder._clip_field(
+        measurement(1.0e-12, 2.0e-12),
+        1.0e-9
+    )
     @test value(clipped) == 0.0
     @test uncertainty(clipped) == 0.0
-    retained=LineCableModels.Engine._clip_field(measurement(2.0, 0.25), 1.0e-9)
+    retained=LineCableModels.ReportBuilder._clip_field(
+        measurement(2.0, 0.25),
+        1.0e-9
+    )
     @test value(retained) == 2.0
     @test uncertainty(retained) == 0.25
 
