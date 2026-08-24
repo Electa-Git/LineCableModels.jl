@@ -3,8 +3,8 @@ module GauntletArtifacts
 import Pkg
 using DataFrames
 using JLD2
-using LineCableModels: basis, domain
-using LineCableModels.Engine: LineParameters, LineParametersBenchmark, RMSError, compare
+using LineCableModels: basis, domain, observables
+using LineCableModels.Engine: LineParameters, LineParametersBenchmark, compare
 using Pkg.Artifacts
 using SHA
 

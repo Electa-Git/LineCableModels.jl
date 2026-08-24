@@ -112,7 +112,7 @@
             phases = (:core=>4, :sheath=>5, :jacket=>6)
         )
     )
-    problem=only(Gridspace(SystemBuilder(
+    problem=only(SystemBuilder(
         "benchmark_640kV_2000mm2_bipole_pscad",
         design,
         positions;
@@ -120,7 +120,7 @@
         temperature = 20.0,
         earth,
         frequencies = frequencies_value
-    )))
+    ))
     reference_problem=LineParametersProblem(
         problem.system;
         temperature = problem.temperature,

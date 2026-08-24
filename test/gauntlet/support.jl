@@ -20,7 +20,7 @@
     using Pkg.Artifacts
     using SHA
     using Statistics
-    using LineCableModels: PhaseDomain, description, domain
+    using LineCableModels: PhaseDomain, description, domain, observables
     using LineCableModels.Engine
 
     const GAUNTLET_ROOT = @__DIR__
@@ -192,15 +192,22 @@
 
     case_digest(case::GauntletCase) = bytes2hex(sha256(read(case.source_file)))
 
-    const _IMMUTABLE_V1_CASES = Set((
-        :benchmark_132kV_630mm2_flathor_pscad,
-        :benchmark_18kV_1000mm2_trifoil_pscad,
-        :benchmark_380kV_2000mm2_flatver_pscad,
-        :benchmark_525kV_1600mm2_bipole_pscad,
-        :benchmark_640kV_2000mm2_bipole_pscad,
-        :benchmark_solid_1000mm2_single_pscad,
-        :benchmark_two_bare_wires_pscad
-    ))
+    const _IMMUTABLE_V1_SOURCE_SHA256 = (
+        benchmark_132kV_630mm2_flathor_pscad =
+        "4227d975e4192b1d0fb35ac3bb98e13b705d27be1fd963a79f7a59da61fee09b",
+        benchmark_18kV_1000mm2_trifoil_pscad =
+        "a91da88945f95a0a71b7000c6ffd6101c12a4aa5b494a766d59979a9eaee952a",
+        benchmark_380kV_2000mm2_flatver_pscad =
+        "9cf7f9b9a368e772d640c7f788ef3c55e1bad887e914bb03433d0fc5726b401d",
+        benchmark_525kV_1600mm2_bipole_pscad =
+        "47ac14e85a75917e964253f422fe228851ca882c08b05c6b13c17f5f149b52fe",
+        benchmark_640kV_2000mm2_bipole_pscad =
+        "d9d564aa2d6eaf8f717d13838590912be1ed0d3548ec1049f964b9dec6b7cd07",
+        benchmark_solid_1000mm2_single_pscad =
+        "113871806e03339b82f6aadf4b3acafd63487e8478199e7432a019938386a246",
+        benchmark_two_bare_wires_pscad =
+        "870cd2ee11011375bbe197df89a91c8d59a8604f7307013d21e0e1a867c3c95b"
+    )
 
     function _reference_source_path(case::GauntletCase)
         return joinpath(
@@ -212,12 +219,17 @@
     end
 
     function _reference_source_digest(case::GauntletCase)
-        case.name in _IMMUTABLE_V1_CASES || return case_digest(case)
+        expected = get(_IMMUTABLE_V1_SOURCE_SHA256, case.name, nothing)
+        expected === nothing && return case_digest(case)
         path = _reference_source_path(case)
         isfile(path) || throw(ArgumentError(
             "immutable Gauntlet v1 source is missing: $path",
         ))
-        return bytes2hex(sha256(read(path)))
+        observed = bytes2hex(sha256(read(path)))
+        observed == expected || throw(ArgumentError(
+            "immutable Gauntlet v1 source SHA-256 does not match: $path",
+        ))
+        return observed
     end
 
     _record_value(record::NamedTuple, key::Symbol, default = nothing) = get(record, key, default)
@@ -229,16 +241,16 @@
         return (description = String(_record_value(record, :description)),)
     end
 
-    function _semantic_options(record; analytical::Bool)
+    function _semantic_analytical_options(record)
         output = _record_value(record, :output, :parameters)
         output isa Val && (output = only(typeof(output).parameters))
-        common = (
+        return (
             reduce_bundle = _record_value(record, :reduce_bundle),
             kron_reduction = _record_value(record, :kron_reduction),
             ideal_transposition = _record_value(record, :ideal_transposition),
-            temperature_correction = _record_value(record, :temperature_correction)
+            temperature_correction = _record_value(record, :temperature_correction),
+            output
         )
-        return analytical ? merge(common, (output = output,)) : record
     end
 
     function _semantic_formulation_record(record)
@@ -255,7 +267,7 @@
                 earth_properties = _semantic_method_record(_record_value(record, :earth_properties)),
                 modal_transform = _semantic_method_record(_record_value(record, :modal_transform)),
                 equivalent_earth = _semantic_method_record(_record_value(record, :equivalent_earth)),
-                options = _semantic_options(_record_value(record, :options); analytical = true)
+                options = _semantic_analytical_options(_record_value(record, :options))
             )
         elseif occursin("PSCADFormulation", type_name)
             options = _record_value(record, :options)
@@ -319,8 +331,10 @@
         domain(parameters) === PhaseDomain || throw(ArgumentError(
             "modal Gauntlet comparison is not implemented; compare canonical phase-domain Z and Y",
         ))
-        size(Z(parameters)) == case.expected_size || throw(DimensionMismatch(
-            "$(case.name) expected Z/Y size $(case.expected_size), got $(size(Z(parameters)))",
+        values = observables(parameters)
+        size(values.series_impedance) == case.expected_size || throw(DimensionMismatch(
+            "$(case.name) expected Z/Y size $(case.expected_size), got " *
+            "$(size(values.series_impedance))",
         ))
         port_order == case.port_order || throw(ArgumentError(
             "$(case.name) retained-conductor order does not match the case definition",

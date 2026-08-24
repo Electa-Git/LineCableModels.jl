@@ -89,13 +89,13 @@
         capacitance = 0.2,
         inductance = 0.12
     )
-    design=only(Gridspace(CableBuilder(
+    design=only(CableBuilder(
         "132kV_630mm2",
         core_parts,
         sheath_parts,
         jacket_parts;
         nominal = nominal_data
-    )))
+    ))
 
     earth=Earth(rho = 100.0, eps_r = 10.0, mu_r = 1.0)
     frequencies_value=collect(10.0 .^ range(0, stop = 6, length = 101))
@@ -116,7 +116,7 @@
             phases = (:core=>7, :sheath=>8, :jacket=>9)
         )
     )
-    problem=only(Gridspace(SystemBuilder(
+    problem=only(SystemBuilder(
         "benchmark_132kV_630mm2_flathor_pscad",
         design,
         positions;
@@ -124,7 +124,7 @@
         temperature = 20.0,
         earth,
         frequencies = frequencies_value
-    )))
+    ))
     reference_problem=LineParametersProblem(
         problem.system;
         temperature = problem.temperature,

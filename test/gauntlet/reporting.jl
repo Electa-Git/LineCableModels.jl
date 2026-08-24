@@ -51,25 +51,22 @@ function _snapshot_case(path::AbstractString, backend::Symbol)
         "Gauntlet snapshot $path has no LineParametersBenchmark",
     ))
     observed = compare(reference, accepted)
-    for quantity in (:Z, :Y)
-        stored_error = getproperty(comparison, quantity)
-        observed_error = getproperty(observed, quantity)
-        isequal(stored_error.absolute, observed_error.absolute) &&
-        isequal(stored_error.relative, observed_error.relative) ||
-            throw(ArgumentError(
-                "stored $quantity comparison does not match the recorded results in $path",
-            ))
-    end
+    isequal(observables(comparison), observables(observed)) || throw(ArgumentError(
+        "stored comparison does not match the recorded results in $path",
+    ))
 
     frequencies_value = snapshot["frequencies"]
-    frequencies_value == reference.f || throw(ArgumentError(
+    reference_values = observables(reference)
+    accepted_values = observables(accepted)
+    frequencies_value == reference_values.frequency || throw(ArgumentError(
         "Gauntlet snapshot frequencies do not match its reference result: $path",
     ))
-    frequencies_value == accepted.f || throw(ArgumentError(
+    frequencies_value == accepted_values.frequency || throw(ArgumentError(
         "Gauntlet snapshot frequencies do not match its accepted result: $path",
     ))
     port_order = snapshot["port_order"]
-    length(port_order) == size(reference.Z.values, 1) || throw(ArgumentError(
+    length(port_order) == size(reference_values.series_impedance, 1) || throw(
+        ArgumentError(
         "Gauntlet snapshot port order does not match its matrix dimensions: $path",
     ))
 
@@ -99,17 +96,17 @@ function _maximum(values::AbstractMatrix)
     return (value = values[index], row = index[1], column = index[2])
 end
 
-function _visible_maximum(error::RMSError, floor::Real)
-    indices = findall(error.absolute .> floor)
+function _visible_maximum(absolute_values, relative_values, floor::Real)
+    indices = findall(absolute_values .> floor)
     isempty(indices) && return (value = missing, row = missing, column = missing)
-    index = indices[argmax(error.relative[indices])]
-    return (value = error.relative[index], row = index[1], column = index[2])
+    index = indices[argmax(relative_values[indices])]
+    return (value = relative_values[index], row = index[1], column = index[2])
 end
 
-function _error_summary(error::RMSError, floor::Real)
-    absolute = _maximum(error.absolute)
-    relative_raw = _maximum(error.relative)
-    relative = _visible_maximum(error, floor)
+function _error_summary(absolute_values, relative_values, floor::Real)
+    absolute = _maximum(absolute_values)
+    relative_raw = _maximum(relative_values)
+    relative = _visible_maximum(absolute_values, relative_values, floor)
     return (; absolute, relative, relative_raw)
 end
 
@@ -125,10 +122,19 @@ end
 function _report_row(path::AbstractString, backend::Symbol, zero_atol::NamedTuple)
     loaded = _snapshot_case(path, backend)
     snapshot = loaded.snapshot
-    comparison = loaded.comparison
-    impedance = _error_summary(comparison.Z, zero_atol.Z)
-    admittance = _error_summary(comparison.Y, zero_atol.Y)
+    comparison = observables(loaded.comparison)
+    impedance = _error_summary(
+        comparison.series_impedance_absolute_error,
+        comparison.series_impedance_relative_error,
+        zero_atol.Z
+    )
+    admittance = _error_summary(
+        comparison.shunt_admittance_absolute_error,
+        comparison.shunt_admittance_relative_error,
+        zero_atol.Y
+    )
     reference = snapshot["reference"]
+    reference_values = observables(reference)
     execution = snapshot["reference_execution"]
     benchmark = snapshot["julia_benchmark"]
     formulation = snapshot["formulation"]
@@ -138,10 +144,10 @@ function _report_row(path::AbstractString, backend::Symbol, zero_atol::NamedTupl
                         hasproperty(execution, :version) ? execution.version : missing
     return (
         case = snapshot["case_name"],
-        conductors = size(reference.Z.values, 1),
-        frequencies = length(reference.f),
-        frequency_start_hz = first(reference.f),
-        frequency_end_hz = last(reference.f),
+        conductors = size(reference_values.series_impedance, 1),
+        frequencies = length(reference_values.frequency),
+        frequency_start_hz = first(reference_values.frequency),
+        frequency_end_hz = last(reference_values.frequency),
         basis = string(basis(reference)),
         domain = string(nameof(domain(reference))),
         reference_earth = _method_description(formulation, :reference, :earth_impedance),

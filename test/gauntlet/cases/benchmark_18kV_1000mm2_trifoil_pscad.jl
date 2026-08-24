@@ -117,13 +117,13 @@
         capacitance = 0.39,
         inductance = 0.3
     )
-    design=only(Gridspace(CableBuilder(
+    design=only(CableBuilder(
         "18kV_1000mm2",
         core_parts,
         sheath_parts,
         jacket_parts;
         nominal = nominal_data
-    )))
+    ))
 
     earth=Earth(rho = 100.0, eps_r = 10.0, mu_r = 1.0)
     frequencies_value=collect(10.0 .^ range(0, stop = 6, length = 101))
@@ -139,7 +139,7 @@
         )
     )
     )
-    problem=only(Gridspace(SystemBuilder(
+    problem=only(SystemBuilder(
         "benchmark_18kV_1000mm2_trifoil_pscad",
         design,
         positions;
@@ -147,7 +147,7 @@
         temperature = 20.0,
         earth,
         frequencies = frequencies_value
-    )))
+    ))
     reference_problem=LineParametersProblem(
         problem.system;
         temperature = problem.temperature,
