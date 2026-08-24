@@ -6,7 +6,7 @@ export custom_layout_render_spec
 
 function custom_layout_render_spec()
     PB = LineCableModels.PlotBuilder
-    UH = LineCableModels.UnitHandler
+    UH = LineCableModels.QuantityUnits
 
     xaxis = PB.AxisSpec(
         :x,

@@ -5,17 +5,17 @@ Base.eltype(::Type{CableDesign{T}}) where {T} = T
 """
 $(TYPEDSIGNATURES)
 
-Defines the display representation of a [`CableDesign`](@ref) object for REPL or text output.
+Write the plain-text representation of a cable design to `io`.
 
 # Arguments
 
 - `io`: Output stream.
 - `::MIME"text/plain"`: MIME type for plain text output.
-- `design`: The [`CableDesign`](@ref) object to be displayed.
+- `design`: Cable design to display.
 
 # Returns
 
-- Nothing. Modifies `io` by writing text representation of the object.
+- `nothing` after writing to `io`.
 """
 function Base.show(io::IO, ::MIME"text/plain", design::CableDesign)
     # Print header with cable ID and count of components

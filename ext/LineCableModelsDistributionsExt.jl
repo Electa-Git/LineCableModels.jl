@@ -1,3 +1,9 @@
+"""
+    LineCableModelsDistributionsExt
+
+Sample `UncertainValue` with Distributions.jl and expose `HistogramDensity`
+through the Distributions API.
+"""
 module LineCableModelsDistributionsExt
 
 using Distributions
@@ -21,7 +27,7 @@ function PB._sample_uncertainty(
         "Monte Carlo distributions must have finite mean and positive finite standard deviation",
     ))
     isfinite(standardized) || throw(ArgumentError(
-        "Monte Carlo distribution produced a non-finite realization",
+        "Monte Carlo distribution produced a non-finite realisation",
     ))
     return value.nominal +
            value.sigma *

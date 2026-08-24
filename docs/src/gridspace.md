@@ -1,25 +1,24 @@
 # Gridspace
 
-Gridspace is the finite-selection and construction-staging engine used by the
-declarative cable API. It has one job: combine explicit finite sources, select
-one unresolved point, and invoke a typed callable after that point is resolved.
-It does not compute line parameters, aggregate uncertainty, validate physical
+Gridspace combines explicit finite sources, selects one unresolved point, and
+invokes a typed callable after resolving that point. The declarative cable API
+uses it to delay construction until each finite selection is known.
+Gridspace does not compute line parameters, aggregate uncertainty, validate physical
 objects independently of their constructors, or store traversal state in
 completed results.
 
-The complete ownership chain is:
+The calculation sequence is:
 
 ```text
 Grid                 declares explicit finite variation
 Gridspace            composes finite sources and selects one point
 callable builder      constructs the existing eager domain object
 Engine.compute        evaluates one complete primitive problem
-ParametricBuilder/UQ  collect owned calculation products
+ParametricBuilder/UQ  collect stored calculation data
 ```
 
-`DataModel` constructors remain authoritative for physical invariants. The
-Engine remains authoritative for primitive computation. UQ owns repeated
-stochastic realization and aggregation.
+`DataModel` constructors validate physical invariants. Engine calculates
+primitive results. UQ performs repeated stochastic realisation and aggregation.
 
 ## Core invariants
 
@@ -33,12 +32,12 @@ Gridspace{Target}(grids::Tuple; combine=:product)
 Every member of `grids` must already be a `Grid` or nested `Gridspace`. The
 constructor never interprets a raw tuple, vector, matrix, or other domain value
 as an axis. `Target` is the type promised by iteration, `build` is the callable
-that constructs it, and `combine` is normalized into the concrete Gridspace
+that constructs it, and `combine` is normalised into the concrete Gridspace
 type. The space is lazy, has an analytic length, and has no random-access or
 random-sampling shortcut.
 
 The internal selected point contains only the callable and its selected
-arguments. It is unresolved, unexported, and temporary. It never enters a
+arguments. The point is unresolved, unexported, and temporary. The point never enters a
 completed calculation result.
 
 ## Grid is the variation marker
@@ -53,9 +52,9 @@ Grid((1.0, 2.0), AbsoluteError(0.1))   # nominal × absolute error
 ```
 
 The uncertainty-bearing forms yield `UncertainValue(nominal, sigma)`
-descriptors. These descriptors are dependency-free declarations. They become
+descriptors. An `UncertainValue` does not depend on an uncertainty package. The descriptor becomes
 Measurements values during direct propagation or ordinary scalars during
-Monte Carlo realization.
+Monte Carlo realisation.
 
 The constructor laws are:
 
@@ -67,7 +66,7 @@ Grid(other value)         = one alternative
 ```
 
 Grid instances carry no selection identity. Reusing an instance in two source
-positions has the same behavior as placing two equal, separately constructed
+positions has the same behaviour as placing two equal, separately constructed
 Grids in those positions.
 
 ## Collections are atomic until explicitly varied
@@ -85,7 +84,8 @@ frequency_sets = Grid((
 ))                                         # two complete scans
 ```
 
-When one sibling varies, the boundary singleton-wraps every ordinary sibling.
+When one sibling varies, the builder wraps every ordinary sibling in a
+one-point source.
 The matrix or frequency vector remains one complete value at every point.
 Calling `Grid(matrix)` is different and explicit: the matrix elements become
 alternatives because the caller requested that variation.
@@ -110,7 +110,7 @@ collect(space)
 ```
 
 Its length is the product of the direct source lengths. Computing `length`
-does not traverse or materialize any point.
+does not traverse or materialise any point.
 
 ### Zip
 
@@ -130,13 +130,14 @@ collect(space)
 
 All non-singleton direct sources must have equal cardinality. A mismatch
 throws `DimensionMismatch` when the Gridspace is constructed, before any point
-is materialized. Zip traversal is linear in the number of rows.
+is materialised. Zip traversal is linear in the number of rows.
 
 ### Nesting
 
 A nested Gridspace is one finite source at its parent. Its selected value stays
-unresolved until recursive materialization or realization reaches it. This
-lets one child zip local parameters while its parent forms a Cartesian product:
+unresolved until recursive materialisation or realisation reaches it. Nested
+resolution lets one child zip local parameters while its parent forms a
+Cartesian product:
 
 ```julia
 paired = Gridspace{Tuple}(
@@ -151,10 +152,10 @@ collect(outer)
 #  ((1, 10), :b), ((2, 20), :b)]
 ```
 
-## Eager public boundaries
+## Eager public construction
 
-Gridspace delays selection, not ordinary construction. Each public domain
-boundary applies one rule:
+Gridspace delays selection, not ordinary construction. Each public builder
+applies one rule:
 
 ```text
 no direct Grid or Gridspace input  -> construct the eager value now
@@ -162,7 +163,7 @@ at least one explicit source       -> preserve sources, singleton-wrap siblings,
                                       and return a Gridspace
 ```
 
-The current behavior is:
+The current behaviour is:
 
 | Entry point | Scalar or complete input | Explicit varying input |
 |---|---|---|
@@ -176,14 +177,14 @@ The current behavior is:
 | `@gridspace` keyword constructor | strict struct | `Gridspace{Target}` |
 
 A cable part remains callable because its absolute radius depends on the
-preceding radial layers. It owns a real sequential construction operation. The
-other scalar-complete boundaries construct their domain values immediately.
+preceding radial layers. The callable constructs one radial part. The
+other scalar-complete builders construct their domain values immediately.
 
 ## Callable builders
 
 A Gridspace callable should be a concrete immutable functor whose field types
-are concrete. It should own one actual construction step and delegate physical
-validation to the authoritative target constructors:
+are concrete. The callable should perform one construction step and delegate physical
+validation to the target constructors:
 
 ```julia
 struct PairValue end
@@ -195,30 +196,30 @@ space = Gridspace{Tuple}(
 )
 ```
 
-Avoid `Function`-typed fields in hot builders. A captured closure is suitable
-for local experimentation but is not the normal public extension boundary.
+Avoid `Function`-typed fields in frequently called builders. A captured closure is suitable
+for local experiments. Exported builders use concrete callable types.
 Do not introduce a passive record merely to store arguments that another
 function immediately unpacks.
 
-`@gridspace` applies the same contract to a keyword-constructed struct. It
+`@gridspace` applies the same rule to a keyword-constructed struct. The macro
 retains the strict positional constructor, returns the struct immediately for
 scalar keyword input, and creates a Gridspace only when a field is an explicit
-finite source. It composes with `@relax` in either order.
+finite source. `@gridspace` composes with `@relax` in either order.
 
-## Materialization and realization
+## Materialisation and realisation
 
 Ordinary iteration selects an internal unresolved point and recursively
-materializes its arguments. Deterministic values pass through unchanged;
+materialises its arguments. Deterministic values pass through unchanged.
 nested points invoke their own callable before the parent callable is invoked.
-After loading Measurements, an `UncertainValue` materializes as one
+After loading Measurements, an `UncertainValue` materialises as one
 `Measurement`.
 
-Stochastic realization follows the same recursion with a caller-owned random
-number generator. Only `UncertainValue` leaves are redrawn; deterministic
+Stochastic realisation follows the same recursion with a caller-owned random
+number generator. Only `UncertainValue` leaves are redrawn. Deterministic
 selections remain fixed. A zero-sigma descriptor resolves deterministically.
 
-These operations are intentionally internal. Developers extend the public
-grammar through concrete builders and supported uncertainty integrations, not
+Materialisation and realisation are internal. Developers extend the public grammar through
+concrete builders and supported uncertainty extensions, not
 by exposing unresolved points as application data.
 
 ## Higher-order computation
@@ -226,20 +227,20 @@ by exposing unresolved points as application data.
 Combinatorial traversal has one sequence:
 
 ```text
-select point -> materialize complete primitive problem
+select point -> `materialize` complete primitive problem
              -> Engine.compute
              -> append primitive result
 ```
 
 `ParametricResult` stores the higher-order formulation and the ordered vector
-of primitive results. It does not retain traversal state.
+of primitive results. The result does not retain traversal state.
 
 Direct linear propagation uses the same traversal. The Measurements extension
-changes only how an uncertain descriptor materializes. `LinearErrorResult`
+changes only how an uncertain descriptor materialises. `LinearErrorResult`
 likewise stores only its formulation and ordered primitive results.
 
 Monte Carlo selects each outer point once, derives a deterministic point seed,
-and repeatedly realizes that same point:
+and repeatedly realises that same point:
 
 ```text
 for each selected outer point
@@ -252,15 +253,16 @@ end
 ```
 
 Multiple nominal/error points therefore produce multiple aggregates, not one
-mixture. `MonteCarloResult` directly owns mean representations, statistics,
+mixture. `MonteCarloResult` directly owns primitive sample means, statistics,
 optional retained samples, optional histograms, the root seed, point seeds,
 and trial counts.
 
 ## Pairing, exact reuse, and correlation
 
-Three distinct ideas must remain separate.
+Zip pairing, exact argument reuse, and stochastic correlation have different
+semantics.
 
-`combine=:zip` is deterministic row pairing between finite sources. It says
+`combine=:zip` is deterministic row pairing between finite sources. Zip pairing says
 nothing about covariance.
 
 Exact reuse is structural. Pass one selected uncertain argument once to a
@@ -282,20 +284,20 @@ positions. By contrast, two separately declared uncertain source positions are
 independent, even when they contain the same Grid instance or numerically equal
 descriptors.
 
-General correlation between distinct variables is a UQ concern. It requires a
+General correlation between distinct variables is a UQ concern. Correlation requires a
 joint stochastic source or distribution that returns a tuple or vector sample
 consumed by one builder. Gridspace does not infer or register correlation.
 
-## Optional package boundaries
+## Optional package extensions
 
 The core package declares uncertainty without loading Measurements or
 Distributions.
 
-- Loading Measurements adds direct materialization of `UncertainValue` while
+- Loading Measurements adds direct materialisation of `UncertainValue` while
   retaining exact structural reuse.
-- Loading Distributions adds standardized univariate sampling families. The
+- Loading Distributions adds standardised univariate sampling families. The
   selected distribution must have finite mean and positive finite standard
-  deviation; samples are transformed to the descriptor's nominal value and
+  deviation. Samples are transformed to the descriptor's nominal value and
   standard uncertainty.
 
 Neither extension knows about finite-source identity, result presentation, or
@@ -303,36 +305,37 @@ Engine internals.
 
 ## Performance and conformance
 
-The implementation relies on tuple-specialized recursion and Julia's public
-product and zip iterators. Its contracts are:
+The implementation relies on tuple-specialised recursion and Julia's public
+product and zip iterators. The implementation guarantees:
 
-- `length` is analytic and never enumerates points;
-- product and zip traversal are linear in yielded work;
-- no dictionary or identity lookup occurs during materialization or realization;
-- immutable scalar targets infer through selection, materialization, and
-  realization;
-- after warmup, deterministic iteration and a bare 10,000-realization scalar
-  loop add zero heap allocations;
-- full cable and line construction may allocate only what their existing
+- `length` is analytic and never enumerates points.
+- Product and zip traversal are linear in yielded work.
+- Materialisation and realisation use no dictionary or identity lookup.
+- Immutable scalar targets infer through selection, materialisation, and
+  realisation.
+- After warmup, deterministic iteration and a bare 10,000-realisation scalar
+  loop add zero heap allocations.
+- Full cable and line construction may allocate only what their existing
   vectors, domain constructors, Engine computation, and requested result
   storage intrinsically require.
 
-The conformance suite in `test/unit/parametricbuilder/conformance.jl` locks
+The conformance suite in `test/unit/parametricbuilder/conformance.jl` checks
 these properties, exact structural reuse, explicit variation, eager public
-boundaries, and the absence of a random-access Gridspace contract.
+construction, and the absence of a random-access Gridspace API.
 
 ## Implementation map
 
-The implementation is intentionally small:
+The implementation is split across:
 
-- `src/parametricbuilder/grid.jl`: finite values and uncertainty descriptors;
+- `src/parametricbuilder/grid.jl`: finite values and uncertainty descriptors.
 - `src/parametricbuilder/gridspace.jl`: composition, point selection, recursive
-  materialization, and realization;
+  materialisation, and realisation.
 - `src/parametricbuilder/macros.jl`: strict scalar construction and explicit
-  boundary lifting for `@gridspace`;
-- material, cable, position, and system builder files: domain-aware eager
-  boundaries and concrete callable construction algorithms;
-- `src/parametricbuilder/compute.jl`: combinatorial traversal;
-- `src/uq/compute.jl`: direct and repeated stochastic traversal;
+  Gridspace lifting for `@gridspace`.
+- material, cable, position, and system builder files: eager construction
+  rules and concrete callable algorithms.
+- `src/parametricbuilder/compute.jl`: combinatorial traversal.
+- `src/uq/linearerror.jl` and `src/uq/montecarlo/compute.jl`: direct and
+  repeated stochastic traversal.
 - Measurements and Distributions extensions: dependency-specific uncertainty
-  behavior only.
+  behaviour only.

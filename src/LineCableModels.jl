@@ -1,3 +1,13 @@
+"""
+    LineCableModels
+
+Calculate electrical parameters for overhead and underground cable systems.
+
+The public API constructs materialised or finite parametric cable models,
+selects numerical formulations, evaluates cable constants and line-parameter
+matrices, propagates declared uncertainty, and describes plots for optional
+Makie renderers.
+"""
 module LineCableModels
 
 ## Public API
@@ -14,7 +24,7 @@ export Z, Y, R, X, L, G, B, C
 export series_impedance, shunt_admittance,
        resistance, reactance, inductance,
        conductance, susceptance, capacitance
-# High-level modeling grammar:
+# High-level modelling grammar:
 export Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGrid
 export AbstractGrid, AbstractUncertainGrid, UncertainValue
 export Gridspace
@@ -28,7 +38,7 @@ export Material, MaterialsLibrary, Conductor, Insulator, CableBuilder
 export at, trifoil, hflat, vflat, Earth, SystemBuilder
 export make_stranded, make_screened, WireEstimate
 
-# Materialized results, reusable designs, and presentation:
+# Materialised results, reusable designs, and presentation:
 export CableConstants, CableConstantsProblem, LineParameters, CablesLibrary, preview
 
 # Engine:
@@ -48,7 +58,7 @@ include("interfaces.jl")
 include("retired.jl")
 
 # Package-local shared calculation grammar.
-include("Grammar.jl")
+include("grammar/Grammar.jl")
 using .Grammar:
                 AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult,
                 AbstractParametricResult, AbstractUncertaintyResult,
@@ -57,8 +67,8 @@ using .Grammar:
                 compute, observables, primitives, preprocess,
                 nominal, standard_uncertainty
 
-# Submodule `UnitHandler`
-include("unithandler/UnitHandler.jl")
+# Submodule `QuantityUnits`
+include("quantityunits/QuantityUnits.jl")
 
 # Submodule `Validation`
 include("validation/Validation.jl")
@@ -66,8 +76,7 @@ using .Validation: validate
 
 # Submodule `PlotBuilder`
 include("plotbuilder/PlotBuilder.jl")
-using .PlotBuilder.BackendHandler: set_backend!
-using .PlotBuilder: UIPlot, export_svg
+using .PlotBuilder: UIPlot, export_svg, set_backend!
 export UIPlot, export_svg
 
 # Submodule `Materials`
@@ -81,13 +90,17 @@ import .EarthProps
 
 # Submodule `DataModel`
 include("datamodel/DataModel.jl")
-using .DataModel: CableConstants, CablesLibrary, preview
+using .DataModel: CableConstants, CablesLibrary, preview, ncables, nphases
 
 # Submodule `Engine`
 include("engine/Engine.jl")
 using .Engine: LineParameters, SeriesImpedance,
                ShuntAdmittance, kronify, Formulation, CableConstantsProblem,
-               AnalyticalFormulation, LineParametersTrace
+               AnalyticalFormulation, LineParametersTrace,
+               description, domain, frequencies, nconductors, nfrequencies,
+               Z, Y, X, G, B, series_impedance, shunt_admittance,
+               reactance, conductance, susceptance,
+               LineParamsDomain, PhaseDomain, ModalDomain
 using .Engine.Transforms: Fortescue
 
 # Submodule `ParametricBuilder`

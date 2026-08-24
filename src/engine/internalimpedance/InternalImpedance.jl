@@ -1,6 +1,9 @@
 """
     LineCableModels.Engine.InternalImpedance
 
+Define conductor internal-impedance formulations based on scaled modified
+Bessel functions.
+
 # Dependencies
 
 $(IMPORTS)
@@ -13,8 +16,7 @@ export ScaledBessel
 
 # Module-specific dependencies
 using DocStringExtensions: IMPORTS, TYPEDSIGNATURES
-import ...LineCableModels: description
-import ..Engine: InternalImpedanceFormulation
+import ..Engine: InternalImpedanceFormulation, description
 import ..Engine: conductivity
 using LinearAlgebra
 import ..Engine: special_besselix, special_besselkx

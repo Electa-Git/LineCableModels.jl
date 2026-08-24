@@ -6,9 +6,8 @@
 # `LineParametersBenchmark` types. No PSCAD-specific result tensor survives
 # past parsing.
 #
-# This example creates a small hidden snapshot with the same fields as a
-# recorded case. Replace `snapshot_path` with the path of the case that you want
-# to inspect.
+# The code creates a small hidden snapshot with the fields used below. Set
+# `snapshot_path` to a recorded case path when inspecting stored results.
 
 using LineCableModels
 using LineCableModels.Engine
@@ -77,8 +76,8 @@ snapshot = JLD2.load(snapshot_path)
 comparison = snapshot["reference_comparison"]
 comparison.Z.absolute
 
-# A relative error is not useful when its absolute difference is already below
-# the chosen display floor. Pass the case's absolute Z and Y tolerances to
+# Dividing by a reference magnitude below the chosen display floor amplifies
+# numerical noise. Pass the case's absolute Z and Y tolerances to
 # `DataFrame` as `zero_atol`. The table reports `missing` for those relative
 # entries, marks why they are unavailable, and leaves the raw comparison
 # untouched.
@@ -90,7 +89,7 @@ errors = DataFrame(
 sort!(errors, [:quantity, :rms_absolute], rev = [false, true])
 errors
 
-# The deliberately noisy Y mutual term still has its original relative value.
+# The modified Y mutual term still has its original relative value.
 # Only its table representation is suppressed.
 
 noise_row = only(eachrow(errors[(errors.quantity .== :Y) .& (errors.row .== 1) .& (errors.column .== 2), :]))
@@ -146,7 +145,7 @@ DataFrame(
     unit = ["ms", "ms", "bytes", "count", "count", "s"]
 )
 
-# The full recorded metadata can be inspected directly when a formulation or
-# execution environment needs closer review.
+# `benchmark.environment` contains the recorded Julia, operating-system, thread,
+# and BLAS identifiers.
 
 benchmark.environment

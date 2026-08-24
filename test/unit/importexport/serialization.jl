@@ -36,7 +36,7 @@
     ))
 end
 
-@testitem "ImportExport / schema objects / explicit registry round trips" tags=[:unit] setup=[
+@testitem "ImportExport / schema objects / dispatched type tags round trip" tags=[:unit] setup=[
     ImportExportTestSupport,
     UseImportExportSupport,
     TestFixtures

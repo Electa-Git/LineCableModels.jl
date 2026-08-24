@@ -1,8 +1,8 @@
 # Test suite
 
-The suite is organized around observable contracts rather than source functions or
-tutorial scripts. Files use lowercase snake case and mirror the production subsystem
-they exercise.
+Tests assert public results and invariants rather than copying source functions
+or tutorial scripts. Files use lowercase snake case and mirror the source
+module they exercise.
 
 Run the default unit, integration, and non-graphical extension suite with:
 
@@ -12,7 +12,7 @@ Pkg.test()
 ```
 
 Pass selectors through `test_args`. A plain selector matches a file path or test-item
-name; a `tag:` selector matches a test tag:
+name. A `tag:` selector matches a test tag:
 
 ```julia
 Pkg.test(test_args = ["tag:unit"])
@@ -20,7 +20,7 @@ Pkg.test(test_args = ["tag:integration"])
 Pkg.test(test_args = ["Engine / solver"])
 ```
 
-The supported tags are `unit`, `integration`, `extension`, `visual`, `quality`, `gauntlet`, and `gauntlet_toolkit`. Visual, quality, `core_only`, and both gauntlet tags are intentionally excluded from the default run and execute in dedicated environments. See
+The supported tags are `unit`, `integration`, `extension`, `visual`, `quality`, `gauntlet`, and `gauntlet_toolkit`. Visual, quality, `core_only`, and both gauntlet tags are excluded from the default run and execute in dedicated environments. See
 [`gauntlet/README.md`](gauntlet/README.md) for the explicit snapshot, live, and record
 commands.
 
@@ -32,7 +32,7 @@ LINECABLEMODELS_GAUNTLET_MODE=snapshot julia --project=test/gauntlet \
   test/gauntlet/runtests.jl
 ```
 
-`test/gauntlet/runtests.jl` uses `@run_package_tests(filter=ti -> :gauntlet in ti.tags, verbose=true)`. TestItemRunner discovers every case file; the command does not maintain a second file list.
+`test/gauntlet/runtests.jl` uses `@run_package_tests(filter=ti -> :gauntlet in ti.tags, verbose=true)`. TestItemRunner discovers every case file. The command does not maintain a second file list.
 
 Run the reusable gauntlet toolkit checks separately with:
 
@@ -86,10 +86,10 @@ LINECABLEMODELS_TEST_PLOTTING=true julia --project=test/visual \
 julia --project=test/coverage test/coverage.jl check
 ```
 
-CI additionally collects the backend-selection contract in isolated GLMakie and
+CI additionally checks backend selection in isolated GLMakie and
 WGLMakie environments before the same single merge/check step. The checker amends
 coverage from source, rejects any missing `src/` or `ext/` Julia file, writes
 `lcov.info`, and fails below 95% aggregate line coverage.
 
-Documentation, Aqua, and golden regeneration are separate correctness gates and must not
+Documentation, Aqua, and golden regeneration are separate checks and must not
 be used to satisfy the production coverage threshold.

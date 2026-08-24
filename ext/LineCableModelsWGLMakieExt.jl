@@ -1,3 +1,8 @@
+"""
+    LineCableModelsWGLMakieExt
+
+Activate WGLMakie for browser-based LineCableModels rendering.
+"""
 module LineCableModelsWGLMakieExt
 
 using LineCableModels

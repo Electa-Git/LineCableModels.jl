@@ -414,7 +414,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Import a self-contained PSCAD project that follows the registered
+Import a self-contained PSCAD project that follows the supported
 frequency-dependent coaxial-cable schema.
 
 # Arguments
@@ -427,8 +427,8 @@ frequency-dependent coaxial-cable schema.
 
 # Returns
 
-- `earth`: Materialized homogeneous [`EarthModel`](@ref).
-- `system`: Materialized [`LineCableSystem`](@ref).
+- `earth`: Materialised homogeneous [`EarthModel`](@ref).
+- `system`: Materialised [`LineCableSystem`](@ref).
 
 # Notes
 
@@ -440,7 +440,7 @@ conductors receive consecutive phase indices in cable and layer order.
 
 PSCAD bounds dielectric loss tangent at ten. A project produced from a more
 conductive equivalent dielectric therefore contains the bounded PSCAD value,
-and import materializes that value rather than the pre-export resistivity.
+and import materialises that value rather than the pre-export resistivity.
 
 The importer accepts detailed and simplified coaxial cables. Simplified cables
 must use radius input and may not contain semiconductive layers. Tower and

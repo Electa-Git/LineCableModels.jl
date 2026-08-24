@@ -29,7 +29,7 @@ jobs:
           Pkg.add(PackageSpec(name = "GLMakie", version = "0.13"))
           Pkg.add(PackageSpec(name = "CairoMakie", version = "0.15"))
       - name: Exercise the GL UI and one-click SVG export
-        run: xvfb-run --auto-servernum julia --startup-file=no --project=.manual-gl-env integration/plotting/manual_gl.jl
+        run: xvfb-run --auto-servernum julia --startup-file=no --project=.manual-gl-env dev/plotting/manual_gl.jl
       - name: Upload visual evidence
         uses: actions/upload-artifact@v4
         with:

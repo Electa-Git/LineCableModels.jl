@@ -1,10 +1,10 @@
 # API reference
 
-## Modeling and execution grammar
+## Modelling and execution grammar
 
-The top-level namespace exposes the declarative modeling API. `Grid` is the
+The top-level namespace exposes the declarative modelling API. `Grid` is the
 only parameter-variation syntax, and `Gridspace{Target}` is a lazy space of
-complete targets. Scalar `Material` keywords return one materialized value,
+complete targets. Scalar `Material` keywords return one materialised value,
 while varying inputs return a `Gridspace`. `CableBuilder`, `Earth`, and
 `SystemBuilder` likewise return eager domain values for scalar input and a
 `Gridspace` only when an input is explicitly varied.
@@ -23,11 +23,11 @@ earth = Earth(
 ```
 
 Composition is local to each Gridspace node. The example above is already a
-space with exactly three earth points. It can still participate in a
+space with exactly three earth points. The space can still participate in a
 Cartesian product at a parent problem node.
 
-See the [Gridspace manual](gridspace.md) for the complete composition, eager-boundary,
-uncertainty-realization, and extension contracts.
+See the [Gridspace manual](gridspace.md) for composition, eager construction,
+uncertainty realisation, and extension methods.
 
 All numerical work follows `problem → formulation → compute`:
 
@@ -45,22 +45,23 @@ compute(
 ```
 
 The higher-order formulation is always explicit. `Combinatorial` evaluates
-every selected point, `LinearError` selects established direct propagation,
-and `MonteCarlo` samples realizations within each selected outer point. Every
+every selected point, `LinearError` selects direct linear uncertainty propagation,
+and `MonteCarlo` samples realisations within each selected outer point. Every
 cardinality, including one, returns the corresponding composite result family.
 
 `Formulation` owns physics and numerical-method choices. A computation owner
-validates its execution tuple through [`computation_options`](@ref); an
-orchestrator routes separate tuples when it invokes different backends. See
-[Computational engine](@ref) for the ownership and extension contract. A
-materialized line system can request total rather than per-length Z/Y matrices
+validates its execution tuple through [`computation_options`](@ref). A
+composite calculation routes separate tuples when it invokes different
+backends. See [Computational engine](@ref) for the option API and extension
+methods. A
+materialised line system can request total rather than per-length Z/Y matrices
 without altering its formulation:
 
 ```julia
 compute(problem, formulation; options=(output_basis=:total,))
 ```
 
-`output_basis=:total` scales both impedance and admittance by the materialized
+`output_basis=:total` scales both impedance and admittance by the materialised
 system length. `CableConstantsProblem` has no line length and therefore accepts
 only the default `:per_length` basis.
 
@@ -70,14 +71,14 @@ only the default `:per_length` basis.
 frequency-dependent Z/Y matrices with their domain and `:per_length` or
 `:total` basis.
 
-`observables(result)` publishes the stable scientific quantities used by
+`observables(result)` publishes the scientific quantities used by
 tables and plots as an immutable named tuple. Array-valued entries use detached
 storage, so presentation code cannot mutate the completed result. The primary
 keys are:
 
-- `CableConstants`: `:resistance`, `:inductance`, and `:capacitance`;
+- `CableConstants`: `:resistance`, `:inductance`, and `:capacitance`.
 - `LineParameters`: `:frequency`, `:series_impedance`, and
-  `:shunt_admittance`;
+  `:shunt_admittance`.
 - `LineParametersBenchmark`: full series/shunt absolute and relative RMS-error
   keys.
 
@@ -98,14 +99,14 @@ per-point seeds, and per-point trial counts. No completed result stores the
 temporary Gridspace point or a copy of traversal internals.
 
 `primitives` and `preprocess` are reserved action generics for explicitly
-selected future calculation orderings. LineCableModels intentionally defines
-no methods for either generic: there is no zero-argument conversion, broad
+selected future calculation orderings. LineCableModels defines no methods for
+either generic: there is no zero-argument conversion, broad
 fallback, or implicit transformation. Unsupported orderings fail through
 ordinary Julia dispatch.
 
 `DataFrame(result::MonteCarloResult)` renders stored marginal summaries
 without repeating the calculation. Cable-constant results produce one R/L/C
-table; line-parameter results produce one R/L/C/G table for every matrix entry
+table. Line-parameter results produce one R/L/C/G table for every matrix entry
 and frequency. The displayed `confidence` and `cdf_tol` values describe the DKW
 bound below and are not confidence intervals for the sample mean.
 
@@ -136,27 +137,27 @@ those marginals. `M` is three for cable constants and four real R/L/G/C
 upper-triangular coordinates per frequency for line parameters. `cdf_tol` is
 not a solver tolerance and does not bound mean error or the joint distribution.
 
-## Optional uncertainty integrations
+## Optional uncertainty packages
 
 The core Grid/Gridspace grammar does not load Measurements.jl or
-Distributions.jl. Loading Measurements enables direct `LinearError(inner)`
+Distributions.jl. Loading Measurements adds direct `LinearError(inner)`
 propagation. When one selected uncertain argument is passed once to a callable
 builder and used more than once there, all uses preserve that exact variable's
 covariance. Distinct uncertain arguments remain independent.
 `MonteCarloResult` has no implicit conversion to Measurements values.
 Empirical reconstruction is an explicit consumer operation and requires
-retained joint samples. Loading Distributions enables compatible univariate
+retained joint samples. Loading Distributions adds compatible univariate
 distributions as Monte Carlo samplers and `pdf`/`cdf` evaluation of
-`HistogramDensity`. A supplied distribution is standardized to the Grid
+`HistogramDensity`. A supplied distribution is standardised to the Grid
 descriptor's nominal value and standard deviation, so it must have a finite
 mean and a positive finite standard deviation.
 
-## Strict materialized API
+## Strict materialised API
 
-The eager cable and system model remains the materialized boundary but is not
-exported at top level. Import those types explicitly when strict construction
-is required. `Material`, `MaterialsLibrary`, and `CablesLibrary` are public
-because they are shared by both modeling modes:
+The eager cable and system types are not exported at top level. Import them
+explicitly when strict construction is required. `Material`,
+`MaterialsLibrary`, and `CablesLibrary` are public
+because they are shared by both modelling modes:
 
 ```julia
 using LineCableModels: Material
@@ -167,15 +168,15 @@ copper = Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
 core = DataModel.Tubular(0.0, 10e-3, copper)
 ```
 
-Materialized radial constructors accept resolved numeric inner and outer radii.
+Materialised radial constructors accept resolved numeric inner and outer radii.
 Radius-versus-thickness intent and repetition belong to builder definitions.
-Group `add!` accepts a fully materialized part of the same scalar type as its
+Group `add!` accepts a fully materialised part of the same scalar type as its
 destination.
 
 All eager cable quantities are evaluated at the common material reference
-temperature. The materialized `CableDesign` therefore rejects layers with
+temperature. The materialised `CableDesign` therefore rejects layers with
 different `T0` values. Operating temperature belongs only to
-`LineParametersProblem`; `SystemBuilder` exposes that setting and [`compute`](@ref)
+`LineParametersProblem`. `SystemBuilder` exposes that setting and [`compute`](@ref)
 applies the resistivity correction locally.
 
 ## Static earth and solver inspection
@@ -222,8 +223,8 @@ compute(problem, formulation; options)
 ## Wire estimates
 
 [`make_stranded`](@ref) and [`make_screened`](@ref) return a [`WireEstimate`](@ref).
-A physically valid search that cannot meet every requested limit still returns ranked
-best-effort candidates and concise reasons:
+When no candidate meets every requested limit, the search returns ranked
+candidates and records the unmet constraints:
 
 ```julia
 estimate = make_stranded(1000.0)
@@ -247,7 +248,7 @@ Depth = 3
 Modules = [
     LineCableModels,
     LineCableModels.Grammar,
-    LineCableModels.UnitHandler,
+    LineCableModels.QuantityUnits,
 ]
 Order = [:module, :constant, :type, :function, :macro]
 Public = true
@@ -287,11 +288,13 @@ Public = true
 Private = true
 ```
 
-## Parametric and uncertainty modeling
+## Parametric and uncertainty modelling
 
 ```@autodocs
 Modules = [
     LineCableModels.ParametricBuilder,
+    LineCableModels.ParametricBuilder.Conductor,
+    LineCableModels.ParametricBuilder.Insulator,
     LineCableModels.ParametricBuilder.WirePatterns,
     LineCableModels.UQ,
 ]
@@ -305,7 +308,6 @@ Private = true
 ```@autodocs
 Modules = [
     LineCableModels.PlotBuilder,
-    LineCableModels.PlotBuilder.BackendHandler,
 ]
 Order = [:module, :constant, :type, :function, :macro]
 Public = true

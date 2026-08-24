@@ -15,27 +15,20 @@ Base.getindex(lib::MaterialsLibrary, key::String) = getindex(lib.data, key)
 """
 $(TYPEDSIGNATURES)
 
-Removes a material from a [`MaterialsLibrary`](@ref).
+Remove the material stored under `name`.
 
 # Arguments
 
-- `library`: Instance of [`MaterialsLibrary`](@ref) from which the material will be removed.
-- `name`: Name of the material to be removed.
+- `library`: Material library.
+- `name`: Stored material name.
 
 # Returns
 
-- The modified instance of [`MaterialsLibrary`](@ref) without the specified material.
+- The modified `library`.
 
 # Errors
 
-Throws an error if the material does not exist in the library.
-
-# Examples
-
-```julia
-library = MaterialsLibrary()
-$(FUNCTIONNAME)(library, "copper")
-```
+- Throws `KeyError` when `name` is absent.
 
 """
 function Base.delete!(library::MaterialsLibrary, name::String)
@@ -47,23 +40,17 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Retrieves a material from a [`MaterialsLibrary`](@ref) by name.
+Return the material stored under `name`, or `default` when absent.
 
 # Arguments
 
-- `library`: Instance of [`MaterialsLibrary`](@ref) containing the materials.
-- `name`: Name of the material to retrieve.
+- `library`: Material library.
+- `name`: Stored material name.
+- `default`: Value returned when `name` is absent. Default: `nothing`.
 
 # Returns
 
-- The requested [`Material`](@ref) if found, otherwise `nothing`.
-
-# Examples
-
-```julia
-library = MaterialsLibrary()
-material = $(FUNCTIONNAME)(library, "copper")
-```
+- The stored [`Material`](@ref), or `default`.
 
 """
 function Base.get(library::MaterialsLibrary, name::String, default = nothing)
@@ -73,28 +60,28 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Defines the display representation of a [`Material`](@ref) object for REPL or text output.
+Write the plain-text representation of a material to `io`.
 
 # Arguments
 
 - `io`: Output stream.
 - `::MIME"text/plain"`: MIME type for plain text output.
-- `material`: The [`Material`](@ref) instance to be displayed.
+- `material`: Material to display.
 
 # Returns
 
-- Nothing. Modifies `io` by writing text representation of the material.
+- `nothing` after writing to `io`.
 """
 function Base.show(io::IO, ::MIME"text/plain", material::Material)
     print(io, "Material with properties: [")
 
-    # Define fields to display
+    # Select displayed fields.
     fields = [:rho, :eps_r, :mu_r, :T0, :alpha]
 
-    # Print each field with proper formatting
+    # Print each field with four significant digits.
     for (i, field) in enumerate(fields)
         value = getproperty(material, field)
-        # Add comma only between items, not after the last one
+        # Separate adjacent fields with a comma.
         delimiter = i < length(fields) ? ", " : ""
         print(io, "$field=$(round(value, sigdigits=4))$delimiter")
     end
@@ -105,17 +92,17 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Defines the display representation of a [`MaterialsLibrary`](@ref) object for REPL or text output.
+Write a summary of a material library to `io`.
 
 # Arguments
 
 - `io`: Output stream.
 - `::MIME"text/plain"`: MIME type for plain text output.
-- `library`: The [`MaterialsLibrary`](@ref) instance to be displayed.
+- `library`: Material library to display.
 
 # Returns
 
-- Nothing. Modifies `io` by writing text representation of the library.
+- `nothing` after writing to `io`.
 """
 function Base.show(io::IO, ::MIME"text/plain", library::MaterialsLibrary)
     num_materials = length(library)
@@ -132,7 +119,7 @@ function Base.show(io::IO, ::MIME"text/plain", library::MaterialsLibrary)
             print(io, "\n$(i == shown_materials ? "└─" : "├─") $name")
         end
 
-        # If there are more materials than we're showing
+        # Report entries omitted from the display.
         if num_materials > shown_materials
             print(io, "\n└─ ... and $(num_materials - shown_materials) more")
         end
@@ -142,17 +129,17 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Defines the display representation of a [`MaterialsLibrary`](@ref) object for REPL or text output.
+Write a summary of a material dictionary to `io`.
 
 # Arguments
 
 - `io`: Output stream.
 - `::MIME"text/plain"`: MIME type for plain text output.
-- `dict`: The [`MaterialsLibrary`](@ref) contents to be displayed.
+- `dict`: Material dictionary to display.
 
 # Returns
 
-- Nothing. Modifies `io` by writing text representation of the library.
+- `nothing` after writing to `io`.
 """
 function Base.show(io::IO, ::MIME"text/plain", dict::Dict{String, Material})
     num_materials = length(dict)
@@ -169,7 +156,7 @@ function Base.show(io::IO, ::MIME"text/plain", dict::Dict{String, Material})
             print(io, "\n$(i == shown_materials ? "└─" : "├─") $name")
         end
 
-        # If there are more materials than we're showing
+        # Report entries omitted from the display.
         if num_materials > shown_materials
             print(io, "\n└─ ... and $(num_materials - shown_materials) more")
         end

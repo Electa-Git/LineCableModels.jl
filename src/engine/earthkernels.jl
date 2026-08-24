@@ -5,9 +5,8 @@
 @inline special_besselkx(order::Integer, value) = SpecialFunctions.besselkx(order, value)
 @inline special_besselk(order::Integer, value) = SpecialFunctions.besselk(order, value)
 
-# SpecialFunctions intentionally does not implement complex BigFloat Bessel
-# functions. These methods isolate that external numerical boundary without
-# reducing the caller's working precision.
+# SpecialFunctions omits complex BigFloat Bessel functions. The local methods
+# retain the caller's working precision for unsupported argument types.
 function special_besselix(order::Integer, value::Complex{BigFloat})
     order >= 0 || throw(DomainError(order, "Bessel order must be nonnegative"))
     half = value / BigFloat(2)

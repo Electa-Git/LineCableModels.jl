@@ -1,33 +1,36 @@
 """
 $(TYPEDEF)
 
-Stores a collection of predefined materials for cable modeling, indexed by material name:
+Store materials by name.
 
 $(TYPEDFIELDS)
 """
 mutable struct MaterialsLibrary <: AbstractDict{String, Material}
-    "Dictionary mapping material names to [`Material`](@ref) objects."
-    data::Dict{String, Material}  # Key: Material name, Value: Material object
+    "Materials indexed by name."
+    data::Dict{String, Material}
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Constructs an empty [`MaterialsLibrary`](@ref) instance and initializes with default materials.
+Construct a material library.
 
-# Arguments
+# Keywords
 
-- None.
+- `add_defaults`: Add the package's built-in material records. Default: `true`.
 
 # Returns
 
-- A [`MaterialsLibrary`](@ref) object populated with default materials.
+- A [`MaterialsLibrary`](@ref), populated with built-in records when
+  `add_defaults` is `true`.
 
 # Examples
 
-```julia
-# Create a new, empty library
-library = $(FUNCTIONNAME)()
+```jldoctest
+library = $(FUNCTIONNAME)(; add_defaults=false)
+isempty(library)
+# output
+true
 ```
 
 """
@@ -44,22 +47,15 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Populates a [`MaterialsLibrary`](@ref) with commonly used materials, assigning predefined electrical and thermal properties.
+Add the built-in material records to `library`.
 
 # Arguments
 
-- `library`: Instance of [`MaterialsLibrary`](@ref) to be populated.
+- `library`: Destination material library.
 
 # Returns
 
-- The modified instance of [`MaterialsLibrary`](@ref) containing the predefined materials.
-
-# Examples
-
-```julia
-library = MaterialsLibrary()
-$(FUNCTIONNAME)(library)
-```
+- The modified `library`.
 
 """
 function _add_default_materials!(library::MaterialsLibrary)
@@ -100,29 +96,21 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Adds a new material to a [`MaterialsLibrary`](@ref).
+Add `material` under `name`.
 
 # Arguments
 
-- `library`: Instance of [`MaterialsLibrary`](@ref) where the material will be added.
+- `library`: Destination material library.
 - `name`: Name of the material.
-- `material`: Instance of [`Material`](@ref) containing its properties.
+- `material`: Validated material record.
 
 # Returns
 
-- The modified instance of [`MaterialsLibrary`](@ref) with the new material added.
+- The modified `library`.
 
 # Errors
 
-Throws an error if a material with the same name already exists in the library.
-
-# Examples
-
-```julia
-library = MaterialsLibrary()
-material = Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
-$(FUNCTIONNAME)(library, "copper", material)
-```
+- Throws `ArgumentError` when `name` already exists.
 """
 function add!(
         library::MaterialsLibrary,

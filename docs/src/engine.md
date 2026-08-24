@@ -2,7 +2,7 @@
 
 LineCableModels separates a physical problem, a formulation, and the backend
 that implements that formulation. A formulation identifies the equations or
-mathematical method being requested. It exists independently of any backend.
+mathematical method being requested. A formulation exists independently of any backend.
 A backend participates by defining the dispatch required to compute that
 formulation.
 
@@ -14,7 +14,7 @@ the same formulation. There is no `ReferenceEarthImpedance` category: whether
 a backend implements a formulation does not change the formulation's place in
 the scientific vocabulary. `Deri`, `Wedepohl`, `Saad`, `Ametani`, and `Lucca`
 describe formulae applicable to homogeneous-earth models and are direct
-children of `EarthImpedanceFormulation`; backend support is not a type-hierarchy
+children of `EarthImpedanceFormulation`. Backend support is not a type-hierarchy
 category.
 
 PSCAD's direct numerical integration setting is different. PSCAD exposes a
@@ -35,23 +35,23 @@ formulation_options(Val(AnalyticalFormulation), options)
 
 The analytical formulation owns:
 
-- bundle and Kron reduction;
-- ideal transposition;
-- temperature correction;
+- bundle and Kron reduction.
+- ideal transposition.
+- temperature correction.
 - parameter or trace output selection.
 
-The normalized named tuple is stored in `AnalyticalFormulation.options`.
+The normalised named tuple is stored in `AnalyticalFormulation.options`.
 `PSCADFormulation` currently has no formulation options because its method
 bundle already contains every mathematical choice it owns.
 
 `Val(:analytical)` remains the public selector accepted by `Formulation`.
 `Val(AnalyticalFormulation)` is the internal owner token used by the option
-grammar. They are deliberately not interchangeable.
+grammar. The two selectors are not interchangeable.
 
 ## Computation options
 
 [`computation_options`](@ref) validates values belonging to one execution.
-These values do not change the selected mathematical formulation and are not
+Computation options do not change the selected mathematical formulation and are not
 stored in it.
 
 The analytical backend accepts:
@@ -75,18 +75,18 @@ The PSCAD backend accepts:
 ```
 
 `remote` must be a `PSCADBenchmarks.RemoteConfig`. `output_stem` names files
-created by that execution; neither value belongs to `PSCADFormulation`.
+created by that execution. Neither value belongs to `PSCADFormulation`.
 
-Both option roles are ordinary `NamedTuple`s, aliased as
+Both option sets are ordinary `NamedTuple`s, aliased as
 [`FormulationOptions`](@ref) and [`ComputationOptions`](@ref). Callers can
 compose them with `merge`. Each owner rejects unknown keys and returns a
-fixed-key normalized tuple. There is no general fallback and no conversion
+fixed-key normalised tuple. There is no general fallback and no conversion
 from dictionaries, pairs, or `nothing`.
 
 ## Gauntlet routing
 
 `GauntletCase` coordinates two computations but does not own either backend's
-keys. Its computation options form an envelope:
+keys. Its computation options form an outer tuple:
 
 ```julia
 (
@@ -106,18 +106,18 @@ keys. Its computation options form an envelope:
 )
 ```
 
-The runner validates only this outer shape. It passes `reference` and
-`candidate` to their respective backend normalizers and forces the same
+The runner validates only this outer shape. The runner passes `reference` and
+`candidate` to the corresponding `computation_options` methods and forces the same
 `output_basis` into both so their results are comparable. Live and record runs
 load a configured remote endpoint only when `reference.remote` is absent.
-Snapshot runs never load remote configuration. Run mode, persistence authority,
+Snapshot runs never load remote configuration. Run mode, snapshot writing,
 comparison tolerances, expected dimensions, and port ordering are not
 computation options.
 
 ## Extending the engine
 
 An external backend owns a formulation type and both option methods that apply
-to it. Its `compute` method normalizes execution options before doing work:
+to it. The backend's `compute` method normalises execution options before doing work:
 
 ```julia
 import LineCableModels:
@@ -157,6 +157,6 @@ function compute(problem, formulation::ExternalFormulation; options::NamedTuple 
 end
 ```
 
-No `ExternalOptions` composite type or backend-named private normalization
-function is needed. If the owner does not implement one of the Grammar
-functions, that omission remains visible through ordinary Julia dispatch.
+An external implementation does not need a dedicated options struct or private
+wrapper around the two normalisation functions. If it omits either Grammar
+method, Julia raises `MethodError`.

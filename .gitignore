@@ -35,7 +35,10 @@ temp/
 !examples/*.jl
 
 # Internal files
-dev
+dev/*
+!dev/plotting/
+!dev/plotting/Project.toml
+!dev/plotting/*.jl
 bibliography/
 presentations/
 projects/

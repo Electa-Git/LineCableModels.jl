@@ -69,8 +69,8 @@ const _RECTSTRANDS_FIELD_RULES = (
 Validation.rules(::Type{RectStrands}) = _RECTSTRANDS_FIELD_RULES
 function Validation.rules(::Type{<:RectStrands})
     return (
-        Validation.OwnerRule(:rectangular_strand_fields, layer ->
-            Validation.check(RectStrands, _rectangular_strand_fields(layer))),
+        Validation.OwnerRule(:rectangular_strand_fields,
+            layer -> Validation.check(RectStrands, _rectangular_strand_fields(layer))),
         Validation.OwnerRule(:rectangular_strand_geometry,
             _check_rectangular_strand_geometry)
     )

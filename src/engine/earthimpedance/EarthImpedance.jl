@@ -1,6 +1,10 @@
 """
     LineCableModels.Engine.EarthImpedance
 
+Define earth-return impedance formulations. Engine evaluates `Papadopoulos`
+directly. External implementations may support the formula identities `Deri`,
+`Wedepohl`, `Saad`, `Ametani`, and `Lucca`.
+
 # Dependencies
 
 $(IMPORTS)
@@ -14,8 +18,8 @@ export Ametani, Deri, Lucca, Saad, Wedepohl
 
 # Module-specific dependencies
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDSIGNATURES
-import ...LineCableModels: description, nominal
-import ..Engine: EarthImpedanceFormulation
+import ...LineCableModels: nominal
+import ..Engine: EarthImpedanceFormulation, description
 import ..Engine: conductivity, bessel_difference
 using QuadGK: quadgk
 

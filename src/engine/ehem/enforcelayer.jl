@@ -6,7 +6,7 @@ Reduce evaluated layered-earth properties to air plus one selected layer.
 $(TYPEDFIELDS)
 """
 struct EnforceLayer <: AbstractEHEMFormulation
-    "Earth-layer index; `-1` selects the bottom layer."
+    "Earth-layer index. `-1` selects the bottom layer."
     layer::Int
 
     function EnforceLayer(; layer::Int = -1)

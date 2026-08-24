@@ -1,21 +1,17 @@
 """
     LineCableModels.Engine
 
-The [`Engine`](@ref) module provides the main numerical functionality of
-[`LineCableModels.jl`](index.md). It implements the materialized problems,
-formulations, and primitive results used to calculate frequency-dependent
-electrical parameters (Z/Y matrices) of line and cable systems.
+Calculate cable constants and frequency-dependent line-parameter matrices from
+materialised cable systems.
 
 # Overview
 
-- Calculation of frequency-dependent series impedance (Z) and shunt admittance (Y) matrices.
-- Direct uncertainty propagation through the optional Measurements extension.
-- Internal impedance computation for solid, tubular and multi-layered coaxial conductors.
-- Earth return impedances/admittances for overhead lines and underground cables (valid up to 10 MHz).
-- Support for frequency-dependent soil properties.
-- Handling of arbitrary polyphase systems with multiple conductors per phase.
-- Phase and sequence domain calculations for ordinary and uncertain values.
-- Novel N-layer concentric cable formulation with semiconductor modeling.
+- Define materialised problems, formulations, and primitive results.
+- Calculate conductor, insulation, and earth-return impedance and admittance.
+- Assemble phase-domain series-impedance and shunt-admittance matrices.
+- Apply bundle reduction, Kron elimination, transposition, and modal
+  transformations.
+- Compare, tabulate, and describe plots of completed line-parameter results.
 
 # Dependencies
 
@@ -45,25 +41,20 @@ export compute, plot
 using LinearAlgebra
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES,
                            METHODLIST, FUNCTIONNAME
-import ..LineCableModels: description, LineParamsDomain, PhaseDomain, ModalDomain, domain
 import ..LineCableModels: retired_fem_sector, _RETIRED_FEM
-import ..LineCableModels: basis, Z, Y, R, X, L, G, B, C,
-                          series_impedance, shunt_admittance,
-                          resistance, reactance, inductance,
-                          conductance, susceptance, capacitance,
-                          frequencies, nconductors, nfrequencies
+import ..LineCableModels: basis, R, L, C, resistance, inductance, capacitance
 import ..LineCableModels: nominal, standard_uncertainty
 import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
                   AbstractProblemResult, FormulationOptions, ComputationOptions,
                   formulation_options, computation_options, compute, observables
 
-using ..UnitHandler
+using ..QuantityUnits
 using ..PlotBuilder
 using ..Materials
 using ..EarthProps: EarthModel
-using ..DataModel: CableDesign, CableConstants, LineCableSystem
+using ..DataModel: CableDesign, CableConstants, LineCableSystem, ncables, nphases
 import ..DataModel
-import ..LineCableModels: validate, ncables, nphases
+import ..LineCableModels: validate
 import ..Validation
 using Logging
 using SpecialFunctions
@@ -71,17 +62,21 @@ using QuadGK: quadgk
 
 const FEM = _RETIRED_FEM
 
-include("types.jl")
+include("interfaces.jl")
+include("formulations.jl")
 include("earthkernels.jl")
 
 include("earthproperties/EarthProperties.jl")
 using .EarthProperties: CPEarth
 
-# Problem definitions
-include("problemdefs.jl")
-include("lineparamopts.jl")
-include("lineparams.jl")
-include("benchmark.jl")
+# Problem and analytical formulation definitions
+include("problems.jl")
+include("options.jl")
+
+# Line-parameter results and their protocols
+include("lineparameters/lineparameters.jl")
+include("lineparameters/quantities.jl")
+include("lineparameters/benchmark.jl")
 
 # Submodule `InternalImpedance`
 include("internalimpedance/InternalImpedance.jl")
@@ -112,53 +107,21 @@ using .Transforms: reciprocity!, ideal_transposition!
 include("ehem/EHEM.jl")
 using .EHEM
 
-# Immutable solver input and shared numerical ownership
+# Immutable solver input and numerical action
 include("input.jl")
-include("trace.jl")
-
-# Calculation methods
-include("solver.jl")
+include("lineparameters/trace.jl")
+include("logging.jl")
+include("earthreturn.jl")
+include("impedance.jl")
+include("admittance.jl")
+include("compute.jl")
 include("reduction.jl")
 
-# Override I/O methods
-include("base.jl")
-include("plotspecs.jl")
-include("benchmarkplot.jl")
-include("dataframe.jl")
-
-"""
-    plot(parameters[, quantities]; kwargs...)
-    plot(first, second, rest...; legend, quantities=(), kwargs...)
-    plot(impedance, frequencies[, quantities]; kwargs...)
-    plot(admittance, frequencies[, quantities]; kwargs...)
-
-Plot computed line parameters with a loaded Makie backend. `quantities` is a
-tuple of accessors such as `(R, L, G, C)` or `(abs, angle)`.
-
-With two or more positional [`LineParameters`](@ref) results, create one
-matrix-grid page per selected quantity. Grid position `(i, j)` overlays the
-corresponding frequency series from every result. The required `legend` tuple
-must contain one label per result.
-
-Without an explicit selection, [`LineParameters`](@ref) produces separate
-series-impedance and shunt-admittance figures. Each figure places the real part
-on the left and the imaginary part on the right. Every selected matrix element
-is represented by one data series.
-
-Load `CairoMakie`, `GLMakie`, or `WGLMakie` before calling this function.
-
-# Returns
-
-- A `Vector{UIPlot}` containing one figure for each selected matrix family.
-"""
-function plot end
-
-function plot(args...; kwargs...)
-    throw(
-        ArgumentError(
-        "Plotting is optional. Load CairoMakie, GLMakie, or WGLMakie before calling plot.",
-    ),
-    )
-end
+# Line-parameter protocols and renderer-independent plot definitions
+include("lineparameters/base.jl")
+include("lineparameters/plot.jl")
+include("lineparameters/plotdefinition.jl")
+include("lineparameters/comparisonplot.jl")
+include("lineparameters/dataframe.jl")
 
 end # module Engine

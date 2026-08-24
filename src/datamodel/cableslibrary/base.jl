@@ -13,32 +13,17 @@ Base.getindex(lib::CablesLibrary, key::String) = getindex(lib.data, key)
 """
 $(TYPEDSIGNATURES)
 
-Retrieves a cable design from a [`CablesLibrary`](@ref) object by its ID.
+Return the cable design stored under `cable_id`, or `default` when absent.
 
 # Arguments
 
-- `library`: An instance of [`CablesLibrary`](@ref) from which the cable design will be retrieved.
-- `cable_id`: The ID of the cable design to retrieve.
+- `library`: Cable-design library.
+- `cable_id`: Stored cable identifier.
+- `default`: Value returned when `cable_id` is absent. Default: `nothing`.
 
 # Returns
 
-- A [`CableDesign`](@ref) object corresponding to the given `cable_id` if found, otherwise `nothing`.
-
-# Examples
-
-```julia
-library = CablesLibrary()
-design = CableDesign("example", ...) # Initialize a CableDesign
-add!(library, design)
-
-# Retrieve the cable design
-retrieved_design = $(FUNCTIONNAME)(library, "cable1")
-println(retrieved_design.id)  # Prints "example"
-
-# Attempt to retrieve a non-existent design
-missing_design = $(FUNCTIONNAME)(library, "nonexistent_id")
-println(missing_design === nothing)  # Prints true
-```
+- The stored [`CableDesign`](@ref), or `default`.
 
 """
 function Base.get(library::CablesLibrary, cable_id::String, default = nothing)
@@ -48,29 +33,20 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Removes a cable design from a [`CablesLibrary`](@ref) object by its ID.
+Remove the cable design stored under `cable_id`.
 
 # Arguments
 
-- `library`: An instance of [`CablesLibrary`](@ref) from which the cable design will be removed.
-- `cable_id`: The ID of the cable design to remove.
+- `library`: Cable-design library.
+- `cable_id`: Stored cable identifier.
 
 # Returns
 
-- Nothing. Modifies the `data` field of the [`CablesLibrary`](@ref) object in-place by removing the specified cable design if it exists.
+- The modified `library`.
 
-# Examples
+# Errors
 
-```julia
-library = CablesLibrary()
-design = CableDesign("example", ...) # Initialize a CableDesign
-add!(library, design)
-
-# Remove the cable design
-$(FUNCTIONNAME)(library, "example")
-haskey(library, "example")  # Returns false
-```
-
+- Throws `KeyError` when `cable_id` is absent.
 """
 function Base.delete!(library::CablesLibrary, cable_id::String)
     haskey(library, cable_id) || throw(KeyError(cable_id))

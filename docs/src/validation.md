@@ -7,7 +7,7 @@ Pages = ["validation.md"]
 Depth = 3
 ```
 
-[`validate`](@ref) is the common validation entry point. It returns its argument
+[`validate`](@ref) is the common validation entry point. The function returns its argument
 unchanged when the value is valid and throws a native Julia exception when it is not:
 
 ```julia
@@ -22,7 +22,7 @@ calculate and validate a complete candidate state before changing the owned coll
 
 ## Declarative rules
 
-Types with simple field constraints specialize
+Types with field-local constraints specialise
 `LineCableModels.Validation.rules(::Type)`. The generic `Validation.check` evaluates
 those rules and returns the original value:
 
@@ -42,15 +42,15 @@ validate(value::Annulus) = check(typeof(value), value)
 Available primitive rules cover finite, positive, nonnegative, integer, type,
 membership, field-ordering, and cable-packing checks. Cross-field rules that require
 domain knowledge remain beside their owning type. A direct `validate(::OwnedType)`
-method is appropriate when dispatch expresses the check more clearly than a new generic
-rule.
+method is appropriate when the check requires type dispatch instead of a reusable
+field rule.
 
 The failure type communicates the category:
 
-- `ArgumentError` for invalid choices or value kinds;
-- `DomainError` for values outside a physical or mathematical domain;
-- `DimensionMismatch` for incompatible shapes;
-- `MethodError` when no supported operation exists for the supplied types;
+- `ArgumentError` for invalid choices or value kinds.
+- `DomainError` for values outside a physical or mathematical domain.
+- `DimensionMismatch` for incompatible shapes.
+- `MethodError` when no supported operation exists for the supplied types.
 - `KeyError` for missing library entries.
 
 ## Materialized constructors
@@ -61,13 +61,15 @@ Cable-part constructors accept resolved numeric geometry. For example:
 part = Tubular(r_in, r_ex, material)
 ```
 
-Radius-versus-thickness intent, repetition, and variation belong to the builder
-definitions. The definitions promote all intent before materializing the first cable object. Materialized
-objects therefore contain one scalar type and one unambiguous geometry.
+Radius or thickness selection, repetition, and variation belong to the builder
+definitions. A builder promotes its complete input before materialising the
+first cable object. Materialised objects therefore contain one scalar type and
+one resolved geometry.
 
-`add!` on a materialized group, design, earth model, or system accepts only the same
-scalar type as the destination. A mixed-scalar insertion throws before mutation; use an
-explicit `convert` or build through a Spec when whole-description promotion is wanted.
+`add!` on a materialised group, design, earth model, or system accepts only the same
+scalar type as the destination. A mixed-scalar insertion throws before mutation. Use an
+explicit `convert` or rebuild the complete description when promotion is
+required.
 
 Operating temperature is not a cable-part constructor input. Cable designs represent
 the common material reference state and reject mixed material reference temperatures.
@@ -76,15 +78,15 @@ correction without mutating the design.
 
 ## Packing limits
 
-[`maxfill`](@ref) is the single source for cable packing limits:
+[`maxfill`](@ref) calculates cable packing limits:
 
 ```julia
 maxfill(CircStrands, r_in, wire_radius)
 maxfill(RectStrands, lay_radius, width)
 ```
 
-The cable-part validators and WirePatterns estimators call these same methods, so direct
-construction and best-effort estimation use identical geometric limits.
+Cable-part validators and WirePatterns estimators call the same methods, so
+direct construction and estimation use identical geometric limits.
 
 ## API reference
 

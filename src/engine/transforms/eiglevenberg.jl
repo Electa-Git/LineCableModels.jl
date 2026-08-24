@@ -13,23 +13,24 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Apply Levenberg–Marquardt modal decomposition to a frequency-dependent
-[`LineParameters`](@ref) object. Returns the (frequency-tracked) modal
-transformation matrices and a **modal-domain** `LineParameters` holding the
-**modal impedance/admittance** (diagonal per frequency) with the input basis.
+Transform phase-domain line parameters with frequency-tracked
+Levenberg–Marquardt modal decomposition.
 
 # Arguments
 
-- `lp`: Phase-domain line parameters (series `Z`, shunt `Y`, and `f`).
-- `f::Levenberg`: Functor with solver tolerance.
+- `lp`: Phase-domain line parameters.
 
 # Returns
 
-- `Ti`: Transformation matrices `T(•)` as a 3-tensor `n×n×nfreq` (columns are modes).
-- `LineParameters`: Modal-domain parameters with the same basis as `lp`:
-  - Series impedance `Zm` (diagonal per frequency) \\[Ω/m\\] or \\[Ω\\].
-  - Shunt admittance `Ym` (diagonal per frequency) \\[S/m\\] or \\[S\\].
+- A tuple containing the frequency-indexed transformation tensor and
+  modal-domain [`LineParameters`](@ref). The returned impedance and admittance
+  matrices are diagonal at each frequency and retain the input storage basis.
 
+# Notes
+
+`f.tol` controls the accepted off-diagonal ratio. A larger residual emits a
+warning and retains the calculated matrix. An accepted residual is set to an
+exact diagonal matrix.
 """
 function (f::Levenberg)(
         lp::LineParameters{
@@ -57,41 +58,31 @@ function (f::Levenberg)(
     @inbounds for k in 1:nfreq
         Tk .= @view Ti[:, :, k]
         invT .= inv(Tk)
-        @views begin # enforce reciprocity
+        @views begin # Enforce reciprocity.
             copyto!(Zk, lp.Z.values[:, :, k])
             reciprocity!(Zk)
             copyto!(Yk, lp.Y.values[:, :, k])
             reciprocity!(Yk)
         end
-        # Modal matrices (carry uncertainties)
+        # Modal matrices retain uncertainty values.
         @views Zm[:, :, k] .= transpose(Tk) * Zk * Tk
         @views Ym[:, :, k] .= invT * Yk * transpose(invT)
 
         fname = String(nameof(typeof(f)))
         offdiagZ = offdiagonal_ratio(Zm[:, :, k])
         if offdiagZ > f.tol
-            @warn "$fname: transformed Z not diagonal within tolerance, check your results" ratio = offdiagZ
+            @warn "$fname: transformed Z exceeds the off-diagonal tolerance" ratio = offdiagZ tolerance = f.tol
         else
-            @views Zm[:, :, k] .= Diagonal(diag(Zm[:, :, k]))  # enforce exact diagonal
+            @views Zm[:, :, k] .= Diagonal(diag(Zm[:, :, k]))
         end
         offdiagY = offdiagonal_ratio(Ym[:, :, k])
         if offdiagY > f.tol
-            @warn "$fname: transformed Y not diagonal within tolerance, check your results" ratio = offdiagY
+            @warn "$fname: transformed Y exceeds the off-diagonal tolerance" ratio = offdiagY tolerance = f.tol
         else
-            @views Ym[:, :, k] .= Diagonal(diag(Ym[:, :, k]))  # enforce exact diagonal
+            @views Ym[:, :, k] .= Diagonal(diag(Ym[:, :, k]))
         end
     end
-    # 2) Apply deterministic T to uncertain (or plain) inputs for *physical* outputs
-    # Zm, Ym, Zc_mod, Yc_mod, Zch, Ych =
-    # 	modal_quantities(Ti, lp.Z.values, lp.Y.values)
-    # Gdiag = gamma(Ti, lp.Z.values, lp.Y.values)
-
     return Ti, LineParameters(ModalDomain, Zm, Ym, lp.f; basis = basis(lp))
-    # Keep  original return (Ti, modal characteristic) for compatibility,
-    # but you now also have Zm, Ym, Zch, Ych, Gdiag available for downstream use.
-    # return Ti, LineParameters(SeriesImpedance(Zc_mod), ShuntAdmittance(Yc_mod), lp.f),
-    # LineParameters(SeriesImpedance(Zm), ShuntAdmittance(Ym), lp.f),
-    # LineParameters(SeriesImpedance(Zch), ShuntAdmittance(Ych), lp.f), Gdiag
 end
 
 #= ---------------------------------------------------------------------------
@@ -142,7 +133,7 @@ function levenberg_transform(
 
     nfreq = size(Z, 3)
     Ti = zeros(T, n, n, nfreq)
-    g = zeros(T, n, n, nfreq)  # store as diagonalized in n×n×nfreq for convenience
+    g = zeros(T, n, n, nfreq)  # Store diagonal values in the shared n×n×nfreq shape.
 
     Zk = zeros(T, n, n)
     Yk = zeros(T, n, n)
@@ -163,7 +154,7 @@ function levenberg_transform(
 
         S = Yk * Zk
 
-        # Normalize as in legacy: (S / norm_val) - I
+        # Normalise as (S / norm_val) - I.
         ω = 2 * (one(f[k]) * π) * f[k]
         nrm = -(ω^2) * ε0 * μ0
         S̃ = (S ./ nrm) - I
@@ -203,7 +194,7 @@ function levenberg_transform(
             F[1:ord_sq] .= vec(Rr)
             F[(ord_sq + 1):(2 * ord_sq)] .= vec(Ri)
 
-            # Column normalization constraints
+            # Column normalisation constraints.
             # For each column j: ||t_r||^2 - ||t_i||^2 = 1  and  t_r ⋅ t_i = 0
             c1 = sum(abs2.(Tr), dims = 1) .- sum(abs2.(Ti_), dims = 1) .- 1
             c2 = sum(Tr .* Ti_, dims = 1)
@@ -239,9 +230,9 @@ function levenberg_transform(
 
         λr = @view x[(2 * ord_sq + 1):(2 * ord_sq + n)]
         λi = @view x[(2 * ord_sq + n + 1):(2 * ord_sq + 2n)]
-        λ̃ = λr .+ im .* λi   # normalized eigenvalues
+        λ̃ = λr .+ im .* λi   # Normalised eigenvalues.
 
-        # Undo normalization: λ = (λ̃ + 1) * nrm  ; γ = sqrt(λ)
+        # Undo normalisation: λ = (λ̃ + 1) * nrm, then γ = sqrt(λ).
         λ = (λ̃ .+ one(eltype(λ̃))) .* nrm
         γ = sqrt.(λ)
 
@@ -252,7 +243,7 @@ function levenberg_transform(
     return Ti, g
 end
 
-# In-place rotation to minimize imag part column-wise (per frequency slice)
+# Rotate columns in place to minimise their imaginary parts at each frequency.
 function _rot_min_imag!(Ti::AbstractArray{T, 3}) where {T <: Complex}
     n, n2, nfreq = size(Ti)
     n == n2 || throw(DimensionMismatch("Ti must be n×n×nfreq"))
@@ -314,7 +305,7 @@ function modal_quantities(
     return Zm, Ym, Zc_mod, Yc_mod, Zch, Ych
 end
 
-# column rotation to minimize imag parts
+# Rotate columns to minimise their imaginary parts.
 function rot!(S::AbstractMatrix{T}) where {T <: Complex}
     n, m = size(S)
     n == m || throw(DimensionMismatch("Input must be square"))
@@ -354,7 +345,7 @@ function rot!(S::AbstractMatrix{T}) where {T <: Complex}
     return S
 end
 
-# tiny helper: in-place imag (for metric term; avoids repeated allocations)
+# Compute the imaginary part in place for the metric term.
 @inline function imag!(x::AbstractVector{<:Complex})
     @inbounds for i in eachindex(x)
         x[i] = imag(x[i])

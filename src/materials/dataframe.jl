@@ -3,22 +3,16 @@ import DataFrames: DataFrame
 """
 $(TYPEDSIGNATURES)
 
-Lists the contents of a [`MaterialsLibrary`](@ref) as a `DataFrame`.
+Convert a material library to one row per stored material.
 
 # Arguments
 
-- `library`: Instance of [`MaterialsLibrary`](@ref) to be displayed.
+- `library`: Material library.
 
 # Returns
 
-- A `DataFrame` containing the material properties.
-
-# Examples
-
-```julia
-library = MaterialsLibrary()
-df = $(FUNCTIONNAME)(library)
-```
+- A `DataFrame` with `name`, `rho`, `eps_r`, `mu_r`, `T0`, and `alpha`
+  columns.
 
 """
 function DataFrame(library::MaterialsLibrary)::DataFrame

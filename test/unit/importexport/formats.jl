@@ -136,7 +136,7 @@ end
             cat(Diagonal([3.0+4.0im, 4.0+5.0im]); dims = 3),
             [50.0]
         )
-        diagonal_path=@test_logs (:warn, r"Z appears modal") (:warn, r"Y appears modal") export_data(
+        diagonal_path=@test_logs (:warn, r"Z is diagonal") (:warn, r"Y is diagonal") export_data(
             :xlsx,
             diagonal;
             file_name = joinpath(directory, "diagonal.xlsx")

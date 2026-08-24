@@ -1,8 +1,8 @@
 """
     LineCableModels.DataModel.BaseParams
 
-Scientific kernels used to materialize cable geometry and base-state RLCG
-properties. Each function promotes its inputs with Base numeric rules.
+Calculate cable geometry and base-state RLCG properties. Each function
+promotes its inputs with Base numeric rules.
 """
 module BaseParams
 

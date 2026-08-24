@@ -96,7 +96,7 @@ function union_pat_str(tokens::Vector{String})
     "(?:" * join(escape_for_rx.(ts), "|") * ")"
 end
 
-# If you really want a Regex anchored at start, wrap union_pat_str
+# Anchor the alternation at the start of the input.
 union_pat(tokens::Vector{String}) = Regex("^" * union_pat_str(tokens))
 
 const RXS = let rxs = Dict{Symbol, Regex}()
@@ -152,16 +152,23 @@ end
 # ─────────────────────────── Parser ────────────────────────────
 
 """
-    vdeparse(code::AbstractString) -> Dict{Symbol,String}
+$(TYPEDSIGNATURES)
 
-Parses VDE/DIN 0271/0276 cable codes:
-- **stub** (first non-space token): designation → conductor_material (default copper) → insulation (default paper) → screen → waterblocking → inner_sheath → armouring → sheath → grounding
-- **tail**: cores × cross-section (optional screen csa), voltage, conductor type (R/S/O + E/M/H, optional `/V` ⇒ compact)
+Parse a VDE/DIN 0271 or 0276 cable designation.
 
-Only parsed keys are returned; defaults are materialized when omitted.
+# Arguments
+
+- `code`: Cable designation containing the compact type token followed by
+  optional conductor count, cross-sections, voltage, and conductor form.
+
+# Returns
+
+- A dictionary of parsed designation fields. Omitted conductor and insulation
+  tokens produce copper and impregnated-paper defaults. Unparsed compact-token
+  text is returned under `:unparsed_stub`.
 """
 function vdeparse(code::AbstractString)::Dict{Symbol, String}
-    # normalize spaces (NBSP -> space) and trim
+    # Normalise spaces (NBSP to space) and trim the result.
     s = replace(code, '\u00A0' => ' ')
     s = strip(s)
 
@@ -185,7 +192,7 @@ function vdeparse(code::AbstractString)::Dict{Symbol, String}
             out[fld] = MAP[fld][key]
             rest = rest[(length(tok) + 1):end]  # consume
         else
-            # materialize normative omissions
+            # Materialise values omitted by the source format.
             if fld == :conductor
                 out[fld] = "copper conductor"
             elseif fld == :insulation

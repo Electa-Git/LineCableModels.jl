@@ -1,6 +1,11 @@
 """
     LineCableModels.Engine.EarthAdmittance
 
+Define formulations for the earth contribution to shunt admittance.
+
+`IdealGround` sets the environmental potential coefficient to zero.
+`Papadopoulos` evaluates the homogeneous-earth integral.
+
 # Dependencies
 
 $(IMPORTS)
@@ -13,8 +18,8 @@ export IdealGround, Papadopoulos
 
 # Module-specific dependencies
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDSIGNATURES
-import ...LineCableModels: description, nominal
-import ..Engine: EarthAdmittanceFormulation
+import ...LineCableModels: nominal
+import ..Engine: EarthAdmittanceFormulation, description
 import ..Engine: conductivity, bessel_difference
 using QuadGK: quadgk
 
@@ -22,6 +27,7 @@ vacuum_permittivity(value) = one(value) * 88541878128 * (one(value) * 10)^(-22)
 vacuum_permeability(value) = one(value) * 4 * (one(value) * π) * (one(value) * 10)^(-7)
 
 include("homogeneous.jl")
+include("idealground.jl")
 include("base.jl")
 
 end # module EarthAdmittance

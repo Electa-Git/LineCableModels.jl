@@ -22,7 +22,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Earth models now store static physical layers only. Analysis frequencies belong to the
   problem and frequency-dependent earth properties belong to the formulation.
 - Mathematical functions use short physical names without the former `calc_` prefix.
-- Material and cable JSON files use an explicit versioned schema and type registry.
+- Material and cable JSON files use an explicit versioned schema and dispatched
+  type tags.
   JLS loading remains supported for trusted matching package types only.
 - Wire-pattern searches return typed `WireEstimate` results, including ranked
   best-effort candidates for feasible search inputs that cannot meet every limit.
@@ -32,21 +33,21 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   inferred `Gridspace` construction from the public declarative builders.
 - Converged calculation ownership around `Grammar` action generics,
   `ParametricBuilder` deterministic traversal, `UQ` uncertainty propagation,
-  and end-to-end analytical execution in `Engine`.
+  and complete analytical execution in `Engine`.
 - Reduced Gridspace to explicit finite `Grid` sources, local product or zip
   composition, one internal unresolved point, and recursive materialization or
-  realization through concrete callable builders. Scalar public builder calls
+  realisation through concrete callable builders. Scalar public builder calls
   now construct eager domain values.
 - Converged PlotBuilder on definition-driven recipes and one fixed sequence:
   entitle, parse, resolve, observe, axes, series, views, pages, layout,
   decorate, and finish.
-- Unified ordinary and higher-order execution under `compute`, with
+- Routed ordinary and higher-order execution through `compute`, with
   `Combinatorial(inner)`, `LinearError(inner)`, and `MonteCarlo(inner)` selected
   explicitly.
 - Renamed the built-in backend to `Formulation(:analytical)` and selected
   parameter or trace output through formulation options.
-- Made the declarative builder the default modeling API while retaining strict
-  materialized constructors through explicit submodule imports.
+- Made the declarative builder the default modelling API while retaining strict
+  materialised constructors through explicit submodule imports.
 - Moved Measurements.jl and Distributions.jl integrations into package
   extensions.
 - Restricted radial declarations to numeric radius or thickness semantics.
@@ -64,7 +65,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `a71bdfe1ac832f27a0c88b1d02596194aac46ec7` as the last snapshot able to migrate those
   files.
 - Removed the former parameter tuple grammar, duplicate execution entrypoints,
-  specialized analysis containers, and radial proxy wrapper types.
+  specialised analysis containers, and radial proxy wrapper types.
 - Removed Grid identity and binding machinery, public temporary point records,
   traversal coordinates and metadata, result-side failure dictionaries, and
   passive forwarding definitions from the parametric construction path.
@@ -92,9 +93,9 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Documentation examples and development conventions were consolidated.
 - Line-parameter results now carry an explicit `:per_length` or `:total` basis,
   and use `Z`, `Y`, `R`, `X`, `L`, `G`, `B`, and `C` accessors consistently.
-- `UnitHandler` now maps physical accessors to quantity, unit, label, symbol,
+- `QuantityUnits` now maps physical accessors to quantity, unit, label, symbol,
   and scaling semantics without extracting values from result containers.
-- `preview` and statistical plots return one `UIPlot`; line-parameter plots
+- `preview` and statistical plots return one `UIPlot`. Line-parameter plots
   return `Vector{UIPlot}`.
 
 ### Removed
@@ -102,7 +103,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Binder experiments and Binder-specific notebook bootstrapping.
 - The accidental standalone `src/cablebuilder` subsystem. The maintained
   `ParametricBuilder.CableBuilder`, covariance work, and its tests remain.
-- FEM/Gmsh/GetDP integration and sector-shaped cable support. The final
+- FEM/Gmsh/GetDP support and sector-shaped cable support. The final
   pre-removal snapshot is `legacy/fem-sector` at commit
   `b75dd2723f90a83ec090b20605ea42af57f4a9c3`.
 - The obsolete TODO scraper and duplicate tag-release workflow.

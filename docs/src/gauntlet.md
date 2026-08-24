@@ -10,9 +10,8 @@ The snapshot uses the package's `LineParameters` and
 `LineParametersBenchmark` types. No PSCAD-specific result tensor survives
 past parsing.
 
-This example creates a small hidden snapshot with the same fields as a
-recorded case. Replace `snapshot_path` with the path of the case that you want
-to inspect.
+The code creates a small hidden snapshot with the fields used below. Set
+`snapshot_path` to a recorded case path when inspecting stored results.
 
 ````@example gauntlet
 using LineCableModels
@@ -85,8 +84,8 @@ comparison = snapshot["reference_comparison"]
 comparison.Z.absolute
 ````
 
-A relative error is not useful when its absolute difference is already below
-the chosen display floor. Pass the case's absolute Z and Y tolerances to
+Dividing by a reference magnitude below the chosen display floor amplifies
+numerical noise. Pass the case's absolute Z and Y tolerances to
 `DataFrame` as `zero_atol`. The table reports `missing` for those relative
 entries, marks why they are unavailable, and leaves the raw comparison
 untouched.
@@ -100,7 +99,7 @@ sort!(errors, [:quantity, :rms_absolute], rev = [false, true])
 errors
 ````
 
-The deliberately noisy Y mutual term still has its original relative value.
+The modified Y mutual term still has its original relative value.
 Only its table representation is suppressed.
 
 ````@example gauntlet
@@ -168,8 +167,8 @@ DataFrame(
 )
 ````
 
-The full recorded metadata can be inspected directly when a formulation or
-execution environment needs closer review.
+`benchmark.environment` contains the recorded Julia, operating-system, thread,
+and BLAS identifiers.
 
 ````@example gauntlet
 benchmark.environment

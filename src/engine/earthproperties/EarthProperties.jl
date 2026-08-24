@@ -8,8 +8,7 @@ module EarthProperties
 export CPEarth, evaluate
 
 using DocStringExtensions: TYPEDEF, TYPEDSIGNATURES
-import ...LineCableModels: description
-import ..Engine: AbstractEarthPropertiesFormulation
+import ..Engine: AbstractEarthPropertiesFormulation, description
 using ...EarthProps: EarthModel
 
 include("constant.jl")

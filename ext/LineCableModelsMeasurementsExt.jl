@@ -1,3 +1,9 @@
+"""
+    LineCableModelsMeasurementsExt
+
+Materialise `UncertainValue` as Measurements values and preserve those values
+through numerical kernels, display, and data exchange.
+"""
 module LineCableModelsMeasurementsExt
 
 using Calculus
@@ -71,18 +77,44 @@ function _lift_complex(function_value, order, value::Complex{<:Measurements.Meas
     )
 end
 
-for name in (
-    :besselix, :besselkx, :besseljx, :besselyx, :besselhx,
-    :besseli, :besselk, :besselj, :bessely, :besselh
-)
-    @eval begin
-        function SpecialFunctions.$name(
-                order::Real,
-                value::Complex{<:Measurements.Measurement}
-        )
-            return _lift_complex(SpecialFunctions.$name, order, value)
-        end
-    end
+function SpecialFunctions.besselix(order::Real, value::Complex{<:Measurements.Measurement})
+    return _lift_complex(SpecialFunctions.besselix, order, value)
+end
+
+function SpecialFunctions.besselkx(order::Real, value::Complex{<:Measurements.Measurement})
+    return _lift_complex(SpecialFunctions.besselkx, order, value)
+end
+
+function SpecialFunctions.besseljx(order::Real, value::Complex{<:Measurements.Measurement})
+    return _lift_complex(SpecialFunctions.besseljx, order, value)
+end
+
+function SpecialFunctions.besselyx(order::Real, value::Complex{<:Measurements.Measurement})
+    return _lift_complex(SpecialFunctions.besselyx, order, value)
+end
+
+function SpecialFunctions.besselhx(order::Real, value::Complex{<:Measurements.Measurement})
+    return _lift_complex(SpecialFunctions.besselhx, order, value)
+end
+
+function SpecialFunctions.besseli(order::Real, value::Complex{<:Measurements.Measurement})
+    return _lift_complex(SpecialFunctions.besseli, order, value)
+end
+
+function SpecialFunctions.besselk(order::Real, value::Complex{<:Measurements.Measurement})
+    return _lift_complex(SpecialFunctions.besselk, order, value)
+end
+
+function SpecialFunctions.besselj(order::Real, value::Complex{<:Measurements.Measurement})
+    return _lift_complex(SpecialFunctions.besselj, order, value)
+end
+
+function SpecialFunctions.bessely(order::Real, value::Complex{<:Measurements.Measurement})
+    return _lift_complex(SpecialFunctions.bessely, order, value)
+end
+
+function SpecialFunctions.besselh(order::Real, value::Complex{<:Measurements.Measurement})
+    return _lift_complex(SpecialFunctions.besselh, order, value)
 end
 
 end

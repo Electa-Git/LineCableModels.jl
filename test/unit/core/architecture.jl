@@ -42,15 +42,93 @@
     @test all(!occursin("calc_", contents) for (_, contents) in maintained)
 
     eager_files=(
-        "circstrands.jl", "rectstrands.jl", "strip.jl", "tubular.jl",
-        "insulator.jl", "semicon.jl", "conductorgroup.jl", "insulatorgroup.jl",
-        "cablecomponent.jl", "cabledesign.jl"
+        joinpath("src", "datamodel", "circstrands.jl"),
+        joinpath("src", "datamodel", "rectstrands.jl"),
+        joinpath("src", "datamodel", "strip.jl"),
+        joinpath("src", "datamodel", "tubular.jl"),
+        joinpath("src", "datamodel", "insulator.jl"),
+        joinpath("src", "datamodel", "semicon.jl"),
+        joinpath("src", "datamodel", "conductorgroup.jl"),
+        joinpath("src", "datamodel", "insulatorgroup.jl"),
+        joinpath("src", "datamodel", "cablecomponent", "cablecomponent.jl"),
+        joinpath("src", "datamodel", "cabledesign", "cabledesign.jl")
     )
-    for file in eager_files
-        contents=source[joinpath("src", "datamodel", file)]
+    for path in eager_files
+        contents=source[path]
         @test !occursin(r"\btemperature\s*::", contents)
         @test !occursin(r";\s*temperature\s*=", contents)
     end
+end
+
+@testitem "Core / architecture / ownership-centered recursive layout" tags=[:unit] begin
+    root=pkgdir(LineCableModels)
+    source_root=joinpath(root, "src")
+    extension_root=joinpath(root, "ext")
+    source_files=filter(endswith(".jl"),
+        [joinpath(directory, file)
+         for (directory, _, files) in walkdir(source_root)
+         for file in files])
+    source=Dict(relpath(path, root)=>read(path, String) for path in source_files)
+
+    expected_entries=(
+        joinpath("src", "grammar", "Grammar.jl"),
+        joinpath("src", "quantityunits", "QuantityUnits.jl"),
+        joinpath("src", "validation", "Validation.jl"),
+        joinpath("src", "plotbuilder", "PlotBuilder.jl"),
+        joinpath("src", "datamodel", "DataModel.jl"),
+        joinpath("src", "engine", "Engine.jl"),
+        joinpath("src", "uq", "UQ.jl"),
+        joinpath("src", "importexport", "ImportExport.jl"),
+        joinpath("ext", "LineCableModelsMakieExt", "LineCableModelsMakieExt.jl")
+    )
+    @test all(isfile(joinpath(root, path)) for path in expected_entries)
+
+    expected_owned_files=(
+        joinpath("src", "datamodel", "packing.jl"),
+        joinpath("src", "datamodel", "cabledesign", "cabledesign.jl"),
+        joinpath("src", "datamodel", "preview", "cable.jl"),
+        joinpath("src", "engine", "lineparameters", "lineparameters.jl"),
+        joinpath("src", "engine", "lineparameters", "quantities.jl"),
+        joinpath("src", "engine", "earthreturn.jl"),
+        joinpath("src", "uq", "montecarlo", "compute.jl"),
+        joinpath("src", "importexport", "pscad", "pscad.jl"),
+        joinpath("ext", "LineCableModelsMakieExt", "UIComponents.jl"),
+        joinpath("dev", "plotting", "Project.toml")
+    )
+    @test all(isfile(joinpath(root, path)) for path in expected_owned_files)
+
+    obsolete_paths=(
+        joinpath("src", "Grammar.jl"),
+        joinpath("src", "unithandler"),
+        joinpath("src", "plotbuilder", "backendhandler"),
+        joinpath("src", "plotbuilder", "uicomponents"),
+        joinpath("src", "datamodel", "strands_handler.jl"),
+        joinpath("src", "engine", "solver.jl"),
+        joinpath("src", "uq", "plotspecs.jl"),
+        joinpath("integration", "plotting")
+    )
+    @test all(!ispath(joinpath(root, path)) for path in obsolete_paths)
+
+    @test !isdefined(LineCableModels, :UnitHandler)
+    @test !isdefined(LineCableModels.PlotBuilder, :BackendHandler)
+    @test isdefined(LineCableModels.DataModel, :PhysicalFillLimit)
+    @test !isdefined(LineCableModels.Validation, :PhysicalFillLimit)
+
+    @test parentmodule(LineCableModels.description) === LineCableModels.Engine
+    @test parentmodule(LineCableModels.Z) === LineCableModels.Engine
+    @test parentmodule(LineCableModels.frequencies) === LineCableModels.Engine
+    @test parentmodule(LineCableModels.ncables) === LineCableModels.DataModel
+    @test parentmodule(LineCableModels.nphases) === LineCableModels.DataModel
+    @test parentmodule(LineCableModels.compute) === LineCableModels.Grammar
+    @test parentmodule(LineCableModels.validate) === LineCableModels.Validation
+
+    @test all(!occursin("@eval", contents) for contents in values(source))
+    @test all(!occursin(r"^\s*(using|import)\s+.*Makie"m, contents)
+    for contents in values(source))
+    @test all(!occursin("@eval", read(path, String))
+    for (directory, _, files) in walkdir(extension_root)
+    for file in files if endswith(file, ".jl")
+    for path in (joinpath(directory, file),))
 end
 
 @testitem "ParametricBuilder / relax / isolated future provision" tags=[:unit] begin

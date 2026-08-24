@@ -1,19 +1,22 @@
-# TODO for LineCableModels.jl
+# Development plans
 
-This is a living document intended to track scientific development priorities and research directions for new features, methods and solutions to be included in the package.
+Development plans record proposed scientific models and numerical methods.
 
-For bugs, features and implementation taks, the [Issues](https://github.com/Electa-Git/LineCableModels.jl/issues) page is used.
+Track defects and implementation tasks in
+[GitHub Issues](https://github.com/Electa-Git/LineCableModels.jl/issues).
 
 ## Wishlist
 
-- [ ] Pipe-type cables and MoM-SO implementation.
+- [ ] Model pipe-type cables with MoM-SO.
 
 ## In progress
 
-- [ ] Implementation of frequency-dependent soil properties.
-- [ ] Development of novel formulations for cables composed of N concentrical layers, allowing for accurate representations of semiconductor materials.
-- [ ] Implementation of an interface to run finite element simulations using [Onelab](https://onelab.info/).
+- [ ] Implement frequency-dependent soil properties.
+- [ ] Formulate cables with N concentric layers, including semiconducting
+  layers.
+- [ ] Add an interface for finite-element simulations with
+  [Onelab](https://onelab.info/).
 
 ## Done ✓
 
-- [x] Object-oriented data model for cables, conductors, insulations and materials.
+- [x] Define material, conductor, insulation, cable, and line-system records.

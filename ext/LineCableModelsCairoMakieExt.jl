@@ -1,3 +1,8 @@
+"""
+    LineCableModelsCairoMakieExt
+
+Activate CairoMakie for non-interactive LineCableModels rendering.
+"""
 module LineCableModelsCairoMakieExt
 
 using CairoMakie

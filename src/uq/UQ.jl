@@ -1,8 +1,8 @@
 """
     LineCableModels.UQ
 
-Own uncertainty formulations, evaluation, retained statistical products, and
-uncertainty-specific presentation.
+Define direct linear propagation, conditional Monte Carlo sampling, retained
+statistics, and uncertainty-result presentation.
 """
 module UQ
 
@@ -22,15 +22,20 @@ import ..Grammar: compute, observables
 import ..ParametricBuilder
 import ..ParametricBuilder: result
 import ..PlotBuilder
-import ..UnitHandler
+import ..QuantityUnits
 using ..Grammar:
                  AbstractFormulation, AbstractProblemResult, AbstractUncertaintyResult
 using ..ParametricBuilder:
                            ParametricProblem
 
-include("types.jl")
-include("compute.jl")
+include("formulations.jl")
+include("statistics.jl")
+include("results.jl")
+include("base.jl")
+include("observables.jl")
+include("linearerror.jl")
+include("montecarlo/compute.jl")
 include("dataframe.jl")
-include("plotspecs.jl")
+include("montecarlo/plot.jl")
 
 end

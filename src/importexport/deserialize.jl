@@ -15,7 +15,7 @@ function _decode_float(type_name::AbstractString, value::AbstractDict)
         throw(ArgumentError("unknown special floating-point value '$special'"))
     end
     haskey(value, "value") || throw(ArgumentError(
-        "serialized $type_name requires a value field",
+        "serialised $type_name requires a value field",
     ))
     payload = value["value"]
     return T === BigFloat ? parse(BigFloat, String(payload)) : convert(T, payload)
@@ -35,11 +35,11 @@ function _deserialize_value(value)
         )
         if marker == "Measurement"
             applicable(_deserialize_extension, Val(:Measurement), value) || throw(
-                ArgumentError("deserializing Measurement values requires loading Measurements.jl"),
+                ArgumentError("deserialising Measurement values requires loading Measurements.jl"),
             )
             return _deserialize_extension(Val(:Measurement), value)
         end
-        throw(ArgumentError("unsupported serialized scalar tag '$marker'"))
+        throw(ArgumentError("unsupported serialised scalar tag '$marker'"))
     end
     haskey(value, "type") && return _decode_object(Val(Symbol(value["type"])), value)
     return Dict(String(key) => _deserialize_value(item) for (key, item) in value)
@@ -47,7 +47,7 @@ end
 
 function _required(value, name::AbstractString, owner)
     haskey(value, name) || throw(ArgumentError(
-        "serialized $owner requires a '$name' field",
+        "serialised $owner requires a '$name' field",
     ))
     return value[name]
 end
@@ -125,7 +125,7 @@ function _decode_object(::Val{:Semicon}, value)
 end
 
 function _decode_group(::Type{G}, layers; kwargs...) where {G}
-    isempty(layers) && throw(ArgumentError("serialized $G requires at least one layer"))
+    isempty(layers) && throw(ArgumentError("serialised $G requires at least one layer"))
     group = G(first(layers); kwargs...)
     for layer in Iterators.drop(layers, 1)
         add!(group, layer)
@@ -156,7 +156,7 @@ function _decode_object(::Val{:CableDesign}, value)
 end
 
 function _decode_object(::Val{tag}, value) where {tag}
-    throw(ArgumentError("unsupported serialized object tag '$tag'"))
+    throw(ArgumentError("unsupported serialised object tag '$tag'"))
 end
 
 function _read_document(file_name::AbstractString, expected_schema::AbstractString)

@@ -1,7 +1,7 @@
 @testitem "Extensions / backend dispatch / loaded extension activation" tags=[:extension] begin
     import LineCableModels
 
-    backends=LineCableModels.PlotBuilder.BackendHandler
+    backends = LineCableModels.PlotBuilder
     packages=(
         (:cairo, :CairoMakie, :LineCableModelsCairoMakieExt),
         (:gl, :GLMakie, :LineCableModelsGLMakieExt),

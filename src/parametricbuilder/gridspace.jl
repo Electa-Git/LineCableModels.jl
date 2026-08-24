@@ -102,28 +102,28 @@ function points(space::Gridspace)
     (GridPoint(space.build, args) for args in _combinations(space))
 end
 
-"Return a value unchanged during deterministic point materialization."
+"Return a value unchanged during deterministic point materialisation."
 materialize(value) = value
 
 function materialize(value::UncertainValue)
     throw(ArgumentError(
-        "materializing uncertainty descriptors requires Measurements.jl",
+        "materialising uncertainty descriptors requires Measurements.jl",
     ))
 end
 
-"Recursively materialize a selected Gridspace point."
+"Recursively materialise a selected Gridspace point."
 function materialize(point::GridPoint)
     point.build(map(materialize, point.args)...)
 end
 
-"Return a deterministic value unchanged during stochastic realization."
+"Return a deterministic value unchanged during stochastic realisation."
 realize(::Random.AbstractRNG, value, _) = value
 
 function realize(rng::Random.AbstractRNG, value::UncertainValue, distribution)
     rand(rng, value; distribution)
 end
 
-"Recursively realize a selected Gridspace point using the caller's RNG."
+"Recursively realise a selected Gridspace point using the caller's RNG."
 function realize(rng::Random.AbstractRNG, point::GridPoint, distribution)
     point.build(map(value -> realize(rng, value, distribution), point.args)...)
 end

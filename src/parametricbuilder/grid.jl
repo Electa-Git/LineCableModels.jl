@@ -169,7 +169,7 @@ AbsoluteError(value) = AbsoluteError(_grid_values(value))
 $(TYPEDSIGNATURES)
 
 Create an explicit finite source. Collections vary only when passed to
-`Grid`; ordinary builder arguments remain atomic domain values.
+`Grid`. Ordinary builder arguments remain atomic domain values.
 """
 Grid(grid::AbstractGrid) = grid
 Grid(value) = DeterministicGrid(_grid_values(value))

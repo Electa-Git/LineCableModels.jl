@@ -6,9 +6,9 @@ Represent one circular-wire layer at the material reference temperature.
 $(TYPEDFIELDS)
 """
 struct CircStrands{T <: Real, U <: Integer} <: AbstractStrandsLayer{T}
-    "Inner radial boundary \\[m\\]."
+    "Inner radius \\[m\\]."
     r_in::T
-    "Outer radial boundary \\[m\\]."
+    "Outer radius \\[m\\]."
     r_ex::T
     "Wire radius \\[m\\]."
     radius_wire::T
@@ -52,11 +52,11 @@ function _check_circular_strand_geometry(layer::CircStrands)
 end
 
 const _CIRCSTRANDS_FIELD_RULES = (
-        Finite(:r_in), Finite(:r_ex), Finite(:radius_wire), Finite(:lay_ratio),
-        Nonnegative(:r_in), Positive(:r_ex), Less(:r_in, :r_ex),
-        Positive(:radius_wire), IntegerField(:num_wires), Positive(:num_wires),
-        Nonnegative(:lay_ratio), OneOf(:lay_direction, (-1, 1)),
-        PhysicalFillLimit(:num_wires, (:r_in, :radius_wire))
+    Finite(:r_in), Finite(:r_ex), Finite(:radius_wire), Finite(:lay_ratio),
+    Nonnegative(:r_in), Positive(:r_ex), Less(:r_in, :r_ex),
+    Positive(:radius_wire), IntegerField(:num_wires), Positive(:num_wires),
+    Nonnegative(:lay_ratio), OneOf(:lay_direction, (-1, 1)),
+    PhysicalFillLimit(:num_wires, (:r_in, :radius_wire))
 )
 
 Validation.rules(::Type{CircStrands}) = _CIRCSTRANDS_FIELD_RULES

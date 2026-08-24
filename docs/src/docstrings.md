@@ -12,8 +12,8 @@ contents remain synchronized with the implementation.
    constructor, function, module, or constant that it describes.
 2. **Delimiter:** Use triple double quotes (`"""`) except for individual struct
    fields and constants, which use single-line string docstrings.
-3. **Implementation first:** Describe behavior implemented by the code. Do not
-   infer behavior, units, or mathematics from a name alone.
+3. **Implementation first:** Describe behaviour implemented by the code. Do not
+   infer behaviour, units, or mathematics from a name alone.
 4. **Generated structure:** Prefer the appropriate `DocStringExtensions`
    abbreviation over a handwritten signature, type declaration, field list, or
    module inventory.
@@ -38,7 +38,7 @@ physical quantity states its SI unit.
 4. Use standard SI symbols and the Unicode middle dot for multiplication, for
    example `\\[Ω·m\\]`.
 5. Inside comments in Julia example blocks, use ordinary square brackets, such
-   as `# [m]`; the comment is Julia source rather than docstring prose.
+   as `# [m]`. The comment is Julia source rather than docstring prose.
 6. State the basis of distributed line quantities when it matters: for
    example, `\\[Ω/m\\]` for `:per_length` and `\\[Ω\\]` for `:total`.
 
@@ -48,9 +48,9 @@ Use LaTeX whenever an implementation directly evaluates a mathematical
 expression, reduction, approximation, or physical law that matters to its
 meaning. Put the expression in a `math` block within the method description, followed by the definitions of symbols that are not already unambiguous from `# Arguments`.
 
-This requirement follows the implementation, not a function-name convention.
-Simple accessors, wrappers, dispatch helpers, and bookkeeping functions generally do not need a
-mathematical section.
+The requirement follows the implementation, not a function-name convention.
+Simple accessors, wrappers, dispatch methods, and bookkeeping functions do not
+need a mathematical section unless they evaluate the documented formulation.
 
 Within a Julia docstring, escape LaTeX commands with a second backslash:
 
@@ -95,8 +95,7 @@ implementation before changing either.
 ## `DocStringExtensions` abbreviations
 
 The abbreviations are Julia string interpolations evaluated when the docstring
-is attached. They are the preferred codebase-wide mechanism, not an optional
-legacy style.
+is attached. Use them instead of manually copied declarations.
 
 - `$(SIGNATURES)` inserts method signatures without argument type annotations.
   Use it only when the typed form would obscure the supported public call.
@@ -110,14 +109,14 @@ legacy style.
 - `$(FIELDS)` inserts fields and their field docstrings without declared types.
   Prefer `$(TYPEDFIELDS)` unless hiding implementation types improves the public
   documentation.
-- `$(METHODLIST)` inserts the package's sanitized method listing and source
+- `$(METHODLIST)` inserts the package's sanitised method listing and source
   locations. Reserve it for documentation whose purpose is to enumerate a
-  multi-method interface; it does not replace `$(TYPEDSIGNATURES)` in an
-  ordinary method docstring.
+  multi-method interface. `$(METHODLIST)` does not replace
+  `$(TYPEDSIGNATURES)` in an ordinary method docstring.
 - `$(IMPORTS)` inserts modules imported by a documented module.
 - `$(EXPORTS)` inserts names exported by a documented module.
 
-Use only abbreviations that add useful rendered information. Never repeat their
+Use only abbreviations that add rendered information not stated elsewhere. Never repeat their
 generated content manually. Each package module imports the required
 `DocStringExtensions` abbreviations explicitly. The package's root-level
 `METHODLIST` formatter preserves concise source locations while hiding CI runner and
@@ -125,9 +124,8 @@ workspace prefixes.
 
 ## Documentation templates
 
-These templates are intentionally complete. Remove an optional section only
-when it adds no information; do not replace generated declarations with
-handwritten copies.
+The templates show every available section. Remove a section when it adds no
+information. Do not replace generated declarations with handwritten copies.
 
 ### Structs
 
@@ -260,7 +258,7 @@ an ordinary immediately preceding docstring for a method outside it.
 
 ### Functions and methods
 
-Start with `$(TYPEDSIGNATURES)` and use the following section order:
+Place `$(TYPEDSIGNATURES)` first, followed by these sections:
 
 1. Description, without a heading, including the mathematical formulation when applicable.
 2. `# Arguments`.
@@ -315,13 +313,13 @@ result = $(FUNCTIONNAME)(1.0, 0.5; basis=:per_length) # [unit]
 function function_name(arg1, arg2; basis=:per_length)
 ````
 
-Examples use meaningful values and exercise supported public syntax. Include
+Examples use supported values and exercise public syntax. Include
 an expected result only when it can be stated accurately.
 
 ### Modules
 
 Begin with the module name indented by four spaces. Describe its purpose and
-main capabilities explicitly. `$(IMPORTS)` and `$(EXPORTS)` keep the inventory
+main operations explicitly. `$(IMPORTS)` and `$(EXPORTS)` keep the inventory
 synchronized with the module definition:
 
 ````julia
@@ -332,8 +330,8 @@ Describe the module's purpose within LineCableModels.
 
 # Overview
 
-- Summarize the principal capability.
-- Summarize another principal capability.
+- State one principal operation.
+- State another principal operation.
 
 # Dependencies
 
@@ -359,13 +357,13 @@ const VACUUM_PERMEABILITY = 4π * 1e-7
 ## Executable examples
 
 Prefer `jldoctest` for a self-contained public example. When textual output is
-not the behavior under test, use assertions before the `# output` separator and
-leave the expected output empty. This keeps the syntax executable without
-making display formatting part of the public behavior.
+not the behaviour under test, use assertions before the `# output` separator and
+leave the expected output empty. Assertions keep the syntax executable without
+making display formatting part of the public behaviour.
 
 An example that requires an external executable, repository fixture, network
-access, or graphical interaction belongs in integration or developer
-documentation instead of a docstring. Remove stale, placeholder, or
+access, or graphical interaction belongs in developer documentation instead of
+a docstring. Remove stale, placeholder, or
 fixture-heavy examples rather than publishing syntax that cannot be verified.
 
 Use `$(FUNCTIONNAME)` when the example invokes the documented function. Use an

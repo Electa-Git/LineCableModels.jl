@@ -1,46 +1,27 @@
-"""$(TYPEDSIGNATURES)
+"""
+$(TYPEDSIGNATURES)
 
-Export a [`LineCableSystem`](@ref) to an **ATPDraw‑compatible** XML file (LCC component with input data).
+Write an ATPDraw LCC project for a materialised line-cable system.
 
-This routine serializes the cable system geometry (positions and outer radii) and the
-already‑computed, frequency‑specific equivalent parameters of each cable component to the
-ATPDraw XML schema. The result is written to disk and the absolute file path is returned
-on success.
+The XML contains cable positions, conductor and insulation properties, line
+length, system frequency, and the resistivity of the last earth layer.
 
 # Arguments
 
-- `::Val{:atp}`: Backend selector for the ATP/ATPDraw exporter.
-- `cable_system::LineCableSystem`: The system to export. Each entry in `cable_system.cables` provides one phase position and its associated [`CableDesign`](@ref). The number of phases exported equals `length(cable_system.cables)`.
-- `earth_props::EarthModel`: Ground model used to populate ATP soil parameters. The exporter
-uses the **last** layer’s base resistivity as *Grnd resis*.
-- `base_freq::Number = 50.0` \\[Hz\\]: System frequency written to ATP (`SysFreq`) and stored in component metadata. *This exporter does not recompute R/L/C/G; it writes the values as
-present in the groups/components at the time of export.*
-- `file_name::String = "*_export.xml"`: Output file name or path. If a relative path is given, it is resolved against the exporter’s source directory. The absolute path of the saved file is returned.
+- `::Val{:atp}`: ATP format selector.
+- `cable_system`: Positioned cable designs and line length.
+- `earth_props`: Earth model. The last layer supplies `Grnd resis`.
 
-# Behavior
+# Keywords
 
-1. Create the ATPDraw `<project>` root and header and insert a single **LCC** component with
-   `NumPhases = length(cable_system.cables)`.
-2. For each [`LineCableModels.DataModel.CablePosition`](@ref) in `cable_system.cables`:
+- `base_freq`: ATP system frequency \\[Hz\\]. Default: `50.0`.
+- `file_name`: Output path. Relative paths are resolved beside this exporter.
+  a supplied basename is prefixed with `cable_system.system_id`. Default:
+  `nothing`, which writes `<system_id>_export.xml`.
 
-   * Write a `<cable>` element with:
+# Returns
 
-     * `NumCond` = number of [`CableComponent`](@ref)s in the design,
-     * `Rout` = outermost radius of the design (m),
-     * `PosX`, `PosY` = cable coordinates (m).
-3. For each [`CableComponent`](@ref) inside a cable:
-
-   * Write one `<conductor>` element with fields (all per unit length):
-
-     * `Rin`, `Rout` — from the component’s conductor group,
-     * `rho` — conductor equivalence via [`LineCableModels.DataModel.BaseParams.equivalent_rho`](@ref),
-     * `muC` — conductor relative permeability via [`LineCableModels.DataModel.BaseParams.equivalent_mu`](@ref),
-     * `muI` — insulator relative permeability (taken from the first insulating layer’s material),
-     * `epsI` — insulation relative permittivity via [`LineCableModels.DataModel.BaseParams.equivalent_eps`](@ref),
-     * `Cext`, `Gext` — shunt capacitance and conductance from the component’s insulator group.
-4. Soil resistivity is written as *Grnd resis* using `earth_props.layers[end].rho`.
-5. The XML is pretty‑printed and written to `file_name`. Filesystem errors are propagated to
-   the caller.
+- The absolute output path.
 
 # Units
 
@@ -57,21 +38,10 @@ Units are printed in the XML file according to the ATPDraw specifications:
 
 # Notes
 
-* The exporter writes each component’s eager equivalent parameters (R/G/C and derived ρ/ε/μ)
-  at the common material reference state. Operating-temperature correction belongs to
-  `compute` and is not applied by this exporter.
-* Mixed numeric types are supported; values are stringified for XML output. When using
-  uncertainty types (e.g., `Measurements.Measurement`), the uncertainty is removed.
-* Overlap checks between cables are enforced when building the system, not during export.
-
-# Examples
-
-```julia
-# Build or load a system `sys` and an earth model `earth`
-file = $(FUNCTIONNAME)(Val(:atp), sys, earth; base_freq = 50.0,
-                       file_name = "system_id_export.xml")
-println("Exported to: ", file)
-```
+- The exporter writes eager equivalent properties at the common material
+  reference state. The exporter does not apply operating-temperature correction.
+- [`nominal`](@ref) removes uncertainty before numeric values are written.
+- LineCableSystem construction, rather than export, checks cable overlap.
 
   """
 function export_data(::Val{:atp},
@@ -87,7 +57,7 @@ function export_data(::Val{:atp},
     end
     # --- 1. Setup Constants and Variables ---
     if isnothing(file_name)
-        # caller didn't supply a name -> derive from cable_system if present
+        # Derive the name from cable_system when the caller omits it.
         file_name = joinpath(@__DIR__, "$(cable_system.system_id)_export.xml")
     else
         # caller supplied a path/name -> respect directory, but prepend system_id to basename
@@ -240,7 +210,7 @@ function export_data(::Val{:atp},
         end
     end
 
-    # Finalize and Write to File
+    # Write the completed XML document.
     _set_attributes!(variables, Dict("NumSim" => 1, "IOPCVP" => 0, "UseParser" => "false"))
 
     open(file_name, "w") do fid
@@ -250,57 +220,43 @@ function export_data(::Val{:atp},
     return file_name
 end
 
-"""$(TYPEDSIGNATURES)
+"""
+$(TYPEDSIGNATURES)
 
-Export calculated [`LineParameters`](@ref) (series impedance **Z** and shunt admittance **Y**) to an **compliant** `ZY` XML file.
+Write frequency-indexed series-impedance and shunt-admittance matrices to an
+ATPDraw `ZY` XML file.
 
-This routine writes the complex **Z** and **Y** matrices versus frequency into a compact XML
-structure understood by external tools. Rows are emitted as comma‑separated complex entries
-(`R+Xi` / `G+Bi`) with one `<Z>`/`<Y>` block per frequency sample.
+Each frequency produces one `<Z>` and one `<Y>` block. Matrix rows use
+comma-separated `R+Xi` and `G+Bi` entries.
 
 # Arguments
 
-- `::Val{:atp}`: Backend selector for the ATP/ATPDraw ZY exporter.
-- `line_params::LineParameters`: Object holding the frequency‑dependent matrices `Z[:,:,k]`, `Y[:,:,k]`, and `f[k]` in `line_params.f`.
-- `file_name::String = "ZY_export.xml"`: Output file name or path. If relative, it is resolved against the exporter’s source directory. The absolute path of the saved file is returned.
-- `cable_system::Union{LineCableSystem,Nothing} = nothing`: Optional system used only to derive a default name. When provided and `file_name` is not overridden, the exporter uses `"\$(cable_system.system_id)_ZY_export.xml"`.
+- `::Val{:atp}`: ATP format selector.
+- `line_params`: Frequency-dependent matrices and frequency vector.
 
-# Behavior
+# Keywords
 
-1. The root tag `<ZY>` includes `NumPhases`, `Length` (fixed to `1.0`), and format attributes `ZFmt="R+Xi"`, `YFmt="G+Bi"`.
-2. For each frequency `fᵏ = line_params.f[k]`:
+- `file_name`: Output path. Default: `ZY_export.xml` beside this exporter.
+- `cable_system`: Optional system supplying the line length and output-name
+  prefix. Default: `nothing`.
 
-   * Emit a `<Z Freq=...>` block with `num_phases` lines, each line the `k`‑th slice of row `i` formatted as `real(Z[i,j,k]) + imag(Z[i,j,k])i`.
-   * Emit a `<Y Freq=...>` block in the same fashion (default `G+Bi`).
-3. Close the `</ZY>` element and write to disk. Filesystem errors are propagated to the
-   caller.
+# Returns
+
+- The absolute output path.
 
 # Units
 
 Units are printed in the XML file according to the ATPDraw specifications:
 
 - `freq` (XML `Freq` attribute): \\[Hz\\]
-- `Z` entries: \\[Ω/km\\] (per unit length)
-- `Y` entries: \\[S/km\\] (per unit length) when `YFmt = "G+Bi"`
-- XML `Length` attribute: \\[m\\]
+- `Z` and `Y` entries retain the numerical basis stored by `line_params`.
+- XML `Length`: cable-system length \\[m\\], or `1.0` when `cable_system` is
+  absent.
 
 # Notes
 
-- The exporter assumes `size(line_params.Z, 1) == size(line_params.Z, 2) == size(line_params.Y, 1) == size(line_params.Y, 2)` and `length(line_params.f) == size(Z,3) == size(Y,3)`.
-- Numeric types are stringified; mixed numeric backends (e.g., with uncertainties) are acceptable as long as they can be printed via `@sprintf`.
-- This exporter **does not** modify or recompute matrices; it serializes exactly what is in `line_params`.
-
-# Examples
-
-```julia
-# Z, Y, f have already been computed into `lp::LineParameters`
-file = $(FUNCTIONNAME)(:atp, lp; file_name = "ZY_export.xml")
-println("Exported ZY to: ", file)
-
-# Naming based on a cable system
-file2 = $(FUNCTIONNAME)(:atp, lp; cable_system = sys)
-println("Exported ZY to: ", file2)  # => "\$(sys.system_id)_ZY_export.xml"
-```
+- The exporter does not scale or recompute the matrices.
+- [`nominal`](@ref) removes uncertainty before numeric values are written.
 
   """
 function export_data(::Val{:atp},
@@ -311,7 +267,7 @@ function export_data(::Val{:atp},
 
     # Resolve final file_name while preserving any user-supplied path.
     if isnothing(file_name)
-        # caller didn't supply a name -> derive from cable_system if present
+        # Derive the name from cable_system when the caller omits it.
         if isnothing(cable_system)
             file_name = joinpath(@__DIR__, "ZY_export.xml")
         else

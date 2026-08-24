@@ -33,7 +33,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the centers of `num_wires` equally spaced circular wires. For wire
+Return the centres of `num_wires` equally spaced circular wires. For wire
 ``i=0,\\ldots,N-1`` the coordinates are
 ``C+r_l(\\cos(2\\pi i/N),\\sin(2\\pi i/N))``.
 """
@@ -83,7 +83,7 @@ Calculate the area-weighted geometric mean distance between two cable parts:
 # Notes
 
 A sum of logarithms is used instead of a product, preventing numerical
-underflow and overflow for large wire arrays. Coincident centers use the
+underflow and overflow for large wire arrays. Coincident centres use the
 outermost element radius.
 """
 function gmd(first_part::AbstractCablePart, second_part::AbstractCablePart)

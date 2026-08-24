@@ -1,7 +1,7 @@
 @testitem "PlotBuilder / grammar / dispatch and render construction" tags=[:unit] setup=[
     PlotBuilderTestSupport, UsePlotBuilderSupport, TestNumerics, TestFixtures] begin
     const PB=LineCableModels.PlotBuilder
-    const UH=LineCableModels.UnitHandler
+    const UH=LineCableModels.QuantityUnits
 
     @test length(methods(PB.make_render)) == 1
     if get(ENV, "LINECABLEMODELS_TEST_PLOTTING", "false")!="true"
@@ -199,7 +199,7 @@
     @test_throws ArgumentError PB.make_render(ProfilePlotDefinition, [1.0, 2.0])
     @test basename(String(which(PB.make_render, (
         Type{ProfilePlotDefinition}, ProfileResult)).file)) ==
-          "grammar.jl"
+          "render.jl"
 
     maintained_recipes=(
         (LineCableModels.Engine.LineParameterPlotDefinition,
@@ -219,7 +219,7 @@
     )
     for (specification, object_type) in maintained_recipes
         method=which(PB.make_render, (Type{specification}, object_type))
-        @test basename(String(method.file)) == "grammar.jl"
+        @test basename(String(method.file)) == "render.jl"
     end
 
     mc_result=TestFixtures.cable_monte_carlo_result()
@@ -583,7 +583,7 @@ end
     UsePlotBuilderSupport
 ] begin
     const PB=LineCableModels.PlotBuilder
-    const UH=LineCableModels.UnitHandler
+    const UH=LineCableModels.QuantityUnits
 
     struct DefaultHookSpec<:PB.AbstractPlotDefinition end
     recipe=PB.parse_kwargs(DefaultHookSpec, :payload)

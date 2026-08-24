@@ -3,31 +3,17 @@ import DataFrames: DataFrame
 """
 $(TYPEDSIGNATURES)
 
-Generates a summary DataFrame for cable positions and phase mappings within a [`LineCableSystem`](@ref).
+Convert a line-cable system to one row per positioned cable.
 
 # Arguments
 
-- `system`: A [`LineCableSystem`](@ref) object containing the cable definitions and their configurations.
+- `system`: Materialised line-cable system.
 
 # Returns
 
-- A `DataFrame` containing:
-  - `cable_id`: Identifier of each cable design.
-  - `horz`: Horizontal coordinate of each cable \\[m\\].
-  - `vert`: Vertical coordinate of each cable \\[m\\].
-  - `phase_mapping`: Human-readable string representation mapping each cable component to its assigned phase.
-
-# Examples
-
-```julia
-df = $(FUNCTIONNAME)(cable_system)
-println(df)
-# Output:
-# │ cable_id   │ horz │ vert  │ phase_mapping           │
-# │------------│------│-------│-------------------------│
-# │ "Cable1"   │ 0.0  │ -0.5  │ core: 1, sheath: 0      │
-# │ "Cable2"   │ 0.35 │ -1.25 │ core: 2, sheath: 0      │
-```
+- A `DataFrame` with `cable_id`, horizontal position `horz` \\[m\\], vertical
+  position `vert` \\[m\\], and the component-to-phase mapping
+  `phase_mapping`.
 
 """
 function DataFrame(system::LineCableSystem)::DataFrame

@@ -15,12 +15,13 @@ material data.
 
 - Solid, tubular, stranded, screened, and armored cable models.
 - Frequency-dependent series impedance and shunt admittance calculations.
-- Earth-return, modal transformation, ATPDraw, and PSCAD integration.
+- Earth-return calculations, modal transformations, and ATPDraw/PSCAD data
+  exchange.
 - Material and cable libraries with JSON import and export.
 - One typed `Grid`/`Gridspace` grammar for deterministic and uncertain designs.
 - Ordinary, combinatorial, and conditional Monte Carlo execution through
   `compute`.
-- Optional Makie plotting through explicit backend extensions.
+- Optional Makie plotting through Julia package extensions.
 
 ## Installation
 
@@ -42,7 +43,7 @@ Core usage has no plotting dependency:
 using LineCableModels
 ```
 
-The default modeling API is declarative:
+The default modelling API is declarative:
 
 ```julia
 copper = Material(; rho=1.7241e-8)
@@ -59,7 +60,7 @@ design = CableBuilder(
 constants = compute(CableConstantsProblem(design), Formulation())
 ```
 
-`Material` is the materialized type as well as the public declarative
+`Material` is the materialised type as well as the public declarative
 constructor: scalar keywords return one material, while explicit `Grid` inputs
 return a `Gridspace{Material}`. The stricter cable and system constructors
 remain available from explicit submodules such as `LineCableModels.DataModel`
@@ -81,7 +82,7 @@ export_svg(first(plots); path = "series_resistance.svg")
 ```
 
 `GLMakie` and `WGLMakie` are supported in the same way. LineCableModels
-never imports or selects a backend dynamically. `preview` returns one `UIPlot`;
+never imports or selects a backend dynamically. `preview` returns one `UIPlot`.
 line-parameter plots always return a
 `Vector{UIPlot}`. The Export SVG control preserves the current declarative plot
 state and requires CairoMakie to have been loaded explicitly.
@@ -101,23 +102,23 @@ abs.(Z(line_parameters, 1, 1))
 Complete parameter traversals return `ParametricResult{T}`, including a space
 with cardinality one. Conditional Monte Carlo propagation returns
 `MonteCarloResult{T}`. Use `statistics`, `samples`, `histograms`, and
-`uncertain_value` to inspect the owned calculation products. Result order is
-the Gridspace iteration order; traversal state is not copied into completed
+`uncertain_value` to inspect stored calculation data. Result order is
+the Gridspace iteration order. Traversal state is not copied into completed
 results.
 `DataFrame(monte_carlo_result)` renders marginal summaries, while
 `plot(monte_carlo_result, :R; mode=:hist, data=:both)` and the `:pdf`, `:ecdf`,
 and `:qq` modes display retained distribution information after a Makie package
 is loaded.
 
-Physics and numerical-method choices belong to `Formulation`; execution choices
-are passed as a named tuple. For a materialized line system, pass
+Physics and numerical-method choices belong to `Formulation`. Execution choices
+are passed as a named tuple. For a materialised line system, pass
 `options=(output_basis=:total,)` to `compute` to scale both Z and Y by the line
 length. Composite calculations select their operation explicitly, for example
 `compute(ParametricProblem(space), Combinatorial(Formulation()))`.
 
 ## Retired FEM and sector support
 
-FEM/GetDP integration and sector-shaped cable support were removed before the
+FEM/GetDP support and sector-shaped cable support were removed before the
 v0.2 release. Their final snapshot is branch `legacy/fem-sector` at commit
 `b75dd2723f90a83ec090b20605ea42af57f4a9c3`. To use that historical version in
 the current Julia project:

@@ -3,32 +3,22 @@ import DataFrames: DataFrame
 """
 $(TYPEDSIGNATURES)
 
-Extracts and displays data from a [`CableDesign`](@ref).
+Convert a cable design to a tabular description.
 
 # Arguments
 
-- `design`: A [`CableDesign`](@ref) object to extract data from.
-- `format`: Symbol indicating the level of detail:
-  - `:components`: Component-level equivalent properties (default).
-  - `:detailed`: Individual cable part properties with layer-by-layer breakdown.
+- `design`: Materialised cable design.
+- `format`: Table layout. Use `:components` for equivalent component values,
+  `:detailed` for one column per cable layer, or `:baseparams` for compact
+  solver-input fields. Default: `:components`.
+
 # Returns
 
-- A `DataFrame` containing the requested cable data in the specified format.
+- A `DataFrame` in the selected layout.
 
-# Examples
+# Errors
 
-```julia
-# Get component-level data
-comp_data = DataFrame(design)
-
-# Get detailed part-by-part breakdown
-detailed_data = DataFrame(design, :detailed)
-
-# Compute before rendering numerical cable constants
-constants = compute(CableConstantsProblem(design), Formulation())
-constants_data = DataFrame(constants)
-```
-
+- Throws an error when `format` is unsupported.
 """
 function DataFrame(design::CableDesign, format::Symbol = :components)::DataFrame
     if format == :baseparams
@@ -47,22 +37,22 @@ function DataFrame(design::CableDesign, format::Symbol = :components)::DataFrame
             :loss_factor_ins
         ]
 
-        # Initialize the DataFrame
+        # Initialise the DataFrame.
         data = DataFrame(property = properties)
 
-        # Process each component - now using vector
+        # Add one column per cable component.
         for component in design.components
-            # Use component ID as column name
+            # Use the component identifier as the column name.
             col = component.id
 
-            # For each component, we need to map new structure to old column names
-            # Calculate loss factor from resistivity
+            # Map the current component structure to the retained row names.
+            # Calculate the dielectric loss factor.
             ω = 2 * π * component.insulator_group.reference_frequency
             C_eq = component.insulator_group.shunt_capacitance
             G_eq = component.insulator_group.shunt_conductance
             loss_factor = G_eq / (ω * C_eq)
 
-            # Collect values for each property - mapping from new structure to old property names
+            # Collect values in the retained row order.
             new_col = [
                 component.conductor_group.r_in,               # radius_in_con
                 component.conductor_group.r_ex,              # radius_ext_con
@@ -98,7 +88,7 @@ function DataFrame(design::CableDesign, format::Symbol = :components)::DataFrame
             "shunt_conductance"
         ]
 
-        # Initialize the DataFrame
+        # Initialise the DataFrame.
         data = DataFrame(property = properties)
 
         # Process each component
@@ -153,43 +143,18 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Helper function to extract properties from a part for detailed format.
+Return the fixed row values used by the `:detailed` cable-design table.
 
 # Arguments
 
-- `part`: An instance of [`AbstractCablePart`](@ref) from which to extract properties.
-- `properties`: A vector of symbols indicating which properties to extract (not used in the current implementation).
+- `part`: Cable part to inspect.
+- `properties`: Retained layout argument. The current row order is fixed.
 
 # Returns
 
-- A vector containing the extracted properties in the following order:
-  - `type`: The lowercase string representation of the part's type.
-  - `r_in`: The inner radius of the part, if it exists, otherwise `missing`.
-  - `r_ex`: The outer radius of the part, if it exists, otherwise `missing`.
-  - `diameter_in`: The inner diameter of the part (2 * r_in), if `r_in` exists, otherwise `missing`.
-  - `diameter_ext`: The outer diameter of the part (2 * r_ex), if `r_ex` exists, otherwise `missing`.
-  - `thickness`: The difference between `r_ex` and `r_in`, if both exist, otherwise `missing`.
-  - `cross_section`: The cross-sectional area of the part, if it exists, otherwise `missing`.
-  - `num_wires`: The number of wires in the part, if it exists, otherwise `missing`.
-  - `resistance`: The resistance of the part, if it exists, otherwise `missing`.
-  - `alpha`: The temperature coefficient of resistivity of the part or its material, if it exists, otherwise `missing`.
-  - `gmr`: The geometric mean radius of the part, if it exists, otherwise `missing`.
-  - `gmr_ratio`: The ratio of `gmr` to `r_ex`, if both exist, otherwise `missing`.
-  - `shunt_capacitance`: The shunt capacitance of the part, if it exists, otherwise `missing`.
-  - `shunt_conductance`: The shunt conductance of the part, if it exists, otherwise `missing`.
-
-# Notes
-
-This function is used to create a standardized format for displaying detailed information about cable parts.
-
-# Examples
-
-```julia
-part = Conductor(...)
-properties = [:r_in, :r_ex, :resistance]  # Example of properties to extract
-extracted_properties = _extract_part_properties(part, properties)
-println(extracted_properties)
-```
+- Values for type, radii, diameters, thickness, cross-section, wire count,
+  resistance, temperature coefficient, GMR, GMR-to-radius ratio, capacitance,
+  and conductance. A field absent from `part` produces `missing`.
 """
 function _extract_part_properties(part, properties)
     return [

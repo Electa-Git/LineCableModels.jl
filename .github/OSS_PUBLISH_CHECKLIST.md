@@ -6,43 +6,43 @@
 
 {{ version_tag }}
 
-### IP and Legal Requirements
+### Intellectual property and legal checks
 
-- [ ] Written consent secured from faculty advisor or PI
-- [ ] Software disclosure submitted to tech transfer/IP office
-- [ ] Funding/sponsorship contracts reviewed for restrictions or obligations
-- [ ] Written consent secured from all co-developers and collaborators
-- [ ] Verified no active or pending patents are compromised by open release
-- [ ] Verified absence of sensitive data (personal, confidential, regulated tech)
-- [ ] Third-party licenses audited and documented to confirm compatibility with the repository
-- [ ] All findings and products of the codebase being open-sourced have been published/accepted for publication with scientific journals
+- [ ] Obtain written approval from the faculty adviser or principal investigator.
+- [ ] Submit the required software disclosure to the technology-transfer office.
+- [ ] Review funding and sponsorship agreements for release restrictions.
+- [ ] Obtain written consent from contributors whose work is included.
+- [ ] Check active and pending patent applications before release.
+- [ ] Remove personal, confidential, and export-controlled data.
+- [ ] Record third-party licences and verify redistribution terms.
+- [ ] Confirm that releasing the software does not violate publication embargoes.
 
-### Code Quality Requirements
+### Source and test checks
 
-- [ ] Codebase cleaned: no credentials, passwords, API keys, sensitive URLs, or debug code
-- [ ] Out-of-the-box functionality confirmed in a clean environment
-- [ ] Reproducibility ensured: scripts or datasets included to reproduce main results
-- [ ] Dependencies clearly documented (requirements.txt, compiler info, etc.)
-- [ ] Basic tests or validation scripts included demonstrating key functionality
-- [ ] Peer or self-review performed for code readability and usability
+- [ ] Remove credentials, passwords, API keys, private URLs, and debug code.
+- [ ] Install and test the package in a clean environment.
+- [ ] Include the scripts and data required to reproduce published results.
+- [ ] Record language, package, compiler, and external-program dependencies.
+- [ ] Test the public calculations used in examples and publications.
+- [ ] Review the source for readable names, error messages, and public APIs.
 
-### Documentation Requirements
+### Documentation checks
 
-- [ ] Comprehensive README.md created with clear purpose, installation and usage instructions
-- [ ] CHANGELOG.md created following proper standards (Keep a Changelog)
-- [ ] Citation instructions provided (CITATION.cff, DOI links, publication references)
-- [ ] Appropriate LICENSE.md file attached at repository root
-- [ ] Funding agencies, institutional support, and contributors properly acknowledged
-- [ ] Contributing guidelines included for external collaborators (if applicable)
+- [ ] State the package purpose, installation, and first calculation in `README.md`.
+- [ ] Maintain `CHANGELOG.md` using Keep a Changelog.
+- [ ] Provide citation metadata, DOI links, and publication references.
+- [ ] Place the selected licence at the repository root.
+- [ ] Name funding bodies, institutional support, and contributors.
+- [ ] Document the contribution procedure.
 
-### Repository Finalization Requirements
+### Publication checks
 
-- [ ] Repository structure clearly organized (src/, examples/, docs/, etc.)
-- [ ] Final pre-release sanity check performed (installation from scratch, test examples)
-- [ ] Release clearly tagged and versioned (e.g., v1.0.0) with release notes
-- [ ] Repository ready to be set to public visibility
-- [ ] Release announcement prepared for internal and external channels
-- [ ] Repository archived with DOI (optional, via Zenodo), or confirmed not applicable
+- [ ] Verify that source, examples, documentation, and tests use their documented paths.
+- [ ] Repeat installation and documented examples from a clean checkout.
+- [ ] Create the version tag and release notes.
+- [ ] Complete the hosting service's public-release checks.
+- [ ] Prepare the release announcement.
+- [ ] Archive the release with a DOI, or record why no DOI is required.
 
 ### Institutional email
 

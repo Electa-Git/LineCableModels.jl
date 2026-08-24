@@ -1,8 +1,8 @@
 # # PlotBuilder guide
 #
-# `PlotBuilder` is the backend-neutral recipe layer used by LineCableModels. A
+# `PlotBuilder` constructs renderer-independent recipes. A
 # plot definition selects scientific observations and completes one
-# `PlotRecipe`; an explicitly loaded Makie extension renders that recipe and
+# `PlotRecipe`. An explicitly loaded Makie extension renders that recipe and
 # owns interactive state.
 #
 # ```text
@@ -26,13 +26,13 @@
 # user-facing scientific accessors and plotting entry points have their normal
 # SemVer guarantees.
 #
-# ## Architecture
+# ## Recipe construction
 #
 # Every maintained plot family follows four rules:
 #
-# 1. `make_render` is the sole orchestration method. Definitions specialize
-#    stage hooks; they do not replace the sequence.
-# 2. `PlotRecipe` is the completed backend-neutral representation. Its pages,
+# 1. `make_render` defines the complete call sequence. Definitions specialise
+#    stage methods without replacing that sequence.
+# 2. `PlotRecipe` is the completed renderer-independent value. Its pages,
 #    axes, series, layouts, and controls are implementation details of that
 #    representation rather than parallel public render models.
 # 3. Definitions read completed calculations through `observables`. Explicit
@@ -41,10 +41,10 @@
 # 4. Makie figures, observables, widgets, and callbacks exist only in the Makie
 #    extension. SVG export reconstructs the current typed recipe state.
 #
-# Public mode, facet, and key-enumeration hook vocabularies are intentionally absent.
+# PlotBuilder does not expose separate mode, facet, or key-enumeration hooks.
 # Variation belongs to the definition that owns a recipe family and is resolved
-# within the common stages. This keeps presentation branching from becoming a
-# second calculation grammar.
+# within the common stages. Resolving that variation inside the definition
+# prevents presentation branches from becoming a second calculation grammar.
 #
 # ## Maintained recipe families
 #
@@ -62,14 +62,13 @@
 # `plot(parameters)` produces separate impedance and admittance pages with real
 # and imaginary parts in adjacent views. An accessor tuple selects a different
 # representation, for example `(R, L, G, C)` or `(abs, angle)`. Monte Carlo
-# plots provide histogram, density, empirical-CDF, histogram-CDF, and Q-Q views
+# plots include histogram, density, empirical-CDF, histogram-CDF, and Q-Q views
 # when the required retained observations are present.
 #
 # ## Recipe options and completed state
 #
-# The following deterministic two-conductor fixture keeps the examples focused
-# on recipe behavior. CairoMakie is loaded only to render selected completed
-# pages later in the guide.
+# The examples use a deterministic two-conductor fixture. CairoMakie renders
+# selected completed pages but does not participate in recipe construction.
 #
 using LineCableModels
 using LineCableModels.PlotBuilder
@@ -173,8 +172,8 @@ recipe = make_render(
     view_titles = [getproperty.(page.views, :title) for page in recipe.figures]
 )
 #
-# The same completed recipe is materialized below by CairoMakie. Recipe
-# construction itself created no figure.
+# CairoMakie renders the completed recipe below. Recipe construction created no
+# figure.
 
 documentation_figure(recipe) #hide
 #md # ```@raw html
@@ -183,13 +182,13 @@ documentation_figure(recipe) #hide
 #
 # ## The fixed operation grammar
 #
-# Definitions specialize the narrowest stage that owns a decision:
+# Definitions specialise the narrowest stage that owns a decision:
 #
 # | Stage | Responsibility | Main hooks |
 # |:--|:--|:--|
 # | entitlement | accept one domain type | `dispatch_on`, `entitle` |
 # | parsing | split and validate keywords | `input_kwargs`, `input_defaults`, `renderer_kwargs`, `renderer_defaults`, `parse_kwargs` |
-# | resolution | normalize semantic input once | `resolve_input` |
+# | resolution | normalise semantic input once | `resolve_input` |
 # | observation | obtain immutable scientific values | `observe`, `observables` |
 # | axes | quantities, units, labels, scales | `geom_axes`, `axis_quantity`, `axis_unit`, `axis_label`, `axis_scale`, `axis_scales`, `axis_exponent`, `axis_attributes`, `make_axes` |
 # | series | primitive data and appearance | `plot_kind`, `series_data`, `legend_label`, `series_group`, `series_visible`, `series_attributes`, `make_series` |
@@ -197,8 +196,8 @@ documentation_figure(recipe) #hide
 # | pages and layout | size, identity, named layout, controls | `default_figsize`, `page_identity`, `layout_spec`, `control_spec`, `legend_spec`, `colorbar_specs`, `status_spec`, `export_spec`, `make_pages` |
 # | completion | final decoration and validation | `decorate`, `finish` |
 #
-# `make_axes`, `make_series`, `make_views`, and `make_pages` are advanced
-# backend-neutral hooks for definitions whose geometry cannot be expressed by
+# `make_axes`, `make_series`, `make_views`, and `make_pages` are lower-level
+# renderer-independent hooks for definitions whose geometry cannot be expressed by
 # the narrower accessors. They may return recipe components but cannot create
 # Makie objects or replace `make_render`.
 #
@@ -210,7 +209,7 @@ documentation_figure(recipe) #hide
 #
 # Plot definitions consume the immutable named tuples returned by
 # `observables`. Presentation code does not read result fields as an alternate
-# result protocol. `UnitHandler` maps the resulting scientific keys to quantity
+# result protocol. `QuantityUnits` maps the resulting scientific keys to quantity
 # tags, display units, labels, symbols, and scaling. The renderer receives
 # display-ready series and does not interpret calculation containers.
 #
@@ -232,13 +231,13 @@ observed = observables(parameters)
 #
 # Layouts are named grid trees owned by the completed recipe. Callers may
 # select a maintained preset with `layout=:single`, `:grid`, `:preview`, or
-# `:material_scale`; definitions may supply a complete structured layout.
+# `:material_scale`. Definitions may supply a complete structured layout.
 # Caller selection takes precedence over the definition default.
 #
-# The common renderer validates layouts before rendering. It rejects missing
-# destinations, overlapping areas, invalid tracks, and mixed automatic and
-# explicit placement. Toolbars and status rows collapse for headless and SVG
-# rendering.
+# The common renderer validates layouts before rendering. The renderer rejects
+# missing destinations, overlapping areas, invalid tracks, and mixed automatic
+# and explicit placement. Toolbars and status rows collapse for headless and
+# SVG rendering.
 #
 # Responsive legends preserve semantic series and visibility state. When a
 # bounded legend cannot fit, the interactive renderer shows the largest safe
@@ -270,10 +269,10 @@ documentation_figure(grid_recipe) #hide
 #
 # The export control reconstructs scales, limits, visibility, layout, and
 # placement from the current typed state and renders it through explicitly
-# loaded CairoMakie. It never imports CairoMakie dynamically.
+# loaded CairoMakie. The module never imports CairoMakie dynamically.
 #
 # - `:default` preserves interactive styling on a white background.
-# - `:publication` applies the established publication font and sizing theme.
+# - `:publication` applies the publication font and font sizes.
 #
 # ```julia
 # plots = plot(parameters; export_theme=:publication)
@@ -281,7 +280,7 @@ documentation_figure(grid_recipe) #hide
 # export_svg(first(plots); path="series_resistance.svg", open_file=false)
 # ```
 #
-# The next figure exercises that publication path without writing a file:
+# This call renders the publication theme without writing a file:
 #
 publication = make_render(
     LineParameterPlotDefinition,
@@ -301,7 +300,7 @@ documentation_figure( #hide
 #
 # Without `path`, export uses `pwd()`. When that directory is inside the
 # package source, it falls back to
-# `joinpath(tempdir(), "linecablemodels-exports")`. Filenames are sanitized and
+# `joinpath(tempdir(), "linecablemodels-exports")`. Filenames are sanitised and
 # timestamped, and existing files are never overwritten.
 #
 # ## Testing a definition
@@ -315,6 +314,6 @@ documentation_figure( #hide
 # 3. Compare representative Cairo output with tolerant golden images and add
 #    interactive cases to the manual GL gallery.
 #
-# Architecture tests also keep `make_render` singular, ensure core construction
-# loads no Makie backend, verify that removed public mode/facet/key-enumeration
-# hooks remain absent, and exercise renderer primitive dispatch.
+# Tests assert that `make_render` remains singular, core construction loads no
+# Makie backend, removed mode/facet/key-enumeration hooks remain absent, and
+# renderer primitives use dispatch.

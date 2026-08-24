@@ -1,6 +1,9 @@
 """
     LineCableModels.Engine.EHEM
 
+Define equivalent-homogeneous-earth reductions for evaluated layered-earth
+properties.
+
 # Dependencies
 
 $(IMPORTS)
@@ -14,8 +17,7 @@ export EnforceLayer
 # Module-specific dependencies
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using ...EarthProps: EarthModel
-import ...LineCableModels: description
-import ..Engine: AbstractEHEMFormulation
+import ..Engine: AbstractEHEMFormulation, description
 
 include("enforcelayer.jl")
 

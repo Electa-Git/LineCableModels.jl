@@ -1,6 +1,10 @@
 # LineCableModels.jl
 
-[`LineCableModels.jl`](https://github.com/Electa-Git/LineCableModels.jl) is a specialized Julia package designed to compute the electrical parameters of coaxial arbitrarily-layered underground/overhead cables with uncertainty quantification. It focuses on calculating line and cable impedances and admittances in the frequency-domain, accounting for skin effect, insulation properties, and earth-return impedances with frequency-dependent soil models.
+[`LineCableModels.jl`](https://github.com/Electa-Git/LineCableModels.jl)
+calculates frequency-domain electrical parameters for underground and overhead
+cable systems. The models include conductor skin effect, dielectric loss,
+earth return, frequency-dependent earth properties, and declared uncertainty
+in geometry and material data.
 
 ## Documentation outline
 
@@ -16,18 +20,28 @@ Depth = 1
 
 ## Features
 
-- Describes deterministic and uncertain designs through one typed
-  `Grid`/`Gridspace` grammar, then evaluates them through `compute`.
-- Calculates base cable parameters for solid, tubular or stranded cores,
+- Construct deterministic and uncertain designs with the typed
+  `Grid`/`Gridspace` grammar and evaluate them with `compute`.
+- Calculate base cable parameters for solid, tubular, and stranded cores,
   semiconductors, screens, armors, sheaths, tapes, and water-blocking materials.
-- Correction factors to account for temperature, stranding and twisting effects on the DC resistance [app14198982](@cite), GMR [6521501](@cite) and base inductance of stranded cores and wire screens [yang2008gmr](@cite).
-- Explicit computation of dielectric losses and effective resistances for insulators and semiconductors [916943](@cite). Correction of the magnetic constant of insulation layers to account for the solenoid effect introduced by twisted strands [5743045](@cite).
-- Computes phase-domain Z/Y matrices for polyphase systems with any number of
+- Apply temperature, stranding, and twisting corrections to DC resistance
+  [app14198982](@cite), GMR [6521501](@cite), and base inductance
+  [yang2008gmr](@cite).
+- Calculate dielectric loss and equivalent insulation resistance
+  [916943](@cite), including the solenoid contribution of twisted strands to
+  insulation permeability [5743045](@cite).
+- Assemble phase-domain Z/Y matrices for polyphase systems with any number of
   conductors per phase, with optional Measurements-based direct propagation or
   conditional Monte Carlo analysis.
-- Improved equivalent tubular representation for EMT simulations and direct export to ATPDraw and PSCAD formats.
-- Computes internal impedances of solid, tubular or coaxial multi-layered single-core (SC) cables, using rigorous [4113884](@cite) or equivalent approximate formulas available in [industry-standard EMT software](https://www.pscad.com/webhelp/EMTDC/Transmission_Lines/Deriving_System_Y_and_Z_Matrices.htm).
-- Computes earth-return impedances and admittances of underground conductors in homogeneous soil, based on a rigorous solution of Helmholtz equation on the electric Hertzian vector, valid up to 10 MHz [5437464](@cite).
+- Replace stranded assemblies with equivalent tubular conductors for EMT
+  calculations and export cable data to ATPDraw and PSCAD.
+- Calculate internal impedance for solid, tubular, and multilayer coaxial
+  single-core cables with the formulation in [4113884](@cite) or the
+  approximations documented by
+  [PSCAD](https://www.pscad.com/webhelp/EMTDC/Transmission_Lines/Deriving_System_Y_and_Z_Matrices.htm).
+- Calculate earth-return impedance and admittance for underground conductors in
+  homogeneous soil from the electric-Hertz-vector solution of the Helmholtz
+  equation, up to 10 MHz [5437464](@cite).
 
 ## Installation
 
@@ -51,7 +65,7 @@ using LineCableModels
 using CairoMakie
 ```
 
-FEM/GetDP integration and sector-shaped cable support were removed before the
+FEM/GetDP support and sector-shaped cable support were removed before the
 v0.2 release. The last version containing those experimental paths is preserved
 on branch `legacy/fem-sector` at commit
 `b75dd2723f90a83ec090b20605ea42af57f4a9c3`.
@@ -60,16 +74,17 @@ on branch `legacy/fem-sector` at commit
 
 ![Top Julia package-server regions observed for LineCableModels.jl](assets/user-statistics.svg)
 
-The map is generated in CI from Julia's public package-server request logs. It
+The map is generated in CI from Julia's public package-server request logs. The map
 shows the top server regions by the sum of `request_addrs` for requests marked
-as user traffic. These regional aggregates are useful adoption indicators, but
+as user traffic. These regional aggregates indicate adoption, but
 they are not a count of distinct people and must not be read as country-level
 telemetry.
 
 
 ## License
 
-The source code is provided under the [BSD 3-Clause License](https://github.com/Electa-Git/LineCableModels.jl/LICENSE).
+The source code is licensed under the
+[BSD 3-Clause License](https://github.com/Electa-Git/LineCableModels.jl/LICENSE).
 
 ---
 ```@raw html

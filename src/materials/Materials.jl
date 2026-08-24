@@ -1,101 +1,30 @@
 """
     LineCableModels.Materials
 
-The [`Materials`](@ref) module provides functionality for managing and utilizing material properties within the [`LineCableModels.jl`](index.md) package. This module includes definitions for material properties, a library for storing and retrieving materials, and functions for manipulating material data.
+Define electromagnetic material records and an in-memory material library.
 
-# Overview
+# Public actions
 
-- Defines the [`Material`](@ref) struct representing fundamental physical properties of materials.
-- Provides the [`MaterialsLibrary`](@ref) mutable struct for storing a collection of materials.
-- Includes functions for adding, removing, and retrieving materials from the library.
-- Supports loading and saving material data from/to JSON files.
-- Contains utility functions for displaying material data.
+- Construct and validate [`Material`](@ref) values.
+- Add, remove, and retrieve materials in a [`MaterialsLibrary`](@ref).
+- Present material data through Base and DataFrames protocols.
+
+JSON persistence belongs to `LineCableModels.ImportExport`.
 
 # Dependencies
 
 $(IMPORTS)
-
 """
 module Materials
 
-# Export public API
 export Material, MaterialsLibrary, add!
 
-# Module-specific dependencies
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES,
                            FUNCTIONNAME
 import ..LineCableModels: add!, validate
 import ..Validation
 
-"""
-$(TYPEDEF)
-
-Defines electromagnetic and thermal properties of a material used in cable modeling:
-
-$(TYPEDFIELDS)
-"""
-struct Material{T <: Real}
-    "Electrical resistivity of the material \\[Ω·m\\]."
-    rho::T
-    "Relative permittivity \\[dimensionless\\]."
-    eps_r::T
-    "Relative permeability \\[dimensionless\\]."
-    mu_r::T
-    "Reference temperature for property evaluations \\[°C\\]."
-    T0::T
-    "Temperature coefficient of resistivity \\[1/°C\\]."
-    alpha::T
-
-    @inline function Material{T}(
-            rho::T,
-            eps_r::T,
-            mu_r::T,
-            T0::T,
-            alpha::T
-    ) where {T <: Real}
-        return validate(new{T}(rho, eps_r, mu_r, T0, alpha))
-    end
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Construct a material after floating and promoting its real-valued properties.
-
-# Arguments
-- `rho`: Resistivity \\[Ω·m\\].
-- `eps_r`: Relative permittivity \\[1\\].
-- `mu_r`: Relative permeability \\[1\\].
-- `T0`: Reference temperature \\[°C\\].
-- `alpha`: Temperature coefficient of resistivity \\[1/°C\\].
-
-# Returns
-- A `Material` whose scalar type is the promoted floating type of its inputs.
-"""
-@inline function Material(rho, eps_r, mu_r, T0, alpha)
-    values = promote(float(rho), float(eps_r), float(mu_r), float(T0), float(alpha))
-    return Material{typeof(first(values))}(values...)
-end
-
-function _check_material(material::Material)
-    isnan(material.rho) && throw(DomainError(material.rho, "resistivity cannot be NaN"))
-    material.rho > zero(material.rho) ||
-        throw(DomainError(material.rho, "resistivity must be positive"))
-    isfinite(material.eps_r) && material.eps_r >= zero(material.eps_r) ||
-        throw(DomainError(material.eps_r, "relative permittivity must be nonnegative and finite"))
-    isfinite(material.mu_r) && material.mu_r > zero(material.mu_r) ||
-        throw(DomainError(material.mu_r, "relative permeability must be positive and finite"))
-    isfinite(material.T0) ||
-        throw(DomainError(material.T0, "reference temperature must be finite"))
-    isfinite(material.alpha) ||
-        throw(DomainError(material.alpha, "temperature coefficient must be finite"))
-    return nothing
-end
-
-function Validation.rules(::Type{<:Material})
-    (Validation.OwnerRule(:material_properties, _check_material),)
-end
-
+include("material.jl")
 include("materialslibrary.jl")
 include("dataframe.jl")
 include("base.jl")

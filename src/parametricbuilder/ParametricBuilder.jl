@@ -1,3 +1,18 @@
+"""
+    LineCableModels.ParametricBuilder
+
+Construct finite parameter spaces and materialise cable problems from explicit
+`Grid` inputs.
+
+# Overview
+
+- Define deterministic and uncertainty-bearing finite sources.
+- Compose sources with product or zip semantics.
+- Materialise materials, cable parts, cable designs, positions, earth models,
+  and line-parameter problems.
+- Evaluate every materialised problem with `Combinatorial`.
+- Estimate stranded-conductor and wire-screen patterns.
+"""
 module ParametricBuilder
 
 export Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGrid
@@ -32,10 +47,13 @@ include("gridspace.jl")
 include("macros.jl")
 include("results.jl")
 
-include("materialdefinition.jl")
-include("cablebuilderdefinition.jl")
-include("positiondefinition.jl")
-include("systembuilderdefinition.jl")
+include("material.jl")
+include("parts.jl")
+include("conductor/Conductor.jl")
+include("insulator/Insulator.jl")
+include("cablebuilder.jl")
+include("positions.jl")
+include("systembuilder.jl")
 
 include("compute.jl")
 

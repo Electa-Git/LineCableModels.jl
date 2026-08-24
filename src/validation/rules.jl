@@ -46,11 +46,6 @@ struct OneOf{T} <: Rule
     values::T
 end
 
-struct PhysicalFillLimit <: Rule
-    count::Symbol
-    geometry::Tuple{Vararg{Symbol}}
-end
-
 """
 $(TYPEDEF)
 

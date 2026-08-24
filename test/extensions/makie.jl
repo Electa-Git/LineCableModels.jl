@@ -13,7 +13,7 @@
     @test_throws ArgumentError LineCableModels.Engine.plot(nothing)
     @test_throws MethodError LineCableModels.PlotBuilder.export_svg(nothing)
 
-    backends=LineCableModels.PlotBuilder.BackendHandler
+    backends = LineCableModels.PlotBuilder
     @test backends.current_backend_symbol() === :none
     for backend in (:cairo, :gl, :wgl)
         @test !backends.backend_available(backend)

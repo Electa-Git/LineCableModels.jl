@@ -1,7 +1,7 @@
 """
 $(TYPEDSIGNATURES)
 
-Save a cable library as versioned JSON or trusted Julia serialization (`.jls`).
+Save a cable library as versioned JSON or trusted Julia serialisation (`.jls`).
 JLS input must come from a trusted source and use matching package types.
 """
 function save(

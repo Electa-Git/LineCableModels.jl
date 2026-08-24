@@ -12,15 +12,15 @@ function export_data(::Val{:tralin},
     _fmt(x) = string(round(Float64(nominal(x)); digits = 6))
     _maybe(x) = (x === nothing) ? "" : _fmt(x)
 
-    # Resolve output file name (prefix "tr_"; mirror  XML semantics)
+    # Prefix the output filename with "tr_", matching the XML exporter.
     if isnothing(file_name)
         file_name = joinpath(@__DIR__, "tr_$(cable_system.system_id).f05")
     else
         dir = dirname(file_name)
         fname = basename(file_name)
-        # Ensure filename has "tr_" prefix, but preserve user's name
+        # Add the prefix while preserving the supplied filename.
         prefixed_fname = startswith(fname, "tr_") ? fname : "tr_" * fname
-        # Rejoin with original path, handling relative vs absolute
+        # Resolve relative paths beside this exporter.
         file_name = isabspath(file_name) ? joinpath(dir, prefixed_fname) :
                     joinpath(@__DIR__, dir, prefixed_fname)
     end
@@ -175,7 +175,7 @@ function _block_after_anchor(fileLines::Vector{String}, anchor::AbstractString)
     start_idx = findfirst(l -> occursin(anchor, l), fileLines)
     start_idx === nothing && throw(ArgumentError("Anchor not found: $anchor"))
 
-    # page header appears after each page break; we stop before it
+    # Stop before the next page header.
     page_hdr = "TRALIN package - PAGE"
     stop_idx = findnext(l -> occursin(page_hdr, l), fileLines, start_idx + 1)
     stop_idx === nothing && (stop_idx = length(fileLines) + 1)
@@ -196,7 +196,7 @@ function _infer_tralin_order(file_or_lines)::Int
     # Table rows look like:
     #    1      1     1     1     1     core      0.00000   0.01885  ...
     # Columns (first 5 numbers): CONDUCTOR, GROUP, CABLE, COAX, PHASE
-    # We capture the 5th integer (PHASE) and keep nonzero uniques.
+    # Read the fifth integer (PHASE) and retain distinct nonzero values.
     phase_set = Set{Int}()
     row_re = r"^\s*\d+\s+\d+\s+\d+\s+\d+\s+(\d+)\s+\S+"
 
@@ -220,12 +220,21 @@ end
 
 # --- public: extract the frequency vector from the "FREQUENCY OF HARMONIC CURRENT" section ---
 """
-    extract_tralin_frequencies(file_or_lines) -> Vector{Float64}
+$(TYPEDSIGNATURES)
 
-Parses the list of operating frequencies from the `FREQUENCY OF HARMONIC CURRENT:` section
-up to the next page header. Returns a `Vector{Float64}` in \\[Hz\\].
+Read operating frequencies from a TRALIN output section \\[Hz\\].
 
-Accepts either a filename (`AbstractString`) or a preloaded `Vector{String}` with file lines.
+# Arguments
+
+- `file_or_lines`: TRALIN output path or preloaded file lines.
+
+# Returns
+
+- Operating frequencies through the next page header \\[Hz\\].
+
+# Errors
+
+- Throws `ArgumentError` when the frequency section is absent or empty.
 """
 function _extract_tralin_frequencies(file_or_lines)::Vector{Float64}
     fileLines = file_or_lines isa AbstractString ? readlines(String(file_or_lines)) :
@@ -239,7 +248,7 @@ function _extract_tralin_frequencies(file_or_lines)::Vector{Float64}
     # Data lines look like:
     #       1       1.00
     #       6      0.215E+04
-    # We capture the second column as a float (supports E-notation).
+    # Read the second column as a floating-point value with optional E notation.
     freqs = Float64[]
     row_re = r"^\s*\d+\s+([+-]?(?:\d+\.?\d*|\.\d+)(?:[Ee][+-]?\d+)?)\s*$"
 
@@ -258,10 +267,19 @@ function _extract_tralin_frequencies(file_or_lines)::Vector{Float64}
 end
 
 """
-    parse_tralin_file(filename)
+$(TYPEDSIGNATURES)
 
-Parse a TRALIN file and extract impedance, admittance, and potential coefficient matrices
-for multiple frequency samples.
+Parse frequency-indexed impedance, admittance, and potential-coefficient
+matrices from a TRALIN output file.
+
+# Arguments
+
+- `filename`: TRALIN output path.
+
+# Returns
+
+- A tuple containing frequencies \\[Hz\\], series impedance \\[Ω/m\\], shunt
+  admittance \\[S/m\\], and potential coefficients \\[Ω·m\\].
 """
 function parse_tralin_file(filename)
     fileLines = readlines(filename)
@@ -273,7 +291,7 @@ function parse_tralin_file(filename)
     limited_str = "GROUND WIRES ELIMINATED"
     all_idx = findall(row -> occursin(limited_str, row), fileLines)
 
-    # Initialize arrays to store matrices for all frequency samples
+    # Initialise matrices for all frequency samples.
     Z_matrices = Vector{Matrix{ComplexF64}}(undef, length(all_idx))
     Y_matrices = Vector{Matrix{ComplexF64}}(undef, length(all_idx))
     P_matrices = Vector{Matrix{ComplexF64}}(undef, length(all_idx))
@@ -324,9 +342,21 @@ function parse_tralin_file(filename)
 end
 
 """
-    extract_tralin_variable(fileLines, order, str_init, str_final)
+$(TYPEDSIGNATURES)
 
-Extracts matrix data between specified headers in `fileLines`, handling complex formatting.
+Parse one upper-triangular complex matrix between two TRALIN section headers.
+
+# Arguments
+
+- `fileLines`: TRALIN output lines beginning before `str_init`.
+- `order`: Matrix order.
+- `str_init`: Header that begins the matrix section.
+- `str_final`: Header that ends the matrix section.
+
+# Returns
+
+- A symmetric `order × order` complex matrix. Missing headers produce a zero
+  matrix after writing a diagnostic to standard output.
 """
 function extract_tralin_variable(fileLines, order, str_init, str_final)
     # Locate header and footer lines
@@ -350,7 +380,7 @@ function extract_tralin_variable(fileLines, order, str_init, str_final)
     # Process, clean, and arrange data into matrix form
     variable_list_number = clean_variable_list(variable_list_number, order)
 
-    # Initialize matrix and fill, with padding if necessary
+    # Initialise and fill the matrix, padding incomplete rows when necessary.
     matrix = zeros(ComplexF64, order, order)
     for (i, row) in enumerate(variable_list_number)
         matrix[i, 1:length(row)] = row
@@ -363,9 +393,9 @@ function extract_tralin_variable(fileLines, order, str_init, str_final)
 end
 
 """
-    take_complex_list(s)
+$(TYPEDSIGNATURES)
 
-Parses a string to identify real and complex numbers, with conditional scaling for scientific notation.
+Parse the leading row index and `a + j b` values from one TRALIN matrix row.
 """
 function take_complex_list(s)
     numbers = []
@@ -395,21 +425,21 @@ function take_complex_list(s)
 end
 
 """
-    clean_variable_list(variable_list_number, order)
+$(TYPEDSIGNATURES)
 
-Cleans and arranges extracted list into a proper matrix format.
+Remove row labels and pad parsed TRALIN rows to `order × order`.
 """
 function clean_variable_list(data, order)
     # Remove entries that lack values, filter short lists
     filter!(lst -> length(lst) > 1, data)
 
-    # Trim row label elements and only keep the actual data
+    # Remove row labels.
     data = [lst[2:end] for lst in data]
 
-    # Apply padding to each row as needed to align with specified order
+    # Pad each row to the requested order.
     data_padded = [vcat(lst, fill(0.0 + 0.0im, order - length(lst))) for lst in data]
 
-    # Ensure `data_padded` has `order` rows; add extra rows of zeros if required
+    # Add zero rows to reach the requested order.
     if length(data_padded) < order
         for _ in 1:(order - length(data_padded))
             push!(data_padded, fill(0.0 + 0.0im, order))
@@ -423,7 +453,7 @@ end
 function LineParameters(::Val{:tralin}, file_name::AbstractString)
     f, Z_tralin, Y_tralin, _ = parse_tralin_file(file_name)
 
-    # Normalize types (ComplexF64 / Float64 by default; tweak if you need Measurements etc.)
+    # Convert parsed values to the requested numeric types.
     Z = ComplexF64.(Z_tralin)
     Y = ComplexF64.(Y_tralin)
     fv = Float64.(f)
@@ -431,7 +461,7 @@ function LineParameters(::Val{:tralin}, file_name::AbstractString)
     return LineParameters(SeriesImpedance(Z), ShuntAdmittance(Y), fv)
 end
 
-# -- Format-auto convenience (add branches as you implement other parsers)
+# Select the parser from the requested format.
 function LineParameters(file_name::AbstractString; format::Symbol = :auto)
     fmt = format === :auto ? (endswith(lowercase(file_name), ".f09") ? :tralin : :unknown) :
           format
@@ -444,7 +474,7 @@ function LineParameters(file_name::AbstractString; format::Symbol = :auto)
     end
 end
 
-# helpful fallback for unknown symbols (better than a MethodError)
+# Report unsupported format symbols as argument errors.
 function LineParameters(::Val{fmt}, args...; kwargs...) where {fmt}
     throw(ArgumentError("Unsupported format: $(fmt)"))
 end

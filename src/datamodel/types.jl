@@ -1,16 +1,16 @@
 """
 $(TYPEDEF)
 
-Abstract type representing a generic cable part.
+Supertype for materialised cable parts.
 """
 abstract type AbstractCablePart{T} end
 
 """
 $(TYPEDEF)
 
-Abstract type representing a conductive part of a cable.
+Supertype for materialised conductive cable parts.
 
-Subtypes implement specific configurations:
+Direct implementations include:
 - [`Tubular`](@ref)
 - [`Strip`](@ref)
 """
@@ -19,9 +19,9 @@ abstract type AbstractConductorPart{T} <: AbstractCablePart{T} end
 """
 $(TYPEDEF)
 
-Abstract type representing all stranded configurations composed of grouped discrete geometric shapes.
+Supertype for conductor parts composed of discrete strands.
 
-Subtypes implement specific configurations:
+Direct implementations include:
 - [`CircStrands`](@ref)
 - [`RectStrands`](@ref)
 """
@@ -30,9 +30,9 @@ abstract type AbstractStrandsLayer{T} <: AbstractConductorPart{T} end
 """
 $(TYPEDEF)
 
-Abstract type representing an insulating part of a cable.
+Supertype for materialised dielectric cable parts.
 
-Subtypes implement specific configurations:
+Direct implementations include:
 - [`Insulator`](@ref)
 - [`Semicon`](@ref)
 """

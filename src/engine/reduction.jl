@@ -56,8 +56,26 @@ function reorder_M(M::AbstractMatrix, map::AbstractVector{<:Integer})
 end
 
 """
-    kronify(M, phase_map)
-    Kron elimination
+$(TYPEDSIGNATURES)
+
+Eliminate matrix rows and columns whose `phase_map` entry is zero.
+
+For retained indices `1` and eliminated indices `2`, calculate the Schur
+complement
+
+```math
+M_{\\mathrm{red}} = M_{11} - M_{12}M_{22}^{-1}M_{21}.
+```
+
+# Arguments
+
+- `M`: Square complex matrix.
+- `phase_map`: Phase assignment for each row and column. Zero marks an
+  eliminated conductor.
+
+# Returns
+
+- The reduced matrix.
 """
 function kronify(
         M::Matrix{Complex{T}},
@@ -75,8 +93,19 @@ function kronify(
 end
 
 """
-    kronify!(M, phase_map, Mred)
-    Kron's angry little brother (in-place)
+$(TYPEDSIGNATURES)
+
+Write the Kron-reduced matrix from [`kronify`](@ref) into `Mred`.
+
+# Arguments
+
+- `M`: Square complex matrix.
+- `phase_map`: Phase assignment for each row and column.
+- `Mred`: Destination matrix.
+
+# Returns
+
+- `nothing`.
 """
 function kronify!(
         M::Matrix{Complex{T}},

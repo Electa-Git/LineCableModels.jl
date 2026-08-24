@@ -5,17 +5,17 @@ Base.eltype(::Type{CableComponent{T}}) where {T} = T
 """
 $(TYPEDSIGNATURES)
 
-Defines the display representation of a [`CableComponent`](@ref) object for REPL or text output.
+Write the plain-text representation of a cable component to `io`.
 
 # Arguments
 
 - `io`: Output stream.
 - `::MIME"text/plain"`: MIME type for plain text output.
-- `component`: The [`CableComponent`](@ref) object to be displayed.
+- `component`: Cable component to display.
 
 # Returns
 
-- Nothing. Modifies `io` by writing text representation of the object.
+- `nothing` after writing to `io`.
 """
 function Base.show(io::IO, ::MIME"text/plain", component::CableComponent)
     # Calculate total number of parts across both groups
@@ -40,10 +40,10 @@ function Base.show(io::IO, ::MIME"text/plain", component::CableComponent)
     for (i, part) in enumerate(component.conductor_group.layers)
         prefix = i == length(component.conductor_group.layers) ? "└───" : "├───"
 
-        # Print part information with proper indentation
+        # Indent the cable-part entry.
         print(io, "│  ", prefix, " $(nameof(typeof(part))): [")
 
-        # Print each field with proper formatting
+        # Print selected cable-part fields.
         _print_fields(
             io,
             part,
@@ -75,13 +75,13 @@ function Base.show(io::IO, ::MIME"text/plain", component::CableComponent)
         _print_fields(io, component.insulator_props, [:rho, :eps_r, :mu_r, :alpha])
         println(io, "]")
         for (i, part) in enumerate(component.insulator_group.layers)
-            # Determine prefix based on whether it's the last part
+            # Select the prefix from the part position.
             prefix = i == length(component.insulator_group.layers) ? "└───" : "├───"
 
-            # Print part information with proper indentation
+            # Indent the cable-part entry.
             print(io, "   ", prefix, " $(nameof(typeof(part))): [")
 
-            # Print each field with proper formatting
+            # Print selected cable-part fields.
             _print_fields(
                 io,
                 part,

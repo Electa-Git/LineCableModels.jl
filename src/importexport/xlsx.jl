@@ -2,9 +2,9 @@
 # using DataFrames
 
 # ---------------------------------------------------------------------------
-# Stringification helpers (keeps uncertainties visible in Excel)
+# String conversion preserves uncertainty text in Excel.
 # ---------------------------------------------------------------------------
-stringify(x) = string(x)  # fallback (rarely reached)
+stringify(x) = string(x)
 stringify(::Missing) = ""
 stringify(x::Real) = @sprintf("%.12g", float(x))
 
@@ -12,7 +12,7 @@ function df_to_strings(df::DataFrame)
     DataFrame((name => stringify.(df[!, name]) for name in names(df))...; copycols = false)
 end
 
-# helper to fetch the units dict from df.metadata
+# Read the units dictionary from DataFrame metadata.
 _get_units(df::DataFrame) =
     try
         DataFrames.metadata(df, "units", style = :note)
@@ -25,7 +25,7 @@ _get_units(df::DataFrame) =
     end
 
 # ---------------------------------------------------------------------------
-# XLSX sheet writer: reuses/renames Sheet1 for the first write to avoid blanks
+# Reuse or rename Sheet1 for the first write to avoid an empty sheet.
 # ---------------------------------------------------------------------------
 function _write_sheet!(xf, sheetname::String, df::DataFrame; use_first_sheet::Bool)
     units = _get_units(df)
@@ -34,12 +34,12 @@ function _write_sheet!(xf, sheetname::String, df::DataFrame; use_first_sheet::Bo
     ws = nothing
     if use_first_sheet
         ws = try
-            xf["Sheet1"]            # reuse default first sheet
+            xf["Sheet1"]
         catch
             nothing
         end
         ws = ws === nothing ? XLSX.addsheet!(xf, sheetname) : ws
-        # If rename! exists, great; if not, we still write so Sheet1 isn't blank.
+        # Write to the existing sheet if this XLSX version cannot rename it.
         try
             XLSX.rename!(ws, sheetname)
         catch
@@ -48,10 +48,10 @@ function _write_sheet!(xf, sheetname::String, df::DataFrame; use_first_sheet::Bo
         ws = XLSX.addsheet!(xf, sheetname)
     end
 
-    # Start row for writing
+    # First output row.
     start_row = 1
 
-    # Optional UNITS block (Column | Unit) from DataFrame metadata
+    # Optional units block from DataFrame metadata.
     if units isa AbstractDict
         for name in names(df)
             ws[start_row, 1] = String(name)
@@ -59,10 +59,10 @@ function _write_sheet!(xf, sheetname::String, df::DataFrame; use_first_sheet::Bo
             ws[start_row, 2] = String(u)
             start_row += 1
         end
-        start_row += 1   # spacer line
+        start_row += 1
     end
 
-    # IMPORTANT: anchor_cell must be a CellRef, not a String
+    # XLSX requires a CellRef rather than a String for anchor_cell.
     XLSX.writetable!(
         ws,
         Tables.columntable(df_str);
@@ -99,14 +99,14 @@ function export_data(
         end
     end
 
-    # ---- Build the DataFrames once (uses LP.f internally) ------------------
-    df_z, df_y = DataFrame(line_params)  # each is Matrix{DataFrame}
+    # Build the frequency-indexed tables once.
+    df_z, df_y = DataFrame(line_params)
 
-    # Shapes
+    # Matrix dimensions.
     nzx, nzy = size(df_z)
     nyx, nyy = size(df_y)
 
-    # Diagonal-only logic (modal parameters)
+    # Detect modal parameters represented by diagonal matrices.
     is_diagonal(matrix) = isapprox(
         matrix, Diagonal(diag(matrix)); rtol = 1.0e-8, atol = 1.0e-8
     )
@@ -114,10 +114,10 @@ function export_data(
     Y_isdiag = is_diagonal(line_params.Y[:, :, 1])
 
     if Z_isdiag
-        @warn "Z appears modal/diagonal (isdiag_approx=true). Exporting ONLY diagonal elements Z[i,i]; off-diagonals are intentionally omitted."
+        @warn "Z is diagonal within the selected tolerance. Exporting Z[i,i] and omitting off-diagonal elements."
     end
     if Y_isdiag
-        @warn "Y appears modal/diagonal (isdiag_approx=true). Exporting ONLY diagonal elements Y[i,i]; off-diagonals are intentionally omitted."
+        @warn "Y is diagonal within the selected tolerance. Exporting Y[i,i] and omitting off-diagonal elements."
     end
 
     # ---- Write XLSX --------------------------------------------------------

@@ -1,6 +1,8 @@
 """
     LineCableModels.Engine.InsulationImpedance
 
+Define series-impedance formulations for cable insulation.
+
 # Dependencies
 
 $(IMPORTS)
@@ -13,8 +15,7 @@ export Lossless
 
 # Module-specific dependencies
 using DocStringExtensions: IMPORTS, TYPEDSIGNATURES
-import ...LineCableModels: description
-import ..Engine: InsulationImpedanceFormulation
+import ..Engine: InsulationImpedanceFormulation, description
 
 include("lossless.jl")
 

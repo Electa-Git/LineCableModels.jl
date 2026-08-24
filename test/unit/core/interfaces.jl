@@ -56,16 +56,17 @@ end
     using DocStringExtensions
 
     method=which(LineCableModels.domain, (Int,))
-    @test LineCableModels._method_path(method) == joinpath("src", "interfaces.jl")
+    @test LineCableModels._method_path(method) ==
+          joinpath("src", "engine", "interfaces.jl")
     @test !occursin(pkgdir(LineCableModels), LineCableModels._method_path(method))
 
-    binding=Docs.Binding(LineCableModels, :domain)
-    doc=first(values(Docs.meta(LineCableModels)[binding].docs))
+    binding=Docs.Binding(LineCableModels.Engine, :domain)
+    doc=first(values(Docs.meta(LineCableModels.Engine)[binding].docs))
     buffer=IOBuffer()
     @test DocStringExtensions.format(LineCableModels.METHODLIST, buffer, doc) === nothing
     rendered=String(take!(buffer))
     @test occursin("domain", rendered)
-    @test occursin("src/interfaces.jl:", rendered)
+    @test occursin("src/engine/interfaces.jl:", rendered)
     @test !occursin(pkgdir(LineCableModels), rendered)
 end
 

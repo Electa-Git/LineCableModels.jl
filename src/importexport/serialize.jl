@@ -121,8 +121,26 @@ function _serialize_object(value::Strip)
     )
 end
 
-for Part in (:Tubular, :Insulator, :Semicon)
-    @eval _serialize_object(value::$Part) = _object(
+function _serialize_object(value::Tubular)
+    return _object(
+        _type_tag(value);
+        r_in = value.r_in,
+        r_ex = value.r_ex,
+        material = value.material_props
+    )
+end
+
+function _serialize_object(value::Insulator)
+    return _object(
+        _type_tag(value);
+        r_in = value.r_in,
+        r_ex = value.r_ex,
+        material = value.material_props
+    )
+end
+
+function _serialize_object(value::Semicon)
+    return _object(
         _type_tag(value);
         r_in = value.r_in,
         r_ex = value.r_ex,

@@ -4,7 +4,7 @@ $(TYPEDEF)
 Store cable constants per unit length.
 
 The fields `R`, `L`, and `C` are stored in Ω/m, H/m, and F/m respectively.
-Display conversions belong to `UnitHandler` and presentation adapters.
+Display conversions belong to `QuantityUnits` and presentation adapters.
 
 $(TYPEDFIELDS)
 """

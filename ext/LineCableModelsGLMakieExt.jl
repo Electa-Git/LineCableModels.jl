@@ -1,3 +1,8 @@
+"""
+    LineCableModelsGLMakieExt
+
+Activate GLMakie and create interactive plot screens for LineCableModels.
+"""
 module LineCableModelsGLMakieExt
 
 using GLMakie

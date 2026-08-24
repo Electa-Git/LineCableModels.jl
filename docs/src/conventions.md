@@ -9,8 +9,126 @@ format(".")
 
 before committing.
 
-Versions follow [Semantic Versioning](https://semver.org/). Public behavior is
-kept compatible within a minor release; deprecations must provide a migration
+## Ownership-centred recursive module layout
+
+Source code is organised by **owner first** and **responsibility second**. The
+directory names the module, domain concept, or action that defines a decision.
+the filename names the operation implemented for that owner.
+For example, Engine owns line-parameter result semantics, so their array and
+accessor methods live under `engine/lineparameters/`. PlotBuilder owns the
+renderer-independent plotting grammar, while the optional Makie extension owns
+Makie figures and controls under `ext/`.
+
+Apply these rules when adding or moving code:
+
+1. Put a declaration or method with the owner whose API or numerical meaning
+   determines when it changes.
+   Do not group unrelated owners into `helpers`, `utils`, `handlers`, or other
+   mechanism-first buckets.
+2. Keep a function at the package root only when at least two independent
+   sibling modules require the same meaning and neither sibling defines it.
+   Calculation functions shared by Engine,
+   ParametricBuilder, UQ, and external backends lives in `Grammar`. Engine-only
+   names such as `Z`, `frequencies`, and `description` remain in `Engine`.
+3. Name files after a precise responsibility: `interfaces.jl` declares owned
+   hooks, `types.jl` holds owner-wide types, `base.jl` contains only Base/Core
+   protocols, and an action file such as `compute.jl`, `validate.jl`, or
+   `render.jl` keeps one visible call sequence.
+4. Promote one file to a directory when the concept has several coherent
+   responsibilities. A directory does not imply a Julia submodule. Introduce a
+   submodule only for a separate namespace, dependency set, or independently
+   stated interface.
+5. Keep each `Module.jl` as an index: module documentation, explicit imports,
+   exports, includes in dependency order, and child reexports. Constructors,
+   algorithms, validation, and presentation methods belong in
+   the indexed files.
+6. Declare shared interfaces at the lowest legitimate owner. Children import
+   and extend those functions explicitly. They must not mutate parent modules
+   with `eval` or registration machinery. Sibling communication follows a
+   directed import graph.
+7. Keep optional-package translations in Julia package extensions. Core
+   `src/` may define renderer-independent values and explicit unavailable-feature
+   fallbacks, but it must not import Makie or contain Makie UI implementation.
+8. Keep development-only environments and manual diagnostics under `dev/`,
+   not `src/` or the automated test tree.
+
+The following sanitised snapshot is the reference shape. The snapshot omits leaf files
+that do not clarify the layout, but every shown path exists in the maintained
+tree:
+
+```text
+src/
+├── LineCableModels.jl                 # package index
+├── interfaces.jl                      # genuine multi-owner root contracts
+├── grammar/
+│   ├── Grammar.jl                     # shared calculation-type index
+│   ├── types.jl
+│   ├── interfaces.jl
+│   └── uncertainty.jl
+├── quantityunits/
+│   ├── QuantityUnits.jl               # unit/quantity owner
+│   ├── quantities.jl
+│   ├── definitions.jl
+│   └── scaling.jl
+├── validation/
+│   ├── Validation.jl                  # validation index
+│   ├── interfaces.jl
+│   ├── rules.jl
+│   └── validate.jl                    # fixed validation action
+├── datamodel/
+│   ├── DataModel.jl
+│   ├── packing.jl                     # cable packing constraints
+│   ├── cabledesign/
+│   │   ├── cabledesign.jl
+│   │   ├── cableconstants.jl
+│   │   └── dataframe.jl
+│   └── preview/                       # renderer-independent preview definitions
+├── engine/
+│   ├── Engine.jl
+│   ├── interfaces.jl
+│   ├── compute.jl                     # analytical choreography
+│   ├── earthreturn.jl                 # named physical algorithm
+│   └── lineparameters/
+│       ├── lineparameters.jl
+│       ├── quantities.jl              # Engine ↔ QuantityUnits methods
+│       ├── dataframe.jl
+│       └── plotdefinition.jl          # renderer-independent plot definition
+├── plotbuilder/
+│   ├── PlotBuilder.jl
+│   ├── interfaces.jl
+│   ├── composition.jl
+│   ├── render.jl                      # fixed recipe action
+│   └── backends.jl                    # extension activation only
+├── uq/
+│   ├── UQ.jl
+│   ├── linearerror.jl
+│   └── montecarlo/
+│       ├── compute.jl
+│       └── plot.jl
+└── importexport/
+    ├── ImportExport.jl
+    ├── interfaces.jl
+    └── pscad/
+        ├── pscad.jl
+        ├── project.jl
+        └── import.jl
+
+ext/
+└── LineCableModelsMakieExt/
+    ├── LineCableModelsMakieExt.jl     # Makie extension index
+    └── UIComponents.jl                # Makie-owned translation and controls
+
+dev/
+└── plotting/                          # manual plotting environment
+```
+
+Structural regression tests verify this layout. If a change needs a path
+that contradicts the snapshot, first identify the new owner and responsibility
+and update both the convention and its layout test. Do not
+retain a misleading path through an alias or compatibility namespace.
+
+Versions follow [Semantic Versioning](https://semver.org/). Public behaviour is
+kept compatible within a minor release. Deprecations must include a migration
 path before removal.
 
 Commit subjects use scoped Conventional Commits, start with a lowercase
@@ -20,16 +138,16 @@ description, and remain within 72 characters. For example:
 fix(engine): reject unsupported formulation options
 ```
 
-Changes must include tests at the lowest useful level. Core tests must not load
-optional integrations. CairoMakie is verified in a separate gate.
-Examples in docstrings should be executable and self-contained; examples that
-require fixtures, user interfaces, or external executables belong in integration
+Changes must include tests at the closest relevant scope. Core tests must not load
+optional packages. CairoMakie is verified in a separate check.
+Examples in docstrings should be executable and self-contained. Examples that
+require fixtures, user interfaces, or external executables belong in developer
 documentation instead.
 
-Physical quantities state their SI units. A docstring for implemented
-physically meaningful mathematics includes a `# Notes` section with the
-equation and definitions used by the code. This requirement follows the
-implementation, not a naming prefix.
+Physical quantities state their SI units. A docstring for an implemented
+equation places that equation in the method description and defines its
+symbols. Use `# Notes` only for assumptions, limitations, or supplementary
+mathematics.
 
 Docstrings use `DocStringExtensions` abbreviations as the codebase-wide default
 for generated signatures, type declarations, fields, and module inventories.

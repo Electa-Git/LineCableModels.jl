@@ -137,7 +137,7 @@ $(SIGNATURES)
 
 Retain the strict positional struct and add a keyword constructor that lifts
 only explicit Grid or Gridspace fields into a `Gridspace`. With `Target`, the
-generated space materializes that target instead of the vault struct itself.
+generated space materialises that target instead of the vault struct itself.
 """
 macro gridspace(arguments...)
     length(arguments) in (1, 2) ||
