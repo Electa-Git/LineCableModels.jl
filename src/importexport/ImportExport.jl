@@ -24,7 +24,6 @@ module ImportExport
 # Export public API
 export export_data
 export import_data
-export read_data
 export save
 export load!
 

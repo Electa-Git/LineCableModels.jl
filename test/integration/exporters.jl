@@ -20,6 +20,15 @@
         @test isfile(output)
         @test filesize(output) > 200
 
+        blocked=joinpath(directory, "$(system.system_id)_blocked.pscx")
+        mkdir(blocked)
+        @test_throws EzXML.XMLError export_data(
+            :pscad,
+            system,
+            earth;
+            file_name = joinpath(directory, "blocked.pscx")
+        )
+
         document=readxml(output)
         project=root(document)
         @test nodename(project) == "project"

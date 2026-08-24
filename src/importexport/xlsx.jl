@@ -79,7 +79,7 @@ function export_data(
         line_params::LineParameters;
         file_name::Union{String, Nothing} = nothing,
         cable_system::Union{LineCableSystem, Nothing} = nothing
-)::Union{String, Nothing}
+)::String
 
     # ---- Resolve final file_name (exactly as requested) --------------------
     if isnothing(file_name)
@@ -121,43 +121,34 @@ function export_data(
     end
 
     # ---- Write XLSX --------------------------------------------------------
-    try
-        first_sheet = true
-        XLSX.openxlsx(file_name, mode = "w") do xf
-            # Z sheets
-            if Z_isdiag
-                for i in 1:min(nzx, nzy)
-                    _write_sheet!(xf, "Z($i,$i)", df_z[i, i]; use_first_sheet = first_sheet)
-                    first_sheet = false
-                end
-            else
-                for i in 1:nzx, j in 1:nzy
-
-                    _write_sheet!(xf, "Z($i,$j)", df_z[i, j]; use_first_sheet = first_sheet)
-                    first_sheet = false
-                end
+    first_sheet = true
+    XLSX.openxlsx(file_name, mode = "w") do xf
+        # Z sheets
+        if Z_isdiag
+            for i in 1:min(nzx, nzy)
+                _write_sheet!(xf, "Z($i,$i)", df_z[i, i]; use_first_sheet = first_sheet)
+                first_sheet = false
             end
-
-            # Y sheets
-            if Y_isdiag
-                for i in 1:min(nyx, nyy)
-                    _write_sheet!(xf, "Y($i,$i)", df_y[i, i]; use_first_sheet = first_sheet)
-                    first_sheet = false
-                end
-            else
-                for i in 1:nyx, j in 1:nyy
-
-                    _write_sheet!(xf, "Y($i,$j)", df_y[i, j]; use_first_sheet = first_sheet)
-                    first_sheet = false
-                end
+        else
+            for i in 1:nzx, j in 1:nzy
+                _write_sheet!(xf, "Z($i,$j)", df_z[i, j]; use_first_sheet = first_sheet)
+                first_sheet = false
             end
         end
 
-        return file_name
-    catch err
-        # If anything explodes (e.g., filesystem perms), return nothing.
-        # Let the caller decide whether to rethrow.
-        @error "Failed to export XLSX: $(err)"
-        return nothing
+        # Y sheets
+        if Y_isdiag
+            for i in 1:min(nyx, nyy)
+                _write_sheet!(xf, "Y($i,$i)", df_y[i, i]; use_first_sheet = first_sheet)
+                first_sheet = false
+            end
+        else
+            for i in 1:nyx, j in 1:nyy
+                _write_sheet!(xf, "Y($i,$j)", df_y[i, j]; use_first_sheet = first_sheet)
+                first_sheet = false
+            end
+        end
     end
+
+    return file_name
 end

@@ -5,7 +5,7 @@ function export_data(::Val{:tralin},
         earth_props::EarthModel;
         freq = 50.0,
         file_name::Union{String, Nothing} = nothing
-)::Union{String, Nothing}
+)::String
 
     # -- helpers ---------------------------------------------------------------
     _freqs(x) = x isa AbstractVector ? collect(x) : [x]
@@ -158,20 +158,14 @@ function export_data(::Val{:tralin},
 
     push!(lines, "ENDPROGRAM")
 
-    try
-        open(file_name, "w") do fid
-            for ln in lines
-                write(fid, ln)
-                write(fid, '\n')
-            end
+    open(file_name, "w") do fid
+        for ln in lines
+            write(fid, ln)
+            write(fid, '\n')
         end
-        @info "TRALIN file saved to: $(_display_path(file_name))"
-        return file_name
-    catch e
-        @error "Failed to write TRALIN file '$(_display_path(file_name))'" exception = (
-            e, catch_backtrace())
-        return nothing
     end
+    @info "TRALIN file saved to: $(_display_path(file_name))"
+    return file_name
 end
 
 # --- internal utility: slice a block between an anchor and the next page header ---

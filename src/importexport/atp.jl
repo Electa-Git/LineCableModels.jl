@@ -39,7 +39,8 @@ present in the groups/components at the time of export.*
      * `epsI` — insulation relative permittivity via [`LineCableModels.DataModel.BaseParams.equivalent_eps`](@ref),
      * `Cext`, `Gext` — shunt capacitance and conductance from the component’s insulator group.
 4. Soil resistivity is written as *Grnd resis* using `earth_props.layers[end].rho`.
-5. The XML is pretty‑printed and written to `file_name`. On I/O error, the function logs an error and returns `nothing`.
+5. The XML is pretty‑printed and written to `file_name`. Filesystem errors are propagated to
+   the caller.
 
 # Units
 
@@ -78,7 +79,7 @@ function export_data(::Val{:atp},
         earth_props::EarthModel;
         base_freq = 50.0,
         file_name::Union{String, Nothing} = nothing
-)::Union{String, Nothing}
+)::String
     function _set_attributes!(element::EzXML.Node, attrs::Dict)
         for (k, v) in attrs
             element[k] = string(v)
@@ -242,125 +243,12 @@ function export_data(::Val{:atp},
     # Finalize and Write to File
     _set_attributes!(variables, Dict("NumSim" => 1, "IOPCVP" => 0, "UseParser" => "false"))
 
-    try
-        open(file_name, "w") do fid
-            prettyprint(fid, doc)
-        end
-        @info "XML file saved to: $(_display_path(file_name))"
-        return file_name
-    catch e
-        @error "Failed to write XML file '$(_display_path(file_name))'" exception = (
-            e, catch_backtrace())
-        return nothing
+    open(file_name, "w") do fid
+        prettyprint(fid, doc)
     end
+    @info "XML file saved to: $(_display_path(file_name))"
+    return file_name
 end
-
-# TODO: Develop `.lis` import and tests
-# Issue URL: https://github.com/Electa-Git/LineCableModels.jl/issues/12
-function read_data end
-# I TEST THEREFORE I EXIST
-# I DON´T TEST THEREFORE GO TO THE GARBAGE
-# """
-#     read_atp_data(file_name::String, cable_system::LineCableSystem)
-
-# Reads an ATP `.lis` output file, extracts the Ze and Zi matrices, and dynamically
-# reorders them to a grouped-by-phase format based on the provided `cable_system`
-# structure. It correctly handles systems with a variable number of components per cable.
-
-# # Arguments
-# - `file_name`: The path to the `.lis` file.
-# - `cable_system`: The `LineCableSystem` object corresponding to the data in the file.
-
-# # Returns
-# - `Array{T, 2}`: A 2D complex matrix representing the total reordered series
-#   impedance `Z = Ze + Zi` for a single frequency.
-# - `nothing`: If the file cannot be found, parsed, or if the matrix dimensions in the
-#   file do not match the provided `cable_system` structure.
-# """
-# function read_data(::Val{:atp},
-#     cable_system::LineCableSystem,
-#     freq::AbstractFloat;
-#     file_name::String="$(cable_system.system_id)_1.lis"
-#     # --- Inner helper function to parse a matrix block from text lines ---
-#     function parse_block(block_lines::Vector{String})
-#         data_lines = filter(line -> !isempty(strip(line)), block_lines)
-#         if isempty(data_lines)
-#             return Matrix{ComplexF64}(undef, 0, 0)
-#         end
-#         matrix_size = length(split(data_lines[1]))
-#         real_parts = zeros(Float64, matrix_size, matrix_size)
-#         imag_parts = zeros(Float64, matrix_size, matrix_size)
-#         row_counter = 1
-#         for i in 1:2:length(data_lines)
-#             if i + 1 > length(data_lines)
-#                 break
-#             end
-#             real_line, imag_line = data_lines[i], data_lines[i+1]
-#             try
-#                 real_parts[row_counter, :] = [parse(Float64, s) for s in split(real_line)[1:matrix_size]]
-#                 imag_parts[row_counter, :] = [parse(Float64, s) for s in split(imag_line)[1:matrix_size]]
-#             catch e
-#                 @error "Parsing failed" exception = (e, catch_backtrace())
-#                 return nothing
-#             end
-#             row_counter += 1
-#             if row_counter > matrix_size
-#                 break
-#             end
-#         end
-#         return real_parts + im * imag_parts
-#     end
-
-#     # --- Main Function Logic ---
-#     if !isfile(file_name)
-#         @error "File not found: $file_name"
-#         return nothing
-#     end
-#     lines = readlines(file_name)
-#     ze_start_idx = findfirst(occursin.("Earth impedance [Ze]", lines))
-#     zi_start_idx = findfirst(occursin.("Conductor internal impedance [Zi]", lines))
-#     if isnothing(ze_start_idx) || isnothing(zi_start_idx)
-#         @error "Could not find Ze/Zi headers."
-#         return nothing
-#     end
-
-#     Ze = parse_block(lines[ze_start_idx+1:zi_start_idx-1])
-#     Zi = parse_block(lines[zi_start_idx+1:end])
-#     if isnothing(Ze) || isnothing(Zi)
-#         return nothing
-#     end
-
-#     # --- DYNAMICALLY GENERATE PERMUTATION INDICES (Numerical Method) ---
-#     component_counts = [length(c.design_data.components) for c in cable_system.cables]
-#     total_conductors = sum(component_counts)
-#     num_phases = length(component_counts)
-#     max_components = isempty(component_counts) ? 0 : maximum(component_counts)
-
-#     if size(Ze, 1) != total_conductors
-#         @error "Matrix size from file ($(size(Ze,1))x$(size(Ze,1))) does not match total components in cable_system ($total_conductors)."
-#         return nothing
-#     end
-
-#     num_conductors_per_type = [sum(c >= i for c in component_counts) for i in 1:max_components]
-#     type_offsets = cumsum([0; num_conductors_per_type[1:end-1]])
-
-#     permutation_indices = Int[]
-#     sizehint!(permutation_indices, total_conductors)
-#     instance_counters = ones(Int, max_components)
-#     for phase_idx in 1:num_phases
-#         for comp_type_idx in 1:component_counts[phase_idx]
-#             instance = instance_counters[comp_type_idx]
-#             original_idx = type_offsets[comp_type_idx] + instance
-#             push!(permutation_indices, original_idx)
-#             instance_counters[comp_type_idx] += 1
-#         end
-#     end
-
-#     Ze_reordered = Ze[permutation_indices, permutation_indices]
-#     Zi_reordered = Zi[permutation_indices, permutation_indices]
-
-#     return Ze_reordered + Zi_reordered
-# end
 
 """$(TYPEDSIGNATURES)
 
@@ -384,7 +272,8 @@ structure understood by external tools. Rows are emitted as comma‑separated co
 
    * Emit a `<Z Freq=...>` block with `num_phases` lines, each line the `k`‑th slice of row `i` formatted as `real(Z[i,j,k]) + imag(Z[i,j,k])i`.
    * Emit a `<Y Freq=...>` block in the same fashion (default `G+Bi`).
-3. Close the `</ZY>` element and write to disk. On I/O error the function logs and returns `nothing`.
+3. Close the `</ZY>` element and write to disk. Filesystem errors are propagated to the
+   caller.
 
 # Units
 
@@ -418,7 +307,7 @@ function export_data(::Val{:atp},
         line_params::LineParameters;
         file_name::Union{String, Nothing} = nothing,
         cable_system::Union{LineCableSystem, Nothing} = nothing
-)::Union{String, Nothing}
+)::String
 
     # Resolve final file_name while preserving any user-supplied path.
     if isnothing(file_name)
@@ -511,16 +400,6 @@ function export_data(::Val{:atp},
         # --- Footer ---
         println(fid, "</ZY>")
     end
-    try
-        # Use pretty print option for debugging comparisons if needed
-        # open(filename, "w") do io; prettyprint(io, doc); end
-        if isfile(file_name)
-            @info "XML file saved to: $(_display_path(file_name))"
-        end
-        return file_name
-    catch e
-        @error "Failed to write XML file '$(_display_path(file_name))': $(e)"
-        isa(e, SystemError) && println("SystemError details: ", e.extrainfo)
-        return nothing
-    end
+    @info "XML file saved to: $(_display_path(file_name))"
+    return file_name
 end

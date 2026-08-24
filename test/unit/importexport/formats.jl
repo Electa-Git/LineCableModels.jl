@@ -146,9 +146,7 @@ end
                   Set(["Z(1,1)", "Z(2,2)", "Y(1,1)", "Y(2,2)"])
         end
 
-        @test_logs (:error, r"Failed to export XLSX") begin
-            @test export_data(:xlsx, parameters; file_name = directory) === nothing
-        end
+        @test_throws Exception export_data(:xlsx, parameters; file_name = directory)
     end
 end
 

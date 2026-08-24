@@ -24,7 +24,7 @@ it opens the project.
 
 # Returns
 
-The written path, or `nothing` when the file cannot be written.
+The written path. Filesystem errors are propagated to the caller.
 """
 function export_data(
         ::Val{:pscad},
@@ -38,11 +38,6 @@ function export_data(
     ))
     path = _pscad_output_path(system, file_name)
     document = _pscad_project(system, earth, base_freq)
-    try
-        write(path, document)
-        return path
-    catch exception
-        @error "Failed to write PSCAD project" path=_display_path(path) exception
-        return nothing
-    end
+    write(path, document)
+    return path
 end
