@@ -51,7 +51,7 @@ function computation_options(
         "unknown analytical computation options: $(sort!(collect(unknown)))",
     ))
     normalized = merge(
-        (verbosity = (default = 0,), output_basis = :per_length),
+        (verbosity = (default = 0,), output_basis = :pul),
         options
     )
     verbosity_values = normalized.verbosity
@@ -64,8 +64,8 @@ function computation_options(
     all(value -> value isa Integer && value in 0:2, values(verbosity_values)) ||
         throw(ArgumentError("verbosity levels must be integers from 0 to 2"))
     basis_value = normalized.output_basis
-    basis_value in (:per_length, :total) || throw(ArgumentError(
-        "output_basis must be :per_length or :total; got $(repr(basis_value))",
+    basis_value in (:pul, :total) || throw(ArgumentError(
+        "output_basis must be :pul or :total; got $(repr(basis_value))",
     ))
     levels = NamedTuple{keys(verbosity_values)}(Int.(values(verbosity_values)))
     return (verbosity = levels, output_basis = Val(basis_value))

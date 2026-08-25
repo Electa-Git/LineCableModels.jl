@@ -232,7 +232,7 @@ end
         formulation;
         options = (output_basis = :total,)
     )
-    @test basis(parameters) === :per_length
+    @test basis(parameters) === :pul
     @test basis(total) === :total
     @test total.Z.values ≈ problem.system.line_length .* parameters.Z.values
     @test total.Y.values ≈ problem.system.line_length .* parameters.Y.values
@@ -332,7 +332,7 @@ end
         ParametricProblem(problem, (output_basis = :total,)),
         policy
     )
-    @test basis(only(LineCableModels.result(sampled))) === :per_length
+    @test basis(only(LineCableModels.result(sampled))) === :pul
     @test basis(only(LineCableModels.result(total))) === :total
     for component in (:R, :L, :G, :C)
         @test getproperty(only(samples(total)), component) ≈

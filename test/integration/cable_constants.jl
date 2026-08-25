@@ -11,7 +11,7 @@
     @test constants.R > 0
     @test constants.L > 0
     @test constants.C > 0
-    @test basis(constants) === :per_length
+    @test basis(constants) === :pul
     @test resistance(constants) === constants.R
     @test inductance(constants) === constants.L
     @test capacitance(constants) === constants.C

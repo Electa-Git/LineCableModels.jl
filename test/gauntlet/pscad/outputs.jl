@@ -116,6 +116,6 @@ function read_pscad_result(
         impedance,
         admittance,
         frequencies_value;
-        basis = :per_length
+        basis = :pul
     )
 end

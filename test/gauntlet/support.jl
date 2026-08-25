@@ -106,15 +106,15 @@
         ))
         normalized = merge(
             (
-                output_basis = :per_length,
+                output_basis = :pul,
                 reference = (;),
                 candidate = (;),
                 benchmark = (samples = 10, seconds = 10.0)
             ),
             options
         )
-        normalized.output_basis in (:per_length, :total) || throw(ArgumentError(
-            "Gauntlet output_basis must be :per_length or :total; got " *
+        normalized.output_basis in (:pul, :total) || throw(ArgumentError(
+            "Gauntlet output_basis must be :pul or :total; got " *
             repr(normalized.output_basis),
         ))
         normalized.reference isa NamedTuple || throw(ArgumentError(

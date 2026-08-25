@@ -53,7 +53,7 @@
     @test_throws ArgumentError Grammar.formulation_options(owner, (output = :unknown,))
 
     default_execution=@inferred Grammar.computation_options(owner, (;))
-    @test default_execution.output_basis == Val(:per_length)
+    @test default_execution.output_basis == Val(:pul)
     execution=Grammar.computation_options(
         owner, (
             verbosity = (default = 1, NLsolve = 0),
@@ -70,4 +70,10 @@
         owner,
         (output_basis = :unknown,)
     )
+    for retired_basis in (:per_length, :per_lenght, :per_unit_length)
+        @test_throws ArgumentError Grammar.computation_options(
+            owner,
+            (output_basis = retired_basis,)
+        )
+    end
 end

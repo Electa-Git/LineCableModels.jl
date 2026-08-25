@@ -13,7 +13,7 @@
     run_owner=Val(GauntletCase)
     run_defaults=LineCableModels.computation_options(run_owner, (;))
     @test run_defaults == (
-        output_basis = :per_length,
+        output_basis = :pul,
         reference = (;),
         candidate = (;),
         benchmark = (samples = 10, seconds = 10.0)
@@ -148,7 +148,7 @@
         aggregate=GauntletSupport.report(:fixture; artifact_root)
         @test size(aggregate) == (1, 39)
         @test only(aggregate.case) == "fixture"
-        @test only(aggregate.basis) == "per_length"
+        @test only(aggregate.basis) == "pul"
         @test only(aggregate.domain) == "PhaseDomain"
         @test only(aggregate.Z_zero_atol) == 1.0e-6
         @test only(aggregate.Z_rms_absolute) == 0.0
@@ -218,7 +218,7 @@
             case;
             artifacts_toml,
             options = (
-                output_basis = :per_length,
+                output_basis = :pul,
                 candidate = (output_basis = :total,),
                 benchmark = (samples = 1, seconds = 1)
             )

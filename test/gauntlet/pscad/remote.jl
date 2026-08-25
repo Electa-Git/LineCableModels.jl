@@ -72,7 +72,7 @@ function computation_options(
         (
             output_stem = "gauntlet",
             verbosity = (default = 0,),
-            output_basis = :per_length
+            output_basis = :pul
         ),
         options
     )
@@ -94,8 +94,8 @@ function computation_options(
     all(value -> value isa Integer && value in 0:2, values(verbosity_values)) ||
         throw(ArgumentError("verbosity levels must be integers from 0 to 2"))
     basis_value = normalized.output_basis
-    basis_value in (:per_length, :total) || throw(ArgumentError(
-        "output_basis must be :per_length or :total; got $(repr(basis_value))",
+    basis_value in (:pul, :total) || throw(ArgumentError(
+        "output_basis must be :pul or :total; got $(repr(basis_value))",
     ))
     levels = NamedTuple{keys(verbosity_values)}(Int.(values(verbosity_values)))
     return (
@@ -507,7 +507,7 @@ function _pscad_root(problem::LineParametersProblem)
     return joinpath(WORK_ROOT, "pscad", problem.system.system_id, "reference")
 end
 
-function _pscad_basis(parameters, ::LineParametersProblem, ::Val{:per_length})
+function _pscad_basis(parameters, ::LineParametersProblem, ::Val{:pul})
     parameters
 end
 

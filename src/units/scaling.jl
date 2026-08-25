@@ -33,12 +33,12 @@ function scale_factor(from::UnitExpr, to::UnitExpr)
 end
 
 function _with_basis(expression::UnitExpr, basis::Symbol; length_prefix::Symbol = :base)
-    basis in (:per_length, :total) || throw(
-        ArgumentError("basis must be :per_length or :total"),
+    basis in (:pul, :total) || throw(
+        ArgumentError("basis must be :pul or :total"),
     )
     has_length = any(unit -> unit.name === :meter, expression.denominator)
     retained = filter(unit -> unit.name !== :meter, expression.denominator)
-    denominator = basis === :per_length && has_length ?
+    denominator = basis === :pul && has_length ?
                   (retained..., Unit(:meter, length_prefix)) : retained
     return UnitExpr(expression.numerator, denominator)
 end

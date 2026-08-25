@@ -33,7 +33,7 @@ end
 function LineParametersBenchmark(
         impedance::RMSError{T},
         admittance::RMSError{T};
-        basis::Symbol = :per_length
+        basis::Symbol = :pul
 ) where {T <: Real}
     _check_basis(basis)
     return LineParametersBenchmark{T, basis}(impedance, admittance)

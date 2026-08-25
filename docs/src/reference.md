@@ -63,12 +63,12 @@ compute(problem, formulation; options=(output_basis=:total,))
 
 `output_basis=:total` scales both impedance and admittance by the materialised
 system length. `CableConstantsProblem` has no line length and therefore accepts
-only the default `:per_length` basis.
+only the default `:pul` basis.
 
 ## Results
 
 `CableConstants` stores R/L/C values per metre. `LineParameters` stores
-frequency-dependent Z/Y matrices with their domain and `:per_length` or
+frequency-dependent Z/Y matrices with their domain and `:pul` or
 `:total` basis.
 
 [`observe`](@ref) reads one native numerical meaning from a completed result.

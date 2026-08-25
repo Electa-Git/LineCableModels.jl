@@ -141,7 +141,7 @@ end
     conductance=[3.0 0.5 0.4; 0.5 3.2 0.45; 0.4 0.45 3.4] .* 1.0e-9
     capacitance=[4.0 0.8 0.6; 0.8 4.2 0.7; 0.6 0.7 4.4] .* 1.0e-10
     function result(scale; result_frequency = frequency, result_domain = PhaseDomain,
-            result_basis = :per_length)
+            result_basis = :pul)
         impedance=repeat(scale .* resistance, 1, 1, length(result_frequency)) .+
                   im .* repeat(scale .* inductance, 1, 1, length(result_frequency)) .*
                   reshape(2π .* result_frequency, 1, 1, :)

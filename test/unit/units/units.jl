@@ -47,14 +47,14 @@ end
         @test tag isa tag_type
         @test U.label(tag) == name
         @test U.symbol(tag) == notation
-        @test U.label(U.display_unit(tag, :per_length)) == unit_text
-        @test U.label(tag, U.display_unit(tag, :per_length)) == "$name [$unit_text]"
+        @test U.label(U.display_unit(tag, :pul)) == unit_text
+        @test U.label(tag, U.display_unit(tag, :pul)) == "$name [$unit_text]"
     end
 
-    @test U.label(U.native_unit(U.quantity(R), :per_length)) == "Ω/m"
+    @test U.label(U.native_unit(U.quantity(R), :pul)) == "Ω/m"
     @test U.label(U.display_unit(U.quantity(R), :total)) == "Ω"
     @test U.label(U.display_unit(U.quantity(C), :total)) == "μF"
-    @test U.label(U.display_unit(U.quantity(R), :per_length; prefix = :milli)) ==
+    @test U.label(U.display_unit(U.quantity(R), :pul; prefix = :milli)) ==
           "mΩ/km"
     @test U.label(U.display_unit(U.quantity(C), :total; prefix = :nano)) == "nF"
     @test_throws ArgumentError U.display_unit(U.quantity(R), :invalid)

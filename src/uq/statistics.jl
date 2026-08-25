@@ -119,7 +119,7 @@ $(TYPEDEF)
 
 Group resistance, inductance, capacitance, and conductance products.
 
-`Basis` is `:per_length` or `:total` and applies to all four fields. `T` is
+`Basis` is `:pul` or `:total` and applies to all four fields. `T` is
 the common representation used for samples, summaries, or histograms.
 
 $(TYPEDFIELDS)
@@ -136,9 +136,9 @@ struct RLCG{T, Basis}
 end
 
 
-function RLCG(R::T, L::T, C::T, G::T; basis::Symbol = :per_length) where {T}
-    basis in (:per_length, :total) || throw(
-        ArgumentError("basis must be :per_length or :total; got :$basis"),
+function RLCG(R::T, L::T, C::T, G::T; basis::Symbol = :pul) where {T}
+    basis in (:pul, :total) || throw(
+        ArgumentError("basis must be :pul or :total; got :$basis"),
     )
     return RLCG{T, basis}(R, L, C, G)
 end

@@ -110,7 +110,7 @@ The analytical backend accepts:
 ```julia
 (
     verbosity = (default = 0,),
-    output_basis = :per_length,
+    output_basis = :pul,
 )
 ```
 
@@ -121,7 +121,7 @@ The PSCAD backend accepts:
     output_stem = "case_name",
     remote = remote_config,
     verbosity = (default = 0, PSCAD = 2),
-    output_basis = :per_length,
+    output_basis = :pul,
 )
 ```
 
@@ -141,7 +141,7 @@ keys. Its computation options form an outer tuple:
 
 ```julia
 (
-    output_basis = :per_length,
+    output_basis = :pul,
     reference = (
         output_stem = "case_name",
         remote = remote_config,

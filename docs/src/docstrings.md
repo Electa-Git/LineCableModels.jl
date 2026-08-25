@@ -40,7 +40,7 @@ physical quantity states its SI unit.
 5. Inside comments in Julia example blocks, use ordinary square brackets, such
    as `# [m]`. The comment is Julia source rather than docstring prose.
 6. State the basis of distributed line quantities when it matters: for
-   example, `\\[Ω/m\\]` for `:per_length` and `\\[Ω\\]` for `:total`.
+   example, `\\[Ω/m\\]` for `:pul` and `\\[Ω\\]` for `:total`.
 
 ## Mathematical formulation
 
@@ -286,8 +286,8 @@ Describe the function's implemented purpose concisely.
 
 # Keywords
 
-- `basis`: Storage basis. Supported values are `:per_length` and `:total`.
-  Default: `:per_length`.
+- `basis`: Storage basis. Supported values are `:pul` and `:total`.
+  Default: `:pul`.
 
 # Returns
 
@@ -305,12 +305,12 @@ mathematical explanations.
 # Examples
 
 ```jldoctest
-result = $(FUNCTIONNAME)(1.0, 0.5; basis=:per_length) # [unit]
+result = $(FUNCTIONNAME)(1.0, 0.5; basis=:pul) # [unit]
 @assert isfinite(result)
 # output
 ```
 """
-function function_name(arg1, arg2; basis=:per_length)
+function function_name(arg1, arg2; basis=:pul)
 ````
 
 Examples use supported values and exercise public syntax. Include

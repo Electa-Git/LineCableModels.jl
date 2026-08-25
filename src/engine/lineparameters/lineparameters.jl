@@ -1,8 +1,8 @@
-const LINE_PARAMETER_BASES = (:per_length, :total)
+const LINE_PARAMETER_BASES = (:pul, :total)
 
 @inline function _check_basis(value::Symbol)
     value in LINE_PARAMETER_BASES || throw(
-        ArgumentError("basis must be :per_length or :total; got :$value"),
+        ArgumentError("basis must be :pul or :total; got :$value"),
     )
     return value
 end
@@ -11,7 +11,7 @@ end
     SeriesImpedance{T, Basis}
 
 Store a square series-impedance matrix over frequency. Values use \\[Ω/m\\]
-when `Basis` is `:per_length` and \\[Ω\\] when it is `:total`.
+when `Basis` is `:pul` and \\[Ω\\] when it is `:total`.
 """
 struct SeriesImpedance{T, Basis} <: AbstractArray{T, 3}
     "Complex series-impedance tensor with dimensions conductor × conductor × frequency."
@@ -19,7 +19,7 @@ struct SeriesImpedance{T, Basis} <: AbstractArray{T, 3}
 
     function SeriesImpedance{T, Basis}(values::Array{T, 3}) where {T, Basis}
         Basis isa Symbol || throw(
-            ArgumentError("basis must be :per_length or :total; got $(repr(Basis))"),
+            ArgumentError("basis must be :pul or :total; got $(repr(Basis))"),
         )
         _check_basis(Basis)
         return new{T, Basis}(values)
@@ -30,7 +30,7 @@ end
     ShuntAdmittance{T, Basis}
 
 Store a square shunt-admittance matrix over frequency. Values use \\[S/m\\]
-when `Basis` is `:per_length` and \\[S\\] when it is `:total`.
+when `Basis` is `:pul` and \\[S\\] when it is `:total`.
 """
 struct ShuntAdmittance{T, Basis} <: AbstractArray{T, 3}
     "Complex shunt-admittance tensor with dimensions conductor × conductor × frequency."
@@ -38,19 +38,19 @@ struct ShuntAdmittance{T, Basis} <: AbstractArray{T, 3}
 
     function ShuntAdmittance{T, Basis}(values::Array{T, 3}) where {T, Basis}
         Basis isa Symbol || throw(
-            ArgumentError("basis must be :per_length or :total; got $(repr(Basis))"),
+            ArgumentError("basis must be :pul or :total; got $(repr(Basis))"),
         )
         _check_basis(Basis)
         return new{T, Basis}(values)
     end
 end
 
-function SeriesImpedance(A::AbstractArray{T, 3}; basis::Symbol = :per_length) where {T}
+function SeriesImpedance(A::AbstractArray{T, 3}; basis::Symbol = :pul) where {T}
     _check_basis(basis)
     return SeriesImpedance{T, basis}(Array(A))
 end
 
-function ShuntAdmittance(A::AbstractArray{T, 3}; basis::Symbol = :per_length) where {T}
+function ShuntAdmittance(A::AbstractArray{T, 3}; basis::Symbol = :pul) where {T}
     _check_basis(basis)
     return ShuntAdmittance{T, basis}(Array(A))
 end
@@ -65,7 +65,7 @@ end
 
 Frequency-dependent series-impedance and shunt-admittance matrices.
 
-`Basis` is either `:per_length` or `:total`. Per-length values are stored in
+`Basis` is either `:pul` or `:total`. Per-length values are stored in
 Ω/m and S/m. Total values are stored in Ω and S. Frequencies are stored in Hz.
 """
 struct LineParameters{
@@ -142,7 +142,7 @@ function LineParameters(
         Z::AbstractArray{TZ, 3},
         Y::AbstractArray{TY, 3},
         f::AbstractVector{U};
-        basis::Symbol = :per_length
+        basis::Symbol = :pul
 ) where {
         D <: LineParamsDomain,
         TZ <: Complex,
@@ -163,7 +163,7 @@ function LineParameters(
         Z::AbstractArray{TZ, 3},
         Y::AbstractArray{TY, 3},
         f::AbstractVector{U};
-        basis::Symbol = :per_length
+        basis::Symbol = :pul
 ) where {
         TZ <: Complex,
         TY <: Complex,
@@ -208,7 +208,7 @@ shunt_admittance(value::Union{LineParameters, ShuntAdmittance}) = Y(value)
 Return series impedance or shunt admittance. With `(i, j)`, return the complete
 frequency response at that matrix position. `k` may be one index, a range, or
 `:`. Stored units follow [`basis`](@ref): \\[Ω/m\\] and \\[S/m\\] for
-`:per_length`, or \\[Ω\\] and \\[S\\] for `:total`.
+`:pul`, or \\[Ω\\] and \\[S\\] for `:total`.
 """
 @inline _observe_array(values::AbstractArray) = values
 @inline _observe_array(values::AbstractArray, i, j) = view(values, i, j, :)
@@ -311,7 +311,7 @@ Return series inductance using the same frequency-selection grammar as
 L(f) = \\frac{\\operatorname{Im} Z(f)}{2\\pi f}.
 ```
 
-Units are \\[H/m\\] for `:per_length` and \\[H\\] for `:total`.
+Units are \\[H/m\\] for `:pul` and \\[H\\] for `:total`.
 
 # Errors
 
@@ -332,7 +332,7 @@ Return shunt capacitance using the same frequency-selection grammar as
 C(f) = \\frac{\\operatorname{Im} Y(f)}{2\\pi f}.
 ```
 
-Units are \\[F/m\\] for `:per_length` and \\[F\\] for `:total`.
+Units are \\[F/m\\] for `:pul` and \\[F\\] for `:total`.
 
 # Errors
 

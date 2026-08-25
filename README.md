@@ -90,7 +90,7 @@ state and requires CairoMakie to have been loaded explicitly.
 ## Result access
 
 `CableConstants` stores R/L/C values per metre. `LineParameters`
-stores its frequency domain and either a `:per_length` or `:total` basis:
+stores its frequency domain and either a `:pul` or `:total` basis:
 
 ```julia
 basis(line_parameters)

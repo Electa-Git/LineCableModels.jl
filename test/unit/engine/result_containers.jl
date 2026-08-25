@@ -19,7 +19,7 @@
     @test constants.R ≈ 2.7567652874268654e-5 rtol=2eps()
     @test constants.L ≈ 2.8718381083175005e-7 rtol=2eps()
     @test constants.C ≈ 4.1335723330313053e-10 rtol=2eps()
-    @test basis(constants) === :per_length
+    @test basis(constants) === :pul
     constants_display=sprint(show, constants)
     @test occursin("CableConstants(R=", constants_display)
     @test occursin("Ω/m", constants_display)
@@ -146,9 +146,19 @@
     @test_throws ArgumentError ShuntAdmittance(admittance; basis = :invalid)
     @test_throws ArgumentError SeriesImpedance{ComplexF64, 1}(impedance)
     @test_throws ArgumentError ShuntAdmittance{ComplexF64, 1}(admittance)
+    for retired_basis in (:per_length, :per_lenght, :per_unit_length)
+        @test_throws ArgumentError SeriesImpedance(impedance; basis = retired_basis)
+        @test_throws ArgumentError ShuntAdmittance(admittance; basis = retired_basis)
+        @test_throws ArgumentError LineParameters(
+            impedance,
+            admittance,
+            frequency;
+            basis = retired_basis
+        )
+    end
     @test_throws ArgumentError LineParameters(
         SeriesImpedance(impedance; basis = :total),
-        ShuntAdmittance(admittance; basis = :per_length),
+        ShuntAdmittance(admittance; basis = :pul),
         frequency
     )
 

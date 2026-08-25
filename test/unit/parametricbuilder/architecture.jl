@@ -455,7 +455,7 @@ end
     @test only(samples(monte_carlo)) isa RLCG
     @test only(histograms(monte_carlo)) isa RLCG
     @test first(only(histograms(monte_carlo)).R) isa HistogramDensity
-    @test basis(only(statistics(monte_carlo))) === :per_length
+    @test basis(only(statistics(monte_carlo))) === :pul
     @test observe(only(statistics(monte_carlo)), R, Statistics.mean) ==
           Statistics.mean.(only(statistics(monte_carlo)).R)
     @test observe(only(samples(monte_carlo)), R, 1, 1, 1, :) ==

@@ -87,7 +87,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Plotting requires the caller to load CairoMakie, GLMakie, or WGLMakie
   explicitly.
 - Documentation examples and development conventions were consolidated.
-- Line-parameter results now carry an explicit `:per_length` or `:total` basis,
+- Line-parameter results now carry an explicit `:pul` or `:total` basis,
   and use `Z`, `Y`, `R`, `X`, `L`, `G`, `B`, and `C` accessors consistently.
 - `Units` now maps physical accessors to quantity, unit, label, symbol,
   and scaling semantics without extracting values from result containers.

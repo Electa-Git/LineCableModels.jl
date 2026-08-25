@@ -27,7 +27,7 @@
     returned_transform, modal=Fortescue()(parameters)
     @test returned_transform == transform
     @test domain(modal) === ModalDomain
-    @test basis(modal) === :per_length
+    @test basis(modal) === :pul
     @test frequencies(modal) == frequency_values
     for frequency_index in eachindex(frequency_values)
         @test isdiag(modal.Z.values[:, :, frequency_index])

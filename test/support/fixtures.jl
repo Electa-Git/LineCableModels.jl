@@ -67,7 +67,7 @@
             impedance,
             admittance,
             frequency;
-            basis = :per_length
+            basis = :pul
         )
     end
 

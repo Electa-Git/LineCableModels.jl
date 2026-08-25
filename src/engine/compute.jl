@@ -28,7 +28,7 @@ function _modal_result(parameters, transform::AbstractTransformFormulation)
     return transformed
 end
 
-function _basis_result(parameters, ::AnalyticalInput, ::Val{:per_length})
+function _basis_result(parameters, ::AnalyticalInput, ::Val{:pul})
     parameters
 end
 
@@ -185,8 +185,8 @@ function _solve(
 
     parameters = LineParameters(
         PhaseDomain,
-        SeriesImpedance{Complex{T}, :per_length}(Zout),
-        ShuntAdmittance{Complex{T}, :per_length}(Yout),
+        SeriesImpedance{Complex{T}, :pul}(Zout),
+        ShuntAdmittance{Complex{T}, :pul}(Yout),
         input.freq
     )
     return parameters, trace
@@ -232,7 +232,7 @@ frequency loop. Neither the problem nor its cable design is mutated.
 
 # Keywords
 
-- `options=(verbosity=(default=0,), output_basis=:per_length)`: Execution
+- `options=(verbosity=(default=0,), output_basis=:pul)`: Execution
   verbosity and output basis.
 
 Trace output is selected by the formulation:
@@ -268,8 +268,8 @@ function compute(
         "CableConstantsProblem supports only formulation output=:parameters",
     ))
     execution = computation_options(Val(AnalyticalFormulation), options)
-    execution.output_basis == Val(:per_length) || throw(ArgumentError(
-        "CableConstantsProblem supports only output_basis=:per_length",
+    execution.output_basis == Val(:pul) || throw(ArgumentError(
+        "CableConstantsProblem supports only output_basis=:pul",
     ))
     return DataModel._compute_cable_constants(
         problem.design; S = problem.separation, rho_e = problem.earth_resistivity
