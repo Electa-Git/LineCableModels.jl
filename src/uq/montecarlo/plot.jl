@@ -1,26 +1,37 @@
 """
 $(TYPEDEF)
 
-PlotBuilder recipe for marginal Monte Carlo histograms, probability densities,
-cumulative distributions, and Q-Q plots.
+Prepare marginal Monte Carlo distributions for a loaded plotting extension.
 """
 struct MCDistributionPlotDefinition <: PlotBuilder.AbstractPlotDefinition end
 
-function _mc_plot_exponent(series, field::Symbol)
-    maximum_value = 0.0
-    for item in series
-        values = field === :x ? item.xdata : item.ydata
-        values === nothing && continue
-        for sample in values
-            sample isa Real || continue
-            nominal_value = abs(Float64(sample))
-            isfinite(nominal_value) &&
-                (maximum_value = max(maximum_value, nominal_value))
-        end
-    end
-    iszero(maximum_value) && return 0
-    exponent = floor(Int, log10(maximum_value))
-    return abs(exponent) < 3 ? 0 : exponent
+"""
+$(TYPEDEF)
+
+Store one detached Monte Carlo distribution page for the standard plotting
+shell.
+
+$(TYPEDFIELDS)
+"""
+struct MCDistributionPagePayload{K, X, Y, L, E}
+    "Displayed page and panel title."
+    title::String
+    "Scientific selection and display identity."
+    key::K
+    "Published abscissa observation."
+    x_observation::X
+    "Published ordinate observation."
+    y_observation::Y
+    "Optional abscissa-label override."
+    xlabel::Union{Nothing, String}
+    "Optional ordinate-label override."
+    ylabel::Union{Nothing, String}
+    "Detached distribution layers in draw order."
+    layers::L
+    "Legend behavior supplied to the standard shell."
+    legend::PlotBuilder.LegendDefinition
+    "SVG export behavior supplied to the standard shell."
+    export_definition::E
 end
 
 function _mc_selection(::DataModel.CableConstants, statistics, selector::Function, ijk)
@@ -114,8 +125,7 @@ function _mc_histogram_quantile(histogram::HistogramDensity, probability::Real)
 end
 
 function _mc_empirical_cdf(sorted_values, x)
-    searchsortedlast(sorted_values, x) /
-    length(sorted_values)
+    return searchsortedlast(sorted_values, x) / length(sorted_values)
 end
 
 function _mc_input_defaults()
@@ -146,7 +156,7 @@ function PlotBuilder.input_kwargs(::Type{MCDistributionPlotDefinition})
 end
 PlotBuilder.renderer_kwargs(::Type{MCDistributionPlotDefinition}) = (:fig_size,)
 function PlotBuilder.input_defaults(::Type{MCDistributionPlotDefinition}, ::MonteCarloResult)
-    _mc_input_defaults()
+    return _mc_input_defaults()
 end
 function PlotBuilder.renderer_defaults(
         ::Type{MCDistributionPlotDefinition},
@@ -197,6 +207,202 @@ function PlotBuilder.resolve(
     )
 end
 
+function _mc_values(values)
+    values === nothing && throw(
+        ArgumentError("Monte Carlo samples were not retained"),
+    )
+    return values
+end
+
+function _mc_histogram_model(histogram)
+    histogram === nothing && throw(
+        ArgumentError("Monte Carlo histograms were not retained or derived"),
+    )
+    return histogram
+end
+
+function _mc_cdf_grid(values, histogram)
+    limits = histogram === nothing ? extrema(_mc_values(values)) : extrema(histogram.edges)
+    lower, upper = limits
+    padding = iszero(upper - lower) ? max(abs(lower), 1.0) * 0.05 :
+              0.05 * (upper - lower)
+    return collect(range(lower - padding, upper + padding; length = 500))
+end
+
+function _mc_qq_values(values, histogram)
+    sorted = sort(_mc_values(values))
+    model = _mc_histogram_model(histogram)
+    probabilities = ((1:length(sorted)) .- 0.5) ./ length(sorted)
+    model_values = _mc_histogram_quantile.(Ref(model), probabilities)
+    return sorted, model_values
+end
+
+function _mc_histogram_layer(state)
+    return (;
+        kind = Val(:histogram),
+        x = _mc_values(state.values),
+        y = nothing,
+        label = "samples",
+        group = :samples,
+        style = (;
+            bins = state.bins,
+            normalization = state.effective_normalization
+        )
+    )
+end
+
+function _mc_pdf_layer(state)
+    histogram = _mc_histogram_model(state.histogram)
+    return (;
+        kind = Val(:stairs),
+        x = histogram.edges,
+        y = [histogram.density; last(histogram.density)],
+        label = "model PDF",
+        group = :histogram_pdf,
+        style = (; step = :post, color = :red, linewidth = 2)
+    )
+end
+
+function _mc_model_cdf_layer(state)
+    grid = _mc_cdf_grid(state.values, state.histogram)
+    histogram = _mc_histogram_model(state.histogram)
+    return (;
+        kind = Val(:line),
+        x = grid,
+        y = _mc_histogram_cdf.(Ref(histogram), grid),
+        label = "model CDF",
+        group = :histogram_cdf,
+        style = (; color = :red, linewidth = 2)
+    )
+end
+
+function _mc_empirical_cdf_layer(state)
+    grid = _mc_cdf_grid(state.values, state.histogram)
+    sorted = sort(_mc_values(state.values))
+    return (;
+        kind = Val(:line),
+        x = grid,
+        y = _mc_empirical_cdf.(Ref(sorted), grid),
+        label = "empirical CDF",
+        group = :empirical_cdf,
+        style = (; color = :blue, linestyle = :dash, linewidth = 2)
+    )
+end
+
+function _mc_qq_layers(state)
+    sample_values, model_values = _mc_qq_values(state.values, state.histogram)
+    reference = collect(extrema(vcat(sample_values, model_values)))
+    return (
+        (;
+            kind = Val(:scatter),
+            x = sample_values,
+            y = model_values,
+            label = "quantiles",
+            group = :quantiles,
+            style = (; color = :steelblue, markersize = 6)
+        ),
+        (;
+            kind = Val(:line),
+            x = reference,
+            y = reference,
+            label = "perfect fit",
+            group = :reference,
+            style = (; color = :black, linestyle = :dash, linewidth = 2)
+        )
+    )
+end
+
+_mc_layers(::Val{:hist}, ::Val{:samples}, state) = (_mc_histogram_layer(state),)
+_mc_layers(::Val{:hist}, ::Val{:pdf}, state) = (_mc_pdf_layer(state),)
+function _mc_layers(::Val{:hist}, ::Val{:both}, state)
+    return (_mc_histogram_layer(state), _mc_pdf_layer(state))
+end
+_mc_layers(::Val{:pdf}, ::Val, state) = (_mc_pdf_layer(state),)
+_mc_layers(::Val{:ecdf}, ::Val{:samples}, state) = (_mc_empirical_cdf_layer(state),)
+_mc_layers(::Val{:ecdf}, ::Val{:pdf}, state) = (_mc_model_cdf_layer(state),)
+function _mc_layers(::Val{:ecdf}, ::Val{:both}, state)
+    return (_mc_empirical_cdf_layer(state), _mc_model_cdf_layer(state))
+end
+_mc_layers(::Val{:qq}, ::Val, state) = _mc_qq_layers(state)
+
+function _mc_axis_values(layers, field::Symbol)
+    values = Float64[]
+    for layer in layers
+        data = getproperty(layer, field)
+        data === nothing && continue
+        append!(values, Float64.(data))
+    end
+    return values
+end
+
+function _statistical_observation(
+        values,
+        tag::Symbol,
+        unit::Units.UnitExpr = Units.UnitExpr()
+)
+    return (; values, quantity = Units.Quantity{tag}(), unit)
+end
+
+function _mc_y_observation(::Val{:hist}, state, quantity_observation)
+    normalization = state.effective_normalization
+    normalization === :none && return _statistical_observation(
+        _mc_axis_values(state.layers, :y),
+        :sample_count
+    )
+    normalization === :probability && return _statistical_observation(
+        _mc_axis_values(state.layers, :y),
+        :probability
+    )
+    return _statistical_observation(
+        _mc_axis_values(state.layers, :y),
+        :probability_density,
+        inv(quantity_observation.unit)
+    )
+end
+
+function _mc_y_observation(::Val{:pdf}, state, quantity_observation)
+    return _statistical_observation(
+        _mc_axis_values(state.layers, :y),
+        :probability_density,
+        inv(quantity_observation.unit)
+    )
+end
+
+function _mc_y_observation(::Val{:ecdf}, state, quantity_observation)
+    return _statistical_observation(
+        _mc_axis_values(state.layers, :y),
+        :cumulative_probability
+    )
+end
+
+function _mc_y_observation(::Val{:qq}, state, quantity_observation)
+    return (;
+        values = _mc_axis_values(state.layers, :y),
+        quantity = quantity_observation.quantity,
+        unit = quantity_observation.unit
+    )
+end
+
+_mc_title_suffix(::Val{:hist}) = "histogram"
+_mc_title_suffix(::Val{:pdf}) = "probability density"
+_mc_title_suffix(::Val{:ecdf}) = "cumulative distribution"
+_mc_title_suffix(::Val{:qq}) = "Q-Q plot"
+
+function _mc_title(quantity, selection, mode::Val)
+    scientific_symbol = Units.symbol(quantity)
+    indices = selection === nothing ? "" : "[$(join(selection, ','))]"
+    return "$scientific_symbol$indices $(_mc_title_suffix(mode))"
+end
+
+function _mc_axis_labels(::Val{:qq}, quantity_observation)
+    displayed_unit = Units.label(quantity_observation.unit)
+    return (
+        "Sample quantiles [$displayed_unit]",
+        "Model quantiles [$displayed_unit]"
+    )
+end
+_mc_axis_labels(::Val, quantity_observation) = (nothing, nothing)
+
 function PlotBuilder.fetch(
         ::Type{MCDistributionPlotDefinition},
         recipe::PlotBuilder.PlotRecipe
@@ -213,7 +419,7 @@ function PlotBuilder.fetch(
         input.selector,
         input.ijk
     )
-    tag, target = _mc_target_unit(
+    quantity, target = _mc_target_unit(
         statistic_product,
         input.selector,
         input.length_unit,
@@ -265,445 +471,128 @@ function PlotBuilder.fetch(
     else
         Float64[]
     end
-    effective_normalization = input.data in (:pdf, :both) ? :pdf :
-                              input.normalization
-    quantity_payload = sample_payload === nothing ?
-                       (; values = nothing, quantity = tag, unit = target) : sample_payload
-    resolved = (;
-        values,
-        histogram,
-        bins,
-        effective_normalization,
-        quantity_payload,
-        selection
+    effective_normalization = input.data in (:pdf, :both) ? :pdf : input.normalization
+    layer_state = (; values, histogram, bins, effective_normalization)
+    mode = Val(input.mode)
+    layers = _mc_layers(mode, Val(input.data), layer_state)
+    quantity_observation = (;
+        values = _mc_axis_values(layers, :x),
+        quantity,
+        unit = target
+    )
+    state = merge(layer_state, (; layers))
+    y_observation = _mc_y_observation(mode, state, quantity_observation)
+    xlabel, ylabel = _mc_axis_labels(mode, quantity_observation)
+    title = _mc_title(quantity, selection, mode)
+    key = (;
+        selector = input.selector,
+        selection,
+        mode = input.mode,
+        data = input.data
+    )
+    page = MCDistributionPagePayload(
+        title,
+        key,
+        quantity_observation,
+        y_observation,
+        xlabel,
+        ylabel,
+        layers,
+        PlotBuilder.LegendDefinition(),
+        PlotBuilder.ExportDefinition(
+            theme = recipe.renderer.export_theme,
+            name = title,
+            open_file = recipe.renderer.open_export
+        )
     )
     return PlotBuilder.PlotRecipe(
         MCDistributionPlotDefinition,
         recipe.object,
-        merge(input, resolved),
+        merge(input, (; pages = (page,))),
         recipe.renderer
     )
 end
 
 function PlotBuilder._recipe_variant(
         ::Type{MCDistributionPlotDefinition},
-        recipe::PlotBuilder.PlotRecipe
+        ::PlotBuilder.PlotRecipe
 )
-    return Val(recipe.input.mode)
+    return Val(:direct_distribution)
 end
 
 function PlotBuilder._composition(
         ::Type{MCDistributionPlotDefinition},
-        ::Val,
+        ::Val{:direct_distribution},
         ::PlotBuilder.PlotRecipe
 )
-    return Val(:overlay)
+    return Val(:empty)
 end
 
-_mc_data_facets(::Val{:samples}, sample, density) = (sample,)
-_mc_data_facets(::Val{:pdf}, sample, density) = (density,)
-_mc_data_facets(::Val{:both}, sample, density) = (sample, density)
-
-function PlotBuilder._series_items(
+function PlotBuilder._page_keys(
         ::Type{MCDistributionPlotDefinition},
-        ::Val{:hist},
-        recipe::PlotBuilder.PlotRecipe,
-        page_key
+        ::Val{:direct_distribution},
+        ::Val{:empty},
+        recipe::PlotBuilder.PlotRecipe
 )
-    return _mc_data_facets(
-        Val(recipe.input.data),
-        Val(:samples),
-        Val(:histogram_pdf)
-    )
+    return eachindex(recipe.input.pages)
 end
 
-function PlotBuilder._series_items(
-        ::Type{MCDistributionPlotDefinition},
-        ::Val{:pdf},
-        recipe::PlotBuilder.PlotRecipe,
-        page_key
-)
-    return (Val(:histogram_pdf),)
-end
-
-function PlotBuilder._series_items(
-        ::Type{MCDistributionPlotDefinition},
-        ::Val{:ecdf},
-        recipe::PlotBuilder.PlotRecipe,
-        page_key
-)
-    return _mc_data_facets(
-        Val(recipe.input.data),
-        Val(:empirical_cdf),
-        Val(:histogram_cdf)
-    )
-end
-
-function PlotBuilder._series_items(
-        ::Type{MCDistributionPlotDefinition},
-        ::Val{:qq},
-        recipe::PlotBuilder.PlotRecipe,
-        page_key
-)
-    return (Val(:quantiles), Val(:reference))
-end
-
-function _mc_values(recipe::PlotBuilder.PlotRecipe)
-    recipe.input.values === nothing && throw(
-        ArgumentError("Monte Carlo samples were not retained"),
-    )
-    return recipe.input.values
-end
-
-function _mc_histogram_model(recipe::PlotBuilder.PlotRecipe)
-    recipe.input.histogram === nothing && throw(
-        ArgumentError("Monte Carlo histograms were not retained or derived"),
-    )
-    return recipe.input.histogram
-end
-
-function _mc_cdf_grid(recipe::PlotBuilder.PlotRecipe)
-    limits = if recipe.input.histogram !== nothing
-        extrema(recipe.input.histogram.edges)
-    else
-        extrema(_mc_values(recipe))
-    end
-    lower, upper = limits
-    padding = iszero(upper - lower) ? max(abs(lower), 1.0) * 0.05 :
-              0.05 * (upper - lower)
-    return collect(range(lower - padding, upper + padding; length = 500))
-end
-
-function _mc_qq_values(recipe::PlotBuilder.PlotRecipe)
-    values = sort(_mc_values(recipe))
-    histogram = _mc_histogram_model(recipe)
-    probabilities = ((1:length(values)) .- 0.5) ./ length(values)
-    histogram_values = _mc_histogram_quantile.(Ref(histogram), probabilities)
-    return values, histogram_values
-end
-
-function PlotBuilder.plot_kind(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::Val{:samples}
-)
-    :histogram
-end
-function PlotBuilder.plot_kind(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::Val{:histogram_pdf}
-)
-    :stairs
-end
-function PlotBuilder.plot_kind(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::Val{:histogram_cdf}
-)
-    :line
-end
-function PlotBuilder.plot_kind(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::Val{:empirical_cdf}
-)
-    :line
-end
-function PlotBuilder.plot_kind(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::Val{:quantiles}
-)
-    :scatter
-end
-function PlotBuilder.plot_kind(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::Val{:reference}
-)
-    :line
-end
-
-function PlotBuilder.series_values(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:x},
-        recipe::PlotBuilder.PlotRecipe, page_key, view_key,
-        ::Val{:samples}
-)
-    return _mc_values(recipe)
-end
-
-function PlotBuilder.series_values(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:x},
-        recipe::PlotBuilder.PlotRecipe, page_key, view_key,
-        ::Val{:histogram_pdf}
-)
-    return _mc_histogram_model(recipe).edges
-end
-
-function PlotBuilder.series_values(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:y},
-        recipe::PlotBuilder.PlotRecipe, page_key, view_key,
-        ::Val{:histogram_pdf}
-)
-    density = _mc_histogram_model(recipe).density
-    return [density; last(density)]
-end
-
-function PlotBuilder.series_values(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:x},
-        recipe::PlotBuilder.PlotRecipe, page_key, view_key,
-        ::Union{Val{:histogram_cdf}, Val{:empirical_cdf}}
-)
-    return _mc_cdf_grid(recipe)
-end
-
-function PlotBuilder.series_values(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:y},
-        recipe::PlotBuilder.PlotRecipe, page_key, view_key,
-        ::Val{:histogram_cdf}
-)
-    grid = _mc_cdf_grid(recipe)
-    histogram = _mc_histogram_model(recipe)
-    return _mc_histogram_cdf.(Ref(histogram), grid)
-end
-
-function PlotBuilder.series_values(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:y},
-        recipe::PlotBuilder.PlotRecipe, page_key, view_key,
-        ::Val{:empirical_cdf}
-)
-    grid = _mc_cdf_grid(recipe)
-    values = sort(_mc_values(recipe))
-    return _mc_empirical_cdf.(Ref(values), grid)
-end
-
-function PlotBuilder.series_values(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:x},
-        recipe::PlotBuilder.PlotRecipe, page_key, view_key,
-        ::Val{:quantiles}
-)
-    values, _ = _mc_qq_values(recipe)
-    return values
-end
-
-function PlotBuilder.series_values(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:y},
-        recipe::PlotBuilder.PlotRecipe, page_key, view_key,
-        ::Val{:quantiles}
-)
-    _, values = _mc_qq_values(recipe)
-    return values
-end
-
-function PlotBuilder.series_values(
-        ::Type{MCDistributionPlotDefinition}, ::Val,
-        ::Union{Val{:x}, Val{:y}}, recipe::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::Val{:reference}
-)
-    sample_values, histogram_values = _mc_qq_values(recipe)
-    return collect(extrema(vcat(sample_values, histogram_values)))
-end
-
-function PlotBuilder.legend_label(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::Val{:samples}
-)
-    "samples"
-end
-function PlotBuilder.legend_label(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::Val{:histogram_pdf}
-)
-    "model PDF"
-end
-function PlotBuilder.legend_label(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::Val{:histogram_cdf}
-)
-    "model CDF"
-end
-function PlotBuilder.legend_label(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::Val{:empirical_cdf}
-)
-    "empirical CDF"
-end
-function PlotBuilder.legend_label(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::Val{:quantiles}
-)
-    "quantiles"
-end
-function PlotBuilder.legend_label(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::Val{:reference}
-)
-    "perfect fit"
-end
-
-function PlotBuilder.series_attributes(
-        ::Type{MCDistributionPlotDefinition}, ::Val, recipe::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::Val{:samples}
-)
-    return (;
-        bins = recipe.input.bins,
-        normalization = recipe.input.effective_normalization
-    )
-end
-function PlotBuilder.series_attributes(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::Val{:histogram_pdf}
-)
-    (; step = :post, color = :red, linewidth = 2)
-end
-function PlotBuilder.series_attributes(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::Val{:histogram_cdf}
-)
-    (; color = :red, linewidth = 2)
-end
-function PlotBuilder.series_attributes(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::Val{:empirical_cdf}
-)
-    (; color = :blue, linestyle = :dash, linewidth = 2)
-end
-function PlotBuilder.series_attributes(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::Val{:quantiles}
-)
-    (; color = :steelblue, markersize = 6)
-end
-function PlotBuilder.series_attributes(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::PlotBuilder.PlotRecipe,
-        page_key, view_key, ::Val{:reference}
-)
-    (; color = :black, linestyle = :dash, linewidth = 2)
-end
-
-function _mc_title(recipe::PlotBuilder.PlotRecipe, suffix::AbstractString)
-    symbol = Units.symbol(recipe.input.quantity_payload.quantity)
-    selection = recipe.input.selection
-    indices = selection === nothing ? "" : "[$(join(selection, ','))]"
-    return "$symbol$indices $suffix"
+function _mc_page_payload(recipe, page_index::Integer)
+    return recipe.input.pages[page_index]
 end
 
 function PlotBuilder.default_title(
-        ::Type{MCDistributionPlotDefinition}, ::Val{:hist}, recipe::PlotBuilder.PlotRecipe,
-        page_key, view_key
+        ::Type{MCDistributionPlotDefinition},
+        ::Val{:direct_distribution},
+        recipe::PlotBuilder.PlotRecipe,
+        page_index::Integer,
+        ::Nothing
 )
-    _mc_title(recipe, "histogram")
-end
-function PlotBuilder.default_title(
-        ::Type{MCDistributionPlotDefinition}, ::Val{:pdf}, recipe::PlotBuilder.PlotRecipe,
-        page_key, view_key
-)
-    _mc_title(recipe, "probability density")
-end
-function PlotBuilder.default_title(
-        ::Type{MCDistributionPlotDefinition}, ::Val{:ecdf}, recipe::PlotBuilder.PlotRecipe,
-        page_key, view_key
-)
-    _mc_title(recipe, "cumulative distribution")
-end
-function PlotBuilder.default_title(
-        ::Type{MCDistributionPlotDefinition}, ::Val{:qq}, recipe::PlotBuilder.PlotRecipe,
-        page_key, view_key
-)
-    _mc_title(recipe, "Q-Q plot")
-end
-
-function PlotBuilder.axis_payload(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{:x},
-        recipe::PlotBuilder.PlotRecipe, page_key, view_key
-)
-    return recipe.input.quantity_payload
-end
-function PlotBuilder.axis_payload(
-        ::Type{MCDistributionPlotDefinition}, ::Val{:qq}, ::Val{:y},
-        recipe::PlotBuilder.PlotRecipe, page_key, view_key
-)
-    return recipe.input.quantity_payload
-end
-
-function _statistical_payload(tag::Symbol, unit::Units.UnitExpr = Units.UnitExpr())
-    return (; values = nothing, quantity = Units.Quantity{tag}(), unit)
-end
-
-function PlotBuilder.axis_payload(
-        ::Type{MCDistributionPlotDefinition}, ::Val{:hist}, ::Val{:y},
-        recipe::PlotBuilder.PlotRecipe, page_key, view_key
-)
-    normalization = recipe.input.effective_normalization
-    normalization === :none && return _statistical_payload(:sample_count)
-    normalization === :probability && return _statistical_payload(:probability)
-    return _statistical_payload(
-        :probability_density,
-        inv(recipe.input.quantity_payload.unit)
-    )
-end
-
-function PlotBuilder.axis_payload(
-        ::Type{MCDistributionPlotDefinition}, ::Val{:pdf}, ::Val{:y},
-        recipe::PlotBuilder.PlotRecipe, page_key, view_key
-)
-    return _statistical_payload(
-        :probability_density,
-        inv(recipe.input.quantity_payload.unit)
-    )
-end
-
-function PlotBuilder.axis_payload(
-        ::Type{MCDistributionPlotDefinition}, ::Val{:ecdf}, ::Val{:y},
-        recipe::PlotBuilder.PlotRecipe, page_key, view_key
-)
-    return _statistical_payload(:cumulative_probability)
-end
-
-function PlotBuilder.axis_label(
-        ::Type{MCDistributionPlotDefinition}, ::Val{:qq}, ::Val{:x},
-        quantity::Units.Quantity, unit::Units.UnitExpr,
-        recipe::PlotBuilder.PlotRecipe, page_key, view_key
-)
-    return "Sample quantiles [$(Units.label(unit))]"
-end
-function PlotBuilder.axis_label(
-        ::Type{MCDistributionPlotDefinition}, ::Val{:qq}, ::Val{:y},
-        quantity::Units.Quantity, unit::Units.UnitExpr,
-        recipe::PlotBuilder.PlotRecipe, page_key, view_key
-)
-    return "Model quantiles [$(Units.label(unit))]"
-end
-
-function PlotBuilder.view_key(
-        ::Type{MCDistributionPlotDefinition}, ::Val,
-        recipe::PlotBuilder.PlotRecipe, page_key, view_key
-)
-    return (;
-        selector = recipe.input.selector,
-        selection = recipe.input.selection,
-        mode = recipe.input.mode
-    )
+    return _mc_page_payload(recipe, page_index).title
 end
 
 function PlotBuilder.default_figsize(
-        ::Type{MCDistributionPlotDefinition}, ::Val,
-        recipe::PlotBuilder.PlotRecipe, page_key
+        ::Type{MCDistributionPlotDefinition},
+        ::Val{:direct_distribution},
+        recipe::PlotBuilder.PlotRecipe,
+        ::Integer
 )
     return recipe.renderer.fig_size
 end
 
-function PlotBuilder.axis_exponent(
-        ::Type{MCDistributionPlotDefinition}, ::Val, ::Val{dimension},
-        recipe::PlotBuilder.PlotRecipe, page_key, view_key,
-        series::Vector{PlotBuilder.SeriesSpec}
-) where {dimension}
-    return _mc_plot_exponent(series, dimension)
+function PlotBuilder.layout_spec(
+        ::Type{MCDistributionPlotDefinition},
+        ::Val{:direct_distribution},
+        ::PlotBuilder.PlotRecipe,
+        ::Integer
+)
+    return :single
 end
 
 function PlotBuilder.page_identity(
-        ::Type{MCDistributionPlotDefinition}, ::Val,
-        recipe::PlotBuilder.PlotRecipe, page_key
+        ::Type{MCDistributionPlotDefinition},
+        ::Val{:direct_distribution},
+        recipe::PlotBuilder.PlotRecipe,
+        page_index::Integer
 )
-    return (;
-        selector = recipe.input.selector,
-        selection = recipe.input.selection,
-        mode = recipe.input.mode,
-        data = recipe.input.data
-    )
+    return merge((; page = page_index), _mc_page_payload(recipe, page_index).key)
+end
+
+function PlotBuilder.legend_spec(
+        ::Type{MCDistributionPlotDefinition},
+        ::Val{:direct_distribution},
+        recipe::PlotBuilder.PlotRecipe,
+        page_index::Integer
+)
+    return _mc_page_payload(recipe, page_index).legend
+end
+
+function PlotBuilder.export_spec(
+        ::Type{MCDistributionPlotDefinition},
+        ::Val{:direct_distribution},
+        recipe::PlotBuilder.PlotRecipe,
+        page_index::Integer,
+        ::AbstractString
+)
+    return _mc_page_payload(recipe, page_index).export_definition
 end

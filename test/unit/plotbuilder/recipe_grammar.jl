@@ -259,7 +259,8 @@
         page=only(rendered.figures)
         @test page.key.mode === mode
         @test page.key.selector === R
-        @test only(page.views).key.selection === nothing
+        @test isempty(page.views)
+        @test only(rendered.input.pages).key.selection === nothing
     end
     samples_only=MonteCarloResult(
         mc_result.formulation,

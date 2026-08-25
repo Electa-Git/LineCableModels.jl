@@ -1103,6 +1103,7 @@ export_svg(args...; kwargs...) = PlotBuilder.export_svg(args...; kwargs...)
 
 include("native.jl")
 include("lineparameters.jl")
+include("montecarlo.jl")
 include("previews.jl")
 
 end # module UIComponents

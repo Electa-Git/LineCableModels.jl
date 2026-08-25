@@ -318,32 +318,40 @@ end
     @test_throws ArgumentError PB.make_render(Spec, result; selector = :R)
     @test_throws ArgumentError PB.make_render(Spec, result; quantity = :R)
     @test PB.make_render(Spec, result; selector = L) isa PB.PlotRecipe
+    kind_value(::Val{kind}) where {kind} = kind
     expected_kinds=Dict(
-        (:hist, :samples)=>[:histogram],
-        (:hist, :pdf)=>[:stairs],
-        (:hist, :both)=>[:histogram, :stairs],
-        (:pdf, :samples)=>[:stairs],
-        (:ecdf, :samples)=>[:line],
-        (:ecdf, :pdf)=>[:line],
-        (:ecdf, :both)=>[:line, :line],
-        (:qq, :samples)=>[:scatter, :line]
+        (:hist, :samples)=>(:histogram,),
+        (:hist, :pdf)=>(:stairs,),
+        (:hist, :both)=>(:histogram, :stairs),
+        (:pdf, :samples)=>(:stairs,),
+        (:ecdf, :samples)=>(:line,),
+        (:ecdf, :pdf)=>(:line,),
+        (:ecdf, :both)=>(:line, :line),
+        (:qq, :samples)=>(:scatter, :line)
     )
     for ((mode, data), kinds) in expected_kinds
         render=PB.make_render(Spec, result; mode, data)
-        view=only(only(render.figures).views)
-        @test getfield.(view.series, :kind) == kinds
-        for series_spec in view.series
-            series_spec.xdata===nothing||@test all(isfinite, series_spec.xdata)
-            series_spec.ydata===nothing||@test all(isfinite, series_spec.ydata)
+        @test isempty(only(render.figures).views)
+        page=only(render.input.pages)
+        @test page isa Cmp.MCDistributionPagePayload
+        @test kind_value.(getfield.(page.layers, :kind)) == kinds
+        @test keys(page.x_observation) == (:values, :quantity, :unit)
+        @test keys(page.y_observation) == (:values, :quantity, :unit)
+        for layer in page.layers
+            layer.x===nothing||@test all(isfinite, layer.x)
+            layer.y===nothing||@test all(isfinite, layer.y)
         end
     end
 
-    pdf_view=only(only(PB.make_render(Spec, result; mode = :pdf).figures).views)
-    @test pdf_view.yaxis.quantity isa
+    pdf_page=only(PB.make_render(Spec, result; mode = :pdf).input.pages)
+    @test pdf_page.y_observation.quantity isa
           LineCableModels.Units.Quantity{:probability_density}
-    @test pdf_view.yaxis.units == inv(pdf_view.xaxis.units)
-    @test pdf_view.yaxis.label ==
-          LineCableModels.Units.label(pdf_view.yaxis.quantity, pdf_view.yaxis.units)
+    @test pdf_page.y_observation.unit == inv(pdf_page.x_observation.unit)
+    @test LineCableModels.Units.label(
+        pdf_page.y_observation.quantity,
+        pdf_page.y_observation.unit
+    ) == "Probability density [km/Ω]"
+    @test !isdefined(Cmp, :_mc_plot_exponent)
 
     histogram=only(Cmp.histograms(result)).R
     @test Cmp._mc_histogram_cdf(histogram, first(histogram.edges) - 1) == 0.0
@@ -365,9 +373,9 @@ end
         result.trial_counts
     )
     derived=PB.make_render(Spec, samples_only; mode = :pdf, nbins = 2)
-    derived_series=only(only(only(derived.figures).views).series)
-    @test derived_series.kind === :stairs
-    @test length(derived_series.xdata) == 3
+    derived_layer=only(only(derived.input.pages).layers)
+    @test derived_layer.kind == Val(:stairs)
+    @test length(derived_layer.x) == 3
 
     samples_recipe=PB.fetch(
         Spec,
@@ -376,29 +384,26 @@ end
             PB.parse(Spec, samples_only; mode = :hist, data = :samples)
         )
     )
-    @test samples_recipe.input.histogram === nothing
-    @test first(samples_recipe.input.bins) == minimum(samples_recipe.input.values)
-    @test last(samples_recipe.input.bins) == maximum(samples_recipe.input.values)
-    @test length(samples_recipe.input.bins) == 3
-    cdf_grid=Cmp._mc_cdf_grid(samples_recipe)
+    samples_layer=only(only(samples_recipe.input.pages).layers)
+    @test samples_layer.kind == Val(:histogram)
+    @test first(samples_layer.style.bins) == minimum(samples_layer.x)
+    @test last(samples_layer.style.bins) == maximum(samples_layer.x)
+    @test length(samples_layer.style.bins) == 3
+    @test !haskey(samples_recipe.input, :histogram)
+    @test !haskey(samples_recipe.input, :values)
+    cdf_grid=Cmp._mc_cdf_grid(samples_layer.x, nothing)
     @test length(cdf_grid) == 500
-    @test first(cdf_grid) < minimum(samples_recipe.input.values)
-    @test last(cdf_grid) > maximum(samples_recipe.input.values)
+    @test first(cdf_grid) < minimum(samples_layer.x)
+    @test last(cdf_grid) > maximum(samples_layer.x)
 
-    series_contracts=(
-        (Val(:samples), :histogram, "samples"),
-        (Val(:histogram_pdf), :stairs, "model PDF"),
-        (Val(:histogram_cdf), :line, "model CDF"),
-        (Val(:empirical_cdf), :line, "empirical CDF"),
-        (Val(:quantiles), :scatter, "quantiles"),
-        (Val(:reference), :line, "perfect fit")
-    )
-    for (key, kind, label) in series_contracts
-        @test PB.plot_kind(Spec, Val(:hist), samples_recipe, nothing, nothing, key) ===
-              kind
-        @test PB.legend_label(Spec, Val(:hist), samples_recipe, nothing, nothing, key) ==
-              label
-    end
+    combined=only(PB.make_render(
+        Spec,
+        result;
+        mode = :ecdf,
+        data = :both
+    ).input.pages)
+    @test getfield.(combined.layers, :group) == (:empirical_cdf, :histogram_cdf)
+    @test getfield.(combined.layers, :label) == ("empirical CDF", "model CDF")
     @test LineCableModels.Units.label(
         LineCableModels.Units.Quantity{:dimensionless}(),
         LineCableModels.Units.UnitExpr()
@@ -414,16 +419,16 @@ end
         result.point_seeds,
         result.trial_counts
     )
-    @test PB.make_render(Spec, histogram_only; mode = :ecdf, data = :pdf) isa
-          PB.PlotRecipe
-    histogram_recipe=PB.fetch(
+    histogram_recipe=PB.make_render(
         Spec,
-        PB.resolve(
-            Spec,
-            PB.parse(Spec, histogram_only; mode = :ecdf, data = :pdf)
-        )
+        histogram_only;
+        mode = :ecdf,
+        data = :pdf
     )
-    @test_throws ArgumentError Cmp._mc_values(histogram_recipe)
+    histogram_page=only(histogram_recipe.input.pages)
+    @test only(histogram_page.layers).kind == Val(:line)
+    @test only(histogram_page.layers).group === :histogram_cdf
+    @test_throws ArgumentError Cmp._mc_values(nothing)
     @test_throws ArgumentError PB.make_render(
         Spec,
         histogram_only;
