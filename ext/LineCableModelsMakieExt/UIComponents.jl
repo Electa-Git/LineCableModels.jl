@@ -10,6 +10,7 @@ using Makie
 using Dates
 using Printf: @sprintf
 
+import LineCableModels
 import LineCableModels.PlotBuilder
 using LineCableModels: nominal, standard_uncertainty
 using LineCableModels.Units: label
@@ -966,6 +967,20 @@ function _current_page(plot::UIPlot)
     )
 end
 
+function _current_input(plot::UIPlot, ::Type{D}) where {D <: PlotBuilder.AbstractPlotDefinition}
+    return plot.render.input
+end
+
+function _current_recipe(plot::UIPlot)
+    return PlotRecipe(
+        plot.render.spec,
+        plot.render.object,
+        _current_input(plot, plot.render.spec),
+        plot.render.renderer,
+        PageSpec[_current_page(plot)]
+    )
+end
+
 function _block_vertical_bounds(block)
     layout = block.layoutobservables
     bounding_box = layout.computedbbox[]
@@ -1040,13 +1055,7 @@ function PlotBuilder.export_svg(
     ispath(output) && throw(ArgumentError("refusing to overwrite existing file: $output"))
     plot.context.status[] = "Exporting SVG..."
     PlotBuilder.with_backend(:cairo) do
-        one_page = PlotRecipe(
-            plot.render.spec,
-            plot.render.object,
-            plot.render.input,
-            plot.render.renderer,
-            PageSpec[_current_page(plot)]
-        )
+        one_page = _current_recipe(plot)
         exported = build(
             one_page;
             backend = :cairo,
@@ -1075,5 +1084,6 @@ end
 export_svg(args...; kwargs...) = PlotBuilder.export_svg(args...; kwargs...)
 
 include("native.jl")
+include("previews.jl")
 
 end # module UIComponents

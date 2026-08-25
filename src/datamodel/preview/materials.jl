@@ -140,23 +140,23 @@ function _radial_wedge(
     return Point2f.(xvalues, yvalues)
 end
 
-function _polygon_series(geometry, label, group, color; stroke = :black, width = 0.5)
-    return PlotBuilder.SeriesSpec(
-        :polygon,
-        nothing,
-        nothing,
+function _preview_polygon(geometry, label, group, color; stroke = :black, width = 0.5)
+    resolved_label = label === nothing ? nothing : String(label)
+    return PreviewPolygon(
         geometry,
-        label;
+        resolved_label,
         group,
-        attributes = (; color, strokecolor = stroke, strokewidth = width)
+        color,
+        stroke,
+        Float64(width)
     )
 end
 
-function _layer_series!(series, layer, label, group, xcenter, ycenter; include_label = true)
+function _layer_shapes!(shapes, layer, label, group, xcenter, ycenter; include_label = true)
     first_label = include_label ? label : nothing
     if layer isa ConductorGroup
         for (index, nested) in enumerate(layer.layers)
-            _layer_series!(series, nested, label, group, xcenter, ycenter;
+            _layer_shapes!(shapes, nested, label, group, xcenter, ycenter;
                 include_label = index == 1 && include_label)
         end
     elseif layer isa Union{CircStrands, RectStrands, Strip, Tubular, Semicon, Insulator}
@@ -172,8 +172,8 @@ function _layer_series!(series, layer, label, group, xcenter, ycenter; include_l
             )
             for (index, (xvalue, yvalue)) in enumerate(coordinates)
                 push!(
-                    series,
-                    _polygon_series(
+                    shapes,
+                    _preview_polygon(
                         _circle_points(wire_radius, xvalue, yvalue),
                         index == 1 ? first_label : nothing,
                         group,
@@ -192,7 +192,7 @@ function _layer_series!(series, layer, label, group, xcenter, ycenter; include_l
                     xcenter,
                     ycenter
                 )
-                push!(series, _polygon_series(
+                push!(shapes, _preview_polygon(
                     geometry,
                     index == 1 ? first_label : nothing,
                     group,
@@ -206,8 +206,8 @@ function _layer_series!(series, layer, label, group, xcenter, ycenter; include_l
                 xcenter,
                 ycenter
             )
-            push!(series,
-                _polygon_series(
+            push!(shapes,
+                _preview_polygon(
                     geometry,
                     first_label,
                     group,
@@ -219,7 +219,7 @@ function _layer_series!(series, layer, label, group, xcenter, ycenter; include_l
     else
         @warn "unsupported cable-preview layer" layer_type = typeof(layer)
     end
-    return series
+    return shapes
 end
 
 _preview_layer_name(::CircStrands) = "round wires"
@@ -255,16 +255,16 @@ function _preview_layer_identities(component_id, layers, role::Symbol)
     return identities
 end
 
-function _design_series(design, xcenter, ycenter; display_legend::Bool)
-    series = PlotBuilder.SeriesSpec[]
+function _design_shapes(design, xcenter, ycenter; display_legend::Bool)
+    shapes = PreviewPolygon[]
     outer_radius = try
         nominal(design.components[end].insulator_group.r_ex)
     catch
         NaN
     end
     if isfinite(outer_radius) && outer_radius > 0
-        push!(series,
-            _polygon_series(_circle_points(outer_radius, xcenter, ycenter), nothing,
+        push!(shapes,
+            _preview_polygon(_circle_points(outer_radius, xcenter, ycenter), nothing,
                 :background, :white; stroke = :transparent, width = 0.0))
     end
     for component in design.components
@@ -275,7 +275,7 @@ function _design_series(design, xcenter, ycenter; display_legend::Bool)
             :conductor
         )
         for (layer, (label, group)) in zip(conductor_layers, conductor_identities)
-            _layer_series!(series, layer, label, group, xcenter,
+            _layer_shapes!(shapes, layer, label, group, xcenter,
                 ycenter; include_label = display_legend)
         end
         insulator_layers = component.insulator_group.layers
@@ -285,11 +285,11 @@ function _design_series(design, xcenter, ycenter; display_legend::Bool)
             :insulator
         )
         for (layer, (label, group)) in zip(insulator_layers, insulator_identities)
-            _layer_series!(series, layer, label, group, xcenter,
+            _layer_shapes!(shapes, layer, label, group, xcenter,
                 ycenter; include_label = display_legend)
         end
     end
-    return series
+    return shapes
 end
 
 function _each_material(callback, design)
@@ -371,33 +371,24 @@ function _colorbar_specs(rho_range, mu_range, eps_range; alpha_value = 1.0)
         color = _alpha_composite(RGBA(dark.r, dark.g, dark.b, 1.0), overlay)
         return RGBA(red(color), green(color), blue(color), alpha_value)
     end
-    return PlotBuilder.ColorbarSpec[
-        PlotBuilder.ColorbarSpec(
+    return (
+        PlotBuilder.ColorbarDefinition(
             "ρ [Ω·m]",
             _color_samples(_base_material_color, rho_lower, rho_upper),
             (0.0, 1.0),
             rho_ticks
         ),
-        PlotBuilder.ColorbarSpec(
+        PlotBuilder.ColorbarDefinition(
             "μᵣ",
             _color_samples(permeability_color, mu_lower, mu_upper),
             (0.0, 1.0),
             mu_ticks
         ),
-        PlotBuilder.ColorbarSpec(
+        PlotBuilder.ColorbarDefinition(
             "εᵣ",
             _color_samples(permittivity_color, eps_lower, eps_upper),
             (0.0, 1.0),
             eps_ticks
-        )
-    ]
-end
-
-function _distance_axes()
-    quantity = Units.Quantity{:distance}()
-    unit = Units.units(:base, :meter)
-    return (
-        PlotBuilder.AxisSpec(:x, quantity, unit, "y [m]", :linear),
-        PlotBuilder.AxisSpec(:y, quantity, unit, "z [m]", :linear)
+        ),
     )
 end

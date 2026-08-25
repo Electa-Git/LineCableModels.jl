@@ -60,16 +60,10 @@ function PlotBuilder.colorbar_specs(
     )
 end
 
-function PlotBuilder.control_spec(
-        ::Type{MaterialScalePlotDefinition}, mode::Val,
-        recipe::PlotBuilder.PlotRecipe, page_key)
-    return PlotBuilder.ControlSpec(reset = false)
-end
-
 function PlotBuilder.legend_spec(
         ::Type{MaterialScalePlotDefinition}, mode::Val,
         recipe::PlotBuilder.PlotRecipe, page_key)
-    return PlotBuilder.LegendSpec(enabled = false)
+    return PlotBuilder.LegendDefinition(enabled = false)
 end
 
 function PlotBuilder.page_identity(
@@ -81,7 +75,7 @@ end
 function PlotBuilder.export_spec(
         ::Type{MaterialScalePlotDefinition}, mode::Val,
         recipe::PlotBuilder.PlotRecipe, page_key, title::AbstractString)
-    return PlotBuilder.ExportSpec(
+    return PlotBuilder.ExportDefinition(
         theme = recipe.renderer.export_theme,
         name = "material_scale",
         open_file = recipe.renderer.open_export

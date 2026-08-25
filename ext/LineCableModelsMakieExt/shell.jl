@@ -126,13 +126,14 @@ function build_widgets!(
         definitions = page.controls
         xlog_available = _page_supports_log(panels, :x)
         ylog_available = _page_supports_log(panels, :y)
-        toolbar_enabled = definitions.reset || definitions.export_svg ||
+        reset_available = definitions.reset && !isempty(panels)
+        toolbar_enabled = reset_available || definitions.export_svg ||
                           xlog_available || ylog_available
         if toolbar_enabled
             toolbar = _slot_grid(materialized, definitions.slot)
             toolbar.default_colgap = Fixed(4)
             column = 1
-            if definitions.reset
+            if reset_available
                 reset = Button(
                     toolbar[1, column];
                     label = _icon_label(MI_REFRESH),

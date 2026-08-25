@@ -25,24 +25,21 @@
     )
     @test length(cable_render.figures) == 1
     cable_page=only(cable_render.figures)
-    cable_view=only(cable_page.views)
+    cable_payload=cable_render.input.payload
     @test cable_page.layout.name === :preview
-    @test cable_view.xaxis.label == "y [m]"
-    @test cable_view.yaxis.label == "z [m]"
-    @test cable_view.aspect === :data
-    @test all(series -> series.kind === :polygon, cable_view.series)
-    @test all(series -> series.group isa Symbol, cable_view.series)
-    @test all(series -> haskey(series.attributes, :color), cable_view.series)
-    legend_labels=String[series.label
-                         for series in cable_view.series if series.label!==nothing]
+    @test isempty(cable_page.views)
+    @test all(polygon -> polygon.group isa Symbol, cable_payload.polygons)
+    @test all(polygon -> polygon.color !== nothing, cable_payload.polygons)
+    legend_labels=String[polygon.label
+                         for polygon in cable_payload.polygons if polygon.label!==nothing]
     @test !isempty(legend_labels)
     @test all(label -> !occursin("ρ=", label), legend_labels)
     @test all(label -> occursin(": ", label), legend_labels)
     @test length(unique(legend_labels)) == length(legend_labels)
     @test any(
-        series -> hasproperty(series.zdata, :interiors) &&
-                  !isempty(series.zdata.interiors),
-        cable_view.series
+        polygon -> hasproperty(polygon.geometry, :interiors) &&
+                   !isempty(polygon.geometry.interiors),
+        cable_payload.polygons
     )
     @test length(cable_page.colorbars) == 3
     @test cable_page.colorbars[2].ticks == ([0.5], ["1"])
@@ -94,15 +91,13 @@
         earth_model = earth
     )
     system_page=only(system_render.figures)
-    system_view=only(system_page.views)
-    @test system_view.aspect === :data
-    @test any(series -> series.kind === :hline, system_view.series)
-    @test any(series -> series.kind === :polygon, system_view.series)
-    earth_reference=only(series
-    for series in system_view.series if series.kind===:hline)
-    @test earth_reference.ydata == [0.0]
-    @test earth_reference.attributes.color === :black
-    @test earth_reference.attributes.linewidth == 1.5
+    system_payload=system_render.input.payload
+    @test isempty(system_page.views)
+    @test !isempty(system_payload.polygons)
+    earth_reference=only(system_payload.references)
+    @test earth_reference.values == [0.0]
+    @test earth_reference.color === :black
+    @test earth_reference.width == 1.5
     @test length(system_page.colorbars) == 3
     @test all(
         descriptor -> length(descriptor.ticks[1]) == 1 &&
@@ -118,8 +113,8 @@
         earth_model = earth,
         zoom_factor = 0.5
     )
-    default_limits=system_view.limits
-    zoomed_limits=only(only(zoomed_render.figures).views).limits
+    default_limits=system_payload.limits
+    zoomed_limits=zoomed_render.input.payload.limits
     @test zoomed_limits[1][2] - zoomed_limits[1][1] <
           default_limits[1][2] - default_limits[1][1]
     @test zoomed_limits[2][2] - zoomed_limits[2][1] <
@@ -138,7 +133,7 @@
     @test scale_page.layout.name === :material_scale
     @test isempty(scale_page.views)
     @test length(scale_page.colorbars) == 3
-    @test !scale_page.controls.reset
+    @test scale_page.controls.reset
     @test scale_page.controls.export_svg
     @test scale_page.export_spec.theme === :default
     @test scale_page.export_spec.open_file
@@ -165,18 +160,17 @@ end
     collapsed=DM._radial_wedge(0.0, 0.01, 0.002, 0.0, 0.0, 0.0)
     @test length(unique(collapsed)) == 2
 
-    series=LineCableModels.PlotBuilder.SeriesSpec[]
-    @test DM._layer_series!(series, strands, "sector", :sector, 0.0, 0.0) === series
-    @test length(series) == strands.num_wires
-    @test count(item -> item.label == "sector", series) == 1
-    @test all(item -> item.kind === :polygon, series)
-    @test all(item -> length(item.zdata) == 64, series)
+    shapes=DM.PreviewPolygon[]
+    @test DM._layer_shapes!(shapes, strands, "sector", :sector, 0.0, 0.0) === shapes
+    @test length(shapes) == strands.num_wires
+    @test count(item -> item.label == "sector", shapes) == 1
+    @test all(item -> length(item.geometry) == 64, shapes)
 
     group=ConductorGroup(strands)
-    grouped_series=LineCableModels.PlotBuilder.SeriesSpec[]
-    DM._layer_series!(grouped_series, group, "group", :group, 0.0, 0.0)
-    @test length(grouped_series) == strands.num_wires
-    @test count(item -> item.label == "group", grouped_series) == 1
+    grouped_shapes=DM.PreviewPolygon[]
+    DM._layer_shapes!(grouped_shapes, group, "group", :group, 0.0, 0.0)
+    @test length(grouped_shapes) == strands.num_wires
+    @test count(item -> item.label == "group", grouped_shapes) == 1
 
     semicon=Semicon(strands.r_ex, strands.r_ex+0.001, semiconductor)
     insulator=Insulator(semicon.r_ex, semicon.r_ex+0.002, dielectric)
@@ -191,8 +185,8 @@ end
     unsupported=UnsupportedPreviewLayer(conductor)
     @test DM._preview_layer_name(unsupported) == "unsupportedpreviewlayer"
     @test_logs (:warn, r"unsupported cable-preview layer") begin
-        @test isempty(DM._layer_series!(
-            LineCableModels.PlotBuilder.SeriesSpec[],
+        @test isempty(DM._layer_shapes!(
+            DM.PreviewPolygon[],
             unsupported,
             "unsupported",
             :unsupported,

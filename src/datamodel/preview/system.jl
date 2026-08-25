@@ -29,7 +29,7 @@ function _system_limits(system, zoom_factor)
 end
 
 function _earth_colorbars(earth_model)
-    earth_model === nothing && return PlotBuilder.ColorbarSpec[]
+    earth_model === nothing && return ()
     resistivities = Float64[]
     permeabilities = Float64[]
     permittivities = Float64[]
@@ -38,23 +38,16 @@ function _earth_colorbars(earth_model)
         push!(permeabilities, nominal(layer.mu_r))
         push!(permittivities, nominal(layer.eps_r))
     end
-    isempty(resistivities) && return PlotBuilder.ColorbarSpec[]
+    isempty(resistivities) && return ()
     return _colorbar_specs(extrema(resistivities), extrema(permeabilities),
         extrema(permittivities); alpha_value = 0.25)
 end
 
-function _system_series(system, earth_model, limits, display_legend)
-    series = PlotBuilder.SeriesSpec[
-        PlotBuilder.SeriesSpec(
-        :hline,
-        nothing,
-        [0.0],
-        nothing,
-        nothing;
-        group = :air_earth,
-        attributes = (; color = :black, linewidth = 1.5)
-    ),
-    ]
+function _system_shapes(system, earth_model, limits, display_legend)
+    polygons = PreviewPolygon[]
+    references = (
+        PreviewReferenceLine([0.0], :air_earth, :black, 1.5),
+    )
     if earth_model !== nothing && !earth_model.vertical_layers
         cumulative_depth = 0.0
         fill_minimum = limits[2][1] - 5.0
@@ -75,8 +68,8 @@ function _system_series(system, earth_model, limits, display_legend)
                 (fill_horizontal[1], bottom)
             ]
             push!(
-                series,
-                _polygon_series(
+                polygons,
+                _preview_polygon(
                     geometry,
                     display_legend ? "Earth layer $index" : nothing,
                     Symbol("earth_$index"),
@@ -89,8 +82,8 @@ function _system_series(system, earth_model, limits, display_legend)
     end
     for cable in system.cables
         append!(
-            series,
-            _design_series(
+            polygons,
+            _design_shapes(
                 cable.design_data,
                 nominal(cable.horz),
                 nominal(cable.vert);
@@ -98,7 +91,7 @@ function _system_series(system, earth_model, limits, display_legend)
             )
         )
     end
-    return series
+    return polygons, references
 end
 
 PlotBuilder.dispatch_on(::Type{SystemPreviewPlotDefinition}) = LineCableSystem
@@ -148,7 +141,7 @@ end
 function PlotBuilder.fetch(::Type{SystemPreviewPlotDefinition}, recipe::PlotBuilder.PlotRecipe)
     system = recipe.object
     limits = _system_limits(system, recipe.input.zoom_factor)
-    series = _system_series(
+    polygons, references = _system_shapes(
         system,
         recipe.input.earth_model,
         limits,
@@ -160,42 +153,40 @@ function PlotBuilder.fetch(::Type{SystemPreviewPlotDefinition}, recipe::PlotBuil
         recipe.input.earth_model
     )
     identity = (; kind = :system, id = system.system_id)
-    export_name = system.system_id
+    payload = PreviewPayload(
+        polygons,
+        references,
+        title,
+        limits,
+        colorbars,
+        PlotBuilder.LegendDefinition(enabled = recipe.input.display_legend),
+        identity,
+        PlotBuilder.ExportDefinition(
+            theme = recipe.renderer.export_theme,
+            name = system.system_id,
+            open_file = recipe.renderer.open_export
+        )
+    )
     return PlotBuilder.PlotRecipe(
         SystemPreviewPlotDefinition,
         system,
-        merge(recipe.input, (; limits, series, title, colorbars, identity, export_name)),
+        merge(recipe.input, (; payload)),
         recipe.renderer
     )
 end
 
-function PlotBuilder.make_axes(
+function PlotBuilder._composition(
         ::Type{SystemPreviewPlotDefinition},
         mode::Val,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key,
-        view_key
+        recipe::PlotBuilder.PlotRecipe
 )
-    xaxis, yaxis = _distance_axes()
-    return (; xaxis, yaxis, zaxis = nothing)
-end
-
-function PlotBuilder.make_series(
-        ::Type{SystemPreviewPlotDefinition},
-        mode::Val,
-        grouping::Val,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key,
-        view_key,
-        axes::NamedTuple
-)
-    return recipe.input.series
+    return Val(:empty)
 end
 
 _system_title(::Val{false}, system) = "Cable system cross-section"
 _system_title(::Val{true}, system) = "Cable system cross-section: $(system.system_id)"
 
-_system_colorbars(::Val{false}, earth_model) = PlotBuilder.ColorbarSpec[]
+_system_colorbars(::Val{false}, earth_model) = ()
 _system_colorbars(::Val{true}, earth_model) = _earth_colorbars(earth_model)
 
 function PlotBuilder.default_title(
@@ -205,37 +196,7 @@ function PlotBuilder.default_title(
         page_key,
         view_key
 )
-    return recipe.input.title
-end
-
-function PlotBuilder.view_key(
-        ::Type{SystemPreviewPlotDefinition},
-        mode::Val,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key,
-        view_key
-)
-    return (; kind = :system)
-end
-
-function PlotBuilder.view_aspect(
-        ::Type{SystemPreviewPlotDefinition},
-        mode::Val,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key,
-        view_key
-)
-    return :data
-end
-
-function PlotBuilder.view_limits(
-        ::Type{SystemPreviewPlotDefinition},
-        mode::Val,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key,
-        view_key
-)
-    return recipe.input.limits
+    return recipe.input.payload.title
 end
 
 function PlotBuilder.default_figsize(
@@ -262,27 +223,23 @@ function PlotBuilder.colorbar_specs(
         recipe::PlotBuilder.PlotRecipe,
         page_key
 )
-    return recipe.input.colorbars
+    return recipe.input.payload.colorbars
 end
 
 function PlotBuilder.legend_spec(
         ::Type{SystemPreviewPlotDefinition}, mode::Val,
         recipe::PlotBuilder.PlotRecipe, page_key)
-    return PlotBuilder.LegendSpec(enabled = recipe.input.display_legend)
+    return recipe.input.payload.legend
 end
 
 function PlotBuilder.page_identity(
         ::Type{SystemPreviewPlotDefinition}, mode::Val,
         recipe::PlotBuilder.PlotRecipe, page_key)
-    return recipe.input.identity
+    return recipe.input.payload.key
 end
 
 function PlotBuilder.export_spec(
         ::Type{SystemPreviewPlotDefinition}, mode::Val,
         recipe::PlotBuilder.PlotRecipe, page_key, title::AbstractString)
-    return PlotBuilder.ExportSpec(
-        theme = recipe.renderer.export_theme,
-        name = recipe.input.export_name,
-        open_file = recipe.renderer.open_export
-    )
+    return recipe.input.payload.export_definition
 end

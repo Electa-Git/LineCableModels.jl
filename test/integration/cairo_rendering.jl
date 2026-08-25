@@ -531,7 +531,8 @@
         design=first(values(library.data))
         cable_plot=preview(design; backend = :cairo, display_plot = false)
         @test cable_plot isa UIPlot
-        @test !isempty(only(cable_plot.page.views).series)
+        @test isempty(cable_plot.page.views)
+        @test !isempty(cable_plot.render.input.payload.polygons)
         @test length(cable_plot.page.colorbars) == 3
         @test sort!(collect(keys(cable_plot.controls))) ==
               [:export_svg, :legend, :reset]
@@ -546,8 +547,7 @@
         end
         cable_panel=only(cable_plot.panels)
         expected_group_order=unique(
-            something(series.group, Symbol("series_$index"))
-        for (index, series) in enumerate(only(cable_plot.page.views).series)
+            polygon.group for polygon in cable_plot.render.input.payload.polygons
         )
         @test cable_panel.group_order == expected_group_order
         material_entry=first(last(first(cable_legend.entrygroups[])))
@@ -618,14 +618,10 @@
                      iszero(block.layoutobservables.protrusions[].right),
             scale_blocks)
 
-        current_compact_page=ui_components._current_page(compact_cable_plot)
-        @test any(!series.visible for view in current_compact_page.views
-        for series in view.series)
+        current_compact_recipe=ui_components._current_recipe(compact_cable_plot)
+        @test !isempty(current_compact_recipe.input.hidden_groups)
         exported_compact=only(ui_components.build(
-            LineCableModels.PlotBuilder.PlotRecipe(
-                compact_cable_plot.render.spec,
-                [current_compact_page]
-            );
+            current_compact_recipe;
             backend = :cairo,
             display = false,
             controls = false,
@@ -687,7 +683,8 @@
             display_plot = false
         )
         @test system_plot isa UIPlot
-        @test only(system_plot.page.views).aspect === :data
+        @test isempty(system_plot.page.views)
+        @test only(system_plot.panels).view.aspect === :data
         test_golden(system_plot, "system_preview"; tolerance = 0.025)
 
         zoomed_system_plot=preview(
@@ -697,8 +694,8 @@
             backend = :cairo,
             display_plot = false
         )
-        default_limits=only(system_plot.page.views).limits
-        zoomed_limits=only(zoomed_system_plot.page.views).limits
+        default_limits=system_plot.render.input.payload.limits
+        zoomed_limits=zoomed_system_plot.render.input.payload.limits
         @test zoomed_limits[1][2] - zoomed_limits[1][1] <
               default_limits[1][2] - default_limits[1][1]
         @test zoomed_limits[2][2] - zoomed_limits[2][1] <
@@ -714,6 +711,8 @@
         @test collect(keys(material_plot.controls)) == [:export_svg]
         test_golden(material_plot, "material_scale")
 
+        struct CompilerPrimitivePlotDefinition <:
+               LineCableModels.PlotBuilder.AbstractPlotDefinition end
         primitive_axis=LineCableModels.PlotBuilder.AxisSpec(
             :x,
             LineCableModels.Units.Quantity{:dimensionless}(),
@@ -757,7 +756,7 @@
             legend = LineCableModels.PlotBuilder.LegendSpec(enabled = false)
         )
         primitive_render=LineCableModels.PlotBuilder.PlotRecipe(
-            LineCableModels.DataModel.MaterialScalePlotDefinition,
+            CompilerPrimitivePlotDefinition,
             [primitive_page]
         )
         primitive_plot=only(ui_components.build(

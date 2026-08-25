@@ -196,6 +196,34 @@ function export_spec(
         open_file = recipe.renderer.open_export
     )
 end
+
+_compiler_legend(definition::LegendSpec) = definition
+function _compiler_legend(definition::LegendDefinition)
+    return LegendSpec(
+        enabled = definition.enabled,
+        interactive = definition.interactive,
+        overflow = definition.overflow
+    )
+end
+
+_compiler_colorbar(definition::ColorbarSpec) = definition
+function _compiler_colorbar(definition::ColorbarDefinition)
+    return ColorbarSpec(
+        definition.label,
+        definition.colormap,
+        definition.limits,
+        definition.ticks
+    )
+end
+
+_compiler_export(definition::ExportSpec) = definition
+function _compiler_export(definition::ExportDefinition)
+    return ExportSpec(
+        theme = definition.theme,
+        name = definition.name,
+        open_file = definition.open_file
+    )
+end
 function export_spec(
         ::Type{S}, mode::Val, recipe::PlotRecipe, page_key,
         title::AbstractString
@@ -227,10 +255,15 @@ function make_pages(
                 _resolve_layout(S, mode, recipe, page_key, length(views)),
                 views;
                 controls = control_spec(S, mode, recipe, page_key),
-                legend = legend_spec(S, mode, recipe, page_key),
-                colorbars = colorbar_specs(S, mode, recipe, page_key),
+                legend = _compiler_legend(legend_spec(S, mode, recipe, page_key)),
+                colorbars = ColorbarSpec[
+                    _compiler_colorbar(definition)
+                    for definition in colorbar_specs(S, mode, recipe, page_key)
+                ],
                 status = status_spec(S, mode, recipe, page_key),
-                export_spec = export_spec(S, mode, recipe, page_key, title)
+                export_spec = _compiler_export(
+                    export_spec(S, mode, recipe, page_key, title)
+                )
             )
         )
     end
