@@ -8,7 +8,8 @@ abstract type AbstractReportDefinition end
 """
 $(TYPEDEF)
 
-Hold the table and optional PlotBuilder artifact produced by [`report`](@ref).
+Hold the table, optional PlotBuilder artifact, and written output produced by
+[`report`](@ref).
 
 $(TYPEDFIELDS)
 """
@@ -109,7 +110,8 @@ end
 
 function tabulate(::TableReport, source, published::NamedTuple)
     columns = map(payload -> _table_column(payload.values), values(published))
-    isempty(columns) || all(length(column) == length(first(columns)) for column in columns) ||
+    isempty(columns) ||
+        all(length(column) == length(first(columns)) for column in columns) ||
         throw(DimensionMismatch("published report columns must have equal lengths"))
     table = DataFrame(; NamedTuple{keys(published)}(columns)...)
     unit_labels = Dict(

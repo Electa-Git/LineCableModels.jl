@@ -17,7 +17,10 @@
         "resolve_T", "coerce_to_T", "BASE_FLOAT", "REALSCALAR", "COMPLEXSCALAR",
         "@construct", "@parameterize", "@measurify", "Meta.parse", "global_logger(",
         "line_component_quantity", "line_component_unit", "parse_kwargs",
-        "resolve_input", "axis_quantity", "axis_unit", "series_data"
+        "resolve_input", "axis_quantity", "axis_unit", "series_data",
+        "ComponentMetadata", "UnitSpec", "DEFAULT_QUANTITY_UNITS",
+        "_mc_selector", "AbstractObservable", "ObservableDescriptor",
+        "ObservationRequest", "AbstractDetails", "DetailsRegistry"
     )
     for token in forbidden
         @test all(!occursin(token, contents) for contents in values(source))
@@ -96,6 +99,7 @@ end
         joinpath("src", "uq", "montecarlo", "compute.jl"),
         joinpath("src", "reportbuilder", "grammar.jl"),
         joinpath("src", "reportbuilder", "tables.jl"),
+        joinpath("src", "reportbuilder", "xlsx.jl"),
         joinpath("src", "importexport", "pscad", "pscad.jl"),
         joinpath("ext", "LineCableModelsMakieExt", "UIComponents.jl"),
         joinpath("dev", "plotting", "Project.toml")
@@ -112,6 +116,7 @@ end
         joinpath("src", "uq", "plotspecs.jl"),
         joinpath("src", "engine", "lineparameters", "dataframe.jl"),
         joinpath("src", "uq", "dataframe.jl"),
+        joinpath("src", "importexport", "xlsx.jl"),
         joinpath("integration", "plotting")
     )
     @test all(!ispath(joinpath(root, path)) for path in obsolete_paths)
@@ -131,7 +136,26 @@ end
     @test parentmodule(LineCableModels.observables) === LineCableModels.Grammar
     @test parentmodule(LineCableModels.Units.quantity) === LineCableModels.Units
     @test parentmodule(LineCableModels.report) === LineCableModels.ReportBuilder
+    @test parentmodule(LineCableModels.ReportArtifact) === LineCableModels.ReportBuilder
+    @test parentmodule(LineCableModels.XLSXReport) === LineCableModels.ReportBuilder
     @test parentmodule(LineCableModels.validate) === LineCableModels.Validation
+
+    report_grammar=source[joinpath("src", "reportbuilder", "grammar.jl")]
+    @test !occursin(r"(?:encode|write)\(::AbstractReportDefinition", report_grammar)
+    importexport_index=source[joinpath("src", "importexport", "ImportExport.jl")]
+    reportbuilder_index=source[joinpath("src", "reportbuilder", "ReportBuilder.jl")]
+    @test !occursin("using XLSX", importexport_index)
+    @test !occursin("include(\"xlsx.jl\")", importexport_index)
+    @test occursin("using XLSX", reportbuilder_index)
+    @test occursin("include(\"xlsx.jl\")", reportbuilder_index)
+
+    for pattern in (
+        r"details\s*::\s*Dict",
+        r"details\s*::\s*Any",
+        r"function\s+computation_details\s*\([^,)]*\)"
+    )
+        @test all(!occursin(pattern, contents) for contents in values(source))
+    end
 
     presentation_paths=filter(keys(source)) do path
         startswith(path, joinpath("src", "plotbuilder")) ||

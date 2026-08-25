@@ -94,8 +94,11 @@ stores its frequency domain and either a `:pul` or `:total` basis:
 
 ```julia
 basis(line_parameters)
+line_parameters.Z[1, 1, :]      # direct array access
+@view line_parameters.Y[1, 1, :]
 R(line_parameters, 1, 1)       # complete frequency response
 Z(line_parameters, 1, 1, 2:5) # selected frequency samples
+@observe line_parameters Z[1, 2, :]
 abs.(Z(line_parameters, 1, 1))
 ```
 
@@ -110,11 +113,27 @@ results.
 and `:qq` modes display retained distribution information after a Makie package
 is loaded.
 
+Higher-order calculations keep supplemental computation output separate from
+their scientific products. `details(result)` returns the empty named tuple by
+default. Construct `Combinatorial`, `LinearError`, or `MonteCarlo` with
+`options=(retain_details=true,)` only when the primitive computation owner has
+registered a `computation_details` method and those records are needed.
+
 Physics and numerical-method choices belong to `Formulation`. Execution choices
 are passed as a named tuple. For a materialised line system, pass
 `options=(output_basis=:total,)` to `compute` to scale both Z and Y by the line
 length. Composite calculations select their operation explicitly, for example
 `compute(ParametricProblem(space), Combinatorial(Formulation()))`.
+
+Human-facing XLSX output is a ReportBuilder operation:
+
+```julia
+artifact = report(XLSXReport(file_name="line_parameters.xlsx"), line_parameters)
+artifact.output
+```
+
+The established `export_data(:xlsx, line_parameters; ...)` call delegates to
+the same report and returns its output path.
 
 ## Retired FEM and sector support
 

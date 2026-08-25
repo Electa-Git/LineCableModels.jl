@@ -129,6 +129,7 @@ end
         value::Float64
         raw::Dict{String, Any}
     end
+    const supplemental_detail_calls=Ref(0)
 
     function Grammar.compute(
             problem::SupplementalProblem,
@@ -146,6 +147,7 @@ end
             ::Val{SupplementalFormulation},
             output::SupplementalResult
     )::Grammar.ComputationDetails
+        supplemental_detail_calls[]+=1
         return (
             diagnostics = (iterations = 1,),
             raw = output.raw
@@ -192,6 +194,7 @@ end
     ordinary=Grammar.compute(problem, PB.Combinatorial(formulation))
     @test Grammar.details(ordinary) === (;)
     @test fieldtype(typeof(ordinary), :details) === @NamedTuple{}
+    @test supplemental_detail_calls[] == 0
 
     retained=Grammar.compute(
         problem,
@@ -205,17 +208,22 @@ end
     @test retained.details.points[1].diagnostics == (iterations = 1,)
     @test retained.details.points[2].raw["coordinate"] == 2.0
     @test fieldtype(typeof(retained), :details) <: NamedTuple
+    @test supplemental_detail_calls[] == 2
 
     uncertain_space=PB.Gridspace{SupplementalProblem}(
         SupplementalProblem,
         (PB.Grid(1.0, 5.0),)
     )
     monte_problem=PB.ParametricProblem(uncertain_space)
+    supplemental_detail_calls[]=0
     default_monte=Grammar.compute(
         monte_problem,
         UQ.MonteCarlo(formulation; trials = 3, seed = 41)
     )
     @test Grammar.details(default_monte) === (;)
+    Grammar.details(default_monte)
+    @test @allocated(Grammar.details(default_monte)) == 0
+    @test supplemental_detail_calls[] == 0
 
     retained_monte=Grammar.compute(
         monte_problem,
@@ -236,6 +244,7 @@ end
     @test retained_monte.point_seeds == default_monte.point_seeds
     @test retained_monte.trial_counts == default_monte.trial_counts
     @test only(result(retained_monte)).value == only(result(default_monte)).value
+    @test supplemental_detail_calls[] == 3
 
     @test Grammar.computation_options(Val(PB.Combinatorial), (;)) ==
           (retain_details = false,)

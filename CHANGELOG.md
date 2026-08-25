@@ -35,8 +35,13 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   realisation through concrete callable builders. Scalar public builder calls
   now construct eager domain values.
 - Converged PlotBuilder on definition-driven recipes and one fixed sequence:
-  entitle, parse, resolve, observe, axes, series, views, pages, layout,
-  decorate, and finish.
+  entitle, parse, resolve, fetch, make_axes, make_series, make_views,
+  make_pages, decorate, and finish.
+- Added `@observe` as three-index syntax over the native `observe` protocol.
+- Added typed computation details with explicit higher-order retention and no
+  default per-point or per-trial record collection.
+- Moved human-facing XLSX line-parameter workbooks to ReportBuilder. The
+  existing `export_data(:xlsx, ...)` call now delegates to `XLSXReport`.
 - Routed ordinary and higher-order execution through `compute`, with
   `Combinatorial(inner)`, `LinearError(inner)`, and `MonteCarlo(inner)` selected
   explicitly.

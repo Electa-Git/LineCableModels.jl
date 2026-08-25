@@ -8,7 +8,8 @@ Write the human-facing line-parameter workbook produced by [`report`](@ref).
 
 $(TYPEDFIELDS)
 """
-struct XLSXReport{F <: Union{Nothing, String}, C <: Union{Nothing, DataModel.LineCableSystem}} <:
+struct XLSXReport{
+    F <: Union{Nothing, String}, C <: Union{Nothing, DataModel.LineCableSystem}} <:
        AbstractReportDefinition
     "Requested workbook path, or `nothing` for the default path."
     file_name::F
@@ -45,10 +46,12 @@ function _xlsx_table_definition()
 end
 
 entitle(::XLSXReport, source::Engine.LineParameters) = source
-select(::XLSXReport, source::Engine.LineParameters) =
+function select(::XLSXReport, source::Engine.LineParameters)
     select(_xlsx_table_definition(), source)
-tabulate(::XLSXReport, source::Engine.LineParameters, selected) =
+end
+function tabulate(::XLSXReport, source::Engine.LineParameters, selected)
     tabulate(_xlsx_table_definition(), source, selected)
+end
 illustrate(::XLSXReport, source, published, table) = nothing
 
 function _is_diagonal(matrix)
@@ -74,14 +77,12 @@ function encode(
         "XLSX reports require at least one frequency sample",
     ))
     series_tables, shunt_tables = table
-    series_diagonal = _is_diagonal(Engine.Z(source, :, :, 1))
-    shunt_diagonal = _is_diagonal(Engine.Y(source, :, :, 1))
-    series_diagonal && @warn(
-        "Z is diagonal within the selected tolerance. Exporting Z[i,i] and omitting off-diagonal elements."
-    )
-    shunt_diagonal && @warn(
-        "Y is diagonal within the selected tolerance. Exporting Y[i,i] and omitting off-diagonal elements."
-    )
+    series_diagonal = _is_diagonal(Z(source, :, :, 1))
+    shunt_diagonal = _is_diagonal(Y(source, :, :, 1))
+    series_diagonal &&
+        @warn("Z is diagonal within the selected tolerance. Exporting Z[i,i] and omitting off-diagonal elements.")
+    shunt_diagonal &&
+        @warn("Y is diagonal within the selected tolerance. Exporting Y[i,i] and omitting off-diagonal elements.")
     sheets = vcat(
         _xlsx_sheets("Z", series_tables, series_diagonal),
         _xlsx_sheets("Y", shunt_tables, shunt_diagonal)

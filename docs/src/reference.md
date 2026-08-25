@@ -78,11 +78,14 @@ Selectors are the existing function objects:
 observe(parameters, frequencies)
 observe(parameters, R, 1, 1, Colon())
 observe(parameters, Z, angle, 1, 1, Colon())
+@observe parameters Z[1, 2, :]
 ```
 
 The laconic `Z`, `Y`, `R`, `X`, `L`, `G`, `B`, and `C` accessors delegate to
 the same methods. `observe` performs no display conversion and returns no
-metadata wrapper.
+metadata wrapper. Direct `parameters.Z`, `parameters.Y`, indexing, and views
+remain supported for ordinary numerical work. `@observe` is syntax for one
+three-index `observe` call; it does not consult the publication declaration.
 
 [`observables`](@ref) is the detached presentation boundary. It requires an
 explicit named tuple of requests:
@@ -110,11 +113,18 @@ propagation returns `LinearErrorResult{T}`, and conditional sampling returns
 or `LineParameters` result rather than another composite result.
 
 Use `result`, `statistics`, `samples`, `histograms`, and `uncertain_value` to
-inspect results. `ParametricResult` and `LinearErrorResult` store only their
-formulation and ordered primitive values. `MonteCarloResult` additionally owns
-typed statistics, optional retained samples and histograms, its root seed,
-per-point seeds, and per-point trial counts. No completed result stores the
-temporary Gridspace point or a copy of traversal internals.
+inspect scientific products. All three higher-order result families also store
+a concrete [`ComputationDetails`](@ref) named tuple. [`details`](@ref) returns
+that tuple. It is `(; )` unless the higher-order formulation was constructed
+with `options=(retain_details=true,)` and the primitive computation owner
+implements [`computation_details`](@ref).
+
+Parametric and linear results retain one detail record per primitive result
+under `details(result).points`. Monte Carlo retains one vector per Gridspace
+point and one record per trial under `details(result).trials`. Typed details do
+not replace statistics, samples, histograms, the root seed, point seeds, or
+trial counts. No completed result stores the temporary Gridspace point or a
+copy of traversal internals.
 
 `primitives` and `preprocess` are reserved action generics for explicitly
 selected future calculation orderings. LineCableModels defines no methods for
@@ -131,6 +141,22 @@ results produce one R/L/C table. Line-parameter results produce one R/L/C/G
 table for every matrix entry and frequency. The displayed `confidence` and
 `cdf_tol` values describe the DKW bound below and are not confidence intervals
 for the sample mean.
+
+`report(TableReport(...), source)` returns an in-memory
+[`ReportArtifact`](@ref) with `output === nothing`. Human-facing line-parameter
+workbooks use [`XLSXReport`](@ref):
+
+```julia
+artifact = report(
+    XLSXReport(file_name="line_parameters.xlsx"),
+    parameters,
+)
+artifact.output
+```
+
+The retained `export_data(:xlsx, parameters; ...)` convenience call delegates
+to this report and returns `artifact.output`. ImportExport contains no separate
+XLSX workbook path.
 
 After loading a Makie package, retained samples and histograms can be displayed
 through the maintained Monte Carlo recipe:

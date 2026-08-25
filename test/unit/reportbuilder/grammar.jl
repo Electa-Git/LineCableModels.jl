@@ -187,8 +187,7 @@ end
     admittance=similar(impedance)
     for index in eachindex(frequency)
         impedance[:, :, index]=[1.0+2.0im 0.2+0.3im; 0.2+0.3im 1.5+2.5im]
-        admittance[:, :, index]=
-            [3.0+4.0im 0.4+0.5im; 0.4+0.5im 3.5+4.5im] .* 1.0e-6
+        admittance[:, :, index]=[3.0+4.0im 0.4+0.5im; 0.4+0.5im 3.5+4.5im] .* 1.0e-6
     end
     parameters=LineParameters(impedance, admittance, frequency)
 

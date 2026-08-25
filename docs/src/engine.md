@@ -39,6 +39,18 @@ The public `Z`, `L`, and other laconic accessors delegate to these methods.
 Consumers do not inspect `LineParameters` storage or repeat the R/X/L/G/B/C
 formulae.
 
+Direct numerical access remains available:
+
+```julia
+parameters.Z[1, 1, :]
+@view parameters.Y[1, 1, :]
+Z(parameters, 1, 2)
+@observe parameters L[1, 2, :]
+```
+
+[`@observe`](@ref) expands the indexed expression to `observe(parameters, L,
+1, 2, Colon())`. It performs no lookup or unit conversion.
+
 [`observables`](@ref) publishes only explicitly requested values:
 
 ```julia
@@ -73,6 +85,34 @@ Higher-order results remain containers of owned products. `result`,
 zero-argument aliases for publication. UQ reads primitive trials with
 `observe`, while its retained statistics, samples, and histograms implement
 the same selector grammar for later publication.
+
+## Supplemental computation output
+
+[`ComputationDetails`](@ref) is an alias for `NamedTuple`.
+[`computation_details`](@ref) converts one registered computation owner's
+output to a fixed-key named tuple. There is no general method: an unregistered
+owner raises `MethodError`. The analytical computation registers an explicit
+empty result:
+
+```julia
+computation_details(Val(AnalyticalFormulation), parameters) == (;)
+```
+
+[`ParametricResult`](@ref), [`LinearErrorResult`](@ref), and
+[`MonteCarloResult`](@ref) store the concrete details tuple type. Retention is
+disabled by default, so `details(result) === (;)`. The higher-order formulation
+owns the retention option:
+
+```julia
+Combinatorial(formulation; options=(retain_details=true,))
+LinearError(formulation; options=(retain_details=true,))
+MonteCarlo(formulation; trials=100, options=(retain_details=true,))
+```
+
+Parametric and linear calculations retain `(points=records,)`, with one record
+per primitive result. Monte Carlo retains `(trials=records,)`, with one vector
+per Gridspace point and one record per trial. Statistics, samples, histograms,
+seeds, and trial counts remain dedicated result fields.
 
 ## Formulation options
 
@@ -173,6 +213,7 @@ to it. The backend's `compute` method normalises execution options before doing 
 ```julia
 import LineCableModels:
     AbstractFormulation,
+    AbstractProblemResult,
     ComputationOptions,
     FormulationOptions,
     computation_options,
@@ -211,3 +252,54 @@ end
 An external implementation does not need a dedicated options struct or private
 wrapper around the two normalisation functions. If it omits either Grammar
 method, Julia raises `MethodError`.
+
+The same backend may expose supplemental output without changing the generic
+higher-order result types:
+
+```julia
+import LineCableModels: ComputationDetails, computation_details
+
+struct ExternalResult <: AbstractProblemResult
+    parameters
+    diagnostics::NamedTuple
+    raw::Dict{String,Any}
+end
+
+function computation_details(
+    ::Val{ExternalFormulation},
+    output::ExternalResult,
+)::ComputationDetails
+    return (
+        diagnostics=output.diagnostics,
+        raw=output.raw,
+    )
+end
+```
+
+The outer keys and their types are fixed for `ExternalFormulation`. Dynamic
+vendor channels remain inside the explicit `raw` leaf. ParametricBuilder and
+UQ collect these records only when `retain_details=true`; they do not inspect
+the fields.
+
+## Reports and XLSX output
+
+[`report`](@ref) executes `entitle`, `select`, `tabulate`, `illustrate`,
+`encode`, `write`, and `finish`. In-memory definitions implement explicit
+no-op `encode` and `write` methods and return `ReportArtifact.output ===
+nothing`.
+
+[`XLSXReport`](@ref) owns the human-facing line-parameter workbook:
+
+```julia
+artifact = report(
+    XLSXReport(file_name="line_parameters.xlsx"),
+    parameters,
+)
+artifact.output
+```
+
+ReportBuilder selects values through `observables`, builds the matrix tables,
+encodes the workbook sheets, writes the file, and records the resolved path in
+[`ReportArtifact`](@ref). `export_data(:xlsx, parameters; ...)` remains a thin
+ImportExport convenience call that returns the same path. ImportExport owns no
+second workbook implementation.

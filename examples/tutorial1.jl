@@ -46,7 +46,7 @@ The function `DataFrame` returns a table with all materials and their properties
 !!! note "Note"
     New materials can be added to the library using the [`Material`](@ref) constructor followed by [`add!`](@ref).
 
-It might be useful to add other conductor materials with corrected properties based on recognized standards [cigre531](@cite) [IEC60287](@cite).
+It might be useful to add other conductor materials with corrected properties based on recognized standards [cigre531](@cite) [IEC60287](@cite). Lead and steel already have built-in records, so the examples below store the cited values under distinct reference names.
 =#
 
 copper_corrected = Material(
@@ -66,9 +66,9 @@ aluminum_corrected = Material(
 ) # Aluminum with corrected resistivity from IEC 60287-3-2
 add!(materials, "aluminum_corrected", aluminum_corrected)
 lead = Material(rho = 21.4e-8, eps_r = 1.0, mu_r = 0.999983, T0 = 20.0, alpha = 0.00400) # Lead or lead alloy
-add!(materials, "lead", lead)
+add!(materials, "lead_reference", lead)
 steel = Material(rho = 13.8e-8, eps_r = 1.0, mu_r = 300.0, T0 = 20.0, alpha = 0.00450) # Steel
-add!(materials, "steel", steel)
+add!(materials, "steel_reference", steel)
 bronze = Material(rho = 3.5e-8, eps_r = 1.0, mu_r = 1.0, T0 = 20.0, alpha = 0.00300) # Bronze
 add!(materials, "bronze", bronze)
 stainless_steel = Material(

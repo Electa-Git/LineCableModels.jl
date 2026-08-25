@@ -13,7 +13,7 @@ before committing.
 
 Source code is organised by **owner first** and **responsibility second**. The
 directory names the module, domain concept, or action that defines a decision.
-the filename names the operation implemented for that owner.
+The filename names the operation implemented for that owner.
 For example, Engine owns line-parameter result semantics, so their array and
 accessor methods live under `engine/lineparameters/`. PlotBuilder owns the
 renderer-independent plotting grammar, while the optional Makie extension owns
@@ -51,6 +51,11 @@ Apply these rules when adding or moving code:
    fallbacks, but it must not import Makie or contain Makie UI implementation.
 8. Keep development-only environments and manual diagnostics under `dev/`,
    not `src/` or the automated test tree.
+9. Assign file formats by purpose. ReportBuilder owns human-facing tables and
+   workbooks; ImportExport owns lossless persistence and external-tool
+   interchange. The line-parameter workbook therefore lives in
+   `reportbuilder/xlsx.jl`, while ATP, PSCAD, and TRALIN translations remain in
+   `importexport/`.
 
 The following sanitised snapshot is the reference shape. The snapshot omits leaf files
 that do not clarify the layout, but every shown path exists in the maintained
@@ -108,7 +113,8 @@ src/
 │   ├── ReportBuilder.jl               # report owner and index
 │   ├── grammar.jl                     # fixed report action
 │   ├── tables.jl                      # completed-result tables
-│   └── montecarlo.jl                  # UQ summary projection
+│   ├── montecarlo.jl                  # UQ summary projection
+│   └── xlsx.jl                        # human-facing workbook
 └── importexport/
     ├── ImportExport.jl
     ├── interfaces.jl
