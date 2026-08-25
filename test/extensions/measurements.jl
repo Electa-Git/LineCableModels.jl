@@ -125,7 +125,7 @@ end
     decoded=LineCableModels.ImportExport._deserialize_value(encoded)
     @test value(decoded) == value(uncertain)
     @test uncertainty(decoded) == uncertainty(uncertain)
-    @test LineCableModels.ImportExport.stringify(uncertain) == "-20 ± 1"
+    @test LineCableModels.ReportBuilder._xlsx_string(uncertain) == "-20 ± 1"
 
     argument=complex(measurement(1.25, 0.01), measurement(0.5, 0.02))
     nominal=complex(1.25, 0.5)

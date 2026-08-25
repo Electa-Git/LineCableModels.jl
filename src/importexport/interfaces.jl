@@ -24,6 +24,19 @@ function export_data(backend::Symbol, args...; kwargs...)
     return export_data(Val(backend), args...; kwargs...)
 end
 
+function export_data(
+        ::Val{:xlsx},
+        line_parameters::LineParameters;
+        file_name::Union{String, Nothing} = nothing,
+        cable_system::Union{LineCableSystem, Nothing} = nothing
+)::String
+    artifact = ReportBuilder.report(
+        ReportBuilder.XLSXReport(; file_name, cable_system),
+        line_parameters
+    )
+    return artifact.output
+end
+
 """
 $(TYPEDSIGNATURES)
 

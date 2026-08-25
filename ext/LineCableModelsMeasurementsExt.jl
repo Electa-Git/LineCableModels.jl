@@ -53,7 +53,7 @@ function ImportExport._deserialize_extension(::Val{:Measurement}, value)
     uncertainty = ImportExport._deserialize_value(value["uncertainty"])
     return Measurements.measurement(nominal, uncertainty)
 end
-function ImportExport.stringify(value::Measurements.Measurement)
+function ReportBuilder._xlsx_string(value::Measurements.Measurement)
     Printf.@sprintf("%.12g ± %.6g",
         Measurements.value(value),
         Measurements.uncertainty(value),)

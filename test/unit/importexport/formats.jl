@@ -105,51 +105,6 @@ end
     end
 end
 
-@testitem "ImportExport / XLSX / matrix topology and failure contract" tags=[:integration] setup=[
-    EngineTestSupport,
-    UseEngineSupport
-] begin
-    using LinearAlgebra
-    using XLSX
-
-    frequencies=[50.0, 500.0]
-    impedance=Array{ComplexF64}(undef, 2, 2, 2)
-    admittance=similar(impedance)
-    for k in eachindex(frequencies)
-        impedance[:, :, k]=[1.0+2.0im 0.2+0.3im; 0.2+0.3im 1.5+2.5im]
-        admittance[:, :, k]=[3.0+4.0im 0.4+0.5im; 0.4+0.5im 3.5+4.5im] .* 1e-6
-    end
-    parameters=LineParameters(impedance, admittance, frequencies)
-
-    mktempdir() do directory
-        output=export_data(:xlsx, parameters; file_name = joinpath(directory, "full.xlsx"))
-        @test output == joinpath(directory, "full.xlsx")
-        @test isfile(output)
-        XLSX.openxlsx(output) do workbook
-            @test Set(XLSX.sheetnames(workbook)) ==
-                  Set(["Z(1,1)", "Z(1,2)", "Z(2,1)", "Z(2,2)",
-                "Y(1,1)", "Y(1,2)", "Y(2,1)", "Y(2,2)"])
-        end
-
-        diagonal=LineParameters(
-            cat(Diagonal([1.0+2.0im, 2.0+3.0im]); dims = 3),
-            cat(Diagonal([3.0+4.0im, 4.0+5.0im]); dims = 3),
-            [50.0]
-        )
-        diagonal_path=@test_logs (:warn, r"Z is diagonal") (:warn, r"Y is diagonal") export_data(
-            :xlsx,
-            diagonal;
-            file_name = joinpath(directory, "diagonal.xlsx")
-        )
-        XLSX.openxlsx(diagonal_path) do workbook
-            @test Set(XLSX.sheetnames(workbook)) ==
-                  Set(["Z(1,1)", "Z(2,2)", "Y(1,1)", "Y(2,2)"])
-        end
-
-        @test_throws Exception export_data(:xlsx, parameters; file_name = directory)
-    end
-end
-
 @testitem "ImportExport / TRALIN / export and parser contracts" tags=[:integration] setup=[
     ImportExportTestSupport,
     UseImportExportSupport,

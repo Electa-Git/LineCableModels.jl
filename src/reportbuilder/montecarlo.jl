@@ -3,6 +3,10 @@ struct MonteCarloTable{U} <: AbstractReportDefinition
     quantity_units::U
 end
 
+illustrate(::MonteCarloTable, source, published, table) = nothing
+encode(::MonteCarloTable, source, published, table, ::Nothing) = nothing
+write(::MonteCarloTable, source, published, table, ::Nothing, ::Nothing) = nothing
+
 entitle(::MonteCarloTable, source::UQ.MonteCarloResult) = source
 
 function _monte_carlo_requests(::DataModel.CableConstants)

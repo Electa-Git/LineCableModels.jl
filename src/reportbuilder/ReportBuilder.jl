@@ -6,11 +6,15 @@ observations.
 """
 module ReportBuilder
 
-export AbstractReportDefinition, ReportArtifact, TableReport, report
+export AbstractReportDefinition, ReportArtifact, TableReport, XLSXReport, report
 export entitle, select, tabulate, illustrate, encode, write, finish
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import DataFrames: DataFrame, metadata!
+using LinearAlgebra
+using Printf
+using Tables
+using XLSX
+import DataFrames: DataFrame, metadata, metadatakeys, metadata!
 import ..Grammar: observables
 import ..Units
 import ..PlotBuilder
@@ -22,5 +26,6 @@ import ..LineCableModels: basis, frequencies, Z, Y, R, X, L, G, B, C
 include("grammar.jl")
 include("tables.jl")
 include("montecarlo.jl")
+include("xlsx.jl")
 
 end

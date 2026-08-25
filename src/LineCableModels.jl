@@ -34,7 +34,7 @@ export Combinatorial, LinearError, MonteCarlo, ParametricProblem
 export ParametricResult, LinearErrorResult, MonteCarloResult
 export SampleSummary, HistogramDensity, RLCG
 export result, statistics, samples, histograms, uncertain_value
-export report, TableReport, ReportArtifact
+export report, TableReport, XLSXReport, ReportArtifact
 export Material, MaterialsLibrary, Conductor, Insulator, CableBuilder
 export at, trifoil, hflat, vflat, Earth, SystemBuilder
 export make_stranded, make_screened, WireEstimate
@@ -126,7 +126,7 @@ using .UQ:
 
 # Submodule `ReportBuilder`
 include("reportbuilder/ReportBuilder.jl")
-using .ReportBuilder: report, TableReport, ReportArtifact
+using .ReportBuilder: report, TableReport, XLSXReport, ReportArtifact
 
 # Submodule `ImportExport`
 include("importexport/ImportExport.jl")

@@ -28,6 +28,7 @@ using DocStringExtensions: IMPORTS, TYPEDSIGNATURES, METHODLIST, FUNCTIONNAME,
 import ..LineCableModels: add!, validate, nominal, standard_uncertainty
 import ..LineCableModels: retired_legacy_json
 import ..Grammar: observe
+import ..ReportBuilder
 using ..Materials: Material, MaterialsLibrary
 using ..EarthProps: EarthModel
 using ..DataModel: CablesLibrary, CableDesign, CableComponent, ConductorGroup,
@@ -42,9 +43,6 @@ using Printf # For ATP export
 using JSON3
 using Serialization # Read and write the .jls format.
 using LinearAlgebra
-using XLSX
-using Tables
-using DataFrames
 
 include("interfaces.jl")
 include("paths.jl")
@@ -54,7 +52,6 @@ include("cableslibrary.jl")
 include("materialslibrary.jl")
 include("pscad/pscad.jl")
 include("atp.jl")
-include("xlsx.jl")
 include("tralin.jl")
 
 end # module ImportExport

@@ -197,12 +197,14 @@
     @test DataFrame(zero_frequency) isa Tuple
     @test_throws DomainError DataFrame(zero_frequency, (R, L, G, C))
 
-    standalone_series=DataFrame(series)
+    standalone_series=DataFrame(series; freqs = frequency)
     standalone_shunt=DataFrame(shunt, (G, C); freqs = frequency)
-    @test standalone_series[1, 1].frequency == [1.0, 2.0, 3.0]
+    @test standalone_series[1, 1].frequency == frequency
     @test standalone_shunt[1, 1].frequency == frequency
     @test names(standalone_series[1, 1]) == ["frequency", "real", "imag"]
     @test names(standalone_shunt[1, 1]) == ["frequency", "G", "C"]
+    @test_throws ArgumentError DataFrame(series)
+    @test_throws ArgumentError DataFrame(shunt)
     @test LineCableModels.ReportBuilder._clip_field(1.0 + 2.0im, 1.0) ==
           1.0 + 2.0im
     @test_throws DimensionMismatch DataFrame(series; freqs = [50.0])

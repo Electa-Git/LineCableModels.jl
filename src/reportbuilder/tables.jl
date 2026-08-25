@@ -13,6 +13,11 @@ struct BenchmarkTable{T <: NamedTuple} <: AbstractReportDefinition
     zero_atol::T
 end
 
+const _TableOnlyReport = Union{CableConstantsTable, LineParametersTable, BenchmarkTable}
+illustrate(::_TableOnlyReport, source, published, table) = nothing
+encode(::_TableOnlyReport, source, published, table, ::Nothing) = nothing
+write(::_TableOnlyReport, source, published, table, ::Nothing, ::Nothing) = nothing
+
 entitle(::CableConstantsTable, source::DataModel.CableConstants) = source
 entitle(::LineParametersTable, source::Union{
     Engine.LineParameters,
@@ -67,7 +72,9 @@ function _frequency_values(source, provided)
         return nothing
     end
     if provided === nothing
-        return Float64.(collect(axes(source, 3)))
+        throw(ArgumentError(
+            "standalone impedance and admittance reports require explicit frequencies",
+        ))
     end
     values = Float64.(collect(provided))
     length(values) == size(source, 3) || throw(

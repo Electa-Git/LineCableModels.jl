@@ -12,11 +12,13 @@ Hold the table and optional PlotBuilder artifact produced by [`report`](@ref).
 
 $(TYPEDFIELDS)
 """
-struct ReportArtifact{T, I}
+struct ReportArtifact{T, I, O}
     "Human-facing table or structured collection of tables."
     table::T
     "Optional backend-neutral plot artifact."
     illustration::I
+    "Written destination or handle, or `nothing` for an in-memory report."
+    output::O
 end
 
 """
@@ -122,7 +124,6 @@ function tabulate(::TableReport, source, published::NamedTuple)
     return table
 end
 
-illustrate(::AbstractReportDefinition, source, published, table) = nothing
 function illustrate(definition::TableReport, source, published, table)
     definition.illustration === nothing && return nothing
     return PlotBuilder.make_render(
@@ -132,8 +133,8 @@ function illustrate(definition::TableReport, source, published, table)
     )
 end
 
-encode(::AbstractReportDefinition, source, published, table, illustration) = nothing
-write(::AbstractReportDefinition, source, published, table, illustration, encoded) = nothing
+encode(::TableReport, source, published, table, illustration) = nothing
+write(::TableReport, source, published, table, illustration, ::Nothing) = nothing
 
 function finish(
         ::AbstractReportDefinition,
@@ -144,7 +145,7 @@ function finish(
         encoded,
         written
 )
-    return ReportArtifact(table, illustration)
+    return ReportArtifact(table, illustration, written)
 end
 
 """
