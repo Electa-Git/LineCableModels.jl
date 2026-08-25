@@ -1,139 +1,153 @@
 module GoldenFixtures
 
 using LineCableModels
+using Makie
 
-export custom_layout_render_spec
+export custom_layout_plot
 
-function custom_layout_render_spec()
+function custom_layout_plot(;
+        backend = :cairo,
+        display_plot::Bool = false,
+        controls::Bool = true,
+        export_mode::Bool = false
+)
     PB = LineCableModels.PlotBuilder
-    UH = LineCableModels.Units
+    return PB.plotwindow(;
+        title = "Nested PlotBuilder layout",
+        size = (900, 650),
+        backend = backend,
+        display_plot = display_plot,
+        controls = controls,
+        export_mode = export_mode,
+        open_export = false,
+        export_name = "nested_dashboard",
+        colorbars = ((;
+            label = "field value",
+            colormap = :viridis,
+            limits = (0.0, 1.0),
+            ticks = ([0.0, 0.5, 1.0], ["0", "0.5", "1"])
+        ),)
+    ) do ui
+        plots = GridLayout()
+        plots.default_rowgap = Fixed(6)
+        plots.default_colgap = Fixed(6)
+        ui.canvas[1, 1][] = plots
 
-    xaxis = PB.AxisSpec(
-        :x,
-        UH.Quantity{:dimensionless}(),
-        UH.UnitExpr(),
-        "x"
-    )
-    yaxis = PB.AxisSpec(
-        :y,
-        UH.Quantity{:dimensionless}(),
-        UH.UnitExpr(),
-        "y"
-    )
-    line_view = PB.ViewSpec(
-        xaxis,
-        yaxis,
-        nothing,
-        "Spanning response",
-        [
-            PB.SeriesSpec(
-                :line,
-                [1.0, 2.0, 3.0],
-                [1.0, 2.0, 1.5],
-                nothing,
-                "response A";
-                group = :response_a,
-                attributes = (; linewidth = 2, color = :steelblue)
+        line_axis = PB.axis!(
+            ui,
+            plots[1, 1:2];
+            title = "Spanning response",
+            xlabel = "x",
+            ylabel = "y"
+        )
+        x = [1.0, 2.0, 3.0]
+        response_a = [1.0, 2.0, 1.5]
+        response_b = [1.4, 1.6, 2.2]
+        line_a = lines!(
+            line_axis,
+            x,
+            response_a;
+            label = "response A",
+            linewidth = 2,
+            color = :steelblue
+        )
+        line_b = lines!(
+            line_axis,
+            x,
+            response_b;
+            label = "response B",
+            linewidth = 2,
+            color = :darkorange
+        )
+        PB.register!(
+            ui,
+            line_axis;
+            xmetadata = (
+                label = "x", scale = :linear,
+                allowed_scales = (:linear,), exponent = 0
             ),
-            PB.SeriesSpec(
-                :line,
-                [1.0, 2.0, 3.0],
-                [1.4, 1.6, 2.2],
-                nothing,
-                "response B";
-                group = :response_b,
-                attributes = (; linewidth = 2, color = :darkorange)
+            ymetadata = (
+                label = "y", scale = :linear,
+                allowed_scales = (:linear,), exponent = 0
+            ),
+            groups = (
+                response_a = (line_a,),
+                response_b = (line_b,)
+            ),
+            labels = (
+                response_a = "response A",
+                response_b = "response B"
+            ),
+            data = (
+                (; xdata = x, ydata = response_a, group = :response_a),
+                (; xdata = x, ydata = response_b, group = :response_b)
             )
-        ],
-        (; panel = :response);
-        placement = PB.PlacementSpec(:canvas, PB.GridArea(1, 1:2))
-    )
-    scatter_view = PB.ViewSpec(
-        xaxis,
-        yaxis,
-        nothing,
-        "Samples",
-        [PB.SeriesSpec(
-            :scatter,
-            [1.0, 2.0, 3.0],
-            [0.8, 1.7, 2.4],
-            nothing,
-            "samples";
-            group = :samples,
-            attributes = (; color = :seagreen, markersize = 10)
-        )],
-        (; panel = :samples);
-        placement = PB.PlacementSpec(:canvas, PB.GridArea(2, 1))
-    )
-    heatmap_view = PB.ViewSpec(
-        xaxis,
-        yaxis,
-        nothing,
-        "Field",
-        [PB.SeriesSpec(
-            :heatmap,
-            [1.0, 2.0],
-            [1.0, 2.0],
-            [0.0 0.5; 0.75 1.0],
-            nothing;
-            attributes = (; colormap = :viridis)
-        )],
-        (; panel = :field);
-        placement = PB.PlacementSpec(:canvas, PB.GridArea(2, 2))
-    )
+        )
 
-    layout = PB.LayoutSpec(
-        :nested_dashboard,
-        [
-            PB.GridSpec(
-                :root;
-                rows = PB.AbstractTrackSize[
-                    PB.FixedTrack(36), PB.RelativeTrack(), PB.FixedTrack(20)],
-                columns = PB.AbstractTrackSize[PB.ContentTrack(), PB.ContentTrack()],
-                rowgap = 6,
-                columngap = 12,
-                padding = (20, 20, 28, 28)
+        scatter_axis = PB.axis!(
+            ui,
+            plots[2, 1];
+            title = "Samples",
+            xlabel = "x",
+            ylabel = "y"
+        )
+        samples = [0.8, 1.7, 2.4]
+        scatter_plot = scatter!(
+            scatter_axis,
+            x,
+            samples;
+            label = "samples",
+            color = :seagreen,
+            markersize = 10
+        )
+        PB.register!(
+            ui,
+            scatter_axis;
+            xmetadata = (
+                label = "x", scale = :linear,
+                allowed_scales = (:linear,), exponent = 0
             ),
-            PB.GridSpec(
-                :plots;
-                parent = :root,
-                area = PB.GridArea(2, 1),
-                rows = PB.AbstractTrackSize[PB.RelativeTrack()],
-                columns = PB.AbstractTrackSize[PB.RelativeTrack()]
+            ymetadata = (
+                label = "y", scale = :linear,
+                allowed_scales = (:linear,), exponent = 0
             ),
-            PB.GridSpec(
-                :side;
-                parent = :root,
-                area = PB.GridArea(2, 2),
-                rows = PB.AbstractTrackSize[PB.RelativeTrack(), PB.ContentTrack()],
-                columns = PB.AbstractTrackSize[PB.ContentTrack()],
-                rowgap = 4
-            )
-        ],
-        [
-            PB.SlotSpec(:toolbar, :root, PB.GridArea(1, 1:2); halign = :left),
-            PB.SlotSpec(:canvas, :plots, PB.GridArea(1, 1)),
-            PB.SlotSpec(:status, :root, PB.GridArea(3, 1:2); halign = :left),
-            PB.SlotSpec(:legend, :side, PB.GridArea(1, 1); halign = :left, valign = :top),
-            PB.SlotSpec(
-                :colorbars, :side, PB.GridArea(2, 1); halign = :left, valign = :top)
-        ]
-    )
-    page = PB.PageSpec(
-        "Nested PlotBuilder layout",
-        (900, 650),
-        (; kind = :nested_dashboard),
-        layout,
-        [line_view, scatter_view, heatmap_view];
-        colorbars = [PB.ColorbarSpec(
-            "field value",
-            :viridis,
-            (0.0, 1.0),
-            ([0.0, 0.5, 1.0], ["0", "0.5", "1"])
-        )],
-        export_spec = PB.ExportSpec(name = "nested_dashboard", open_file = false)
-    )
-    return PB.PlotRecipe(LineCableModels.DataModel.MaterialScalePlotDefinition, [page])
+            groups = (samples = (scatter_plot,),),
+            labels = (samples = "samples",),
+            data = ((; xdata = x, ydata = samples, group = :samples),)
+        )
+
+        heatmap_axis = PB.axis!(
+            ui,
+            plots[2, 2];
+            title = "Field",
+            xlabel = "x",
+            ylabel = "y"
+        )
+        field_x = [1.0, 2.0]
+        field_y = [1.0, 2.0]
+        field_plot = heatmap!(
+            heatmap_axis,
+            field_x,
+            field_y,
+            [0.0 0.5; 0.75 1.0];
+            colormap = :viridis
+        )
+        PB.register!(
+            ui,
+            heatmap_axis;
+            xmetadata = (
+                label = "x", scale = :linear,
+                allowed_scales = (:linear,), exponent = 0
+            ),
+            ymetadata = (
+                label = "y", scale = :linear,
+                allowed_scales = (:linear,), exponent = 0
+            ),
+            groups = (field = (field_plot,),),
+            data = ((; xdata = field_x, ydata = field_y, group = :field),)
+        )
+        return nothing
+    end
 end
 
 end

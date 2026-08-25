@@ -2,6 +2,10 @@
     PlotBuilderTestSupport, UsePlotBuilderSupport, TestNumerics] begin
     @test :show_material_scale ∉ names(LineCableModels)
     @test :show_material_scale ∉ names(LineCableModels.DataModel)
+    @test all(name -> name in names(LineCableModels.PlotBuilder),
+        (:plotwindow, :axis!, :register!))
+    @test all(name -> name ∉ names(LineCableModels),
+        (:plotwindow, :axis!, :register!))
 
     library=CablesLibrary()
     load!(library;

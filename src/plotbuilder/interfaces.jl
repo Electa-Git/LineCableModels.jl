@@ -16,6 +16,30 @@ CairoMakie extension.
 """
 function export_svg end
 
+"""
+    plotwindow(f; title, size, backend, display_plot)
+
+Build one standard plotting window and let `f` draw directly into its native
+Makie canvas. A Makie extension supplies the implementation.
+"""
+function plotwindow end
+
+"""
+    axis!(ui, position, x_observation, y_observation; kwargs...)
+
+Create a Makie axis on a plotting window, derive scientific labels from the
+published observations, and register the axis with the standard controls.
+"""
+function axis! end
+
+"""
+    register!(ui, axis; kwargs...)
+
+Register an ordinary Makie axis with the standard formatter, limit, legend,
+interaction, and export machinery.
+"""
+function register! end
+
 "Return the domain object accepted by a plot definition."
 function entitle(::Type{S}, object) where {S <: AbstractPlotDefinition}
     expected = dispatch_on(S)

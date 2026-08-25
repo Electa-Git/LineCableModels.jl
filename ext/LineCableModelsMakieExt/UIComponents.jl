@@ -12,6 +12,7 @@ using Printf: @sprintf
 
 import LineCableModels.PlotBuilder
 using LineCableModels: nominal, standard_uncertainty
+using LineCableModels.Units: label
 using LineCableModels.PlotBuilder:
                                    AbstractTrackSize, FixedTrack, RelativeTrack,
                                    ContentTrack, GridArea, GridSpec, SlotSpec,
@@ -110,7 +111,7 @@ function _decade_ticks(vmin, vmax)
     return values, labels
 end
 
-function _axis_label(spec::Union{Nothing, AxisSpec}, exponent::Int, scale::Symbol)
+function _axis_label(spec, exponent::Int, scale::Symbol)
     spec === nothing && return ""
     scale === :log10 && return spec.label
     iszero(exponent) && return spec.label
@@ -132,7 +133,7 @@ end
 _ticks(scale::Symbol) = scale === :log10 ? _decade_ticks : Makie.automatic
 
 function _set_axis_scale!(
-        axis, spec::Union{Nothing, AxisSpec}, dim::Symbol, exponent::Int, scale::Symbol)
+        axis, spec, dim::Symbol, exponent::Int, scale::Symbol)
     spec === nothing && throw(ArgumentError("cannot set an absent axis scale"))
     scale in spec.allowed_scales || throw(
         ArgumentError("axis :$dim does not allow scale :$scale"),
@@ -156,11 +157,11 @@ function _set_axis_scale!(
     return axis
 end
 
-function _series_group(series::SeriesSpec, index::Int)
+function _series_group(series, index::Int)
     return series.group === nothing ? Symbol("series_$index") : series.group
 end
 
-function _series_visible(panel::UIPanel, series::SeriesSpec, index::Int)
+function _series_visible(panel::UIPanel, series, index::Int)
     group = _series_group(series, index)
     return all(plot_object -> plot_object.visible[], panel.groups[group])
 end
@@ -219,8 +220,8 @@ end
 function _reset_panel_limits!(panel::UIPanel)
     axis = panel.axis
     view = panel.view
-    all(isempty(_axis_values(panel, dim)) for dim in (:x, :y)) && return axis
     autolimits!(axis)
+    all(isempty(_axis_values(panel, dim)) for dim in (:x, :y)) && return axis
     view.limits !== nothing && return axis
     for dim in (:x, :y)
         values = _axis_values(panel, dim)
@@ -738,7 +739,12 @@ function _materialize_layout(figure, specification::LayoutSpec)
     for grid_specification in specification.grids
         _apply_grid_spec!(grids[grid_specification.name], grid_specification)
     end
-    return (; grids, slot_specs, collapsed = Set{Tuple{Symbol, Int}}())
+    return (;
+        grids,
+        slot_specs,
+        slot_grids = Dict{Symbol, Any}(),
+        collapsed = Set{Tuple{Symbol, Int}}()
+    )
 end
 
 function _window_padding(padding::NTuple{4, <:Real})
@@ -824,6 +830,7 @@ function _slot_grid(
         tellwidth::Bool = true,
         tellheight::Bool = true
 )
+    haskey(materialized.slot_grids, name) && return materialized.slot_grids[name]
     specification = materialized.slot_specs[name]
     grid = GridLayout(
         width = width,
@@ -834,6 +841,7 @@ function _slot_grid(
         valign = _makie_alignment(specification.valign)
     )
     _slot_position(materialized, name)[] = grid
+    materialized.slot_grids[name] = grid
     return grid
 end
 
@@ -1065,5 +1073,7 @@ function PlotBuilder.export_svg(
 end
 
 export_svg(args...; kwargs...) = PlotBuilder.export_svg(args...; kwargs...)
+
+include("native.jl")
 
 end # module UIComponents

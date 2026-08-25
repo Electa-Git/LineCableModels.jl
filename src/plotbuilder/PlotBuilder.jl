@@ -15,7 +15,7 @@ import ..Validation
 
 export AbstractPlotDefinition, PlotRecipe
 export UIPlot
-export make_render, export_svg
+export make_render, export_svg, plotwindow, axis!, register!
 export backend_available, current_backend_symbol, ensure_backend!, make_screen,
        next_fignum, renderfig, set_backend!, with_backend
 export dispatch_on, input_kwargs, renderer_kwargs, input_defaults, renderer_defaults

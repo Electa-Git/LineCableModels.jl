@@ -96,7 +96,7 @@ set_backend!(:gl)
     susceptance_axis = last(susceptance.panels).axis
     @test susceptance_axis.yscale[] === Makie.log10
     @test susceptance_axis.ytickformat[] === Makie.automatic
-    @test susceptance_axis.ylabel[] == "Capacitive susceptance [S/km]"
+    @test susceptance_axis.ylabel[] == "Shunt susceptance [S/km]"
     limits = susceptance_axis.finallimits[]
     ymin = limits.origin[2]
     ymax = ymin + limits.widths[2]

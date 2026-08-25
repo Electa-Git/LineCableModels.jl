@@ -12,7 +12,7 @@
             "support",
             "golden_fixtures.jl"
         ))
-        using .GoldenFixtures: custom_layout_render_spec
+        using .GoldenFixtures: custom_layout_plot
 
         function pixel_error(current, reference)
             size(current)==size(reference)||return Inf
@@ -768,18 +768,14 @@
         @test length(only(primitive_plot.panels).plots) == 1
         @test !only(primitive_plot.panels).axis.xgridvisible[]
 
-        custom_render=custom_layout_render_spec()
-        custom_plot=only(ui_components.build(
-            custom_render;
-            backend = :cairo,
-            display = false
-        ))
+        custom_plot=custom_layout_plot()
         @test sprint(show, MIME"text/plain"(), custom_plot) ==
               "UIPlot(title=\"Nested PlotBuilder layout\", panels=3, backend=:cairo)"
-        @test custom_plot.page.layout.name === :nested_dashboard
+        @test custom_plot.page.key == (; kind = :native_canvas)
+        @test isempty(custom_plot.page.views)
         @test length(custom_plot.panels) == 3
-        @test custom_plot.page.views[1].placement.area ==
-              LineCableModels.PlotBuilder.GridArea(1, 1:2)
+        @test all(panel -> panel.axis.xlabel[] == "x", custom_plot.panels)
+        @test all(panel -> panel.axis.ylabel[] == "y", custom_plot.panels)
         top_width=custom_plot.panels[1].axis.scene.viewport[].widths[1]
         bottom_widths=[panel.axis.scene.viewport[].widths[1]
                        for panel in custom_plot.panels[2:3]]
@@ -799,23 +795,46 @@
               colorbar_box.origin[1]
         @test legend_box.widths[1] ≈ ui_components.LEGEND_DOCK_WIDTH atol = 1
         @test colorbar_box.widths[1] ≈ ui_components.COLORBAR_WIDTH atol = 1
-        line_method=which(
-            ui_components.draw!,
-            (
-                typeof(custom_plot.panels[1].axis),
-                Val{:line},
-                typeof(custom_plot.page.views[1].series[1])
-            )
+
+        frequency_observation=observables(
+            parameters,
+            (frequency = frequencies,)
+        ).frequency
+        native_observation=(
+            values = [1.0, 2.0],
+            quantity = frequency_observation.quantity,
+            unit = frequency_observation.unit
         )
-        @test basename(String(line_method.file)) == "UIComponents.jl"
-        test_golden(custom_plot, "custom_layout"; tolerance = 0.02)
-        custom_export_render=only(ui_components.build(
-            custom_render;
+        scientific_window=LineCableModels.PlotBuilder.plotwindow(;
+            title = "Scientific native axis",
+            size = (400, 300),
             backend = :cairo,
-            display = false,
+            display_plot = false,
+            controls = false,
+            legend = false,
+            open_export = false
+        ) do ui
+            axis=LineCableModels.PlotBuilder.axis!(
+                ui,
+                ui.canvas[1, 1],
+                native_observation,
+                native_observation
+            )
+            lines!(axis, native_observation.values, native_observation.values)
+        end
+        scientific_axis=only(scientific_window.panels).axis
+        expected_scientific_label=LineCableModels.Units.label(
+            native_observation.quantity,
+            native_observation.unit
+        )
+        @test scientific_axis.xlabel[] == expected_scientific_label
+        @test scientific_axis.ylabel[] == expected_scientific_label
+
+        test_golden(custom_plot, "custom_layout"; tolerance = 0.02)
+        custom_export_render=custom_layout_plot(
             controls = false,
             export_mode = true
-        ))
+        )
         @test custom_export_render.figure.layout.rowsizes[1] == Makie.Fixed(0)
         @test length(custom_export_render.figure.layout.rowsizes) == 2 ||
               custom_export_render.figure.layout.rowsizes[3] == Makie.Fixed(0)

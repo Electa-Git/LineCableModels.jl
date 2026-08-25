@@ -58,22 +58,27 @@ function build_manual_plot_gallery(
 
     summary = SampleSummary([1.0, 2.0, 3.0, 4.0])
     histogram = HistogramDensity([1.0, 3.0, 5.0], [0.25, 0.25])
+    representation = CableConstants(2.5, 2.5, 2.5)
+    statistics_value = CableConstants(summary, summary, summary)
+    samples_value = CableConstants(
+        [1.0, 2.0, 3.0, 4.0],
+        [1.0, 2.0, 3.0, 4.0],
+        [1.0, 2.0, 3.0, 4.0]
+    )
+    histograms_value = CableConstants(histogram, histogram, histogram)
+    mc_formulation = MonteCarlo(
+        Formulation(); trials = 4, seed = 1,
+        return_samples = true, return_histograms = true
+    )
     mc_result = MonteCarloResult(
-        CableConstants(2.5, 2.5, 2.5),
-        CableConstants(summary, summary, summary),
-        CableConstants(
-            [1.0, 2.0, 3.0, 4.0],
-            [1.0, 2.0, 3.0, 4.0],
-            [1.0, 2.0, 3.0, 4.0]
-        ),
-        CableConstants(histogram, histogram, histogram),
-        nothing,
-        4,
-        0.95,
-        0.02,
-        :normal,
+        mc_formulation,
+        [representation],
+        [statistics_value],
+        [samples_value],
+        [histograms_value],
         UInt64(1),
-        (hash = "gallery-fixture",)
+        UInt64[1],
+        [4]
     )
 
     gallery = Pair{String, UIPlot}[]
@@ -143,7 +148,7 @@ function build_manual_plot_gallery(
             gallery,
             "Monte Carlo: $mode" => Makie.plot(
                 mc_result,
-                :R;
+                R;
                 mode,
                 data = :both,
                 backend,

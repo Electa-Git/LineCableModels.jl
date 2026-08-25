@@ -6,7 +6,7 @@ if lowercase(get(ENV, "LINECABLEMODELS_UPDATE_PLOT_REFERENCES", "false")) == "tr
     using LineCableModels.EarthProps: EarthModel
 
     include(joinpath(@__DIR__, "..", "support", "golden_fixtures.jl"))
-    using .GoldenFixtures: custom_layout_render_spec
+    using .GoldenFixtures: custom_layout_plot
 
     reference_directory = joinpath(@__DIR__, "..", "fixtures", "golden")
     requested_reference = get(ENV, "LINECABLEMODELS_PLOT_REFERENCE", "")
@@ -150,13 +150,6 @@ if lowercase(get(ENV, "LINECABLEMODELS_UPDATE_PLOT_REFERENCES", "false")) == "tr
     )
     save_reference(
         "custom_layout",
-        only(Base.get_extension(
-            LineCableModels,
-            :LineCableModelsMakieExt
-        ).UIComponents.build(
-            custom_layout_render_spec();
-            backend = :cairo,
-            display = false
-        ))
+        custom_layout_plot()
     )
 end

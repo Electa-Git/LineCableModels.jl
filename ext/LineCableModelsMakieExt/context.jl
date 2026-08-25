@@ -4,6 +4,7 @@ mutable struct UIContext
     window::Any
     figure::Any
     materialized::Any
+    canvas::Any
     status::Observable{String}
     panels::Vector{Any}
     widgets::Dict{Symbol, Any}
@@ -15,7 +16,7 @@ mutable struct UIContext
 end
 
 struct UIPanel
-    view::ViewSpec
+    view::Any
     axis::Any
     plots::Vector{Any}
     groups::Dict{Symbol, Vector{Any}}

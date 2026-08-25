@@ -16,6 +16,7 @@ function build_context(
         window,
         nothing,
         nothing,
+        nothing,
         Observable(page.status.initial),
         Any[],
         Dict{Symbol, Any}(),
@@ -34,10 +35,29 @@ function build_shell(context::UIContext, page::PageSpec)
         figure_padding = _window_padding(root.padding)
     )
     context.materialized = _materialize_layout(context.figure, page.layout)
+    if haskey(context.materialized.slot_specs, :canvas)
+        context.canvas = _slot_grid(
+            context.materialized,
+            :canvas;
+            tellwidth = false,
+            tellheight = false
+        )
+        context.canvas.default_rowgap = Fixed(GRID_ROW_GAP)
+        context.canvas.default_colgap = Fixed(GRID_COLUMN_GAP)
+    end
     return context
 end
 
-function draw!(context::UIContext, ::PlotRecipe, page::PageSpec)
+function draw!(context::UIContext, recipe::PlotRecipe, page::PageSpec)
+    return draw!(context, recipe.spec, recipe, page)
+end
+
+function draw!(
+        context::UIContext,
+        ::Type{D},
+        ::PlotRecipe,
+        page::PageSpec
+) where {D <: PlotBuilder.AbstractPlotDefinition}
     context.panels = _build_panels(page, context.materialized)
     return context
 end
