@@ -31,15 +31,15 @@ end
     const U = LineCableModels.Units
 
     expected = (
-        (R, U.QuantityTag{:series_resistance}, "Series resistance", "R", "Ω/km"),
-        (X, U.QuantityTag{:series_reactance}, "Series reactance", "X", "Ω/km"),
-        (L, U.QuantityTag{:series_inductance}, "Series inductance", "L", "mH/km"),
-        (G, U.QuantityTag{:shunt_conductance}, "Shunt conductance", "G", "S/km"),
-        (B, U.QuantityTag{:shunt_susceptance}, "Shunt susceptance", "B", "S/km"),
-        (C, U.QuantityTag{:shunt_capacitance}, "Shunt capacitance", "C", "μF/km"),
-        (Z, U.QuantityTag{:series_impedance}, "Series impedance", "Z", "Ω/km"),
-        (Y, U.QuantityTag{:shunt_admittance}, "Shunt admittance", "Y", "S/km"),
-        (frequencies, U.QuantityTag{:frequency}, "Frequency", "f", "Hz")
+        (R, U.Quantity{:series_resistance}, "Series resistance", "R", "Ω/km"),
+        (X, U.Quantity{:series_reactance}, "Series reactance", "X", "Ω/km"),
+        (L, U.Quantity{:series_inductance}, "Series inductance", "L", "mH/km"),
+        (G, U.Quantity{:shunt_conductance}, "Shunt conductance", "G", "S/km"),
+        (B, U.Quantity{:shunt_susceptance}, "Shunt susceptance", "B", "S/km"),
+        (C, U.Quantity{:shunt_capacitance}, "Shunt capacitance", "C", "μF/km"),
+        (Z, U.Quantity{:series_impedance}, "Series impedance", "Z", "Ω/km"),
+        (Y, U.Quantity{:shunt_admittance}, "Shunt admittance", "Y", "S/km"),
+        (frequencies, U.Quantity{:frequency}, "Frequency", "f", "Hz")
     )
 
     for (selector, tag_type, name, notation, unit_text) in expected
@@ -68,10 +68,10 @@ end
     y_magnitude = U.quantity(Y, abs)
     y_angle = U.quantity(Y, angle)
 
-    @test z_magnitude isa U.QuantityTag{(:series_impedance, :magnitude)}
-    @test z_angle isa U.QuantityTag{(:series_impedance, :phase_angle)}
-    @test y_magnitude isa U.QuantityTag{(:shunt_admittance, :magnitude)}
-    @test y_angle isa U.QuantityTag{(:shunt_admittance, :phase_angle)}
+    @test z_magnitude isa U.Quantity{(:series_impedance, :magnitude)}
+    @test z_angle isa U.Quantity{(:series_impedance, :phase_angle)}
+    @test y_magnitude isa U.Quantity{(:shunt_admittance, :magnitude)}
+    @test y_angle isa U.Quantity{(:shunt_admittance, :phase_angle)}
     @test U.label(z_magnitude) == "Series impedance magnitude"
     @test U.symbol(y_angle) == "∠Y"
     @test U.label(U.native_unit(z_angle)) == "rad"
@@ -85,11 +85,14 @@ end
     const U = LineCableModels.Units
 
     for name in (
-        :Unit, :UnitExpr, :QuantityTag, :units, :quantity, :native_unit,
+        :Unit, :UnitExpr, :Quantity, :units, :quantity, :native_unit,
         :display_unit, :scale_factor, :label, :symbol
     )
         @test name in names(U)
     end
+    @test isbitstype(U.Quantity{:series_resistance})
+    @test fieldcount(U.Quantity{:series_resistance}) == 0
+    @test !isdefined(U, :QuantityTag)
     @test !isdefined(LineCableModels, :QuantityUnits)
     @test !isdefined(U, :default_unit)
     @test !isdefined(U, :get_label)

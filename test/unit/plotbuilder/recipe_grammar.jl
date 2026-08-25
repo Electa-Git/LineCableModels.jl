@@ -34,12 +34,12 @@
         result.response, indices...)
     LineCableModels.observables(::Type{<:ProfileResult}) = (
         profile_frequency, profile_response)
-    UH.quantity(::typeof(profile_frequency)) = UH.QuantityTag{:frequency}()
-    UH.quantity(::typeof(profile_response)) = UH.QuantityTag{:test_response}()
-    UH.native_unit(::UH.QuantityTag{:test_response}) = UH.UnitExpr()
-    UH.display_unit(::UH.QuantityTag{:test_response}) = UH.UnitExpr()
-    UH.label(::UH.QuantityTag{:test_response}) = "Response"
-    UH.symbol(::UH.QuantityTag{:test_response}) = "u"
+    UH.quantity(::typeof(profile_frequency)) = UH.Quantity{:frequency}()
+    UH.quantity(::typeof(profile_response)) = UH.Quantity{:test_response}()
+    UH.native_unit(::UH.Quantity{:test_response}) = UH.UnitExpr()
+    UH.display_unit(::UH.Quantity{:test_response}) = UH.UnitExpr()
+    UH.label(::UH.Quantity{:test_response}) = "Response"
+    UH.symbol(::UH.Quantity{:test_response}) = "u"
 
     PB.dispatch_on(::Type{ProfilePlotDefinition}) = ProfileResult
     PB.input_kwargs(::Type{ProfilePlotDefinition}) = (:grouping, :color)
@@ -342,7 +342,7 @@
 
     @test_throws ArgumentError PB.AxisSpec(
         :x,
-        UH.QuantityTag{:dimensionless}(),
+        UH.Quantity{:dimensionless}(),
         UH.UnitExpr(),
         "x",
         :log10;
@@ -350,7 +350,7 @@
     )
     @test_throws ArgumentError PB.AxisSpec(
         :x,
-        UH.QuantityTag{:dimensionless}(),
+        UH.Quantity{:dimensionless}(),
         UH.UnitExpr(),
         "x";
         attributes = (; xlabel = "hidden semantic override")
@@ -437,13 +437,13 @@
 
     axis=PB.AxisSpec(
         :x,
-        UH.QuantityTag{:dimensionless}(),
+        UH.Quantity{:dimensionless}(),
         UH.UnitExpr(),
         "x"
     )
     yaxis=PB.AxisSpec(
         :y,
-        UH.QuantityTag{:dimensionless}(),
+        UH.Quantity{:dimensionless}(),
         UH.UnitExpr(),
         "y"
     )
@@ -484,7 +484,7 @@
 
     negative_axis=PB.AxisSpec(
         :y,
-        UH.QuantityTag{:dimensionless}(),
+        UH.Quantity{:dimensionless}(),
         UH.UnitExpr(),
         "negative",
         :linear;
@@ -525,7 +525,7 @@
 
     switchable_axis=PB.AxisSpec(
         :y,
-        UH.QuantityTag{:dimensionless}(),
+        UH.Quantity{:dimensionless}(),
         UH.UnitExpr(),
         "switchable",
         :linear;
@@ -550,7 +550,7 @@
 
     active_log_axis=PB.AxisSpec(
         :y,
-        UH.QuantityTag{:dimensionless}(),
+        UH.Quantity{:dimensionless}(),
         UH.UnitExpr(),
         "active log",
         :log10;
@@ -725,7 +725,7 @@ end
     @test PB.geom_axes(DefaultHookSpec, variant, recipe, nothing, nothing) == (:x, :y)
 
     payload=PB.axis_payload(DefaultHookSpec, Val(:x), recipe)
-    @test payload.quantity isa UH.QuantityTag{:dimensionless}
+    @test payload.quantity isa UH.Quantity{:dimensionless}
     @test PB.axis_payload(
         DefaultHookSpec,
         variant,

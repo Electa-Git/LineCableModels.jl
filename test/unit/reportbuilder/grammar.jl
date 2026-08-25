@@ -17,11 +17,11 @@
         indices...
     ) = isempty(indices) ? source.values : getindex(source.values, indices...)
     LineCableModels.observables(::Type{<:ReportProfile}) = (profile_response,)
-    U.quantity(::typeof(profile_response)) = U.QuantityTag{:report_response}()
-    U.native_unit(::U.QuantityTag{:report_response}) = U.units(:base, :ohm)
-    U.display_unit(::U.QuantityTag{:report_response}) = U.units(:milli, :ohm)
-    U.label(::U.QuantityTag{:report_response}) = "Response"
-    U.symbol(::U.QuantityTag{:report_response}) = "u"
+    U.quantity(::typeof(profile_response)) = U.Quantity{:report_response}()
+    U.native_unit(::U.Quantity{:report_response}) = U.units(:base, :ohm)
+    U.display_unit(::U.Quantity{:report_response}) = U.units(:milli, :ohm)
+    U.label(::U.Quantity{:report_response}) = "Response"
+    U.symbol(::U.Quantity{:report_response}) = "u"
 
     struct ReportProfilePlot <: PB.AbstractPlotDefinition end
     PB.dispatch_on(::Type{ReportProfilePlot}) = ReportProfile

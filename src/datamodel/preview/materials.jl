@@ -394,7 +394,7 @@ function _colorbar_specs(rho_range, mu_range, eps_range; alpha_value = 1.0)
 end
 
 function _distance_axes()
-    quantity = Units.QuantityTag{:distance}()
+    quantity = Units.Quantity{:distance}()
     unit = Units.units(:base, :meter)
     return (
         PlotBuilder.AxisSpec(:x, quantity, unit, "y [m]", :linear),

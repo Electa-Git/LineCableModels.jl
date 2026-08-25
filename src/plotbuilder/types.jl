@@ -402,8 +402,8 @@ Describe one renderer-independent plot axis.
 struct AxisSpec{A <: NamedTuple}
     "Axis dimension, one of `:x`, `:y`, or `:z`."
     dim::Symbol
-    "Semantic quantity tag."
-    quantity::QuantityTag
+    "Typed quantity identity."
+    quantity::Quantity
     "Display units."
     units::UnitExpr
     "Displayed axis label."
@@ -420,7 +420,7 @@ end
 
 function AxisSpec(
         dim::Symbol,
-        quantity::QuantityTag,
+        quantity::Quantity,
         units::UnitExpr,
         label::AbstractString,
         scale::Symbol = :linear;

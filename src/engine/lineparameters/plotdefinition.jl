@@ -250,7 +250,7 @@ function _frequency_payload(values, target)
     factor = Units.scale_factor(native, target)
     return (
         values = map(value -> value * factor, values),
-        quantity = Units.QuantityTag{:frequency}(),
+        quantity = Units.Quantity{:frequency}(),
         unit = target
     )
 end

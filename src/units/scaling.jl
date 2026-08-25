@@ -43,11 +43,11 @@ function _with_basis(expression::UnitExpr, basis::Symbol; length_prefix::Symbol 
     return UnitExpr(expression.numerator, denominator)
 end
 
-function native_unit(quantity::QuantityTag, basis::Symbol)
+function native_unit(quantity::Quantity, basis::Symbol)
     _with_basis(native_unit(quantity), basis)
 end
 function display_unit(
-        quantity::QuantityTag,
+        quantity::Quantity,
         basis::Symbol;
         length_prefix::Symbol = :kilo,
         prefix::Union{Nothing, Symbol} = nothing
@@ -62,9 +62,9 @@ function display_unit(
     return UnitExpr(numerator, expression.denominator)
 end
 
-function scale_factor(quantity::QuantityTag, target::UnitExpr)
+function scale_factor(quantity::Quantity, target::UnitExpr)
     scale_factor(native_unit(quantity), target)
 end
-function scale_factor(quantity::QuantityTag, basis::Symbol, target::UnitExpr)
+function scale_factor(quantity::Quantity, basis::Symbol, target::UnitExpr)
     scale_factor(native_unit(quantity, basis), target)
 end

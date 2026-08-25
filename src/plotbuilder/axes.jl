@@ -19,7 +19,7 @@ function axis_payload(::Type{S}, dim::Val, recipe::PlotRecipe) where {S <:
                                                                       AbstractPlotDefinition}
     return (
         values = nothing,
-        quantity = QuantityTag{:dimensionless}(),
+        quantity = Quantity{:dimensionless}(),
         unit = units(:base, :dimensionless)
     )
 end
@@ -36,7 +36,7 @@ end
 Return the displayed label for one axis.
 """
 function axis_label(
-        ::Type{S}, dim::Val, quantity::QuantityTag, unit::UnitExpr,
+        ::Type{S}, dim::Val, quantity::Quantity, unit::UnitExpr,
         recipe::PlotRecipe
 ) where {S <: AbstractPlotDefinition}
     quantity_label = label(quantity)
@@ -44,7 +44,7 @@ function axis_label(
     return isempty(unit_label) ? quantity_label : "$quantity_label [$unit_label]"
 end
 function axis_label(
-        ::Type{S}, mode::Val, dim::Val, quantity::QuantityTag, unit::UnitExpr,
+        ::Type{S}, mode::Val, dim::Val, quantity::Quantity, unit::UnitExpr,
         recipe::PlotRecipe, page_key, view_key
 ) where {S <: AbstractPlotDefinition}
     axis_label(S, dim, quantity, unit, recipe)

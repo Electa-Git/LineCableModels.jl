@@ -16,7 +16,7 @@ module Units
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..LineCableModels: R, L, C
 
-export Unit, UnitExpr, QuantityTag, units
+export Unit, UnitExpr, Quantity, units
 export quantity, native_unit, display_unit, scale_factor, label, symbol
 
 include("units.jl")

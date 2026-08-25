@@ -10,13 +10,13 @@ function custom_layout_render_spec()
 
     xaxis = PB.AxisSpec(
         :x,
-        UH.QuantityTag{:dimensionless}(),
+        UH.Quantity{:dimensionless}(),
         UH.UnitExpr(),
         "x"
     )
     yaxis = PB.AxisSpec(
         :y,
-        UH.QuantityTag{:dimensionless}(),
+        UH.Quantity{:dimensionless}(),
         UH.UnitExpr(),
         "y"
     )

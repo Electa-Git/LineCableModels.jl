@@ -49,7 +49,7 @@
     @test published.resistance.unit == target
     @test published.phase.values ≈ rad2deg.(angle.(impedance[1, 1, :]))
     @test published.phase.quantity isa
-          U.QuantityTag{(:series_impedance, :phase_angle)}
+          U.Quantity{(:series_impedance, :phase_angle)}
 
     published.frequency.values[1]=0.0
     published.resistance.values[1]=0.0

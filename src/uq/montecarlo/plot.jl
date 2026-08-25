@@ -622,7 +622,7 @@ function PlotBuilder.axis_payload(
 end
 
 function _statistical_payload(tag::Symbol, unit::Units.UnitExpr = Units.UnitExpr())
-    return (; values = nothing, quantity = Units.QuantityTag{tag}(), unit)
+    return (; values = nothing, quantity = Units.Quantity{tag}(), unit)
 end
 
 function PlotBuilder.axis_payload(
@@ -657,14 +657,14 @@ end
 
 function PlotBuilder.axis_label(
         ::Type{MCDistributionPlotDefinition}, ::Val{:qq}, ::Val{:x},
-        quantity::Units.QuantityTag, unit::Units.UnitExpr,
+        quantity::Units.Quantity, unit::Units.UnitExpr,
         recipe::PlotBuilder.PlotRecipe, page_key, view_key
 )
     return "Sample quantiles [$(Units.label(unit))]"
 end
 function PlotBuilder.axis_label(
         ::Type{MCDistributionPlotDefinition}, ::Val{:qq}, ::Val{:y},
-        quantity::Units.QuantityTag, unit::Units.UnitExpr,
+        quantity::Units.Quantity, unit::Units.UnitExpr,
         recipe::PlotBuilder.PlotRecipe, page_key, view_key
 )
     return "Model quantiles [$(Units.label(unit))]"

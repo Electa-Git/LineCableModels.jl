@@ -318,7 +318,7 @@ end
 
     pdf_view=only(only(PB.make_render(Spec, result; mode = :pdf).figures).views)
     @test pdf_view.yaxis.quantity isa
-          LineCableModels.Units.QuantityTag{:probability_density}
+          LineCableModels.Units.Quantity{:probability_density}
     @test pdf_view.yaxis.units == inv(pdf_view.xaxis.units)
     @test pdf_view.yaxis.label ==
           LineCableModels.Units.label(pdf_view.yaxis.quantity, pdf_view.yaxis.units)
@@ -378,7 +378,7 @@ end
               label
     end
     @test LineCableModels.Units.label(
-        LineCableModels.Units.QuantityTag{:dimensionless}(),
+        LineCableModels.Units.Quantity{:dimensionless}(),
         LineCableModels.Units.UnitExpr()
     ) == "Dimensionless"
 
