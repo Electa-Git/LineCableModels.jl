@@ -140,6 +140,41 @@ that contradicts the snapshot, first identify the new owner and responsibility
 and update both the convention and its layout test. Do not
 retain a misleading path through an alias or compatibility namespace.
 
+## Public symbol selectors and `Val` dispatch
+
+Public format, backend, preset, and ranking selectors accept ordinary
+`Symbol`s. The generic's owner defines a local façade and retains `Val` as the
+dispatch hook:
+
+```julia
+function owned_action(selector::Symbol, args...; kwargs...)
+    return owned_action(Val(selector), args...; kwargs...)
+end
+
+owned_action(::Val{:example}, args...; kwargs...) = ...
+```
+
+The façade belongs beside the generic or the owned `Val` implementation. Julia
+has no method that can rewrite calls to every unrelated generic, so do not add
+a package-wide forwarding helper, macro, registry, or symbolic switch.
+
+Apply this rule only to selectors that are part of a public call. Internal
+dispatch axes such as `:self`, `:mutual`, plot dimensions, composition modes,
+serialization tags, and `Val(OwnerType)` option dispatch remain `Val`-only.
+Current public examples include:
+
+```julia
+Formulation(:analytical)
+export_data(:atp, system, earth)
+LineParameters(:tralin, path)
+estimate[:match]
+PlotBuilder.layout_preset(:single, 1)
+```
+
+Unknown selectors continue to reach the owner's unmatched `Val` dispatch.
+Each owner decides whether that means an ordinary `MethodError` or an explicit
+`ArgumentError`.
+
 Versions follow [Semantic Versioning](https://semver.org/). Public behaviour is
 kept compatible within a minor release. Deprecations must include a migration
 path before removal.

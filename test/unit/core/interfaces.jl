@@ -18,7 +18,7 @@ end
     const Engine=LineCableModels.Engine
 
     retired_calls=(
-        () -> Engine.Formulation(Val(:FEM)),
+        () -> Engine.Formulation(:FEM),
         () -> Engine.FEM.Darwin(),
         () -> Engine.FEM.Electrodynamics(),
         () -> Engine.FEM.MeshTransition(),

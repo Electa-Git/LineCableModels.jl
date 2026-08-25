@@ -20,7 +20,8 @@
         "resolve_input", "axis_quantity", "axis_unit", "series_data",
         "ComponentMetadata", "UnitSpec", "DEFAULT_QUANTITY_UNITS",
         "_mc_selector", "AbstractObservable", "ObservableDescriptor",
-        "ObservationRequest", "AbstractDetails", "DetailsRegistry"
+        "ObservationRequest", "AbstractDetails", "DetailsRegistry",
+        "_valdispatch", "symbol_dispatch", "@symbol_facade"
     )
     for token in forbidden
         @test all(!occursin(token, contents) for contents in values(source))
@@ -63,6 +64,29 @@
         @test !occursin(r"\btemperature\s*::", contents)
         @test !occursin(r";\s*temperature\s*=", contents)
     end
+end
+
+@testitem "Core / selectors / owner-local symbol facades" tags=[:unit] begin
+    const Engine=LineCableModels.Engine
+    const ImportExport=LineCableModels.ImportExport
+    const PlotBuilder=LineCableModels.PlotBuilder
+    const WirePatterns=LineCableModels.ParametricBuilder.WirePatterns
+
+    @test which(Engine.Formulation, (Symbol,)).module === Engine
+    @test which(ImportExport.export_data, (Symbol, Nothing)).module === ImportExport
+    @test which(ImportExport.import_data, (Symbol, Nothing)).module === ImportExport
+    @test which(Engine.LineParameters, (Symbol, String)).module === ImportExport
+    @test which(PlotBuilder.layout_preset, (Symbol, Int)).module === PlotBuilder
+    @test which(
+        getindex,
+        (WirePatterns.WireEstimate{Float64, WirePatterns.HexaPattern{Float64}}, Symbol)
+    ).module === WirePatterns
+
+    @test Engine.Formulation(:analytical) isa Engine.AnalyticalFormulation
+    @test PlotBuilder.layout_preset(:single, 1).name === :single
+    @test_throws MethodError ImportExport.export_data(:unregistered, nothing)
+    @test_throws MethodError ImportExport.import_data(:unregistered, nothing)
+    @test_throws ArgumentError PlotBuilder.layout_preset(:unregistered, 1)
 end
 
 @testitem "Core / architecture / ownership-centered recursive layout" tags=[:unit] begin

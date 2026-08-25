@@ -40,15 +40,20 @@ function _standard_layout(name::Symbol)
 end
 
 """
-    layout_preset(::Val{name}, view_count)
+    layout_preset(name::Symbol, view_count)
 
 Construct a built-in named layout preset for `view_count` views.
+
+The `Symbol` method forwards to the corresponding `Val` method so extensions
+can add presets through dispatch.
 
 # Errors
 
 - `ArgumentError` when `name` is not `:single`, `:grid`, `:preview`, or
   `:material_scale`.
 """
+layout_preset(name::Symbol, view_count::Integer) = layout_preset(Val(name), view_count)
+
 layout_preset(::Val{:single}, view_count::Integer) = _standard_layout(:single)
 layout_preset(::Val{:grid}, view_count::Integer) = _standard_layout(:grid)
 layout_preset(::Val{:preview}, view_count::Integer) = _standard_layout(:preview)
@@ -100,7 +105,7 @@ function _resolve_layout(
     selected isa Symbol || throw(
         ArgumentError("layout_spec($S) must return a preset symbol or LayoutSpec"),
     )
-    return layout_preset(Val(selected), view_count)
+    return layout_preset(selected, view_count)
 end
 
 """

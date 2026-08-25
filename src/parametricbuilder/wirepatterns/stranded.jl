@@ -46,9 +46,9 @@ function make_stranded(target_mm2::Real; nmin::Integer = -3, nmax::Integer = 40)
     estimate = WireEstimate(
         target, candidates, feasible, feasible ? :feasible : :infeasible, reasons
     )
-    estimate[Val(:match)].wires > 271 &&
+    estimate[:match].wires > 271 &&
         @warn("The closest stranded pattern exceeds 271 wires.",
-            wires=estimate[Val(:match)].wires,)
+            wires=estimate[:match].wires,)
     return estimate
 end
 

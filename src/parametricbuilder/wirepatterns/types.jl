@@ -38,8 +38,8 @@ Store ranked candidates from a wire-pattern search.
 `feasible` states whether the retained candidates satisfy every requested
 constraint. An infeasible result still contains the closest candidates that
 the search could construct and explains the limiting constraints in `reasons`.
-Use `estimate[Val(:match)]`, `estimate[Val(:layers)]`,
-`estimate[Val(:wires)]`, or `estimate[Val(:diameter)]` to select a candidate.
+Use `estimate[:match]`, `estimate[:layers]`, `estimate[:wires]`, or
+`estimate[:diameter]` to select a candidate.
 
 $(TYPEDFIELDS)
 """
@@ -76,6 +76,8 @@ Base.iterate(estimate::WireEstimate, state...) = iterate(estimate.candidates, st
 _area(pattern::Union{HexaPattern, ScreenPattern}) = pattern.total_area_m2
 _diameter(pattern::Union{HexaPattern, ScreenPattern}) = pattern.wire_diameter_m
 _selected(estimate::WireEstimate, key) = argmin(key, estimate.candidates)
+
+Base.getindex(estimate::WireEstimate, selector::Symbol) = estimate[Val(selector)]
 
 function Base.getindex(estimate::WireEstimate, ::Val{:match})
     _selected(estimate, pattern -> (abs(_area(pattern) - estimate.target),

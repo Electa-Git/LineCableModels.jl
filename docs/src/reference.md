@@ -298,8 +298,8 @@ candidates and records the unmet constraints:
 
 ```julia
 estimate = make_stranded(1000.0)
-closest = estimate[Val(:match)]
-fewest_layers = estimate[Val(:layers)]
+closest = estimate[:match]
+fewest_layers = estimate[:layers]
 ```
 
 The `:match`, `:layers`, `:wires`, and `:diameter` selectors use dispatch and never

@@ -218,6 +218,6 @@ end
         @test Z(symbol_parameters) == Z(parameters)
         @test Y(symbol_parameters) == Y(parameters)
         @test_throws ArgumentError LineParameters(report_path; format = :unknown)
-        @test_throws ArgumentError LineParameters(Val(:unsupported), report_path)
+        @test_throws ArgumentError LineParameters(:unsupported, report_path)
     end
 end

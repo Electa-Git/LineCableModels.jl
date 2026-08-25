@@ -698,7 +698,7 @@
             "Heatmap primitive",
             (400, 300),
             (; kind = :primitive),
-            LineCableModels.PlotBuilder.layout_preset(Val(:single), 1),
+            LineCableModels.PlotBuilder.layout_preset(:single, 1),
             [primitive_view],
             controls = LineCableModels.PlotBuilder.ControlSpec(
                 reset = false,

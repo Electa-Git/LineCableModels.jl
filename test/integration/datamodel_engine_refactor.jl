@@ -12,7 +12,7 @@
     problem_at(temperature) = LineParametersProblem(
         system; temperature, earth_props = earth, frequencies
     )
-    formulation=Formulation(Val(:analytical); options = (ideal_transposition = false,))
+    formulation=Formulation(:analytical; options = (ideal_transposition = false,))
     uncorrected=Formulation(
         Val(:analytical);
         options = (ideal_transposition = false, temperature_correction = false)

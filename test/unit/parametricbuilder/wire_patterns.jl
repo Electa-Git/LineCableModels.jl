@@ -21,13 +21,14 @@
         @test choice.total_area_m2 > 0
         @test choice.wire_diameter_m > 0
     end
-    match = estimate[Val(:match)]
-    layers = estimate[Val(:layers)]
-    diameter = estimate[Val(:diameter)]
+    match = estimate[:match]
+    layers = estimate[:layers]
+    diameter = estimate[:diameter]
     @test abs(1e6 * match.total_area_m2 - target_mm2) <=
           abs(1e6 * diameter.total_area_m2 - target_mm2)
     @test layers.layers <= diameter.layers
-    @test estimate[Val(:wires)].wires == minimum(p.wires for p in estimate)
+    @test estimate[:wires].wires == minimum(p.wires for p in estimate)
+    @test estimate[Val(:match)] === estimate[:match]
 
     estimate32 = make_stranded(Float32(95))
     @test estimate32 isa WireEstimate{Float32}
@@ -37,11 +38,11 @@
     @test !infeasible.feasible
     @test infeasible.status === :infeasible
     @test !isempty(infeasible.reasons)
-    @test infeasible[Val(:match)] isa Wires.HexaPattern
+    @test infeasible[:match] isa Wires.HexaPattern
 
     @test_throws DomainError make_stranded(0.0)
     @test_throws ArgumentError make_stranded(10.0; nmin = 10, nmax = 9)
-    @test_throws ArgumentError estimate[Val(:unknown)]
+    @test_throws ArgumentError estimate[:unknown]
 end
 
 @testitem "ParametricBuilder / wire patterns / screened estimates" tags = [:unit] begin
@@ -66,9 +67,8 @@ end
         separation = 2 * choice.radius_m * sinpi(1 / choice.wires)
         @test separation >= choice.wire_diameter_m
     end
-    @test estimate[Val(:wires)].wires <= estimate[Val(:diameter)].wires
-    @test estimate[Val(:diameter)].wire_diameter_m <=
-          estimate[Val(:wires)].wire_diameter_m
+    @test estimate[:wires].wires <= estimate[:diameter].wires
+    @test estimate[:diameter].wire_diameter_m <= estimate[:wires].wire_diameter_m
 
     custom = make_screened(
         required_area_mm2,
@@ -96,7 +96,7 @@ end
     )
     @test !infeasible.feasible
     @test !isempty(infeasible.reasons)
-    @test infeasible[Val(:match)] isa Wires.ScreenPattern
+    @test infeasible[:match] isa Wires.ScreenPattern
 
     @test_throws DomainError make_screened(0.0, lay_diameter_mm)
     @test_throws DomainError make_screened(required_area_mm2, 0.0)

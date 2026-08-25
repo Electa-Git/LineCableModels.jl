@@ -395,6 +395,9 @@
     @test_throws ArgumentError PB.GridArea(2:1, 1:1)
     @test_throws ArgumentError PB.FixedTrack(-1)
     @test_throws ArgumentError PB.RelativeTrack(0)
+    @test PB.layout_preset(:single, 1).name === :single
+    @test PB.layout_preset(Val(:single), 1).name === :single
+    @test_throws ArgumentError PB.layout_preset(:unknown, 1)
 
     bad_parent=PB.GridSpec(
         :child;
@@ -462,7 +465,7 @@
         "mixed placements",
         (400, 300),
         (; kind = :mixed),
-        PB.layout_preset(Val(:single), 2),
+        PB.layout_preset(:single, 2),
         [automatic, explicit]
     )
 
@@ -478,7 +481,7 @@
         "duplicate view identity",
         (400, 300),
         (; kind = :duplicate),
-        PB.layout_preset(Val(:single), 2),
+        PB.layout_preset(:single, 2),
         [explicit, duplicate_key]
     )
 
@@ -502,7 +505,7 @@
         "negative logarithmic data",
         (400, 300),
         (; kind = :negative),
-        PB.layout_preset(Val(:single), 1),
+        PB.layout_preset(:single, 1),
         [negative_view]
     )
 
@@ -519,7 +522,7 @@
         "reversed limits",
         (400, 300),
         (; kind = :reversed_limits),
-        PB.layout_preset(Val(:single), 1),
+        PB.layout_preset(:single, 1),
         [reversed_limits_view]
     )
 
@@ -544,7 +547,7 @@
         "linear limits",
         (400, 300),
         (; kind = :linear_limits),
-        PB.layout_preset(Val(:single), 1),
+        PB.layout_preset(:single, 1),
         [switchable_view]
     ) isa PB.PageSpec
 
@@ -569,7 +572,7 @@
         "invalid logarithmic limits",
         (400, 300),
         (; kind = :invalid_log_limits),
-        PB.layout_preset(Val(:single), 1),
+        PB.layout_preset(:single, 1),
         [active_log_view]
     )
 
@@ -586,7 +589,7 @@
         "invalid aspect",
         (400, 300),
         (; kind = :invalid_aspect),
-        PB.layout_preset(Val(:single), 1),
+        PB.layout_preset(:single, 1),
         [invalid_aspect_view]
     )
 

@@ -179,9 +179,10 @@ The normalised named tuple is stored in `AnalyticalFormulation.options`.
 `PSCADFormulation` currently has no formulation options because its method
 bundle already contains every mathematical choice it owns.
 
-`Val(:analytical)` remains the public selector accepted by `Formulation`.
+`:analytical` is the public selector accepted by `Formulation`. The
+`Val{:analytical}` method is its backend dispatch hook.
 `Val(AnalyticalFormulation)` is the internal owner token used by the option
-grammar. The two selectors are not interchangeable.
+grammar. These tags are not interchangeable.
 
 ## Computation options
 
