@@ -35,6 +35,8 @@ export Combinatorial, LinearError, MonteCarlo, ParametricProblem
 export ParametricResult, LinearErrorResult, MonteCarloResult
 export SampleSummary, HistogramDensity, RLCG
 export result, statistics, samples, histograms, uncertain_value
+export root_seed, point_seed, trial_count
+export confidence, cdf_tolerance, sampling_distribution
 export report, TableReport, XLSXReport, ReportArtifact
 export Material, MaterialsLibrary, Conductor, Insulator, CableBuilder
 export at, trifoil, hflat, vflat, Earth, SystemBuilder
@@ -124,7 +126,9 @@ include("uq/UQ.jl")
 using .UQ:
            LinearError, MonteCarlo, LinearErrorResult, MonteCarloResult,
            SampleSummary, HistogramDensity, RLCG,
-           statistics, samples, histograms, uncertain_value
+           statistics, samples, histograms, uncertain_value,
+           root_seed, point_seed, trial_count,
+           confidence, cdf_tolerance, sampling_distribution
 
 # Submodule `ReportBuilder`
 include("reportbuilder/ReportBuilder.jl")

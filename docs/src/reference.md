@@ -132,8 +132,11 @@ propagation returns `LinearErrorResult{T}`, and conditional sampling returns
 or `LineParameters` result rather than another composite result.
 
 Use `result`, `statistics`, `samples`, `histograms`, and `uncertain_value` to
-inspect scientific products. All three higher-order result families also store
-a concrete [`ComputationDetails`](@ref) named tuple. [`details`](@ref) returns
+inspect scientific products. For a Monte Carlo result, `root_seed`,
+`point_seed`, `trial_count`, `confidence`, `cdf_tolerance`, and
+`sampling_distribution` read the calculation settings and the values resolved
+for each Gridspace point. All three higher-order result families also store a
+concrete [`ComputationDetails`](@ref) named tuple. [`details`](@ref) returns
 that tuple. It is `(; )` unless the higher-order formulation was constructed
 with `options=(retain_details=true,)` and the primitive computation owner
 implements [`computation_details`](@ref).

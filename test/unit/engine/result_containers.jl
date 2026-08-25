@@ -269,6 +269,14 @@ end
     @test_throws ArgumentError HistogramDensity([0.0, Inf], [1.0])
 
     complete=TestFixtures.cable_monte_carlo_result()
+    @test UQ.root_seed(complete) == UInt64(1)
+    @test UQ.point_seed(complete, 1) == UInt64(1)
+    @test UQ.trial_count(complete, 1) == 4
+    @test UQ.confidence(complete) == 0.95
+    @test UQ.cdf_tolerance(complete) == 0.02
+    @test UQ.sampling_distribution(complete) === :normal
+    @test_throws BoundsError UQ.point_seed(complete, 2)
+    @test_throws BoundsError UQ.trial_count(complete, 2)
     sample_only=MonteCarloResult(
         complete.formulation,
         complete.values,

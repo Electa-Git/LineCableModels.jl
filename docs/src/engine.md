@@ -128,7 +128,10 @@ Higher-order results remain containers of owned products. `result`,
 `statistics`, `samples`, and `histograms` select those products; they are not
 zero-argument aliases for publication. UQ reads primitive trials with
 `observe`, while its retained statistics, samples, and histograms implement
-the same selector grammar for later publication.
+the same selector grammar for later publication. Monte Carlo run settings and
+resolved point values are read through `root_seed`, `point_seed`,
+`trial_count`, `confidence`, `cdf_tolerance`, and `sampling_distribution`.
+Consumers do not inspect the result or its formulation fields.
 
 ## Supplemental computation output
 

@@ -167,6 +167,11 @@ end
 
     report_grammar=source[joinpath("src", "reportbuilder", "grammar.jl")]
     @test !occursin(r"(?:encode|write)\(::AbstractReportDefinition", report_grammar)
+    report_monte_carlo=source[joinpath("src", "reportbuilder", "montecarlo.jl")]
+    @test !occursin(
+        r"\bsource\.(?:formulation|values|stats|sample_values|histogram_values|root_seed|point_seeds|trial_counts|details)\b",
+        report_monte_carlo
+    )
     importexport_index=source[joinpath("src", "importexport", "ImportExport.jl")]
     reportbuilder_index=source[joinpath("src", "reportbuilder", "ReportBuilder.jl")]
     @test !occursin("using XLSX", importexport_index)

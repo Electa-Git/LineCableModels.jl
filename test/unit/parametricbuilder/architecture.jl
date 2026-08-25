@@ -62,6 +62,13 @@
         @test getproperty(LineCableModels, name) === getproperty(UQ, name)
         @test parentmodule(getproperty(UQ, name)) === UQ
     end
+    for name in (
+        :root_seed, :point_seed, :trial_count,
+        :confidence, :cdf_tolerance, :sampling_distribution
+    )
+        @test getproperty(LineCableModels, name) === getproperty(UQ, name)
+        @test parentmodule(getproperty(UQ, name)) === UQ
+    end
     @test getproperty(LineCableModels, Symbol("@gridspace")) ===
           getproperty(PB, Symbol("@gridspace"))
     @test getproperty(LineCableModels, Symbol("@relax")) ===

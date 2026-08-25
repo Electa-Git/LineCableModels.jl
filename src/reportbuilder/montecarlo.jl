@@ -42,12 +42,12 @@ function select(definition::MonteCarloTable, source::UQ.MonteCarloResult)
     targets = NamedTuple{keys(requests)}(target_values)
     published = observables(product, requests; units = targets)
     context = (
-        trials = only(source.trial_counts),
-        confidence = source.formulation.confidence,
-        cdf_tol = source.formulation.cdf_tol,
-        distribution = source.formulation.distribution,
-        root_seed = source.root_seed,
-        seed = only(source.point_seeds)
+        trials = UQ.trial_count(source, 1),
+        confidence = UQ.confidence(source),
+        cdf_tol = UQ.cdf_tolerance(source),
+        distribution = UQ.sampling_distribution(source),
+        root_seed = UQ.root_seed(source),
+        seed = UQ.point_seed(source, 1)
     )
     return (; representation, published, context)
 end
@@ -100,7 +100,8 @@ function tabulate(::MonteCarloTable, source, selected)
     tables = Array{DataFrame, length(shape)}(undef, shape)
     for index in CartesianIndices(tables)
         payloads = map(published) do payload
-            (; values = payload.values[index], quantity = payload.quantity, unit = payload.unit)
+            (; values = payload.values[index],
+                quantity = payload.quantity, unit = payload.unit)
         end
         tables[index] = _summary_table(payloads, selected.context)
     end

@@ -9,6 +9,8 @@ module UQ
 export LinearError, MonteCarlo, LinearErrorResult, MonteCarloResult
 export SampleSummary, HistogramDensity, RLCG
 export result, statistics, samples, histograms, uncertain_value
+export root_seed, point_seed, trial_count
+export confidence, cdf_tolerance, sampling_distribution
 
 using Random
 using Statistics

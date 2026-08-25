@@ -30,6 +30,48 @@ histograms(value::MonteCarloResult) = value.histogram_values
 "Return the uncertainty-bearing primitive results of a linear propagation."
 uncertain_value(value::LinearErrorResult) = value.values
 
+"""
+$(TYPEDSIGNATURES)
+
+Return the resolved root random seed of a Monte Carlo calculation.
+"""
+root_seed(value::MonteCarloResult) = value.root_seed
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the random seed used for the Gridspace point at `index`.
+"""
+point_seed(value::MonteCarloResult, index::Integer) = value.point_seeds[index]
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the number of trials evaluated for the Gridspace point at `index`.
+"""
+trial_count(value::MonteCarloResult, index::Integer) = value.trial_counts[index]
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the simultaneous empirical-CDF confidence of a Monte Carlo calculation.
+"""
+confidence(value::MonteCarloResult) = value.formulation.confidence
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the empirical-CDF tolerance used to size a Monte Carlo calculation.
+"""
+cdf_tolerance(value::MonteCarloResult) = value.formulation.cdf_tol
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the sampling distribution of a Monte Carlo calculation.
+"""
+sampling_distribution(value::MonteCarloResult) = value.formulation.distribution
+
 @inline _product_value(value, ::Tuple{}) = value
 @inline _product_value(value, indices::Tuple) = getindex(value, indices...)
 
