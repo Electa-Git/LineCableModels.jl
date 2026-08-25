@@ -124,6 +124,38 @@
         @test length(shunt_plots) == 1
         @test length(only(series_plots).panels) == 2
         @test length(only(shunt_plots).panels) == 2
+
+        comparison_parameters=LineParameters(
+            1.01 .* Z(parameters),
+            1.01 .* Y(parameters),
+            frequency
+        )
+        comparison_plots=Makie.plot(
+            parameters,
+            comparison_parameters;
+            legend = ("reference", "candidate"),
+            backend = :cairo,
+            display_plot = false
+        )
+        @test comparison_plots isa Vector{UIPlot}
+        @test length(comparison_plots) == 4
+        @test all(plot -> length(plot.panels) == 4, comparison_plots)
+        @test length(Makie.plot(
+            parameters,
+            comparison_parameters;
+            legend = ("reference", "candidate"),
+            quantities = (Z,),
+            backend = :cairo,
+            display_plot = false
+        )) == 2
+        @test length(Makie.plot(
+            parameters,
+            comparison_parameters;
+            legend = ("reference", "candidate"),
+            quantities = (Y,),
+            backend = :cairo,
+            display_plot = false
+        )) == 2
         test_golden(first(rlcg), "line_rlcg")
         test_golden(first(cartesian), "line_zy_cartesian")
         test_golden(first(polar), "line_zy_polar")
@@ -317,6 +349,24 @@
         @test susceptance_axis.yscale[] === Makie.identity
         @test susceptance_axis.ylabel[] isa Makie.RichText
         @test susceptance_axis.finallimits[] == initial_susceptance_limits
+        @test susceptance_axis.ytickformat[]([1.23456e-3, 9.87654e-3]) ==
+              ["1.235", "9.877"]
+
+        threshold_parameters=LineParameters(
+            copy(Z(parameters)),
+            complex.(conductance_values, 10 .* capacitance_values .* omega),
+            frequency
+        )
+        threshold_plot=only(Makie.plot(
+            threshold_parameters,
+            (B,);
+            backend = :cairo,
+            display_plot = false
+        ))
+        threshold_axis=only(threshold_plot.panels).axis
+        @test threshold_axis.ylabel[] isa String
+        @test threshold_axis.ytickformat[]([1.23456e-2, 9.87654e-2]) ==
+              ["0.01235", "0.09877"]
 
         conductance_handle=rlcg[2]
         conductance_axis=first(conductance_handle.panels).axis
