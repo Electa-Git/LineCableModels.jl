@@ -259,6 +259,11 @@ function compute(
     end
 end
 
+computation_details(
+    ::Val{AnalyticalFormulation},
+    ::Union{LineParameters, LineParametersTrace, DataModel.CableConstants}
+)::ComputationDetails = (;)
+
 function compute(
         problem::CableConstantsProblem,
         formulation::AnalyticalFormulation;

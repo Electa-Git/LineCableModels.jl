@@ -5,9 +5,34 @@ Select direct linear uncertainty propagation with `inner`.
 
 $(TYPEDFIELDS)
 """
-struct LinearError{F <: AbstractFormulation} <: AbstractFormulation
+struct LinearError{F <: AbstractFormulation, O <: ComputationOptions} <: AbstractFormulation
     "Formulation used for each materialised problem."
     inner::F
+    "Supplemental-output retention options owned by this propagation."
+    options::O
+end
+
+function computation_options(
+        ::Val{LinearError},
+        options::NamedTuple
+)::ComputationOptions
+    unknown = filter(key -> key !== :retain_details, keys(options))
+    isempty(unknown) || throw(ArgumentError(
+        "unknown LinearError computation options: $(sort!(collect(unknown)))",
+    ))
+    normalized = merge((retain_details = false,), options)
+    normalized.retain_details isa Bool || throw(ArgumentError(
+        "LinearError retain_details must be Bool",
+    ))
+    return (retain_details = normalized.retain_details,)
+end
+
+function LinearError(
+        inner::F;
+        options::NamedTuple = (;)
+) where {F <: AbstractFormulation}
+    normalized = computation_options(Val(LinearError), options)
+    return LinearError{F, typeof(normalized)}(inner, normalized)
 end
 
 """
@@ -19,7 +44,8 @@ is supplied.
 
 $(TYPEDFIELDS)
 """
-struct MonteCarlo{F <: AbstractFormulation, D, S} <: AbstractFormulation
+struct MonteCarlo{F <: AbstractFormulation, D, S, O <: ComputationOptions} <:
+       AbstractFormulation
     "Formulation used for each sampled problem."
     inner::F
     "Requested trials, or `nothing` for DKW sizing."
@@ -38,6 +64,8 @@ struct MonteCarlo{F <: AbstractFormulation, D, S} <: AbstractFormulation
     return_histograms::Bool
     "Optional histogram bin count."
     bins::Union{Nothing, Int}
+    "Supplemental-output retention options owned by this propagation."
+    options::O
     function MonteCarlo(
             inner::F;
             trials::Union{Nothing, Integer} = nothing,
@@ -47,7 +75,8 @@ struct MonteCarlo{F <: AbstractFormulation, D, S} <: AbstractFormulation
             seed::Union{Nothing, Integer} = nothing,
             return_samples::Bool = false,
             return_histograms::Bool = false,
-            bins::Union{Nothing, Integer} = nothing
+            bins::Union{Nothing, Integer} = nothing,
+            options::NamedTuple = (;)
     ) where {F <: AbstractFormulation}
         trials === nothing || trials > 0 || throw(ArgumentError("trials must be positive"))
         0 < confidence < 1 ||
@@ -59,7 +88,8 @@ struct MonteCarlo{F <: AbstractFormulation, D, S} <: AbstractFormulation
                 "unsupported distribution $(repr(distribution)); expected :normal, :uniform, a sampler function, or an extension-supported distribution",
             ))
         actual_seed = seed === nothing ? nothing : UInt64(seed)
-        return new{F, typeof(distribution), typeof(actual_seed)}(
+        normalized_options = computation_options(Val(MonteCarlo), options)
+        return new{F, typeof(distribution), typeof(actual_seed), typeof(normalized_options)}(
             inner,
             trials === nothing ? nothing : Int(trials),
             Float64(confidence),
@@ -68,7 +98,23 @@ struct MonteCarlo{F <: AbstractFormulation, D, S} <: AbstractFormulation
             actual_seed,
             return_samples,
             return_histograms,
-            bins === nothing ? nothing : Int(bins)
+            bins === nothing ? nothing : Int(bins),
+            normalized_options
         )
     end
+end
+
+function computation_options(
+        ::Val{MonteCarlo},
+        options::NamedTuple
+)::ComputationOptions
+    unknown = filter(key -> key !== :retain_details, keys(options))
+    isempty(unknown) || throw(ArgumentError(
+        "unknown MonteCarlo computation options: $(sort!(collect(unknown)))",
+    ))
+    normalized = merge((retain_details = false,), options)
+    normalized.retain_details isa Bool || throw(ArgumentError(
+        "MonteCarlo retain_details must be Bool",
+    ))
+    return (retain_details = normalized.retain_details,)
 end

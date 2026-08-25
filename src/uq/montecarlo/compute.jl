@@ -164,6 +164,14 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed)
     rng = Random.Xoshiro(seed)
     first_problem = ParametricBuilder.realize(rng, point, formulation.distribution)
     first_result = compute(first_problem, formulation.inner; options)
+    retained = if formulation.options.retain_details
+        [computation_details(
+            Val(ParametricBuilder._computation_owner(formulation.inner)),
+            first_result
+        )]
+    else
+        nothing
+    end
     ntrials = something(
         formulation.trials,
         _dkw_trials(_observable_count(first_result), formulation.confidence, formulation.cdf_tol)
@@ -178,10 +186,17 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed)
             "Monte Carlo realisations produced incompatible result types",
         ))
         _record_sample!(sample_values, value, trial, sample_axis)
+        formulation.options.retain_details && push!(
+            retained,
+            computation_details(
+                Val(ParametricBuilder._computation_owner(formulation.inner)),
+                value
+            )
+        )
     end
     return merge(
         _aggregate(sample_values, first_result, formulation),
-        (; trials = ntrials, seed)
+        (; trials = ntrials, seed, details = retained)
     )
 end
 
@@ -192,6 +207,7 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
     histogram_values = nothing
     seeds = UInt64[]
     trial_counts = Int[]
+    retained = nothing
     root_seed = formulation.seed === nothing ? rand(Random.RandomDevice(), UInt64) :
                 formulation.seed
     for (index, point) in enumerate(ParametricBuilder.points(problem.space))
@@ -216,6 +232,8 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
             ))
         push!(seeds, aggregate.seed)
         push!(trial_counts, aggregate.trials)
+        formulation.options.retain_details &&
+            (retained = ParametricBuilder._append_result(retained, aggregate.details))
     end
     typed_values = values === nothing ? AbstractProblemResult[] : values
     typed_stats = stats_values === nothing ? Any[] : stats_values
@@ -227,6 +245,8 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
         formulation.return_histograms ? something(histogram_values, Any[]) : nothing,
         root_seed,
         seeds,
-        trial_counts
+        trial_counts,
+        formulation.options.retain_details ?
+        (trials = something(retained, Vector{NamedTuple}[]),) : (;)
     )
 end

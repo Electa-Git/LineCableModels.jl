@@ -16,9 +16,9 @@ module LineCableModels
 export add!, validate, description, maxfill, set_backend!
 export AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult
 export AbstractParametricResult, AbstractUncertaintyResult
-export FormulationOptions, ComputationOptions
-export formulation_options, computation_options
-export compute, observe, observables, primitives, preprocess
+export FormulationOptions, ComputationOptions, ComputationDetails
+export formulation_options, computation_options, computation_details, details
+export compute, observe, @observe, observables, primitives, preprocess
 export basis, domain, frequencies, nconductors, nfrequencies, ncables, nphases
 export Z, Y, R, X, L, G, B, C
 export series_impedance, shunt_admittance,
@@ -66,9 +66,9 @@ include("grammar/Grammar.jl")
 using .Grammar:
                 AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult,
                 AbstractParametricResult, AbstractUncertaintyResult,
-                FormulationOptions, ComputationOptions,
-                formulation_options, computation_options,
-                compute, observe, observables, primitives, preprocess,
+                FormulationOptions, ComputationOptions, ComputationDetails,
+                formulation_options, computation_options, computation_details, details,
+                compute, observe, @observe, observables, primitives, preprocess,
                 nominal, standard_uncertainty
 
 # Submodule `Validation`

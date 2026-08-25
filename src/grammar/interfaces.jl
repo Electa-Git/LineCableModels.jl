@@ -44,6 +44,25 @@ function computation_options end
 """
 $(SIGNATURES)
 
+Normalize supplemental output owned by one primitive or composite computation.
+
+The computation owner defines a method for `Val(OwnerType)` and returns a
+fixed-key [`ComputationDetails`](@ref) named tuple. No broad fallback exists;
+an unregistered owner raises `MethodError`.
+"""
+function computation_details end
+
+"""
+$(SIGNATURES)
+
+Return the typed supplemental output retained by a completed higher-order
+result. Result owners define narrow methods beside their result containers.
+"""
+function details end
+
+"""
+$(SIGNATURES)
+
 Calculate a completed result from an explicit problem and formulation.
 
 Concrete methods validate and normalise their supported `options`. Unsupported
@@ -60,6 +79,33 @@ The selector and optional transform are function objects. Result owners define
 the supported combinations beside their result representations.
 """
 function observe end
+
+"""
+    @observe source accessor[i, j, k]
+
+Expand indexed observable syntax into
+`observe(source, accessor, i, j, k)`. The first two indices select a matrix
+element and the third selects the sample dimension.
+"""
+macro observe(source, request)
+    valid_request = request isa Expr &&
+                    request.head === :ref &&
+                    length(request.args) == 4
+    valid_request || throw(ArgumentError(
+        "@observe expects `accessor[i, j, k]`, for example " *
+        "`@observe parameters Z[1, 1, :]`; got `$(request)`.",
+    ))
+    accessor, i, j, k = request.args
+    return :(
+        observe(
+            $(esc(source)),
+            $(esc(accessor)),
+            $(esc(i)),
+            $(esc(j)),
+            $(esc(k)),
+        )
+    )
+end
 
 """
 $(SIGNATURES)

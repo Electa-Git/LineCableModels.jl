@@ -5,17 +5,33 @@ Store ordered primitive results from a [`LinearError`](@ref) calculation.
 
 $(TYPEDFIELDS)
 """
-struct LinearErrorResult{T, F} <: AbstractUncertaintyResult{T}
+struct LinearErrorResult{T, F, D <: ComputationDetails} <: AbstractUncertaintyResult{T}
     "Higher-order formulation used for the calculation."
     formulation::F
     "Uncertainty-bearing primitive results in Gridspace traversal order."
     values::Vector{T}
+    "Typed supplemental output retained by the propagation."
+    details::D
 
-    function LinearErrorResult(formulation::F, values::Vector{T}) where {T, F}
+    function LinearErrorResult(
+            formulation::F,
+            values::Vector{T},
+            details::D
+    ) where {T, F, D <: ComputationDetails}
         ParametricBuilder._primitive_result_type(T)
-        return new{T, F}(formulation, values)
+        isempty(details) || keys(details) == (:points,) || throw(ArgumentError(
+            "LinearErrorResult details must be empty or contain only points",
+        ))
+        isempty(details) || length(details.points) == length(values) ||
+            throw(DimensionMismatch(
+                "retained details must contain one entry per primitive result",
+            ))
+        return new{T, F, D}(formulation, values, details)
     end
 end
+
+
+LinearErrorResult(formulation, values) = LinearErrorResult(formulation, values, (;))
 
 """
 $(TYPEDEF)
@@ -24,7 +40,7 @@ Store primitive sample means and real-valued Monte Carlo summaries.
 
 $(TYPEDFIELDS)
 """
-struct MonteCarloResult{T, F, ST <: AbstractVector, S, H} <:
+struct MonteCarloResult{T, F, ST <: AbstractVector, S, H, D <: ComputationDetails} <:
        AbstractUncertaintyResult{T}
     "Higher-order formulation used for the calculation."
     formulation::F
@@ -42,6 +58,8 @@ struct MonteCarloResult{T, F, ST <: AbstractVector, S, H} <:
     point_seeds::Vector{UInt64}
     "Trial count used for each Gridspace point."
     trial_counts::Vector{Int}
+    "Typed supplemental output retained by the propagation."
+    details::D
 
     function MonteCarloResult(
             formulation::F,
@@ -51,8 +69,9 @@ struct MonteCarloResult{T, F, ST <: AbstractVector, S, H} <:
             histogram_values::H,
             root_seed::UInt64,
             point_seeds::Vector{UInt64},
-            trial_counts::Vector{Int}
-    ) where {T, F, ST <: AbstractVector, S, H}
+            trial_counts::Vector{Int},
+            details::D
+    ) where {T, F, ST <: AbstractVector, S, H, D <: ComputationDetails}
         ParametricBuilder._primitive_result_type(T)
         length(stats) == length(values) || throw(DimensionMismatch(
             "Monte Carlo statistics must contain one entry per primitive result",
@@ -71,7 +90,19 @@ struct MonteCarloResult{T, F, ST <: AbstractVector, S, H} <:
             throw(DimensionMismatch(
                 "retained histograms must contain one entry per primitive result",
             ))
-        return new{T, F, ST, S, H}(
+        isempty(details) || keys(details) == (:trials,) || throw(ArgumentError(
+            "MonteCarloResult details must be empty or contain only trials",
+        ))
+        if !isempty(details)
+            length(details.trials) == length(values) || throw(DimensionMismatch(
+                "retained details must contain one entry per Gridspace point",
+            ))
+            all(length(records) == count for (records, count) in
+                zip(details.trials, trial_counts)) || throw(DimensionMismatch(
+                "retained details must contain one entry per Monte Carlo trial",
+            ))
+        end
+        return new{T, F, ST, S, H, D}(
             formulation,
             values,
             stats,
@@ -79,7 +110,35 @@ struct MonteCarloResult{T, F, ST <: AbstractVector, S, H} <:
             histogram_values,
             root_seed,
             point_seeds,
-            trial_counts
+            trial_counts,
+            details
         )
     end
 end
+
+
+function MonteCarloResult(
+        formulation,
+        values,
+        stats,
+        sample_values,
+        histogram_values,
+        root_seed,
+        point_seeds,
+        trial_counts
+)
+    return MonteCarloResult(
+        formulation,
+        values,
+        stats,
+        sample_values,
+        histogram_values,
+        root_seed,
+        point_seeds,
+        trial_counts,
+        (;)
+    )
+end
+
+details(value::LinearErrorResult) = value.details
+details(value::MonteCarloResult) = value.details

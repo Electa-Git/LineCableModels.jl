@@ -17,9 +17,13 @@
     @test length(methods(LineCableModels.validate)) == 1
     @test LineCableModels.observables === Grammar.observables
     @test LineCableModels.observe === Grammar.observe
+    @test LineCableModels.computation_details === Grammar.computation_details
+    @test LineCableModels.details === Grammar.details
     @test LineCableModels.primitives === Grammar.primitives
     @test LineCableModels.preprocess === Grammar.preprocess
     @test parentmodule(Grammar.compute) === Grammar
+    @test parentmodule(Grammar.computation_details) === Grammar
+    @test parentmodule(Grammar.details) === Grammar
     @test parentmodule(Grammar.observables) === Grammar
     @test parentmodule(Grammar.observe) === Grammar
     @test parentmodule(Grammar.primitives) === Grammar
@@ -28,8 +32,17 @@
     @test isempty(methods(Grammar.preprocess))
     @test LineCableModels.FormulationOptions === Grammar.FormulationOptions === NamedTuple
     @test LineCableModels.ComputationOptions === Grammar.ComputationOptions === NamedTuple
+    @test LineCableModels.ComputationDetails === Grammar.ComputationDetails === NamedTuple
     @test LineCableModels.formulation_options === Grammar.formulation_options
     @test LineCableModels.computation_options === Grammar.computation_options
+    @test getproperty(LineCableModels, Symbol("@observe")) ===
+          getproperty(Grammar, Symbol("@observe"))
+    struct UnregisteredDetailsOwner end
+    @test_throws MethodError Grammar.computation_details(
+        Val(UnregisteredDetailsOwner),
+        nothing
+    )
+    @test_throws MethodError Grammar.computation_details(nothing)
     for name in (
         :Grid, :AbsoluteError, :DeterministicGrid, :RelativeGrid, :AbsoluteGrid,
         :AbstractGrid, :AbstractUncertainGrid, :UncertainValue,
@@ -99,6 +112,149 @@
     @test isdefined(LineCableModels.DataModel, :Tubular)
     @test isdefined(LineCableModels.Materials, :Material)
     @test !isdefined(LineCableModels, :Configuration)
+end
+
+@testitem "ParametricBuilder and UQ / supplemental output / external owner retention" tags=[:unit] begin
+    using Statistics
+
+    const Grammar=LineCableModels.Grammar
+    const PB=LineCableModels.ParametricBuilder
+    const UQ=LineCableModels.UQ
+
+    struct SupplementalProblem <: Grammar.AbstractProblemDefinition
+        value::Float64
+    end
+    struct SupplementalFormulation <: Grammar.AbstractFormulation end
+    struct SupplementalResult <: Grammar.AbstractProblemResult
+        value::Float64
+        raw::Dict{String, Any}
+    end
+
+    function Grammar.compute(
+            problem::SupplementalProblem,
+            ::SupplementalFormulation;
+            options::NamedTuple = (;)
+    )
+        isempty(options) || throw(ArgumentError("supplemental test options must be empty"))
+        return SupplementalResult(
+            problem.value,
+            Dict{String, Any}("coordinate" => problem.value)
+        )
+    end
+
+    function Grammar.computation_details(
+            ::Val{SupplementalFormulation},
+            output::SupplementalResult
+    )::Grammar.ComputationDetails
+        return (
+            diagnostics = (iterations = 1,),
+            raw = output.raw
+        )
+    end
+
+    UQ._observable_count(::SupplementalResult) = 1
+    UQ._sample_storage(::SupplementalResult, trials::Int) = Vector{Float64}(undef, trials)
+    UQ._sample_axis(::SupplementalResult) = nothing
+    function UQ._record_sample!(
+            storage::Vector{Float64},
+            value::SupplementalResult,
+            trial::Int,
+            ::Nothing
+    )
+        storage[trial] = value.value
+        return storage
+    end
+    function UQ._aggregate(
+            storage::Vector{Float64},
+            ::SupplementalResult,
+            ::UQ.MonteCarlo
+    )
+        summary = UQ.SampleSummary(storage)
+        representation = SupplementalResult(
+            summary.mean,
+            Dict{String, Any}("aggregate" => summary.mean)
+        )
+        return (
+            representation,
+            statistics = summary,
+            samples = nothing,
+            histograms = nothing
+        )
+    end
+
+    formulation=SupplementalFormulation()
+    deterministic_space=PB.Gridspace{SupplementalProblem}(
+        SupplementalProblem,
+        (PB.Grid((1.0, 2.0)),)
+    )
+    problem=PB.ParametricProblem(deterministic_space)
+
+    ordinary=Grammar.compute(problem, PB.Combinatorial(formulation))
+    @test Grammar.details(ordinary) === (;)
+    @test fieldtype(typeof(ordinary), :details) === @NamedTuple{}
+
+    retained=Grammar.compute(
+        problem,
+        PB.Combinatorial(
+            formulation;
+            options = (retain_details = true,)
+        )
+    )
+    @test @inferred(Grammar.details(retained)) === retained.details
+    @test length(retained.details.points) == 2
+    @test retained.details.points[1].diagnostics == (iterations = 1,)
+    @test retained.details.points[2].raw["coordinate"] == 2.0
+    @test fieldtype(typeof(retained), :details) <: NamedTuple
+
+    uncertain_space=PB.Gridspace{SupplementalProblem}(
+        SupplementalProblem,
+        (PB.Grid(1.0, 5.0),)
+    )
+    monte_problem=PB.ParametricProblem(uncertain_space)
+    default_monte=Grammar.compute(
+        monte_problem,
+        UQ.MonteCarlo(formulation; trials = 3, seed = 41)
+    )
+    @test Grammar.details(default_monte) === (;)
+
+    retained_monte=Grammar.compute(
+        monte_problem,
+        UQ.MonteCarlo(
+            formulation;
+            trials = 3,
+            seed = 41,
+            options = (retain_details = true,)
+        )
+    )
+    @test length(retained_monte.details.trials) == 1
+    @test length(only(retained_monte.details.trials)) == 3
+    @test all(
+        record -> keys(record) == (:diagnostics, :raw),
+        only(retained_monte.details.trials)
+    )
+    @test retained_monte.root_seed == default_monte.root_seed
+    @test retained_monte.point_seeds == default_monte.point_seeds
+    @test retained_monte.trial_counts == default_monte.trial_counts
+    @test only(result(retained_monte)).value == only(result(default_monte)).value
+
+    @test Grammar.computation_options(Val(PB.Combinatorial), (;)) ==
+          (retain_details = false,)
+    @test Grammar.computation_options(Val(UQ.LinearError), (;)) ==
+          (retain_details = false,)
+    @test Grammar.computation_options(Val(UQ.MonteCarlo), (;)) ==
+          (retain_details = false,)
+    @test_throws ArgumentError Grammar.computation_options(
+        Val(PB.Combinatorial),
+        (retain_details = :yes,)
+    )
+    @test_throws ArgumentError Grammar.computation_options(
+        Val(UQ.MonteCarlo),
+        (unknown = true,)
+    )
+    @test_throws MethodError Grammar.computation_options(
+        Val(PB.Combinatorial),
+        Dict(:retain_details => true)
+    )
 end
 
 @testitem "Engine / grammar / strict analytical and computation options" tags=[:unit] setup=[
@@ -260,7 +416,8 @@ end
     @test direct isa ParametricResult{<:CableConstants}
     @test length(direct) == 2
     @test all(value -> value.R isa Measurement, direct)
-    @test fieldnames(typeof(direct)) == (:formulation, :values)
+    @test fieldnames(typeof(direct)) == (:formulation, :values, :details)
+    @test @inferred(details(direct)) === (;)
     @test_throws MethodError observables(direct)
 
     fixed_design=PB.CableBuilder(
@@ -281,6 +438,14 @@ end
     )
     @test singleton isa ParametricResult{<:CableConstants}
     @test length(singleton) == 1
+    retained_singleton=compute(
+        ParametricProblem(singleton_space),
+        Combinatorial(
+            formulation;
+            options = (retain_details = true,)
+        )
+    )
+    @test retained_singleton.details == (points = [(;)],)
 
     policy=MonteCarlo(
         formulation;
@@ -298,6 +463,7 @@ end
     @test minimum(samples(monte_carlo)[1].R) >
           maximum(samples(monte_carlo)[2].R)
     @test monte_carlo.root_seed == UInt64(0x1234)
+    @test @inferred(details(monte_carlo)) === (;)
     @test_throws MethodError observables(monte_carlo)
     @test observe(first(statistics(monte_carlo)), R, mean) ==
           mean(first(samples(monte_carlo)).R)
@@ -363,7 +529,8 @@ end
 
     propagated=compute(ParametricProblem(space), LinearError(formulation))
     @test propagated isa LinearErrorResult{<:CableConstants}
-    @test fieldnames(typeof(propagated)) == (:formulation, :values)
+    @test fieldnames(typeof(propagated)) == (:formulation, :values, :details)
+    @test @inferred(details(propagated)) === (;)
     @test_throws MethodError observables(propagated)
     @test Measurements.cov(first(propagated).R, first(propagated).L) != 0
     @test !applicable(Measurements.measurement, monte_carlo)

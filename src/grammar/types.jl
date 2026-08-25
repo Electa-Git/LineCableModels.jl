@@ -39,3 +39,5 @@ abstract type AbstractUncertaintyResult{T} <: AbstractProblemResult end
 const FormulationOptions = NamedTuple
 "Alias identifying an execution-owned named-tuple option record."
 const ComputationOptions = NamedTuple
+"Alias identifying an immutable computation-owned supplemental-output record."
+const ComputationDetails = NamedTuple

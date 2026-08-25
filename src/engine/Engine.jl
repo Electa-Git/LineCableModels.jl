@@ -47,7 +47,9 @@ import ..LineCableModels: basis, R, L, C, resistance, inductance, capacitance
 import ..LineCableModels: nominal, standard_uncertainty
 import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
                   AbstractProblemResult, FormulationOptions, ComputationOptions,
-                  formulation_options, computation_options, compute, observe, observables
+                  ComputationDetails,
+                  formulation_options, computation_options, computation_details,
+                  compute, observe, observables
 
 using ..Units
 using ..PlotBuilder

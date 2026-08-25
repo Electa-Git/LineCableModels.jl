@@ -17,9 +17,9 @@ module Grammar
 
 export AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult
 export AbstractParametricResult, AbstractUncertaintyResult
-export FormulationOptions, ComputationOptions
-export formulation_options, computation_options
-export compute, observe, observables, primitives, preprocess
+export FormulationOptions, ComputationOptions, ComputationDetails
+export formulation_options, computation_options, computation_details, details
+export compute, observe, @observe, observables, primitives, preprocess
 export nominal, standard_uncertainty
 
 using DocStringExtensions: SIGNATURES, TYPEDEF

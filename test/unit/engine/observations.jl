@@ -20,6 +20,13 @@
     @test @inferred(observe(parameters, Z, 1, 1, 1)) === impedance[1, 1, 1]
     @test @inferred(observe(parameters, R, 1, 1, 1)) === resistance[1, 1, 1]
     @test @inferred(observe(parameters, L, 1, 1, 1)) ≈ inductance[1, 1, 1]
+    @test @observe(parameters, Z[1, 1, :]) == impedance[1, 1, :]
+    i, j, samples=1, 1, 1:2
+    @test @observe(parameters, L[i, j, samples]) ≈ inductance[1, 1, :]
+    @test_throws ArgumentError macroexpand(
+        @__MODULE__,
+        :(@observe parameters Z[1, 1])
+    )
     observe(parameters, Z, 1, 1, 1)
     observe(parameters, R, 1, 1, 1)
     @test @allocated(observe(parameters, Z, 1, 1, 1)) == 0

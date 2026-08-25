@@ -17,13 +17,15 @@ import ..LineCableModels: PhaseDomain, basis, domain, frequencies, R, L, C
 import ..DataModel
 import ..Engine
 import ..Grammar
-import ..Grammar: compute, observe, observables
+import ..Grammar: compute, computation_options, computation_details, details,
+                  observe, observables
 import ..ParametricBuilder
 import ..ParametricBuilder: result
 import ..PlotBuilder
 import ..Units
 using ..Grammar:
-                 AbstractFormulation, AbstractProblemResult, AbstractUncertaintyResult
+                 AbstractFormulation, AbstractProblemResult, AbstractUncertaintyResult,
+                 ComputationOptions, ComputationDetails
 using ..ParametricBuilder:
                            ParametricProblem
 

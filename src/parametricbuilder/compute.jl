@@ -53,6 +53,8 @@ end
 
 _append_result(::Nothing, value) = typeof(value)[value]
 
+_computation_owner(formulation) = Base.typename(typeof(formulation)).wrapper
+
 function _append_result(values::Vector{T}, value) where {T}
     value isa T && (push!(values, value); return values)
     W = typejoin(T, typeof(value))
@@ -67,6 +69,7 @@ end
 
 function _traverse(problem::ParametricProblem, formulation, result_type)
     values = nothing
+    retained = nothing
     for point in points(problem.space)
         primitive_problem = materialize(point)
         primitive_result = compute(
@@ -75,9 +78,18 @@ function _traverse(problem::ParametricProblem, formulation, result_type)
             options = problem.options
         )
         values = _append_result(values, primitive_result)
+        if formulation.options.retain_details
+            record = computation_details(
+                Val(_computation_owner(formulation.inner)),
+                primitive_result
+            )
+            retained = _append_result(retained, record)
+        end
     end
     typed_values = values === nothing ? AbstractProblemResult[] : values
-    return result_type(formulation, typed_values)
+    retained_details = formulation.options.retain_details ?
+                       (points = something(retained, NamedTuple[]),) : (;)
+    return result_type(formulation, typed_values, retained_details)
 end
 
 function compute(problem::ParametricProblem, formulation::Combinatorial)

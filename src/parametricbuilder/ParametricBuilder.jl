@@ -32,10 +32,12 @@ using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
 using Random
 import ..LineCableModels: add!, maxfill
 import ..Grammar
-import ..Grammar: compute, nominal, standard_uncertainty
+import ..Grammar: compute, computation_options, computation_details, details,
+                  nominal, standard_uncertainty
 using ..Grammar:
                  AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult,
-                 AbstractParametricResult, AbstractUncertaintyResult
+                 AbstractParametricResult, AbstractUncertaintyResult,
+                 ComputationOptions, ComputationDetails
 import ..Materials
 import ..Materials: Material
 import ..DataModel
