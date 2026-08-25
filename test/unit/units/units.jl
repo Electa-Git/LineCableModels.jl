@@ -58,6 +58,15 @@ end
           "mΩ/km"
     @test U.label(U.display_unit(U.quantity(C), :total; prefix = :nano)) == "nF"
     @test_throws ArgumentError U.display_unit(U.quantity(R), :invalid)
+
+    @test quantity(R) isa U.Quantity{:series_resistance}
+    @test label(R) == "Series resistance"
+    @test symbol(R) == "R"
+    @test label(native_unit(R, :pul)) == "Ω/m"
+    @test label(display_unit(R, :pul)) == "Ω/km"
+    @test label(display_unit(R, :total)) == "Ω"
+    @test scale_factor(R, display_unit(R)) == 1_000.0
+    @test scale_factor(R, :pul, display_unit(R, :pul)) == 1_000.0
 end
 
 @testitem "Units / transforms and angular conversion" tags = [:unit] begin
@@ -77,8 +86,44 @@ end
     @test U.label(U.native_unit(z_angle)) == "rad"
     @test U.label(U.display_unit(z_angle)) == "°"
     @test U.scale_factor(U.native_unit(z_angle), U.display_unit(z_angle)) ≈ 180 / π
+    @test quantity(Z, abs) isa U.Quantity{(:series_impedance, :magnitude)}
+    @test label(Z, abs) == "Series impedance magnitude"
+    @test symbol(Z, abs) == "|Z|"
+    @test symbol(Z, angle) == "∠Z"
+    @test label(native_unit(Z, angle)) == "rad"
+    @test label(display_unit(Z, angle)) == "°"
+    @test label(native_unit(Z, angle, :pul)) == "rad"
+    @test label(display_unit(Z, angle, :pul)) == "°"
+    @test scale_factor(Z, angle, display_unit(Z, angle)) ≈ 180 / π
+    @test scale_factor(Z, angle, :pul, display_unit(Z, angle, :pul)) ≈ 180 / π
     @test_throws MethodError U.quantity(Z, :abs)
     @test_throws MethodError U.quantity(identity)
+end
+
+@testitem "Units / selector metadata / extension locality" tags = [:unit] begin
+    const U = LineCableModels.Units
+
+    profile_response() = nothing
+    U.quantity(::typeof(profile_response)) = U.Quantity{:profile_response}()
+    U.native_unit(::U.Quantity{:profile_response}) = U.units(:base, :ohm)
+    U.display_unit(::U.Quantity{:profile_response}) = U.units(:milli, :ohm)
+    U.label(::U.Quantity{:profile_response}) = "Profile response"
+    U.symbol(::U.Quantity{:profile_response}) = "u"
+
+    @test quantity(profile_response) isa U.Quantity{:profile_response}
+    @test label(profile_response) == "Profile response"
+    @test symbol(profile_response) == "u"
+    @test native_unit(profile_response) == U.units(:base, :ohm)
+    @test native_unit(profile_response, :pul) == U.units(:base, :ohm)
+    @test display_unit(profile_response) == U.units(:milli, :ohm)
+    @test display_unit(profile_response, :pul) == U.units(:milli, :ohm)
+    @test scale_factor(profile_response, U.units(:milli, :ohm)) == 1_000.0
+    @test scale_factor(profile_response, :pul, U.units(:milli, :ohm)) == 1_000.0
+
+    unregistered_selector() = nothing
+    @test_throws MethodError quantity(unregistered_selector)
+    @test_throws MethodError label(unregistered_selector)
+    @test_throws MethodError display_unit(unregistered_selector, :pul)
 end
 
 @testitem "Units / locked public vocabulary" tags = [:unit] begin
@@ -93,6 +138,15 @@ end
     @test isbitstype(U.Quantity{:series_resistance})
     @test fieldcount(U.Quantity{:series_resistance}) == 0
     @test !isdefined(U, :QuantityTag)
+    for name in (:quantity, :native_unit, :display_unit, :scale_factor, :label, :symbol)
+        @test name in names(LineCableModels)
+        @test getfield(LineCableModels, name) === getfield(U, name)
+    end
+    for name in (:Quantity, :Unit, :UnitExpr)
+        @test name ∉ names(LineCableModels)
+        @test !isdefined(LineCableModels, name)
+    end
+    @test !isdefined(LineCableModels, :QuantityTag)
     @test !isdefined(LineCableModels, :QuantityUnits)
     @test !isdefined(U, :default_unit)
     @test !isdefined(U, :get_label)

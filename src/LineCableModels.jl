@@ -19,6 +19,7 @@ export AbstractParametricResult, AbstractUncertaintyResult
 export FormulationOptions, ComputationOptions, ComputationDetails
 export formulation_options, computation_options, computation_details, details
 export compute, observe, @observe, observables, primitives, preprocess
+export quantity, native_unit, display_unit, scale_factor, label, symbol
 export basis, domain, frequencies, nconductors, nfrequencies, ncables, nphases
 export Z, Y, R, X, L, G, B, C
 export series_impedance, shunt_admittance,
@@ -60,6 +61,7 @@ include("retired.jl")
 
 # Submodule `Units`
 include("units/Units.jl")
+using .Units: quantity, native_unit, display_unit, scale_factor, label, symbol
 
 # Package-local shared calculation grammar.
 include("grammar/Grammar.jl")

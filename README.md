@@ -100,6 +100,10 @@ R(line_parameters, 1, 1)       # complete frequency response
 Z(line_parameters, 1, 1, 2:5) # selected frequency samples
 @observe line_parameters Z[1, 2, :]
 abs.(Z(line_parameters, 1, 1))
+
+label(R)                         # "Series resistance"
+symbol(Z, angle)                 # "∠Z"
+label(display_unit(R, :pul))     # "Ω/km"
 ```
 
 Complete parameter traversals return `ParametricResult{T}`, including a space

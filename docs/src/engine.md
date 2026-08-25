@@ -74,11 +74,55 @@ Every published field contains only `values`, `quantity`, and `unit`.
 Publication converts and detaches `values`; it does not attach labels, result
 objects, execution options, Gridspace points, or Monte Carlo context.
 
-`LineCableModels.Units` owns `Unit`, `UnitExpr`, `QuantityTag`, `units`,
+`LineCableModels.Units` owns `Unit`, `UnitExpr`, `Quantity`, `units`,
 `quantity`, `native_unit`, `display_unit`, `scale_factor`, `label`, and
 `symbol`. PlotBuilder derives scientific axes from publication payloads.
 ReportBuilder derives human-facing tables through `report`. Neither consumer
 owns a quantity map, physical transform, or ordinary scientific unit string.
+
+`Quantity{Q}` is a fieldless typed identity for extension methods and internal
+publication payloads. Ordinary calls use scientific selector functions:
+
+```julia
+label(R)
+symbol(Z, angle)
+native_unit(R, :pul)
+display_unit(Z, abs, :total)
+```
+
+The selector methods delegate through `quantity`; they do not contain a second
+label or unit map. An external selector adds its identity and metadata at the
+Units boundary:
+
+```julia
+function profile_response end
+
+LineCableModels.Units.quantity(::typeof(profile_response)) =
+    LineCableModels.Units.Quantity{:profile_response}()
+
+LineCableModels.Units.native_unit(
+    ::LineCableModels.Units.Quantity{:profile_response},
+) = LineCableModels.Units.units(:base, :ohm)
+
+LineCableModels.Units.display_unit(
+    ::LineCableModels.Units.Quantity{:profile_response},
+) = LineCableModels.Units.units(:milli, :ohm)
+
+LineCableModels.Units.label(
+    ::LineCableModels.Units.Quantity{:profile_response},
+) = "Profile response"
+
+LineCableModels.Units.symbol(
+    ::LineCableModels.Units.Quantity{:profile_response},
+) = "u"
+
+label(profile_response)
+display_unit(profile_response)
+```
+
+`Quantity`, `Unit`, and `UnitExpr` remain qualified extension vocabulary. The
+package root exports only the six metadata functions used with scientific
+selectors.
 
 Higher-order results remain containers of owned products. `result`,
 `statistics`, `samples`, and `histograms` select those products; they are not

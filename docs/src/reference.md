@@ -107,6 +107,25 @@ identity. Labels and symbols are derived from `LineCableModels.Units`, not
 copied into the payload. `observables(typeof(result))` declares the supported
 selector vocabulary. There is no zero-argument result publication method.
 
+The same selectors provide quantity metadata directly:
+
+```julia
+using LineCableModels
+
+label(R)                             # "Series resistance"
+symbol(R)                            # "R"
+label(display_unit(R, :pul))         # "Ω/km"
+
+label(Z, abs)                        # "Series impedance magnitude"
+symbol(Z, angle)                     # "∠Z"
+label(display_unit(Z, angle, :pul))  # "°"
+```
+
+`quantity(R)` returns the fieldless typed identity
+`LineCableModels.Units.Quantity{:series_resistance}()`. This type is used by
+extensions and publication payloads; ordinary result access continues to use
+`R`, `Z`, and the other scientific selector functions.
+
 A complete deterministic traversal returns `ParametricResult{T}`. Direct
 propagation returns `LinearErrorResult{T}`, and conditional sampling returns
 `MonteCarloResult{T}`. In every family, `T` is the primitive `CableConstants`
