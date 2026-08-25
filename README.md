@@ -132,12 +132,15 @@ length. Composite calculations select their operation explicitly, for example
 Human-facing XLSX output is a ReportBuilder operation:
 
 ```julia
+using XLSX
+
 artifact = report(XLSXReport(file_name="line_parameters.xlsx"), line_parameters)
 artifact.output
 ```
 
-The established `export_data(:xlsx, line_parameters; ...)` call delegates to
-the same report and returns its output path.
+XLSX is an optional dependency; loading it activates the workbook writer. The
+established `export_data(:xlsx, line_parameters; ...)` call delegates to the
+same report and returns its output path.
 
 ## Retired FEM and sector support
 

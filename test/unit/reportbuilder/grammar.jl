@@ -181,6 +181,9 @@ end
 
     const RB=LineCableModels.ReportBuilder
     const IE=LineCableModels.ImportExport
+    xlsx_extension=Base.get_extension(LineCableModels, :LineCableModelsXLSXExt)
+    @test xlsx_extension !== nothing
+    @test any(method -> method.module === xlsx_extension, methods(RB.write))
 
     frequency=[50.0, 500.0]
     impedance=Array{ComplexF64}(undef, 2, 2, 2)
@@ -274,6 +277,7 @@ end
     @test !isdefined(IE, :XLSXWorkbook)
     @test !isdefined(IE, :_write_xlsx_sheet!)
     @test !isdefined(IE, :df_to_strings)
+    @test !isdefined(RB, :_write_xlsx_sheet!)
 end
 
 @testitem "ReportBuilder / adapters / completed results delegate" tags=[:unit] setup=[

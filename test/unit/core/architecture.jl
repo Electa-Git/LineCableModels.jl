@@ -85,7 +85,8 @@ end
         joinpath("src", "uq", "UQ.jl"),
         joinpath("src", "reportbuilder", "ReportBuilder.jl"),
         joinpath("src", "importexport", "ImportExport.jl"),
-        joinpath("ext", "LineCableModelsMakieExt", "LineCableModelsMakieExt.jl")
+        joinpath("ext", "LineCableModelsMakieExt", "LineCableModelsMakieExt.jl"),
+        joinpath("ext", "LineCableModelsXLSXExt.jl")
     )
     @test all(isfile(joinpath(root, path)) for path in expected_entries)
 
@@ -146,8 +147,13 @@ end
     reportbuilder_index=source[joinpath("src", "reportbuilder", "ReportBuilder.jl")]
     @test !occursin("using XLSX", importexport_index)
     @test !occursin("include(\"xlsx.jl\")", importexport_index)
-    @test occursin("using XLSX", reportbuilder_index)
+    @test !occursin("using XLSX", reportbuilder_index)
     @test occursin("include(\"xlsx.jl\")", reportbuilder_index)
+    @test all(!occursin(r"^\s*(using|import)\s+XLSX"m, contents)
+    for contents in values(source))
+    xlsx_extension=read(joinpath(extension_root, "LineCableModelsXLSXExt.jl"), String)
+    @test occursin("using XLSX", xlsx_extension)
+    @test occursin("function ReportBuilder.write", xlsx_extension)
 
     for pattern in (
         r"details\s*::\s*Dict",

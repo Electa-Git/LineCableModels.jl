@@ -12,8 +12,6 @@ export entitle, select, tabulate, illustrate, encode, write, finish
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using LinearAlgebra
 using Printf
-using Tables
-using XLSX
 import DataFrames: DataFrame, metadata, metadatakeys, metadata!
 import ..Grammar: observables
 import ..Units

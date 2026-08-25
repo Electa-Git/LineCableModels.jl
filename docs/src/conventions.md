@@ -47,14 +47,16 @@ Apply these rules when adding or moving code:
    with `eval` or registration machinery. Sibling communication follows a
    directed import graph.
 7. Keep optional-package translations in Julia package extensions. Core
-   `src/` may define renderer-independent values and explicit unavailable-feature
-   fallbacks, but it must not import Makie or contain Makie UI implementation.
+   `src/` may define package-neutral requests and encoded values, but it must
+   not import the optional package. Makie rendering and XLSX workbook writing
+   therefore live under `ext/`.
 8. Keep development-only environments and manual diagnostics under `dev/`,
    not `src/` or the automated test tree.
 9. Assign file formats by purpose. ReportBuilder owns human-facing tables and
-   workbooks; ImportExport owns lossless persistence and external-tool
-   interchange. The line-parameter workbook therefore lives in
-   `reportbuilder/xlsx.jl`, while ATP, PSCAD, and TRALIN translations remain in
+   workbook descriptions; ImportExport owns lossless persistence and
+   external-tool interchange. The line-parameter workbook model therefore
+   lives in `reportbuilder/xlsx.jl`, its XLSX.jl writer lives in the package
+   extension, and ATP, PSCAD, and TRALIN translations remain in
    `importexport/`.
 
 The following sanitised snapshot is the reference shape. The snapshot omits leaf files
@@ -124,9 +126,10 @@ src/
         └── import.jl
 
 ext/
-└── LineCableModelsMakieExt/
-    ├── LineCableModelsMakieExt.jl     # Makie extension index
-    └── UIComponents.jl                # Makie-owned translation and controls
+├── LineCableModelsMakieExt/
+│   ├── LineCableModelsMakieExt.jl     # Makie extension index
+│   └── UIComponents.jl                # Makie-owned translation and controls
+└── LineCableModelsXLSXExt.jl          # XLSX workbook writer
 
 dev/
 └── plotting/                          # manual plotting environment

@@ -335,6 +335,8 @@ nothing`.
 [`XLSXReport`](@ref) owns the human-facing line-parameter workbook:
 
 ```julia
+using XLSX
+
 artifact = report(
     XLSXReport(file_name="line_parameters.xlsx"),
     parameters,
@@ -343,7 +345,8 @@ artifact.output
 ```
 
 ReportBuilder selects values through `observables`, builds the matrix tables,
-encodes the workbook sheets, writes the file, and records the resolved path in
-[`ReportArtifact`](@ref). `export_data(:xlsx, parameters; ...)` remains a thin
-ImportExport convenience call that returns the same path. ImportExport owns no
-second workbook implementation.
+and encodes the workbook sheets. Loading XLSX activates the package extension
+that writes those sheets and records the resolved path in [`ReportArtifact`](@ref).
+`export_data(:xlsx, parameters; ...)` remains a thin ImportExport convenience
+call that returns the same path. ImportExport owns no second workbook
+implementation.

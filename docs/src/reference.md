@@ -166,6 +166,8 @@ for the sample mean.
 workbooks use [`XLSXReport`](@ref):
 
 ```julia
+using XLSX
+
 artifact = report(
     XLSXReport(file_name="line_parameters.xlsx"),
     parameters,
@@ -173,9 +175,10 @@ artifact = report(
 artifact.output
 ```
 
-The retained `export_data(:xlsx, parameters; ...)` convenience call delegates
-to this report and returns `artifact.output`. ImportExport contains no separate
-XLSX workbook path.
+Loading XLSX activates the writer extension. The retained
+`export_data(:xlsx, parameters; ...)` convenience call delegates to this report
+and returns `artifact.output`. ImportExport contains no separate XLSX workbook
+path.
 
 After loading a Makie package, retained samples and histograms can be displayed
 through the maintained Monte Carlo recipe:
