@@ -163,30 +163,20 @@ function Makie.plot(
     return plot(first, second, rest...; kwargs...)
 end
 
-function _monte_carlo_quantity(expression)
-    expression isa Symbol && return expression, nothing
-    if expression isa Expr && expression.head === :ref && length(expression.args) == 4
-        return Symbol(expression.args[1]), Tuple(Int.(expression.args[2:4]))
-    end
-    throw(ArgumentError("use a quantity Symbol and optional ijk=(i,j,k)"))
-end
-
 function plot(
         result::LineCableModels.MonteCarloResult,
-        expression = :R;
+        selector::Function = LineCableModels.R;
         ijk = nothing,
         backend = nothing,
         display_plot::Bool = true,
         controls::Bool = true,
         kwargs...
 )
-    quantity, parsed_indices = _monte_carlo_quantity(expression)
-    selection = ijk === nothing ? parsed_indices : ijk
     render_spec = PlotBuilder.make_render(
         LineCableModels.UQ.MCDistributionPlotDefinition,
         result;
-        quantity,
-        ijk = selection,
+        selector,
+        ijk,
         kwargs...
     )
     return only(UIComponents.build(render_spec; backend, display = display_plot, controls))
@@ -194,10 +184,10 @@ end
 
 function Makie.plot(
         result::LineCableModels.MonteCarloResult,
-        expression = :R;
+        selector::Function = LineCableModels.R;
         kwargs...
 )
-    return plot(result, expression; kwargs...)
+    return plot(result, selector; kwargs...)
 end
 
 function preview(

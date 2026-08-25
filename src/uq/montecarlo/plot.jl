@@ -6,31 +6,6 @@ cumulative distributions, and Q-Q plots.
 """
 struct MCDistributionPlotDefinition <: PlotBuilder.AbstractPlotDefinition end
 
-Units.label(::Units.QuantityTag{:sample_count}) = "Count"
-Units.symbol(::Units.QuantityTag{:sample_count}) = "n"
-Units.label(::Units.QuantityTag{:probability}) = "Probability"
-Units.symbol(::Units.QuantityTag{:probability}) = "p"
-Units.label(::Units.QuantityTag{:cumulative_probability}) = "Cumulative probability"
-Units.symbol(::Units.QuantityTag{:cumulative_probability}) = "F"
-Units.label(::Units.QuantityTag{:probability_density}) = "Probability density"
-Units.symbol(::Units.QuantityTag{:probability_density}) = "p"
-
-const _DimensionlessStatisticalQuantity = Union{
-    Units.QuantityTag{:sample_count},
-    Units.QuantityTag{:probability},
-    Units.QuantityTag{:cumulative_probability}
-}
-Units.native_unit(::_DimensionlessStatisticalQuantity) = Units.units(:base, :dimensionless)
-Units.display_unit(::_DimensionlessStatisticalQuantity) = Units.units(:base, :dimensionless)
-
-function _mc_selector(quantity::Symbol)
-    quantity === :R && return R
-    quantity === :L && return L
-    quantity === :C && return C
-    quantity === :G && return Engine.G
-    throw(ArgumentError("unsupported Monte Carlo quantity :$quantity"))
-end
-
 function _mc_plot_exponent(series, field::Symbol)
     maximum_value = 0.0
     for item in series
@@ -48,9 +23,9 @@ function _mc_plot_exponent(series, field::Symbol)
     return abs(exponent) < 3 ? 0 : exponent
 end
 
-function _mc_selection(::DataModel.CableConstants, statistics, quantity::Symbol, ijk)
-    quantity in (:R, :L, :C) || throw(
-        ArgumentError("cable-constant quantities are :R, :L, and :C"),
+function _mc_selection(::DataModel.CableConstants, statistics, selector::Function, ijk)
+    selector in (R, L, C) || throw(
+        ArgumentError("cable-constant selectors are R, L, and C"),
     )
     ijk === nothing || throw(
         ArgumentError("cable-constant Monte Carlo results do not use matrix indices"),
@@ -61,17 +36,16 @@ end
 function _mc_selection(
         ::Engine.LineParameters,
         statistics,
-        quantity::Symbol,
+        selector::Function,
         ijk
 )
-    quantity in (:R, :L, :C, :G) || throw(
-        ArgumentError("line-parameter quantities are :R, :L, :C, and :G"),
+    selector in (R, L, C, Engine.G) || throw(
+        ArgumentError("line-parameter selectors are R, L, C, and G"),
     )
     selection = ijk === nothing ? (1, 1, 1) : ijk
     selection isa NTuple{3, Int} || throw(
         ArgumentError("ijk must be a tuple (i, j, k)"),
     )
-    selector = _mc_selector(quantity)
     observable = observe(statistics, selector)
     checkbounds(observable, selection...)
     return selection
@@ -82,22 +56,18 @@ function _mc_request(selector, selection, retained_samples::Bool)
     return retained_samples ? (selector, selection..., Colon()) : (selector, selection...)
 end
 
-function _mc_quantity_prefix(quantity_units, quantity::Symbol, fallback::Symbol)
+function _mc_quantity_prefix(quantity_units, fallback::Symbol)
     quantity_units === nothing && return fallback
     quantity_units isa Symbol && return quantity_units
-    quantity_units isa NamedTuple || quantity_units isa AbstractDict ||
-        throw(
-            ArgumentError("quantity_units must be a prefix, keyed collection, or nothing"),
-        )
-    return haskey(quantity_units, quantity) ? quantity_units[quantity] : fallback
+    quantity_units isa Units.UnitExpr && return quantity_units
+    throw(ArgumentError("quantity_units must be a prefix, UnitExpr, or nothing"))
 end
 
-function _mc_target_unit(product, quantity::Symbol, length_unit, quantity_units)
-    tag = Units.quantity(_mc_selector(quantity))
+function _mc_target_unit(product, selector::Function, length_unit, quantity_units)
+    tag = Units.quantity(selector)
     default = Units.display_unit(tag, basis(product); length_prefix = length_unit)
     prefix = _mc_quantity_prefix(
         quantity_units,
-        quantity,
         first(default.numerator).prefix
     )
     prefix isa Units.UnitExpr && return tag, prefix
@@ -150,7 +120,7 @@ end
 
 function _mc_input_defaults()
     return (;
-        quantity = :R,
+        selector = R,
         ijk = nothing,
         mode = :hist,
         data = :samples,
@@ -164,7 +134,7 @@ end
 PlotBuilder.dispatch_on(::Type{MCDistributionPlotDefinition}) = MonteCarloResult
 function PlotBuilder.input_kwargs(::Type{MCDistributionPlotDefinition})
     return (
-        :quantity,
+        :selector,
         :ijk,
         :mode,
         :data,
@@ -198,7 +168,7 @@ function PlotBuilder.resolve(
         recipe::PlotBuilder.PlotRecipe
 )
     input = recipe.input
-    input.quantity isa Symbol || throw(ArgumentError("quantity must be a Symbol"))
+    input.selector isa Function || throw(ArgumentError("selector must be a function"))
     input.mode in (:hist, :pdf, :ecdf, :qq) || throw(
         ArgumentError("mode must be :hist, :pdf, :ecdf, or :qq"),
     )
@@ -219,11 +189,10 @@ function PlotBuilder.resolve(
     recipe.renderer.fig_size isa Tuple{Int, Int} || throw(
         ArgumentError("fig_size must be a tuple of two integers"),
     )
-    selector = _mc_selector(input.quantity)
     return PlotBuilder.PlotRecipe(
         MCDistributionPlotDefinition,
         recipe.object,
-        merge(input, (; selector)),
+        input,
         recipe.renderer
     )
 end
@@ -241,12 +210,12 @@ function PlotBuilder.fetch(
     selection = _mc_selection(
         representation,
         statistic_product,
-        input.quantity,
+        input.selector,
         input.ijk
     )
     tag, target = _mc_target_unit(
         statistic_product,
-        input.quantity,
+        input.selector,
         input.length_unit,
         input.quantity_units
     )
@@ -706,7 +675,7 @@ function PlotBuilder.view_key(
         recipe::PlotBuilder.PlotRecipe, page_key, view_key
 )
     return (;
-        quantity = recipe.input.quantity,
+        selector = recipe.input.selector,
         selection = recipe.input.selection,
         mode = recipe.input.mode
     )
@@ -732,7 +701,7 @@ function PlotBuilder.page_identity(
         recipe::PlotBuilder.PlotRecipe, page_key
 )
     return (;
-        quantity = recipe.input.quantity,
+        selector = recipe.input.selector,
         selection = recipe.input.selection,
         mode = recipe.input.mode,
         data = recipe.input.data

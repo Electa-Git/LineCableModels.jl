@@ -138,13 +138,13 @@ through the maintained Monte Carlo recipe:
 ```julia
 using CairoMakie
 
-plot(result, :R; mode=:hist, data=:both)
-plot(result, :R; mode=:pdf)
-plot(result, :R; mode=:ecdf, data=:both)
-plot(result, :R; mode=:qq)
+plot(result, R; mode=:hist, data=:both)
+plot(result, R; mode=:pdf)
+plot(result, R; mode=:ecdf, data=:both)
+plot(result, R; mode=:qq)
 
 # Select one line-parameter matrix entry and frequency:
-plot(line_result, :L; ijk=(1, 1, 3), mode=:hist)
+plot(line_result, L; ijk=(1, 1, 3), mode=:hist)
 ```
 
 The `:pdf`, `:ecdf`, and `:qq` views use the retained piecewise-constant

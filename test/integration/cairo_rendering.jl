@@ -400,7 +400,7 @@
         for mode in (:hist, :pdf, :ecdf, :qq)
             mc_plot=Makie.plot(
                 mc_result,
-                :R;
+                R;
                 mode,
                 data = :both,
                 backend = :cairo,
@@ -457,7 +457,7 @@
         for mode in (:hist, :pdf, :ecdf, :qq)
             line_mc_plot=Makie.plot(
                 line_mc,
-                :R;
+                R;
                 ijk = (1, 1, 2),
                 mode,
                 data = :both,

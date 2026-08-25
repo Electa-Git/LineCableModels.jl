@@ -1,6 +1,23 @@
 "Return primitive results in Gridspace traversal order."
 result(value::Union{LinearErrorResult, MonteCarloResult}) = value.values
 
+Units.label(::Units.QuantityTag{:sample_count}) = "Count"
+Units.symbol(::Units.QuantityTag{:sample_count}) = "n"
+Units.label(::Units.QuantityTag{:probability}) = "Probability"
+Units.symbol(::Units.QuantityTag{:probability}) = "p"
+Units.label(::Units.QuantityTag{:cumulative_probability}) = "Cumulative probability"
+Units.symbol(::Units.QuantityTag{:cumulative_probability}) = "F"
+Units.label(::Units.QuantityTag{:probability_density}) = "Probability density"
+Units.symbol(::Units.QuantityTag{:probability_density}) = "p"
+
+const _DimensionlessStatisticalQuantity = Union{
+    Units.QuantityTag{:sample_count},
+    Units.QuantityTag{:probability},
+    Units.QuantityTag{:cumulative_probability}
+}
+Units.native_unit(::_DimensionlessStatisticalQuantity) = Units.units(:base, :dimensionless)
+Units.display_unit(::_DimensionlessStatisticalQuantity) = Units.units(:base, :dimensionless)
+
 "Return the sample-summary product for each Monte Carlo point."
 statistics(value::MonteCarloResult) = value.stats
 

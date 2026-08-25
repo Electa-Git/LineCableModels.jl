@@ -106,7 +106,7 @@ with cardinality one. Conditional Monte Carlo propagation returns
 the Gridspace iteration order. Traversal state is not copied into completed
 results.
 `DataFrame(monte_carlo_result)` renders marginal summaries, while
-`plot(monte_carlo_result, :R; mode=:hist, data=:both)` and the `:pdf`, `:ecdf`,
+`plot(monte_carlo_result, R; mode=:hist, data=:both)` and the `:pdf`, `:ecdf`,
 and `:qq` modes display retained distribution information after a Makie package
 is loaded.
 

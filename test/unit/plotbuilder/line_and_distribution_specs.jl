@@ -293,6 +293,9 @@ end
     const Spec=Cmp.MCDistributionPlotDefinition
 
     result=TestFixtures.cable_monte_carlo_result()
+    @test_throws ArgumentError PB.make_render(Spec, result; selector = :R)
+    @test_throws ArgumentError PB.make_render(Spec, result; quantity = :R)
+    @test PB.make_render(Spec, result; selector = L) isa PB.PlotRecipe
     expected_kinds=Dict(
         (:hist, :samples)=>[:histogram],
         (:hist, :pdf)=>[:stairs],
