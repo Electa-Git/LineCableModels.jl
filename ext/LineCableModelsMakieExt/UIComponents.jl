@@ -20,6 +20,8 @@ using LineCableModels.PlotBuilder:
 
 export build, export_svg
 
+include("context.jl")
+
 const COLORBAR_WIDTH = 140
 const COLORBAR_TICK_LABEL_SIZE = 12
 const COLORBAR_LABEL_SIZE = 14
@@ -48,23 +50,6 @@ const ICON_FONT = joinpath(
 )
 const EXPORT_TIMESTAMP_FORMAT = "yyyymmdd_HHMMSS"
 const EXPORT_FALLBACK_DIRECTORY = "linecablemodels-exports"
-
-mutable struct UIContext
-    backend::Symbol
-    interactive::Bool
-    window::Any
-    status::Observable{String}
-    observers::Vector{Any}
-end
-
-struct UIPanel
-    view::ViewSpec
-    axis::Any
-    plots::Vector{Any}
-    groups::Dict{Symbol, Vector{Any}}
-    group_labels::Dict{Symbol, String}
-    group_order::Vector{Symbol}
-end
 
 mutable struct ResponsiveLegend
     legend::Any
@@ -99,27 +84,6 @@ function _theme(; export_mode::Bool = false, export_theme::Symbol = :default)
         Colorbar = (; labelsize = 14, ticklabelsize = 14)
     )
     return merge(base, custom)
-end
-
-function _context(
-        active::Symbol,
-        display::Bool,
-        title::AbstractString,
-        initial_status::AbstractString
-)
-    interactive = display && active in (:gl, :wgl)
-    window = interactive && active === :gl ?
-             PlotBuilder.make_screen(
-        "Fig. $(PlotBuilder.next_fignum()) – $title";
-        backend = :gl
-    ) : nothing
-    return UIContext(
-        active,
-        interactive,
-        window,
-        Observable(String(initial_status)),
-        Any[]
-    )
 end
 
 _scale(symbol::Symbol) = symbol === :log10 ? Makie.log10 : Makie.identity
@@ -913,226 +877,7 @@ function _build_colorbars!(page::PageSpec, materialized)
     return nothing
 end
 
-function _build_page(
-        recipe::PlotRecipe,
-        page::PageSpec,
-        context::UIContext;
-        controls::Bool,
-        export_mode::Bool
-)
-    PlotBuilder.validate(recipe)
-    root = only(filter(grid -> grid.parent === nothing, page.layout.grids))
-    figure = Figure(size = page.size, figure_padding = _window_padding(root.padding))
-    materialized = _materialize_layout(figure, page.layout)
-    panels = _build_panels(page, materialized)
-    legend = nothing
-    responsive_legend = nothing
-    legend_slot_grid = nothing
-    if page.legend.enabled
-        overflow = export_mode ? :show_all : page.legend.overflow
-        dock_width = _legend_dock_width(page)
-        responsive = overflow === :ellipsis
-        legend_slot_grid = _slot_grid(
-            materialized,
-            page.legend.slot;
-            width = dock_width === nothing ? Auto() : dock_width,
-            height = responsive ? nothing : Auto(),
-            tellheight = !responsive
-        )
-        built_legend = _legend!(
-            legend_slot_grid[1, 1],
-            panels,
-            materialized.slot_specs[page.legend.slot];
-            width = dock_width,
-            overflow
-        )
-        if built_legend === nothing
-            _collapse_slot!(page.layout, materialized, page.legend.slot)
-        else
-            legend = built_legend.legend
-            responsive_legend = built_legend.responsive
-        end
-    else
-        _collapse_slot!(page.layout, materialized, page.legend.slot)
-    end
-    if isempty(page.colorbars)
-        for slot in page.layout.slots
-            slot.name === :colorbars &&
-                _collapse_slot!(page.layout, materialized, slot.name)
-        end
-    else
-        _build_colorbars!(page, materialized)
-    end
-
-    widgets = Dict{Symbol, Any}()
-    plot_reference = Ref{Any}(nothing)
-    if controls
-        definitions = page.controls
-        xlog_available = _page_supports_log(panels, :x)
-        ylog_available = _page_supports_log(panels, :y)
-        toolbar_enabled = definitions.reset || definitions.export_svg ||
-                          xlog_available || ylog_available
-        if toolbar_enabled
-            toolbar = _slot_grid(materialized, definitions.slot)
-            toolbar.default_colgap = Fixed(4)
-            column = 1
-            if definitions.reset
-                reset = Button(
-                    toolbar[1, column];
-                    label = _icon_label(MI_REFRESH),
-                    width = BUTTON_SIZE,
-                    height = BUTTON_SIZE,
-                    buttoncolor = BUTTON_BACKGROUND
-                )
-                column += 1
-                widgets[:reset] = reset
-                on(reset.clicks) do _
-                    foreach(_reset_panel_limits!, panels)
-                    context.status[] = "Axis limits reset"
-                end
-            end
-            if definitions.export_svg
-                save_button = Button(
-                    toolbar[1, column];
-                    label = _icon_label(MI_SAVE),
-                    width = BUTTON_SIZE,
-                    height = BUTTON_SIZE,
-                    buttoncolor = BUTTON_BACKGROUND
-                )
-                column += 1
-                widgets[:export_svg] = save_button
-                on(save_button.clicks) do _
-                    try
-                        PlotBuilder.export_svg(plot_reference[])
-                    catch error
-                        context.status[] = sprint(showerror, error)
-                    end
-                end
-            end
-            if xlog_available
-                active = !isempty(panels) && all(
-                    panel -> panel.axis.xscale[] === Makie.log10,
-                    panels
-                )
-                xlog = Toggle(toolbar[1, column], active = active)
-                column += 1
-                Label(toolbar[1, column], "log x")
-                column += 1
-                widgets[:xlog] = xlog
-                on(xlog.active) do enabled
-                    scale = enabled ? :log10 : :linear
-                    foreach(
-                        panel -> _set_axis_scale!(
-                            panel.axis,
-                            panel.view.xaxis,
-                            :x,
-                            panel.view.xaxis.exponent,
-                            scale
-                        ),
-                        panels
-                    )
-                    foreach(_reset_panel_limits!, panels)
-                    context.status[] = enabled ?
-                                       "x-axis scale set to log" :
-                                       "x-axis scale set to linear"
-                end
-            end
-            if ylog_available
-                active = !isempty(panels) && all(
-                    panel -> panel.axis.yscale[] === Makie.log10,
-                    panels
-                )
-                ylog = Toggle(toolbar[1, column], active = active)
-                column += 1
-                Label(toolbar[1, column], "log y")
-                widgets[:ylog] = ylog
-                on(ylog.active) do enabled
-                    scale = enabled ? :log10 : :linear
-                    foreach(
-                        panel -> _set_axis_scale!(
-                            panel.axis,
-                            panel.view.yaxis,
-                            :y,
-                            panel.view.yaxis.exponent,
-                            scale
-                        ),
-                        panels
-                    )
-                    foreach(_reset_panel_limits!, panels)
-                    context.status[] = enabled ?
-                                       "y-axis scale set to log" :
-                                       "y-axis scale set to linear"
-                end
-            end
-        else
-            _collapse_slot!(page.layout, materialized, page.controls.slot)
-        end
-        page.legend.interactive && legend !== nothing && (widgets[:legend] = legend)
-        if page.status.enabled
-            Label(
-                _slot_position(materialized, page.status.slot),
-                context.status;
-                halign = :left,
-                fontsize = 11
-            )
-        else
-            _collapse_slot!(page.layout, materialized, page.status.slot)
-        end
-    else
-        _collapse_slot!(page.layout, materialized, page.controls.slot)
-        _collapse_slot!(page.layout, materialized, page.status.slot)
-    end
-
-    _collapse_empty_dock!(page, materialized, legend)
-    _apply_layout_specs!(page.layout, materialized)
-    if responsive_legend !== nothing
-        _observe_legend!(responsive_legend, legend_slot_grid, context)
-        Makie.update_state_before_display!(figure)
-        bounding_box = legend_slot_grid.layoutobservables.computedbbox[]
-        _fit_legend!(responsive_legend, bounding_box.widths[2])
-    end
-    page.legend.interactive && legend !== nothing &&
-        _observe_visibility_limits!(panels, context)
-    built = UIPlot(recipe, page, figure, panels, widgets, context)
-    plot_reference[] = built
-    return built
-end
-
-function build(
-        recipe::PlotRecipe;
-        backend = nothing,
-        display::Bool = true,
-        controls::Bool = true,
-        export_mode::Bool = false,
-        export_theme::Union{Nothing, Symbol} = nothing
-)
-    PlotBuilder.validate(recipe)
-    active = PlotBuilder.ensure_backend!(backend)
-    built = UIPlot[]
-    for page in recipe.figures
-        page_export_theme = export_theme === nothing ?
-                            page.export_spec.theme : export_theme
-        with_theme(_theme(; export_mode, export_theme = page_export_theme)) do
-            context = _context(active, display, page.title, page.status.initial)
-            plot = _build_page(
-                recipe,
-                page,
-                context;
-                controls,
-                export_mode
-            )
-            push!(built, plot)
-            if display
-                if context.interactive && context.window !== nothing
-                    Base.display(context.window, plot.figure)
-                else
-                    PlotBuilder.renderfig(plot.figure)
-                end
-            end
-        end
-    end
-    return built
-end
+include("shell.jl")
 
 function _current_scale(scale)
     scale === Makie.log10 && return :log10
