@@ -66,7 +66,8 @@
         legend = comparison.controls[:legend]
         @test block_bounds(first(comparison.panels).axis).left >= 19
         @test block_bounds(legend).right <= comparison.page.size[1] - 19
-        @test first(comparison.page.views).title ==
+        comparison_payload = comparison.render.input.pages[comparison.page.key.page]
+        @test first(comparison_payload.panels).title ==
               "Z[1,1] · Series resistance"
 
         conventional = Makie.plot(

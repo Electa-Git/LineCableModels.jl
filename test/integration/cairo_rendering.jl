@@ -176,8 +176,11 @@
             display_plot = false
         )
         measurement_plot=first(measurement_plots)
+        measurement_payload=measurement_plot.render.input.pages[
+            measurement_plot.page.key.page
+        ]
         @test length(first(measurement_plot.panels).plots) >
-              length(first(measurement_plot.page.views).series)
+              length(first(measurement_payload.panels).curves)
         test_golden(measurement_plot, "line_measurements")
 
         measurement_conductance=measurement_plots[2]
@@ -248,13 +251,16 @@
         @test haskey(publication_export_theme[:fonts], :italic)
         @test publication_export_theme[:Axis][:titlesize][] == 15
         @test publication_export_theme[:Axis][:xticklabelsize][] == 14
-        current_page=ui_components._current_page(handle)
-        current_view=first(current_page.views)
-        @test current_view.xaxis.scale === :log10
-        @test current_view.yaxis.scale === :log10
-        @test any(series -> !series.visible, current_view.series)
-        @test current_view.limits !== nothing
-        @test collect(current_view.limits[1]) ≈ [100.0, 300.0]
+        current_input=ui_components._current_input(
+            handle,
+            LineCableModels.Engine.LineParameterPlotDefinition
+        )
+        current_panel=first(current_input.runtime.panels)
+        @test current_panel.xscale === :log10
+        @test current_panel.yscale === :log10
+        @test !isempty(current_panel.hidden_groups)
+        @test current_panel.current_limits !== nothing
+        @test collect(current_panel.current_limits[1]) ≈ [100.0, 300.0]
         Makie.toggle_visibility!(first_entry)
         @test all(
             plot_object -> plot_object.visible[],
@@ -301,9 +307,14 @@
         hidden_contrast_limits.widths[2]
         @test hidden_contrast_max < initial_contrast_max * 1.0e-3
         @test contrast_plot.context.status[] == "Axis limits fitted to visible series"
-        current_contrast_page=ui_components._current_page(contrast_plot)
-        @test !first(only(current_contrast_page.views).series).visible
-        @test collect(current_contrast_page.views[1].limits[2]) ≈ [
+        current_contrast_input=ui_components._current_input(
+            contrast_plot,
+            LineCableModels.Engine.LineParameterPlotDefinition
+        )
+        current_contrast_panel=only(current_contrast_input.runtime.panels)
+        @test first(only(contrast_plot.panels).group_order) in
+              current_contrast_panel.hidden_groups
+        @test collect(current_contrast_panel.current_limits[2]) ≈ [
             hidden_contrast_limits.origin[2],
             hidden_contrast_max
         ]
@@ -711,8 +722,8 @@
         @test collect(keys(material_plot.controls)) == [:export_svg]
         test_golden(material_plot, "material_scale")
 
-        struct CompilerPrimitivePlotDefinition <:
-               LineCableModels.PlotBuilder.AbstractPlotDefinition end
+        struct CompilerPrimitivePlotDefinition<:
+        LineCableModels.PlotBuilder.AbstractPlotDefinition end
         primitive_axis=LineCableModels.PlotBuilder.AxisSpec(
             :x,
             LineCableModels.Units.Quantity{:dimensionless}(),

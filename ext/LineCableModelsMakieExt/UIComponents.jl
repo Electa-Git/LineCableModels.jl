@@ -272,7 +272,7 @@ function _numeric_values(values)
     return nominal_values, any(error -> !iszero(error), errors) ? errors : nothing
 end
 
-function _line_errors!(plots, axis, series::SeriesSpec, x, y, xerror, yerror)
+function _line_errors!(plots, axis, x, y, xerror, yerror, visible)
     if yerror !== nothing
         push!(
             plots,
@@ -285,7 +285,7 @@ function _line_errors!(plots, axis, series::SeriesSpec, x, y, xerror, yerror)
                 direction = :y,
                 whiskerwidth = 3,
                 linewidth = 1,
-                visible = series.visible
+                visible
             )
         )
     end
@@ -301,20 +301,38 @@ function _line_errors!(plots, axis, series::SeriesSpec, x, y, xerror, yerror)
                 direction = :x,
                 whiskerwidth = 3,
                 linewidth = 1,
-                visible = series.visible
+                visible
             )
         )
     end
     return plots
 end
 
-function draw!(axis, ::Val{:line}, series::SeriesSpec)
+function _draw_line!(
+        axis,
+        xdata,
+        ydata;
+        label = nothing,
+        visible = true,
+        attributes::NamedTuple = (;)
+)
     plots = Any[]
-    x, xerror = _numeric_values(series.xdata)
-    y, yerror = _numeric_values(series.ydata)
+    x, xerror = _numeric_values(xdata)
+    y, yerror = _numeric_values(ydata)
     push!(plots, lines!(
-        axis, x, y; label = series.label, visible = series.visible, series.attributes...))
-    return _line_errors!(plots, axis, series, x, y, xerror, yerror)
+        axis, x, y; label, visible, attributes...))
+    return _line_errors!(plots, axis, x, y, xerror, yerror, visible)
+end
+
+function draw!(axis, ::Val{:line}, series::SeriesSpec)
+    return _draw_line!(
+        axis,
+        series.xdata,
+        series.ydata;
+        label = series.label,
+        visible = series.visible,
+        attributes = series.attributes
+    )
 end
 
 function draw!(axis, ::Val{:scatter}, series::SeriesSpec)
@@ -1084,6 +1102,7 @@ end
 export_svg(args...; kwargs...) = PlotBuilder.export_svg(args...; kwargs...)
 
 include("native.jl")
+include("lineparameters.jl")
 include("previews.jl")
 
 end # module UIComponents

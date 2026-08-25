@@ -20,31 +20,31 @@
     @test_throws ArgumentError E._conductor_pairs(series, 1)
     @test_throws BoundsError E._conductor_pairs(series, ([0], :))
 
-    @test E._line_components(series, R) == (:R,)
-    @test E._line_components(series, X) == (:X,)
-    @test E._line_components(series, L) == (:L,)
-    @test E._line_components(series, real) == (:Z_re,)
-    @test E._line_components(series, imag) == (:Z_im,)
-    @test E._line_components(series, abs) == (:Z_abs,)
-    @test E._line_components(series, angle) == (:Z_angle,)
-    @test E._line_components(series, Z) == (:Z_re, :Z_im)
-    @test_throws ArgumentError E._line_components(series, C)
+    @test E._line_requests(series, R) == (R,)
+    @test E._line_requests(series, X) == (X,)
+    @test E._line_requests(series, L) == (L,)
+    @test E._line_requests(series, real) == (R,)
+    @test E._line_requests(series, imag) == (X,)
+    @test E._line_requests(series, abs) == ((Z, abs),)
+    @test E._line_requests(series, angle) == ((Z, angle),)
+    @test E._line_requests(series, Z) == (R, X)
+    @test_throws ArgumentError E._line_requests(series, C)
 
-    @test E._line_components(shunt, G) == (:G,)
-    @test E._line_components(shunt, B) == (:B,)
-    @test E._line_components(shunt, C) == (:C,)
-    @test E._line_components(shunt, real) == (:Y_re,)
-    @test E._line_components(shunt, imag) == (:Y_im,)
-    @test E._line_components(shunt, abs) == (:Y_abs,)
-    @test E._line_components(shunt, angle) == (:Y_angle,)
-    @test E._line_components(shunt, Y) == (:Y_re, :Y_im)
-    @test_throws ArgumentError E._line_components(shunt, R)
+    @test E._line_requests(shunt, G) == (G,)
+    @test E._line_requests(shunt, B) == (B,)
+    @test E._line_requests(shunt, C) == (C,)
+    @test E._line_requests(shunt, real) == (G,)
+    @test E._line_requests(shunt, imag) == (B,)
+    @test E._line_requests(shunt, abs) == ((Y, abs),)
+    @test E._line_requests(shunt, angle) == ((Y, angle),)
+    @test E._line_requests(shunt, Y) == (G, B)
+    @test_throws ArgumentError E._line_requests(shunt, R)
 
-    @test E._line_components(parameters, real) == (:Z_re, :Y_re)
-    @test E._line_components(parameters, imag) == (:Z_im, :Y_im)
-    @test E._line_components(parameters, abs) == (:Z_abs, :Y_abs)
-    @test E._line_components(parameters, angle) == (:Z_angle, :Y_angle)
-    @test_throws ArgumentError E._line_components(parameters, identity)
+    @test E._line_requests(parameters, real) == (R, G)
+    @test E._line_requests(parameters, imag) == (X, B)
+    @test E._line_requests(parameters, abs) == ((Z, abs), (Y, abs))
+    @test E._line_requests(parameters, angle) == ((Z, angle), (Y, angle))
+    @test_throws ArgumentError E._line_requests(parameters, identity)
 
     render=PB.make_render(
         E.LineParameterPlotDefinition,
@@ -55,18 +55,31 @@
     @test length(render.figures) == 2
     @test sort([page.title for page in render.figures]) ==
           ["Series impedance", "Shunt admittance"]
-    @test sum(length(view.series) for page in render.figures for view in page.views) == 16
+    @test all(isempty(page.views) for page in render.figures)
+    @test sum(
+        length(panel.curves)
+    for page in render.input.pages
+    for panel in page.panels
+    ) == 16
     @test all(
-        item -> item.xaxis.allowed_scales == (:linear, :log10),
-        (view for page in render.figures for view in page.views)
+        panel -> panel.xscales == (:linear, :log10),
+        (panel for page in render.input.pages for panel in page.panels)
     )
     @test Set(
-        series_spec.label
-    for page in render.figures
-    for view in page.views
-    for series_spec in view.series
+        curve.label
+    for page in render.input.pages
+    for panel in page.panels
+    for curve in panel.curves
     ) == Set(["Z[1,1]", "Z[1,2]", "Z[2,1]", "Z[2,2]",
         "Y[1,1]", "Y[1,2]", "Y[2,1]", "Y[2,2]"])
+    @test all(
+        keys(panel.x_observation) == (:values, :quantity, :unit) &&
+            keys(panel.y_observation) == (:values, :quantity, :unit)
+    for page in render.input.pages
+    for panel in page.panels
+    )
+    @test Tuple(panel.request for page in render.input.pages for panel in page.panels) ==
+          (R, L, G, C)
 
     @test_throws ArgumentError PB.make_render(
         E.LineParameterPlotDefinition,
@@ -96,7 +109,8 @@
         quantities = (G, C)
     )
     @test length(standalone_shunt.figures) == 1
-    @test length(only(standalone_shunt.figures).views) == 2
+    @test length(only(standalone_shunt.input.pages).panels) == 2
+    @test isempty(only(standalone_shunt.figures).views)
 
     residual_conductance=fill(1.0e-17, size(shunt))
     lossless=LineParameters(
@@ -109,8 +123,8 @@
         lossless;
         quantities = (G,)
     )
-    lossless_series=only(only(lossless_render.figures).views).series
-    @test all(series_spec -> all(iszero, series_spec.ydata), lossless_series)
+    lossless_curves=only(only(lossless_render.input.pages).panels).curves
+    @test all(curve -> all(iszero, curve.values), lossless_curves)
     @test all(==(1.0e-17), G(lossless))
 
     small_conductance=fill(1.0e-12, size(shunt))
@@ -120,12 +134,26 @@
         frequencies(parameters)
     )
     lossy_render=PB.make_render(E.LineParameterPlotDefinition, lossy; quantities = (G,))
-    lossy_series=only(only(lossy_render.figures).views).series
+    lossy_curves=only(only(lossy_render.input.pages).panels).curves
     @test all(
-        series_spec -> all(==(1.0e-9), series_spec.ydata),
-        lossy_series
+        curve -> all(==(1.0e-9), curve.values),
+        lossy_curves
     )
     @test all(==(1.0e-12), G(lossy))
+
+    milli_resistance=PB.make_render(
+        E.LineParameterPlotDefinition,
+        parameters;
+        quantities = (R,),
+        quantity_units = Dict(R=>:milli)
+    )
+    @test only(only(milli_resistance.input.pages).panels).y_observation.unit ==
+          LineCableModels.Units.display_unit(
+        LineCableModels.Units.quantity(R),
+        basis(parameters);
+        length_prefix = :kilo,
+        prefix = :milli
+    )
 end
 
 @testitem "Engine / plot specification / line-parameter comparison grid" tags=[:unit] setup=[
@@ -169,50 +197,44 @@ end
 
     @test length(render.figures) == 2
     @test all(page -> page.size == (1200, 800), render.figures)
-    @test all(page -> length(page.views) == 9, render.figures)
-    @test first(first(render.figures).views).title ==
+    @test all(isempty(page.views) for page in render.figures)
+    @test all(page -> length(page.panels) == 9, render.input.pages)
+    @test first(first(render.input.pages).panels).title ==
           "Z[1,1] · Series resistance"
     @test all(
-        view -> length(view.series) == length(parameters),
-        (view for page in render.figures for view in page.views)
+        panel -> length(panel.curves) == length(parameters),
+        (panel for page in render.input.pages for panel in page.panels)
     )
     @test Set(
-        (first(view.placement.area.rows), first(view.placement.area.columns))
-    for view in first(render.figures).views
+        panel.position
+    for panel in first(render.input.pages).panels
     ) == Set((row, column) for row in 1:3 for column in 1:3)
     @test Set(
-        series.label
-    for view in first(render.figures).views
-    for series in view.series
+        curve.label
+    for panel in first(render.input.pages).panels
+    for curve in panel.curves
     ) == Set(labels)
     @test Set(
-        series.group
-    for view in first(render.figures).views
-    for series in view.series
+        curve.group
+    for panel in first(render.input.pages).panels
+    for curve in panel.curves
     ) == Set(Symbol("line_parameters_$index") for index in eachindex(parameters))
     @test all(
-        series -> series.attributes.linestyle === :solid,
-        (series for page in render.figures for view in page.views
-        for series in view.series)
+        curve -> curve.style.linestyle === :solid,
+        (curve for page in render.input.pages for panel in page.panels
+        for curve in panel.curves)
     )
-    first_panel=first(first(render.figures).views)
-    @test length(unique(series.attributes.color for series in first_panel.series)) ==
+    first_panel=first(first(render.input.pages).panels)
+    @test length(unique(curve.style.color for curve in first_panel.curves)) ==
           length(parameters)
     @test all(
-        page -> [series.attributes.color for series in first(page.views).series] ==
-                [series.attributes.color for series in first_panel.series],
-        render.figures
+        page -> [curve.style.color for curve in first(page.panels).curves] ==
+                [curve.style.color for curve in first_panel.curves],
+        render.input.pages
     )
 
     page=first(render.figures)
-    root=only(page.layout.grids)
-    @test page.layout.name === :line_parameters_comparison
-    @test root.rows isa Vector{PB.AbstractTrackSize}
-    @test root.rows[2] isa PB.RelativeTrack
-    @test root.columns[1] isa PB.RelativeTrack
-    @test root.columns[2] isa PB.ContentTrack
-    @test Set(slot.name for slot in page.layout.slots) ==
-          Set((:toolbar, :canvas, :legend, :status))
+    @test page.layout.name === :grid
     @test page.controls.reset
     @test page.controls.export_svg
     @test page.legend.interactive
@@ -224,8 +246,8 @@ end
         parameters[1:2];
         legend = labels[1:2]
     )
-    @test getfield.(getproperty.(default_render.figures, :key), :component) ==
-          [:Z_re, :Z_im, :Y_re, :Y_im]
+    @test Tuple(page.key.request for page in default_render.figures) ==
+          (R, X, G, B)
 
     @test_throws ArgumentError PB.make_render(
         E.LineParametersBenchmarkPlotDefinition,

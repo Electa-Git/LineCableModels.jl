@@ -1,4 +1,79 @@
+"""
+$(TYPEDEF)
+
+Prepare line-parameter observations for drawing by a loaded plotting extension.
+"""
 struct LineParameterPlotDefinition <: PlotBuilder.AbstractPlotDefinition end
+
+"""
+$(TYPEDEF)
+
+Store one line in a detached line-parameter panel.
+
+$(TYPEDFIELDS)
+"""
+struct LineCurve{Y, S}
+    "Displayed ordinate values in the unit recorded by the panel observation."
+    values::Y
+    "Legend text."
+    label::String
+    "Identity shared by lines controlled by one legend entry."
+    group::Symbol
+    "Line attributes owned by the scientific plot definition."
+    style::S
+end
+
+"""
+$(TYPEDEF)
+
+Store the observations, curves, and axis behavior for one line-parameter panel.
+
+$(TYPEDFIELDS)
+"""
+struct LinePanelPayload{R, X, Y, C, XS <: Tuple, YS <: Tuple, A}
+    "Function-valued scientific request represented by the panel."
+    request::R
+    "One-based row and column in the page canvas."
+    position::Tuple{Int, Int}
+    "Displayed panel title."
+    title::String
+    "Published abscissa observation."
+    x_observation::X
+    "Published ordinate observation restricted to the displayed curves."
+    y_observation::Y
+    "Detached curves in draw order."
+    curves::C
+    "Initial abscissa scale."
+    xscale::Symbol
+    "Initial ordinate scale."
+    yscale::Symbol
+    "Scales admitted for the abscissa."
+    xscales::XS
+    "Scales admitted for the ordinate."
+    yscales::YS
+    "Axis visibility attributes."
+    attributes::A
+end
+
+"""
+$(TYPEDEF)
+
+Store one detached line-parameter page for the standard plotting shell.
+
+$(TYPEDFIELDS)
+"""
+struct LinePagePayload{K, P, E}
+    "Displayed page title."
+    title::String
+    "Scientific and placement identity of the page."
+    key::K
+    "Detached panels in draw order."
+    panels::P
+    "Legend behavior supplied to the standard shell."
+    legend::PlotBuilder.LegendDefinition
+    "SVG export behavior supplied to the standard shell."
+    export_definition::E
+end
 
 function _indices(selector, count::Int)
     selector === nothing && return collect(1:count)
@@ -24,142 +99,116 @@ function _conductor_pairs(object, selector)
     return [(i, j) for i in rows for j in columns]
 end
 
-function _finite_exponent(curves)
-    maximum_value = 0.0
-    for curve in curves, sample in curve
-
-        value = abs(nominal(sample))
-        isfinite(value) && (maximum_value = max(maximum_value, value))
-    end
-    iszero(maximum_value) && return 0
-    exponent = floor(Int, log10(maximum_value))
-    return abs(exponent) < 3 ? 0 : exponent
-end
-
-struct LinePageKey{K, C} end
-
-_line_parent(::LinePageKey{K, C}) where {K, C} = K
-_line_component(::LinePageKey{K, C}) where {K, C} = C
-_line_parent(::Val{K}) where {K} = K
-
-const _SERIES_COMPONENTS = (:R, :X, :L, :Z_re, :Z_im, :Z_abs, :Z_angle)
-const _SHUNT_COMPONENTS = (:G, :B, :C, :Y_re, :Y_im, :Y_abs, :Y_angle)
-const _CARTESIAN_COMPONENTS = (:R, :X, :G, :B, :Z_re, :Z_im, :Y_re, :Y_im)
 const _DISPLAY_ZERO_RTOL = sqrt(eps(Float64))
 
-_component_request(::Val{:R}, frequencies) = R
-_component_request(::Val{:X}, frequencies) = X
-_component_request(::Val{:L}, frequencies) = frequencies === nothing ? L : (L, frequencies)
-_component_request(::Val{:G}, frequencies) = G
-_component_request(::Val{:B}, frequencies) = B
-_component_request(::Val{:C}, frequencies) = frequencies === nothing ? C : (C, frequencies)
-_component_request(::Val{:Z_re}, frequencies) = R
-_component_request(::Val{:Z_im}, frequencies) = X
-_component_request(::Val{:Z_abs}, frequencies) = (Z, abs)
-_component_request(::Val{:Z_angle}, frequencies) = (Z, angle)
-_component_request(::Val{:Y_re}, frequencies) = G
-_component_request(::Val{:Y_im}, frequencies) = B
-_component_request(::Val{:Y_abs}, frequencies) = (Y, abs)
-_component_request(::Val{:Y_angle}, frequencies) = (Y, angle)
+_request_parent(::typeof(R)) = Z
+_request_parent(::typeof(X)) = Z
+_request_parent(::typeof(L)) = Z
+_request_parent(::typeof(G)) = Y
+_request_parent(::typeof(B)) = Y
+_request_parent(::typeof(C)) = Y
+_request_parent(request::Tuple) = first(request)
+
+_default_line_requests(::LineParameters) = (R, X, G, B)
+_default_line_requests(::SeriesImpedance) = (R, X)
+_default_line_requests(::ShuntAdmittance) = (G, B)
+
+function _line_requests(::SeriesImpedance, accessor)
+    accessor === R && return (R,)
+    accessor === X && return (X,)
+    accessor === L && return (L,)
+    accessor === real && return (R,)
+    accessor === imag && return (X,)
+    accessor === abs && return ((Z, abs),)
+    accessor === angle && return ((Z, angle),)
+    accessor === Z && return (R, X)
+    throw(ArgumentError("accessor $(accessor) is not defined for SeriesImpedance presentation"))
+end
+
+function _line_requests(::ShuntAdmittance, accessor)
+    accessor === G && return (G,)
+    accessor === B && return (B,)
+    accessor === C && return (C,)
+    accessor === real && return (G,)
+    accessor === imag && return (B,)
+    accessor === abs && return ((Y, abs),)
+    accessor === angle && return ((Y, angle),)
+    accessor === Y && return (G, B)
+    throw(ArgumentError("accessor $(accessor) is not defined for ShuntAdmittance presentation"))
+end
+
+function _line_requests(::LineParameters, accessor)
+    accessor === Z && return (R, X)
+    accessor === Y && return (G, B)
+    accessor === real && return (R, G)
+    accessor === imag && return (X, B)
+    accessor === abs && return ((Z, abs), (Y, abs))
+    accessor === angle && return ((Z, angle), (Y, angle))
+    accessor === R && return (R,)
+    accessor === X && return (X,)
+    accessor === L && return (L,)
+    accessor === G && return (G,)
+    accessor === B && return (B,)
+    accessor === C && return (C,)
+    throw(ArgumentError("accessor $(accessor) is not defined for LineParameters presentation"))
+end
+
+function _resolve_line_requests(object, quantities)
+    quantities isa Tuple || throw(ArgumentError("quantities must be a tuple of accessors"))
+    selected = isempty(quantities) ? _default_line_requests(object) :
+               Tuple(
+        request for accessor in quantities
+    for request in _line_requests(object, accessor)
+    )
+    isempty(selected) && throw(ArgumentError("at least one line-parameter accessor is required"))
+    length(unique(selected)) == length(selected) || throw(
+        ArgumentError("line-parameter accessors select duplicate quantities"),
+    )
+    return selected
+end
 
 function _request_quantity(request)
     request isa Function && return Units.quantity(request)
-    selector = first(request)
-    length(request) >= 2 && applicable(Units.quantity, selector, request[2]) &&
-        return Units.quantity(selector, request[2])
-    return Units.quantity(selector)
+    return Units.quantity(request...)
 end
 
-function _quantity_prefix(quantity_units, component::Symbol, fallback::Symbol)
+function _quantity_prefix(quantity_units, request, fallback::Symbol)
     quantity_units === nothing && return fallback
     quantity_units isa Symbol && return quantity_units
-    quantity_units isa NamedTuple || quantity_units isa AbstractDict ||
-        throw(
-            ArgumentError("quantity_units must be a prefix, keyed collection, or nothing"),
-        )
-    return haskey(quantity_units, component) ? quantity_units[component] : fallback
+    if quantity_units isa NamedTuple
+        request isa Function || return fallback
+        key = nameof(request)
+        return haskey(quantity_units, key) ? getproperty(quantity_units, key) : fallback
+    end
+    quantity_units isa AbstractDict || throw(
+        ArgumentError("quantity_units must be a prefix, selector-keyed collection, or nothing"),
+    )
+    haskey(quantity_units, request) && return quantity_units[request]
+    request isa Function || return fallback
+    key = nameof(request)
+    return haskey(quantity_units, key) ? quantity_units[key] : fallback
 end
 
-function _component_target(component, request, parameter_basis, length_unit, quantity_units)
+function _request_target(request, parameter_basis, length_unit, quantity_units)
     scientific_quantity = _request_quantity(request)
-    default = Units.display_unit(scientific_quantity, parameter_basis; length_prefix = length_unit)
+    default = Units.display_unit(
+        scientific_quantity,
+        parameter_basis;
+        length_prefix = length_unit
+    )
     isempty(default.numerator) && return default
     fallback = first(default.numerator).prefix
-    selected = _quantity_prefix(quantity_units, component, fallback)
+    selected = _quantity_prefix(quantity_units, request, fallback)
     selected isa Units.UnitExpr && return selected
-    selected isa Symbol ||
-        throw(ArgumentError("quantity-unit overrides must be prefixes or UnitExpr values"))
+    selected isa Symbol || throw(
+        ArgumentError("quantity-unit overrides must be prefixes or UnitExpr values"),
+    )
     return Units.display_unit(
         scientific_quantity,
         parameter_basis;
         length_prefix = length_unit,
         prefix = selected
     )
-end
-
-function _line_page_keys(::Val{K}, ::Val{Components}) where {K, Components}
-    allowed = K === :series ? _SERIES_COMPONENTS : _SHUNT_COMPONENTS
-    return Tuple(LinePageKey{K, component}()
-    for component in Components if component in allowed)
-end
-
-_default_line_components(::LineParameters) = (:Z_re, :Z_im, :Y_re, :Y_im)
-_default_line_components(::SeriesImpedance) = (:Z_re, :Z_im)
-_default_line_components(::ShuntAdmittance) = (:Y_re, :Y_im)
-
-function _line_components(::SeriesImpedance, accessor)
-    accessor === R && return (:R,)
-    accessor === X && return (:X,)
-    accessor === L && return (:L,)
-    accessor === real && return (:Z_re,)
-    accessor === imag && return (:Z_im,)
-    accessor === abs && return (:Z_abs,)
-    accessor === angle && return (:Z_angle,)
-    accessor === Z && return (:Z_re, :Z_im)
-    throw(ArgumentError("accessor $(accessor) is not defined for SeriesImpedance presentation"))
-end
-
-function _line_components(::ShuntAdmittance, accessor)
-    accessor === G && return (:G,)
-    accessor === B && return (:B,)
-    accessor === C && return (:C,)
-    accessor === real && return (:Y_re,)
-    accessor === imag && return (:Y_im,)
-    accessor === abs && return (:Y_abs,)
-    accessor === angle && return (:Y_angle,)
-    accessor === Y && return (:Y_re, :Y_im)
-    throw(ArgumentError("accessor $(accessor) is not defined for ShuntAdmittance presentation"))
-end
-
-function _line_components(parameters::LineParameters, accessor)
-    accessor === Z && return (:Z_re, :Z_im)
-    accessor === Y && return (:Y_re, :Y_im)
-    accessor === real && return (:Z_re, :Y_re)
-    accessor === imag && return (:Z_im, :Y_im)
-    accessor === abs && return (:Z_abs, :Y_abs)
-    accessor === angle && return (:Z_angle, :Y_angle)
-    accessor === R && return (:R,)
-    accessor === X && return (:X,)
-    accessor === L && return (:L,)
-    accessor === G && return (:G,)
-    accessor === B && return (:B,)
-    accessor === C && return (:C,)
-    throw(ArgumentError("accessor $(accessor) is not defined for LineParameters presentation"))
-end
-
-function _resolve_line_components(object, quantities)
-    quantities isa Tuple || throw(ArgumentError("quantities must be a tuple of accessors"))
-    selected = isempty(quantities) ? _default_line_components(object) :
-               Tuple(
-        component for accessor in quantities
-    for component in _line_components(object, accessor)
-    )
-    isempty(selected) &&
-        throw(ArgumentError("at least one line-parameter accessor is required"))
-    length(unique(selected)) == length(selected) || throw(
-        ArgumentError("line-parameter accessors select duplicate quantities"),
-    )
-    return selected
 end
 
 function _line_input_defaults(frequencies)
@@ -191,7 +240,7 @@ function PlotBuilder.input_kwargs(::Type{LineParameterPlotDefinition})
     )
 end
 PlotBuilder.renderer_kwargs(::Type{LineParameterPlotDefinition}) = (:fig_size,)
-function PlotBuilder.input_defaults(::Type{LineParameterPlotDefinition}, parameters::LineParameters)
+function PlotBuilder.input_defaults(::Type{LineParameterPlotDefinition}, ::LineParameters)
     _line_input_defaults(nothing)
 end
 function PlotBuilder.input_defaults(
@@ -209,7 +258,7 @@ end
 
 function PlotBuilder.resolve(::Type{LineParameterPlotDefinition}, recipe::PlotBuilder.PlotRecipe)
     input = recipe.input
-    components = _resolve_line_components(recipe.object, input.quantities)
+    requests = _resolve_line_requests(recipe.object, input.quantities)
     input.xscale in (:linear, :log10) || throw(
         ArgumentError("xscale must be :linear or :log10"),
     )
@@ -217,30 +266,34 @@ function PlotBuilder.resolve(::Type{LineParameterPlotDefinition}, recipe::PlotBu
         ArgumentError("yscale must be :linear or :log10"),
     )
     recipe.object isa Union{SeriesImpedance, ShuntAdmittance} &&
-        input.frequencies === nothing &&
-        throw(
-            ArgumentError("frequencies are required for SeriesImpedance and ShuntAdmittance"),
+        input.frequencies === nothing && throw(
+        ArgumentError("frequencies are required for SeriesImpedance and ShuntAdmittance"),
+    )
+    supplied_frequencies = input.frequencies === nothing ? nothing : collect(input.frequencies)
+    if supplied_frequencies !== nothing
+        all(isfinite, supplied_frequencies) || throw(ArgumentError("frequencies must be finite"))
+        input.xscale === :log10 && any(<=(0), supplied_frequencies) && throw(
+            DomainError(
+                supplied_frequencies,
+                "logarithmic frequency axes require positive frequencies"
+            ),
         )
-    frequencies = input.frequencies === nothing ? nothing : collect(input.frequencies)
-    if frequencies !== nothing
-        all(isfinite, frequencies) || throw(ArgumentError("frequencies must be finite"))
-        input.xscale === :log10 && any(<=(0), frequencies) &&
-            throw(
-                DomainError(frequencies, "logarithmic frequency axes require positive frequencies"),
-            )
-        any(component -> component in (:L, :C), components) && any(iszero, frequencies) &&
-            throw(DomainError(
-                frequencies,
-                "inductance and capacitance are undefined at zero frequency"
-            ))
+        any(request -> request === L || request === C, requests) &&
+            any(iszero, supplied_frequencies) && throw(DomainError(
+            supplied_frequencies,
+            "inductance and capacitance are undefined at zero frequency"
+        ))
     end
     recipe.renderer.fig_size isa Tuple{Int, Int} || throw(
         ArgumentError("fig_size must be a tuple of two integers"),
     )
+    all(>(0), recipe.renderer.fig_size) || throw(
+        ArgumentError("fig_size dimensions must be positive"),
+    )
     return PlotBuilder.PlotRecipe(
         LineParameterPlotDefinition,
         recipe.object,
-        merge(input, (; frequencies, components)),
+        merge(input, (; frequencies = supplied_frequencies, requests)),
         recipe.renderer
     )
 end
@@ -257,10 +310,7 @@ end
 
 function _published_frequency(object, input)
     target = Units.units(input.freq_unit, :hertz)
-    object isa LineParameters || return _frequency_payload(
-        input.frequencies,
-        target
-    )
+    object isa LineParameters || return _frequency_payload(input.frequencies, target)
     published = observables(
         object,
         (frequency = (frequencies, Colon()),);
@@ -275,136 +325,32 @@ function _published_frequency(object, input)
     return published
 end
 
-function _reference_payload(object, component, target)
-    parent = component in _SERIES_COMPONENTS ? Z : Y
+function _observable_request(object, request, supplied_frequencies)
+    object isa LineParameters && return request
+    request === L && return (L, supplied_frequencies)
+    request === C && return (C, supplied_frequencies)
+    return request
+end
+
+function _publish_request(object, request, target, supplied_frequencies)
+    selected = _observable_request(object, request, supplied_frequencies)
     return observables(
         object,
-        (reference = parent,);
-        units = (reference = target,)
-    ).reference
+        (value = selected,);
+        units = (value = target,)
+    ).value
 end
 
-function _suppress_display_residue(payload, reference, component)
-    component in _CARTESIAN_COMPONENTS || return payload
-    component_scale = _maximum_nominal_magnitude(payload.values)
-    iszero(component_scale) && return payload
-    reference_scale = _maximum_nominal_magnitude(reference.values)
-    iszero(reference_scale) && return payload
-    component_scale <= _DISPLAY_ZERO_RTOL * reference_scale || return payload
-    return (;
-        values = zero.(payload.values), quantity = payload.quantity, unit = payload.unit)
-end
-
-function _publish_line_source(object, input, components)
-    frequency = _published_frequency(object, input)
-    native_frequencies = object isa LineParameters ? nothing : input.frequencies
-    requests = NamedTuple{components}(map(
-        component -> _component_request(Val(component), native_frequencies),
-        components
-    ))
-    targets = NamedTuple{components}(map(components) do component
-        request = _component_request(Val(component), native_frequencies)
-        _component_target(
-            component,
-            request,
-            basis(object),
-            input.length_unit,
-            input.quantity_units
-        )
-    end)
-    published = observables(object, requests; units = targets)
-    payloads = map(
-        components,
-        Base.values(published),
-        Base.values(targets)
-    ) do component, payload, target
-        component in _CARTESIAN_COMPONENTS || return payload
-        reference = _reference_payload(object, component, target)
-        _suppress_display_residue(payload, reference, component)
-    end
-    component_payloads = NamedTuple{components}(payloads)
-    sample = first(Base.values(component_payloads))
-    size(sample.values, 3) == length(frequency.values) || throw(
-        DimensionMismatch("frequency count does not match line-parameter samples"),
-    )
-    _conductor_pairs(sample.values, input.con)
-    length(frequency.values) <= 1 &&
-        @warn "Frequency vector has $(length(frequency.values)) sample(s); nothing to plot."
-    return (; frequency, component_payloads)
-end
-
-function PlotBuilder.fetch(::Type{LineParameterPlotDefinition}, recipe::PlotBuilder.PlotRecipe)
-    published = _publish_line_source(recipe.object, recipe.input, recipe.input.components)
-    input = merge(recipe.input, published)
-    return PlotBuilder.PlotRecipe(
-        LineParameterPlotDefinition,
-        recipe.object,
-        input,
-        recipe.renderer
+function _reference_payload(object, request, target, supplied_frequencies)
+    return _publish_request(
+        object,
+        _request_parent(request),
+        target,
+        supplied_frequencies
     )
 end
 
-function PlotBuilder._recipe_variant(::Type{LineParameterPlotDefinition}, recipe::PlotBuilder.PlotRecipe)
-    return Val(recipe.input.components)
-end
-
-function PlotBuilder._composition(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        recipe::PlotBuilder.PlotRecipe
-)
-    return Val(:panels)
-end
-
-_line_family_facets(::SeriesImpedance) = (Val(:series),)
-_line_family_facets(::ShuntAdmittance) = (Val(:shunt),)
-function _line_family_facets(::LineParameters)
-    return (Val(:series), Val(:shunt))
-end
-
-function _line_component_facets(
-        mode::Val,
-        recipe::PlotBuilder.PlotRecipe,
-        ::Val{K}
-) where {K}
-    return _line_page_keys(Val(K), mode)
-end
-
-function PlotBuilder._page_keys(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        ::Val{:panels},
-        recipe::PlotBuilder.PlotRecipe
-)
-    length(recipe.input.frequency.values) <= 1 && return ()
-    return Tuple(
-        family
-    for family in _line_family_facets(recipe.object)
-    if !isempty(_line_component_facets(mode, recipe, family))
-    )
-end
-
-function PlotBuilder._view_keys(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        ::Val{:panels},
-        recipe::PlotBuilder.PlotRecipe,
-        page_key::Val
-)
-    return _line_component_facets(mode, recipe, page_key)
-end
-
-function PlotBuilder._series_keys(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        ::Val{:panels},
-        recipe::PlotBuilder.PlotRecipe,
-        page_key::Val,
-        view_key::LinePageKey
-)
-    payload = getproperty(recipe.input.component_payloads, _line_component(view_key))
-    return _conductor_pairs(payload.values, recipe.input.con)
-end
+_is_cartesian_request(request) = request === R || request === X || request === G || request === B
 
 function _maximum_nominal_magnitude(values)
     return mapreduce(
@@ -418,256 +364,39 @@ function _maximum_nominal_magnitude(values)
     )
 end
 
-function PlotBuilder.axis_payload(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        ::Val{:x},
-        recipe::PlotBuilder.PlotRecipe,
-        page_key,
-        view_key
-)
-    return recipe.input.frequency
+function _suppress_display_residue(payload, reference, request)
+    _is_cartesian_request(request) || return payload
+    component_scale = _maximum_nominal_magnitude(payload.values)
+    iszero(component_scale) && return payload
+    reference_scale = _maximum_nominal_magnitude(reference.values)
+    iszero(reference_scale) && return payload
+    component_scale <= _DISPLAY_ZERO_RTOL * reference_scale || return payload
+    return (;
+        values = zero.(payload.values), quantity = payload.quantity, unit = payload.unit)
 end
 
-function PlotBuilder.axis_payload(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        ::Val{:y},
-        recipe::PlotBuilder.PlotRecipe,
-        page_key::LinePageKey,
-        view_key
-)
-    return getproperty(recipe.input.component_payloads, _line_component(page_key))
-end
-
-function PlotBuilder.axis_payload(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        ::Val{:y},
-        recipe::PlotBuilder.PlotRecipe,
-        page_key::Val,
-        view_key::LinePageKey
-)
-    return PlotBuilder.axis_payload(
-        LineParameterPlotDefinition,
-        mode,
-        Val(:y),
-        recipe,
-        view_key,
-        nothing
+function _publish_line_source(object, input, requests)
+    frequency = _published_frequency(object, input)
+    observations = map(requests) do request
+        target = _request_target(
+            request,
+            basis(object),
+            input.length_unit,
+            input.quantity_units
+        )
+        payload = _publish_request(object, request, target, input.frequencies)
+        _is_cartesian_request(request) || return payload
+        reference = _reference_payload(object, request, target, input.frequencies)
+        return _suppress_display_residue(payload, reference, request)
+    end
+    sample = first(observations)
+    size(sample.values, 3) == length(frequency.values) || throw(
+        DimensionMismatch("frequency count does not match line-parameter samples"),
     )
-end
-
-function PlotBuilder.axis_scale(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        ::Val{:x},
-        recipe::PlotBuilder.PlotRecipe,
-        page_key,
-        view_key
-)
-    return recipe.input.xscale
-end
-
-function PlotBuilder.axis_scale(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        ::Val{:y},
-        recipe::PlotBuilder.PlotRecipe,
-        page_key,
-        view_key
-)
-    return recipe.input.yscale
-end
-
-function PlotBuilder.series_values(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        ::Val{:x},
-        recipe::PlotBuilder.PlotRecipe,
-        page_key,
-        view_key,
-        series_key
-)
-    return recipe.input.frequency.values
-end
-
-function PlotBuilder.series_values(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        ::Val{:y},
-        recipe::PlotBuilder.PlotRecipe,
-        page_key::LinePageKey,
-        view_key,
-        series_key::Tuple{Int, Int}
-)
-    payload = getproperty(recipe.input.component_payloads, _line_component(page_key))
-    return collect(view(payload.values, series_key[1], series_key[2], :))
-end
-
-function PlotBuilder.series_values(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        ::Val{:y},
-        recipe::PlotBuilder.PlotRecipe,
-        page_key::Val,
-        view_key::LinePageKey,
-        series_key::Tuple{Int, Int}
-)
-    return PlotBuilder.series_values(
-        LineParameterPlotDefinition,
-        mode,
-        Val(:y),
-        recipe,
-        view_key,
-        nothing,
-        series_key
-    )
-end
-
-function PlotBuilder.legend_label(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key::LinePageKey,
-        view_key,
-        series_key::Tuple{Int, Int}
-)
-    quantity = PlotBuilder.axis_payload(
-        LineParameterPlotDefinition,
-        mode,
-        Val(:y),
-        recipe,
-        page_key,
-        view_key
-    ).quantity
-    return "$(Units.symbol(quantity))[$(series_key[1]),$(series_key[2])]"
-end
-
-function PlotBuilder.legend_label(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key::Val{K},
-        view_key::LinePageKey,
-        series_key::Tuple{Int, Int}
-) where {K}
-    symbol = K === :series ? "Z" : "Y"
-    return "$symbol[$(series_key[1]),$(series_key[2])]"
-end
-
-function PlotBuilder.series_group(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key::Val{K},
-        view_key::LinePageKey,
-        series_key::Tuple{Int, Int}
-) where {K}
-    return Symbol("$(K)_$(series_key[1])_$(series_key[2])")
-end
-
-function PlotBuilder.series_attributes(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key,
-        view_key,
-        series_key
-)
-    return (; linewidth = 2)
-end
-
-function PlotBuilder.default_title(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key::LinePageKey,
-        view_key
-)
-    quantity = PlotBuilder.axis_payload(
-        LineParameterPlotDefinition,
-        mode,
-        Val(:y),
-        recipe,
-        page_key,
-        view_key
-    ).quantity
-    return Units.label(quantity)
-end
-
-function PlotBuilder.default_title(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key::Val{:series},
-        ::Nothing
-)
-    return Units.label(Units.quantity(Z))
-end
-
-function PlotBuilder.default_title(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key::Val{:shunt},
-        ::Nothing
-)
-    return Units.label(Units.quantity(Y))
-end
-
-function PlotBuilder.default_title(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key::Val,
-        view_key::LinePageKey
-)
-    return PlotBuilder.default_title(
-        LineParameterPlotDefinition,
-        mode,
-        recipe,
-        view_key,
-        nothing
-    )
-end
-
-function PlotBuilder.view_key(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key::LinePageKey,
-        view_key
-)
-    return (; component = _line_component(page_key))
-end
-
-function PlotBuilder.view_key(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key::Val,
-        view_key::LinePageKey
-)
-    return (; component = _line_component(view_key))
-end
-
-function PlotBuilder.layout_spec(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key::Val
-)
-    return :grid
-end
-
-function PlotBuilder.default_figsize(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key
-)
-    return recipe.renderer.fig_size
+    _conductor_pairs(sample.values, input.con)
+    length(frequency.values) <= 1 &&
+        @warn "Frequency vector has $(length(frequency.values)) sample(s); nothing to plot."
+    return (; frequency, observations)
 end
 
 function _supports_log_values(samples)
@@ -683,97 +412,179 @@ function _supports_log_values(samples)
     return found
 end
 
-function _supports_log(series, dim::Symbol)
-    found = false
-    for item in series
-        samples = dim === :x ? item.xdata : item.ydata
-        samples === nothing && continue
-        for sample in samples
-            found = true
-            value = nominal(sample)
-            uncertainty = abs(standard_uncertainty(sample))
-            value isa Real && isfinite(value) && isfinite(uncertainty) &&
-            value - uncertainty > 0 || return false
-        end
+_axis_scales(values) = _supports_log_values(values) ? (:linear, :log10) : (:linear,)
+
+function _panel_positions(count::Int)
+    columns = max(1, ceil(Int, sqrt(count)))
+    return Tuple(((index - 1) ÷ columns + 1, (index - 1) % columns + 1)
+    for index in 1:count)
+end
+
+function _axis_observation(observation, curves)
+    values = collect(Iterators.flatten(curve.values for curve in curves))
+    return (; values, quantity = observation.quantity, unit = observation.unit)
+end
+
+function _line_curves(observation, parent, selector)
+    pairs = _conductor_pairs(observation.values, selector)
+    family = parent === Z ? "series" : "shunt"
+    scientific_symbol = Units.symbol(Units.quantity(parent))
+    return map(pairs) do (row, column)
+        LineCurve(
+            collect(view(observation.values, row, column, :)),
+            "$scientific_symbol[$row,$column]",
+            Symbol("$(family)_$(row)_$(column)"),
+            (; linewidth = 2)
+        )
     end
-    return found
 end
 
-function PlotBuilder.axis_scales(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        ::Val{dim},
-        recipe::PlotBuilder.PlotRecipe,
-        page_key,
-        view_key,
-        series::Vector{PlotBuilder.SeriesSpec}
-) where {dim}
-    supports_log = dim === :x ?
-                   _supports_log_values(recipe.input.frequency.values) :
-                   _supports_log(series, dim)
-    return supports_log ? (:linear, :log10) : (:linear,)
-end
-
-function PlotBuilder.axis_exponent(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        ::Val{dim},
-        recipe::PlotBuilder.PlotRecipe,
-        page_key::LinePageKey,
-        view_key,
-        series::Vector{PlotBuilder.SeriesSpec}
-) where {dim}
-    return _finite_exponent(
-        (dim === :x ? item.xdata : item.ydata for item in series)
+function _line_page(recipe, published, parent)
+    selected = Tuple(
+        (request, observation)
+    for (request, observation) in zip(recipe.input.requests, published.observations)
+    if _request_parent(request) === parent
+    )
+    positions = _panel_positions(length(selected))
+    panels = map(selected, positions) do selected_request, position
+        request, observation = selected_request
+        curves = _line_curves(
+            observation,
+            parent,
+            recipe.input.con
+        )
+        xscales = _axis_scales(published.frequency.values)
+        y_observation = _axis_observation(observation, curves)
+        yscales = _axis_scales(y_observation.values)
+        recipe.input.xscale in xscales || throw(DomainError(
+            published.frequency.values,
+            "logarithmic frequency axes require positive finite data and uncertainty bounds"
+        ))
+        recipe.input.yscale in yscales || throw(DomainError(
+            y_observation.values,
+            "logarithmic ordinate axes require positive finite data and uncertainty bounds"
+        ))
+        LinePanelPayload(
+            request,
+            position,
+            Units.label(observation.quantity),
+            published.frequency,
+            y_observation,
+            curves,
+            recipe.input.xscale,
+            recipe.input.yscale,
+            xscales,
+            yscales,
+            (;)
+        )
+    end
+    title = Units.label(Units.quantity(parent))
+    return LinePagePayload(
+        title,
+        (; family = parent, requests = first.(selected)),
+        panels,
+        PlotBuilder.LegendDefinition(),
+        PlotBuilder.ExportDefinition(
+            theme = recipe.renderer.export_theme,
+            name = title,
+            open_file = recipe.renderer.open_export
+        )
     )
 end
 
-function PlotBuilder.axis_exponent(
-        ::Type{LineParameterPlotDefinition},
-        mode::Val,
-        dim::Val,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key::Val,
-        view_key::LinePageKey,
-        series::Vector{PlotBuilder.SeriesSpec}
-)
-    return PlotBuilder.axis_exponent(
+_line_parents(::SeriesImpedance) = (Z,)
+_line_parents(::ShuntAdmittance) = (Y,)
+_line_parents(::LineParameters) = (Z, Y)
+
+function PlotBuilder.fetch(::Type{LineParameterPlotDefinition}, recipe::PlotBuilder.PlotRecipe)
+    published = _publish_line_source(recipe.object, recipe.input, recipe.input.requests)
+    pages = length(published.frequency.values) <= 1 ? () : Tuple(
+        _line_page(recipe, published, parent)
+    for parent in _line_parents(recipe.object)
+    if any(request -> _request_parent(request) === parent, recipe.input.requests)
+    )
+    return PlotBuilder.PlotRecipe(
         LineParameterPlotDefinition,
-        mode,
-        dim,
-        recipe,
-        view_key,
-        nothing,
-        series
+        recipe.object,
+        merge(recipe.input, (; pages)),
+        recipe.renderer
     )
+end
+
+PlotBuilder._recipe_variant(::Type{LineParameterPlotDefinition}, recipe::PlotBuilder.PlotRecipe) =
+    Val(:direct)
+function PlotBuilder._composition(
+        ::Type{LineParameterPlotDefinition},
+        ::Val{:direct},
+        ::PlotBuilder.PlotRecipe
+)
+    return Val(:empty)
+end
+function PlotBuilder._page_keys(
+        ::Type{LineParameterPlotDefinition},
+        ::Val{:direct},
+        ::Val{:empty},
+        recipe::PlotBuilder.PlotRecipe
+)
+    return eachindex(recipe.input.pages)
+end
+
+function _line_page_payload(recipe, page_index::Integer)
+    return recipe.input.pages[page_index]
+end
+
+function PlotBuilder.default_title(
+        ::Type{LineParameterPlotDefinition},
+        ::Val{:direct},
+        recipe::PlotBuilder.PlotRecipe,
+        page_index::Integer,
+        ::Nothing
+)
+    return _line_page_payload(recipe, page_index).title
+end
+
+function PlotBuilder.default_figsize(
+        ::Type{LineParameterPlotDefinition},
+        ::Val{:direct},
+        recipe::PlotBuilder.PlotRecipe,
+        ::Integer
+)
+    return recipe.renderer.fig_size
+end
+
+function PlotBuilder.layout_spec(
+        ::Type{LineParameterPlotDefinition},
+        ::Val{:direct},
+        ::PlotBuilder.PlotRecipe,
+        ::Integer
+)
+    return :grid
 end
 
 function PlotBuilder.page_identity(
         ::Type{LineParameterPlotDefinition},
-        mode::Val,
+        ::Val{:direct},
         recipe::PlotBuilder.PlotRecipe,
-        page_key::LinePageKey
+        page_index::Integer
 )
-    return (;
-        family = _line_parent(page_key),
-        component = _line_component(page_key),
-        components = recipe.input.components,
-        conductors = recipe.input.con
-    )
+    return merge((; page = page_index), _line_page_payload(recipe, page_index).key)
 end
 
-function PlotBuilder.page_identity(
+function PlotBuilder.legend_spec(
         ::Type{LineParameterPlotDefinition},
-        mode::Val,
+        ::Val{:direct},
         recipe::PlotBuilder.PlotRecipe,
-        page_key::Val
+        page_index::Integer
 )
-    return (;
-        family = _line_parent(page_key),
-        components = Tuple(
-            _line_component(component)
-        for component in _line_component_facets(mode, recipe, page_key)
-        ),
-        conductors = recipe.input.con
-    )
+    return _line_page_payload(recipe, page_index).legend
+end
+
+function PlotBuilder.export_spec(
+        ::Type{LineParameterPlotDefinition},
+        ::Val{:direct},
+        recipe::PlotBuilder.PlotRecipe,
+        page_index::Integer,
+        ::AbstractString
+)
+    return _line_page_payload(recipe, page_index).export_definition
 end
