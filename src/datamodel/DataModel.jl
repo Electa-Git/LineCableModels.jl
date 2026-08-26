@@ -38,7 +38,7 @@ import ..PlotBuilder
 import ..Units
 import ..LineCableModels: add!, validate, maxfill, nominal, standard_uncertainty
 import ..LineCableModels: basis, R, L, C, resistance, inductance, capacitance
-import ..Grammar: AbstractProblemResult, observe, observables
+import ..Grammar: AbstractCoreResult, observe, observables
 import ..LineCableModels: retired_fem_sector
 import ..LineCableModels: SectorParams, Sector, SectorInsulator
 using ..Materials: Material

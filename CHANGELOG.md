@@ -60,7 +60,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Removed
 
 - Removed `Commons`, `Utils`, package scalar-union aliases, coercion macros,
-  operating-temperature cable fields, `EMTWorkspace`, primitive-storage options, file
+  operating-temperature cable fields, `EMTWorkspace`, intermediate-storage options, file
   logging, and the constructor proxy types `MaxFill` and `WireArray`.
 - Retired unversioned and legacy JSON loading. The error identifies commit
   `a71bdfe1ac832f27a0c88b1d02596194aac46ec7` as the last snapshot able to migrate those
@@ -81,7 +81,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Aqua, SciML formatting, gitlint, clean-install, and modular documentation
   checks.
 - Citation and contribution metadata.
-- Type-stable primitive and statistical result containers.
+- Type-stable core and statistical result containers.
 - A single declarative PlotBuilder renderer with interactive legends and
   one-click, non-overwriting SVG export.
 

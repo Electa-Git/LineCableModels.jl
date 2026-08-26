@@ -25,7 +25,14 @@ backend and is not part of `Engine.EarthImpedance`.
 
 ## Completed-result read side
 
-Primitive calculation results own their scientific extraction methods.
+`AbstractCoreResult` marks direct LineCableModels-owned computation results;
+`CableConstants` and `LineParameters` are the current core result types.
+`AbstractResultSpace{T}` marks completed finite collections of stored core
+results. Its element type remains open so an external solver's concrete result
+can be stored without subtyping a LineCableModels type. Result-space
+constructors reject abstract element types and nested result-space envelopes.
+
+Core results own their scientific extraction methods.
 [`observe`](@ref) reads native numerical values through function-object
 selectors:
 
@@ -126,7 +133,7 @@ selectors.
 
 Higher-order results remain containers of owned products. `result`,
 `statistics`, `samples`, and `histograms` select those products; they are not
-zero-argument aliases for publication. UQ reads primitive trials with
+zero-argument aliases for publication. UQ reads trial results with
 `observe`, while its retained statistics, samples, and histograms implement
 the same selector grammar for later publication. Monte Carlo run settings and
 resolved point values are read through `root_seed`, `point_seed`,
@@ -157,7 +164,7 @@ MonteCarlo(formulation; trials=100, options=(retain_details=true,))
 ```
 
 Parametric and linear calculations retain `(points=records,)`, with one record
-per primitive result. Monte Carlo retains `(trials=records,)`, with one vector
+per core result. Monte Carlo retains `(trials=records,)`, with one vector
 per Gridspace point and one record per trial. Statistics, samples, histograms,
 seeds, and trial counts remain dedicated result fields.
 
@@ -261,7 +268,7 @@ to it. The backend's `compute` method normalises execution options before doing 
 ```julia
 import LineCableModels:
     AbstractFormulation,
-    AbstractProblemResult,
+    AbstractCoreResult,
     ComputationOptions,
     FormulationOptions,
     computation_options,
@@ -307,7 +314,7 @@ higher-order result types:
 ```julia
 import LineCableModels: ComputationDetails, computation_details
 
-struct ExternalResult <: AbstractProblemResult
+struct ExternalResult <: AbstractCoreResult
     parameters
     diagnostics::NamedTuple
     raw::Dict{String,Any}
@@ -323,6 +330,11 @@ function computation_details(
     )
 end
 ```
+
+An external backend that cannot modify or wrap its solver's concrete return
+type may store that type directly in a result space. `AbstractCoreResult` marks
+owned direct results; it is not an admission requirement for external result
+payloads.
 
 The outer keys and their types are fixed for `ExternalFormulation`. Dynamic
 vendor channels remain inside the explicit `raw` leaf. ParametricBuilder and

@@ -120,7 +120,7 @@ is loaded.
 Higher-order calculations keep supplemental computation output separate from
 their scientific products. `details(result)` returns the empty named tuple by
 default. Construct `Combinatorial`, `LinearError`, or `MonteCarlo` with
-`options=(retain_details=true,)` only when the primitive computation owner has
+`options=(retain_details=true,)` only when the core computation owner has
 registered a `computation_details` method and those records are needed.
 
 Physics and numerical-method choices belong to `Formulation`. Execution choices

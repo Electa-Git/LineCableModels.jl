@@ -184,7 +184,7 @@ arrangement, earth properties, and analysis frequencies.
 
 # Returns
 
-- A primitive `LineParametersProblem` for scalar inputs, or a
+- A core `LineParametersProblem` for scalar inputs, or a
   `Gridspace{LineParametersProblem}` when a direct input varies.
 
 # Errors

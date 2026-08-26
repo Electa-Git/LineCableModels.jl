@@ -1,4 +1,4 @@
-"Return primitive results in Gridspace traversal order."
+"Return core results in Gridspace traversal order."
 result(value::Union{LinearErrorResult, MonteCarloResult}) = value.values
 
 Units.label(::Units.Quantity{:sample_count}) = "Count"
@@ -27,7 +27,7 @@ samples(value::MonteCarloResult) = value.sample_values
 "Return retained histogram products, or `nothing` when retention was disabled."
 histograms(value::MonteCarloResult) = value.histogram_values
 
-"Return the uncertainty-bearing primitive results of a linear propagation."
+"Return the uncertainty-bearing core results of a linear propagation."
 uncertain_value(value::LinearErrorResult) = value.values
 
 """

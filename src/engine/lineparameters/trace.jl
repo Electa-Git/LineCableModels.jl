@@ -2,7 +2,7 @@
 $(TYPEDEF)
 
 Inspection result containing the public line parameters and selected completed
-primitive matrices from one analytical line-parameter calculation.
+intermediate matrices from one analytical line-parameter calculation.
 
 $(TYPEDFIELDS)
 """
@@ -22,7 +22,9 @@ end
 Base.eltype(::LineParametersTrace{<:LineParameters, T}) where {T} = T
 
 basis(trace::LineParametersTrace) = basis(trace.result)
-observe(trace::LineParametersTrace, selector, args...) = observe(trace.result, selector, args...)
+function observe(trace::LineParametersTrace, selector, args...)
+    observe(trace.result, selector, args...)
+end
 observables(::Type{<:LineParametersTrace}) = observables(LineParameters)
 
 function Base.show(io::IO, trace::LineParametersTrace)

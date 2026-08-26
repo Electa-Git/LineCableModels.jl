@@ -128,7 +128,7 @@ extensions and publication payloads; ordinary result access continues to use
 
 A complete deterministic traversal returns `ParametricResult{T}`. Direct
 propagation returns `LinearErrorResult{T}`, and conditional sampling returns
-`MonteCarloResult{T}`. In every family, `T` is the primitive `CableConstants`
+`MonteCarloResult{T}`. In every family, `T` is the core `CableConstants`
 or `LineParameters` result rather than another composite result.
 
 Use `result`, `statistics`, `samples`, `histograms`, and `uncertain_value` to
@@ -138,10 +138,10 @@ inspect scientific products. For a Monte Carlo result, `root_seed`,
 for each Gridspace point. All three higher-order result families also store a
 concrete [`ComputationDetails`](@ref) named tuple. [`details`](@ref) returns
 that tuple. It is `(; )` unless the higher-order formulation was constructed
-with `options=(retain_details=true,)` and the primitive computation owner
+with `options=(retain_details=true,)` and the core computation owner
 implements [`computation_details`](@ref).
 
-Parametric and linear results retain one detail record per primitive result
+Parametric and linear results retain one detail record per core result
 under `details(result).points`. Monte Carlo retains one vector per Gridspace
 point and one record per trial under `details(result).trials`. Typed details do
 not replace statistics, samples, histograms, the root seed, point seeds, or

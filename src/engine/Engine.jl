@@ -6,7 +6,7 @@ materialised cable systems.
 
 # Overview
 
-- Define materialised problems, formulations, and primitive results.
+- Define materialised problems, formulations, and core results.
 - Calculate conductor, insulation, and earth-return impedance and admittance.
 - Assemble phase-domain series-impedance and shunt-admittance matrices.
 - Apply bundle reduction, Kron elimination, transposition, and modal
@@ -46,7 +46,8 @@ import ..LineCableModels: retired_fem_sector, _RETIRED_FEM
 import ..LineCableModels: basis, R, L, C, resistance, inductance, capacitance
 import ..LineCableModels: nominal, standard_uncertainty
 import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
-                  AbstractProblemResult, FormulationOptions, ComputationOptions,
+                  AbstractProblemResult, AbstractCoreResult,
+                  FormulationOptions, ComputationOptions,
                   ComputationDetails,
                   formulation_options, computation_options, computation_details,
                   compute, observe, observables

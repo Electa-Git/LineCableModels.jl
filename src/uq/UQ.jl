@@ -20,13 +20,14 @@ import ..DataModel
 import ..Engine
 import ..Grammar
 import ..Grammar: compute, computation_options, computation_details, details,
-                  observe, observables
+                  observe, observables, check_core_result
 import ..ParametricBuilder
 import ..ParametricBuilder: result
 import ..PlotBuilder
 import ..Units
 using ..Grammar:
-                 AbstractFormulation, AbstractProblemResult, AbstractUncertaintyResult,
+                 AbstractFormulation, AbstractProblemResult, AbstractResultSpace,
+                 AbstractUncertaintyResult,
                  ComputationOptions, ComputationDetails
 using ..ParametricBuilder:
                            ParametricProblem

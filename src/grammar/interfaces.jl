@@ -25,7 +25,7 @@ $(SIGNATURES)
 Validate and normalise the options owned by one computation.
 
 The implementation that owns `OwnerType` defines a method for `Val(OwnerType)`.
-`OwnerType` may identify a primitive solver or a composite calculation such as
+`OwnerType` may identify a core solver or a composite calculation such as
 a Gauntlet case. No broad fallback exists. An unregistered owner raises
 `MethodError`.
 
@@ -44,7 +44,7 @@ function computation_options end
 """
 $(SIGNATURES)
 
-Normalize supplemental output owned by one primitive or composite computation.
+Normalize supplemental output owned by one core or composite computation.
 
 The computation owner defines a method for `Val(OwnerType)` and returns a
 fixed-key [`ComputationDetails`](@ref) named tuple. No broad fallback exists;
@@ -98,12 +98,12 @@ macro observe(source, request)
     accessor, i, j, k = request.args
     return :(
         observe(
-            $(esc(source)),
-            $(esc(accessor)),
-            $(esc(i)),
-            $(esc(j)),
-            $(esc(k)),
-        )
+        $(esc(source)),
+        $(esc(accessor)),
+        $(esc(i)),
+        $(esc(j)),
+        $(esc(k))
+    )
     )
 end
 
@@ -158,8 +158,10 @@ _detach_and_scale(values::AbstractArray, factor) = map(value -> value * factor, 
 function _publish_observable(source, request, identity, target)
     scientific_quantity = _quantity(identity)
     native = native_unit(scientific_quantity, basis(source))
-    displayed = target === nothing ? display_unit(scientific_quantity, basis(source)) : target
-    displayed isa UnitExpr || throw(ArgumentError("observable unit overrides must be UnitExpr values"))
+    displayed = target === nothing ? display_unit(scientific_quantity, basis(source)) :
+                target
+    displayed isa UnitExpr ||
+        throw(ArgumentError("observable unit overrides must be UnitExpr values"))
     factor = scale_factor(native, displayed)
     detached = _detach_and_scale(_observe_request(source, request), factor)
     return (; values = detached, quantity = scientific_quantity, unit = displayed)

@@ -59,7 +59,7 @@ function _append_result(values::Vector{T}, value) where {T}
     value isa T && (push!(values, value); return values)
     W = typejoin(T, typeof(value))
     W === Any && throw(ArgumentError(
-        "Gridspace results do not share one primitive result grammar",
+        "Gridspace results do not share one core result grammar",
     ))
     widened = Vector{W}(undef, length(values) + 1)
     copyto!(widened, values)
@@ -71,17 +71,17 @@ function _traverse(problem::ParametricProblem, formulation, result_type)
     values = nothing
     retained = nothing
     for point in points(problem.space)
-        primitive_problem = materialize(point)
-        primitive_result = compute(
-            primitive_problem,
+        core_problem = materialize(point)
+        core_result = compute(
+            core_problem,
             formulation.inner;
             options = problem.options
         )
-        values = _append_result(values, primitive_result)
+        values = _append_result(values, core_result)
         if formulation.options.retain_details
             record = computation_details(
                 Val(_computation_owner(formulation.inner)),
-                primitive_result
+                core_result
             )
             retained = _append_result(retained, record)
         end

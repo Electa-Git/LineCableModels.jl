@@ -73,7 +73,7 @@ struct LineParameters{
     U <: Real,
     D <: LineParamsDomain,
     Basis
-} <: AbstractProblemResult
+} <: AbstractCoreResult
     "Frequency-dependent series impedance \\[Ω/m\\] or \\[Ω\\]."
     Z::SeriesImpedance{T, Basis}
     "Frequency-dependent shunt admittance \\[S/m\\] or \\[S\\]."
@@ -183,21 +183,23 @@ frequencies(lp::LineParameters, indices...) = observe(lp, frequencies, indices..
 nconductors(lp::LineParameters) = size(lp.Z, 1)
 nfrequencies(lp::LineParameters) = length(lp.f)
 
-observables(::Type{<:LineParameters}) = (
-    frequencies,
-    Z,
-    Y,
-    R,
-    X,
-    L,
-    G,
-    B,
-    C,
-    (Z, abs),
-    (Z, angle),
-    (Y, abs),
-    (Y, angle)
-)
+function observables(::Type{<:LineParameters})
+    (
+        frequencies,
+        Z,
+        Y,
+        R,
+        X,
+        L,
+        G,
+        B,
+        C,
+        (Z, abs),
+        (Z, angle),
+        (Y, abs),
+        (Y, angle)
+    )
+end
 
 series_impedance(value::Union{LineParameters, SeriesImpedance}) = Z(value)
 shunt_admittance(value::Union{LineParameters, ShuntAdmittance}) = Y(value)
@@ -214,40 +216,56 @@ frequency response at that matrix position. `k` may be one index, a range, or
 @inline _observe_array(values::AbstractArray, i, j) = view(values, i, j, :)
 @inline _observe_array(values::AbstractArray, indices...) = getindex(values, indices...)
 
-observe(impedance::SeriesImpedance, ::typeof(Z), indices...) =
+function observe(impedance::SeriesImpedance, ::typeof(Z), indices...)
     _observe_array(impedance.values, indices...)
-observe(admittance::ShuntAdmittance, ::typeof(Y), indices...) =
+end
+function observe(admittance::ShuntAdmittance, ::typeof(Y), indices...)
     _observe_array(admittance.values, indices...)
-observe(lp::LineParameters, ::typeof(Z), indices...) =
+end
+function observe(lp::LineParameters, ::typeof(Z), indices...)
     _observe_array(lp.Z.values, indices...)
-observe(lp::LineParameters, ::typeof(Y), indices...) =
+end
+function observe(lp::LineParameters, ::typeof(Y), indices...)
     _observe_array(lp.Y.values, indices...)
+end
 
-observe(value::Union{LineParameters, SeriesImpedance}, ::typeof(R), indices...) =
+function observe(value::Union{LineParameters, SeriesImpedance}, ::typeof(R), indices...)
     real.(observe(value, Z, indices...))
-observe(value::Union{LineParameters, SeriesImpedance}, ::typeof(X), indices...) =
+end
+function observe(value::Union{LineParameters, SeriesImpedance}, ::typeof(X), indices...)
     imag.(observe(value, Z, indices...))
-observe(value::Union{LineParameters, ShuntAdmittance}, ::typeof(G), indices...) =
+end
+function observe(value::Union{LineParameters, ShuntAdmittance}, ::typeof(G), indices...)
     real.(observe(value, Y, indices...))
-observe(value::Union{LineParameters, ShuntAdmittance}, ::typeof(B), indices...) =
+end
+function observe(value::Union{LineParameters, ShuntAdmittance}, ::typeof(B), indices...)
     imag.(observe(value, Y, indices...))
+end
 
-observe(value::LineParameters, ::typeof(Z), ::typeof(abs), indices...) =
+function observe(value::LineParameters, ::typeof(Z), ::typeof(abs), indices...)
     abs.(observe(value, Z, indices...))
-observe(value::SeriesImpedance, ::typeof(Z), ::typeof(abs), indices...) =
+end
+function observe(value::SeriesImpedance, ::typeof(Z), ::typeof(abs), indices...)
     abs.(observe(value, Z, indices...))
-observe(value::LineParameters, ::typeof(Z), ::typeof(angle), indices...) =
+end
+function observe(value::LineParameters, ::typeof(Z), ::typeof(angle), indices...)
     angle.(observe(value, Z, indices...))
-observe(value::SeriesImpedance, ::typeof(Z), ::typeof(angle), indices...) =
+end
+function observe(value::SeriesImpedance, ::typeof(Z), ::typeof(angle), indices...)
     angle.(observe(value, Z, indices...))
-observe(value::LineParameters, ::typeof(Y), ::typeof(abs), indices...) =
+end
+function observe(value::LineParameters, ::typeof(Y), ::typeof(abs), indices...)
     abs.(observe(value, Y, indices...))
-observe(value::ShuntAdmittance, ::typeof(Y), ::typeof(abs), indices...) =
+end
+function observe(value::ShuntAdmittance, ::typeof(Y), ::typeof(abs), indices...)
     abs.(observe(value, Y, indices...))
-observe(value::LineParameters, ::typeof(Y), ::typeof(angle), indices...) =
+end
+function observe(value::LineParameters, ::typeof(Y), ::typeof(angle), indices...)
     angle.(observe(value, Y, indices...))
-observe(value::ShuntAdmittance, ::typeof(Y), ::typeof(angle), indices...) =
+end
+function observe(value::ShuntAdmittance, ::typeof(Y), ::typeof(angle), indices...)
     angle.(observe(value, Y, indices...))
+end
 
 observables(::Type{<:SeriesImpedance}) = (Z, R, X, L, (Z, abs), (Z, angle))
 observables(::Type{<:ShuntAdmittance}) = (Y, G, B, C, (Y, abs), (Y, angle))
@@ -345,10 +363,12 @@ end
 
 observe(lp::LineParameters, ::typeof(L), i, j) = observe(lp, L, i, j, :)
 observe(lp::LineParameters, ::typeof(C), i, j) = observe(lp, C, i, j, :)
-observe(lp::LineParameters, ::typeof(L), i, j, k) =
+function observe(lp::LineParameters, ::typeof(L), i, j, k)
     observe(lp, X, i, j, k) ./ _angular_frequencies(lp, k)
-observe(lp::LineParameters, ::typeof(C), i, j, k) =
+end
+function observe(lp::LineParameters, ::typeof(C), i, j, k)
     observe(lp, B, i, j, k) ./ _angular_frequencies(lp, k)
+end
 
 L(lp::LineParameters, args...) = observe(lp, L, args...)
 C(lp::LineParameters, args...) = observe(lp, C, args...)

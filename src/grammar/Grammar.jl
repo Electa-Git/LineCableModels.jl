@@ -18,18 +18,22 @@ ParametricBuilder, UQ, and external implementations.
 module Grammar
 
 export AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult
+export AbstractCoreResult, AbstractResultSpace
 export AbstractParametricResult, AbstractUncertaintyResult
 export FormulationOptions, ComputationOptions, ComputationDetails
 export formulation_options, computation_options, computation_details, details
 export compute, observe, @observe, observables, primitives, preprocess
 export nominal, standard_uncertainty
 
-using DocStringExtensions: SIGNATURES, TYPEDEF
+using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF
 import ..LineCableModels: basis
 using ..Units: UnitExpr, quantity, native_unit, display_unit, scale_factor
 
 include("types.jl")
+include("results.jl")
 include("interfaces.jl")
 include("uncertainty.jl")
+
+public check_core_result
 
 end # module Grammar

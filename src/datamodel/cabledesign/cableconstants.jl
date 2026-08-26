@@ -9,7 +9,7 @@ adapters.
 
 $(TYPEDFIELDS)
 """
-struct CableConstants{T} <: AbstractProblemResult
+struct CableConstants{T} <: AbstractCoreResult
     "Series resistance per unit length \\[Ω/m\\]."
     R::T
     "Series inductance per unit length \\[H/m\\]."

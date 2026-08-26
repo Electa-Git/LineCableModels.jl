@@ -15,6 +15,7 @@ module LineCableModels
 # Core generics:
 export add!, validate, description, maxfill, set_backend!
 export AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult
+export AbstractCoreResult, AbstractResultSpace
 export AbstractParametricResult, AbstractUncertaintyResult
 export FormulationOptions, ComputationOptions, ComputationDetails
 export formulation_options, computation_options, computation_details, details
@@ -69,6 +70,7 @@ using .Units: quantity, native_unit, display_unit, scale_factor, label, symbol
 include("grammar/Grammar.jl")
 using .Grammar:
                 AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult,
+                AbstractCoreResult, AbstractResultSpace,
                 AbstractParametricResult, AbstractUncertaintyResult,
                 FormulationOptions, ComputationOptions, ComputationDetails,
                 formulation_options, computation_options, computation_details, details,

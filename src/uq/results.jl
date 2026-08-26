@@ -1,14 +1,14 @@
 """
 $(TYPEDEF)
 
-Store ordered primitive results from a [`LinearError`](@ref) calculation.
+Store ordered core results from a [`LinearError`](@ref) calculation.
 
 $(TYPEDFIELDS)
 """
 struct LinearErrorResult{T, F, D <: ComputationDetails} <: AbstractUncertaintyResult{T}
     "Higher-order formulation used for the calculation."
     formulation::F
-    "Uncertainty-bearing primitive results in Gridspace traversal order."
+    "Uncertainty-bearing core results in Gridspace traversal order."
     values::Vector{T}
     "Typed supplemental output retained by the propagation."
     details::D
@@ -18,25 +18,25 @@ struct LinearErrorResult{T, F, D <: ComputationDetails} <: AbstractUncertaintyRe
             values::Vector{T},
             details::D
     ) where {T, F, D <: ComputationDetails}
-        ParametricBuilder._primitive_result_type(T)
-        isempty(details) || keys(details) == (:points,) || throw(ArgumentError(
-            "LinearErrorResult details must be empty or contain only points",
-        ))
+        check_core_result(T)
+        isempty(details) || keys(details) == (:points,) ||
+            throw(ArgumentError(
+                "LinearErrorResult details must be empty or contain only points",
+            ))
         isempty(details) || length(details.points) == length(values) ||
             throw(DimensionMismatch(
-                "retained details must contain one entry per primitive result",
+                "retained details must contain one entry per core result",
             ))
         return new{T, F, D}(formulation, values, details)
     end
 end
-
 
 LinearErrorResult(formulation, values) = LinearErrorResult(formulation, values, (;))
 
 """
 $(TYPEDEF)
 
-Store primitive sample means and real-valued Monte Carlo summaries.
+Store core results reconstructed from sample means and Monte Carlo summaries.
 
 $(TYPEDFIELDS)
 """
@@ -44,7 +44,7 @@ struct MonteCarloResult{T, F, ST <: AbstractVector, S, H, D <: ComputationDetail
        AbstractUncertaintyResult{T}
     "Higher-order formulation used for the calculation."
     formulation::F
-    "Primitive results assembled from sample means in Gridspace traversal order."
+    "Core results assembled from sample means in Gridspace traversal order."
     values::Vector{T}
     "Per-observable sample summaries."
     stats::ST
@@ -72,35 +72,37 @@ struct MonteCarloResult{T, F, ST <: AbstractVector, S, H, D <: ComputationDetail
             trial_counts::Vector{Int},
             details::D
     ) where {T, F, ST <: AbstractVector, S, H, D <: ComputationDetails}
-        ParametricBuilder._primitive_result_type(T)
+        check_core_result(T)
         length(stats) == length(values) || throw(DimensionMismatch(
-            "Monte Carlo statistics must contain one entry per primitive result",
+            "Monte Carlo statistics must contain one entry per core result",
         ))
         length(point_seeds) == length(values) || throw(DimensionMismatch(
-            "Monte Carlo seeds must contain one entry per primitive result",
+            "Monte Carlo seeds must contain one entry per core result",
         ))
         length(trial_counts) == length(values) || throw(DimensionMismatch(
-            "Monte Carlo trial counts must contain one entry per primitive result",
+            "Monte Carlo trial counts must contain one entry per core result",
         ))
         sample_values === nothing || length(sample_values) == length(values) ||
             throw(DimensionMismatch(
-                "retained samples must contain one entry per primitive result",
+                "retained samples must contain one entry per core result",
             ))
         histogram_values === nothing || length(histogram_values) == length(values) ||
             throw(DimensionMismatch(
-                "retained histograms must contain one entry per primitive result",
+                "retained histograms must contain one entry per core result",
             ))
-        isempty(details) || keys(details) == (:trials,) || throw(ArgumentError(
-            "MonteCarloResult details must be empty or contain only trials",
-        ))
+        isempty(details) || keys(details) == (:trials,) ||
+            throw(ArgumentError(
+                "MonteCarloResult details must be empty or contain only trials",
+            ))
         if !isempty(details)
             length(details.trials) == length(values) || throw(DimensionMismatch(
                 "retained details must contain one entry per Gridspace point",
             ))
-            all(length(records) == count for (records, count) in
-                zip(details.trials, trial_counts)) || throw(DimensionMismatch(
-                "retained details must contain one entry per Monte Carlo trial",
-            ))
+            all(length(records) == count
+            for (records, count) in zip(details.trials, trial_counts)) ||
+                throw(DimensionMismatch(
+                    "retained details must contain one entry per Monte Carlo trial",
+                ))
         end
         return new{T, F, ST, S, H, D}(
             formulation,
@@ -115,7 +117,6 @@ struct MonteCarloResult{T, F, ST <: AbstractVector, S, H, D <: ComputationDetail
         )
     end
 end
-
 
 function MonteCarloResult(
         formulation,

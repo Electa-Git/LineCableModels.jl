@@ -58,7 +58,7 @@ struct MonteCarlo{F <: AbstractFormulation, D, S, O <: ComputationOptions} <:
     distribution::D
     "Optional root random seed."
     seed::S
-    "Whether joint primitive samples are retained."
+    "Whether joint samples are retained."
     return_samples::Bool
     "Whether marginal histogram densities are retained."
     return_histograms::Bool

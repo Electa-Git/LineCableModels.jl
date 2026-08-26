@@ -9,6 +9,8 @@
     @test LineCableModels.AbstractProblemDefinition === Grammar.AbstractProblemDefinition
     @test LineCableModels.AbstractFormulation === Grammar.AbstractFormulation
     @test LineCableModels.AbstractProblemResult === Grammar.AbstractProblemResult
+    @test LineCableModels.AbstractCoreResult === Grammar.AbstractCoreResult
+    @test LineCableModels.AbstractResultSpace === Grammar.AbstractResultSpace
     @test LineCableModels.AbstractParametricResult === Grammar.AbstractParametricResult
     @test LineCableModels.AbstractUncertaintyResult === Grammar.AbstractUncertaintyResult
     @test LineCableModels.compute === Grammar.compute === Engine.compute
@@ -28,6 +30,9 @@
     @test parentmodule(Grammar.observe) === Grammar
     @test parentmodule(Grammar.primitives) === Grammar
     @test parentmodule(Grammar.preprocess) === Grammar
+    @test parentmodule(Grammar.check_core_result) === Grammar
+    @test Base.ispublic(Grammar, :check_core_result)
+    @test !isdefined(LineCableModels, :check_core_result)
     @test isempty(methods(Grammar.primitives))
     @test isempty(methods(Grammar.preprocess))
     @test LineCableModels.FormulationOptions === Grammar.FormulationOptions === NamedTuple
@@ -119,6 +124,38 @@
     @test isdefined(LineCableModels.DataModel, :Tubular)
     @test isdefined(LineCableModels.Materials, :Material)
     @test !isdefined(LineCableModels, :Configuration)
+end
+
+@testitem "Grammar / results / core and result-space taxonomy" tags=[:unit] begin
+    const Grammar=LineCableModels.Grammar
+    const PB=LineCableModels.ParametricBuilder
+    const UQ=LineCableModels.UQ
+    const Engine=LineCableModels.Engine
+
+    abstract type AbstractExternalPayload end
+    struct ExternalPayload <: AbstractExternalPayload
+        value::Int
+    end
+
+    @test LineCableModels.CableConstants <: Grammar.AbstractCoreResult
+    @test LineCableModels.LineParameters <: Grammar.AbstractCoreResult
+    @test !(Engine.LineParametersTrace <: Grammar.AbstractCoreResult)
+    @test !(Engine.LineParametersBenchmark <: Grammar.AbstractCoreResult)
+    @test PB.ParametricResult <: Grammar.AbstractResultSpace
+    @test UQ.LinearErrorResult <: Grammar.AbstractResultSpace
+    @test UQ.MonteCarloResult <: Grammar.AbstractResultSpace
+
+    @test Grammar.check_core_result(ExternalPayload) === nothing
+    external=PB.ParametricResult(nothing, ExternalPayload[ExternalPayload(1)])
+    @test only(external).value == 1
+
+    nested=PB.ParametricResult(nothing, ExternalPayload[ExternalPayload(2)])
+    @test_throws ArgumentError PB.ParametricResult(nothing, [nested])
+    @test_throws ArgumentError PB.ParametricResult(
+        nothing,
+        AbstractExternalPayload[ExternalPayload(3)]
+    )
+    @test_throws ArgumentError PB.ParametricResult(nothing, Any[ExternalPayload(4)])
 end
 
 @testitem "ParametricBuilder and UQ / supplemental output / external owner retention" tags=[:unit] begin

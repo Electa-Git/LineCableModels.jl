@@ -33,10 +33,10 @@ using Random
 import ..LineCableModels: add!, maxfill
 import ..Grammar
 import ..Grammar: compute, computation_options, computation_details, details,
-                  nominal, standard_uncertainty
+                  nominal, standard_uncertainty, check_core_result
 using ..Grammar:
                  AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult,
-                 AbstractParametricResult, AbstractUncertaintyResult,
+                 AbstractResultSpace, AbstractParametricResult, AbstractUncertaintyResult,
                  ComputationOptions, ComputationDetails
 import ..Materials
 import ..Materials: Material

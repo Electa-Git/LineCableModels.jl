@@ -22,18 +22,30 @@ abstract type AbstractProblemResult end
 """
 $(TYPEDEF)
 
-Supertype for deterministic composite results whose primitive scientific
-result type is `T`.
+Supertype for direct results owned by LineCableModels computations.
 """
-abstract type AbstractParametricResult{T} <: AbstractProblemResult end
+abstract type AbstractCoreResult <: AbstractProblemResult end
 
 """
 $(TYPEDEF)
 
-Supertype for uncertainty results whose primitive scientific result type
-is `T`.
+Supertype for completed finite collections whose element type is `T`.
 """
-abstract type AbstractUncertaintyResult{T} <: AbstractProblemResult end
+abstract type AbstractResultSpace{T} <: AbstractProblemResult end
+
+"""
+$(TYPEDEF)
+
+Supertype for deterministic result spaces whose element type is `T`.
+"""
+abstract type AbstractParametricResult{T} <: AbstractResultSpace{T} end
+
+"""
+$(TYPEDEF)
+
+Supertype for uncertainty result spaces whose element type is `T`.
+"""
+abstract type AbstractUncertaintyResult{T} <: AbstractResultSpace{T} end
 
 "Alias identifying a formulation-owned named-tuple option record."
 const FormulationOptions = NamedTuple

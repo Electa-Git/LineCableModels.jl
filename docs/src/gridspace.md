@@ -13,12 +13,12 @@ The calculation sequence is:
 Grid                 declares explicit finite variation
 Gridspace            composes finite sources and selects one point
 callable builder      constructs the existing eager domain object
-Engine.compute        evaluates one complete primitive problem
+Engine.compute        evaluates one complete core problem
 ParametricBuilder/UQ  collect stored calculation data
 ```
 
 `DataModel` constructors validate physical invariants. Engine calculates
-primitive results. UQ performs repeated stochastic realisation and aggregation.
+core results. UQ performs repeated stochastic realisation and aggregation.
 
 ## Core invariants
 
@@ -227,17 +227,17 @@ by exposing unresolved points as application data.
 Combinatorial traversal has one sequence:
 
 ```text
-select point -> `materialize` complete primitive problem
+select point -> `materialize` complete core problem
              -> Engine.compute
-             -> append primitive result
+             -> append core result
 ```
 
 `ParametricResult` stores the higher-order formulation and the ordered vector
-of primitive results. The result does not retain traversal state.
+of core results. The result does not retain traversal state.
 
 Direct linear propagation uses the same traversal. The Measurements extension
 changes only how an uncertain descriptor materialises. `LinearErrorResult`
-likewise stores only its formulation and ordered primitive results.
+likewise stores only its formulation and ordered core results.
 
 Monte Carlo selects each outer point once, derives a deterministic point seed,
 and repeatedly realises that same point:
@@ -246,14 +246,14 @@ and repeatedly realises that same point:
 for each selected outer point
     for each trial
         redraw uncertain leaves within that point
-        build a fresh complete primitive problem
+        build a fresh complete core problem
         Engine.compute
     aggregate that point's draws
 end
 ```
 
 Multiple nominal/error points therefore produce multiple aggregates, not one
-mixture. `MonteCarloResult` directly owns primitive sample means, statistics,
+mixture. `MonteCarloResult` directly owns sample-mean core results, statistics,
 optional retained samples, optional histograms, the root seed, point seeds,
 and trial counts.
 
