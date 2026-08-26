@@ -1,5 +1,5 @@
 "A selected but unresolved argument tuple from a [`Gridspace`](@ref)."
-struct GridPoint{F, A <: Tuple}
+struct Gridpoint{F, A <: Tuple}
     build::F
     args::A
 end
@@ -99,7 +99,7 @@ end
 
 "Return the lazy unresolved points of a Gridspace."
 function points(space::Gridspace)
-    (GridPoint(space.build, args) for args in _combinations(space))
+    (Gridpoint(space.build, args) for args in _combinations(space))
 end
 
 "Return a value unchanged during deterministic point materialisation."
@@ -112,7 +112,7 @@ function materialize(value::UncertainValue)
 end
 
 "Recursively materialise a selected Gridspace point."
-function materialize(point::GridPoint)
+function materialize(point::Gridpoint)
     point.build(map(materialize, point.args)...)
 end
 
@@ -124,7 +124,7 @@ function realize(rng::Random.AbstractRNG, value::UncertainValue, distribution)
 end
 
 "Recursively realise a selected Gridspace point using the caller's RNG."
-function realize(rng::Random.AbstractRNG, point::GridPoint, distribution)
+function realize(rng::Random.AbstractRNG, point::Gridpoint, distribution)
     point.build(map(value -> realize(rng, value, distribution), point.args)...)
 end
 
@@ -148,6 +148,6 @@ Base.size(space::Gridspace) = (length(space),)
 has_uncertainty(::UncertainValue) = true
 has_uncertainty(grid::AbstractUncertainGrid) = true
 has_uncertainty(grid::DeterministicGrid) = any(has_uncertainty, grid.vals)
-has_uncertainty(point::GridPoint) = any(has_uncertainty, point.args)
+has_uncertainty(point::Gridpoint) = any(has_uncertainty, point.args)
 has_uncertainty(space::Gridspace) = any(has_uncertainty, space.grids)
 has_uncertainty(::Any) = false

@@ -214,7 +214,7 @@ end
         @test !isdefined(PB, name)
         @test !isdefined(LineCableModels, name)
     end
-    @test :GridPoint ∉ names(PB)
+    @test :Gridpoint ∉ names(PB)
     @test :points ∉ names(PB)
     @test :materialize ∉ names(PB)
     @test :realize ∉ names(PB)
