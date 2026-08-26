@@ -68,6 +68,9 @@ function _append_result(values::Vector{T}, value) where {T}
 end
 
 function _traverse(problem::ParametricProblem, formulation, result_type)
+    length(problem.space) == 0 && throw(ArgumentError(
+        "higher-order problem space must contain at least one core problem",
+    ))
     values = nothing
     retained = nothing
     for point in points(problem.space)

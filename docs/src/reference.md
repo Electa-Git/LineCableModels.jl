@@ -129,7 +129,12 @@ extensions and publication payloads; ordinary result access continues to use
 A complete deterministic traversal returns `ParametricResult{T}`. Direct
 propagation returns `LinearErrorResult{T}`, and conditional sampling returns
 `MonteCarloResult{T}`. In every family, `T` is the core `CableConstants`
-or `LineParameters` result rather than another composite result.
+or `LineParameters` result rather than another result-space envelope. Each
+family is a one-dimensional finite collection in Gridspace traversal order.
+Indexing and iteration return stored core results. Base `first`, `last`,
+`only`, `collect`, `map`, and `zip` therefore keep their ordinary meanings;
+Monte Carlo iteration exposes one sample-mean representative per Gridspace
+point, not its individual trials.
 
 Use `result`, `statistics`, `samples`, `histograms`, and `uncertain_value` to
 inspect scientific products. For a Monte Carlo result, `root_seed`,

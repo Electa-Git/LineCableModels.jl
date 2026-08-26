@@ -88,11 +88,12 @@ end
 
 ParametricResult(formulation, values) = ParametricResult(formulation, values, (;))
 
-Base.size(value::ParametricResult) = size(value.values)
 Base.length(value::ParametricResult) = length(value.values)
+Base.size(value::ParametricResult) = (length(value),)
 Base.getindex(value::ParametricResult, index::Integer) = value.values[index]
 Base.iterate(value::ParametricResult, state...) = iterate(value.values, state...)
-Base.IndexStyle(::Type{<:ParametricResult}) = IndexLinear()
+Base.firstindex(value::ParametricResult) = firstindex(value.values)
+Base.lastindex(value::ParametricResult) = lastindex(value.values)
 
 "Return the core results of a parametric calculation."
 result(value::ParametricResult) = value.values

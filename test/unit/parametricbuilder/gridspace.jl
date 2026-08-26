@@ -56,7 +56,7 @@ end
     ]
     @test length(product_space) == 6
     @test size(product_space) == (6,)
-    @test PB.target_type(product_space) === Tuple
+    @test eltype(product_space) === Tuple
     @test PB.Grid(product_space) === product_space
 
     zip_space=PB.Gridspace{Tuple}(

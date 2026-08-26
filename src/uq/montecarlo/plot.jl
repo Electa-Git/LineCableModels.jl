@@ -410,7 +410,7 @@ function PlotBuilder.fetch(
         "Monte Carlo distribution plots require one outer Gridspace point",
     ))
     input = request.input
-    representation = only(UQ.result(result))
+    representation = only(result)
     statistic_product = only(statistics(result))
     selection = _mc_selection(
         representation,

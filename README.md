@@ -111,7 +111,10 @@ with cardinality one. Conditional Monte Carlo propagation returns
 `MonteCarloResult{T}`. Use `statistics`, `samples`, `histograms`, and
 `uncertain_value` to inspect stored calculation data. Result order is
 the Gridspace iteration order. Traversal state is not copied into completed
-results.
+results. Parametric, linear-error, and Monte Carlo results are ordinary finite
+collections: indexing and iteration return stored core results, and Base
+`first`, `last`, `only`, `collect`, `map`, and `zip` retain their standard
+meanings.
 `DataFrame(monte_carlo_result)` renders marginal summaries, while
 `plot(monte_carlo_result, R; mode=:hist, data=:both)` and the `:pdf`, `:ecdf`,
 and `:qq` modes display retained distribution information after a Makie package

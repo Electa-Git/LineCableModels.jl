@@ -152,10 +152,12 @@ function _aggregate(
         basis = basis(first_result)
     )
     hist = formulation.return_histograms ?
-           RLCG((
-        _map_samples(values -> _histogram(values, formulation.bins), samples)
-    for samples in (sample_values.R, sample_values.L, sample_values.C, sample_values.G)
-    )...; basis = basis(sample_values)) : nothing
+           RLCG(
+        (
+            _map_samples(values -> _histogram(values, formulation.bins), samples)
+        for samples in (sample_values.R, sample_values.L, sample_values.C, sample_values.G)
+        )...;
+        basis = basis(sample_values)) : nothing
     retained = formulation.return_samples ? sample_values : nothing
     return (; representation, statistics = summaries, samples = retained, histograms = hist)
 end
@@ -201,6 +203,9 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed)
 end
 
 function compute(problem::ParametricProblem, formulation::MonteCarlo)
+    length(problem.space) == 0 && throw(ArgumentError(
+        "higher-order problem space must contain at least one core problem",
+    ))
     values = nothing
     stats_values = nothing
     sample_values = nothing

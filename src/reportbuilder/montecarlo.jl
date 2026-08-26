@@ -27,7 +27,7 @@ function select(definition::MonteCarloTable, source::UQ.MonteCarloResult)
     length(source) == 1 || throw(ArgumentError(
         "DataFrame requires one Monte Carlo point; select one result explicitly",
     ))
-    representation = only(UQ.result(source))
+    representation = only(source)
     product = only(UQ.statistics(source))
     requests = _monte_carlo_requests(representation)
     target_values = map(keys(requests), values(requests)) do key, request

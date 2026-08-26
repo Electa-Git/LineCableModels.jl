@@ -158,6 +158,77 @@ end
     @test_throws ArgumentError PB.ParametricResult(nothing, Any[ExternalPayload(4)])
 end
 
+@testitem "Grammar / results / standard collection semantics" tags=[:unit] begin
+    const Grammar=LineCableModels.Grammar
+    const PB=LineCableModels.ParametricBuilder
+    const UQ=LineCableModels.UQ
+
+    struct CollectionPayload
+        value::Int
+    end
+
+    expected=CollectionPayload[CollectionPayload(1), CollectionPayload(2)]
+    spaces=(
+        PB.ParametricResult(nothing, copy(expected)),
+        UQ.LinearErrorResult(nothing, copy(expected)),
+        UQ.MonteCarloResult(
+            nothing,
+            copy(expected),
+            [:first, :second],
+            nothing,
+            nothing,
+            UInt64(7),
+            UInt64[8, 9],
+            Int[10, 10]
+        )
+    )
+
+    for space in spaces
+        @test Base.IteratorSize(typeof(space)) == Base.HasShape{1}()
+        @test Base.IteratorEltype(typeof(space)) == Base.HasEltype()
+        @test eltype(space) === CollectionPayload
+        @test length(space) == 2
+        @test size(space) == (2,)
+        @test firstindex(space) == 1
+        @test lastindex(space) == 2
+        @test space[2] === expected[2]
+        @test first(space) === expected[1]
+        @test last(space) === expected[2]
+        @test collect(space) == expected
+        @test map(value -> value.value, space) == [1, 2]
+        @test collect(zip(space, (:a, :b))) == [(expected[1], :a), (expected[2], :b)]
+        @test_throws ArgumentError only(space)
+    end
+
+    singleton=PB.ParametricResult(nothing, CollectionPayload[expected[1]])
+    @test only(singleton) === first(singleton)
+    @test all(
+        method -> method.module ∉ (LineCableModels, Grammar, PB, UQ),
+        methods(Base.only)
+    )
+end
+
+@testitem "ParametricBuilder and UQ / compute / empty problem spaces" tags=[:unit] begin
+    const Grammar=LineCableModels.Grammar
+    const PB=LineCableModels.ParametricBuilder
+    const UQ=LineCableModels.UQ
+
+    struct EmptyFormulation <: Grammar.AbstractFormulation end
+
+    space=PB.Gridspace{Int}(identity, (PB.Grid(()),))
+    problem=PB.ParametricProblem(space)
+    @test isempty(space)
+    @test_throws ArgumentError Grammar.compute(
+        problem,
+        PB.Combinatorial(EmptyFormulation())
+    )
+    @test_throws ArgumentError Grammar.compute(problem, UQ.LinearError(EmptyFormulation()))
+    @test_throws ArgumentError Grammar.compute(
+        problem,
+        UQ.MonteCarlo(EmptyFormulation(); trials = 2, seed = 1)
+    )
+end
+
 @testitem "ParametricBuilder and UQ / supplemental output / external owner retention" tags=[:unit] begin
     using Statistics
 

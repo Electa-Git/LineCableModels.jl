@@ -257,6 +257,14 @@ mixture. `MonteCarloResult` directly owns sample-mean core results, statistics,
 optional retained samples, optional histograms, the root seed, point seeds,
 and trial counts.
 
+All completed result spaces are one-dimensional finite Julia collections.
+Iteration and indexing return one stored core result per original Gridspace
+point, in traversal order. Monte Carlo iteration returns the representative
+core result reconstructed from each point's sample means; individual trials
+remain available only through `samples`. Standard `first`, `last`, `only`,
+`collect`, `map`, and `zip` operations apply. `only` asserts singleton
+cardinality and performs no statistical selection or projection.
+
 ## Pairing, exact reuse, and correlation
 
 Zip pairing, exact argument reuse, and stochastic correlation have different

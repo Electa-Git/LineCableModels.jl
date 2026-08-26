@@ -21,9 +21,6 @@ struct Gridspace{Target, F, G <: Tuple, C}
     grids::G
 end
 
-target_type(::Type{<:Gridspace{Target}}) where {Target} = Target
-target_type(space::Gridspace) = target_type(typeof(space))
-
 """
 $(TYPEDSIGNATURES)
 

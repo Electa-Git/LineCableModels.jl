@@ -29,3 +29,7 @@ function check_core_result(::Type{T}) where {T}
     ))
     return nothing
 end
+
+Base.IteratorSize(::Type{<:AbstractResultSpace}) = Base.HasShape{1}()
+Base.IteratorEltype(::Type{<:AbstractResultSpace}) = Base.HasEltype()
+Base.eltype(::Type{<:AbstractResultSpace{T}}) where {T} = T
