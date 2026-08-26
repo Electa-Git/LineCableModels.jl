@@ -31,7 +31,7 @@ function load!(
         "MaterialsLibrary loading requires a .json file",
     ))
     document = _read_document(file_name, MATERIALS_SCHEMA)
-    decoded = _deserialize_value(document["materials"])
+    decoded = deserialize_value(document["materials"])
     decoded isa AbstractDict || throw(ArgumentError(
         "the materials field must be a JSON object",
     ))

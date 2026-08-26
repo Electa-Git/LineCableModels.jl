@@ -54,4 +54,6 @@ include("pscad/pscad.jl")
 include("atp.jl")
 include("tralin.jl")
 
+public serialize_value, deserialize_value, deserialize_extension
+
 end # module ImportExport

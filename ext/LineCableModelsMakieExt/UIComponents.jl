@@ -11,6 +11,7 @@ using Printf: @sprintf
 
 import LineCableModels
 import LineCableModels.PlotBuilder
+import LineCableModels.PlotBuilder: validate_export_theme
 using LineCableModels: nominal, standard_uncertainty
 using LineCableModels.Units: label
 using LineCableModels.PlotBuilder:
@@ -61,7 +62,7 @@ mutable struct ResponsiveLegend
 end
 
 function _theme(; export_mode::Bool = false, export_theme::Symbol = :default)
-    PlotBuilder._validate_export_theme(export_theme)
+    validate_export_theme(export_theme)
     background = export_mode ? BACKGROUND_EXPORT : BACKGROUND_INTERACTIVE
     base = export_mode && export_theme === :publication ? Makie.theme_latexfonts() : Theme()
     custom = Theme(

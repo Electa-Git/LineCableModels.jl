@@ -7,7 +7,7 @@ statistics, and uncertainty-result presentation.
 module UQ
 
 export LinearError, MonteCarlo, LinearErrorResult, MonteCarloResult
-export SampleSummary, HistogramDensity, RLCG
+export SampleSummary, HistogramDensity, RLC, RLCG
 export result, statistics, samples, histograms, uncertain_value
 export root_seed, point_seed, trial_count
 export confidence, cdf_tolerance, sampling_distribution
@@ -20,14 +20,14 @@ import ..DataModel
 import ..Engine
 import ..Grammar
 import ..Grammar: compute, computation_options, computation_details, details,
-                  observe, observables, check_core_result
+                  observe, observables, check_core_result, computation_owner,
+                  detach
 import ..ParametricBuilder
-import ..ParametricBuilder: result
+import ..ParametricBuilder: result, traverse
 import ..PlotBuilder
 import ..Units
 using ..Grammar:
-                 AbstractFormulation, AbstractProblemResult, AbstractResultSpace,
-                 AbstractUncertaintyResult,
+                 AbstractFormulation, AbstractUncertaintyResult,
                  ComputationOptions, ComputationDetails
 using ..ParametricBuilder:
                            ParametricProblem

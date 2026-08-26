@@ -239,7 +239,13 @@ function extrema(grid::AbsoluteGrid)
     return minimum(first, bounds), maximum(last, bounds)
 end
 
-function _sample_uncertainty(
+"""
+$(TYPEDSIGNATURES)
+
+Draw one scalar realization from an uncertainty descriptor using a caller-owned
+random number generator and the selected sampling family.
+"""
+function sample_uncertainty(
         rng::Random.AbstractRNG,
         value::UncertainValue{<:Real, <:Real},
         distribution::Symbol
@@ -252,7 +258,7 @@ function _sample_uncertainty(
     ))
 end
 
-function _sample_uncertainty(
+function sample_uncertainty(
         rng::Random.AbstractRNG,
         value::UncertainValue{<:Real},
         sampler::Function
@@ -260,7 +266,7 @@ function _sample_uncertainty(
     sampler(rng, value.nominal, value.sigma)
 end
 
-function _sample_uncertainty(::Random.AbstractRNG, ::UncertainValue, distribution)
+function sample_uncertainty(::Random.AbstractRNG, ::UncertainValue, distribution)
     throw(ArgumentError(
         "unsupported distribution $(typeof(distribution)); load its package extension or pass a sampler function",
     ))
@@ -272,7 +278,7 @@ function rand(
         distribution = :normal
 )
     iszero(value.sigma) && return float(value.nominal)
-    return _sample_uncertainty(rng, value, distribution)
+    return sample_uncertainty(rng, value, distribution)
 end
 
 function rand(

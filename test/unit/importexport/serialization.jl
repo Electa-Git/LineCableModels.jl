@@ -11,8 +11,8 @@
         [1, 2.5, -1.0im], (1.0, 2.0), Dict(:count=>2, :scale=>0.5)
     ]
     for original in values
-        encoded=IE._serialize_value(original)
-        decoded=IE._deserialize_value(encoded)
+        encoded=IE.serialize_value(original)
+        decoded=IE.deserialize_value(encoded)
         if original isa AbstractFloat&&isnan(original)
             @test isnan(decoded)
         elseif original isa Tuple
@@ -24,14 +24,14 @@
         end
     end
 
-    @test_throws ArgumentError IE._deserialize_value(Dict("__type__"=>"Complex"))
-    @test_throws ArgumentError IE._deserialize_value(Dict(
+    @test_throws ArgumentError IE.deserialize_value(Dict("__type__"=>"Complex"))
+    @test_throws ArgumentError IE.deserialize_value(Dict(
         "__type__"=>"Float64", "special"=>"huge"
     ))
-    @test_throws ArgumentError IE._deserialize_value(Dict(
+    @test_throws ArgumentError IE.deserialize_value(Dict(
         "__type__"=>"FutureScalar", "value"=>2
     ))
-    @test_throws ArgumentError IE._deserialize_value(Dict(
+    @test_throws ArgumentError IE.deserialize_value(Dict(
         "type"=>"FutureObject", "value"=>2
     ))
 end
@@ -44,7 +44,7 @@ end
     import LineCableModels.ImportExport as IE
 
     design=TestFixtures.mv_cable_design()
-    encoded=IE._serialize_value(design)
+    encoded=IE.serialize_value(design)
     @test encoded["type"] == "CableDesign"
     @test encoded["cable_id"] == design.cable_id
 
@@ -58,13 +58,13 @@ end
     @test !contains_key(encoded, "temperature")
     @test !contains_key(encoded, "__julia_type__")
 
-    restored=IE._deserialize_value(encoded)
+    restored=IE.deserialize_value(encoded)
     @test restored isa CableDesign
     @test restored !== design
-    @test IE._serialize_value(restored) == encoded
+    @test IE.serialize_value(restored) == encoded
 
     material=Material(Float32(1), Float32(2), Float32(3), Float32(20), Float32(0.01))
-    material_roundtrip=IE._deserialize_value(IE._serialize_value(material))
+    material_roundtrip=IE.deserialize_value(IE.serialize_value(material))
     @test material_roundtrip == material
     @test eltype(material_roundtrip) === Float32
 
@@ -73,11 +73,11 @@ end
         missing_radius["components"][1]["conductor_group"]["layers"][1],
         "r_ex"
     )
-    @test_throws ArgumentError IE._deserialize_value(missing_radius)
+    @test_throws ArgumentError IE.deserialize_value(missing_radius)
 
     empty_group=deepcopy(encoded)
     empty!(empty_group["components"][1]["conductor_group"]["layers"])
-    @test_throws ArgumentError IE._deserialize_value(empty_group)
+    @test_throws ArgumentError IE.deserialize_value(empty_group)
 end
 
 @testitem "ImportExport / documents / explicit version and schema" tags=[:unit] setup=[

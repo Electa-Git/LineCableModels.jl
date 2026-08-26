@@ -32,6 +32,6 @@ include("results.jl")
 include("interfaces.jl")
 include("uncertainty.jl")
 
-public check_core_result
+public check_core_result, computation_owner, detach
 
 end # module Grammar

@@ -34,10 +34,11 @@ using Random
 import ..LineCableModels: add!, maxfill
 import ..Grammar
 import ..Grammar: compute, computation_options, computation_details, details,
-                  nominal, standard_uncertainty, check_core_result
+                  nominal, standard_uncertainty, check_core_result,
+                  computation_owner
 using ..Grammar:
-                 AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult,
-                 AbstractResultSpace, AbstractParametricResult, AbstractUncertaintyResult,
+                 AbstractProblemDefinition, AbstractFormulation, AbstractResultSpace,
+                 AbstractParametricResult,
                  ComputationOptions, ComputationDetails
 import ..Materials
 import ..Materials: Material
@@ -59,11 +60,13 @@ include("cablebuilder.jl")
 include("positions.jl")
 include("systembuilder.jl")
 
-include("compute.jl")
+include("engine/cableconstants.jl")
+include("traversal.jl")
 
 include("wirepatterns/WirePatterns.jl")
 using .WirePatterns: WireEstimate, make_stranded, make_screened
 
 public AbstractProjectionDefinition, entitle, select, derive, materialize
+public traverse, sample_uncertainty
 
 end

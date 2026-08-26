@@ -127,4 +127,6 @@ include("lineparameters/plot.jl")
 include("lineparameters/plotdefinition.jl")
 include("lineparameters/comparisonplot.jl")
 
+public cable_constants_problem, has_uncertainty_type
+
 end # module Engine

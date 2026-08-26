@@ -19,11 +19,14 @@ encode(::_TableOnlyReport, source, published, table, ::Nothing) = nothing
 write(::_TableOnlyReport, source, published, table, ::Nothing, ::Nothing) = nothing
 
 entitle(::CableConstantsTable, source::DataModel.CableConstants) = source
-entitle(::LineParametersTable, source::Union{
-    Engine.LineParameters,
-    Engine.SeriesImpedance,
-    Engine.ShuntAdmittance
-}) = source
+function entitle(::LineParametersTable,
+        source::Union{
+            Engine.LineParameters,
+            Engine.SeriesImpedance,
+            Engine.ShuntAdmittance
+        })
+    source
+end
 entitle(::BenchmarkTable, source::Engine.LineParametersBenchmark) = source
 
 function select(::CableConstantsTable, source::DataModel.CableConstants)
@@ -100,25 +103,25 @@ end
 
 _line_request(::Val{:series}, ::typeof(R), frequencies) = ((:R, R),)
 _line_request(::Val{:series}, ::typeof(X), frequencies) = ((:X, X),)
-_line_request(::Val{:series}, ::typeof(L), frequencies) =
+function _line_request(::Val{:series}, ::typeof(L), frequencies)
     ((:L, frequencies === nothing ? L : (L, frequencies)),)
+end
 _line_request(::Val{:series}, ::typeof(real), frequencies) = ((:real, R),)
 _line_request(::Val{:series}, ::typeof(imag), frequencies) = ((:imag, X),)
 _line_request(::Val{:series}, ::typeof(abs), frequencies) = ((:magnitude, (Z, abs)),)
 _line_request(::Val{:series}, ::typeof(angle), frequencies) = ((:angle, (Z, angle)),)
-_line_request(::Val{:series}, ::typeof(Z), frequencies) =
-    ((:real, R), (:imag, X))
+_line_request(::Val{:series}, ::typeof(Z), frequencies) = ((:real, R), (:imag, X))
 
 _line_request(::Val{:shunt}, ::typeof(G), frequencies) = ((:G, G),)
 _line_request(::Val{:shunt}, ::typeof(B), frequencies) = ((:B, B),)
-_line_request(::Val{:shunt}, ::typeof(C), frequencies) =
+function _line_request(::Val{:shunt}, ::typeof(C), frequencies)
     ((:C, frequencies === nothing ? C : (C, frequencies)),)
+end
 _line_request(::Val{:shunt}, ::typeof(real), frequencies) = ((:real, G),)
 _line_request(::Val{:shunt}, ::typeof(imag), frequencies) = ((:imag, B),)
 _line_request(::Val{:shunt}, ::typeof(abs), frequencies) = ((:magnitude, (Y, abs)),)
 _line_request(::Val{:shunt}, ::typeof(angle), frequencies) = ((:angle, (Y, angle)),)
-_line_request(::Val{:shunt}, ::typeof(Y), frequencies) =
-    ((:real, G), (:imag, B))
+_line_request(::Val{:shunt}, ::typeof(Y), frequencies) = ((:real, G), (:imag, B))
 
 _line_request(::Val, selector, frequencies) = ()
 
@@ -146,9 +149,10 @@ end
 function _quantity_prefix(quantity_units, key::Symbol, fallback::Symbol)
     quantity_units === nothing && return fallback
     quantity_units isa Symbol && return quantity_units
-    quantity_units isa NamedTuple || quantity_units isa AbstractDict || throw(
-        ArgumentError("quantity_units must be a prefix, keyed collection, or nothing"),
-    )
+    quantity_units isa NamedTuple || quantity_units isa AbstractDict ||
+        throw(
+            ArgumentError("quantity_units must be a prefix, keyed collection, or nothing"),
+        )
     return haskey(quantity_units, key) ? quantity_units[key] : fallback
 end
 
@@ -196,33 +200,43 @@ function select(definition::LineParametersTable, source)
                       _line_requests(Val(:series), selectors, frequencies)
     shunt_requests = source isa Engine.SeriesImpedance ? (;) :
                      _line_requests(Val(:shunt), selectors, frequencies)
-    isempty(series_requests) && isempty(shunt_requests) && throw(ArgumentError(
-        "the selected accessors are not reportable for $(typeof(source))",
-    ))
-    source isa Engine.LineParameters && isempty(series_requests) && throw(ArgumentError(
-        "LineParameters presentation requires a series accessor",
-    ))
-    source isa Engine.LineParameters && isempty(shunt_requests) && throw(ArgumentError(
-        "LineParameters presentation requires a shunt accessor",
-    ))
+    isempty(series_requests) && isempty(shunt_requests) &&
+        throw(ArgumentError(
+            "the selected accessors are not reportable for $(typeof(source))",
+        ))
+    source isa Engine.LineParameters && isempty(series_requests) &&
+        throw(ArgumentError(
+            "LineParameters presentation requires a series accessor",
+        ))
+    source isa Engine.LineParameters && isempty(shunt_requests) &&
+        throw(ArgumentError(
+            "LineParameters presentation requires a shunt accessor",
+        ))
     frequency = _frequency_payload(source, frequencies, definition.frequency_unit)
     series = _publish_family(source, series_requests, definition)
     shunt = _publish_family(source, shunt_requests, definition)
     return (; frequency, series, shunt)
 end
 
-function _clip_field(value::Real, tolerance)
+"""
+$(TYPEDSIGNATURES)
+
+Replace finite real report values within `tolerance` of zero with exact zero.
+"""
+function clip(value::Real, tolerance)
     isfinite(value) || return value
     return abs(value) <= tolerance ? zero(value) : value
 end
 
-_clip_field(value, _) = value
+clip(value::Complex, _) = value
+clip(value::Missing, _) = value
 
 function _matrix_tables(frequency, published::NamedTuple, tolerance)
     first_payload = first(values(published))
     row_count, column_count, _ = size(first_payload.values)
     frames = Matrix{DataFrame}(undef, row_count, column_count)
     for row in 1:row_count, column in 1:column_count
+
         table = DataFrame(frequency = frequency.values)
         unit_labels = Dict{Symbol, String}(:frequency => Units.label(frequency.unit))
         headings = Dict{Symbol, String}(
@@ -230,7 +244,7 @@ function _matrix_tables(frequency, published::NamedTuple, tolerance)
         )
         for (key, payload) in pairs(published)
             selected = collect(view(payload.values, row, column, :))
-            table[!, key] = _clip_field.(selected, tolerance)
+            table[!, key] = clip.(selected, tolerance)
             unit_labels[key] = Units.label(payload.unit)
             headings[key] = Units.label(payload.quantity, payload.unit)
         end
@@ -325,11 +339,14 @@ function tabulate(definition::BenchmarkTable, source, published)
         style = :note
     )
     metadata!(table, "zero_atol", definition.zero_atol, style = :note)
-    metadata!(table, "units", (
-        Z = Units.label(published.Z_absolute.unit),
-        Y = Units.label(published.Y_absolute.unit),
-        relative = Units.label(published.Z_relative.unit)
-    ), style = :note)
+    metadata!(table,
+        "units",
+        (
+            Z = Units.label(published.Z_absolute.unit),
+            Y = Units.label(published.Y_absolute.unit),
+            relative = Units.label(published.Z_relative.unit)
+        ),
+        style = :note)
     return table
 end
 

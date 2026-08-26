@@ -31,7 +31,7 @@ end
 
 function _sample_storage(first_result::DataModel.CableConstants, trials::Int)
     T = typeof(observe(first_result, R))
-    return DataModel.CableConstants(
+    return RLC(
         Vector{T}(undef, trials),
         Vector{T}(undef, trials),
         Vector{T}(undef, trials)
@@ -39,7 +39,7 @@ function _sample_storage(first_result::DataModel.CableConstants, trials::Int)
 end
 
 function _record_sample!(
-        storage::DataModel.CableConstants,
+        storage::RLC,
         value::DataModel.CableConstants,
         trial::Int,
         ::Nothing
@@ -54,14 +54,14 @@ _sample_axis(::DataModel.CableConstants) = nothing
 _sample_axis(value::Engine.LineParameters) = observe(value, Engine.frequencies)
 
 function _aggregate(
-        sample_values::DataModel.CableConstants,
+        sample_values::RLC,
         ::DataModel.CableConstants,
         formulation::MonteCarlo
 )
     Rs = observe(sample_values, R)
     Ls = observe(sample_values, L)
     Cs = observe(sample_values, C)
-    summaries = DataModel.CableConstants(SampleSummary(Rs), SampleSummary(Ls), SampleSummary(Cs))
+    summaries = RLC(SampleSummary(Rs), SampleSummary(Ls), SampleSummary(Cs))
     representation = DataModel.CableConstants(
         observe(summaries, R, Statistics.mean),
         observe(summaries, L, Statistics.mean),
@@ -69,7 +69,7 @@ function _aggregate(
     )
     retained = formulation.return_samples ? sample_values : nothing
     hist = formulation.return_histograms ?
-           DataModel.CableConstants(
+           RLC(
         _histogram(Rs, formulation.bins),
         _histogram(Ls, formulation.bins),
         _histogram(Cs, formulation.bins)
@@ -162,22 +162,22 @@ function _aggregate(
     return (; representation, statistics = summaries, samples = retained, histograms = hist)
 end
 
-function _monte_carlo(point, formulation::MonteCarlo, options, seed)
+function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_owner)
     rng = Random.Xoshiro(seed)
     first_problem = ParametricBuilder.realize(rng, point, formulation.distribution)
     first_result = compute(first_problem, formulation.inner; options)
-    retained = if formulation.options.retain_details
-        [computation_details(
-            Val(ParametricBuilder._computation_owner(formulation.inner)),
-            first_result
-        )]
-    else
-        nothing
-    end
     ntrials = something(
         formulation.trials,
         _dkw_trials(_observable_count(first_result), formulation.confidence, formulation.cdf_tol)
     )
+    retained = if formulation.options.retain_details
+        first_record = computation_details(Val(details_owner), first_result)
+        records = Vector{typeof(first_record)}(undef, ntrials)
+        records[1] = first_record
+        records
+    else
+        nothing
+    end
     sample_values = _sample_storage(first_result, ntrials)
     sample_axis = _sample_axis(first_result)
     _record_sample!(sample_values, first_result, 1, sample_axis)
@@ -188,13 +188,13 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed)
             "Monte Carlo realisations produced incompatible result types",
         ))
         _record_sample!(sample_values, value, trial, sample_axis)
-        formulation.options.retain_details && push!(
-            retained,
-            computation_details(
-                Val(ParametricBuilder._computation_owner(formulation.inner)),
-                value
-            )
-        )
+        if retained !== nothing
+            record = computation_details(Val(details_owner), value)
+            typeof(record) === eltype(retained) || throw(ArgumentError(
+                "Monte Carlo trials produced incompatible details record types",
+            ))
+            retained[trial] = record
+        end
     end
     return merge(
         _aggregate(sample_values, first_result, formulation),
@@ -203,55 +203,108 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed)
 end
 
 function compute(problem::ParametricProblem, formulation::MonteCarlo)
-    length(problem.space) == 0 && throw(ArgumentError(
+    point_count = length(problem.space)
+    point_count > 0 || throw(ArgumentError(
         "higher-order problem space must contain at least one core problem",
     ))
-    values = nothing
-    stats_values = nothing
-    sample_values = nothing
-    histogram_values = nothing
-    seeds = UInt64[]
-    trial_counts = Int[]
-    retained = nothing
     root_seed = formulation.seed === nothing ? rand(Random.RandomDevice(), UInt64) :
                 formulation.seed
-    for (index, point) in enumerate(ParametricBuilder.points(problem.space))
+    details_owner = formulation.options.retain_details ?
+                    computation_owner(formulation.inner) : nothing
+    point_source = ParametricBuilder.points(problem.space)
+    first_item = iterate(point_source)
+    first_item === nothing && throw(DimensionMismatch(
+        "problem-space iteration ended before its declared cardinality",
+    ))
+    first_point, state = first_item
+    first_seed = root_seed
+    first_aggregate = _monte_carlo(
+        first_point,
+        formulation,
+        problem.options,
+        first_seed,
+        details_owner
+    )
+    check_core_result(typeof(first_aggregate.representation))
+
+    values = Vector{typeof(first_aggregate.representation)}(undef, point_count)
+    stats_values = Vector{typeof(first_aggregate.statistics)}(undef, point_count)
+    sample_values = formulation.return_samples ?
+                    Vector{typeof(first_aggregate.samples)}(undef, point_count) : nothing
+    histogram_values = formulation.return_histograms ?
+                       Vector{typeof(first_aggregate.histograms)}(undef, point_count) :
+                       nothing
+    seeds = Vector{UInt64}(undef, point_count)
+    trial_counts = Vector{Int}(undef, point_count)
+    retained = formulation.options.retain_details ?
+               Vector{typeof(first_aggregate.details)}(undef, point_count) : nothing
+
+    values[1] = first_aggregate.representation
+    stats_values[1] = first_aggregate.statistics
+    sample_values === nothing || (sample_values[1] = first_aggregate.samples)
+    histogram_values === nothing ||
+        (histogram_values[1] = first_aggregate.histograms)
+    seeds[1] = first_aggregate.seed
+    trial_counts[1] = first_aggregate.trials
+    retained === nothing || (retained[1] = first_aggregate.details)
+
+    for index in 2:point_count
+        item = iterate(point_source, state)
+        item === nothing && throw(DimensionMismatch(
+            "problem-space iteration ended before its declared cardinality",
+        ))
+        point, state = item
         point_seed = root_seed ⊻ (UInt64(index - 1) * 0x9e3779b97f4a7c15)
         aggregate = _monte_carlo(
             point,
             formulation,
             problem.options,
-            point_seed
+            point_seed,
+            details_owner
         )
-        values = ParametricBuilder._append_result(values, aggregate.representation)
-        stats_values = ParametricBuilder._append_result(stats_values, aggregate.statistics)
-        formulation.return_samples &&
-            (sample_values = ParametricBuilder._append_result(
-                sample_values,
-                aggregate.samples
+        typeof(aggregate.representation) === eltype(values) || throw(ArgumentError(
+            "Monte Carlo points produced incompatible core result types",
+        ))
+        typeof(aggregate.statistics) === eltype(stats_values) || throw(ArgumentError(
+            "Monte Carlo points produced incompatible statistics product types",
+        ))
+        values[index] = aggregate.representation
+        stats_values[index] = aggregate.statistics
+        if sample_values !== nothing
+            typeof(aggregate.samples) === eltype(sample_values) || throw(ArgumentError(
+                "Monte Carlo points produced incompatible sample product types",
             ))
-        formulation.return_histograms &&
-            (histogram_values = ParametricBuilder._append_result(
-                histogram_values,
-                aggregate.histograms
+            sample_values[index] = aggregate.samples
+        end
+        if histogram_values !== nothing
+            typeof(aggregate.histograms) === eltype(histogram_values) ||
+                throw(ArgumentError(
+                    "Monte Carlo points produced incompatible histogram product types",
+                ))
+            histogram_values[index] = aggregate.histograms
+        end
+        seeds[index] = aggregate.seed
+        trial_counts[index] = aggregate.trials
+        if retained !== nothing
+            typeof(aggregate.details) === eltype(retained) || throw(ArgumentError(
+                "Monte Carlo points produced incompatible details product types",
             ))
-        push!(seeds, aggregate.seed)
-        push!(trial_counts, aggregate.trials)
-        formulation.options.retain_details &&
-            (retained = ParametricBuilder._append_result(retained, aggregate.details))
+            retained[index] = aggregate.details
+        end
     end
-    typed_values = values === nothing ? AbstractProblemResult[] : values
-    typed_stats = stats_values === nothing ? Any[] : stats_values
+    iterate(point_source, state) === nothing || throw(DimensionMismatch(
+        "problem-space iteration exceeded its declared cardinality",
+    ))
+
     return MonteCarloResult(
         formulation,
-        typed_values,
-        typed_stats,
-        formulation.return_samples ? something(sample_values, Any[]) : nothing,
-        formulation.return_histograms ? something(histogram_values, Any[]) : nothing,
+        values,
+        stats_values,
+        sample_values,
+        histogram_values,
         root_seed,
         seeds,
         trial_counts,
-        formulation.options.retain_details ?
-        (trials = something(retained, Vector{NamedTuple}[]),) : (;)
+        retained === nothing ? (;) : (trials = retained,)
     )
 end

@@ -1,3 +1,4 @@
 function compute(problem::ParametricProblem, formulation::LinearError)
-    ParametricBuilder._traverse(problem, formulation, LinearErrorResult)
+    traversed = traverse(problem, formulation)
+    return LinearErrorResult(formulation, traversed.values, traversed.details)
 end

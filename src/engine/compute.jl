@@ -276,12 +276,12 @@ function compute(
     execution.output_basis == Val(:pul) || throw(ArgumentError(
         "CableConstantsProblem supports only output_basis=:pul",
     ))
-    return DataModel._compute_cable_constants(
+    return DataModel.compute_cable_constants(
         problem.design; S = problem.separation, rho_e = problem.earth_resistivity
     )
 end
 
-function DataModel._base_parameters(design::CableDesign)
+function DataModel.base_parameters(design::CableDesign)
     compute(CableConstantsProblem(design), Formulation())
 end
 

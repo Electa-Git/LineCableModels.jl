@@ -19,6 +19,11 @@ const ReportBuilder = LineCableModels.ReportBuilder
 const ImportExport = LineCableModels.ImportExport
 
 import LineCableModels: nominal, standard_uncertainty
+import LineCableModels.Engine: has_uncertainty_type
+import LineCableModels.ImportExport:
+                                     serialize_value, deserialize_extension,
+                                     deserialize_value
+import LineCableModels.ReportBuilder: clip, encode_cell
 
 # Numeric presentation hooks.
 nominal(value::Measurements.Measurement) = Measurements.value(value)
@@ -28,12 +33,12 @@ function ParametricBuilder.materialize(value::ParametricBuilder.UncertainValue{<
     Measurements.measurement(value.nominal, value.sigma)
 end
 
-function Engine._has_uncertainty_type(
+function has_uncertainty_type(
         ::Type{Complex{T}},
 ) where {T <: Measurements.Measurement}
     true
 end
-function ReportBuilder._clip_field(value::Measurements.Measurement, tolerance)
+function clip(value::Measurements.Measurement, tolerance)
     nominal = abs(Measurements.value(value)) <= tolerance ?
               0.0 : Measurements.value(value)
     uncertainty = abs(Measurements.uncertainty(value)) <= tolerance ?
@@ -41,19 +46,19 @@ function ReportBuilder._clip_field(value::Measurements.Measurement, tolerance)
     return Measurements.measurement(nominal, uncertainty)
 end
 
-function ImportExport._serialize_value(value::Measurements.Measurement)
+function serialize_value(value::Measurements.Measurement)
     return Dict(
         "__type__" => "Measurement",
-        "value" => ImportExport._serialize_value(Measurements.value(value)),
-        "uncertainty" => ImportExport._serialize_value(Measurements.uncertainty(value))
+        "value" => serialize_value(Measurements.value(value)),
+        "uncertainty" => serialize_value(Measurements.uncertainty(value))
     )
 end
-function ImportExport._deserialize_extension(::Val{:Measurement}, value)
-    nominal = ImportExport._deserialize_value(value["value"])
-    uncertainty = ImportExport._deserialize_value(value["uncertainty"])
+function deserialize_extension(::Val{:Measurement}, value)
+    nominal = deserialize_value(value["value"])
+    uncertainty = deserialize_value(value["uncertainty"])
     return Measurements.measurement(nominal, uncertainty)
 end
-function ReportBuilder._xlsx_string(value::Measurements.Measurement)
+function encode_cell(::ReportBuilder.XLSXReport, value::Measurements.Measurement)
     Printf.@sprintf("%.12g ± %.6g",
         Measurements.value(value),
         Measurements.uncertainty(value),)

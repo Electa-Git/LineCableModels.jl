@@ -15,7 +15,7 @@
         "value"=>Dict("__type__"=>"Float", "value"=>1.0),
         "uncertainty"=>Dict("__type__"=>"Float", "value"=>0.1)
     )
-    @test_throws ArgumentError LineCableModels.ImportExport._deserialize_value(
+    @test_throws ArgumentError LineCableModels.ImportExport.deserialize_value(
         encoded_measurement
     )
 end
@@ -100,6 +100,14 @@ end
 
     extension_module=Base.get_extension(LineCableModels, :LineCableModelsMeasurementsExt)
     @test extension_module !== nothing
+    @test any(
+        method -> method.module === extension_module,
+        methods(LineCableModels.ReportBuilder.clip)
+    )
+    @test any(
+        method -> method.module === extension_module,
+        methods(LineCableModels.ReportBuilder.encode_cell)
+    )
 
     uncertain=measurement(-20.0, 1.0)
     @test value(uncertain) == -20.0
@@ -107,25 +115,28 @@ end
     @test LineCableModels.nominal(uncertain) == -20.0
     @test LineCableModels.standard_uncertainty(uncertain) == 1.0
 
-    clipped=LineCableModels.ReportBuilder._clip_field(
+    clipped=LineCableModels.ReportBuilder.clip(
         measurement(1.0e-12, 2.0e-12),
         1.0e-9
     )
     @test value(clipped) == 0.0
     @test uncertainty(clipped) == 0.0
-    retained=LineCableModels.ReportBuilder._clip_field(
+    retained=LineCableModels.ReportBuilder.clip(
         measurement(2.0, 0.25),
         1.0e-9
     )
     @test value(retained) == 2.0
     @test uncertainty(retained) == 0.25
 
-    encoded=LineCableModels.ImportExport._serialize_value(uncertain)
+    encoded=LineCableModels.ImportExport.serialize_value(uncertain)
     @test encoded["__type__"] == "Measurement"
-    decoded=LineCableModels.ImportExport._deserialize_value(encoded)
+    decoded=LineCableModels.ImportExport.deserialize_value(encoded)
     @test value(decoded) == value(uncertain)
     @test uncertainty(decoded) == uncertainty(uncertain)
-    @test LineCableModels.ReportBuilder._xlsx_string(uncertain) == "-20 ± 1"
+    @test LineCableModels.ReportBuilder.encode_cell(
+        LineCableModels.ReportBuilder.XLSXReport(),
+        uncertain
+    ) == "-20 ± 1"
 
     argument=complex(measurement(1.25, 0.01), measurement(0.5, 0.02))
     nominal=complex(1.25, 0.5)
@@ -147,12 +158,12 @@ end
     formulation=MonteCarlo(Formulation(); trials = 3, seed = 9,
         return_samples = true)
     values=[CableConstants(2.0, 20.0, 200.0)]
-    stats=[CableConstants(
+    stats=[RLC(
         SampleSummary(2.0, 1.0, 1.0, 1.1, 2.0, 2.9, 3.0, 3),
         SampleSummary(20.0, 10.0, 10.0, 11.0, 20.0, 29.0, 30.0, 3),
         SampleSummary(200.0, 100.0, 100.0, 110.0, 200.0, 290.0, 300.0, 3)
     )]
-    sample_values=[CableConstants(
+    sample_values=[RLC(
         [1.0, 2.0, 3.0],
         [10.0, 20.0, 30.0],
         [100.0, 200.0, 300.0]

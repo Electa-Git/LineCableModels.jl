@@ -63,13 +63,13 @@ if lowercase(get(ENV, "LINECABLEMODELS_UPDATE_PLOT_REFERENCES", "false")) == "tr
     summary = SampleSummary([1.0, 2.0, 3.0, 4.0])
     histogram = HistogramDensity([1.0, 3.0, 5.0], [0.25, 0.25])
     representation = CableConstants(2.5, 2.5, 2.5)
-    statistics_value = CableConstants(summary, summary, summary)
-    samples_value = CableConstants(
+    statistics_value = RLC(summary, summary, summary)
+    samples_value = RLC(
         [1.0, 2.0, 3.0, 4.0],
         [1.0, 2.0, 3.0, 4.0],
         [1.0, 2.0, 3.0, 4.0]
     )
-    histograms_value = CableConstants(histogram, histogram, histogram)
+    histograms_value = RLC(histogram, histogram, histogram)
     mc_formulation = MonteCarlo(
         Formulation(); trials = 4, seed = 1,
         return_samples = true, return_histograms = true

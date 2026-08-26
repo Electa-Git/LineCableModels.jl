@@ -239,6 +239,13 @@ Direct linear propagation uses the same traversal. The Measurements extension
 changes only how an uncertain descriptor materialises. `LinearErrorResult`
 likewise stores only its formulation and ordered core results.
 
+ParametricBuilder owns this shared traversal as the qualified `traverse`
+method. It computes the first point, allocates a vector of that exact result
+type with the analytic Gridspace cardinality, and rejects any later type
+change. Optional detail records follow the same rule. `Combinatorial` and
+`LinearError` construct their respective result spaces from the returned
+`values` and `details`; Monte Carlo does not use this traversal.
+
 Monte Carlo selects each outer point once, derives a deterministic point seed,
 and repeatedly realises that same point:
 
@@ -256,6 +263,13 @@ Multiple nominal/error points therefore produce multiple aggregates, not one
 mixture. `MonteCarloResult` directly owns sample-mean core results, statistics,
 optional retained samples, optional histograms, the root seed, point seeds,
 and trial counts.
+
+For cable-constant Monte Carlo calculations, the representative stored in the
+result space remains a `CableConstants` core result. Retained samples,
+statistics, and histograms use the UQ-owned `RLC` product. Line-parameter
+products use `RLCG`. Neither product is a core result or a result space.
+Monte Carlo allocates each point-aligned product vector from the first
+aggregate's exact concrete type and rejects later type changes.
 
 All completed result spaces are one-dimensional finite Julia collections.
 Iteration and indexing return one stored core result per original Gridspace

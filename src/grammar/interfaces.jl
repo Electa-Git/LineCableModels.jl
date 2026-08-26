@@ -152,8 +152,15 @@ function _quantity(identity)
     return identity isa Tuple ? quantity(identity...) : quantity(identity)
 end
 
-_detach_and_scale(value::Number, factor) = value * factor
-_detach_and_scale(values::AbstractArray, factor) = map(value -> value * factor, values)
+"""
+$(TYPEDSIGNATURES)
+
+Detach an observed value from its result storage and apply a display-unit scale
+factor. Structured result owners extend this method for their published value
+types.
+"""
+detach(value::Number, factor) = value * factor
+detach(values::AbstractArray, factor) = map(value -> value * factor, values)
 
 function _publish_observable(source, request, identity, target)
     scientific_quantity = _quantity(identity)
@@ -163,7 +170,7 @@ function _publish_observable(source, request, identity, target)
     displayed isa UnitExpr ||
         throw(ArgumentError("observable unit overrides must be UnitExpr values"))
     factor = scale_factor(native, displayed)
-    detached = _detach_and_scale(_observe_request(source, request), factor)
+    detached = detach(_observe_request(source, request), factor)
     return (; values = detached, quantity = scientific_quantity, unit = displayed)
 end
 

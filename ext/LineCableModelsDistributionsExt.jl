@@ -13,8 +13,9 @@ using Statistics
 import LineCableModels
 const PB = LineCableModels.ParametricBuilder
 const UQ = LineCableModels.UQ
+import LineCableModels.ParametricBuilder: sample_uncertainty
 
-function PB._sample_uncertainty(
+function sample_uncertainty(
         rng::Random.AbstractRNG,
         value::PB.UncertainValue{<:Real},
         distribution::Distributions.UnivariateDistribution

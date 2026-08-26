@@ -33,7 +33,8 @@ function Base.getindex(
     )
 end
 
-_has_uncertainty_type(::Type) = false
+"Return whether a scalar type carries explicit numerical uncertainty."
+has_uncertainty_type(::Type) = false
 
 function _result_unit(value, selector)
     quantity = Units.quantity(selector)
@@ -72,7 +73,7 @@ function Base.show(io::IO, lp::LineParameters)
         basis(lp),
         "]"
     )
-    _has_uncertainty_type(element_type) && print(io, " (±)")
+    has_uncertainty_type(element_type) && print(io, " (±)")
 end
 
 function Base.show(io::IO, ::MIME"text/plain", lp::LineParameters)

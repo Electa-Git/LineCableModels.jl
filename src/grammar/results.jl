@@ -33,3 +33,11 @@ end
 Base.IteratorSize(::Type{<:AbstractResultSpace}) = Base.HasShape{1}()
 Base.IteratorEltype(::Type{<:AbstractResultSpace}) = Base.HasEltype()
 Base.eltype(::Type{<:AbstractResultSpace{T}}) where {T} = T
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the unparameterized type token that owns computation details for a
+formulation value.
+"""
+computation_owner(formulation) = Base.typename(typeof(formulation)).wrapper

@@ -117,6 +117,26 @@ end
 """
 $(TYPEDEF)
 
+Group per-length resistance, inductance, and capacitance uncertainty products
+for cable constants. Field representations may differ for samples, summaries,
+or histograms.
+
+$(TYPEDFIELDS)
+"""
+struct RLC{TR, TL, TC}
+    "Resistance samples, summaries, or histograms based on \\[Ω/m\\]."
+    R::TR
+    "Inductance samples, summaries, or histograms based on \\[H/m\\]."
+    L::TL
+    "Capacitance samples, summaries, or histograms based on \\[F/m\\]."
+    C::TC
+end
+
+basis(::RLC) = :pul
+
+"""
+$(TYPEDEF)
+
 Group resistance, inductance, capacitance, and conductance products.
 
 `Basis` is `:pul` or `:total` and applies to all four fields. `T` is
@@ -134,7 +154,6 @@ struct RLCG{T, Basis}
     "Conductance values."
     G::T
 end
-
 
 function RLCG(R::T, L::T, C::T, G::T; basis::Symbol = :pul) where {T}
     basis in (:pul, :total) || throw(

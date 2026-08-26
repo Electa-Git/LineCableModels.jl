@@ -37,7 +37,7 @@ function load!(
         _trusted_cable_data(Serialization.deserialize(file_name))
     elseif extension == ".json"
         document = _read_document(file_name, CABLES_SCHEMA)
-        _decoded_cable_data(_deserialize_value(document["cables"]))
+        _decoded_cable_data(deserialize_value(document["cables"]))
     else
         throw(ArgumentError("CablesLibrary loading requires a .json or .jls file"))
     end

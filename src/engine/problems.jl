@@ -119,10 +119,18 @@ function CableConstantsProblem(
             100
         )
 )
-    _cable_constants_problem(design, separation, earth_resistivity)
+    cable_constants_problem(design, separation, earth_resistivity)
 end
 
-function _cable_constants_problem(
+"""
+$(TYPEDSIGNATURES)
+
+Construct a cable-constant problem from resolved inputs.
+
+ParametricBuilder extends this owner-visible staging boundary for explicit
+finite sources.
+"""
+function cable_constants_problem(
         design::CableDesign,
         separation::Union{Nothing, Real},
         earth_resistivity::Real

@@ -25,4 +25,6 @@ include("interfaces.jl")
 include("render.jl")
 include("base.jl")
 
+public validate_export_theme
+
 end # module PlotBuilder

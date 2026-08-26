@@ -26,4 +26,6 @@ include("tables.jl")
 include("montecarlo.jl")
 include("xlsx.jl")
 
+public clip, encode_cell
+
 end

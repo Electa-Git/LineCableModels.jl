@@ -152,6 +152,11 @@ empty result:
 computation_details(Val(AnalyticalFormulation), parameters) == (;)
 ```
 
+Higher-order calculations normalize the inner formulation once through the
+qualified `Grammar.computation_owner` method before collecting retained
+records. This produces the unparameterized type token required by the existing
+`Val(OwnerType)` details contract; it is not a registry.
+
 [`ParametricResult`](@ref), [`LinearErrorResult`](@ref), and
 [`MonteCarloResult`](@ref) store the concrete details tuple type. Retention is
 disabled by default, so `details(result) === (;)`. The higher-order formulation

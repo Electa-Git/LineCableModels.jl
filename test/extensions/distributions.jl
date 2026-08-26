@@ -30,6 +30,11 @@ end
     @test extension_module !== nothing
 
     PB=LineCableModels.ParametricBuilder
+    @test Base.ispublic(PB, :sample_uncertainty)
+    @test any(
+        method -> method.module === extension_module,
+        methods(PB.sample_uncertainty)
+    )
     uncertain=only(PB.Grid(10.0, PB.AbsoluteError(2.0)))
     standard_draw=rand(MersenneTwister(41), uncertain; distribution = Normal(0, 1))
     shifted_draw=rand(MersenneTwister(41), uncertain; distribution = Normal(10, 3))

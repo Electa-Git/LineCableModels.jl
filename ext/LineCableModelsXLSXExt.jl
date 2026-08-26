@@ -14,7 +14,8 @@ const Engine = LineCableModels.Engine
 
 function _write_xlsx_sheet!(
         workbook,
-        sheet::ReportBuilder.XLSXSheet;
+        sheet::ReportBuilder.XLSXSheet,
+        definition::ReportBuilder.XLSXReport;
         first_sheet::Bool
 )
     worksheet = if first_sheet
@@ -46,7 +47,7 @@ function _write_xlsx_sheet!(
     end
     XLSX.writetable!(
         worksheet,
-        Tables.columntable(ReportBuilder._xlsx_strings(sheet.table));
+        Tables.columntable(ReportBuilder._xlsx_strings(definition, sheet.table));
         anchor_cell = XLSX.CellRef(row, 1)
     )
     return nothing
@@ -63,7 +64,12 @@ function ReportBuilder.write(
     destination = ReportBuilder._xlsx_destination(definition)
     XLSX.openxlsx(destination, mode = "w") do workbook
         for (index, sheet) in enumerate(encoded.sheets)
-            _write_xlsx_sheet!(workbook, sheet; first_sheet = index == 1)
+            _write_xlsx_sheet!(
+                workbook,
+                sheet,
+                definition;
+                first_sheet = index == 1
+            )
         end
     end
     return destination

@@ -20,7 +20,13 @@ _scalar_tag(::Type{Float32}) = "Float32"
 _scalar_tag(::Type{Float64}) = "Float64"
 _scalar_tag(::Type{BigFloat}) = "BigFloat"
 
-function _serialize_value(value::AbstractFloat)
+"""
+$(TYPEDSIGNATURES)
+
+Encode a supported scalar, collection, or model value for the versioned JSON
+schema. Package extensions add methods for their owned scalar types.
+"""
+function serialize_value(value::AbstractFloat)
     tag = _scalar_tag(typeof(value))
     payload = value isa BigFloat ? string(value) : value
     if isfinite(value)
@@ -30,28 +36,28 @@ function _serialize_value(value::AbstractFloat)
     return Dict("__type__" => tag, "special" => text)
 end
 
-_serialize_value(value::Integer) = value
-_serialize_value(value::Union{Nothing, String, Bool}) = value
-_serialize_value(value::Symbol) = Dict("__type__" => "Symbol", "value" => string(value))
-function _serialize_value(value::Complex)
+serialize_value(value::Integer) = value
+serialize_value(value::Union{Nothing, String, Bool}) = value
+serialize_value(value::Symbol) = Dict("__type__" => "Symbol", "value" => string(value))
+function serialize_value(value::Complex)
     Dict(
         "__type__" => "Complex",
-        "re" => _serialize_value(real(value)),
-        "im" => _serialize_value(imag(value))
+        "re" => serialize_value(real(value)),
+        "im" => serialize_value(imag(value))
     )
 end
-function _serialize_value(value::AbstractDict)
-    Dict(string(key) => _serialize_value(item) for (key, item) in value)
+function serialize_value(value::AbstractDict)
+    Dict(string(key) => serialize_value(item) for (key, item) in value)
 end
-function _serialize_value(value::Union{AbstractVector, Tuple})
-    [_serialize_value(item) for item in value]
+function serialize_value(value::Union{AbstractVector, Tuple})
+    [serialize_value(item) for item in value]
 end
-_serialize_value(value) = _serialize_object(value)
+serialize_value(value) = _serialize_object(value)
 
 function _object(tag::AbstractString; fields...)
     result = Dict{String, Any}("type" => String(tag))
     for (name, value) in pairs(fields)
-        result[string(name)] = _serialize_value(value)
+        result[string(name)] = serialize_value(value)
     end
     return result
 end
@@ -177,7 +183,7 @@ function _json_document(library::MaterialsLibrary)
     return Dict(
         "schema" => MATERIALS_SCHEMA,
         "version" => JSON_SCHEMA_VERSION,
-        "materials" => _serialize_value(library.data)
+        "materials" => serialize_value(library.data)
     )
 end
 
@@ -185,6 +191,6 @@ function _json_document(library::CablesLibrary)
     return Dict(
         "schema" => CABLES_SCHEMA,
         "version" => JSON_SCHEMA_VERSION,
-        "cables" => _serialize_value(library.data)
+        "cables" => serialize_value(library.data)
     )
 end

@@ -205,7 +205,7 @@
     @test names(standalone_shunt[1, 1]) == ["frequency", "G", "C"]
     @test_throws ArgumentError DataFrame(series)
     @test_throws ArgumentError DataFrame(shunt)
-    @test LineCableModels.ReportBuilder._clip_field(1.0 + 2.0im, 1.0) ==
+    @test LineCableModels.ReportBuilder.clip(1.0 + 2.0im, 1.0) ==
           1.0 + 2.0im
     @test_throws DimensionMismatch DataFrame(series; freqs = [50.0])
     @test_throws ArgumentError DataFrame(series; freqs = [50.0, Inf, 200.0])

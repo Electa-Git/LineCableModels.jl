@@ -22,7 +22,7 @@ Convert a cable design to a tabular description.
 """
 function DataFrame(design::CableDesign, format::Symbol = :components)::DataFrame
     if format == :baseparams
-        return DataFrame(_base_parameters(design))
+        return DataFrame(base_parameters(design))
     elseif format == :components
         # Component-level properties
         properties = [

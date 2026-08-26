@@ -9,7 +9,7 @@ adapters.
 
 $(TYPEDFIELDS)
 """
-struct CableConstants{T} <: AbstractCoreResult
+struct CableConstants{T <: Number} <: AbstractCoreResult
     "Series resistance per unit length \\[Ω/m\\]."
     R::T
     "Series inductance per unit length \\[H/m\\]."
@@ -46,7 +46,7 @@ capacitance. Presentation is handled separately after the result exists.
 A [`CableConstants`](@ref) value storing `R` in Ω/m, `L` in H/m, and `C` in
 F/m.
 """
-function _compute_cable_constants(
+function compute_cable_constants(
         design::CableDesign{T};
         S::Union{Nothing, Number} = nothing,
         rho_e::Number = oftype(first(design.components).conductor_props.rho, 100)

@@ -79,6 +79,9 @@ observe(product::RLCG, ::typeof(R), indices...) = _product_value(product.R, indi
 observe(product::RLCG, ::typeof(L), indices...) = _product_value(product.L, indices)
 observe(product::RLCG, ::typeof(C), indices...) = _product_value(product.C, indices)
 observe(product::RLCG, ::typeof(Engine.G), indices...) = _product_value(product.G, indices)
+observe(product::RLC, ::typeof(R), indices...) = _product_value(product.R, indices)
+observe(product::RLC, ::typeof(L), indices...) = _product_value(product.L, indices)
+observe(product::RLC, ::typeof(C), indices...) = _product_value(product.C, indices)
 
 @inline _statistic(transform, value::AbstractArray) = map(transform, value)
 @inline _statistic(transform, value) = transform(value)
@@ -103,59 +106,20 @@ end
 function observe(product::RLCG, ::typeof(Engine.G), transform::_StatisticSelector, indices...)
     _statistic(transform, observe(product, Engine.G, indices...))
 end
-
-const _CableUQValue = Union{SampleSummary, HistogramDensity, AbstractArray}
-
-function observe(
-        product::DataModel.CableConstants{<:_CableUQValue},
-        ::typeof(R),
-        indices...
-)
-    _product_value(product.R, indices)
-end
-function observe(
-        product::DataModel.CableConstants{<:_CableUQValue},
-        ::typeof(L),
-        indices...
-)
-    _product_value(product.L, indices)
-end
-function observe(
-        product::DataModel.CableConstants{<:_CableUQValue},
-        ::typeof(C),
-        indices...
-)
-    _product_value(product.C, indices)
-end
-
-function observe(
-        product::DataModel.CableConstants{<:_CableUQValue},
-        ::typeof(R),
-        transform::_StatisticSelector,
-        indices...
-)
+function observe(product::RLC, ::typeof(R), transform::_StatisticSelector, indices...)
     _statistic(transform, observe(product, R, indices...))
 end
-function observe(
-        product::DataModel.CableConstants{<:_CableUQValue},
-        ::typeof(L),
-        transform::_StatisticSelector,
-        indices...
-)
+function observe(product::RLC, ::typeof(L), transform::_StatisticSelector, indices...)
     _statistic(transform, observe(product, L, indices...))
 end
-function observe(
-        product::DataModel.CableConstants{<:_CableUQValue},
-        ::typeof(C),
-        transform::_StatisticSelector,
-        indices...
-)
+function observe(product::RLC, ::typeof(C), transform::_StatisticSelector, indices...)
     _statistic(transform, observe(product, C, indices...))
 end
 
+observables(::Type{<:RLC}) = (R, L, C)
 observables(::Type{<:RLCG}) = (R, L, C, Engine.G)
 
-function Grammar._detach_and_scale(summary::SampleSummary, factor)
+function detach(summary::SampleSummary, factor)
     return SampleSummary(
         summary.mean * factor,
         summary.std * abs(factor),
@@ -168,14 +132,14 @@ function Grammar._detach_and_scale(summary::SampleSummary, factor)
     )
 end
 
-function Grammar._detach_and_scale(
+function detach(
         summaries::AbstractArray{<:SampleSummary},
         factor
 )
-    return map(summary -> Grammar._detach_and_scale(summary, factor), summaries)
+    return map(summary -> detach(summary, factor), summaries)
 end
 
-function Grammar._detach_and_scale(histogram::HistogramDensity, factor)
+function detach(histogram::HistogramDensity, factor)
     factor > zero(factor) || throw(ArgumentError("histogram conversion must be positive"))
     return HistogramDensity(
         histogram.edges .* factor,

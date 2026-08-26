@@ -4,7 +4,8 @@ function ncables end
 "Return the number of distinct positive phases in a line-cable system."
 function nphases end
 
-function _base_parameters end
+"Return the base cable parameters calculated for a materialised design."
+function base_parameters end
 
 """
 $(TYPEDSIGNATURES)

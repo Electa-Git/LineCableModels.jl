@@ -56,7 +56,7 @@
     end
     for name in (
         :LinearError, :MonteCarlo, :LinearErrorResult, :MonteCarloResult,
-        :SampleSummary, :HistogramDensity, :RLCG
+        :SampleSummary, :HistogramDensity, :RLC, :RLCG
     )
         @test getproperty(LineCableModels, name) === getproperty(UQ, name)
         @test parentmodule(getproperty(UQ, name)) === UQ
@@ -139,6 +139,10 @@ end
     @test LineCableModels.LineParameters <: Grammar.AbstractCoreResult
     @test !(Engine.LineParametersTrace <: Grammar.AbstractCoreResult)
     @test !(Engine.LineParametersBenchmark <: Grammar.AbstractCoreResult)
+    @test !(UQ.RLC <: Grammar.AbstractCoreResult)
+    @test !(UQ.RLCG <: Grammar.AbstractCoreResult)
+    @test !(UQ.RLC <: Grammar.AbstractResultSpace)
+    @test !(UQ.RLCG <: Grammar.AbstractResultSpace)
     @test PB.ParametricResult <: Grammar.AbstractResultSpace
     @test UQ.LinearErrorResult <: Grammar.AbstractResultSpace
     @test UQ.MonteCarloResult <: Grammar.AbstractResultSpace
@@ -225,6 +229,140 @@ end
         problem,
         UQ.MonteCarlo(EmptyFormulation(); trials = 2, seed = 1)
     )
+end
+
+@testitem "ParametricBuilder and UQ / compute / exact traversal grammars" tags=[:unit] begin
+    using Statistics
+
+    const Grammar=LineCableModels.Grammar
+    const PB=LineCableModels.ParametricBuilder
+    const UQ=LineCableModels.UQ
+
+    struct TraversalProblem <: Grammar.AbstractProblemDefinition
+        value::Int
+    end
+    struct StableTraversalFormulation <: Grammar.AbstractFormulation end
+    struct UnstableTraversalFormulation <: Grammar.AbstractFormulation end
+    struct DetailsTraversalFormulation <: Grammar.AbstractFormulation end
+    struct TraversalResult
+        value::Int
+    end
+
+    Grammar.compute(problem::TraversalProblem, ::StableTraversalFormulation;
+        options = (;)) = TraversalResult(problem.value)
+    function Grammar.compute(
+            problem::TraversalProblem,
+            ::UnstableTraversalFormulation;
+            options = (;)
+    )
+        return problem.value == 1 ? TraversalResult(problem.value) : problem.value
+    end
+    Grammar.compute(problem::TraversalProblem, ::DetailsTraversalFormulation;
+        options = (;)) = TraversalResult(problem.value)
+    function Grammar.computation_details(
+            ::Val{DetailsTraversalFormulation},
+            output::TraversalResult
+    )::Grammar.ComputationDetails
+        return output.value == 1 ? (raw = Dict("value" => 1),) : (raw = [2],)
+    end
+
+    space=PB.Gridspace{TraversalProblem}(
+        TraversalProblem,
+        (PB.Grid((1, 2)),)
+    )
+    problem=PB.ParametricProblem(space)
+    stable=Grammar.compute(
+        problem,
+        PB.Combinatorial(StableTraversalFormulation())
+    )
+    @test stable.values isa Vector{TraversalResult}
+    @test getproperty.(stable, :value) == [1, 2]
+    @test_throws ArgumentError Grammar.compute(
+        problem,
+        PB.Combinatorial(UnstableTraversalFormulation())
+    )
+    @test_throws ArgumentError Grammar.compute(
+        problem,
+        PB.Combinatorial(
+            DetailsTraversalFormulation();
+            options = (retain_details = true,)
+        )
+    )
+
+    struct MonteTraversalFormulation <: Grammar.AbstractFormulation end
+    struct MonteTraversalResult
+        value::Float64
+    end
+    Grammar.compute(problem::TraversalProblem, ::MonteTraversalFormulation;
+        options = (;)) = MonteTraversalResult(problem.value)
+    UQ._observable_count(::MonteTraversalResult) = 1
+    UQ._sample_storage(::MonteTraversalResult, trials::Int) = Vector{Float64}(undef, trials)
+    UQ._sample_axis(::MonteTraversalResult) = nothing
+    function UQ._record_sample!(
+            storage::Vector{Float64},
+            value::MonteTraversalResult,
+            trial::Int,
+            ::Nothing
+    )
+        storage[trial] = value.value
+        return storage
+    end
+    function UQ._aggregate(
+            storage::Vector{Float64},
+            first_result::MonteTraversalResult,
+            ::UQ.MonteCarlo
+    )
+        summary = UQ.SampleSummary(storage)
+        product = first_result.value == 1 ? summary : (summary = summary,)
+        return (
+            representation = MonteTraversalResult(mean(storage)),
+            statistics = product,
+            samples = nothing,
+            histograms = nothing
+        )
+    end
+    @test_throws ArgumentError Grammar.compute(
+        problem,
+        UQ.MonteCarlo(MonteTraversalFormulation(); trials = 2, seed = 3)
+    )
+
+    @test Grammar.computation_owner(StableTraversalFormulation()) ===
+          StableTraversalFormulation
+    @test Base.ispublic(Grammar, :computation_owner)
+    @test Base.ispublic(Grammar, :detach)
+    @test Base.ispublic(PB, :traverse)
+    @test Base.ispublic(PB, :sample_uncertainty)
+    @test Base.ispublic(LineCableModels.ReportBuilder, :clip)
+    @test Base.ispublic(LineCableModels.ReportBuilder, :encode_cell)
+    @test Base.ispublic(LineCableModels.PlotBuilder, :validate_export_theme)
+    for name in (
+        :computation_owner, :traverse, :sample_uncertainty,
+        :clip, :encode_cell, :validate_export_theme
+    )
+        @test !isdefined(LineCableModels, name)
+    end
+    @test LineCableModels.detach === Base.detach
+    @test LineCableModels.detach !== Grammar.detach
+    @test !Base.isexported(LineCableModels, :detach)
+
+    source_root=joinpath(pkgdir(LineCableModels), "src", "parametricbuilder")
+    @test isfile(joinpath(source_root, "traversal.jl"))
+    @test isfile(joinpath(source_root, "engine", "cableconstants.jl"))
+    @test !isfile(joinpath(source_root, "compute.jl"))
+    for name in (:_traverse, :_computation_owner, :_append_result, :_sample_uncertainty)
+        @test !isdefined(PB, name)
+    end
+    @test !isdefined(Grammar, :_detach_and_scale)
+    @test !isdefined(LineCableModels.ReportBuilder, :_clip_field)
+    @test !isdefined(LineCableModels.ReportBuilder, :_xlsx_string)
+    @test !isdefined(LineCableModels.PlotBuilder, :_validate_export_theme)
+    @test !isdefined(LineCableModels.Engine, :_has_uncertainty_type)
+    @test !isdefined(LineCableModels.Engine, :_cable_constants_problem)
+    @test !isdefined(LineCableModels.DataModel, :_compute_cable_constants)
+    @test !isdefined(LineCableModels.DataModel, :_base_parameters)
+    @test !isdefined(LineCableModels.ImportExport, :_serialize_value)
+    @test !isdefined(LineCableModels.ImportExport, :_deserialize_value)
+    @test !isdefined(LineCableModels.ImportExport, :_deserialize_extension)
 end
 
 @testitem "ParametricBuilder and UQ / supplemental output / external owner retention" tags=[:unit] begin
@@ -581,6 +719,14 @@ end
     @test monte_carlo.trial_counts == [12, 12]
     @test length(samples(monte_carlo)) == 2
     @test length(histograms(monte_carlo)) == 2
+    @test all(product -> product isa RLC, statistics(monte_carlo))
+    @test all(product -> product isa RLC, samples(monte_carlo))
+    @test all(product -> product isa RLC, histograms(monte_carlo))
+    @test eltype(statistics(monte_carlo)) === typeof(first(statistics(monte_carlo)))
+    @test eltype(samples(monte_carlo)) === typeof(first(samples(monte_carlo)))
+    @test eltype(histograms(monte_carlo)) === typeof(first(histograms(monte_carlo)))
+    @test !(first(statistics(monte_carlo)) isa CableConstants)
+    @test_throws MethodError CableConstants([1.0], [2.0], [3.0])
     @test minimum(samples(monte_carlo)[1].R) >
           maximum(samples(monte_carlo)[2].R)
     @test monte_carlo.root_seed == UInt64(0x1234)

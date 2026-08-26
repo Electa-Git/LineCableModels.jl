@@ -92,4 +92,6 @@ include("preview/cable.jl")
 include("preview/system.jl")
 include("preview/materialscale.jl")
 
+public base_parameters, compute_cable_constants
+
 end # module DataModel

@@ -1,4 +1,5 @@
-function _deserialize_extension end
+"Decode an extension-owned tagged value from the versioned JSON schema."
+function deserialize_extension end
 
 _float_type(::Val{:Float16}) = Float16
 _float_type(::Val{:Float32}) = Float32
@@ -21,8 +22,13 @@ function _decode_float(type_name::AbstractString, value::AbstractDict)
     return T === BigFloat ? parse(BigFloat, String(payload)) : convert(T, payload)
 end
 
-function _deserialize_value(value)
-    value isa AbstractVector && return [_deserialize_value(item) for item in value]
+"""
+$(TYPEDSIGNATURES)
+
+Decode a supported value from the versioned JSON schema.
+"""
+function deserialize_value(value)
+    value isa AbstractVector && return [deserialize_value(item) for item in value]
     value isa AbstractDict || return value
     if haskey(value, "__type__")
         marker = String(value["__type__"])
@@ -30,19 +36,19 @@ function _deserialize_value(value)
             return _decode_float(marker, value)
         marker == "Symbol" && return Symbol(_required(value, "value", marker))
         marker == "Complex" && return complex(
-            _deserialize_value(_required(value, "re", marker)),
-            _deserialize_value(_required(value, "im", marker))
+            deserialize_value(_required(value, "re", marker)),
+            deserialize_value(_required(value, "im", marker))
         )
         if marker == "Measurement"
-            applicable(_deserialize_extension, Val(:Measurement), value) || throw(
+            applicable(deserialize_extension, Val(:Measurement), value) || throw(
                 ArgumentError("deserialising Measurement values requires loading Measurements.jl"),
             )
-            return _deserialize_extension(Val(:Measurement), value)
+            return deserialize_extension(Val(:Measurement), value)
         end
         throw(ArgumentError("unsupported serialised scalar tag '$marker'"))
     end
     haskey(value, "type") && return _decode_object(Val(Symbol(value["type"])), value)
-    return Dict(String(key) => _deserialize_value(item) for (key, item) in value)
+    return Dict(String(key) => deserialize_value(item) for (key, item) in value)
 end
 
 function _required(value, name::AbstractString, owner)
@@ -53,12 +59,12 @@ function _required(value, name::AbstractString, owner)
 end
 
 function _field(value, name::AbstractString)
-    _deserialize_value(
+    deserialize_value(
         _required(value, name, get(value, "type", "object")),
     )
 end
 function _optional(value, name::AbstractString)
-    haskey(value, name) ? _deserialize_value(value[name]) : nothing
+    haskey(value, name) ? deserialize_value(value[name]) : nothing
 end
 
 function _decode_object(::Val{:Material}, value)

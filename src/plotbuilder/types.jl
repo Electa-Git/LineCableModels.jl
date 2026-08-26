@@ -112,7 +112,7 @@ struct ExportDefinition
     "Whether to open the completed file with the system application."
     open_file::Bool
     function ExportDefinition(theme::Symbol, name::String, open_file::Bool)
-        _validate_export_theme(theme)
+        validate_export_theme(theme)
         isempty(strip(name)) && throw(ArgumentError("export name cannot be empty"))
         return new(theme, name, open_file)
     end

@@ -79,13 +79,13 @@
             [0.25, 0.25]
         )
         representation = LineCableModels.DataModel.CableConstants(2.5, 2.5, 2.5)
-        statistics = LineCableModels.DataModel.CableConstants(summary, summary, summary)
-        samples = LineCableModels.DataModel.CableConstants(
+        statistics = LineCableModels.UQ.RLC(summary, summary, summary)
+        samples = LineCableModels.UQ.RLC(
             copy(values),
             copy(values),
             copy(values)
         )
-        histograms = LineCableModels.DataModel.CableConstants(
+        histograms = LineCableModels.UQ.RLC(
             histogram,
             histogram,
             histogram

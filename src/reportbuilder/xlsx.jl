@@ -90,13 +90,18 @@ function encode(
     return XLSXWorkbook(sheets)
 end
 
-_xlsx_string(value) = string(value)
-_xlsx_string(::Missing) = ""
-_xlsx_string(value::Real) = @sprintf("%.12g", float(value))
+"""
+$(TYPEDSIGNATURES)
 
-function _xlsx_strings(table::DataFrame)
+Encode one value for a cell in an XLSX report definition.
+"""
+encode_cell(::XLSXReport, value) = string(value)
+encode_cell(::XLSXReport, ::Missing) = ""
+encode_cell(::XLSXReport, value::Real) = @sprintf("%.12g", float(value))
+
+function _xlsx_strings(definition::XLSXReport, table::DataFrame)
     return DataFrame(
-        (name => _xlsx_string.(table[!, name]) for name in names(table))...;
+        (name => encode_cell.(Ref(definition), table[!, name]) for name in names(table))...;
         copycols = false
     )
 end

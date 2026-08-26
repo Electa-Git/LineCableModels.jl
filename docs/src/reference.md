@@ -153,6 +153,12 @@ not replace statistics, samples, histograms, the root seed, point seeds, or
 trial counts. No completed result stores the temporary Gridspace point or a
 copy of traversal internals.
 
+Cable-constant Monte Carlo products use `RLC`; line-parameter products use
+`RLCG`. These UQ-owned products carry samples, summaries, or histograms and do
+not subtype `AbstractCoreResult` or `AbstractResultSpace`. The representative
+values reached by iterating either result space remain `CableConstants` or
+`LineParameters` core results.
+
 [`project`](@ref) converts a completed result space into a finite `Gridspace`
 of complete downstream problems through an explicit projection definition.
 Projection definitions and stage methods remain qualified under

@@ -1,7 +1,12 @@
 const COMMON_RENDERER_KWARGS = (:export_theme, :open_export)
 const EXPORT_THEMES = (:default, :publication)
 
-function _validate_export_theme(value::Symbol)
+"""
+$(TYPEDSIGNATURES)
+
+Validate an SVG export theme and return it unchanged.
+"""
+function validate_export_theme(value::Symbol)
     value in EXPORT_THEMES || throw(
         ArgumentError("export_theme must be :default or :publication"),
     )
@@ -144,7 +149,7 @@ function parse(
         declared_renderer,
         _select_kwargs(kwargs, allowed_renderer)
     )
-    _validate_export_theme(renderer.export_theme)
+    validate_export_theme(renderer.export_theme)
     renderer.open_export isa Bool || throw(ArgumentError("open_export must be Bool"))
     return (; input, renderer)
 end
