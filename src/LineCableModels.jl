@@ -34,7 +34,7 @@ export has_uncertainty, nominal, standard_uncertainty
 export @gridspace, @relax
 export Combinatorial, LinearError, MonteCarlo, ParametricProblem
 export ParametricResult, LinearErrorResult, MonteCarloResult
-export SampleSummary, HistogramDensity, RLC, RLCG
+export SampleSummary, HistogramDensity
 export result, statistics, samples, histograms, uncertain_value
 export root_seed, point_seed, trial_count
 export confidence, cdf_tolerance, sampling_distribution
@@ -127,7 +127,7 @@ using .ParametricBuilder:
 include("uq/UQ.jl")
 using .UQ:
            LinearError, MonteCarlo, LinearErrorResult, MonteCarloResult,
-           SampleSummary, HistogramDensity, RLC, RLCG,
+           SampleSummary, HistogramDensity,
            statistics, samples, histograms, uncertain_value,
            root_seed, point_seed, trial_count,
            confidence, cdf_tolerance, sampling_distribution

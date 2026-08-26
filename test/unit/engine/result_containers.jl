@@ -367,6 +367,26 @@ end
     @test_throws BoundsError observe(complete, samples, R, 1, 5)
     @test_throws ArgumentError observe(histogram_only, samples, R, 1, :)
     @test_throws ArgumentError observe(sample_only, histograms, R, 1)
+    @test_throws ArgumentError MonteCarloResult(
+        complete.formulation,
+        complete.values,
+        [(R = summary, L = summary, C = summary, G = summary)],
+        complete.sample_values,
+        complete.histogram_values,
+        complete.root_seed,
+        complete.point_seeds,
+        complete.trial_counts
+    )
+    @test_throws DimensionMismatch MonteCarloResult(
+        complete.formulation,
+        complete.values,
+        complete.stats,
+        [(R = [1.0], L = [1.0], C = [1.0])],
+        complete.histogram_values,
+        complete.root_seed,
+        complete.point_seeds,
+        complete.trial_counts
+    )
 
     result_publication=observables(
         complete,
@@ -391,25 +411,23 @@ end
     summary_product=only(statistics(complete))
     sample_product=only(samples(complete))
     histogram_product=only(histograms(complete))
-    @test observe(summary_product, R) === summary_product.R
-    @test observe(summary_product, R, mean) == summary_product.R.mean
-    @test observe(summary_product, R, std) == summary_product.R.std
-    @test observe(sample_product, R, :) == sample_product.R[:]
-    @test observe(histogram_product, R) === histogram_product.R
-    published=observables(summary_product, (mean_resistance = (R, mean),))
-    @test published.mean_resistance.values == summary_product.R.mean * 1_000
-    @test keys(published.mean_resistance) == (:values, :quantity, :unit)
+    @test keys(summary_product) == (:R, :L, :C)
+    @test keys(sample_product) == (:R, :L, :C)
+    @test keys(histogram_product) == (:R, :L, :C)
+    @test !applicable(observe, summary_product, R)
+    @test !applicable(observe, sample_product, R, :)
+    @test !applicable(observe, histogram_product, R)
     summary_publication=observables(
-        summary_product,
-        (resistance = R,);
+        complete,
+        (resistance = (statistics, R, 1),);
         units = (resistance = :milli,)
     ).resistance
     histogram_publication=observables(
-        histogram_product,
-        (resistance = R,);
+        complete,
+        (resistance = (histograms, R, 1),);
         units = (resistance = :milli,)
     ).resistance
-    summary_factor=scale_factor(R, basis(summary_product), summary_publication.unit)
+    summary_factor=scale_factor(R, basis(complete), summary_publication.unit)
     @test summary_publication.values.mean == summary_product.R.mean * summary_factor
     @test summary_publication.values.std == summary_product.R.std * abs(summary_factor)
     @test histogram_publication.values.edges ==
@@ -426,7 +444,36 @@ end
     LineCableModels.UQ._record_sample!(storage, parameters, 2, frequency)
     @test @allocated(LineCableModels.UQ._record_sample!(storage, parameters, 2, frequency)) ==
           0
-    @test observe(storage, R, 1, 1, 1, :) == fill(1.0e-4, 2)
-    @test observe(storage, L, 1, 1, 1, :) ==
+    @test storage.R[1, 1, 1, :] == fill(1.0e-4, 2)
+    @test storage.L[1, 1, 1, :] ==
           fill(2.0e-4 / (2π * frequency[1]), 2)
+
+    line_summary=fill(SampleSummary([1.0, 2.0]), size(impedance))
+    line_histogram=fill(density, size(impedance))
+    line_statistics=(R = line_summary, L = line_summary, C = line_summary, G = line_summary)
+    line_histograms=(R = line_histogram, L = line_histogram,
+        C = line_histogram, G = line_histogram)
+    line_result=MonteCarloResult(
+        complete.formulation,
+        [parameters],
+        [line_statistics],
+        [storage],
+        [line_histograms],
+        complete.root_seed,
+        complete.point_seeds,
+        [2]
+    )
+    @test observe(line_result, samples, R, 1, 1, 1, 1, :) == fill(1.0e-4, 2)
+    malformed_samples=(R = storage.R[:, :, 1:1, :], L = storage.L,
+        C = storage.C, G = storage.G)
+    @test_throws DimensionMismatch MonteCarloResult(
+        complete.formulation,
+        [parameters],
+        [line_statistics],
+        [malformed_samples],
+        [line_histograms],
+        complete.root_seed,
+        complete.point_seeds,
+        [2]
+    )
 end

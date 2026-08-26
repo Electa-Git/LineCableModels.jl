@@ -279,37 +279,6 @@ function Makie.plot(
     return plot(first, second, rest...; kwargs...)
 end
 
-function plot(
-        result::LineCableModels.MonteCarloResult,
-        selector::Function = LineCableModels.R;
-        ijk = nothing,
-        backend = nothing,
-        display_plot::Bool = true,
-        controls::Bool = true,
-        kwargs...
-)
-    # This extension method removes Makie-only execution keywords, then asks UQ
-    # to compile the scientific request into one detached PlotBuilder page.
-    # `selector` is positional for the familiar plotting call; `ijk` remains a
-    # named coordinate because it applies only to matrix-valued line parameters.
-    render_spec = PlotBuilder.make_render(
-        LineCableModels.UQ.MCDistributionPlotDefinition,
-        result;
-        selector,
-        ijk,
-        kwargs...
-    )
-    return only(UIComponents.build(render_spec; backend, display = display_plot, controls))
-end
-
-function Makie.plot(
-        result::LineCableModels.MonteCarloResult,
-        selector::Function = LineCableModels.R;
-        kwargs...
-)
-    return plot(result, selector; kwargs...)
-end
-
 function preview(
         design::LineCableModels.DataModel.CableDesign;
         backend = nothing,

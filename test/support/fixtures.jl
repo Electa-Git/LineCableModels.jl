@@ -79,17 +79,13 @@
             [0.25, 0.25]
         )
         representation = LineCableModels.DataModel.CableConstants(2.5, 2.5, 2.5)
-        statistics = LineCableModels.UQ.RLC(summary, summary, summary)
-        samples = LineCableModels.UQ.RLC(
-            copy(values),
-            copy(values),
-            copy(values)
+        statistics = (R = summary, L = summary, C = summary)
+        samples = (
+            R = copy(values),
+            L = copy(values),
+            C = copy(values)
         )
-        histograms = LineCableModels.UQ.RLC(
-            histogram,
-            histogram,
-            histogram
-        )
+        histograms = (R = histogram, L = histogram, C = histogram)
         formulation = LineCableModels.MonteCarlo(
             LineCableModels.Formulation();
             trials = length(values),

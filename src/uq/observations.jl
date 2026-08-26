@@ -136,7 +136,11 @@ function observe(
         point::Integer,
         indices...
 )
-    return observe(_monte_carlo_product(value, product, point), selector, indices...)
+    stored = _monte_carlo_field(
+        _monte_carlo_product(value, product, point),
+        selector
+    )
+    return _product_value(stored, indices)
 end
 
 function observe(
@@ -147,12 +151,11 @@ function observe(
         point::Integer,
         indices...
 )
-    return observe(
+    stored = _monte_carlo_field(
         _monte_carlo_product(value, statistics, point),
-        selector,
-        transform,
-        indices...
+        selector
     )
+    return _statistic(transform, _product_value(stored, indices))
 end
 
 function _monte_carlo_observables(selectors::Tuple)
@@ -177,41 +180,13 @@ end
 @inline _product_value(value, ::Tuple{}) = value
 @inline _product_value(value, indices::Tuple) = getindex(value, indices...)
 
-observe(product::RLCG, ::typeof(R), indices...) = _product_value(product.R, indices)
-observe(product::RLCG, ::typeof(L), indices...) = _product_value(product.L, indices)
-observe(product::RLCG, ::typeof(C), indices...) = _product_value(product.C, indices)
-observe(product::RLCG, ::typeof(Engine.G), indices...) = _product_value(product.G, indices)
-observe(product::RLC, ::typeof(R), indices...) = _product_value(product.R, indices)
-observe(product::RLC, ::typeof(L), indices...) = _product_value(product.L, indices)
-observe(product::RLC, ::typeof(C), indices...) = _product_value(product.C, indices)
+@inline _monte_carlo_field(product, ::typeof(R)) = product.R
+@inline _monte_carlo_field(product, ::typeof(L)) = product.L
+@inline _monte_carlo_field(product, ::typeof(C)) = product.C
+@inline _monte_carlo_field(product, ::typeof(Engine.G)) = product.G
 
 @inline _statistic(transform, value::AbstractArray) = map(transform, value)
 @inline _statistic(transform, value) = transform(value)
-
-function observe(product::RLCG, ::typeof(R), transform::_StatisticSelector, indices...)
-    _statistic(transform, observe(product, R, indices...))
-end
-function observe(product::RLCG, ::typeof(L), transform::_StatisticSelector, indices...)
-    _statistic(transform, observe(product, L, indices...))
-end
-function observe(product::RLCG, ::typeof(C), transform::_StatisticSelector, indices...)
-    _statistic(transform, observe(product, C, indices...))
-end
-function observe(product::RLCG, ::typeof(Engine.G), transform::_StatisticSelector, indices...)
-    _statistic(transform, observe(product, Engine.G, indices...))
-end
-function observe(product::RLC, ::typeof(R), transform::_StatisticSelector, indices...)
-    _statistic(transform, observe(product, R, indices...))
-end
-function observe(product::RLC, ::typeof(L), transform::_StatisticSelector, indices...)
-    _statistic(transform, observe(product, L, indices...))
-end
-function observe(product::RLC, ::typeof(C), transform::_StatisticSelector, indices...)
-    _statistic(transform, observe(product, C, indices...))
-end
-
-observables(::Type{<:RLC}) = (R, L, C)
-observables(::Type{<:RLCG}) = (R, L, C, Engine.G)
 
 function detach(summary::SampleSummary, factor)
     return SampleSummary(

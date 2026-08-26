@@ -56,7 +56,7 @@
     end
     for name in (
         :LinearError, :MonteCarlo, :LinearErrorResult, :MonteCarloResult,
-        :SampleSummary, :HistogramDensity, :RLC, :RLCG
+        :SampleSummary, :HistogramDensity
     )
         @test getproperty(LineCableModels, name) === getproperty(UQ, name)
         @test parentmodule(getproperty(UQ, name)) === UQ
@@ -122,6 +122,10 @@
     @test isdefined(LineCableModels.DataModel, :Tubular)
     @test isdefined(LineCableModels.Materials, :Material)
     @test !isdefined(LineCableModels, :Configuration)
+    @test !isdefined(LineCableModels, :RLC)
+    @test !isdefined(LineCableModels, :RLCG)
+    @test !isdefined(UQ, :RLC)
+    @test !isdefined(UQ, :RLCG)
 end
 
 @testitem "Grammar / results / core and result-space taxonomy" tags=[:unit] begin
@@ -139,10 +143,6 @@ end
     @test LineCableModels.LineParameters <: Grammar.AbstractCoreResult
     @test !(Engine.LineParametersTrace <: Grammar.AbstractCoreResult)
     @test !(Engine.LineParametersBenchmark <: Grammar.AbstractCoreResult)
-    @test !(UQ.RLC <: Grammar.AbstractCoreResult)
-    @test !(UQ.RLCG <: Grammar.AbstractCoreResult)
-    @test !(UQ.RLC <: Grammar.AbstractResultSpace)
-    @test !(UQ.RLCG <: Grammar.AbstractResultSpace)
     @test PB.ParametricResult <: Grammar.AbstractResultSpace
     @test UQ.LinearErrorResult <: Grammar.AbstractResultSpace
     @test UQ.MonteCarloResult <: Grammar.AbstractResultSpace
@@ -729,9 +729,9 @@ end
     @test monte_carlo.trial_counts == [12, 12]
     @test length(samples(monte_carlo)) == 2
     @test length(histograms(monte_carlo)) == 2
-    @test all(product -> product isa RLC, statistics(monte_carlo))
-    @test all(product -> product isa RLC, samples(monte_carlo))
-    @test all(product -> product isa RLC, histograms(monte_carlo))
+    @test all(product -> keys(product) == (:R, :L, :C), statistics(monte_carlo))
+    @test all(product -> keys(product) == (:R, :L, :C), samples(monte_carlo))
+    @test all(product -> keys(product) == (:R, :L, :C), histograms(monte_carlo))
     @test eltype(statistics(monte_carlo)) === typeof(first(statistics(monte_carlo)))
     @test eltype(samples(monte_carlo)) === typeof(first(samples(monte_carlo)))
     @test eltype(histograms(monte_carlo)) === typeof(first(histograms(monte_carlo)))
@@ -742,12 +742,13 @@ end
     @test monte_carlo.root_seed == UInt64(0x1234)
     @test @inferred(details(monte_carlo)) === (;)
     @test_throws MethodError observables(monte_carlo)
-    @test observe(first(statistics(monte_carlo)), R, mean) ==
+    @test observe(monte_carlo, statistics, R, mean, 1) ==
           mean(first(samples(monte_carlo)).R)
-    @test observe(first(samples(monte_carlo)), R, :) ==
+    @test observe(monte_carlo, samples, R, 1, :) ==
           first(samples(monte_carlo)).R
-    @test observe(first(histograms(monte_carlo)), R) ===
+    @test observe(monte_carlo, histograms, R, 1) ===
           first(histograms(monte_carlo)).R
+    @test !applicable(observe, first(statistics(monte_carlo)), R)
     multi_point_table=DataFrame(monte_carlo)
     @test multi_point_table isa DataFrame
     @test names(multi_point_table) == [
@@ -918,16 +919,16 @@ end
     )
     @test monte_carlo isa MonteCarloResult{<:LineParameters}
     @test only(monte_carlo.trial_counts) == 3
-    @test only(statistics(monte_carlo)) isa RLCG
-    @test only(samples(monte_carlo)) isa RLCG
-    @test only(histograms(monte_carlo)) isa RLCG
+    @test keys(only(statistics(monte_carlo))) == (:R, :L, :C, :G)
+    @test keys(only(samples(monte_carlo))) == (:R, :L, :C, :G)
+    @test keys(only(histograms(monte_carlo))) == (:R, :L, :C, :G)
     @test first(only(histograms(monte_carlo)).R) isa HistogramDensity
-    @test basis(only(statistics(monte_carlo))) === :pul
-    @test observe(only(statistics(monte_carlo)), R, Statistics.mean) ==
+    @test basis(monte_carlo) === :pul
+    @test observe(monte_carlo, statistics, R, Statistics.mean, 1, :, :, :) ==
           Statistics.mean.(only(statistics(monte_carlo)).R)
-    @test observe(only(samples(monte_carlo)), R, 1, 1, 1, :) ==
+    @test observe(monte_carlo, samples, R, 1, 1, 1, 1, :) ==
           only(samples(monte_carlo)).R[1, 1, 1, :]
-    @test observe(only(histograms(monte_carlo)), R, 1, 1, 1) ===
+    @test observe(monte_carlo, histograms, R, 1, 1, 1, 1) ===
           only(histograms(monte_carlo)).R[1, 1, 1]
     @test !applicable(Measurements.measurement, monte_carlo)
 

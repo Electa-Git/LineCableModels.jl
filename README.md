@@ -115,10 +115,10 @@ results. Parametric, linear-error, and Monte Carlo results are ordinary finite
 collections: indexing and iteration return stored core results, and Base
 `first`, `last`, `only`, `collect`, `map`, and `zip` retain their standard
 meanings.
-`DataFrame(monte_carlo_result)` renders marginal summaries, while
-`plot(monte_carlo_result, R; mode=:hist, data=:both)` and the `:pdf`, `:ecdf`,
-and `:qq` modes display retained distribution information after a Makie package
-is loaded.
+`DataFrame(monte_carlo_result)` renders marginal summaries. After loading a
+Makie package, `Makie.hist`, `Makie.stairs`, `Makie.ecdfplot`, `Makie.lines`,
+and `Makie.qqplot` display retained distribution information through the
+LineCableModels shell.
 
 Higher-order calculations keep supplemental computation output separate from
 their scientific products. `details(result)` returns the empty named tuple by

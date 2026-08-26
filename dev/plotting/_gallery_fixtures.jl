@@ -143,18 +143,20 @@ function build_manual_plot_gallery(
         )
     )
 
-    for mode in (:hist, :pdf, :ecdf, :qq)
+    monte_carlo_plots=(
+        hist = Makie.hist(mc_result, R;
+            normalization = :pdf, backend, display_plot, export_theme),
+        pdf = Makie.stairs(mc_result, R;
+            backend, display_plot, export_theme),
+        ecdf = Makie.ecdfplot(mc_result, R;
+            backend, display_plot, export_theme),
+        qq = Makie.qqplot(mc_result, R;
+            backend, display_plot, export_theme)
+    )
+    for (name, monte_carlo_plot) in pairs(monte_carlo_plots)
         push!(
             gallery,
-            "Monte Carlo: $mode" => Makie.plot(
-                mc_result,
-                R;
-                mode,
-                data = :both,
-                backend,
-                display_plot,
-                export_theme
-            )
+            "Monte Carlo: $name" => monte_carlo_plot
         )
     end
 

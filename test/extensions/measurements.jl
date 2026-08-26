@@ -158,15 +158,15 @@ end
     formulation=MonteCarlo(Formulation(); trials = 3, seed = 9,
         return_samples = true)
     values=[CableConstants(2.0, 20.0, 200.0)]
-    stats=[RLC(
-        SampleSummary(2.0, 1.0, 1.0, 1.1, 2.0, 2.9, 3.0, 3),
-        SampleSummary(20.0, 10.0, 10.0, 11.0, 20.0, 29.0, 30.0, 3),
-        SampleSummary(200.0, 100.0, 100.0, 110.0, 200.0, 290.0, 300.0, 3)
+    stats=[(
+        R = SampleSummary(2.0, 1.0, 1.0, 1.1, 2.0, 2.9, 3.0, 3),
+        L = SampleSummary(20.0, 10.0, 10.0, 11.0, 20.0, 29.0, 30.0, 3),
+        C = SampleSummary(200.0, 100.0, 100.0, 110.0, 200.0, 290.0, 300.0, 3)
     )]
-    sample_values=[RLC(
-        [1.0, 2.0, 3.0],
-        [10.0, 20.0, 30.0],
-        [100.0, 200.0, 300.0]
+    sample_values=[(
+        R = [1.0, 2.0, 3.0],
+        L = [10.0, 20.0, 30.0],
+        C = [100.0, 200.0, 300.0]
     )]
     completed=MonteCarloResult(
         formulation, values, stats, sample_values, nothing,

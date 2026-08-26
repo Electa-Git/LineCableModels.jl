@@ -31,22 +31,22 @@ end
 
 function _sample_storage(first_result::DataModel.CableConstants, trials::Int)
     T = typeof(observe(first_result, R))
-    return RLC(
-        Vector{T}(undef, trials),
-        Vector{T}(undef, trials),
-        Vector{T}(undef, trials)
+    return (
+        R = Vector{T}(undef, trials),
+        L = Vector{T}(undef, trials),
+        C = Vector{T}(undef, trials)
     )
 end
 
 function _record_sample!(
-        storage::RLC,
+        storage::NamedTuple{(:R, :L, :C)},
         value::DataModel.CableConstants,
         trial::Int,
         ::Nothing
 )
-    observe(storage, R)[trial] = observe(value, R)
-    observe(storage, L)[trial] = observe(value, L)
-    observe(storage, C)[trial] = observe(value, C)
+    storage.R[trial] = observe(value, R)
+    storage.L[trial] = observe(value, L)
+    storage.C[trial] = observe(value, C)
     return storage
 end
 
@@ -54,25 +54,29 @@ _sample_axis(::DataModel.CableConstants) = nothing
 _sample_axis(value::Engine.LineParameters) = observe(value, Engine.frequencies)
 
 function _aggregate(
-        sample_values::RLC,
+        sample_values::NamedTuple{(:R, :L, :C)},
         ::DataModel.CableConstants,
         formulation::MonteCarlo
 )
-    Rs = observe(sample_values, R)
-    Ls = observe(sample_values, L)
-    Cs = observe(sample_values, C)
-    summaries = RLC(SampleSummary(Rs), SampleSummary(Ls), SampleSummary(Cs))
+    Rs = sample_values.R
+    Ls = sample_values.L
+    Cs = sample_values.C
+    summaries = (
+        R = SampleSummary(Rs),
+        L = SampleSummary(Ls),
+        C = SampleSummary(Cs)
+    )
     representation = DataModel.CableConstants(
-        observe(summaries, R, Statistics.mean),
-        observe(summaries, L, Statistics.mean),
-        observe(summaries, C, Statistics.mean)
+        Statistics.mean(summaries.R),
+        Statistics.mean(summaries.L),
+        Statistics.mean(summaries.C)
     )
     retained = formulation.return_samples ? sample_values : nothing
     hist = formulation.return_histograms ?
-           RLC(
-        _histogram(Rs, formulation.bins),
-        _histogram(Ls, formulation.bins),
-        _histogram(Cs, formulation.bins)
+           (
+        R = _histogram(Rs, formulation.bins),
+        L = _histogram(Ls, formulation.bins),
+        C = _histogram(Cs, formulation.bins)
     ) : nothing
     return (; representation, statistics = summaries, samples = retained, histograms = hist)
 end
@@ -84,11 +88,11 @@ function _sample_storage(first_result::Engine.LineParameters, trials::Int)
     Ls = similar(Rs)
     Cs = similar(Rs)
     Gs = similar(Rs)
-    return RLCG(Rs, Ls, Cs, Gs; basis = basis(first_result))
+    return (; R = Rs, L = Ls, C = Cs, G = Gs)
 end
 
 function _record_sample!(
-        storage::RLCG,
+        storage::NamedTuple{(:R, :L, :C, :G)},
         value::Engine.LineParameters,
         trial::Int,
         expected_frequencies
@@ -99,9 +103,6 @@ function _record_sample!(
     ))
     observe(value, Engine.frequencies) == expected_frequencies || throw(DimensionMismatch(
         "Monte Carlo realisations produced incompatible frequency axes",
-    ))
-    basis(value) === basis(storage) || throw(ArgumentError(
-        "Monte Carlo realisations produced incompatible result bases",
     ))
     for index in CartesianIndices(size(impedance))
         i, j, k = index.I
@@ -127,21 +128,20 @@ function _map_samples(function_value, sample_values::Array{<:Real, 4})
 end
 
 function _aggregate(
-        sample_values::RLCG,
+        sample_values::NamedTuple{(:R, :L, :C, :G)},
         first_result::Engine.LineParameters,
         formulation::MonteCarlo
 )
-    summary_values = (
+    summary_values = Tuple(
         _map_samples(SampleSummary, values)
-    for values in (sample_values.R, sample_values.L, sample_values.C, sample_values.G)
+        for values in (sample_values.R, sample_values.L, sample_values.C, sample_values.G)
     )
-    summaries = RLCG(summary_values...; basis = basis(sample_values))
-    means = RLCG(
-        observe(summaries, R, Statistics.mean),
-        observe(summaries, L, Statistics.mean),
-        observe(summaries, C, Statistics.mean),
-        observe(summaries, Engine.G, Statistics.mean);
-        basis = basis(summaries)
+    summaries = NamedTuple{(:R, :L, :C, :G)}(summary_values)
+    means = (
+        R = Statistics.mean.(summaries.R),
+        L = Statistics.mean.(summaries.L),
+        C = Statistics.mean.(summaries.C),
+        G = Statistics.mean.(summaries.G)
     )
     angular = reshape(2π .* observe(first_result, Engine.frequencies), 1, 1, :)
     representation = Engine.LineParameters(
@@ -152,12 +152,10 @@ function _aggregate(
         basis = basis(first_result)
     )
     hist = formulation.return_histograms ?
-           RLCG(
-        (
+           NamedTuple{(:R, :L, :C, :G)}(Tuple(
             _map_samples(values -> _histogram(values, formulation.bins), samples)
-        for samples in (sample_values.R, sample_values.L, sample_values.C, sample_values.G)
-        )...;
-        basis = basis(sample_values)) : nothing
+            for samples in (sample_values.R, sample_values.L, sample_values.C, sample_values.G)
+        )) : nothing
     retained = formulation.return_samples ? sample_values : nothing
     return (; representation, statistics = summaries, samples = retained, histograms = hist)
 end

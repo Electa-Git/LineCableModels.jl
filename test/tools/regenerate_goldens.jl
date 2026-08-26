@@ -63,13 +63,13 @@ if lowercase(get(ENV, "LINECABLEMODELS_UPDATE_PLOT_REFERENCES", "false")) == "tr
     summary = SampleSummary([1.0, 2.0, 3.0, 4.0])
     histogram = HistogramDensity([1.0, 3.0, 5.0], [0.25, 0.25])
     representation = CableConstants(2.5, 2.5, 2.5)
-    statistics_value = RLC(summary, summary, summary)
-    samples_value = RLC(
-        [1.0, 2.0, 3.0, 4.0],
-        [1.0, 2.0, 3.0, 4.0],
-        [1.0, 2.0, 3.0, 4.0]
+    statistics_value = (R = summary, L = summary, C = summary)
+    samples_value = (
+        R = [1.0, 2.0, 3.0, 4.0],
+        L = [1.0, 2.0, 3.0, 4.0],
+        C = [1.0, 2.0, 3.0, 4.0]
     )
-    histograms_value = RLC(histogram, histogram, histogram)
+    histograms_value = (R = histogram, L = histogram, C = histogram)
     mc_formulation = MonteCarlo(
         Formulation(); trials = 4, seed = 1,
         return_samples = true, return_histograms = true
@@ -84,17 +84,20 @@ if lowercase(get(ENV, "LINECABLEMODELS_UPDATE_PLOT_REFERENCES", "false")) == "tr
         UInt64[1],
         [4]
     )
-    for mode in (:hist, :pdf, :ecdf, :qq)
+    monte_carlo_plots=(
+        hist = Makie.hist(mc_result, R;
+            normalization = :pdf, backend = :cairo, display_plot = false),
+        pdf = Makie.stairs(mc_result, R;
+            backend = :cairo, display_plot = false),
+        ecdf = Makie.ecdfplot(mc_result, R;
+            backend = :cairo, display_plot = false),
+        qq = Makie.qqplot(mc_result, R;
+            backend = :cairo, display_plot = false)
+    )
+    for (name, monte_carlo_plot) in pairs(monte_carlo_plots)
         save_reference(
-            "mc_$mode",
-            plot(
-                mc_result,
-                :R;
-                mode,
-                data = :both,
-                backend = :cairo,
-                display_plot = false
-            )
+            "mc_$name",
+            monte_carlo_plot
         )
     end
 

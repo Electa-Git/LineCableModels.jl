@@ -512,19 +512,21 @@
 
         mc_result=TestFixtures.cable_monte_carlo_result()
         histogram=only(histograms(mc_result)).R
-        for mode in (:hist, :pdf, :ecdf, :qq)
-            mc_plot=Makie.plot(
-                mc_result,
-                R;
-                mode,
-                data = :both,
-                backend = :cairo,
-                display_plot = false
-            )
+        monte_carlo_plots=(
+            hist = Makie.hist(mc_result, R;
+                normalization = :pdf, backend = :cairo, display_plot = false),
+            pdf = Makie.stairs(mc_result, R;
+                backend = :cairo, display_plot = false),
+            ecdf = Makie.ecdfplot(mc_result, R;
+                backend = :cairo, display_plot = false),
+            qq = Makie.qqplot(mc_result, R;
+                backend = :cairo, display_plot = false)
+        )
+        for (name, mc_plot) in pairs(monte_carlo_plots)
             @test mc_plot isa UIPlot
             @test !haskey(mc_plot.controls, :xlog)
             @test !haskey(mc_plot.controls, :ylog)
-            test_golden(mc_plot, "mc_$mode")
+            test_golden(mc_plot, "mc_$name")
         end
 
         line_samples=reshape(collect(1.0:12.0), 1, 1, 3, 4)
@@ -532,28 +534,28 @@
             index->SampleSummary(collect(view(values, index.I..., :))),
             CartesianIndices(size(values)[1:3])
         )
-        line_statistics=RLCG(
-            summarize(line_samples),
-            summarize(line_samples .* 1.0e-3),
-            summarize(line_samples .* 1.0e-6),
-            summarize(line_samples .* 1.0e-4)
+        line_statistics=(
+            R = summarize(line_samples),
+            L = summarize(line_samples .* 1.0e-3),
+            C = summarize(line_samples .* 1.0e-6),
+            G = summarize(line_samples .* 1.0e-4)
         )
-        line_histograms=RLCG(
-            fill(histogram, 1, 1, 3),
-            fill(histogram, 1, 1, 3),
-            fill(histogram, 1, 1, 3),
-            fill(histogram, 1, 1, 3)
+        line_histograms=(
+            R = fill(histogram, 1, 1, 3),
+            L = fill(histogram, 1, 1, 3),
+            C = fill(histogram, 1, 1, 3),
+            G = fill(histogram, 1, 1, 3)
         )
         line_representation=LineParameters(
             Z(parameters)[1:1, 1:1, :],
             Y(parameters)[1:1, 1:1, :],
             frequency
         )
-        line_sample_values=RLCG(
-            line_samples,
-            line_samples .* 1.0e-3,
-            line_samples .* 1.0e-6,
-            line_samples .* 1.0e-4
+        line_sample_values=(
+            R = line_samples,
+            L = line_samples .* 1.0e-3,
+            C = line_samples .* 1.0e-6,
+            G = line_samples .* 1.0e-4
         )
         line_formulation=MonteCarlo(
             Formulation(); trials = 4, seed = 2,
@@ -569,19 +571,20 @@
             UInt64[2],
             [4]
         )
-        for mode in (:hist, :pdf, :ecdf, :qq)
-            line_mc_plot=Makie.plot(
-                line_mc,
-                R;
-                ijk = (1, 1, 2),
-                mode,
-                data = :both,
-                backend = :cairo,
-                display_plot = false
-            )
+        request=@observe R[1, 1, 2]
+        line_mc_plots=(
+            Makie.hist(line_mc, request;
+                backend = :cairo, display_plot = false),
+            Makie.stairs(line_mc, request;
+                backend = :cairo, display_plot = false),
+            Makie.ecdfplot(line_mc, request;
+                backend = :cairo, display_plot = false),
+            Makie.qqplot(line_mc, request;
+                backend = :cairo, display_plot = false)
+        )
+        for line_mc_plot in line_mc_plots
             @test line_mc_plot isa UIPlot
-            @test line_mc_plot.page.key.selection == (1, 1, 2)
-            @test line_mc_plot.page.key.mode === mode
+            @test occursin("R[1,1,2]", line_mc_plot.page.title)
         end
 
         library=CablesLibrary()

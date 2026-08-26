@@ -266,10 +266,10 @@ and trial counts.
 
 For cable-constant Monte Carlo calculations, the representative stored in the
 result space remains a `CableConstants` core result. Retained samples,
-statistics, and histograms use the UQ-owned `RLC` product. Line-parameter
-products use `RLCG`. Neither product is a core result or a result space.
-Monte Carlo allocates each point-aligned product vector from the first
-aggregate's exact concrete type and rejects later type changes.
+statistics, and histograms are concrete named tuples with keys `R`, `L`, and
+`C`. Line-parameter products add `G`. These are internal point-aligned storage,
+not result types or observation surfaces. `MonteCarloResult` validates their
+keys and dimensions and owns every public observation method.
 
 All completed result spaces are one-dimensional finite Julia collections.
 Iteration and indexing return one stored core result per original Gridspace

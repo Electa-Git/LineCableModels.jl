@@ -153,11 +153,11 @@ not replace statistics, samples, histograms, the root seed, point seeds, or
 trial counts. No completed result stores the temporary Gridspace point or a
 copy of traversal internals.
 
-Cable-constant Monte Carlo products use `RLC`; line-parameter products use
-`RLCG`. These UQ-owned products carry samples, summaries, or histograms and do
-not subtype `AbstractCoreResult` or `AbstractResultSpace`. The representative
-values reached by iterating either result space remain `CableConstants` or
-`LineParameters` core results.
+Cable-constant Monte Carlo storage uses concrete named tuples with `R`, `L`,
+and `C` fields; line-parameter storage adds `G`. These tuples are private
+storage details. Observe summaries, samples, and histograms through the
+`MonteCarloResult`, which validates product alignment and retains
+`CableConstants` or `LineParameters` as its iterable core results.
 
 [`project`](@ref) converts a completed result space into a finite `Gridspace`
 of complete downstream problems through an explicit projection definition.
@@ -198,24 +198,25 @@ and returns `artifact.output`. ImportExport contains no separate XLSX workbook
 path. A relative `file_name`, or the default `ZY_export.xlsx`, resolves from
 the caller's current working directory.
 
-After loading a Makie package, retained samples and histograms can be displayed
-through the maintained Monte Carlo recipe:
+After loading a Makie package, native Makie verbs select the drawing primitive
+while LineCableModels supplies the standard shell:
 
 ```julia
 using CairoMakie
 
-plot(result, R; mode=:hist, data=:both)
-plot(result, R; mode=:pdf)
-plot(result, R; mode=:ecdf, data=:both)
-plot(result, R; mode=:qq)
+Makie.hist(result, R; bins=20)
+Makie.stairs(result, R)
+Makie.ecdfplot(result, R)
+Makie.lines(result, R)
+Makie.qqplot(result, R; qqline=:identity)
 
 # Select one line-parameter matrix entry and frequency:
-plot(line_result, L; ijk=(1, 1, 3), mode=:hist)
+Makie.hist(line_result, @observe(L[1, 1, 3]); bins=20)
 ```
 
-The `:pdf`, `:ecdf`, and `:qq` views use the retained piecewise-constant
-`HistogramDensity`. When only samples were retained, the recipe derives the
-histogram needed for presentation.
+`stairs` and `lines` use the retained piecewise-constant `HistogramDensity`.
+When only samples were retained, they derive the histogram needed for
+presentation. Every non-mutating call returns `UIPlot`.
 
 When `MonteCarlo(trials=nothing)` is used, the trial count follows a simultaneous
 Dvoretzky–Kiefer–Wolfowitz bound. For `M` scalar marginals and confidence

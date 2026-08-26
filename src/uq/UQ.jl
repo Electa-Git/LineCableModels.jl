@@ -7,7 +7,7 @@ statistics, and uncertainty-result presentation.
 module UQ
 
 export LinearError, MonteCarlo, LinearErrorResult, MonteCarloResult
-export SampleSummary, HistogramDensity, RLC, RLCG
+export SampleSummary, HistogramDensity
 export result, statistics, samples, histograms, uncertain_value
 export root_seed, point_seed, trial_count
 export confidence, cdf_tolerance, sampling_distribution
@@ -40,6 +40,5 @@ include("base.jl")
 include("observations.jl")
 include("linearerror.jl")
 include("montecarlo/compute.jl")
-include("montecarlo/plot.jl")
 
 end

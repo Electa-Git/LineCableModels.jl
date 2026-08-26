@@ -239,8 +239,6 @@
         (LineCableModels.Engine.LineParametersBenchmarkPlotDefinition,
             Tuple{LineCableModels.Engine.LineParameters,
                 LineCableModels.Engine.LineParameters}),
-        (LineCableModels.UQ.MCDistributionPlotDefinition,
-            LineCableModels.MonteCarloResult),
         (LineCableModels.DataModel.CablePreviewPlotDefinition,
             LineCableModels.DataModel.CableDesign),
         (LineCableModels.DataModel.SystemPreviewPlotDefinition,
@@ -256,16 +254,11 @@
         LineCableModels.Engine.LineParameterPlotDefinition,
         TestFixtures.two_conductor_results()
     )
-    mc_recipe=@inferred PB.make_render(
-        LineCableModels.UQ.MCDistributionPlotDefinition,
-        TestFixtures.cable_monte_carlo_result()
-    )
     preview_recipe=@inferred PB.make_render(
         LineCableModels.DataModel.CablePreviewPlotDefinition,
         TestFixtures.mv_cable_design()
     )
     @test line_recipe isa PB.PlotRecipe
-    @test mc_recipe isa PB.PlotRecipe
     @test preview_recipe isa PB.PlotRecipe
 
     compiler_types=(
