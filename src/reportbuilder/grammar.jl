@@ -32,7 +32,7 @@ a PlotBuilder definition type; `plot_options` are passed to `make_render`.
 
 $(TYPEDFIELDS)
 """
-struct TableReport{R <: NamedTuple, U <: NamedTuple, P, O <: NamedTuple} <:
+struct TableReportDefinition{R <: NamedTuple, U <: NamedTuple, P, O <: NamedTuple} <:
        AbstractReportDefinition
     "Named scientific observation requests."
     requests::R
@@ -44,13 +44,13 @@ struct TableReport{R <: NamedTuple, U <: NamedTuple, P, O <: NamedTuple} <:
     plot_options::O
 end
 
-function TableReport(
+function TableReportDefinition(
         requests::NamedTuple;
         units::NamedTuple = (;),
         illustration = nothing,
         plot_options::NamedTuple = (;)
 )
-    return TableReport(requests, units, illustration, plot_options)
+    return TableReportDefinition(requests, units, illustration, plot_options)
 end
 
 "Reject unsupported definition/source pairs before report construction."
@@ -74,12 +74,12 @@ function write end
 "Return the completed report artifact."
 function finish end
 
-function entitle(definition::TableReport, source)
+function entitle(definition::TableReportDefinition, source)
     validate_observables(source, definition.requests, definition.units)
     return source
 end
 
-function select(definition::TableReport, source)
+function select(definition::TableReportDefinition, source)
     return observables(source, definition.requests; units = definition.units)
 end
 
@@ -90,7 +90,7 @@ function _table_column(values)
     return [values]
 end
 
-function tabulate(::TableReport, source, published::NamedTuple)
+function tabulate(::TableReportDefinition, source, published::NamedTuple)
     columns = map(payload -> _table_column(payload.values), values(published))
     isempty(columns) ||
         all(length(column) == length(first(columns)) for column in columns) ||
@@ -108,7 +108,7 @@ function tabulate(::TableReport, source, published::NamedTuple)
     return table
 end
 
-function illustrate(definition::TableReport, source, published, table)
+function illustrate(definition::TableReportDefinition, source, published, table)
     definition.illustration === nothing && return nothing
     return PlotBuilder.make_render(
         definition.illustration,
@@ -117,8 +117,8 @@ function illustrate(definition::TableReport, source, published, table)
     )
 end
 
-encode(::TableReport, source, published, table, illustration) = nothing
-write(::TableReport, source, published, table, illustration, ::Nothing) = nothing
+encode(::TableReportDefinition, source, published, table, illustration) = nothing
+write(::TableReportDefinition, source, published, table, illustration, ::Nothing) = nothing
 
 function finish(
         ::AbstractReportDefinition,

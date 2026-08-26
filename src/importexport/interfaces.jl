@@ -31,7 +31,7 @@ function export_data(
         cable_system::Union{LineCableSystem, Nothing} = nothing
 )::String
     artifact = ReportBuilder.report(
-        ReportBuilder.XLSXReport(; file_name, cable_system),
+        ReportBuilder.XLSXReportDefinition(; file_name, cable_system),
         line_parameters
     )
     return artifact.output

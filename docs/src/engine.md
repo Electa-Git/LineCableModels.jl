@@ -369,13 +369,13 @@ the fields.
 no-op `encode` and `write` methods and return `ReportArtifact.output ===
 nothing`.
 
-[`XLSXReport`](@ref) owns the human-facing line-parameter workbook:
+[`XLSXReportDefinition`](@ref) owns the human-facing line-parameter workbook:
 
 ```julia
 using XLSX
 
 artifact = report(
-    XLSXReport(file_name="line_parameters.xlsx"),
+    XLSXReportDefinition(file_name="line_parameters.xlsx"),
     parameters,
 )
 artifact.output

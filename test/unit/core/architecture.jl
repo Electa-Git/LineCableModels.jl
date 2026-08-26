@@ -160,7 +160,8 @@ end
     @test parentmodule(LineCableModels.Units.quantity) === LineCableModels.Units
     @test parentmodule(LineCableModels.report) === LineCableModels.ReportBuilder
     @test parentmodule(LineCableModels.ReportArtifact) === LineCableModels.ReportBuilder
-    @test parentmodule(LineCableModels.XLSXReport) === LineCableModels.ReportBuilder
+    @test parentmodule(LineCableModels.XLSXReportDefinition) ===
+          LineCableModels.ReportBuilder
     @test parentmodule(LineCableModels.validate) === LineCableModels.Validation
 
     report_grammar=source[joinpath("src", "reportbuilder", "grammar.jl")]

@@ -172,15 +172,39 @@
     @test frequencies(parameters[:]) == frequency
     @test_throws BoundsError parameters[4]
 
-    series_frames, shunt_frames=DataFrame(parameters)
-    @test DataFrames.metadata(series_frames[1, 1], "units")[:real] == "Ω"
-    @test DataFrames.metadata(series_frames[1, 1], "units")[:imag] == "Ω"
-    @test DataFrames.metadata(shunt_frames[1, 1], "units")[:real] == "S"
-    @test DataFrames.metadata(shunt_frames[1, 1], "units")[:imag] == "S"
-    series_rl, shunt_gc=DataFrame(parameters, (R, L, G, C))
-    @test DataFrames.metadata(series_rl[1, 1], "units")[:R] == "Ω"
-    @test DataFrames.metadata(series_rl[1, 1], "units")[:L] == "mH"
-    @test DataFrames.metadata(shunt_gc[1, 1], "units")[:C] == "μF"
+    parameter_table=DataFrame(parameters)
+    @test parameter_table isa DataFrame
+    @test names(parameter_table) == [
+        "family", "row", "column", "frequency", "quantity", "value", "unit"
+    ]
+    @test nrow(parameter_table) == 48
+    @test parameter_table[1:4, [:family, :row, :column, :frequency, :quantity]] ==
+          DataFrame(
+        family = fill(:series, 4),
+        row = ones(Int, 4),
+        column = ones(Int, 4),
+        frequency = [50.0, 50.0, 100.0, 100.0],
+        quantity = [:real, :imag, :real, :imag]
+    )
+    units_metadata=DataFrames.metadata(parameter_table, "units")
+    @test units_metadata[(:series, :real)] == "Ω"
+    @test units_metadata[(:series, :imag)] == "Ω"
+    @test units_metadata[(:shunt, :real)] == "S"
+    @test units_metadata[(:shunt, :imag)] == "S"
+    @test DataFrames.metadata(parameter_table, "basis") === basis(parameters)
+    headings_metadata=DataFrames.metadata(parameter_table, "headings")
+    @test headings_metadata[(:series, :real)] == "Series resistance [Ω]"
+    @test headings_metadata[(:shunt, :imag)] == "Shunt susceptance [S]"
+    requests_metadata=DataFrames.metadata(parameter_table, "requests")
+    @test requests_metadata[(:series, :real)] === R
+    @test requests_metadata[(:series, :imag)] === X
+    @test requests_metadata[(:shunt, :real)] === G
+    @test requests_metadata[(:shunt, :imag)] === B
+    parameter_rlgc=DataFrame(parameters, (R, L, G, C))
+    rlgc_units=DataFrames.metadata(parameter_rlgc, "units")
+    @test rlgc_units[(:series, :R)] == "Ω"
+    @test rlgc_units[(:series, :L)] == "mH"
+    @test rlgc_units[(:shunt, :C)] == "μF"
     @test_throws ArgumentError DataFrame(parameters; tol = -1.0)
 
     zero_frequency=LineParameters(
@@ -194,15 +218,19 @@
     @test_throws DomainError L(zero_frequency, 1, 1)
     @test_throws DomainError C(zero_frequency, 1, 1, 1)
     @test_throws DomainError C(zero_frequency)
-    @test DataFrame(zero_frequency) isa Tuple
+    @test DataFrame(zero_frequency) isa DataFrame
     @test_throws DomainError DataFrame(zero_frequency, (R, L, G, C))
 
     standalone_series=DataFrame(series; freqs = frequency)
     standalone_shunt=DataFrame(shunt, (G, C); freqs = frequency)
-    @test standalone_series[1, 1].frequency == frequency
-    @test standalone_shunt[1, 1].frequency == frequency
-    @test names(standalone_series[1, 1]) == ["frequency", "real", "imag"]
-    @test names(standalone_shunt[1, 1]) == ["frequency", "G", "C"]
+    @test standalone_series isa DataFrame
+    @test standalone_shunt isa DataFrame
+    @test unique(standalone_series.family) == [:series]
+    @test unique(standalone_shunt.family) == [:shunt]
+    @test unique(standalone_series.frequency) == frequency
+    @test unique(standalone_shunt.frequency) == frequency
+    @test unique(standalone_series.quantity) == [:real, :imag]
+    @test unique(standalone_shunt.quantity) == [:G, :C]
     @test_throws ArgumentError DataFrame(series)
     @test_throws ArgumentError DataFrame(shunt)
     @test LineCableModels.ReportBuilder.clip(1.0 + 2.0im, 1.0) ==

@@ -167,23 +167,26 @@ for the stage contract and correlation requirements.
 
 [`report`](@ref) builds human-facing tables from explicit publication requests.
 Its fixed sequence is `entitle → select → tabulate → illustrate →
-encode → write → finish`. Existing `DataFrame` methods for completed
-results delegate to this boundary. `DataFrame(result::MonteCarloResult)` renders
-stored marginal summaries without repeating the calculation. Cable-constant
-results produce one R/L/C table. Line-parameter results produce one R/L/C/G
-table for every matrix entry and frequency. The displayed `confidence` and
-`cdf_tol` values describe the DKW bound below and are not confidence intervals
-for the sample mean.
+encode → write → finish`. Existing `DataFrame` methods for completed results
+delegate to this boundary and return one `DataFrame`. Line-parameter tables use
+the columns `family`, `row`, `column`, `frequency`, `quantity`, `value`, and
+`unit`. `DataFrame(result::MonteCarloResult)` renders stored marginal summaries
+without repeating the calculation. Its rows cover every Gridspace point and
+carry the point index, requested quantity, summary statistics, unit, trial
+count, confidence, and CDF tolerance. Line-parameter summaries also carry
+matrix and frequency coordinates. The displayed `confidence` and `cdf_tol`
+values describe the DKW bound below and are not confidence intervals for the
+sample mean.
 
-`report(TableReport(...), source)` returns an in-memory
+`report(TableReportDefinition(...), source)` returns an in-memory
 [`ReportArtifact`](@ref) with `output === nothing`. Human-facing line-parameter
-workbooks use [`XLSXReport`](@ref):
+workbooks use [`XLSXReportDefinition`](@ref):
 
 ```julia
 using XLSX
 
 artifact = report(
-    XLSXReport(file_name="line_parameters.xlsx"),
+    XLSXReportDefinition(file_name="line_parameters.xlsx"),
     parameters,
 )
 artifact.output

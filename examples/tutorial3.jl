@@ -352,15 +352,21 @@ formulation = Formulation()
     options = (verbosity = (default = 0,),)
 );
 
-# Obtain the series and shunt results in per-kilometre units:
-series_rl, shunt_gc = DataFrame(
+# Obtain one long-form line-parameter table in per-kilometre units:
+rlgc_table = DataFrame(
     line_parameters, (R, L, G, C); length_unit = :kilo, tol = 1e-9);
 
-# Display the series resistance and inductance table:
-series_rl[1, 1]
+# Display the series resistance and inductance rows for the first matrix term:
+rlgc_table[
+    (rlgc_table.family .== :series) .& (rlgc_table.row .== 1) .& (rlgc_table.column .== 1),
+    :
+]
 
-# Display the corresponding shunt conductance and capacitance table:
-shunt_gc[1, 1]
+# Display the corresponding shunt conductance and capacitance rows:
+rlgc_table[
+    (rlgc_table.family .== :shunt) .& (rlgc_table.row .== 1) .& (rlgc_table.column .== 1),
+    :
+]
 
 # Plot the R/L and G/C frequency responses on logarithmic frequency axes. The
 # accessors select the displayed quantities; each matrix family occupies one
@@ -403,29 +409,41 @@ export_file = export_data(
 # Obtain the symmetrical components via Fortescue transformation
 Tv, sequence_parameters = Fortescue(tol = 1e-5)(line_parameters);
 
-# Obtain the transformed series and shunt matrices:
-series_zy, shunt_zy = DataFrame(
+# Obtain the transformed series and shunt matrices as one long-form table:
+sequence_zy_table = DataFrame(
     sequence_parameters; length_unit = :kilo, tol = 1e-9);
 
-# Display the transformed series matrix:
-series_zy[1, 1]
+# Display the first transformed series matrix term:
+sequence_zy_table[
+    (sequence_zy_table.family .== :series) .& (sequence_zy_table.row .== 1) .& (sequence_zy_table.column .== 1),
+    :
+]
 
-# Display the transformed shunt matrix:
-shunt_zy[1, 1]
+# Display the first transformed shunt matrix term:
+sequence_zy_table[
+    (sequence_zy_table.family .== :shunt) .& (sequence_zy_table.row .== 1) .& (sequence_zy_table.column .== 1),
+    :
+]
 
 # Obtain the corresponding lumped circuit quantities:
-series_rl012, shunt_gc012 = DataFrame(
+sequence_rlgc_table = DataFrame(
     sequence_parameters,
     (R, L, G, C);
     length_unit = :kilo,
     tol = 1e-9
 );
 
-# Display the sequence-domain series table:
-series_rl012[1, 1]
+# Display the first sequence-domain series term:
+sequence_rlgc_table[
+    (sequence_rlgc_table.family .== :series) .& (sequence_rlgc_table.row .== 1) .& (sequence_rlgc_table.column .== 1),
+    :
+]
 
-# Display the sequence-domain shunt table:
-shunt_gc012[1, 1]
+# Display the first sequence-domain shunt term:
+sequence_rlgc_table[
+    (sequence_rlgc_table.family .== :shunt) .& (sequence_rlgc_table.row .== 1) .& (sequence_rlgc_table.column .== 1),
+    :
+]
 
 # Plot the sequence-domain R/L and G/C responses:
 sequence_plots = CairoMakie.plot(

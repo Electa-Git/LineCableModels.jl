@@ -738,6 +738,29 @@ end
           first(samples(monte_carlo)).R
     @test observe(first(histograms(monte_carlo)), R) ===
           first(histograms(monte_carlo)).R
+    multi_point_table=DataFrame(monte_carlo)
+    @test multi_point_table isa DataFrame
+    @test names(multi_point_table) == [
+        "point", "quantity", "mean", "std", "min", "q05", "median", "q95",
+        "max", "n", "unit", "trials", "confidence", "cdf_tol"
+    ]
+    @test multi_point_table.point == repeat(1:2; inner = 3)
+    @test multi_point_table.quantity == repeat([:R, :L, :C], 2)
+    monte_carlo_metadata=DataFrames.metadata(
+        multi_point_table,
+        "monte_carlo"
+    )
+    @test monte_carlo_metadata.root_seed == monte_carlo.root_seed
+    @test monte_carlo_metadata.point_seeds == monte_carlo.point_seeds
+    @test monte_carlo_metadata.trial_counts == monte_carlo.trial_counts
+    @test monte_carlo_metadata.confidence == confidence(monte_carlo)
+    @test monte_carlo_metadata.cdf_tol == cdf_tolerance(monte_carlo)
+    @test monte_carlo_metadata.distribution == sampling_distribution(monte_carlo)
+    @test DataFrames.metadata(multi_point_table, "units") == Dict(
+        :R => "Ω/km",
+        :L => "mH/km",
+        :C => "μF/km"
+    )
 
     resistance_pdf=first(histograms(monte_carlo)).R
     @test cdf(resistance_pdf, maximum(resistance_pdf)) == 1.0
@@ -770,7 +793,7 @@ end
     @test distribution_run isa MonteCarloResult{<:CableConstants}
     @test distribution_run.root_seed == UInt64(7)
     constants_frame=DataFrame(distribution_run)
-    @test constants_frame.quantity == ["R", "L", "C"]
+    @test constants_frame.quantity == [:R, :L, :C]
     @test constants_frame.trials == fill(4, 3)
     @test constants_frame.cdf_tol == fill(0.02, 3)
     @test !(:ci_half in propertynames(constants_frame))
@@ -898,10 +921,17 @@ end
           only(histograms(monte_carlo)).R[1, 1, 1]
     @test !applicable(Measurements.measurement, monte_carlo)
 
-    line_frames=DataFrame(monte_carlo)
-    @test size(line_frames) == size(only(statistics(monte_carlo)).R)
-    @test line_frames[1, 1, 1].quantity == ["R", "L", "C", "G"]
-    @test all(==("Ω/km"), line_frames[1, 1, 1].unit[1:1])
+    line_table=DataFrame(monte_carlo)
+    @test line_table isa DataFrame
+    @test names(line_table) == [
+        "point", "row", "column", "frequency", "quantity", "mean", "std",
+        "min", "q05", "median", "q95", "max", "n", "unit", "trials",
+        "confidence", "cdf_tol"
+    ]
+    @test DataFrames.nrow(line_table) ==
+          4 * prod(size(only(statistics(monte_carlo)).R))
+    @test unique(line_table.quantity) == [:R, :L, :C, :G]
+    @test all(==("Ω/km"), line_table[line_table.quantity .== :R, :unit])
 end
 
 @testitem "ParametricBuilder / invalid points / natural failure" tags=[:unit] setup=[

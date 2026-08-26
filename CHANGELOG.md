@@ -41,7 +41,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Added typed computation details with explicit higher-order retention and no
   default per-point or per-trial record collection.
 - Moved human-facing XLSX line-parameter workbooks to ReportBuilder. The
-  existing `export_data(:xlsx, ...)` call now delegates to `XLSXReport`.
+  existing `export_data(:xlsx, ...)` call now delegates to
+  `XLSXReportDefinition`.
 - Routed ordinary and higher-order execution through `compute`, with
   `Combinatorial(inner)`, `LinearError(inner)`, and `MonteCarlo(inner)` selected
   explicitly.

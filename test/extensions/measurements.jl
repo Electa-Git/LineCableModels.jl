@@ -134,7 +134,7 @@ end
     @test value(decoded) == value(uncertain)
     @test uncertainty(decoded) == uncertainty(uncertain)
     @test LineCableModels.ReportBuilder.encode_cell(
-        LineCableModels.ReportBuilder.XLSXReport(),
+        LineCableModels.ReportBuilder.XLSXReportDefinition(),
         uncertain
     ) == "-20 ± 1"
 

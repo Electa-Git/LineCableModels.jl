@@ -15,7 +15,7 @@ const Engine = LineCableModels.Engine
 function _write_xlsx_sheet!(
         workbook,
         sheet::ReportBuilder.XLSXSheet,
-        definition::ReportBuilder.XLSXReport;
+        definition::ReportBuilder.XLSXReportDefinition;
         first_sheet::Bool
 )
     worksheet = if first_sheet
@@ -54,7 +54,7 @@ function _write_xlsx_sheet!(
 end
 
 function ReportBuilder.write(
-        definition::ReportBuilder.XLSXReport,
+        definition::ReportBuilder.XLSXReportDefinition,
         source::Engine.LineParameters,
         published,
         table,

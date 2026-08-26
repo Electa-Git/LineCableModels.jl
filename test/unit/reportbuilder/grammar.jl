@@ -56,7 +56,7 @@
     end
 
     source = ReportProfile([1.0, 2.0])
-    definition = TableReport(
+    definition = TableReportDefinition(
         (response = profile_response,);
         illustration = ReportProfilePlot
     )
@@ -72,8 +72,14 @@
     @test artifact.output === nothing
     artifact.table.response[1] = 0.0
     @test source.values == [1.0, 2.0]
-    @test_throws ArgumentError report(TableReport((value = identity,)), source)
-    @test_throws ArgumentError report(TableReport((value = identity,)), :unsupported)
+    @test_throws ArgumentError report(
+        TableReportDefinition((value = identity,)),
+        source
+    )
+    @test_throws ArgumentError report(
+        TableReportDefinition((value = identity,)),
+        :unsupported
+    )
     publication_error=try
         LineCableModels.observables(source, (value = identity,))
         nothing
@@ -81,7 +87,7 @@
         error
     end
     entitlement_error=try
-        RB.entitle(TableReport((value = identity,)), source)
+        RB.entitle(TableReportDefinition((value = identity,)), source)
         nothing
     catch error
         error
@@ -194,14 +200,14 @@ end
 
     mktempdir() do directory
         path=joinpath(directory, "full.xlsx")
-        artifact=report(XLSXReport(; file_name = path), parameters)
+        artifact=report(XLSXReportDefinition(; file_name = path), parameters)
         @test artifact isa ReportArtifact
         @test fieldnames(typeof(artifact)) == (:table, :illustration, :output)
         @test artifact.illustration === nothing
         @test artifact.output == path
         @test isfile(artifact.output)
-        @test artifact.table isa Tuple
-        @test length(artifact.table) == 2
+        @test artifact.table isa DataFrame
+        @test unique(artifact.table.family) == [:series, :shunt]
         XLSX.openxlsx(path) do workbook
             @test Set(XLSX.sheetnames(workbook)) == Set([
                 "Z(1,1)", "Z(1,2)", "Z(2,1)", "Z(2,2)",
@@ -234,7 +240,7 @@ end
 
         cable_system=TestFixtures.three_phase_system()
         prefixed=report(
-            XLSXReport(
+            XLSXReportDefinition(
                 file_name = joinpath(directory, "named.xlsx"),
                 cable_system = cable_system
             ),
@@ -248,7 +254,7 @@ end
             [50.0]
         )
         diagonal_artifact=@test_logs (:warn, r"Z is diagonal") (:warn, r"Y is diagonal") report(
-            XLSXReport(file_name = joinpath(directory, "diagonal.xlsx")),
+            XLSXReportDefinition(file_name = joinpath(directory, "diagonal.xlsx")),
             diagonal
         )
         XLSX.openxlsx(diagonal_artifact.output) do workbook
@@ -262,14 +268,17 @@ end
             [50.0]
         )
         uncertain_artifact=@test_logs (:warn, r"Z is diagonal") (:warn, r"Y is diagonal") report(
-            XLSXReport(file_name = joinpath(directory, "uncertain.xlsx")),
+            XLSXReportDefinition(file_name = joinpath(directory, "uncertain.xlsx")),
             uncertain
         )
         XLSX.openxlsx(uncertain_artifact.output) do workbook
             @test occursin("±", workbook["Z(1,1)"]["B6"])
         end
 
-        @test_throws Exception report(XLSXReport(file_name = directory), parameters)
+        @test_throws Exception report(
+            XLSXReportDefinition(file_name = directory),
+            parameters
+        )
     end
 
     @test !isdefined(IE, :XLSXWorkbook)
@@ -285,7 +294,7 @@ end
 
     const RB=LineCableModels.ReportBuilder
     constants=LineCableModels.CableConstants(1.0, 2.0, 3.0)
-    expected=report(RB.CableConstantsTable(), constants).table
+    expected=report(RB.CableConstantsTableDefinition(), constants).table
     actual=DataFrame(constants)
 
     @test actual == expected
@@ -295,7 +304,7 @@ end
 
     monte_carlo=TestFixtures.cable_monte_carlo_result()
     @test DataFrame(monte_carlo) == report(
-        RB.MonteCarloTable(:kilo, nothing),
+        RB.MonteCarloTableDefinition(:kilo, nothing),
         monte_carlo
     ).table
     @test parentmodule(which(DataFrame, (typeof(monte_carlo),))) === RB
@@ -306,6 +315,32 @@ end
         length_prefix = :kilo,
         overrides = :milli
     ))
-    selected=RB.select(RB.MonteCarloTable(:kilo, :milli), monte_carlo)
-    @test selected.published.R.unit == target
+    selected=RB.select(
+        RB.MonteCarloTableDefinition(:kilo, :milli),
+        monte_carlo
+    )
+    @test only(selected).published.R.unit == target
+
+    for name in (
+        :TableReportDefinition,
+        :CableConstantsTableDefinition,
+        :LineParametersTableDefinition,
+        :BenchmarkTableDefinition,
+        :MonteCarloTableDefinition,
+        :XLSXReportDefinition
+    )
+        @test isdefined(RB, name)
+        @test parentmodule(getproperty(RB, name)) === RB
+    end
+    for retired in (
+        :TableReport,
+        :CableConstantsTable,
+        :LineParametersTable,
+        :BenchmarkTable,
+        :MonteCarloTable,
+        :XLSXReport
+    )
+        @test !isdefined(RB, retired)
+        @test !isdefined(LineCableModels, retired)
+    end
 end

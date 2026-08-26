@@ -6,7 +6,10 @@ observations.
 """
 module ReportBuilder
 
-export AbstractReportDefinition, ReportArtifact, TableReport, XLSXReport, report
+export AbstractReportDefinition, ReportArtifact
+export TableReportDefinition, CableConstantsTableDefinition
+export LineParametersTableDefinition, BenchmarkTableDefinition
+export MonteCarloTableDefinition, XLSXReportDefinition, report
 export entitle, select, tabulate, illustrate, encode, write, finish
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES

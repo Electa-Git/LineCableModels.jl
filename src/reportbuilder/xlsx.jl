@@ -8,7 +8,7 @@ Write the human-facing line-parameter workbook produced by [`report`](@ref).
 
 $(TYPEDFIELDS)
 """
-struct XLSXReport{
+struct XLSXReportDefinition{
     F <: Union{Nothing, String}, C <: Union{Nothing, DataModel.LineCableSystem}} <:
        AbstractReportDefinition
     "Requested workbook path, or `nothing` for the default path."
@@ -17,12 +17,12 @@ struct XLSXReport{
     cable_system::C
 end
 
-function XLSXReport(;
+function XLSXReportDefinition(;
         file_name::Union{Nothing, AbstractString} = nothing,
         cable_system::Union{Nothing, DataModel.LineCableSystem} = nothing
 )
     path = file_name === nothing ? nothing : String(file_name)
-    return XLSXReport(path, cable_system)
+    return XLSXReportDefinition(path, cable_system)
 end
 
 struct XLSXSheet
@@ -45,29 +45,67 @@ function _xlsx_table_definition()
     )
 end
 
-entitle(::XLSXReport, source::Engine.LineParameters) = source
-function select(::XLSXReport, source::Engine.LineParameters)
+entitle(::XLSXReportDefinition, source::Engine.LineParameters) = source
+function select(::XLSXReportDefinition, source::Engine.LineParameters)
     select(_xlsx_table_definition(), source)
 end
-function tabulate(::XLSXReport, source::Engine.LineParameters, selected)
+function tabulate(::XLSXReportDefinition, source::Engine.LineParameters, selected)
     tabulate(_xlsx_table_definition(), source, selected)
 end
-illustrate(::XLSXReport, source, published, table) = nothing
+illustrate(::XLSXReportDefinition, source, published, table) = nothing
 
 function _is_diagonal(matrix)
     return isapprox(matrix, Diagonal(diag(matrix)); rtol = 1.0e-8, atol = 1.0e-8)
 end
 
-function _xlsx_sheets(prefix::String, tables::Matrix{DataFrame}, diagonal::Bool)
-    rows, columns = size(tables)
+function _xlsx_wide_table(
+        table::DataFrame,
+        family::Symbol,
+        row::Int,
+        column::Int
+)
+    selected = table[
+        (table.family .== family) .& (table.row .== row) .& (table.column .== column),
+        :
+    ]
+    frequency_values = unique(selected.frequency)
+    quantity_keys = unique(selected.quantity)
+    wide = DataFrame(frequency = frequency_values)
+    unit_labels = Dict{Symbol, String}(
+        :frequency => metadata(table, "frequency_unit"),
+    )
+    headings = Dict{Symbol, String}(:frequency => "Frequency")
+    for key in quantity_keys
+        rows = selected[selected.quantity .== key, :]
+        wide[!, key] = rows.value
+        unit_labels[key] = only(unique(rows.unit))
+        headings[key] = key |> String
+    end
+    metadata!(wide, "units", unit_labels, style = :note)
+    metadata!(wide, "headings", headings, style = :note)
+    return wide
+end
+
+function _xlsx_sheets(
+        prefix::String,
+        table::DataFrame,
+        family::Symbol,
+        diagonal::Bool
+)
+    selected = table[table.family .== family, :]
+    rows = maximum(selected.row)
+    columns = maximum(selected.column)
     indices = diagonal ? ((index, index) for index in 1:min(rows, columns)) :
               ((row, column) for row in 1:rows for column in 1:columns)
-    return [XLSXSheet("$prefix($row,$column)", tables[row, column])
+    return [XLSXSheet(
+                "$prefix($row,$column)",
+                _xlsx_wide_table(table, family, row, column)
+            )
             for (row, column) in indices]
 end
 
 function encode(
-        ::XLSXReport,
+        ::XLSXReportDefinition,
         source::Engine.LineParameters,
         published,
         table,
@@ -76,7 +114,6 @@ function encode(
     isempty(frequencies(source)) && throw(ArgumentError(
         "XLSX reports require at least one frequency sample",
     ))
-    series_tables, shunt_tables = table
     series_diagonal = _is_diagonal(Z(source, :, :, 1))
     shunt_diagonal = _is_diagonal(Y(source, :, :, 1))
     series_diagonal &&
@@ -84,8 +121,8 @@ function encode(
     shunt_diagonal &&
         @warn("Y is diagonal within the selected tolerance. Exporting Y[i,i] and omitting off-diagonal elements.")
     sheets = vcat(
-        _xlsx_sheets("Z", series_tables, series_diagonal),
-        _xlsx_sheets("Y", shunt_tables, shunt_diagonal)
+        _xlsx_sheets("Z", table, :series, series_diagonal),
+        _xlsx_sheets("Y", table, :shunt, shunt_diagonal)
     )
     return XLSXWorkbook(sheets)
 end
@@ -95,11 +132,11 @@ $(TYPEDSIGNATURES)
 
 Encode one value for a cell in an XLSX report definition.
 """
-encode_cell(::XLSXReport, value) = string(value)
-encode_cell(::XLSXReport, ::Missing) = ""
-encode_cell(::XLSXReport, value::Real) = @sprintf("%.12g", float(value))
+encode_cell(::XLSXReportDefinition, value) = string(value)
+encode_cell(::XLSXReportDefinition, ::Missing) = ""
+encode_cell(::XLSXReportDefinition, value::Real) = @sprintf("%.12g", float(value))
 
-function _xlsx_strings(definition::XLSXReport, table::DataFrame)
+function _xlsx_strings(definition::XLSXReportDefinition, table::DataFrame)
     return DataFrame(
         (name => encode_cell.(Ref(definition), table[!, name]) for name in names(table))...;
         copycols = false
@@ -111,7 +148,7 @@ function _xlsx_units(table::DataFrame)
     return metadata(table, "units")
 end
 
-function _xlsx_destination(definition::XLSXReport)
+function _xlsx_destination(definition::XLSXReportDefinition)
     base_directory = joinpath(dirname(@__DIR__), "importexport")
     file_name = if definition.file_name === nothing
         identifier = definition.cable_system === nothing ? "" :

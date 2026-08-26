@@ -38,7 +38,7 @@ export SampleSummary, HistogramDensity, RLC, RLCG
 export result, statistics, samples, histograms, uncertain_value
 export root_seed, point_seed, trial_count
 export confidence, cdf_tolerance, sampling_distribution
-export report, TableReport, XLSXReport, ReportArtifact
+export report, TableReportDefinition, XLSXReportDefinition, ReportArtifact
 export Material, MaterialsLibrary, Conductor, Insulator, CableBuilder
 export at, trifoil, hflat, vflat, Earth, SystemBuilder
 export make_stranded, make_screened, WireEstimate
@@ -134,7 +134,8 @@ using .UQ:
 
 # Submodule `ReportBuilder`
 include("reportbuilder/ReportBuilder.jl")
-using .ReportBuilder: report, TableReport, XLSXReport, ReportArtifact
+using .ReportBuilder:
+                      report, TableReportDefinition, XLSXReportDefinition, ReportArtifact
 
 # Submodule `ImportExport`
 include("importexport/ImportExport.jl")

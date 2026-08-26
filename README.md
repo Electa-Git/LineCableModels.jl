@@ -137,7 +137,10 @@ Human-facing XLSX output is a ReportBuilder operation:
 ```julia
 using XLSX
 
-artifact = report(XLSXReport(file_name="line_parameters.xlsx"), line_parameters)
+artifact = report(
+    XLSXReportDefinition(file_name="line_parameters.xlsx"),
+    line_parameters,
+)
 artifact.output
 ```
 

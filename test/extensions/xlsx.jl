@@ -22,7 +22,7 @@
     parameters = LineCableModels.LineParameters(impedance, admittance, [50.0])
 
     @test_throws MethodError LineCableModels.report(
-        LineCableModels.XLSXReport(),
+        LineCableModels.XLSXReportDefinition(),
         parameters
     )
 end

@@ -58,7 +58,10 @@ function deserialize_extension(::Val{:Measurement}, value)
     uncertainty = deserialize_value(value["uncertainty"])
     return Measurements.measurement(nominal, uncertainty)
 end
-function encode_cell(::ReportBuilder.XLSXReport, value::Measurements.Measurement)
+function encode_cell(
+        ::ReportBuilder.XLSXReportDefinition,
+        value::Measurements.Measurement
+)
     Printf.@sprintf("%.12g ± %.6g",
         Measurements.value(value),
         Measurements.uncertainty(value),)
