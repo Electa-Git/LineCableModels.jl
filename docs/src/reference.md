@@ -195,7 +195,8 @@ artifact.output
 Loading XLSX activates the writer extension. The retained
 `export_data(:xlsx, parameters; ...)` convenience call delegates to this report
 and returns `artifact.output`. ImportExport contains no separate XLSX workbook
-path.
+path. A relative `file_name`, or the default `ZY_export.xlsx`, resolves from
+the caller's current working directory.
 
 After loading a Makie package, retained samples and histograms can be displayed
 through the maintained Monte Carlo recipe:

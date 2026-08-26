@@ -25,12 +25,31 @@ function XLSXReportDefinition(;
     return XLSXReportDefinition(path, cable_system)
 end
 
+"""
+$(TYPEDEF)
+
+Hold the name and fully encoded cell grid for one workbook sheet.
+
+$(TYPEDFIELDS)
+"""
 struct XLSXSheet
+    "Workbook sheet name."
     name::String
-    table::DataFrame
+    "Encoded cells indexed by worksheet row and column."
+    cells::Matrix{String}
 end
 
+"""
+$(TYPEDEF)
+
+Describe one XLSX workbook without depending on XLSX.jl.
+
+$(TYPEDFIELDS)
+"""
 struct XLSXWorkbook
+    "Absolute caller-owned output path."
+    destination::String
+    "Sheets in workbook order."
     sheets::Vector{XLSXSheet}
 end
 
@@ -58,8 +77,21 @@ function _is_diagonal(matrix)
     return isapprox(matrix, Diagonal(diag(matrix)); rtol = 1.0e-8, atol = 1.0e-8)
 end
 
-function _xlsx_wide_table(
+"""
+$(TYPEDSIGNATURES)
+
+Encode one value for a cell in an [`XLSXWorkbook`](@ref).
+
+External value owners may add narrow methods for their scalar types.
+"""
+encode_cell(::XLSXReportDefinition, value) = string(value)
+encode_cell(::XLSXReportDefinition, ::Missing) = ""
+encode_cell(::XLSXReportDefinition, value::Real) = @sprintf("%.12g", float(value))
+
+function _encoded_sheet(
+        definition::XLSXReportDefinition,
         table::DataFrame,
+        name::String,
         family::Symbol,
         row::Int,
         column::Int
@@ -68,25 +100,52 @@ function _xlsx_wide_table(
         (table.family .== family) .& (table.row .== row) .& (table.column .== column),
         :
     ]
+    isempty(selected) && throw(ArgumentError(
+        "workbook sheet $name has no line-parameter rows",
+    ))
     frequency_values = unique(selected.frequency)
     quantity_keys = unique(selected.quantity)
-    wide = DataFrame(frequency = frequency_values)
-    unit_labels = Dict{Symbol, String}(
-        :frequency => metadata(table, "frequency_unit"),
-    )
-    headings = Dict{Symbol, String}(:frequency => "Frequency")
-    for key in quantity_keys
-        rows = selected[selected.quantity .== key, :]
-        wide[!, key] = rows.value
-        unit_labels[key] = only(unique(rows.unit))
-        headings[key] = key |> String
+    quantity_rows = [selected[selected.quantity .== quantity, :]
+                     for quantity in quantity_keys]
+    unit_rows = Pair{String, String}[
+        "frequency" => metadata(table, "frequency_unit"),
+    ]
+    for (quantity, rows) in zip(quantity_keys, quantity_rows)
+        rows.frequency == frequency_values || throw(DimensionMismatch(
+            "workbook quantity $quantity does not align with the frequency column",
+        ))
+        push!(unit_rows, String(quantity) => only(unique(rows.unit)))
     end
-    metadata!(wide, "units", unit_labels, style = :note)
-    metadata!(wide, "headings", headings, style = :note)
-    return wide
+
+    heading_row = length(unit_rows) + 2
+    cells = fill(
+        "",
+        heading_row + length(frequency_values),
+        max(2, length(quantity_keys) + 1)
+    )
+    for (unit_row, entry) in enumerate(unit_rows)
+        cells[unit_row, 1] = first(entry)
+        cells[unit_row, 2] = last(entry)
+    end
+    cells[heading_row, 1] = "frequency"
+    for (quantity_column, quantity) in enumerate(quantity_keys)
+        cells[heading_row, quantity_column + 1] = String(quantity)
+    end
+    for (frequency_index, frequency) in enumerate(frequency_values)
+        data_row = heading_row + frequency_index
+        cells[data_row, 1] = encode_cell(definition, frequency)
+        for (quantity_column, rows) in enumerate(quantity_rows)
+            cells[data_row, quantity_column + 1] = encode_cell(
+                definition,
+                rows.value[frequency_index]
+            )
+        end
+    end
+    return XLSXSheet(name, cells)
 end
 
-function _xlsx_sheets(
+function _encoded_sheets(
+        definition::XLSXReportDefinition,
         prefix::String,
         table::DataFrame,
         family::Symbol,
@@ -97,15 +156,19 @@ function _xlsx_sheets(
     columns = maximum(selected.column)
     indices = diagonal ? ((index, index) for index in 1:min(rows, columns)) :
               ((row, column) for row in 1:rows for column in 1:columns)
-    return [XLSXSheet(
+    return [_encoded_sheet(
+                definition,
+                table,
                 "$prefix($row,$column)",
-                _xlsx_wide_table(table, family, row, column)
+                family,
+                row,
+                column
             )
             for (row, column) in indices]
 end
 
 function encode(
-        ::XLSXReportDefinition,
+        definition::XLSXReportDefinition,
         source::Engine.LineParameters,
         published,
         table,
@@ -121,50 +184,17 @@ function encode(
     shunt_diagonal &&
         @warn("Y is diagonal within the selected tolerance. Exporting Y[i,i] and omitting off-diagonal elements.")
     sheets = vcat(
-        _xlsx_sheets("Z", table, :series, series_diagonal),
-        _xlsx_sheets("Y", table, :shunt, shunt_diagonal)
+        _encoded_sheets(definition, "Z", table, :series, series_diagonal),
+        _encoded_sheets(definition, "Y", table, :shunt, shunt_diagonal)
     )
-    return XLSXWorkbook(sheets)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Encode one value for a cell in an XLSX report definition.
-"""
-encode_cell(::XLSXReportDefinition, value) = string(value)
-encode_cell(::XLSXReportDefinition, ::Missing) = ""
-encode_cell(::XLSXReportDefinition, value::Real) = @sprintf("%.12g", float(value))
-
-function _xlsx_strings(definition::XLSXReportDefinition, table::DataFrame)
-    return DataFrame(
-        (name => encode_cell.(Ref(definition), table[!, name]) for name in names(table))...;
-        copycols = false
-    )
-end
-
-function _xlsx_units(table::DataFrame)
-    "units" in metadatakeys(table) || return nothing
-    return metadata(table, "units")
-end
-
-function _xlsx_destination(definition::XLSXReportDefinition)
-    base_directory = joinpath(dirname(@__DIR__), "importexport")
-    file_name = if definition.file_name === nothing
-        identifier = definition.cable_system === nothing ? "" :
-                     "$(definition.cable_system.system_id)_"
-        joinpath(base_directory, "$(identifier)ZY_export.xlsx")
+    requested = abspath(something(definition.file_name, "ZY_export.xlsx"))
+    destination = if definition.cable_system === nothing
+        requested
     else
-        requested = isabspath(definition.file_name) ? definition.file_name :
-                    joinpath(base_directory, definition.file_name)
-        if definition.cable_system === nothing
-            requested
-        else
-            joinpath(
-                dirname(requested),
-                "$(definition.cable_system.system_id)_$(basename(requested))"
-            )
-        end
+        joinpath(
+            dirname(requested),
+            "$(definition.cable_system.system_id)_$(basename(requested))"
+        )
     end
-    return String(file_name)
+    return XLSXWorkbook(String(destination), sheets)
 end

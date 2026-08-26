@@ -381,9 +381,13 @@ artifact = report(
 artifact.output
 ```
 
-ReportBuilder selects values through `observables`, builds the matrix tables,
-and encodes the workbook sheets. Loading XLSX activates the package extension
-that writes those sheets and records the resolved path in [`ReportArtifact`](@ref).
-`export_data(:xlsx, parameters; ...)` remains a thin ImportExport convenience
-call that returns the same path. ImportExport owns no second workbook
-implementation.
+ReportBuilder selects values through `observables`, builds one long-form table,
+and encodes a complete
+[`LineCableModels.ReportBuilder.XLSXWorkbook`](@ref) containing the destination,
+ordered sheet names, and final cell strings. Loading XLSX activates the package
+extension that writes only this encoded description and records its path in
+[`ReportArtifact`](@ref). Relative and default paths resolve from the caller's
+current working directory; the package source tree is never the implicit
+destination. `export_data(:xlsx, parameters; ...)` remains a thin ImportExport
+convenience call that returns the same path. ImportExport owns no second
+workbook implementation.

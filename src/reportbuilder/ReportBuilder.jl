@@ -15,7 +15,7 @@ export entitle, select, tabulate, illustrate, encode, write, finish
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using LinearAlgebra
 using Printf
-import DataFrames: DataFrame, metadata, metadatakeys, metadata!
+import DataFrames: DataFrame, metadata, metadata!
 import ..Grammar: observables, validate_observables, unit_targets
 import ..Units
 import ..PlotBuilder
@@ -30,6 +30,6 @@ include("tables.jl")
 include("montecarlo.jl")
 include("xlsx.jl")
 
-public clip, encode_cell
+public clip, encode_cell, XLSXSheet, XLSXWorkbook
 
 end

@@ -209,10 +209,10 @@ end
         @test artifact.table isa DataFrame
         @test unique(artifact.table.family) == [:series, :shunt]
         XLSX.openxlsx(path) do workbook
-            @test Set(XLSX.sheetnames(workbook)) == Set([
+            @test XLSX.sheetnames(workbook) == [
                 "Z(1,1)", "Z(1,2)", "Z(2,1)", "Z(2,2)",
                 "Y(1,1)", "Y(1,2)", "Y(2,1)", "Y(2,2)"
-            ])
+            ]
             worksheet=workbook["Z(1,1)"]
             @test worksheet["A1"] == "frequency"
             @test worksheet["B1"] == "Hz"
@@ -247,6 +247,22 @@ end
             parameters
         )
         @test basename(prefixed.output) == "$(cable_system.system_id)_named.xlsx"
+
+        default_artifact=cd(directory) do
+            report(XLSXReportDefinition(), parameters)
+        end
+        @test default_artifact.output == joinpath(directory, "ZY_export.xlsx")
+        @test isfile(default_artifact.output)
+        @test !startswith(default_artifact.output, dirname(pathof(LineCableModels)))
+
+        relative_artifact=cd(directory) do
+            report(
+                XLSXReportDefinition(file_name = "relative.xlsx"),
+                parameters
+            )
+        end
+        @test relative_artifact.output == joinpath(directory, "relative.xlsx")
+        @test isfile(relative_artifact.output)
 
         diagonal=LineParameters(
             cat(Diagonal([1.0+2.0im, 2.0+3.0im]); dims = 3),
@@ -285,6 +301,18 @@ end
     @test !isdefined(IE, :_write_xlsx_sheet!)
     @test !isdefined(IE, :df_to_strings)
     @test !isdefined(RB, :_write_xlsx_sheet!)
+    for private_name in (
+        :_xlsx_string,
+        :_xlsx_strings,
+        :_xlsx_units,
+        :_xlsx_destination
+    )
+        @test !isdefined(RB, private_name)
+    end
+    @test Base.ispublic(RB, :XLSXSheet)
+    @test Base.ispublic(RB, :XLSXWorkbook)
+    @test !isdefined(LineCableModels, :XLSXSheet)
+    @test !isdefined(LineCableModels, :XLSXWorkbook)
 end
 
 @testitem "ReportBuilder / adapters / completed results delegate" tags=[:unit] setup=[

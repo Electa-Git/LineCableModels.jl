@@ -146,7 +146,8 @@ artifact.output
 
 XLSX is an optional dependency; loading it activates the workbook writer. The
 established `export_data(:xlsx, line_parameters; ...)` call delegates to the
-same report and returns its output path.
+same report and returns its output path. Relative paths and the default
+`ZY_export.xlsx` resolve from the caller's current working directory.
 
 ## Retired FEM and sector support
 

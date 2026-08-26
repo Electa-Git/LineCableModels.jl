@@ -20,11 +20,46 @@
         1
     )
     parameters = LineCableModels.LineParameters(impedance, admittance, [50.0])
+    definition = LineCableModels.XLSXReportDefinition()
+    report_builder = LineCableModels.ReportBuilder
+    selected = report_builder.select(definition, parameters)
+    table = report_builder.tabulate(definition, parameters, selected)
+    encoded = report_builder.encode(
+        definition,
+        parameters,
+        selected,
+        table,
+        nothing
+    )
+
+    @test encoded isa report_builder.XLSXWorkbook
+    @test encoded.destination == joinpath(pwd(), "ZY_export.xlsx")
+    @test getproperty.(encoded.sheets, :name) == [
+        "Z(1,1)", "Z(1,2)", "Z(2,1)", "Z(2,2)",
+        "Y(1,1)", "Y(1,2)", "Y(2,1)", "Y(2,2)"
+    ]
+    @test encoded.sheets[1].cells == ["frequency" "Hz" "";
+           "real" "Ω/km" "";
+           "imag" "Ω/km" "";
+           "" "" "";
+           "frequency" "real" "imag";
+           "50" "1000" "2000"]
+    @test report_builder.encode_cell(definition, missing) == ""
+    @test report_builder.encode_cell(definition, 1 / 3) == "0.333333333333"
 
     @test_throws MethodError LineCableModels.report(
-        LineCableModels.XLSXReportDefinition(),
+        definition,
         parameters
     )
+    for private_name in (
+        :_xlsx_string,
+        :_xlsx_strings,
+        :_xlsx_units,
+        :_xlsx_destination,
+        :_write_xlsx_sheet!
+    )
+        @test !isdefined(report_builder, private_name)
+    end
 end
 
 @testitem "Extensions / XLSX writer / explicit package activation" tags = [
@@ -42,4 +77,5 @@ end
         method -> method.module === extension_module,
         methods(LineCableModels.ReportBuilder.write)
     )
+    @test !isdefined(extension_module, :_write_xlsx_sheet!)
 end

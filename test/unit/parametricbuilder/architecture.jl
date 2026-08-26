@@ -334,6 +334,8 @@ end
     @test Base.ispublic(PB, :sample_uncertainty)
     @test Base.ispublic(LineCableModels.ReportBuilder, :clip)
     @test Base.ispublic(LineCableModels.ReportBuilder, :encode_cell)
+    @test Base.ispublic(LineCableModels.ReportBuilder, :XLSXSheet)
+    @test Base.ispublic(LineCableModels.ReportBuilder, :XLSXWorkbook)
     @test Base.ispublic(LineCableModels.PlotBuilder, :validate_export_theme)
     for name in (
         :computation_owner, :traverse, :sample_uncertainty,
@@ -354,7 +356,15 @@ end
     end
     @test !isdefined(Grammar, :_detach_and_scale)
     @test !isdefined(LineCableModels.ReportBuilder, :_clip_field)
-    @test !isdefined(LineCableModels.ReportBuilder, :_xlsx_string)
+    for private_name in (
+        :_xlsx_string,
+        :_xlsx_strings,
+        :_xlsx_units,
+        :_xlsx_destination,
+        :_write_xlsx_sheet!
+    )
+        @test !isdefined(LineCableModels.ReportBuilder, private_name)
+    end
     @test !isdefined(LineCableModels.PlotBuilder, :_validate_export_theme)
     @test !isdefined(LineCableModels.Engine, :_has_uncertainty_type)
     @test !isdefined(LineCableModels.Engine, :_cable_constants_problem)
