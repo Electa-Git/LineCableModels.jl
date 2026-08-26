@@ -340,6 +340,45 @@ end
     @test_throws MethodError observables(histogram_only)
     @test_throws MethodError observables(summaries_only)
 
+    @test observables(typeof(complete)) == (
+        R, L, C,
+        (statistics, R), (statistics, L), (statistics, C),
+        (samples, R), (samples, L), (samples, C),
+        (histograms, R), (histograms, L), (histograms, C)
+    )
+    @test @inferred(observe(complete, R, 1)) == 2.5
+    @test @inferred(observe(complete, statistics, R, mean, 1)) == 2.5
+    @test @inferred(observe(complete, statistics, R, std, 1)) ≈ sqrt(5 / 3)
+    retained_samples=[1.0, 2.0, 3.0, 4.0]
+    retained_histogram=observe(complete, histograms, R, 1)
+    @test observe(complete, samples, R, 1, :) == retained_samples
+    @test retained_histogram.edges == density.edges
+    @test retained_histogram.density == density.density
+    @test_throws BoundsError observe(complete, samples, R, 2, :)
+    @test_throws BoundsError observe(complete, samples, R, 1, 5)
+    @test_throws ArgumentError observe(histogram_only, samples, R, 1, :)
+    @test_throws ArgumentError observe(sample_only, histograms, R, 1)
+
+    result_publication=observables(
+        complete,
+        (
+            mean_resistance = (statistics, R, mean, 1),
+            sample_resistance = (samples, R, 1, Colon()),
+            resistance_density = (histograms, R, 1)
+        );
+        units = (
+            mean_resistance = :milli,
+            sample_resistance = :milli,
+            resistance_density = :milli
+        )
+    )
+    @test result_publication.mean_resistance.quantity == quantity(R)
+    @test result_publication.mean_resistance.values == 2.5e6
+    @test result_publication.sample_resistance.values == retained_samples .* 1.0e6
+    @test result_publication.resistance_density.values.edges == density.edges .* 1.0e6
+    @test result_publication.resistance_density.values.density ==
+          density.density ./ 1.0e6
+
     summary_product=only(statistics(complete))
     sample_product=only(samples(complete))
     histogram_product=only(histograms(complete))

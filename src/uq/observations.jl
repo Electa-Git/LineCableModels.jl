@@ -27,6 +27,8 @@ samples(value::MonteCarloResult) = value.sample_values
 "Return retained histogram products, or `nothing` when retention was disabled."
 histograms(value::MonteCarloResult) = value.histogram_values
 
+basis(value::MonteCarloResult) = basis(first(value.values))
+
 "Return the uncertainty-bearing core results of a linear propagation."
 uncertain_value(value::LinearErrorResult) = value.values
 
@@ -72,6 +74,106 @@ Return the sampling distribution of a Monte Carlo calculation.
 """
 sampling_distribution(value::MonteCarloResult) = value.formulation.distribution
 
+const _MonteCarloProductSelector = Union{
+    typeof(statistics),
+    typeof(samples),
+    typeof(histograms)
+}
+
+const _MonteCarloScientificSelector = Union{
+    typeof(R),
+    typeof(L),
+    typeof(C),
+    typeof(Engine.G)
+}
+
+const _StatisticSelector = Union{
+    typeof(Statistics.mean),
+    typeof(Statistics.std),
+    typeof(Statistics.median),
+    typeof(minimum),
+    typeof(maximum)
+}
+
+function Units.quantity(
+        ::_MonteCarloProductSelector,
+        selector::_MonteCarloScientificSelector
+)
+    return Units.quantity(selector)
+end
+
+function _monte_carlo_product(value::MonteCarloResult, ::typeof(statistics), point::Integer)
+    return value.stats[point]
+end
+
+function _monte_carlo_product(value::MonteCarloResult, ::typeof(samples), point::Integer)
+    retained = value.sample_values
+    retained === nothing && throw(ArgumentError("Monte Carlo samples were not retained"))
+    return retained[point]
+end
+
+function _monte_carlo_product(value::MonteCarloResult, ::typeof(histograms), point::Integer)
+    retained = value.histogram_values
+    retained === nothing && throw(ArgumentError(
+        "Monte Carlo histograms were not retained or derived",
+    ))
+    return retained[point]
+end
+
+function observe(
+        value::MonteCarloResult,
+        selector::_MonteCarloScientificSelector,
+        point::Integer,
+        indices...
+)
+    return observe(value.values[point], selector, indices...)
+end
+
+function observe(
+        value::MonteCarloResult,
+        product::_MonteCarloProductSelector,
+        selector::_MonteCarloScientificSelector,
+        point::Integer,
+        indices...
+)
+    return observe(_monte_carlo_product(value, product, point), selector, indices...)
+end
+
+function observe(
+        value::MonteCarloResult,
+        ::typeof(statistics),
+        selector::_MonteCarloScientificSelector,
+        transform::_StatisticSelector,
+        point::Integer,
+        indices...
+)
+    return observe(
+        _monte_carlo_product(value, statistics, point),
+        selector,
+        transform,
+        indices...
+    )
+end
+
+function _monte_carlo_observables(selectors::Tuple)
+    product_selectors = (statistics, samples, histograms)
+    products = Tuple((product, selector)
+                     for product in product_selectors for selector in selectors)
+    return (selectors..., products...)
+end
+
+function observables(
+        ::Type{<:MonteCarloResult{T}}
+) where {T <: DataModel.CableConstants}
+    return _monte_carlo_observables((R, L, C))
+end
+
+function observables(
+        ::Type{<:MonteCarloResult{T}}
+) where {T <: Engine.LineParameters}
+    return _monte_carlo_observables((R, L, C, Engine.G))
+end
+
 @inline _product_value(value, ::Tuple{}) = value
 @inline _product_value(value, indices::Tuple) = getindex(value, indices...)
 
@@ -85,14 +187,6 @@ observe(product::RLC, ::typeof(C), indices...) = _product_value(product.C, indic
 
 @inline _statistic(transform, value::AbstractArray) = map(transform, value)
 @inline _statistic(transform, value) = transform(value)
-
-const _StatisticSelector = Union{
-    typeof(Statistics.mean),
-    typeof(Statistics.std),
-    typeof(Statistics.median),
-    typeof(minimum),
-    typeof(maximum)
-}
 
 function observe(product::RLCG, ::typeof(R), transform::_StatisticSelector, indices...)
     _statistic(transform, observe(product, R, indices...))
