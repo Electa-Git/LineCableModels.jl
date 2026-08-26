@@ -11,6 +11,7 @@ export SampleSummary, HistogramDensity, RLC, RLCG
 export result, statistics, samples, histograms, uncertain_value
 export root_seed, point_seed, trial_count
 export confidence, cdf_tolerance, sampling_distribution
+export cumulative_probability, quantile_pairs
 
 using Random
 using Statistics

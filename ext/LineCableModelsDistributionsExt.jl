@@ -66,14 +66,7 @@ function Distributions.logpdf(
 end
 
 function Distributions.cdf(distribution::UQ.HistogramDensity, value::Real)
-    value <= first(distribution.edges) && return 0.0
-    value >= last(distribution.edges) && return 1.0
-    index = searchsortedlast(distribution.edges, value)
-    widths = diff(distribution.edges)
-    prior = index == 1 ? 0.0 :
-            sum(distribution.density[1:(index - 1)] .* widths[1:(index - 1)])
-    return prior + distribution.density[index] *
-                   (value - distribution.edges[index])
+    return UQ.cumulative_probability(distribution, value)
 end
 
 struct HistogramDensitySampler{H, T} <:
@@ -98,17 +91,6 @@ function Distributions.quantile(sampler::HistogramDensitySampler, probability::R
     density = sampler.distribution.density[index]
     iszero(density) && return sampler.distribution.edges[index]
     return sampler.distribution.edges[index] + (probability - prior) / density
-end
-
-function Distributions.quantile(
-        distribution::UQ.HistogramDensity,
-        probability::Real
-)
-    0 <= probability <= 1 || throw(DomainError(
-        probability,
-        "probability must lie in [0, 1]"
-    ))
-    return Distributions.quantile(Distributions.sampler(distribution), probability)
 end
 
 function Base.rand(rng::Random.AbstractRNG, sampler::HistogramDensitySampler)

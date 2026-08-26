@@ -32,7 +32,7 @@ struct LineDashboardPayload{F, R, O, C, P, T, XS, YS, A, L, K, S}
     "Axis visibility attributes for each panel."
     attributes::A
     "Presentation-only legend labels."
-    legend::L
+    legend_labels::L
     "Comparison colors, or an empty tuple for one source."
     colors::K
     "Captured runtime state used for current-state SVG replay."

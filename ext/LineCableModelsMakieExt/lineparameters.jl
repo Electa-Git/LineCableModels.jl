@@ -80,8 +80,8 @@ function _draw_single_line_page!(context::UIContext, page::PlotPage)
         for (local_row, row) in enumerate(rows), (local_column, column) in enumerate(columns)
             curve = collect(view(observation.values, local_row, local_column, :))
             label_index = (local_row - 1) * length(columns) + local_column
-            label = payload.legend === nothing ? "$scientific_symbol[$row,$column]" :
-                    String(payload.legend[label_index])
+            label = payload.legend_labels === nothing ? "$scientific_symbol[$row,$column]" :
+                    String(payload.legend_labels[label_index])
             group = Symbol("$(family)_$(row)_$(column)")
             plots = _draw_line!(axis, payload.frequency.values, curve;
                 label,
@@ -129,7 +129,7 @@ function _draw_comparison_page!(context::UIContext, page::PlotPage)
                 local_column,
                 :
             ))
-            label = String(payload.legend[source_index])
+            label = String(payload.legend_labels[source_index])
             group = Symbol("line_parameters_$source_index")
             plots = _draw_line!(axis, payload.frequency.values, curve;
                 label,
@@ -183,7 +183,7 @@ function _current_line_page(plot::UIPlot)
         original.xscales,
         original.yscales,
         original.attributes,
-        original.legend,
+        original.legend_labels,
         original.colors,
         (; xscale = original.runtime.xscale,
             yscale = original.runtime.yscale,

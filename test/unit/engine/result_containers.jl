@@ -280,7 +280,14 @@ end
     @test cdf(density, 0.0) == 0.0
     @test cdf(density, 3.0) == 0.5
     @test cdf(density, 6.0) == 1.0
+    @test UQ.cumulative_probability(density, 0.0) == 0.0
+    @test UQ.cumulative_probability(density, 3.0) == 0.5
+    @test UQ.cumulative_probability(density, 6.0) == 1.0
     @test quantile(density, 0.25) == 2.0
+    pairs=UQ.quantile_pairs(density, [4.0, 1.0, 3.0, 2.0])
+    @test pairs.sample == [1.0, 2.0, 3.0, 4.0]
+    @test pairs.model == [1.5, 2.5, 3.5, 4.5]
+    @test pairs.reference == (1.0, 4.5)
     @test minimum(density) == 1.0
     @test maximum(density) == 5.0
     @test isfinite(logpdf(density, 2.0))
@@ -289,6 +296,8 @@ end
     @test !isempty(modes(density))
     @test isfinite(rand(MersenneTwister(91), density))
     @test_throws DomainError quantile(density, -0.1)
+    @test_throws ArgumentError UQ.quantile_pairs(density, Float64[])
+    @test_throws ArgumentError UQ.quantile_pairs(density, [1.0, Inf])
     @test_throws ArgumentError HistogramDensity([0.0, 1.0], Float64[])
     @test_throws ArgumentError HistogramDensity([0.0, 1.0, 2.0], [1.0])
     @test_throws ArgumentError HistogramDensity([0.0, 1.0], [-1.0])

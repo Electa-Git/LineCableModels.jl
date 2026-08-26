@@ -56,45 +56,27 @@ function _mc_selection(
     return selection
 end
 
+# The observation request differs only at the stored-product boundary. Sample
+# arrays retain the final trial dimension and therefore request `:` there;
+# summary and histogram products already contain one object per `ijk` entry.
 function _mc_request(selector, selection, retained_samples::Bool)
     selection === nothing && return selector
     return retained_samples ? (selector, selection..., Colon()) : (selector, selection...)
 end
 
-function _mc_histogram_cdf(histogram::HistogramDensity, x::Real)
-    x <= first(histogram.edges) && return 0.0
-    x >= last(histogram.edges) && return 1.0
-    bin = clamp(searchsortedlast(histogram.edges, x), 1, length(histogram.density))
-    cumulative = bin == 1 ? 0.0 :
-                 sum(
-        histogram.density[1:(bin - 1)] .* diff(histogram.edges[1:bin]),
-    )
-    return clamp(
-        cumulative + histogram.density[bin] * (x - histogram.edges[bin]),
-        0.0,
-        1.0
-    )
-end
-
-function _mc_histogram_quantile(histogram::HistogramDensity, probability::Real)
-    0 <= probability <= 1 || throw(
-        DomainError(probability, "probability must lie between zero and one"),
-    )
-    probability == 0 && return first(histogram.edges)
-    probability == 1 && return last(histogram.edges)
-    masses = histogram.density .* diff(histogram.edges)
-    cumulative = cumsum(masses)
-    bin = something(findfirst(>=(probability), cumulative), length(masses))
-    previous = bin == 1 ? 0.0 : cumulative[bin - 1]
-    density = histogram.density[bin]
-    iszero(density) && return histogram.edges[bin]
-    return histogram.edges[bin] + (probability - previous) / density
-end
-
+# `HistogramDensity` is a renderer-independent, piecewise-constant model. These
+# operations evaluate its CDF and inverse CDF while UQ still owns the data. Makie
+# consequently receives completed curves and never needs to understand the
+# stored histogram representation.
 function _mc_empirical_cdf(sorted_values, x)
     return searchsortedlast(sorted_values, x) / length(sorted_values)
 end
 
+# `mode` selects the chart geometry. For histogram and CDF modes, `data` selects
+# retained samples, the histogram-derived model, or both. PDF mode always draws
+# the model; Q-Q mode always draws sample/model quantiles and their reference
+# line, so their `data` value is accepted by the shared grammar but does not alter
+# the layer set.
 function _mc_input_defaults()
     return (;
         selector = R,
@@ -183,10 +165,14 @@ function _mc_qq_values(values, histogram)
     sorted = sort(_mc_values(values))
     model = _mc_histogram_model(histogram)
     probabilities = ((1:length(sorted)) .- 0.5) ./ length(sorted)
-    model_values = _mc_histogram_quantile.(Ref(model), probabilities)
+    model_values = Statistics.quantile.(Ref(model), probabilities)
     return sorted, model_values
 end
 
+# Each constructor below publishes one completed drawing layer as a NamedTuple.
+# The `kind` tag is the only renderer instruction. Coordinates, labels, legend
+# groups, and primitive attributes are fixed here by UQ rather than recalculated
+# by the Makie extension.
 function _mc_histogram_layer(state)
     return (;
         kind = Val(:histogram),
@@ -219,7 +205,7 @@ function _mc_model_cdf_layer(state)
     return (;
         kind = Val(:line),
         x = grid,
-        y = _mc_histogram_cdf.(Ref(histogram), grid),
+        y = cumulative_probability.(Ref(histogram), grid),
         label = "model CDF",
         group = :histogram_cdf,
         style = (; color = :red, linewidth = 2)
@@ -293,6 +279,10 @@ function _statistical_observation(
     return (; values, quantity = Units.Quantity{tag}(), unit)
 end
 
+# Axis observations carry the values needed for limits together with quantity
+# and unit identities used by the common axis-label grammar. Counts and
+# probabilities are dimensionless; PDF ordinates use the inverse x-axis unit;
+# both Q-Q axes retain the selected physical quantity and unit.
 function _mc_y_observation(::Val{:hist}, state, quantity_observation)
     normalization = state.effective_normalization
     normalization === :none && return _statistical_observation(

@@ -135,7 +135,7 @@
     @test only(presented.pages).title == "Custom title"
     @test only(presented.pages).payload.titles ==
           ("Measured resistance", "Measured reactance")
-    @test only(presented.pages).payload.legend ==
+    @test only(presented.pages).payload.legend_labels ==
           ("self 1", "mutual 1–2", "mutual 2–1", "self 2")
 end
 
@@ -186,7 +186,7 @@ end
     @test Set(
         first(render.pages).payload.positions
     ) == Set((row, column) for row in 1:3 for column in 1:3)
-    @test first(render.pages).payload.legend == labels
+    @test first(render.pages).payload.legend_labels == labels
     first_colors=first(render.pages).payload.colors
     @test length(unique(first_colors)) ==
           length(parameters)

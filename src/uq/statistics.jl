@@ -114,6 +114,46 @@ function HistogramDensity(edges::AbstractVector{<:Real}, density::AbstractVector
     return HistogramDensity(Vector{T}(edges), Vector{T}(density))
 end
 
+"Evaluate the cumulative probability of a piecewise-constant histogram model."
+function cumulative_probability(histogram::HistogramDensity, value::Real)
+    value <= first(histogram.edges) && return 0.0
+    value >= last(histogram.edges) && return 1.0
+    bin = clamp(searchsortedlast(histogram.edges, value), 1, length(histogram.density))
+    prior = bin == 1 ? zero(eltype(histogram.density)) :
+            sum(histogram.density[1:(bin - 1)] .* diff(histogram.edges[1:bin]))
+    return clamp(
+        prior + histogram.density[bin] * (value - histogram.edges[bin]),
+        0.0,
+        1.0
+    )
+end
+
+function Statistics.quantile(histogram::HistogramDensity, probability::Real)
+    0 <= probability <= 1 || throw(DomainError(
+        probability,
+        "probability must lie between zero and one",
+    ))
+    probability == 0 && return first(histogram.edges)
+    probability == 1 && return last(histogram.edges)
+    cumulative = cumsum(histogram.density .* diff(histogram.edges))
+    bin = something(findfirst(>=(probability), cumulative), length(cumulative))
+    prior = bin == 1 ? zero(eltype(cumulative)) : cumulative[bin - 1]
+    density = histogram.density[bin]
+    iszero(density) && return histogram.edges[bin]
+    return histogram.edges[bin] + (probability - prior) / density
+end
+
+"Return model/sample quantile coordinates and identity-line endpoints."
+function quantile_pairs(histogram::HistogramDensity, samples::AbstractVector{<:Real})
+    isempty(samples) && throw(ArgumentError("Q-Q coordinates require retained samples"))
+    all(isfinite, samples) || throw(ArgumentError("Q-Q samples must be finite"))
+    sample = sort(collect(samples))
+    probabilities = ((1:length(sample)) .- 0.5) ./ length(sample)
+    model = Statistics.quantile.(Ref(histogram), probabilities)
+    reference = extrema(vcat(model, sample))
+    return (; model, sample, reference)
+end
+
 """
 $(TYPEDEF)
 
