@@ -1,18 +1,13 @@
 const MCDistributionDefinition = LineCableModels.UQ.MCDistributionPlotDefinition
 
-function _distribution_payload(recipe::PlotRecipe, page::PageSpec)
-    return recipe.input.pages[page.key.page]
-end
-
-function _distribution_state(recipe::PlotRecipe)
-    return get(recipe.input,
-        :runtime,
-        (;
-            xscale = :linear,
-            yscale = :linear,
-            current_limits = nothing,
-            hidden_groups = ()
-        ))
+function _distribution_state(payload)
+    return payload.runtime === nothing ?
+           (;
+        xscale = :linear,
+        yscale = :linear,
+        current_limits = nothing,
+        hidden_groups = ()
+    ) : payload.runtime
 end
 
 function _draw_distribution_layer!(axis, ::Val{:histogram}, layer, visible)
@@ -63,14 +58,10 @@ function _draw_distribution_layer!(axis, ::Val{:scatter}, layer, visible)
     )]
 end
 
-function _draw_distribution_page!(
-        context::UIContext,
-        recipe::PlotRecipe,
-        page::PageSpec
-)
+function _draw_distribution_page!(context::UIContext, page::PlotPage)
     context.canvas === nothing && error("the standard shell has no canvas")
-    payload = _distribution_payload(recipe, page)
-    state = _distribution_state(recipe)
+    payload = page.payload
+    state = _distribution_state(payload)
     axis = PlotBuilder.axis!(
         context,
         context.canvas[1, 1],
@@ -99,16 +90,16 @@ function _draw_distribution_page!(
     groups = NamedTuple{group_names}(plot_objects)
     labels = NamedTuple{group_names}(Tuple(layer.label for layer in payload.layers))
     data = Tuple((;
-        xdata = layer.x,
-        ydata = layer.y,
-        group = layer.group,
-        label = layer.label
-    ) for layer in payload.layers)
+                     xdata = layer.x,
+                     ydata = layer.y,
+                     group = layer.group,
+                     label = layer.label
+                 ) for layer in payload.layers)
     PlotBuilder.register!(
         context,
         axis;
-        xmetadata = registration.view.xaxis,
-        ymetadata = registration.view.yaxis,
+        xmetadata = registration.metadata.xaxis,
+        ymetadata = registration.metadata.yaxis,
         groups,
         labels,
         data,
@@ -128,23 +119,26 @@ end
 function draw!(
         context::UIContext,
         ::Type{MCDistributionDefinition},
-        recipe::PlotRecipe,
-        page::PageSpec
+        page::PlotPage
 )
-    return _draw_distribution_page!(context, recipe, page)
+    return _draw_distribution_page!(context, page)
 end
 
-function _current_input(plot::UIPlot, ::Type{MCDistributionDefinition})
+function _replay_page(plot::UIPlot, ::Type{MCDistributionDefinition})
+    original = plot.page.payload
     panel = only(plot.panels)
-    hidden_groups = Tuple(
-        group for group in panel.group_order
-        if any(plot_object -> !plot_object.visible[], panel.groups[group])
+    runtime = _current_panel_state(panel)
+    payload = LineCableModels.UQ.MCDistributionPagePayload(
+        original.title,
+        original.key,
+        original.x_observation,
+        original.y_observation,
+        original.xlabel,
+        original.ylabel,
+        original.layers,
+        original.legend,
+        original.export_definition,
+        runtime
     )
-    runtime = (;
-        xscale = _current_scale(panel.axis.xscale[]),
-        yscale = _current_scale(panel.axis.yscale[]),
-        current_limits = _current_limits(panel.axis),
-        hidden_groups
-    )
-    return merge(plot.render.input, (; runtime))
+    return PlotPage(plot.page.title, plot.page.size, plot.page.key, payload)
 end

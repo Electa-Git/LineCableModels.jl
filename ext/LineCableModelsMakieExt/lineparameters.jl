@@ -1,22 +1,14 @@
 const LineParameterDefinition = LineCableModels.Engine.LineParameterPlotDefinition
-const LineComparisonDefinition =
-    LineCableModels.Engine.LineParametersBenchmarkPlotDefinition
+const LineComparisonDefinition = LineCableModels.Engine.LineParametersBenchmarkPlotDefinition
 
-function _line_page(recipe::PlotRecipe, page::PageSpec)
-    return recipe.input.pages[page.key.page]
-end
-
-function _line_panel_state(recipe::PlotRecipe, page::PageSpec, panel_index::Int, panel)
-    runtime = get(recipe.input, :runtime, nothing)
-    if runtime !== nothing && runtime.page == page.key.page
-        return runtime.panels[panel_index]
-    end
-    return (;
+function _line_panel_state(payload, panel_index::Int, panel)
+    payload.runtime === nothing && return (;
         xscale = panel.xscale,
         yscale = panel.yscale,
         current_limits = nothing,
         hidden_groups = ()
     )
+    return payload.runtime.panels[panel_index]
 end
 
 function _line_registry(entries)
@@ -51,7 +43,8 @@ function _draw_line_panel!(
         yscales = panel.yscales,
         panel.attributes...
     )
-    registration = only(candidate for candidate in context.panels if candidate.axis === axis)
+    registration = only(candidate
+    for candidate in context.panels if candidate.axis === axis)
     entries = Pair{Any, Vector{Any}}[]
     for curve in panel.curves
         visible = curve.group ∉ state.hidden_groups
@@ -67,16 +60,16 @@ function _draw_line_panel!(
     end
     groups, labels = _line_registry(entries)
     data = Tuple((;
-        xdata = panel.x_observation.values,
-        ydata = curve.values,
-        group = curve.group,
-        label = curve.label
-    ) for curve in panel.curves)
+                     xdata = panel.x_observation.values,
+                     ydata = curve.values,
+                     group = curve.group,
+                     label = curve.label
+                 ) for curve in panel.curves)
     PlotBuilder.register!(
         context,
         axis;
-        xmetadata = registration.view.xaxis,
-        ymetadata = registration.view.yaxis,
+        xmetadata = registration.metadata.xaxis,
+        ymetadata = registration.metadata.yaxis,
         groups,
         labels,
         data,
@@ -93,15 +86,11 @@ function _draw_line_panel!(
     return registered
 end
 
-function _draw_line_page!(
-        context::UIContext,
-        recipe::PlotRecipe,
-        page::PageSpec
-)
+function _draw_line_page!(context::UIContext, page::PlotPage)
     context.canvas === nothing && error("the standard shell has no canvas")
-    payload = _line_page(recipe, page)
+    payload = page.payload
     for (panel_index, panel) in enumerate(payload.panels)
-        state = _line_panel_state(recipe, page, panel_index, panel)
+        state = _line_panel_state(payload, panel_index, panel)
         _draw_line_panel!(context, panel, state)
     end
     return context
@@ -110,42 +99,37 @@ end
 function draw!(
         context::UIContext,
         ::Type{LineParameterDefinition},
-        recipe::PlotRecipe,
-        page::PageSpec
+        page::PlotPage
 )
-    return _draw_line_page!(context, recipe, page)
+    return _draw_line_page!(context, page)
 end
 
 function draw!(
         context::UIContext,
         ::Type{LineComparisonDefinition},
-        recipe::PlotRecipe,
-        page::PageSpec
+        page::PlotPage
 )
-    return _draw_line_page!(context, recipe, page)
+    return _draw_line_page!(context, page)
 end
 
-function _current_line_input(plot::UIPlot)
-    panel_states = Tuple(map(plot.panels) do panel
-        hidden_groups = Tuple(
-            group for group in panel.group_order
-            if any(plot_object -> !plot_object.visible[], panel.groups[group])
-        )
-        return (;
-            xscale = _current_scale(panel.axis.xscale[]),
-            yscale = _current_scale(panel.axis.yscale[]),
-            current_limits = _current_limits(panel.axis),
-            hidden_groups
-        )
-    end)
-    runtime = (; page = plot.page.key.page, panels = panel_states)
-    return merge(plot.render.input, (; runtime))
+function _current_line_page(plot::UIPlot)
+    original = plot.page.payload
+    runtime = (; panels = Tuple(_current_panel_state.(plot.panels)))
+    payload = LineCableModels.Engine.LinePagePayload(
+        original.title,
+        original.key,
+        original.panels,
+        original.legend,
+        original.export_definition,
+        runtime
+    )
+    return PlotPage(plot.page.title, plot.page.size, plot.page.key, payload)
 end
 
-function _current_input(plot::UIPlot, ::Type{LineParameterDefinition})
-    return _current_line_input(plot)
+function _replay_page(plot::UIPlot, ::Type{LineParameterDefinition})
+    return _current_line_page(plot)
 end
 
-function _current_input(plot::UIPlot, ::Type{LineComparisonDefinition})
-    return _current_line_input(plot)
+function _replay_page(plot::UIPlot, ::Type{LineComparisonDefinition})
+    return _current_line_page(plot)
 end

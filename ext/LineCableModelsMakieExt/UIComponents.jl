@@ -1,8 +1,7 @@
 """
     LineCableModelsMakieExt.UIComponents
 
-Materialise PlotBuilder layouts, series, controls, legends, and colour bars as
-Makie objects.
+Draw detached PlotBuilder pages through the standard Makie shell.
 """
 module UIComponents
 
@@ -15,10 +14,8 @@ import LineCableModels.PlotBuilder
 using LineCableModels: nominal, standard_uncertainty
 using LineCableModels.Units: label
 using LineCableModels.PlotBuilder:
-                                   AbstractTrackSize, FixedTrack, RelativeTrack,
-                                   ContentTrack, GridArea, GridSpec, SlotSpec,
-                                   LayoutSpec, AxisSpec, SeriesSpec, ViewSpec,
-                                   PageSpec, PlotRecipe, UIPlot
+                                   ColorbarDefinition, ExportDefinition,
+                                   LegendDefinition, PlotPage, PlotRecipe, UIPlot
 
 export build, export_svg
 
@@ -169,7 +166,7 @@ end
 
 function _axis_values(panel::UIPanel, dim::Symbol; include_uncertainty::Bool = false)
     values = Float64[]
-    for (index, series) in enumerate(panel.view.series)
+    for (index, series) in enumerate(panel.metadata.series)
         _series_visible(panel, series, index) || continue
         data = dim === :x ? series.xdata : series.ydata
         data === nothing && continue
@@ -220,10 +217,10 @@ end
 
 function _reset_panel_limits!(panel::UIPanel)
     axis = panel.axis
-    view = panel.view
+    metadata = panel.metadata
     autolimits!(axis)
     all(isempty(_axis_values(panel, dim)) for dim in (:x, :y)) && return axis
-    view.limits !== nothing && return axis
+    metadata.limits !== nothing && return axis
     for dim in (:x, :y)
         values = _axis_values(panel, dim)
         isempty(values) && continue
@@ -240,8 +237,8 @@ end
 
 function _observe_visibility_limits!(panels, context::UIContext)
     for panel in panels
-        panel.view.limits === nothing || continue
-        panel.view.aspect === :data && continue
+        panel.metadata.limits === nothing || continue
+        panel.metadata.aspect === :data && continue
         for plots in values(panel.groups), plot_object in plots
 
             observer = on(plot_object.visible) do _
@@ -324,115 +321,6 @@ function _draw_line!(
     return _line_errors!(plots, axis, x, y, xerror, yerror, visible)
 end
 
-function draw!(axis, ::Val{:line}, series::SeriesSpec)
-    return _draw_line!(
-        axis,
-        series.xdata,
-        series.ydata;
-        label = series.label,
-        visible = series.visible,
-        attributes = series.attributes
-    )
-end
-
-function draw!(axis, ::Val{:scatter}, series::SeriesSpec)
-    x, _ = _numeric_values(series.xdata)
-    y, _ = _numeric_values(series.ydata)
-    return Any[scatter!(axis, x, y;
-        label = series.label, visible = series.visible, series.attributes...)]
-end
-
-function draw!(axis, ::Val{:histogram}, series::SeriesSpec)
-    values, _ = _numeric_values(series.xdata)
-    return Any[hist!(axis, values;
-        label = series.label, visible = series.visible, series.attributes...)]
-end
-
-function draw!(axis, ::Val{:stairs}, series::SeriesSpec)
-    x, _ = _numeric_values(series.xdata)
-    y, _ = _numeric_values(series.ydata)
-    return Any[stairs!(axis, x, y;
-        label = series.label, visible = series.visible, series.attributes...)]
-end
-
-function draw!(axis, ::Val{:heatmap}, series::SeriesSpec)
-    return Any[heatmap!(axis, series.xdata, series.ydata, series.zdata;
-        visible = series.visible, series.attributes...)]
-end
-
-function draw!(axis, ::Val{:polygon}, series::SeriesSpec)
-    return Any[poly!(axis, series.zdata;
-        label = series.label, visible = series.visible, series.attributes...)]
-end
-
-function draw!(axis, ::Val{:hline}, series::SeriesSpec)
-    return Any[hlines!(axis, series.ydata;
-        label = series.label, visible = series.visible, series.attributes...)]
-end
-
-function draw!(axis, ::Val{kind}, series::SeriesSpec) where {kind}
-    throw(ArgumentError("unsupported PlotBuilder primitive :$kind"))
-end
-
-function _axis_attributes(view::ViewSpec)
-    axes = (view.xaxis, view.yaxis, view.zaxis)
-    axis_attributes = foldl(
-        merge,
-        (axis.attributes for axis in axes if axis !== nothing);
-        init = (;)
-    )
-    return merge(axis_attributes, view.attributes)
-end
-
-function _axis(parent, view::ViewSpec, page::PageSpec)
-    xaxis = view.xaxis
-    yaxis = view.yaxis
-    x_exponent = xaxis === nothing ? 0 : xaxis.exponent
-    y_exponent = yaxis === nothing ? 0 : yaxis.exponent
-    xscale = xaxis === nothing ? :linear : xaxis.scale
-    yscale = yaxis === nothing ? :linear : yaxis.scale
-    attributes = merge(
-        (; tellwidth = false, tellheight = false),
-        _axis_attributes(view)
-    )
-    axis = Axis(
-        parent;
-        xlabel = _axis_label(xaxis, x_exponent, xscale),
-        ylabel = _axis_label(yaxis, y_exponent, yscale),
-        title = view.title,
-        xscale = _scale(xscale),
-        yscale = _scale(yscale),
-        xticks = _ticks(xscale),
-        yticks = _ticks(yscale),
-        xtickformat = _tickformat(x_exponent, xscale),
-        ytickformat = _tickformat(y_exponent, yscale),
-        aspect = view.aspect === :data ? DataAspect() : view.aspect,
-        attributes...
-    )
-    plots = Any[]
-    groups = Dict{Symbol, Vector{Any}}()
-    group_labels = Dict{Symbol, String}()
-    group_order = Symbol[]
-    for (index, series) in enumerate(view.series)
-        drawn = draw!(axis, Val(series.kind), series)
-        append!(plots, drawn)
-        group = series.group === nothing ? Symbol("series_$index") : series.group
-        haskey(groups, group) || push!(group_order, group)
-        append!(get!(groups, group, Any[]), drawn)
-        if series.label !== nothing && !isempty(series.label)
-            group_labels[group] = series.label
-        end
-    end
-    if view.limits !== nothing
-        xlimits, ylimits = view.limits
-        xlims!(axis, xlimits...)
-        ylims!(axis, ylimits...)
-    else
-        _reset_panel_limits!(UIPanel(view, axis, plots, groups, group_labels, group_order))
-    end
-    return UIPanel(view, axis, plots, groups, group_labels, group_order)
-end
-
 function _sanitize_filename(value::AbstractString)
     sanitized = lowercase(strip(value))
     sanitized = replace(sanitized, r"[^0-9a-z]+" => "_")
@@ -461,8 +349,8 @@ function _export_directory()
     return fallback
 end
 
-function _available_path(page::PageSpec)
-    base = _sanitize_filename(page.export_spec.name)
+function _available_path(page::PlotPage)
+    base = _sanitize_filename(_page_export(page).name)
     stamp = Dates.format(Dates.now(), EXPORT_TIMESTAMP_FORMAT)
     directory = _export_directory()
     candidate = joinpath(directory, "$(base)_$(stamp).svg")
@@ -541,17 +429,23 @@ end
 
 _makie_alignment(value::Symbol) = value === :stretch ? :center : value
 
-function _colorbars!(slot, descriptors, specification::SlotSpec)
+function _colorbars!(
+        slot,
+        descriptors;
+        halign::Symbol = :left,
+        valign::Symbol = :top
+)
     isempty(descriptors) && return nothing
     grid = GridLayout(
         width = LEGEND_DOCK_WIDTH,
         tellwidth = true,
-        halign = _makie_alignment(specification.halign),
-        valign = _makie_alignment(specification.valign)
+        halign = _makie_alignment(halign),
+        valign = _makie_alignment(valign)
     )
     grid.default_colgap = Fixed(COLORBAR_LABEL_GAP)
     grid.default_rowgap = Fixed(COLORBAR_ROW_GAP)
     slot[] = grid
+    colorbars = Any[]
     for (row, descriptor) in enumerate(descriptors)
         Label(
             grid[row, 1],
@@ -560,23 +454,24 @@ function _colorbars!(slot, descriptors, specification::SlotSpec)
             valign = :center,
             fontsize = COLORBAR_LABEL_SIZE
         )
-        Colorbar(
-            grid[row, 2];
-            colormap = descriptor.colormap,
-            limits = descriptor.limits,
-            ticks = _colorbar_ticks(descriptor.ticks),
-            label = "",
-            labelvisible = false,
-            vertical = false,
-            height = 14,
-            ticklabelsize = COLORBAR_TICK_LABEL_SIZE,
-            alignmode = Mixed(left = 0, right = 0),
-            tellwidth = false
-        )
+        push!(colorbars,
+            Colorbar(
+                grid[row, 2];
+                colormap = descriptor.colormap,
+                limits = descriptor.limits,
+                ticks = _colorbar_ticks(descriptor.ticks),
+                label = "",
+                labelvisible = false,
+                vertical = false,
+                height = 14,
+                ticklabelsize = COLORBAR_TICK_LABEL_SIZE,
+                alignmode = Mixed(left = 0, right = 0),
+                tellwidth = false
+            ))
     end
     colsize!(grid, 1, Auto(true))
     colsize!(grid, 2, Fixed(COLORBAR_WIDTH))
-    return grid
+    return (; grid, colorbars)
 end
 
 function _set_legend_capacity!(state::ResponsiveLegend, capacity::Int)
@@ -641,8 +536,7 @@ end
 
 function _legend!(
         slot,
-        panels,
-        specification::SlotSpec;
+        panels;
         width = nothing,
         overflow::Symbol = :ellipsis
 )
@@ -667,8 +561,8 @@ function _legend!(
         legend_labels;
         dimensions...,
         tellheight = overflow === :show_all,
-        halign = _makie_alignment(specification.halign),
-        valign = _makie_alignment(specification.valign)
+        halign = :left,
+        valign = :top
     )
     overflow === :show_all && return (; legend, responsive = nothing)
     title, legend_entries = only(legend.entrygroups[])
@@ -686,222 +580,16 @@ function _legend!(
     return (; legend, responsive)
 end
 
-function _shares_side_dock(page::PageSpec, colorbar_slot_name::Symbol)
-    page.legend.enabled || return false
-    legend_slot = only(slot for slot in page.layout.slots if slot.name === page.legend.slot)
-    colorbar_slot = only(
-        slot for slot in page.layout.slots if slot.name === colorbar_slot_name)
-    return legend_slot.parent === colorbar_slot.parent &&
-           legend_slot.area.columns == colorbar_slot.area.columns &&
-           last(legend_slot.area.rows) < first(colorbar_slot.area.rows)
-end
-
-function _legend_dock_width(page::PageSpec)
-    any(colorbar -> _shares_side_dock(page, colorbar.slot), page.colorbars) ||
-        return nothing
-    return LEGEND_DOCK_WIDTH
-end
-
-_track_size(track::FixedTrack, ::Val) = Fixed(track.value)
-_track_size(track::RelativeTrack, ::Val{:row}) = Relative(track.weight)
-_track_size(track::RelativeTrack, ::Val{:column}) = Auto(false, track.weight)
-_track_size(::ContentTrack, ::Val) = Auto(true)
-
-function _apply_grid_spec!(grid, specification::GridSpec)
-    grid.default_rowgap = Fixed(specification.rowgap)
-    grid.default_colgap = Fixed(specification.columngap)
-    isempty(grid.addedrowgaps) || rowgap!(grid, Fixed(specification.rowgap))
-    isempty(grid.addedcolgaps) || colgap!(grid, Fixed(specification.columngap))
-    for (index, track) in enumerate(specification.rows)
-        index <= length(grid.rowsizes) &&
-            rowsize!(grid, index, _track_size(track, Val(:row)))
-    end
-    for (index, track) in enumerate(specification.columns)
-        index <= length(grid.colsizes) &&
-            colsize!(grid, index, _track_size(track, Val(:column)))
-    end
-    return grid
-end
-
-function _grid_position(parent, area::GridArea)
-    return parent[area.rows, area.columns]
-end
-
-function _materialize_layout(figure, specification::LayoutSpec)
-    PlotBuilder.validate(specification)
-    root_specification = only(filter(grid -> grid.parent === nothing, specification.grids))
-    grids = Dict{Symbol, Any}(root_specification.name => figure.layout)
-
-    pending = [grid for grid in specification.grids if grid.parent !== nothing]
-    while !isempty(pending)
-        progressed = false
-        for grid_specification in copy(pending)
-            haskey(grids, grid_specification.parent) || continue
-            padding = grid_specification.padding
-            grid = GridLayout(
-                length(grid_specification.rows),
-                length(grid_specification.columns);
-                alignmode = all(iszero, padding) ? Inside() : Outside(padding...)
-            )
-            _grid_position(grids[grid_specification.parent], grid_specification.area)[] = grid
-            grids[grid_specification.name] = grid
-            deleteat!(pending, findfirst(==(grid_specification), pending))
-            progressed = true
-        end
-        progressed || error("validated layout could not be materialised")
-    end
-
-    slot_specs = Dict{Symbol, SlotSpec}()
-    for slot_specification in specification.slots
-        slot_specs[slot_specification.name] = slot_specification
-    end
-    for grid_specification in specification.grids
-        _apply_grid_spec!(grids[grid_specification.name], grid_specification)
-    end
-    return (;
-        grids,
-        slot_specs,
-        slot_grids = Dict{Symbol, Any}(),
-        collapsed = Set{Tuple{Symbol, Int}}()
-    )
-end
-
 function _window_padding(padding::NTuple{4, <:Real})
     return ntuple(index -> max(OUTER_WINDOW_INSET, padding[index]), 4)
-end
-
-function _collapse_slot!(layout::LayoutSpec, materialized, name::Symbol)
-    index = findfirst(slot -> slot.name === name, layout.slots)
-    index === nothing && return nothing
-    slot = layout.slots[index]
-    parent = materialized.grids[slot.parent]
-    sibling_areas = GridArea[]
-    append!(
-        sibling_areas,
-        [grid.area
-         for grid in layout.grids
-         if grid.parent === slot.parent && grid.area !== nothing]
-    )
-    append!(
-        sibling_areas,
-        [other.area
-         for other in layout.slots
-         if other.parent === slot.parent && other.name !== slot.name]
-    )
-    rows = filter(slot.area.rows) do row
-        all(area -> row ∉ area.rows, sibling_areas)
-    end
-    foreach(row -> push!(materialized.collapsed, (slot.parent, row)), rows)
-    foreach(
-        row -> row <= length(parent.rowsizes) && rowsize!(parent, row, Fixed(0)),
-        rows
-    )
-    return nothing
-end
-
-function _apply_layout_specs!(layout::LayoutSpec, materialized)
-    for specification in layout.grids
-        _apply_grid_spec!(materialized.grids[specification.name], specification)
-    end
-    for (grid_name, row) in materialized.collapsed
-        parent = materialized.grids[grid_name]
-        row <= length(parent.rowsizes) && rowsize!(parent, row, Fixed(0))
-    end
-    return nothing
-end
-
-function _collapse_empty_dock!(page::PageSpec, materialized, legend)
-    legend === nothing && isempty(page.colorbars) || return nothing
-    slot_index = findfirst(slot -> slot.name === page.legend.slot, page.layout.slots)
-    slot_index === nothing && return nothing
-    dock_name = page.layout.slots[slot_index].parent
-    dock_index = findfirst(grid -> grid.name === dock_name, page.layout.grids)
-    dock_index === nothing && return nothing
-    page.layout.grids[dock_index].parent === nothing && return nothing
-    dock = materialized.grids[dock_name]
-    dock.width[] = 0
-    dock.tellwidth[] = true
-    return nothing
-end
-
-function _view_positions(views::AbstractVector{<:ViewSpec})
-    isempty(views) && return Tuple{ViewSpec, GridArea}[]
-    if all(view -> view.placement.area === nothing, views)
-        columns = max(1, ceil(Int, sqrt(length(views))))
-        return [(
-                    view,
-                    GridArea((index - 1) ÷ columns + 1, (index - 1) % columns + 1)
-                ) for (index, view) in enumerate(views)]
-    end
-    return [(view, view.placement.area) for view in views]
-end
-
-function _slot_position(materialized, name::Symbol)
-    specification = materialized.slot_specs[name]
-    return _grid_position(materialized.grids[specification.parent], specification.area)
-end
-
-function _slot_grid(
-        materialized,
-        name::Symbol;
-        width = Auto(),
-        height = Auto(),
-        tellwidth::Bool = true,
-        tellheight::Bool = true
-)
-    haskey(materialized.slot_grids, name) && return materialized.slot_grids[name]
-    specification = materialized.slot_specs[name]
-    grid = GridLayout(
-        width = width,
-        height = height,
-        tellwidth = tellwidth,
-        tellheight = tellheight,
-        halign = _makie_alignment(specification.halign),
-        valign = _makie_alignment(specification.valign)
-    )
-    _slot_position(materialized, name)[] = grid
-    materialized.slot_grids[name] = grid
-    return grid
-end
-
-function _build_panels(page::PageSpec, materialized)
-    panels = UIPanel[]
-    for slot_name in unique(view.placement.slot for view in page.views)
-        slot = _slot_grid(
-            materialized,
-            slot_name;
-            tellwidth = false,
-            tellheight = false
-        )
-        slot.default_rowgap = Fixed(GRID_ROW_GAP)
-        slot.default_colgap = Fixed(GRID_COLUMN_GAP)
-        views = [view for view in page.views if view.placement.slot === slot_name]
-        for (view, area) in _view_positions(views)
-            push!(panels, _axis(_grid_position(slot, area), view, page))
-        end
-    end
-    return panels
 end
 
 function _page_supports_log(panels, dim::Symbol)
     isempty(panels) && return false
     return all(panels) do panel
-        specification = dim === :x ? panel.view.xaxis : panel.view.yaxis
+        specification = dim === :x ? panel.metadata.xaxis : panel.metadata.yaxis
         specification !== nothing && :log10 in specification.allowed_scales
     end
-end
-
-function _build_colorbars!(page::PageSpec, materialized)
-    for slot_name in unique(colorbar.slot for colorbar in page.colorbars)
-        descriptors = [colorbar
-                       for colorbar in page.colorbars if colorbar.slot === slot_name]
-        _colorbars!(
-            _slot_position(materialized, slot_name),
-            descriptors,
-            materialized.slot_specs[slot_name]
-        )
-    end
-    return nothing
 end
 
 include("shell.jl")
@@ -912,20 +600,6 @@ function _current_scale(scale)
     throw(ArgumentError("SVG export supports linear and log10 axis scales"))
 end
 
-function _axis_with_scale(spec::Union{Nothing, AxisSpec}, scale)
-    spec === nothing && return nothing
-    return AxisSpec(
-        spec.dim,
-        spec.quantity,
-        spec.units,
-        spec.label,
-        _current_scale(scale);
-        allowed_scales = spec.allowed_scales,
-        exponent = spec.exponent,
-        attributes = spec.attributes
-    )
-end
-
 function _current_limits(axis)
     limits = axis.finallimits[]
     xlimits = (limits.origin[1], limits.origin[1] + limits.widths[1])
@@ -933,70 +607,11 @@ function _current_limits(axis)
     return xlimits, ylimits
 end
 
-function _current_series(series::SeriesSpec, panel::UIPanel, index::Int)
-    visible = _series_visible(panel, series, index)
-    return SeriesSpec(
-        series.kind,
-        series.xdata,
-        series.ydata,
-        series.zdata,
-        series.label;
-        group = series.group,
-        visible,
-        attributes = series.attributes
-    )
-end
-
-function _current_view(view::ViewSpec, panel::UIPanel)
-    series = [_current_series(item, panel, index)
-              for (index, item) in enumerate(view.series)]
-    return ViewSpec(
-        _axis_with_scale(view.xaxis, panel.axis.xscale[]),
-        _axis_with_scale(view.yaxis, panel.axis.yscale[]),
-        view.zaxis,
-        view.title,
-        series,
-        view.key;
-        placement = view.placement,
-        aspect = view.aspect,
-        limits = _current_limits(panel.axis),
-        attributes = view.attributes
-    )
-end
-
-function _current_page(plot::UIPlot)
-    isempty(plot.page.views) && return plot.page
-    length(plot.page.views) == length(plot.panels) || throw(
-        DimensionMismatch("built panels no longer match the declarative page"),
-    )
-    views = [_current_view(view, panel)
-             for (view, panel) in zip(plot.page.views, plot.panels)]
-    return PageSpec(
-        plot.page.title,
-        plot.page.size,
-        plot.page.key,
-        plot.page.layout,
-        views;
-        controls = plot.page.controls,
-        legend = plot.page.legend,
-        colorbars = plot.page.colorbars,
-        status = plot.page.status,
-        export_spec = plot.page.export_spec
-    )
-end
-
-function _current_input(plot::UIPlot, ::Type{D}) where {D <: PlotBuilder.AbstractPlotDefinition}
-    return plot.render.input
-end
+_replay_page(plot::UIPlot, ::Type{<:PlotBuilder.AbstractPlotDefinition}) = plot.page
 
 function _current_recipe(plot::UIPlot)
-    return PlotRecipe(
-        plot.render.spec,
-        plot.render.object,
-        _current_input(plot, plot.render.spec),
-        plot.render.renderer,
-        PageSpec[_current_page(plot)]
-    )
+    page = _replay_page(plot, plot.render.definition)
+    return PlotRecipe(plot.render.definition, (page,))
 end
 
 function _block_vertical_bounds(block)
@@ -1008,37 +623,27 @@ function _block_vertical_bounds(block)
     return Float64(bottom), Float64(top)
 end
 
-function _export_dock_growth(figure, page::PageSpec)
+function _export_dock_growth(figure, page::PlotPage)
     legends = filter(block -> block isa Legend, figure.content)
     isempty(legends) && return 0.0
     legend_bottom = minimum(first(_block_vertical_bounds(legend)) for legend in legends)
     all_colorbars = filter(block -> block isa Colorbar, figure.content)
-    rendered_slots = Symbol[]
-    for slot_name in unique(colorbar.slot for colorbar in page.colorbars)
-        descriptor_count = count(colorbar -> colorbar.slot === slot_name, page.colorbars)
-        append!(rendered_slots, fill(slot_name, descriptor_count))
-    end
-    length(all_colorbars) == length(rendered_slots) || error(
+    length(all_colorbars) == length(_page_colorbars(page)) || error(
         "rendered colorbars no longer match the declarative page",
     )
-    shared_indices = findall(
-        slot_name -> _shares_side_dock(page, slot_name),
-        rendered_slots
-    )
-    colorbar_content = all_colorbars[shared_indices]
     required_bottom = 0.0
-    if !isempty(colorbar_content)
+    if !isempty(all_colorbars)
         scale_top = mapreduce(
             block -> last(_block_vertical_bounds(block)),
             max,
-            colorbar_content
+            all_colorbars
         )
         required_bottom = scale_top + COLORBAR_ROW_GAP
     end
     return max(0.0, required_bottom - legend_bottom)
 end
 
-function _fit_export_content!(figure, page::PageSpec)
+function _fit_export_content!(figure, page::PlotPage)
     fitted_size = Makie.resize_to_layout!(figure)
     target_size = Tuple(max.(page.size, ceil.(Int, fitted_size)))
     Makie.resize!(figure, target_size...)
@@ -1065,8 +670,9 @@ function PlotBuilder.export_svg(
     ),
     )
     output = path === nothing ? _available_path(plot.page) : abspath(String(path))
-    export_theme = theme === nothing ? plot.page.export_spec.theme : theme
-    should_open = open_file === nothing ? plot.page.export_spec.open_file : open_file
+    definition = _page_export(plot.page)
+    export_theme = theme === nothing ? definition.theme : theme
+    should_open = open_file === nothing ? definition.open_file : open_file
     lowercase(splitext(output)[2]) == ".svg" || throw(
         ArgumentError("SVG export paths must use the .svg extension"),
     )

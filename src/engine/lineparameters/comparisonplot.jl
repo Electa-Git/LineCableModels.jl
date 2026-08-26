@@ -101,10 +101,10 @@ end
 
 function PlotBuilder.resolve(
         ::Type{LineParametersBenchmarkPlotDefinition},
-        recipe::PlotBuilder.PlotRecipe
+        parameters,
+        request::NamedTuple
 )
-    parameters = recipe.object
-    input = recipe.input
+    input = request.input
     requests = _resolve_line_requests(first(parameters), input.quantities)
     labels = _comparison_labels(input.legend, length(parameters))
     input.xscale in (:linear, :log10) || throw(
@@ -113,18 +113,16 @@ function PlotBuilder.resolve(
     input.yscale in (:linear, :log10) || throw(
         ArgumentError("yscale must be :linear or :log10"),
     )
-    recipe.renderer.fig_size isa Tuple{Int, Int} || throw(
+    request.renderer.fig_size isa Tuple{Int, Int} || throw(
         ArgumentError("fig_size must be a tuple of two integers"),
     )
-    all(>(0), recipe.renderer.fig_size) || throw(
+    all(>(0), request.renderer.fig_size) || throw(
         ArgumentError("fig_size dimensions must be positive"),
     )
     colors = Tuple(_comparison_color(index) for index in eachindex(parameters))
-    return PlotBuilder.PlotRecipe(
-        LineParametersBenchmarkPlotDefinition,
-        parameters,
-        merge(input, (; requests, legend = labels, colors)),
-        recipe.renderer
+    return merge(
+        request,
+        (; input = merge(input, (; requests, legend = labels, colors)))
     )
 end
 
@@ -144,9 +142,9 @@ function _comparison_curves(published, request_index, row, column, labels, color
     end
 end
 
-function _comparison_page(recipe, published, request_index)
-    request = recipe.input.requests[request_index]
-    parent = _request_parent(request)
+function _comparison_page(configuration, published, request_index)
+    scientific_request = configuration.input.requests[request_index]
+    parent = _request_parent(scientific_request)
     first_observation = first(published).observations[request_index]
     count = size(first_observation.values, 1)
     family_symbol = Units.symbol(Units.quantity(parent))
@@ -157,29 +155,29 @@ function _comparison_page(recipe, published, request_index)
                 request_index,
                 row,
                 column,
-                recipe.input.legend,
-                recipe.input.colors
+                configuration.input.legend,
+                configuration.input.colors
             )
             y_observation = _axis_observation(first_observation, curves)
             xscales = _axis_scales(first(published).frequency.values)
             yscales = _axis_scales(y_observation.values)
-            recipe.input.xscale in xscales || throw(DomainError(
+            configuration.input.xscale in xscales || throw(DomainError(
                 first(published).frequency.values,
                 "logarithmic frequency axes require positive finite data and uncertainty bounds"
             ))
-            recipe.input.yscale in yscales || throw(DomainError(
+            configuration.input.yscale in yscales || throw(DomainError(
                 y_observation.values,
                 "logarithmic ordinate axes require positive finite data and uncertainty bounds"
             ))
             LinePanelPayload(
-                request,
+                scientific_request,
                 (row, column),
                 "$family_symbol[$row,$column] · $(Units.label(first_observation.quantity))",
                 first(published).frequency,
                 y_observation,
                 curves,
-                recipe.input.xscale,
-                recipe.input.yscale,
+                configuration.input.xscale,
+                configuration.input.yscale,
                 xscales,
                 yscales,
                 (;
@@ -198,119 +196,39 @@ function _comparison_page(recipe, published, request_index)
     title = "$(Units.label(first_observation.quantity)) comparison"
     return LinePagePayload(
         title,
-        (; request),
+        (; request = scientific_request),
         panels,
         PlotBuilder.LegendDefinition(),
         PlotBuilder.ExportDefinition(
-            theme = recipe.renderer.export_theme,
+            theme = configuration.renderer.export_theme,
             name = title,
-            open_file = recipe.renderer.open_export
-        )
+            open_file = configuration.renderer.open_export
+        ),
+        nothing
     )
 end
 
 function PlotBuilder.fetch(
         ::Type{LineParametersBenchmarkPlotDefinition},
-        recipe::PlotBuilder.PlotRecipe
+        parameters,
+        request::NamedTuple
 )
-    parameters = _validate_comparison_inputs(recipe.object)
-    internal_input = merge(recipe.input, (; frequencies = nothing, con = nothing))
+    parameters = _validate_comparison_inputs(parameters)
+    internal_input = merge(request.input, (; frequencies = nothing, con = nothing))
     published = Tuple(
-        _publish_line_source(parameters[index], internal_input, recipe.input.requests)
+        _publish_line_source(parameters[index], internal_input, request.input.requests)
     for index in eachindex(parameters)
     )
-    pages = length(first(published).frequency.values) <= 1 ? () : map(
-        request_index -> _comparison_page(recipe, published, request_index),
-        eachindex(recipe.input.requests)
+    pages = length(first(published).frequency.values) <= 1 ? () :
+            map(
+        request_index -> _comparison_page(request, published, request_index),
+        eachindex(request.input.requests)
     )
-    return PlotBuilder.PlotRecipe(
-        LineParametersBenchmarkPlotDefinition,
-        parameters,
-        merge(recipe.input, (; pages)),
-        recipe.renderer
-    )
-end
-
-function PlotBuilder._recipe_variant(
-        ::Type{LineParametersBenchmarkPlotDefinition},
-        ::PlotBuilder.PlotRecipe
-)
-    return Val(:direct_comparison)
-end
-
-function PlotBuilder._composition(
-        ::Type{LineParametersBenchmarkPlotDefinition},
-        ::Val{:direct_comparison},
-        ::PlotBuilder.PlotRecipe
-)
-    return Val(:empty)
-end
-
-function PlotBuilder._page_keys(
-        ::Type{LineParametersBenchmarkPlotDefinition},
-        ::Val{:direct_comparison},
-        ::Val{:empty},
-        recipe::PlotBuilder.PlotRecipe
-)
-    return eachindex(recipe.input.pages)
-end
-
-function _comparison_page_payload(recipe, page_index::Integer)
-    return recipe.input.pages[page_index]
-end
-
-function PlotBuilder.default_title(
-        ::Type{LineParametersBenchmarkPlotDefinition},
-        ::Val{:direct_comparison},
-        recipe::PlotBuilder.PlotRecipe,
-        page_index::Integer,
-        ::Nothing
-)
-    return _comparison_page_payload(recipe, page_index).title
-end
-
-function PlotBuilder.default_figsize(
-        ::Type{LineParametersBenchmarkPlotDefinition},
-        ::Val{:direct_comparison},
-        recipe::PlotBuilder.PlotRecipe,
-        ::Integer
-)
-    return recipe.renderer.fig_size
-end
-
-function PlotBuilder.layout_spec(
-        ::Type{LineParametersBenchmarkPlotDefinition},
-        ::Val{:direct_comparison},
-        ::PlotBuilder.PlotRecipe,
-        ::Integer
-)
-    return :grid
-end
-
-function PlotBuilder.page_identity(
-        ::Type{LineParametersBenchmarkPlotDefinition},
-        ::Val{:direct_comparison},
-        recipe::PlotBuilder.PlotRecipe,
-        page_index::Integer
-)
-    return merge((; page = page_index), _comparison_page_payload(recipe, page_index).key)
-end
-
-function PlotBuilder.legend_spec(
-        ::Type{LineParametersBenchmarkPlotDefinition},
-        ::Val{:direct_comparison},
-        recipe::PlotBuilder.PlotRecipe,
-        page_index::Integer
-)
-    return _comparison_page_payload(recipe, page_index).legend
-end
-
-function PlotBuilder.export_spec(
-        ::Type{LineParametersBenchmarkPlotDefinition},
-        ::Val{:direct_comparison},
-        recipe::PlotBuilder.PlotRecipe,
-        page_index::Integer,
-        ::AbstractString
-)
-    return _comparison_page_payload(recipe, page_index).export_definition
+    return PlotBuilder.PlotPage[PlotBuilder.PlotPage(
+                                    payload.title,
+                                    request.renderer.fig_size,
+                                    merge((; page = page_index), payload.key),
+                                    payload
+                                )
+                                for (page_index, payload) in enumerate(pages)]
 end

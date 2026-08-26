@@ -212,6 +212,9 @@ function build_manual_plot_gallery(
     @assert length(gallery) == 18
     @assert all(pair -> pair.second isa UIPlot, gallery)
     @assert all(pair -> pair.second.context.backend === backend, gallery)
-    @assert all(pair -> pair.second.page.export_spec.theme === export_theme, gallery)
+    @assert all(
+        pair -> pair.second.page.payload.export_definition.theme === export_theme,
+        gallery
+    )
     return gallery
 end

@@ -62,7 +62,7 @@ Store one detached line-parameter page for the standard plotting shell.
 
 $(TYPEDFIELDS)
 """
-struct LinePagePayload{K, P, E}
+struct LinePagePayload{K, P, E, S}
     "Displayed page title."
     title::String
     "Scientific and placement identity of the page."
@@ -73,6 +73,8 @@ struct LinePagePayload{K, P, E}
     legend::PlotBuilder.LegendDefinition
     "SVG export behavior supplied to the standard shell."
     export_definition::E
+    "Captured runtime state used for current-state SVG replay."
+    runtime::S
 end
 
 function _indices(selector, count::Int)
@@ -160,7 +162,8 @@ function _resolve_line_requests(object, quantities)
         request for accessor in quantities
     for request in _line_requests(object, accessor)
     )
-    isempty(selected) && throw(ArgumentError("at least one line-parameter accessor is required"))
+    isempty(selected) &&
+        throw(ArgumentError("at least one line-parameter accessor is required"))
     length(unique(selected)) == length(selected) || throw(
         ArgumentError("line-parameter accessors select duplicate quantities"),
     )
@@ -256,45 +259,52 @@ function PlotBuilder.renderer_defaults(
     (; fig_size = (800, 400))
 end
 
-function PlotBuilder.resolve(::Type{LineParameterPlotDefinition}, recipe::PlotBuilder.PlotRecipe)
-    input = recipe.input
-    requests = _resolve_line_requests(recipe.object, input.quantities)
+function PlotBuilder.resolve(
+        ::Type{LineParameterPlotDefinition},
+        object,
+        request::NamedTuple
+)
+    input = request.input
+    requests = _resolve_line_requests(object, input.quantities)
     input.xscale in (:linear, :log10) || throw(
         ArgumentError("xscale must be :linear or :log10"),
     )
     input.yscale in (:linear, :log10) || throw(
         ArgumentError("yscale must be :linear or :log10"),
     )
-    recipe.object isa Union{SeriesImpedance, ShuntAdmittance} &&
-        input.frequencies === nothing && throw(
-        ArgumentError("frequencies are required for SeriesImpedance and ShuntAdmittance"),
-    )
-    supplied_frequencies = input.frequencies === nothing ? nothing : collect(input.frequencies)
+    object isa Union{SeriesImpedance, ShuntAdmittance} &&
+        input.frequencies === nothing &&
+        throw(
+            ArgumentError("frequencies are required for SeriesImpedance and ShuntAdmittance"),
+        )
+    supplied_frequencies = input.frequencies === nothing ? nothing :
+                           collect(input.frequencies)
     if supplied_frequencies !== nothing
-        all(isfinite, supplied_frequencies) || throw(ArgumentError("frequencies must be finite"))
-        input.xscale === :log10 && any(<=(0), supplied_frequencies) && throw(
-            DomainError(
+        all(isfinite, supplied_frequencies) ||
+            throw(ArgumentError("frequencies must be finite"))
+        input.xscale === :log10 && any(<=(0), supplied_frequencies) &&
+            throw(
+                DomainError(
                 supplied_frequencies,
                 "logarithmic frequency axes require positive frequencies"
             ),
-        )
+            )
         any(request -> request === L || request === C, requests) &&
-            any(iszero, supplied_frequencies) && throw(DomainError(
-            supplied_frequencies,
-            "inductance and capacitance are undefined at zero frequency"
-        ))
+            any(iszero, supplied_frequencies) &&
+            throw(DomainError(
+                supplied_frequencies,
+                "inductance and capacitance are undefined at zero frequency"
+            ))
     end
-    recipe.renderer.fig_size isa Tuple{Int, Int} || throw(
+    request.renderer.fig_size isa Tuple{Int, Int} || throw(
         ArgumentError("fig_size must be a tuple of two integers"),
     )
-    all(>(0), recipe.renderer.fig_size) || throw(
+    all(>(0), request.renderer.fig_size) || throw(
         ArgumentError("fig_size dimensions must be positive"),
     )
-    return PlotBuilder.PlotRecipe(
-        LineParameterPlotDefinition,
-        recipe.object,
-        merge(input, (; frequencies = supplied_frequencies, requests)),
-        recipe.renderer
+    return merge(
+        request,
+        (; input = merge(input, (; frequencies = supplied_frequencies, requests)))
     )
 end
 
@@ -350,7 +360,9 @@ function _reference_payload(object, request, target, supplied_frequencies)
     )
 end
 
-_is_cartesian_request(request) = request === R || request === X || request === G || request === B
+function _is_cartesian_request(request)
+    request === R || request === X || request === G || request === B
+end
 
 function _maximum_nominal_magnitude(values)
     return mapreduce(
@@ -439,40 +451,40 @@ function _line_curves(observation, parent, selector)
     end
 end
 
-function _line_page(recipe, published, parent)
+function _line_page(configuration, published, parent)
     selected = Tuple(
-        (request, observation)
-    for (request, observation) in zip(recipe.input.requests, published.observations)
-    if _request_parent(request) === parent
+        (scientific_request, observation)
+    for (scientific_request, observation) in zip(configuration.input.requests, published.observations)
+    if _request_parent(scientific_request) === parent
     )
     positions = _panel_positions(length(selected))
     panels = map(selected, positions) do selected_request, position
-        request, observation = selected_request
+        scientific_request, observation = selected_request
         curves = _line_curves(
             observation,
             parent,
-            recipe.input.con
+            configuration.input.con
         )
         xscales = _axis_scales(published.frequency.values)
         y_observation = _axis_observation(observation, curves)
         yscales = _axis_scales(y_observation.values)
-        recipe.input.xscale in xscales || throw(DomainError(
+        configuration.input.xscale in xscales || throw(DomainError(
             published.frequency.values,
             "logarithmic frequency axes require positive finite data and uncertainty bounds"
         ))
-        recipe.input.yscale in yscales || throw(DomainError(
+        configuration.input.yscale in yscales || throw(DomainError(
             y_observation.values,
             "logarithmic ordinate axes require positive finite data and uncertainty bounds"
         ))
         LinePanelPayload(
-            request,
+            scientific_request,
             position,
             Units.label(observation.quantity),
             published.frequency,
             y_observation,
             curves,
-            recipe.input.xscale,
-            recipe.input.yscale,
+            configuration.input.xscale,
+            configuration.input.yscale,
             xscales,
             yscales,
             (;)
@@ -485,10 +497,11 @@ function _line_page(recipe, published, parent)
         panels,
         PlotBuilder.LegendDefinition(),
         PlotBuilder.ExportDefinition(
-            theme = recipe.renderer.export_theme,
+            theme = configuration.renderer.export_theme,
             name = title,
-            open_file = recipe.renderer.open_export
-        )
+            open_file = configuration.renderer.open_export
+        ),
+        nothing
     )
 end
 
@@ -496,95 +509,23 @@ _line_parents(::SeriesImpedance) = (Z,)
 _line_parents(::ShuntAdmittance) = (Y,)
 _line_parents(::LineParameters) = (Z, Y)
 
-function PlotBuilder.fetch(::Type{LineParameterPlotDefinition}, recipe::PlotBuilder.PlotRecipe)
-    published = _publish_line_source(recipe.object, recipe.input, recipe.input.requests)
-    pages = length(published.frequency.values) <= 1 ? () : Tuple(
-        _line_page(recipe, published, parent)
-    for parent in _line_parents(recipe.object)
-    if any(request -> _request_parent(request) === parent, recipe.input.requests)
+function PlotBuilder.fetch(
+        ::Type{LineParameterPlotDefinition},
+        object,
+        request::NamedTuple
+)
+    published = _publish_line_source(object, request.input, request.input.requests)
+    pages = length(published.frequency.values) <= 1 ? () :
+            Tuple(
+        _line_page(request, published, parent)
+    for parent in _line_parents(object)
+    if any(item -> _request_parent(item) === parent, request.input.requests)
     )
-    return PlotBuilder.PlotRecipe(
-        LineParameterPlotDefinition,
-        recipe.object,
-        merge(recipe.input, (; pages)),
-        recipe.renderer
-    )
-end
-
-PlotBuilder._recipe_variant(::Type{LineParameterPlotDefinition}, recipe::PlotBuilder.PlotRecipe) =
-    Val(:direct)
-function PlotBuilder._composition(
-        ::Type{LineParameterPlotDefinition},
-        ::Val{:direct},
-        ::PlotBuilder.PlotRecipe
-)
-    return Val(:empty)
-end
-function PlotBuilder._page_keys(
-        ::Type{LineParameterPlotDefinition},
-        ::Val{:direct},
-        ::Val{:empty},
-        recipe::PlotBuilder.PlotRecipe
-)
-    return eachindex(recipe.input.pages)
-end
-
-function _line_page_payload(recipe, page_index::Integer)
-    return recipe.input.pages[page_index]
-end
-
-function PlotBuilder.default_title(
-        ::Type{LineParameterPlotDefinition},
-        ::Val{:direct},
-        recipe::PlotBuilder.PlotRecipe,
-        page_index::Integer,
-        ::Nothing
-)
-    return _line_page_payload(recipe, page_index).title
-end
-
-function PlotBuilder.default_figsize(
-        ::Type{LineParameterPlotDefinition},
-        ::Val{:direct},
-        recipe::PlotBuilder.PlotRecipe,
-        ::Integer
-)
-    return recipe.renderer.fig_size
-end
-
-function PlotBuilder.layout_spec(
-        ::Type{LineParameterPlotDefinition},
-        ::Val{:direct},
-        ::PlotBuilder.PlotRecipe,
-        ::Integer
-)
-    return :grid
-end
-
-function PlotBuilder.page_identity(
-        ::Type{LineParameterPlotDefinition},
-        ::Val{:direct},
-        recipe::PlotBuilder.PlotRecipe,
-        page_index::Integer
-)
-    return merge((; page = page_index), _line_page_payload(recipe, page_index).key)
-end
-
-function PlotBuilder.legend_spec(
-        ::Type{LineParameterPlotDefinition},
-        ::Val{:direct},
-        recipe::PlotBuilder.PlotRecipe,
-        page_index::Integer
-)
-    return _line_page_payload(recipe, page_index).legend
-end
-
-function PlotBuilder.export_spec(
-        ::Type{LineParameterPlotDefinition},
-        ::Val{:direct},
-        recipe::PlotBuilder.PlotRecipe,
-        page_index::Integer,
-        ::AbstractString
-)
-    return _line_page_payload(recipe, page_index).export_definition
+    return PlotBuilder.PlotPage[PlotBuilder.PlotPage(
+                                    payload.title,
+                                    request.renderer.fig_size,
+                                    merge((; page = page_index), payload.key),
+                                    payload
+                                )
+                                for (page_index, payload) in enumerate(pages)]
 end

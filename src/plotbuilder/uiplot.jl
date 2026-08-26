@@ -1,18 +1,19 @@
 """
-    UIPlot
+$(TYPEDEF)
 
-Hold a completed renderer-independent plot recipe together with one built figure,
-its panels, controls, and backend context. Line-parameter plotting returns a
-`Vector{UIPlot}`. Previews and statistical plots return one `UIPlot`.
+Hold one built page together with its completed detached recipe, runtime
+panels, controls, and backend context.
+
+$(TYPEDFIELDS)
 """
-struct UIPlot{S <: AbstractPlotDefinition, F, P, W, C}
-    "Completed renderer-independent plot recipe."
-    render::PlotRecipe{S}
+struct UIPlot{D <: AbstractPlotDefinition, G, F, P, W, C}
+    "Completed detached plot recipe."
+    render::PlotRecipe{D}
     "Page represented by this handle."
-    page::PageSpec
+    page::G
     "Backend-built figure."
     figure::F
-    "Built axes or panels."
+    "Registered runtime axes."
     panels::P
     "Interactive control objects keyed by purpose."
     controls::W

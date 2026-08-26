@@ -4,55 +4,57 @@ EditURL = "../literate/plotbuilder.jl"
 
 # PlotBuilder guide
 
-`PlotBuilder` constructs renderer-independent recipes. A
-plot definition selects scientific observations and completes one
-`PlotRecipe`. An explicitly loaded Makie extension renders that recipe and
-owns interactive state.
+`PlotBuilder` separates scientific preparation from backend drawing. A domain
+owner completes detached pages; an explicitly loaded Makie extension draws
+those pages inside one standard shell.
 
 ```text
-domain object + plot definition
-    │
-    ▼
-entitle → parse → resolve → fetch
-    │
-    ▼
-make_axes → make_series → make_views → make_pages → decorate → finish
-    │
-    ▼
-PlotRecipe → Makie extension → UIPlot
+source + plot definition
+         │
+         ▼
+entitle → parse → resolve → fetch → finish
+                                   │
+                                   ▼
+                      PlotRecipe(definition, pages)
+                                   │
+                                   ▼
+                     loaded Makie extension
+                                   │
+                                   ▼
+build_context → build_shell → draw! → format_axes!
+    → place_legend! → place_colorbars! → build_widgets!
+    → assemble → display!
 ```
 
-Loading `LineCableModels` does not load Makie or select a backend. Core recipe
-construction cannot create Makie objects. Users load CairoMakie, GLMakie, or
+Loading `LineCableModels` does not load Makie or select a backend. Recipe
+construction cannot create Makie objects. Load CairoMakie, GLMakie, or
 WGLMakie before calling `plot` or `preview`.
 
 PlotBuilder is a developer API in v0.2 and may evolve before 1.0. The
 user-facing scientific accessors and plotting entry points have their normal
 SemVer guarantees.
 
-## Recipe construction
+## Ownership
 
-Every maintained plot family follows four rules:
+PlotBuilder owns the fixed core operation sequence and four small declarations:
+`LegendDefinition`, `ColorbarDefinition`, `ExportDefinition`, and
+`AbstractWidgetDefinition`. Domain modules own plot-definition identities,
+accepted inputs, keyword grammar, scientific publication, page cardinality,
+and detached payload types. The Makie extension owns figures, axes, drawing,
+interaction, responsive layout, widgets, and SVG replay.
 
-1. `make_render` defines the complete call sequence. Definitions specialise
-   stage methods without replacing that sequence.
-2. `PlotRecipe` is the completed renderer-independent value. Its pages,
-   axes, series, layouts, and controls are implementation details of that
-   representation rather than parallel public render models.
-3. `fetch` publishes explicit requests through `observables`. Selector
-   functions such as `Z`, `Y`, `R`, `L`, `G`, and `C` identify those requests;
-   later stages consume only the returned payloads.
-4. Makie figures, observables, widgets, and callbacks exist only in the Makie
-   extension. SVG export reconstructs the current typed recipe state.
+`PlotRecipe` is a final product, not an intermediate compiler state. Its only
+fields are `definition` and `pages`. A `PlotPage` contains only `title`,
+`size`, `key`, and a definition-owned `payload`. Neither value retains the
+plotted source, parsed request, resolved request, or backend object.
 
-PlotBuilder does not expose separate mode, facet, or key-enumeration hooks.
-Variation belongs to the definition that owns a recipe family and is resolved
-within the common stages. Resolving that variation inside the definition
-prevents presentation branches from becoming a second calculation grammar.
+The payload is allowed to contain completed geometry, published observations,
+styles, shell declarations, and captured display state. It must not require
+the Makie extension to reopen an owned scientific result.
 
-## Maintained recipe families
+## Maintained families
 
-| Owner | Definition | Input | Entry point |
+| Owner | Definition | Accepted source | Entry point |
 |:--|:--|:--|:--|
 | `Engine` | `LineParameterPlotDefinition` | `SeriesImpedance`, `ShuntAdmittance`, or `LineParameters` | `plot(...)` |
 | `Engine` | `LineParametersBenchmarkPlotDefinition` | two `LineParameters` results | benchmark plots |
@@ -60,19 +62,13 @@ prevents presentation branches from becoming a second calculation grammar.
 | `DataModel` | `CablePreviewPlotDefinition` | `CableDesign` | `preview(design)` |
 | `DataModel` | `SystemPreviewPlotDefinition` | `LineCableSystem` | `preview(system)` |
 
-Material scales are an internal reusable definition used by previews. They
-are not a separate user-facing plotting entry point.
+Material scales are a qualified DataModel definition reused by previews. They
+are not a separate root plotting entry point.
 
-`plot(parameters)` produces separate impedance and admittance pages with real
-and imaginary parts in adjacent views. An accessor tuple selects a different
-representation, for example `(R, L, G, C)` or `(abs, angle)`. Monte Carlo
-plots include histogram, density, empirical-CDF, histogram-CDF, and Q-Q views
-when the required retained observations are present.
+## Constructing a detached recipe
 
-## Recipe options and completed state
-
-The examples use a deterministic two-conductor fixture. CairoMakie renders
-selected completed pages but does not participate in recipe construction.
+The example uses a deterministic two-conductor fixture. CairoMakie renders a
+selected completed page after recipe construction.
 
 ````@example plotbuilder
 using LineCableModels
@@ -113,11 +109,8 @@ function documentation_figure( #hide
 ) #hide
     extension = Base.get_extension(LineCableModels, :LineCableModelsMakieExt) #hide
     selected = PlotRecipe( #hide
-        recipe.spec, #hide
-        recipe.object, #hide
-        recipe.input, #hide
-        recipe.renderer, #hide
-        [recipe.figures[Int(page_index)]] #hide
+        recipe.definition, #hide
+        recipe.pages[[Int(page_index)]] #hide
     ) #hide
     handles = extension.UIComponents.build( #hide
         selected; #hide
@@ -132,12 +125,11 @@ end; #hide
 nothing #hide
 ````
 
-`parse` applies definition-owned defaults, validates caller keywords,
-and separates scientific input from renderer options. `make_render` runs the
-entitlement check before parsing. Unsupported keywords are errors.
+`parse` merges definition-owned defaults, rejects unsupported keywords, and
+separates semantic input from renderer settings. It does not create a recipe.
 
 ````@example plotbuilder
-parsed = LineCableModels.PlotBuilder.parse(
+parsed = PlotBuilder.parse(
     LineParameterPlotDefinition,
     parameters;
     quantities = (abs, angle),
@@ -145,25 +137,21 @@ parsed = LineCableModels.PlotBuilder.parse(
 )
 
 (;
-    object_type = typeof(parsed.object),
     quantities = parsed.input.quantities,
-    export_theme = parsed.renderer.export_theme,
-    completed_pages = length(parsed.figures)
+    figure_size = parsed.renderer.fig_size,
+    export_theme = parsed.renderer.export_theme
 )
 ````
 
-Semantic options are declared by `input_kwargs` and `input_defaults`.
-Definition-specific renderer options use `renderer_kwargs` and
-`renderer_defaults`. The common renderer options are `layout`,
-`export_theme`, and `open_export`. A name cannot occur in both groups, and
-defaults must contain exactly their declared keys.
+Semantic keywords are declared through `input_kwargs` and `input_defaults`.
+Definition-specific renderer keywords use `renderer_kwargs` and
+`renderer_defaults`. The only common renderer keywords are `export_theme` and
+`open_export`.
 
-`resolve` validates and enriches parsed input. `fetch` then obtains detached
-scientific publication payloads. Statistical products must already be owned
-by UQ before publication; views and renderers do not recompute them.
-
-`make_render` runs the complete fixed sequence and returns another
-`PlotRecipe`, now with validated pages:
+`make_render` owns the complete core sequence. `entitle` rejects an unsupported
+source before parsing can cause later work. `resolve` validates and completes
+the request. `fetch` constructs detached pages. `finish` validates the page
+collection and returns the final recipe.
 
 ````@example plotbuilder
 recipe = make_render(
@@ -173,15 +161,16 @@ recipe = make_render(
 )
 
 (;
-    recipe_type = typeof(recipe),
-    page_count = length(recipe.figures),
-    page_titles = getproperty.(recipe.figures, :title),
-    view_titles = [getproperty.(page.views, :title) for page in recipe.figures]
+    recipe_fields = fieldnames(typeof(recipe)),
+    page_fields = fieldnames(typeof(first(recipe.pages))),
+    page_count = length(recipe.pages),
+    page_titles = getproperty.(recipe.pages, :title),
+    payload_types = typeof.(getproperty.(recipe.pages, :payload))
 )
 ````
 
-CairoMakie renders the completed recipe below. Recipe construction created no
-figure.
+Recipe construction above created no figure. CairoMakie consumes one detached
+page below.
 
 ````@example plotbuilder
 documentation_figure(recipe) #hide
@@ -191,41 +180,13 @@ documentation_figure(recipe) #hide
 <br>
 ```
 
-## The fixed operation grammar
-
-Definitions specialise the narrowest stage that owns a decision:
-
-| Stage | Responsibility | Main hooks |
-|:--|:--|:--|
-| entitlement | accept one domain type | `dispatch_on`, `entitle` |
-| parsing | split and validate keywords | `input_kwargs`, `input_defaults`, `renderer_kwargs`, `renderer_defaults`, `parse` |
-| resolution | normalise semantic input once | `resolve` |
-| publication | fetch requested observations | `fetch`, `observables` |
-| axes | payload-derived quantities, units, labels, scales | `geom_axes`, `axis_payload`, `axis_label`, `axis_scale`, `axis_scales`, `axis_exponent`, `axis_attributes`, `make_axes` |
-| series | primitive data and appearance | `plot_kind`, `series_values`, `legend_label`, `series_group`, `series_visible`, `series_attributes`, `make_series` |
-| views | titles, placement, aspect, limits | `default_title`, `view_key`, `view_placement`, `view_aspect`, `view_limits`, `view_attributes`, `make_views` |
-| pages and layout | size, identity, named layout, controls | `default_figsize`, `page_identity`, `layout_spec`, `control_spec`, `legend_spec`, `colorbar_specs`, `status_spec`, `export_spec`, `make_pages` |
-| completion | final decoration and validation | `decorate`, `finish` |
-
-`make_axes`, `make_series`, `make_views`, and `make_pages` are lower-level
-renderer-independent hooks for definitions whose geometry cannot be expressed by
-the narrower accessors. They may return recipe components but cannot create
-Makie objects or replace `make_render`.
-
-A new drawing primitive requires core validation and one renderer method
-dispatched on its primitive symbol. Definitions that reuse an existing
-primitive require no renderer change.
-
 ## Scientific observations and units
 
-Plot definitions consume the immutable named tuples returned by
-`observables`. Presentation code does not read result fields as an alternate
-result protocol. `Units` maps the resulting scientific keys to quantity
-tags, display units, labels, symbols, and scaling. The renderer receives
-display-ready series and does not interpret calculation containers.
-
-For line parameters, the published quantities are independent of their
-presentation:
+Line and Monte Carlo definitions publish scientific values with `observables`.
+Selector functions such as `Z`, `Y`, `R`, `L`, `G`, and `C` identify the
+request. `Units` supplies the physical quantity, display unit, label, symbol,
+and scaling. The detached observation contract contains exactly `values`,
+`quantity`, and `unit`.
 
 ````@example plotbuilder
 observed = observables(
@@ -237,62 +198,94 @@ observed = observables(
     )
 )
 (;
-    keys = keys(observed),
+    observation_keys = keys(observed.series_impedance),
     frequency_count = length(observed.frequency.values),
     impedance_size = size(observed.series_impedance.values),
     admittance_size = size(observed.shunt_admittance.values)
 )
 ````
 
-Mathematical accessors remain available when the caller explicitly asks for
-a derived view. They are not replaced by plot-only quantity keys.
+Domain code may derive display-ready curves or geometry from those published
+values before constructing a page. The Makie extension receives those curves
+and observations; it does not reconstruct scientific selectors or inspect the
+fields of `LineParameters` or `MonteCarloResult`.
 
-## Layout and responsive state
+## Direct drawing in the standard shell
 
-Layouts are named grid trees owned by the completed recipe. Callers may
-select a maintained preset with `layout=:single`, `:grid`, `:preview`, or
-`:material_scale`. Definitions may supply a complete structured layout.
-Caller selection takes precedence over the definition default.
+The extension implements one narrow drawing method per maintained definition:
 
-The common renderer validates layouts before rendering. The renderer rejects
-missing destinations, overlapping areas, invalid tracks, and mixed automatic
-and explicit placement. Toolbars and status rows collapse for headless and
-SVG rendering.
-
-Responsive legends preserve semantic series and visibility state. When a
-bounded legend cannot fit, the interactive renderer shows the largest safe
-prefix followed by an inert `(...)` entry. Material scales are not shortened.
-SVG export reconstructs the complete legend and expands the output height if
-required without resizing the interactive figure.
-
-Passing another maintained preset changes placement without changing the
-definition or scientific observations:
-
-````@example plotbuilder
-grid_recipe = make_render(
-    LineParameterPlotDefinition,
-    parameters;
-    quantities = (R, L, G, C),
-    layout = :grid
+```julia
+function UIComponents.draw!(
+        context::UIContext,
+        ::Type{MyPlotDefinition},
+        page::PlotPage
 )
-
-(;
-    page_layouts = getproperty.(getproperty.(grid_recipe.figures, :layout), :name),
-    pages = length(grid_recipe.figures)
-)
-
-documentation_figure(grid_recipe) #hide
-````
-
-```@raw html
-<br>
+    payload = page.payload
+    axis = PlotBuilder.axis!(
+        context,
+        context.canvas[1, 1],
+        payload.x_observation,
+        payload.y_observation;
+        title = payload.title
+    )
+    lines!(axis, payload.x, payload.y)
+    return context
+end
 ```
 
-## SVG export
+There is no package-owned axis, series, view, page-layout, or graphics-
+primitive grammar between the payload and Makie. Missing drawing support fails
+through ordinary dispatch.
 
-The export control reconstructs scales, limits, visibility, layout, and
-placement from the current typed state and renders it through explicitly
-loaded CairoMakie. The module never imports CairoMakie dynamically.
+`axis!` creates a scientific axis from observation payloads and registers it
+with the common formatter, limits, scale controls, legend, interaction, and
+export machinery. `register!` attaches those services to an ordinary Makie
+axis created directly by the definition.
+
+The shell then runs the fixed sequence shown at the top of this guide. It owns
+theme application, the toolbar, responsive side dock, status row, widgets,
+display, and SVG replay. Definition drawing cannot replace that sequence.
+
+## Native canvas
+
+Qualified `PlotBuilder.plotwindow` exposes the same shell when an advanced
+caller needs arbitrary Makie layout. The callback receives the native canvas;
+nested grids, spanning axes, heatmaps, legends, and colorbars can therefore be
+built without adding another package graphics language.
+
+```julia
+using GLMakie
+
+windows = PlotBuilder.plotwindow(title="Custom layout") do ui
+    left = GridLayout(ui.canvas[1, 1])
+    axis = Axis(left[1, 1])
+    x = 1:10
+    y = rand(10)
+    curve = lines!(axis, x, y)
+    PlotBuilder.register!(
+        ui,
+        axis;
+        groups=(curve=(curve,)),
+        labels=(curve="sample",),
+        data=((xdata=x, ydata=y, group=:curve, label="sample"),)
+    )
+end
+```
+
+This is an advanced, qualified interface. `plotwindow`, `axis!`, and
+`register!` are not exported from the package root.
+
+## Responsive state and SVG export
+
+Responsive legends retain the complete semantic series registry. When a
+bounded interactive legend cannot fit, the shell shows the largest safe
+prefix followed by an inert `(...)` entry. Colorbars are never shortened.
+Headless and export rendering collapse interactive-only rows.
+
+SVG export asks the definition-specific replay method for a new detached page
+containing the current scale, limits, and visibility state. The shell redraws
+that page through explicitly loaded CairoMakie. No backend is imported
+dynamically.
 
 - `:default` preserves interactive styling on a white background.
 - `:publication` applies the publication font and font sizes.
@@ -300,7 +293,7 @@ loaded CairoMakie. The module never imports CairoMakie dynamically.
 ```julia
 plots = plot(parameters; export_theme=:publication)
 export_svg(first(plots))
-export_svg(first(plots); path="series_resistance.svg", open_file=false)
+export_svg(first(plots); path="series_impedance.svg", open_file=false)
 ```
 
 This call renders the publication theme without writing a file:
@@ -324,22 +317,22 @@ documentation_figure( #hide
 <br>
 ```
 
-Without `path`, export uses `pwd()`. When that directory is inside the
-package source, it falls back to
-`joinpath(tempdir(), "linecablemodels-exports")`. Filenames are sanitised and
-timestamped, and existing files are never overwritten.
+Without `path`, export uses `pwd()`. When that directory is inside the package
+source, it falls back to `joinpath(tempdir(), "linecablemodels-exports")`.
+Filenames are sanitised and timestamped, and existing files are not
+overwritten.
 
 ## Testing a definition
 
 Test a maintained definition at three boundaries:
 
-1. Complete a `PlotRecipe` without Makie and assert scientific data, units,
-   labels, scales, layout, and semantic identities.
-2. Render with CairoMakie and test callbacks, visibility, scale changes,
-   current-state SVG export, and backend restoration.
-3. Compare representative Cairo output with tolerant golden images and add
-   interactive cases to the manual GL gallery.
+1. Construct the recipe without Makie and assert page cardinality, order,
+   payload data, observation keys, units, labels, and shell declarations.
+2. Render with CairoMakie and exercise drawing, formatting, limits, visibility,
+   scales, responsive docks, and current-state SVG replay.
+3. Compare representative Cairo output with the immutable golden fixtures and
+   exercise resize behavior with a real GL display.
 
-Tests assert that `make_render` remains singular, core construction loads no
-Makie backend, removed mode/facet/key-enumeration hooks remain absent, and
-renderer primitives use dispatch.
+Architecture tests also lock both fixed stage orders, inference for maintained
+recipe owners, backend-free core loading, extension locality, root API absence,
+and the absence of the deleted graphics-compiler vocabulary.

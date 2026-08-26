@@ -25,51 +25,35 @@
 
     struct ReportProfilePlot <: PB.AbstractPlotDefinition end
     PB.dispatch_on(::Type{ReportProfilePlot}) = ReportProfile
-    function PB.fetch(::Type{ReportProfilePlot}, recipe::PB.PlotRecipe)
+    function PB.resolve(
+            ::Type{ReportProfilePlot},
+            ::ReportProfile,
+            request::NamedTuple
+    )
+        return request
+    end
+    function PB.fetch(
+            ::Type{ReportProfilePlot},
+            source::ReportProfile,
+            request::NamedTuple
+    )
         published = LineCableModels.observables(
-            recipe.object,
+            source,
             (response = profile_response,)
         )
-        return PB.PlotRecipe(
-            ReportProfilePlot,
-            recipe.object,
-            merge(recipe.input, (; published)),
-            recipe.renderer
+        payload = (;
+            published,
+            legend = PB.LegendDefinition(enabled = false),
+            colorbars = (),
+            export_definition = PB.ExportDefinition(name = "report_profile")
         )
+        return (PB.PlotPage(
+            "Report profile",
+            (800, 400),
+            (; kind = :report_profile),
+            payload
+        ),)
     end
-    PB.axis_payload(
-        ::Type{ReportProfilePlot},
-        ::Val,
-        ::Val{:y},
-        recipe::PB.PlotRecipe,
-        page_key,
-        view_key
-    ) = recipe.input.published.response
-    PB.series_values(
-        ::Type{ReportProfilePlot},
-        ::Val,
-        ::Val{:x},
-        recipe::PB.PlotRecipe,
-        page_key,
-        view_key,
-        series_key
-    ) = eachindex(recipe.input.published.response.values)
-    PB.series_values(
-        ::Type{ReportProfilePlot},
-        ::Val,
-        ::Val{:y},
-        recipe::PB.PlotRecipe,
-        page_key,
-        view_key,
-        series_key
-    ) = recipe.input.published.response.values
-    PB.default_title(
-        ::Type{ReportProfilePlot},
-        ::Val,
-        recipe::PB.PlotRecipe,
-        page_key,
-        view_key
-    ) = "Report profile"
 
     source = ReportProfile([1.0, 2.0])
     definition = TableReport(

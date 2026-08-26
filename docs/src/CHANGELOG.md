@@ -38,9 +38,9 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   composition, one internal unresolved point, and recursive materialization or
   realisation through concrete callable builders. Scalar public builder calls
   now construct eager domain values.
-- Converged PlotBuilder on definition-driven recipes and one fixed sequence:
-  entitle, parse, resolve, fetch, make_axes, make_series, make_views,
-  make_pages, decorate, and finish.
+- Converged PlotBuilder on detached definition-owned pages and one fixed core
+  sequence: entitle, parse, resolve, fetch, and finish. Loaded Makie extensions
+  draw those pages directly through the standard shell.
 - Added `@observe` as three-index syntax over the native `observe` protocol.
 - Added typed computation details with explicit higher-order retention and no
   default per-point or per-trial record collection.

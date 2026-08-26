@@ -1,5 +1,21 @@
 struct NativeCanvasPlotDefinition <: PlotBuilder.AbstractPlotDefinition end
 
+"""
+Store a native-canvas callback and the shell declarations needed to replay it.
+"""
+struct NativeCanvasPayload{F, C, E, S}
+    "Concrete callable invoked with the Makie UI context."
+    callback::F
+    "Legend behavior supplied to the standard shell."
+    legend::LegendDefinition
+    "Color scales displayed in the standard side dock."
+    colorbars::C
+    "SVG export behavior supplied to the standard shell."
+    export_definition::E
+    "Captured runtime state used for current-state SVG replay."
+    runtime::S
+end
+
 function _native_observation(observation, name::Symbol)
     observation === nothing && return nothing
     keys(observation) == (:values, :quantity, :unit) || throw(ArgumentError(
@@ -8,7 +24,7 @@ function _native_observation(observation, name::Symbol)
     return observation
 end
 
-function _native_exponent(observation)
+function _common_exponent(observation)
     observation === nothing && return 0
     finite = Float64[]
     values = observation.values isa Number ? (observation.values,) : observation.values
@@ -55,7 +71,8 @@ function _native_groups(groups::NamedTuple, labels::NamedTuple)
         values = objects isa Union{Tuple, AbstractVector} ? Any[objects...] : Any[objects]
         registered[name] = values
     end
-    return registered, Dict{Symbol, String}(
+    return registered,
+    Dict{Symbol, String}(
         name => String(value) for (name, value) in pairs(labels)
     ), Symbol[keys(groups)...]
 end
@@ -101,18 +118,18 @@ function PlotBuilder.register!(
     series = _native_series(data, registered_groups, group_order)
     plots = Any[]
     for objects in values(registered_groups), object in objects
+
         object in plots || push!(plots, object)
     end
-    view = (;
+    metadata = (;
         xaxis = xmetadata,
         yaxis = ymetadata,
-        zaxis = nothing,
         series,
         limits,
         aspect
     )
     panel = UIPanel(
-        view,
+        metadata,
         axis,
         plots,
         registered_groups,
@@ -153,13 +170,13 @@ function PlotBuilder.axis!(
         _native_label(x_observation, xlabel),
         xscale,
         xscales,
-        _native_exponent(x_observation)
+        _common_exponent(x_observation)
     )
     ymetadata = _native_axis_metadata(
         _native_label(y_observation, ylabel),
         yscale,
         yscales,
-        _native_exponent(y_observation)
+        _common_exponent(y_observation)
     )
     axis = Axis(
         position;
@@ -177,7 +194,8 @@ function PlotBuilder.axis!(
         tellheight = false,
         kwargs...
     )
-    data = x_observation === nothing && y_observation === nothing ? () : ((;
+    data = x_observation === nothing && y_observation === nothing ? () :
+           ((;
         xdata = x_observation === nothing ? nothing : x_observation.values,
         ydata = y_observation === nothing ? nothing : y_observation.values,
         group = :axis_values,
@@ -202,15 +220,46 @@ function _refresh_native_panels!(ui::UIContext)
     return ui
 end
 
+function _apply_panel_state!(panel::UIPanel, state)
+    xmetadata = panel.metadata.xaxis
+    ymetadata = panel.metadata.yaxis
+    xmetadata === nothing || _set_axis_scale!(
+        panel.axis, xmetadata, :x, xmetadata.exponent, state.xscale)
+    ymetadata === nothing || _set_axis_scale!(
+        panel.axis, ymetadata, :y, ymetadata.exponent, state.yscale)
+    for group in panel.group_order, object in panel.groups[group]
+
+        object.visible[] = group ∉ state.hidden_groups
+    end
+    if state.current_limits === nothing
+        _reset_panel_limits!(panel)
+    else
+        xlimits, ylimits = state.current_limits
+        xlims!(panel.axis, xlimits...)
+        ylims!(panel.axis, ylimits...)
+    end
+    return panel
+end
+
+function _apply_native_runtime!(context::UIContext, runtime)
+    runtime === nothing && return context
+    length(runtime.panels) == length(context.panels) || throw(DimensionMismatch(
+        "native-canvas replay produced a different number of registered axes",
+    ))
+    foreach(_apply_panel_state!, context.panels, runtime.panels)
+    return context
+end
+
 function draw!(
         context::UIContext,
         ::Type{NativeCanvasPlotDefinition},
-        recipe::PlotRecipe,
-        ::PageSpec
+        page::PlotPage
 )
     context.canvas === nothing && error("the standard shell has no canvas")
-    recipe.object(context)
+    payload = page.payload
+    payload.callback(context)
     _refresh_native_panels!(context)
+    _apply_native_runtime!(context, payload.runtime)
     return context
 end
 
@@ -218,12 +267,39 @@ function _native_colorbar(definition::NamedTuple)
     keys(definition) == (:label, :colormap, :limits, :ticks) || throw(ArgumentError(
         "native colorbars must define label, colormap, limits, and ticks",
     ))
-    return PlotBuilder.ColorbarSpec(
+    return ColorbarDefinition(
         definition.label,
         definition.colormap,
         definition.limits,
         definition.ticks
     )
+end
+
+function _current_panel_state(panel::UIPanel)
+    hidden_groups = Tuple(
+        group
+    for group in panel.group_order
+    if any(plot_object -> !plot_object.visible[], panel.groups[group])
+    )
+    return (;
+        xscale = _current_scale(panel.axis.xscale[]),
+        yscale = _current_scale(panel.axis.yscale[]),
+        current_limits = _current_limits(panel.axis),
+        hidden_groups
+    )
+end
+
+function _replay_page(plot::UIPlot, ::Type{NativeCanvasPlotDefinition})
+    original = plot.page.payload
+    runtime = (; panels = Tuple(_current_panel_state.(plot.panels)))
+    payload = NativeCanvasPayload(
+        original.callback,
+        original.legend,
+        original.colorbars,
+        original.export_definition,
+        runtime
+    )
+    return PlotPage(plot.page.title, plot.page.size, plot.page.key, payload)
 end
 
 function PlotBuilder.plotwindow(
@@ -240,29 +316,24 @@ function PlotBuilder.plotwindow(
         export_name::AbstractString = title,
         export_mode::Bool = false
 ) where {F}
-    page = PlotBuilder.PageSpec(
-        title,
-        size,
-        (; kind = :native_canvas),
-        PlotBuilder.layout_preset(:single, 0),
-        PlotBuilder.ViewSpec[];
-        legend = PlotBuilder.LegendSpec(enabled = legend),
-        colorbars = PlotBuilder.ColorbarSpec[
-            _native_colorbar(definition) for definition in colorbars
-        ],
-        export_spec = PlotBuilder.ExportSpec(
+    payload = NativeCanvasPayload(
+        callback,
+        LegendDefinition(enabled = legend),
+        Tuple(_native_colorbar(definition) for definition in colorbars),
+        ExportDefinition(
             theme = export_theme,
             name = export_name,
             open_file = open_export
-        )
+        ),
+        nothing
     )
-    recipe = PlotBuilder.PlotRecipe(
-        NativeCanvasPlotDefinition,
-        callback,
-        (;),
-        (; export_theme, open_export, layout = nothing),
-        PlotBuilder.PageSpec[page]
+    page = PlotPage(
+        title,
+        size,
+        (; kind = :native_canvas),
+        payload
     )
+    recipe = PlotRecipe(NativeCanvasPlotDefinition, (page,))
     return only(build(
         recipe;
         backend,

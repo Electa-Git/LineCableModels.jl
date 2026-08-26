@@ -47,7 +47,7 @@ plots=Makie.plot(
     @test length(plots) == 4
     @test all(plot -> length(plot.panels) == 9, plots)
     @test all(
-        panel -> length(panel.view.series) == 3,
+        panel -> length(panel.metadata.series) == 3,
         (panel for plot in plots for panel in plot.panels)
     )
     @test all(plot -> plot.context.window !== nothing, plots)

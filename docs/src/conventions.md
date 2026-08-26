@@ -142,9 +142,9 @@ retain a misleading path through an alias or compatibility namespace.
 
 ## Public symbol selectors and `Val` dispatch
 
-Public format, backend, preset, and ranking selectors accept ordinary
-`Symbol`s. The generic's owner defines a local façade and retains `Val` as the
-dispatch hook:
+Public formulation, format, and ranking selectors accept ordinary `Symbol`s.
+The generic's owner defines a local façade and retains `Val` as the dispatch
+hook:
 
 ```julia
 function owned_action(selector::Symbol, args...; kwargs...)
@@ -168,7 +168,6 @@ Formulation(:analytical)
 export_data(:atp, system, earth)
 LineParameters(:tralin, path)
 estimate[:match]
-PlotBuilder.layout_preset(:single, 1)
 ```
 
 Unknown selectors continue to reach the owner's unmatched `Val` dispatch.

@@ -1,4 +1,4 @@
-@testitem "Engine / plot specification / line selection and physical units" tags=[:unit] setup=[
+@testitem "Engine / detached line pages / selection and physical units" tags=[:unit] setup=[
     PlotBuilderTestSupport,
     UsePlotBuilderSupport,
     TestFixtures
@@ -52,33 +52,32 @@
         quantities = (R, L, G, C),
         con = (1:2, [1, 2])
     )
-    @test length(render.figures) == 2
-    @test sort([page.title for page in render.figures]) ==
+    @test length(render.pages) == 2
+    @test sort([page.title for page in render.pages]) ==
           ["Series impedance", "Shunt admittance"]
-    @test all(isempty(page.views) for page in render.figures)
     @test sum(
         length(panel.curves)
-    for page in render.input.pages
-    for panel in page.panels
+    for page in render.pages
+    for panel in page.payload.panels
     ) == 16
     @test all(
         panel -> panel.xscales == (:linear, :log10),
-        (panel for page in render.input.pages for panel in page.panels)
+        (panel for page in render.pages for panel in page.payload.panels)
     )
     @test Set(
         curve.label
-    for page in render.input.pages
-    for panel in page.panels
+    for page in render.pages
+    for panel in page.payload.panels
     for curve in panel.curves
     ) == Set(["Z[1,1]", "Z[1,2]", "Z[2,1]", "Z[2,2]",
         "Y[1,1]", "Y[1,2]", "Y[2,1]", "Y[2,2]"])
     @test all(
         keys(panel.x_observation) == (:values, :quantity, :unit) &&
             keys(panel.y_observation) == (:values, :quantity, :unit)
-    for page in render.input.pages
-    for panel in page.panels
+    for page in render.pages
+    for panel in page.payload.panels
     )
-    @test Tuple(panel.request for page in render.input.pages for panel in page.panels) ==
+    @test Tuple(panel.request for page in render.pages for panel in page.payload.panels) ==
           (R, L, G, C)
 
     @test_throws ArgumentError PB.make_render(
@@ -108,9 +107,8 @@
         frequencies = frequencies(parameters),
         quantities = (G, C)
     )
-    @test length(standalone_shunt.figures) == 1
-    @test length(only(standalone_shunt.input.pages).panels) == 2
-    @test isempty(only(standalone_shunt.figures).views)
+    @test length(standalone_shunt.pages) == 1
+    @test length(only(standalone_shunt.pages).payload.panels) == 2
 
     residual_conductance=fill(1.0e-17, size(shunt))
     lossless=LineParameters(
@@ -123,7 +121,7 @@
         lossless;
         quantities = (G,)
     )
-    lossless_curves=only(only(lossless_render.input.pages).panels).curves
+    lossless_curves=only(only(lossless_render.pages).payload.panels).curves
     @test all(curve -> all(iszero, curve.values), lossless_curves)
     @test all(==(1.0e-17), G(lossless))
 
@@ -134,7 +132,7 @@
         frequencies(parameters)
     )
     lossy_render=PB.make_render(E.LineParameterPlotDefinition, lossy; quantities = (G,))
-    lossy_curves=only(only(lossy_render.input.pages).panels).curves
+    lossy_curves=only(only(lossy_render.pages).payload.panels).curves
     @test all(
         curve -> all(==(1.0e-9), curve.values),
         lossy_curves
@@ -147,7 +145,7 @@
         quantities = (R,),
         quantity_units = Dict(R=>:milli)
     )
-    @test only(only(milli_resistance.input.pages).panels).y_observation.unit ==
+    @test only(only(milli_resistance.pages).payload.panels).y_observation.unit ==
           LineCableModels.Units.display_unit(
         LineCableModels.Units.quantity(R),
         basis(parameters);
@@ -156,7 +154,7 @@
     )
 end
 
-@testitem "Engine / plot specification / line-parameter comparison grid" tags=[:unit] setup=[
+@testitem "Engine / detached comparison pages / matrix grid" tags=[:unit] setup=[
     PlotBuilderTestSupport,
     UsePlotBuilderSupport
 ] begin
@@ -195,58 +193,53 @@ end
         xscale = :log10
     )
 
-    @test length(render.figures) == 2
-    @test all(page -> page.size == (1200, 800), render.figures)
-    @test all(isempty(page.views) for page in render.figures)
-    @test all(page -> length(page.panels) == 9, render.input.pages)
-    @test first(first(render.input.pages).panels).title ==
+    @test length(render.pages) == 2
+    @test all(page -> page.size == (1200, 800), render.pages)
+    @test all(page -> length(page.payload.panels) == 9, render.pages)
+    @test first(first(render.pages).payload.panels).title ==
           "Z[1,1] · Series resistance"
     @test all(
         panel -> length(panel.curves) == length(parameters),
-        (panel for page in render.input.pages for panel in page.panels)
+        (panel for page in render.pages for panel in page.payload.panels)
     )
     @test Set(
         panel.position
-    for panel in first(render.input.pages).panels
+    for panel in first(render.pages).payload.panels
     ) == Set((row, column) for row in 1:3 for column in 1:3)
     @test Set(
         curve.label
-    for panel in first(render.input.pages).panels
+    for panel in first(render.pages).payload.panels
     for curve in panel.curves
     ) == Set(labels)
     @test Set(
         curve.group
-    for panel in first(render.input.pages).panels
+    for panel in first(render.pages).payload.panels
     for curve in panel.curves
     ) == Set(Symbol("line_parameters_$index") for index in eachindex(parameters))
     @test all(
         curve -> curve.style.linestyle === :solid,
-        (curve for page in render.input.pages for panel in page.panels
+        (curve for page in render.pages for panel in page.payload.panels
         for curve in panel.curves)
     )
-    first_panel=first(first(render.input.pages).panels)
+    first_panel=first(first(render.pages).payload.panels)
     @test length(unique(curve.style.color for curve in first_panel.curves)) ==
           length(parameters)
     @test all(
-        page -> [curve.style.color for curve in first(page.panels).curves] ==
+        page -> [curve.style.color for curve in first(page.payload.panels).curves] ==
                 [curve.style.color for curve in first_panel.curves],
-        render.input.pages
+        render.pages
     )
 
-    page=first(render.figures)
-    @test page.layout.name === :grid
-    @test page.controls.reset
-    @test page.controls.export_svg
-    @test page.legend.interactive
-    @test page.legend.overflow === :ellipsis
-    @test page.status.initial == "Ready."
+    page=first(render.pages)
+    @test page.payload.legend.interactive
+    @test page.payload.legend.overflow === :ellipsis
 
     default_render=PB.make_render(
         E.LineParametersBenchmarkPlotDefinition,
         parameters[1:2];
         legend = labels[1:2]
     )
-    @test Tuple(page.key.request for page in default_render.figures) ==
+    @test Tuple(page.key.request for page in default_render.pages) ==
           (R, X, G, B)
 
     @test_throws ArgumentError PB.make_render(
@@ -305,7 +298,7 @@ end
     )
 end
 
-@testitem "UQ / plot specification / empirical and model distributions" tags=[:unit] setup=[
+@testitem "UQ / detached distribution page / empirical and model data" tags=[:unit] setup=[
     PlotBuilderTestSupport,
     UsePlotBuilderSupport,
     TestFixtures
@@ -331,8 +324,7 @@ end
     )
     for ((mode, data), kinds) in expected_kinds
         render=PB.make_render(Spec, result; mode, data)
-        @test isempty(only(render.figures).views)
-        page=only(render.input.pages)
+        page=only(render.pages).payload
         @test page isa Cmp.MCDistributionPagePayload
         @test kind_value.(getfield.(page.layers, :kind)) == kinds
         @test keys(page.x_observation) == (:values, :quantity, :unit)
@@ -343,7 +335,7 @@ end
         end
     end
 
-    pdf_page=only(PB.make_render(Spec, result; mode = :pdf).input.pages)
+    pdf_page=only(PB.make_render(Spec, result; mode = :pdf).pages).payload
     @test pdf_page.y_observation.quantity isa
           LineCableModels.Units.Quantity{:probability_density}
     @test pdf_page.y_observation.unit == inv(pdf_page.x_observation.unit)
@@ -373,24 +365,20 @@ end
         result.trial_counts
     )
     derived=PB.make_render(Spec, samples_only; mode = :pdf, nbins = 2)
-    derived_layer=only(only(derived.input.pages).layers)
+    derived_layer=only(only(derived.pages).payload.layers)
     @test derived_layer.kind == Val(:stairs)
     @test length(derived_layer.x) == 3
 
-    samples_recipe=PB.fetch(
-        Spec,
-        PB.resolve(
-            Spec,
-            PB.parse(Spec, samples_only; mode = :hist, data = :samples)
-        )
-    )
-    samples_layer=only(only(samples_recipe.input.pages).layers)
+    parsed=PB.parse(Spec, samples_only; mode = :hist, data = :samples)
+    resolved=PB.resolve(Spec, samples_only, parsed)
+    sample_pages=PB.fetch(Spec, samples_only, resolved)
+    samples_layer=only(only(sample_pages).payload.layers)
     @test samples_layer.kind == Val(:histogram)
     @test first(samples_layer.style.bins) == minimum(samples_layer.x)
     @test last(samples_layer.style.bins) == maximum(samples_layer.x)
     @test length(samples_layer.style.bins) == 3
-    @test !haskey(samples_recipe.input, :histogram)
-    @test !haskey(samples_recipe.input, :values)
+    @test !hasproperty(only(sample_pages).payload, :histogram)
+    @test !hasproperty(only(sample_pages).payload, :values)
     cdf_grid=Cmp._mc_cdf_grid(samples_layer.x, nothing)
     @test length(cdf_grid) == 500
     @test first(cdf_grid) < minimum(samples_layer.x)
@@ -401,7 +389,7 @@ end
         result;
         mode = :ecdf,
         data = :both
-    ).input.pages)
+    ).pages).payload
     @test getfield.(combined.layers, :group) == (:empirical_cdf, :histogram_cdf)
     @test getfield.(combined.layers, :label) == ("empirical CDF", "model CDF")
     @test LineCableModels.Units.label(
@@ -425,7 +413,7 @@ end
         mode = :ecdf,
         data = :pdf
     )
-    histogram_page=only(histogram_recipe.input.pages)
+    histogram_page=only(histogram_recipe.pages).payload
     @test only(histogram_page.layers).kind == Val(:line)
     @test only(histogram_page.layers).group === :histogram_cdf
     @test_throws ArgumentError Cmp._mc_values(nothing)

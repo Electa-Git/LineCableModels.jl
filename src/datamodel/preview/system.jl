@@ -118,8 +118,12 @@ function PlotBuilder.renderer_defaults(::Type{SystemPreviewPlotDefinition}, ::Li
     (; size = (900, 700))
 end
 
-function PlotBuilder.resolve(::Type{SystemPreviewPlotDefinition}, recipe::PlotBuilder.PlotRecipe)
-    zoom_factor = recipe.input.zoom_factor
+function PlotBuilder.resolve(
+        ::Type{SystemPreviewPlotDefinition},
+        ::LineCableSystem,
+        request::NamedTuple
+)
+    zoom_factor = request.input.zoom_factor
     if zoom_factor !== nothing
         zoom_factor isa Real || throw(
             ArgumentError("zoom_factor must be a positive real value"),
@@ -128,29 +132,32 @@ function PlotBuilder.resolve(::Type{SystemPreviewPlotDefinition}, recipe::PlotBu
             ArgumentError("zoom_factor must be finite and greater than zero"),
         )
     end
-    all(name -> getproperty(recipe.input, name) isa Bool,
+    all(name -> getproperty(request.input, name) isa Bool,
         (:display_legend, :display_id, :display_colorbars)) || throw(
         ArgumentError("display_legend, display_id, and display_colorbars must be Bool"),
     )
-    recipe.renderer.size isa Tuple{Int, Int} || throw(
+    request.renderer.size isa Tuple{Int, Int} || throw(
         ArgumentError("size must be a tuple of two integers"),
     )
-    return recipe
+    return request
 end
 
-function PlotBuilder.fetch(::Type{SystemPreviewPlotDefinition}, recipe::PlotBuilder.PlotRecipe)
-    system = recipe.object
-    limits = _system_limits(system, recipe.input.zoom_factor)
+function PlotBuilder.fetch(
+        ::Type{SystemPreviewPlotDefinition},
+        system::LineCableSystem,
+        request::NamedTuple
+)
+    limits = _system_limits(system, request.input.zoom_factor)
     polygons, references = _system_shapes(
         system,
-        recipe.input.earth_model,
+        request.input.earth_model,
         limits,
-        recipe.input.display_legend
+        request.input.display_legend
     )
-    title = _system_title(Val(recipe.input.display_id), system)
+    title = _system_title(Val(request.input.display_id), system)
     colorbars = _system_colorbars(
-        Val(recipe.input.display_colorbars),
-        recipe.input.earth_model
+        Val(request.input.display_colorbars),
+        request.input.earth_model
     )
     identity = (; kind = :system, id = system.system_id)
     payload = PreviewPayload(
@@ -159,28 +166,18 @@ function PlotBuilder.fetch(::Type{SystemPreviewPlotDefinition}, recipe::PlotBuil
         title,
         limits,
         colorbars,
-        PlotBuilder.LegendDefinition(enabled = recipe.input.display_legend),
+        PlotBuilder.LegendDefinition(enabled = request.input.display_legend),
         identity,
         PlotBuilder.ExportDefinition(
-            theme = recipe.renderer.export_theme,
+            theme = request.renderer.export_theme,
             name = system.system_id,
-            open_file = recipe.renderer.open_export
-        )
+            open_file = request.renderer.open_export
+        ),
+        nothing
     )
-    return PlotBuilder.PlotRecipe(
-        SystemPreviewPlotDefinition,
-        system,
-        merge(recipe.input, (; payload)),
-        recipe.renderer
-    )
-end
-
-function PlotBuilder._composition(
-        ::Type{SystemPreviewPlotDefinition},
-        mode::Val,
-        recipe::PlotBuilder.PlotRecipe
-)
-    return Val(:empty)
+    return PlotBuilder.PlotPage[
+        PlotBuilder.PlotPage(title, request.renderer.size, identity, payload),
+    ]
 end
 
 _system_title(::Val{false}, system) = "Cable system cross-section"
@@ -188,58 +185,3 @@ _system_title(::Val{true}, system) = "Cable system cross-section: $(system.syste
 
 _system_colorbars(::Val{false}, earth_model) = ()
 _system_colorbars(::Val{true}, earth_model) = _earth_colorbars(earth_model)
-
-function PlotBuilder.default_title(
-        ::Type{SystemPreviewPlotDefinition},
-        mode::Val,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key,
-        view_key
-)
-    return recipe.input.payload.title
-end
-
-function PlotBuilder.default_figsize(
-        ::Type{SystemPreviewPlotDefinition},
-        mode::Val,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key
-)
-    return recipe.renderer.size
-end
-
-function PlotBuilder.layout_spec(
-        ::Type{SystemPreviewPlotDefinition},
-        mode::Val,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key
-)
-    return :preview
-end
-
-function PlotBuilder.colorbar_specs(
-        ::Type{SystemPreviewPlotDefinition},
-        mode::Val,
-        recipe::PlotBuilder.PlotRecipe,
-        page_key
-)
-    return recipe.input.payload.colorbars
-end
-
-function PlotBuilder.legend_spec(
-        ::Type{SystemPreviewPlotDefinition}, mode::Val,
-        recipe::PlotBuilder.PlotRecipe, page_key)
-    return recipe.input.payload.legend
-end
-
-function PlotBuilder.page_identity(
-        ::Type{SystemPreviewPlotDefinition}, mode::Val,
-        recipe::PlotBuilder.PlotRecipe, page_key)
-    return recipe.input.payload.key
-end
-
-function PlotBuilder.export_spec(
-        ::Type{SystemPreviewPlotDefinition}, mode::Val,
-        recipe::PlotBuilder.PlotRecipe, page_key, title::AbstractString)
-    return recipe.input.payload.export_definition
-end

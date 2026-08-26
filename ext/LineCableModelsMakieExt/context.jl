@@ -3,12 +3,13 @@ mutable struct UIContext
     interactive::Bool
     window::Any
     figure::Any
-    materialized::Any
+    shell::Any
     canvas::Any
     status::Observable{String}
     panels::Vector{Any}
     widgets::Dict{Symbol, Any}
     legend::Any
+    colorbars::Vector{Any}
     responsive_legend::Any
     legend_slot_grid::Any
     observers::Vector{Any}
@@ -16,7 +17,7 @@ mutable struct UIContext
 end
 
 struct UIPanel
-    view::Any
+    metadata::Any
     axis::Any
     plots::Vector{Any}
     groups::Dict{Symbol, Vector{Any}}

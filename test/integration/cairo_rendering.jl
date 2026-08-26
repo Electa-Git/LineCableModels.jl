@@ -6,6 +6,37 @@
         using CairoMakie
         using Measurements: measurement
 
+        const TestPlotBuilder=LineCableModels.PlotBuilder
+        const TestUIComponents=Base.get_extension(
+            LineCableModels,
+            :LineCableModelsMakieExt
+        ).UIComponents
+
+        struct TestOwnedPlotDefinition<:TestPlotBuilder.AbstractPlotDefinition end
+
+        function TestUIComponents.draw!(
+                context::TestUIComponents.UIContext,
+                ::Type{TestOwnedPlotDefinition},
+                page::TestPlotBuilder.PlotPage
+        )
+            payload=page.payload
+            axis=Makie.Axis(context.canvas[1, 1])
+            curve=Makie.lines!(axis, payload.x, payload.y)
+            TestPlotBuilder.register!(
+                context,
+                axis;
+                groups = (local_curve = (curve,),),
+                labels = (local_curve = "local curve",),
+                data = ((;
+                    xdata = payload.x,
+                    ydata = payload.y,
+                    group = :local_curve,
+                    label = "local curve"
+                ),)
+            )
+            return context
+        end
+
         include(joinpath(
             pkgdir(LineCableModels),
             "test",
@@ -176,9 +207,7 @@
             display_plot = false
         )
         measurement_plot=first(measurement_plots)
-        measurement_payload=measurement_plot.render.input.pages[
-            measurement_plot.page.key.page
-        ]
+        measurement_payload=measurement_plot.page.payload
         @test length(first(measurement_plot.panels).plots) >
               length(first(measurement_payload.panels).curves)
         test_golden(measurement_plot, "line_measurements")
@@ -251,11 +280,8 @@
         @test haskey(publication_export_theme[:fonts], :italic)
         @test publication_export_theme[:Axis][:titlesize][] == 15
         @test publication_export_theme[:Axis][:xticklabelsize][] == 14
-        current_input=ui_components._current_input(
-            handle,
-            LineCableModels.Engine.LineParameterPlotDefinition
-        )
-        current_panel=first(current_input.runtime.panels)
+        current_recipe=ui_components._current_recipe(handle)
+        current_panel=first(only(current_recipe.pages).payload.runtime.panels)
         @test current_panel.xscale === :log10
         @test current_panel.yscale === :log10
         @test !isempty(current_panel.hidden_groups)
@@ -307,11 +333,10 @@
         hidden_contrast_limits.widths[2]
         @test hidden_contrast_max < initial_contrast_max * 1.0e-3
         @test contrast_plot.context.status[] == "Axis limits fitted to visible series"
-        current_contrast_input=ui_components._current_input(
-            contrast_plot,
-            LineCableModels.Engine.LineParameterPlotDefinition
+        current_contrast_recipe=ui_components._current_recipe(contrast_plot)
+        current_contrast_panel=only(
+            only(current_contrast_recipe.pages).payload.runtime.panels,
         )
-        current_contrast_panel=only(current_contrast_input.runtime.panels)
         @test first(only(contrast_plot.panels).group_order) in
               current_contrast_panel.hidden_groups
         @test collect(current_contrast_panel.current_limits[2]) ≈ [
@@ -542,9 +567,8 @@
         design=first(values(library.data))
         cable_plot=preview(design; backend = :cairo, display_plot = false)
         @test cable_plot isa UIPlot
-        @test isempty(cable_plot.page.views)
-        @test !isempty(cable_plot.render.input.payload.polygons)
-        @test length(cable_plot.page.colorbars) == 3
+        @test !isempty(cable_plot.page.payload.polygons)
+        @test length(cable_plot.page.payload.colorbars) == 3
         @test sort!(collect(keys(cable_plot.controls))) ==
               [:export_svg, :legend, :reset]
         cable_legend=cable_plot.controls[:legend]
@@ -558,7 +582,7 @@
         end
         cable_panel=only(cable_plot.panels)
         expected_group_order=unique(
-            polygon.group for polygon in cable_plot.render.input.payload.polygons
+            polygon.group for polygon in cable_plot.page.payload.polygons
         )
         @test cable_panel.group_order == expected_group_order
         material_entry=first(last(first(cable_legend.entrygroups[])))
@@ -630,7 +654,7 @@
             scale_blocks)
 
         current_compact_recipe=ui_components._current_recipe(compact_cable_plot)
-        @test !isempty(current_compact_recipe.input.hidden_groups)
+        @test !isempty(only(current_compact_recipe.pages).payload.runtime.hidden_groups)
         exported_compact=only(ui_components.build(
             current_compact_recipe;
             backend = :cairo,
@@ -694,8 +718,7 @@
             display_plot = false
         )
         @test system_plot isa UIPlot
-        @test isempty(system_plot.page.views)
-        @test only(system_plot.panels).view.aspect === :data
+        @test only(system_plot.panels).metadata.aspect === :data
         test_golden(system_plot, "system_preview"; tolerance = 0.025)
 
         zoomed_system_plot=preview(
@@ -705,8 +728,8 @@
             backend = :cairo,
             display_plot = false
         )
-        default_limits=system_plot.render.input.payload.limits
-        zoomed_limits=zoomed_system_plot.render.input.payload.limits
+        default_limits=system_plot.page.payload.limits
+        zoomed_limits=zoomed_system_plot.page.payload.limits
         @test zoomed_limits[1][2] - zoomed_limits[1][1] <
               default_limits[1][2] - default_limits[1][1]
         @test zoomed_limits[2][2] - zoomed_limits[2][1] <
@@ -717,64 +740,66 @@
             display_plot = false
         )
         @test material_plot isa UIPlot
-        @test isempty(material_plot.page.views)
-        @test length(material_plot.page.colorbars) == 3
+        @test length(material_plot.page.payload.colorbars) == 3
         @test collect(keys(material_plot.controls)) == [:export_svg]
         test_golden(material_plot, "material_scale")
 
-        struct CompilerPrimitivePlotDefinition<:
-        LineCableModels.PlotBuilder.AbstractPlotDefinition end
-        primitive_axis=LineCableModels.PlotBuilder.AxisSpec(
-            :x,
-            LineCableModels.Units.Quantity{:dimensionless}(),
-            LineCableModels.Units.UnitExpr(),
-            "index",
-            :linear;
-            attributes = (; xgridvisible = false)
+        local_payload=(;
+            x = [1.0, 2.0, 3.0],
+            y = [2.0, 3.0, 5.0],
+            legend = TestPlotBuilder.LegendDefinition(),
+            colorbars = (),
+            export_definition = TestPlotBuilder.ExportDefinition(
+                name = "test-owned-definition",
+                open_file = false
+            )
         )
-        primitive_view=LineCableModels.PlotBuilder.ViewSpec(
-            primitive_axis,
-            LineCableModels.PlotBuilder.AxisSpec(
-                :y,
-                LineCableModels.Units.Quantity{:dimensionless}(),
-                LineCableModels.Units.UnitExpr(),
-                "index",
-                :linear
-            ),
-            nothing,
-            "Heatmap primitive",
-            [
-                LineCableModels.PlotBuilder.SeriesSpec(
-                :heatmap,
-                [1.0, 2.0],
-                [1.0, 2.0],
-                [1.0 2.0; 3.0 4.0],
-                nothing
-            ),
-            ],
-            (; kind = :primitive)
+        local_recipe=TestPlotBuilder.PlotRecipe(
+            TestOwnedPlotDefinition,
+            [TestPlotBuilder.PlotPage(
+                "Test-owned definition",
+                (400, 300),
+                (; kind = :test_owned),
+                local_payload
+            )]
         )
-        primitive_page=LineCableModels.PlotBuilder.PageSpec(
-            "Heatmap primitive",
-            (400, 300),
-            (; kind = :primitive),
-            LineCableModels.PlotBuilder.layout_preset(:single, 1),
-            [primitive_view],
-            controls = LineCableModels.PlotBuilder.ControlSpec(
-                reset = false,
-                export_svg = false
-            ),
-            legend = LineCableModels.PlotBuilder.LegendSpec(enabled = false)
-        )
-        primitive_render=LineCableModels.PlotBuilder.PlotRecipe(
-            CompilerPrimitivePlotDefinition,
-            [primitive_page]
-        )
-        primitive_plot=only(ui_components.build(
-            primitive_render;
+        local_plot=only(TestUIComponents.build(
+            local_recipe;
             backend = :cairo,
-            display = false
+            display = false,
+            controls = false
         ))
+        @test local_plot.page.payload === local_payload
+        @test length(only(local_plot.panels).plots) == 1
+        @test legend_labels(local_plot.context.legend) == ["local curve"]
+
+        primitive_plot=LineCableModels.PlotBuilder.plotwindow(
+            title = "Heatmap primitive",
+            size = (400, 300),
+            backend = :cairo,
+            display_plot = false,
+            controls = false,
+            legend = false
+        ) do ui
+            axis=Makie.Axis(ui.canvas[1, 1]; xgridvisible = false)
+            image=Makie.heatmap!(
+                axis,
+                [1.0, 2.0],
+                [1.0, 2.0],
+                [1.0 2.0; 3.0 4.0]
+            )
+            LineCableModels.PlotBuilder.register!(
+                ui,
+                axis;
+                groups = (heatmap = image,),
+                data = ((;
+                    xdata = [1.0, 2.0],
+                    ydata = [1.0, 2.0],
+                    group = :heatmap,
+                    label = nothing
+                ),)
+            )
+        end
         @test length(only(primitive_plot.panels).plots) == 1
         @test !only(primitive_plot.panels).axis.xgridvisible[]
 
@@ -782,7 +807,7 @@
         @test sprint(show, MIME"text/plain"(), custom_plot) ==
               "UIPlot(title=\"Nested PlotBuilder layout\", panels=3, backend=:cairo)"
         @test custom_plot.page.key == (; kind = :native_canvas)
-        @test isempty(custom_plot.page.views)
+        @test hasproperty(custom_plot.page.payload, :callback)
         @test length(custom_plot.panels) == 3
         @test all(panel -> panel.axis.xlabel[] == "x", custom_plot.panels)
         @test all(panel -> panel.axis.ylabel[] == "y", custom_plot.panels)

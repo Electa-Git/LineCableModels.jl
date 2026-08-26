@@ -49,7 +49,7 @@ Store the detached geometry and shell declarations needed to redraw one preview.
 
 $(TYPEDFIELDS)
 """
-struct PreviewPayload{P, R, L, C, K, E}
+struct PreviewPayload{P, R, L, C, K, E, S}
     "Prepared filled polygons in draw order."
     polygons::P
     "Prepared horizontal references in draw order."
@@ -64,6 +64,24 @@ struct PreviewPayload{P, R, L, C, K, E}
     legend::PlotBuilder.LegendDefinition
     "Semantic page identity."
     key::K
+    "SVG export behavior supplied to the standard shell."
+    export_definition::E
+    "Captured runtime state used for current-state SVG replay."
+    runtime::S
+end
+
+"""
+$(TYPEDEF)
+
+Store the material scales displayed by a colorbar-only page.
+
+$(TYPEDFIELDS)
+"""
+struct MaterialScalePayload{C, E}
+    "Material color scales shown by the standard shell."
+    colorbars::C
+    "Legend behavior supplied to the standard shell."
+    legend::PlotBuilder.LegendDefinition
     "SVG export behavior supplied to the standard shell."
     export_definition::E
 end

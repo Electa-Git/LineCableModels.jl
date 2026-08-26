@@ -1,4 +1,4 @@
-const COMMON_RENDERER_KWARGS = (:export_theme, :open_export, :layout)
+const COMMON_RENDERER_KWARGS = (:export_theme, :open_export)
 const EXPORT_THEMES = (:default, :publication)
 
 function _validate_export_theme(value::Symbol)
@@ -11,21 +11,21 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Export the current typed state of a `UIPlot` through an explicitly loaded
-CairoMakie extension.
+Export the current typed state of a [`UIPlot`](@ref) through an explicitly
+loaded CairoMakie extension.
 """
 function export_svg end
 
 """
-    plotwindow(f; title, size, backend, display_plot)
+$(SIGNATURES)
 
-Build one standard plotting window and let `f` draw directly into its native
-Makie canvas. A Makie extension supplies the implementation.
+Build one standard plotting window and let `callback` draw directly into its
+native Makie canvas. A Makie extension supplies the implementation.
 """
 function plotwindow end
 
 """
-    axis!(ui, position, x_observation, y_observation; kwargs...)
+$(SIGNATURES)
 
 Create a Makie axis on a plotting window, derive scientific labels from the
 published observations, and register the axis with the standard controls.
@@ -33,67 +33,47 @@ published observations, and register the axis with the standard controls.
 function axis! end
 
 """
-    register!(ui, axis; kwargs...)
+$(SIGNATURES)
 
-Register an ordinary Makie axis with the standard formatter, limit, legend,
+Register an ordinary Makie axis with the standard formatter, limits, legend,
 interaction, and export machinery.
 """
 function register! end
 
-"Return the domain object accepted by a plot definition."
-function entitle(::Type{S}, object) where {S <: AbstractPlotDefinition}
-    expected = dispatch_on(S)
-    object isa expected || throw(
-        ArgumentError("$S accepts $expected, not $(typeof(object))"),
+"Return the source type accepted by a plot definition."
+function dispatch_on end
+
+"Return semantic keyword names accepted by a plot definition."
+input_kwargs(::Type{D}) where {D <: AbstractPlotDefinition} = ()
+
+"Return definition-specific renderer keyword names."
+renderer_kwargs(::Type{D}) where {D <: AbstractPlotDefinition} = ()
+
+"Return defaults for every semantic keyword declared by a plot definition."
+input_defaults(::Type{D}, source) where {D <: AbstractPlotDefinition} = (;)
+
+"Return defaults for every definition-specific renderer keyword."
+renderer_defaults(::Type{D}, source) where {D <: AbstractPlotDefinition} = (;)
+
+"Reject an unsupported definition/source pair before any later stage runs."
+function entitle(::Type{D}, source) where {D <: AbstractPlotDefinition}
+    expected = dispatch_on(D)
+    source isa expected || throw(
+        ArgumentError("$D accepts $expected, not $(typeof(source))"),
     )
-    return object
+    return source
 end
 
-"""
-    dispatch_on(::Type{S})
-
-Return the domain type accepted by plot definition `S`.
-"""
-dispatch_on(::Type{S}) where {S <: AbstractPlotDefinition} = Any
-
-"""
-    input_kwargs(::Type{S})
-
-Return semantic keyword names accepted by plot definition `S`.
-"""
-input_kwargs(::Type{S}) where {S <: AbstractPlotDefinition} = ()
-
-"""
-    renderer_kwargs(::Type{S})
-
-Return recipe-specific renderer keyword names accepted by plot definition `S`.
-"""
-renderer_kwargs(::Type{S}) where {S <: AbstractPlotDefinition} = ()
-
-"""
-    input_defaults(::Type{S}, object)
-
-Return defaults for every name declared by `input_kwargs(S)`.
-"""
-input_defaults(::Type{S}, object) where {S <: AbstractPlotDefinition} = (;)
-
-"""
-    renderer_defaults(::Type{S}, object)
-
-Return defaults for every name declared by `renderer_kwargs(S)`.
-"""
-renderer_defaults(::Type{S}, object) where {S <: AbstractPlotDefinition} = (;)
-
-function _symbol_tuple(::Type{S}, values, accessor::Symbol) where {S <:
+function _symbol_tuple(::Type{D}, values, accessor::Symbol) where {D <:
                                                                    AbstractPlotDefinition}
     values isa Tuple || throw(
-        ArgumentError("$accessor($S) must return a tuple of symbols"),
+        ArgumentError("$accessor($D) must return a tuple of symbols"),
     )
     all(value -> value isa Symbol, values) || throw(
-        ArgumentError("$accessor($S) must return a tuple of symbols"),
+        ArgumentError("$accessor($D) must return a tuple of symbols"),
     )
     length(unique(values)) == length(values) || throw(
-        ArgumentError("$accessor($S) cannot declare duplicate keywords"),
+        ArgumentError("$accessor($D) cannot declare duplicate keywords"),
     )
     return values
 end
@@ -103,73 +83,86 @@ function _select_kwargs(kwargs::NamedTuple, names::Tuple)
     return NamedTuple(selected)
 end
 
-function _validate_defaults(::Type{S}, defaults::NamedTuple, names::Tuple,
-        accessor::Symbol) where {
-        S <: AbstractPlotDefinition,
-}
+function _validate_defaults(
+        ::Type{D},
+        defaults::NamedTuple,
+        names::Tuple,
+        accessor::Symbol
+) where {D <: AbstractPlotDefinition}
     actual = Tuple(keys(defaults))
     Set(actual) == Set(names) || throw(
         ArgumentError(
-        "$accessor($S) must define exactly the declared keywords; " *
-        "declared $(collect(names)), received $(collect(actual))"
+        "$accessor($D) must define exactly the declared keywords; " *
+        "declared $(collect(names)), received $(collect(actual))",
     ),
     )
     return defaults
 end
 
 """
-    parse(::Type{S}, object, kwargs)
+$(SIGNATURES)
 
-Validate and split caller input into the semantic and renderer options declared
-by a recipe. Unsupported keywords are errors.
+Normalize caller keywords into separate semantic and renderer named tuples.
+Unsupported keywords are errors.
 """
 function parse(
-        ::Type{S},
-        object,
+        ::Type{D},
+        source,
         kwargs::NamedTuple
-) where {S <: AbstractPlotDefinition}
-    input_names = _symbol_tuple(S, input_kwargs(S), :input_kwargs)
-    renderer_names = _symbol_tuple(S, renderer_kwargs(S), :renderer_kwargs)
+) where {D <: AbstractPlotDefinition}
+    input_names = _symbol_tuple(D, input_kwargs(D), :input_kwargs)
+    renderer_names = _symbol_tuple(D, renderer_kwargs(D), :renderer_kwargs)
     collisions = intersect(input_names, renderer_names)
     isempty(collisions) || throw(
-        ArgumentError("$S declares keywords in both input and renderer options: $(join(collisions, ", "))"),
+        ArgumentError("$D declares keywords in both input and renderer options: $(join(collisions, ", "))"),
     )
     common_collisions = intersect((input_names..., renderer_names...), COMMON_RENDERER_KWARGS)
     isempty(common_collisions) || throw(
-        ArgumentError("$S redeclares common renderer keywords: $(join(common_collisions, ", "))"),
+        ArgumentError("$D redeclares common renderer keywords: $(join(common_collisions, ", "))"),
     )
     allowed_renderer = (COMMON_RENDERER_KWARGS..., renderer_names...)
     allowed = (input_names..., allowed_renderer...)
     unsupported = Tuple(name for name in keys(kwargs) if name ∉ allowed)
     isempty(unsupported) || throw(
-        ArgumentError("unsupported plot keyword(s) for $S: $(join(unsupported, ", "))"),
+        ArgumentError("unsupported plot keyword(s) for $D: $(join(unsupported, ", "))"),
     )
 
-    declared_input = input_defaults(S, object)
+    declared_input = input_defaults(D, source)
     declared_input isa NamedTuple || throw(
-        ArgumentError("input_defaults($S) must return a NamedTuple"),
+        ArgumentError("input_defaults($D) must return a NamedTuple"),
     )
-    declared_renderer = renderer_defaults(S, object)
+    declared_renderer = renderer_defaults(D, source)
     declared_renderer isa NamedTuple || throw(
-        ArgumentError("renderer_defaults($S) must return a NamedTuple"),
+        ArgumentError("renderer_defaults($D) must return a NamedTuple"),
     )
-    _validate_defaults(S, declared_input, input_names, :input_defaults)
-    _validate_defaults(S, declared_renderer, renderer_names, :renderer_defaults)
+    _validate_defaults(D, declared_input, input_names, :input_defaults)
+    _validate_defaults(D, declared_renderer, renderer_names, :renderer_defaults)
 
     input = merge(declared_input, _select_kwargs(kwargs, input_names))
     renderer = merge(
-        (; export_theme = :default, open_export = true, layout = nothing),
+        (; export_theme = :default, open_export = true),
         declared_renderer,
         _select_kwargs(kwargs, allowed_renderer)
     )
     _validate_export_theme(renderer.export_theme)
     renderer.open_export isa Bool || throw(ArgumentError("open_export must be Bool"))
-    renderer.layout isa Union{Nothing, Symbol, LayoutSpec} || throw(
-        ArgumentError("layout must be nothing, a preset symbol, or LayoutSpec"),
-    )
-    return PlotRecipe(S, object, input, renderer)
+    return (; input, renderer)
 end
 
-function parse(::Type{S}, object; kwargs...) where {S <: AbstractPlotDefinition}
-    parse(S, object, (; kwargs...))
+function parse(::Type{D}, source; kwargs...) where {D <: AbstractPlotDefinition}
+    return parse(D, source, (; kwargs...))
+end
+
+"Validate semantic choices and resolve definition-owned selections."
+function resolve end
+
+"Construct completed detached pages from one resolved plot request."
+function fetch end
+
+"Validate page cardinality and construct one final detached plot recipe."
+function finish(
+        ::Type{D},
+        pages::P
+) where {D <: AbstractPlotDefinition, P <: Union{Tuple, AbstractVector}}
+    return PlotRecipe(D, pages)
 end

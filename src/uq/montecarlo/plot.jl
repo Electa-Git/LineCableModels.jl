@@ -13,7 +13,7 @@ shell.
 
 $(TYPEDFIELDS)
 """
-struct MCDistributionPagePayload{K, X, Y, L, E}
+struct MCDistributionPagePayload{K, X, Y, L, E, S}
     "Displayed page and panel title."
     title::String
     "Scientific selection and display identity."
@@ -32,6 +32,8 @@ struct MCDistributionPagePayload{K, X, Y, L, E}
     legend::PlotBuilder.LegendDefinition
     "SVG export behavior supplied to the standard shell."
     export_definition::E
+    "Captured runtime state used for current-state SVG replay."
+    runtime::S
 end
 
 function _mc_selection(::DataModel.CableConstants, statistics, selector::Function, ijk)
@@ -175,9 +177,10 @@ end
 
 function PlotBuilder.resolve(
         ::Type{MCDistributionPlotDefinition},
-        recipe::PlotBuilder.PlotRecipe
+        ::MonteCarloResult,
+        request::NamedTuple
 )
-    input = recipe.input
+    input = request.input
     input.selector isa Function || throw(ArgumentError("selector must be a function"))
     input.mode in (:hist, :pdf, :ecdf, :qq) || throw(
         ArgumentError("mode must be :hist, :pdf, :ecdf, or :qq"),
@@ -196,15 +199,10 @@ function PlotBuilder.resolve(
     input.normalization in (:none, :pdf, :density, :probability) || throw(
         ArgumentError("normalization must be :none, :pdf, :density, or :probability"),
     )
-    recipe.renderer.fig_size isa Tuple{Int, Int} || throw(
+    request.renderer.fig_size isa Tuple{Int, Int} || throw(
         ArgumentError("fig_size must be a tuple of two integers"),
     )
-    return PlotBuilder.PlotRecipe(
-        MCDistributionPlotDefinition,
-        recipe.object,
-        input,
-        recipe.renderer
-    )
+    return request
 end
 
 function _mc_values(values)
@@ -405,14 +403,15 @@ _mc_axis_labels(::Val, quantity_observation) = (nothing, nothing)
 
 function PlotBuilder.fetch(
         ::Type{MCDistributionPlotDefinition},
-        recipe::PlotBuilder.PlotRecipe
+        result::MonteCarloResult,
+        request::NamedTuple
 )
-    length(recipe.object) == 1 || throw(ArgumentError(
+    length(result) == 1 || throw(ArgumentError(
         "Monte Carlo distribution plots require one outer Gridspace point",
     ))
-    input = recipe.input
-    representation = only(UQ.result(recipe.object))
-    statistic_product = only(statistics(recipe.object))
+    input = request.input
+    representation = only(UQ.result(result))
+    statistic_product = only(statistics(result))
     selection = _mc_selection(
         representation,
         statistic_product,
@@ -425,25 +424,25 @@ function PlotBuilder.fetch(
         input.length_unit,
         input.quantity_units
     )
-    sample_products = samples(recipe.object)
-    histogram_products = histograms(recipe.object)
+    sample_products = samples(result)
+    histogram_products = histograms(result)
     sample_payload = if sample_products === nothing
         nothing
     else
-        request = _mc_request(input.selector, selection, true)
+        observable_request = _mc_request(input.selector, selection, true)
         observables(
             only(sample_products),
-            (selected = request,);
+            (selected = observable_request,);
             units = (selected = target,)
         ).selected
     end
     histogram_payload = if histogram_products === nothing
         nothing
     else
-        request = _mc_request(input.selector, selection, false)
+        observable_request = _mc_request(input.selector, selection, false)
         observables(
             only(histogram_products),
-            (selected = request,);
+            (selected = observable_request,);
             units = (selected = target,)
         ).selected
     end
@@ -500,99 +499,18 @@ function PlotBuilder.fetch(
         layers,
         PlotBuilder.LegendDefinition(),
         PlotBuilder.ExportDefinition(
-            theme = recipe.renderer.export_theme,
+            theme = request.renderer.export_theme,
             name = title,
-            open_file = recipe.renderer.open_export
-        )
+            open_file = request.renderer.open_export
+        ),
+        nothing
     )
-    return PlotBuilder.PlotRecipe(
-        MCDistributionPlotDefinition,
-        recipe.object,
-        merge(input, (; pages = (page,))),
-        recipe.renderer
-    )
-end
-
-function PlotBuilder._recipe_variant(
-        ::Type{MCDistributionPlotDefinition},
-        ::PlotBuilder.PlotRecipe
-)
-    return Val(:direct_distribution)
-end
-
-function PlotBuilder._composition(
-        ::Type{MCDistributionPlotDefinition},
-        ::Val{:direct_distribution},
-        ::PlotBuilder.PlotRecipe
-)
-    return Val(:empty)
-end
-
-function PlotBuilder._page_keys(
-        ::Type{MCDistributionPlotDefinition},
-        ::Val{:direct_distribution},
-        ::Val{:empty},
-        recipe::PlotBuilder.PlotRecipe
-)
-    return eachindex(recipe.input.pages)
-end
-
-function _mc_page_payload(recipe, page_index::Integer)
-    return recipe.input.pages[page_index]
-end
-
-function PlotBuilder.default_title(
-        ::Type{MCDistributionPlotDefinition},
-        ::Val{:direct_distribution},
-        recipe::PlotBuilder.PlotRecipe,
-        page_index::Integer,
-        ::Nothing
-)
-    return _mc_page_payload(recipe, page_index).title
-end
-
-function PlotBuilder.default_figsize(
-        ::Type{MCDistributionPlotDefinition},
-        ::Val{:direct_distribution},
-        recipe::PlotBuilder.PlotRecipe,
-        ::Integer
-)
-    return recipe.renderer.fig_size
-end
-
-function PlotBuilder.layout_spec(
-        ::Type{MCDistributionPlotDefinition},
-        ::Val{:direct_distribution},
-        ::PlotBuilder.PlotRecipe,
-        ::Integer
-)
-    return :single
-end
-
-function PlotBuilder.page_identity(
-        ::Type{MCDistributionPlotDefinition},
-        ::Val{:direct_distribution},
-        recipe::PlotBuilder.PlotRecipe,
-        page_index::Integer
-)
-    return merge((; page = page_index), _mc_page_payload(recipe, page_index).key)
-end
-
-function PlotBuilder.legend_spec(
-        ::Type{MCDistributionPlotDefinition},
-        ::Val{:direct_distribution},
-        recipe::PlotBuilder.PlotRecipe,
-        page_index::Integer
-)
-    return _mc_page_payload(recipe, page_index).legend
-end
-
-function PlotBuilder.export_spec(
-        ::Type{MCDistributionPlotDefinition},
-        ::Val{:direct_distribution},
-        recipe::PlotBuilder.PlotRecipe,
-        page_index::Integer,
-        ::AbstractString
-)
-    return _mc_page_payload(recipe, page_index).export_definition
+    return PlotBuilder.PlotPage[
+        PlotBuilder.PlotPage(
+        title,
+        request.renderer.fig_size,
+        merge((; page = 1), key),
+        page
+    ),
+    ]
 end
