@@ -13,11 +13,7 @@ shell.
 
 $(TYPEDFIELDS)
 """
-struct MCDistributionPagePayload{K, X, Y, L, E, S}
-    "Displayed page and panel title."
-    title::String
-    "Scientific selection and display identity."
-    key::K
+struct MCDistributionPagePayload{X, Y, L, S}
     "Published abscissa observation."
     x_observation::X
     "Published ordinate observation."
@@ -28,10 +24,6 @@ struct MCDistributionPagePayload{K, X, Y, L, E, S}
     ylabel::Union{Nothing, String}
     "Detached distribution layers in draw order."
     layers::L
-    "Legend behavior supplied to the standard shell."
-    legend::PlotBuilder.LegendDefinition
-    "SVG export behavior supplied to the standard shell."
-    export_definition::E
     "Captured runtime state used for current-state SVG replay."
     runtime::S
 end
@@ -117,19 +109,6 @@ function _mc_input_defaults()
 end
 
 PlotBuilder.dispatch_on(::Type{MCDistributionPlotDefinition}) = MonteCarloResult
-function PlotBuilder.input_kwargs(::Type{MCDistributionPlotDefinition})
-    return (
-        :selector,
-        :ijk,
-        :mode,
-        :data,
-        :length_unit,
-        :quantity_units,
-        :nbins,
-        :normalization
-    )
-end
-PlotBuilder.renderer_kwargs(::Type{MCDistributionPlotDefinition}) = (:fig_size,)
 function PlotBuilder.input_defaults(::Type{MCDistributionPlotDefinition}, ::MonteCarloResult)
     return _mc_input_defaults()
 end
@@ -464,19 +443,11 @@ function PlotBuilder.fetch(
         data = input.data
     )
     page = MCDistributionPagePayload(
-        title,
-        key,
         quantity_observation,
         y_observation,
         xlabel,
         ylabel,
         layers,
-        PlotBuilder.LegendDefinition(),
-        PlotBuilder.ExportDefinition(
-            theme = request.renderer.export_theme,
-            name = title,
-            open_file = request.renderer.open_export
-        ),
         nothing
     )
     return PlotBuilder.PlotPage[
@@ -484,7 +455,13 @@ function PlotBuilder.fetch(
         title,
         request.renderer.fig_size,
         merge((; page = 1), key),
-        page
+        page;
+        legend = PlotBuilder.LegendDefinition(),
+        export_definition = PlotBuilder.ExportDefinition(
+            theme = request.renderer.export_theme,
+            name = title,
+            open_file = request.renderer.open_export
+        )
     ),
     ]
 end

@@ -251,8 +251,12 @@ end
     )
 
     page=first(render.pages)
-    @test page.payload.legend.interactive
-    @test page.payload.legend.overflow === :ellipsis
+    @test page.legend.interactive
+    @test page.legend.overflow === :ellipsis
+    @test all(
+        name -> !hasproperty(page.payload, name),
+        (:title, :key, :legend, :colorbars, :widgets, :export_definition)
+    )
 
     default_render=PB.make_render(
         E.LineParametersBenchmarkPlotDefinition,
@@ -331,6 +335,11 @@ end
     @test_throws ArgumentError PB.make_render(Spec, result; selector = :R)
     @test_throws ArgumentError PB.make_render(Spec, result; quantity = :R)
     @test PB.make_render(Spec, result; selector = L) isa PB.PlotRecipe
+    detached_page=only(PB.make_render(Spec, result).pages)
+    @test all(
+        name -> !hasproperty(detached_page.payload, name),
+        (:title, :key, :legend, :colorbars, :widgets, :export_definition)
+    )
     kind_value(::Val{kind}) where {kind} = kind
     expected_kinds=Dict(
         (:hist, :samples)=>(:histogram,),

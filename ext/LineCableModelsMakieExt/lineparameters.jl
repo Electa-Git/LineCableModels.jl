@@ -116,14 +116,19 @@ function _current_line_page(plot::UIPlot)
     original = plot.page.payload
     runtime = (; panels = Tuple(_current_panel_state.(plot.panels)))
     payload = LineCableModels.Engine.LinePagePayload(
-        original.title,
-        original.key,
         original.panels,
-        original.legend,
-        original.export_definition,
         runtime
     )
-    return PlotPage(plot.page.title, plot.page.size, plot.page.key, payload)
+    return PlotPage(
+        plot.page.title,
+        plot.page.size,
+        plot.page.key,
+        payload;
+        legend = plot.page.legend,
+        colorbars = plot.page.colorbars,
+        widgets = plot.page.widgets,
+        export_definition = plot.page.export_definition
+    )
 end
 
 function _replay_page(plot::UIPlot, ::Type{LineParameterDefinition})

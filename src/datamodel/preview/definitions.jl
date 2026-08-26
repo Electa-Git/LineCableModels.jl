@@ -45,43 +45,17 @@ end
 """
 $(TYPEDEF)
 
-Store the detached geometry and shell declarations needed to redraw one preview.
+Store the detached geometry needed to redraw one preview.
 
 $(TYPEDFIELDS)
 """
-struct PreviewPayload{P, R, L, C, K, E, S}
+struct PreviewPayload{P, R, L, S}
     "Prepared filled polygons in draw order."
     polygons::P
     "Prepared horizontal references in draw order."
     references::R
-    "Displayed page and axis title."
-    title::String
     "Explicit `(x, y)` limits, or `nothing` for fitted limits."
     limits::L
-    "Material color scales shown by the standard shell."
-    colorbars::C
-    "Legend behavior supplied to the standard shell."
-    legend::PlotBuilder.LegendDefinition
-    "Semantic page identity."
-    key::K
-    "SVG export behavior supplied to the standard shell."
-    export_definition::E
     "Captured runtime state used for current-state SVG replay."
     runtime::S
-end
-
-"""
-$(TYPEDEF)
-
-Store the material scales displayed by a colorbar-only page.
-
-$(TYPEDFIELDS)
-"""
-struct MaterialScalePayload{C, E}
-    "Material color scales shown by the standard shell."
-    colorbars::C
-    "Legend behavior supplied to the standard shell."
-    legend::PlotBuilder.LegendDefinition
-    "SVG export behavior supplied to the standard shell."
-    export_definition::E
 end

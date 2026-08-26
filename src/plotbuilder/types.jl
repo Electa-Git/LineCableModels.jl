@@ -136,7 +136,7 @@ Store one completed detached page produced by a domain plot definition.
 
 $(TYPEDFIELDS)
 """
-struct PlotPage{K, P}
+struct PlotPage{K, P, C, W}
     "Displayed page title."
     title::String
     "Figure width and height in pixels."
@@ -145,14 +145,35 @@ struct PlotPage{K, P}
     key::K
     "Detached definition-owned drawing payload."
     payload::P
+    "Legend behavior supplied to the renderer shell."
+    legend::LegendDefinition
+    "Color scales supplied to the renderer shell."
+    colorbars::C
+    "Definition-owned controls supplied to the renderer shell."
+    widgets::W
+    "SVG export behavior supplied to the renderer shell."
+    export_definition::ExportDefinition
     function PlotPage(
             title::String,
             size::Tuple{Int, Int},
             key::K,
-            payload::P
-    ) where {K, P}
+            payload::P,
+            legend::LegendDefinition,
+            colorbars::C,
+            widgets::W,
+            export_definition::ExportDefinition
+    ) where {K, P, C, W}
         all(>(0), size) || throw(ArgumentError("page dimensions must be positive"))
-        return new{K, P}(title, size, key, payload)
+        return new{K, P, C, W}(
+            title,
+            size,
+            key,
+            payload,
+            legend,
+            colorbars,
+            widgets,
+            export_definition
+        )
     end
 end
 
@@ -160,9 +181,22 @@ function PlotPage(
         title::AbstractString,
         size::Tuple{<:Integer, <:Integer},
         key,
-        payload
+        payload;
+        legend::LegendDefinition = LegendDefinition(),
+        colorbars = (),
+        widgets = (),
+        export_definition::ExportDefinition = ExportDefinition(name = title)
 )
-    return PlotPage(String(title), Tuple(Int.(size)), key, payload)
+    return PlotPage(
+        String(title),
+        Tuple(Int.(size)),
+        key,
+        payload,
+        legend,
+        colorbars,
+        widgets,
+        export_definition
+    )
 end
 
 """
@@ -205,4 +239,34 @@ function PlotRecipe(
 ) where {D <: AbstractPlotDefinition, P <: Union{Tuple, AbstractVector}}
     _check_recipe_pages(pages)
     return PlotRecipe{D, P}(definition, pages)
+end
+
+"""
+$(TYPEDEF)
+
+Hold one rendered page and its Makie-owned runtime context.
+
+`figure`, `panels`, and `controls` remain readable properties forwarded to the
+single runtime owner in `context`; they are not stored twice.
+
+$(TYPEDFIELDS)
+"""
+struct UIPlot{D <: AbstractPlotDefinition, G, C}
+    "Completed detached plot recipe."
+    render::PlotRecipe{D}
+    "Page represented by this handle."
+    page::G
+    "Active backend runtime context."
+    context::C
+end
+
+function Base.getproperty(plot::UIPlot, name::Symbol)
+    name === :figure && return getfield(getfield(plot, :context), :figure)
+    name === :panels && return getfield(getfield(plot, :context), :panels)
+    name === :controls && return getfield(getfield(plot, :context), :widgets)
+    return getfield(plot, name)
+end
+
+function Base.propertynames(::UIPlot, ::Bool = false)
+    (:render, :page, :context, :figure, :panels, :controls)
 end

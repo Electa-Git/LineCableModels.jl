@@ -2,16 +2,11 @@ function draw! end
 
 _shell_kind(::Type{<:PlotBuilder.AbstractPlotDefinition}) = Val(:standard)
 
-_page_legend(page::PlotPage) = page.payload.legend
-function _page_colorbars(page::PlotPage)
-    return hasproperty(page.payload, :colorbars) ? page.payload.colorbars : ()
-end
-_page_export(page::PlotPage) = page.payload.export_definition
-
 function build_context(
         page::PlotPage;
         backend,
-        display::Bool
+        display::Bool,
+        export_theme::Symbol
 )
     active = PlotBuilder.ensure_backend!(backend)
     interactive = display && active in (:gl, :wgl)
@@ -35,6 +30,11 @@ function build_context(
         nothing,
         nothing,
         Any[],
+        ExportDefinition(
+            theme = export_theme,
+            name = page.export_definition.name,
+            open_file = page.export_definition.open_file
+        ),
         Ref{Any}(nothing)
     )
 end
@@ -194,7 +194,7 @@ end
 
 function _collapse_empty_dock!(context::UIContext, page::PlotPage)
     context.shell.kind === :standard || return nothing
-    context.legend === nothing && isempty(_page_colorbars(page)) || return nothing
+    context.legend === nothing && isempty(page.colorbars) || return nothing
     context.shell.side.width[] = 0
     context.shell.side.tellwidth[] = true
     return nothing
@@ -205,10 +205,10 @@ function place_legend!(
         page::PlotPage;
         export_mode::Bool
 )
-    definition = _page_legend(page)
+    definition = page.legend
     if definition.enabled && context.shell.legend !== nothing
         overflow = export_mode ? :show_all : definition.overflow
-        dock_width = isempty(_page_colorbars(page)) ? nothing : LEGEND_DOCK_WIDTH
+        dock_width = isempty(page.colorbars) ? nothing : LEGEND_DOCK_WIDTH
         responsive = overflow === :ellipsis
         context.legend_slot_grid = GridLayout(
             width = dock_width === nothing ? Auto() : dock_width,
@@ -238,7 +238,7 @@ function place_legend!(
 end
 
 function place_colorbars!(context::UIContext, page::PlotPage)
-    definitions = _page_colorbars(page)
+    definitions = page.colorbars
     if isempty(definitions)
         _collapse_colorbars!(context)
     else
@@ -360,7 +360,7 @@ function build_widgets!(
             end)
     end
 
-    definition = _page_legend(page)
+    definition = page.legend
     definition.interactive && context.legend !== nothing &&
         (widgets[:legend] = context.legend)
     Label(
@@ -389,17 +389,10 @@ function assemble(
         box = context.legend_slot_grid.layoutobservables.computedbbox[]
         _fit_legend!(context.responsive_legend, box.widths[2])
     end
-    definition = _page_legend(page)
+    definition = page.legend
     definition.interactive && context.legend !== nothing &&
         _observe_visibility_limits!(context.panels, context)
-    built = UIPlot(
-        recipe,
-        page,
-        context.figure,
-        context.panels,
-        context.widgets,
-        context
-    )
+    built = UIPlot(recipe, page, context)
     context.plot_reference[] = built
     return built
 end
@@ -420,9 +413,10 @@ function build_page(
         backend,
         display::Bool,
         controls::Bool,
-        export_mode::Bool
+        export_mode::Bool,
+        export_theme::Symbol
 )
-    context = build_context(page; backend, display)
+    context = build_context(page; backend, display, export_theme)
     build_shell(context, recipe.definition, page)
     draw!(context, recipe, page)
     format_axes!(context, page)
@@ -444,7 +438,7 @@ function build(
     built = UIPlot[]
     for page in recipe.pages
         page_export_theme = export_theme === nothing ?
-                            _page_export(page).theme : export_theme
+                            page.export_definition.theme : export_theme
         with_theme(_theme(; export_mode, export_theme = page_export_theme)) do
             push!(
                 built,
@@ -454,7 +448,8 @@ function build(
                     backend,
                     display,
                     controls,
-                    export_mode
+                    export_mode,
+                    export_theme = page_export_theme
                 )
             )
         end

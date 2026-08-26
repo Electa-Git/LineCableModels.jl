@@ -144,6 +144,25 @@ end
     )
     @test all(!ispath(joinpath(root, path)) for path in obsolete_paths)
 
+    @test Set(readdir(joinpath(source_root, "plotbuilder"))) == Set((
+        "PlotBuilder.jl",
+        "backends.jl",
+        "base.jl",
+        "interfaces.jl",
+        "render.jl",
+        "types.jl"
+    ))
+    @test Set(readdir(joinpath(extension_root, "LineCableModelsMakieExt"))) == Set((
+        "LineCableModelsMakieExt.jl",
+        "UIComponents.jl",
+        "context.jl",
+        "lineparameters.jl",
+        "montecarlo.jl",
+        "native.jl",
+        "previews.jl",
+        "shell.jl"
+    ))
+
     @test !isdefined(LineCableModels, :UnitHandler)
     @test !isdefined(LineCableModels.PlotBuilder, :BackendHandler)
     @test isdefined(LineCableModels.DataModel, :PhysicalFillLimit)
@@ -182,6 +201,38 @@ end
     xlsx_extension=read(joinpath(extension_root, "LineCableModelsXLSXExt.jl"), String)
     @test occursin("using XLSX", xlsx_extension)
     @test occursin("function ReportBuilder.write", xlsx_extension)
+
+    plotbuilder_source=join(
+        (source[path]
+        for path in keys(source)
+        if startswith(path, joinpath("src", "plotbuilder"))),
+        "\n")
+    makie_source=join(
+        (read(path, String)
+        for (directory, _, files) in walkdir(
+            joinpath(extension_root, "LineCableModelsMakieExt"))
+        for file in files if endswith(file, ".jl")
+        for path in (joinpath(directory, file),)),
+        "\n")
+    for token in (
+        "input_kwargs",
+        "renderer_kwargs",
+        "_symbol_tuple",
+        "_validate_defaults",
+        "_BACKEND_EXTENSIONS",
+        "_backend_extension",
+        "_backend_package"
+    )
+        @test !occursin(token, plotbuilder_source)
+    end
+    for token in (
+        "hasproperty(page.payload",
+        "_page_legend",
+        "_page_colorbars",
+        "_page_export"
+    )
+        @test !occursin(token, makie_source)
+    end
 
     for pattern in (
         r"details\s*::\s*Dict",

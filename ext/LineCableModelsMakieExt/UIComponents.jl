@@ -350,8 +350,8 @@ function _export_directory()
     return fallback
 end
 
-function _available_path(page::PlotPage)
-    base = _sanitize_filename(_page_export(page).name)
+function _available_path(definition::ExportDefinition)
+    base = _sanitize_filename(definition.name)
     stamp = Dates.format(Dates.now(), EXPORT_TIMESTAMP_FORMAT)
     directory = _export_directory()
     candidate = joinpath(directory, "$(base)_$(stamp).svg")
@@ -629,7 +629,7 @@ function _export_dock_growth(figure, page::PlotPage)
     isempty(legends) && return 0.0
     legend_bottom = minimum(first(_block_vertical_bounds(legend)) for legend in legends)
     all_colorbars = filter(block -> block isa Colorbar, figure.content)
-    length(all_colorbars) == length(_page_colorbars(page)) || error(
+    length(all_colorbars) == length(page.colorbars) || error(
         "rendered colorbars no longer match the declarative page",
     )
     required_bottom = 0.0
@@ -670,8 +670,8 @@ function PlotBuilder.export_svg(
         "SVG export requires CairoMakie; load CairoMakie first with `using CairoMakie`",
     ),
     )
-    output = path === nothing ? _available_path(plot.page) : abspath(String(path))
-    definition = _page_export(plot.page)
+    definition = plot.context.export_state
+    output = path === nothing ? _available_path(definition) : abspath(String(path))
     export_theme = theme === nothing ? definition.theme : theme
     should_open = open_file === nothing ? definition.open_file : open_file
     lowercase(splitext(output)[2]) == ".svg" || throw(

@@ -95,16 +95,6 @@ function _system_shapes(system, earth_model, limits, display_legend)
 end
 
 PlotBuilder.dispatch_on(::Type{SystemPreviewPlotDefinition}) = LineCableSystem
-function PlotBuilder.input_kwargs(::Type{SystemPreviewPlotDefinition})
-    (
-        :earth_model,
-        :zoom_factor,
-        :display_legend,
-        :display_id,
-        :display_colorbars
-    )
-end
-PlotBuilder.renderer_kwargs(::Type{SystemPreviewPlotDefinition}) = (:size,)
 function PlotBuilder.input_defaults(::Type{SystemPreviewPlotDefinition}, ::LineCableSystem)
     (;
         earth_model = nothing,
@@ -163,20 +153,25 @@ function PlotBuilder.fetch(
     payload = PreviewPayload(
         polygons,
         references,
-        title,
         limits,
-        colorbars,
-        PlotBuilder.LegendDefinition(enabled = request.input.display_legend),
-        identity,
-        PlotBuilder.ExportDefinition(
-            theme = request.renderer.export_theme,
-            name = system.system_id,
-            open_file = request.renderer.open_export
-        ),
         nothing
     )
     return PlotBuilder.PlotPage[
-        PlotBuilder.PlotPage(title, request.renderer.size, identity, payload),
+        PlotBuilder.PlotPage(
+        title,
+        request.renderer.size,
+        identity,
+        payload;
+        legend = PlotBuilder.LegendDefinition(
+            enabled = request.input.display_legend,
+        ),
+        colorbars,
+        export_definition = PlotBuilder.ExportDefinition(
+            theme = request.renderer.export_theme,
+            name = system.system_id,
+            open_file = request.renderer.open_export
+        )
+    ),
     ]
 end
 

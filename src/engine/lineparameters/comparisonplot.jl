@@ -71,20 +71,6 @@ function PlotBuilder.dispatch_on(::Type{LineParametersBenchmarkPlotDefinition})
     return _LineParametersBenchmarkTuple
 end
 
-function PlotBuilder.input_kwargs(::Type{LineParametersBenchmarkPlotDefinition})
-    return (
-        :quantities,
-        :legend,
-        :freq_unit,
-        :length_unit,
-        :quantity_units,
-        :xscale,
-        :yscale
-    )
-end
-
-PlotBuilder.renderer_kwargs(::Type{LineParametersBenchmarkPlotDefinition}) = (:fig_size,)
-
 function PlotBuilder.input_defaults(
         ::Type{LineParametersBenchmarkPlotDefinition},
         parameters::_LineParametersBenchmarkTuple
@@ -142,7 +128,7 @@ function _comparison_curves(published, request_index, row, column, labels, color
     end
 end
 
-function _comparison_page(configuration, published, request_index)
+function _comparison_page(configuration, published, request_index, page_index::Int)
     scientific_request = configuration.input.requests[request_index]
     parent = line_parent(scientific_request)
     first_observation = first(published).observations[request_index]
@@ -194,17 +180,18 @@ function _comparison_page(configuration, published, request_index)
     for column in 1:count
     )
     title = "$(Units.label(first_observation.quantity)) comparison"
-    return LinePagePayload(
+    payload = LinePagePayload(panels, nothing)
+    return PlotBuilder.PlotPage(
         title,
-        (; request = scientific_request),
-        panels,
-        PlotBuilder.LegendDefinition(),
-        PlotBuilder.ExportDefinition(
+        configuration.renderer.fig_size,
+        (; page = page_index, request = scientific_request),
+        payload;
+        legend = PlotBuilder.LegendDefinition(),
+        export_definition = PlotBuilder.ExportDefinition(
             theme = configuration.renderer.export_theme,
             name = title,
             open_file = configuration.renderer.open_export
-        ),
-        nothing
+        )
     )
 end
 
@@ -219,16 +206,7 @@ function PlotBuilder.fetch(
         _publish_line_source(parameters[index], internal_input, request.input.requests)
     for index in eachindex(parameters)
     )
-    pages = length(first(published).frequency.values) <= 1 ? () :
-            map(
-        request_index -> _comparison_page(request, published, request_index),
-        eachindex(request.input.requests)
-    )
-    return PlotBuilder.PlotPage[PlotBuilder.PlotPage(
-                                    payload.title,
-                                    request.renderer.fig_size,
-                                    merge((; page = page_index), payload.key),
-                                    payload
-                                )
-                                for (page_index, payload) in enumerate(pages)]
+    length(first(published).frequency.values) <= 1 && return PlotBuilder.PlotPage[]
+    return PlotBuilder.PlotPage[_comparison_page(request, published, request_index, page_index)
+                                for (page_index, request_index) in enumerate(eachindex(request.input.requests))]
 end

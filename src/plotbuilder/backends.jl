@@ -1,8 +1,18 @@
-const _BACKEND_EXTENSIONS = Dict(
-    :cairo => :LineCableModelsCairoMakieExt,
-    :gl => :LineCableModelsGLMakieExt,
-    :wgl => :LineCableModelsWGLMakieExt
+function _backend_spec(::Val{:cairo})
+    (
+        extension = :LineCableModelsCairoMakieExt,
+        package = "CairoMakie"
+    )
+end
+_backend_spec(::Val{:gl}) = (
+    extension = :LineCableModelsGLMakieExt,
+    package = "GLMakie"
 )
+_backend_spec(::Val{:wgl}) = (
+    extension = :LineCableModelsWGLMakieExt,
+    package = "WGLMakie"
+)
+_backend_spec(::Val) = nothing
 
 const FIG_NO = Base.Threads.Atomic{Int}(1)
 
@@ -12,16 +22,20 @@ function _makie_extension()
     return Base.get_extension(_parent_package(), :LineCableModelsMakieExt)
 end
 
-function _backend_extension(backend::Symbol)
-    name = get(_BACKEND_EXTENSIONS, backend, nothing)
-    name === nothing && throw(
-        ArgumentError("Unknown backend :$(backend). Use :cairo, :gl, or :wgl."),
-    )
-    return Base.get_extension(_parent_package(), name)
+function _backend_specification(backend::Val{B}) where {B}
+    specification = _backend_spec(backend)
+    specification === nothing && throw(ArgumentError(
+        "Unknown backend :$B. Use :cairo, :gl, or :wgl.",
+    ))
+    return specification
 end
 
 "Return whether `backend` has been explicitly loaded."
-backend_available(backend::Symbol) = _backend_extension(backend) !== nothing
+backend_available(backend::Symbol) = backend_available(Val(backend))
+function backend_available(backend::Val)
+    specification = _backend_specification(backend)
+    return Base.get_extension(_parent_package(), specification.extension) !== nothing
+end
 
 "Return the active Makie backend as `:cairo`, `:gl`, `:wgl`, `:unknown`, or `:none`."
 function current_backend_symbol()
@@ -30,34 +44,30 @@ function current_backend_symbol()
 end
 
 """
-    set_backend!(backend; force=false)
+    set_backend!(backend)
 
 Activate an explicitly loaded Makie backend.
 
-`force` is retained for source compatibility and has no effect.
 """
-function set_backend!(backend::Symbol; force::Bool = false)
-    ext = _backend_extension(backend)
+set_backend!(backend::Symbol) = set_backend!(Val(backend))
+function set_backend!(backend::Val{B}) where {B}
+    specification = _backend_specification(backend)
+    ext = Base.get_extension(_parent_package(), specification.extension)
     ext === nothing && throw(
         ArgumentError(
-        "Backend :$(backend) is not loaded. Run `using $(_backend_package(backend))` first.",
+        "Backend :$B is not loaded. Run `using $(specification.package)` first.",
     ),
     )
     return Base.invokelatest(ext.activate!)
 end
 
-function _backend_package(backend::Symbol)
-    backend === :cairo && return "CairoMakie"
-    backend === :gl && return "GLMakie"
-    backend === :wgl && return "WGLMakie"
-    throw(ArgumentError("Unknown backend :$(backend). Use :cairo, :gl, or :wgl."))
-end
-
 "Activate an explicitly loaded backend when none is active."
-function ensure_backend!(backend::Union{Nothing, Symbol} = nothing)
-    backend !== nothing && return set_backend!(backend)
+ensure_backend!(::Nothing) = ensure_backend!()
+ensure_backend!(backend::Symbol) = ensure_backend!(Val(backend))
+ensure_backend!(backend::Val) = set_backend!(backend)
+function ensure_backend!()
     current = current_backend_symbol()
-    current in keys(_BACKEND_EXTENSIONS) && return current
+    _backend_spec(Val(current)) === nothing || return current
     throw(
         ArgumentError(
         "No Makie backend is active. Load CairoMakie, GLMakie, or WGLMakie first.",
@@ -66,14 +76,15 @@ function ensure_backend!(backend::Union{Nothing, Symbol} = nothing)
 end
 
 "Run `f` with an explicitly loaded backend and restore the previous backend."
-function with_backend(f::Function, backend::Symbol; force::Bool = false)
+with_backend(f::Function, backend::Symbol) = with_backend(f, Val(backend))
+function with_backend(f::Function, backend::Val{B}) where {B}
     previous = current_backend_symbol()
-    set_backend!(backend; force = force)
+    set_backend!(backend)
     try
         return f()
     finally
-        if previous in keys(_BACKEND_EXTENSIONS) && previous != backend
-            set_backend!(previous; force = force)
+        if _backend_spec(Val(previous)) !== nothing && previous !== B
+            set_backend!(Val(previous))
         end
     end
 end
@@ -84,13 +95,18 @@ function make_screen(
         backend::Symbol = current_backend_symbol(),
         kwargs...
 )
-    ext = _backend_extension(backend)
+    return make_screen(Val(backend), title; kwargs...)
+end
+
+function make_screen(backend::Val, title::AbstractString; kwargs...)
+    specification = _backend_specification(backend)
+    ext = Base.get_extension(_parent_package(), specification.extension)
     return ext === nothing ? nothing :
            Base.invokelatest(ext.make_screen, String(title); kwargs...)
 end
 
 function make_screen(backend::Symbol, title::AbstractString; kwargs...)
-    return make_screen(title; backend, kwargs...)
+    return make_screen(Val(backend), title; kwargs...)
 end
 
 "Display a Makie figure through the loaded plotting extension."

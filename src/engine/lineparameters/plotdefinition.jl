@@ -62,17 +62,9 @@ Store one detached line-parameter page for the standard plotting shell.
 
 $(TYPEDFIELDS)
 """
-struct LinePagePayload{K, P, E, S}
-    "Displayed page title."
-    title::String
-    "Scientific and placement identity of the page."
-    key::K
+struct LinePagePayload{P, S}
     "Detached panels in draw order."
     panels::P
-    "Legend behavior supplied to the standard shell."
-    legend::PlotBuilder.LegendDefinition
-    "SVG export behavior supplied to the standard shell."
-    export_definition::E
     "Captured runtime state used for current-state SVG replay."
     runtime::S
 end
@@ -232,19 +224,6 @@ end
 function PlotBuilder.dispatch_on(::Type{LineParameterPlotDefinition})
     Union{LineParameters, SeriesImpedance, ShuntAdmittance}
 end
-function PlotBuilder.input_kwargs(::Type{LineParameterPlotDefinition})
-    (
-        :frequencies,
-        :quantities,
-        :freq_unit,
-        :length_unit,
-        :quantity_units,
-        :con,
-        :xscale,
-        :yscale
-    )
-end
-PlotBuilder.renderer_kwargs(::Type{LineParameterPlotDefinition}) = (:fig_size,)
 function PlotBuilder.input_defaults(::Type{LineParameterPlotDefinition}, ::LineParameters)
     _line_input_defaults(nothing)
 end
@@ -448,7 +427,7 @@ function _line_curves(observation, parent, selector)
     end
 end
 
-function _line_page(configuration, published, parent)
+function _line_page(configuration, published, parent, page_index::Int)
     selected = Tuple(
         (scientific_request, observation)
     for (scientific_request, observation) in zip(configuration.input.requests, published.observations)
@@ -488,17 +467,23 @@ function _line_page(configuration, published, parent)
         )
     end
     title = Units.label(Units.quantity(parent))
-    return LinePagePayload(
+    key = (;
+        page = page_index,
+        family = parent,
+        requests = first.(selected)
+    )
+    payload = LinePagePayload(panels, nothing)
+    return PlotBuilder.PlotPage(
         title,
-        (; family = parent, requests = first.(selected)),
-        panels,
-        PlotBuilder.LegendDefinition(),
-        PlotBuilder.ExportDefinition(
+        configuration.renderer.fig_size,
+        key,
+        payload;
+        legend = PlotBuilder.LegendDefinition(),
+        export_definition = PlotBuilder.ExportDefinition(
             theme = configuration.renderer.export_theme,
             name = title,
             open_file = configuration.renderer.open_export
-        ),
-        nothing
+        )
     )
 end
 
@@ -512,17 +497,10 @@ function PlotBuilder.fetch(
         request::NamedTuple
 )
     published = _publish_line_source(object, request.input, request.input.requests)
-    pages = length(published.frequency.values) <= 1 ? () :
-            Tuple(
-        _line_page(request, published, parent)
+    length(published.frequency.values) <= 1 && return PlotBuilder.PlotPage[]
+    parents = Tuple(parent
     for parent in _line_parents(object)
-    if any(item -> line_parent(item) === parent, request.input.requests)
-    )
-    return PlotBuilder.PlotPage[PlotBuilder.PlotPage(
-                                    payload.title,
-                                    request.renderer.fig_size,
-                                    merge((; page = page_index), payload.key),
-                                    payload
-                                )
-                                for (page_index, payload) in enumerate(pages)]
+    if any(item -> line_parent(item) === parent, request.input.requests))
+    return PlotBuilder.PlotPage[_line_page(request, published, parent, page_index)
+                                for (page_index, parent) in enumerate(parents)]
 end

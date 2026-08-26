@@ -13,6 +13,7 @@ mutable struct UIContext
     responsive_legend::Any
     legend_slot_grid::Any
     observers::Vector{Any}
+    export_state::ExportDefinition
     plot_reference::Base.RefValue{Any}
 end
 

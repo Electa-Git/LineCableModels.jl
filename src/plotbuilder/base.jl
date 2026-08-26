@@ -59,14 +59,12 @@ function Base.show(io::IO, value::PlotRecipe)
 end
 
 function Base.show(io::IO, value::UIPlot)
-    backend = hasproperty(value.context, :backend) ? getproperty(value.context, :backend) :
-              :unknown
     return _show_summary(
         io,
         "UIPlot",
         :title => value.page.title,
-        :panels => length(value.panels),
-        :backend => backend
+        :panels => length(value.context.panels),
+        :backend => value.context.backend
     )
 end
 

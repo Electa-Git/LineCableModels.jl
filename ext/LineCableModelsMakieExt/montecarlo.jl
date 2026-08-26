@@ -67,7 +67,7 @@ function _draw_distribution_page!(context::UIContext, page::PlotPage)
         context.canvas[1, 1],
         payload.x_observation,
         payload.y_observation;
-        title = payload.title,
+        title = page.title,
         xlabel = payload.xlabel,
         ylabel = payload.ylabel,
         xscale = state.xscale,
@@ -129,16 +129,21 @@ function _replay_page(plot::UIPlot, ::Type{MCDistributionDefinition})
     panel = only(plot.panels)
     runtime = _current_panel_state(panel)
     payload = LineCableModels.UQ.MCDistributionPagePayload(
-        original.title,
-        original.key,
         original.x_observation,
         original.y_observation,
         original.xlabel,
         original.ylabel,
         original.layers,
-        original.legend,
-        original.export_definition,
         runtime
     )
-    return PlotPage(plot.page.title, plot.page.size, plot.page.key, payload)
+    return PlotPage(
+        plot.page.title,
+        plot.page.size,
+        plot.page.key,
+        payload;
+        legend = plot.page.legend,
+        colorbars = plot.page.colorbars,
+        widgets = plot.page.widgets,
+        export_definition = plot.page.export_definition
+    )
 end

@@ -136,6 +136,35 @@
         @test all(handle -> length(handle.panels) == 2, rlcg)
         @test rlcg[1].context !== rlcg[2].context
         @test rlcg[1].context.status !== rlcg[2].context.status
+        first_handle=first(rlcg)
+        @test fieldnames(typeof(first_handle)) == (:render, :page, :context)
+        @test fieldnames(typeof(first_handle.context)) == (
+            :backend,
+            :interactive,
+            :window,
+            :figure,
+            :shell,
+            :canvas,
+            :status,
+            :panels,
+            :widgets,
+            :legend,
+            :colorbars,
+            :responsive_legend,
+            :legend_slot_grid,
+            :observers,
+            :export_state,
+            :plot_reference
+        )
+        @test first_handle.figure === first_handle.context.figure
+        @test first_handle.panels === first_handle.context.panels
+        @test first_handle.controls === first_handle.context.widgets
+        @test first_handle.context.export_state.theme ===
+              first_handle.page.export_definition.theme
+        @test all(
+            name -> !hasproperty(first_handle.page.payload, name),
+            (:title, :key, :legend, :colorbars, :widgets, :export_definition)
+        )
         series_plots=Makie.plot(
             series,
             frequency;
@@ -568,7 +597,7 @@
         cable_plot=preview(design; backend = :cairo, display_plot = false)
         @test cable_plot isa UIPlot
         @test !isempty(cable_plot.page.payload.polygons)
-        @test length(cable_plot.page.payload.colorbars) == 3
+        @test length(cable_plot.page.colorbars) == 3
         @test sort!(collect(keys(cable_plot.controls))) ==
               [:export_svg, :legend, :reset]
         cable_legend=cable_plot.controls[:legend]
@@ -740,19 +769,13 @@
             display_plot = false
         )
         @test material_plot isa UIPlot
-        @test length(material_plot.page.payload.colorbars) == 3
+        @test length(material_plot.page.colorbars) == 3
         @test collect(keys(material_plot.controls)) == [:export_svg]
         test_golden(material_plot, "material_scale")
 
         local_payload=(;
             x = [1.0, 2.0, 3.0],
-            y = [2.0, 3.0, 5.0],
-            legend = TestPlotBuilder.LegendDefinition(),
-            colorbars = (),
-            export_definition = TestPlotBuilder.ExportDefinition(
-                name = "test-owned-definition",
-                open_file = false
-            )
+            y = [2.0, 3.0, 5.0]
         )
         local_recipe=TestPlotBuilder.PlotRecipe(
             TestOwnedPlotDefinition,
@@ -760,7 +783,12 @@
                 "Test-owned definition",
                 (400, 300),
                 (; kind = :test_owned),
-                local_payload
+                local_payload;
+                legend = TestPlotBuilder.LegendDefinition(),
+                export_definition = TestPlotBuilder.ExportDefinition(
+                    name = "test-owned-definition",
+                    open_file = false
+                )
             )]
         )
         local_plot=only(TestUIComponents.build(

@@ -13,8 +13,28 @@
     end
 
     @test length(methods(PB.make_render)) == 1
-    @test fieldnames(PB.PlotPage) == (:title, :size, :key, :payload)
+    @test fieldnames(PB.PlotPage) == (
+        :title,
+        :size,
+        :key,
+        :payload,
+        :legend,
+        :colorbars,
+        :widgets,
+        :export_definition
+    )
     @test fieldnames(PB.PlotRecipe) == (:definition, :pages)
+    @test fieldnames(PB.UIPlot) == (:render, :page, :context)
+    @test all(name -> !isdefined(PB, name),
+        (
+            :input_kwargs,
+            :renderer_kwargs,
+            :_symbol_tuple,
+            :_validate_defaults,
+            :_BACKEND_EXTENSIONS,
+            :_backend_extension,
+            :_backend_package
+        ))
 
     struct ProfileResult
         frequency::Vector{Float64}
@@ -55,8 +75,6 @@
         push!(profile_stage_calls, :entitle)
         return source
     end
-    PB.input_kwargs(::Type{ProfilePlotDefinition}) = (:grouping, :color)
-    PB.renderer_kwargs(::Type{ProfilePlotDefinition}) = (:size,)
     function PB.input_defaults(::Type{ProfilePlotDefinition}, ::ProfileResult)
         push!(profile_stage_calls, :parse)
         return (; grouping = :overlay, color = :steelblue)
@@ -98,11 +116,11 @@
                 (; page = index),
                 (;
                     published,
-                    color = request.input.color,
-                    legend,
-                    colorbars = (),
-                    export_definition
-                )
+                    color = request.input.color
+                );
+                legend,
+                colorbars = (),
+                export_definition
             )
         for index in 1:count)
     end
@@ -160,21 +178,25 @@
     PB.resolve(::Type{MissingFetchDefinition}, ::ProfileResult, request::NamedTuple) = request
     @test_throws MethodError PB.make_render(MissingFetchDefinition, source)
 
-    struct BadDefaultsDefinition<:PB.AbstractPlotDefinition end
-    PB.dispatch_on(::Type{BadDefaultsDefinition}) = ProfileResult
-    PB.input_kwargs(::Type{BadDefaultsDefinition}) = (:mode,)
-    PB.input_defaults(::Type{BadDefaultsDefinition}, ::ProfileResult) = (;)
-    @test_throws ArgumentError PB.make_render(BadDefaultsDefinition, source)
+    struct InvalidDefaultsDefinition<:PB.AbstractPlotDefinition end
+    PB.dispatch_on(::Type{InvalidDefaultsDefinition}) = ProfileResult
+    PB.input_defaults(::Type{InvalidDefaultsDefinition}, ::ProfileResult) = ()
+    @test_throws ArgumentError PB.make_render(InvalidDefaultsDefinition, source)
 
     struct DuplicateOptionDefinition<:PB.AbstractPlotDefinition end
     PB.dispatch_on(::Type{DuplicateOptionDefinition}) = ProfileResult
-    PB.input_kwargs(::Type{DuplicateOptionDefinition}) = (:mode,)
-    PB.renderer_kwargs(::Type{DuplicateOptionDefinition}) = (:mode,)
     PB.input_defaults(::Type{DuplicateOptionDefinition}, ::ProfileResult) = (; mode = :a)
     PB.renderer_defaults(::Type{DuplicateOptionDefinition}, ::ProfileResult) = (; mode = :b)
     @test_throws ArgumentError PB.make_render(DuplicateOptionDefinition, source)
 
     page=only(recipe.pages)
+    @test page.legend.enabled
+    @test isempty(page.colorbars)
+    @test page.export_definition.name == "profile"
+    @test all(
+        name -> !hasproperty(page.payload, name),
+        (:title, :key, :legend, :colorbars, :widgets, :export_definition)
+    )
     @test_throws ArgumentError PB.PlotPage("invalid", (0, 400), (; page = 0), (;))
     @test_throws ArgumentError PB.PlotRecipe(ProfilePlotDefinition, (page, page))
     @test_throws ArgumentError PB.PlotRecipe(ProfilePlotDefinition, (page, :not_a_page))
@@ -265,7 +287,7 @@
     @test all(
         name -> !isfile(joinpath(pkgdir(LineCableModels), "src", "plotbuilder", name)),
         ("axes.jl", "series.jl", "views.jl", "pages.jl", "composition.jl",
-            "validation.jl"))
+            "validation.jl", "uiplot.jl"))
 
     shell_source=read(
         joinpath(
@@ -291,6 +313,9 @@
     )
     positions=map(stage->first(findfirst(stage, build_page_source)), ui_stages)
     @test issorted(positions)
+    @test !occursin("hasproperty(page.payload", shell_source)
+    @test all(name -> !occursin(name, shell_source),
+        ("_page_legend", "_page_colorbars", "_page_export"))
 
     @test all(name -> name in names(PB), (:plotwindow, :axis!, :register!))
     @test all(name -> name ∉ names(LineCableModels), (:plotwindow, :axis!, :register!))

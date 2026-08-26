@@ -1,17 +1,11 @@
 struct NativeCanvasPlotDefinition <: PlotBuilder.AbstractPlotDefinition end
 
 """
-Store a native-canvas callback and the shell declarations needed to replay it.
+Store a native-canvas callback and the state needed to replay it.
 """
-struct NativeCanvasPayload{F, C, E, S}
+struct NativeCanvasPayload{F, S}
     "Concrete callable invoked with the Makie UI context."
     callback::F
-    "Legend behavior supplied to the standard shell."
-    legend::LegendDefinition
-    "Color scales displayed in the standard side dock."
-    colorbars::C
-    "SVG export behavior supplied to the standard shell."
-    export_definition::E
     "Captured runtime state used for current-state SVG replay."
     runtime::S
 end
@@ -294,12 +288,18 @@ function _replay_page(plot::UIPlot, ::Type{NativeCanvasPlotDefinition})
     runtime = (; panels = Tuple(_current_panel_state.(plot.panels)))
     payload = NativeCanvasPayload(
         original.callback,
-        original.legend,
-        original.colorbars,
-        original.export_definition,
         runtime
     )
-    return PlotPage(plot.page.title, plot.page.size, plot.page.key, payload)
+    return PlotPage(
+        plot.page.title,
+        plot.page.size,
+        plot.page.key,
+        payload;
+        legend = plot.page.legend,
+        colorbars = plot.page.colorbars,
+        widgets = plot.page.widgets,
+        export_definition = plot.page.export_definition
+    )
 end
 
 function PlotBuilder.plotwindow(
@@ -318,20 +318,20 @@ function PlotBuilder.plotwindow(
 ) where {F}
     payload = NativeCanvasPayload(
         callback,
-        LegendDefinition(enabled = legend),
-        Tuple(_native_colorbar(definition) for definition in colorbars),
-        ExportDefinition(
-            theme = export_theme,
-            name = export_name,
-            open_file = open_export
-        ),
         nothing
     )
     page = PlotPage(
         title,
         size,
         (; kind = :native_canvas),
-        payload
+        payload;
+        legend = LegendDefinition(enabled = legend),
+        colorbars = Tuple(_native_colorbar(definition) for definition in colorbars),
+        export_definition = ExportDefinition(
+            theme = export_theme,
+            name = export_name,
+            open_file = open_export
+        )
     )
     recipe = PlotRecipe(NativeCanvasPlotDefinition, (page,))
     return only(build(

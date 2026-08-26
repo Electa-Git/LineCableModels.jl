@@ -48,16 +48,10 @@ function register! end
 "Return the source type accepted by a plot definition."
 function dispatch_on end
 
-"Return semantic keyword names accepted by a plot definition."
-input_kwargs(::Type{D}) where {D <: AbstractPlotDefinition} = ()
-
-"Return definition-specific renderer keyword names."
-renderer_kwargs(::Type{D}) where {D <: AbstractPlotDefinition} = ()
-
-"Return defaults for every semantic keyword declared by a plot definition."
+"Return defaults for every semantic keyword accepted by a plot definition."
 input_defaults(::Type{D}, source) where {D <: AbstractPlotDefinition} = (;)
 
-"Return defaults for every definition-specific renderer keyword."
+"Return defaults for every definition-specific renderer keyword accepted."
 renderer_defaults(::Type{D}, source) where {D <: AbstractPlotDefinition} = (;)
 
 "Reject an unsupported definition/source pair before any later stage runs."
@@ -69,39 +63,9 @@ function entitle(::Type{D}, source) where {D <: AbstractPlotDefinition}
     return source
 end
 
-function _symbol_tuple(::Type{D}, values, accessor::Symbol) where {D <:
-                                                                   AbstractPlotDefinition}
-    values isa Tuple || throw(
-        ArgumentError("$accessor($D) must return a tuple of symbols"),
-    )
-    all(value -> value isa Symbol, values) || throw(
-        ArgumentError("$accessor($D) must return a tuple of symbols"),
-    )
-    length(unique(values)) == length(values) || throw(
-        ArgumentError("$accessor($D) cannot declare duplicate keywords"),
-    )
-    return values
-end
-
 function _select_kwargs(kwargs::NamedTuple, names::Tuple)
     selected = Tuple(pair for pair in pairs(kwargs) if first(pair) in names)
     return NamedTuple(selected)
-end
-
-function _validate_defaults(
-        ::Type{D},
-        defaults::NamedTuple,
-        names::Tuple,
-        accessor::Symbol
-) where {D <: AbstractPlotDefinition}
-    actual = Tuple(keys(defaults))
-    Set(actual) == Set(names) || throw(
-        ArgumentError(
-        "$accessor($D) must define exactly the declared keywords; " *
-        "declared $(collect(names)), received $(collect(actual))",
-    ),
-    )
-    return defaults
 end
 
 """
@@ -115,8 +79,16 @@ function parse(
         source,
         kwargs::NamedTuple
 ) where {D <: AbstractPlotDefinition}
-    input_names = _symbol_tuple(D, input_kwargs(D), :input_kwargs)
-    renderer_names = _symbol_tuple(D, renderer_kwargs(D), :renderer_kwargs)
+    declared_input = input_defaults(D, source)
+    declared_input isa NamedTuple || throw(
+        ArgumentError("input_defaults($D) must return a NamedTuple"),
+    )
+    declared_renderer = renderer_defaults(D, source)
+    declared_renderer isa NamedTuple || throw(
+        ArgumentError("renderer_defaults($D) must return a NamedTuple"),
+    )
+    input_names = Tuple(keys(declared_input))
+    renderer_names = Tuple(keys(declared_renderer))
     collisions = intersect(input_names, renderer_names)
     isempty(collisions) || throw(
         ArgumentError("$D declares keywords in both input and renderer options: $(join(collisions, ", "))"),
@@ -131,17 +103,6 @@ function parse(
     isempty(unsupported) || throw(
         ArgumentError("unsupported plot keyword(s) for $D: $(join(unsupported, ", "))"),
     )
-
-    declared_input = input_defaults(D, source)
-    declared_input isa NamedTuple || throw(
-        ArgumentError("input_defaults($D) must return a NamedTuple"),
-    )
-    declared_renderer = renderer_defaults(D, source)
-    declared_renderer isa NamedTuple || throw(
-        ArgumentError("renderer_defaults($D) must return a NamedTuple"),
-    )
-    _validate_defaults(D, declared_input, input_names, :input_defaults)
-    _validate_defaults(D, declared_renderer, renderer_names, :renderer_defaults)
 
     input = merge(declared_input, _select_kwargs(kwargs, input_names))
     renderer = merge(

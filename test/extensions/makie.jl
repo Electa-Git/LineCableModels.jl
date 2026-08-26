@@ -17,13 +17,19 @@
     @test backends.current_backend_symbol() === :none
     for backend in (:cairo, :gl, :wgl)
         @test !backends.backend_available(backend)
+        @test !backends.backend_available(Val(backend))
         @test_throws ArgumentError backends.set_backend!(backend)
+        @test_throws ArgumentError backends.set_backend!(Val(backend))
         @test backends.make_screen(backend, "headless") === nothing
+        @test backends.make_screen(Val(backend), "headless") === nothing
     end
     @test_throws ArgumentError backends.backend_available(:unknown)
+    @test_throws ArgumentError backends.backend_available(Val(:unknown))
     @test_throws ArgumentError backends.set_backend!(:unknown)
+    @test_throws ArgumentError backends.set_backend!(Val(:unknown))
     @test_throws ArgumentError backends.ensure_backend!()
     @test_throws ArgumentError backends.ensure_backend!(:cairo)
+    @test_throws ArgumentError backends.ensure_backend!(Val(:cairo))
     @test_throws ArgumentError backends.renderfig(nothing)
     @test backends.next_fignum() + 1 == backends.next_fignum()
 end

@@ -104,8 +104,9 @@ src/
 ├── plotbuilder/
 │   ├── PlotBuilder.jl
 │   ├── interfaces.jl
-│   ├── composition.jl
+│   ├── types.jl                     # page, recipe, and completed-handle contracts
 │   ├── render.jl                      # fixed recipe action
+│   ├── base.jl                        # concise Base presentation
 │   └── backends.jl                    # extension activation only
 ├── uq/
 │   ├── UQ.jl
@@ -130,7 +131,13 @@ src/
 ext/
 ├── LineCableModelsMakieExt/
 │   ├── LineCableModelsMakieExt.jl     # Makie extension index
-│   └── UIComponents.jl                # Makie-owned translation and controls
+│   ├── UIComponents.jl                # Makie-owned index
+│   ├── context.jl                     # single mutable UI runtime owner
+│   ├── shell.jl                       # fixed shell assembly action
+│   ├── lineparameters.jl
+│   ├── montecarlo.jl
+│   ├── previews.jl
+│   └── native.jl
 └── LineCableModelsXLSXExt.jl          # XLSX workbook writer
 
 dev/

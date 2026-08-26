@@ -39,14 +39,18 @@
                    !isempty(polygon.geometry.interiors),
         cable_payload.polygons
     )
-    @test length(cable_payload.colorbars) == 3
-    @test cable_payload.colorbars[2].ticks == ([0.5], ["1"])
+    @test length(cable_page.colorbars) == 3
+    @test cable_page.colorbars[2].ticks == ([0.5], ["1"])
     @test all(
         descriptor -> length(unique(descriptor.ticks[2])) == length(descriptor.ticks[2]),
-        cable_payload.colorbars)
-    @test cable_payload.legend.enabled
-    @test cable_payload.export_definition.theme === :default
-    @test cable_payload.export_definition.open_file
+        cable_page.colorbars)
+    @test cable_page.legend.enabled
+    @test cable_page.export_definition.theme === :default
+    @test cable_page.export_definition.open_file
+    @test all(
+        name -> !hasproperty(cable_payload, name),
+        (:title, :key, :legend, :colorbars, :widgets, :export_definition)
+    )
     @test cable_page.key == (; kind = :cable, id = design.cable_id)
 
     cable_without_chrome=plot_builder.make_render(
@@ -55,8 +59,8 @@
         display_legend = false,
         display_colorbars = false
     )
-    @test !only(cable_without_chrome.pages).payload.legend.enabled
-    @test isempty(only(cable_without_chrome.pages).payload.colorbars)
+    @test !only(cable_without_chrome.pages).legend.enabled
+    @test isempty(only(cable_without_chrome.pages).colorbars)
 
     publication_cable=plot_builder.make_render(
         LineCableModels.DataModel.CablePreviewPlotDefinition,
@@ -64,8 +68,8 @@
         export_theme = :publication,
         open_export = false
     )
-    @test only(publication_cable.pages).payload.export_definition.theme === :publication
-    @test !only(publication_cable.pages).payload.export_definition.open_file
+    @test only(publication_cable.pages).export_definition.theme === :publication
+    @test !only(publication_cable.pages).export_definition.open_file
     @test_throws ArgumentError plot_builder.make_render(
         LineCableModels.DataModel.CablePreviewPlotDefinition,
         design;
@@ -93,13 +97,13 @@
     @test earth_reference.values == [0.0]
     @test earth_reference.color === :black
     @test earth_reference.width == 1.5
-    @test length(system_payload.colorbars) == 3
+    @test length(system_page.colorbars) == 3
     @test all(
         descriptor -> length(descriptor.ticks[1]) == 1 &&
                       length(descriptor.ticks[2]) == 1,
-        system_payload.colorbars
+        system_page.colorbars
     )
-    @test getproperty.(system_payload.colorbars, :ticks) ==
+    @test getproperty.(system_page.colorbars, :ticks) ==
           (([0.5], ["100"]), ([0.5], ["1"]), ([0.5], ["10"]))
 
     zoomed_render=plot_builder.make_render(
@@ -125,10 +129,11 @@
         nothing
     )
     scale_page=only(scale_render.pages)
-    @test length(scale_page.payload.colorbars) == 3
-    @test scale_page.payload.export_definition.theme === :default
-    @test scale_page.payload.export_definition.open_file
-    @test !scale_page.payload.legend.enabled
+    @test scale_page.payload === nothing
+    @test length(scale_page.colorbars) == 3
+    @test scale_page.export_definition.theme === :default
+    @test scale_page.export_definition.open_file
+    @test !scale_page.legend.enabled
 end
 
 @testitem "PlotBuilder / cable geometry / sector strands and fallback identities" tags=[:unit] setup=[

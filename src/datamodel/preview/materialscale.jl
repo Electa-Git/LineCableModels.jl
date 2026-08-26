@@ -1,5 +1,4 @@
 PlotBuilder.dispatch_on(::Type{MaterialScalePlotDefinition}) = Nothing
-PlotBuilder.renderer_kwargs(::Type{MaterialScalePlotDefinition}) = (:size,)
 function PlotBuilder.renderer_defaults(::Type{MaterialScalePlotDefinition}, ::Nothing)
     return (; size = (800, 400))
 end
@@ -24,25 +23,24 @@ function PlotBuilder.fetch(
         request::NamedTuple
 )
     title = "Material property colour scale"
-    payload = MaterialScalePayload(
-        _colorbar_specs(
-            (_RHO_MIN, _RHO_MAX),
-            (1.0, 300.0),
-            (1.0, 1000.0)
-        ),
-        PlotBuilder.LegendDefinition(enabled = false),
-        PlotBuilder.ExportDefinition(
-            theme = request.renderer.export_theme,
-            name = "material_scale",
-            open_file = request.renderer.open_export
-        )
+    colorbars = _colorbar_specs(
+        (_RHO_MIN, _RHO_MAX),
+        (1.0, 300.0),
+        (1.0, 1000.0)
     )
     return PlotBuilder.PlotPage[
         PlotBuilder.PlotPage(
         title,
         request.renderer.size,
         (; kind = :material_scale),
-        payload
+        nothing;
+        legend = PlotBuilder.LegendDefinition(enabled = false),
+        colorbars,
+        export_definition = PlotBuilder.ExportDefinition(
+            theme = request.renderer.export_theme,
+            name = "material_scale",
+            open_file = request.renderer.open_export
+        )
     ),
     ]
 end

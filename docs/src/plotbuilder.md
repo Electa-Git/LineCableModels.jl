@@ -44,13 +44,26 @@ and detached payload types. The Makie extension owns figures, axes, drawing,
 interaction, responsive layout, widgets, and SVG replay.
 
 `PlotRecipe` is a final product, not an intermediate compiler state. Its only
-fields are `definition` and `pages`. A `PlotPage` contains only `title`,
-`size`, `key`, and a definition-owned `payload`. Neither value retains the
-plotted source, parsed request, resolved request, or backend object.
+fields are `definition` and `pages`. A `PlotPage` owns `title`, `size`, `key`,
+the definition-owned `payload`, and the legend, colorbar, widget, and export
+declarations consumed by the renderer shell. Neither value retains the plotted
+source, parsed request, resolved request, or backend object.
 
 The payload is allowed to contain completed geometry, published observations,
-styles, shell declarations, and captured display state. It must not require
-the Makie extension to reopen an owned scientific result.
+styles, and captured display state. It contains drawing data, not shell
+declarations, and must not require the Makie extension to reopen an owned
+scientific result.
+
+A rendered page returns `UIPlot(render, page, context)`. Its `UIContext` is the
+only mutable owner of the figure, shell, canvas, panels, widgets, legend,
+colorbars, status, observers, window, and current export settings. The familiar
+`plot.figure`, `plot.panels`, and `plot.controls` properties forward to that
+context; `UIPlot` does not store duplicate copies.
+
+Public backend selectors accept symbols and immediately route to the same
+`Val` method family used for availability, activation, restoration, and screen
+construction. The backend specification for each tag holds its extension and
+package names, so there is no parallel registry or symbol switch.
 
 ## Maintained families
 
@@ -143,10 +156,9 @@ parsed = PlotBuilder.parse(
 )
 ````
 
-Semantic keywords are declared through `input_kwargs` and `input_defaults`.
-Definition-specific renderer keywords use `renderer_kwargs` and
-`renderer_defaults`. The only common renderer keywords are `export_theme` and
-`open_export`.
+The keys returned by `input_defaults` declare semantic keywords. The keys from
+`renderer_defaults` declare definition-specific renderer keywords. The only
+common renderer keywords are `export_theme` and `open_export`.
 
 `make_render` owns the complete core sequence. `entitle` rejects an unsupported
 source before parsing can cause later work. `resolve` validates and completes
@@ -226,7 +238,7 @@ function UIComponents.draw!(
         context.canvas[1, 1],
         payload.x_observation,
         payload.y_observation;
-        title = payload.title
+        title = page.title
     )
     lines!(axis, payload.x, payload.y)
     return context
@@ -327,7 +339,8 @@ overwritten.
 Test a maintained definition at three boundaries:
 
 1. Construct the recipe without Makie and assert page cardinality, order,
-   payload data, observation keys, units, labels, and shell declarations.
+   payload data, observation keys, units, and labels, then assert shell
+   declarations on the page.
 2. Render with CairoMakie and exercise drawing, formatting, limits, visibility,
    scales, responsive docks, and current-state SVG replay.
 3. Compare representative Cairo output with the immutable golden fixtures and

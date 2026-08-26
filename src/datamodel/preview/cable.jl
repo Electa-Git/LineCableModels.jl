@@ -1,14 +1,4 @@
 PlotBuilder.dispatch_on(::Type{CablePreviewPlotDefinition}) = CableDesign
-function PlotBuilder.input_kwargs(::Type{CablePreviewPlotDefinition})
-    (
-        :x_offset,
-        :y_offset,
-        :display_legend,
-        :display_id,
-        :display_colorbars
-    )
-end
-PlotBuilder.renderer_kwargs(::Type{CablePreviewPlotDefinition}) = (:size,)
 function PlotBuilder.input_defaults(::Type{CablePreviewPlotDefinition}, ::CableDesign)
     (;
         x_offset = 0.0,
@@ -56,20 +46,25 @@ function PlotBuilder.fetch(
     payload = PreviewPayload(
         polygons,
         (),
-        title,
         nothing,
-        colorbars,
-        PlotBuilder.LegendDefinition(enabled = request.input.display_legend),
-        identity,
-        PlotBuilder.ExportDefinition(
-            theme = request.renderer.export_theme,
-            name = design.cable_id,
-            open_file = request.renderer.open_export
-        ),
         nothing
     )
     return PlotBuilder.PlotPage[
-        PlotBuilder.PlotPage(title, request.renderer.size, identity, payload),
+        PlotBuilder.PlotPage(
+        title,
+        request.renderer.size,
+        identity,
+        payload;
+        legend = PlotBuilder.LegendDefinition(
+            enabled = request.input.display_legend,
+        ),
+        colorbars,
+        export_definition = PlotBuilder.ExportDefinition(
+            theme = request.renderer.export_theme,
+            name = design.cable_id,
+            open_file = request.renderer.open_export
+        )
+    ),
     ]
 end
 

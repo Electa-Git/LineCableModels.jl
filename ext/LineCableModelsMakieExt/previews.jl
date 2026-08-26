@@ -34,9 +34,10 @@ function _preview_registry(entries)
     return groups, group_labels
 end
 
-function _draw_preview!(context::UIContext, payload)
+function _draw_preview!(context::UIContext, page::PlotPage)
     context.canvas === nothing && error("the standard shell has no canvas")
-    axis = _preview_axis!(context, payload.title)
+    payload = page.payload
+    axis = _preview_axis!(context, page.title)
     state = payload.runtime === nothing ?
             (;
         hidden_groups = (),
@@ -90,7 +91,7 @@ function draw!(
         ::Type{CablePreviewDefinition},
         page::PlotPage
 )
-    return _draw_preview!(context, page.payload)
+    return _draw_preview!(context, page)
 end
 
 function draw!(
@@ -98,7 +99,7 @@ function draw!(
         ::Type{SystemPreviewDefinition},
         page::PlotPage
 )
-    return _draw_preview!(context, page.payload)
+    return _draw_preview!(context, page)
 end
 
 function _current_preview_page(plot::UIPlot)
@@ -116,15 +117,19 @@ function _current_preview_page(plot::UIPlot)
     payload = LineCableModels.DataModel.PreviewPayload(
         original.polygons,
         original.references,
-        original.title,
         original.limits,
-        original.colorbars,
-        original.legend,
-        original.key,
-        original.export_definition,
         runtime
     )
-    return PlotPage(plot.page.title, plot.page.size, plot.page.key, payload)
+    return PlotPage(
+        plot.page.title,
+        plot.page.size,
+        plot.page.key,
+        payload;
+        legend = plot.page.legend,
+        colorbars = plot.page.colorbars,
+        widgets = plot.page.widgets,
+        export_definition = plot.page.export_definition
+    )
 end
 
 function _replay_page(plot::UIPlot, ::Type{CablePreviewDefinition})
