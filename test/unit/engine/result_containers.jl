@@ -205,6 +205,11 @@
     @test rlgc_units[(:series, :R)] == "Ω"
     @test rlgc_units[(:series, :L)] == "mH"
     @test rlgc_units[(:shunt, :C)] == "μF"
+    subset_table=DataFrame(parameters, (@observe(R[2, 1, 2:3]),))
+    @test subset_table.row == [2, 2]
+    @test subset_table.column == [1, 1]
+    @test subset_table.frequency == frequency[2:3]
+    @test subset_table.quantity == [:R, :R]
     @test_throws ArgumentError DataFrame(parameters; tol = -1.0)
 
     zero_frequency=LineParameters(
@@ -464,6 +469,14 @@ end
         [2]
     )
     @test observe(line_result, samples, R, 1, 1, 1, 1, :) == fill(1.0e-4, 2)
+    @test observe(line_result, frequencies, 1, :) == frequency
+    line_frequency=observables(
+        line_result,
+        (frequency = (frequencies, 1, Colon()),)
+    ).frequency
+    @test line_frequency.values == frequency
+    @test line_frequency.quantity == quantity(frequencies)
+    @test line_frequency.unit == units(:base, :hertz)
     malformed_samples=(R = storage.R[:, :, 1:1, :], L = storage.L,
         C = storage.C, G = storage.G)
     @test_throws DimensionMismatch MonteCarloResult(

@@ -39,10 +39,10 @@
         "Y(1,1)", "Y(1,2)", "Y(2,1)", "Y(2,2)"
     ]
     @test encoded.sheets[1].cells == ["frequency" "Hz" "";
-           "real" "Ω/km" "";
-           "imag" "Ω/km" "";
+           "R" "Ω/km" "";
+           "X" "Ω/km" "";
            "" "" "";
-           "frequency" "real" "imag";
+           "frequency" "R" "X";
            "50" "1000" "2000"]
     @test report_builder.encode_cell(definition, missing) == ""
     @test report_builder.encode_cell(definition, 1 / 3) == "0.333333333333"

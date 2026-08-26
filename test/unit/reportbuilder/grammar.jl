@@ -9,13 +9,17 @@
         values::Vector{Float64}
     end
     profile_response(source::ReportProfile) = source.values
+    const report_observation_calls = Ref(0)
 
     LineCableModels.basis(::ReportProfile) = :total
     LineCableModels.observe(
         source::ReportProfile,
         ::typeof(profile_response),
         indices...
-    ) = isempty(indices) ? source.values : getindex(source.values, indices...)
+    ) = begin
+        report_observation_calls[] += 1
+        isempty(indices) ? source.values : getindex(source.values, indices...)
+    end
     LineCableModels.observables(::Type{<:ReportProfile}) = (profile_response,)
     U.quantity(::typeof(profile_response)) = U.Quantity{:report_response}()
     U.native_unit(::U.Quantity{:report_response}) = U.units(:base, :ohm)
@@ -24,23 +28,19 @@
     U.symbol(::U.Quantity{:report_response}) = "u"
 
     struct ReportProfilePlot <: PB.AbstractPlotDefinition end
-    PB.dispatch_on(::Type{ReportProfilePlot}) = ReportProfile
+    PB.dispatch_on(::Type{ReportProfilePlot}) = NamedTuple
     function PB.resolve(
             ::Type{ReportProfilePlot},
-            ::ReportProfile,
+            ::NamedTuple,
             request::NamedTuple
     )
         return request
     end
     function PB.fetch(
             ::Type{ReportProfilePlot},
-            source::ReportProfile,
+            published::NamedTuple,
             request::NamedTuple
     )
-        published = LineCableModels.observables(
-            source,
-            (response = profile_response,)
-        )
         payload = (;
             published,
             legend = PB.LegendDefinition(enabled = false),
@@ -62,6 +62,7 @@
     )
     artifact = report(definition, source)
 
+    @test report_observation_calls[] == 1
     @test artifact isa ReportArtifact
     @test parentmodule(typeof(artifact)) === RB
     @test artifact.table.response == [1_000.0, 2_000.0]
@@ -69,6 +70,8 @@
     @test DataFrames.metadata(artifact.table, "headings")[:response] ==
           "Response [mΩ]"
     @test artifact.illustration isa PB.PlotRecipe
+    @test only(artifact.illustration.pages).payload.published.response.values ==
+          artifact.table.response
     @test artifact.output === nothing
     artifact.table.response[1] = 0.0
     @test source.values == [1.0, 2.0]
@@ -216,11 +219,11 @@ end
             worksheet=workbook["Z(1,1)"]
             @test worksheet["A1"] == "frequency"
             @test worksheet["B1"] == "Hz"
-            @test worksheet["A2"] == "real"
+            @test worksheet["A2"] == "R"
             @test worksheet["B2"] == "Ω/km"
             @test worksheet["A5"] == "frequency"
-            @test worksheet["B5"] == "real"
-            @test worksheet["C5"] == "imag"
+            @test worksheet["B5"] == "R"
+            @test worksheet["C5"] == "X"
             @test worksheet["A6"] == "50"
             @test worksheet["B6"] == "1000"
             @test worksheet["C6"] == "2000"
@@ -339,7 +342,7 @@ end
 
     target=only(LineCableModels.Grammar.unit_targets(
         (R,),
-        basis(only(LineCableModels.statistics(monte_carlo)));
+        basis(monte_carlo);
         length_prefix = :kilo,
         overrides = :milli
     ))
@@ -348,6 +351,9 @@ end
         monte_carlo
     )
     @test only(selected).published.R.unit == target
+    @test only(selected).frequency === nothing
+    @test only(selected).published.R.quantity ==
+          LineCableModels.Units.quantity(R)
 
     for name in (
         :TableReportDefinition,

@@ -196,25 +196,24 @@ function _table_requests(source, requested::Tuple)
     return requests
 end
 
-function _table_indices(selector, count::Int)
-    selector isa Colon && return collect(1:count)
+function _table_indices(selector)
+    selector isa Colon && return selector
     selector isa Integer && return [Int(selector)]
     selector isa AbstractRange && return collect(Int, selector)
     selector isa AbstractVector && return collect(Int, selector)
     throw(ArgumentError("observable indices must be integers, ranges, vectors, or `:`"))
 end
 
-function _table_coordinates(source, request)
+function _table_coordinates(request)
     row, column, sample = _table_request_indices(request)
-    dimensions = source isa Engine.LineParameters ? size(Z(source)) : size(source)
-    rows = _table_indices(row, dimensions[1])
-    columns = _table_indices(column, dimensions[2])
-    samples = _table_indices(sample, dimensions[3])
+    rows = _table_indices(row)
+    columns = _table_indices(column)
+    samples = _table_indices(sample)
     return rows, columns, samples
 end
 
-function _materialized_table_request(source, frequencies, request)
-    rows, columns, samples = _table_coordinates(source, request)
+function _materialized_table_request(source, frequencies, request, coordinates)
+    rows, columns, samples = coordinates
     identity = _table_request_identity(request)
     prefix = identity isa Tuple ? identity : (identity,)
     source isa Engine.SeriesImpedance && identity === L &&
@@ -224,20 +223,30 @@ function _materialized_table_request(source, frequencies, request)
     return (prefix..., rows, columns, samples)
 end
 
+function _resolved_coordinates(coordinates, payload)
+    dimensions = size(payload.values)
+    return map(coordinates, dimensions) do coordinate, count
+        coordinate isa Colon ? collect(1:count) : coordinate
+    end
+end
+
 function select(definition::LineParametersTableDefinition, source)
     frequency_values = _frequency_values(source, definition.freqs)
     requests = _table_requests(source, definition.requests)
-    coordinates = map(request -> _table_coordinates(source, request), requests)
+    coordinates = map(_table_coordinates, requests)
     sample_indices = last.(coordinates)
     all(==(first(sample_indices)), sample_indices) || throw(DimensionMismatch(
         "all line-table requests must select the same frequency indices",
     ))
     names = Tuple(Symbol("request_$index") for index in eachindex(requests))
-    materialized = map(request -> _materialized_table_request(
-        source,
-        frequency_values,
-        request
-    ), requests)
+    materialized = map(requests, coordinates) do request, request_coordinates
+        _materialized_table_request(
+            source,
+            frequency_values,
+            request,
+            request_coordinates
+        )
+    end
     named_requests = NamedTuple{names}(materialized)
     targets = unit_targets(
         named_requests,
@@ -262,8 +271,15 @@ function select(definition::LineParametersTableDefinition, source)
         )
         published = observables(source, named_requests; units = targets)
     end
+    resolved_coordinates = map(_resolved_coordinates, coordinates, values(published))
     families = map(payload -> Units.family(payload.quantity), values(published))
-    return (; frequency, published, requests, coordinates, families)
+    return (;
+        frequency,
+        published,
+        requests,
+        coordinates = resolved_coordinates,
+        families
+    )
 end
 
 """

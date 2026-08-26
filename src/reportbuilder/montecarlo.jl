@@ -18,41 +18,75 @@ write(::MonteCarloTableDefinition, source, published, table, ::Nothing, ::Nothin
 
 entitle(::MonteCarloTableDefinition, source::UQ.MonteCarloResult) = source
 
-function _monte_carlo_requests(::DataModel.CableConstants)
-    return (R = R, L = L, C = C)
+function _monte_carlo_context(source::UQ.MonteCarloResult, point::Integer)
+    return (
+        point,
+        trials = UQ.trial_count(source, point),
+        seed = UQ.point_seed(source, point),
+        confidence = UQ.confidence(source),
+        cdf_tol = UQ.cdf_tolerance(source)
+    )
 end
 
-function _monte_carlo_requests(::Engine.LineParameters)
-    return (R = R, L = L, C = C, G = G)
-end
-
-function _monte_carlo_requests(representation)
-    throw(ArgumentError(
-        "Monte Carlo table presentation is not defined for $(typeof(representation))",
-    ))
-end
-
-function select(definition::MonteCarloTableDefinition, source::UQ.MonteCarloResult)
-    products = UQ.statistics(source)
-    return map(eachindex(products)) do point
-        representation = source[point]
-        product = products[point]
-        requests = _monte_carlo_requests(representation)
+function select(
+        definition::MonteCarloTableDefinition,
+        source::UQ.MonteCarloResult{<:DataModel.CableConstants}
+)
+    return map(1:length(source)) do point
+        requests = (
+            R = (UQ.statistics, R, point),
+            L = (UQ.statistics, L, point),
+            C = (UQ.statistics, C, point)
+        )
         targets = unit_targets(
             requests,
-            basis(product);
+            basis(source);
             length_prefix = definition.length_unit,
             overrides = definition.quantity_units
         )
-        published = observables(product, requests; units = targets)
-        context = (
-            point,
-            trials = UQ.trial_count(source, point),
-            seed = UQ.point_seed(source, point),
-            confidence = UQ.confidence(source),
-            cdf_tol = UQ.cdf_tolerance(source)
+        published = observables(source, requests; units = targets)
+        return (
+            frequency = nothing,
+            published,
+            context = _monte_carlo_context(source, point)
         )
-        (; representation, published, context)
+    end
+end
+
+function select(
+        definition::MonteCarloTableDefinition,
+        source::UQ.MonteCarloResult{<:Engine.LineParameters}
+)
+    return map(1:length(source)) do point
+        requests = (
+            R = (UQ.statistics, R, point),
+            L = (UQ.statistics, L, point),
+            C = (UQ.statistics, C, point),
+            G = (UQ.statistics, G, point)
+        )
+        targets = unit_targets(
+            requests,
+            basis(source);
+            length_prefix = definition.length_unit,
+            overrides = definition.quantity_units
+        )
+        all_requests = merge(
+            (frequency = (frequencies, point, Colon()),),
+            requests
+        )
+        all_targets = merge(
+            (frequency = Units.units(:base, :hertz),),
+            targets
+        )
+        all_published = observables(source, all_requests; units = all_targets)
+        published = NamedTuple{keys(requests)}(Tuple(
+            getproperty(all_published, key) for key in keys(requests)
+        ))
+        return (
+            frequency = all_published.frequency,
+            published,
+            context = _monte_carlo_context(source, point)
+        )
     end
 end
 
@@ -111,7 +145,7 @@ end
 
 function _line_summary_rows(selected)
     for item in selected
-        frequency_values = frequencies(item.representation)
+        frequency_values = item.frequency.values
         first_payload = first(values(item.published))
         row_count, column_count, frequency_count = size(first_payload.values)
         frequency_count == length(frequency_values) || throw(DimensionMismatch(
@@ -122,7 +156,7 @@ function _line_summary_rows(selected)
                 point = item.context.point,
                 row,
                 column,
-                frequency = frequencies(item.representation)[frequency_index],
+                frequency = item.frequency.values[frequency_index],
                 quantity = key,
                 mean = payload.values[row, column, frequency_index].mean,
                 std = payload.values[row, column, frequency_index].std,
@@ -145,7 +179,7 @@ function _line_summary_rows(selected)
 end
 
 function _monte_carlo_table(
-        ::DataModel.CableConstants,
+        ::Nothing,
         source,
         selected
 )
@@ -155,12 +189,12 @@ function _monte_carlo_table(
 end
 
 function _monte_carlo_table(
-        ::Engine.LineParameters,
+        frequency::NamedTuple,
         source,
         selected
 )
     table = DataFrame(_line_summary_rows(selected))
-    metadata!(table, "frequency_unit", "Hz", style = :note)
+    metadata!(table, "frequency_unit", Units.label(frequency.unit), style = :note)
     metadata!(
         table,
         "row_order",
@@ -171,7 +205,10 @@ function _monte_carlo_table(
 end
 
 function tabulate(::MonteCarloTableDefinition, source, selected)
-    return _monte_carlo_table(first(selected).representation, source, selected)
+    isempty(selected) && throw(ArgumentError(
+        "Monte Carlo tables require at least one Gridspace point",
+    ))
+    return _monte_carlo_table(first(selected).frequency, source, selected)
 end
 
 """

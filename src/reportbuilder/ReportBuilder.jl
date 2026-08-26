@@ -13,7 +13,6 @@ export MonteCarloTableDefinition, XLSXReportDefinition, report
 export entitle, select, tabulate, illustrate, encode, write, finish
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-using LinearAlgebra
 using Printf
 import DataFrames: DataFrame, metadata, metadata!
 import ..Grammar: observables, validate_observables, unit_targets

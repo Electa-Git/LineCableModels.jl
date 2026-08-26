@@ -73,8 +73,16 @@ function tabulate(::XLSXReportDefinition, source::Engine.LineParameters, selecte
 end
 illustrate(::XLSXReportDefinition, source, published, table) = nothing
 
-function _is_diagonal(matrix)
-    return isapprox(matrix, Diagonal(diag(matrix)); rtol = 1.0e-8, atol = 1.0e-8)
+function _is_diagonal(table::DataFrame, family::Symbol)
+    selected = table[table.family .== family, :]
+    isempty(selected) && throw(ArgumentError(
+        "workbook has no $family line-parameter rows",
+    ))
+    frequency = first(selected.frequency)
+    slice = selected[selected.frequency .== frequency, :]
+    off_diagonal = slice[slice.row .!= slice.column, :value]
+    return all(value -> isapprox(value, zero(value); rtol = 1.0e-8, atol = 1.0e-8),
+        off_diagonal)
 end
 
 """
@@ -169,16 +177,16 @@ end
 
 function encode(
         definition::XLSXReportDefinition,
-        source::Engine.LineParameters,
+        ::Engine.LineParameters,
         published,
         table,
         ::Nothing
 )
-    isempty(frequencies(source)) && throw(ArgumentError(
+    isempty(table) && throw(ArgumentError(
         "XLSX reports require at least one frequency sample",
     ))
-    series_diagonal = _is_diagonal(Z(source, :, :, 1))
-    shunt_diagonal = _is_diagonal(Y(source, :, :, 1))
+    series_diagonal = _is_diagonal(table, :series)
+    shunt_diagonal = _is_diagonal(table, :shunt)
     series_diagonal &&
         @warn("Z is diagonal within the selected tolerance. Exporting Z[i,i] and omitting off-diagonal elements.")
     shunt_diagonal &&

@@ -130,6 +130,15 @@ function observe(
 end
 
 function observe(
+        value::MonteCarloResult{<:Engine.LineParameters},
+        ::typeof(frequencies),
+        point::Integer,
+        indices...
+)
+    return observe(value.values[point], frequencies, indices...)
+end
+
+function observe(
         value::MonteCarloResult,
         product::_MonteCarloProductSelector,
         selector::_MonteCarloScientificSelector,
@@ -174,7 +183,7 @@ end
 function observables(
         ::Type{<:MonteCarloResult{T}}
 ) where {T <: Engine.LineParameters}
-    return _monte_carlo_observables((R, L, C, Engine.G))
+    return (frequencies, _monte_carlo_observables((R, L, C, Engine.G))...)
 end
 
 @inline _product_value(value, ::Tuple{}) = value

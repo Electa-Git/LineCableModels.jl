@@ -112,7 +112,7 @@ function illustrate(definition::TableReportDefinition, source, published, table)
     definition.illustration === nothing && return nothing
     return PlotBuilder.make_render(
         definition.illustration,
-        source;
+        published;
         definition.plot_options...
     )
 end

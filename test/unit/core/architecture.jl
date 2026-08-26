@@ -190,6 +190,16 @@ end
         r"\bsource\.(?:formulation|values|stats|sample_values|histogram_values|root_seed|point_seeds|trial_counts|details)\b",
         report_monte_carlo
     )
+    @test !occursin(r"\bUQ\.(?:statistics|samples|histograms)\(source\)",
+        report_monte_carlo)
+    @test occursin("observables(source, all_requests", report_monte_carlo)
+    report_grammar=source[joinpath("src", "reportbuilder", "grammar.jl")]
+    @test occursin(
+        "PlotBuilder.make_render(\n        definition.illustration,\n        published;",
+        report_grammar
+    )
+    report_xlsx=source[joinpath("src", "reportbuilder", "xlsx.jl")]
+    @test !occursin(r"\b(?:Z|Y|frequencies)\(source", report_xlsx)
     importexport_index=source[joinpath("src", "importexport", "ImportExport.jl")]
     reportbuilder_index=source[joinpath("src", "reportbuilder", "ReportBuilder.jl")]
     @test !occursin("using XLSX", importexport_index)
