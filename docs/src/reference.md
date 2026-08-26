@@ -153,11 +153,11 @@ not replace statistics, samples, histograms, the root seed, point seeds, or
 trial counts. No completed result stores the temporary Gridspace point or a
 copy of traversal internals.
 
-`primitives` and `preprocess` are reserved action generics for explicitly
-selected future calculation orderings. LineCableModels defines no methods for
-either generic: there is no zero-argument conversion, broad
-fallback, or implicit transformation. Unsupported orderings fail through
-ordinary Julia dispatch.
+[`project`](@ref) converts a completed result space into a finite `Gridspace`
+of complete downstream problems through an explicit projection definition.
+Projection definitions and stage methods remain qualified under
+`LineCableModels.ParametricBuilder`. See [Projecting completed result spaces](@ref)
+for the stage contract and correlation requirements.
 
 [`report`](@ref) builds human-facing tables from explicit publication requests.
 Its fixed sequence is `entitle → select → tabulate → illustrate →

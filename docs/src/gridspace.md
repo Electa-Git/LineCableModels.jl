@@ -265,6 +265,50 @@ remain available only through `samples`. Standard `first`, `last`, `only`,
 `collect`, `map`, and `zip` operations apply. `only` asserts singleton
 cardinality and performs no statistical selection or projection.
 
+## Projecting completed result spaces
+
+[`project`](@ref) converts a completed result space into the next finite space
+of complete problems. The projection definition owns the mathematical choice;
+ParametricBuilder owns the fixed sequence:
+
+```text
+entitle -> select -> derive -> materialize -> finish
+```
+
+`entitle` rejects an unsupported definition/result-space pair before partial
+work. `select` aligns the result products required by the projection. `derive`
+chooses or calculates a finite set of representative states. `materialize`
+constructs one complete downstream problem per representative. The derived
+`finish` method checks that the output is nonempty and type-consistent, then
+returns `Gridspace{P}` in representative order.
+
+Only `project` is exported from the package root. An external implementation
+imports the definition and required stages from their owner:
+
+```julia
+import LineCableModels.ParametricBuilder:
+    AbstractProjectionDefinition,
+    entitle,
+    select,
+    derive,
+    materialize
+
+struct EnvelopeProjection <: AbstractProjectionDefinition end
+
+entitle(::EnvelopeProjection, source::MonteCarloResult) = source
+select(::EnvelopeProjection, source::MonteCarloResult) = (
+    results = source,
+    statistics = statistics(source),
+)
+# Define derive and materialize for the extension's representative and problem types.
+```
+
+A summary projection may calculate a synthetic representative whose components
+did not occur together in any trial. A retained-trial projection instead
+selects complete joint samples and preserves their correlation. The definition
+must state which operation it performs. Projection never overloads `only` and
+does not add a result wrapper; its completed product is the next `Gridspace`.
+
 ## Pairing, exact reuse, and correlation
 
 Zip pairing, exact argument reuse, and stochastic correlation have different

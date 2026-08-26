@@ -19,7 +19,7 @@ export AbstractCoreResult, AbstractResultSpace
 export AbstractParametricResult, AbstractUncertaintyResult
 export FormulationOptions, ComputationOptions, ComputationDetails
 export formulation_options, computation_options, computation_details, details
-export compute, observe, @observe, observables, primitives, preprocess
+export compute, observe, @observe, observables, project
 export quantity, native_unit, display_unit, scale_factor, label, symbol
 export basis, domain, frequencies, nconductors, nfrequencies, ncables, nphases
 export Z, Y, R, X, L, G, B, C
@@ -74,7 +74,7 @@ using .Grammar:
                 AbstractParametricResult, AbstractUncertaintyResult,
                 FormulationOptions, ComputationOptions, ComputationDetails,
                 formulation_options, computation_options, computation_details, details,
-                compute, observe, @observe, observables, primitives, preprocess,
+                compute, observe, @observe, observables,
                 nominal, standard_uncertainty
 
 # Submodule `Validation`
@@ -118,7 +118,7 @@ using .ParametricBuilder:
                           UncertainValue, Gridspace, has_uncertainty,
                           @gridspace, @relax,
                           Combinatorial, ParametricProblem, ParametricResult,
-                          result,
+                          result, project,
                           Conductor, Insulator, CableBuilder,
                           at, trifoil, hflat, vflat, Earth, SystemBuilder,
                           WireEstimate, make_stranded, make_screened

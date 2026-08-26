@@ -179,25 +179,3 @@ function observables(
     end
     return NamedTuple{keys(requests)}(payloads)
 end
-
-"""
-$(SIGNATURES)
-
-Convert a completed result through an explicitly selected mathematical
-operation.
-
-LineCableModels currently defines no methods. Unsupported operations raise
-`MethodError`.
-"""
-function primitives end
-
-"""
-$(SIGNATURES)
-
-Construct a subsequent problem through an explicitly selected mathematical
-operation.
-
-LineCableModels currently defines no methods. Unsupported operations raise
-`MethodError`.
-"""
-function preprocess end

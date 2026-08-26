@@ -11,6 +11,7 @@ Construct finite parameter spaces and materialise cable problems from explicit
 - Materialise materials, cable parts, cable designs, positions, earth models,
   and line-parameter problems.
 - Evaluate every materialised problem with `Combinatorial`.
+- Project completed result spaces into finite spaces of downstream problems.
 - Estimate stranded-conductor and wire-screen patterns.
 """
 module ParametricBuilder
@@ -22,7 +23,7 @@ export has_uncertainty, nominal, standard_uncertainty
 export @gridspace, @relax
 
 export Combinatorial, ParametricProblem, ParametricResult
-export result
+export result, project
 
 export Material, Conductor, Insulator, CableBuilder
 export at, trifoil, hflat, vflat, Earth, SystemBuilder
@@ -48,6 +49,7 @@ include("grid.jl")
 include("gridspace.jl")
 include("macros.jl")
 include("results.jl")
+include("project.jl")
 
 include("material.jl")
 include("parts.jl")
@@ -61,5 +63,7 @@ include("compute.jl")
 
 include("wirepatterns/WirePatterns.jl")
 using .WirePatterns: WireEstimate, make_stranded, make_screened
+
+public AbstractProjectionDefinition, entitle, select, derive, materialize
 
 end

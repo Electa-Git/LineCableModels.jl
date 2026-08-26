@@ -12,8 +12,6 @@ ParametricBuilder, UQ, and external implementations.
 - `compute` evaluates a problem through a selected formulation.
 - `observe` and `@observe` read native numerical values from completed results.
 - `observables` publishes explicitly requested scientific values.
-- `primitives` and `preprocess` are unimplemented extension points for future
-  higher-order calculations.
 """
 module Grammar
 
@@ -22,7 +20,7 @@ export AbstractCoreResult, AbstractResultSpace
 export AbstractParametricResult, AbstractUncertaintyResult
 export FormulationOptions, ComputationOptions, ComputationDetails
 export formulation_options, computation_options, computation_details, details
-export compute, observe, @observe, observables, primitives, preprocess
+export compute, observe, @observe, observables
 export nominal, standard_uncertainty
 
 using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF

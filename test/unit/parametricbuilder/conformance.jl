@@ -216,6 +216,5 @@ end
     end
     @test :Gridpoint ∉ names(PB)
     @test :points ∉ names(PB)
-    @test :materialize ∉ names(PB)
     @test :realize ∉ names(PB)
 end

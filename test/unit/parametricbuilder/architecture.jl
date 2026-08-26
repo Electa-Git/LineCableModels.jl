@@ -21,20 +21,14 @@
     @test LineCableModels.observe === Grammar.observe
     @test LineCableModels.computation_details === Grammar.computation_details
     @test LineCableModels.details === Grammar.details
-    @test LineCableModels.primitives === Grammar.primitives
-    @test LineCableModels.preprocess === Grammar.preprocess
     @test parentmodule(Grammar.compute) === Grammar
     @test parentmodule(Grammar.computation_details) === Grammar
     @test parentmodule(Grammar.details) === Grammar
     @test parentmodule(Grammar.observables) === Grammar
     @test parentmodule(Grammar.observe) === Grammar
-    @test parentmodule(Grammar.primitives) === Grammar
-    @test parentmodule(Grammar.preprocess) === Grammar
     @test parentmodule(Grammar.check_core_result) === Grammar
     @test Base.ispublic(Grammar, :check_core_result)
     @test !isdefined(LineCableModels, :check_core_result)
-    @test isempty(methods(Grammar.primitives))
-    @test isempty(methods(Grammar.preprocess))
     @test LineCableModels.FormulationOptions === Grammar.FormulationOptions === NamedTuple
     @test LineCableModels.ComputationOptions === Grammar.ComputationOptions === NamedTuple
     @test LineCableModels.ComputationDetails === Grammar.ComputationDetails === NamedTuple
@@ -83,11 +77,15 @@
     @test !isdefined(LineCableModels, :CalculationManifest)
     @test !isdefined(LineCableModels, :ConfigurationFailure)
     @test !isdefined(LineCableModels, :manifest)
+    @test !isdefined(LineCableModels, :primitives)
+    @test !isdefined(LineCableModels, :preprocess)
     @test !isdefined(PB, :CalculationManifest)
     @test !isdefined(PB, :ConfigurationFailure)
     @test !isdefined(PB, :manifest)
     @test !isdefined(Grammar, :Gridspace)
     @test !isdefined(Grammar, :MonteCarlo)
+    @test !isdefined(Grammar, :primitives)
+    @test !isdefined(Grammar, :preprocess)
     @test Engine.AbstractProblemDefinition === Grammar.AbstractProblemDefinition
     @test Engine.AbstractFormulation === Grammar.AbstractFormulation
     @test parentmodule(Engine.AnalyticalInput) === Engine
@@ -421,7 +419,6 @@ end
         Val(AnalyticalFormulation),
         (output_basis = :unknown,)
     )
-    @test isempty(methods(Grammar.preprocess))
 end
 
 @testitem "Materials / public API / library insertion" tags=[:unit] setup=[
