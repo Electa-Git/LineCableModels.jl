@@ -105,7 +105,7 @@ function PlotBuilder.resolve(
         request::NamedTuple
 )
     input = request.input
-    requests = _resolve_line_requests(first(parameters), input.quantities)
+    requests = line_requests(first(parameters), input.quantities)
     labels = _comparison_labels(input.legend, length(parameters))
     input.xscale in (:linear, :log10) || throw(
         ArgumentError("xscale must be :linear or :log10"),
@@ -144,7 +144,7 @@ end
 
 function _comparison_page(configuration, published, request_index)
     scientific_request = configuration.input.requests[request_index]
-    parent = _request_parent(scientific_request)
+    parent = line_parent(scientific_request)
     first_observation = first(published).observations[request_index]
     count = size(first_observation.values, 1)
     family_symbol = Units.symbol(Units.quantity(parent))

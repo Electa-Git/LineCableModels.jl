@@ -81,6 +81,22 @@ Every published field contains only `values`, `quantity`, and `unit`.
 Publication converts and detaches `values`; it does not attach labels, result
 objects, execution options, Gridspace points, or Monte Carlo context.
 
+Engine owns line-result request expansion through its qualified
+`line_requests` method. It resolves function-valued selectors such as `Z`,
+`real`, and `angle`, rejects unsupported or duplicate selections, and supplies
+explicit frequencies for standalone `L` and `C` observations. The qualified
+`line_parent` method classifies each resolved request under `Z` or `Y`.
+PlotBuilder and ReportBuilder consume these methods; neither keeps a second
+selector map.
+
+The qualified `Grammar.validate_observables` method is the single entitlement
+check used by direct publication and generic reports. It validates the source
+declaration, request identities, duplicates, and keyed unit overrides.
+`Grammar.unit_targets` then resolves a tuple or named tuple of requests to
+aligned `UnitExpr` values. A unit override may be `nothing`, a metric-prefix
+`Symbol`, an explicit `UnitExpr`, or a keyed collection of those values.
+Line plots, Monte Carlo plots, and reports all use this path.
+
 `LineCableModels.Units` owns `Unit`, `UnitExpr`, `Quantity`, `units`,
 `quantity`, `native_unit`, `display_unit`, `scale_factor`, `label`, and
 `symbol`. PlotBuilder derives scientific axes from publication payloads.

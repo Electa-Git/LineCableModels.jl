@@ -323,6 +323,23 @@ end
     published=observables(summary_product, (mean_resistance = (R, mean),))
     @test published.mean_resistance.values == summary_product.R.mean * 1_000
     @test keys(published.mean_resistance) == (:values, :quantity, :unit)
+    summary_publication=observables(
+        summary_product,
+        (resistance = R,);
+        units = (resistance = :milli,)
+    ).resistance
+    histogram_publication=observables(
+        histogram_product,
+        (resistance = R,);
+        units = (resistance = :milli,)
+    ).resistance
+    summary_factor=scale_factor(R, basis(summary_product), summary_publication.unit)
+    @test summary_publication.values.mean == summary_product.R.mean * summary_factor
+    @test summary_publication.values.std == summary_product.R.std * abs(summary_factor)
+    @test histogram_publication.values.edges ==
+          histogram_product.R.edges .* summary_factor
+    @test histogram_publication.values.density ==
+          histogram_product.R.density ./ summary_factor
 
     frequency=[50.0, 100.0]
     impedance=fill(1.0e-4+2.0e-4im, 2, 2, 2)

@@ -62,6 +62,34 @@ function display_unit(
     return UnitExpr(numerator, expression.denominator)
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Resolve a display unit for a quantity and basis from one optional override.
+
+The value `nothing` retains the registered display unit, a `Symbol` replaces
+its numerator metric prefix, and a `UnitExpr` is returned unchanged.
+
+# Errors
+
+- Throws `ArgumentError` for unsupported override values or invalid metric
+  prefixes.
+"""
+function display_unit(
+        quantity::Quantity,
+        basis::Symbol,
+        override;
+        length_prefix::Symbol = :kilo
+)
+    override === nothing &&
+        return display_unit(quantity, basis; length_prefix)
+    override isa UnitExpr && return override
+    override isa Symbol || throw(ArgumentError(
+        "display-unit overrides must be a metric prefix, UnitExpr, or nothing",
+    ))
+    return display_unit(quantity, basis; length_prefix, prefix = override)
+end
+
 function scale_factor(quantity::Quantity, target::UnitExpr)
     scale_factor(native_unit(quantity), target)
 end

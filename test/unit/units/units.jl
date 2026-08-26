@@ -57,6 +57,12 @@ end
     @test U.label(U.display_unit(U.quantity(R), :pul; prefix = :milli)) ==
           "mΩ/km"
     @test U.label(U.display_unit(U.quantity(C), :total; prefix = :nano)) == "nF"
+    @test U.display_unit(U.quantity(R), :pul, nothing) ==
+          U.display_unit(U.quantity(R), :pul)
+    @test U.label(U.display_unit(U.quantity(R), :pul, :micro)) == "μΩ/km"
+    explicit=U.units(:nano, :ohm; per = (:base, :meter))
+    @test U.display_unit(U.quantity(R), :pul, explicit) === explicit
+    @test_throws ArgumentError U.display_unit(U.quantity(R), :pul, 1)
     @test_throws ArgumentError U.display_unit(U.quantity(R), :invalid)
 
     @test quantity(R) isa U.Quantity{:series_resistance}
@@ -67,6 +73,40 @@ end
     @test label(display_unit(R, :total)) == "Ω"
     @test scale_factor(R, display_unit(R)) == 1_000.0
     @test scale_factor(R, :pul, display_unit(R, :pul)) == 1_000.0
+end
+
+@testitem "Grammar / observable unit targets / aligned normalization" tags=[:unit] begin
+    const Grammar=LineCableModels.Grammar
+    const U=LineCableModels.Units
+
+    requests=(resistance = R, phase = (Z, angle), capacitance = C)
+    named=Grammar.unit_targets(
+        requests,
+        :pul;
+        length_prefix = :base,
+        overrides = (
+            resistance = :milli,
+            phase = U.units(:base, :radian)
+        )
+    )
+    tupled=Grammar.unit_targets(
+        values(requests),
+        :pul;
+        length_prefix = :base,
+        overrides = Dict(
+            R => :milli,
+            (Z, angle) => U.units(:base, :radian)
+        )
+    )
+    @test values(named) == tupled
+    @test keys(named) == keys(requests)
+    @test all(target -> target isa U.UnitExpr, values(named))
+    @test named.resistance == U.units(:milli, :ohm; per = (:base, :meter))
+    @test named.phase == U.units(:base, :radian)
+    @test named.capacitance == U.units(:micro, :farad; per = (:base, :meter))
+    @test Base.ispublic(Grammar, :unit_targets)
+    @test !isdefined(LineCableModels, :unit_targets)
+    @test_throws ArgumentError Grammar.unit_targets((R,), :pul; overrides = 1)
 end
 
 @testitem "Units / transforms and angular conversion" tags = [:unit] begin

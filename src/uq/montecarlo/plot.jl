@@ -69,33 +69,6 @@ function _mc_request(selector, selection, retained_samples::Bool)
     return retained_samples ? (selector, selection..., Colon()) : (selector, selection...)
 end
 
-function _mc_quantity_prefix(quantity_units, fallback::Symbol)
-    quantity_units === nothing && return fallback
-    quantity_units isa Symbol && return quantity_units
-    quantity_units isa Units.UnitExpr && return quantity_units
-    throw(ArgumentError("quantity_units must be a prefix, UnitExpr, or nothing"))
-end
-
-function _mc_target_unit(product, selector::Function, length_unit, quantity_units)
-    tag = Units.quantity(selector)
-    default = Units.display_unit(tag, basis(product); length_prefix = length_unit)
-    prefix = _mc_quantity_prefix(
-        quantity_units,
-        first(default.numerator).prefix
-    )
-    prefix isa Units.UnitExpr && return tag, prefix
-    prefix isa Symbol || throw(
-        ArgumentError("quantity-unit overrides must be prefixes or UnitExpr values"),
-    )
-    target = Units.display_unit(
-        tag,
-        basis(product);
-        length_prefix = length_unit,
-        prefix
-    )
-    return tag, target
-end
-
 function _mc_histogram_cdf(histogram::HistogramDensity, x::Real)
     x <= first(histogram.edges) && return 0.0
     x >= last(histogram.edges) && return 1.0
@@ -418,12 +391,13 @@ function PlotBuilder.fetch(
         input.selector,
         input.ijk
     )
-    quantity, target = _mc_target_unit(
-        statistic_product,
-        input.selector,
-        input.length_unit,
-        input.quantity_units
-    )
+    quantity = Units.quantity(input.selector)
+    target = only(unit_targets(
+        (input.selector,),
+        basis(statistic_product);
+        length_prefix = input.length_unit,
+        overrides = input.quantity_units
+    ))
     sample_products = samples(result)
     histogram_products = histograms(result)
     sample_payload = if sample_products === nothing

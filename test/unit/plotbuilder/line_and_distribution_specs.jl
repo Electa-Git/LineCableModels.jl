@@ -20,31 +20,50 @@
     @test_throws ArgumentError E._conductor_pairs(series, 1)
     @test_throws BoundsError E._conductor_pairs(series, ([0], :))
 
-    @test E._line_requests(series, R) == (R,)
-    @test E._line_requests(series, X) == (X,)
-    @test E._line_requests(series, L) == (L,)
-    @test E._line_requests(series, real) == (R,)
-    @test E._line_requests(series, imag) == (X,)
-    @test E._line_requests(series, abs) == ((Z, abs),)
-    @test E._line_requests(series, angle) == ((Z, angle),)
-    @test E._line_requests(series, Z) == (R, X)
-    @test_throws ArgumentError E._line_requests(series, C)
+    @test E.line_requests(series, (R,)) == (R,)
+    @test E.line_requests(series, (X,)) == (X,)
+    @test_throws ArgumentError E.line_requests(series, (L,))
+    @test E.line_requests(series, (real,)) == (R,)
+    @test E.line_requests(series, (imag,)) == (X,)
+    @test E.line_requests(series, (abs,)) == ((Z, abs),)
+    @test E.line_requests(series, (angle,)) == ((Z, angle),)
+    @test E.line_requests(series, (Z,)) == (R, X)
+    @test_throws ArgumentError E.line_requests(series, (C,))
 
-    @test E._line_requests(shunt, G) == (G,)
-    @test E._line_requests(shunt, B) == (B,)
-    @test E._line_requests(shunt, C) == (C,)
-    @test E._line_requests(shunt, real) == (G,)
-    @test E._line_requests(shunt, imag) == (B,)
-    @test E._line_requests(shunt, abs) == ((Y, abs),)
-    @test E._line_requests(shunt, angle) == ((Y, angle),)
-    @test E._line_requests(shunt, Y) == (G, B)
-    @test_throws ArgumentError E._line_requests(shunt, R)
+    @test E.line_requests(shunt, (G,)) == (G,)
+    @test E.line_requests(shunt, (B,)) == (B,)
+    @test_throws ArgumentError E.line_requests(shunt, (C,))
+    @test E.line_requests(shunt, (real,)) == (G,)
+    @test E.line_requests(shunt, (imag,)) == (B,)
+    @test E.line_requests(shunt, (abs,)) == ((Y, abs),)
+    @test E.line_requests(shunt, (angle,)) == ((Y, angle),)
+    @test E.line_requests(shunt, (Y,)) == (G, B)
+    @test_throws ArgumentError E.line_requests(shunt, (R,))
 
-    @test E._line_requests(parameters, real) == (R, G)
-    @test E._line_requests(parameters, imag) == (X, B)
-    @test E._line_requests(parameters, abs) == ((Z, abs), (Y, abs))
-    @test E._line_requests(parameters, angle) == ((Z, angle), (Y, angle))
-    @test_throws ArgumentError E._line_requests(parameters, identity)
+    @test E.line_requests(parameters, (real,)) == (R, G)
+    @test E.line_requests(parameters, (imag,)) == (X, B)
+    @test E.line_requests(parameters, (abs,)) == ((Z, abs), (Y, abs))
+    @test E.line_requests(parameters, (angle,)) == ((Z, angle), (Y, angle))
+    @test E.line_requests(parameters, (Z,)) == (R, X)
+    @test E.line_requests(parameters, (Y,)) == (G, B)
+    for selector in (R, X, L, G, B, C)
+        @test E.line_requests(parameters, (selector,)) == (selector,)
+    end
+    @test_throws ArgumentError E.line_requests(parameters, (identity,))
+    @test_throws ArgumentError E.line_requests(parameters, (Z, R))
+    @test E.line_requests(parameters, ()) == (R, X, G, B)
+    standalone_frequencies=frequencies(parameters)
+    @test E.line_requests(series, (L,); frequencies = standalone_frequencies) ==
+          ((L, standalone_frequencies),)
+    @test E.line_requests(shunt, (C,); frequencies = standalone_frequencies) ==
+          ((C, standalone_frequencies),)
+    @test E.line_parent(R) === Z
+    @test E.line_parent((Z, abs)) === Z
+    @test E.line_parent((C, standalone_frequencies)) === Y
+    @test Base.ispublic(E, :line_requests)
+    @test Base.ispublic(E, :line_parent)
+    @test !isdefined(LineCableModels, :line_requests)
+    @test !isdefined(LineCableModels, :line_parent)
 
     render=PB.make_render(
         E.LineParameterPlotDefinition,
@@ -145,13 +164,14 @@
         quantities = (R,),
         quantity_units = Dict(R=>:milli)
     )
-    @test only(only(milli_resistance.pages).payload.panels).y_observation.unit ==
-          LineCableModels.Units.display_unit(
-        LineCableModels.Units.quantity(R),
+    expected_target=only(LineCableModels.Grammar.unit_targets(
+        (R,),
         basis(parameters);
         length_prefix = :kilo,
-        prefix = :milli
-    )
+        overrides = Dict(R=>:milli)
+    ))
+    @test only(only(milli_resistance.pages).payload.panels).y_observation.unit ==
+          expected_target
 end
 
 @testitem "Engine / detached comparison pages / matrix grid" tags=[:unit] setup=[
@@ -343,6 +363,19 @@ end
         pdf_page.y_observation.quantity,
         pdf_page.y_observation.unit
     ) == "Probability density [km/Ω]"
+    milli_page=only(PB.make_render(
+        Spec,
+        result;
+        selector = R,
+        quantity_units = :milli
+    ).pages).payload
+    expected_target=only(LineCableModels.Grammar.unit_targets(
+        (R,),
+        basis(only(Cmp.statistics(result)));
+        length_prefix = :kilo,
+        overrides = :milli
+    ))
+    @test milli_page.x_observation.unit == expected_target
     @test !isdefined(Cmp, :_mc_plot_exponent)
 
     histogram=only(Cmp.histograms(result)).R

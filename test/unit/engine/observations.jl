@@ -50,6 +50,23 @@
     @test published.phase.values ≈ rad2deg.(angle.(impedance[1, 1, :]))
     @test published.phase.quantity isa
           U.Quantity{(:series_impedance, :phase_angle)}
+    repeated_quantity=observables(parameters,
+        (
+            first_resistance = (R, 1, 1, Colon()),
+            second_resistance = (R, 1, 1, 1)
+        ))
+    @test keys(repeated_quantity) == (:first_resistance, :second_resistance)
+    prefixed=observables(parameters, (resistance = (R, 1, 1, Colon()),);
+        units = (resistance = :micro,))
+    @test prefixed.resistance.unit ==
+          U.units(:micro, :ohm; per = (:kilo, :meter))
+    @test LineCableModels.Grammar.validate_observables(
+        parameters,
+        requests,
+        (resistance = target,)
+    ) == (frequencies, R, (Z, angle))
+    @test Base.ispublic(LineCableModels.Grammar, :validate_observables)
+    @test !isdefined(LineCableModels, :validate_observables)
 
     published.frequency.values[1]=0.0
     published.resistance.values[1]=0.0

@@ -103,22 +103,34 @@ end
 
 const _DISPLAY_ZERO_RTOL = sqrt(eps(Float64))
 
-_request_parent(::typeof(R)) = Z
-_request_parent(::typeof(X)) = Z
-_request_parent(::typeof(L)) = Z
-_request_parent(::typeof(G)) = Y
-_request_parent(::typeof(B)) = Y
-_request_parent(::typeof(C)) = Y
-_request_parent(request::Tuple) = first(request)
+"""
+$(TYPEDSIGNATURES)
+
+Return `Z` or `Y` as the line-parameter family that owns a resolved scientific
+request.
+"""
+line_parent(::typeof(R)) = Z
+line_parent(::typeof(X)) = Z
+line_parent(::typeof(L)) = Z
+line_parent(::typeof(Z)) = Z
+line_parent(::typeof(G)) = Y
+line_parent(::typeof(B)) = Y
+line_parent(::typeof(C)) = Y
+line_parent(::typeof(Y)) = Y
+line_parent(request::Tuple) = line_parent(first(request))
 
 _default_line_requests(::LineParameters) = (R, X, G, B)
 _default_line_requests(::SeriesImpedance) = (R, X)
 _default_line_requests(::ShuntAdmittance) = (G, B)
 
-function _line_requests(::SeriesImpedance, accessor)
+function _expand_line_request(::SeriesImpedance, accessor, frequencies)
     accessor === R && return (R,)
     accessor === X && return (X,)
-    accessor === L && return (L,)
+    accessor === L && frequencies === nothing &&
+        throw(
+            ArgumentError("frequencies are required for standalone inductance requests"),
+        )
+    accessor === L && return ((L, frequencies),)
     accessor === real && return (R,)
     accessor === imag && return (X,)
     accessor === abs && return ((Z, abs),)
@@ -127,10 +139,14 @@ function _line_requests(::SeriesImpedance, accessor)
     throw(ArgumentError("accessor $(accessor) is not defined for SeriesImpedance presentation"))
 end
 
-function _line_requests(::ShuntAdmittance, accessor)
+function _expand_line_request(::ShuntAdmittance, accessor, frequencies)
     accessor === G && return (G,)
     accessor === B && return (B,)
-    accessor === C && return (C,)
+    accessor === C && frequencies === nothing &&
+        throw(
+            ArgumentError("frequencies are required for standalone capacitance requests"),
+        )
+    accessor === C && return ((C, frequencies),)
     accessor === real && return (G,)
     accessor === imag && return (B,)
     accessor === abs && return ((Y, abs),)
@@ -139,7 +155,7 @@ function _line_requests(::ShuntAdmittance, accessor)
     throw(ArgumentError("accessor $(accessor) is not defined for ShuntAdmittance presentation"))
 end
 
-function _line_requests(::LineParameters, accessor)
+function _expand_line_request(::LineParameters, accessor, frequencies)
     accessor === Z && return (R, X)
     accessor === Y && return (G, B)
     accessor === real && return (R, G)
@@ -155,63 +171,49 @@ function _line_requests(::LineParameters, accessor)
     throw(ArgumentError("accessor $(accessor) is not defined for LineParameters presentation"))
 end
 
-function _resolve_line_requests(object, quantities)
-    quantities isa Tuple || throw(ArgumentError("quantities must be a tuple of accessors"))
-    selected = isempty(quantities) ? _default_line_requests(object) :
-               Tuple(
-        request for accessor in quantities
-    for request in _line_requests(object, accessor)
+function _line_request_identity(request)
+    request isa Function && return request
+    return length(request) >= 2 && request[2] isa Function ?
+           (request[1], request[2]) : first(request)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Expand line-result selectors into the observable requests supported by `source`.
+Standalone inductance and capacitance requests include the supplied frequency
+vector.
+
+# Arguments
+
+- `object`: `LineParameters`, `SeriesImpedance`, or `ShuntAdmittance` source.
+- `selectors`: Tuple of function-valued scientific selectors.
+
+# Keywords
+
+- `frequencies`: Required sample frequencies for standalone `L` or `C`
+  observations.
+
+# Errors
+
+- Throws `ArgumentError` when `selectors` is not a tuple, a selector is
+  unsupported, no request is selected, or multiple selectors resolve to the
+  same scientific request.
+"""
+function line_requests(object, selectors; frequencies = nothing)
+    selectors isa Tuple || throw(ArgumentError("selectors must be a tuple of accessors"))
+    selected_accessors = isempty(selectors) ? _default_line_requests(object) : selectors
+    selected = Tuple(
+        request for accessor in selected_accessors
+    for request in _expand_line_request(object, accessor, frequencies)
     )
     isempty(selected) &&
         throw(ArgumentError("at least one line-parameter accessor is required"))
-    length(unique(selected)) == length(selected) || throw(
+    identities = map(_line_request_identity, selected)
+    length(unique(identities)) == length(identities) || throw(
         ArgumentError("line-parameter accessors select duplicate quantities"),
     )
     return selected
-end
-
-function _request_quantity(request)
-    request isa Function && return Units.quantity(request)
-    return Units.quantity(request...)
-end
-
-function _quantity_prefix(quantity_units, request, fallback::Symbol)
-    quantity_units === nothing && return fallback
-    quantity_units isa Symbol && return quantity_units
-    if quantity_units isa NamedTuple
-        request isa Function || return fallback
-        key = nameof(request)
-        return haskey(quantity_units, key) ? getproperty(quantity_units, key) : fallback
-    end
-    quantity_units isa AbstractDict || throw(
-        ArgumentError("quantity_units must be a prefix, selector-keyed collection, or nothing"),
-    )
-    haskey(quantity_units, request) && return quantity_units[request]
-    request isa Function || return fallback
-    key = nameof(request)
-    return haskey(quantity_units, key) ? quantity_units[key] : fallback
-end
-
-function _request_target(request, parameter_basis, length_unit, quantity_units)
-    scientific_quantity = _request_quantity(request)
-    default = Units.display_unit(
-        scientific_quantity,
-        parameter_basis;
-        length_prefix = length_unit
-    )
-    isempty(default.numerator) && return default
-    fallback = first(default.numerator).prefix
-    selected = _quantity_prefix(quantity_units, request, fallback)
-    selected isa Units.UnitExpr && return selected
-    selected isa Symbol || throw(
-        ArgumentError("quantity-unit overrides must be prefixes or UnitExpr values"),
-    )
-    return Units.display_unit(
-        scientific_quantity,
-        parameter_basis;
-        length_prefix = length_unit,
-        prefix = selected
-    )
 end
 
 function _line_input_defaults(frequencies)
@@ -265,7 +267,6 @@ function PlotBuilder.resolve(
         request::NamedTuple
 )
     input = request.input
-    requests = _resolve_line_requests(object, input.quantities)
     input.xscale in (:linear, :log10) || throw(
         ArgumentError("xscale must be :linear or :log10"),
     )
@@ -279,6 +280,11 @@ function PlotBuilder.resolve(
         )
     supplied_frequencies = input.frequencies === nothing ? nothing :
                            collect(input.frequencies)
+    requests = line_requests(
+        object,
+        input.quantities;
+        frequencies = supplied_frequencies
+    )
     if supplied_frequencies !== nothing
         all(isfinite, supplied_frequencies) ||
             throw(ArgumentError("frequencies must be finite"))
@@ -289,7 +295,7 @@ function PlotBuilder.resolve(
                 "logarithmic frequency axes require positive frequencies"
             ),
             )
-        any(request -> request === L || request === C, requests) &&
+        any(request -> _line_request_identity(request) in (L, C), requests) &&
             any(iszero, supplied_frequencies) &&
             throw(DomainError(
                 supplied_frequencies,
@@ -335,28 +341,19 @@ function _published_frequency(object, input)
     return published
 end
 
-function _observable_request(object, request, supplied_frequencies)
-    object isa LineParameters && return request
-    request === L && return (L, supplied_frequencies)
-    request === C && return (C, supplied_frequencies)
-    return request
-end
-
-function _publish_request(object, request, target, supplied_frequencies)
-    selected = _observable_request(object, request, supplied_frequencies)
+function _publish_request(object, request, target)
     return observables(
         object,
-        (value = selected,);
+        (value = request,);
         units = (value = target,)
     ).value
 end
 
-function _reference_payload(object, request, target, supplied_frequencies)
+function _reference_payload(object, request, target)
     return _publish_request(
         object,
-        _request_parent(request),
-        target,
-        supplied_frequencies
+        line_parent(request),
+        target
     )
 end
 
@@ -389,16 +386,16 @@ end
 
 function _publish_line_source(object, input, requests)
     frequency = _published_frequency(object, input)
-    observations = map(requests) do request
-        target = _request_target(
-            request,
-            basis(object),
-            input.length_unit,
-            input.quantity_units
-        )
-        payload = _publish_request(object, request, target, input.frequencies)
+    targets = unit_targets(
+        requests,
+        basis(object);
+        length_prefix = input.length_unit,
+        overrides = input.quantity_units
+    )
+    observations = map(requests, targets) do request, target
+        payload = _publish_request(object, request, target)
         _is_cartesian_request(request) || return payload
-        reference = _reference_payload(object, request, target, input.frequencies)
+        reference = _reference_payload(object, request, target)
         return _suppress_display_residue(payload, reference, request)
     end
     sample = first(observations)
@@ -455,7 +452,7 @@ function _line_page(configuration, published, parent)
     selected = Tuple(
         (scientific_request, observation)
     for (scientific_request, observation) in zip(configuration.input.requests, published.observations)
-    if _request_parent(scientific_request) === parent
+    if line_parent(scientific_request) === parent
     )
     positions = _panel_positions(length(selected))
     panels = map(selected, positions) do selected_request, position
@@ -519,7 +516,7 @@ function PlotBuilder.fetch(
             Tuple(
         _line_page(request, published, parent)
     for parent in _line_parents(object)
-    if any(item -> _request_parent(item) === parent, request.input.requests)
+    if any(item -> line_parent(item) === parent, request.input.requests)
     )
     return PlotBuilder.PlotPage[PlotBuilder.PlotPage(
                                     payload.title,

@@ -13,11 +13,12 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using LinearAlgebra
 using Printf
 import DataFrames: DataFrame, metadata, metadatakeys, metadata!
-import ..Grammar: observables
+import ..Grammar: observables, validate_observables, unit_targets
 import ..Units
 import ..PlotBuilder
 import ..DataModel
 import ..Engine
+import ..Engine: line_requests, line_parent
 import ..UQ
 import ..LineCableModels: basis, frequencies, Z, Y, R, X, L, G, B, C
 

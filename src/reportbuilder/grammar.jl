@@ -74,26 +74,8 @@ function write end
 "Return the completed report artifact."
 function finish end
 
-function _request_identity(request, supported)
-    request isa Function && return request
-    request isa Tuple && !isempty(request) || throw(
-        ArgumentError("report requests must be selector functions or nonempty tuples"),
-    )
-    pair = length(request) >= 2 ? (request[1], request[2]) : nothing
-    return pair !== nothing && pair in supported ? pair : first(request)
-end
-
 function entitle(definition::TableReport, source)
-    applicable(observables, typeof(source)) || throw(ArgumentError(
-        "$(typeof(source)) does not declare reportable observations",
-    ))
-    supported = observables(typeof(source))
-    for request in values(definition.requests)
-        identity = _request_identity(request, supported)
-        identity in supported || throw(ArgumentError(
-            "$(typeof(source)) does not publish selector $(repr(identity))",
-        ))
-    end
+    validate_observables(source, definition.requests, definition.units)
     return source
 end
 

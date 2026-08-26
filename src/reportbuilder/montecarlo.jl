@@ -30,16 +30,12 @@ function select(definition::MonteCarloTable, source::UQ.MonteCarloResult)
     representation = only(source)
     product = only(UQ.statistics(source))
     requests = _monte_carlo_requests(representation)
-    target_values = map(keys(requests), values(requests)) do key, request
-        _request_target(
-            request,
-            key,
-            basis(product),
-            definition.length_unit,
-            definition.quantity_units
-        )
-    end
-    targets = NamedTuple{keys(requests)}(target_values)
+    targets = unit_targets(
+        requests,
+        basis(product);
+        length_prefix = definition.length_unit,
+        overrides = definition.quantity_units
+    )
     published = observables(product, requests; units = targets)
     context = (
         trials = UQ.trial_count(source, 1),

@@ -12,6 +12,8 @@ ParametricBuilder, UQ, and external implementations.
 - `compute` evaluates a problem through a selected formulation.
 - `observe` and `@observe` read native numerical values from completed results.
 - `observables` publishes explicitly requested scientific values.
+- `validate_observables` and `unit_targets` align publication requests and
+  display units for presentation consumers.
 """
 module Grammar
 
@@ -30,8 +32,10 @@ using ..Units: UnitExpr, quantity, native_unit, display_unit, scale_factor
 include("types.jl")
 include("results.jl")
 include("interfaces.jl")
+include("observables.jl")
 include("uncertainty.jl")
 
-public check_core_result, computation_owner, detach
+public check_core_result, computation_owner
+public validate_observables, unit_targets, detach
 
 end # module Grammar

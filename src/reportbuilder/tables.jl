@@ -101,94 +101,60 @@ function _frequency_payload(source, values, prefix::Symbol)
     return (; values = values .* factor, quantity, unit = target)
 end
 
-_line_request(::Val{:series}, ::typeof(R), frequencies) = ((:R, R),)
-_line_request(::Val{:series}, ::typeof(X), frequencies) = ((:X, X),)
-function _line_request(::Val{:series}, ::typeof(L), frequencies)
-    ((:L, frequencies === nothing ? L : (L, frequencies)),)
-end
-_line_request(::Val{:series}, ::typeof(real), frequencies) = ((:real, R),)
-_line_request(::Val{:series}, ::typeof(imag), frequencies) = ((:imag, X),)
-_line_request(::Val{:series}, ::typeof(abs), frequencies) = ((:magnitude, (Z, abs)),)
-_line_request(::Val{:series}, ::typeof(angle), frequencies) = ((:angle, (Z, angle)),)
-_line_request(::Val{:series}, ::typeof(Z), frequencies) = ((:real, R), (:imag, X))
-
-_line_request(::Val{:shunt}, ::typeof(G), frequencies) = ((:G, G),)
-_line_request(::Val{:shunt}, ::typeof(B), frequencies) = ((:B, B),)
-function _line_request(::Val{:shunt}, ::typeof(C), frequencies)
-    ((:C, frequencies === nothing ? C : (C, frequencies)),)
-end
-_line_request(::Val{:shunt}, ::typeof(real), frequencies) = ((:real, G),)
-_line_request(::Val{:shunt}, ::typeof(imag), frequencies) = ((:imag, B),)
-_line_request(::Val{:shunt}, ::typeof(abs), frequencies) = ((:magnitude, (Y, abs)),)
-_line_request(::Val{:shunt}, ::typeof(angle), frequencies) = ((:angle, (Y, angle)),)
-_line_request(::Val{:shunt}, ::typeof(Y), frequencies) = ((:real, G), (:imag, B))
-
-_line_request(::Val, selector, frequencies) = ()
-
-function _line_requests(family::Val, selectors::Tuple, frequencies)
-    entries = Tuple(entry for selector in selectors
-    for entry in _line_request(family, selector, frequencies))
-    keys = first.(entries)
-    length(unique(keys)) == length(keys) || throw(
-        ArgumentError("line-parameter accessors select duplicate table columns"),
-    )
-    return (; (key => request for (key, request) in entries)...)
-end
-
 _default_selectors(::Engine.LineParameters) = (Z, Y)
 _default_selectors(::Engine.SeriesImpedance) = (Z,)
 _default_selectors(::Engine.ShuntAdmittance) = (Y,)
 
-function _request_quantity(request)
-    request isa Function && return Units.quantity(request)
-    supported_pair = length(request) >= 2 && request[2] isa Function
-    return supported_pair ? Units.quantity(request[1], request[2]) :
-           Units.quantity(first(request))
+_line_column_keys(::typeof(Z), count) = (:real, :imag)
+_line_column_keys(::typeof(Y), count) = (:real, :imag)
+_line_column_keys(::typeof(real), count) = ntuple(_ -> :real, count)
+_line_column_keys(::typeof(imag), count) = ntuple(_ -> :imag, count)
+_line_column_keys(::typeof(abs), count) = ntuple(_ -> :magnitude, count)
+_line_column_keys(::typeof(angle), count) = ntuple(_ -> :angle, count)
+function _line_column_keys(selector::Function, count)
+    return ntuple(_ -> nameof(selector), count)
 end
 
-function _quantity_prefix(quantity_units, key::Symbol, fallback::Symbol)
-    quantity_units === nothing && return fallback
-    quantity_units isa Symbol && return quantity_units
-    quantity_units isa NamedTuple || quantity_units isa AbstractDict ||
-        throw(
-            ArgumentError("quantity_units must be a prefix, keyed collection, or nothing"),
-        )
-    return haskey(quantity_units, key) ? quantity_units[key] : fallback
+function _line_family_requests(entries, parent)
+    selected = Tuple(entry for entry in entries if line_parent(last(entry)) === parent)
+    names = first.(selected)
+    length(unique(names)) == length(names) || throw(
+        ArgumentError("line-parameter accessors select duplicate table columns"),
+    )
+    return (; (key => request for (key, request) in selected)...)
 end
 
-function _request_target(request, key, result_basis, length_unit, quantity_units)
-    quantity = _request_quantity(request)
-    default = Units.display_unit(quantity, result_basis; length_prefix = length_unit)
-    isempty(default.numerator) && return default
-    selected = _quantity_prefix(
-        quantity_units,
-        key,
-        first(default.numerator).prefix
+function _line_table_requests(source, selectors::Tuple, frequencies)
+    resolved = line_requests(source, selectors; frequencies)
+    selected = isempty(selectors) ? _default_selectors(source) : selectors
+    entries = Tuple(
+        key => request
+    for selector in selected
+    for (key, request) in zip(
+        _line_column_keys(
+            selector,
+            length(line_requests(source, (selector,); frequencies))
+        ),
+        line_requests(source, (selector,); frequencies)
     )
-    selected isa Units.UnitExpr && return selected
-    selected isa Symbol || throw(
-        ArgumentError("quantity-unit overrides must be prefixes or UnitExpr values"),
     )
-    return Units.display_unit(
-        quantity,
-        result_basis;
-        length_prefix = length_unit,
-        prefix = selected
+    Tuple(last.(entries)) == resolved || error(
+        "line request expansion changed while assigning table columns",
+    )
+    return (
+        series = _line_family_requests(entries, Z),
+        shunt = _line_family_requests(entries, Y)
     )
 end
 
 function _publish_family(source, requests, definition::LineParametersTable)
     isempty(requests) && return nothing
-    target_values = map(keys(requests), values(requests)) do key, request
-        _request_target(
-            request,
-            key,
-            basis(source),
-            definition.length_unit,
-            definition.quantity_units
-        )
-    end
-    targets = NamedTuple{keys(requests)}(target_values)
+    targets = unit_targets(
+        requests,
+        basis(source);
+        length_prefix = definition.length_unit,
+        overrides = definition.quantity_units
+    )
     return observables(source, requests; units = targets)
 end
 
@@ -196,10 +162,9 @@ function select(definition::LineParametersTable, source)
     frequencies = _frequency_values(source, definition.freqs)
     selectors = isempty(definition.quantities) ? _default_selectors(source) :
                 definition.quantities
-    series_requests = source isa Engine.ShuntAdmittance ? (;) :
-                      _line_requests(Val(:series), selectors, frequencies)
-    shunt_requests = source isa Engine.SeriesImpedance ? (;) :
-                     _line_requests(Val(:shunt), selectors, frequencies)
+    requests = _line_table_requests(source, selectors, frequencies)
+    series_requests = requests.series
+    shunt_requests = requests.shunt
     isempty(series_requests) && isempty(shunt_requests) &&
         throw(ArgumentError(
             "the selected accessors are not reportable for $(typeof(source))",

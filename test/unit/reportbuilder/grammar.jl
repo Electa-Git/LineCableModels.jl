@@ -74,6 +74,20 @@
     @test source.values == [1.0, 2.0]
     @test_throws ArgumentError report(TableReport((value = identity,)), source)
     @test_throws ArgumentError report(TableReport((value = identity,)), :unsupported)
+    publication_error=try
+        LineCableModels.observables(source, (value = identity,))
+        nothing
+    catch error
+        error
+    end
+    entitlement_error=try
+        RB.entitle(TableReport((value = identity,)), source)
+        nothing
+    catch error
+        error
+    end
+    @test typeof(entitlement_error) === typeof(publication_error)
+    @test sprint(showerror, entitlement_error) == sprint(showerror, publication_error)
 
     struct StageReport <: RB.AbstractReportDefinition end
     const report_stage_calls = Symbol[]
@@ -285,4 +299,13 @@ end
         monte_carlo
     ).table
     @test parentmodule(which(DataFrame, (typeof(monte_carlo),))) === RB
+
+    target=only(LineCableModels.Grammar.unit_targets(
+        (R,),
+        basis(only(LineCableModels.statistics(monte_carlo)));
+        length_prefix = :kilo,
+        overrides = :milli
+    ))
+    selected=RB.select(RB.MonteCarloTable(:kilo, :milli), monte_carlo)
+    @test selected.published.R.unit == target
 end

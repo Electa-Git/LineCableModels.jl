@@ -21,7 +21,7 @@ import ..Engine
 import ..Grammar
 import ..Grammar: compute, computation_options, computation_details, details,
                   observe, observables, check_core_result, computation_owner,
-                  detach
+                  detach, unit_targets
 import ..ParametricBuilder
 import ..ParametricBuilder: result, traverse
 import ..PlotBuilder
