@@ -67,13 +67,13 @@ function _quantity(request)
     request isa Tuple && !isempty(request) || throw(
         ArgumentError("scientific requests must be selector functions or nonempty tuples"),
     )
-    transformed = length(request) >= 2 && request[2] isa Function
+    transformed = length(request) >= 2 && applicable(quantity, request[1], request[2])
     return transformed ? quantity(request[1], request[2]) : quantity(first(request))
 end
 
 function _override_candidates(key, request)
     identity = request isa Function ? request :
-               length(request) >= 2 && request[2] isa Function ?
+               length(request) >= 2 && applicable(quantity, request[1], request[2]) ?
                (request[1], request[2]) : first(request)
     names = identity isa Function ? (nameof(identity),) :
             identity isa Tuple && first(identity) isa Function ?

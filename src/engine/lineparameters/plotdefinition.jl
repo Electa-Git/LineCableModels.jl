@@ -8,63 +8,33 @@ struct LineParameterPlotDefinition <: PlotBuilder.AbstractPlotDefinition end
 """
 $(TYPEDEF)
 
-Store one line in a detached line-parameter panel.
+Store aligned detached observations and panel state for one line dashboard.
 
 $(TYPEDFIELDS)
 """
-struct LineCurve{Y, S}
-    "Displayed ordinate values in the unit recorded by the panel observation."
-    values::Y
-    "Legend text."
-    label::String
-    "Identity shared by lines controlled by one legend entry."
-    group::Symbol
-    "Line attributes owned by the scientific plot definition."
-    style::S
-end
-
-"""
-$(TYPEDEF)
-
-Store the observations, curves, and axis behavior for one line-parameter panel.
-
-$(TYPEDFIELDS)
-"""
-struct LinePanelPayload{R, X, Y, C, XS <: Tuple, YS <: Tuple, A}
-    "Function-valued scientific request represented by the panel."
-    request::R
-    "One-based row and column in the page canvas."
-    position::Tuple{Int, Int}
-    "Displayed panel title."
-    title::String
-    "Published abscissa observation."
-    x_observation::X
-    "Published ordinate observation restricted to the displayed curves."
-    y_observation::Y
-    "Detached curves in draw order."
-    curves::C
-    "Initial abscissa scale."
-    xscale::Symbol
-    "Initial ordinate scale."
-    yscale::Symbol
-    "Scales admitted for the abscissa."
+struct LineDashboardPayload{F, R, O, C, P, T, XS, YS, A, L, K, S}
+    "Published frequency observation."
+    frequency::F
+    "Original scientific requests in display order."
+    requests::R
+    "Detached scientific observations."
+    observations::O
+    "Resolved row, column, and frequency indices."
+    coordinates::C
+    "Canvas positions in display order."
+    positions::P
+    "Panel titles in display order."
+    titles::T
+    "Admitted abscissa scales for each panel."
     xscales::XS
-    "Scales admitted for the ordinate."
+    "Admitted ordinate scales for each panel."
     yscales::YS
-    "Axis visibility attributes."
+    "Axis visibility attributes for each panel."
     attributes::A
-end
-
-"""
-$(TYPEDEF)
-
-Store one detached line-parameter page for the standard plotting shell.
-
-$(TYPEDFIELDS)
-"""
-struct LinePagePayload{P, S}
-    "Detached panels in draw order."
-    panels::P
+    "Presentation-only legend labels."
+    legend::L
+    "Comparison colors, or an empty tuple for one source."
+    colors::K
     "Captured runtime state used for current-state SVG replay."
     runtime::S
 end
@@ -93,129 +63,42 @@ function _conductor_pairs(object, selector)
     return [(i, j) for i in rows for j in columns]
 end
 
-const _DISPLAY_ZERO_RTOL = sqrt(eps(Float64))
-
-"""
-$(TYPEDSIGNATURES)
-
-Return `Z` or `Y` as the line-parameter family that owns a resolved scientific
-request.
-"""
-line_parent(::typeof(R)) = Z
-line_parent(::typeof(X)) = Z
-line_parent(::typeof(L)) = Z
-line_parent(::typeof(Z)) = Z
-line_parent(::typeof(G)) = Y
-line_parent(::typeof(B)) = Y
-line_parent(::typeof(C)) = Y
-line_parent(::typeof(Y)) = Y
-line_parent(request::Tuple) = line_parent(first(request))
-
-_default_line_requests(::LineParameters) = (R, X, G, B)
-_default_line_requests(::SeriesImpedance) = (R, X)
-_default_line_requests(::ShuntAdmittance) = (G, B)
-
-function _expand_line_request(::SeriesImpedance, accessor, frequencies)
-    accessor === R && return (R,)
-    accessor === X && return (X,)
-    accessor === L && frequencies === nothing &&
-        throw(
-            ArgumentError("frequencies are required for standalone inductance requests"),
-        )
-    accessor === L && return ((L, frequencies),)
-    accessor === real && return (R,)
-    accessor === imag && return (X,)
-    accessor === abs && return ((Z, abs),)
-    accessor === angle && return ((Z, angle),)
-    accessor === Z && return (R, X)
-    throw(ArgumentError("accessor $(accessor) is not defined for SeriesImpedance presentation"))
+function _line_request_identity(request::Tuple)
+    length(request) == 5 && return (request[1], request[2])
+    return first(request)
 end
 
-function _expand_line_request(::ShuntAdmittance, accessor, frequencies)
-    accessor === G && return (G,)
-    accessor === B && return (B,)
-    accessor === C && frequencies === nothing &&
-        throw(
-            ArgumentError("frequencies are required for standalone capacitance requests"),
-        )
-    accessor === C && return ((C, frequencies),)
-    accessor === real && return (G,)
-    accessor === imag && return (B,)
-    accessor === abs && return ((Y, abs),)
-    accessor === angle && return ((Y, angle),)
-    accessor === Y && return (G, B)
-    throw(ArgumentError("accessor $(accessor) is not defined for ShuntAdmittance presentation"))
+function _line_request_quantity(request)
+    identity = _line_request_identity(request)
+    return identity isa Tuple ? Units.quantity(identity...) : Units.quantity(identity)
 end
 
-function _expand_line_request(::LineParameters, accessor, frequencies)
-    accessor === Z && return (R, X)
-    accessor === Y && return (G, B)
-    accessor === real && return (R, G)
-    accessor === imag && return (X, B)
-    accessor === abs && return ((Z, abs), (Y, abs))
-    accessor === angle && return ((Z, angle), (Y, angle))
-    accessor === R && return (R,)
-    accessor === X && return (X,)
-    accessor === L && return (L,)
-    accessor === G && return (G,)
-    accessor === B && return (B,)
-    accessor === C && return (C,)
-    throw(ArgumentError("accessor $(accessor) is not defined for LineParameters presentation"))
+_line_request_family(request) = Units.family(_line_request_quantity(request))
+_family_parent(::Val{:series}) = Z
+_family_parent(::Val{:shunt}) = Y
+
+function _line_request_indices(request::Tuple)
+    offset = _line_request_identity(request) isa Tuple ? 2 : 1
+    length(request) == offset + 3 || throw(ArgumentError(
+        "line plots require an observable request with matrix row, matrix column, and frequency indices",
+    ))
+    return request[(offset + 1):end]
 end
 
-function _line_request_identity(request)
-    request isa Function && return request
-    return length(request) >= 2 && request[2] isa Function ?
-           (request[1], request[2]) : first(request)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Expand line-result selectors into the observable requests supported by `source`.
-Standalone inductance and capacitance requests include the supplied frequency
-vector.
-
-# Arguments
-
-- `object`: `LineParameters`, `SeriesImpedance`, or `ShuntAdmittance` source.
-- `selectors`: Tuple of function-valued scientific selectors.
-
-# Keywords
-
-- `frequencies`: Required sample frequencies for standalone `L` or `C`
-  observations.
-
-# Errors
-
-- Throws `ArgumentError` when `selectors` is not a tuple, a selector is
-  unsupported, no request is selected, or multiple selectors resolve to the
-  same scientific request.
-"""
-function line_requests(object, selectors; frequencies = nothing)
-    selectors isa Tuple || throw(ArgumentError("selectors must be a tuple of accessors"))
-    selected_accessors = isempty(selectors) ? _default_line_requests(object) : selectors
-    selected = Tuple(
-        request for accessor in selected_accessors
-    for request in _expand_line_request(object, accessor, frequencies)
-    )
-    isempty(selected) &&
-        throw(ArgumentError("at least one line-parameter accessor is required"))
-    identities = map(_line_request_identity, selected)
-    length(unique(identities)) == length(identities) || throw(
-        ArgumentError("line-parameter accessors select duplicate quantities"),
-    )
-    return selected
+function _line_request_names(requests::Tuple)
+    return Tuple(Symbol("request_$index") for index in eachindex(requests))
 end
 
 function _line_input_defaults(frequencies)
     return (;
         frequencies,
-        quantities = (),
+        requests = (),
         freq_unit = :base,
         length_unit = :kilo,
         quantity_units = nothing,
-        con = nothing,
+        title = nothing,
+        labels = nothing,
+        legend = nothing,
         xscale = :linear,
         yscale = :linear
     )
@@ -259,11 +142,25 @@ function PlotBuilder.resolve(
         )
     supplied_frequencies = input.frequencies === nothing ? nothing :
                            collect(input.frequencies)
-    requests = line_requests(
-        object,
-        input.quantities;
-        frequencies = supplied_frequencies
-    )
+    object isa Union{SeriesImpedance, ShuntAdmittance} &&
+        length(supplied_frequencies) != size(object, 3) && throw(DimensionMismatch(
+        "frequency vector length does not match the parameter depth",
+    ))
+    requests = input.requests
+    requests isa Tuple || throw(ArgumentError("requests must be a tuple"))
+    isempty(requests) && throw(ArgumentError(
+        "at least one explicit observable request is required",
+    ))
+    all(request -> request isa Tuple, requests) || throw(ArgumentError(
+        "line plots accept explicit observable request tuples",
+    ))
+    identities = map(_line_request_identity, requests)
+    length(unique(identities)) == length(identities) || throw(ArgumentError(
+        "line plots do not accept duplicate scientific quantities",
+    ))
+    declared = NamedTuple{_line_request_names(requests)}(requests)
+    validate_observables(object, declared)
+    foreach(_line_request_indices, requests)
     if supplied_frequencies !== nothing
         all(isfinite, supplied_frequencies) ||
             throw(ArgumentError("frequencies must be finite"))
@@ -287,9 +184,25 @@ function PlotBuilder.resolve(
     all(>(0), request.renderer.fig_size) || throw(
         ArgumentError("fig_size dimensions must be positive"),
     )
+    input.title === nothing || input.title isa AbstractString || throw(
+        ArgumentError("title must be a string or nothing"),
+    )
+    labels = input.labels
+    labels === nothing || labels isa Tuple || throw(
+        ArgumentError("labels must be a tuple or nothing"),
+    )
+    labels === nothing || length(labels) == length(requests) || throw(
+        DimensionMismatch("labels must contain one entry per normalized request"),
+    )
+    labels === nothing || all(label -> label isa AbstractString, labels) || throw(
+        ArgumentError("labels must contain strings"),
+    )
+    input.legend === nothing || input.legend isa Tuple || throw(
+        ArgumentError("legend must be a tuple or nothing"),
+    )
     return merge(
         request,
-        (; input = merge(input, (; frequencies = supplied_frequencies, requests)))
+        (; input = merge(input, (; frequencies = supplied_frequencies)))
     )
 end
 
@@ -303,16 +216,18 @@ function _frequency_payload(values, target)
     )
 end
 
-function _published_frequency(object, input)
+function _published_frequency(object, input, selector)
     target = Units.units(input.freq_unit, :hertz)
-    object isa LineParameters || return _frequency_payload(input.frequencies, target)
+    if !(object isa LineParameters)
+        return _frequency_payload(input.frequencies[selector], target)
+    end
     published = observables(
         object,
-        (frequency = (frequencies, Colon()),);
+        (frequency = (frequencies, selector),);
         units = (frequency = target,)
     ).frequency
     if input.frequencies !== nothing
-        supplied = _frequency_payload(input.frequencies, target)
+        supplied = _frequency_payload(input.frequencies[selector], target)
         supplied.values == published.values || throw(
             ArgumentError("supplied frequencies do not match the LineParameters frequency axis"),
         )
@@ -328,43 +243,35 @@ function _publish_request(object, request, target)
     ).value
 end
 
-function _reference_payload(object, request, target)
-    return _publish_request(
-        object,
-        line_parent(request),
-        target
-    )
+function _request_coordinates(object, request)
+    row, column, frequency = _line_request_indices(request)
+    dimensions = object isa LineParameters ? size(Z(object)) : size(object)
+    rows = _indices(row, dimensions[1])
+    columns = _indices(column, dimensions[2])
+    frequency_count = object isa LineParameters ? nfrequencies(object) : size(object, 3)
+    samples = _indices(frequency, frequency_count)
+    return rows, columns, samples
 end
 
-function _is_cartesian_request(request)
-    request === R || request === X || request === G || request === B
-end
-
-function _maximum_nominal_magnitude(values)
-    return mapreduce(
-        value -> begin
-            magnitude = abs(nominal(value))
-            isfinite(magnitude) ? Float64(magnitude) : 0.0
-        end,
-        max,
-        values;
-        init = 0.0
-    )
-end
-
-function _suppress_display_residue(payload, reference, request)
-    _is_cartesian_request(request) || return payload
-    component_scale = _maximum_nominal_magnitude(payload.values)
-    iszero(component_scale) && return payload
-    reference_scale = _maximum_nominal_magnitude(reference.values)
-    iszero(reference_scale) && return payload
-    component_scale <= _DISPLAY_ZERO_RTOL * reference_scale || return payload
-    return (;
-        values = zero.(payload.values), quantity = payload.quantity, unit = payload.unit)
+function _materialized_line_request(object, input, request)
+    rows, columns, samples = _request_coordinates(object, request)
+    identity = _line_request_identity(request)
+    prefix = identity isa Tuple ? identity : (identity,)
+    if object isa SeriesImpedance && identity === L
+        prefix = (L, input.frequencies)
+    elseif object isa ShuntAdmittance && identity === C
+        prefix = (C, input.frequencies)
+    end
+    return (prefix..., rows, columns, samples)
 end
 
 function _publish_line_source(object, input, requests)
-    frequency = _published_frequency(object, input)
+    coordinates = map(request -> _request_coordinates(object, request), requests)
+    sample_indices = last.(coordinates)
+    all(==(first(sample_indices)), sample_indices) || throw(DimensionMismatch(
+        "all requests on one line dashboard must select the same frequency indices",
+    ))
+    frequency = _published_frequency(object, input, first(sample_indices))
     targets = unit_targets(
         requests,
         basis(object);
@@ -372,19 +279,29 @@ function _publish_line_source(object, input, requests)
         overrides = input.quantity_units
     )
     observations = map(requests, targets) do request, target
-        payload = _publish_request(object, request, target)
-        _is_cartesian_request(request) || return payload
-        reference = _reference_payload(object, request, target)
-        return _suppress_display_residue(payload, reference, request)
+        _publish_request(object, _materialized_line_request(object, input, request), target)
     end
-    sample = first(observations)
-    size(sample.values, 3) == length(frequency.values) || throw(
+    all(observation -> size(observation.values, 3) == length(frequency.values), observations) || throw(
         DimensionMismatch("frequency count does not match line-parameter samples"),
     )
-    _conductor_pairs(sample.values, input.con)
+    legend = input.legend
+    if legend !== nothing
+        matrix_pairs = map(coordinates) do (rows, columns, _)
+            Tuple((row, column) for row in rows for column in columns)
+        end
+        all(==(first(matrix_pairs)), matrix_pairs) || throw(DimensionMismatch(
+            "legend overrides require every request to select the same matrix indices",
+        ))
+        length(legend) == length(first(matrix_pairs)) || throw(DimensionMismatch(
+            "legend must contain one label per selected matrix element",
+        ))
+        all(label -> label isa AbstractString, legend) || throw(ArgumentError(
+            "legend must contain strings",
+        ))
+    end
     length(frequency.values) <= 1 &&
         @warn "Frequency vector has $(length(frequency.values)) sample(s); nothing to plot."
-    return (; frequency, observations)
+    return (; frequency, observations, coordinates)
 end
 
 function _supports_log_values(samples)
@@ -408,71 +325,65 @@ function _panel_positions(count::Int)
     for index in 1:count)
 end
 
-function _axis_observation(observation, curves)
-    values = collect(Iterators.flatten(curve.values for curve in curves))
-    return (; values, quantity = observation.quantity, unit = observation.unit)
-end
-
-function _line_curves(observation, parent, selector)
-    pairs = _conductor_pairs(observation.values, selector)
-    family = parent === Z ? "series" : "shunt"
-    scientific_symbol = Units.symbol(Units.quantity(parent))
-    return map(pairs) do (row, column)
-        LineCurve(
-            collect(view(observation.values, row, column, :)),
-            "$scientific_symbol[$row,$column]",
-            Symbol("$(family)_$(row)_$(column)"),
-            (; linewidth = 2)
-        )
-    end
-end
-
-function _line_page(configuration, published, parent, page_index::Int)
+function _line_page(configuration, published, family, page_index::Int)
     selected = Tuple(
-        (scientific_request, observation)
-    for (scientific_request, observation) in zip(configuration.input.requests, published.observations)
-    if line_parent(scientific_request) === parent
+        (index, scientific_request, observation, coordinates)
+    for (index, (scientific_request, observation, coordinates)) in enumerate(zip(
+        configuration.input.requests,
+        published.observations,
+        published.coordinates
+    ))
+    if _line_request_family(scientific_request) === family
     )
     positions = _panel_positions(length(selected))
-    panels = map(selected, positions) do selected_request, position
-        scientific_request, observation = selected_request
-        curves = _line_curves(
-            observation,
-            parent,
-            configuration.input.con
-        )
-        xscales = _axis_scales(published.frequency.values)
-        y_observation = _axis_observation(observation, curves)
-        yscales = _axis_scales(y_observation.values)
-        configuration.input.xscale in xscales || throw(DomainError(
+    titles = map(selected) do selected_request
+        request_index, scientific_request, observation, coordinates = selected_request
+        return configuration.input.labels === nothing ? Units.label(observation.quantity) :
+               String(configuration.input.labels[request_index])
+    end
+    xscales = map(selected) do _
+        admitted = _axis_scales(published.frequency.values)
+        configuration.input.xscale in admitted || throw(DomainError(
             published.frequency.values,
             "logarithmic frequency axes require positive finite data and uncertainty bounds"
         ))
-        configuration.input.yscale in yscales || throw(DomainError(
-            y_observation.values,
+        return admitted
+    end
+    yscales = map(selected) do selected_request
+        observation = selected_request[3]
+        admitted = _axis_scales(observation.values)
+        configuration.input.yscale in admitted || throw(DomainError(
+            observation.values,
             "logarithmic ordinate axes require positive finite data and uncertainty bounds"
         ))
-        LinePanelPayload(
-            scientific_request,
-            position,
-            Units.label(observation.quantity),
-            published.frequency,
-            y_observation,
-            curves,
-            configuration.input.xscale,
-            configuration.input.yscale,
-            xscales,
-            yscales,
-            (;)
-        )
+        return admitted
     end
-    title = Units.label(Units.quantity(parent))
+    parent = _family_parent(family)
+    title = configuration.input.title === nothing ?
+            Units.label(Units.quantity(parent)) : String(configuration.input.title)
     key = (;
         page = page_index,
-        family = parent,
-        requests = first.(selected)
+        family,
+        requests = getindex.(selected, 2)
     )
-    payload = LinePagePayload(panels, nothing)
+    payload = LineDashboardPayload(
+        published.frequency,
+        getindex.(selected, 2),
+        getindex.(selected, 3),
+        getindex.(selected, 4),
+        positions,
+        titles,
+        xscales,
+        yscales,
+        ntuple(_ -> (;), length(selected)),
+        configuration.input.legend,
+        (),
+        (;
+            xscale = configuration.input.xscale,
+            yscale = configuration.input.yscale,
+            panels = nothing
+        )
+    )
     return PlotBuilder.PlotPage(
         title,
         configuration.renderer.fig_size,
@@ -487,9 +398,9 @@ function _line_page(configuration, published, parent, page_index::Int)
     )
 end
 
-_line_parents(::SeriesImpedance) = (Z,)
-_line_parents(::ShuntAdmittance) = (Y,)
-_line_parents(::LineParameters) = (Z, Y)
+_line_families(::SeriesImpedance) = (Val(:series),)
+_line_families(::ShuntAdmittance) = (Val(:shunt),)
+_line_families(::LineParameters) = (Val(:series), Val(:shunt))
 
 function PlotBuilder.fetch(
         ::Type{LineParameterPlotDefinition},
@@ -498,9 +409,9 @@ function PlotBuilder.fetch(
 )
     published = _publish_line_source(object, request.input, request.input.requests)
     length(published.frequency.values) <= 1 && return PlotBuilder.PlotPage[]
-    parents = Tuple(parent
-    for parent in _line_parents(object)
-    if any(item -> line_parent(item) === parent, request.input.requests))
-    return PlotBuilder.PlotPage[_line_page(request, published, parent, page_index)
-                                for (page_index, parent) in enumerate(parents)]
+    families = Tuple(family
+    for family in _line_families(object)
+    if any(item -> _line_request_family(item) === family, request.input.requests))
+    return PlotBuilder.PlotPage[_line_page(request, published, family, page_index)
+                                for (page_index, family) in enumerate(families)]
 end

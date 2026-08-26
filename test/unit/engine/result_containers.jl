@@ -184,22 +184,22 @@
         row = ones(Int, 4),
         column = ones(Int, 4),
         frequency = [50.0, 50.0, 100.0, 100.0],
-        quantity = [:real, :imag, :real, :imag]
+        quantity = [:R, :X, :R, :X]
     )
     units_metadata=DataFrames.metadata(parameter_table, "units")
-    @test units_metadata[(:series, :real)] == "Ω"
-    @test units_metadata[(:series, :imag)] == "Ω"
-    @test units_metadata[(:shunt, :real)] == "S"
-    @test units_metadata[(:shunt, :imag)] == "S"
+    @test units_metadata[(:series, :R)] == "Ω"
+    @test units_metadata[(:series, :X)] == "Ω"
+    @test units_metadata[(:shunt, :G)] == "S"
+    @test units_metadata[(:shunt, :B)] == "S"
     @test DataFrames.metadata(parameter_table, "basis") === basis(parameters)
     headings_metadata=DataFrames.metadata(parameter_table, "headings")
-    @test headings_metadata[(:series, :real)] == "Series resistance [Ω]"
-    @test headings_metadata[(:shunt, :imag)] == "Shunt susceptance [S]"
+    @test headings_metadata[(:series, :R)] == "Series resistance [Ω]"
+    @test headings_metadata[(:shunt, :B)] == "Shunt susceptance [S]"
     requests_metadata=DataFrames.metadata(parameter_table, "requests")
-    @test requests_metadata[(:series, :real)] === R
-    @test requests_metadata[(:series, :imag)] === X
-    @test requests_metadata[(:shunt, :real)] === G
-    @test requests_metadata[(:shunt, :imag)] === B
+    @test requests_metadata[(:series, :R)] == @observe(R[:, :, :])
+    @test requests_metadata[(:series, :X)] == @observe(X[:, :, :])
+    @test requests_metadata[(:shunt, :G)] == @observe(G[:, :, :])
+    @test requests_metadata[(:shunt, :B)] == @observe(B[:, :, :])
     parameter_rlgc=DataFrame(parameters, (R, L, G, C))
     rlgc_units=DataFrames.metadata(parameter_rlgc, "units")
     @test rlgc_units[(:series, :R)] == "Ω"
@@ -229,7 +229,7 @@
     @test unique(standalone_shunt.family) == [:shunt]
     @test unique(standalone_series.frequency) == frequency
     @test unique(standalone_shunt.frequency) == frequency
-    @test unique(standalone_series.quantity) == [:real, :imag]
+    @test unique(standalone_series.quantity) == [:R, :X]
     @test unique(standalone_shunt.quantity) == [:G, :C]
     @test_throws ArgumentError DataFrame(series)
     @test_throws ArgumentError DataFrame(shunt)

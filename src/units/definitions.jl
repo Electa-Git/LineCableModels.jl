@@ -84,6 +84,31 @@ symbol(::Quantity{(:shunt_admittance, :magnitude)}) = "|Y|"
 label(::Quantity{(:shunt_admittance, :phase_angle)}) = "Shunt admittance phase angle"
 symbol(::Quantity{(:shunt_admittance, :phase_angle)}) = "∠Y"
 
+const _SeriesQuantity = Union{
+    Quantity{:series_resistance},
+    Quantity{:series_reactance},
+    Quantity{:series_inductance},
+    Quantity{:series_impedance},
+    Quantity{(:series_impedance, :magnitude)},
+    Quantity{(:series_impedance, :phase_angle)},
+    Quantity{:series_impedance_absolute_error},
+    Quantity{:series_impedance_relative_error}
+}
+
+const _ShuntQuantity = Union{
+    Quantity{:shunt_conductance},
+    Quantity{:shunt_susceptance},
+    Quantity{:shunt_capacitance},
+    Quantity{:shunt_admittance},
+    Quantity{(:shunt_admittance, :magnitude)},
+    Quantity{(:shunt_admittance, :phase_angle)},
+    Quantity{:shunt_admittance_absolute_error},
+    Quantity{:shunt_admittance_relative_error}
+}
+
+family(::_SeriesQuantity) = Val(:series)
+family(::_ShuntQuantity) = Val(:shunt)
+
 native_unit(::Quantity{:series_impedance_absolute_error}) =
     native_unit(Quantity{:series_impedance}())
 display_unit(::Quantity{:series_impedance_absolute_error}) =

@@ -19,6 +19,11 @@ import ..LineCableModels: R, L, C
 export Unit, UnitExpr, Quantity, units
 export quantity, native_unit, display_unit, scale_factor, label, symbol
 
+"Return the owner-defined family of a physical quantity."
+function family end
+
+public family
+
 include("units.jl")
 include("quantities.jl")
 include("accessors.jl")

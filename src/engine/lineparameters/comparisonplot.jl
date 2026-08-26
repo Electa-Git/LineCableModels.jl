@@ -57,8 +57,10 @@ end
 
 function _comparison_input_defaults(::_LineParametersBenchmarkTuple)
     return (;
-        quantities = (),
+        requests = (),
         legend = nothing,
+        title = nothing,
+        labels = nothing,
         freq_unit = :base,
         length_unit = :kilo,
         quantity_units = nothing,
@@ -91,7 +93,23 @@ function PlotBuilder.resolve(
         request::NamedTuple
 )
     input = request.input
-    requests = line_requests(first(parameters), input.quantities)
+    requests = input.requests
+    requests isa Tuple || throw(ArgumentError("requests must be a tuple"))
+    isempty(requests) && throw(ArgumentError(
+        "at least one explicit observable request is required",
+    ))
+    all(item -> item isa Tuple, requests) || throw(ArgumentError(
+        "line comparisons accept explicit observable request tuples",
+    ))
+    identities = map(_line_request_identity, requests)
+    length(unique(identities)) == length(identities) || throw(ArgumentError(
+        "line comparisons do not accept duplicate scientific quantities",
+    ))
+    validate_observables(
+        first(parameters),
+        NamedTuple{_line_request_names(requests)}(requests)
+    )
+    foreach(_line_request_indices, requests)
     labels = _comparison_labels(input.legend, length(parameters))
     input.xscale in (:linear, :log10) || throw(
         ArgumentError("xscale must be :linear or :log10"),
@@ -105,6 +123,17 @@ function PlotBuilder.resolve(
     all(>(0), request.renderer.fig_size) || throw(
         ArgumentError("fig_size dimensions must be positive"),
     )
+    input.title === nothing || input.title isa AbstractString || throw(
+        ArgumentError("title must be a string or nothing"),
+    )
+    input.labels === nothing || input.labels isa Tuple || throw(
+        ArgumentError("labels must be a tuple or nothing"),
+    )
+    input.labels === nothing || length(input.labels) == length(requests) || throw(
+        DimensionMismatch("labels must contain one entry per normalized request"),
+    )
+    input.labels === nothing || all(label -> label isa AbstractString, input.labels) ||
+        throw(ArgumentError("labels must contain strings"))
     colors = Tuple(_comparison_color(index) for index in eachindex(parameters))
     return merge(
         request,
@@ -112,75 +141,71 @@ function PlotBuilder.resolve(
     )
 end
 
-function _comparison_curves(published, request_index, row, column, labels, colors)
-    return map(eachindex(published)) do result_index
-        observation = published[result_index].observations[request_index]
-        LineCurve(
-            collect(view(observation.values, row, column, :)),
-            labels[result_index],
-            Symbol("line_parameters_$result_index"),
-            (;
-                color = colors[result_index],
-                linestyle = :solid,
-                linewidth = 2
-            )
-        )
-    end
-end
-
 function _comparison_page(configuration, published, request_index, page_index::Int)
     scientific_request = configuration.input.requests[request_index]
-    parent = line_parent(scientific_request)
+    family = _line_request_family(scientific_request)
+    parent = _family_parent(family)
     first_observation = first(published).observations[request_index]
-    count = size(first_observation.values, 1)
-    family_symbol = Units.symbol(Units.quantity(parent))
-    panels = Tuple(
-        begin
-            curves = _comparison_curves(
-                published,
-                request_index,
-                row,
-                column,
-                configuration.input.legend,
-                configuration.input.colors
-            )
-            y_observation = _axis_observation(first_observation, curves)
-            xscales = _axis_scales(first(published).frequency.values)
-            yscales = _axis_scales(y_observation.values)
-            configuration.input.xscale in xscales || throw(DomainError(
-                first(published).frequency.values,
-                "logarithmic frequency axes require positive finite data and uncertainty bounds"
-            ))
-            configuration.input.yscale in yscales || throw(DomainError(
-                y_observation.values,
-                "logarithmic ordinate axes require positive finite data and uncertainty bounds"
-            ))
-            LinePanelPayload(
-                scientific_request,
-                (row, column),
-                "$family_symbol[$row,$column] · $(Units.label(first_observation.quantity))",
-                first(published).frequency,
-                y_observation,
-                curves,
-                configuration.input.xscale,
-                configuration.input.yscale,
-                xscales,
-                yscales,
-                (;
-                    xlabelvisible = row == count,
-                    xticklabelsvisible = row == count,
-                    xticksvisible = row == count,
-                    ylabelvisible = column == 1,
-                    yticklabelsvisible = column == 1,
-                    yticksvisible = column == 1
-                )
-            )
-        end
-    for row in 1:count
-    for column in 1:count
+    rows, columns, _ = first(published).coordinates[request_index]
+    family_symbol = Units.symbol(first_observation.quantity)
+    positions = Tuple((local_row, local_column)
+    for local_row in eachindex(rows)
+    for local_column in eachindex(columns))
+    titles = Tuple(
+        "$family_symbol[$row,$column] · $(configuration.input.labels === nothing ? Units.label(first_observation.quantity) : configuration.input.labels[request_index])"
+    for row in rows
+    for column in columns)
+    xscales = map(positions) do _
+        admitted = _axis_scales(first(published).frequency.values)
+        configuration.input.xscale in admitted || throw(DomainError(
+            first(published).frequency.values,
+            "logarithmic frequency axes require positive finite data and uncertainty bounds"
+        ))
+        return admitted
+    end
+    yscales = map(positions) do (local_row, local_column)
+        panel_values = collect(Iterators.flatten(
+            view(source.observations[request_index].values, local_row, local_column, :)
+        for source in published))
+        admitted = _axis_scales(panel_values)
+        configuration.input.yscale in admitted || throw(DomainError(
+            panel_values,
+            "logarithmic ordinate axes require positive finite data and uncertainty bounds"
+        ))
+        return admitted
+    end
+    attributes = Tuple(
+        (;
+            xlabelvisible = local_row == length(rows),
+            xticklabelsvisible = local_row == length(rows),
+            xticksvisible = local_row == length(rows),
+            ylabelvisible = local_column == 1,
+            yticklabelsvisible = local_column == 1,
+            yticksvisible = local_column == 1
+        )
+    for local_row in eachindex(rows)
+    for local_column in eachindex(columns))
+    title = configuration.input.title === nothing ?
+            "$(Units.label(first_observation.quantity)) comparison" :
+            String(configuration.input.title)
+    payload = LineDashboardPayload(
+        first(published).frequency,
+        (scientific_request,),
+        Tuple(source.observations[request_index] for source in published),
+        (first(published).coordinates[request_index],),
+        positions,
+        titles,
+        xscales,
+        yscales,
+        attributes,
+        configuration.input.legend,
+        configuration.input.colors,
+        (;
+            xscale = configuration.input.xscale,
+            yscale = configuration.input.yscale,
+            panels = nothing
+        )
     )
-    title = "$(Units.label(first_observation.quantity)) comparison"
-    payload = LinePagePayload(panels, nothing)
     return PlotBuilder.PlotPage(
         title,
         configuration.renderer.fig_size,
@@ -201,7 +226,7 @@ function PlotBuilder.fetch(
         request::NamedTuple
 )
     parameters = _validate_comparison_inputs(parameters)
-    internal_input = merge(request.input, (; frequencies = nothing, con = nothing))
+    internal_input = merge(request.input, (; frequencies = nothing, legend = nothing))
     published = Tuple(
         _publish_line_source(parameters[index], internal_input, request.input.requests)
     for index in eachindex(parameters)

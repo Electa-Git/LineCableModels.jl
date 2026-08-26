@@ -5,129 +5,79 @@
 ] begin
     const E=LineCableModels.Engine
     const PB=LineCableModels.PlotBuilder
+    const U=LineCableModels.Units
 
     parameters=TestFixtures.two_conductor_results()
     series=parameters.Z
     shunt=parameters.Y
 
-    @test E._indices(nothing, 3) == [1, 2, 3]
-    @test E._indices(:, 3) == [1, 2, 3]
-    @test E._indices(2, 3) == [2]
-    @test E._indices(1:2, 3) == [1, 2]
-    @test E._indices([3, 1], 3) == [3, 1]
-    @test_throws ArgumentError E._indices((1, 2), 3)
-    @test E._conductor_pairs(series, (1, [1, 2])) == [(1, 1), (1, 2)]
-    @test_throws ArgumentError E._conductor_pairs(series, 1)
-    @test_throws BoundsError E._conductor_pairs(series, ([0], :))
+    @test U.family(U.quantity(R)) === Val(:series)
+    @test U.family(U.quantity(L)) === Val(:series)
+    @test U.family(U.quantity(Z, abs)) === Val(:series)
+    @test U.family(U.quantity(G)) === Val(:shunt)
+    @test U.family(U.quantity(C)) === Val(:shunt)
+    @test U.family(U.quantity(Y, angle)) === Val(:shunt)
+    @test Base.ispublic(U, :family)
+    @test !isdefined(E, :line_requests)
+    @test !isdefined(E, :line_parent)
 
-    @test E.line_requests(series, (R,)) == (R,)
-    @test E.line_requests(series, (X,)) == (X,)
-    @test_throws ArgumentError E.line_requests(series, (L,))
-    @test E.line_requests(series, (real,)) == (R,)
-    @test E.line_requests(series, (imag,)) == (X,)
-    @test E.line_requests(series, (abs,)) == ((Z, abs),)
-    @test E.line_requests(series, (angle,)) == ((Z, angle),)
-    @test E.line_requests(series, (Z,)) == (R, X)
-    @test_throws ArgumentError E.line_requests(series, (C,))
-
-    @test E.line_requests(shunt, (G,)) == (G,)
-    @test E.line_requests(shunt, (B,)) == (B,)
-    @test_throws ArgumentError E.line_requests(shunt, (C,))
-    @test E.line_requests(shunt, (real,)) == (G,)
-    @test E.line_requests(shunt, (imag,)) == (B,)
-    @test E.line_requests(shunt, (abs,)) == ((Y, abs),)
-    @test E.line_requests(shunt, (angle,)) == ((Y, angle),)
-    @test E.line_requests(shunt, (Y,)) == (G, B)
-    @test_throws ArgumentError E.line_requests(shunt, (R,))
-
-    @test E.line_requests(parameters, (real,)) == (R, G)
-    @test E.line_requests(parameters, (imag,)) == (X, B)
-    @test E.line_requests(parameters, (abs,)) == ((Z, abs), (Y, abs))
-    @test E.line_requests(parameters, (angle,)) == ((Z, angle), (Y, angle))
-    @test E.line_requests(parameters, (Z,)) == (R, X)
-    @test E.line_requests(parameters, (Y,)) == (G, B)
-    for selector in (R, X, L, G, B, C)
-        @test E.line_requests(parameters, (selector,)) == (selector,)
-    end
-    @test_throws ArgumentError E.line_requests(parameters, (identity,))
-    @test_throws ArgumentError E.line_requests(parameters, (Z, R))
-    @test E.line_requests(parameters, ()) == (R, X, G, B)
-    standalone_frequencies=frequencies(parameters)
-    @test E.line_requests(series, (L,); frequencies = standalone_frequencies) ==
-          ((L, standalone_frequencies),)
-    @test E.line_requests(shunt, (C,); frequencies = standalone_frequencies) ==
-          ((C, standalone_frequencies),)
-    @test E.line_parent(R) === Z
-    @test E.line_parent((Z, abs)) === Z
-    @test E.line_parent((C, standalone_frequencies)) === Y
-    @test Base.ispublic(E, :line_requests)
-    @test Base.ispublic(E, :line_parent)
-    @test !isdefined(LineCableModels, :line_requests)
-    @test !isdefined(LineCableModels, :line_parent)
-
+    requests=(
+        @observe(R[1:2, [1, 2], :]),
+        @observe(L[1:2, [1, 2], :]),
+        @observe(G[1:2, [1, 2], :]),
+        @observe(C[1:2, [1, 2], :])
+    )
     render=PB.make_render(
         E.LineParameterPlotDefinition,
         parameters;
-        quantities = (R, L, G, C),
-        con = (1:2, [1, 2])
+        requests
     )
     @test length(render.pages) == 2
     @test sort([page.title for page in render.pages]) ==
           ["Series impedance", "Shunt admittance"]
-    @test sum(
-        length(panel.curves)
+    @test sum(length(rows) * length(columns)
     for page in render.pages
-    for panel in page.payload.panels
-    ) == 16
+    for (rows, columns, _) in page.payload.coordinates) == 16
     @test all(
-        panel -> panel.xscales == (:linear, :log10),
-        (panel for page in render.pages for panel in page.payload.panels)
+        scales -> scales == (:linear, :log10),
+        (scales for page in render.pages for scales in page.payload.xscales)
     )
-    @test Set(
-        curve.label
-    for page in render.pages
-    for panel in page.payload.panels
-    for curve in panel.curves
-    ) == Set(["Z[1,1]", "Z[1,2]", "Z[2,1]", "Z[2,2]",
-        "Y[1,1]", "Y[1,2]", "Y[2,1]", "Y[2,2]"])
     @test all(
-        keys(panel.x_observation) == (:values, :quantity, :unit) &&
-            keys(panel.y_observation) == (:values, :quantity, :unit)
+        keys(page.payload.frequency) == (:values, :quantity, :unit) &&
+            all(observation -> keys(observation) == (:values, :quantity, :unit),
+                page.payload.observations)
     for page in render.pages
-    for panel in page.payload.panels
     )
-    @test Tuple(panel.request for page in render.pages for panel in page.payload.panels) ==
-          (R, L, G, C)
+    @test Tuple(request for page in render.pages for request in page.payload.requests) ==
+          requests
 
     @test_throws ArgumentError PB.make_render(
         E.LineParameterPlotDefinition,
         parameters;
-        quantities = [R]
+        requests = (@observe(R[:, :, :]), @observe(R[1, 1, :]))
     )
-    @test_throws ArgumentError PB.make_render(
-        E.LineParameterPlotDefinition,
-        parameters;
-        quantities = (Z, real)
-    )
+    @test_throws ArgumentError PB.make_render(E.LineParameterPlotDefinition, parameters)
     @test_throws DimensionMismatch PB.make_render(
         E.LineParameterPlotDefinition,
         series;
-        frequencies = [50.0]
+        frequencies = [50.0],
+        requests = (@observe(R[:, :, :]),)
     )
+    standalone_frequencies=frequencies(parameters)
     @test_throws DomainError PB.make_render(
         E.LineParameterPlotDefinition,
         series;
         frequencies = [0.0, 50.0],
-        quantities = (L,)
+        requests = (@observe(L[:, :, :]),)
     )
     standalone_shunt=PB.make_render(
         E.LineParameterPlotDefinition,
         shunt;
-        frequencies = frequencies(parameters),
-        quantities = (G, C)
+        frequencies = standalone_frequencies,
+        requests = (@observe(G[:, :, :]), @observe(C[:, :, :]))
     )
     @test length(standalone_shunt.pages) == 1
-    @test length(only(standalone_shunt.pages).payload.panels) == 2
+    @test length(only(standalone_shunt.pages).payload.positions) == 2
 
     residual_conductance=fill(1.0e-17, size(shunt))
     lossless=LineParameters(
@@ -138,10 +88,10 @@
     lossless_render=PB.make_render(
         E.LineParameterPlotDefinition,
         lossless;
-        quantities = (G,)
+        requests = (@observe(G[:, :, :]),)
     )
-    lossless_curves=only(only(lossless_render.pages).payload.panels).curves
-    @test all(curve -> all(iszero, curve.values), lossless_curves)
+    lossless_values=only(only(lossless_render.pages).payload.observations).values
+    @test all(==(1.0e-14), lossless_values)
     @test all(==(1.0e-17), G(lossless))
 
     small_conductance=fill(1.0e-12, size(shunt))
@@ -150,18 +100,19 @@
         complex.(small_conductance, imag.(Y(parameters))),
         frequencies(parameters)
     )
-    lossy_render=PB.make_render(E.LineParameterPlotDefinition, lossy; quantities = (G,))
-    lossy_curves=only(only(lossy_render.pages).payload.panels).curves
-    @test all(
-        curve -> all(==(1.0e-9), curve.values),
-        lossy_curves
+    lossy_render=PB.make_render(
+        E.LineParameterPlotDefinition,
+        lossy;
+        requests = (@observe(G[:, :, :]),)
     )
+    lossy_values=only(only(lossy_render.pages).payload.observations).values
+    @test all(==(1.0e-9), lossy_values)
     @test all(==(1.0e-12), G(lossy))
 
     milli_resistance=PB.make_render(
         E.LineParameterPlotDefinition,
         parameters;
-        quantities = (R,),
+        requests = (@observe(R[:, :, :]),),
         quantity_units = Dict(R=>:milli)
     )
     expected_target=only(LineCableModels.Grammar.unit_targets(
@@ -170,8 +121,22 @@
         length_prefix = :kilo,
         overrides = Dict(R=>:milli)
     ))
-    @test only(only(milli_resistance.pages).payload.panels).y_observation.unit ==
+    @test only(only(milli_resistance.pages).payload.observations).unit ==
           expected_target
+
+    presented=PB.make_render(
+        E.LineParameterPlotDefinition,
+        parameters;
+        requests = (@observe(R[:, :, :]), @observe(X[:, :, :])),
+        title = "Custom title",
+        labels = ("Measured resistance", "Measured reactance"),
+        legend = ("self 1", "mutual 1–2", "mutual 2–1", "self 2")
+    )
+    @test only(presented.pages).title == "Custom title"
+    @test only(presented.pages).payload.titles ==
+          ("Measured resistance", "Measured reactance")
+    @test only(presented.pages).payload.legend ==
+          ("self 1", "mutual 1–2", "mutual 2–1", "self 2")
 end
 
 @testitem "Engine / detached comparison pages / matrix grid" tags=[:unit] setup=[
@@ -209,44 +174,24 @@ end
         E.LineParametersBenchmarkPlotDefinition,
         parameters;
         legend = labels,
-        quantities = (R, C),
+        requests = (@observe(R[:, :, :]), @observe(C[:, :, :])),
         xscale = :log10
     )
 
     @test length(render.pages) == 2
     @test all(page -> page.size == (1200, 800), render.pages)
-    @test all(page -> length(page.payload.panels) == 9, render.pages)
-    @test first(first(render.pages).payload.panels).title ==
-          "Z[1,1] · Series resistance"
-    @test all(
-        panel -> length(panel.curves) == length(parameters),
-        (panel for page in render.pages for panel in page.payload.panels)
-    )
+    @test all(page -> length(page.payload.positions) == 9, render.pages)
+    @test first(first(render.pages).payload.titles) ==
+          "R[1,1] · Series resistance"
     @test Set(
-        panel.position
-    for panel in first(render.pages).payload.panels
+        first(render.pages).payload.positions
     ) == Set((row, column) for row in 1:3 for column in 1:3)
-    @test Set(
-        curve.label
-    for panel in first(render.pages).payload.panels
-    for curve in panel.curves
-    ) == Set(labels)
-    @test Set(
-        curve.group
-    for panel in first(render.pages).payload.panels
-    for curve in panel.curves
-    ) == Set(Symbol("line_parameters_$index") for index in eachindex(parameters))
-    @test all(
-        curve -> curve.style.linestyle === :solid,
-        (curve for page in render.pages for panel in page.payload.panels
-        for curve in panel.curves)
-    )
-    first_panel=first(first(render.pages).payload.panels)
-    @test length(unique(curve.style.color for curve in first_panel.curves)) ==
+    @test first(render.pages).payload.legend == labels
+    first_colors=first(render.pages).payload.colors
+    @test length(unique(first_colors)) ==
           length(parameters)
     @test all(
-        page -> [curve.style.color for curve in first(page.payload.panels).curves] ==
-                [curve.style.color for curve in first_panel.curves],
+        page -> page.payload.colors == first_colors,
         render.pages
     )
 
@@ -255,21 +200,29 @@ end
     @test page.legend.overflow === :ellipsis
     @test all(
         name -> !hasproperty(page.payload, name),
-        (:title, :key, :legend, :colorbars, :widgets, :export_definition)
+        (:title, :key, :colorbars, :widgets, :export_definition)
     )
 
     default_render=PB.make_render(
         E.LineParametersBenchmarkPlotDefinition,
         parameters[1:2];
-        legend = labels[1:2]
+        legend = labels[1:2],
+        requests = (
+            @observe(R[:, :, :]), @observe(X[:, :, :]),
+            @observe(G[:, :, :]), @observe(B[:, :, :])
+        )
     )
     @test Tuple(page.key.request for page in default_render.pages) ==
-          (R, X, G, B)
+          (
+        @observe(R[:, :, :]), @observe(X[:, :, :]),
+        @observe(G[:, :, :]), @observe(B[:, :, :])
+    )
 
     @test_throws ArgumentError PB.make_render(
         E.LineParametersBenchmarkPlotDefinition,
         (first(parameters),);
-        legend = ("one",)
+        legend = ("one",),
+        requests = (@observe(R[:, :, :]),)
     )
     @test_throws ArgumentError PB.make_render(
         E.LineParametersBenchmarkPlotDefinition,
@@ -278,12 +231,14 @@ end
     @test_throws ArgumentError PB.make_render(
         E.LineParametersBenchmarkPlotDefinition,
         parameters;
-        legend = collect(labels)
+        legend = collect(labels),
+        requests = (@observe(R[:, :, :]),)
     )
     @test_throws DimensionMismatch PB.make_render(
         E.LineParametersBenchmarkPlotDefinition,
         parameters;
-        legend = labels[1:2]
+        legend = labels[1:2],
+        requests = (@observe(R[:, :, :]),)
     )
     smaller=LineParameters(
         PhaseDomain,
@@ -294,22 +249,26 @@ end
     @test_throws DimensionMismatch PB.make_render(
         E.LineParametersBenchmarkPlotDefinition,
         (first(parameters), smaller);
-        legend = ("three conductors", "two conductors")
+        legend = ("three conductors", "two conductors"),
+        requests = (@observe(R[:, :, :]),)
     )
     @test_throws ArgumentError PB.make_render(
         E.LineParametersBenchmarkPlotDefinition,
         (parameters[1], result(1.0; result_frequency = [10.0, 100.0, 2_000.0]));
-        legend = ("first", "frequency mismatch")
+        legend = ("first", "frequency mismatch"),
+        requests = (@observe(R[:, :, :]),)
     )
     @test_throws ArgumentError PB.make_render(
         E.LineParametersBenchmarkPlotDefinition,
         (parameters[1], result(1.0; result_domain = ModalDomain));
-        legend = ("phase", "modal")
+        legend = ("phase", "modal"),
+        requests = (@observe(R[:, :, :]),)
     )
     @test_throws ArgumentError PB.make_render(
         E.LineParametersBenchmarkPlotDefinition,
         (parameters[1], result(1.0; result_basis = :total));
-        legend = ("per length", "total")
+        legend = ("per length", "total"),
+        requests = (@observe(R[:, :, :]),)
     )
     @test_throws DomainError PB.make_render(
         E.LineParametersBenchmarkPlotDefinition,
@@ -318,7 +277,7 @@ end
             result(1.1; result_frequency = [0.0, 10.0, 100.0])
         );
         legend = ("first", "second"),
-        quantities = (L,)
+        requests = (@observe(L[:, :, :]),)
     )
 end
 

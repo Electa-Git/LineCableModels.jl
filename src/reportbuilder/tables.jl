@@ -14,8 +14,8 @@ tolerance for one long-form line-parameter table.
 $(TYPEDFIELDS)
 """
 struct LineParametersTableDefinition{Q <: Tuple, F, U} <: AbstractReportDefinition
-    "Scientific accessors to publish. An empty tuple selects the source defaults."
-    quantities::Q
+    "Scientific selectors or explicit observable requests to publish."
+    requests::Q
     "Frequency samples for a standalone matrix, or `nothing` for `LineParameters`."
     freqs::F
     "SI prefix used to display frequency."
@@ -73,7 +73,7 @@ function tabulate(::CableConstantsTableDefinition, source, published::NamedTuple
 end
 
 function _line_definition(
-        quantities::Tuple,
+        requests::Tuple,
         freqs,
         frequency_unit::Symbol,
         length_unit::Symbol,
@@ -84,7 +84,7 @@ function _line_definition(
         ArgumentError("tol must be finite and nonnegative"),
     )
     return LineParametersTableDefinition(
-        quantities,
+        requests,
         freqs,
         frequency_unit,
         length_unit,
@@ -157,97 +157,114 @@ function _frequency_payload(
     return _standalone_frequency_payload(values, prefix)
 end
 
-_default_selectors(::Engine.LineParameters) = (Z, Y)
-_default_selectors(::Engine.SeriesImpedance) = (Z,)
-_default_selectors(::Engine.ShuntAdmittance) = (Y,)
+_default_table_requests(::Engine.LineParameters) = (R, X, G, B)
+_default_table_requests(::Engine.SeriesImpedance) = (R, X)
+_default_table_requests(::Engine.ShuntAdmittance) = (G, B)
 
-_line_column_keys(::typeof(Z), count) = (:real, :imag)
-_line_column_keys(::typeof(Y), count) = (:real, :imag)
-_line_column_keys(::typeof(real), count) = ntuple(_ -> :real, count)
-_line_column_keys(::typeof(imag), count) = ntuple(_ -> :imag, count)
-_line_column_keys(::typeof(abs), count) = ntuple(_ -> :magnitude, count)
-_line_column_keys(::typeof(angle), count) = ntuple(_ -> :angle, count)
-function _line_column_keys(selector::Function, count)
-    return ntuple(_ -> nameof(selector), count)
+function _table_request_identity(request::Tuple)
+    length(request) == 5 && return (request[1], request[2])
+    return first(request)
 end
 
-function _line_family_requests(entries, parent)
-    selected = Tuple(entry for entry in entries if line_parent(last(entry)) === parent)
-    names = first.(selected)
-    length(unique(names)) == length(names) || throw(
-        ArgumentError("line-parameter accessors select duplicate table columns"),
-    )
-    return (; (key => request for (key, request) in selected)...)
+function _table_request_quantity(request)
+    identity = _table_request_identity(request)
+    return identity isa Tuple ? Units.quantity(identity...) : Units.quantity(identity)
 end
 
-function _line_table_requests(source, selectors::Tuple, frequencies)
-    resolved = line_requests(source, selectors; frequencies)
-    selected = isempty(selectors) ? _default_selectors(source) : selectors
-    entries = Tuple(
-        key => request
-    for selector in selected
-    for (key, request) in zip(
-        _line_column_keys(
-            selector,
-            length(line_requests(source, (selector,); frequencies))
-        ),
-        line_requests(source, (selector,); frequencies)
-    )
-    )
-    Tuple(last.(entries)) == resolved || error(
-        "line request expansion changed while assigning table columns",
-    )
-    return (
-        series = _line_family_requests(entries, Z),
-        shunt = _line_family_requests(entries, Y)
-    )
+function _table_request_indices(request::Tuple)
+    offset = _table_request_identity(request) isa Tuple ? 2 : 1
+    length(request) == offset + 3 || throw(ArgumentError(
+        "line tables require row, column, and frequency indices",
+    ))
+    return request[(offset + 1):end]
 end
 
-function _publish_family(source, requests, definition::LineParametersTableDefinition)
-    isempty(requests) && return nothing
+function _table_requests(source, requested::Tuple)
+    selected = isempty(requested) ? _default_table_requests(source) : requested
+    requests = map(selected) do request
+        request isa Function && return (request, Colon(), Colon(), Colon())
+        request isa Tuple || throw(ArgumentError(
+            "line tables accept selectors or explicit observable request tuples",
+        ))
+        _table_request_indices(request)
+        return request
+    end
+    identities = map(_table_request_identity, requests)
+    length(unique(identities)) == length(identities) || throw(ArgumentError(
+        "line tables do not accept duplicate scientific quantities",
+    ))
+    return requests
+end
+
+function _table_indices(selector, count::Int)
+    selector isa Colon && return collect(1:count)
+    selector isa Integer && return [Int(selector)]
+    selector isa AbstractRange && return collect(Int, selector)
+    selector isa AbstractVector && return collect(Int, selector)
+    throw(ArgumentError("observable indices must be integers, ranges, vectors, or `:`"))
+end
+
+function _table_coordinates(source, request)
+    row, column, sample = _table_request_indices(request)
+    dimensions = source isa Engine.LineParameters ? size(Z(source)) : size(source)
+    rows = _table_indices(row, dimensions[1])
+    columns = _table_indices(column, dimensions[2])
+    samples = _table_indices(sample, dimensions[3])
+    return rows, columns, samples
+end
+
+function _materialized_table_request(source, frequencies, request)
+    rows, columns, samples = _table_coordinates(source, request)
+    identity = _table_request_identity(request)
+    prefix = identity isa Tuple ? identity : (identity,)
+    source isa Engine.SeriesImpedance && identity === L &&
+        (prefix = (L, frequencies))
+    source isa Engine.ShuntAdmittance && identity === C &&
+        (prefix = (C, frequencies))
+    return (prefix..., rows, columns, samples)
+end
+
+function select(definition::LineParametersTableDefinition, source)
+    frequency_values = _frequency_values(source, definition.freqs)
+    requests = _table_requests(source, definition.requests)
+    coordinates = map(request -> _table_coordinates(source, request), requests)
+    sample_indices = last.(coordinates)
+    all(==(first(sample_indices)), sample_indices) || throw(DimensionMismatch(
+        "all line-table requests must select the same frequency indices",
+    ))
+    names = Tuple(Symbol("request_$index") for index in eachindex(requests))
+    materialized = map(request -> _materialized_table_request(
+        source,
+        frequency_values,
+        request
+    ), requests)
+    named_requests = NamedTuple{names}(materialized)
     targets = unit_targets(
-        requests,
+        named_requests,
         basis(source);
         length_prefix = definition.length_unit,
         overrides = definition.quantity_units
     )
-    return observables(source, requests; units = targets)
+    if source isa Engine.LineParameters
+        frequency_target = Units.units(definition.frequency_unit, :hertz)
+        combined_requests = merge(
+            (frequency = (frequencies, first(sample_indices)),),
+            named_requests
+        )
+        combined_units = merge((frequency = frequency_target,), targets)
+        combined = observables(source, combined_requests; units = combined_units)
+        frequency = combined.frequency
+        published = NamedTuple{names}(Tuple(getproperty(combined, name) for name in names))
+    else
+        frequency = _standalone_frequency_payload(
+            frequency_values[first(sample_indices)],
+            definition.frequency_unit
+        )
+        published = observables(source, named_requests; units = targets)
+    end
+    families = map(payload -> Units.family(payload.quantity), values(published))
+    return (; frequency, published, requests, coordinates, families)
 end
-
-function select(definition::LineParametersTableDefinition, source)
-    frequencies = _frequency_values(source, definition.freqs)
-    selectors = isempty(definition.quantities) ? _default_selectors(source) :
-                definition.quantities
-    requests = _line_table_requests(source, selectors, frequencies)
-    series_requests = requests.series
-    shunt_requests = requests.shunt
-    isempty(series_requests) && isempty(shunt_requests) &&
-        throw(ArgumentError(
-            "the selected accessors are not reportable for $(typeof(source))",
-        ))
-    _validate_line_families(source, series_requests, shunt_requests)
-    frequency = _frequency_payload(source, frequencies, definition.frequency_unit)
-    series = _publish_family(source, series_requests, definition)
-    shunt = _publish_family(source, shunt_requests, definition)
-    return (; frequency, series, shunt, requests)
-end
-
-function _validate_line_families(
-        ::Engine.LineParameters,
-        series_requests,
-        shunt_requests
-)
-    isempty(series_requests) && throw(ArgumentError(
-        "LineParameters presentation requires a series accessor",
-    ))
-    isempty(shunt_requests) && throw(ArgumentError(
-        "LineParameters presentation requires a shunt accessor",
-    ))
-    return nothing
-end
-
-_validate_line_families(::Engine.SeriesImpedance, series_requests, shunt_requests) = nothing
-_validate_line_families(::Engine.ShuntAdmittance, series_requests, shunt_requests) = nothing
 
 """
 $(TYPEDSIGNATURES)
@@ -262,21 +279,13 @@ end
 clip(value::Complex, _) = value
 clip(value::Missing, _) = value
 
-function _line_families(selected)
-    return ((:series, selected.series), (:shunt, selected.shunt))
-end
-
-function _first_line_payload(selected)
-    for (_, published) in _line_families(selected)
-        published === nothing || return first(values(published))
-    end
-    error("line publication produced no scientific values")
-end
+_family_name(::Val{:series}) = :series
+_family_name(::Val{:shunt}) = :shunt
 
 function tabulate(definition::LineParametersTableDefinition, source, selected)
     frequency_values = selected.frequency.values
     Tfrequency = eltype(frequency_values)
-    Tvalue = eltype(_first_line_payload(selected).values)
+    Tvalue = promote_type((eltype(payload.values) for payload in values(selected.published))...)
     family_column = Symbol[]
     row_column = Int[]
     column_column = Int[]
@@ -284,55 +293,63 @@ function tabulate(definition::LineParametersTableDefinition, source, selected)
     quantity_column = Symbol[]
     value_column = Tvalue[]
     unit_column = String[]
+    family_rank = Int[]
+    frequency_rank = Int[]
+    request_rank = Int[]
     units_metadata = Dict{Tuple{Symbol, Symbol}, String}()
     headings_metadata = Dict{Tuple{Symbol, Symbol}, String}()
     requests_metadata = Dict{Tuple{Symbol, Symbol}, Any}()
 
-    for (family, published) in _line_families(selected)
-        published === nothing && continue
-        first_payload = first(values(published))
-        row_count, column_count, frequency_count = size(first_payload.values)
+    for (request_index, payload) in enumerate(values(selected.published))
+        family = _family_name(selected.families[request_index])
+        rows, columns, _ = selected.coordinates[request_index]
+        row_count, column_count, frequency_count = size(payload.values)
         frequency_count == length(frequency_values) || throw(DimensionMismatch(
             "frequency count does not match line-parameter samples",
         ))
-        for (key, payload) in pairs(published)
-            units_metadata[(family, key)] = Units.label(payload.unit)
-            headings_metadata[(family, key)] = Units.label(payload.quantity, payload.unit)
-            requests_metadata[(family, key)] = getproperty(
-                getproperty(selected.requests, family),
-                key
-            )
-        end
-        for row in 1:row_count, column in 1:column_count
+        quantity = Symbol(Units.symbol(payload.quantity))
+        metadata_key = (family, quantity)
+        units_metadata[metadata_key] = Units.label(payload.unit)
+        headings_metadata[metadata_key] = Units.label(payload.quantity, payload.unit)
+        requests_metadata[metadata_key] = selected.requests[request_index]
+        for local_row in 1:row_count, local_column in 1:column_count
 
             for frequency_index in eachindex(frequency_values)
-                for (key, payload) in pairs(published)
-                    push!(family_column, family)
-                    push!(row_column, row)
-                    push!(column_column, column)
-                    push!(frequency_column, frequency_values[frequency_index])
-                    push!(quantity_column, key)
-                    push!(
-                        value_column,
-                        clip(
-                            payload.values[row, column, frequency_index],
-                            definition.tolerance
-                        )
+                push!(family_column, family)
+                push!(row_column, rows[local_row])
+                push!(column_column, columns[local_column])
+                push!(frequency_column, frequency_values[frequency_index])
+                push!(quantity_column, quantity)
+                push!(family_rank, family === :series ? 1 : 2)
+                push!(frequency_rank, frequency_index)
+                push!(request_rank, request_index)
+                push!(
+                    value_column,
+                    clip(
+                        payload.values[local_row, local_column, frequency_index],
+                        definition.tolerance
                     )
-                    push!(unit_column, Units.label(payload.unit))
-                end
+                )
+                push!(unit_column, Units.label(payload.unit))
             end
         end
     end
 
+    order = sortperm(eachindex(family_column); by = index -> (
+        family_rank[index],
+        row_column[index],
+        column_column[index],
+        frequency_rank[index],
+        request_rank[index]
+    ))
     table = DataFrame(
-        family = family_column,
-        row = row_column,
-        column = column_column,
-        frequency = frequency_column,
-        quantity = quantity_column,
-        value = value_column,
-        unit = unit_column
+        family = family_column[order],
+        row = row_column[order],
+        column = column_column[order],
+        frequency = frequency_column[order],
+        quantity = quantity_column[order],
+        value = value_column[order],
+        unit = unit_column[order]
     )
     metadata!(table, "basis", basis(source), style = :note)
     metadata!(

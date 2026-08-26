@@ -56,7 +56,7 @@
                 "LineCableModels · Pollaczek",
                 "LineCableModels · direct numerical integration"
             ),
-            quantities = (R,),
+            requests = (R,),
             xscale = :log10,
             fig_size = (1400, 900),
             backend = :cairo,
@@ -67,8 +67,8 @@
         @test block_bounds(first(comparison.panels).axis).left >= 19
         @test block_bounds(legend).right <= comparison.page.size[1] - 19
         comparison_payload = comparison.page.payload
-        @test first(comparison_payload.panels).title ==
-              "Z[1,1] · Series resistance"
+        @test first(comparison_payload.titles) ==
+              "R[1,1] · Series resistance"
 
         conventional = Makie.plot(
             fixture(1.0),

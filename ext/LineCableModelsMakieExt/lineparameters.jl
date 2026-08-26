@@ -1,80 +1,51 @@
 const LineParameterDefinition = LineCableModels.Engine.LineParameterPlotDefinition
 const LineComparisonDefinition = LineCableModels.Engine.LineParametersBenchmarkPlotDefinition
 
-function _line_panel_state(payload, panel_index::Int, panel)
-    payload.runtime === nothing && return (;
-        xscale = panel.xscale,
-        yscale = panel.yscale,
+function _line_panel_state(payload, panel_index::Int)
+    payload.runtime.panels === nothing && return (;
+        xscale = payload.runtime.xscale,
+        yscale = payload.runtime.yscale,
         current_limits = nothing,
         hidden_groups = ()
     )
     return payload.runtime.panels[panel_index]
 end
 
-function _line_registry(entries)
-    order = Symbol[]
-    grouped = Dict{Symbol, Vector{Any}}()
-    labels = Dict{Symbol, String}()
-    for (curve, plot_objects) in entries
-        haskey(grouped, curve.group) || push!(order, curve.group)
-        append!(get!(grouped, curve.group, Any[]), plot_objects)
-        labels[curve.group] = curve.label
-    end
-    groups = NamedTuple{Tuple(order)}(Tuple(grouped[group] for group in order))
-    group_labels = NamedTuple{Tuple(order)}(Tuple(labels[group] for group in order))
-    return groups, group_labels
+function _line_registration(groups, objects, labels)
+    names = Tuple(groups)
+    return (
+        NamedTuple{names}(Tuple(objects)),
+        NamedTuple{names}(Tuple(labels))
+    )
 end
 
-function _draw_line_panel!(
-        context::UIContext,
-        panel,
-        state::NamedTuple
-)
-    row, column = panel.position
+function _line_axis!(context, payload, panel_index, y_observation, state)
+    row, column = payload.positions[panel_index]
     axis = PlotBuilder.axis!(
         context,
         context.canvas[row, column],
-        panel.x_observation,
-        panel.y_observation;
-        title = panel.title,
+        payload.frequency,
+        y_observation;
+        title = payload.titles[panel_index],
         xscale = state.xscale,
         yscale = state.yscale,
-        xscales = panel.xscales,
-        yscales = panel.yscales,
-        panel.attributes...
+        xscales = payload.xscales[panel_index],
+        yscales = payload.yscales[panel_index],
+        payload.attributes[panel_index]...
     )
-    registration = only(candidate
-    for candidate in context.panels if candidate.axis === axis)
-    entries = Pair{Any, Vector{Any}}[]
-    for curve in panel.curves
-        visible = curve.group ∉ state.hidden_groups
-        plot_objects = _draw_line!(
-            axis,
-            panel.x_observation.values,
-            curve.values;
-            label = curve.label,
-            visible,
-            attributes = curve.style
-        )
-        push!(entries, curve => plot_objects)
-    end
-    groups, labels = _line_registry(entries)
-    data = Tuple((;
-                     xdata = panel.x_observation.values,
-                     ydata = curve.values,
-                     group = curve.group,
-                     label = curve.label
-                 ) for curve in panel.curves)
-    PlotBuilder.register!(
-        context,
-        axis;
+    return axis
+end
+
+function _finish_line_axis!(context, axis, groups, objects, labels, data, state)
+    registration = only(candidate for candidate in context.panels if candidate.axis === axis)
+    registered_groups, registered_labels = _line_registration(groups, objects, labels)
+    PlotBuilder.register!(context, axis;
         xmetadata = registration.metadata.xaxis,
         ymetadata = registration.metadata.yaxis,
-        groups,
-        labels,
-        data,
-        limits = state.current_limits
-    )
+        groups = registered_groups,
+        labels = registered_labels,
+        data = Tuple(data),
+        limits = state.current_limits)
     registered = only(candidate for candidate in context.panels if candidate.axis === axis)
     if state.current_limits === nothing
         _reset_panel_limits!(registered)
@@ -86,12 +57,99 @@ function _draw_line_panel!(
     return registered
 end
 
-function _draw_line_page!(context::UIContext, page::PlotPage)
+function _draw_single_line_page!(context::UIContext, page::PlotPage)
     context.canvas === nothing && error("the standard shell has no canvas")
     payload = page.payload
-    for (panel_index, panel) in enumerate(payload.panels)
-        state = _line_panel_state(payload, panel_index, panel)
-        _draw_line_panel!(context, panel, state)
+    for panel_index in eachindex(payload.requests)
+        state = _line_panel_state(payload, panel_index)
+        observation = payload.observations[panel_index]
+        rows, columns, _ = payload.coordinates[panel_index]
+        y_observation = (;
+            values = collect(vec(observation.values)),
+            quantity = observation.quantity,
+            unit = observation.unit
+        )
+        axis = _line_axis!(context, payload, panel_index, y_observation, state)
+        groups = Symbol[]
+        objects = Vector{Any}[]
+        labels = String[]
+        data = NamedTuple[]
+        family = LineCableModels.Units.family(observation.quantity) === Val(:series) ?
+                 "series" : "shunt"
+        scientific_symbol = LineCableModels.Units.symbol(observation.quantity)
+        for (local_row, row) in enumerate(rows), (local_column, column) in enumerate(columns)
+            curve = collect(view(observation.values, local_row, local_column, :))
+            label_index = (local_row - 1) * length(columns) + local_column
+            label = payload.legend === nothing ? "$scientific_symbol[$row,$column]" :
+                    String(payload.legend[label_index])
+            group = Symbol("$(family)_$(row)_$(column)")
+            plots = _draw_line!(axis, payload.frequency.values, curve;
+                label,
+                visible = group ∉ state.hidden_groups,
+                attributes = (; linewidth = 2))
+            push!(groups, group)
+            push!(objects, plots)
+            push!(labels, label)
+            push!(data, (;
+                xdata = payload.frequency.values,
+                ydata = curve,
+                group,
+                label
+            ))
+        end
+        _finish_line_axis!(context, axis, groups, objects, labels, data, state)
+    end
+    return context
+end
+
+function _draw_comparison_page!(context::UIContext, page::PlotPage)
+    context.canvas === nothing && error("the standard shell has no canvas")
+    payload = page.payload
+    for panel_index in eachindex(payload.positions)
+        state = _line_panel_state(payload, panel_index)
+        local_row, local_column = payload.positions[panel_index]
+        first_observation = first(payload.observations)
+        values = collect(Iterators.flatten(
+            view(observation.values, local_row, local_column, :)
+        for observation in payload.observations))
+        y_observation = (;
+            values,
+            quantity = first_observation.quantity,
+            unit = first_observation.unit
+        )
+        axis = _line_axis!(context, payload, panel_index, y_observation, state)
+        groups = Symbol[]
+        objects = Vector{Any}[]
+        labels = String[]
+        data = NamedTuple[]
+        for source_index in eachindex(payload.observations)
+            curve = collect(view(
+                payload.observations[source_index].values,
+                local_row,
+                local_column,
+                :
+            ))
+            label = String(payload.legend[source_index])
+            group = Symbol("line_parameters_$source_index")
+            plots = _draw_line!(axis, payload.frequency.values, curve;
+                label,
+                visible = group ∉ state.hidden_groups,
+                attributes = (;
+                    color = payload.colors[source_index],
+                    linestyle = :solid,
+                    linewidth = 2
+                ))
+            push!(groups, group)
+            push!(objects, plots)
+            push!(labels, label)
+            push!(data, (;
+                xdata = payload.frequency.values,
+                ydata = curve,
+                group,
+                label
+            ))
+        end
+        _finish_line_axis!(context, axis, groups, objects, labels, data, state)
     end
     return context
 end
@@ -101,7 +159,7 @@ function draw!(
         ::Type{LineParameterDefinition},
         page::PlotPage
 )
-    return _draw_line_page!(context, page)
+    return _draw_single_line_page!(context, page)
 end
 
 function draw!(
@@ -109,15 +167,27 @@ function draw!(
         ::Type{LineComparisonDefinition},
         page::PlotPage
 )
-    return _draw_line_page!(context, page)
+    return _draw_comparison_page!(context, page)
 end
 
 function _current_line_page(plot::UIPlot)
     original = plot.page.payload
     runtime = (; panels = Tuple(_current_panel_state.(plot.panels)))
-    payload = LineCableModels.Engine.LinePagePayload(
-        original.panels,
-        runtime
+    payload = LineCableModels.Engine.LineDashboardPayload(
+        original.frequency,
+        original.requests,
+        original.observations,
+        original.coordinates,
+        original.positions,
+        original.titles,
+        original.xscales,
+        original.yscales,
+        original.attributes,
+        original.legend,
+        original.colors,
+        (; xscale = original.runtime.xscale,
+            yscale = original.runtime.yscale,
+            panels = runtime.panels)
     )
     return PlotPage(
         plot.page.title,

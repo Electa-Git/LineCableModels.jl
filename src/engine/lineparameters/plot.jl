@@ -1,11 +1,13 @@
 """
-    plot(parameters[, quantities]; kwargs...)
-    plot(first, second, rest...; legend, quantities=(), kwargs...)
-    plot(impedance, frequencies[, quantities]; kwargs...)
-    plot(admittance, frequencies[, quantities]; kwargs...)
+    plot(parameters[, requests]; kwargs...)
+    plot(sources::NamedTuple[, requests]; kwargs...)
+    plot(impedance, frequencies[, requests]; kwargs...)
+    plot(admittance, frequencies[, requests]; kwargs...)
 
-Plot computed line parameters with a loaded Makie backend. `quantities` is a
-tuple of accessors such as `(R, L, G, C)` or `(abs, angle)`.
+Plot computed line parameters with a loaded Makie backend. `requests` is an
+observable request or an ordered tuple of requests constructed with
+[`@observe`](@ref). Function selectors such as `(R, L, G, C)` and
+`(abs, angle)` are normalized at this entry point.
 
 With two or more positional [`LineParameters`](@ref) results, create one
 matrix-grid page per selected quantity. Grid position `(i, j)` overlays the

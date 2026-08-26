@@ -309,6 +309,15 @@ function observe(
 end
 
 function observe(
+        impedance::SeriesImpedance,
+        ::typeof(L),
+        frequencies::AbstractVector,
+        indices...
+)
+    return getindex(observe(impedance, L, frequencies), indices...)
+end
+
+function observe(
         admittance::ShuntAdmittance,
         ::typeof(C),
         frequencies::AbstractVector
@@ -317,6 +326,16 @@ function observe(
         DimensionMismatch("frequency count must match the admittance third dimension"),
     )
     return imag.(admittance.values) ./ _angular_frequencies(frequencies)
+end
+
+
+function observe(
+        admittance::ShuntAdmittance,
+        ::typeof(C),
+        frequencies::AbstractVector,
+        indices...
+)
+    return getindex(observe(admittance, C, frequencies), indices...)
 end
 
 """
@@ -363,11 +382,24 @@ end
 
 observe(lp::LineParameters, ::typeof(L), i, j) = observe(lp, L, i, j, :)
 observe(lp::LineParameters, ::typeof(C), i, j) = observe(lp, C, i, j, :)
+function _divide_by_angular_frequency(component, angular_frequency)
+    angular_frequency isa Number && return component ./ angular_frequency
+    ndims(component) == 1 && return component ./ angular_frequency
+    dimensions = (ntuple(_ -> 1, ndims(component) - 1)..., length(angular_frequency))
+    return component ./ reshape(angular_frequency, dimensions)
+end
+
 function observe(lp::LineParameters, ::typeof(L), i, j, k)
-    observe(lp, X, i, j, k) ./ _angular_frequencies(lp, k)
+    return _divide_by_angular_frequency(
+        observe(lp, X, i, j, k),
+        _angular_frequencies(lp, k)
+    )
 end
 function observe(lp::LineParameters, ::typeof(C), i, j, k)
-    observe(lp, B, i, j, k) ./ _angular_frequencies(lp, k)
+    return _divide_by_angular_frequency(
+        observe(lp, B, i, j, k),
+        _angular_frequencies(lp, k)
+    )
 end
 
 L(lp::LineParameters, args...) = observe(lp, L, args...)

@@ -21,7 +21,6 @@ import ..Units
 import ..PlotBuilder
 import ..DataModel
 import ..Engine
-import ..Engine: line_requests, line_parent
 import ..UQ
 import ..LineCableModels: basis, frequencies, Z, Y, R, X, L, G, B, C
 

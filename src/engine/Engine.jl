@@ -50,7 +50,7 @@ import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
                   FormulationOptions, ComputationOptions,
                   ComputationDetails,
                   formulation_options, computation_options, computation_details,
-                  compute, observe, observables, unit_targets
+                  compute, observe, observables, validate_observables, unit_targets
 
 using ..Units
 using ..PlotBuilder
@@ -128,6 +128,5 @@ include("lineparameters/plotdefinition.jl")
 include("lineparameters/comparisonplot.jl")
 
 public cable_constants_problem, has_uncertainty_type
-public line_requests, line_parent
 
 end # module Engine
