@@ -104,8 +104,11 @@ function _line_input_defaults(frequencies)
     )
 end
 
-function PlotBuilder.dispatch_on(::Type{LineParameterPlotDefinition})
-    Union{LineParameters, SeriesImpedance, ShuntAdmittance}
+function PlotBuilder.entitle(
+        ::Type{LineParameterPlotDefinition},
+        source::Union{LineParameters, SeriesImpedance, ShuntAdmittance}
+)
+    return source
 end
 function PlotBuilder.input_defaults(::Type{LineParameterPlotDefinition}, ::LineParameters)
     _line_input_defaults(nothing)
@@ -359,11 +362,14 @@ function _line_page(configuration, published, family, page_index::Int)
         return admitted
     end
     parent = _family_parent(family)
+    legend_quantity = length(selected) == 1 ? selected[1][3].quantity :
+                      Units.quantity(parent)
     title = configuration.input.title === nothing ?
             Units.label(Units.quantity(parent)) : String(configuration.input.title)
     key = (;
         page = page_index,
         family,
+        legend_quantity,
         requests = getindex.(selected, 2)
     )
     payload = LineDashboardPayload(

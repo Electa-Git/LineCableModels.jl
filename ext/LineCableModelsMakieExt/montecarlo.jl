@@ -16,30 +16,30 @@ function _monte_carlo_marginal(result::LineCableModels.MonteCarloResult, request
         ))
         request in (LineCableModels.R, LineCableModels.L, LineCableModels.C) ||
             throw(ArgumentError("cable-constant selectors are R, L, and C"))
-        return (; selector = request, indices = ())
+        return (; scientific_selector = request, indices = ())
     end
     request isa Tuple && length(request) == 4 || throw(ArgumentError(
         "line-parameter Monte Carlo plots require `@observe quantity[i, j, k]`",
     ))
-    selector, i, j, k = request
-    selector isa _MonteCarloScientificSelector || throw(ArgumentError(
+    scientific_selector, i, j, k = request
+    scientific_selector isa _MonteCarloScientificSelector || throw(ArgumentError(
         "line-parameter selectors are R, L, C, and G",
     ))
     all(index -> index isa Integer, (i, j, k)) || throw(ArgumentError(
         "Monte Carlo plot matrix and frequency indices must be integers",
     ))
-    checkbounds(LineCableModels.observe(represented, selector), i, j, k)
-    return (; selector, indices = (Int(i), Int(j), Int(k)))
+    checkbounds(LineCableModels.observe(represented, scientific_selector), i, j, k)
+    return (; scientific_selector, indices = (Int(i), Int(j), Int(k)))
 end
 
 function _monte_carlo_request(product, marginal, retained_samples::Bool)
     point = 1
     isempty(marginal.indices) && return retained_samples ?
-        (product, marginal.selector, point, Colon()) :
-        (product, marginal.selector, point)
+        (product, marginal.scientific_selector, point, Colon()) :
+        (product, marginal.scientific_selector, point)
     return retained_samples ?
-           (product, marginal.selector, point, marginal.indices..., Colon()) :
-           (product, marginal.selector, point, marginal.indices...)
+           (product, marginal.scientific_selector, point, marginal.indices..., Colon()) :
+           (product, marginal.scientific_selector, point, marginal.indices...)
 end
 
 function _monte_carlo_publication(
@@ -70,7 +70,7 @@ function _monte_carlo_publication(
         error("Monte Carlo plotting requested no published product")
     end
     target = only(LineCableModels.Grammar.unit_targets(
-        (marginal.selector,),
+        (marginal.scientific_selector,),
         LineCableModels.basis(result);
         length_prefix = length_unit,
         overrides = quantity_units

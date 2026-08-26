@@ -7,10 +7,21 @@ function nphases end
 "Return the base cable parameters calculated for a materialised design."
 function base_parameters end
 
+"Return detached preview geometry for one owned cable layer."
+function preview_shapes end
+
+"Return the materials represented by one owned cable layer."
+function preview_materials end
+
 """
 $(TYPEDSIGNATURES)
 
-Preview a cable design or cable system with a loaded Makie backend.
+Preview a cable design, a vector of cable designs, or a cable system with a
+loaded Makie backend.
+
+A vector produces one canvas with one cable per titled panel. Use
+`layout = (rows, columns)` to select the grid or omit it for a near-square
+layout. Material colorbars span the complete vector and no legend is added.
 
 Requires an explicitly loaded `CairoMakie`, `GLMakie`, or `WGLMakie`
 extension.

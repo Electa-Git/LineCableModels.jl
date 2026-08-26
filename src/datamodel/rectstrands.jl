@@ -27,6 +27,30 @@ struct RectStrands{T <: Real, S <: RectStrandsShape} <: AbstractStrandsLayer{T}
     shape::S
 end
 
+_preview_layer_name(::RectStrands) = "rectangular strands"
+preview_materials(layer::RectStrands) = (layer.material_props,)
+
+function preview_shapes(layer::RectStrands, context)
+    label = context.include_label ? context.label : nothing
+    color = _material_color(layer.material_props)
+    return PreviewPolygon[
+        _preview_polygon(
+            _radial_wedge(
+                nominal(layer.r_in),
+                nominal(layer.r_ex),
+                nominal(layer.width),
+                (index - 1) * 2π / layer.num_wires,
+                context.xcenter,
+                context.ycenter
+            ),
+            index == 1 ? label : nothing,
+            context.group,
+            color
+        )
+        for index in 1:layer.num_wires
+    ]
+end
+
 function _rectangular_strand_fields(layer::RectStrands)
     return (
         r_in = layer.r_in,

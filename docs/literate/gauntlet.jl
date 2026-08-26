@@ -110,7 +110,7 @@ impedance_plots = CairoMakie.plot(
     reference,
     candidate;
     legend = ("Reference", "LineCableModels"),
-    quantities = (Z,),
+    requests = (Z,),
     xscale = :log10,
     fig_size = (1000, 650),
     display_plot = false, #hide

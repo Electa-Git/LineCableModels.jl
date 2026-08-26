@@ -55,8 +55,19 @@ Z(parameters, 1, 2)
 @observe parameters L[1, 2, :]
 ```
 
-[`@observe`](@ref) expands the indexed expression to `observe(parameters, L,
-1, 2, Colon())`. It performs no lookup or unit conversion.
+`@observe` expands the indexed expression to `observe(parameters, L,
+1, 2, Colon())`. With no source argument it constructs the same plain request
+tuple without reading a result:
+
+```julia
+request = @observe R[:, :, :]
+magnitude_request = @observe (Z, abs)[:, :, :]
+magnitude = @observe parameters (Z, abs)[1, 2, :]
+```
+
+The request tuple is an implementation representation, not a second selector
+type. `quantity(Z, abs)` and `quantity(Z, angle)` remain the transformed
+scientific identities.
 
 [`observables`](@ref) publishes only explicitly requested values:
 
@@ -81,13 +92,12 @@ Every published field contains only `values`, `quantity`, and `unit`.
 Publication converts and detaches `values`; it does not attach labels, result
 objects, execution options, Gridspace points, or Monte Carlo context.
 
-Engine owns line-result request expansion through its qualified
-`line_requests` method. It resolves function-valued selectors such as `Z`,
-`real`, and `angle`, rejects unsupported or duplicate selections, and supplies
-explicit frequencies for standalone `L` and `C` observations. The qualified
-`line_parent` method classifies each resolved request under `Z` or `Y`.
-PlotBuilder and ReportBuilder consume these methods; neither keeps a second
-selector map.
+Line plotting accepts explicit observable requests. Its public convenience
+forms expand selectors such as `Z`, `real`, and `angle` once, at the plotting
+surface, then enter the same request path. PlotBuilder groups completed
+observations with the qualified `Units.family(::Quantity)` metadata. Series and
+shunt identities return `Val(:series)` and `Val(:shunt)` respectively. Neither
+PlotBuilder nor ReportBuilder owns another quantity or family map.
 
 The qualified `Grammar.validate_observables` method is the single entitlement
 check used by direct publication and generic reports. It validates the source

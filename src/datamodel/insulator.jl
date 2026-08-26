@@ -17,6 +17,10 @@ struct Insulator{T <: Real} <: AbstractInsulatorPart{T}
     shunt_conductance::T
 end
 
+_preview_layer_name(::Insulator) = "insulation"
+preview_materials(layer::Insulator) = (layer.material_props,)
+preview_shapes(layer::Insulator, context) = _annular_preview_shapes(layer, context)
+
 function Validation.rules(::Type{<:Insulator})
     (Finite(:r_in), Finite(:r_ex), Nonnegative(:r_in), Positive(:r_ex),
         Less(:r_in, :r_ex))

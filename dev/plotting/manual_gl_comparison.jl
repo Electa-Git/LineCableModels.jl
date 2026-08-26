@@ -35,7 +35,7 @@ plots=Makie.plot(
     pollaczek,
     numerical;
     legend = labels,
-    quantities = (R, L, G, C),
+    requests = (R, L, G, C),
     xscale = :log10,
     fig_size = (1400, 900),
     backend = :gl,

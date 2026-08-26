@@ -1,7 +1,5 @@
 function draw! end
 
-_shell_kind(::Type{<:PlotBuilder.AbstractPlotDefinition}) = Val(:standard)
-
 function build_context(
         page::PlotPage;
         backend,
@@ -118,17 +116,10 @@ end
 
 function build_shell(
         context::UIContext,
-        definition::Type{<:PlotBuilder.AbstractPlotDefinition},
+        ::Type{<:PlotBuilder.AbstractPlotDefinition},
         page::PlotPage
 )
-    return build_shell(context, _shell_kind(definition), page)
-end
-
-function build_shell(context::UIContext, ::Val{:standard}, page::PlotPage)
-    _standard_shell!(context, page)
-end
-function build_shell(context::UIContext, ::Val{:colorbar}, page::PlotPage)
-    _colorbar_shell!(context, page)
+    return _standard_shell!(context, page)
 end
 
 function _set_rowsize!(grid, index::Int, size)
@@ -164,8 +155,6 @@ end
 function draw!(context::UIContext, recipe::PlotRecipe, page::PlotPage)
     return draw!(context, recipe.definition, page)
 end
-
-format_axes!(context::UIContext, ::PlotPage) = context
 
 function _collapse_toolbar!(context::UIContext)
     push!(context.shell.collapsed, :toolbar)
@@ -237,6 +226,19 @@ function place_legend!(
     return context
 end
 
+# This three-argument method is the definition-owned placement seam in the
+# renderer Template Method. The fallback retains the standard side-dock legend;
+# a definition renderer may overload it to select another slot or construct a
+# different Makie legend without encoding placement in the detached payload.
+function place_legend!(
+        context::UIContext,
+        ::Type{<:PlotBuilder.AbstractPlotDefinition},
+        page::PlotPage;
+        export_mode::Bool
+)
+    return place_legend!(context, page; export_mode)
+end
+
 function place_colorbars!(context::UIContext, page::PlotPage)
     definitions = page.colorbars
     if isempty(definitions)
@@ -254,6 +256,18 @@ function place_colorbars!(context::UIContext, page::PlotPage)
     return context
 end
 
+# Colorbar placement follows the same dispatch rule as legend placement. The
+# two-argument method above remains the reusable standard implementation; an
+# owner-specific overload may delegate after adjusting the existing shell layout,
+# or replace it when the definition needs another orientation or arrangement.
+function place_colorbars!(
+        context::UIContext,
+        ::Type{<:PlotBuilder.AbstractPlotDefinition},
+        page::PlotPage
+)
+    return place_colorbars!(context, page)
+end
+
 function _toolbar!(context::UIContext)
     toolbar = GridLayout(
         width = Auto(),
@@ -267,6 +281,58 @@ function _toolbar!(context::UIContext)
     context.shell.toolbar[] = toolbar
     return toolbar
 end
+
+function toolbar_button!(
+        context::UIContext,
+        toolbar,
+        column::Int;
+        key::Symbol,
+        icon::AbstractString
+)
+    haskey(context.widgets, key) && throw(ArgumentError(
+        "toolbar widget key :$key is already registered",
+    ))
+    button = Button(
+        toolbar[1, column];
+        label = _icon_label(icon),
+        width = BUTTON_SIZE,
+        height = BUTTON_SIZE,
+        buttoncolor = BUTTON_BACKGROUND
+    )
+    context.widgets[key] = button
+    return button
+end
+
+function bind_widget_callback!(
+        context::UIContext,
+        trigger,
+        callback;
+        success
+)
+    observer = on(trigger) do value
+        try
+            callback(value)
+            message = success isa Function ? success(value) : success
+            message === nothing || (context.status[] = String(message))
+        catch error
+            context.status[] = sprint(showerror, error)
+        end
+    end
+    push!(context.observers, observer)
+    return observer
+end
+
+function bind_widget_callback!(
+        callback,
+        context::UIContext,
+        trigger;
+        success
+)
+    return bind_widget_callback!(context, trigger, callback; success)
+end
+
+"Build one definition-owned toolbar control and return the next free column."
+function build_widget! end
 
 function build_widgets!(
         context::UIContext,
@@ -287,37 +353,30 @@ function build_widgets!(
     toolbar = _toolbar!(context)
     column = 1
     if reset_available
-        reset = Button(
-            toolbar[1, column];
-            label = _icon_label(MI_REFRESH),
-            width = BUTTON_SIZE,
-            height = BUTTON_SIZE,
-            buttoncolor = BUTTON_BACKGROUND
+        reset = toolbar_button!(
+            context,
+            toolbar,
+            column;
+            key = :reset,
+            icon = MI_REFRESH
         )
         column += 1
-        widgets[:reset] = reset
-        push!(context.observers, on(reset.clicks) do _
+        bind_widget_callback!(context, reset.clicks; success = "Axis limits reset") do _
             foreach(_reset_panel_limits!, panels)
-            context.status[] = "Axis limits reset"
-        end)
+        end
     end
 
-    save_button = Button(
-        toolbar[1, column];
-        label = _icon_label(MI_SAVE),
-        width = BUTTON_SIZE,
-        height = BUTTON_SIZE,
-        buttoncolor = BUTTON_BACKGROUND
+    save_button = toolbar_button!(
+        context,
+        toolbar,
+        column;
+        key = :export_svg,
+        icon = MI_SAVE
     )
     column += 1
-    widgets[:export_svg] = save_button
-    push!(context.observers, on(save_button.clicks) do _
-        try
-            PlotBuilder.export_svg(context.plot_reference[])
-        catch error
-            context.status[] = sprint(showerror, error)
-        end
-    end)
+    bind_widget_callback!(context, save_button.clicks; success = nothing) do _
+        PlotBuilder.export_svg(context.plot_reference[])
+    end
 
     if xlog_available
         active = all(panel -> panel.axis.xscale[] === Makie.log10, panels)
@@ -326,18 +385,20 @@ function build_widgets!(
         Label(toolbar[1, column], "log x")
         column += 1
         widgets[:xlog] = xlog
-        push!(context.observers,
-            on(xlog.active) do enabled
-                scale = enabled ? :log10 : :linear
-                foreach(panels) do panel
-                    metadata = panel.metadata.xaxis
-                    _set_axis_scale!(panel.axis, metadata, :x, metadata.exponent, scale)
-                end
-                foreach(_reset_panel_limits!, panels)
-                context.status[] = enabled ?
-                                   "x-axis scale set to log" :
-                                   "x-axis scale set to linear"
-            end)
+        bind_widget_callback!(
+            context,
+            xlog.active;
+            success = enabled -> enabled ?
+                      "x-axis scale set to log" :
+                      "x-axis scale set to linear"
+        ) do enabled
+            scale = enabled ? :log10 : :linear
+            foreach(panels) do panel
+                metadata = panel.metadata.xaxis
+                _set_axis_scale!(panel.axis, metadata, :x, metadata.exponent, scale)
+            end
+            foreach(_reset_panel_limits!, panels)
+        end
     end
 
     if ylog_available
@@ -346,18 +407,32 @@ function build_widgets!(
         column += 1
         Label(toolbar[1, column], "log y")
         widgets[:ylog] = ylog
-        push!(context.observers,
-            on(ylog.active) do enabled
-                scale = enabled ? :log10 : :linear
-                foreach(panels) do panel
-                    metadata = panel.metadata.yaxis
-                    _set_axis_scale!(panel.axis, metadata, :y, metadata.exponent, scale)
-                end
-                foreach(_reset_panel_limits!, panels)
-                context.status[] = enabled ?
-                                   "y-axis scale set to log" :
-                                   "y-axis scale set to linear"
-            end)
+        column += 1
+        bind_widget_callback!(
+            context,
+            ylog.active;
+            success = enabled -> enabled ?
+                      "y-axis scale set to log" :
+                      "y-axis scale set to linear"
+        ) do enabled
+            scale = enabled ? :log10 : :linear
+            foreach(panels) do panel
+                metadata = panel.metadata.yaxis
+                _set_axis_scale!(panel.axis, metadata, :y, metadata.exponent, scale)
+            end
+            foreach(_reset_panel_limits!, panels)
+        end
+    end
+
+    for definition in page.widgets
+        definition isa PlotBuilder.AbstractWidgetDefinition || throw(ArgumentError(
+            "page widgets must subtype AbstractWidgetDefinition",
+        ))
+        next_column = build_widget!(context, toolbar, column, definition)
+        next_column isa Int && next_column > column || throw(ArgumentError(
+            "build_widget! must return the next free toolbar column",
+        ))
+        column = next_column
     end
 
     definition = page.legend
@@ -419,9 +494,11 @@ function build_page(
     context = build_context(page; backend, display, export_theme)
     build_shell(context, recipe.definition, page)
     draw!(context, recipe, page)
-    format_axes!(context, page)
-    place_legend!(context, page; export_mode)
-    place_colorbars!(context, page)
+    # Placement is definition-dispatched just like `draw!`: ordinary recipes
+    # use the standard fallbacks, while a definition renderer can reposition
+    # either form of shell chrome without the shell inspecting its payload.
+    place_legend!(context, recipe.definition, page; export_mode)
+    place_colorbars!(context, recipe.definition, page)
     build_widgets!(context, page; controls)
     plot = assemble(context, recipe, page)
     return display!(context, plot, display)

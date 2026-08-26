@@ -70,7 +70,6 @@
     U.symbol(::U.Quantity{:test_response}) = "u"
 
     const profile_stage_calls=Symbol[]
-    PB.dispatch_on(::Type{ProfilePlotDefinition}) = ProfileResult
     function PB.entitle(::Type{ProfilePlotDefinition}, source::ProfileResult)
         push!(profile_stage_calls, :entitle)
         return source
@@ -163,28 +162,28 @@
     @test_throws ArgumentError PB.make_render(ProfilePlotDefinition, source; typo = true)
 
     empty!(profile_stage_calls)
-    @test_throws ArgumentError PB.make_render(ProfilePlotDefinition, [1.0, 2.0])
+    @test_throws MethodError PB.make_render(ProfilePlotDefinition, [1.0, 2.0])
     @test isempty(profile_stage_calls)
 
     struct MissingDispatchDefinition<:PB.AbstractPlotDefinition end
     @test_throws MethodError PB.make_render(MissingDispatchDefinition, source)
 
     struct MissingResolveDefinition<:PB.AbstractPlotDefinition end
-    PB.dispatch_on(::Type{MissingResolveDefinition}) = ProfileResult
+    PB.entitle(::Type{MissingResolveDefinition}, source::ProfileResult) = source
     @test_throws MethodError PB.make_render(MissingResolveDefinition, source)
 
     struct MissingFetchDefinition<:PB.AbstractPlotDefinition end
-    PB.dispatch_on(::Type{MissingFetchDefinition}) = ProfileResult
+    PB.entitle(::Type{MissingFetchDefinition}, source::ProfileResult) = source
     PB.resolve(::Type{MissingFetchDefinition}, ::ProfileResult, request::NamedTuple) = request
     @test_throws MethodError PB.make_render(MissingFetchDefinition, source)
 
     struct InvalidDefaultsDefinition<:PB.AbstractPlotDefinition end
-    PB.dispatch_on(::Type{InvalidDefaultsDefinition}) = ProfileResult
+    PB.entitle(::Type{InvalidDefaultsDefinition}, source::ProfileResult) = source
     PB.input_defaults(::Type{InvalidDefaultsDefinition}, ::ProfileResult) = ()
     @test_throws ArgumentError PB.make_render(InvalidDefaultsDefinition, source)
 
     struct DuplicateOptionDefinition<:PB.AbstractPlotDefinition end
-    PB.dispatch_on(::Type{DuplicateOptionDefinition}) = ProfileResult
+    PB.entitle(::Type{DuplicateOptionDefinition}, source::ProfileResult) = source
     PB.input_defaults(::Type{DuplicateOptionDefinition}, ::ProfileResult) = (; mode = :a)
     PB.renderer_defaults(::Type{DuplicateOptionDefinition}, ::ProfileResult) = (; mode = :b)
     @test_throws ArgumentError PB.make_render(DuplicateOptionDefinition, source)
@@ -241,6 +240,8 @@
                 LineCableModels.Engine.LineParameters}),
         (LineCableModels.DataModel.CablePreviewPlotDefinition,
             LineCableModels.DataModel.CableDesign),
+        (LineCableModels.DataModel.CableCollectionPreviewPlotDefinition,
+            Vector{LineCableModels.DataModel.CableDesign}),
         (LineCableModels.DataModel.SystemPreviewPlotDefinition,
             LineCableModels.DataModel.LineCableSystem),
         (LineCableModels.DataModel.MaterialScalePlotDefinition, Nothing)
@@ -252,14 +253,21 @@
 
     line_recipe=@inferred PB.make_render(
         LineCableModels.Engine.LineParameterPlotDefinition,
-        TestFixtures.two_conductor_results()
+        TestFixtures.two_conductor_results();
+        requests = (@observe(R[:, :, :]),)
     )
     preview_recipe=@inferred PB.make_render(
         LineCableModels.DataModel.CablePreviewPlotDefinition,
         TestFixtures.mv_cable_design()
     )
+    source_design=TestFixtures.mv_cable_design()
+    collection_recipe=@inferred PB.make_render(
+        LineCableModels.DataModel.CableCollectionPreviewPlotDefinition,
+        [source_design, source_design]
+    )
     @test line_recipe isa PB.PlotRecipe
     @test preview_recipe isa PB.PlotRecipe
+    @test collection_recipe isa PB.PlotRecipe
 
     compiler_types=(
         :AbstractTrackSize, :FixedTrack, :RelativeTrack, :ContentTrack,
@@ -297,7 +305,6 @@
         "build_context(",
         "build_shell(",
         "draw!(",
-        "format_axes!(",
         "place_legend!(",
         "place_colorbars!(",
         "build_widgets!(",
@@ -306,10 +313,20 @@
     )
     positions=map(stage->first(findfirst(stage, build_page_source)), ui_stages)
     @test issorted(positions)
+    @test occursin(
+        "place_legend!(context, recipe.definition, page; export_mode)",
+        build_page_source
+    )
+    @test occursin(
+        "place_colorbars!(context, recipe.definition, page)",
+        build_page_source
+    )
     @test !occursin("hasproperty(page.payload", shell_source)
     @test all(name -> !occursin(name, shell_source),
         ("_page_legend", "_page_colorbars", "_page_export"))
 
     @test all(name -> name in names(PB), (:plotwindow, :axis!, :register!))
     @test all(name -> name ∉ names(LineCableModels), (:plotwindow, :axis!, :register!))
+    @test !isdefined(PB, :dispatch_on)
+    @test !occursin("format_axes!", shell_source)
 end

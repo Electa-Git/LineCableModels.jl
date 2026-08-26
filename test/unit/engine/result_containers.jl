@@ -476,7 +476,7 @@ end
     ).frequency
     @test line_frequency.values == frequency
     @test line_frequency.quantity == quantity(frequencies)
-    @test line_frequency.unit == units(:base, :hertz)
+    @test line_frequency.unit == LineCableModels.Units.units(:base, :hertz)
     malformed_samples=(R = storage.R[:, :, 1:1, :], L = storage.L,
         C = storage.C, G = storage.G)
     @test_throws DimensionMismatch MonteCarloResult(

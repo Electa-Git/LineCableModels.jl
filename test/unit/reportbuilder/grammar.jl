@@ -28,7 +28,7 @@
     U.symbol(::U.Quantity{:report_response}) = "u"
 
     struct ReportProfilePlot <: PB.AbstractPlotDefinition end
-    PB.dispatch_on(::Type{ReportProfilePlot}) = NamedTuple
+    PB.entitle(::Type{ReportProfilePlot}, published::NamedTuple) = published
     function PB.resolve(
             ::Type{ReportProfilePlot},
             ::NamedTuple,

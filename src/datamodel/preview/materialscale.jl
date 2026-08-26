@@ -1,4 +1,4 @@
-PlotBuilder.dispatch_on(::Type{MaterialScalePlotDefinition}) = Nothing
+PlotBuilder.entitle(::Type{MaterialScalePlotDefinition}, value::Nothing) = value
 function PlotBuilder.renderer_defaults(::Type{MaterialScalePlotDefinition}, ::Nothing)
     return (; size = (800, 400))
 end

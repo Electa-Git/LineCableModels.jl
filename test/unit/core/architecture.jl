@@ -116,6 +116,7 @@ end
         joinpath("src", "datamodel", "packing.jl"),
         joinpath("src", "datamodel", "cabledesign", "cabledesign.jl"),
         joinpath("src", "datamodel", "preview", "cable.jl"),
+        joinpath("src", "datamodel", "preview", "cables.jl"),
         joinpath("src", "engine", "lineparameters", "lineparameters.jl"),
         joinpath("src", "engine", "lineparameters", "quantities.jl"),
         joinpath("src", "engine", "earthreturn.jl"),
@@ -173,6 +174,12 @@ end
     @test parentmodule(LineCableModels.frequencies) === LineCableModels.Engine
     @test parentmodule(LineCableModels.ncables) === LineCableModels.DataModel
     @test parentmodule(LineCableModels.nphases) === LineCableModels.DataModel
+    @test parentmodule(LineCableModels.DataModel.preview_shapes) ===
+          LineCableModels.DataModel
+    @test parentmodule(LineCableModels.DataModel.preview_materials) ===
+          LineCableModels.DataModel
+    @test Base.ispublic(LineCableModels.DataModel, :preview_shapes)
+    @test Base.ispublic(LineCableModels.DataModel, :preview_materials)
     @test parentmodule(LineCableModels.compute) === LineCableModels.Grammar
     @test parentmodule(LineCableModels.observe) === LineCableModels.Grammar
     @test parentmodule(LineCableModels.observables) === LineCableModels.Grammar
@@ -224,6 +231,7 @@ end
         for file in files if endswith(file, ".jl")
         for path in (joinpath(directory, file),)),
         "\n")
+    maintained_implementation=join((values(source)..., makie_source), "\n")
     for token in (
         "input_kwargs",
         "renderer_kwargs",
@@ -239,10 +247,46 @@ end
         "hasproperty(page.payload",
         "_page_legend",
         "_page_colorbars",
-        "_page_export"
+        "_page_export",
+        "dispatch_on",
+        "_shell_kind",
+        "format_axes!",
+        "MCDistributionPlotDefinition",
+        "_mc_layers",
+        "line_requests",
+        "line_parent"
     )
-        @test !occursin(token, makie_source)
+        @test !occursin(token, maintained_implementation)
     end
+    @test !occursin(r"\bquantities\s*=", maintained_implementation)
+    @test !occursin(r"\bcon\s*=", maintained_implementation)
+
+    preview_materials=source[joinpath("src", "datamodel", "preview", "materials.jl")]
+    @test !occursin(r"\blayer\s+isa\b", preview_materials)
+    @test !occursin("hasproperty(layer", preview_materials)
+    @test occursin("preview_shapes(layer", preview_materials)
+    @test occursin("preview_materials(layer", preview_materials)
+
+    shell_source=read(
+        joinpath(extension_root, "LineCableModelsMakieExt", "shell.jl"),
+        String
+    )
+    @test occursin("function build_widget! end", shell_source)
+    @test occursin("function toolbar_button!", shell_source)
+    @test occursin("function bind_widget_callback!", shell_source)
+    @test occursin("build_shell(context, recipe.definition, page)", shell_source)
+
+    monte_carlo_renderer=read(
+        joinpath(extension_root, "LineCableModelsMakieExt", "montecarlo.jl"),
+        String
+    )
+    for verb in ("hist", "stairs", "ecdfplot", "lines", "qqplot")
+        @test occursin("function Makie.$verb", monte_carlo_renderer)
+    end
+    @test !occursin(r"\b(?:mode|ijk)\s*=", monte_carlo_renderer)
+    @test !occursin(r"Val\(:(?:histogram|stairs|line|scatter)", monte_carlo_renderer)
+    @test !occursin("Figure(", monte_carlo_renderer)
+    @test occursin("PlotBuilder.plotwindow", monte_carlo_renderer)
 
     for pattern in (
         r"details\s*::\s*Dict",

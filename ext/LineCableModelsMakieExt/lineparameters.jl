@@ -76,7 +76,7 @@ function _draw_single_line_page!(context::UIContext, page::PlotPage)
         data = NamedTuple[]
         family = LineCableModels.Units.family(observation.quantity) === Val(:series) ?
                  "series" : "shunt"
-        scientific_symbol = LineCableModels.Units.symbol(observation.quantity)
+        scientific_symbol = LineCableModels.Units.symbol(page.key.legend_quantity)
         for (local_row, row) in enumerate(rows), (local_column, column) in enumerate(columns)
             curve = collect(view(observation.values, local_row, local_column, :))
             label_index = (local_row - 1) * length(columns) + local_column

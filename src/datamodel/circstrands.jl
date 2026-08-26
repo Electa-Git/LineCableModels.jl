@@ -32,6 +32,31 @@ struct CircStrands{T <: Real, U <: Integer} <: AbstractStrandsLayer{T}
     gmr::T
 end
 
+_preview_layer_name(::CircStrands) = "round wires"
+preview_materials(layer::CircStrands) = (layer.material_props,)
+
+function preview_shapes(layer::CircStrands, context)
+    label = context.include_label ? context.label : nothing
+    color = _material_color(layer.material_props)
+    wire_radius = nominal(layer.radius_wire)
+    lay_radius = layer.num_wires == 1 ? 0.0 : nominal(layer.r_in)
+    coordinates = wire_coordinates(
+        layer.num_wires,
+        wire_radius,
+        lay_radius;
+        C = (context.xcenter, context.ycenter)
+    )
+    return PreviewPolygon[
+        _preview_polygon(
+            _circle_points(wire_radius, xvalue, yvalue),
+            index == 1 ? label : nothing,
+            context.group,
+            color
+        )
+        for (index, (xvalue, yvalue)) in enumerate(coordinates)
+    ]
+end
+
 function BaseParams.gmd_elements(layer::CircStrands)
     coordinates = wire_coordinates(
         layer.num_wires, layer.radius_wire, layer.r_in

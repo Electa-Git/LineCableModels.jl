@@ -94,7 +94,12 @@ function _system_shapes(system, earth_model, limits, display_legend)
     return polygons, references
 end
 
-PlotBuilder.dispatch_on(::Type{SystemPreviewPlotDefinition}) = LineCableSystem
+function PlotBuilder.entitle(
+        ::Type{SystemPreviewPlotDefinition},
+        system::LineCableSystem
+)
+    return system
+end
 function PlotBuilder.input_defaults(::Type{SystemPreviewPlotDefinition}, ::LineCableSystem)
     (;
         earth_model = nothing,

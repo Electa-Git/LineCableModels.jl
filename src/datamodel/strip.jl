@@ -20,6 +20,10 @@ struct Strip{T <: Real} <: AbstractConductorPart{T}
     gmr::T
 end
 
+_preview_layer_name(::Strip) = "strip"
+preview_materials(layer::Strip) = (layer.material_props,)
+preview_shapes(layer::Strip, context) = _annular_preview_shapes(layer, context)
+
 function Validation.rules(::Type{<:Strip})
     (
         Finite(:r_in), Finite(:r_ex), Finite(:width), Finite(:lay_ratio),

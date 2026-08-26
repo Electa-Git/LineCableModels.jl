@@ -137,6 +137,16 @@
           ("Measured resistance", "Measured reactance")
     @test only(presented.pages).payload.legend_labels ==
           ("self 1", "mutual 1–2", "mutual 2–1", "self 2")
+    @test only(presented.pages).key.legend_quantity ==
+          LineCableModels.Units.quantity(Z)
+
+    transformed=PB.make_render(
+        E.LineParameterPlotDefinition,
+        parameters;
+        requests = (@observe((Z, angle)[:, :, :]),)
+    )
+    @test only(transformed.pages).key.legend_quantity ==
+          LineCableModels.Units.quantity(Z, angle)
 end
 @testitem "Engine / detached comparison pages / matrix grid" tags=[:unit] setup=[
     PlotBuilderTestSupport,
@@ -217,7 +227,7 @@ end
         @observe(G[:, :, :]), @observe(B[:, :, :])
     )
 
-    @test_throws ArgumentError PB.make_render(
+    @test_throws MethodError PB.make_render(
         E.LineParametersBenchmarkPlotDefinition,
         (first(parameters),);
         legend = ("one",),

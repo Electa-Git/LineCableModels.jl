@@ -16,6 +16,26 @@ mutable struct InsulatorGroup{T <: Real} <: AbstractInsulatorPart{T}
     layers::Vector{AbstractInsulatorPart{T}}
 end
 
+_preview_layer_name(::InsulatorGroup) = "insulator group"
+
+function preview_materials(group::InsulatorGroup)
+    return Tuple(material
+    for layer in group.layers
+    for material in preview_materials(layer))
+end
+
+function preview_shapes(group::InsulatorGroup, context)
+    shapes = PreviewPolygon[]
+    for (index, layer) in enumerate(group.layers)
+        nested = merge(
+            context,
+            (; include_label = index == 1 && context.include_label)
+        )
+        append!(shapes, preview_shapes(layer, nested))
+    end
+    return shapes
+end
+
 Base.eltype(::InsulatorGroup{T}) where {T} = T
 Base.eltype(::Type{InsulatorGroup{T}}) where {T} = T
 

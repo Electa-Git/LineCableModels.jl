@@ -1,21 +1,32 @@
 const CablePreviewDefinition = LineCableModels.DataModel.CablePreviewPlotDefinition
+const CableCollectionPreviewDefinition =
+    LineCableModels.DataModel.CableCollectionPreviewPlotDefinition
 const SystemPreviewDefinition = LineCableModels.DataModel.SystemPreviewPlotDefinition
 const MaterialScaleDefinition = LineCableModels.DataModel.MaterialScalePlotDefinition
 
-_shell_kind(::Type{MaterialScaleDefinition}) = Val(:colorbar)
+function build_shell(
+        context::UIContext,
+        ::Type{MaterialScaleDefinition},
+        page::PlotPage
+)
+    return _colorbar_shell!(context, page)
+end
 
-function _preview_axis!(context::UIContext, title::AbstractString)
+function _preview_axis!(context::UIContext, position, title::AbstractString)
     unit = LineCableModels.Units.units(:base, :meter)
     unit_label = label(unit)
     return PlotBuilder.axis!(
         context,
-        context.canvas[1, 1];
+        position;
         title,
         xlabel = "y [$unit_label]",
         ylabel = "z [$unit_label]",
         aspect = :data
     )
 end
+
+_preview_label(entry::LineCableModels.DataModel.PreviewPolygon) = entry.label
+_preview_label(::LineCableModels.DataModel.PreviewReferenceLine) = nothing
 
 function _preview_registry(entries)
     order = Symbol[]
@@ -24,8 +35,9 @@ function _preview_registry(entries)
     for (entry, plot_object) in entries
         haskey(grouped, entry.group) || push!(order, entry.group)
         push!(get!(grouped, entry.group, Any[]), plot_object)
-        if hasproperty(entry, :label) && entry.label !== nothing
-            labels[entry.group] = entry.label
+        entry_label = _preview_label(entry)
+        if entry_label !== nothing
+            labels[entry.group] = entry_label
         end
     end
     groups = NamedTuple{Tuple(order)}(Tuple(grouped[group] for group in order))
@@ -34,10 +46,9 @@ function _preview_registry(entries)
     return groups, group_labels
 end
 
-function _draw_preview!(context::UIContext, page::PlotPage)
+function _draw_preview!(context::UIContext, position, title, payload)
     context.canvas === nothing && error("the standard shell has no canvas")
-    payload = page.payload
-    axis = _preview_axis!(context, page.title)
+    axis = _preview_axis!(context, position, title)
     state = payload.runtime === nothing ?
             (;
         hidden_groups = (),
@@ -86,6 +97,10 @@ function _draw_preview!(context::UIContext, page::PlotPage)
     return context
 end
 
+function _draw_preview!(context::UIContext, page::PlotPage)
+    return _draw_preview!(context, context.canvas[1, 1], page.title, page.payload)
+end
+
 function draw!(
         context::UIContext,
         ::Type{CablePreviewDefinition},
@@ -102,9 +117,72 @@ function draw!(
     return _draw_preview!(context, page)
 end
 
-function _current_preview_page(plot::UIPlot)
-    original = plot.page.payload
-    panel = only(plot.panels)
+function draw!(
+        context::UIContext,
+        ::Type{CableCollectionPreviewDefinition},
+        page::PlotPage
+)
+    context.canvas === nothing && error("the standard shell has no canvas")
+    rows, columns = page.payload.layout
+
+    # The detached recipe has already selected the grid. Equal relative tracks
+    # make occupied and deliberately empty slots share the same cell geometry.
+    # A sized child grid is necessary because the shell canvas itself begins
+    # without tracks and cannot assign a size to an unoccupied trailing slot.
+    grid = GridLayout(rows, columns)
+    grid.default_rowgap = Fixed(GRID_ROW_GAP)
+    grid.default_colgap = Fixed(GRID_COLUMN_GAP)
+    context.canvas[1, 1] = grid
+    for row in 1:rows
+        rowsize!(grid, row, Relative(1 / rows))
+    end
+    for column in 1:columns
+        colsize!(grid, column, Relative(1 / columns))
+    end
+
+    # Each detached scalar payload follows the same drawing path as
+    # `preview(design)`. This specialization only chooses the Makie grid slot
+    # and uses the cable identifier already fixed as the panel title.
+    for panel in page.payload.panels
+        row, column = panel.position
+        _draw_preview!(
+            context,
+            grid[row, column],
+            panel.title,
+            panel.payload
+        )
+    end
+    return context
+end
+
+function place_colorbars!(
+        context::UIContext,
+        ::Type{CableCollectionPreviewDefinition},
+        page::PlotPage
+)
+    # This recipe deliberately publishes no legend, so the generic
+    # definition-dispatched legend stage collapses that dock row. If a later
+    # collection recipe publishes one, its renderer can specialize
+    # `place_legend!` on this same definition type and either call the standard
+    # two-argument method or build its own Makie legend.
+
+    # `PlotBuilder.fetch` owns which material scales belong to this page. This
+    # renderer method owns only their Makie placement, so the detached recipe
+    # remains independent of shell coordinates and backend objects.
+    isempty(page.colorbars) && return place_colorbars!(context, page)
+
+    # With the legend row collapsed, the standard shell's auto-sized side grid
+    # would otherwise remain vertically centered. This recipe aligns that grid
+    # to the top before reusing the standard horizontal colorbar implementation.
+    # Another definition can overload the same method and select another slot,
+    # orientation, or arrangement.
+    if context.shell.kind === :standard
+        context.shell.side.valign[] = :top
+    end
+    return place_colorbars!(context, page)
+end
+
+function _current_preview_payload(original, panel)
     hidden_groups = Tuple(
         group
     for group in panel.group_order
@@ -114,12 +192,44 @@ function _current_preview_page(plot::UIPlot)
         hidden_groups,
         current_limits = _current_limits(panel.axis)
     )
-    payload = LineCableModels.DataModel.PreviewPayload(
+    return LineCableModels.DataModel.PreviewPayload(
         original.polygons,
         original.references,
         original.limits,
         runtime
     )
+end
+
+function _current_preview_page(plot::UIPlot)
+    original = plot.page.payload
+    panel = only(plot.panels)
+    payload = _current_preview_payload(original, panel)
+    return PlotPage(
+        plot.page.title,
+        plot.page.size,
+        plot.page.key,
+        payload;
+        legend = plot.page.legend,
+        colorbars = plot.page.colorbars,
+        widgets = plot.page.widgets,
+        export_definition = plot.page.export_definition
+    )
+end
+
+function _replay_page(plot::UIPlot, ::Type{CableCollectionPreviewDefinition})
+    original = plot.page.payload
+    length(original.panels) == length(plot.panels) || error(
+        "rendered cable-preview panels no longer match the declarative page",
+    )
+
+    # SVG replay preserves the current limits of every subplot independently.
+    # The collection payload itself remains the same NamedTuple grammar used by
+    # the detached recipe; only each existing `PreviewPayload.runtime` changes.
+    panels = map(enumerate(original.panels)) do (index, source_panel)
+        payload = _current_preview_payload(source_panel.payload, plot.panels[index])
+        return merge(source_panel, (; payload))
+    end
+    payload = (; panels, layout = original.layout)
     return PlotPage(
         plot.page.title,
         plot.page.size,

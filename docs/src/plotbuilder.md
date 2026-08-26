@@ -21,7 +21,7 @@ entitle → parse → resolve → fetch → finish
                      loaded Makie extension
                                    │
                                    ▼
-build_context → build_shell → draw! → format_axes!
+build_context → build_shell → draw!
     → place_legend! → place_colorbars! → build_widgets!
     → assemble → display!
 ```
@@ -65,18 +65,30 @@ Public backend selectors accept symbols and immediately route to the same
 construction. The backend specification for each tag holds its extension and
 package names, so there is no parallel registry or symbol switch.
 
+Legend and colorbar placement are renderer stages dispatched on the plot-
+definition type. Their standard methods use the shell side dock. A definition
+renderer may overload `place_legend!` or `place_colorbars!` and either delegate
+to the two-argument standard method after adjusting the shell layout or replace
+the stage when it needs another Makie arrangement. Placement is not inferred
+from the definition-owned payload.
+
 ## Maintained families
 
 | Owner | Definition | Accepted source | Entry point |
 |:--|:--|:--|:--|
 | `Engine` | `LineParameterPlotDefinition` | `SeriesImpedance`, `ShuntAdmittance`, or `LineParameters` | `plot(...)` |
 | `Engine` | `LineParametersBenchmarkPlotDefinition` | two `LineParameters` results | benchmark plots |
-| `UQ` | `MCDistributionPlotDefinition` | `MonteCarloResult` | `plot(result, quantity)` |
 | `DataModel` | `CablePreviewPlotDefinition` | `CableDesign` | `preview(design)` |
+| `DataModel` | `CableCollectionPreviewPlotDefinition` | vector of `CableDesign`s | `preview(designs; layout)` |
 | `DataModel` | `SystemPreviewPlotDefinition` | `LineCableSystem` | `preview(system)` |
 
 Material scales are a qualified DataModel definition reused by previews. They
 are not a separate root plotting entry point.
+
+`MonteCarloResult` does not add a distribution definition or an operation-tag
+grammar. `Makie.hist`, `Makie.stairs`, `Makie.ecdfplot`, `Makie.lines`, and
+`Makie.qqplot` publish one explicit marginal and draw the corresponding native
+primitive through the standard shell. Each non-mutating call returns `UIPlot`.
 
 ## Constructing a detached recipe
 
@@ -145,12 +157,15 @@ separates semantic input from renderer settings. It does not create a recipe.
 parsed = PlotBuilder.parse(
     LineParameterPlotDefinition,
     parameters;
-    quantities = (abs, angle),
+    requests = (
+        @observe((Z, abs)[:, :, :]),
+        @observe((Z, angle)[:, :, :])
+    ),
     export_theme = :publication
 )
 
 (;
-    quantities = parsed.input.quantities,
+    requests = parsed.input.requests,
     figure_size = parsed.renderer.fig_size,
     export_theme = parsed.renderer.export_theme
 )
@@ -169,7 +184,10 @@ collection and returns the final recipe.
 recipe = make_render(
     LineParameterPlotDefinition,
     parameters;
-    quantities = (abs, angle)
+    requests = (
+        @observe((Z, abs)[:, :, :]),
+        @observe((Z, angle)[:, :, :])
+    )
 )
 
 (;
@@ -256,7 +274,29 @@ axis created directly by the definition.
 
 The shell then runs the fixed sequence shown at the top of this guide. It owns
 theme application, the toolbar, responsive side dock, status row, widgets,
-display, and SVG replay. Definition drawing cannot replace that sequence.
+display, and SVG replay. `axis!` and `register!` install the shared formatter,
+stable limits, and log-scale metadata when an axis enters the shell. Definition
+drawing cannot replace that sequence.
+
+## Monte Carlo primitives
+
+A Monte Carlo request identifies the scientific quantity and, for matrix
+results, its row, column, and frequency index. The Makie function identifies
+the drawing operation:
+
+```julia
+marginal = @observe R[1, 1, 2]
+Makie.hist(result, marginal; bins=20, normalization=:pdf)
+Makie.stairs(result, marginal)
+Makie.ecdfplot(result, marginal)
+Makie.lines(result, marginal)
+Makie.qqplot(result, marginal; qqline=:identity)
+```
+
+Each method checks that the result has one outer Gridspace point, calls
+`observables` once for the required `samples` or `histograms` product, and
+passes the detached observation to `axis!`. The UQ owner computes histogram
+CDFs and Q–Q coordinates; the renderer only calls Makie primitives.
 
 ## Native canvas
 
@@ -287,6 +327,65 @@ end
 This is an advanced, qualified interface. `plotwindow`, `axis!`, and
 `register!` are not exported from the package root.
 
+## Definition-owned shell extensions
+
+Legend and colorbar placement dispatch on the definition type. A renderer can
+retain the standard shell and replace only the placement it owns:
+
+```julia
+function UIComponents.place_colorbars!(
+        context::UIContext,
+        ::Type{MyPlotDefinition},
+        page::PlotPage
+)
+    # Populate context.shell.colorbars with the desired Makie layout.
+    return context
+end
+```
+
+A custom toolbar control is declared by a subtype of
+`AbstractWidgetDefinition`. Its renderer method returns the next free toolbar
+column and uses the shell helpers, so it shares icon sizing, callback lifetime,
+status reporting, and exception handling:
+
+```julia
+struct RecomputeWidget <: AbstractWidgetDefinition end
+
+function UIComponents.build_widget!(context, toolbar, column, ::RecomputeWidget)
+    button = UIComponents.toolbar_button!(
+        context, toolbar, column; key=:recompute, icon=""
+    )
+    UIComponents.bind_widget_callback!(
+        context, button.clicks; success="Recomputed"
+    ) do _
+        recompute!()
+    end
+    return column + 1
+end
+```
+
+A definition that needs a different shell geometry overloads `build_shell`
+directly. Material-scale pages use this path for their colorbar-only layout;
+ordinary definitions inherit the standard shell.
+
+## Preview extension dispatch
+
+DataModel owns preview traversal. A new layer adds local `preview_shapes` and
+`preview_materials` methods beside its type:
+
+```julia
+DataModel.preview_materials(layer::MyLayer) = (layer.material_props,)
+
+function DataModel.preview_shapes(layer::MyLayer, context)
+    return DataModel.PreviewPolygon[
+        make_polygon(layer, context),
+    ]
+end
+```
+
+The preview orchestrator assigns stable identities, traverses the cable, and
+invokes these methods. It contains no switch over the known layer types.
+
 ## Responsive state and SVG export
 
 Responsive legends retain the complete semantic series registry. When a
@@ -314,7 +413,12 @@ This call renders the publication theme without writing a file:
 publication = make_render(
     LineParameterPlotDefinition,
     parameters;
-    quantities = (R, L, G, C),
+    requests = (
+        @observe(R[:, :, :]),
+        @observe(L[:, :, :]),
+        @observe(G[:, :, :]),
+        @observe(C[:, :, :])
+    ),
     export_theme = :publication
 )
 documentation_figure( #hide

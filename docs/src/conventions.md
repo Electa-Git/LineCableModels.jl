@@ -92,6 +92,10 @@ src/
 │   │   ├── cableconstants.jl
 │   │   └── dataframe.jl               # authored-design tables only
 │   └── preview/                       # renderer-independent preview definitions
+│       ├── definitions.jl             # validated detached geometry
+│       ├── cable.jl
+│       ├── cables.jl                 # collection layout and global scales
+│       └── materials.jl              # material colour model and traversal
 ├── engine/
 │   ├── Engine.jl
 │   ├── interfaces.jl
@@ -112,8 +116,7 @@ src/
 │   ├── UQ.jl
 │   ├── linearerror.jl
 │   └── montecarlo/
-│       ├── compute.jl
-│       └── plot.jl
+│       └── compute.jl
 ├── reportbuilder/
 │   ├── ReportBuilder.jl               # report owner and index
 │   ├── grammar.jl                     # fixed report action
@@ -148,6 +151,62 @@ Structural regression tests verify this layout. If a change needs a path
 that contradicts the snapshot, first identify the new owner and responsibility
 and update both the convention and its layout test. Do not
 retain a misleading path through an alias or compatibility namespace.
+
+## Observable-owned plotting and reporting
+
+An owned result is read through `observe` or `observables`. Plotting and
+reporting do not inspect its fields or reconstruct its numerical quantities.
+The maintained path is:
+
+```text
+explicit observable request
+→ observe / observables
+→ detached values + Quantity + UnitExpr
+→ direct consumer operation
+```
+
+Apply these rules when extending a result consumer:
+
+1. Construct scientific requests with `@observe`. Keep their plain tuple
+   representation; do not add request, selector, layer, or operation-tag types.
+2. Put quantity identity, units, labels, symbols, and series/shunt family in
+   `Units`. Presentation code may override displayed text, but may not define a
+   second metadata map.
+3. Let the owned result implement `observe` and declare its supported requests.
+   A product selector such as `samples` or `statistics` identifies storage; the
+   scientific selector still determines the physical quantity.
+4. Publish once before tabulation or drawing. A report table and its
+   illustration consume the same detached publication.
+5. Use the Makie function itself to select a drawing primitive. Package-managed
+   plots enter the fixed LineCableModels shell and return `UIPlot`; they do not
+   translate an operation symbol through an internal graphics grammar.
+6. Create managed axes through `axis!`, or register an ordinary Makie axis with
+   `register!`. This is where formatter, limits, scale controls, replay, and
+   legend state attach.
+7. Extend cable previews through DataModel-owned `preview_shapes` and
+   `preview_materials` methods beside the new layer type. Preview geometry is
+   not a physical observable.
+
+For example, a line dashboard accepts a request directly:
+
+```julia
+request = @observe R[:, :, :]
+plot(parameters, (request,))
+```
+
+A Monte Carlo primitive uses the same scientific request and the standard
+shell:
+
+```julia
+marginal = @observe R[1, 1, 2]
+ui = Makie.hist(result, marginal; bins=20)
+ui isa UIPlot
+```
+
+Definition renderers may overload `place_legend!`, `place_colorbars!`, or
+`build_widget!` without replacing the shell sequence. Custom widgets use the
+renderer-owned `toolbar_button!` and `bind_widget_callback!` helpers so they
+share the standard status and lifecycle behavior.
 
 ## Public symbol selectors and `Val` dispatch
 

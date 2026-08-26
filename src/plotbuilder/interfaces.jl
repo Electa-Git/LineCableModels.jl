@@ -45,23 +45,14 @@ interaction, and export machinery.
 """
 function register! end
 
-"Return the source type accepted by a plot definition."
-function dispatch_on end
-
 "Return defaults for every semantic keyword accepted by a plot definition."
 input_defaults(::Type{D}, source) where {D <: AbstractPlotDefinition} = (;)
 
 "Return defaults for every definition-specific renderer keyword accepted."
 renderer_defaults(::Type{D}, source) where {D <: AbstractPlotDefinition} = (;)
 
-"Reject an unsupported definition/source pair before any later stage runs."
-function entitle(::Type{D}, source) where {D <: AbstractPlotDefinition}
-    expected = dispatch_on(D)
-    source isa expected || throw(
-        ArgumentError("$D accepts $expected, not $(typeof(source))"),
-    )
-    return source
-end
+"Accept one definition-owned source before any later stage runs."
+function entitle end
 
 function _select_kwargs(kwargs::NamedTuple, names::Tuple)
     selected = Tuple(pair for pair in pairs(kwargs) if first(pair) in names)

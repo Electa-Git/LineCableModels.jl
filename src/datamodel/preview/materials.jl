@@ -152,83 +152,26 @@ function _preview_polygon(geometry, label, group, color; stroke = :black, width 
     )
 end
 
-function _layer_shapes!(shapes, layer, label, group, xcenter, ycenter; include_label = true)
-    first_label = include_label ? label : nothing
-    if layer isa ConductorGroup
-        for (index, nested) in enumerate(layer.layers)
-            _layer_shapes!(shapes, nested, label, group, xcenter, ycenter;
-                include_label = index == 1 && include_label)
-        end
-    elseif layer isa Union{CircStrands, RectStrands, Strip, Tubular, Semicon, Insulator}
-        color = _material_color(layer.material_props)
-        if layer isa CircStrands
-            wire_radius = nominal(layer.radius_wire)
-            lay_radius = layer.num_wires == 1 ? 0.0 : nominal(layer.r_in)
-            coordinates = wire_coordinates(
-                layer.num_wires,
-                wire_radius,
-                lay_radius;
-                C = (xcenter, ycenter)
-            )
-            for (index, (xvalue, yvalue)) in enumerate(coordinates)
-                push!(
-                    shapes,
-                    _preview_polygon(
-                        _circle_points(wire_radius, xvalue, yvalue),
-                        index == 1 ? first_label : nothing,
-                        group,
-                        color
-                    )
-                )
-            end
-        elseif layer isa RectStrands
-            for index in 1:layer.num_wires
-                angle = (index - 1) * 2π / layer.num_wires
-                geometry = _radial_wedge(
-                    nominal(layer.r_in),
-                    nominal(layer.r_ex),
-                    nominal(layer.width),
-                    angle,
-                    xcenter,
-                    ycenter
-                )
-                push!(shapes, _preview_polygon(
-                    geometry,
-                    index == 1 ? first_label : nothing,
-                    group,
-                    color
-                ))
-            end
-        else
-            geometry = _annulus_polygon(
-                nominal(layer.r_in),
-                nominal(layer.r_ex),
-                xcenter,
-                ycenter
-            )
-            push!(shapes,
-                _preview_polygon(
-                    geometry,
-                    first_label,
-                    group,
-                    color;
-                    stroke = :transparent,
-                    width = 0.0
-                ))
-        end
-    else
-        @warn "unsupported cable-preview layer" layer_type = typeof(layer)
-    end
-    return shapes
+function _annular_preview_shapes(layer, context)
+    geometry = _annulus_polygon(
+        nominal(layer.r_in),
+        nominal(layer.r_ex),
+        context.xcenter,
+        context.ycenter
+    )
+    label = context.include_label ? context.label : nothing
+    return PreviewPolygon[
+        _preview_polygon(
+            geometry,
+            label,
+            context.group,
+            _material_color(layer.material_props);
+            stroke = :transparent,
+            width = 0.0
+        ),
+    ]
 end
 
-_preview_layer_name(::CircStrands) = "round wires"
-_preview_layer_name(::RectStrands) = "rectangular strands"
-_preview_layer_name(::Strip) = "strip"
-_preview_layer_name(::Tubular) = "tubular conductor"
-_preview_layer_name(::Semicon) = "semiconductor"
-_preview_layer_name(::Insulator) = "insulation"
-_preview_layer_name(::ConductorGroup) = "conductor group"
 _preview_layer_name(layer) = lowercase(string(nameof(typeof(layer))))
 
 function _preview_layer_identities(component_id, layers, role::Symbol)
@@ -275,8 +218,13 @@ function _design_shapes(design, xcenter, ycenter; display_legend::Bool)
             :conductor
         )
         for (layer, (label, group)) in zip(conductor_layers, conductor_identities)
-            _layer_shapes!(shapes, layer, label, group, xcenter,
-                ycenter; include_label = display_legend)
+            append!(shapes, preview_shapes(layer, (;
+                label,
+                group,
+                xcenter,
+                ycenter,
+                include_label = display_legend
+            )))
         end
         insulator_layers = component.insulator_group.layers
         insulator_identities = _preview_layer_identities(
@@ -285,24 +233,33 @@ function _design_shapes(design, xcenter, ycenter; display_legend::Bool)
             :insulator
         )
         for (layer, (label, group)) in zip(insulator_layers, insulator_identities)
-            _layer_shapes!(shapes, layer, label, group, xcenter,
-                ycenter; include_label = display_legend)
+            append!(shapes, preview_shapes(layer, (;
+                label,
+                group,
+                xcenter,
+                ycenter,
+                include_label = display_legend
+            )))
         end
     end
     return shapes
 end
 
-function _each_material(callback, design)
-    function visit(layer)
-        if layer isa ConductorGroup
-            foreach(visit, layer.layers)
-        elseif hasproperty(layer, :material_props)
-            callback(layer.material_props)
+function _each_material(callback, design::CableDesign)
+    for component in design.components
+        for layer in component.conductor_group.layers
+            foreach(callback, preview_materials(layer))
+        end
+        for layer in component.insulator_group.layers
+            foreach(callback, preview_materials(layer))
         end
     end
-    for component in design.components
-        foreach(visit, component.conductor_group.layers)
-        foreach(visit, component.insulator_group.layers)
+    return nothing
+end
+
+function _each_material(callback, designs::AbstractVector{<:CableDesign})
+    for design in designs
+        _each_material(callback, design)
     end
     return nothing
 end

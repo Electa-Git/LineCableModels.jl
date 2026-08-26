@@ -89,9 +89,12 @@ include("base.jl")
 include("preview/definitions.jl")
 include("preview/materials.jl")
 include("preview/cable.jl")
+include("preview/cables.jl")
 include("preview/system.jl")
 include("preview/materialscale.jl")
 
 public base_parameters, compute_cable_constants
+public preview_shapes, preview_materials
+public PreviewPolygon, PreviewReferenceLine, PreviewPayload
 
 end # module DataModel

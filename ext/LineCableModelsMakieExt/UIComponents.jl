@@ -19,6 +19,8 @@ using LineCableModels.PlotBuilder:
                                    LegendDefinition, PlotPage, PlotRecipe, UIPlot
 
 export build, export_svg
+public build_widget!, toolbar_button!, bind_widget_callback!
+public place_legend!, place_colorbars!
 
 include("context.jl")
 

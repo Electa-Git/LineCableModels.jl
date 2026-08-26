@@ -69,8 +69,11 @@ function _comparison_input_defaults(::_LineParametersBenchmarkTuple)
     )
 end
 
-function PlotBuilder.dispatch_on(::Type{LineParametersBenchmarkPlotDefinition})
-    return _LineParametersBenchmarkTuple
+function PlotBuilder.entitle(
+        ::Type{LineParametersBenchmarkPlotDefinition},
+        source::_LineParametersBenchmarkTuple
+)
+    return source
 end
 
 function PlotBuilder.input_defaults(

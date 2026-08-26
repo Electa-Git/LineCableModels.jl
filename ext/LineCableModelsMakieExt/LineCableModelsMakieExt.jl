@@ -294,6 +294,24 @@ function preview(
     return only(UIComponents.build(render_spec; backend, display = display_plot, controls))
 end
 
+# The public extension method consumes backend/display choices and forwards the
+# remaining recipe keywords unchanged, leaving the DataModel recipe free of
+# Makie objects and backend state.
+function preview(
+        designs::AbstractVector{<:LineCableModels.DataModel.CableDesign};
+        backend = nothing,
+        display_plot::Bool = true,
+        controls::Bool = true,
+        kwargs...
+)
+    render_spec = PlotBuilder.make_render(
+        LineCableModels.DataModel.CableCollectionPreviewPlotDefinition,
+        designs;
+        kwargs...
+    )
+    return only(UIComponents.build(render_spec; backend, display = display_plot, controls))
+end
+
 function preview(
         system::LineCableModels.DataModel.LineCableSystem;
         backend = nothing,

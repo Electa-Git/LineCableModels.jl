@@ -77,11 +77,11 @@ display_unit(::Quantity{(:shunt_admittance, :phase_angle)}) =
 
 label(::Quantity{(:series_impedance, :magnitude)}) = "Series impedance magnitude"
 symbol(::Quantity{(:series_impedance, :magnitude)}) = "|Z|"
-label(::Quantity{(:series_impedance, :phase_angle)}) = "Series impedance phase angle"
+label(::Quantity{(:series_impedance, :phase_angle)}) = "Series impedance angle"
 symbol(::Quantity{(:series_impedance, :phase_angle)}) = "∠Z"
 label(::Quantity{(:shunt_admittance, :magnitude)}) = "Shunt admittance magnitude"
 symbol(::Quantity{(:shunt_admittance, :magnitude)}) = "|Y|"
-label(::Quantity{(:shunt_admittance, :phase_angle)}) = "Shunt admittance phase angle"
+label(::Quantity{(:shunt_admittance, :phase_angle)}) = "Shunt admittance angle"
 symbol(::Quantity{(:shunt_admittance, :phase_angle)}) = "∠Y"
 
 const _SeriesQuantity = Union{

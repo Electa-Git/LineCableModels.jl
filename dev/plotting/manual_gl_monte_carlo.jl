@@ -93,7 +93,7 @@ push!(gallery, "Sample/model Q-Q" => Makie.qqplot(
 combined = plotwindow(
     title = "Samples and model density",
     backend = :gl,
-    display_plot
+    display_plot = display_plot
 ) do context
     published = observables(
         cable_result,

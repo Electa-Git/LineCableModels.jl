@@ -6,7 +6,7 @@
 
 Plot computed line parameters with a loaded Makie backend. `requests` is an
 observable request or an ordered tuple of requests constructed with
-[`@observe`](@ref). Function selectors such as `(R, L, G, C)` and
+`@observe`. Function selectors such as `(R, L, G, C)` and
 `(abs, angle)` are normalized at this entry point.
 
 With two or more positional [`LineParameters`](@ref) results, create one

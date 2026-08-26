@@ -18,6 +18,26 @@ mutable struct ConductorGroup{T <: Real} <: AbstractConductorPart{T}
     layers::Vector{AbstractConductorPart{T}}
 end
 
+_preview_layer_name(::ConductorGroup) = "conductor group"
+
+function preview_materials(group::ConductorGroup)
+    return Tuple(material
+    for layer in group.layers
+    for material in preview_materials(layer))
+end
+
+function preview_shapes(group::ConductorGroup, context)
+    shapes = PreviewPolygon[]
+    for (index, layer) in enumerate(group.layers)
+        nested = merge(
+            context,
+            (; include_label = index == 1 && context.include_label)
+        )
+        append!(shapes, preview_shapes(layer, nested))
+    end
+    return shapes
+end
+
 Base.eltype(::ConductorGroup{T}) where {T} = T
 Base.eltype(::Type{ConductorGroup{T}}) where {T} = T
 

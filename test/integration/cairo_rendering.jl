@@ -13,6 +13,10 @@
         ).UIComponents
 
         struct TestOwnedPlotDefinition<:TestPlotBuilder.AbstractPlotDefinition end
+        struct TestOwnedWidgetDefinition<:TestPlotBuilder.AbstractWidgetDefinition end
+
+        const test_legend_placements=Ref(0)
+        const test_colorbar_placements=Ref(0)
 
         function TestUIComponents.draw!(
                 context::TestUIComponents.UIContext,
@@ -35,6 +39,47 @@
                 ),)
             )
             return context
+        end
+
+        function TestUIComponents.place_legend!(
+                context::TestUIComponents.UIContext,
+                ::Type{TestOwnedPlotDefinition},
+                page::TestPlotBuilder.PlotPage;
+                export_mode::Bool
+        )
+            test_legend_placements[]+=1
+            return TestUIComponents.place_legend!(context, page; export_mode)
+        end
+
+        function TestUIComponents.place_colorbars!(
+                context::TestUIComponents.UIContext,
+                ::Type{TestOwnedPlotDefinition},
+                page::TestPlotBuilder.PlotPage
+        )
+            test_colorbar_placements[]+=1
+            return TestUIComponents.place_colorbars!(context, page)
+        end
+
+        function TestUIComponents.build_widget!(
+                context::TestUIComponents.UIContext,
+                toolbar,
+                column::Int,
+                ::TestOwnedWidgetDefinition
+        )
+            button=TestUIComponents.toolbar_button!(
+                context,
+                toolbar,
+                column;
+                key = :test_action,
+                icon = TestUIComponents.MI_REFRESH
+            )
+            TestUIComponents.bind_widget_callback!(
+                context,
+                button.clicks,
+                _ -> nothing;
+                success = "Test action completed"
+            )
+            return column+1
         end
 
         include(joinpath(
@@ -204,7 +249,7 @@
             parameters,
             comparison_parameters;
             legend = ("reference", "candidate"),
-            quantities = (Z,),
+            requests = (Z,),
             backend = :cairo,
             display_plot = false
         )) == 2
@@ -212,7 +257,7 @@
             parameters,
             comparison_parameters;
             legend = ("reference", "candidate"),
-            quantities = (Y,),
+            requests = (Y,),
             backend = :cairo,
             display_plot = false
         )) == 2
@@ -238,7 +283,7 @@
         measurement_plot=first(measurement_plots)
         measurement_payload=measurement_plot.page.payload
         @test length(first(measurement_plot.panels).plots) >
-              length(first(measurement_payload.panels).curves)
+              prod(length, first(measurement_payload.coordinates)[1:2])
         test_golden(measurement_plot, "line_measurements")
 
         measurement_conductance=measurement_plots[2]
@@ -510,11 +555,85 @@
         @test filesize(fallback_export) > 100
         rm(fallback_export)
 
+        function combined_monte_carlo_histogram(result)
+            target=only(LineCableModels.Grammar.unit_targets(
+                (R,),
+                basis(result);
+                length_prefix = :kilo
+            ))
+            published=observables(
+                result,
+                (
+                    sample = (samples, R, 1, Colon()),
+                    model = (histograms, R, 1)
+                );
+                units = (sample = target, model = target)
+            )
+            sample=published.sample
+            model=published.model
+            density=(;
+                values = model.values.density,
+                quantity = LineCableModels.Units.Quantity{:probability_density}(),
+                unit = inv(target)
+            )
+            return TestPlotBuilder.plotwindow(
+                title = "R histogram",
+                backend = :cairo,
+                display_plot = false
+            ) do context
+                axis=TestPlotBuilder.axis!(
+                    context,
+                    context.canvas[1, 1],
+                    sample,
+                    density;
+                    title = "R histogram",
+                    ylabel = "pdf"
+                )
+                bars=Makie.hist!(
+                    axis,
+                    sample.values;
+                    bins = model.values.edges,
+                    normalization = :pdf,
+                    label = "samples"
+                )
+                curve=Makie.stairs!(
+                    axis,
+                    model.values.edges,
+                    [model.values.density; last(model.values.density)];
+                    step = :post,
+                    color = :red,
+                    linewidth = 2,
+                    label = "model PDF"
+                )
+                TestPlotBuilder.register!(
+                    context,
+                    axis;
+                    groups = (samples = (bars,), model = (curve,)),
+                    labels = (samples = "samples", model = "model PDF"),
+                    data = (
+                        (;
+                            xdata = sample.values,
+                            ydata = nothing,
+                            group = :samples,
+                            label = "samples"
+                        ),
+                        (;
+                            xdata = model.values.edges,
+                            ydata = [model.values.density; last(model.values.density)],
+                            group = :model,
+                            label = "model PDF"
+                        )
+                    )
+                )
+                center=only(unique(model.values.density))
+                Makie.ylims!(axis, 0.95center, 1.05center)
+            end
+        end
+
         mc_result=TestFixtures.cable_monte_carlo_result()
         histogram=only(histograms(mc_result)).R
         monte_carlo_plots=(
-            hist = Makie.hist(mc_result, R;
-                normalization = :pdf, backend = :cairo, display_plot = false),
+            hist = combined_monte_carlo_histogram(mc_result),
             pdf = Makie.stairs(mc_result, R;
                 backend = :cairo, display_plot = false),
             ecdf = Makie.ecdfplot(mc_result, R;
@@ -623,6 +742,46 @@
         Makie.toggle_visibility!(material_entry)
         @test all(plot_object -> plot_object.visible[], only(cable_plot.panels).plots)
         test_golden(cable_plot, "cable_preview"; tolerance = 0.025)
+
+        collection_designs=[
+            design,
+            equivalent(design; new_id = "equivalent"),
+            CableDesign(
+                "second detailed design",
+                design.components;
+                nominal_data = design.nominal_data
+            )
+        ]
+        collection_plot=preview(
+            collection_designs;
+            backend = :cairo,
+            display_plot = false,
+            open_export = false
+        )
+        @test collection_plot isa UIPlot
+        @test length(collection_plot.panels) == 3
+        @test getproperty.(collection_plot.page.payload.panels, :position) ==
+              [(1, 1), (1, 2), (2, 1)]
+        @test [panel.axis.title[] for panel in collection_plot.panels] ==
+              getproperty.(collection_designs, :cable_id)
+        @test sort!(collect(keys(collection_plot.controls))) == [:export_svg, :reset]
+        @test collection_plot.context.legend === nothing
+        @test length(collection_plot.context.colorbars) == 3
+        side_valign=collection_plot.context.shell.side.valign[]
+        @test side_valign == convert(typeof(side_valign), :top)
+        collection_replay=ui_components._current_recipe(collection_plot)
+        @test all(
+            panel -> panel.payload.runtime !== nothing,
+            only(collection_replay.pages).payload.panels
+        )
+        replayed_collection=only(ui_components.build(
+            collection_replay;
+            backend = :cairo,
+            display = false,
+            controls = false,
+            export_mode = true
+        ))
+        @test length(replayed_collection.panels) == 3
 
         compact_cable_plot=preview(
             design;
@@ -788,6 +947,7 @@
                 (; kind = :test_owned),
                 local_payload;
                 legend = TestPlotBuilder.LegendDefinition(),
+                widgets = (TestOwnedWidgetDefinition(),),
                 export_definition = TestPlotBuilder.ExportDefinition(
                     name = "test-owned-definition",
                     open_file = false
@@ -798,11 +958,16 @@
             local_recipe;
             backend = :cairo,
             display = false,
-            controls = false
+            controls = true
         ))
         @test local_plot.page.payload === local_payload
         @test length(only(local_plot.panels).plots) == 1
         @test legend_labels(local_plot.context.legend) == ["local curve"]
+        @test test_legend_placements[] == 1
+        @test test_colorbar_placements[] == 1
+        @test haskey(local_plot.controls, :test_action)
+        local_plot.controls[:test_action].clicks[]=1
+        @test local_plot.context.status[] == "Test action completed"
 
         primitive_plot=LineCableModels.PlotBuilder.plotwindow(
             title = "Heatmap primitive",

@@ -1,4 +1,9 @@
-PlotBuilder.dispatch_on(::Type{CablePreviewPlotDefinition}) = CableDesign
+function PlotBuilder.entitle(
+        ::Type{CablePreviewPlotDefinition},
+        design::CableDesign
+)
+    return design
+end
 function PlotBuilder.input_defaults(::Type{CablePreviewPlotDefinition}, ::CableDesign)
     (;
         x_offset = 0.0,

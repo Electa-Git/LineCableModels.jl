@@ -1,5 +1,8 @@
 @testitem "PlotBuilder / data models / detached preview pages" tags=[:unit] setup=[
     PlotBuilderTestSupport, UsePlotBuilderSupport, TestNumerics] begin
+    using GeometryBasics: Point2f
+
+    const DM=LineCableModels.DataModel
     @test :show_material_scale ∉ names(LineCableModels)
     @test :show_material_scale ∉ names(LineCableModels.DataModel)
     @test all(name -> name in names(LineCableModels.PlotBuilder),
@@ -18,6 +21,34 @@
         ))
     design=first(values(library.data))
     plot_builder=LineCableModels.PlotBuilder
+    @test Base.ispublic(DM, :preview_shapes)
+    @test Base.ispublic(DM, :preview_materials)
+
+    preview_context=(;
+        label = "test layer",
+        group = :test_layer,
+        xcenter = 0.0,
+        ycenter = 0.0,
+        include_label = true
+    )
+    layers=Any[
+        layer
+        for component in design.components
+        for group in (component.conductor_group, component.insulator_group)
+        for layer in group.layers
+    ]
+    for layer in layers
+        @test applicable(DM.preview_shapes, layer, preview_context)
+        @test applicable(DM.preview_materials, layer)
+        @test !isempty(DM.preview_shapes(layer, preview_context))
+        @test !isempty(DM.preview_materials(layer))
+    end
+    for component in design.components
+        @test !isempty(DM.preview_shapes(component.conductor_group, preview_context))
+        @test !isempty(DM.preview_materials(component.conductor_group))
+        @test !isempty(DM.preview_shapes(component.insulator_group, preview_context))
+        @test !isempty(DM.preview_materials(component.insulator_group))
+    end
 
     cable_render=plot_builder.make_render(
         LineCableModels.DataModel.CablePreviewPlotDefinition,
@@ -52,6 +83,26 @@
         (:title, :key, :legend, :colorbars, :widgets, :export_definition)
     )
     @test cable_page.key == (; kind = :cable, id = design.cable_id)
+    @test_throws ArgumentError DM.PreviewPolygon(
+        Point2f[(0.0, 0.0), (Inf, 1.0)], nothing, :invalid, :red, :black, 1.0)
+    @test_throws ArgumentError DM.PreviewPolygon(
+        Point2f[(0.0, 0.0), (1.0, 1.0)], nothing, :invalid, :red, :black, -1.0)
+    @test_throws ArgumentError DM.PreviewReferenceLine(
+        [Inf], :invalid, :black, 1.0)
+    @test_throws ArgumentError DM.PreviewPayload(
+        cable_payload.polygons,
+        (),
+        ((1.0, 0.0), (0.0, 1.0)),
+        nothing
+    )
+    @test_throws ArgumentError DM.PreviewPayload(
+        cable_payload.polygons,
+        (),
+        nothing,
+        (hidden_groups = (:absent,), current_limits = nothing)
+    )
+    @test_throws ArgumentError DM.PreviewPayload(1, (), nothing, nothing)
+    @test_throws ArgumentError DM.PreviewPayload((), 1, nothing, nothing)
 
     cable_without_chrome=plot_builder.make_render(
         LineCableModels.DataModel.CablePreviewPlotDefinition,
@@ -61,6 +112,69 @@
     )
     @test !only(cable_without_chrome.pages).legend.enabled
     @test isempty(only(cable_without_chrome.pages).colorbars)
+
+    cable_designs=[
+        design,
+        equivalent(design; new_id = "test_cable_equivalent"),
+        CableDesign(
+            "test_cable_copy",
+            design.components;
+            nominal_data = design.nominal_data
+        )
+    ]
+    collection_render=plot_builder.make_render(
+        LineCableModels.DataModel.CableCollectionPreviewPlotDefinition,
+        cable_designs
+    )
+    collection_page=only(collection_render.pages)
+    @test collection_page.payload.layout == (2, 2)
+    @test getproperty.(collection_page.payload.panels, :position) ==
+          [(1, 1), (1, 2), (2, 1)]
+    @test getproperty.(collection_page.payload.panels, :title) ==
+          getproperty.(cable_designs, :cable_id)
+    @test all(
+        panel -> all(polygon -> polygon.label === nothing, panel.payload.polygons),
+        collection_page.payload.panels
+    )
+    @test !collection_page.legend.enabled
+    @test length(collection_page.colorbars) == 3
+    @test collection_page.key == (;
+        kind = :cable_collection,
+        ids = Tuple(getproperty.(cable_designs, :cable_id)),
+        layout = (2, 2)
+    )
+    five_designs=fill(design, 5)
+    five_design_page=only(plot_builder.make_render(
+        LineCableModels.DataModel.CableCollectionPreviewPlotDefinition,
+        five_designs
+    ).pages)
+    @test five_design_page.payload.layout == (2, 3)
+
+    explicit_collection=plot_builder.make_render(
+        LineCableModels.DataModel.CableCollectionPreviewPlotDefinition,
+        cable_designs;
+        layout = (1, 3),
+        display_colorbars = false,
+        size = (1000, 400)
+    )
+    explicit_page=only(explicit_collection.pages)
+    @test explicit_page.payload.layout == (1, 3)
+    @test isempty(explicit_page.colorbars)
+    @test explicit_page.size == (1000, 400)
+    @test_throws ArgumentError plot_builder.make_render(
+        LineCableModels.DataModel.CableCollectionPreviewPlotDefinition,
+        CableDesign[]
+    )
+    @test_throws ArgumentError plot_builder.make_render(
+        LineCableModels.DataModel.CableCollectionPreviewPlotDefinition,
+        cable_designs;
+        layout = (0, 3)
+    )
+    @test_throws DimensionMismatch plot_builder.make_render(
+        LineCableModels.DataModel.CableCollectionPreviewPlotDefinition,
+        cable_designs;
+        layout = (1, 2)
+    )
 
     publication_cable=plot_builder.make_render(
         LineCableModels.DataModel.CablePreviewPlotDefinition,
@@ -156,15 +270,23 @@ end
     collapsed=DM._radial_wedge(0.0, 0.01, 0.002, 0.0, 0.0, 0.0)
     @test length(unique(collapsed)) == 2
 
-    shapes=DM.PreviewPolygon[]
-    @test DM._layer_shapes!(shapes, strands, "sector", :sector, 0.0, 0.0) === shapes
+    sector_context=(;
+        label = "sector",
+        group = :sector,
+        xcenter = 0.0,
+        ycenter = 0.0,
+        include_label = true
+    )
+    shapes=DM.preview_shapes(strands, sector_context)
     @test length(shapes) == strands.num_wires
     @test count(item -> item.label == "sector", shapes) == 1
     @test all(item -> length(item.geometry) == 64, shapes)
 
     group=ConductorGroup(strands)
-    grouped_shapes=DM.PreviewPolygon[]
-    DM._layer_shapes!(grouped_shapes, group, "group", :group, 0.0, 0.0)
+    grouped_shapes=DM.preview_shapes(
+        group,
+        merge(sector_context, (; label = "group", group = :group))
+    )
     @test length(grouped_shapes) == strands.num_wires
     @test count(item -> item.label == "group", grouped_shapes) == 1
 
@@ -180,18 +302,33 @@ end
     end
     unsupported=UnsupportedPreviewLayer(conductor)
     @test DM._preview_layer_name(unsupported) == "unsupportedpreviewlayer"
-    @test_logs (:warn, r"unsupported cable-preview layer") begin
-        @test isempty(DM._layer_shapes!(
-            DM.PreviewPolygon[],
-            unsupported,
-            "unsupported",
-            :unsupported,
-            0.0,
-            0.0
-        ))
-    end
+    @test_throws MethodError DM.preview_shapes(unsupported, sector_context)
+    @test_throws MethodError DM.preview_materials(unsupported)
 
     @test DM._base_material_color(Inf) == DM._INSULATOR_COLORS[end]
+
+    broad_conductor=LineCableModels.Materials.Material(1.0e-6, 4.0, 10.0, 20.0, 0.0)
+    broad_dielectric=LineCableModels.Materials.Material(1.0e14, 20.0, 2.0, 20.0, 0.0)
+    broad_design=CableDesign(
+        "broad-scale",
+        ConductorGroup(Tubular(0.0, 0.01, broad_conductor)),
+        InsulatorGroup(Insulator(0.01, 0.02, broad_dielectric))
+    )
+    narrow_design=CableDesign(
+        "narrow-scale",
+        ConductorGroup(Tubular(0.0, 0.01, conductor)),
+        InsulatorGroup(Insulator(0.01, 0.02, dielectric))
+    )
+    @test DM._property_ranges([narrow_design, broad_design]) ==
+          ((1.7241e-8, 1.0e14), (1.0, 10.0), (1.0, 20.0))
+    global_scale=only(LineCableModels.PlotBuilder.make_render(
+        DM.CableCollectionPreviewPlotDefinition,
+        [narrow_design, broad_design]
+    ).pages).colorbars
+    @test getproperty.(global_scale, :ticks) ==
+          (([0.0, 1.0], ["1.72e-08", "1e+14"]),
+        ([0.0, 1.0], ["1", "10"]),
+        ([0.0, 1.0], ["1", "20"]))
     @test DM._cable_title(Val(false),
         CableDesign("id", CableComponent(
             "core",

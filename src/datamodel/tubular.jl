@@ -14,6 +14,10 @@ struct Tubular{T <: Real} <: AbstractConductorPart{T}
     gmr::T
 end
 
+_preview_layer_name(::Tubular) = "tubular conductor"
+preview_materials(layer::Tubular) = (layer.material_props,)
+preview_shapes(layer::Tubular, context) = _annular_preview_shapes(layer, context)
+
 function Validation.rules(::Type{<:Tubular})
     (Finite(:r_in), Finite(:r_ex), Nonnegative(:r_in), Positive(:r_ex),
         Less(:r_in, :r_ex))
