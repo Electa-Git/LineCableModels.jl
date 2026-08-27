@@ -152,6 +152,55 @@ function observe(
     return _product_value(stored, indices)
 end
 
+function _histogram_observation(
+        value::MonteCarloResult,
+        selector::_MonteCarloScientificSelector,
+        point::Integer,
+        indices::Tuple,
+        bins::Union{Nothing, Integer}
+)
+    if value.histogram_values !== nothing
+        stored = _monte_carlo_field(value.histogram_values[point], selector)
+        return _product_value(stored, indices)
+    end
+    retained = value.sample_values
+    retained === nothing && throw(ArgumentError(
+        "Monte Carlo histograms were not retained and samples are unavailable for derivation",
+    ))
+    stored = _monte_carlo_field(retained[point], selector)
+    sample = _product_value(stored, (indices..., Colon()))
+    return HistogramDensity(collect(sample); bins)
+end
+
+function observe(
+        value::MonteCarloResult{<:DataModel.CableConstants},
+        ::typeof(histograms),
+        selector::_MonteCarloScientificSelector,
+        point::Integer,
+        bins::Union{Nothing, Integer}
+)
+    return _histogram_observation(value, selector, point, (), bins)
+end
+
+function observe(
+        value::MonteCarloResult{<:Engine.LineParameters},
+        ::typeof(histograms),
+        selector::_MonteCarloScientificSelector,
+        point::Integer,
+        row::Integer,
+        column::Integer,
+        frequency::Integer,
+        bins::Union{Nothing, Integer}
+)
+    return _histogram_observation(
+        value,
+        selector,
+        point,
+        (row, column, frequency),
+        bins
+    )
+end
+
 function observe(
         value::MonteCarloResult,
         ::typeof(statistics),

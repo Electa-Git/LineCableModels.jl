@@ -31,15 +31,14 @@ function Earth(;
 end
 
 function _position_coordinates(
-        position::PositionDefinition,
+        position::PositionDefinition{:point},
         design::DataModel.CableDesign
 )
-    kind = _position_kind(position)
-    if kind === :point
-        x, y = position.parameters
-        return ((x, y, only(position.connections)),)
-    end
+    x, y = position.parameters
+    return ((x, y, only(position.connections)),)
+end
 
+function _formation_parameters(position, design::DataModel.CableDesign)
     x, y, spacing = position.parameters
     spacing > zero(spacing) ||
         throw(ArgumentError("formation spacing must be positive"))
@@ -47,33 +46,56 @@ function _position_coordinates(
     spacing >= minimum_spacing || throw(ArgumentError(
         "formation spacing $spacing is smaller than the minimum non-overlap distance $minimum_spacing",
     ))
+    return x, y, spacing
+end
 
-    coordinates = if kind === :trifoil
-        length(position.connections) == 3 ||
-            throw(DimensionMismatch("trifoil requires three phase maps"))
-        values = DataModel.trifoil_formation(x, y, spacing / 2)
-        ((values[1], values[2]), (values[3], values[4]), (values[5], values[6]))
-    elseif kind === :hflat
-        ntuple(
-            index -> (x + (index - 1) * spacing, y),
-            length(position.connections)
-        )
-    elseif kind === :vflat
-        ntuple(
-            index -> (x, y - (index - 1) * spacing),
-            length(position.connections)
-        )
-    else
-        throw(ArgumentError("unsupported position kind :$kind"))
+function _position_coordinates(
+        position::PositionDefinition{:trifoil},
+        design::DataModel.CableDesign
+)
+    length(position.connections) == 3 ||
+        throw(DimensionMismatch("trifoil requires three phase maps"))
+    x, y, spacing = _formation_parameters(position, design)
+    values = DataModel.trifoil_formation(x, y, spacing / 2)
+    coordinates = ((values[1], values[2]), (values[3], values[4]), (values[5], values[6]))
+    return map(coordinates, position.connections) do coordinate, connections
+        (coordinate[1], coordinate[2], connections)
     end
-    return ntuple(
-        index -> (
-            coordinates[index][1],
-            coordinates[index][2],
-            position.connections[index]
-        ),
+end
+
+function _position_coordinates(
+        position::PositionDefinition{:hflat},
+        design::DataModel.CableDesign
+)
+    x, y, spacing = _formation_parameters(position, design)
+    coordinates = ntuple(
+        index -> (x + (index - 1) * spacing, y),
         length(position.connections)
     )
+    return map(coordinates, position.connections) do coordinate, connections
+        (coordinate[1], coordinate[2], connections)
+    end
+end
+
+function _position_coordinates(
+        position::PositionDefinition{:vflat},
+        design::DataModel.CableDesign
+)
+    x, y, spacing = _formation_parameters(position, design)
+    coordinates = ntuple(
+        index -> (x, y - (index - 1) * spacing),
+        length(position.connections)
+    )
+    return map(coordinates, position.connections) do coordinate, connections
+        (coordinate[1], coordinate[2], connections)
+    end
+end
+
+function _position_coordinates(
+        ::PositionDefinition{Kind},
+        ::DataModel.CableDesign
+) where {Kind}
+    throw(ArgumentError("unsupported position kind :$Kind"))
 end
 
 struct SystemMaterializer

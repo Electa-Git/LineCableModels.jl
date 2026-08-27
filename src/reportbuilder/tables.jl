@@ -230,9 +230,16 @@ function _resolved_coordinates(coordinates, payload)
     end
 end
 
-function select(definition::LineParametersTableDefinition, source)
-    frequency_values = _frequency_values(source, definition.freqs)
-    requests = _table_requests(source, definition.requests)
+function _select_line_table(
+        source,
+        requests,
+        freqs,
+        frequency_unit,
+        length_unit,
+        quantity_units
+)
+    frequency_values = _frequency_values(source, freqs)
+    requests = _table_requests(source, requests)
     coordinates = map(_table_coordinates, requests)
     sample_indices = last.(coordinates)
     all(==(first(sample_indices)), sample_indices) || throw(DimensionMismatch(
@@ -251,11 +258,11 @@ function select(definition::LineParametersTableDefinition, source)
     targets = unit_targets(
         named_requests,
         basis(source);
-        length_prefix = definition.length_unit,
-        overrides = definition.quantity_units
+        length_prefix = length_unit,
+        overrides = quantity_units
     )
     if source isa Engine.LineParameters
-        frequency_target = Units.units(definition.frequency_unit, :hertz)
+        frequency_target = Units.units(frequency_unit, :hertz)
         combined_requests = merge(
             (frequency = (frequencies, first(sample_indices)),),
             named_requests
@@ -267,7 +274,7 @@ function select(definition::LineParametersTableDefinition, source)
     else
         frequency = _standalone_frequency_payload(
             frequency_values[first(sample_indices)],
-            definition.frequency_unit
+            frequency_unit
         )
         published = observables(source, named_requests; units = targets)
     end
@@ -279,6 +286,17 @@ function select(definition::LineParametersTableDefinition, source)
         requests,
         coordinates = resolved_coordinates,
         families
+    )
+end
+
+function select(definition::LineParametersTableDefinition, source)
+    return _select_line_table(
+        source,
+        definition.requests,
+        definition.freqs,
+        definition.frequency_unit,
+        definition.length_unit,
+        definition.quantity_units
     )
 end
 
@@ -298,7 +316,7 @@ clip(value::Missing, _) = value
 _family_name(::Val{:series}) = :series
 _family_name(::Val{:shunt}) = :shunt
 
-function tabulate(definition::LineParametersTableDefinition, source, selected)
+function _tabulate_line_table(source, selected, tolerance)
     frequency_values = selected.frequency.values
     Tfrequency = eltype(frequency_values)
     Tvalue = promote_type((eltype(payload.values) for payload in values(selected.published))...)
@@ -343,7 +361,7 @@ function tabulate(definition::LineParametersTableDefinition, source, selected)
                     value_column,
                     clip(
                         payload.values[local_row, local_column, frequency_index],
-                        definition.tolerance
+                        tolerance
                     )
                 )
                 push!(unit_column, Units.label(payload.unit))
@@ -384,6 +402,10 @@ function tabulate(definition::LineParametersTableDefinition, source, selected)
         style = :note
     )
     return table
+end
+
+function tabulate(definition::LineParametersTableDefinition, source, selected)
+    return _tabulate_line_table(source, selected, definition.tolerance)
 end
 
 function _comparison_floor(zero_atol::NamedTuple, quantity::Symbol)

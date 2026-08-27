@@ -114,6 +114,31 @@ function HistogramDensity(edges::AbstractVector{<:Real}, density::AbstractVector
     return HistogramDensity(Vector{T}(edges), Vector{T}(density))
 end
 
+function HistogramDensity(
+        values::AbstractVector{<:Real};
+        bins::Union{Nothing, Integer} = nothing
+)
+    isempty(values) && throw(ArgumentError("cannot estimate a histogram from no samples"))
+    all(isfinite, values) || throw(ArgumentError("histogram samples must be finite"))
+    bins === nothing || bins > 0 || throw(ArgumentError("histogram bins must be positive"))
+
+    lo, hi = extrema(values)
+    edges = if lo == hi
+        width = max(abs(float(lo)) * sqrt(eps(Float64)), sqrt(eps(Float64)))
+        [float(lo) - width, float(hi) + width]
+    else
+        count = something(bins, max(1, ceil(Int, sqrt(length(values)))))
+        collect(range(float(lo), float(hi); length = count + 1))
+    end
+    counts = zeros(Float64, length(edges) - 1)
+    for value in values
+        index = value == last(edges) ? length(counts) :
+                clamp(searchsortedlast(edges, value), 1, length(counts))
+        counts[index] += 1
+    end
+    return HistogramDensity(edges, counts ./ (length(values) .* diff(edges)))
+end
+
 "Evaluate the cumulative probability of a piecewise-constant histogram model."
 function cumulative_probability(histogram::HistogramDensity, value::Real)
     value <= first(histogram.edges) && return 0.0

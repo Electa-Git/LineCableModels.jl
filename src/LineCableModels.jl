@@ -60,7 +60,6 @@ import DocStringExtensions: DocStringExtensions
 
 include("docstrings.jl")
 include("interfaces.jl")
-include("retired.jl")
 
 # Submodule `Units`
 include("units/Units.jl")

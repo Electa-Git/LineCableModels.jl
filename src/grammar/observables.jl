@@ -8,9 +8,6 @@ function _request_identity(request, supported::Tuple)
 end
 
 function _observable_declaration(source)
-    applicable(observables, typeof(source)) || throw(ArgumentError(
-        "$(typeof(source)) does not declare observable selectors",
-    ))
     supported = observables(typeof(source))
     supported isa Tuple || throw(
         ArgumentError("observables($(typeof(source))) must return a tuple of selectors"),
@@ -36,9 +33,9 @@ the observable declaration for `source`.
 
 # Errors
 
-- Throws `ArgumentError` when the source has no observable declaration, the
-  declaration is malformed, a request is unsupported, or an override key has
-  no corresponding request.
+- Throws `ArgumentError` when the declaration is malformed, a request is
+  unsupported, or an override key has no corresponding request. A source that
+  does not implement the declaration fails through ordinary method dispatch.
 """
 function validate_observables(
         source,
@@ -62,18 +59,27 @@ end
 _observe_request(source, request::Function) = observe(source, request)
 _observe_request(source, request::Tuple) = observe(source, request...)
 
-function _quantity(request)
-    request isa Function && return quantity(request)
-    request isa Tuple && !isempty(request) || throw(
+_quantity(request::Function) = quantity(request)
+
+function _quantity(request::Tuple{F, Colon, Vararg}) where {F <: Function}
+    return quantity(first(request))
+end
+
+function _quantity(request::Tuple{F, G, Vararg}) where {F <: Function, G <: Function}
+    return quantity(request[1], request[2])
+end
+
+function _quantity(request::Tuple)
+    isempty(request) && throw(
         ArgumentError("scientific requests must be selector functions or nonempty tuples"),
     )
-    transformed = length(request) >= 2 && applicable(quantity, request[1], request[2])
-    return transformed ? quantity(request[1], request[2]) : quantity(first(request))
+    return quantity(first(request))
 end
 
 function _override_candidates(key, request)
     identity = request isa Function ? request :
-               length(request) >= 2 && applicable(quantity, request[1], request[2]) ?
+               length(request) >= 2 && request[1] isa Function &&
+               request[2] isa Function && !(request[2] isa Colon) ?
                (request[1], request[2]) : first(request)
     names = identity isa Function ? (nameof(identity),) :
             identity isa Tuple && first(identity) isa Function ?

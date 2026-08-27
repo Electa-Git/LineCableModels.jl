@@ -4,8 +4,6 @@ struct PositionDefinition{Kind, P <: Tuple, C <: Tuple}
     connections::C
 end
 
-_position_kind(::PositionDefinition{Kind}) where {Kind} = Kind
-
 function PositionDefinition(::Val{Kind}, parameters::P, connections::C) where {
         Kind, P <: Tuple, C <: Tuple
 }

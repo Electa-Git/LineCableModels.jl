@@ -79,7 +79,7 @@
         TableReportDefinition((value = identity,)),
         source
     )
-    @test_throws ArgumentError report(
+    @test_throws MethodError report(
         TableReportDefinition((value = identity,)),
         :unsupported
     )

@@ -42,7 +42,6 @@ export compute, plot
 using LinearAlgebra
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES,
                            METHODLIST, FUNCTIONNAME
-import ..LineCableModels: retired_fem_sector, _RETIRED_FEM
 import ..LineCableModels: basis, R, L, C, resistance, inductance, capacitance
 import ..LineCableModels: nominal, standard_uncertainty
 import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
@@ -63,8 +62,6 @@ import ..Validation
 using Logging
 using SpecialFunctions
 using QuadGK: quadgk
-
-const FEM = _RETIRED_FEM
 
 include("interfaces.jl")
 include("formulations.jl")

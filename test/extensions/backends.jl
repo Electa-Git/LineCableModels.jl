@@ -19,7 +19,6 @@
             @test backends.backend_available(Val(backend))
             @test backends.set_backend!(backend) === backend
             @test backends.set_backend!(Val(backend)) === backend
-            @test backends.ensure_backend!(Val(backend)) === backend
             @test backends.current_backend_symbol() === backend
             if backend !== :gl
                 @test backends.make_screen(backend, "headless") === nothing

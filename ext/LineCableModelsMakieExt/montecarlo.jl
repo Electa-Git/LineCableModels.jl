@@ -1,76 +1,40 @@
-const _MonteCarloScientificSelector = Union{
-    typeof(LineCableModels.R),
-    typeof(LineCableModels.L),
-    typeof(LineCableModels.C),
-    typeof(LineCableModels.G)
-}
-
-function _monte_carlo_marginal(result::LineCableModels.MonteCarloResult, request)
-    length(result) == 1 || throw(ArgumentError(
-        "Monte Carlo plots require exactly one outer Gridspace point",
-    ))
-    represented = only(LineCableModels.result(result))
-    if represented isa LineCableModels.CableConstants
-        request isa _MonteCarloScientificSelector || throw(ArgumentError(
-            "cable-constant Monte Carlo plots require a bare R, L, or C selector",
-        ))
-        request in (LineCableModels.R, LineCableModels.L, LineCableModels.C) ||
-            throw(ArgumentError("cable-constant selectors are R, L, and C"))
-        return (; scientific_selector = request, indices = ())
-    end
-    request isa Tuple && length(request) == 4 || throw(ArgumentError(
-        "line-parameter Monte Carlo plots require `@observe quantity[i, j, k]`",
-    ))
-    scientific_selector, i, j, k = request
-    scientific_selector isa _MonteCarloScientificSelector || throw(ArgumentError(
-        "line-parameter selectors are R, L, C, and G",
-    ))
-    all(index -> index isa Integer, (i, j, k)) || throw(ArgumentError(
-        "Monte Carlo plot matrix and frequency indices must be integers",
-    ))
-    checkbounds(LineCableModels.observe(represented, scientific_selector), i, j, k)
-    return (; scientific_selector, indices = (Int(i), Int(j), Int(k)))
-end
-
-function _monte_carlo_request(product, marginal, retained_samples::Bool)
-    point = 1
-    isempty(marginal.indices) && return retained_samples ?
-        (product, marginal.scientific_selector, point, Colon()) :
-        (product, marginal.scientific_selector, point)
-    return retained_samples ?
-           (product, marginal.scientific_selector, point, marginal.indices..., Colon()) :
-           (product, marginal.scientific_selector, point, marginal.indices...)
-end
-
 function _monte_carlo_publication(
-        result,
-        request;
+        result::LineCableModels.MonteCarloResult,
+        scientific_selector::Function,
+        indices::Tuple;
         need_samples::Bool,
         need_model::Bool,
         bins,
         length_unit::Symbol,
         quantity_units
 )
-    marginal = _monte_carlo_marginal(result, request)
-    retained_model = LineCableModels.histograms(result) !== nothing
-    publish_samples = need_samples || (need_model && !retained_model)
-    publish_model = need_model && retained_model
-    requests = if publish_samples && publish_model
+    length(result) == 1 || throw(ArgumentError(
+        "Monte Carlo plots require exactly one outer Gridspace point",
+    ))
+    bins === nothing || bins isa Integer || throw(ArgumentError(
+        "Monte Carlo histogram bins must be an integer or nothing",
+    ))
+    point = 1
+    sample_request = isempty(indices) ?
+                     (LineCableModels.samples, scientific_selector, point, Colon()) :
+                     (LineCableModels.samples, scientific_selector, point, indices..., Colon())
+    model_request = isempty(indices) ?
+                    (LineCableModels.histograms, scientific_selector, point, bins) :
+                    (LineCableModels.histograms, scientific_selector, point, indices..., bins)
+    requests = if need_samples && need_model
         (
-            sample = _monte_carlo_request(
-                LineCableModels.samples, marginal, true),
-            model = _monte_carlo_request(
-                LineCableModels.histograms, marginal, false)
+            sample = sample_request,
+            model = model_request
         )
-    elseif publish_samples
-        (sample = _monte_carlo_request(LineCableModels.samples, marginal, true),)
-    elseif publish_model
-        (model = _monte_carlo_request(LineCableModels.histograms, marginal, false),)
+    elseif need_samples
+        (sample = sample_request,)
+    elseif need_model
+        (model = model_request,)
     else
         error("Monte Carlo plotting requested no published product")
     end
     target = only(LineCableModels.Grammar.unit_targets(
-        (marginal.scientific_selector,),
+        (scientific_selector,),
         LineCableModels.basis(result);
         length_prefix = length_unit,
         overrides = quantity_units
@@ -78,68 +42,50 @@ function _monte_carlo_publication(
     units = NamedTuple{keys(requests)}(ntuple(_ -> target, length(requests)))
     published = LineCableModels.observables(result, requests; units)
     sample = haskey(published, :sample) ? published.sample : nothing
-    model = if haskey(published, :model)
-        published.model
-    elseif need_model
-        bins === nothing || bins isa Int || throw(ArgumentError(
-            "derived HistogramDensity bins must be an integer or nothing",
-        ))
-        (;
-            values = LineCableModels.UQ._histogram(sample.values, bins),
-            quantity = sample.quantity,
-            unit = sample.unit
-        )
-    else
-        nothing
-    end
-    return (; marginal, sample, model)
+    model = haskey(published, :model) ? published.model : nothing
+    return (; scientific_selector, indices, sample, model)
 end
 
-function _distribution_observation(values, tag::Symbol, unit = LineCableModels.Units.UnitExpr())
-    return (;
-        values,
-        quantity = LineCableModels.Units.Quantity{tag}(),
-        unit
+function _monte_carlo_publication(
+        result::LineCableModels.MonteCarloResult{<:LineCableModels.CableConstants},
+        request;
+        kwargs...
+)
+    request isa Function || throw(ArgumentError(
+        "cable-constant Monte Carlo plots require a bare R, L, or C selector",
+    ))
+    return _monte_carlo_publication(result, request, (); kwargs...)
+end
+
+function _monte_carlo_publication(
+        result::LineCableModels.MonteCarloResult{<:LineCableModels.LineParameters},
+        request;
+        kwargs...
+)
+    request isa Tuple && length(request) == 4 || throw(ArgumentError(
+        "line-parameter Monte Carlo plots require `@observe quantity[i, j, k]`",
+    ))
+    scientific_selector, row, column, frequency = request
+    scientific_selector isa Function || throw(ArgumentError(
+        "line-parameter Monte Carlo requests must begin with a scientific selector",
+    ))
+    all(index -> index isa Integer, (row, column, frequency)) || throw(ArgumentError(
+        "Monte Carlo plot matrix and frequency indices must be integers",
+    ))
+    return _monte_carlo_publication(
+        result,
+        scientific_selector,
+        (Int(row), Int(column), Int(frequency));
+        kwargs...
     )
 end
 
 function _monte_carlo_title(publication, suffix::AbstractString)
     payload = publication.sample === nothing ? publication.model : publication.sample
     symbol = LineCableModels.Units.symbol(payload.quantity)
-    indices = isempty(publication.marginal.indices) ? "" :
-              "[$(join(publication.marginal.indices, ','))]"
+    indices = isempty(publication.indices) ? "" :
+              "[$(join(publication.indices, ','))]"
     return "$symbol$indices $suffix"
-end
-
-function _register_distribution!(context, axis, groups, labels, data)
-    registration = only(panel for panel in context.panels if panel.axis === axis)
-    PlotBuilder.register!(context, axis;
-        xmetadata = registration.metadata.xaxis,
-        ymetadata = registration.metadata.yaxis,
-        groups,
-        labels,
-        data)
-    return axis
-end
-
-function _distribution_window(
-        callback;
-        title,
-        fig_size,
-        backend,
-        display_plot,
-        controls,
-        export_theme,
-        open_export
-)
-    return PlotBuilder.plotwindow(callback;
-        title,
-        size = fig_size,
-        backend,
-        display_plot,
-        controls,
-        export_theme,
-        open_export)
 end
 
 function Makie.hist(
@@ -168,14 +114,25 @@ function Makie.hist(
               String(title)
     sample = publication.sample
     y_observation = normalization === :none ?
-                    _distribution_observation(Float64[], :sample_count) :
+                    (;
+        values = Float64[],
+        quantity = LineCableModels.Units.Quantity{:sample_count}(),
+        unit = LineCableModels.Units.UnitExpr()
+    ) :
                     normalization === :probability ?
-                    _distribution_observation(Float64[], :probability) :
-                    _distribution_observation(
-        Float64[], :probability_density, inv(sample.unit))
-    return _distribution_window(;
+                    (;
+        values = Float64[],
+        quantity = LineCableModels.Units.Quantity{:probability}(),
+        unit = LineCableModels.Units.UnitExpr()
+    ) :
+                    (;
+        values = Float64[],
+        quantity = LineCableModels.Units.Quantity{:probability_density}(),
+        unit = inv(sample.unit)
+    )
+    return PlotBuilder.plotwindow(;
         title = heading,
-        fig_size,
+        size = fig_size,
         backend,
         display_plot,
         controls,
@@ -186,10 +143,10 @@ function Makie.hist(
         plot = bins === nothing ?
                hist!(axis, sample.values; normalization, label = "samples", kwargs...) :
                hist!(axis, sample.values; bins, normalization, label = "samples", kwargs...)
-        _register_distribution!(context, axis,
-            (samples = (plot,),),
-            (samples = "samples",),
-            ((; xdata = sample.values, ydata = nothing,
+        PlotBuilder.register!(context, axis;
+            groups = (samples = (plot,),),
+            labels = (samples = "samples",),
+            data = ((; xdata = sample.values, ydata = nothing,
                 group = :samples, label = "samples"),))
     end
 end
@@ -223,20 +180,23 @@ function Makie.stairs(
         quantity = model.quantity,
         unit = model.unit
     )
-    ordinate = _distribution_observation(
-        model.values.density, :probability_density, inv(model.unit))
-    return _distribution_window(;
-        title = heading, fig_size, backend, display_plot, controls,
+    ordinate = (;
+        values = model.values.density,
+        quantity = LineCableModels.Units.Quantity{:probability_density}(),
+        unit = inv(model.unit)
+    )
+    return PlotBuilder.plotwindow(;
+        title = heading, size = fig_size, backend, display_plot, controls,
         export_theme, open_export) do context
         axis = PlotBuilder.axis!(context, context.canvas[1, 1], abscissa, ordinate;
             title = heading)
         y = [model.values.density; last(model.values.density)]
         plot = stairs!(axis, model.values.edges, y;
             step = :post, label = "model PDF", kwargs...)
-        _register_distribution!(context, axis,
-            (model = (plot,),),
-            (model = "model PDF",),
-            ((; xdata = model.values.edges, ydata = y,
+        PlotBuilder.register!(context, axis;
+            groups = (model = (plot,),),
+            labels = (model = "model PDF",),
+            data = ((; xdata = model.values.edges, ydata = y,
                 group = :model, label = "model PDF"),))
     end
 end
@@ -265,17 +225,21 @@ function Makie.ecdfplot(
               _monte_carlo_title(publication, "empirical cumulative distribution") :
               String(title)
     sample = publication.sample
-    ordinate = _distribution_observation(Float64[], :cumulative_probability)
-    return _distribution_window(;
-        title = heading, fig_size, backend, display_plot, controls,
+    ordinate = (;
+        values = Float64[],
+        quantity = LineCableModels.Units.Quantity{:cumulative_probability}(),
+        unit = LineCableModels.Units.UnitExpr()
+    )
+    return PlotBuilder.plotwindow(;
+        title = heading, size = fig_size, backend, display_plot, controls,
         export_theme, open_export) do context
         axis = PlotBuilder.axis!(context, context.canvas[1, 1], sample, ordinate;
             title = heading)
         plot = ecdfplot!(axis, sample.values; label = "empirical CDF", kwargs...)
-        _register_distribution!(context, axis,
-            (empirical = (plot,),),
-            (empirical = "empirical CDF",),
-            ((; xdata = sample.values, ydata = nothing,
+        PlotBuilder.register!(context, axis;
+            groups = (empirical = (plot,),),
+            labels = (empirical = "empirical CDF",),
+            data = ((; xdata = sample.values, ydata = nothing,
                 group = :empirical, label = "empirical CDF"),))
     end
 end
@@ -315,17 +279,21 @@ function Makie.lines(
     grid = _model_cdf_grid(model.values)
     probability = LineCableModels.UQ.cumulative_probability.(Ref(model.values), grid)
     abscissa = (; values = grid, quantity = model.quantity, unit = model.unit)
-    ordinate = _distribution_observation(probability, :cumulative_probability)
-    return _distribution_window(;
-        title = heading, fig_size, backend, display_plot, controls,
+    ordinate = (;
+        values = probability,
+        quantity = LineCableModels.Units.Quantity{:cumulative_probability}(),
+        unit = LineCableModels.Units.UnitExpr()
+    )
+    return PlotBuilder.plotwindow(;
+        title = heading, size = fig_size, backend, display_plot, controls,
         export_theme, open_export) do context
         axis = PlotBuilder.axis!(context, context.canvas[1, 1], abscissa, ordinate;
             title = heading)
         plot = lines!(axis, grid, probability; label = "model CDF", kwargs...)
-        _register_distribution!(context, axis,
-            (model = (plot,),),
-            (model = "model CDF",),
-            ((; xdata = grid, ydata = probability,
+        PlotBuilder.register!(context, axis;
+            groups = (model = (plot,),),
+            labels = (model = "model CDF",),
+            data = ((; xdata = grid, ydata = probability,
                 group = :model, label = "model CDF"),))
     end
 end
@@ -372,8 +340,8 @@ function Makie.qqplot(
         unit = publication.model.unit
     )
     displayed_unit = LineCableModels.Units.label(sample.unit)
-    return _distribution_window(;
-        title = heading, fig_size, backend, display_plot, controls,
+    return PlotBuilder.plotwindow(;
+        title = heading, size = fig_size, backend, display_plot, controls,
         export_theme, open_export) do context
         axis = PlotBuilder.axis!(context, context.canvas[1, 1], sample, model;
             title = heading,
@@ -386,20 +354,20 @@ function Makie.qqplot(
             line = lines!(axis, reference, reference;
                 color = :black, linestyle = :dash,
                 linewidth = 2, label = "perfect fit")
-            _register_distribution!(context, axis,
-                (quantiles = (points,), reference = (line,)),
-                (quantiles = "quantiles", reference = "perfect fit"),
-                (
+            PlotBuilder.register!(context, axis;
+                groups = (quantiles = (points,), reference = (line,)),
+                labels = (quantiles = "quantiles", reference = "perfect fit"),
+                data = (
                     (; xdata = pairs.sample, ydata = pairs.model,
                         group = :quantiles, label = "quantiles"),
                     (; xdata = reference, ydata = reference,
                         group = :reference, label = "perfect fit")
                 ))
         else
-            _register_distribution!(context, axis,
-                (quantiles = (points,),),
-                (quantiles = "quantiles",),
-                ((; xdata = pairs.sample, ydata = pairs.model,
+            PlotBuilder.register!(context, axis;
+                groups = (quantiles = (points,),),
+                labels = (quantiles = "quantiles",),
+                data = ((; xdata = pairs.sample, ydata = pairs.model,
                     group = :quantiles, label = "quantiles"),))
         end
     end

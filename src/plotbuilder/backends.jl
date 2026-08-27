@@ -16,10 +16,8 @@ _backend_spec(::Val) = nothing
 
 const FIG_NO = Base.Threads.Atomic{Int}(1)
 
-_parent_package() = parentmodule(@__MODULE__)
-
 function _makie_extension()
-    return Base.get_extension(_parent_package(), :LineCableModelsMakieExt)
+    return Base.get_extension(parentmodule(@__MODULE__), :LineCableModelsMakieExt)
 end
 
 function _backend_specification(backend::Val{B}) where {B}
@@ -34,7 +32,7 @@ end
 backend_available(backend::Symbol) = backend_available(Val(backend))
 function backend_available(backend::Val)
     specification = _backend_specification(backend)
-    return Base.get_extension(_parent_package(), specification.extension) !== nothing
+    return Base.get_extension(parentmodule(@__MODULE__), specification.extension) !== nothing
 end
 
 "Return the active Makie backend as `:cairo`, `:gl`, `:wgl`, `:unknown`, or `:none`."
@@ -52,7 +50,7 @@ Activate an explicitly loaded Makie backend.
 set_backend!(backend::Symbol) = set_backend!(Val(backend))
 function set_backend!(backend::Val{B}) where {B}
     specification = _backend_specification(backend)
-    ext = Base.get_extension(_parent_package(), specification.extension)
+    ext = Base.get_extension(parentmodule(@__MODULE__), specification.extension)
     ext === nothing && throw(
         ArgumentError(
         "Backend :$B is not loaded. Run `using $(specification.package)` first.",
@@ -62,9 +60,6 @@ function set_backend!(backend::Val{B}) where {B}
 end
 
 "Activate an explicitly loaded backend when none is active."
-ensure_backend!(::Nothing) = ensure_backend!()
-ensure_backend!(backend::Symbol) = ensure_backend!(Val(backend))
-ensure_backend!(backend::Val) = set_backend!(backend)
 function ensure_backend!()
     current = current_backend_symbol()
     _backend_spec(Val(current)) === nothing || return current
@@ -100,7 +95,7 @@ end
 
 function make_screen(backend::Val, title::AbstractString; kwargs...)
     specification = _backend_specification(backend)
-    ext = Base.get_extension(_parent_package(), specification.extension)
+    ext = Base.get_extension(parentmodule(@__MODULE__), specification.extension)
     return ext === nothing ? nothing :
            Base.invokelatest(ext.make_screen, String(title); kwargs...)
 end

@@ -108,6 +108,14 @@ function PlotBuilder.register!(
         limits = nothing,
         aspect = nothing
 )
+    index = findfirst(candidate -> candidate.axis === axis, ui.panels)
+    previous = index === nothing ? nothing : ui.panels[index]
+    if previous !== nothing
+        xmetadata === nothing && (xmetadata = previous.metadata.xaxis)
+        ymetadata === nothing && (ymetadata = previous.metadata.yaxis)
+        limits === nothing && (limits = previous.metadata.limits)
+        aspect === nothing && (aspect = previous.metadata.aspect)
+    end
     registered_groups, group_labels, group_order = _native_groups(groups, labels)
     series = _native_series(data, registered_groups, group_order)
     plots = Any[]
@@ -130,7 +138,6 @@ function PlotBuilder.register!(
         group_labels,
         group_order
     )
-    index = findfirst(candidate -> candidate.axis === axis, ui.panels)
     if index === nothing
         push!(ui.panels, panel)
     else

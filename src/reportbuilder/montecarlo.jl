@@ -18,16 +18,6 @@ write(::MonteCarloTableDefinition, source, published, table, ::Nothing, ::Nothin
 
 entitle(::MonteCarloTableDefinition, source::UQ.MonteCarloResult) = source
 
-function _monte_carlo_context(source::UQ.MonteCarloResult, point::Integer)
-    return (
-        point,
-        trials = UQ.trial_count(source, point),
-        seed = UQ.point_seed(source, point),
-        confidence = UQ.confidence(source),
-        cdf_tol = UQ.cdf_tolerance(source)
-    )
-end
-
 function select(
         definition::MonteCarloTableDefinition,
         source::UQ.MonteCarloResult{<:DataModel.CableConstants}
@@ -48,7 +38,13 @@ function select(
         return (
             frequency = nothing,
             published,
-            context = _monte_carlo_context(source, point)
+            context = (
+                point,
+                trials = UQ.trial_count(source, point),
+                seed = UQ.point_seed(source, point),
+                confidence = UQ.confidence(source),
+                cdf_tol = UQ.cdf_tolerance(source)
+            )
         )
     end
 end
@@ -85,7 +81,13 @@ function select(
         return (
             frequency = all_published.frequency,
             published,
-            context = _monte_carlo_context(source, point)
+            context = (
+                point,
+                trials = UQ.trial_count(source, point),
+                seed = UQ.point_seed(source, point),
+                confidence = UQ.confidence(source),
+                cdf_tol = UQ.cdf_tolerance(source)
+            )
         )
     end
 end

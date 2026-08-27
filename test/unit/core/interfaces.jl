@@ -13,43 +13,20 @@
     @test validate(value) === value
 end
 
-@testitem "Core / retired features / actionable tombstones" tags=[:unit] begin
+@testitem "Core / retired features / absent runtime bindings" tags=[:unit] begin
     const DM=LineCableModels.DataModel
     const Engine=LineCableModels.Engine
 
-    retired_calls=(
-        () -> Engine.Formulation(:FEM),
-        () -> Engine.FEM.Darwin(),
-        () -> Engine.FEM.Electrodynamics(),
-        () -> Engine.FEM.MeshTransition(),
-        () -> Engine.FEM.calc_domain_size(),
-        () -> Engine.FEM.preview_results(),
-        () -> DM.SectorParams(),
-        () -> DM.Sector(),
-        () -> DM.SectorInsulator()
-    )
-    for invoke in retired_calls
-        exception=try
-            invoke()
-            nothing
-        catch caught
-            caught
-        end
-        @test exception isa ArgumentError
-        message=sprint(showerror, exception)
-        @test occursin("was removed from LineCableModels", message)
-        @test occursin("legacy/fem-sector", message)
-        @test occursin("Pkg.add", message)
-    end
-
-    exception=try
-        LineCableModels.retired_legacy_json()
-        nothing
-    catch caught
-        caught
-    end
-    @test exception isa ArgumentError
-    @test occursin("a71bdfe1ac832f27a0c88b1d02596194aac46ec7", sprint(showerror, exception))
+    @test !isdefined(Engine, :FEM)
+    @test !hasmethod(Engine.Formulation, Tuple{Val{:FEM}})
+    @test !isdefined(DM, :SectorParams)
+    @test !isdefined(DM, :Sector)
+    @test !isdefined(DM, :SectorInsulator)
+    @test !isdefined(LineCableModels, :SectorParams)
+    @test !isdefined(LineCableModels, :Sector)
+    @test !isdefined(LineCableModels, :SectorInsulator)
+    @test_throws MethodError Engine.Formulation(:FEM)
+    @test !isdefined(LineCableModels, :retired_legacy_json)
 end
 
 @testitem "Core / docstrings / sanitized method-list provenance" tags=[:unit] begin

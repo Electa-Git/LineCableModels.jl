@@ -11,6 +11,11 @@ using Pkg
 Pkg.test()
 ```
 
+The package and `test/Project.toml` form one Julia 1.12 workspace. Add ordinary
+test-only dependencies to that test project. The visual, core-only, gauntlet,
+and coverage projects remain isolated because they verify different dependency
+boundaries.
+
 Pass selectors through `test_args`. A plain selector matches a file path or test-item
 name. A `tag:` selector matches a test tag:
 

@@ -1,6 +1,21 @@
 "Decode an extension-owned tagged value from the versioned JSON schema."
 function deserialize_extension end
 
+const LEGACY_JSON_COMMIT = "a71bdfe1ac832f27a0c88b1d02596194aac46ec7"
+
+function _reject_legacy_json()
+    Base.depwarn(
+        "Unversioned LineCableModels JSON is retired. Commit $LEGACY_JSON_COMMIT " *
+        "is the last snapshot that can load and migrate this file.",
+        :load!,
+        force = true
+    )
+    throw(ArgumentError(
+        "legacy LineCableModels JSON is unsupported; use commit " *
+        "$LEGACY_JSON_COMMIT to migrate the file",
+    ))
+end
+
 _float_type(::Val{:Float16}) = Float16
 _float_type(::Val{:Float32}) = Float32
 _float_type(::Val{:Float64}) = Float64
@@ -170,7 +185,7 @@ function _read_document(file_name::AbstractString, expected_schema::AbstractStri
         JSON3.read(io, Dict{String, Any})
     end
     if !haskey(document, "schema") || !haskey(document, "version")
-        retired_legacy_json()
+        _reject_legacy_json()
     end
     document["schema"] == expected_schema || throw(ArgumentError(
         "expected schema '$expected_schema', found '$(document["schema"])'",

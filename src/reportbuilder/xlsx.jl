@@ -53,23 +53,12 @@ struct XLSXWorkbook
     sheets::Vector{XLSXSheet}
 end
 
-function _xlsx_table_definition()
-    return _line_definition(
-        (),
-        nothing,
-        :base,
-        :kilo,
-        nothing,
-        sqrt(eps(Float64))
-    )
-end
-
 entitle(::XLSXReportDefinition, source::Engine.LineParameters) = source
 function select(::XLSXReportDefinition, source::Engine.LineParameters)
-    select(_xlsx_table_definition(), source)
+    return _select_line_table(source, (), nothing, :base, :kilo, nothing)
 end
 function tabulate(::XLSXReportDefinition, source::Engine.LineParameters, selected)
-    tabulate(_xlsx_table_definition(), source, selected)
+    return _tabulate_line_table(source, selected, sqrt(eps(Float64)))
 end
 illustrate(::XLSXReportDefinition, source, published, table) = nothing
 

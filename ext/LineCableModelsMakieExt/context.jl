@@ -1,3 +1,23 @@
+struct StandardShell
+    root::Any
+    side::Any
+    toolbar::Any
+    legend::Any
+    colorbars::Any
+    status::Any
+    collapsed::Set{Symbol}
+end
+
+struct ColorbarShell
+    root::Any
+    side::Any
+    toolbar::Any
+    legend::Nothing
+    colorbars::Any
+    status::Any
+    collapsed::Set{Symbol}
+end
+
 mutable struct UIContext
     backend::Symbol
     interactive::Bool

@@ -24,7 +24,6 @@ selects `:analytical`.
 """
 Formulation(backend::Symbol; kwargs...) = Formulation(Val(backend); kwargs...)
 Formulation(; kwargs...) = Formulation(:analytical; kwargs...)
-Formulation(::Val{:FEM}; kwargs...) = retired_fem_sector("FEM formulation")
 
 """
 $(TYPEDEF)

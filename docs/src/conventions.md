@@ -58,6 +58,11 @@ Apply these rules when adding or moving code:
    lives in `reportbuilder/xlsx.jl`, its XLSX.jl writer lives in the package
    extension, and ATP, PSCAD, and TRALIN translations remain in
    `importexport/`.
+10. Use a Julia 1.12 workspace for the ordinary test environment. Test-only
+    dependencies belong in `test/Project.toml`; the package project lists
+    `test` under `[workspace]` and does not duplicate them under legacy
+    `[extras]` and `[targets]`. Deliberately isolated visual, core-only,
+    gauntlet, and coverage environments keep their own projects.
 
 The following sanitised snapshot is the reference shape. The snapshot omits leaf files
 that do not clarify the layout, but every shown path exists in the maintained
@@ -137,6 +142,12 @@ ext/
 │   ├── UIComponents.jl                # Makie-owned index
 │   ├── context.jl                     # single mutable UI runtime owner
 │   ├── shell.jl                       # fixed shell assembly action
+│   ├── uicomponents/
+│   │   ├── axes.jl                    # formatting, scales, and fitted limits
+│   │   ├── docks.jl                   # legends and colour scales
+│   │   ├── drawing.jl                 # native lines and uncertainties
+│   │   ├── export.jl                  # current-state SVG replay
+│   │   └── theme.jl                   # renderer constants and theme
 │   ├── lineparameters.jl
 │   ├── montecarlo.jl
 │   ├── previews.jl
@@ -145,6 +156,9 @@ ext/
 
 dev/
 └── plotting/                          # manual plotting environment
+
+test/
+└── Project.toml                       # ordinary workspace test dependencies
 ```
 
 Structural regression tests verify this layout. If a change needs a path
@@ -175,6 +189,10 @@ Apply these rules when extending a result consumer:
 3. Let the owned result implement `observe` and declare its supported requests.
    A product selector such as `samples` or `statistics` identifies storage; the
    scientific selector still determines the physical quantity.
+   `MonteCarloResult` also owns histogram availability: a `histograms` request
+   returns retained density data when present and derives it from retained
+   samples when the request supplies a bin count. Renderers do not inspect the
+   retention fields or choose between those paths.
 4. Publish once before tabulation or drawing. A report table and its
    illustration consume the same detached publication.
 5. Use the Makie function itself to select a drawing primitive. Package-managed

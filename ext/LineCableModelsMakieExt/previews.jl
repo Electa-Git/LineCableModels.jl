@@ -176,9 +176,7 @@ function place_colorbars!(
     # to the top before reusing the standard horizontal colorbar implementation.
     # Another definition can overload the same method and select another slot,
     # orientation, or arrangement.
-    if context.shell.kind === :standard
-        context.shell.side.valign[] = :top
-    end
+    context.shell.side.valign[] = :top
     return place_colorbars!(context, page)
 end
 

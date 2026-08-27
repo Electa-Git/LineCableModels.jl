@@ -748,6 +748,46 @@ end
           first(samples(monte_carlo)).R
     @test observe(monte_carlo, histograms, R, 1) ===
           first(histograms(monte_carlo)).R
+    sample_only=MonteCarloResult(
+        monte_carlo.formulation,
+        monte_carlo.values,
+        monte_carlo.stats,
+        monte_carlo.sample_values,
+        nothing,
+        monte_carlo.root_seed,
+        monte_carlo.point_seeds,
+        monte_carlo.trial_counts
+    )
+    derived_histogram=observe(sample_only, histograms, R, 1, 3)
+    @test derived_histogram isa HistogramDensity
+    @test length(derived_histogram.edges) == 4
+    @test sum(derived_histogram.density .* diff(derived_histogram.edges)) ≈ 1
+    published_histogram=observables(
+        sample_only,
+        (model = (histograms, R, 1, 3),);
+        units = (
+            model = LineCableModels.Units.native_unit(
+                LineCableModels.Units.quantity(R),
+                basis(sample_only)
+            ),
+        )
+    ).model
+    @test published_histogram.values.edges == derived_histogram.edges
+    @test published_histogram.values.density == derived_histogram.density
+    @test published_histogram.quantity == LineCableModels.Units.quantity(R)
+    summary_only=MonteCarloResult(
+        monte_carlo.formulation,
+        monte_carlo.values,
+        monte_carlo.stats,
+        nothing,
+        nothing,
+        monte_carlo.root_seed,
+        monte_carlo.point_seeds,
+        monte_carlo.trial_counts
+    )
+    @test_throws ArgumentError observe(summary_only, histograms, R, 1, 3)
+    @test_throws ArgumentError HistogramDensity(Float64[])
+    @test_throws ArgumentError HistogramDensity([1.0, 2.0]; bins = 0)
     @test !applicable(observe, first(statistics(monte_carlo)), R)
     multi_point_table=DataFrame(monte_carlo)
     @test multi_point_table isa DataFrame

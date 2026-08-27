@@ -6,7 +6,8 @@ function build_context(
         display::Bool,
         export_theme::Symbol
 )
-    active = PlotBuilder.ensure_backend!(backend)
+    active = backend === nothing ?
+             PlotBuilder.ensure_backend!() : PlotBuilder.set_backend!(backend)
     interactive = display && active in (:gl, :wgl)
     window = interactive && active === :gl ?
              PlotBuilder.make_screen(
@@ -68,15 +69,14 @@ function _standard_shell!(context::UIContext, page::PlotPage)
 
     context.figure = figure
     context.canvas = canvas
-    context.shell = (;
-        kind = :standard,
+    context.shell = StandardShell(
         root,
         side,
-        toolbar = root[1, 1:2],
-        legend = side[1, 1],
-        colorbars = side[2, 1],
-        status = root[3, 1:2],
-        collapsed = Set{Symbol}()
+        root[1, 1:2],
+        side[1, 1],
+        side[2, 1],
+        root[3, 1:2],
+        Set{Symbol}()
     )
     _apply_shell_tracks!(context)
     return context
@@ -100,15 +100,14 @@ function _colorbar_shell!(context::UIContext, page::PlotPage)
 
     context.figure = figure
     context.canvas = nothing
-    context.shell = (;
-        kind = :colorbar,
+    context.shell = ColorbarShell(
         root,
         side,
-        toolbar = root[1, 1],
-        legend = nothing,
-        colorbars = side[1, 1],
-        status = root[3, 1],
-        collapsed = Set{Symbol}()
+        root[1, 1],
+        nothing,
+        side[1, 1],
+        root[3, 1],
+        Set{Symbol}()
     )
     _apply_shell_tracks!(context)
     return context
@@ -132,25 +131,31 @@ function _set_colsize!(grid, index::Int, size)
     return nothing
 end
 
-function _apply_shell_tracks!(context::UIContext)
-    shell = context.shell
+function _apply_shell_tracks!(context::UIContext, shell::StandardShell)
     collapsed = shell.collapsed
     _set_rowsize!(shell.root, 1, :toolbar in collapsed ? Fixed(0) : Fixed(36))
     _set_rowsize!(shell.root, 2, Relative(1))
     _set_rowsize!(shell.root, 3, :status in collapsed ? Fixed(0) : Fixed(20))
-    if shell.kind === :standard
-        _set_colsize!(shell.root, 1, Auto(false, 1))
-        _set_colsize!(shell.root, 2, Auto(true))
-        _set_rowsize!(shell.side, 1, :legend in collapsed ? Fixed(0) : Relative(1))
-        _set_rowsize!(shell.side, 2, :colorbars in collapsed ? Fixed(0) : Auto(true))
-        _set_colsize!(shell.side, 1, Auto(true))
-    else
-        _set_colsize!(shell.root, 1, Auto(true))
-        _set_rowsize!(shell.side, 1, :colorbars in collapsed ? Fixed(0) : Relative(1))
-        _set_colsize!(shell.side, 1, Auto(true))
-    end
+    _set_colsize!(shell.root, 1, Auto(false, 1))
+    _set_colsize!(shell.root, 2, Auto(true))
+    _set_rowsize!(shell.side, 1, :legend in collapsed ? Fixed(0) : Relative(1))
+    _set_rowsize!(shell.side, 2, :colorbars in collapsed ? Fixed(0) : Auto(true))
+    _set_colsize!(shell.side, 1, Auto(true))
     return context
 end
+
+function _apply_shell_tracks!(context::UIContext, shell::ColorbarShell)
+    collapsed = shell.collapsed
+    _set_rowsize!(shell.root, 1, :toolbar in collapsed ? Fixed(0) : Fixed(36))
+    _set_rowsize!(shell.root, 2, Relative(1))
+    _set_rowsize!(shell.root, 3, :status in collapsed ? Fixed(0) : Fixed(20))
+    _set_colsize!(shell.root, 1, Auto(true))
+    _set_rowsize!(shell.side, 1, :colorbars in collapsed ? Fixed(0) : Relative(1))
+    _set_colsize!(shell.side, 1, Auto(true))
+    return context
+end
+
+_apply_shell_tracks!(context::UIContext) = _apply_shell_tracks!(context, context.shell)
 
 function draw!(context::UIContext, recipe::PlotRecipe, page::PlotPage)
     return draw!(context, recipe.definition, page)
@@ -168,12 +173,14 @@ function _collapse_status!(context::UIContext)
     return nothing
 end
 
-function _collapse_legend!(context::UIContext)
-    context.shell.kind === :standard || return nothing
-    push!(context.shell.collapsed, :legend)
+function _collapse_legend!(context::UIContext, shell::StandardShell)
+    push!(shell.collapsed, :legend)
     _apply_shell_tracks!(context)
     return nothing
 end
+
+_collapse_legend!(::UIContext, ::ColorbarShell) = nothing
+_collapse_legend!(context::UIContext) = _collapse_legend!(context, context.shell)
 
 function _collapse_colorbars!(context::UIContext)
     push!(context.shell.collapsed, :colorbars)
@@ -181,12 +188,17 @@ function _collapse_colorbars!(context::UIContext)
     return nothing
 end
 
-function _collapse_empty_dock!(context::UIContext, page::PlotPage)
-    context.shell.kind === :standard || return nothing
+function _collapse_empty_dock!(context::UIContext, shell::StandardShell, page::PlotPage)
     context.legend === nothing && isempty(page.colorbars) || return nothing
-    context.shell.side.width[] = 0
-    context.shell.side.tellwidth[] = true
+    shell.side.width[] = 0
+    shell.side.tellwidth[] = true
     return nothing
+end
+
+_collapse_empty_dock!(::UIContext, ::ColorbarShell, ::PlotPage) = nothing
+
+function _collapse_empty_dock!(context::UIContext, page::PlotPage)
+    return _collapse_empty_dock!(context, context.shell, page)
 end
 
 function place_legend!(
@@ -239,21 +251,40 @@ function place_legend!(
     return place_legend!(context, page; export_mode)
 end
 
-function place_colorbars!(context::UIContext, page::PlotPage)
+function place_colorbars!(context::UIContext, ::StandardShell, page::PlotPage)
     definitions = page.colorbars
     if isempty(definitions)
         _collapse_colorbars!(context)
     else
-        alignment = context.shell.kind === :colorbar ? (:left, :center) : (:left, :top)
         built = _colorbars!(
             context.shell.colorbars,
             definitions;
-            halign = first(alignment),
-            valign = last(alignment)
+            halign = :left,
+            valign = :top
         )
         append!(context.colorbars, built.colorbars)
     end
     return context
+end
+
+function place_colorbars!(context::UIContext, ::ColorbarShell, page::PlotPage)
+    definitions = page.colorbars
+    if isempty(definitions)
+        _collapse_colorbars!(context)
+    else
+        built = _colorbars!(
+            context.shell.colorbars,
+            definitions;
+            halign = :left,
+            valign = :center
+        )
+        append!(context.colorbars, built.colorbars)
+    end
+    return context
+end
+
+function place_colorbars!(context::UIContext, page::PlotPage)
+    return place_colorbars!(context, context.shell, page)
 end
 
 # Colorbar placement follows the same dispatch rule as legend placement. The

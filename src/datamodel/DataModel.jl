@@ -22,7 +22,6 @@ module DataModel
 # Export public API
 export CircStrands, RectStrands, Strip, Tubular  # Conductor types
 export Semicon, Insulator  # Insulator types
-export SectorParams, Sector, SectorInsulator  # Removed API tombstones
 export ConductorGroup, InsulatorGroup  # Group types
 export CableComponent, CableDesign, CableConstants  # Cable design types
 export CablePosition, LineCableSystem  # System types
@@ -39,8 +38,6 @@ import ..Units
 import ..LineCableModels: add!, validate, maxfill, nominal, standard_uncertainty
 import ..LineCableModels: basis, R, L, C, resistance, inductance, capacitance
 import ..Grammar: AbstractCoreResult, observe, observables
-import ..LineCableModels: retired_fem_sector
-import ..LineCableModels: SectorParams, Sector, SectorInsulator
 using ..Materials: Material
 import ..Validation
 using ..Validation: IntegerField, Positive, Finite, IsA, Nonnegative, OneOf,

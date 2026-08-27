@@ -26,7 +26,6 @@ export load!
 using DocStringExtensions: IMPORTS, TYPEDSIGNATURES, METHODLIST, FUNCTIONNAME,
                            TYPEDEF, TYPEDFIELDS
 import ..LineCableModels: add!, validate, nominal, standard_uncertainty
-import ..LineCableModels: retired_legacy_json
 import ..Grammar: observe
 import ..ReportBuilder
 using ..Materials: Material, MaterialsLibrary

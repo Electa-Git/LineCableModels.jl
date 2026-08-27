@@ -44,8 +44,8 @@
         @test !occursin(r"\brecast\b", contents)
     end
 
-    maintained=filter(pair -> pair.first != "src/retired.jl", collect(source))
-    @test all(!occursin("calc_", contents) for (_, contents) in maintained)
+    @test !isfile(joinpath(source_root, "retired.jl"))
+    @test all(!occursin("calc_", contents) for contents in values(source))
 
     eager_files=(
         joinpath("src", "datamodel", "circstrands.jl"),
@@ -88,6 +88,8 @@ end
 end
 
 @testitem "Core / architecture / ownership-centered recursive layout" tags=[:unit] begin
+    using TOML
+
     root=pkgdir(LineCableModels)
     source_root=joinpath(root, "src")
     extension_root=joinpath(root, "ext")
@@ -161,7 +163,19 @@ end
         "montecarlo.jl",
         "native.jl",
         "previews.jl",
-        "shell.jl"
+        "shell.jl",
+        "uicomponents"
+    ))
+    @test Set(readdir(joinpath(
+        extension_root,
+        "LineCableModelsMakieExt",
+        "uicomponents"
+    ))) == Set((
+        "axes.jl",
+        "docks.jl",
+        "drawing.jl",
+        "export.jl",
+        "theme.jl"
     ))
 
     @test !isdefined(LineCableModels, :UnitHandler)
@@ -207,6 +221,9 @@ end
     )
     report_xlsx=source[joinpath("src", "reportbuilder", "xlsx.jl")]
     @test !occursin(r"\b(?:Z|Y|frequencies)\(source", report_xlsx)
+    @test !occursin("_xlsx_table_definition", report_xlsx)
+    @test occursin("_select_line_table", report_xlsx)
+    @test occursin("_tabulate_line_table", report_xlsx)
     importexport_index=source[joinpath("src", "importexport", "ImportExport.jl")]
     reportbuilder_index=source[joinpath("src", "reportbuilder", "ReportBuilder.jl")]
     @test !occursin("using XLSX", importexport_index)
@@ -287,6 +304,42 @@ end
     @test !occursin(r"Val\(:(?:histogram|stairs|line|scatter)", monte_carlo_renderer)
     @test !occursin("Figure(", monte_carlo_renderer)
     @test occursin("PlotBuilder.plotwindow", monte_carlo_renderer)
+    @test !occursin("LineCableModels.result(", monte_carlo_renderer)
+    @test !occursin("LineCableModels.histograms(", monte_carlo_renderer)
+    @test !occursin("LineCableModels.UQ._histogram", monte_carlo_renderer)
+    for token in (
+        "_monte_carlo_request",
+        "_distribution_observation",
+        "_register_distribution!",
+        "_distribution_window"
+    )
+        @test !occursin(token, monte_carlo_renderer)
+    end
+
+    grammar_observables=source[joinpath("src", "grammar", "observables.jl")]
+    @test !occursin("applicable(", grammar_observables)
+    positions=source[joinpath("src", "parametricbuilder", "positions.jl")]
+    systembuilder=source[joinpath("src", "parametricbuilder", "systembuilder.jl")]
+    @test !occursin("_position_kind", positions)
+    @test !occursin("_position_kind", systembuilder)
+    @test !occursin("shell.kind", makie_source)
+
+    backends=source[joinpath("src", "plotbuilder", "backends.jl")]
+    @test !occursin("_parent_package", backends)
+    @test !hasmethod(LineCableModels.PlotBuilder.ensure_backend!, Tuple{Symbol})
+    @test !hasmethod(LineCableModels.PlotBuilder.ensure_backend!, Tuple{Val{:cairo}})
+
+    @test !isdefined(LineCableModels.Engine, :FEM)
+    @test !isdefined(LineCableModels.DataModel, :Sector)
+    @test !isdefined(LineCableModels.DataModel, :SectorParams)
+    @test !isdefined(LineCableModels.DataModel, :SectorInsulator)
+
+    root_project=TOML.parsefile(joinpath(root, "Project.toml"))
+    @test root_project["workspace"]["projects"] == ["test"]
+    test_project=TOML.parsefile(joinpath(root, "test", "Project.toml"))
+    @test test_project["sources"]["LineCableModels"]["path"] == ".."
+    @test !haskey(root_project, "extras")
+    @test !haskey(root_project, "targets")
 
     for pattern in (
         r"details\s*::\s*Dict",

@@ -120,7 +120,7 @@ end
     )
 end
 
-@inline function validate_layers!(f::Homogeneous, h)
+@inline function validate_layers(f::Homogeneous, h)
     @boundscheck length(h) == 2 || throw(ArgumentError("h must have length 2"))
     ℓ1 = _get_layer(h[1])
     ℓ2 = _get_layer(h[2])
@@ -138,7 +138,7 @@ end
         mu_g::AbstractVector{T},
         jω::Complex{T}
 ) where {T <: Real}
-    validate_layers!(f, h)
+    validate_layers(f, h)
 
     s = f.s # index of source layer
     o = _not(s) # the other layer

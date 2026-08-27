@@ -28,8 +28,8 @@
     @test_throws ArgumentError backends.set_backend!(:unknown)
     @test_throws ArgumentError backends.set_backend!(Val(:unknown))
     @test_throws ArgumentError backends.ensure_backend!()
-    @test_throws ArgumentError backends.ensure_backend!(:cairo)
-    @test_throws ArgumentError backends.ensure_backend!(Val(:cairo))
+    @test_throws ArgumentError backends.set_backend!(:cairo)
+    @test_throws ArgumentError backends.set_backend!(Val(:cairo))
     @test_throws ArgumentError backends.renderfig(nothing)
     @test backends.next_fignum() + 1 == backends.next_fignum()
 end

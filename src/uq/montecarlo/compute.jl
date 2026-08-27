@@ -11,24 +11,6 @@ function _observable_count(value::Engine.LineParameters)
     return 2 * n * (n + 1) * length(observe(value, Engine.frequencies))
 end
 
-function _histogram(values::AbstractVector{<:Real}, bins::Union{Nothing, Int})
-    lo, hi = extrema(values)
-    if lo == hi
-        width = max(abs(float(lo)) * sqrt(eps(Float64)), sqrt(eps(Float64)))
-        edges = [float(lo) - width, float(hi) + width]
-    else
-        count = something(bins, max(1, ceil(Int, sqrt(length(values)))))
-        edges = collect(range(float(lo), float(hi); length = count + 1))
-    end
-    counts = zeros(Float64, length(edges) - 1)
-    for value in values
-        index = value == last(edges) ? length(counts) :
-                clamp(searchsortedlast(edges, value), 1, length(counts))
-        counts[index] += 1
-    end
-    return HistogramDensity(edges, counts ./ (length(values) .* diff(edges)))
-end
-
 function _sample_storage(first_result::DataModel.CableConstants, trials::Int)
     T = typeof(observe(first_result, R))
     return (
@@ -74,9 +56,9 @@ function _aggregate(
     retained = formulation.return_samples ? sample_values : nothing
     hist = formulation.return_histograms ?
            (
-        R = _histogram(Rs, formulation.bins),
-        L = _histogram(Ls, formulation.bins),
-        C = _histogram(Cs, formulation.bins)
+        R = HistogramDensity(Rs; bins = formulation.bins),
+        L = HistogramDensity(Ls; bins = formulation.bins),
+        C = HistogramDensity(Cs; bins = formulation.bins)
     ) : nothing
     return (; representation, statistics = summaries, samples = retained, histograms = hist)
 end
@@ -153,7 +135,10 @@ function _aggregate(
     )
     hist = formulation.return_histograms ?
            NamedTuple{(:R, :L, :C, :G)}(Tuple(
-            _map_samples(values -> _histogram(values, formulation.bins), samples)
+            _map_samples(
+                values -> HistogramDensity(values; bins = formulation.bins),
+                samples
+            )
             for samples in (sample_values.R, sample_values.L, sample_values.C, sample_values.G)
         )) : nothing
     retained = formulation.return_samples ? sample_values : nothing
