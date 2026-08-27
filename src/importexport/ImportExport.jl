@@ -23,9 +23,12 @@ export import_data
 export save
 export load!
 
-using DocStringExtensions: IMPORTS, TYPEDSIGNATURES, METHODLIST, FUNCTIONNAME,
-                           TYPEDEF, TYPEDFIELDS
-import ..LineCableModels: add!, validate, nominal, standard_uncertainty
+#! explicit-imports: off
+# IMPORTS is expanded in the module docstring rather than called as Julia code.
+using DocStringExtensions: IMPORTS
+#! explicit-imports: on
+using DocStringExtensions: TYPEDSIGNATURES, METHODLIST
+import ..LineCableModels: add!, validate, nominal
 import ..Grammar: observe
 import ..ReportBuilder
 using ..Materials: Material, MaterialsLibrary
@@ -36,12 +39,13 @@ using ..DataModel: CablesLibrary, CableDesign, CableComponent, ConductorGroup,
                    LineCableSystem, NominalData
 import ..Engine: LineParameters, SeriesImpedance, ShuntAdmittance,
                  frequencies, Z, Y, C
-using EzXML
-using Dates
-using Printf # For ATP export
-using JSON3
-using Serialization # Read and write the .jls format.
-using LinearAlgebra
+import EzXML
+using EzXML: ElementNode, XMLDocument, addelement!, nodename, prettyprint,
+             readxml, root, setroot!
+using Printf: @printf, @sprintf
+import JSON3
+import Serialization
+using LinearAlgebra: tril
 
 include("interfaces.jl")
 include("paths.jl")

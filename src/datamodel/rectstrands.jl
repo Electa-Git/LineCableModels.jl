@@ -142,7 +142,7 @@ function RectStrands(
     ))
 end
 
-function maxfill(::Type{RectStrands}, lay_radius::Real, width::Real)
+function maxfill(::Type{<:RectStrands}, lay_radius::Real, width::Real)
     lay_radius >= zero(lay_radius) ||
         throw(DomainError(lay_radius, "lay radius must be nonnegative"))
     width > zero(width) || throw(DomainError(width, "width must be positive"))

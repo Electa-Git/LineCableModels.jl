@@ -117,7 +117,8 @@ end
     @test PB.has_uncertainty(parent)
     @test PB.has_uncertainty(point)
     @test PB.materialize(point)[1][1] isa Measurement
-    draw=PB.realize(MersenneTwister(42), point, :normal)
+    arguments=PB.realize_arguments(MersenneTwister(42), point, :normal)
+    draw=PB.realize(point, arguments)
     @test draw[1][1] isa Float64
     @test draw[1][2] == :tag
     @test draw[2] == 1

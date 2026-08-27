@@ -1,9 +1,11 @@
 [deps]
 Base64 = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+Calculus = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 LineCableModels = "dffb7669-8cd4-4628-99dd-7694e356ba37"
+Measurements = "eff96d63-e80a-5855-80a2-b1b0885c5ab7"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TestItemRunner = "f8b46487-2199-4994-9208-9a1283c18c0a"
@@ -14,7 +16,9 @@ LineCableModels = {path = "../.."}
 [compat]
 Base64 = "1.11"
 BenchmarkTools = "1"
+Calculus = "0.5.2"
 DataFrames = "1"
 JLD2 = "0.6"
+Measurements = "2.11.0"
 TestItemRunner = "1"
 julia = "1.12"

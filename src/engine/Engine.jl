@@ -39,9 +39,8 @@ export InsulationAdmittance, EarthAdmittance, EHEM, Transforms
 export compute, plot
 
 # Module-specific dependencies
-using LinearAlgebra
-using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES,
-                           METHODLIST, FUNCTIONNAME
+using LinearAlgebra: I, ldiv!, lu!
+using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..LineCableModels: basis, R, L, C, resistance, inductance, capacitance
 import ..LineCableModels: nominal, standard_uncertainty
 import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
@@ -55,12 +54,13 @@ using ..Units
 using ..PlotBuilder
 using ..Materials
 using ..EarthProps: EarthModel
-using ..DataModel: CableDesign, CableConstants, LineCableSystem, ncables, nphases
+using ..DataModel: CableDesign, LineCableSystem, ncables, nphases
 import ..DataModel
 import ..LineCableModels: validate
 import ..Validation
-using Logging
-using SpecialFunctions
+import Logging
+using Logging: AbstractLogger, ConsoleLogger, with_logger
+import SpecialFunctions
 using QuadGK: quadgk
 
 include("interfaces.jl")

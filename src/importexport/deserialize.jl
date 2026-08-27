@@ -182,7 +182,10 @@ end
 
 function _read_document(file_name::AbstractString, expected_schema::AbstractString)
     document = open(file_name, "r") do io
+        #! explicit-imports: off
+        # JSON3 exposes this established reader without a public marker.
         JSON3.read(io, Dict{String, Any})
+        #! explicit-imports: on
     end
     if !haskey(document, "schema") || !haskey(document, "version")
         _reject_legacy_json()

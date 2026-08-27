@@ -15,7 +15,10 @@ function save(
     end
     path = _json_path(file_name)
     open(path, "w") do io
+        #! explicit-imports: off
+        # JSON3 exposes this established writer without a public marker.
         JSON3.pretty(io, _json_document(library); allow_inf = true)
+        #! explicit-imports: on
     end
     return abspath(path)
 end

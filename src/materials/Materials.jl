@@ -19,8 +19,11 @@ module Materials
 
 export Material, MaterialsLibrary, add!
 
-using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES,
-                           FUNCTIONNAME
+#! explicit-imports: off
+# IMPORTS is expanded in the module docstring rather than called as Julia code.
+using DocStringExtensions: IMPORTS
+#! explicit-imports: on
+using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES, FUNCTIONNAME
 import ..LineCableModels: add!, validate
 import ..Validation
 

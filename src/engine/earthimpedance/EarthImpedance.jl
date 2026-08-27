@@ -17,7 +17,10 @@ export Papadopoulos
 export Ametani, Deri, Lucca, Saad, Wedepohl
 
 # Module-specific dependencies
+#! explicit-imports: off
+# These abbreviations are expanded in this module docstring and included files.
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDSIGNATURES
+#! explicit-imports: on
 import ...LineCableModels: nominal
 import ..Engine: EarthImpedanceFormulation, description
 import ..Engine: conductivity, bessel_difference

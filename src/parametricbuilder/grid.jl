@@ -186,7 +186,10 @@ length(grid::DeterministicGrid) = length(grid.vals)
 size(grid::DeterministicGrid) = (length(grid),)
 getindex(grid::DeterministicGrid, index::Integer) = grid.vals[index]
 eltype(::Type{<:DeterministicGrid{V}}) where {V} = eltype(V)
+#! explicit-imports: off
+# Base's iterator trait protocol exposes this value without a public binding.
 Base.IteratorSize(::Type{<:DeterministicGrid}) = Base.HasShape{1}()
+#! explicit-imports: on
 
 function iterate(grid::RelativeGrid, state...)
     item = iterate(Iterators.product(grid.vals, grid.rel_err), state...)
@@ -205,7 +208,10 @@ end
 length(grid::RelativeGrid) = length(grid.vals) * length(grid.rel_err)
 length(grid::AbsoluteGrid) = length(grid.vals) * length(grid.abs_err)
 size(grid::AbstractUncertainGrid) = (length(grid),)
+#! explicit-imports: off
+# Base's iterator trait protocol exposes this value without a public binding.
 Base.IteratorSize(::Type{<:AbstractUncertainGrid}) = Base.HasShape{1}()
+#! explicit-imports: on
 
 function getindex(grid::RelativeGrid, index::Integer)
     1 <= index <= length(grid) || throw(BoundsError(grid, index))

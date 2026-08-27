@@ -1,5 +1,6 @@
 @testitem "ReportBuilder / grammar / publication and stage order" tags=[:unit] begin
     using DataFrames
+    using RequiredInterfaces: NotImplementedError
 
     const RB = LineCableModels.ReportBuilder
     const PB = LineCableModels.PlotBuilder
@@ -166,7 +167,7 @@
     RB.select(::MissingEncodeReport, source) = :published
     RB.tabulate(::MissingEncodeReport, source, published) = :table
     RB.illustrate(::MissingEncodeReport, source, published, table) = nothing
-    @test_throws MethodError report(MissingEncodeReport(), :source)
+    @test_throws NotImplementedError report(MissingEncodeReport(), :source)
 
     struct MissingWriteReport <: RB.AbstractReportDefinition end
     RB.entitle(::MissingWriteReport, source) = source
@@ -174,7 +175,7 @@
     RB.tabulate(::MissingWriteReport, source, published) = :table
     RB.illustrate(::MissingWriteReport, source, published, table) = nothing
     RB.encode(::MissingWriteReport, source, published, table, illustration) = :encoded
-    @test_throws MethodError report(MissingWriteReport(), :source)
+    @test_throws NotImplementedError report(MissingWriteReport(), :source)
 end
 
 @testitem "ReportBuilder / XLSX / workbook pipeline and delegation" tags=[:integration] setup=[

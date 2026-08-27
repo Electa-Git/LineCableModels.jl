@@ -145,43 +145,181 @@ function _aggregate(
     return (; representation, statistics = summaries, samples = retained, histograms = hist)
 end
 
+const _MONTE_CARLO_STACKTRACE_LIMIT = 8
+
+function _failure_stack(backtrace)
+    summaries = @NamedTuple{
+        function_name::String,
+        file::String,
+        line::Int
+    }[]
+    for frame in Iterators.take(
+            Base.StackTraces.stacktrace(backtrace),
+            _MONTE_CARLO_STACKTRACE_LIMIT
+    )
+        push!(summaries, (
+            function_name = string(frame.func),
+            file = string(frame.file),
+            line = Int(frame.line)
+        ))
+    end
+    return summaries
+end
+
+function _failure_record(
+        attempt::Int,
+        target_trial::Int,
+        stage::Symbol,
+        sample,
+        exception,
+        backtrace
+)
+    return (
+        attempt,
+        target_trial,
+        stage,
+        sample,
+        error = (
+            type = string(typeof(exception)),
+            message = sprint(showerror, exception),
+            stack = _failure_stack(backtrace)
+        )
+    )
+end
+
+function _failure_summary(failures, accepted::Int, attempts::Int)
+    by_type = Dict{String, Int}()
+    by_stage = Dict{Symbol, Int}()
+    for failure in failures
+        error_type = failure.error.type
+        by_type[error_type] = get(by_type, error_type, 0) + 1
+        by_stage[failure.stage] = get(by_stage, failure.stage, 0) + 1
+    end
+    type_counts = [
+        (type = error_type, count = by_type[error_type])
+        for error_type in sort!(collect(keys(by_type)))
+    ]
+    stage_counts = [
+        (stage, count = by_stage[stage])
+        for stage in sort!(collect(keys(by_stage)))
+    ]
+    return (
+        attempts,
+        accepted,
+        failed = length(failures),
+        acceptance_rate = accepted / attempts,
+        by_type = type_counts,
+        by_stage = stage_counts
+    )
+end
+
+function _retry_limit_error(failures, accepted::Int, attempts::Int, maximum::Int)
+    summary = _failure_summary(failures, accepted, attempts)
+    final_failure = last(failures)
+    stack = final_failure.error.stack
+    location = isempty(stack) ? "unknown location" :
+               "$(first(stack).file):$(first(stack).line) in $(first(stack).function_name)"
+    throw(ErrorException(
+        "Monte Carlo retry limit of $maximum failures was exhausted after " *
+        "$(summary.attempts) attempts ($(summary.accepted) accepted); final " *
+        "$(final_failure.error.type) during $(final_failure.stage) at $location: " *
+        final_failure.error.message,
+    ))
+end
+
 function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_owner)
     rng = Random.Xoshiro(seed)
-    first_problem = ParametricBuilder.realize(rng, point, formulation.distribution)
-    first_result = compute(first_problem, formulation.inner; options)
-    ntrials = something(
-        formulation.trials,
-        _dkw_trials(_observable_count(first_result), formulation.confidence, formulation.cdf_tol)
-    )
-    retained = if formulation.options.retain_details
-        first_record = computation_details(Val(details_owner), first_result)
-        records = Vector{typeof(first_record)}(undef, ntrials)
-        records[1] = first_record
-        records
-    else
-        nothing
-    end
-    sample_values = _sample_storage(first_result, ntrials)
-    sample_axis = _sample_axis(first_result)
-    _record_sample!(sample_values, first_result, 1, sample_axis)
-    for trial in 2:ntrials
-        realization = ParametricBuilder.realize(rng, point, formulation.distribution)
-        value = compute(realization, formulation.inner; options)
-        typeof(value) === typeof(first_result) || throw(ArgumentError(
-            "Monte Carlo realisations produced incompatible result types",
-        ))
-        _record_sample!(sample_values, value, trial, sample_axis)
-        if retained !== nothing
-            record = computation_details(Val(details_owner), value)
-            typeof(record) === eltype(retained) || throw(ArgumentError(
-                "Monte Carlo trials produced incompatible details record types",
+    failures = NamedTuple[]
+    attempts = 0
+    accepted = 0
+    ntrials = formulation.trials
+    first_result = nothing
+    sample_values = nothing
+    sample_axis = nothing
+    retained = nothing
+
+    while ntrials === nothing || accepted < ntrials
+        attempts += 1
+        target_trial = accepted + 1
+        sample = nothing
+        stage = :sample
+        value = nothing
+        succeeded = false
+        try
+            sample = ParametricBuilder.realize_arguments(
+                rng,
+                point,
+                formulation.distribution
+            )
+            stage = :build
+            realization = ParametricBuilder.realize(point, sample)
+            stage = :compute
+            value = compute(realization, formulation.inner; options)
+            succeeded = true
+        catch exception
+            backtrace = catch_backtrace()
+            formulation.options.on_error === :retry && exception isa DomainError ||
+                rethrow()
+            push!(failures, _failure_record(
+                attempts,
+                target_trial,
+                stage,
+                sample,
+                exception,
+                backtrace
             ))
-            retained[trial] = record
+            length(failures) < formulation.options.max_failures ||
+                _retry_limit_error(
+                    failures,
+                    accepted,
+                    attempts,
+                    formulation.options.max_failures
+                )
         end
+        succeeded || continue
+
+        record = formulation.options.retain_details ?
+                 computation_details(Val(details_owner), value) : nothing
+        if accepted == 0
+            first_result = value
+            ntrials = something(
+                ntrials,
+                _dkw_trials(
+                    _observable_count(first_result),
+                    formulation.confidence,
+                    formulation.cdf_tol
+                )
+            )
+            sample_values = _sample_storage(first_result, ntrials)
+            sample_axis = _sample_axis(first_result)
+            if formulation.options.retain_details
+                retained = Vector{typeof(record)}(undef, ntrials)
+            end
+        else
+            typeof(value) === typeof(first_result) || throw(ArgumentError(
+                "Monte Carlo realisations produced incompatible result types",
+            ))
+            if retained !== nothing
+                typeof(record) === eltype(retained) || throw(ArgumentError(
+                    "Monte Carlo trials produced incompatible details record types",
+                ))
+            end
+        end
+
+        accepted = target_trial
+        _record_sample!(sample_values, value, accepted, sample_axis)
+        retained === nothing || (retained[accepted] = record)
     end
+
+    failure_summary = _failure_summary(failures, accepted, attempts)
+    retained_details = retained === nothing ? nothing : (
+        trials = retained,
+        failures,
+        failure_summary
+    )
     return merge(
         _aggregate(sample_values, first_result, formulation),
-        (; trials = ntrials, seed, details = retained)
+        (; trials = ntrials, seed, details = retained_details)
     )
 end
 
@@ -279,6 +417,11 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
         "problem-space iteration exceeded its declared cardinality",
     ))
 
+    retained_details = retained === nothing ? (;) : (
+        trials = getproperty.(retained, :trials),
+        failures = getproperty.(retained, :failures),
+        failure_summary = getproperty.(retained, :failure_summary)
+    )
     return MonteCarloResult(
         formulation,
         values,
@@ -288,6 +431,6 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
         root_seed,
         seeds,
         trial_counts,
-        retained === nothing ? (;) : (trials = retained,)
+        retained_details
     )
 end

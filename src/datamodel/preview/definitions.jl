@@ -35,7 +35,7 @@ struct PreviewPolygon{G, C, S}
             geometry::G,
             label::Union{Nothing, String},
             group::Symbol,
-            color::C,
+            fill_color::C,
             stroke::S,
             width::Float64
     ) where {G, C, S}
@@ -44,7 +44,7 @@ struct PreviewPolygon{G, C, S}
         isfinite(width) && width >= 0 || throw(ArgumentError(
             "preview polygon widths must be finite and nonnegative",
         ))
-        return new{G, C, S}(geometry, label, group, color, stroke, width)
+        return new{G, C, S}(geometry, label, group, fill_color, stroke, width)
     end
 end
 

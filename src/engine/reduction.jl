@@ -1,4 +1,4 @@
-using LinearAlgebra: BLAS, BlasFloat
+using LinearAlgebra: axpy!
 
 function reorder_indices(map::AbstractVector{<:Integer})
     n = length(map)
@@ -149,8 +149,9 @@ function merge_bundles!(M::AbstractMatrix{T}, ph::AbstractVector{<:Integer}) whe
         for t in Iterators.drop(eachindex(grp), 1)
             j = grp[t]
             col = @view M[:, j]
-            if (M isa StridedMatrix{T}) && (T <: BlasFloat)
-                BLAS.axpy!(-one(T), base_col, col)  # col -= base_col
+            if (M isa StridedMatrix{T}) &&
+               (T <: Union{Float32, Float64, ComplexF32, ComplexF64})
+                axpy!(-one(T), base_col, col)  # col -= base_col
             else
                 col .-= base_col
             end
@@ -166,8 +167,9 @@ function merge_bundles!(M::AbstractMatrix{T}, ph::AbstractVector{<:Integer}) whe
         for t in Iterators.drop(eachindex(grp), 1)
             i = grp[t]
             row = @view M[i, :]
-            if (M isa StridedMatrix{T}) && (T <: BlasFloat)
-                BLAS.axpy!(-one(T), base_row, row)  # row -= base_row
+            if (M isa StridedMatrix{T}) &&
+               (T <: Union{Float32, Float64, ComplexF32, ComplexF64})
+                axpy!(-one(T), base_row, row)  # row -= base_row
             else
                 row .-= base_row
             end

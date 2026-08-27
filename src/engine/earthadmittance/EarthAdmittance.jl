@@ -17,7 +17,10 @@ module EarthAdmittance
 export IdealGround, Papadopoulos
 
 # Module-specific dependencies
+#! explicit-imports: off
+# These abbreviations are expanded in this module docstring and included files.
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDSIGNATURES
+#! explicit-imports: on
 import ...LineCableModels: nominal
 import ..Engine: EarthAdmittanceFormulation, description
 import ..Engine: conductivity, bessel_difference

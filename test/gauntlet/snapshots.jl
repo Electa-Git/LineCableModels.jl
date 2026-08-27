@@ -28,7 +28,7 @@ function snapshot_path(
     end
     path = joinpath(
         artifact_path(hash),
-        "cases",
+        "benchmarks",
         string(case.name),
         "snapshot.jld2"
     )
@@ -60,15 +60,39 @@ function _write_snapshot(
     try
         JLD2.jldsave(
             temporary;
+            schema_version = 2,
             gauntlet_version = string(GAUNTLET_VERSION),
+            benchmark_id = string(case.name),
+            case_id = string(case.case_id),
+            collection = string(case.backend),
             case_name = string(case.name),
             backend = string(case.backend),
-            case_sha256 = case_digest(case),
+            case_source_sha256 = case_digest(case),
+            benchmark_source_sha256 = benchmark_digest(case),
+            parameter_manifest = case.parameter_manifest,
+            applied_variation = case.applied_variation,
+            correlation = case.correlation,
             problem = (
                 reference = case.reference_problem,
                 candidate = case.problem
             ),
             formulation = formulation_record(case),
+            calculations = (
+                reference = (
+                    id = case.backend,
+                    owner = :external,
+                    formulation = formulation_record(case).reference,
+                    options = (;)
+                ),
+                candidate = (
+                    id = :analytical,
+                    owner = :engine,
+                    formulation = formulation_record(case).candidate,
+                    options = (;)
+                )
+            ),
+            comparison_policy = :line_parameters,
+            tolerances = case.tolerances,
             port_order = case.port_order,
             frequencies = copy(case.problem.frequencies),
             reference_execution = execution,
@@ -132,7 +156,7 @@ function persist_snapshot(
         reference_execution::NamedTuple,
         artifact_root::AbstractString = ARTIFACT_ROOT
 )
-    destination = case_stage(case.backend, case.name; artifact_root)
+    destination = benchmark_stage(case.backend, case.name; artifact_root)
     temporary = destination * ".new"
     ispath(temporary) && rm(temporary; recursive = true, force = true)
     mkpath(temporary)
@@ -152,6 +176,9 @@ function persist_snapshot(
     return (
         path = destination,
         snapshot_sha256 = digest,
+        benchmark_id = case.name,
+        case_id = case.case_id,
+        collection = case.backend,
         backend = case.backend,
         gauntlet_version = GAUNTLET_VERSION
     )
@@ -171,8 +198,11 @@ function _load_snapshot_path(case::GauntletCase, path::AbstractString)
 
     snapshot = JLD2.load(path)
     required = (
-        "gauntlet_version", "case_name", "backend", "case_sha256", "problem",
-        "formulation", "port_order", "frequencies", "reference_execution",
+        "schema_version", "gauntlet_version", "benchmark_id", "case_id",
+        "collection", "case_source_sha256", "benchmark_source_sha256",
+        "parameter_manifest", "applied_variation", "correlation", "problem",
+        "formulation", "calculations", "comparison_policy", "tolerances", "port_order",
+        "frequencies", "reference_execution",
         "reference", "accepted", "reference_comparison", "julia_benchmark",
         "recorded_at_utc"
     )
@@ -180,20 +210,37 @@ function _load_snapshot_path(case::GauntletCase, path::AbstractString)
     isempty(missing) || throw(ArgumentError(
         "Gauntlet snapshot $path is missing fields: $(join(missing, ", "))",
     ))
+    snapshot["schema_version"] == 2 || throw(ArgumentError(
+        "Gauntlet snapshot $path uses schema $(snapshot["schema_version"]), expected 2",
+    ))
     snapshot["gauntlet_version"] == string(GAUNTLET_VERSION) || throw(ArgumentError(
         "Gauntlet snapshot $path uses version $(snapshot["gauntlet_version"]), " *
         "expected $(GAUNTLET_VERSION)",
     ))
-    snapshot["case_name"] == string(case.name) || throw(ArgumentError(
-        "Gauntlet snapshot $path belongs to case $(snapshot["case_name"]), not $(case.name)",
+    snapshot["benchmark_id"] == string(case.name) || throw(ArgumentError(
+        "Gauntlet snapshot $path belongs to benchmark $(snapshot["benchmark_id"]), not $(case.name)",
     ))
-    snapshot["backend"] == string(case.backend) || throw(ArgumentError(
-        "Gauntlet snapshot $path belongs to backend $(snapshot["backend"]), " *
+    snapshot["case_id"] == string(case.case_id) || throw(ArgumentError(
+        "Gauntlet snapshot $path belongs to case $(snapshot["case_id"]), not $(case.case_id)",
+    ))
+    snapshot["collection"] == string(case.backend) || throw(ArgumentError(
+        "Gauntlet snapshot $path belongs to collection $(snapshot["collection"]), " *
         "not $(case.backend)",
     ))
-    snapshot["case_sha256"] == _reference_source_digest(case) || throw(ArgumentError(
-        "Gauntlet snapshot $path does not match its bound v1 source archive.",
+    snapshot["case_source_sha256"] == case_digest(case) || throw(ArgumentError(
+        "Gauntlet snapshot $path does not match the physical case source.",
     ))
+    snapshot["benchmark_source_sha256"] == benchmark_digest(case) || throw(ArgumentError(
+        "Gauntlet snapshot $path does not match the benchmark source.",
+    ))
+    isequal(snapshot["parameter_manifest"], case.parameter_manifest) ||
+        throw(ArgumentError("Gauntlet snapshot parameter manifest does not match"))
+    isequal(snapshot["applied_variation"], case.applied_variation) ||
+        throw(ArgumentError("Gauntlet snapshot variation does not match"))
+    isequal(snapshot["correlation"], case.correlation) ||
+        throw(ArgumentError("Gauntlet snapshot correlation record does not match"))
+    isequal(snapshot["tolerances"], case.tolerances) ||
+        throw(ArgumentError("Gauntlet snapshot tolerances do not match"))
     _semantic_formulation_pair(snapshot["formulation"]) ==
     _semantic_formulation_pair(formulation_record(case)) || throw(ArgumentError(
         "Gauntlet snapshot formulation does not match the case definition",
@@ -256,7 +303,7 @@ function load_prior_snapshot(
     end
     path = joinpath(
         artifact_path(hash),
-        "cases",
+        "benchmarks",
         string(case.name),
         "snapshot.jld2"
     )

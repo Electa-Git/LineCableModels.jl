@@ -120,9 +120,17 @@ function realize(rng::Random.AbstractRNG, value::UncertainValue, distribution)
     rand(rng, value; distribution)
 end
 
+"Draw the arguments of a selected Gridspace point without invoking its builder."
+function realize_arguments(rng::Random.AbstractRNG, point::Gridpoint, distribution)
+    return map(value -> realize(rng, value, distribution), point.args)
+end
+
+"Build a selected Gridspace point from an already realised argument tuple."
+realize(point::Gridpoint, arguments::Tuple) = point.build(arguments...)
+
 "Recursively realise a selected Gridspace point using the caller's RNG."
 function realize(rng::Random.AbstractRNG, point::Gridpoint, distribution)
-    point.build(map(value -> realize(rng, value, distribution), point.args)...)
+    return realize(point, realize_arguments(rng, point, distribution))
 end
 
 function Base.iterate(space::Gridspace{Target}, state...) where {Target}
@@ -132,8 +140,11 @@ function Base.iterate(space::Gridspace{Target}, state...) where {Target}
     return materialize(point)::Target, next_state
 end
 
+#! explicit-imports: off
+# Base's iterator trait protocol exposes these values without public bindings.
 Base.IteratorSize(::Type{<:Gridspace}) = Base.HasShape{1}()
 Base.IteratorEltype(::Type{<:Gridspace}) = Base.HasEltype()
+#! explicit-imports: on
 Base.eltype(::Type{<:Gridspace{Target}}) where {Target} = Target
 function Base.length(space::Gridspace{<:Any, <:Any, <:Any, Val{:product}})
     prod(length, space.grids; init = 1)

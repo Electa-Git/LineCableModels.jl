@@ -31,6 +31,13 @@ products.
 """
 function derive end
 
+@required AbstractProjectionDefinition begin
+    entitle(::AbstractProjectionDefinition, source)
+    select(::AbstractProjectionDefinition, source)
+    derive(::AbstractProjectionDefinition, selected)
+    materialize(::AbstractProjectionDefinition, representative)
+end
+
 """
 $(TYPEDSIGNATURES)
 
@@ -56,7 +63,7 @@ ParametricBuilder derives `finish` from the materialized problem vector.
 - `ArgumentError`: No representative is derived, a materialized value is a
   result-space envelope, or materialized problem types differ.
 """
-function project(
+@orchestrator AbstractProjectionDefinition function project(
         definition::D,
         source::S
 ) where {

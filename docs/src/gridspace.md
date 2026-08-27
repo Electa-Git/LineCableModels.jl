@@ -251,10 +251,11 @@ and repeatedly realises that same point:
 
 ```text
 for each selected outer point
-    for each trial
+    until the requested successful trials are collected
         redraw uncertain leaves within that point
         build a fresh complete core problem
         Engine.compute
+        optionally reject DomainError realisations under a bounded retry policy
     aggregate that point's draws
 end
 ```
@@ -263,6 +264,14 @@ Multiple nominal/error points therefore produce multiple aggregates, not one
 mixture. `MonteCarloResult` directly owns sample-mean core results, statistics,
 optional retained samples, optional histograms, the root seed, point seeds,
 and trial counts.
+
+The default `on_error=:fail` policy rethrows every exception. With
+`options=(retain_details=true, on_error=:retry, max_failures=n)`, only
+`DomainError` is treated as an unsupported realisation. Rejected draws do not
+enter samples or statistics, and retry stops when the requested accepted-trial
+count is reached or `n` failures have occurred. This estimates the conditional
+distribution of the output given that problem construction and computation
+succeed; the retained failure summary makes the conditioning rate explicit.
 
 For cable-constant Monte Carlo calculations, the representative stored in the
 result space remains a `CableConstants` core result. Retained samples,

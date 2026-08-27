@@ -16,7 +16,7 @@ module EarthProps
 export EarthLayer, EarthModel
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-using DataFrames
+import DataFrames
 import ..LineCableModels: add!, validate
 import ..Validation
 

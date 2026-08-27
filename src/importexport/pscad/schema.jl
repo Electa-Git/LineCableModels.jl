@@ -2,7 +2,7 @@ const _PSCAD_FREQUENCY_BINDING = "master:Line_FrePhase_Options"
 const _PSCAD_CABLE_BINDING = "master:Cable_Coax"
 const _PSCAD_GROUND_BINDING = "master:Line_Ground"
 
-function _pscad_attributes!(node::EzXML.Node, attributes)
+function _pscad_attributes!(node, attributes)
     for (name, value) in pairs(attributes)
         node[string(name)] = string(value)
     end
@@ -10,7 +10,7 @@ function _pscad_attributes!(node::EzXML.Node, attributes)
 end
 
 function _pscad_paramlist!(
-        parent::EzXML.Node,
+        parent,
         parameters;
         name = nothing,
         link = nothing,
@@ -28,12 +28,12 @@ function _pscad_paramlist!(
     return list
 end
 
-function _pscad_params!(parent::EzXML.Node, parameters)
+function _pscad_params!(parent, parameters)
     return _pscad_paramlist!(parent, parameters; name = "", link = -1, crc = -1)
 end
 
 function _pscad_user!(
-        parent::EzXML.Node,
+        parent,
         id::Integer,
         binding::AbstractString,
         parameters;
@@ -62,7 +62,7 @@ function _pscad_user!(
 end
 
 function _pscad_wire!(
-        parent::EzXML.Node,
+        parent,
         wire_id::Integer,
         user_id::Integer,
         kind::AbstractString,
@@ -102,7 +102,7 @@ function _pscad_wire!(
     return wire
 end
 
-function _pscad_canvas_params!(canvas::EzXML.Node; user::Bool = false)
+function _pscad_canvas_params!(canvas; user::Bool = false)
     parameters = Pair{String, String}[
         "show_grid" => "0",
         "size" => "0",

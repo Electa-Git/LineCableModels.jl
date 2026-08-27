@@ -13,7 +13,7 @@ export shunt_capacitance, shunt_conductance, equivalent_gmr, gmd
 export solenoid_factor, equivalent_rho, equivalent_eps, loss_tangent
 export equivalent_conductivity
 
-using DocStringExtensions: TYPEDSIGNATURES, METHODLIST
+using DocStringExtensions: TYPEDSIGNATURES
 import ..DataModel: AbstractCablePart
 
 include("geometry.jl")

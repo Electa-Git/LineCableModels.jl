@@ -136,7 +136,7 @@ function CircStrands(
     return validate(layer)
 end
 
-function maxfill(::Type{CircStrands}, r_in::Real, wire_radius::Real)
+function maxfill(::Type{<:CircStrands}, r_in::Real, wire_radius::Real)
     r_in >= zero(r_in) || throw(DomainError(r_in, "inner radius must be nonnegative"))
     wire_radius > zero(wire_radius) ||
         throw(DomainError(wire_radius, "wire radius must be positive"))

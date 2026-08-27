@@ -1,0 +1,8 @@
+[cases]
+cable_132kv_630mm2_flathor = "cable_132kv_630mm2_flathor.jl"
+cable_18kv_1000mm2_trifoil = "cable_18kv_1000mm2_trifoil.jl"
+cable_380kv_2000mm2_flatver = "cable_380kv_2000mm2_flatver.jl"
+cable_525kv_1600mm2_bipole = "cable_525kv_1600mm2_bipole.jl"
+cable_640kv_2000mm2_bipole = "cable_640kv_2000mm2_bipole.jl"
+solid_1000mm2_single = "solid_1000mm2_single.jl"
+two_bare_wires = "two_bare_wires.jl"

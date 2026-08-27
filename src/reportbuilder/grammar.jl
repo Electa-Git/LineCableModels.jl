@@ -71,6 +71,15 @@ function encode end
 "Write an encoded report when the definition requests an external artifact."
 function write end
 
+@required AbstractReportDefinition begin
+    entitle(::AbstractReportDefinition, source)
+    select(::AbstractReportDefinition, source)
+    tabulate(::AbstractReportDefinition, source, published)
+    illustrate(::AbstractReportDefinition, source, published, table)
+    encode(::AbstractReportDefinition, source, published, table, illustration)
+    write(::AbstractReportDefinition, source, published, table, illustration, encoded)
+end
+
 "Return the completed report artifact."
 function finish end
 
@@ -153,7 +162,10 @@ Build a report through `entitle`, `select`, `tabulate`, `illustrate`, `encode`,
 - Throws when the definition does not accept the source or requests an
   unsupported observation.
 """
-function report(definition::AbstractReportDefinition, source)
+@orchestrator AbstractReportDefinition function report(
+        definition::AbstractReportDefinition,
+        source
+)
     entitled = entitle(definition, source)
     published = select(definition, entitled)
     table = tabulate(definition, entitled, published)

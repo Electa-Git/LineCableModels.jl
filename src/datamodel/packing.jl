@@ -17,11 +17,10 @@ function Validation.apply(rule::PhysicalFillLimit, value, owner::Type)
     count isa Integer || return nothing
     geometry = map(field -> getproperty(value, field), rule.geometry)
     all(candidate -> candidate isa Real, geometry) || return nothing
-    rule_owner = owner isa UnionAll ? owner : Base.typename(owner).wrapper
-    limit = maxfill(rule_owner, geometry...)
+    limit = maxfill(owner, geometry...)
     count <= limit || throw(DomainError(
         count,
-        "[$(nameof(rule_owner))] $(rule.count) exceeds packing limit $limit"
+        "[$(nameof(owner))] $(rule.count) exceeds packing limit $limit"
     ))
     return nothing
 end

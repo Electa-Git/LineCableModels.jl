@@ -13,15 +13,15 @@ export root_seed, point_seed, trial_count
 export confidence, cdf_tolerance, sampling_distribution
 export cumulative_probability, quantile_pairs
 
-using Random
-using Statistics
+import Random
+import Statistics
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import ..LineCableModels: PhaseDomain, basis, domain, frequencies, R, L, C
+import ..LineCableModels: basis, domain, frequencies, R, L, C
 import ..DataModel
 import ..Engine
 import ..Grammar: compute, computation_options, computation_details, details,
                   observe, observables, check_core_result, computation_owner,
-                  detach, unit_targets
+                  detach
 import ..ParametricBuilder
 import ..ParametricBuilder: result, traverse
 import ..Units

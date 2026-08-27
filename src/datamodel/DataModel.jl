@@ -31,21 +31,21 @@ export ncables, nphases
 export preview, equivalent
 
 # Module-specific dependencies
-using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES,
-                           FUNCTIONNAME, METHODLIST
+#! explicit-imports: off
+# IMPORTS is expanded in the module docstring rather than called as Julia code.
+using DocStringExtensions: IMPORTS
+#! explicit-imports: on
+using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES, FUNCTIONNAME
 import ..PlotBuilder
 import ..Units
-import ..LineCableModels: add!, validate, maxfill, nominal, standard_uncertainty
+import ..LineCableModels: add!, validate, maxfill, nominal
 import ..LineCableModels: basis, R, L, C, resistance, inductance, capacitance
 import ..Grammar: AbstractCoreResult, observe, observables
 using ..Materials: Material
 import ..Validation
-using ..Validation: IntegerField, Positive, Finite, IsA, Nonnegative, OneOf,
-                    Greater, Less
-using DataFrames
-using Colors
-using LinearAlgebra
-using GeometryBasics: Point, Point2f, Polygon
+using ..Validation: IntegerField, Positive, Finite, Nonnegative, OneOf, Less
+using Colors: HSL, RGB, RGBA, alpha, blue, green, red
+using GeometryBasics: Point2f, Polygon
 using Printf: @sprintf
 using Statistics: mean
 

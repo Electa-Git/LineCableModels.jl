@@ -3,7 +3,7 @@
 
 RemoteConfig(
     "pscad-host",
-    raw"Z:\path\to\LineCableModels\test\gauntlet\cases\.work",
+    raw"Z:\path\to\LineCableModels\test\gauntlet\benchmarks\.work",
     raw"C:\LineCableModelsGauntlet",
     raw"C:\Users\operator\.julia\juliaup\julia-1.12.7+0.x64.w64.mingw32\bin\julia.exe",
     raw"C:\Python311\python.exe";

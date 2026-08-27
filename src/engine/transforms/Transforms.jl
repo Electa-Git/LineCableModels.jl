@@ -17,13 +17,17 @@ module Transforms
 
 export Fortescue
 
-using DocStringExtensions: IMPORTS, TYPEDSIGNATURES
+#! explicit-imports: off
+# IMPORTS is expanded in the module docstring rather than called as Julia code.
+using DocStringExtensions: IMPORTS
+#! explicit-imports: on
+using DocStringExtensions: TYPEDSIGNATURES
 import ...LineCableModels: basis, nominal
 import ..Engine:
-                 AbstractTransformFormulation, LineParameters, SeriesImpedance,
-                 ShuntAdmittance, description, PhaseDomain, ModalDomain
-using LinearAlgebra
-using NLsolve
+                 AbstractTransformFormulation, LineParameters, description,
+                 PhaseDomain, ModalDomain
+using LinearAlgebra: Diagonal, I, checksquare, diag, eigen
+using NLsolve: converged, nlsolve
 
 include("matrices.jl")
 include("fortescue.jl")

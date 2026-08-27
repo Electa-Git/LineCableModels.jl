@@ -205,7 +205,15 @@ end
     @test parentmodule(LineCableModels.validate) === LineCableModels.Validation
 
     report_grammar=source[joinpath("src", "reportbuilder", "grammar.jl")]
-    @test !occursin(r"(?:encode|write)\(::AbstractReportDefinition", report_grammar)
+    @test occursin("@required AbstractReportDefinition begin", report_grammar)
+    @test occursin(
+        "encode(::AbstractReportDefinition, source, published, table, illustration)",
+        report_grammar
+    )
+    @test occursin(
+        "write(::AbstractReportDefinition, source, published, table, illustration, encoded)",
+        report_grammar
+    )
     report_monte_carlo=source[joinpath("src", "reportbuilder", "montecarlo.jl")]
     @test !occursin(
         r"\bsource\.(?:formulation|values|stats|sample_values|histogram_values|root_seed|point_seeds|trial_counts|details)\b",

@@ -501,6 +501,18 @@ end
         record -> keys(record) == (:diagnostics, :raw),
         only(retained_monte.details.trials)
     )
+    @test keys(retained_monte.details) == (
+        :trials, :failures, :failure_summary
+    )
+    @test isempty(only(retained_monte.details.failures))
+    @test only(retained_monte.details.failure_summary) == (
+        attempts = 3,
+        accepted = 3,
+        failed = 0,
+        acceptance_rate = 1.0,
+        by_type = NamedTuple{(:type, :count), Tuple{String, Int}}[],
+        by_stage = NamedTuple{(:stage, :count), Tuple{Symbol, Int}}[]
+    )
     @test retained_monte.root_seed == default_monte.root_seed
     @test retained_monte.point_seeds == default_monte.point_seeds
     @test retained_monte.trial_counts == default_monte.trial_counts
@@ -512,7 +524,11 @@ end
     @test Grammar.computation_options(Val(UQ.LinearError), (;)) ==
           (retain_details = false,)
     @test Grammar.computation_options(Val(UQ.MonteCarlo), (;)) ==
-          (retain_details = false,)
+          (retain_details = false, on_error = :fail, max_failures = 100)
+    @test Grammar.computation_options(
+        Val(UQ.MonteCarlo),
+        (retain_details = true, on_error = :retry, max_failures = 7)
+    ) == (retain_details = true, on_error = :retry, max_failures = 7)
     @test_throws ArgumentError Grammar.computation_options(
         Val(PB.Combinatorial),
         (retain_details = :yes,)
@@ -521,10 +537,285 @@ end
         Val(UQ.MonteCarlo),
         (unknown = true,)
     )
+    @test_throws ArgumentError Grammar.computation_options(
+        Val(UQ.MonteCarlo),
+        (on_error = :skip,)
+    )
+    @test_throws ArgumentError Grammar.computation_options(
+        Val(UQ.MonteCarlo),
+        (max_failures = 0,)
+    )
+    @test_throws ArgumentError Grammar.computation_options(
+        Val(UQ.MonteCarlo),
+        (on_error = :retry,)
+    )
     @test_throws MethodError Grammar.computation_options(
         Val(PB.Combinatorial),
         Dict(:retain_details => true)
     )
+end
+
+@testitem "UQ / Monte Carlo / bounded DomainError retries" tags=[:unit] begin
+    using Random
+    using Statistics
+
+    const Grammar=LineCableModels.Grammar
+    const PB=LineCableModels.ParametricBuilder
+    const UQ=LineCableModels.UQ
+
+    struct RetryProblem <: Grammar.AbstractProblemDefinition
+        value::Float64
+    end
+    struct DomainRetryBuilder end
+    struct ArgumentRetryBuilder end
+    struct AcceptRetryBuilder end
+
+    function (::DomainRetryBuilder)(value)
+        value > 0.5 || throw(DomainError(value, "sample must exceed 0.5"))
+        return RetryProblem(value)
+    end
+    function (::ArgumentRetryBuilder)(value)
+        value > 0.5 || throw(ArgumentError("sample must exceed 0.5"))
+        return RetryProblem(value)
+    end
+    (::AcceptRetryBuilder)(value) = RetryProblem(value)
+
+    struct RetryFormulation <: Grammar.AbstractFormulation end
+    struct ComputeRetryFormulation <: Grammar.AbstractFormulation end
+    struct RetryResult
+        value::Float64
+    end
+    Grammar.compute(problem::RetryProblem, ::RetryFormulation; options = (;)) =
+        RetryResult(problem.value)
+    Grammar.computation_details(::Val{RetryFormulation}, value::RetryResult) =
+        (accepted_value = value.value,)
+    function Grammar.compute(
+            problem::RetryProblem,
+            ::ComputeRetryFormulation;
+            options = (;)
+    )
+        problem.value > 0.5 || throw(DomainError(
+            problem.value,
+            "computed sample must exceed 0.5"
+        ))
+        return RetryResult(problem.value)
+    end
+    Grammar.computation_details(
+        ::Val{ComputeRetryFormulation},
+        value::RetryResult
+    ) = (accepted_value = value.value,)
+
+    UQ._observable_count(::RetryResult) = 1
+    UQ._sample_storage(::RetryResult, trials::Int) =
+        Vector{Float64}(undef, trials)
+    UQ._sample_axis(::RetryResult) = nothing
+    function UQ._record_sample!(
+            storage::Vector{Float64},
+            value::RetryResult,
+            trial::Int,
+            ::Nothing
+    )
+        storage[trial] = value.value
+        return storage
+    end
+    function UQ._aggregate(
+            storage::Vector{Float64},
+            ::RetryResult,
+            formulation::UQ.MonteCarlo
+    )
+        summary = UQ.SampleSummary(storage)
+        return (
+            representation = RetryResult(mean(storage)),
+            statistics = summary,
+            samples = formulation.return_samples ? storage : nothing,
+            histograms = nothing
+        )
+    end
+
+    sampler = (rng, _, _) -> rand(rng)
+    source = PB.Grid(0.5, PB.AbsoluteError(0.1))
+    domain_space = PB.Gridspace{RetryProblem}(
+        DomainRetryBuilder(),
+        (source,)
+    )
+    domain_problem = PB.ParametricProblem(domain_space)
+    inner = RetryFormulation()
+
+    strict_error = try
+        Grammar.compute(
+            domain_problem,
+            UQ.MonteCarlo(
+                inner;
+                trials = 4,
+                seed = 1,
+                distribution = sampler
+            )
+        )
+        nothing
+    catch exception
+        exception
+    end
+    @test strict_error isa DomainError
+    @test occursin("sample must exceed 0.5", sprint(showerror, strict_error))
+
+    policy = UQ.MonteCarlo(
+        inner;
+        trials = 4,
+        seed = 1,
+        distribution = sampler,
+        return_samples = true,
+        options = (
+            retain_details = true,
+            on_error = :retry,
+            max_failures = 10
+        )
+    )
+    retried = Grammar.compute(domain_problem, policy)
+    @test retried.trial_counts == [4]
+    @test all(>(0.5), only(UQ.samples(retried)))
+    @test only(UQ.statistics(retried)).n == 4
+    @test only(retried.details.trials) == [
+        (accepted_value = value,) for value in only(UQ.samples(retried))
+    ]
+
+    failures = only(retried.details.failures)
+    summary = only(retried.details.failure_summary)
+    @test length(failures) == 3
+    @test getproperty.(failures, :attempt) == [1, 2, 6]
+    @test getproperty.(failures, :target_trial) == [1, 1, 4]
+    @test all(failure -> failure.stage === :build, failures)
+    @test all(failure -> only(failure.sample) <= 0.5, failures)
+    @test all(failure -> failure.error.type == "DomainError", failures)
+    @test all(failure -> occursin("sample must exceed 0.5", failure.error.message), failures)
+    @test all(failure -> !isempty(failure.error.stack), failures)
+    @test all(failure -> length(failure.error.stack) <= 8, failures)
+    @test summary.attempts == 7
+    @test summary.accepted == 4
+    @test summary.failed == 3
+    @test summary.acceptance_rate == 4 / 7
+    @test summary.by_type == [(type = "DomainError", count = 3)]
+    @test summary.by_stage == [(stage = :build, count = 3)]
+
+    repeated = Grammar.compute(domain_problem, policy)
+    @test UQ.samples(repeated) == UQ.samples(retried)
+    @test repeated.details.trials == retried.details.trials
+    @test getproperty.(only(repeated.details.failures), :attempt) ==
+          getproperty.(failures, :attempt)
+    @test getproperty.(only(repeated.details.failures), :sample) ==
+          getproperty.(failures, :sample)
+    @test repeated.details.failure_summary == retried.details.failure_summary
+
+    argument_space = PB.Gridspace{RetryProblem}(
+        ArgumentRetryBuilder(),
+        (source,)
+    )
+    argument_error = try
+        Grammar.compute(PB.ParametricProblem(argument_space), policy)
+        nothing
+    catch exception
+        exception
+    end
+    @test argument_error isa ArgumentError
+    @test occursin("sample must exceed 0.5", sprint(showerror, argument_error))
+
+    compute_policy = UQ.MonteCarlo(
+        ComputeRetryFormulation();
+        trials = 2,
+        seed = 1,
+        distribution = sampler,
+        options = (
+            retain_details = true,
+            on_error = :retry,
+            max_failures = 10
+        )
+    )
+    accepted_space = PB.Gridspace{RetryProblem}(AcceptRetryBuilder(), (source,))
+    compute_retried = Grammar.compute(
+        PB.ParametricProblem(accepted_space),
+        compute_policy
+    )
+    compute_failures = only(compute_retried.details.failures)
+    @test length(compute_failures) == 2
+    @test all(failure -> failure.stage === :compute, compute_failures)
+    @test all(failure -> only(failure.sample) <= 0.5, compute_failures)
+
+    rejecting_sampler = function (rng, _, _)
+        value = rand(rng)
+        value > 0.5 || throw(DomainError(value, "sampler rejected draw"))
+        return value
+    end
+    sample_retried = Grammar.compute(
+        PB.ParametricProblem(accepted_space),
+        UQ.MonteCarlo(
+            inner;
+            trials = 2,
+            seed = 1,
+            distribution = rejecting_sampler,
+            options = (
+                retain_details = true,
+                on_error = :retry,
+                max_failures = 10
+            )
+        )
+    )
+    sample_failures = only(sample_retried.details.failures)
+    @test length(sample_failures) == 2
+    @test all(failure -> failure.stage === :sample, sample_failures)
+    @test all(failure -> failure.sample === nothing, sample_failures)
+
+    exhausted_policy = UQ.MonteCarlo(
+        inner;
+        trials = 4,
+        seed = 1,
+        distribution = sampler,
+        options = (
+            retain_details = true,
+            on_error = :retry,
+            max_failures = 2
+        )
+    )
+    exhausted = try
+        Grammar.compute(domain_problem, exhausted_policy)
+        nothing
+    catch exception
+        exception
+    end
+    @test exhausted isa ErrorException
+    @test occursin("retry limit of 2 failures was exhausted", exhausted.msg)
+    @test occursin("0 accepted", exhausted.msg)
+
+    automatic = Grammar.compute(
+        domain_problem,
+        UQ.MonteCarlo(
+            inner;
+            trials = nothing,
+            confidence = 0.5,
+            cdf_tol = 0.9,
+            seed = 1,
+            distribution = sampler,
+            options = (
+                retain_details = true,
+                on_error = :retry,
+                max_failures = 10
+            )
+        )
+    )
+    @test only(automatic.trial_counts) == UQ._dkw_trials(1, 0.5, 0.9)
+    @test only(automatic.details.failure_summary).accepted ==
+          only(automatic.trial_counts)
+
+    accepted = Grammar.compute(
+        PB.ParametricProblem(accepted_space),
+        UQ.MonteCarlo(
+            inner;
+            trials = 2,
+            seed = 1,
+            distribution = sampler,
+            options = (retain_details = true,)
+        )
+    )
+    @test isempty(only(accepted.details.failures))
+    @test only(accepted.details.failure_summary).acceptance_rate == 1.0
 end
 
 @testitem "Engine / grammar / strict analytical and computation options" tags=[:unit] setup=[

@@ -148,10 +148,32 @@ implements [`computation_details`](@ref).
 
 Parametric and linear results retain one detail record per core result
 under `details(result).points`. Monte Carlo retains one vector per Gridspace
-point and one record per trial under `details(result).trials`. Typed details do
-not replace statistics, samples, histograms, the root seed, point seeds, or
-trial counts. No completed result stores the temporary Gridspace point or a
-copy of traversal internals.
+point and one inner-computation record per accepted trial under
+`details(result).trials`. The aligned `failures` vectors retain rejected
+argument tuples plus error summaries, and `failure_summary` reports attempts,
+accepted and failed counts, acceptance rate, and counts by error type and
+stage. Typed details do not replace statistics, samples, histograms, the root
+seed, point seeds, or accepted-trial counts.
+
+Strict failure propagation is the default. Conditional rejection sampling is
+selected only through:
+
+```julia
+MonteCarlo(
+    formulation;
+    trials=1000,
+    options=(
+        retain_details=true,
+        on_error=:retry,
+        max_failures=100,
+    ),
+)
+```
+
+Only `DomainError` is retryable. Rejected outputs do not enter retained samples
+or summary statistics. The result therefore describes the output conditional
+on successful problem construction and computation; inspect
+`details(result).failure_summary` to quantify that conditioning.
 
 Cable-constant Monte Carlo storage uses concrete named tuples with `R`, `L`,
 and `C` fields; line-parameter storage adds `G`. These tuples are private

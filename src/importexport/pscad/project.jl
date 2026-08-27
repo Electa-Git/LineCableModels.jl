@@ -21,7 +21,7 @@ const _PSCAD_IDS = (
     first_physical_component = 100000010
 )
 
-function _pscad_project_settings!(project::EzXML.Node)
+function _pscad_project_settings!(project)
     settings = Pair{String, String}[
         "creator" => "LineCableModels.jl",
         "time_duration" => "0.5",
@@ -51,7 +51,7 @@ function _pscad_project_settings!(project::EzXML.Node)
     return _pscad_paramlist!(project, settings; name = "Settings")
 end
 
-function _pscad_project_scaffolding!(project::EzXML.Node)
+function _pscad_project_scaffolding!(project)
     addelement!(project, "Layers")
     addelement!(project, "List")["classid"] = "Settings"
     addelement!(project, "bookmarks")
@@ -63,7 +63,7 @@ function _pscad_project_scaffolding!(project::EzXML.Node)
     return project
 end
 
-function _pscad_station_definition!(definitions::EzXML.Node, namespace::AbstractString)
+function _pscad_station_definition!(definitions, namespace::AbstractString)
     station = addelement!(definitions, "Definition")
     _pscad_attributes!(station,
         (
@@ -125,7 +125,7 @@ function _pscad_main_instance_parameters(system::LineCableSystem, base_frequency
 end
 
 function _pscad_main_definition!(
-        definitions::EzXML.Node,
+        definitions,
         system::LineCableSystem,
         base_frequency
 )
@@ -210,7 +210,7 @@ function _pscad_main_definition!(
     return main
 end
 
-function _pscad_hierarchy!(project::EzXML.Node, namespace::AbstractString)
+function _pscad_hierarchy!(project, namespace::AbstractString)
     addelement!(project, "List")["classid"] = "Resource"
     hierarchy = addelement!(project, "hierarchy")
     station = addelement!(hierarchy, "call")

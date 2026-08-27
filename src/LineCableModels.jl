@@ -109,6 +109,8 @@ using .Engine: LineParameters, SeriesImpedance,
                LineParamsDomain, PhaseDomain, ModalDomain
 using .Engine.Transforms: Fortescue
 
+public LineParamsDomain
+
 # Submodule `ParametricBuilder`
 include("parametricbuilder/ParametricBuilder.jl")
 using .ParametricBuilder:

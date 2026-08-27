@@ -7,6 +7,7 @@ extensions render the completed `PlotRecipe` values.
 module PlotBuilder
 
 using DocStringExtensions: SIGNATURES, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
+using ..Grammar: @orchestrator
 
 export AbstractPlotDefinition, PlotPage, PlotRecipe
 export LegendDefinition, ColorbarDefinition, ExportDefinition,

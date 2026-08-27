@@ -3,8 +3,11 @@ struct ConsoleVerbosityLogger{L <: AbstractLogger, V <: NamedTuple} <: AbstractL
     levels::V
 end
 
+#! explicit-imports: off
+# AbstractLogger's required methods are not marked public by the Logging stdlib.
 Logging.min_enabled_level(::ConsoleVerbosityLogger) = Logging.Debug
 Logging.catch_exceptions(::ConsoleVerbosityLogger) = false
+#! explicit-imports: on
 
 function _log_level(level::Integer)
     level == 0 ? Logging.Warn :
@@ -16,6 +19,8 @@ function _log_key(source::Module)
     return isempty(path) ? :default : first(path)
 end
 
+#! explicit-imports: off
+# AbstractLogger's required methods are not marked public by the Logging stdlib.
 function Logging.shouldlog(
         logger::ConsoleVerbosityLogger,
         level,
@@ -43,3 +48,4 @@ function Logging.handle_message(
         logger.console, level, message, source, group, id, file, line; kwargs...
     )
 end
+#! explicit-imports: on

@@ -4,6 +4,9 @@ using DocStringExtensions: DocStringExtensions, SIGNATURES, TYPEDSIGNATURES, TYP
 export SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS, FIELDS, FUNCTIONNAME,
        METHODLIST, IMPORTS, EXPORTS
 
+#! explicit-imports: off
+# METHODLIST adapts dependency-internal DocStringExtensions machinery. Keep this
+# exception local to the adapter so the rest of the package remains strict.
 struct _CleanMethodList <: DocStringExtensions.Abbreviation end
 
 "`METHODLIST` abbreviation with package-local, CI-safe source paths."
@@ -59,3 +62,4 @@ function DocStringExtensions.format(::_CleanMethodList, buffer, doc)
     println(buffer)
     return nothing
 end
+#! explicit-imports: on

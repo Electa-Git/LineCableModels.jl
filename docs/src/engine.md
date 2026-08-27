@@ -195,9 +195,12 @@ MonteCarlo(formulation; trials=100, options=(retain_details=true,))
 ```
 
 Parametric and linear calculations retain `(points=records,)`, with one record
-per core result. Monte Carlo retains `(trials=records,)`, with one vector
-per Gridspace point and one record per trial. Statistics, samples, histograms,
-seeds, and trial counts remain dedicated result fields.
+per core result. Monte Carlo retains `trials`, `failures`, and
+`failure_summary`, each aligned by Gridspace point. `trials` contains one inner
+computation record per accepted trial. Each failure record contains the
+attempt, target trial, failure stage, realised argument tuple, error type and
+message, and a bounded stack summary. Statistics, samples, histograms, seeds,
+and accepted-trial counts remain dedicated result fields.
 
 ## Formulation options
 
@@ -259,6 +262,13 @@ Both option sets are ordinary `NamedTuple`s, aliased as
 compose them with `merge`. Each owner rejects unknown keys and returns a
 fixed-key normalised tuple. There is no general fallback and no conversion
 from dictionaries, pairs, or `nothing`.
+
+`MonteCarlo` owns a separate outer computation-option tuple. Its normalised
+keys are `retain_details`, `on_error`, and `max_failures`. `on_error=:fail` is
+the default and rethrows every exception. `on_error=:retry` requires
+`retain_details=true` and rejects only `DomainError` realisations until the
+requested accepted-trial count is reached or `max_failures` is exhausted.
+Other exception types always propagate immediately.
 
 ## Gauntlet routing
 

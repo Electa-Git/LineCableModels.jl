@@ -4,7 +4,11 @@ $(SIGNATURES)
 Build a detached plot recipe through `entitle`, `parse`, `resolve`, `fetch`,
 and `finish`, in that order.
 """
-function make_render(::Type{D}, source; kwargs...) where {D <: AbstractPlotDefinition}
+@orchestrator AbstractPlotDefinition function make_render(
+        ::Type{D},
+        source;
+        kwargs...
+) where {D <: AbstractPlotDefinition}
     entitled = entitle(D, source)
     input = parse(D, entitled; kwargs...)
     resolved = resolve(D, entitled, input)

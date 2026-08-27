@@ -125,6 +125,12 @@ their scientific products. `details(result)` returns the empty named tuple by
 default. Construct `Combinatorial`, `LinearError`, or `MonteCarlo` with
 `options=(retain_details=true,)` only when the core computation owner has
 registered a `computation_details` method and those records are needed.
+Monte Carlo uses strict failure propagation by default. Physically unsupported
+draws can be rejected explicitly with
+`options=(retain_details=true, on_error=:retry, max_failures=100)`. Only
+`DomainError` is retryable; retained details report every rejected argument
+tuple and its error summary. The resulting statistics are conditional on a
+successful realisation.
 
 Physics and numerical-method choices belong to `Formulation`. Execution choices
 are passed as a named tuple. For a materialised line system, pass

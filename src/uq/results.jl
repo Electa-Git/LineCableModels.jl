@@ -147,6 +147,96 @@ function _validate_monte_carlo_products(
     return nothing
 end
 
+function _validate_failure_record(record)
+    record isa NamedTuple &&
+        keys(record) == (:attempt, :target_trial, :stage, :sample, :error) ||
+        throw(ArgumentError(
+        "Monte Carlo failure records must contain attempt, target_trial, stage, sample, and error",
+    ))
+    record.attempt isa Int && record.attempt > 0 || throw(ArgumentError(
+        "Monte Carlo failure attempts must be positive integers",
+    ))
+    record.target_trial isa Int && record.target_trial > 0 || throw(ArgumentError(
+        "Monte Carlo failure target trials must be positive integers",
+    ))
+    record.stage in (:sample, :build, :compute) || throw(ArgumentError(
+        "Monte Carlo failure stages must be :sample, :build, or :compute",
+    ))
+    error = record.error
+    error isa NamedTuple && keys(error) == (:type, :message, :stack) || throw(
+        ArgumentError(
+            "Monte Carlo failure errors must contain type, message, and stack",
+        ),
+    )
+    error.type isa String && error.message isa String || throw(ArgumentError(
+        "Monte Carlo failure type and message summaries must be strings",
+    ))
+    error.stack isa AbstractVector || throw(ArgumentError(
+        "Monte Carlo failure stacks must be vectors",
+    ))
+    all(error.stack) do frame
+        frame isa NamedTuple &&
+            keys(frame) == (:function_name, :file, :line) &&
+            frame.function_name isa String && frame.file isa String && frame.line isa Int
+    end || throw(ArgumentError(
+        "Monte Carlo failure stack frames must contain function_name, file, and line",
+    ))
+    return nothing
+end
+
+function _validate_failure_summary(summary, failures, accepted::Int)
+    summary isa NamedTuple && keys(summary) == (
+        :attempts, :accepted, :failed, :acceptance_rate, :by_type, :by_stage
+    ) || throw(ArgumentError(
+        "Monte Carlo failure summaries have an invalid schema",
+    ))
+    summary.attempts isa Int && summary.attempts > 0 || throw(ArgumentError(
+        "Monte Carlo failure-summary attempts must be positive integers",
+    ))
+    summary.accepted == accepted || throw(DimensionMismatch(
+        "Monte Carlo failure-summary accepted counts must match trial counts",
+    ))
+    summary.failed == length(failures) || throw(DimensionMismatch(
+        "Monte Carlo failure-summary failed counts must match retained failures",
+    ))
+    summary.attempts == summary.accepted + summary.failed || throw(DimensionMismatch(
+        "Monte Carlo failure-summary attempts must equal accepted plus failed trials",
+    ))
+    summary.acceptance_rate == summary.accepted / summary.attempts || throw(
+        ArgumentError(
+            "Monte Carlo failure-summary acceptance rates are inconsistent",
+        ),
+    )
+    return nothing
+end
+
+function _validate_monte_carlo_details(details, values, trial_counts)
+    isempty(details) && return nothing
+    keys(details) == (:trials, :failures, :failure_summary) || throw(ArgumentError(
+        "MonteCarloResult details must contain trials, failures, and failure_summary",
+    ))
+    point_count = length(values)
+    all(length(product) == point_count
+    for product in (details.trials, details.failures, details.failure_summary)) ||
+        throw(DimensionMismatch(
+        "retained Monte Carlo details must contain one entry per Gridspace point",
+    ))
+    for point in eachindex(values)
+        records = details.trials[point]
+        failures = details.failures[point]
+        summary = details.failure_summary[point]
+        length(records) == trial_counts[point] || throw(DimensionMismatch(
+            "retained details must contain one entry per accepted Monte Carlo trial",
+        ))
+        failures isa AbstractVector || throw(ArgumentError(
+            "retained Monte Carlo failures must be stored in vectors",
+        ))
+        foreach(_validate_failure_record, failures)
+        _validate_failure_summary(summary, failures, trial_counts[point])
+    end
+    return nothing
+end
+
 """
 $(TYPEDEF)
 
@@ -170,9 +260,9 @@ struct MonteCarloResult{T, F, ST <: AbstractVector, S, H, D <: ComputationDetail
     root_seed::UInt64
     "Deterministic random seed for each Gridspace point."
     point_seeds::Vector{UInt64}
-    "Trial count used for each Gridspace point."
+    "Accepted-trial count used for each Gridspace point."
     trial_counts::Vector{Int}
-    "Typed supplemental output retained by the propagation."
+    "Typed accepted-trial details and failure diagnostics retained by the propagation."
     details::D
 
     function MonteCarloResult(
@@ -229,20 +319,7 @@ struct MonteCarloResult{T, F, ST <: AbstractVector, S, H, D <: ComputationDetail
             histogram_values,
             trial_counts
         )
-        isempty(details) || keys(details) == (:trials,) ||
-            throw(ArgumentError(
-                "MonteCarloResult details must be empty or contain only trials",
-            ))
-        if !isempty(details)
-            length(details.trials) == length(values) || throw(DimensionMismatch(
-                "retained details must contain one entry per Gridspace point",
-            ))
-            all(length(records) == count
-            for (records, count) in zip(details.trials, trial_counts)) ||
-                throw(DimensionMismatch(
-                    "retained details must contain one entry per Monte Carlo trial",
-                ))
-        end
+        _validate_monte_carlo_details(details, values, trial_counts)
         return new{T, F, ST, S, H, D}(
             formulation,
             values,

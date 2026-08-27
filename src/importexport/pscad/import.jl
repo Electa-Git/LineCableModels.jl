@@ -23,7 +23,7 @@ const _PSCAD_PART_FIELDS = (
     )
 )
 
-function _pscad_parameters(node::EzXML.Node)
+function _pscad_parameters(node)
     values = Dict{String, String}()
     for parameter in findall("./paramlist/param", node)
         name = parameter["name"]
@@ -59,18 +59,18 @@ function _pscad_integer(values, name::AbstractString)
     return round(Int, value)
 end
 
-function _pscad_binding(node::EzXML.Node)
+function _pscad_binding(node)
     return haskey(node, "defn") ? node["defn"] : ""
 end
 
-function _pscad_output_enabled(node::EzXML.Node)
+function _pscad_output_enabled(node)
     values = _pscad_parameters(node)
     haskey(values, "Output") || return nothing
     return uppercase(strip(values["Output"])) in ("1", "YES", "ENABLED", "TRUE")
 end
 
 function _pscad_row_definition(
-        project::EzXML.Node,
+        project,
         requested::Union{Nothing, AbstractString} = nothing
 )
     candidates = NamedTuple[]
@@ -128,7 +128,7 @@ end
 
 function _pscad_active_cables(row)
     unsupported = String[]
-    cables = EzXML.Node[]
+    cables = typeof(row.definition)[]
     for node in row.users
         binding = _pscad_binding(node)
         if binding in (_PSCAD_CABLE_BINDING, "master:Cable_CoaxSimpl")
@@ -150,7 +150,7 @@ function _pscad_active_cables(row)
     return cables
 end
 
-function _pscad_instance(document::EzXML.Document, project, row)
+function _pscad_instance(document, project, row)
     namespace = project["name"]
     target = "$namespace:$(row.definition["name"])"
     candidates = filter(findall("//User", document)) do node
@@ -356,7 +356,7 @@ function _pscad_simplified_design(values, cable_number::Int, frequency)
     return CableDesign(cable_name, components)
 end
 
-function _pscad_position(values, cable_number::Int, next_phase::Base.RefValue{Int})
+function _pscad_position(values, cable_number::Int, next_phase::Ref{Int})
     frequency = _pscad_number(values, "FLT")
     frequency > 0 || throw(DomainError(
         frequency, "PSCAD cable reference frequency must be positive"
@@ -376,7 +376,7 @@ function _pscad_position(values, cable_number::Int, next_phase::Base.RefValue{In
     return CablePosition(design, horizontal, vertical, connections)
 end
 
-function _pscad_simplified_positions(values, next_phase::Base.RefValue{Int})
+function _pscad_simplified_positions(values, next_phase::Ref{Int})
     circuit_count = _pscad_integer(values, "NC")
     circuit_count > 0 || throw(DomainError(
         circuit_count, "PSCAD simplified-cable circuit count must be positive"

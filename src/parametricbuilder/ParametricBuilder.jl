@@ -31,7 +31,9 @@ export WireEstimate, make_stranded, make_screened
 
 using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
 using Random
-import ..LineCableModels: add!, maxfill
+using RequiredInterfaces: @required
+using ..Grammar: @orchestrator
+import ..LineCableModels: add!
 import ..Grammar
 import ..Grammar: compute, computation_options, computation_details, details,
                   nominal, standard_uncertainty, check_core_result,

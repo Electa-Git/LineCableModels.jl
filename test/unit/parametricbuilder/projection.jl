@@ -1,4 +1,5 @@
 @testitem "ParametricBuilder / projection / template method and result space" tags=[:unit] begin
+    using RequiredInterfaces: NotImplementedError
     using Statistics
 
     const Grammar=LineCableModels.Grammar
@@ -67,7 +68,10 @@
 
     unsupported_calls=Symbol[]
     unsupported=PB.ParametricResult(nothing, ProjectionPayload[ProjectionPayload(1.0, 1.0)])
-    @test_throws MethodError PB.project(StageProjection(unsupported_calls), unsupported)
+    @test_throws NotImplementedError PB.project(
+        StageProjection(unsupported_calls),
+        unsupported
+    )
     @test isempty(unsupported_calls)
 
     struct PreserveProjection <: PB.AbstractProjectionDefinition end

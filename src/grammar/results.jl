@@ -30,8 +30,11 @@ function check_core_result(::Type{T}) where {T}
     return nothing
 end
 
+#! explicit-imports: off
+# Base's iterator trait protocol exposes these values without public bindings.
 Base.IteratorSize(::Type{<:AbstractResultSpace}) = Base.HasShape{1}()
 Base.IteratorEltype(::Type{<:AbstractResultSpace}) = Base.HasEltype()
+#! explicit-imports: on
 Base.eltype(::Type{<:AbstractResultSpace{T}}) where {T} = T
 
 """
@@ -40,4 +43,7 @@ $(TYPEDSIGNATURES)
 Return the unparameterized type token that owns computation details for a
 formulation value.
 """
+#! explicit-imports: off
+# Base exposes no public operation for recovering this dispatch wrapper.
 computation_owner(formulation) = Base.typename(typeof(formulation)).wrapper
+#! explicit-imports: on

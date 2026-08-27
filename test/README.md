@@ -37,7 +37,16 @@ LINECABLEMODELS_GAUNTLET_MODE=snapshot julia --project=test/gauntlet \
   test/gauntlet/runtests.jl
 ```
 
-`test/gauntlet/runtests.jl` uses `@run_package_tests(filter=ti -> :gauntlet in ti.tags, verbose=true)`. TestItemRunner discovers every case file. The command does not maintain a second file list.
+`test/gauntlet/runtests.jl` uses `@run_package_tests(filter=ti -> :gauntlet in ti.tags, verbose=true)`. TestItemRunner discovers every benchmark file below `gauntlet/benchmarks/`; the indexed, backend-neutral physical models live separately below `gauntlet/cases/`. The command does not maintain a second benchmark list. Each benchmark file contains exactly one benchmark, an invariant enforced by the toolkit suite.
+
+During development, select the owned UQ or external PSCAD family directly:
+
+```sh
+julia --project=test/gauntlet --startup-file=no -e \
+  'using TestItemRunner; @run_package_tests(filter=ti -> :uq in ti.tags, verbose=true)'
+julia --project=test/gauntlet --startup-file=no -e \
+  'using TestItemRunner; @run_package_tests(filter=ti -> :pscad in ti.tags, verbose=true)'
+```
 
 Run the reusable gauntlet toolkit checks separately with:
 
@@ -66,7 +75,7 @@ Fixture factories live in `support/fixtures.jl` and must return fresh mutable ob
 Static input data belongs in `fixtures/data`, independently sourced numerical values in
 `fixtures/reference`, and current rendering baselines in `fixtures/golden`. Ordinary
 tests write only to system temporary directories. Explicit live gauntlet runs preserve
-their disposable projects and diagnostics below `test/gauntlet/cases/.work/`.
+their disposable projects and diagnostics below `test/gauntlet/benchmarks/.work/`.
 
 Numerical tests use scale- and precision-aware helpers from `support/numerical.jl`.
 There is no suite-wide absolute tolerance. Expected values must come from analytical

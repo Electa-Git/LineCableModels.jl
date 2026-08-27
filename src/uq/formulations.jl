@@ -40,7 +40,12 @@ $(TYPEDEF)
 
 Select conditional Monte Carlo propagation over a
 [`ParametricProblem`](@ref). Randomness is local and reproducible when `seed`
-is supplied.
+is supplied. Computation option `on_error=:fail` propagates every exception.
+`on_error=:retry` rejects only realisations that raise `DomainError`, retains
+their sampled arguments and error summaries, and continues until the requested
+number of successful trials is obtained or `max_failures` is reached. Retry
+mode requires `retain_details=true` and estimates the output distribution
+conditional on successful problem construction and computation.
 
 $(TYPEDFIELDS)
 """
@@ -108,13 +113,33 @@ function computation_options(
         ::Val{MonteCarlo},
         options::NamedTuple
 )::ComputationOptions
-    unknown = filter(key -> key !== :retain_details, keys(options))
+    supported = (:retain_details, :on_error, :max_failures)
+    unknown = filter(key -> key ∉ supported, keys(options))
     isempty(unknown) || throw(ArgumentError(
         "unknown MonteCarlo computation options: $(sort!(collect(unknown)))",
     ))
-    normalized = merge((retain_details = false,), options)
+    normalized = merge(
+        (retain_details = false, on_error = :fail, max_failures = 100),
+        options
+    )
     normalized.retain_details isa Bool || throw(ArgumentError(
         "MonteCarlo retain_details must be Bool",
     ))
-    return (retain_details = normalized.retain_details,)
+    normalized.on_error in (:fail, :retry) || throw(ArgumentError(
+        "MonteCarlo on_error must be :fail or :retry",
+    ))
+    normalized.max_failures isa Integer && !(normalized.max_failures isa Bool) &&
+        normalized.max_failures > 0 || throw(ArgumentError(
+        "MonteCarlo max_failures must be a positive integer",
+    ))
+    normalized.on_error === :retry && !normalized.retain_details && throw(
+        ArgumentError(
+            "MonteCarlo on_error=:retry requires retain_details=true",
+        ),
+    )
+    return (
+        retain_details = normalized.retain_details,
+        on_error = normalized.on_error,
+        max_failures = Int(normalized.max_failures)
+    )
 end

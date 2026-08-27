@@ -24,12 +24,14 @@ export FormulationOptions, ComputationOptions, ComputationDetails
 export formulation_options, computation_options, computation_details, details
 export compute, observe, @observe, observables
 export nominal, standard_uncertainty
+export @orchestrator
 
 using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF
 import ..LineCableModels: basis
 using ..Units: UnitExpr, quantity, native_unit, display_unit, scale_factor
 
 include("types.jl")
+include("orchestrators.jl")
 include("results.jl")
 include("interfaces.jl")
 include("observables.jl")
@@ -37,5 +39,6 @@ include("uncertainty.jl")
 
 public check_core_result, computation_owner
 public validate_observables, unit_targets, detach
+public orchestrator_root, orchestrator_method
 
 end # module Grammar

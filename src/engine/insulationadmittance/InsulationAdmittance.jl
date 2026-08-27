@@ -15,7 +15,10 @@ module InsulationAdmittance
 export Lossless, ParallelRC
 
 # Module-specific dependencies
+#! explicit-imports: off
+# IMPORTS is expanded in this module docstring rather than called as Julia code.
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDSIGNATURES
+#! explicit-imports: on
 import ..Engine: description
 import ..Engine: conductivity
 import ..Engine: InsulationAdmittanceFormulation

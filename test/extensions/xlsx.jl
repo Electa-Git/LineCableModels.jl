@@ -3,6 +3,7 @@
     :core_only
 ] begin
     import LineCableModels
+    using RequiredInterfaces: NotImplementedError
 
     @test Base.get_extension(LineCableModels, :LineCableModelsXLSXExt) === nothing
     @test !isdefined(LineCableModels.ReportBuilder, :_write_xlsx_sheet!)
@@ -47,7 +48,7 @@
     @test report_builder.encode_cell(definition, missing) == ""
     @test report_builder.encode_cell(definition, 1 / 3) == "0.333333333333"
 
-    @test_throws MethodError LineCableModels.report(
+    @test_throws NotImplementedError LineCableModels.report(
         definition,
         parameters
     )

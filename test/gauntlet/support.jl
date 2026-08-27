@@ -1,15 +1,29 @@
 @testmodule GauntletSupport begin
     export ARTIFACT_ROOT, ARTIFACTS_TOML, GAUNTLET_VERSION, ISHEADLESS, WORK_ROOT,
+           AbstractCaseVariation, CaseDefinition, CaseParameter, CompositeVariation,
+           ExactOverrides, LoadedCase, NoVariation, ParameterGrids,
+           RelativeStandardUncertainty,
+           BenchmarkCalculation, LineParametersPolicy, MomentBenchmark, MomentResult,
+           OwnedBenchmark, UQMomentPolicy,
+           UQ_MONTE_CARLO_TRIALS,
            GauntletCase, artifact_name, backend_archive_name, backend_stage,
-           benchmark_local,
-           benchmark_metadata, case_digest, cleanup_work, comparison_passes,
+           benchmark_local, benchmark_stage,
+           benchmark_calculation, benchmark_definition, calculation_record,
+           benchmark_metadata, benchmark_digest, case_digest, cleanup_work,
+           comparison_passes,
+           case_definition, case_index, case_parameter, compose_variations,
+           correlation_record,
            gauntlet_cleanup, gauntlet_force, gauntlet_instrumented, gauntlet_mode,
            finalize_artifacts,
            formulation_record,
-           load_prior_snapshot, load_snapshot, performance_comparison, persist_snapshot,
+           extract_moments, moment_comparison_passes, moment_error_summary,
+           parameter_manifest,
+           load_case, load_prior_snapshot, load_snapshot, performance_comparison,
+           persist_snapshot,
            prepare_artifacts, publish_artifact, release_tag,
            report, run_case, run_snapshot, snapshot_path,
-           validate_case, validate_structure, work_path
+           run_benchmark, uq_inner_formulation, uq_moment_tolerances,
+           validate_case, validate_structure, variation_record, work_path
 
     include(joinpath(@__DIR__, "artifacts.jl"))
     using .GauntletArtifacts
@@ -20,19 +34,33 @@
     using Pkg.Artifacts
     using SHA
     using Statistics
-    using LineCableModels: PhaseDomain, description, domain, observe, observables
+    import TOML
+    import LineCableModels
+    using LineCableModels: AbstractGrid, Grid, Gridspace, PhaseDomain,
+                           description, domain, observe, observables
     using LineCableModels.Engine
     import LineCableModels.Grammar: ComputationOptions, computation_options
 
     const GAUNTLET_ROOT = @__DIR__
-    const WORK_ROOT = joinpath(GAUNTLET_ROOT, "cases", ".work")
+    const WORK_ROOT = joinpath(GAUNTLET_ROOT, "benchmarks", ".work")
     const ISHEADLESS = haskey(ENV, "CI") ||
                        get(ENV, "LINECABLEMODELS_HEADLESS", "false") == "true"
 
-    struct GauntletCase{RP, RF, P, F, T}
+    include(joinpath(@__DIR__, "case_loader.jl"))
+    include(joinpath(@__DIR__, "comparisons", "uq_moments.jl"))
+    include(joinpath(@__DIR__, "uq_benchmarks.jl"))
+    include(joinpath(@__DIR__, "owned.jl"))
+
+    struct GauntletCase{RP, RF, P, F, T, V, C}
         name::Symbol
+        case_id::Symbol
         backend::Symbol
         source_file::String
+        case_source_file::String
+        case_sha256::String
+        parameter_manifest::Vector{NamedTuple}
+        applied_variation::V
+        correlation::C
         reference_problem::RP
         reference_formulation::RF
         problem::P
@@ -43,8 +71,14 @@
 
         function GauntletCase(
                 name::Symbol,
+                case_id::Symbol,
                 backend::Symbol,
                 source_file::String,
+                case_source_file::String,
+                case_sha256::String,
+                parameter_manifest::Vector{NamedTuple},
+                applied_variation::V,
+                correlation::C,
                 reference_problem::RP,
                 reference_formulation::RF,
                 problem::P,
@@ -52,11 +86,17 @@
                 port_order::Vector{String},
                 expected_size::NTuple{3, Int},
                 tolerances::T
-        ) where {RP, RF, P, F, T}
-            case = new{RP, RF, P, F, T}(
+        ) where {RP, RF, P, F, T, V, C}
+            case = new{RP, RF, P, F, T, V, C}(
                 name,
+                case_id,
                 backend,
                 source_file,
+                case_source_file,
+                case_sha256,
+                parameter_manifest,
+                applied_variation,
+                correlation,
                 reference_problem,
                 reference_formulation,
                 problem,
@@ -83,14 +123,56 @@
     ) where {RP, RF, P, F, T}
         return GauntletCase(
             name,
+            name,
             backend,
             String(source_file),
+            String(source_file),
+            bytes2hex(sha256(read(source_file))),
+            NamedTuple[],
+            (kind = :inline_legacy,),
+            (rule = :inline_legacy,),
             reference_problem,
             reference_formulation,
             problem,
             formulation,
             String.(port_order),
             expected_size,
+            tolerances
+        )
+    end
+
+    function GauntletCase(
+            name::Symbol,
+            backend::Symbol,
+            source_file::AbstractString,
+            model::LoadedCase,
+            reference_formulation::RF,
+            formulation::F,
+            tolerances::T
+    ) where {RF, F, T}
+        problem = model.nominal_problem
+        reference_problem = LineParametersProblem(
+            problem.system;
+            temperature = problem.temperature,
+            earth_props = problem.earth_props,
+            frequencies = problem.frequencies
+        )
+        return GauntletCase(
+            name,
+            model.id,
+            backend,
+            String(source_file),
+            model.source_file,
+            model.source_sha256,
+            parameter_manifest(model),
+            variation_record(model.variation),
+            correlation_record(model),
+            reference_problem,
+            reference_formulation,
+            problem,
+            formulation,
+            copy(model.port_order),
+            model.expected_size,
             tolerances
         )
     end
@@ -164,13 +246,26 @@
     end
 
     function validate_case(case::GauntletCase)
+        occursin(r"^[a-z][a-z0-9_]*$", string(case.name)) ||
+            throw(ArgumentError(
+                "gauntlet benchmark ID must be a lowercase identifier; got $(repr(case.name))",
+            ))
         occursin(r"^[a-z][a-z0-9_]*$", string(case.backend)) ||
             throw(ArgumentError(
                 "gauntlet backend must be a lowercase identifier; got $(repr(case.backend))",
             ))
-        string(case.name) == case.reference_problem.system.system_id ||
+        isfile(case.source_file) || throw(ArgumentError(
+            "gauntlet benchmark source is missing: $(case.source_file)",
+        ))
+        isfile(case.case_source_file) || throw(ArgumentError(
+            "gauntlet case source is missing: $(case.case_source_file)",
+        ))
+        case.case_sha256 == case_digest(case) || throw(ArgumentError(
+            "gauntlet case source changed after it was loaded: $(case.case_source_file)",
+        ))
+        string(case.case_id) == case.reference_problem.system.system_id ||
             throw(ArgumentError(
-                "gauntlet case name must match the reference system identifier",
+                "gauntlet case identifier must match the reference system identifier",
             ))
         case.problem.system.system_id == case.reference_problem.system.system_id ||
             throw(ArgumentError(
@@ -253,7 +348,8 @@
         candidate = formulation_record(case.formulation)
     )
 
-    case_digest(case::GauntletCase) = bytes2hex(sha256(read(case.source_file)))
+    case_digest(case::GauntletCase) = bytes2hex(sha256(read(case.case_source_file)))
+    benchmark_digest(case::GauntletCase) = bytes2hex(sha256(read(case.source_file)))
 
     const _V1_SOURCE_SHA256 = (
         benchmark_132kV_630mm2_flathor_pscad =
@@ -404,12 +500,12 @@
         return parameters
     end
 
-    include("benchmark.jl")
-    include("snapshots.jl")
+    include(joinpath(@__DIR__, "benchmark.jl"))
+    include(joinpath(@__DIR__, "snapshots.jl"))
 
     function benchmark_metadata end
 
-    include("pscad/PSCADBenchmarks.jl")
+    include(joinpath(@__DIR__, "pscad", "PSCADBenchmarks.jl"))
 
     function _assert_comparison(comparison, tolerance, label::AbstractString)
         for quantity in (:Z, :Y)

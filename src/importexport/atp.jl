@@ -50,7 +50,7 @@ function export_data(::Val{:atp},
         base_freq = 50.0,
         file_name::Union{String, Nothing} = nothing
 )::String
-    function _set_attributes!(element::EzXML.Node, attrs::Dict)
+    function _set_attributes!(element, attrs::Dict)
         for (k, v) in attrs
             element[k] = string(v)
         end

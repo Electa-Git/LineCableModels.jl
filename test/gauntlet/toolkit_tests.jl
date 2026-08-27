@@ -3,6 +3,7 @@
     TestFixtures
 ] begin
     using Test
+    using SHA
     using LineCableModels
     using LineCableModels.Engine
     using Pkg.Artifacts
@@ -146,7 +147,8 @@
         @test persisted.backend === :fixture
         @test persisted.gauntlet_version == GAUNTLET_VERSION
         aggregate=GauntletSupport.report(:fixture; artifact_root)
-        @test size(aggregate) == (1, 39)
+        @test size(aggregate) == (1, 40)
+        @test only(aggregate.benchmark) == "fixture"
         @test only(aggregate.case) == "fixture"
         @test only(aggregate.basis) == "pul"
         @test only(aggregate.domain) == "PhaseDomain"
@@ -188,9 +190,9 @@
             artifact_root,
             artifacts_toml
         )
-        @test published.artifact == "gauntlet_fixture_v1_0_0"
-        @test release_tag() == "gauntlet-v1.0.0"
-        @test backend_archive_name(:fixture) == "benchmarks-fixture-v1.0.0.tar.gz"
+        @test published.artifact == "gauntlet_fixture_v2_0_0"
+        @test release_tag() == "gauntlet-v2.0.0"
+        @test backend_archive_name(:fixture) == "benchmarks-fixture-v2.0.0.tar.gz"
         @test occursin("file://", read(artifacts_toml, String))
 
         loaded=load_snapshot(case; artifacts_toml)
@@ -376,11 +378,541 @@ end
     @test occursin("modal Gauntlet comparison", sprint(showerror, error))
 end
 
+@testitem "Gauntlet / case catalog and benchmark-file invariants" tags=[:gauntlet_toolkit] setup=[
+    GauntletSupport
+] begin
+    using Test
+    using SHA
+    using LineCableModels
+    using .GauntletSupport
+
+    index = case_index()
+    expected_sizes = Dict(
+        :cable_18kv_1000mm2_trifoil => (9, 9, 101),
+        :cable_132kv_630mm2_flathor => (9, 9, 101),
+        :cable_380kv_2000mm2_flatver => (9, 9, 101),
+        :cable_525kv_1600mm2_bipole => (6, 6, 101),
+        :cable_640kv_2000mm2_bipole => (6, 6, 101),
+        :solid_1000mm2_single => (1, 1, 101),
+        :two_bare_wires => (2, 2, 101)
+    )
+    @test Set(keys(index)) == Set(keys(expected_sizes))
+    case_files = Set(realpath(path) for path in filter(
+        path -> endswith(path, ".jl"),
+        readdir(GauntletSupport.CASE_ROOT; join = true)
+    ))
+    @test Set(values(index)) == case_files
+
+    mktempdir() do directory
+        root = joinpath(directory, "cases")
+        mkpath(root)
+        outside = joinpath(directory, "outside.jl")
+        write(outside, "nothing\n")
+
+        escaping_index = joinpath(root, "escaping.toml")
+        write(escaping_index, "[cases]\nescape = \"../outside.jl\"\n")
+        @test_throws ArgumentError case_index(
+            index_path = escaping_index,
+            case_root = root
+        )
+
+        shared = joinpath(root, "shared.jl")
+        write(shared, "nothing\n")
+        duplicate_index = joinpath(root, "duplicate.toml")
+        write(
+            duplicate_index,
+            "[cases]\nfirst = \"shared.jl\"\nsecond = \"shared.jl\"\n"
+        )
+        @test_throws ArgumentError case_index(
+            index_path = duplicate_index,
+            case_root = root
+        )
+
+        mismatched = joinpath(root, "requested.jl")
+        write(
+            mismatched,
+            "case_definition(\n" *
+            "    :different,\n" *
+            "    (frequency = case_parameter(:frequency, [50.0]; " *
+            "tags = (:operation, :frequency)),),\n" *
+            "    [\"terminal\"]\n" *
+            ") do _\n" *
+            "    error(\"an ID mismatch must fail before construction\")\n" *
+            "end\n"
+        )
+        mismatch_index = joinpath(root, "mismatch.toml")
+        write(mismatch_index, "[cases]\nrequested = \"requested.jl\"\n")
+        @test_throws ArgumentError load_case(
+            :requested;
+            index_path = mismatch_index,
+            case_root = root
+        )
+    end
+
+    expected_wire_counts = Dict(
+        :cable_132kv_630mm2_flathor => (
+            (1, 6, 12, 18, 24), (19,), ()
+        ),
+        :cable_18kv_1000mm2_trifoil => (
+            (1, 6, 12, 18, 24), (49,), ()
+        ),
+        :cable_380kv_2000mm2_flatver => (
+            (1, 6, 12, 18, 24), (14,), ()
+        ),
+        :cable_525kv_1600mm2_bipole => (
+            (1, 6, 12, 18, 24, 30, 36), (), (68,)
+        ),
+        :cable_640kv_2000mm2_bipole => (
+            (6, 12, 18, 24), (), ()
+        ),
+        :solid_1000mm2_single => ((),),
+        :two_bare_wires => ((),)
+    )
+    wire_count = function (layer)
+        hasfield(typeof(layer), :num_wires) && return layer.num_wires
+        hasfield(typeof(layer), :shape) &&
+            hasfield(typeof(layer.shape), :num_wires) &&
+            return layer.shape.num_wires
+        return nothing
+    end
+
+    for (id, expected_size) in expected_sizes
+        model = load_case(id)
+        @test model.id === id
+        @test model.expected_size == expected_size
+        @test model.source_file == index[id]
+        @test model.source_sha256 == bytes2hex(SHA.sha256(read(index[id])))
+        source = read(index[id], String)
+        @test length(collect(eachmatch(r"\bcase_definition\s*\(", source))) == 1
+        @test !occursin("@testitem", source)
+        @test !occursin(r"\bFormulation\s*\(", source)
+        @test !occursin(
+            r"\b(?:maxfill|make_screened|make_stranded)\s*\(",
+            source
+        )
+        for parameter in values(model.definition.parameters)
+            :topology in parameter.tags || continue
+            topology = parameter.nominal
+            @test topology isa Integer ||
+                  (topology isa Tuple && all(value -> value isa Integer, topology))
+        end
+        design = first(model.nominal_problem.system.cables).design_data
+        component_wire_counts = Tuple(
+            Tuple(
+                count
+                for layer in component.conductor_group.layers
+                for count in (wire_count(layer),)
+                if count !== nothing
+            ) for component in design.components
+        )
+        @test component_wire_counts == expected_wire_counts[id]
+        @test basename(index[id]) == string(id, ".jl")
+    end
+
+    benchmark_root = joinpath(GauntletSupport.GAUNTLET_ROOT, "benchmarks")
+    benchmark_files = sort!(filter(
+        path -> endswith(path, ".jl") &&
+                !startswith(path, joinpath(benchmark_root, ".work") * Base.Filesystem.path_separator),
+        collect(Iterators.flatten(
+            (joinpath(root, file) for file in files)
+            for (root, _, files) in walkdir(benchmark_root)
+        ))
+    ))
+    contains_for(value) = value isa Expr &&
+                          (value.head === :for || any(contains_for, value.args))
+    benchmark_ids = Symbol[]
+    benchmark_cases = Dict(:pscad => Symbol[], :uq => Symbol[])
+    for path in benchmark_files
+        source = read(path, String)
+        parsed = Meta.parseall(source)
+        expressions = parsed.head === :toplevel ?
+                      filter(expression -> !(expression isa LineNumberNode), parsed.args) :
+                      Any[parsed]
+        testitems = filter(expressions) do expression
+            expression isa Expr && expression.head === :macrocall &&
+                expression.args[1] === Symbol("@testitem")
+        end
+        @test length(testitems) == 1
+        @test length(collect(eachmatch(r"\bload_case\s*\(", source))) == 1
+        case_matches = collect(eachmatch(
+            r"\bload_case\s*\(\s*:([a-z][a-z0-9_]*)"s,
+            source
+        ))
+        @test length(case_matches) == 1
+        if length(case_matches) == 1
+            case_id = Symbol(only(only(case_matches).captures))
+            @test case_id in keys(index)
+            collection = Symbol(basename(dirname(path)))
+            haskey(benchmark_cases, collection) &&
+                push!(benchmark_cases[collection], case_id)
+        end
+        @test !contains_for(only(testitems))
+        benchmark_matches = collect(eachmatch(
+            r"(?:GauntletCase|benchmark_definition)\s*\(\s*:(benchmark_[a-z0-9_]+)"s,
+            source
+        ))
+        @test length(benchmark_matches) == 1
+        length(benchmark_matches) == 1 || continue
+        benchmark_id = Symbol(only(only(benchmark_matches).captures))
+        push!(benchmark_ids, benchmark_id)
+        @test splitext(basename(path))[1] == string(benchmark_id)
+    end
+    @test length(unique(benchmark_ids)) == length(benchmark_ids)
+    for collection in (:pscad, :uq)
+        @test sort(benchmark_cases[collection]; by = string) ==
+              sort!(collect(keys(index)); by = string)
+    end
+end
+
+@testitem "Gauntlet / case variations and correlation" tags=[:gauntlet_toolkit] setup=[
+    GauntletSupport
+] begin
+    using Test
+    using Measurements
+    using LineCableModels
+    using .GauntletSupport
+
+    first_load = load_case(:cable_18kv_1000mm2_trifoil)
+    first_load.nominal_problem.system.cables[1].conn[1] = 99
+    second_load = load_case(:cable_18kv_1000mm2_trifoil)
+    @test second_load.nominal_problem.system.cables[1].conn[1] == 1
+
+    single_frequency = load_case(
+        :cable_18kv_1000mm2_trifoil;
+        variation = ExactOverrides(frequencies = [50.0])
+    )
+    @test single_frequency.expected_size == (9, 9, 1)
+    @test single_frequency.problem.frequencies == [50.0]
+    @test single_frequency.selected_parameters == [:frequencies]
+
+    frequency_grid = load_case(
+        :two_bare_wires;
+        variation = ParameterGrids(frequencies = Grid(([50.0], [60.0])))
+    )
+    @test length(frequency_grid.problem) == 2
+    @test [only(problem.frequencies) for problem in frequency_grid.problem] == [50.0, 60.0]
+
+    @test_throws ArgumentError load_case(
+        :two_bare_wires;
+        variation = ExactOverrides(unknown_parameter = 1.0)
+    )
+    @test_throws ArgumentError load_case(
+        :two_bare_wires;
+        variation = RelativeStandardUncertainty(10.0; tags = (:not_a_tag,))
+    )
+    @test_throws ArgumentError load_case(
+        :two_bare_wires;
+        variation = ExactOverrides(frequencies = Grid(([50.0],)))
+    )
+    @test_throws ArgumentError load_case(:unknown_case)
+
+    uncertain = load_case(
+        :cable_18kv_1000mm2_trifoil;
+        variation = RelativeStandardUncertainty(
+            10.0; tags = (:geometry, :cable_layer)
+        )
+    )
+    expected_selected = [
+        :core_strand_diameter,
+        :core_ring_lay_ratio_1,
+        :core_ring_lay_ratio_2,
+        :core_ring_lay_ratio_3,
+        :core_ring_lay_ratio_4,
+        :screen_wire_diameter,
+        :screen_wire_lay_ratio,
+        :semicon_tape_thickness,
+        :inner_semicon_thickness,
+        :insulation_thickness,
+        :outer_semicon_thickness,
+        :copper_tape_thickness,
+        :copper_tape_width,
+        :copper_tape_lay_ratio,
+        :water_blocking_thickness,
+        :aluminum_tape_thickness,
+        :pe_face_thickness,
+        :jacket_thickness
+    ]
+    @test uncertain.selected_parameters == expected_selected
+    @test length(uncertain.problem) == 1
+    for id in expected_selected
+        descriptor = only(getproperty(uncertain.sources, id))
+        nominal = getproperty(uncertain.definition.parameters, id).nominal
+        @test LineCableModels.nominal(descriptor) == nominal
+        @test LineCableModels.standard_uncertainty(descriptor) ≈ 0.1abs(nominal)
+    end
+    @test uncertain.sources.formation_clearance_ratio == 0.2
+    @test uncertain.sources.screen_wires == 49
+    @test uncertain.sources.earth_rho == 100.0
+
+    nominal_cables = uncertain.nominal_problem.system.cables
+    nominal_radius = last(first(nominal_cables).design_data.components).
+                     insulator_group.r_ex
+    nominal_spacing = hypot(
+        nominal_cables[1].horz - nominal_cables[2].horz,
+        nominal_cables[1].vert - nominal_cables[2].vert
+    )
+    @test nominal_radius ≈ 34.575e-3
+    @test nominal_spacing ≈ 2.2nominal_radius
+    @test nominal_spacing - 2nominal_radius ≈ 0.2nominal_radius
+
+    expanded_armor = load_case(
+        :cable_525kv_1600mm2_bipole;
+        variation = ExactOverrides(armor_wire_diameter = 1.2 * 5.827e-3)
+    )
+    expanded_design = first(expanded_armor.problem.system.cables).design_data
+    armor = expanded_design.components[3].conductor_group
+    @test armor.num_wires == 68
+    @test armor.r_in >= armor.layers[1].radius_wire /
+          sinpi(1 / armor.num_wires) - armor.layers[1].radius_wire
+    @test expanded_design.components[2].insulator_group.layers[end].r_ex -
+          expanded_design.components[2].insulator_group.layers[end].r_in > 3.0e-3
+
+    nominal_armor = load_case(:cable_525kv_1600mm2_bipole)
+    nominal_design = first(nominal_armor.problem.system.cables).design_data
+    nominal_bedding = nominal_design.components[2].insulator_group.layers[end]
+    nominal_unbuffered_outer_radius =
+        63.22185e-3 + 5.827e-3 + 10.0e-3
+    @test nominal_bedding.r_ex - nominal_bedding.r_in ≈
+          3.0e-3 + 0.2nominal_unbuffered_outer_radius
+
+    materialized = only(uncertain.problem)
+    uncertain_cables = materialized.system.cables
+    uncertain_radius = last(first(uncertain_cables).design_data.components).
+                       insulator_group.r_ex
+    uncertain_spacing = hypot(
+        uncertain_cables[1].horz - uncertain_cables[2].horz,
+        uncertain_cables[1].vert - uncertain_cables[2].vert
+    )
+    @test uncertain_spacing - 2uncertain_radius ≈ 0.2uncertain_radius
+
+    layers = materialized.system.cables[1].design_data.components[1].insulator_group.layers
+    first_tape = layers[1].r_ex - layers[1].r_in
+    second_tape = layers[5].r_ex - layers[5].r_in
+    @test Measurements.cov(first_tape, second_tape) > 0
+    @test Measurements.cov(first_tape, second_tape) ≈
+          Measurements.uncertainty(first_tape)^2
+
+    uq_model = load_case(
+        :cable_132kv_630mm2_flathor;
+        variation = RelativeStandardUncertainty(
+            10.0; tags = (:geometry, :cable_layer)
+        )
+    )
+    uq_selected = [
+        :core_strand_diameter,
+        :core_lay_ratio,
+        :screen_wire_diameter,
+        :screen_lay_ratio,
+        :semicon_tape_thickness,
+        :inner_semicon_thickness,
+        :insulation_thickness,
+        :outer_semicon_thickness,
+        :copper_tape_thickness,
+        :copper_tape_width,
+        :copper_tape_lay_ratio,
+        :water_blocking_thickness,
+        :aluminum_tape_thickness,
+        :jacket_thickness
+    ]
+    @test uq_model.selected_parameters == uq_selected
+    @test length(uq_model.problem) == 1
+    for parameter in values(uq_model.definition.parameters)
+        source = getproperty(uq_model.sources, parameter.id)
+        if parameter.id in uq_selected
+            descriptor = only(source)
+            @test LineCableModels.nominal(descriptor) == parameter.nominal
+            @test LineCableModels.standard_uncertainty(descriptor) ≈
+                  0.1abs(parameter.nominal)
+        else
+            @test isequal(source, parameter.nominal)
+        end
+    end
+end
+
+@testitem "Gauntlet / UQ moment comparison contract" tags=[:gauntlet_toolkit] setup=[
+    GauntletSupport
+] begin
+    using Test
+    using LineCableModels
+    using LineCableModels.Engine
+    using .GauntletSupport
+
+    frequencies_value = [1.0, 10.0]
+    ports = ["a", "b"]
+    values = map((R = 1.0, L = 2.0, C = 3.0, G = 4.0)) do scale
+        (
+            mean = fill(scale, 2, 2, 2),
+            std = fill(scale / 10, 2, 2, 2)
+        )
+    end
+    reference = MomentResult(values, frequencies_value, :pul, PhaseDomain, ports)
+    equal_comparison = compare(reference, reference)
+    tolerance = (
+        mean = map(_ -> (absolute = 0.0, relative = 0.0), values),
+        std = map(_ -> (absolute = 0.0, relative = 0.0), values)
+    )
+    @test reference ≈ reference
+    @test moment_comparison_passes(equal_comparison, tolerance)
+    @test all(iszero, equal_comparison.errors.R.mean.absolute)
+
+    changed_values = merge(values, (
+        R = (mean = copy(values.R.mean), std = copy(values.R.std)),
+    ))
+    changed_values.R.mean[1, 2, :] .= 1.5
+    changed = MomentResult(changed_values, frequencies_value, :pul, PhaseDomain, ports)
+    changed_comparison = compare(reference, changed)
+    @test changed_comparison.errors.R.mean.absolute[1, 2] == 0.5
+    @test !moment_comparison_passes(changed_comparison, tolerance)
+
+    zero_values = map(values) do product
+        (mean = zeros(size(product.mean)), std = zeros(size(product.std)))
+    end
+    small_values = map(zero_values) do product
+        (mean = fill(1.0e-12, size(product.mean)), std = copy(product.std))
+    end
+    zero_reference = MomentResult(zero_values, frequencies_value, :pul, PhaseDomain, ports)
+    small_candidate = MomentResult(small_values, frequencies_value, :pul, PhaseDomain, ports)
+    floor_tolerance = (
+        mean = map(_ -> (absolute = 1.0e-11, relative = 0.0), values),
+        std = map(_ -> (absolute = 0.0, relative = 0.0), values)
+    )
+    @test all(isinf, compare(zero_reference, small_candidate).errors.R.mean.relative)
+    @test moment_comparison_passes(
+        compare(zero_reference, small_candidate), floor_tolerance
+    )
+
+    @test_throws ArgumentError compare(
+        reference,
+        MomentResult(values, [1.0, 11.0], :pul, PhaseDomain, ports)
+    )
+    @test_throws ArgumentError compare(
+        reference,
+        MomentResult(values, frequencies_value, :total, PhaseDomain, ports)
+    )
+    @test_throws ArgumentError compare(
+        reference,
+        MomentResult(values, frequencies_value, :pul, PhaseDomain, reverse(ports))
+    )
+    wrong_shape = merge(values, (
+        R = (mean = zeros(1, 1, 2), std = zeros(1, 1, 2)),
+    ))
+    @test_throws DimensionMismatch compare(
+        reference,
+        MomentResult(wrong_shape, frequencies_value, :pul, PhaseDomain, ports)
+    )
+end
+
+@testitem "Gauntlet / fixed-seed Monte Carlo reproducibility" tags=[:gauntlet_toolkit] setup=[
+    GauntletSupport
+] begin
+    using Test
+    using LineCableModels
+    using LineCableModels.Engine
+    using .GauntletSupport
+
+    model = load_case(
+        :cable_132kv_630mm2_flathor;
+        variation = compose_variations(
+            ExactOverrides(frequencies = [50.0]),
+            RelativeStandardUncertainty(
+                10.0; tags = (:geometry, :cable_layer)
+            )
+        )
+    )
+    inner = Formulation(
+        earth_impedance = EarthImpedance.Pollaczek(),
+        earth_admittance = EarthAdmittance.IdealGround(),
+        insulation_admittance = InsulationAdmittance.Lossless(),
+        options = (
+            kron_reduction = false,
+            reduce_bundle = false,
+            ideal_transposition = false
+        )
+    )
+    formulation = MonteCarlo(
+        inner;
+        trials = 8,
+        seed = 0x51eed,
+        distribution = :normal,
+        return_samples = false,
+        return_histograms = false
+    )
+    problem = ParametricProblem(model.problem)
+    first_result = compute(problem, formulation)
+    second_result = compute(problem, formulation)
+    @test first_result.root_seed == second_result.root_seed == UInt64(0x51eed)
+    @test first_result.trial_counts == second_result.trial_counts == [8]
+    @test statistics(first_result) == statistics(second_result)
+    @test samples(first_result) === nothing
+    @test histograms(first_result) === nothing
+end
+
+@testitem "Gauntlet / owned formula comparison dispatch" tags=[:gauntlet_toolkit] setup=[
+    GauntletSupport
+] begin
+    using Test
+    using LineCableModels
+    using LineCableModels.Engine
+    using .GauntletSupport
+
+    previous_mode = get(ENV, "LINECABLEMODELS_GAUNTLET_MODE", nothing)
+    try
+        ENV["LINECABLEMODELS_GAUNTLET_MODE"] = "live"
+        model = load_case(
+            :two_bare_wires;
+            variation = ExactOverrides(frequencies = [50.0])
+        )
+        pollaczek = Formulation(
+            earth_impedance = EarthImpedance.Pollaczek(),
+            earth_admittance = EarthAdmittance.IdealGround(),
+            insulation_admittance = InsulationAdmittance.Lossless(),
+            options = (kron_reduction = false, reduce_bundle = false)
+        )
+        papadopoulos = Formulation(
+            earth_impedance = EarthImpedance.Papadopoulos(),
+            earth_admittance = EarthAdmittance.IdealGround(),
+            insulation_admittance = InsulationAdmittance.Lossless(),
+            options = (kron_reduction = false, reduce_bundle = false)
+        )
+        limits = (
+            Z = (absolute = 1.0, relative = 1.0),
+            Y = (absolute = 1.0, relative = 1.0)
+        )
+        benchmark = benchmark_definition(
+            :benchmark_owned_formula_fixture,
+            model.id,
+            :owned,
+            @__FILE__,
+            model,
+            benchmark_calculation(
+                :pollaczek, :engine, model.problem, pollaczek
+            ),
+            benchmark_calculation(
+                :papadopoulos, :engine, model.problem, papadopoulos
+            ),
+            LineParametersPolicy(),
+            (reference = limits, regression = limits)
+        )
+        outcome = run_benchmark(benchmark)
+        @test outcome.reference isa LineParameters
+        @test outcome.candidate isa LineParameters
+        @test outcome.passes
+        @test outcome.metadata.calculations.reference.id === :pollaczek
+        @test outcome.metadata.calculations.candidate.id === :papadopoulos
+        @test size(Z(outcome.reference)) == (2, 2, 1)
+    finally
+        previous_mode === nothing ?
+            delete!(ENV, "LINECABLEMODELS_GAUNTLET_MODE") :
+            (ENV["LINECABLEMODELS_GAUNTLET_MODE"] = previous_mode)
+    end
+end
+
 @testitem "Gauntlet / PSCAD parser and fixed mappings" tags=[:gauntlet_toolkit] setup=[
     GauntletSupport
 ] begin
     using Base64: base64decode
     using Test
+    import LineCableModels
     using LineCableModels: description
     using LineCableModels.Engine
     using .GauntletSupport
@@ -487,7 +1019,7 @@ end
 
     config=harness.RemoteConfig(
         "host",
-        raw"Z:\gauntlet\cases\.work",
+        raw"Z:\gauntlet\benchmarks\.work",
         raw"C:\gauntlet",
         "julia",
         "python";
@@ -547,7 +1079,7 @@ end
         "pscad", "benchmark_525kV_1600mm2_bipole_pscad", "reference"
     ]
     @test harness._remote_path(config.shared_root, work_parts...) ==
-          raw"Z:\gauntlet\cases\.work\pscad\benchmark_525kV_1600mm2_bipole_pscad\reference"
+          raw"Z:\gauntlet\benchmarks\.work\pscad\benchmark_525kV_1600mm2_bipole_pscad\reference"
     @test_throws ArgumentError harness._work_parts(
         joinpath(GauntletSupport.WORK_ROOT, "case", "reference", "outputs")
     )
@@ -566,7 +1098,7 @@ end
     @test occursin("options=(reference=(verbosity=", sprint(showerror, verbosity_error))
     @test_throws ArgumentError harness._supervisor_command(
         config,
-        raw"Z:\gauntlet\cases\.work\case\current",
+        raw"Z:\gauntlet\benchmarks\.work\case\current",
         raw"C:\gauntlet\case\current",
         "case",
         overhead,
@@ -581,7 +1113,7 @@ end
     @test harness._validate_frequencies(frequency_probe) === frequency_probe
     supervisor_command=harness._supervisor_command(
         config,
-        raw"Z:\gauntlet\cases\.work\case\current",
+        raw"Z:\gauntlet\benchmarks\.work\case\current",
         raw"C:\gauntlet\case\current",
         "generated",
         overhead,
@@ -590,7 +1122,7 @@ end
         verbosity = 2
     )
     @test occursin("supervisor.ps1", supervisor_command)
-    @test occursin(raw"Z:\gauntlet\cases\.work\case\current", supervisor_command)
+    @test occursin(raw"Z:\gauntlet\benchmarks\.work\case\current", supervisor_command)
     @test occursin(raw"C:\gauntlet\case\current", supervisor_command)
     @test occursin("-OutputStem 'gauntlet'", supervisor_command)
     @test occursin("-Verbosity '2'", supervisor_command)
@@ -601,7 +1133,7 @@ end
     @test !occursin("OpenStandardInput", supervisor_command)
     saad_command=harness._supervisor_command(
         config,
-        raw"Z:\gauntlet\cases\.work\case\current",
+        raw"Z:\gauntlet\benchmarks\.work\case\current",
         raw"C:\gauntlet\case\current",
         "generated",
         Formulation(:pscad; earth_impedance = EarthImpedance.Saad()),

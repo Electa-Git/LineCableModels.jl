@@ -11,7 +11,8 @@ using Pkg.Artifacts
 using SHA
 
 export ARTIFACT_ROOT, ARTIFACTS_TOML, GAUNTLET_VERSION,
-       artifact_name, backend_archive_name, backend_stage, case_stage,
+       artifact_name, backend_archive_name, backend_stage, benchmark_stage,
+       case_stage,
        cleanup_work, finalize_artifacts, gauntlet_cleanup, gauntlet_force,
        gauntlet_instrumented, gauntlet_mode, prepare_artifacts,
        publish_artifact, release_tag, report
@@ -19,8 +20,8 @@ export ARTIFACT_ROOT, ARTIFACTS_TOML, GAUNTLET_VERSION,
 const GAUNTLET_ROOT = @__DIR__
 const ARTIFACT_ROOT = joinpath(GAUNTLET_ROOT, ".artifacts")
 const ARTIFACTS_TOML = joinpath(GAUNTLET_ROOT, "Artifacts.toml")
-const WORK_ROOT = joinpath(GAUNTLET_ROOT, "cases", ".work")
-const GAUNTLET_VERSION = v"1.0.0"
+const WORK_ROOT = joinpath(GAUNTLET_ROOT, "benchmarks", ".work")
+const GAUNTLET_VERSION = v"2.0.0"
 const VALID_MODES = (:snapshot, :live, :record)
 
 _version_label() = "v$(GAUNTLET_VERSION)"
@@ -41,13 +42,20 @@ function backend_stage(
     return joinpath(artifact_root, string(backend), _version_label())
 end
 
-function case_stage(
-        backend::Symbol,
-        name::Symbol;
+function benchmark_stage(
+        collection::Symbol,
+        benchmark_id::Symbol;
         artifact_root::AbstractString = ARTIFACT_ROOT
 )
-    return joinpath(backend_stage(backend; artifact_root), "cases", string(name))
+    return joinpath(
+        backend_stage(collection; artifact_root),
+        "benchmarks",
+        string(benchmark_id)
+    )
 end
+
+case_stage(collection::Symbol, benchmark_id::Symbol; kwargs...) =
+    benchmark_stage(collection, benchmark_id; kwargs...)
 
 function gauntlet_mode()
     value = Symbol(get(ENV, "LINECABLEMODELS_GAUNTLET_MODE", "snapshot"))
@@ -143,8 +151,9 @@ function _staged_backends(; artifact_root::AbstractString = ARTIFACT_ROOT)
     isdir(artifact_root) || return Symbol[]
     backends = Symbol[]
     for entry in readdir(artifact_root)
-        cases = joinpath(artifact_root, entry, _version_label(), "cases")
-        isdir(cases) && !isempty(readdir(cases)) && push!(backends, Symbol(entry))
+        benchmarks = joinpath(artifact_root, entry, _version_label(), "benchmarks")
+        isdir(benchmarks) && !isempty(readdir(benchmarks)) &&
+            push!(backends, Symbol(entry))
     end
     return sort!(backends; by = string)
 end
@@ -155,15 +164,15 @@ function _finalize_backend(
         force::Bool = false
 )
     stage = backend_stage(backend; artifact_root)
-    cases = joinpath(stage, "cases")
-    isdir(cases) && !isempty(readdir(cases)) || throw(ArgumentError(
-        "no recorded $backend cases exist for $(_version_label())",
+    benchmarks = joinpath(stage, "benchmarks")
+    isdir(benchmarks) && !isempty(readdir(benchmarks)) || throw(ArgumentError(
+        "no recorded $backend benchmarks exist for $(_version_label())",
     ))
     archive = joinpath(stage, backend_archive_name(backend))
     isfile(archive) && !force && throw(_collision_error([archive]))
     report_files = _write_report(backend, stage)
     hash = create_artifact() do directory
-        cp(cases, joinpath(directory, "cases"))
+        cp(benchmarks, joinpath(directory, "benchmarks"))
         for path in (
             report_files.jld2_path,
             report_files.tsv_path,
