@@ -7,6 +7,18 @@ function _linear_tickformat(exponent::Int)
     return values -> [@sprintf("%.4g", value / scale) for value in values]
 end
 
+function _scientific_exponent(values)
+    magnitudes = Float64[]
+    for value in values
+        numeric = nominal(value)
+        numeric isa Real || continue
+        converted = Float64(numeric)
+        isfinite(converted) && !iszero(converted) && push!(magnitudes, abs(converted))
+    end
+    isempty(magnitudes) && return nothing
+    return floor(Int, log10(maximum(magnitudes)))
+end
+
 function _decade_ticks(vmin, vmax)
     isfinite(vmin) && isfinite(vmax) && 0 < vmin <= vmax || return (Float64[], String[])
     first_exponent = ceil(Int, log10(vmin))
@@ -70,6 +82,48 @@ function _set_axis_scale!(
     return axis
 end
 
+function _axis_limit_values(axis, dim::Symbol)
+    limits = axis.finallimits[]
+    index = dim === :x ? 1 :
+            dim === :y ? 2 : throw(
+        ArgumentError("axis dimension must be :x or :y"),
+    )
+    lower = limits.origin[index]
+    return (lower, lower + limits.widths[index])
+end
+
+function _refresh_axis_format!(panel::UIPanel, dim::Symbol)
+    spec = dim === :x ? panel.metadata.xaxis : panel.metadata.yaxis
+    spec === nothing && return panel
+    scale = dim === :x ? _current_scale(panel.axis.xscale[]) :
+            _current_scale(panel.axis.yscale[])
+    exponent = if scale === :log10
+        spec.exponent
+    else
+        something(
+            _scientific_exponent(_axis_values(panel, dim)),
+            _scientific_exponent(_axis_limit_values(panel.axis, dim)),
+            0
+        )
+    end
+    formatter = _tickformat(exponent, scale)
+    axis_label = _axis_label(spec, exponent, scale)
+    if dim === :x
+        panel.axis.xtickformat[] = formatter
+        panel.axis.xlabel[] = axis_label
+    else
+        panel.axis.ytickformat[] = formatter
+        panel.axis.ylabel[] = axis_label
+    end
+    return panel
+end
+
+function _refresh_panel_format!(panel::UIPanel)
+    _refresh_axis_format!(panel, :x)
+    _refresh_axis_format!(panel, :y)
+    return panel
+end
+
 function _series_group(series, index::Int)
     return series.group === nothing ? Symbol("series_$index") : series.group
 end
@@ -90,9 +144,10 @@ function _axis_values(panel::UIPanel, dim::Symbol; include_uncertainty::Bool = f
             nominal_value isa Real || continue
             numeric = Float64(nominal_value)
             isfinite(numeric) || continue
-            uncertainty = abs(Float64(standard_uncertainty(sample)))
-            if include_uncertainty && isfinite(uncertainty) && !iszero(uncertainty)
-                push!(values, numeric - uncertainty, numeric + uncertainty)
+            uncertainty_value = abs(Float64(uncertainty(sample)))
+            if include_uncertainty && isfinite(uncertainty_value) &&
+               !iszero(uncertainty_value)
+                push!(values, numeric - uncertainty_value, numeric + uncertainty_value)
             else
                 push!(values, numeric)
             end
@@ -136,8 +191,14 @@ function _reset_panel_limits!(panel::UIPanel)
     axis = panel.axis
     metadata = panel.metadata
     autolimits!(axis)
-    all(isempty(_axis_values(panel, dim)) for dim in (:x, :y)) && return axis
-    metadata.limits !== nothing && return axis
+    all(isempty(_axis_values(panel, dim)) for dim in (:x, :y)) && begin
+        _refresh_panel_format!(panel)
+        return axis
+    end
+    metadata.limits !== nothing && begin
+        _refresh_panel_format!(panel)
+        return axis
+    end
     for dim in (:x, :y)
         values = _axis_values(panel, dim)
         isempty(values) && continue
@@ -149,6 +210,7 @@ function _reset_panel_limits!(panel::UIPanel)
                  _linear_constant_limits(values, interval_values)
         dim === :x ? xlims!(axis, limits...) : ylims!(axis, limits...)
     end
+    _refresh_panel_format!(panel)
     return axis
 end
 

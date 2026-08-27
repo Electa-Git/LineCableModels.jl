@@ -42,7 +42,7 @@ export compute, plot
 using LinearAlgebra: I, ldiv!, lu!
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..LineCableModels: basis, R, L, C, resistance, inductance, capacitance
-import ..LineCableModels: nominal, standard_uncertainty
+import ..LineCableModels: nominal, uncertainty
 import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
                   AbstractProblemResult, AbstractCoreResult,
                   FormulationOptions, ComputationOptions,

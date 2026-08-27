@@ -20,15 +20,8 @@ end
 
 function _common_exponent(observation)
     observation === nothing && return 0
-    finite = Float64[]
     values = observation.values isa Number ? (observation.values,) : observation.values
-    for value in values
-        numeric = nominal(value)
-        numeric isa Real && isfinite(numeric) && push!(finite, abs(Float64(numeric)))
-    end
-    filter!(!iszero, finite)
-    isempty(finite) && return 0
-    return floor(Int, log10(maximum(finite)))
+    return something(_scientific_exponent(values), 0)
 end
 
 function _native_label(observation, override)
@@ -209,6 +202,12 @@ function PlotBuilder.axis!(
         data,
         aspect
     )
+    observer = on(axis.finallimits) do _
+        index = findfirst(panel -> panel.axis === axis, ui.panels)
+        index === nothing || _refresh_panel_format!(ui.panels[index])
+        return nothing
+    end
+    push!(ui.observers, observer)
     return axis
 end
 
@@ -237,6 +236,7 @@ function _apply_panel_state!(panel::UIPanel, state)
         xlimits, ylimits = state.current_limits
         xlims!(panel.axis, xlimits...)
         ylims!(panel.axis, ylimits...)
+        _refresh_panel_format!(panel)
     end
     return panel
 end

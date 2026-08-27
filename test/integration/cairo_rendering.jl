@@ -510,6 +510,29 @@
         @test capacitance_limits.origin[2] == 0.38
         @test capacitance_limits.origin[2] + capacitance_limits.widths[2] ≈ 0.42
 
+        zero_conductance_parameters=LineParameters(
+            copy(Z(parameters)),
+            complex.(zeros(size(conductance_values)), capacitance_values .* omega),
+            frequency
+        )
+        zero_shunt_plot=only(Makie.plot(
+            zero_conductance_parameters,
+            (G, C);
+            xscale = :log10,
+            backend = :cairo,
+            display_plot = false,
+            controls = false
+        ))
+        zero_conductance_axis=first(zero_shunt_plot.panels).axis
+        zero_conductance_limits=zero_conductance_axis.finallimits[]
+        @test zero_conductance_limits.origin[2] == -sqrt(eps(Float64))
+        @test zero_conductance_limits.origin[2] +
+              zero_conductance_limits.widths[2] == sqrt(eps(Float64))
+        @test zero_conductance_axis.ylabel[] isa Makie.RichText
+        @test occursin("−8", sprint(show, zero_conductance_axis.ylabel[]))
+        @test zero_conductance_axis.ytickformat[]([-1.0e-8, 0.0, 1.0e-8]) ==
+              ["-1", "0", "1"]
+
         mktempdir() do directory
             svg_path=joinpath(directory, "line parameters.svg")
             exported=export_svg(handle; path = svg_path, open_file = false)

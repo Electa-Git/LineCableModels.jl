@@ -12,7 +12,7 @@ using Printf: @sprintf
 import LineCableModels
 import LineCableModels.PlotBuilder
 import LineCableModels.PlotBuilder: validate_export_theme
-using LineCableModels: nominal, standard_uncertainty
+using LineCableModels: nominal, uncertainty
 using LineCableModels.Units: label
 using LineCableModels.PlotBuilder:
                                    ColorbarDefinition, ExportDefinition,

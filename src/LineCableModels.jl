@@ -30,12 +30,12 @@ export series_impedance, shunt_admittance,
 export Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGrid
 export AbstractGrid, AbstractUncertainGrid, UncertainValue
 export Gridspace
-export has_uncertainty, nominal, standard_uncertainty
+export has_uncertainty, nominal, uncertainty
 export @gridspace, @relax
 export Combinatorial, LinearError, MonteCarlo, ParametricProblem
 export ParametricResult, LinearErrorResult, MonteCarloResult
 export SampleSummary, HistogramDensity
-export result, statistics, samples, histograms, uncertain_value
+export result, statistics, samples, histograms, uncertain
 export root_seed, point_seed, trial_count
 export confidence, cdf_tolerance, sampling_distribution
 export report, TableReportDefinition, XLSXReportDefinition, ReportArtifact
@@ -74,7 +74,7 @@ using .Grammar:
                 FormulationOptions, ComputationOptions, ComputationDetails,
                 formulation_options, computation_options, computation_details, details,
                 compute, observe, @observe, observables,
-                nominal, standard_uncertainty
+                nominal, uncertainty
 
 # Submodule `Validation`
 include("validation/Validation.jl")
@@ -129,7 +129,7 @@ include("uq/UQ.jl")
 using .UQ:
            LinearError, MonteCarlo, LinearErrorResult, MonteCarloResult,
            SampleSummary, HistogramDensity,
-           statistics, samples, histograms, uncertain_value,
+           statistics, samples, histograms, uncertain,
            root_seed, point_seed, trial_count,
            confidence, cdf_tolerance, sampling_distribution
 

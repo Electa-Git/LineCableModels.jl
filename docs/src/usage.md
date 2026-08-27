@@ -98,7 +98,7 @@ result(sampled)
 statistics(sampled)
 samples(sampled)
 histograms(sampled)
-uncertain_value(sampled)
+uncertain(sampled)
 ```
 
 Monte Carlo settings and resolved point data are available through

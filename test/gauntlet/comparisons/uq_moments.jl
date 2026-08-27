@@ -40,7 +40,7 @@ function extract_moments(
         uncertain = LineCableModels.observe(parameters, selector)
         (
             mean = Float64.(LineCableModels.nominal.(uncertain)),
-            std = Float64.(LineCableModels.standard_uncertainty.(uncertain))
+            std = Float64.(LineCableModels.uncertainty.(uncertain))
         )
     end
     metadata = _moment_metadata(parameters, port_order)
@@ -113,18 +113,21 @@ function _validate_moment_result(value::MomentResult)
     return value
 end
 
-function _moment_rms(reference::AbstractArray{<:Real, 3}, candidate::AbstractArray{<:Real, 3})
+function _moment_rms(reference::AbstractArray{<:Real, 3}, candidate::AbstractArray{
+        <:Real, 3})
     errors = [begin
-        left = @view reference[row, column, :]
-        right = @view candidate[row, column, :]
-        difference_norm = sum(abs2, left .- right)
-        reference_norm = sum(abs2, left)
-        absolute = sqrt(difference_norm / length(left))
-        relative = iszero(reference_norm) ?
-                   (iszero(difference_norm) ? zero(absolute) : oftype(absolute, Inf)) :
-                   sqrt(difference_norm / reference_norm)
-        (; absolute, relative)
-    end for row in axes(reference, 1), column in axes(reference, 2)]
+                  left = @view reference[row, column, :]
+                  right = @view candidate[row, column, :]
+                  difference_norm = sum(abs2, left .- right)
+                  reference_norm = sum(abs2, left)
+                  absolute = sqrt(difference_norm / length(left))
+                  relative = iszero(reference_norm) ?
+                             (iszero(difference_norm) ? zero(absolute) :
+                              oftype(absolute, Inf)) :
+                             sqrt(difference_norm / reference_norm)
+                  (; absolute, relative)
+              end
+              for row in axes(reference, 1), column in axes(reference, 2)]
     absolute = getproperty.(errors, :absolute)
     relative = getproperty.(errors, :relative)
     T = promote_type(eltype(absolute), eltype(relative))
@@ -182,6 +185,7 @@ function moment_comparison_passes(comparison::MomentBenchmark, tolerances::Named
         "UQ moment tolerances must contain exactly mean and std",
     ))
     for statistic in (:mean, :std), quantity in keys(_MOMENT_QUANTITIES)
+
         error = getproperty(getproperty(comparison.errors, quantity), statistic)
         statistic_tolerances = getproperty(tolerances, statistic)
         haskey(statistic_tolerances, quantity) || throw(ArgumentError(
@@ -208,7 +212,6 @@ function moment_error_summary(comparison::MomentBenchmark)
         end
     end
 end
-
 
 function moment_error_summary(
         comparison::MomentBenchmark,

@@ -308,9 +308,9 @@ function _supports_log_values(samples)
     for sample in samples
         found = true
         value = nominal(sample)
-        uncertainty = abs(standard_uncertainty(sample))
-        value isa Real && isfinite(value) && isfinite(uncertainty) &&
-        value - uncertainty > 0 || return false
+        uncertainty_value = abs(uncertainty(sample))
+        value isa Real && isfinite(value) && isfinite(uncertainty_value) &&
+        value - uncertainty_value > 0 || return false
     end
     return found
 end

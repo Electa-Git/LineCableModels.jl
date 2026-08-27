@@ -23,7 +23,7 @@ export AbstractParametricResult, AbstractUncertaintyResult
 export FormulationOptions, ComputationOptions, ComputationDetails
 export formulation_options, computation_options, computation_details, details
 export compute, observe, @observe, observables
-export nominal, standard_uncertainty
+export nominal, uncertainty
 export @orchestrator
 
 using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF

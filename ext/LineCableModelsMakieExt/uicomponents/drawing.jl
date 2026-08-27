@@ -11,7 +11,7 @@ end
 function _numeric_values(values)
     values === nothing && return nothing, nothing
     nominal_values = nominal.(values)
-    errors = standard_uncertainty.(values)
+    errors = uncertainty.(values)
     return nominal_values, any(error -> !iszero(error), errors) ? errors : nothing
 end
 

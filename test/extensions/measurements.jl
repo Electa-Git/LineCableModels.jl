@@ -8,7 +8,7 @@
     @test !isdefined(LineCableModels, :Utils)
     @test LineCableModels.nominal(1.0) == 1.0
     @test LineCableModels.nominal(1.0 + 2.0im) == 1.0 + 2.0im
-    @test LineCableModels.standard_uncertainty(1.0) == 0.0
+    @test LineCableModels.uncertainty(1.0) == 0.0
 
     encoded_measurement=Dict(
         "__type__"=>"Measurement",
@@ -32,7 +32,7 @@ end
         @test eltype(material) === Measurement{Float64}
         @test derivative(material.rho, x) ≈ 1.0
         @test nominal(material.rho) == value(x)
-        @test standard_uncertainty(material.rho) == uncertainty(x)
+        @test uncertainty(material.rho) == uncertainty(x)
     end
 
     @testset "Mixed BaseParams calls retain primitive sensitivities" begin
@@ -113,7 +113,7 @@ end
     @test value(uncertain) == -20.0
     @test uncertainty(uncertain) == 1.0
     @test LineCableModels.nominal(uncertain) == -20.0
-    @test LineCableModels.standard_uncertainty(uncertain) == 1.0
+    @test LineCableModels.uncertainty(uncertain) == 1.0
 
     clipped=LineCableModels.Grammar.detach(
         measurement(eps(Float64)/2, eps(Float64)/4),

@@ -25,8 +25,7 @@ struct CaseParameter{T, Tags <: Tuple}
     end
 end
 
-case_parameter(id::Symbol, nominal; tags) =
-    CaseParameter(id, nominal, Tuple(tags))
+case_parameter(id::Symbol, nominal; tags) = CaseParameter(id, nominal, Tuple(tags))
 
 struct CaseDefinition{P <: NamedTuple, F}
     id::Symbol
@@ -128,8 +127,7 @@ struct CompositeVariation{V <: Tuple} <: AbstractCaseVariation
     end
 end
 
-compose_variations(variations::AbstractCaseVariation...) =
-    CompositeVariation(variations)
+compose_variations(variations::AbstractCaseVariation...) = CompositeVariation(variations)
 
 struct LoadedCase{D <: CaseDefinition, N, P, S <: NamedTuple, V}
     id::Symbol
@@ -156,7 +154,7 @@ function _source_record(source)
         if point isa LineCableModels.UncertainValue
             return (
                 nominal = LineCableModels.nominal(point),
-                standard_uncertainty = LineCableModels.standard_uncertainty(point)
+                uncertainty = LineCableModels.uncertainty(point)
             )
         end
         return (value = point,)
@@ -170,36 +168,42 @@ function _source_record(source)
 end
 
 variation_record(::NoVariation) = (kind = :none,)
-variation_record(variation::ExactOverrides) = (
-    kind = :exact_overrides,
-    parameters = collect(keys(variation.values))
-)
-variation_record(variation::ParameterGrids) = (
-    kind = :parameter_grids,
-    parameters = collect(keys(variation.values))
-)
-variation_record(variation::RelativeStandardUncertainty) = (
-    kind = :relative_standard_uncertainty,
-    percent = variation.percent,
-    tags = collect(variation.tags),
-    interpretation = :standard_uncertainty
-)
-variation_record(variation::CompositeVariation) = (
-    kind = :composite,
-    variations = variation_record.(collect(variation.variations))
-)
+function variation_record(variation::ExactOverrides)
+    (
+        kind = :exact_overrides,
+        parameters = collect(keys(variation.values))
+    )
+end
+function variation_record(variation::ParameterGrids)
+    (
+        kind = :parameter_grids,
+        parameters = collect(keys(variation.values))
+    )
+end
+function variation_record(variation::RelativeStandardUncertainty)
+    (
+        kind = :relative_uncertainty,
+        percent = variation.percent,
+        tags = collect(variation.tags),
+        interpretation = :uncertainty
+    )
+end
+function variation_record(variation::CompositeVariation)
+    (
+        kind = :composite,
+        variations = variation_record.(collect(variation.variations))
+    )
+end
 
 function parameter_manifest(model::LoadedCase)
     selected = Set(model.selected_parameters)
-    return NamedTuple[
-        (
-            id = parameter.id,
-            nominal = parameter.nominal,
-            tags = collect(parameter.tags),
-            selected = parameter.id in selected,
-            source = _source_record(getproperty(model.sources, parameter.id))
-        ) for parameter in values(model.definition.parameters)
-    ]
+    return NamedTuple[(
+                          id = parameter.id,
+                          nominal = parameter.nominal,
+                          tags = collect(parameter.tags),
+                          selected = parameter.id in selected,
+                          source = _source_record(getproperty(model.sources, parameter.id))
+                      ) for parameter in values(model.definition.parameters)]
 end
 
 function correlation_record(model::LoadedCase)
@@ -267,8 +271,7 @@ function case_index(
     return index
 end
 
-_matches(parameter::CaseParameter, tags::Tuple) =
-    all(tag -> tag in parameter.tags, tags)
+_matches(parameter::CaseParameter, tags::Tuple) = all(tag -> tag in parameter.tags, tags)
 
 function _apply_variation(
         ::NoVariation,
@@ -343,8 +346,9 @@ function _apply_variation(
 end
 
 _variation_count(::AbstractCaseVariation) = 1
-_variation_count(variation::CompositeVariation) =
+function _variation_count(variation::CompositeVariation)
     sum(_variation_count, variation.variations; init = 0)
+end
 
 _variation_labels(::NoVariation) = ["no variation"]
 _variation_labels(::ExactOverrides) = ["exact overrides"]
@@ -469,10 +473,9 @@ function load_case(
     problem = _materialize_case(definition, sources, nominal_problem)
     loaded_size = problem isa LineCableModels.Engine.LineParametersProblem ?
                   _validate_loaded_problem(definition, problem) : expected_size
-    selected = Symbol[
-        parameter.id for (parameter, source) in zip(values(definition.parameters), values(sources))
-        if !isequal(source, parameter.nominal)
-    ]
+    selected = Symbol[parameter.id
+                      for (parameter, source) in zip(values(definition.parameters), values(sources))
+                      if !isequal(source, parameter.nominal)]
     return LoadedCase(
         id,
         definition,

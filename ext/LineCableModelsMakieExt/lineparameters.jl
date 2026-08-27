@@ -54,6 +54,7 @@ function _finish_line_axis!(context, axis, groups, objects, labels, data, state)
         xlimits, ylimits = state.current_limits
         xlims!(axis, xlimits...)
         ylims!(axis, ylimits...)
+        _refresh_panel_format!(registered)
     end
     return registered
 end

@@ -19,7 +19,7 @@ module ParametricBuilder
 export Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGrid
 export AbstractGrid, AbstractUncertainGrid, UncertainValue
 export Gridspace
-export has_uncertainty, nominal, standard_uncertainty
+export has_uncertainty, nominal, uncertainty
 export @gridspace, @relax
 
 export Combinatorial, ParametricProblem, ParametricResult
@@ -36,7 +36,7 @@ using ..Grammar: @orchestrator
 import ..LineCableModels: add!
 import ..Grammar
 import ..Grammar: compute, computation_options, computation_details, details,
-                  nominal, standard_uncertainty, check_core_result,
+                  nominal, uncertainty, check_core_result,
                   computation_owner
 using ..Grammar:
                  AbstractProblemDefinition, AbstractFormulation, AbstractResultSpace,

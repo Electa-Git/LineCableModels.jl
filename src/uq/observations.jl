@@ -30,7 +30,7 @@ histograms(value::MonteCarloResult) = value.histogram_values
 basis(value::MonteCarloResult) = basis(first(value.values))
 
 "Return the uncertainty-bearing core results of a linear propagation."
-uncertain_value(value::LinearErrorResult) = value.values
+uncertain(value::LinearErrorResult) = value.values
 
 """
 $(TYPEDSIGNATURES)

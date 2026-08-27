@@ -59,7 +59,7 @@ $(TYPEDSIGNATURES)
 Return the absolute standard uncertainty stored in an
 [`UncertainValue`](@ref), in the same unit as its nominal value.
 """
-standard_uncertainty(value::UncertainValue) = value.sigma
+uncertainty(value::UncertainValue) = value.sigma
 
 """
 $(TYPEDEF)

@@ -18,7 +18,7 @@ const Engine = LineCableModels.Engine
 const ReportBuilder = LineCableModels.ReportBuilder
 const ImportExport = LineCableModels.ImportExport
 
-import LineCableModels: nominal, standard_uncertainty
+import LineCableModels: nominal, uncertainty
 import LineCableModels.Engine: has_uncertainty_type
 import LineCableModels.ImportExport:
                                      serialize_value, deserialize_extension,
@@ -28,7 +28,7 @@ import LineCableModels.ReportBuilder: encode_cell
 
 # Numeric presentation hooks.
 nominal(value::Measurements.Measurement) = Measurements.value(value)
-standard_uncertainty(value::Measurements.Measurement) = Measurements.uncertainty(value)
+uncertainty(value::Measurements.Measurement) = Measurements.uncertainty(value)
 
 function ParametricBuilder.materialize(value::ParametricBuilder.UncertainValue{<:Real})
     Measurements.measurement(value.nominal, value.sigma)

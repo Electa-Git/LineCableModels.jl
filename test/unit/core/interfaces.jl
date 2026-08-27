@@ -7,8 +7,8 @@
 
     @test nominal(3.0 + 4.0im) == 3.0 + 4.0im
     @test nominal([1.0, 2.0]) == [1.0, 2.0]
-    @test standard_uncertainty(3.0) == 0.0
-    @test standard_uncertainty("not numeric") == 0.0
+    @test uncertainty(3.0) == 0.0
+    @test uncertainty("not numeric") == 0.0
     value=(answer = 42,)
     @test validate(value) === value
 end

@@ -145,7 +145,7 @@ speedup is 6.25×. Timing values are machine-specific; their environment is
 stored in the artifact.
 
 The scientific KPIs are mean and standard deviation for `R`, `L`, `C`, and `G`.
-LEP moments come from `nominal` and `standard_uncertainty`; Monte Carlo moments
+LEP moments come from `nominal` and `uncertainty`; Monte Carlo moments
 come from `SampleSummary.mean` and `.std`. Before numerical comparison, the
 adapter requires exact agreement in quantity set, tensor shape, terminal order,
 frequency samples, domain, and basis. It then computes absolute and
