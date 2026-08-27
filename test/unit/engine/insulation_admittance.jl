@@ -80,13 +80,13 @@ end
     using LinearAlgebra
 
     function two_terminal_problem(; uncertain = false)
-        copper=Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
+        copper=Material(:conductor, 1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
         rho_1=uncertain ? measurement(2.0e11, 2.0e10) : 2.0e11
         eps_1=uncertain ? measurement(2.4, 0.12) : 2.4
         thickness_1=uncertain ? measurement(3.0e-3, 1.5e-4) : 3.0e-3
-        dielectric_1=Material(rho_1, eps_1, 1.0, 20.0, 0.0)
-        dielectric_2=Material(8.0e10, 3.6, 1.0, 20.0, 0.0)
-        outer_dielectric=Material(1.0e14, 2.3, 1.0, 20.0, 0.0)
+        dielectric_1=Material(:insulator, rho_1, eps_1, 1.0, 20.0, 0.0)
+        dielectric_2=Material(:insulator, 8.0e10, 3.6, 1.0, 20.0, 0.0)
+        outer_dielectric=Material(:insulator, 1.0e14, 2.3, 1.0, 20.0, 0.0)
 
         core_conductor=ConductorGroup(Tubular(0.0, 0.010, copper))
         core_insulation=InsulatorGroup(Insulator(
@@ -244,6 +244,7 @@ end
     import LineCableModels.ParametricBuilder as PB
 
     copper=PB.Material(
+        kind = :conductor,
         rho = 1.7241e-8,
         eps_r = 1.0,
         mu_r = 1.0,
@@ -251,10 +252,11 @@ end
         alpha = 0.00393
     )
     dielectric=PB.Material(
+        kind = :insulator,
         rho = Grid(2.0e11, 10.0),
         eps_r = Grid(2.4, 5.0)
     )
-    outer_dielectric=PB.Material(rho = 1.0e14, eps_r = 2.3)
+    outer_dielectric=PB.Material(kind = :insulator, rho = 1.0e14, eps_r = 2.3)
     design=PB.CableBuilder(
         "parallel-rc-mc",
         PB.Conductor.Solid(:core; radius = 0.010, material = copper),

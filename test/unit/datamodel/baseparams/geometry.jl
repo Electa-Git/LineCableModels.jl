@@ -38,7 +38,7 @@ end
     BaseParamsTestSupport,
     UseBaseParamsSupport
 ] begin
-    material=Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
+    material=Material(:conductor, 1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
     first_layer=CircStrands(0.01, 0.012, 0.001, 7, 10.0, material)
     second_layer=CircStrands(0.02, 0.022, 0.001, 12, 15.0, material)
     tube=Tubular(0.01, 0.02, material)

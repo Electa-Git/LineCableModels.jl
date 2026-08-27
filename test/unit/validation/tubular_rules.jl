@@ -4,7 +4,7 @@
 ] begin
     const V=LineCableModels.Validation
     const TubularType=LineCableModels.DataModel.Tubular
-    material=Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
+    material=Material(:conductor, 1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
 
     layer=Tubular(0.01, 0.02, material)
     @test validate(layer) === layer

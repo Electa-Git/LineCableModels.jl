@@ -159,8 +159,8 @@ end
     using LineCableModels
     import LineCableModels.DataModel
 
-    metal=Material(1.7e-8, 1.0, 1.0, 20.0, 0.0039)
-    dielectric=Material(1.0e14, 2.3, 1.0, 20.0, 0.0)
+    metal=Material(:conductor, 1.7e-8, 1.0, 1.0, 20.0, 0.0039)
+    dielectric=Material(:insulator, 1.0e14, 2.3, 1.0, 20.0, 0.0)
     components=let radius=0.0
         values=DataModel.CableComponent[]
         for index in 1:5

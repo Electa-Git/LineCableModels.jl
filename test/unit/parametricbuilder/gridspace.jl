@@ -34,16 +34,21 @@
     ) == 16.0
     @test_throws ArgumentError rand(
         MersenneTwister(1), uncertain; distribution = :cauchy)
-    @test_throws ArgumentError rand(MersenneTwister(1), relative)
+    @test isfinite(rand(MersenneTwister(1), relative))
     @test rand(MersenneTwister(1), PB.Grid(3.0)) == 3.0
+    @test rand(MersenneTwister(1), PB.Grid((:a, :b, :c))) in (:a, :b, :c)
+    @test rand(PB.Grid(:fixed)) === :fixed
 
     @test_throws ArgumentError PB.Grid(1.0, -1.0)
     @test_throws ArgumentError PB.Grid(Inf, 1.0)
     @test_throws ArgumentError PB.Grid(1.0, PB.AbsoluteError(-1.0))
+    @test_throws ArgumentError PB.Grid(:symbol, 1.0)
+    @test_throws ArgumentError PB.Grid(:symbol, PB.AbsoluteError(1.0))
 end
 
 @testitem "ParametricBuilder / Gridspace / product and zip" tags=[:unit] setup=[
     EngineTestSupport, UseEngineSupport] begin
+    using Random
     import LineCableModels.ParametricBuilder as PB
 
     product_space=PB.Gridspace{Tuple}(
@@ -103,7 +108,37 @@ end
     @test_throws ArgumentError PB.Gridspace{Tuple}(
         tuple, (PB.Grid(1),); combine = :outer)
     @test !applicable(getindex, product_space, 1)
-    @test_throws MethodError rand(product_space)
+    @test rand(MersenneTwister(1), product_space) in collect(product_space)
+    @test rand(product_space) in collect(product_space)
+    zipped_draws = Set(
+        rand(MersenneTwister(seed), zip_space) for seed in 1:20
+    )
+    @test zipped_draws ⊆ Set(collect(zip_space))
+    @test_throws ArgumentError rand(
+        MersenneTwister(1),
+        PB.Gridspace{Tuple}(tuple, (PB.Grid(()),))
+    )
+end
+
+@testitem "ParametricBuilder / Material / invariant class and scalar precision" tags=[:unit] setup=[
+    EngineTestSupport, UseEngineSupport] begin
+    using Random
+    import LineCableModels.ParametricBuilder as PB
+
+    material=@inferred PB.Material(kind = :conductor, rho = Float32(1.7e-8))
+    @test material isa LineCableModels.Materials.Material{Float32}
+    @test material.kind === :conductor
+
+    space=PB.Material(
+        kind = PB.Grid((:conductor, :semicon)),
+        rho = Float32(1.7e-8)
+    )
+    @test space isa PB.Gridspace{LineCableModels.Materials.Material}
+    @test getproperty.(collect(space), :kind) == [:conductor, :semicon]
+    @test all(value -> eltype(value) === Float32, space)
+    sampled=rand(MersenneTwister(8), space)
+    @test sampled.kind in (:conductor, :semicon)
+    @test eltype(sampled) === Float32
 end
 
 @testitem "ParametricBuilder / Gridspace / recursive point resolution" tags=[:unit] setup=[
@@ -141,6 +176,13 @@ end
         label::Symbol=:default
     end
 
+    PB.@relax struct RelaxedMixedFields{T <: Real}
+        value::T
+        count::Int
+        enabled::Bool
+        label::Symbol
+    end
+
     @test collect(MacroVault(; value = PB.Grid((1.0, 2.0)), label = :ok)) == [
         MacroVault(1.0, :ok),
         MacroVault(2.0, :ok)
@@ -152,6 +194,16 @@ end
         ReverseMacroVault(3.0, :default),
         ReverseMacroVault(4.0, :default)
     ]
+    mixed=RelaxedMixedFields(Float32(1), 3, true, :fixed)
+    @test eltype(mixed) === Float32
+    @test mixed.count === 3
+    @test mixed.enabled === true
+    @test mixed.label === :fixed
+    converted=convert(RelaxedMixedFields{Float64}, mixed)
+    @test converted.value === 1.0
+    @test converted.count === 3
+    @test converted.enabled === true
+    @test converted.label === :fixed
 
     PB.@gridspace struct AtomicCollections{T}
         payload::T

@@ -27,7 +27,7 @@ end
 
     @testset "Owned constructors preserve primitive dependencies" begin
         x = measurement(2.0, 0.1)
-        material = Material(x, 1.0f0, 1, 20, 0.004)
+        material = Material(:conductor, x, 1.0f0, 1, 20, 0.004)
 
         @test eltype(material) === Measurement{Float64}
         @test derivative(material.rho, x) ≈ 1.0
@@ -49,9 +49,9 @@ end
     DataModelTestSupport, UseDataModelSupport, TestNumerics] begin
     using Measurements
     import Measurements: derivative
-    copper_props=Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
-    insulator_props=Material(1.0e14, 2.3, 1.0, 20.0, 0.0)
-    semicon_props=Material(1000.0, 1000.0, 1.0, 20.0, 0.0)
+    copper_props=Material(:conductor, 1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
+    insulator_props=Material(:insulator, 1.0e14, 2.3, 1.0, 20.0, 0.0)
+    semicon_props=Material(:semicon, 1000.0, 1000.0, 1.0, 20.0, 0.0)
 
     diameter=measurement(0.02, 0.001)
     insulation_thickness=measurement(0.01, 0.001)

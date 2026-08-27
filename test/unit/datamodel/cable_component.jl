@@ -49,8 +49,8 @@
     @test flattened_conductor.r_ex == conductor.r_ex
     @test flattened_insulator.reference_frequency == insulation.reference_frequency
 
-    magnetic_inner=Material(1e14, 2.0, 2.0, 20.0, 0.0)
-    magnetic_outer=Material(1e14, 2.0, 4.0, 20.0, 0.0)
+    magnetic_inner=Material(:insulator, 1e14, 2.0, 2.0, 20.0, 0.0)
+    magnetic_outer=Material(:insulator, 1e14, 2.0, 4.0, 20.0, 0.0)
     magnetic_group=InsulatorGroup(Insulator(0.006, 0.008, magnetic_inner))
     add!(magnetic_group, Insulator(0.008, 0.010, magnetic_outer))
     magnetic_component=CableComponent("magnetic", conductor, magnetic_group)

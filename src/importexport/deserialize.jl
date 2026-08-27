@@ -84,8 +84,13 @@ end
 
 function _decode_object(::Val{:Material}, value)
     return Material(
+        _field(value, "kind"),
         _field(value, "rho"), _field(value, "eps_r"), _field(value, "mu_r"),
-        _field(value, "T0"), _field(value, "alpha")
+        _field(value, "T0"), _field(value, "alpha");
+        rho_thermal = _field(value, "rho_thermal"),
+        theta_max = _field(value, "theta_max"),
+        tan_delta = _field(value, "tan_delta"),
+        sigma_solar = _field(value, "sigma_solar")
     )
 end
 

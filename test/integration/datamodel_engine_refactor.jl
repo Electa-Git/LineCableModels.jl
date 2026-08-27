@@ -155,9 +155,11 @@ end
 
     function compact_problem(::Type{T}) where {T <: AbstractFloat}
         conductor=PB.Material(
+            kind = :conductor,
             rho = T(0.01), eps_r = one(T), mu_r = one(T), T0 = T(20), alpha = T(0.004)
         )
         dielectric=PB.Material(
+            kind = :insulator,
             rho = T(100), eps_r = T(2), mu_r = one(T), T0 = T(20), alpha = zero(T)
         )
         design=PB.CableBuilder(

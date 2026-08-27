@@ -15,6 +15,7 @@
 
     materials_library() = LineCableModels.Materials.MaterialsLibrary(add_defaults = true)
     copper_material() = LineCableModels.Materials.Material(
+        :conductor,
         1.7241e-8,
         1.0,
         1.0,
@@ -22,14 +23,19 @@
         0.00393
     )
     aluminum_material() = LineCableModels.Materials.Material(
+        :conductor,
         2.8264e-8,
         1.0,
         1.0,
         20.0,
         0.00429
     )
-    insulator_material() = LineCableModels.Materials.Material(1e14, 2.3, 1.0, 20.0, 0.0)
-    semicon_material() = LineCableModels.Materials.Material(1000.0, 1000.0, 1.0, 20.0, 0.0)
+    insulator_material() = LineCableModels.Materials.Material(
+        :insulator, 1e14, 2.3, 1.0, 20.0, 0.0
+    )
+    semicon_material() = LineCableModels.Materials.Material(
+        :semicon, 1000.0, 1000.0, 1.0, 20.0, 0.0
+    )
 
     function three_phase_system(; line_length = 1_000.0, spacing = 0.035)
         design = mv_cable_design()

@@ -258,9 +258,15 @@ end
     using GeometryBasics
     import LineCableModels.DataModel as DM
 
-    conductor=LineCableModels.Materials.Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
-    dielectric=LineCableModels.Materials.Material(1.0e14, 2.3, 1.0, 20.0, 0.0)
-    semiconductor=LineCableModels.Materials.Material(1000.0, 1000.0, 1.0, 20.0, 0.0)
+    conductor=LineCableModels.Materials.Material(
+        :conductor, 1.7241e-8, 1.0, 1.0, 20.0, 0.00393
+    )
+    dielectric=LineCableModels.Materials.Material(
+        :insulator, 1.0e14, 2.3, 1.0, 20.0, 0.0
+    )
+    semiconductor=LineCableModels.Materials.Material(
+        :semicon, 1000.0, 1000.0, 1.0, 20.0, 0.0
+    )
     outer=sqrt(0.01^2+12*0.002*0.001/π)
     strands=RectStrands(0.01, outer, 0.001, 0.002, 12, 12.0, conductor)
 
@@ -307,8 +313,12 @@ end
 
     @test DM._base_material_color(Inf) == DM._INSULATOR_COLORS[end]
 
-    broad_conductor=LineCableModels.Materials.Material(1.0e-6, 4.0, 10.0, 20.0, 0.0)
-    broad_dielectric=LineCableModels.Materials.Material(1.0e14, 20.0, 2.0, 20.0, 0.0)
+    broad_conductor=LineCableModels.Materials.Material(
+        :conductor, 1.0e-6, 4.0, 10.0, 20.0, 0.0
+    )
+    broad_dielectric=LineCableModels.Materials.Material(
+        :insulator, 1.0e14, 20.0, 2.0, 20.0, 0.0
+    )
     broad_design=CableDesign(
         "broad-scale",
         ConductorGroup(Tubular(0.0, 0.01, broad_conductor)),

@@ -59,7 +59,7 @@ end
     import LineCableModels.ImportExport as IE
 
     library=MaterialsLibrary(add_defaults = false)
-    copper=Material(1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
+    copper=Material(:conductor, 1.7241e-8, 1.0, 0.999994, 20.0, 0.00393)
     add!(library, "copper", copper)
 
     mktempdir() do directory

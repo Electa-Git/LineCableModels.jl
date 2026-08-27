@@ -2,15 +2,26 @@
     DataModelTestSupport,
     UseDataModelSupport
 ] begin
-    ordinary=Material(Float32(1.7e-8), big"2.3", 1, 20, Float32(0.004))
+    ordinary=Material(
+        :conductor, Float32(1.7e-8), big"2.3", 1, 20, Float32(0.004);
+        rho_thermal = Float32(0.25), theta_max = 95,
+        tan_delta = Float32(0.01), sigma_solar = 0.5
+    )
     @test ordinary isa Material{BigFloat}
     @test eltype(ordinary) === BigFloat
+    @test ordinary.kind === :conductor
 
     converted=convert(Material{Float32}, ordinary)
     @test converted isa Material{Float32}
     @test converted.rho ≈ Float32(ordinary.rho)
+    @test converted.kind === ordinary.kind
+
+    defaulted=Material(:conductor, Float32(1.7e-8))
+    @test defaulted isa Material{Float32}
+    @test defaulted.kind === :conductor
 
     uncertain=Material(
+        :conductor,
         measurement(1.7e-8, 0.1e-8),
         2.3,
         1.0,
@@ -19,6 +30,7 @@
     )
     @test eltype(uncertain) <: Measurement
     @test uncertainty(uncertain.rho) > 0
+    @test_throws ArgumentError Material(Symbol(""), 1.0)
 end
 
 @testitem "Materials / MaterialsLibrary / dictionary and presentation contracts" tags=[:unit] setup=[
@@ -30,13 +42,13 @@ end
     @test sprint(show, MIME("text/plain"), empty_library) ==
           "MaterialsLibrary with 0 materials"
 
-    copper=Material(1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
+    copper=Material(:conductor, 1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
     @test add!(empty_library, :copper, copper) === empty_library
     @test empty_library["copper"] === copper
     @test collect(keys(empty_library)) == ["copper"]
     @test_throws ArgumentError add!(empty_library, "copper", copper)
 
-    fallback=Material(Inf, 1.0, 1.0, 20.0, 0.0)
+    fallback=Material(:insulator, Inf, 1.0, 1.0, 20.0, 0.0)
     @test get(empty_library, "missing", fallback) === fallback
     @test get(empty_library, "missing") === nothing
 
@@ -48,7 +60,10 @@ end
     @test all(name -> haskey(defaults, name), ("air", "copper", "xlpe", "steel"))
     table=DataFrame(defaults)
     @test nrow(table) == length(defaults)
-    @test Set(names(table)) == Set(["name", "rho", "eps_r", "mu_r", "T0", "alpha"])
+    @test Set(names(table)) == Set([
+        "name", "kind", "rho", "eps_r", "mu_r", "T0", "alpha",
+        "rho_thermal", "theta_max", "tan_delta", "sigma_solar"
+    ])
     @test occursin("rho=", sprint(show, MIME("text/plain"), defaults["copper"]))
 end
 
@@ -58,7 +73,7 @@ end
 ] begin
     library=MaterialsLibrary(add_defaults = false)
     for index in 1:7
-        add!(library, "material-$index", Material(index, 1.0, 1.0, 20.0, 0.0))
+        add!(library, "material-$index", Material(:conductor, index, 1.0, 1.0, 20.0, 0.0))
     end
     @test eltype(typeof(first(values(library)))) === Float64
     @test length(collect(values(library))) == 7
@@ -70,7 +85,11 @@ end
 
     reverse_library=MaterialsLibrary(add_defaults = false)
     for index in 7:-1:1
-        add!(reverse_library, "material-$index", Material(index, 1.0, 1.0, 20.0, 0.0))
+        add!(
+            reverse_library,
+            "material-$index",
+            Material(:conductor, index, 1.0, 1.0, 20.0, 0.0)
+        )
     end
     @test sprint(show, MIME"text/plain"(), reverse_library) == summary
 
@@ -80,7 +99,7 @@ end
     @test sprint(show, MIME"text/plain"(), reverse_library.data) == dictionary_summary
     singleton_summary=sprint(show, MIME"text/plain"(),
         Dict{String, Material}(
-            "only"=>Material(1.0, 1.0, 1.0, 20.0, 0.0),
+            "only"=>Material(:conductor, 1.0, 1.0, 1.0, 20.0, 0.0),
         ))
     @test occursin("with 1 material", singleton_summary)
     @test sprint(show, MIME"text/plain"(), Dict{String, Material}()) ==

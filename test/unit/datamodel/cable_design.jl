@@ -28,9 +28,11 @@
     @test_throws ArgumentError add!(design, component32)
     @test length(design.components) == length(snapshot.components)
 
-    bad_material=Material(1.0e-8, 1.0, 1.0, 25.0, 0.004)
+    bad_material=Material(:conductor, 1.0e-8, 1.0, 1.0, 25.0, 0.004)
     conductor=ConductorGroup(Tubular(second_component.insulator_group.r_ex, 0.04, bad_material))
-    insulation=InsulatorGroup(Insulator(0.04, 0.045, Material(1e14, 2.3, 1.0, 25.0, 0.0)))
+    insulation=InsulatorGroup(Insulator(
+        0.04, 0.045, Material(:insulator, 1e14, 2.3, 1.0, 25.0, 0.0)
+    ))
     @test_throws ArgumentError add!(design, CableComponent("hot", conductor, insulation))
 
     text=sprint(show, MIME("text/plain"), CableDesign("plain", first_component))

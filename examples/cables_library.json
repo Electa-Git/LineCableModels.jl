@@ -46,6 +46,26 @@
                         "layers": [
                             {
                                 "material": {
+                                    "rho_thermal": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "eps_r": {
+                                        "value": 32.3,
+                                        "__type__": "Float64"
+                                    },
+                                    "theta_max": {
+                                        "value": 90,
+                                        "__type__": "Float64"
+                                    },
+                                    "tan_delta": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "sigma_solar": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
                                     "T0": {
                                         "value": 20,
                                         "__type__": "Float64"
@@ -54,19 +74,19 @@
                                         "value": 0,
                                         "__type__": "Float64"
                                     },
-                                    "eps_r": {
-                                        "value": 32.3,
+                                    "rho": {
+                                        "value": 5300,
                                         "__type__": "Float64"
+                                    },
+                                    "kind": {
+                                        "value": "semicon",
+                                        "__type__": "Symbol"
                                     },
                                     "mu_r": {
                                         "value": 1,
                                         "__type__": "Float64"
                                     },
-                                    "type": "Material",
-                                    "rho": {
-                                        "value": 5300,
-                                        "__type__": "Float64"
-                                    }
+                                    "type": "Material"
                                 },
                                 "r_ex": {
                                     "value": 0.02145,
@@ -80,6 +100,26 @@
                             },
                             {
                                 "material": {
+                                    "rho_thermal": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "eps_r": {
+                                        "value": 1000,
+                                        "__type__": "Float64"
+                                    },
+                                    "theta_max": {
+                                        "value": 90,
+                                        "__type__": "Float64"
+                                    },
+                                    "tan_delta": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "sigma_solar": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
                                     "T0": {
                                         "value": 20,
                                         "__type__": "Float64"
@@ -88,19 +128,19 @@
                                         "value": 0,
                                         "__type__": "Float64"
                                     },
-                                    "eps_r": {
+                                    "rho": {
                                         "value": 1000,
                                         "__type__": "Float64"
+                                    },
+                                    "kind": {
+                                        "value": "semicon",
+                                        "__type__": "Symbol"
                                     },
                                     "mu_r": {
                                         "value": 1,
                                         "__type__": "Float64"
                                     },
-                                    "type": "Material",
-                                    "rho": {
-                                        "value": 1000,
-                                        "__type__": "Float64"
-                                    }
+                                    "type": "Material"
                                 },
                                 "r_ex": {
                                     "value": 0.02205,
@@ -114,6 +154,26 @@
                             },
                             {
                                 "material": {
+                                    "rho_thermal": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "eps_r": {
+                                        "value": 2.3,
+                                        "__type__": "Float64"
+                                    },
+                                    "theta_max": {
+                                        "value": 90,
+                                        "__type__": "Float64"
+                                    },
+                                    "tan_delta": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "sigma_solar": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
                                     "T0": {
                                         "value": 20,
                                         "__type__": "Float64"
@@ -122,19 +182,19 @@
                                         "value": 0,
                                         "__type__": "Float64"
                                     },
-                                    "eps_r": {
-                                        "value": 2.3,
+                                    "rho": {
+                                        "value": 197000000000000,
                                         "__type__": "Float64"
+                                    },
+                                    "kind": {
+                                        "value": "insulator",
+                                        "__type__": "Symbol"
                                     },
                                     "mu_r": {
                                         "value": 1,
                                         "__type__": "Float64"
                                     },
-                                    "type": "Material",
-                                    "rho": {
-                                        "value": 197000000000000,
-                                        "__type__": "Float64"
-                                    }
+                                    "type": "Material"
                                 },
                                 "r_ex": {
                                     "value": 0.03005,
@@ -148,6 +208,26 @@
                             },
                             {
                                 "material": {
+                                    "rho_thermal": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "eps_r": {
+                                        "value": 1000,
+                                        "__type__": "Float64"
+                                    },
+                                    "theta_max": {
+                                        "value": 90,
+                                        "__type__": "Float64"
+                                    },
+                                    "tan_delta": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "sigma_solar": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
                                     "T0": {
                                         "value": 20,
                                         "__type__": "Float64"
@@ -156,19 +236,19 @@
                                         "value": 0,
                                         "__type__": "Float64"
                                     },
-                                    "eps_r": {
-                                        "value": 1000,
+                                    "rho": {
+                                        "value": 500,
                                         "__type__": "Float64"
+                                    },
+                                    "kind": {
+                                        "value": "semicon",
+                                        "__type__": "Symbol"
                                     },
                                     "mu_r": {
                                         "value": 1,
                                         "__type__": "Float64"
                                     },
-                                    "type": "Material",
-                                    "rho": {
-                                        "value": 500,
-                                        "__type__": "Float64"
-                                    }
+                                    "type": "Material"
                                 },
                                 "r_ex": {
                                     "value": 0.030350000000000002,
@@ -182,6 +262,26 @@
                             },
                             {
                                 "material": {
+                                    "rho_thermal": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "eps_r": {
+                                        "value": 32.3,
+                                        "__type__": "Float64"
+                                    },
+                                    "theta_max": {
+                                        "value": 90,
+                                        "__type__": "Float64"
+                                    },
+                                    "tan_delta": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "sigma_solar": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
                                     "T0": {
                                         "value": 20,
                                         "__type__": "Float64"
@@ -190,19 +290,19 @@
                                         "value": 0,
                                         "__type__": "Float64"
                                     },
-                                    "eps_r": {
-                                        "value": 32.3,
+                                    "rho": {
+                                        "value": 5300,
                                         "__type__": "Float64"
+                                    },
+                                    "kind": {
+                                        "value": "semicon",
+                                        "__type__": "Symbol"
                                     },
                                     "mu_r": {
                                         "value": 1,
                                         "__type__": "Float64"
                                     },
-                                    "type": "Material",
-                                    "rho": {
-                                        "value": 5300,
-                                        "__type__": "Float64"
-                                    }
+                                    "type": "Material"
                                 },
                                 "r_ex": {
                                     "value": 0.030650000000000004,
@@ -227,6 +327,26 @@
                                 },
                                 "lay_direction": 1,
                                 "material": {
+                                    "rho_thermal": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "eps_r": {
+                                        "value": 1,
+                                        "__type__": "Float64"
+                                    },
+                                    "theta_max": {
+                                        "value": 90,
+                                        "__type__": "Float64"
+                                    },
+                                    "tan_delta": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "sigma_solar": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
                                     "T0": {
                                         "value": 20,
                                         "__type__": "Float64"
@@ -235,19 +355,19 @@
                                         "value": 0.00429,
                                         "__type__": "Float64"
                                     },
-                                    "eps_r": {
-                                        "value": 1,
+                                    "rho": {
+                                        "value": 2.8264e-8,
                                         "__type__": "Float64"
+                                    },
+                                    "kind": {
+                                        "value": "conductor",
+                                        "__type__": "Symbol"
                                     },
                                     "mu_r": {
                                         "value": 1.000022,
                                         "__type__": "Float64"
                                     },
-                                    "type": "Material",
-                                    "rho": {
-                                        "value": 2.8264e-8,
-                                        "__type__": "Float64"
-                                    }
+                                    "type": "Material"
                                 },
                                 "r_ex": {
                                     "value": 0.00235,
@@ -271,6 +391,26 @@
                                 },
                                 "lay_direction": 1,
                                 "material": {
+                                    "rho_thermal": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "eps_r": {
+                                        "value": 1,
+                                        "__type__": "Float64"
+                                    },
+                                    "theta_max": {
+                                        "value": 90,
+                                        "__type__": "Float64"
+                                    },
+                                    "tan_delta": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "sigma_solar": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
                                     "T0": {
                                         "value": 20,
                                         "__type__": "Float64"
@@ -279,19 +419,19 @@
                                         "value": 0.00429,
                                         "__type__": "Float64"
                                     },
-                                    "eps_r": {
-                                        "value": 1,
+                                    "rho": {
+                                        "value": 2.8264e-8,
                                         "__type__": "Float64"
+                                    },
+                                    "kind": {
+                                        "value": "conductor",
+                                        "__type__": "Symbol"
                                     },
                                     "mu_r": {
                                         "value": 1.000022,
                                         "__type__": "Float64"
                                     },
-                                    "type": "Material",
-                                    "rho": {
-                                        "value": 2.8264e-8,
-                                        "__type__": "Float64"
-                                    }
+                                    "type": "Material"
                                 },
                                 "r_ex": {
                                     "value": 0.007050000000000001,
@@ -315,6 +455,26 @@
                                 },
                                 "lay_direction": 1,
                                 "material": {
+                                    "rho_thermal": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "eps_r": {
+                                        "value": 1,
+                                        "__type__": "Float64"
+                                    },
+                                    "theta_max": {
+                                        "value": 90,
+                                        "__type__": "Float64"
+                                    },
+                                    "tan_delta": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "sigma_solar": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
                                     "T0": {
                                         "value": 20,
                                         "__type__": "Float64"
@@ -323,19 +483,19 @@
                                         "value": 0.00429,
                                         "__type__": "Float64"
                                     },
-                                    "eps_r": {
-                                        "value": 1,
+                                    "rho": {
+                                        "value": 2.8264e-8,
                                         "__type__": "Float64"
+                                    },
+                                    "kind": {
+                                        "value": "conductor",
+                                        "__type__": "Symbol"
                                     },
                                     "mu_r": {
                                         "value": 1.000022,
                                         "__type__": "Float64"
                                     },
-                                    "type": "Material",
-                                    "rho": {
-                                        "value": 2.8264e-8,
-                                        "__type__": "Float64"
-                                    }
+                                    "type": "Material"
                                 },
                                 "r_ex": {
                                     "value": 0.01175,
@@ -359,6 +519,26 @@
                                 },
                                 "lay_direction": 1,
                                 "material": {
+                                    "rho_thermal": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "eps_r": {
+                                        "value": 1,
+                                        "__type__": "Float64"
+                                    },
+                                    "theta_max": {
+                                        "value": 90,
+                                        "__type__": "Float64"
+                                    },
+                                    "tan_delta": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "sigma_solar": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
                                     "T0": {
                                         "value": 20,
                                         "__type__": "Float64"
@@ -367,19 +547,19 @@
                                         "value": 0.00429,
                                         "__type__": "Float64"
                                     },
-                                    "eps_r": {
-                                        "value": 1,
+                                    "rho": {
+                                        "value": 2.8264e-8,
                                         "__type__": "Float64"
+                                    },
+                                    "kind": {
+                                        "value": "conductor",
+                                        "__type__": "Symbol"
                                     },
                                     "mu_r": {
                                         "value": 1.000022,
                                         "__type__": "Float64"
                                     },
-                                    "type": "Material",
-                                    "rho": {
-                                        "value": 2.8264e-8,
-                                        "__type__": "Float64"
-                                    }
+                                    "type": "Material"
                                 },
                                 "r_ex": {
                                     "value": 0.01645,
@@ -403,6 +583,26 @@
                                 },
                                 "lay_direction": 1,
                                 "material": {
+                                    "rho_thermal": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "eps_r": {
+                                        "value": 1,
+                                        "__type__": "Float64"
+                                    },
+                                    "theta_max": {
+                                        "value": 90,
+                                        "__type__": "Float64"
+                                    },
+                                    "tan_delta": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "sigma_solar": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
                                     "T0": {
                                         "value": 20,
                                         "__type__": "Float64"
@@ -411,19 +611,19 @@
                                         "value": 0.00429,
                                         "__type__": "Float64"
                                     },
-                                    "eps_r": {
-                                        "value": 1,
+                                    "rho": {
+                                        "value": 2.8264e-8,
                                         "__type__": "Float64"
+                                    },
+                                    "kind": {
+                                        "value": "conductor",
+                                        "__type__": "Symbol"
                                     },
                                     "mu_r": {
                                         "value": 1.000022,
                                         "__type__": "Float64"
                                     },
-                                    "type": "Material",
-                                    "rho": {
-                                        "value": 2.8264e-8,
-                                        "__type__": "Float64"
-                                    }
+                                    "type": "Material"
                                 },
                                 "r_ex": {
                                     "value": 0.02115,
@@ -454,6 +654,26 @@
                         "layers": [
                             {
                                 "material": {
+                                    "rho_thermal": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "eps_r": {
+                                        "value": 32.3,
+                                        "__type__": "Float64"
+                                    },
+                                    "theta_max": {
+                                        "value": 90,
+                                        "__type__": "Float64"
+                                    },
+                                    "tan_delta": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "sigma_solar": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
                                     "T0": {
                                         "value": 20,
                                         "__type__": "Float64"
@@ -462,19 +682,19 @@
                                         "value": 0,
                                         "__type__": "Float64"
                                     },
-                                    "eps_r": {
-                                        "value": 32.3,
+                                    "rho": {
+                                        "value": 5300,
                                         "__type__": "Float64"
+                                    },
+                                    "kind": {
+                                        "value": "semicon",
+                                        "__type__": "Symbol"
                                     },
                                     "mu_r": {
                                         "value": 1,
                                         "__type__": "Float64"
                                     },
-                                    "type": "Material",
-                                    "rho": {
-                                        "value": 5300,
-                                        "__type__": "Float64"
-                                    }
+                                    "type": "Material"
                                 },
                                 "r_ex": {
                                     "value": 0.03200000000000001,
@@ -499,6 +719,26 @@
                                 },
                                 "lay_direction": 1,
                                 "material": {
+                                    "rho_thermal": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "eps_r": {
+                                        "value": 1,
+                                        "__type__": "Float64"
+                                    },
+                                    "theta_max": {
+                                        "value": 90,
+                                        "__type__": "Float64"
+                                    },
+                                    "tan_delta": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "sigma_solar": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
                                     "T0": {
                                         "value": 20,
                                         "__type__": "Float64"
@@ -507,19 +747,19 @@
                                         "value": 0.00393,
                                         "__type__": "Float64"
                                     },
-                                    "eps_r": {
-                                        "value": 1,
+                                    "rho": {
+                                        "value": 1.7241e-8,
                                         "__type__": "Float64"
+                                    },
+                                    "kind": {
+                                        "value": "conductor",
+                                        "__type__": "Symbol"
                                     },
                                     "mu_r": {
                                         "value": 0.999994,
                                         "__type__": "Float64"
                                     },
-                                    "type": "Material",
-                                    "rho": {
-                                        "value": 1.7241e-8,
-                                        "__type__": "Float64"
-                                    }
+                                    "type": "Material"
                                 },
                                 "r_ex": {
                                     "value": 0.0316,
@@ -543,6 +783,26 @@
                                 },
                                 "lay_direction": 1,
                                 "material": {
+                                    "rho_thermal": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "eps_r": {
+                                        "value": 1,
+                                        "__type__": "Float64"
+                                    },
+                                    "theta_max": {
+                                        "value": 90,
+                                        "__type__": "Float64"
+                                    },
+                                    "tan_delta": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "sigma_solar": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
                                     "T0": {
                                         "value": 20,
                                         "__type__": "Float64"
@@ -551,19 +811,19 @@
                                         "value": 0.00393,
                                         "__type__": "Float64"
                                     },
-                                    "eps_r": {
-                                        "value": 1,
+                                    "rho": {
+                                        "value": 1.7241e-8,
                                         "__type__": "Float64"
+                                    },
+                                    "kind": {
+                                        "value": "conductor",
+                                        "__type__": "Symbol"
                                     },
                                     "mu_r": {
                                         "value": 0.999994,
                                         "__type__": "Float64"
                                     },
-                                    "type": "Material",
-                                    "rho": {
-                                        "value": 1.7241e-8,
-                                        "__type__": "Float64"
-                                    }
+                                    "type": "Material"
                                 },
                                 "r_ex": {
                                     "value": 0.031700000000000006,
@@ -593,6 +853,26 @@
                         "layers": [
                             {
                                 "material": {
+                                    "rho_thermal": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "eps_r": {
+                                        "value": 2.3,
+                                        "__type__": "Float64"
+                                    },
+                                    "theta_max": {
+                                        "value": 90,
+                                        "__type__": "Float64"
+                                    },
+                                    "tan_delta": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "sigma_solar": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
                                     "T0": {
                                         "value": 20,
                                         "__type__": "Float64"
@@ -601,19 +881,19 @@
                                         "value": 0,
                                         "__type__": "Float64"
                                     },
-                                    "eps_r": {
-                                        "value": 2.3,
+                                    "rho": {
+                                        "value": 197000000000000,
                                         "__type__": "Float64"
+                                    },
+                                    "kind": {
+                                        "value": "insulator",
+                                        "__type__": "Symbol"
                                     },
                                     "mu_r": {
                                         "value": 1,
                                         "__type__": "Float64"
                                     },
-                                    "type": "Material",
-                                    "rho": {
-                                        "value": 197000000000000,
-                                        "__type__": "Float64"
-                                    }
+                                    "type": "Material"
                                 },
                                 "r_ex": {
                                     "value": 0.032200000000000006,
@@ -627,6 +907,26 @@
                             },
                             {
                                 "material": {
+                                    "rho_thermal": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "eps_r": {
+                                        "value": 2.3,
+                                        "__type__": "Float64"
+                                    },
+                                    "theta_max": {
+                                        "value": 90,
+                                        "__type__": "Float64"
+                                    },
+                                    "tan_delta": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "sigma_solar": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
                                     "T0": {
                                         "value": 20,
                                         "__type__": "Float64"
@@ -635,19 +935,19 @@
                                         "value": 0,
                                         "__type__": "Float64"
                                     },
-                                    "eps_r": {
-                                        "value": 2.3,
+                                    "rho": {
+                                        "value": 197000000000000,
                                         "__type__": "Float64"
+                                    },
+                                    "kind": {
+                                        "value": "insulator",
+                                        "__type__": "Symbol"
                                     },
                                     "mu_r": {
                                         "value": 1,
                                         "__type__": "Float64"
                                     },
-                                    "type": "Material",
-                                    "rho": {
-                                        "value": 197000000000000,
-                                        "__type__": "Float64"
-                                    }
+                                    "type": "Material"
                                 },
                                 "r_ex": {
                                     "value": 0.034600000000000006,
@@ -667,6 +967,26 @@
                         "layers": [
                             {
                                 "material": {
+                                    "rho_thermal": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "eps_r": {
+                                        "value": 1,
+                                        "__type__": "Float64"
+                                    },
+                                    "theta_max": {
+                                        "value": 90,
+                                        "__type__": "Float64"
+                                    },
+                                    "tan_delta": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
+                                    "sigma_solar": {
+                                        "value": 0,
+                                        "__type__": "Float64"
+                                    },
                                     "T0": {
                                         "value": 20,
                                         "__type__": "Float64"
@@ -675,19 +995,19 @@
                                         "value": 0.00429,
                                         "__type__": "Float64"
                                     },
-                                    "eps_r": {
-                                        "value": 1,
+                                    "rho": {
+                                        "value": 2.8264e-8,
                                         "__type__": "Float64"
+                                    },
+                                    "kind": {
+                                        "value": "conductor",
+                                        "__type__": "Symbol"
                                     },
                                     "mu_r": {
                                         "value": 1.000022,
                                         "__type__": "Float64"
                                     },
-                                    "type": "Material",
-                                    "rho": {
-                                        "value": 2.8264e-8,
-                                        "__type__": "Float64"
-                                    }
+                                    "type": "Material"
                                 },
                                 "r_ex": {
                                     "value": 0.032150000000000005,

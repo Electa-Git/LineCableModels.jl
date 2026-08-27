@@ -73,10 +73,13 @@ Write the plain-text representation of a material to `io`.
 - `nothing` after writing to `io`.
 """
 function Base.show(io::IO, ::MIME"text/plain", material::Material)
-    print(io, "Material with properties: [")
+    print(io, "Material $(material.kind) with properties: [")
 
     # Select displayed fields.
-    fields = [:rho, :eps_r, :mu_r, :T0, :alpha]
+    fields = [
+        :rho, :eps_r, :mu_r, :T0, :alpha, :rho_thermal,
+        :theta_max, :tan_delta, :sigma_solar
+    ]
 
     # Print each field with four significant digits.
     for (i, field) in enumerate(fields)
@@ -164,8 +167,18 @@ function Base.show(io::IO, ::MIME"text/plain", dict::Dict{String, Material})
 end
 
 function Base.convert(::Type{Material{T}}, m::Material) where {T <: Real}
-    Material{T}(convert(T, m.rho), convert(T, m.eps_r), convert(T, m.mu_r),
-        convert(T, m.T0), convert(T, m.alpha))
+    Material{T}(
+        m.kind,
+        convert(T, m.rho),
+        convert(T, m.eps_r),
+        convert(T, m.mu_r),
+        convert(T, m.T0),
+        convert(T, m.alpha),
+        convert(T, m.rho_thermal),
+        convert(T, m.theta_max),
+        convert(T, m.tan_delta),
+        convert(T, m.sigma_solar)
+    )
 end
 
 Base.convert(::Type{Material{T}}, material::Material{T}) where {T <: Real} = material

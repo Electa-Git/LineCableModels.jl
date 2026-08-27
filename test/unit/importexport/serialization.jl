@@ -63,7 +63,10 @@ end
     @test restored !== design
     @test IE.serialize_value(restored) == encoded
 
-    material=Material(Float32(1), Float32(2), Float32(3), Float32(20), Float32(0.01))
+    material=Material(
+        :conductor,
+        Float32(1), Float32(2), Float32(3), Float32(20), Float32(0.01)
+    )
     material_roundtrip=IE.deserialize_value(IE.serialize_value(material))
     @test material_roundtrip == material
     @test eltype(material_roundtrip) === Float32

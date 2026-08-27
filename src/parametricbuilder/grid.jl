@@ -287,14 +287,20 @@ function rand(
     return sample_uncertainty(rng, value, distribution)
 end
 
+function rand(value::UncertainValue{<:Real}; distribution = :normal)
+    return rand(Random.default_rng(), value; distribution)
+end
+
 function rand(
         rng::Random.AbstractRNG,
         grid::AbstractGrid;
         distribution = :normal
 )
-    length(grid) == 1 || throw(ArgumentError(
-        "rand(Grid) requires one point; select a point before sampling",
-    ))
-    value = first(grid)
+    isempty(grid) && throw(ArgumentError("cannot sample an empty Grid"))
+    value = grid[rand(rng, 1:length(grid))]
     return value isa UncertainValue ? rand(rng, value; distribution) : value
+end
+
+function rand(grid::AbstractGrid; distribution = :normal)
+    return rand(Random.default_rng(), grid; distribution)
 end

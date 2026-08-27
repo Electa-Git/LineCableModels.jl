@@ -152,6 +152,40 @@ end
 Base.length(space::Gridspace{<:Any, <:Any, <:Any, Val{:zip}}) = _zip_length(space)
 Base.size(space::Gridspace) = (length(space),)
 
+"Draw and realise one product point by sampling each source once."
+function Base.rand(
+        rng::Random.AbstractRNG,
+        space::Gridspace{<:Any, <:Any, <:Any, Val{:product}};
+        distribution = :normal
+)
+    isempty(space) && throw(ArgumentError("cannot sample an empty Gridspace"))
+    arguments = map(
+        source -> rand(rng, source; distribution),
+        space.grids
+    )
+    return space.build(arguments...)
+end
+
+"Draw one zipped point and realise its aligned sources without collecting."
+function Base.rand(
+        rng::Random.AbstractRNG,
+        space::Gridspace{<:Any, <:Any, <:Any, Val{:zip}};
+        distribution = :normal
+)
+    isempty(space) && throw(ArgumentError("cannot sample an empty Gridspace"))
+    offset = rand(rng, 0:(length(space) - 1))
+    arguments = map(space.grids) do source
+        source_offset = length(source) == 1 ? 0 : offset
+        selected = first(Iterators.drop(points(source), source_offset))
+        realize(rng, selected, distribution)
+    end
+    return space.build(arguments...)
+end
+
+function Base.rand(space::Gridspace; distribution = :normal)
+    return rand(Random.default_rng(), space; distribution)
+end
+
 "Return whether a value structurally contains an uncertainty descriptor."
 has_uncertainty(::UncertainValue) = true
 has_uncertainty(grid::AbstractUncertainGrid) = true

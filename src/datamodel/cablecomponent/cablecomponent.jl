@@ -62,7 +62,8 @@ function CableComponent(
         conductors.r_ex,
         conductors.r_in
     )
-    conductor_props = Material{T}(
+    conductor_props = Material(
+        :conductor,
         conductor_rho,
         zero(T),
         conductor_mu,
@@ -85,7 +86,8 @@ function CableComponent(
         conductors.r_ex,
         insulators.r_ex
     )
-    insulator_props = Material{T}(
+    insulator_props = Material(
+        :insulator,
         inv(conductivity),
         insulator_eps,
         insulator_mu,

@@ -51,18 +51,26 @@ function _parse_fields(struct_body)
         default = has_default ? argument.args[2] : nothing
         if field_expression isa Symbol
             name = field_expression
+            declared_type = nothing
         elseif field_expression isa Expr && field_expression.head === :(::)
             name = field_expression.args[1]
+            declared_type = field_expression.args[2]
         else
             push!(clean_body, argument)
             continue
         end
         push!(clean_body, field_expression)
-        push!(fields, (; name, has_default, default))
+        push!(fields, (; name, declared_type, has_default, default))
     end
     isempty(fields) &&
         throw(ArgumentError("macro struct must declare at least one field"))
     return Tuple(fields), clean_body
+end
+
+function _uses_type_parameter(expression, parameter::Symbol)
+    expression === parameter && return true
+    expression isa Expr || return false
+    return any(argument -> _uses_type_parameter(argument, parameter), expression.args)
 end
 
 function _extract_struct_name(struct_node)
@@ -217,16 +225,36 @@ macro relax(expression)
     ))
 
     field_names = map(field -> field.name, fields)
-    values = Expr(:tuple, field_names...)
-    recasts = [:($(GlobalRef(@__MODULE__, :recast))(promoted_type, $(field.name)))
-               for field in fields]
-    target_recasts = [:($(GlobalRef(@__MODULE__, :recast))(TargetScalar, value.$(field.name)))
-                      for field in fields]
+    relaxed = map(
+        field -> field.declared_type !== nothing &&
+                 _uses_type_parameter(field.declared_type, scalar_parameter),
+        fields
+    )
+    any(relaxed) || throw(ArgumentError(
+        "@relax found no fields declared with scalar parameter $scalar_parameter",
+    ))
+    promoted_values = Expr(:tuple, (
+        field.name for (field, participates) in zip(fields, relaxed) if participates
+    )...)
+    recasts = [
+        participates ?
+        :($(GlobalRef(@__MODULE__, :recast))(promoted_type, $(field.name))) :
+        field.name
+        for (field, participates) in zip(fields, relaxed)
+    ]
+    target_recasts = [
+        participates ?
+        :($(GlobalRef(@__MODULE__, :recast))(TargetScalar, value.$(field.name))) :
+        :(value.$(field.name))
+        for (field, participates) in zip(fields, relaxed)
+    ]
     abstract_supertype = _extract_parametric_supertype(struct_node)
 
     promoted_constructor = quote
         @inline function $struct_name($(field_names...))
-            promoted_type = $(GlobalRef(@__MODULE__, :_promoted_numeric_type))($values)
+            promoted_type = $(GlobalRef(@__MODULE__, :_promoted_numeric_type))(
+                $promoted_values
+            )
             return $struct_name{promoted_type}($(recasts...))
         end
     end

@@ -33,7 +33,7 @@
     @test_throws ArgumentError add!(group, layer32)
     @test group.r_ex == snapshot.r_ex
 
-    different_reference=Material(1.7241e-8, 1.0, 1.0, 25.0, 0.00393)
+    different_reference=Material(:conductor, 1.7241e-8, 1.0, 1.0, 25.0, 0.00393)
     @test_throws ArgumentError add!(
         group,
         Tubular(group.r_ex, 0.007, different_reference)

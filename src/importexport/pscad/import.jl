@@ -164,8 +164,8 @@ function _pscad_instance(document, project, row)
     return only(candidates)
 end
 
-function _pscad_material(rho, eps_r, mu_r)
-    return Material(rho, eps_r, mu_r, 20.0, 0.0)
+function _pscad_material(kind::Symbol, rho, eps_r, mu_r)
+    return Material(kind, rho, eps_r, mu_r, 20.0, 0.0)
 end
 
 function _pscad_dielectric(values, fields, frequency)
@@ -177,7 +177,7 @@ function _pscad_dielectric(values, fields, frequency)
     ))
     conductivity = 2π * frequency * _PSCAD_EPSILON_0 * eps_r * loss
     rho = iszero(conductivity) ? Inf : inv(conductivity)
-    return _pscad_material(rho, eps_r, mu_r)
+    return _pscad_material(:insulator, rho, eps_r, mu_r)
 end
 
 function _pscad_design(values, cable_number::Int, frequency)
@@ -189,6 +189,7 @@ function _pscad_design(values, cable_number::Int, frequency)
             conductor_inner,
             conductor_outer,
             _pscad_material(
+                :conductor,
                 _pscad_number(values, "RHOC"),
                 0.0,
                 _pscad_number(values, "PERMC")
@@ -199,7 +200,7 @@ function _pscad_design(values, cable_number::Int, frequency)
             Insulator(
                 conductor_outer,
                 conductor_outer + air_shell,
-                _pscad_material(Inf, 1.0, 1.0)
+                _pscad_material(:insulator, Inf, 1.0, 1.0)
             );
             reference_frequency = frequency
         )
@@ -230,6 +231,7 @@ function _pscad_design(values, cable_number::Int, frequency)
             conductor_inner,
             conductor_outer,
             _pscad_material(
+                :conductor,
                 _pscad_number(values, fields.rho),
                 0.0,
                 _pscad_number(values, fields.conductor_mu)
@@ -325,6 +327,7 @@ function _pscad_simplified_design(values, cable_number::Int, frequency)
             conductor_inner,
             conductor_outer,
             _pscad_material(
+                :conductor,
                 _pscad_simplified_rho(
                     values, fields, conductor_inner, conductor_outer
                 ),
@@ -342,6 +345,7 @@ function _pscad_simplified_design(values, cable_number::Int, frequency)
                 conductor_outer,
                 insulation_outer,
                 _pscad_material(
+                    :insulator,
                     iszero(conductivity) ? Inf : inv(conductivity),
                     eps_r,
                     _pscad_number(values, fields.insulation_mu)

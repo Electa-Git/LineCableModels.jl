@@ -38,7 +38,7 @@ materials = MaterialsLibrary()
 materials_df = DataFrame(materials)
 
 #=
-The function `DataFrame` returns a table with all materials and their properties, namely: electrical resistivity, relative permittivity, relative permeability, reference temperature, and temperature coefficient.
+The function `DataFrame` returns a table with every material's physical class and constitutive properties.
 =#
 
 # ##   Adding new materials
@@ -50,6 +50,7 @@ It might be useful to add other conductor materials with corrected properties ba
 =#
 
 copper_corrected = Material(
+    kind = :conductor,
     rho = 1.835e-8,
     eps_r = 1.0,
     mu_r = 0.999994,
@@ -58,6 +59,7 @@ copper_corrected = Material(
 ) # Copper with corrected resistivity from IEC 60287-3-2
 add!(materials, "copper_corrected", copper_corrected)
 aluminum_corrected = Material(
+    kind = :conductor,
     rho = 3.03e-8,
     eps_r = 1.0,
     mu_r = 0.999994,
@@ -65,13 +67,14 @@ aluminum_corrected = Material(
     alpha = 0.00403
 ) # Aluminum with corrected resistivity from IEC 60287-3-2
 add!(materials, "aluminum_corrected", aluminum_corrected)
-lead = Material(rho = 21.4e-8, eps_r = 1.0, mu_r = 0.999983, T0 = 20.0, alpha = 0.00400) # Lead or lead alloy
+lead = Material(kind = :conductor, rho = 21.4e-8, eps_r = 1.0, mu_r = 0.999983, T0 = 20.0, alpha = 0.00400) # Lead or lead alloy
 add!(materials, "lead_reference", lead)
-steel = Material(rho = 13.8e-8, eps_r = 1.0, mu_r = 300.0, T0 = 20.0, alpha = 0.00450) # Steel
+steel = Material(kind = :conductor, rho = 13.8e-8, eps_r = 1.0, mu_r = 300.0, T0 = 20.0, alpha = 0.00450) # Steel
 add!(materials, "steel_reference", steel)
-bronze = Material(rho = 3.5e-8, eps_r = 1.0, mu_r = 1.0, T0 = 20.0, alpha = 0.00300) # Bronze
+bronze = Material(kind = :conductor, rho = 3.5e-8, eps_r = 1.0, mu_r = 1.0, T0 = 20.0, alpha = 0.00300) # Bronze
 add!(materials, "bronze", bronze)
 stainless_steel = Material(
+    kind = :conductor,
     rho = 70.0e-8,
     eps_r = 1.0,
     mu_r = 500.0,
@@ -84,15 +87,15 @@ add!(materials, "stainless_steel", stainless_steel)
 When modeling cables for EMT analysis, one might be concerned with the impact of insulators and semiconductive layers on cable constants. Common insulation materials and semicons with different dielectric properties are reported in Table 6 of [cigre531](@cite). Let us include some of these materials in the [`MaterialsLibrary`](@ref) to help our future selves.
 =#
 
-epr = Material(rho = 1e15, eps_r = 3.0, mu_r = 1.0, T0 = 20.0, alpha = 0.005) # EPR (ethylene propylene rubber)
+epr = Material(kind = :insulator, rho = 1e15, eps_r = 3.0, mu_r = 1.0, T0 = 20.0, alpha = 0.005) # EPR (ethylene propylene rubber)
 add!(materials, "epr", epr)
-pvc = Material(rho = 1e15, eps_r = 8.0, mu_r = 1.0, T0 = 20.0, alpha = 0.1) # PVC (polyvinyl chloride)
+pvc = Material(kind = :insulator, rho = 1e15, eps_r = 8.0, mu_r = 1.0, T0 = 20.0, alpha = 0.1) # PVC (polyvinyl chloride)
 add!(materials, "pvc", pvc)
-laminated_paper = Material(rho = 1e15, eps_r = 2.8, mu_r = 1.0, T0 = 20.0, alpha = 0.0) # Laminated paper propylene
+laminated_paper = Material(kind = :insulator, rho = 1e15, eps_r = 2.8, mu_r = 1.0, T0 = 20.0, alpha = 0.0) # Laminated paper propylene
 add!(materials, "laminated_paper", laminated_paper)
-carbon_pe = Material(rho = 0.06, eps_r = 1e3, mu_r = 1.0, T0 = 20.0, alpha = 0.0) # Carbon-polyethylene compound (semicon)
+carbon_pe = Material(kind = :semicon, rho = 0.06, eps_r = 1e3, mu_r = 1.0, T0 = 20.0, alpha = 0.0) # Carbon-polyethylene compound (semicon)
 add!(materials, "carbon_pe", carbon_pe)
-conductive_paper = Material(rho = 18.5, eps_r = 8.6, mu_r = 1.0, T0 = 20.0, alpha = 0.0) # Conductive paper layer (semicon)
+conductive_paper = Material(kind = :semicon, rho = 18.5, eps_r = 8.6, mu_r = 1.0, T0 = 20.0, alpha = 0.0) # Conductive paper layer (semicon)
 add!(materials, "conductive_paper", conductive_paper)
 
 # ##  Removing materials

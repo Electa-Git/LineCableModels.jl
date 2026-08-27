@@ -8,10 +8,15 @@ nested [`Gridspace`](@ref) lifts the construction to a finite space.
 # Keywords
 
 - `rho`: Electrical resistivity \\[Ω·m\\].
-- `eps_r=1.0`: Relative permittivity \\[dimensionless\\].
-- `mu_r=1.0`: Relative permeability \\[dimensionless\\].
-- `T0=20.0`: Reference temperature \\[°C\\].
-- `alpha=0.0`: Temperature coefficient of resistivity \\[1/°C\\].
+- `kind`: Broad physical class. Deterministic symbol grids are accepted.
+- `eps_r=1`: Relative permittivity \\[dimensionless\\].
+- `mu_r=1`: Relative permeability \\[dimensionless\\].
+- `T0=20`: Reference temperature \\[°C\\].
+- `alpha=0`: Temperature coefficient of resistivity \\[1/°C\\].
+- `rho_thermal=0`: Thermal resistivity \\[K·m/W\\].
+- `theta_max=90`: Maximum continuous operating temperature \\[°C\\].
+- `tan_delta=0`: Dielectric loss tangent.
+- `sigma_solar=0`: Solar-absorption coefficient.
 - `combine=:product`: Local composition rule when an input varies.
 
 # Returns
@@ -20,16 +25,24 @@ nested [`Gridspace`](@ref) lifts the construction to a finite space.
   least one direct input is a `Grid` or nested `Gridspace`.
 """
 function Material(;
+        kind,
         rho,
-        eps_r = 1.0,
-        mu_r = 1.0,
-        T0 = 20.0,
-        alpha = 0.0,
+        eps_r = 1,
+        mu_r = 1,
+        T0 = 20,
+        alpha = 0,
+        rho_thermal = 0,
+        theta_max = 90,
+        tan_delta = 0,
+        sigma_solar = 0,
         combine::Symbol = :product
 )
     combine in (:product, :zip) ||
         throw(ArgumentError("combine must be :product or :zip; got :$combine"))
-    values = (rho, eps_r, mu_r, T0, alpha)
+    values = (
+        kind, rho, eps_r, mu_r, T0, alpha, rho_thermal,
+        theta_max, tan_delta, sigma_solar
+    )
     if any(value -> value isa Union{AbstractGrid, Gridspace}, values)
         grids = map(values) do value
             value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
@@ -41,14 +54,22 @@ end
 
 function Material(
         material::Materials.Material;
+        kind = material.kind,
         rho = material.rho,
         eps_r = material.eps_r,
         mu_r = material.mu_r,
         T0 = material.T0,
         alpha = material.alpha,
+        rho_thermal = material.rho_thermal,
+        theta_max = material.theta_max,
+        tan_delta = material.tan_delta,
+        sigma_solar = material.sigma_solar,
         combine::Symbol = :product
 )
-    return Material(; rho, eps_r, mu_r, T0, alpha, combine)
+    return Material(;
+        kind, rho, eps_r, mu_r, T0, alpha, rho_thermal,
+        theta_max, tan_delta, sigma_solar, combine
+    )
 end
 
 function Material(

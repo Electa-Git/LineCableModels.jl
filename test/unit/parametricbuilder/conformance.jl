@@ -1,5 +1,6 @@
 @testitem "ParametricBuilder / Gridspace / composition conformance" tags=[:unit] setup=[
     EngineTestSupport, UseEngineSupport] begin
+    using Random
     import LineCableModels.ParametricBuilder as PB
 
     mutable struct CountingGrid{V <: Tuple}<:PB.AbstractGrid
@@ -86,7 +87,7 @@
     @test_throws MethodError PB.Grid((1, 2); key = :shared)
     @test_throws ArgumentError PB.Gridspace{Tuple}(tuple, ((1, 2),))
     @test !applicable(getindex, product, 1)
-    @test_throws MethodError rand(product)
+    @test rand(Random.Xoshiro(0x1234), product) in collect(product)
 end
 
 @testitem "ParametricBuilder / Gridspace / structural realization" tags=[:unit] setup=[

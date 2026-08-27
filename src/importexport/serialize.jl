@@ -65,11 +65,16 @@ end
 function _serialize_object(value::Material)
     _object(
         _type_tag(value);
+        kind = value.kind,
         rho = value.rho,
         eps_r = value.eps_r,
         mu_r = value.mu_r,
         T0 = value.T0,
-        alpha = value.alpha
+        alpha = value.alpha,
+        rho_thermal = value.rho_thermal,
+        theta_max = value.theta_max,
+        tan_delta = value.tan_delta,
+        sigma_solar = value.sigma_solar
     )
 end
 

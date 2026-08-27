@@ -860,6 +860,7 @@ end
     EngineTestSupport, UseEngineSupport, TestNumerics] begin
     library=LineCableModels.MaterialsLibrary(add_defaults = false)
     copper=LineCableModels.Material(
+        kind = :conductor,
         rho = 1.7241e-8,
         eps_r = 1.0,
         mu_r = 0.999994,
@@ -872,16 +873,18 @@ end
 
     @test library["copper"] isa LineCableModels.Materials.Material
     @test library["copper"].rho == 1.7241e-8
-    @test_throws ArgumentError LineCableModels.Material(rho = 1.0, combine = :outer)
+    @test_throws ArgumentError LineCableModels.Material(
+        kind = :conductor, rho = 1.0, combine = :outer
+    )
     @test_throws ArgumentError add!(
         library,
         :sweep,
-        LineCableModels.Material(rho = Grid((1.0, 2.0)))
+        LineCableModels.Material(kind = :conductor, rho = Grid((1.0, 2.0)))
     )
     @test_throws ArgumentError add!(
         library,
         :uncertain,
-        LineCableModels.Material(rho = Grid(1.0, 1.0))
+        LineCableModels.Material(kind = :conductor, rho = Grid(1.0, 1.0))
     )
 end
 
@@ -889,8 +892,8 @@ end
     EngineTestSupport, UseEngineSupport, TestNumerics] begin
     import LineCableModels.ParametricBuilder as PB
 
-    copper=PB.Material(; rho = 1.7241e-8)
-    xlpe=PB.Material(; rho = 1.0e14, eps_r = 2.3)
+    copper=PB.Material(; kind = :conductor, rho = 1.7241e-8)
+    xlpe=PB.Material(; kind = :insulator, rho = 1.0e14, eps_r = 2.3)
     design_spec=PB.CableBuilder(
         "typed-cable",
         PB.Conductor.Solid(:core; radius = Grid((0.010, 0.012)), material = copper),
@@ -953,8 +956,8 @@ end
     import LineCableModels.ParametricBuilder as PB
     import LineCableModels.UQ as UQ
 
-    copper=PB.Material(; rho = 1.7241e-8)
-    xlpe=PB.Material(; rho = 1.0e14, eps_r = 2.3)
+    copper=PB.Material(; kind = :conductor, rho = 1.7241e-8)
+    xlpe=PB.Material(; kind = :insulator, rho = 1.0e14, eps_r = 2.3)
     uncertain_radius=Grid((0.010, 0.012), 2.0)
     design_spec=PB.CableBuilder(
         "compute-cable",
@@ -1175,8 +1178,8 @@ end
     import LineCableModels.ParametricBuilder as PB
     using Statistics
 
-    copper=PB.Material(; rho = 1.7241e-8)
-    xlpe=PB.Material(; rho = 1.0e14, eps_r = 2.3)
+    copper=PB.Material(; kind = :conductor, rho = 1.7241e-8)
+    xlpe=PB.Material(; kind = :insulator, rho = 1.0e14, eps_r = 2.3)
     formulation=Formulation()
 
     deterministic_design=PB.CableBuilder(
@@ -1278,8 +1281,8 @@ end
     EngineTestSupport, UseEngineSupport, TestNumerics] begin
     import LineCableModels.ParametricBuilder as PB
 
-    copper=PB.Material(; rho = 1.7241e-8)
-    xlpe=PB.Material(; rho = 1.0e14, eps_r = 2.3)
+    copper=PB.Material(; kind = :conductor, rho = 1.7241e-8)
+    xlpe=PB.Material(; kind = :insulator, rho = 1.0e14, eps_r = 2.3)
     design=PB.CableBuilder(
         "invalid-config-cable",
         PB.Conductor.Solid(:core; radius = 0.010, material = copper),
@@ -1300,8 +1303,8 @@ end
     EngineTestSupport, UseEngineSupport, TestNumerics] begin
     import LineCableModels.ParametricBuilder as PB
 
-    copper=PB.Material(; rho = 1.7241e-8)
-    xlpe=PB.Material(; rho = 1.0e14, eps_r = 2.3)
+    copper=PB.Material(; kind = :conductor, rho = 1.7241e-8)
+    xlpe=PB.Material(; kind = :insulator, rho = 1.0e14, eps_r = 2.3)
     design=PB.CableBuilder(
         "presentation-cable",
         PB.Conductor.Solid(:core; radius = 0.010, material = copper),
