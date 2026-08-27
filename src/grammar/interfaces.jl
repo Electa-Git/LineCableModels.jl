@@ -137,7 +137,9 @@ $(SIGNATURES)
 Publish explicitly requested scientific values for presentation or reporting.
 
 `observables(::Type{T})` declares the selectors supported by `T`.
-`observables(source, requests; units)` returns one detached payload for each
-named request. Every payload contains only `values`, `quantity`, and `unit`.
+`observables(source, requests; units, clip)` returns one detached payload for
+each positional request. Every payload contains only `values`, `quantity`, and
+`unit`. `units` is empty or positionally aligned with `requests`; `clip`
+controls display-residue cleanup and defaults to `true`.
 """
 function observables end

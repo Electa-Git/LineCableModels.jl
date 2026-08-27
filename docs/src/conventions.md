@@ -1,288 +1,332 @@
-# Development conventions
+# Conventions
 
-LineCableModels follows the SciML formatter style. Run
+LineCableModels follows the SciML formatter style. Run:
 
 ```julia
 using JuliaFormatter
 format(".")
 ```
 
-before committing.
+before committing Julia source.
 
-## Ownership-centred recursive module layout
+## Native-first semantic economy
 
-Source code is organised by **owner first** and **responsibility second**. The
-directory names the module, domain concept, or action that defines a decision.
-The filename names the operation implemented for that owner.
-For example, Engine owns line-parameter result semantics, so their array and
-accessor methods live under `engine/lineparameters/`. PlotBuilder owns the
-renderer-independent plotting grammar, while the optional Makie extension owns
-Makie figures and controls under `ext/`.
+Use Julia's existing meanings before adding package vocabulary. Check, in
+order, whether the operation is already expressed by Core, Base, a standard
+library, a direct dependency, or an existing package generic.
 
-Apply these rules when adding or moving code:
+A new name must identify a domain action, an invariant, a numerical method, an
+external format, or real state. A name that only forwards arguments, reads one
+field, repacks a tuple, or merges defaults does not add meaning.
 
-1. Put a declaration or method with the owner whose API or numerical meaning
-   determines when it changes.
-   Do not group unrelated owners into `helpers`, `utils`, `handlers`, or other
-   mechanism-first buckets.
-2. Keep a function at the package root only when at least two independent
-   sibling modules require the same meaning and neither sibling defines it.
-   Calculation functions shared by Engine,
-   ParametricBuilder, UQ, and external backends lives in `Grammar`. Engine-only
-   names such as `Z`, `frequencies`, and `description` remain in `Engine`.
-3. Name files after a precise responsibility: `interfaces.jl` declares owned
-   hooks, `types.jl` holds owner-wide types, `base.jl` contains only Base/Core
-   protocols, and an action file such as `compute.jl`, `validate.jl`, or
-   `render.jl` keeps one visible call sequence.
-4. Promote one file to a directory when the concept has several coherent
-   responsibilities. A directory does not imply a Julia submodule. Introduce a
-   submodule only for a separate namespace, dependency set, or independently
-   stated interface.
-5. Keep each `Module.jl` as an index: module documentation, explicit imports,
-   exports, includes in dependency order, and child reexports. Constructors,
-   algorithms, validation, and presentation methods belong in
-   the indexed files.
-6. Declare shared interfaces at the lowest legitimate owner. Children import
-   and extend those functions explicitly. They must not mutate parent modules
-   with `eval` or registration machinery. Sibling communication follows a
-   directed import graph.
-7. Keep optional-package translations in Julia package extensions. Core
-   `src/` may define package-neutral requests and encoded values, but it must
-   not import the optional package. Makie rendering and XLSX workbook writing
-   therefore live under `ext/`.
-8. Keep development-only environments and manual diagnostics under `dev/`,
-   not `src/` or the automated test tree.
-9. Assign file formats by purpose. ReportBuilder owns human-facing tables and
-   workbook descriptions; ImportExport owns lossless persistence and
-   external-tool interchange. The line-parameter workbook model therefore
-   lives in `reportbuilder/xlsx.jl`, its XLSX.jl writer lives in the package
-   extension, and ATP, PSCAD, and TRALIN translations remain in
-   `importexport/`.
-10. Use a Julia 1.12 workspace for the ordinary test environment. Test-only
-    dependencies belong in `test/Project.toml`; the package project lists
-    `test` under `[workspace]` and does not duplicate them under legacy
-    `[extras]` and `[targets]`. Deliberately isolated visual, core-only,
-    gauntlet, and coverage environments keep their own projects.
+| Prefer | Avoid |
+|:--|:--|
+| `Base.length`, iteration, indexing, `show`, and `showerror` | package copies of collection and display operations |
+| constructors, `promote`, and `convert` | a second conversion vocabulary |
+| another method on an owned generic | a synonym that forwards to that generic |
+| dispatch on a scientific type | a symbol switch or dictionary that repeats dispatch |
+| a local method beside its owner | a global `helpers` or `utils` bucket |
 
-The following sanitised snapshot is the reference shape. The snapshot omits leaf files
-that do not clarify the layout, but every shown path exists in the maintained
-tree:
-
-```text
-src/
-├── LineCableModels.jl                 # package index
-├── interfaces.jl                      # genuine multi-owner root contracts
-├── grammar/
-│   ├── Grammar.jl                     # shared calculation-type index
-│   ├── types.jl
-│   ├── interfaces.jl
-│   ├── results.jl
-│   ├── observables.jl                # entitlement, publication, unit targets
-│   └── uncertainty.jl
-├── units/
-│   ├── Units.jl               # unit/quantity owner
-│   ├── quantities.jl
-│   ├── definitions.jl
-│   └── scaling.jl
-├── validation/
-│   ├── Validation.jl                  # validation index
-│   ├── interfaces.jl
-│   ├── rules.jl
-│   └── validate.jl                    # fixed validation action
-├── datamodel/
-│   ├── DataModel.jl
-│   ├── packing.jl                     # cable packing constraints
-│   ├── cabledesign/
-│   │   ├── cabledesign.jl
-│   │   ├── cableconstants.jl
-│   │   └── dataframe.jl               # authored-design tables only
-│   └── preview/                       # renderer-independent preview definitions
-│       ├── definitions.jl             # validated detached geometry
-│       ├── cable.jl
-│       ├── cables.jl                 # collection layout and global scales
-│       └── materials.jl              # material colour model and traversal
-├── engine/
-│   ├── Engine.jl
-│   ├── interfaces.jl
-│   ├── compute.jl                     # analytical choreography
-│   ├── earthreturn.jl                 # named physical algorithm
-│   └── lineparameters/
-│       ├── lineparameters.jl
-│       ├── quantities.jl              # Engine ↔ Units methods
-│       └── plotdefinition.jl          # renderer-independent plot definition
-├── plotbuilder/
-│   ├── PlotBuilder.jl
-│   ├── interfaces.jl
-│   ├── types.jl                     # page, recipe, and completed-handle contracts
-│   ├── render.jl                      # fixed recipe action
-│   ├── base.jl                        # concise Base presentation
-│   └── backends.jl                    # extension activation only
-├── uq/
-│   ├── UQ.jl
-│   ├── linearerror.jl
-│   └── montecarlo/
-│       └── compute.jl
-├── reportbuilder/
-│   ├── ReportBuilder.jl               # report owner and index
-│   ├── grammar.jl                     # fixed report action
-│   ├── tables.jl                      # completed-result tables
-│   ├── montecarlo.jl                  # UQ summary projection
-│   └── xlsx.jl                        # human-facing workbook
-└── importexport/
-    ├── ImportExport.jl
-    ├── interfaces.jl
-    └── pscad/
-        ├── pscad.jl
-        ├── project.jl
-        └── import.jl
-
-ext/
-├── LineCableModelsMakieExt/
-│   ├── LineCableModelsMakieExt.jl     # Makie extension index
-│   ├── UIComponents.jl                # Makie-owned index
-│   ├── context.jl                     # single mutable UI runtime owner
-│   ├── shell.jl                       # fixed shell assembly action
-│   ├── uicomponents/
-│   │   ├── axes.jl                    # formatting, scales, and fitted limits
-│   │   ├── docks.jl                   # legends and colour scales
-│   │   ├── drawing.jl                 # native lines and uncertainties
-│   │   ├── export.jl                  # current-state SVG replay
-│   │   └── theme.jl                   # renderer constants and theme
-│   ├── lineparameters.jl
-│   ├── montecarlo.jl
-│   ├── previews.jl
-│   └── native.jl
-└── LineCableModelsXLSXExt.jl          # XLSX workbook writer
-
-dev/
-└── plotting/                          # manual plotting environment
-
-test/
-└── Project.toml                       # ordinary workspace test dependencies
-```
-
-Structural regression tests verify this layout. If a change needs a path
-that contradicts the snapshot, first identify the new owner and responsibility
-and update both the convention and its layout test. Do not
-retain a misleading path through an alias or compatibility namespace.
-
-## Observable-owned plotting and reporting
-
-An owned result is read through `observe` or `observables`. Plotting and
-reporting do not inspect its fields or reconstruct its numerical quantities.
-The maintained path is:
-
-```text
-explicit observable request
-→ observe / observables
-→ detached values + Quantity + UnitExpr
-→ direct consumer operation
-```
-
-Apply these rules when extending a result consumer:
-
-1. Construct scientific requests with `@observe`. Keep their plain tuple
-   representation; do not add request, selector, layer, or operation-tag types.
-2. Put quantity identity, units, labels, symbols, and series/shunt family in
-   `Units`. Presentation code may override displayed text, but may not define a
-   second metadata map.
-3. Let the owned result implement `observe` and declare its supported requests.
-   A product selector such as `samples` or `statistics` identifies storage; the
-   scientific selector still determines the physical quantity.
-   `MonteCarloResult` also owns histogram availability: a `histograms` request
-   returns retained density data when present and derives it from retained
-   samples when the request supplies a bin count. Renderers do not inspect the
-   retention fields or choose between those paths.
-4. Publish once before tabulation or drawing. A report table and its
-   illustration consume the same detached publication.
-5. Use the Makie function itself to select a drawing primitive. Package-managed
-   plots enter the fixed LineCableModels shell and return `UIPlot`; they do not
-   translate an operation symbol through an internal graphics grammar.
-6. Create managed axes through `axis!`, or register an ordinary Makie axis with
-   `register!`. This is where formatter, limits, scale controls, replay, and
-   legend state attach.
-7. Extend cable previews through DataModel-owned `preview_shapes` and
-   `preview_materials` methods beside the new layer type. Preview geometry is
-   not a physical observable.
-
-For example, a line dashboard accepts a request directly:
+For example, a result that is a finite collection implements Julia's collection
+methods:
 
 ```julia
-request = @observe R[:, :, :]
-plot(parameters, (request,))
+Base.length(result::MyResult) = length(result.values)
+Base.getindex(result::MyResult, index::Integer) = result.values[index]
+Base.iterate(result::MyResult, state...) = iterate(result.values, state...)
 ```
 
-A Monte Carlo primitive uses the same scientific request and the standard
-shell:
+It does not add `get_results`, `result_count`, and `iterate_results` as parallel
+names.
+
+Small methods are appropriate when each method owns a dispatch choice or an
+invariant. Tiny forwarding helpers that only rename another operation are not.
+Do not add speculative compatibility shims, runtime `eval`, exception-driven
+feature tests, or lookup tables that duplicate Julia methods.
+
+Mutating functions use `!` only when the operation can mutate an argument or
+externally visible state. The suffix states behaviour; it is not decoration.
+
+## Dispatch-driven fixed actions
+
+Use one public action when an operation has one required stage order. The
+action method shows the complete sequence, and concrete definition types add
+methods for the stages they own.
 
 ```julia
-marginal = @observe R[1, 1, 2]
-ui = Makie.hist(result, marginal; bins=20)
-ui isa UIPlot
-```
-
-Definition renderers may overload `place_legend!`, `place_colorbars!`, or
-`build_widget!` without replacing the shell sequence. Custom widgets use the
-renderer-owned `toolbar_button!` and `bind_widget_callback!` helpers so they
-share the standard status and lifecycle behavior.
-
-## Public symbol selectors and `Val` dispatch
-
-Public formulation, format, and ranking selectors accept ordinary `Symbol`s.
-The generic's owner defines a local façade and retains `Val` as the dispatch
-hook:
-
-```julia
-function owned_action(selector::Symbol, args...; kwargs...)
-    return owned_action(Val(selector), args...; kwargs...)
+function process(definition::AbstractDefinition, source)
+    admitted = entitle(definition, source)
+    selected = select(definition, admitted)
+    product = build(definition, selected)
+    return finish(definition, admitted, selected, product)
 end
+```
+
+Good definition types are concrete and passive: their fields state scientific
+choices or completed configuration. Runtime work belongs to stage methods.
+
+```julia
+struct FrequencyReport <: AbstractReportDefinition
+    requests::Tuple
+end
+
+select(definition::FrequencyReport, source) =
+    observables(source, definition.requests)
+```
+
+Do not replace type-directed stages with a generic `mode`, `style`, or options
+dictionary interpreted by one large switch. Normalize public symbols once at
+the owner's entry point when symbols are part of the public syntax, then use
+the existing `Val` method family:
+
+```julia
+owned_action(selector::Symbol, args...; kwargs...) =
+    owned_action(Val(selector), args...; kwargs...)
 
 owned_action(::Val{:example}, args...; kwargs...) = ...
 ```
 
-The façade belongs beside the generic or the owned `Val` implementation. Julia
-has no method that can rewrite calls to every unrelated generic, so do not add
-a package-wide forwarding helper, macro, registry, or symbolic switch.
+Use an explicit no-op method only when doing nothing is a valid stage result.
+Reject unsupported definition/source pairs before partial work. Introduce a
+mutable context only when several stages genuinely share buffers, resources,
+or evolving state.
 
-Apply this rule only to selectors that are part of a public call. Internal
-dispatch axes such as `:self`, `:mutual`, plot dimensions, composition modes,
-serialization tags, and `Val(OwnerType)` option dispatch remain `Val`-only.
-Current public examples include:
+The sanctioned `@orchestrator` actions and their CI checks are listed in
+[Grammar invariants](developers.md). Do not apply `@orchestrator` to an open
+generic such as `observe`.
 
-```julia
-Formulation(:analytical)
-export_data(:atp, system, earth)
-LineParameters(:tralin, path)
-estimate[:match]
+## Ownership-centred recursive module layout
+
+Place code first by the owner that defines when it changes, then by its precise
+responsibility. Files, directories, and Julia modules solve different
+problems:
+
+- a file separates one responsibility within an owner;
+- a directory groups several responsibilities that still belong to one owner;
+- a submodule supplies a separate namespace, dependency set, or stated
+  interface;
+- a package is warranted only when the code has independent users and releases.
+
+Grow code recursively:
+
+```text
+single responsibility in owner file
+└─ several responsibilities in owner directory, same module
+   └─ separate namespace or dependency set in child module
+      └─ independent package only when independently consumed
 ```
 
-Unknown selectors continue to reach the owner's unmatched `Val` dispatch.
-Each owner decides whether that means an ordinary `MethodError` or an explicit
-`ArgumentError`.
+A module entry file is an index. It contains the module description, explicit
+imports, public names, includes in dependency order, and deliberate child
+reexports. Constructors, algorithms, validation, plotting descriptions, and
+format translations belong in focused files selected by the owner.
 
-Versions follow [Semantic Versioning](https://semver.org/). Public behaviour is
-kept compatible within a minor release. Deprecations must include a migration
+Place a method according to the reason it changes. A method that exposes an
+Engine result through `observe` belongs with that result. A method that draws a
+detached plot page with Makie belongs in the Makie extension. A method that
+parses an external file belongs with the format owner.
+
+Optional dependencies remain in package extensions. Core source may define
+package-neutral requests and completed values, but it does not import Makie,
+XLSX, Measurements, or Distributions.
+
+Prefer conceptual groupings such as:
+
+```text
+Owner
+├─ types
+├─ interfaces
+├─ constructors
+├─ action
+├─ Base protocols
+└─ owned optional translations
+```
+
+Avoid global mechanism-first trees such as `types/services/managers/handlers`,
+one module per file or per type, empty directory scaffolds, and a common base
+file that accumulates unrelated methods. Do not split a fixed call sequence
+across files merely to make each stage visually separate.
+
+## Scientific reads, tables, and plots
+
+An owned result exposes numerical meaning through `observe`. A consumer asks
+for explicit requests through `observables` before tabulation or drawing:
+
+```text
+scientific request
+→ observe / observables
+→ detached values + Quantity + UnitExpr
+→ DataFrame, report, or plot
+```
+
+Apply these rules:
+
+1. Construct scientific requests with `@observe` and retain their tuple form.
+2. Define quantity identity, units, labels, and symbols in `Units`.
+3. Let the result owner implement `observe` and declare supported requests.
+4. Publish once before a table or plot consumes the values.
+5. Keep scientific tables wide: coordinates identify rows and each observed
+   quantity owns one column.
+6. Select a drawing primitive with the Makie function itself.
+7. Create managed axes through `axis!`, or attach an ordinary Makie axis with
+   `register!`.
+8. Add preview geometry beside the DataModel type that owns the cable part.
+
+Do not inspect UQ storage fields from plotting or reporting code. `samples`,
+`statistics`, and `histograms` select stored products; the scientific selector
+still identifies the physical quantity.
+
+## Docstrings
+
+Docstrings use DocStringExtensions abbreviations so declarations remain aligned
+with the implementation.
+
+### Placement and content
+
+- Place a docstring immediately before the documented module, type,
+  constructor, function, or constant.
+- Use triple double quotes, except for concise field and constant docstrings.
+- Describe implemented behaviour. Do not infer equations, units, or defaults
+  from a name.
+- State each fact once.
+- Link related local bindings inline when the relationship helps the reader.
+
+Use `@doc` for an inner constructor written inside a `struct`. An outer
+constructor at module scope uses an ordinary preceding docstring.
+
+### Physical quantities and equations
+
+State the SI unit for every physical argument, return value, field, and
+constant. In Julia docstring source, escape square brackets and LaTeX commands:
+
+```julia
+"Series resistance `\\[Ω/m\\]`."
+"Relative permeability `\\[dimensionless\\]`."
+```
+
+Comments inside Julia examples use ordinary brackets, such as `# [m]`.
+
+When code directly evaluates a physical law, approximation, or reduction that
+matters to the method's meaning, include the equation and define its symbols:
+
+````julia
+"""
+$(TYPEDSIGNATURES)
+
+Return the series impedance:
+
+```math
+Z(f) = R + \\mathrm{j} 2 \\pi f L,
+```
+
+where ``R`` is resistance, ``L`` is inductance, and ``f`` is frequency.
+"""
+````
+
+Accessors, forwarding methods, and bookkeeping functions do not need a
+mathematical section unless they evaluate the documented expression.
+
+### DocStringExtensions abbreviations
+
+- `$(TYPEDSIGNATURES)` is the default opening for functions and constructors.
+- `$(SIGNATURES)` is suitable when typed signatures obscure the public call.
+- `$(FUNCTIONNAME)` keeps executable examples aligned with renames.
+- `$(TYPEDEF)` inserts a type declaration.
+- `$(TYPEDFIELDS)` inserts fields, declared types, and field docstrings.
+- `$(FIELDS)` omits declared field types when they would distract from the
+  public meaning.
+- `$(METHODLIST)` is reserved for a multi-method interface whose purpose is to
+  list implementations.
+- `$(IMPORTS)` and `$(EXPORTS)` maintain a module inventory.
+
+Do not repeat generated text by hand.
+
+### Function structure
+
+Use this section order, omitting sections that add no information:
+
+1. description and any implemented equation;
+2. `# Arguments`;
+3. `# Keywords`;
+4. `# Returns`;
+5. `# Notes` for assumptions or limitations;
+6. `# Errors` for deliberate exceptions;
+7. `# Examples`.
+
+````julia
+"""
+$(TYPEDSIGNATURES)
+
+Describe the implemented operation.
+
+# Arguments
+
+- `value`: Physical input `\\[unit\\]`.
+
+# Keywords
+
+- `basis`: `:pul` or `:total`. Default: `:pul`.
+
+# Returns
+
+- Completed value in `\\[unit\\]`.
+
+# Errors
+
+- Throws `ArgumentError` when `basis` is unsupported.
+
+# Examples
+
+```jldoctest
+result = $(FUNCTIONNAME)(1.0; basis=:pul) # [unit]
+@assert isfinite(result)
+# output
+```
+"""
+````
+
+List arguments in declaration order and document each returned tuple member.
+Prefer `jldoctest` for a self-contained public example. Examples requiring an
+external executable, graphical interaction, network access, or repository
+fixtures belong in the developer guides.
+
+### Type and module structure
+
+Use `$(TYPEDEF)` and `$(TYPEDFIELDS)` for a type. Put a concise docstring above
+each field:
+
+````julia
+"""
+$(TYPEDEF)
+
+Represent a cable section.
+
+$(TYPEDFIELDS)
+"""
+struct CableSection{T <: Real}
+    "Section thickness `\\[m\\]`."
+    thickness::T
+end
+````
+
+A module docstring begins with the indented module name, states its purpose,
+then uses `$(IMPORTS)` and `$(EXPORTS)` when those lists aid the reader. A
+physical constant uses a concise single-line docstring with its symbol and SI
+unit.
+
+## Repository practice
+
+Versions follow [Semantic Versioning](https://semver.org/). Public behaviour
+remains compatible within a minor release. A deprecation includes a migration
 path before removal.
 
-Commit subjects use scoped Conventional Commits, start with a lowercase
-description, and remain within 72 characters. For example:
+Commit subjects use scoped Conventional Commits, begin with a lowercase
+description, and stay within 72 characters:
 
 ```text
 fix(engine): reject unsupported formulation options
 ```
 
-Changes must include tests at the closest relevant scope. Core tests must not load
-optional packages. CairoMakie is verified in a separate check.
-Examples in docstrings should be executable and self-contained. Examples that
-require fixtures, user interfaces, or external executables belong in developer
-documentation instead.
-
-Physical quantities state their SI units. A docstring for an implemented
-equation places that equation in the method description and defines its
-symbols. Use `# Notes` only for assumptions, limitations, or supplementary
-mathematics.
-
-Docstrings use `DocStringExtensions` abbreviations as the codebase-wide default
-for generated signatures, type declarations, fields, and module inventories.
-The complete templates, unit notation, mathematical requirements, and example
-rules are documented in [Docstrings](@ref).
+Every change includes tests at the closest relevant scope. Core tests do not
+load optional packages. CairoMakie and other optional paths run in their own
+environments. Public examples should be executable and self-contained.

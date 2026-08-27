@@ -14,7 +14,7 @@ function snapshot_path(
     hash = _bound_hash(case; artifacts_toml)
     hash === nothing && throw(ArgumentError(
         "Gauntlet collection $artifact is not bound in $artifacts_toml. " *
-        "Record and publish $(release_tag()) explicitly before running snapshot mode.",
+        "Record, package, and publish the collection explicitly before running snapshot mode.",
     ))
     if !artifact_exists(hash)
         try
@@ -60,8 +60,7 @@ function _write_snapshot(
     try
         JLD2.jldsave(
             temporary;
-            schema_version = 2,
-            gauntlet_version = string(GAUNTLET_VERSION),
+            schema_version = SNAPSHOT_SCHEMA_VERSION,
             benchmark_id = string(case.name),
             case_id = string(case.case_id),
             collection = string(case.backend),
@@ -180,7 +179,7 @@ function persist_snapshot(
         case_id = case.case_id,
         collection = case.backend,
         backend = case.backend,
-        gauntlet_version = GAUNTLET_VERSION
+        schema_version = SNAPSHOT_SCHEMA_VERSION
     )
 end
 
@@ -198,7 +197,7 @@ function _load_snapshot_path(case::GauntletCase, path::AbstractString)
 
     snapshot = JLD2.load(path)
     required = (
-        "schema_version", "gauntlet_version", "benchmark_id", "case_id",
+        "schema_version", "benchmark_id", "case_id",
         "collection", "case_source_sha256", "benchmark_source_sha256",
         "parameter_manifest", "applied_variation", "correlation", "problem",
         "formulation", "calculations", "comparison_policy", "tolerances", "port_order",
@@ -210,12 +209,9 @@ function _load_snapshot_path(case::GauntletCase, path::AbstractString)
     isempty(missing) || throw(ArgumentError(
         "Gauntlet snapshot $path is missing fields: $(join(missing, ", "))",
     ))
-    snapshot["schema_version"] == 2 || throw(ArgumentError(
-        "Gauntlet snapshot $path uses schema $(snapshot["schema_version"]), expected 2",
-    ))
-    snapshot["gauntlet_version"] == string(GAUNTLET_VERSION) || throw(ArgumentError(
-        "Gauntlet snapshot $path uses version $(snapshot["gauntlet_version"]), " *
-        "expected $(GAUNTLET_VERSION)",
+    snapshot["schema_version"] == SNAPSHOT_SCHEMA_VERSION || throw(ArgumentError(
+        "Gauntlet snapshot $path uses schema $(snapshot["schema_version"]), " *
+        "expected $SNAPSHOT_SCHEMA_VERSION",
     ))
     snapshot["benchmark_id"] == string(case.name) || throw(ArgumentError(
         "Gauntlet snapshot $path belongs to benchmark $(snapshot["benchmark_id"]), not $(case.name)",
@@ -284,10 +280,8 @@ end
 
 function load_prior_snapshot(
         case::GauntletCase;
-        artifacts_toml::AbstractString = ARTIFACTS_TOML,
-        force::Bool = gauntlet_force()
+        artifacts_toml::AbstractString = ARTIFACTS_TOML
 )
-    force && return nothing
     hash = _bound_hash(case; artifacts_toml)
     hash === nothing && return nothing
     if !artifact_exists(hash)

@@ -63,31 +63,9 @@ function _conductor_pairs(object, selector)
     return [(i, j) for i in rows for j in columns]
 end
 
-function _line_request_identity(request::Tuple)
-    length(request) == 5 && return (request[1], request[2])
-    return first(request)
-end
-
-function _line_request_quantity(request)
-    identity = _line_request_identity(request)
-    return identity isa Tuple ? Units.quantity(identity...) : Units.quantity(identity)
-end
-
-_line_request_family(request) = Units.family(_line_request_quantity(request))
+_line_request_family(request) = Units.family(request_quantity(request))
 _family_parent(::Val{:series}) = Z
 _family_parent(::Val{:shunt}) = Y
-
-function _line_request_indices(request::Tuple)
-    offset = _line_request_identity(request) isa Tuple ? 2 : 1
-    length(request) == offset + 3 || throw(ArgumentError(
-        "line plots require an observable request with matrix row, matrix column, and frequency indices",
-    ))
-    return request[(offset + 1):end]
-end
-
-function _line_request_names(requests::Tuple)
-    return Tuple(Symbol("request_$index") for index in eachindex(requests))
-end
 
 function _line_input_defaults(frequencies)
     return (;
@@ -96,6 +74,7 @@ function _line_input_defaults(frequencies)
         freq_unit = :base,
         length_unit = :kilo,
         quantity_units = nothing,
+        clip = true,
         title = nothing,
         labels = nothing,
         legend = nothing,
@@ -138,6 +117,7 @@ function PlotBuilder.resolve(
     input.yscale in (:linear, :log10) || throw(
         ArgumentError("yscale must be :linear or :log10"),
     )
+    input.clip isa Bool || throw(ArgumentError("clip must be true or false"))
     object isa Union{SeriesImpedance, ShuntAdmittance} &&
         input.frequencies === nothing &&
         throw(
@@ -146,9 +126,10 @@ function PlotBuilder.resolve(
     supplied_frequencies = input.frequencies === nothing ? nothing :
                            collect(input.frequencies)
     object isa Union{SeriesImpedance, ShuntAdmittance} &&
-        length(supplied_frequencies) != size(object, 3) && throw(DimensionMismatch(
-        "frequency vector length does not match the parameter depth",
-    ))
+        length(supplied_frequencies) != size(object, 3) &&
+        throw(DimensionMismatch(
+            "frequency vector length does not match the parameter depth",
+        ))
     requests = input.requests
     requests isa Tuple || throw(ArgumentError("requests must be a tuple"))
     isempty(requests) && throw(ArgumentError(
@@ -157,13 +138,14 @@ function PlotBuilder.resolve(
     all(request -> request isa Tuple, requests) || throw(ArgumentError(
         "line plots accept explicit observable request tuples",
     ))
-    identities = map(_line_request_identity, requests)
+    identities = map(request_identity, requests)
     length(unique(identities)) == length(identities) || throw(ArgumentError(
         "line plots do not accept duplicate scientific quantities",
     ))
-    declared = NamedTuple{_line_request_names(requests)}(requests)
-    validate_observables(object, declared)
-    foreach(_line_request_indices, requests)
+    validate_observables(object, requests)
+    all(request -> length(request_indices(request)) == 3, requests) || throw(ArgumentError(
+        "line plots require row, column, and frequency indices",
+    ))
     if supplied_frequencies !== nothing
         all(isfinite, supplied_frequencies) ||
             throw(ArgumentError("frequencies must be finite"))
@@ -174,7 +156,7 @@ function PlotBuilder.resolve(
                 "logarithmic frequency axes require positive frequencies"
             ),
             )
-        any(request -> _line_request_identity(request) in (L, C), requests) &&
+        any(request -> request_identity(request) in (L, C), requests) &&
             any(iszero, supplied_frequencies) &&
             throw(DomainError(
                 supplied_frequencies,
@@ -187,22 +169,27 @@ function PlotBuilder.resolve(
     all(>(0), request.renderer.fig_size) || throw(
         ArgumentError("fig_size dimensions must be positive"),
     )
-    input.title === nothing || input.title isa AbstractString || throw(
-        ArgumentError("title must be a string or nothing"),
-    )
+    input.title === nothing || input.title isa AbstractString ||
+        throw(
+            ArgumentError("title must be a string or nothing"),
+        )
     labels = input.labels
-    labels === nothing || labels isa Tuple || throw(
-        ArgumentError("labels must be a tuple or nothing"),
-    )
-    labels === nothing || length(labels) == length(requests) || throw(
-        DimensionMismatch("labels must contain one entry per normalized request"),
-    )
-    labels === nothing || all(label -> label isa AbstractString, labels) || throw(
-        ArgumentError("labels must contain strings"),
-    )
-    input.legend === nothing || input.legend isa Tuple || throw(
-        ArgumentError("legend must be a tuple or nothing"),
-    )
+    labels === nothing || labels isa Tuple ||
+        throw(
+            ArgumentError("labels must be a tuple or nothing"),
+        )
+    labels === nothing || length(labels) == length(requests) ||
+        throw(
+            DimensionMismatch("labels must contain one entry per normalized request"),
+        )
+    labels === nothing || all(label -> label isa AbstractString, labels) ||
+        throw(
+            ArgumentError("labels must contain strings"),
+        )
+    input.legend === nothing || input.legend isa Tuple ||
+        throw(
+            ArgumentError("legend must be a tuple or nothing"),
+        )
     return merge(
         request,
         (; input = merge(input, (; frequencies = supplied_frequencies)))
@@ -224,11 +211,12 @@ function _published_frequency(object, input, selector)
     if !(object isa LineParameters)
         return _frequency_payload(input.frequencies[selector], target)
     end
-    published = observables(
+    published = only(observables(
         object,
-        (frequency = (frequencies, selector),);
-        units = (frequency = target,)
-    ).frequency
+        ((frequencies, selector),);
+        units = (target,),
+        clip = input.clip
+    ))
     if input.frequencies !== nothing
         supplied = _frequency_payload(input.frequencies[selector], target)
         supplied.values == published.values || throw(
@@ -238,27 +226,28 @@ function _published_frequency(object, input, selector)
     return published
 end
 
-function _publish_request(object, request, target)
-    return observables(
+function _publish_request(object, request, target, clip::Bool)
+    return only(observables(
         object,
-        (value = request,);
-        units = (value = target,)
-    ).value
+        (request,);
+        units = (target,),
+        clip
+    ))
 end
 
 function _request_coordinates(object, request)
-    row, column, frequency = _line_request_indices(request)
+    row, column, frequency = request_indices(request)
     dimensions = object isa LineParameters ? size(Z(object)) : size(object)
-    rows = _indices(row, dimensions[1])
-    columns = _indices(column, dimensions[2])
+    rows = observation_indices(row, dimensions[1])
+    columns = observation_indices(column, dimensions[2])
     frequency_count = object isa LineParameters ? nfrequencies(object) : size(object, 3)
-    samples = _indices(frequency, frequency_count)
+    samples = observation_indices(frequency, frequency_count)
     return rows, columns, samples
 end
 
 function _materialized_line_request(object, input, request)
     rows, columns, samples = _request_coordinates(object, request)
-    identity = _line_request_identity(request)
+    identity = observation_request(object, request).identity
     prefix = identity isa Tuple ? identity : (identity,)
     if object isa SeriesImpedance && identity === L
         prefix = (L, input.frequencies)
@@ -282,11 +271,17 @@ function _publish_line_source(object, input, requests)
         overrides = input.quantity_units
     )
     observations = map(requests, targets) do request, target
-        _publish_request(object, _materialized_line_request(object, input, request), target)
+        _publish_request(
+            object,
+            _materialized_line_request(object, input, request),
+            target,
+            input.clip
+        )
     end
-    all(observation -> size(observation.values, 3) == length(frequency.values), observations) || throw(
-        DimensionMismatch("frequency count does not match line-parameter samples"),
-    )
+    all(observation -> size(observation.values, 3) == length(frequency.values), observations) ||
+        throw(
+            DimensionMismatch("frequency count does not match line-parameter samples"),
+        )
     legend = input.legend
     if legend !== nothing
         matrix_pairs = map(coordinates) do (rows, columns, _)
@@ -332,10 +327,10 @@ function _line_page(configuration, published, family, page_index::Int)
     selected = Tuple(
         (index, scientific_request, observation, coordinates)
     for (index, (scientific_request, observation, coordinates)) in enumerate(zip(
-        configuration.input.requests,
-        published.observations,
-        published.coordinates
-    ))
+            configuration.input.requests,
+            published.observations,
+            published.coordinates
+        ))
     if _line_request_family(scientific_request) === family
     )
     positions = _panel_positions(length(selected))
@@ -362,14 +357,11 @@ function _line_page(configuration, published, family, page_index::Int)
         return admitted
     end
     parent = _family_parent(family)
-    legend_quantity = length(selected) == 1 ? selected[1][3].quantity :
-                      Units.quantity(parent)
     title = configuration.input.title === nothing ?
             Units.label(Units.quantity(parent)) : String(configuration.input.title)
     key = (;
         page = page_index,
         family,
-        legend_quantity,
         requests = getindex.(selected, 2)
     )
     payload = LineDashboardPayload(

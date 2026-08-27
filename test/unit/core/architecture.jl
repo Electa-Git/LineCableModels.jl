@@ -204,6 +204,17 @@ end
           LineCableModels.ReportBuilder
     @test parentmodule(LineCableModels.validate) === LineCableModels.Validation
 
+    ci_workflow=read(joinpath(root, ".github", "workflows", "CI.yml"), String)
+    @test occursin(r"(?m)^  quality:\s*$", ci_workflow)
+    @test occursin("push!(ARGS, \"tag:quality\")", ci_workflow)
+    orchestrator_quality=read(
+        joinpath(root, "test", "quality", "orchestrators.jl"),
+        String
+    )
+    @test occursin("@test isempty(findings)", orchestrator_quality)
+    @test !occursin("@test_skip", orchestrator_quality)
+    @test !occursin("Advisory orchestrator", orchestrator_quality)
+
     report_grammar=source[joinpath("src", "reportbuilder", "grammar.jl")]
     @test occursin("@required AbstractReportDefinition begin", report_grammar)
     @test occursin(
@@ -221,7 +232,7 @@ end
     )
     @test !occursin(r"\bUQ\.(?:statistics|samples|histograms)\(source\)",
         report_monte_carlo)
-    @test occursin("observables(source, all_requests", report_monte_carlo)
+    @test occursin("published = observables(", report_monte_carlo)
     report_grammar=source[joinpath("src", "reportbuilder", "grammar.jl")]
     @test occursin(
         "PlotBuilder.make_render(\n        definition.illustration,\n        published;",
@@ -230,8 +241,15 @@ end
     report_xlsx=source[joinpath("src", "reportbuilder", "xlsx.jl")]
     @test !occursin(r"\b(?:Z|Y|frequencies)\(source", report_xlsx)
     @test !occursin("_xlsx_table_definition", report_xlsx)
-    @test occursin("_select_line_table", report_xlsx)
-    @test occursin("_tabulate_line_table", report_xlsx)
+    @test !occursin("_select_line_table", report_xlsx)
+    @test !occursin("_tabulate_line_table", report_xlsx)
+    @test occursin("observation_columns(table)", report_xlsx)
+    report_tables=source[joinpath("src", "reportbuilder", "tables.jl")]
+    @test !occursin("zero_atol", report_tables)
+    @test !occursin("relative_status", report_tables)
+    @test !occursin(r"\bfamily\s*=", report_tables)
+    @test !occursin(r"\bquantity\s*=", report_tables)
+    @test !occursin(r"\bvalue\s*=", report_tables)
     importexport_index=source[joinpath("src", "importexport", "ImportExport.jl")]
     reportbuilder_index=source[joinpath("src", "reportbuilder", "ReportBuilder.jl")]
     @test !occursin("using XLSX", importexport_index)

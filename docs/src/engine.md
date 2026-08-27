@@ -75,11 +75,12 @@ scientific identities.
 published = observables(
     parameters,
     (
-        frequency = (frequencies, Colon()),
-        resistance = (R, 1, 1, Colon()),
+        (frequencies, Colon()),
+        @observe(R[1, 1, :]),
     );
     units = (
-        resistance = LineCableModels.Units.units(
+        LineCableModels.Units.units(:base, :hertz),
+        LineCableModels.Units.units(
             :base,
             :ohm;
             per = (:kilo, :meter),
@@ -88,7 +89,7 @@ published = observables(
 )
 ```
 
-Every published field contains only `values`, `quantity`, and `unit`.
+Every positional payload contains only `values`, `quantity`, and `unit`.
 Publication converts and detaches `values`; it does not attach labels, result
 objects, execution options, Gridspace points, or Monte Carlo context.
 
@@ -101,10 +102,10 @@ PlotBuilder nor ReportBuilder owns another quantity or family map.
 
 The qualified `Grammar.validate_observables` method is the single entitlement
 check used by direct publication and generic reports. It validates the source
-declaration, request identities, duplicates, and keyed unit overrides.
-`Grammar.unit_targets` then resolves a tuple or named tuple of requests to
-aligned `UnitExpr` values. A unit override may be `nothing`, a metric-prefix
-`Symbol`, an explicit `UnitExpr`, or a keyed collection of those values.
+declaration, request identities, and positional unit alignment.
+`Grammar.unit_targets` resolves a tuple of requests to aligned `UnitExpr`
+values. A unit override may be `nothing`, a metric-prefix `Symbol`, an explicit
+`UnitExpr`, or a quantity-keyed collection used by an entry-point normalizer.
 Line plots, Monte Carlo plots, and reports all use this path.
 
 `LineCableModels.Units` owns `Unit`, `UnitExpr`, `Quantity`, `units`,
@@ -401,8 +402,8 @@ artifact = report(
 artifact.output
 ```
 
-ReportBuilder selects values through `observables`, builds one long-form table,
-and encodes a complete
+ReportBuilder selects values through `observables`, builds one wide table with
+coordinate columns followed by one column per observed quantity, and encodes a complete
 [`LineCableModels.ReportBuilder.XLSXWorkbook`](@ref) containing the destination,
 ordered sheet names, and final cell strings. Loading XLSX activates the package
 extension that writes only this encoded description and records its path in

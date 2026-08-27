@@ -20,7 +20,9 @@
 
     @test nrow(DataFrame(design)) > 0
     @test nrow(DataFrame(design, :detailed)) > 0
-    @test nrow(DataFrame(design, :baseparams)) == 3
+    base_parameters=DataFrame(design, :baseparams)
+    @test nrow(base_parameters) == 1
+    @test names(base_parameters) == ["R", "L", "C"]
     @test nrow(DataFrame(system)) == ncables(system)
 
     library=CablesLibrary()

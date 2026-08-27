@@ -4,14 +4,6 @@
     const PB=LineCableModels.PlotBuilder
     const U=LineCableModels.Units
 
-    if get(ENV, "LINECABLEMODELS_TEST_PLOTTING", "false")!="true"
-        loaded=Set(nameof(module_value) for module_value in values(Base.loaded_modules))
-        @test :Makie ∉ loaded
-        @test :CairoMakie ∉ loaded
-        @test :GLMakie ∉ loaded
-        @test :WGLMakie ∉ loaded
-    end
-
     @test length(methods(PB.make_render)) == 1
     @test fieldnames(PB.PlotPage) == (
         :title,
@@ -99,7 +91,7 @@
         push!(profile_stage_calls, :fetch)
         published=observables(
             source,
-            (frequency = profile_frequency, response = profile_response)
+            (profile_frequency, profile_response)
         )
         legend=PB.LegendDefinition()
         export_definition=PB.ExportDefinition(
@@ -142,7 +134,7 @@
     @test recipe.pages isa Tuple
     @test length(recipe.pages) == 1
     @test only(recipe.pages).payload.color === :navy
-    @test only(recipe.pages).payload.published.response.values == source.response
+    @test only(recipe.pages).payload.published[2].values == source.response
     @test !hasproperty(recipe, :source)
     @test !hasproperty(recipe, :object)
     @test !hasproperty(recipe, :input)

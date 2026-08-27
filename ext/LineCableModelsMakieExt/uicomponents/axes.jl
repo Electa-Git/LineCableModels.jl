@@ -1,5 +1,7 @@
 _scale(symbol::Symbol) = symbol === :log10 ? Makie.log10 : Makie.identity
 
+const _AXIS_ZERO_TOLERANCE = sqrt(eps(Float64))
+
 function _linear_tickformat(exponent::Int)
     scale = 10.0^exponent
     return values -> [@sprintf("%.4g", value / scale) for value in values]
@@ -103,10 +105,12 @@ function _nearly_constant(values)
     isempty(values) && return false
     lower, upper = extrema(values)
     scale = max(abs(lower), abs(upper), floatmin(Float64))
-    return upper - lower <= 64eps(Float64) * scale
+    return upper - lower <= max(_AXIS_ZERO_TOLERANCE, 64eps(Float64) * scale)
 end
 
 function _linear_constant_limits(values, interval_values)
+    all(value -> abs(value) <= _AXIS_ZERO_TOLERANCE, interval_values) &&
+        return (-_AXIS_ZERO_TOLERANCE, _AXIS_ZERO_TOLERANCE)
     center = sum(extrema(values)) / 2
     base_halfspan = iszero(center) ? 1.0 : 0.05abs(center)
     interval_halfspan = maximum(abs(value - center) for value in interval_values)

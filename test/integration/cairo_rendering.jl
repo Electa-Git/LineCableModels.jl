@@ -76,7 +76,7 @@
             TestUIComponents.bind_widget_callback!(
                 context,
                 button.clicks,
-                _ -> nothing;
+                _->nothing;
                 success = "Test action completed"
             )
             return column+1
@@ -181,6 +181,15 @@
         @test all(handle -> length(handle.panels) == 2, rlcg)
         @test rlcg[1].context !== rlcg[2].context
         @test rlcg[1].context.status !== rlcg[2].context.status
+        matrix_pairs=((1, 1), (1, 2), (2, 1), (2, 2))
+        @test legend_labels(first(rlcg).context.legend) ==
+              ["R[$row,$column], L[$row,$column]" for (row, column) in matrix_pairs]
+        @test legend_labels(last(rlcg).context.legend) ==
+              ["G[$row,$column], C[$row,$column]" for (row, column) in matrix_pairs]
+        @test legend_labels(first(cartesian).context.legend) ==
+              ["R[$row,$column], X[$row,$column]" for (row, column) in matrix_pairs]
+        @test legend_labels(first(polar).context.legend) ==
+              ["|Z|[$row,$column], ∠Z[$row,$column]" for (row, column) in matrix_pairs]
         first_handle=first(rlcg)
         @test fieldnames(typeof(first_handle)) == (:render, :page, :context)
         @test fieldnames(typeof(first_handle.context)) == (
@@ -474,9 +483,10 @@
             display_plot = false
         ))
         threshold_axis=only(threshold_plot.panels).axis
-        @test threshold_axis.ylabel[] isa String
+        @test threshold_axis.ylabel[] isa Makie.RichText
+        @test only(threshold_plot.panels).metadata.yaxis.exponent == -2
         @test threshold_axis.ytickformat[]([1.23456e-2, 9.87654e-2]) ==
-              ["0.01235", "0.09877"]
+              ["1.235", "9.877"]
 
         conductance_handle=rlcg[2]
         conductance_axis=first(conductance_handle.panels).axis
@@ -564,13 +574,12 @@
             published=observables(
                 result,
                 (
-                    sample = (samples, R, 1, Colon()),
-                    model = (histograms, R, 1)
+                    (samples, R, 1, Colon()),
+                    (histograms, R, 1)
                 );
-                units = (sample = target, model = target)
+                units = (target, target)
             )
-            sample=published.sample
-            model=published.model
+            sample, model=published
             density=(;
                 values = model.values.density,
                 quantity = LineCableModels.Units.Quantity{:probability_density}(),
@@ -1029,8 +1038,8 @@
 
         frequency_observation=observables(
             parameters,
-            (frequency = frequencies,)
-        ).frequency
+            (frequencies,)
+        )|>only
         native_observation=(
             values = [1.0, 2.0],
             quantity = frequency_observation.quantity,
@@ -1060,6 +1069,33 @@
         )
         @test scientific_axis.xlabel[] == expected_scientific_label
         @test scientific_axis.ylabel[] == expected_scientific_label
+
+        small_observation=(;
+            values = [1.0e-8, 2.0e-8],
+            quantity = native_observation.quantity,
+            unit = native_observation.unit
+        )
+        exponent_window=LineCableModels.PlotBuilder.plotwindow(;
+            title = "Scientific exponent",
+            size = (400, 300),
+            backend = :cairo,
+            display_plot = false,
+            controls = false,
+            legend = false,
+            open_export = false
+        ) do ui
+            axis=LineCableModels.PlotBuilder.axis!(
+                ui,
+                ui.canvas[1, 1],
+                native_observation,
+                small_observation
+            )
+            lines!(axis, native_observation.values, small_observation.values)
+        end
+        exponent_panel=only(exponent_window.panels)
+        @test exponent_panel.metadata.yaxis.exponent == -8
+        @test exponent_panel.axis.ylabel[] isa Makie.RichText
+        @test exponent_panel.axis.ytickformat[]([1.0e-8, 2.0e-8]) == ["1", "2"]
 
         test_golden(custom_plot, "custom_layout"; tolerance = 0.02)
         custom_export_render=custom_layout_plot(

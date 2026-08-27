@@ -6,30 +6,31 @@ function _monte_carlo_publication(
         need_model::Bool,
         bins,
         length_unit::Symbol,
-        quantity_units
+        quantity_units,
+        clip::Bool
 )
     length(result) == 1 || throw(ArgumentError(
         "Monte Carlo plots require exactly one outer Gridspace point",
     ))
-    bins === nothing || bins isa Integer || throw(ArgumentError(
-        "Monte Carlo histogram bins must be an integer or nothing",
-    ))
+    bins === nothing || bins isa Integer ||
+        throw(ArgumentError(
+            "Monte Carlo histogram bins must be an integer or nothing",
+        ))
     point = 1
     sample_request = isempty(indices) ?
                      (LineCableModels.samples, scientific_selector, point, Colon()) :
-                     (LineCableModels.samples, scientific_selector, point, indices..., Colon())
+                     (
+        LineCableModels.samples, scientific_selector, point, indices..., Colon())
     model_request = isempty(indices) ?
                     (LineCableModels.histograms, scientific_selector, point, bins) :
-                    (LineCableModels.histograms, scientific_selector, point, indices..., bins)
+                    (
+        LineCableModels.histograms, scientific_selector, point, indices..., bins)
     requests = if need_samples && need_model
-        (
-            sample = sample_request,
-            model = model_request
-        )
+        (sample_request, model_request)
     elseif need_samples
-        (sample = sample_request,)
+        (sample_request,)
     elseif need_model
-        (model = model_request,)
+        (model_request,)
     else
         error("Monte Carlo plotting requested no published product")
     end
@@ -39,10 +40,10 @@ function _monte_carlo_publication(
         length_prefix = length_unit,
         overrides = quantity_units
     ))
-    units = NamedTuple{keys(requests)}(ntuple(_ -> target, length(requests)))
-    published = LineCableModels.observables(result, requests; units)
-    sample = haskey(published, :sample) ? published.sample : nothing
-    model = haskey(published, :model) ? published.model : nothing
+    units = ntuple(_ -> target, length(requests))
+    published = LineCableModels.observables(result, requests; units, clip)
+    sample = need_samples ? first(published) : nothing
+    model = need_model ? published[need_samples ? 2 : 1] : nothing
     return (; scientific_selector, indices, sample, model)
 end
 
@@ -95,6 +96,7 @@ function Makie.hist(
         normalization = :none,
         length_unit::Symbol = :kilo,
         quantity_units = nothing,
+        clip::Bool = true,
         title = nothing,
         fig_size = (800, 400),
         backend = nothing,
@@ -109,7 +111,8 @@ function Makie.hist(
         need_model = false,
         bins,
         length_unit,
-        quantity_units)
+        quantity_units,
+        clip)
     heading = title === nothing ? _monte_carlo_title(publication, "histogram") :
               String(title)
     sample = publication.sample
@@ -157,6 +160,7 @@ function Makie.stairs(
         bins = nothing,
         length_unit::Symbol = :kilo,
         quantity_units = nothing,
+        clip::Bool = true,
         title = nothing,
         fig_size = (800, 400),
         backend = nothing,
@@ -171,7 +175,8 @@ function Makie.stairs(
         need_model = true,
         bins,
         length_unit,
-        quantity_units)
+        quantity_units,
+        clip)
     heading = title === nothing ? _monte_carlo_title(publication, "probability density") :
               String(title)
     model = publication.model
@@ -206,6 +211,7 @@ function Makie.ecdfplot(
         request = LineCableModels.R;
         length_unit::Symbol = :kilo,
         quantity_units = nothing,
+        clip::Bool = true,
         title = nothing,
         fig_size = (800, 400),
         backend = nothing,
@@ -220,7 +226,8 @@ function Makie.ecdfplot(
         need_model = false,
         bins = nothing,
         length_unit,
-        quantity_units)
+        quantity_units,
+        clip)
     heading = title === nothing ?
               _monte_carlo_title(publication, "empirical cumulative distribution") :
               String(title)
@@ -257,6 +264,7 @@ function Makie.lines(
         bins = nothing,
         length_unit::Symbol = :kilo,
         quantity_units = nothing,
+        clip::Bool = true,
         title = nothing,
         fig_size = (800, 400),
         backend = nothing,
@@ -271,7 +279,8 @@ function Makie.lines(
         need_model = true,
         bins,
         length_unit,
-        quantity_units)
+        quantity_units,
+        clip)
     heading = title === nothing ?
               _monte_carlo_title(publication, "model cumulative distribution") :
               String(title)
@@ -305,6 +314,7 @@ function Makie.qqplot(
         bins = nothing,
         length_unit::Symbol = :kilo,
         quantity_units = nothing,
+        clip::Bool = true,
         title = nothing,
         fig_size = (800, 400),
         backend = nothing,
@@ -322,7 +332,8 @@ function Makie.qqplot(
         need_model = true,
         bins,
         length_unit,
-        quantity_units)
+        quantity_units,
+        clip)
     heading = title === nothing ? _monte_carlo_title(publication, "Q-Q plot") :
               String(title)
     pairs = LineCableModels.UQ.quantile_pairs(

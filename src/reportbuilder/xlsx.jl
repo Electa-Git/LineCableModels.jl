@@ -15,14 +15,17 @@ struct XLSXReportDefinition{
     file_name::F
     "Optional cable system used to prefix the workbook name."
     cable_system::C
+    "Whether detached display residue is replaced with exact zero."
+    clip::Bool
 end
 
 function XLSXReportDefinition(;
         file_name::Union{Nothing, AbstractString} = nothing,
-        cable_system::Union{Nothing, DataModel.LineCableSystem} = nothing
+        cable_system::Union{Nothing, DataModel.LineCableSystem} = nothing,
+        clip::Bool = true
 )
     path = file_name === nothing ? nothing : String(file_name)
-    return XLSXReportDefinition(path, cable_system)
+    return XLSXReportDefinition(path, cable_system, clip)
 end
 
 """
@@ -54,24 +57,48 @@ struct XLSXWorkbook
 end
 
 entitle(::XLSXReportDefinition, source::Engine.LineParameters) = source
-function select(::XLSXReportDefinition, source::Engine.LineParameters)
-    return _select_line_table(source, (), nothing, :base, :kilo, nothing)
+function select(definition::XLSXReportDefinition, source::Engine.LineParameters)
+    line_definition = _line_definition(
+        (
+            @observe(R[:, :, :]),
+            @observe(X[:, :, :]),
+            @observe(G[:, :, :]),
+            @observe(B[:, :, :])
+        ),
+        :base,
+        :kilo,
+        nothing,
+        definition.clip
+    )
+    return select(line_definition, source)
 end
 function tabulate(::XLSXReportDefinition, source::Engine.LineParameters, selected)
-    return _tabulate_line_table(source, selected, sqrt(eps(Float64)))
+    return _tabulate_line_parameters(source, selected)
 end
 illustrate(::XLSXReportDefinition, source, published, table) = nothing
 
-function _is_diagonal(table::DataFrame, family::Symbol)
-    selected = table[table.family .== family, :]
-    isempty(selected) && throw(ArgumentError(
-        "workbook has no $family line-parameter rows",
+function _family_columns(table::DataFrame, family::Val)
+    contract = observation_columns(table)
+    return Tuple(name
+    for (name, entry) in pairs(contract)
+    if applicable(Units.family, entry.quantity) &&
+        Units.family(entry.quantity) === family)
+end
+
+function _is_diagonal(table::DataFrame, quantity_columns::Tuple)
+    isempty(quantity_columns) && throw(ArgumentError(
+        "workbook family has no observed quantity columns",
     ))
+    selected = table
     frequency = first(selected.frequency)
     slice = selected[selected.frequency .== frequency, :]
-    off_diagonal = slice[slice.row .!= slice.column, :value]
-    return all(value -> isapprox(value, zero(value); rtol = 1.0e-8, atol = 1.0e-8),
-        off_diagonal)
+    off_diagonal = slice.row .!= slice.column
+    return all(quantity_columns) do quantity
+        all(
+            value -> isapprox(value, zero(value); rtol = 1.0e-8, atol = 1.0e-8),
+            slice[off_diagonal, quantity]
+        )
+    end
 end
 
 """
@@ -89,52 +116,47 @@ function _encoded_sheet(
         definition::XLSXReportDefinition,
         table::DataFrame,
         name::String,
-        family::Symbol,
+        quantity_columns::Tuple,
         row::Int,
         column::Int
 )
     selected = table[
-        (table.family .== family) .& (table.row .== row) .& (table.column .== column),
+        (table.row .== row) .& (table.column .== column),
         :
     ]
     isempty(selected) && throw(ArgumentError(
         "workbook sheet $name has no line-parameter rows",
     ))
     frequency_values = unique(selected.frequency)
-    quantity_keys = unique(selected.quantity)
-    quantity_rows = [selected[selected.quantity .== quantity, :]
-                     for quantity in quantity_keys]
+    contract = observation_columns(table)
     unit_rows = Pair{String, String}[
-        "frequency" => metadata(table, "frequency_unit"),
+        "frequency" => Units.label(contract.frequency.unit),
     ]
-    for (quantity, rows) in zip(quantity_keys, quantity_rows)
-        rows.frequency == frequency_values || throw(DimensionMismatch(
-            "workbook quantity $quantity does not align with the frequency column",
-        ))
-        push!(unit_rows, String(quantity) => only(unique(rows.unit)))
+    for quantity in quantity_columns
+        push!(unit_rows, String(quantity) => Units.label(contract[quantity].unit))
     end
 
     heading_row = length(unit_rows) + 2
     cells = fill(
         "",
         heading_row + length(frequency_values),
-        max(2, length(quantity_keys) + 1)
+        max(2, length(quantity_columns) + 1)
     )
     for (unit_row, entry) in enumerate(unit_rows)
         cells[unit_row, 1] = first(entry)
         cells[unit_row, 2] = last(entry)
     end
     cells[heading_row, 1] = "frequency"
-    for (quantity_column, quantity) in enumerate(quantity_keys)
+    for (quantity_column, quantity) in enumerate(quantity_columns)
         cells[heading_row, quantity_column + 1] = String(quantity)
     end
     for (frequency_index, frequency) in enumerate(frequency_values)
         data_row = heading_row + frequency_index
         cells[data_row, 1] = encode_cell(definition, frequency)
-        for (quantity_column, rows) in enumerate(quantity_rows)
+        for (quantity_column, quantity) in enumerate(quantity_columns)
             cells[data_row, quantity_column + 1] = encode_cell(
                 definition,
-                rows.value[frequency_index]
+                selected[frequency_index, quantity]
             )
         end
     end
@@ -145,19 +167,18 @@ function _encoded_sheets(
         definition::XLSXReportDefinition,
         prefix::String,
         table::DataFrame,
-        family::Symbol,
+        quantity_columns::Tuple,
         diagonal::Bool
 )
-    selected = table[table.family .== family, :]
-    rows = maximum(selected.row)
-    columns = maximum(selected.column)
+    rows = maximum(table.row)
+    columns = maximum(table.column)
     indices = diagonal ? ((index, index) for index in 1:min(rows, columns)) :
               ((row, column) for row in 1:rows for column in 1:columns)
     return [_encoded_sheet(
                 definition,
                 table,
                 "$prefix($row,$column)",
-                family,
+                quantity_columns,
                 row,
                 column
             )
@@ -174,15 +195,17 @@ function encode(
     isempty(table) && throw(ArgumentError(
         "XLSX reports require at least one frequency sample",
     ))
-    series_diagonal = _is_diagonal(table, :series)
-    shunt_diagonal = _is_diagonal(table, :shunt)
+    series_columns = _family_columns(table, Val(:series))
+    shunt_columns = _family_columns(table, Val(:shunt))
+    series_diagonal = _is_diagonal(table, series_columns)
+    shunt_diagonal = _is_diagonal(table, shunt_columns)
     series_diagonal &&
         @warn("Z is diagonal within the selected tolerance. Exporting Z[i,i] and omitting off-diagonal elements.")
     shunt_diagonal &&
         @warn("Y is diagonal within the selected tolerance. Exporting Y[i,i] and omitting off-diagonal elements.")
     sheets = vcat(
-        _encoded_sheets(definition, "Z", table, :series, series_diagonal),
-        _encoded_sheets(definition, "Y", table, :shunt, shunt_diagonal)
+        _encoded_sheets(definition, "Z", table, series_columns, series_diagonal),
+        _encoded_sheets(definition, "Y", table, shunt_columns, shunt_diagonal)
     )
     requested = abspath(something(definition.file_name, "ZY_export.xlsx"))
     destination = if definition.cable_system === nothing

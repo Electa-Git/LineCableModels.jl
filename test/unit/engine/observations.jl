@@ -25,6 +25,11 @@
           (Z, abs, Colon(), Colon(), Colon())
     @test @observe((Z, angle)[:, :, :]) ==
           (Z, angle, Colon(), Colon(), Colon())
+    @test LineCableModels.Grammar.request_identity(@observe(R[:, :, :])) === R
+    @test LineCableModels.Grammar.request_indices(@observe(R[:, :, :])) ==
+          (Colon(), Colon(), Colon())
+    @test LineCableModels.Grammar.request_identity(@observe((Z, abs)[:, :, :])) ==
+          (Z, abs)
     @test @observe(parameters, Z[1, 1, :]) == impedance[1, 1, :]
     @test @observe(parameters, (Z, abs)[1, 1, :]) == abs.(impedance[1, 1, :])
     @test @observe(parameters, (Z, angle)[1, 1, :]) == angle.(impedance[1, 1, :])
@@ -46,57 +51,60 @@
     @test L(parameters, 1, 1, :) ≈ observe(parameters, L, 1, 1, :)
 
     requests=(
-        frequency = (frequencies, Colon()),
-        resistance = (R, 1, 1, Colon()),
-        phase = (Z, angle, 1, 1, Colon())
+        (frequencies, Colon()),
+        (R, 1, 1, Colon()),
+        (Z, angle, 1, 1, Colon())
     )
     target=U.units(:milli, :ohm; per = (:kilo, :meter))
-    published=observables(parameters, requests; units = (resistance = target,))
-    @test keys(published) == keys(requests)
-    for payload in values(published)
+    published=observables(parameters, requests; units = (nothing, target, nothing))
+    @test @inferred(observables(parameters, ((R, 1, 1, Colon()),))) isa Tuple
+    @test published isa Tuple
+    for payload in published
         @test keys(payload) == (:values, :quantity, :unit)
     end
-    @test published.resistance.values ≈ 1.0e6 .* resistance[1, 1, :]
-    @test published.resistance.unit == target
-    @test published.phase.values ≈ rad2deg.(angle.(impedance[1, 1, :]))
-    @test published.phase.quantity isa
+    @test published[2].values ≈ 1.0e6 .* resistance[1, 1, :]
+    @test published[2].unit == target
+    @test published[3].values ≈ rad2deg.(angle.(impedance[1, 1, :]))
+    @test published[3].quantity isa
           U.Quantity{(:series_impedance, :phase_angle)}
     repeated_quantity=observables(parameters,
         (
-            first_resistance = (R, 1, 1, Colon()),
-            second_resistance = (R, 1, 1, 1)
+            (R, 1, 1, Colon()),
+            (R, 1, 1, 1)
         ))
-    @test keys(repeated_quantity) == (:first_resistance, :second_resistance)
-    prefixed=observables(parameters, (resistance = (R, 1, 1, Colon()),);
-        units = (resistance = :micro,))
-    @test prefixed.resistance.unit ==
+    @test length(repeated_quantity) == 2
+    prefixed=observables(parameters, ((R, 1, 1, Colon()),);
+        units = (:micro,))
+    @test only(prefixed).unit ==
           U.units(:micro, :ohm; per = (:kilo, :meter))
     @test LineCableModels.Grammar.validate_observables(
         parameters,
         requests,
-        (resistance = target,)
+        (nothing, target, nothing)
     ) == (frequencies, R, (Z, angle))
     @test Base.ispublic(LineCableModels.Grammar, :validate_observables)
     @test !isdefined(LineCableModels, :validate_observables)
 
-    published.frequency.values[1]=0.0
-    published.resistance.values[1]=0.0
+    published[1].values[1]=0.0
+    published[2].values[1]=0.0
     @test frequencies(parameters)[1] == 50.0
     @test R(parameters, 1, 1, 1) == resistance[1, 1, 1]
 
     @test_throws MethodError observables(parameters)
     @test_throws MethodError observables(parameters, Dict(:resistance => R))
-    @test_throws ArgumentError observables(parameters, (invalid = identity,))
-    @test_throws ArgumentError observables(
+    @test_throws MethodError observables(parameters, (invalid = identity,))
+    @test_throws DimensionMismatch observables(
         parameters,
-        (resistance = R,);
-        units = (unknown = target,)
+        (R,);
+        units = (target, target)
     )
     @test_throws ArgumentError observables(
         parameters,
-        (resistance = R,);
-        units = (resistance = U.units(:base, :farad),)
+        (R,);
+        units = (U.units(:base, :farad),)
     )
+    @test LineCableModels.Grammar.detach(eps(Float64) / 2, 1.0, true) == 0.0
+    @test LineCableModels.Grammar.detach(eps(Float64) / 2, 1.0, false) > 0
 
     series=SeriesImpedance(impedance)
     shunt=ShuntAdmittance(admittance)

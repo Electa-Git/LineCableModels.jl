@@ -6,17 +6,19 @@ cable systems. The models include conductor skin effect, dielectric loss,
 earth return, frequency-dependent earth properties, and declared uncertainty
 in geometry and material data.
 
-## Documentation outline
+## Documentation
 
-```@contents
-Pages = [
-    "index.md",
-    "tutorials.md",
-    "reference.md",
-    "bib.md",
-]
-Depth = 1
-```
+- [Tutorials](tutorials.md) introduce cable construction and calculation.
+- [Modelling and results](usage.md) covers calculations, result access,
+  uncertainty, tables, and plots.
+- [Gridspace and uncertainty](gridspace.md) specifies finite variation and
+  uncertainty realisation.
+- [API reference](reference.md) lists the line and cable calculation API.
+- [Conveniences](conveniences.md) covers estimates, scalar formulas, and VDE
+  designation parsing.
+- [Benchmarks](gauntlet.md) publishes the Gauntlet validation results and plots.
+- [Developers](developers.md) records grammar invariants, CI checks, extension
+  APIs, and project conventions.
 
 ## Features
 
@@ -65,20 +67,14 @@ using LineCableModels
 using CairoMakie
 ```
 
-FEM/GetDP support and sector-shaped cable support were removed before the
-v0.2 release. The last version containing those experimental paths is preserved
-on branch `legacy/fem-sector` at commit
-`b75dd2723f90a83ec090b20605ea42af57f4a9c3`.
-
 ## User statistics
 
 ![Top Julia package-server regions observed for LineCableModels.jl](assets/user-statistics.svg)
 
-The map is generated in CI from Julia's public package-server request logs. The map
+The map is generated in CI from Julia's public package-server request logs. It
 shows the top server regions by the sum of `request_addrs` for requests marked
-as user traffic. These regional aggregates indicate adoption, but
-they are not a count of distinct people and must not be read as country-level
-telemetry.
+as user traffic. These regional aggregates are not a count of distinct people
+and do not represent country-level telemetry.
 
 
 ## License

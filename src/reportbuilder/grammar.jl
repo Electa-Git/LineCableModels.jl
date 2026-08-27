@@ -25,32 +25,35 @@ end
 """
 $(TYPEDEF)
 
-Request one generic table from a completed scientific source.
+Request one generic wide table from a completed scientific source.
 
 The request and unit tuples follow [`observables`](@ref). `illustration` may be
 a PlotBuilder definition type; `plot_options` are passed to `make_render`.
 
 $(TYPEDFIELDS)
 """
-struct TableReportDefinition{R <: NamedTuple, U <: NamedTuple, P, O <: NamedTuple} <:
+struct TableReportDefinition{R <: Tuple, U <: Tuple, P, O <: NamedTuple} <:
        AbstractReportDefinition
-    "Named scientific observation requests."
+    "Positional scientific observation requests."
     requests::R
-    "Optional display-unit overrides keyed like `requests`."
+    "Optional display-unit overrides aligned with `requests`."
     units::U
     "PlotBuilder definition type, or `nothing` for a table-only report."
     illustration::P
     "Keyword options passed to PlotBuilder."
     plot_options::O
+    "Whether detached display residue is replaced with exact zero."
+    clip::Bool
 end
 
 function TableReportDefinition(
-        requests::NamedTuple;
-        units::NamedTuple = (;),
+        requests::Tuple;
+        units::Tuple = (),
         illustration = nothing,
-        plot_options::NamedTuple = (;)
+        plot_options::NamedTuple = (;),
+        clip::Bool = true
 )
-    return TableReportDefinition(requests, units, illustration, plot_options)
+    return TableReportDefinition(requests, units, illustration, plot_options, clip)
 end
 
 "Reject unsupported definition/source pairs before report construction."
@@ -89,7 +92,12 @@ function entitle(definition::TableReportDefinition, source)
 end
 
 function select(definition::TableReportDefinition, source)
-    return observables(source, definition.requests; units = definition.units)
+    return observables(
+        source,
+        definition.requests;
+        units = definition.units,
+        clip = definition.clip
+    )
 end
 
 function _table_column(values)
@@ -99,22 +107,62 @@ function _table_column(values)
     return [values]
 end
 
-function tabulate(::TableReportDefinition, source, published::NamedTuple)
+function _observation_names(published::Tuple)
+    names = Tuple(Symbol(Units.symbol(payload.quantity)) for payload in published)
+    all(name -> !isempty(string(name)), names) || throw(ArgumentError(
+        "every published quantity must define a nonempty table symbol",
+    ))
+    length(unique(names)) == length(names) || throw(ArgumentError(
+        "published quantities must have distinct table symbols",
+    ))
+    return names
+end
+
+function _observation_contract(names::Tuple, published::Tuple)
+    records = map(published) do payload
+        (; quantity = payload.quantity, unit = payload.unit)
+    end
+    return NamedTuple{names}(records)
+end
+
+function _observation_columns!(table::DataFrame, names::Tuple, published::Tuple)
+    metadata!(
+        table,
+        "observation_columns",
+        _observation_contract(names, published),
+        style = :note
+    )
+    return table
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Return the scientific quantity and display unit owned by every observed column
+of `table`.
+
+# Returns
+
+- A named tuple keyed by DataFrame column name. Each value contains `quantity`
+  and `unit`.
+
+# Errors
+
+- Throws when `table` was not constructed from an owned observation
+  publication.
+"""
+function observation_columns(table::DataFrame)
+    return metadata(table, "observation_columns")
+end
+
+function tabulate(::TableReportDefinition, source, published::Tuple)
     columns = map(payload -> _table_column(payload.values), values(published))
     isempty(columns) ||
         all(length(column) == length(first(columns)) for column in columns) ||
         throw(DimensionMismatch("published report columns must have equal lengths"))
-    table = DataFrame(; NamedTuple{keys(published)}(columns)...)
-    unit_labels = Dict(
-        key => Units.label(payload.unit) for (key, payload) in pairs(published)
-    )
-    headings = Dict(
-        key => Units.label(payload.quantity, payload.unit)
-    for (key, payload) in pairs(published)
-    )
-    metadata!(table, "units", unit_labels, style = :note)
-    metadata!(table, "headings", headings, style = :note)
-    return table
+    names = _observation_names(published)
+    table = DataFrame(NamedTuple{names}(columns))
+    return _observation_columns!(table, names, published)
 end
 
 function illustrate(definition::TableReportDefinition, source, published, table)

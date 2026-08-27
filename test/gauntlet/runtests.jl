@@ -9,7 +9,7 @@ cleanup = gauntlet_cleanup()
 completed = false
 
 try
-    force = gauntlet_force()
+    stage_force = gauntlet_stage_force()
     mode = gauntlet_mode()
     if mode === :record
         gauntlet_instrumented() && throw(ArgumentError(
@@ -17,14 +17,14 @@ try
             "coverage or allocation tracking is enabled",
         ))
         ENV["LINECABLEMODELS_GAUNTLET_RUNNER"] = "true"
-        prepare_artifacts(; force)
+        prepare_staging(; force = stage_force)
     end
 
     @run_package_tests(filter=GAUNTLET_FILTER, verbose=true)
 
     if mode === :record
-        for collection in finalize_artifacts(; force)
-            @info "Recorded Gauntlet backend collection" backend=collection.backend version=collection.gauntlet_version archive=collection.archive
+        for collection in finalize_staging()
+            @info "Staged Gauntlet collection" collection=collection.collection path=collection.path schema_version=collection.schema_version
         end
     end
     global completed = true

@@ -145,7 +145,7 @@
         @test isfile(joinpath(persisted.path, "snapshot.jld2"))
         @test isfile(joinpath(persisted.path, "snapshot.sha256"))
         @test persisted.backend === :fixture
-        @test persisted.gauntlet_version == GAUNTLET_VERSION
+        @test persisted.schema_version == SNAPSHOT_SCHEMA_VERSION
         aggregate=GauntletSupport.report(:fixture; artifact_root)
         @test size(aggregate) == (1, 40)
         @test only(aggregate.benchmark) == "fixture"
@@ -167,33 +167,65 @@
             artifact_root,
             zero_atol = (Z = -1.0, Y = 0.0)
         )
-        collections=finalize_artifacts(; artifact_root, artifacts_toml)
-        @test only(collections).backend === :fixture
-        @test basename(only(collections).archive) ==
-              "benchmarks-fixture-v$(GAUNTLET_VERSION).tar.gz"
-        @test isfile(only(collections).archive)
+        collections=finalize_staging(; artifact_root)
+        @test only(collections).collection === :fixture
+        @test only(collections).schema_version == SNAPSHOT_SCHEMA_VERSION
         @test isfile(joinpath(only(collections).path, "report.jld2"))
         @test isfile(joinpath(only(collections).path, "report.tsv"))
         @test isfile(joinpath(only(collections).path, "report.sha256"))
         @test isequal(only(collections).report, aggregate)
-        installed=artifact_path(Base.SHA1(only(collections).tree_hash))
+        @test !isfile(artifacts_toml)
+
+        package=package_collection(
+            :fixture,
+            v"1.0.0";
+            reason = "Initial fixture baseline",
+            git_commit = repeat("a", 40),
+            artifact_root
+        )
+        @test package.collection === :fixture
+        @test package.version == v"1.0.0"
+        @test package.tag == "gauntlet-fixture-v1.0.0"
+        @test package.artifact == "gauntlet_fixture"
+        @test basename(package.archive) == "benchmarks-fixture-v1.0.0.tar.gz"
+        @test isfile(package.archive)
+        @test isfile(package.package_path)
+        installed=artifact_path(Base.SHA1(package.tree_hash))
         @test isfile(joinpath(installed, "report.jld2"))
         @test isfile(joinpath(installed, "report.tsv"))
         @test isfile(joinpath(installed, "report.sha256"))
-        @test isfile(snapshot_path(case; artifacts_toml))
-        @test_throws ArgumentError finalize_artifacts(; artifact_root, artifacts_toml)
-        forced=finalize_artifacts(; artifact_root, artifacts_toml, force = true)
-        @test only(forced).tree_hash == only(collections).tree_hash
-        published=publish_artifact(
+        @test isfile(joinpath(installed, "release.toml"))
+        @test_throws ArgumentError package_collection(
             :fixture,
-            "file://$(abspath(only(collections).archive))";
+            v"1.0.0";
+            reason = "Initial fixture baseline",
+            git_commit = repeat("a", 40),
+            artifact_root
+        )
+        forced=package_collection(
+            :fixture,
+            v"1.0.0";
+            reason = "Initial fixture baseline",
+            git_commit = repeat("a", 40),
+            artifact_root,
+            force = true
+        )
+        @test forced.tree_hash == package.tree_hash
+        published=bind_published_artifact(
+            :fixture,
+            v"1.0.0",
+            "file://$(abspath(forced.archive))";
             artifact_root,
             artifacts_toml
         )
-        @test published.artifact == "gauntlet_fixture_v2_0_0"
-        @test release_tag() == "gauntlet-v2.0.0"
-        @test backend_archive_name(:fixture) == "benchmarks-fixture-v2.0.0.tar.gz"
+        @test published.artifact == "gauntlet_fixture"
+        @test release_tag(:fixture, v"1.0.0") == "gauntlet-fixture-v1.0.0"
+        @test collection_archive_name(:fixture, v"1.0.0") ==
+              "benchmarks-fixture-v1.0.0.tar.gz"
+        @test_throws ArgumentError artifact_name(:Fixture)
+        @test_throws ArgumentError release_tag(:fixture, v"0.1.0")
         @test occursin("file://", read(artifacts_toml, String))
+        @test isfile(snapshot_path(case; artifacts_toml))
 
         loaded=load_snapshot(case; artifacts_toml)
         @test loaded.reference isa LineParameters
@@ -209,7 +241,6 @@
             exit_code = 0
         )
         @test load_prior_snapshot(case; artifacts_toml) !== nothing
-        @test load_prior_snapshot(case; artifacts_toml, force = true) === nothing
 
         new_source=joinpath(directory, "new_case.jl")
         write(new_source, "# new case with no accepted baseline\n")
@@ -245,9 +276,10 @@
         @test_throws ArgumentError load_snapshot(case; path = snapshot)
         @test_throws ArgumentError GauntletSupport.report(:fixture; artifact_root)
 
-        @test_throws ArgumentError prepare_artifacts(; artifact_root, artifacts_toml)
-        prepare_artifacts(; artifact_root, artifacts_toml, force = true)
-        @test !ispath(backend_stage(:fixture; artifact_root))
+        @test_throws ArgumentError prepare_staging(; artifact_root)
+        prepare_staging(; artifact_root, force = true)
+        @test !ispath(collection_stage(:fixture; artifact_root))
+        @test isfile(artifacts_toml)
     end
 
     previous=get(ENV, "LINECABLEMODELS_GAUNTLET_MODE", nothing)
@@ -255,7 +287,11 @@
     previous_persist=get(ENV, "LINECABLEMODELS_GAUNTLET_PERSIST", nothing)
     previous_runner=get(ENV, "LINECABLEMODELS_GAUNTLET_RUNNER", nothing)
     previous_cleanup=get(ENV, "LINECABLEMODELS_GAUNTLET_CLEANUP", nothing)
-    previous_force=get(ENV, "LINECABLEMODELS_GAUNTLET_FORCE", nothing)
+    previous_stage_force=get(
+        ENV,
+        "LINECABLEMODELS_GAUNTLET_STAGE_FORCE",
+        nothing
+    )
     try
         delete!(ENV, "CI")
         for mode in ("snapshot", "live", "record")
@@ -265,15 +301,15 @@
         ENV["LINECABLEMODELS_GAUNTLET_MODE"]="automatic"
         @test_throws ArgumentError gauntlet_mode()
         delete!(ENV, "LINECABLEMODELS_GAUNTLET_CLEANUP")
-        delete!(ENV, "LINECABLEMODELS_GAUNTLET_FORCE")
+        delete!(ENV, "LINECABLEMODELS_GAUNTLET_STAGE_FORCE")
         @test !gauntlet_cleanup()
-        @test !gauntlet_force()
+        @test !gauntlet_stage_force()
         ENV["LINECABLEMODELS_GAUNTLET_CLEANUP"]="true"
-        ENV["LINECABLEMODELS_GAUNTLET_FORCE"]="TRUE"
+        ENV["LINECABLEMODELS_GAUNTLET_STAGE_FORCE"]="TRUE"
         @test gauntlet_cleanup()
-        @test gauntlet_force()
-        ENV["LINECABLEMODELS_GAUNTLET_FORCE"]="yes"
-        @test_throws ArgumentError gauntlet_force()
+        @test gauntlet_stage_force()
+        ENV["LINECABLEMODELS_GAUNTLET_STAGE_FORCE"]="yes"
+        @test_throws ArgumentError gauntlet_stage_force()
         ENV["CI"]="true"
         ENV["LINECABLEMODELS_GAUNTLET_MODE"]="live"
         @test_throws ArgumentError gauntlet_mode()
@@ -297,8 +333,9 @@
         previous_cleanup===nothing ?
         delete!(ENV, "LINECABLEMODELS_GAUNTLET_CLEANUP") :
         (ENV["LINECABLEMODELS_GAUNTLET_CLEANUP"]=previous_cleanup)
-        previous_force===nothing ? delete!(ENV, "LINECABLEMODELS_GAUNTLET_FORCE") :
-        (ENV["LINECABLEMODELS_GAUNTLET_FORCE"]=previous_force)
+        previous_stage_force===nothing ?
+        delete!(ENV, "LINECABLEMODELS_GAUNTLET_STAGE_FORCE") :
+        (ENV["LINECABLEMODELS_GAUNTLET_STAGE_FORCE"]=previous_stage_force)
     end
 
     mktempdir() do directory

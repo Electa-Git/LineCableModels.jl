@@ -29,17 +29,17 @@
     U.symbol(::U.Quantity{:report_response}) = "u"
 
     struct ReportProfilePlot <: PB.AbstractPlotDefinition end
-    PB.entitle(::Type{ReportProfilePlot}, published::NamedTuple) = published
+    PB.entitle(::Type{ReportProfilePlot}, published::Tuple) = published
     function PB.resolve(
             ::Type{ReportProfilePlot},
-            ::NamedTuple,
+            ::Tuple,
             request::NamedTuple
     )
         return request
     end
     function PB.fetch(
             ::Type{ReportProfilePlot},
-            published::NamedTuple,
+            published::Tuple,
             request::NamedTuple
     )
         payload = (;
@@ -58,7 +58,7 @@
 
     source = ReportProfile([1.0, 2.0])
     definition = TableReportDefinition(
-        (response = profile_response,);
+        (profile_response,);
         illustration = ReportProfilePlot
     )
     artifact = report(definition, source)
@@ -66,32 +66,32 @@
     @test report_observation_calls[] == 1
     @test artifact isa ReportArtifact
     @test parentmodule(typeof(artifact)) === RB
-    @test artifact.table.response == [1_000.0, 2_000.0]
-    @test DataFrames.metadata(artifact.table, "units")[:response] == "mΩ"
-    @test DataFrames.metadata(artifact.table, "headings")[:response] ==
-          "Response [mΩ]"
+    @test artifact.table.u == [1_000.0, 2_000.0]
+    columns=RB.observation_columns(artifact.table)
+    @test U.label(columns.u.unit) == "mΩ"
+    @test U.label(columns.u.quantity, columns.u.unit) == "Response [mΩ]"
     @test artifact.illustration isa PB.PlotRecipe
-    @test only(artifact.illustration.pages).payload.published.response.values ==
-          artifact.table.response
+    @test only(only(artifact.illustration.pages).payload.published).values ==
+          artifact.table.u
     @test artifact.output === nothing
-    artifact.table.response[1] = 0.0
+    artifact.table.u[1] = 0.0
     @test source.values == [1.0, 2.0]
     @test_throws ArgumentError report(
-        TableReportDefinition((value = identity,)),
+        TableReportDefinition((identity,)),
         source
     )
     @test_throws MethodError report(
-        TableReportDefinition((value = identity,)),
+        TableReportDefinition((identity,)),
         :unsupported
     )
     publication_error=try
-        LineCableModels.observables(source, (value = identity,))
+        LineCableModels.observables(source, (identity,))
         nothing
     catch error
         error
     end
     entitlement_error=try
-        RB.entitle(TableReportDefinition((value = identity,)), source)
+        RB.entitle(TableReportDefinition((identity,)), source)
         nothing
     catch error
         error
@@ -211,7 +211,9 @@ end
         @test artifact.output == path
         @test isfile(artifact.output)
         @test artifact.table isa DataFrame
-        @test unique(artifact.table.family) == [:series, :shunt]
+        @test names(artifact.table) == [
+            "frequency", "row", "column", "R", "X", "G", "B"
+        ]
         XLSX.openxlsx(path) do workbook
             @test XLSX.sheetnames(workbook) == [
                 "Z(1,1)", "Z(1,2)", "Z(2,1)", "Z(2,2)",
@@ -331,8 +333,11 @@ end
 
     @test actual == expected
     @test parentmodule(which(DataFrame, (typeof(constants),))) === RB
-    @test actual.parameter == ["R", "L", "C"]
-    @test actual.unit == ["Ω/m", "H/m", "F/m"]
+    @test names(actual) == ["R", "L", "C"]
+    @test only(actual.R) == 1.0
+    @test only(actual.L) == 2.0
+    @test only(actual.C) == 3.0
+    @test keys(RB.observation_columns(actual)) == (:R, :L, :C)
 
     monte_carlo=TestFixtures.cable_monte_carlo_result()
     @test DataFrame(monte_carlo) == report(
@@ -351,9 +356,9 @@ end
         RB.MonteCarloTableDefinition(:kilo, :milli),
         monte_carlo
     )
-    @test only(selected).published.R.unit == target
+    @test first(only(selected).observations).unit == target
     @test only(selected).frequency === nothing
-    @test only(selected).published.R.quantity ==
+    @test first(only(selected).observations).quantity ==
           LineCableModels.Units.quantity(R)
 
     for name in (

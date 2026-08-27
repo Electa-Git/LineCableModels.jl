@@ -219,7 +219,7 @@ end
 function _monte_carlo_observables(selectors::Tuple)
     product_selectors = (statistics, samples, histograms)
     products = Tuple((product, selector)
-                     for product in product_selectors for selector in selectors)
+    for product in product_selectors for selector in selectors)
     return (selectors..., products...)
 end
 
@@ -259,11 +259,32 @@ function detach(summary::SampleSummary, factor)
     )
 end
 
+function detach(summary::SampleSummary, factor, clip::Bool)
+    return SampleSummary(
+        detach(summary.mean, factor, clip),
+        detach(summary.std, abs(factor), clip),
+        detach(summary.min, factor, clip),
+        detach(summary.q05, factor, clip),
+        detach(summary.median, factor, clip),
+        detach(summary.q95, factor, clip),
+        detach(summary.max, factor, clip),
+        summary.n
+    )
+end
+
 function detach(
         summaries::AbstractArray{<:SampleSummary},
         factor
 )
     return map(summary -> detach(summary, factor), summaries)
+end
+
+function detach(
+        summaries::AbstractArray{<:SampleSummary},
+        factor,
+        clip::Bool
+)
+    return map(summary -> detach(summary, factor, clip), summaries)
 end
 
 function detach(histogram::HistogramDensity, factor)

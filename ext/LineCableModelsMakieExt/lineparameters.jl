@@ -37,7 +37,8 @@ function _line_axis!(context, payload, panel_index, y_observation, state)
 end
 
 function _finish_line_axis!(context, axis, groups, objects, labels, data, state)
-    registration = only(candidate for candidate in context.panels if candidate.axis === axis)
+    registration = only(candidate
+    for candidate in context.panels if candidate.axis === axis)
     registered_groups, registered_labels = _line_registration(groups, objects, labels)
     PlotBuilder.register!(context, axis;
         xmetadata = registration.metadata.xaxis,
@@ -76,12 +77,21 @@ function _draw_single_line_page!(context::UIContext, page::PlotPage)
         data = NamedTuple[]
         family = LineCableModels.Units.family(observation.quantity) === Val(:series) ?
                  "series" : "shunt"
-        scientific_symbol = LineCableModels.Units.symbol(page.key.legend_quantity)
-        for (local_row, row) in enumerate(rows), (local_column, column) in enumerate(columns)
+        for (local_row, row) in enumerate(rows),
+            (local_column, column) in enumerate(columns)
+
             curve = collect(view(observation.values, local_row, local_column, :))
             label_index = (local_row - 1) * length(columns) + local_column
-            label = payload.legend_labels === nothing ? "$scientific_symbol[$row,$column]" :
-                    String(payload.legend_labels[label_index])
+            label = if payload.legend_labels === nothing
+                join(
+                    (
+                        "$(LineCableModels.Units.symbol(item.quantity))[$row,$column]"
+                    for item in payload.observations),
+                    ", "
+                )
+            else
+                String(payload.legend_labels[label_index])
+            end
             group = Symbol("$(family)_$(row)_$(column)")
             plots = _draw_line!(axis, payload.frequency.values, curve;
                 label,

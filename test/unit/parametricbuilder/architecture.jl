@@ -332,7 +332,7 @@ end
     @test Base.ispublic(Grammar, :detach)
     @test Base.ispublic(PB, :traverse)
     @test Base.ispublic(PB, :sample_uncertainty)
-    @test Base.ispublic(LineCableModels.ReportBuilder, :clip)
+    @test !isdefined(LineCableModels.ReportBuilder, :clip)
     @test Base.ispublic(LineCableModels.ReportBuilder, :encode_cell)
     @test Base.ispublic(LineCableModels.ReportBuilder, :XLSXSheet)
     @test Base.ispublic(LineCableModels.ReportBuilder, :XLSXWorkbook)
@@ -585,10 +585,8 @@ end
     struct RetryResult
         value::Float64
     end
-    Grammar.compute(problem::RetryProblem, ::RetryFormulation; options = (;)) =
-        RetryResult(problem.value)
-    Grammar.computation_details(::Val{RetryFormulation}, value::RetryResult) =
-        (accepted_value = value.value,)
+    Grammar.compute(problem::RetryProblem, ::RetryFormulation; options = (;)) = RetryResult(problem.value)
+    Grammar.computation_details(::Val{RetryFormulation}, value::RetryResult) = (accepted_value = value.value,)
     function Grammar.compute(
             problem::RetryProblem,
             ::ComputeRetryFormulation;
@@ -606,8 +604,7 @@ end
     ) = (accepted_value = value.value,)
 
     UQ._observable_count(::RetryResult) = 1
-    UQ._sample_storage(::RetryResult, trials::Int) =
-        Vector{Float64}(undef, trials)
+    UQ._sample_storage(::RetryResult, trials::Int) = Vector{Float64}(undef, trials)
     UQ._sample_axis(::RetryResult) = nothing
     function UQ._record_sample!(
             storage::Vector{Float64},
@@ -674,9 +671,8 @@ end
     @test retried.trial_counts == [4]
     @test all(>(0.5), only(UQ.samples(retried)))
     @test only(UQ.statistics(retried)).n == 4
-    @test only(retried.details.trials) == [
-        (accepted_value = value,) for value in only(UQ.samples(retried))
-    ]
+    @test only(retried.details.trials) ==
+          [(accepted_value = value,) for value in only(UQ.samples(retried))]
 
     failures = only(retried.details.failures)
     summary = only(retried.details.failure_summary)
@@ -1055,14 +1051,14 @@ end
     @test sum(derived_histogram.density .* diff(derived_histogram.edges)) ≈ 1
     published_histogram=observables(
         sample_only,
-        (model = (histograms, R, 1, 3),);
+        ((histograms, R, 1, 3),);
         units = (
-            model = LineCableModels.Units.native_unit(
-                LineCableModels.Units.quantity(R),
-                basis(sample_only)
-            ),
+            LineCableModels.Units.native_unit(
+            LineCableModels.Units.quantity(R),
+            basis(sample_only)
+        ),
         )
-    ).model
+    )|>only
     @test published_histogram.values.edges == derived_histogram.edges
     @test published_histogram.values.density == derived_histogram.density
     @test published_histogram.quantity == LineCableModels.Units.quantity(R)
@@ -1083,11 +1079,13 @@ end
     multi_point_table=DataFrame(monte_carlo)
     @test multi_point_table isa DataFrame
     @test names(multi_point_table) == [
-        "point", "quantity", "mean", "std", "min", "q05", "median", "q95",
-        "max", "n", "unit", "trials", "confidence", "cdf_tol"
+        "point", "statistic", "R", "L", "C", "trials", "point_seed"
     ]
-    @test multi_point_table.point == repeat(1:2; inner = 3)
-    @test multi_point_table.quantity == repeat([:R, :L, :C], 2)
+    @test multi_point_table.point == repeat(1:2; inner = 7)
+    @test multi_point_table.statistic == repeat(
+        [:mean, :std, :min, :q05, :median, :q95, :max],
+        2
+    )
     monte_carlo_metadata=DataFrames.metadata(
         multi_point_table,
         "monte_carlo"
@@ -1096,13 +1094,13 @@ end
     @test monte_carlo_metadata.point_seeds == monte_carlo.point_seeds
     @test monte_carlo_metadata.trial_counts == monte_carlo.trial_counts
     @test monte_carlo_metadata.confidence == confidence(monte_carlo)
-    @test monte_carlo_metadata.cdf_tol == cdf_tolerance(monte_carlo)
+    @test monte_carlo_metadata.cdf_tolerance == cdf_tolerance(monte_carlo)
     @test monte_carlo_metadata.distribution == sampling_distribution(monte_carlo)
-    @test DataFrames.metadata(multi_point_table, "units") == Dict(
-        :R => "Ω/km",
-        :L => "mH/km",
-        :C => "μF/km"
-    )
+    observed_columns=LineCableModels.ReportBuilder.observation_columns(multi_point_table)
+    @test keys(observed_columns) == (:R, :L, :C)
+    @test LineCableModels.Units.label(observed_columns.R.unit) == "Ω/km"
+    @test LineCableModels.Units.label(observed_columns.L.unit) == "mH/km"
+    @test LineCableModels.Units.label(observed_columns.C.unit) == "μF/km"
 
     resistance_pdf=first(histograms(monte_carlo)).R
     @test cdf(resistance_pdf, maximum(resistance_pdf)) == 1.0
@@ -1135,9 +1133,10 @@ end
     @test distribution_run isa MonteCarloResult{<:CableConstants}
     @test distribution_run.root_seed == UInt64(7)
     constants_frame=DataFrame(distribution_run)
-    @test constants_frame.quantity == [:R, :L, :C]
-    @test constants_frame.trials == fill(4, 3)
-    @test constants_frame.cdf_tol == fill(0.02, 3)
+    @test names(constants_frame) == [
+        "point", "statistic", "R", "L", "C", "trials", "point_seed"
+    ]
+    @test constants_frame.trials == fill(4, 7)
     @test !(:ci_half in propertynames(constants_frame))
     @test DataFrames.metadata(constants_frame, "monte_carlo").root_seed == UInt64(7)
     descriptor=only(Grid(1.0, AbsoluteError(0.1)))
@@ -1266,14 +1265,13 @@ end
     line_table=DataFrame(monte_carlo)
     @test line_table isa DataFrame
     @test names(line_table) == [
-        "point", "row", "column", "frequency", "quantity", "mean", "std",
-        "min", "q05", "median", "q95", "max", "n", "unit", "trials",
-        "confidence", "cdf_tol"
+        "point", "frequency", "row", "column", "statistic", "R", "L", "G",
+        "C", "trials", "point_seed"
     ]
     @test DataFrames.nrow(line_table) ==
-          4 * prod(size(only(statistics(monte_carlo)).R))
-    @test unique(line_table.quantity) == [:R, :L, :C, :G]
-    @test all(==("Ω/km"), line_table[line_table.quantity .== :R, :unit])
+          7 * prod(size(only(statistics(monte_carlo)).R))
+    @test keys(LineCableModels.ReportBuilder.observation_columns(line_table)) ==
+          (:frequency, :R, :L, :G, :C)
 end
 
 @testitem "ParametricBuilder / invalid points / natural failure" tags=[:unit] setup=[
@@ -1340,11 +1338,18 @@ end
         eachcol(detailed[:, Not(:property)])
     )
     base_parameters=DataFrame(design, :baseparams)
-    @test base_parameters.parameter == ["R", "L", "C"]
-    @test base_parameters.unit == ["Ω/m", "H/m", "F/m"]
+    @test names(base_parameters) == ["R", "L", "C"]
+    @test nrow(base_parameters) == 1
+    base_columns=LineCableModels.ReportBuilder.observation_columns(base_parameters)
+    @test map(
+        entry -> LineCableModels.Units.label(entry.unit),
+        values(base_columns)
+    ) == ("Ω/m", "H/m", "F/m")
     @test_throws ErrorException DataFrame(design, :unsupported)
     constants=compute(CableConstantsProblem(design), Formulation())
     rendered=DataFrame(constants)
-    @test rendered.parameter == ["R", "L", "C"]
-    @test rendered.value == [constants.R, constants.L, constants.C]
+    @test names(rendered) == ["R", "L", "C"]
+    @test only(rendered.R) == constants.R
+    @test only(rendered.L) == constants.L
+    @test only(rendered.C) == constants.C
 end

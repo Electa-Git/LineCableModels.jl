@@ -229,12 +229,17 @@ available. SVG export always includes the complete legend.
 
 =#
 
-# Calculate and summarize the cable constants explicitly:
+# Calculate the cable constants explicitly:
 constants = compute(
     CableConstantsProblem(cable_design),
     Formulation()
 )
-core_df = DataFrame(constants)
+
+# Publish detached scientific observations without reaching into result fields:
+published_constants = observables(constants, (R, L, C))
+
+# Use the native DataFrames adapter when a complete tabular result is wanted:
+constants_table = DataFrame(constants)
 
 # Obtain the equivalent electromagnetic properties of the cable:
 components_df = DataFrame(cable_design, :components)
@@ -352,28 +357,42 @@ formulation = Formulation()
     options = (verbosity = (default = 0,),)
 );
 
-# Obtain one long-form line-parameter table in per-kilometre units:
+# The lossless insulation model makes shunt conductance mathematically zero.
+# Inspect the native floating-point residual without display clipping:
+conductance_residual = extrema(@observe line_parameters G[1, 1, :])
+
+# Obtain one wide table. Frequency and matrix coordinates come from the result;
+# each observable request adds its own quantity column:
 rlgc_table = DataFrame(
-    line_parameters, (R, L, G, C); length_unit = :kilo, tol = 1e-9);
+    line_parameters,
+    (
+        @observe(R[:, :, :]),
+        @observe(L[:, :, :]),
+        @observe(G[:, :, :]),
+        @observe(C[:, :, :])
+    );
+    length_unit = :kilo
+);
 
-# Display the series resistance and inductance rows for the first matrix term:
-rlgc_table[
-    (rlgc_table.family .== :series) .& (rlgc_table.row .== 1) .& (rlgc_table.column .== 1),
-    :
-]
-
-# Display the corresponding shunt conductance and capacitance rows:
-rlgc_table[
-    (rlgc_table.family .== :shunt) .& (rlgc_table.row .== 1) .& (rlgc_table.column .== 1),
-    :
-]
+# Select the first matrix term with ordinary DataFrames transformations:
+first_term_table = subset(
+    rlgc_table,
+    :row => ByRow(==(1)),
+    :column => ByRow(==(1))
+)
+first(first_term_table, 12)
 
 # Plot the R/L and G/C frequency responses on logarithmic frequency axes. The
 # accessors select the displayed quantities; each matrix family occupies one
 # page with its two quantities side by side:
 rlcg_plots = CairoMakie.plot(
     line_parameters,
-    (R, L, G, C);
+    (
+        @observe(R[:, :, :]),
+        @observe(L[:, :, :]),
+        @observe(G[:, :, :]),
+        @observe(C[:, :, :])
+    );
     xscale = :log10,
     length_unit = :kilo,
     fig_size = (1100, 450),
@@ -409,46 +428,39 @@ export_file = export_data(
 # Obtain the symmetrical components via Fortescue transformation
 Tv, sequence_parameters = Fortescue(tol = 1e-5)(line_parameters);
 
-# Obtain the transformed series and shunt matrices as one long-form table:
-sequence_zy_table = DataFrame(
-    sequence_parameters; length_unit = :kilo, tol = 1e-9);
+# Read one transformed Z/Y term through the same observation boundary:
+sequence_impedance = @observe sequence_parameters Z[1, 1, :]
+sequence_admittance = @observe sequence_parameters Y[1, 1, :]
 
-# Display the first transformed series matrix term:
-sequence_zy_table[
-    (sequence_zy_table.family .== :series) .& (sequence_zy_table.row .== 1) .& (sequence_zy_table.column .== 1),
-    :
-]
-
-# Display the first transformed shunt matrix term:
-sequence_zy_table[
-    (sequence_zy_table.family .== :shunt) .& (sequence_zy_table.row .== 1) .& (sequence_zy_table.column .== 1),
-    :
-]
-
-# Obtain the corresponding lumped circuit quantities:
-sequence_rlgc_table = DataFrame(
+# Obtain the complete transformed quantities through the native table adapter:
+sequence_table = DataFrame(
     sequence_parameters,
-    (R, L, G, C);
-    length_unit = :kilo,
-    tol = 1e-9
+    (
+        @observe(R[:, :, :]),
+        @observe(L[:, :, :]),
+        @observe(G[:, :, :]),
+        @observe(C[:, :, :])
+    );
+    length_unit = :kilo
 );
 
-# Display the first sequence-domain series term:
-sequence_rlgc_table[
-    (sequence_rlgc_table.family .== :series) .& (sequence_rlgc_table.row .== 1) .& (sequence_rlgc_table.column .== 1),
-    :
-]
-
-# Display the first sequence-domain shunt term:
-sequence_rlgc_table[
-    (sequence_rlgc_table.family .== :shunt) .& (sequence_rlgc_table.row .== 1) .& (sequence_rlgc_table.column .== 1),
-    :
-]
+# Display a compact slice with ordinary DataFrames transformations:
+first_sequence_term = subset(
+    sequence_table,
+    :row => ByRow(==(1)),
+    :column => ByRow(==(1))
+)
+first(first_sequence_term, 12)
 
 # Plot the sequence-domain R/L and G/C responses:
 sequence_plots = CairoMakie.plot(
     sequence_parameters,
-    (R, L, G, C);
+    (
+        @observe(R[:, :, :]),
+        @observe(L[:, :, :]),
+        @observe(G[:, :, :]),
+        @observe(C[:, :, :])
+    );
     xscale = :log10,
     length_unit = :kilo,
     fig_size = (1100, 450),

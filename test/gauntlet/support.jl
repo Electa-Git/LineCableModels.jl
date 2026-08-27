@@ -1,26 +1,28 @@
 @testmodule GauntletSupport begin
-    export ARTIFACT_ROOT, ARTIFACTS_TOML, GAUNTLET_VERSION, ISHEADLESS, WORK_ROOT,
+    export ARTIFACT_ROOT, ARTIFACTS_TOML, ISHEADLESS, SNAPSHOT_SCHEMA_VERSION,
+           WORK_ROOT,
            AbstractCaseVariation, CaseDefinition, CaseParameter, CompositeVariation,
            ExactOverrides, LoadedCase, NoVariation, ParameterGrids,
            RelativeStandardUncertainty,
            BenchmarkCalculation, LineParametersPolicy, MomentBenchmark, MomentResult,
            OwnedBenchmark, UQMomentPolicy,
            UQ_MONTE_CARLO_TRIALS,
-           GauntletCase, artifact_name, backend_archive_name, backend_stage,
+           GauntletCase, artifact_name, bind_published_artifact,
+           collection_archive_name, collection_release, collection_stage,
            benchmark_local, benchmark_stage,
            benchmark_calculation, benchmark_definition, calculation_record,
            benchmark_metadata, benchmark_digest, case_digest, cleanup_work,
            comparison_passes,
            case_definition, case_index, case_parameter, compose_variations,
            correlation_record,
-           gauntlet_cleanup, gauntlet_force, gauntlet_instrumented, gauntlet_mode,
-           finalize_artifacts,
+           gauntlet_cleanup, gauntlet_instrumented, gauntlet_mode,
+           gauntlet_stage_force, finalize_staging,
            formulation_record,
            extract_moments, moment_comparison_passes, moment_error_summary,
            parameter_manifest,
            load_case, load_prior_snapshot, load_snapshot, performance_comparison,
            persist_snapshot,
-           prepare_artifacts, publish_artifact, release_tag,
+           package_collection, prepare_staging, release_tag,
            report, run_case, run_snapshot, snapshot_path,
            run_benchmark, uq_inner_formulation, uq_moment_tolerances,
            validate_case, validate_structure, variation_record, work_path
@@ -350,46 +352,6 @@
 
     case_digest(case::GauntletCase) = bytes2hex(sha256(read(case.case_source_file)))
     benchmark_digest(case::GauntletCase) = bytes2hex(sha256(read(case.source_file)))
-
-    const _V1_SOURCE_SHA256 = (
-        benchmark_132kV_630mm2_flathor_pscad =
-        "7356f6fa0c07fa683f0232cecd6c7211b62aadf255bde23c8f6b5d9d2d4f1944",
-        benchmark_18kV_1000mm2_trifoil_pscad =
-        "1acf908cabd9f7d0c67d46117be192dc307b9bb3b7e36fc00e0183e9f109df11",
-        benchmark_380kV_2000mm2_flatver_pscad =
-        "6166cc55bf919431c123d567f2eeea7b5d94fa7debebb70b8b0e9a76d57445a2",
-        benchmark_525kV_1600mm2_bipole_pscad =
-        "591beb80cc6cdf94dac3079f256a28e6d3a0c2634279ddac20aca2fe64dc4122",
-        benchmark_640kV_2000mm2_bipole_pscad =
-        "ecab5bc069c2a5302d91c9c11f54c4784fedb1e98b874ab9216e2cfc40c217e1",
-        benchmark_solid_1000mm2_single_pscad =
-        "e8579862a5b943f0ef25be3431c3073930235f9fdc8a9940c71dda5b535f9e1b",
-        benchmark_two_bare_wires_pscad =
-        "dedcb5e2f2bf6aa234eedc90574b90b30cddacd2876ea7b2d502936f3b537683"
-    )
-
-    function _reference_source_path(case::GauntletCase)
-        return joinpath(
-            GAUNTLET_ROOT,
-            "reference_sources",
-            "gauntlet_pscad_v1_0_0",
-            basename(case.source_file) * ".source"
-        )
-    end
-
-    function _reference_source_digest(case::GauntletCase)
-        expected = get(_V1_SOURCE_SHA256, case.name, nothing)
-        expected === nothing && return case_digest(case)
-        path = _reference_source_path(case)
-        isfile(path) || throw(ArgumentError(
-            "bound Gauntlet v1 source is missing: $path",
-        ))
-        observed = bytes2hex(sha256(read(path)))
-        observed == expected || throw(ArgumentError(
-            "bound Gauntlet v1 source SHA-256 does not match: $path",
-        ))
-        return observed
-    end
 
     _record_value(record::NamedTuple, key::Symbol, default = nothing) = get(record, key, default)
     _record_value(record::AbstractDict, key::Symbol, default = nothing) = get(

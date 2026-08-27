@@ -20,30 +20,11 @@ Constructors first promote their complete input with Julia's ordinary `promote` 
 `convert` mechanisms, then validate the resulting immutable record. Mutable operations
 calculate and validate a complete candidate state before changing the owned collection.
 
-## Declarative rules
+## Validation failures
 
-Types with field-local constraints specialise
-`LineCableModels.Validation.rules(::Type)`. The generic `Validation.check` evaluates
-those rules and returns the original value:
-
-```julia
-import LineCableModels: validate
-import LineCableModels.Validation: Positive, Less, check, rules
-
-struct Annulus{T <: Real}
-    r_in::T
-    r_ex::T
-end
-
-rules(::Type{<:Annulus}) = (Positive(:r_ex), Less(:r_in, :r_ex))
-validate(value::Annulus) = check(typeof(value), value)
-```
-
-Available primitive rules cover finite, positive, nonnegative, integer, type,
-membership, field-ordering, and cable-packing checks. Cross-field rules that require
-domain knowledge remain beside their owning type. A direct `validate(::OwnedType)`
-method is appropriate when the check requires type dispatch instead of a reusable
-field rule.
+Construction and mutation validate complete values before returning or changing
+them. Validation does not fill defaults, estimate wire counts, rewrite nested
+values, or mutate its input.
 
 The failure type communicates the category:
 
@@ -88,18 +69,8 @@ maxfill(RectStrands, lay_radius, width)
 Cable-part validators and WirePatterns estimators call the same methods, so
 direct construction and estimation use identical geometric limits.
 
-## API reference
+## Reference
 
-```@autodocs
-Modules = [LineCableModels.Validation]
-Order = [:module, :constant, :type, :function, :macro]
-Public = true
-Private = true
-```
-
-## Index
-
-```@index
-Pages = ["validation.md"]
-Order = [:module, :constant, :type, :function, :macro]
+```@docs
+LineCableModels.validate
 ```

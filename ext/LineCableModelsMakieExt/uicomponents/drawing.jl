@@ -15,7 +15,7 @@ function _numeric_values(values)
     return nominal_values, any(error -> !iszero(error), errors) ? errors : nothing
 end
 
-function _line_errors!(plots, axis, x, y, xerror, yerror, visible)
+function _line_errors!(plots, axis, x, y, xerror, yerror, visible, color)
     if yerror !== nothing
         push!(
             plots,
@@ -24,7 +24,7 @@ function _line_errors!(plots, axis, x, y, xerror, yerror, visible)
                 x,
                 y,
                 yerror;
-                color = :black,
+                color,
                 direction = :y,
                 whiskerwidth = 3,
                 linewidth = 1,
@@ -40,7 +40,7 @@ function _line_errors!(plots, axis, x, y, xerror, yerror, visible)
                 x,
                 y,
                 xerror;
-                color = :black,
+                color,
                 direction = :x,
                 whiskerwidth = 3,
                 linewidth = 1,
@@ -64,5 +64,6 @@ function _draw_line!(
     y, yerror = _numeric_values(ydata)
     push!(plots, lines!(
         axis, x, y; label, visible, attributes...))
-    return _line_errors!(plots, axis, x, y, xerror, yerror, visible)
+    error_color = get(attributes, :color, :black)
+    return _line_errors!(plots, axis, x, y, xerror, yerror, visible, error_color)
 end

@@ -32,12 +32,13 @@
     @test observables(typeof(constants)) == (R, L, C)
     constants_observables=observables(
         constants,
-        (resistance = R, inductance = L, capacitance = C)
+        (R, L, C)
     )
-    @test keys(constants_observables) == (:resistance, :inductance, :capacitance)
-    @test constants_observables.resistance.values ≈ 1_000constants.R
-    @test keys(constants_observables.resistance) == (:values, :quantity, :unit)
-    @test DataFrame(constants).value == [constants.R, constants.L, constants.C]
+    @test constants_observables isa Tuple
+    @test first(constants_observables).values ≈ 1_000constants.R
+    @test keys(first(constants_observables)) == (:values, :quantity, :unit)
+    @test names(DataFrame(constants)) == ["R", "L", "C"]
+    @test only(DataFrame(constants).R) == constants.R
     @test_throws ArgumentError compute(
         CableConstantsProblem(design),
         Formulation();
@@ -89,19 +90,18 @@
     parameter_observables=observables(
         parameters,
         (
-            frequency = (frequencies, Colon()),
-            resistance = (R, 1, 2, Colon()),
-            impedance_magnitude = (Z, abs, 1, 2, Colon()),
-            impedance_angle = (Z, angle, 1, 2, Colon())
+            (frequencies, Colon()),
+            (R, 1, 2, Colon()),
+            (Z, abs, 1, 2, Colon()),
+            (Z, angle, 1, 2, Colon())
         )
     )
-    @test keys(parameter_observables) ==
-          (:frequency, :resistance, :impedance_magnitude, :impedance_angle)
-    @test parameter_observables.frequency.values == frequency
-    @test parameter_observables.resistance.values == resistance_values[1, 2, :]
-    @test parameter_observables.impedance_angle.values ≈
+    @test parameter_observables isa Tuple
+    @test parameter_observables[1].values == frequency
+    @test parameter_observables[2].values == resistance_values[1, 2, :]
+    @test parameter_observables[4].values ≈
           rad2deg.(angle.(impedance[1, 2, :]))
-    @test parameter_observables.frequency.values !== parameters.f
+    @test parameter_observables[1].values !== parameters.f
 
     series=SeriesImpedance(impedance; basis = :total)
     shunt=ShuntAdmittance(admittance; basis = :total)
@@ -172,45 +172,51 @@
     @test frequencies(parameters[:]) == frequency
     @test_throws BoundsError parameters[4]
 
-    parameter_table=DataFrame(parameters)
-    @test parameter_table isa DataFrame
-    @test names(parameter_table) == [
-        "family", "row", "column", "frequency", "quantity", "value", "unit"
-    ]
-    @test nrow(parameter_table) == 48
-    @test parameter_table[1:4, [:family, :row, :column, :frequency, :quantity]] ==
-          DataFrame(
-        family = fill(:series, 4),
-        row = ones(Int, 4),
-        column = ones(Int, 4),
-        frequency = [50.0, 50.0, 100.0, 100.0],
-        quantity = [:R, :X, :R, :X]
+    requests=(
+        @observe(R[:, :, :]),
+        @observe(L[:, :, :]),
+        @observe(G[:, :, :]),
+        @observe(C[:, :, :])
     )
-    units_metadata=DataFrames.metadata(parameter_table, "units")
-    @test units_metadata[(:series, :R)] == "Ω"
-    @test units_metadata[(:series, :X)] == "Ω"
-    @test units_metadata[(:shunt, :G)] == "S"
-    @test units_metadata[(:shunt, :B)] == "S"
+    parameter_table=DataFrame(parameters, requests)
+    @test parameter_table isa DataFrame
+    @test names(parameter_table) == ["frequency", "row", "column", "R", "L", "G", "C"]
+    @test nrow(parameter_table) == 12
+    @test parameter_table[1:4, [:frequency, :row, :column]] ==
+          DataFrame(
+        frequency = fill(50.0, 4),
+        row = [1, 1, 2, 2],
+        column = [1, 2, 1, 2]
+    )
+    @test parameter_table.R[1:4] == vec(resistance_values[:, :, 1])[[1, 3, 2, 4]]
+    observed_columns=LineCableModels.ReportBuilder.observation_columns(parameter_table)
+    @test keys(observed_columns) == (:frequency, :R, :L, :G, :C)
+    @test LineCableModels.Units.label(observed_columns.R.unit) == "Ω"
+    @test LineCableModels.Units.label(observed_columns.L.unit) == "mH"
+    @test LineCableModels.Units.label(observed_columns.G.unit) == "S"
+    @test LineCableModels.Units.label(observed_columns.C.unit) == "μF"
     @test DataFrames.metadata(parameter_table, "basis") === basis(parameters)
-    headings_metadata=DataFrames.metadata(parameter_table, "headings")
-    @test headings_metadata[(:series, :R)] == "Series resistance [Ω]"
-    @test headings_metadata[(:shunt, :B)] == "Shunt susceptance [S]"
-    requests_metadata=DataFrames.metadata(parameter_table, "requests")
-    @test requests_metadata[(:series, :R)] == @observe(R[:, :, :])
-    @test requests_metadata[(:series, :X)] == @observe(X[:, :, :])
-    @test requests_metadata[(:shunt, :G)] == @observe(G[:, :, :])
-    @test requests_metadata[(:shunt, :B)] == @observe(B[:, :, :])
-    parameter_rlgc=DataFrame(parameters, (R, L, G, C))
-    rlgc_units=DataFrames.metadata(parameter_rlgc, "units")
-    @test rlgc_units[(:series, :R)] == "Ω"
-    @test rlgc_units[(:series, :L)] == "mH"
-    @test rlgc_units[(:shunt, :C)] == "μF"
     subset_table=DataFrame(parameters, (@observe(R[2, 1, 2:3]),))
     @test subset_table.row == [2, 2]
     @test subset_table.column == [1, 1]
     @test subset_table.frequency == frequency[2:3]
-    @test subset_table.quantity == [:R, :R]
-    @test_throws ArgumentError DataFrame(parameters; tol = -1.0)
+    @test subset_table.R == resistance_values[2, 1, 2:3]
+    transformed_table=DataFrame(parameters, (
+        @observe((Z, abs)[:, :, :]),
+        @observe((Y, angle)[:, :, :])
+    ))
+    @test names(transformed_table) ==
+          ["frequency", "row", "column", "|Z|", "∠Y"]
+    @test transformed_table[!, Symbol("|Z|")][1:4] ≈
+          vec(abs.(impedance[:, :, 1]))[[1, 3, 2, 4]]
+    @test transformed_table[!, Symbol("∠Y")][1:4] ≈
+          rad2deg.(vec(angle.(admittance[:, :, 1]))[[1, 3, 2, 4]])
+    @test_throws ArgumentError DataFrame(parameters)
+    @test_throws ArgumentError DataFrame(parameters, (R, L, G, C))
+    @test_throws DimensionMismatch DataFrame(parameters, (
+        @observe(R[1, 1, :]),
+        @observe(L[2, 1, :])
+    ))
 
     zero_frequency=LineParameters(
         impedance[:, :, 1:1],
@@ -223,26 +229,22 @@
     @test_throws DomainError L(zero_frequency, 1, 1)
     @test_throws DomainError C(zero_frequency, 1, 1, 1)
     @test_throws DomainError C(zero_frequency)
-    @test DataFrame(zero_frequency) isa DataFrame
-    @test_throws DomainError DataFrame(zero_frequency, (R, L, G, C))
+    @test DataFrame(zero_frequency, (
+        @observe(R[:, :, :]),
+        @observe(G[:, :, :])
+    )) isa DataFrame
+    @test_throws DomainError DataFrame(zero_frequency,
+        (
+            @observe(R[:, :, :]),
+            @observe(L[:, :, :]),
+            @observe(G[:, :, :]),
+            @observe(C[:, :, :])
+        ))
 
-    standalone_series=DataFrame(series; freqs = frequency)
-    standalone_shunt=DataFrame(shunt, (G, C); freqs = frequency)
-    @test standalone_series isa DataFrame
-    @test standalone_shunt isa DataFrame
-    @test unique(standalone_series.family) == [:series]
-    @test unique(standalone_shunt.family) == [:shunt]
-    @test unique(standalone_series.frequency) == frequency
-    @test unique(standalone_shunt.frequency) == frequency
-    @test unique(standalone_series.quantity) == [:R, :X]
-    @test unique(standalone_shunt.quantity) == [:G, :C]
-    @test_throws ArgumentError DataFrame(series)
-    @test_throws ArgumentError DataFrame(shunt)
-    @test LineCableModels.ReportBuilder.clip(1.0 + 2.0im, 1.0) ==
-          1.0 + 2.0im
-    @test_throws DimensionMismatch DataFrame(series; freqs = [50.0])
-    @test_throws ArgumentError DataFrame(series; freqs = [50.0, Inf, 200.0])
-    @test_throws ArgumentError DataFrame(series; tol = Inf)
+    @test parentmodule(which(DataFrame, (typeof(series),))) !==
+          LineCableModels.ReportBuilder
+    @test parentmodule(which(DataFrame, (typeof(shunt),))) !==
+          LineCableModels.ReportBuilder
 
     @test_throws DimensionMismatch LineParameters(
         zeros(ComplexF64, 2, 3, 1),
@@ -396,21 +398,17 @@ end
     result_publication=observables(
         complete,
         (
-            mean_resistance = (statistics, R, mean, 1),
-            sample_resistance = (samples, R, 1, Colon()),
-            resistance_density = (histograms, R, 1)
+            (statistics, R, mean, 1),
+            (samples, R, 1, Colon()),
+            (histograms, R, 1)
         );
-        units = (
-            mean_resistance = :milli,
-            sample_resistance = :milli,
-            resistance_density = :milli
-        )
+        units = (:milli, :milli, :milli)
     )
-    @test result_publication.mean_resistance.quantity == quantity(R)
-    @test result_publication.mean_resistance.values == 2.5e6
-    @test result_publication.sample_resistance.values == retained_samples .* 1.0e6
-    @test result_publication.resistance_density.values.edges == density.edges .* 1.0e6
-    @test result_publication.resistance_density.values.density ==
+    @test result_publication[1].quantity == quantity(R)
+    @test result_publication[1].values == 2.5e6
+    @test result_publication[2].values == retained_samples .* 1.0e6
+    @test result_publication[3].values.edges == density.edges .* 1.0e6
+    @test result_publication[3].values.density ==
           density.density ./ 1.0e6
 
     summary_product=only(statistics(complete))
@@ -424,14 +422,14 @@ end
     @test !applicable(observe, histogram_product, R)
     summary_publication=observables(
         complete,
-        (resistance = (statistics, R, 1),);
-        units = (resistance = :milli,)
-    ).resistance
+        ((statistics, R, 1),);
+        units = (:milli,)
+    )|>only
     histogram_publication=observables(
         complete,
-        (resistance = (histograms, R, 1),);
-        units = (resistance = :milli,)
-    ).resistance
+        ((histograms, R, 1),);
+        units = (:milli,)
+    )|>only
     summary_factor=scale_factor(R, basis(complete), summary_publication.unit)
     @test summary_publication.values.mean == summary_product.R.mean * summary_factor
     @test summary_publication.values.std == summary_product.R.std * abs(summary_factor)
@@ -472,8 +470,8 @@ end
     @test observe(line_result, frequencies, 1, :) == frequency
     line_frequency=observables(
         line_result,
-        (frequency = (frequencies, 1, Colon()),)
-    ).frequency
+        ((frequencies, 1, Colon()),)
+    )|>only
     @test line_frequency.values == frequency
     @test line_frequency.quantity == quantity(frequencies)
     @test line_frequency.unit == LineCableModels.Units.units(:base, :hertz)

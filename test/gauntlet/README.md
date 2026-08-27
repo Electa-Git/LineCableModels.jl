@@ -131,17 +131,17 @@ The accepted local recording produced:
 
 | Case | Trials | Maximum meaningful mean difference | Maximum meaningful uncertainty difference | Monte Carlo / LEP median |
 |:--|--:|--:|--:|--:|
-| 132 kV 630 mm² flat horizontal | 512 | 1.23% | 3.58% | 31.55× |
-| 18 kV 1000 mm² trifoil | 512 | 1.88% | 8.51% | 7.54× |
-| 380 kV 2000 mm² flat vertical | 512 | 1.68% | 9.16% | 25.43× |
-| 525 kV 1600 mm² bipole | 2,048 | 1.31% | 9.25% | 85.08× |
-| 640 kV 2000 mm² bipole | 512 | 0.86% | 6.68% | 20.95× |
-| Solid 1000 mm² single phase | 512 | 0.68% | 7.33% | 34.82× |
-| Two bare wires | 2,048 | 1.75% | 6.24% | 157.65× |
+| 132 kV 630 mm² flat horizontal | 512 | 1.23% | 3.58% | 23.37× |
+| 18 kV 1000 mm² trifoil | 512 | 1.88% | 8.51% | 6.25× |
+| 380 kV 2000 mm² flat vertical | 512 | 1.68% | 9.16% | 24.99× |
+| 525 kV 1600 mm² bipole | 2,048 | 1.31% | 9.25% | 80.76× |
+| 640 kV 2000 mm² bipole | 512 | 0.86% | 6.68% | 21.28× |
+| Solid 1000 mm² single phase | 512 | 0.68% | 7.33% | 34.28× |
+| Two bare wires | 2,048 | 1.75% | 6.24% | 165.28× |
 
 Across this family, the largest meaningful mean difference is 1.88%, the
 largest propagated-uncertainty difference is 9.25%, and the smallest observed
-speedup is 7.54×. Timing values are machine-specific; their environment is
+speedup is 6.25×. Timing values are machine-specific; their environment is
 stored in the artifact.
 
 The scientific KPIs are mean and standard deviation for `R`, `L`, `C`, and `G`.
@@ -165,11 +165,11 @@ diagnostics but do not gate performance.
 
 `LINECABLEMODELS_GAUNTLET_MODE` accepts `snapshot`, `live`, or `record`.
 
-| Mode | PSCAD reference | Owned reference | Accepted artifact | Writes artifact |
+| Mode | PSCAD reference | Owned reference | Accepted artifact | Writes staging |
 |:--|:--:|:--:|:--:|:--:|
 | `snapshot` | Loaded, never executed | Executed locally | Required | No |
 | `live` | Executed | Executed locally | No | No |
-| `record` | Executed | Executed locally | Prior version when available | Yes |
+| `record` | Executed | Executed locally | Published collection when available | Yes |
 
 Snapshot mode for PSCAD does not load host configuration, initialize Python,
 start a process, or contact a network. Owned benchmarks still execute both
@@ -190,16 +190,22 @@ LINECABLEMODELS_GAUNTLET_MODE=snapshot \
 julia --project=test/gauntlet --startup-file=no test/gauntlet/runtests.jl
 ```
 
-Run one family while developing:
+Run one family while developing. The PSCAD command below is explicitly live;
+without the mode setting it would use the default snapshot mode:
 
 ```bash
 julia --project=test/gauntlet --startup-file=no -e '
 using TestItemRunner
 @run_package_tests(filter=ti -> :uq in ti.tags, verbose=true)
 '
+LINECABLEMODELS_GAUNTLET_MODE=live \
+julia --project=test/gauntlet --startup-file=no -e '
+using TestItemRunner
+@run_package_tests(filter=ti -> :pscad in ti.tags, verbose=true)
+'
 ```
 
-Replace `:uq` with `:pscad`. Run the reusable infrastructure checks with:
+Run the reusable infrastructure checks with:
 
 ```bash
 julia --project=test/gauntlet --startup-file=no -e \
@@ -211,11 +217,14 @@ Record collections only through the dedicated runner:
 ```bash
 LINECABLEMODELS_GAUNTLET_PERSIST=true \
 LINECABLEMODELS_GAUNTLET_MODE=record \
+LINECABLEMODELS_GAUNTLET_STAGE_FORCE=true \
+LINECABLEMODELS_GAUNTLET_CLEANUP=true \
 julia --project=test/gauntlet --startup-file=no test/gauntlet/runtests.jl
 ```
 
-Set `LINECABLEMODELS_GAUNTLET_FORCE=true` to replace only an existing staging
-collection for the current Gauntlet version. Set
+Set `LINECABLEMODELS_GAUNTLET_STAGE_FORCE=true` to replace the complete
+unversioned staging area. This setting never replaces a release package or an
+`Artifacts.toml` binding. Set
 `LINECABLEMODELS_GAUNTLET_CLEANUP=true` to remove
 `test/gauntlet/benchmarks/.work/` after a fully successful run. Failed runs
 retain diagnostics.
@@ -252,21 +261,34 @@ PSCAD's blocking `compile()` call cannot stream intermediate project messages.
 
 ## Artifacts and reports
 
-`GAUNTLET_VERSION = v"2.0.0"` is a breaking schema generation. The historical
-`gauntlet_pscad_v1_0_0` binding remains in `Artifacts.toml` and is never
-overwritten. V2 collections are staged by benchmark ID:
+Artifact lifecycle and release versioning are intentionally separate. Julia
+owns benchmark execution, validation, snapshot schema 2, and unversioned local
+staging. It does not inspect Git tags, choose a version, create a release, or
+upload an archive. The external packaging command owns those release concerns
+and operates on one collection at a time.
+
+This is the locked layout:
 
 ```text
 test/gauntlet/.artifacts/
-├── pscad/v2.0.0/
-│   ├── benchmarks/<benchmark-id>/snapshot.{jld2,sha256}
-│   ├── report.{jld2,tsv,sha256}
-│   └── benchmarks-pscad-v2.0.0.tar.gz
-└── uq/v2.0.0/
-    ├── benchmarks/<benchmark-id>/snapshot.{jld2,sha256}
-    ├── report.{jld2,tsv,sha256}
-    └── benchmarks-uq-v2.0.0.tar.gz
+├── staging/
+│   ├── pscad/
+│   │   ├── benchmarks/<benchmark-id>/snapshot.{jld2,sha256}
+│   │   └── report.{jld2,tsv,sha256}
+│   └── uq/
+│       ├── benchmarks/<benchmark-id>/snapshot.{jld2,sha256}
+│       └── report.{jld2,tsv,sha256}
+└── releases/<collection>/vX.Y.Z/
+    ├── benchmarks-<collection>-vX.Y.Z.tar.gz
+    └── package.toml
 ```
+
+Staging and release packages are ignored working data. `Artifacts.toml` is the
+tracked runtime registry and uses stable keys such as `gauntlet_pscad` and
+`gauntlet_uq`; advancing a collection updates its stable binding. Collections
+version independently through `gauntlet-pscad-vX.Y.Z`,
+`gauntlet-uq-vX.Y.Z`, and corresponding future tag families. A snapshot schema
+change is independent of any collection release version.
 
 Each snapshot stores separate case and benchmark IDs and SHA-256 values, the
 parameter manifest, applied variation, parameter-identity correlation record,
@@ -288,16 +310,35 @@ failing locations, Monte Carlo count and seed, timings, and integrity metadata.
 The PSCAD report retains the established `Z/Y` RMS and performance fields while
 reporting benchmark ID and physical case ID separately.
 
-After review, upload both archives to one immutable `gauntlet-v2.0.0` release
-and bind their real URLs—never invented URLs—with:
+After recording and reviewing the reports, commit the definitive source tree.
+Then package one collection by supplying the exact next version and a reason:
 
 ```bash
-julia --project=test/gauntlet --startup-file=no -e '
-include("test/gauntlet/artifacts.jl")
-using .GauntletArtifacts
-publish_artifact(Symbol(ARGS[1]), ARGS[2])
-' uq https://github.com/OWNER/REPOSITORY/releases/download/gauntlet-v2.0.0/benchmarks-uq-v2.0.0.tar.gz
+python .github/scripts/package_gauntlet.py \
+  --collection uq \
+  --version 1.0.0 \
+  --reason "Initial LEP versus Monte Carlo baseline"
 ```
 
-Repeat for `pscad`. Published artifacts are immutable; corrections require a
-new Gauntlet version.
+The script requires a clean worktree (ignored staging remains available), reads only
+`gauntlet-<collection>-v*` Git tags, and accepts `1.0.0` for an unreleased
+collection or exactly one patch, minor, or major successor of its latest tag.
+It passes the explicit version, reason, and full Git commit to Julia's narrow
+packager. Add `--create-tag` to create the validated annotated tag locally;
+uploading assets and pushing tags remain explicit release/CI operations.
+An explicitly dispatched CI job may call the same script only after staging has
+been supplied to that job; an ordinary hosted checkout cannot see ignored local
+staging.
+
+After the archive has a real immutable URL, update the stable runtime binding:
+
+```bash
+julia --project=test/gauntlet --startup-file=no test/gauntlet/bind.jl \
+  uq 1.0.0 \
+  https://github.com/OWNER/REPOSITORY/releases/download/gauntlet-uq-v1.0.0/benchmarks-uq-v1.0.0.tar.gz
+```
+
+Commit the resulting `Artifacts.toml` change. There is deliberately no
+pre-commit hook: ordinary Julia runs stage data, while an explicit Git-aware
+release action versions and packages it. Published collection releases are
+immutable; corrections use the next version of only the affected collection.

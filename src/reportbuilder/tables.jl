@@ -2,43 +2,49 @@
 $(TYPEDEF)
 
 Publish a [`DataModel.CableConstants`](@ref) result as one R/L/C table.
+
+$(TYPEDFIELDS)
 """
-struct CableConstantsTableDefinition <: AbstractReportDefinition end
+struct CableConstantsTableDefinition <: AbstractReportDefinition
+    "Whether detached display residue is replaced with exact zero."
+    clip::Bool
+end
+CableConstantsTableDefinition() = CableConstantsTableDefinition(true)
 
 """
 $(TYPEDEF)
 
-Define the quantities, frequency display, unit overrides, and clipping
-tolerance for one long-form line-parameter table.
+Define the observable requests and display units for one wide line-parameter
+table.
 
 $(TYPEDFIELDS)
 """
-struct LineParametersTableDefinition{Q <: Tuple, F, U} <: AbstractReportDefinition
-    "Scientific selectors or explicit observable requests to publish."
+struct LineParametersTableDefinition{Q <: Tuple, U} <: AbstractReportDefinition
+    "Explicit observable requests in output-column order."
     requests::Q
-    "Frequency samples for a standalone matrix, or `nothing` for `LineParameters`."
-    freqs::F
     "SI prefix used to display frequency."
     frequency_unit::Symbol
     "Length prefix used for per-length quantities."
     length_unit::Symbol
-    "Optional display-unit overrides aligned with the published requests."
+    "Optional display-unit overrides resolved from the requests."
     quantity_units::U
-    "Absolute threshold used by [`clip`](@ref)."
-    tolerance::Float64
+    "Whether detached display residue is replaced with exact zero."
+    clip::Bool
 end
 
 """
 $(TYPEDEF)
 
-Publish a [`Engine.LineParametersBenchmark`](@ref) as one comparison table.
+Publish a [`Engine.LineParametersBenchmark`](@ref) as one wide comparison
+table.
 
 $(TYPEDFIELDS)
 """
-struct BenchmarkTableDefinition{T <: NamedTuple} <: AbstractReportDefinition
-    "Absolute Z and Y floors below which relative RMS errors are omitted."
-    zero_atol::T
+struct BenchmarkTableDefinition <: AbstractReportDefinition
+    "Whether detached display residue is replaced with exact zero."
+    clip::Bool
 end
+BenchmarkTableDefinition() = BenchmarkTableDefinition(true)
 
 const _TableOnlyReport = Union{
     CableConstantsTableDefinition,
@@ -51,508 +57,194 @@ write(::_TableOnlyReport, source, published, table, ::Nothing, ::Nothing) = noth
 
 entitle(::CableConstantsTableDefinition, source::DataModel.CableConstants) = source
 entitle(::LineParametersTableDefinition, source::Engine.LineParameters) = source
-entitle(::LineParametersTableDefinition, source::Engine.SeriesImpedance) = source
-entitle(::LineParametersTableDefinition, source::Engine.ShuntAdmittance) = source
 entitle(::BenchmarkTableDefinition, source::Engine.LineParametersBenchmark) = source
 
-function select(::CableConstantsTableDefinition, source::DataModel.CableConstants)
-    requests = (R = R, L = L, C = C)
+function select(definition::CableConstantsTableDefinition, source::DataModel.CableConstants)
+    requests = (R, L, C)
     targets = map(requests) do selector
         Units.native_unit(Units.quantity(selector), basis(source))
     end
-    return observables(source, requests; units = targets)
+    return observables(source, requests; units = targets, clip = definition.clip)
 end
 
-function tabulate(::CableConstantsTableDefinition, source, published::NamedTuple)
-    payloads = values(published)
-    return DataFrame(
-        parameter = [Units.symbol(payload.quantity) for payload in payloads],
-        value = [payload.values for payload in payloads],
-        unit = [Units.label(payload.unit) for payload in payloads]
-    )
+function tabulate(::CableConstantsTableDefinition, source, published::Tuple)
+    names = _observation_names(published)
+    columns = map(payload -> [payload.values], published)
+    table = DataFrame(NamedTuple{names}(columns))
+    metadata!(table, "basis", basis(source), style = :note)
+    metadata!(table, "row_order", (), style = :note)
+    return _observation_columns!(table, names, published)
 end
 
 function _line_definition(
         requests::Tuple,
-        freqs,
         frequency_unit::Symbol,
         length_unit::Symbol,
         quantity_units,
-        tolerance::Real
+        clip::Bool
 )
-    isfinite(tolerance) && tolerance >= 0 || throw(
-        ArgumentError("tol must be finite and nonnegative"),
-    )
+    isempty(requests) && throw(ArgumentError(
+        "line tables require at least one explicit observable request",
+    ))
+    all(request -> request isa Tuple, requests) || throw(ArgumentError(
+        "line tables require requests constructed with @observe",
+    ))
     return LineParametersTableDefinition(
         requests,
-        freqs,
         frequency_unit,
         length_unit,
         quantity_units,
-        float(tolerance)
+        clip
     )
 end
 
-function _frequency_values(::Engine.LineParameters, provided)
-    provided === nothing || throw(ArgumentError(
-        "LineParameters already owns its frequency samples",
-    ))
-    return nothing
-end
-
-function _standalone_frequency_values(source, provided)
-    provided === nothing &&
-        throw(ArgumentError(
-            "standalone impedance and admittance reports require explicit frequencies",
-        ))
-    values = Float64.(collect(provided))
-    length(values) == size(source, 3) || throw(
-        DimensionMismatch("frequency vector length does not match the parameter depth"),
-    )
-    all(isfinite, values) || throw(ArgumentError("frequencies must be finite"))
-    return values
-end
-
-function _frequency_values(source::Engine.SeriesImpedance, provided)
-    return _standalone_frequency_values(source, provided)
-end
-
-function _frequency_values(source::Engine.ShuntAdmittance, provided)
-    return _standalone_frequency_values(source, provided)
-end
-
-function _frequency_payload(
-        source::Engine.LineParameters,
-        ::Nothing,
-        prefix::Symbol
-)
-    target = Units.units(prefix, :hertz)
-    return observables(
-        source,
-        (frequency = (frequencies, Colon()),);
-        units = (frequency = target,)
-    ).frequency
-end
-
-function _standalone_frequency_payload(values, prefix::Symbol)
-    target = Units.units(prefix, :hertz)
-    quantity = Units.quantity(frequencies)
-    factor = Units.scale_factor(Units.native_unit(quantity), target)
-    return (; values = values .* factor, quantity, unit = target)
-end
-
-function _frequency_payload(
-        ::Engine.SeriesImpedance,
-        values,
-        prefix::Symbol
-)
-    return _standalone_frequency_payload(values, prefix)
-end
-
-function _frequency_payload(
-        ::Engine.ShuntAdmittance,
-        values,
-        prefix::Symbol
-)
-    return _standalone_frequency_payload(values, prefix)
-end
-
-_default_table_requests(::Engine.LineParameters) = (R, X, G, B)
-_default_table_requests(::Engine.SeriesImpedance) = (R, X)
-_default_table_requests(::Engine.ShuntAdmittance) = (G, B)
-
-function _table_request_identity(request::Tuple)
-    length(request) == 5 && return (request[1], request[2])
-    return first(request)
-end
-
-function _table_request_quantity(request)
-    identity = _table_request_identity(request)
-    return identity isa Tuple ? Units.quantity(identity...) : Units.quantity(identity)
-end
-
-function _table_request_indices(request::Tuple)
-    offset = _table_request_identity(request) isa Tuple ? 2 : 1
-    length(request) == offset + 3 || throw(ArgumentError(
+function _resolve_table_observations(source::Engine.LineParameters, requests::Tuple)
+    resolved = map(request -> observation_request(source, request), requests)
+    all(request -> length(request.indices) == 3, resolved) || throw(ArgumentError(
         "line tables require row, column, and frequency indices",
     ))
-    return request[(offset + 1):end]
-end
-
-function _table_requests(source, requested::Tuple)
-    selected = isempty(requested) ? _default_table_requests(source) : requested
-    requests = map(selected) do request
-        request isa Function && return (request, Colon(), Colon(), Colon())
-        request isa Tuple || throw(ArgumentError(
-            "line tables accept selectors or explicit observable request tuples",
+    published_quantities = map(request -> request.quantity, resolved)
+    length(unique(published_quantities)) == length(published_quantities) ||
+        throw(ArgumentError(
+            "line tables do not accept duplicate scientific quantities",
         ))
-        _table_request_indices(request)
-        return request
+
+    dimensions = size(Z(source))
+    coordinates = map(resolved) do request
+        map(observation_indices, request.indices, dimensions)
     end
-    identities = map(_table_request_identity, requests)
-    length(unique(identities)) == length(identities) || throw(ArgumentError(
-        "line tables do not accept duplicate scientific quantities",
+    all(==(first(coordinates)), coordinates) || throw(DimensionMismatch(
+        "all line-table requests must select the same row, column, and frequency indices",
     ))
-    return requests
+    return resolved, first(coordinates)
 end
 
-function _table_indices(selector)
-    selector isa Colon && return selector
-    selector isa Integer && return [Int(selector)]
-    selector isa AbstractRange && return collect(Int, selector)
-    selector isa AbstractVector && return collect(Int, selector)
-    throw(ArgumentError("observable indices must be integers, ranges, vectors, or `:`"))
-end
-
-function _table_coordinates(request)
-    row, column, sample = _table_request_indices(request)
-    rows = _table_indices(row)
-    columns = _table_indices(column)
-    samples = _table_indices(sample)
-    return rows, columns, samples
-end
-
-function _materialized_table_request(source, frequencies, request, coordinates)
-    rows, columns, samples = coordinates
-    identity = _table_request_identity(request)
-    prefix = identity isa Tuple ? identity : (identity,)
-    source isa Engine.SeriesImpedance && identity === L &&
-        (prefix = (L, frequencies))
-    source isa Engine.ShuntAdmittance && identity === C &&
-        (prefix = (C, frequencies))
-    return (prefix..., rows, columns, samples)
-end
-
-function _resolved_coordinates(coordinates, payload)
-    dimensions = size(payload.values)
-    return map(coordinates, dimensions) do coordinate, count
-        coordinate isa Colon ? collect(1:count) : coordinate
+function select(definition::LineParametersTableDefinition, source::Engine.LineParameters)
+    resolved, coordinates = _resolve_table_observations(source, definition.requests)
+    materialized = map(resolved) do request
+        materialize_observation(request, coordinates)
     end
-end
-
-function _select_line_table(
-        source,
-        requests,
-        freqs,
-        frequency_unit,
-        length_unit,
-        quantity_units
-)
-    frequency_values = _frequency_values(source, freqs)
-    requests = _table_requests(source, requests)
-    coordinates = map(_table_coordinates, requests)
-    sample_indices = last.(coordinates)
-    all(==(first(sample_indices)), sample_indices) || throw(DimensionMismatch(
-        "all line-table requests must select the same frequency indices",
-    ))
-    names = Tuple(Symbol("request_$index") for index in eachindex(requests))
-    materialized = map(requests, coordinates) do request, request_coordinates
-        _materialized_table_request(
-            source,
-            frequency_values,
-            request,
-            request_coordinates
-        )
-    end
-    named_requests = NamedTuple{names}(materialized)
-    targets = unit_targets(
-        named_requests,
+    quantity_targets = unit_targets(
+        materialized,
         basis(source);
-        length_prefix = length_unit,
-        overrides = quantity_units
+        length_prefix = definition.length_unit,
+        overrides = definition.quantity_units
     )
-    if source isa Engine.LineParameters
-        frequency_target = Units.units(frequency_unit, :hertz)
-        combined_requests = merge(
-            (frequency = (frequencies, first(sample_indices)),),
-            named_requests
-        )
-        combined_units = merge((frequency = frequency_target,), targets)
-        combined = observables(source, combined_requests; units = combined_units)
-        frequency = combined.frequency
-        published = NamedTuple{names}(Tuple(getproperty(combined, name) for name in names))
-    else
-        frequency = _standalone_frequency_payload(
-            frequency_values[first(sample_indices)],
-            frequency_unit
-        )
-        published = observables(source, named_requests; units = targets)
-    end
-    resolved_coordinates = map(_resolved_coordinates, coordinates, values(published))
-    families = map(payload -> Units.family(payload.quantity), values(published))
-    return (;
-        frequency,
-        published,
-        requests,
-        coordinates = resolved_coordinates,
-        families
+    frequency_target = Units.units(definition.frequency_unit, :hertz)
+    requests = ((frequencies, last(coordinates)), materialized...)
+    targets = (frequency_target, quantity_targets...)
+    published = observables(source, requests; units = targets, clip = definition.clip)
+    frequency = first(published)
+    observations = Base.tail(published)
+    expected = Tuple(length(indices) for indices in coordinates)
+    all(payload -> size(payload.values) == expected, observations) || throw(
+        DimensionMismatch("published line quantities do not share one coordinate grid"),
     )
+    length(frequency.values) == last(expected) || throw(DimensionMismatch(
+        "frequency count does not match published line quantities",
+    ))
+    return (; frequency, observations, coordinates)
 end
 
-function select(definition::LineParametersTableDefinition, source)
-    return _select_line_table(
-        source,
-        definition.requests,
-        definition.freqs,
-        definition.frequency_unit,
-        definition.length_unit,
-        definition.quantity_units
-    )
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Replace finite real report values within `tolerance` of zero with exact zero.
-"""
-function clip(value::Real, tolerance)
-    isfinite(value) || return value
-    return abs(value) <= tolerance ? zero(value) : value
-end
-
-clip(value::Complex, _) = value
-clip(value::Missing, _) = value
-
-_family_name(::Val{:series}) = :series
-_family_name(::Val{:shunt}) = :shunt
-
-function _tabulate_line_table(source, selected, tolerance)
+function _line_columns(selected)
+    rows, columns, samples = selected.coordinates
     frequency_values = selected.frequency.values
-    Tfrequency = eltype(frequency_values)
-    Tvalue = promote_type((eltype(payload.values) for payload in values(selected.published))...)
-    family_column = Symbol[]
-    row_column = Int[]
-    column_column = Int[]
-    frequency_column = Tfrequency[]
-    quantity_column = Symbol[]
-    value_column = Tvalue[]
-    unit_column = String[]
-    family_rank = Int[]
-    frequency_rank = Int[]
-    request_rank = Int[]
-    units_metadata = Dict{Tuple{Symbol, Symbol}, String}()
-    headings_metadata = Dict{Tuple{Symbol, Symbol}, String}()
-    requests_metadata = Dict{Tuple{Symbol, Symbol}, Any}()
-
-    for (request_index, payload) in enumerate(values(selected.published))
-        family = _family_name(selected.families[request_index])
-        rows, columns, _ = selected.coordinates[request_index]
-        row_count, column_count, frequency_count = size(payload.values)
-        frequency_count == length(frequency_values) || throw(DimensionMismatch(
-            "frequency count does not match line-parameter samples",
-        ))
-        quantity = Symbol(Units.symbol(payload.quantity))
-        metadata_key = (family, quantity)
-        units_metadata[metadata_key] = Units.label(payload.unit)
-        headings_metadata[metadata_key] = Units.label(payload.quantity, payload.unit)
-        requests_metadata[metadata_key] = selected.requests[request_index]
-        for local_row in 1:row_count, local_column in 1:column_count
-
-            for frequency_index in eachindex(frequency_values)
-                push!(family_column, family)
-                push!(row_column, rows[local_row])
-                push!(column_column, columns[local_column])
-                push!(frequency_column, frequency_values[frequency_index])
-                push!(quantity_column, quantity)
-                push!(family_rank, family === :series ? 1 : 2)
-                push!(frequency_rank, frequency_index)
-                push!(request_rank, request_index)
-                push!(
-                    value_column,
-                    clip(
-                        payload.values[local_row, local_column, frequency_index],
-                        tolerance
-                    )
-                )
-                push!(unit_column, Units.label(payload.unit))
-            end
-        end
+    frequency_column = [frequency_values[k]
+                        for k in eachindex(samples) for _ in rows for _ in columns]
+    row_column = [row for _ in samples for row in rows for _ in columns]
+    column_column = [column for _ in samples for _ in rows for column in columns]
+    values = map(selected.observations) do payload
+        [payload.values[local_row, local_column, local_frequency]
+         for local_frequency in eachindex(samples)
+         for local_row in eachindex(rows)
+         for local_column in eachindex(columns)]
     end
+    return frequency_column, row_column, column_column, values
+end
 
-    order = sortperm(eachindex(family_column); by = index -> (
-        family_rank[index],
-        row_column[index],
-        column_column[index],
-        frequency_rank[index],
-        request_rank[index]
+function _tabulate_line_parameters(source, selected)
+    frequency, rows, columns, quantity_values = _line_columns(selected)
+    quantity_names = _observation_names(selected.observations)
+    table = DataFrame(merge(
+        (; frequency, row = rows, column = columns),
+        NamedTuple{quantity_names}(quantity_values)
     ))
-    table = DataFrame(
-        family = family_column[order],
-        row = row_column[order],
-        column = column_column[order],
-        frequency = frequency_column[order],
-        quantity = quantity_column[order],
-        value = value_column[order],
-        unit = unit_column[order]
-    )
     metadata!(table, "basis", basis(source), style = :note)
-    metadata!(
-        table,
-        "frequency_unit",
-        Units.label(selected.frequency.unit),
-        style = :note
-    )
-    metadata!(table, "units", units_metadata, style = :note)
-    metadata!(table, "headings", headings_metadata, style = :note)
-    metadata!(table, "requests", requests_metadata, style = :note)
-    metadata!(
-        table,
-        "row_order",
-        (:family, :row, :column, :frequency, :quantity),
-        style = :note
-    )
-    return table
+    metadata!(table, "row_order", (:frequency, :row, :column), style = :note)
+    observation_names = (:frequency, quantity_names...)
+    published = (selected.frequency, selected.observations...)
+    return _observation_columns!(table, observation_names, published)
 end
 
-function tabulate(definition::LineParametersTableDefinition, source, selected)
-    return _tabulate_line_table(source, selected, definition.tolerance)
+function tabulate(::LineParametersTableDefinition, source, selected)
+    return _tabulate_line_parameters(source, selected)
 end
 
-function _comparison_floor(zero_atol::NamedTuple, quantity::Symbol)
-    names = propertynames(zero_atol)
-    length(names) == 2 && all(name -> name in names, (:Z, :Y)) || throw(
-        ArgumentError("zero_atol must contain exactly the Z and Y fields"),
-    )
-    value = getproperty(zero_atol, quantity)
-    value isa Real || throw(ArgumentError("zero_atol.$quantity must be a real number"))
-    isfinite(value) && value >= 0 || throw(ArgumentError(
-        "zero_atol.$quantity must be finite and nonnegative",
-    ))
-    return value
-end
-
-function select(::BenchmarkTableDefinition, comparison::Engine.LineParametersBenchmark)
+function select(
+        definition::BenchmarkTableDefinition,
+        comparison::Engine.LineParametersBenchmark
+)
     requests = (
-        Z_absolute = (Z, Engine.absolute_error),
-        Z_relative = (Z, Engine.relative_error),
-        Y_absolute = (Y, Engine.absolute_error),
-        Y_relative = (Y, Engine.relative_error)
+        (Z, Engine.absolute_error),
+        (Z, Engine.relative_error),
+        (Y, Engine.absolute_error),
+        (Y, Engine.relative_error)
     )
-    targets = map(requests) do request
-        Units.native_unit(Units.quantity(request...), basis(comparison))
-    end
-    return observables(comparison, requests; units = targets)
+    return observables(comparison, requests; clip = definition.clip)
 end
 
-function _comparison_rows(quantity, absolute, relative, floor)
-    T = eltype(absolute.values)
-    rows = Int[]
-    columns = Int[]
-    absolute_values = T[]
-    relative_values = Union{Missing, T}[]
-    relative_status = Symbol[]
-    for index in CartesianIndices(absolute.values)
-        below_floor = floor > 0 && absolute.values[index] <= floor
-        push!(rows, index[1])
-        push!(columns, index[2])
-        push!(absolute_values, absolute.values[index])
-        push!(relative_values, below_floor ? missing : relative.values[index])
-        push!(relative_status, below_floor ? :below_absolute_floor : :reported)
-    end
-    return DataFrame(
-        quantity = fill(quantity, length(rows)),
-        row = rows,
-        column = columns,
-        rms_absolute = absolute_values,
-        rms_relative = relative_values,
-        relative_status = relative_status
+function tabulate(::BenchmarkTableDefinition, source, published::Tuple)
+    dimensions = size(first(published).values)
+    all(payload -> size(payload.values) == dimensions, published) || throw(
+        DimensionMismatch("benchmark quantities do not share one matrix shape"),
     )
-end
-
-function tabulate(definition::BenchmarkTableDefinition, source, published)
-    impedance_floor = _comparison_floor(definition.zero_atol, :Z)
-    admittance_floor = _comparison_floor(definition.zero_atol, :Y)
-    table = vcat(
-        _comparison_rows(
-            :Z,
-            published.Z_absolute,
-            published.Z_relative,
-            impedance_floor
-        ),
-        _comparison_rows(
-            :Y,
-            published.Y_absolute,
-            published.Y_relative,
-            admittance_floor
-        )
-    )
-    metadata!(
-        table,
-        "relative RMS",
-        "rms_relative is missing when rms_absolute is at or below the corresponding zero_atol display floor; the comparison retains the raw value",
-        style = :note
-    )
-    metadata!(table, "zero_atol", definition.zero_atol, style = :note)
-    metadata!(table,
-        "units",
-        (
-            Z = Units.label(published.Z_absolute.unit),
-            Y = Units.label(published.Y_absolute.unit),
-            relative = Units.label(published.Z_relative.unit)
-        ),
-        style = :note)
-    return table
+    rows = [row for row in 1:dimensions[1] for _ in 1:dimensions[2]]
+    columns = [column for _ in 1:dimensions[1] for column in 1:dimensions[2]]
+    names = _observation_names(published)
+    values = map(payload -> collect(vec(transpose(payload.values))), published)
+    table = DataFrame(merge(
+        (; row = rows, column = columns),
+        NamedTuple{names}(values)
+    ))
+    metadata!(table, "basis", basis(source), style = :note)
+    metadata!(table, "row_order", (:row, :column), style = :note)
+    return _observation_columns!(table, names, published)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return the published resistance, inductance, and capacitance of `constants` as
-a table in native per-length units.
-"""
-function DataFrame(constants::DataModel.CableConstants)::DataFrame
-    return report(CableConstantsTableDefinition(), constants).table::DataFrame
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return one long-form table for a series-impedance or shunt-admittance result.
-Rows are ordered by family, matrix row, matrix column, frequency, and resolved
-quantity.
+Return the resistance, inductance, and capacitance of `constants` as one wide
+table in native per-length units.
 """
 function DataFrame(
-        parameters::Union{Engine.SeriesImpedance, Engine.ShuntAdmittance},
-        quantities::Tuple = ();
-        freqs = nothing,
-        freq_unit::Symbol = :base,
-        length_unit::Symbol = :kilo,
-        quantity_units = nothing,
-        tol::Real = sqrt(eps(Float64))
-)
-    definition = _line_definition(
-        quantities,
-        freqs,
-        freq_unit,
-        length_unit,
-        quantity_units,
-        tol
-    )
-    return report(definition, parameters).table::DataFrame
+        constants::DataModel.CableConstants;
+        clip::Bool = true
+)::DataFrame
+    return report(CableConstantsTableDefinition(clip), constants).table::DataFrame
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return one long-form table containing the series and shunt values in
-`parameters`. Rows are ordered by family, matrix row, matrix column, frequency,
-and resolved quantity.
+Return one wide line-parameter table. The first three columns are `frequency`,
+`row`, and `column`; each explicit observable request adds one physical-quantity
+column.
 """
 function DataFrame(
         parameters::Engine.LineParameters,
-        quantities::Tuple = ();
+        requests::Tuple;
         freq_unit::Symbol = :base,
         length_unit::Symbol = :kilo,
         quantity_units = nothing,
-        tol::Real = sqrt(eps(Float64))
+        clip::Bool = true
 )
     definition = _line_definition(
-        quantities,
-        nothing,
+        requests,
         freq_unit,
         length_unit,
         quantity_units,
-        tol
+        clip
     )
     return report(definition, parameters).table::DataFrame
 end
@@ -560,12 +252,12 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the element-wise absolute and relative RMS errors in `comparison` as a
-long-form table.
+Return one wide table containing the absolute and relative RMS errors owned by
+`comparison`.
 """
 function DataFrame(
         comparison::Engine.LineParametersBenchmark;
-        zero_atol::NamedTuple = (Z = 0.0, Y = 0.0)
+        clip::Bool = true
 )
-    return report(BenchmarkTableDefinition(zero_atol), comparison).table::DataFrame
+    return report(BenchmarkTableDefinition(clip), comparison).table::DataFrame
 end

@@ -394,26 +394,25 @@ plt3.figure #hide
 In this section, the cable design is examined and the calculated parameters are compared with datasheet values. [`LineCableModels.jl`](@ref) provides methods to analyze the design in different levels of detail.
 =#
 
-# Calculate the cable constants explicitly. DataFrame presentation is applied
-# only after the numerical result exists:
+# Calculate the cable constants explicitly. Scientific extraction and tabular
+# presentation are separate consumers of the completed result:
 constants = compute(CableConstantsProblem(cable_design), Formulation())
 
-# Compare the calculated values with the datasheet information in the units
-# conventionally used by cable manufacturers:
-published_constants = observables(constants, (R = R, L = L, C = C))
-constant_payloads = values(published_constants)
-core_df = DataFrame(
-    parameter = [LineCableModels.Units.symbol(payload.quantity)
-                 for payload in constant_payloads],
-    calculated = [payload.values for payload in constant_payloads],
-    datasheet = [
-        datasheet_info.resistance,
-        datasheet_info.inductance,
-        datasheet_info.capacitance
-    ],
-    unit = [LineCableModels.Units.label(payload.unit)
-            for payload in constant_payloads]
+# The native DataFrames adapter returns the complete R/L/C result in its stored
+# per-length units:
+constants_table = DataFrame(constants)
+
+# `observables` publishes detached values in the units conventionally used by
+# cable manufacturers. The two rows identify real comparison sources; the
+# physical quantities remain separate columns:
+published_constants = observables(constants, (R, L, C))
+datasheet_comparison = DataFrame(
+    source = ("calculated", "datasheet"),
+    R = (published_constants[1].values, datasheet_info.resistance),
+    L = (published_constants[2].values, datasheet_info.inductance),
+    C = (published_constants[3].values, datasheet_info.capacitance)
 )
+comparison_units = map(payload -> payload.unit, published_constants)
 
 # Obtain the equivalent electromagnetic properties of the cable:
 components_df = DataFrame(cable_design, :components)

@@ -102,7 +102,7 @@ end
     @test extension_module !== nothing
     @test any(
         method -> method.module === extension_module,
-        methods(LineCableModels.ReportBuilder.clip)
+        methods(LineCableModels.Grammar.detach)
     )
     @test any(
         method -> method.module === extension_module,
@@ -115,15 +115,24 @@ end
     @test LineCableModels.nominal(uncertain) == -20.0
     @test LineCableModels.standard_uncertainty(uncertain) == 1.0
 
-    clipped=LineCableModels.ReportBuilder.clip(
-        measurement(1.0e-12, 2.0e-12),
-        1.0e-9
+    clipped=LineCableModels.Grammar.detach(
+        measurement(eps(Float64)/2, eps(Float64)/4),
+        1.0,
+        true
     )
     @test value(clipped) == 0.0
     @test uncertainty(clipped) == 0.0
-    retained=LineCableModels.ReportBuilder.clip(
+    clipped_array=LineCableModels.Grammar.detach(
+        [measurement(eps(Float64)/2, eps(Float64)/4)],
+        1.0,
+        true
+    )
+    @test value(only(clipped_array)) == 0.0
+    @test uncertainty(only(clipped_array)) == 0.0
+    retained=LineCableModels.Grammar.detach(
         measurement(2.0, 0.25),
-        1.0e-9
+        1.0,
+        true
     )
     @test value(retained) == 2.0
     @test uncertainty(retained) == 0.25

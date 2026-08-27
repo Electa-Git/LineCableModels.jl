@@ -18,6 +18,8 @@ using RequiredInterfaces: @required
 using ..Grammar: @orchestrator
 import DataFrames: DataFrame, metadata, metadata!
 import ..Grammar: observables, validate_observables, unit_targets
+import ..Grammar: observation_request, observation_indices, materialize_observation
+using ..Grammar: @observe
 import ..Units
 import ..PlotBuilder
 import ..DataModel
@@ -30,6 +32,6 @@ include("tables.jl")
 include("montecarlo.jl")
 include("xlsx.jl")
 
-public clip, encode_cell, XLSXSheet, XLSXWorkbook
+public observation_columns, encode_cell, XLSXSheet, XLSXWorkbook
 
 end

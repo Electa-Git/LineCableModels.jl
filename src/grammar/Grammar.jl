@@ -39,6 +39,8 @@ include("uncertainty.jl")
 
 public check_core_result, computation_owner
 public validate_observables, unit_targets, detach
+public observation_request, observation_indices, materialize_observation
+public request_identity, request_quantity, request_indices
 public orchestrator_root, orchestrator_method
 
 end # module Grammar

@@ -15,7 +15,7 @@ function _snapshot_document(path::AbstractString, collection::Symbol)
     ))
     snapshot = JLD2.load(path)
     required = (
-        "schema_version", "gauntlet_version", "benchmark_id", "case_id",
+        "schema_version", "benchmark_id", "case_id",
         "collection", "case_source_sha256", "benchmark_source_sha256",
         "parameter_manifest", "applied_variation", "correlation",
         "calculations", "comparison_policy", "tolerances", "port_order", "frequencies",
@@ -25,12 +25,8 @@ function _snapshot_document(path::AbstractString, collection::Symbol)
     isempty(missing) || throw(ArgumentError(
         "Gauntlet snapshot $path is missing fields: $(join(missing, ", "))",
     ))
-    snapshot["schema_version"] == 2 || throw(ArgumentError(
-        "Gauntlet snapshot $path does not use schema 2",
-    ))
-    snapshot["gauntlet_version"] == string(GAUNTLET_VERSION) || throw(ArgumentError(
-        "Gauntlet snapshot $path uses version $(snapshot["gauntlet_version"]), " *
-        "expected $(GAUNTLET_VERSION)",
+    snapshot["schema_version"] == SNAPSHOT_SCHEMA_VERSION || throw(ArgumentError(
+        "Gauntlet snapshot $path does not use schema $SNAPSHOT_SCHEMA_VERSION",
     ))
     snapshot["collection"] == string(collection) || throw(ArgumentError(
         "Gauntlet snapshot $path belongs to collection $(snapshot["collection"]), " *
@@ -383,7 +379,7 @@ function _report_floor(zero_atol::NamedTuple)
     return zero_atol
 end
 
-"""Read and validate a recorded Gauntlet v2 collection."""
+"""Read and validate a recorded Gauntlet collection."""
 function report(
         path::AbstractString;
         backend::Symbol,
@@ -415,7 +411,12 @@ function report(
     end
     frame = DataFrame(rows)
     metadata!(frame, "collection", backend, style = :note)
-    metadata!(frame, "gauntlet_version", GAUNTLET_VERSION, style = :note)
+    metadata!(
+        frame,
+        "snapshot_schema_version",
+        SNAPSHOT_SCHEMA_VERSION,
+        style = :note
+    )
     metadata!(frame, "zero_atol", zero_atol, style = :note)
     return frame
 end
@@ -425,7 +426,7 @@ function report(
         artifact_root::AbstractString = ARTIFACT_ROOT,
         zero_atol::NamedTuple = DEFAULT_REPORT_FLOOR
 )
-    return report(backend_stage(backend; artifact_root); backend, zero_atol)
+    return report(collection_stage(backend; artifact_root); backend, zero_atol)
 end
 
 function _report_value(value)
@@ -447,7 +448,7 @@ function _write_report(
         temporary;
         format_version = 2,
         collection = string(backend),
-        gauntlet_version = string(GAUNTLET_VERSION),
+        snapshot_schema_version = SNAPSHOT_SCHEMA_VERSION,
         zero_atol,
         report = frame,
         validation = (

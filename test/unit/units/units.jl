@@ -79,18 +79,18 @@ end
     const Grammar=LineCableModels.Grammar
     const U=LineCableModels.Units
 
-    requests=(resistance = R, phase = (Z, angle), capacitance = C)
-    named=Grammar.unit_targets(
+    requests=(R, (Z, angle), C)
+    targets=Grammar.unit_targets(
         requests,
         :pul;
         length_prefix = :base,
         overrides = (
-            resistance = :milli,
-            phase = U.units(:base, :radian)
+            R = :milli,
+            Z = U.units(:base, :radian)
         )
     )
     tupled=Grammar.unit_targets(
-        values(requests),
+        requests,
         :pul;
         length_prefix = :base,
         overrides = Dict(
@@ -98,12 +98,11 @@ end
             (Z, angle) => U.units(:base, :radian)
         )
     )
-    @test values(named) == tupled
-    @test keys(named) == keys(requests)
-    @test all(target -> target isa U.UnitExpr, values(named))
-    @test named.resistance == U.units(:milli, :ohm; per = (:base, :meter))
-    @test named.phase == U.units(:base, :radian)
-    @test named.capacitance == U.units(:micro, :farad; per = (:base, :meter))
+    @test targets == tupled
+    @test all(target -> target isa U.UnitExpr, targets)
+    @test targets[1] == U.units(:milli, :ohm; per = (:base, :meter))
+    @test targets[2] == U.units(:base, :radian)
+    @test targets[3] == U.units(:micro, :farad; per = (:base, :meter))
     @test Base.ispublic(Grammar, :unit_targets)
     @test !isdefined(LineCableModels, :unit_targets)
     @test_throws ArgumentError Grammar.unit_targets((R,), :pul; overrides = 1)

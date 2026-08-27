@@ -61,15 +61,7 @@
     @test frequencies(outcome.reference) == model.nominal_problem.frequencies
 
     if !ISHEADLESS
-        errors = DataFrame(
-            outcome.comparison;
-            zero_atol = (
-                Z = tolerances.reference.Z.absolute,
-                Y = tolerances.reference.Y.absolute
-            )
-        )
-        sort!(errors, [:quantity, :rms_absolute], rev = [false, true])
-        display(errors)
+        display(DataFrame(outcome.comparison))
     end
     if outcome.mode === :snapshot
         @test comparison_passes(outcome.regression.Z, tolerances.regression.Z)

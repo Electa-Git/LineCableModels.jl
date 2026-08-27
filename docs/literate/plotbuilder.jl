@@ -207,16 +207,17 @@ documentation_figure(recipe) #hide
 observed = observables(
     parameters,
     (
-        frequency = (frequencies, Colon()),
-        series_impedance = Z,
-        shunt_admittance = Y
+        (frequencies, Colon()),
+        Z,
+        Y
     )
 )
+frequency_observation, impedance_observation, admittance_observation = observed
 (;
-    observation_keys = keys(observed.series_impedance),
-    frequency_count = length(observed.frequency.values),
-    impedance_size = size(observed.series_impedance.values),
-    admittance_size = size(observed.shunt_admittance.values)
+    observation_keys = keys(impedance_observation),
+    frequency_count = length(frequency_observation.values),
+    impedance_size = size(impedance_observation.values),
+    admittance_size = size(admittance_observation.values)
 )
 #
 # Domain code may derive display-ready curves or geometry from those published

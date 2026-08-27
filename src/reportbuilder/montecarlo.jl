@@ -1,15 +1,20 @@
 """
 $(TYPEDEF)
 
-Define display units for one long-form Monte Carlo summary table.
+Define display units for one wide Monte Carlo summary table.
 
 $(TYPEDFIELDS)
 """
 struct MonteCarloTableDefinition{U} <: AbstractReportDefinition
     "Length prefix used for per-length quantities."
     length_unit::Symbol
-    "Optional display-unit overrides aligned with the published requests."
+    "Optional display-unit overrides resolved from the published quantities."
     quantity_units::U
+    "Whether detached display residue is replaced with exact zero."
+    clip::Bool
+end
+function MonteCarloTableDefinition(length_unit::Symbol, quantity_units)
+    MonteCarloTableDefinition(length_unit, quantity_units, true)
 end
 
 illustrate(::MonteCarloTableDefinition, source, published, table) = nothing
@@ -18,15 +23,23 @@ write(::MonteCarloTableDefinition, source, published, table, ::Nothing, ::Nothin
 
 entitle(::MonteCarloTableDefinition, source::UQ.MonteCarloResult) = source
 
+function _monte_carlo_context(source, point::Int)
+    return (
+        point,
+        trials = UQ.trial_count(source, point),
+        seed = UQ.point_seed(source, point)
+    )
+end
+
 function select(
         definition::MonteCarloTableDefinition,
         source::UQ.MonteCarloResult{<:DataModel.CableConstants}
 )
     return map(1:length(source)) do point
         requests = (
-            R = (UQ.statistics, R, point),
-            L = (UQ.statistics, L, point),
-            C = (UQ.statistics, C, point)
+            (UQ.statistics, R, point),
+            (UQ.statistics, L, point),
+            (UQ.statistics, C, point)
         )
         targets = unit_targets(
             requests,
@@ -34,18 +47,14 @@ function select(
             length_prefix = definition.length_unit,
             overrides = definition.quantity_units
         )
-        published = observables(source, requests; units = targets)
-        return (
-            frequency = nothing,
-            published,
-            context = (
-                point,
-                trials = UQ.trial_count(source, point),
-                seed = UQ.point_seed(source, point),
-                confidence = UQ.confidence(source),
-                cdf_tol = UQ.cdf_tolerance(source)
-            )
+        observations = observables(
+            source,
+            requests;
+            units = targets,
+            clip = definition.clip
         )
+        return (; frequency = nothing, observations,
+            context = _monte_carlo_context(source, point))
     end
 end
 
@@ -55,10 +64,10 @@ function select(
 )
     return map(1:length(source)) do point
         requests = (
-            R = (UQ.statistics, R, point),
-            L = (UQ.statistics, L, point),
-            C = (UQ.statistics, C, point),
-            G = (UQ.statistics, G, point)
+            (UQ.statistics, R, point),
+            (UQ.statistics, L, point),
+            (UQ.statistics, G, point),
+            (UQ.statistics, C, point)
         )
         targets = unit_targets(
             requests,
@@ -66,39 +75,32 @@ function select(
             length_prefix = definition.length_unit,
             overrides = definition.quantity_units
         )
-        all_requests = merge(
-            (frequency = (frequencies, point, Colon()),),
-            requests
+        all_requests = ((frequencies, point, Colon()), requests...)
+        all_targets = (Units.units(:base, :hertz), targets...)
+        published = observables(
+            source,
+            all_requests;
+            units = all_targets,
+            clip = definition.clip
         )
-        all_targets = merge(
-            (frequency = Units.units(:base, :hertz),),
-            targets
-        )
-        all_published = observables(source, all_requests; units = all_targets)
-        published = NamedTuple{keys(requests)}(Tuple(
-            getproperty(all_published, key) for key in keys(requests)
-        ))
         return (
-            frequency = all_published.frequency,
-            published,
-            context = (
-                point,
-                trials = UQ.trial_count(source, point),
-                seed = UQ.point_seed(source, point),
-                confidence = UQ.confidence(source),
-                cdf_tol = UQ.cdf_tolerance(source)
-            )
+            frequency = first(published),
+            observations = Base.tail(published),
+            context = _monte_carlo_context(source, point)
         )
     end
 end
 
+const _SUMMARY_STATISTICS = (:mean, :std, :min, :q05, :median, :q95, :max)
+
 function _monte_carlo_metadata!(table::DataFrame, source, selected)
+    metadata!(table, "basis", basis(source), style = :note)
     metadata!(
         table,
         "monte_carlo",
         (
             confidence = UQ.confidence(source),
-            cdf_tol = UQ.cdf_tolerance(source),
+            cdf_tolerance = UQ.cdf_tolerance(source),
             distribution = UQ.sampling_distribution(source),
             root_seed = UQ.root_seed(source),
             point_seeds = [item.context.seed for item in selected],
@@ -106,103 +108,86 @@ function _monte_carlo_metadata!(table::DataFrame, source, selected)
         );
         style = :note
     )
-    first_published = first(selected).published
-    metadata!(
-        table,
-        "units",
-        Dict(key => Units.label(payload.unit)
-        for (key, payload) in pairs(first_published)),
-        style = :note
-    )
-    metadata!(
-        table,
-        "headings",
-        Dict(key => Units.label(payload.quantity, payload.unit)
-        for (key, payload) in pairs(first_published)),
-        style = :note
-    )
     return table
 end
 
-function _cable_summary_rows(selected)
-    return [(
-                point = item.context.point,
-                quantity = key,
-                mean = payload.values.mean,
-                std = payload.values.std,
-                min = payload.values.min,
-                q05 = payload.values.q05,
-                median = payload.values.median,
-                q95 = payload.values.q95,
-                max = payload.values.max,
-                n = payload.values.n,
-                unit = Units.label(payload.unit),
-                trials = item.context.trials,
-                confidence = item.context.confidence,
-                cdf_tol = item.context.cdf_tol
-            )
-            for item in selected
-            for (key, payload) in pairs(item.published)]
-end
-
-function _line_summary_rows(selected)
-    for item in selected
-        frequency_values = item.frequency.values
-        first_payload = first(values(item.published))
-        row_count, column_count, frequency_count = size(first_payload.values)
-        frequency_count == length(frequency_values) || throw(DimensionMismatch(
-            "frequency count does not match Monte Carlo line summaries",
-        ))
+function _cable_summary_table(source, selected)
+    first_observations = first(selected).observations
+    names = _observation_names(first_observations)
+    all(item -> _observation_names(item.observations) == names, selected) || throw(
+        DimensionMismatch("Monte Carlo points publish different cable quantities"),
+    )
+    point = [item.context.point for item in selected for _ in _SUMMARY_STATISTICS]
+    statistic = [statistic for _ in selected for statistic in _SUMMARY_STATISTICS]
+    values = ntuple(length(names)) do quantity_index
+        [getproperty(item.observations[quantity_index].values, statistic)
+         for item in selected for statistic in _SUMMARY_STATISTICS]
     end
-    return [(
-                point = item.context.point,
-                row,
-                column,
-                frequency = item.frequency.values[frequency_index],
-                quantity = key,
-                mean = payload.values[row, column, frequency_index].mean,
-                std = payload.values[row, column, frequency_index].std,
-                min = payload.values[row, column, frequency_index].min,
-                q05 = payload.values[row, column, frequency_index].q05,
-                median = payload.values[row, column, frequency_index].median,
-                q95 = payload.values[row, column, frequency_index].q95,
-                max = payload.values[row, column, frequency_index].max,
-                n = payload.values[row, column, frequency_index].n,
-                unit = Units.label(payload.unit),
-                trials = item.context.trials,
-                confidence = item.context.confidence,
-                cdf_tol = item.context.cdf_tol
-            )
-            for item in selected
-            for row in axes(first(values(item.published)).values, 1)
-            for column in axes(first(values(item.published)).values, 2)
-            for frequency_index in axes(first(values(item.published)).values, 3)
-            for (key, payload) in pairs(item.published)]
-end
-
-function _monte_carlo_table(
-        ::Nothing,
-        source,
-        selected
-)
-    table = DataFrame(_cable_summary_rows(selected))
-    metadata!(table, "row_order", (:point, :quantity), style = :note)
+    trials = [item.context.trials for item in selected for _ in _SUMMARY_STATISTICS]
+    point_seed = [item.context.seed for item in selected for _ in _SUMMARY_STATISTICS]
+    table = DataFrame(merge(
+        (; point, statistic),
+        NamedTuple{names}(values),
+        (; trials, point_seed)
+    ))
+    metadata!(table, "row_order", (:point, :statistic), style = :note)
+    _observation_columns!(table, names, first_observations)
     return _monte_carlo_metadata!(table, source, selected)
 end
 
-function _monte_carlo_table(
-        frequency::NamedTuple,
-        source,
-        selected
-)
-    table = DataFrame(_line_summary_rows(selected))
-    metadata!(table, "frequency_unit", Units.label(frequency.unit), style = :note)
+function _validate_line_summary(selected)
+    names = _observation_names(first(selected).observations)
+    dimensions = size(first(first(selected).observations).values)
+    for item in selected
+        _observation_names(item.observations) == names || throw(DimensionMismatch(
+            "Monte Carlo points publish different line quantities",
+        ))
+        all(payload -> size(payload.values) == dimensions, item.observations) || throw(
+            DimensionMismatch("Monte Carlo line summaries do not share one matrix shape"),
+        )
+        length(item.frequency.values) == dimensions[3] || throw(DimensionMismatch(
+            "frequency count does not match Monte Carlo line summaries",
+        ))
+    end
+    return names, dimensions
+end
+
+function _line_summary_table(source, selected)
+    names, dimensions = _validate_line_summary(selected)
+    row_keys = [(item, frequency_index, row, column, statistic)
+                for item in selected
+                for frequency_index in 1:dimensions[3]
+                for row in 1:dimensions[1]
+                for column in 1:dimensions[2]
+                for statistic in _SUMMARY_STATISTICS]
+    point = [entry[1].context.point for entry in row_keys]
+    frequency = [entry[1].frequency.values[entry[2]] for entry in row_keys]
+    row = [entry[3] for entry in row_keys]
+    column = [entry[4] for entry in row_keys]
+    statistic = [entry[5] for entry in row_keys]
+    values = ntuple(length(names)) do quantity_index
+        [getproperty(
+             entry[1].observations[quantity_index].values[entry[3], entry[4], entry[2]],
+             entry[5]
+         ) for entry in row_keys]
+    end
+    trials = [entry[1].context.trials for entry in row_keys]
+    point_seed = [entry[1].context.seed for entry in row_keys]
+    table = DataFrame(merge(
+        (; point, frequency, row, column, statistic),
+        NamedTuple{names}(values),
+        (; trials, point_seed)
+    ))
     metadata!(
         table,
         "row_order",
-        (:point, :row, :column, :frequency, :quantity),
+        (:point, :frequency, :row, :column, :statistic),
         style = :note
     )
+    frequency_observation = first(selected).frequency
+    observation_names = (:frequency, names...)
+    observations = (frequency_observation, first(selected).observations...)
+    _observation_columns!(table, observation_names, observations)
     return _monte_carlo_metadata!(table, source, selected)
 end
 
@@ -210,22 +195,23 @@ function tabulate(::MonteCarloTableDefinition, source, selected)
     isempty(selected) && throw(ArgumentError(
         "Monte Carlo tables require at least one Gridspace point",
     ))
-    return _monte_carlo_table(first(selected).frequency, source, selected)
+    first(selected).frequency === nothing && return _cable_summary_table(source, selected)
+    return _line_summary_table(source, selected)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Return one long-form table of published Monte Carlo summaries for every
-Gridspace point.
+Return one wide table of Monte Carlo summaries for every Gridspace point.
 """
 function DataFrame(
         source::UQ.MonteCarloResult;
         length_unit::Symbol = :kilo,
-        quantity_units = nothing
+        quantity_units = nothing,
+        clip::Bool = true
 )
     return report(
-        MonteCarloTableDefinition(length_unit, quantity_units),
+        MonteCarloTableDefinition(length_unit, quantity_units, clip),
         source
     ).table::DataFrame
 end

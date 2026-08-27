@@ -28,8 +28,7 @@ function _common_exponent(observation)
     end
     filter!(!iszero, finite)
     isempty(finite) && return 0
-    exponent = floor(Int, log10(maximum(finite)))
-    return abs(exponent) >= 3 ? exponent : 0
+    return floor(Int, log10(maximum(finite)))
 end
 
 function _native_label(observation, override)

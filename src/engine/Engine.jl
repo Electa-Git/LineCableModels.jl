@@ -48,7 +48,9 @@ import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
                   FormulationOptions, ComputationOptions,
                   ComputationDetails,
                   formulation_options, computation_options, computation_details,
-                  compute, observe, observables, validate_observables, unit_targets
+                  compute, observe, observables, validate_observables, unit_targets,
+                  observation_request, observation_indices,
+                  request_identity, request_quantity, request_indices
 
 using ..Units
 using ..PlotBuilder

@@ -1,4 +1,5 @@
 [deps]
+AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 Changelog = "5217a498-cd5d-4ec6-b8c2-9b85a09b6e3e"
@@ -6,21 +7,28 @@ DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 DocumenterCitations = "daee34ce-89f3-4625-b898-19384cb65244"
 Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
+GeoInterface = "cf35fbd7-0cd7-5166-be24-54bfbe79505f"
+GeoJSON = "61d90e0f-e114-555e-ac52-39dfb47a3ef9"
 LineCableModels = "dffb7669-8cd4-4628-99dd-7694e356ba37"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
 JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+Measurements = "eff96d63-e80a-5855-80a2-b1b0885c5ab7"
 
 [sources]
 LineCableModels = {path = ".."}
 
 [compat]
+AbstractTrees = "0.4"
 CairoMakie = "0.15"
 CSV = "0.10"
 Changelog = "1"
 DataFrames = "1"
 Documenter = "1"
 DocumenterCitations = "1"
+GeoInterface = "1.5"
+GeoJSON = "0.8"
 LineCableModels = "0.2"
 Literate = "2"
 JLD2 = "0.6"
+Measurements = "2.11.0"
 julia = "1.12"

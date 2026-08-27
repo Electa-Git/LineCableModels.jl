@@ -23,7 +23,8 @@ import LineCableModels.Engine: has_uncertainty_type
 import LineCableModels.ImportExport:
                                      serialize_value, deserialize_extension,
                                      deserialize_value
-import LineCableModels.ReportBuilder: clip, encode_cell
+import LineCableModels.Grammar: detach
+import LineCableModels.ReportBuilder: encode_cell
 
 # Numeric presentation hooks.
 nominal(value::Measurements.Measurement) = Measurements.value(value)
@@ -38,12 +39,18 @@ function has_uncertainty_type(
 ) where {T <: Measurements.Measurement}
     true
 end
-function clip(value::Measurements.Measurement, tolerance)
-    nominal = abs(Measurements.value(value)) <= tolerance ?
-              0.0 : Measurements.value(value)
-    uncertainty = abs(Measurements.uncertainty(value)) <= tolerance ?
-                  0.0 : Measurements.uncertainty(value)
+function detach(value::Measurements.Measurement, factor, clip::Bool)
+    nominal = detach(Measurements.value(value), factor, clip)
+    uncertainty = detach(Measurements.uncertainty(value), abs(factor), clip)
     return Measurements.measurement(nominal, uncertainty)
+end
+
+function detach(
+        values::AbstractArray{<:Measurements.Measurement},
+        factor,
+        clip::Bool
+)
+    return map(value -> detach(value, factor, clip), values)
 end
 
 function serialize_value(value::Measurements.Measurement)

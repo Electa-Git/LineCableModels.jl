@@ -109,6 +109,28 @@
     @test all(==(1.0e-9), lossy_values)
     @test all(==(1.0e-12), G(lossy))
 
+    numerical_residue=fill(1.0e-20, size(shunt))
+    residue=LineParameters(
+        copy(Z(parameters)),
+        complex.(numerical_residue, imag.(Y(parameters))),
+        frequencies(parameters)
+    )
+    clipped_residue=PB.make_render(
+        E.LineParameterPlotDefinition,
+        residue;
+        requests = (@observe(G[:, :, :]),)
+    )
+    retained_residue=PB.make_render(
+        E.LineParameterPlotDefinition,
+        residue;
+        requests = (@observe(G[:, :, :]),),
+        clip = false
+    )
+    @test all(iszero,
+        only(only(clipped_residue.pages).payload.observations).values)
+    @test all(value -> value ≈ 1.0e-17,
+        only(only(retained_residue.pages).payload.observations).values)
+
     milli_resistance=PB.make_render(
         E.LineParameterPlotDefinition,
         parameters;
@@ -137,16 +159,14 @@
           ("Measured resistance", "Measured reactance")
     @test only(presented.pages).payload.legend_labels ==
           ("self 1", "mutual 1–2", "mutual 2–1", "self 2")
-    @test only(presented.pages).key.legend_quantity ==
-          LineCableModels.Units.quantity(Z)
+    @test !haskey(only(presented.pages).key, :legend_quantity)
 
     transformed=PB.make_render(
         E.LineParameterPlotDefinition,
         parameters;
         requests = (@observe((Z, angle)[:, :, :]),)
     )
-    @test only(transformed.pages).key.legend_quantity ==
-          LineCableModels.Units.quantity(Z, angle)
+    @test !haskey(only(transformed.pages).key, :legend_quantity)
 end
 @testitem "Engine / detached comparison pages / matrix grid" tags=[:unit] setup=[
     PlotBuilderTestSupport,

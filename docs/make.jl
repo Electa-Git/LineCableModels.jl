@@ -5,6 +5,8 @@ using LineCableModels
 using Literate
 using TOML
 
+include("type_trees.jl")
+
 const ROOT_DIR = normpath(joinpath(@__DIR__, ".."))
 const DOCS_SRC_DIR = joinpath(@__DIR__, "src")
 const REPOSITORY = "Electa-Git/LineCableModels.jl"
@@ -14,6 +16,111 @@ const TUTORIAL_SOURCE = joinpath(ROOT_DIR, "examples")
 const TUTORIAL_OUTPUT = joinpath(DOCS_SRC_DIR, "tutorials")
 const PLOTBUILDER_SOURCE = joinpath(@__DIR__, "literate", "plotbuilder.jl")
 const GAUNTLET_SOURCE = joinpath(@__DIR__, "literate", "gauntlet.jl")
+
+const CONVENIENCE_API_OBJECTS = (
+    LineCableModels.maxfill,
+)
+
+const BENCHMARK_API_OBJECTS = (
+    LineCableModels.Engine.RMSError,
+    LineCableModels.Engine.LineParametersBenchmark,
+    LineCableModels.Engine.compare,
+    LineCableModels.Engine.absolute_error,
+    LineCableModels.Engine.relative_error,
+)
+
+const EXTENSION_API_OBJECTS = (
+    LineCableModels.Validation,
+    LineCableModels.Validation.Rule,
+    LineCableModels.Validation.OwnerRule,
+    LineCableModels.Validation.rules,
+    LineCableModels.Validation.check,
+    getfield(LineCableModels.Grammar, Symbol("@orchestrator")),
+    LineCableModels.Grammar.check_core_result,
+    LineCableModels.Grammar.computation_owner,
+    LineCableModels.Grammar.validate_observables,
+    LineCableModels.Grammar.unit_targets,
+    LineCableModels.Grammar.detach,
+    LineCableModels.Grammar.observation_request,
+    LineCableModels.Grammar.observation_indices,
+    LineCableModels.Grammar.materialize_observation,
+    LineCableModels.Grammar.request_identity,
+    LineCableModels.Grammar.request_quantity,
+    LineCableModels.Grammar.request_indices,
+    LineCableModels.Grammar.orchestrator_root,
+    LineCableModels.Grammar.orchestrator_method,
+    LineCableModels.Units.family,
+    LineCableModels.DataModel.base_parameters,
+    LineCableModels.DataModel.compute_cable_constants,
+    LineCableModels.DataModel.preview_shapes,
+    LineCableModels.DataModel.preview_materials,
+    LineCableModels.DataModel.PreviewPolygon,
+    LineCableModels.DataModel.PreviewReferenceLine,
+    LineCableModels.DataModel.PreviewPayload,
+    LineCableModels.Engine.cable_constants_problem,
+    LineCableModels.Engine.has_uncertainty_type,
+    LineCableModels.ParametricBuilder.AbstractProjectionDefinition,
+    LineCableModels.ParametricBuilder.entitle,
+    LineCableModels.ParametricBuilder.select,
+    LineCableModels.ParametricBuilder.derive,
+    LineCableModels.ParametricBuilder.materialize,
+    LineCableModels.ParametricBuilder.traverse,
+    LineCableModels.ParametricBuilder.sample_uncertainty,
+    LineCableModels.PlotBuilder,
+    LineCableModels.PlotBuilder.AbstractPlotDefinition,
+    LineCableModels.PlotBuilder.PlotPage,
+    LineCableModels.PlotBuilder.PlotRecipe,
+    LineCableModels.PlotBuilder.LegendDefinition,
+    LineCableModels.PlotBuilder.ColorbarDefinition,
+    LineCableModels.PlotBuilder.ExportDefinition,
+    LineCableModels.PlotBuilder.AbstractWidgetDefinition,
+    LineCableModels.PlotBuilder.make_render,
+    LineCableModels.PlotBuilder.plotwindow,
+    LineCableModels.PlotBuilder.axis!,
+    LineCableModels.PlotBuilder.register!,
+    LineCableModels.PlotBuilder.backend_available,
+    LineCableModels.PlotBuilder.current_backend_symbol,
+    LineCableModels.PlotBuilder.ensure_backend!,
+    LineCableModels.PlotBuilder.make_screen,
+    LineCableModels.PlotBuilder.next_fignum,
+    LineCableModels.PlotBuilder.renderfig,
+    LineCableModels.PlotBuilder.with_backend,
+    LineCableModels.PlotBuilder.input_defaults,
+    LineCableModels.PlotBuilder.renderer_defaults,
+    LineCableModels.PlotBuilder.entitle,
+    LineCableModels.PlotBuilder.parse,
+    LineCableModels.PlotBuilder.resolve,
+    LineCableModels.PlotBuilder.fetch,
+    LineCableModels.PlotBuilder.finish,
+    LineCableModels.PlotBuilder.validate_export_theme,
+    LineCableModels.ReportBuilder,
+    LineCableModels.ReportBuilder.AbstractReportDefinition,
+    LineCableModels.ReportBuilder.CableConstantsTableDefinition,
+    LineCableModels.ReportBuilder.LineParametersTableDefinition,
+    LineCableModels.ReportBuilder.BenchmarkTableDefinition,
+    LineCableModels.ReportBuilder.MonteCarloTableDefinition,
+    LineCableModels.ReportBuilder.entitle,
+    LineCableModels.ReportBuilder.select,
+    LineCableModels.ReportBuilder.tabulate,
+    LineCableModels.ReportBuilder.illustrate,
+    LineCableModels.ReportBuilder.encode,
+    LineCableModels.ReportBuilder.write,
+    LineCableModels.ReportBuilder.finish,
+    LineCableModels.ReportBuilder.observation_columns,
+    LineCableModels.ReportBuilder.encode_cell,
+    LineCableModels.ReportBuilder.XLSXSheet,
+    LineCableModels.ReportBuilder.XLSXWorkbook,
+    LineCableModels.ImportExport.serialize_value,
+    LineCableModels.ImportExport.deserialize_value,
+    LineCableModels.ImportExport.deserialize_extension,
+)
+
+_contains_identity(collection, object) = any(candidate -> candidate === object, collection)
+api_reference_entry(object) =
+    !_contains_identity(CONVENIENCE_API_OBJECTS, object) &&
+    !_contains_identity(BENCHMARK_API_OBJECTS, object) &&
+    !_contains_identity(EXTENSION_API_OBJECTS, object)
+developer_reference_entry(object) = _contains_identity(EXTENSION_API_OBJECTS, object)
 
 function project_metadata()
     project = TOML.parsefile(joinpath(ROOT_DIR, "Project.toml"))
@@ -137,15 +244,22 @@ makedocs(;
     pages = [
         "Home" => "index.md",
         "Tutorials" => Any["Contents" => "tutorials.md", tutorials...],
+        "User guide" => Any[
+            "Modelling and results" => "usage.md",
+            "Gridspace and uncertainty" => "gridspace.md"
+        ],
         "API reference" => "reference.md",
-        "Development" => Any[
+        "Conveniences" => Any[
+            "Overview" => "conveniences.md",
+            "Data entry validation" => "validation.md"
+        ],
+        "Benchmarks" => "gauntlet.md",
+        "Developers" => Any[
+            "Grammar invariants" => "developers.md",
+            "Extension API" => "extensions.md",
             "Conventions" => "conventions.md",
             "Computational engine" => "engine.md",
-            "Gridspace manual" => "gridspace.md",
             "PlotBuilder guide" => "plotbuilder.md",
-            "Gauntlet benchmarks" => "gauntlet.md",
-            "Data entry validation" => "validation.md",
-            "Docstrings" => "docstrings.md",
             "Contributing" => "contributing.md",
             "TODO" => "TODO.md",
             "Changelog" => "CHANGELOG.md"

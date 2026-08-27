@@ -394,8 +394,7 @@ function _write_owned_snapshot(
     try
         JLD2.jldsave(
             temporary;
-            schema_version = 2,
-            gauntlet_version = string(GAUNTLET_VERSION),
+            schema_version = SNAPSHOT_SCHEMA_VERSION,
             benchmark_id = string(benchmark.id),
             case_id = string(benchmark.case_id),
             collection = string(benchmark.collection),
@@ -462,7 +461,7 @@ function persist_snapshot(
         benchmark_id = benchmark.id,
         case_id = benchmark.case_id,
         collection = benchmark.collection,
-        gauntlet_version = GAUNTLET_VERSION
+        schema_version = SNAPSHOT_SCHEMA_VERSION
     )
 end
 
@@ -481,7 +480,7 @@ function _load_owned_snapshot_path(
     ))
     snapshot = JLD2.load(path)
     required = (
-        "schema_version", "gauntlet_version", "benchmark_id", "case_id",
+        "schema_version", "benchmark_id", "case_id",
         "collection", "case_source_sha256", "benchmark_source_sha256",
         "parameter_manifest", "applied_variation", "correlation",
         "calculations", "comparison_policy", "tolerances", "monte_carlo", "port_order",
@@ -492,11 +491,9 @@ function _load_owned_snapshot_path(
     isempty(missing) || throw(ArgumentError(
         "Gauntlet snapshot $path is missing fields: $(join(missing, ", "))",
     ))
-    snapshot["schema_version"] == 2 || throw(ArgumentError(
-        "Gauntlet snapshot $path does not use schema 2",
+    snapshot["schema_version"] == SNAPSHOT_SCHEMA_VERSION || throw(ArgumentError(
+        "Gauntlet snapshot $path does not use schema $SNAPSHOT_SCHEMA_VERSION",
     ))
-    snapshot["gauntlet_version"] == string(GAUNTLET_VERSION) ||
-        throw(ArgumentError("Gauntlet snapshot version does not match"))
     snapshot["benchmark_id"] == string(benchmark.id) ||
         throw(ArgumentError("Gauntlet snapshot benchmark ID does not match"))
     snapshot["case_id"] == string(benchmark.case_id) ||
@@ -542,10 +539,8 @@ end
 
 function load_prior_snapshot(
         benchmark::OwnedBenchmark;
-        artifacts_toml::AbstractString = ARTIFACTS_TOML,
-        force::Bool = gauntlet_force()
+        artifacts_toml::AbstractString = ARTIFACTS_TOML
 )
-    force && return nothing
     path = _owned_snapshot_path(benchmark; artifacts_toml, required = false)
     path === nothing && return nothing
     return _load_owned_snapshot_path(benchmark, path)

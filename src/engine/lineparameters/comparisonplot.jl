@@ -64,6 +64,7 @@ function _comparison_input_defaults(::_LineParametersBenchmarkTuple)
         freq_unit = :base,
         length_unit = :kilo,
         quantity_units = nothing,
+        clip = true,
         xscale = :linear,
         yscale = :linear
     )
@@ -104,15 +105,14 @@ function PlotBuilder.resolve(
     all(item -> item isa Tuple, requests) || throw(ArgumentError(
         "line comparisons accept explicit observable request tuples",
     ))
-    identities = map(_line_request_identity, requests)
+    identities = map(request_identity, requests)
     length(unique(identities)) == length(identities) || throw(ArgumentError(
         "line comparisons do not accept duplicate scientific quantities",
     ))
-    validate_observables(
-        first(parameters),
-        NamedTuple{_line_request_names(requests)}(requests)
-    )
-    foreach(_line_request_indices, requests)
+    validate_observables(first(parameters), requests)
+    all(request -> length(request_indices(request)) == 3, requests) || throw(ArgumentError(
+        "line comparisons require row, column, and frequency indices",
+    ))
     labels = _comparison_labels(input.legend, length(parameters))
     input.xscale in (:linear, :log10) || throw(
         ArgumentError("xscale must be :linear or :log10"),
@@ -120,21 +120,25 @@ function PlotBuilder.resolve(
     input.yscale in (:linear, :log10) || throw(
         ArgumentError("yscale must be :linear or :log10"),
     )
+    input.clip isa Bool || throw(ArgumentError("clip must be true or false"))
     request.renderer.fig_size isa Tuple{Int, Int} || throw(
         ArgumentError("fig_size must be a tuple of two integers"),
     )
     all(>(0), request.renderer.fig_size) || throw(
         ArgumentError("fig_size dimensions must be positive"),
     )
-    input.title === nothing || input.title isa AbstractString || throw(
-        ArgumentError("title must be a string or nothing"),
-    )
-    input.labels === nothing || input.labels isa Tuple || throw(
-        ArgumentError("labels must be a tuple or nothing"),
-    )
-    input.labels === nothing || length(input.labels) == length(requests) || throw(
-        DimensionMismatch("labels must contain one entry per normalized request"),
-    )
+    input.title === nothing || input.title isa AbstractString ||
+        throw(
+            ArgumentError("title must be a string or nothing"),
+        )
+    input.labels === nothing || input.labels isa Tuple ||
+        throw(
+            ArgumentError("labels must be a tuple or nothing"),
+        )
+    input.labels === nothing || length(input.labels) == length(requests) ||
+        throw(
+            DimensionMismatch("labels must contain one entry per normalized request"),
+        )
     input.labels === nothing || all(label -> label isa AbstractString, input.labels) ||
         throw(ArgumentError("labels must contain strings"))
     colors = Tuple(_comparison_color(index) for index in eachindex(parameters))
