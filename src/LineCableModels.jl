@@ -40,6 +40,10 @@ export root_seed, point_seed, trial_count
 export confidence, cdf_tolerance, sampling_distribution
 export report, TableReportDefinition, XLSXReportDefinition, ReportArtifact
 export Material, MaterialsLibrary, Conductor, Insulator, CableBuilder
+export AbstractPrimitive, AbstractShape
+export Disk, Rectangle, Ellipse, Sector, Annulus, Shell, Polygon, Pose2
+export EmptyBoundary, resolve, boundary, area, centroid, support
+export r_in, r_ex, thickness
 export at, trifoil, hflat, vflat, Earth, SystemBuilder
 export make_stranded, make_screened, WireEstimate
 
@@ -96,7 +100,11 @@ import .EarthProps
 
 # Submodule `DataModel`
 include("datamodel/DataModel.jl")
-using .DataModel: CableConstants, CablesLibrary, preview, ncables, nphases
+using .DataModel: CableConstants, CablesLibrary, preview, ncables, nphases,
+                  AbstractPrimitive, AbstractShape,
+                  Disk, Rectangle, Ellipse, Sector, Annulus, Shell, Polygon, Pose2,
+                  EmptyBoundary, resolve, boundary, area, centroid, support,
+                  r_in, r_ex, thickness
 
 # Submodule `Engine`
 include("engine/Engine.jl")

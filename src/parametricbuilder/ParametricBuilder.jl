@@ -26,6 +26,7 @@ export Combinatorial, ParametricProblem, ParametricResult
 export result, project
 
 export Material, Conductor, Insulator, CableBuilder
+export Disk, Rectangle, Ellipse, Sector, Annulus, Shell, Polygon, Pose2
 export at, trifoil, hflat, vflat, Earth, SystemBuilder
 export WireEstimate, make_stranded, make_screened
 
@@ -45,6 +46,7 @@ using ..Grammar:
 import ..Materials
 import ..Materials: Material
 import ..DataModel
+import ..DataModel: Disk, Rectangle, Ellipse, Sector, Annulus, Shell, Polygon, Pose2
 import ..EarthProps
 import ..Engine
 
@@ -55,6 +57,7 @@ include("results.jl")
 include("project.jl")
 
 include("material.jl")
+include("geometry.jl")
 include("parts.jl")
 include("conductor/Conductor.jl")
 include("insulator/Insulator.jl")

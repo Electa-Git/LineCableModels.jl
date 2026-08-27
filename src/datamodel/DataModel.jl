@@ -27,6 +27,11 @@ export CableComponent, CableDesign, CableConstants  # Cable design types
 export CablePosition, LineCableSystem  # System types
 export CablesLibrary, NominalData  # Support types
 export trifoil_formation, flat_formation, outer_radius, maxfill  # Geometry
+export AbstractPrimitive, AbstractShape
+export Disk, Rectangle, Ellipse, Sector, Annulus, Shell, Polygon, Pose2
+export EmptyBoundary, DiskShape, RectangleShape, EllipseShape, SectorShape
+export AnnulusShape, PolygonShape, PlacedShape
+export resolve, boundary, area, centroid, support, r_in, r_ex, thickness
 export ncables, nphases
 export preview, equivalent
 
@@ -45,13 +50,18 @@ using ..Materials: Material
 import ..Validation
 using ..Validation: IntegerField, Positive, Finite, Nonnegative, OneOf, Less
 using Colors: HSL, RGB, RGBA, alpha, blue, green, red
-using GeometryBasics: Point2f, Polygon
+import GeometryBasics
+using GeometryBasics: Point2f
 using Printf: @sprintf
 using Statistics: mean
 
 # Abstract types and interfaces
 include("interfaces.jl")
 include("types.jl")
+include("geometry/primitives.jl")
+include("geometry/shapes.jl")
+include("geometry/pose.jl")
+include("geometry/resolve.jl")
 
 # Submodule `BaseParams`
 include("baseparams/BaseParams.jl")

@@ -147,7 +147,7 @@ function _validate_preview_group(group::Symbol)
     return group
 end
 
-_preview_geometry_points(geometry::Polygon) =
+_preview_geometry_points(geometry::GeometryBasics.Polygon) =
     Iterators.flatten((geometry.exterior, geometry.interiors...))
 _preview_geometry_points(geometry) = geometry
 

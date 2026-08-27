@@ -356,7 +356,6 @@ end
     @test !hasmethod(LineCableModels.PlotBuilder.ensure_backend!, Tuple{Val{:cairo}})
 
     @test !isdefined(LineCableModels.Engine, :FEM)
-    @test !isdefined(LineCableModels.DataModel, :Sector)
     @test !isdefined(LineCableModels.DataModel, :SectorParams)
     @test !isdefined(LineCableModels.DataModel, :SectorInsulator)
 

@@ -119,9 +119,9 @@ end
 
 function _annulus_polygon(inner_radius, outer_radius, xcenter, ycenter; count::Int = 256)
     outer = _circle_points(outer_radius, xcenter, ycenter; count)
-    iszero(inner_radius) && return Polygon(outer)
+    iszero(inner_radius) && return GeometryBasics.Polygon(outer)
     inner = reverse(_circle_points(inner_radius, xcenter, ycenter; count))
-    return Polygon(outer, [inner])
+    return GeometryBasics.Polygon(outer, [inner])
 end
 
 function _radial_wedge(
