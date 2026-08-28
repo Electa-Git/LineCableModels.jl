@@ -30,7 +30,9 @@ case_definition(
         kind = :insulator,
         rho = 1.97e14, eps_r = 2.3, mu_r = 1.0, T0 = 20.0, alpha = 0.0
     )
-    design = LineCableModels.CableDesign(
+    design = LineCableModels.build(
+        LineCableModels.CableDesign,
+        "two_bare_wires",
         LineCableModels.Stack(
             LineCableModels.Group(
                 :core,
@@ -46,16 +48,16 @@ case_definition(
                 artificial_insulation
             )
         );
-        cable_id = "two_bare_wires",
         nominal_data = LineCableModels.NominalData()
     )
     earth = LineCableModels.Earth(rho = p.earth_rho, eps_r = 1.0, mu_r = 1.0)
-    system = LineCableModels.LineCableSystem(
-        [design, design];
-        positions = [
+    system = LineCableModels.build(
+        LineCableModels.LineCableSystem,
+        [design, design],
+        [
             LineCableModels.Pose2(p.first_x, p.cable_y),
             LineCableModels.Pose2(p.second_x, p.cable_y)
-        ],
+        ];
         connections = [Dict(:core => 1), Dict(:core => 2)],
         system_id = "two_bare_wires",
         line_length = p.line_length

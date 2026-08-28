@@ -303,18 +303,13 @@ function _decode_design_resolved(value, materials)
         "cable declaration must have kind 'cable_design'"
     ))
     values = (
-        _decode_part(_required(value, "root", "cable_design"), materials),
         String(_required(value, "cable_id", "cable_design")),
+        _decode_part(_required(value, "root", "cable_design"), materials),
         _optional(value, "nominal_data"),
-        _field(value, "reference_frequency")
     )
-    build = (root, cable_id, nominal_data, reference_frequency) -> CableDesign(
-        root;
-        cable_id,
-        nominal_data,
-        reference_frequency
-    )
-    return _decoded_target(CableDesign, build, values)
+    caller = (cable_id, root, nominal_data) ->
+        build(CableDesign, cable_id, root, nominal_data)
+    return _decoded_target(CableDesign, caller, values)
 end
 
 function _decode_design(value, materials = Dict{String, Material}())
@@ -345,11 +340,12 @@ _decode_node(::Val{:cable_design}, value) = _decode_design(value)
 function _decode_node(::Val{:line_cable_system}, value)
     designs = CableDesign[deserialize_value(item)
                           for item in _required(value, "designs", "line_cable_system")]
-    return LineCableSystem(
-        designs;
+    return build(
+        LineCableSystem,
+        designs,
+        deserialize_value(_required(value, "positions", "line_cable_system"));
         system_id = String(_required(value, "system_id", "line_cable_system")),
         line_length = _field(value, "line_length"),
-        positions = deserialize_value(_required(value, "positions", "line_cable_system")),
         connections = deserialize_value(_required(value, "connections", "line_cable_system")),
         environment = _optional(value, "environment")
     )

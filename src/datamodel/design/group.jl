@@ -33,47 +33,69 @@ struct Group{A, E <: AbstractCablePart, P, H, C} <: AbstractCablePart
     end
 end
 
+function _path_radius(
+        pattern::Ring,
+        pose::Pose2,
+        shape::Union{
+            AnnulusShape,
+            SectorShape,
+            PlacedShape{<:Real, <:Union{AnnulusShape, SectorShape}}
+        }
+)
+    return iszero(pattern.r) ? (r_in(shape) + r_ex(shape)) / 2 : pattern.r
+end
+_path_radius(pattern::Ring, pose::Pose2, shape::AbstractShape) = pattern.r
+_path_radius(
+    ::Nothing,
+    pose::Pose2,
+    shape::Union{
+        AnnulusShape,
+        SectorShape,
+        PlacedShape{<:Real, <:Union{AnnulusShape, SectorShape}}
+    }
+) = (r_in(shape) + r_ex(shape)) / 2
+_path_radius(::Nothing, pose::Pose2, shape::AbstractShape) = hypot(pose.x, pose.y)
+_path_radius(pattern, pose::Pose2, shape::AbstractShape) = hypot(pose.x, pose.y)
+
+_minimum_radius(
+    shape::PlacedShape{<:Real, <:Union{AnnulusShape, SectorShape}}
+) = r_in(shape)
+function _minimum_radius(shape::PlacedShape)
+    center = centroid(shape)
+    center_radius = hypot(center...)
+    iszero(center_radius) && return zero(eltype(shape))
+    φ = atan(center[2], center[1])
+    return -support(shape, φ + pi)
+end
+
 function resolve(context::EmptyBoundary, group::Group)
     child = resolve(EmptyBoundary(), group.item)
     poses = placements(group.pattern, child, group.compact)
     isempty(poses) && throw(ArgumentError("group placement cannot be empty"))
 
-    regions = ResolvedRegion[]
+    regions = PlacedRegion[]
     has_conductor = false
-    for pose in poses
+    for (member, pose) in enumerate(poses)
         placed_at = group.at * pose
-        radius = if group.pattern isa Ring && iszero(group.pattern.r) &&
-                    length(child.regions) == 1 &&
-                    only(child.regions).region.primitive isa Union{Annulus, Sector}
-            primitive = only(child.regions).region.primitive
-            (primitive.ri + primitive.ro) / 2
-        elseif group.pattern isa Ring
-            group.pattern.r
-        elseif group.pattern === nothing && length(child.regions) == 1 &&
-                    only(child.regions).region.primitive isa Union{Annulus, Sector}
-            primitive = only(child.regions).region.primitive
-            (primitive.ri + primitive.ro) / 2
-        else
-            hypot(pose.x, pose.y)
-        end
-        path_factor = group.path === nothing ? one(eltype(placed_at)) :
-                      overlength(group.path, radius)
-        local_turns = group.path === nothing ? zero(eltype(placed_at)) :
-                      inv(pitch(group.path, radius))
-        pattern_depth = group.pattern === nothing ? 0 : 1
-        path_depth = group.path === nothing ? 0 : 1
         for source in child.regions
-            terminal = source.region.material.kind === :conductor ? group.name :
+            terminal = source.source.material.kind === :conductor ? group.name :
                        source.terminal
             has_conductor |= terminal === group.name
-            push!(regions, ResolvedRegion(
-                source.region,
-                PlacedShape(source.shape, placed_at),
+            shape = PlacedShape(source.shape, placed_at)
+            patterns = group.pattern === nothing ? source.placement.patterns :
+                       (source.placement.patterns...,
+                        (pattern = group.pattern, member = member, pose = pose))
+            paths = group.path === nothing ? source.paths :
+                    (source.paths..., (
+                        path = group.path,
+                        radius = _path_radius(group.pattern, pose, source.shape)
+                    ))
+            push!(regions, PlacedRegion(
+                source.source,
+                shape,
                 terminal,
-                source.overlength * path_factor,
-                source.turns + local_turns,
-                source.pattern_depth + pattern_depth,
-                source.path_depth + path_depth
+                (pose = shape.at, patterns = patterns),
+                paths
             ))
         end
     end
@@ -84,7 +106,7 @@ function resolve(context::EmptyBoundary, group::Group)
     child_extent = support(boundary(child))
     outer_radius = maximum(hypot(pose.x, pose.y) + child_extent for pose in poses)
     local_boundary = DiskShape(outer_radius)
-    return ResolvedPart(regions, PlacedShape(local_boundary, group.at), [group.name])
+    return CableGeometry(regions, PlacedShape(local_boundary, group.at))
 end
 
 function resolve(context::AbstractShape, group::Group)
@@ -93,29 +115,11 @@ function resolve(context::AbstractShape, group::Group)
     tolerance = sqrt(eps(typeof(float(current_radius)))) *
                 max(one(current_radius), current_radius)
     for source in result.regions
-        center = centroid(source.shape)
-        region_radius = sqrt(area(source.shape) / (one(current_radius) * pi))
-        minimum_radius = source.region.primitive isa Disk ?
-                         hypot(center...) - region_radius :
-                         source.region.primitive isa Union{Annulus, Sector} ?
-                         r_in(source.shape) : -oftype(current_radius, Inf)
+        minimum_radius = _minimum_radius(source.shape)
         minimum_radius + tolerance >= current_radius || throw(DomainError(
             minimum_radius,
             "group geometry overlaps the current stack boundary at radius $current_radius"
         ))
-    end
-    if group.pattern isa Ring && group.item isa Region &&
-            group.item.primitive isa Disk && iszero(group.at.x) &&
-            iszero(group.at.y) && iszero(group.at.φ)
-        member_radius = group.item.primitive.r
-        declared_inner = group.pattern.r - member_radius
-        if isapprox(declared_inner, current_radius)
-            outer = PlacedShape(
-                DiskShape(current_radius + 2member_radius),
-                group.at
-            )
-            return ResolvedPart(result.regions, outer, result.terminals)
-        end
     end
     return result
 end

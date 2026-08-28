@@ -22,11 +22,11 @@ load!(library;
         "mv_cable_design.json"
     ))
 source = only(values(library.data))
-designs = [CableDesign(
-    source.root;
+designs = [build(
+    CableDesign,
     cable_id,
-    nominal_data = source.nominal_data,
-    reference_frequency = source.reference_frequency
+    source.root;
+    nominal_data = source.nominal_data
 ) for cable_id in (
     "Detailed cable A",
     "Detailed cable B",

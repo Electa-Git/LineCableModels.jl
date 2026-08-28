@@ -51,23 +51,21 @@ function resolve(context::EmptyBoundary, assembly::Assembly)
     ))
     allunique(member_names) || throw(ArgumentError("assembly names must be unique"))
 
-    regions = ResolvedRegion[]
+    regions = PlacedRegion[]
     terminals = Symbol[]
-    for (member_name, pose) in zip(member_names, poses)
+    for (member, (member_name, pose)) in enumerate(zip(member_names, poses))
         placed_at = assembly.at * pose
         radius = hypot(pose.x, pose.y)
-        path_factor = assembly.path === nothing ? one(eltype(placed_at)) :
-                      overlength(assembly.path, radius)
-        local_turns = assembly.path === nothing ? zero(eltype(placed_at)) :
-                      inv(pitch(assembly.path, radius))
-        pattern_depth = assembly.pattern === nothing ? 0 : 1
-        path_depth = assembly.path === nothing ? 0 : 1
         terminal_map = Dict{Symbol, Symbol}()
-        if length(child.terminals) == 1
-            terminal_map[only(child.terminals)] = member_name
+        child_terminals = unique(Symbol[
+            source.terminal for source in child.regions
+            if source.terminal !== nothing
+        ])
+        if length(child_terminals) == 1
+            terminal_map[only(child_terminals)] = member_name
             push!(terminals, member_name)
         else
-            for terminal in child.terminals
+            for terminal in child_terminals
                 qualified = Symbol(member_name, :__, terminal)
                 terminal_map[terminal] = qualified
                 push!(terminals, qualified)
@@ -77,18 +75,22 @@ function resolve(context::EmptyBoundary, assembly::Assembly)
             terminal = source.terminal
             if terminal !== nothing
                 terminal = terminal_map[terminal]
-            elseif source.region.material.kind === :conductor
+            elseif source.source.material.kind === :conductor
                 terminal = member_name
                 member_name in terminals || push!(terminals, member_name)
             end
-            push!(regions, ResolvedRegion(
-                source.region,
-                PlacedShape(source.shape, placed_at),
+            shape = PlacedShape(source.shape, placed_at)
+            patterns = assembly.pattern === nothing ? source.placement.patterns :
+                       (source.placement.patterns...,
+                        (pattern = assembly.pattern, member = member, pose = pose))
+            paths = assembly.path === nothing ? source.paths :
+                    (source.paths..., (path = assembly.path, radius = radius))
+            push!(regions, PlacedRegion(
+                source.source,
+                shape,
                 terminal,
-                source.overlength * path_factor,
-                source.turns + local_turns,
-                source.pattern_depth + pattern_depth,
-                source.path_depth + path_depth
+                (pose = shape.at, patterns = patterns),
+                paths
             ))
         end
     end
@@ -97,7 +99,7 @@ function resolve(context::EmptyBoundary, assembly::Assembly)
     child_extent = support(boundary(child))
     outer_radius = maximum(hypot(pose.x, pose.y) + child_extent for pose in poses)
     local_boundary = DiskShape(outer_radius)
-    return ResolvedPart(regions, PlacedShape(local_boundary, assembly.at), terminals)
+    return CableGeometry(regions, PlacedShape(local_boundary, assembly.at))
 end
 
 function resolve(context::AbstractShape, assembly::Assembly)

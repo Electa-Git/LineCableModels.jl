@@ -63,8 +63,12 @@
             "CPASS" => "0"
         )
 
+        expected_components = [
+            LineCableModels.Engine.analytical_components(Formulation(), design, 50.0)
+            for design in system.designs
+        ]
         @test any(length(component.dielectric.layers) > 1
-        for design in system.designs for component in design.effective)
+        for components in expected_components for component in components)
         outer_radii=("R2", "R4", "R6", "R8")
         insulation_radii=("R3", "R5", "R7", "R9")
         resistivities=("RHOC", "RHOS", "RHOA", "RHOO")
@@ -72,10 +76,11 @@
         permittivities=("EPS1", "EPS2", "EPS3", "EPS4")
         insulation_mus=("PERM1", "PERM2", "PERM3", "PERM4")
         losses=("LT1", "LT2", "LT3", "LT4")
-        for (index, (node, design, position)) in enumerate(zip(
+        for (index, (node, design, position, components_for_design)) in enumerate(zip(
             cables,
             system.designs,
-            system.positions
+            system.positions,
+            expected_components
         ))
             values=parameters(node)
             @test values["CABNUM"] == string(index)
@@ -83,12 +88,12 @@
             @test parse(Float64, values["X"]) ≈ position.x rtol=1e-5
             @test parse(Float64, values["Y"]) ≈ abs(position.y) rtol=1e-5
             @test values["OHC"] == "0"
-            @test values["LL"] == string(2length(design.effective) - 1)
+            @test values["LL"] == string(2length(components_for_design) - 1)
             @test values["CONNAM1"] ==
-                  uppercasefirst(String(first(design.effective).name))
+                  uppercasefirst(String(first(components_for_design).name))
             @test parse(Float64, values["R1"]) ≈
-                  first(design.effective).conductor.r_in rtol=1e-5
-            for (component_index, component) in enumerate(design.effective)
+                  first(components_for_design).conductor.r_in rtol=1e-5
+            for (component_index, component) in enumerate(components_for_design)
                 @test parse(Float64, values[outer_radii[component_index]]) ≈
                       component.conductor.r_ex rtol=1e-5
                 @test parse(Float64, values[insulation_radii[component_index]]) ≈
@@ -185,14 +190,16 @@ end
         end
         values
     end
-    design=DataModel.CableDesign(
-        DataModel.Stack(parts);
-        cable_id = "five-components"
+    design=build(
+        CableDesign,
+        "five-components",
+        DataModel.Stack(parts)
     )
     connections=Dict(name=>index for (index, name) in enumerate(design.terminal_order))
-    system=DataModel.LineCableSystem(
-        design;
-        position = DataModel.Pose2(0.0, -1.0, 0.0),
+    system=build(
+        LineCableSystem,
+        design,
+        DataModel.Pose2(0.0, -1.0, 0.0);
         connections,
         system_id = "five-components",
         line_length = 1_000.0
@@ -250,10 +257,13 @@ end
             @test imported_connections == original_connections
             @test imported_design.cable_id == original_design.cable_id
             @test imported_design.terminal_order == original_design.terminal_order
-            for (actual, expected) in zip(
-                imported_design.effective,
-                original_design.effective
+            actual_components=LineCableModels.Engine.analytical_components(
+                Formulation(), imported_design, 50.0
             )
+            expected_components=LineCableModels.Engine.analytical_components(
+                Formulation(), original_design, 50.0
+            )
+            for (actual, expected) in zip(actual_components, expected_components)
                 @test actual.conductor.r_in ≈ expected.conductor.r_in rtol=1e-5
                 @test actual.conductor.r_ex ≈ expected.conductor.r_ex rtol=1e-5
                 @test actual.dielectric.r_ex ≈ expected.dielectric.r_ex rtol=1e-5

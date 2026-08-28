@@ -39,6 +39,121 @@
     @test DM.r_ex(DM.boundary(DM.resolve(DM.EmptyBoundary(), first(spaces)))) == 0.015
 end
 
+@testitem "DataModel / v1 physical tree / primitive extension is local dispatch" tags=[:unit] begin
+    import LineCableModels.DataModel as DM
+
+    struct CapsulePrimitive{T <: Real} <: DM.AbstractPrimitive{T}
+        radius::T
+    end
+    struct CapsuleShape{T <: Real} <: DM.AbstractShape{T}
+        radius::T
+    end
+
+    DM.resolve(::DM.EmptyBoundary, primitive::CapsulePrimitive) =
+        CapsuleShape(primitive.radius)
+    DM.boundary(shape::CapsuleShape) = shape
+    DM.area(shape::CapsuleShape) = pi * shape.radius^2
+    DM.centroid(shape::CapsuleShape) = (zero(shape.radius), zero(shape.radius))
+    DM.support(shape::CapsuleShape, ::Real) = shape.radius
+    DM.support(shape::CapsuleShape) = shape.radius
+
+    conductor=Material(kind = :conductor, rho = 1.7241e-8)
+    design=build(
+        CableDesign,
+        "local-extension",
+        Group(:core, Region(:capsule, CapsulePrimitive(0.01), conductor))
+    )
+    @test only(design.geometry.regions).shape.shape == CapsuleShape(0.01)
+    @test design.terminal_order == [:core]
+end
+
+@testitem "DataModel / v1 physical tree / circular and rectangular strands" tags=[:unit] begin
+    copper=Material(kind = :conductor, rho = 1.7241e-8)
+    disk=Disk(0.5e-3)
+    rectangle=Rectangle(0.35e-3, 0.8e-3)
+
+    circular=Conductor.Stranded(:core, disk, copper; layers = 3, n = 6)
+    rectangular=Conductor.Stranded(:core, rectangle, copper; layers = 3, n = 6)
+    strand_space=Conductor.Stranded(
+        :core,
+        Grid((disk, rectangle)),
+        copper;
+        layers = 1,
+        n = 6
+    )
+    @test circular isa Stack
+    @test rectangular isa Stack
+    @test strand_space isa Gridspace{Stack}
+    resolved_strands=collect(strand_space)
+    @test typeof.(getproperty.(first.(getproperty.(resolved_strands, :items)), :item)) ==
+          [Region{typeof(disk), typeof(copper)},
+           Region{typeof(rectangle), typeof(copper)}]
+    @test all(item -> item isa Group, circular.items)
+    @test all(item -> item isa Group, rectangular.items)
+    @test getproperty.(circular.items, :name) == fill(:core, 3)
+    @test getproperty.(rectangular.items, :name) == fill(:core, 3)
+
+    circular_design=build(CableDesign, "circular-strands", circular)
+    rectangular_design=build(CableDesign, "rectangular-strands", rectangular)
+    @test length(circular_design.geometry.regions) == 19
+    @test length(rectangular_design.geometry.regions) == 19
+    @test all(
+        region -> region.shape.shape isa LineCableModels.DataModel.RectangleShape,
+        rectangular_design.geometry.regions
+    )
+    @test sum(area, getproperty.(circular_design.geometry.regions, :shape)) ≈
+          19pi * disk.r^2
+    @test sum(area, getproperty.(rectangular_design.geometry.regions, :shape)) ≈
+          19rectangle.w * rectangle.h
+
+    initial_radius=hypot(rectangle.w, rectangle.h) / 2
+    area_radius=sqrt(initial_radius^2 + 6rectangle.w * rectangle.h / pi)
+    expected_centre=max(
+        (initial_radius + area_radius) / 2,
+        initial_radius + rectangle.h / 2
+    )
+    @test hypot(centroid(rectangular_design.geometry.regions[2].shape)...) ≈
+          expected_centre
+    @test getproperty.(rectangular_design.geometry.regions, :terminal) ==
+          fill(:core, 19)
+    @test getproperty.(rectangular_design.geometry.regions, :source)[1].tag ===
+          :core_strands_1
+    @test all(
+        region -> region.source.tag === :core_strands_2,
+        rectangular_design.geometry.regions[2:7]
+    )
+    @test all(
+        region -> region.source.tag === :core_strands_3,
+        rectangular_design.geometry.regions[8:19]
+    )
+    @test all(isempty, getproperty.(rectangular_design.geometry.regions[1:1], :paths))
+    @test all(!isempty, getproperty.(rectangular_design.geometry.regions[2:end], :paths))
+
+    for (member, placed) in enumerate(rectangular_design.geometry.regions[2:7])
+        x, y = centroid(placed.shape)
+        radial = atan(y, x)
+        @test mod(placed.shape.at.φ - radial, 2pi) ≈ pi / 2
+        @test placed.source.primitive === rectangle
+    end
+    @test_throws DomainError Conductor.Stranded(
+        :core,
+        Rectangle(10e-3, 1e-3),
+        copper;
+        layers = 2,
+        n = 6
+    )
+    @test_throws MethodError Conductor.Stranded(
+        :core,
+        Ellipse(0.5e-3, 0.25e-3),
+        copper;
+        layers = 2,
+        n = 6
+    )
+    @test_throws ArgumentError LineCableModels.Engine.analytical_components(
+        Formulation(), rectangular_design, 50.0
+    )
+end
+
 @testitem "DataModel / v1 physical tree / Enclosure and class conveniences" tags=[:unit] begin
     const DM=LineCableModels.DataModel
     copper=LineCableModels.Material(kind = :conductor, rho = 1.7241e-8)
@@ -56,8 +171,8 @@ end
         wall
     )
     resolved=DM.resolve(DM.EmptyBoundary(), pipe)
-    @test resolved.terminals == [:core]
-    @test getproperty.(getproperty.(resolved.regions, :region), :tag) ==
+    @test unique(filter(!isnothing, getproperty.(resolved.regions, :terminal))) == [:core]
+    @test getproperty.(getproperty.(resolved.regions, :source), :tag) ==
           [:core_metal, :pipe_fill, :pipe_wall]
     @test DM.support(DM.boundary(resolved)) == 3.5
     @test resolved.regions[2].shape.shape == DM.AnnulusShape(1.0, 3.0)
@@ -82,7 +197,7 @@ end
         fill
     )
     @test getproperty.(
-        getproperty.(DM.resolve(DM.EmptyBoundary(), explicit).regions, :region),
+        getproperty.(DM.resolve(DM.EmptyBoundary(), explicit).regions, :source),
         :tag
     ) == [:core_metal, :fill]
 
@@ -131,10 +246,17 @@ end
         path = helix
     )
     strand_resolution=DM.resolve(DM.EmptyBoundary(), strand)
-    @test strand_resolution.terminals == [:strand]
+    @test unique(getproperty.(strand_resolution.regions, :terminal)) == [:strand]
     @test length(strand_resolution.regions) == 6
     @test all(region -> region.terminal === :strand, strand_resolution.regions)
-    @test all(region -> region.overlength > 1, strand_resolution.regions)
+    @test all(
+        region -> prod(
+            entry -> LineCableModels.overlength(entry.path, entry.radius),
+            region.paths;
+            init = 1.0
+        ) > 1,
+        strand_resolution.regions
+    )
     @test DM.support(DM.boundary(strand_resolution)) == 1.5
 
     rope=LineCableModels.Group(
@@ -143,7 +265,7 @@ end
         pattern = LineCableModels.Ring(3; r = 4.0)
     )
     rope_resolution=DM.resolve(DM.EmptyBoundary(), rope)
-    @test rope_resolution.terminals == [:phase]
+    @test unique(getproperty.(rope_resolution.regions, :terminal)) == [:phase]
     @test length(rope_resolution.regions) == 18
     @test all(region -> region.terminal === :phase, rope_resolution.regions)
 
@@ -154,7 +276,6 @@ end
         names = (:a, :b, :c)
     )
     phase_resolution=DM.resolve(DM.EmptyBoundary(), phases)
-    @test phase_resolution.terminals == [:a, :b, :c]
     @test getproperty.(phase_resolution.regions, :terminal) == [:a, :b, :c]
 
     indexed=LineCableModels.Assembly(
@@ -162,14 +283,17 @@ end
         pattern = LineCableModels.Lattice(nx = 2, ny = 1, dx = 3.0, dy = 0.0),
         names = :phase
     )
-    @test DM.resolve(DM.EmptyBoundary(), indexed).terminals == [:phase_1, :phase_2]
+    @test getproperty.(
+        DM.resolve(DM.EmptyBoundary(), indexed).regions,
+        :terminal
+    ) == [:phase_1, :phase_2]
     @test_throws DimensionMismatch DM.resolve(
         DM.EmptyBoundary(),
         LineCableModels.Assembly(core; pattern = ring, names = (:a, :b))
     )
 end
 
-@testitem "DataModel / v1 eager construction / concrete boundaries and allocations" tags=[:unit] begin
+@testitem "DataModel / v1 construction / concrete boundaries and allocations" tags=[:unit] begin
     using LineCableModels
 
     conductor=Material(kind = :conductor, rho = 1.7241e-8)
@@ -178,11 +302,12 @@ end
         Group(:phase, Region(:core, Disk(0.01), conductor)),
         Region(:insulation, Shell(0.003), dielectric)
     )
-    make_design() = CableDesign(root; cable_id = "allocation-baseline")
+    make_design() = build(CableDesign, "allocation-baseline", root)
     design=make_design()
-    make_system() = LineCableSystem(
-        design;
-        position = Pose2(0.0, -1.0),
+    make_system() = build(
+        LineCableSystem,
+        design,
+        Pose2(0.0, -1.0);
         connections = (phase = 1,)
     )
     system=make_system()
@@ -195,10 +320,13 @@ end
     @test isconcretetype(typeof(design))
     @test isconcretetype(typeof(system))
     @test isconcretetype(typeof(problem))
-    @test (@inferred LineCableModels.Engine.AnalyticalInput(problem)) isa
+    @test (@inferred LineCableModels.Engine.AnalyticalInput(
+        problem,
+        Formulation()
+    )) isa
           LineCableModels.Engine.AnalyticalInput{Float64}
 
-    # These bounds record the eager-construction scale without turning the
+    # These bounds record the construction scale without turning the
     # physical grammar into an allocation optimization exercise.
     make_design()
     make_system()

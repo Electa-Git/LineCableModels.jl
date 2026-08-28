@@ -7,6 +7,7 @@ module LineCableModelsMakieExt
 
 using LineCableModels
 using Makie
+using LinearAlgebra: diag
 
 const PlotBuilder = LineCableModels.PlotBuilder
 
@@ -45,33 +46,45 @@ _is_line_index_selector(value) = value isa Integer || value isa AbstractRange ||
                                  value isa AbstractVector{<:Integer} ||
                                  value isa Colon
 
-function _is_line_observation_request(value)
+function _is_line_observation_request(source, value)
     value isa Tuple || return false
-    length(value) in (4, 5) || return false
-    value[1] isa Function || return false
-    offset = length(value) == 4 ? 1 : 2
-    length(value) == 5 && !(value[2] isa Function) && return false
-    return all(_is_line_index_selector, value[(offset + 1):end])
+    resolved = try
+        LineCableModels.Grammar.observation_request(source, value)
+    catch error
+        error isa ArgumentError || rethrow()
+        return false
+    end
+    expected = resolved.identity isa Tuple && last(resolved.identity) === diag ? 2 : 3
+    return length(resolved.indices) == expected &&
+           all(_is_line_index_selector, resolved.indices)
 end
 
 _full_line_request(selector::Function) = (selector, Colon(), Colon(), Colon())
 _full_line_request(selector::Function, transform::Function) =
     (selector, transform, Colon(), Colon(), Colon())
+_full_diagonal_request(selector::Function) =
+    (selector, diag, Colon(), Colon())
 
-function _line_selector_requests(::LineCableModels.LineParameters, selector::Function)
-    selector === LineCableModels.Z && return (_full_line_request(LineCableModels.R),
-        _full_line_request(LineCableModels.X))
-    selector === LineCableModels.Y && return (_full_line_request(LineCableModels.G),
-        _full_line_request(LineCableModels.B))
-    selector === real && return (_full_line_request(LineCableModels.R),
-        _full_line_request(LineCableModels.G))
-    selector === imag && return (_full_line_request(LineCableModels.X),
-        _full_line_request(LineCableModels.B))
+function _domain_line_request(source, selector::Function)
+    LineCableModels.domain(source) === LineCableModels.ModalDomain &&
+        return _full_diagonal_request(selector)
+    return _full_line_request(selector)
+end
+
+function _line_selector_requests(source::LineCableModels.LineParameters, selector::Function)
+    selector === LineCableModels.Z && return (_domain_line_request(source, LineCableModels.R),
+        _domain_line_request(source, LineCableModels.X))
+    selector === LineCableModels.Y && return (_domain_line_request(source, LineCableModels.G),
+        _domain_line_request(source, LineCableModels.B))
+    selector === real && return (_domain_line_request(source, LineCableModels.R),
+        _domain_line_request(source, LineCableModels.G))
+    selector === imag && return (_domain_line_request(source, LineCableModels.X),
+        _domain_line_request(source, LineCableModels.B))
     selector === abs && return (_full_line_request(LineCableModels.Z, abs),
         _full_line_request(LineCableModels.Y, abs))
     selector === angle && return (_full_line_request(LineCableModels.Z, angle),
         _full_line_request(LineCableModels.Y, angle))
-    return (_full_line_request(selector),)
+    return (_domain_line_request(source, selector),)
 end
 
 function _line_selector_requests(::LineCableModels.SeriesImpedance, selector::Function)
@@ -104,14 +117,14 @@ _default_line_selection(::LineCableModels.ShuntAdmittance) =
 function _line_plot_requests(source::_LineSource, selection)
     selected = selection === nothing || selection == () ?
                _default_line_selection(source) : selection
-    _is_line_observation_request(selected) && return (selected,)
+    _is_line_observation_request(source, selected) && return (selected,)
     selected isa Function && return _line_selector_requests(source, selected)
     selected isa Tuple || throw(ArgumentError(
         "line selection must be a selector, observable request, or tuple of them",
     ))
     return Tuple(request
     for item in selected
-    for request in (_is_line_observation_request(item) ? (item,) :
+    for request in (_is_line_observation_request(source, item) ? (item,) :
                     item isa Function ? _line_selector_requests(source, item) :
                     throw(ArgumentError("unsupported line selection $(repr(item))"))))
 end

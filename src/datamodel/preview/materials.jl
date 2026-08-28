@@ -195,16 +195,16 @@ function _shape_geometry(shape::PlacedShape)
     return GeometryBasics.Polygon(exterior, interiors)
 end
 
-preview_materials(region::ResolvedRegion) = (region.region.material,)
+preview_materials(region::PlacedRegion) = (region.source.material,)
 
-function preview_shapes(region::ResolvedRegion, context)
+function preview_shapes(region::PlacedRegion, context)
     label = context.include_label ? context.label : nothing
     return PreviewPolygon[
         _preview_polygon(
             _shape_geometry(region.shape),
             label,
             context.group,
-            _material_color(region.region.material);
+            _material_color(region.source.material);
             stroke = :transparent,
             width = 0.0
         ),
@@ -214,7 +214,7 @@ end
 function _region_identities(regions)
     identities = Dict{Symbol, NamedTuple{(:label, :group), Tuple{String, Symbol}}}()
     return map(regions) do source
-        tag = source.region.tag
+        tag = source.source.tag
         return get!(identities, tag) do
             label = uppercasefirst(replace(String(tag), '_' => ' '))
             group = Symbol("preview_", tag)
@@ -229,14 +229,13 @@ function _design_shapes(design, xcenter, ycenter; display_legend::Bool)
     labelled_groups = Set{Symbol}()
     shapes = PreviewPolygon[]
     for (source, identity) in zip(design.geometry.regions, identities)
-        placed = ResolvedRegion(
-            source.region,
-            PlacedShape(source.shape, offset),
+        shape = PlacedShape(source.shape, offset)
+        placed = PlacedRegion(
+            source.source,
+            shape,
             source.terminal,
-            source.overlength,
-            source.turns,
-            source.pattern_depth,
-            source.path_depth
+            (pose = shape.at, patterns = source.placement.patterns),
+            source.paths
         )
         append!(shapes, preview_shapes(placed, (;
             label = identity.label,

@@ -69,17 +69,13 @@ function (f::Levenberg)(
         @views Ym[:, :, k] .= invT * Yk * transpose(invT)
 
         fname = String(nameof(typeof(f)))
-        offdiagZ = offdiagonal_ratio(Zm[:, :, k])
+        offdiagZ = suppress_offdiagonal_residue!(@view(Zm[:, :, k]), f.tol)
         if offdiagZ > f.tol
             @warn "$fname: transformed Z exceeds the off-diagonal tolerance" ratio = offdiagZ tolerance = f.tol
-        else
-            @views Zm[:, :, k] .= Diagonal(diag(Zm[:, :, k]))
         end
-        offdiagY = offdiagonal_ratio(Ym[:, :, k])
+        offdiagY = suppress_offdiagonal_residue!(@view(Ym[:, :, k]), f.tol)
         if offdiagY > f.tol
             @warn "$fname: transformed Y exceeds the off-diagonal tolerance" ratio = offdiagY tolerance = f.tol
-        else
-            @views Ym[:, :, k] .= Diagonal(diag(Ym[:, :, k]))
         end
     end
     return Ti, LineParameters(ModalDomain, Zm, Ym, lp.f; basis = basis(lp))

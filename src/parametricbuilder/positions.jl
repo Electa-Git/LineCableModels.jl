@@ -16,12 +16,12 @@ function at(; x = 0, y = 0, φ = 0, combine::Symbol = :product)
     return DataModel.Pose2(values...)
 end
 
-function _trifoil_poses(x, y, spacing)
+function _trefoil_poses(x, y, spacing)
     spacing > zero(spacing) || throw(DomainError(
         spacing,
-        "trifoil spacing must be positive"
+        "trefoil spacing must be positive"
     ))
-    values = DataModel.trifoil_formation(x, y, spacing / 2)
+    values = DataModel.trefoil_formation(x, y, spacing / 2)
     return DataModel.Pose2[
         DataModel.Pose2(values[1], values[2], 0),
         DataModel.Pose2(values[3], values[4], 0),
@@ -29,16 +29,16 @@ function _trifoil_poses(x, y, spacing)
     ]
 end
 
-"Return three physical poses in an equilateral trifoil formation."
-function trifoil(; x = 0, y, spacing, combine::Symbol = :product)
+"Return three physical poses in an equilateral trefoil formation."
+function trefoil(; x = 0, y, spacing, combine::Symbol = :product)
     values = (x, y, spacing)
     if any(value -> value isa Union{AbstractGrid, Gridspace}, values)
         grids = map(values) do value
             value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
         end
-        return Gridspace{Vector{DataModel.Pose2}}(_trifoil_poses, grids; combine)
+        return Gridspace{Vector{DataModel.Pose2}}(_trefoil_poses, grids; combine)
     end
-    return _trifoil_poses(values...)
+    return _trefoil_poses(values...)
 end
 
 function _flat_poses(x, y, spacing, n, vertical)
@@ -49,13 +49,11 @@ function _flat_poses(x, y, spacing, n, vertical)
         spacing,
         "flat formation spacing must be positive"
     ))
-    return DataModel.Pose2[
-        DataModel.Pose2(
-            vertical ? x : x + index * spacing,
-            vertical ? y - index * spacing : y,
-            0
-        ) for index in 0:(Int(n) - 1)
-    ]
+    return DataModel.Pose2[DataModel.Pose2(
+                               vertical ? x : x + index * spacing,
+                               vertical ? y - index * spacing : y,
+                               0
+                           ) for index in 0:(Int(n) - 1)]
 end
 
 function _flat(kind::Val, x, y, spacing, n; combine::Symbol)
@@ -73,9 +71,11 @@ function _flat(kind::Val, x, y, spacing, n; combine::Symbol)
 end
 
 "Return `n` physical poses in a horizontal flat formation."
-hflat(; x = 0, y = 0, spacing, n = 3, combine::Symbol = :product) =
+function hflat(; x = 0, y = 0, spacing, n = 3, combine::Symbol = :product)
     _flat(Val(:horizontal), x, y, spacing, n; combine)
+end
 
 "Return `n` physical poses in a vertical flat formation."
-vflat(; x = 0, y = 0, spacing, n = 3, combine::Symbol = :product) =
+function vflat(; x = 0, y = 0, spacing, n = 3, combine::Symbol = :product)
     _flat(Val(:vertical), x, y, spacing, n; combine)
+end

@@ -21,55 +21,33 @@
     @test String.(design.terminal_order) ==
           String.(expected_design["terminal_order"])
 
-    material_fields=(:rho, :eps_r, :mu_r, :T0, :alpha)
-    conductor_fields=(
-        :r_in, :r_ex, :cross_section, :num_wires, :num_turns,
-        :resistance, :alpha, :gmr
-    )
-    insulation_fields=(
-        :r_in, :r_ex, :cross_section, :shunt_capacitance,
-        :shunt_conductance, :reference_frequency
-    )
-    insulation_keys=(
-        "r_in", "r_ex", "cross_section", "capacitance",
-        "conductance", "reference_frequency"
-    )
-    for (terminal, expected) in zip(design.effective, expected_design["components"])
-        @test String(terminal.name) == expected["id"]
-        conductor=expected["conductor"]
-        for field in conductor_fields
-            @test getproperty(terminal.conductor, field) == conductor[string(field)]
-        end
-        for field in material_fields
-            @test getproperty(terminal.conductor.material, field) ==
-                  conductor["effective_material"][string(field)]
-        end
+    @test design.root isa Stack
+    @test all(region -> region isa PlacedRegion, design.geometry.regions)
+    @test design.terminal_map == [
+        region.terminal === nothing ? 0 :
+        only(findall(==(region.terminal), design.terminal_order))
+        for region in design.geometry.regions
+    ]
 
-        insulation=expected["insulation"]
-        for (field, key) in zip(insulation_fields, insulation_keys)
-            @test getproperty(terminal.dielectric, field) == insulation[key]
-        end
-        for field in material_fields
-            @test getproperty(terminal.dielectric.material, field) ==
-                  insulation["effective_material"][string(field)]
-        end
-        @test length(terminal.dielectric.layers) ==
-              length(insulation["raw_layers"])
-        for (layer, expected_layer) in zip(terminal.dielectric.layers, insulation["raw_layers"])
-            @test layer.r_in == expected_layer["r_in"]
-            @test layer.r_ex == expected_layer["r_ex"]
-            for field in material_fields
-                @test getproperty(layer.material, field) ==
-                      expected_layer["material"][string(field)]
-            end
-        end
-    end
-
-    constants=compute(CableConstantsProblem(design), Formulation())
-    expected_constants=expected_design["cable_constants"]
-    @test constants.R == expected_constants["R"]
-    @test constants.L == expected_constants["L"]
-    @test constants.C == expected_constants["C"]
+    constants=CableConstants(design)
+    phases=NamedTuple{Tuple(design.terminal_order)}(
+        ntuple(index -> index == 1 ? 1 : 0, length(design.terminal_order))
+    )
+    lowered=LineParametersProblem(
+        design,
+        at(x = 0, y = -1);
+        connections = phases,
+        line_length = 1,
+        temperature = 20,
+        earth_props = Earth(rho = 100),
+        frequencies = [1e-3]
+    )
+    lowered_parameters=compute(lowered)
+    @test constants == CableConstants(
+        @observe(lowered_parameters, R[1, 1, 1]),
+        @observe(lowered_parameters, L[1, 1, 1]),
+        @observe(lowered_parameters, C[1, 1, 1])
+    )
 
     system=TestFixtures.three_phase_system()
     expected_system=reference["system"]
@@ -95,7 +73,7 @@
     @test actual_primitive_order == expected_primitive_order
 
     problem=TestFixtures.line_parameters_problem(frequencies = [50.0, 500.0])
-    input=LineCableModels.Engine.AnalyticalInput(problem)
+    input=LineCableModels.Engine.AnalyticalInput(problem, Formulation())
     expected_input=reference["analytical_input"]
     vector_fields=(
         :freq, :horz, :vert, :r_in, :r_ext, :r_ins_in, :r_ins_ext,

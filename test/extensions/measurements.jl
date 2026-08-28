@@ -77,10 +77,11 @@ end
     @test derivative(r_ex(semicon_shape), insulation_thickness) ≈ 1.0
     @test derivative(r_ex(semicon_shape), semicon_thickness) ≈ 1.0
 
-    design=CableDesign(root; cable_id = "uq-path")
-    system=LineCableSystem(
-        design;
-        position = Pose2(0.0, -1.0, 0.0),
+    design=build(CableDesign, "uq-path", root)
+    system=build(
+        LineCableSystem,
+        design,
+        Pose2(0.0, -1.0, 0.0);
         connections = Dict(:core=>1),
         system_id = "uq-path",
         line_length = 1000.0

@@ -16,13 +16,13 @@ Fortescue matrix.
 
 # Returns
 
-- A tuple containing the unitary transformation matrix and diagonal
+- A tuple containing the unitary transformation matrix and complete
   modal-domain [`LineParameters`](@ref) with the input storage basis.
 
 # Notes
 
-`f.tol` controls warnings for off-diagonal terms before the result is
-diagonalised.
+`f.tol` controls removal of numerically negligible off-diagonal residue.
+Meaningful coupling is preserved and reported.
 """
 function (f::Fortescue)(
         lp::LineParameters{
@@ -42,17 +42,17 @@ function (f::Fortescue)(
         Yseq = Tv * Ys * Tv'
 
         fname = String(nameof(typeof(f)))
-        offdiagZ = offdiagonal_ratio(Zseq)
+        Z012[:, :, k] = Zseq
+        Y012[:, :, k] = Yseq
+
+        offdiagZ = suppress_offdiagonal_residue!(@view(Z012[:, :, k]), f.tol)
         if offdiagZ > f.tol
             @warn "$fname: transformed Z exceeds the off-diagonal tolerance" ratio = offdiagZ tolerance = f.tol
         end
-        offdiagY = offdiagonal_ratio(Yseq)
+        offdiagY = suppress_offdiagonal_residue!(@view(Y012[:, :, k]), f.tol)
         if offdiagY > f.tol
             @warn "$fname: transformed Y exceeds the off-diagonal tolerance" ratio = offdiagY tolerance = f.tol
         end
-
-        Z012[:, :, k] = Matrix(Diagonal(diag(Zseq)))
-        Y012[:, :, k] = Matrix(Diagonal(diag(Yseq)))
     end
     return Tv, LineParameters(ModalDomain, Z012, Y012, lp.f; basis = basis(lp))
 end

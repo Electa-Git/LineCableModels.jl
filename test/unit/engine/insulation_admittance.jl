@@ -93,7 +93,9 @@ end
         insulation_outer=first_outer+4.0e-3
         sheath_outer=insulation_outer+1.0e-3
         jacket_outer=sheath_outer+2.0e-3
-        design=CableDesign(
+        design=build(
+            CableDesign,
+            "parallel-rc-test",
             Stack(AbstractCablePart[
                 Group(:core, Region(:core_conductor, Annulus(0.0, core_outer), copper)),
                 Region(:insulation_1, Annulus(core_outer, first_outer), dielectric_1),
@@ -108,11 +110,12 @@ end
                     Annulus(sheath_outer, jacket_outer),
                     outer_dielectric
                 )
-            ]);
-            cable_id = "parallel-rc-test")
-        system=LineCableSystem(
-            design;
-            position = Pose2(0.0, -1.0, 0.0),
+            ])
+        )
+        system=build(
+            LineCableSystem,
+            design,
+            Pose2(0.0, -1.0, 0.0);
             connections = Dict(:core=>1, :sheath=>2),
             system_id = "parallel-rc-test",
             line_length = 1000.0
@@ -138,7 +141,7 @@ end
         )
     )
     problem=two_terminal_problem()
-    input=Engine.AnalyticalInput(problem)
+    input=Engine.AnalyticalInput(problem, Formulation())
     trace_formulation=Formulation(
         :analytical;
         internal_impedance = formulation.internal_impedance,
@@ -260,7 +263,9 @@ end
         insulation_outer=core_outer+resolved_thickness
         sheath_outer=insulation_outer+1.0e-3
         jacket_outer=sheath_outer+2.0e-3
-        return CableDesign(
+        return build(
+            CableDesign,
+            "parallel-rc-mc",
             Stack(AbstractCablePart[
                 Group(:core, Region(:core_conductor, Annulus(0.0, core_outer), copper)),
                 Region(
@@ -278,13 +283,14 @@ end
                     Annulus(sheath_outer, jacket_outer),
                     outer_dielectric
                 )
-            ]);
-            cable_id = "parallel-rc-mc")
+            ])
+        )
     end
     design=Gridspace{CableDesign}(build_design, (dielectric, thickness))
-    system=PB.LineCableSystem(
-        design;
-        position = Pose2(0.0, -1.0, 0.0),
+    system=build(
+        LineCableSystem,
+        design,
+        Pose2(0.0, -1.0, 0.0);
         connections = Dict(:core=>1, :sheath=>2),
         system_id = "parallel-rc-mc",
         line_length = 1000.0

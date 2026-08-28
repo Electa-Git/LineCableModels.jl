@@ -164,10 +164,11 @@ end
                     dielectric
                 ))
         end
-        oversized_design=CableDesign(Stack(parts); cable_id = "oversized")
-        oversized_system=LineCableSystem(
-            oversized_design;
-            position = Pose2(0.0, -1.0, 0.0),
+        oversized_design=build(CableDesign, "oversized", Stack(parts))
+        oversized_system=build(
+            LineCableSystem,
+            oversized_design,
+            Pose2(0.0, -1.0, 0.0);
             connections = Dict(name=>index
             for (index, name) in enumerate(oversized_design.terminal_order))
         )

@@ -21,6 +21,7 @@ export AbstractGrid, AbstractUncertainGrid, UncertainValue
 export Gridspace
 export has_uncertainty, nominal, uncertainty
 export @gridspace, @relax
+export build
 
 export Combinatorial, ParametricProblem, ParametricResult
 export result, project
@@ -31,14 +32,14 @@ export Disk, Rectangle, Ellipse, Sector, Annulus, Shell, Polygon, Pose2
 export Region, Stack
 export Group, Assembly
 export Enclosure
-export at, trifoil, hflat, vflat, Earth
+export at, trefoil, hflat, vflat, Earth
 export WireEstimate, make_stranded, make_screened
 
 using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
 using Random
 using RequiredInterfaces: @required
 using ..Grammar: @orchestrator
-import ..LineCableModels: add!
+import ..LineCableModels: add!, build
 import ..Grammar
 import ..Grammar: compute, computation_options, computation_details, details,
                   nominal, uncertainty, check_core_result,

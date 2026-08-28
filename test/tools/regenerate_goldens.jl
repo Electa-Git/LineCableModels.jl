@@ -129,9 +129,10 @@ if lowercase(get(ENV, "LINECABLEMODELS_UPDATE_PLOT_REFERENCES", "false")) == "tr
         terminal => (index == 1 ? 1 : 0)
     for (index, terminal) in enumerate(design.terminal_order)
     )
-    system = LineCableSystem(
-        design;
-        position = Pose2(0.0, -0.20, 0.0),
+    system = build(
+        LineCableSystem,
+        design,
+        Pose2(0.0, -0.20, 0.0);
         connections,
         system_id = "reference-system",
         line_length = 1000.0

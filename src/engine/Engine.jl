@@ -21,7 +21,7 @@ $(IMPORTS)
 module Engine
 
 # Export public API
-export CableConstantsProblem, LineParametersProblem,
+export LineParametersProblem,
        LineParameters, SeriesImpedance, ShuntAdmittance,
        RMSError, LineParametersBenchmark, compare,
        absolute_error, relative_error,
@@ -32,6 +32,7 @@ export CableConstantsProblem, LineParametersProblem,
        frequencies, nconductors, nfrequencies, basis,
        kronify
 export AbstractFormulation, AnalyticalFormulation, Formulation
+export constitutive
 export EarthProperties, CPEarth, LineParametersTrace, verbosity
 export InternalImpedance, InsulationImpedance, EarthImpedance
 export InsulationAdmittance, EarthAdmittance, EHEM, Transforms
@@ -39,16 +40,16 @@ export InsulationAdmittance, EarthAdmittance, EHEM, Transforms
 export compute, plot
 
 # Module-specific dependencies
-using LinearAlgebra: I, ldiv!, lu!
+using LinearAlgebra: I, diag, ldiv!, lu!
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import ..LineCableModels: basis, R, L, C, resistance, inductance, capacitance
+import ..LineCableModels: basis, build, R, L, C, resistance, inductance, capacitance
 import ..LineCableModels: nominal, uncertainty
 import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
                   AbstractProblemResult, AbstractCoreResult,
                   FormulationOptions, ComputationOptions,
                   ComputationDetails,
                   formulation_options, computation_options, computation_details,
-                  compute, observe, observables, validate_observables, unit_targets,
+                  compute, observe, @observe, observables, validate_observables, unit_targets,
                   observation_request, observation_indices,
                   request_identity, request_quantity, request_indices
 
@@ -111,6 +112,7 @@ include("ehem/EHEM.jl")
 using .EHEM
 
 # Immutable solver input and numerical action
+include("analytical_adapter.jl")
 include("input.jl")
 include("lineparameters/trace.jl")
 include("logging.jl")
@@ -126,6 +128,6 @@ include("lineparameters/plot.jl")
 include("lineparameters/plotdefinition.jl")
 include("lineparameters/comparisonplot.jl")
 
-public cable_constants_problem, has_uncertainty_type
+public analytical_components, has_uncertainty_type
 
 end # module Engine

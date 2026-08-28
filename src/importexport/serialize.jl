@@ -184,7 +184,6 @@ function _serialize_design(value::CableDesign, material_name = nothing)
         "kind" => "cable_design",
         "cable_id" => value.cable_id,
         "nominal_data" => serialize_value(value.nominal_data),
-        "reference_frequency" => serialize_value(value.reference_frequency),
         "root" => _serialize_part(value.root, material_name)
     )
 end

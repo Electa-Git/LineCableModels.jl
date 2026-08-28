@@ -13,7 +13,7 @@ module LineCableModels
 ## Public API
 # -------------------------------------------------------------------------
 # Core generics:
-export add!, validate, description, set_backend!
+export add!, build, validate, description, set_backend!
 export AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult
 export AbstractCoreResult, AbstractResultSpace
 export AbstractParametricResult, AbstractUncertaintyResult
@@ -49,12 +49,13 @@ export Group, Assembly
 export Enclosure
 export Ring, Polar, Lattice, DiameterFactor, placements
 export LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
-export at, trifoil, hflat, vflat, Earth
+export at, trefoil, hflat, vflat, Earth
 export make_stranded, make_screened, WireEstimate
 
 # Materialised results, reusable designs, and presentation:
 export CableDesign, LineCableSystem, NominalData
-export CableConstants, CableConstantsProblem, LineParameters, CablesLibrary, preview
+export CableGeometry, PlacedRegion
+export CableConstants, LineParametersProblem, LineParameters, CablesLibrary, preview
 
 # Engine:
 export Formulation, AnalyticalFormulation, SeriesImpedance, ShuntAdmittance, kronify,
@@ -106,7 +107,8 @@ import .EarthProps
 
 # Submodule `DataModel`
 include("datamodel/DataModel.jl")
-using .DataModel: CableDesign, LineCableSystem, NominalData,
+using .DataModel: CableDesign, CableGeometry, PlacedRegion,
+                  LineCableSystem, NominalData,
                   CableConstants, CablesLibrary, preview, ncables, nphases,
                   AbstractPrimitive, AbstractShape,
                   Disk, Rectangle, Ellipse, Sector, Annulus, Shell, Polygon, Pose2,
@@ -119,8 +121,8 @@ using .DataModel: Ring, Polar, Lattice, DiameterFactor, placements,
 
 # Submodule `Engine`
 include("engine/Engine.jl")
-using .Engine: LineParameters, SeriesImpedance,
-               ShuntAdmittance, kronify, Formulation, CableConstantsProblem,
+using .Engine: LineParameters, LineParametersProblem, SeriesImpedance,
+               ShuntAdmittance, kronify, Formulation,
                AnalyticalFormulation, LineParametersTrace,
                description, domain, frequencies, nconductors, nfrequencies,
                Z, Y, X, G, B, series_impedance, shunt_admittance,
@@ -140,7 +142,7 @@ using .ParametricBuilder:
                           Combinatorial, ParametricProblem, ParametricResult,
                           result, project,
                           Conductor, Insulator,
-                          at, trifoil, hflat, vflat, Earth,
+                          at, trefoil, hflat, vflat, Earth,
                           WireEstimate, make_stranded, make_screened
 using .ParametricBuilder: Semiconductor, Filler
 

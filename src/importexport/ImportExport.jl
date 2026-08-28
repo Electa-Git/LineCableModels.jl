@@ -28,7 +28,7 @@ export load!
 using DocStringExtensions: IMPORTS
 #! explicit-imports: on
 using DocStringExtensions: TYPEDSIGNATURES, METHODLIST
-import ..LineCableModels: validate, nominal
+import ..LineCableModels: build, validate, nominal
 import ..Grammar: observe
 import ..ReportBuilder
 using ..Materials: Material, MaterialsLibrary
@@ -40,6 +40,7 @@ using ..DataModel: CablesLibrary, CableDesign, LineCableSystem, NominalData,
                    LayRatio, Pitch, LayAngle, Helix
 using ..ParametricBuilder: AbstractGrid, DeterministicGrid, RelativeGrid,
                           AbsoluteGrid, Grid, Gridspace, AbsoluteError
+import ..Engine
 import ..Engine: LineParameters, SeriesImpedance, ShuntAdmittance,
                  frequencies, Z, Y, C
 import EzXML

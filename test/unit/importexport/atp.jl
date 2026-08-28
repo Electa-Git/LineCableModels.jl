@@ -56,13 +56,16 @@ end
         for (i, cable_node) in enumerate(cable_nodes)
             source_design=cable_system.designs[i]
             source_position=cable_system.positions[i]
+            source_components=LineCableModels.Engine.analytical_components(
+                Formulation(), source_design, problem_atp.frequencies[1]
+            )
 
             # Verify position of EACH cable
             @test parse(Float64, cable_node["PosX"]) ≈ source_position.x
             @test parse(Float64, cable_node["PosY"]) ≈ source_position.y
 
             # Verify the number of conductor components inside this cable
-            num_components=length(source_design.effective)
+            num_components=length(source_components)
             @test parse(Int, cable_node["NumCond"]) == num_components
 
             conductor_nodes=findall("conductor", cable_node)
@@ -70,7 +73,7 @@ end
 
             # Loop through each conductor component within the cable
             for (j, conductor_node) in enumerate(conductor_nodes)
-                source_component=source_design.effective[j]
+                source_component=source_components[j]
                 conductor=source_component.conductor
                 dielectric=source_component.dielectric
 

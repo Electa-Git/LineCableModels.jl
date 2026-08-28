@@ -47,7 +47,7 @@
     ))
 end
 
-@testitem "ImportExport / v1 declaration round trip excludes eager state" tags=[:unit] setup=[
+@testitem "ImportExport / v1 declaration round trip excludes derived state" tags=[:unit] setup=[
     ImportExportTestSupport,
     UseImportExportSupport,
     TestFixtures
@@ -58,7 +58,7 @@ end
     encoded=IE.serialize_value(design)
     @test encoded["kind"] == "cable_design"
     @test encoded["cable_id"] == design.cable_id
-    @test encoded["reference_frequency"] == IE.serialize_value(design.reference_frequency)
+    @test !haskey(encoded, "reference_frequency")
 
     function contains_key(value, key)
         value isa AbstractDict&&(
@@ -79,7 +79,11 @@ end
     @test restored !== design
     @test IE.serialize_value(restored) == encoded
     @test restored.terminal_order == design.terminal_order
-    @test restored.effective == design.effective
+    @test getproperty.(restored.geometry.regions, :shape) ==
+          getproperty.(design.geometry.regions, :shape)
+    @test getproperty.(restored.geometry.regions, :terminal) ==
+          getproperty.(design.geometry.regions, :terminal)
+    @test restored.terminal_map == design.terminal_map
 
     malformed=deepcopy(encoded)
     empty!(malformed["root"]["items"])
@@ -90,9 +94,10 @@ end
         terminal=>(index==1 ? 1 : 0)
     for (index, terminal) in enumerate(design.terminal_order)
     )
-    system=LineCableSystem(
-        design;
-        position = Pose2(0.0, -1.0),
+    system=build(
+        LineCableSystem,
+        design,
+        Pose2(0.0, -1.0);
         connections,
         environment = earth,
         system_id = "round-trip",
@@ -108,6 +113,43 @@ end
     @test restored_system.connection_order == system.connection_order
     @test restored_system.environment.vertical_layers == earth.vertical_layers
     @test restored_system.environment.layers == earth.layers
+
+    parametric_system_record=deepcopy(encoded_system)
+    parametric_system_record["positions"]=IE.serialize_value(Grid((
+        Pose2(-0.1, -1.0),
+        Pose2(0.1, -1.0)
+    )))
+    system_space=IE.deserialize_value(parametric_system_record)
+    @test system_space isa Gridspace{LineCableSystem}
+    @test eltype(system_space) === LineCableSystem
+    @test getproperty.(collect(system_space), :positions) == [
+        [Pose2(-0.1, -1.0)],
+        [Pose2(0.1, -1.0)]
+    ]
+
+    copper=Material(kind = :conductor, rho = 1.7241e-8)
+    rectangular=build(
+        CableDesign,
+        "rectangular-round-trip",
+        Conductor.Stranded(
+            :core,
+            Rectangle(0.35e-3, 0.8e-3),
+            copper;
+            layers = 3,
+            n = 6
+        )
+    )
+    rectangular_record=IE.serialize_value(rectangular)
+    restored_rectangular=IE.deserialize_value(rectangular_record)
+    @test IE.serialize_value(restored_rectangular) == rectangular_record
+    @test getproperty.(restored_rectangular.geometry.regions, :terminal) ==
+          getproperty.(rectangular.geometry.regions, :terminal)
+    @test area.(getproperty.(restored_rectangular.geometry.regions, :shape)) ==
+          area.(getproperty.(rectangular.geometry.regions, :shape))
+    @test all(
+        region -> region.source.primitive isa Rectangle,
+        restored_rectangular.geometry.regions
+    )
 end
 
 @testitem "ImportExport / Draft 2020-12 cable document" tags=[:unit] setup=[
@@ -149,9 +191,10 @@ end
         terminal=>(index==1 ? 1 : 0)
     for (index, terminal) in enumerate(design.terminal_order)
     )
-    system=LineCableSystem(
-        design;
-        position = Pose2(0.0, -1.0),
+    system=build(
+        LineCableSystem,
+        design,
+        Pose2(0.0, -1.0);
         connections,
         environment = earth
     )
@@ -194,20 +237,20 @@ end
     @test all(design->design isa CableDesign, decoded_designs)
     for design in decoded_designs
         selected_rhos=unique(
-            region.region.material.rho
+            region.source.material.rho
         for region in design.geometry.regions
-        if String(region.region.tag) in varied_tags
+        if String(region.source.tag) in varied_tags
         )
         @test length(selected_rhos) == 1
     end
     @test only(unique(
-        region.region.material.rho
+        region.source.material.rho
     for region in decoded_designs[1].geometry.regions
-    if String(region.region.tag) in varied_tags
+    if String(region.source.tag) in varied_tags
     )) != only(unique(
-        region.region.material.rho
+        region.source.material.rho
     for region in decoded_designs[2].geometry.regions
-    if String(region.region.tag) in varied_tags
+    if String(region.source.tag) in varied_tags
     ))
 
     invalid=deepcopy(cables_document)

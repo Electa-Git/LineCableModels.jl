@@ -1,6 +1,8 @@
 @testitem "Engine / observations / native selectors and detached publication" tags=[:unit] setup=[
     EngineTestSupport, UseEngineSupport
 ] begin
+    using LinearAlgebra: diag
+
     const U=LineCableModels.Units
 
     frequency=[50.0, 100.0]
@@ -15,7 +17,9 @@
 
     @test observables(typeof(parameters)) == (
         frequencies, Z, Y, R, X, L, G, B, C,
-        (Z, abs), (Z, angle), (Y, abs), (Y, angle)
+        (Z, abs), (Z, angle), (Y, abs), (Y, angle),
+        (Z, diag), (Y, diag), (R, diag), (X, diag),
+        (L, diag), (G, diag), (B, diag), (C, diag)
     )
     @test @inferred(observe(parameters, Z, 1, 1, 1)) === impedance[1, 1, 1]
     @test @inferred(observe(parameters, R, 1, 1, 1)) === resistance[1, 1, 1]
@@ -35,10 +39,8 @@
     @test @observe(parameters, (Z, angle)[1, 1, :]) == angle.(impedance[1, 1, :])
     i, j, samples=1, 1, 1:2
     @test @observe(parameters, L[i, j, samples]) ≈ inductance[1, 1, :]
-    @test_throws ArgumentError macroexpand(
-        @__MODULE__,
-        :(@observe parameters Z[1, 1])
-    )
+    @test @observe(parameters, Z[1, 1]) == impedance[1, 1, :]
+    @test @observe((Z, diag)[:, :]) == (Z, diag, Colon(), Colon())
     @test_throws ArgumentError macroexpand(
         @__MODULE__,
         :(@observe (Z, abs, angle)[1, 1, :])

@@ -105,7 +105,8 @@ function _operating_resistivity(
     return rho
 end
 
-_input(problem::LineParametersProblem, ::AnalyticalFormulation) = AnalyticalInput(problem)
+_input(problem::LineParametersProblem, formulation::AnalyticalFormulation) =
+    AnalyticalInput(problem, formulation)
 
 function _prepare(
         problem::LineParametersProblem,
@@ -224,6 +225,30 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Compute line parameters with the default analytical formulation.
+
+# Arguments
+
+- `problem`: Completed line-parameter problem.
+
+# Keywords
+
+- `options`: Computation options normalized for `AnalyticalFormulation`.
+
+# Returns
+
+One `LineParameters` result.
+"""
+function compute(
+        problem::LineParametersProblem;
+        options::NamedTuple = (;)
+)
+    return compute(problem, Formulation(); options)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Compute frequency-dependent line parameters for one materialised problem.
 
 The problem and formulation are validated, immutable solver input is flattened once,
@@ -264,25 +289,70 @@ computation_details(
     ::Union{LineParameters, LineParametersTrace, DataModel.CableConstants}
 )::ComputationDetails = (;)
 
-function compute(
-        problem::CableConstantsProblem,
-        formulation::AnalyticalFormulation;
-        options::NamedTuple = (;)
-)
-    formulation.options.output isa Val{:parameters} || throw(ArgumentError(
-        "CableConstantsProblem supports only formulation output=:parameters",
-    ))
-    execution = computation_options(Val(AnalyticalFormulation), options)
-    execution.output_basis == Val(:pul) || throw(ArgumentError(
-        "CableConstantsProblem supports only output_basis=:pul",
-    ))
-    return DataModel.compute_cable_constants(
-        problem.design; S = problem.separation, rho_e = problem.earth_resistivity
-    )
-end
+"""
+$(TYPEDSIGNATURES)
 
-function DataModel.base_parameters(design::CableDesign)
-    compute(CableConstantsProblem(design), Formulation())
+Calculate the per-length cable constants of one retained cable terminal through
+the ordinary line-parameter engine.
+
+The selected terminal is assigned to phase 1; every other retained terminal is
+assigned to phase 0 and removed by Kron reduction. The default problem uses a
+single cable at `(0, -1)` m, a 1 m line, 100 Ω·m earth, 20 °C, and 1 mHz.
+
+# Arguments
+
+- `design`: Completed physical cable design.
+
+# Keywords
+
+- `core`: Retained terminal used as phase 1.
+- `formulation`: Analytical formulation used by `compute`.
+- `options`: Computation options forwarded to `compute`.
+- `position`: Cable placement in metres.
+- `line_length`: Physical line length in metres.
+- `earth_props`: Static earth model.
+- `temperature`: Operating temperature in °C.
+- `frequency`: Analysis frequency in Hz.
+
+# Returns
+
+A [`CableConstants`](@ref) value observed from the resulting line parameters.
+"""
+function DataModel.CableConstants(
+        design::CableDesign;
+        core::Symbol = :core,
+        formulation::AbstractFormulation = Formulation(),
+        options::NamedTuple = (;),
+        position = DataModel.Pose2(0, -1, 0),
+        line_length::Real = 1,
+        earth_props::EarthModel = EarthModel(100),
+        temperature::Real = 20,
+        frequency::Real = 1e-3
+)
+    matches = findall(==(core), design.terminal_order)
+    length(matches) == 1 || throw(ArgumentError(
+        "cable design must contain exactly one retained terminal named :$core"
+    ))
+    phases = ntuple(
+        index -> index == only(matches) ? 1 : 0,
+        length(design.terminal_order)
+    )
+    connections = NamedTuple{Tuple(design.terminal_order)}(phases)
+    problem = LineParametersProblem(
+        design,
+        position;
+        connections,
+        line_length,
+        temperature,
+        earth_props,
+        frequencies = [frequency]
+    )
+    parameters = compute(problem, formulation; options)
+    return DataModel.CableConstants(
+        @observe(parameters, R[1, 1, 1]),
+        @observe(parameters, L[1, 1, 1]),
+        @observe(parameters, C[1, 1, 1])
+    )
 end
 
 function _cable_indices(input)

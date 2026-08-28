@@ -174,9 +174,10 @@ case_definition(
         capacitance = 0.2,
         inductance = 0.12
     )
-    design = LineCableModels.CableDesign(
+    design = LineCableModels.build(
+        LineCableModels.CableDesign,
+        "132kV_630mm2",
         LineCableModels.Stack(parts);
-        cable_id = "132kV_630mm2",
         nominal_data = LineCableModels.NominalData(; nominal_data...)
     )
     earth = LineCableModels.Earth(
@@ -186,9 +187,10 @@ case_definition(
     positions = [LineCableModels.Pose2(p.cable_x[index], p.cable_y) for index in 1:3]
     connections = [Dict(:core => 3index - 2, :sheath => 3index - 1, :jacket => 3index)
                    for index in 1:3]
-    system = LineCableModels.LineCableSystem(
-        designs;
-        positions,
+    system = LineCableModels.build(
+        LineCableModels.LineCableSystem,
+        designs,
+        positions;
         connections,
         system_id = "cable_132kv_630mm2_flathor",
         line_length = p.line_length

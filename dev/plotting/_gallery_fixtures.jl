@@ -1,6 +1,7 @@
 using LineCableModels
 using LineCableModels.DataModel
 using LineCableModels.EarthProps
+using LinearAlgebra: diag
 using Measurements: measurement
 
 function build_manual_plot_gallery(
@@ -142,6 +143,17 @@ function build_manual_plot_gallery(
             export_theme
         )
     )
+    _, modal_parameters=Fortescue(tol = 1e-10)(parameters)
+    add_pages!(
+        "Line parameters: modal inductance",
+        Makie.plot(
+            modal_parameters,
+            (@observe((L, diag)[:, :]),);
+            backend,
+            display_plot,
+            export_theme
+        )
+    )
 
     monte_carlo_plots=(
         hist = Makie.hist(mc_result, R;
@@ -189,9 +201,10 @@ function build_manual_plot_gallery(
         terminal => (index == 1 ? 1 : 0)
         for (index, terminal) in enumerate(design.terminal_order)
     )
-    system = LineCableSystem(
-        design;
-        position = Pose2(0.0, -0.20, 0.0),
+    system = build(
+        LineCableSystem,
+        design,
+        Pose2(0.0, -0.20, 0.0);
         connections,
         system_id = "manual-system",
         line_length = 1000.0
@@ -214,7 +227,7 @@ function build_manual_plot_gallery(
         )
     )
 
-    @assert length(gallery) == 18
+    @assert length(gallery) == 19
     @assert all(pair -> pair.second isa UIPlot, gallery)
     @assert all(pair -> pair.second.context.backend === backend, gallery)
     @assert all(

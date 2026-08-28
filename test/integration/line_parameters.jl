@@ -58,7 +58,7 @@
             Diagonal(diag(trace.Pg[:, :, frequency_index])))
     end
 
-    input=LineCableModels.Engine.AnalyticalInput(problem)
+    input=LineCableModels.Engine.AnalyticalInput(problem, Formulation())
     LineCableModels.Engine._trace_buffers(Float64, input, Val(:parameters))
     @test @allocated(LineCableModels.Engine._trace_buffers(
         Float64, input, Val(:parameters))) == 0
@@ -66,21 +66,73 @@
         Float64, input, Val(:parameters)) === nothing
 end
 
+@testitem "Engine / transform / symmetric two-cable system retains two modes" tags=[:integration] setup=[
+    EngineTestSupport,
+    UseEngineSupport,
+    TestFixtures,
+    TestNumerics
+] begin
+    using LinearAlgebra: Diagonal, diag, norm
+
+    design=TestFixtures.mv_cable_design()
+    connections=[
+        Dict(terminal => (terminal === :core ? phase : 0)
+             for terminal in design.terminal_order)
+        for phase in 1:2
+    ]
+    system=build(
+        LineCableSystem,
+        [design, design],
+        [Pose2(-0.5, -1.0), Pose2(0.5, -1.0)];
+        connections,
+        system_id = "symmetric-pair"
+    )
+    problem=LineParametersProblem(
+        system;
+        earth_props = Earth(rho = 100.0),
+        frequencies = [50.0, 500.0]
+    )
+    parameters=compute(
+        problem,
+        Formulation(options = (ideal_transposition = false,))
+    )
+    @test size(Z(parameters)) == (2, 2, 2)
+    @test size(Y(parameters)) == (2, 2, 2)
+    for matrix in (Z(parameters), Y(parameters)), frequency in 1:2
+        slice=@view matrix[:, :, frequency]
+        @test slice ≈ transpose(slice)
+        @test slice[1, 1] ≈ slice[2, 2]
+        @test slice[1, 2] ≈ slice[2, 1]
+    end
+
+    _, modal=Fortescue(tol = 1e-10)(parameters)
+    @test domain(modal) === ModalDomain
+    for matrix in (Z(modal), Y(modal)), frequency in 1:2
+        slice=@view matrix[:, :, frequency]
+        @test norm(slice - Diagonal(diag(slice))) <= 1e-10 * max(norm(slice), 1)
+    end
+    @test size(@observe(modal, (R, diag)[:, :])) == (2, 2)
+    @test size(@observe(modal, (L, diag)[:, :])) == (2, 2)
+    @test size(@observe(modal, (G, diag)[:, :])) == (2, 2)
+    @test size(@observe(modal, (C, diag)[:, :])) == (2, 2)
+end
+
 @testitem "Engine / formulation boundary / physical geometry precedes backend support" tags=[:integration] setup=[
     EngineTestSupport,
     UseEngineSupport
 ] begin
     conductor=Material(kind = :conductor, rho = 1.7241e-8)
-    design=CableDesign(
-        Group(:phase, Region(:elliptical_core, Ellipse(0.01, 0.006), conductor));
-        cable_id = "elliptical"
+    design=build(
+        CableDesign,
+        "elliptical",
+        Group(:phase, Region(:elliptical_core, Ellipse(0.01, 0.006), conductor))
     )
-    @test design.effective === nothing
     @test design.geometry.regions[1].shape.shape isa EllipseShape
 
-    system=LineCableSystem(
-        design;
-        position = Pose2(0.0, -1.0),
+    system=build(
+        LineCableSystem,
+        design,
+        Pose2(0.0, -1.0);
         connections = (phase = 1,)
     )
     problem=LineParametersProblem(
@@ -89,12 +141,9 @@ end
         frequencies = [50.0]
     )
     @test problem.system === system
-    @test_throws ArgumentError Engine.AnalyticalInput(problem)
+    @test_throws ArgumentError Engine.AnalyticalInput(problem, Formulation())
     @test_throws ArgumentError compute(problem, Formulation())
-
-    constants_problem=CableConstantsProblem(design)
-    @test constants_problem.design === design
-    @test_throws ArgumentError compute(constants_problem, Formulation())
+    @test_throws ArgumentError CableConstants(design)
 end
 
 @testitem "Engine / analytical profile / explicit radial support boundary" tags=[:integration] setup=[
@@ -106,9 +155,10 @@ end
     earth=EarthModel(100.0)
 
     function problem_for(design)
-        system=LineCableSystem(
-            design;
-            position = Pose2(0.0, -1.0),
+        system=build(
+            LineCableSystem,
+            design,
+            Pose2(0.0, -1.0);
             connections = Dict(first(design.terminal_order)=>1)
         )
         return LineParametersProblem(
@@ -118,15 +168,15 @@ end
         )
     end
 
-    bare=CableDesign(Group(:phase, Region(:bare, Disk(0.01), conductor)))
-    bare_dielectric=only(bare.effective).dielectric
-    @test bare_dielectric.r_in == bare_dielectric.r_ex == 0.01
-    @test isempty(bare_dielectric.layers)
-    bare_input=Engine.AnalyticalInput(problem_for(bare))
+    bare=build(CableDesign, "bare", Group(
+        :phase, Region(:bare, Disk(0.01), conductor)
+    ))
+    bare_input=Engine.AnalyticalInput(problem_for(bare), Formulation())
+    @test bare_input.r_ins_in == bare_input.r_ins_ext == [0.01]
     @test bare_input.insulator_layer_ranges == [1:0]
     @test isempty(bare_input.r_ins_layer_in)
 
-    layered=CableDesign(Stack(
+    layered=build(CableDesign, "layered", Stack(
         Group(:phase,
             Stack(
                 Region(:core, Disk(0.01), conductor),
@@ -139,51 +189,51 @@ end
             Region(:screen_metal, Annulus(0.0135, 0.014), conductor)
         )
     ))
-    @test length(layered.effective) == 2
-    @test length(layered.effective[1].dielectric.layers) == 2
-    @test isempty(layered.effective[2].dielectric.layers)
-    @test layered.effective[2].dielectric.r_in ==
-          layered.effective[2].dielectric.r_ex == 0.014
+    layered_input=Engine.AnalyticalInput(problem_for(layered), Formulation())
+    @test layered_input.n_phases == 2
+    @test layered_input.insulator_layer_ranges == [1:2, 3:2]
+    @test layered_input.r_ins_in[2] == layered_input.r_ins_ext[2] == 0.014
 
-    filled=CableDesign(Enclosure(
+    filled=build(CableDesign, "filled", Enclosure(
         :pipe,
         Group(:phase, Region(:core, Disk(0.01), conductor));
         shape = Disk(0.03),
         fill = dielectric
     ))
-    fill_layer=only(only(filled.effective).dielectric.layers)
-    @test fill_layer.r_in == 0.01
-    @test fill_layer.r_ex == 0.03
-    @test fill_layer.material === dielectric
+    filled_input=Engine.AnalyticalInput(problem_for(filled), Formulation())
+    @test filled_input.r_ins_layer_in == [0.01]
+    @test filled_input.r_ins_layer_ext == [0.03]
+    @test filled_input.rho_ins_layer == [dielectric.rho]
 
-    reappearing=CableDesign(Stack(
+    reappearing=build(CableDesign, "reappearing", Stack(
         Group(:a, Region(:a_inner, Disk(0.01), conductor)),
         Region(:a_gap, Shell(0.001), dielectric),
         Group(:b, Region(:b_metal, Annulus(0.011, 0.012), conductor)),
         Region(:b_gap, Shell(0.001), dielectric),
         Group(:a, Region(:a_outer, Annulus(0.013, 0.014), conductor))
     ))
-    @test reappearing.effective === nothing
-    @test_throws ArgumentError Engine.AnalyticalInput(problem_for(reappearing))
+    @test_throws ArgumentError Engine.AnalyticalInput(
+        problem_for(reappearing), Formulation()
+    )
 
-    conductor_after_dielectric=CableDesign(Stack(
+    conductor_after_dielectric=build(CableDesign, "conductor-after-dielectric", Stack(
         Group(:phase, Region(:inner, Disk(0.01), conductor)),
         Region(:gap, Shell(0.001), dielectric),
         Group(:phase, Region(:outer, Annulus(0.011, 0.012), conductor))
     ))
-    @test conductor_after_dielectric.effective === nothing
     @test_throws ArgumentError Engine.AnalyticalInput(
-        problem_for(conductor_after_dielectric)
+        problem_for(conductor_after_dielectric), Formulation()
     )
 
-    undeclared_gap=CableDesign(Stack(
+    undeclared_gap=build(CableDesign, "undeclared-gap", Stack(
         Group(:inner, Region(:inner, Disk(0.01), conductor)),
         Group(:outer, Region(:outer, Annulus(0.012, 0.013), conductor))
     ))
-    @test undeclared_gap.effective === nothing
-    @test_throws ArgumentError Engine.AnalyticalInput(problem_for(undeclared_gap))
+    @test_throws ArgumentError Engine.AnalyticalInput(
+        problem_for(undeclared_gap), Formulation()
+    )
 
-    @test_throws DomainError CableDesign(Stack(
+    @test_throws DomainError build(CableDesign, "overlap", Stack(
         Group(:inner, Region(:inner, Disk(0.01), conductor)),
         Group(:outer, Region(:outer, Annulus(0.009, 0.012), conductor))
     ))
@@ -196,9 +246,10 @@ end
 ] begin
     design=TestFixtures.mv_cable_design()
     duplicate_mapping=Dict("core"=>1, "sheath"=>1, "jacket"=>0)
-    duplicate_system=LineCableSystem(
-        design;
-        position = Pose2(0.0, -1.0, 0.0),
+    duplicate_system=build(
+        LineCableSystem,
+        design,
+        Pose2(0.0, -1.0, 0.0);
         connections = duplicate_mapping,
         system_id = "duplicate-bundle",
         line_length = 500.0
@@ -224,14 +275,15 @@ end
     @test all(isfinite, duplicate_result.Z)
     @test all(isfinite, duplicate_result.Y)
 
-    singleton_design=CableDesign(
-        Stack(deepcopy(design.root.items[1:10]));
-        cable_id = "single-component",
-        reference_frequency = design.reference_frequency
+    singleton_design=build(
+        CableDesign,
+        "single-component",
+        Stack(deepcopy(design.root.items[1:10]))
     )
-    singleton_system=LineCableSystem(
-        singleton_design;
-        position = Pose2(0.0, -1.0, 0.0),
+    singleton_system=build(
+        LineCableSystem,
+        singleton_design,
+        Pose2(0.0, -1.0, 0.0);
         connections = Dict(:core=>1),
         system_id = "singleton",
         line_length = 100.0

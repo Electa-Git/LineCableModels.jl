@@ -20,10 +20,25 @@ end
 
 function offdiagonal_ratio(matrix::AbstractMatrix)
     n = checksquare(matrix)
-    diagonal_max = maximum(abs(matrix[index, index]) for index in 1:n)
-    offdiagonal_max = maximum(
-        (abs(matrix[row, column]) for column in 1:n for row in 1:n if row != column);
-        init = zero(diagonal_max)
+    values = nominal(matrix)
+    matrix_norm = sqrt(sum(abs2, values))
+    offdiagonal_norm = sqrt(sum(
+        abs2(values[row, column])
+        for column in 1:n for row in 1:n if row != column;
+        init = zero(real(matrix_norm))
+    ))
+    return offdiagonal_norm / max(
+        matrix_norm,
+        eps(float(real(matrix_norm)))
     )
-    return offdiagonal_max / max(diagonal_max, eps(float(real(diagonal_max))))
+end
+
+function suppress_offdiagonal_residue!(matrix::AbstractMatrix, tolerance::Real)
+    ratio = offdiagonal_ratio(matrix)
+    ratio <= tolerance || return ratio
+    n = checksquare(matrix)
+    for column in 1:n, row in 1:n
+        row == column || (matrix[row, column] = zero(eltype(matrix)))
+    end
+    return ratio
 end

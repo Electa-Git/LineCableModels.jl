@@ -1,5 +1,5 @@
-"Return three cable-centre coordinates in a trifoil formation."
-function trifoil_formation(x0::Real, y0::Real, radius::Real)
+"Return three cable-centre coordinates in a trefoil formation."
+function trefoil_formation(x0::Real, y0::Real, radius::Real)
     radius > zero(radius) || throw(DomainError(radius, "radius must be positive"))
     x, y, r = promote(float(x0), float(y0), float(radius))
     distance = r / cosd(30)

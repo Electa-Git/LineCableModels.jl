@@ -29,7 +29,9 @@ case_definition(
     materials = LineCableModels.MaterialsLibrary(add_defaults = true)
     aluminum = LineCableModels.Material(materials, :aluminum)
     xlpe = LineCableModels.Material(materials, :xlpe)
-    design = LineCableModels.CableDesign(
+    design = LineCableModels.build(
+        LineCableModels.CableDesign,
+        "solid_1000mm2",
         LineCableModels.Stack(
             LineCableModels.Group(
                 :core,
@@ -45,15 +47,15 @@ case_definition(
                 xlpe
             )
         );
-        cable_id = "solid_1000mm2",
         nominal_data = LineCableModels.NominalData()
     )
     earth = LineCableModels.Earth(
         rho = p.earth_rho, eps_r = p.earth_eps_r, mu_r = 1.0
     )
-    system = LineCableModels.LineCableSystem(
-        design;
-        position = LineCableModels.Pose2(p.cable_x, p.cable_y),
+    system = LineCableModels.build(
+        LineCableModels.LineCableSystem,
+        design,
+        LineCableModels.Pose2(p.cable_x, p.cable_y);
         connections = Dict(:core => 1),
         system_id = "solid_1000mm2_single",
         line_length = p.line_length

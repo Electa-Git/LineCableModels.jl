@@ -78,7 +78,7 @@ point. LEP materializes that point with Measurements; Monte Carlo repeatedly
 realizes the same unresolved point.
 
 Feasibility belongs to the case definition, not to either UQ technique. The
-trifoil center spacing is therefore derived as `2.2 * outer_radius`, leaving a
+trefoil center spacing is therefore derived as `2.2 * outer_radius`, leaving a
 clearance equal to 20% of the realized outer radius for every realization. The
 525 kV fixed-count armor case similarly declares a fixed 20% packing-clearance
 ratio relative to its unbuffered outer radius. Its compliant bedding absorbs an
@@ -132,7 +132,7 @@ The accepted local recording produced:
 | Case | Trials | Maximum meaningful mean difference | Maximum meaningful uncertainty difference | Monte Carlo / LEP median |
 |:--|--:|--:|--:|--:|
 | 132 kV 630 mm² flat horizontal | 512 | 1.23% | 3.58% | 23.37× |
-| 18 kV 1000 mm² trifoil | 512 | 1.88% | 8.51% | 6.25× |
+| 18 kV 1000 mm² trefoil | 512 | 1.88% | 8.51% | 6.25× |
 | 380 kV 2000 mm² flat vertical | 512 | 1.68% | 9.16% | 24.99× |
 | 525 kV 1600 mm² bipole | 2,048 | 1.31% | 9.25% | 80.76× |
 | 640 kV 2000 mm² bipole | 512 | 0.86% | 6.68% | 21.28× |

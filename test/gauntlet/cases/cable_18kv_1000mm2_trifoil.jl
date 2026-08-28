@@ -1,5 +1,5 @@
 case_definition(
-    :cable_18kv_1000mm2_trifoil,
+    :cable_18kv_1000mm2_trefoil,
     (
         core_strand_diameter = case_parameter(
             :core_strand_diameter, 4.19e-3; tags = (:geometry, :cable_layer)
@@ -202,9 +202,10 @@ case_definition(
         capacitance = 0.39,
         inductance = 0.3
     )
-    design = LineCableModels.CableDesign(
+    design = LineCableModels.build(
+        LineCableModels.CableDesign,
+        "18kV_1000mm2",
         LineCableModels.Stack(parts);
-        cable_id = "18kV_1000mm2",
         nominal_data = LineCableModels.NominalData(; nominal_data...)
     )
     formation_spacing = (2 + p.formation_clearance_ratio) *
@@ -212,18 +213,19 @@ case_definition(
     earth = LineCableModels.Earth(
         rho = p.earth_rho, eps_r = p.earth_eps_r, mu_r = 1.0
     )
-    positions = LineCableModels.trifoil(
+    positions = LineCableModels.trefoil(
         x = p.formation_x,
         y = p.formation_y,
         spacing = formation_spacing
     )
     connections = [Dict(:core => 3index - 2, :sheath => 3index - 1, :jacket => 3index)
                    for index in 1:3]
-    system = LineCableModels.LineCableSystem(
-        fill(design, 3);
-        positions,
+    system = LineCableModels.build(
+        LineCableModels.LineCableSystem,
+        fill(design, 3),
+        positions;
         connections,
-        system_id = "cable_18kv_1000mm2_trifoil",
+        system_id = "cable_18kv_1000mm2_trefoil",
         line_length = p.line_length
     )
     return LineCableModels.Engine.LineParametersProblem(

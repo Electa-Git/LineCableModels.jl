@@ -79,22 +79,35 @@ function Enclosure(
     return DataModel.Enclosure(values...)
 end
 
-function CableDesign(
-        root::Union{AbstractGrid, Gridspace};
-        cable_id::AbstractString = "cable",
-        nominal_data = nothing,
-        reference_frequency = 50,
+function build(
+        ::Type{DataModel.CableDesign},
+        cable_id,
+        root,
+        nominal_data;
         combine::Symbol = :product
 )
-    values = (root, String(cable_id), nominal_data, reference_frequency)
+    values = (cable_id, root, nominal_data)
+    any(value -> value isa Union{AbstractGrid, Gridspace}, values) || throw(
+        MethodError(build, (DataModel.CableDesign, cable_id, root, nominal_data))
+    )
     grids = map(values) do value
         value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
     end
-    build = (part, identifier, nominal_data, frequency) -> DataModel.CableDesign(
-        part;
-        cable_id = identifier,
-        nominal_data,
-        reference_frequency = frequency
+    caller = (identifier, part, nominal) -> build(
+        DataModel.CableDesign,
+        identifier,
+        part,
+        nominal
     )
-    return Gridspace{DataModel.CableDesign}(build, grids; combine)
+    return Gridspace{DataModel.CableDesign}(caller, grids; combine)
+end
+
+function build(
+        ::Type{DataModel.CableDesign},
+        cable_id,
+        root;
+        nominal_data = nothing,
+        combine::Symbol = :product
+)
+    return build(DataModel.CableDesign, cable_id, root, nominal_data; combine)
 end

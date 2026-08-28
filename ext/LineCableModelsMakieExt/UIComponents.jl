@@ -7,6 +7,7 @@ module UIComponents
 
 using Makie
 using Dates
+using LinearAlgebra: diag
 using Printf: @sprintf
 
 import LineCableModels

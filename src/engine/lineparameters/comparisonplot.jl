@@ -110,8 +110,12 @@ function PlotBuilder.resolve(
         "line comparisons do not accept duplicate scientific quantities",
     ))
     validate_observables(first(parameters), requests)
-    all(request -> length(request_indices(request)) == 3, requests) || throw(ArgumentError(
-        "line comparisons require row, column, and frequency indices",
+    all(requests) do scientific_request
+        expected = _diagonal_request(scientific_request) ? 2 : 3
+        length(request_indices(scientific_request)) == expected
+    end || throw(ArgumentError(
+        "line comparisons require mode/frequency indices for diagonal requests " *
+        "and row/column/frequency indices otherwise",
     ))
     labels = _comparison_labels(input.legend, length(parameters))
     input.xscale in (:linear, :log10) || throw(
@@ -158,7 +162,10 @@ function _comparison_page(configuration, published, request_index, page_index::I
     positions = Tuple((local_row, local_column)
     for local_row in eachindex(rows)
     for local_column in eachindex(columns))
+    diagonal = _diagonal_request(scientific_request)
     titles = Tuple(
+        diagonal ?
+        "$family_symbol[$row] · $(configuration.input.labels === nothing ? Units.label(first_observation.quantity) : configuration.input.labels[request_index])" :
         "$family_symbol[$row,$column] · $(configuration.input.labels === nothing ? Units.label(first_observation.quantity) : configuration.input.labels[request_index])"
     for row in rows
     for column in columns)

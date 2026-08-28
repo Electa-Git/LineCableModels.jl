@@ -1,7 +1,7 @@
 @testmodule TestFixtures begin
     using LineCableModels
     using LineCableModels.DataModel: CableDesign, LineCableSystem, NominalData,
-                                     trifoil_formation
+                                     trefoil_formation
     using LineCableModels.EarthProps: EarthModel
 
     const FIXTURE_ROOT = normpath(joinpath(@__DIR__, "..", "fixtures"))
@@ -162,9 +162,10 @@
             capacitance = 0.39,
             inductance = 0.3
         )
-        return CableDesign(
+        return build(
+            CableDesign,
+            "test_cable",
             LineCableModels.Stack(parts);
-            cable_id = "test_cable",
             nominal_data
         )
     end
@@ -195,13 +196,14 @@
 
     function three_phase_system(; line_length = 1_000.0, spacing = 0.035)
         design = mv_cable_design()
-        xa, ya, xb, yb, xc, yc = trifoil_formation(0.0, -1.0, spacing)
+        xa, ya, xb, yb, xc, yc = trefoil_formation(0.0, -1.0, spacing)
         connections(phase) = Dict("core" => phase, "sheath" => 0, "jacket" => 0)
-        return LineCableSystem(
-            CableDesign[design, design, design];
+        return build(
+            LineCableSystem,
+            CableDesign[design, design, design],
+            [(xa, ya), (xb, yb), (xc, yc)];
             system_id = "three-phase-system",
             line_length,
-            positions = [(xa, ya), (xb, yb), (xc, yc)],
             connections = [
                 connections(1),
                 connections(2),

@@ -20,7 +20,7 @@
         @test applicable(DM.preview_shapes, region, context)
         @test applicable(DM.preview_materials, region)
         @test length(DM.preview_shapes(region, context)) == 1
-        @test DM.preview_materials(region) == (region.region.material,)
+        @test DM.preview_materials(region) == (region.source.material,)
     end
 
     rendered=PB.make_render(DM.CablePreviewPlotDefinition, design)
@@ -72,14 +72,18 @@
 
     designs=[
         design,
-        CableDesign(design.root;
-            cable_id = "$(design.cable_id)-2",
-            nominal_data = design.nominal_data,
-            reference_frequency = design.reference_frequency),
-        CableDesign(design.root;
-            cable_id = "$(design.cable_id)-3",
-            nominal_data = design.nominal_data,
-            reference_frequency = design.reference_frequency)
+        build(
+            CableDesign,
+            "$(design.cable_id)-2",
+            design.root;
+            nominal_data = design.nominal_data
+        ),
+        build(
+            CableDesign,
+            "$(design.cable_id)-3",
+            design.root;
+            nominal_data = design.nominal_data
+        )
     ]
     collection=PB.make_render(DM.CableCollectionPreviewPlotDefinition, designs)
     collection_page=only(collection.pages)
@@ -117,9 +121,10 @@
         DM.CableCollectionPreviewPlotDefinition, designs; layout = (1, 2)
     )
 
-    system=LineCableSystem(
-        design;
-        position = Pose2(0.0, -0.20, 0.0),
+    system=build(
+        LineCableSystem,
+        design,
+        Pose2(0.0, -0.20, 0.0);
         connections = Dict(
             terminal=>(index==1 ? 1 : 0)
         for (index, terminal) in enumerate(design.terminal_order)
@@ -179,6 +184,7 @@ end
         @test shape.label == "shape"
         @test shape.group === :shape
         @test !isempty(shape.geometry.exterior)
+        primitive isa Rectangle && @test length(shape.geometry.exterior) == 4
     end
 
     struct UnsupportedPreviewLayer end
@@ -187,10 +193,16 @@ end
     @test_throws MethodError DM.preview_materials(unsupported)
 
     broad=Material(kind = :conductor, rho = 1.0e-6, mu_r = 10.0, eps_r = 4.0)
-    broad_design=CableDesign(Group(:core, Region(:broad, Disk(0.01), broad));
-        cable_id = "broad-scale")
-    narrow_design=CableDesign(Group(:core, Region(:narrow, Disk(0.01), conductor));
-        cable_id = "narrow-scale")
+    broad_design=build(
+        CableDesign,
+        "broad-scale",
+        Group(:core, Region(:broad, Disk(0.01), broad))
+    )
+    narrow_design=build(
+        CableDesign,
+        "narrow-scale",
+        Group(:core, Region(:narrow, Disk(0.01), conductor))
+    )
     @test DM._property_ranges([narrow_design, broad_design]) ==
           ((1.7241e-8, 1.0e-6), (1.0, 10.0), (1.0, 4.0))
     scales=only(LineCableModels.PlotBuilder.make_render(
@@ -202,10 +214,14 @@ end
         ([0.0, 1.0], ["1", "10"]),
         ([0.0, 1.0], ["1", "4"]))
 
-    filled=CableDesign(Stack(
-        Group(:core, Region(:metal, Disk(0.01), conductor)),
-        Region(:insulation, Shell(0.005), dielectric)
-    ))
+    filled=build(
+        CableDesign,
+        "filled",
+        Stack(
+            Group(:core, Region(:metal, Disk(0.01), conductor)),
+            Region(:insulation, Shell(0.005), dielectric)
+        )
+    )
     @test length(only(LineCableModels.PlotBuilder.make_render(
         DM.CablePreviewPlotDefinition,
         filled

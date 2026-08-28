@@ -43,8 +43,8 @@ part = Region(:core, Disk(radius), material)
 ```
 
 Radius or thickness selection, repetition, and variation use explicit
-`Grid` inputs. Scalar-complete calls construct an eager object; varying calls
-materialize the same constructor through `Gridspace`. Eager objects therefore
+`Grid` inputs. Scalar-complete calls invoke the action directly; varying calls
+materialize the same action through `Gridspace`. Completed objects therefore
 contain one resolved geometry and cannot drift from their declarations.
 
 Mutable libraries and earth models validate a complete candidate before

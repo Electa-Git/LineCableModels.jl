@@ -27,6 +27,13 @@ function export_data(::Val{:tralin},
 
     num_phases = length(cable_system.designs)
     freqs = map(f -> nominal(f), _freqs(freq))
+    # TRALIN owns this explicit radial homogenization choice. Nothing is stored
+    # on CableDesign; unsupported physical geometry fails in this adapter.
+    tralin_components(design) = Engine.analytical_components(
+        Engine.Formulation(),
+        design,
+        first(freqs)
+    )
 
     # -- build TRALIN lines ----------------------------------------------------
     lines = String[]
@@ -106,10 +113,7 @@ function export_data(::Val{:tralin},
         # Phase group position
         push!(lines, "GROUP,PH-$(pidx),$(_fmt(position.x)),$(_fmt(position.y))")
 
-        comps_vec = design.effective
-        comps_vec === nothing && throw(ArgumentError(
-            "TRALIN export requires the current radial analytical compatibility profile"
-        ))
+        comps_vec = tralin_components(design)
         ncomp = length(comps_vec)
         if ncomp > 3
             throw(

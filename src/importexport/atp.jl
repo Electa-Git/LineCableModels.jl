@@ -38,7 +38,7 @@ Units are printed in the XML file according to the ATPDraw specifications:
 
 # Notes
 
-- The exporter writes eager equivalent properties at the common material
+- The exporter writes explicitly adapted equivalent properties at the common material
   reference state. The exporter does not apply operating-temperature correction.
 - [`nominal`](@ref) removes uncertainty before numeric values are written.
 - LineCableSystem construction, rather than export, checks cable overlap.
@@ -50,6 +50,14 @@ function export_data(::Val{:atp},
         base_freq = 50.0,
         file_name::Union{String, Nothing} = nothing
 )::String
+    # ATP owns this explicit homogenization choice. The physical design remains
+    # authoritative; the radial analytical adapter is invoked only to prepare
+    # the equivalent concentric fields required by ATPDraw's LCC record.
+    atp_components(design) = Engine.analytical_components(
+        Engine.Formulation(),
+        design,
+        base_freq
+    )
     function _set_attributes!(element, attrs::Dict)
         for (k, v) in attrs
             element[k] = string(v)
@@ -171,10 +179,7 @@ function export_data(::Val{:atp},
     ))
         cable_node = addelement!(cable_header, "cable")
 
-        components = design.effective
-        components === nothing && throw(ArgumentError(
-            "ATP export requires the current radial analytical compatibility profile"
-        ))
+        components = atp_components(design)
         num_components = length(components)
         outermost = last(components)
         outermost_radius = nominal(max(

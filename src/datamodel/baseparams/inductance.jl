@@ -101,11 +101,11 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Calculate the positive-sequence inductance of a solid-bonded trifoil cable
+Calculate the positive-sequence inductance of a solid-bonded trefoil cable
 from the CIGRE TB-531 impedance reduction
 ``Z_d=(Z_a-Z_x)-(Z_m-Z_x)^2/(Z_s-Z_x)``.
 """
-function trifoil_inductance(
+function trefoil_inductance(
         r_in_co::Real,
         r_ex_co::Real,
         rho_co::Real,

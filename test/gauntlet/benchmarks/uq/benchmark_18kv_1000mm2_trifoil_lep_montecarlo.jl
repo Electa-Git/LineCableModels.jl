@@ -1,4 +1,4 @@
-@testitem "UQ benchmark / 18 kV 1000 mm² trifoil / LEP versus Monte Carlo" tags=[
+@testitem "UQ benchmark / 18 kV 1000 mm² trefoil / LEP versus Monte Carlo" tags=[
     :gauntlet, :uq] setup=[GauntletSupport] begin
     using Test
     using Measurements
@@ -7,7 +7,7 @@
     using .GauntletSupport
 
     model=load_case(
-        :cable_18kv_1000mm2_trifoil;
+        :cable_18kv_1000mm2_trefoil;
         variation = RelativeStandardUncertainty(
             10.0; tags = (:geometry, :cable_layer)
         )
@@ -34,8 +34,8 @@
     )
     tolerances=uq_moment_tolerances()
     benchmark=benchmark_definition(
-        :benchmark_18kv_1000mm2_trifoil_lep_montecarlo,
-        :cable_18kv_1000mm2_trifoil,
+        :benchmark_18kv_1000mm2_trefoil_lep_montecarlo,
+        :cable_18kv_1000mm2_trefoil,
         :uq,
         @__FILE__,
         model,

@@ -1,4 +1,4 @@
-@testitem "DataModel / LineCableSystem / eager immutable state" tags=[:unit] setup=[
+@testitem "DataModel / LineCableSystem / completed immutable state" tags=[:unit] setup=[
     DataModelTestSupport,
     UseDataModelSupport,
     TestFixtures
@@ -8,9 +8,10 @@
         terminal=>(index==1 ? phase : 0)
     for (index, terminal) in enumerate(design.terminal_order)
     )
-    system=LineCableSystem(
-        [design, design];
-        positions = [Pose2(0.0, -1.0, 0.0), Pose2(0.1, -1.0, 0.0)],
+    system=build(
+        LineCableSystem,
+        [design, design],
+        [Pose2(0.0, -1.0, 0.0), Pose2(0.1, -1.0, 0.0)];
         connections = [mapping(1), mapping(2)],
         system_id = "line",
         line_length = 1000.0
@@ -30,22 +31,25 @@
     @test !hasproperty(system, :num_phases)
     @test validate(system) === system
 
-    @test_throws DomainError LineCableSystem(
-        [design, design];
-        positions = [Pose2(0.0, -1.0, 0.0), Pose2(0.001, -1.0, 0.0)],
+    @test_throws DomainError build(
+        LineCableSystem,
+        [design, design],
+        [Pose2(0.0, -1.0, 0.0), Pose2(0.001, -1.0, 0.0)];
         connections = [mapping(1), mapping(2)]
     )
-    @test_throws DimensionMismatch LineCableSystem(
-        [design, design];
-        positions = [Pose2(0.0, -1.0, 0.0)]
+    @test_throws DimensionMismatch build(
+        LineCableSystem,
+        [design, design],
+        [Pose2(0.0, -1.0, 0.0)]
     )
 
-    @test_throws DomainError LineCableSystem(
-        design; position = Pose2(0.0, -1.0, 0.0), line_length = 0.0
+    @test_throws DomainError build(
+        LineCableSystem, design, Pose2(0.0, -1.0, 0.0); line_length = 0.0
     )
-    @test_throws ArgumentError LineCableSystem(
-        design;
-        position = Pose2(0.0, -1.0, 0.0),
+    @test_throws ArgumentError build(
+        LineCableSystem,
+        design,
+        Pose2(0.0, -1.0, 0.0);
         system_id = ""
     )
 end

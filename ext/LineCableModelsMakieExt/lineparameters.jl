@@ -84,12 +84,12 @@ function _draw_single_line_page!(context::UIContext, page::PlotPage)
             curve = collect(view(observation.values, local_row, local_column, :))
             label_index = (local_row - 1) * length(columns) + local_column
             label = if payload.legend_labels === nothing
-                join(
-                    (
-                        "$(LineCableModels.Units.symbol(item.quantity))[$row,$column]"
-                    for item in payload.observations),
-                    ", "
+                symbol = LineCableModels.Units.symbol(observation.quantity)
+                identity = LineCableModels.Grammar.request_identity(
+                    payload.requests[panel_index]
                 )
+                identity isa Tuple && last(identity) === diag ?
+                "$symbol[$row]" : "$symbol[$row,$column]"
             else
                 String(payload.legend_labels[label_index])
             end

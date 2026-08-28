@@ -47,7 +47,7 @@
     @test !isfile(joinpath(source_root, "retired.jl"))
     @test all(!occursin("calc_", contents) for contents in values(source))
 
-    eager_files=(
+    construction_files=(
         joinpath("src", "datamodel", "design", "region.jl"),
         joinpath("src", "datamodel", "design", "stack.jl"),
         joinpath("src", "datamodel", "design", "group.jl"),
@@ -56,7 +56,7 @@
         joinpath("src", "datamodel", "design", "cabledesign.jl"),
         joinpath("src", "datamodel", "linecablesystem", "linecablesystem.jl")
     )
-    for path in eager_files
+    for path in construction_files
         contents=source[path]
         @test !occursin(r"\btemperature\s*::", contents)
         @test !occursin(r";\s*temperature\s*=", contents)
@@ -206,6 +206,41 @@ end
     @test parentmodule(LineCableModels.XLSXReportDefinition) ===
           LineCableModels.ReportBuilder
     @test parentmodule(LineCableModels.validate) === LineCableModels.Validation
+    @test parentmodule(LineCableModels.build) === LineCableModels
+    @test LineCableModels.build === LineCableModels.DataModel.build ===
+          LineCableModels.ParametricBuilder.build
+    @test fieldtype(LineCableModels.Material{Float64}, :kind) === Symbol
+    @test !hasfield(LineCableModels.CableDesign, :effective)
+    @test !hasfield(LineCableModels.CableDesign, :reference_frequency)
+    @test !isdefined(LineCableModels.DataModel, :ResolvedRegion)
+    @test !isdefined(LineCableModels.DataModel, :ResolvedPart)
+    @test !hasmethod(
+        LineCableModels.CableDesign,
+        Tuple{LineCableModels.AbstractCablePart}
+    )
+
+    rejected_cable_model_tokens=(
+        "Material{Kind",
+        "DesignMaterializer",
+        "SystemMaterializer",
+        "PartBuilder",
+        "PositionDefinition",
+        "BuildContext",
+        "BuildManager",
+        "BuildPlan",
+        "BuildSpec",
+        "BuildResult",
+        "_gridspace_axis",
+        "_current_radial_equivalence",
+        "compute_cable_constants",
+        "CableConstantsProblem",
+        "ResolvedRegion",
+        "ResolvedPart",
+        ".effective"
+    )
+    for token in rejected_cable_model_tokens
+        @test all(!occursin(token, contents) for contents in values(source))
+    end
 
     ci_workflow=read(joinpath(root, ".github", "workflows", "CI.yml"), String)
     @test occursin(r"(?m)^  quality:\s*$", ci_workflow)
@@ -310,8 +345,8 @@ end
     preview_materials=source[joinpath("src", "datamodel", "preview", "materials.jl")]
     @test !occursin(r"\blayer\s+isa\b", preview_materials)
     @test !occursin("hasproperty(layer", preview_materials)
-    @test occursin("preview_shapes(region::ResolvedRegion", preview_materials)
-    @test occursin("preview_materials(region::ResolvedRegion", preview_materials)
+    @test occursin("preview_shapes(region::PlacedRegion", preview_materials)
+    @test occursin("preview_materials(region::PlacedRegion", preview_materials)
 
     shell_source=read(
         joinpath(extension_root, "LineCableModelsMakieExt", "shell.jl"),

@@ -7,9 +7,11 @@ values.
 
 ## Calculations
 
-The calculation form is `problem → formulation → compute`:
+The ordinary calculation form is `problem → compute` with an optional explicit
+formulation:
 
 ```julia
+parameters = compute(problem)
 parameters = compute(problem, Formulation())
 
 all_points = compute(
@@ -40,14 +42,15 @@ compute(problem, formulation; options=(output_basis=:total,))
 ```
 
 `output_basis=:total` scales both impedance and admittance by the system
-length. Cable-constant problems have no line length and accept only `:pul`.
+length. `CableConstants(design)` uses a 1 m ordinary line problem and returns
+per-length values.
 
 ## Completed results
 
 [`CableConstants`](@ref) stores R/L/C values per metre. [`LineParameters`](@ref)
 stores frequency-dependent Z/Y matrices and records their physical domain and
-`:pul` or `:total` basis. Direct field access, array indexing, and views remain
-available for numerical work.
+`:pul` or `:total` basis. Scientific extraction goes through `observe` or
+`observables`.
 
 [`observe`](@ref) reads one scientific quantity:
 
@@ -58,8 +61,8 @@ observe(parameters, Z, angle, 1, 1, Colon())
 @observe parameters Z[1, 2, :]
 ```
 
-`Z`, `Y`, `R`, `X`, `L`, `G`, `B`, and `C` call the same methods. The
-[`@observe`](@ref) macro is concise syntax for a three-index request.
+The [`@observe`](@ref) macro constructs detached requests or immediately
+extracts indexed values.
 
 [`observables`](@ref) prepares detached values for tables and plots. Requests
 are positional:
@@ -68,7 +71,6 @@ are positional:
 published = observables(
     parameters,
     (
-        (frequencies, Colon()),
         @observe(R[1, 1, :]),
         @observe((Z, angle)[1, 1, :]),
     ),

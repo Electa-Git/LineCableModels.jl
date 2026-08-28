@@ -123,10 +123,11 @@ df = DataFrame( #hide
 #=
 ## Describing the cable
 
-!!! note "Eager physical hierarchy"
+!!! note "Physical construction"
     A cable is declared with ordinary physical objects. The [`CableDesign`](@ref)
-    constructor resolves geometry, retained terminal membership, and the current
-    analytical equivalence together. There is no intermediate builder object.
+    target is completed by [`build`](@ref), which resolves geometry and retained
+    terminal membership. Analytical adaptation occurs later, when a formulation
+    consumes the completed design.
 
 ```
 CableDesign
@@ -135,9 +136,10 @@ CableDesign
 │   ├── Region(..., Shell(...), material)
 │   ├── Group(:sheath, Region(...); pattern, path)
 │   └── …
-├── geometry::ResolvedPart
+├── geometry::CableGeometry
+│   └── regions::Vector{PlacedRegion}
 ├── terminal_order
-└── effective
+└── terminal_map
 ```
 
 [`Region`](@ref) binds one primitive geometry to one material. [`Stack`](@ref)
@@ -146,10 +148,10 @@ name to one physical member or a repeated pattern of members. A [`Ring`](@ref)
 places repeated strands in the cross-section, while [`Helix`](@ref) records their
 longitudinal path.
 
-!!! note "Equivalent circuit parameters"
-    The eager constructor calculates the current radial analytical equivalence by:
+!!! note "Analytical adaptation"
+    The analytical formulation prepares its engine input by:
 
-    1. Resolving every physical region and placement.
+    1. Reading the resolved shapes, placements, and paths from `CableGeometry`.
     2. Collecting conductive regions by retained terminal.
     3. Combining each terminal's radial conductor and dielectric zones into the
        unchanged analytical Engine input.
@@ -188,16 +190,16 @@ strand_radius = d_w / 2
 core_parts, radius = let
     current_radius = zero(strand_radius)
     items = AbstractCablePart[]
-    for (layer, (count, lay_ratio)) in
-        enumerate(zip(core_wire_counts, core_lay_ratios))
+    for (layer, (count, lay_ratio)) in enumerate(zip(core_wire_counts, core_lay_ratios))
         centre_radius = count == 1 ? zero(current_radius) :
                         current_radius + strand_radius
-        push!(items, Group(
-            :core,
-            Region(Symbol(:core_strands_, layer), Disk(strand_radius), aluminum);
-            pattern = Ring(count; r = centre_radius),
-            path = iszero(lay_ratio) ? nothing : Helix(LayRatio(lay_ratio))
-        ))
+        push!(items,
+            Group(
+                :core,
+                Region(Symbol(:core_strands_, layer), Disk(strand_radius), aluminum);
+                pattern = Ring(count; r = centre_radius),
+                path = iszero(lay_ratio) ? nothing : Helix(LayRatio(lay_ratio))
+            ))
         current_radius = count == 1 ? strand_radius :
                          current_radius + 2strand_radius
     end
@@ -266,16 +268,12 @@ datasheet_info = (
     screen_cross_section = 35.0,      # [mm²]
     resistance = 0.0291,              # DC resistance [Ω/km]
     capacitance = 0.39,               # Capacitance [μF/km]
-    inductance = 0.3                 # Inductance in trifoil [mH/km]
+    inductance = 0.3                 # Inductance in trefoil [mH/km]
 )
 
-# Resolve the deterministic declaration into one eager cable design:
+# Build the deterministic declaration into one completed cable design:
 nominal_data = NominalData(; datasheet_info...)
-core_design = CableDesign(
-    Stack(core_parts);
-    cable_id,
-    nominal_data
-)
+core_design = build(CableDesign, cable_id, Stack(core_parts); nominal_data)
 
 # At this point, it becomes possible to preview the cable design:
 plt1 = preview(
@@ -300,24 +298,26 @@ lay_ratio = 10.0 # typical value for wire screens
 screened_parts = copy(core_parts)
 screen_radius = d_ws / 2
 screen_centre = radius + screen_radius
-push!(screened_parts, Group(
-    :sheath,
-    Region(:sheath_wires, Disk(screen_radius), copper);
-    pattern = Ring(num_sc_wires; r = screen_centre),
-    path = Helix(LayRatio(lay_ratio))
-))
+push!(screened_parts,
+    Group(
+        :sheath,
+        Region(:sheath_wires, Disk(screen_radius), copper);
+        pattern = Ring(num_sc_wires; r = screen_centre),
+        path = Helix(LayRatio(lay_ratio))
+    ))
 radius += 2screen_radius
 tape_outer = radius + t_cut
 tape_span = w_cut / ((radius + tape_outer) / 2)
-push!(screened_parts, Group(
-    :sheath,
-    Region(
-        :sheath_copper_tape,
-        Sector(radius, tape_outer, -tape_span / 2, tape_span),
-        copper
-    );
-    path = Helix(LayRatio(lay_ratio))
-))
+push!(screened_parts,
+    Group(
+        :sheath,
+        Region(
+            :sheath_copper_tape,
+            Sector(radius, tape_outer, -tape_span / 2, tape_span),
+            copper
+        );
+        path = Helix(LayRatio(lay_ratio))
+    ))
 radius = tape_outer
 push!(screened_parts, Region(
     :sheath_water_blocking, Shell(t_wbt), polyacrylate
@@ -325,11 +325,7 @@ push!(screened_parts, Region(
 radius += t_wbt
 
 # Resolve and examine the core plus metallic screen:
-screened_design = CableDesign(
-    Stack(screened_parts);
-    cable_id,
-    nominal_data
-)
+screened_design = build(CableDesign, cable_id, Stack(screened_parts); nominal_data)
 
 # Examine the newly added physical regions:
 plt2 = preview(
@@ -364,11 +360,7 @@ push!(cable_parts, Region(:jacket_insulation, Shell(t_jac), pe))
 =#
 
 # Resolve the complete cable description:
-cable_design = CableDesign(
-    Stack(cable_parts);
-    cable_id,
-    nominal_data
-)
+cable_design = build(CableDesign, cable_id, Stack(cable_parts); nominal_data)
 
 # Inspect the finished cable design:
 plt3 = preview(
@@ -386,7 +378,7 @@ In this section, the cable design is examined and the calculated parameters are 
 
 # Calculate the cable constants explicitly. Scientific extraction and tabular
 # presentation are separate consumers of the completed result:
-constants = compute(CableConstantsProblem(cable_design), Formulation())
+constants = CableConstants(cable_design)
 
 # The native DataFrames adapter returns the complete R/L/C result in its stored
 # per-length units:
@@ -404,11 +396,8 @@ datasheet_comparison = DataFrame(
 )
 comparison_units = map(payload -> payload.unit, published_constants)
 
-# Obtain the radial analytical equivalence of the retained terminals:
-terminals_df = DataFrame(cable_design, :terminals)
-
 # Inspect every resolved physical region:
-regions_df = DataFrame(cable_design, :regions)
+regions_df = DataFrame(cable_design)
 
 #=
 ## Saving the cable design
@@ -436,8 +425,8 @@ loaded_library_df = DataFrame(loaded_library)
 ### Defining a cable system
 
 !!! note "Cable systems"
-    [`LineCableSystem`](@ref) eagerly combines cable designs, poses, connection
-    assignments, and line length.
+    `build(LineCableSystem, ...)` combines completed cable designs, poses,
+    connection assignments, and line length.
     [`LineParametersProblem`](@ref LineCableModels.Engine.LineParametersProblem) then
     adds operating temperature, earth properties, and analysis frequencies.
 =#
@@ -453,28 +442,27 @@ f = collect(10.0 .^ range(0, stop = 6, length = 10)) # 1 Hz to 1 MHz
 earth = Earth(rho = 100.0, eps_r = 10.0, mu_r = 1.0)
 
 #=
-### Three-phase system in trifoil configuration
+### Three-phase system in trefoil configuration
 
-This section ilustrates the construction of a cable system with three identical cables arranged in a trifoil formation.
+This section ilustrates the construction of a cable system with three identical cables arranged in a trefoil formation.
 =#
 
-# Describe three cables touching in trifoil at 1 m burial depth. The spacing is
+# Describe three cables touching in trefoil at 1 m burial depth. The spacing is
 # the center-to-center distance:
-formation = trifoil(
+formation = trefoil(
     x = 0.0,
     y = -1.0,
     spacing = 70e-3
 )
 
 # Retain one core phase per cable and ground the sheath and jacket terminals:
-connections = [
-    Dict(:core => phase, :sheath => 0, :jacket => 0) for phase in 1:3
-]
-cable_system = LineCableSystem(
-    fill(loaded_design, 3);
-    positions = formation,
+connections = [Dict(:core => phase, :sheath => 0, :jacket => 0) for phase in 1:3]
+cable_system = build(
+    LineCableSystem,
+    fill(loaded_design, 3),
+    formation;
     connections,
-    system_id = "18kV_1000mm2_trifoil",
+    system_id = "18kV_1000mm2_trefoil",
     line_length = 1000.0
 )
 
@@ -539,7 +527,7 @@ This tutorial has demonstrated how to:
 1. Describe and preview a complex power cable with multiple concentric layers.
 2. Calculate and compare its base parameters (R, L, C) with datasheet values.
 3. Save the design, load it in a fresh library, and reuse it.
-4. Build and preview a three-phase cable system in trifoil arrangement.
+4. Build and preview a three-phase cable system in trefoil arrangement.
 5. Export the physical model for PSCAD and ATPDraw.
 
 [`LineCableModels.jl`](@ref) provides detailed routines for power cable modeling

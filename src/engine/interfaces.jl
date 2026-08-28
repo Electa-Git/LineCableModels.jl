@@ -25,6 +25,9 @@ function relative_error end
 
 "Abstract tag for the physical domain represented by line-parameter matrices."
 abstract type LineParamsDomain end
+
+"Return formulation-owned constitutive data for one material class."
+function constitutive end
 "Tag line parameters expressed in the physical phase domain."
 struct PhaseDomain <: LineParamsDomain end
 "Tag line parameters obtained from a calculated modal transformation."

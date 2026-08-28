@@ -197,7 +197,15 @@ function observables(::Type{<:LineParameters})
         (Z, abs),
         (Z, angle),
         (Y, abs),
-        (Y, angle)
+        (Y, angle),
+        (Z, diag),
+        (Y, diag),
+        (R, diag),
+        (X, diag),
+        (L, diag),
+        (G, diag),
+        (B, diag),
+        (C, diag)
     )
 end
 
@@ -267,8 +275,50 @@ function observe(value::ShuntAdmittance, ::typeof(Y), ::typeof(angle), indices..
     angle.(observe(value, Y, indices...))
 end
 
-observables(::Type{<:SeriesImpedance}) = (Z, R, X, L, (Z, abs), (Z, angle))
-observables(::Type{<:ShuntAdmittance}) = (Y, G, B, C, (Y, abs), (Y, angle))
+function _observe_diagonal(values::AbstractArray{T, 3}, indices...) where {T}
+    size(values, 1) == size(values, 2) || throw(DimensionMismatch(
+        "diagonal observation requires square matrix slices"
+    ))
+    diagonal = Matrix{T}(undef, size(values, 1), size(values, 3))
+    for sample in axes(values, 3), mode in axes(values, 1)
+        diagonal[mode, sample] = values[mode, mode, sample]
+    end
+    return isempty(indices) ? diagonal : getindex(diagonal, indices...)
+end
+
+const _SeriesResult = Union{LineParameters, SeriesImpedance}
+const _ShuntResult = Union{LineParameters, ShuntAdmittance}
+
+observe(value::LineParameters, ::typeof(Z), ::typeof(diag), indices...) =
+    _observe_diagonal(observe(value, Z), indices...)
+observe(value::SeriesImpedance, ::typeof(Z), ::typeof(diag), indices...) =
+    _observe_diagonal(observe(value, Z), indices...)
+observe(value::_SeriesResult, ::typeof(R), ::typeof(diag), indices...) =
+    _observe_diagonal(observe(value, R), indices...)
+observe(value::_SeriesResult, ::typeof(X), ::typeof(diag), indices...) =
+    _observe_diagonal(observe(value, X), indices...)
+observe(value::LineParameters, ::typeof(L), ::typeof(diag), indices...) =
+    _observe_diagonal(observe(value, L), indices...)
+observe(value::_SeriesResult, ::typeof(L), ::typeof(diag), indices...) =
+    _observe_diagonal(observe(value, L), indices...)
+
+observe(value::LineParameters, ::typeof(Y), ::typeof(diag), indices...) =
+    _observe_diagonal(observe(value, Y), indices...)
+observe(value::ShuntAdmittance, ::typeof(Y), ::typeof(diag), indices...) =
+    _observe_diagonal(observe(value, Y), indices...)
+observe(value::_ShuntResult, ::typeof(G), ::typeof(diag), indices...) =
+    _observe_diagonal(observe(value, G), indices...)
+observe(value::_ShuntResult, ::typeof(B), ::typeof(diag), indices...) =
+    _observe_diagonal(observe(value, B), indices...)
+observe(value::LineParameters, ::typeof(C), ::typeof(diag), indices...) =
+    _observe_diagonal(observe(value, C), indices...)
+observe(value::_ShuntResult, ::typeof(C), ::typeof(diag), indices...) =
+    _observe_diagonal(observe(value, C), indices...)
+
+observables(::Type{<:SeriesImpedance}) =
+    (Z, R, X, L, (Z, abs), (Z, angle), (Z, diag), (R, diag), (X, diag), (L, diag))
+observables(::Type{<:ShuntAdmittance}) =
+    (Y, G, B, C, (Y, abs), (Y, angle), (Y, diag), (G, diag), (B, diag), (C, diag))
 
 Z(value::Union{LineParameters, SeriesImpedance}, indices...) = observe(value, Z, indices...)
 Y(value::Union{LineParameters, ShuntAdmittance}, indices...) = observe(value, Y, indices...)

@@ -419,8 +419,11 @@
         if left isa AbstractDict
             keys(left) == keys(right) || return false
             return all(key -> _same_problem_structure(left[key], right[key]), keys(left))
-        elseif left isa AbstractArray || left isa Tuple
+        elseif left isa AbstractArray
             size(left) == size(right) || return false
+            return all(_same_problem_structure.(left, right))
+        elseif left isa Tuple
+            length(left) == length(right) || return false
             return all(_same_problem_structure.(left, right))
         elseif left isa Union{Nothing, Missing, Bool, Number, Symbol, AbstractString, Char}
             return isequal(left, right)

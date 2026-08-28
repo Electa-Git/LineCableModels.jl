@@ -1,4 +1,4 @@
-@testitem "PSCAD benchmark / 18 kV 1000 mm² trifoil" tags=[:gauntlet, :pscad] setup=[GauntletSupport] begin
+@testitem "PSCAD benchmark / 18 kV 1000 mm² trefoil" tags=[:gauntlet, :pscad] setup=[GauntletSupport] begin
     using Test
     using DataFrames
     using LineCableModels
@@ -6,7 +6,7 @@
     using .GauntletSupport
     using .GauntletSupport.PSCADBenchmarks
 
-    model=load_case(:cable_18kv_1000mm2_trifoil)
+    model=load_case(:cable_18kv_1000mm2_trefoil)
     reference_formulation=Formulation(
         :pscad; earth_impedance = EarthImpedance.Wedepohl()
     )
@@ -36,7 +36,7 @@
         )
     )
     benchmark=GauntletCase(
-        :benchmark_18kv_1000mm2_trifoil_pscad,
+        :benchmark_18kv_1000mm2_trefoil_pscad,
         :pscad,
         @__FILE__,
         model,

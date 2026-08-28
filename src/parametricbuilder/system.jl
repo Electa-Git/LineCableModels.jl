@@ -24,82 +24,35 @@ function Earth(;
     return _earth_model(values...)
 end
 
-function _system_space(
-        designs::Tuple;
-        positions,
+function build(
+        ::Type{DataModel.LineCableSystem},
+        designs,
+        placements;
+        connections = nothing,
+        environment = nothing,
+        system_id = "line-cable-system",
+        line_length = 1,
+        combine::Symbol = :product
+)
+    combine in (:product, :zip) || throw(ArgumentError(
+        "combine must be :product or :zip"
+    ))
+    values = (
+        designs,
+        placements,
         connections,
         environment,
         system_id,
-        line_length,
-        combine
-)
-    count = length(designs)
-    count > 0 || throw(ArgumentError("a line system requires one cable design"))
-    values = (
-        designs...,
-        positions,
-        connections,
-        environment,
-        String(system_id),
         line_length
     )
-    build = function (resolved...)
-        selected = DataModel.CableDesign[resolved[index] for index in 1:count]
-        offset = count
-        return DataModel.LineCableSystem(
-            selected;
-            positions = resolved[offset + 1],
-            connections = resolved[offset + 2],
-            environment = resolved[offset + 3],
-            system_id = resolved[offset + 4],
-            line_length = resolved[offset + 5]
-        )
-    end
     if any(value -> value isa Union{AbstractGrid, Gridspace}, values)
         grids = map(values) do value
             value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
         end
-        return Gridspace{DataModel.LineCableSystem}(build, grids; combine)
+        caller = (selected...) -> build(DataModel.LineCableSystem, selected...)
+        return Gridspace{DataModel.LineCableSystem}(caller, grids; combine)
     end
-    return build(values...)
-end
-
-function LineCableSystem(
-        designs::Tuple;
-        positions,
-        connections = nothing,
-        environment = nothing,
-        system_id::AbstractString = "line-cable-system",
-        line_length = 1,
-        combine::Symbol = :product
-)
-    all(design -> design isa Union{DataModel.CableDesign,
-            Gridspace{DataModel.CableDesign}}, designs) || throw(ArgumentError(
-        "designs must contain CableDesign values or their Gridspaces"
-    ))
-    return _system_space(
-        designs;
-        positions,
-        connections,
-        environment,
-        system_id,
-        line_length,
-        combine
-    )
-end
-
-function LineCableSystem(
-        design::Gridspace{DataModel.CableDesign};
-        position = DataModel.Pose2(0, -1, 0),
-        connections = nothing,
-        kwargs...
-)
-    return LineCableSystem(
-        (design,);
-        positions = position,
-        connections,
-        kwargs...
-    )
+    return build(DataModel.LineCableSystem, values...; combine)
 end
 
 function _line_problem(system, temperature, earth, frequencies)
@@ -137,4 +90,63 @@ function Engine.LineParametersProblem(
         value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
     end
     return Gridspace{Engine.LineParametersProblem}(_line_problem, grids; combine)
+end
+
+function Engine.LineParametersProblem(
+        designs,
+        placements,
+        connections,
+        environment,
+        system_id,
+        line_length,
+        temperature,
+        earth_props,
+        frequencies;
+        combine::Symbol = :product
+)
+    values = (
+        designs,
+        placements,
+        connections,
+        environment,
+        system_id,
+        line_length,
+        temperature,
+        earth_props,
+        frequencies
+    )
+    any(value -> value isa Union{AbstractGrid, Gridspace}, values) || throw(
+        MethodError(Engine.LineParametersProblem, values)
+    )
+    sources = map(values) do value
+        value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
+    end
+    caller = (selected...) -> Engine.LineParametersProblem(selected...)
+    return Gridspace{Engine.LineParametersProblem}(caller, sources; combine)
+end
+
+function Engine.LineParametersProblem(
+        designs,
+        placements;
+        connections = nothing,
+        environment = nothing,
+        system_id = "line-cable-system",
+        line_length = 1,
+        temperature = 20,
+        earth_props,
+        frequencies = [50],
+        combine::Symbol = :product
+)
+    return Engine.LineParametersProblem(
+        designs,
+        placements,
+        connections,
+        environment,
+        system_id,
+        line_length,
+        temperature,
+        earth_props,
+        frequencies;
+        combine
+    )
 end

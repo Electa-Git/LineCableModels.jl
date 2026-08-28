@@ -25,6 +25,7 @@ docs/src/tutorials/
 # environment.
 Manifest.toml
 */Manifest.toml
+!showcase/bonito/Manifest.toml
 !test/gauntlet/pscad/remote/Manifest.toml
 
 # the hidden folder of shame
@@ -33,6 +34,7 @@ temp/
 
 # examples artifacts
 !examples/*.jl
+showcase/bonito/build/
 
 # Internal files
 dev/*

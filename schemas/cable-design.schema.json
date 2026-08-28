@@ -289,12 +289,11 @@
     },
     "cableDesign": {
       "type": "object",
-      "required": ["kind", "cable_id", "nominal_data", "reference_frequency", "root"],
+      "required": ["kind", "cable_id", "nominal_data", "root"],
       "properties": {
         "kind": {"const": "cable_design"},
         "cable_id": {"type": "string", "minLength": 1},
         "nominal_data": {"$ref": "#/$defs/nominalData"},
-        "reference_frequency": {"$ref": "#/$defs/scalar"},
         "root": {"$ref": "#/$defs/part"}
       },
       "additionalProperties": false

@@ -23,63 +23,90 @@ struct Region{P <: AbstractPrimitive, M} <: AbstractCablePart
     end
 end
 
-"Pair one physical region with resolved geometry and derived placement data."
-struct ResolvedRegion{R <: Region, S <: AbstractShape, T <: Real}
-    region::R
+"""
+$(TYPEDEF)
+
+Pair one physical region with its resolved shape, retained terminal, and
+backend-neutral placement and path declarations.
+
+$(TYPEDFIELDS)
+"""
+struct PlacedRegion{
+        R <: Region,
+        S <: AbstractShape,
+        P <: NamedTuple,
+        H <: Tuple
+}
+    "Authoritative homogeneous physical region."
+    source::R
+    "Resolved absolute cross-sectional shape."
     shape::S
+    "Retained electrical terminal, or `nothing` for a nonconductive region."
     terminal::Union{Nothing, Symbol}
-    overlength::T
-    turns::T
-    pattern_depth::Int
-    path_depth::Int
+    "Resolved pose and the ordered placement declarations that produced it."
+    placement::P
+    "Ordered `(path, radius)` declarations traversed by the region."
+    paths::H
+
+    function PlacedRegion(
+            source::R,
+            shape::S,
+            terminal::Union{Nothing, Symbol},
+            placement::P,
+            paths::H
+    ) where {
+            R <: Region,
+            S <: AbstractShape,
+            P <: NamedTuple,
+            H <: Tuple
+    }
+        terminal === nothing || !isempty(String(terminal)) || throw(
+            ArgumentError("placed-region terminal cannot be empty")
+        )
+        keys(placement) == (:pose, :patterns) || throw(ArgumentError(
+            "placed-region placement must contain pose and patterns"
+        ))
+        placement.pose isa Pose2 || throw(ArgumentError(
+            "placed-region pose must resolve to Pose2"
+        ))
+        placement.patterns isa Tuple || throw(ArgumentError(
+            "placed-region patterns must be a tuple"
+        ))
+        all(placement.patterns) do entry
+            entry isa NamedTuple && keys(entry) == (:pattern, :member, :pose) &&
+                entry.member isa Integer && entry.member > 0 &&
+                entry.pose isa Pose2
+        end || throw(ArgumentError(
+            "placed-region patterns must contain positive member indices and poses"
+        ))
+        all(paths) do entry
+            entry isa NamedTuple && keys(entry) == (:path, :radius) &&
+                entry.radius isa Real && isfinite(entry.radius) && entry.radius >= 0
+        end || throw(ArgumentError(
+            "placed-region paths must contain finite nonnegative radii"
+        ))
+        return new{R, S, P, H}(source, shape, terminal, placement, paths)
+    end
 end
 
-function ResolvedRegion(
-        region::R,
-        shape::S,
-        terminal::Union{Nothing, Symbol},
-        overlength::Real,
-        turns::Real,
-        pattern_depth::Int,
-        path_depth::Int
-) where {R <: Region, S <: AbstractShape}
-    T = promote_type(
-        eltype(shape),
-        eltype(region.material),
-        typeof(overlength),
-        typeof(turns)
-    )
-    return ResolvedRegion{R, S, T}(
-        region,
-        shape,
-        terminal,
-        convert(T, overlength),
-        convert(T, turns),
-        pattern_depth,
-        path_depth
-    )
-end
-
-function ResolvedRegion(region::Region, shape::AbstractShape)
-    T = promote_type(eltype(shape), eltype(region.material))
-    return ResolvedRegion(
-        region,
+function PlacedRegion(source::Region, shape::AbstractShape)
+    T = promote_type(eltype(shape), eltype(source.material))
+    return PlacedRegion(
+        source,
         shape,
         nothing,
-        convert(T, one(T)),
-        convert(T, zero(T)),
-        0,
-        0
+        (pose = Pose2(zero(T), zero(T), zero(T)), patterns = ()),
+        ()
     )
 end
 
-boundary(region::ResolvedRegion) = boundary(region.shape)
-area(region::ResolvedRegion) = area(region.shape)
-centroid(region::ResolvedRegion) = centroid(region.shape)
-support(region::ResolvedRegion, φ::Real) = support(region.shape, φ)
+boundary(region::PlacedRegion) = boundary(region.shape)
+area(region::PlacedRegion) = area(region.shape)
+centroid(region::PlacedRegion) = centroid(region.shape)
+support(region::PlacedRegion, φ::Real) = support(region.shape, φ)
 
 function resolve(context::Union{EmptyBoundary, AbstractShape}, region::Region)
     shape = resolve(context, region.primitive)
-    resolved = ResolvedRegion(region, shape)
-    return ResolvedPart(ResolvedRegion[resolved], boundary(resolved), Symbol[])
+    placed = PlacedRegion(region, shape)
+    return CableGeometry(PlacedRegion[placed], boundary(placed))
 end

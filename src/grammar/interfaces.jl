@@ -83,14 +83,14 @@ function observe end
 function _observe_macro_parts(request)
     valid_request = request isa Expr &&
                     request.head === :ref &&
-                    length(request.args) == 4
+                    length(request.args) >= 2
     valid_request || throw(ArgumentError(
-        "@observe expects `accessor[i, j, k]` or `(accessor, transform)[i, j, k]`; " *
+        "@observe expects indexed `accessor[...]` or `(accessor, transform)[...]`; " *
         "got `$(request)`.",
     ))
 
     selector = first(request.args)
-    indices = request.args[2:4]
+    indices = request.args[2:end]
     if selector isa Expr && selector.head === :tuple
         length(selector.args) == 2 || throw(ArgumentError(
             "transformed @observe syntax requires exactly `(accessor, transform)`; " *
@@ -102,8 +102,8 @@ function _observe_macro_parts(request)
 end
 
 """
-    @observe accessor[i, j, k]
-    @observe (accessor, transform)[i, j, k]
+    @observe accessor[indices...]
+    @observe (accessor, transform)[indices...]
 
 Construct a plain observable-request tuple without reading a result.
 """
@@ -116,11 +116,12 @@ macro observe(request)
 end
 
 """
-    @observe source accessor[i, j, k]
-    @observe source (accessor, transform)[i, j, k]
+    @observe source accessor[indices...]
+    @observe source (accessor, transform)[indices...]
 
 Expand indexed observable syntax into an immediate [`observe`](@ref) call. The
-first two indices select matrix entries and the third selects the sample axis.
+Indices follow the selected observable. Ordinary line quantities use row,
+column, and sample indices; diagonal transforms use mode and sample indices.
 """
 macro observe(source, request)
     selector, transform, indices = _observe_macro_parts(request)

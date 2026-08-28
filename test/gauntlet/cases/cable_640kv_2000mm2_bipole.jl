@@ -144,9 +144,10 @@ case_definition(
         LineCableModels.Shell(p.jacket_thickness),
         pe
     ))
-    design = LineCableModels.CableDesign(
+    design = LineCableModels.build(
+        LineCableModels.CableDesign,
+        "640kV_2000mm2",
         LineCableModels.Stack(parts);
-        cable_id = "640kV_2000mm2",
         nominal_data = LineCableModels.NominalData()
     )
     earth = LineCableModels.Earth(
@@ -154,9 +155,10 @@ case_definition(
     )
     connections = [Dict(:core => 3index - 2, :sheath => 3index - 1, :jacket => 3index)
                    for index in 1:2]
-    system = LineCableModels.LineCableSystem(
-        fill(design, 2);
-        positions = [LineCableModels.Pose2(p.cable_x[index], p.cable_y) for index in 1:2],
+    system = LineCableModels.build(
+        LineCableModels.LineCableSystem,
+        fill(design, 2),
+        [LineCableModels.Pose2(p.cable_x[index], p.cable_y) for index in 1:2];
         connections,
         system_id = "cable_640kv_2000mm2_bipole",
         line_length = p.line_length

@@ -73,20 +73,22 @@ function Validation.rules(::Type{<:AnalyticalInput})
     (Validation.OwnerRule(:analytical_input_dimensions, _check_analytical_input),)
 end
 
-function AnalyticalInput(problem::LineParametersProblem{T}) where {T <: Real}
+function AnalyticalInput(
+        problem::LineParametersProblem{T},
+        formulation::AnalyticalFormulation
+) where {T <: Real}
     system = problem.system
-    for design in system.designs
-        design.effective === nothing && throw(ArgumentError(
-            "the analytical formulation supports only contiguous radial terminal blocks; " *
-            "CableDesign \"$(design.cable_id)\" remains physically valid but is not supported"
-        ))
-    end
+    dielectric_frequency = oftype(first(problem.frequencies), 50)
+    terminals_by_design = [
+        analytical_components(formulation, design, dielectric_frequency)
+        for design in system.designs
+    ]
     n_frequencies = length(problem.frequencies)
-    n_phases = sum(length(design.effective) for design in system.designs)
+    n_phases = sum(length, terminals_by_design)
     n_layers = sum(
         length(terminal.dielectric.layers)
-    for design in system.designs
-    for terminal in design.effective
+    for terminals in terminals_by_design
+    for terminal in terminals
     )
     n_cables = ncables(system)
 
@@ -118,12 +120,12 @@ function AnalyticalInput(problem::LineParametersProblem{T}) where {T <: Real}
 
     component_index = 0
     layer_index = 0
-    for (cable_index, (design, position, connections)) in enumerate(zip(
-            system.designs,
+    for (cable_index, (terminals, position, connections)) in enumerate(zip(
+            terminals_by_design,
             system.positions,
             system.connections
     ))
-        for (local_index, terminal) in enumerate(design.effective)
+        for (local_index, terminal) in enumerate(terminals)
             component_index += 1
             conductor = terminal.conductor
             dielectric = terminal.dielectric
@@ -141,8 +143,7 @@ function AnalyticalInput(problem::LineParametersProblem{T}) where {T <: Real}
             rho_ins[component_index] = dielectric.material.rho
             mu_ins[component_index] = dielectric.material.mu_r
             eps_ins[component_index] = dielectric.material.eps_r
-            reference_ω = 2 * (one(first(freq)) * π) *
-                          dielectric.reference_frequency
+            reference_ω = 2 * (one(first(freq)) * π) * dielectric.frequency
             tan_ins[component_index] = isempty(dielectric.layers) ? zero(T) :
                                        DataModel.loss_tangent(
                 dielectric.shunt_conductance,

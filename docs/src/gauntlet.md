@@ -28,7 +28,7 @@ using Measurements #hide
 pscad_suite = DataFrame( #hide
     case = [ #hide
         "132 kV flat horizontal", #hide
-        "18 kV trifoil", #hide
+        "18 kV trefoil", #hide
         "380 kV flat vertical", #hide
         "525 kV bipole", #hide
         "640 kV bipole", #hide
@@ -220,7 +220,7 @@ for the Monte Carlo-to-LEP timing ratio.
 uq_suite = DataFrame( #hide
     case = [ #hide
         "132 kV flat horizontal", #hide
-        "18 kV trifoil", #hide
+        "18 kV trefoil", #hide
         "380 kV flat vertical", #hide
         "525 kV bipole", #hide
         "640 kV bipole", #hide
@@ -247,7 +247,7 @@ give consistent propagated uncertainties for the stated engineering gates.
 LEP is faster in every recorded case; the smallest observed timing ratio is
 6.25×. Timing ratios are machine-specific.
 
-The plots below use the 18 kV, 1000 mm² trifoil case. It uses 512 accepted
+The plots below use the 18 kV, 1000 mm² trefoil case. It uses 512 accepted
 trials. Fixed wire counts and 20% formation clearance keep every accepted
 realisation within the supported geometry.
 
@@ -312,7 +312,7 @@ JLD2.jldsave( #hide
 
 uq_snapshot_path = joinpath(
     "test", "gauntlet", ".artifacts", "staging", "uq", "benchmarks",
-    "benchmark_18kv_1000mm2_trifoil_lep_montecarlo", "snapshot.jld2"
+    "benchmark_18kv_1000mm2_trefoil_lep_montecarlo", "snapshot.jld2"
 )
 uq_snapshot_path = uq_fixture_path #hide
 uq_snapshot = JLD2.load(uq_snapshot_path);

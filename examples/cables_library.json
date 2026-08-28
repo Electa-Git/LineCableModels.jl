@@ -601,10 +601,6 @@
                         "__type__": "Float64"
                     },
                     "designation_code": "NA2XS(FL)2Y"
-                },
-                "reference_frequency": {
-                    "value": 50,
-                    "__type__": "Float64"
                 }
             },
             "525kV_1600mm2": {
@@ -1250,10 +1246,6 @@
                     "resistance": null,
                     "inductance": null,
                     "designation_code": "(N)2XH(F)RK2Y"
-                },
-                "reference_frequency": {
-                    "value": 50,
-                    "__type__": "Float64"
                 }
             }
         }

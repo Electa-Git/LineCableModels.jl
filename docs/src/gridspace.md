@@ -12,7 +12,7 @@ The calculation sequence is:
 ```text
 Grid                 declares explicit finite variation
 Gridspace            composes finite sources and selects one point
-callable builder      constructs the existing eager domain object
+callable              invokes the existing complete construction action
 Engine.compute        evaluates one complete core problem
 ParametricBuilder/UQ  collect stored calculation data
 ```
@@ -33,8 +33,8 @@ Every member of `grids` must already be a `Grid` or nested `Gridspace`. The
 constructor never interprets a raw tuple, vector, matrix, or other domain value
 as an axis. `Target` is the type promised by iteration, `build` is the callable
 that constructs it, and `combine` is normalised into the concrete Gridspace
-type. The space is lazy, has an analytic length, and has no random-access or
-random-sampling shortcut.
+type. The space is lazy and has an analytic length. `rand(space)` selects and
+realises one point without collecting the space.
 
 The internal selected point contains only the callable and its selected
 arguments. The point is unresolved, unexported, and temporary. The point never enters a
@@ -152,13 +152,12 @@ collect(outer)
 #  ((1, 10), :b), ((2, 20), :b)]
 ```
 
-## Eager public construction
+## Public construction boundary
 
-Gridspace delays selection, not ordinary construction. Each parameterized constructor
-applies one rule:
+Gridspace delays finite selection. Each lifted public action applies one rule:
 
 ```text
-no direct Grid or Gridspace input  -> construct the eager value now
+no direct Grid or Gridspace input  -> invoke the scalar action now
 at least one explicit source       -> preserve sources, singleton-wrap siblings,
                                       and return a Gridspace
 ```
@@ -171,16 +170,16 @@ The current behaviour is:
 | `Disk`, `Shell`, and other primitives | concrete primitive | `Gridspace{Primitive}` |
 | `Region`, `Stack`, `Group`, `Assembly`, `Enclosure` | concrete cable part | `Gridspace{TargetPart}` |
 | `CableDesign` | `DataModel.CableDesign` | `Gridspace{DataModel.CableDesign}` |
-| `at`, `trifoil`, `hflat`, `vflat` | `Pose2` or `Vector{Pose2}` | corresponding `Gridspace` |
+| `at`, `trefoil`, `hflat`, `vflat` | `Pose2` or `Vector{Pose2}` | corresponding `Gridspace` |
 | `Earth` | `EarthModel` | `Gridspace{EarthModel}` |
 | `LineCableSystem` | `DataModel.LineCableSystem` | `Gridspace{DataModel.LineCableSystem}` |
 | `LineParametersProblem` | `Engine.LineParametersProblem` | `Gridspace{Engine.LineParametersProblem}` |
-| `CableConstantsProblem` | `CableConstantsProblem` | `Gridspace{CableConstantsProblem}` |
+| `CableConstants` | `DataModel.CableConstants` | `Gridspace{DataModel.CableConstants}` |
 | `@gridspace` keyword constructor | strict struct | `Gridspace{Target}` |
 
-Scalar-complete calls construct their domain values immediately. A varying
-call stores only the target constructor and explicit finite sources; each
-selected point invokes the same eager constructor used by scalar code.
+Scalar-complete calls invoke their domain action immediately. A varying call
+stores only that callable and explicit finite sources; each selected point
+invokes the same scalar action.
 
 ## Gridspace callables
 
@@ -397,7 +396,7 @@ product and zip iterators. The implementation guarantees:
   storage intrinsically require.
 
 The conformance suite in `test/unit/parametricbuilder/conformance.jl` checks
-these properties, exact structural reuse, explicit variation, eager public
+these properties, exact structural reuse, explicit variation, scalar public
 construction, and the absence of a random-access Gridspace API.
 
 ## Implementation map
@@ -409,7 +408,7 @@ The implementation is split across:
   materialisation, and realisation.
 - `src/parametricbuilder/macros.jl`: strict scalar construction and explicit
   Gridspace lifting for `@gridspace`.
-- material, cable, position, and system builder files: eager construction
+- material, cable, position, and system files: scalar construction and lifting
   rules and concrete callable algorithms.
 - `src/parametricbuilder/compute.jl`: combinatorial traversal.
 - `src/uq/linearerror.jl` and `src/uq/montecarlo/compute.jl`: direct and

@@ -16,15 +16,16 @@
 
     wire=PB.Conductor.Solid(:wire, conductor; r = 0.01)
     terminal=PB.Group(:core, wire)
-    design=PB.CableDesign(terminal; cable_id = "parametric")
+    design=build(CableDesign, "parametric", terminal)
     @test design isa Gridspace{CableDesign}
     @test length(design) == 2
     @test all(item -> item isa CableDesign, design)
     @test all(item -> item.terminal_order == [:core], design)
 
-    system=PB.LineCableSystem(
-        design;
-        position = PB.at(x = 0.0, y = -1.0),
+    system=build(
+        LineCableSystem,
+        design,
+        PB.at(x = 0.0, y = -1.0);
         connections = Dict(:core=>1),
         system_id = "parametric-system",
         line_length = 100.0
@@ -43,6 +44,75 @@
     @test all(problem -> problem.system isa LineCableSystem, problems)
     @test (@inferred CableDesign first(design)) isa CableDesign
     @test (@inferred LineCableSystem first(system)) isa LineCableSystem
+
+    nominal=NominalData(designation_code = "parametric")
+    identifiers=Grid(("first", "second"))
+    direct=build(CableDesign, "first", first(terminal), nominal)
+    design_space=build(CableDesign, identifiers, first(terminal), nominal)
+    @test eltype(design_space) === CableDesign
+    @test first(design_space).root == direct.root
+    @test first(design_space).terminal_order == direct.terminal_order
+    @test rand(design_space) isa CableDesign
+
+    nominal_space=build(
+        CableDesign,
+        "keyword-grid",
+        first(terminal);
+        nominal_data = Grid((
+            NominalData(designation_code = "catalogue-a"),
+            NominalData(designation_code = "catalogue-b")
+        ))
+    )
+    @test nominal_space isa Gridspace{CableDesign}
+    @test getproperty.(
+        getproperty.(collect(nominal_space), :nominal_data),
+        :designation_code
+    ) == ["catalogue-a", "catalogue-b"]
+
+    atomic=build(
+        LineCableSystem,
+        [first(design), first(design)],
+        [Pose2(-0.1, -1.0), Pose2(0.1, -1.0)];
+        connections = [(core = 1,), (core = 2,)]
+    )
+    @test atomic isa LineCableSystem
+    @test ncables(atomic) == 2
+
+    nested_identifier=Gridspace{String}(
+        value->string("nested-", value),
+        (Grid((1, 2)),)
+    )
+    nested_designs=build(CableDesign, nested_identifier, first(terminal))
+    @test nested_designs isa Gridspace{CableDesign}
+    @test first(nested_designs).cable_id == "nested-1"
+
+    import LineCableModels.DataModel as DM
+    const resolution_count=Ref(0)
+    struct CountedPrimitive{T <: Real}<:DM.AbstractPrimitive{T}
+        radius::T
+    end
+    DM.resolve(::DM.EmptyBoundary, primitive::CountedPrimitive) = begin
+        resolution_count[]+=1
+        DM.DiskShape(primitive.radius)
+    end
+    counted_root=Group(
+        :core,
+        Region(:counted, CountedPrimitive(0.01), Material(
+            kind = :conductor,
+            rho = 1.7e-8
+        ))
+    )
+    counted_space=build(CableDesign, Grid(("counted-a", "counted-b")), counted_root)
+    counted_designs=collect(counted_space)
+    @test resolution_count[] == 2
+    LineParametersProblem(
+        first(counted_designs),
+        Pose2(0.0, -1.0);
+        connections = (core = 1,),
+        earth_props = PB.Earth(rho = 100.0),
+        frequencies = [1.0, 10.0, 100.0]
+    )
+    @test resolution_count[] == 2
 end
 
 @testitem "ParametricBuilder / v1 physical conveniences preserve one grammar" tags=[:unit] begin
@@ -56,12 +126,12 @@ end
     roots=PB.Stack(PB.Group(:core, core), insulation)
     @test roots isa Gridspace{Stack}
 
-    designs=PB.CableDesign(roots; cable_id = "two-thicknesses")
+    designs=build(CableDesign, "two-thicknesses", roots)
     @test outer_radius.(collect(designs)) ≈ [0.013, 0.014]
-    @test all(design -> design.effective !== nothing, designs)
+    @test all(design -> design.geometry isa CableGeometry, designs)
 
     @test PB.at(x = 1, y = -2) == Pose2(1, -2, 0)
-    @test length(PB.trifoil(y = -1, spacing = 0.1)) == 3
+    @test length(PB.trefoil(y = -1, spacing = 0.1)) == 3
     @test length(PB.hflat(spacing = 0.1, n = 4)) == 4
     @test length(PB.vflat(spacing = 0.1, n = 2)) == 2
 end

@@ -13,7 +13,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- Refactored the eager `Material`-to-`compute` path around natural Julia promotion,
+- Refactored the `Material`-to-`compute` path around natural Julia promotion,
   owner-local validation, explicit definitions, immutable solver input, and scoped console
   logging.
 - Cable parts and `CableDesign` now represent the common material reference state.
@@ -36,8 +36,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and complete analytical execution in `Engine`.
 - Reduced Gridspace to explicit finite `Grid` sources, local product or zip
   composition, one internal unresolved point, and recursive materialization or
-  realisation through concrete callable builders. Scalar public builder calls
-  now construct eager domain values.
+  realisation through concrete callable builders. Scalar public construction
+  calls now invoke the corresponding scalar action.
 - Converged PlotBuilder on detached definition-owned pages and one fixed core
   sequence: entitle, parse, resolve, fetch, and finish. Loaded Makie extensions
   draw those pages directly through the standard shell.
@@ -52,8 +52,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   explicitly.
 - Renamed the built-in backend to `Formulation(:analytical)` and selected
   parameter or trace output through formulation options.
-- Made eager physical declarations the modelling API. Explicit `Grid` inputs
-  materialize the same constructors through `Gridspace`.
+- Made `build` the complete construction action for cable designs and systems.
+  Explicit `Grid` inputs materialize the same action through `Gridspace`.
 - Moved Measurements.jl and Distributions.jl integrations into package
   extensions.
 - Restricted radial declarations to numeric radius or thickness semantics.

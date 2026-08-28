@@ -28,6 +28,7 @@ HVDC cables are constructed around a central conductor enclosed by a triple-extr
 using LineCableModels
 import CairoMakie
 using DataFrames
+using LinearAlgebra: diag
 fullfile(filename) = joinpath(@__DIR__, filename); #hide
 set_backend!(:cairo); #hide
 
@@ -108,29 +109,22 @@ lead = Material(materials, :lead)
 pp = Material(materials, :pp)
 steel = Material(materials, :steel)
 
-# Check the reported strand count and describe the complete conductor:
+# Check the reported strand count and describe the complete conductor through
+# the shared circular/rectangular stranded-conductor grammar:
 n_strands = 6 # Strands per layer
 n_layers = 6 # Layers of strands
 @assert 1 + n_strands * sum(1:n_layers) == num_co_wires
 strand_radius = d_w / 2
-parts, radius = let
-    current_radius = zero(strand_radius)
-    items = AbstractCablePart[]
-    for layer in 0:n_layers
-        count = layer == 0 ? 1 : layer * n_strands
-        centre_radius = count == 1 ? zero(current_radius) :
-                        current_radius + strand_radius
-        push!(items, Group(
-            :core,
-            Region(Symbol(:core_strands_, layer + 1), Disk(strand_radius), copper);
-            pattern = Ring(count; r = centre_radius),
-            path = count == 1 ? nothing : Helix(LayRatio(11.0))
-        ))
-        current_radius = count == 1 ? strand_radius :
-                         current_radius + 2strand_radius
-    end
-    items, current_radius
-end
+stranded_core = Conductor.Stranded(
+    :core,
+    Disk(strand_radius),
+    copper;
+    layers = n_layers + 1,
+    n = n_strands,
+    lay = LayRatio(11.0)
+)
+parts = AbstractCablePart[stranded_core]
+radius = (2n_layers + 1) * strand_radius
 
 #=
 ### Inner semiconductor
@@ -174,7 +168,7 @@ datasheet_info = (
     screen_cross_section = 1000.0,     # [mm²]
     resistance = nothing,              # DC resistance [Ω/km]
     capacitance = nothing,             # Capacitance [μF/km]
-    inductance = nothing               # Inductance in trifoil [mH/km]
+    inductance = nothing               # Inductance in trefoil [mH/km]
 )
 
 #=
@@ -202,18 +196,20 @@ radius = lead_outer + t_pe + t_bed
 lay_ratio = 10.0 # typical value for wire screens
 armor_radius = d_wa / 2
 armor_centre = radius + armor_radius
-push!(parts, Group(
-    :armor,
-    Region(:armor_wires, Disk(armor_radius), steel);
-    pattern = Ring(num_ar_wires; r = armor_centre),
-    path = Helix(LayRatio(lay_ratio))
-))
+push!(parts,
+    Group(
+        :armor,
+        Region(:armor_wires, Disk(armor_radius), steel);
+        pattern = Ring(num_ar_wires; r = armor_centre),
+        path = Helix(LayRatio(lay_ratio))
+    ))
 push!(parts, Region(:armor_jacket, Shell(t_jac), pp))
 
 # Resolve the complete deterministic cable description:
-cable_design = CableDesign(
-    Stack(parts);
+cable_design = build(
+    CableDesign,
     cable_id,
+    Stack(parts);
     nominal_data = NominalData(; datasheet_info...)
 )
 
@@ -238,10 +234,7 @@ available. SVG export always includes the complete legend.
 =#
 
 # Calculate the cable constants explicitly:
-constants = compute(
-    CableConstantsProblem(cable_design),
-    Formulation()
-)
+constants = CableConstants(cable_design)
 
 # Publish detached scientific observations without reaching into result fields:
 published_constants = observables(constants, (R, L, C))
@@ -249,8 +242,8 @@ published_constants = observables(constants, (R, L, C))
 # Use the native DataFrames adapter when a complete tabular result is wanted:
 constants_table = DataFrame(constants)
 
-# Obtain the radial analytical equivalence of the retained terminals:
-terminals_df = DataFrame(cable_design, :terminals)
+# Inspect the completed physical regions:
+regions_df = DataFrame(cable_design)
 
 #=
 ## Saving the cable design
@@ -302,9 +295,10 @@ connections = [
 ]
 
 # Materialize the physical system before adding calculation-only state:
-cable_system = LineCableSystem(
-    fill(loaded_design, 2);
-    positions,
+cable_system = build(
+    LineCableSystem,
+    fill(loaded_design, 2),
+    positions;
     connections,
     system_id = "525kV_1600mm2_bipole",
     line_length = 1000.0
@@ -464,14 +458,14 @@ first_sequence_term = subset(
 )
 first(first_sequence_term, 12)
 
-# Plot the sequence-domain R/L and G/C responses:
+# Plot the two modal R/L and G/C responses. Diagonal observation is explicit:
 sequence_plots = CairoMakie.plot(
     sequence_parameters,
     (
-        @observe(R[:, :, :]),
-        @observe(L[:, :, :]),
-        @observe(G[:, :, :]),
-        @observe(C[:, :, :])
+        @observe((R, diag)[:, :]),
+        @observe((L, diag)[:, :]),
+        @observe((G, diag)[:, :]),
+        @observe((C, diag)[:, :])
     );
     xscale = :log10,
     length_unit = :kilo,

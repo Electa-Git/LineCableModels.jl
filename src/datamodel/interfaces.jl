@@ -4,9 +4,6 @@ function ncables end
 "Return the number of distinct positive phases in a line-cable system."
 function nphases end
 
-"Return the base cable parameters calculated for a materialised design."
-function base_parameters end
-
 "Return detached preview geometry for one owned cable layer."
 function preview_shapes end
 

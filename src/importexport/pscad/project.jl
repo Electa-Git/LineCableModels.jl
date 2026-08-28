@@ -314,10 +314,14 @@ function _pscad_cable_parameters(
         index::Int,
         base_frequency
 )
-    components = design.effective
-    components === nothing && throw(ArgumentError(
-        "PSCAD export requires the current radial analytical compatibility profile"
-    ))
+    # PSCAD owns this explicit homogenization choice. Its Cable_Coax record
+    # requires concentric equivalent layers, so adaptation happens here rather
+    # than becoming stored CableDesign state.
+    components = Engine.analytical_components(
+        Engine.Formulation(),
+        design,
+        base_frequency
+    )
     length(components) <= 4 || throw(ArgumentError(
         "PSCAD Cable_Coax supports at most four concentric components",
     ))

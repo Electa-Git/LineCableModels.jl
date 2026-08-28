@@ -1,4 +1,4 @@
-@testitem "DataModel / v1 presentation / eager tables and library" tags=[:unit] setup=[
+@testitem "DataModel / v1 presentation / physical tables and library" tags=[:unit] setup=[
     DataModelTestSupport,
     UseDataModelSupport,
     TestFixtures
@@ -10,19 +10,15 @@
         @test !isempty(sprint(show, MIME("text/plain"), object))
     end
 
-    terminals=DataFrame(design)
-    @test nrow(terminals) == length(design.terminal_order)
-    @test terminals.terminal == design.terminal_order
-    regions=DataFrame(design, :regions)
+    regions=DataFrame(design)
     @test nrow(regions) == length(design.geometry.regions)
     @test names(regions) == [
         "tag", "terminal", "primitive", "material_kind", "area",
         "centroid_x", "centroid_y", "overlength"
     ]
-    base=DataFrame(design, :baseparams)
+    base=DataFrame(CableConstants(design))
     @test nrow(base) == 1
     @test names(base) == ["R", "L", "C"]
-    @test_throws ArgumentError DataFrame(design, :unknown)
 
     system_table=DataFrame(system)
     @test nrow(system_table) == ncables(system)

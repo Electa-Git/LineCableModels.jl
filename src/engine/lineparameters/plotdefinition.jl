@@ -64,6 +64,10 @@ function _conductor_pairs(object, selector)
 end
 
 _line_request_family(request) = Units.family(request_quantity(request))
+_diagonal_request(request) = begin
+    identity = request_identity(request)
+    identity isa Tuple && last(identity) === diag
+end
 _family_parent(::Val{:series}) = Z
 _family_parent(::Val{:shunt}) = Y
 
@@ -143,8 +147,12 @@ function PlotBuilder.resolve(
         "line plots do not accept duplicate scientific quantities",
     ))
     validate_observables(object, requests)
-    all(request -> length(request_indices(request)) == 3, requests) || throw(ArgumentError(
-        "line plots require row, column, and frequency indices",
+    all(requests) do scientific_request
+        expected = _diagonal_request(scientific_request) ? 2 : 3
+        length(request_indices(scientific_request)) == expected
+    end || throw(ArgumentError(
+        "line plots require mode/frequency indices for diagonal requests and " *
+        "row/column/frequency indices otherwise",
     ))
     if supplied_frequencies !== nothing
         all(isfinite, supplied_frequencies) ||
@@ -236,8 +244,14 @@ function _publish_request(object, request, target, clip::Bool)
 end
 
 function _request_coordinates(object, request)
-    row, column, frequency = request_indices(request)
     dimensions = object isa LineParameters ? size(Z(object)) : size(object)
+    if _diagonal_request(request)
+        mode, frequency = request_indices(request)
+        modes = observation_indices(mode, dimensions[1])
+        samples = observation_indices(frequency, dimensions[3])
+        return modes, [1], samples
+    end
+    row, column, frequency = request_indices(request)
     rows = observation_indices(row, dimensions[1])
     columns = observation_indices(column, dimensions[2])
     frequency_count = object isa LineParameters ? nfrequencies(object) : size(object, 3)
@@ -249,6 +263,7 @@ function _materialized_line_request(object, input, request)
     rows, columns, samples = _request_coordinates(object, request)
     identity = observation_request(object, request).identity
     prefix = identity isa Tuple ? identity : (identity,)
+    _diagonal_request(request) && return (prefix..., rows, samples)
     if object isa SeriesImpedance && identity === L
         prefix = (L, input.frequencies)
     elseif object isa ShuntAdmittance && identity === C
@@ -270,13 +285,17 @@ function _publish_line_source(object, input, requests)
         length_prefix = input.length_unit,
         overrides = input.quantity_units
     )
-    observations = map(requests, targets) do request, target
-        _publish_request(
+    observations = map(requests, targets, coordinates) do request, target, indices
+        observation = _publish_request(
             object,
             _materialized_line_request(object, input, request),
             target,
             input.clip
         )
+        _diagonal_request(request) || return observation
+        rows, _, samples = indices
+        values = reshape(observation.values, length(rows), 1, length(samples))
+        return merge(observation, (; values))
     end
     all(observation -> size(observation.values, 3) == length(frequency.values), observations) ||
         throw(

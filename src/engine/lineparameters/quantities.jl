@@ -15,6 +15,15 @@ Units.quantity(::typeof(Y), ::typeof(abs)) =
 Units.quantity(::typeof(Y), ::typeof(angle)) =
     Units.Quantity{(:shunt_admittance, :phase_angle)}()
 
+Units.quantity(::typeof(Z), ::typeof(diag)) = Units.quantity(Z)
+Units.quantity(::typeof(Y), ::typeof(diag)) = Units.quantity(Y)
+Units.quantity(::typeof(R), ::typeof(diag)) = Units.quantity(R)
+Units.quantity(::typeof(X), ::typeof(diag)) = Units.quantity(X)
+Units.quantity(::typeof(L), ::typeof(diag)) = Units.quantity(L)
+Units.quantity(::typeof(G), ::typeof(diag)) = Units.quantity(G)
+Units.quantity(::typeof(B), ::typeof(diag)) = Units.quantity(B)
+Units.quantity(::typeof(C), ::typeof(diag)) = Units.quantity(C)
+
 Units.quantity(::typeof(Z), ::typeof(absolute_error)) =
     Units.Quantity{:series_impedance_absolute_error}()
 Units.quantity(::typeof(Z), ::typeof(relative_error)) =

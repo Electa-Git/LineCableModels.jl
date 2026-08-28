@@ -633,10 +633,6 @@
                         "__type__": "Float64"
                     },
                     "designation_code": "NA2XS(FL)2Y"
-                },
-                "reference_frequency": {
-                    "value": 50,
-                    "__type__": "Float64"
                 }
             }
         }

@@ -33,12 +33,7 @@ function _check_line_parameters_problem(problem::LineParametersProblem)
         "a phase assignment exceeds the number of distinct positive phases"
     ))
     for design in problem.system.designs
-        # Temperature is formulation-independent, but the current linear
-        # correction range uses a reference material only when the radial
-        # analytical adapter is available. Unsupported physical geometry is
-        # rejected later by the backend that requests `AnalyticalInput`.
-        design.effective === nothing && continue
-        reference = first(design.effective).conductor.material.T0
+        reference = first(design.geometry.regions).source.material.T0
         abs(problem.temperature - reference) < oftype(problem.temperature, 150) ||
             throw(DomainError(
                 problem.temperature,
@@ -87,59 +82,54 @@ function LineParametersProblem(
 end
 
 """
-$(TYPEDEF)
-
-Define an explicit cable-constant calculation for one materialised design.
-
-$(TYPEDFIELDS)
-"""
-struct CableConstantsProblem{D <: CableDesign, S, R <: Real} <: AbstractProblemDefinition
-    design::D
-    separation::S
-    earth_resistivity::R
-
-    function CableConstantsProblem(
-            design::D,
-            separation::S,
-            earth_resistivity::R
-    ) where {D <: CableDesign, S <: Union{Nothing, Real}, R <: Real}
-        separation === nothing || separation > zero(separation) ||
-            throw(DomainError(separation, "separation must be positive"))
-        earth_resistivity > zero(earth_resistivity) || throw(DomainError(
-            earth_resistivity, "earth_resistivity must be positive"
-        ))
-        return new{D, S, R}(
-            design, separation, earth_resistivity
-        )
-    end
-end
-
-function CableConstantsProblem(
-        design::CableDesign;
-        separation = nothing,
-        earth_resistivity = oftype(
-            float(design.effective === nothing ? 100.0 :
-                  first(design.effective).conductor.material.rho),
-            100
-        )
-)
-    cable_constants_problem(design, separation, earth_resistivity)
-end
-
-"""
 $(TYPEDSIGNATURES)
 
-Construct a cable-constant problem from resolved inputs.
+Construct a line-parameter problem from completed cable designs and physical
+placements.
 
-ParametricBuilder extends this owner-visible staging boundary for explicit
-finite sources.
+# Arguments
+
+- `designs`: One completed design, or a collection aligned with `placements`.
+- `placements`: One placement or a collection of physical placements.
+
+# Keywords
+
+- `connections`: Terminal-to-phase declarations.
+- `environment`: Optional physical environment declaration.
+- `system_id`: Stable system identifier.
+- `line_length`: Physical line length in metres.
+- `temperature`: Operating temperature in °C.
+- `earth_props`: Static earth model.
+- `frequencies`: Positive sorted analysis frequencies in Hz.
+
+# Returns
+
+One validated [`LineParametersProblem`](@ref) containing a completed
+[`LineCableSystem`](@ref).
 """
-function cable_constants_problem(
-        design::CableDesign,
-        separation::Union{Nothing, Real},
-        earth_resistivity::Real
+function LineParametersProblem(
+        designs::Union{CableDesign, AbstractVector{<:CableDesign}, Tuple},
+        placements,
+        connections,
+        environment,
+        system_id::AbstractString,
+        line_length::Real,
+        temperature::Real,
+        earth_props::EarthModel,
+        frequencies::AbstractVector{<:Real};
+        combine::Symbol = :product
 )
-    CableConstantsProblem(design, separation, earth_resistivity)
+    system = build(
+        LineCableSystem,
+        designs,
+        placements;
+        connections,
+        environment,
+        system_id,
+        line_length,
+        combine
+    )
+    return LineParametersProblem(system; temperature, earth_props, frequencies)
 end
 
 """

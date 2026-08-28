@@ -722,7 +722,7 @@ datasheet_info = NominalData(
     screen_cross_section = 35.0,      # [mm²]
     resistance = 0.0291,              # DC resistance [Ω/km]
     capacitance = 0.39,               # Capacitance [μF/km]
-    inductance = 0.3                 # Inductance in trifoil [mH/km]
+    inductance = 0.3                 # Inductance in trefoil [mH/km]
 );
 
 # ╔═╡ c1595a9d-7882-4b66-a1fc-fe6de19f1ef6
@@ -884,11 +884,11 @@ md"""
 # ╔═╡ 44f5823e-4b07-4f2c-8773-e4c3187a6100
 begin
     import LineCableModels.Utils: to_nominal
-    # Define system center point (underground at 1 m depth) and the trifoil positions
+    # Define system center point (underground at 1 m depth) and the trefoil positions
     x0 = 0.0
     y0 = -1.0
     S = 1e-6+to_nominal(cable_design.components[end].insulator_group.r_ex)
-    xa, ya, xb, yb, xc, yc = trifoil_formation(x0, y0, S)
+    xa, ya, xb, yb, xc, yc = trefoil_formation(x0, y0, S)
 end;
 
 # ╔═╡ 987902c5-5983-4815-b62f-4eabc1be2362
@@ -992,9 +992,9 @@ begin
     add!(ccable_design, ssheath_cc)
     add!(ccable_design, "jacket", jjacket_con, jjacket_insu)
 
-    # Define system center point (underground at 1 m depth) and the trifoil positions
+    # Define system center point (underground at 1 m depth) and the trefoil positions
     SS = 0.1+to_nominal(ccable_design.components[end].insulator_group.r_ex)
-    xxa, yya, xxb, yyb, xxc, yyc = trifoil_formation(x0, y0, SS)
+    xxa, yya, xxb, yyb, xxc, yyc = trefoil_formation(x0, y0, SS)
 
     ccablepos = CablePosition(ccable_design, xxa, yya,
         Dict("core" => 1, "sheath" => 0, "jacket" => 0))

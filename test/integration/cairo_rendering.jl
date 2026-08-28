@@ -183,13 +183,13 @@
         @test rlcg[1].context.status !== rlcg[2].context.status
         matrix_pairs=((1, 1), (1, 2), (2, 1), (2, 2))
         @test legend_labels(first(rlcg).context.legend) ==
-              ["R[$row,$column], L[$row,$column]" for (row, column) in matrix_pairs]
+              ["L[$row,$column]" for (row, column) in matrix_pairs]
         @test legend_labels(last(rlcg).context.legend) ==
-              ["G[$row,$column], C[$row,$column]" for (row, column) in matrix_pairs]
+              ["C[$row,$column]" for (row, column) in matrix_pairs]
         @test legend_labels(first(cartesian).context.legend) ==
-              ["R[$row,$column], X[$row,$column]" for (row, column) in matrix_pairs]
+              ["X[$row,$column]" for (row, column) in matrix_pairs]
         @test legend_labels(first(polar).context.legend) ==
-              ["|Z|[$row,$column], ∠Z[$row,$column]" for (row, column) in matrix_pairs]
+              ["∠Z[$row,$column]" for (row, column) in matrix_pairs]
         first_handle=first(rlcg)
         @test fieldnames(typeof(first_handle)) == (:render, :page, :context)
         @test fieldnames(typeof(first_handle.context)) == (
@@ -238,6 +238,20 @@
         @test length(shunt_plots) == 1
         @test length(only(series_plots).panels) == 2
         @test length(only(shunt_plots).panels) == 2
+
+        _, modal_parameters=Fortescue(tol = 1e-10)(parameters)
+        modal_inductance=Makie.plot(
+            modal_parameters,
+            (L,);
+            backend = :cairo,
+            display_plot = false
+        )
+        @test modal_inductance isa Vector{UIPlot}
+        @test length(modal_inductance) == 1
+        @test length(only(modal_inductance).panels) == 1
+        @test length(only(only(modal_inductance).panels).plots) == 2
+        @test legend_labels(only(modal_inductance).context.legend) ==
+              ["L[1]", "L[2]"]
 
         comparison_parameters=LineParameters(
             1.01 .* Z(parameters),
@@ -777,14 +791,14 @@
 
         collection_designs=[
             design,
-            CableDesign(design.root;
-                cable_id = "equivalent",
-                nominal_data = design.nominal_data,
-                reference_frequency = design.reference_frequency),
-            CableDesign(design.root;
-                cable_id = "second detailed design",
-                nominal_data = design.nominal_data,
-                reference_frequency = design.reference_frequency)
+            build(
+                CableDesign, "equivalent", design.root;
+                nominal_data = design.nominal_data
+            ),
+            build(
+                CableDesign, "second detailed design", design.root;
+                nominal_data = design.nominal_data
+            )
         ]
         collection_plot=preview(
             collection_designs;
@@ -930,9 +944,10 @@
             terminal=>(index==1 ? 1 : 0)
         for (index, terminal) in enumerate(design.terminal_order)
         )
-        system=LineCableSystem(
-            design;
-            position = Pose2(0.0, -0.20, 0.0),
+        system=build(
+            LineCableSystem,
+            design,
+            Pose2(0.0, -0.20, 0.0);
             connections,
             system_id = "reference-system",
             line_length = 1000.0

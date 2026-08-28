@@ -1,16 +1,15 @@
 """
     LineCableModels.DataModel
 
-Define the physical cable object model and eager line arrangements.
+Define the physical cable object model and completed line arrangements.
 
 # Overview
 
 - Declare primitives, material-bearing regions, and resolved geometry.
 - Compose regions through [`Stack`](@ref), [`Group`](@ref),
   [`Assembly`](@ref), and [`Enclosure`](@ref).
-- Resolve one physical declaration eagerly as a [`CableDesign`](@ref).
-- Place eager designs and resolve connections as a [`LineCableSystem`](@ref).
-- Calculate base-state resistance, inductance, capacitance, and conductance.
+- Build one physical declaration as a completed [`CableDesign`](@ref).
+- Place completed designs and resolve connections as a [`LineCableSystem`](@ref).
 - Describe cable and system previews for PlotBuilder.
 - Store cable designs in [`CablesLibrary`](@ref).
 
@@ -22,9 +21,10 @@ $(IMPORTS)
 module DataModel
 
 # Export public API
-export CableDesign, LineCableSystem, CableConstants
+export CableDesign, CableGeometry, PlacedRegion, LineCableSystem, CableConstants
+export build
 export CablesLibrary, NominalData
-export trifoil_formation, flat_formation, outer_radius
+export trefoil_formation, flat_formation, outer_radius
 export AbstractPrimitive, AbstractShape
 export AbstractCablePart, Region, Stack
 export Group, Assembly
@@ -46,7 +46,7 @@ using DocStringExtensions: IMPORTS
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES, FUNCTIONNAME
 import ..PlotBuilder
 import ..Units
-import ..LineCableModels: add!, validate, nominal
+import ..LineCableModels: add!, build, validate, nominal
 import ..LineCableModels: basis, R, L, C, resistance, inductance, capacitance
 import ..Grammar: AbstractCoreResult, observe, observables
 using ..Materials: Material
@@ -96,7 +96,6 @@ include("preview/cables.jl")
 include("preview/system.jl")
 include("preview/materialscale.jl")
 
-public base_parameters, compute_cable_constants
 public preview_shapes, preview_materials
 public PreviewPolygon, PreviewReferenceLine, PreviewPayload
 

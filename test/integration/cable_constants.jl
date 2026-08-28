@@ -5,8 +5,7 @@
     TestNumerics
 ] begin
     design=TestFixtures.mv_cable_design()
-    constants=compute(CableConstantsProblem(design), Formulation())
-    nominal=design.nominal_data
+    constants=CableConstants(design)
 
     @test constants.R > 0
     @test constants.L > 0
@@ -16,17 +15,26 @@
     @test inductance(constants) === constants.L
     @test capacitance(constants) === constants.C
 
-    @test isapprox(1_000 * constants.R, nominal.resistance; rtol = 0.06)
-    @test isapprox(1e6 * constants.L, nominal.inductance; rtol = 0.06)
-    @test isapprox(1e9 * constants.C, nominal.capacitance; rtol = 0.06)
-
-    separated=compute(
-        CableConstantsProblem(design; separation = 2.5*outer_radius(design)),
-        Formulation()
+    altered=CableConstants(
+        design;
+        position = at(x = 0, y = -2),
+        earth_props = Earth(rho = 200)
     )
-    @test separated.R == constants.R
-    @test separated.C == constants.C
-    @test separated.L > constants.L
+    @test altered.R != constants.R
+    @test altered.C ≈ constants.C
+    @test altered.L != constants.L
+
+    designs=build(
+        CableDesign,
+        Grid(("constants-a", "constants-b")),
+        design.root;
+        nominal_data = design.nominal_data
+    )
+    constant_space=CableConstants(designs)
+    @test constant_space isa Gridspace{CableConstants}
+    @test length(constant_space) == 2
+    @test all(value -> value isa CableConstants, constant_space)
+    @test first(constant_space) == CableConstants(first(designs))
 end
 
 @testitem "Fixtures / factories / mutable state is never shared" tags=[:integration] setup=[

@@ -54,14 +54,14 @@ root = Stack(
     Group(:core, Conductor.Solid(:core_metal, copper; r=10e-3)),
     Insulator.Shell(:insulation, xlpe; t=8e-3),
 )
-design = CableDesign(root; cable_id="example")
+design = build(CableDesign, "example", root)
 
-constants = compute(CableConstantsProblem(design), Formulation())
+constants = CableConstants(design)
 ```
 
-Scalar inputs construct eager domain objects. An explicit `Grid` at any
-parameterized constructor returns a `Gridspace` whose points materialize the
-same eager target type.
+Scalar `build` calls return completed domain objects. An explicit `Grid` at a
+construction boundary returns a `Gridspace` whose points invoke the same
+scalar `build` method.
 
 ## Optional plotting
 
@@ -91,12 +91,9 @@ stores its frequency domain and either a `:pul` or `:total` basis:
 
 ```julia
 basis(line_parameters)
-line_parameters.Z[1, 1, :]      # direct array access
-@view line_parameters.Y[1, 1, :]
-R(line_parameters, 1, 1)       # complete frequency response
-Z(line_parameters, 1, 1, 2:5) # selected frequency samples
-@observe line_parameters Z[1, 2, :]
-abs.(Z(line_parameters, 1, 1))
+@observe line_parameters R[1, 1, :]       # complete frequency response
+@observe line_parameters Z[1, 1, 2:5]     # selected frequency samples
+@observe line_parameters (Z, abs)[1, 2, :]
 
 label(R)                         # "Series resistance"
 symbol(Z, angle)                 # "∠Z"

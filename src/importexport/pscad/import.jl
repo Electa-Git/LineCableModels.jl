@@ -204,11 +204,7 @@ function _pscad_radial_design(
             ))
         end
     end
-    return CableDesign(
-        Stack(parts);
-        cable_id = cable_name,
-        reference_frequency = frequency
-    )
+    return build(CableDesign, cable_name, Stack(parts))
 end
 
 function _pscad_design(values, cable_number::Int, frequency)
@@ -523,11 +519,12 @@ function import_data(
         ))
     declarations = last.(numbered_positions)
     earth = _pscad_earth(_pscad_parameters(row.ground))
-    system = LineCableSystem(
-        CableDesign[item.design for item in declarations];
+    system = build(
+        LineCableSystem,
+        CableDesign[item.design for item in declarations],
+        Pose2[item.position for item in declarations];
         system_id,
         line_length,
-        positions = Pose2[item.position for item in declarations],
         connections = [item.connections for item in declarations]
     )
     return earth, system

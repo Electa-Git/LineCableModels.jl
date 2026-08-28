@@ -61,9 +61,10 @@
             end
             push!(connections, cable_connections)
         end
-        system=LineCableModels.LineCableSystem(
-            problem.system.designs;
-            positions = problem.system.positions,
+        system=LineCableModels.build(
+            LineCableModels.LineCableSystem,
+            problem.system.designs,
+            problem.system.positions;
             connections,
             environment = problem.system.environment,
             system_id = string(name),
@@ -443,7 +444,7 @@ end
 
     index=case_index()
     expected_sizes=Dict(
-        :cable_18kv_1000mm2_trifoil=>(9, 9, 101),
+        :cable_18kv_1000mm2_trefoil=>(9, 9, 101),
         :cable_132kv_630mm2_flathor=>(9, 9, 101),
         :cable_380kv_2000mm2_flatver=>(9, 9, 101),
         :cable_525kv_1600mm2_bipole=>(6, 6, 101),
@@ -509,7 +510,7 @@ end
         :cable_132kv_630mm2_flathor=>(
             (1, 6, 12, 18, 24), (19,), ()
         ),
-        :cable_18kv_1000mm2_trifoil=>(
+        :cable_18kv_1000mm2_trefoil=>(
             (1, 6, 12, 18, 24), (49,), ()
         ),
         :cable_380kv_2000mm2_flatver=>(
@@ -620,13 +621,13 @@ end
     using LineCableModels
     using .GauntletSupport
 
-    first_load=load_case(:cable_18kv_1000mm2_trifoil)
+    first_load=load_case(:cable_18kv_1000mm2_trefoil)
     first_load.nominal_problem.system.connections[1][1]=99
-    second_load=load_case(:cable_18kv_1000mm2_trifoil)
+    second_load=load_case(:cable_18kv_1000mm2_trefoil)
     @test second_load.nominal_problem.system.connections[1][1] == 1
 
     single_frequency=load_case(
-        :cable_18kv_1000mm2_trifoil;
+        :cable_18kv_1000mm2_trefoil;
         variation = ExactOverrides(frequencies = [50.0])
     )
     @test single_frequency.expected_size == (9, 9, 1)
@@ -655,7 +656,7 @@ end
     @test_throws ArgumentError load_case(:unknown_case)
 
     uncertain=load_case(
-        :cable_18kv_1000mm2_trifoil;
+        :cable_18kv_1000mm2_trefoil;
         variation = RelativeStandardUncertainty(
             10.0; tags = (:geometry, :cable_layer)
         )
@@ -711,13 +712,18 @@ end
         item->item isa Group&&item.name===:armor,
         expanded_design.root.items
     ))
-    armor=only(filter(value->value.name===:armor, expanded_design.effective)).conductor
+    armor=only(filter(
+        value->value.name===:armor,
+        LineCableModels.Engine.analytical_components(
+            LineCableModels.Formulation(), expanded_design, 50.0
+        )
+    )).conductor
     armor_wire_radius=armor_group.item.primitive.r
     @test armor.num_wires == 68
     @test armor.r_in >=
           armor_wire_radius / sinpi(1 / armor.num_wires) - armor_wire_radius
     expanded_bedding=only(filter(
-        source->source.region.tag===:sheath_bedding,
+        source->source.source.tag===:sheath_bedding,
         expanded_design.geometry.regions
     ))
     @test thickness(expanded_bedding.shape) > 3.0e-3
@@ -725,7 +731,7 @@ end
     nominal_armor=load_case(:cable_525kv_1600mm2_bipole)
     nominal_design=first(nominal_armor.problem.system.designs)
     nominal_bedding=only(filter(
-        source->source.region.tag===:sheath_bedding,
+        source->source.source.tag===:sheath_bedding,
         nominal_design.geometry.regions
     ))
     nominal_unbuffered_outer_radius=63.22185e-3+5.827e-3+10.0e-3
@@ -743,11 +749,11 @@ end
 
     geometry=first(materialized.system.designs).geometry.regions
     first_tape=thickness(only(filter(
-        source->source.region.tag===:core_semicon_tape_inner,
+        source->source.source.tag===:core_semicon_tape_inner,
         geometry
     )).shape)
     second_tape=thickness(only(filter(
-        source->source.region.tag===:core_semicon_tape_outer,
+        source->source.source.tag===:core_semicon_tape_outer,
         geometry
     )).shape)
     @test Measurements.cov(first_tape, second_tape) > 0
