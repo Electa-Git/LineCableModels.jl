@@ -86,17 +86,9 @@ end
     )
 end
 
-@testitem "EarthProps / tables and concise display" tags=[:unit] setup=[defs_earthprops] begin
-    using DataFrames: DataFrame, nrow
-
+@testitem "EarthProps / concise display" tags=[:unit] setup=[defs_earthprops] begin
     model=EP.EarthModel(100.0, 10.0, 1.0; thickness = 20.0)
     add!(model, EP.EarthLayer(500.0, 20.0, 1.0))
-
-    table=DataFrame(model)
-    @test names(table) == ["rho", "eps_r", "mu_r", "thickness"]
-    @test nrow(table) == 3
-    @test isinf(table.rho[1])
-    @test table.rho[2:3] == [100.0, 500.0]
 
     shown=sprint(show, "text/plain", model)
     @test contains(shown, "2 horizontal earth layers (multilayer)")

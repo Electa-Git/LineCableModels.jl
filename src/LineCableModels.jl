@@ -13,7 +13,7 @@ module LineCableModels
 ## Public API
 # -------------------------------------------------------------------------
 # Core generics:
-export add!, build, equivalent, validate, description, set_backend!
+export add!, build, flatten, validate, description, set_backend!
 export AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult
 export AbstractCoreResult, AbstractResultSpace
 export AbstractParametricResult, AbstractUncertaintyResult
@@ -40,11 +40,10 @@ export root_seed, point_seed, trial_count
 export confidence, cdf_tolerance, sampling_distribution
 export report, TableReportDefinition, XLSXReportDefinition, ReportArtifact
 export Material, MaterialsLibrary, Conductor, Insulator, Semiconductor
-export AbstractPrimitiveDefinition
-export DiskDefinition, RectangleDefinition, EllipseDefinition
-export SectorDefinition, AnnulusDefinition, ShellDefinition, PolygonDefinition
+export AbstractShape, AbstractPrimitive
+export Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, RoundedSector, Shell
 export Pose2
-export EmptyBoundary, resolve, boundary, area, centroid, support
+export EmptyBoundary, resolve, boundary, area, perimeter, centroid, support, tessellate
 export r_in, r_ex, thickness, outer_radius
 export AbstractCablePart, Region, Stack
 export Group, Assembly
@@ -118,12 +117,12 @@ include("datamodel/DataModel.jl")
 using .DataModel: CableDesign, CableGeometry, PlacedRegion,
                   LineCableSystem, catalogue,
                   CableConstants, CablesLibrary, preview, ncables, nphases,
-                  AbstractPrimitiveDefinition,
-                  DiskDefinition, RectangleDefinition, EllipseDefinition,
-                  SectorDefinition, AnnulusDefinition, ShellDefinition,
-                  PolygonDefinition,
+                  AbstractShape, AbstractPrimitive,
+                  Disk, Rectangle, Ellipse, Sector, Annulus, Polygon,
+                  RoundedSector, Shell,
                   Pose2,
-                  EmptyBoundary, resolve, boundary, area, centroid, support,
+                  EmptyBoundary, resolve, boundary, area, perimeter, centroid, support,
+                  tessellate,
                   r_in, r_ex, thickness, outer_radius,
                   AbstractCablePart, Region, Stack,
                   Group, Assembly, Enclosure

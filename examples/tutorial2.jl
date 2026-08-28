@@ -35,6 +35,7 @@ This tutorial covers:
 
 # Load the public modeling API and the packages used for presentation:
 using LineCableModels
+import LineCableModels: flatten
 import CairoMakie
 using DataFrames
 fullfile(filename) = joinpath(@__DIR__, filename); #hide
@@ -42,7 +43,7 @@ set_backend!(:cairo); #hide
 
 # Initialize materials library with default values:
 materials = MaterialsLibrary(add_defaults = true)
-materials_df = DataFrame(materials)
+materials_summary = materials
 
 #=
 ```julia
@@ -104,7 +105,8 @@ layer_diameters = d_core .+ 2 .* cumsum(radial_increments) #hide
 df = DataFrame( #hide
     layer = layer_names, #hide
     thickness = [ #hide
-                 ismissing(t) ? "-" : round(1000t, sigdigits = 2) for t in layer_thicknesses #hide
+                 ismissing(t) ? "-" : round(1000t, sigdigits = 2)
+                 for t in layer_thicknesses #hide
                  ], #hide
     diameter = round.(1000 .* layer_diameters, digits = 2) #hide
 ) #hide
@@ -141,7 +143,7 @@ pe = Material(materials, :pe)
 # API must infer another layout:
 stranded_core = strand(
     aluminum;
-    wire = DiskDefinition(d_w / 2),
+    wire = Disk(d_w / 2),
     layers = 4,
     n = (6, 12, 18, 24),
     lay = LayRatio.((15.0, 13.5, 12.5, 11.0))
@@ -229,7 +231,7 @@ cable_design = @cable cable_id begin
     @terminal :sheath begin
         wires(
             copper;
-            wire = DiskDefinition(d_ws / 2),
+            wire = Disk(d_ws / 2),
             n = num_sc_wires,
             r = screen_wire_locus,
             lay = LayRatio(10),
@@ -237,7 +239,7 @@ cable_design = @cable cable_id begin
         )
         tape(
             copper;
-            section = SectorDefinition(
+            section = Sector(
                 screen_tape_inner,
                 screen_tape_outer,
                 -screen_tape_span / 2,
@@ -282,8 +284,8 @@ constants_table = DataFrame(constants)
 
 # Materialize the homogeneous equivalent only when that design is
 # itself the requested product:
-equivalent_design = equivalent(cable_design; new_id = cable_id * "_equivalent")
-equivalent_regions = DataFrame(equivalent_design)
+equivalent_design = flatten(cable_design; new_id = cable_id * "_equivalent")
+equivalent_summary = equivalent_design
 
 # `observables` publishes detached values in the units conventionally used by
 # cable manufacturers. The two rows identify real comparison sources; the
@@ -297,20 +299,22 @@ datasheet_comparison = DataFrame(
 )
 comparison_units = map(payload -> payload.unit, published_constants)
 
-# Inspect every resolved physical region:
-regions_df = DataFrame(cable_design)
+# Inspect the completed physical design through its bounded Base display:
+design_summary = cable_design
 
 #=
 ## Saving the cable design
 
 !!! note "Cables library"
-    Designs can be saved to a library for future use. The [`CablesLibrary`](@ref) is a container for storing multiple cable designs, allowing for easy access and reuse in different projects. Library management is performed using `DataFrame`, [`add!`](@ref), and [`save`](@ref).
+    Designs can be saved to a library for future use. The [`CablesLibrary`](@ref)
+    stores multiple cable designs and is managed through [`add!`](@ref),
+    ordinary collection operations, and [`save`](@ref).
 =#
 
 # Store the cable design and inspect the library contents:
 library = CablesLibrary()
 add!(library, cable_design)
-library_df = DataFrame(library)
+library_summary = library
 
 # Save to file for later use:
 output_file = fullfile("cables_library.json")
@@ -320,7 +324,7 @@ save(library, file_name = output_file);
 loaded_library = CablesLibrary()
 load!(loaded_library, file_name = output_file)
 loaded_design = get(loaded_library, cable_id)
-loaded_library_df = DataFrame(loaded_library)
+loaded_library_summary = loaded_library
 
 #=
 ### Defining a cable system
@@ -350,7 +354,7 @@ This section ilustrates the construction of a cable system with three identical 
 
 # Describe three cables touching in trefoil at 1 m burial depth. The connection
 # schedules assign one core phase per cable and ground the metallic screens:
-placements = @trefoil loaded_design spacing = 70e-3 center = (0.0, -1.0) core = (1, 2, 3) sheath = 0 jacket = 0
+placements = @trefoil loaded_design spacing=70e-3 center=(0.0, -1.0) core=(1, 2, 3) sheath=0 jacket=0
 cable_system = build(
     LineCableSystem,
     placements;
@@ -366,8 +370,8 @@ problem = LineParametersProblem(
 )
 earth_params = problem.earth_props
 
-# Earth model base properties:
-earthmodel_df = DataFrame(earth_params)
+# Inspect the static earth declaration:
+earth_summary = earth_params
 
 #=
 !!! note "Phase mapping"
@@ -384,7 +388,7 @@ In this section the complete three-phase cable system is examined.
 =#
 
 # Display system details:
-system_df = DataFrame(cable_system)
+system_summary = cable_system
 
 # Visualize the cross-section of the three-phase system:
 plt4 = preview(

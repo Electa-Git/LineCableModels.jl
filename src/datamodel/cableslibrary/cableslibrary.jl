@@ -71,5 +71,4 @@ catalogue(library::CablesLibrary, cable_id::AbstractString) =
     library.catalogues[String(cable_id)]
 
 include("base.jl")
-include("dataframe.jl")
 include("vdeparse.jl")

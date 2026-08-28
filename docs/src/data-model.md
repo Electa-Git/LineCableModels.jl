@@ -84,7 +84,7 @@ surface. `layers` counts outer courses; the central wire is additional.
 ```julia
 core_part = strand(
     copper;
-    wire=DiskDefinition(0.5e-3),
+    wire=Disk(0.5e-3),
     layers=3,
     n=(6, 12, 18),
     lay=(LayRatio(13), LayRatio(12), LayRatio(11)),
@@ -97,7 +97,7 @@ actual geometry and compaction law:
 ```julia
 compact_core = @distribute strand(
     copper;
-    wire=DiskDefinition(0.5e-3),
+    wire=Disk(0.5e-3),
     layers=1,
     compact=FillFactor(0.9),
     lay=LayRatio(11),
@@ -113,12 +113,12 @@ Course schedules are ordinary physical tuples. Wrap a complete schedule in
 
 ```julia
 phase_a = @terminal :a begin
-    core(copper, SectorDefinition(0, 4e-3, -pi / 6, pi / 3))
+    core(copper, Sector(0, 4e-3, -pi / 6, pi / 3))
     insulation(xlpe; t=1e-3)
 end
 
 phase_b = @terminal :b begin
-    core(copper, SectorDefinition(0, 4e-3, -pi / 6, pi / 3))
+    core(copper, Sector(0, 4e-3, -pi / 6, pi / 3))
     insulation(xlpe; t=1e-3)
 end
 
@@ -136,7 +136,7 @@ there is no separate duct-bank object.
 The notation and practical functions lower immediately to the stored grammar:
 
 ```text
-Material + primitive definition
+Material + primitive
               ↓
             Region
               ↓
@@ -154,11 +154,54 @@ contents, and an optional wall. These types remain available for extension
 code and unusual geometry; ordinary cable declarations use the vocabulary
 shown above.
 
-Primitive definitions describe intrinsic local geometry. Construction resolves
-them against a boundary and records absolute geometry in `PlacedRegion` values
+Primitives describe intrinsic local geometry. Construction resolves them
+against a boundary and records absolute geometry in `PlacedRegion` values
 inside `CableGeometry`. `EmptyBoundary` represents the first stacking state.
 Adding a primitive requires local `resolve`, `boundary`, `area`, `centroid`, and
 `support` methods rather than a central type switch.
+
+## Rounded sector cores
+
+`RoundedSector` describes one material-neutral cable-sector cross-section. Its
+symmetry axis is local `+x`; placement and terminal identity remain outside the
+primitive.
+
+```julia
+sector = RoundedSector(
+    span=deg2rad(119),
+    r_base=1.10e-3,
+    r_back=10.24e-3,
+    fillet=1.02e-3,
+)
+
+phase = terminal(
+    :phase,
+    Region(:core, sector, copper),
+    Region(:insulation, Shell(1.0e-3), xlpe),
+)
+
+sectorized = build(
+    CableDesign,
+    "three-core-sector",
+    assembly(
+        phase;
+        pattern=Ring(3; r=0),
+        names=(:a, :b, :c),
+    ),
+)
+```
+
+`resolve` derives exact arc contacts and composes each `Pose2`. `area`,
+`perimeter`, `centroid`, and `support` use the exact boundary. `tessellate`
+returns ordinary coordinate tuples solely for renderers and mesh adapters.
+Resolving `Shell(t)` against one sector produces its exact parallel boundary;
+a common layer around the disconnected assembly requires an explicit
+`Enclosure`.
+
+The package-owned formulation converts each sector conductor and conformal
+dielectric to equivalent-area circles only while preparing its numerical
+input. The exact sectors and their centroids remain authoritative in the
+completed design and in persisted declarations.
 
 ## Parameter spaces
 
@@ -186,7 +229,7 @@ its geometry. The selected engine validates and adapts `CableGeometry` before
 constructing its input. Construction does not substitute equivalent circles,
 effective radii, or homogeneous conductors.
 
-`equivalent(design)` is an explicit request for a new homogeneous
+`flatten(design)` is an explicit request for a new homogeneous
 `CableDesign`; it is not part of ordinary problem construction.
 
 `CableConstants(design)` follows the same problem and computation path as line
@@ -199,5 +242,5 @@ compaction laws, poses, terminal names, tags, and explicit Grid declarations.
 Decoding invokes the same construction boundary. Resolved geometry, terminal
 maps, engine workspaces, and solver results are not serialized.
 
-`DataFrame(design)` reports resolved physical regions. Electrical tables come
-from `CableConstants(design)` or observed `LineParameters` results.
+Model declarations use their bounded `text/plain` displays. Electrical tables
+come from `CableConstants(design)` or observed `LineParameters` results.

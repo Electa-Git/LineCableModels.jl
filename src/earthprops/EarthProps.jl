@@ -9,20 +9,18 @@ frequencies and frequency-dependent property formulations belong to
 
 - Construct and validate [`EarthLayer`](@ref) and [`EarthModel`](@ref).
 - Extend an earth model with `add!`.
-- Present earth data through Base and DataFrames protocols.
+- Present earth data through the Base display protocol.
 """
 module EarthProps
 
 export EarthLayer, EarthModel
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import DataFrames
 import ..LineCableModels: add!, validate
 import ..Validation
 
 include("earthlayer.jl")
 include("earthmodel.jl")
-include("dataframe.jl")
 include("base.jl")
 
 end # module EarthProps

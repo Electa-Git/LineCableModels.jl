@@ -1,30 +1,21 @@
-"Resolve one primitive definition against a geometric context."
+"Resolve one primitive or contextual layer against a geometric context."
 function resolve end
 
-resolve(::EmptyBoundary, definition::DiskDefinition) = Disk(definition.r)
-resolve(::EmptyBoundary, definition::RectangleDefinition) =
-    Rectangle(definition.w, definition.h)
-resolve(::EmptyBoundary, definition::EllipseDefinition) =
-    Ellipse(definition.a, definition.b)
-resolve(::EmptyBoundary, definition::SectorDefinition) =
-    Sector(definition.ri, definition.ro, definition.φ0, definition.span)
-resolve(::EmptyBoundary, definition::AnnulusDefinition) =
-    Annulus(definition.ri, definition.ro)
-resolve(::EmptyBoundary, definition::PolygonDefinition) = Polygon(definition.points)
+resolve(::EmptyBoundary, primitive::AbstractPrimitive) = primitive
 
-function resolve(context::Disk, definition::ShellDefinition)
+function resolve(context::Disk, definition::Shell)
     values = map(float, promote(context.r, definition.t))
     inner, layer = values
     return Annulus(inner, inner + layer, context.at)
 end
 
-function resolve(context::Annulus, definition::ShellDefinition)
+function resolve(context::Annulus, definition::Shell)
     values = map(float, promote(context.ro, definition.t))
     inner, layer = values
     return Annulus(inner, inner + layer, context.at)
 end
 
-function resolve(context::Sector, definition::ShellDefinition)
+function resolve(context::Sector, definition::Shell)
     values = map(float, promote(context.ro, definition.t))
     inner, layer = values
     return Sector(
@@ -38,7 +29,7 @@ end
 
 function resolve(
         context::Union{Disk, Annulus},
-        definition::AnnulusDefinition
+        definition::Annulus
 )
     inner = r_ex(context)
     tolerance = sqrt(eps(float(inner))) * max(one(inner), inner)
@@ -51,7 +42,7 @@ end
 
 function resolve(
         context::Union{Disk, Annulus, Sector},
-        definition::SectorDefinition
+        definition::Sector
 )
     inner = r_ex(context)
     tolerance = sqrt(eps(float(inner))) * max(one(inner), inner)
@@ -67,9 +58,6 @@ function resolve(
         context.at
     )
 end
-
-resolve(at::Pose2, definition::AbstractPrimitiveDefinition) =
-    resolve(at, resolve(EmptyBoundary(), definition))
 
 "Compose `at` with the existing absolute primitive pose."
 resolve(at::Pose2, primitive::AbstractPrimitive) =

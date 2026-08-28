@@ -57,9 +57,9 @@ end
     insulation_thickness=measurement(0.01, 0.001)
     semicon_thickness=measurement(0.005, 0.0005)
 
-    core=Region(:core_metal, DiskDefinition(diameter/2), copper_props)
-    insulation=Region(:insulation, ShellDefinition(insulation_thickness), insulator_props)
-    semicon=Region(:semicon, ShellDefinition(semicon_thickness), semicon_props)
+    core=Region(:core_metal, Disk(diameter/2), copper_props)
+    insulation=Region(:insulation, Shell(insulation_thickness), insulator_props)
+    semicon=Region(:semicon, Shell(semicon_thickness), semicon_props)
     root=Stack(Group(:core, core), insulation, semicon)
     resolved=resolve(EmptyBoundary(), root)
     insulation_shape=resolved.regions[2].primitive

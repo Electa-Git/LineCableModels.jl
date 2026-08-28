@@ -4,6 +4,60 @@ function Region(tag, primitive, material; combine::Symbol = :product)
     )
 end
 
+# `DataModel.Region(::Symbol, primitive, material)` is deliberately permissive
+# for scalar declaration types, so explicit finite inputs need narrower methods
+# to reach the common construction boundary instead of that scalar constructor.
+const _FiniteRegionInput = Union{AbstractGrid, Gridspace}
+
+Region(tag::_FiniteRegionInput, primitive, material; combine::Symbol = :product) =
+    _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+Region(tag, primitive::_FiniteRegionInput, material; combine::Symbol = :product) =
+    _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+Region(tag, primitive, material::_FiniteRegionInput; combine::Symbol = :product) =
+    _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+Region(
+    tag::Symbol,
+    primitive::_FiniteRegionInput,
+    material;
+    combine::Symbol = :product
+) = _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+Region(
+    tag::Symbol,
+    primitive,
+    material::_FiniteRegionInput;
+    combine::Symbol = :product
+) = _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+Region(
+    tag::Symbol,
+    primitive::_FiniteRegionInput,
+    material::_FiniteRegionInput;
+    combine::Symbol = :product
+) = _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+Region(
+    tag::_FiniteRegionInput,
+    primitive::_FiniteRegionInput,
+    material;
+    combine::Symbol = :product
+) = _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+Region(
+    tag::_FiniteRegionInput,
+    primitive,
+    material::_FiniteRegionInput;
+    combine::Symbol = :product
+) = _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+Region(
+    tag,
+    primitive::_FiniteRegionInput,
+    material::_FiniteRegionInput;
+    combine::Symbol = :product
+) = _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+Region(
+    tag::_FiniteRegionInput,
+    primitive::_FiniteRegionInput,
+    material::_FiniteRegionInput;
+    combine::Symbol = :product
+) = _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+
 function Stack(items...; combine::Symbol = :product)
     isempty(items) && throw(ArgumentError("layers require at least one part"))
     return _construction(DataModel.Stack, DataModel.Stack, items; combine)
@@ -238,7 +292,7 @@ Declare one outward material layer of thickness `t` \\[m\\].
   varies.
 """
 shell(material; t, tag = :shell, combine::Symbol = :product) =
-    Region(tag, ShellDefinition(t), material; combine)
+    Region(tag, Shell(t), material; combine)
 
 """
 $(TYPEDSIGNATURES)
@@ -274,12 +328,12 @@ function core(material, primitive; tag = :core, combine::Symbol = :product)
 end
 
 core(material; r, tag = :core, combine::Symbol = :product) =
-    core(material, DiskDefinition(r); tag, combine)
+    core(material, Disk(r); tag, combine)
 
 function _role_shell(role::Symbol, allowed, material, t, tag)
     return DataModel.Region(
         tag,
-        DataModel.ShellDefinition(t),
+        DataModel.Shell(t),
         _require_material(material, role, allowed)
     )
 end

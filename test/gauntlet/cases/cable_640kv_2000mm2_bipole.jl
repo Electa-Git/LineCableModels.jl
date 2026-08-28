@@ -73,7 +73,7 @@ case_definition(
         LineCableModels.Group(
         :core,
         LineCableModels.Region(
-            :core_central, LineCableModels.DiskDefinition(p.core_strand_radius), copper
+            :core_central, LineCableModels.Disk(p.core_strand_radius), copper
         )
     )
     ]
@@ -90,7 +90,7 @@ case_definition(
                 :core,
                 LineCableModels.Region(
                     Symbol(:core_rectangular_strands_, layer),
-                    LineCableModels.SectorDefinition(radius, outer, -span / 2, span),
+                    LineCableModels.Sector(radius, outer, -span / 2, span),
                     copper
                 );
                 pattern = LineCableModels.Ring(count; r = zero(radius)),
@@ -106,7 +106,7 @@ case_definition(
         (:core_semicon_tape_outer, p.semicon_tape_thickness, polyacrylate)
     )
         push!(parts, LineCableModels.Region(
-            tag, LineCableModels.ShellDefinition(thickness), material
+            tag, LineCableModels.Shell(thickness), material
         ))
         radius += thickness
     end
@@ -117,7 +117,7 @@ case_definition(
             :sheath,
             LineCableModels.Region(
                 :sheath_lead_screen,
-                LineCableModels.AnnulusDefinition(radius, lead_outer),
+                LineCableModels.Annulus(radius, lead_outer),
                 lead
             )
         ))
@@ -125,7 +125,7 @@ case_definition(
     push!(parts,
         LineCableModels.Region(
             :sheath_inner,
-            LineCableModels.ShellDefinition(p.inner_sheath_thickness),
+            LineCableModels.Shell(p.inner_sheath_thickness),
             pe
         ))
     radius += p.inner_sheath_thickness
@@ -136,14 +136,14 @@ case_definition(
             :jacket,
             LineCableModels.Region(
                 :jacket_aluminum_tape,
-                LineCableModels.AnnulusDefinition(radius, aluminum_outer),
+                LineCableModels.Annulus(radius, aluminum_outer),
                 aluminum
             )
         ))
     push!(parts,
         LineCableModels.Region(
             :jacket_insulation,
-            LineCableModels.ShellDefinition(p.jacket_thickness),
+            LineCableModels.Shell(p.jacket_thickness),
             pe
         ))
     design = LineCableModels.build(

@@ -58,12 +58,9 @@ end
 
     defaults=MaterialsLibrary()
     @test all(name -> haskey(defaults, name), ("air", "copper", "xlpe", "steel"))
-    table=DataFrame(defaults)
-    @test nrow(table) == length(defaults)
-    @test Set(names(table)) == Set([
-        "name", "kind", "rho", "eps_r", "mu_r", "T0", "alpha",
-        "rho_thermal", "theta_max", "tan_delta", "sigma_solar"
-    ])
+    shown=sprint(show, MIME("text/plain"), defaults)
+    @test contains(shown, "copper")
+    @test contains(shown, "$(length(defaults)) materials")
     @test occursin("rho=", sprint(show, MIME("text/plain"), defaults["copper"]))
 end
 

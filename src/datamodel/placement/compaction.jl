@@ -90,7 +90,7 @@ function _fillfactor_placements(
         inner_radius^2 + 2count * member_area / (pattern.span * factor.η)
     )
     span = factor.η * pattern.span / count
-    section = SectorDefinition(
+    section = Sector(
         inner_radius,
         outer_radius,
         -span / 2,
@@ -108,7 +108,7 @@ end
 
 function placements(
         pattern::Ring,
-        item::DiskDefinition,
+        item::Disk,
         factor::FillFactor
 )
     pattern.n isa Int || throw(ArgumentError(
@@ -132,7 +132,7 @@ end
 
 function placements(
         pattern::Ring,
-        item::RectangleDefinition,
+        item::Rectangle,
         factor::FillFactor
 )
     pattern.n isa Int || throw(ArgumentError(
@@ -173,8 +173,8 @@ function _fillfactor_capacity(
     return max(0, floor(Int, count + 8eps(float(count))))
 end
 
-capacity(pattern::Ring, item::DiskDefinition, factor::FillFactor) =
+capacity(pattern::Ring, item::Disk, factor::FillFactor) =
     _fillfactor_capacity(pattern, pi * item.r^2, item.r, factor)
 
-capacity(pattern::Ring, item::RectangleDefinition, factor::FillFactor) =
+capacity(pattern::Ring, item::Rectangle, factor::FillFactor) =
     _fillfactor_capacity(pattern, item.w * item.h, item.h / 2, factor)

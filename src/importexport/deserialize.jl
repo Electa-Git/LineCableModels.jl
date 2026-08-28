@@ -117,34 +117,44 @@ function deserialize_value(value)
 end
 
 _decode_node(::Val{:disk}, value) =
-    _decoded_target(DiskDefinition, DiskDefinition, (_field(value, "r"),))
+    _decoded_target(Disk, Disk, (_field(value, "r"),))
 _decode_node(::Val{:rectangle}, value) = _decoded_target(
-    RectangleDefinition,
-    RectangleDefinition,
+    Rectangle,
+    Rectangle,
     (_field(value, "w"), _field(value, "h"))
 )
 _decode_node(::Val{:ellipse}, value) = _decoded_target(
-    EllipseDefinition,
-    EllipseDefinition,
+    Ellipse,
+    Ellipse,
     (_field(value, "a"), _field(value, "b"))
 )
 _decode_node(::Val{:sector}, value) = _decoded_target(
-    SectorDefinition,
-    SectorDefinition,
+    Sector,
+    Sector,
     (
         _field(value, "ri"), _field(value, "ro"),
         _field(value, "φ0"), _field(value, "span")
     )
 )
 _decode_node(::Val{:annulus}, value) = _decoded_target(
-    AnnulusDefinition,
-    AnnulusDefinition,
+    Annulus,
+    Annulus,
     (_field(value, "ri"), _field(value, "ro"))
 )
 _decode_node(::Val{:shell}, value) =
-    _decoded_target(ShellDefinition, ShellDefinition, (_field(value, "t"),))
+    _decoded_target(Shell, Shell, (_field(value, "t"),))
 _decode_node(::Val{:polygon}, value) =
-    _decoded_target(PolygonDefinition, PolygonDefinition, (_field(value, "points"),))
+    _decoded_target(Polygon, Polygon, (_field(value, "points"),))
+_decode_node(::Val{:rounded_sector}, value) = _decoded_target(
+    RoundedSector,
+    RoundedSector,
+    (
+        _field(value, "span"),
+        _field(value, "r_base"),
+        _field(value, "r_back"),
+        _field(value, "fillet")
+    )
+)
 _decode_node(::Val{:pose2}, value) = _decoded_target(
     Pose2,
     Pose2,

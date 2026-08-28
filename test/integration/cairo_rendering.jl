@@ -183,13 +183,35 @@
         @test rlcg[1].context.status !== rlcg[2].context.status
         matrix_pairs=((1, 1), (1, 2), (2, 1), (2, 2))
         @test legend_labels(first(rlcg).context.legend) ==
-              ["L[$row,$column]" for (row, column) in matrix_pairs]
+              vcat(
+            ["R[$row,$column]" for (row, column) in matrix_pairs],
+            ["L[$row,$column]" for (row, column) in matrix_pairs]
+        )
         @test legend_labels(last(rlcg).context.legend) ==
-              ["C[$row,$column]" for (row, column) in matrix_pairs]
+              vcat(
+            ["G[$row,$column]" for (row, column) in matrix_pairs],
+            ["C[$row,$column]" for (row, column) in matrix_pairs]
+        )
         @test legend_labels(first(cartesian).context.legend) ==
-              ["X[$row,$column]" for (row, column) in matrix_pairs]
+              vcat(
+            ["R[$row,$column]" for (row, column) in matrix_pairs],
+            ["X[$row,$column]" for (row, column) in matrix_pairs]
+        )
+        @test legend_labels(last(cartesian).context.legend) ==
+              vcat(
+            ["G[$row,$column]" for (row, column) in matrix_pairs],
+            ["B[$row,$column]" for (row, column) in matrix_pairs]
+        )
         @test legend_labels(first(polar).context.legend) ==
-              ["∠Z[$row,$column]" for (row, column) in matrix_pairs]
+              vcat(
+            ["|Z|[$row,$column]" for (row, column) in matrix_pairs],
+            ["∠Z[$row,$column]" for (row, column) in matrix_pairs]
+        )
+        @test legend_labels(last(polar).context.legend) ==
+              vcat(
+            ["|Y|[$row,$column]" for (row, column) in matrix_pairs],
+            ["∠Y[$row,$column]" for (row, column) in matrix_pairs]
+        )
         first_handle=first(rlcg)
         @test fieldnames(typeof(first_handle)) == (:render, :page, :context)
         @test fieldnames(typeof(first_handle.context)) == (

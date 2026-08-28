@@ -6,15 +6,15 @@
         kind = :insulator, rho = 1.0e14, eps_r = 2.3
     )
 
-    core=DM.Region(:core, DM.DiskDefinition(0.01), copper_props)
-    insulation=DM.Region(:insulation, DM.ShellDefinition(0.005), insulator_props)
+    core=DM.Region(:core, DM.Disk(0.01), copper_props)
+    insulation=DM.Region(:insulation, DM.Shell(0.005), insulator_props)
     @test core isa DM.AbstractCablePart
     @test core.tag === :core
     @test core.material === copper_props
     @test (@inferred DM.resolve(DM.EmptyBoundary(), core)).regions[1].primitive ==
           DM.Disk(0.01)
-    @test_throws ArgumentError DM.Region(Symbol(""), DM.DiskDefinition(1), copper_props)
-    @test_throws ArgumentError DM.Region(:bad, DM.DiskDefinition(1), :copper)
+    @test_throws ArgumentError DM.Region(Symbol(""), DM.Disk(1), copper_props)
+    @test_throws ArgumentError DM.Region(:bad, DM.Disk(1), :copper)
 
     stack=PB.Stack(core, insulation)
     @test stack.items == DM.AbstractCablePart[core, insulation]
@@ -31,7 +31,7 @@
     @test DM.boundary(nested_resolved) == DM.Disk(0.015)
 
     radii=PB.Grid((0.01, 0.02))
-    cores=PB.Region(:core, PB.DiskDefinition(radii), copper_props)
+    cores=PB.Region(:core, PB.Disk(radii), copper_props)
     spaces=PB.Stack(cores, insulation)
     @test spaces isa PB.Gridspace{DM.Stack}
     @test length(spaces) == 2
@@ -42,7 +42,7 @@ end
 @testitem "DataModel / v1 physical tree / primitive extension is local dispatch" tags=[:unit] begin
     import LineCableModels.DataModel as DM
 
-    struct CapsuleDefinition{T <: Real} <: DM.AbstractPrimitiveDefinition{T}
+    struct CapsuleDefinition{T <: Real} <: DM.AbstractPrimitive{T}
         radius::T
     end
     struct Capsule{T <: Real} <: DM.AbstractPrimitive{T}
@@ -77,8 +77,8 @@ end
 
 @testitem "DataModel / v1 physical tree / circular and rectangular strands" tags=[:unit] begin
     copper=Material(kind = :conductor, rho = 1.7241e-8)
-    disk=DiskDefinition(0.5e-3)
-    rectangle=RectangleDefinition(0.35e-3, 0.8e-3)
+    disk=Disk(0.5e-3)
+    rectangle=Rectangle(0.35e-3, 0.8e-3)
 
     circular=strand(
         copper;
@@ -157,7 +157,7 @@ end
             :core,
             strand(
                 copper;
-                wire = RectangleDefinition(10e-3, 1e-3),
+                wire = Rectangle(10e-3, 1e-3),
                 layers = 1,
                 n = (6,)
             )
@@ -171,7 +171,7 @@ end
     )
     elliptical=strand(
         copper;
-        wire = EllipseDefinition(0.5e-3, 0.25e-3),
+        wire = Ellipse(0.5e-3, 0.25e-3),
         layers = 1,
         n = 6
     )
@@ -193,7 +193,7 @@ end
     pipe=LineCableModels.Enclosure(
         :pipe,
         core;
-        primitive = LineCableModels.DiskDefinition(3.0),
+        primitive = LineCableModels.Disk(3.0),
         fill = oil,
         wall
     )
@@ -214,13 +214,13 @@ end
 
     fill=LineCableModels.filler(
         oil,
-        LineCableModels.AnnulusDefinition(1.0, 3.0);
+        LineCableModels.Annulus(1.0, 3.0);
         tag = :fill
     )
     explicit=LineCableModels.Enclosure(
         :duct,
         core;
-        primitive = LineCableModels.DiskDefinition(3.0),
+        primitive = LineCableModels.Disk(3.0),
         fill
     )
     @test getproperty.(
@@ -237,7 +237,7 @@ end
     nested=LineCableModels.Enclosure(
         :outer,
         pipe;
-        primitive = LineCableModels.DiskDefinition(5.0),
+        primitive = LineCableModels.Disk(5.0),
         fill = oil
     )
     @test DM.support(DM.boundary(DM.resolve(DM.EmptyBoundary(), nested))) == 5.0
@@ -246,7 +246,7 @@ end
 @testitem "DataModel / v1 physical tree / placement, Group, and Assembly" tags=[:unit] begin
     const DM=LineCableModels.DataModel
     copper=LineCableModels.Material(kind = :conductor, rho = 1.7241e-8)
-    wire=LineCableModels.Region(:wire, LineCableModels.DiskDefinition(0.5), copper)
+    wire=LineCableModels.Region(:wire, LineCableModels.Disk(0.5), copper)
 
     ring=LineCableModels.Ring(6; r = 2.0, φ0 = π / 6)
     poses=LineCableModels.placements(ring, wire.primitive, nothing)
@@ -325,8 +325,8 @@ end
     conductor=Material(kind = :conductor, rho = 1.7241e-8)
     dielectric=Material(kind = :insulator, rho = 1.0e14, eps_r = 2.3)
     root=Stack(
-        Group(:phase, Region(:core, DiskDefinition(0.01), conductor)),
-        Region(:insulation, ShellDefinition(0.003), dielectric)
+        Group(:phase, Region(:core, Disk(0.01), conductor)),
+        Region(:insulation, Shell(0.003), dielectric)
     )
     make_design() = build(CableDesign, "allocation-baseline", root)
     design=make_design()

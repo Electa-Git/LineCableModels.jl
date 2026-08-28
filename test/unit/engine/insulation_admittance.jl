@@ -97,18 +97,18 @@ end
             CableDesign,
             "parallel-rc-test",
             Stack(AbstractCablePart[
-                Group(:core, Region(:core_conductor, AnnulusDefinition(0.0, core_outer), copper)),
-                Region(:insulation_1, AnnulusDefinition(core_outer, first_outer), dielectric_1),
-                Region(:insulation_2, AnnulusDefinition(first_outer, insulation_outer), dielectric_2),
+                Group(:core, Region(:core_conductor, Annulus(0.0, core_outer), copper)),
+                Region(:insulation_1, Annulus(core_outer, first_outer), dielectric_1),
+                Region(:insulation_2, Annulus(first_outer, insulation_outer), dielectric_2),
                 Group(:sheath,
                     Region(
                         :sheath_conductor,
-                        AnnulusDefinition(insulation_outer, sheath_outer),
+                        Annulus(insulation_outer, sheath_outer),
                         copper
                     )),
                 Region(
                     :outer_dielectric,
-                    AnnulusDefinition(sheath_outer, jacket_outer),
+                    Annulus(sheath_outer, jacket_outer),
                     outer_dielectric
                 )
             ])
@@ -250,21 +250,21 @@ end
             CableDesign,
             "parallel-rc-mc",
             Stack(AbstractCablePart[
-                Group(:core, Region(:core_conductor, AnnulusDefinition(0.0, core_outer), copper)),
+                Group(:core, Region(:core_conductor, Annulus(0.0, core_outer), copper)),
                 Region(
                     :core_insulation,
-                    AnnulusDefinition(core_outer, insulation_outer),
+                    Annulus(core_outer, insulation_outer),
                     resolved_dielectric
                 ),
                 Group(:sheath,
                     Region(
                         :sheath_conductor,
-                        AnnulusDefinition(insulation_outer, sheath_outer),
+                        Annulus(insulation_outer, sheath_outer),
                         copper
                     )),
                 Region(
                     :outer_insulation,
-                    AnnulusDefinition(sheath_outer, jacket_outer),
+                    Annulus(sheath_outer, jacket_outer),
                     outer_dielectric
                 )
             ])

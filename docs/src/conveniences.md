@@ -27,7 +27,7 @@ Declare one fixed wire course with `wires`:
 ```julia
 screen_wires = wires(
     copper;
-    wire=DiskDefinition(0.5e-3),
+    wire=Disk(0.5e-3),
     n=40,
     r=20e-3,
     gap_frac=0.02,
@@ -42,7 +42,7 @@ course schedule.
 ```julia
 stranded = strand(
     copper;
-    wire=RectangleDefinition(0.35e-3, 0.8e-3),
+    wire=Rectangle(0.35e-3, 0.8e-3),
     layers=3,
     n=(6, 11, 17),
     lay=(LayRatio(13), Pitch(0.15), LayAngle(0.2)),
@@ -59,7 +59,7 @@ operations while resolving its course radius from the preceding boundary.
 ```julia
 automatic = @distribute wires(
     copper;
-    wire=DiskDefinition(0.5e-3),
+    wire=Disk(0.5e-3),
     r=20e-3,
     gap_frac=0.03,
 )
@@ -72,7 +72,7 @@ One tape function covers conductive, semiconductive, and insulating systems:
 ```julia
 insulating_tapes = @distribute tape(
     tape_insulation;
-    section=SectorDefinition(8e-3, 8.5e-3, -0.08, 0.16),
+    section=Sector(8e-3, 8.5e-3, -0.08, 0.16),
     gap_frac=0.02,
     lay=LayRatio(10),
 )
@@ -85,7 +85,7 @@ under an explicit terminal scope:
 screen_tape = @terminal :screen begin
     tape(
         copper;
-        section=SectorDefinition(8e-3, 8.5e-3, -pi / 4, pi / 2),
+        section=Sector(8e-3, 8.5e-3, -pi / 4, pi / 2),
         n=4,
         lay=LayRatio(12),
     )
@@ -104,7 +104,7 @@ cells = @assembly begin
     @at cell_b ( 12e-3, 2e-3) φ=0.1
 end
 
-bank = @duct shape=RectangleDefinition(40e-3, 24e-3) fill=concrete begin
+bank = @duct shape=Rectangle(40e-3, 24e-3) fill=concrete begin
     cells
 end
 ```
@@ -115,7 +115,7 @@ Homogeneous repeated ducts use a pattern and retain one prototype:
 bank = duct(
     cell;
     formation=Lattice(nx=3, ny=2, dx=12e-3, dy=12e-3),
-    shape=RectangleDefinition(44e-3, 30e-3),
+    shape=Rectangle(44e-3, 30e-3),
     fill=concrete,
 )
 ```

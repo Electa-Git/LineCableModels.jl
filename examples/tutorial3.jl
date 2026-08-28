@@ -26,6 +26,7 @@ HVDC cables are constructed around a central conductor enclosed by a triple-extr
 
 # Load the public modeling API and the packages used for presentation:
 using LineCableModels
+import LineCableModels: flatten
 import CairoMakie
 using DataFrames
 using LinearAlgebra: diag
@@ -36,7 +37,7 @@ set_backend!(:cairo); #hide
 materials = MaterialsLibrary(add_defaults = true)
 
 # Inspect the contents of the materials library:
-materials_df = DataFrame(materials)
+materials_summary = materials
 
 #=
 ## Cable dimensions
@@ -76,7 +77,8 @@ layer_diameters = d_core .+ 2 .* cumsum(radial_increments) #hide
 df = DataFrame( #hide
     layer = layer_names, #hide
     thickness = [ #hide
-                 ismissing(t) ? "-" : round(1000t, sigdigits = 2) for t in layer_thicknesses #hide
+                 ismissing(t) ? "-" : round(1000t, sigdigits = 2)
+                 for t in layer_thicknesses #hide
                  ], #hide
     diameter = round.(1000 .* layer_diameters, digits = 2) #hide
 ) #hide
@@ -102,7 +104,7 @@ steel = Material(materials, :steel)
 # State the actual population and lay of every noncentral conductor course:
 stranded_core = strand(
     copper;
-    wire = DiskDefinition(d_w / 2),
+    wire = Disk(d_w / 2),
     layers = 6,
     n = (6, 12, 18, 24, 30, 36),
     lay = LayRatio.((11.0, 11.0, 11.0, 11.0, 11.0, 11.0))
@@ -169,7 +171,7 @@ cable_design = @cable cable_id begin
     @terminal :armor begin
         armor(
             steel;
-            wire = DiskDefinition(d_wa / 2),
+            wire = Disk(d_wa / 2),
             n = num_ar_wires,
             lay = LayRatio(10),
             tag = :armor_wire
@@ -211,11 +213,11 @@ constants_table = DataFrame(constants)
 
 # Request the homogeneous design explicitly when an equivalent
 # cable, rather than a solver input, is the desired result:
-equivalent_design = equivalent(cable_design; new_id = cable_id * "_equivalent")
-equivalent_regions = DataFrame(equivalent_design)
+equivalent_design = flatten(cable_design; new_id = cable_id * "_equivalent")
+equivalent_summary = equivalent_design
 
-# Inspect the completed physical regions:
-regions_df = DataFrame(cable_design)
+# Inspect the completed physical design through its bounded Base display:
+design_summary = cable_design
 
 #=
 ## Saving the cable design
@@ -227,7 +229,7 @@ library = CablesLibrary()
 library_file = fullfile("cables_library.json")
 isfile(library_file) && load!(library, file_name = library_file)
 add!(library, cable_design)
-library_df = DataFrame(library)
+library_summary = library
 
 # Save to file for later use:
 save(library, file_name = library_file);
@@ -259,8 +261,10 @@ earth = Earth(rho = 100.0, eps_r = 10.0, mu_r = 1.0)
 =#
 
 # Place the two poles and state their terminal assignments at the same surface:
-positive_pole = @at loaded_design (-0.5, -1.0) connections = (core = 1, sheath = 0, armor = 0)
-negative_pole = @at loaded_design (0.5, -1.0) connections = (core = 2, sheath = 0, armor = 0)
+positive_pole = @at loaded_design (-0.5, -1.0) connections = (
+    core = 1, sheath = 0, armor = 0)
+negative_pole = @at loaded_design (0.5, -1.0) connections = (
+    core = 2, sheath = 0, armor = 0)
 placements = [positive_pole, negative_pole]
 cable_system = build(
     LineCableSystem,
@@ -279,8 +283,8 @@ problem = LineParametersProblem(
 )
 earth_params = problem.earth_props
 
-# Inspect the frequency-dependent earth model produced for this problem:
-earthmodel_df = DataFrame(earth_params)
+# Inspect the static earth declaration attached to the problem:
+earth_summary = earth_params
 
 #=
 ### Cable system preview
@@ -289,7 +293,7 @@ In this section the complete bipole cable system is examined.
 =#
 
 # Display system details:
-system_df = DataFrame(cable_system)
+system_summary = cable_system
 
 # Visualize the cross-section of the three-phase system:
 plt2 = preview(

@@ -15,9 +15,9 @@
     explicit = Group(
         :phase,
         layers(
-            Region(:core, DiskDefinition(5e-3), copper),
-            Region(:screen, ShellDefinition(0.5e-3), semicon),
-            Region(:insulation, ShellDefinition(3e-3), xlpe)
+            Region(:core, Disk(5e-3), copper),
+            Region(:screen, Shell(0.5e-3), semicon),
+            Region(:insulation, Shell(3e-3), xlpe)
         )
     )
     @test phase == explicit
@@ -42,7 +42,7 @@
 
     insulating_tapes = tape(
         xlpe;
-        section = SectorDefinition(8.5e-3, 9e-3, -0.08, 0.16),
+        section = Sector(8.5e-3, 9e-3, -0.08, 0.16),
         n = 12,
         lay = LayRatio(10)
     )
@@ -55,7 +55,7 @@
 
     distributed_tapes = @distribute tape(
         xlpe;
-        section = SectorDefinition(8.5e-3, 9e-3, -0.08, 0.16),
+        section = Sector(8.5e-3, 9e-3, -0.08, 0.16),
         gap_frac = 0.02,
         lay = LayRatio(10)
     )
@@ -72,7 +72,7 @@
     )
     @test length(tape_regions) == capacity(
         Ring(capacity(); r = 0, gap_frac = 0.02),
-        SectorDefinition(8.5e-3, 9e-3, -0.08, 0.16),
+        Sector(8.5e-3, 9e-3, -0.08, 0.16),
         nothing
     )
     @test all(region -> length(region.paths) == 1, tape_regions)
@@ -86,12 +86,12 @@
 
     sector_a = terminal(
         :a,
-        core(copper, SectorDefinition(0, 3e-3, -pi / 6, pi / 3)),
+        core(copper, Sector(0, 3e-3, -pi / 6, pi / 3)),
         insulation(xlpe; t = 0.5e-3)
     )
     sector_b = terminal(
         :b,
-        core(copper, SectorDefinition(0, 2.5e-3, -pi / 8, pi / 4)),
+        core(copper, Sector(0, 2.5e-3, -pi / 8, pi / 4)),
         insulation(xlpe; t = 0.4e-3)
     )
     explicit_assembly = assembly(
@@ -127,9 +127,9 @@ end
         :pipe, :duct, :at, :trefoil, :hflat, :vflat, :capacity,
         :solid, :shell, :wires, :layers, :assembly,
         :Region, :Stack, :Group, :Assembly, :Enclosure, :Pose2,
-        :DiskDefinition, :RectangleDefinition, :EllipseDefinition,
-        :SectorDefinition, :AnnulusDefinition, :ShellDefinition,
-        :PolygonDefinition, :Ring, :Polar, :Fill, :Lattice,
+        :Disk, :Rectangle, :Ellipse,
+        :Sector, :Annulus, :Shell,
+        :Polygon, :Ring, :Polar, :Fill, :Lattice,
         :Helix, :LayRatio, :Pitch, :LayAngle, :FillFactor,
         :DiameterFactor, :TabulatedCompaction, :AffineCompaction,
         Symbol("@cable"), Symbol("@terminal"), Symbol("@assembly"),
@@ -148,7 +148,7 @@ end
     )
     @test all(name -> !(name in public_names), forbidden)
     @test LineCableModels.build === DM.build === PB.build
-    @test all(name -> !(name in public_names),
+    @test all(name -> name in public_names,
         (:Disk, :Rectangle, :Ellipse, :Sector, :Annulus, :Polygon))
 
     expansions = (
@@ -235,7 +235,7 @@ end
         once(:assembly_first, placed_member)
         once(:assembly_second, at(member, 2e-3, 0.0))
     end
-    @duct shape=once(:duct_shape, DiskDefinition(5e-3)) fill=once(:duct_fill, air) begin
+    @duct shape=once(:duct_shape, Disk(5e-3)) fill=once(:duct_fill, air) begin
         once(:duct_member, placed_member)
     end
     @at once(:at_subject, design) (
@@ -254,7 +254,7 @@ end
 
     @distribute wires(
         once(:wire_material, copper);
-        wire = once(:wire_definition, DiskDefinition(0.2e-3)),
+        wire = once(:wire_definition, Disk(0.2e-3)),
         r = once(:wire_radius, 2e-3)
     )
 
@@ -273,21 +273,21 @@ end
 
     cell_a = duct(
         terminal(:a, core(copper; r = 1e-3), insulation(xlpe; t = 0.5e-3));
-        shape = DiskDefinition(4e-3),
+        shape = Disk(4e-3),
         fill = air
     )
     cell_b = duct(
         terminal(:b, core(copper; r = 1.2e-3), insulation(xlpe; t = 0.4e-3));
-        shape = DiskDefinition(4e-3),
+        shape = Disk(4e-3),
         fill = air
     )
     asymmetric = duct(
         at(cell_a, -6e-3, 0),
         at(cell_b, 6e-3, 1e-3; φ = 0.2);
-        shape = RectangleDefinition(20e-3, 12e-3),
+        shape = Rectangle(20e-3, 12e-3),
         fill = concrete
     )
-    notated = @duct shape=RectangleDefinition(20e-3, 12e-3) fill=concrete begin
+    notated = @duct shape=Rectangle(20e-3, 12e-3) fill=concrete begin
         @at cell_a (-6e-3, 0)
         @at cell_b (6e-3, 1e-3, 0.2)
     end
@@ -300,7 +300,7 @@ end
     repeated = duct(
         cell_a;
         formation = Lattice(nx = 2, ny = 1, dx = 12e-3, dy = 0),
-        shape = RectangleDefinition(24e-3, 12e-3),
+        shape = Rectangle(24e-3, 12e-3),
         fill = concrete
     )
     @test repeated.item isa Assembly
@@ -340,7 +340,7 @@ end
 
     round = strand(
         copper;
-        wire = DiskDefinition(0.5e-3),
+        wire = Disk(0.5e-3),
         layers = 2,
         n = 6,
         lay = (LayRatio(12), Pitch(0.2)),
@@ -359,7 +359,7 @@ end
 
     exact = strand(
         copper;
-        wire = RectangleDefinition(0.6e-3, 0.8e-3),
+        wire = Rectangle(0.6e-3, 0.8e-3),
         layers = 2,
         n = (5, 11),
         lay = nothing
@@ -380,7 +380,7 @@ end
 
     compacted = strand(
         copper;
-        wire = DiskDefinition(0.5e-3),
+        wire = Disk(0.5e-3),
         layers = 1,
         n = 6,
         compact = FillFactor(0.9),
@@ -408,7 +408,7 @@ end
 
     mixed = strand(
         copper;
-        wire = DiskDefinition(0.5e-3),
+        wire = Disk(0.5e-3),
         layers = 2,
         n = (6, capacity()),
         compact = (nothing, FillFactor(0.9))
@@ -422,23 +422,23 @@ end
 
     direct_capacity = capacity(Ring, 10e-3, 0.5e-3; gap_frac = 0.03)
     pattern = Ring(capacity(); r = 10e-3, gap_frac = 0.03)
-    @test capacity(pattern, DiskDefinition(0.5e-3), nothing) == direct_capacity
+    @test capacity(pattern, Disk(0.5e-3), nothing) == direct_capacity
     distributed = @distribute wires(
         copper;
-        wire = DiskDefinition(0.5e-3),
+        wire = Disk(0.5e-3),
         r = 10e-3,
         gap_frac = 0.03
     )
     @test distributed.pattern.n == capacity()
     @test_throws ArgumentError macroexpand(
         @__MODULE__,
-        :(@distribute wires(copper; wire = DiskDefinition(1e-3), n = 6, r = 2e-3))
+        :(@distribute wires(copper; wire = Disk(1e-3), n = 6, r = 2e-3))
     )
 
     fill_pattern = Fill(r = 2.6e-3, φ = pi / 6)
-    filled_poses = placements(fill_pattern, DiskDefinition(0.5e-3), nothing)
+    filled_poses = placements(fill_pattern, Disk(0.5e-3), nothing)
     @test length(filled_poses) == 19
-    @test capacity(fill_pattern, DiskDefinition(0.5e-3), nothing) == 19
+    @test capacity(fill_pattern, Disk(0.5e-3), nothing) == 19
     @test first(filled_poses) == Pose2(0, 0, 0)
     @test maximum(pose -> hypot(pose.x, pose.y), filled_poses) + 0.5e-3 <=
           fill_pattern.r + eps(fill_pattern.r)
@@ -480,13 +480,13 @@ end
 
     @test_throws DimensionMismatch strand(
         copper;
-        wire = DiskDefinition(0.5e-3),
+        wire = Disk(0.5e-3),
         layers = 2,
         lay = (LayRatio(10),)
     )
     @test_throws MethodError DM.placements(
         Ring(6; r = 2e-3),
-        DiskDefinition(0.5e-3),
+        Disk(0.5e-3),
         DiameterFactor(0.9)
     )
 end
@@ -584,7 +584,7 @@ end
     ))
     strands = strand(
         copper;
-        wire = DiskDefinition(0.5e-3),
+        wire = Disk(0.5e-3),
         layers = 2,
         n = (6, 12),
         lay = schedules
@@ -593,7 +593,7 @@ end
     @test length(strands) == 2
     @test strand(
         copper;
-        wire = DiskDefinition(0.5e-3),
+        wire = Disk(0.5e-3),
         layers = 2,
         n = (6, 12),
         lay = (LayRatio(10), LayRatio(11))
@@ -646,7 +646,7 @@ end
 
     @test (@distribute strand(
         copper;
-        wire = DiskDefinition(0.5e-3),
+        wire = Disk(0.5e-3),
         layers = 1
     )).items[2].pattern.n == capacity()
     @test (@distribute rope(
@@ -656,7 +656,7 @@ end
 
     distributed_space = @distribute wires(
         copper;
-        wire = DiskDefinition(Grid((0.25e-3, 0.5e-3))),
+        wire = Disk(Grid((0.25e-3, 0.5e-3))),
         r = 3e-3
     )
     @test distributed_space isa Gridspace{Group}

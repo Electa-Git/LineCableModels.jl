@@ -8,74 +8,90 @@ function Pose2(;
     return _construction(DataModel.Pose2, DataModel.Pose2, (x, y, φ); combine)
 end
 
-"Declare a circular primitive, or a finite space of circular definitions."
-function DiskDefinition(r; combine::Symbol = :product)
+"Declare a circular primitive, or a finite space of circular primitives."
+function Disk(r; combine::Symbol = :product)
     return _construction(
-        DataModel.DiskDefinition,
-        DataModel.DiskDefinition,
+        DataModel.Disk,
+        DataModel.Disk,
         (r,);
         combine
     )
 end
 
-"Declare a rectangular primitive, or a finite space of rectangle definitions."
-function RectangleDefinition(w, h; combine::Symbol = :product)
+"Declare a rectangular primitive, or a finite space of rectangular primitives."
+function Rectangle(w, h; combine::Symbol = :product)
     return _construction(
-        DataModel.RectangleDefinition,
-        DataModel.RectangleDefinition,
+        DataModel.Rectangle,
+        DataModel.Rectangle,
         (w, h);
         combine
     )
 end
 
-"Declare an elliptical primitive, or a finite space of ellipse definitions."
-function EllipseDefinition(a, b; combine::Symbol = :product)
+"Declare an elliptical primitive, or a finite space of elliptical primitives."
+function Ellipse(a, b; combine::Symbol = :product)
     return _construction(
-        DataModel.EllipseDefinition,
-        DataModel.EllipseDefinition,
+        DataModel.Ellipse,
+        DataModel.Ellipse,
         (a, b);
         combine
     )
 end
 
-"Declare a sector primitive, or a finite space of sector definitions."
-function SectorDefinition(ri, ro, φ0, span; combine::Symbol = :product)
+"Declare a sector primitive, or a finite space of sector primitives."
+function Sector(ri, ro, φ0, span; combine::Symbol = :product)
     return _construction(
-        DataModel.SectorDefinition,
-        DataModel.SectorDefinition,
+        DataModel.Sector,
+        DataModel.Sector,
         (ri, ro, φ0, span);
         combine
     )
 end
 
-"Declare an annular primitive, or a finite space of annulus definitions."
-function AnnulusDefinition(ri, ro; combine::Symbol = :product)
+"Declare an annular primitive, or a finite space of annular primitives."
+function Annulus(ri, ro; combine::Symbol = :product)
     return _construction(
-        DataModel.AnnulusDefinition,
-        DataModel.AnnulusDefinition,
+        DataModel.Annulus,
+        DataModel.Annulus,
         (ri, ro);
         combine
     )
 end
 
-"Declare a contextual shell, or a finite space of shell definitions."
-function ShellDefinition(t; combine::Symbol = :product)
+"Declare a contextual shell, or a finite space of contextual shells."
+function Shell(t; combine::Symbol = :product)
     return _construction(
-        DataModel.ShellDefinition,
-        DataModel.ShellDefinition,
+        DataModel.Shell,
+        DataModel.Shell,
         (t,);
         combine
     )
 end
 
-"Declare a polygon primitive, or a finite space of polygon definitions."
-function PolygonDefinition(
+"Declare a rounded cable-sector primitive, or a finite space of such primitives."
+function RoundedSector(;
+        span,
+        r_base,
+        r_back,
+        fillet = 0,
+        combine::Symbol = :product
+)
+    return _construction(
+        DataModel.RoundedSector,
+        DataModel.RoundedSector,
+        (span, r_base, r_back, fillet);
+        combine
+    )
+end
+
+"Declare a polygon primitive, or a finite space of polygon primitives."
+function Polygon(
         points::Union{AbstractGrid, Gridspace};
         combine::Symbol = :product
 )
     return _construction(
-        DataModel.PolygonDefinition,
-        DataModel.PolygonDefinition,
+        DataModel.Polygon,
+        DataModel.Polygon,
         (points,);
         combine
     )

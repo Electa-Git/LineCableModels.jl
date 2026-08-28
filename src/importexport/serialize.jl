@@ -62,19 +62,28 @@ _serialize_object(value::Material) = Dict(
     "value" => _material_record(value)
 )
 
-_serialize_object(value::DiskDefinition) = _node("disk"; r = value.r)
-_serialize_object(value::RectangleDefinition) =
+_serialize_object(value::Disk) = _node("disk"; r = value.r)
+_serialize_object(value::Rectangle) =
     _node("rectangle"; w = value.w, h = value.h)
-_serialize_object(value::EllipseDefinition) =
+_serialize_object(value::Ellipse) =
     _node("ellipse"; a = value.a, b = value.b)
-function _serialize_object(value::SectorDefinition)
+function _serialize_object(value::Sector)
     return _node("sector"; ri = value.ri, ro = value.ro, φ0 = value.φ0,
         span = value.span)
 end
-_serialize_object(value::AnnulusDefinition) =
+_serialize_object(value::Annulus) =
     _node("annulus"; ri = value.ri, ro = value.ro)
-_serialize_object(value::ShellDefinition) = _node("shell"; t = value.t)
-_serialize_object(value::PolygonDefinition) = _node("polygon"; points = value.points)
+_serialize_object(value::Shell) = _node("shell"; t = value.t)
+_serialize_object(value::Polygon) = _node("polygon"; points = value.points)
+function _serialize_object(value::RoundedSector)
+    return _node(
+        "rounded_sector";
+        span = value.span,
+        r_base = value.r_base,
+        r_back = value.r_back,
+        fillet = value.fillet
+    )
+end
 _serialize_object(value::Pose2) = _node("pose2"; x = value.x, y = value.y, φ = value.φ)
 
 function _serialize_object(value::EarthLayer)

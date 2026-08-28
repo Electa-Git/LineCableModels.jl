@@ -22,7 +22,6 @@ Depth = 2:3
 
 # Load the public modeling and library-management API:
 using LineCableModels: Material, MaterialsLibrary, add!, load!, save
-using DataFrames
 fullfile(filename) = joinpath(@__DIR__, filename); #hide
 
 #=
@@ -35,10 +34,11 @@ materials with their standard properties.
 materials = MaterialsLibrary()
 
 # Inspect the contents of the materials library:
-materials_df = DataFrame(materials)
+materials_summary = materials
 
 #=
-The function `DataFrame` returns a table with every material's physical class and constitutive properties.
+The bounded `text/plain` display lists material names and their constitutive
+properties without introducing a tabular conversion API for model objects.
 =#
 
 # ##   Adding new materials
@@ -112,7 +112,7 @@ delete!(materials, "epr_dupe")
 
 # Examine the updated library after removing the duplicate:
 println("Material properties compiled from CIGRE TB-531 and IEC 60287:")
-materials_df = DataFrame(materials)
+materials_summary = materials
 
 # ##  Saving the materials library to JSON
 output_file = fullfile("materials_library.json")

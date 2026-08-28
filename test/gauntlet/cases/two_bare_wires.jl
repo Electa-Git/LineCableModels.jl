@@ -38,13 +38,13 @@ case_definition(
                 :core,
                 LineCableModels.Region(
                     :core_metal,
-                    LineCableModels.DiskDefinition(p.core_radius),
+                    LineCableModels.Disk(p.core_radius),
                     artificial_conductor
                 )
             ),
             LineCableModels.Region(
                 :core_insulation,
-                LineCableModels.ShellDefinition(p.insulation_thickness),
+                LineCableModels.Shell(p.insulation_thickness),
                 artificial_insulation
             )
         )

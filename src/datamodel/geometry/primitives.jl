@@ -1,13 +1,27 @@
 """
 $(TYPEDEF)
 
-Supertype for resolved cross-sectional primitives.
+Supertype for exact cross-sectional geometry.
 
-Each primitive contains its absolute pose in the completed cable coordinate
-system. Relative placement remains part of the authoritative `Group`,
-`Assembly`, or `Enclosure` declaration and is composed during [`build`](@ref).
+Intrinsic primitives and derived domains such as conformal shells share this
+interface. A shape is independent of any plotting tessellation.
 """
-abstract type AbstractPrimitive{T <: Real} end
+abstract type AbstractShape{T <: Real} end
+
+Base.eltype(::AbstractShape{T}) where {T} = T
+Base.eltype(::Type{<:AbstractShape{T}}) where {T} = T
+
+"""
+$(TYPEDEF)
+
+Supertype for intrinsic cross-sectional primitives.
+
+A primitive states material-neutral dimensions. During construction, simple
+primitives also carry the `Pose2` produced by coordinate composition. Shapes
+that require additional exact contact geometry use a separate resolved
+`AbstractShape` implementation.
+"""
+abstract type AbstractPrimitive{T <: Real} <: AbstractShape{T} end
 
 Base.eltype(::AbstractPrimitive{T}) where {T} = T
 Base.eltype(::Type{<:AbstractPrimitive{T}}) where {T} = T
@@ -15,54 +29,174 @@ Base.eltype(::Type{<:AbstractPrimitive{T}}) where {T} = T
 "Explicit initial state for resolving the first member of an outward stack."
 struct EmptyBoundary end
 
-"Resolved solid circle."
+"""
+$(TYPEDEF)
+
+Represent a circular cross-section and its composed pose.
+
+$(TYPEDFIELDS)
+"""
 struct Disk{T <: Real, P <: Pose2{T}} <: AbstractPrimitive{T}
+    "Radius \\[m\\]."
     r::T
+    "Pose in the completed cable coordinate system."
     at::P
+
+    function Disk{T, P}(r::T, at::P) where {T <: Real, P <: Pose2{T}}
+        isfinite(r) && r > zero(r) ||
+            throw(DomainError(r, "disk radius must be positive and finite"))
+        return new{T, P}(r, at)
+    end
 end
 
-"Resolved rectangle."
+"""
+$(TYPEDEF)
+
+Represent a rectangular cross-section and its composed pose.
+
+$(TYPEDFIELDS)
+"""
 struct Rectangle{T <: Real, P <: Pose2{T}} <: AbstractPrimitive{T}
+    "Width along the local x-axis \\[m\\]."
     w::T
+    "Height along the local y-axis \\[m\\]."
     h::T
+    "Pose in the completed cable coordinate system."
     at::P
+
+    function Rectangle{T, P}(w::T, h::T, at::P) where {T <: Real, P <: Pose2{T}}
+        isfinite(w) && w > zero(w) ||
+            throw(DomainError(w, "rectangle width must be positive and finite"))
+        isfinite(h) && h > zero(h) ||
+            throw(DomainError(h, "rectangle height must be positive and finite"))
+        return new{T, P}(w, h, at)
+    end
 end
 
-"Resolved ellipse."
+"""
+$(TYPEDEF)
+
+Represent an elliptical cross-section and its composed pose.
+
+$(TYPEDFIELDS)
+"""
 struct Ellipse{T <: Real, P <: Pose2{T}} <: AbstractPrimitive{T}
+    "Semi-axis along the local x-axis \\[m\\]."
     a::T
+    "Semi-axis along the local y-axis \\[m\\]."
     b::T
+    "Pose in the completed cable coordinate system."
     at::P
+
+    function Ellipse{T, P}(a::T, b::T, at::P) where {T <: Real, P <: Pose2{T}}
+        isfinite(a) && a > zero(a) ||
+            throw(DomainError(a, "ellipse semi-axis a must be positive and finite"))
+        isfinite(b) && b > zero(b) ||
+            throw(DomainError(b, "ellipse semi-axis b must be positive and finite"))
+        return new{T, P}(a, b, at)
+    end
 end
 
-"Resolved circular or annular sector."
+"""
+$(TYPEDEF)
+
+Represent a circular or annular sector and its composed pose.
+
+$(TYPEDFIELDS)
+"""
 struct Sector{T <: Real, P <: Pose2{T}} <: AbstractPrimitive{T}
+    "Inner radius \\[m\\]."
     ri::T
+    "Outer radius \\[m\\]."
     ro::T
+    "Starting angle in the local frame \\[rad\\]."
     φ0::T
+    "Counter-clockwise angular span \\[rad\\]."
     span::T
+    "Pose in the completed cable coordinate system."
     at::P
+
+    function Sector{T, P}(
+            ri::T, ro::T, φ0::T, span::T, at::P
+    ) where {T <: Real, P <: Pose2{T}}
+        isfinite(ri) && ri >= zero(ri) || throw(DomainError(
+            ri, "sector inner radius must be nonnegative and finite"
+        ))
+        isfinite(ro) && ro > ri || throw(DomainError(
+            ro, "sector outer radius must exceed its inner radius"
+        ))
+        isfinite(φ0) || throw(DomainError(φ0, "sector start angle must be finite"))
+        isfinite(span) && zero(span) < span <= oftype(span, 2π) || throw(DomainError(
+            span, "sector span must lie in (0, 2π]"
+        ))
+        return new{T, P}(ri, ro, φ0, span, at)
+    end
 end
 
-"Resolved circular annulus."
+"""
+$(TYPEDEF)
+
+Represent an annular cross-section and its composed pose.
+
+$(TYPEDFIELDS)
+"""
 struct Annulus{T <: Real, P <: Pose2{T}} <: AbstractPrimitive{T}
+    "Inner radius \\[m\\]."
     ri::T
+    "Outer radius \\[m\\]."
     ro::T
+    "Pose in the completed cable coordinate system."
     at::P
+
+    function Annulus{T, P}(ri::T, ro::T, at::P) where {T <: Real, P <: Pose2{T}}
+        isfinite(ri) && ri >= zero(ri) || throw(DomainError(
+            ri, "annulus inner radius must be nonnegative and finite"
+        ))
+        isfinite(ro) && ro > ri || throw(DomainError(
+            ro, "annulus outer radius must exceed its inner radius"
+        ))
+        return new{T, P}(ri, ro, at)
+    end
 end
 
-"Resolved polygon."
+"""
+$(TYPEDEF)
+
+Represent a polygonal cross-section and its composed pose.
+
+$(TYPEDFIELDS)
+"""
 struct Polygon{T <: Real, V <: Tuple, P <: Pose2{T}} <: AbstractPrimitive{T}
+    "Ordered local `(x, y)` vertices \\[m\\]."
     points::V
+    "Pose in the completed cable coordinate system."
     at::P
+
+    function Polygon{T, V, P}(points::V, at::P) where {
+            T <: Real, V <: Tuple, P <: Pose2{T}
+    }
+        length(points) >= 3 ||
+            throw(ArgumentError("a polygon requires at least three vertices"))
+        all(point -> length(point) == 2 && all(isfinite, point), points) ||
+            throw(ArgumentError("polygon vertices must be finite coordinate pairs"))
+        twice_area = sum(eachindex(points)) do index
+            next = mod1(index + 1, length(points))
+            points[index][1] * points[next][2] -
+                points[next][1] * points[index][2]
+        end
+        iszero(twice_area) && throw(DomainError(
+            twice_area, "polygon area must be nonzero"
+        ))
+        return new{T, V, P}(points, at)
+    end
 end
 
 struct _DifferencePrimitive{
         T <: Real,
-        O <: AbstractPrimitive,
+        O <: AbstractShape,
         H <: Tuple,
         P <: Pose2{T}
-} <: AbstractPrimitive{T}
+} <: AbstractShape{T}
     outer::O
     holes::H
     at::P
@@ -70,9 +204,9 @@ struct _DifferencePrimitive{
     function _DifferencePrimitive(
             outer::O,
             holes::H
-    ) where {O <: AbstractPrimitive, H <: Tuple}
-        all(hole -> hole isa AbstractPrimitive, holes) || throw(ArgumentError(
-            "difference holes must be resolved primitives"
+    ) where {O <: AbstractShape, H <: Tuple}
+        all(hole -> hole isa AbstractShape, holes) || throw(ArgumentError(
+            "difference holes must be exact resolved shapes"
         ))
         T = promote_type(eltype(outer), map(eltype, holes)...)
         at = convert(Pose2{T}, outer.at)
@@ -120,14 +254,67 @@ end
 _origin(::Type{T}) where {T <: Real} = Pose2(zero(T), zero(T), zero(T))
 
 Disk(r::T) where {T <: Real} = Disk(r, _origin(T))
-Rectangle(w::T, h::T) where {T <: Real} = Rectangle(w, h, _origin(T))
-Ellipse(a::T, b::T) where {T <: Real} = Ellipse(a, b, _origin(T))
-Sector(ri::T, ro::T, φ0::T, span::T) where {T <: Real} =
-    Sector(ri, ro, φ0, span, _origin(T))
-Annulus(ri::T, ro::T) where {T <: Real} = Annulus(ri, ro, _origin(T))
+function Rectangle(w::Real, h::Real)
+    T = promote_type(typeof(w), typeof(h))
+    return Rectangle(convert(T, w), convert(T, h), _origin(T))
+end
+function Ellipse(a::Real, b::Real)
+    T = promote_type(typeof(a), typeof(b))
+    return Ellipse(convert(T, a), convert(T, b), _origin(T))
+end
+function Sector(ri::Real, ro::Real, φ0::Real, span::Real)
+    T = promote_type(typeof(ri), typeof(ro), typeof(φ0), typeof(span))
+    return Sector(
+        convert(T, ri), convert(T, ro), convert(T, φ0), convert(T, span), _origin(T)
+    )
+end
+function Annulus(ri::Real, ro::Real)
+    T = promote_type(typeof(ri), typeof(ro))
+    return Annulus(convert(T, ri), convert(T, ro), _origin(T))
+end
 function Polygon(points::V) where {V <: Tuple}
-    T = typeof(first(points)[1])
-    return Polygon{T, V, Pose2{T}}(points, _origin(T))
+    return _polygon(points, _origin(typeof(float(first(points)[1]))))
+end
+
+function Base.convert(
+        ::Type{<:AbstractPrimitive{T}}, value::Disk
+) where {T <: Real}
+    return Disk(convert(T, value.r), convert(Pose2{T}, value.at))
+end
+function Base.convert(
+        ::Type{<:AbstractPrimitive{T}}, value::Rectangle
+) where {T <: Real}
+    return Rectangle(
+        convert(T, value.w), convert(T, value.h), convert(Pose2{T}, value.at)
+    )
+end
+function Base.convert(
+        ::Type{<:AbstractPrimitive{T}}, value::Ellipse
+) where {T <: Real}
+    return Ellipse(
+        convert(T, value.a), convert(T, value.b), convert(Pose2{T}, value.at)
+    )
+end
+function Base.convert(
+        ::Type{<:AbstractPrimitive{T}}, value::Sector
+) where {T <: Real}
+    return Sector(
+        convert(T, value.ri), convert(T, value.ro), convert(T, value.φ0),
+        convert(T, value.span), convert(Pose2{T}, value.at)
+    )
+end
+function Base.convert(
+        ::Type{<:AbstractPrimitive{T}}, value::Annulus
+) where {T <: Real}
+    return Annulus(
+        convert(T, value.ri), convert(T, value.ro), convert(Pose2{T}, value.at)
+    )
+end
+function Base.convert(
+        ::Type{<:AbstractPrimitive{T}}, value::Polygon
+) where {T <: Real}
+    points = map(point -> (convert(T, point[1]), convert(T, point[2])), value.points)
+    return _polygon(points, convert(Pose2{T}, value.at))
 end
 
 "Return the outer resolved boundary of `primitive`."
@@ -135,6 +322,9 @@ function boundary end
 
 "Return cross-sectional area \\[m²\\]."
 function area end
+
+"Return exact boundary perimeter in metres."
+function perimeter end
 
 "Return the absolute cross-sectional centroid as `(x, y)` \\[m\\]."
 function centroid end
@@ -241,6 +431,22 @@ function area(primitive::Polygon)
             primitive.points[next][1] * primitive.points[index][2]
     end
     return abs(twice) / 2
+end
+
+perimeter(primitive::Disk) = 2π * primitive.r
+perimeter(primitive::Rectangle) = 2 * (primitive.w + primitive.h)
+perimeter(primitive::Sector) =
+    primitive.span * (primitive.ro + primitive.ri) +
+    2 * (primitive.ro - primitive.ri)
+perimeter(primitive::Annulus) = 2π * (primitive.ro + primitive.ri)
+function perimeter(primitive::Polygon)
+    return sum(eachindex(primitive.points)) do index
+        next = mod1(index + 1, length(primitive.points))
+        hypot(
+            primitive.points[next][1] - primitive.points[index][1],
+            primitive.points[next][2] - primitive.points[index][2]
+        )
+    end
 end
 
 r_in(primitive::Disk) = zero(primitive.r)

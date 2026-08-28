@@ -48,14 +48,14 @@ function _path_radius(
 )
     return iszero(pattern.r) ? (r_in(primitive) + r_ex(primitive)) / 2 : pattern.r
 end
-_path_radius(pattern::Ring, pose::Pose2, primitive::AbstractPrimitive) = pattern.r
+_path_radius(pattern::Ring, pose::Pose2, primitive::AbstractShape) = pattern.r
 _path_radius(
     ::Nothing,
     pose::Pose2,
     primitive::Union{Annulus, Sector}
 ) = (r_in(primitive) + r_ex(primitive)) / 2
-_path_radius(::Nothing, pose::Pose2, primitive::AbstractPrimitive) = hypot(pose.x, pose.y)
-_path_radius(pattern, pose::Pose2, primitive::AbstractPrimitive) = hypot(pose.x, pose.y)
+_path_radius(::Nothing, pose::Pose2, primitive::AbstractShape) = hypot(pose.x, pose.y)
+_path_radius(pattern, pose::Pose2, primitive::AbstractShape) = hypot(pose.x, pose.y)
 
 _resolved_path_radius(compact, pattern, pose, primitive) =
     _path_radius(pattern, pose, primitive)
@@ -66,9 +66,9 @@ _resolved_path_radius(
 _member_definition(region::Region) = region.primitive
 _member_definition(::AbstractCablePart) = nothing
 
-_radial_half_extent(definition::DiskDefinition) = definition.r
-_radial_half_extent(definition::RectangleDefinition) = definition.h / 2
-_radial_half_extent(definition::AbstractPrimitiveDefinition) =
+_radial_half_extent(definition::Disk) = definition.r
+_radial_half_extent(definition::Rectangle) = definition.h / 2
+_radial_half_extent(definition::AbstractPrimitive) =
     support(resolve(EmptyBoundary(), definition))
 
 function _contextual_ring(
@@ -76,7 +76,7 @@ function _contextual_ring(
         item::AbstractCablePart,
         child::CableGeometry,
         compact,
-        context::Union{EmptyBoundary, AbstractPrimitive}
+        context::Union{EmptyBoundary, AbstractShape}
 )
     definition = _member_definition(item)
     inner = context isa EmptyBoundary ? zero(support(boundary(child))) : support(context)
@@ -123,8 +123,8 @@ function _minimum_radius(primitive::Union{Annulus, Sector})
     iszero(primitive.at.x) && iszero(primitive.at.y) && return r_in(primitive)
     return _minimum_radius_general(primitive)
 end
-_minimum_radius(primitive::AbstractPrimitive) = _minimum_radius_general(primitive)
-function _minimum_radius_general(primitive::AbstractPrimitive)
+_minimum_radius(primitive::AbstractShape) = _minimum_radius_general(primitive)
+function _minimum_radius_general(primitive::AbstractShape)
     center = centroid(primitive)
     center_radius = hypot(center...)
     iszero(center_radius) && return zero(eltype(primitive))
@@ -133,7 +133,7 @@ function _minimum_radius_general(primitive::AbstractPrimitive)
 end
 
 function _resolve_group(
-        context::Union{EmptyBoundary, AbstractPrimitive},
+        context::Union{EmptyBoundary, AbstractShape},
         group::Group
 )
     if group.pattern === nothing
@@ -219,7 +219,7 @@ end
 
 resolve(context::EmptyBoundary, group::Group) = _resolve_group(context, group)
 
-function resolve(context::AbstractPrimitive, group::Group)
+function resolve(context::AbstractShape, group::Group)
     result = _resolve_group(context, group)
     current_radius = support(context)
     tolerance = sqrt(eps(typeof(float(current_radius)))) *

@@ -56,3 +56,15 @@ function Base.delete!(library::CablesLibrary, cable_id::String)
     delete!(library.catalogues, cable_id)
     return library
 end
+
+function Base.show(io::IO, ::MIME"text/plain", library::CablesLibrary)
+    count = length(library)
+    println(io, "CablesLibrary with $count $(count == 1 ? "design" : "designs")")
+    ids = sort!(collect(keys(library)))
+    for (index, cable_id) in enumerate(ids)
+        prefix = index == length(ids) ? "└─" : "├─"
+        design = library[cable_id]
+        terminals = join(design.terminal_order, ", ")
+        println(io, "$prefix $cable_id: terminals=($terminals)")
+    end
+end

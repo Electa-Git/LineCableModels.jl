@@ -324,5 +324,3 @@ function Base.show(io::IO, ::MIME"text/plain", system::LineCableSystem)
         )
     end
 end
-
-include("dataframe.jl")

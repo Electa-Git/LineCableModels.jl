@@ -7,7 +7,7 @@ Define electromagnetic material records and an in-memory material library.
 
 - Construct and validate [`Material`](@ref) values.
 - Add, remove, and retrieve materials in a [`MaterialsLibrary`](@ref).
-- Present material data through Base and DataFrames protocols.
+- Present material data through the Base display protocol.
 
 JSON persistence belongs to `LineCableModels.ImportExport`.
 
@@ -29,7 +29,6 @@ import ..Validation
 
 include("material.jl")
 include("materialslibrary.jl")
-include("dataframe.jl")
 include("base.jl")
 
 end # module Materials

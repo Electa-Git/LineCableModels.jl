@@ -118,7 +118,7 @@ case_definition(
                 :core,
                 LineCableModels.Region(
                     Symbol(:core_strands_, layer + 1),
-                    LineCableModels.DiskDefinition(strand_radius),
+                    LineCableModels.Disk(strand_radius),
                     copper
                 );
                 pattern = LineCableModels.Ring(count; r = centre_radius),
@@ -134,7 +134,7 @@ case_definition(
         (:core_water_blocking, p.water_blocking_thickness, polyacrylate)
     )
         push!(parts, LineCableModels.Region(
-            tag, LineCableModels.ShellDefinition(thickness), material
+            tag, LineCableModels.Shell(thickness), material
         ))
         radius += thickness
     end
@@ -145,7 +145,7 @@ case_definition(
             :sheath,
             LineCableModels.Region(
                 :sheath_lead_screen,
-                LineCableModels.AnnulusDefinition(radius, lead_outer),
+                LineCableModels.Annulus(radius, lead_outer),
                 lead
             )
         ))
@@ -153,14 +153,14 @@ case_definition(
     push!(parts,
         LineCableModels.Region(
             :sheath_inner,
-            LineCableModels.ShellDefinition(p.inner_sheath_thickness),
+            LineCableModels.Shell(p.inner_sheath_thickness),
             pe
         ))
     radius += p.inner_sheath_thickness
     push!(parts,
         LineCableModels.Region(
             :sheath_bedding,
-            LineCableModels.ShellDefinition(bedding_thickness),
+            LineCableModels.Shell(bedding_thickness),
             pp
         ))
     radius += bedding_thickness
@@ -171,14 +171,14 @@ case_definition(
         LineCableModels.Group(
             :armor,
             LineCableModels.Region(
-                :armor_wires, LineCableModels.DiskDefinition(armor_wire_radius), steel
+                :armor_wires, LineCableModels.Disk(armor_wire_radius), steel
             );
             pattern = LineCableModels.Ring(p.armor_wires; r = armor_centre),
             path = LineCableModels.Helix(LineCableModels.LayRatio(p.armor_lay_ratio))
         ))
     push!(parts, LineCableModels.Region(
         :armor_jacket,
-        LineCableModels.ShellDefinition(p.jacket_thickness),
+        LineCableModels.Shell(p.jacket_thickness),
         pp
     ))
     design = LineCableModels.build(

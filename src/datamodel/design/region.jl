@@ -5,7 +5,7 @@ Represent one homogeneous physical domain with intrinsic geometry.
 
 $(TYPEDFIELDS)
 """
-struct Region{P <: AbstractPrimitiveDefinition, M} <: AbstractCablePart
+struct Region{P, M} <: AbstractCablePart
     "Physical identity within its containing cable object."
     tag::Symbol
     "Intrinsic cross-sectional geometry."
@@ -14,9 +14,12 @@ struct Region{P <: AbstractPrimitiveDefinition, M} <: AbstractCablePart
     material::M
 
     function Region(tag::Symbol, primitive::P, material::M) where {
-            P <: AbstractPrimitiveDefinition, M
+            P, M
     }
         isempty(String(tag)) && throw(ArgumentError("region tag cannot be empty"))
+        primitive isa Union{AbstractPrimitive, Shell} || throw(ArgumentError(
+            "region geometry must be an intrinsic primitive or contextual Shell"
+        ))
         material isa Material ||
             throw(ArgumentError("region material must resolve to Material"))
         return new{P, M}(tag, primitive, material)
@@ -33,7 +36,7 @@ $(TYPEDFIELDS)
 """
 struct PlacedRegion{
         R <: Region,
-        S <: AbstractPrimitive,
+        S <: AbstractShape,
         P <: NamedTuple,
         H <: Tuple
 }
@@ -56,7 +59,7 @@ struct PlacedRegion{
             paths::H
     ) where {
             R <: Region,
-            S <: AbstractPrimitive,
+            S <: AbstractShape,
             P <: NamedTuple,
             H <: Tuple
     }
@@ -91,7 +94,7 @@ Base.:(==)(left::PlacedRegion, right::PlacedRegion) =
     left.terminal == right.terminal && left.placement == right.placement &&
     left.paths == right.paths
 
-function PlacedRegion(source::Region, primitive::AbstractPrimitive)
+function PlacedRegion(source::Region, primitive::AbstractShape)
     return PlacedRegion(
         source,
         primitive,
@@ -106,7 +109,7 @@ area(region::PlacedRegion) = area(region.primitive)
 centroid(region::PlacedRegion) = centroid(region.primitive)
 support(region::PlacedRegion, φ::Real) = support(region.primitive, φ)
 
-function resolve(context::Union{EmptyBoundary, AbstractPrimitive}, region::Region)
+function resolve(context::Union{EmptyBoundary, AbstractShape}, region::Region)
     primitive = resolve(context, region.primitive)
     placed = PlacedRegion(region, primitive)
     return CableGeometry(PlacedRegion[placed], boundary(placed))

@@ -26,9 +26,11 @@ function constitutive(
     ))
 end
 
-_path_resistance(
-    ::LineParametersFormulation, resistance::T, ::Tuple{}
-) where {T} = resistance
+function _path_resistance(
+        ::LineParametersFormulation, resistance::T, ::Tuple{}
+) where {T}
+    resistance
+end
 
 function _path_resistance(
         formulation::LineParametersFormulation,
@@ -54,14 +56,13 @@ function _input(
     )
     radius = convert(T, primitive.r)
     all(item -> isapprox(
-        DataModel.area(item.primitive),
-        (one(T) * pi) * radius^2
-    ), zone) || throw(ArgumentError(
+            DataModel.area(item.primitive),
+            (one(T) * pi) * radius^2
+        ), zone) || throw(ArgumentError(
         "resolved disk strands do not preserve their declared area"
     ))
-    coordinates = Tuple{T, T}[
-        convert.(T, DataModel.centroid(item.primitive)) for item in zone
-    ]
+    coordinates = Tuple{T, T}[convert.(T, DataModel.centroid(item.primitive))
+                              for item in zone]
     centre_radius = hypot(first(coordinates)...)
     all(point -> isapprox(hypot(point...), centre_radius), coordinates) ||
         throw(ArgumentError(
@@ -84,15 +85,18 @@ function _input(
         init = zero(T)
     )
     patterned = !isempty(source.placement.patterns)
-    resistance = _path_resistance(formulation, DataModel.tubular_resistance(
-        zero(T),
-        radius,
-        material.rho,
-        material.alpha,
-        material.T0,
-        material.T0
-    ), source.paths) / length(zone)
-    gmr = patterned ? DataModel.strand_gmr(
+    resistance = _path_resistance(formulation,
+        DataModel.tubular_resistance(
+            zero(T),
+            radius,
+            material.rho,
+            material.alpha,
+            material.T0,
+            material.T0
+        ),
+        source.paths) / length(zone)
+    gmr = patterned ?
+          DataModel.strand_gmr(
         centre_radius,
         length(zone),
         radius,
@@ -198,14 +202,16 @@ function _input(
         source.paths;
         init = zero(T)
     )
-    resistance = _path_resistance(formulation, DataModel.strip_resistance(
-        tape_thickness,
-        tape_width,
-        material.rho,
-        material.alpha,
-        material.T0,
-        material.T0
-    ), source.paths) / length(zone)
+    resistance = _path_resistance(formulation,
+        DataModel.strip_resistance(
+            tape_thickness,
+            tape_width,
+            material.rho,
+            material.alpha,
+            material.T0,
+            material.T0
+        ),
+        source.paths) / length(zone)
     return (
         r_in = zone_r_in,
         r_ex = zone_r_ex,
@@ -217,6 +223,43 @@ function _input(
         element_radius = zone_r_ex,
         element_area = zone_area,
         coordinates = Tuple{T, T}[(zero(T), zero(T))],
+        material
+    )
+end
+
+function _input(
+        formulation::LineParametersFormulation,
+        primitive::DataModel.RoundedSectorShape,
+        zone,
+        ::Type{T},
+        expected_inner
+) where {T <: Real}
+    length(zone) == 1 || throw(ArgumentError(
+        "the native formulation requires one region per rounded-sector conductor"
+    ))
+    source = only(zone)
+    isempty(source.paths) || throw(ArgumentError(
+        "the native formulation does not support a helical rounded-sector conductor"
+    ))
+    material = convert(
+        Material{T},
+        constitutive(formulation, Val(source.source.material.kind), source.source.material)
+    )
+    zone_area = convert(T, DataModel.area(primitive))
+    equivalent_radius = sqrt(zone_area / (one(T) * pi))
+    centre = convert.(T, DataModel.centroid(primitive))
+    return (
+        r_in = zero(T),
+        r_ex = equivalent_radius,
+        area = zone_area,
+        wires = 0,
+        turns = zero(T),
+        resistance = material.rho / zone_area,
+        gmr = equivalent_radius * exp(-material.mu_r / 4),
+        element_radius = equivalent_radius,
+        element_area = zone_area,
+        coordinates = Tuple{T, T}[centre],
+        position = centre,
         material
     )
 end
@@ -265,6 +308,38 @@ function _input(
 end
 
 function _input(
+        formulation::LineParametersFormulation,
+        primitive::DataModel.ShellShape{
+            <:Any,
+            <:DataModel.RoundedSectorShape,
+            <:DataModel.RoundedSectorShape
+        },
+        source::DataModel.PlacedRegion,
+        ::Val{:dielectric},
+        ::Type{T}
+) where {T <: Real}
+    isempty(source.paths) || throw(ArgumentError(
+        "the native formulation does not support a helical rounded-sector dielectric"
+    ))
+    material = convert(
+        Material{T},
+        constitutive(formulation, Val(source.source.material.kind), source.source.material)
+    )
+    material.kind === :conductor && throw(ArgumentError(
+        "a dielectric interval cannot contain a conductor material"
+    ))
+    inner_area = convert(T, DataModel.area(primitive.inner))
+    outer_area = convert(T, DataModel.area(primitive.outer))
+    inner_radius = sqrt(inner_area / (one(T) * pi))
+    outer_radius = sqrt(outer_area / (one(T) * pi))
+    return (
+        r_in = inner_radius,
+        r_ex = outer_radius,
+        material
+    )
+end
+
+function _input(
         ::LineParametersFormulation,
         primitive::DataModel.AbstractPrimitive,
         source::DataModel.PlacedRegion,
@@ -288,20 +363,18 @@ function _nested_conductor_input(
     ))
     all(source -> source.primitive isa DataModel.Disk, sources) || throw(
         ArgumentError(
-            "the native formulation supports nested conductor paths only for disk primitives"
-        )
+        "the native formulation supports nested conductor paths only for disk primitives"
+    )
     )
 
-    materials = Material{T}[
-        convert(
-            Material{T},
-            constitutive(
-                formulation,
-                Val(source.source.material.kind),
-                source.source.material
-            )
-        ) for source in sources
-    ]
+    materials = Material{T}[convert(
+                                Material{T},
+                                constitutive(
+                                    formulation,
+                                    Val(source.source.material.kind),
+                                    source.source.material
+                                )
+                            ) for source in sources]
     reference = first(materials).T0
     all(material -> isapprox(material.T0, reference), materials) || throw(
         ArgumentError("all nested conductor materials must share one reference temperature")
@@ -309,23 +382,20 @@ function _nested_conductor_input(
 
     areas = T[convert(T, DataModel.area(source.primitive)) for source in sources]
     radii = T[convert(T, source.primitive.r) for source in sources]
-    coordinates = Tuple{T, T}[
-        convert.(T, DataModel.centroid(source.primitive)) for source in sources
-    ]
-    resistances = T[
-        _path_resistance(
-            formulation,
-            DataModel.tubular_resistance(
-                zero(T),
-                radii[index],
-                materials[index].rho,
-                materials[index].alpha,
-                materials[index].T0,
-                materials[index].T0
-            ),
-            sources[index].paths
-        ) for index in eachindex(sources)
-    ]
+    coordinates = Tuple{T, T}[convert.(T, DataModel.centroid(source.primitive))
+                              for source in sources]
+    resistances = T[_path_resistance(
+                        formulation,
+                        DataModel.tubular_resistance(
+                            zero(T),
+                            radii[index],
+                            materials[index].rho,
+                            materials[index].alpha,
+                            materials[index].T0,
+                            materials[index].T0
+                        ),
+                        sources[index].paths
+                    ) for index in eachindex(sources)]
 
     resistance = first(resistances)
     alpha = first(materials).alpha
@@ -361,13 +431,11 @@ function _nested_conductor_input(
         end
     end
 
-    turn_values = T[
-        sum(
-            entry -> inv(DataModel.pitch(entry.path, entry.radius)),
-            source.paths;
-            init = zero(T)
-        ) for source in sources
-    ]
+    turn_values = T[sum(
+                        entry -> inv(DataModel.pitch(entry.path, entry.radius)),
+                        source.paths;
+                        init = zero(T)
+                    ) for source in sources]
     turns = sum(turn_values) / length(turn_values)
     outer = maximum(source -> convert(T, DataModel.support(source.primitive)), sources)
     outer > expected_inner || throw(ArgumentError(
@@ -382,8 +450,26 @@ function _nested_conductor_input(
         resistance,
         alpha,
         gmr = exp(log_gmr),
-        reference
+        reference,
+        position = (zero(T), zero(T))
     )
+end
+
+_radial_chain_key(::DataModel.AbstractShape, placement) = nothing
+_radial_chain_key(::DataModel.RoundedSectorShape, placement) = placement.patterns
+_radial_chain_key(
+    ::DataModel.ShellShape{
+        <:Any,
+        <:DataModel.RoundedSectorShape,
+        <:DataModel.RoundedSectorShape
+    },
+    placement
+) = placement.patterns
+
+function _same_radial_chain(left::DataModel.PlacedRegion, right::DataModel.PlacedRegion)
+    left_key = _radial_chain_key(left.primitive, left.placement)
+    right_key = _radial_chain_key(right.primitive, right.placement)
+    return left_key === nothing && right_key === nothing || left_key == right_key
 end
 
 """
@@ -460,12 +546,12 @@ function homogeneous_components(
     }
     ConductorInput = NamedTuple{
         (:r_in, :r_ex, :cross_section, :num_wires, :num_turns,
-         :resistance, :alpha, :gmr, :material),
-        Tuple{T, T, T, Int, T, T, T, T, Material{T}}
+            :resistance, :alpha, :gmr, :position, :material),
+        Tuple{T, T, T, Int, T, T, T, T, Tuple{T, T}, Material{T}}
     }
     DielectricInput = NamedTuple{
         (:r_in, :r_ex, :cross_section, :shunt_capacitance,
-         :shunt_conductance, :frequency, :layers, :material),
+            :shunt_conductance, :frequency, :layers, :material),
         Tuple{T, T, T, T, T, T, Vector{Layer}, Material{T}}
     }
     ComponentInput = NamedTuple{
@@ -516,6 +602,7 @@ function homogeneous_components(
         conductor_alpha = zero(T)
         conductor_gmr = zero(T)
         conductor_reference = zero(T)
+        conductor_position = (zero(T), zero(T))
         previous_coordinates = Tuple{T, T}[]
         previous_radius = zero(T)
         previous_element_area = zero(T)
@@ -525,7 +612,8 @@ function homogeneous_components(
             length(source.placement.patterns) > 1 || length(source.paths) > 1
         end
         if nested
-            expected_inner = if first_index > firstindex(regions)
+            expected_inner = if first_index > firstindex(regions) &&
+                    _same_radial_chain(regions[first_index - 1], first(conductor_sources))
                 convert(T, DataModel.r_ex(regions[first_index - 1].primitive))
             else
                 zero(T)
@@ -545,6 +633,7 @@ function homogeneous_components(
             conductor_alpha = values.alpha
             conductor_gmr = values.gmr
             conductor_reference = values.reference
+            conductor_position = values.position
         else
             for (zone_index, indices) in enumerate(zone_ranges)
                 zone = @view block[indices]
@@ -558,7 +647,8 @@ function homogeneous_components(
                     throw(ArgumentError("one conductor zone must use one primitive"))
                 expected_inner = if zone_index > 1
                     conductor_r_ex
-                elseif first_index > firstindex(regions)
+                elseif first_index > firstindex(regions) &&
+                        _same_radial_chain(regions[first_index - 1], source)
                     convert(T, DataModel.r_ex(regions[first_index - 1].primitive))
                 else
                     zero(T)
@@ -581,17 +671,21 @@ function homogeneous_components(
                     conductor_alpha = values.material.alpha
                     conductor_gmr = values.gmr
                     conductor_reference = values.material.T0
+                    conductor_position = hasproperty(values, :position) ?
+                                         values.position : (zero(T), zero(T))
                 else
                     isapprox(values.r_in, conductor_r_ex) || throw(ArgumentError(
                         "conductor zones must be radially contiguous"
                     ))
-                    isapprox(values.material.T0, conductor_reference) || throw(ArgumentError(
-                        "all cable materials must share one reference temperature"
-                    ))
+                    isapprox(values.material.T0, conductor_reference) ||
+                        throw(ArgumentError(
+                            "all cable materials must share one reference temperature"
+                        ))
                     log_sum = zero(T)
                     weights = zero(T)
                     weight = previous_element_area * values.element_area
                     for left in previous_coordinates, right in values.coordinates
+
                         distance = hypot(left[1] - right[1], left[2] - right[2])
                         effective_distance = iszero(distance) ?
                                              max(previous_radius, values.element_radius) :
@@ -630,7 +724,8 @@ function homogeneous_components(
 
         dielectric_sources = cursor > lastindex(block) ?
                              @view(block[1:0]) : @view(block[cursor:lastindex(block)])
-        if first_index > firstindex(regions)
+        if first_index > firstindex(regions) &&
+                _same_radial_chain(regions[first_index - 1], first(block))
             preceding = regions[first_index - 1]
             preceding.terminal === nothing || throw(ArgumentError(
                 "a radial terminal must be preceded by a dielectric region"
@@ -760,30 +855,32 @@ function homogeneous_components(
                 zero(T)
             )
         end
-        push!(effective, (
-            name = terminal,
-            conductor = (
-                r_in = conductor_r_in,
-                r_ex = conductor_r_ex,
-                cross_section = conductor_area,
-                num_wires = conductor_wires,
-                num_turns = conductor_turns,
-                resistance = conductor_resistance,
-                alpha = conductor_alpha,
-                gmr = conductor_gmr,
-                material = conductor_material
-            ),
-            dielectric = (
-                r_in = dielectric_r_in,
-                r_ex = dielectric_r_ex,
-                cross_section = dielectric_area,
-                shunt_capacitance = dielectric_capacitance,
-                shunt_conductance = dielectric_conductance,
-                frequency = frequency,
-                layers,
-                material = dielectric_material
-            )
-        ))
+        push!(effective,
+            (
+                name = terminal,
+                conductor = (
+                    r_in = conductor_r_in,
+                    r_ex = conductor_r_ex,
+                    cross_section = conductor_area,
+                    num_wires = conductor_wires,
+                    num_turns = conductor_turns,
+                    resistance = conductor_resistance,
+                    alpha = conductor_alpha,
+                    gmr = conductor_gmr,
+                    position = conductor_position,
+                    material = conductor_material
+                ),
+                dielectric = (
+                    r_in = dielectric_r_in,
+                    r_ex = dielectric_r_ex,
+                    cross_section = dielectric_area,
+                    shunt_capacitance = dielectric_capacitance,
+                    shunt_conductance = dielectric_conductance,
+                    frequency = frequency,
+                    layers,
+                    material = dielectric_material
+                )
+            ))
     end
     return effective
 end
@@ -817,7 +914,7 @@ are not modified.
 
 - A completed homogeneous [`CableDesign`](@ref).
 """
-function equivalent(
+function flatten(
         formulation::LineParametersFormulation,
         original::CableDesign;
         new_id::AbstractString = "",
@@ -834,29 +931,31 @@ function equivalent(
         terminal = component.name
         conductor = component.conductor
         conductor_primitive = iszero(conductor.r_in) ?
-                              DataModel.DiskDefinition(conductor.r_ex) :
-                              DataModel.AnnulusDefinition(conductor.r_in, conductor.r_ex)
+                              DataModel.Disk(conductor.r_ex) :
+                              DataModel.Annulus(conductor.r_in, conductor.r_ex)
         conductor_region = DataModel.Region(
             Symbol(terminal, :_equivalent_conductor),
             conductor_primitive,
             conductor.material
         )
-        push!(parts, DataModel.Group(
-            terminal,
-            DataModel.Pose2(0, 0, 0),
-            conductor_region,
-            nothing,
-            nothing,
-            nothing
-        ))
+        push!(parts,
+            DataModel.Group(
+                terminal,
+                DataModel.Pose2(0, 0, 0),
+                conductor_region,
+                nothing,
+                nothing,
+                nothing
+            ))
 
         dielectric = component.dielectric
         if dielectric.r_ex > dielectric.r_in
-            push!(parts, DataModel.Region(
-                Symbol(terminal, :_equivalent_dielectric),
-                DataModel.AnnulusDefinition(dielectric.r_in, dielectric.r_ex),
-                dielectric.material
-            ))
+            push!(parts,
+                DataModel.Region(
+                    Symbol(terminal, :_equivalent_dielectric),
+                    DataModel.Annulus(dielectric.r_in, dielectric.r_ex),
+                    dielectric.material
+                ))
         end
     end
     return build(
@@ -866,12 +965,12 @@ function equivalent(
     )
 end
 
-function equivalent(
+function flatten(
         original::CableDesign;
         new_id::AbstractString = "",
         dielectric_frequency::Real = 50
 )
-    return equivalent(
+    return flatten(
         Formulation(),
         original;
         new_id,

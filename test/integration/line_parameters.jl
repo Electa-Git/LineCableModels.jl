@@ -118,7 +118,7 @@ end
     design=build(
         CableDesign,
         "elliptical",
-        Group(:phase, Region(:elliptical_core, EllipseDefinition(0.01, 0.006), conductor))
+        Group(:phase, Region(:elliptical_core, Ellipse(0.01, 0.006), conductor))
     )
     @test design.geometry.regions[1].primitive isa LineCableModels.DataModel.Ellipse
 
@@ -164,7 +164,7 @@ end
     end
 
     bare=build(CableDesign, "bare", Group(
-        :phase, Region(:bare, DiskDefinition(0.01), conductor)
+        :phase, Region(:bare, Disk(0.01), conductor)
     ))
     execution=computation_options(Val(LineCableModelsEngine), (;))
     workspace(problem, formulation = Formulation()) = LineParametersWorkspace(
@@ -180,14 +180,14 @@ end
         Stack(
             Group(:phase,
                 Stack(
-                    Region(:core, DiskDefinition(0.01), conductor),
-                    Region(:outer_conductor, AnnulusDefinition(0.01, 0.011), conductor)
+                    Region(:core, Disk(0.01), conductor),
+                    Region(:outer_conductor, Annulus(0.01, 0.011), conductor)
                 )),
-            Region(:semicon, ShellDefinition(0.0005), dielectric),
-            Region(:insulation, ShellDefinition(0.002), dielectric),
+            Region(:semicon, Shell(0.0005), dielectric),
+            Region(:insulation, Shell(0.002), dielectric),
             Group(
                 :screen,
-                Region(:screen_metal, AnnulusDefinition(0.0135, 0.014), conductor)
+                Region(:screen_metal, Annulus(0.0135, 0.014), conductor)
             )
         ))
     layered_input=workspace(problem_for(layered)).normalized
@@ -199,8 +199,8 @@ end
         "filled",
         Enclosure(
             :pipe,
-            Group(:phase, Region(:core, DiskDefinition(0.01), conductor));
-            primitive = DiskDefinition(0.03),
+            Group(:phase, Region(:core, Disk(0.01), conductor));
+            primitive = Disk(0.03),
             fill = dielectric
         ))
     filled_input=workspace(problem_for(filled)).normalized
@@ -211,36 +211,36 @@ end
     reappearing=build(CableDesign,
         "reappearing",
         Stack(
-            Group(:a, Region(:a_inner, DiskDefinition(0.01), conductor)),
-            Region(:a_gap, ShellDefinition(0.001), dielectric),
-            Group(:b, Region(:b_metal, AnnulusDefinition(0.011, 0.012), conductor)),
-            Region(:b_gap, ShellDefinition(0.001), dielectric),
-            Group(:a, Region(:a_outer, AnnulusDefinition(0.013, 0.014), conductor))
+            Group(:a, Region(:a_inner, Disk(0.01), conductor)),
+            Region(:a_gap, Shell(0.001), dielectric),
+            Group(:b, Region(:b_metal, Annulus(0.011, 0.012), conductor)),
+            Region(:b_gap, Shell(0.001), dielectric),
+            Group(:a, Region(:a_outer, Annulus(0.013, 0.014), conductor))
         ))
     @test_throws ArgumentError workspace(problem_for(reappearing))
 
     conductor_after_dielectric=build(CableDesign,
         "conductor-after-dielectric",
         Stack(
-            Group(:phase, Region(:inner, DiskDefinition(0.01), conductor)),
-            Region(:gap, ShellDefinition(0.001), dielectric),
-            Group(:phase, Region(:outer, AnnulusDefinition(0.011, 0.012), conductor))
+            Group(:phase, Region(:inner, Disk(0.01), conductor)),
+            Region(:gap, Shell(0.001), dielectric),
+            Group(:phase, Region(:outer, Annulus(0.011, 0.012), conductor))
         ))
     @test_throws ArgumentError workspace(problem_for(conductor_after_dielectric))
 
     undeclared_gap=build(CableDesign,
         "undeclared-gap",
         Stack(
-            Group(:inner, Region(:inner, DiskDefinition(0.01), conductor)),
-            Group(:outer, Region(:outer, AnnulusDefinition(0.012, 0.013), conductor))
+            Group(:inner, Region(:inner, Disk(0.01), conductor)),
+            Group(:outer, Region(:outer, Annulus(0.012, 0.013), conductor))
         ))
     @test_throws ArgumentError workspace(problem_for(undeclared_gap))
 
     @test_throws DomainError build(CableDesign,
         "overlap",
         Stack(
-            Group(:inner, Region(:inner, DiskDefinition(0.01), conductor)),
-            Group(:outer, Region(:outer, AnnulusDefinition(0.009, 0.012), conductor))
+            Group(:inner, Region(:inner, Disk(0.01), conductor)),
+            Group(:outer, Region(:outer, Annulus(0.009, 0.012), conductor))
         ))
 end
 

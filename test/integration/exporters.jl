@@ -174,14 +174,14 @@ end
                     terminal,
                     DataModel.Region(
                         Symbol(terminal, :_conductor),
-                        DataModel.AnnulusDefinition(radius, radius+1.0e-3),
+                        DataModel.Annulus(radius, radius+1.0e-3),
                         metal
                     )
                 ))
             push!(values,
                 DataModel.Region(
                     Symbol(terminal, :_insulation),
-                    DataModel.AnnulusDefinition(radius+1.0e-3, radius+2.0e-3),
+                    DataModel.Annulus(radius+1.0e-3, radius+2.0e-3),
                     dielectric
                 ))
             radius+=2.0e-3

@@ -266,15 +266,15 @@ end
 "Return local member poses prescribed by a placement pattern."
 function placements end
 
-struct _ResolvedPlacement{P <: Pose2, D <: AbstractPrimitiveDefinition}
+struct _ResolvedPlacement{P <: Pose2, D <: AbstractPrimitive}
     pose::P
     primitive::D
 end
 
 _placement_pose(value::Pose2) = value
 _placement_pose(value::_ResolvedPlacement) = value.pose
-_placement_definition(value::Pose2, definition::AbstractPrimitiveDefinition) = definition
-_placement_definition(value::_ResolvedPlacement, ::AbstractPrimitiveDefinition) =
+_placement_definition(value::Pose2, definition::AbstractPrimitive) = definition
+_placement_definition(value::_ResolvedPlacement, ::AbstractPrimitive) =
     value.primitive
 
 function _ring_poses(pattern::Ring, count::Int, radius::Real)
@@ -307,14 +307,14 @@ function _check_ring_clearance(pattern::Ring, tangential_width::Real)
     return nothing
 end
 
-function _tangential_width(definition::AbstractPrimitiveDefinition)
+function _tangential_width(definition::AbstractPrimitive)
     primitive = resolve(EmptyBoundary(), definition)
     return support(primitive, pi / 2) + support(primitive, -pi / 2)
 end
 
 function placements(
         pattern::Ring,
-        item::AbstractPrimitiveDefinition,
+        item::AbstractPrimitive,
         ::Nothing
 )
     pattern.n isa Int || throw(ArgumentError(
@@ -327,7 +327,7 @@ function placements(
     return _ring_poses(pattern, pattern.n, pattern.r)
 end
 
-function placements(pattern::Ring, item::DiskDefinition, ::Nothing)
+function placements(pattern::Ring, item::Disk, ::Nothing)
     pattern.n isa Int || throw(ArgumentError(
         "capacity() requires contextual placement"
     ))
@@ -338,7 +338,7 @@ function placements(pattern::Ring, item::DiskDefinition, ::Nothing)
     return _ring_poses(pattern, pattern.n, pattern.r)
 end
 
-function placements(pattern::Ring, item::RectangleDefinition, ::Nothing)
+function placements(pattern::Ring, item::Rectangle, ::Nothing)
     pattern.n isa Int || throw(ArgumentError(
         "capacity() requires contextual placement"
     ))
@@ -352,7 +352,7 @@ function placements(pattern::Ring, item::RectangleDefinition, ::Nothing)
     ]
 end
 
-function placements(pattern::Ring, item::SectorDefinition, ::Nothing)
+function placements(pattern::Ring, item::Sector, ::Nothing)
     pattern.n isa Int || throw(ArgumentError(
         "capacity() requires contextual placement"
     ))
@@ -373,6 +373,27 @@ function placements(pattern::Ring, item::SectorDefinition, ::Nothing)
     return _ring_poses(pattern, pattern.n, pattern.r)
 end
 
+function placements(pattern::Ring, item::RoundedSector, ::Nothing)
+    pattern.n isa Int || throw(ArgumentError(
+        "capacity() requires contextual placement"
+    ))
+    pattern.r === nothing && throw(ArgumentError(
+        "a contextual ring radius requires placement inside a physical tree"
+    ))
+    if iszero(pattern.r)
+        occupied = pattern.n * item.span *
+                   (one(pattern.gap_frac) + pattern.gap_frac)
+        tolerance = sqrt(eps(float(pattern.span))) * max(one(pattern.span), pattern.span)
+        occupied <= pattern.span + tolerance || throw(DomainError(
+            pattern.n,
+            "rounded-sector members exceed the available angular span"
+        ))
+        return _ring_poses(pattern, pattern.n, pattern.r)
+    end
+    _check_ring_clearance(pattern, _tangential_width(item))
+    return _ring_poses(pattern, pattern.n, pattern.r)
+end
+
 
 function placements(pattern::Ring, item::CableGeometry, ::Nothing)
     pattern.n isa Int || throw(ArgumentError(
@@ -381,9 +402,24 @@ function placements(pattern::Ring, item::CableGeometry, ::Nothing)
     pattern.r === nothing && throw(ArgumentError(
         "a contextual ring radius requires placement inside a physical tree"
     ))
+    iszero(pattern.r) && return _origin_ring_poses(pattern, boundary(item))
     _check_ring_clearance(pattern, 2support(boundary(item)))
     return _ring_poses(pattern, pattern.n, pattern.r)
 end
+
+function _origin_ring_poses(pattern::Ring, shape::RoundedSectorShape)
+    occupied = pattern.n * shape.primitive.span *
+               (one(pattern.gap_frac) + pattern.gap_frac)
+    tolerance = sqrt(eps(float(pattern.span))) * max(one(pattern.span), pattern.span)
+    occupied <= pattern.span + tolerance || throw(DomainError(
+        pattern.n,
+        "rounded-sector members exceed the available angular span"
+    ))
+    return _ring_poses(pattern, pattern.n, pattern.r)
+end
+
+_origin_ring_poses(pattern::Ring, shape::ShellShape) =
+    _origin_ring_poses(pattern, shape.outer)
 
 function placements(pattern::Polar, item, ::Nothing)
     poses = Pose2[]
@@ -413,7 +449,7 @@ function _ring_capacity(pattern::Ring, ratio::Real)
     return max(0, floor(Int, count + 8eps(float(count))) + 1)
 end
 
-function capacity(pattern::Ring, item::DiskDefinition, ::Nothing)
+function capacity(pattern::Ring, item::Disk, ::Nothing)
     radius = something(
         pattern.r,
         item.r * (one(item.r) + pattern.gap_frac)
@@ -422,14 +458,26 @@ function capacity(pattern::Ring, item::DiskDefinition, ::Nothing)
     return _ring_capacity(pattern, ratio)
 end
 
-function capacity(pattern::Ring, item::RectangleDefinition, ::Nothing)
+function capacity(pattern::Ring, item::Rectangle, ::Nothing)
     radius = something(pattern.r, item.h / 2)
     radius > zero(radius) || return 0
     ratio = item.w * (one(pattern.gap_frac) + pattern.gap_frac) / (2radius)
     return _ring_capacity(pattern, ratio)
 end
 
-function capacity(pattern::Ring, item::SectorDefinition, ::Nothing)
+function capacity(pattern::Ring, item::Sector, ::Nothing)
+    if pattern.r !== nothing && !iszero(pattern.r)
+        width = _tangential_width(item)
+        ratio = width * (one(pattern.gap_frac) + pattern.gap_frac) /
+                (2pattern.r)
+        return _ring_capacity(pattern, ratio)
+    end
+    occupied = item.span * (one(pattern.gap_frac) + pattern.gap_frac)
+    return max(0, floor(Int, pattern.span / occupied + 8eps(float(pattern.span))))
+end
+
+
+function capacity(pattern::Ring, item::RoundedSector, ::Nothing)
     if pattern.r !== nothing && !iszero(pattern.r)
         width = _tangential_width(item)
         ratio = width * (one(pattern.gap_frac) + pattern.gap_frac) /
@@ -459,7 +507,7 @@ function placements(pattern::Lattice, item, ::Nothing)
     ]
 end
 
-_fill_member_extent(item::AbstractPrimitiveDefinition) =
+_fill_member_extent(item::AbstractPrimitive) =
     support(resolve(EmptyBoundary(), item))
 _fill_member_extent(item::CableGeometry) = support(boundary(item))
 

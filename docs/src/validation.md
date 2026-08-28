@@ -39,7 +39,7 @@ The failure type communicates the category:
 Cable-part constructors accept resolved numeric geometry. For example:
 
 ```julia
-part = Region(:core, DiskDefinition(radius), material)
+part = Region(:core, Disk(radius), material)
 ```
 
 Radius or thickness selection, repetition, and variation use explicit

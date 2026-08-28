@@ -114,8 +114,9 @@ end
     @test all(isfile(joinpath(root, path)) for path in expected_entries)
 
     expected_owned_files=(
-        joinpath("src", "datamodel", "geometry", "definitions.jl"),
         joinpath("src", "datamodel", "geometry", "primitives.jl"),
+        joinpath("src", "datamodel", "geometry", "shell.jl"),
+        joinpath("src", "datamodel", "geometry", "roundedsector.jl"),
         joinpath("src", "datamodel", "geometry", "resolve.jl"),
         joinpath("src", "datamodel", "design", "region.jl"),
         joinpath("src", "datamodel", "design", "cabledesign.jl"),
@@ -210,6 +211,7 @@ end
           LineCableModels.ReportBuilder
     @test parentmodule(LineCableModels.validate) === LineCableModels.Validation
     @test parentmodule(LineCableModels.build) === LineCableModels
+    @test parentmodule(LineCableModels.flatten) === LineCableModels
     @test LineCableModels.build === LineCableModels.DataModel.build ===
           LineCableModels.ParametricBuilder.build
     @test fieldtype(LineCableModels.Material{Float64}, :kind) === Symbol
@@ -217,6 +219,15 @@ end
     @test !hasfield(LineCableModels.CableDesign, :reference_frequency)
     @test !isdefined(LineCableModels.DataModel, :ResolvedRegion)
     @test !isdefined(LineCableModels.DataModel, :ResolvedPart)
+    @test !isdefined(LineCableModels.DataModel, :AbstractPrimitiveDefinition)
+    for name in (
+        :DiskDefinition, :RectangleDefinition, :EllipseDefinition,
+        :SectorDefinition, :AnnulusDefinition, :ShellDefinition, :PolygonDefinition,
+        :RoundedSectorDefinition
+    )
+        @test !isdefined(LineCableModels.DataModel, name)
+        @test !isdefined(LineCableModels, name)
+    end
     @test !hasmethod(
         LineCableModels.CableDesign,
         Tuple{LineCableModels.AbstractCablePart}
@@ -239,11 +250,39 @@ end
         "CableConstantsProblem",
         "ResolvedRegion",
         "ResolvedPart",
+        "AbstractPrimitiveDefinition",
+        "DiskDefinition",
+        "RectangleDefinition",
+        "EllipseDefinition",
+        "SectorDefinition",
+        "AnnulusDefinition",
+        "ShellDefinition",
+        "PolygonDefinition",
+        "RoundedSectorDefinition",
+        "SectorParams",
+        "SectorInsulator",
+        "_squashed_sector_poly",
         ".effective"
     )
     for token in rejected_cable_model_tokens
         @test all(!occursin(token, contents) for contents in values(source))
     end
+
+    dataframe_sources=filter(keys(source)) do path
+        occursin("DataFrame", source[path])
+    end
+    @test all(startswith(path, joinpath("src", "reportbuilder"))
+        for path in dataframe_sources)
+
+    rounded_sector_source=source[joinpath(
+        "src", "datamodel", "geometry", "roundedsector.jl"
+    )]
+    native_adapter_source=source[joinpath("src", "engine", "native_adapter.jl")]
+    for token in ("Point2f", "GeometryBasics", "Makie")
+        @test !occursin(token, rounded_sector_source)
+        @test !occursin(token, native_adapter_source)
+    end
+    @test !occursin("tessellate", native_adapter_source)
 
     ci_workflow=read(joinpath(root, ".github", "workflows", "CI.yml"), String)
     @test occursin(r"(?m)^  quality:\s*$", ci_workflow)

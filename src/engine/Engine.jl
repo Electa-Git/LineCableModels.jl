@@ -38,12 +38,12 @@ export EarthProperties, CPEarth, verbosity
 export InternalImpedance, InsulationImpedance, EarthImpedance
 export InsulationAdmittance, EarthAdmittance, EHEM, Transforms
 
-export compute, equivalent, plot
+export compute, flatten, plot
 
 # Module-specific dependencies
 using LinearAlgebra: I, diag, ldiv!, lu!
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import ..LineCableModels: basis, build, equivalent, R, L, C,
+import ..LineCableModels: basis, build, flatten, R, L, C,
                           resistance, inductance, capacitance
 import ..LineCableModels: nominal, uncertainty
 import ..Grammar: AbstractProblemDefinition, AbstractFormulation,

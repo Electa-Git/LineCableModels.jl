@@ -179,8 +179,13 @@ function LineParametersWorkspace(
             component_index += 1
             conductor = terminal.conductor
             dielectric = terminal.dielectric
-            horz[component_index] = position.x
-            vert[component_index] = position.y
+            local_x, local_y = conductor.position
+            horz[component_index] = position.x +
+                                    cos(position.φ) * local_x -
+                                    sin(position.φ) * local_y
+            vert[component_index] = position.y +
+                                    sin(position.φ) * local_x +
+                                    cos(position.φ) * local_y
             r_in_values[component_index] = conductor.r_in
             r_ext_values[component_index] = conductor.r_ex
             r_ins_in[component_index] = dielectric.r_in

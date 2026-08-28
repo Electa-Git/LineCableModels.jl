@@ -846,7 +846,7 @@ begin
 end
 
 # ╔═╡ 43ff64cb-1226-4d26-9fdf-8aff03505439
-cable_emt = equivalent(cable_design)
+cable_emt = flatten(cable_design)
 
 # ╔═╡ ae1749c8-0f6d-4487-8857-12826eb57db3
 begin

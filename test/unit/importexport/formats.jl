@@ -155,13 +155,13 @@ end
                 Group(terminal,
                     Region(
                         Symbol(terminal, :_conductor),
-                        AnnulusDefinition(inner, inner+1.0e-3),
+                        Annulus(inner, inner+1.0e-3),
                         metal
                     )))
             push!(parts,
                 Region(
                     Symbol(terminal, :_insulation),
-                    AnnulusDefinition(inner+1.0e-3, inner+2.0e-3),
+                    Annulus(inner+1.0e-3, inner+2.0e-3),
                     dielectric
                 ))
         end

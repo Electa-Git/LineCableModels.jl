@@ -214,6 +214,18 @@
             "points": {"type": "array", "minItems": 3, "items": {"type": "array", "prefixItems": [{"$ref": "#/$defs/scalar"}, {"$ref": "#/$defs/scalar"}], "items": false}}
           },
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "span", "r_base", "r_back", "fillet"],
+          "properties": {
+            "kind": {"const": "rounded_sector"},
+            "span": {"$ref": "#/$defs/scalar"},
+            "r_base": {"$ref": "#/$defs/scalar"},
+            "r_back": {"$ref": "#/$defs/scalar"},
+            "fillet": {"$ref": "#/$defs/scalar"}
+          },
+          "additionalProperties": false
         }
       ]
     },

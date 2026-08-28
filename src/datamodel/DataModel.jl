@@ -22,18 +22,18 @@ module DataModel
 
 # Export public API
 export CableDesign, CableGeometry, PlacedRegion, LineCableSystem, CableConstants
-export build, equivalent
+export build, flatten
 export CablesLibrary, catalogue
 export trefoil_formation, flat_formation, outer_radius
-export AbstractPrimitiveDefinition
+export AbstractShape, AbstractPrimitive
 export AbstractCablePart, Region, Stack
 export Group, Assembly
 export Enclosure
-export DiskDefinition, RectangleDefinition, EllipseDefinition
-export SectorDefinition, AnnulusDefinition, ShellDefinition, PolygonDefinition
+export Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, RoundedSector, Shell
 export Pose2
 export EmptyBoundary
-export resolve, boundary, area, centroid, support, r_in, r_ex, thickness
+export resolve, boundary, area, perimeter, centroid, support, r_in, r_ex, thickness
+export tessellate
 export Ring, Polar, Fill, Lattice, capacity, placements
 export FillFactor, DiameterFactor, TabulatedCompaction, AffineCompaction
 export LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
@@ -48,7 +48,7 @@ using DocStringExtensions: IMPORTS
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES, FUNCTIONNAME
 import ..PlotBuilder
 import ..Units
-import ..LineCableModels: add!, build, equivalent, validate, nominal
+import ..LineCableModels: add!, build, flatten, validate, nominal
 import ..LineCableModels: _construction
 import ..LineCableModels: basis, R, L, C, resistance, inductance, capacitance
 import ..Grammar: AbstractCoreResult, observe, observables
@@ -64,9 +64,10 @@ import Base: angle
 # Abstract types and interfaces
 include("interfaces.jl")
 include("types.jl")
-include("geometry/definitions.jl")
 include("geometry/pose.jl")
 include("geometry/primitives.jl")
+include("geometry/shell.jl")
+include("geometry/roundedsector.jl")
 include("geometry/resolve.jl")
 include("design/region.jl")
 include("design/stack.jl")
@@ -83,7 +84,6 @@ using .BaseParams
 
 include("design/cabledesign.jl")
 include("cabledesign/cableconstants.jl")
-include("cabledesign/dataframe.jl")
 
 # Library
 include("cableslibrary/cableslibrary.jl")
@@ -100,6 +100,6 @@ include("preview/materialscale.jl")
 
 public preview_shapes, preview_materials
 public PreviewPolygon, PreviewReferenceLine, PreviewPayload
-public AbstractPrimitive, Disk, Rectangle, Ellipse, Sector, Annulus, Polygon
+public RoundedSectorShape, ShellShape
 
 end # module DataModel

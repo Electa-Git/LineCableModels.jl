@@ -44,7 +44,7 @@
         for index in eachindex(wire_counts)
             wire = LineCableModels.Region(
                 Symbol(:core_wire_, index),
-                LineCableModels.DiskDefinition(0.00235),
+                LineCableModels.Disk(0.00235),
                 aluminum
             )
             path = iszero(lay_ratios[index]) ? nothing :
@@ -73,14 +73,14 @@
         )
             push!(parts, LineCableModels.Region(
                 tag,
-                LineCableModels.AnnulusDefinition(inner, outer),
+                LineCableModels.Annulus(inner, outer),
                 material
             ))
         end
 
         screen_wire = LineCableModels.Region(
             :sheath_wire,
-            LineCableModels.DiskDefinition(0.000475),
+            LineCableModels.Disk(0.000475),
             copper
         )
         push!(parts,
@@ -101,7 +101,7 @@
                 :sheath,
                 LineCableModels.Region(
                     :sheath_tape,
-                    LineCableModels.SectorDefinition(
+                    LineCableModels.Sector(
                         tape_inner,
                         tape_outer,
                         -tape_width / (tape_inner + tape_outer),
@@ -114,7 +114,7 @@
         push!(parts,
             LineCableModels.Region(
                 :sheath_semicon,
-                LineCableModels.AnnulusDefinition(
+                LineCableModels.Annulus(
                     0.031700000000000006,
                     0.03200000000000001
                 ),
@@ -125,7 +125,7 @@
                 :jacket,
                 LineCableModels.Region(
                     :jacket_metal,
-                    LineCableModels.AnnulusDefinition(
+                    LineCableModels.Annulus(
                         0.03200000000000001,
                         0.032150000000000005
                     ),
@@ -135,7 +135,7 @@
         push!(parts,
             LineCableModels.Region(
                 :jacket_bedding,
-                LineCableModels.AnnulusDefinition(
+                LineCableModels.Annulus(
                     0.032150000000000005,
                     0.032200000000000006
                 ),
@@ -144,7 +144,7 @@
         push!(parts,
             LineCableModels.Region(
                 :jacket_insulation,
-                LineCableModels.AnnulusDefinition(
+                LineCableModels.Annulus(
                     0.032200000000000006,
                     0.034600000000000006
                 ),

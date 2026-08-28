@@ -72,7 +72,7 @@
 
     import LineCableModels.DataModel as DM
     const resolution_count=Ref(0)
-    struct CountedDefinition{T <: Real}<:DM.AbstractPrimitiveDefinition{T}
+    struct CountedDefinition{T <: Real}<:DM.AbstractPrimitive{T}
         radius::T
     end
     struct CountedPrimitive{T <: Real}<:DM.AbstractPrimitive{T}

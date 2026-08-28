@@ -29,7 +29,7 @@ Store the resolved physical regions and outer boundary of one cable root.
 
 $(TYPEDFIELDS)
 """
-struct CableGeometry{V <: AbstractVector, B <: AbstractPrimitive}
+struct CableGeometry{V <: AbstractVector, B <: AbstractShape}
     "Resolved regions in physical traversal order."
     regions::V
     "Resolved outer boundary of the complete root."
@@ -37,7 +37,7 @@ struct CableGeometry{V <: AbstractVector, B <: AbstractPrimitive}
 
     function CableGeometry(regions::V, outer::B) where {
             V <: AbstractVector,
-            B <: AbstractPrimitive
+            B <: AbstractShape
     }
         isempty(regions) && throw(ArgumentError(
             "cable geometry requires at least one placed region"
@@ -66,7 +66,7 @@ boundary(geometry::CableGeometry) = geometry.outer
 Base.:(==)(left::CableGeometry, right::CableGeometry) =
     left.regions == right.regions && left.outer == right.outer
 
-function resolve(context::Union{EmptyBoundary, AbstractPrimitive}, stack::Stack)
+function resolve(context::Union{EmptyBoundary, AbstractShape}, stack::Stack)
     regions = PlacedRegion[]
     state = context
     for item in stack.items

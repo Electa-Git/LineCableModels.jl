@@ -3,6 +3,48 @@ struct _AssemblyMember{E <: AbstractCablePart, P <: Pose2}
     at::P
 end
 
+"""
+Store the resolved, potentially disconnected boundary of an `Assembly`.
+
+The member boundaries remain exact. In particular, an assembly of sector
+cores is not replaced by a circular envelope. Consumers that require one
+containing domain must request an explicit `Enclosure`.
+"""
+struct _AssemblyShape{T <: Real, S <: Tuple} <: AbstractShape{T}
+    members::S
+
+    function _AssemblyShape(members::S) where {S <: Tuple}
+        isempty(members) && throw(ArgumentError(
+            "an assembly boundary requires at least one member"
+        ))
+        all(member -> member isa AbstractShape, members) || throw(ArgumentError(
+            "assembly boundary members must be resolved shapes"
+        ))
+        T = promote_type(map(eltype, members)...)
+        return new{T, S}(members)
+    end
+end
+
+boundary(shape::_AssemblyShape) = shape
+area(shape::_AssemblyShape) = sum(area, shape.members)
+perimeter(shape::_AssemblyShape) = sum(perimeter, shape.members)
+support(shape::_AssemblyShape, angle::Real) =
+    maximum(member -> support(member, angle), shape.members)
+support(shape::_AssemblyShape) = maximum(support, shape.members)
+
+function centroid(shape::_AssemblyShape)
+    areas = map(area, shape.members)
+    total = sum(areas)
+    centres = map(centroid, shape.members)
+    return (
+        sum(index -> areas[index] * centres[index][1], eachindex(areas)) / total,
+        sum(index -> areas[index] * centres[index][2], eachindex(areas)) / total
+    )
+end
+
+resolve(at::Pose2, shape::_AssemblyShape) =
+    _AssemblyShape(map(member -> resolve(at, member), shape.members))
+
 _AssemblyMember(item::AbstractCablePart) = _AssemblyMember(item, Pose2(0, 0, 0))
 
 Base.:(==)(left::_AssemblyMember, right::_AssemblyMember) =
@@ -137,12 +179,12 @@ function _resolve_repeated(assembly::Assembly)
     end
 
     regions = PlacedRegion[]
-    extent = zero(support(boundary(child)))
+    boundaries = AbstractShape[]
     for (member, (name, placement)) in enumerate(zip(member_names, poses))
         pose = _placement_pose(placement)
         mapping = isempty(child_terminals) ? identity :
                   terminal -> terminal === only(child_terminals) ? name : terminal
-        extent = max(extent, _append_assembly_member!(
+        _append_assembly_member!(
             regions,
             child,
             assembly.at,
@@ -151,15 +193,16 @@ function _resolve_repeated(assembly::Assembly)
             pattern = assembly.pattern,
             member,
             path = assembly.path
-        ))
+        )
+        push!(boundaries, resolve(assembly.at * pose, boundary(child)))
     end
-    return CableGeometry(regions, resolve(assembly.at, Disk(extent)))
+    return CableGeometry(regions, _AssemblyShape(Tuple(boundaries)))
 end
 
 function _resolve_explicit(assembly::Assembly)
     regions = PlacedRegion[]
     terminals = Symbol[]
-    extent = nothing
+    boundaries = AbstractShape[]
     for member in assembly.item
         child = resolve(EmptyBoundary(), member.item)
         child_terminals = unique(Symbol[
@@ -171,12 +214,12 @@ function _resolve_explicit(assembly::Assembly)
             ))
             push!(terminals, terminal)
         end
-        member_extent = _append_assembly_member!(
+        _append_assembly_member!(
             regions, child, assembly.at, member.at
         )
-        extent = extent === nothing ? member_extent : max(extent, member_extent)
+        push!(boundaries, resolve(assembly.at * member.at, boundary(child)))
     end
-    return CableGeometry(regions, resolve(assembly.at, Disk(something(extent))))
+    return CableGeometry(regions, _AssemblyShape(Tuple(boundaries)))
 end
 
 resolve(
@@ -189,7 +232,7 @@ resolve(
     assembly::Assembly{<:Any, <:Tuple}
 ) = _resolve_explicit(assembly)
 
-function resolve(::AbstractPrimitive, ::Assembly)
+function resolve(::AbstractShape, ::Assembly)
     throw(ArgumentError(
         "an Assembly requires explicit placement inside a Stack or Enclosure"
     ))

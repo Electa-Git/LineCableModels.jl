@@ -36,9 +36,9 @@ using ..EarthProps: EarthLayer, EarthModel
 import ..DataModel
 using ..DataModel: CablesLibrary, CableDesign, LineCableSystem,
                    AbstractCablePart, Region, Stack, Group, Assembly, Enclosure,
-                   DiskDefinition, RectangleDefinition, EllipseDefinition,
-                   SectorDefinition, AnnulusDefinition, ShellDefinition,
-                   PolygonDefinition, Pose2,
+                   Disk, Rectangle, Ellipse,
+                   Sector, Annulus, Shell,
+                   Polygon, RoundedSector, Pose2,
                    Ring, Polar, Fill, Lattice, capacity,
                    FillFactor, DiameterFactor, TabulatedCompaction,
                    AffineCompaction,

@@ -168,12 +168,12 @@ end
     dielectric=Material(kind = :insulator, rho = 1.0e14, eps_r = 2.3)
     context=(; label = "shape", group = :shape, include_label = true)
     primitives=(
-        DiskDefinition(0.01),
-        AnnulusDefinition(0.005, 0.01),
-        RectangleDefinition(0.02, 0.01),
-        EllipseDefinition(0.02, 0.01),
-        SectorDefinition(0.005, 0.01, 0.0, pi/2),
-        PolygonDefinition(((-0.01, -0.01), (0.01, -0.01), (0.0, 0.01)))
+        Disk(0.01),
+        Annulus(0.005, 0.01),
+        Rectangle(0.02, 0.01),
+        Ellipse(0.02, 0.01),
+        Sector(0.005, 0.01, 0.0, pi/2),
+        Polygon(((-0.01, -0.01), (0.01, -0.01), (0.0, 0.01)))
     )
     for (index, primitive) in enumerate(primitives)
         source=Region(Symbol(:shape_, index), primitive, conductor)
@@ -194,12 +194,12 @@ end
     broad_design=build(
         CableDesign,
         "broad-scale",
-        Group(:core, Region(:broad, DiskDefinition(0.01), broad))
+        Group(:core, Region(:broad, Disk(0.01), broad))
     )
     narrow_design=build(
         CableDesign,
         "narrow-scale",
-        Group(:core, Region(:narrow, DiskDefinition(0.01), conductor))
+        Group(:core, Region(:narrow, Disk(0.01), conductor))
     )
     @test DM._property_ranges([narrow_design, broad_design]) ==
           ((1.7241e-8, 1.0e-6), (1.0, 10.0), (1.0, 4.0))
@@ -216,8 +216,8 @@ end
         CableDesign,
         "filled",
         Stack(
-            Group(:core, Region(:metal, DiskDefinition(0.01), conductor)),
-            Region(:insulation, ShellDefinition(0.005), dielectric)
+            Group(:core, Region(:metal, Disk(0.01), conductor)),
+            Region(:insulation, Shell(0.005), dielectric)
         )
     )
     @test length(only(LineCableModels.PlotBuilder.make_render(

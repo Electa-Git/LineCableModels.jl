@@ -93,7 +93,12 @@ function _draw_single_line_page!(context::UIContext, page::PlotPage)
             else
                 String(payload.legend_labels[label_index])
             end
-            group = Symbol("$(family)_$(row)_$(column)")
+            # One dashboard page may contain two scientific panels, such as R/L,
+            # G/C, R/X, or G/B. The shell merges equal group identities into one
+            # legend entry, so the quantity-owning panel is part of the group.
+            # This preserves both labels instead of letting the second panel
+            # overwrite the first panel's entry for the same matrix coordinate.
+            group = Symbol("$(family)_$(panel_index)_$(row)_$(column)")
             plots = _draw_line!(axis, payload.frequency.values, curve;
                 label,
                 visible = group ∉ state.hidden_groups,

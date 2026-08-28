@@ -7,7 +7,7 @@ $(TYPEDFIELDS)
 """
 struct Enclosure{
         A,
-        S <: AbstractPrimitiveDefinition,
+        S <: AbstractPrimitive,
         E <: AbstractCablePart,
         F,
         W
@@ -32,7 +32,7 @@ struct Enclosure{
             item::E,
             fill::F,
             wall::W
-    ) where {A, S <: AbstractPrimitiveDefinition, E <: AbstractCablePart, F, W}
+    ) where {A, S <: AbstractPrimitive, E <: AbstractCablePart, F, W}
         isempty(String(tag)) && throw(ArgumentError("enclosure tag cannot be empty"))
         at isa Pose2 || throw(ArgumentError("enclosure pose must resolve to Pose2"))
         fill isa Union{Material, Region} ||
@@ -66,7 +66,7 @@ function _disk_fill(
 )
     fill_region = Region(
         Symbol(tag, :_fill),
-        AnnulusDefinition(support(contents), container.r),
+        Annulus(support(contents), container.r),
         material
     )
     return resolve(EmptyBoundary(), fill_region)
@@ -85,17 +85,17 @@ function _difference_fill(container, holes, material, tag)
     return CableGeometry(PlacedRegion[PlacedRegion(source, primitive)], boundary(container))
 end
 
-resolve(container::AbstractPrimitive, holes::Tuple, material::Material, tag::Symbol) =
+resolve(container::AbstractShape, holes::Tuple, material::Material, tag::Symbol) =
     _difference_fill(container, holes, material, tag)
 
-_definition(primitive::Disk) = DiskDefinition(primitive.r)
-_definition(primitive::Rectangle) = RectangleDefinition(primitive.w, primitive.h)
-_definition(primitive::Ellipse) = EllipseDefinition(primitive.a, primitive.b)
-_definition(primitive::Sector) = SectorDefinition(
+_definition(primitive::Disk) = Disk(primitive.r)
+_definition(primitive::Rectangle) = Rectangle(primitive.w, primitive.h)
+_definition(primitive::Ellipse) = Ellipse(primitive.a, primitive.b)
+_definition(primitive::Sector) = Sector(
     primitive.ri, primitive.ro, primitive.φ0, primitive.span
 )
-_definition(primitive::Annulus) = AnnulusDefinition(primitive.ri, primitive.ro)
-_definition(primitive::Polygon) = PolygonDefinition(primitive.points)
+_definition(primitive::Annulus) = Annulus(primitive.ri, primitive.ro)
+_definition(primitive::Polygon) = Polygon(primitive.points)
 
 resolve(
     ::AbstractPrimitive,
@@ -130,18 +130,18 @@ function _occupied_boundaries(assembly::Assembly{<:Any, <:Tuple})
     )
 end
 
-function _contained(container::Disk, child::AbstractPrimitive)
+function _contained(container::Disk, child::AbstractShape)
     return support(child) <= container.r
 end
 
-function _contained(container::Rectangle, child::AbstractPrimitive)
+function _contained(container::Rectangle, child::AbstractShape)
     return support(child, 0) <= container.w / 2 &&
            support(child, pi) <= container.w / 2 &&
            support(child, pi / 2) <= container.h / 2 &&
            support(child, -pi / 2) <= container.h / 2
 end
 
-function _contained(::AbstractPrimitive, ::AbstractPrimitive)
+function _contained(::AbstractShape, ::AbstractShape)
     throw(ArgumentError(
         "enclosure containment is not implemented for this resolved shape pair"
     ))
@@ -208,7 +208,7 @@ function resolve(context::EmptyBoundary, enclosure::Enclosure)
     return CableGeometry(regions, resolve(enclosure.at, outer))
 end
 
-function resolve(context::AbstractPrimitive, enclosure::Enclosure)
+function resolve(context::AbstractShape, enclosure::Enclosure)
     throw(ArgumentError(
         "an Enclosure requires explicit placement inside a Stack or Enclosure"
     ))

@@ -206,6 +206,17 @@ function _shape_geometry(primitive::_DifferencePrimitive)
     return GeometryBasics.Polygon(outer.exterior, interiors)
 end
 
+function _shape_geometry(shape::RoundedSectorShape)
+    return GeometryBasics.Polygon(Point2f.(tessellate(shape)))
+end
+
+function _shape_geometry(shape::ShellShape)
+    coordinates = tessellate(shape)
+    outer = Point2f.(coordinates.outer)
+    inner = reverse(Point2f.(coordinates.inner))
+    return GeometryBasics.Polygon(outer, [inner])
+end
+
 preview_materials(region::PlacedRegion) = (region.source.material,)
 
 function preview_shapes(region::PlacedRegion, context)

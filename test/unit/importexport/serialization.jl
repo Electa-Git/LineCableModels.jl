@@ -135,7 +135,7 @@ end
             :core,
             strand(
                 copper;
-                wire = RectangleDefinition(0.35e-3, 0.8e-3),
+                wire = Rectangle(0.35e-3, 0.8e-3),
                 layers = 2,
                 n = (6, 12)
             )
@@ -149,7 +149,7 @@ end
     @test area.(getproperty.(restored_rectangular.geometry.regions, :primitive)) ==
           area.(getproperty.(rectangular.geometry.regions, :primitive))
     @test all(
-        region -> region.source.primitive isa RectangleDefinition &&
+        region -> region.source.primitive isa Rectangle &&
                   region.primitive isa LineCableModels.DataModel.Rectangle,
         restored_rectangular.geometry.regions
     )
@@ -161,7 +161,7 @@ end
             :core,
             strand(
                 copper;
-                wire = DiskDefinition(0.35e-3),
+                wire = Disk(0.35e-3),
                 layers = 2,
                 n = (6, capacity()),
                 lay = (LayRatio(12), Pitch(0.1)),

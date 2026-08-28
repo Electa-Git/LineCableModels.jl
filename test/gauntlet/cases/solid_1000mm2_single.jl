@@ -37,13 +37,13 @@ case_definition(
                 :core,
                 LineCableModels.Region(
                     :core_metal,
-                    LineCableModels.DiskDefinition(sqrt(p.core_cross_section / π)),
+                    LineCableModels.Disk(sqrt(p.core_cross_section / π)),
                     aluminum
                 )
             ),
             LineCableModels.Region(
                 :core_insulation,
-                LineCableModels.ShellDefinition(p.insulation_thickness),
+                LineCableModels.Shell(p.insulation_thickness),
                 xlpe
             )
         )

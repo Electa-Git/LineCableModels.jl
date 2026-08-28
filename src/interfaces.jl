@@ -44,7 +44,7 @@ function _construction(
 end
 
 """
-    equivalent(design; new_id="")
+    flatten(design; new_id="")
 
 Build a homogeneous cable design that preserves the radial component geometry
 and matches the effective conductor and dielectric properties of `design`.
@@ -65,7 +65,7 @@ checked while the equivalent design is constructed.
 
 - A completed homogeneous `CableDesign`.
 """
-function equivalent end
+function flatten end
 
 "Return the physical storage basis of a result."
 function basis end
