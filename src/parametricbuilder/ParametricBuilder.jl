@@ -28,7 +28,8 @@ export result, project
 
 export Material, Conductor, Insulator, Semiconductor, Filler
 export CableDesign, LineCableSystem
-export Disk, Rectangle, Ellipse, Sector, Annulus, Shell, Polygon, Pose2
+export DiskDefinition, RectangleDefinition, EllipseDefinition
+export SectorDefinition, AnnulusDefinition, ShellDefinition, PolygonDefinition, Pose2
 export Region, Stack
 export Group, Assembly
 export Enclosure
@@ -51,7 +52,9 @@ using ..Grammar:
 import ..Materials
 import ..Materials: Material
 import ..DataModel
-import ..DataModel: Disk, Rectangle, Ellipse, Sector, Annulus, Shell, Polygon, Pose2
+import ..DataModel: DiskDefinition, RectangleDefinition, EllipseDefinition
+import ..DataModel: SectorDefinition, AnnulusDefinition, ShellDefinition
+import ..DataModel: PolygonDefinition, Pose2
 import ..DataModel: Region, Stack
 import ..DataModel: Group, Assembly
 import ..DataModel: Enclosure

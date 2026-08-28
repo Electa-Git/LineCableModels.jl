@@ -1,4 +1,7 @@
 # Engine-owned formulation hierarchy.
+"Identify the native LineCableModels numerical backend."
+struct LineCableModelsEngine end
+
 """
 $(TYPEDEF)
 
@@ -16,14 +19,8 @@ abstract type EarthAdmittanceFormulation <: AbstractAdmittanceFormulation end
 abstract type AbstractTransformFormulation <: AbstractFormulation end
 abstract type AbstractEarthPropertiesFormulation <: AbstractFormulation end
 
-"""
-$(TYPEDSIGNATURES)
-
-Construct the formulation selected by `backend`. Calling `Formulation()`
-selects `:analytical`.
-"""
+"Route an explicit external formulation tag to its `Val` dispatch method."
 Formulation(backend::Symbol; kwargs...) = Formulation(Val(backend); kwargs...)
-Formulation(; kwargs...) = Formulation(:analytical; kwargs...)
 
 """
 $(TYPEDEF)

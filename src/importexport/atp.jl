@@ -51,9 +51,9 @@ function export_data(::Val{:atp},
         file_name::Union{String, Nothing} = nothing
 )::String
     # ATP owns this explicit homogenization choice. The physical design remains
-    # authoritative; the radial analytical adapter is invoked only to prepare
+    # authoritative; the native radial adapter is invoked only to prepare
     # the equivalent concentric fields required by ATPDraw's LCC record.
-    atp_components(design) = Engine.analytical_components(
+    atp_components(design) = Engine.homogeneous_components(
         Engine.Formulation(),
         design,
         base_freq

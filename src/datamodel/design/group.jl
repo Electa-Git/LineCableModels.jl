@@ -36,36 +36,30 @@ end
 function _path_radius(
         pattern::Ring,
         pose::Pose2,
-        shape::Union{
-            AnnulusShape,
-            SectorShape,
-            PlacedShape{<:Real, <:Union{AnnulusShape, SectorShape}}
-        }
+        primitive::Union{Annulus, Sector}
 )
-    return iszero(pattern.r) ? (r_in(shape) + r_ex(shape)) / 2 : pattern.r
+    return iszero(pattern.r) ? (r_in(primitive) + r_ex(primitive)) / 2 : pattern.r
 end
-_path_radius(pattern::Ring, pose::Pose2, shape::AbstractShape) = pattern.r
+_path_radius(pattern::Ring, pose::Pose2, primitive::AbstractPrimitive) = pattern.r
 _path_radius(
     ::Nothing,
     pose::Pose2,
-    shape::Union{
-        AnnulusShape,
-        SectorShape,
-        PlacedShape{<:Real, <:Union{AnnulusShape, SectorShape}}
-    }
-) = (r_in(shape) + r_ex(shape)) / 2
-_path_radius(::Nothing, pose::Pose2, shape::AbstractShape) = hypot(pose.x, pose.y)
-_path_radius(pattern, pose::Pose2, shape::AbstractShape) = hypot(pose.x, pose.y)
+    primitive::Union{Annulus, Sector}
+) = (r_in(primitive) + r_ex(primitive)) / 2
+_path_radius(::Nothing, pose::Pose2, primitive::AbstractPrimitive) = hypot(pose.x, pose.y)
+_path_radius(pattern, pose::Pose2, primitive::AbstractPrimitive) = hypot(pose.x, pose.y)
 
-_minimum_radius(
-    shape::PlacedShape{<:Real, <:Union{AnnulusShape, SectorShape}}
-) = r_in(shape)
-function _minimum_radius(shape::PlacedShape)
-    center = centroid(shape)
+function _minimum_radius(primitive::Union{Annulus, Sector})
+    iszero(primitive.at.x) && iszero(primitive.at.y) && return r_in(primitive)
+    return _minimum_radius_general(primitive)
+end
+_minimum_radius(primitive::AbstractPrimitive) = _minimum_radius_general(primitive)
+function _minimum_radius_general(primitive::AbstractPrimitive)
+    center = centroid(primitive)
     center_radius = hypot(center...)
-    iszero(center_radius) && return zero(eltype(shape))
+    iszero(center_radius) && return zero(eltype(primitive))
     φ = atan(center[2], center[1])
-    return -support(shape, φ + pi)
+    return -support(primitive, φ + pi)
 end
 
 function resolve(context::EmptyBoundary, group::Group)
@@ -81,20 +75,20 @@ function resolve(context::EmptyBoundary, group::Group)
             terminal = source.source.material.kind === :conductor ? group.name :
                        source.terminal
             has_conductor |= terminal === group.name
-            shape = PlacedShape(source.shape, placed_at)
+            primitive = resolve(placed_at, source.primitive)
             patterns = group.pattern === nothing ? source.placement.patterns :
                        (source.placement.patterns...,
                         (pattern = group.pattern, member = member, pose = pose))
             paths = group.path === nothing ? source.paths :
                     (source.paths..., (
                         path = group.path,
-                        radius = _path_radius(group.pattern, pose, source.shape)
+                        radius = _path_radius(group.pattern, pose, source.primitive)
                     ))
             push!(regions, PlacedRegion(
                 source.source,
-                shape,
+                primitive,
                 terminal,
-                (pose = shape.at, patterns = patterns),
+                (patterns = patterns,),
                 paths
             ))
         end
@@ -105,17 +99,17 @@ function resolve(context::EmptyBoundary, group::Group)
 
     child_extent = support(boundary(child))
     outer_radius = maximum(hypot(pose.x, pose.y) + child_extent for pose in poses)
-    local_boundary = DiskShape(outer_radius)
-    return CableGeometry(regions, PlacedShape(local_boundary, group.at))
+    local_boundary = Disk(outer_radius)
+    return CableGeometry(regions, resolve(group.at, local_boundary))
 end
 
-function resolve(context::AbstractShape, group::Group)
+function resolve(context::AbstractPrimitive, group::Group)
     result = resolve(EmptyBoundary(), group)
     current_radius = support(context)
     tolerance = sqrt(eps(typeof(float(current_radius)))) *
                 max(one(current_radius), current_radius)
     for source in result.regions
-        minimum_radius = _minimum_radius(source.shape)
+        minimum_radius = _minimum_radius(source.primitive)
         minimum_radius + tolerance >= current_radius || throw(DomainError(
             minimum_radius,
             "group geometry overlaps the current stack boundary at radius $current_radius"

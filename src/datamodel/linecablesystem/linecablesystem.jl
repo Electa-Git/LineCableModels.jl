@@ -95,12 +95,12 @@ function build(
         "combine must be :product or :zip"
     ))
     declared_input = if designs isa CableDesign
-        CableDesign[designs]
+        typeof(designs)[designs]
     elseif designs isa AbstractVector || designs isa Tuple
         all(design -> design isa CableDesign, designs) || throw(ArgumentError(
             "designs must contain completed CableDesign objects"
         ))
-        CableDesign[designs...]
+        collect(designs)
     else
         throw(ArgumentError("designs must be a CableDesign or a design collection"))
     end
@@ -245,12 +245,12 @@ function build(
                 design.geometry.regions,
                 design.terminal_map
         )
-            shape = PlacedShape(source.shape, pose)
+            primitive = resolve(pose, source.primitive)
             push!(global_geometry, PlacedRegion(
                 source.source,
-                shape,
+                primitive,
                 source.terminal,
-                (pose = shape.at, patterns = source.placement.patterns),
+                (patterns = source.placement.patterns,),
                 source.paths
             ))
             push!(

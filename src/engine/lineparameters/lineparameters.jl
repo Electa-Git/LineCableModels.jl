@@ -61,18 +61,20 @@ end
 @inline basis(::ShuntAdmittance{T, Basis}) where {T, Basis} = Basis
 
 """
-    LineParameters{T, U, D, Basis}
+    LineParameters{T, U, D, Basis, Q}
 
 Frequency-dependent series-impedance and shunt-admittance matrices.
 
 `Basis` is either `:pul` or `:total`. Per-length values are stored in
-Ω/m and S/m. Total values are stored in Ω and S. Frequencies are stored in Hz.
+Ω/m and S/m. Total values are stored in Ω and S. Frequencies are stored in
+Hz. `Q` is the concrete named-tuple type of optional computation output.
 """
 struct LineParameters{
     T <: Complex,
     U <: Real,
     D <: LineParamsDomain,
-    Basis
+    Basis,
+    Q <: NamedTuple
 } <: AbstractCoreResult
     "Frequency-dependent series impedance \\[Ω/m\\] or \\[Ω\\]."
     Z::SeriesImpedance{T, Basis}
@@ -80,17 +82,21 @@ struct LineParameters{
     Y::ShuntAdmittance{T, Basis}
     "Frequency samples \\[Hz\\]."
     f::Vector{U}
+    "Typed supplemental output retained by the computation."
+    details::Q
 
     function LineParameters(
             ::Type{D},
             Z::SeriesImpedance{T, Basis},
             Y::ShuntAdmittance{T, Basis},
-            f::AbstractVector{U}
+            f::AbstractVector{U},
+            details::Q = (;)
     ) where {
             D <: LineParamsDomain,
             T <: Complex,
             U <: Real,
-            Basis
+            Basis,
+            Q <: NamedTuple
     }
         _check_basis(Basis)
         size(Z, 1) == size(Z, 2) || throw(DimensionMismatch("Z must be square"))
@@ -102,7 +108,7 @@ struct LineParameters{
             DimensionMismatch("frequency count must match the Z/Y third dimension"),
         )
         all(isfinite, f) || throw(ArgumentError("frequencies must be finite"))
-        return new{T, U, D, Basis}(Z, Y, Vector{U}(f))
+        return new{T, U, D, Basis, Q}(Z, Y, Vector{U}(f), details)
     end
 end
 
@@ -142,7 +148,8 @@ function LineParameters(
         Z::AbstractArray{TZ, 3},
         Y::AbstractArray{TY, 3},
         f::AbstractVector{U};
-        basis::Symbol = :pul
+        basis::Symbol = :pul,
+        details::NamedTuple = (;)
 ) where {
         D <: LineParamsDomain,
         TZ <: Complex,
@@ -155,7 +162,8 @@ function LineParameters(
         D,
         SeriesImpedance(convert(Array{element_type, 3}, Z); basis),
         ShuntAdmittance(convert(Array{element_type, 3}, Y); basis),
-        f
+        f,
+        details
     )
 end
 
@@ -163,19 +171,21 @@ function LineParameters(
         Z::AbstractArray{TZ, 3},
         Y::AbstractArray{TY, 3},
         f::AbstractVector{U};
-        basis::Symbol = :pul
+        basis::Symbol = :pul,
+        details::NamedTuple = (;)
 ) where {
         TZ <: Complex,
         TY <: Complex,
         U <: Real
 }
-    return LineParameters(PhaseDomain, Z, Y, f; basis)
+    return LineParameters(PhaseDomain, Z, Y, f; basis, details)
 end
 
 @inline domain(::Type{<:LineParameters{T, U, D}}) where {T, U, D <: LineParamsDomain} = D
 @inline domain(lp::LineParameters) = domain(typeof(lp))
 @inline basis(::Type{<:LineParameters{T, U, D, Basis}}) where {T, U, D, Basis} = Basis
 @inline basis(::LineParameters{T, U, D, Basis}) where {T, U, D, Basis} = Basis
+details(parameters::LineParameters) = parameters.details
 
 observe(lp::LineParameters, ::typeof(frequencies)) = lp.f
 observe(lp::LineParameters, ::typeof(frequencies), indices...) = getindex(lp.f, indices...)

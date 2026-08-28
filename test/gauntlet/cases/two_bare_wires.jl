@@ -38,17 +38,16 @@ case_definition(
                 :core,
                 LineCableModels.Region(
                     :core_metal,
-                    LineCableModels.Disk(p.core_radius),
+                    LineCableModels.DiskDefinition(p.core_radius),
                     artificial_conductor
                 )
             ),
             LineCableModels.Region(
                 :core_insulation,
-                LineCableModels.Shell(p.insulation_thickness),
+                LineCableModels.ShellDefinition(p.insulation_thickness),
                 artificial_insulation
             )
-        );
-        nominal_data = LineCableModels.NominalData()
+        )
     )
     earth = LineCableModels.Earth(rho = p.earth_rho, eps_r = 1.0, mu_r = 1.0)
     system = LineCableModels.build(

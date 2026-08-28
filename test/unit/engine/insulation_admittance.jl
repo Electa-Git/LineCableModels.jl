@@ -97,17 +97,18 @@ end
             CableDesign,
             "parallel-rc-test",
             Stack(AbstractCablePart[
-                Group(:core, Region(:core_conductor, Annulus(0.0, core_outer), copper)),
-                Region(:insulation_1, Annulus(core_outer, first_outer), dielectric_1),
-                Region(:insulation_2, Annulus(first_outer, insulation_outer), dielectric_2),
-                Group(:sheath, Region(
-                    :sheath_conductor,
-                    Annulus(insulation_outer, sheath_outer),
-                    copper
-                )),
+                Group(:core, Region(:core_conductor, AnnulusDefinition(0.0, core_outer), copper)),
+                Region(:insulation_1, AnnulusDefinition(core_outer, first_outer), dielectric_1),
+                Region(:insulation_2, AnnulusDefinition(first_outer, insulation_outer), dielectric_2),
+                Group(:sheath,
+                    Region(
+                        :sheath_conductor,
+                        AnnulusDefinition(insulation_outer, sheath_outer),
+                        copper
+                    )),
                 Region(
                     :outer_dielectric,
-                    Annulus(sheath_outer, jacket_outer),
+                    AnnulusDefinition(sheath_outer, jacket_outer),
                     outer_dielectric
                 )
             ])
@@ -130,8 +131,7 @@ end
         )
     end
 
-    formulation=Formulation(
-        Val(:analytical);
+    formulation=Formulation(;
         insulation_admittance = InsulationAdmittance.ParallelRC(),
         modal_transform = nothing,
         options = (
@@ -141,32 +141,15 @@ end
         )
     )
     problem=two_terminal_problem()
-    input=Engine.AnalyticalInput(problem, Formulation())
-    trace_formulation=Formulation(
-        :analytical;
-        internal_impedance = formulation.internal_impedance,
-        insulation_impedance = formulation.insulation_impedance,
-        earth_impedance = formulation.earth_impedance,
-        insulation_admittance = formulation.insulation_admittance,
-        earth_admittance = formulation.earth_admittance,
-        earth_properties = formulation.earth_properties,
-        modal_transform = formulation.modal_transform,
-        equivalent_earth = formulation.equivalent_earth,
-        options = merge(
-            (
-                reduce_bundle = formulation.options.reduce_bundle,
-                kron_reduction = formulation.options.kron_reduction,
-                ideal_transposition = formulation.options.ideal_transposition,
-                temperature_correction = formulation.options.temperature_correction
-            ),
-            (output = :trace,)
-        )
-    )
-    trace=compute(problem, trace_formulation)
-    parameters=trace.result
+    execution=computation_options(Val(LineCableModelsEngine), (;))
+    workspace=LineParametersWorkspace(
+        LineCableModelsEngine(), problem, formulation, execution)
+    input=workspace.normalized
+    parameters=compute(problem, formulation; options = (trace = true,))
+    trace=details(parameters).trace
     public_parameters=compute(problem, formulation)
-    @test public_parameters.Z.values == trace.result.Z.values
-    @test public_parameters.Y.values == trace.result.Y.values
+    @test public_parameters.Z.values == parameters.Z.values
+    @test public_parameters.Y.values == parameters.Y.values
     @test input.insulator_layer_ranges == [1:2, 3:3]
     @test input.r_ins_layer_in[2] ≈ input.r_ins_layer_ext[1]
     @test size(parameters.Y) == (2, 2, 3)
@@ -174,7 +157,7 @@ end
     for frequency_index in eachindex(input.freq)
         s=input.jω[frequency_index]
         inner=sum(
-            formulation.insulation_admittance(
+            formulation.methods.insulation_admittance(
                 input.r_ins_layer_in[layer_index],
                 input.r_ins_layer_ext[layer_index],
                 input.rho_ins_layer[layer_index],
@@ -184,7 +167,7 @@ end
         for layer_index in input.insulator_layer_ranges[1]
         )
         outer=sum(
-            formulation.insulation_admittance(
+            formulation.methods.insulation_admittance(
                 input.r_ins_layer_in[layer_index],
                 input.r_ins_layer_ext[layer_index],
                 input.rho_ins_layer[layer_index],
@@ -208,7 +191,7 @@ end
     function component_coefficient(component_index, frequency_index)
         s=input.jω[frequency_index]
         return sum(
-            formulation.insulation_admittance(
+            formulation.methods.insulation_admittance(
                 input.r_ins_layer_in[layer_index],
                 input.r_ins_layer_ext[layer_index],
                 input.rho_ins_layer[layer_index],
@@ -267,20 +250,21 @@ end
             CableDesign,
             "parallel-rc-mc",
             Stack(AbstractCablePart[
-                Group(:core, Region(:core_conductor, Annulus(0.0, core_outer), copper)),
+                Group(:core, Region(:core_conductor, AnnulusDefinition(0.0, core_outer), copper)),
                 Region(
                     :core_insulation,
-                    Annulus(core_outer, insulation_outer),
+                    AnnulusDefinition(core_outer, insulation_outer),
                     resolved_dielectric
                 ),
-                Group(:sheath, Region(
-                    :sheath_conductor,
-                    Annulus(insulation_outer, sheath_outer),
-                    copper
-                )),
+                Group(:sheath,
+                    Region(
+                        :sheath_conductor,
+                        AnnulusDefinition(insulation_outer, sheath_outer),
+                        copper
+                    )),
                 Region(
                     :outer_insulation,
-                    Annulus(sheath_outer, jacket_outer),
+                    AnnulusDefinition(sheath_outer, jacket_outer),
                     outer_dielectric
                 )
             ])
@@ -301,8 +285,7 @@ end
         earth_props = PB.Earth(rho = 100.0, eps_r = 10.0),
         frequencies = [50.0, 500.0]
     )
-    formulation=Formulation(
-        Val(:analytical);
+    formulation=Formulation(;
         insulation_admittance = InsulationAdmittance.ParallelRC(),
         modal_transform = nothing,
         options = (

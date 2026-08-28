@@ -1,7 +1,7 @@
 @inline function compute_earth_return_matrix!(
         destination::AbstractMatrix{Complex{T}},
         cables::AbstractVector{Int},
-        input::AnalyticalInput{T},
+        input::NamedTuple,
         earth,
         frequency::Int,
         formulation

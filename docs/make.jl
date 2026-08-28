@@ -1,4 +1,3 @@
-using Changelog
 using Documenter
 using DocumenterCitations
 using LineCableModels
@@ -166,12 +165,6 @@ function build_tutorials!()
 end
 
 function generate_maintained_pages!()
-    Changelog.generate(
-        Changelog.Documenter(),
-        joinpath(ROOT_DIR, "CHANGELOG.md"),
-        joinpath(DOCS_SRC_DIR, "CHANGELOG.md");
-        repo = REPOSITORY
-    )
     cp(joinpath(ROOT_DIR, "TODO.md"), joinpath(DOCS_SRC_DIR, "TODO.md"); force = true)
     Literate.markdown(
         PLOTBUILDER_SOURCE,
@@ -257,8 +250,7 @@ makedocs(;
             "Computational engine" => "engine.md",
             "PlotBuilder guide" => "plotbuilder.md",
             "Contributing" => "contributing.md",
-            "TODO" => "TODO.md",
-            "Changelog" => "CHANGELOG.md"
+            "TODO" => "TODO.md"
         ],
         "Bibliography" => "bib.md"
     ],

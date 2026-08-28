@@ -7,8 +7,8 @@ A backend participates by defining the dispatch required to compute that
 formulation.
 
 For example, `EarthImpedance.Saad()` is an Engine-owned earth-impedance
-formulation. The built-in analytical backend currently defines no evaluation
-method for it, so analytical computation fails with an ordinary `MethodError`.
+formulation. The native `LineCableModelsEngine` currently defines no evaluation
+method for it, so native computation fails with an ordinary `MethodError`.
 The PSCAD backend defines the corresponding PSCAD input mapping and can execute
 the same formulation. There is no `ReferenceEarthImpedance` category: whether
 a backend implements a formulation does not change the formulation's place in
@@ -167,17 +167,29 @@ resolved point values are read through `root_seed`, `point_seed`,
 `trial_count`, `confidence`, `cdf_tolerance`, and `sampling_distribution`.
 Consumers do not inspect the result or its formulation fields.
 
-## Supplemental computation output
+## Native workspace and supplemental output
+
+`LineParametersWorkspace` is the native engine's per-computation working
+state. Its constructor adapts a completed physical system once, evaluates
+earth data, prepares cable and reduction indices, and allocates the matrices
+used by the frequency loop. The workspace is not a result, public data model,
+or alternate cable representation.
+
+The workspace separates four owned concerns:
+
+- `normalized`: immutable numerical input derived from the problem;
+- `prepared`: reusable values and index maps;
+- `buffers`: mutable storage reused while solving every frequency;
+- `capture`: optional diagnostic matrices allocated before the loop.
+
+The ordinary result is always `LineParameters`. Requesting
+`options=(trace=true,)` retains completed diagnostic arrays under
+`details(parameters).trace`; it does not select another result type.
 
 [`ComputationDetails`](@ref) is an alias for `NamedTuple`.
-[`computation_details`](@ref) converts one registered computation owner's
-output to a fixed-key named tuple. There is no general method: an unregistered
-owner raises `MethodError`. The analytical computation registers an explicit
-empty result:
-
-```julia
-computation_details(Val(AnalyticalFormulation), parameters) == (;)
-```
+[`computation_details`](@ref) reads the fixed-key details tuple owned by a
+registered computation owner. There is no general method: an unregistered
+owner raises `MethodError`.
 
 Higher-order calculations normalize the inner formulation once through the
 qualified `Grammar.computation_owner` method before collecting retained
@@ -210,24 +222,24 @@ calculation represented by a formulation. Dispatch uses the formulation owner
 type rather than the public construction selector:
 
 ```julia
-formulation_options(Val(AnalyticalFormulation), options)
+formulation_options(Val(LineParametersFormulation), options)
 ```
 
-The analytical formulation owns:
+The native line-parameter formulation owns:
 
 - bundle and Kron reduction.
 - ideal transposition.
 - temperature correction.
-- parameter or trace output selection.
 
-The normalised named tuple is stored in `AnalyticalFormulation.options`.
+The normalised named tuple is stored in `LineParametersFormulation.options`.
 `PSCADFormulation` currently has no formulation options because its method
 bundle already contains every mathematical choice it owns.
 
-`:analytical` is the public selector accepted by `Formulation`. The
-`Val{:analytical}` method is its backend dispatch hook.
-`Val(AnalyticalFormulation)` is the internal owner token used by the option
-grammar. These tags are not interchangeable.
+`Formulation()` constructs the default native method bundle without a backend
+tag. `LineParametersFormulation` owns the formulation options;
+`LineCableModelsEngine` separately owns execution. Symbol and `Val` selectors
+remain available for external backends, but there is no native
+`:line_cable_models` or legacy `:analytical` selector.
 
 ## Computation options
 
@@ -235,14 +247,18 @@ grammar. These tags are not interchangeable.
 Computation options do not change the selected mathematical formulation and are not
 stored in it.
 
-The analytical backend accepts:
+The native backend accepts:
 
 ```julia
 (
     verbosity = (default = 0,),
     output_basis = :pul,
+    trace = false,
 )
 ```
+
+`trace=true` preallocates diagnostic capture with the workspace and attaches
+the retained matrices to `details(result).trace` after computation.
 
 The PSCAD backend accepts:
 
@@ -304,8 +320,9 @@ computation options.
 
 ## Extending the engine
 
-An external backend owns a formulation type and both option methods that apply
-to it. The backend's `compute` method normalises execution options before doing work:
+An external package may own a backend identity and a separate formulation
+type. The backend's `compute` method normalises execution options before doing
+work:
 
 ```julia
 import LineCableModels:
@@ -313,9 +330,12 @@ import LineCableModels:
     AbstractCoreResult,
     ComputationOptions,
     FormulationOptions,
+    computation_owner,
     computation_options,
     compute,
     formulation_options
+
+struct ExternalEngine end
 
 struct ExternalFormulation{O <: NamedTuple} <: AbstractFormulation
     options::O
@@ -330,7 +350,7 @@ function formulation_options(
 end
 
 function computation_options(
-    ::Val{ExternalFormulation},
+    ::Val{ExternalEngine},
     options::NamedTuple,
 )::ComputationOptions
     unknown = filter(key -> key != :tolerance, keys(options))
@@ -340,8 +360,15 @@ function computation_options(
     return (tolerance = Float64(normalized.tolerance),)
 end
 
-function compute(problem, formulation::ExternalFormulation; options::NamedTuple = (;))
-    execution = computation_options(Val(ExternalFormulation), options)
+computation_owner(::ExternalFormulation) = ExternalEngine
+
+function compute(
+    ::ExternalEngine,
+    problem,
+    formulation::ExternalFormulation;
+    options::NamedTuple = (;),
+)
+    execution = computation_options(Val(ExternalEngine), options)
     # Use `problem`, `formulation`, and `execution` here.
 end
 ```
@@ -363,7 +390,7 @@ struct ExternalResult <: AbstractCoreResult
 end
 
 function computation_details(
-    ::Val{ExternalFormulation},
+    ::Val{ExternalEngine},
     output::ExternalResult,
 )::ComputationDetails
     return (

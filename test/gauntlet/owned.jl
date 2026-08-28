@@ -197,7 +197,7 @@ end
 _comparison_policy_record(::LineParametersPolicy) = :line_parameters
 _comparison_policy_record(::UQMomentPolicy) = :uq_moments
 
-function _owned_formulation_record(formulation::AnalyticalFormulation)
+function _owned_formulation_record(formulation::LineParametersFormulation)
     formulation_record(formulation)
 end
 function _owned_formulation_record(formulation::LineCableModels.LinearError)

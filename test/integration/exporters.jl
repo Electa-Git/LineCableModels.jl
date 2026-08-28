@@ -63,10 +63,8 @@
             "CPASS" => "0"
         )
 
-        expected_components = [
-            LineCableModels.Engine.analytical_components(Formulation(), design, 50.0)
-            for design in system.designs
-        ]
+        expected_components=[LineCableModels.Engine.homogeneous_components(Formulation(), design, 50.0)
+                             for design in system.designs]
         @test any(length(component.dielectric.layers) > 1
         for components in expected_components for component in components)
         outer_radii=("R2", "R4", "R6", "R8")
@@ -176,14 +174,14 @@ end
                     terminal,
                     DataModel.Region(
                         Symbol(terminal, :_conductor),
-                        DataModel.Annulus(radius, radius+1.0e-3),
+                        DataModel.AnnulusDefinition(radius, radius+1.0e-3),
                         metal
                     )
                 ))
             push!(values,
                 DataModel.Region(
                     Symbol(terminal, :_insulation),
-                    DataModel.Annulus(radius+1.0e-3, radius+2.0e-3),
+                    DataModel.AnnulusDefinition(radius+1.0e-3, radius+2.0e-3),
                     dielectric
                 ))
             radius+=2.0e-3
@@ -257,10 +255,10 @@ end
             @test imported_connections == original_connections
             @test imported_design.cable_id == original_design.cable_id
             @test imported_design.terminal_order == original_design.terminal_order
-            actual_components=LineCableModels.Engine.analytical_components(
+            actual_components=LineCableModels.Engine.homogeneous_components(
                 Formulation(), imported_design, 50.0
             )
-            expected_components=LineCableModels.Engine.analytical_components(
+            expected_components=LineCableModels.Engine.homogeneous_components(
                 Formulation(), original_design, 50.0
             )
             for (actual, expected) in zip(actual_components, expected_components)

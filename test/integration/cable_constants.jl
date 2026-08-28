@@ -27,8 +27,7 @@
     designs=build(
         CableDesign,
         Grid(("constants-a", "constants-b")),
-        design.root;
-        nominal_data = design.nominal_data
+        design.root
     )
     constant_space=CableConstants(designs)
     @test constant_space isa Gridspace{CableConstants}

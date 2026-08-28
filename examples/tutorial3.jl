@@ -46,7 +46,6 @@ The cable under consideration is a high-voltage, stranded copper conductor cable
 The cable is found to have the following configuration:
 =#
 
-num_co_wires = 127 # number of core wires
 num_ar_wires = 68  # number of armor wires
 d_core = 0.0463    # nominal core overall diameter
 d_w = 3.6649e-3    # nominal strand diameter of the core (minimum value to match datasheet)
@@ -60,43 +59,34 @@ t_bed = 3e-3       # nominal thickness of the PP bedding
 d_wa = 5.827e-3    # nominal armor wire diameter
 t_jac = 10e-3      # nominal PP jacket thickness
 
-d_overall = d_core #hide
-layers = [] #hide
-push!(layers, ("Conductor", missing, d_overall * 1000)) #hide
-d_overall += 2 * t_sc_in #hide
-push!(layers, ("Inner semiconductor", t_sc_in * 1000, d_overall * 1000)) #hide
-d_overall += 2 * t_ins #hide
-push!(layers, ("Main insulation", t_ins * 1000, d_overall * 1000)) #hide
-d_overall += 2 * t_sc_out #hide
-push!(layers, ("Outer semiconductor", t_sc_out * 1000, d_overall * 1000)) #hide
-d_overall += 2 * t_wbt #hide
-push!(layers, ("Swellable tape", t_wbt * 1000, d_overall * 1000)) #hide
-d_overall += 2 * t_sc #hide
-push!(layers, ("Lead screen", t_sc * 1000, d_overall * 1000)) #hide
-d_overall += 2 * t_pe #hide
-push!(layers, ("PE inner sheath", t_pe * 1000, d_overall * 1000)) #hide
-d_overall += 2 * t_bed #hide
-push!(layers, ("PP bedding", t_bed * 1000, d_overall * 1000)) #hide
-d_overall += 2 * d_wa #hide
-push!(layers, ("Stranded wire armor", d_wa * 1000, d_overall * 1000)) #hide
-d_overall += 2 * t_jac #hide
-push!(layers, ("PP jacket", t_jac * 1000, d_overall * 1000)); #hide
+layer_names = ( #hide
+    "Conductor", "Inner semiconductor", "Main insulation", #hide
+    "Outer semiconductor", "Swellable tape", "Lead screen", #hide
+    "PE inner sheath", "PP bedding", "Stranded wire armor", "PP jacket" #hide
+) #hide
+layer_thicknesses = ( #hide
+    missing, t_sc_in, t_ins, t_sc_out, t_wbt, t_sc, t_pe, t_bed, d_wa, t_jac #hide
+) #hide
+radial_increments = ( #hide
+    0.0, t_sc_in, t_ins, t_sc_out, t_wbt, t_sc, t_pe, t_bed, d_wa, t_jac #hide
+) #hide
+layer_diameters = d_core .+ 2 .* cumsum(radial_increments) #hide
 
 # The cable structure is summarized in a table for better visualization, with dimensions in milimiters:
 df = DataFrame( #hide
-    layer = first.(layers), #hide
+    layer = layer_names, #hide
     thickness = [ #hide
-                 ismissing(t) ? "-" : round(t, sigdigits = 2) for t in getindex.(layers, 2) #hide
+                 ismissing(t) ? "-" : round(1000t, sigdigits = 2) for t in layer_thicknesses #hide
                  ], #hide
-    diameter = [round(d, digits = 2) for d in getindex.(layers, 3)] #hide
+    diameter = round.(1000 .* layer_diameters, digits = 2) #hide
 ) #hide
 
 #=
 ## Core and main insulation
 
-The conductor has a central wire and six concentric layers. Repeated `Group`
-values with `Ring` patterns retain the (1/6/12/18/24/30/36) individual wires,
-and `Helix` records the path needed for the helical corrections.
+The conductor has a central wire and six concentric layers.
+`Conductor.Stranded` retains the (1/6/12/18/24/30/36) individual wires and the
+longitudinal paths needed for the helical corrections.
 =#
 
 # Select reusable materials from the library:
@@ -109,22 +99,14 @@ lead = Material(materials, :lead)
 pp = Material(materials, :pp)
 steel = Material(materials, :steel)
 
-# Check the reported strand count and describe the complete conductor through
-# the shared circular/rectangular stranded-conductor grammar:
-n_strands = 6 # Strands per layer
-n_layers = 6 # Layers of strands
-@assert 1 + n_strands * sum(1:n_layers) == num_co_wires
-strand_radius = d_w / 2
+# State the actual population and lay of every conductor layer directly:
 stranded_core = Conductor.Stranded(
     :core,
-    Disk(strand_radius),
+    DiskDefinition(d_w / 2),
     copper;
-    layers = n_layers + 1,
-    n = n_strands,
-    lay = LayRatio(11.0)
+    counts = (1, 6, 12, 18, 24, 30, 36),
+    lay = (11.0, 11.0, 11.0, 11.0, 11.0, 11.0)
 )
-parts = AbstractCablePart[stranded_core]
-radius = (2n_layers + 1) * strand_radius
 
 #=
 ### Inner semiconductor
@@ -132,32 +114,17 @@ radius = (2n_layers + 1) * strand_radius
 Inner semiconductor (1000 Ω.m as per IEC 840):
 =#
 
-inner_semiconductor = Region(:core_semicon_inner, Shell(t_sc_in), semicon1)
-
 #=
 ### Main insulation
 
 Add the insulation layer:
 =#
 
-main_insulation = Region(:core_insulation, Shell(t_ins), pe)
-
 #=
 ### Outer semiconductor
 
 Outer semiconductor (500 Ω.m as per IEC 840):
 =#
-
-outer_semiconductor = Region(:core_semicon_outer, Shell(t_sc_out), semicon2)
-
-# Water blocking (swellable) tape:
-swellable_tape = Region(:core_water_blocking, Shell(t_wbt), polyacrylate)
-
-# Append the dielectric regions in their physical order:
-append!(parts, (
-    inner_semiconductor, main_insulation, outer_semiconductor, swellable_tape
-))
-radius += t_sc_in + t_ins + t_sc_out + t_wbt
 
 cable_id = "525kV_1600mm2"
 datasheet_info = (
@@ -174,44 +141,51 @@ datasheet_info = (
 #=
 ### Lead screen/sheath
 
-The lead sheath is described by its radial thickness, followed by the PE inner
-sheath and PP bedding. These declarations are stacked over the resolved core.
+The lead sheath is an absolute annulus. The following PE inner sheath and PP
+bedding are contextual layers and therefore state only their thickness.
 =#
-
-lead_outer = radius + t_sc
-push!(parts, Group(
-    :sheath,
-    Region(:sheath_lead_screen, Annulus(radius, lead_outer), lead)
-))
-push!(parts, Region(:sheath_inner, Shell(t_pe), pe))
-push!(parts, Region(:sheath_bedding, Shell(t_bed), pp))
-radius = lead_outer + t_pe + t_bed
 
 #=
 ### Armor and outer jacket regions
 
 =#
 
-# Describe the armor wires and the PP outer jacket:
-lay_ratio = 10.0 # typical value for wire screens
-armor_radius = d_wa / 2
-armor_centre = radius + armor_radius
-push!(parts,
-    Group(
-        :armor,
-        Region(:armor_wires, Disk(armor_radius), steel);
-        pattern = Ring(num_ar_wires; r = armor_centre),
-        path = Helix(LayRatio(lay_ratio))
-    ))
-push!(parts, Region(:armor_jacket, Shell(t_jac), pp))
+# State the few absolute conductor coordinates once. No layer is appended and
+# no provisional cable design is built while describing the stack.
+conductor_outer = 13d_w / 2
+lead_inner = conductor_outer + t_sc_in + t_ins + t_sc_out + t_wbt
+lead_outer = lead_inner + t_sc
+armor_locus = lead_outer + t_pe + t_bed + d_wa / 2
 
-# Resolve the complete deterministic cable description:
+# Declare the complete armored cable in one outward physical stack:
+cable_root = Stack(
+    stranded_core,
+    Semiconductor.Shell(:core_semicon_inner, semicon1; t = t_sc_in),
+    Insulator.Shell(:core_insulation, pe; t = t_ins),
+    Semiconductor.Shell(:core_semicon_outer, semicon2; t = t_sc_out),
+    Semiconductor.Shell(:core_water_blocking, polyacrylate; t = t_wbt),
+    Conductor.Tubular(:sheath, AnnulusDefinition(lead_inner, lead_outer), lead),
+    Insulator.Shell(:sheath_inner, pe; t = t_pe),
+    Insulator.Shell(:sheath_bedding, pp; t = t_bed),
+    Conductor.Wires(
+        :armor,
+        DiskDefinition(d_wa / 2),
+        steel;
+        n = num_ar_wires,
+        r = armor_locus,
+        lay = 10.0
+    ),
+    Insulator.Shell(:armor_jacket, pp; t = t_jac)
+)
+
+# Complete the physical declaration once and inspect that result:
 cable_design = build(
     CableDesign,
     cable_id,
-    Stack(parts);
-    nominal_data = NominalData(; datasheet_info...)
+    cable_root
 )
+cable_library = CablesLibrary()
+add!(cable_library, cable_design; catalogue = datasheet_info)
 
 # Inspect the finished cable design:
 plt1 = preview(
@@ -241,6 +215,11 @@ published_constants = observables(constants, (R, L, C))
 
 # Use the native DataFrames adapter when a complete tabular result is wanted:
 constants_table = DataFrame(constants)
+
+# Request the homogeneous design explicitly when an equivalent
+# cable, rather than a solver input, is the desired result:
+equivalent_design = equivalent(cable_design; new_id = cable_id * "_equivalent")
+equivalent_regions = DataFrame(equivalent_design)
 
 # Inspect the completed physical regions:
 regions_df = DataFrame(cable_design)
@@ -294,21 +273,19 @@ connections = [
     Dict(:core => 2, :sheath => 0, :armor => 0)
 ]
 
-# Materialize the physical system before adding calculation-only state:
-cable_system = build(
-    LineCableSystem,
+# The design-oriented problem constructor performs the one system build before
+# attaching calculation-only state:
+problem = LineParametersProblem(
     fill(loaded_design, 2),
     positions;
     connections,
     system_id = "525kV_1600mm2_bipole",
-    line_length = 1000.0
-)
-problem = LineCableModels.Engine.LineParametersProblem(
-    cable_system;
+    line_length = 1000.0,
     temperature = 20.0,
     earth_props = earth,
     frequencies = f
 )
+cable_system = problem.system
 earth_params = problem.earth_props
 
 # Inspect the frequency-dependent earth model produced for this problem:
@@ -349,7 +326,7 @@ export_file = export_data(:atp, cable_system, earth_params, file_name = output_f
 ## Frequency-dependent line parameters
 
 [`Formulation`](@ref) selects the physical and numerical methods. The default
-analytical formulation uses the scaled-Bessel internal-impedance method, lossless
+native formulation uses the scaled-Bessel internal-impedance method, lossless
 insulation impedance/admittance, and the Papadopoulos earth-return methods. The
 same formulation value can be reused for ordinary, parametric, or Monte Carlo
 execution.

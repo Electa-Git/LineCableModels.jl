@@ -37,17 +37,16 @@ case_definition(
                 :core,
                 LineCableModels.Region(
                     :core_metal,
-                    LineCableModels.Disk(sqrt(p.core_cross_section / π)),
+                    LineCableModels.DiskDefinition(sqrt(p.core_cross_section / π)),
                     aluminum
                 )
             ),
             LineCableModels.Region(
                 :core_insulation,
-                LineCableModels.Shell(p.insulation_thickness),
+                LineCableModels.ShellDefinition(p.insulation_thickness),
                 xlpe
             )
-        );
-        nominal_data = LineCableModels.NominalData()
+        )
     )
     earth = LineCableModels.Earth(
         rho = p.earth_rho, eps_r = p.earth_eps_r, mu_r = 1.0

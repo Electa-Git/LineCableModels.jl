@@ -45,29 +45,13 @@
     @test (@inferred CableDesign first(design)) isa CableDesign
     @test (@inferred LineCableSystem first(system)) isa LineCableSystem
 
-    nominal=NominalData(designation_code = "parametric")
     identifiers=Grid(("first", "second"))
-    direct=build(CableDesign, "first", first(terminal), nominal)
-    design_space=build(CableDesign, identifiers, first(terminal), nominal)
+    direct=build(CableDesign, "first", first(terminal))
+    design_space=build(CableDesign, identifiers, first(terminal))
     @test eltype(design_space) === CableDesign
     @test first(design_space).root == direct.root
     @test first(design_space).terminal_order == direct.terminal_order
     @test rand(design_space) isa CableDesign
-
-    nominal_space=build(
-        CableDesign,
-        "keyword-grid",
-        first(terminal);
-        nominal_data = Grid((
-            NominalData(designation_code = "catalogue-a"),
-            NominalData(designation_code = "catalogue-b")
-        ))
-    )
-    @test nominal_space isa Gridspace{CableDesign}
-    @test getproperty.(
-        getproperty.(collect(nominal_space), :nominal_data),
-        :designation_code
-    ) == ["catalogue-a", "catalogue-b"]
 
     atomic=build(
         LineCableSystem,
@@ -88,16 +72,26 @@
 
     import LineCableModels.DataModel as DM
     const resolution_count=Ref(0)
-    struct CountedPrimitive{T <: Real}<:DM.AbstractPrimitive{T}
+    struct CountedDefinition{T <: Real}<:DM.AbstractPrimitiveDefinition{T}
         radius::T
     end
-    DM.resolve(::DM.EmptyBoundary, primitive::CountedPrimitive) = begin
-        resolution_count[]+=1
-        DM.DiskShape(primitive.radius)
+    struct CountedPrimitive{T <: Real}<:DM.AbstractPrimitive{T}
+        radius::T
+        at::DM.Pose2{T}
     end
+    DM.resolve(::DM.EmptyBoundary, definition::CountedDefinition) = begin
+        resolution_count[]+=1
+        CountedPrimitive(definition.radius, DM.Pose2(0, 0, 0))
+    end
+    DM.resolve(at::DM.Pose2, primitive::CountedPrimitive) = CountedPrimitive(primitive.radius, at*primitive.at)
+    DM.boundary(primitive::CountedPrimitive) = primitive
+    DM.area(primitive::CountedPrimitive) = pi*primitive.radius^2
+    DM.centroid(primitive::CountedPrimitive) = (primitive.at.x, primitive.at.y)
+    DM.support(primitive::CountedPrimitive, φ::Real) = primitive.at.x*cos(φ)+primitive.at.y*sin(φ)+primitive.radius
+    DM.support(primitive::CountedPrimitive) = hypot(primitive.at.x, primitive.at.y)+primitive.radius
     counted_root=Group(
         :core,
-        Region(:counted, CountedPrimitive(0.01), Material(
+        Region(:counted, CountedDefinition(0.01), Material(
             kind = :conductor,
             rho = 1.7e-8
         ))

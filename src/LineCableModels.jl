@@ -13,7 +13,7 @@ module LineCableModels
 ## Public API
 # -------------------------------------------------------------------------
 # Core generics:
-export add!, build, validate, description, set_backend!
+export add!, build, equivalent, validate, description, set_backend!
 export AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult
 export AbstractCoreResult, AbstractResultSpace
 export AbstractParametricResult, AbstractUncertaintyResult
@@ -40,8 +40,10 @@ export root_seed, point_seed, trial_count
 export confidence, cdf_tolerance, sampling_distribution
 export report, TableReportDefinition, XLSXReportDefinition, ReportArtifact
 export Material, MaterialsLibrary, Conductor, Insulator, Semiconductor, Filler
-export AbstractPrimitive, AbstractShape
-export Disk, Rectangle, Ellipse, Sector, Annulus, Shell, Polygon, Pose2
+export AbstractPrimitiveDefinition, AbstractPrimitive
+export DiskDefinition, RectangleDefinition, EllipseDefinition
+export SectorDefinition, AnnulusDefinition, ShellDefinition, PolygonDefinition
+export Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, Pose2
 export EmptyBoundary, resolve, boundary, area, centroid, support
 export r_in, r_ex, thickness, outer_radius
 export AbstractCablePart, Region, Stack
@@ -53,15 +55,15 @@ export at, trefoil, hflat, vflat, Earth
 export make_stranded, make_screened, WireEstimate
 
 # Materialised results, reusable designs, and presentation:
-export CableDesign, LineCableSystem, NominalData
+export CableDesign, LineCableSystem, catalogue
 export CableGeometry, PlacedRegion
 export CableConstants, LineParametersProblem, LineParameters, CablesLibrary, preview
 
 # Engine:
-export Formulation, AnalyticalFormulation, SeriesImpedance, ShuntAdmittance, kronify,
+export Formulation, LineParametersFormulation, LineCableModelsEngine,
+       SeriesImpedance, ShuntAdmittance, kronify,
        LineParameters, PhaseDomain, ModalDomain
 export Fortescue
-export LineParametersTrace
 
 # Import/Export:
 export export_data, import_data, save, load!
@@ -108,10 +110,13 @@ import .EarthProps
 # Submodule `DataModel`
 include("datamodel/DataModel.jl")
 using .DataModel: CableDesign, CableGeometry, PlacedRegion,
-                  LineCableSystem, NominalData,
+                  LineCableSystem, catalogue,
                   CableConstants, CablesLibrary, preview, ncables, nphases,
-                  AbstractPrimitive, AbstractShape,
-                  Disk, Rectangle, Ellipse, Sector, Annulus, Shell, Polygon, Pose2,
+                  AbstractPrimitiveDefinition, AbstractPrimitive,
+                  DiskDefinition, RectangleDefinition, EllipseDefinition,
+                  SectorDefinition, AnnulusDefinition, ShellDefinition,
+                  PolygonDefinition,
+                  Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, Pose2,
                   EmptyBoundary, resolve, boundary, area, centroid, support,
                   r_in, r_ex, thickness, outer_radius,
                   AbstractCablePart, Region, Stack,
@@ -123,7 +128,7 @@ using .DataModel: Ring, Polar, Lattice, DiameterFactor, placements,
 include("engine/Engine.jl")
 using .Engine: LineParameters, LineParametersProblem, SeriesImpedance,
                ShuntAdmittance, kronify, Formulation,
-               AnalyticalFormulation, LineParametersTrace,
+               LineParametersFormulation, LineCableModelsEngine,
                description, domain, frequencies, nconductors, nfrequencies,
                Z, Y, X, G, B, series_impedance, shunt_admittance,
                reactance, conductance, susceptance,

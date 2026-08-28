@@ -1,26 +1,3 @@
-_trace_buffers(::Type, ::AnalyticalInput, ::Val{:parameters}) = nothing
-
-function _trace_buffers(::Type{T}, input::AnalyticalInput{T}, ::Val{:trace}) where {T}
-    n, nc, nf = input.n_phases, input.n_cables, input.n_frequencies
-    return (
-        Zin = Array{Complex{T}, 3}(undef, n, n, nf),
-        Pin = Array{Complex{T}, 3}(undef, n, n, nf),
-        Zg = Array{Complex{T}, 3}(undef, nc, nc, nf),
-        Pg = Array{Complex{T}, 3}(undef, nc, nc, nf),
-        Z = Array{Complex{T}, 3}(undef, n, n, nf),
-        P = Array{Complex{T}, 3}(undef, n, n, nf)
-    )
-end
-
-_solve_result(parameters, ::AnalyticalInput, ::Nothing, ::Val{:parameters}) = parameters
-
-function _solve_result(parameters, input::AnalyticalInput, trace, ::Val{:trace})
-    return LineParametersTrace(
-        parameters, copy(input.freq), copy(input.phase_map), copy(input.cable_map),
-        trace.Zin, trace.Pin, trace.Zg, trace.Pg, trace.Z, trace.P
-    )
-end
-
 _modal_result(parameters, ::Nothing) = parameters
 
 function _modal_result(parameters, transform::AbstractTransformFormulation)
@@ -28,17 +5,16 @@ function _modal_result(parameters, transform::AbstractTransformFormulation)
     return transformed
 end
 
-function _basis_result(parameters, ::AnalyticalInput, ::Val{:pul})
-    parameters
-end
+_basis_result(parameters, ::LineParametersWorkspace, ::Val{:pul}) = parameters
 
 function _basis_result(
         parameters::LineParameters{T, U, D},
-        input::AnalyticalInput,
+        workspace::LineParametersWorkspace,
         ::Val{:total}
 ) where {T, U, D}
-    impedance = parameters.Z.values .* input.line_length
-    admittance = parameters.Y.values .* input.line_length
+    line_length = workspace.normalized.line_length
+    impedance = parameters.Z.values .* line_length
+    admittance = parameters.Y.values .* line_length
     return LineParameters(
         D,
         SeriesImpedance{eltype(impedance), :total}(impedance),
@@ -53,12 +29,11 @@ end
     return nothing
 end
 
-_trace_target(::Nothing, ::Symbol) = nothing
-_trace_target(trace, name::Symbol) = getproperty(trace, name)
+_capture_target(::Nothing, ::Symbol) = nothing
+_capture_target(capture, name::Symbol) = getproperty(capture, name)
 
 @inline function _reorder_into!(destination, source, permutation)
     @inbounds for column in eachindex(permutation), row in eachindex(permutation)
-
         destination[row, column] = source[permutation[row], permutation[column]]
     end
     return destination
@@ -90,65 +65,39 @@ function _reduction_map(phase_map, formulation)
     return permutation, reordered, kron_map
 end
 
-function _operating_resistivity(
-        input::AnalyticalInput{T},
-        problem::LineParametersProblem{T},
-        formulation::AnalyticalFormulation
+function _solve!(
+        workspace::LineParametersWorkspace{T},
+        formulation::LineParametersFormulation
 ) where {T <: Real}
-    rho = copy(input.rho0_cond)
-    formulation.options.temperature_correction || return rho
-    @inbounds for index in eachindex(rho)
-        rho[index] *= DataModel.temperature_factor(
-            input.alpha_cond[index], problem.temperature, input.T0_cond[index]
-        )
-    end
-    return rho
-end
-
-_input(problem::LineParametersProblem, formulation::AnalyticalFormulation) =
-    AnalyticalInput(problem, formulation)
-
-function _prepare(
-        problem::LineParametersProblem,
-        input::AnalyticalInput,
-        formulation::AnalyticalFormulation
-)
-    return _operating_resistivity(input, problem, formulation),
-    _earth_data(formulation, input)
-end
-
-function _solve(
-        input::AnalyticalInput{T},
-        rho_cond::AbstractVector{T},
-        earth,
-        formulation::AnalyticalFormulation
-) where {T <: Real}
-    n, nf = input.n_phases, input.n_frequencies
-
-    Zbuffer = Matrix{Complex{T}}(undef, n, n)
-    Pbuffer = Matrix{Complex{T}}(undef, n, n)
-    Zprimitive = similar(Zbuffer)
-    Pprimitive = similar(Pbuffer)
-    Pinverse = similar(Pbuffer)
-    output = formulation.options.output
-    trace = _trace_buffers(T, input, output)
-
-    permutation, reordered_map, kron_map = _reduction_map(input.phase_map, formulation)
-    nkeep = kron_map === nothing ? n : count(!=(0), kron_map)
-    Zout = Array{Complex{T}, 3}(undef, nkeep, nkeep, nf)
-    Yout = Array{Complex{T}, 3}(undef, nkeep, nkeep, nf)
-    reduced = Matrix{Complex{T}}(undef, nkeep, nkeep)
-    reduced_inverse = similar(reduced)
-    identity_full = Matrix{Complex{T}}(I, n, n)
-    identity_reduced = Matrix{Complex{T}}(I, nkeep, nkeep)
+    input = workspace.normalized
+    prepared = workspace.prepared
+    buffers = workspace.buffers
+    Zbuffer = buffers.Zbuffer
+    Pbuffer = buffers.Pbuffer
+    Zprimitive = buffers.Zprimitive
+    Pprimitive = buffers.Pprimitive
+    Pinverse = buffers.Pinverse
+    reduced = buffers.reduced
+    reduced_inverse = buffers.reduced_inverse
+    Zout = buffers.Zout
+    Yout = buffers.Yout
+    permutation = prepared.permutation
+    reordered_map = prepared.reordered_map
+    kron_map = prepared.kron_map
 
     @info "Starting line parameters computation"
-    for frequency in 1:nf
+    for frequency in 1:input.n_frequencies
         compute_impedance_matrix!(
-            Zprimitive, input, rho_cond, earth, frequency, formulation, trace
+            Zprimitive,
+            workspace,
+            frequency,
+            formulation
         )
         compute_admittance_matrix!(
-            Pprimitive, input, earth, frequency, formulation, trace
+            Pprimitive,
+            workspace,
+            frequency,
+            formulation
         )
         _reorder_into!(Zbuffer, Zprimitive, permutation)
         _reorder_into!(Pbuffer, Pprimitive, permutation)
@@ -163,7 +112,7 @@ function _solve(
             @views Zout[:, :, frequency] .= Zbuffer
 
             factorization = lu!(Pbuffer)
-            ldiv!(Pinverse, factorization, identity_full)
+            ldiv!(Pinverse, factorization, buffers.identity_full)
             Pinverse .*= input.jω[frequency]
             reciprocity!(Pinverse)
             formulation.options.ideal_transposition && ideal_transposition!(Pinverse)
@@ -176,56 +125,86 @@ function _solve(
 
             kronify!(Pbuffer, kron_map, reduced)
             factorization = lu!(reduced)
-            ldiv!(reduced_inverse, factorization, identity_reduced)
+            ldiv!(reduced_inverse, factorization, buffers.identity_reduced)
             reduced_inverse .*= input.jω[frequency]
             reciprocity!(reduced_inverse)
-            formulation.options.ideal_transposition && ideal_transposition!(reduced_inverse)
+            formulation.options.ideal_transposition &&
+                ideal_transposition!(reduced_inverse)
             @views Yout[:, :, frequency] .= reduced_inverse
         end
     end
 
-    parameters = LineParameters(
+    return LineParameters(
         PhaseDomain,
         SeriesImpedance{Complex{T}, :pul}(Zout),
         ShuntAdmittance{Complex{T}, :pul}(Yout),
         input.freq
     )
-    return parameters, trace
 end
 
-function _transform(parameters::LineParameters, formulation::AnalyticalFormulation)
-    return _modal_result(parameters, formulation.modal_transform)
+function _transform(
+        parameters::LineParameters,
+        formulation::LineParametersFormulation
+)
+    return _modal_result(parameters, formulation.methods.modal_transform)
+end
+
+_retained_details(::LineParametersWorkspace{<:Real, <:NamedTuple, <:NamedTuple,
+                                            <:NamedTuple, Nothing}) = (;)
+
+function _retained_details(workspace::LineParametersWorkspace)
+    capture = workspace.capture
+    capture === nothing && return (;)
+    input = workspace.normalized
+    return (
+        trace = (
+            phase_map = input.phase_map,
+            cable_map = input.cable_map,
+            Zin = capture.Zin,
+            Pin = capture.Pin,
+            Zg = capture.Zg,
+            Pg = capture.Pg,
+            Z = capture.Z,
+            P = capture.P
+        ),
+    )
 end
 
 function _finish(
         parameters::LineParameters,
-        input::AnalyticalInput,
-        trace,
-        formulation::AnalyticalFormulation,
+        workspace::LineParametersWorkspace,
+        formulation::LineParametersFormulation,
         execution::NamedTuple
 )
-    parameters = _basis_result(parameters, input, execution.output_basis)
+    parameters = _basis_result(parameters, workspace, execution.output_basis)
+    retained = _retained_details(workspace)
     @info "Line parameters computation completed successfully"
-    return _solve_result(parameters, input, trace, formulation.options.output)
+    return LineParameters(
+        domain(parameters),
+        parameters.Z,
+        parameters.Y,
+        parameters.f,
+        retained
+    )
 end
 
-function _compute_analytical(
+function _compute_line_parameters(
+        engine::LineCableModelsEngine,
         problem::LineParametersProblem,
-        formulation::AnalyticalFormulation,
+        formulation::LineParametersFormulation,
         execution::NamedTuple
 )
     validate(problem)
-    input = _input(problem, formulation)
-    rho_cond, earth = _prepare(problem, input, formulation)
-    parameters, trace = _solve(input, rho_cond, earth, formulation)
+    workspace = LineParametersWorkspace(engine, problem, formulation, execution)
+    parameters = _solve!(workspace, formulation)
     parameters = _transform(parameters, formulation)
-    return _finish(parameters, input, trace, formulation, execution)
+    return _finish(parameters, workspace, formulation, execution)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Compute line parameters with the default analytical formulation.
+Compute line parameters with the native engine and default formulation.
 
 # Arguments
 
@@ -233,60 +212,76 @@ Compute line parameters with the default analytical formulation.
 
 # Keywords
 
-- `options`: Computation options normalized for `AnalyticalFormulation`.
+- `options`: Native computation options.
 
 # Returns
 
-One `LineParameters` result.
+- One [`LineParameters`](@ref) result.
 """
 function compute(
         problem::LineParametersProblem;
         options::NamedTuple = (;)
 )
-    return compute(problem, Formulation(); options)
+    return compute(LineCableModelsEngine(), problem, Formulation(); options)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Compute frequency-dependent line parameters for one materialised problem.
+Compute frequency-dependent line parameters with the native engine.
 
-The problem and formulation are validated, immutable solver input is flattened once,
-and operating-temperature resistivity is calculated into a local array before the
-frequency loop. Neither the problem nor its cable design is mutated.
+The completed physical system is normalized once into a backend-owned
+workspace. All reusable numerical storage is allocated before the frequency
+loop. `trace=true` retains completed intermediate matrices under
+`details(result).trace`; it does not change the result type.
+
+# Arguments
+
+- `problem`: Completed line-parameter problem.
+- `formulation`: Selected line-parameter physical methods.
 
 # Keywords
 
-- `options=(verbosity=(default=0,), output_basis=:pul)`: Execution
-  verbosity and output basis.
-
-Trace output is selected by the formulation:
-
-```julia
-Formulation(:analytical; options = (output = :trace,))
-```
+- `options`: Named tuple containing `verbosity`, `output_basis`, and `trace`.
 
 # Returns
 
-- [`LineParameters`](@ref) for `output=:parameters`.
-- [`LineParametersTrace`](@ref) for `output=:trace`.
+- One [`LineParameters`](@ref) result.
 """
 function compute(
         problem::LineParametersProblem,
-        formulation::AnalyticalFormulation;
+        formulation::LineParametersFormulation;
         options::NamedTuple = (;)
 )
-    execution = computation_options(Val(AnalyticalFormulation), options)
+    return compute(LineCableModelsEngine(), problem, formulation; options)
+end
+
+function compute(
+        engine::LineCableModelsEngine,
+        problem::LineParametersProblem,
+        formulation::LineParametersFormulation = Formulation();
+        options::NamedTuple = (;)
+)
+    execution = computation_options(Val(LineCableModelsEngine), options)
     console = ConsoleLogger(stderr, Logging.Debug)
     logger = ConsoleVerbosityLogger(console, execution.verbosity)
     return with_logger(logger) do
-        _compute_analytical(problem, formulation, execution)
+        _compute_line_parameters(engine, problem, formulation, execution)
     end
 end
 
+computation_owner(::LineParametersFormulation) = LineCableModelsEngine
+
+function computation_details(
+        ::Val{LineCableModelsEngine},
+        result::LineParameters
+)::ComputationDetails
+    return details(result)
+end
+
 computation_details(
-    ::Val{AnalyticalFormulation},
-    ::Union{LineParameters, LineParametersTrace, DataModel.CableConstants}
+    ::Val{LineCableModelsEngine},
+    ::DataModel.CableConstants
 )::ComputationDetails = (;)
 
 """
@@ -306,17 +301,17 @@ single cable at `(0, -1)` m, a 1 m line, 100 Ω·m earth, 20 °C, and 1 mHz.
 # Keywords
 
 - `core`: Retained terminal used as phase 1.
-- `formulation`: Analytical formulation used by `compute`.
+- `formulation`: Line-parameter formulation used by `compute`.
 - `options`: Computation options forwarded to `compute`.
 - `position`: Cable placement in metres.
-- `line_length`: Physical line length in metres.
+- `line_length`: Physical line length \\[m\\].
 - `earth_props`: Static earth model.
-- `temperature`: Operating temperature in °C.
-- `frequency`: Analysis frequency in Hz.
+- `temperature`: Operating temperature \\[°C\\].
+- `frequency`: Analysis frequency \\[Hz\\].
 
 # Returns
 
-A [`CableConstants`](@ref) value observed from the resulting line parameters.
+- A [`CableConstants`](@ref) value observed from the line parameters.
 """
 function DataModel.CableConstants(
         design::CableDesign;
@@ -355,18 +350,15 @@ function DataModel.CableConstants(
     )
 end
 
-function _cable_indices(input)
-    indices = [Int[] for _ in 1:input.n_cables]
-    @inbounds for index in 1:input.n_phases
-        push!(indices[input.cable_map[index]], index)
-    end
-    return indices, first.(indices)
-end
-
-function _earth_data(formulation::AnalyticalFormulation, input::AnalyticalInput)
+function _earth_data(
+        formulation::LineParametersFormulation,
+        input::NamedTuple
+)
     evaluated = EarthProperties.evaluate(
-        formulation.earth_properties, input.earth, input.freq
+        formulation.methods.earth_properties,
+        input.earth,
+        input.freq
     )
-    formulation.equivalent_earth === nothing && return evaluated
-    return formulation.equivalent_earth(evaluated, input.earth)
+    formulation.methods.equivalent_earth === nothing && return evaluated
+    return formulation.methods.equivalent_earth(evaluated, input.earth)
 end

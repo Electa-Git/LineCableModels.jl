@@ -31,27 +31,30 @@ export LineParametersProblem,
        conductance, susceptance, capacitance,
        frequencies, nconductors, nfrequencies, basis,
        kronify
-export AbstractFormulation, AnalyticalFormulation, Formulation
+export AbstractFormulation, LineParametersFormulation, Formulation
+export LineCableModelsEngine, LineParametersWorkspace
 export constitutive
-export EarthProperties, CPEarth, LineParametersTrace, verbosity
+export EarthProperties, CPEarth, verbosity
 export InternalImpedance, InsulationImpedance, EarthImpedance
 export InsulationAdmittance, EarthAdmittance, EHEM, Transforms
 
-export compute, plot
+export compute, equivalent, plot
 
 # Module-specific dependencies
 using LinearAlgebra: I, diag, ldiv!, lu!
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import ..LineCableModels: basis, build, R, L, C, resistance, inductance, capacitance
+import ..LineCableModels: basis, build, equivalent, R, L, C,
+                          resistance, inductance, capacitance
 import ..LineCableModels: nominal, uncertainty
 import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
                   AbstractProblemResult, AbstractCoreResult,
                   FormulationOptions, ComputationOptions,
                   ComputationDetails,
-                  formulation_options, computation_options, computation_details,
+                  formulation_options, computation_options, computation_details, details,
                   compute, observe, @observe, observables, validate_observables, unit_targets,
                   observation_request, observation_indices,
-                  request_identity, request_quantity, request_indices
+                  request_identity, request_quantity, request_indices,
+                  computation_owner
 
 using ..Units
 using ..PlotBuilder
@@ -73,7 +76,7 @@ include("earthkernels.jl")
 include("earthproperties/EarthProperties.jl")
 using .EarthProperties: CPEarth
 
-# Problem and analytical formulation definitions
+# Problem and native formulation definitions
 include("problems.jl")
 include("options.jl")
 
@@ -111,10 +114,9 @@ using .Transforms: reciprocity!, ideal_transposition!
 include("ehem/EHEM.jl")
 using .EHEM
 
-# Immutable solver input and numerical action
-include("analytical_adapter.jl")
+# Native workspace and numerical action
+include("native_adapter.jl")
 include("input.jl")
-include("lineparameters/trace.jl")
 include("logging.jl")
 include("earthreturn.jl")
 include("impedance.jl")
@@ -128,6 +130,6 @@ include("lineparameters/plot.jl")
 include("lineparameters/plotdefinition.jl")
 include("lineparameters/comparisonplot.jl")
 
-public analytical_components, has_uncertainty_type
+public has_uncertainty_type
 
 end # module Engine

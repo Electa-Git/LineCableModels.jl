@@ -10,7 +10,10 @@ function save(
 )
     extension = lowercase(splitext(file_name)[2])
     if extension == ".jls"
-        Serialization.serialize(file_name, library.data)
+        Serialization.serialize(file_name, (
+            designs = library.data,
+            catalogues = library.catalogues
+        ))
         return abspath(file_name)
     end
     path = _json_path(file_name)
@@ -49,15 +52,42 @@ function load!(
         raw_cables isa AbstractDict || throw(ArgumentError(
             "cable_library cables must be an object"
         ))
-        _decoded_cable_data(Dict(
-            String(name) => _decode_design(value, materials)
-            for (name, value) in raw_cables
-        ))
+        _decoded_cable_library(raw_cables, materials)
     else
         throw(ArgumentError("CablesLibrary loading requires a .json or .jls file"))
     end
-    library.data = candidate
+    library.data = candidate.designs
+    library.catalogues = candidate.catalogues
     return library
+end
+
+function _decode_catalogue(value)
+    value isa AbstractDict || throw(ArgumentError(
+        "a cable catalogue record must be an object"
+    ))
+    names = sort!(Symbol.(collect(keys(value))); by = String)
+    entries = Tuple(deserialize_value(value[String(name)]) for name in names)
+    return NamedTuple{Tuple(names)}(entries)
+end
+
+function _decoded_cable_library(raw_cables, materials)
+    designs = Dict{String, CableDesign}()
+    catalogues = Dict{String, NamedTuple}()
+    for (name, value) in raw_cables
+        cable_id = String(name)
+        design = _decode_design(value, materials)
+        design isa CableDesign || throw(ArgumentError(
+            "cable '$cable_id' decoded as $(typeof(design)), not CableDesign"
+        ))
+        cable_id == design.cable_id || throw(ArgumentError(
+            "cable key '$cable_id' differs from cable_id '$(design.cable_id)'"
+        ))
+        designs[cable_id] = validate(design)
+        catalogues[cable_id] = _decode_catalogue(
+            _required(value, "catalogue", "cable_design")
+        )
+    end
+    return (; designs, catalogues)
 end
 
 function _decoded_cable_data(decoded)
@@ -78,8 +108,24 @@ function _decoded_cable_data(decoded)
 end
 
 function _trusted_cable_data(decoded)
-    decoded isa AbstractDict || throw(ArgumentError(
-        "trusted JLS cable data must be a dictionary",
+    decoded isa NamedTuple && keys(decoded) == (:designs, :catalogues) || throw(
+        ArgumentError(
+            "trusted JLS cable data must contain designs and catalogues"
+        )
+    )
+    designs = _decoded_cable_data(decoded.designs)
+    decoded.catalogues isa AbstractDict || throw(ArgumentError(
+        "trusted JLS catalogue data must be a dictionary",
     ))
-    return _decoded_cable_data(decoded)
+    catalogues = Dict{String, NamedTuple}()
+    for cable_id in keys(designs)
+        record = get(decoded.catalogues, cable_id) do
+            throw(KeyError(cable_id))
+        end
+        record isa NamedTuple || throw(ArgumentError(
+            "catalogue '$cable_id' must be a NamedTuple"
+        ))
+        catalogues[cable_id] = record
+    end
+    return (; designs, catalogues)
 end

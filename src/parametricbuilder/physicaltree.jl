@@ -64,12 +64,12 @@ function Enclosure(
         tag::Symbol,
         item;
         at = DataModel.Pose2(0, 0, 0),
-        shape,
+        primitive,
         fill,
         wall = nothing,
         combine::Symbol = :product
 )
-    values = (tag, at, shape, item, fill, wall)
+    values = (tag, at, primitive, item, fill, wall)
     if any(value -> value isa Union{AbstractGrid, Gridspace}, values)
         grids = map(values) do value
             value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
@@ -82,32 +82,20 @@ end
 function build(
         ::Type{DataModel.CableDesign},
         cable_id,
-        root,
-        nominal_data;
+        root;
         combine::Symbol = :product
 )
-    values = (cable_id, root, nominal_data)
+    values = (cable_id, root)
     any(value -> value isa Union{AbstractGrid, Gridspace}, values) || throw(
-        MethodError(build, (DataModel.CableDesign, cable_id, root, nominal_data))
+        MethodError(build, (DataModel.CableDesign, cable_id, root))
     )
     grids = map(values) do value
         value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
     end
-    caller = (identifier, part, nominal) -> build(
+    caller = (identifier, part) -> build(
         DataModel.CableDesign,
         identifier,
-        part,
-        nominal
+        part
     )
     return Gridspace{DataModel.CableDesign}(caller, grids; combine)
-end
-
-function build(
-        ::Type{DataModel.CableDesign},
-        cable_id,
-        root;
-        nominal_data = nothing,
-        combine::Symbol = :product
-)
-    return build(DataModel.CableDesign, cable_id, root, nominal_data; combine)
 end

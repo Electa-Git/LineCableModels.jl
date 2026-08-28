@@ -79,7 +79,9 @@ end
         (WirePatterns.WireEstimate{Float64, WirePatterns.HexaPattern{Float64}}, Symbol)
     ).module === WirePatterns
 
-    @test Engine.Formulation(:analytical) isa Engine.AnalyticalFormulation
+    @test Engine.Formulation() isa Engine.LineParametersFormulation
+    @test_throws MethodError Engine.Formulation(:analytical)
+    @test_throws MethodError Engine.Formulation(:line_cable_models)
     @test_throws MethodError ImportExport.export_data(:unregistered, nothing)
     @test_throws MethodError ImportExport.import_data(:unregistered, nothing)
 end
@@ -112,6 +114,7 @@ end
     @test all(isfile(joinpath(root, path)) for path in expected_entries)
 
     expected_owned_files=(
+        joinpath("src", "datamodel", "geometry", "definitions.jl"),
         joinpath("src", "datamodel", "geometry", "primitives.jl"),
         joinpath("src", "datamodel", "geometry", "resolve.jl"),
         joinpath("src", "datamodel", "design", "region.jl"),

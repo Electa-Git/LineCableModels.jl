@@ -149,48 +149,50 @@ function _transform_preview_points(points, pose::Pose2)
     ]
 end
 
-function _shape_geometry(shape::DiskShape)
-    return GeometryBasics.Polygon(_circle_points(nominal(shape.r), 0.0, 0.0))
+function _primitive_geometry(primitive::Disk)
+    return GeometryBasics.Polygon(_circle_points(nominal(primitive.r), 0.0, 0.0))
 end
 
-function _shape_geometry(shape::AnnulusShape)
-    return _annulus_polygon(nominal(shape.ri), nominal(shape.ro), 0.0, 0.0)
+function _primitive_geometry(primitive::Annulus)
+    return _annulus_polygon(
+        nominal(primitive.ri), nominal(primitive.ro), 0.0, 0.0
+    )
 end
 
-function _shape_geometry(shape::SectorShape)
-    outer_angles = range(shape.φ0, shape.φ0 + shape.span; length = 96)
+function _primitive_geometry(primitive::Sector)
+    outer_angles = range(primitive.φ0, primitive.φ0 + primitive.span; length = 96)
     inner_angles = reverse(outer_angles)
     points = Point2f[
-        (shape.ro * cos(angle), shape.ro * sin(angle)) for angle in outer_angles
+        (primitive.ro * cos(angle), primitive.ro * sin(angle)) for angle in outer_angles
     ]
     append!(points, Point2f[
-        (shape.ri * cos(angle), shape.ri * sin(angle)) for angle in inner_angles
+        (primitive.ri * cos(angle), primitive.ri * sin(angle)) for angle in inner_angles
     ])
     return GeometryBasics.Polygon(points)
 end
 
-function _shape_geometry(shape::RectangleShape)
-    x = nominal(shape.w) / 2
-    y = nominal(shape.h) / 2
+function _primitive_geometry(primitive::Rectangle)
+    x = nominal(primitive.w) / 2
+    y = nominal(primitive.h) / 2
     return GeometryBasics.Polygon(Point2f[(-x, -y), (x, -y), (x, y), (-x, y)])
 end
 
-function _shape_geometry(shape::EllipseShape)
+function _primitive_geometry(primitive::Ellipse)
     angles = range(0, 2pi; length = 128)
     return GeometryBasics.Polygon(Point2f[
-        (nominal(shape.a) * cos(angle), nominal(shape.b) * sin(angle))
+        (nominal(primitive.a) * cos(angle), nominal(primitive.b) * sin(angle))
         for angle in angles
     ])
 end
 
-function _shape_geometry(shape::PolygonShape)
-    return GeometryBasics.Polygon(Point2f[point for point in shape.points])
+function _primitive_geometry(primitive::Polygon)
+    return GeometryBasics.Polygon(Point2f[point for point in primitive.points])
 end
 
-function _shape_geometry(shape::PlacedShape)
-    geometry = _shape_geometry(shape.shape)
-    exterior = _transform_preview_points(geometry.exterior, shape.at)
-    interiors = [_transform_preview_points(interior, shape.at)
+function _shape_geometry(primitive::AbstractPrimitive)
+    geometry = _primitive_geometry(primitive)
+    exterior = _transform_preview_points(geometry.exterior, primitive.at)
+    interiors = [_transform_preview_points(interior, primitive.at)
                  for interior in geometry.interiors]
     return GeometryBasics.Polygon(exterior, interiors)
 end
@@ -201,7 +203,7 @@ function preview_shapes(region::PlacedRegion, context)
     label = context.include_label ? context.label : nothing
     return PreviewPolygon[
         _preview_polygon(
-            _shape_geometry(region.shape),
+            _shape_geometry(region.primitive),
             label,
             context.group,
             _material_color(region.source.material);
@@ -229,12 +231,12 @@ function _design_shapes(design, xcenter, ycenter; display_legend::Bool)
     labelled_groups = Set{Symbol}()
     shapes = PreviewPolygon[]
     for (source, identity) in zip(design.geometry.regions, identities)
-        shape = PlacedShape(source.shape, offset)
+        primitive = resolve(offset, source.primitive)
         placed = PlacedRegion(
             source.source,
-            shape,
+            primitive,
             source.terminal,
-            (pose = shape.at, patterns = source.placement.patterns),
+            (patterns = source.placement.patterns,),
             source.paths
         )
         append!(shapes, preview_shapes(placed, (;

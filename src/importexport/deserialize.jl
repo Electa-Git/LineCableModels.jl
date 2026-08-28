@@ -104,34 +104,34 @@ function deserialize_value(value)
 end
 
 _decode_node(::Val{:disk}, value) =
-    _decoded_target(Disk, Disk, (_field(value, "r"),))
+    _decoded_target(DiskDefinition, DiskDefinition, (_field(value, "r"),))
 _decode_node(::Val{:rectangle}, value) = _decoded_target(
-    Rectangle,
-    Rectangle,
+    RectangleDefinition,
+    RectangleDefinition,
     (_field(value, "w"), _field(value, "h"))
 )
 _decode_node(::Val{:ellipse}, value) = _decoded_target(
-    Ellipse,
-    Ellipse,
+    EllipseDefinition,
+    EllipseDefinition,
     (_field(value, "a"), _field(value, "b"))
 )
 _decode_node(::Val{:sector}, value) = _decoded_target(
-    Sector,
-    Sector,
+    SectorDefinition,
+    SectorDefinition,
     (
         _field(value, "ri"), _field(value, "ro"),
         _field(value, "φ0"), _field(value, "span")
     )
 )
 _decode_node(::Val{:annulus}, value) = _decoded_target(
-    Annulus,
-    Annulus,
+    AnnulusDefinition,
+    AnnulusDefinition,
     (_field(value, "ri"), _field(value, "ro"))
 )
 _decode_node(::Val{:shell}, value) =
-    _decoded_target(Shell, Shell, (_field(value, "t"),))
+    _decoded_target(ShellDefinition, ShellDefinition, (_field(value, "t"),))
 _decode_node(::Val{:polygon}, value) =
-    _decoded_target(Polygon, Polygon, (_field(value, "points"),))
+    _decoded_target(PolygonDefinition, PolygonDefinition, (_field(value, "points"),))
 _decode_node(::Val{:pose2}, value) = _decoded_target(
     Pose2,
     Pose2,
@@ -197,20 +197,6 @@ function _decode_node(::Val{:helix}, value)
     )
     build = (lay, dir, φ0) -> Helix(lay; dir, φ0)
     return _decoded_target(Helix, build, values)
-end
-
-function _decode_node(::Val{:nominal_data}, value)
-    return NominalData(;
-        designation_code = _optional(value, "designation_code"),
-        U0 = _optional(value, "U0"),
-        U = _optional(value, "U"),
-        conductor_cross_section = _optional(value, "conductor_cross_section"),
-        screen_cross_section = _optional(value, "screen_cross_section"),
-        armor_cross_section = _optional(value, "armor_cross_section"),
-        resistance = _optional(value, "resistance"),
-        capacitance = _optional(value, "capacitance"),
-        inductance = _optional(value, "inductance")
-    )
 end
 
 function _material_reference(value, materials)
@@ -281,7 +267,7 @@ function _decode_part(::Val{:enclosure}, value, materials)
     values = (
         Symbol(_required(value, "tag", "enclosure")),
         deserialize_value(_required(value, "at", "enclosure")),
-        deserialize_value(_required(value, "shape", "enclosure")),
+        deserialize_value(_required(value, "primitive", "enclosure")),
         _decode_part(_required(value, "item", "enclosure"), materials),
         fill,
         wall
@@ -305,10 +291,8 @@ function _decode_design_resolved(value, materials)
     values = (
         String(_required(value, "cable_id", "cable_design")),
         _decode_part(_required(value, "root", "cable_design"), materials),
-        _optional(value, "nominal_data"),
     )
-    caller = (cable_id, root, nominal_data) ->
-        build(CableDesign, cable_id, root, nominal_data)
+    caller = (cable_id, root) -> build(CableDesign, cable_id, root)
     return _decoded_target(CableDesign, caller, values)
 end
 

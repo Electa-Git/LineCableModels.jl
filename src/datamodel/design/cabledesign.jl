@@ -11,13 +11,10 @@ $(TYPEDFIELDS)
 struct CableDesign{
         T <: Real,
         R <: AbstractCablePart,
-        G <: CableGeometry,
-        N
+        G <: CableGeometry
 }
     "Stable cable identifier."
     cable_id::String
-    "Optional catalogue data."
-    nominal_data::N
     "Authoritative physical declaration."
     root::R
     "Resolved physical geometry."
@@ -27,17 +24,15 @@ struct CableDesign{
     "Terminal index for every resolved region; zero denotes no terminal."
     terminal_map::Vector{Int}
 
-    function CableDesign{T, R, G, N}(
+    function CableDesign{T, R, G}(
             cable_id::String,
-            nominal_data::N,
             root::R,
             geometry::G,
             terminal_order::Vector{Symbol},
             terminal_map::Vector{Int}
-    ) where {T <: Real, R <: AbstractCablePart, G <: CableGeometry, N}
-        return new{T, R, G, N}(
+    ) where {T <: Real, R <: AbstractCablePart, G <: CableGeometry}
+        return new{T, R, G}(
             cable_id,
-            nominal_data,
             root,
             geometry,
             terminal_order,
@@ -63,8 +58,6 @@ It performs no formulation calculation.
 - `CableDesign`: Completed target type.
 - `cable_id`: Stable cable identifier.
 - `root`: Physical `Region`, `Stack`, `Group`, `Assembly`, or `Enclosure` root.
-- `nominal_data`: Optional catalogue data.
-
 # Keywords
 
 - `combine`: Gridspace composition mode. It is validated here for a common
@@ -77,8 +70,7 @@ It performs no formulation calculation.
 function build(
         ::Type{CableDesign},
         cable_id::AbstractString,
-        root::AbstractCablePart,
-        nominal_data::Union{Nothing, NominalData};
+        root::AbstractCablePart;
         combine::Symbol = :product
 )
     # 1. Normalize the public single-conductor shorthand into the v1 grammar.
@@ -98,7 +90,7 @@ function build(
     # 3. Resolve intrinsic primitives against their contextual boundaries.
     # 4. Resolve pattern placements and compaction through `placements` dispatch.
     # 5. Resolve longitudinal path radii while traversing the same physical tree.
-    # 6. Collect the resolved shapes as one CableGeometry in physical order.
+    # 6. Collect the resolved primitives as one CableGeometry in physical order.
     geometry = resolve(EmptyBoundary(), normalized)
     isempty(geometry.regions) && throw(ArgumentError(
         "a cable design requires one region"
@@ -131,13 +123,11 @@ function build(
 
     # 9. Freeze the authoritative root and its completed geometry together.
     T = promote_type(
-        (eltype(placed.shape) for placed in geometry.regions)...,
+        (eltype(placed.primitive) for placed in geometry.regions)...,
         (eltype(placed.source.material) for placed in geometry.regions)...
     )
-    nominal = nominal_data === nothing ? nothing : convert(NominalData{T}, nominal_data)
-    return CableDesign{T, typeof(normalized), typeof(geometry), typeof(nominal)}(
+    return CableDesign{T, typeof(normalized), typeof(geometry)}(
         identifier,
-        nominal,
         normalized,
         geometry,
         terminal_order,

@@ -6,9 +6,12 @@ analysis frequencies are fields of the problem.
 
 $(TYPEDFIELDS)
 """
-struct LineParametersProblem{T <: Real} <: AbstractProblemDefinition
+struct LineParametersProblem{
+        T <: Real,
+        S <: LineCableSystem{T}
+} <: AbstractProblemDefinition
     "Physical cable system."
-    system::LineCableSystem{T}
+    system::S
     "Operating temperature \\[°C\\]."
     temperature::T
     "Static earth model."
@@ -72,8 +75,9 @@ function LineParametersProblem(
         eltype(system), typeof(float(temperature)), eltype(earth_props),
         typeof(float(first(frequencies)))
     )
-    problem = LineParametersProblem{T}(
-        convert(LineCableSystem{T}, system),
+    converted_system = convert(LineCableSystem{T}, system)
+    problem = LineParametersProblem{T, typeof(converted_system)}(
+        converted_system,
         convert(T, float(temperature)),
         convert(EarthModel{T}, earth_props),
         T[convert(T, float(value)) for value in frequencies]
@@ -135,17 +139,16 @@ end
 """
 $(TYPEDEF)
 
-Store the concrete physical methods selected for an analytical calculation.
+Store the physical methods selected for a line-parameter calculation.
 
 $(TYPEDFIELDS)
 """
-struct AnalyticalFormulation{B, M <: NamedTuple, O <: NamedTuple} <: AbstractFormulation
-    backend::B
+struct LineParametersFormulation{M <: NamedTuple, O <: NamedTuple} <: AbstractFormulation
     methods::M
     options::O
 end
 
-function AnalyticalFormulation(;
+function LineParametersFormulation(;
         internal_impedance::InternalImpedanceFormulation,
         insulation_impedance::InsulationImpedanceFormulation,
         earth_impedance::EarthImpedanceFormulation,
@@ -161,18 +164,10 @@ function AnalyticalFormulation(;
         insulation_admittance, earth_admittance, earth_properties,
         modal_transform, equivalent_earth
     )
-    return AnalyticalFormulation(Val(:analytical), methods, options)
+    return LineParametersFormulation(methods, options)
 end
 
-function Base.getproperty(formulation::AnalyticalFormulation, name::Symbol)
-    name in fieldnames(typeof(formulation)) && return getfield(formulation, name)
-    methods = getfield(formulation, :methods)
-    haskey(methods, name) && return getproperty(methods, name)
-    return getfield(formulation, name)
-end
-
-function Formulation(
-        ::Val{:analytical};
+function Formulation(;
         internal_impedance::InternalImpedanceFormulation = InternalImpedance.ScaledBessel(),
         insulation_impedance::InsulationImpedanceFormulation = InsulationImpedance.Lossless(),
         earth_impedance::EarthImpedanceFormulation = EarthImpedance.Papadopoulos(),
@@ -183,10 +178,10 @@ function Formulation(
         equivalent_earth::Union{AbstractEHEMFormulation, Nothing} = nothing,
         options::NamedTuple = (;)
 )
-    return AnalyticalFormulation(;
+    return LineParametersFormulation(;
         internal_impedance, insulation_impedance, earth_impedance,
         insulation_admittance, earth_admittance, earth_properties,
         modal_transform, equivalent_earth,
-        options = formulation_options(Val(AnalyticalFormulation), options)
+        options = formulation_options(Val(LineParametersFormulation), options)
     )
 end

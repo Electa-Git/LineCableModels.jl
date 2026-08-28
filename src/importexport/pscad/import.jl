@@ -192,14 +192,14 @@ function _pscad_radial_design(
             terminal,
             Region(
                 Symbol(terminal, :_conductor),
-                Annulus(component.conductor_inner, component.conductor_outer),
+                AnnulusDefinition(component.conductor_inner, component.conductor_outer),
                 component.conductor_material
             )
         ))
         if component.insulation_outer > component.conductor_outer
             push!(parts, Region(
                 Symbol(terminal, :_insulation),
-                Annulus(component.conductor_outer, component.insulation_outer),
+                AnnulusDefinition(component.conductor_outer, component.insulation_outer),
                 component.dielectric_material
             ))
         end

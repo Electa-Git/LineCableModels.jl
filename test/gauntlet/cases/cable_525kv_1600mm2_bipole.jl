@@ -118,7 +118,7 @@ case_definition(
                 :core,
                 LineCableModels.Region(
                     Symbol(:core_strands_, layer + 1),
-                    LineCableModels.Disk(strand_radius),
+                    LineCableModels.DiskDefinition(strand_radius),
                     copper
                 );
                 pattern = LineCableModels.Ring(count; r = centre_radius),
@@ -134,7 +134,7 @@ case_definition(
         (:core_water_blocking, p.water_blocking_thickness, polyacrylate)
     )
         push!(parts, LineCableModels.Region(
-            tag, LineCableModels.Shell(thickness), material
+            tag, LineCableModels.ShellDefinition(thickness), material
         ))
         radius += thickness
     end
@@ -145,22 +145,24 @@ case_definition(
             :sheath,
             LineCableModels.Region(
                 :sheath_lead_screen,
-                LineCableModels.Annulus(radius, lead_outer),
+                LineCableModels.AnnulusDefinition(radius, lead_outer),
                 lead
             )
         ))
     radius = lead_outer
-    push!(parts, LineCableModels.Region(
-        :sheath_inner,
-        LineCableModels.Shell(p.inner_sheath_thickness),
-        pe
-    ))
+    push!(parts,
+        LineCableModels.Region(
+            :sheath_inner,
+            LineCableModels.ShellDefinition(p.inner_sheath_thickness),
+            pe
+        ))
     radius += p.inner_sheath_thickness
-    push!(parts, LineCableModels.Region(
-        :sheath_bedding,
-        LineCableModels.Shell(bedding_thickness),
-        pp
-    ))
+    push!(parts,
+        LineCableModels.Region(
+            :sheath_bedding,
+            LineCableModels.ShellDefinition(bedding_thickness),
+            pp
+        ))
     radius += bedding_thickness
 
     armor_outer = radius + 2armor_wire_radius
@@ -169,31 +171,20 @@ case_definition(
         LineCableModels.Group(
             :armor,
             LineCableModels.Region(
-                :armor_wires, LineCableModels.Disk(armor_wire_radius), steel
+                :armor_wires, LineCableModels.DiskDefinition(armor_wire_radius), steel
             );
             pattern = LineCableModels.Ring(p.armor_wires; r = armor_centre),
             path = LineCableModels.Helix(LineCableModels.LayRatio(p.armor_lay_ratio))
         ))
     push!(parts, LineCableModels.Region(
         :armor_jacket,
-        LineCableModels.Shell(p.jacket_thickness),
+        LineCableModels.ShellDefinition(p.jacket_thickness),
         pp
     ))
-    nominal_data = (
-        designation_code = "(N)2XH(F)RK2Y",
-        U0 = 500.0,
-        U = 525.0,
-        conductor_cross_section = 1600.0,
-        screen_cross_section = 1000.0,
-        resistance = nothing,
-        capacitance = nothing,
-        inductance = nothing
-    )
     design = LineCableModels.build(
         LineCableModels.CableDesign,
         "525kV_1600mm2",
-        LineCableModels.Stack(parts);
-        nominal_data = LineCableModels.NominalData(; nominal_data...)
+        LineCableModels.Stack(parts)
     )
     earth = LineCableModels.Earth(
         rho = p.earth_rho, eps_r = p.earth_eps_r, mu_r = 1.0

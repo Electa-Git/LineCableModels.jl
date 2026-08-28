@@ -1,20 +1,22 @@
 function compute_impedance_matrix!(
         destination::AbstractMatrix{Complex{T}},
-        input::AnalyticalInput{T},
-        rho_cond::AbstractVector{T},
-        earth,
+        workspace::LineParametersWorkspace{T},
         frequency::Int,
-        formulation::AnalyticalFormulation,
-        trace
+        formulation::LineParametersFormulation
 ) where {T <: Real}
+    input = workspace.normalized
+    rho_cond = workspace.prepared.rho_cond
+    earth = workspace.prepared.earth
+    indices = workspace.prepared.cable_indices
+    cables = workspace.prepared.cable_representatives
+    earth_matrix = workspace.buffers.earth_matrix
+    capture = workspace.capture
     fill!(destination, zero(Complex{T}))
-    indices, cables = _cable_indices(input)
-    earth_matrix = Matrix{Complex{T}}(undef, input.n_cables, input.n_cables)
     compute_earth_return_matrix!(
         earth_matrix, cables, input, earth, frequency,
-        formulation.earth_impedance
+        formulation.methods.earth_impedance
     )
-    _stash!(_trace_target(trace, :Zg), frequency, earth_matrix)
+    _stash!(_capture_target(capture, :Zg), frequency, earth_matrix)
     s = input.jω[frequency]
 
     @inbounds for cable in 1:input.n_cables
@@ -26,9 +28,9 @@ function compute_impedance_matrix!(
             outer = input.r_ext[index]
             rho = rho_cond[index]
             mu = input.mu_cond[index]
-            outside = formulation.internal_impedance(:outer, inner, outer, rho, mu, s)
+            outside = formulation.methods.internal_impedance(:outer, inner, outer, rho, mu, s)
             inside = position < count ?
-                     formulation.internal_impedance(
+                     formulation.methods.internal_impedance(
                 :inner,
                 input.r_in[conductors[position + 1]],
                 input.r_ext[conductors[position + 1]],
@@ -36,8 +38,8 @@ function compute_impedance_matrix!(
                 input.mu_cond[conductors[position + 1]],
                 s
             ) : zero(outside)
-            mutual = formulation.internal_impedance(:mutual, inner, outer, rho, mu, s)
-            insulation = formulation.insulation_impedance(
+            mutual = formulation.methods.internal_impedance(:mutual, inner, outer, rho, mu, s)
+            insulation = formulation.methods.insulation_impedance(
                 outer, input.r_ins_ext[index], input.mu_ins[index], s
             )
             loop = outside + inside + insulation
@@ -54,7 +56,7 @@ function compute_impedance_matrix!(
             destination[index, index] += loop
         end
     end
-    _stash!(_trace_target(trace, :Zin), frequency, destination)
+    _stash!(_capture_target(capture, :Zin), frequency, destination)
 
     @inbounds for cable in 1:input.n_cables
         conductors = indices[cable]
@@ -74,6 +76,6 @@ function compute_impedance_matrix!(
             end
         end
     end
-    _stash!(_trace_target(trace, :Z), frequency, destination)
+    _stash!(_capture_target(capture, :Z), frequency, destination)
     return destination
 end

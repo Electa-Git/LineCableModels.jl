@@ -569,8 +569,7 @@
                         }
                     ]
                 },
-                "nominal_data": {
-                    "kind": "nominal_data",
+                "catalogue": {
                     "U": {
                         "value": 30,
                         "__type__": "Float64"
@@ -591,7 +590,6 @@
                         "value": 1000,
                         "__type__": "Float64"
                     },
-                    "armor_cross_section": null,
                     "resistance": {
                         "value": 0.0291,
                         "__type__": "Float64"
@@ -1223,8 +1221,7 @@
                         }
                     ]
                 },
-                "nominal_data": {
-                    "kind": "nominal_data",
+                "catalogue": {
                     "U": {
                         "value": 525,
                         "__type__": "Float64"
@@ -1242,7 +1239,6 @@
                         "value": 1600,
                         "__type__": "Float64"
                     },
-                    "armor_cross_section": null,
                     "resistance": null,
                     "inductance": null,
                     "designation_code": "(N)2XH(F)RK2Y"

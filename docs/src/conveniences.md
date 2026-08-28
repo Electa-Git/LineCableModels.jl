@@ -3,6 +3,44 @@
 These functions support model preparation without changing the line-parameter
 calculation grammar.
 
+## Physical cable declarations
+
+The construction namespaces produce ordinary v1 physical objects:
+
+```julia
+core = Conductor.Stranded(
+    :core,
+    DiskDefinition(1.5e-3),
+    copper;
+    counts=(1, 6, 12, 18, 24),
+    lay=(15.0, 13.5, 12.5, 11.0),
+)
+
+screen = Conductor.Wires(
+    :screen,
+    DiskDefinition(0.5e-3),
+    copper;
+    n=40,
+    r=20e-3,
+    lay=LayRatio(10),
+)
+
+insulation = Insulator.Shell(:insulation, xlpe; t=8e-3)
+semiconductor = Semiconductor.Shell(:outer_screen, semicon; t=1e-3)
+```
+
+`Conductor.Stranded` returns a `Stack` of physical strand groups. Its `counts`
+and `lay` declarations align with the actual noncentral layers; callers do not
+expand them into a layer-count/multiplier convention.
+`Conductor.Wires`, `Conductor.Strip`, and `Conductor.Tubular` return one
+retained conductor `Group`. `Insulator.Shell` and `Semiconductor.Shell` return
+contextual physical regions. These values are assembled with `Stack` and
+completed by `build(CableDesign, ...)`.
+
+Use `equivalent(design)` only when a homogeneous `CableDesign` is itself the
+requested result. Calculation through `LineParametersProblem` performs
+formulation adaptation without requiring this extra call.
+
 ## Wire-pattern estimates
 
 [`make_stranded`](@ref) and [`make_screened`](@ref) search deterministic wire

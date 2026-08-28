@@ -714,7 +714,7 @@ end
     ))
     armor=only(filter(
         value->value.name===:armor,
-        LineCableModels.Engine.analytical_components(
+        LineCableModels.Engine.homogeneous_components(
             LineCableModels.Formulation(), expanded_design, 50.0
         )
     )).conductor
@@ -726,7 +726,7 @@ end
         source->source.source.tag===:sheath_bedding,
         expanded_design.geometry.regions
     ))
-    @test thickness(expanded_bedding.shape) > 3.0e-3
+    @test thickness(expanded_bedding.primitive) > 3.0e-3
 
     nominal_armor=load_case(:cable_525kv_1600mm2_bipole)
     nominal_design=first(nominal_armor.problem.system.designs)
@@ -735,7 +735,7 @@ end
         nominal_design.geometry.regions
     ))
     nominal_unbuffered_outer_radius=63.22185e-3+5.827e-3+10.0e-3
-    @test thickness(nominal_bedding.shape) ≈
+    @test thickness(nominal_bedding.primitive) ≈
           3.0e-3 + 0.2nominal_unbuffered_outer_radius
 
     materialized=only(uncertain.problem)
@@ -751,11 +751,11 @@ end
     first_tape=thickness(only(filter(
         source->source.source.tag===:core_semicon_tape_inner,
         geometry
-    )).shape)
+    )).primitive)
     second_tape=thickness(only(filter(
         source->source.source.tag===:core_semicon_tape_outer,
         geometry
-    )).shape)
+    )).primitive)
     @test Measurements.cov(first_tape, second_tape) > 0
     @test Measurements.cov(first_tape, second_tape) ≈
           Measurements.uncertainty(first_tape)^2

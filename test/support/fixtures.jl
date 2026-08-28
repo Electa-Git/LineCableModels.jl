@@ -1,7 +1,6 @@
 @testmodule TestFixtures begin
     using LineCableModels
-    using LineCableModels.DataModel: CableDesign, LineCableSystem, NominalData,
-                                     trefoil_formation
+    using LineCableModels.DataModel: CableDesign, LineCableSystem, trefoil_formation
     using LineCableModels.EarthProps: EarthModel
 
     const FIXTURE_ROOT = normpath(joinpath(@__DIR__, "..", "fixtures"))
@@ -45,7 +44,7 @@
         for index in eachindex(wire_counts)
             wire = LineCableModels.Region(
                 Symbol(:core_wire_, index),
-                LineCableModels.Disk(0.00235),
+                LineCableModels.DiskDefinition(0.00235),
                 aluminum
             )
             path = iszero(lay_ratios[index]) ? nothing :
@@ -74,14 +73,14 @@
         )
             push!(parts, LineCableModels.Region(
                 tag,
-                LineCableModels.Annulus(inner, outer),
+                LineCableModels.AnnulusDefinition(inner, outer),
                 material
             ))
         end
 
         screen_wire = LineCableModels.Region(
             :sheath_wire,
-            LineCableModels.Disk(0.000475),
+            LineCableModels.DiskDefinition(0.000475),
             copper
         )
         push!(parts,
@@ -102,7 +101,7 @@
                 :sheath,
                 LineCableModels.Region(
                     :sheath_tape,
-                    LineCableModels.Sector(
+                    LineCableModels.SectorDefinition(
                         tape_inner,
                         tape_outer,
                         -tape_width / (tape_inner + tape_outer),
@@ -115,7 +114,7 @@
         push!(parts,
             LineCableModels.Region(
                 :sheath_semicon,
-                LineCableModels.Annulus(
+                LineCableModels.AnnulusDefinition(
                     0.031700000000000006,
                     0.03200000000000001
                 ),
@@ -126,7 +125,7 @@
                 :jacket,
                 LineCableModels.Region(
                     :jacket_metal,
-                    LineCableModels.Annulus(
+                    LineCableModels.AnnulusDefinition(
                         0.03200000000000001,
                         0.032150000000000005
                     ),
@@ -136,7 +135,7 @@
         push!(parts,
             LineCableModels.Region(
                 :jacket_bedding,
-                LineCableModels.Annulus(
+                LineCableModels.AnnulusDefinition(
                     0.032150000000000005,
                     0.032200000000000006
                 ),
@@ -145,28 +144,17 @@
         push!(parts,
             LineCableModels.Region(
                 :jacket_insulation,
-                LineCableModels.Annulus(
+                LineCableModels.AnnulusDefinition(
                     0.032200000000000006,
                     0.034600000000000006
                 ),
                 xlpe
             ))
 
-        nominal_data = NominalData(
-            designation_code = "NA2XS(FL)2Y",
-            U0 = 18.0,
-            U = 30.0,
-            conductor_cross_section = 1000.0,
-            screen_cross_section = 35.0,
-            resistance = 0.0291,
-            capacitance = 0.39,
-            inductance = 0.3
-        )
         return build(
             CableDesign,
             "test_cable",
-            LineCableModels.Stack(parts);
-            nominal_data
+            LineCableModels.Stack(parts)
         )
     end
 

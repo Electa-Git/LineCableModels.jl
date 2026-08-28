@@ -2,7 +2,9 @@
 # Implement the AbstractDict interface
 Base.length(lib::CablesLibrary) = length(lib.data)
 function Base.setindex!(lib::CablesLibrary, value::CableDesign, key::String)
-    (lib.data[key] = value)
+    lib.data[key] = value
+    get!(lib.catalogues, key, (;))
+    return value
 end
 Base.iterate(lib::CablesLibrary, state...) = iterate(lib.data, state...)
 Base.keys(lib::CablesLibrary) = keys(lib.data)
@@ -51,5 +53,6 @@ Remove the cable design stored under `cable_id`.
 function Base.delete!(library::CablesLibrary, cable_id::String)
     haskey(library, cable_id) || throw(KeyError(cable_id))
     delete!(library.data, cable_id)
+    delete!(library.catalogues, cable_id)
     return library
 end

@@ -29,7 +29,7 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   inferred `Gridspace` construction from the public declarative builders.
 - Converged calculation ownership around `Grammar` action generics,
   `ParametricBuilder` deterministic traversal, `UQ` uncertainty propagation,
-  and complete analytical execution in `Engine`.
+  and complete native execution in `Engine`.
 - Reduced Gridspace to explicit finite `Grid` sources, local product or zip
   composition, one internal unresolved point, and recursive materialization or
   realisation through concrete callable builders. Scalar public construction
@@ -46,10 +46,15 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Routed ordinary and higher-order execution through `compute`, with
   `Combinatorial(inner)`, `LinearError(inner)`, and `MonteCarlo(inner)` selected
   explicitly.
-- Renamed the built-in backend to `Formulation(:analytical)` and selected
-  parameter or trace output through formulation options.
+- Named the native backend `LineCableModelsEngine`, retained `Formulation()` as
+  the default line-parameter method bundle, and exposed optional trace data
+  through `details(result)`.
 - Made `build` the complete construction action for cable designs and systems.
   Explicit `Grid` inputs materialize the same action through `Gridspace`.
+- Separated unresolved `*Definition` geometry from resolved primitives carrying
+  absolute poses.
+- Removed `NominalData` from `CableDesign`; `CablesLibrary` now binds optional
+  named-tuple catalogue records beside stored designs.
 - Moved Measurements.jl and Distributions.jl integrations into package
   extensions.
 - Restricted radial declarations to numeric radius or thickness semantics.

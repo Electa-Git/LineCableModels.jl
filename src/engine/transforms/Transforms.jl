@@ -2,7 +2,7 @@
     LineCableModels.Engine.Transforms
 
 Define phase/modal transformations and matrix normalisation operations used by
-analytical line-parameter calculations.
+native line-parameter calculations.
 
 # Public actions
 

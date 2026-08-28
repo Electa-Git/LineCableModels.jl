@@ -317,7 +317,7 @@ function _pscad_cable_parameters(
     # PSCAD owns this explicit homogenization choice. Its Cable_Coax record
     # requires concentric equivalent layers, so adaptation happens here rather
     # than becoming stored CableDesign state.
-    components = Engine.analytical_components(
+    components = Engine.homogeneous_components(
         Engine.Formulation(),
         design,
         base_frequency

@@ -322,18 +322,19 @@
         description = description(value)
     )
 
-    function formulation_record(formulation::AnalyticalFormulation)
+    function formulation_record(formulation::LineParametersFormulation)
         options = formulation.options
+        methods = formulation.methods
         return (
             type = string(parentmodule(typeof(formulation)), ".", nameof(typeof(formulation))),
-            internal_impedance = _method_record(formulation.internal_impedance),
-            insulation_impedance = _method_record(formulation.insulation_impedance),
-            earth_impedance = _method_record(formulation.earth_impedance),
-            insulation_admittance = _method_record(formulation.insulation_admittance),
-            earth_admittance = _method_record(formulation.earth_admittance),
-            earth_properties = _method_record(formulation.earth_properties),
-            modal_transform = _method_record(formulation.modal_transform),
-            equivalent_earth = _method_record(formulation.equivalent_earth),
+            internal_impedance = _method_record(methods.internal_impedance),
+            insulation_impedance = _method_record(methods.insulation_impedance),
+            earth_impedance = _method_record(methods.earth_impedance),
+            insulation_admittance = _method_record(methods.insulation_admittance),
+            earth_admittance = _method_record(methods.earth_admittance),
+            earth_properties = _method_record(methods.earth_properties),
+            modal_transform = _method_record(methods.modal_transform),
+            equivalent_earth = _method_record(methods.equivalent_earth),
             options = (
                 reduce_bundle = options.reduce_bundle,
                 kron_reduction = options.kron_reduction,
@@ -360,7 +361,7 @@
         return (description = String(_record_value(record, :description)),)
     end
 
-    function _semantic_analytical_options(record)
+    function _semantic_line_parameters_options(record)
         output = _record_value(record, :output, :parameters)
         output isa Val && (output = only(typeof(output).parameters))
         return (
@@ -375,9 +376,10 @@
     function _semantic_formulation_record(record)
         type_name = String(_record_value(record, :type, ""))
         if occursin("EMTFormulation", type_name) ||
-           occursin("AnalyticalFormulation", type_name)
+           occursin("AnalyticalFormulation", type_name) ||
+           occursin("LineParametersFormulation", type_name)
             return (
-                backend = :analytical,
+                backend = :line_cable_models,
                 internal_impedance = _semantic_method_record(_record_value(record, :internal_impedance)),
                 insulation_impedance = _semantic_method_record(_record_value(record, :insulation_impedance)),
                 earth_impedance = _semantic_method_record(_record_value(record, :earth_impedance)),
@@ -386,7 +388,7 @@
                 earth_properties = _semantic_method_record(_record_value(record, :earth_properties)),
                 modal_transform = _semantic_method_record(_record_value(record, :modal_transform)),
                 equivalent_earth = _semantic_method_record(_record_value(record, :equivalent_earth)),
-                options = _semantic_analytical_options(_record_value(record, :options))
+                options = _semantic_line_parameters_options(_record_value(record, :options))
             )
         elseif occursin("PSCADFormulation", type_name)
             return (

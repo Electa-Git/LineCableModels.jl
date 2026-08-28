@@ -25,19 +25,18 @@
     @test system_table.cable_id == getproperty.(system.designs, :cable_id)
 
     library=CablesLibrary()
-    @test add!(library, design) === library
-    @test library[design.cable_id] === design
-    @test nrow(DataFrame(library)) == 1
-    @test names(DataFrame(library)) == ["cable_id", "nominal_data", "terminals"]
-    @test_throws ArgumentError add!(library, design)
-    @test delete!(library, design.cable_id) === library
-
-    nominal=NominalData(
+    catalogue_record=(
         designation_code = "sample",
         U0 = Float32(12),
         U = 20.0,
         resistance = 1
     )
-    @test nominal isa NominalData{Float64}
-    @test convert(NominalData{Float32}, nominal) isa NominalData{Float32}
+    @test add!(library, design; catalogue = catalogue_record) === library
+    @test library[design.cable_id] === design
+    @test catalogue(library, design.cable_id) == catalogue_record
+    @test nrow(DataFrame(library)) == 1
+    @test names(DataFrame(library)) == ["cable_id", "catalogue", "terminals"]
+    @test_throws ArgumentError add!(library, design)
+    @test delete!(library, design.cable_id) === library
+    @test !haskey(library.catalogues, design.cable_id)
 end

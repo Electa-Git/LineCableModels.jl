@@ -52,10 +52,7 @@ end
     @test !isdefined(earth_impedance, :DirectNumericalIntegration)
 
     problem=TestFixtures.line_parameters_problem()
-    formulation=Formulation(
-        :analytical;
-        earth_impedance = earth_impedance.Saad()
-    )
+    formulation=Formulation(earth_impedance = earth_impedance.Saad())
     @test_throws MethodError compute(problem, formulation)
 end
 

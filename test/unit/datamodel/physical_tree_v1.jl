@@ -6,32 +6,32 @@
         kind = :insulator, rho = 1.0e14, eps_r = 2.3
     )
 
-    core=DM.Region(:core, DM.Disk(0.01), copper_props)
-    insulation=DM.Region(:insulation, DM.Shell(0.005), insulator_props)
+    core=DM.Region(:core, DM.DiskDefinition(0.01), copper_props)
+    insulation=DM.Region(:insulation, DM.ShellDefinition(0.005), insulator_props)
     @test core isa DM.AbstractCablePart
     @test core.tag === :core
     @test core.material === copper_props
-    @test (@inferred DM.resolve(DM.EmptyBoundary(), core)).regions[1].shape ==
-          DM.DiskShape(0.01)
-    @test_throws ArgumentError DM.Region(Symbol(""), DM.Disk(1), copper_props)
-    @test_throws ArgumentError DM.Region(:bad, DM.Disk(1), :copper)
+    @test (@inferred DM.resolve(DM.EmptyBoundary(), core)).regions[1].primitive ==
+          DM.Disk(0.01)
+    @test_throws ArgumentError DM.Region(Symbol(""), DM.DiskDefinition(1), copper_props)
+    @test_throws ArgumentError DM.Region(:bad, DM.DiskDefinition(1), :copper)
 
     stack=PB.Stack(core, insulation)
     @test stack.items == DM.AbstractCablePart[core, insulation]
     resolved=DM.resolve(DM.EmptyBoundary(), stack)
     @test length(resolved.regions) == 2
-    @test resolved.regions[1].shape == DM.DiskShape(0.01)
-    @test resolved.regions[2].shape == DM.AnnulusShape(0.01, 0.015)
-    @test DM.boundary(resolved) == DM.DiskShape(0.015)
+    @test resolved.regions[1].primitive == DM.Disk(0.01)
+    @test resolved.regions[2].primitive == DM.Annulus(0.01, 0.015)
+    @test DM.boundary(resolved) == DM.Disk(0.015)
     @test_throws ArgumentError DM.Stack(DM.AbstractCablePart[])
     @test_throws MethodError DM.resolve(DM.EmptyBoundary(), DM.Stack(insulation))
 
     nested=PB.Stack(PB.Stack(core), insulation)
     nested_resolved=DM.resolve(DM.EmptyBoundary(), nested)
-    @test DM.boundary(nested_resolved) == DM.DiskShape(0.015)
+    @test DM.boundary(nested_resolved) == DM.Disk(0.015)
 
     radii=PB.Grid((0.01, 0.02))
-    cores=PB.Region(:core, PB.Disk(radii), copper_props)
+    cores=PB.Region(:core, PB.DiskDefinition(radii), copper_props)
     spaces=PB.Stack(cores, insulation)
     @test spaces isa PB.Gridspace{DM.Stack}
     @test length(spaces) == 2
@@ -42,44 +42,57 @@ end
 @testitem "DataModel / v1 physical tree / primitive extension is local dispatch" tags=[:unit] begin
     import LineCableModels.DataModel as DM
 
-    struct CapsulePrimitive{T <: Real} <: DM.AbstractPrimitive{T}
+    struct CapsuleDefinition{T <: Real} <: DM.AbstractPrimitiveDefinition{T}
         radius::T
     end
-    struct CapsuleShape{T <: Real} <: DM.AbstractShape{T}
+    struct Capsule{T <: Real} <: DM.AbstractPrimitive{T}
         radius::T
+        at::DM.Pose2{T}
     end
 
-    DM.resolve(::DM.EmptyBoundary, primitive::CapsulePrimitive) =
-        CapsuleShape(primitive.radius)
-    DM.boundary(shape::CapsuleShape) = shape
-    DM.area(shape::CapsuleShape) = pi * shape.radius^2
-    DM.centroid(shape::CapsuleShape) = (zero(shape.radius), zero(shape.radius))
-    DM.support(shape::CapsuleShape, ::Real) = shape.radius
-    DM.support(shape::CapsuleShape) = shape.radius
+    DM.resolve(::DM.EmptyBoundary, definition::CapsuleDefinition) = Capsule(
+        definition.radius,
+        DM.Pose2(0, 0, 0)
+    )
+    DM.resolve(at::DM.Pose2, primitive::Capsule) = Capsule(primitive.radius, at *
+                                                                             primitive.at)
+    DM.boundary(primitive::Capsule) = primitive
+    DM.area(primitive::Capsule) = pi * primitive.radius^2
+    DM.centroid(primitive::Capsule) = (primitive.at.x, primitive.at.y)
+    DM.support(primitive::Capsule, φ::Real) = primitive.at.x * cos(φ) +
+                                              primitive.at.y * sin(φ) + primitive.radius
+    DM.support(primitive::Capsule) = hypot(primitive.at.x, primitive.at.y) +
+                                     primitive.radius
 
     conductor=Material(kind = :conductor, rho = 1.7241e-8)
     design=build(
         CableDesign,
         "local-extension",
-        Group(:core, Region(:capsule, CapsulePrimitive(0.01), conductor))
+        Group(:core, Region(:capsule, CapsuleDefinition(0.01), conductor))
     )
-    @test only(design.geometry.regions).shape.shape == CapsuleShape(0.01)
+    @test only(design.geometry.regions).primitive ==
+          Capsule(0.01, DM.Pose2(0, 0, 0))
     @test design.terminal_order == [:core]
 end
 
 @testitem "DataModel / v1 physical tree / circular and rectangular strands" tags=[:unit] begin
     copper=Material(kind = :conductor, rho = 1.7241e-8)
-    disk=Disk(0.5e-3)
-    rectangle=Rectangle(0.35e-3, 0.8e-3)
+    disk=DiskDefinition(0.5e-3)
+    rectangle=RectangleDefinition(0.35e-3, 0.8e-3)
 
-    circular=Conductor.Stranded(:core, disk, copper; layers = 3, n = 6)
-    rectangular=Conductor.Stranded(:core, rectangle, copper; layers = 3, n = 6)
+    circular=Conductor.Stranded(
+        :core,
+        disk,
+        copper;
+        counts = (1, 6, 12),
+        lay = (15.0, 11.0)
+    )
+    rectangular=Conductor.Stranded(:core, rectangle, copper; counts = (1, 6, 12))
     strand_space=Conductor.Stranded(
         :core,
         Grid((disk, rectangle)),
         copper;
-        layers = 1,
-        n = 6
+        counts = (1,)
     )
     @test circular isa Stack
     @test rectangular isa Stack
@@ -87,23 +100,26 @@ end
     resolved_strands=collect(strand_space)
     @test typeof.(getproperty.(first.(getproperty.(resolved_strands, :items)), :item)) ==
           [Region{typeof(disk), typeof(copper)},
-           Region{typeof(rectangle), typeof(copper)}]
+        Region{typeof(rectangle), typeof(copper)}]
     @test all(item -> item isa Group, circular.items)
     @test all(item -> item isa Group, rectangular.items)
     @test getproperty.(circular.items, :name) == fill(:core, 3)
     @test getproperty.(rectangular.items, :name) == fill(:core, 3)
+    @test circular.items[1].path === nothing
+    @test circular.items[2].path.lay == LayRatio(15.0)
+    @test circular.items[3].path.lay == LayRatio(11.0)
 
     circular_design=build(CableDesign, "circular-strands", circular)
     rectangular_design=build(CableDesign, "rectangular-strands", rectangular)
     @test length(circular_design.geometry.regions) == 19
     @test length(rectangular_design.geometry.regions) == 19
     @test all(
-        region -> region.shape.shape isa LineCableModels.DataModel.RectangleShape,
+        region -> region.primitive isa LineCableModels.DataModel.Rectangle,
         rectangular_design.geometry.regions
     )
-    @test sum(area, getproperty.(circular_design.geometry.regions, :shape)) ≈
+    @test sum(area, getproperty.(circular_design.geometry.regions, :primitive)) ≈
           19pi * disk.r^2
-    @test sum(area, getproperty.(rectangular_design.geometry.regions, :shape)) ≈
+    @test sum(area, getproperty.(rectangular_design.geometry.regions, :primitive)) ≈
           19rectangle.w * rectangle.h
 
     initial_radius=hypot(rectangle.w, rectangle.h) / 2
@@ -112,7 +128,7 @@ end
         (initial_radius + area_radius) / 2,
         initial_radius + rectangle.h / 2
     )
-    @test hypot(centroid(rectangular_design.geometry.regions[2].shape)...) ≈
+    @test hypot(centroid(rectangular_design.geometry.regions[2].primitive)...) ≈
           expected_centre
     @test getproperty.(rectangular_design.geometry.regions, :terminal) ==
           fill(:core, 19)
@@ -130,26 +146,30 @@ end
     @test all(!isempty, getproperty.(rectangular_design.geometry.regions[2:end], :paths))
 
     for (member, placed) in enumerate(rectangular_design.geometry.regions[2:7])
-        x, y = centroid(placed.shape)
+        x, y = centroid(placed.primitive)
         radial = atan(y, x)
-        @test mod(placed.shape.at.φ - radial, 2pi) ≈ pi / 2
+        @test mod(placed.primitive.at.φ - radial, 2pi) ≈ pi / 2
         @test placed.source.primitive === rectangle
     end
     @test_throws DomainError Conductor.Stranded(
         :core,
-        Rectangle(10e-3, 1e-3),
+        RectangleDefinition(10e-3, 1e-3),
         copper;
-        layers = 2,
-        n = 6
+        counts = (1, 6)
+    )
+    @test_throws ArgumentError Conductor.Stranded(
+        :core, disk, copper; counts = (6, 12)
+    )
+    @test_throws DimensionMismatch Conductor.Stranded(
+        :core, disk, copper; counts = (1, 6, 12), lay = (11.0,)
     )
     @test_throws MethodError Conductor.Stranded(
         :core,
-        Ellipse(0.5e-3, 0.25e-3),
+        EllipseDefinition(0.5e-3, 0.25e-3),
         copper;
-        layers = 2,
-        n = 6
+        counts = (1, 6)
     )
-    @test_throws ArgumentError LineCableModels.Engine.analytical_components(
+    @test_throws ArgumentError LineCableModels.Engine.homogeneous_components(
         Formulation(), rectangular_design, 50.0
     )
 end
@@ -166,7 +186,7 @@ end
     pipe=LineCableModels.Enclosure(
         :pipe,
         core;
-        shape = LineCableModels.Disk(3.0),
+        primitive = LineCableModels.DiskDefinition(3.0),
         fill = oil,
         wall
     )
@@ -175,7 +195,7 @@ end
     @test getproperty.(getproperty.(resolved.regions, :source), :tag) ==
           [:core_metal, :pipe_fill, :pipe_wall]
     @test DM.support(DM.boundary(resolved)) == 3.5
-    @test resolved.regions[2].shape.shape == DM.AnnulusShape(1.0, 3.0)
+    @test resolved.regions[2].primitive == DM.Annulus(1.0, 3.0)
 
     insulation=LineCableModels.Insulator.Shell(:insulation, oil; t = 0.2)
     screen=LineCableModels.Semiconductor.Shell(:screen, semicon; t = 0.1)
@@ -188,12 +208,12 @@ end
     fill=LineCableModels.Filler.Region(
         :fill,
         oil;
-        primitive = LineCableModels.Annulus(1.0, 3.0)
+        primitive = LineCableModels.AnnulusDefinition(1.0, 3.0)
     )
     explicit=LineCableModels.Enclosure(
         :duct,
         core;
-        shape = LineCableModels.Disk(3.0),
+        primitive = LineCableModels.DiskDefinition(3.0),
         fill
     )
     @test getproperty.(
@@ -210,7 +230,7 @@ end
     nested=LineCableModels.Enclosure(
         :outer,
         pipe;
-        shape = LineCableModels.Disk(5.0),
+        primitive = LineCableModels.DiskDefinition(5.0),
         fill = oil
     )
     @test DM.support(DM.boundary(DM.resolve(DM.EmptyBoundary(), nested))) == 5.0
@@ -219,7 +239,7 @@ end
 @testitem "DataModel / v1 physical tree / placement, Group, and Assembly" tags=[:unit] begin
     const DM=LineCableModels.DataModel
     copper=LineCableModels.Material(kind = :conductor, rho = 1.7241e-8)
-    wire=LineCableModels.Region(:wire, LineCableModels.Disk(0.5), copper)
+    wire=LineCableModels.Region(:wire, LineCableModels.DiskDefinition(0.5), copper)
 
     ring=LineCableModels.Ring(6; r = 2.0, φ0 = π / 6)
     poses=LineCableModels.placements(ring, wire, nothing)
@@ -299,8 +319,8 @@ end
     conductor=Material(kind = :conductor, rho = 1.7241e-8)
     dielectric=Material(kind = :insulator, rho = 1.0e14, eps_r = 2.3)
     root=Stack(
-        Group(:phase, Region(:core, Disk(0.01), conductor)),
-        Region(:insulation, Shell(0.003), dielectric)
+        Group(:phase, Region(:core, DiskDefinition(0.01), conductor)),
+        Region(:insulation, ShellDefinition(0.003), dielectric)
     )
     make_design() = build(CableDesign, "allocation-baseline", root)
     design=make_design()
@@ -320,11 +340,13 @@ end
     @test isconcretetype(typeof(design))
     @test isconcretetype(typeof(system))
     @test isconcretetype(typeof(problem))
-    @test (@inferred LineCableModels.Engine.AnalyticalInput(
+    execution=computation_options(Val(LineCableModelsEngine), (;))
+    @test (@inferred LineCableModels.Engine.LineParametersWorkspace(
+        LineCableModelsEngine(),
         problem,
-        Formulation()
-    )) isa
-          LineCableModels.Engine.AnalyticalInput{Float64}
+        Formulation(),
+        execution
+    )) isa LineCableModels.Engine.LineParametersWorkspace{Float64}
 
     # These bounds record the construction scale without turning the
     # physical grammar into an allocation optimization exercise.

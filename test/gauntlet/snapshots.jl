@@ -84,7 +84,7 @@ function _write_snapshot(
                     options = (;)
                 ),
                 candidate = (
-                    id = :analytical,
+                    id = :line_cable_models,
                     owner = :engine,
                     formulation = formulation_record(case).candidate,
                     options = (;)

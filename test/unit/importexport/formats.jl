@@ -152,15 +152,16 @@ end
             inner=(index-1)*2.0e-3
             terminal=Symbol("terminal_$index")
             push!(parts,
-                Group(terminal, Region(
-                    Symbol(terminal, :_conductor),
-                    Annulus(inner, inner+1.0e-3),
-                    metal
-                )))
+                Group(terminal,
+                    Region(
+                        Symbol(terminal, :_conductor),
+                        AnnulusDefinition(inner, inner+1.0e-3),
+                        metal
+                    )))
             push!(parts,
                 Region(
                     Symbol(terminal, :_insulation),
-                    Annulus(inner+1.0e-3, inner+2.0e-3),
+                    AnnulusDefinition(inner+1.0e-3, inner+2.0e-3),
                     dielectric
                 ))
         end

@@ -60,31 +60,19 @@ _serialize_object(value::Material) = Dict(
     "value" => _material_record(value)
 )
 
-function _serialize_object(value::NominalData)
-    return _node(
-        "nominal_data";
-        designation_code = value.designation_code,
-        U0 = value.U0,
-        U = value.U,
-        conductor_cross_section = value.conductor_cross_section,
-        screen_cross_section = value.screen_cross_section,
-        armor_cross_section = value.armor_cross_section,
-        resistance = value.resistance,
-        capacitance = value.capacitance,
-        inductance = value.inductance
-    )
-end
-
-_serialize_object(value::Disk) = _node("disk"; r = value.r)
-_serialize_object(value::Rectangle) = _node("rectangle"; w = value.w, h = value.h)
-_serialize_object(value::Ellipse) = _node("ellipse"; a = value.a, b = value.b)
-function _serialize_object(value::Sector)
+_serialize_object(value::DiskDefinition) = _node("disk"; r = value.r)
+_serialize_object(value::RectangleDefinition) =
+    _node("rectangle"; w = value.w, h = value.h)
+_serialize_object(value::EllipseDefinition) =
+    _node("ellipse"; a = value.a, b = value.b)
+function _serialize_object(value::SectorDefinition)
     return _node("sector"; ri = value.ri, ro = value.ro, φ0 = value.φ0,
         span = value.span)
 end
-_serialize_object(value::Annulus) = _node("annulus"; ri = value.ri, ro = value.ro)
-_serialize_object(value::Shell) = _node("shell"; t = value.t)
-_serialize_object(value::Polygon) = _node("polygon"; points = value.points)
+_serialize_object(value::AnnulusDefinition) =
+    _node("annulus"; ri = value.ri, ro = value.ro)
+_serialize_object(value::ShellDefinition) = _node("shell"; t = value.t)
+_serialize_object(value::PolygonDefinition) = _node("polygon"; points = value.points)
 _serialize_object(value::Pose2) = _node("pose2"; x = value.x, y = value.y, φ = value.φ)
 
 function _serialize_object(value::EarthLayer)
@@ -170,7 +158,7 @@ function _serialize_part(value::Enclosure, material_name)
         "kind" => "enclosure",
         "tag" => String(value.tag),
         "at" => serialize_value(value.at),
-        "shape" => serialize_value(value.shape),
+        "primitive" => serialize_value(value.primitive),
         "item" => _serialize_part(value.item, material_name),
         "fill" => fill,
         "wall" => wall
@@ -183,7 +171,6 @@ function _serialize_design(value::CableDesign, material_name = nothing)
     return Dict(
         "kind" => "cable_design",
         "cable_id" => value.cable_id,
-        "nominal_data" => serialize_value(value.nominal_data),
         "root" => _serialize_part(value.root, material_name)
     )
 end
@@ -273,7 +260,13 @@ function _json_document(library::CablesLibrary)
         "root" => Dict(
             "kind" => "cable_library",
             "cables" => Dict(
-                cable_id => _serialize_design(library.data[cable_id], material_name)
+                cable_id => merge(
+                    _serialize_design(library.data[cable_id], material_name),
+                    Dict("catalogue" => Dict(
+                        String(name) => serialize_value(item)
+                        for (name, item) in pairs(library.catalogues[cable_id])
+                    ))
+                )
                 for cable_id in cable_ids
             )
         )

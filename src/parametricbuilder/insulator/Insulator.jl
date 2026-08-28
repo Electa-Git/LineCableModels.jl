@@ -25,10 +25,10 @@ function Shell(tag::Symbol, material; t, combine::Symbol = :product)
             value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
         end
         build = (resolved_tag, thickness, resolved_material) ->
-                _region(resolved_tag, DataModel.Shell(thickness), resolved_material)
+                _region(resolved_tag, DataModel.ShellDefinition(thickness), resolved_material)
         return Gridspace{DataModel.Region}(build, grids; combine)
     end
-    return _region(tag, DataModel.Shell(t), material)
+    return _region(tag, DataModel.ShellDefinition(t), material)
 end
 
 end

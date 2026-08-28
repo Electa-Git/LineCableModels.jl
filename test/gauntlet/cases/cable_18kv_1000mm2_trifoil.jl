@@ -121,7 +121,7 @@ case_definition(
                 :core,
                 LineCableModels.Region(
                     Symbol(:core_strands_, layer),
-                    LineCableModels.Disk(wire_radius),
+                    LineCableModels.DiskDefinition(wire_radius),
                     aluminum
                 );
                 pattern = LineCableModels.Ring(count; r = centre_radius),
@@ -138,7 +138,7 @@ case_definition(
         (:core_semicon_tape_outer, p.semicon_tape_thickness, polyacrylate)
     )
         push!(parts, LineCableModels.Region(
-            tag, LineCableModels.Shell(thickness), material
+            tag, LineCableModels.ShellDefinition(thickness), material
         ))
         radius += thickness
     end
@@ -149,7 +149,7 @@ case_definition(
         LineCableModels.Group(
             :sheath,
             LineCableModels.Region(
-                :sheath_wires, LineCableModels.Disk(screen_radius), copper
+                :sheath_wires, LineCableModels.DiskDefinition(screen_radius), copper
             );
             pattern = LineCableModels.Ring(p.screen_wires; r = screen_centre),
             path = LineCableModels.Helix(LineCableModels.LayRatio(p.screen_wire_lay_ratio))
@@ -162,7 +162,7 @@ case_definition(
             :sheath,
             LineCableModels.Region(
                 :sheath_copper_tape,
-                LineCableModels.Sector(radius, tape_outer, -tape_span / 2, tape_span),
+                LineCableModels.SectorDefinition(radius, tape_outer, -tape_span / 2, tape_span),
                 copper
             );
             path = LineCableModels.Helix(LineCableModels.LayRatio(p.copper_tape_lay_ratio))
@@ -171,7 +171,7 @@ case_definition(
     push!(parts,
         LineCableModels.Region(
             :sheath_water_blocking,
-            LineCableModels.Shell(p.water_blocking_thickness),
+            LineCableModels.ShellDefinition(p.water_blocking_thickness),
             polyacrylate
         ))
     radius += p.water_blocking_thickness
@@ -182,31 +182,22 @@ case_definition(
             :jacket,
             LineCableModels.Region(
                 :jacket_aluminum_tape,
-                LineCableModels.Annulus(radius, aluminum_outer),
+                LineCableModels.AnnulusDefinition(radius, aluminum_outer),
                 aluminum
             )
         ))
-    push!(parts, LineCableModels.Region(
-        :jacket_pe_face, LineCableModels.Shell(p.pe_face_thickness), pe
-    ))
-    push!(parts, LineCableModels.Region(
-        :jacket_insulation, LineCableModels.Shell(p.jacket_thickness), pe
-    ))
-    nominal_data = (
-        designation_code = "NA2XS(FL)2Y",
-        U0 = 18.0,
-        U = 30.0,
-        conductor_cross_section = 1000.0,
-        screen_cross_section = 35.0,
-        resistance = 0.0291,
-        capacitance = 0.39,
-        inductance = 0.3
-    )
+    push!(parts,
+        LineCableModels.Region(
+            :jacket_pe_face, LineCableModels.ShellDefinition(p.pe_face_thickness), pe
+        ))
+    push!(parts,
+        LineCableModels.Region(
+            :jacket_insulation, LineCableModels.ShellDefinition(p.jacket_thickness), pe
+        ))
     design = LineCableModels.build(
         LineCableModels.CableDesign,
         "18kV_1000mm2",
-        LineCableModels.Stack(parts);
-        nominal_data = LineCableModels.NominalData(; nominal_data...)
+        LineCableModels.Stack(parts)
     )
     formation_spacing = (2 + p.formation_clearance_ratio) *
                         LineCableModels.outer_radius(design)

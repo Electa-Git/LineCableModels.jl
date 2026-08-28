@@ -19,7 +19,7 @@ LineCableModels regression output is not stored here because it would repeat
 the implementation under test instead of supplying an independent reference.
 
 The exception is `cable_model_v1_preservation.json`. It records the complete
-cable-design, line-system, flattened analytical-input, and numerical-result
+cable-design, line-system, normalized native-input, and numerical-result
 boundary at commit `36dfe57d330eef8dcdb00f35b905954be84401e5`. It is a
 deliberate refactor-preservation lock, not an independent physics reference,
 and must not be rewritten to accommodate a changed engine payload.

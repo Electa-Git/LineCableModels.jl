@@ -22,16 +22,17 @@ module DataModel
 
 # Export public API
 export CableDesign, CableGeometry, PlacedRegion, LineCableSystem, CableConstants
-export build
-export CablesLibrary, NominalData
+export build, equivalent
+export CablesLibrary, catalogue
 export trefoil_formation, flat_formation, outer_radius
-export AbstractPrimitive, AbstractShape
+export AbstractPrimitiveDefinition, AbstractPrimitive
 export AbstractCablePart, Region, Stack
 export Group, Assembly
 export Enclosure
-export Disk, Rectangle, Ellipse, Sector, Annulus, Shell, Polygon, Pose2
-export EmptyBoundary, DiskShape, RectangleShape, EllipseShape, SectorShape
-export AnnulusShape, PolygonShape, PlacedShape
+export DiskDefinition, RectangleDefinition, EllipseDefinition
+export SectorDefinition, AnnulusDefinition, ShellDefinition, PolygonDefinition
+export Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, Pose2
+export EmptyBoundary
 export resolve, boundary, area, centroid, support, r_in, r_ex, thickness
 export Ring, Polar, Lattice, DiameterFactor, placements
 export LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
@@ -46,7 +47,7 @@ using DocStringExtensions: IMPORTS
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES, FUNCTIONNAME
 import ..PlotBuilder
 import ..Units
-import ..LineCableModels: add!, build, validate, nominal
+import ..LineCableModels: add!, build, equivalent, validate, nominal
 import ..LineCableModels: basis, R, L, C, resistance, inductance, capacitance
 import ..Grammar: AbstractCoreResult, observe, observables
 using ..Materials: Material
@@ -61,9 +62,9 @@ import Base: angle
 # Abstract types and interfaces
 include("interfaces.jl")
 include("types.jl")
-include("geometry/primitives.jl")
-include("geometry/shapes.jl")
+include("geometry/definitions.jl")
 include("geometry/pose.jl")
+include("geometry/primitives.jl")
 include("geometry/resolve.jl")
 include("design/region.jl")
 include("design/stack.jl")
@@ -78,7 +79,6 @@ include("design/enclosure.jl")
 include("baseparams/BaseParams.jl")
 using .BaseParams
 
-include("nominaldata.jl")
 include("design/cabledesign.jl")
 include("cabledesign/cableconstants.jl")
 include("cabledesign/dataframe.jl")

@@ -23,6 +23,30 @@ One completed `Target`, or `Gridspace{Target}` for explicit finite inputs.
 """
 function build end
 
+"""
+    equivalent(design; new_id="")
+
+Build a homogeneous cable design that preserves the radial component geometry
+and matches the effective conductor and dielectric properties of `design`.
+
+The physical source design remains unchanged. Formulation-specific support is
+checked while the equivalent design is constructed.
+
+# Arguments
+
+- `design`: Completed physical cable design.
+
+# Keywords
+
+- `new_id`: Identifier for the returned design. An empty value appends
+  `"_equivalent"` to the source identifier.
+
+# Returns
+
+- A completed homogeneous `CableDesign`.
+"""
+function equivalent end
+
 "Return the physical storage basis of a result."
 function basis end
 

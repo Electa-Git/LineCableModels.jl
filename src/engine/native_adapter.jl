@@ -1,33 +1,33 @@
 constitutive(
-    ::AnalyticalFormulation,
+    ::LineParametersFormulation,
     ::Val{:conductor},
     material::Material
 ) = material
 
 constitutive(
-    ::AnalyticalFormulation,
+    ::LineParametersFormulation,
     ::Val{:insulator},
     material::Material
 ) = material
 
 constitutive(
-    ::AnalyticalFormulation,
+    ::LineParametersFormulation,
     ::Val{:semicon},
     material::Material
 ) = material
 
 function constitutive(
-        ::AnalyticalFormulation,
+        ::LineParametersFormulation,
         ::Val{Kind},
         ::Material
 ) where {Kind}
     throw(ArgumentError(
-        "the analytical formulation does not support material class :$Kind"
+        "the native formulation does not support material class :$Kind"
     ))
 end
 
 function _input(
-        formulation::AnalyticalFormulation,
+        formulation::LineParametersFormulation,
         primitive::DataModel.Disk,
         zone,
         ::Type{T},
@@ -40,18 +40,18 @@ function _input(
     )
     radius = convert(T, primitive.r)
     all(item -> isapprox(
-        DataModel.area(item.shape),
+        DataModel.area(item.primitive),
         (one(T) * pi) * radius^2
     ), zone) || throw(ArgumentError(
         "resolved disk strands do not preserve their declared area"
     ))
     coordinates = Tuple{T, T}[
-        convert.(T, DataModel.centroid(item.shape)) for item in zone
+        convert.(T, DataModel.centroid(item.primitive)) for item in zone
     ]
     centre_radius = hypot(first(coordinates)...)
     all(point -> isapprox(hypot(point...), centre_radius), coordinates) ||
         throw(ArgumentError(
-            "the analytical formulation requires one circular locus per disk layer"
+            "the native formulation requires one circular locus per disk layer"
         ))
     element_area = (one(T) * pi) * radius^2
     zone_area = length(zone) * element_area
@@ -104,45 +104,28 @@ function _input(
     )
 end
 
-_input_pose(
-    ::AnalyticalFormulation,
-    source::DataModel.PlacedRegion{
-        <:DataModel.Region,
-        <:DataModel.PlacedShape
-    }
-) = source.shape.at
-
-function _input_pose(
-        ::AnalyticalFormulation,
-        source::DataModel.PlacedRegion
-)
-    throw(ArgumentError(
-        "sector conductor :$(source.source.tag) requires resolved placement"
-    ))
-end
-
 function _input(
-        formulation::AnalyticalFormulation,
+        formulation::LineParametersFormulation,
         primitive::DataModel.Annulus,
         zone,
         ::Type{T},
         expected_inner
 ) where {T <: Real}
     length(zone) == 1 || throw(ArgumentError(
-        "the analytical formulation requires one region per annular conductor layer"
+        "the native formulation requires one region per annular conductor layer"
     ))
     source = only(zone)
     material = convert(
         Material{T},
         constitutive(formulation, Val(source.source.material.kind), source.source.material)
     )
-    iszero(hypot(DataModel.centroid(source.shape)...)) || throw(ArgumentError(
-        "the analytical formulation requires concentric annular conductors"
+    iszero(hypot(DataModel.centroid(source.primitive)...)) || throw(ArgumentError(
+        "the native formulation requires concentric annular conductors"
     ))
     zone_r_in = convert(T, primitive.ri)
     zone_r_ex = convert(T, primitive.ro)
     zone_area = (one(T) * pi) * (zone_r_ex^2 - zone_r_in^2)
-    isapprox(DataModel.area(source.shape), zone_area) || throw(ArgumentError(
+    isapprox(DataModel.area(source.primitive), zone_area) || throw(ArgumentError(
         "resolved annular conductor does not preserve its declared area"
     ))
     path_factor = prod(
@@ -172,7 +155,7 @@ function _input(
 end
 
 function _input(
-        formulation::AnalyticalFormulation,
+        formulation::LineParametersFormulation,
         primitive::DataModel.Sector,
         zone,
         ::Type{T},
@@ -180,15 +163,15 @@ function _input(
 ) where {T <: Real}
     source = first(zone)
     length(source.paths) == 1 || throw(ArgumentError(
-        "the analytical formulation supports a sector conductor only as one helical tape"
+        "the native formulation supports a sector conductor only as one helical tape"
     ))
     length(source.placement.patterns) <= 1 || throw(ArgumentError(
-        "the analytical formulation does not support nested sector repetition"
+        "the native formulation does not support nested sector repetition"
     ))
-    poses = map(item -> _input_pose(formulation, item), zone)
+    poses = map(item -> item.primitive.at, zone)
     all(pose -> iszero(hypot(pose.x, pose.y)), poses) ||
         throw(ArgumentError(
-            "the analytical formulation requires concentric sector conductors"
+            "the native formulation requires concentric sector conductors"
         ))
     material = convert(
         Material{T},
@@ -236,33 +219,33 @@ function _input(
 end
 
 function _input(
-        ::AnalyticalFormulation,
+        ::LineParametersFormulation,
         primitive::DataModel.AbstractPrimitive,
         zone,
         ::Type,
         expected_inner
 )
     throw(ArgumentError(
-        "the analytical formulation does not support conductor primitive " *
+        "the native formulation does not support conductor primitive " *
         "$(nameof(typeof(primitive)))"
     ))
 end
 
 function _input(
-        formulation::AnalyticalFormulation,
-        primitive::Union{DataModel.Shell, DataModel.Annulus},
+        formulation::LineParametersFormulation,
+        primitive::DataModel.Annulus,
         source::DataModel.PlacedRegion,
         ::Val{:dielectric},
         ::Type{T}
 ) where {T <: Real}
     isempty(source.placement.patterns) || throw(ArgumentError(
-        "the analytical formulation does not support repeated dielectric layers"
+        "the native formulation does not support repeated dielectric layers"
     ))
     isempty(source.paths) || throw(ArgumentError(
-        "the analytical formulation does not support helical dielectric layers"
+        "the native formulation does not support helical dielectric layers"
     ))
-    iszero(hypot(DataModel.centroid(source.shape)...)) || throw(ArgumentError(
-        "the analytical formulation requires concentric dielectric layers"
+    iszero(hypot(DataModel.centroid(source.primitive)...)) || throw(ArgumentError(
+        "the native formulation requires concentric dielectric layers"
     ))
     material = convert(
         Material{T},
@@ -272,21 +255,21 @@ function _input(
         "a dielectric interval cannot contain a conductor material"
     ))
     return (
-        r_in = convert(T, DataModel.r_in(source.shape)),
-        r_ex = convert(T, DataModel.r_ex(source.shape)),
+        r_in = convert(T, DataModel.r_in(source.primitive)),
+        r_ex = convert(T, DataModel.r_ex(source.primitive)),
         material
     )
 end
 
 function _input(
-        ::AnalyticalFormulation,
+        ::LineParametersFormulation,
         primitive::DataModel.AbstractPrimitive,
         source::DataModel.PlacedRegion,
         ::Val{:dielectric},
         ::Type
 )
     throw(ArgumentError(
-        "the analytical formulation does not support dielectric primitive " *
+        "the native formulation does not support dielectric primitive " *
         "$(nameof(typeof(primitive)))"
     ))
 end
@@ -295,7 +278,7 @@ end
 $(TYPEDSIGNATURES)
 
 Adapt a completed cable design to the concentric terminal records required by
-the analytical formulation.
+the native formulation.
 
 The returned named tuples are contingent formulation input. They are rebuilt
 from the authoritative physical geometry and are never stored on
@@ -303,7 +286,7 @@ from the authoritative physical geometry and are never stored on
 
 # Arguments
 
-- `formulation`: Analytical formulation that owns support checks and material
+- `formulation`: Native formulation that owns support checks and material
   interpretation.
 - `design`: Completed physical cable design.
 - `dielectric_frequency`: Frequency in hertz used to combine dielectric layers.
@@ -313,15 +296,34 @@ from the authoritative physical geometry and are never stored on
 An ordered vector of named tuples containing conductor and dielectric fields
 for each retained terminal.
 """
-function analytical_components(
-        formulation::AnalyticalFormulation,
+function homogeneous_components(
+        formulation::LineParametersFormulation,
         design::CableDesign,
         dielectric_frequency::Real
 )
+    T = promote_type(
+        typeof(float(dielectric_frequency)),
+        (eltype(region.primitive) for region in design.geometry.regions)...,
+        (eltype(region.source.material) for region in design.geometry.regions)...
+    )
+    return homogeneous_components(
+        formulation,
+        design,
+        convert(T, float(dielectric_frequency)),
+        T
+    )
+end
+
+function homogeneous_components(
+        formulation::LineParametersFormulation,
+        design::CableDesign,
+        frequency::T,
+        ::Type{T}
+) where {T <: Real}
     regions = design.geometry.regions
     terminals = design.terminal_order
     isempty(terminals) && throw(ArgumentError(
-        "the analytical formulation requires at least one retained terminal"
+        "the native formulation requires at least one retained terminal"
     ))
     terminal_starts = Int[]
     for terminal in terminals
@@ -332,21 +334,33 @@ function analytical_components(
         push!(terminal_starts, index)
     end
     issorted(terminal_starts) && allunique(terminal_starts) || throw(ArgumentError(
-        "the analytical formulation requires nonreappearing radial terminal blocks"
+        "the native formulation requires nonreappearing radial terminal blocks"
     ))
 
-    T = promote_type(
-        typeof(float(dielectric_frequency)),
-        (eltype(region.shape) for region in regions)...,
-        (eltype(region.source.material) for region in regions)...
-    )
-    frequency = convert(T, float(dielectric_frequency))
     frequency > zero(frequency) || throw(DomainError(
         frequency,
-        "analytical dielectric reference frequency must be positive"
+        "native dielectric reference frequency must be positive"
     ))
     angular_frequency = 2 * (one(T) * pi) * frequency
-    effective = Any[]
+    Layer = NamedTuple{
+        (:r_in, :r_ex, :material),
+        Tuple{T, T, Material{T}}
+    }
+    ConductorInput = NamedTuple{
+        (:r_in, :r_ex, :cross_section, :num_wires, :num_turns,
+         :resistance, :alpha, :gmr, :material),
+        Tuple{T, T, T, Int, T, T, T, T, Material{T}}
+    }
+    DielectricInput = NamedTuple{
+        (:r_in, :r_ex, :cross_section, :shunt_capacitance,
+         :shunt_conductance, :frequency, :layers, :material),
+        Tuple{T, T, T, T, T, T, Vector{Layer}, Material{T}}
+    }
+    ComponentInput = NamedTuple{
+        (:name, :conductor, :dielectric),
+        Tuple{Symbol, ConductorInput, DielectricInput}
+    }
+    effective = ComponentInput[]
 
     for (terminal_index, terminal) in enumerate(terminals)
         first_index = terminal_starts[terminal_index]
@@ -401,10 +415,10 @@ function analytical_components(
                 "terminal :$terminal contains a nonconductor physical region"
             ))
             length(source.placement.patterns) <= 1 || throw(ArgumentError(
-                "the analytical formulation does not support nested conductor patterns"
+                "the native formulation does not support nested conductor patterns"
             ))
             length(source.paths) <= 1 || throw(ArgumentError(
-                "the analytical formulation does not support nested conductor paths"
+                "the native formulation does not support nested conductor paths"
             ))
             all(item -> item.source.material == source.source.material, zone) ||
                 throw(ArgumentError("one conductor zone must use one material"))
@@ -413,13 +427,13 @@ function analytical_components(
             expected_inner = if zone_index > 1
                 conductor_r_ex
             elseif first_index > firstindex(regions)
-                convert(T, DataModel.r_ex(regions[first_index - 1].shape))
+                convert(T, DataModel.r_ex(regions[first_index - 1].primitive))
             else
                 zero(T)
             end
             values = _input(
                 formulation,
-                source.source.primitive,
+                source.primitive,
                 zone,
                 T,
                 expected_inner
@@ -490,7 +504,7 @@ function analytical_components(
             ))
             preceding_layer = _input(
                 formulation,
-                preceding.source.primitive,
+                preceding.primitive,
                 preceding,
                 Val(:dielectric),
                 T
@@ -501,7 +515,7 @@ function analytical_components(
             first_dielectric = first(dielectric_sources)
             first_layer = _input(
                 formulation,
-                first_dielectric.source.primitive,
+                first_dielectric.primitive,
                 first_dielectric,
                 Val(:dielectric),
                 T
@@ -526,7 +540,7 @@ function analytical_components(
             conductor_alpha
         )
 
-        layers = Any[]
+        layers = Layer[]
         dielectric_r_in = conductor_r_ex
         dielectric_r_ex = conductor_r_ex
         dielectric_area = zero(T)
@@ -540,7 +554,7 @@ function analytical_components(
             ))
             layer = _input(
                 formulation,
-                source.source.primitive,
+                source.primitive,
                 source,
                 Val(:dielectric),
                 T
@@ -591,7 +605,7 @@ function analytical_components(
                 dielectric_r_ex
             )
             isfinite(relative_mu) || throw(ArgumentError(
-                "analytical dielectric reduction produced a non-finite permeability " *
+                "native dielectric reduction produced a non-finite permeability " *
                 "for terminal :$terminal (turns=$conductor_turns, " *
                 "r_con=$conductor_r_ex, r_ins=$dielectric_r_ex, " *
                 "weighted_mu=$weighted_mu)"
@@ -613,10 +627,6 @@ function analytical_components(
                 zero(T)
             )
         end
-        typed_layers = isempty(layers) ?
-                       NamedTuple{(:r_in, :r_ex, :material),
-                                  Tuple{T, T, Material{T}}}[] :
-                       typeof(first(layers))[layers...]
         push!(effective, (
             name = terminal,
             conductor = (
@@ -637,10 +647,101 @@ function analytical_components(
                 shunt_capacitance = dielectric_capacitance,
                 shunt_conductance = dielectric_conductance,
                 frequency = frequency,
-                layers = typed_layers,
+                layers,
                 material = dielectric_material
             )
         ))
     end
-    return typeof(first(effective))[effective...]
+    return effective
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build a homogeneous cable design from the effective radial components admitted
+by the native formulation.
+
+Each retained terminal becomes one solid or annular conductor followed by one
+homogeneous dielectric interval. The conductor material reproduces the
+terminal's parallel resistance and geometric-mean radius. The dielectric
+material reproduces the series combination of the physical dielectric layers
+at `dielectric_frequency` \\[Hz\\]. The source design and its resolved geometry
+are not modified.
+
+# Arguments
+
+- `formulation`: Native formulation that owns geometry and material support.
+- `original`: Completed physical cable design.
+
+# Keywords
+
+- `new_id`: Identifier for the returned design. An empty value appends
+  `"_equivalent"` to the source identifier.
+- `dielectric_frequency`: Frequency used to match a lossy homogeneous
+  dielectric \\[Hz\\]. Default: `50`.
+
+# Returns
+
+- A completed homogeneous [`CableDesign`](@ref).
+"""
+function equivalent(
+        formulation::LineParametersFormulation,
+        original::CableDesign;
+        new_id::AbstractString = "",
+        dielectric_frequency::Real = 50
+)
+    target_id = isempty(new_id) ? original.cable_id * "_equivalent" : String(new_id)
+    components = homogeneous_components(
+        formulation,
+        original,
+        dielectric_frequency
+    )
+    parts = DataModel.AbstractCablePart[]
+    for component in components
+        terminal = component.name
+        conductor = component.conductor
+        conductor_primitive = iszero(conductor.r_in) ?
+                              DataModel.DiskDefinition(conductor.r_ex) :
+                              DataModel.AnnulusDefinition(conductor.r_in, conductor.r_ex)
+        conductor_region = DataModel.Region(
+            Symbol(terminal, :_equivalent_conductor),
+            conductor_primitive,
+            conductor.material
+        )
+        push!(parts, DataModel.Group(
+            terminal,
+            DataModel.Pose2(0, 0, 0),
+            conductor_region,
+            nothing,
+            nothing,
+            nothing
+        ))
+
+        dielectric = component.dielectric
+        if dielectric.r_ex > dielectric.r_in
+            push!(parts, DataModel.Region(
+                Symbol(terminal, :_equivalent_dielectric),
+                DataModel.AnnulusDefinition(dielectric.r_in, dielectric.r_ex),
+                dielectric.material
+            ))
+        end
+    end
+    return build(
+        CableDesign,
+        target_id,
+        DataModel.Stack(parts)
+    )
+end
+
+function equivalent(
+        original::CableDesign;
+        new_id::AbstractString = "",
+        dielectric_frequency::Real = 50
+)
+    return equivalent(
+        Formulation(),
+        original;
+        new_id,
+        dielectric_frequency
+    )
 end

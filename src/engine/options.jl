@@ -1,25 +1,23 @@
 function formulation_options(
-        ::Val{AnalyticalFormulation},
+        ::Val{LineParametersFormulation},
         options::NamedTuple
 )::FormulationOptions
     allowed = (
         :reduce_bundle,
         :kron_reduction,
         :ideal_transposition,
-        :temperature_correction,
-        :output
+        :temperature_correction
     )
     unknown = filter(key -> key ∉ allowed, keys(options))
     isempty(unknown) || throw(ArgumentError(
-        "unknown analytical formulation options: $(sort!(collect(unknown)))",
+        "unknown line-parameter formulation options: $(sort!(collect(unknown)))",
     ))
     normalized = merge(
         (
             reduce_bundle = true,
             kron_reduction = true,
             ideal_transposition = true,
-            temperature_correction = true,
-            output = :parameters
+            temperature_correction = true
         ),
         options
     )
@@ -28,30 +26,25 @@ function formulation_options(
             :temperature_correction)) || throw(ArgumentError(
         "reduction, transposition, and temperature-correction options must be Bool",
     ))
-    output = normalized.output
-    output in (:parameters, :trace) || throw(ArgumentError(
-        "formulation output must be :parameters or :trace; got $(repr(output))",
-    ))
     return (
         reduce_bundle = normalized.reduce_bundle,
         kron_reduction = normalized.kron_reduction,
         ideal_transposition = normalized.ideal_transposition,
-        temperature_correction = normalized.temperature_correction,
-        output = Val(output)
+        temperature_correction = normalized.temperature_correction
     )
 end
 
 function computation_options(
-        ::Val{AnalyticalFormulation},
+        ::Val{LineCableModelsEngine},
         options::NamedTuple
 )::ComputationOptions
-    allowed = (:verbosity, :output_basis)
+    allowed = (:verbosity, :output_basis, :trace)
     unknown = filter(key -> key ∉ allowed, keys(options))
     isempty(unknown) || throw(ArgumentError(
-        "unknown analytical computation options: $(sort!(collect(unknown)))",
+        "unknown LineCableModelsEngine computation options: $(sort!(collect(unknown)))",
     ))
     normalized = merge(
-        (verbosity = (default = 0,), output_basis = :pul),
+        (verbosity = (default = 0,), output_basis = :pul, trace = false),
         options
     )
     verbosity_values = normalized.verbosity
@@ -67,8 +60,13 @@ function computation_options(
     basis_value in (:pul, :total) || throw(ArgumentError(
         "output_basis must be :pul or :total; got $(repr(basis_value))",
     ))
+    normalized.trace isa Bool || throw(ArgumentError("trace must be Bool"))
     levels = NamedTuple{keys(verbosity_values)}(Int.(values(verbosity_values)))
-    return (verbosity = levels, output_basis = Val(basis_value))
+    return (
+        verbosity = levels,
+        output_basis = Val(basis_value),
+        trace = Val(normalized.trace)
+    )
 end
 
 function verbosity(options::NamedTuple, key::Symbol)

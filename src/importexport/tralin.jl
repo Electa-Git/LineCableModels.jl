@@ -29,7 +29,7 @@ function export_data(::Val{:tralin},
     freqs = map(f -> nominal(f), _freqs(freq))
     # TRALIN owns this explicit radial homogenization choice. Nothing is stored
     # on CableDesign; unsupported physical geometry fails in this adapter.
-    tralin_components(design) = Engine.analytical_components(
+    tralin_components(design) = Engine.homogeneous_components(
         Engine.Formulation(),
         design,
         first(freqs)

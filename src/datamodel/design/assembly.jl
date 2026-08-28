@@ -79,7 +79,7 @@ function resolve(context::EmptyBoundary, assembly::Assembly)
                 terminal = member_name
                 member_name in terminals || push!(terminals, member_name)
             end
-            shape = PlacedShape(source.shape, placed_at)
+            primitive = resolve(placed_at, source.primitive)
             patterns = assembly.pattern === nothing ? source.placement.patterns :
                        (source.placement.patterns...,
                         (pattern = assembly.pattern, member = member, pose = pose))
@@ -87,9 +87,9 @@ function resolve(context::EmptyBoundary, assembly::Assembly)
                     (source.paths..., (path = assembly.path, radius = radius))
             push!(regions, PlacedRegion(
                 source.source,
-                shape,
+                primitive,
                 terminal,
-                (pose = shape.at, patterns = patterns),
+                (patterns = patterns,),
                 paths
             ))
         end
@@ -98,11 +98,11 @@ function resolve(context::EmptyBoundary, assembly::Assembly)
 
     child_extent = support(boundary(child))
     outer_radius = maximum(hypot(pose.x, pose.y) + child_extent for pose in poses)
-    local_boundary = DiskShape(outer_radius)
-    return CableGeometry(regions, PlacedShape(local_boundary, assembly.at))
+    local_boundary = Disk(outer_radius)
+    return CableGeometry(regions, resolve(assembly.at, local_boundary))
 end
 
-function resolve(context::AbstractShape, assembly::Assembly)
+function resolve(context::AbstractPrimitive, assembly::Assembly)
     throw(ArgumentError(
         "an Assembly requires explicit placement inside a Stack or Enclosure"
     ))

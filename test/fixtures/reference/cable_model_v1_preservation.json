@@ -314,7 +314,7 @@
             500
         ]
     },
-    "analytical_input": {
+    "normalized_input": {
         "mu_ins": [
             1.2784444668561725,
             1.1032781577064583,

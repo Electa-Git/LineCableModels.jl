@@ -792,12 +792,10 @@
         collection_designs=[
             design,
             build(
-                CableDesign, "equivalent", design.root;
-                nominal_data = design.nominal_data
+                CableDesign, "equivalent", design.root
             ),
             build(
-                CableDesign, "second detailed design", design.root;
-                nominal_data = design.nominal_data
+                CableDesign, "second detailed design", design.root
             )
         ]
         collection_plot=preview(

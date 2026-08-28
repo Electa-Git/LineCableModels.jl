@@ -26,14 +26,14 @@ function DataFrame(design::CableDesign)::DataFrame
         ],
         primitive = Symbol[nameof(typeof(placed.source.primitive)) for placed in regions],
         material_kind = Symbol[placed.source.material.kind for placed in regions],
-        area = [area(placed.shape) for placed in regions],
-        centroid_x = [first(centroid(placed.shape)) for placed in regions],
-        centroid_y = [last(centroid(placed.shape)) for placed in regions],
+        area = [area(placed.primitive) for placed in regions],
+        centroid_x = [first(centroid(placed.primitive)) for placed in regions],
+        centroid_y = [last(centroid(placed.primitive)) for placed in regions],
         overlength = [
             prod(
                 entry -> overlength(entry.path, entry.radius),
                 placed.paths;
-                init = one(eltype(placed.shape))
+                init = one(eltype(placed.primitive))
             )
             for placed in regions
         ]

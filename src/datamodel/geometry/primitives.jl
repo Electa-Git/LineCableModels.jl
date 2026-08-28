@@ -1,229 +1,239 @@
 """
 $(TYPEDEF)
 
-Supertype for intrinsic, unresolved cross-sectional geometry.
+Supertype for resolved cross-sectional primitives.
+
+Each primitive contains its absolute pose in the completed cable coordinate
+system. Relative placement remains part of the authoritative `Group`,
+`Assembly`, or `Enclosure` declaration and is composed during [`build`](@ref).
 """
 abstract type AbstractPrimitive{T <: Real} end
 
 Base.eltype(::AbstractPrimitive{T}) where {T} = T
 Base.eltype(::Type{<:AbstractPrimitive{T}}) where {T} = T
 
-"""
-$(TYPEDEF)
+"Explicit initial state for resolving the first member of an outward stack."
+struct EmptyBoundary end
 
-Represent a solid circular primitive.
-
-$(TYPEDFIELDS)
-"""
-struct Disk{T <: Real} <: AbstractPrimitive{T}
-    "Radius \\[m\\]."
+"Resolved solid circle."
+struct Disk{T <: Real, P <: Pose2{T}} <: AbstractPrimitive{T}
     r::T
-
-    function Disk{T}(r::T) where {T <: Real}
-        isfinite(r) && r > zero(r) ||
-            throw(DomainError(r, "disk radius must be positive and finite"))
-        return new{T}(r)
-    end
+    at::P
 end
 
-Disk(r::Real) = Disk{typeof(float(r))}(float(r))
-
-"""
-$(TYPEDEF)
-
-Represent a centered rectangular primitive.
-
-$(TYPEDFIELDS)
-"""
-struct Rectangle{T <: Real} <: AbstractPrimitive{T}
-    "Width along the local x-axis \\[m\\]."
+"Resolved rectangle."
+struct Rectangle{T <: Real, P <: Pose2{T}} <: AbstractPrimitive{T}
     w::T
-    "Height along the local y-axis \\[m\\]."
     h::T
-
-    function Rectangle{T}(w::T, h::T) where {T <: Real}
-        isfinite(w) && w > zero(w) ||
-            throw(DomainError(w, "rectangle width must be positive and finite"))
-        isfinite(h) && h > zero(h) ||
-            throw(DomainError(h, "rectangle height must be positive and finite"))
-        return new{T}(w, h)
-    end
+    at::P
 end
 
-function Rectangle(w::Real, h::Real)
-    values = map(float, promote(w, h))
-    return Rectangle{typeof(first(values))}(values...)
-end
-
-"""
-$(TYPEDEF)
-
-Represent a centered elliptical primitive.
-
-$(TYPEDFIELDS)
-"""
-struct Ellipse{T <: Real} <: AbstractPrimitive{T}
-    "Semi-axis along the local x-axis \\[m\\]."
+"Resolved ellipse."
+struct Ellipse{T <: Real, P <: Pose2{T}} <: AbstractPrimitive{T}
     a::T
-    "Semi-axis along the local y-axis \\[m\\]."
     b::T
-
-    function Ellipse{T}(a::T, b::T) where {T <: Real}
-        isfinite(a) && a > zero(a) ||
-            throw(DomainError(a, "ellipse semi-axis a must be positive and finite"))
-        isfinite(b) && b > zero(b) ||
-            throw(DomainError(b, "ellipse semi-axis b must be positive and finite"))
-        return new{T}(a, b)
-    end
+    at::P
 end
 
-function Ellipse(a::Real, b::Real)
-    values = map(float, promote(a, b))
-    return Ellipse{typeof(first(values))}(values...)
-end
-
-"""
-$(TYPEDEF)
-
-Represent a circular sector or annular sector in local polar coordinates.
-
-$(TYPEDFIELDS)
-"""
-struct Sector{T <: Real} <: AbstractPrimitive{T}
-    "Inner radius \\[m\\]."
+"Resolved circular or annular sector."
+struct Sector{T <: Real, P <: Pose2{T}} <: AbstractPrimitive{T}
     ri::T
-    "Outer radius \\[m\\]."
     ro::T
-    "Starting angle \\[rad\\]."
     φ0::T
-    "Counter-clockwise angular span \\[rad\\]."
     span::T
-
-    function Sector{T}(ri::T, ro::T, φ0::T, span::T) where {T <: Real}
-        isfinite(ri) && ri >= zero(ri) ||
-            throw(DomainError(ri, "sector inner radius must be nonnegative and finite"))
-        isfinite(ro) && ro > ri ||
-            throw(DomainError(ro, "sector outer radius must exceed its inner radius"))
-        isfinite(φ0) || throw(DomainError(φ0, "sector start angle must be finite"))
-        isfinite(span) && zero(span) < span <= oftype(span, 2π) ||
-            throw(DomainError(span, "sector span must lie in (0, 2π]"))
-        return new{T}(ri, ro, φ0, span)
-    end
+    at::P
 end
 
-function Sector(ri::Real, ro::Real, φ0::Real, span::Real)
-    values = map(float, promote(ri, ro, φ0, span))
-    return Sector{typeof(first(values))}(values...)
-end
-
-"""
-$(TYPEDEF)
-
-Represent an absolute circular annulus.
-
-$(TYPEDFIELDS)
-"""
-struct Annulus{T <: Real} <: AbstractPrimitive{T}
-    "Inner radius \\[m\\]."
+"Resolved circular annulus."
+struct Annulus{T <: Real, P <: Pose2{T}} <: AbstractPrimitive{T}
     ri::T
-    "Outer radius \\[m\\]."
     ro::T
-
-    function Annulus{T}(ri::T, ro::T) where {T <: Real}
-        isfinite(ri) && ri >= zero(ri) ||
-            throw(DomainError(ri, "annulus inner radius must be nonnegative and finite"))
-        isfinite(ro) && ro > ri ||
-            throw(DomainError(ro, "annulus outer radius must exceed its inner radius"))
-        return new{T}(ri, ro)
-    end
+    at::P
 end
 
-
-function Annulus(ri::Real, ro::Real)
-    values = map(float, promote(ri, ro))
-    return Annulus{typeof(first(values))}(values...)
+"Resolved polygon."
+struct Polygon{T <: Real, V <: Tuple, P <: Pose2{T}} <: AbstractPrimitive{T}
+    points::V
+    at::P
 end
 
-"""
-$(TYPEDEF)
-
-Represent an outward conformal layer relative to a resolved boundary.
-
-$(TYPEDFIELDS)
-"""
-struct Shell{T <: Real} <: AbstractPrimitive{T}
-    "Normal layer thickness \\[m\\]."
-    t::T
-
-    function Shell{T}(t::T) where {T <: Real}
-        isfinite(t) && t > zero(t) ||
-            throw(DomainError(t, "shell thickness must be positive and finite"))
-        return new{T}(t)
-    end
+function Disk(r::Real, at::Pose2)
+    T = promote_type(typeof(r), eltype(at))
+    return Disk{T, Pose2{T}}(convert(T, r), convert(Pose2{T}, at))
 end
-
-Shell(t::Real) = Shell{typeof(float(t))}(float(t))
-
-"""
-$(TYPEDEF)
-
-Represent an explicit simple polygon in local coordinates.
-
-$(TYPEDFIELDS)
-"""
-struct Polygon{T <: Real, P <: Tuple} <: AbstractPrimitive{T}
-    "Ordered vertices as `(x, y)` pairs \\[m\\]."
-    points::P
-
-    function Polygon{T, P}(points::P) where {T <: Real, P <: Tuple}
-        length(points) >= 3 ||
-            throw(ArgumentError("a polygon requires at least three vertices"))
-        all(point -> length(point) == 2, points) ||
-            throw(ArgumentError("polygon vertices must contain two coordinates"))
-        all(point -> all(isfinite, point), points) ||
-            throw(ArgumentError("polygon coordinates must be finite"))
-        signed_twice_area = sum(eachindex(points)) do index
-            next = mod1(index + 1, length(points))
-            points[index][1] * points[next][2] -
-                points[next][1] * points[index][2]
-        end
-        iszero(signed_twice_area) &&
-            throw(DomainError(signed_twice_area, "polygon area must be nonzero"))
-        return new{T, P}(points)
-    end
+function Rectangle(w::Real, h::Real, at::Pose2)
+    T = promote_type(typeof(w), typeof(h), eltype(at))
+    return Rectangle{T, Pose2{T}}(
+        convert(T, w), convert(T, h), convert(Pose2{T}, at))
 end
-
-function Polygon(points)
-    vertices = Tuple(points)
-    length(vertices) >= 3 ||
-        throw(ArgumentError("a polygon requires at least three vertices"))
-    all(point -> applicable(length, point) && length(point) == 2, vertices) ||
-        throw(ArgumentError("polygon vertices must contain two coordinates"))
-    all(point -> point[1] isa Real && point[2] isa Real, vertices) ||
-        throw(ArgumentError("polygon coordinates must be real numbers"))
-    T = promote_type(map(point -> typeof(float(point[1])), vertices)...,
-        map(point -> typeof(float(point[2])), vertices)...)
-    converted = map(point -> (convert(T, point[1]), convert(T, point[2])), vertices)
-    return Polygon{T, typeof(converted)}(converted)
+function Ellipse(a::Real, b::Real, at::Pose2)
+    T = promote_type(typeof(a), typeof(b), eltype(at))
+    return Ellipse{T, Pose2{T}}(
+        convert(T, a), convert(T, b), convert(Pose2{T}, at))
 end
-
-Base.convert(::Type{<:AbstractPrimitive{T}}, value::Disk) where {T <: Real} =
-    Disk{T}(convert(T, value.r))
-Base.convert(::Type{<:AbstractPrimitive{T}}, value::Rectangle) where {T <: Real} =
-    Rectangle{T}(convert(T, value.w), convert(T, value.h))
-Base.convert(::Type{<:AbstractPrimitive{T}}, value::Ellipse) where {T <: Real} =
-    Ellipse{T}(convert(T, value.a), convert(T, value.b))
-Base.convert(::Type{<:AbstractPrimitive{T}}, value::Sector) where {T <: Real} =
-    Sector{T}(
-        convert(T, value.ri), convert(T, value.ro),
-        convert(T, value.φ0), convert(T, value.span)
+function Sector(ri::Real, ro::Real, φ0::Real, span::Real, at::Pose2)
+    T = promote_type(
+        typeof(ri), typeof(ro), typeof(φ0), typeof(span), eltype(at))
+    return Sector{T, Pose2{T}}(
+        convert(T, ri), convert(T, ro), convert(T, φ0), convert(T, span),
+        convert(Pose2{T}, at))
+end
+function Annulus(ri::Real, ro::Real, at::Pose2)
+    T = promote_type(typeof(ri), typeof(ro), eltype(at))
+    return Annulus{T, Pose2{T}}(
+        convert(T, ri), convert(T, ro), convert(Pose2{T}, at))
+end
+function _polygon(points::Tuple, at::Pose2)
+    coordinate_types = (
+        (typeof(coordinate) for point in points for coordinate in point)...,
+        eltype(at)
     )
-Base.convert(::Type{<:AbstractPrimitive{T}}, value::Annulus) where {T <: Real} =
-    Annulus{T}(convert(T, value.ri), convert(T, value.ro))
-Base.convert(::Type{<:AbstractPrimitive{T}}, value::Shell) where {T <: Real} =
-    Shell{T}(convert(T, value.t))
-
-function Base.convert(::Type{<:AbstractPrimitive{T}}, value::Polygon) where {T <: Real}
-    points = map(point -> (convert(T, point[1]), convert(T, point[2])), value.points)
-    return Polygon{T, typeof(points)}(points)
+    T = promote_type(coordinate_types...)
+    vertices = map(point -> (convert(T, point[1]), convert(T, point[2])), points)
+    return Polygon{T, typeof(vertices), Pose2{T}}(
+        vertices, convert(Pose2{T}, at))
 end
+
+_origin(::Type{T}) where {T <: Real} = Pose2(zero(T), zero(T), zero(T))
+
+Disk(r::T) where {T <: Real} = Disk(r, _origin(T))
+Rectangle(w::T, h::T) where {T <: Real} = Rectangle(w, h, _origin(T))
+Ellipse(a::T, b::T) where {T <: Real} = Ellipse(a, b, _origin(T))
+Sector(ri::T, ro::T, φ0::T, span::T) where {T <: Real} =
+    Sector(ri, ro, φ0, span, _origin(T))
+Annulus(ri::T, ro::T) where {T <: Real} = Annulus(ri, ro, _origin(T))
+function Polygon(points::V) where {V <: Tuple}
+    T = typeof(first(points)[1])
+    return Polygon{T, V, Pose2{T}}(points, _origin(T))
+end
+
+"Return the outer resolved boundary of `primitive`."
+function boundary end
+
+"Return cross-sectional area \\[m²\\]."
+function area end
+
+"Return the absolute cross-sectional centroid as `(x, y)` \\[m\\]."
+function centroid end
+
+"Return the absolute directional support coordinate at angle `φ` \\[m\\]."
+function support end
+
+"Return the inner radius of radial geometry \\[m\\]."
+function r_in end
+
+"Return the outer radius of radial geometry \\[m\\]."
+function r_ex end
+
+"Return the radial thickness of radial geometry \\[m\\]."
+function thickness end
+
+@inline _local_centroid(::Union{Disk, Rectangle, Ellipse, Annulus}) = (0, 0)
+function _local_centroid(primitive::Sector)
+    full = isapprox(primitive.span, oftype(primitive.span, 2π))
+    full && return (zero(primitive.span), zero(primitive.span))
+    radial = 4 * sin(primitive.span / 2) *
+             (primitive.ro^3 - primitive.ri^3) /
+             (3 * primitive.span * (primitive.ro^2 - primitive.ri^2))
+    angle = primitive.φ0 + primitive.span / 2
+    return (radial * cos(angle), radial * sin(angle))
+end
+function _local_centroid(primitive::Polygon)
+    signed_twice_area = zero(eltype(primitive))
+    xmoment = zero(eltype(primitive))
+    ymoment = zero(eltype(primitive))
+    for index in eachindex(primitive.points)
+        next = mod1(index + 1, length(primitive.points))
+        left = primitive.points[index]
+        right = primitive.points[next]
+        cross = left[1] * right[2] - right[1] * left[2]
+        signed_twice_area += cross
+        xmoment += (left[1] + right[1]) * cross
+        ymoment += (left[2] + right[2]) * cross
+    end
+    return (
+        xmoment / (3 * signed_twice_area),
+        ymoment / (3 * signed_twice_area)
+    )
+end
+
+function centroid(primitive::AbstractPrimitive)
+    x, y = _local_centroid(primitive)
+    at = primitive.at
+    return (
+        at.x + cos(at.φ) * x - sin(at.φ) * y,
+        at.y + sin(at.φ) * x + cos(at.φ) * y
+    )
+end
+
+_local_support(primitive::Disk, φ::Real) = primitive.r
+_local_support(primitive::Annulus, φ::Real) = primitive.ro
+_local_support(primitive::Rectangle, φ::Real) =
+    abs(cos(φ)) * primitive.w / 2 + abs(sin(φ)) * primitive.h / 2
+_local_support(primitive::Ellipse, φ::Real) =
+    hypot(primitive.a * cos(φ), primitive.b * sin(φ))
+function _local_support(primitive::Sector, φ::Real)
+    candidates = (primitive.φ0, primitive.φ0 + primitive.span, φ, φ + π)
+    values = map(candidates) do angle
+        relative = mod(angle - primitive.φ0, oftype(primitive.span, 2π))
+        relative <= primitive.span || return -oftype(primitive.span, Inf)
+        direction = cos(angle - φ)
+        radius = direction >= zero(direction) ? primitive.ro : primitive.ri
+        return radius * direction
+    end
+    return maximum(values)
+end
+_local_support(primitive::Polygon, φ::Real) = maximum(
+    point[1] * cos(φ) + point[2] * sin(φ) for point in primitive.points
+)
+
+function support(primitive::AbstractPrimitive, φ::Real)
+    at = primitive.at
+    return at.x * cos(φ) + at.y * sin(φ) +
+           _local_support(primitive, φ - at.φ)
+end
+
+_local_extent(primitive::Disk) = primitive.r
+_local_extent(primitive::Annulus) = primitive.ro
+_local_extent(primitive::Rectangle) = hypot(primitive.w, primitive.h) / 2
+_local_extent(primitive::Ellipse) = max(primitive.a, primitive.b)
+_local_extent(primitive::Sector) = primitive.ro
+_local_extent(primitive::Polygon) = maximum(hypot(point...) for point in primitive.points)
+support(primitive::AbstractPrimitive) = hypot(primitive.at.x, primitive.at.y) +
+                                        _local_extent(primitive)
+
+boundary(primitive::Union{Disk, Rectangle, Ellipse, Sector, Polygon}) = primitive
+boundary(primitive::Annulus) = Disk(primitive.ro, primitive.at)
+
+area(primitive::Disk) = π * primitive.r^2
+area(primitive::Rectangle) = primitive.w * primitive.h
+area(primitive::Ellipse) = π * primitive.a * primitive.b
+area(primitive::Sector) =
+    primitive.span * (primitive.ro^2 - primitive.ri^2) / 2
+area(primitive::Annulus) = π * (primitive.ro^2 - primitive.ri^2)
+function area(primitive::Polygon)
+    twice = sum(eachindex(primitive.points)) do index
+        next = mod1(index + 1, length(primitive.points))
+        primitive.points[index][1] * primitive.points[next][2] -
+            primitive.points[next][1] * primitive.points[index][2]
+    end
+    return abs(twice) / 2
+end
+
+r_in(primitive::Disk) = zero(primitive.r)
+r_in(primitive::Annulus) = primitive.ri
+r_in(primitive::Sector) = primitive.ri
+r_ex(primitive::Disk) = primitive.r
+r_ex(primitive::Annulus) = primitive.ro
+r_ex(primitive::Sector) = primitive.ro
+thickness(primitive::Disk) = primitive.r
+thickness(primitive::Annulus) = primitive.ro - primitive.ri
+thickness(primitive::Sector) = primitive.ro - primitive.ri
+
+_with_pose(primitive::Disk, at::Pose2) = Disk(primitive.r, at)
+_with_pose(primitive::Rectangle, at::Pose2) = Rectangle(primitive.w, primitive.h, at)
+_with_pose(primitive::Ellipse, at::Pose2) = Ellipse(primitive.a, primitive.b, at)
+_with_pose(primitive::Sector, at::Pose2) =
+    Sector(primitive.ri, primitive.ro, primitive.φ0, primitive.span, at)
+_with_pose(primitive::Annulus, at::Pose2) = Annulus(primitive.ri, primitive.ro, at)
+_with_pose(primitive::Polygon, at::Pose2) = _polygon(primitive.points, at)

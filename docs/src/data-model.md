@@ -12,8 +12,10 @@ Stack / Group / Assembly / Enclosure
       build
         ↓
 completed CableDesign
-        ↓
-completed LineCableSystem
+        ├── equivalent → homogeneous CableDesign
+        └── placement
+                 ↓
+        completed LineCableSystem
         ↓
 LineParametersProblem → compute → LineParameters
 ```
@@ -43,25 +45,23 @@ root = Stack(
 )
 
 design = build(CableDesign, "example", root)
-system = build(
-    LineCableSystem,
+problem = LineParametersProblem(
     design,
     Pose2(0.0, -1.0);
     connections=(phase=1,),
     line_length=1000.0,
-)
-problem = LineParametersProblem(
-    system;
     earth_props=Earth(rho=100.0),
     frequencies=[50.0],
 )
+system = problem.system
 parameters = compute(problem)
 ```
 
-A completed `CableDesign` stores its cable identifier, nominal data,
-authoritative physical root, `CableGeometry`, terminal order, and terminal map.
-It does not store an analytical equivalent, reference frequency, engine input,
-or solver matrices.
+A completed `CableDesign` stores its cable identifier, authoritative physical
+root, `CableGeometry`, terminal order, and terminal map. It does not store
+catalogue data, a homogeneous equivalent, reference frequency, engine input,
+or solver matrices. `CablesLibrary` may bind a separate named-tuple catalogue
+record to a stored design.
 
 `build(CableDesign, ...)` validates the physical declaration, calls `resolve`
 through the primitive and composition dispatch tree, constructs one
@@ -69,18 +69,38 @@ through the primitive and composition dispatch tree, constructs one
 root. `build(LineCableSystem, ...)` places completed designs and resolves global
 terminal and connection order. Neither action runs a formulation.
 
+## Homogeneous equivalents
+
+`equivalent` is the explicit action for requesting a simplified physical
+design:
+
+```julia
+reduced = equivalent(design; new_id="example_equivalent")
+```
+
+The returned `CableDesign` retains the radial terminal intervals of `design`.
+Each terminal contains one homogeneous solid or annular conductor and one
+homogeneous dielectric. Their materials reproduce the effective conductor
+resistance and geometric-mean radius and the combined dielectric capacitance
+and conductance admitted by the selected line-parameter formulation.
+
+The source design remains authoritative and unchanged. Ordinary
+`LineParametersProblem` construction does not require the caller to materialize
+an equivalent design; the native engine performs the same reduction while
+preparing its contingent workspace.
+
 ## Intrinsic and resolved geometry
 
-`AbstractPrimitive` and `AbstractShape` have separate responsibilities. A
-`Disk`, `Rectangle`, or other primitive is intrinsic unresolved geometry.
-`DiskShape`, `RectangleShape`, and the other shape types contain resolved
-absolute geometry. `EmptyBoundary` is the explicit initial state for outward
-stacking.
+`AbstractPrimitiveDefinition` and `AbstractPrimitive` have separate
+responsibilities. A `DiskDefinition`, `RectangleDefinition`, or other
+definition is intrinsic unresolved geometry. `Disk`, `Rectangle`, and the
+other primitive types contain resolved geometry and their absolute `Pose2`.
+`EmptyBoundary` is the explicit initial state for outward stacking.
 
 `CableGeometry` contains ordered `PlacedRegion` values and one outer resolved
-shape. A `PlacedRegion` retains its source `Region`, resolved shape, terminal,
-placement metadata, and longitudinal path declarations. It contains no
-formulation result.
+primitive. A `PlacedRegion` retains its source `Region`, resolved primitive,
+terminal, placement metadata, and longitudinal path declarations. It contains
+no formulation result.
 
 Adding a primitive requires local `resolve`, `boundary`, `area`, `centroid`, and
 `support` methods. Construction does not use a central primitive switch.
@@ -91,13 +111,15 @@ Circular and rectangular strands use the same convenience surface:
 
 ```julia
 circular = Conductor.Stranded(
-    :core, Disk(0.5e-3), copper;
-    layers=4, n=6, lay=LayRatio(11),
+    :core, DiskDefinition(0.5e-3), copper;
+    counts=(1, 6, 12, 18),
+    lay=(11.0, 11.0, 11.0),
 )
 
 rectangular = Conductor.Stranded(
-    :core, Rectangle(0.35e-3, 0.8e-3), copper;
-    layers=4, n=6, lay=LayRatio(11),
+    :core, RectangleDefinition(0.35e-3, 0.8e-3), copper;
+    counts=(1, 6, 12, 18),
+    lay=(11.0, 11.0, 11.0),
 )
 ```
 
@@ -105,7 +127,9 @@ Both calls return an ordinary `Stack` containing one `Group` per physical
 layer. Rectangular members retain their width, height, area, pose, and terminal
 identity. Their layer loci follow the preserved annular-area radial relation
 and enforce the tangential packing limit. No dedicated stranded-conductor
-storage type is introduced.
+storage type is introduced. The caller states the physical member count of
+every layer; the convenience does not infer it from a layer count and a
+multiplier.
 
 ## Parameter spaces
 
@@ -128,9 +152,9 @@ atomic unless explicitly wrapped in `Grid`.
 ## Formulation boundary
 
 A physical design may build successfully even when a formulation does not
-support its geometry. The analytical adapter consumes `CableGeometry` and
-performs its shape-, material-, path-, and terminal-specific preparation there.
-Unsupported shapes fail before numerical work. Construction never substitutes
+support its geometry. The native adapter consumes `CableGeometry` and performs
+its primitive-, material-, path-, and terminal-specific preparation there.
+Unsupported primitives fail before numerical work. Construction never substitutes
 an equivalent circle or stores equivalent resistance or GMR as physical truth.
 
 `CableConstants(design)` follows the ordinary problem path. It assigns the
@@ -140,10 +164,11 @@ result.
 
 ## Persistence and tables
 
-The JSON format records materials, physical roots, primitives, patterns, paths,
-placements, connections, identifiers, nominal data, and explicit Grid
-declarations. Decoding invokes `build`. Resolved geometry, terminal maps,
-analytical inputs, and solver results are not serialized.
+The JSON format records materials, physical roots, primitive definitions,
+patterns, paths, placements, connections, identifiers, library catalogue
+records, and explicit Grid declarations. Decoding invokes `build`. Resolved
+geometry, terminal maps, engine workspaces, and solver results are not
+serialized.
 
 `DataFrame(design)` reports one row per physical placed region. Electrical
 tables come from `DataFrame(CableConstants(design))` or observed

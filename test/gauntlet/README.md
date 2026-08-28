@@ -13,7 +13,7 @@ cases/<case-id>.jl                 physical model and parameter manifest
 LoadedCase / Gridspace{LineParametersProblem}
         │
         ├── benchmarks/pscad/<benchmark-id>.jl
-        │       PSCAD reference versus analytical candidate
+        │       PSCAD reference versus native-engine candidate
         │
         └── benchmarks/uq/<benchmark-id>.jl
                 LEP reference versus Monte Carlo candidate
@@ -106,7 +106,7 @@ scientific experiment therefore covers all seven cable and overhead-line
 models without a loop or multi-case benchmark file.
 
 Both calculations consume the same single-point `ParametricProblem`, the same
-inner analytical `Formulation`, and the same execution options:
+inner native `Formulation`, and the same execution options:
 
 - reference: `LinearError(inner)`;
 - candidate: `MonteCarlo(inner; trials=<fixed>, seed=<fixed>,

@@ -79,8 +79,8 @@ end
     @test restored !== design
     @test IE.serialize_value(restored) == encoded
     @test restored.terminal_order == design.terminal_order
-    @test getproperty.(restored.geometry.regions, :shape) ==
-          getproperty.(design.geometry.regions, :shape)
+    @test getproperty.(restored.geometry.regions, :primitive) ==
+          getproperty.(design.geometry.regions, :primitive)
     @test getproperty.(restored.geometry.regions, :terminal) ==
           getproperty.(design.geometry.regions, :terminal)
     @test restored.terminal_map == design.terminal_map
@@ -133,10 +133,9 @@ end
         "rectangular-round-trip",
         Conductor.Stranded(
             :core,
-            Rectangle(0.35e-3, 0.8e-3),
+            RectangleDefinition(0.35e-3, 0.8e-3),
             copper;
-            layers = 3,
-            n = 6
+            counts = (1, 6, 12)
         )
     )
     rectangular_record=IE.serialize_value(rectangular)
@@ -144,12 +143,30 @@ end
     @test IE.serialize_value(restored_rectangular) == rectangular_record
     @test getproperty.(restored_rectangular.geometry.regions, :terminal) ==
           getproperty.(rectangular.geometry.regions, :terminal)
-    @test area.(getproperty.(restored_rectangular.geometry.regions, :shape)) ==
-          area.(getproperty.(rectangular.geometry.regions, :shape))
+    @test area.(getproperty.(restored_rectangular.geometry.regions, :primitive)) ==
+          area.(getproperty.(rectangular.geometry.regions, :primitive))
     @test all(
-        region -> region.source.primitive isa Rectangle,
+        region -> region.source.primitive isa RectangleDefinition &&
+                  region.primitive isa Rectangle,
         restored_rectangular.geometry.regions
     )
+
+    library=CablesLibrary()
+    catalogue_record=(designation_code = "MV cable", voltage_kv = 30.0)
+    add!(library, design; catalogue = catalogue_record)
+    mktempdir() do directory
+        for extension in ("json", "jls")
+            path=joinpath(directory, "library.$extension")
+            save(library; file_name = path)
+            restored_library=CablesLibrary()
+            @test load!(restored_library; file_name = path) === restored_library
+            @test only(keys(restored_library)) == design.cable_id
+            @test IE.serialize_value(only(values(restored_library))) == encoded
+            restored_catalogue=catalogue(restored_library, design.cable_id)
+            @test restored_catalogue.designation_code == catalogue_record.designation_code
+            @test restored_catalogue.voltage_kv == catalogue_record.voltage_kv
+        end
+    end
 end
 
 @testitem "ImportExport / Draft 2020-12 cable document" tags=[:unit] setup=[
@@ -169,12 +186,20 @@ end
     @test materials_document["version"] == "1.0.0"
 
     cables=CablesLibrary()
-    add!(cables, TestFixtures.mv_cable_design())
+    add!(
+        cables,
+        TestFixtures.mv_cable_design();
+        catalogue = (designation_code = "NA2XS(FL)2Y", U = 30.0)
+    )
     cables_document=IE._json_document(cables)
     @test cables_document["\$schema"] == IE.JSON_SCHEMA_DIALECT
     @test cables_document["format"] == IE.CABLES_SCHEMA
     @test cables_document["version"] == "1.0.0"
     @test cables_document["root"]["kind"] == "cable_library"
+    @test only(values(cables_document["root"]["cables"]))["catalogue"] == Dict(
+        "designation_code" => "NA2XS(FL)2Y",
+        "U" => IE.serialize_value(30.0)
+    )
     @test length(cables_document["materials"]) <
           length(first(values(cables)).geometry.regions)
     schema_path=joinpath(

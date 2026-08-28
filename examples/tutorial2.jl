@@ -69,7 +69,6 @@ NA2XS(FL)2Y
 =#
 
 # After some research, it is found that a typical cable of this type has the following configuration:
-num_co_wires = 61  # number of core wires
 num_sc_wires = 49  # number of screen wires
 d_core = 38.1e-3   # nominal core overall diameter
 d_w = 4.7e-3       # nominal strand diameter of the core
@@ -85,76 +84,38 @@ t_alt = .15e-3     # nominal thickness of the aluminum tape
 t_pet = .05e-3     # nominal thickness of the pe face in the aluminum tape
 t_jac = 2.4e-3     # nominal PE jacket thickness
 
-d_overall = d_core #hide
-layers = [] #hide
-push!(layers, ("Conductor", missing, d_overall * 1000)) #hide
-d_overall += 2 * t_sct #hide
-push!(layers, ("Inner semiconductive tape", t_sct * 1000, d_overall * 1000)) #hide
-d_overall += 2 * t_sc_in #hide
-push!(layers, ("Inner semiconductor", t_sc_in * 1000, d_overall * 1000)) #hide
-d_overall += 2 * t_ins #hide
-push!(layers, ("Main insulation", t_ins * 1000, d_overall * 1000)) #hide
-d_overall += 2 * t_sc_out #hide
-push!(layers, ("Outer semiconductor", t_sc_out * 1000, d_overall * 1000)) #hide
-d_overall += 2 * t_sct #hide
-push!(layers, ("Outer semiconductive tape", t_sct * 1000, d_overall * 1000)) #hide
-d_overall += 2 * d_ws #hide
-push!(layers, ("Wire screen", d_ws * 1000, d_overall * 1000)) #hide
-d_overall += 2 * t_cut #hide
-push!(layers, ("Copper tape", t_cut * 1000, d_overall * 1000)) #hide
-d_overall += 2 * t_wbt #hide
-push!(layers, ("Water-blocking tape", t_wbt * 1000, d_overall * 1000)) #hide
-d_overall += 2 * t_alt #hide
-push!(layers, ("Aluminum tape", t_alt * 1000, d_overall * 1000)) #hide
-d_overall += 2 * t_pet #hide
-push!(layers, ("PE with aluminum face", t_pet * 1000, d_overall * 1000)) #hide
-d_overall += 2 * t_jac #hide
-push!(layers, ("PE jacket", t_jac * 1000, d_overall * 1000)); #hide
+layer_names = ( #hide
+    "Conductor", "Inner semiconductive tape", "Inner semiconductor", #hide
+    "Main insulation", "Outer semiconductor", "Outer semiconductive tape", #hide
+    "Wire screen", "Copper tape", "Water-blocking tape", "Aluminum tape", #hide
+    "PE with aluminum face", "PE jacket" #hide
+) #hide
+layer_thicknesses = ( #hide
+    missing, t_sct, t_sc_in, t_ins, t_sc_out, t_sct, d_ws, t_cut, t_wbt, #hide
+    t_alt, t_pet, t_jac #hide
+) #hide
+radial_increments = ( #hide
+    0.0, t_sct, t_sc_in, t_ins, t_sc_out, t_sct, d_ws, t_cut, t_wbt, #hide
+    t_alt, t_pet, t_jac #hide
+) #hide
+layer_diameters = d_core .+ 2 .* cumsum(radial_increments) #hide
 
 # The cable structure is summarized in a table for better visualization, with dimensions in milimiters:
 df = DataFrame( #hide
-    layer = first.(layers), #hide
+    layer = layer_names, #hide
     thickness = [ #hide
-                 ismissing(t) ? "-" : round(t, sigdigits = 2) for t in getindex.(layers, 2) #hide
+                 ismissing(t) ? "-" : round(1000t, sigdigits = 2) for t in layer_thicknesses #hide
                  ], #hide
-    diameter = [round(d, digits = 2) for d in getindex.(layers, 3)] #hide
+    diameter = round.(1000 .* layer_diameters, digits = 2) #hide
 ) #hide
 
 #=
 ## Describing the cable
 
-!!! note "Physical construction"
-    A cable is declared with ordinary physical objects. The [`CableDesign`](@ref)
-    target is completed by [`build`](@ref), which resolves geometry and retained
-    terminal membership. Analytical adaptation occurs later, when a formulation
-    consumes the completed design.
-
-```
-CableDesign
-├── root::Stack
-│   ├── Group(:core, Region(...); pattern, path)
-│   ├── Region(..., Shell(...), material)
-│   ├── Group(:sheath, Region(...); pattern, path)
-│   └── …
-├── geometry::CableGeometry
-│   └── regions::Vector{PlacedRegion}
-├── terminal_order
-└── terminal_map
-```
-
-[`Region`](@ref) binds one primitive geometry to one material. [`Stack`](@ref)
-stores the outward physical order. [`Group`](@ref) applies a retained terminal
-name to one physical member or a repeated pattern of members. A [`Ring`](@ref)
-places repeated strands in the cross-section, while [`Helix`](@ref) records their
-longitudinal path.
-
-!!! note "Analytical adaptation"
-    The analytical formulation prepares its engine input by:
-
-    1. Reading the resolved shapes, placements, and paths from `CableGeometry`.
-    2. Collecting conductive regions by retained terminal.
-    3. Combining each terminal's radial conductor and dielectric zones into the
-       unchanged analytical Engine input.
+The design is one outward physical declaration. `Conductor`, `Insulator`, and
+`Semiconductor` provide the recurring cable constructions; [`Stack`](@ref)
+states their order; and [`build`](@ref) completes the design once. No partial
+design is needed between layers.
 =#
 
 #=
@@ -162,8 +123,9 @@ longitudinal path.
 
 The core consists of a central wire and four concentric AAAC layers with 61
 wires arranged in a (1/6/12/18/24) pattern. The respective lay ratios are
-(15/13.5/12.5/11) [CENELEC50182](@cite). `Ring` and `Helix` retain the physical
-placement and longitudinal path required for resistance and GMR calculations.
+(15/13.5/12.5/11) [CENELEC50182](@cite). `Conductor.Stranded` retains every
+physical strand and the layer-specific longitudinal paths required for
+resistance and GMR calculations.
 =#
 
 # Select reusable materials from the library:
@@ -174,37 +136,16 @@ semicon1 = Material(materials, :semicon1)
 semicon2 = Material(materials, :semicon2)
 pe = Material(materials, :pe)
 
-#=
-!!! tip "Convenience methods"
-    Cable datasheets usually report diameters. The physical grammar uses a
-    [`Disk`](@ref) radius for each strand, so the conversion remains visible at
-    the point of use.
-=#
-
-# Describe the central wire and the four stranded layers. Each `Group` retains
-# the same `:core` terminal while its `Ring` keeps the individual wires physical:
-core_wire_counts = (1, 6, 12, 18, 24)
-core_lay_ratios = (0.0, 15.0, 13.5, 12.5, 11.0)
-@assert sum(core_wire_counts) == num_co_wires
-strand_radius = d_w / 2
-core_parts, radius = let
-    current_radius = zero(strand_radius)
-    items = AbstractCablePart[]
-    for (layer, (count, lay_ratio)) in enumerate(zip(core_wire_counts, core_lay_ratios))
-        centre_radius = count == 1 ? zero(current_radius) :
-                        current_radius + strand_radius
-        push!(items,
-            Group(
-                :core,
-                Region(Symbol(:core_strands_, layer), Disk(strand_radius), aluminum);
-                pattern = Ring(count; r = centre_radius),
-                path = iszero(lay_ratio) ? nothing : Helix(LayRatio(lay_ratio))
-            ))
-        current_radius = count == 1 ? strand_radius :
-                         current_radius + 2strand_radius
-    end
-    items, current_radius
-end
+# State the actual strand count and lay of every noncentral layer. These are the
+# physical declarations reported for this conductor, not inputs from which the
+# API must infer another layout:
+stranded_core = Conductor.Stranded(
+    :core,
+    DiskDefinition(d_w / 2),
+    aluminum;
+    counts = (1, 6, 12, 18, 24),
+    lay = (15.0, 13.5, 12.5, 11.0)
+)
 
 #=
 ### Inner semiconductor
@@ -215,15 +156,9 @@ the conductor and insulation, eliminating air gaps and reducing field concentrat
 
 #=
 !!! tip "Contextual shells"
-    [`Shell`](@ref) stores a radial thickness rather than a duplicated inner
+    [`ShellDefinition`](@ref) stores a radial thickness rather than a duplicated inner
     radius. [`Stack`](@ref) resolves it against the preceding outward boundary.
 =#
-
-# Describe the inner semiconductive tape and semiconductor (1000 Ω·m as per IEC 840):
-inner_layers = (
-    Region(:core_semicon_tape_inner, Shell(t_sct), polyacrylate),
-    Region(:core_semicon_inner, Shell(t_sc_in), semicon1)
-)
 
 #=
 ### Main insulation
@@ -232,56 +167,12 @@ XLPE (cross-linked polyethylene) is the standard insulation material for modern
 medium and high voltage cables due to its excellent dielectric properties.
 =#
 
-# Describe the main insulation layer:
-main_insulation = Region(:core_insulation, Shell(t_ins), pe)
-
 #=
 ### Outer semiconductor
 
 Similar to the inner semiconductor, the outer semiconductor provides a uniform
 transition from insulation to the metallic screen.
 =#
-
-# Describe the outer semiconductor (500 Ω·m as per IEC 840) and tape:
-outer_layers = (
-    Region(:core_semicon_outer, Shell(t_sc_out), semicon2),
-    Region(:core_semicon_tape_outer, Shell(t_sct), polyacrylate)
-)
-
-# Append the contextual dielectric regions in their physical order:
-append!(core_parts, inner_layers)
-push!(core_parts, main_insulation)
-append!(core_parts, outer_layers)
-radius += t_sct + t_sc_in + t_ins + t_sc_out + t_sct
-
-#=
-With the core parts properly defined, the [`CableDesign`](@ref LineCableModels.DataModel.CableDesign) object is initialized with nominal data from the datasheet. This includes voltage ratings and reference electrical parameters that will be used to benchmark the design.
-=#
-
-# Record the nominal values reported by the datasheet:
-cable_id = "18kV_1000mm2"
-datasheet_info = (
-    designation_code = "NA2XS(FL)2Y",
-    U0 = 18.0,                        # Phase-to-ground voltage [kV]
-    U = 30.0,                         # Phase-to-phase voltage [kV]
-    conductor_cross_section = 1000.0, # [mm²]
-    screen_cross_section = 35.0,      # [mm²]
-    resistance = 0.0291,              # DC resistance [Ω/km]
-    capacitance = 0.39,               # Capacitance [μF/km]
-    inductance = 0.3                 # Inductance in trefoil [mH/km]
-)
-
-# Build the deterministic declaration into one completed cable design:
-nominal_data = NominalData(; datasheet_info...)
-core_design = build(CableDesign, cable_id, Stack(core_parts); nominal_data)
-
-# At this point, it becomes possible to preview the cable design:
-plt1 = preview(
-    core_design,
-    display_plot = false, #hide
-    controls = false #hide
-)
-plt1.figure #hide
 
 #=
 ### Wire screens
@@ -293,48 +184,6 @@ The metallic screen (typically copper) serves multiple purposes:
 - Provides mechanical protection.
 =#
 
-# Describe the wire screen on top of the resolved core boundary:
-lay_ratio = 10.0 # typical value for wire screens
-screened_parts = copy(core_parts)
-screen_radius = d_ws / 2
-screen_centre = radius + screen_radius
-push!(screened_parts,
-    Group(
-        :sheath,
-        Region(:sheath_wires, Disk(screen_radius), copper);
-        pattern = Ring(num_sc_wires; r = screen_centre),
-        path = Helix(LayRatio(lay_ratio))
-    ))
-radius += 2screen_radius
-tape_outer = radius + t_cut
-tape_span = w_cut / ((radius + tape_outer) / 2)
-push!(screened_parts,
-    Group(
-        :sheath,
-        Region(
-            :sheath_copper_tape,
-            Sector(radius, tape_outer, -tape_span / 2, tape_span),
-            copper
-        );
-        path = Helix(LayRatio(lay_ratio))
-    ))
-radius = tape_outer
-push!(screened_parts, Region(
-    :sheath_water_blocking, Shell(t_wbt), polyacrylate
-))
-radius += t_wbt
-
-# Resolve and examine the core plus metallic screen:
-screened_design = build(CableDesign, cable_id, Stack(screened_parts); nominal_data)
-
-# Examine the newly added physical regions:
-plt2 = preview(
-    screened_design,
-    display_plot = false, #hide
-    controls = false #hide
-)
-plt2.figure #hide
-
 #=
 ### Outer jacket regions
 
@@ -342,33 +191,79 @@ Modern cables often include an aluminum tape as moisture barrier
 and PE (polyethylene) outer jacket for mechanical protection.
 =#
 
-# Describe the aluminum moisture barrier, bonded PE face, and outer PE jacket:
-cable_parts = copy(screened_parts)
-aluminum_outer = radius + t_alt
-push!(cable_parts, Group(
-    :jacket,
-    Region(:jacket_aluminum_tape, Annulus(radius, aluminum_outer), aluminum)
-))
-push!(cable_parts, Region(:jacket_pe_face, Shell(t_pet), pe))
-push!(cable_parts, Region(:jacket_insulation, Shell(t_jac), pe))
+# The wire screen, copper tape, and aluminum barrier are absolute geometries.
+# Their coordinates are stated once; contextual dielectric shells still need
+# only their physical thickness.
+conductor_outer = 9d_w / 2
+screen_wire_locus = conductor_outer + t_sct + t_sc_in + t_ins +
+                    t_sc_out + t_sct + d_ws / 2
+screen_tape_inner = screen_wire_locus + d_ws / 2
+screen_tape_outer = screen_tape_inner + t_cut
+screen_tape_span = w_cut / ((screen_tape_inner + screen_tape_outer) / 2)
+barrier_inner = screen_tape_outer + t_wbt
+barrier_outer = barrier_inner + t_alt
 
-#=
-!!! tip "Convenience methods"
-    A `Group` name is an electrical terminal, not a layer category. Ordinary
-    `Region` values remain unassigned dielectrics. The enclosing `Stack` owns
-    their physical order.
-=#
+# Declare the complete cable in physical order. Every item is an ordinary v1
+# physical object and the declaration is completed by one `build` call.
+cable_root = Stack(
+    stranded_core,
+    Semiconductor.Shell(:core_semicon_tape_inner, polyacrylate; t = t_sct),
+    Semiconductor.Shell(:core_semicon_inner, semicon1; t = t_sc_in),
+    Insulator.Shell(:core_insulation, pe; t = t_ins),
+    Semiconductor.Shell(:core_semicon_outer, semicon2; t = t_sc_out),
+    Semiconductor.Shell(:core_semicon_tape_outer, polyacrylate; t = t_sct),
+    Conductor.Wires(
+        :sheath,
+        DiskDefinition(d_ws / 2),
+        copper;
+        n = num_sc_wires,
+        r = screen_wire_locus,
+        lay = 10.0
+    ),
+    Conductor.Strip(
+        :sheath,
+        SectorDefinition(
+            screen_tape_inner,
+            screen_tape_outer,
+            -screen_tape_span / 2,
+            screen_tape_span
+        ),
+        copper;
+        lay = 10.0
+    ),
+    Semiconductor.Shell(:sheath_water_blocking, polyacrylate; t = t_wbt),
+    Conductor.Tubular(:jacket, AnnulusDefinition(barrier_inner, barrier_outer), aluminum),
+    Insulator.Shell(:jacket_pe_face, pe; t = t_pet),
+    Insulator.Shell(:jacket_insulation, pe; t = t_jac)
+)
 
-# Resolve the complete cable description:
-cable_design = build(CableDesign, cable_id, Stack(cable_parts); nominal_data)
+# Keep catalogue data beside the physical model rather than inside it:
+cable_id = "18kV_1000mm2"
+datasheet_info = (
+    designation_code = "NA2XS(FL)2Y",
+    U0 = 18.0,                        # Phase-to-ground voltage [kV]
+    U = 30.0,                         # Phase-to-phase voltage [kV]
+    conductor_cross_section = 1000.0, # [mm²]
+    screen_cross_section = 35.0,      # [mm²]
+    resistance = 0.0291,              # DC resistance [Ω/km]
+    capacitance = 0.39,               # Capacitance [μF/km]
+    inductance = 0.3                  # Inductance in trefoil [mH/km]
+)
+cable_design = build(
+    CableDesign,
+    cable_id,
+    cable_root
+)
+cable_library = CablesLibrary()
+add!(cable_library, cable_design; catalogue = datasheet_info)
 
-# Inspect the finished cable design:
-plt3 = preview(
+# Inspect the one completed physical design:
+cable_plot = preview(
     cable_design,
     display_plot = false, #hide
     controls = false #hide
 )
-plt3.figure #hide
+cable_plot.figure #hide
 
 #=
 ## Examining the cable parameters (RLC)
@@ -383,6 +278,11 @@ constants = CableConstants(cable_design)
 # The native DataFrames adapter returns the complete R/L/C result in its stored
 # per-length units:
 constants_table = DataFrame(constants)
+
+# Materialize the homogeneous equivalent only when that design is
+# itself the requested product:
+equivalent_design = equivalent(cable_design; new_id = cable_id * "_equivalent")
+equivalent_regions = DataFrame(equivalent_design)
 
 # `observables` publishes detached values in the units conventionally used by
 # cable manufacturers. The two rows identify real comparison sources; the
@@ -425,10 +325,10 @@ loaded_library_df = DataFrame(loaded_library)
 ### Defining a cable system
 
 !!! note "Cable systems"
-    `build(LineCableSystem, ...)` combines completed cable designs, poses,
-    connection assignments, and line length.
-    [`LineParametersProblem`](@ref LineCableModels.Engine.LineParametersProblem) then
-    adds operating temperature, earth properties, and analysis frequencies.
+    [`LineParametersProblem`](@ref LineCableModels.Engine.LineParametersProblem)
+    accepts completed designs and their placements directly. It builds the
+    corresponding `LineCableSystem` once, then adds operating temperature,
+    earth properties, and analysis frequencies.
 =#
 
 #=
@@ -457,22 +357,17 @@ formation = trefoil(
 
 # Retain one core phase per cable and ground the sheath and jacket terminals:
 connections = [Dict(:core => phase, :sheath => 0, :jacket => 0) for phase in 1:3]
-cable_system = build(
-    LineCableSystem,
+problem = LineParametersProblem(
     fill(loaded_design, 3),
     formation;
     connections,
     system_id = "18kV_1000mm2_trefoil",
-    line_length = 1000.0
-)
-
-# Add calculation-only state at the Engine boundary:
-problem = LineCableModels.Engine.LineParametersProblem(
-    cable_system;
+    line_length = 1000.0,
     temperature = 20.0,
     earth_props = earth,
     frequencies = f
 )
+cable_system = problem.system
 earth_params = problem.earth_props
 
 # Earth model base properties:

@@ -260,41 +260,30 @@
           "additionalProperties": false
         },
         {
-          "type": "object", "required": ["kind", "tag", "at", "shape", "item", "fill", "wall"],
-          "properties": {"kind": {"const": "enclosure"}, "tag": {"type": "string", "minLength": 1}, "at": {"$ref": "#/$defs/pose"}, "shape": {"$ref": "#/$defs/primitive"}, "item": {"$ref": "#/$defs/part"}, "fill": {"oneOf": [{"$ref": "#/$defs/materialRef"}, {"$ref": "#/$defs/part"}]}, "wall": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/part"}]}},
-          "additionalProperties": false
-        }
-      ]
-    },
-    "nominalData": {
-      "oneOf": [
-        {"type": "null"},
-        {
-          "type": "object", "required": ["kind"],
-          "properties": {
-            "kind": {"const": "nominal_data"},
-            "designation_code": {"type": ["string", "null"]},
-            "U0": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/scalar"}]},
-            "U": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/scalar"}]},
-            "conductor_cross_section": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/scalar"}]},
-            "screen_cross_section": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/scalar"}]},
-            "armor_cross_section": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/scalar"}]},
-            "resistance": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/scalar"}]},
-            "capacitance": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/scalar"}]},
-            "inductance": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/scalar"}]}
-          },
+          "type": "object", "required": ["kind", "tag", "at", "primitive", "item", "fill", "wall"],
+          "properties": {"kind": {"const": "enclosure"}, "tag": {"type": "string", "minLength": 1}, "at": {"$ref": "#/$defs/pose"}, "primitive": {"$ref": "#/$defs/primitive"}, "item": {"$ref": "#/$defs/part"}, "fill": {"oneOf": [{"$ref": "#/$defs/materialRef"}, {"$ref": "#/$defs/part"}]}, "wall": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/part"}]}},
           "additionalProperties": false
         }
       ]
     },
     "cableDesign": {
       "type": "object",
-      "required": ["kind", "cable_id", "nominal_data", "root"],
+      "required": ["kind", "cable_id", "root"],
       "properties": {
         "kind": {"const": "cable_design"},
         "cable_id": {"type": "string", "minLength": 1},
-        "nominal_data": {"$ref": "#/$defs/nominalData"},
         "root": {"$ref": "#/$defs/part"}
+      },
+      "additionalProperties": false
+    },
+    "cataloguedCable": {
+      "type": "object",
+      "required": ["kind", "cable_id", "root", "catalogue"],
+      "properties": {
+        "kind": {"const": "cable_design"},
+        "cable_id": {"type": "string", "minLength": 1},
+        "root": {"$ref": "#/$defs/part"},
+        "catalogue": {"type": "object"}
       },
       "additionalProperties": false
     },
@@ -344,7 +333,7 @@
           "required": ["kind", "cables"],
           "properties": {
             "kind": {"const": "cable_library"},
-            "cables": {"type": "object", "additionalProperties": {"$ref": "#/$defs/cableDesign"}}
+            "cables": {"type": "object", "additionalProperties": {"$ref": "#/$defs/cataloguedCable"}}
           },
           "additionalProperties": false
         }

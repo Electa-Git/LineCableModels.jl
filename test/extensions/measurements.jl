@@ -57,17 +57,17 @@ end
     insulation_thickness=measurement(0.01, 0.001)
     semicon_thickness=measurement(0.005, 0.0005)
 
-    core=Region(:core_metal, Disk(diameter/2), copper_props)
-    insulation=Region(:insulation, Shell(insulation_thickness), insulator_props)
-    semicon=Region(:semicon, Shell(semicon_thickness), semicon_props)
+    core=Region(:core_metal, DiskDefinition(diameter/2), copper_props)
+    insulation=Region(:insulation, ShellDefinition(insulation_thickness), insulator_props)
+    semicon=Region(:semicon, ShellDefinition(semicon_thickness), semicon_props)
     root=Stack(Group(:core, core), insulation, semicon)
     resolved=resolve(EmptyBoundary(), root)
-    insulation_shape=resolved.regions[2].shape
-    semicon_shape=resolved.regions[3].shape
+    insulation_shape=resolved.regions[2].primitive
+    semicon_shape=resolved.regions[3].primitive
 
-    @test r_in(insulation_shape) === r_ex(resolved.regions[1].shape)
+    @test r_in(insulation_shape) === r_ex(resolved.regions[1].primitive)
     @test iszero(uncertainty(
-        r_ex(resolved.regions[1].shape) - r_in(insulation_shape)
+        r_ex(resolved.regions[1].primitive) - r_in(insulation_shape)
     ))
 
     expected_radius=diameter/2+insulation_thickness+semicon_thickness
@@ -86,7 +86,7 @@ end
         system_id = "uq-path",
         line_length = 1000.0
     )
-    assembled_radius=r_ex(system.geometry[end].shape)
+    assembled_radius=r_ex(system.geometry[end].primitive)
 
     @test system.designs[1] === design
     @test derivative(assembled_radius, diameter) ≈ 0.5

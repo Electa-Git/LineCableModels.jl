@@ -23,15 +23,13 @@
 
     @test design.root isa Stack
     @test all(region -> region isa PlacedRegion, design.geometry.regions)
-    @test design.terminal_map == [
-        region.terminal === nothing ? 0 :
-        only(findall(==(region.terminal), design.terminal_order))
-        for region in design.geometry.regions
-    ]
+    @test design.terminal_map == [region.terminal === nothing ? 0 :
+           only(findall(==(region.terminal), design.terminal_order))
+           for region in design.geometry.regions]
 
     constants=CableConstants(design)
     phases=NamedTuple{Tuple(design.terminal_order)}(
-        ntuple(index -> index == 1 ? 1 : 0, length(design.terminal_order))
+        ntuple(index->index==1 ? 1 : 0, length(design.terminal_order))
     )
     lowered=LineParametersProblem(
         design,
@@ -73,8 +71,11 @@
     @test actual_primitive_order == expected_primitive_order
 
     problem=TestFixtures.line_parameters_problem(frequencies = [50.0, 500.0])
-    input=LineCableModels.Engine.AnalyticalInput(problem, Formulation())
-    expected_input=reference["analytical_input"]
+    execution=computation_options(Val(LineCableModelsEngine), (;))
+    workspace=LineParametersWorkspace(
+        LineCableModelsEngine(), problem, Formulation(), execution)
+    input=workspace.normalized
+    expected_input=reference["normalized_input"]
     vector_fields=(
         :freq, :horz, :vert, :r_in, :r_ext, :r_ins_in, :r_ins_ext,
         :rho0_cond, :T0_cond, :alpha_cond, :mu_cond, :eps_cond,
@@ -99,12 +100,14 @@
     for field in (:line_length, :n_frequencies, :n_phases, :n_cables)
         @test getproperty(input, field) == expected_input[string(field)]
     end
-    @test input.earth.vertical_layers == expected_input["earth"]["vertical_layers"]
-    @test length(input.earth.layers) == length(expected_input["earth"]["layers"])
+    @test input.earth.vertical_layers ==
+          expected_input["earth"]["vertical_layers"]
+    @test length(input.earth.layers) ==
+          length(expected_input["earth"]["layers"])
 
     parameters=compute(
         problem,
-        Formulation(Val(:analytical); options = (ideal_transposition = false,))
+        Formulation(options = (ideal_transposition = false,))
     )
     expected_parameters=reference["line_parameters"]
     function expected_tensor(node)

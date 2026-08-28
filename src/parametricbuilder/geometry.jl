@@ -16,54 +16,54 @@ function Pose2(;
     return DataModel.Pose2(values...)
 end
 
-function Disk(r::Union{AbstractGrid, Gridspace}; combine::Symbol = :product)
-    return Gridspace{DataModel.Disk}(DataModel.Disk, (r,); combine)
+function DiskDefinition(r::Union{AbstractGrid, Gridspace}; combine::Symbol = :product)
+    return Gridspace{DataModel.DiskDefinition}(DataModel.DiskDefinition, (r,); combine)
 end
 
-function Rectangle(w, h; combine::Symbol = :product)
+function RectangleDefinition(w, h; combine::Symbol = :product)
     values = (w, h)
     any(value -> value isa Union{AbstractGrid, Gridspace}, values) ||
-        throw(MethodError(DataModel.Rectangle, values))
+        throw(MethodError(DataModel.RectangleDefinition, values))
     grids = map(values) do value
         value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
     end
-    return Gridspace{DataModel.Rectangle}(DataModel.Rectangle, grids; combine)
+    return Gridspace{DataModel.RectangleDefinition}(DataModel.RectangleDefinition, grids; combine)
 end
 
-function Ellipse(a, b; combine::Symbol = :product)
+function EllipseDefinition(a, b; combine::Symbol = :product)
     values = (a, b)
     any(value -> value isa Union{AbstractGrid, Gridspace}, values) ||
-        throw(MethodError(DataModel.Ellipse, values))
+        throw(MethodError(DataModel.EllipseDefinition, values))
     grids = map(values) do value
         value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
     end
-    return Gridspace{DataModel.Ellipse}(DataModel.Ellipse, grids; combine)
+    return Gridspace{DataModel.EllipseDefinition}(DataModel.EllipseDefinition, grids; combine)
 end
 
-function Sector(ri, ro, φ0, span; combine::Symbol = :product)
+function SectorDefinition(ri, ro, φ0, span; combine::Symbol = :product)
     values = (ri, ro, φ0, span)
     any(value -> value isa Union{AbstractGrid, Gridspace}, values) ||
-        throw(MethodError(DataModel.Sector, values))
+        throw(MethodError(DataModel.SectorDefinition, values))
     grids = map(values) do value
         value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
     end
-    return Gridspace{DataModel.Sector}(DataModel.Sector, grids; combine)
+    return Gridspace{DataModel.SectorDefinition}(DataModel.SectorDefinition, grids; combine)
 end
 
-function Annulus(ri, ro; combine::Symbol = :product)
+function AnnulusDefinition(ri, ro; combine::Symbol = :product)
     values = (ri, ro)
     any(value -> value isa Union{AbstractGrid, Gridspace}, values) ||
-        throw(MethodError(DataModel.Annulus, values))
+        throw(MethodError(DataModel.AnnulusDefinition, values))
     grids = map(values) do value
         value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
     end
-    return Gridspace{DataModel.Annulus}(DataModel.Annulus, grids; combine)
+    return Gridspace{DataModel.AnnulusDefinition}(DataModel.AnnulusDefinition, grids; combine)
 end
 
-function Shell(t::Union{AbstractGrid, Gridspace}; combine::Symbol = :product)
-    return Gridspace{DataModel.Shell}(DataModel.Shell, (t,); combine)
+function ShellDefinition(t::Union{AbstractGrid, Gridspace}; combine::Symbol = :product)
+    return Gridspace{DataModel.ShellDefinition}(DataModel.ShellDefinition, (t,); combine)
 end
 
-function Polygon(points::Union{AbstractGrid, Gridspace}; combine::Symbol = :product)
-    return Gridspace{DataModel.Polygon}(DataModel.Polygon, (points,); combine)
+function PolygonDefinition(points::Union{AbstractGrid, Gridspace}; combine::Symbol = :product)
+    return Gridspace{DataModel.PolygonDefinition}(DataModel.PolygonDefinition, (points,); combine)
 end
