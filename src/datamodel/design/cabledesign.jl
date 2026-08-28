@@ -11,12 +11,15 @@ $(TYPEDFIELDS)
 struct CableDesign{
         T <: Real,
         R <: AbstractCablePart,
-        G <: CableGeometry
+        G <: CableGeometry,
+        N <: NamedTuple
 }
     "Stable cable identifier."
     cable_id::String
     "Authoritative physical declaration."
     root::R
+    "Descriptive catalogue data supplied with the physical declaration."
+    nominal_data::N
     "Resolved physical geometry."
     geometry::G
     "Retained terminals in physical order."
@@ -24,16 +27,20 @@ struct CableDesign{
     "Terminal index for every resolved region; zero denotes no terminal."
     terminal_map::Vector{Int}
 
-    function CableDesign{T, R, G}(
+    function CableDesign{T, R, G, N}(
             cable_id::String,
             root::R,
+            nominal_data::N,
             geometry::G,
             terminal_order::Vector{Symbol},
             terminal_map::Vector{Int}
-    ) where {T <: Real, R <: AbstractCablePart, G <: CableGeometry}
-        return new{T, R, G}(
+    ) where {
+            T <: Real, R <: AbstractCablePart, G <: CableGeometry, N <: NamedTuple
+    }
+        return new{T, R, G, N}(
             cable_id,
             root,
+            nominal_data,
             geometry,
             terminal_order,
             terminal_map
@@ -43,6 +50,12 @@ end
 
 Base.eltype(::CableDesign{T}) where {T} = T
 Base.eltype(::Type{<:CableDesign{T}}) where {T} = T
+
+Base.:(==)(left::CableDesign, right::CableDesign) =
+    left.cable_id == right.cable_id && left.root == right.root &&
+    left.nominal_data == right.nominal_data && left.geometry == right.geometry &&
+    left.terminal_order == right.terminal_order &&
+    left.terminal_map == right.terminal_map
 
 """
 $(TYPEDSIGNATURES)
@@ -70,15 +83,15 @@ It performs no formulation calculation.
 function build(
         ::Type{CableDesign},
         cable_id::AbstractString,
-        root::AbstractCablePart;
+        parts::Tuple{Vararg{AbstractCablePart}},
+        nominal_data::Union{Nothing, NamedTuple};
         combine::Symbol = :product
 )
-    # 1. Normalize the public single-conductor shorthand into the v1 grammar.
-    normalized = if root isa Region && root.material.kind === :conductor
-        Group(root.tag, Pose2(0, 0, 0), root, nothing, nothing, nothing)
-    else
-        root
-    end
+    isempty(parts) && throw(ArgumentError("a cable design requires one physical part"))
+    root = length(parts) == 1 ? only(parts) : Stack(parts...)
+    # 1. Public conveniences have already lowered into the physical grammar.
+    # A conductive Region does not acquire a terminal from its material class.
+    normalized = root
 
     # 2. Validate formulation-independent declarations.
     combine in (:product, :zip) || throw(ArgumentError(
@@ -86,6 +99,10 @@ function build(
     ))
     identifier = String(cable_id)
     isempty(identifier) && throw(ArgumentError("cable_id cannot be empty"))
+    catalogue = nominal_data === nothing ? (;) : nominal_data
+    catalogue isa NamedTuple || throw(ArgumentError(
+        "nominal_data must be a named tuple or nothing"
+    ))
 
     # 3. Resolve intrinsic primitives against their contextual boundaries.
     # 4. Resolve pattern placements and compaction through `placements` dispatch.
@@ -126,13 +143,24 @@ function build(
         (eltype(placed.primitive) for placed in geometry.regions)...,
         (eltype(placed.source.material) for placed in geometry.regions)...
     )
-    return CableDesign{T, typeof(normalized), typeof(geometry)}(
+    return CableDesign{T, typeof(normalized), typeof(geometry), typeof(catalogue)}(
         identifier,
         normalized,
+        catalogue,
         geometry,
         terminal_order,
         terminal_map
     )
+end
+
+function build(
+        ::Type{CableDesign},
+        cable_id::AbstractString,
+        parts::AbstractCablePart...;
+        nominal_data = nothing,
+        combine::Symbol = :product
+)
+    return build(CableDesign, cable_id, parts, nominal_data; combine)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", design::CableDesign)

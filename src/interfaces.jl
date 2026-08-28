@@ -23,6 +23,26 @@ One completed `Target`, or `Gridspace{Target}` for explicit finite inputs.
 """
 function build end
 
+# Shared scalar-versus-parametric construction boundary. Data-owning modules
+# call `_construction` without depending on Gridspace. ParametricBuilder marks
+# its finite sources and owns the lazy branch after it is loaded.
+_construction_axis(::Any) = false
+
+function _finite_construction end
+
+function _construction(
+        ::Type{Target},
+        caller,
+        values::Tuple;
+        combine::Symbol = :product
+) where {Target}
+    combine in (:product, :zip) || throw(ArgumentError(
+        "combine must be :product or :zip"
+    ))
+    any(_construction_axis, values) || return caller(values...)
+    return _finite_construction(Target, caller, values; combine)
+end
+
 """
     equivalent(design; new_id="")
 

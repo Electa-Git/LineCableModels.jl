@@ -80,19 +80,24 @@ end
     disk=DiskDefinition(0.5e-3)
     rectangle=RectangleDefinition(0.35e-3, 0.8e-3)
 
-    circular=Conductor.Stranded(
-        :core,
-        disk,
+    circular=strand(
         copper;
-        counts = (1, 6, 12),
-        lay = (15.0, 11.0)
+        wire = disk,
+        layers = 2,
+        n = (6, 12),
+        lay = (LayRatio(15), LayRatio(11))
     )
-    rectangular=Conductor.Stranded(:core, rectangle, copper; counts = (1, 6, 12))
-    strand_space=Conductor.Stranded(
-        :core,
-        Grid((disk, rectangle)),
+    rectangular=strand(
         copper;
-        counts = (1,)
+        wire = rectangle,
+        layers = 2,
+        n = (6, 12),
+        lay = (LayRatio(15), LayRatio(11))
+    )
+    strand_space=strand(
+        copper;
+        wire = Grid((disk, rectangle)),
+        layers = 0
     )
     @test circular isa Stack
     @test rectangular isa Stack
@@ -103,14 +108,18 @@ end
         Region{typeof(rectangle), typeof(copper)}]
     @test all(item -> item isa Group, circular.items)
     @test all(item -> item isa Group, rectangular.items)
-    @test getproperty.(circular.items, :name) == fill(:core, 3)
-    @test getproperty.(rectangular.items, :name) == fill(:core, 3)
+    @test getproperty.(circular.items, :name) == fill(:strand, 3)
+    @test getproperty.(rectangular.items, :name) == fill(:strand, 3)
     @test circular.items[1].path === nothing
-    @test circular.items[2].path.lay == LayRatio(15.0)
-    @test circular.items[3].path.lay == LayRatio(11.0)
+    @test circular.items[2].path.lay == LayRatio(15)
+    @test circular.items[3].path.lay == LayRatio(11)
 
-    circular_design=build(CableDesign, "circular-strands", circular)
-    rectangular_design=build(CableDesign, "rectangular-strands", rectangular)
+    circular_design=build(
+        CableDesign, "circular-strands", terminal(:core, circular)
+    )
+    rectangular_design=build(
+        CableDesign, "rectangular-strands", terminal(:core, rectangular)
+    )
     @test length(circular_design.geometry.regions) == 19
     @test length(rectangular_design.geometry.regions) == 19
     @test all(
@@ -123,24 +132,14 @@ end
           19rectangle.w * rectangle.h
 
     initial_radius=hypot(rectangle.w, rectangle.h) / 2
-    area_radius=sqrt(initial_radius^2 + 6rectangle.w * rectangle.h / pi)
-    expected_centre=max(
-        (initial_radius + area_radius) / 2,
-        initial_radius + rectangle.h / 2
-    )
+    expected_centre=initial_radius + rectangle.h / 2
     @test hypot(centroid(rectangular_design.geometry.regions[2].primitive)...) ≈
           expected_centre
     @test getproperty.(rectangular_design.geometry.regions, :terminal) ==
           fill(:core, 19)
-    @test getproperty.(rectangular_design.geometry.regions, :source)[1].tag ===
-          :core_strands_1
     @test all(
-        region -> region.source.tag === :core_strands_2,
-        rectangular_design.geometry.regions[2:7]
-    )
-    @test all(
-        region -> region.source.tag === :core_strands_3,
-        rectangular_design.geometry.regions[8:19]
+        region -> region.source.tag === :wire,
+        rectangular_design.geometry.regions
     )
     @test all(isempty, getproperty.(rectangular_design.geometry.regions[1:1], :paths))
     @test all(!isempty, getproperty.(rectangular_design.geometry.regions[2:end], :paths))
@@ -151,24 +150,32 @@ end
         @test mod(placed.primitive.at.φ - radial, 2pi) ≈ pi / 2
         @test placed.source.primitive === rectangle
     end
-    @test_throws DomainError Conductor.Stranded(
-        :core,
-        RectangleDefinition(10e-3, 1e-3),
+    @test_throws DomainError build(
+        CableDesign,
+        "overpacked",
+        terminal(
+            :core,
+            strand(
+                copper;
+                wire = RectangleDefinition(10e-3, 1e-3),
+                layers = 1,
+                n = (6,)
+            )
+        )
+    )
+    @test_throws DimensionMismatch strand(
+        copper; wire = disk, layers = 2, n = (6,)
+    )
+    @test_throws DimensionMismatch strand(
+        copper; wire = disk, layers = 2, n = (6, 12), lay = (LayRatio(11),)
+    )
+    elliptical=strand(
         copper;
-        counts = (1, 6)
+        wire = EllipseDefinition(0.5e-3, 0.25e-3),
+        layers = 1,
+        n = 6
     )
-    @test_throws ArgumentError Conductor.Stranded(
-        :core, disk, copper; counts = (6, 12)
-    )
-    @test_throws DimensionMismatch Conductor.Stranded(
-        :core, disk, copper; counts = (1, 6, 12), lay = (11.0,)
-    )
-    @test_throws MethodError Conductor.Stranded(
-        :core,
-        EllipseDefinition(0.5e-3, 0.25e-3),
-        copper;
-        counts = (1, 6)
-    )
+    @test build(CableDesign, "elliptical", terminal(:core, elliptical)) isa CableDesign
     @test_throws ArgumentError LineCableModels.Engine.homogeneous_components(
         Formulation(), rectangular_design, 50.0
     )
@@ -205,10 +212,10 @@ end
     @test_throws ArgumentError LineCableModels.Insulator.Shell(:bad, copper; t = 1.0)
     @test_throws ArgumentError LineCableModels.Semiconductor.Shell(:bad, oil; t = 1.0)
 
-    fill=LineCableModels.Filler.Region(
-        :fill,
-        oil;
-        primitive = LineCableModels.AnnulusDefinition(1.0, 3.0)
+    fill=LineCableModels.filler(
+        oil,
+        LineCableModels.AnnulusDefinition(1.0, 3.0);
+        tag = :fill
     )
     explicit=LineCableModels.Enclosure(
         :duct,
@@ -242,13 +249,12 @@ end
     wire=LineCableModels.Region(:wire, LineCableModels.DiskDefinition(0.5), copper)
 
     ring=LineCableModels.Ring(6; r = 2.0, φ0 = π / 6)
-    poses=LineCableModels.placements(ring, wire, nothing)
+    poses=LineCableModels.placements(ring, wire.primitive, nothing)
     @test length(poses) == 6
     @test all(pose -> hypot(pose.x, pose.y) ≈ 2.0, poses)
-    compacted=LineCableModels.placements(
-        ring, wire, LineCableModels.DiameterFactor(0.9)
+    @test_throws MethodError LineCableModels.placements(
+        ring, wire.primitive, LineCableModels.DiameterFactor(0.9)
     )
-    @test all(pose -> hypot(pose.x, pose.y) ≈ 1.8, compacted)
 
     helix=LineCableModels.Helix(LineCableModels.LayRatio(10); dir = -1)
     @test LineCableModels.pitch(helix, 2.0) == 40.0
@@ -301,7 +307,7 @@ end
     indexed=LineCableModels.Assembly(
         core;
         pattern = LineCableModels.Lattice(nx = 2, ny = 1, dx = 3.0, dy = 0.0),
-        names = :phase
+        names = (:phase_1, :phase_2)
     )
     @test getproperty.(
         DM.resolve(DM.EmptyBoundary(), indexed).regions,

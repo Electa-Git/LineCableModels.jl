@@ -25,16 +25,17 @@ export CableDesign, CableGeometry, PlacedRegion, LineCableSystem, CableConstants
 export build, equivalent
 export CablesLibrary, catalogue
 export trefoil_formation, flat_formation, outer_radius
-export AbstractPrimitiveDefinition, AbstractPrimitive
+export AbstractPrimitiveDefinition
 export AbstractCablePart, Region, Stack
 export Group, Assembly
 export Enclosure
 export DiskDefinition, RectangleDefinition, EllipseDefinition
 export SectorDefinition, AnnulusDefinition, ShellDefinition, PolygonDefinition
-export Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, Pose2
+export Pose2
 export EmptyBoundary
 export resolve, boundary, area, centroid, support, r_in, r_ex, thickness
-export Ring, Polar, Lattice, DiameterFactor, placements
+export Ring, Polar, Fill, Lattice, capacity, placements
+export FillFactor, DiameterFactor, TabulatedCompaction, AffineCompaction
 export LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
 export ncables, nphases
 export preview
@@ -48,6 +49,7 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES, FUNCTIONNAME
 import ..PlotBuilder
 import ..Units
 import ..LineCableModels: add!, build, equivalent, validate, nominal
+import ..LineCableModels: _construction
 import ..LineCableModels: basis, R, L, C, resistance, inductance, capacitance
 import ..Grammar: AbstractCoreResult, observe, observables
 using ..Materials: Material
@@ -98,5 +100,6 @@ include("preview/materialscale.jl")
 
 public preview_shapes, preview_materials
 public PreviewPolygon, PreviewReferenceLine, PreviewPayload
+public AbstractPrimitive, Disk, Rectangle, Ellipse, Sector, Annulus, Polygon
 
 end # module DataModel

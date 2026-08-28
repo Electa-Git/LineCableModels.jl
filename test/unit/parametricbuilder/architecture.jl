@@ -125,9 +125,16 @@ end
     @test all(design -> design.geometry isa CableGeometry, designs)
 
     @test PB.at(x = 1, y = -2) == Pose2(1, -2, 0)
-    @test length(PB.trefoil(y = -1, spacing = 0.1)) == 3
-    @test length(PB.hflat(spacing = 0.1, n = 4)) == 4
-    @test length(PB.vflat(spacing = 0.1, n = 2)) == 2
+    design = first(designs)
+    connections = (core = (1, 2, 3),)
+    @test length(PB.trefoil(
+        design;
+        center = PB.at(0, -1),
+        spacing = 0.1,
+        connections
+    )) == 3
+    @test length(PB.hflat(design; spacing = 0.1, connections)) == 3
+    @test length(PB.vflat(design; spacing = 0.1, connections)) == 3
 end
 
 @testitem "Architecture / retired cable builders are absent" tags=[:quality] begin
@@ -137,6 +144,9 @@ end
 
     for name in (
         :CableBuilder, :SystemBuilder, :PartBuilder, :PositionDefinition,
+        :DesignMaterializer, :SystemMaterializer, :MemberPlacementSpec,
+        :HeterogeneousAssembly, :AssemblySpec, :StrandDefinition,
+        :RopeDefinition, :DuctBank, :ResolvedPart, :ResolvedRegion,
         :CableComponent, :CablePosition, :ConductorGroup, :InsulatorGroup,
         :CircStrands, :RectStrands, :Tubular, :Strip, :Semicon
     )
@@ -147,6 +157,12 @@ end
 
     retired=(
         "CableBuilder", "SystemBuilder", "PartBuilder", "GroupBuilder",
+        "DesignMaterializer", "SystemMaterializer", "MemberPlacementSpec",
+        "HeterogeneousAssembly", "AssemblySpec", "StrandDefinition",
+        "RopeDefinition", "DuctBank", "ResolvedPart", "ResolvedRegion",
+        "BuildContext", "BuildManager", "BuildPlan", "BuildSpec",
+        "BuildResult", "CableConstantsProblem", "compute_cable_constants",
+        "_current_radial_equivalence", "reference_frequency",
         "CableComponent", "CablePosition", "ConductorGroup", "InsulatorGroup",
         "CircStrands", "RectStrands", "ConductorPart", "InsulatorPart",
         "SolidCore", "TubularLayer", "EnclosureSpec", "StrandedSpec",

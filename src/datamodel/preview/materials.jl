@@ -197,6 +197,15 @@ function _shape_geometry(primitive::AbstractPrimitive)
     return GeometryBasics.Polygon(exterior, interiors)
 end
 
+function _shape_geometry(primitive::_DifferencePrimitive)
+    outer = _shape_geometry(primitive.outer)
+    interiors = Any[outer.interiors...]
+    append!(interiors, [
+        reverse(_shape_geometry(hole).exterior) for hole in primitive.holes
+    ])
+    return GeometryBasics.Polygon(outer.exterior, interiors)
+end
+
 preview_materials(region::PlacedRegion) = (region.source.material,)
 
 function preview_shapes(region::PlacedRegion, context)

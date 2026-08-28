@@ -39,19 +39,25 @@ export result, statistics, samples, histograms, uncertain
 export root_seed, point_seed, trial_count
 export confidence, cdf_tolerance, sampling_distribution
 export report, TableReportDefinition, XLSXReportDefinition, ReportArtifact
-export Material, MaterialsLibrary, Conductor, Insulator, Semiconductor, Filler
-export AbstractPrimitiveDefinition, AbstractPrimitive
+export Material, MaterialsLibrary, Conductor, Insulator, Semiconductor
+export AbstractPrimitiveDefinition
 export DiskDefinition, RectangleDefinition, EllipseDefinition
 export SectorDefinition, AnnulusDefinition, ShellDefinition, PolygonDefinition
-export Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, Pose2
+export Pose2
 export EmptyBoundary, resolve, boundary, area, centroid, support
 export r_in, r_ex, thickness, outer_radius
 export AbstractCablePart, Region, Stack
 export Group, Assembly
 export Enclosure
-export Ring, Polar, Lattice, DiameterFactor, placements
+export Ring, Polar, Fill, Lattice, DiameterFactor, placements
+export capacity, FillFactor, TabulatedCompaction, AffineCompaction
 export LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
 export at, trefoil, hflat, vflat, Earth
+export terminal, core, strand, rope, cores, tape, insulation, screen, sheath
+export armor, bedding, jacket, filler, pipe, duct
+export solid, shell, wires, layers, assembly
+export @cable, @terminal, @assembly, @duct, @at, @hflat, @vflat, @trefoil
+export @distribute
 export make_stranded, make_screened, WireEstimate
 
 # Materialised results, reusable designs, and presentation:
@@ -112,16 +118,18 @@ include("datamodel/DataModel.jl")
 using .DataModel: CableDesign, CableGeometry, PlacedRegion,
                   LineCableSystem, catalogue,
                   CableConstants, CablesLibrary, preview, ncables, nphases,
-                  AbstractPrimitiveDefinition, AbstractPrimitive,
+                  AbstractPrimitiveDefinition,
                   DiskDefinition, RectangleDefinition, EllipseDefinition,
                   SectorDefinition, AnnulusDefinition, ShellDefinition,
                   PolygonDefinition,
-                  Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, Pose2,
+                  Pose2,
                   EmptyBoundary, resolve, boundary, area, centroid, support,
                   r_in, r_ex, thickness, outer_radius,
                   AbstractCablePart, Region, Stack,
                   Group, Assembly, Enclosure
-using .DataModel: Ring, Polar, Lattice, DiameterFactor, placements,
+using .DataModel: Ring, Polar, Fill, Lattice, capacity, placements,
+                  FillFactor, DiameterFactor, TabulatedCompaction,
+                  AffineCompaction,
                   LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
 
 # Submodule `Engine`
@@ -147,9 +155,15 @@ using .ParametricBuilder:
                           Combinatorial, ParametricProblem, ParametricResult,
                           result, project,
                           Conductor, Insulator,
+                          terminal, core, strand, rope, cores, tape,
+                          insulation, screen, sheath, armor, bedding, jacket,
+                          filler, pipe, duct, solid, shell, wires, layers,
+                          assembly,
                           at, trefoil, hflat, vflat, Earth,
                           WireEstimate, make_stranded, make_screened
-using .ParametricBuilder: Semiconductor, Filler
+using .ParametricBuilder: Semiconductor
+using .ParametricBuilder: @cable, @terminal, @assembly, @duct, @at,
+                          @hflat, @vflat, @trefoil, @distribute
 
 # Submodule `UQ`
 include("uq/UQ.jl")

@@ -84,9 +84,9 @@ df = DataFrame( #hide
 #=
 ## Core and main insulation
 
-The conductor has a central wire and six concentric layers.
-`Conductor.Stranded` retains the (1/6/12/18/24/30/36) individual wires and the
-longitudinal paths needed for the helical corrections.
+The conductor has a central wire and six concentric courses. [`strand`](@ref)
+retains the (1/6/12/18/24/30/36) individual wires and the longitudinal paths
+needed for the helical corrections.
 =#
 
 # Select reusable materials from the library:
@@ -99,13 +99,13 @@ lead = Material(materials, :lead)
 pp = Material(materials, :pp)
 steel = Material(materials, :steel)
 
-# State the actual population and lay of every conductor layer directly:
-stranded_core = Conductor.Stranded(
-    :core,
-    DiskDefinition(d_w / 2),
+# State the actual population and lay of every noncentral conductor course:
+stranded_core = strand(
     copper;
-    counts = (1, 6, 12, 18, 24, 30, 36),
-    lay = (11.0, 11.0, 11.0, 11.0, 11.0, 11.0)
+    wire = DiskDefinition(d_w / 2),
+    layers = 6,
+    n = (6, 12, 18, 24, 30, 36),
+    lay = LayRatio.((11.0, 11.0, 11.0, 11.0, 11.0, 11.0))
 )
 
 #=
@@ -150,40 +150,33 @@ bedding are contextual layers and therefore state only their thickness.
 
 =#
 
-# State the few absolute conductor coordinates once. No layer is appended and
-# no provisional cable design is built while describing the stack.
-conductor_outer = 13d_w / 2
-lead_inner = conductor_outer + t_sc_in + t_ins + t_sc_out + t_wbt
-lead_outer = lead_inner + t_sc
-armor_locus = lead_outer + t_pe + t_bed + d_wa / 2
-
-# Declare the complete armored cable in one outward physical stack:
-cable_root = Stack(
-    stranded_core,
-    Semiconductor.Shell(:core_semicon_inner, semicon1; t = t_sc_in),
-    Insulator.Shell(:core_insulation, pe; t = t_ins),
-    Semiconductor.Shell(:core_semicon_outer, semicon2; t = t_sc_out),
-    Semiconductor.Shell(:core_water_blocking, polyacrylate; t = t_wbt),
-    Conductor.Tubular(:sheath, AnnulusDefinition(lead_inner, lead_outer), lead),
-    Insulator.Shell(:sheath_inner, pe; t = t_pe),
-    Insulator.Shell(:sheath_bedding, pp; t = t_bed),
-    Conductor.Wires(
-        :armor,
-        DiskDefinition(d_wa / 2),
-        steel;
-        n = num_ar_wires,
-        r = armor_locus,
-        lay = 10.0
-    ),
-    Insulator.Shell(:armor_jacket, pp; t = t_jac)
-)
-
-# Complete the physical declaration once and inspect that result:
-cable_design = build(
-    CableDesign,
-    cable_id,
-    cable_root
-)
+# Declare and complete the cable in physical order. Contextual conductor and
+# insulation layers obtain their inner boundary from the preceding region, so
+# the datasheet thicknesses are stated directly.
+cable_design = @cable cable_id begin
+    @terminal :core begin
+        stranded_core
+        screen(semicon1; t = t_sc_in, tag = :core_semicon_inner)
+        insulation(pe; t = t_ins, tag = :core_insulation)
+        screen(semicon2; t = t_sc_out, tag = :core_semicon_outer)
+        screen(polyacrylate; t = t_wbt, tag = :core_water_blocking)
+    end
+    @terminal :sheath begin
+        sheath(lead; t = t_sc, tag = :lead_sheath)
+    end
+    jacket(pe; t = t_pe, tag = :sheath_inner)
+    bedding(pp; t = t_bed, tag = :sheath_bedding)
+    @terminal :armor begin
+        armor(
+            steel;
+            wire = DiskDefinition(d_wa / 2),
+            n = num_ar_wires,
+            lay = LayRatio(10),
+            tag = :armor_wire
+        )
+    end
+    jacket(pp; t = t_jac, tag = :armor_jacket)
+end
 cable_library = CablesLibrary()
 add!(cable_library, cable_design; catalogue = datasheet_info)
 
@@ -265,27 +258,25 @@ earth = Earth(rho = 100.0, eps_r = 10.0, mu_r = 1.0)
 
 =#
 
-# Define the coordinates and terminal assignments for both poles:
-xp, xn, y0 = -0.5, 0.5, -1.0;
-positions = [Pose2(xp, y0), Pose2(xn, y0)]
-connections = [
-    Dict(:core => 1, :sheath => 0, :armor => 0),
-    Dict(:core => 2, :sheath => 0, :armor => 0)
-]
-
-# The design-oriented problem constructor performs the one system build before
-# attaching calculation-only state:
-problem = LineParametersProblem(
-    fill(loaded_design, 2),
-    positions;
-    connections,
+# Place the two poles and state their terminal assignments at the same surface:
+positive_pole = @at loaded_design (-0.5, -1.0) connections = (core = 1, sheath = 0, armor = 0)
+negative_pole = @at loaded_design (0.5, -1.0) connections = (core = 2, sheath = 0, armor = 0)
+placements = [positive_pole, negative_pole]
+cable_system = build(
+    LineCableSystem,
+    placements;
+    environment = earth,
     system_id = "525kV_1600mm2_bipole",
-    line_length = 1000.0,
+    line_length = 1000.0
+)
+
+# Attach calculation-only state to the completed physical system:
+problem = LineParametersProblem(
+    cable_system;
     temperature = 20.0,
     earth_props = earth,
     frequencies = f
 )
-cable_system = problem.system
 earth_params = problem.earth_props
 
 # Inspect the frequency-dependent earth model produced for this problem:

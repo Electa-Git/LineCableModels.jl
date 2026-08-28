@@ -120,7 +120,7 @@ end
         "elliptical",
         Group(:phase, Region(:elliptical_core, EllipseDefinition(0.01, 0.006), conductor))
     )
-    @test design.geometry.regions[1].primitive isa Ellipse
+    @test design.geometry.regions[1].primitive isa LineCableModels.DataModel.Ellipse
 
     system=build(
         LineCableSystem,

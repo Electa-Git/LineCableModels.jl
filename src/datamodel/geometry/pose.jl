@@ -20,12 +20,16 @@ struct Pose2{T <: Real}
     end
 end
 
-function Pose2(x::Real, y::Real, φ::Real)
+function _pose2(x, y, φ)
     values = map(float, promote(x, y, φ))
     return Pose2{typeof(first(values))}(values...)
 end
 
-Pose2(x::Real, y::Real) = Pose2(x, y, 0)
+function Pose2(x, y, φ; combine::Symbol = :product)
+    return _construction(Pose2, _pose2, (x, y, φ); combine)
+end
+
+Pose2(x, y; combine::Symbol = :product) = Pose2(x, y, 0; combine)
 
 Base.eltype(::Pose2{T}) where {T} = T
 Base.eltype(::Type{<:Pose2{T}}) where {T} = T

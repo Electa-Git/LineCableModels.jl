@@ -7,7 +7,10 @@ struct LayRatio{T <: Real}
         return new{T}(q)
     end
 end
-LayRatio(q::Real) = LayRatio{typeof(float(q))}(float(q))
+
+_lay_ratio(q) = LayRatio{typeof(float(q))}(float(q))
+LayRatio(q; combine::Symbol = :product) =
+    _construction(LayRatio, _lay_ratio, (q,); combine)
 
 "Store an authoritative helical pitch length \\[m\\]."
 struct Pitch{T <: Real}
@@ -18,7 +21,10 @@ struct Pitch{T <: Real}
         return new{T}(p)
     end
 end
-Pitch(p::Real) = Pitch{typeof(float(p))}(float(p))
+
+_pitch(p) = Pitch{typeof(float(p))}(float(p))
+Pitch(p; combine::Symbol = :product) =
+    _construction(Pitch, _pitch, (p,); combine)
 
 "Store an authoritative helical lay angle relative to the cable axis \\[rad\\]."
 struct LayAngle{T <: Real}
@@ -29,7 +35,10 @@ struct LayAngle{T <: Real}
         return new{T}(α)
     end
 end
-LayAngle(α::Real) = LayAngle{typeof(float(α))}(float(α))
+
+_lay_angle(α) = LayAngle{typeof(float(α))}(float(α))
+LayAngle(α; combine::Symbol = :product) =
+    _construction(LayAngle, _lay_angle, (α,); combine)
 
 """
 $(TYPEDEF)
@@ -46,14 +55,30 @@ struct Helix{L, T <: Real}
     "Initial angular position \\[rad\\]."
     φ0::T
 
-    function Helix(lay::L; dir::Integer = 1, φ0::Real = 0) where {L}
+    function Helix{L, T}(lay::L, dir::Int, φ0::T) where {L, T <: Real}
         lay isa Union{LayRatio, Pitch, LayAngle} ||
             throw(ArgumentError("helix lay must be LayRatio, Pitch, or LayAngle"))
         dir in (-1, 1) || throw(ArgumentError("helix direction must be -1 or 1"))
-        angle = float(φ0)
-        isfinite(angle) || throw(DomainError(angle, "helix initial angle must be finite"))
-        return new{L, typeof(angle)}(lay, Int(dir), angle)
+        isfinite(φ0) || throw(DomainError(φ0, "helix initial angle must be finite"))
+        return new{L, T}(lay, dir, φ0)
     end
+end
+
+function _helix(lay, dir, φ0)
+    dir isa Integer && !(dir isa Bool) || throw(ArgumentError(
+        "helix direction must be an integer"
+    ))
+    angle = float(φ0)
+    return Helix{typeof(lay), typeof(angle)}(lay, Int(dir), angle)
+end
+
+function Helix(
+        lay;
+        dir = 1,
+        φ0 = 0,
+        combine::Symbol = :product
+)
+    return _construction(Helix, _helix, (lay, dir, φ0); combine)
 end
 
 "Return helical pitch at local radius `radius` \\[m\\]."

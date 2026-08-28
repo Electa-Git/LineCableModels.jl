@@ -56,7 +56,7 @@ Add a cable design under its `cable_id`.
 function add!(
         library::CablesLibrary,
         design::CableDesign;
-        catalogue::NamedTuple = (;)
+        catalogue::NamedTuple = design.nominal_data
 )
     haskey(library, design.cable_id) && throw(ArgumentError(
         "cable design '$(design.cable_id)' already exists",

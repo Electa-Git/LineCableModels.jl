@@ -112,10 +112,10 @@ df = DataFrame( #hide
 #=
 ## Describing the cable
 
-The design is one outward physical declaration. `Conductor`, `Insulator`, and
-`Semiconductor` provide the recurring cable constructions; [`Stack`](@ref)
-states their order; and [`build`](@ref) completes the design once. No partial
-design is needed between layers.
+The design is one outward physical declaration. The engineering vocabulary
+states what each region does, [`@terminal`](@ref) states electrical ownership,
+and [`@cable`](@ref) completes the declaration once. The order of expressions
+is the physical order from the cable centre to its outside surface.
 =#
 
 #=
@@ -123,7 +123,7 @@ design is needed between layers.
 
 The core consists of a central wire and four concentric AAAC layers with 61
 wires arranged in a (1/6/12/18/24) pattern. The respective lay ratios are
-(15/13.5/12.5/11) [CENELEC50182](@cite). `Conductor.Stranded` retains every
+(15/13.5/12.5/11) [CENELEC50182](@cite). [`strand`](@ref) retains every
 physical strand and the layer-specific longitudinal paths required for
 resistance and GMR calculations.
 =#
@@ -139,12 +139,12 @@ pe = Material(materials, :pe)
 # State the actual strand count and lay of every noncentral layer. These are the
 # physical declarations reported for this conductor, not inputs from which the
 # API must infer another layout:
-stranded_core = Conductor.Stranded(
-    :core,
-    DiskDefinition(d_w / 2),
+stranded_core = strand(
     aluminum;
-    counts = (1, 6, 12, 18, 24),
-    lay = (15.0, 13.5, 12.5, 11.0)
+    wire = DiskDefinition(d_w / 2),
+    layers = 4,
+    n = (6, 12, 18, 24),
+    lay = LayRatio.((15.0, 13.5, 12.5, 11.0))
 )
 
 #=
@@ -155,9 +155,10 @@ the conductor and insulation, eliminating air gaps and reducing field concentrat
 =#
 
 #=
-!!! tip "Contextual shells"
-    [`ShellDefinition`](@ref) stores a radial thickness rather than a duplicated inner
-    radius. [`Stack`](@ref) resolves it against the preceding outward boundary.
+!!! tip "Physical order"
+    [`insulation`](@ref), [`screen`](@ref), [`sheath`](@ref), and
+    [`jacket`](@ref) state their physical thickness. Construction resolves each
+    one against the preceding outward boundary.
 =#
 
 #=
@@ -191,51 +192,15 @@ Modern cables often include an aluminum tape as moisture barrier
 and PE (polyethylene) outer jacket for mechanical protection.
 =#
 
-# The wire screen, copper tape, and aluminum barrier are absolute geometries.
-# Their coordinates are stated once; contextual dielectric shells still need
-# only their physical thickness.
+# The wire screen needs its physical centre locus. The copper tape section is
+# stated by its measured inner and outer radii; every contextual layer needs
+# only its thickness.
 conductor_outer = 9d_w / 2
 screen_wire_locus = conductor_outer + t_sct + t_sc_in + t_ins +
                     t_sc_out + t_sct + d_ws / 2
 screen_tape_inner = screen_wire_locus + d_ws / 2
 screen_tape_outer = screen_tape_inner + t_cut
 screen_tape_span = w_cut / ((screen_tape_inner + screen_tape_outer) / 2)
-barrier_inner = screen_tape_outer + t_wbt
-barrier_outer = barrier_inner + t_alt
-
-# Declare the complete cable in physical order. Every item is an ordinary v1
-# physical object and the declaration is completed by one `build` call.
-cable_root = Stack(
-    stranded_core,
-    Semiconductor.Shell(:core_semicon_tape_inner, polyacrylate; t = t_sct),
-    Semiconductor.Shell(:core_semicon_inner, semicon1; t = t_sc_in),
-    Insulator.Shell(:core_insulation, pe; t = t_ins),
-    Semiconductor.Shell(:core_semicon_outer, semicon2; t = t_sc_out),
-    Semiconductor.Shell(:core_semicon_tape_outer, polyacrylate; t = t_sct),
-    Conductor.Wires(
-        :sheath,
-        DiskDefinition(d_ws / 2),
-        copper;
-        n = num_sc_wires,
-        r = screen_wire_locus,
-        lay = 10.0
-    ),
-    Conductor.Strip(
-        :sheath,
-        SectorDefinition(
-            screen_tape_inner,
-            screen_tape_outer,
-            -screen_tape_span / 2,
-            screen_tape_span
-        ),
-        copper;
-        lay = 10.0
-    ),
-    Semiconductor.Shell(:sheath_water_blocking, polyacrylate; t = t_wbt),
-    Conductor.Tubular(:jacket, AnnulusDefinition(barrier_inner, barrier_outer), aluminum),
-    Insulator.Shell(:jacket_pe_face, pe; t = t_pet),
-    Insulator.Shell(:jacket_insulation, pe; t = t_jac)
-)
 
 # Keep catalogue data beside the physical model rather than inside it:
 cable_id = "18kV_1000mm2"
@@ -249,11 +214,47 @@ datasheet_info = (
     capacitance = 0.39,               # Capacitance [μF/km]
     inductance = 0.3                  # Inductance in trefoil [mH/km]
 )
-cable_design = build(
-    CableDesign,
-    cable_id,
-    cable_root
-)
+
+# Declare and complete the cable in one outward block. `@terminal` is used only
+# where the enclosed conductive regions form one electrical terminal.
+cable_design = @cable cable_id begin
+    @terminal :core begin
+        stranded_core
+        screen(polyacrylate; t = t_sct, tag = :core_semicon_tape_inner)
+        screen(semicon1; t = t_sc_in, tag = :core_semicon_inner)
+        insulation(pe; t = t_ins, tag = :core_insulation)
+        screen(semicon2; t = t_sc_out, tag = :core_semicon_outer)
+        screen(polyacrylate; t = t_sct, tag = :core_semicon_tape_outer)
+    end
+    @terminal :sheath begin
+        wires(
+            copper;
+            wire = DiskDefinition(d_ws / 2),
+            n = num_sc_wires,
+            r = screen_wire_locus,
+            lay = LayRatio(10),
+            tag = :screen_wire
+        )
+        tape(
+            copper;
+            section = SectorDefinition(
+                screen_tape_inner,
+                screen_tape_outer,
+                -screen_tape_span / 2,
+                screen_tape_span
+            ),
+            n = 1,
+            lay = LayRatio(10),
+            tag = :copper_tape
+        )
+    end
+    screen(polyacrylate; t = t_wbt, tag = :sheath_water_blocking)
+    @terminal :jacket begin
+        sheath(aluminum; t = t_alt, tag = :aluminum_barrier)
+    end
+    jacket(pe; t = t_pet, tag = :jacket_pe_face)
+    jacket(pe; t = t_jac, tag = :jacket_insulation)
+end
 cable_library = CablesLibrary()
 add!(cable_library, cable_design; catalogue = datasheet_info)
 
@@ -347,27 +348,22 @@ earth = Earth(rho = 100.0, eps_r = 10.0, mu_r = 1.0)
 This section ilustrates the construction of a cable system with three identical cables arranged in a trefoil formation.
 =#
 
-# Describe three cables touching in trefoil at 1 m burial depth. The spacing is
-# the center-to-center distance:
-formation = trefoil(
-    x = 0.0,
-    y = -1.0,
-    spacing = 70e-3
-)
-
-# Retain one core phase per cable and ground the sheath and jacket terminals:
-connections = [Dict(:core => phase, :sheath => 0, :jacket => 0) for phase in 1:3]
-problem = LineParametersProblem(
-    fill(loaded_design, 3),
-    formation;
-    connections,
+# Describe three cables touching in trefoil at 1 m burial depth. The connection
+# schedules assign one core phase per cable and ground the metallic screens:
+placements = @trefoil loaded_design spacing = 70e-3 center = (0.0, -1.0) core = (1, 2, 3) sheath = 0 jacket = 0
+cable_system = build(
+    LineCableSystem,
+    placements;
+    environment = earth,
     system_id = "18kV_1000mm2_trefoil",
-    line_length = 1000.0,
+    line_length = 1000.0
+)
+problem = LineParametersProblem(
+    cable_system;
     temperature = 20.0,
     earth_props = earth,
     frequencies = f
 )
-cable_system = problem.system
 earth_params = problem.earth_props
 
 # Earth model base properties:

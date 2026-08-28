@@ -26,14 +26,20 @@ export build
 export Combinatorial, ParametricProblem, ParametricResult
 export result, project
 
-export Material, Conductor, Insulator, Semiconductor, Filler
+export Material, Conductor, Insulator, Semiconductor
 export CableDesign, LineCableSystem
 export DiskDefinition, RectangleDefinition, EllipseDefinition
 export SectorDefinition, AnnulusDefinition, ShellDefinition, PolygonDefinition, Pose2
 export Region, Stack
 export Group, Assembly
 export Enclosure
+export terminal, core, strand, rope, cores, tape, insulation, screen, sheath
+export armor, bedding, jacket, filler, pipe, duct
+export solid, shell, wires, layers, assembly
+export capacity, FillFactor, DiameterFactor, TabulatedCompaction, AffineCompaction
 export at, trefoil, hflat, vflat, Earth
+export @cable, @terminal, @assembly, @duct, @at, @hflat, @vflat, @trefoil
+export @distribute
 export WireEstimate, make_stranded, make_screened
 
 using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
@@ -41,6 +47,7 @@ using Random
 using RequiredInterfaces: @required
 using ..Grammar: @orchestrator
 import ..LineCableModels: add!, build
+import ..LineCableModels: _construction, _construction_axis, _finite_construction
 import ..Grammar
 import ..Grammar: compute, computation_options, computation_details, details,
                   nominal, uncertainty, check_core_result,
@@ -58,6 +65,8 @@ import ..DataModel: PolygonDefinition, Pose2
 import ..DataModel: Region, Stack
 import ..DataModel: Group, Assembly
 import ..DataModel: Enclosure
+import ..DataModel: capacity, FillFactor, DiameterFactor
+import ..DataModel: TabulatedCompaction, AffineCompaction
 import ..DataModel: CableDesign, LineCableSystem
 import ..EarthProps
 import ..Engine
@@ -74,8 +83,8 @@ include("physicaltree.jl")
 include("conductor/Conductor.jl")
 include("insulator/Insulator.jl")
 include("semiconductor/Semiconductor.jl")
-include("filler/Filler.jl")
 include("positions.jl")
+include("construction_macros.jl")
 include("system.jl")
 
 include("engine/cableconstants.jl")

@@ -31,6 +31,8 @@ function serialize_value(value::Complex)
 end
 serialize_value(value::AbstractDict) =
     Dict(string(key) => serialize_value(item) for (key, item) in value)
+serialize_value(value::NamedTuple) =
+    Dict(string(key) => serialize_value(item) for (key, item) in pairs(value))
 serialize_value(value::Union{AbstractVector, Tuple}) =
     [serialize_value(item) for item in value]
 serialize_value(value) = _serialize_object(value)
@@ -94,15 +96,23 @@ end
 
 function _serialize_object(value::Ring)
     return _node("ring"; n = value.n, r = value.r, φ0 = value.φ0,
-        span = value.span)
+        span = value.span, gap_frac = value.gap_frac)
 end
 function _serialize_object(value::Polar)
     return _node("polar"; nr = value.nr, nφ = value.nφ, r0 = value.r0,
         dr = value.dr, φ0 = value.φ0, span = value.span)
 end
+_serialize_object(value::Fill) =
+    _node("fill"; r = value.r, φ = value.φ, φ0 = value.φ0, span = value.span)
 _serialize_object(value::Lattice) =
     _node("lattice"; nx = value.nx, ny = value.ny, dx = value.dx, dy = value.dy)
 _serialize_object(value::DiameterFactor) = _node("diameter_factor"; k = value.k)
+_serialize_object(value::FillFactor) = _node("fill_factor"; η = value.η)
+_serialize_object(value::TabulatedCompaction) =
+    _node("tabulated_compaction"; data = value.data)
+_serialize_object(value::AffineCompaction) =
+    _node("affine_compaction"; map = value.map)
+_serialize_object(::typeof(capacity())) = _node("capacity")
 _serialize_object(value::LayRatio) = _node("lay_ratio"; q = value.q)
 _serialize_object(value::Pitch) = _node("pitch"; p = value.p)
 _serialize_object(value::LayAngle) = _node("lay_angle"; α = value.α)
@@ -136,8 +146,11 @@ function _serialize_part(value::Group, material_name)
         "compact" => serialize_value(value.compact)
     )
 end
-function _serialize_part(value::Assembly, material_name)
-    names = value.names isa Symbol ? String(value.names) : String.(value.names)
+function _serialize_part(
+        value::Assembly{<:Any, <:AbstractCablePart},
+        material_name
+)
+    names = value.names === nothing ? nothing : String.(value.names)
     return Dict(
         "kind" => "assembly",
         "at" => serialize_value(value.at),
@@ -146,6 +159,16 @@ function _serialize_part(value::Assembly, material_name)
         "path" => serialize_value(value.path),
         "compact" => serialize_value(value.compact),
         "names" => names
+    )
+end
+function _serialize_part(value::Assembly{<:Any, <:Tuple}, material_name)
+    return Dict(
+        "kind" => "assembly",
+        "at" => serialize_value(value.at),
+        "members" => [Dict(
+            "at" => serialize_value(member.at),
+            "item" => _serialize_part(member.item, material_name)
+        ) for member in value.item]
     )
 end
 function _serialize_part(value::Enclosure, material_name)
@@ -171,6 +194,10 @@ function _serialize_design(value::CableDesign, material_name = nothing)
     return Dict(
         "kind" => "cable_design",
         "cable_id" => value.cable_id,
+        "nominal_data" => [Dict(
+            "name" => String(name),
+            "value" => serialize_value(item)
+        ) for (name, item) in pairs(value.nominal_data)],
         "root" => _serialize_part(value.root, material_name)
     )
 end
@@ -215,8 +242,18 @@ end
 function _collect_materials!(materials::Vector{Material}, part::Group)
     return _collect_materials!(materials, part.item)
 end
-function _collect_materials!(materials::Vector{Material}, part::Assembly)
+function _collect_materials!(
+        materials::Vector{Material},
+        part::Assembly{<:Any, <:AbstractCablePart}
+)
     return _collect_materials!(materials, part.item)
+end
+function _collect_materials!(
+        materials::Vector{Material},
+        part::Assembly{<:Any, <:Tuple}
+)
+    foreach(member -> _collect_materials!(materials, member.item), part.item)
+    return materials
 end
 function _collect_materials!(materials::Vector{Material}, part::Enclosure)
     _collect_materials!(materials, part.item)

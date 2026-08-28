@@ -131,11 +131,14 @@ end
     rectangular=build(
         CableDesign,
         "rectangular-round-trip",
-        Conductor.Stranded(
+        terminal(
             :core,
-            RectangleDefinition(0.35e-3, 0.8e-3),
-            copper;
-            counts = (1, 6, 12)
+            strand(
+                copper;
+                wire = RectangleDefinition(0.35e-3, 0.8e-3),
+                layers = 2,
+                n = (6, 12)
+            )
         )
     )
     rectangular_record=IE.serialize_value(rectangular)
@@ -147,9 +150,75 @@ end
           area.(getproperty.(rectangular.geometry.regions, :primitive))
     @test all(
         region -> region.source.primitive isa RectangleDefinition &&
-                  region.primitive isa Rectangle,
+                  region.primitive isa LineCableModels.DataModel.Rectangle,
         restored_rectangular.geometry.regions
     )
+
+    scheduled=build(
+        CableDesign,
+        "scheduled-round-trip",
+        terminal(
+            :core,
+            strand(
+                copper;
+                wire = DiskDefinition(0.35e-3),
+                layers = 2,
+                n = (6, capacity()),
+                lay = (LayRatio(12), Pitch(0.1)),
+                dir = (1, -1),
+                φ0 = (0.0, 0.2),
+                compact = (nothing, FillFactor(0.9))
+            )
+        )
+    )
+    scheduled_record=IE.serialize_value(scheduled)
+    restored_scheduled=IE.deserialize_value(scheduled_record)
+    @test restored_scheduled == scheduled
+    @test IE.serialize_value(restored_scheduled) == scheduled_record
+
+    declarations=(
+        Ring(capacity(); r = nothing, φ0 = 0.2, gap_frac = 0.03),
+        Polar(nr = 2, nφ = 6, r0 = 0.0, dr = 2e-3),
+        Fill(r = 10e-3, φ = pi/6),
+        Lattice(nx = 2, ny = 3, dx = 10e-3, dy = 12e-3),
+        Helix(LayRatio(11); dir = -1, φ0 = 0.1),
+        FillFactor(0.9),
+        DiameterFactor(0.95),
+        TabulatedCompaction(Dict("course"=>[1.0, 2.0])),
+        AffineCompaction([[1.0, 0.0], [0.0, 0.9]])
+    )
+    for declaration in declarations
+        @test IE.deserialize_value(IE.serialize_value(declaration)) == declaration
+    end
+
+    left=terminal(:left, core(copper; r = 0.8e-3))
+    right=terminal(:right, core(copper; r = 1.0e-3))
+    explicit=assembly(at(left, -2e-3, 0), at(right, 2e-3, 0; φ = 0.1))
+    explicit_record=IE.serialize_value(explicit)
+    @test explicit_record["kind"] == "assembly"
+    @test haskey(explicit_record, "members")
+    @test IE.deserialize_value(explicit_record) == explicit
+
+    repeated=cores(
+        terminal(:core, core(copper; r = 0.5e-3));
+        n = 3,
+        r = 2e-3,
+        names = (:a, :b, :c)
+    )
+    repeated_record=IE.serialize_value(repeated)
+    @test repeated_record["kind"] == "assembly"
+    @test haskey(repeated_record, "pattern")
+    @test !haskey(repeated_record, "members")
+    @test IE.deserialize_value(repeated_record) == repeated
+
+    descriptive=build(
+        CableDesign,
+        "descriptive-data",
+        left;
+        nominal_data = (rated_voltage = 220.0, designation = "test")
+    )
+    restored_descriptive=IE.deserialize_value(IE.serialize_value(descriptive))
+    @test restored_descriptive.nominal_data == descriptive.nominal_data
 
     library=CablesLibrary()
     catalogue_record=(designation_code = "MV cable", voltage_kv = 30.0)

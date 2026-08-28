@@ -43,9 +43,24 @@ struct Enclosure{
     end
 end
 
+Base.:(==)(left::Enclosure, right::Enclosure) =
+    left.tag == right.tag && left.at == right.at &&
+    left.primitive == right.primitive && left.item == right.item &&
+    left.fill == right.fill && left.wall == right.wall
+
 function resolve(
         container::Disk,
-        contents::AbstractPrimitive,
+        holes::Tuple,
+        material::Material,
+        tag::Symbol
+)
+    length(holes) == 1 || return _difference_fill(container, holes, material, tag)
+    return _disk_fill(container, only(holes), material, tag)
+end
+
+function _disk_fill(
+        container::Disk,
+        contents::Union{Disk, Annulus},
         material::Material,
         tag::Symbol
 )
@@ -57,30 +72,88 @@ function resolve(
     return resolve(EmptyBoundary(), fill_region)
 end
 
-function resolve(
-        ::AbstractPrimitive,
-        ::AbstractPrimitive,
-        ::Material,
-        ::Symbol
-)
-    throw(ArgumentError("material fill currently requires a circular enclosure"))
+
+_disk_fill(container::Disk, contents, material::Material, tag::Symbol) =
+    _difference_fill(container, (contents,), material, tag)
+
+function _difference_fill(container, holes, material, tag)
+    source = Region(Symbol(tag, :_fill), _definition(container), material)
+    primitive = _DifferencePrimitive(container, holes)
+    area(primitive) > zero(eltype(primitive)) || throw(DomainError(
+        area(primitive), "enclosure fill must have positive area"
+    ))
+    return CableGeometry(PlacedRegion[PlacedRegion(source, primitive)], boundary(container))
 end
+
+resolve(container::AbstractPrimitive, holes::Tuple, material::Material, tag::Symbol) =
+    _difference_fill(container, holes, material, tag)
+
+_definition(primitive::Disk) = DiskDefinition(primitive.r)
+_definition(primitive::Rectangle) = RectangleDefinition(primitive.w, primitive.h)
+_definition(primitive::Ellipse) = EllipseDefinition(primitive.a, primitive.b)
+_definition(primitive::Sector) = SectorDefinition(
+    primitive.ri, primitive.ro, primitive.φ0, primitive.span
+)
+_definition(primitive::Annulus) = AnnulusDefinition(primitive.ri, primitive.ro)
+_definition(primitive::Polygon) = PolygonDefinition(primitive.points)
 
 resolve(
     ::AbstractPrimitive,
-    contents::AbstractPrimitive,
+    holes::Tuple,
     fill::Region,
     ::Symbol
-) = resolve(contents, fill)
+) = length(holes) == 1 ? resolve(only(holes), fill) : throw(ArgumentError(
+    "an explicit fill Region requires one occupied boundary"
+))
+
+function _occupied_boundaries(item::AbstractCablePart)
+    return (boundary(resolve(EmptyBoundary(), item)),)
+end
+
+function _occupied_boundaries(
+        assembly::Assembly{<:Any, <:AbstractCablePart}
+)
+    child = resolve(EmptyBoundary(), assembly.item)
+    return Tuple(
+        resolve(assembly.at * _placement_pose(pose), boundary(child))
+        for pose in placements(assembly.pattern, child, assembly.compact)
+    )
+end
+
+function _occupied_boundaries(assembly::Assembly{<:Any, <:Tuple})
+    return Tuple(
+        resolve(
+            assembly.at * member.at,
+            boundary(resolve(EmptyBoundary(), member.item))
+        )
+        for member in assembly.item
+    )
+end
+
+function _contained(container::Disk, child::AbstractPrimitive)
+    return support(child) <= container.r
+end
+
+function _contained(container::Rectangle, child::AbstractPrimitive)
+    return support(child, 0) <= container.w / 2 &&
+           support(child, pi) <= container.w / 2 &&
+           support(child, pi / 2) <= container.h / 2 &&
+           support(child, -pi / 2) <= container.h / 2
+end
+
+function _contained(::AbstractPrimitive, ::AbstractPrimitive)
+    throw(ArgumentError(
+        "enclosure containment is not implemented for this resolved shape pair"
+    ))
+end
 
 function resolve(context::EmptyBoundary, enclosure::Enclosure)
     container = resolve(EmptyBoundary(), enclosure.primitive)
     contents = resolve(EmptyBoundary(), enclosure.item)
-    inner_extent = support(boundary(contents))
-    outer_extent = support(container)
-    inner_extent < outer_extent || throw(DomainError(
-        inner_extent,
-        "enclosed geometry must fit strictly inside the enclosure boundary"
+    holes = _occupied_boundaries(enclosure.item)
+    all(hole -> _contained(container, hole), holes) || throw(DomainError(
+        holes,
+        "enclosed geometry must fit inside the enclosure boundary"
     ))
 
     regions = PlacedRegion[]
@@ -97,10 +170,11 @@ function resolve(context::EmptyBoundary, enclosure::Enclosure)
 
     fill_result = resolve(
         container,
-        boundary(contents),
+        holes,
         enclosure.fill,
         enclosure.tag
     )
+    outer_extent = support(container)
     isapprox(support(boundary(fill_result)), outer_extent) || throw(DomainError(
         support(boundary(fill_result)),
         "enclosure fill must reach the containing boundary"

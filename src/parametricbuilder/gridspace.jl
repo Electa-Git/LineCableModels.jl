@@ -55,6 +55,19 @@ end
 
 Grid(space::Gridspace) = space
 
+const _FiniteSource = Union{AbstractGrid, Gridspace}
+
+_construction_axis(::_FiniteSource) = true
+
+function _finite_construction(
+        ::Type{Target}, caller, values::Tuple; combine::Symbol
+) where {Target}
+    sources = map(values) do value
+        _construction_axis(value) ? value : Grid((value,))
+    end
+    return Gridspace{Target}(caller, sources; combine)
+end
+
 points(grid::AbstractGrid) = grid
 
 _product_combinations(::Tuple{}) = ((),)

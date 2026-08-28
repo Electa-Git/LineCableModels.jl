@@ -37,19 +37,13 @@ function Material(;
         sigma_solar = 0,
         combine::Symbol = :product
 )
-    combine in (:product, :zip) ||
-        throw(ArgumentError("combine must be :product or :zip; got :$combine"))
     values = (
         kind, rho, eps_r, mu_r, T0, alpha, rho_thermal,
         theta_max, tan_delta, sigma_solar
     )
-    if any(value -> value isa Union{AbstractGrid, Gridspace}, values)
-        grids = map(values) do value
-            value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
-        end
-        return Gridspace{Materials.Material}(Materials.Material, grids; combine)
-    end
-    return Materials.Material(values...)
+    return _construction(
+        Materials.Material, Materials.Material, values; combine
+    )
 end
 
 function Material(

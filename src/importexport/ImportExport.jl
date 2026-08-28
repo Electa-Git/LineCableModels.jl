@@ -33,12 +33,15 @@ import ..Grammar: observe
 import ..ReportBuilder
 using ..Materials: Material, MaterialsLibrary
 using ..EarthProps: EarthLayer, EarthModel
+import ..DataModel
 using ..DataModel: CablesLibrary, CableDesign, LineCableSystem,
                    AbstractCablePart, Region, Stack, Group, Assembly, Enclosure,
                    DiskDefinition, RectangleDefinition, EllipseDefinition,
                    SectorDefinition, AnnulusDefinition, ShellDefinition,
                    PolygonDefinition, Pose2,
-                   Ring, Polar, Lattice, DiameterFactor,
+                   Ring, Polar, Fill, Lattice, capacity,
+                   FillFactor, DiameterFactor, TabulatedCompaction,
+                   AffineCompaction,
                    LayRatio, Pitch, LayAngle, Helix
 using ..ParametricBuilder: AbstractGrid, DeterministicGrid, RelativeGrid,
                           AbsoluteGrid, Grid, Gridspace, AbsoluteError

@@ -18,6 +18,9 @@ struct Stack{V <: AbstractVector} <: AbstractCablePart
 end
 
 Stack(item::AbstractCablePart) = Stack(AbstractCablePart[item])
+Stack(items::AbstractCablePart...) = Stack(AbstractCablePart[items...])
+
+Base.:(==)(left::Stack, right::Stack) = left.items == right.items
 
 """
 $(TYPEDEF)
@@ -59,6 +62,9 @@ struct CableGeometry{V <: AbstractVector, B <: AbstractPrimitive}
 end
 
 boundary(geometry::CableGeometry) = geometry.outer
+
+Base.:(==)(left::CableGeometry, right::CableGeometry) =
+    left.regions == right.regions && left.outer == right.outer
 
 function resolve(context::Union{EmptyBoundary, AbstractPrimitive}, stack::Stack)
     regions = PlacedRegion[]

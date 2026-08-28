@@ -50,6 +50,12 @@ include(joinpath(@__DIR__, "..", "app.jl"))
         @test length(plot.axis.scene.plots) == 2
         @test plot.insulation_circle[].r ≈ 20.5f0
         @test plot.core_circle[].r ≈ 12.5f0
+        @test plot.figure.scene.backgroundcolor[] == Makie.to_color(PLOT_BACKGROUND)
+        @test plot.axis.scene.backgroundcolor[] == Makie.to_color(PLOT_BACKGROUND)
+        @test plot.insulation_plot.color[] == XLPE_COLOR
+        @test plot.core_plot.color[] == COPPER_COLOR
+        @test plot.insulation_plot.strokecolor[] == :black
+        @test plot.core_plot.strokecolor[] == :black
 
         state[] = design(20.0, 3.0)
         @test plot.figure === figure
@@ -67,12 +73,34 @@ include(joinpath(@__DIR__, "..", "app.jl"))
     end
 
     @testset "application DOM" begin
-        app = cable_app()
+        assets = reveal_assets()
+        app = cable_app(assets)
         @test app isa App
+        @test !hasproperty(assets, :theme_css)
+        @test length(SLIDE_DESCRIPTORS) == 2
+        @test allunique(descriptor.id for descriptor in SLIDE_DESCRIPTORS)
+        @test allunique(descriptor.title for descriptor in SLIDE_DESCRIPTORS)
 
         theme = read(joinpath(@__DIR__, "..", "assets", "theme.css"), String)
-        @test occursin("width: 100vw;", theme)
-        @test occursin("height: 100vh;", theme)
+        @test occursin("--lc-bg: #1f2424;", theme)
+        @test occursin("--lc-sidebar-bg: #282f2f;", theme)
+        @test occursin("--lc-sidebar-width: 18rem;", theme)
+        @test occursin("grid-template-columns: var(--lc-sidebar-width)", theme)
+        @test occursin("html.reveal-print", theme)
+        @test occursin("@media print", theme)
+        @test !occursin("linear-gradient", theme)
+        @test !occursin("backdrop-filter", theme)
+
+        source = read(joinpath(@__DIR__, "..", "app.jl"), String)
+        @test occursin("embedded: true", source)
+        @test occursin("disableLayout: true", source)
+        @test occursin("keyboardCondition: \"focused\"", source)
+        @test occursin("controls: false", source)
+        @test occursin("new ResizeObserver", source)
+        @test occursin("deck.slide", source)
+        @test !occursin("dist/theme/black.css", source)
+        @test !occursin("LineCableModels.PlotBuilder", source)
+        @test !occursin("preview(", source)
 
         parent = Session(NoConnection(); asset_server = NoServer())
         io = IOBuffer()
@@ -80,12 +108,21 @@ include(joinpath(@__DIR__, "..", "app.jl"))
         html = String(take!(io))
         try
             for marker in (
+                "lc-live-docs",
+                "lc-sidebar",
+                "slide-search",
+                "slide-navigation",
+                "lc-navbar",
                 "linecable-app",
                 "linecable-slides",
                 "core-radius-control",
                 "insulation-thickness-control",
                 "cable-plot",
-                "reveal lc-deck"
+                "reveal lc-deck",
+                "lc-brand-logo",
+                "data-nav-group=\"Showcase\"",
+                "data-nav-title=\"Live technical manual\"",
+                "data-slide-index=\"0\""
             )
                 @test occursin(marker, html)
             end

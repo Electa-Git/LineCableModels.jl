@@ -57,6 +57,29 @@ struct Polygon{T <: Real, V <: Tuple, P <: Pose2{T}} <: AbstractPrimitive{T}
     at::P
 end
 
+struct _DifferencePrimitive{
+        T <: Real,
+        O <: AbstractPrimitive,
+        H <: Tuple,
+        P <: Pose2{T}
+} <: AbstractPrimitive{T}
+    outer::O
+    holes::H
+    at::P
+
+    function _DifferencePrimitive(
+            outer::O,
+            holes::H
+    ) where {O <: AbstractPrimitive, H <: Tuple}
+        all(hole -> hole isa AbstractPrimitive, holes) || throw(ArgumentError(
+            "difference holes must be resolved primitives"
+        ))
+        T = promote_type(eltype(outer), map(eltype, holes)...)
+        at = convert(Pose2{T}, outer.at)
+        return new{T, O, H, typeof(at)}(outer, holes, at)
+    end
+end
+
 function Disk(r::Real, at::Pose2)
     T = promote_type(typeof(r), eltype(at))
     return Disk{T, Pose2{T}}(convert(T, r), convert(Pose2{T}, at))
@@ -237,3 +260,26 @@ _with_pose(primitive::Sector, at::Pose2) =
     Sector(primitive.ri, primitive.ro, primitive.φ0, primitive.span, at)
 _with_pose(primitive::Annulus, at::Pose2) = Annulus(primitive.ri, primitive.ro, at)
 _with_pose(primitive::Polygon, at::Pose2) = _polygon(primitive.points, at)
+
+boundary(primitive::_DifferencePrimitive) = boundary(primitive.outer)
+support(primitive::_DifferencePrimitive, φ::Real) = support(primitive.outer, φ)
+support(primitive::_DifferencePrimitive) = support(primitive.outer)
+area(primitive::_DifferencePrimitive) =
+    area(primitive.outer) - sum(area, primitive.holes; init = zero(eltype(primitive)))
+function centroid(primitive::_DifferencePrimitive)
+    total_area = area(primitive)
+    total_area > zero(total_area) || throw(DomainError(
+        total_area, "difference primitive must have positive area"
+    ))
+    outer_area = area(primitive.outer)
+    outer_centroid = centroid(primitive.outer)
+    xmoment = outer_area * outer_centroid[1]
+    ymoment = outer_area * outer_centroid[2]
+    for hole in primitive.holes
+        hole_area = area(hole)
+        hole_centroid = centroid(hole)
+        xmoment -= hole_area * hole_centroid[1]
+        ymoment -= hole_area * hole_centroid[2]
+    end
+    return (xmoment / total_area, ymoment / total_area)
+end

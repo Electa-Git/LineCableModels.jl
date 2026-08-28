@@ -19,6 +19,19 @@ _field(value, name::AbstractString) = deserialize_value(
 _optional(value, name::AbstractString) =
     haskey(value, name) ? deserialize_value(value[name]) : nothing
 
+function _decode_named_tuple(value)
+    value isa AbstractVector || throw(ArgumentError(
+        "named-tuple data must be an ordered array"
+    ))
+    names = Tuple(Symbol(_required(entry, "name", "named-tuple entry"))
+                  for entry in value)
+    allunique(names) || throw(ArgumentError("named-tuple names must be unique"))
+    values = Tuple(deserialize_value(
+        _required(entry, "value", "named-tuple entry")
+    ) for entry in value)
+    return NamedTuple{names}(values)
+end
+
 function _decode_float(type_name::AbstractString, value::AbstractDict)
     T = _float_type(Val(Symbol(type_name)))
     if haskey(value, "special")
@@ -160,9 +173,10 @@ end
 function _decode_node(::Val{:ring}, value)
     values = (
         _field(value, "n"), _field(value, "r"),
-        _field(value, "φ0"), _field(value, "span")
+        _field(value, "φ0"), _field(value, "span"),
+        haskey(value, "gap_frac") ? _field(value, "gap_frac") : 0
     )
-    build = (n, r, φ0, span) -> Ring(n; r, φ0, span)
+    build = (n, r, φ0, span, gap_frac) -> Ring(n; r, φ0, span, gap_frac)
     return _decoded_target(Ring, build, values)
 end
 function _decode_node(::Val{:polar}, value)
@@ -173,6 +187,14 @@ function _decode_node(::Val{:polar}, value)
     )
     build = (nr, nφ, r0, dr, φ0, span) -> Polar(; nr, nφ, r0, dr, φ0, span)
     return _decoded_target(Polar, build, values)
+end
+function _decode_node(::Val{:fill}, value)
+    values = (
+        _field(value, "r"), _field(value, "φ"),
+        _field(value, "φ0"), _field(value, "span")
+    )
+    build = (r, φ, φ0, span) -> Fill(; r, φ, φ0, span)
+    return _decoded_target(Fill, build, values)
 end
 function _decode_node(::Val{:lattice}, value)
     values = (
@@ -185,6 +207,16 @@ end
 _decode_node(::Val{:diameter_factor}, value) = _decoded_target(
     DiameterFactor, DiameterFactor, (_field(value, "k"),)
 )
+_decode_node(::Val{:fill_factor}, value) = _decoded_target(
+    FillFactor, FillFactor, (_field(value, "η"),)
+)
+_decode_node(::Val{:tabulated_compaction}, value) = TabulatedCompaction(
+    _field(value, "data")
+)
+_decode_node(::Val{:affine_compaction}, value) = AffineCompaction(
+    _field(value, "map")
+)
+_decode_node(::Val{:capacity}, value) = capacity()
 _decode_node(::Val{:lay_ratio}, value) =
     _decoded_target(LayRatio, LayRatio, (_field(value, "q"),))
 _decode_node(::Val{:pitch}, value) =
@@ -230,8 +262,7 @@ function _decode_part(::Val{:stack}, value, materials)
         "stack items must be a nonempty array"
     ))
     decoded = Tuple(_decode_part(item, materials) for item in items)
-    build = (selected...) -> Stack(AbstractCablePart[selected...])
-    return _decoded_target(Stack, build, decoded)
+    return _decoded_target(Stack, Stack, decoded)
 end
 function _decode_part(::Val{:group}, value, materials)
     values = (
@@ -245,8 +276,31 @@ function _decode_part(::Val{:group}, value, materials)
     return _decoded_target(Group, Group, values)
 end
 function _decode_part(::Val{:assembly}, value, materials)
+    if haskey(value, "members")
+        raw_members = _required(value, "members", "assembly")
+        raw_members isa AbstractVector && !isempty(raw_members) || throw(
+            ArgumentError("explicit assembly members must be a nonempty array")
+        )
+        members = Tuple(map(raw_members) do member
+            member isa AbstractDict || throw(ArgumentError(
+                "explicit assembly members must be objects"
+            ))
+            DataModel._AssemblyMember(
+                _decode_part(_required(member, "item", "assembly member"), materials),
+                deserialize_value(_required(member, "at", "assembly member"))
+            )
+        end)
+        return Assembly(
+            deserialize_value(_required(value, "at", "assembly")),
+            members,
+            nothing,
+            nothing,
+            nothing,
+            nothing
+        )
+    end
     raw_names = _required(value, "names", "assembly")
-    names = raw_names isa AbstractString ? Symbol(raw_names) : Symbol.(raw_names)
+    names = raw_names === nothing ? nothing : Symbol.(raw_names)
     values = (
         deserialize_value(_required(value, "at", "assembly")),
         _decode_part(_required(value, "item", "assembly"), materials),
@@ -291,8 +345,12 @@ function _decode_design_resolved(value, materials)
     values = (
         String(_required(value, "cable_id", "cable_design")),
         _decode_part(_required(value, "root", "cable_design"), materials),
+        haskey(value, "nominal_data") ?
+        _decode_named_tuple(_required(value, "nominal_data", "cable_design")) : (;),
     )
-    caller = (cable_id, root) -> build(CableDesign, cable_id, root)
+    caller = (cable_id, root, nominal_data) -> build(
+        CableDesign, cable_id, root; nominal_data
+    )
     return _decoded_target(CableDesign, caller, values)
 end
 

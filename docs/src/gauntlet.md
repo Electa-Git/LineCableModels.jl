@@ -33,19 +33,19 @@ pscad_suite = DataFrame( #hide
         "525 kV bipole", #hide
         "640 kV bipole", #hide
         "1000 mm² solid single", #hide
-        "two bare wires", #hide
+        "two bare wires" #hide
     ], #hide
     conductors = [9, 9, 9, 6, 6, 1, 2], #hide
     maximum_Z_rms_difference_percent = [ #hide
-        2.1625, 1.7168, 1.8092, 1.9195, 1.9258, 1.1860, 14.9325, #hide
+        2.1625, 1.7168, 1.8092, 1.9195, 1.9258, 1.1860, 14.9325 #hide
     ], #hide
     maximum_Y_rms_difference_percent = Union{Missing, Float64}[ #hide
-        0.2469, 0.2469, 0.2469, 0.0005, missing, missing, missing, #hide
+        0.2469, 0.2469, 0.2469, 0.0005, missing, missing, missing #hide
     ], #hide
     linecablemodels_median_ms = [ #hide
-        27.828, 27.496, 27.171, 13.174, 13.362, 2.834, 5.356, #hide
+        27.828, 27.496, 27.171, 13.174, 13.362, 2.834, 5.356 #hide
     ], #hide
-    pscad_wall_ms = [50.000, 74.000, 53.000, 71.000, 54.000, 73.000, 65.000], #hide
+    pscad_wall_ms = [50.000, 74.000, 53.000, 71.000, 54.000, 73.000, 65.000] #hide
 ) #hide
 pscad_suite
 ````
@@ -141,7 +141,7 @@ column.
 noise_row = only(eachrow(errors[(errors.row .== 1) .& (errors.column .== 2), :]))
 (
     raw_relative = comparison.Y.relative[1, 2],
-    displayed_relative = noise_row.εY,
+    displayed_relative = noise_row.εY
 )
 ````
 
@@ -225,18 +225,18 @@ uq_suite = DataFrame( #hide
         "525 kV bipole", #hide
         "640 kV bipole", #hide
         "1000 mm² solid single", #hide
-        "two bare wires", #hide
+        "two bare wires" #hide
     ], #hide
     monte_carlo_trials = [512, 512, 512, 2048, 512, 512, 2048], #hide
     maximum_mean_difference_percent = [ #hide
-        1.2295, 1.8823, 1.6797, 1.3101, 0.8628, 0.6833, 1.7548, #hide
+        1.2295, 1.8823, 1.6797, 1.3101, 0.8628, 0.6833, 1.7548 #hide
     ], #hide
     maximum_std_difference_percent = [ #hide
-        3.5812, 8.5139, 9.1603, 9.2480, 6.6836, 7.3302, 6.2435, #hide
+        3.5812, 8.5139, 9.1603, 9.2480, 6.6836, 7.3302, 6.2435 #hide
     ], #hide
     monte_carlo_over_lep_time = [ #hide
-        23.37, 6.25, 24.99, 80.76, 21.28, 34.28, 165.28, #hide
-    ], #hide
+        23.37, 6.25, 24.99, 80.76, 21.28, 34.28, 165.28 #hide
+    ] #hide
 ) #hide
 uq_suite
 ````
@@ -253,7 +253,8 @@ realisation within the supported geometry.
 
 ````@example gauntlet
 function _expand_uq_fixture(anchors) #hide
-    return [index == 101 ? last(anchors) : begin #hide
+    return [index == 101 ? last(anchors) :
+            begin #hide
                 segment = div(index - 1, 10) + 1 #hide
                 fraction = rem(index - 1, 10) / 10 #hide
                 anchors[segment] + fraction * (anchors[segment + 1] - anchors[segment]) #hide
@@ -269,8 +270,14 @@ uq_fixture_zeros = zeros(11) #hide
 uq_fixture_reference = ( #hide
     values = ( #hide
         R = _uq_fixture_product( #hide
-            [3.567535312787254e-5, 3.863485615199304e-5, 5.06033512042166e-5, 1.0082637926629017e-4, 3.118557925966963e-4, 1.114080052889108e-3, 4.256781417674817e-3, 1.7093995507515593e-2, 7.018708008715781e-2, 2.8435793675690574e-1, 1.1765132611611668], #hide
-            [6.9383330411604535e-6, 6.935326475949944e-6, 6.888462026428324e-6, 6.32268200539055e-6, 6.974233659660597e-6, 1.253562344924284e-5, 2.3859472114688702e-5, 7.788234170570126e-5, 1.8094904800021496e-4, 6.4400264661532e-4, 1.361271011375702e-3] #hide
+            [3.567535312787254e-5, 3.863485615199304e-5, 5.06033512042166e-5,
+                1.0082637926629017e-4, 3.118557925966963e-4,
+                1.114080052889108e-3, 4.256781417674817e-3, 1.7093995507515593e-2,
+                7.018708008715781e-2, 2.8435793675690574e-1, 1.1765132611611668], #hide
+            [6.9383330411604535e-6, 6.935326475949944e-6, 6.888462026428324e-6,
+                6.32268200539055e-6, 6.974233659660597e-6, 1.253562344924284e-5,
+                2.3859472114688702e-5, 7.788234170570126e-5,
+                1.8094904800021496e-4, 6.4400264661532e-4, 1.361271011375702e-3] #hide
         ), #hide
         L = _uq_fixture_product(uq_fixture_zeros, uq_fixture_zeros), #hide
         C = _uq_fixture_product( #hide
@@ -287,8 +294,14 @@ uq_fixture_reference = ( #hide
 uq_fixture_candidate = ( #hide
     values = ( #hide
         R = _uq_fixture_product( #hide
-            [3.6463171459741566e-5, 3.942298920616265e-5, 5.13961983736761e-5, 1.0164292326951122e-4, 3.1228689010569656e-4, 1.114921051794952e-3, 4.258403698251689e-3, 1.7095719538089773e-2, 7.017683913341152e-2, 2.844724943615983e-1, 1.1766624247259188], #hide
-            [7.707927333377946e-6, 7.704936435727461e-6, 7.658390905200914e-6, 7.1042357389742805e-6, 7.508153512661742e-6, 1.3438623738111746e-5, 2.5432295943057146e-5, 7.789377463360494e-5, 1.6949950245540816e-4, 6.489996351688275e-4, 1.3453048905541728e-3] #hide
+            [3.6463171459741566e-5, 3.942298920616265e-5, 5.13961983736761e-5,
+                1.0164292326951122e-4, 3.1228689010569656e-4,
+                1.114921051794952e-3, 4.258403698251689e-3, 1.7095719538089773e-2,
+                7.017683913341152e-2, 2.844724943615983e-1, 1.1766624247259188], #hide
+            [7.707927333377946e-6, 7.704936435727461e-6, 7.658390905200914e-6,
+                7.1042357389742805e-6, 7.508153512661742e-6, 1.3438623738111746e-5,
+                2.5432295943057146e-5, 7.789377463360494e-5, 1.6949950245540816e-4,
+                6.489996351688275e-4, 1.3453048905541728e-3] #hide
         ), #hide
         L = _uq_fixture_product(uq_fixture_zeros, uq_fixture_zeros), #hide
         C = _uq_fixture_product( #hide

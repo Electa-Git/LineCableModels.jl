@@ -167,7 +167,7 @@ The current behaviour is:
 | Entry point | Scalar or complete input | Explicit varying input |
 |---|---|---|
 | `Material` | `Materials.Material` | `Gridspace{Materials.Material}` |
-| `Disk`, `Shell`, and other primitives | concrete primitive | `Gridspace{Primitive}` |
+| `DiskDefinition`, `ShellDefinition`, and other primitive definitions | concrete primitive definition | `Gridspace{Definition}` |
 | `Region`, `Stack`, `Group`, `Assembly`, `Enclosure` | concrete cable part | `Gridspace{TargetPart}` |
 | `CableDesign` | `DataModel.CableDesign` | `Gridspace{DataModel.CableDesign}` |
 | `at`, `trefoil`, `hflat`, `vflat` | `Pose2` or `Vector{Pose2}` | corresponding `Gridspace` |

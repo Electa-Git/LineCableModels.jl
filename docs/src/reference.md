@@ -69,7 +69,6 @@ Modules = [
     LineCableModels.ParametricBuilder.Conductor,
     LineCableModels.ParametricBuilder.Insulator,
     LineCableModels.ParametricBuilder.Semiconductor,
-    LineCableModels.ParametricBuilder.Filler,
 ]
 Order = [:module, :constant, :type, :function, :macro]
 Filter = api_reference_entry

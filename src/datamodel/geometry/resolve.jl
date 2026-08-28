@@ -24,16 +24,48 @@ function resolve(context::Annulus, definition::ShellDefinition)
     return Annulus(inner, inner + layer, context.at)
 end
 
+function resolve(context::Sector, definition::ShellDefinition)
+    values = map(float, promote(context.ro, definition.t))
+    inner, layer = values
+    return Sector(
+        inner,
+        inner + layer,
+        context.φ0,
+        context.span,
+        context.at
+    )
+end
+
 function resolve(
         context::Union{Disk, Annulus},
         definition::AnnulusDefinition
 )
     inner = r_ex(context)
-    isapprox(definition.ri, inner) || throw(DomainError(
+    tolerance = sqrt(eps(float(inner))) * max(one(inner), inner)
+    definition.ri + tolerance >= inner || throw(DomainError(
         definition.ri,
-        "annulus inner radius must equal the current outer radius $inner"
+        "annulus inner radius must not overlap the current outer radius $inner"
     ))
     return Annulus(definition.ri, definition.ro, context.at)
+end
+
+function resolve(
+        context::Union{Disk, Annulus, Sector},
+        definition::SectorDefinition
+)
+    inner = r_ex(context)
+    tolerance = sqrt(eps(float(inner))) * max(one(inner), inner)
+    definition.ri + tolerance >= inner || throw(DomainError(
+        definition.ri,
+        "sector inner radius must not overlap the current outer radius $inner"
+    ))
+    return Sector(
+        definition.ri,
+        definition.ro,
+        definition.φ0,
+        definition.span,
+        context.at
+    )
 end
 
 resolve(at::Pose2, definition::AbstractPrimitiveDefinition) =
@@ -42,3 +74,10 @@ resolve(at::Pose2, definition::AbstractPrimitiveDefinition) =
 "Compose `at` with the existing absolute primitive pose."
 resolve(at::Pose2, primitive::AbstractPrimitive) =
     _with_pose(primitive, at * primitive.at)
+
+function resolve(at::Pose2, primitive::_DifferencePrimitive)
+    return _DifferencePrimitive(
+        resolve(at, primitive.outer),
+        map(hole -> resolve(at, hole), primitive.holes)
+    )
+end

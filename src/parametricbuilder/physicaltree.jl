@@ -1,29 +1,35 @@
 function Region(tag, primitive, material; combine::Symbol = :product)
-    values = (tag, primitive, material)
-    any(value -> value isa Union{AbstractGrid, Gridspace}, values) ||
-        throw(MethodError(DataModel.Region, values))
-    grids = map(values) do value
-        value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
-    end
-    return Gridspace{DataModel.Region}(DataModel.Region, grids; combine)
-end
-
-function Stack(items::DataModel.AbstractCablePart...; combine::Symbol = :product)
-    return DataModel.Stack(DataModel.AbstractCablePart[items...])
+    return _construction(
+        DataModel.Region, DataModel.Region, (tag, primitive, material); combine
+    )
 end
 
 function Stack(items...; combine::Symbol = :product)
-    any(item -> item isa Union{AbstractGrid, Gridspace}, items) ||
-        throw(ArgumentError("stack items must resolve to cable parts"))
-    grids = map(items) do item
-        item isa Union{AbstractGrid, Gridspace} ? item : Grid((item,))
-    end
-    build = (resolved...) -> DataModel.Stack(DataModel.AbstractCablePart[resolved...])
-    return Gridspace{DataModel.Stack}(build, grids; combine)
+    isempty(items) && throw(ArgumentError("layers require at least one part"))
+    return _construction(DataModel.Stack, DataModel.Stack, items; combine)
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Compose physical parts in outward order.
+
+# Arguments
+
+- `parts`: Physical declarations ordered from the centre outward.
+
+# Keywords
+
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- A `Stack`, or a `Gridspace{Stack}` when a direct argument varies.
+"""
+layers(parts...; combine::Symbol = :product) = Stack(parts...; combine)
+
 function Group(
-        name::Symbol,
+        name,
         item;
         at = DataModel.Pose2(0, 0, 0),
         pattern = nothing,
@@ -32,36 +38,83 @@ function Group(
         combine::Symbol = :product
 )
     values = (name, at, item, pattern, path, compact)
-    if any(value -> value isa Union{AbstractGrid, Gridspace}, values)
-        grids = map(values) do value
-            value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
-        end
-        return Gridspace{DataModel.Group}(DataModel.Group, grids; combine)
-    end
-    return DataModel.Group(values...)
+    return _construction(DataModel.Group, DataModel.Group, values; combine)
 end
 
 function Assembly(
         item;
         at = DataModel.Pose2(0, 0, 0),
-        pattern = nothing,
+        pattern,
+        names = nothing,
         path = nothing,
         compact = nothing,
-        names,
         combine::Symbol = :product
 )
     values = (at, item, pattern, path, compact, names)
-    if any(value -> value isa Union{AbstractGrid, Gridspace}, values)
-        grids = map(values) do value
-            value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
-        end
-        return Gridspace{DataModel.Assembly}(DataModel.Assembly, grids; combine)
+    return _construction(DataModel.Assembly, DataModel.Assembly, values; combine)
+end
+
+function _explicit_assembly(members...)
+    placed = map(members) do member
+        member isa DataModel._AssemblyMember ? member :
+        member isa DataModel.AbstractCablePart ? DataModel._AssemblyMember(member) :
+        throw(ArgumentError("assembly members must be physical cable parts"))
     end
-    return DataModel.Assembly(values...)
+    return DataModel.Assembly(
+        DataModel.Pose2(0, 0, 0), Tuple(placed), nothing, nothing, nothing, nothing
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Preserve explicit physical members and their independent terminal identities.
+
+The pattern-oriented method retains one prototype and one placement pattern.
+The variadic method retains heterogeneous members and their local poses.
+
+# Arguments
+
+- `members`: Physical members, optionally placed with [`at`](@ref).
+- `item`: Repeated physical prototype.
+
+# Keywords
+
+- `pattern`: Placement pattern for a repeated prototype.
+- `names=nothing`: Exact terminal names for repeated terminal-bearing members.
+- `path=nothing`: Shared longitudinal path declaration.
+- `compact=nothing`: Explicit compaction law.
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- An `Assembly`, or a `Gridspace{Assembly}` when a direct argument varies.
+"""
+function assembly(members...; combine::Symbol = :product)
+    isempty(members) && throw(ArgumentError("assembly requires at least one member"))
+    return _construction(DataModel.Assembly, _explicit_assembly, members; combine)
+end
+
+function assembly(
+        item;
+        pattern,
+        names = nothing,
+        path = nothing,
+        compact = nothing,
+        combine::Symbol = :product
+)
+    return Assembly(
+        item;
+        pattern,
+        names,
+        path,
+        compact,
+        combine
+    )
 end
 
 function Enclosure(
-        tag::Symbol,
+        tag,
         item;
         at = DataModel.Pose2(0, 0, 0),
         primitive,
@@ -70,32 +123,889 @@ function Enclosure(
         combine::Symbol = :product
 )
     values = (tag, at, primitive, item, fill, wall)
-    if any(value -> value isa Union{AbstractGrid, Gridspace}, values)
-        grids = map(values) do value
-            value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
+    return _construction(DataModel.Enclosure, DataModel.Enclosure, values; combine)
+end
+
+_terminal_eligible(region::DataModel.Region) =
+    region.material.kind === :conductor ? 1 : 0
+_terminal_eligible(stack::DataModel.Stack) =
+    sum(_terminal_eligible, stack.items; init = 0)
+_terminal_eligible(group::DataModel.Group) = _terminal_eligible(group.item)
+_terminal_eligible(
+    assembly::DataModel.Assembly{<:Any, <:DataModel.AbstractCablePart}
+) = _terminal_eligible(assembly.item)
+function _terminal_eligible(assembly::DataModel.Assembly{<:Any, <:Tuple})
+    return sum(member -> _terminal_eligible(member.item), assembly.item; init = 0)
+end
+function _terminal_eligible(enclosure::DataModel.Enclosure)
+    count = _terminal_eligible(enclosure.item)
+    enclosure.fill isa DataModel.Region && (count += _terminal_eligible(enclosure.fill))
+    enclosure.wall === nothing || (count += _terminal_eligible(enclosure.wall))
+    return count
+end
+
+function _terminal(name, parts...)
+    root = DataModel.Stack(parts...)
+    _terminal_eligible(root) > 0 || throw(ArgumentError(
+        "terminal :$name requires a conductive descendant"
+    ))
+    return DataModel.Group(
+        name, DataModel.Pose2(0, 0, 0), root, nothing, nothing, nothing
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Coalesce every conductive descendant of an ordered physical subtree into one
+retained terminal.
+
+# Arguments
+
+- `name`: Retained electrical terminal name.
+- `parts`: Physical declarations ordered from the centre outward.
+
+# Keywords
+
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- A terminal-owning `Group`, or a `Gridspace{Group}` when a direct argument
+  varies.
+
+# Errors
+
+- Throws `ArgumentError` when the realized subtree contains no conductive
+  descendant.
+"""
+function terminal(name, parts...; combine::Symbol = :product)
+    isempty(parts) && throw(ArgumentError("terminal requires at least one part"))
+    return _construction(DataModel.Group, _terminal, (name, parts...); combine)
+end
+
+function _require_material(material, role::Symbol, allowed::Tuple)
+    material isa Material || throw(ArgumentError(
+        "$role material must resolve to Material"
+    ))
+    material.kind in allowed || throw(ArgumentError(
+        "$role material must have kind $(join(string.(allowed), " or ")); " *
+        "got :$(material.kind)"
+    ))
+    return material
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Bind an intrinsic primitive definition to one material and local physical tag.
+
+# Arguments
+
+- `material`: Constitutive material record.
+- `primitive`: Intrinsic cross-sectional primitive definition.
+
+# Keywords
+
+- `tag=:solid`: Local physical identity.
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- A `Region`, or a `Gridspace{Region}` when a direct argument varies.
+"""
+solid(material, primitive; tag = :solid, combine::Symbol = :product) =
+    Region(tag, primitive, material; combine)
+
+"""
+$(TYPEDSIGNATURES)
+
+Declare one outward material layer of thickness `t` \\[m\\].
+
+# Arguments
+
+- `material`: Constitutive material record.
+
+# Keywords
+
+- `t`: Normal layer thickness \\[m\\].
+- `tag=:shell`: Local physical identity.
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- A contextual `Region`, or a `Gridspace{Region}` when a direct argument
+  varies.
+"""
+shell(material; t, tag = :shell, combine::Symbol = :product) =
+    Region(tag, ShellDefinition(t), material; combine)
+
+"""
+$(TYPEDSIGNATURES)
+
+Declare a conductive core region.
+
+# Arguments
+
+- `material`: Material with `kind == :conductor`.
+- `primitive`: Intrinsic core geometry. The keyword form constructs a disk of
+  radius `r` \\[m\\].
+
+# Keywords
+
+- `r`: Disk radius \\[m\\].
+- `tag=:core`: Local physical identity.
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- A conductive `Region`, or a `Gridspace{Region}` when a direct argument
+  varies.
+"""
+function core(material, primitive; tag = :core, combine::Symbol = :product)
+    caller = (resolved_material, resolved_primitive, resolved_tag) -> DataModel.Region(
+        resolved_tag,
+        resolved_primitive,
+        _require_material(resolved_material, :core, (:conductor,))
+    )
+    return _construction(
+        DataModel.Region, caller, (material, primitive, tag); combine
+    )
+end
+
+core(material; r, tag = :core, combine::Symbol = :product) =
+    core(material, DiskDefinition(r); tag, combine)
+
+function _role_shell(role::Symbol, allowed, material, t, tag)
+    return DataModel.Region(
+        tag,
+        DataModel.ShellDefinition(t),
+        _require_material(material, role, allowed)
+    )
+end
+
+function _shell_role(
+        role::Symbol, allowed::Tuple, material, t, tag;
+        combine::Symbol
+)
+    caller = (resolved_material, resolved_t, resolved_tag) ->
+             _role_shell(role, allowed, resolved_material, resolved_t, resolved_tag)
+    return _construction(DataModel.Region, caller, (material, t, tag); combine)
+end
+
+"""Declare an insulating layer of thickness `t` \\[m\\]."""
+insulation(material; t, tag = :insulation, combine::Symbol = :product) =
+    _shell_role(:insulation, (:insulator,), material, t, tag; combine)
+"""Declare a semiconductive or conductive screen layer of thickness `t` \\[m\\]."""
+screen(material; t, tag = :screen, combine::Symbol = :product) =
+    _shell_role(:screen, (:semicon, :conductor), material, t, tag; combine)
+"""Declare a conductive sheath layer of thickness `t` \\[m\\]."""
+sheath(material; t, tag = :sheath, combine::Symbol = :product) =
+    _shell_role(:sheath, (:conductor,), material, t, tag; combine)
+"""Declare a nonconducting bedding layer of thickness `t` \\[m\\]."""
+bedding(material; t, tag = :bedding, combine::Symbol = :product) =
+    _shell_role(:bedding, (:insulator,), material, t, tag; combine)
+"""Declare an insulating jacket layer of thickness `t` \\[m\\]."""
+jacket(material; t, tag = :jacket, combine::Symbol = :product) =
+    _shell_role(:jacket, (:insulator,), material, t, tag; combine)
+
+"""
+$(TYPEDSIGNATURES)
+
+Bind a nonconducting filler material to an intrinsic primitive definition.
+
+# Arguments
+
+- `material`: Material with `kind == :insulator`.
+- `primitive`: Intrinsic filler geometry.
+
+# Keywords
+
+- `tag=:filler`: Local physical identity.
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- A filler `Region`, or a `Gridspace{Region}` when a direct argument varies.
+"""
+function filler(material, primitive; tag = :filler, combine::Symbol = :product)
+    caller = (resolved_material, resolved_primitive, resolved_tag) -> DataModel.Region(
+        resolved_tag,
+        resolved_primitive,
+        _require_material(
+            resolved_material, :filler, (:insulator,)
+        )
+    )
+    return _construction(
+        DataModel.Region, caller, (material, primitive, tag); combine
+    )
+end
+
+_path(::Nothing, dir, φ0) = nothing
+_path(path::DataModel.Helix, dir, φ0) = path
+_path(lay, dir, φ0) = DataModel.Helix(lay; dir, φ0)
+
+function _wires(
+        material, wire, pattern, path, compact, tag
+)
+    source = DataModel.Region(
+        tag,
+        wire,
+        _require_material(material, :wires, (:conductor,))
+    )
+    return DataModel.Group(
+        tag, DataModel.Pose2(0, 0, 0), source, pattern, path, compact
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Declare one repeated course of conductive members.
+
+Supply `pattern` and `path` directly for general placement, or supply `n`, `r`,
+and `lay` for the practical ring-course form.
+
+# Arguments
+
+- `material`: Material with `kind == :conductor`.
+
+# Keywords
+
+- `wire`: Intrinsic member primitive.
+- `pattern=nothing`: Explicit member placement pattern.
+- `path=nothing`: Explicit longitudinal path.
+- `n=nothing`: Exact ring cardinality or `capacity()`.
+- `r=nothing`: Member-centre ring radius \\[m\\].
+- `gap_frac=0`: Fractional adjacent clearance \\[dimensionless\\].
+- `lay=nothing`: One lay law used to construct a `Helix`.
+- `dir=1`: Helix handedness, `1` or `-1` \\[dimensionless\\].
+- `φ0=0`: Initial angular position \\[rad\\].
+- `compact=nothing`: Explicit compaction law.
+- `tag=:wire`: Local member and group identity.
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- A repeated-member `Group`, or a `Gridspace{Group}` when a direct argument
+  varies.
+"""
+function wires(
+        material;
+        wire,
+        pattern = nothing,
+        path = nothing,
+        n = nothing,
+        r = nothing,
+        gap_frac = 0,
+        lay = nothing,
+        dir = 1,
+        φ0 = 0,
+        compact = nothing,
+        tag = :wire,
+        combine::Symbol = :product
+)
+    caller = function (
+            resolved_material, resolved_wire, resolved_pattern, resolved_path,
+            resolved_n, resolved_r, resolved_gap, resolved_lay, resolved_dir,
+            resolved_φ0, resolved_compact, resolved_tag
+    )
+        if resolved_pattern !== nothing
+            resolved_n === nothing && resolved_r === nothing || throw(ArgumentError(
+                "pattern cannot be combined with n or r"
+            ))
+            resolved_lay === nothing || throw(ArgumentError(
+                "pattern-oriented wires use path rather than lay"
+            ))
+            return _wires(
+                resolved_material,
+                resolved_wire,
+                resolved_pattern,
+                resolved_path,
+                resolved_compact,
+                resolved_tag
+            )
         end
-        return Gridspace{DataModel.Enclosure}(DataModel.Enclosure, grids; combine)
+        resolved_n === nothing && throw(ArgumentError(
+            "ring-course wires require n"
+        ))
+        resolved_r === nothing && throw(ArgumentError(
+            "ring-course wires require r"
+        ))
+        resolved_path === nothing || throw(ArgumentError(
+            "ring-course wires use lay rather than path"
+        ))
+        return _wires(
+            resolved_material,
+            resolved_wire,
+            DataModel.Ring(
+                resolved_n;
+                r = resolved_r,
+                φ0 = resolved_φ0,
+                gap_frac = resolved_gap
+            ),
+            _path(resolved_lay, resolved_dir, resolved_φ0),
+            resolved_compact,
+            resolved_tag
+        )
     end
-    return DataModel.Enclosure(values...)
+    values = (
+        material, wire, pattern, path, n, r, gap_frac, lay, dir, φ0,
+        compact, tag
+    )
+    return _construction(DataModel.Group, caller, values; combine)
+end
+
+function _course_schedule(value, count::Int, name::Symbol)
+    if value isa Union{Tuple, AbstractVector}
+        length(value) == count || throw(DimensionMismatch(
+            "$name requires exactly $count course values"
+        ))
+        return Tuple(value)
+    end
+    return ntuple(_ -> value, count)
+end
+
+function _count_schedule(value, count::Int)
+    if value isa Union{Tuple, AbstractVector}
+        length(value) == count || throw(DimensionMismatch(
+            "n requires exactly $count course values"
+        ))
+        return Tuple(value)
+    end
+    value isa Integer && !(value isa Bool) && value > 0 &&
+        return ntuple(index -> index * Int(value), count)
+    value isa DataModel._DeferredCardinality && return ntuple(_ -> value, count)
+    throw(ArgumentError(
+        "n must be a positive base count, exact course schedule, or capacity()"
+    ))
+end
+
+function _strand(
+        material,
+        wire,
+        course_count,
+        counts,
+        lays,
+        directions,
+        angles,
+        compactions,
+        gaps
+)
+    course_count isa Integer && !(course_count isa Bool) && course_count >= 0 ||
+        throw(ArgumentError("layers must be a nonnegative integer"))
+    material = _require_material(material, :strand, (:conductor,))
+    central = DataModel.Group(
+        :strand,
+        DataModel.Pose2(0, 0, 0),
+        DataModel.Region(:wire, wire, material),
+        nothing,
+        nothing,
+        nothing
+    )
+    parts = DataModel.AbstractCablePart[central]
+    for course in 1:course_count
+        push!(parts, DataModel.Group(
+            :strand,
+            DataModel.Pose2(0, 0, 0),
+            DataModel.Region(:wire, wire, material),
+            DataModel.Ring(
+                counts[course];
+                r = nothing,
+                φ0 = angles[course],
+                gap_frac = gaps[course]
+            ),
+            _path(lays[course], directions[course], angles[course]),
+            compactions[course]
+        ))
+    end
+    return DataModel.Stack(parts)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Declare one central wire and a prescribed number of concentric outer courses.
+
+# Arguments
+
+- `material`: Material with `kind == :conductor`.
+
+# Keywords
+
+- `wire`: Intrinsic wire primitive.
+- `layers`: Number of outer courses \\[dimensionless\\].
+- `n=6`: Base count, exact course schedule, or deferred `capacity()` policy.
+- `lay=nothing`: One lay law or one law per outer course.
+- `dir=1`: One handedness or one value per outer course.
+- `φ0=0`: One initial angle or one value per outer course \\[rad\\].
+- `compact=nothing`: One compaction law or one law per outer course.
+- `gap_frac=0`: One clearance fraction or one value per outer course
+  \\[dimensionless\\].
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- A `Stack` of ordinary groups, or a `Gridspace{Stack}` when a direct argument
+  varies.
+"""
+function strand(
+        material;
+        wire,
+        layers,
+        n = 6,
+        lay = nothing,
+        dir = 1,
+        φ0 = 0,
+        compact = nothing,
+        gap_frac = 0,
+        combine::Symbol = :product
+)
+    caller = function (
+            resolved_material, resolved_wire, resolved_layers, resolved_n,
+            resolved_lay, resolved_dir, resolved_φ0, resolved_compact,
+            resolved_gap
+    )
+        resolved_layers isa Integer && !(resolved_layers isa Bool) &&
+            resolved_layers >= 0 || throw(ArgumentError(
+                "layers must be a nonnegative integer"
+            ))
+        count = Int(resolved_layers)
+        return _strand(
+            resolved_material,
+            resolved_wire,
+            count,
+            _count_schedule(resolved_n, count),
+            _course_schedule(resolved_lay, count, :lay),
+            _course_schedule(resolved_dir, count, :dir),
+            _course_schedule(resolved_φ0, count, :φ0),
+            _course_schedule(resolved_compact, count, :compact),
+            _course_schedule(resolved_gap, count, :gap_frac)
+        )
+    end
+    values = (material, wire, layers, n, lay, dir, φ0, compact, gap_frac)
+    return _construction(DataModel.Stack, caller, values; combine)
+end
+
+function _rope(
+        item,
+        course_count,
+        counts,
+        lays,
+        directions,
+        angles,
+        compactions,
+        gaps
+)
+    item isa DataModel.AbstractCablePart || throw(ArgumentError(
+        "rope item must be a physical cable part"
+    ))
+    central = DataModel.Group(
+        :rope, DataModel.Pose2(0, 0, 0), item, nothing, nothing, nothing
+    )
+    parts = DataModel.AbstractCablePart[central]
+    for course in 1:course_count
+        push!(parts, DataModel.Group(
+            :rope,
+            DataModel.Pose2(0, 0, 0),
+            item,
+            DataModel.Ring(
+                counts[course];
+                r = nothing,
+                φ0 = angles[course],
+                gap_frac = gaps[course]
+            ),
+            _path(lays[course], directions[course], angles[course]),
+            compactions[course]
+        ))
+    end
+    return DataModel.Stack(parts)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Repeat one physical item as a central child and concentric outer courses.
+
+# Arguments
+
+- `item`: Physical cable part repeated by the rope.
+
+# Keywords
+
+- `layers`: Number of outer courses \\[dimensionless\\].
+- `n=6`: Base count, exact course schedule, or deferred `capacity()` policy.
+- `lay=nothing`: One lay law or one law per outer course.
+- `dir=1`: One handedness or one value per outer course.
+- `φ0=0`: One initial angle or one value per outer course \\[rad\\].
+- `compact=nothing`: One compaction law or one law per outer course.
+- `gap_frac=0`: One clearance fraction or one value per outer course
+  \\[dimensionless\\].
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- A nested `Stack`, or a `Gridspace{Stack}` when a direct argument varies.
+"""
+function rope(
+        item;
+        layers,
+        n = 6,
+        lay = nothing,
+        dir = 1,
+        φ0 = 0,
+        compact = nothing,
+        gap_frac = 0,
+        combine::Symbol = :product
+)
+    caller = function (
+            resolved_item, resolved_layers, resolved_n, resolved_lay,
+            resolved_dir, resolved_φ0, resolved_compact, resolved_gap
+    )
+        resolved_layers isa Integer && !(resolved_layers isa Bool) &&
+            resolved_layers >= 0 || throw(ArgumentError(
+                "layers must be a nonnegative integer"
+            ))
+        count = Int(resolved_layers)
+        return _rope(
+            resolved_item,
+            count,
+            _count_schedule(resolved_n, count),
+            _course_schedule(resolved_lay, count, :lay),
+            _course_schedule(resolved_dir, count, :dir),
+            _course_schedule(resolved_φ0, count, :φ0),
+            _course_schedule(resolved_compact, count, :compact),
+            _course_schedule(resolved_gap, count, :gap_frac)
+        )
+    end
+    values = (item, layers, n, lay, dir, φ0, compact, gap_frac)
+    return _construction(DataModel.Stack, caller, values; combine)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Declare a repeated armor-wire course whose radius is resolved from the current
+outer boundary.
+
+# Arguments
+
+- `material`: Material with `kind == :conductor`.
+
+# Keywords
+
+- `wire`: Intrinsic armor-wire primitive.
+- `n`: Exact cardinality or deferred `capacity()` policy.
+- `lay=nothing`: One helical lay law.
+- `dir=1`: Helix handedness, `1` or `-1` \\[dimensionless\\].
+- `φ0=0`: Initial angular position \\[rad\\].
+- `compact=nothing`: Explicit compaction law.
+- `gap_frac=0`: Fractional adjacent clearance \\[dimensionless\\].
+- `tag=:armor`: Local member and group identity.
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- An armor `Group`, or a `Gridspace{Group}` when a direct argument varies.
+"""
+function armor(
+        material;
+        wire,
+        n,
+        lay = nothing,
+        dir = 1,
+        φ0 = 0,
+        compact = nothing,
+        gap_frac = 0,
+        tag = :armor,
+        combine::Symbol = :product
+)
+    caller = function (
+            resolved_material, resolved_wire, resolved_n, resolved_lay,
+            resolved_dir, resolved_φ0, resolved_compact, resolved_gap,
+            resolved_tag
+    )
+        source = DataModel.Region(
+            resolved_tag,
+            resolved_wire,
+            _require_material(resolved_material, :armor, (:conductor,))
+        )
+        return DataModel.Group(
+            resolved_tag,
+            DataModel.Pose2(0, 0, 0),
+            source,
+            DataModel.Ring(
+                resolved_n;
+                r = nothing,
+                φ0 = resolved_φ0,
+                gap_frac = resolved_gap
+            ),
+            _path(resolved_lay, resolved_dir, resolved_φ0),
+            resolved_compact
+        )
+    end
+    values = (material, wire, n, lay, dir, φ0, compact, gap_frac, tag)
+    return _construction(DataModel.Group, caller, values; combine)
+end
+
+function _tape(material, section, n, lay, gap, compact, tag)
+    source = DataModel.Region(tag, section, material)
+    return DataModel.Group(
+        :tapes,
+        DataModel.Pose2(0, 0, 0),
+        source,
+        DataModel.Ring(n; r = 0, gap_frac = gap),
+        _path(lay, 1, 0),
+        compact
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Declare a repeated conductive, semiconductive, or insulating tape system.
+
+# Arguments
+
+- `material`: Tape material.
+
+# Keywords
+
+- `section`: Intrinsic tape cross-section.
+- `n`: Exact angular cardinality or deferred `capacity()` policy.
+- `lay=nothing`: One helical lay law.
+- `gap_frac=0`: Fractional angular clearance \\[dimensionless\\].
+- `compact=nothing`: Explicit compaction law.
+- `tag=:tape`: Local tape identity.
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- A tape `Group`, or a `Gridspace{Group}` when a direct argument varies.
+"""
+function tape(
+        material;
+        section,
+        n,
+        lay = nothing,
+        gap_frac = 0,
+        compact = nothing,
+        tag = :tape,
+        combine::Symbol = :product
+)
+    values = (material, section, n, lay, gap_frac, compact, tag)
+    return _construction(DataModel.Group, _tape, values; combine)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Arrange independent cable parts as repeated or explicit cores.
+
+The pattern-backed form retains one prototype. The variadic form preserves
+heterogeneous members and their local poses.
+
+# Arguments
+
+- `item`: Repeated core prototype.
+- `members`: Explicit core members.
+
+# Keywords
+
+- `n`: Repeated cardinality.
+- `r`: Member-centre ring radius \\[m\\].
+- `names`: Exact terminal names for repeated members.
+- `φ0=0`: Starting angle \\[rad\\].
+- `span=2π`: Angular span \\[rad\\].
+- `path=nothing`: Shared longitudinal path.
+- `compact=nothing`: Explicit compaction law.
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- An `Assembly`, or a `Gridspace{Assembly}` when a direct argument varies.
+"""
+function cores(
+        item;
+        n,
+        r,
+        names,
+        φ0 = 0,
+        span = 2π,
+        path = nothing,
+        compact = nothing,
+        combine::Symbol = :product
+)
+    caller = function (
+            resolved_item, resolved_n, resolved_r, resolved_names,
+            resolved_φ0, resolved_span, resolved_path, resolved_compact
+    )
+        return DataModel.Assembly(
+            DataModel.Pose2(0, 0, 0),
+            resolved_item,
+            DataModel.Ring(
+                resolved_n;
+                r = resolved_r,
+                φ0 = resolved_φ0,
+                span = resolved_span
+            ),
+            resolved_path,
+            resolved_compact,
+            resolved_names
+        )
+    end
+    values = (item, n, r, names, φ0, span, path, compact)
+    return _construction(DataModel.Assembly, caller, values; combine)
+end
+
+cores(members...; combine::Symbol = :product) = assembly(members...; combine)
+
+function _enclosure_item(items::Tuple, formation)
+    if formation === nothing
+        return length(items) == 1 && only(items) isa DataModel.AbstractCablePart ?
+               only(items) : _explicit_assembly(items...)
+    end
+    length(items) == 1 || throw(ArgumentError(
+        "a pattern-backed enclosure requires one repeated prototype"
+    ))
+    only(items) isa DataModel.AbstractCablePart || throw(ArgumentError(
+        "a pattern-backed enclosure requires an unplaced physical prototype"
+    ))
+    return DataModel.Assembly(
+        DataModel.Pose2(0, 0, 0),
+        only(items),
+        formation,
+        nothing,
+        nothing,
+        nothing
+    )
+end
+
+function _enclose(tag, items, shape, fill, wall, pose, formation)
+    item = _enclosure_item(Tuple(items), formation)
+    resolved_pose = pose === nothing ? DataModel.Pose2(0, 0, 0) : pose
+    return DataModel.Enclosure(tag, resolved_pose, shape, item, fill, wall)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Contain one or more physical members inside a pipe cross-section.
+
+# Arguments
+
+- `items`: Enclosed physical members. Several members form an explicit
+  assembly.
+
+# Keywords
+
+- `shape`: Intrinsic containing primitive.
+- `fill`: Filling material or explicit filling region.
+- `wall=nothing`: Optional outward wall declaration.
+- `at=nothing`: Pipe pose relative to its parent frame.
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- An `Enclosure`, or a `Gridspace{Enclosure}` when a direct argument varies.
+"""
+function pipe(
+        items...;
+        shape,
+        fill,
+        wall = nothing,
+        at = nothing,
+        combine::Symbol = :product
+)
+    isempty(items) && throw(ArgumentError("pipe requires enclosed content"))
+    caller = (selected...) -> begin
+        count = length(items)
+        physical = selected[1:count]
+        _enclose(:pipe, physical, selected[(count + 1):end]..., nothing)
+    end
+    values = (items..., shape, fill, wall, at)
+    return _construction(DataModel.Enclosure, caller, values; combine)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Contain one or more physical members inside a duct cross-section.
+
+A `formation` repeats one prototype without expanding it. Explicitly placed
+members may differ in geometry and terminal structure.
+
+# Arguments
+
+- `items`: Enclosed physical members.
+
+# Keywords
+
+- `shape`: Intrinsic containing primitive.
+- `fill`: Filling material or explicit filling region.
+- `wall=nothing`: Optional outward wall declaration.
+- `formation=nothing`: Placement pattern for one repeated prototype.
+- `at=nothing`: Duct pose relative to its parent frame.
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- An `Enclosure`, or a `Gridspace{Enclosure}` when a direct argument varies.
+"""
+function duct(
+        items...;
+        shape,
+        fill,
+        wall = nothing,
+        formation = nothing,
+        at = nothing,
+        combine::Symbol = :product
+)
+    isempty(items) && throw(ArgumentError("duct requires enclosed content"))
+    caller = (selected...) -> begin
+        count = length(items)
+        physical = selected[1:count]
+        _enclose(:duct, physical, selected[(count + 1):end]...)
+    end
+    values = (items..., shape, fill, wall, at, formation)
+    return _construction(DataModel.Enclosure, caller, values; combine)
 end
 
 function build(
         ::Type{DataModel.CableDesign},
         cable_id,
-        root;
+        parts::Tuple,
+        nominal_data;
         combine::Symbol = :product
 )
-    values = (cable_id, root)
-    any(value -> value isa Union{AbstractGrid, Gridspace}, values) || throw(
-        MethodError(build, (DataModel.CableDesign, cable_id, root))
-    )
-    grids = map(values) do value
-        value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
+    isempty(parts) && throw(ArgumentError("a cable design requires one physical part"))
+    caller = (selected...) -> begin
+        id = first(selected)
+        data = last(selected)
+        physical = selected[2:(end - 1)]
+        build(DataModel.CableDesign, id, Tuple(physical), data)
     end
-    caller = (identifier, part) -> build(
+    values = (cable_id, parts..., nominal_data)
+    return _construction(DataModel.CableDesign, caller, values; combine)
+end
+
+
+function build(
+        ::Type{DataModel.CableDesign},
+        cable_id,
+        parts...;
+        nominal_data = nothing,
+        combine::Symbol = :product
+)
+    values = (cable_id, parts..., nominal_data)
+    any(value -> value isa _FiniteSource, values) || throw(MethodError(
+        build, (DataModel.CableDesign, cable_id, parts...)
+    ))
+    return build(
         DataModel.CableDesign,
-        identifier,
-        part
+        cable_id,
+        Tuple(parts),
+        nominal_data;
+        combine
     )
-    return Gridspace{DataModel.CableDesign}(caller, grids; combine)
 end

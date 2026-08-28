@@ -86,6 +86,11 @@ struct PlacedRegion{
     end
 end
 
+Base.:(==)(left::PlacedRegion, right::PlacedRegion) =
+    left.source == right.source && left.primitive == right.primitive &&
+    left.terminal == right.terminal && left.placement == right.placement &&
+    left.paths == right.paths
+
 function PlacedRegion(source::Region, primitive::AbstractPrimitive)
     return PlacedRegion(
         source,

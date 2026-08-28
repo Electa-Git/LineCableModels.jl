@@ -182,7 +182,7 @@ end
         @test shape.label == "shape"
         @test shape.group === :shape
         @test !isempty(shape.geometry.exterior)
-        primitive isa Rectangle&&@test length(shape.geometry.exterior) == 4
+        primitive isa DM.Rectangle&&@test length(shape.geometry.exterior) == 4
     end
 
     struct UnsupportedPreviewLayer end

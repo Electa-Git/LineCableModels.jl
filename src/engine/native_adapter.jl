@@ -26,6 +26,20 @@ function constitutive(
     ))
 end
 
+_path_resistance(
+    ::LineParametersFormulation, resistance::T, ::Tuple{}
+) where {T} = resistance
+
+function _path_resistance(
+        formulation::LineParametersFormulation,
+        resistance::T,
+        paths::Tuple
+) where {T}
+    inner = _path_resistance(formulation, resistance, Base.front(paths))
+    entry = last(paths)
+    return inner * convert(T, DataModel.overlength(entry.path, entry.radius))
+end
+
 function _input(
         formulation::LineParametersFormulation,
         primitive::DataModel.Disk,
@@ -64,25 +78,20 @@ function _input(
         ))
         expected_inner, expected_inner + 2radius
     end
-    path_factor = prod(
-        entry -> DataModel.overlength(entry.path, entry.radius),
-        source.paths;
-        init = one(T)
-    )
     turns = sum(
         entry -> inv(DataModel.pitch(entry.path, entry.radius)),
         source.paths;
         init = zero(T)
     )
     patterned = !isempty(source.placement.patterns)
-    resistance = DataModel.tubular_resistance(
+    resistance = _path_resistance(formulation, DataModel.tubular_resistance(
         zero(T),
         radius,
         material.rho,
         material.alpha,
         material.T0,
         material.T0
-    ) * convert(T, path_factor) / length(zone)
+    ), source.paths) / length(zone)
     gmr = patterned ? DataModel.strand_gmr(
         centre_radius,
         length(zone),
@@ -128,17 +137,16 @@ function _input(
     isapprox(DataModel.area(source.primitive), zone_area) || throw(ArgumentError(
         "resolved annular conductor does not preserve its declared area"
     ))
-    path_factor = prod(
-        entry -> DataModel.overlength(entry.path, entry.radius),
-        source.paths;
-        init = one(T)
-    )
     turns = sum(
         entry -> inv(DataModel.pitch(entry.path, entry.radius)),
         source.paths;
         init = zero(T)
     )
-    resistance = material.rho * convert(T, path_factor) / zone_area
+    resistance = _path_resistance(
+        formulation,
+        material.rho / zone_area,
+        source.paths
+    )
     return (
         r_in = zone_r_in,
         r_ex = zone_r_ex,
@@ -185,24 +193,19 @@ function _input(
                      (one(T) * pi) * (zone_r_ex^2 - zone_r_in^2) /
                      (length(zone) * tape_width)
     zone_area = length(zone) * tape_thickness * tape_width
-    path_factor = prod(
-        entry -> DataModel.overlength(entry.path, entry.radius),
-        source.paths;
-        init = one(T)
-    )
     turns = sum(
         entry -> inv(DataModel.pitch(entry.path, entry.radius)),
         source.paths;
         init = zero(T)
     )
-    resistance = DataModel.strip_resistance(
+    resistance = _path_resistance(formulation, DataModel.strip_resistance(
         tape_thickness,
         tape_width,
         material.rho,
         material.alpha,
         material.T0,
         material.T0
-    ) * convert(T, path_factor) / length(zone)
+    ), source.paths) / length(zone)
     return (
         r_in = zone_r_in,
         r_ex = zone_r_ex,
@@ -272,6 +275,115 @@ function _input(
         "the native formulation does not support dielectric primitive " *
         "$(nameof(typeof(primitive)))"
     ))
+end
+
+function _nested_conductor_input(
+        formulation::LineParametersFormulation,
+        sources,
+        ::Type{T},
+        expected_inner::T
+) where {T <: Real}
+    isempty(sources) && throw(ArgumentError(
+        "a nested conductor requires at least one resolved primitive"
+    ))
+    all(source -> source.primitive isa DataModel.Disk, sources) || throw(
+        ArgumentError(
+            "the native formulation supports nested conductor paths only for disk primitives"
+        )
+    )
+
+    materials = Material{T}[
+        convert(
+            Material{T},
+            constitutive(
+                formulation,
+                Val(source.source.material.kind),
+                source.source.material
+            )
+        ) for source in sources
+    ]
+    reference = first(materials).T0
+    all(material -> isapprox(material.T0, reference), materials) || throw(
+        ArgumentError("all nested conductor materials must share one reference temperature")
+    )
+
+    areas = T[convert(T, DataModel.area(source.primitive)) for source in sources]
+    radii = T[convert(T, source.primitive.r) for source in sources]
+    coordinates = Tuple{T, T}[
+        convert.(T, DataModel.centroid(source.primitive)) for source in sources
+    ]
+    resistances = T[
+        _path_resistance(
+            formulation,
+            DataModel.tubular_resistance(
+                zero(T),
+                radii[index],
+                materials[index].rho,
+                materials[index].alpha,
+                materials[index].T0,
+                materials[index].T0
+            ),
+            sources[index].paths
+        ) for index in eachindex(sources)
+    ]
+
+    resistance = first(resistances)
+    alpha = first(materials).alpha
+    for index in Iterators.drop(eachindex(sources), 1)
+        alpha = DataModel.equivalent_alpha(
+            alpha,
+            resistance,
+            materials[index].alpha,
+            resistances[index]
+        )
+        resistance = DataModel.parallel(resistance, resistances[index])
+    end
+
+    total_area = sum(areas)
+    weights = areas ./ total_area
+    log_gmr = zero(T)
+    for left in eachindex(sources)
+        self_gmr = DataModel.tubular_gmr(
+            radii[left],
+            zero(T),
+            materials[left].mu_r
+        )
+        log_gmr += weights[left]^2 * log(self_gmr)
+        for right in (left + 1):length(sources)
+            distance = hypot(
+                coordinates[left][1] - coordinates[right][1],
+                coordinates[left][2] - coordinates[right][2]
+            )
+            distance > zero(distance) || throw(ArgumentError(
+                "nested conductor primitives must have distinct centres"
+            ))
+            log_gmr += 2weights[left] * weights[right] * log(distance)
+        end
+    end
+
+    turn_values = T[
+        sum(
+            entry -> inv(DataModel.pitch(entry.path, entry.radius)),
+            source.paths;
+            init = zero(T)
+        ) for source in sources
+    ]
+    turns = sum(turn_values) / length(turn_values)
+    outer = maximum(source -> convert(T, DataModel.support(source.primitive)), sources)
+    outer > expected_inner || throw(ArgumentError(
+        "nested conductor envelope must exceed its preceding radial boundary"
+    ))
+    return (
+        r_in = expected_inner,
+        r_ex = outer,
+        area = total_area,
+        wires = length(sources),
+        turns,
+        resistance,
+        alpha,
+        gmr = exp(log_gmr),
+        reference
+    )
 end
 
 """
@@ -408,91 +520,112 @@ function homogeneous_components(
         previous_radius = zero(T)
         previous_element_area = zero(T)
 
-        for (zone_index, indices) in enumerate(zone_ranges)
-            zone = @view block[indices]
-            source = first(zone)
-            source.source.material.kind === :conductor || throw(ArgumentError(
-                "terminal :$terminal contains a nonconductor physical region"
-            ))
-            length(source.placement.patterns) <= 1 || throw(ArgumentError(
-                "the native formulation does not support nested conductor patterns"
-            ))
-            length(source.paths) <= 1 || throw(ArgumentError(
-                "the native formulation does not support nested conductor paths"
-            ))
-            all(item -> item.source.material == source.source.material, zone) ||
-                throw(ArgumentError("one conductor zone must use one material"))
-            all(item -> item.source.primitive == source.source.primitive, zone) ||
-                throw(ArgumentError("one conductor zone must use one primitive"))
-            expected_inner = if zone_index > 1
-                conductor_r_ex
-            elseif first_index > firstindex(regions)
+        conductor_sources = @view block[firstindex(block):(cursor - 1)]
+        nested = any(conductor_sources) do source
+            length(source.placement.patterns) > 1 || length(source.paths) > 1
+        end
+        if nested
+            expected_inner = if first_index > firstindex(regions)
                 convert(T, DataModel.r_ex(regions[first_index - 1].primitive))
             else
                 zero(T)
             end
-            values = _input(
+            values = _nested_conductor_input(
                 formulation,
-                source.primitive,
-                zone,
+                conductor_sources,
                 T,
                 expected_inner
             )
-
-            if zone_index == 1
-                conductor_r_in = values.r_in
-                conductor_r_ex = values.r_ex
-                conductor_area = values.area
-                conductor_wires = values.wires
-                conductor_turns = values.turns
-                conductor_resistance = values.resistance
-                conductor_alpha = values.material.alpha
-                conductor_gmr = values.gmr
-                conductor_reference = values.material.T0
-            else
-                isapprox(values.r_in, conductor_r_ex) || throw(ArgumentError(
-                    "conductor zones must be radially contiguous"
+            conductor_r_in = values.r_in
+            conductor_r_ex = values.r_ex
+            conductor_area = values.area
+            conductor_wires = values.wires
+            conductor_turns = values.turns
+            conductor_resistance = values.resistance
+            conductor_alpha = values.alpha
+            conductor_gmr = values.gmr
+            conductor_reference = values.reference
+        else
+            for (zone_index, indices) in enumerate(zone_ranges)
+                zone = @view block[indices]
+                source = first(zone)
+                source.source.material.kind === :conductor || throw(ArgumentError(
+                    "terminal :$terminal contains a nonconductor physical region"
                 ))
-                isapprox(values.material.T0, conductor_reference) || throw(ArgumentError(
-                    "all cable materials must share one reference temperature"
-                ))
-                log_sum = zero(T)
-                weights = zero(T)
-                weight = previous_element_area * values.element_area
-                for left in previous_coordinates, right in values.coordinates
-                    distance = hypot(left[1] - right[1], left[2] - right[2])
-                    effective_distance = iszero(distance) ?
-                                         max(previous_radius, values.element_radius) :
-                                         distance
-                    log_sum += weight * log(effective_distance)
-                    weights += weight
+                all(item -> item.source.material == source.source.material, zone) ||
+                    throw(ArgumentError("one conductor zone must use one material"))
+                all(item -> item.source.primitive == source.source.primitive, zone) ||
+                    throw(ArgumentError("one conductor zone must use one primitive"))
+                expected_inner = if zone_index > 1
+                    conductor_r_ex
+                elseif first_index > firstindex(regions)
+                    convert(T, DataModel.r_ex(regions[first_index - 1].primitive))
+                else
+                    zero(T)
                 end
-                distance = exp(log_sum / weights)
-                beta = conductor_area / (conductor_area + values.area)
-                conductor_gmr = conductor_gmr^(beta^2) *
-                                values.gmr^((one(beta) - beta)^2) *
-                                distance^(2 * beta * (one(beta) - beta))
-                conductor_alpha = DataModel.equivalent_alpha(
-                    conductor_alpha,
-                    conductor_resistance,
-                    values.material.alpha,
-                    values.resistance
+                values = _input(
+                    formulation,
+                    source.primitive,
+                    zone,
+                    T,
+                    expected_inner
                 )
-                conductor_resistance = DataModel.parallel(
-                    conductor_resistance,
-                    values.resistance
-                )
-                next_wires = conductor_wires + values.wires
-                conductor_turns = iszero(values.wires) ? conductor_turns :
-                                  (conductor_wires * conductor_turns +
-                                   values.wires * values.turns) / next_wires
-                conductor_wires = next_wires
-                conductor_area += values.area
-                conductor_r_ex = values.r_ex
+
+                if zone_index == 1
+                    conductor_r_in = values.r_in
+                    conductor_r_ex = values.r_ex
+                    conductor_area = values.area
+                    conductor_wires = values.wires
+                    conductor_turns = values.turns
+                    conductor_resistance = values.resistance
+                    conductor_alpha = values.material.alpha
+                    conductor_gmr = values.gmr
+                    conductor_reference = values.material.T0
+                else
+                    isapprox(values.r_in, conductor_r_ex) || throw(ArgumentError(
+                        "conductor zones must be radially contiguous"
+                    ))
+                    isapprox(values.material.T0, conductor_reference) || throw(ArgumentError(
+                        "all cable materials must share one reference temperature"
+                    ))
+                    log_sum = zero(T)
+                    weights = zero(T)
+                    weight = previous_element_area * values.element_area
+                    for left in previous_coordinates, right in values.coordinates
+                        distance = hypot(left[1] - right[1], left[2] - right[2])
+                        effective_distance = iszero(distance) ?
+                                             max(previous_radius, values.element_radius) :
+                                             distance
+                        log_sum += weight * log(effective_distance)
+                        weights += weight
+                    end
+                    distance = exp(log_sum / weights)
+                    beta = conductor_area / (conductor_area + values.area)
+                    conductor_gmr = conductor_gmr^(beta^2) *
+                                    values.gmr^((one(beta) - beta)^2) *
+                                    distance^(2 * beta * (one(beta) - beta))
+                    conductor_alpha = DataModel.equivalent_alpha(
+                        conductor_alpha,
+                        conductor_resistance,
+                        values.material.alpha,
+                        values.resistance
+                    )
+                    conductor_resistance = DataModel.parallel(
+                        conductor_resistance,
+                        values.resistance
+                    )
+                    next_wires = conductor_wires + values.wires
+                    conductor_turns = iszero(values.wires) ? conductor_turns :
+                                      (conductor_wires * conductor_turns +
+                                       values.wires * values.turns) / next_wires
+                    conductor_wires = next_wires
+                    conductor_area += values.area
+                    conductor_r_ex = values.r_ex
+                end
+                previous_coordinates = values.coordinates
+                previous_radius = values.element_radius
+                previous_element_area = values.element_area
             end
-            previous_coordinates = values.coordinates
-            previous_radius = values.element_radius
-            previous_element_area = values.element_area
         end
 
         dielectric_sources = cursor > lastindex(block) ?

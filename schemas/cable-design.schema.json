@@ -83,6 +83,36 @@
         {"$ref": "#/$defs/numericGrid"}
       ]
     },
+    "nullableScalar": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/scalar"}
+      ]
+    },
+    "capacity": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {"kind": {"const": "capacity"}},
+      "additionalProperties": false
+    },
+    "cardinality": {
+      "oneOf": [
+        {"type": "integer", "minimum": 1},
+        {"$ref": "#/$defs/capacity"}
+      ]
+    },
+    "nominalData": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "value"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "value": {}
+        },
+        "additionalProperties": false
+      }
+    },
     "material": {
       "type": "object",
       "required": [
@@ -191,13 +221,18 @@
       "oneOf": [
         {"type": "null"},
         {
-          "type": "object", "required": ["kind", "n", "r", "φ0", "span"],
-          "properties": {"kind": {"const": "ring"}, "n": {"type": "integer", "minimum": 1}, "r": {"$ref": "#/$defs/scalar"}, "φ0": {"$ref": "#/$defs/scalar"}, "span": {"$ref": "#/$defs/scalar"}},
+          "type": "object", "required": ["kind", "n", "r", "φ0", "span", "gap_frac"],
+          "properties": {"kind": {"const": "ring"}, "n": {"$ref": "#/$defs/cardinality"}, "r": {"$ref": "#/$defs/nullableScalar"}, "φ0": {"$ref": "#/$defs/scalar"}, "span": {"$ref": "#/$defs/scalar"}, "gap_frac": {"$ref": "#/$defs/scalar"}},
           "additionalProperties": false
         },
         {
           "type": "object", "required": ["kind", "nr", "nφ", "r0", "dr", "φ0", "span"],
           "properties": {"kind": {"const": "polar"}, "nr": {"type": "integer", "minimum": 1}, "nφ": {"type": "integer", "minimum": 1}, "r0": {"$ref": "#/$defs/scalar"}, "dr": {"$ref": "#/$defs/scalar"}, "φ0": {"$ref": "#/$defs/scalar"}, "span": {"$ref": "#/$defs/scalar"}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object", "required": ["kind", "r", "φ", "φ0", "span"],
+          "properties": {"kind": {"const": "fill"}, "r": {"$ref": "#/$defs/scalar"}, "φ": {"$ref": "#/$defs/scalar"}, "φ0": {"$ref": "#/$defs/scalar"}, "span": {"$ref": "#/$defs/scalar"}},
           "additionalProperties": false
         },
         {
@@ -228,7 +263,10 @@
     "compaction": {
       "oneOf": [
         {"type": "null"},
-        {"type": "object", "required": ["kind", "k"], "properties": {"kind": {"const": "diameter_factor"}, "k": {"$ref": "#/$defs/scalar"}}, "additionalProperties": false}
+        {"type": "object", "required": ["kind", "k"], "properties": {"kind": {"const": "diameter_factor"}, "k": {"$ref": "#/$defs/scalar"}}, "additionalProperties": false},
+        {"type": "object", "required": ["kind", "η"], "properties": {"kind": {"const": "fill_factor"}, "η": {"$ref": "#/$defs/scalar"}}, "additionalProperties": false},
+        {"type": "object", "required": ["kind", "data"], "properties": {"kind": {"const": "tabulated_compaction"}, "data": {}}, "additionalProperties": false},
+        {"type": "object", "required": ["kind", "map"], "properties": {"kind": {"const": "affine_compaction"}, "map": {}}, "additionalProperties": false}
       ]
     },
     "materialRef": {
@@ -256,7 +294,25 @@
         },
         {
           "type": "object", "required": ["kind", "at", "item", "pattern", "path", "compact", "names"],
-          "properties": {"kind": {"const": "assembly"}, "at": {"$ref": "#/$defs/pose"}, "item": {"$ref": "#/$defs/part"}, "pattern": {"$ref": "#/$defs/pattern"}, "path": {"$ref": "#/$defs/path"}, "compact": {"$ref": "#/$defs/compaction"}, "names": {"oneOf": [{"type": "string"}, {"type": "array", "minItems": 1, "items": {"type": "string"}}]}},
+          "properties": {"kind": {"const": "assembly"}, "at": {"$ref": "#/$defs/pose"}, "item": {"$ref": "#/$defs/part"}, "pattern": {"$ref": "#/$defs/pattern"}, "path": {"$ref": "#/$defs/path"}, "compact": {"$ref": "#/$defs/compaction"}, "names": {"oneOf": [{"type": "null"}, {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}]}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object", "required": ["kind", "at", "members"],
+          "properties": {
+            "kind": {"const": "assembly"},
+            "at": {"$ref": "#/$defs/pose"},
+            "members": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["at", "item"],
+                "properties": {"at": {"$ref": "#/$defs/pose"}, "item": {"$ref": "#/$defs/part"}},
+                "additionalProperties": false
+              }
+            }
+          },
           "additionalProperties": false
         },
         {
@@ -268,20 +324,22 @@
     },
     "cableDesign": {
       "type": "object",
-      "required": ["kind", "cable_id", "root"],
+      "required": ["kind", "cable_id", "nominal_data", "root"],
       "properties": {
         "kind": {"const": "cable_design"},
         "cable_id": {"type": "string", "minLength": 1},
+        "nominal_data": {"$ref": "#/$defs/nominalData"},
         "root": {"$ref": "#/$defs/part"}
       },
       "additionalProperties": false
     },
     "cataloguedCable": {
       "type": "object",
-      "required": ["kind", "cable_id", "root", "catalogue"],
+      "required": ["kind", "cable_id", "nominal_data", "root", "catalogue"],
       "properties": {
         "kind": {"const": "cable_design"},
         "cable_id": {"type": "string", "minLength": 1},
+        "nominal_data": {"$ref": "#/$defs/nominalData"},
         "root": {"$ref": "#/$defs/part"},
         "catalogue": {"type": "object"}
       },
