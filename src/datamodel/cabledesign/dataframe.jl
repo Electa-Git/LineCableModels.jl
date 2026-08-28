@@ -3,184 +3,59 @@ import DataFrames: DataFrame
 """
 $(TYPEDSIGNATURES)
 
-Convert a cable design to a tabular description.
+Convert an eager cable design to one physical or analytical table.
 
-# Arguments
-
-- `design`: Materialised cable design.
-- `format`: Table layout. Use `:components` for equivalent component values,
-  `:detailed` for one column per cable layer, or `:baseparams` for compact
-  solver-input fields. Default: `:components`.
-
-# Returns
-
-- A `DataFrame` in the selected layout.
-
-# Errors
-
-- Throws an error when `format` is unsupported.
+`format = :regions` returns one row per resolved Region. `:terminals` returns
+the current radial analytical equivalence and therefore rejects designs that
+the analytical adapter does not support. `:baseparams` returns one row with
+the calculated cable constants.
 """
-function DataFrame(design::CableDesign, format::Symbol = :components)::DataFrame
-    if format == :baseparams
-        return DataFrame(base_parameters(design))
-    elseif format == :components
-        # Component-level properties
-        properties = [
-            :radius_in_con,
-            :radius_ext_con,
-            :rho_con,
-            :alpha_con,
-            :mu_con,
-            :radius_ext_ins,
-            :eps_ins,
-            :mu_ins,
-            :loss_factor_ins
-        ]
-
-        # Initialise the DataFrame.
-        data = DataFrame(property = properties)
-
-        # Add one column per cable component.
-        for component in design.components
-            # Use the component identifier as the column name.
-            col = component.id
-
-            # Map the current component structure to the retained row names.
-            # Calculate the dielectric loss factor.
-            ω = 2 * π * component.insulator_group.reference_frequency
-            C_eq = component.insulator_group.shunt_capacitance
-            G_eq = component.insulator_group.shunt_conductance
-            loss_factor = G_eq / (ω * C_eq)
-
-            # Collect values in the retained row order.
-            new_col = [
-                component.conductor_group.r_in,               # radius_in_con
-                component.conductor_group.r_ex,              # radius_ext_con
-                component.conductor_props.rho,                     # rho_con
-                component.conductor_props.alpha,                   # alpha_con
-                component.conductor_props.mu_r,                    # mu_con
-                component.insulator_group.r_ex,              # radius_ext_ins
-                component.insulator_props.eps_r,                   # eps_ins
-                component.insulator_props.mu_r,                    # mu_ins
-                loss_factor                                       # loss_factor_ins
-            ]
-
-            # Add to DataFrame
-            data[!, col] = new_col
-        end
-
-    elseif format == :detailed
-        # Detailed part-by-part breakdown
-        properties = [
-            "type",
-            "r_in",
-            "r_ex",
-            "diam_in",
-            "diam_ext",
-            "thickness",
-            "cross_section",
-            "num_wires",
-            "resistance",
-            "alpha",
-            "gmr",
-            "gmr/radius",
-            "shunt_capacitance",
-            "shunt_conductance"
-        ]
-
-        # Initialise the DataFrame.
-        data = DataFrame(property = properties)
-
-        # Process each component
-        for component in design.components
-            # Handle conductor group layers
-            for (i, part) in enumerate(component.conductor_group.layers)
-                # Column name with component ID and layer number
-                col = lowercase(component.id) * ", cond. layer " * string(i)
-
-                # Collect values for each property
-                new_col = _extract_part_properties(part, properties)
-
-                # Add to DataFrame
-                data[!, col] = new_col
-            end
-
-            # Handle insulator group layers
-            for (i, part) in enumerate(component.insulator_group.layers)
-                # Column name with component ID and layer number
-                col = lowercase(component.id) * ", ins. layer " * string(i)
-
-                # Collect values for each property
-                new_col = _extract_part_properties(part, properties)
-
-                # Add to DataFrame
-                data[!, col] = new_col
-            end
-        end
-    else
-        Base.error(
-            "Unsupported format: $format. Use :components or :detailed",
+function DataFrame(design::CableDesign, format::Symbol = :terminals)::DataFrame
+    if format in (:terminals, :components)
+        design.effective === nothing && throw(ArgumentError(
+            "terminal equivalence requires the current radial analytical profile"
+        ))
+        return DataFrame(
+            terminal = Symbol[item.name for item in design.effective],
+            conductor_r_in = [item.conductor.r_in for item in design.effective],
+            conductor_r_ex = [item.conductor.r_ex for item in design.effective],
+            conductor_area = [item.conductor.cross_section for item in design.effective],
+            conductor_rho = [item.conductor.material.rho for item in design.effective],
+            conductor_mu_r = [item.conductor.material.mu_r for item in design.effective],
+            conductor_alpha = [item.conductor.alpha for item in design.effective],
+            resistance = [item.conductor.resistance for item in design.effective],
+            gmr = [item.conductor.gmr for item in design.effective],
+            dielectric_r_ex = [item.dielectric.r_ex for item in design.effective],
+            dielectric_rho = [item.dielectric.material.rho for item in design.effective],
+            dielectric_eps_r = [item.dielectric.material.eps_r for item in design.effective],
+            dielectric_mu_r = [item.dielectric.material.mu_r for item in design.effective],
+            capacitance = [item.dielectric.shunt_capacitance for item in design.effective],
+            conductance = [item.dielectric.shunt_conductance for item in design.effective]
         )
+    elseif format in (:regions, :detailed)
+        return DataFrame(
+            tag = Symbol[source.region.tag for source in design.geometry.regions],
+            terminal = Union{Missing, Symbol}[
+                source.terminal === nothing ? missing : source.terminal
+                for source in design.geometry.regions
+            ],
+            primitive = Symbol[nameof(typeof(source.region.primitive))
+                               for source in design.geometry.regions],
+            material_kind = Symbol[source.region.material.kind
+                                   for source in design.geometry.regions],
+            area = [area(source.shape) for source in design.geometry.regions],
+            centroid_x = [first(centroid(source.shape))
+                          for source in design.geometry.regions],
+            centroid_y = [last(centroid(source.shape))
+                          for source in design.geometry.regions],
+            overlength = [source.overlength for source in design.geometry.regions]
+        )
+    elseif format == :baseparams
+        constants = base_parameters(design)
+        return DataFrame(R = [constants.R], L = [constants.L], C = [constants.C])
     end
-
-    return data
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Return the fixed row values used by the `:detailed` cable-design table.
-
-# Arguments
-
-- `part`: Cable part to inspect.
-- `properties`: Retained layout argument. The current row order is fixed.
-
-# Returns
-
-- Values for type, radii, diameters, thickness, cross-section, wire count,
-  resistance, temperature coefficient, GMR, GMR-to-radius ratio, capacitance,
-  and conductance. A field absent from `part` produces `missing`.
-"""
-function _extract_part_properties(part, properties)
-    return [
-        lowercase(string(typeof(part))),  # type
-        hasfield(typeof(part), :r_in) ?
-        getproperty(part, :r_in) : missing,
-        hasfield(typeof(part), :r_ex) ?
-        getproperty(part, :r_ex) : missing,
-        hasfield(typeof(part), :r_in) ?
-        2 * getproperty(part, :r_in) : missing,
-        hasfield(typeof(part), :r_ex) ?
-        2 * getproperty(part, :r_ex) : missing,
-        hasfield(typeof(part), :r_ex) &&
-        hasfield(typeof(part), :r_in) ?
-        (getproperty(part, :r_ex) - getproperty(part, :r_in)) :
-        missing,
-        hasfield(typeof(part), :cross_section) ?
-        getproperty(part, :cross_section) : missing,
-        hasfield(typeof(part), :num_wires) ?
-        getproperty(part, :num_wires) : missing,
-        hasfield(typeof(part), :resistance) ?
-        getproperty(part, :resistance) : missing,
-        hasfield(typeof(part), :alpha) ||
-        (
-            hasfield(typeof(part), :material_props) &&
-            hasfield(typeof(getproperty(part, :material_props)), :alpha)
-        ) ?
-        (
-            hasfield(typeof(part), :alpha) ?
-            getproperty(part, :alpha) :
-            getproperty(getproperty(part, :material_props), :alpha)
-        ) : missing,
-        hasfield(typeof(part), :gmr) ?
-        getproperty(part, :gmr) : missing,
-        hasfield(typeof(part), :gmr) &&
-        hasfield(typeof(part), :r_ex) ?
-        (getproperty(part, :gmr) / getproperty(part, :r_ex)) : missing,
-        hasfield(typeof(part), :shunt_capacitance) ?
-        getproperty(part, :shunt_capacitance) : missing,
-        hasfield(typeof(part), :shunt_conductance) ?
-        getproperty(part, :shunt_conductance) : missing
-    ]
+    throw(ArgumentError(
+        "unsupported cable-design table format :$format; " *
+        "use :terminals, :regions, or :baseparams"
+    ))
 end

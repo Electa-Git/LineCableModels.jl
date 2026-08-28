@@ -87,7 +87,7 @@ end
         )
 
         invalid=IE._json_document(library)
-        invalid["materials"]["copper"]["type"]="CableDesign"
+        delete!(invalid["materials"]["copper"], "rho")
         invalid_path=joinpath(directory, "invalid.json")
         open(invalid_path, "w") do io
             JSON3.pretty(io, invalid)
@@ -98,9 +98,7 @@ end
 
         legacy=joinpath(directory, "legacy.json")
         write(legacy, "{\"copper\":{}}")
-        @test_logs (:warn, r"Unversioned LineCableModels JSON is retired") begin
-            @test_throws ArgumentError load!(restored; file_name = legacy)
-        end
+        @test_throws ArgumentError load!(restored; file_name = legacy)
         @test restored.data === before
     end
 end
@@ -147,24 +145,37 @@ end
         @test occursin("LAYER,TOP,80.0,4.0,1.0,8.0", layered_text)
         @test occursin("LAYER,BOTTOM,300.0,,1.0,12.0", layered_text)
 
-        oversized_system=deepcopy(system)
-        extra=deepcopy(last(first(oversized_system.cables).design_data.components))
-        push!(first(oversized_system.cables).design_data.components, extra)
-        push!(first(oversized_system.cables).conn, 0)
+        metal=Material(:conductor, 1.7e-8, 1.0, 1.0, 20.0, 0.0039)
+        dielectric=Material(:insulator, 1.0e14, 2.3, 1.0, 20.0, 0.0)
+        parts=AbstractCablePart[]
+        for index in 1:4
+            inner=(index-1)*2.0e-3
+            terminal=Symbol("terminal_$index")
+            push!(parts,
+                Group(terminal, Region(
+                    Symbol(terminal, :_conductor),
+                    Annulus(inner, inner+1.0e-3),
+                    metal
+                )))
+            push!(parts,
+                Region(
+                    Symbol(terminal, :_insulation),
+                    Annulus(inner+1.0e-3, inner+2.0e-3),
+                    dielectric
+                ))
+        end
+        oversized_design=CableDesign(Stack(parts); cable_id = "oversized")
+        oversized_system=LineCableSystem(
+            oversized_design;
+            position = Pose2(0.0, -1.0, 0.0),
+            connections = Dict(name=>index
+            for (index, name) in enumerate(oversized_design.terminal_order))
+        )
         @test_throws ArgumentError export_data(
             :tralin,
             oversized_system,
             homogeneous;
             file_name = joinpath(directory, "oversized.f05")
-        )
-
-        short_system=deepcopy(system)
-        resize!(first(short_system.cables).conn, 1)
-        @test_throws ArgumentError export_data(
-            :tralin,
-            short_system,
-            homogeneous;
-            file_name = joinpath(directory, "short.f05")
         )
 
         report=String[

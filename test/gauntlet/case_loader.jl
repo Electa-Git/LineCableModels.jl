@@ -425,9 +425,7 @@ function _validate_loaded_problem(
     nominal_problem.system.system_id == string(definition.id) || throw(ArgumentError(
         "case :$(definition.id) built system $(repr(nominal_problem.system.system_id))",
     ))
-    assignments = collect(Iterators.flatten(
-        position.conn for position in nominal_problem.system.cables
-    ))
+    assignments = copy(nominal_problem.system.connection_order)
     isempty(assignments) && throw(ArgumentError(
         "case :$(definition.id) requires at least one explicit terminal",
     ))

@@ -5,15 +5,15 @@
     using LineCableModels.Engine
     using .GauntletSupport
 
-    model = load_case(
+    model=load_case(
         :cable_132kv_630mm2_flathor;
         variation = RelativeStandardUncertainty(
             10.0; tags = (:geometry, :cable_layer)
         )
     )
-    inner = uq_inner_formulation()
-    problem = ParametricProblem(model.problem)
-    reference = benchmark_calculation(
+    inner=uq_inner_formulation()
+    problem=ParametricProblem(model.problem)
+    reference=benchmark_calculation(
         :linear_error,
         :uq,
         problem,
@@ -23,8 +23,8 @@
     # meaningful std discrepancy from 9.83% to 7.90% to 3.58%. At 512 trials
     # the worst meaningful mean discrepancy was 1.23%, so 512 is the locked
     # count beneath the shared 5% mean and 10% std engineering gates.
-    monte_carlo_trials = UQ_MONTE_CARLO_TRIALS
-    candidate = benchmark_calculation(
+    monte_carlo_trials=UQ_MONTE_CARLO_TRIALS
+    candidate=benchmark_calculation(
         :monte_carlo,
         :uq,
         problem,
@@ -37,8 +37,8 @@
             return_histograms = false
         )
     )
-    tolerances = uq_moment_tolerances()
-    benchmark = benchmark_definition(
+    tolerances=uq_moment_tolerances()
+    benchmark=benchmark_definition(
         :benchmark_132kv_630mm2_flathor_lep_montecarlo,
         :cable_132kv_630mm2_flathor,
         :uq,
@@ -49,8 +49,9 @@
         UQMomentPolicy(),
         tolerances
     )
-    outcome = run_benchmark(benchmark)
-    @info "LEP versus Monte Carlo engineering comparison" trials=monte_carlo_trials seed=UInt64(0x132630) errors=moment_error_summary(outcome.comparison, tolerances.reference) monte_carlo_over_lep_speedup=outcome.performance.speedup
+    outcome=run_benchmark(benchmark)
+    @info "LEP versus Monte Carlo engineering comparison" trials=monte_carlo_trials seed=UInt64(0x132630) errors=moment_error_summary(
+        outcome.comparison, tolerances.reference) monte_carlo_over_lep_speedup=outcome.performance.speedup
 
     @test outcome.reference_result isa LinearErrorResult
     @test outcome.candidate_result isa MonteCarloResult

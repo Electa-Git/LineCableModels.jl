@@ -36,7 +36,7 @@ struct LineParametersPolicy end
 struct UQMomentPolicy end
 
 struct OwnedBenchmark{M <: LoadedCase, R <: BenchmarkCalculation,
-                      C <: BenchmarkCalculation, P, T}
+    C <: BenchmarkCalculation, P, T}
     id::Symbol
     case_id::Symbol
     collection::Symbol
@@ -60,7 +60,7 @@ struct OwnedBenchmark{M <: LoadedCase, R <: BenchmarkCalculation,
             comparison_policy::P,
             tolerances::T
     ) where {M <: LoadedCase, R <: BenchmarkCalculation,
-             C <: BenchmarkCalculation, P, T}
+            C <: BenchmarkCalculation, P, T}
         occursin(_CASE_IDENTIFIER, string(id)) || throw(ArgumentError(
             "benchmark identifiers must be lowercase; got $(repr(id))",
         ))
@@ -127,10 +127,10 @@ function _compute_owned(calculation::BenchmarkCalculation)
     return isempty(calculation.options) ?
            compute(calculation.problem, calculation.formulation) :
            compute(
-               calculation.problem,
-               calculation.formulation;
-               options = calculation.options
-           )
+        calculation.problem,
+        calculation.formulation;
+        options = calculation.options
+    )
 end
 
 function _execute(calculation::BenchmarkCalculation)
@@ -190,14 +190,16 @@ function _owned_performance(benchmark::OwnedBenchmark)
 end
 
 _normalize(::LineParametersPolicy, result, ::LoadedCase) = result
-_normalize(::UQMomentPolicy, result, model::LoadedCase) =
+function _normalize(::UQMomentPolicy, result, model::LoadedCase)
     extract_moments(result, model.port_order)
+end
 
 _comparison_policy_record(::LineParametersPolicy) = :line_parameters
 _comparison_policy_record(::UQMomentPolicy) = :uq_moments
 
-_owned_formulation_record(formulation::AnalyticalFormulation) =
+function _owned_formulation_record(formulation::AnalyticalFormulation)
     formulation_record(formulation)
+end
 function _owned_formulation_record(formulation::LineCableModels.LinearError)
     return (
         kind = :linear_error,
@@ -260,15 +262,16 @@ function _semantic_calculation_records(records::NamedTuple)
             calculation,
             (
                 formulation = _semantic_owned_formulation_record(
-                    calculation.formulation
-                ),
+                calculation.formulation
+            ),
             )
         )
     end
 end
 
 function _owned_metadata(benchmark::OwnedBenchmark, reference_result, candidate_result)
-    monte_carlo = candidate_result isa LineCableModels.MonteCarloResult ? (
+    monte_carlo = candidate_result isa LineCableModels.MonteCarloResult ?
+                  (
         trials = only(candidate_result.trial_counts),
         seed = candidate_result.root_seed,
         distribution = benchmark.candidate.formulation.distribution
@@ -346,11 +349,13 @@ function _owned_snapshot_path(
         required::Bool = true
 )
     artifact = artifact_name(benchmark.collection)
-    isfile(artifacts_toml) || (required ? throw(ArgumentError(
+    isfile(artifacts_toml) || (required ?
+     throw(ArgumentError(
         "Gauntlet Artifacts.toml is missing: $artifacts_toml",
     )) : return nothing)
     hash = artifact_hash(artifact, artifacts_toml)
-    hash === nothing && (required ? throw(ArgumentError(
+    hash === nothing && (required ?
+     throw(ArgumentError(
         "Gauntlet collection $artifact is not bound in $artifacts_toml",
     )) : return nothing)
     if !artifact_exists(hash)
@@ -370,14 +375,16 @@ function _owned_snapshot_path(
         string(benchmark.id),
         "snapshot.jld2"
     )
-    isfile(path) || (required ? throw(ArgumentError(
+    isfile(path) || (required ?
+     throw(ArgumentError(
         "Gauntlet collection $artifact has no snapshot for $(benchmark.id)",
     )) : return nothing)
     return path
 end
 
-snapshot_path(benchmark::OwnedBenchmark; artifacts_toml::AbstractString = ARTIFACTS_TOML) =
+function snapshot_path(benchmark::OwnedBenchmark; artifacts_toml::AbstractString = ARTIFACTS_TOML)
     _owned_snapshot_path(benchmark; artifacts_toml, required = true)
+end
 
 function _write_owned_snapshot(
         path::AbstractString,
@@ -501,12 +508,13 @@ function _load_owned_snapshot_path(
     snapshot["collection"] == string(benchmark.collection) ||
         throw(ArgumentError("Gauntlet snapshot collection does not match"))
     current = _owned_metadata(benchmark, nothing, nothing)
-    snapshot["case_source_sha256"] == bytes2hex(sha256(read(benchmark.model.source_file))) ||
+    snapshot["case_source_sha256"] ==
+    bytes2hex(sha256(read(benchmark.model.source_file))) ||
         throw(ArgumentError("Gauntlet snapshot case source digest does not match"))
     snapshot["benchmark_source_sha256"] == bytes2hex(sha256(read(benchmark.source_file))) ||
         throw(ArgumentError("Gauntlet snapshot benchmark source digest does not match"))
     for field in ("parameter_manifest", "applied_variation", "correlation",
-                  "comparison_policy")
+        "comparison_policy")
         isequal(snapshot[field], getproperty(current, Symbol(field))) ||
             throw(ArgumentError("Gauntlet snapshot $field does not match"))
     end
@@ -603,7 +611,8 @@ function run_benchmark(benchmark::OwnedBenchmark)
         "owned benchmark $(benchmark.id) exceeds its reference tolerance" *
         failure_detail,
     ))
-    regression = accepted === nothing ? nothing : (
+    regression = accepted === nothing ? nothing :
+                 (
         reference = compare(accepted.accepted_reference, reference),
         candidate = compare(accepted.accepted_candidate, candidate)
     )
@@ -625,7 +634,8 @@ function run_benchmark(benchmark::OwnedBenchmark)
     end
     performance = _owned_performance(benchmark)
     performance === nothing || performance.passes === nothing ||
-        performance.passes || throw(ArgumentError(
+        performance.passes ||
+        throw(ArgumentError(
             "owned benchmark $(benchmark.id) Monte Carlo/LEP speedup " *
             "$(performance.speedup) is below " *
             "$(performance.settings.minimum_speedup)",
@@ -642,7 +652,8 @@ function run_benchmark(benchmark::OwnedBenchmark)
         reference_execution.result,
         candidate_execution.result
     )
-    artifact = mode === :record ? persist_snapshot(
+    artifact = mode === :record ?
+               persist_snapshot(
         benchmark,
         reference,
         candidate,

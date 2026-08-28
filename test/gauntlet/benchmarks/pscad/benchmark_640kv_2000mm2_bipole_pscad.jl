@@ -1,4 +1,5 @@
-@testitem "PSCAD benchmark / 640 kV 2000 mm² rectangular-stranded bipole" tags=[:gauntlet, :pscad] setup=[GauntletSupport] begin
+@testitem "PSCAD benchmark / 640 kV 2000 mm² rectangular-stranded bipole" tags=[
+    :gauntlet, :pscad] setup=[GauntletSupport] begin
     using Test
     using DataFrames
     using LineCableModels
@@ -6,11 +7,11 @@
     using .GauntletSupport
     using .GauntletSupport.PSCADBenchmarks
 
-    model = load_case(:cable_640kv_2000mm2_bipole)
-    reference_formulation = Formulation(
+    model=load_case(:cable_640kv_2000mm2_bipole)
+    reference_formulation=Formulation(
         :pscad; earth_impedance = EarthImpedance.Wedepohl()
     )
-    candidate_formulation = Formulation(
+    candidate_formulation=Formulation(
         earth_impedance = EarthImpedance.Pollaczek(),
         earth_admittance = EarthAdmittance.IdealGround(),
         insulation_admittance = InsulationAdmittance.Lossless(),
@@ -20,7 +21,7 @@
             ideal_transposition = false
         )
     )
-    tolerances = (
+    tolerances=(
         reference = (
             Z = (absolute = 1.0e-6, relative = 5.0e-2),
             Y = (absolute = 1.0e-9, relative = 5.0e-2)
@@ -35,7 +36,7 @@
             allocations_ratio = 1.05
         )
     )
-    benchmark = GauntletCase(
+    benchmark=GauntletCase(
         :benchmark_640kv_2000mm2_bipole_pscad,
         :pscad,
         @__FILE__,
@@ -44,9 +45,9 @@
         candidate_formulation,
         tolerances
     )
-    candidate = @inferred compute(model.nominal_problem, candidate_formulation)
+    candidate=@inferred compute(model.nominal_problem, candidate_formulation)
     @test size(Z(candidate)) == model.expected_size
-    outcome = run_case(
+    outcome=run_case(
         benchmark;
         options = (reference = (
             output_stem = "640kV_2000_bipole",
@@ -61,7 +62,7 @@
     if !ISHEADLESS
         display(DataFrame(outcome.comparison))
     end
-    if outcome.mode === :snapshot
+    if outcome.mode===:snapshot
         @test comparison_passes(outcome.regression.Z, tolerances.regression.Z)
         @test comparison_passes(outcome.regression.Y, tolerances.regression.Y)
         if outcome.performance.comparable

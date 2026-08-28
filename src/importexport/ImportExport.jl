@@ -28,15 +28,18 @@ export load!
 using DocStringExtensions: IMPORTS
 #! explicit-imports: on
 using DocStringExtensions: TYPEDSIGNATURES, METHODLIST
-import ..LineCableModels: add!, validate, nominal
+import ..LineCableModels: validate, nominal
 import ..Grammar: observe
 import ..ReportBuilder
 using ..Materials: Material, MaterialsLibrary
-using ..EarthProps: EarthModel
-using ..DataModel: CablesLibrary, CableDesign, CableComponent, ConductorGroup,
-                   InsulatorGroup, CircStrands, RectStrands, Strip, Tubular, Semicon,
-                   Insulator, CablePosition,
-                   LineCableSystem, NominalData
+using ..EarthProps: EarthLayer, EarthModel
+using ..DataModel: CablesLibrary, CableDesign, LineCableSystem, NominalData,
+                   AbstractCablePart, Region, Stack, Group, Assembly, Enclosure,
+                   Disk, Rectangle, Ellipse, Sector, Annulus, Shell, Polygon, Pose2,
+                   Ring, Polar, Lattice, DiameterFactor,
+                   LayRatio, Pitch, LayAngle, Helix
+using ..ParametricBuilder: AbstractGrid, DeterministicGrid, RelativeGrid,
+                          AbsoluteGrid, Grid, Gridspace, AbsoluteError
 import ..Engine: LineParameters, SeriesImpedance, ShuntAdmittance,
                  frequencies, Z, Y, C
 import EzXML

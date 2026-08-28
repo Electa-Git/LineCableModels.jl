@@ -75,14 +75,18 @@ end
 
 function AnalyticalInput(problem::LineParametersProblem{T}) where {T <: Real}
     system = problem.system
+    for design in system.designs
+        design.effective === nothing && throw(ArgumentError(
+            "the analytical formulation supports only contiguous radial terminal blocks; " *
+            "CableDesign \"$(design.cable_id)\" remains physically valid but is not supported"
+        ))
+    end
     n_frequencies = length(problem.frequencies)
-    n_phases = sum(
-        length(cable.design_data.components) for cable in system.cables
-    )
+    n_phases = sum(length(design.effective) for design in system.designs)
     n_layers = sum(
-        length(component.insulator_group.layers)
-    for cable in system.cables
-    for component in cable.design_data.components
+        length(terminal.dielectric.layers)
+    for design in system.designs
+    for terminal in design.effective
     )
     n_cables = ncables(system)
 
@@ -114,40 +118,47 @@ function AnalyticalInput(problem::LineParametersProblem{T}) where {T <: Real}
 
     component_index = 0
     layer_index = 0
-    for (cable_index, cable) in enumerate(system.cables)
-        for (local_index, component) in enumerate(cable.design_data.components)
+    for (cable_index, (design, position, connections)) in enumerate(zip(
+            system.designs,
+            system.positions,
+            system.connections
+    ))
+        for (local_index, terminal) in enumerate(design.effective)
             component_index += 1
-            horz[component_index] = cable.horz
-            vert[component_index] = cable.vert
-            r_in[component_index] = component.conductor_group.r_in
-            r_ext[component_index] = component.conductor_group.r_ex
-            r_ins_in[component_index] = component.insulator_group.r_in
-            r_ins_ext[component_index] = component.insulator_group.r_ex
-            rho0_cond[component_index] = component.conductor_props.rho
-            T0_cond[component_index] = component.conductor_props.T0
-            alpha_cond[component_index] = component.conductor_props.alpha
-            mu_cond[component_index] = component.conductor_props.mu_r
-            eps_cond[component_index] = component.conductor_props.eps_r
-            rho_ins[component_index] = component.insulator_props.rho
-            mu_ins[component_index] = component.insulator_props.mu_r
-            eps_ins[component_index] = component.insulator_props.eps_r
+            conductor = terminal.conductor
+            dielectric = terminal.dielectric
+            horz[component_index] = position.x
+            vert[component_index] = position.y
+            r_in[component_index] = conductor.r_in
+            r_ext[component_index] = conductor.r_ex
+            r_ins_in[component_index] = dielectric.r_in
+            r_ins_ext[component_index] = dielectric.r_ex
+            rho0_cond[component_index] = conductor.material.rho
+            T0_cond[component_index] = conductor.material.T0
+            alpha_cond[component_index] = conductor.material.alpha
+            mu_cond[component_index] = conductor.material.mu_r
+            eps_cond[component_index] = conductor.material.eps_r
+            rho_ins[component_index] = dielectric.material.rho
+            mu_ins[component_index] = dielectric.material.mu_r
+            eps_ins[component_index] = dielectric.material.eps_r
             reference_ω = 2 * (one(first(freq)) * π) *
-                          component.insulator_group.reference_frequency
-            tan_ins[component_index] = DataModel.loss_tangent(
-                component.insulator_group.shunt_conductance,
-                component.insulator_group.shunt_capacitance,
+                          dielectric.reference_frequency
+            tan_ins[component_index] = isempty(dielectric.layers) ? zero(T) :
+                                       DataModel.loss_tangent(
+                dielectric.shunt_conductance,
+                dielectric.shunt_capacitance,
                 reference_ω
             )
             first_layer = layer_index + 1
-            for layer in component.insulator_group.layers
+            for layer in dielectric.layers
                 layer_index += 1
                 r_ins_layer_in[layer_index] = layer.r_in
                 r_ins_layer_ext[layer_index] = layer.r_ex
-                rho_ins_layer[layer_index] = layer.material_props.rho
-                eps_ins_layer[layer_index] = layer.material_props.eps_r
+                rho_ins_layer[layer_index] = layer.material.rho
+                eps_ins_layer[layer_index] = layer.material.eps_r
             end
             insulator_layer_ranges[component_index] = first_layer:layer_index
-            phase_map[component_index] = cable.conn[local_index]
+            phase_map[component_index] = connections[local_index]
             cable_map[component_index] = cable_index
         end
     end

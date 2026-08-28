@@ -18,20 +18,6 @@ fewest_layers = estimate[:layers]
 The selectors `:match`, `:layers`, `:wires`, and `:diameter` do not change the
 stored candidate order.
 
-## Packing limits
-
-[`maxfill`](@ref) returns the integer packing limit used by materialised cable
-constructors and wire-pattern searches:
-
-```julia
-maxfill(CircStrands, r_in, wire_radius)
-maxfill(RectStrands, lay_radius, width)
-```
-
-Use an explicit integer wire count in a model when that count is part of the
-model definition. `maxfill` is an estimate, not an instruction to alter a
-materialised cable.
-
 ## VDE designation parsing
 
 The qualified [`LineCableModels.DataModel.vdeparse`](@ref) function decodes the
@@ -54,7 +40,6 @@ model preparation.
 ## Reference
 
 ```@docs
-LineCableModels.maxfill
 LineCableModels.DataModel.vdeparse
 Base.get
 Base.delete!

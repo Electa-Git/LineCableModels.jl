@@ -86,7 +86,7 @@ end
     @test DM.centroid(placed) == (1.0, 2.0)
     @test DM.support(placed, 0) ≈ 2.0
 
-    poses=PB.Pose2(x=PB.Grid((0.0, 1.0)), y=2.0, φ=PB.Grid((0.0, π / 2)))
+    poses=PB.Pose2(x = PB.Grid((0.0, 1.0)), y = 2.0, φ = PB.Grid((0.0, π / 2)))
     @test poses isa PB.Gridspace{DM.Pose2}
     @test length(poses) == 4
     @test all(pose -> pose isa DM.Pose2, poses)

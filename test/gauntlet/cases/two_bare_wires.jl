@@ -30,34 +30,40 @@ case_definition(
         kind = :insulator,
         rho = 1.97e14, eps_r = 2.3, mu_r = 1.0, T0 = 20.0, alpha = 0.0
     )
-    design = LineCableModels.CableBuilder(
-        "two_bare_wires",
-        LineCableModels.Conductor.Solid(
-            :core; radius = p.core_radius, material = artificial_conductor
-        ),
-        LineCableModels.Insulator.Tubular(
-            :core;
-            thickness = p.insulation_thickness,
-            material = artificial_insulation
+    design = LineCableModels.CableDesign(
+        LineCableModels.Stack(
+            LineCableModels.Group(
+                :core,
+                LineCableModels.Region(
+                    :core_metal,
+                    LineCableModels.Disk(p.core_radius),
+                    artificial_conductor
+                )
+            ),
+            LineCableModels.Region(
+                :core_insulation,
+                LineCableModels.Shell(p.insulation_thickness),
+                artificial_insulation
+            )
         );
-        nominal = LineCableModels.DataModel.NominalData()
+        cable_id = "two_bare_wires",
+        nominal_data = LineCableModels.NominalData()
     )
     earth = LineCableModels.Earth(rho = p.earth_rho, eps_r = 1.0, mu_r = 1.0)
-    positions = (
-        LineCableModels.at(
-            x = p.first_x, y = p.cable_y, phases = (:core => 1,)
-        ),
-        LineCableModels.at(
-            x = p.second_x, y = p.cable_y, phases = (:core => 2,)
-        )
+    system = LineCableModels.LineCableSystem(
+        [design, design];
+        positions = [
+            LineCableModels.Pose2(p.first_x, p.cable_y),
+            LineCableModels.Pose2(p.second_x, p.cable_y)
+        ],
+        connections = [Dict(:core => 1), Dict(:core => 2)],
+        system_id = "two_bare_wires",
+        line_length = p.line_length
     )
-    return LineCableModels.SystemBuilder(
-        "two_bare_wires",
-        design,
-        positions;
-        length = p.line_length,
+    return LineCableModels.Engine.LineParametersProblem(
+        system;
         temperature = p.temperature,
-        earth,
+        earth_props = earth,
         frequencies = p.frequencies
     )
 end

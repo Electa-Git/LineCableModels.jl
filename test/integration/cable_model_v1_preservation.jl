@@ -18,7 +18,7 @@
     design=TestFixtures.mv_cable_design()
     expected_design=reference["design"]
     @test design.cable_id == expected_design["cable_id"]
-    @test getproperty.(design.components, :id) ==
+    @test String.(design.terminal_order) ==
           String.(expected_design["terminal_order"])
 
     material_fields=(:rho, :eps_r, :mu_r, :T0, :alpha)
@@ -34,33 +34,32 @@
         "r_in", "r_ex", "cross_section", "capacitance",
         "conductance", "reference_frequency"
     )
-    for (component, expected) in zip(design.components, expected_design["components"])
-        @test component.id == expected["id"]
+    for (terminal, expected) in zip(design.effective, expected_design["components"])
+        @test String(terminal.name) == expected["id"]
         conductor=expected["conductor"]
         for field in conductor_fields
-            @test getproperty(component.conductor_group, field) == conductor[string(field)]
+            @test getproperty(terminal.conductor, field) == conductor[string(field)]
         end
         for field in material_fields
-            @test getproperty(component.conductor_props, field) ==
+            @test getproperty(terminal.conductor.material, field) ==
                   conductor["effective_material"][string(field)]
         end
 
         insulation=expected["insulation"]
         for (field, key) in zip(insulation_fields, insulation_keys)
-            @test getproperty(component.insulator_group, field) == insulation[key]
+            @test getproperty(terminal.dielectric, field) == insulation[key]
         end
         for field in material_fields
-            @test getproperty(component.insulator_props, field) ==
+            @test getproperty(terminal.dielectric.material, field) ==
                   insulation["effective_material"][string(field)]
         end
-        @test length(component.insulator_group.layers) ==
+        @test length(terminal.dielectric.layers) ==
               length(insulation["raw_layers"])
-        for (layer, expected_layer) in
-            zip(component.insulator_group.layers, insulation["raw_layers"])
+        for (layer, expected_layer) in zip(terminal.dielectric.layers, insulation["raw_layers"])
             @test layer.r_in == expected_layer["r_in"]
             @test layer.r_ex == expected_layer["r_ex"]
             for field in material_fields
-                @test getproperty(layer.material_props, field) ==
+                @test getproperty(layer.material, field) ==
                       expected_layer["material"][string(field)]
             end
         end
@@ -76,22 +75,23 @@
     expected_system=reference["system"]
     @test system.system_id == expected_system["system_id"]
     @test system.line_length == expected_system["line_length"]
-    @test length(system.cables) == length(expected_system["positions"])
-    for (position, expected) in zip(system.cables, expected_system["positions"])
-        @test position.design_data.cable_id == expected["cable_id"]
-        @test position.horz == expected["horizontal"]
-        @test position.vert == expected["vertical"]
-        @test position.conn == Int.(expected["connections"])
+    @test length(system.designs) == length(expected_system["positions"])
+    for (design_data, position, connections, expected) in zip(
+        system.designs,
+        system.positions,
+        system.connections,
+        expected_system["positions"]
+    )
+        @test design_data.cable_id == expected["cable_id"]
+        @test position.x == expected["horizontal"]
+        @test position.y == expected["vertical"]
+        @test connections == Int.(expected["connections"])
     end
-    actual_primitive_order=[
-        (cable=index, terminal=component.id)
-        for (index, position) in enumerate(system.cables)
-        for component in position.design_data.components
-    ]
-    expected_primitive_order=[
-        (cable=Int(entry["cable"]), terminal=String(entry["terminal"]))
-        for entry in expected_system["primitive_order"]
-    ]
+    actual_primitive_order=[(cable = entry.cable, terminal = String(entry.terminal))
+                            for entry in system.terminal_order]
+    expected_primitive_order=[(cable = Int(entry["cable"]),
+                                  terminal = String(entry["terminal"]))
+                              for entry in expected_system["primitive_order"]]
     @test actual_primitive_order == expected_primitive_order
 
     problem=TestFixtures.line_parameters_problem(frequencies = [50.0, 500.0])
@@ -116,10 +116,8 @@
         collect(expected_separation["values"]),
         Tuple(Int.(expected_separation["size"]))
     )
-    @test input.insulator_layer_ranges == [
-        Int(range["first"]):Int(range["last"])
-        for range in expected_input["insulator_layer_ranges"]
-    ]
+    @test input.insulator_layer_ranges == [Int(range["first"]):Int(range["last"])
+           for range in expected_input["insulator_layer_ranges"]]
     for field in (:line_length, :n_frequencies, :n_phases, :n_cables)
         @test getproperty(input, field) == expected_input[string(field)]
     end

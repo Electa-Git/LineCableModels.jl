@@ -104,88 +104,94 @@ case_definition(
     polyacrylate = LineCableModels.Material(materials, :polyacrylate)
 
     counts = p.core_ring_wire_counts
-    core_parts = (
-        LineCableModels.Conductor.Wires(
-            :core;
-            wire_radius = p.core_strand_diameter / 2,
-            num_wires = counts[1],
-            lay_ratio = 0.0,
-            material = aluminum
-        ),
-        LineCableModels.Conductor.Wires(
-            :core;
-            wire_radius = p.core_strand_diameter / 2,
-            num_wires = counts[2],
-            lay_ratio = p.core_ring_lay_ratio_1,
-            material = aluminum
-        ),
-        LineCableModels.Conductor.Wires(
-            :core;
-            wire_radius = p.core_strand_diameter / 2,
-            num_wires = counts[3],
-            lay_ratio = p.core_ring_lay_ratio_2,
-            material = aluminum
-        ),
-        LineCableModels.Conductor.Wires(
-            :core;
-            wire_radius = p.core_strand_diameter / 2,
-            num_wires = counts[4],
-            lay_ratio = p.core_ring_lay_ratio_3,
-            material = aluminum
-        ),
-        LineCableModels.Conductor.Wires(
-            :core;
-            wire_radius = p.core_strand_diameter / 2,
-            num_wires = counts[5],
-            lay_ratio = p.core_ring_lay_ratio_4,
-            material = aluminum
-        ),
-        LineCableModels.Insulator.Semicon(
-            :core; thickness = p.semicon_tape_thickness, material = polyacrylate
-        ),
-        LineCableModels.Insulator.Semicon(
-            :core; thickness = p.inner_semicon_thickness, material = semicon1
-        ),
-        LineCableModels.Insulator.Tubular(
-            :core; thickness = p.insulation_thickness, material = xlpe
-        ),
-        LineCableModels.Insulator.Semicon(
-            :core; thickness = p.outer_semicon_thickness, material = semicon2
-        ),
-        LineCableModels.Insulator.Semicon(
-            :core; thickness = p.semicon_tape_thickness, material = polyacrylate
-        )
+    lay_ratios = (
+        0.0,
+        p.core_ring_lay_ratio_1,
+        p.core_ring_lay_ratio_2,
+        p.core_ring_lay_ratio_3,
+        p.core_ring_lay_ratio_4
     )
-    sheath_parts = (
-        LineCableModels.Conductor.Wires(
-            :sheath;
-            wire_radius = p.screen_wire_diameter / 2,
-            num_wires = p.screen_wires,
-            lay_ratio = p.screen_wire_lay_ratio,
-            material = copper
-        ),
-        LineCableModels.Conductor.Strip(
-            :sheath;
-            thickness = p.copper_tape_thickness,
-            width = p.copper_tape_width,
-            lay_ratio = p.copper_tape_lay_ratio,
-            material = copper
-        ),
-        LineCableModels.Insulator.Semicon(
-            :sheath; thickness = p.water_blocking_thickness, material = polyacrylate
-        )
+    parts = LineCableModels.AbstractCablePart[]
+    wire_radius = p.core_strand_diameter / 2
+    radius = zero(wire_radius)
+    for (layer, (count, lay_ratio)) in enumerate(zip(counts, lay_ratios))
+        centre_radius = count == 1 ? zero(radius) : radius + wire_radius
+        push!(parts,
+            LineCableModels.Group(
+                :core,
+                LineCableModels.Region(
+                    Symbol(:core_strands_, layer),
+                    LineCableModels.Disk(wire_radius),
+                    aluminum
+                );
+                pattern = LineCableModels.Ring(count; r = centre_radius),
+                path = iszero(lay_ratio) ? nothing :
+                       LineCableModels.Helix(LineCableModels.LayRatio(lay_ratio))
+            ))
+        radius = count == 1 ? wire_radius : radius + 2wire_radius
+    end
+    for (tag, thickness, material) in (
+        (:core_semicon_tape_inner, p.semicon_tape_thickness, polyacrylate),
+        (:core_semicon_inner, p.inner_semicon_thickness, semicon1),
+        (:core_insulation, p.insulation_thickness, xlpe),
+        (:core_semicon_outer, p.outer_semicon_thickness, semicon2),
+        (:core_semicon_tape_outer, p.semicon_tape_thickness, polyacrylate)
     )
-    jacket_parts = (
-        LineCableModels.Conductor.Tubular(
-            :jacket; thickness = p.aluminum_tape_thickness, material = aluminum
-        ),
-        LineCableModels.Insulator.Tubular(
-            :jacket; thickness = p.pe_face_thickness, material = pe
-        ),
-        LineCableModels.Insulator.Tubular(
-            :jacket; thickness = p.jacket_thickness, material = pe
-        )
-    )
+        push!(parts, LineCableModels.Region(
+            tag, LineCableModels.Shell(thickness), material
+        ))
+        radius += thickness
+    end
+
+    screen_radius = p.screen_wire_diameter / 2
+    screen_centre = radius + screen_radius
+    push!(parts,
+        LineCableModels.Group(
+            :sheath,
+            LineCableModels.Region(
+                :sheath_wires, LineCableModels.Disk(screen_radius), copper
+            );
+            pattern = LineCableModels.Ring(p.screen_wires; r = screen_centre),
+            path = LineCableModels.Helix(LineCableModels.LayRatio(p.screen_wire_lay_ratio))
+        ))
+    radius += 2screen_radius
+    tape_outer = radius + p.copper_tape_thickness
+    tape_span = p.copper_tape_width / ((radius + tape_outer) / 2)
+    push!(parts,
+        LineCableModels.Group(
+            :sheath,
+            LineCableModels.Region(
+                :sheath_copper_tape,
+                LineCableModels.Sector(radius, tape_outer, -tape_span / 2, tape_span),
+                copper
+            );
+            path = LineCableModels.Helix(LineCableModels.LayRatio(p.copper_tape_lay_ratio))
+        ))
+    radius = tape_outer
+    push!(parts,
+        LineCableModels.Region(
+            :sheath_water_blocking,
+            LineCableModels.Shell(p.water_blocking_thickness),
+            polyacrylate
+        ))
+    radius += p.water_blocking_thickness
+
+    aluminum_outer = radius + p.aluminum_tape_thickness
+    push!(parts,
+        LineCableModels.Group(
+            :jacket,
+            LineCableModels.Region(
+                :jacket_aluminum_tape,
+                LineCableModels.Annulus(radius, aluminum_outer),
+                aluminum
+            )
+        ))
+    push!(parts, LineCableModels.Region(
+        :jacket_pe_face, LineCableModels.Shell(p.pe_face_thickness), pe
+    ))
+    push!(parts, LineCableModels.Region(
+        :jacket_insulation, LineCableModels.Shell(p.jacket_thickness), pe
+    ))
     nominal_data = (
         designation_code = "NA2XS(FL)2Y",
         U0 = 18.0,
@@ -196,34 +202,34 @@ case_definition(
         capacitance = 0.39,
         inductance = 0.3
     )
-    design = LineCableModels.CableBuilder(
-        "18kV_1000mm2", core_parts, sheath_parts, jacket_parts;
-        nominal = nominal_data
+    design = LineCableModels.CableDesign(
+        LineCableModels.Stack(parts);
+        cable_id = "18kV_1000mm2",
+        nominal_data = LineCableModels.NominalData(; nominal_data...)
     )
-    outer_radius = last(design.components).insulator_group.r_ex
-    formation_spacing = (2 + p.formation_clearance_ratio) * outer_radius
+    formation_spacing = (2 + p.formation_clearance_ratio) *
+                        LineCableModels.outer_radius(design)
     earth = LineCableModels.Earth(
         rho = p.earth_rho, eps_r = p.earth_eps_r, mu_r = 1.0
     )
-    positions = (
-        LineCableModels.trifoil(
-            x = p.formation_x,
-            y = p.formation_y,
-            spacing = formation_spacing,
-            phases = (
-                :core => (1, 4, 7),
-                :sheath => (2, 5, 8),
-                :jacket => (3, 6, 9)
-            )
-        ),
+    positions = LineCableModels.trifoil(
+        x = p.formation_x,
+        y = p.formation_y,
+        spacing = formation_spacing
     )
-    return LineCableModels.SystemBuilder(
-        "cable_18kv_1000mm2_trifoil",
-        design,
-        positions;
-        length = p.line_length,
+    connections = [Dict(:core => 3index - 2, :sheath => 3index - 1, :jacket => 3index)
+                   for index in 1:3]
+    system = LineCableModels.LineCableSystem(
+        fill(design, 3);
+        positions,
+        connections,
+        system_id = "cable_18kv_1000mm2_trifoil",
+        line_length = p.line_length
+    )
+    return LineCableModels.Engine.LineParametersProblem(
+        system;
         temperature = p.temperature,
-        earth,
+        earth_props = earth,
         frequencies = p.frequencies
     )
 end

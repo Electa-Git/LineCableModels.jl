@@ -154,7 +154,7 @@ collect(outer)
 
 ## Eager public construction
 
-Gridspace delays selection, not ordinary construction. Each public builder
+Gridspace delays selection, not ordinary construction. Each parameterized constructor
 applies one rule:
 
 ```text
@@ -168,19 +168,21 @@ The current behaviour is:
 | Entry point | Scalar or complete input | Explicit varying input |
 |---|---|---|
 | `Material` | `Materials.Material` | `Gridspace{Materials.Material}` |
-| cable-part declaration | callable `PartBuilder` | `Gridspace{PartBuilder}` |
-| `CableBuilder` | `DataModel.CableDesign` | `Gridspace{DataModel.CableDesign}` |
-| `at`, `trifoil`, `hflat`, `vflat` | `PositionDefinition` | `Gridspace{PositionDefinition}` |
+| `Disk`, `Shell`, and other primitives | concrete primitive | `Gridspace{Primitive}` |
+| `Region`, `Stack`, `Group`, `Assembly`, `Enclosure` | concrete cable part | `Gridspace{TargetPart}` |
+| `CableDesign` | `DataModel.CableDesign` | `Gridspace{DataModel.CableDesign}` |
+| `at`, `trifoil`, `hflat`, `vflat` | `Pose2` or `Vector{Pose2}` | corresponding `Gridspace` |
 | `Earth` | `EarthModel` | `Gridspace{EarthModel}` |
-| `SystemBuilder` | `LineParametersProblem` | `Gridspace{LineParametersProblem}` |
+| `LineCableSystem` | `DataModel.LineCableSystem` | `Gridspace{DataModel.LineCableSystem}` |
+| `LineParametersProblem` | `Engine.LineParametersProblem` | `Gridspace{Engine.LineParametersProblem}` |
 | `CableConstantsProblem` | `CableConstantsProblem` | `Gridspace{CableConstantsProblem}` |
 | `@gridspace` keyword constructor | strict struct | `Gridspace{Target}` |
 
-A cable part remains callable because its absolute radius depends on the
-preceding radial layers. The callable constructs one radial part. The
-other scalar-complete builders construct their domain values immediately.
+Scalar-complete calls construct their domain values immediately. A varying
+call stores only the target constructor and explicit finite sources; each
+selected point invokes the same eager constructor used by scalar code.
 
-## Callable builders
+## Gridspace callables
 
 A Gridspace callable should be a concrete immutable functor whose field types
 are concrete. The callable should perform one construction step and delegate physical
@@ -197,7 +199,7 @@ space = Gridspace{Tuple}(
 ```
 
 Avoid `Function`-typed fields in frequently called builders. A captured closure is suitable
-for local experiments. Exported builders use concrete callable types.
+for local experiments. Reusable callables use concrete types.
 Do not introduce a passive record merely to store arguments that another
 function immediately unpacks.
 

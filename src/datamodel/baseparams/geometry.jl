@@ -64,61 +64,6 @@ function wire_coordinates(num_wires::Integer, radius_wire::Real, r_in::Real, C::
     wire_coordinates(num_wires, radius_wire, r_in; C)
 end
 
-"Return GMD integration elements `(coordinates, radius, area)` for a cable part."
-function gmd_elements(part::AbstractCablePart)
-    T = eltype(part)
-    return ([(zero(T), zero(T))], part.r_ex, part.cross_section)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Calculate the area-weighted geometric mean distance between two cable parts:
-
-```math
-\\log GMD=\\frac{\\sum_i\\sum_j s_i s_j\\log d_{ij}}
-                 {\\sum_i\\sum_j s_i s_j}.
-```
-
-# Notes
-
-A sum of logarithms is used instead of a product, preventing numerical
-underflow and overflow for large wire arrays. Coincident centres use the
-outermost element radius.
-"""
-function gmd(first_part::AbstractCablePart, second_part::AbstractCablePart)
-    coords1, radius1, area1 = gmd_elements(first_part)
-    coords2, radius2, area2 = gmd_elements(second_part)
-    T = promote_type(
-        typeof(float(radius1)), typeof(float(radius2)),
-        typeof(float(area1)), typeof(float(area2))
-    )
-    log_sum = zero(T)
-    weights = zero(T)
-    weight = convert(T, area1) * convert(T, area2)
-    for first in coords1, second in coords2
-
-        distance = hypot(first[1] - second[1], first[2] - second[2])
-        effective = iszero(distance) ? max(radius1, radius2) : distance
-        log_sum += weight * log(effective)
-        weights += weight
-    end
-    return exp(log_sum / weights)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Combine two conductor zones using the multizone GMR expression
-``GMR=GMR_1^{\\beta^2}GMR_2^{(1-\\beta)^2}GMD^{2\\beta(1-\\beta)}``.
-"""
-function equivalent_gmr(existing::AbstractCablePart, new_layer::AbstractCablePart)
-    beta = existing.cross_section / (existing.cross_section + new_layer.cross_section)
-    distance = gmd(existing, new_layer)
-    return existing.gmr^(beta^2) * new_layer.gmr^((one(beta) - beta)^2) *
-           distance^(2 * beta * (one(beta) - beta))
-end
-
 """
 $(TYPEDSIGNATURES)
 

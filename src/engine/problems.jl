@@ -23,9 +23,7 @@ Base.eltype(::Type{LineParametersProblem{T}}) where {T} = T
 function _check_line_parameters_problem(problem::LineParametersProblem)
     validate(problem.system)
     validate(problem.earth_props)
-    phases = unique(collect(Iterators.flatten(
-        position.conn for position in problem.system.cables
-    )))
+    phases = unique(problem.system.connection_order)
     positive = filter(>(0), phases)
     isempty(positive) && throw(ArgumentError(
         "at least one conductor must be assigned to a positive phase",
@@ -34,8 +32,13 @@ function _check_line_parameters_problem(problem::LineParametersProblem)
         positive,
         "a phase assignment exceeds the number of distinct positive phases"
     ))
-    for cable in problem.system.cables
-        reference = cable.design_data.components[1].conductor_props.T0
+    for design in problem.system.designs
+        # Temperature is formulation-independent, but the current linear
+        # correction range uses a reference material only when the radial
+        # analytical adapter is available. Unsupported physical geometry is
+        # rejected later by the backend that requests `AnalyticalInput`.
+        design.effective === nothing && continue
+        reference = first(design.effective).conductor.material.T0
         abs(problem.temperature - reference) < oftype(problem.temperature, 150) ||
             throw(DomainError(
                 problem.temperature,
@@ -115,7 +118,8 @@ function CableConstantsProblem(
         design::CableDesign;
         separation = nothing,
         earth_resistivity = oftype(
-            float(first(design.components).conductor_props.rho),
+            float(design.effective === nothing ? 100.0 :
+                  first(design.effective).conductor.material.rho),
             100
         )
 )

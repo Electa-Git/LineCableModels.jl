@@ -777,12 +777,14 @@
 
         collection_designs=[
             design,
-            equivalent(design; new_id = "equivalent"),
-            CableDesign(
-                "second detailed design",
-                design.components;
-                nominal_data = design.nominal_data
-            )
+            CableDesign(design.root;
+                cable_id = "equivalent",
+                nominal_data = design.nominal_data,
+                reference_frequency = design.reference_frequency),
+            CableDesign(design.root;
+                cable_id = "second detailed design",
+                nominal_data = design.nominal_data,
+                reference_frequency = design.reference_frequency)
         ]
         collection_plot=preview(
             collection_designs;
@@ -924,15 +926,17 @@
         @test all(visibility_state(compact_cable_plot))
         test_golden(compact_cable_plot, "cable_preview_compact"; tolerance = 0.025)
 
-        position=CablePosition(
-            design,
-            0.0,
-            -0.20,
-            Dict(component.id=>(index==1 ? 1 : 0)
-            for
-            (index, component) in enumerate(design.components))
+        connections=Dict(
+            terminal=>(index==1 ? 1 : 0)
+        for (index, terminal) in enumerate(design.terminal_order)
         )
-        system=LineCableSystem("reference-system", 1000.0, position)
+        system=LineCableSystem(
+            design;
+            position = Pose2(0.0, -0.20, 0.0),
+            connections,
+            system_id = "reference-system",
+            line_length = 1000.0
+        )
         earth=EarthModel(100.0, 10.0, 1.0)
         system_plot=preview(
             system;

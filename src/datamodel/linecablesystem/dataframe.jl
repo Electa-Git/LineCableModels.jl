@@ -22,15 +22,18 @@ function DataFrame(system::LineCableSystem)::DataFrame
     vert_coords = Number[]
     mappings = String[]
 
-    for cable_position in system.cables
-        push!(cable_ids, cable_position.design_data.cable_id)
-        push!(horz_coords, cable_position.horz)
-        push!(vert_coords, cable_position.vert)
+    for (design, position, connections) in zip(
+            system.designs,
+            system.positions,
+            system.connections
+    )
+        push!(cable_ids, design.cable_id)
+        push!(horz_coords, position.x)
+        push!(vert_coords, position.y)
 
-        component_names = [comp.id for comp in cable_position.design_data.components]
         mapping_str = join(
             ["$(name): $(phase)"
-             for (name, phase) in zip(component_names, cable_position.conn)],
+             for (name, phase) in zip(design.terminal_order, connections)],
             ", "
         )
         push!(mappings, mapping_str)

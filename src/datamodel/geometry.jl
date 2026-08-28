@@ -25,15 +25,5 @@ end
 
 "Return the outer radius of a materialised cable design."
 function outer_radius(design::CableDesign)
-    isempty(design.components) && throw(ArgumentError("cable design is empty"))
-    component = last(design.components)
-    return max(component.conductor_group.r_ex, component.insulator_group.r_ex)
-end
-
-"Return whether two positioned cable cross-sections overlap."
-function overlaps(left, right)
-    distance = hypot(left.horz - right.horz, left.vert - right.vert)
-    limit = outer_radius(left.design_data) + outer_radius(right.design_data)
-    tolerance = oftype(limit, 1e-8) * max(limit, one(limit))
-    return distance + tolerance < limit
+    return support(boundary(design.geometry))
 end

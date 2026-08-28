@@ -83,22 +83,19 @@ case_definition(
     lead = LineCableModels.Material(materials, :lead)
     pp = LineCableModels.Material(materials, :pp)
     steel = LineCableModels.Material(materials, :steel)
-    radius_before_bedding =
-        (p.strand_layers + 0.5) * p.strand_diameter +
-        p.inner_semicon_thickness +
-        p.insulation_thickness +
-        p.outer_semicon_thickness +
-        p.water_blocking_thickness +
-        p.lead_screen_thickness +
-        p.inner_sheath_thickness
+    radius_before_bedding = (p.strand_layers + 0.5) * p.strand_diameter +
+                            p.inner_semicon_thickness +
+                            p.insulation_thickness +
+                            p.outer_semicon_thickness +
+                            p.water_blocking_thickness +
+                            p.lead_screen_thickness +
+                            p.inner_sheath_thickness
     armor_wire_radius = p.armor_wire_diameter / 2
-    minimum_armor_radius =
-        armor_wire_radius / sinpi(1 / p.armor_wires) - armor_wire_radius
+    minimum_armor_radius = armor_wire_radius / sinpi(1 / p.armor_wires) - armor_wire_radius
     unbuffered_armor_radius = radius_before_bedding + p.bedding_thickness
-    unbuffered_outer_radius =
-        unbuffered_armor_radius + p.armor_wire_diameter + p.jacket_thickness
-    packing_buffer =
-        p.armor_packing_clearance_ratio * unbuffered_outer_radius
+    unbuffered_outer_radius = unbuffered_armor_radius + p.armor_wire_diameter +
+                              p.jacket_thickness
+    packing_buffer = p.armor_packing_clearance_ratio * unbuffered_outer_radius
     buffered_armor_radius = unbuffered_armor_radius + packing_buffer
     # Fixed-count armor wires cannot occupy a ring smaller than their packing
     # radius. A fixed design clearance keeps ordinary 10% manufacturing draws
@@ -109,51 +106,79 @@ case_definition(
         zero(minimum_armor_radius - buffered_armor_radius)
     )
     bedding_thickness = p.bedding_thickness + packing_buffer + packing_shortfall
-    core_parts = (
-        LineCableModels.Conductor.Stranded(
-            :core;
-            layers = p.strand_layers + 1,
-            wire_radius = p.strand_diameter / 2,
-            num_wires = p.strands_per_layer,
-            lay_ratio = p.core_lay_ratio,
-            material = copper
-        ),
-        LineCableModels.Insulator.Semicon(
-            :core; thickness = p.inner_semicon_thickness, material = semicon1
-        ),
-        LineCableModels.Insulator.Tubular(
-            :core; thickness = p.insulation_thickness, material = pe
-        ),
-        LineCableModels.Insulator.Semicon(
-            :core; thickness = p.outer_semicon_thickness, material = semicon2
-        ),
-        LineCableModels.Insulator.Semicon(
-            :core; thickness = p.water_blocking_thickness, material = polyacrylate
-        )
+    parts = LineCableModels.AbstractCablePart[]
+    strand_radius = p.strand_diameter / 2
+    radius = zero(strand_radius)
+    for layer in 0:p.strand_layers
+        count = layer == 0 ? 1 : layer * p.strands_per_layer
+        outer = count == 1 ? strand_radius : radius + 2strand_radius
+        centre_radius = count == 1 ? zero(radius) : radius + strand_radius
+        push!(parts,
+            LineCableModels.Group(
+                :core,
+                LineCableModels.Region(
+                    Symbol(:core_strands_, layer + 1),
+                    LineCableModels.Disk(strand_radius),
+                    copper
+                );
+                pattern = LineCableModels.Ring(count; r = centre_radius),
+                path = count == 1 ? nothing :
+                       LineCableModels.Helix(LineCableModels.LayRatio(p.core_lay_ratio))
+            ))
+        radius = outer
+    end
+    for (tag, thickness, material) in (
+        (:core_semicon_inner, p.inner_semicon_thickness, semicon1),
+        (:core_insulation, p.insulation_thickness, pe),
+        (:core_semicon_outer, p.outer_semicon_thickness, semicon2),
+        (:core_water_blocking, p.water_blocking_thickness, polyacrylate)
     )
-    sheath_parts = (
-        LineCableModels.Conductor.Tubular(
-            :sheath; thickness = p.lead_screen_thickness, material = lead
-        ),
-        LineCableModels.Insulator.Tubular(
-            :sheath; thickness = p.inner_sheath_thickness, material = pe
-        ),
-        LineCableModels.Insulator.Tubular(
-            :sheath; thickness = bedding_thickness, material = pp
-        )
-    )
-    armor_parts = (
-        LineCableModels.Conductor.Wires(
-            :armor;
-            wire_radius = armor_wire_radius,
-            num_wires = p.armor_wires,
-            lay_ratio = p.armor_lay_ratio,
-            material = steel
-        ),
-        LineCableModels.Insulator.Tubular(
-            :armor; thickness = p.jacket_thickness, material = pp
-        )
-    )
+        push!(parts, LineCableModels.Region(
+            tag, LineCableModels.Shell(thickness), material
+        ))
+        radius += thickness
+    end
+
+    lead_outer = radius + p.lead_screen_thickness
+    push!(parts,
+        LineCableModels.Group(
+            :sheath,
+            LineCableModels.Region(
+                :sheath_lead_screen,
+                LineCableModels.Annulus(radius, lead_outer),
+                lead
+            )
+        ))
+    radius = lead_outer
+    push!(parts, LineCableModels.Region(
+        :sheath_inner,
+        LineCableModels.Shell(p.inner_sheath_thickness),
+        pe
+    ))
+    radius += p.inner_sheath_thickness
+    push!(parts, LineCableModels.Region(
+        :sheath_bedding,
+        LineCableModels.Shell(bedding_thickness),
+        pp
+    ))
+    radius += bedding_thickness
+
+    armor_outer = radius + 2armor_wire_radius
+    armor_centre = radius + armor_wire_radius
+    push!(parts,
+        LineCableModels.Group(
+            :armor,
+            LineCableModels.Region(
+                :armor_wires, LineCableModels.Disk(armor_wire_radius), steel
+            );
+            pattern = LineCableModels.Ring(p.armor_wires; r = armor_centre),
+            path = LineCableModels.Helix(LineCableModels.LayRatio(p.armor_lay_ratio))
+        ))
+    push!(parts, LineCableModels.Region(
+        :armor_jacket,
+        LineCableModels.Shell(p.jacket_thickness),
+        pp
+    ))
     nominal_data = (
         designation_code = "(N)2XH(F)RK2Y",
         U0 = 500.0,
@@ -164,31 +189,27 @@ case_definition(
         capacitance = nothing,
         inductance = nothing
     )
-    design = LineCableModels.CableBuilder(
-        "525kV_1600mm2", core_parts, sheath_parts, armor_parts;
-        nominal = nominal_data
+    design = LineCableModels.CableDesign(
+        LineCableModels.Stack(parts);
+        cable_id = "525kV_1600mm2",
+        nominal_data = LineCableModels.NominalData(; nominal_data...)
     )
     earth = LineCableModels.Earth(
         rho = p.earth_rho, eps_r = p.earth_eps_r, mu_r = 1.0
     )
-    positions = Tuple(
-        LineCableModels.at(
-            x = p.cable_x[index],
-            y = p.cable_y,
-            phases = (
-                :core => 3index - 2,
-                :sheath => 3index - 1,
-                :armor => 3index
-            )
-        ) for index in 1:2
+    connections = [Dict(:core => 3index - 2, :sheath => 3index - 1, :armor => 3index)
+                   for index in 1:2]
+    system = LineCableModels.LineCableSystem(
+        fill(design, 2);
+        positions = [LineCableModels.Pose2(p.cable_x[index], p.cable_y) for index in 1:2],
+        connections,
+        system_id = "cable_525kv_1600mm2_bipole",
+        line_length = p.line_length
     )
-    return LineCableModels.SystemBuilder(
-        "cable_525kv_1600mm2_bipole",
-        design,
-        positions;
-        length = p.line_length,
+    return LineCableModels.Engine.LineParametersProblem(
+        system;
         temperature = p.temperature,
-        earth,
+        earth_props = earth,
         frequencies = p.frequencies
     )
 end

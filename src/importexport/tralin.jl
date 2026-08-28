@@ -25,7 +25,7 @@ function export_data(::Val{:tralin},
                     joinpath(@__DIR__, dir, prefixed_fname)
     end
 
-    num_phases = length(cable_system.cables)
+    num_phases = length(cable_system.designs)
     freqs = map(f -> nominal(f), _freqs(freq))
 
     # -- build TRALIN lines ----------------------------------------------------
@@ -98,11 +98,18 @@ function export_data(::Val{:tralin},
 
     push!(lines, "SYSTEM")
 
-    for (pidx, cable) in enumerate(cable_system.cables)
+    for (pidx, (design, position, connections)) in enumerate(zip(
+            cable_system.designs,
+            cable_system.positions,
+            cable_system.connections
+    ))
         # Phase group position
-        push!(lines, "GROUP,PH-$(pidx),$(_fmt(cable.horz)),$(_fmt(cable.vert))")
+        push!(lines, "GROUP,PH-$(pidx),$(_fmt(position.x)),$(_fmt(position.y))")
 
-        comps_vec = cable.design_data.components  # assumed Vector in your corrected model
+        comps_vec = design.effective
+        comps_vec === nothing && throw(ArgumentError(
+            "TRALIN export requires the current radial analytical compatibility profile"
+        ))
         ncomp = length(comps_vec)
         if ncomp > 3
             throw(
@@ -112,22 +119,18 @@ function export_data(::Val{:tralin},
             )
         end
         # Outer radius for CABLE line
-        outer_R = nominal(comps_vec[end].insulator_group.r_ex)
+        outer_R = nominal(max(
+            comps_vec[end].conductor.r_ex,
+            comps_vec[end].dielectric.r_ex
+        ))
         push!(lines, "CABLE,CA-$(pidx),$(_fmt(outer_R))")
 
         # Strict connection vector
-        conn = getproperty(cable, :conn)
-        if !(conn isa AbstractVector)
-            throw(
-                ArgumentError(
-                "cable.conn must be a Vector of Int mappings (0 or 1..$num_phases) for cable index $pidx.",
-            ),
-            )
-        end
+        conn = connections
         if length(conn) < ncomp
             throw(
                 ArgumentError(
-                "cable.conn length $(length(conn)) < number of components $ncomp for cable index $pidx.",
+                "connection-vector length $(length(conn)) < number of components $ncomp for cable index $pidx.",
             ),
             )
         end
@@ -136,20 +139,18 @@ function export_data(::Val{:tralin},
         for i in 1:ncomp
             label = _TRALIN_COMP[i]
             comp = comps_vec[i]
-            comp_id = String(getproperty(comp, :id))  # <-- component name from your datamodel
+            comp_id = String(comp.name)
 
             conn_val = Int(conn[i])  # 0 or 1..N phases
 
-            cond_group = comp.conductor_group
-            ins_group = comp.insulator_group
-            cond_props = comp.conductor_props
-            ins_props = comp.insulator_props
+            conductor = comp.conductor
+            dielectric = comp.dielectric
 
-            rin = _fmt(cond_group.r_in)
-            rex = _fmt(cond_group.r_ex)
-            rho = _fmt(cond_props.rho / 1.724e-8)
-            muC = _fmt(cond_props.mu_r)
-            epsI = _fmt(ins_props.eps_r)  # coating εr
+            rin = _fmt(conductor.r_in)
+            rex = _fmt(conductor.r_ex)
+            rho = _fmt(conductor.material.rho / 1.724e-8)
+            muC = _fmt(conductor.material.mu_r)
+            epsI = _fmt(dielectric.material.eps_r)
 
             # COMPONENT,<id-string>,<conn-int>,<Rout>,<Rin>,<rho>,<mu_r>,0,<eps>
             push!(lines, "$label,$comp_id,$conn_val,$rex,$rin,$rho,$muC,0,$epsI")

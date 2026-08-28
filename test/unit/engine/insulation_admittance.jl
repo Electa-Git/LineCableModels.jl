@@ -88,38 +88,35 @@ end
         dielectric_2=Material(:insulator, 8.0e10, 3.6, 1.0, 20.0, 0.0)
         outer_dielectric=Material(:insulator, 1.0e14, 2.3, 1.0, 20.0, 0.0)
 
-        core_conductor=ConductorGroup(Tubular(0.0, 0.010, copper))
-        core_insulation=InsulatorGroup(Insulator(
-            core_conductor.r_ex,
-            core_conductor.r_ex+thickness_1,
-            dielectric_1
-        ))
-        core_insulation=add!(
-            core_insulation,
-            Insulator(core_insulation.r_ex, core_insulation.r_ex+4.0e-3, dielectric_2)
+        core_outer=0.010
+        first_outer=core_outer+thickness_1
+        insulation_outer=first_outer+4.0e-3
+        sheath_outer=insulation_outer+1.0e-3
+        jacket_outer=sheath_outer+2.0e-3
+        design=CableDesign(
+            Stack(AbstractCablePart[
+                Group(:core, Region(:core_conductor, Annulus(0.0, core_outer), copper)),
+                Region(:insulation_1, Annulus(core_outer, first_outer), dielectric_1),
+                Region(:insulation_2, Annulus(first_outer, insulation_outer), dielectric_2),
+                Group(:sheath, Region(
+                    :sheath_conductor,
+                    Annulus(insulation_outer, sheath_outer),
+                    copper
+                )),
+                Region(
+                    :outer_dielectric,
+                    Annulus(sheath_outer, jacket_outer),
+                    outer_dielectric
+                )
+            ]);
+            cable_id = "parallel-rc-test")
+        system=LineCableSystem(
+            design;
+            position = Pose2(0.0, -1.0, 0.0),
+            connections = Dict(:core=>1, :sheath=>2),
+            system_id = "parallel-rc-test",
+            line_length = 1000.0
         )
-        core=CableComponent("core", core_conductor, core_insulation)
-
-        sheath_conductor=ConductorGroup(Tubular(
-            core_insulation.r_ex,
-            core_insulation.r_ex+1.0e-3,
-            copper
-        ))
-        sheath_insulation=InsulatorGroup(Insulator(
-            sheath_conductor.r_ex,
-            sheath_conductor.r_ex+2.0e-3,
-            outer_dielectric
-        ))
-        sheath=CableComponent("sheath", sheath_conductor, sheath_insulation)
-
-        design=add!(CableDesign("parallel-rc-test", core), sheath)
-        position=CablePosition(
-            design,
-            0.0,
-            -1.0,
-            Dict("core"=>1, "sheath"=>2)
-        )
-        system=LineCableSystem("parallel-rc-test", 1000.0, position)
         frequency=[1.0e-3, 50.0, 1.0e6]
         earth=EarthModel(100.0, 10.0, 1.0)
         return LineParametersProblem(
@@ -257,32 +254,45 @@ end
         eps_r = Grid(2.4, 5.0)
     )
     outer_dielectric=PB.Material(kind = :insulator, rho = 1.0e14, eps_r = 2.3)
-    design=PB.CableBuilder(
-        "parallel-rc-mc",
-        PB.Conductor.Solid(:core; radius = 0.010, material = copper),
-        PB.Insulator.Tubular(
-            :core;
-            thickness = Grid(7.0e-3, 5.0),
-            material = dielectric
-        ),
-        PB.Conductor.Tubular(:sheath; thickness = 1.0e-3, material = copper),
-        PB.Insulator.Tubular(
-            :sheath;
-            thickness = 2.0e-3,
-            material = outer_dielectric
-        )
+    thickness=Grid(7.0e-3, 5.0)
+    build_design=function (resolved_dielectric, resolved_thickness)
+        core_outer=0.010
+        insulation_outer=core_outer+resolved_thickness
+        sheath_outer=insulation_outer+1.0e-3
+        jacket_outer=sheath_outer+2.0e-3
+        return CableDesign(
+            Stack(AbstractCablePart[
+                Group(:core, Region(:core_conductor, Annulus(0.0, core_outer), copper)),
+                Region(
+                    :core_insulation,
+                    Annulus(core_outer, insulation_outer),
+                    resolved_dielectric
+                ),
+                Group(:sheath, Region(
+                    :sheath_conductor,
+                    Annulus(insulation_outer, sheath_outer),
+                    copper
+                )),
+                Region(
+                    :outer_insulation,
+                    Annulus(sheath_outer, jacket_outer),
+                    outer_dielectric
+                )
+            ]);
+            cable_id = "parallel-rc-mc")
+    end
+    design=Gridspace{CableDesign}(build_design, (dielectric, thickness))
+    system=PB.LineCableSystem(
+        design;
+        position = Pose2(0.0, -1.0, 0.0),
+        connections = Dict(:core=>1, :sheath=>2),
+        system_id = "parallel-rc-mc",
+        line_length = 1000.0
     )
-    problem=PB.SystemBuilder(
-        "parallel-rc-mc",
-        design,
-        PB.at(
-            x = 0.0,
-            y = -1.0,
-            phases = (:core=>1, :sheath=>2)
-        );
-        length = 1000.0,
+    problem=LineParametersProblem(
+        system;
         temperature = 20.0,
-        earth = PB.Earth(rho = 100.0, eps_r = 10.0),
+        earth_props = PB.Earth(rho = 100.0, eps_r = 10.0),
         frequencies = [50.0, 500.0]
     )
     formulation=Formulation(

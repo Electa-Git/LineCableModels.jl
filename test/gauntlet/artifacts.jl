@@ -75,8 +75,9 @@ function benchmark_stage(
     )
 end
 
-case_stage(collection::Symbol, benchmark_id::Symbol; kwargs...) =
+function case_stage(collection::Symbol, benchmark_id::Symbol; kwargs...)
     benchmark_stage(collection, benchmark_id; kwargs...)
+end
 
 function collection_release(
         collection::Symbol,
@@ -112,8 +113,7 @@ function _boolean_setting(name::AbstractString)
 end
 
 gauntlet_cleanup() = _boolean_setting("LINECABLEMODELS_GAUNTLET_CLEANUP")
-gauntlet_stage_force() =
-    _boolean_setting("LINECABLEMODELS_GAUNTLET_STAGE_FORCE")
+gauntlet_stage_force() = _boolean_setting("LINECABLEMODELS_GAUNTLET_STAGE_FORCE")
 
 include("reporting.jl")
 
@@ -133,10 +133,11 @@ function prepare_staging(
 )
     staging_root = joinpath(artifact_root, "staging")
     occupied = isdir(staging_root) && !isempty(readdir(staging_root))
-    occupied && !force && throw(ArgumentError(
-        "Gauntlet staging is not empty: $staging_root\n" *
-        "Set LINECABLEMODELS_GAUNTLET_STAGE_FORCE=true to replace it.",
-    ))
+    occupied && !force &&
+        throw(ArgumentError(
+            "Gauntlet staging is not empty: $staging_root\n" *
+            "Set LINECABLEMODELS_GAUNTLET_STAGE_FORCE=true to replace it.",
+        ))
     occupied && rm(staging_root; recursive = true, force = true)
     mkpath(staging_root)
     return staging_root

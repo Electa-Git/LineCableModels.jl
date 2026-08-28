@@ -9,12 +9,11 @@ module BaseParams
 export equivalent_alpha, parallel, helix, strip_resistance, temperature_factor
 export tubular_resistance, tubular_inductance, wire_coordinates
 export trifoil_inductance, strand_gmr, tubular_gmr, equivalent_mu
-export shunt_capacitance, shunt_conductance, equivalent_gmr, gmd
+export shunt_capacitance, shunt_conductance
 export solenoid_factor, equivalent_rho, equivalent_eps, loss_tangent
 export equivalent_conductivity
 
 using DocStringExtensions: TYPEDSIGNATURES
-import ..DataModel: AbstractCablePart
 
 include("geometry.jl")
 include("resistance.jl")

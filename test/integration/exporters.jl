@@ -45,16 +45,16 @@
         @test cable_definition["classid"] == "RowDefn"
 
         components=findall("./schematic/User", cable_definition)
-        @test length(components) == length(system.cables) + 2
+        @test length(components) == length(system.designs) + 2
         @test getindex.(components, "id") ==
-              string.(100000010:(100000011 + length(system.cables)))
+              string.(100000010:(100000011 + length(system.designs)))
 
         frequency=only(filter(
             node->node["defn"]==
             "master:Line_FrePhase_Options", components))
         cables=filter(node->node["defn"]=="master:Cable_Coax", components)
         ground=only(filter(node->node["defn"]=="master:Line_Ground", components))
-        @test length(cables) == length(system.cables)
+        @test length(cables) == length(system.designs)
         @test parameters(frequency) == Dict(
             "FS" => "0.5",
             "FE" => "1.0E6",
@@ -63,11 +63,8 @@
             "CPASS" => "0"
         )
 
-        @test any(
-            length(component.conductor_group.layers) > 1 ||
-                length(component.insulator_group.layers) > 1
-        for position in system.cables for component in position.design_data.components
-        )
+        @test any(length(component.dielectric.layers) > 1
+        for design in system.designs for component in design.effective)
         outer_radii=("R2", "R4", "R6", "R8")
         insulation_radii=("R3", "R5", "R7", "R9")
         resistivities=("RHOC", "RHOS", "RHOA", "RHOO")
@@ -75,35 +72,39 @@
         permittivities=("EPS1", "EPS2", "EPS3", "EPS4")
         insulation_mus=("PERM1", "PERM2", "PERM3", "PERM4")
         losses=("LT1", "LT2", "LT3", "LT4")
-        for (index, (node, position)) in enumerate(zip(cables, system.cables))
+        for (index, (node, design, position)) in enumerate(zip(
+            cables,
+            system.designs,
+            system.positions
+        ))
             values=parameters(node)
             @test values["CABNUM"] == string(index)
-            @test values["Name"] == position.design_data.cable_id
-            @test parse(Float64, values["X"]) ≈ position.horz rtol=1e-5
-            @test parse(Float64, values["Y"]) ≈ abs(position.vert) rtol=1e-5
+            @test values["Name"] == design.cable_id
+            @test parse(Float64, values["X"]) ≈ position.x rtol=1e-5
+            @test parse(Float64, values["Y"]) ≈ abs(position.y) rtol=1e-5
             @test values["OHC"] == "0"
-            @test values["LL"] == string(2length(position.design_data.components) - 1)
+            @test values["LL"] == string(2length(design.effective) - 1)
             @test values["CONNAM1"] ==
-                  uppercasefirst(first(position.design_data.components).id)
+                  uppercasefirst(String(first(design.effective).name))
             @test parse(Float64, values["R1"]) ≈
-                  first(position.design_data.components).conductor_group.r_in rtol=1e-5
-            for (component_index, component) in enumerate(position.design_data.components)
+                  first(design.effective).conductor.r_in rtol=1e-5
+            for (component_index, component) in enumerate(design.effective)
                 @test parse(Float64, values[outer_radii[component_index]]) ≈
-                      component.conductor_group.r_ex rtol=1e-5
+                      component.conductor.r_ex rtol=1e-5
                 @test parse(Float64, values[insulation_radii[component_index]]) ≈
-                      component.insulator_group.r_ex rtol=1e-5
+                      component.dielectric.r_ex rtol=1e-5
                 @test parse(Float64, values[resistivities[component_index]]) ≈
-                      component.conductor_props.rho rtol=1e-5
+                      component.conductor.material.rho rtol=1e-5
                 @test parse(Float64, values[conductor_mus[component_index]]) ≈
-                      component.conductor_props.mu_r rtol=1e-5
+                      component.conductor.material.mu_r rtol=1e-5
                 @test parse(Float64, values[permittivities[component_index]]) ≈
-                      component.insulator_props.eps_r rtol=1e-5
+                      component.dielectric.material.eps_r rtol=1e-5
                 @test parse(Float64, values[insulation_mus[component_index]]) ≈
-                      component.insulator_props.mu_r rtol=1e-5
-                capacitance=component.insulator_group.shunt_capacitance
+                      component.dielectric.material.mu_r rtol=1e-5
+                capacitance=component.dielectric.shunt_capacitance
                 expected_loss=iszero(capacitance) ? 0.0 :
                               min(
-                    component.insulator_group.shunt_conductance/
+                    component.dielectric.shunt_conductance/
                     (2π*50.0*capacitance),
                     10.0
                 )
@@ -161,31 +162,40 @@ end
 
     metal=Material(:conductor, 1.7e-8, 1.0, 1.0, 20.0, 0.0039)
     dielectric=Material(:insulator, 1.0e14, 2.3, 1.0, 20.0, 0.0)
-    components=let radius=0.0
-        values=DataModel.CableComponent[]
+    parts=let radius=0.0
+        values=DataModel.AbstractCablePart[]
         for index in 1:5
-            conductor=DataModel.Tubular(radius, radius+1.0e-3, metal)
-            insulation=DataModel.Insulator(
-                radius+1.0e-3,
-                radius+2.0e-3,
-                dielectric
-            )
+            terminal=Symbol("component$index")
             push!(values,
-                DataModel.CableComponent(
-                    "component$index",
-                    DataModel.ConductorGroup(conductor),
-                    DataModel.InsulatorGroup(insulation)
+                DataModel.Group(
+                    terminal,
+                    DataModel.Region(
+                        Symbol(terminal, :_conductor),
+                        DataModel.Annulus(radius, radius+1.0e-3),
+                        metal
+                    )
+                ))
+            push!(values,
+                DataModel.Region(
+                    Symbol(terminal, :_insulation),
+                    DataModel.Annulus(radius+1.0e-3, radius+2.0e-3),
+                    dielectric
                 ))
             radius+=2.0e-3
         end
         values
     end
-    design=DataModel.CableDesign("five-components", components)
-    connections=Dict(component.id=>index for (index, component) in enumerate(components))
+    design=DataModel.CableDesign(
+        DataModel.Stack(parts);
+        cable_id = "five-components"
+    )
+    connections=Dict(name=>index for (index, name) in enumerate(design.terminal_order))
     system=DataModel.LineCableSystem(
-        "five-components",
-        1_000.0,
-        DataModel.CablePosition(design, 0.0, -1.0, connections)
+        design;
+        position = DataModel.Pose2(0.0, -1.0, 0.0),
+        connections,
+        system_id = "five-components",
+        line_length = 1_000.0
     )
     earth=EarthModel(100.0, 1.0, 1.0)
     mktempdir() do directory
@@ -226,26 +236,33 @@ end
         @test last(imported_earth.layers).eps_r ≈ last(earth.layers).eps_r
         @test last(imported_earth.layers).mu_r ≈ last(earth.layers).mu_r
 
-        for (imported, original) in zip(imported_system.cables, system.cables)
-            @test imported.horz ≈ original.horz rtol=1e-5
-            @test imported.vert ≈ original.vert rtol=1e-5
-            @test imported.conn == original.conn
-            @test imported.design_data.cable_id == original.design_data.cable_id
-            @test getproperty.(imported.design_data.components, :id) ==
-                  getproperty.(original.design_data.components, :id)
+        for (imported_design, original_design, imported_position,
+            original_position, imported_connections, original_connections) in zip(
+            imported_system.designs,
+            system.designs,
+            imported_system.positions,
+            system.positions,
+            imported_system.connections,
+            system.connections
+        )
+            @test imported_position.x ≈ original_position.x rtol=1e-5
+            @test imported_position.y ≈ original_position.y rtol=1e-5
+            @test imported_connections == original_connections
+            @test imported_design.cable_id == original_design.cable_id
+            @test imported_design.terminal_order == original_design.terminal_order
             for (actual, expected) in zip(
-                imported.design_data.components,
-                original.design_data.components
+                imported_design.effective,
+                original_design.effective
             )
-                @test actual.conductor_group.r_in ≈ expected.conductor_group.r_in rtol=1e-5
-                @test actual.conductor_group.r_ex ≈ expected.conductor_group.r_ex rtol=1e-5
-                @test actual.insulator_group.r_ex ≈ expected.insulator_group.r_ex rtol=1e-5
-                @test actual.conductor_props.rho ≈ expected.conductor_props.rho rtol=1e-5
-                @test actual.conductor_props.mu_r ≈ expected.conductor_props.mu_r rtol=1e-5
-                @test actual.insulator_props.eps_r ≈ expected.insulator_props.eps_r rtol=1e-5
-                dielectric=only(actual.insulator_group.layers).material_props
-                @test dielectric.rho > 0
-                @test dielectric.mu_r ≈ expected.insulator_props.mu_r rtol=1e-5
+                @test actual.conductor.r_in ≈ expected.conductor.r_in rtol=1e-5
+                @test actual.conductor.r_ex ≈ expected.conductor.r_ex rtol=1e-5
+                @test actual.dielectric.r_ex ≈ expected.dielectric.r_ex rtol=1e-5
+                @test actual.conductor.material.rho ≈ expected.conductor.material.rho rtol=1e-5
+                @test actual.conductor.material.mu_r ≈ expected.conductor.material.mu_r rtol=1e-5
+                @test actual.dielectric.material.eps_r ≈ expected.dielectric.material.eps_r rtol=1e-5
+                @test actual.dielectric.material.rho > 0
+                @test actual.dielectric.material.mu_r ≈
+                      expected.dielectric.material.mu_r rtol=1e-5
             end
         end
 

@@ -71,7 +71,7 @@ function export_data(::Val{:atp},
         end
     end
 
-    num_phases = length(cable_system.cables)
+    num_phases = length(cable_system.designs)
 
     # Create XML Structure and LCC Component
     doc = XMLDocument()
@@ -165,46 +165,55 @@ function export_data(::Val{:atp},
         Dict("InAirGrnd" => 1, "MatrixOutput" => "true", "ExtraCG" => "$(num_phases)")
     )
 
-    for (k, cable) in enumerate(cable_system.cables)
+    for (k, (design, position)) in enumerate(zip(
+            cable_system.designs,
+            cable_system.positions
+    ))
         cable_node = addelement!(cable_header, "cable")
 
-        num_components = length(cable.design_data.components)
-        outermost_radius = nominal(cable.design_data.components[end].insulator_group.r_ex)
+        components = design.effective
+        components === nothing && throw(ArgumentError(
+            "ATP export requires the current radial analytical compatibility profile"
+        ))
+        num_components = length(components)
+        outermost = last(components)
+        outermost_radius = nominal(max(
+            outermost.conductor.r_ex,
+            outermost.dielectric.r_ex
+        ))
 
         _set_attributes!(
             cable_node,
             Dict(
                 "NumCond" => num_components,
                 "Rout" => outermost_radius,
-                "PosX" => nominal(cable.horz),
-                "PosY" => nominal(cable.vert)
+                "PosX" => nominal(position.x),
+                "PosY" => nominal(position.y)
             )
         )
 
-        for component in cable.design_data.components
+        for component in components
             conductor_node = addelement!(cable_node, "conductor")
 
-            cond_group = component.conductor_group
-            cond_props = component.conductor_props
-            ins_group = component.insulator_group
-            ins_props = component.insulator_props
+            conductor = component.conductor
+            dielectric = component.dielectric
 
-            rho_eq = (cond_props.rho)
-            mu_r_cond = (cond_props.mu_r)
-            mu_r_ins = (ins_props.mu_r)
-            eps_eq = (ins_props.eps_r)
+            rho_eq = conductor.material.rho
+            mu_r_cond = conductor.material.mu_r
+            mu_r_ins = dielectric.material.mu_r
+            eps_eq = dielectric.material.eps_r
 
             _set_attributes!(
                 conductor_node,
                 Dict(
-                    "Rin" => nominal(cond_group.r_in),
-                    "Rout" => nominal(cond_group.r_ex),
+                    "Rin" => nominal(conductor.r_in),
+                    "Rout" => nominal(conductor.r_ex),
                     "rho" => nominal(rho_eq),
                     "muC" => nominal(mu_r_cond),
                     "muI" => nominal(mu_r_ins),
                     "epsI" => nominal(eps_eq),
-                    "Cext" => nominal(ins_group.shunt_capacitance),
-                    "Gext" => nominal(ins_group.shunt_conductance)
+                    "Cext" => nominal(dielectric.shunt_capacitance),
+                    "Gext" => nominal(dielectric.shunt_conductance)
                 )
             )
         end

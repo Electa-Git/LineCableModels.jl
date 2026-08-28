@@ -22,13 +22,18 @@ load!(library;
         "mv_cable_design.json"
     ))
 source = only(values(library.data))
-designs = [
-    CableDesign("Detailed cable A", source.components; nominal_data = source.nominal_data),
-    equivalent(source; new_id = "Equivalent cable A"),
-    CableDesign("Detailed cable B", source.components; nominal_data = source.nominal_data),
-    equivalent(source; new_id = "Equivalent cable B"),
-    CableDesign("Detailed cable C", source.components; nominal_data = source.nominal_data)
-]
+designs = [CableDesign(
+    source.root;
+    cable_id,
+    nominal_data = source.nominal_data,
+    reference_frequency = source.reference_frequency
+) for cable_id in (
+    "Detailed cable A",
+    "Detailed cable B",
+    "Detailed cable C",
+    "Detailed cable D",
+    "Detailed cable E"
+)]
 display_plot = !CABLE_COLLECTION_GALLERY_SMOKE_ONLY
 
 # Omitting `layout` exercises the near-square rule: five designs become a 2×3

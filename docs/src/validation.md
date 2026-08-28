@@ -39,35 +39,22 @@ The failure type communicates the category:
 Cable-part constructors accept resolved numeric geometry. For example:
 
 ```julia
-part = Tubular(r_in, r_ex, material)
+part = Region(:core, Disk(radius), material)
 ```
 
-Radius or thickness selection, repetition, and variation belong to the builder
-definitions. A builder promotes its complete input before materialising the
-first cable object. Materialised objects therefore contain one scalar type and
-one resolved geometry.
+Radius or thickness selection, repetition, and variation use explicit
+`Grid` inputs. Scalar-complete calls construct an eager object; varying calls
+materialize the same constructor through `Gridspace`. Eager objects therefore
+contain one resolved geometry and cannot drift from their declarations.
 
-`add!` on a materialised group, design, earth model, or system accepts only the same
-scalar type as the destination. A mixed-scalar insertion throws before mutation. Use an
-explicit `convert` or rebuild the complete description when promotion is
-required.
+Mutable libraries and earth models validate a complete candidate before
+changing owned state. Cable parts, cable designs, and line systems are
+immutable; rebuild the authoritative declaration when it changes.
 
 Operating temperature is not a cable-part constructor input. Cable designs represent
 the common material reference state and reject mixed material reference temperatures.
 The line problem owns the operating temperature, and [`compute`](@ref) applies its
 correction without mutating the design.
-
-## Packing limits
-
-[`maxfill`](@ref) calculates cable packing limits:
-
-```julia
-maxfill(CircStrands, r_in, wire_radius)
-maxfill(RectStrands, lay_radius, width)
-```
-
-Cable-part validators and WirePatterns estimators call the same methods, so
-direct construction and estimation use identical geometric limits.
 
 ## Reference
 

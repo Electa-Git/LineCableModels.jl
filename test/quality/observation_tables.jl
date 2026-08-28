@@ -3,15 +3,15 @@
     grammar=read(joinpath(root, "src", "grammar", "observables.jl"), String)
     reports=join(
         read(joinpath(root, "src", "reportbuilder", file), String)
-        for file in ("grammar.jl", "tables.jl", "montecarlo.jl", "xlsx.jl")
+    for file in ("grammar.jl", "tables.jl", "montecarlo.jl", "xlsx.jl")
     )
     makie=join(
         read(path, String)
-        for (directory, _, files) in walkdir(
-            joinpath(root, "ext", "LineCableModelsMakieExt")
-        )
-        for file in files if endswith(file, ".jl")
-        for path in (joinpath(directory, file),)
+    for (directory, _, files) in walkdir(
+        joinpath(root, "ext", "LineCableModelsMakieExt")
+    )
+    for file in files if endswith(file, ".jl")
+    for path in (joinpath(directory, file),)
     )
 
     @test parentmodule(LineCableModels.observables) === LineCableModels.Grammar
@@ -32,9 +32,10 @@
         @test !occursin(token, reports)
     end
     @test !occursin(r"\bsource\.(?:stats|sample_values|histogram_values)\b", reports)
-    @test !occursin(r"\b(?:family|quantity|value|unit)\s*=\s*[^=]", read(
-        joinpath(root, "src", "reportbuilder", "tables.jl"), String
-    ))
+    @test !occursin(r"\b(?:family|quantity|value|unit)\s*=\s*[^=]",
+        read(
+            joinpath(root, "src", "reportbuilder", "tables.jl"), String
+        ))
     @test occursin("observation_columns(table)", reports)
 
     @test !occursin("Figure(", read(

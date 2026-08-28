@@ -49,17 +49,32 @@
 
     function fixture_case(source; name = :fixture, backend = :fixture)
         problem=TestFixtures.line_parameters_problem(; frequencies = [50.0])
-        problem.system.system_id=string(name)
         next_phase=1
         ports=String[]
-        for (cable_index, position) in enumerate(problem.system.cables)
-            for component_index in eachindex(position.conn)
-                position.conn[component_index]=next_phase
-                component=position.design_data.components[component_index]
-                push!(ports, "cable:$cable_index:$(component.id)")
+        connections=Vector{Int}[]
+        for (cable_index, design) in enumerate(problem.system.designs)
+            cable_connections=Int[]
+            for terminal in design.terminal_order
+                push!(cable_connections, next_phase)
+                push!(ports, "cable:$cable_index:$terminal")
                 next_phase+=1
             end
+            push!(connections, cable_connections)
         end
+        system=LineCableModels.LineCableSystem(
+            problem.system.designs;
+            positions = problem.system.positions,
+            connections,
+            environment = problem.system.environment,
+            system_id = string(name),
+            line_length = problem.system.line_length
+        )
+        problem=LineParametersProblem(
+            system;
+            temperature = problem.temperature,
+            earth_props = problem.earth_props,
+            frequencies = problem.frequencies
+        )
         formulation=Formulation(
             earth_impedance = EarthImpedance.Pollaczek(),
             earth_admittance = EarthAdmittance.IdealGround(),
@@ -372,7 +387,10 @@ end
     )
     function make_case(assignments; kron = false, bundle = false)
         problem=(
-            system = (system_id = "ports", cables = [(conn = collect(assignments),)]),
+            system = (
+                system_id = "ports",
+                connection_order = collect(assignments)
+            ),
             frequencies = [1.0, 10.0]
         )
         formulation=(options = (kron_reduction = kron, reduce_bundle = bundle),)
@@ -506,14 +524,6 @@ end
         :solid_1000mm2_single=>((),),
         :two_bare_wires=>((),)
     )
-    wire_count=function (layer)
-        hasfield(typeof(layer), :num_wires)&&return layer.num_wires
-        hasfield(typeof(layer), :shape)&&
-            hasfield(typeof(layer.shape), :num_wires)&&
-            return layer.shape.num_wires
-        return nothing
-    end
-
     for (id, expected_size) in expected_sizes
         model=load_case(id)
         @test model.id === id
@@ -534,14 +544,14 @@ end
             @test topology isa Integer ||
                   (topology isa Tuple && all(value -> value isa Integer, topology))
         end
-        design=first(model.nominal_problem.system.cables).design_data
+        design=first(model.nominal_problem.system.designs)
+        groups=filter(item->item isa Group, design.root.items)
         component_wire_counts=Tuple(
             Tuple(
-                count
-            for layer in component.conductor_group.layers
-            for count in (wire_count(layer),)
-            if count!==nothing
-            ) for component in design.components
+                group.pattern.n
+            for group in groups
+            if group.name===terminal&&group.pattern isa Ring
+            ) for terminal in design.terminal_order
         )
         @test component_wire_counts == expected_wire_counts[id]
         @test basename(index[id]) == string(id, ".jl")
@@ -611,9 +621,9 @@ end
     using .GauntletSupport
 
     first_load=load_case(:cable_18kv_1000mm2_trifoil)
-    first_load.nominal_problem.system.cables[1].conn[1]=99
+    first_load.nominal_problem.system.connections[1][1]=99
     second_load=load_case(:cable_18kv_1000mm2_trifoil)
-    @test second_load.nominal_problem.system.cables[1].conn[1] == 1
+    @test second_load.nominal_problem.system.connections[1][1] == 1
 
     single_frequency=load_case(
         :cable_18kv_1000mm2_trifoil;
@@ -682,12 +692,11 @@ end
     @test uncertain.sources.screen_wires == 49
     @test uncertain.sources.earth_rho == 100.0
 
-    nominal_cables=uncertain.nominal_problem.system.cables
-    nominal_radius=last(first(nominal_cables).design_data.components).
-    insulator_group.r_ex
+    nominal_system=uncertain.nominal_problem.system
+    nominal_radius=outer_radius(first(nominal_system.designs))
     nominal_spacing=hypot(
-        nominal_cables[1].horz-nominal_cables[2].horz,
-        nominal_cables[1].vert-nominal_cables[2].vert
+        nominal_system.positions[1].x-nominal_system.positions[2].x,
+        nominal_system.positions[1].y-nominal_system.positions[2].y
     )
     @test nominal_radius ≈ 34.575e-3
     @test nominal_spacing ≈ 2.2nominal_radius
@@ -697,35 +706,50 @@ end
         :cable_525kv_1600mm2_bipole;
         variation = ExactOverrides(armor_wire_diameter = 1.2*5.827e-3)
     )
-    expanded_design=first(expanded_armor.problem.system.cables).design_data
-    armor=expanded_design.components[3].conductor_group
+    expanded_design=first(expanded_armor.problem.system.designs)
+    armor_group=only(filter(
+        item->item isa Group&&item.name===:armor,
+        expanded_design.root.items
+    ))
+    armor=only(filter(value->value.name===:armor, expanded_design.effective)).conductor
+    armor_wire_radius=armor_group.item.primitive.r
     @test armor.num_wires == 68
     @test armor.r_in >=
-          armor.layers[1].radius_wire /
-          sinpi(1 / armor.num_wires) - armor.layers[1].radius_wire
-    @test expanded_design.components[2].insulator_group.layers[end].r_ex -
-          expanded_design.components[2].insulator_group.layers[end].r_in > 3.0e-3
+          armor_wire_radius / sinpi(1 / armor.num_wires) - armor_wire_radius
+    expanded_bedding=only(filter(
+        source->source.region.tag===:sheath_bedding,
+        expanded_design.geometry.regions
+    ))
+    @test thickness(expanded_bedding.shape) > 3.0e-3
 
     nominal_armor=load_case(:cable_525kv_1600mm2_bipole)
-    nominal_design=first(nominal_armor.problem.system.cables).design_data
-    nominal_bedding=nominal_design.components[2].insulator_group.layers[end]
+    nominal_design=first(nominal_armor.problem.system.designs)
+    nominal_bedding=only(filter(
+        source->source.region.tag===:sheath_bedding,
+        nominal_design.geometry.regions
+    ))
     nominal_unbuffered_outer_radius=63.22185e-3+5.827e-3+10.0e-3
-    @test nominal_bedding.r_ex - nominal_bedding.r_in ≈
+    @test thickness(nominal_bedding.shape) ≈
           3.0e-3 + 0.2nominal_unbuffered_outer_radius
 
     materialized=only(uncertain.problem)
-    uncertain_cables=materialized.system.cables
-    uncertain_radius=last(first(uncertain_cables).design_data.components).
-    insulator_group.r_ex
+    uncertain_system=materialized.system
+    uncertain_radius=outer_radius(first(uncertain_system.designs))
     uncertain_spacing=hypot(
-        uncertain_cables[1].horz-uncertain_cables[2].horz,
-        uncertain_cables[1].vert-uncertain_cables[2].vert
+        uncertain_system.positions[1].x-uncertain_system.positions[2].x,
+        uncertain_system.positions[1].y-uncertain_system.positions[2].y
     )
     @test uncertain_spacing - 2uncertain_radius ≈ 0.2uncertain_radius
 
-    layers=materialized.system.cables[1].design_data.components[1].insulator_group.layers
-    first_tape=layers[1].r_ex-layers[1].r_in
-    second_tape=layers[5].r_ex-layers[5].r_in
+    geometry=first(materialized.system.designs).geometry.regions
+    first_tape=thickness(only(filter(
+        source->source.region.tag===:core_semicon_tape_inner,
+        geometry
+    )).shape)
+    second_tape=thickness(only(filter(
+        source->source.region.tag===:core_semicon_tape_outer,
+        geometry
+    )).shape)
     @test Measurements.cov(first_tape, second_tape) > 0
     @test Measurements.cov(first_tape, second_tape) ≈
           Measurements.uncertainty(first_tape)^2

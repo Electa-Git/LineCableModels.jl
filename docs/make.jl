@@ -17,9 +17,7 @@ const TUTORIAL_OUTPUT = joinpath(DOCS_SRC_DIR, "tutorials")
 const PLOTBUILDER_SOURCE = joinpath(@__DIR__, "literate", "plotbuilder.jl")
 const GAUNTLET_SOURCE = joinpath(@__DIR__, "literate", "gauntlet.jl")
 
-const CONVENIENCE_API_OBJECTS = (
-    LineCableModels.maxfill,
-)
+const CONVENIENCE_API_OBJECTS = ()
 
 const BENCHMARK_API_OBJECTS = (
     LineCableModels.Engine.RMSError,
@@ -245,6 +243,7 @@ makedocs(;
         "Home" => "index.md",
         "Tutorials" => Any["Contents" => "tutorials.md", tutorials...],
         "User guide" => Any[
+            "Cable data model" => "data-model.md",
             "Modelling and results" => "usage.md",
             "Gridspace and uncertainty" => "gridspace.md"
         ],

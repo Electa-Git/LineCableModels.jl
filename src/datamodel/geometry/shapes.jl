@@ -150,6 +150,13 @@ support(shape::PolygonShape, φ::Real) = maximum(
     point[1] * cos(φ) + point[2] * sin(φ) for point in shape.points
 )
 
+support(shape::DiskShape) = shape.r
+support(shape::AnnulusShape) = shape.ro
+support(shape::RectangleShape) = hypot(shape.w, shape.h) / 2
+support(shape::EllipseShape) = max(shape.a, shape.b)
+support(shape::SectorShape) = shape.ro
+support(shape::PolygonShape) = maximum(hypot(point...) for point in shape.points)
+
 r_in(shape::DiskShape) = zero(shape.r)
 r_in(shape::AnnulusShape) = shape.ri
 r_in(shape::SectorShape) = shape.ri

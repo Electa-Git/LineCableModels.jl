@@ -48,8 +48,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   explicitly.
 - Renamed the built-in backend to `Formulation(:analytical)` and selected
   parameter or trace output through formulation options.
-- Made the declarative builder the default modelling API while retaining strict
-  materialised constructors through explicit submodule imports.
+- Made eager physical declarations the modelling API. Explicit `Grid` inputs
+  materialize the same constructors through `Gridspace`.
 - Moved Measurements.jl and Distributions.jl integrations into package
   extensions.
 - Restricted radial declarations to numeric radius or thickness semantics.
@@ -103,8 +103,8 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Removed
 
 - Binder experiments and Binder-specific notebook bootstrapping.
-- The accidental standalone `src/cablebuilder` subsystem. The maintained
-  `ParametricBuilder.CableBuilder`, covariance work, and its tests remain.
+- The accidental standalone cable-construction subsystem. Parameter-space and
+  covariance work remain under `ParametricBuilder`.
 - FEM/Gmsh/GetDP support and sector-shaped cable support. The final
   pre-removal snapshot is `legacy/fem-sector` at commit
   `b75dd2723f90a83ec090b20605ea42af57f4a9c3`.

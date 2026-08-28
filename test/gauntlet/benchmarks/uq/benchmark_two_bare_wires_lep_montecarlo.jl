@@ -5,20 +5,20 @@
     using LineCableModels.Engine
     using .GauntletSupport
 
-    model = load_case(
+    model=load_case(
         :two_bare_wires;
         variation = RelativeStandardUncertainty(
             10.0; tags = (:geometry, :cable_layer)
         )
     )
-    inner = uq_inner_formulation()
-    problem = ParametricProblem(model.problem)
-    reference = benchmark_calculation(
+    inner=uq_inner_formulation()
+    problem=ParametricProblem(model.problem)
+    reference=benchmark_calculation(
         :linear_error, :uq, problem, LinearError(inner)
     )
-    monte_carlo_trials = 4 * UQ_MONTE_CARLO_TRIALS
-    monte_carlo_seed = UInt64(0x200002)
-    candidate = benchmark_calculation(
+    monte_carlo_trials=4*UQ_MONTE_CARLO_TRIALS
+    monte_carlo_seed=UInt64(0x200002)
+    candidate=benchmark_calculation(
         :monte_carlo,
         :uq,
         problem,
@@ -31,8 +31,8 @@
             return_histograms = false
         )
     )
-    tolerances = uq_moment_tolerances()
-    benchmark = benchmark_definition(
+    tolerances=uq_moment_tolerances()
+    benchmark=benchmark_definition(
         :benchmark_two_bare_wires_lep_montecarlo,
         :two_bare_wires,
         :uq,
@@ -43,8 +43,9 @@
         UQMomentPolicy(),
         tolerances
     )
-    outcome = run_benchmark(benchmark)
-    @info "LEP versus Monte Carlo engineering comparison" trials=monte_carlo_trials seed=monte_carlo_seed errors=moment_error_summary(outcome.comparison, tolerances.reference) monte_carlo_over_lep_speedup=outcome.performance.speedup
+    outcome=run_benchmark(benchmark)
+    @info "LEP versus Monte Carlo engineering comparison" trials=monte_carlo_trials seed=monte_carlo_seed errors=moment_error_summary(
+        outcome.comparison, tolerances.reference) monte_carlo_over_lep_speedup=outcome.performance.speedup
 
     @test outcome.reference_result isa LinearErrorResult
     @test outcome.candidate_result isa MonteCarloResult

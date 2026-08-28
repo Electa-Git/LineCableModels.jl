@@ -1,4 +1,4 @@
-@testitem "ImportExport / schema values / lossless supported tags" tags=[:unit] setup=[
+@testitem "ImportExport / v1 scalar and Grid encoding" tags=[:unit] setup=[
     ImportExportTestSupport,
     UseImportExportSupport
 ] begin
@@ -11,8 +11,7 @@
         [1, 2.5, -1.0im], (1.0, 2.0), Dict(:count=>2, :scale=>0.5)
     ]
     for original in values
-        encoded=IE.serialize_value(original)
-        decoded=IE.deserialize_value(encoded)
+        decoded=IE.deserialize_value(IE.serialize_value(original))
         if original isa AbstractFloat&&isnan(original)
             @test isnan(decoded)
         elseif original isa Tuple
@@ -24,19 +23,31 @@
         end
     end
 
+    deterministic=Grid((:conductor, :semicon))
+    relative=Grid((1.0, 2.0), (1.0, 2.0))
+    absolute=Grid((10.0,), AbsoluteError((0.5,)))
+    for grid in (deterministic, relative, absolute)
+        restored=IE.deserialize_value(IE.serialize_value(grid))
+        @test typeof(restored) === typeof(grid)
+        @test collect(restored) == collect(grid)
+    end
+
+    material_record=IE._material_record(Material(kind = :conductor, rho = 1.7e-8))
+    material_record["kind"]=Dict("grid"=>["conductor", "semicon"])
+    kinds=IE._decode_material_record(material_record)
+    @test kinds isa Gridspace{Material}
+    @test getproperty.(collect(kinds), :kind) == [:conductor, :semicon]
+
     @test_throws ArgumentError IE.deserialize_value(Dict("__type__"=>"Complex"))
     @test_throws ArgumentError IE.deserialize_value(Dict(
         "__type__"=>"Float64", "special"=>"huge"
-    ))
-    @test_throws ArgumentError IE.deserialize_value(Dict(
-        "__type__"=>"FutureScalar", "value"=>2
     ))
     @test_throws ArgumentError IE.deserialize_value(Dict(
         "type"=>"FutureObject", "value"=>2
     ))
 end
 
-@testitem "ImportExport / schema objects / dispatched type tags round trip" tags=[:unit] setup=[
+@testitem "ImportExport / v1 declaration round trip excludes eager state" tags=[:unit] setup=[
     ImportExportTestSupport,
     UseImportExportSupport,
     TestFixtures
@@ -45,8 +56,9 @@ end
 
     design=TestFixtures.mv_cable_design()
     encoded=IE.serialize_value(design)
-    @test encoded["type"] == "CableDesign"
+    @test encoded["kind"] == "cable_design"
     @test encoded["cable_id"] == design.cable_id
+    @test encoded["reference_frequency"] == IE.serialize_value(design.reference_frequency)
 
     function contains_key(value, key)
         value isa AbstractDict&&(
@@ -55,54 +67,152 @@ end
         value isa AbstractVector&&return any(item->contains_key(item, key), value)
         return false
     end
-    @test !contains_key(encoded, "temperature")
-    @test !contains_key(encoded, "__julia_type__")
+    for derived in (
+        "geometry", "terminal_order", "terminal_map", "effective",
+        "connection_order", "engine", "grids"
+    )
+        @test !contains_key(encoded, derived)
+    end
 
     restored=IE.deserialize_value(encoded)
     @test restored isa CableDesign
     @test restored !== design
     @test IE.serialize_value(restored) == encoded
+    @test restored.terminal_order == design.terminal_order
+    @test restored.effective == design.effective
 
-    material=Material(
-        :conductor,
-        Float32(1), Float32(2), Float32(3), Float32(20), Float32(0.01)
+    malformed=deepcopy(encoded)
+    empty!(malformed["root"]["items"])
+    @test_throws ArgumentError IE.deserialize_value(malformed)
+
+    earth=EarthModel(100.0, 10.0, 1.0)
+    connections=Dict(
+        terminal=>(index==1 ? 1 : 0)
+    for (index, terminal) in enumerate(design.terminal_order)
     )
-    material_roundtrip=IE.deserialize_value(IE.serialize_value(material))
-    @test material_roundtrip == material
-    @test eltype(material_roundtrip) === Float32
-
-    missing_radius=deepcopy(encoded)
-    delete!(
-        missing_radius["components"][1]["conductor_group"]["layers"][1],
-        "r_ex"
+    system=LineCableSystem(
+        design;
+        position = Pose2(0.0, -1.0),
+        connections,
+        environment = earth,
+        system_id = "round-trip",
+        line_length = 1000.0
     )
-    @test_throws ArgumentError IE.deserialize_value(missing_radius)
-
-    empty_group=deepcopy(encoded)
-    empty!(empty_group["components"][1]["conductor_group"]["layers"])
-    @test_throws ArgumentError IE.deserialize_value(empty_group)
+    encoded_system=IE.serialize_value(system)
+    for derived in ("geometry", "terminal_order", "terminal_map", "connection_order")
+        @test !contains_key(encoded_system, derived)
+    end
+    restored_system=IE.deserialize_value(encoded_system)
+    @test IE.serialize_value(restored_system) == encoded_system
+    @test restored_system.terminal_order == system.terminal_order
+    @test restored_system.connection_order == system.connection_order
+    @test restored_system.environment.vertical_layers == earth.vertical_layers
+    @test restored_system.environment.layers == earth.layers
 end
 
-@testitem "ImportExport / documents / explicit version and schema" tags=[:unit] setup=[
+@testitem "ImportExport / Draft 2020-12 cable document" tags=[:unit] setup=[
     ImportExportTestSupport,
     UseImportExportSupport,
     TestFixtures
 ] begin
+    using JSON3
+    using JSONSchema
     import LineCableModels.ImportExport as IE
 
     materials=MaterialsLibrary(add_defaults = false)
     add!(materials, "copper", TestFixtures.copper_material())
     materials_document=IE._json_document(materials)
-    @test materials_document["schema"] == IE.MATERIALS_SCHEMA
-    @test materials_document["version"] == IE.JSON_SCHEMA_VERSION
-    @test haskey(materials_document, "materials")
+    @test materials_document["\$schema"] == IE.JSON_SCHEMA_DIALECT
+    @test materials_document["format"] == IE.MATERIALS_SCHEMA
+    @test materials_document["version"] == "1.0.0"
 
     cables=CablesLibrary()
     add!(cables, TestFixtures.mv_cable_design())
     cables_document=IE._json_document(cables)
-    @test cables_document["schema"] == IE.CABLES_SCHEMA
-    @test cables_document["version"] == IE.JSON_SCHEMA_VERSION
-    @test haskey(cables_document, "cables")
+    @test cables_document["\$schema"] == IE.JSON_SCHEMA_DIALECT
+    @test cables_document["format"] == IE.CABLES_SCHEMA
+    @test cables_document["version"] == "1.0.0"
+    @test cables_document["root"]["kind"] == "cable_library"
+    @test length(cables_document["materials"]) <
+          length(first(values(cables)).geometry.regions)
+    schema_path=joinpath(
+        pkgdir(LineCableModels), "schemas", "cable-design.schema.json"
+    )
+    @test isfile(schema_path)
+    schema=JSONSchema.Schema(JSON3.read(read(schema_path, String), Dict{String, Any}))
+    @test JSONSchema.validate(schema, cables_document) === nothing
+    @test JSONSchema.validate(schema, materials_document) === nothing
+
+    earth=EarthModel(100.0, 10.0, 1.0)
+    design=TestFixtures.mv_cable_design()
+    connections=Dict(
+        terminal=>(index==1 ? 1 : 0)
+    for (index, terminal) in enumerate(design.terminal_order)
+    )
+    system=LineCableSystem(
+        design;
+        position = Pose2(0.0, -1.0),
+        connections,
+        environment = earth
+    )
+    system_document=IE._json_document(system)
+    @test JSONSchema.validate(schema, system_document) === nothing
+
+    parametric_document=deepcopy(cables_document)
+    raw_design=only(values(parametric_document["root"]["cables"]))
+    function referenced_tags(node, material_name)
+        node isa AbstractDict||return String[]
+        tags=String[]
+        get(node, "kind", nothing)=="region"&&
+            get(node, "material", nothing)==material_name&&
+            push!(tags, node["tag"])
+        for child_name in ("items", "item", "fill", "wall", "root")
+            child=get(node, child_name, nothing)
+            child isa AbstractVector&&foreach(
+                item->append!(tags, referenced_tags(item, material_name)), child
+            )
+            child isa AbstractDict&&append!(tags, referenced_tags(child, material_name))
+        end
+        return tags
+    end
+    material_names=collect(keys(parametric_document["materials"]))
+    material_name=first(sort(
+        material_names;
+        by = name->length(referenced_tags(raw_design, name)),
+        rev = true
+    ))
+    varied_tags=referenced_tags(raw_design, material_name)
+    @test length(varied_tags) > 1
+    parametric_document["materials"][material_name]["rho"]=IE.serialize_value(Grid((
+        1.7e-8, 2.0e-8)))
+    @test JSONSchema.validate(schema, parametric_document) === nothing
+    decoded_materials=IE._document_materials(parametric_document)
+    design_space=IE._decode_design(raw_design, decoded_materials)
+    @test design_space isa Gridspace{CableDesign}
+    @test length(design_space) == 2
+    decoded_designs=collect(design_space)
+    @test all(design->design isa CableDesign, decoded_designs)
+    for design in decoded_designs
+        selected_rhos=unique(
+            region.region.material.rho
+        for region in design.geometry.regions
+        if String(region.region.tag) in varied_tags
+        )
+        @test length(selected_rhos) == 1
+    end
+    @test only(unique(
+        region.region.material.rho
+    for region in decoded_designs[1].geometry.regions
+    if String(region.region.tag) in varied_tags
+    )) != only(unique(
+        region.region.material.rho
+    for region in decoded_designs[2].geometry.regions
+    if String(region.region.tag) in varied_tags
+    ))
+
+    invalid=deepcopy(cables_document)
+    delete!(invalid["root"]["cables"]["test_cable"], "root")
+    @test JSONSchema.validate(schema, invalid) !== nothing
 
     @test_throws ArgumentError IE._json_path("library.archive")
     @test endswith(IE._json_path("library"), "library.json")

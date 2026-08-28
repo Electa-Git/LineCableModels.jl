@@ -242,9 +242,7 @@
     end
 
     function _assignments(problem)
-        return collect(Iterators.flatten(
-            position.conn for position in problem.system.cables
-        ))
+        return copy(problem.system.connection_order)
     end
 
     function validate_case(case::GauntletCase)

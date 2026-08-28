@@ -185,14 +185,17 @@ function build_manual_plot_gallery(
         )
     )
 
-    position = CablePosition(
-        design,
-        0.0,
-        -0.20,
-        Dict(component.id => (index == 1 ? 1 : 0)
-        for (index, component) in enumerate(design.components))
+    connections = Dict(
+        terminal => (index == 1 ? 1 : 0)
+        for (index, terminal) in enumerate(design.terminal_order)
     )
-    system = LineCableSystem("manual-system", 1000.0, position)
+    system = LineCableSystem(
+        design;
+        position = Pose2(0.0, -0.20, 0.0),
+        connections,
+        system_id = "manual-system",
+        line_length = 1000.0
+    )
     earth = EarthModel(100.0, 10.0, 1.0)
     push!(
         gallery,

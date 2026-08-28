@@ -49,51 +49,54 @@ F/m.
 function compute_cable_constants(
         design::CableDesign{T};
         S::Union{Nothing, Number} = nothing,
-        rho_e::Number = oftype(first(design.components).conductor_props.rho, 100)
+        rho_e::Number = oftype(
+            design.effective === nothing ? one(T) :
+            first(design.effective).conductor.material.rho,
+            100
+        )
 ) where {T}
-    length(design.components) >= 2 || throw(
+    design.effective === nothing && throw(ArgumentError(
+        "cable constants require the current radial analytical compatibility profile"
+    ))
+    length(design.effective) >= 2 || throw(
         ArgumentError("at least two cable components are required"),
     )
 
-    cable_core = design.components[1]
-    cable_shield = design.components[2]
-    cable_outer = design.components[end]
+    cable_core = design.effective[1]
+    cable_shield = design.effective[2]
+    cable_outer = design.effective[end]
     separation = if S === nothing
-        if isnan(cable_outer.insulator_group.r_ex)
-            2 * cable_outer.conductor_group.r_ex
-        else
-            2 * cable_outer.insulator_group.r_ex
-        end
+        2 * max(cable_outer.conductor.r_ex, cable_outer.dielectric.r_ex)
     else
         S
     end
 
-    reference = cable_core.conductor_props.T0
+    reference = cable_core.conductor.material.T0
     resistance_value = tubular_resistance(
-        cable_core.conductor_group.r_in,
-        cable_core.conductor_group.r_ex,
-        cable_core.conductor_props.rho,
-        cable_core.conductor_props.alpha,
+        cable_core.conductor.r_in,
+        cable_core.conductor.r_ex,
+        cable_core.conductor.material.rho,
+        cable_core.conductor.material.alpha,
         reference,
         reference
     )
     inductance_value = trifoil_inductance(
-        cable_core.conductor_group.r_in,
-        cable_core.conductor_group.r_ex,
-        cable_core.conductor_props.rho,
-        cable_core.conductor_props.mu_r,
-        cable_shield.conductor_group.r_in,
-        cable_shield.conductor_group.r_ex,
-        cable_shield.conductor_props.rho,
-        cable_shield.conductor_props.mu_r,
+        cable_core.conductor.r_in,
+        cable_core.conductor.r_ex,
+        cable_core.conductor.material.rho,
+        cable_core.conductor.material.mu_r,
+        cable_shield.conductor.r_in,
+        cable_shield.conductor.r_ex,
+        cable_shield.conductor.material.rho,
+        cable_shield.conductor.material.mu_r,
         separation;
         rho_e,
         f = oftype(separation, 50)
     )
     capacitance_value = shunt_capacitance(
-        cable_core.conductor_group.r_ex,
-        cable_core.insulator_group.r_ex,
-        cable_core.insulator_props.eps_r
+        cable_core.conductor.r_ex,
+        cable_core.dielectric.r_ex,
+        cable_core.dielectric.material.eps_r
     )
     return CableConstants(resistance_value, inductance_value, capacitance_value)
 end

@@ -54,14 +54,15 @@ end
 
         # Loop through each cable exported in the XML and compare it to the source
         for (i, cable_node) in enumerate(cable_nodes)
-            source_cable=cable_system.cables[i]
+            source_design=cable_system.designs[i]
+            source_position=cable_system.positions[i]
 
             # Verify position of EACH cable
-            @test parse(Float64, cable_node["PosX"]) ≈ source_cable.horz
-            @test parse(Float64, cable_node["PosY"]) ≈ source_cable.vert
+            @test parse(Float64, cable_node["PosX"]) ≈ source_position.x
+            @test parse(Float64, cable_node["PosY"]) ≈ source_position.y
 
             # Verify the number of conductor components inside this cable
-            num_components=length(source_cable.design_data.components)
+            num_components=length(source_design.effective)
             @test parse(Int, cable_node["NumCond"]) == num_components
 
             conductor_nodes=findall("conductor", cable_node)
@@ -69,20 +70,18 @@ end
 
             # Loop through each conductor component within the cable
             for (j, conductor_node) in enumerate(conductor_nodes)
-                source_component=source_cable.design_data.components[j]
-                cond_group=source_component.conductor_group
-                cond_props=source_component.conductor_props
-                ins_group=source_component.insulator_group
-                ins_props=source_component.insulator_props
+                source_component=source_design.effective[j]
+                conductor=source_component.conductor
+                dielectric=source_component.dielectric
 
-                expected_radius_in=cond_group.r_in
-                expected_radius_ext=cond_group.r_ex
-                expected_rho=cond_props.rho
-                expected_muC=cond_props.mu_r
-                expected_epsI=ins_props.eps_r
-                expected_muI=ins_props.mu_r
-                expected_Cext=ins_group.shunt_capacitance
-                expected_Gext=ins_group.shunt_conductance
+                expected_radius_in=conductor.r_in
+                expected_radius_ext=conductor.r_ex
+                expected_rho=conductor.material.rho
+                expected_muC=conductor.material.mu_r
+                expected_epsI=dielectric.material.eps_r
+                expected_muI=dielectric.material.mu_r
+                expected_Cext=dielectric.shunt_capacitance
+                expected_Gext=dielectric.shunt_conductance
 
                 # Assert that every attribute matches the expected value
                 @test parse(Float64, conductor_node["Rin"]) ≈ expected_radius_in

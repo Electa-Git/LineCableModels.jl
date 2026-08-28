@@ -40,7 +40,19 @@ function load!(
         _trusted_cable_data(Serialization.deserialize(file_name))
     elseif extension == ".json"
         document = _read_document(file_name, CABLES_SCHEMA)
-        _decoded_cable_data(deserialize_value(document["cables"]))
+        materials = _document_materials(document)
+        root = _required(document, "root", CABLES_SCHEMA)
+        get(root, "kind", nothing) == "cable_library" || throw(ArgumentError(
+            "cable document root must have kind 'cable_library'"
+        ))
+        raw_cables = _required(root, "cables", "cable_library")
+        raw_cables isa AbstractDict || throw(ArgumentError(
+            "cable_library cables must be an object"
+        ))
+        _decoded_cable_data(Dict(
+            String(name) => _decode_design(value, materials)
+            for (name, value) in raw_cables
+        ))
     else
         throw(ArgumentError("CablesLibrary loading requires a .json or .jls file"))
     end

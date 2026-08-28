@@ -93,9 +93,9 @@ df = DataFrame( #hide
 #=
 ## Core and main insulation
 
-The conductor has a central wire and six concentric layers. `Conductor.Stranded`
-generates the (1/6/12/18/24/30/36) wire pattern while retaining the specified
-lay ratio for the helical corrections.
+The conductor has a central wire and six concentric layers. Repeated `Group`
+values with `Ring` patterns retain the (1/6/12/18/24/30/36) individual wires,
+and `Helix` records the path needed for the helical corrections.
 =#
 
 # Select reusable materials from the library:
@@ -112,14 +112,25 @@ steel = Material(materials, :steel)
 n_strands = 6 # Strands per layer
 n_layers = 6 # Layers of strands
 @assert 1 + n_strands * sum(1:n_layers) == num_co_wires
-core_conductor = Conductor.Stranded(
-    :core;
-    layers = n_layers + 1,
-    wire_radius = d_w / 2,
-    num_wires = n_strands,
-    lay_ratio = 11.0,
-    material = copper
-)
+strand_radius = d_w / 2
+parts, radius = let
+    current_radius = zero(strand_radius)
+    items = AbstractCablePart[]
+    for layer in 0:n_layers
+        count = layer == 0 ? 1 : layer * n_strands
+        centre_radius = count == 1 ? zero(current_radius) :
+                        current_radius + strand_radius
+        push!(items, Group(
+            :core,
+            Region(Symbol(:core_strands_, layer + 1), Disk(strand_radius), copper);
+            pattern = Ring(count; r = centre_radius),
+            path = count == 1 ? nothing : Helix(LayRatio(11.0))
+        ))
+        current_radius = count == 1 ? strand_radius :
+                         current_radius + 2strand_radius
+    end
+    items, current_radius
+end
 
 #=
 ### Inner semiconductor
@@ -127,7 +138,7 @@ core_conductor = Conductor.Stranded(
 Inner semiconductor (1000 Ω.m as per IEC 840):
 =#
 
-inner_semiconductor = Insulator.Semicon(:core; thickness = t_sc_in, material = semicon1)
+inner_semiconductor = Region(:core_semicon_inner, Shell(t_sc_in), semicon1)
 
 #=
 ### Main insulation
@@ -135,7 +146,7 @@ inner_semiconductor = Insulator.Semicon(:core; thickness = t_sc_in, material = s
 Add the insulation layer:
 =#
 
-main_insulation = Insulator.Tubular(:core; thickness = t_ins, material = pe)
+main_insulation = Region(:core_insulation, Shell(t_ins), pe)
 
 #=
 ### Outer semiconductor
@@ -143,19 +154,16 @@ main_insulation = Insulator.Tubular(:core; thickness = t_ins, material = pe)
 Outer semiconductor (500 Ω.m as per IEC 840):
 =#
 
-outer_semiconductor = Insulator.Semicon(:core; thickness = t_sc_out, material = semicon2)
+outer_semiconductor = Region(:core_semicon_outer, Shell(t_sc_out), semicon2)
 
 # Water blocking (swellable) tape:
-swellable_tape = Insulator.Semicon(:core; thickness = t_wbt, material = polyacrylate)
+swellable_tape = Region(:core_water_blocking, Shell(t_wbt), polyacrylate)
 
-# Group the declarations associated with the core component:
-core_parts = (
-    core_conductor,
-    inner_semiconductor,
-    main_insulation,
-    outer_semiconductor,
-    swellable_tape
-)
+# Append the dielectric regions in their physical order:
+append!(parts, (
+    inner_semiconductor, main_insulation, outer_semiconductor, swellable_tape
+))
+radius += t_sc_in + t_ins + t_sc_out + t_wbt
 
 cable_id = "525kV_1600mm2"
 datasheet_info = (
@@ -176,37 +184,37 @@ The lead sheath is described by its radial thickness, followed by the PE inner
 sheath and PP bedding. These declarations are stacked over the resolved core.
 =#
 
-sheath_parts = (
-    Conductor.Tubular(:sheath; thickness = t_sc, material = lead),
-    Insulator.Tubular(:sheath; thickness = t_pe, material = pe),
-    Insulator.Tubular(:sheath; thickness = t_bed, material = pp)
-)
+lead_outer = radius + t_sc
+push!(parts, Group(
+    :sheath,
+    Region(:sheath_lead_screen, Annulus(radius, lead_outer), lead)
+))
+push!(parts, Region(:sheath_inner, Shell(t_pe), pe))
+push!(parts, Region(:sheath_bedding, Shell(t_bed), pp))
+radius = lead_outer + t_pe + t_bed
 
 #=
-### Armor and outer jacket components
+### Armor and outer jacket regions
 
 =#
 
 # Describe the armor wires and the PP outer jacket:
 lay_ratio = 10.0 # typical value for wire screens
-armor_parts = (
-    Conductor.Wires(
-        :armor;
-        wire_radius = d_wa / 2,
-        num_wires = num_ar_wires,
-        lay_ratio,
-        material = steel
-    ),
-    Insulator.Tubular(:armor; thickness = t_jac, material = pp)
-)
+armor_radius = d_wa / 2
+armor_centre = radius + armor_radius
+push!(parts, Group(
+    :armor,
+    Region(:armor_wires, Disk(armor_radius), steel);
+    pattern = Ring(num_ar_wires; r = armor_centre),
+    path = Helix(LayRatio(lay_ratio))
+))
+push!(parts, Region(:armor_jacket, Shell(t_jac), pp))
 
 # Resolve the complete deterministic cable description:
-cable_design = CableBuilder(
+cable_design = CableDesign(
+    Stack(parts);
     cable_id,
-    core_parts,
-    sheath_parts,
-    armor_parts;
-    nominal = datasheet_info
+    nominal_data = NominalData(; datasheet_info...)
 )
 
 # Inspect the finished cable design:
@@ -241,8 +249,8 @@ published_constants = observables(constants, (R, L, C))
 # Use the native DataFrames adapter when a complete tabular result is wanted:
 constants_table = DataFrame(constants)
 
-# Obtain the equivalent electromagnetic properties of the cable:
-components_df = DataFrame(cable_design, :components)
+# Obtain the radial analytical equivalence of the retained terminals:
+terminals_df = DataFrame(cable_design, :terminals)
 
 #=
 ## Saving the cable design
@@ -285,24 +293,28 @@ earth = Earth(rho = 100.0, eps_r = 10.0, mu_r = 1.0)
 
 =#
 
-# Define the coordinates and phase mapping for both poles:
+# Define the coordinates and terminal assignments for both poles:
 xp, xn, y0 = -0.5, 0.5, -1.0;
-positions = (
-    at(x = xp, y = y0, phases = (:core => 1, :sheath => 0, :armor => 0)),
-    at(x = xn, y = y0, phases = (:core => 2, :sheath => 0, :armor => 0))
-)
+positions = [Pose2(xp, y0), Pose2(xn, y0)]
+connections = [
+    Dict(:core => 1, :sheath => 0, :armor => 0),
+    Dict(:core => 2, :sheath => 0, :armor => 0)
+]
 
-# Build the complete bipole line-parameter problem from the loaded design:
-problem = SystemBuilder(
-    "525kV_1600mm2_bipole",
-    loaded_design,
-    positions;
-    length = 1000.0,
+# Materialize the physical system before adding calculation-only state:
+cable_system = LineCableSystem(
+    fill(loaded_design, 2);
+    positions,
+    connections,
+    system_id = "525kV_1600mm2_bipole",
+    line_length = 1000.0
+)
+problem = LineCableModels.Engine.LineParametersProblem(
+    cable_system;
     temperature = 20.0,
-    earth,
+    earth_props = earth,
     frequencies = f
 )
-cable_system = problem.system
 earth_params = problem.earth_props
 
 # Inspect the frequency-dependent earth model produced for this problem:

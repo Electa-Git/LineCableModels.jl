@@ -1,40 +1,51 @@
-@testitem "DataModel / LineCableSystem / derived counts and strict insertion" tags=[:unit] setup=[
+@testitem "DataModel / LineCableSystem / eager immutable state" tags=[:unit] setup=[
     DataModelTestSupport,
     UseDataModelSupport,
     TestFixtures
 ] begin
     design=TestFixtures.mv_cable_design()
-    mapping(phase) = Dict("core"=>phase, "sheath"=>0, "jacket"=>0)
-    first_position=CablePosition(design, 0.0, -1.0, mapping(1))
-    system=LineCableSystem("line", 1000.0, first_position)
+    mapping(phase) = Dict(
+        terminal=>(index==1 ? phase : 0)
+    for (index, terminal) in enumerate(design.terminal_order)
+    )
+    system=LineCableSystem(
+        [design, design];
+        positions = [Pose2(0.0, -1.0, 0.0), Pose2(0.1, -1.0, 0.0)],
+        connections = [mapping(1), mapping(2)],
+        system_id = "line",
+        line_length = 1000.0
+    )
 
     @test system isa LineCableSystem{Float64}
-    @test ncables(system) == 1
-    @test nphases(system) == 1
+    @test ncables(system) == 2
+    @test nphases(system) == 2
+    @test system.designs == [design, design]
+    @test system.positions == [Pose2(0.0, -1.0, 0.0), Pose2(0.1, -1.0, 0.0)]
+    @test system.connection_order == vcat(
+        [mapping(1)[terminal] for terminal in design.terminal_order],
+        [mapping(2)[terminal] for terminal in design.terminal_order]
+    )
+    @test length(system.geometry) == 2 * length(design.geometry.regions)
     @test !hasproperty(system, :num_cables)
     @test !hasproperty(system, :num_phases)
     @test validate(system) === system
 
-    second_position=CablePosition(design, 0.1, -1.0, mapping(2))
-    @test add!(system, second_position) === system
-    @test ncables(system) == 2
-    @test nphases(system) == 2
+    @test_throws DomainError LineCableSystem(
+        [design, design];
+        positions = [Pose2(0.0, -1.0, 0.0), Pose2(0.001, -1.0, 0.0)],
+        connections = [mapping(1), mapping(2)]
+    )
+    @test_throws DimensionMismatch LineCableSystem(
+        [design, design];
+        positions = [Pose2(0.0, -1.0, 0.0)]
+    )
 
-    snapshot=deepcopy(system)
-    overlap=CablePosition(design, 0.1001, -1.0, mapping(3))
-    @test_throws DomainError add!(system, overlap)
-    @test ncables(system) == ncables(snapshot)
-
-    position32=convert(CablePosition{Float32}, CablePosition(design, 0.2, -1.0, mapping(3)))
-    @test_throws ArgumentError add!(system, position32)
-    @test ncables(system) == ncables(snapshot)
-
-    system32=convert(LineCableSystem{Float32}, system)
-    @test system32 isa LineCableSystem{Float32}
-    @test ncables(system32) == ncables(system)
-    @test nphases(system32) == nphases(system)
-    @test convert(LineCableSystem{Float64}, system) === system
-
-    @test_throws DomainError LineCableSystem("bad", 0.0, first_position)
-    @test_throws ArgumentError LineCableSystem("", 1.0, first_position)
+    @test_throws DomainError LineCableSystem(
+        design; position = Pose2(0.0, -1.0, 0.0), line_length = 0.0
+    )
+    @test_throws ArgumentError LineCableSystem(
+        design;
+        position = Pose2(0.0, -1.0, 0.0),
+        system_id = ""
+    )
 end

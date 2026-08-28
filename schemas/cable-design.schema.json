@@ -1,0 +1,361 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://electa-git.github.io/LineCableModels.jl/schemas/cable-design.schema.json",
+  "title": "LineCableModels cable declarations",
+  "type": "object",
+  "required": ["$schema", "format", "version", "materials"],
+  "properties": {
+    "$schema": {"const": "https://json-schema.org/draft/2020-12/schema"},
+    "format": {
+      "enum": ["linecablemodels.cable", "linecablemodels.materials"]
+    },
+    "version": {"const": "1.0.0"},
+    "materials": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/material"}
+    },
+    "root": {"$ref": "#/$defs/root"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"format": {"const": "linecablemodels.cable"}}},
+      "then": {"required": ["root"]},
+      "else": {"not": {"required": ["root"]}}
+    }
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "typedFloat": {
+      "type": "object",
+      "required": ["__type__"],
+      "properties": {
+        "__type__": {"enum": ["Float16", "Float32", "Float64", "BigFloat"]},
+        "value": {"oneOf": [{"type": "number"}, {"type": "string"}]},
+        "special": {"enum": ["Inf", "-Inf", "NaN"]}
+      },
+      "oneOf": [{"required": ["value"]}, {"required": ["special"]}],
+      "additionalProperties": false
+    },
+    "atomicScalar": {
+      "oneOf": [
+        {"type": "number"},
+        {"$ref": "#/$defs/typedFloat"}
+      ]
+    },
+    "numericGrid": {
+      "type": "object",
+      "required": ["grid"],
+      "properties": {
+        "grid": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/atomicScalar"}
+        },
+        "rel": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/atomicScalar"}
+        },
+        "abs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/atomicScalar"}
+        }
+      },
+      "not": {"required": ["rel", "abs"]},
+      "additionalProperties": false
+    },
+    "symbolGrid": {
+      "type": "object",
+      "required": ["grid"],
+      "properties": {
+        "grid": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        }
+      },
+      "additionalProperties": false
+    },
+    "scalar": {
+      "oneOf": [
+        {"$ref": "#/$defs/atomicScalar"},
+        {"$ref": "#/$defs/numericGrid"}
+      ]
+    },
+    "material": {
+      "type": "object",
+      "required": [
+        "kind", "rho", "eps_r", "mu_r", "T0", "alpha",
+        "rho_thermal", "theta_max", "tan_delta", "sigma_solar"
+      ],
+      "properties": {
+        "kind": {
+          "oneOf": [
+            {"type": "string", "minLength": 1},
+            {"$ref": "#/$defs/symbolGrid"}
+          ]
+        },
+        "rho": {"$ref": "#/$defs/scalar"},
+        "eps_r": {"$ref": "#/$defs/scalar"},
+        "mu_r": {"$ref": "#/$defs/scalar"},
+        "T0": {"$ref": "#/$defs/scalar"},
+        "alpha": {"$ref": "#/$defs/scalar"},
+        "rho_thermal": {"$ref": "#/$defs/scalar"},
+        "theta_max": {"$ref": "#/$defs/scalar"},
+        "tan_delta": {"$ref": "#/$defs/scalar"},
+        "sigma_solar": {"$ref": "#/$defs/scalar"}
+      },
+      "additionalProperties": false
+    },
+    "pose": {
+      "type": "object",
+      "required": ["kind", "x", "y", "φ"],
+      "properties": {
+        "kind": {"const": "pose2"},
+        "x": {"$ref": "#/$defs/scalar"},
+        "y": {"$ref": "#/$defs/scalar"},
+        "φ": {"$ref": "#/$defs/scalar"}
+      },
+      "additionalProperties": false
+    },
+    "earthLayer": {
+      "type": "object",
+      "required": ["kind", "rho", "eps_r", "mu_r", "thickness"],
+      "properties": {
+        "kind": {"const": "earth_layer"},
+        "rho": {"$ref": "#/$defs/scalar"},
+        "eps_r": {"$ref": "#/$defs/scalar"},
+        "mu_r": {"$ref": "#/$defs/scalar"},
+        "thickness": {"$ref": "#/$defs/scalar"}
+      },
+      "additionalProperties": false
+    },
+    "earthModel": {
+      "type": "object",
+      "required": ["kind", "vertical_layers", "layers"],
+      "properties": {
+        "kind": {"const": "earth_model"},
+        "vertical_layers": {"type": "boolean"},
+        "layers": {
+          "type": "array",
+          "minItems": 2,
+          "items": {"$ref": "#/$defs/earthLayer"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "primitive": {
+      "oneOf": [
+        {
+          "type": "object", "required": ["kind", "r"],
+          "properties": {"kind": {"const": "disk"}, "r": {"$ref": "#/$defs/scalar"}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object", "required": ["kind", "w", "h"],
+          "properties": {"kind": {"const": "rectangle"}, "w": {"$ref": "#/$defs/scalar"}, "h": {"$ref": "#/$defs/scalar"}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object", "required": ["kind", "a", "b"],
+          "properties": {"kind": {"const": "ellipse"}, "a": {"$ref": "#/$defs/scalar"}, "b": {"$ref": "#/$defs/scalar"}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object", "required": ["kind", "ri", "ro", "φ0", "span"],
+          "properties": {"kind": {"const": "sector"}, "ri": {"$ref": "#/$defs/scalar"}, "ro": {"$ref": "#/$defs/scalar"}, "φ0": {"$ref": "#/$defs/scalar"}, "span": {"$ref": "#/$defs/scalar"}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object", "required": ["kind", "ri", "ro"],
+          "properties": {"kind": {"const": "annulus"}, "ri": {"$ref": "#/$defs/scalar"}, "ro": {"$ref": "#/$defs/scalar"}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object", "required": ["kind", "t"],
+          "properties": {"kind": {"const": "shell"}, "t": {"$ref": "#/$defs/scalar"}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object", "required": ["kind", "points"],
+          "properties": {
+            "kind": {"const": "polygon"},
+            "points": {"type": "array", "minItems": 3, "items": {"type": "array", "prefixItems": [{"$ref": "#/$defs/scalar"}, {"$ref": "#/$defs/scalar"}], "items": false}}
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "pattern": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object", "required": ["kind", "n", "r", "φ0", "span"],
+          "properties": {"kind": {"const": "ring"}, "n": {"type": "integer", "minimum": 1}, "r": {"$ref": "#/$defs/scalar"}, "φ0": {"$ref": "#/$defs/scalar"}, "span": {"$ref": "#/$defs/scalar"}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object", "required": ["kind", "nr", "nφ", "r0", "dr", "φ0", "span"],
+          "properties": {"kind": {"const": "polar"}, "nr": {"type": "integer", "minimum": 1}, "nφ": {"type": "integer", "minimum": 1}, "r0": {"$ref": "#/$defs/scalar"}, "dr": {"$ref": "#/$defs/scalar"}, "φ0": {"$ref": "#/$defs/scalar"}, "span": {"$ref": "#/$defs/scalar"}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object", "required": ["kind", "nx", "ny", "dx", "dy"],
+          "properties": {"kind": {"const": "lattice"}, "nx": {"type": "integer", "minimum": 1}, "ny": {"type": "integer", "minimum": 1}, "dx": {"$ref": "#/$defs/scalar"}, "dy": {"$ref": "#/$defs/scalar"}},
+          "additionalProperties": false
+        },
+        {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/pose"}}
+      ]
+    },
+    "lay": {
+      "oneOf": [
+        {"type": "object", "required": ["kind", "q"], "properties": {"kind": {"const": "lay_ratio"}, "q": {"$ref": "#/$defs/scalar"}}, "additionalProperties": false},
+        {"type": "object", "required": ["kind", "p"], "properties": {"kind": {"const": "pitch"}, "p": {"$ref": "#/$defs/scalar"}}, "additionalProperties": false},
+        {"type": "object", "required": ["kind", "α"], "properties": {"kind": {"const": "lay_angle"}, "α": {"$ref": "#/$defs/scalar"}}, "additionalProperties": false}
+      ]
+    },
+    "path": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object", "required": ["kind", "lay", "dir", "φ0"],
+          "properties": {"kind": {"const": "helix"}, "lay": {"$ref": "#/$defs/lay"}, "dir": {"enum": [-1, 1]}, "φ0": {"$ref": "#/$defs/scalar"}},
+          "additionalProperties": false
+        }
+      ]
+    },
+    "compaction": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "object", "required": ["kind", "k"], "properties": {"kind": {"const": "diameter_factor"}, "k": {"$ref": "#/$defs/scalar"}}, "additionalProperties": false}
+      ]
+    },
+    "materialRef": {
+      "oneOf": [
+        {"type": "string", "minLength": 1},
+        {"type": "object", "required": ["type", "value"], "properties": {"type": {"const": "material"}, "value": {"$ref": "#/$defs/material"}}, "additionalProperties": false}
+      ]
+    },
+    "part": {
+      "oneOf": [
+        {
+          "type": "object", "required": ["kind", "tag", "primitive", "material"],
+          "properties": {"kind": {"const": "region"}, "tag": {"type": "string", "minLength": 1}, "primitive": {"$ref": "#/$defs/primitive"}, "material": {"$ref": "#/$defs/materialRef"}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object", "required": ["kind", "items"],
+          "properties": {"kind": {"const": "stack"}, "items": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/part"}}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object", "required": ["kind", "name", "at", "item", "pattern", "path", "compact"],
+          "properties": {"kind": {"const": "group"}, "name": {"type": "string", "minLength": 1}, "at": {"$ref": "#/$defs/pose"}, "item": {"$ref": "#/$defs/part"}, "pattern": {"$ref": "#/$defs/pattern"}, "path": {"$ref": "#/$defs/path"}, "compact": {"$ref": "#/$defs/compaction"}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object", "required": ["kind", "at", "item", "pattern", "path", "compact", "names"],
+          "properties": {"kind": {"const": "assembly"}, "at": {"$ref": "#/$defs/pose"}, "item": {"$ref": "#/$defs/part"}, "pattern": {"$ref": "#/$defs/pattern"}, "path": {"$ref": "#/$defs/path"}, "compact": {"$ref": "#/$defs/compaction"}, "names": {"oneOf": [{"type": "string"}, {"type": "array", "minItems": 1, "items": {"type": "string"}}]}},
+          "additionalProperties": false
+        },
+        {
+          "type": "object", "required": ["kind", "tag", "at", "shape", "item", "fill", "wall"],
+          "properties": {"kind": {"const": "enclosure"}, "tag": {"type": "string", "minLength": 1}, "at": {"$ref": "#/$defs/pose"}, "shape": {"$ref": "#/$defs/primitive"}, "item": {"$ref": "#/$defs/part"}, "fill": {"oneOf": [{"$ref": "#/$defs/materialRef"}, {"$ref": "#/$defs/part"}]}, "wall": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/part"}]}},
+          "additionalProperties": false
+        }
+      ]
+    },
+    "nominalData": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object", "required": ["kind"],
+          "properties": {
+            "kind": {"const": "nominal_data"},
+            "designation_code": {"type": ["string", "null"]},
+            "U0": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/scalar"}]},
+            "U": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/scalar"}]},
+            "conductor_cross_section": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/scalar"}]},
+            "screen_cross_section": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/scalar"}]},
+            "armor_cross_section": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/scalar"}]},
+            "resistance": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/scalar"}]},
+            "capacitance": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/scalar"}]},
+            "inductance": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/scalar"}]}
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "cableDesign": {
+      "type": "object",
+      "required": ["kind", "cable_id", "nominal_data", "reference_frequency", "root"],
+      "properties": {
+        "kind": {"const": "cable_design"},
+        "cable_id": {"type": "string", "minLength": 1},
+        "nominal_data": {"$ref": "#/$defs/nominalData"},
+        "reference_frequency": {"$ref": "#/$defs/scalar"},
+        "root": {"$ref": "#/$defs/part"}
+      },
+      "additionalProperties": false
+    },
+    "lineCableSystem": {
+      "type": "object",
+      "required": [
+        "kind", "system_id", "line_length", "designs", "positions",
+        "connections", "environment"
+      ],
+      "properties": {
+        "kind": {"const": "line_cable_system"},
+        "system_id": {"type": "string", "minLength": 1},
+        "line_length": {"$ref": "#/$defs/scalar"},
+        "designs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/cableDesign"}
+        },
+        "positions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/pose"}
+        },
+        "connections": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "array",
+            "items": {"type": "integer", "minimum": 0}
+          }
+        },
+        "environment": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "#/$defs/earthModel"}
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "root": {
+      "oneOf": [
+        {"$ref": "#/$defs/cableDesign"},
+        {"$ref": "#/$defs/lineCableSystem"},
+        {
+          "type": "object",
+          "required": ["kind", "cables"],
+          "properties": {
+            "kind": {"const": "cable_library"},
+            "cables": {"type": "object", "additionalProperties": {"$ref": "#/$defs/cableDesign"}}
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "grid": {
+      "oneOf": [
+        {"$ref": "#/$defs/numericGrid"},
+        {"$ref": "#/$defs/symbolGrid"}
+      ]
+    }
+  }
+}

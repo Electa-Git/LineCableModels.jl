@@ -1,42 +1,34 @@
 """
     LineCableModels.ParametricBuilder.Insulator
 
-Declare tubular insulation and semiconducting parts for
-[`LineCableModels.ParametricBuilder.CableBuilder`](@ref). An explicit `Grid` or
-`Gridspace` input returns a finite space of part builders.
+Construct insulating Regions while enforcing `Material.kind == :insulator`.
 """
 module Insulator
 
-using ..ParametricBuilder:
-                           AbstractGrid, Grid, Gridspace, PartBuilder,
-                           _radial_declaration
+using ..ParametricBuilder: AbstractGrid, Grid, Gridspace
 import ...DataModel
+import ...Materials
 
-function _annular(
-        part,
-        component::Symbol;
-        layers = 1,
-        radius = nothing,
-        thickness = nothing,
-        material,
-        combine::Symbol = :product
-)
-    combine in (:product, :zip) ||
-        throw(ArgumentError("combine must be :product or :zip"))
-    mode, dimension = _radial_declaration(radius, thickness)
-    values = (
-        Val(:insulator), Val(part), mode, component, layers, dimension, material
-    )
+function _region(tag, primitive, material)
+    material isa Materials.Material ||
+        throw(ArgumentError("insulator material must resolve to Material"))
+    material.kind === :insulator || throw(ArgumentError(
+        "insulator material must have kind :insulator; got :$(material.kind)"
+    ))
+    return DataModel.Region(tag, primitive, material)
+end
+
+function Shell(tag::Symbol, material; t, combine::Symbol = :product)
+    values = (tag, t, material)
     if any(value -> value isa Union{AbstractGrid, Gridspace}, values)
         grids = map(values) do value
             value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
         end
-        return Gridspace{PartBuilder}(PartBuilder, grids; combine)
+        build = (resolved_tag, thickness, resolved_material) ->
+                _region(resolved_tag, DataModel.Shell(thickness), resolved_material)
+        return Gridspace{DataModel.Region}(build, grids; combine)
     end
-    return PartBuilder(values...)
+    return _region(tag, DataModel.Shell(t), material)
 end
-
-Tubular(component::Symbol; kwargs...) = _annular(DataModel.Insulator, component; kwargs...)
-Semicon(component::Symbol; kwargs...) = _annular(DataModel.Semicon, component; kwargs...)
 
 end

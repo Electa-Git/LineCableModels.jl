@@ -124,22 +124,6 @@ function _annulus_polygon(inner_radius, outer_radius, xcenter, ycenter; count::I
     return GeometryBasics.Polygon(outer, [inner])
 end
 
-function _radial_wedge(
-        inner_radius, outer_radius, width, center_angle, xcenter, ycenter; count::Int = 32)
-    angle_width = iszero(inner_radius) ? 0.0 : width / inner_radius
-    outer_angles = range(center_angle - angle_width / 2, center_angle + angle_width / 2; length = count)
-    inner_angles = reverse(outer_angles)
-    xvalues = vcat(
-        xcenter .+ outer_radius .* cos.(outer_angles),
-        xcenter .+ inner_radius .* cos.(inner_angles)
-    )
-    yvalues = vcat(
-        ycenter .+ outer_radius .* sin.(outer_angles),
-        ycenter .+ inner_radius .* sin.(inner_angles)
-    )
-    return Point2f.(xvalues, yvalues)
-end
-
 function _preview_polygon(geometry, label, group, color; stroke = :black, width = 0.5)
     resolved_label = label === nothing ? nothing : String(label)
     return PreviewPolygon(
@@ -152,107 +136,121 @@ function _preview_polygon(geometry, label, group, color; stroke = :black, width 
     )
 end
 
-function _annular_preview_shapes(layer, context)
-    geometry = _annulus_polygon(
-        nominal(layer.r_in),
-        nominal(layer.r_ex),
-        context.xcenter,
-        context.ycenter
-    )
+function _transform_preview_points(points, pose::Pose2)
+    cosine = cos(nominal(pose.φ))
+    sine = sin(nominal(pose.φ))
+    x = nominal(pose.x)
+    y = nominal(pose.y)
+    return Point2f[
+        (
+            x + cosine * nominal(point[1]) - sine * nominal(point[2]),
+            y + sine * nominal(point[1]) + cosine * nominal(point[2])
+        ) for point in points
+    ]
+end
+
+function _shape_geometry(shape::DiskShape)
+    return GeometryBasics.Polygon(_circle_points(nominal(shape.r), 0.0, 0.0))
+end
+
+function _shape_geometry(shape::AnnulusShape)
+    return _annulus_polygon(nominal(shape.ri), nominal(shape.ro), 0.0, 0.0)
+end
+
+function _shape_geometry(shape::SectorShape)
+    outer_angles = range(shape.φ0, shape.φ0 + shape.span; length = 96)
+    inner_angles = reverse(outer_angles)
+    points = Point2f[
+        (shape.ro * cos(angle), shape.ro * sin(angle)) for angle in outer_angles
+    ]
+    append!(points, Point2f[
+        (shape.ri * cos(angle), shape.ri * sin(angle)) for angle in inner_angles
+    ])
+    return GeometryBasics.Polygon(points)
+end
+
+function _shape_geometry(shape::RectangleShape)
+    x = nominal(shape.w) / 2
+    y = nominal(shape.h) / 2
+    return GeometryBasics.Polygon(Point2f[(-x, -y), (x, -y), (x, y), (-x, y)])
+end
+
+function _shape_geometry(shape::EllipseShape)
+    angles = range(0, 2pi; length = 128)
+    return GeometryBasics.Polygon(Point2f[
+        (nominal(shape.a) * cos(angle), nominal(shape.b) * sin(angle))
+        for angle in angles
+    ])
+end
+
+function _shape_geometry(shape::PolygonShape)
+    return GeometryBasics.Polygon(Point2f[point for point in shape.points])
+end
+
+function _shape_geometry(shape::PlacedShape)
+    geometry = _shape_geometry(shape.shape)
+    exterior = _transform_preview_points(geometry.exterior, shape.at)
+    interiors = [_transform_preview_points(interior, shape.at)
+                 for interior in geometry.interiors]
+    return GeometryBasics.Polygon(exterior, interiors)
+end
+
+preview_materials(region::ResolvedRegion) = (region.region.material,)
+
+function preview_shapes(region::ResolvedRegion, context)
     label = context.include_label ? context.label : nothing
     return PreviewPolygon[
         _preview_polygon(
-            geometry,
+            _shape_geometry(region.shape),
             label,
             context.group,
-            _material_color(layer.material_props);
+            _material_color(region.region.material);
             stroke = :transparent,
             width = 0.0
         ),
     ]
 end
 
-_preview_layer_name(layer) = lowercase(string(nameof(typeof(layer))))
-
-function _preview_layer_identities(component_id, layers, role::Symbol)
-    names = _preview_layer_name.(layers)
-    totals = Dict{String, Int}()
-    for name in names
-        totals[name] = get(totals, name, 0) + 1
+function _region_identities(regions)
+    identities = Dict{Symbol, NamedTuple{(:label, :group), Tuple{String, Symbol}}}()
+    return map(regions) do source
+        tag = source.region.tag
+        return get!(identities, tag) do
+            label = uppercasefirst(replace(String(tag), '_' => ' '))
+            group = Symbol("preview_", tag)
+            return (; label, group)
+        end
     end
-
-    seen = Dict{String, Int}()
-    component_name = uppercasefirst(replace(String(component_id), '_' => ' '))
-    identities = Tuple{String, Symbol}[]
-    for (index, name) in enumerate(names)
-        occurrence = get(seen, name, 0) + 1
-        seen[name] = occurrence
-        suffix = totals[name] == 1 ? "" : " $occurrence"
-        label = "$component_name: $name$suffix"
-        key = replace(
-            "preview_$(component_id)_$(role)_$index",
-            r"[^0-9A-Za-z]+" => "_"
-        )
-        push!(identities, (label, Symbol(key)))
-    end
-    return identities
 end
 
 function _design_shapes(design, xcenter, ycenter; display_legend::Bool)
+    offset = Pose2(xcenter, ycenter, 0)
+    identities = _region_identities(design.geometry.regions)
+    labelled_groups = Set{Symbol}()
     shapes = PreviewPolygon[]
-    outer_radius = try
-        nominal(design.components[end].insulator_group.r_ex)
-    catch
-        NaN
-    end
-    if isfinite(outer_radius) && outer_radius > 0
-        push!(shapes,
-            _preview_polygon(_circle_points(outer_radius, xcenter, ycenter), nothing,
-                :background, :white; stroke = :transparent, width = 0.0))
-    end
-    for component in design.components
-        conductor_layers = component.conductor_group.layers
-        conductor_identities = _preview_layer_identities(
-            component.id,
-            conductor_layers,
-            :conductor
+    for (source, identity) in zip(design.geometry.regions, identities)
+        placed = ResolvedRegion(
+            source.region,
+            PlacedShape(source.shape, offset),
+            source.terminal,
+            source.overlength,
+            source.turns,
+            source.pattern_depth,
+            source.path_depth
         )
-        for (layer, (label, group)) in zip(conductor_layers, conductor_identities)
-            append!(shapes, preview_shapes(layer, (;
-                label,
-                group,
-                xcenter,
-                ycenter,
-                include_label = display_legend
-            )))
-        end
-        insulator_layers = component.insulator_group.layers
-        insulator_identities = _preview_layer_identities(
-            component.id,
-            insulator_layers,
-            :insulator
-        )
-        for (layer, (label, group)) in zip(insulator_layers, insulator_identities)
-            append!(shapes, preview_shapes(layer, (;
-                label,
-                group,
-                xcenter,
-                ycenter,
-                include_label = display_legend
-            )))
-        end
+        append!(shapes, preview_shapes(placed, (;
+            label = identity.label,
+            group = identity.group,
+            include_label = display_legend && identity.group ∉ labelled_groups
+        )))
+        push!(labelled_groups, identity.group)
     end
     return shapes
 end
 
 function _each_material(callback, design::CableDesign)
-    for component in design.components
-        for layer in component.conductor_group.layers
-            foreach(callback, preview_materials(layer))
-        end
-        for layer in component.insulator_group.layers
-            foreach(callback, preview_materials(layer))
-        end
+    for source in design.geometry.regions
+        foreach(callback, preview_materials(source))
     end
     return nothing
 end

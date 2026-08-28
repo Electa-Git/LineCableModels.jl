@@ -1,6 +1,7 @@
 @testmodule TestFixtures begin
     using LineCableModels
-    using LineCableModels.DataModel: CablePosition, LineCableSystem, trifoil_formation
+    using LineCableModels.DataModel: CableDesign, LineCableSystem, NominalData,
+                                     trifoil_formation
     using LineCableModels.EarthProps: EarthModel
 
     const FIXTURE_ROOT = normpath(joinpath(@__DIR__, "..", "fixtures"))
@@ -8,9 +9,164 @@
     const GOLDEN_ROOT = joinpath(FIXTURE_ROOT, "golden")
 
     function mv_cable_design()
-        library = CablesLibrary()
-        load!(library; file_name = MV_CABLE_DESIGN_PATH)
-        return only(values(library.data))
+        aluminum = LineCableModels.Material(
+            kind = :conductor,
+            rho = 2.8264e-8,
+            eps_r = 1.0,
+            mu_r = 1.000022,
+            T0 = 20.0,
+            alpha = 0.00429
+        )
+        copper = LineCableModels.Material(
+            kind = :conductor,
+            rho = 1.7241e-8,
+            eps_r = 1.0,
+            mu_r = 0.999994,
+            T0 = 20.0,
+            alpha = 0.00393
+        )
+        semicon_outer = LineCableModels.Material(
+            kind = :semicon, rho = 5300.0, eps_r = 32.3
+        )
+        semicon_inner = LineCableModels.Material(
+            kind = :semicon, rho = 1000.0, eps_r = 1000.0
+        )
+        semicon_screen = LineCableModels.Material(
+            kind = :semicon, rho = 500.0, eps_r = 1000.0
+        )
+        xlpe = LineCableModels.Material(
+            kind = :insulator, rho = 197e12, eps_r = 2.3
+        )
+
+        parts = LineCableModels.AbstractCablePart[]
+        inner_radii = (0.0, 0.00235, 0.00705, 0.01175, 0.01645)
+        wire_counts = (1, 6, 12, 18, 24)
+        lay_ratios = (0.0, 15.0, 13.5, 12.5, 11.0)
+        for index in eachindex(wire_counts)
+            wire = LineCableModels.Region(
+                Symbol(:core_wire_, index),
+                LineCableModels.Disk(0.00235),
+                aluminum
+            )
+            path = iszero(lay_ratios[index]) ? nothing :
+                   LineCableModels.Helix(
+                LineCableModels.LayRatio(lay_ratios[index])
+            )
+            push!(parts,
+                LineCableModels.Group(
+                    :core,
+                    wire;
+                    pattern = LineCableModels.Ring(
+                        wire_counts[index];
+                        r = wire_counts[index] == 1 ? 0.0 :
+                            inner_radii[index] + 0.00235
+                    ),
+                    path
+                ))
+        end
+        for (tag, inner, outer, material) in (
+            (:core_semicon_1, 0.02115, 0.02145, semicon_outer),
+            (:core_semicon_2, 0.02145, 0.02205, semicon_inner),
+            (:core_insulation, 0.02205, 0.03005, xlpe),
+            (:core_semicon_3, 0.03005, 0.030350000000000002, semicon_screen),
+            (:core_semicon_4, 0.030350000000000002,
+            0.030650000000000004, semicon_outer)
+        )
+            push!(parts, LineCableModels.Region(
+                tag,
+                LineCableModels.Annulus(inner, outer),
+                material
+            ))
+        end
+
+        screen_wire = LineCableModels.Region(
+            :sheath_wire,
+            LineCableModels.Disk(0.000475),
+            copper
+        )
+        push!(parts,
+            LineCableModels.Group(
+                :sheath,
+                screen_wire;
+                pattern = LineCableModels.Ring(
+                    49;
+                    r = 0.030650000000000004 + 0.000475
+                ),
+                path = LineCableModels.Helix(LineCableModels.LayRatio(10.0))
+            ))
+        tape_inner = 0.0316
+        tape_outer = 0.031700000000000006
+        tape_width = 0.01
+        push!(parts,
+            LineCableModels.Group(
+                :sheath,
+                LineCableModels.Region(
+                    :sheath_tape,
+                    LineCableModels.Sector(
+                        tape_inner,
+                        tape_outer,
+                        -tape_width / (tape_inner + tape_outer),
+                        2tape_width / (tape_inner + tape_outer)
+                    ),
+                    copper
+                );
+                path = LineCableModels.Helix(LineCableModels.LayRatio(10.0))
+            ))
+        push!(parts,
+            LineCableModels.Region(
+                :sheath_semicon,
+                LineCableModels.Annulus(
+                    0.031700000000000006,
+                    0.03200000000000001
+                ),
+                semicon_outer
+            ))
+        push!(parts,
+            LineCableModels.Group(
+                :jacket,
+                LineCableModels.Region(
+                    :jacket_metal,
+                    LineCableModels.Annulus(
+                        0.03200000000000001,
+                        0.032150000000000005
+                    ),
+                    aluminum
+                )
+            ))
+        push!(parts,
+            LineCableModels.Region(
+                :jacket_bedding,
+                LineCableModels.Annulus(
+                    0.032150000000000005,
+                    0.032200000000000006
+                ),
+                xlpe
+            ))
+        push!(parts,
+            LineCableModels.Region(
+                :jacket_insulation,
+                LineCableModels.Annulus(
+                    0.032200000000000006,
+                    0.034600000000000006
+                ),
+                xlpe
+            ))
+
+        nominal_data = NominalData(
+            designation_code = "NA2XS(FL)2Y",
+            U0 = 18.0,
+            U = 30.0,
+            conductor_cross_section = 1000.0,
+            screen_cross_section = 35.0,
+            resistance = 0.0291,
+            capacitance = 0.39,
+            inductance = 0.3
+        )
+        return CableDesign(
+            LineCableModels.Stack(parts);
+            cable_id = "test_cable",
+            nominal_data
+        )
     end
 
     materials_library() = LineCableModels.Materials.MaterialsLibrary(add_defaults = true)
@@ -41,11 +197,17 @@
         design = mv_cable_design()
         xa, ya, xb, yb, xc, yc = trifoil_formation(0.0, -1.0, spacing)
         connections(phase) = Dict("core" => phase, "sheath" => 0, "jacket" => 0)
-        position = CablePosition(design, xa, ya, connections(1))
-        system = LineCableSystem("three-phase-system", line_length, position)
-        add!(system, design, xb, yb, connections(2))
-        add!(system, design, xc, yc, connections(3))
-        return system
+        return LineCableSystem(
+            CableDesign[design, design, design];
+            system_id = "three-phase-system",
+            line_length,
+            positions = [(xa, ya), (xb, yb), (xc, yc)],
+            connections = [
+                connections(1),
+                connections(2),
+                connections(3)
+            ]
+        )
     end
 
     function line_parameters_problem(; frequencies = [50.0])

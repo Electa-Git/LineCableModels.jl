@@ -29,31 +29,39 @@ case_definition(
     materials = LineCableModels.MaterialsLibrary(add_defaults = true)
     aluminum = LineCableModels.Material(materials, :aluminum)
     xlpe = LineCableModels.Material(materials, :xlpe)
-    design = LineCableModels.CableBuilder(
-        "solid_1000mm2",
-        LineCableModels.Conductor.Solid(
-            :core; radius = sqrt(p.core_cross_section / π), material = aluminum
-        ),
-        LineCableModels.Insulator.Tubular(
-            :core; thickness = p.insulation_thickness, material = xlpe
+    design = LineCableModels.CableDesign(
+        LineCableModels.Stack(
+            LineCableModels.Group(
+                :core,
+                LineCableModels.Region(
+                    :core_metal,
+                    LineCableModels.Disk(sqrt(p.core_cross_section / π)),
+                    aluminum
+                )
+            ),
+            LineCableModels.Region(
+                :core_insulation,
+                LineCableModels.Shell(p.insulation_thickness),
+                xlpe
+            )
         );
-        nominal = LineCableModels.DataModel.NominalData()
+        cable_id = "solid_1000mm2",
+        nominal_data = LineCableModels.NominalData()
     )
     earth = LineCableModels.Earth(
         rho = p.earth_rho, eps_r = p.earth_eps_r, mu_r = 1.0
     )
-    positions = (
-        LineCableModels.at(
-            x = p.cable_x, y = p.cable_y, phases = (:core => 1,)
-        ),
+    system = LineCableModels.LineCableSystem(
+        design;
+        position = LineCableModels.Pose2(p.cable_x, p.cable_y),
+        connections = Dict(:core => 1),
+        system_id = "solid_1000mm2_single",
+        line_length = p.line_length
     )
-    return LineCableModels.SystemBuilder(
-        "solid_1000mm2_single",
-        design,
-        positions;
-        length = p.line_length,
+    return LineCableModels.Engine.LineParametersProblem(
+        system;
         temperature = p.temperature,
-        earth,
+        earth_props = earth,
         frequencies = p.frequencies
     )
 end

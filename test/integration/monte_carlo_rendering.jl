@@ -1,6 +1,6 @@
 @testitem "PlotBuilder / Cairo / native Monte Carlo verbs" tags=[:visual] setup=[
     PlotBuilderTestSupport, UsePlotBuilderSupport, TestFixtures] begin
-    if get(ENV, "LINECABLEMODELS_TEST_PLOTTING", "false") != "true"
+    if get(ENV, "LINECABLEMODELS_TEST_PLOTTING", "false")!="true"
         error("set LINECABLEMODELS_TEST_PLOTTING=true to run the visual contract")
     else
         using CairoMakie

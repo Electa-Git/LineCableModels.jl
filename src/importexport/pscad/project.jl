@@ -254,24 +254,26 @@ function _pscad_part_parameters(component, index::Int, angular_frequency)
     loss_tangents = ("LT1", "LT2", "LT3", "LT4")
     conductor_name = "CONNAM$index"
     inner_name, outer_name, insulation_name = radii[index]
-    capacitance = component.insulator_group.shunt_capacitance
-    conductance = component.insulator_group.shunt_conductance
+    conductor = component.conductor
+    dielectric = component.dielectric
+    capacitance = dielectric.shunt_capacitance
+    conductance = dielectric.shunt_conductance
     loss = iszero(capacitance) ? zero(capacitance) :
            conductance / (angular_frequency * capacitance)
 
     parameters = Pair{String, String}[
-        conductor_name => uppercasefirst(component.id),
-        outer_name => _pscad_value(component.conductor_group.r_ex),
-        resistivities[index] => _pscad_value(component.conductor_props.rho),
-        permeabilities[index] => _pscad_value(component.conductor_props.mu_r),
-        insulation_name => _pscad_value(component.insulator_group.r_ex),
-        dielectric_permittivities[index] => _pscad_value(component.insulator_props.eps_r),
-        dielectric_permeabilities[index] => _pscad_value(component.insulator_props.mu_r),
+        conductor_name => uppercasefirst(String(component.name)),
+        outer_name => _pscad_value(conductor.r_ex),
+        resistivities[index] => _pscad_value(conductor.material.rho),
+        permeabilities[index] => _pscad_value(conductor.material.mu_r),
+        insulation_name => _pscad_value(dielectric.r_ex),
+        dielectric_permittivities[index] => _pscad_value(dielectric.material.eps_r),
+        dielectric_permeabilities[index] => _pscad_value(dielectric.material.mu_r),
         loss_tangents[index] => _pscad_value(loss; maximum = 10)
     ]
     index == 1 && pushfirst!(
         parameters,
-        inner_name => _pscad_value(component.conductor_group.r_in)
+        inner_name => _pscad_value(conductor.r_in)
     )
     index > 1 && push!(parameters, "elim$(index - 1)" => "0")
     push!(parameters, "T$(2index + 1)" => "0.0000")
@@ -305,21 +307,30 @@ function _empty_pscad_part(index::Int)
     return parameters
 end
 
-function _pscad_cable_parameters(position, index::Int, base_frequency)
-    components = position.design_data.components
+function _pscad_cable_parameters(
+        design,
+        position,
+        connections,
+        index::Int,
+        base_frequency
+)
+    components = design.effective
+    components === nothing && throw(ArgumentError(
+        "PSCAD export requires the current radial analytical compatibility profile"
+    ))
     length(components) <= 4 || throw(ArgumentError(
         "PSCAD Cable_Coax supports at most four concentric components",
     ))
-    length(position.conn) == length(components) || throw(DimensionMismatch(
+    length(connections) == length(components) || throw(DimensionMismatch(
         "PSCAD phase mapping must match the cable component count",
     ))
     parameters = Pair{String, String}[
         "CABNUM" => string(index),
-        "Name" => position.design_data.cable_id,
-        "X" => _pscad_value(position.horz),
-        "OHC" => position.vert < 0 ? "0" : "1",
-        "Y" => position.vert < 0 ? _pscad_value(abs(position.vert)) : "0.0",
-        "Y2" => position.vert > 0 ? _pscad_value(position.vert) : "0.0",
+        "Name" => design.cable_id,
+        "X" => _pscad_value(position.x),
+        "OHC" => position.y < 0 ? "0" : "1",
+        "Y" => position.y < 0 ? _pscad_value(abs(position.y)) : "0.0",
+        "Y2" => position.y > 0 ? _pscad_value(position.y) : "0.0",
         "ShuntA" => "1.0e-11 [mho/m]",
         "FLT" => _pscad_value(base_frequency),
         "RorT" => "0",
@@ -342,7 +353,7 @@ function _pscad_cable_parameters(position, index::Int, base_frequency)
             elimination = "elim$(component_index - 1)"
             parameter_index = findlast(pair -> first(pair) == elimination, parameters)
             parameters[parameter_index] = elimination =>
-                (position.conn[component_index] == 0 ? "1" : "0")
+                (connections[component_index] == 0 ? "1" : "0")
         end
     end
     for component_index in (length(components) + 1):4
@@ -402,12 +413,22 @@ function _pscad_project(system::LineCableSystem, earth::EarthModel, base_frequen
         x = 576, y = 180)
     addelement!(schematic, "grouping")
     identifier += 1
-    for (index, position) in enumerate(system.cables)
+    for (index, (design, position, connections)) in enumerate(zip(
+            system.designs,
+            system.positions,
+            system.connections
+    ))
         _pscad_user!(
             schematic,
             identifier,
             _PSCAD_CABLE_BINDING,
-            _pscad_cable_parameters(position, index, base_frequency);
+            _pscad_cable_parameters(
+                design,
+                position,
+                connections,
+                index,
+                base_frequency
+            );
             x = 234 + (index - 1) * 400,
             y = 612
         )

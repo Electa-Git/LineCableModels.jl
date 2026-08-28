@@ -6,12 +6,9 @@ function _system_limits(system, zoom_factor)
             ArgumentError("zoom_factor must be finite and greater than zero"),
         )
     end
-    horizontal = Float64[nominal(cable.horz) for cable in system.cables]
-    vertical = Float64[nominal(cable.vert) for cable in system.cables]
-    radii = Float64[max(
-                        nominal(last(cable.design_data.components).conductor_group.r_ex),
-                        nominal(last(cable.design_data.components).insulator_group.r_ex)
-                    ) for cable in system.cables]
+    horizontal = Float64[nominal(position.x) for position in system.positions]
+    vertical = Float64[nominal(position.y) for position in system.positions]
+    radii = Float64[nominal(outer_radius(design)) for design in system.designs]
     center_x = isempty(horizontal) ? 0.0 : mean(horizontal)
     center_y = isempty(vertical) ? -1.0 : mean(vertical)
     half_x = isempty(horizontal) ? 1.0 :
@@ -80,13 +77,13 @@ function _system_shapes(system, earth_model, limits, display_legend)
             )
         end
     end
-    for cable in system.cables
+    for (design, position) in zip(system.designs, system.positions)
         append!(
             polygons,
             _design_shapes(
-                cable.design_data,
-                nominal(cable.horz),
-                nominal(cable.vert);
+                design,
+                nominal(position.x),
+                nominal(position.y);
                 display_legend = false
             )
         )

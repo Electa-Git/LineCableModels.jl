@@ -24,7 +24,6 @@ end
     using LineCableModels.EarthProps
     using LineCableModels.Engine
     using LineCableModels.ImportExport
-    import LineCableModels.DataModel: Insulator
 end
 
 @testmodule EngineTestSupport begin
@@ -42,7 +41,6 @@ end
     using LineCableModels.ParametricBuilder
     using LineCableModels.UQ
     using LineCableModels.ImportExport
-    import LineCableModels.DataModel: Insulator
 end
 
 @testmodule PlotBuilderTestSupport begin
@@ -57,7 +55,6 @@ end
     using LineCableModels.Engine
     using LineCableModels.PlotBuilder
     using LineCableModels.UQ
-    import LineCableModels.DataModel: Insulator
 end
 
 @testmodule ImportExportTestSupport begin

@@ -69,7 +69,7 @@ end
         @test unchanged_after(invalid_jls) isa ArgumentError
 
         invalid_document=IE._json_document(library)
-        invalid_document["cables"][design.cable_id]["type"]="Material"
+        invalid_document["root"]["cables"][design.cable_id]["kind"]="material"
         invalid_json=joinpath(directory, "invalid-entry.json")
         open(invalid_json, "w") do io
             JSON3.pretty(io, invalid_document)
@@ -77,7 +77,7 @@ end
         @test unchanged_after(invalid_json) isa ArgumentError
 
         wrong_schema=IE._json_document(library)
-        wrong_schema["schema"]="LineCableModels.MaterialsLibrary"
+        wrong_schema["format"]=IE.MATERIALS_SCHEMA
         schema_path=joinpath(directory, "wrong-schema.json")
         open(schema_path, "w") do io
             JSON3.pretty(io, wrong_schema)
@@ -87,9 +87,7 @@ end
         legacy=joinpath(directory, "legacy.json")
         write(legacy, "{\"data\":{}}")
         before=library.data
-        @test_logs (:warn, r"Unversioned LineCableModels JSON is retired") begin
-            @test_throws ArgumentError load!(library; file_name = legacy)
-        end
+        @test_throws ArgumentError load!(library; file_name = legacy)
         @test library.data === before
 
         @test_throws ArgumentError save(

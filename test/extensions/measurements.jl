@@ -57,35 +57,37 @@ end
     insulation_thickness=measurement(0.01, 0.001)
     semicon_thickness=measurement(0.005, 0.0005)
 
-    core=Tubular(0.0, diameter/2, copper_props)
-    insulators=InsulatorGroup(
-        Insulator(core.r_ex, core.r_ex+insulation_thickness, insulator_props),
-    )
+    core=Region(:core_metal, Disk(diameter/2), copper_props)
+    insulation=Region(:insulation, Shell(insulation_thickness), insulator_props)
+    semicon=Region(:semicon, Shell(semicon_thickness), semicon_props)
+    root=Stack(Group(:core, core), insulation, semicon)
+    resolved=resolve(EmptyBoundary(), root)
+    insulation_shape=resolved.regions[2].shape
+    semicon_shape=resolved.regions[3].shape
 
-    @test insulators.r_in === core.r_ex
-    @test iszero(uncertainty(core.r_ex - insulators.r_in))
-
-    insulators=add!(insulators, Semicon(
-        insulators.r_ex,
-        insulators.r_ex+semicon_thickness,
-        semicon_props
+    @test r_in(insulation_shape) === r_ex(resolved.regions[1].shape)
+    @test iszero(uncertainty(
+        r_ex(resolved.regions[1].shape) - r_in(insulation_shape)
     ))
 
     expected_radius=diameter/2+insulation_thickness+semicon_thickness
-    @test value(insulators.r_ex) ≈ value(expected_radius)
-    @test uncertainty(insulators.r_ex) ≈ uncertainty(expected_radius)
-    @test derivative(insulators.r_ex, diameter) ≈ 0.5
-    @test derivative(insulators.r_ex, insulation_thickness) ≈ 1.0
-    @test derivative(insulators.r_ex, semicon_thickness) ≈ 1.0
+    @test value(r_ex(semicon_shape)) ≈ value(expected_radius)
+    @test uncertainty(r_ex(semicon_shape)) ≈ uncertainty(expected_radius)
+    @test derivative(r_ex(semicon_shape), diameter) ≈ 0.5
+    @test derivative(r_ex(semicon_shape), insulation_thickness) ≈ 1.0
+    @test derivative(r_ex(semicon_shape), semicon_thickness) ≈ 1.0
 
-    conductors=ConductorGroup(core)
-    component=CableComponent("core", conductors, insulators)
-    design=CableDesign("uq-path", component)
-    position=CablePosition(design, 0.0, -1.0, Dict("core"=>1))
-    system=LineCableSystem("uq-path", 1000.0, position)
-    assembled_radius=system.cables[1].design_data.components[1].insulator_group.r_ex
+    design=CableDesign(root; cable_id = "uq-path")
+    system=LineCableSystem(
+        design;
+        position = Pose2(0.0, -1.0, 0.0),
+        connections = Dict(:core=>1),
+        system_id = "uq-path",
+        line_length = 1000.0
+    )
+    assembled_radius=r_ex(system.geometry[end].shape)
 
-    @test system.cables[1].design_data === design
+    @test system.designs[1] === design
     @test derivative(assembled_radius, diameter) ≈ 0.5
     @test derivative(assembled_radius, insulation_thickness) ≈ 1.0
     @test derivative(assembled_radius, semicon_thickness) ≈ 1.0

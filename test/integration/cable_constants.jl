@@ -35,13 +35,14 @@ end
     first_design=TestFixtures.mv_cable_design()
     second_design=TestFixtures.mv_cable_design()
     @test first_design !== second_design
-    @test first_design.components !== second_design.components
-    @test first_design.components[1] !== second_design.components[1]
+    @test first_design.root !== second_design.root
+    @test first_design.geometry.regions !== second_design.geometry.regions
 
     first_system=TestFixtures.three_phase_system()
     second_system=TestFixtures.three_phase_system()
     @test first_system !== second_system
-    @test first_system.cables !== second_system.cables
+    @test first_system.designs !== second_system.designs
+    @test first_system.positions !== second_system.positions
     @test ncables(first_system) == ncables(second_system) == 3
     @test nphases(first_system) == nphases(second_system) == 3
 

@@ -482,9 +482,7 @@ function run_remote_pscad(
 end
 
 function _pscad_size(problem::LineParametersProblem)
-    assignments = collect(Iterators.flatten(
-        position.conn for position in problem.system.cables
-    ))
+    assignments = problem.system.connection_order
     isempty(assignments) && throw(ArgumentError(
         "PSCAD benchmark requires at least one explicit terminal",
     ))

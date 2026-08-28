@@ -110,7 +110,7 @@ end
     @test !applicable(getindex, product_space, 1)
     @test rand(MersenneTwister(1), product_space) in collect(product_space)
     @test rand(product_space) in collect(product_space)
-    zipped_draws = Set(
+    zipped_draws=Set(
         rand(MersenneTwister(seed), zip_space) for seed in 1:20
     )
     @test zipped_draws ⊆ Set(collect(zip_space))

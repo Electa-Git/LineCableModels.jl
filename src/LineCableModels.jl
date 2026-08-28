@@ -13,7 +13,7 @@ module LineCableModels
 ## Public API
 # -------------------------------------------------------------------------
 # Core generics:
-export add!, validate, description, maxfill, set_backend!
+export add!, validate, description, set_backend!
 export AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult
 export AbstractCoreResult, AbstractResultSpace
 export AbstractParametricResult, AbstractUncertaintyResult
@@ -39,15 +39,21 @@ export result, statistics, samples, histograms, uncertain
 export root_seed, point_seed, trial_count
 export confidence, cdf_tolerance, sampling_distribution
 export report, TableReportDefinition, XLSXReportDefinition, ReportArtifact
-export Material, MaterialsLibrary, Conductor, Insulator, CableBuilder
+export Material, MaterialsLibrary, Conductor, Insulator, Semiconductor, Filler
 export AbstractPrimitive, AbstractShape
 export Disk, Rectangle, Ellipse, Sector, Annulus, Shell, Polygon, Pose2
 export EmptyBoundary, resolve, boundary, area, centroid, support
-export r_in, r_ex, thickness
-export at, trifoil, hflat, vflat, Earth, SystemBuilder
+export r_in, r_ex, thickness, outer_radius
+export AbstractCablePart, Region, Stack
+export Group, Assembly
+export Enclosure
+export Ring, Polar, Lattice, DiameterFactor, placements
+export LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
+export at, trifoil, hflat, vflat, Earth
 export make_stranded, make_screened, WireEstimate
 
 # Materialised results, reusable designs, and presentation:
+export CableDesign, LineCableSystem, NominalData
 export CableConstants, CableConstantsProblem, LineParameters, CablesLibrary, preview
 
 # Engine:
@@ -100,11 +106,16 @@ import .EarthProps
 
 # Submodule `DataModel`
 include("datamodel/DataModel.jl")
-using .DataModel: CableConstants, CablesLibrary, preview, ncables, nphases,
+using .DataModel: CableDesign, LineCableSystem, NominalData,
+                  CableConstants, CablesLibrary, preview, ncables, nphases,
                   AbstractPrimitive, AbstractShape,
                   Disk, Rectangle, Ellipse, Sector, Annulus, Shell, Polygon, Pose2,
                   EmptyBoundary, resolve, boundary, area, centroid, support,
-                  r_in, r_ex, thickness
+                  r_in, r_ex, thickness, outer_radius,
+                  AbstractCablePart, Region, Stack,
+                  Group, Assembly, Enclosure
+using .DataModel: Ring, Polar, Lattice, DiameterFactor, placements,
+                  LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
 
 # Submodule `Engine`
 include("engine/Engine.jl")
@@ -128,9 +139,10 @@ using .ParametricBuilder:
                           @gridspace, @relax,
                           Combinatorial, ParametricProblem, ParametricResult,
                           result, project,
-                          Conductor, Insulator, CableBuilder,
-                          at, trifoil, hflat, vflat, Earth, SystemBuilder,
+                          Conductor, Insulator,
+                          at, trifoil, hflat, vflat, Earth,
                           WireEstimate, make_stranded, make_screened
+using .ParametricBuilder: Semiconductor, Filler
 
 # Submodule `UQ`
 include("uq/UQ.jl")

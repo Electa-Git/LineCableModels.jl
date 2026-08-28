@@ -8,7 +8,10 @@ module WirePatterns
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 
-import ...LineCableModels: maxfill, nominal
+import ...LineCableModels: nominal
+
+"Return the maximum wire count admitted by one estimate geometry."
+function maxfill end
 
 export WireEstimate, make_stranded, make_screened
 

@@ -25,9 +25,13 @@ export @gridspace, @relax
 export Combinatorial, ParametricProblem, ParametricResult
 export result, project
 
-export Material, Conductor, Insulator, CableBuilder
+export Material, Conductor, Insulator, Semiconductor, Filler
+export CableDesign, LineCableSystem
 export Disk, Rectangle, Ellipse, Sector, Annulus, Shell, Polygon, Pose2
-export at, trifoil, hflat, vflat, Earth, SystemBuilder
+export Region, Stack
+export Group, Assembly
+export Enclosure
+export at, trifoil, hflat, vflat, Earth
 export WireEstimate, make_stranded, make_screened
 
 using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
@@ -47,6 +51,10 @@ import ..Materials
 import ..Materials: Material
 import ..DataModel
 import ..DataModel: Disk, Rectangle, Ellipse, Sector, Annulus, Shell, Polygon, Pose2
+import ..DataModel: Region, Stack
+import ..DataModel: Group, Assembly
+import ..DataModel: Enclosure
+import ..DataModel: CableDesign, LineCableSystem
 import ..EarthProps
 import ..Engine
 
@@ -58,12 +66,13 @@ include("project.jl")
 
 include("material.jl")
 include("geometry.jl")
-include("parts.jl")
+include("physicaltree.jl")
 include("conductor/Conductor.jl")
 include("insulator/Insulator.jl")
-include("cablebuilder.jl")
+include("semiconductor/Semiconductor.jl")
+include("filler/Filler.jl")
 include("positions.jl")
-include("systembuilder.jl")
+include("system.jl")
 
 include("engine/cableconstants.jl")
 include("traversal.jl")

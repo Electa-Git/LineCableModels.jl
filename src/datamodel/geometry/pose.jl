@@ -25,6 +25,8 @@ function Pose2(x::Real, y::Real, φ::Real)
     return Pose2{typeof(first(values))}(values...)
 end
 
+Pose2(x::Real, y::Real) = Pose2(x, y, 0)
+
 Base.eltype(::Pose2{T}) where {T} = T
 Base.eltype(::Type{<:Pose2{T}}) where {T} = T
 

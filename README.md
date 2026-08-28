@@ -43,28 +43,25 @@ Core usage has no plotting dependency:
 using LineCableModels
 ```
 
-The default modelling API is declarative:
+The physical model is built directly from materials, primitives, and cable
+parts:
 
 ```julia
-copper = Material(; rho=1.7241e-8)
-xlpe = Material(; rho=1.97e14, eps_r=2.5)
+copper = Material(; kind=:conductor, rho=1.7241e-8)
+xlpe = Material(; kind=:insulator, rho=1.97e14, eps_r=2.5)
 
-design = CableBuilder(
-    "example",
-    Conductor.Solid(:core; radius=10e-3, material=copper),
-    Insulator.Tubular(:core; thickness=8e-3, material=xlpe),
-    Conductor.Tubular(:screen; thickness=1e-3, material=copper),
-    Insulator.Tubular(:screen; thickness=2e-3, material=xlpe),
+root = Stack(
+    Group(:core, Conductor.Solid(:core_metal, copper; r=10e-3)),
+    Insulator.Shell(:insulation, xlpe; t=8e-3),
 )
+design = CableDesign(root; cable_id="example")
 
 constants = compute(CableConstantsProblem(design), Formulation())
 ```
 
-`Material` is the materialised type as well as the public declarative
-constructor: scalar keywords return one material, while explicit `Grid` inputs
-return a `Gridspace{Material}`. The stricter cable and system constructors
-remain available from explicit submodules such as `LineCableModels.DataModel`
-and `LineCableModels.EarthProps`.
+Scalar inputs construct eager domain objects. An explicit `Grid` at any
+parameterized constructor returns a `Gridspace` whose points materialize the
+same eager target type.
 
 ## Optional plotting
 

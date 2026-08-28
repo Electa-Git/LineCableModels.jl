@@ -119,9 +119,9 @@ function _line_snapshot(path::AbstractString, collection::Symbol)
     reference_values = _primitive_values(reference)
     accepted_values = _primitive_values(accepted)
     snapshot["frequencies"] == reference_values.frequency &&
-        snapshot["frequencies"] == accepted_values.frequency || throw(ArgumentError(
-            "Gauntlet snapshot frequencies do not match its results: $path",
-        ))
+    snapshot["frequencies"] == accepted_values.frequency || throw(ArgumentError(
+        "Gauntlet snapshot frequencies do not match its results: $path",
+    ))
     length(snapshot["port_order"]) == size(reference_values.series_impedance, 1) ||
         throw(ArgumentError(
             "Gauntlet snapshot port order does not match matrix dimensions: $path",
@@ -210,10 +210,12 @@ function _line_report_row(path::AbstractString, collection::Symbol, zero_atol)
     )
 end
 
-function _moment_rms(reference::AbstractArray{<:Real, 3}, candidate::AbstractArray{<:Real, 3})
+function _moment_rms(reference::AbstractArray{<:Real, 3}, candidate::AbstractArray{
+        <:Real, 3})
     absolute = Matrix{Float64}(undef, size(reference, 1), size(reference, 2))
     relative = similar(absolute)
     for row in axes(reference, 1), column in axes(reference, 2)
+
         left = @view reference[row, column, :]
         right = @view candidate[row, column, :]
         difference_norm = sum(abs2, left .- right)
@@ -272,12 +274,13 @@ function _validate_moment_records(snapshot, path)
     end
     stored = snapshot["reference_comparison"]
     for quantity in keys(errors), statistic in (:mean, :std)
+
         observed = getproperty(getproperty(errors, quantity), statistic)
         accepted = getproperty(getproperty(stored, quantity), statistic)
         isequal(observed.absolute, accepted.absolute) &&
-            isequal(observed.relative, accepted.relative) || throw(ArgumentError(
-                "stored UQ comparison does not match moment products in $path",
-            ))
+        isequal(observed.relative, accepted.relative) || throw(ArgumentError(
+            "stored UQ comparison does not match moment products in $path",
+        ))
     end
     return (; reference, candidate, errors)
 end
@@ -300,6 +303,7 @@ function _uq_report_row(path::AbstractString, collection::Symbol)
     pairs = Pair{Symbol, Any}[]
     failing = Tuple{Symbol, Symbol, Int, Int}[]
     for quantity in (:R, :L, :C, :G), statistic in (:mean, :std)
+
         error = getproperty(getproperty(moments.errors, quantity), statistic)
         absolute = _maximum(error.absolute)
         relative_raw = _maximum(error.relative)
@@ -312,15 +316,16 @@ function _uq_report_row(path::AbstractString, collection::Symbol)
             limit.absolute
         )
         prefix = "$(quantity)_$(statistic)_rms"
-        append!(pairs, [
-            Symbol(prefix, "_absolute") => absolute.value,
-            Symbol(prefix, "_relative") => relative.value,
-            Symbol(prefix, "_row") => relative.row,
-            Symbol(prefix, "_column") => relative.column,
-            Symbol(prefix, "_relative_raw") => relative_raw.value
-        ])
+        append!(pairs,
+            [
+                Symbol(prefix, "_absolute") => absolute.value,
+                Symbol(prefix, "_relative") => relative.value,
+                Symbol(prefix, "_row") => relative.row,
+                Symbol(prefix, "_column") => relative.column,
+                Symbol(prefix, "_relative_raw") => relative_raw.value
+            ])
         failed = findall(.!((error.absolute .<= limit.absolute) .|
-                            (error.relative .<= limit.relative)))
+        (error.relative .<= limit.relative)))
         append!(failing, ((quantity, statistic, index[1], index[2]) for index in failed))
     end
     monte_carlo = snapshot["monte_carlo"]

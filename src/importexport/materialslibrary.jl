@@ -34,17 +34,9 @@ function load!(
         "MaterialsLibrary loading requires a .json file",
     ))
     document = _read_document(file_name, MATERIALS_SCHEMA)
-    decoded = deserialize_value(document["materials"])
-    decoded isa AbstractDict || throw(ArgumentError(
-        "the materials field must be a JSON object",
-    ))
-    candidate = Dict{String, Material}()
-    for (name, material) in decoded
-        material isa Material || throw(ArgumentError(
-            "material '$name' decoded as $(typeof(material)), not Material",
-        ))
-        candidate[String(name)] = validate(material)
-    end
+    candidate = Dict(
+        name => validate(material) for (name, material) in _document_materials(document)
+    )
     library.data = candidate
     return library
 end

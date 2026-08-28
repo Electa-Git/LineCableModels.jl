@@ -180,36 +180,58 @@ function _pscad_dielectric(values, fields, frequency)
     return _pscad_material(:insulator, rho, eps_r, mu_r)
 end
 
+function _pscad_radial_design(
+        cable_name::AbstractString,
+        components,
+        frequency::Real
+)
+    parts = AbstractCablePart[]
+    for component in components
+        terminal = Symbol(component.name)
+        push!(parts, Group(
+            terminal,
+            Region(
+                Symbol(terminal, :_conductor),
+                Annulus(component.conductor_inner, component.conductor_outer),
+                component.conductor_material
+            )
+        ))
+        if component.insulation_outer > component.conductor_outer
+            push!(parts, Region(
+                Symbol(terminal, :_insulation),
+                Annulus(component.conductor_outer, component.insulation_outer),
+                component.dielectric_material
+            ))
+        end
+    end
+    return CableDesign(
+        Stack(parts);
+        cable_id = cable_name,
+        reference_frequency = frequency
+    )
+end
+
 function _pscad_design(values, cable_number::Int, frequency)
     line_layers = _pscad_integer(values, "LL")
     if iszero(line_layers)
         conductor_inner = _pscad_number(values, "R1")
         conductor_outer = _pscad_number(values, "R2")
-        conductor = ConductorGroup(Tubular(
+        cable_name = strip(get(values, "Name", ""))
+        isempty(cable_name) && (cable_name = "cable$cable_number")
+        component = (;
+            name = "conductor",
             conductor_inner,
             conductor_outer,
-            _pscad_material(
+            insulation_outer = conductor_outer,
+            conductor_material = _pscad_material(
                 :conductor,
                 _pscad_number(values, "RHOC"),
                 0.0,
                 _pscad_number(values, "PERMC")
-            )
-        ))
-        air_shell = max(abs(conductor_outer) * 1e-6, 1e-9)
-        insulation = InsulatorGroup(
-            Insulator(
-                conductor_outer,
-                conductor_outer + air_shell,
-                _pscad_material(:insulator, Inf, 1.0, 1.0)
-            );
-            reference_frequency = frequency
+            ),
+            dielectric_material = _pscad_material(:insulator, Inf, 1.0, 1.0)
         )
-        cable_name = strip(get(values, "Name", ""))
-        isempty(cable_name) && (cable_name = "cable$cable_number")
-        return CableDesign(
-            cable_name,
-            CableComponent("conductor", conductor, insulation)
-        )
+        return _pscad_radial_design(cable_name, (component,), frequency)
     end
     isodd(line_layers) || throw(ArgumentError(
         "PSCAD LL must describe alternating conductor and insulation layers",
@@ -219,7 +241,7 @@ function _pscad_design(values, cable_number::Int, frequency)
         "PSCAD Cable_Coax supports one to four concentric components",
     ))
 
-    components = CableComponent[]
+    components = NamedTuple[]
     previous_outer = 0.0
     for index in 1:component_count
         fields = _PSCAD_PART_FIELDS[index]
@@ -227,35 +249,29 @@ function _pscad_design(values, cable_number::Int, frequency)
                           _pscad_number(values, fields.inner)
         conductor_outer = _pscad_number(values, fields.outer)
         insulation_outer = _pscad_number(values, fields.insulation)
-        conductor = ConductorGroup(Tubular(
-            conductor_inner,
-            conductor_outer,
-            _pscad_material(
-                :conductor,
-                _pscad_number(values, fields.rho),
-                0.0,
-                _pscad_number(values, fields.conductor_mu)
-            )
-        ))
-        insulation = InsulatorGroup(
-            Insulator(
-                conductor_outer,
-                insulation_outer,
-                _pscad_dielectric(values, fields, frequency)
-            );
-            reference_frequency = frequency
-        )
         name = strip(_pscad_parameter(values, "CONNAM$index"))
         isempty(name) && (name = "component$index")
         lowercase(name) == "none" && throw(ArgumentError(
             "PSCAD active component $index cannot be named 'none'",
         ))
-        push!(components, CableComponent(lowercasefirst(name), conductor, insulation))
+        push!(components, (;
+            name = lowercasefirst(name),
+            conductor_inner,
+            conductor_outer,
+            insulation_outer,
+            conductor_material = _pscad_material(
+                :conductor,
+                _pscad_number(values, fields.rho),
+                0.0,
+                _pscad_number(values, fields.conductor_mu)
+            ),
+            dielectric_material = _pscad_dielectric(values, fields, frequency)
+        ))
         previous_outer = insulation_outer
     end
     cable_name = strip(get(values, "Name", ""))
     isempty(cable_name) && (cable_name = "cable$cable_number")
-    return CableDesign(cable_name, components)
+    return _pscad_radial_design(cable_name, components, frequency)
 end
 
 const _PSCAD_SIMPLIFIED_FIELDS = (
@@ -317,47 +333,41 @@ function _pscad_simplified_design(values, cable_number::Int, frequency)
     component_count in eachindex(_PSCAD_SIMPLIFIED_FIELDS) || throw(ArgumentError(
         "PSCAD Cable_CoaxSimpl supports one to three concentric components",
     ))
-    components = CableComponent[]
+    components = NamedTuple[]
     for index in 1:component_count
         fields = _PSCAD_SIMPLIFIED_FIELDS[index]
         conductor_inner = _pscad_number(values, fields.inner)
         conductor_outer = _pscad_number(values, fields.outer)
         insulation_outer = _pscad_number(values, fields.insulation)
-        conductor = ConductorGroup(Tubular(
+        eps_r = _pscad_simplified_eps(
+            values, fields, conductor_outer, insulation_outer
+        )
+        loss = _pscad_number(values, fields.loss)
+        conductivity = 2π * frequency * _PSCAD_EPSILON_0 * eps_r * loss
+        push!(components, (;
+            name = fields.name,
             conductor_inner,
             conductor_outer,
-            _pscad_material(
+            insulation_outer,
+            conductor_material = _pscad_material(
                 :conductor,
                 _pscad_simplified_rho(
                     values, fields, conductor_inner, conductor_outer
                 ),
                 0.0,
                 _pscad_number(values, fields.mu)
+            ),
+            dielectric_material = _pscad_material(
+                :insulator,
+                iszero(conductivity) ? Inf : inv(conductivity),
+                eps_r,
+                _pscad_number(values, fields.insulation_mu)
             )
         ))
-        eps_r = _pscad_simplified_eps(
-            values, fields, conductor_outer, insulation_outer
-        )
-        loss = _pscad_number(values, fields.loss)
-        conductivity = 2π * frequency * _PSCAD_EPSILON_0 * eps_r * loss
-        insulation = InsulatorGroup(
-            Insulator(
-                conductor_outer,
-                insulation_outer,
-                _pscad_material(
-                    :insulator,
-                    iszero(conductivity) ? Inf : inv(conductivity),
-                    eps_r,
-                    _pscad_number(values, fields.insulation_mu)
-                )
-            );
-            reference_frequency = frequency
-        )
-        push!(components, CableComponent(fields.name, conductor, insulation))
     end
     cable_name = strip(get(values, "Name", ""))
     isempty(cable_name) && (cable_name = "cable$cable_number")
-    return CableDesign(cable_name, components)
+    return _pscad_radial_design(cable_name, components, frequency)
 end
 
 function _pscad_position(values, cable_number::Int, next_phase::Ref{Int})
@@ -366,10 +376,10 @@ function _pscad_position(values, cable_number::Int, next_phase::Ref{Int})
         frequency, "PSCAD cable reference frequency must be positive"
     ))
     design = _pscad_design(values, cable_number, frequency)
-    connections = Dict{String, Int}()
-    for (index, component) in enumerate(design.components)
+    connections = Dict{Symbol, Int}()
+    for (index, terminal) in enumerate(design.terminal_order)
         eliminated = index > 1 && _pscad_integer(values, "elim$(index - 1)") != 0
-        connections[component.id] = eliminated ? 0 : next_phase[]
+        connections[terminal] = eliminated ? 0 : next_phase[]
         eliminated || (next_phase[] += 1)
     end
 
@@ -377,7 +387,11 @@ function _pscad_position(values, cable_number::Int, next_phase::Ref{Int})
     overhead = _pscad_integer(values, "OHC") != 0
     vertical = overhead ? _pscad_number(values, "Y2") :
                -abs(_pscad_number(values, "Y"))
-    return CablePosition(design, horizontal, vertical, connections)
+    return (;
+        design,
+        position = Pose2(horizontal, vertical, 0),
+        connections
+    )
 end
 
 function _pscad_simplified_positions(values, next_phase::Ref{Int})
@@ -390,17 +404,17 @@ function _pscad_simplified_positions(values, next_phase::Ref{Int})
     horizontal = _pscad_number(values, "X")
     vertical = -abs(_pscad_number(values, "Y"))
     frequency = _pscad_number(values, "FLT")
-    positions = CablePosition[]
+    positions = NamedTuple[]
     for offset in 0:(3circuit_count - 1)
         cable_number = first_number + offset
         design = _pscad_simplified_design(values, cable_number, frequency)
         connections = Dict(
-            component.id => (next_phase[] += 1; next_phase[] - 1)
-        for component in design.components)
-        push!(positions, CablePosition(
+            terminal => (next_phase[] += 1; next_phase[] - 1)
+            for terminal in design.terminal_order
+        )
+        push!(positions, (;
             design,
-            horizontal + offset * spacing,
-            vertical,
+            position = Pose2(horizontal + offset * spacing, vertical, 0),
             connections
         ))
     end
@@ -484,7 +498,7 @@ function import_data(
     line_length = 1000 * _pscad_number(instance, "Length")
 
     next_phase = Ref(1)
-    numbered_positions = Pair{Int, CablePosition}[]
+    numbered_positions = Pair{Int, NamedTuple}[]
     for cable in cables
         values = _pscad_parameters(cable)
         first_number = _pscad_integer(values, "CABNUM")
@@ -507,8 +521,14 @@ function import_data(
         throw(ArgumentError(
             "PSCAD cable numbers must be consecutive and start at one",
         ))
-    positions = last.(numbered_positions)
+    declarations = last.(numbered_positions)
     earth = _pscad_earth(_pscad_parameters(row.ground))
-    system = LineCableSystem(system_id, line_length, positions)
+    system = LineCableSystem(
+        CableDesign[item.design for item in declarations];
+        system_id,
+        line_length,
+        positions = Pose2[item.position for item in declarations],
+        connections = [item.connections for item in declarations]
+    )
     return earth, system
 end

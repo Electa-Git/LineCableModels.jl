@@ -1,624 +1,882 @@
 {
-    "cables": {
-        "test_cable": {
-            "cable_id": "test_cable",
-            "nominal_data": {
-                "U": 30,
-                "screen_cross_section": 35,
-                "capacitance": 0.39,
-                "U0": 18,
-                "conductor_cross_section": 1000,
-                "armor_cross_section": null,
-                "resistance": 0.0291,
-                "inductance": 0.3,
-                "type": "NominalData",
-                "designation_code": "NA2XS(FL)2Y"
-            },
-            "components": [
-                {
-                    "insulator_group": {
-                        "reference_frequency": 50,
-                        "type": "InsulatorGroup",
-                        "layers": [
-                            {
-                                "material": {
-                                    "rho_thermal": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "eps_r": 32.3,
-                                    "theta_max": {
-                                        "value": 90,
-                                        "__type__": "Float64"
-                                    },
-                                    "tan_delta": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "sigma_solar": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "T0": 20,
-                                    "alpha": 0,
-                                    "rho": 5300,
-                                    "kind": {
-                                        "value": "semicon",
-                                        "__type__": "Symbol"
-                                    },
-                                    "mu_r": 1,
-                                    "type": "Material"
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "root": {
+        "kind": "cable_library",
+        "cables": {
+            "test_cable": {
+                "kind": "cable_design",
+                "cable_id": "test_cable",
+                "root": {
+                    "kind": "stack",
+                    "items": [
+                        {
+                            "kind": "group",
+                            "name": "core",
+                            "pattern": {
+                                "kind": "ring",
+                                "span": {
+                                    "value": 6.283185307179586,
+                                    "__type__": "Float64"
                                 },
-                                "r_ex": 0.02145,
-                                "r_in": 0.02115,
-                                "type": "Semicon"
+                                "φ0": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "r": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "n": 1
                             },
-                            {
-                                "material": {
-                                    "rho_thermal": {
-                                        "value": 0,
+                            "compact": null,
+                            "item": {
+                                "kind": "region",
+                                "tag": "core_wire_1",
+                                "material": "conductor_1",
+                                "primitive": {
+                                    "kind": "disk",
+                                    "r": {
+                                        "value": 0.00235,
                                         "__type__": "Float64"
-                                    },
-                                    "eps_r": 1000,
-                                    "theta_max": {
-                                        "value": 90,
-                                        "__type__": "Float64"
-                                    },
-                                    "tan_delta": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "sigma_solar": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "T0": 20,
-                                    "alpha": 0,
-                                    "rho": 1000,
-                                    "kind": {
-                                        "value": "semicon",
-                                        "__type__": "Symbol"
-                                    },
-                                    "mu_r": 1,
-                                    "type": "Material"
-                                },
-                                "r_ex": 0.02205,
-                                "r_in": 0.02145,
-                                "type": "Semicon"
+                                    }
+                                }
                             },
-                            {
-                                "material": {
-                                    "rho_thermal": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "eps_r": 2.3,
-                                    "theta_max": {
-                                        "value": 90,
-                                        "__type__": "Float64"
-                                    },
-                                    "tan_delta": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "sigma_solar": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "T0": 20,
-                                    "alpha": 0,
-                                    "rho": 197000000000000,
-                                    "kind": {
-                                        "value": "insulator",
-                                        "__type__": "Symbol"
-                                    },
-                                    "mu_r": 1,
-                                    "type": "Material"
+                            "at": {
+                                "kind": "pose2",
+                                "x": {
+                                    "value": 0,
+                                    "__type__": "Float64"
                                 },
-                                "r_ex": 0.03005,
-                                "r_in": 0.02205,
-                                "type": "Insulator"
+                                "φ": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "y": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                }
                             },
-                            {
-                                "material": {
-                                    "rho_thermal": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "eps_r": 1000,
-                                    "theta_max": {
-                                        "value": 90,
-                                        "__type__": "Float64"
-                                    },
-                                    "tan_delta": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "sigma_solar": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "T0": 20,
-                                    "alpha": 0,
-                                    "rho": 500,
-                                    "kind": {
-                                        "value": "semicon",
-                                        "__type__": "Symbol"
-                                    },
-                                    "mu_r": 1,
-                                    "type": "Material"
+                            "path": null
+                        },
+                        {
+                            "kind": "group",
+                            "name": "core",
+                            "pattern": {
+                                "kind": "ring",
+                                "span": {
+                                    "value": 6.283185307179586,
+                                    "__type__": "Float64"
                                 },
-                                "r_ex": 0.030350000000000002,
-                                "r_in": 0.03005,
-                                "type": "Semicon"
+                                "φ0": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "r": {
+                                    "value": 0.0047,
+                                    "__type__": "Float64"
+                                },
+                                "n": 6
                             },
-                            {
-                                "material": {
-                                    "rho_thermal": {
-                                        "value": 0,
+                            "compact": null,
+                            "item": {
+                                "kind": "region",
+                                "tag": "core_wire_2",
+                                "material": "conductor_1",
+                                "primitive": {
+                                    "kind": "disk",
+                                    "r": {
+                                        "value": 0.00235,
                                         "__type__": "Float64"
-                                    },
-                                    "eps_r": 32.3,
-                                    "theta_max": {
-                                        "value": 90,
-                                        "__type__": "Float64"
-                                    },
-                                    "tan_delta": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "sigma_solar": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "T0": 20,
-                                    "alpha": 0,
-                                    "rho": 5300,
-                                    "kind": {
-                                        "value": "semicon",
-                                        "__type__": "Symbol"
-                                    },
-                                    "mu_r": 1,
-                                    "type": "Material"
+                                    }
+                                }
+                            },
+                            "at": {
+                                "kind": "pose2",
+                                "x": {
+                                    "value": 0,
+                                    "__type__": "Float64"
                                 },
-                                "r_ex": 0.030650000000000004,
-                                "r_in": 0.030350000000000002,
-                                "type": "Semicon"
+                                "φ": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "y": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                }
+                            },
+                            "path": {
+                                "kind": "helix",
+                                "φ0": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "lay": {
+                                    "kind": "lay_ratio",
+                                    "q": {
+                                        "value": 15,
+                                        "__type__": "Float64"
+                                    }
+                                },
+                                "dir": 1
                             }
-                        ]
-                    },
-                    "id": "core",
-                    "conductor_group": {
-                        "type": "ConductorGroup",
-                        "layers": [
-                            {
-                                "lay_ratio": 0,
-                                "lay_direction": 1,
-                                "material": {
-                                    "rho_thermal": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "eps_r": 1,
-                                    "theta_max": {
-                                        "value": 90,
-                                        "__type__": "Float64"
-                                    },
-                                    "tan_delta": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "sigma_solar": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "T0": 20,
-                                    "alpha": 0.00429,
-                                    "rho": 2.8264e-8,
-                                    "kind": {
-                                        "value": "conductor",
-                                        "__type__": "Symbol"
-                                    },
-                                    "mu_r": 1.000022,
-                                    "type": "Material"
+                        },
+                        {
+                            "kind": "group",
+                            "name": "core",
+                            "pattern": {
+                                "kind": "ring",
+                                "span": {
+                                    "value": 6.283185307179586,
+                                    "__type__": "Float64"
                                 },
-                                "r_ex": 0.00235,
-                                "radius_wire": 0.00235,
-                                "r_in": 0,
-                                "type": "CircStrands",
-                                "num_wires": 1
+                                "φ0": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "r": {
+                                    "value": 0.0094,
+                                    "__type__": "Float64"
+                                },
+                                "n": 12
                             },
-                            {
-                                "lay_ratio": 15,
-                                "lay_direction": 1,
-                                "material": {
-                                    "rho_thermal": {
-                                        "value": 0,
+                            "compact": null,
+                            "item": {
+                                "kind": "region",
+                                "tag": "core_wire_3",
+                                "material": "conductor_1",
+                                "primitive": {
+                                    "kind": "disk",
+                                    "r": {
+                                        "value": 0.00235,
                                         "__type__": "Float64"
-                                    },
-                                    "eps_r": 1,
-                                    "theta_max": {
-                                        "value": 90,
-                                        "__type__": "Float64"
-                                    },
-                                    "tan_delta": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "sigma_solar": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "T0": 20,
-                                    "alpha": 0.00429,
-                                    "rho": 2.8264e-8,
-                                    "kind": {
-                                        "value": "conductor",
-                                        "__type__": "Symbol"
-                                    },
-                                    "mu_r": 1.000022,
-                                    "type": "Material"
-                                },
-                                "r_ex": 0.007050000000000001,
-                                "radius_wire": 0.00235,
-                                "r_in": 0.00235,
-                                "type": "CircStrands",
-                                "num_wires": 6
+                                    }
+                                }
                             },
-                            {
-                                "lay_ratio": 13.5,
-                                "lay_direction": 1,
-                                "material": {
-                                    "rho_thermal": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "eps_r": 1,
-                                    "theta_max": {
-                                        "value": 90,
-                                        "__type__": "Float64"
-                                    },
-                                    "tan_delta": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "sigma_solar": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "T0": 20,
-                                    "alpha": 0.00429,
-                                    "rho": 2.8264e-8,
-                                    "kind": {
-                                        "value": "conductor",
-                                        "__type__": "Symbol"
-                                    },
-                                    "mu_r": 1.000022,
-                                    "type": "Material"
+                            "at": {
+                                "kind": "pose2",
+                                "x": {
+                                    "value": 0,
+                                    "__type__": "Float64"
                                 },
-                                "r_ex": 0.01175,
-                                "radius_wire": 0.00235,
-                                "r_in": 0.007050000000000001,
-                                "type": "CircStrands",
-                                "num_wires": 12
+                                "φ": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "y": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                }
                             },
-                            {
-                                "lay_ratio": 12.5,
-                                "lay_direction": 1,
-                                "material": {
-                                    "rho_thermal": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "eps_r": 1,
-                                    "theta_max": {
-                                        "value": 90,
-                                        "__type__": "Float64"
-                                    },
-                                    "tan_delta": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "sigma_solar": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "T0": 20,
-                                    "alpha": 0.00429,
-                                    "rho": 2.8264e-8,
-                                    "kind": {
-                                        "value": "conductor",
-                                        "__type__": "Symbol"
-                                    },
-                                    "mu_r": 1.000022,
-                                    "type": "Material"
+                            "path": {
+                                "kind": "helix",
+                                "φ0": {
+                                    "value": 0,
+                                    "__type__": "Float64"
                                 },
-                                "r_ex": 0.01645,
-                                "radius_wire": 0.00235,
-                                "r_in": 0.01175,
-                                "type": "CircStrands",
-                                "num_wires": 18
-                            },
-                            {
-                                "lay_ratio": 11,
-                                "lay_direction": 1,
-                                "material": {
-                                    "rho_thermal": {
-                                        "value": 0,
+                                "lay": {
+                                    "kind": "lay_ratio",
+                                    "q": {
+                                        "value": 13.5,
                                         "__type__": "Float64"
-                                    },
-                                    "eps_r": 1,
-                                    "theta_max": {
-                                        "value": 90,
-                                        "__type__": "Float64"
-                                    },
-                                    "tan_delta": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "sigma_solar": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "T0": 20,
-                                    "alpha": 0.00429,
-                                    "rho": 2.8264e-8,
-                                    "kind": {
-                                        "value": "conductor",
-                                        "__type__": "Symbol"
-                                    },
-                                    "mu_r": 1.000022,
-                                    "type": "Material"
+                                    }
                                 },
-                                "r_ex": 0.02115,
-                                "radius_wire": 0.00235,
-                                "r_in": 0.01645,
-                                "type": "CircStrands",
-                                "num_wires": 24
+                                "dir": 1
                             }
-                        ]
-                    },
-                    "type": "CableComponent"
+                        },
+                        {
+                            "kind": "group",
+                            "name": "core",
+                            "pattern": {
+                                "kind": "ring",
+                                "span": {
+                                    "value": 6.283185307179586,
+                                    "__type__": "Float64"
+                                },
+                                "φ0": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "r": {
+                                    "value": 0.0141,
+                                    "__type__": "Float64"
+                                },
+                                "n": 18
+                            },
+                            "compact": null,
+                            "item": {
+                                "kind": "region",
+                                "tag": "core_wire_4",
+                                "material": "conductor_1",
+                                "primitive": {
+                                    "kind": "disk",
+                                    "r": {
+                                        "value": 0.00235,
+                                        "__type__": "Float64"
+                                    }
+                                }
+                            },
+                            "at": {
+                                "kind": "pose2",
+                                "x": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "φ": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "y": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                }
+                            },
+                            "path": {
+                                "kind": "helix",
+                                "φ0": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "lay": {
+                                    "kind": "lay_ratio",
+                                    "q": {
+                                        "value": 12.5,
+                                        "__type__": "Float64"
+                                    }
+                                },
+                                "dir": 1
+                            }
+                        },
+                        {
+                            "kind": "group",
+                            "name": "core",
+                            "pattern": {
+                                "kind": "ring",
+                                "span": {
+                                    "value": 6.283185307179586,
+                                    "__type__": "Float64"
+                                },
+                                "φ0": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "r": {
+                                    "value": 0.0188,
+                                    "__type__": "Float64"
+                                },
+                                "n": 24
+                            },
+                            "compact": null,
+                            "item": {
+                                "kind": "region",
+                                "tag": "core_wire_5",
+                                "material": "conductor_1",
+                                "primitive": {
+                                    "kind": "disk",
+                                    "r": {
+                                        "value": 0.00235,
+                                        "__type__": "Float64"
+                                    }
+                                }
+                            },
+                            "at": {
+                                "kind": "pose2",
+                                "x": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "φ": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "y": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                }
+                            },
+                            "path": {
+                                "kind": "helix",
+                                "φ0": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "lay": {
+                                    "kind": "lay_ratio",
+                                    "q": {
+                                        "value": 11,
+                                        "__type__": "Float64"
+                                    }
+                                },
+                                "dir": 1
+                            }
+                        },
+                        {
+                            "kind": "region",
+                            "tag": "core_semicon_1",
+                            "material": "semicon_2",
+                            "primitive": {
+                                "kind": "annulus",
+                                "ro": {
+                                    "value": 0.02145,
+                                    "__type__": "Float64"
+                                },
+                                "ri": {
+                                    "value": 0.02115,
+                                    "__type__": "Float64"
+                                }
+                            }
+                        },
+                        {
+                            "kind": "region",
+                            "tag": "core_semicon_2",
+                            "material": "semicon_3",
+                            "primitive": {
+                                "kind": "annulus",
+                                "ro": {
+                                    "value": 0.02205,
+                                    "__type__": "Float64"
+                                },
+                                "ri": {
+                                    "value": 0.02145,
+                                    "__type__": "Float64"
+                                }
+                            }
+                        },
+                        {
+                            "kind": "region",
+                            "tag": "core_insulation",
+                            "material": "insulator_4",
+                            "primitive": {
+                                "kind": "annulus",
+                                "ro": {
+                                    "value": 0.03005,
+                                    "__type__": "Float64"
+                                },
+                                "ri": {
+                                    "value": 0.02205,
+                                    "__type__": "Float64"
+                                }
+                            }
+                        },
+                        {
+                            "kind": "region",
+                            "tag": "core_semicon_3",
+                            "material": "semicon_5",
+                            "primitive": {
+                                "kind": "annulus",
+                                "ro": {
+                                    "value": 0.030350000000000002,
+                                    "__type__": "Float64"
+                                },
+                                "ri": {
+                                    "value": 0.03005,
+                                    "__type__": "Float64"
+                                }
+                            }
+                        },
+                        {
+                            "kind": "region",
+                            "tag": "core_semicon_4",
+                            "material": "semicon_2",
+                            "primitive": {
+                                "kind": "annulus",
+                                "ro": {
+                                    "value": 0.030650000000000004,
+                                    "__type__": "Float64"
+                                },
+                                "ri": {
+                                    "value": 0.030350000000000002,
+                                    "__type__": "Float64"
+                                }
+                            }
+                        },
+                        {
+                            "kind": "group",
+                            "name": "sheath",
+                            "pattern": {
+                                "kind": "ring",
+                                "span": {
+                                    "value": 6.283185307179586,
+                                    "__type__": "Float64"
+                                },
+                                "φ0": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "r": {
+                                    "value": 0.031125000000000003,
+                                    "__type__": "Float64"
+                                },
+                                "n": 49
+                            },
+                            "compact": null,
+                            "item": {
+                                "kind": "region",
+                                "tag": "sheath_wire",
+                                "material": "conductor_6",
+                                "primitive": {
+                                    "kind": "disk",
+                                    "r": {
+                                        "value": 0.000475,
+                                        "__type__": "Float64"
+                                    }
+                                }
+                            },
+                            "at": {
+                                "kind": "pose2",
+                                "x": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "φ": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "y": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                }
+                            },
+                            "path": {
+                                "kind": "helix",
+                                "φ0": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "lay": {
+                                    "kind": "lay_ratio",
+                                    "q": {
+                                        "value": 10,
+                                        "__type__": "Float64"
+                                    }
+                                },
+                                "dir": 1
+                            }
+                        },
+                        {
+                            "kind": "group",
+                            "name": "sheath",
+                            "pattern": null,
+                            "compact": null,
+                            "item": {
+                                "kind": "region",
+                                "tag": "sheath_tape",
+                                "material": "conductor_6",
+                                "primitive": {
+                                    "kind": "sector",
+                                    "span": {
+                                        "value": 0.31595576619273297,
+                                        "__type__": "Float64"
+                                    },
+                                    "φ0": {
+                                        "value": -0.15797788309636648,
+                                        "__type__": "Float64"
+                                    },
+                                    "ro": {
+                                        "value": 0.031700000000000006,
+                                        "__type__": "Float64"
+                                    },
+                                    "ri": {
+                                        "value": 0.0316,
+                                        "__type__": "Float64"
+                                    }
+                                }
+                            },
+                            "at": {
+                                "kind": "pose2",
+                                "x": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "φ": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "y": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                }
+                            },
+                            "path": {
+                                "kind": "helix",
+                                "φ0": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "lay": {
+                                    "kind": "lay_ratio",
+                                    "q": {
+                                        "value": 10,
+                                        "__type__": "Float64"
+                                    }
+                                },
+                                "dir": 1
+                            }
+                        },
+                        {
+                            "kind": "region",
+                            "tag": "sheath_semicon",
+                            "material": "semicon_2",
+                            "primitive": {
+                                "kind": "annulus",
+                                "ro": {
+                                    "value": 0.03200000000000001,
+                                    "__type__": "Float64"
+                                },
+                                "ri": {
+                                    "value": 0.031700000000000006,
+                                    "__type__": "Float64"
+                                }
+                            }
+                        },
+                        {
+                            "kind": "group",
+                            "name": "jacket",
+                            "pattern": null,
+                            "compact": null,
+                            "item": {
+                                "kind": "region",
+                                "tag": "jacket_metal",
+                                "material": "conductor_1",
+                                "primitive": {
+                                    "kind": "annulus",
+                                    "ro": {
+                                        "value": 0.032150000000000005,
+                                        "__type__": "Float64"
+                                    },
+                                    "ri": {
+                                        "value": 0.03200000000000001,
+                                        "__type__": "Float64"
+                                    }
+                                }
+                            },
+                            "at": {
+                                "kind": "pose2",
+                                "x": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "φ": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "y": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                }
+                            },
+                            "path": null
+                        },
+                        {
+                            "kind": "region",
+                            "tag": "jacket_bedding",
+                            "material": "insulator_4",
+                            "primitive": {
+                                "kind": "annulus",
+                                "ro": {
+                                    "value": 0.032200000000000006,
+                                    "__type__": "Float64"
+                                },
+                                "ri": {
+                                    "value": 0.032150000000000005,
+                                    "__type__": "Float64"
+                                }
+                            }
+                        },
+                        {
+                            "kind": "region",
+                            "tag": "jacket_insulation",
+                            "material": "insulator_4",
+                            "primitive": {
+                                "kind": "annulus",
+                                "ro": {
+                                    "value": 0.034600000000000006,
+                                    "__type__": "Float64"
+                                },
+                                "ri": {
+                                    "value": 0.032200000000000006,
+                                    "__type__": "Float64"
+                                }
+                            }
+                        }
+                    ]
                 },
-                {
-                    "insulator_group": {
-                        "reference_frequency": 50,
-                        "type": "InsulatorGroup",
-                        "layers": [
-                            {
-                                "material": {
-                                    "rho_thermal": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "eps_r": 32.3,
-                                    "theta_max": {
-                                        "value": 90,
-                                        "__type__": "Float64"
-                                    },
-                                    "tan_delta": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "sigma_solar": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "T0": 20,
-                                    "alpha": 0,
-                                    "rho": 5300,
-                                    "kind": {
-                                        "value": "semicon",
-                                        "__type__": "Symbol"
-                                    },
-                                    "mu_r": 1,
-                                    "type": "Material"
-                                },
-                                "r_ex": 0.03200000000000001,
-                                "r_in": 0.031700000000000006,
-                                "type": "Semicon"
-                            }
-                        ]
+                "nominal_data": {
+                    "kind": "nominal_data",
+                    "U": {
+                        "value": 30,
+                        "__type__": "Float64"
                     },
-                    "id": "sheath",
-                    "conductor_group": {
-                        "type": "ConductorGroup",
-                        "layers": [
-                            {
-                                "lay_ratio": 10,
-                                "lay_direction": 1,
-                                "material": {
-                                    "rho_thermal": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "eps_r": 1,
-                                    "theta_max": {
-                                        "value": 90,
-                                        "__type__": "Float64"
-                                    },
-                                    "tan_delta": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "sigma_solar": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "T0": 20,
-                                    "alpha": 0.00393,
-                                    "rho": 1.7241e-8,
-                                    "kind": {
-                                        "value": "conductor",
-                                        "__type__": "Symbol"
-                                    },
-                                    "mu_r": 0.999994,
-                                    "type": "Material"
-                                },
-                                "r_ex": 0.0316,
-                                "radius_wire": 0.000475,
-                                "r_in": 0.030650000000000004,
-                                "type": "CircStrands",
-                                "num_wires": 49
-                            },
-                            {
-                                "lay_ratio": 10,
-                                "lay_direction": 1,
-                                "material": {
-                                    "rho_thermal": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "eps_r": 1,
-                                    "theta_max": {
-                                        "value": 90,
-                                        "__type__": "Float64"
-                                    },
-                                    "tan_delta": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "sigma_solar": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "T0": 20,
-                                    "alpha": 0.00393,
-                                    "rho": 1.7241e-8,
-                                    "kind": {
-                                        "value": "conductor",
-                                        "__type__": "Symbol"
-                                    },
-                                    "mu_r": 0.999994,
-                                    "type": "Material"
-                                },
-                                "r_ex": 0.031700000000000006,
-                                "width": 0.01,
-                                "r_in": 0.0316,
-                                "type": "Strip"
-                            }
-                        ]
+                    "screen_cross_section": {
+                        "value": 35,
+                        "__type__": "Float64"
                     },
-                    "type": "CableComponent"
+                    "capacitance": {
+                        "value": 0.39,
+                        "__type__": "Float64"
+                    },
+                    "U0": {
+                        "value": 18,
+                        "__type__": "Float64"
+                    },
+                    "conductor_cross_section": {
+                        "value": 1000,
+                        "__type__": "Float64"
+                    },
+                    "armor_cross_section": null,
+                    "resistance": {
+                        "value": 0.0291,
+                        "__type__": "Float64"
+                    },
+                    "inductance": {
+                        "value": 0.3,
+                        "__type__": "Float64"
+                    },
+                    "designation_code": "NA2XS(FL)2Y"
                 },
-                {
-                    "insulator_group": {
-                        "reference_frequency": 50,
-                        "type": "InsulatorGroup",
-                        "layers": [
-                            {
-                                "material": {
-                                    "rho_thermal": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "eps_r": 2.3,
-                                    "theta_max": {
-                                        "value": 90,
-                                        "__type__": "Float64"
-                                    },
-                                    "tan_delta": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "sigma_solar": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "T0": 20,
-                                    "alpha": 0,
-                                    "rho": 197000000000000,
-                                    "kind": {
-                                        "value": "insulator",
-                                        "__type__": "Symbol"
-                                    },
-                                    "mu_r": 1,
-                                    "type": "Material"
-                                },
-                                "r_ex": 0.032200000000000006,
-                                "r_in": 0.032150000000000005,
-                                "type": "Insulator"
-                            },
-                            {
-                                "material": {
-                                    "rho_thermal": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "eps_r": 2.3,
-                                    "theta_max": {
-                                        "value": 90,
-                                        "__type__": "Float64"
-                                    },
-                                    "tan_delta": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "sigma_solar": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "T0": 20,
-                                    "alpha": 0,
-                                    "rho": 197000000000000,
-                                    "kind": {
-                                        "value": "insulator",
-                                        "__type__": "Symbol"
-                                    },
-                                    "mu_r": 1,
-                                    "type": "Material"
-                                },
-                                "r_ex": 0.034600000000000006,
-                                "r_in": 0.032200000000000006,
-                                "type": "Insulator"
-                            }
-                        ]
-                    },
-                    "id": "jacket",
-                    "conductor_group": {
-                        "type": "ConductorGroup",
-                        "layers": [
-                            {
-                                "material": {
-                                    "rho_thermal": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "eps_r": 1,
-                                    "theta_max": {
-                                        "value": 90,
-                                        "__type__": "Float64"
-                                    },
-                                    "tan_delta": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "sigma_solar": {
-                                        "value": 0,
-                                        "__type__": "Float64"
-                                    },
-                                    "T0": 20,
-                                    "alpha": 0.00429,
-                                    "rho": 2.8264e-8,
-                                    "kind": {
-                                        "value": "conductor",
-                                        "__type__": "Symbol"
-                                    },
-                                    "mu_r": 1.000022,
-                                    "type": "Material"
-                                },
-                                "r_ex": 0.032150000000000005,
-                                "r_in": 0.03200000000000001,
-                                "type": "Tubular"
-                            }
-                        ]
-                    },
-                    "type": "CableComponent"
+                "reference_frequency": {
+                    "value": 50,
+                    "__type__": "Float64"
                 }
-            ],
-            "type": "CableDesign"
+            }
         }
     },
-    "schema": "LineCableModels.CablesLibrary",
-    "version": 2
+    "format": "linecablemodels.cable",
+    "materials": {
+        "semicon_3": {
+            "kind": "semicon",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1000,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 1000,
+                "__type__": "Float64"
+            }
+        },
+        "insulator_4": {
+            "kind": "insulator",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 2.3,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 197000000000000,
+                "__type__": "Float64"
+            }
+        },
+        "conductor_1": {
+            "kind": "conductor",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0.00429,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1.000022,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 2.8264e-8,
+                "__type__": "Float64"
+            }
+        },
+        "semicon_2": {
+            "kind": "semicon",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 32.3,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 5300,
+                "__type__": "Float64"
+            }
+        },
+        "conductor_6": {
+            "kind": "conductor",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0.00393,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 0.999994,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 1.7241e-8,
+                "__type__": "Float64"
+            }
+        },
+        "semicon_5": {
+            "kind": "semicon",
+            "rho_thermal": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "T0": {
+                "value": 20,
+                "__type__": "Float64"
+            },
+            "theta_max": {
+                "value": 90,
+                "__type__": "Float64"
+            },
+            "alpha": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "eps_r": {
+                "value": 1000,
+                "__type__": "Float64"
+            },
+            "mu_r": {
+                "value": 1,
+                "__type__": "Float64"
+            },
+            "tan_delta": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "sigma_solar": {
+                "value": 0,
+                "__type__": "Float64"
+            },
+            "rho": {
+                "value": 500,
+                "__type__": "Float64"
+            }
+        }
+    },
+    "version": "1.0.0"
 }

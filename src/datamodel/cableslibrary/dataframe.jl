@@ -18,13 +18,13 @@ Convert a cable-design library to one row per stored design.
 function DataFrame(library::CablesLibrary)::DataFrame
     ids = keys(library)
     nominal_data = [string(design.nominal_data) for design in values(library)]
-    components = [join([comp.id for comp in design.components], ", ")
+    terminals = [join(string.(design.terminal_order), ", ")
                   for
                   design in values(library)]
     df = DataFrame(
         cable_id = collect(ids),
         nominal_data = nominal_data,
-        components = components
+        terminals = terminals
     )
     return (df)
 end

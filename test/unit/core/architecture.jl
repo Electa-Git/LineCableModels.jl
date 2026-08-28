@@ -48,16 +48,13 @@
     @test all(!occursin("calc_", contents) for contents in values(source))
 
     eager_files=(
-        joinpath("src", "datamodel", "circstrands.jl"),
-        joinpath("src", "datamodel", "rectstrands.jl"),
-        joinpath("src", "datamodel", "strip.jl"),
-        joinpath("src", "datamodel", "tubular.jl"),
-        joinpath("src", "datamodel", "insulator.jl"),
-        joinpath("src", "datamodel", "semicon.jl"),
-        joinpath("src", "datamodel", "conductorgroup.jl"),
-        joinpath("src", "datamodel", "insulatorgroup.jl"),
-        joinpath("src", "datamodel", "cablecomponent", "cablecomponent.jl"),
-        joinpath("src", "datamodel", "cabledesign", "cabledesign.jl")
+        joinpath("src", "datamodel", "design", "region.jl"),
+        joinpath("src", "datamodel", "design", "stack.jl"),
+        joinpath("src", "datamodel", "design", "group.jl"),
+        joinpath("src", "datamodel", "design", "assembly.jl"),
+        joinpath("src", "datamodel", "design", "enclosure.jl"),
+        joinpath("src", "datamodel", "design", "cabledesign.jl"),
+        joinpath("src", "datamodel", "linecablesystem", "linecablesystem.jl")
     )
     for path in eager_files
         contents=source[path]
@@ -115,8 +112,13 @@ end
     @test all(isfile(joinpath(root, path)) for path in expected_entries)
 
     expected_owned_files=(
-        joinpath("src", "datamodel", "packing.jl"),
-        joinpath("src", "datamodel", "cabledesign", "cabledesign.jl"),
+        joinpath("src", "datamodel", "geometry", "primitives.jl"),
+        joinpath("src", "datamodel", "geometry", "resolve.jl"),
+        joinpath("src", "datamodel", "design", "region.jl"),
+        joinpath("src", "datamodel", "design", "cabledesign.jl"),
+        joinpath("src", "datamodel", "placement", "patterns.jl"),
+        joinpath("src", "datamodel", "placement", "paths.jl"),
+        joinpath("src", "parametricbuilder", "physicaltree.jl"),
         joinpath("src", "datamodel", "preview", "cable.jl"),
         joinpath("src", "datamodel", "preview", "cables.jl"),
         joinpath("src", "engine", "lineparameters", "lineparameters.jl"),
@@ -128,7 +130,8 @@ end
         joinpath("src", "reportbuilder", "xlsx.jl"),
         joinpath("src", "importexport", "pscad", "pscad.jl"),
         joinpath("ext", "LineCableModelsMakieExt", "UIComponents.jl"),
-        joinpath("dev", "plotting", "Project.toml")
+        joinpath("dev", "plotting", "Project.toml"),
+        joinpath("schemas", "cable-design.schema.json")
     )
     @test all(isfile(joinpath(root, path)) for path in expected_owned_files)
 
@@ -180,7 +183,7 @@ end
 
     @test !isdefined(LineCableModels, :UnitHandler)
     @test !isdefined(LineCableModels.PlotBuilder, :BackendHandler)
-    @test isdefined(LineCableModels.DataModel, :PhysicalFillLimit)
+    @test !isdefined(LineCableModels.DataModel, :PhysicalFillLimit)
     @test !isdefined(LineCableModels.Validation, :PhysicalFillLimit)
 
     @test parentmodule(LineCableModels.description) === LineCableModels.Engine
@@ -307,8 +310,8 @@ end
     preview_materials=source[joinpath("src", "datamodel", "preview", "materials.jl")]
     @test !occursin(r"\blayer\s+isa\b", preview_materials)
     @test !occursin("hasproperty(layer", preview_materials)
-    @test occursin("preview_shapes(layer", preview_materials)
-    @test occursin("preview_materials(layer", preview_materials)
+    @test occursin("preview_shapes(region::ResolvedRegion", preview_materials)
+    @test occursin("preview_materials(region::ResolvedRegion", preview_materials)
 
     shell_source=read(
         joinpath(extension_root, "LineCableModelsMakieExt", "shell.jl"),
@@ -345,9 +348,9 @@ end
     grammar_observables=source[joinpath("src", "grammar", "observables.jl")]
     @test !occursin("applicable(", grammar_observables)
     positions=source[joinpath("src", "parametricbuilder", "positions.jl")]
-    systembuilder=source[joinpath("src", "parametricbuilder", "systembuilder.jl")]
+    system=source[joinpath("src", "parametricbuilder", "system.jl")]
     @test !occursin("_position_kind", positions)
-    @test !occursin("_position_kind", systembuilder)
+    @test !occursin("_position_kind", system)
     @test !occursin("shell.kind", makie_source)
 
     backends=source[joinpath("src", "plotbuilder", "backends.jl")]
