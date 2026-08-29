@@ -2,7 +2,7 @@
     @test domain(Int) === nothing
     @test domain(1) === nothing
     @test PhaseDomain() isa LineCableModels.LineParamsDomain
-    @test ModalDomain() isa LineCableModels.LineParamsDomain
+    @test_throws MethodError ModalDomain()
     @test PhaseDomain !== ModalDomain
 
     @test nominal(3.0 + 4.0im) == 3.0 + 4.0im
@@ -48,24 +48,24 @@ end
 @testitem "Core / owner-local numerics / transforms and earth kernels" tags=[:unit] begin
     using LinearAlgebra
     const Engine=LineCableModels.Engine
-    const Transforms=Engine.Transforms
+    const MatrixOps=Engine
 
     matrix=[1.0 2.0 9.0; 4.0 5.0 8.0; 3.0 7.0 6.0]
-    symmetrized=Transforms.reciprocity(matrix)
+    symmetrized=MatrixOps.reciprocity(matrix)
     @test symmetrized == transpose(symmetrized)
     @test diag(symmetrized) == diag(matrix)
     destination=copy(matrix)
-    @test Transforms.reciprocity!(destination) === destination
+    @test MatrixOps.reciprocity!(destination) === destination
     @test destination == symmetrized
 
     circulant=copy(matrix)
-    @test Transforms.ideal_transposition!(circulant) === circulant
+    @test MatrixOps.ideal_transposition!(circulant) === circulant
     @test all(circulant[i, j] == circulant[mod1(i + 1, 3), mod1(j + 1, 3)]
     for i in 1:3, j in 1:3)
     @test sum(circulant) ≈ sum(matrix)
-    @test_throws DimensionMismatch Transforms.ideal_transposition!(ones(2, 3))
-    @test Transforms.offdiagonal_ratio(Diagonal([1.0, 2.0])) == 0.0
-    @test_throws DimensionMismatch Transforms.offdiagonal_ratio(zeros(2, 3))
+    @test_throws DimensionMismatch MatrixOps.ideal_transposition!(ones(2, 3))
+    @test MatrixOps.offdiagonal_ratio(Diagonal([1.0, 2.0])) == 0.0
+    @test_throws DimensionMismatch MatrixOps.offdiagonal_ratio(zeros(2, 3))
 
     @test Engine.conductivity(Inf) == 0.0
     @test isinf(Engine.conductivity(0.0))

@@ -7,8 +7,9 @@ analysis frequencies are fields of the problem.
 $(TYPEDFIELDS)
 """
 struct LineParametersProblem{
-        T <: Real,
-        S <: LineCableSystem{T}
+    T <: Real,
+    S <: LineCableSystem{T},
+    P <: Union{Nothing, Vector{Complex{T}}}
 } <: AbstractProblemDefinition
     "Physical cable system."
     system::S
@@ -18,6 +19,8 @@ struct LineParametersProblem{
     earth_props::EarthModel{T}
     "Strictly positive, sorted analysis frequencies \\[Hz\\]."
     frequencies::Vector{T}
+    "Optional longitudinal propagation constants aligned with frequency \\[1/m\\]."
+    Γ::P
 end
 
 Base.eltype(::LineParametersProblem{T}) where {T} = T
@@ -48,6 +51,17 @@ function _check_line_parameters_problem(problem::LineParametersProblem)
         problem.frequencies, "frequencies must be positive"
     ))
     issorted(problem.frequencies) || throw(ArgumentError("frequencies must be sorted"))
+    if problem.Γ !== nothing
+        length(problem.Γ) == length(problem.frequencies) ||
+            throw(DimensionMismatch(
+                "longitudinal propagation constants must align with frequencies"
+            ))
+        all(value -> isfinite(real(value)) && isfinite(imag(value)), problem.Γ) ||
+            throw(DomainError(
+                problem.Γ,
+                "longitudinal propagation constants must be finite"
+            ))
+    end
     maximum(problem.frequencies) > oftype(first(problem.frequencies), 1e8) &&
         @warn("Frequencies above 100 MHz exceed the quasi-TEM validity range.",
             max_frequency=maximum(problem.frequencies),)
@@ -62,25 +76,48 @@ end
 $(TYPEDSIGNATURES)
 
 Construct a problem after promoting the system, operating temperature, static
-earth model, and frequencies to one real scalar type.
+earth model, frequencies, and optional propagation constants to one real scalar
+type.
+
+# Keywords
+
+- `temperature`: Operating temperature \\[°C\\].
+- `earth_props`: Static earth model.
+- `frequencies`: Positive sorted analysis frequencies \\[Hz\\].
+- `Γ`: Optional longitudinal propagation constants aligned with `frequencies`
+  \\[1/m\\]. A formula that fixes Γ to zero rejects nonzero values.
 """
 function LineParametersProblem(
         system::LineCableSystem;
         temperature::Real = oftype(float(system.line_length), 20),
         earth_props::EarthModel,
-        frequencies::AbstractVector{<:Real} = [oftype(float(system.line_length), 50)]
+        frequencies::AbstractVector{<:Real} = [oftype(float(system.line_length), 50)],
+        Γ::Union{Nothing, AbstractVector{<:Number}} = nothing
 )
     isempty(frequencies) && throw(ArgumentError("frequencies cannot be empty"))
+    Γ !== nothing && isempty(Γ) && throw(ArgumentError("Γ cannot be empty"))
+    propagation_type = Γ === nothing ? typeof(float(first(frequencies))) :
+                       promote_type(
+        typeof(float(real(first(Γ)))),
+        typeof(float(imag(first(Γ))))
+    )
     T = promote_type(
         eltype(system), typeof(float(temperature)), eltype(earth_props),
-        typeof(float(first(frequencies)))
+        typeof(float(first(frequencies))), propagation_type
     )
     converted_system = convert(LineCableSystem{T}, system)
-    problem = LineParametersProblem{T, typeof(converted_system)}(
+    propagation = Γ === nothing ? nothing :
+                  Complex{T}[convert(Complex{T}, value) for value in Γ]
+    problem = LineParametersProblem{
+        T,
+        typeof(converted_system),
+        typeof(propagation)
+    }(
         converted_system,
         convert(T, float(temperature)),
         convert(EarthModel{T}, earth_props),
-        T[convert(T, float(value)) for value in frequencies]
+        T[convert(T, float(value)) for value in frequencies],
+        propagation
     )
     return validate(problem)
 end
@@ -105,6 +142,9 @@ placements.
 - `temperature`: Operating temperature in °C.
 - `earth_props`: Static earth model.
 - `frequencies`: Positive sorted analysis frequencies in Hz.
+- `Γ`: Optional longitudinal propagation constants aligned with `frequencies`
+  in inverse metres.
+- `combine`: Rule used to combine designs and placements.
 
 # Returns
 
@@ -121,6 +161,7 @@ function LineParametersProblem(
         temperature::Real,
         earth_props::EarthModel,
         frequencies::AbstractVector{<:Real};
+        Γ::Union{Nothing, AbstractVector{<:Number}} = nothing,
         combine::Symbol = :product
 )
     system = build(
@@ -133,7 +174,7 @@ function LineParametersProblem(
         line_length,
         combine
     )
-    return LineParametersProblem(system; temperature, earth_props, frequencies)
+    return LineParametersProblem(system; temperature, earth_props, frequencies, Γ)
 end
 
 """
@@ -155,33 +196,140 @@ function LineParametersFormulation(;
         insulation_admittance::InsulationAdmittanceFormulation,
         earth_admittance::EarthAdmittanceFormulation,
         earth_properties,
-        modal_transform::Union{AbstractTransformFormulation, Nothing},
-        equivalent_earth::Union{AbstractEHEMFormulation, Nothing},
+        equivalent_earth,
         options::NamedTuple
 )
     methods = (;
         internal_impedance, insulation_impedance, earth_impedance,
         insulation_admittance, earth_admittance, earth_properties,
-        modal_transform, equivalent_earth
+        equivalent_earth
     )
     return LineParametersFormulation(methods, options)
 end
 
+_earth_impedance_formula(formula::EarthImpedanceFormulation) = formula
+_earth_impedance_formula(identifier::Symbol) = EarthImpedance.Formula(identifier)
+function _earth_impedance_formula(
+        selection::FormulaSpec{ID, Order}
+) where {ID, Order}
+    _direct(selection, :earth_impedance)
+    return EarthImpedance.Formula(Val(ID); selection.overrides...)
+end
+
+_earth_admittance_formula(formula::EarthAdmittanceFormulation) = formula
+_earth_admittance_formula(identifier::Symbol) = EarthAdmittance.Formula(identifier)
+function _earth_admittance_formula(
+        selection::FormulaSpec{ID, Order}
+) where {ID, Order}
+    _direct(selection, :earth_admittance)
+    return EarthAdmittance.Formula(Val(ID); selection.overrides...)
+end
+
+_internal_impedance_formula(formula::InternalImpedanceFormulation) = formula
+_internal_impedance_formula(identifier::Symbol) = InternalImpedance.Formula(identifier)
+function _internal_impedance_formula(
+        selection::FormulaSpec{ID, Order}
+) where {ID, Order}
+    _direct(selection, :internal_impedance)
+    return InternalImpedance.Formula(Val(ID); selection.overrides...)
+end
+
+_insulation_impedance_formula(formula::InsulationImpedanceFormulation) = formula
+_insulation_impedance_formula(identifier::Symbol) =
+    InsulationImpedance.Formula(identifier)
+function _insulation_impedance_formula(
+        selection::FormulaSpec{ID, Order}
+) where {ID, Order}
+    _direct(selection, :insulation_impedance)
+    return InsulationImpedance.Formula(Val(ID); selection.overrides...)
+end
+
+_insulation_admittance_formula(formula::InsulationAdmittanceFormulation) = formula
+_insulation_admittance_formula(identifier::Symbol) =
+    InsulationAdmittance.Formula(identifier)
+function _insulation_admittance_formula(
+        selection::FormulaSpec{ID, Order}
+) where {ID, Order}
+    _direct(selection, :insulation_admittance)
+    return InsulationAdmittance.Formula(Val(ID); selection.overrides...)
+end
+
+_earth_properties_formula(::Nothing) = nothing
+_earth_properties_formula(identifier::Symbol) = EarthProps.FD.Formula(identifier)
+function _earth_properties_formula(
+        selection::FormulaSpec{ID, Order}
+) where {ID, Order}
+    _direct(selection, :earth_properties)
+    return EarthProps.FD.Formula(Val(ID); selection.overrides...)
+end
+_earth_properties_formula(formula) = formula
+
+_equivalent_earth(::Nothing) = nothing
+_equivalent_earth(identifier::Symbol) = EHEM.AfterFD(identifier)
+_equivalent_earth(sequence::EHEM.AbstractSequence) = sequence
+_equivalent_earth(rule::EHEM.AbstractRule) = EHEM.AfterFD(rule)
+
+function _direct(::FormulaSpec{ID, Order}, owner::Symbol) where {ID, Order}
+    Order === :default || throw(ArgumentError(
+        "formula order is only valid for equivalent_earth; got :$Order for $owner"
+    ))
+    return nothing
+end
+
+_ehem_rule(
+    ::FormulaSpec{:Layer, Order, NamedTuple{(), Tuple{}}}
+) where {Order} = EHEM.Layer()
+
+function _ehem_rule(
+        selection::FormulaSpec{
+            :Layer, Order, NamedTuple{(:layer,), Tuple{T}}
+        }
+) where {Order, T <: Int}
+    return EHEM.Layer(selection.overrides.layer)
+end
+
+function _ehem_rule(selection::FormulaSpec{:Layer})
+    defaults = (layer = -1,)
+    unknown = setdiff(keys(selection.overrides), keys(defaults))
+    isempty(unknown) || throw(ArgumentError(
+        "unknown assumptions for equivalent-earth policy :Layer: $(collect(unknown))"
+    ))
+    values = merge(defaults, selection.overrides)
+    return EHEM.Layer(values.layer)
+end
+
+function _ehem_rule(selection::FormulaSpec{ID}) where {ID}
+    return EHEM.Formula(Val(ID); selection.overrides...)
+end
+
+_ehem_order(::Val{:default}, rule) = EHEM.AfterFD(rule)
+_ehem_order(::Val{:after}, rule) = EHEM.AfterFD(rule)
+_ehem_order(::Val{:before}, rule) = EHEM.BeforeFD(rule)
+
+function _equivalent_earth(
+        selection::FormulaSpec{ID, Order}
+) where {ID, Order}
+    return _ehem_order(Val(Order), _ehem_rule(selection))
+end
+
 function Formulation(;
-        internal_impedance::InternalImpedanceFormulation = InternalImpedance.ScaledBessel(),
-        insulation_impedance::InsulationImpedanceFormulation = InsulationImpedance.Lossless(),
-        earth_impedance::EarthImpedanceFormulation = EarthImpedance.Papadopoulos(),
-        insulation_admittance::InsulationAdmittanceFormulation = InsulationAdmittance.Lossless(),
-        earth_admittance::EarthAdmittanceFormulation = EarthAdmittance.Papadopoulos(),
-        earth_properties = EarthProperties.CPEarth(),
-        modal_transform::Union{AbstractTransformFormulation, Nothing} = nothing,
-        equivalent_earth::Union{AbstractEHEMFormulation, Nothing} = nothing,
+        internal_impedance = formula(:Schelkunoff),
+        insulation_impedance = formula(:Lossless),
+        earth_impedance = formula(:Papadopoulos2010),
+        insulation_admittance = formula(:Lossless),
+        earth_admittance = formula(:Papadopoulos2010),
+        earth_properties = nothing,
+        equivalent_earth = formula(:Layer; order = :after),
         options::NamedTuple = (;)
 )
     return LineParametersFormulation(;
-        internal_impedance, insulation_impedance, earth_impedance,
-        insulation_admittance, earth_admittance, earth_properties,
-        modal_transform, equivalent_earth,
+        internal_impedance = _internal_impedance_formula(internal_impedance),
+        insulation_impedance = _insulation_impedance_formula(insulation_impedance),
+        earth_impedance = _earth_impedance_formula(earth_impedance),
+        insulation_admittance = _insulation_admittance_formula(insulation_admittance),
+        earth_admittance = _earth_admittance_formula(earth_admittance),
+        earth_properties = _earth_properties_formula(earth_properties),
+        equivalent_earth = _equivalent_earth(equivalent_earth),
         options = formulation_options(Val(LineParametersFormulation), options)
     )
 end

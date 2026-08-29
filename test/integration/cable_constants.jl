@@ -15,6 +15,41 @@
     @test inductance(constants) === constants.L
     @test capacitance(constants) === constants.C
 
+    homogeneous=LineCableModels.homogenize(design)
+    source_components=LineCableModels.DataModel.flatten(design, 50.0)
+    reduced_components=LineCableModels.DataModel.flatten(
+        homogeneous,
+        50.0
+    )
+    @test getproperty.(reduced_components, :name) ==
+          getproperty.(source_components, :name)
+    for (source, reduced) in zip(source_components, reduced_components)
+        @test reduced.conductor.resistance ≈ source.conductor.resistance
+        @test reduced.conductor.gmr ≈ source.conductor.gmr
+        @test reduced.dielectric.shunt_capacitance ≈
+              source.dielectric.shunt_capacitance
+        @test reduced.dielectric.shunt_conductance ≈
+              source.dielectric.shunt_conductance
+        @test reduced.dielectric.material.mu_r ≈ source.dielectric.material.mu_r
+    end
+    flattening_formulation=Formulation(
+        insulation_admittance = formula(:ParallelRC),
+        earth_admittance = :IdealGround
+    )
+    source_at_flattening_frequency=CableConstants(
+        design;
+        formulation = flattening_formulation,
+        frequency = 50.0
+    )
+    homogeneous_constants=CableConstants(
+        homogeneous;
+        formulation = flattening_formulation,
+        frequency = 50.0
+    )
+    @test homogeneous_constants.R ≈ source_at_flattening_frequency.R
+    @test homogeneous_constants.L ≈ source_at_flattening_frequency.L
+    @test homogeneous_constants.C ≈ source_at_flattening_frequency.C
+
     altered=CableConstants(
         design;
         position = at(x = 0, y = -2),

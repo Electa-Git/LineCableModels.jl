@@ -1,31 +1,59 @@
 """
 $(TYPEDEF)
 
-Own the normalized data and reusable storage for one native line-parameter
+Own the numerical input and reusable storage for one coaxial line-parameter
 calculation.
 
 The constructor adapts a completed physical system once, validates the aligned
-numerical representation, precomputes cable and reduction indices, and
+numerical representation, constructs cable and reduction indices, and
 allocates every matrix used by the frequency loop. Each `compute` call owns one
 workspace; no mutable state is shared between calculations.
 
 $(TYPEDFIELDS)
 """
 struct LineParametersWorkspace{
-        T <: Real,
-        N <: NamedTuple,
-        P <: NamedTuple,
-        B <: NamedTuple,
-        C
+    T <: Real,
+    N <: NamedTuple,
+    P <: NamedTuple,
+    B <: NamedTuple,
+    C
 }
-    "Immutable numerical data normalized from the problem and formulation."
-    normalized::N
-    "Precomputed values and index maps reused by every frequency."
-    prepared::P
+    "Immutable numerical input derived from the problem and formulation."
+    input::N
+    "Physical values and index maps invariant across the frequency loop."
+    invariants::P
     "Mutable numerical storage allocated once for the calculation."
     buffers::B
     "Optional retained diagnostic arrays, or `nothing`."
     capture::C
+end
+
+constitutive(
+    ::LineParametersFormulation,
+    ::Val{:conductor},
+    material::Material
+) = material
+
+constitutive(
+    ::LineParametersFormulation,
+    ::Val{:insulator},
+    material::Material
+) = material
+
+constitutive(
+    ::LineParametersFormulation,
+    ::Val{:semicon},
+    material::Material
+) = material
+
+function constitutive(
+        ::LineParametersFormulation,
+        ::Val{Kind},
+        ::Material
+) where {Kind}
+    throw(ArgumentError(
+        "the coaxial formulation does not support material class :$Kind"
+    ))
 end
 
 Base.eltype(::LineParametersWorkspace{T}) where {T} = T
@@ -33,7 +61,7 @@ Base.eltype(::Type{<:LineParametersWorkspace{T}}) where {T} = T
 
 function _capture_buffers(
         ::Type,
-        normalized::NamedTuple,
+        input::NamedTuple,
         ::Val{false}
 )
     return nothing
@@ -41,12 +69,12 @@ end
 
 function _capture_buffers(
         ::Type{T},
-        normalized::NamedTuple,
+        input::NamedTuple,
         ::Val{true}
 ) where {T <: Real}
-    n = normalized.n_phases
-    nc = normalized.n_cables
-    nf = normalized.n_frequencies
+    n = input.n_phases
+    nc = input.n_cables
+    nf = input.n_frequencies
     return (
         Zin = Array{Complex{T}, 3}(undef, n, n, nf),
         Pin = Array{Complex{T}, 3}(undef, n, n, nf),
@@ -57,33 +85,45 @@ function _capture_buffers(
     )
 end
 
-function _check_line_parameters_workspace(workspace::LineParametersWorkspace)
-    input = workspace.normalized
+function _check_workspace(workspace::LineParametersWorkspace)
+    input = workspace.input
     n = input.n_phases
     input.n_frequencies == length(input.freq) || throw(DimensionMismatch(
         "frequency count differs from the frequency vector"
     ))
+    input.Γ !== nothing && length(input.Γ) != input.n_frequencies &&
+        throw(DimensionMismatch(
+            "longitudinal propagation constants must align with frequencies"
+        ))
     input.n_cables == maximum(input.cable_map) || throw(DimensionMismatch(
         "cable count differs from the cable map"
     ))
     for values in (
         input.horz, input.vert, input.r_in, input.r_ext, input.r_ins_in,
         input.r_ins_ext, input.rho0_cond, input.T0_cond, input.alpha_cond,
-        input.mu_cond, input.eps_cond, input.rho_ins, input.mu_ins,
-        input.eps_ins, input.tan_ins, input.phase_map, input.cable_map,
+        input.mu_cond, input.eps_cond, input.mu_ins,
+        input.phase_map, input.cable_map,
         input.insulator_layer_ranges
     )
         length(values) == n || throw(DimensionMismatch(
-            "normalized engine arrays must have $n component entries"
+            "engine input arrays must have $n component entries"
         ))
     end
     size(input.horz_sep) == (n, n) || throw(DimensionMismatch(
         "horizontal separation matrix must be $n×$n"
     ))
-    length(workspace.prepared.cable_indices) == input.n_cables || throw(
+    length(workspace.invariants.cable_indices) == input.n_cables || throw(
         DimensionMismatch("cable indices must align with the cable count")
     )
-    all(!isempty, workspace.prepared.cable_indices) || throw(ArgumentError(
+    length(workspace.invariants.earth_pairs) ==
+    input.n_cables * (input.n_cables + 1) ÷ 2 || throw(DimensionMismatch(
+        "earth pairs must contain the upper triangular cable interactions"
+    ))
+    length(workspace.invariants.homogeneous_pairs) ==
+    length(workspace.invariants.earth_pairs) || throw(DimensionMismatch(
+        "physical and homogeneous earth pairs must align"
+    ))
+    all(!isempty, workspace.invariants.cable_indices) || throw(ArgumentError(
         "every cable must contain one retained primitive conductor"
     ))
     size(workspace.buffers.Zprimitive) == (n, n) || throw(DimensionMismatch(
@@ -96,53 +136,70 @@ function _check_line_parameters_workspace(workspace::LineParametersWorkspace)
 end
 
 function Validation.rules(::Type{<:LineParametersWorkspace})
-    (Validation.OwnerRule(
-        :line_parameters_workspace_dimensions,
-        _check_line_parameters_workspace
-    ),)
+    (Validation.OwnerRule(:line_parameters_workspace_dimensions, _check_workspace),)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Construct the native workspace for one validated line-parameter problem.
+Construct the coaxial workspace for one validated line-parameter problem.
 
 All physical adaptation, temperature correction, earth-property evaluation,
-index preparation, and numerical allocation occurs before the frequency loop.
+index construction, and numerical allocation occurs before the frequency loop.
 
 # Arguments
 
-- `engine`: Native backend identity.
+- `engine`: Coaxial backend identity.
 - `problem`: Completed line-parameter problem.
 - `formulation`: Selected physical-method bundle.
-- `execution`: Normalized native computation options.
+- `execution`: Normalized coaxial computation options.
 
 # Returns
 
 - A validated [`LineParametersWorkspace`](@ref).
 """
 function LineParametersWorkspace(
-        ::LineCableModelsEngine,
+        ::LineCableModelsCoaxial,
         problem::LineParametersProblem{T},
         formulation::LineParametersFormulation,
         execution::NamedTuple
 ) where {T <: Real}
     system = problem.system
-    dielectric_frequency = oftype(first(problem.frequencies), 50)
-    terminals_by_design = [
-        homogeneous_components(formulation, design, dielectric_frequency, T)
-        for design in system.designs
-    ]
+    # DataModel's homogeneous export view requires a positive dielectric
+    # frequency. Coaxial shunt calculations ignore its equivalent dielectric
+    # material and consume the canonical physical layers below.
+    material_reference_frequency = first(problem.frequencies)
+    terminals_by_design = [DataModel.flatten(
+                               design, material_reference_frequency, T
+                           )
+                           for design in system.designs]
+    for (cable_index, terminals) in enumerate(terminals_by_design)
+        reference_position = first(terminals).conductor.position
+        all(terminals) do terminal
+            DataModel.same_radial_position(
+                terminal.conductor.position,
+                reference_position
+            )
+        end || throw(ArgumentError(
+            "the coaxial backend requires one concentric " *
+            "assembly member per cable; cable $cable_index contains " *
+            "independently positioned members"
+        ))
+    end
     n_frequencies = length(problem.frequencies)
-    n_phases = sum(length, terminals_by_design)
+    n_phases = length(system.terminal_order)
+    sum(length, terminals_by_design) == n_phases || throw(DimensionMismatch(
+        "DataModel terminal order differs from the homogeneous component count"
+    ))
     n_layers = sum(
         length(terminal.dielectric.layers)
-        for terminals in terminals_by_design
-        for terminal in terminals
+    for terminals in terminals_by_design
+    for terminal in terminals
     )
     n_cables = ncables(system)
 
     freq = copy(problem.frequencies)
+    Γ = problem.Γ === nothing ? nothing : copy(problem.Γ)
     jω = Complex{T}.(im .* (2 * (one(first(freq)) * π) .* freq))
     horz = Vector{T}(undef, n_phases)
     horz_sep = Matrix{T}(undef, n_phases, n_phases)
@@ -156,29 +213,35 @@ function LineParametersWorkspace(
     alpha_cond = Vector{T}(undef, n_phases)
     mu_cond = Vector{T}(undef, n_phases)
     eps_cond = Vector{T}(undef, n_phases)
-    rho_ins = Vector{T}(undef, n_phases)
     mu_ins = Vector{T}(undef, n_phases)
-    eps_ins = Vector{T}(undef, n_phases)
-    tan_ins = Vector{T}(undef, n_phases)
     insulator_layer_ranges = Vector{UnitRange{Int}}(undef, n_phases)
     r_ins_layer_in = Vector{T}(undef, n_layers)
     r_ins_layer_ext = Vector{T}(undef, n_layers)
     rho_ins_layer = Vector{T}(undef, n_layers)
     eps_ins_layer = Vector{T}(undef, n_layers)
-    phase_map = Vector{Int}(undef, n_phases)
-    cable_map = Vector{Int}(undef, n_phases)
+    phase_map = copy(system.connection_order)
+    cable_map = Int[entry.cable for entry in system.terminal_order]
 
     component_index = 0
     layer_index = 0
-    for (cable_index, (terminals, position, connections)) in enumerate(zip(
-            terminals_by_design,
-            system.positions,
-            system.connections
+    for (cable_index, (terminals, position)) in enumerate(zip(
+        terminals_by_design,
+        system.positions
     ))
-        for (local_index, terminal) in enumerate(terminals)
+        for terminal in terminals
             component_index += 1
+            canonical = system.terminal_order[component_index]
+            canonical == (cable = cable_index, terminal = terminal.name) ||
+                throw(DimensionMismatch(
+                    "DataModel terminal order is not aligned with homogeneous components"
+                ))
             conductor = terminal.conductor
             dielectric = terminal.dielectric
+            conductor_material = constitutive(
+                formulation,
+                Val(conductor.material.kind),
+                conductor.material
+            )
             local_x, local_y = conductor.position
             horz[component_index] = position.x +
                                     cos(position.φ) * local_x -
@@ -190,23 +253,32 @@ function LineParametersWorkspace(
             r_ext_values[component_index] = conductor.r_ex
             r_ins_in[component_index] = dielectric.r_in
             r_ins_ext[component_index] = dielectric.r_ex
-            rho0_cond[component_index] = conductor.material.rho
-            T0_cond[component_index] = conductor.material.T0
-            alpha_cond[component_index] = conductor.material.alpha
-            mu_cond[component_index] = conductor.material.mu_r
-            eps_cond[component_index] = conductor.material.eps_r
-            rho_ins[component_index] = dielectric.material.rho
-            mu_ins[component_index] = dielectric.material.mu_r
-            eps_ins[component_index] = dielectric.material.eps_r
-            reference_ω = 2 * (one(first(freq)) * π) * dielectric.frequency
-            tan_ins[component_index] = isempty(dielectric.layers) ? zero(T) :
-                                       DataModel.loss_tangent(
-                dielectric.shunt_conductance,
-                dielectric.shunt_capacitance,
-                reference_ω
+            rho0_cond[component_index] = conductor_material.rho
+            T0_cond[component_index] = conductor_material.T0
+            alpha_cond[component_index] = conductor_material.alpha
+            mu_cond[component_index] = conductor_material.mu_r
+            eps_cond[component_index] = conductor_material.eps_r
+            transformed_layers = map(dielectric.layers) do layer
+                layer_material = constitutive(
+                    formulation,
+                    Val(layer.material.kind),
+                    layer.material
+                )
+                return (
+                    r_in = layer.r_in,
+                    r_ex = layer.r_ex,
+                    material = layer_material
+                )
+            end
+            mu_ins[component_index] = isempty(transformed_layers) ? one(T) :
+                                      DataModel.equivalent_dielectric_permeability(
+                transformed_layers,
+                conductor.num_turns,
+                conductor.r_ex,
+                dielectric.r_ex
             )
             first_layer = layer_index + 1
-            for layer in dielectric.layers
+            for layer in transformed_layers
                 layer_index += 1
                 r_ins_layer_in[layer_index] = layer.r_in
                 r_ins_layer_ext[layer_index] = layer.r_ex
@@ -214,8 +286,6 @@ function LineParametersWorkspace(
                 eps_ins_layer[layer_index] = layer.material.eps_r
             end
             insulator_layer_ranges[component_index] = first_layer:layer_index
-            phase_map[component_index] = connections[local_index]
-            cable_map[component_index] = cable_index
         end
     end
     horizontal_separation!(
@@ -225,8 +295,9 @@ function LineParametersWorkspace(
         r_ins_ext,
         cable_map
     )
-    normalized = (
+    input = (
         freq,
+        Γ,
         jω,
         horz,
         horz_sep,
@@ -240,10 +311,7 @@ function LineParametersWorkspace(
         alpha_cond,
         mu_cond,
         eps_cond,
-        rho_ins,
         mu_ins,
-        eps_ins,
-        tan_ins,
         insulator_layer_ranges,
         r_ins_layer_in,
         r_ins_layer_ext,
@@ -266,30 +334,50 @@ function LineParametersWorkspace(
             )
         end
     end
-    earth = _earth_data(formulation, normalized)
+    earth = _earth_data(formulation, input)
     cable_indices = [Int[] for _ in 1:n_cables]
-    @inbounds for index in 1:n_phases
-        push!(cable_indices[cable_map[index]], index)
+    @inbounds for (index, terminal) in pairs(system.terminal_order)
+        push!(cable_indices[terminal.cable], index)
     end
     cable_representatives = first.(cable_indices)
+    earth_pairs = _earth_pairs(
+        cable_representatives,
+        horz,
+        vert,
+        horz_sep,
+        problem.earth_props
+    )
+    homogeneous_pairs = _homogeneous_pairs(earth_pairs)
     permutation, reordered_map, kron_map = _reduction_map(phase_map, formulation)
+    bundle_pairs = bundle_operations(reordered_map)
+    keep_indices = kron_map === nothing ? Int[] : findall(!=(0), kron_map)
+    eliminate_indices = kron_map === nothing ? Int[] : findall(==(0), kron_map)
     nkeep = kron_map === nothing ? n_phases : count(!=(0), kron_map)
-    Prepared = NamedTuple{
-        (:rho_cond, :earth, :cable_indices, :cable_representatives,
-         :permutation, :reordered_map, :kron_map, :nkeep),
+    Invariants = NamedTuple{
+        (:rho_cond, :earth, :cable_indices, :cable_representatives, :earth_pairs,
+            :homogeneous_pairs,
+            :permutation, :reordered_map, :bundle_pairs, :kron_map,
+            :keep_indices, :eliminate_indices, :nkeep),
         Tuple{
             Vector{T}, typeof(earth), Vector{Vector{Int}}, Vector{Int},
-            Vector{Int}, Vector{Int}, Union{Nothing, Vector{Int}}, Int
+            Vector{EarthPair{T}}, Vector{EarthPair{T}},
+            Vector{Int}, Vector{Int}, Vector{Tuple{Int, Int}},
+            Union{Nothing, Vector{Int}}, Vector{Int}, Vector{Int}, Int
         }
     }
-    prepared = Prepared((
+    invariants = Invariants((
         rho_cond,
         earth,
         cable_indices,
         cable_representatives,
+        earth_pairs,
+        homogeneous_pairs,
         permutation,
         reordered_map,
+        bundle_pairs,
         kron_map,
+        keep_indices,
+        eliminate_indices,
         nkeep
     ))
 
@@ -300,11 +388,28 @@ function LineParametersWorkspace(
     Pinverse = similar(Zbuffer)
     reduced = Matrix{Complex{T}}(undef, nkeep, nkeep)
     reduced_inverse = similar(reduced)
+    neliminate = length(eliminate_indices)
+    kron_factor = Matrix{Complex{T}}(undef, neliminate, neliminate)
+    kron_coupling = Matrix{Complex{T}}(undef, nkeep, neliminate)
+    kron_rhs = Matrix{Complex{T}}(undef, neliminate, nkeep)
     identity_full = Matrix{Complex{T}}(I, n_phases, n_phases)
     identity_reduced = Matrix{Complex{T}}(I, nkeep, nkeep)
     Zout = Array{Complex{T}, 3}(undef, nkeep, nkeep, n_frequencies)
     Yout = similar(Zout)
     earth_matrix = Matrix{Complex{T}}(undef, n_cables, n_cables)
+    pair_count = length(earth_pairs)
+    earth_media = (
+        rho = Matrix{T}(undef, 2, pair_count),
+        epsilon = Matrix{T}(undef, 2, pair_count),
+        mu = Matrix{T}(undef, 2, pair_count)
+    )
+    integration_type = typeof(float(nominal(one(T))))
+    earth_segments = alloc_segbuf(
+        integration_type,
+        Complex{T},
+        integration_type;
+        size = 128
+    )
     largest_cable = maximum(length, cable_indices)
     coefficients = Vector{Complex{T}}(undef, largest_cable)
     tails = similar(coefficients)
@@ -316,24 +421,105 @@ function LineParametersWorkspace(
         Pinverse,
         reduced,
         reduced_inverse,
+        kron_factor,
+        kron_coupling,
+        kron_rhs,
         identity_full,
         identity_reduced,
         Zout,
         Yout,
         earth_matrix,
+        earth_media,
+        earth_segments,
         coefficients,
         tails
     )
-    capture = _capture_buffers(T, normalized, execution.trace)
+    capture = _capture_buffers(T, input, execution.trace)
     workspace = LineParametersWorkspace{
         T,
-        typeof(normalized),
-        typeof(prepared),
+        typeof(input),
+        typeof(invariants),
         typeof(buffers),
         typeof(capture)
-    }(normalized, prepared, buffers, capture)
+    }(input, invariants, buffers, capture)
     validate(workspace)
     return workspace
+end
+
+function _earth_layer(model::EarthModel, horizontal, vertical)
+    vertical > zero(vertical) && return 1
+    iszero(vertical) && throw(ArgumentError(
+        "a conductor on the air-earth interface has no physical layer"
+    ))
+    model.vertical_layers && return 2
+    depth = -vertical
+    boundary = zero(depth)
+    @inbounds for layer in 2:length(model.layers)
+        thickness = model.layers[layer].thickness
+        isinf(thickness) && return layer
+        boundary += thickness
+        depth <= boundary && return layer
+    end
+    throw(ArgumentError(
+        "conductor depth $depth m is outside the earth-layer model"
+    ))
+end
+
+function _earth_pairs(
+        cables::AbstractVector{Int},
+        horizontal,
+        vertical,
+        separation,
+        earth::EarthModel
+)
+    T = eltype(vertical)
+    pairs = EarthPair{T}[]
+    sizehint!(pairs, length(cables) * (length(cables) + 1) ÷ 2)
+    @inbounds for column in eachindex(cables), row in firstindex(cables):column
+
+        left = cables[row]
+        right = cables[column]
+        layers = (
+            _earth_layer(earth, horizontal[left], vertical[left]),
+            _earth_layer(earth, horizontal[right], vertical[right])
+        )
+        push!(pairs, EarthPair(
+            row,
+            column,
+            (vertical[left], vertical[right]),
+            separation[left, right],
+            layers
+        ))
+    end
+    return pairs
+end
+
+@inline function _layout(pair::EarthPair)
+    source_air = pair.layers[1] == 1
+    target_air = pair.layers[2] == 1
+    source_air && target_air && return Val(:overhead)
+    !source_air && !target_air && return Val(:underground)
+    return Val(:mixed)
+end
+
+@inline _homogeneous_layer(layer::Int) = layer == 1 ? 1 : 2
+
+function _homogeneous_pairs(pairs::AbstractVector{<:EarthPair{T}}) where {T <: Real}
+    mapped = Vector{EarthPair{T}}(undef, length(pairs))
+    @inbounds for index in eachindex(pairs)
+        pair = pairs[index]
+        mapped[index] = EarthPair(
+            pair.row,
+            pair.column,
+            pair.heights,
+            pair.separation,
+            (
+                _homogeneous_layer(pair.layers[1]),
+                _homogeneous_layer(pair.layers[2])
+            )
+        )
+    end
+    return mapped
 end
 
 @inline function _outer_radii(cable_map, r_ext_values, r_ins_ext)
@@ -360,6 +546,7 @@ function horizontal_separation!(
     ))
     outer = _outer_radii(cable_map, r_ext_values, r_ins_ext)
     @inbounds for column in 1:n, row in 1:n
+
         destination[row, column] = cable_map[row] == cable_map[column] ?
                                    outer[cable_map[row]] :
                                    abs(horizontal[row] - horizontal[column])

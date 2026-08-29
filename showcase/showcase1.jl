@@ -846,7 +846,7 @@ begin
 end
 
 # ╔═╡ 43ff64cb-1226-4d26-9fdf-8aff03505439
-cable_emt = flatten(cable_design)
+cable_emt = homogenize(cable_design)
 
 # ╔═╡ ae1749c8-0f6d-4487-8857-12826eb57db3
 begin
@@ -1025,9 +1025,9 @@ begin
     using LineCableModels.Engine.Transforms: Fortescue
     F = Formulation(:analytical,
         internal_impedance = InternalImpedance.ScaledBessel(),
-        insulation_impedance = InsulationImpedance.Lossless(),
+        insulation_impedance = formula(:Lossless),
         earth_impedance = EarthImpedance.Papadopoulos(),
-        insulation_admittance = InsulationAdmittance.Lossless(),
+        insulation_admittance = formula(:Lossless),
         earth_admittance = EarthAdmittance.Papadopoulos(),
         modal_transform = Transforms.Fortescue(),
         equivalent_earth = EHEM.EnforceLayer(layer = -1)  # Use the last layer as effective earth

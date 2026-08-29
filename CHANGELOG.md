@@ -15,8 +15,11 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Cable parts and `CableDesign` now represent the common material reference state.
   Operating temperature is owned by the line problem and applied once to local
   resistivity values inside `compute`.
-- Earth models now store static physical layers only. Analysis frequencies belong to the
-  problem and frequency-dependent earth properties belong to the formulation.
+- Earth models now store static physical layers only. Analysis frequencies
+  belong to the problem; frequency-dependent soil laws and their ephemeral
+  `EarthMaterial` values belong to `EarthProps` and are selected by the
+  line-parameter formulation. The default relation is an exact static
+  pass-through.
 - Mathematical functions use short physical names without the former `calc_` prefix.
 - Material and cable JSON files use an explicit versioned schema and dispatched
   type tags.
@@ -46,9 +49,27 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Routed ordinary and higher-order execution through `compute`, with
   `Combinatorial(inner)`, `LinearError(inner)`, and `MonteCarlo(inner)` selected
   explicitly.
-- Named the native backend `LineCableModelsEngine`, retained `Formulation()` as
-  the default line-parameter method bundle, and exposed optional trace data
-  through `details(result)`.
+- Named the concentric backend `LineCableModelsCoaxial`, retained
+  `Formulation()` as the default line-parameter method bundle, and exposed
+  optional trace data through `details(result)`.
+- Replaced nominal author-formula types with stable literature symbols,
+  formula-owned typed functors, overridable leaf routes, deterministic formula
+  discovery, and an explicit longitudinal propagation-constant path.
+- Ported nine legacy soil-dispersion laws into one discovered
+  `earthprops/fd/formulas/authoryear.jl` file per literature identity, with SI
+  conversion and typed assumptions in place of MATLAB flags and runtime
+  coefficient files.
+- Moved equivalent homogeneous-earth rules to `EarthProps.EHEM`, separated
+  before-FD and after-FD composition by dispatch, and evaluated the resulting
+  material per conductor pair before the shared earth-impedance/admittance
+  calculations. Added the conductivity-only `:MartinsBritto2020` and complex
+  propagation-constant `:Xue2021` recurrences as discovered formulas.
+- Added the public `formula(:AuthorYear; ...)` selector. Each formulation owner
+  resolves the same wrapper locally, while EHEM order is selected with
+  `order=:before` or `order=:after` without exposing sequence wrappers.
+- Separated modal transformations from the coaxial backend into an independent
+  problem–formulation–compute workflow. Modal results retain complete
+  frequency-dependent voltage and current operators for reverse transformation.
 - Made `build` the complete construction action for cable designs and systems.
   Explicit `Grid` inputs materialize the same action through `Gridspace`.
 - Separated unresolved `*Definition` geometry from resolved primitives carrying

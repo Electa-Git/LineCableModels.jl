@@ -34,6 +34,8 @@ Private = false
 Modules = [
     LineCableModels.DataModel,
     LineCableModels.EarthProps,
+    LineCableModels.EarthProps.FD,
+    LineCableModels.EarthProps.EHEM,
 ]
 Order = [:module, :constant, :type, :function, :macro]
 Filter = api_reference_entry
@@ -47,13 +49,11 @@ Private = false
 Modules = [
     LineCableModels.Engine,
     LineCableModels.Engine.EarthAdmittance,
-    LineCableModels.Engine.EarthProperties,
     LineCableModels.Engine.EarthImpedance,
-    LineCableModels.Engine.EHEM,
     LineCableModels.Engine.InsulationAdmittance,
     LineCableModels.Engine.InsulationImpedance,
     LineCableModels.Engine.InternalImpedance,
-    LineCableModels.Engine.Transforms,
+    LineCableModels.Transforms,
 ]
 Order = [:module, :constant, :type, :function, :macro]
 Filter = api_reference_entry

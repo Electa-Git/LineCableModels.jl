@@ -51,13 +51,9 @@ function export_data(::Val{:atp},
         file_name::Union{String, Nothing} = nothing
 )::String
     # ATP owns this explicit homogenization choice. The physical design remains
-    # authoritative; the native radial adapter is invoked only to prepare
-    # the equivalent concentric fields required by ATPDraw's LCC record.
-    atp_components(design) = Engine.homogeneous_components(
-        Engine.Formulation(),
-        design,
-        base_freq
-    )
+    # authoritative; DataModel reduces only the local concentric parts required
+    # by ATPDraw's LCC record.
+    atp_components(design) = DataModel.flatten(design, base_freq)
     function _set_attributes!(element, attrs::Dict)
         for (k, v) in attrs
             element[k] = string(v)

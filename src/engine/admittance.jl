@@ -1,21 +1,23 @@
-function compute_admittance_matrix!(
+function admittance!(
         destination::AbstractMatrix{Complex{T}},
         workspace::LineParametersWorkspace{T},
         frequency::Int,
         formulation::LineParametersFormulation
 ) where {T <: Real}
-    input = workspace.normalized
-    earth = workspace.prepared.earth
-    indices = workspace.prepared.cable_indices
-    cables = workspace.prepared.cable_representatives
+    input = workspace.input
+    indices = workspace.invariants.cable_indices
+    pairs = workspace.invariants.homogeneous_pairs
     earth_matrix = workspace.buffers.earth_matrix
+    earth_media = workspace.buffers.earth_media
     coefficients = workspace.buffers.coefficients
     tails = workspace.buffers.tails
     capture = workspace.capture
     fill!(destination, zero(Complex{T}))
-    compute_earth_return_matrix!(
-        earth_matrix, cables, input, earth, frequency,
-        formulation.methods.earth_admittance
+    earth!(
+        earth_matrix, pairs, input, earth_media, frequency,
+        formulation.methods.earth_admittance,
+        _gamma(input.Γ, frequency),
+        workspace.buffers.earth_segments
     )
     _stash!(_capture_target(capture, :Pg), frequency, earth_matrix)
     s = input.jω[frequency]

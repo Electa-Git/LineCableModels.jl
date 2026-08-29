@@ -225,12 +225,16 @@ atomic unless wrapped in `Grid`.
 ## Formulation boundary
 
 A physically valid design may build even when a formulation does not support
-its geometry. The selected engine validates and adapts `CableGeometry` before
-constructing its input. Construction does not substitute equivalent circles,
-effective radii, or homogeneous conductors.
+its geometry. `DataModel.flatten(design, frequency)` performs only local scalar circuit reductions:
+parallel conductor resistance, recursive GMR, series dielectric admittance,
+and the inverse conversions to effective material properties, returning a flat
+component payload without changing the design.
 
-`flatten(design)` is an explicit request for a new homogeneous
-`CableDesign`; it is not part of ordinary problem construction.
+`homogenize(design)` is an explicit request for a new homogeneous
+`CableDesign`. Independent assembly members are flattened separately; the
+operation calculates no mutual coupling, earth return, or line-parameter
+matrix. The selected engine separately validates whether its formulation
+supports the resulting cable topology.
 
 `CableConstants(design)` follows the same problem and computation path as line
 parameters, then observes `R`, `L`, and `C` from the result.

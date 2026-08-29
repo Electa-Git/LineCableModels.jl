@@ -8,12 +8,12 @@
 
     model=load_case(:cable_132kv_630mm2_flathor)
     reference_formulation=Formulation(
-        :pscad; earth_impedance = EarthImpedance.Wedepohl()
+        :pscad; earth_impedance = :Wedepohl
     )
     candidate_formulation=Formulation(
-        earth_impedance = EarthImpedance.Pollaczek(),
-        earth_admittance = EarthAdmittance.IdealGround(),
-        insulation_admittance = InsulationAdmittance.Lossless(),
+        earth_impedance = :Pollaczek,
+        earth_admittance = :IdealGround,
+        insulation_admittance = formula(:Lossless),
         options = (
             kron_reduction = false,
             reduce_bundle = false,

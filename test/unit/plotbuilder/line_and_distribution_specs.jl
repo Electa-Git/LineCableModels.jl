@@ -180,8 +180,7 @@ end
     inductance=[2.0 0.4 0.3; 0.4 2.2 0.35; 0.3 0.35 2.4] .* 1.0e-7
     conductance=[3.0 0.5 0.4; 0.5 3.2 0.45; 0.4 0.45 3.4] .* 1.0e-9
     capacitance=[4.0 0.8 0.6; 0.8 4.2 0.7; 0.6 0.7 4.4] .* 1.0e-10
-    function result(scale; result_frequency = frequency, result_domain = PhaseDomain,
-            result_basis = :pul)
+    function result(scale; result_frequency = frequency, result_basis = :pul)
         impedance=repeat(scale .* resistance, 1, 1, length(result_frequency)) .+
                   im .* repeat(scale .* inductance, 1, 1, length(result_frequency)) .*
                   reshape(2π .* result_frequency, 1, 1, :)
@@ -189,7 +188,7 @@ end
                    im .* repeat(scale .* capacitance, 1, 1, length(result_frequency)) .*
                    reshape(2π .* result_frequency, 1, 1, :)
         return LineParameters(
-            result_domain,
+            PhaseDomain,
             impedance,
             admittance,
             result_frequency;
@@ -289,7 +288,13 @@ end
     )
     @test_throws ArgumentError PB.make_render(
         E.LineParametersBenchmarkPlotDefinition,
-        (parameters[1], result(1.0; result_domain = ModalDomain));
+        (
+            parameters[1],
+            compute(
+                ModalTransformationProblem(result(1.0)),
+                ModalTransformationFormulation(:Fortescue; tolerance = 1.0)
+            )
+        );
         legend = ("phase", "modal"),
         requests = (@observe(R[:, :, :]),)
     )

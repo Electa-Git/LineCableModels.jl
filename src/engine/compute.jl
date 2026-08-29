@@ -1,10 +1,3 @@
-_modal_result(parameters, ::Nothing) = parameters
-
-function _modal_result(parameters, transform::AbstractTransformFormulation)
-    _, transformed = transform(parameters)
-    return transformed
-end
-
 _basis_result(parameters, ::LineParametersWorkspace, ::Val{:pul}) = parameters
 
 function _basis_result(
@@ -12,11 +5,11 @@ function _basis_result(
         workspace::LineParametersWorkspace,
         ::Val{:total}
 ) where {T, U, D}
-    line_length = workspace.normalized.line_length
+    line_length = workspace.input.line_length
     impedance = parameters.Z.values .* line_length
     admittance = parameters.Y.values .* line_length
     return LineParameters(
-        D,
+        parameters.domain,
         SeriesImpedance{eltype(impedance), :total}(impedance),
         ShuntAdmittance{eltype(admittance), :total}(admittance),
         parameters.f
@@ -34,6 +27,7 @@ _capture_target(capture, name::Symbol) = getproperty(capture, name)
 
 @inline function _reorder_into!(destination, source, permutation)
     @inbounds for column in eachindex(permutation), row in eachindex(permutation)
+
         destination[row, column] = source[permutation[row], permutation[column]]
     end
     return destination
@@ -69,8 +63,8 @@ function _solve!(
         workspace::LineParametersWorkspace{T},
         formulation::LineParametersFormulation
 ) where {T <: Real}
-    input = workspace.normalized
-    prepared = workspace.prepared
+    input = workspace.input
+    invariants = workspace.invariants
     buffers = workspace.buffers
     Zbuffer = buffers.Zbuffer
     Pbuffer = buffers.Pbuffer
@@ -79,21 +73,27 @@ function _solve!(
     Pinverse = buffers.Pinverse
     reduced = buffers.reduced
     reduced_inverse = buffers.reduced_inverse
+    kron_factor = buffers.kron_factor
+    kron_coupling = buffers.kron_coupling
+    kron_rhs = buffers.kron_rhs
     Zout = buffers.Zout
     Yout = buffers.Yout
-    permutation = prepared.permutation
-    reordered_map = prepared.reordered_map
-    kron_map = prepared.kron_map
+    permutation = invariants.permutation
+    bundle_pairs = invariants.bundle_pairs
+    kron_map = invariants.kron_map
+    keep_indices = invariants.keep_indices
+    eliminate_indices = invariants.eliminate_indices
 
     @info "Starting line parameters computation"
     for frequency in 1:input.n_frequencies
-        compute_impedance_matrix!(
+        homogenize!(workspace, frequency, formulation)
+        impedance!(
             Zprimitive,
             workspace,
             frequency,
             formulation
         )
-        compute_admittance_matrix!(
+        admittance!(
             Pprimitive,
             workspace,
             frequency,
@@ -102,8 +102,8 @@ function _solve!(
         _reorder_into!(Zbuffer, Zprimitive, permutation)
         _reorder_into!(Pbuffer, Pprimitive, permutation)
         if formulation.options.reduce_bundle
-            merge_bundles!(Zbuffer, reordered_map)
-            merge_bundles!(Pbuffer, reordered_map)
+            merge_bundles!(Zbuffer, bundle_pairs)
+            merge_bundles!(Pbuffer, bundle_pairs)
         end
 
         if kron_map === nothing
@@ -118,12 +118,28 @@ function _solve!(
             formulation.options.ideal_transposition && ideal_transposition!(Pinverse)
             @views Yout[:, :, frequency] .= Pinverse
         else
-            kronify!(Zbuffer, kron_map, reduced)
+            kronify!(
+                Zbuffer,
+                keep_indices,
+                eliminate_indices,
+                reduced,
+                kron_factor,
+                kron_coupling,
+                kron_rhs
+            )
             reciprocity!(reduced)
             formulation.options.ideal_transposition && ideal_transposition!(reduced)
             @views Zout[:, :, frequency] .= reduced
 
-            kronify!(Pbuffer, kron_map, reduced)
+            kronify!(
+                Pbuffer,
+                keep_indices,
+                eliminate_indices,
+                reduced,
+                kron_factor,
+                kron_coupling,
+                kron_rhs
+            )
             factorization = lu!(reduced)
             ldiv!(reduced_inverse, factorization, buffers.identity_reduced)
             reduced_inverse .*= input.jω[frequency]
@@ -142,31 +158,26 @@ function _solve!(
     )
 end
 
-function _transform(
-        parameters::LineParameters,
-        formulation::LineParametersFormulation
-)
-    return _modal_result(parameters, formulation.methods.modal_transform)
+function _retained_details(::LineParametersWorkspace{<:Real, <:NamedTuple, <:NamedTuple,
+        <:NamedTuple, Nothing})
+    (;)
 end
-
-_retained_details(::LineParametersWorkspace{<:Real, <:NamedTuple, <:NamedTuple,
-                                            <:NamedTuple, Nothing}) = (;)
 
 function _retained_details(workspace::LineParametersWorkspace)
     capture = workspace.capture
     capture === nothing && return (;)
-    input = workspace.normalized
+    input = workspace.input
     return (
         trace = (
-            phase_map = input.phase_map,
-            cable_map = input.cable_map,
-            Zin = capture.Zin,
-            Pin = capture.Pin,
-            Zg = capture.Zg,
-            Pg = capture.Pg,
-            Z = capture.Z,
-            P = capture.P
-        ),
+        phase_map = input.phase_map,
+        cable_map = input.cable_map,
+        Zin = capture.Zin,
+        Pin = capture.Pin,
+        Zg = capture.Zg,
+        Pg = capture.Pg,
+        Z = capture.Z,
+        P = capture.P
+    ),
     )
 end
 
@@ -180,7 +191,7 @@ function _finish(
     retained = _retained_details(workspace)
     @info "Line parameters computation completed successfully"
     return LineParameters(
-        domain(parameters),
+        parameters.domain,
         parameters.Z,
         parameters.Y,
         parameters.f,
@@ -188,8 +199,8 @@ function _finish(
     )
 end
 
-function _compute_line_parameters(
-        engine::LineCableModelsEngine,
+function _compute(
+        engine::LineCableModelsCoaxial,
         problem::LineParametersProblem,
         formulation::LineParametersFormulation,
         execution::NamedTuple
@@ -197,14 +208,13 @@ function _compute_line_parameters(
     validate(problem)
     workspace = LineParametersWorkspace(engine, problem, formulation, execution)
     parameters = _solve!(workspace, formulation)
-    parameters = _transform(parameters, formulation)
     return _finish(parameters, workspace, formulation, execution)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Compute line parameters with the native engine and default formulation.
+Compute line parameters with the coaxial backend and default formulation.
 
 # Arguments
 
@@ -212,7 +222,7 @@ Compute line parameters with the native engine and default formulation.
 
 # Keywords
 
-- `options`: Native computation options.
+- `options`: Coaxial-backend computation options.
 
 # Returns
 
@@ -222,18 +232,20 @@ function compute(
         problem::LineParametersProblem;
         options::NamedTuple = (;)
 )
-    return compute(LineCableModelsEngine(), problem, Formulation(); options)
+    return compute(LineCableModelsCoaxial(), problem, Formulation(); options)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Compute frequency-dependent line parameters with the native engine.
+Compute frequency-dependent line parameters with the coaxial backend.
 
-The completed physical system is normalized once into a backend-owned
-workspace. All reusable numerical storage is allocated before the frequency
-loop. `trace=true` retains completed intermediate matrices under
-`details(result).trace`; it does not change the result type.
+Every nonconcentric cable part must already have an equivalent concentric
+representation in the completed data model. The physical system is normalized
+once into a backend-owned workspace, and all reusable numerical storage is
+allocated before the frequency loop. `trace=true` retains completed
+intermediate matrices under `details(result).trace`; it does not change the
+result type.
 
 # Arguments
 
@@ -253,34 +265,43 @@ function compute(
         formulation::LineParametersFormulation;
         options::NamedTuple = (;)
 )
-    return compute(LineCableModelsEngine(), problem, formulation; options)
+    return compute(LineCableModelsCoaxial(), problem, formulation; options)
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Compute line parameters through an explicit coaxial backend tag.
+
+The tag owns execution dispatch while `formulation.methods` retains the
+selected physical recipes. Ordinary callers can omit the tag and use the
+two-argument `compute` method.
+"""
 function compute(
-        engine::LineCableModelsEngine,
+        engine::LineCableModelsCoaxial,
         problem::LineParametersProblem,
         formulation::LineParametersFormulation = Formulation();
         options::NamedTuple = (;)
 )
-    execution = computation_options(Val(LineCableModelsEngine), options)
+    execution = computation_options(Val(LineCableModelsCoaxial), options)
     console = ConsoleLogger(stderr, Logging.Debug)
     logger = ConsoleVerbosityLogger(console, execution.verbosity)
     return with_logger(logger) do
-        _compute_line_parameters(engine, problem, formulation, execution)
+        _compute(engine, problem, formulation, execution)
     end
 end
 
-computation_owner(::LineParametersFormulation) = LineCableModelsEngine
+computation_owner(::LineParametersFormulation) = LineCableModelsCoaxial
 
 function computation_details(
-        ::Val{LineCableModelsEngine},
+        ::Val{LineCableModelsCoaxial},
         result::LineParameters
 )::ComputationDetails
     return details(result)
 end
 
 computation_details(
-    ::Val{LineCableModelsEngine},
+    ::Val{LineCableModelsCoaxial},
     ::DataModel.CableConstants
 )::ComputationDetails = (;)
 
@@ -354,11 +375,154 @@ function _earth_data(
         formulation::LineParametersFormulation,
         input::NamedTuple
 )
-    evaluated = EarthProperties.evaluate(
+    return _earth_data(
+        formulation.methods.equivalent_earth,
         formulation.methods.earth_properties,
         input.earth,
         input.freq
     )
-    formulation.methods.equivalent_earth === nothing && return evaluated
-    return formulation.methods.equivalent_earth(evaluated, input.earth)
+end
+
+function _earth_data(
+        sequence::Union{Nothing, EHEM.AfterFD},
+        relation,
+        model::EarthModel{T},
+        frequencies::AbstractVector{T}
+) where {T <: Real}
+    sequence === nothing && length(model.layers) != 2 && throw(ArgumentError(
+        "a homogeneous earth-return formulation requires an EHEM rule for a multilayer earth"
+    ))
+    nlayer = length(model.layers)
+    nfrequency = length(frequencies)
+    rho = Matrix{T}(undef, nlayer, nfrequency)
+    eps_r = Matrix{T}(undef, nlayer, nfrequency)
+    mu_r = Matrix{T}(undef, nlayer, nfrequency)
+    @inbounds for row in eachindex(model.layers)
+        static = EarthMaterial(model.layers[row])
+        for column in eachindex(frequencies)
+            material = row == firstindex(model.layers) ?
+                       static : constitutive(relation, static, frequencies[column])
+            rho[row, column] = material.rho
+            eps_r[row, column] = material.eps_r
+            mu_r[row, column] = material.mu_r
+        end
+    end
+    return (; rho, eps_r, mu_r)
+end
+
+function _earth_data(
+        ::EHEM.BeforeFD,
+        relation,
+        model::EarthModel{T},
+        frequencies::AbstractVector{T}
+) where {T <: Real}
+    nlayer = length(model.layers)
+    rho = Vector{T}(undef, nlayer)
+    eps_r = Vector{T}(undef, nlayer)
+    mu_r = Vector{T}(undef, nlayer)
+    @inbounds for row in eachindex(model.layers)
+        material = EarthMaterial(model.layers[row])
+        rho[row] = material.rho
+        eps_r[row] = material.eps_r
+        mu_r[row] = material.mu_r
+    end
+    return (; rho, eps_r, mu_r)
+end
+
+@inline function _media!(destination, column::Int, air, earth)
+    unit = one(earth.rho)
+    epsilon0 = unit * 88541878128 * (unit * 10)^(-22)
+    mu0 = unit * 4 * (unit * π) * (unit * 10)^(-7)
+    destination.rho[1, column] = air.rho
+    destination.rho[2, column] = earth.rho
+    destination.epsilon[1, column] = epsilon0 * air.eps_r
+    destination.epsilon[2, column] = epsilon0 * earth.eps_r
+    destination.mu[1, column] = mu0 * air.mu_r
+    destination.mu[2, column] = mu0 * earth.mu_r
+    return nothing
+end
+
+function homogenize!(
+        workspace::LineParametersWorkspace,
+        frequency::Int,
+        formulation::LineParametersFormulation
+)
+    return homogenize!(
+        workspace.buffers.earth_media,
+        formulation.methods.equivalent_earth,
+        formulation.methods.earth_properties,
+        workspace.invariants.earth,
+        workspace.input.earth,
+        workspace.invariants.earth_pairs,
+        workspace.input.freq[frequency],
+        frequency
+    )
+end
+
+function homogenize!(
+        destination,
+        sequence::EHEM.AfterFD,
+        relation,
+        evaluated,
+        model::EarthModel,
+        pairs,
+        frequency,
+        frequency_index::Int
+)
+    rho = @view evaluated.rho[:, frequency_index]
+    eps_r = @view evaluated.eps_r[:, frequency_index]
+    mu_r = @view evaluated.mu_r[:, frequency_index]
+    air = EarthMaterial(rho[1], eps_r[1], mu_r[1])
+    @inbounds for index in eachindex(pairs)
+        pair = pairs[index]
+        earth = sequence.rule(
+            _layout(pair), rho, eps_r, mu_r, model, pair, frequency
+        )
+        _media!(destination, index, air, earth)
+    end
+    return destination
+end
+
+function homogenize!(
+        destination,
+        sequence::EHEM.BeforeFD,
+        relation,
+        static,
+        model::EarthModel,
+        pairs,
+        frequency,
+        frequency_index::Int
+)
+    air = EarthMaterial(static.rho[1], static.eps_r[1], static.mu_r[1])
+    @inbounds for index in eachindex(pairs)
+        pair = pairs[index]
+        reconstructed = sequence.rule(
+            _layout(pair), static.rho, static.eps_r, static.mu_r,
+            model, pair, frequency
+        )
+        earth = constitutive(relation, reconstructed, frequency)
+        _media!(destination, index, air, earth)
+    end
+    return destination
+end
+
+function homogenize!(
+        destination,
+        ::Nothing,
+        relation,
+        evaluated,
+        model::EarthModel,
+        pairs,
+        frequency,
+        frequency_index::Int
+)
+    rho = @view evaluated.rho[:, frequency_index]
+    eps_r = @view evaluated.eps_r[:, frequency_index]
+    mu_r = @view evaluated.mu_r[:, frequency_index]
+    air = EarthMaterial(rho[1], eps_r[1], mu_r[1])
+    earth = EarthMaterial(rho[2], eps_r[2], mu_r[2])
+    @inbounds for index in eachindex(pairs)
+        _media!(destination, index, air, earth)
+    end
+    return destination
 end

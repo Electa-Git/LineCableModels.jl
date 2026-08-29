@@ -26,7 +26,7 @@ HVDC cables are constructed around a central conductor enclosed by a triple-extr
 
 # Load the public modeling API and the packages used for presentation:
 using LineCableModels
-import LineCableModels: flatten
+import LineCableModels: homogenize
 import CairoMakie
 using DataFrames
 using LinearAlgebra: diag
@@ -213,7 +213,7 @@ constants_table = DataFrame(constants)
 
 # Request the homogeneous design explicitly when an equivalent
 # cable, rather than a solver input, is the desired result:
-equivalent_design = flatten(cable_design; new_id = cable_id * "_equivalent")
+equivalent_design = homogenize(cable_design; new_id = cable_id * "_equivalent")
 equivalent_summary = equivalent_design
 
 # Inspect the completed physical design through its bounded Base display:

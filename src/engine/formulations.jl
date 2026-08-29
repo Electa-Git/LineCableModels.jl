@@ -1,6 +1,13 @@
 # Engine-owned formulation hierarchy.
-"Identify the native LineCableModels numerical backend."
-struct LineCableModelsEngine end
+"""
+$(TYPEDEF)
+
+Select the LineCableModels backend for concentric coaxial cable assemblies.
+
+Nonconcentric cable parts must reach this backend through an equivalent
+concentric representation supplied by DataModel.
+"""
+struct LineCableModelsCoaxial end
 
 """
 $(TYPEDEF)
@@ -16,20 +23,5 @@ abstract type AbstractAdmittanceFormulation <: AbstractFormulation end
 abstract type InsulationAdmittanceFormulation <: AbstractAdmittanceFormulation end
 abstract type EarthAdmittanceFormulation <: AbstractAdmittanceFormulation end
 
-abstract type AbstractTransformFormulation <: AbstractFormulation end
-abstract type AbstractEarthPropertiesFormulation <: AbstractFormulation end
-
 "Route an explicit external formulation tag to its `Val` dispatch method."
 Formulation(backend::Symbol; kwargs...) = Formulation(Val(backend); kwargs...)
-
-"""
-$(TYPEDEF)
-
-Supertype for formulations that reduce a layered-earth model to equivalent
-homogeneous properties.
-
-# Implementations
-
-- [`EnforceLayer`](@ref) selects the properties of one earth layer.
-"""
-abstract type AbstractEHEMFormulation <: AbstractFormulation end

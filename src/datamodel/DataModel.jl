@@ -22,7 +22,7 @@ module DataModel
 
 # Export public API
 export CableDesign, CableGeometry, PlacedRegion, LineCableSystem, CableConstants
-export build, flatten
+export build, homogenize
 export CablesLibrary, catalogue
 export trefoil_formation, flat_formation, outer_radius
 export AbstractShape, AbstractPrimitive
@@ -48,7 +48,7 @@ using DocStringExtensions: IMPORTS
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES, FUNCTIONNAME
 import ..PlotBuilder
 import ..Units
-import ..LineCableModels: add!, build, flatten, validate, nominal
+import ..LineCableModels: add!, build, homogenize, validate, nominal
 import ..LineCableModels: _construction
 import ..LineCableModels: basis, R, L, C, resistance, inductance, capacitance
 import ..Grammar: AbstractCoreResult, observe, observables
@@ -83,6 +83,7 @@ include("baseparams/BaseParams.jl")
 using .BaseParams
 
 include("design/cabledesign.jl")
+include("flatten.jl")
 include("cabledesign/cableconstants.jl")
 
 # Library
@@ -101,5 +102,6 @@ include("preview/materialscale.jl")
 public preview_shapes, preview_materials
 public PreviewPolygon, PreviewReferenceLine, PreviewPayload
 public RoundedSectorShape, ShellShape
+public flatten
 
 end # module DataModel

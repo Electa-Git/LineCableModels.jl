@@ -35,7 +35,7 @@ This tutorial covers:
 
 # Load the public modeling API and the packages used for presentation:
 using LineCableModels
-import LineCableModels: flatten
+import LineCableModels: homogenize
 import CairoMakie
 using DataFrames
 fullfile(filename) = joinpath(@__DIR__, filename); #hide
@@ -284,7 +284,7 @@ constants_table = DataFrame(constants)
 
 # Materialize the homogeneous equivalent only when that design is
 # itself the requested product:
-equivalent_design = flatten(cable_design; new_id = cable_id * "_equivalent")
+equivalent_design = homogenize(cable_design; new_id = cable_id * "_equivalent")
 equivalent_summary = equivalent_design
 
 # `observables` publishes detached values in the units conventionally used by

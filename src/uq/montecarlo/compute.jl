@@ -116,7 +116,7 @@ function _aggregate(
 )
     summary_values = Tuple(
         _map_samples(SampleSummary, values)
-        for values in (sample_values.R, sample_values.L, sample_values.C, sample_values.G)
+    for values in (sample_values.R, sample_values.L, sample_values.C, sample_values.G)
     )
     summaries = NamedTuple{(:R, :L, :C, :G)}(summary_values)
     means = (
@@ -127,7 +127,7 @@ function _aggregate(
     )
     angular = reshape(2π .* observe(first_result, Engine.frequencies), 1, 1, :)
     representation = Engine.LineParameters(
-        domain(first_result),
+        first_result.domain,
         complex.(means.R, means.L .* angular),
         complex.(means.G, means.C .* angular),
         observe(first_result, Engine.frequencies);
@@ -135,12 +135,12 @@ function _aggregate(
     )
     hist = formulation.return_histograms ?
            NamedTuple{(:R, :L, :C, :G)}(Tuple(
-            _map_samples(
-                values -> HistogramDensity(values; bins = formulation.bins),
-                samples
-            )
-            for samples in (sample_values.R, sample_values.L, sample_values.C, sample_values.G)
-        )) : nothing
+        _map_samples(
+            values -> HistogramDensity(values; bins = formulation.bins),
+            samples
+        )
+    for samples in (sample_values.R, sample_values.L, sample_values.C, sample_values.G)
+    )) : nothing
     retained = formulation.return_samples ? sample_values : nothing
     return (; representation, statistics = summaries, samples = retained, histograms = hist)
 end
@@ -154,14 +154,15 @@ function _failure_stack(backtrace)
         line::Int
     }[]
     for frame in Iterators.take(
-            Base.StackTraces.stacktrace(backtrace),
-            _MONTE_CARLO_STACKTRACE_LIMIT
+        Base.StackTraces.stacktrace(backtrace),
+        _MONTE_CARLO_STACKTRACE_LIMIT
     )
-        push!(summaries, (
-            function_name = string(frame.func),
-            file = string(frame.file),
-            line = Int(frame.line)
-        ))
+        push!(summaries,
+            (
+                function_name = string(frame.func),
+                file = string(frame.file),
+                line = Int(frame.line)
+            ))
     end
     return summaries
 end
@@ -195,14 +196,10 @@ function _failure_summary(failures, accepted::Int, attempts::Int)
         by_type[error_type] = get(by_type, error_type, 0) + 1
         by_stage[failure.stage] = get(by_stage, failure.stage, 0) + 1
     end
-    type_counts = [
-        (type = error_type, count = by_type[error_type])
-        for error_type in sort!(collect(keys(by_type)))
-    ]
-    stage_counts = [
-        (stage, count = by_stage[stage])
-        for stage in sort!(collect(keys(by_stage)))
-    ]
+    type_counts = [(type = error_type, count = by_type[error_type])
+                   for error_type in sort!(collect(keys(by_type)))]
+    stage_counts = [(stage, count = by_stage[stage])
+                    for stage in sort!(collect(keys(by_stage)))]
     return (
         attempts,
         accepted,
@@ -312,7 +309,8 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
     end
 
     failure_summary = _failure_summary(failures, accepted, attempts)
-    retained_details = retained === nothing ? nothing : (
+    retained_details = retained === nothing ? nothing :
+                       (
         trials = retained,
         failures,
         failure_summary
@@ -417,7 +415,8 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
         "problem-space iteration exceeded its declared cardinality",
     ))
 
-    retained_details = retained === nothing ? (;) : (
+    retained_details = retained === nothing ? (;) :
+                       (
         trials = getproperty.(retained, :trials),
         failures = getproperty.(retained, :failures),
         failure_summary = getproperty.(retained, :failure_summary)

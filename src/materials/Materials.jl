@@ -17,7 +17,7 @@ $(IMPORTS)
 """
 module Materials
 
-export Material, MaterialsLibrary, add!
+export AbstractMaterial, Material, MaterialsLibrary, add!
 
 #! explicit-imports: off
 # IMPORTS is expanded in the module docstring rather than called as Julia code.

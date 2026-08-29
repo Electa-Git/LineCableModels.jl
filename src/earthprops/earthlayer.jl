@@ -65,3 +65,7 @@ function Base.convert(::Type{EarthLayer{T}}, layer::EarthLayer) where {T <: Real
 end
 
 Base.convert(::Type{EarthLayer{T}}, layer::EarthLayer{T}) where {T <: Real} = layer
+
+"Construct the ephemeral electromagnetic material represented by an earth layer."
+EarthMaterial(layer::EarthLayer{T}) where {T <: Real} =
+    EarthMaterial{T}(layer.rho, layer.eps_r, layer.mu_r)

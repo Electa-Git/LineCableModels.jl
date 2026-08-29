@@ -60,13 +60,26 @@ end
 
 function Formulation(
         ::Val{:pscad};
-        earth_impedance::EarthImpedanceFormulation = EarthImpedance.Wedepohl(),
+        earth_impedance = :Wedepohl,
         earth_admittance::NativeEarthAdmittance = NativeEarthAdmittance(),
         insulation_admittance::NativeInsulationAdmittance =
         NativeInsulationAdmittance(),
         options::NamedTuple = (;)
 )
-    methods = (; earth_impedance, earth_admittance, insulation_admittance)
+    selected_earth_impedance = earth_impedance isa Symbol ?
+                               EarthImpedance.Formula(earth_impedance) :
+                               earth_impedance
+    selected_earth_impedance isa EarthImpedanceFormulation || throw(
+        ArgumentError(
+        "PSCAD earth_impedance must be a literature symbol or " *
+        "EarthImpedanceFormulation"
+    )
+    )
+    methods = (
+        earth_impedance = selected_earth_impedance,
+        earth_admittance,
+        insulation_admittance
+    )
     return PSCADFormulation(
         Val(:pscad),
         methods,
@@ -83,9 +96,19 @@ function description(::DirectNumericalIntegration{:underground})
     "PSCAD direct numerical integration (underground)"
 end
 
-pscad_field(::EarthImpedance.Deri) = :EarthForm2
-pscad_value(::EarthImpedance.Deri) = 0
-pscad_readback(::EarthImpedance.Deri) = "DERISEMLYEN"
+function pscad_field(formula::EarthImpedance.Formula)
+    pscad_field(Val(EarthImpedance.formula_id(formula)))
+end
+function pscad_value(formula::EarthImpedance.Formula)
+    pscad_value(Val(EarthImpedance.formula_id(formula)))
+end
+function pscad_readback(formula::EarthImpedance.Formula)
+    pscad_readback(Val(EarthImpedance.formula_id(formula)))
+end
+
+pscad_field(::Val{:Deri}) = :EarthForm2
+pscad_value(::Val{:Deri}) = 0
+pscad_readback(::Val{:Deri}) = "DERISEMLYEN"
 
 pscad_field(::DirectNumericalIntegration{:overhead}) = :EarthForm2
 pscad_value(::DirectNumericalIntegration{:overhead}) = 2
@@ -93,9 +116,9 @@ function pscad_readback(::DirectNumericalIntegration{:overhead})
     "DIRECT_NUMERICAL_INTEGRATION"
 end
 
-pscad_field(::EarthImpedance.Wedepohl) = :EarthForm
-pscad_value(::EarthImpedance.Wedepohl) = 0
-pscad_readback(::EarthImpedance.Wedepohl) = "WEDEPOHL"
+pscad_field(::Val{:Wedepohl}) = :EarthForm
+pscad_value(::Val{:Wedepohl}) = 0
+pscad_readback(::Val{:Wedepohl}) = "WEDEPOHL"
 
 pscad_field(::DirectNumericalIntegration{:underground}) = :EarthForm
 pscad_value(::DirectNumericalIntegration{:underground}) = 2
@@ -103,17 +126,17 @@ function pscad_readback(::DirectNumericalIntegration{:underground})
     "DIRECT_NUMERICAL_INTEGRATION"
 end
 
-pscad_field(::EarthImpedance.Saad) = :EarthForm
-pscad_value(::EarthImpedance.Saad) = 3
-pscad_readback(::EarthImpedance.Saad) = "SAAD"
+pscad_field(::Val{:Saad}) = :EarthForm
+pscad_value(::Val{:Saad}) = 3
+pscad_readback(::Val{:Saad}) = "SAAD"
 
-pscad_field(::EarthImpedance.Ametani) = :EarthForm3
-pscad_value(::EarthImpedance.Ametani) = 0
-pscad_readback(::EarthImpedance.Ametani) = "AMETANIL"
+pscad_field(::Val{:Ametani}) = :EarthForm3
+pscad_value(::Val{:Ametani}) = 0
+pscad_readback(::Val{:Ametani}) = "AMETANIL"
 
-pscad_field(::EarthImpedance.Lucca) = :EarthForm3
-pscad_value(::EarthImpedance.Lucca) = 2
-pscad_readback(::EarthImpedance.Lucca) = "LUCCA"
+pscad_field(::Val{:Lucca}) = :EarthForm3
+pscad_value(::Val{:Lucca}) = 2
+pscad_readback(::Val{:Lucca}) = "LUCCA"
 
 function formulation_record(formulation::PSCADFormulation)
     earth_impedance = formulation.earth_impedance

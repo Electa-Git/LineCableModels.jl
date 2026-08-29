@@ -13,7 +13,8 @@ module LineCableModels
 ## Public API
 # -------------------------------------------------------------------------
 # Core generics:
-export add!, build, flatten, validate, description, set_backend!
+export add!, build, homogenize, validate, description, constitutive, set_backend!
+export formula, formula_id
 export AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult
 export AbstractCoreResult, AbstractResultSpace
 export AbstractParametricResult, AbstractUncertaintyResult
@@ -39,7 +40,7 @@ export result, statistics, samples, histograms, uncertain
 export root_seed, point_seed, trial_count
 export confidence, cdf_tolerance, sampling_distribution
 export report, TableReportDefinition, XLSXReportDefinition, ReportArtifact
-export Material, MaterialsLibrary, Conductor, Insulator, Semiconductor
+export AbstractMaterial, Material, MaterialsLibrary, Conductor, Insulator, Semiconductor
 export AbstractShape, AbstractPrimitive
 export Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, RoundedSector, Shell
 export Pose2
@@ -65,10 +66,12 @@ export CableGeometry, PlacedRegion
 export CableConstants, LineParametersProblem, LineParameters, CablesLibrary, preview
 
 # Engine:
-export Formulation, LineParametersFormulation, LineCableModelsEngine,
+export Formulation, LineParametersFormulation, LineCableModelsCoaxial,
        SeriesImpedance, ShuntAdmittance, kronify,
        LineParameters, PhaseDomain, ModalDomain
-export Fortescue
+export ModalTransformationProblem, ModalTransformationFormulation,
+       LineCableModelsModal, ModalOperators, operators
+export Transforms
 
 # Import/Export:
 export export_data, import_data, save, load!
@@ -106,7 +109,7 @@ export UIPlot, export_svg
 # Submodule `Materials`
 include("materials/Materials.jl")
 import .Materials
-using .Materials: Material, MaterialsLibrary
+using .Materials: AbstractMaterial, Material, MaterialsLibrary
 
 # Submodule `EarthProps`
 include("earthprops/EarthProps.jl")
@@ -135,14 +138,18 @@ using .DataModel: Ring, Polar, Fill, Lattice, capacity, placements,
 include("engine/Engine.jl")
 using .Engine: LineParameters, LineParametersProblem, SeriesImpedance,
                ShuntAdmittance, kronify, Formulation,
-               LineParametersFormulation, LineCableModelsEngine,
-               description, domain, frequencies, nconductors, nfrequencies,
+               LineParametersFormulation, LineCableModelsCoaxial,
+               domain, frequencies, nconductors, nfrequencies,
                Z, Y, X, G, B, series_impedance, shunt_admittance,
                reactance, conductance, susceptance,
                LineParamsDomain, PhaseDomain, ModalDomain
-using .Engine.Transforms: Fortescue
 
 public LineParamsDomain
+
+# Submodule `Transforms`
+include("transforms/Transforms.jl")
+using .Transforms: ModalTransformationProblem, ModalTransformationFormulation,
+                   LineCableModelsModal, ModalOperators, operators
 
 # Submodule `ParametricBuilder`
 include("parametricbuilder/ParametricBuilder.jl")

@@ -471,8 +471,7 @@ end
         end
     end
     expected_resistance = inv(sum(inv, leaf_resistances))
-    component = only(LineCableModels.Engine.homogeneous_components(
-        Formulation(),
+    component = only(LineCableModels.DataModel.flatten(
         nested_design,
         50.0
     ))

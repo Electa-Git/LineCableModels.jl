@@ -1,10 +1,8 @@
 """
     LineCableModels.Engine.EarthAdmittance
 
-Define formulations for the earth contribution to shunt admittance.
-
-`IdealGround` sets the environmental potential coefficient to zero.
-`Papadopoulos` evaluates the homogeneous-earth integral.
+Define earth-return admittance recipes, numerical primitives, and
+formula-owned frequency functors.
 
 # Dependencies
 
@@ -14,23 +12,50 @@ $(IMPORTS)
 module EarthAdmittance
 
 # Export public API
-export IdealGround, Papadopoulos
+export Formula, formula_id, routes, assumptions, propagation, formulas, Γ
 
 # Module-specific dependencies
 #! explicit-imports: off
 # These abbreviations are expanded in this module docstring and included files.
-using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDSIGNATURES
+using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 import ...LineCableModels: nominal
-import ..Engine: EarthAdmittanceFormulation, description
-import ..Engine: conductivity, bessel_difference
+import ..Engine: EarthAdmittanceFormulation, formula_id, bessel_difference
+#! explicit-imports: off
+import ..Engine: description, conductivity
+#! explicit-imports: on
 using QuadGK: quadgk
 
 vacuum_permittivity(value) = one(value) * 88541878128 * (one(value) * 10)^(-22)
 vacuum_permeability(value) = one(value) * 4 * (one(value) * π) * (one(value) * 10)^(-7)
 
+include("interface.jl")
 include("homogeneous.jl")
-include("idealground.jl")
-include("base.jl")
+
+#! explicit-imports: off
+const FORMULAS = let
+    directory = joinpath(@__DIR__, "formulas")
+    Base.include_dependency(directory)
+    files = sort!(filter(
+        path -> endswith(path, ".jl"),
+        readdir(directory; join = true)
+    ))
+    identifiers = Symbol[]
+    for file in files
+        identifier = include(file)
+        identifier isa Symbol || error(
+            "earth-admittance formula file $(basename(file)) must return its Symbol identifier"
+        )
+        identifier in identifiers && error(
+            "duplicate earth-admittance formula identifier :$identifier"
+        )
+        push!(identifiers, identifier)
+    end
+    Tuple(identifiers)
+end
+#! explicit-imports: on
+
+"Return the built-in earth-admittance formula identifiers."
+formulas() = FORMULAS
 
 end # module EarthAdmittance

@@ -176,8 +176,8 @@ end
         n = 6
     )
     @test build(CableDesign, "elliptical", terminal(:core, elliptical)) isa CableDesign
-    @test_throws ArgumentError LineCableModels.Engine.homogeneous_components(
-        Formulation(), rectangular_design, 50.0
+    @test_throws ArgumentError LineCableModels.DataModel.flatten(
+        rectangular_design, 50.0
     )
 end
 
@@ -346,9 +346,9 @@ end
     @test isconcretetype(typeof(design))
     @test isconcretetype(typeof(system))
     @test isconcretetype(typeof(problem))
-    execution=computation_options(Val(LineCableModelsEngine), (;))
+    execution=computation_options(Val(LineCableModelsCoaxial), (;))
     @test (@inferred LineCableModels.Engine.LineParametersWorkspace(
-        LineCableModelsEngine(),
+        LineCableModelsCoaxial(),
         problem,
         Formulation(),
         execution

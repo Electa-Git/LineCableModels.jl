@@ -1,3 +1,6 @@
+"Supertype for package-owned electromagnetic material values."
+abstract type AbstractMaterial end
+
 """
 $(TYPEDEF)
 
@@ -5,7 +8,7 @@ Store one broad material class and its electromagnetic and thermal properties.
 
 $(TYPEDFIELDS)
 """
-struct Material{T <: Real}
+struct Material{T <: Real} <: AbstractMaterial
     "Broad physical class used by formulation dispatch."
     kind::Symbol
     "Electrical resistivity of the material \\[Ω·m\\]."

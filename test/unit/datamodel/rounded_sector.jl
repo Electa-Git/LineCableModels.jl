@@ -121,18 +121,18 @@ end
 
     first_region=first(design.geometry.regions)
     @test first_region.source.primitive == primitive
-    preview_shape=only(DM.preview_shapes(first_region, (
-        include_label = false,
-        label = nothing,
-        group = :rounded_sector
-    )))
+    preview_shape=only(DM.preview_shapes(
+        first_region, (
+            include_label = false,
+            label = nothing,
+            group = :rounded_sector
+        )))
     @test length(preview_shape.geometry.exterior) > 6
     @test all(point -> all(isfinite, point), preview_shape.geometry.exterior)
 
-    conductor_shapes=[
-        region.primitive for region in design.geometry.regions
-        if region.terminal !== nothing
-    ]
+    conductor_shapes=[region.primitive
+                      for region in design.geometry.regions
+                      if region.terminal !== nothing]
     @test getproperty.(getproperty.(conductor_shapes, :at), :φ) ≈
           [0.0, 2pi / 3, 4pi / 3]
 
@@ -156,9 +156,8 @@ end
     @test all(design -> design.root isa DM.Group, designs)
 end
 
-@testitem "Engine / RoundedSector / formulation-owned equivalent-area input" tags=[:unit] begin
+@testitem "DataModel / RoundedSector / member-local equivalent-area flattening" tags=[:unit] begin
     const DM=LineCableModels.DataModel
-    const Engine=LineCableModels.Engine
 
     copper=Material(kind = :conductor, rho = 1.7241e-8, mu_r = 0.999994,
         alpha = 0.00393)
@@ -180,7 +179,7 @@ end
         names = (:a, :b, :c)
     ))
 
-    components=Engine.homogeneous_components(Formulation(), design, 50.0)
+    components=DM.flatten(design, 50.0)
     @test getproperty.(components, :name) == [:a, :b, :c]
     source_shape=first(design.geometry.regions).primitive
     shell_shape=design.geometry.regions[2].primitive
@@ -203,6 +202,47 @@ end
           DM.shunt_capacitance(equivalent_radius, outer_radius, xlpe.eps_r)
     @test component.dielectric.shunt_conductance ≈
           DM.shunt_conductance(equivalent_radius, outer_radius, xlpe.rho)
+    @test DM.tubular_resistance(
+        component.conductor.r_in,
+        component.conductor.r_ex,
+        component.conductor.material.rho,
+        component.conductor.material.alpha,
+        component.conductor.material.T0,
+        component.conductor.material.T0
+    ) ≈ component.conductor.resistance
+    @test DM.tubular_gmr(
+        component.conductor.r_ex,
+        component.conductor.r_in,
+        component.conductor.material.mu_r
+    ) ≈ component.conductor.gmr
+    @test DM.shunt_capacitance(
+        component.dielectric.r_in,
+        component.dielectric.r_ex,
+        component.dielectric.material.eps_r
+    ) ≈ component.dielectric.shunt_capacitance
+    @test DM.shunt_conductance(
+        component.dielectric.r_in,
+        component.dielectric.r_ex,
+        component.dielectric.material.rho
+    ) ≈ component.dielectric.shunt_conductance
+    @test component.dielectric.material.mu_r ≈ xlpe.mu_r
+
+    magnetic_inner=Material(kind = :insulator, rho = 1e12, eps_r = 2.0, mu_r = 1.5)
+    magnetic_outer=Material(kind = :insulator, rho = 2e12, eps_r = 3.0, mu_r = 2.5)
+    magnetic_layers=[
+        (r_in = 0.01, r_ex = 0.015, material = magnetic_inner),
+        (r_in = 0.015, r_ex = 0.02, material = magnetic_outer)
+    ]
+    radial_mu=(
+        magnetic_inner.mu_r*log(0.015/0.01) +
+        magnetic_outer.mu_r*log(0.02/0.015)
+    )/log(0.02/0.01)
+    @test DM.equivalent_dielectric_permeability(
+        magnetic_layers,
+        4.0,
+        0.01,
+        0.02
+    ) ≈ radial_mu*DM.solenoid_factor(4.0, 0.01, 0.02)
 
     problem=LineParametersProblem(
         design,
@@ -211,9 +251,20 @@ end
         earth_props = Earth(rho = 100),
         frequencies = [50.0]
     )
-    result=compute(problem)
-    @test size(Z(result)) == (3, 3, 1)
-    @test Z(result)[:, :, 1] ≈ transpose(Z(result)[:, :, 1])
+    flattened=homogenize(design)
+    @test flattened.root isa DM.Assembly
+    @test flattened.terminal_order == design.terminal_order
+    flattened_conductors=filter(
+        region->region.source.material.kind===:conductor,
+        flattened.geometry.regions
+    )
+    @test all(zip(
+        DM.centroid.(getproperty.(flattened_conductors, :primitive)),
+        getproperty.(getproperty.(components, :conductor), :position)
+    )) do (actual, expected)
+        isapprox(actual[1], expected[1]) && isapprox(actual[2], expected[2])
+    end
+    @test_throws ArgumentError compute(problem)
 
     encoded=LineCableModels.ImportExport.serialize_value(design)
     @test encoded["root"]["item"]["item"]["items"][1]["primitive"]["kind"] ==
@@ -229,9 +280,8 @@ end
     @test restored == design
 end
 
-@testitem "Engine / RoundedSector / legacy equivalence equations" tags=[:unit] begin
+@testitem "DataModel / RoundedSector / legacy equivalence equations" tags=[:unit] begin
     const DM=LineCableModels.DataModel
-    const Engine=LineCableModels.Engine
 
     # The sector fork used these material values and dimensions. Its scientific
     # contract was the equivalent-area calculation; sampled polygon vertices
@@ -254,16 +304,18 @@ end
     )
     phase=terminal(
         :phase,
-        Region(:core, RoundedSector(
-            span = deg2rad(119.0),
-            r_base = 1.10e-3,
-            r_back = 10.24e-3,
-            fillet = 1.02e-3
-        ), aluminum),
+        Region(:core,
+            RoundedSector(
+                span = deg2rad(119.0),
+                r_base = 1.10e-3,
+                r_back = 10.24e-3,
+                fillet = 1.02e-3
+            ),
+            aluminum),
         Region(:insulation, Shell(1.1e-3), pvc)
     )
     design=build(CableDesign, "legacy-sector-equivalence", phase)
-    component=only(Engine.homogeneous_components(Formulation(), design, 20.0))
+    component=only(DM.flatten(design, 20.0))
 
     # Fixed values prevent the compatibility test from merely recomputing its
     # expectations through the same implementation under test.

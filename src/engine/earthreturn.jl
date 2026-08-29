@@ -1,25 +1,27 @@
-@inline function compute_earth_return_matrix!(
+@inline function earth!(
         destination::AbstractMatrix{Complex{T}},
-        cables::AbstractVector{Int},
+        pairs::AbstractVector{<:EarthPair{T}},
         input::NamedTuple,
         earth,
         frequency::Int,
-        formulation
+        formula,
+        Γ,
+        segments
 ) where {T <: Real}
-    rho = @view earth.rho[:, frequency]
-    epsilon = @view earth.epsilon[:, frequency]
-    mu = @view earth.mu[:, frequency]
     s = input.jω[frequency]
-    @inbounds for column in eachindex(cables), row in eachindex(cables)
-
-        left = cables[row]
-        right = cables[column]
-        separation = input.horz_sep[left, right]
-        heights = (input.vert[left], input.vert[right])
-        kind = row == column ? Val(:self) : Val(:mutual)
-        destination[row, column] = formulation(
-            kind, heights, separation, rho, epsilon, mu, s
-        )
+    @inbounds for index in eachindex(pairs)
+        pair = pairs[index]
+        rho = @view earth.rho[:, index]
+        epsilon = @view earth.epsilon[:, index]
+        mu = @view earth.mu[:, index]
+        functor = formula(rho, epsilon, mu, s, Γ, segments)
+        kind = pair.row == pair.column ? Val(:self) : Val(:mutual)
+        value = functor(kind, pair)
+        destination[pair.row, pair.column] = value
+        destination[pair.column, pair.row] = value
     end
     return destination
 end
+
+@inline _gamma(::Nothing, frequency::Int) = nothing
+@inline _gamma(values::AbstractVector, frequency::Int) = values[frequency]

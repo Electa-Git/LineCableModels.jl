@@ -123,58 +123,119 @@ function kronify!(
     return nothing
 end
 
-# In-place: columns tail -= first (from original), then rows tail -= first (after col pass).
-function merge_bundles!(M::AbstractMatrix{T}, ph::AbstractVector{<:Integer}) where {T}
-    n = size(M, 1)
-    (size(M, 2) == n && length(ph) == n) || throw(ArgumentError("shape mismatch"))
+function kronify!(
+        matrix::AbstractMatrix{Complex{T}},
+        keep::AbstractVector{Int},
+        eliminate::AbstractVector{Int},
+        reduced::AbstractMatrix{Complex{T}},
+        factor::AbstractMatrix{Complex{T}},
+        coupling::AbstractMatrix{Complex{T}},
+        right_hand_side::AbstractMatrix{Complex{T}}
+) where {T <: Real}
+    retained = length(keep)
+    removed = length(eliminate)
+    size(reduced) == (retained, retained) || throw(DimensionMismatch(
+        "reduced matrix storage must be $retained×$retained"
+    ))
+    size(factor) == (removed, removed) || throw(DimensionMismatch(
+        "Kron factor storage must be $removed×$removed"
+    ))
+    size(coupling) == (retained, removed) || throw(DimensionMismatch(
+        "Kron coupling storage must be $retained×$removed"
+    ))
+    size(right_hand_side) == (removed, retained) || throw(DimensionMismatch(
+        "Kron right-hand-side storage must be $removed×$retained"
+    ))
+    @inbounds for column in 1:retained, row in 1:retained
 
-    # Encounter-ordered groups (include phase 0)
-    groups = Vector{Vector{Int}}()
-    index_of = Dict{Int, Int}()
-    @inbounds for (i, p) in pairs(ph)
-        gi = get(index_of, p, 0)
-        if gi == 0
-            push!(groups, Int[])
-            gi = length(groups)
-            index_of[p] = gi
-        end
-        push!(groups[gi], i)
+        reduced[row, column] = matrix[keep[row], keep[column]]
     end
+    iszero(removed) && return reduced
+    @inbounds for column in 1:removed, row in 1:removed
 
-    # -------- Pass 1: columns --------
-    @inbounds for grp in groups
-        length(grp) > 1 || continue
-        i1 = grp[1]
-        base_col = @view M[:, i1]          # original column kept intact in this pass
-        for t in Iterators.drop(eachindex(grp), 1)
-            j = grp[t]
-            col = @view M[:, j]
-            if (M isa StridedMatrix{T}) &&
-               (T <: Union{Float32, Float64, ComplexF32, ComplexF64})
-                axpy!(-one(T), base_col, col)  # col -= base_col
-            else
-                col .-= base_col
-            end
-        end
+        factor[row, column] = matrix[eliminate[row], eliminate[column]]
     end
+    @inbounds for column in 1:removed, row in 1:retained
 
-    # -------- Pass 2: rows --------
-    newmap = copy(ph)
-    @inbounds for grp in groups
-        length(grp) > 1 || continue
-        i1 = grp[1]
-        base_row = @view M[i1, :]          # uses row after pass 1 (matches Z1→Z2)
-        for t in Iterators.drop(eachindex(grp), 1)
-            i = grp[t]
-            row = @view M[i, :]
-            if (M isa StridedMatrix{T}) &&
-               (T <: Union{Float32, Float64, ComplexF32, ComplexF64})
-                axpy!(-one(T), base_row, row)  # row -= base_row
-            else
-                row .-= base_row
-            end
-            newmap[i] = 0
+        coupling[row, column] = matrix[keep[row], eliminate[column]]
+    end
+    @inbounds for column in 1:retained, row in 1:removed
+
+        right_hand_side[row, column] = matrix[eliminate[row], keep[column]]
+    end
+    factorization = lu!(factor)
+    ldiv!(factorization, right_hand_side)
+    mul!(
+        reduced,
+        coupling,
+        right_hand_side,
+        -one(Complex{T}),
+        one(Complex{T})
+    )
+    return reduced
+end
+
+function bundle_operations(phases::AbstractVector{<:Integer})
+    first_index = Dict{Int, Int}()
+    operations = Tuple{Int, Int}[]
+    @inbounds for (index, phase) in pairs(phases)
+        phase > 0 || continue
+        first = get(first_index, phase, 0)
+        if iszero(first)
+            first_index[phase] = index
+        else
+            push!(operations, (first, index))
         end
     end
-    return M, newmap
+    return operations
+end
+
+function merge_bundles!(
+        matrix::AbstractMatrix{T},
+        operations::AbstractVector{<:Tuple{Int, Int}}
+) where {T}
+    @inbounds for (first, duplicate) in operations
+        base_column = @view matrix[:, first]
+        column = @view matrix[:, duplicate]
+        if matrix isa StridedMatrix{T} &&
+           T <: Union{Float32, Float64, ComplexF32, ComplexF64}
+            axpy!(-one(T), base_column, column)
+        else
+            column .-= base_column
+        end
+    end
+    @inbounds for (first, duplicate) in operations
+        base_row = @view matrix[first, :]
+        row = @view matrix[duplicate, :]
+        if matrix isa StridedMatrix{T} &&
+           T <: Union{Float32, Float64, ComplexF32, ComplexF64}
+            axpy!(-one(T), base_row, row)
+        else
+            row .-= base_row
+        end
+    end
+    return matrix
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Apply the bundle change of basis to conductors assigned to the same positive
+phase. Phase zero denotes independent conductors selected for elimination and
+is never interpreted as a bundle identity.
+"""
+function merge_bundles!(
+        matrix::AbstractMatrix{T},
+        phases::AbstractVector{<:Integer}
+) where {T}
+    n = size(matrix, 1)
+    size(matrix, 2) == n == length(phases) ||
+        throw(ArgumentError("shape mismatch"))
+    operations = bundle_operations(phases)
+    merge_bundles!(matrix, operations)
+    reduced = copy(phases)
+    @inbounds for (_, duplicate) in operations
+        reduced[duplicate] = 0
+    end
+    return matrix, reduced
 end
