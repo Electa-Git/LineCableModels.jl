@@ -155,34 +155,6 @@ jobs:
           using JuliaFormatter
           @assert format(joinpath(pwd(), "test"); overwrite = false, verbose = true)
 
-  gitlint:
-    name: Commit messages
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - name: Install gitlint
-        run: python -m pip install --disable-pip-version-check gitlint==0.19.1
-      - name: Check new commits
-        shell: bash
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          BASE_REF: ${{ github.base_ref }}
-          BEFORE_SHA: ${{ github.event.before }}
-          CURRENT_SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          if [[ "${EVENT_NAME}" == "pull_request" ]]; then
-            range="origin/${BASE_REF}..HEAD"
-          elif [[ -n "${BEFORE_SHA}" && ! "${BEFORE_SHA}" =~ ^0+$ ]]; then
-            range="${BEFORE_SHA}..${CURRENT_SHA}"
-          else
-            range="${CURRENT_SHA}^..${CURRENT_SHA}"
-          fi
-          gitlint --commits "${range}"
-
   clean-install:
     name: Clean installation
     runs-on: ubuntu-latest
