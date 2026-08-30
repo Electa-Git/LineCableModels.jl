@@ -6,10 +6,12 @@ statistics, and uncertainty-result presentation.
 """
 module UQ
 
-export LinearError, MonteCarlo, LinearErrorResult, MonteCarloResult
+export LinearError, MonteCarlo, Sensitivity
+export LinearErrorResult, MonteCarloResult, SensitivityResult
 export SampleSummary, HistogramDensity
 export result, statistics, samples, histograms, uncertain
 export root_seed, point_seed, trial_count
+export first_order, total_order, second_order
 export confidence, cdf_tolerance, sampling_distribution
 export cumulative_probability, quantile_pairs
 
@@ -28,7 +30,8 @@ import ..ParametricBuilder: result, traverse
 import ..Units
 import ..TextDisplay
 using ..Grammar:
-                 AbstractFormulation, AbstractUncertaintyResult,
+                 AbstractFormulation, AbstractProblemResult,
+                 AbstractUncertaintyResult,
                  ComputationOptions, ComputationDetails
 using ..ParametricBuilder:
                            ParametricProblem

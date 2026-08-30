@@ -126,6 +126,20 @@ function materialize(point::Gridpoint)
     point.build(map(materialize, point.args)...)
 end
 
+"Return every uncertainty descriptor in recursive realization order."
+uncertainties(::Any) = ()
+uncertainties(value::UncertainValue) = (value,)
+
+_point_uncertainties(::Tuple{}) = ()
+function _point_uncertainties(arguments::Tuple)
+    return (
+        uncertainties(first(arguments))...,
+        _point_uncertainties(Base.tail(arguments))...
+    )
+end
+
+uncertainties(point::Gridpoint) = _point_uncertainties(point.args)
+
 "Return a deterministic value unchanged during stochastic realisation."
 realize(::Random.AbstractRNG, value, _) = value
 
@@ -139,11 +153,47 @@ function realize_arguments(rng::Random.AbstractRNG, point::Gridpoint, distributi
 end
 
 "Build a selected Gridspace point from an already realised argument tuple."
-realize(point::Gridpoint, arguments::Tuple) = point.build(arguments...)
+build(point::Gridpoint, arguments::Tuple) = point.build(arguments...)
+
+_realize_supplied(value, values::Tuple) = (value, values)
+function _realize_supplied(::UncertainValue, values::Tuple)
+    return first(values), Base.tail(values)
+end
+
+_realize_supplied_arguments(::Tuple{}, values::Tuple) = ((), values)
+function _realize_supplied_arguments(arguments::Tuple, values::Tuple)
+    value, remaining = _realize_supplied(first(arguments), values)
+    tail, remaining = _realize_supplied_arguments(
+        Base.tail(arguments),
+        remaining
+    )
+    return ((value, tail...), remaining)
+end
+
+function _realize_supplied(point::Gridpoint, values::Tuple)
+    arguments, remaining = _realize_supplied_arguments(point.args, values)
+    return build(point, arguments), remaining
+end
+
+"Build a selected Gridspace point from its previously realised arguments."
+realize(point::Gridpoint, arguments::Tuple) = build(point, arguments)
+
+"Recursively realise a selected Gridspace point from physical scalar values."
+function realize(point::Gridpoint, values::Tuple{Vararg{Real}})
+    expected = length(uncertainties(point))
+    length(values) == expected || throw(DimensionMismatch(
+        "supplied realization values must match the $expected uncertainty coordinates",
+    ))
+    realized, remaining = _realize_supplied(point, values)
+    isempty(remaining) || throw(DimensionMismatch(
+        "supplied realization values were not consumed exactly",
+    ))
+    return realized
+end
 
 "Recursively realise a selected Gridspace point using the caller's RNG."
 function realize(rng::Random.AbstractRNG, point::Gridpoint, distribution)
-    return realize(point, realize_arguments(rng, point, distribution))
+    return build(point, realize_arguments(rng, point, distribution))
 end
 
 function Base.iterate(space::Gridspace{Target}, state...) where {Target}

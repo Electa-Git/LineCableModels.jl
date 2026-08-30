@@ -38,6 +38,145 @@ end
 """
 $(TYPEDEF)
 
+Select variance-based sensitivity attribution for explicit native observable
+requests. Dependency-owned method and sampler values determine the optional
+integration that implements [`compute`](@ref).
+
+$(TYPEDFIELDS)
+"""
+struct Sensitivity{
+    F <: AbstractFormulation,
+    M,
+    R <: Tuple,
+    S,
+    L,
+    O <: ComputationOptions
+} <: AbstractFormulation
+    "Formulation used for every concrete core problem."
+    inner::F
+    "Dependency-owned global-sensitivity method."
+    method::M
+    "Native observable requests in declaration order."
+    requests::R
+    "Base design sample count."
+    samples::Int
+    "Dependency-owned quasi-random sampler."
+    sampler::S
+    "Physical uncertainty mapping, `:normal` or `:uniform`."
+    distribution::Symbol
+    "Dependency-owned first-order estimator name."
+    estimator::Symbol
+    "Optional labels aligned with every uncertainty descriptor."
+    input_labels::L
+    "Maximum total number of core evaluations."
+    max_evaluations::Int
+    "Maximum flattened output values retained per outer point."
+    max_output_values::Int
+    "Supplemental-output retention options owned by this calculation."
+    options::O
+end
+
+function computation_options(
+        ::Val{Sensitivity},
+        options::NamedTuple
+)::ComputationOptions
+    unknown = filter(key -> key !== :retain_details, keys(options))
+    isempty(unknown) || throw(ArgumentError(
+        "unknown Sensitivity computation options: $(sort!(collect(unknown)))",
+    ))
+    normalized = merge((retain_details = false,), options)
+    normalized.retain_details isa Bool || throw(ArgumentError(
+        "Sensitivity retain_details must be Bool",
+    ))
+    return (retain_details = normalized.retain_details,)
+end
+
+function _validate_sensitivity_request(request)
+    identity = request_identity(request)
+    identity isa Function ||
+        identity isa Tuple &&
+        length(identity) == 2 &&
+        all(value -> value isa Function, identity) ||
+        throw(ArgumentError(
+            "sensitivity requests must use observable selector functions",
+        ))
+    for index in request_indices(request)
+        index isa Union{Integer, AbstractRange, AbstractVector, Colon} || throw(
+            ArgumentError(
+            "observable indices must be integers, ranges, vectors, or `:`",
+        ),
+        )
+    end
+    return nothing
+end
+
+function Sensitivity(
+        inner::F,
+        method,
+        requests::Tuple;
+        samples,
+        sampler,
+        distribution = :normal,
+        estimator = :Jansen1999,
+        input_labels = nothing,
+        max_evaluations = 200_000,
+        max_output_values = 20_000_000,
+        options::NamedTuple = (;)
+) where {F <: AbstractFormulation}
+    isempty(requests) && throw(ArgumentError(
+        "Sensitivity requires at least one observable request",
+    ))
+    foreach(_validate_sensitivity_request, requests)
+    samples isa Integer && !(samples isa Bool) && samples >= 2 || throw(
+        ArgumentError("Sensitivity samples must be an integer of at least two"),
+    )
+    distribution isa Symbol && distribution in (:normal, :uniform) || throw(
+        ArgumentError("Sensitivity distribution must be :normal or :uniform"),
+    )
+    estimator isa Symbol || throw(ArgumentError(
+        "Sensitivity estimator must be a Symbol",
+    ))
+    max_evaluations isa Integer && !(max_evaluations isa Bool) &&
+    max_evaluations >= 1 || throw(ArgumentError(
+        "Sensitivity max_evaluations must be a positive integer",
+    ))
+    max_output_values isa Integer && !(max_output_values isa Bool) &&
+    max_output_values >= 1 || throw(ArgumentError(
+        "Sensitivity max_output_values must be a positive integer",
+    ))
+    input_labels === nothing ||
+        input_labels isa Tuple &&
+        all(label -> label isa Union{AbstractString, Symbol}, input_labels) ||
+        throw(
+            ArgumentError("Sensitivity input_labels must be nothing or a tuple of strings or symbols"),
+        )
+    labels = input_labels === nothing ? nothing : map(String, input_labels)
+    normalized = computation_options(Val(Sensitivity), options)
+    return Sensitivity{
+        F,
+        typeof(method),
+        typeof(requests),
+        typeof(sampler),
+        typeof(labels),
+        typeof(normalized)
+    }(
+        inner,
+        method,
+        requests,
+        Int(samples),
+        sampler,
+        distribution,
+        estimator,
+        labels,
+        Int(max_evaluations),
+        Int(max_output_values),
+        normalized
+    )
+end
+
+"""
+$(TYPEDEF)
+
 Select conditional Monte Carlo propagation over a
 [`ParametricProblem`](@ref). Randomness is local and reproducible when `seed`
 is supplied. Computation option `on_error=:fail` propagates every exception.

@@ -80,6 +80,8 @@ the supported combinations beside their result representations.
 """
 function observe end
 
+observe(source, request::Tuple) = observe(source, request...)
+
 function _observe_macro_parts(request)
     valid_request = request isa Expr &&
                     request.head === :ref &&

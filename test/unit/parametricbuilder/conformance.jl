@@ -137,6 +137,108 @@ end
     @test iszero(Measurements.cov(reused_values...))
 end
 
+@testitem "ParametricBuilder / Gridspace / supplied-value realization" tags=[:unit] setup=[
+    EngineTestSupport, UseEngineSupport] begin
+    using Random
+    import LineCableModels.ParametricBuilder as PB
+
+    nested_builds=Ref(0)
+    outer_builds=Ref(0)
+    nested=PB.Gridspace{Tuple}(
+        (value, fixed)->(nested_builds[]+=1; (value, fixed)),
+        (
+            PB.Grid(10.0, PB.AbsoluteError(0.5)),
+            PB.Grid((:fixed,))
+        )
+    )
+    opaque=(PB.UncertainValue(99.0, 1.0), :opaque)
+    space=PB.Gridspace{Tuple}(
+        (child, zero_sigma, deterministic)->begin
+            outer_builds[]+=1
+            return (child, zero_sigma, deterministic)
+        end,
+        (
+            nested,
+            PB.Grid(20.0, PB.AbsoluteError(0.0)),
+            PB.Grid((opaque,))
+        );
+        combine = :zip
+    )
+    point=first(PB.points(space))
+    descriptors=PB.uncertainties(point)
+    @test descriptors == (
+        PB.UncertainValue(10.0, 0.5),
+        PB.UncertainValue(20.0, 0.0)
+    )
+    @test PB.realize(point, (11.0, 20.0)) == (
+        (11.0, :fixed),
+        20.0,
+        opaque
+    )
+    @test nested_builds[] == 1
+    @test outer_builds[] == 1
+
+    @test_throws DimensionMismatch PB.realize(point, (11.0,))
+    @test_throws DimensionMismatch PB.realize(point, (11.0, 20.0, 30.0))
+    @test nested_builds[] == 1
+    @test outer_builds[] == 1
+
+    reused=PB.Grid(1.0, PB.AbsoluteError(0.1))
+    reused_point=first(PB.points(PB.Gridspace{Tuple}(
+        tuple,
+        (reused, reused);
+        combine = :zip
+    )))
+    @test PB.uncertainties(reused_point) == (
+        PB.UncertainValue(1.0, 0.1),
+        PB.UncertainValue(1.0, 0.1)
+    )
+    @test PB.realize(reused_point, (1.1, 0.9)) == (1.1, 0.9)
+
+    rng=Random.Xoshiro(0x1234)
+    reference_rng=Random.Xoshiro(0x1234)
+    expected=(
+        (10.0+0.5randn(reference_rng), :fixed),
+        20.0,
+        opaque
+    )
+    @test PB.realize(rng, point, :normal) == expected
+
+    struct SuppliedScalar
+        value::Float64
+    end
+    struct BuildSuppliedScalar end
+    (::BuildSuppliedScalar)(value) = SuppliedScalar(value)
+    function uncertainty_count(point, repetitions)
+        total=0
+        for _ in 1:repetitions
+            total+=length(PB.uncertainties(point))
+        end
+        return total
+    end
+    function supplied_sum(point, repetitions)
+        total=0.0
+        for _ in 1:repetitions
+            total+=PB.realize(point, (1.25,)).value
+        end
+        return total
+    end
+    scalar_space=PB.Gridspace{SuppliedScalar}(
+        BuildSuppliedScalar(),
+        (PB.Grid(1.0, PB.AbsoluteError(0.1)),)
+    )
+    scalar_point=first(PB.points(scalar_space))
+    @test @inferred(PB.uncertainties(scalar_point)) ==
+          (PB.UncertainValue(1.0, 0.1),)
+    @test @inferred(PB.realize(scalar_point, (1.25,))) == SuppliedScalar(1.25)
+    uncertainty_count(scalar_point, 1)
+    supplied_sum(scalar_point, 1)
+    @test @allocated(uncertainty_count(scalar_point, 10_000)) == 0
+    @test @allocated(supplied_sum(scalar_point, 10_000)) == 0
+    @test :uncertainties ∉ names(PB)
+    @test !isdefined(LineCableModels, :uncertainties)
+end
+
 @testitem "ParametricBuilder / Gridspace / inference and allocation contracts" tags=[:unit] setup=[
     EngineTestSupport, UseEngineSupport] begin
     using Random

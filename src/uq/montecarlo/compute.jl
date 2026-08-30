@@ -249,7 +249,7 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
                 formulation.distribution
             )
             stage = :build
-            realization = ParametricBuilder.realize(point, sample)
+            realization = ParametricBuilder.build(point, sample)
             stage = :compute
             value = compute(realization, formulation.inner; options)
             succeeded = true
