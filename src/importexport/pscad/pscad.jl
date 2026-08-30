@@ -37,6 +37,9 @@ function export_data(
         base_freq, "PSCAD base frequency must be positive"
     ))
     path = _pscad_output_path(system, file_name)
+    #! explicit-imports: off
+    # EzXML does not mark XMLError public, but this exporter preserves the
+    # established exception contract for invalid XML output destinations.
     isdir(path) && throw(EzXML.XMLError(
         8,
         0,
@@ -44,6 +47,7 @@ function export_data(
         2,
         0
     ))
+    #! explicit-imports: on
     document = _pscad_project(system, earth, base_freq)
     write(path, document)
     return path

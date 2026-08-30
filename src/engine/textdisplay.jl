@@ -5,6 +5,27 @@ _domain_name(::Type{PhaseDomain}) = "phase domain"
 _domain_name(::Type{ModalDomain}) = "sequence domain"
 _domain_name(::Type{D}) where {D <: LineParamsDomain} = lowercase(String(nameof(D)))
 
+TextDisplay.@showfields EarthPair "EarthPair" pair -> (
+    row = pair.row,
+    column = pair.column,
+    heights = TextDisplay.engineering.(pair.heights, Ref(:meter)),
+    separation = TextDisplay.engineering(pair.separation, :meter),
+    layers = pair.layers
+)
+
+TextDisplay.@showfields ConsoleVerbosityLogger "ConsoleVerbosityLogger" logger -> (
+    sink = String(nameof(typeof(logger.console))),
+    levels = logger.levels
+)
+
+TextDisplay.@showfields LineCableModelsFEMError "LineCableModelsFEMError" error -> (
+    category = error.category,
+    object = error.object_id,
+    field = error.field,
+    message = error.message,
+    run_directory = error.run_directory
+)
+
 function _frequency_span(values)
     isempty(values) && return "no points"
     count = length(values)

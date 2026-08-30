@@ -1,3 +1,9 @@
+TextDisplay.@showfields EarthMaterial "EarthMaterial" material -> (
+    ρ = TextDisplay.engineering(material.rho, :ohm_meter),
+    εᵣ = TextDisplay.value(material.eps_r),
+    μᵣ = TextDisplay.value(material.mu_r)
+)
+
 TextDisplay.@showfields EarthLayer "EarthLayer" layer -> (
     ρ = TextDisplay.engineering(layer.rho, :ohm_meter),
     εᵣ = TextDisplay.value(layer.eps_r),
