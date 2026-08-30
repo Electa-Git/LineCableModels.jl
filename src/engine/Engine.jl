@@ -31,7 +31,9 @@ export LineParametersProblem,
        frequencies, nconductors, nfrequencies, basis,
        kronify
 export AbstractFormulation, LineParametersFormulation, Formulation
-export LineCableModelsCoaxial, LineParametersWorkspace
+export AbstractFormulationBackend, AbstractFormulationOptions
+export LineCableModelsCoaxial, LineCableModelsFEM, LineCableModelsFEMOptions,
+       LineCableModelsFEMError, LineParametersWorkspace
 export constitutive, formula_id, EarthPair
 export verbosity
 export InternalImpedance, InsulationImpedance, EarthImpedance
@@ -40,7 +42,7 @@ export InsulationAdmittance, SemiconAdmittance, EarthAdmittance
 export compute, plot
 
 # Module-specific dependencies
-using LinearAlgebra: I, checksquare, diag, ldiv!, lu!, mul!
+using LinearAlgebra: I, checksquare, cond, diag, ldiv!, lu, lu!, mul!, norm
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..LineCableModels: basis, build, R, L, C,
                           resistance, inductance, capacitance
@@ -128,5 +130,7 @@ include("lineparameters/plotdefinition.jl")
 include("lineparameters/comparisonplot.jl")
 
 public has_uncertainty_type
+public reduce_primitive_matrices, potential_to_admittance
+public ConsoleVerbosityLogger
 
 end # module Engine

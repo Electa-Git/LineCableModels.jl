@@ -224,6 +224,17 @@ function _serialize_object(value::LineCableSystem)
     )
 end
 
+function _serialize_object(value::Engine.LineParametersProblem)
+    return Dict(
+        "kind" => "line_parameters_problem",
+        "system" => serialize_value(value.system),
+        "temperature" => serialize_value(value.temperature),
+        "earth_props" => serialize_value(value.earth_props),
+        "frequencies" => serialize_value(value.frequencies),
+        "Gamma" => serialize_value(value.Γ)
+    )
+end
+
 function _serialize_object(grid::DeterministicGrid)
     return Dict("grid" => serialize_value(collect(grid.vals)))
 end

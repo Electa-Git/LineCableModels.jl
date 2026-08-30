@@ -292,6 +292,7 @@ function compute(
 end
 
 computation_owner(::LineParametersFormulation) = LineCableModelsCoaxial
+computation_owner(::LineCableModelsFEM) = LineCableModelsFEM
 
 function computation_details(
         ::Val{LineCableModelsCoaxial},
@@ -304,6 +305,13 @@ computation_details(
     ::Val{LineCableModelsCoaxial},
     ::DataModel.CableConstants
 )::ComputationDetails = (;)
+
+function computation_details(
+        ::Val{LineCableModelsFEM},
+        result::LineParameters
+)::ComputationDetails
+    return details(result)
+end
 
 """
 $(TYPEDSIGNATURES)

@@ -404,7 +404,11 @@ export_file = export_data(
     :atp, line_parameters; file_name = output_file, cable_system);
 
 # Obtain the symmetrical components via Fortescue transformation
-Tv, sequence_parameters = Fortescue(tol = 1e-5)(line_parameters);
+sequence_parameters = compute(
+    ModalTransformationProblem(line_parameters),
+    ModalTransformationFormulation(:Fortescue; tolerance = 1e-5)
+);
+Tv = operators(sequence_parameters).voltage;
 
 # Read one transformed Z/Y term through the same observation boundary:
 sequence_impedance = @observe sequence_parameters Z[1, 1, :]
