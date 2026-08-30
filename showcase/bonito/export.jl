@@ -3,9 +3,10 @@ using CairoMakie
 
 CairoMakie.activate!()
 include(joinpath(@__DIR__, "app.jl"))
+CairoMakie.activate!()
 
-state = Observable(design(12.5, 8.0))
-plot = cable_figure(state)
+cable_page = find_page("core-and-insulation", PAGE_DESCRIPTORS)
+plot = cable_page.export_figure()
 output_directory = joinpath(@__DIR__, "build")
 mkpath(output_directory)
 output_path = joinpath(output_directory, "cable-design.svg")

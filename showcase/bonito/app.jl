@@ -1,148 +1,115 @@
 using Bonito
-using LineCableModels
-using Makie
+using Markdown
 
-const REVEAL_BASE_URL = "https://cdn.jsdelivr.net/npm/reveal.js@6.0.1"
+include(joinpath(@__DIR__, "PowerImpedanceDiagramExt.jl"))
+include(joinpath(@__DIR__, "PageAuthoring.jl"))
+using .PageAuthoring
+
 const LATO_STYLESHEET = "https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css"
 const JULIA_MONO_STYLESHEET = "https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css"
 const DOCUMENTATION_LOGO = joinpath(
     @__DIR__, "..", "..", "docs", "src", "assets", "logo.svg")
-const CORE_MATERIAL, INSULATION_MATERIAL = let materials = MaterialsLibrary()
-    Material(materials, :copper), Material(materials, :xlpe)
-end
+const PAGE_DIRECTORY = joinpath(@__DIR__, "pages")
+const REQUIRED_PAGE_FIELDS = (:id, :group, :title, :order, :render, :class, :build)
 
-# Frozen visual samples from the current material-preview theme. The showcase
-# intentionally does not call or extend the package's PlotBuilder machinery.
-const PLOT_BACKGROUND = RGBf(0.9, 0.9, 0.9)
-const COPPER_COLOR = RGBf(0.9093547, 0.8964516, 0.8706453)
-const XLPE_COLOR = RGBf(0.06460433, 0.1270558, 0.1206059)
-const SLIDE_DESCRIPTORS = (
-    (id = "overview", group = "Showcase", title = "Live technical manual"),
-    (
-        id = "core-and-insulation",
-        group = "Cable design",
-        title = "Core and insulation"
-    )
-)
-
-function design(core_radius_mm::Real, insulation_thickness_mm::Real)
-    isfinite(core_radius_mm) && core_radius_mm > zero(core_radius_mm) ||
-        throw(DomainError(core_radius_mm, "core radius must be positive and finite"))
-    isfinite(insulation_thickness_mm) &&
-    insulation_thickness_mm > zero(insulation_thickness_mm) || throw(DomainError(
-        insulation_thickness_mm,
-        "insulation thickness must be positive and finite"
+function validate_page_descriptor(page, source::AbstractString)
+    page isa NamedTuple || throw(ArgumentError(
+        "page file $(basename(source)) must return a named tuple"
     ))
-
-    core_radius_m = float(core_radius_mm) * 1.0e-3
-    insulation_thickness_m = float(insulation_thickness_mm) * 1.0e-3
-    core = Conductor.Solid(:core_conductor, CORE_MATERIAL; r = core_radius_m)
-    insulation = Insulator.Shell(
-        :insulation,
-        INSULATION_MATERIAL;
-        t = insulation_thickness_m
-    )
-    root = Stack(Group(:core, core), insulation)
-    return build(CableDesign, "interactive-demo", root)
+    missing = filter(field -> !hasproperty(page, field), REQUIRED_PAGE_FIELDS)
+    isempty(missing) || throw(ArgumentError(
+        "page file $(basename(source)) is missing fields: $(join(missing, ", "))"
+    ))
+    page.id isa AbstractString && !isempty(page.id) || throw(ArgumentError(
+        "page id in $(basename(source)) must be a non-empty string"
+    ))
+    occursin(r"^[a-z0-9]+(?:-[a-z0-9]+)*$", page.id) || throw(ArgumentError(
+        "page id $(repr(page.id)) must contain lowercase words separated by hyphens"
+    ))
+    page.group isa AbstractString && !isempty(page.group) || throw(ArgumentError(
+        "page group in $(basename(source)) must be a non-empty string"
+    ))
+    page.title isa AbstractString && !isempty(page.title) || throw(ArgumentError(
+        "page title in $(basename(source)) must be a non-empty string"
+    ))
+    page.order isa Real && isfinite(page.order) || throw(ArgumentError(
+        "page order in $(basename(source)) must be finite"
+    ))
+    page.render isa Bool || throw(ArgumentError(
+        "page render flag in $(basename(source)) must be true or false"
+    ))
+    page.class isa AbstractString || throw(ArgumentError(
+        "page class in $(basename(source)) must be a string"
+    ))
+    page.build isa Function || throw(ArgumentError(
+        "page build entry in $(basename(source)) must be a function"
+    ))
+    return merge(page, (; source = abspath(source)))
 end
 
-function geometry(cable::CableDesign)
-    regions = cable.geometry.regions
-    core = only(filter(region -> region.source.tag === :core_conductor, regions))
-    insulation = only(filter(region -> region.source.tag === :insulation, regions))
-    return (
-        core_r_in_m = r_in(core.primitive),
-        core_r_ex_m = r_ex(core.primitive),
-        core_area_m2 = area(core.primitive),
-        insulation_r_in_m = r_in(insulation.primitive),
-        insulation_r_ex_m = r_ex(insulation.primitive)
-    )
-end
-
-function cable_figure(design_state::Observable; session = nothing)
-    observe(f) = isnothing(session) ? map(f, design_state) : map(f, session, design_state)
-    insulation_circle = observe() do cable
-        radius_mm = geometry(cable).insulation_r_ex_m * 1.0e3
-        Circle(Point2f(0), Float32(radius_mm))
+function load_page_descriptors(directory::AbstractString = PAGE_DIRECTORY)
+    isdir(directory) || throw(ArgumentError("page directory does not exist: $directory"))
+    sources = sort(filter(path -> endswith(path, ".jl"), readdir(directory; join = true)))
+    isempty(sources) && throw(ArgumentError("no Julia page files found in $directory"))
+    pages = map(sources) do source
+        validate_page_descriptor(Base.include(@__MODULE__, source), source)
     end
-    core_circle = observe() do cable
-        radius_mm = geometry(cable).core_r_ex_m * 1.0e3
-        Circle(Point2f(0), Float32(radius_mm))
-    end
-
-    figure = Figure(size = (760, 520), backgroundcolor = PLOT_BACKGROUND)
-    axis = Axis(
-        figure[1, 1];
-        aspect = DataAspect(),
-        backgroundcolor = PLOT_BACKGROUND
-    )
-    insulation_plot = poly!(
-        axis,
-        insulation_circle;
-        color = XLPE_COLOR,
-        strokecolor = :black,
-        strokewidth = 0.5,
-        label = "XLPE insulation"
-    )
-    core_plot = poly!(
-        axis,
-        core_circle;
-        color = COPPER_COLOR,
-        strokecolor = :black,
-        strokewidth = 0.5,
-        label = "Copper core"
-    )
-    hidedecorations!(axis)
-    hidespines!(axis)
-    limits!(axis, -50, 50, -50, 50)
-    axislegend(
-        axis;
-        position = :rt,
-        backgroundcolor = (:white, 0.9),
-        framecolor = RGBf(0.55, 0.55, 0.55),
-        framevisible = true,
-        labelcolor = RGBf(0.15, 0.15, 0.15),
-        padding = (8, 8, 6, 6)
-    )
-    return (;
-        figure,
-        axis,
-        insulation_plot,
-        core_plot,
-        insulation_circle,
-        core_circle
-    )
+    ids = getproperty.(pages, :id)
+    duplicates = unique(filter(id -> count(==(id), ids) > 1, ids))
+    isempty(duplicates) || throw(ArgumentError(
+        "duplicate page ids: $(join(duplicates, ", "))"
+    ))
+    return sort(pages; by = page -> (page.order, basename(page.source)))
 end
 
-function reveal_assets()
+function select_rendered_pages(pages)
+    rendered = filter(page -> page.render, pages)
+    isempty(rendered) && throw(ArgumentError(
+        "no showcase pages are enabled; set `render = true` in at least one pages/*.jl file"
+    ))
+    return rendered
+end
+
+function find_page(id::AbstractString, pages)
+    return only(filter(page -> page.id == id, pages))
+end
+
+const PAGE_DESCRIPTORS = load_page_descriptors()
+const RENDERED_PAGES = select_rendered_pages(PAGE_DESCRIPTORS)
+
+function app_assets()
     return (
-        reveal_js = ES6Module("$REVEAL_BASE_URL/dist/reveal.mjs"),
-        notes_js = ES6Module("$REVEAL_BASE_URL/dist/plugin/notes.mjs"),
-        reset_css = Asset("$REVEAL_BASE_URL/dist/reset.css"),
-        reveal_css = Asset("$REVEAL_BASE_URL/dist/reveal.css"),
         lato_css = Asset(LATO_STYLESHEET),
         julia_mono_css = Asset(JULIA_MONO_STYLESHEET),
-        app_css = Asset(joinpath(@__DIR__, "assets", "theme.css")),
+        app_css = read(joinpath(@__DIR__, "assets", "theme.css"), String),
         logo = Asset(DOCUMENTATION_LOGO)
     )
 end
 
-function navigation(assets)
-    groups = unique(descriptor.group for descriptor in SLIDE_DESCRIPTORS)
+page_route(page, index::Integer) = index == 1 ? "/" : "/$(page.id)"
+page_href(page, index::Integer) = index == 1 ? "./" : "./$(page.id)"
+
+function page_index(page, pages)
+    index = findfirst(candidate -> candidate.id == page.id, pages)
+    isnothing(index) && throw(ArgumentError("page $(repr(page.id)) is not rendered"))
+    return index
+end
+
+function navigation(assets, pages, current_index::Integer)
+    groups = unique(page.group for page in pages)
     group_nodes = map(groups) do group
         entries = map(
             filter(pair -> pair[2].group == group,
-            collect(enumerate(SLIDE_DESCRIPTORS)))
-        ) do (index, descriptor)
-            button_class = index == 1 ? "lc-nav-entry is-active" : "lc-nav-entry"
+            collect(enumerate(pages)))
+        ) do (index, page)
+            active = index == current_index
             DOM.li(
-                DOM.button(
-                descriptor.title;
-                type = "button",
-                class = button_class,
-                dataSlideIndex = string(index - 1),
-                dataSlideId = descriptor.id,
-                ariaCurrent = index == 1 ? "page" : "false"
+                DOM.a(
+                page.title;
+                href = page_href(page, index),
+                class = active ? "lc-nav-entry is-active" : "lc-nav-entry",
+                dataPageId = page.id,
+                ariaCurrent = active ? "page" : "false"
             )
             )
         end
@@ -166,405 +133,492 @@ function navigation(assets)
         ),
         DOM.div(
             DOM.input(;
-                id = "slide-search",
+                id = "page-search",
                 type = "search",
-                placeholder = "Search slides",
+                placeholder = "Search pages",
                 autocomplete = "off",
-                ariaLabel = "Search slides"
+                ariaLabel = "Search pages"
             );
             class = "lc-search"
         ),
         DOM.nav(
             group_nodes...;
-            id = "slide-navigation",
+            id = "page-navigation",
             class = "lc-sidebar-nav",
-            ariaLabel = "Presentation sections"
+            ariaLabel = "Manual pages"
         ),
         DOM.div(
             DOM.span("Bonito showcase"),
-            DOM.span("reveal.js 6.0.1");
+            DOM.span("Bonito · WGLMakie");
             class = "lc-sidebar-footer"
         );
         id = "lc-sidebar",
         class = "lc-sidebar",
-        ariaLabel = "Slide navigation"
+        ariaLabel = "Page navigation"
     )
 end
 
-function slide(descriptor, content...; class)
-    return DOM.section(
-        content...;
-        id = "slide-$(descriptor.id)",
-        class,
-        dataNavGroup = descriptor.group,
-        dataNavTitle = descriptor.title
+function page_control(label; id, target, target_index, title, aria_label)
+    if isnothing(target)
+        return DOM.span(
+            label;
+            id,
+            class = "lc-navbar-button is-disabled",
+            title,
+            ariaLabel = aria_label,
+            ariaDisabled = "true"
+        )
+    end
+    return DOM.a(
+        label;
+        id,
+        href = page_href(target, target_index),
+        class = "lc-navbar-button",
+        title,
+        ariaLabel = aria_label
     )
 end
 
-function deck(session::Session, assets)
-    core_slider = Bonito.Slider(
-        collect(5.0:0.1:25.0);
-        value = 12.5,
-        id = "core-radius-input",
-        ariaLabel = "Core radius in millimetres"
-    )
-    insulation_slider = Bonito.Slider(
-        collect(1.0:0.1:20.0);
-        value = 8.0,
-        id = "insulation-thickness-input",
-        ariaLabel = "Insulation thickness in millimetres"
-    )
-    design_state = map(design, session, core_slider.value, insulation_slider.value)
-    geometry_state = map(geometry, session, design_state)
-    plot = cable_figure(design_state; session)
-
-    core_value = map(
-        values -> "$(round(values.core_r_ex_m * 1.0e3; digits = 1)) mm",
-        session,
-        geometry_state
-    )
-    insulation_value = map(
-        values -> "$(round((values.insulation_r_ex_m - values.insulation_r_in_m) * 1.0e3; digits = 1)) mm",
-        session,
-        geometry_state
-    )
-    outer_diameter = map(
-        values -> "$(round(2values.insulation_r_ex_m * 1.0e3; digits = 1)) mm",
-        session,
-        geometry_state
-    )
-    core_area = map(
-        values -> "$(round(values.core_area_m2 * 1.0e6; digits = 2)) mm²",
-        session,
-        geometry_state
-    )
-    design_type = map(
-        cable -> "$(nameof(typeof(cable))){$(eltype(cable)), …}",
-        session,
-        design_state
-    )
-
-    overview_descriptor, interactive_descriptor = SLIDE_DESCRIPTORS
-    overview_slide = slide(
-        overview_descriptor,
-        DOM.article(
-            DOM.h1("Live technical manual"),
-            DOM.p(
-                "This showcase behaves like a documentation page while reveal.js quietly provides presentation navigation.";
-                class = "lc-lede"
-            ),
-            DOM.div(
-                DOM.strong("Interactive example"),
-                DOM.p(
-                    "The cable on the next page is rebuilt from ordinary LineCableModels constructors whenever either native Bonito slider changes."
-                );
-                class = "lc-doc-note"
-            ),
-            DOM.h2("Showcase boundary"),
-            DOM.ul(
-                DOM.li("The application shell mirrors the current Documenter dark theme."),
-                DOM.li("The WGLMakie figure is a small showcase-local renderer."),
-                DOM.li("No PlotBuilder integration or package API adapter is introduced.")
-            ),
-            DOM.pre(
-                DOM.code(
-                    "CableDesign\n└── Stack\n    ├── Group(:core, Conductor.Solid(...))\n    └── Insulator.Shell(...)"
-                );
-                class = "lc-code-block"
-            ),
-            DOM.p(
-                "Use the sidebar, arrow keys, or swipe to move between pages.";
-                class = "lc-page-hint"
-            );
-            class = "lc-article"
+function navbar(pages, current_index::Integer; preparing::Bool = false)
+    current = pages[current_index]
+    previous = current_index == 1 ? nothing : pages[current_index - 1]
+    next = current_index == length(pages) ? nothing : pages[current_index + 1]
+    return DOM.header(
+        DOM.button(
+            "☰";
+            id = "lc-sidebar-toggle",
+            class = "lc-sidebar-toggle",
+            type = "button",
+            ariaLabel = "Toggle page navigation",
+            ariaControls = "lc-sidebar",
+            ariaExpanded = "true"
         ),
-        DOM.aside(
-            "Frame this as a live technical manual rather than a conventional slide deck.";
-            class = "notes"
-        );
-        class = "lc-slide lc-overview-slide"
-    )
-
-    control_panel = DOM.div(
-        DOM.label(
-            DOM.div(
-                DOM.span("Core radius"),
-                DOM.output(core_value),
-                class = "lc-control-heading"
+        DOM.nav(
+            DOM.span(
+                current.group;
+                id = "lc-current-group",
+                class = "lc-breadcrumb-parent"
             ),
-            core_slider;
-            id = "core-radius-control",
-            class = "lc-control"
-        ),
-        DOM.label(
-            DOM.div(
-                DOM.span("Insulation thickness"),
-                DOM.output(insulation_value),
-                class = "lc-control-heading"
-            ),
-            insulation_slider;
-            id = "insulation-thickness-control",
-            class = "lc-control"
-        ),
-        DOM.dl(
-            DOM.div(DOM.dt("Conductor radius"), DOM.dd(core_value)),
-            DOM.div(DOM.dt("Insulation thickness"), DOM.dd(insulation_value)),
-            DOM.div(DOM.dt("Outer cable diameter"), DOM.dd(outer_diameter)),
-            DOM.div(DOM.dt("Conductor area"), DOM.dd(core_area));
-            class = "lc-values"
-        ),
-        DOM.p(DOM.span("Object: "), DOM.code(design_type); class = "lc-diagnostic");
-        class = "lc-controls"
-    )
-
-    interactive_slide = slide(
-        interactive_descriptor,
-        DOM.div(
-            DOM.h1("Core and insulation"),
-            DOM.p(
-                "Adjust the dimensions to reconstruct the domain object and update the cross-section in place."
-            );
-            class = "lc-page-heading"
+            DOM.span("›"; class = "lc-breadcrumb-separator", ariaHidden = "true"),
+            DOM.span(current.title; id = "lc-current-title");
+            class = "lc-breadcrumb",
+            ariaLabel = "Current page"
         ),
         DOM.div(
-            control_panel,
-            DOM.div(
-                WGLMakie.WithConfig(plot.figure; resize_to = :parent);
-                id = "cable-plot",
-                class = "lc-plot-host"
-            );
-            class = "lc-interactive-grid"
-        ),
-        DOM.aside(
-            "Every slider input reconstructs the CableDesign; only the existing Makie circle observables are updated.";
-            class = "notes"
-        );
-        class = "lc-slide lc-interactive-slide"
-    )
-
-    slides = DOM.div(
-        overview_slide,
-        interactive_slide;
-        id = "linecable-slides",
-        class = "slides"
-    )
-    reveal_root = DOM.div(
-        slides;
-        id = "linecable-app",
-        class = "reveal lc-deck",
-        tabindex = "0",
-        ariaLabel = "LineCableModels live manual pages"
-    )
-    main = DOM.main(
-        DOM.header(
+            page_control(
+                "‹";
+                id = "lc-previous-page",
+                target = previous,
+                target_index = current_index - 1,
+                title = "Previous page",
+                aria_label = "Previous page"
+            ),
+            DOM.output(
+                "$(current_index) / $(length(pages))";
+                id = "lc-page-position",
+                class = "lc-page-position",
+                ariaLive = "polite"
+            ),
+            page_control(
+                "›";
+                id = "lc-next-page",
+                target = next,
+                target_index = current_index + 1,
+                title = "Next page",
+                aria_label = "Next page"
+            ),
             DOM.button(
-                "☰";
-                id = "lc-sidebar-toggle",
-                class = "lc-sidebar-toggle",
+                "⛶";
+                id = "lc-fullscreen-toggle",
+                class = "lc-navbar-button",
                 type = "button",
-                ariaLabel = "Toggle slide navigation",
-                ariaControls = "lc-sidebar",
-                ariaExpanded = "false"
+                title = "Presentation mode",
+                ariaLabel = "Enter presentation mode",
+                ariaPressed = "false"
             ),
-            DOM.nav(
-                DOM.span(
-                    first(SLIDE_DESCRIPTORS).group;
-                    id = "lc-current-group",
-                    class = "lc-breadcrumb-parent"
-                ),
-                DOM.span("›"; class = "lc-breadcrumb-separator", ariaHidden = "true"),
-                DOM.span(first(SLIDE_DESCRIPTORS).title; id = "lc-current-title");
-                class = "lc-breadcrumb",
-                ariaLabel = "Current page"
-            ),
-            DOM.span("Interactive showcase"; class = "lc-navbar-status");
-            class = "lc-navbar"
+            DOM.button(
+                "⎙";
+                id = "lc-print",
+                class = "lc-navbar-button",
+                type = "button",
+                title = "Print or save as PDF",
+                ariaLabel = "Print or save as PDF"
+            );
+            class = "lc-navbar-actions",
+            ariaLabel = "Page controls"
         ),
-        DOM.div(reveal_root; class = "lc-deck-frame");
+        DOM.span(
+            preparing ? "Preparing application case" : "Interactive showcase";
+            class = "lc-navbar-status"
+        );
+        class = "lc-navbar"
+    )
+end
+
+function documenter_shell(
+        assets,
+        pages,
+        current_index::Integer,
+        manual_root;
+        preparing::Bool = false
+)
+    main = DOM.main(
+        navbar(pages, current_index; preparing),
+        DOM.div(manual_root; class = "lc-page-frame");
         class = "lc-main"
     )
-    root = DOM.div(
+    return DOM.div(
         assets.lato_css,
         assets.julia_mono_css,
-        assets.reset_css,
-        assets.reveal_css,
-        assets.app_css,
-        navigation(assets),
+        DOM.style(assets.app_css),
+        navigation(assets, pages, current_index),
         main;
         id = "lc-live-docs",
-        class = "lc-documenter"
+        class = preparing ? "lc-documenter is-preparing" : "lc-documenter",
+        ariaBusy = string(preparing)
     )
+end
 
+function render_page(session::Session, page)
+    result = page.build(session)
+    result isa NamedTuple && hasproperty(result, :body) || throw(ArgumentError(
+        "page $(repr(page.id)) build function must return a named tuple with a `body` field"
+    ))
+    body = result.body isa Tuple ? result.body : (result.body,)
+    attributes = (;
+        id = "page-$(page.id)",
+        class = "lc-page is-active $(page.class)",
+        dataPageId = page.id,
+        dataNavGroup = page.group,
+        dataNavTitle = page.title,
+        ariaHidden = "false"
+    )
+    return DOM.section(body...; attributes...)
+end
+
+function preparation_page(session::Session, page)
+    body = slide(
+        page.title,
+        article(md"""
+        This page is waiting for its process-wide numerical model. The server remains responsive and this status is updated from the actual Julia preparation phases.
+        """),
+        preparation_status(session);
+        lede = md"The application case is being prepared once and will be reused by every browser session."
+    )
+    return DOM.section(
+        body...;
+        id = "page-$(page.id)",
+        class = "lc-page is-active $(page.class)",
+        dataPageId = page.id,
+        dataNavGroup = page.group,
+        dataNavTitle = page.title,
+        ariaHidden = "false"
+    )
+end
+
+function bind_preparation_reload(session::Session)
+    ready = map(
+        state -> state.phase === :ready,
+        session,
+        preparation_state()
+    )
+    Bonito.onjs(
+        session,
+        ready,
+        js"""
+isReady => {
+    if (isReady) {
+        window.location.reload();
+    }
+}
+"""
+    )
+    notify(ready)
+    return ready
+end
+
+function bind_shell_behavior(session::Session, root)
     Bonito.onload(
         session, root,
         js"""
 (root) => {
-    if (root.__lineCableReveal) {
+    if (root.__lineCableManual) {
         return;
     }
 
-    const revealRoot = root.querySelector("#linecable-app");
-    const main = root.querySelector(".lc-main");
-    const controls = root.querySelector(".lc-controls");
-    const search = root.querySelector("#slide-search");
+    root.__lineCableManual = true;
+    const manualRoot = root.querySelector("#linecable-app");
+    const search = root.querySelector("#page-search");
     const sidebarToggle = root.querySelector("#lc-sidebar-toggle");
-    const currentGroup = root.querySelector("#lc-current-group");
-    const currentTitle = root.querySelector("#lc-current-title");
+    const previousLink = root.querySelector("#lc-previous-page");
+    const nextLink = root.querySelector("#lc-next-page");
+    const fullscreenToggle = root.querySelector("#lc-fullscreen-toggle");
+    const printButton = root.querySelector("#lc-print");
     const navEntries = Array.from(root.querySelectorAll(".lc-nav-entry"));
     const navGroups = Array.from(root.querySelectorAll(".lc-nav-group"));
+    const mobileSidebar = window.matchMedia("(max-width: 56rem)");
+    const visualViewport = window.visualViewport;
+    const presentationModeKey = "linecable:presentation-mode";
+    let touchStart = null;
+    let firstViewportFrame = 0;
+    let secondViewportFrame = 0;
+    let viewportTimer = 0;
+    let resolutionQuery = null;
 
-    root.dataset.revealState = "loading";
-    Promise.all([$(assets.reveal_js), $(assets.notes_js)]).then(([revealModule, notesModule]) => {
-        if (root.__lineCableReveal) {
+    const applyViewport = () => {
+        const width = document.documentElement.clientWidth;
+        const height = document.documentElement.clientHeight;
+        if (width <= 0 || height <= 0) {
             return;
         }
+        root.style.setProperty("--lc-viewport-width", `${width}px`);
+        root.style.setProperty("--lc-viewport-height", `${height}px`);
+        root.dataset.viewportSize = `${width}x${height}`;
+        root.dataset.pixelRatio = String(window.devicePixelRatio || 1);
+    };
 
-        const Reveal = revealModule.default;
-        const RevealNotes = notesModule.default;
-        const deck = new Reveal(revealRoot, {
-            width: 1280,
-            height: 720,
-            embedded: true,
-            disableLayout: true,
-            center: false,
-            controls: false,
-            progress: false,
-            slideNumber: false,
-            transition: "none",
-            backgroundTransition: "none",
-            hash: true,
-            keyboardCondition: "focused",
-            touch: true,
-            overview: true,
-            plugins: [RevealNotes],
+    const settleViewport = () => {
+        applyViewport();
+        cancelAnimationFrame(firstViewportFrame);
+        cancelAnimationFrame(secondViewportFrame);
+        clearTimeout(viewportTimer);
+        firstViewportFrame = requestAnimationFrame(() => {
+            secondViewportFrame = requestAnimationFrame(applyViewport);
         });
-        root.__lineCableReveal = deck;
+        viewportTimer = window.setTimeout(applyViewport, 240);
+    };
 
-        let initialized = false;
-        let dispatchingResize = false;
-        let layoutFrame = 0;
-        const relayout = () => {
-            if (!initialized) {
-                return;
-            }
-            window.cancelAnimationFrame(layoutFrame);
-            layoutFrame = window.requestAnimationFrame(() => {
-                deck.layout();
-                window.requestAnimationFrame(() => {
-                    dispatchingResize = true;
-                    window.dispatchEvent(new Event("resize"));
-                    dispatchingResize = false;
-                });
-            });
-        };
-        const onWindowResize = () => {
-            if (!dispatchingResize) {
-                relayout();
-            }
-        };
+    const bindResolutionQuery = () => {
+        if (resolutionQuery) {
+            resolutionQuery.removeEventListener("change", handleResolutionChange);
+        }
+        resolutionQuery = window.matchMedia(
+            `(resolution: ${window.devicePixelRatio || 1}dppx)`
+        );
+        resolutionQuery.addEventListener("change", handleResolutionChange);
+    };
 
-        const updateNavigation = () => {
-            const indices = deck.getIndices();
-            navEntries.forEach((entry) => {
-                const active = Number(entry.dataset.slideIndex) === indices.h;
-                entry.classList.toggle("is-active", active);
-                entry.setAttribute("aria-current", active ? "page" : "false");
-            });
+    function handleResolutionChange() {
+        bindResolutionQuery();
+        settleViewport();
+    }
 
-            const activeSlide = deck.getCurrentSlide();
-            if (activeSlide) {
-                currentGroup.textContent = activeSlide.dataset.navGroup || "Manual";
-                currentTitle.textContent = activeSlide.dataset.navTitle || "";
-            }
-        };
+    const releaseViewport = () => {
+        window.removeEventListener("resize", settleViewport);
+        visualViewport?.removeEventListener("resize", settleViewport);
+        resolutionQuery?.removeEventListener("change", handleResolutionChange);
+        cancelAnimationFrame(firstViewportFrame);
+        cancelAnimationFrame(secondViewportFrame);
+        clearTimeout(viewportTimer);
+    };
 
+    window.addEventListener("resize", settleViewport, { passive: true });
+    visualViewport?.addEventListener("resize", settleViewport, { passive: true });
+    window.addEventListener("pagehide", releaseViewport, { once: true });
+    bindResolutionQuery();
+    settleViewport();
+
+    const navigate = (link) => {
+        if (link instanceof HTMLAnchorElement && link.href) {
+            window.location.assign(link.href);
+        }
+    };
+
+    search.addEventListener("input", () => {
+        const query = search.value.trim().toLocaleLowerCase();
         navEntries.forEach((entry) => {
-            entry.addEventListener("click", () => {
-                deck.slide(Number(entry.dataset.slideIndex), 0);
-                root.classList.remove("is-sidebar-open");
-                sidebarToggle.setAttribute("aria-expanded", "false");
-                revealRoot.focus({ preventScroll: true });
-            });
+            const group = entry.closest(".lc-nav-group").dataset.navGroup;
+            const searchable = `${group} ${entry.textContent}`.toLocaleLowerCase();
+            entry.closest("li").hidden = query.length > 0 && !searchable.includes(query);
         });
+        navGroups.forEach((group) => {
+            const visibleEntry = Array.from(group.querySelectorAll("li")).some((item) => !item.hidden);
+            group.hidden = !visibleEntry;
+        });
+    });
+    search.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+            search.value = "";
+            search.dispatchEvent(new Event("input"));
+            search.blur();
+        }
+        event.stopPropagation();
+    });
 
-        search.addEventListener("input", () => {
-            const query = search.value.trim().toLocaleLowerCase();
-            navEntries.forEach((entry) => {
-                const group = entry.closest(".lc-nav-group").dataset.navGroup;
-                const searchable = `${group} ${entry.textContent}`.toLocaleLowerCase();
-                entry.closest("li").hidden = query.length > 0 && !searchable.includes(query);
-            });
-            navGroups.forEach((group) => {
-                const visibleEntry = Array.from(group.querySelectorAll("li")).some((item) => !item.hidden);
-                group.hidden = !visibleEntry;
-            });
-        });
-        search.addEventListener("keydown", (event) => {
-            if (event.key === "Escape") {
-                search.value = "";
-                search.dispatchEvent(new Event("input"));
-                search.blur();
-            }
-            event.stopPropagation();
-        });
+    const interactiveTarget = (target) => Boolean(target.closest(
+        "input, button, a, select, textarea, canvas, [contenteditable='true'], [role='slider']"
+    ));
+    root.addEventListener("keydown", (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === "/") {
+            event.preventDefault();
+            search.focus();
+            return;
+        }
+        if (interactiveTarget(event.target)) {
+            return;
+        }
+        if (event.key === "ArrowLeft" || event.key === "PageUp") {
+            event.preventDefault();
+            navigate(previousLink);
+        } else if (event.key === "ArrowRight" || event.key === "PageDown") {
+            event.preventDefault();
+            navigate(nextLink);
+        }
+    });
 
-        root.addEventListener("keydown", (event) => {
-            if ((event.ctrlKey || event.metaKey) && event.key === "/") {
-                event.preventDefault();
-                search.focus();
-            }
-        });
-        sidebarToggle.addEventListener("click", () => {
+    sidebarToggle.addEventListener("click", () => {
+        if (mobileSidebar.matches) {
             const open = root.classList.toggle("is-sidebar-open");
             sidebarToggle.setAttribute("aria-expanded", String(open));
-        });
-        revealRoot.addEventListener("pointerdown", (event) => {
-            if (!event.target.closest("input, button, a, select, textarea")) {
-                revealRoot.focus({ preventScroll: true });
-            }
-        });
-
-        ["pointerdown", "pointermove", "touchstart", "touchmove"].forEach((name) => {
-            controls.addEventListener(name, (event) => event.stopPropagation(), { passive: true });
-        });
-        controls.addEventListener("keydown", (event) => {
-            if (event.target.matches('input[type="range"]') && event.key.startsWith("Arrow")) {
-                event.stopPropagation();
-            }
-        });
-
-        deck.on("ready", () => {
-            initialized = true;
-            root.dataset.revealState = "ready";
-            updateNavigation();
-            relayout();
-        });
-        deck.on("slidechanged", () => {
-            updateNavigation();
-            relayout();
-        });
-        deck.on("overviewhidden", relayout);
-        window.addEventListener("resize", onWindowResize);
-        const resizeObserver = new ResizeObserver(relayout);
-        resizeObserver.observe(main);
-        root.__lineCableResizeObserver = resizeObserver;
-        deck.initialize().catch((error) => {
-            root.dataset.revealState = "error";
-            console.error("Unable to initialize reveal.js", error);
-        });
-    }).catch((error) => {
-        root.dataset.revealState = "error";
-        console.error("Unable to load reveal.js", error);
+        } else {
+            const collapsed = root.classList.toggle("is-sidebar-collapsed");
+            sidebarToggle.setAttribute("aria-expanded", String(!collapsed));
+        }
     });
+
+    manualRoot.addEventListener("pointerdown", (event) => {
+        if (event.pointerType === "touch" && !interactiveTarget(event.target)) {
+            touchStart = { x: event.clientX, y: event.clientY };
+        }
+        if (!interactiveTarget(event.target)) {
+            manualRoot.focus({ preventScroll: true });
+        }
+    });
+    manualRoot.addEventListener("pointerup", (event) => {
+        if (!touchStart || event.pointerType !== "touch") {
+            touchStart = null;
+            return;
+        }
+        const dx = event.clientX - touchStart.x;
+        const dy = event.clientY - touchStart.y;
+        touchStart = null;
+        if (Math.abs(dx) >= 60 && Math.abs(dx) > 1.25 * Math.abs(dy)) {
+            navigate(dx < 0 ? nextLink : previousLink);
+        }
+    });
+    manualRoot.addEventListener("pointercancel", () => {
+        touchStart = null;
+    });
+
+    const readPresentationMode = () => {
+        try {
+            return window.sessionStorage.getItem(presentationModeKey) === "true";
+        } catch (error) {
+            console.warn("Presentation-mode state is unavailable.", error);
+            return false;
+        }
+    };
+    const rememberPresentationMode = (active) => {
+        try {
+            if (active) {
+                window.sessionStorage.setItem(presentationModeKey, "true");
+            } else {
+                window.sessionStorage.removeItem(presentationModeKey);
+            }
+        } catch (error) {
+            console.warn("Presentation-mode state could not be saved.", error);
+        }
+    };
+    const setFocusMode = (active, persist = true) => {
+        root.classList.toggle("is-focus-mode", active);
+        fullscreenToggle.setAttribute("aria-pressed", String(active));
+        fullscreenToggle.setAttribute(
+            "aria-label",
+            active ? "Exit presentation mode" : "Enter presentation mode"
+        );
+        fullscreenToggle.title = active ? "Exit presentation mode" : "Presentation mode";
+        if (persist) {
+            rememberPresentationMode(active);
+        }
+        settleViewport();
+    };
+    setFocusMode(readPresentationMode(), false);
+
+    fullscreenToggle.addEventListener("click", async () => {
+        if (root.classList.contains("is-focus-mode")) {
+            setFocusMode(false);
+            if (document.fullscreenElement === root) {
+                await document.exitFullscreen();
+            }
+            return;
+        }
+        setFocusMode(true);
+        if (!root.requestFullscreen) {
+            return;
+        }
+        try {
+            await root.requestFullscreen();
+        } catch (error) {
+            console.warn("Browser fullscreen is unavailable; presentation mode remains active.", error);
+        }
+    });
+    document.addEventListener("fullscreenchange", () => {
+        if (document.fullscreenElement === root) {
+            setFocusMode(true);
+        } else {
+            settleViewport();
+        }
+    });
+
+    printButton.addEventListener("click", () => window.print());
+    root.dataset.manualState = "ready";
 }
-""")
+"""
+    )
     return root
 end
 
-function cable_app(assets = reveal_assets())
+function manual(session::Session, assets, page; pages = RENDERED_PAGES)
+    pages = select_rendered_pages(pages)
+    current_index = page_index(page, pages)
+    preparing = hasproperty(page, :ready) && !page.ready()
+    rendered_page = preparing ? preparation_page(session, page) :
+                    render_page(session, page)
+    page_nodes = DOM.div(
+        rendered_page;
+        id = "linecable-pages",
+        class = "lc-pages"
+    )
+    manual_root = DOM.div(
+        page_nodes;
+        id = "linecable-app",
+        class = "lc-manual",
+        tabindex = "0",
+        ariaLabel = "LineCableModels live manual pages"
+    )
+    root = documenter_shell(assets, pages, current_index, manual_root; preparing)
+    preparing && bind_preparation_reload(session)
+    return bind_shell_behavior(session, root)
+end
+
+function cable_app(
+        assets = app_assets();
+        pages = RENDERED_PAGES,
+        page = first(select_rendered_pages(pages))
+)
+    pages = select_rendered_pages(pages)
     return App(
-        session -> deck(session, assets);
+        session -> manual(session, assets, page; pages);
         title = "LineCableModels live manual",
-        indicator = ConnectionIndicator()
+        indicator = ConnectionIndicator(; size = 8, top = "20px", right = "16px")
+    )
+end
+
+function cable_routes(
+        assets = app_assets();
+        pages = RENDERED_PAGES
+)
+    pages = select_rendered_pages(pages)
+    pairs = map(enumerate(pages)) do (index, page)
+        page_route(page, index) => cable_app(assets; pages, page)
+    end
+    return Routes(pairs...)
+end
+
+function start_page_preparations!(pages = RENDERED_PAGES)
+    pages = select_rendered_pages(pages)
+    return map(
+        page -> hasproperty(page, :prepare) ? page.prepare() : nothing,
+        pages
     )
 end

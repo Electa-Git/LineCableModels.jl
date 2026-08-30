@@ -1,7 +1,9 @@
 html,
 body {
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  width: 100dvw;
+  height: 100vh;
+  height: 100dvh;
   margin: 0;
   overflow: hidden;
   background: #1f2424;
@@ -25,11 +27,14 @@ body {
   --lc-purple: #9558b2;
   --lc-sidebar-width: 18rem;
   --lc-radius: 4px;
+  --lc-type-unit: clamp(15px, calc(13px + 0.1875vw), 18px);
 
   box-sizing: border-box;
+  position: fixed;
+  inset: 0;
   display: grid;
-  width: 100vw;
-  height: 100vh;
+  width: var(--lc-viewport-width, 100%);
+  height: var(--lc-viewport-height, 100%);
   grid-template-columns: var(--lc-sidebar-width) minmax(0, 1fr);
   overflow: hidden;
   background: var(--lc-bg);
@@ -108,7 +113,7 @@ body {
 .lc-brand-copy strong {
   overflow: hidden;
   color: var(--lc-heading);
-  font-size: 1rem;
+  font-size: var(--lc-type-unit);
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -116,7 +121,7 @@ body {
 
 .lc-brand-copy span {
   color: var(--lc-muted);
-  font-size: 0.78rem;
+  font-size: calc(0.78 * var(--lc-type-unit));
 }
 
 .lc-search {
@@ -133,7 +138,7 @@ body {
   border: 1px solid var(--lc-border);
   border-radius: var(--lc-radius);
   outline: none;
-  font-size: 0.84rem;
+  font-size: calc(0.84 * var(--lc-type-unit));
 }
 
 .lc-search input::placeholder {
@@ -167,7 +172,7 @@ body {
   padding: 0.6rem 0.9rem 0.35rem;
   color: var(--lc-heading);
   border-top: 1px solid rgb(94 109 111 / 55%);
-  font-size: 0.83rem;
+  font-size: calc(0.83 * var(--lc-type-unit));
   font-weight: 700;
 }
 
@@ -193,9 +198,10 @@ body {
   border-radius: 0;
   outline: none;
   cursor: pointer;
-  font-size: 0.86rem;
+  font-size: calc(0.86 * var(--lc-type-unit));
   line-height: 1.3;
   text-align: left;
+  text-decoration: none;
 }
 
 .lc-nav-entry:hover,
@@ -222,7 +228,7 @@ body {
   gap: 0.75rem;
   color: var(--lc-muted);
   border-top: 1px solid var(--lc-border);
-  font-size: 0.68rem;
+  font-size: calc(0.68 * var(--lc-type-unit));
 }
 
 .lc-main {
@@ -233,7 +239,7 @@ body {
   grid-template-rows: 3rem minmax(0, 1fr);
   overflow: hidden;
   background: var(--lc-bg);
-  font-size: clamp(16px, calc(13px + 0.3vw), 20px);
+  font-size: var(--lc-type-unit);
 }
 
 .lc-navbar {
@@ -245,14 +251,16 @@ body {
   gap: 0.75rem;
   background: var(--lc-sidebar-bg);
   border-bottom: 1px solid var(--lc-border);
-  font-size: 0.84rem;
+  font-size: calc(0.84 * var(--lc-type-unit));
 }
 
 .lc-sidebar-toggle {
-  display: none;
+  display: inline-grid;
   width: 2rem;
   height: 2rem;
   padding: 0;
+  flex: 0 0 auto;
+  place-items: center;
   background: transparent;
   color: var(--lc-text);
   border: 1px solid transparent;
@@ -262,7 +270,9 @@ body {
 }
 
 .lc-sidebar-toggle:hover,
-.lc-sidebar-toggle:focus-visible {
+.lc-sidebar-toggle:focus-visible,
+.lc-navbar-button:hover,
+.lc-navbar-button:focus-visible {
   background: #32393a;
   border-color: var(--lc-border);
   outline: none;
@@ -288,14 +298,58 @@ body {
 }
 
 .lc-navbar-status {
-  margin-left: auto;
+  padding-right: 1.5rem;
   color: var(--lc-muted);
-  font-size: 0.75rem;
+  font-size: calc(0.75 * var(--lc-type-unit));
   white-space: nowrap;
 }
 
-.lc-deck-frame,
-.lc-deck {
+.lc-navbar-actions {
+  display: flex;
+  min-width: 0;
+  margin-left: auto;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.lc-navbar-button {
+  display: inline-grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  padding: 0;
+  place-items: center;
+  background: transparent;
+  color: var(--lc-text);
+  border: 1px solid transparent;
+  border-radius: var(--lc-radius);
+  cursor: pointer;
+  font-size: var(--lc-type-unit);
+  line-height: 1;
+  text-decoration: none;
+}
+
+.lc-navbar-button.is-disabled {
+  color: rgb(168 176 176 / 35%);
+  cursor: default;
+}
+
+.lc-navbar-button.is-disabled:hover {
+  background: transparent;
+  border-color: transparent;
+}
+
+.lc-page-position {
+  min-width: 3.3rem;
+  color: var(--lc-muted);
+  font-family: "JuliaMono", monospace;
+  font-size: calc(0.68 * var(--lc-type-unit));
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.lc-page-frame,
+.lc-manual {
   position: relative;
   width: 100%;
   height: 100%;
@@ -305,18 +359,18 @@ body {
   background: transparent;
 }
 
-.lc-deck {
+.lc-manual {
   color: var(--lc-text);
   font-family: inherit;
   font-size: inherit;
   outline: none;
 }
 
-.lc-deck:focus-visible {
+.lc-manual:focus-visible {
   box-shadow: inset 0 0 0 2px var(--lc-focus);
 }
 
-.lc-deck .slides {
+.lc-manual .lc-pages {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -324,7 +378,7 @@ body {
   text-align: left;
 }
 
-.lc-deck .slides > .lc-slide {
+.lc-manual .lc-pages > .lc-page {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -338,13 +392,13 @@ body {
   text-align: left;
 }
 
-.lc-deck .slides > .lc-slide.present {
+.lc-manual .lc-pages > .lc-page.is-active {
   z-index: 11;
 }
 
-.lc-deck .lc-slide h1,
-.lc-deck .lc-slide h2,
-.lc-deck .lc-slide h3 {
+.lc-manual .lc-page h1,
+.lc-manual .lc-page h2,
+.lc-manual .lc-page h3 {
   color: var(--lc-heading);
   font-family: inherit;
   font-weight: 600;
@@ -354,34 +408,94 @@ body {
   text-shadow: none;
 }
 
-.lc-deck .lc-slide h1 {
+.lc-manual .lc-page h1 {
   margin: 0 0 1rem;
-  font-size: 2rem;
+  font-size: calc(2 * var(--lc-type-unit));
 }
 
-.lc-deck .lc-slide h2 {
+.lc-manual .lc-page h2 {
   margin: 1.7rem 0 0.65rem;
-  font-size: 1.4rem;
+  font-size: calc(1.4 * var(--lc-type-unit));
 }
 
-.lc-deck .lc-slide p,
-.lc-deck .lc-slide ul,
-.lc-deck .lc-slide dl {
+.lc-manual .lc-page p,
+.lc-manual .lc-page ul,
+.lc-manual .lc-page dl {
   margin-top: 0;
-  font-size: 1rem;
+  font-size: var(--lc-type-unit);
 }
 
-.lc-deck .lc-slide p {
+.lc-manual .lc-page p {
   margin-bottom: 1rem;
 }
 
-.lc-deck .lc-slide ul {
+.lc-manual .lc-page ul {
   margin-bottom: 1rem;
   padding-left: 1.35rem;
 }
 
-.lc-deck .lc-slide li + li {
+.lc-manual .lc-page li + li {
   margin-top: 0.3rem;
+}
+
+.lc-markdown,
+.lc-markdown > .markdown-body {
+  min-width: 0;
+  color: inherit;
+  font: inherit;
+}
+
+.lc-markdown > .markdown-body > :first-child {
+  margin-top: 0;
+}
+
+.lc-markdown > .markdown-body > :last-child {
+  margin-bottom: 0;
+}
+
+.lc-markdown blockquote {
+  margin: 1.4rem 0;
+  padding: 0.85rem 1rem;
+  background: rgb(64 99 216 / 10%);
+  border-left: 4px solid var(--lc-blue);
+}
+
+.lc-markdown blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+.lc-markdown table {
+  width: 100%;
+  margin: 1rem 0;
+  border-collapse: collapse;
+}
+
+.lc-markdown th,
+.lc-markdown td {
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--lc-border);
+  text-align: left;
+}
+
+.lc-markdown a {
+  color: var(--lc-link);
+}
+
+.lc-markdown img,
+.lc-local-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.lc-local-image-figure {
+  margin: 0;
+}
+
+.lc-local-image-figure figcaption {
+  margin-top: 0.4rem;
+  color: var(--lc-muted);
+  font-size: calc(0.78 * var(--lc-type-unit));
 }
 
 .lc-article {
@@ -391,7 +505,7 @@ body {
 
 .lc-lede {
   color: var(--lc-muted);
-  font-size: 1.08rem !important;
+  font-size: calc(1.08 * var(--lc-type-unit)) !important;
 }
 
 .lc-doc-note {
@@ -412,7 +526,7 @@ body {
 }
 
 .lc-code-block,
-.lc-deck pre {
+.lc-manual pre {
   width: 100%;
   margin: 1rem 0;
   padding: 0.75rem 0.9rem;
@@ -429,12 +543,12 @@ body {
     Consolas,
     "Liberation Mono",
     monospace;
-  font-size: 0.88rem;
+  font-size: calc(0.88 * var(--lc-type-unit));
   line-height: 1.45;
 }
 
 .lc-code-block code,
-.lc-deck code,
+.lc-manual code,
 .lc-diagnostic {
   font-family:
     "JuliaMono",
@@ -447,11 +561,63 @@ body {
 
 .lc-page-hint {
   color: var(--lc-muted);
-  font-size: 0.86rem !important;
+  font-size: calc(0.86 * var(--lc-type-unit)) !important;
+}
+
+.lc-preparation {
+  width: min(100%, 52rem);
+  margin: 1rem auto 1.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--lc-panel-bg);
+  border: 1px solid var(--lc-border);
+  border-radius: var(--lc-radius);
+}
+
+.lc-preparation-heading {
+  display: flex;
+  margin-bottom: 0.55rem;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--lc-heading);
+  font-size: calc(0.78 * var(--lc-type-unit));
+}
+
+.lc-preparation-heading output {
+  color: var(--lc-muted);
+  font-family: "JuliaMono", monospace;
+  font-size: calc(0.68 * var(--lc-type-unit));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.lc-preparation-progress {
+  display: block;
+  width: 100%;
+  height: 0.4rem;
+  overflow: hidden;
+  background: var(--lc-bg);
+  border-radius: 999px;
+}
+
+.lc-preparation-progress-bar {
+  width: 0;
+  height: 100%;
+  background: var(--lc-link);
+  border-radius: 999px;
+  transition: width 180ms ease-out;
+}
+
+.lc-preparation[data-phase="ready"] .lc-preparation-progress-bar {
+  background: var(--lc-focus);
+}
+
+.lc-preparation[data-phase="error"] .lc-preparation-progress-bar {
+  background: var(--lc-red);
 }
 
 .lc-page-heading {
-  width: min(100%, 72rem);
+  width: 100%;
   margin: 0 auto 1rem;
 }
 
@@ -464,9 +630,58 @@ body {
   color: var(--lc-muted);
 }
 
+.lc-page-lede,
+.lc-page-lede > .markdown-body {
+  color: var(--lc-muted);
+}
+
+.lc-canvas {
+  --lc-effective-columns: var(--lc-authored-columns);
+  --lc-effective-rows: var(--lc-authored-rows);
+  --lc-effective-areas: var(--lc-authored-areas);
+  --lc-effective-gap: var(--lc-authored-gap);
+  --lc-effective-height: var(--lc-authored-height);
+
+  min-width: 0;
+  min-height: 0;
+}
+
+.lc-grid-cell {
+  min-width: 0;
+  min-height: 0;
+}
+
+.lc-grid-cell > .lc-webpart {
+  width: 100%;
+  height: 100%;
+}
+
+.lc-webpart {
+  min-width: 0;
+  min-height: 0;
+}
+
+.lc-webpart-panel {
+  overflow: auto;
+  background: var(--lc-panel-bg);
+  border: 1px solid var(--lc-border);
+}
+
+.lc-webpart-header {
+  display: flex;
+  min-width: 0;
+  padding: 0.42rem 0.65rem;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: var(--lc-panel-bg);
+  color: var(--lc-muted);
+  border-bottom: 1px solid var(--lc-border);
+  font-size: calc(0.68 * var(--lc-type-unit));
+}
+
 .lc-interactive-grid {
   display: grid;
-  width: min(100%, 72rem);
+  width: 100%;
   height: clamp(24rem, calc(100vh - 12.5rem), 34rem);
   min-height: 0;
   margin: 0 auto;
@@ -500,14 +715,14 @@ body {
   justify-content: space-between;
   gap: 0.75rem;
   color: var(--lc-heading);
-  font-size: 0.88rem;
+  font-size: calc(0.88 * var(--lc-type-unit));
   font-weight: 600;
 }
 
 .lc-control-heading output {
   color: var(--lc-link);
   font-family: "JuliaMono", monospace;
-  font-size: 0.82rem;
+  font-size: calc(0.82 * var(--lc-type-unit));
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -527,7 +742,7 @@ body {
 
 .lc-values {
   margin: 1.5rem 0 0 !important;
-  font-size: 0.8rem !important;
+  font-size: calc(0.8 * var(--lc-type-unit)) !important;
 }
 
 .lc-values div {
@@ -554,7 +769,7 @@ body {
   overflow: hidden;
   margin: 1rem 0 0 !important;
   color: var(--lc-muted);
-  font-size: 0.7rem !important;
+  font-size: calc(0.7 * var(--lc-type-unit)) !important;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -574,12 +789,266 @@ body {
   border-radius: 0;
 }
 
+.lc-application-slide .lc-transition-controls {
+  overflow: hidden;
+}
+
+.lc-manual .lc-pages > .lc-interactive-slide,
+.lc-manual .lc-pages > .lc-application-slide {
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 1rem;
+  overflow: hidden;
+}
+
+.lc-interactive-slide .lc-page-heading,
+.lc-application-slide .lc-page-heading {
+  width: 100%;
+  margin: 0;
+}
+
+.lc-interactive-slide .lc-interactive-grid {
+  height: 100% !important;
+  align-self: stretch;
+}
+
+.lc-application-slide .lc-transition-grid {
+  width: 100%;
+  height: 100% !important;
+  min-height: 0;
+  margin: 0;
+  align-self: stretch;
+}
+
+.lc-application-slide .lc-corridor-key,
+.lc-application-slide .lc-color-key {
+  display: flex;
+  margin-top: 1.25rem;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.lc-application-slide .lc-corridor-label,
+.lc-application-slide .lc-color-key-label {
+  color: var(--lc-muted);
+  font-size: calc(0.72 * var(--lc-type-unit));
+  font-weight: 700;
+}
+
+.lc-application-slide .lc-corridor-swatch,
+.lc-application-slide .lc-color-key-swatch {
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 50%;
+}
+
+.lc-application-slide .lc-corridor-swatch.is-ohl,
+.lc-application-slide .lc-color-key-swatch.is-ohl {
+  background: var(--lc-red);
+}
+
+.lc-application-slide .lc-corridor-swatch.is-ugc,
+.lc-application-slide .lc-color-key-swatch.is-ugc {
+  background: var(--lc-blue);
+}
+
+.lc-application-slide .lc-corridor-arrow,
+.lc-application-slide .lc-color-key-separator {
+  margin-inline: 0.2rem;
+  color: var(--lc-muted);
+  font-size: calc(0.72 * var(--lc-type-unit));
+}
+
+.lc-application-slide .lc-transition-status {
+  max-width: 100%;
+  overflow: hidden;
+  margin: 1rem 0 0 !important;
+  color: var(--lc-muted);
+  font-size: calc(0.72 * var(--lc-type-unit)) !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lc-application-slide .lc-recache-button {
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0.55rem 0.7rem;
+  background: transparent;
+  color: var(--lc-text);
+  border: 1px solid var(--lc-border);
+  border-radius: 0.2rem;
+  cursor: pointer;
+  font: inherit;
+  font-size: calc(0.72 * var(--lc-type-unit));
+  font-weight: 700;
+  text-align: left;
+}
+
+.lc-application-slide .lc-recache-button:hover {
+  background: var(--lc-code-bg);
+  border-color: var(--lc-link);
+}
+
+.lc-application-slide .lc-recache-button:focus-visible {
+  outline: 2px solid var(--lc-link);
+  outline-offset: 2px;
+}
+
+.lc-application-slide .lc-transition-diagnostic {
+  margin-top: 0.45rem !important;
+}
+
+.lc-application-slide .lc-transition-visuals {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: minmax(0, 2fr) minmax(0, 3fr);
+  gap: 0.75rem;
+}
+
+.lc-application-slide .lc-application-figure {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--lc-border);
+}
+
+.lc-application-slide .lc-transition-plot-host {
+  height: 100%;
+  border: 0;
+}
+
+.lc-application-slide .lc-application-figure figcaption {
+  display: flex;
+  min-width: 0;
+  padding: 0.42rem 0.65rem;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: var(--lc-panel-bg);
+  color: var(--lc-muted);
+  border-bottom: 1px solid var(--lc-border);
+  font-size: calc(0.68 * var(--lc-type-unit));
+  line-height: 1.3;
+}
+
+.lc-application-slide .lc-application-figure figcaption strong {
+  color: var(--lc-heading);
+  font-size: calc(0.72 * var(--lc-type-unit));
+}
+
+.lc-application-slide .lc-application-figure figcaption span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lc-manual .lc-pages > .lc-repl-slide {
+  display: grid !important;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 1rem;
+  overflow: hidden;
+}
+
+.lc-repl-slide .lc-page-heading {
+  width: 100%;
+  margin: 0;
+}
+
+.lc-repl-grid {
+  width: 100%;
+  height: 100% !important;
+  min-height: 0;
+  align-self: stretch;
+}
+
+.lc-repl-editor {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  background: #171b1b;
+}
+
+.lc-repl-toolbar {
+  width: 100%;
+  min-width: 0;
+  padding: 0.55rem 0.65rem;
+  background: var(--lc-panel-bg);
+  border-bottom: 1px solid var(--lc-border);
+}
+
+.lc-repl-button {
+  min-width: 0;
+  margin: 0;
+  padding: 0.42rem 0.7rem;
+  background: transparent;
+  color: var(--lc-text);
+  border: 1px solid var(--lc-border);
+  border-radius: var(--lc-radius);
+  cursor: pointer;
+  font-size: calc(0.72 * var(--lc-type-unit));
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.lc-repl-button.is-primary {
+  background: var(--lc-focus);
+  color: #10201d;
+  border-color: var(--lc-focus);
+}
+
+.lc-repl-button:hover {
+  background: var(--lc-code-bg);
+  border-color: var(--lc-link);
+}
+
+.lc-repl-button.is-primary:hover {
+  background: #31cbb0;
+  border-color: #31cbb0;
+}
+
+.lc-repl-button:focus-visible {
+  outline: 2px solid var(--lc-link);
+  outline-offset: 2px;
+}
+
+.lc-repl-status {
+  min-width: 0;
+  margin: 0 !important;
+  overflow: hidden;
+  color: var(--lc-muted);
+  font-family: "JuliaMono", monospace;
+  font-size: calc(0.68 * var(--lc-type-unit)) !important;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lc-repl-console {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  background: #171b1b;
+}
+
 @media (width <= 70rem) {
+  .lc-canvas {
+    --lc-effective-columns: var(--lc-compact-columns);
+  }
+
   .lc-interactive-grid {
     grid-template-columns: minmax(15rem, 2fr) minmax(0, 5fr);
   }
 
-  .lc-deck .slides > .lc-slide {
+  .lc-manual .lc-pages > .lc-page {
     padding-inline: 1.25rem;
   }
 }
@@ -601,19 +1070,22 @@ body {
     transform: translateX(0);
   }
 
-  .lc-sidebar-toggle {
-    display: inline-grid;
-    place-items: center;
-  }
 }
 
 @media (width <= 44rem), (height <= 38rem) {
-  .lc-deck .slides > .lc-slide {
+  .lc-canvas[data-stack="true"] {
+    --lc-effective-columns: minmax(0, 1fr);
+    --lc-effective-rows: var(--lc-stacked-rows);
+    --lc-effective-areas: var(--lc-stacked-areas);
+    --lc-effective-height: var(--lc-stacked-height);
+  }
+
+  .lc-manual .lc-pages > .lc-page {
     padding: 1rem;
   }
 
-  .lc-deck .lc-slide h1 {
-    font-size: 1.65rem;
+  .lc-manual .lc-page h1 {
+    font-size: calc(1.65 * var(--lc-type-unit));
   }
 
   .lc-navbar-status {
@@ -621,10 +1093,48 @@ body {
   }
 
   .lc-interactive-grid {
-    height: auto;
+    height: auto !important;
     min-height: 42rem;
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto 26rem;
+  }
+
+  .lc-application-slide .lc-transition-grid {
+    height: auto !important;
+    min-height: 54rem;
+    grid-template-rows: auto 34rem;
+  }
+
+  .lc-manual .lc-pages > .lc-interactive-slide,
+  .lc-manual .lc-pages > .lc-application-slide,
+  .lc-manual .lc-pages > .lc-repl-slide {
+    display: block !important;
+    overflow: auto;
+  }
+
+  .lc-interactive-slide .lc-page-heading,
+  .lc-application-slide .lc-page-heading,
+  .lc-repl-slide .lc-page-heading {
+    margin-bottom: 1rem;
+  }
+
+  .lc-repl-grid {
+    height: auto !important;
+    min-height: 44rem;
+    grid-template-rows: minmax(14rem, 2fr) minmax(16rem, 3fr);
+  }
+
+  .lc-repl-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .lc-repl-status {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+
+  .lc-navbar-status {
+    display: none;
   }
 }
 
@@ -632,6 +1142,32 @@ body {
   .lc-sidebar {
     transition: none;
   }
+}
+
+@media (width > 56rem) {
+  .lc-documenter.is-sidebar-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lc-documenter.is-sidebar-collapsed .lc-sidebar {
+    display: none;
+  }
+}
+
+.lc-documenter.is-focus-mode,
+.lc-documenter:fullscreen {
+  width: 100%;
+  height: 100%;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.lc-documenter.is-focus-mode .lc-sidebar,
+.lc-documenter:fullscreen .lc-sidebar {
+  display: none;
+}
+
+.lc-documenter:fullscreen {
+  background: var(--lc-bg);
 }
 
 @media print {
@@ -643,11 +1179,14 @@ body {
   }
 
   .lc-documenter {
+    position: static;
+    inset: auto;
     display: block;
     width: 100%;
     height: auto;
     overflow: visible;
-    background: #fff;
+    background: var(--lc-bg);
+    print-color-adjust: exact;
   }
 
   .lc-sidebar,
@@ -656,32 +1195,33 @@ body {
   }
 
   .lc-main,
-  .lc-deck-frame,
-  .lc-deck {
+  .lc-page-frame,
+  .lc-manual,
+  .lc-pages {
     display: block;
     width: 100%;
     height: auto;
     overflow: visible;
   }
-}
 
-html.reveal-print .lc-documenter {
-  display: block;
-  width: 100%;
-  height: auto;
-  overflow: visible;
-}
+  .lc-pages {
+    position: static;
+    inset: auto;
+  }
 
-html.reveal-print .lc-sidebar,
-html.reveal-print .lc-navbar {
-  display: none !important;
-}
+  .lc-manual .lc-pages > .lc-page,
+  .lc-manual .lc-pages > .lc-page[hidden] {
+    position: relative;
+    inset: auto;
+    display: block !important;
+    width: 100%;
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+    break-after: page;
+  }
 
-html.reveal-print .lc-main,
-html.reveal-print .lc-deck-frame,
-html.reveal-print .lc-deck {
-  display: block;
-  width: 100%;
-  height: auto;
-  overflow: visible;
+  .lc-manual .lc-pages > .lc-page:last-child {
+    break-after: auto;
+  }
 }
