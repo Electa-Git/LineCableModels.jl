@@ -13,6 +13,8 @@ in geometry and material data.
   uncertainty, tables, and plots.
 - [Gridspace and uncertainty](gridspace.md) specifies finite variation and
   uncertainty realisation.
+- [Global sensitivity](sensitivity.md) covers optional Sobol variance
+  decomposition for native observable requests.
 - [API reference](reference.md) lists the line and cable calculation API.
 - [Conveniences](conveniences.md) covers estimates, scalar formulas, and VDE
   designation parsing.

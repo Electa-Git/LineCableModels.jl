@@ -62,6 +62,22 @@ Public = true
 Private = false
 ```
 
+## Global-sensitivity integration
+
+The core package owns the dependency-neutral [`Sensitivity`](@ref) and
+[`SensitivityResult`](@ref) contracts. The GlobalSensitivity extension adds a
+narrow `Sensitivity(inner, method::GlobalSensitivity.Sobol, requests; ...)`
+convenience and `compute(::ParametricProblem,
+::Sensitivity{<:Any,<:GlobalSensitivity.Sobol})`. It retains the dependency's
+method and the QuasiMonteCarlo sampler directly; it does not mirror their
+registries, define a local Sobol type, or add calculation stages.
+
+An external sensitivity integration follows the same ownership boundary: keep
+the method and sampler dependency-owned, specialize `compute` on the concrete
+method family, realize physical values through the selected Gridspace point,
+and return the core-owned result schema. Native observable requests are the
+only output boundary.
+
 ## Plot definitions
 
 ```@autodocs
