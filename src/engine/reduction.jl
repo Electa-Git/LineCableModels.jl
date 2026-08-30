@@ -239,3 +239,180 @@ function merge_bundles!(
     end
     return matrix, reduced
 end
+
+function _structural_reduction(
+        matrix::Matrix{Complex{T}},
+        permutation::Vector{Int},
+        bundle_pairs::Vector{Tuple{Int, Int}},
+        kron_map,
+        options::NamedTuple
+) where {T <: Real}
+    transformed = matrix[permutation, permutation]
+    options.reduce_bundle && merge_bundles!(transformed, bundle_pairs)
+    if kron_map !== nothing
+        eliminate = findall(==(0), kron_map)
+        if !isempty(eliminate)
+            transformed = kronify!(
+                transformed,
+                findall(!=(0), kron_map),
+                eliminate,
+                Matrix{Complex{T}}(
+                    undef,
+                    count(!=(0), kron_map),
+                    count(!=(0), kron_map)
+                ),
+                Matrix{Complex{T}}(
+                    undef,
+                    length(eliminate),
+                    length(eliminate)
+                ),
+                Matrix{Complex{T}}(
+                    undef,
+                    count(!=(0), kron_map),
+                    length(eliminate)
+                ),
+                Matrix{Complex{T}}(
+                    undef,
+                    length(eliminate),
+                    count(!=(0), kron_map)
+                )
+            )
+        end
+    end
+    reciprocity!(transformed)
+    options.ideal_transposition && ideal_transposition!(transformed)
+    return transformed
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Apply the engine-owned terminal reorder, bundle merge, Kron elimination, and
+ideal-transposition operations to primitive impedance and potential-coefficient
+frequency scans.
+
+# Arguments
+
+- `Z_primitive`: Primitive series impedance \\[Ω/m\\], ordered by terminal.
+- `P_primitive`: Primitive potential coefficient whose inverse is shunt
+  admittance \\[S/m\\].
+- `phase_map`: Connection assignment aligned with primitive terminal order.
+- `options`: Normalized shared line-parameter formulation options.
+
+# Returns
+
+- A named tuple containing reduced `Z`, reduced `P`, and the retained phase
+  assignment.
+"""
+function reduce_primitive_matrices(
+        Z_primitive::Array{Complex{T}, 3},
+        P_primitive::Array{Complex{T}, 3},
+        phase_map::Vector{Int},
+        options::NamedTuple
+) where {T <: Real}
+    size(Z_primitive) == size(P_primitive) || throw(DimensionMismatch(
+        "primitive Z and P scans must have identical dimensions",
+    ))
+    n = size(Z_primitive, 1)
+    size(Z_primitive, 2) == n == length(phase_map) || throw(DimensionMismatch(
+        "primitive matrices and phase_map must describe the same terminals",
+    ))
+    all(name -> haskey(options, name),
+        (:reduce_bundle, :kron_reduction, :ideal_transposition)) ||
+        throw(ArgumentError("shared line-parameter options are incomplete"))
+
+    permutation, reordered, kron_map = _reduction_map(
+        phase_map, (options = options,)
+    )
+    bundle_pairs = bundle_operations(reordered)
+    retained_map = kron_map === nothing ? reordered : kron_map[findall(!=(0), kron_map)]
+    output_size = length(retained_map)
+    frequency_count = size(Z_primitive, 3)
+    Z = Array{Complex{T}, 3}(undef, output_size, output_size, frequency_count)
+    P = similar(Z)
+    for frequency in 1:frequency_count
+        @views Z[:, :, frequency] .= _structural_reduction(
+            Matrix(Z_primitive[:, :, frequency]),
+            permutation,
+            bundle_pairs,
+            kron_map,
+            options
+        )
+        @views P[:, :, frequency] .= _structural_reduction(
+            Matrix(P_primitive[:, :, frequency]),
+            permutation,
+            bundle_pairs,
+            kron_map,
+            options
+        )
+    end
+    return (; Z, P, phase_map = retained_map)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Invert each reduced quasi-TEM potential-coefficient slice to obtain shunt
+admittance directly:
+
+```math
+Y(f) = P(f)^{-1}.
+```
+
+No additional ``j\\omega`` factor is applied. Each solve is checked with the
+infinity-norm residual ``\\lVert P Y-I\\rVert_\\infty`` and its matrix condition
+number.
+
+# Arguments
+
+- `P`: Reduced potential-coefficient scan whose inverse is in \\[S/m\\].
+
+# Keywords
+
+- `diagnostics=false`: Also return residuals and condition numbers.
+
+# Returns
+
+- The shunt-admittance scan \\[S/m\\], or a named tuple containing `Y`,
+  `residuals`, and `condition_numbers` when diagnostics are requested.
+
+# Errors
+
+- `ArgumentError`: A slice is singular, non-finite, or fails the
+  condition-aware inversion residual.
+"""
+function potential_to_admittance(
+        P::Array{Complex{T}, 3};
+        diagnostics::Bool = false
+) where {T <: Real}
+    n = size(P, 1)
+    size(P, 2) == n || throw(DimensionMismatch("P must be square"))
+    identity_matrix = Matrix{Complex{T}}(I, n, n)
+    Y = similar(P)
+    residuals = Vector{T}(undef, size(P, 3))
+    condition_numbers = similar(residuals)
+    for frequency in axes(P, 3)
+        coefficient = Matrix(@view P[:, :, frequency])
+        all(isfinite, coefficient) || throw(ArgumentError(
+            "P contains non-finite values at frequency index $frequency",
+        ))
+        condition_number = cond(coefficient)
+        isfinite(condition_number) || throw(ArgumentError(
+            "P is singular at frequency index $frequency",
+        ))
+        inverse = lu(coefficient) \ identity_matrix
+        residual = convert(T, norm(coefficient * inverse - identity_matrix, Inf))
+        tolerance = max(
+            sqrt(eps(T)),
+            convert(T, 32n * eps(T) * max(one(T), condition_number))
+        )
+        isfinite(residual) && residual <= tolerance || throw(ArgumentError(
+            "P inversion residual $residual exceeds $tolerance at " *
+            "frequency index $frequency (condition number $condition_number)",
+        ))
+        @views Y[:, :, frequency] .= inverse
+        residuals[frequency] = residual
+        condition_numbers[frequency] = condition_number
+    end
+    return diagnostics ? (; Y, residuals, condition_numbers) : Y
+end

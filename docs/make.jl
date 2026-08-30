@@ -235,6 +235,7 @@ makedocs(;
         "User guide" => Any[
             "Cable data model" => "data-model.md",
             "Modelling and results" => "usage.md",
+            "Gmsh/GetDP FEM backend" => "fem.md",
             "Gridspace and uncertainty" => "gridspace.md"
         ],
         "API reference" => "reference.md",

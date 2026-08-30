@@ -67,6 +67,7 @@ export CableConstants, LineParametersProblem, LineParameters, CablesLibrary, pre
 
 # Engine:
 export Formulation, LineParametersFormulation, LineCableModelsCoaxial,
+       LineCableModelsFEM, LineCableModelsFEMOptions, LineCableModelsFEMError,
        SeriesImpedance, ShuntAdmittance, kronify,
        LineParameters, PhaseDomain, ModalDomain
 export ModalTransformationProblem, ModalTransformationFormulation,
@@ -139,6 +140,8 @@ include("engine/Engine.jl")
 using .Engine: LineParameters, LineParametersProblem, SeriesImpedance,
                ShuntAdmittance, kronify, Formulation,
                LineParametersFormulation, LineCableModelsCoaxial,
+               LineCableModelsFEM, LineCableModelsFEMOptions,
+               LineCableModelsFEMError,
                domain, frequencies, nconductors, nfrequencies,
                Z, Y, X, G, B, series_impedance, shunt_admittance,
                reactance, conductance, susceptance,
