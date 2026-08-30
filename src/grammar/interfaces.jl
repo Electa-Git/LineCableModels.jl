@@ -120,7 +120,7 @@ end
     @observe source (accessor, transform)[indices...]
 
 Expand indexed observable syntax into an immediate [`observe`](@ref) call. The
-Indices follow the selected observable. Ordinary line quantities use row,
+indices follow the selected observable. Ordinary line quantities use row,
 column, and sample indices; diagonal transforms use mode and sample indices.
 """
 macro observe(source, request)
@@ -138,9 +138,12 @@ $(SIGNATURES)
 Publish explicitly requested scientific values for presentation or reporting.
 
 `observables(::Type{T})` declares the selectors supported by `T`.
-`observables(source, requests; units, clip)` returns one detached payload for
-each positional request. Every payload contains only `values`, `quantity`, and
-`unit`. `units` is empty or positionally aligned with `requests`; `clip`
-controls display-residue cleanup and defaults to `true`.
+`observables(source, requests; units, length_unit, frequency_unit,
+quantity_units, clip)` returns one [`ObservationPublication`](@ref). Iteration
+and indexing expose one detached `values`/`quantity`/`unit` payload for each
+positional request. Its Tables.jl view adds owner-defined scientific
+coordinates without retaining or reopening the source. `units` is empty or
+positionally aligned with `requests`; `clip` controls display-residue cleanup
+and defaults to `true`.
 """
 function observables end

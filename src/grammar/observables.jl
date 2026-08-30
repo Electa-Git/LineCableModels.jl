@@ -310,16 +310,178 @@ function _publish_observable(source, request, identity, override, clip::Bool)
     return (; values = detached, quantity = scientific_quantity, unit = displayed)
 end
 
+"""
+$(TYPEDEF)
+
+Hold detached scientific observations and their column-oriented table view.
+
+The publication is the sole Tables.jl boundary for result observations. It
+does not retain the source result and cannot reopen result storage.
+"""
+struct ObservationPublication{P <: Tuple, C <: NamedTuple, M <: NamedTuple}
+    "Detached observations in request order."
+    observations::P
+    "Validated equal-length table columns."
+    columns::C
+    "Basis, row order, and quantity/unit column contracts."
+    metadata::M
+
+    function ObservationPublication(
+            observations::P,
+            columns::C,
+            metadata::M
+    ) where {P <: Tuple, C <: NamedTuple, M <: NamedTuple}
+        lengths = map(length, values(columns))
+        isempty(lengths) || all(==(first(lengths)), lengths) || throw(
+            DimensionMismatch("observation publication columns must have equal lengths"),
+        )
+        keys(metadata) == (:basis, :row_order, :observation_columns) || throw(
+            ArgumentError(
+                "observation publication metadata must contain basis, row_order, and observation_columns",
+            ),
+        )
+        return new{P, C, M}(observations, columns, metadata)
+    end
+end
+
+Base.length(publication::ObservationPublication) = length(publication.observations)
+Base.firstindex(publication::ObservationPublication) = firstindex(publication.observations)
+Base.lastindex(publication::ObservationPublication) = lastindex(publication.observations)
+Base.getindex(publication::ObservationPublication, index::Integer) =
+    publication.observations[index]
+Base.iterate(publication::ObservationPublication, state...) =
+    iterate(publication.observations, state...)
+Base.tail(publication::ObservationPublication) = Base.tail(publication.observations)
+
+function Base.summary(io::IO, publication::ObservationPublication)
+    rows = isempty(publication.columns) ? 0 : length(first(values(publication.columns)))
+    print(io, "Observation publication with $rows rows")
+end
+function Base.show(io::IO, publication::ObservationPublication)
+    rows = isempty(publication.columns) ? 0 : length(first(values(publication.columns)))
+    print(io, "ObservationPublication(", rows, " rows × ", length(publication.columns), " columns)")
+end
+function Base.show(io::IO, ::MIME"text/plain", publication::ObservationPublication)
+    show(io, publication)
+end
+
+#! explicit-imports: off
+# Tables' interface functions are deliberately qualified protocol extensions;
+# the package does not claim local ownership of those dependency bindings.
+Tables.istable(::Type{<:ObservationPublication}) = true
+Tables.columnaccess(::Type{<:ObservationPublication}) = true
+Tables.columns(publication::ObservationPublication) = publication.columns
+Tables.schema(publication::ObservationPublication) = Tables.Schema(publication.columns)
+Tables.columnnames(publication::ObservationPublication) = keys(publication.columns)
+Tables.getcolumn(publication::ObservationPublication, index::Int) =
+    getfield(publication.columns, index)
+Tables.getcolumn(publication::ObservationPublication, name::Symbol) =
+    getproperty(publication.columns, name)
+#! explicit-imports: on
+
+_publication_column(value::Number) = [value]
+_publication_column(value::AbstractArray) = collect(vec(value))
+_publication_column(value) = [value]
+
+function _publication_names(observations::Tuple)
+    names = map(payload -> Symbol(Units.symbol(payload.quantity)), observations)
+    all(name -> !isempty(string(name)), names) || throw(ArgumentError(
+        "every published quantity must define a nonempty table symbol",
+    ))
+    length(unique(names)) == length(names) || throw(ArgumentError(
+        "published quantities must have distinct table symbols",
+    ))
+    return names
+end
+
+function _publication_contract(names::Tuple, observations::Tuple)
+    records = map(observations) do payload
+        (; quantity = payload.quantity, unit = payload.unit)
+    end
+    return NamedTuple{names}(records)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct the detached column layout for one observation owner.
+
+Result owners add methods when scientific coordinates such as row, column, or
+frequency accompany the requested quantity columns.
+
+# Arguments
+
+- `source`: Result that owns the observations.
+- `requests`: Positional scientific requests.
+- `observations`: Detached values, quantities, and display units in request
+  order.
+- `options`: Display options used to detach the values.
+
+# Returns
+
+- A named tuple containing equal-length `columns`, `row_order`, and the
+  quantity/unit contract `observation_columns`.
+
+# Errors
+
+- Throws `DimensionMismatch` when the generic observation columns do not have
+  equal lengths.
+- Throws `ArgumentError` when two requests would create the same scientific
+  column name.
+"""
+function publication_table(source, requests::Tuple, observations::Tuple, options::NamedTuple)
+    names = _publication_names(observations)
+    columns = map(payload -> _publication_column(payload.values), observations)
+    isempty(columns) || all(length(column) == length(first(columns)) for column in columns) ||
+        throw(DimensionMismatch("published observation columns must have equal lengths"))
+    return (
+        columns = NamedTuple{names}(columns),
+        row_order = names,
+        observation_columns = _publication_contract(names, observations),
+    )
+end
+
 function observables(
         source,
         requests::Tuple;
         units::Tuple = (),
+        length_unit::Symbol = :kilo,
+        frequency_unit::Symbol = :base,
+        quantity_units = nothing,
         clip::Bool = true
 )
     identities = validate_observables(source, requests, units)
-    overrides = isempty(units) ? ntuple(_ -> nothing, length(requests)) : units
+    isempty(units) || quantity_units === nothing || throw(ArgumentError(
+        "use either aligned units or quantity_units, not both",
+    ))
+    overrides = if isempty(units)
+        map(requests) do request
+            scientific_quantity = _quantity(request)
+            scientific_quantity isa Units.Quantity{:frequency} ?
+                Units.units(frequency_unit, :hertz) :
+                display_unit(
+                    scientific_quantity,
+                    basis(source),
+                    _unit_override(quantity_units, request);
+                    length_prefix = length_unit
+                )
+        end
+    else
+        units
+    end
     payloads = map(requests, identities, overrides) do request, identity, override
         _publish_observable(source, request, identity, override, clip)
     end
-    return payloads
+    table = publication_table(
+        source,
+        requests,
+        payloads,
+        (; length_unit, frequency_unit, quantity_units, clip)
+    )
+    metadata = (
+        basis = basis(source),
+        row_order = table.row_order,
+        observation_columns = table.observation_columns,
+    )
+    return ObservationPublication(payloads, table.columns, metadata)
 end

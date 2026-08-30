@@ -100,39 +100,25 @@ function select(definition::TableReportDefinition, source)
     )
 end
 
-function _table_column(values)
-    values isa Number && return [values]
-    values isa AbstractVector && return collect(values)
-    values isa AbstractArray && return collect(vec(values))
-    return [values]
-end
-
-function _observation_names(published::Tuple)
-    names = Tuple(Symbol(Units.symbol(payload.quantity)) for payload in published)
-    all(name -> !isempty(string(name)), names) || throw(ArgumentError(
-        "every published quantity must define a nonempty table symbol",
-    ))
-    length(unique(names)) == length(names) || throw(ArgumentError(
-        "published quantities must have distinct table symbols",
-    ))
-    return names
-end
-
-function _observation_contract(names::Tuple, published::Tuple)
-    records = map(published) do payload
-        (; quantity = payload.quantity, unit = payload.unit)
-    end
-    return NamedTuple{names}(records)
-end
-
-function _observation_columns!(table::DataFrame, names::Tuple, published::Tuple)
+function _observation_columns!(table::DataFrame, published::ObservationPublication)
     metadata!(
         table,
         "observation_columns",
-        _observation_contract(names, published),
+        published.metadata.observation_columns,
         style = :note
     )
+    metadata!(table, "basis", published.metadata.basis, style = :note)
+    metadata!(table, "row_order", published.metadata.row_order, style = :note)
     return table
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct one DataFrame from an explicit detached observation publication.
+"""
+function DataFrame(published::ObservationPublication)
+    return _observation_columns!(DataFrame(published.columns), published)
 end
 
 """
@@ -155,14 +141,8 @@ function observation_columns(table::DataFrame)
     return metadata(table, "observation_columns")
 end
 
-function tabulate(::TableReportDefinition, source, published::Tuple)
-    columns = map(payload -> _table_column(payload.values), values(published))
-    isempty(columns) ||
-        all(length(column) == length(first(columns)) for column in columns) ||
-        throw(DimensionMismatch("published report columns must have equal lengths"))
-    names = _observation_names(published)
-    table = DataFrame(NamedTuple{names}(columns))
-    return _observation_columns!(table, names, published)
+function tabulate(::TableReportDefinition, source, published::ObservationPublication)
+    return DataFrame(published)
 end
 
 function illustrate(definition::TableReportDefinition, source, published, table)

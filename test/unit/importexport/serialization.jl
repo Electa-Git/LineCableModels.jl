@@ -133,9 +133,9 @@ end
         "rectangular-round-trip",
         terminal(
             :core,
-            strand(
+            stranded(
                 copper;
-                wire = Rectangle(0.35e-3, 0.8e-3),
+                shape = Rectangle(0.35e-3, 0.8e-3),
                 layers = 2,
                 n = (6, 12)
             )
@@ -159,9 +159,9 @@ end
         "scheduled-round-trip",
         terminal(
             :core,
-            strand(
+            stranded(
                 copper;
-                wire = Disk(0.35e-3),
+                shape = Disk(0.35e-3),
                 layers = 2,
                 n = (6, capacity()),
                 lay = (LayRatio(12), Pitch(0.1)),
@@ -175,6 +175,39 @@ end
     restored_scheduled=IE.deserialize_value(scheduled_record)
     @test restored_scheduled == scheduled
     @test IE.serialize_value(restored_scheduled) == scheduled_record
+
+    rounded_boundary=RoundedSector(
+        span = deg2rad(119.0),
+        r_base = 1.10e-3,
+        r_back = 10.24e-3,
+        fillet = 1.02e-3
+    )
+    bounded=build(
+        CableDesign,
+        "bounded-stranded-round-trip",
+        terminal(
+            :core,
+            stranded(
+                copper;
+                shape = RoundedSector(
+                    span = deg2rad(115.0),
+                    r_base = 0.8e-3,
+                    r_back = 8.0e-3,
+                    fillet = 0.6e-3
+                ),
+                layers = 0,
+                boundary = rounded_boundary
+            )
+        )
+    )
+    bounded_record=IE.serialize_value(bounded)
+    restored_bounded=IE.deserialize_value(bounded_record)
+    @test restored_bounded == bounded
+    @test IE.serialize_value(restored_bounded) == bounded_record
+    bounded_stack=only(bounded.root.item.items)
+    @test bounded_stack isa Stack
+    @test only(bounded_stack.items).compact isa TabulatedCompaction
+    @test only(bounded_stack.items).compact.data == rounded_boundary
 
     declarations=(
         Ring(capacity(); r = nothing, φ0 = 0.2, gap_frac = 0.03),
@@ -221,7 +254,7 @@ end
     @test restored_descriptive.nominal_data == descriptive.nominal_data
 
     library=CablesLibrary()
-    catalogue_record=(designation_code = "MV cable", voltage_kv = 30.0)
+    catalogue_record=DatasheetInfo(designation_code = "MV cable", voltage_kv = 30.0)
     add!(library, design; catalogue = catalogue_record)
     mktempdir() do directory
         for extension in ("json", "jls")
@@ -258,7 +291,7 @@ end
     add!(
         cables,
         TestFixtures.mv_cable_design();
-        catalogue = (designation_code = "NA2XS(FL)2Y", U = 30.0)
+        catalogue = DatasheetInfo(designation_code = "NA2XS(FL)2Y", U = 30.0)
     )
     cables_document=IE._json_document(cables)
     @test cables_document["\$schema"] == IE.JSON_SCHEMA_DIALECT

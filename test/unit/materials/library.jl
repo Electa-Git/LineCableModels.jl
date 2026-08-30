@@ -40,7 +40,7 @@ end
     empty_library=MaterialsLibrary(add_defaults = false)
     @test isempty(empty_library)
     @test sprint(show, MIME("text/plain"), empty_library) ==
-          "MaterialsLibrary with 0 materials"
+          "MaterialsLibrary · 0 materials"
 
     copper=Material(:conductor, 1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
     @test add!(empty_library, :copper, copper) === empty_library
@@ -61,7 +61,8 @@ end
     shown=sprint(show, MIME("text/plain"), defaults)
     @test contains(shown, "copper")
     @test contains(shown, "$(length(defaults)) materials")
-    @test occursin("rho=", sprint(show, MIME("text/plain"), defaults["copper"]))
+    @test occursin("ρ", sprint(show, MIME("text/plain"), defaults["copper"]))
+    @test occursin("nΩ·m", sprint(show, MIME("text/plain"), defaults["copper"]))
 end
 
 @testitem "Materials / presentation / bounded collection summaries" tags=[:unit] setup=[
@@ -76,9 +77,8 @@ end
     @test length(collect(values(library))) == 7
 
     summary=sprint(show, MIME"text/plain"(), library)
-    @test occursin("MaterialsLibrary with 7 materials", summary)
+    @test occursin("MaterialsLibrary · 7 materials", summary)
     @test occursin("material-1", summary)
-    @test occursin("... and 2 more", summary)
 
     reverse_library=MaterialsLibrary(add_defaults = false)
     for index in 7:-1:1
@@ -90,15 +90,18 @@ end
     end
     @test sprint(show, MIME"text/plain"(), reverse_library) == summary
 
+    narrow=sprint(show, MIME"text/plain"(), library;
+        context = IOContext(stdout, :limit => true, :displaysize => (5, 80)))
+    @test occursin("⋮", narrow)
+    @test occursin("more materials", narrow)
+
+    # MaterialsLibrary owns deterministic semantic display. Its backing Dict
+    # retains ordinary Base display; the package does not pirate Dict methods.
     dictionary_summary=sprint(show, MIME"text/plain"(), library.data)
-    @test occursin("Dict{String, Material} with 7 materials", dictionary_summary)
-    @test occursin("... and 2 more", dictionary_summary)
-    @test sprint(show, MIME"text/plain"(), reverse_library.data) == dictionary_summary
-    singleton_summary=sprint(show, MIME"text/plain"(),
-        Dict{String, Material}(
-            "only"=>Material(:conductor, 1.0, 1.0, 1.0, 20.0, 0.0),
-        ))
-    @test occursin("with 1 material", singleton_summary)
-    @test sprint(show, MIME"text/plain"(), Dict{String, Material}()) ==
-          "Dict{String, Material} with 0 materials"
+    @test occursin("Dict{String", dictionary_summary)
+    @test parentmodule(which(show, (
+        IO,
+        MIME"text/plain",
+        typeof(library.data)
+    ))) === Base
 end

@@ -63,6 +63,14 @@ _resolved_path_radius(
     ::FillFactor, pattern, pose, primitive::Union{Annulus, Sector}
 ) = (r_in(primitive) + r_ex(primitive)) / 2
 
+_aggregate_boundary(child::CableGeometry, compact) = boundary(child)
+function _aggregate_boundary(
+        ::CableGeometry,
+        compact::TabulatedCompaction{D}
+) where {D <: AbstractPrimitive}
+    return resolve(EmptyBoundary(), compact.data)
+end
+
 _member_definition(region::Region) = region.primitive
 _member_definition(::AbstractCablePart) = nothing
 
@@ -161,7 +169,7 @@ function _resolve_group(
                 paths
             ))
         end
-        outer = group.path === nothing ? boundary(child) :
+        outer = group.path === nothing ? _aggregate_boundary(child, group.compact) :
                 Disk(support(boundary(child)))
         return CableGeometry(regions, resolve(group.at, outer))
     end

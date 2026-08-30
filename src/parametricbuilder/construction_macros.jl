@@ -147,8 +147,8 @@ macro distribute(call)
     rewritten = copy(call)
     rewritten.args = copy(call.args)
     callee = first(rewritten.args)
-    callee isa Symbol && callee in (:wires, :strand, :rope, :tape) || throw(
-        ArgumentError("@distribute supports wires, strand, rope, and tape")
+    callee isa Symbol && callee in (:wires, :stranded, :rope, :tape) || throw(
+        ArgumentError("@distribute supports wires, stranded, rope, and tape")
     )
     parameters = findfirst(
         argument -> argument isa Expr && argument.head === :parameters,

@@ -343,7 +343,7 @@ end
     )
     @test !occursin(r"\bUQ\.(?:statistics|samples|histograms)\(source\)",
         report_monte_carlo)
-    @test occursin("published = observables(", report_monte_carlo)
+    @test length(findall("observables(", report_monte_carlo)) == 1
     report_grammar=source[joinpath("src", "reportbuilder", "grammar.jl")]
     @test occursin(
         "PlotBuilder.make_render(\n        definition.illustration,\n        published;",

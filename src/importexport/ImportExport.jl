@@ -34,7 +34,7 @@ import ..ReportBuilder
 using ..Materials: Material, MaterialsLibrary
 using ..EarthProps: EarthLayer, EarthModel
 import ..DataModel
-using ..DataModel: CablesLibrary, CableDesign, LineCableSystem,
+using ..DataModel: CablesLibrary, DatasheetInfo, CableDesign, LineCableSystem,
                    AbstractCablePart, Region, Stack, Group, Assembly, Enclosure,
                    Disk, Rectangle, Ellipse,
                    Sector, Annulus, Shell,

@@ -61,6 +61,26 @@
     U.label(::U.Quantity{:test_response}) = "Response"
     U.symbol(::U.Quantity{:test_response}) = "u"
 
+    function LineCableModels.Grammar.publication_table(
+            ::ProfileResult,
+            ::Tuple,
+            observations::Tuple,
+            ::NamedTuple
+    )
+        frequency, response = observations
+        return (
+            columns = (
+                f = frequency.values,
+                u = collect(eachrow(response.values)),
+            ),
+            row_order = (:frequency,),
+            observation_columns = (
+                f = (; quantity = frequency.quantity, unit = frequency.unit),
+                u = (; quantity = response.quantity, unit = response.unit),
+            ),
+        )
+    end
+
     const profile_stage_calls=Symbol[]
     function PB.entitle(::Type{ProfilePlotDefinition}, source::ProfileResult)
         push!(profile_stage_calls, :entitle)

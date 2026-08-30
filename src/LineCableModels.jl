@@ -53,7 +53,7 @@ export Ring, Polar, Fill, Lattice, DiameterFactor, placements
 export capacity, FillFactor, TabulatedCompaction, AffineCompaction
 export LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
 export at, trefoil, hflat, vflat, Earth
-export terminal, core, strand, rope, cores, tape, insulation, screen, sheath
+export terminal, core, stranded, rope, cores, tape, insulation, screen, sheath
 export armor, bedding, jacket, filler, pipe, duct
 export solid, shell, wires, layers, assembly
 export @cable, @terminal, @assembly, @duct, @at, @hflat, @vflat, @trefoil
@@ -61,7 +61,7 @@ export @distribute
 export make_stranded, make_screened, WireEstimate
 
 # Materialised results, reusable designs, and presentation:
-export CableDesign, LineCableSystem, catalogue
+export CableDesign, LineCableSystem, DatasheetInfo, catalogue
 export CableGeometry, PlacedRegion
 export CableConstants, LineParametersProblem, LineParameters, CablesLibrary, preview
 
@@ -86,6 +86,10 @@ include("interfaces.jl")
 # Submodule `Units`
 include("units/Units.jl")
 using .Units: quantity, native_unit, display_unit, scale_factor, label, symbol
+
+# Package-local bounded text formatting. Domain modules extend Base display
+# methods and call this owner through qualified operations.
+include("textdisplay/TextDisplay.jl")
 
 # Package-local shared calculation grammar.
 include("grammar/Grammar.jl")
@@ -119,7 +123,7 @@ import .EarthProps
 # Submodule `DataModel`
 include("datamodel/DataModel.jl")
 using .DataModel: CableDesign, CableGeometry, PlacedRegion,
-                  LineCableSystem, catalogue,
+                  LineCableSystem, DatasheetInfo, catalogue,
                   CableConstants, CablesLibrary, preview, ncables, nphases,
                   AbstractShape, AbstractPrimitive,
                   Disk, Rectangle, Ellipse, Sector, Annulus, Polygon,
@@ -164,7 +168,7 @@ using .ParametricBuilder:
                           Combinatorial, ParametricProblem, ParametricResult,
                           result, project,
                           Conductor, Insulator,
-                          terminal, core, strand, rope, cores, tape,
+                          terminal, core, stranded, rope, cores, tape,
                           insulation, screen, sheath, armor, bedding, jacket,
                           filler, pipe, duct, solid, shell, wires, layers,
                           assembly,

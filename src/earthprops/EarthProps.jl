@@ -23,6 +23,7 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..LineCableModels: add!, validate
 using ..Materials: AbstractMaterial
 import ..Validation
+import ..TextDisplay
 
 include("earthmaterial.jl")
 include("earthlayer.jl")

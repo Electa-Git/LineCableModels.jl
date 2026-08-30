@@ -23,7 +23,7 @@ module DataModel
 # Export public API
 export CableDesign, CableGeometry, PlacedRegion, LineCableSystem, CableConstants
 export build, homogenize
-export CablesLibrary, catalogue
+export CablesLibrary, DatasheetInfo, catalogue
 export trefoil_formation, flat_formation, outer_radius
 export AbstractShape, AbstractPrimitive
 export AbstractCablePart, Region, Stack
@@ -48,6 +48,7 @@ using DocStringExtensions: IMPORTS
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES, FUNCTIONNAME
 import ..PlotBuilder
 import ..Units
+import ..TextDisplay
 import ..LineCableModels: add!, build, homogenize, validate, nominal
 import ..LineCableModels: _construction
 import ..LineCableModels: basis, R, L, C, resistance, inductance, capacitance
@@ -87,6 +88,7 @@ include("flatten.jl")
 include("cabledesign/cableconstants.jl")
 
 # Library
+include("cableslibrary/datasheetinfo.jl")
 include("cableslibrary/cableslibrary.jl")
 include("linecablesystem/linecablesystem.jl")
 
@@ -98,6 +100,9 @@ include("preview/cable.jl")
 include("preview/cables.jl")
 include("preview/system.jl")
 include("preview/materialscale.jl")
+
+# Bounded human-readable representations for the completed physical grammar.
+include("textdisplay.jl")
 
 public preview_shapes, preview_materials
 public PreviewPolygon, PreviewReferenceLine, PreviewPayload

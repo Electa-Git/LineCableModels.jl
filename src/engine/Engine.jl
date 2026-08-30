@@ -60,7 +60,7 @@ import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
                   unit_targets,
                   observation_request, observation_indices,
                   request_identity, request_quantity, request_indices,
-                  computation_owner
+                  computation_owner, publication_table
 
 using ..Units
 using ..PlotBuilder
@@ -69,6 +69,7 @@ import ..EarthProps
 using ..EarthProps: EarthMaterial, EarthModel, EHEM
 using ..DataModel: CableDesign, LineCableSystem, ncables, nphases
 import ..DataModel
+import ..TextDisplay
 import ..LineCableModels: validate
 import ..Validation
 import Logging
@@ -125,9 +126,11 @@ include("reduction.jl")
 
 # Line-parameter protocols and renderer-independent plot definitions
 include("lineparameters/base.jl")
+include("lineparameters/publication.jl")
 include("lineparameters/plot.jl")
 include("lineparameters/plotdefinition.jl")
 include("lineparameters/comparisonplot.jl")
+include("textdisplay.jl")
 
 public has_uncertainty_type
 public reduce_primitive_matrices, potential_to_admittance

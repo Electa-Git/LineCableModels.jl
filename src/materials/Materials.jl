@@ -26,6 +26,7 @@ using DocStringExtensions: IMPORTS
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES, FUNCTIONNAME
 import ..LineCableModels: add!, validate
 import ..Validation
+import ..TextDisplay
 
 include("material.jl")
 include("materialslibrary.jl")

@@ -297,30 +297,3 @@ function build(
         connection_order
     )
 end
-
-function Base.show(io::IO, ::MIME"text/plain", system::LineCableSystem)
-    println(
-        io,
-        "LineCableSystem \"$(system.system_id)\": [line_length=$(system.line_length), " *
-        "cables=$(ncables(system)), terminals=$(length(system.terminal_order))]"
-    )
-    for (index, (design, position, connections)) in enumerate(zip(
-            system.designs,
-            system.positions,
-            system.connections
-    ))
-        prefix = index == ncables(system) ? "└─" : "├─"
-        mapping = join(
-            ["$terminal→$phase" for (terminal, phase) in
-             zip(design.terminal_order, connections)],
-            ", "
-        )
-        println(
-            io,
-            "$prefix CableDesign \"$(design.cable_id)\": " *
-            "[x=$(round(position.x, sigdigits=4)), " *
-            "y=$(round(position.y, sigdigits=4)), φ=$(round(position.φ, sigdigits=4)), " *
-            "connections=($mapping)]"
-        )
-    end
-end

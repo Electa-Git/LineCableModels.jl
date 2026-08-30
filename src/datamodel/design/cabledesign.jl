@@ -162,12 +162,3 @@ function build(
 )
     return build(CableDesign, cable_id, parts, nominal_data; combine)
 end
-
-function Base.show(io::IO, ::MIME"text/plain", design::CableDesign)
-    print(
-        io,
-        "CableDesign \"$(design.cable_id)\": [regions=$(length(design.geometry.regions)), " *
-        "terminals=($(join(design.terminal_order, ", "))), " *
-        "outer_radius=$(round(outer_radius(design), sigdigits=5))]"
-    )
-end

@@ -73,7 +73,7 @@ function select(definition::XLSXReportDefinition, source::Engine.LineParameters)
     return select(line_definition, source)
 end
 function tabulate(::XLSXReportDefinition, source::Engine.LineParameters, selected)
-    return _tabulate_line_parameters(source, selected)
+    return _publication_table(selected)
 end
 illustrate(::XLSXReportDefinition, source, published, table) = nothing
 

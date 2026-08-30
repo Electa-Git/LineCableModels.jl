@@ -400,11 +400,11 @@ _path(path::DataModel.Helix, dir, φ0) = path
 _path(lay, dir, φ0) = DataModel.Helix(lay; dir, φ0)
 
 function _wires(
-        material, wire, pattern, path, compact, tag
+        material, shape, pattern, path, compact, tag
 )
     source = DataModel.Region(
         tag,
-        wire,
+        shape,
         _require_material(material, :wires, (:conductor,))
     )
     return DataModel.Group(
@@ -426,7 +426,7 @@ and `lay` for the practical ring-course form.
 
 # Keywords
 
-- `wire`: Intrinsic member primitive.
+- `shape`: Intrinsic member primitive.
 - `pattern=nothing`: Explicit member placement pattern.
 - `path=nothing`: Explicit longitudinal path.
 - `n=nothing`: Exact ring cardinality or `capacity()`.
@@ -446,7 +446,7 @@ and `lay` for the practical ring-course form.
 """
 function wires(
         material;
-        wire,
+        shape,
         pattern = nothing,
         path = nothing,
         n = nothing,
@@ -460,7 +460,7 @@ function wires(
         combine::Symbol = :product
 )
     caller = function (
-            resolved_material, resolved_wire, resolved_pattern, resolved_path,
+            resolved_material, resolved_shape, resolved_pattern, resolved_path,
             resolved_n, resolved_r, resolved_gap, resolved_lay, resolved_dir,
             resolved_φ0, resolved_compact, resolved_tag
     )
@@ -473,7 +473,7 @@ function wires(
             ))
             return _wires(
                 resolved_material,
-                resolved_wire,
+                resolved_shape,
                 resolved_pattern,
                 resolved_path,
                 resolved_compact,
@@ -491,7 +491,7 @@ function wires(
         ))
         return _wires(
             resolved_material,
-            resolved_wire,
+            resolved_shape,
             DataModel.Ring(
                 resolved_n;
                 r = resolved_r,
@@ -504,7 +504,7 @@ function wires(
         )
     end
     values = (
-        material, wire, pattern, path, n, r, gap_frac, lay, dir, φ0,
+        material, shape, pattern, path, n, r, gap_frac, lay, dir, φ0,
         compact, tag
     )
     return _construction(DataModel.Group, caller, values; combine)
@@ -535,24 +535,25 @@ function _count_schedule(value, count::Int)
     ))
 end
 
-function _strand(
+function _stranded(
         material,
-        wire,
+        shape,
         course_count,
         counts,
         lays,
         directions,
         angles,
         compactions,
-        gaps
+        gaps,
+        prescribed_boundary
 )
     course_count isa Integer && !(course_count isa Bool) && course_count >= 0 ||
         throw(ArgumentError("layers must be a nonnegative integer"))
-    material = _require_material(material, :strand, (:conductor,))
+    material = _require_material(material, :stranded, (:conductor,))
     central = DataModel.Group(
         :strand,
         DataModel.Pose2(0, 0, 0),
-        DataModel.Region(:wire, wire, material),
+        DataModel.Region(:wire, shape, material),
         nothing,
         nothing,
         nothing
@@ -562,7 +563,7 @@ function _strand(
         push!(parts, DataModel.Group(
             :strand,
             DataModel.Pose2(0, 0, 0),
-            DataModel.Region(:wire, wire, material),
+            DataModel.Region(:wire, shape, material),
             DataModel.Ring(
                 counts[course];
                 r = nothing,
@@ -573,7 +574,26 @@ function _strand(
             compactions[course]
         ))
     end
-    return DataModel.Stack(parts)
+    stack = DataModel.Stack(parts)
+    prescribed_boundary === nothing && return stack
+    prescribed_boundary isa DataModel.AbstractPrimitive || throw(ArgumentError(
+        "stranded boundary must be an intrinsic primitive or nothing"
+    ))
+
+    # A patternless outer group carries the prescribed aggregate boundary as
+    # existing tabulated compaction data. The inner course groups retain their
+    # own compaction and path declarations unchanged. Resolution uses the
+    # prescribed primitive only as the aggregate CableGeometry boundary; it
+    # never inserts a second conductor region or homogenizes the strands.
+    bounded = DataModel.Group(
+        :strand,
+        DataModel.Pose2(0, 0, 0),
+        stack,
+        nothing,
+        nothing,
+        DataModel.TabulatedCompaction(prescribed_boundary)
+    )
+    return DataModel.Stack(bounded)
 end
 
 """
@@ -587,13 +607,15 @@ Declare one central wire and a prescribed number of concentric outer courses.
 
 # Keywords
 
-- `wire`: Intrinsic wire primitive.
+- `shape`: Intrinsic strand primitive.
 - `layers`: Number of outer courses \\[dimensionless\\].
 - `n=6`: Base count, exact course schedule, or deferred `capacity()` policy.
 - `lay=nothing`: One lay law or one law per outer course.
 - `dir=1`: One handedness or one value per outer course.
 - `φ0=0`: One initial angle or one value per outer course \\[rad\\].
 - `compact=nothing`: One compaction law or one law per outer course.
+- `boundary=nothing`: Prescribed aggregate cross-sectional boundary after
+  member placement and compaction.
 - `gap_frac=0`: One clearance fraction or one value per outer course
   \\[dimensionless\\].
 - `combine=:product`: Gridspace composition rule.
@@ -603,41 +625,46 @@ Declare one central wire and a prescribed number of concentric outer courses.
 - A `Stack` of ordinary groups, or a `Gridspace{Stack}` when a direct argument
   varies.
 """
-function strand(
+function stranded(
         material;
-        wire,
+        shape,
         layers,
         n = 6,
         lay = nothing,
         dir = 1,
         φ0 = 0,
         compact = nothing,
+        boundary = nothing,
         gap_frac = 0,
         combine::Symbol = :product
 )
     caller = function (
-            resolved_material, resolved_wire, resolved_layers, resolved_n,
+            resolved_material, resolved_shape, resolved_layers, resolved_n,
             resolved_lay, resolved_dir, resolved_φ0, resolved_compact,
-            resolved_gap
+            resolved_boundary, resolved_gap
     )
         resolved_layers isa Integer && !(resolved_layers isa Bool) &&
             resolved_layers >= 0 || throw(ArgumentError(
                 "layers must be a nonnegative integer"
             ))
         count = Int(resolved_layers)
-        return _strand(
+        return _stranded(
             resolved_material,
-            resolved_wire,
+            resolved_shape,
             count,
             _count_schedule(resolved_n, count),
             _course_schedule(resolved_lay, count, :lay),
             _course_schedule(resolved_dir, count, :dir),
             _course_schedule(resolved_φ0, count, :φ0),
             _course_schedule(resolved_compact, count, :compact),
-            _course_schedule(resolved_gap, count, :gap_frac)
+            _course_schedule(resolved_gap, count, :gap_frac),
+            resolved_boundary
         )
     end
-    values = (material, wire, layers, n, lay, dir, φ0, compact, gap_frac)
+    values = (
+        material, shape, layers, n, lay, dir, φ0, compact, boundary,
+        gap_frac
+    )
     return _construction(DataModel.Stack, caller, values; combine)
 end
 
@@ -748,7 +775,7 @@ outer boundary.
 
 # Keywords
 
-- `wire`: Intrinsic armor-wire primitive.
+- `shape`: Intrinsic armor-member primitive.
 - `n`: Exact cardinality or deferred `capacity()` policy.
 - `lay=nothing`: One helical lay law.
 - `dir=1`: Helix handedness, `1` or `-1` \\[dimensionless\\].
@@ -764,7 +791,7 @@ outer boundary.
 """
 function armor(
         material;
-        wire,
+        shape,
         n,
         lay = nothing,
         dir = 1,
@@ -775,13 +802,13 @@ function armor(
         combine::Symbol = :product
 )
     caller = function (
-            resolved_material, resolved_wire, resolved_n, resolved_lay,
+            resolved_material, resolved_shape, resolved_n, resolved_lay,
             resolved_dir, resolved_φ0, resolved_compact, resolved_gap,
             resolved_tag
     )
         source = DataModel.Region(
             resolved_tag,
-            resolved_wire,
+            resolved_shape,
             _require_material(resolved_material, :armor, (:conductor,))
         )
         return DataModel.Group(
@@ -798,7 +825,7 @@ function armor(
             resolved_compact
         )
     end
-    values = (material, wire, n, lay, dir, φ0, compact, gap_frac, tag)
+    values = (material, shape, n, lay, dir, φ0, compact, gap_frac, tag)
     return _construction(DataModel.Group, caller, values; combine)
 end
 

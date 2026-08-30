@@ -59,8 +59,9 @@
     )
     target=U.units(:milli, :ohm; per = (:kilo, :meter))
     published=observables(parameters, requests; units = (nothing, target, nothing))
-    @test @inferred(observables(parameters, ((R, 1, 1, Colon()),))) isa Tuple
-    @test published isa Tuple
+    @test @inferred(observables(parameters, ((R, 1, 1, Colon()),))) isa
+          LineCableModels.Grammar.ObservationPublication
+    @test published isa LineCableModels.Grammar.ObservationPublication
     for payload in published
         @test keys(payload) == (:values, :quantity, :unit)
     end
@@ -69,12 +70,11 @@
     @test published[3].values ≈ rad2deg.(angle.(impedance[1, 1, :]))
     @test published[3].quantity isa
           U.Quantity{(:series_impedance, :phase_angle)}
-    repeated_quantity=observables(parameters,
+    @test_throws ArgumentError observables(parameters,
         (
             (R, 1, 1, Colon()),
             (R, 1, 1, 1)
         ))
-    @test length(repeated_quantity) == 2
     prefixed=observables(parameters, ((R, 1, 1, Colon()),);
         units = (:micro,))
     @test only(prefixed).unit ==

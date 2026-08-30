@@ -67,12 +67,12 @@ function _decode_catalogue(value)
     ))
     names = sort!(Symbol.(collect(keys(value))); by = String)
     entries = Tuple(deserialize_value(value[String(name)]) for name in names)
-    return NamedTuple{Tuple(names)}(entries)
+    return DatasheetInfo(NamedTuple{Tuple(names)}(entries))
 end
 
 function _decoded_cable_library(raw_cables, materials)
     designs = Dict{String, CableDesign}()
-    catalogues = Dict{String, NamedTuple}()
+    catalogues = Dict{String, DatasheetInfo}()
     for (name, value) in raw_cables
         cable_id = String(name)
         design = _decode_design(value, materials)
@@ -117,15 +117,16 @@ function _trusted_cable_data(decoded)
     decoded.catalogues isa AbstractDict || throw(ArgumentError(
         "trusted JLS catalogue data must be a dictionary",
     ))
-    catalogues = Dict{String, NamedTuple}()
+    catalogues = Dict{String, DatasheetInfo}()
     for cable_id in keys(designs)
         record = get(decoded.catalogues, cable_id) do
             throw(KeyError(cable_id))
         end
-        record isa NamedTuple || throw(ArgumentError(
-            "catalogue '$cable_id' must be a NamedTuple"
+        record isa Union{DatasheetInfo, NamedTuple} || throw(ArgumentError(
+            "catalogue '$cable_id' must be DatasheetInfo or a named tuple"
         ))
-        catalogues[cable_id] = record
+        catalogues[cable_id] =
+            record isa DatasheetInfo ? record : DatasheetInfo(record)
     end
     return (; designs, catalogues)
 end

@@ -40,24 +40,3 @@ inductance(constants::CableConstants) = L(constants)
 capacitance(constants::CableConstants) = C(constants)
 
 observables(::Type{<:CableConstants}) = (R, L, C)
-
-function Base.show(io::IO, constants::CableConstants)
-    selectors = (R, L, C)
-    print(io, "CableConstants(")
-    for (index, selector) in enumerate(selectors)
-        index > 1 && print(io, ", ")
-        quantity = Units.quantity(selector)
-        unit = Units.native_unit(quantity, basis(constants))
-        print(
-            io,
-            Units.symbol(quantity),
-            "=",
-            observe(constants, selector),
-            " ",
-            Units.label(unit)
-        )
-    end
-    print(io, ")")
-end
-
-Base.show(io::IO, ::MIME"text/plain", constants::CableConstants) = show(io, constants)

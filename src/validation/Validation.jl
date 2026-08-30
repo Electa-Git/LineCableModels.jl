@@ -8,6 +8,7 @@ rules in declaration order and returns its input unchanged.
 module Validation
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
+import ..TextDisplay
 export Rule, rules, validate
 export Finite, Nonnegative, Positive, IntegerField, Less, LessEqual, Greater,
        GreaterEqual, IsA, OneOf, OwnerRule
@@ -15,5 +16,6 @@ export Finite, Nonnegative, Positive, IntegerField, Less, LessEqual, Greater,
 include("interfaces.jl")
 include("rules.jl")
 include("validate.jl")
+include("textdisplay.jl")
 
 end

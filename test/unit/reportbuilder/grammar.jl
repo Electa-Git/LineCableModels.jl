@@ -29,17 +29,20 @@
     U.symbol(::U.Quantity{:report_response}) = "u"
 
     struct ReportProfilePlot <: PB.AbstractPlotDefinition end
-    PB.entitle(::Type{ReportProfilePlot}, published::Tuple) = published
+    PB.entitle(
+        ::Type{ReportProfilePlot},
+        published::LineCableModels.Grammar.ObservationPublication
+    ) = published
     function PB.resolve(
             ::Type{ReportProfilePlot},
-            ::Tuple,
+            ::LineCableModels.Grammar.ObservationPublication,
             request::NamedTuple
     )
         return request
     end
     function PB.fetch(
             ::Type{ReportProfilePlot},
-            published::Tuple,
+            published::LineCableModels.Grammar.ObservationPublication,
             request::NamedTuple
     )
         payload = (;
@@ -329,22 +332,27 @@ end
     const RB=LineCableModels.ReportBuilder
     constants=LineCableModels.CableConstants(1.0, 2.0, 3.0)
     expected=report(RB.CableConstantsTableDefinition(), constants).table
-    actual=DataFrame(constants)
+    publication=observables(constants, (R, L, C))
+    actual=DataFrame(publication)
 
     @test actual == expected
-    @test parentmodule(which(DataFrame, (typeof(constants),))) === RB
+    @test parentmodule(which(DataFrame, (typeof(publication),))) === RB
+    @test parentmodule(which(DataFrame, (typeof(constants),))) !== RB
     @test names(actual) == ["R", "L", "C"]
-    @test only(actual.R) == 1.0
-    @test only(actual.L) == 2.0
-    @test only(actual.C) == 3.0
+    @test only(actual.R) == publication[1].values
+    @test only(actual.L) == publication[2].values
+    @test only(actual.C) == publication[3].values
     @test keys(RB.observation_columns(actual)) == (:R, :L, :C)
 
     monte_carlo=TestFixtures.cable_monte_carlo_result()
-    @test DataFrame(monte_carlo) == report(
+    @test parentmodule(which(DataFrame, (typeof(monte_carlo),))) !==
+          LineCableModels.ReportBuilder
+    @test !LineCableModels.Grammar.Tables.istable(typeof(monte_carlo))
+    @test report(
         RB.MonteCarloTableDefinition(:kilo, nothing),
         monte_carlo
-    ).table
-    @test parentmodule(which(DataFrame, (typeof(monte_carlo),))) === RB
+    ).table isa DataFrame
+    @test parentmodule(which(DataFrame, (typeof(monte_carlo),))) !== RB
 
     target=only(LineCableModels.Grammar.unit_targets(
         (R,),
@@ -356,9 +364,8 @@ end
         RB.MonteCarloTableDefinition(:kilo, :milli),
         monte_carlo
     )
-    @test first(only(selected).observations).unit == target
-    @test only(selected).frequency === nothing
-    @test first(only(selected).observations).quantity ==
+    @test first(only(selected)).unit == target
+    @test first(only(selected)).quantity ==
           LineCableModels.Units.quantity(R)
 
     for name in (

@@ -9,7 +9,7 @@ mutable struct CablesLibrary
     "Cable designs indexed by `cable_id`."
     data::Dict{String, CableDesign}
     "Catalogue records indexed by `cable_id`."
-    catalogues::Dict{String, NamedTuple}
+    catalogues::Dict{String, DatasheetInfo}
 
     @doc """
      $(TYPEDSIGNATURES)
@@ -31,7 +31,7 @@ mutable struct CablesLibrary
 
      """
     function CablesLibrary()::CablesLibrary
-        return new(Dict{String, CableDesign}(), Dict{String, NamedTuple}())
+        return new(Dict{String, CableDesign}(), Dict{String, DatasheetInfo}())
     end
 end
 
@@ -45,6 +45,11 @@ Add a cable design under its `cable_id`.
 - `library`: Destination library.
 - `design`: Validated cable design.
 
+# Keywords
+
+- `catalogue=design.nominal_data`: Datasheet information stored beside the
+  design. A named tuple is normalized to [`DatasheetInfo`](@ref).
+
 # Returns
 
 - The modified `library`.
@@ -56,13 +61,14 @@ Add a cable design under its `cable_id`.
 function add!(
         library::CablesLibrary,
         design::CableDesign;
-        catalogue::NamedTuple = design.nominal_data
+        catalogue::Union{DatasheetInfo, NamedTuple} = design.nominal_data
 )
     haskey(library, design.cable_id) && throw(ArgumentError(
         "cable design '$(design.cable_id)' already exists",
     ))
     library.data[design.cable_id] = validate(design)
-    library.catalogues[design.cable_id] = catalogue
+    library.catalogues[design.cable_id] =
+        catalogue isa DatasheetInfo ? catalogue : DatasheetInfo(catalogue)
     return library
 end
 

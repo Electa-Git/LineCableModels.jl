@@ -17,20 +17,22 @@ using Printf: @sprintf
 using RequiredInterfaces: @required
 using ..Grammar: @orchestrator
 import DataFrames: DataFrame, metadata, metadata!
-import ..Grammar: observables, validate_observables, unit_targets
-import ..Grammar: observation_request, observation_indices, materialize_observation
+import ..Grammar: observables, validate_observables
+import ..Grammar: ObservationPublication
 using ..Grammar: @observe
 import ..Units
 import ..PlotBuilder
 import ..DataModel
 import ..Engine
 import ..UQ
-import ..LineCableModels: basis, frequencies, Z, Y, R, X, L, G, B, C
+import ..TextDisplay
+import ..LineCableModels: basis, Z, Y, R, X, L, G, B, C
 
 include("grammar.jl")
 include("tables.jl")
 include("montecarlo.jl")
 include("xlsx.jl")
+include("textdisplay.jl")
 
 public observation_columns, encode_cell, XLSXSheet, XLSXWorkbook
 

@@ -32,7 +32,7 @@ export Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, RoundedSector, Shell,
 export Region, Stack
 export Group, Assembly
 export Enclosure
-export terminal, core, strand, rope, cores, tape, insulation, screen, sheath
+export terminal, core, stranded, rope, cores, tape, insulation, screen, sheath
 export armor, bedding, jacket, filler, pipe, duct
 export solid, shell, wires, layers, assembly
 export capacity, FillFactor, DiameterFactor, TabulatedCompaction, AffineCompaction
@@ -68,6 +68,7 @@ import ..DataModel: TabulatedCompaction, AffineCompaction
 import ..DataModel: CableDesign, LineCableSystem
 import ..EarthProps
 import ..Engine
+import ..TextDisplay
 
 include("grid.jl")
 include("gridspace.jl")
@@ -90,6 +91,8 @@ include("traversal.jl")
 
 include("wirepatterns/WirePatterns.jl")
 using .WirePatterns: WireEstimate, make_stranded, make_screened
+
+include("textdisplay.jl")
 
 public AbstractProjectionDefinition, entitle, select, derive, materialize
 public traverse, sample_uncertainty

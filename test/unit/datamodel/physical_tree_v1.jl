@@ -80,23 +80,23 @@ end
     disk=Disk(0.5e-3)
     rectangle=Rectangle(0.35e-3, 0.8e-3)
 
-    circular=strand(
+    circular=stranded(
         copper;
-        wire = disk,
+        shape = disk,
         layers = 2,
         n = (6, 12),
         lay = (LayRatio(15), LayRatio(11))
     )
-    rectangular=strand(
+    rectangular=stranded(
         copper;
-        wire = rectangle,
+        shape = rectangle,
         layers = 2,
         n = (6, 12),
         lay = (LayRatio(15), LayRatio(11))
     )
-    strand_space=strand(
+    strand_space=stranded(
         copper;
-        wire = Grid((disk, rectangle)),
+        shape = Grid((disk, rectangle)),
         layers = 0
     )
     @test circular isa Stack
@@ -155,23 +155,23 @@ end
         "overpacked",
         terminal(
             :core,
-            strand(
+            stranded(
                 copper;
-                wire = Rectangle(10e-3, 1e-3),
+                shape = Rectangle(10e-3, 1e-3),
                 layers = 1,
                 n = (6,)
             )
         )
     )
-    @test_throws DimensionMismatch strand(
-        copper; wire = disk, layers = 2, n = (6,)
+    @test_throws DimensionMismatch stranded(
+        copper; shape = disk, layers = 2, n = (6,)
     )
-    @test_throws DimensionMismatch strand(
-        copper; wire = disk, layers = 2, n = (6, 12), lay = (LayRatio(11),)
+    @test_throws DimensionMismatch stranded(
+        copper; shape = disk, layers = 2, n = (6, 12), lay = (LayRatio(11),)
     )
-    elliptical=strand(
+    elliptical=stranded(
         copper;
-        wire = Ellipse(0.5e-3, 0.25e-3),
+        shape = Ellipse(0.5e-3, 0.25e-3),
         layers = 1,
         n = 6
     )

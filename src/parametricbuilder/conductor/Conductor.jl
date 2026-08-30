@@ -30,14 +30,14 @@ function Shell(tag, material; t, combine::Symbol = :product)
 end
 
 """
-    Conductor.Wires(tag, wire, material; n, r, lay=LayRatio(11), compact=nothing)
+    Conductor.Wires(tag, shape, material; n, r, lay=LayRatio(11), compact=nothing)
 
 Declare one repeated conductor course on a ring of member-centre radius `r`
 [m]. The result is the same `Group` produced by [`wires`](@ref).
 """
 function Wires(
         tag,
-        wire,
+        shape,
         material;
         n,
         r,
@@ -47,7 +47,7 @@ function Wires(
 )
     return wires(
         material;
-        wire,
+        shape,
         n,
         r,
         lay,

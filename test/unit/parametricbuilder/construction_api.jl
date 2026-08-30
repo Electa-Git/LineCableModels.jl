@@ -122,7 +122,7 @@ end
     import LineCableModels.ParametricBuilder as PB
 
     required = (
-        :build, :terminal, :core, :strand, :rope, :cores, :tape,
+        :build, :terminal, :core, :stranded, :rope, :cores, :tape,
         :insulation, :screen, :sheath, :armor, :bedding, :jacket, :filler,
         :pipe, :duct, :at, :trefoil, :hflat, :vflat, :capacity,
         :solid, :shell, :wires, :layers, :assembly,
@@ -140,7 +140,7 @@ end
     @test all(name -> name in public_names, required)
 
     forbidden = (
-        :DuctBank, :Pipe, :Duct, :Core, :Cable, :Trefoil, :distribute,
+        :DuctBank, :Pipe, :Duct, :Core, :Cable, :Trefoil, :distribute, :strand,
         Symbol("@design"), Symbol("@pipe"), Symbol("@core"),
         Symbol("@insulation"), Symbol("@strand"), Symbol("@rope"),
         Symbol("@armor"), Symbol("@screen"), Symbol("@shell"),
@@ -180,7 +180,7 @@ end
 
     distributed = Base.remove_linenums!(macroexpand(
         @__MODULE__,
-        :(@distribute wires(material; wire = wire, r = radius))
+        :(@distribute wires(material; shape = wire, r = radius))
     ))
     @test distributed.head === :call
     @test distributed.args[1] === :wires
@@ -254,7 +254,7 @@ end
 
     @distribute wires(
         once(:wire_material, copper);
-        wire = once(:wire_definition, Disk(0.2e-3)),
+        shape = once(:wire_definition, Disk(0.2e-3)),
         r = once(:wire_radius, 2e-3)
     )
 
@@ -338,9 +338,9 @@ end
     copper = Material(kind = :conductor, rho = 1.72e-8)
     xlpe = Material(kind = :insulator, rho = 1.0e14, eps_r = 2.3)
 
-    round = strand(
+    round = stranded(
         copper;
-        wire = Disk(0.5e-3),
+        shape = Disk(0.5e-3),
         layers = 2,
         n = 6,
         lay = (LayRatio(12), Pitch(0.2)),
@@ -357,9 +357,98 @@ end
         Helix(Pitch(0.2); dir = -1, φ0 = 0.1)
     ]
 
-    exact = strand(
+    rounded = RoundedSector(
+        span = deg2rad(119.0),
+        r_base = 1.10e-3,
+        r_back = 10.24e-3,
+        fillet = 1.02e-3
+    )
+    bounded = stranded(
         copper;
-        wire = Rectangle(0.6e-3, 0.8e-3),
+        shape = Disk(0.5e-3),
+        layers = 2,
+        n = (6, 12),
+        lay = (LayRatio(12), LayRatio(11)),
+        boundary = rounded
+    )
+    @test bounded isa Stack
+    @test length(bounded.items) == 1
+    bounded_group = only(bounded.items)
+    @test bounded_group isa Group
+    @test bounded_group.pattern === nothing
+    @test bounded_group.path === nothing
+    @test bounded_group.compact isa TabulatedCompaction
+    @test bounded_group.compact.data == rounded
+    @test bounded_group.item isa Stack
+    @test length(bounded_group.item.items) == 3
+    @test getproperty.(bounded_group.item.items, :path) == [
+        nothing,
+        Helix(LayRatio(12)),
+        Helix(LayRatio(11))
+    ]
+    bounded_design = build(
+        CableDesign,
+        "bounded-stranded-core",
+        terminal(:core, bounded)
+    )
+    @test length(bounded_design.geometry.regions) == 19
+    @test DM.boundary(bounded_design.geometry).primitive == rounded
+
+    second_boundary = RoundedSector(
+        span = deg2rad(118.0),
+        r_base = 1.0e-3,
+        r_back = 10.0e-3,
+        fillet = 0.9e-3
+    )
+    boundary_space = stranded(
+        copper;
+        shape = Disk(0.5e-3),
+        layers = 0,
+        boundary = Grid((rounded, second_boundary))
+    )
+    @test boundary_space isa Gridspace{Stack}
+    @test collect(boundary_space) == [
+        stranded(
+            copper;
+            shape = Disk(0.5e-3),
+            layers = 0,
+            boundary
+        ) for boundary in (rounded, second_boundary)
+    ]
+
+    rounded_member = RoundedSector(
+        span = deg2rad(115.0),
+        r_base = 0.8e-3,
+        r_back = 8.0e-3,
+        fillet = 0.6e-3
+    )
+    rounded_strand = stranded(
+        copper;
+        shape = rounded_member,
+        layers = 0,
+        boundary = rounded
+    )
+    rounded_design = build(
+        CableDesign,
+        "bounded-rounded-strand",
+        terminal(:phase, rounded_strand),
+        insulation(xlpe; t = 0.5e-3)
+    )
+    @test rounded_design.geometry.regions[1].primitive isa DM.RoundedSectorShape
+    @test rounded_design.geometry.regions[2].primitive isa DM.ShellShape
+    @test DM.boundary(rounded_design.geometry).primitive.r_back ==
+          rounded.r_back + 0.5e-3
+
+    @test_throws ArgumentError stranded(
+        copper;
+        shape = Disk(0.5e-3),
+        layers = 0,
+        boundary = "rounded"
+    )
+
+    exact = stranded(
+        copper;
+        shape = Rectangle(0.6e-3, 0.8e-3),
         layers = 2,
         n = (5, 11),
         lay = nothing
@@ -378,9 +467,9 @@ end
     @test length(rectangles) == 17
     @test all(region -> DM.area(region) == 0.6e-3 * 0.8e-3, rectangles)
 
-    compacted = strand(
+    compacted = stranded(
         copper;
-        wire = Disk(0.5e-3),
+        shape = Disk(0.5e-3),
         layers = 1,
         n = 6,
         compact = FillFactor(0.9),
@@ -406,9 +495,9 @@ end
         sectors
     )
 
-    mixed = strand(
+    mixed = stranded(
         copper;
-        wire = Disk(0.5e-3),
+        shape = Disk(0.5e-3),
         layers = 2,
         n = (6, capacity()),
         compact = (nothing, FillFactor(0.9))
@@ -425,14 +514,14 @@ end
     @test capacity(pattern, Disk(0.5e-3), nothing) == direct_capacity
     distributed = @distribute wires(
         copper;
-        wire = Disk(0.5e-3),
+        shape = Disk(0.5e-3),
         r = 10e-3,
         gap_frac = 0.03
     )
     @test distributed.pattern.n == capacity()
     @test_throws ArgumentError macroexpand(
         @__MODULE__,
-        :(@distribute wires(copper; wire = Disk(1e-3), n = 6, r = 2e-3))
+        :(@distribute wires(copper; shape = Disk(1e-3), n = 6, r = 2e-3))
     )
 
     fill_pattern = Fill(r = 2.6e-3, φ = pi / 6)
@@ -477,9 +566,9 @@ end
     ))
     @test component.conductor.resistance ≈ expected_resistance
 
-    @test_throws DimensionMismatch strand(
+    @test_throws DimensionMismatch stranded(
         copper;
-        wire = Disk(0.5e-3),
+        shape = Disk(0.5e-3),
         layers = 2,
         lay = (LayRatio(10),)
     )
@@ -581,18 +670,18 @@ end
         (LayRatio(10), LayRatio(11)),
         (LayRatio(12), LayRatio(13))
     ))
-    strands = strand(
+    strands = stranded(
         copper;
-        wire = Disk(0.5e-3),
+        shape = Disk(0.5e-3),
         layers = 2,
         n = (6, 12),
         lay = schedules
     )
     @test strands isa Gridspace{Stack}
     @test length(strands) == 2
-    @test strand(
+    @test stranded(
         copper;
-        wire = Disk(0.5e-3),
+        shape = Disk(0.5e-3),
         layers = 2,
         n = (6, 12),
         lay = (LayRatio(10), LayRatio(11))
@@ -643,9 +732,9 @@ end
     )
     @test local_member.at == DM.Pose2(0.01, 0.02, 0.3)
 
-    @test (@distribute strand(
+    @test (@distribute stranded(
         copper;
-        wire = Disk(0.5e-3),
+        shape = Disk(0.5e-3),
         layers = 1
     )).items[2].pattern.n == capacity()
     @test (@distribute rope(
@@ -655,7 +744,7 @@ end
 
     distributed_space = @distribute wires(
         copper;
-        wire = Disk(Grid((0.25e-3, 0.5e-3))),
+        shape = Disk(Grid((0.25e-3, 0.5e-3))),
         r = 3e-3
     )
     @test distributed_space isa Gridspace{Group}

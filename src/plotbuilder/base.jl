@@ -17,6 +17,7 @@ function Base.show(io::IO, value::LegendDefinition)
         :overflow => value.overflow
     )
 end
+Base.summary(io::IO, ::LegendDefinition) = print(io, "Legend definition")
 
 function Base.show(io::IO, value::ColorbarDefinition)
     return _show_summary(
@@ -27,6 +28,7 @@ function Base.show(io::IO, value::ColorbarDefinition)
         :ticks => length(first(value.ticks))
     )
 end
+Base.summary(io::IO, ::ColorbarDefinition) = print(io, "Colorbar definition")
 
 function Base.show(io::IO, value::ExportDefinition)
     return _show_summary(
@@ -37,6 +39,7 @@ function Base.show(io::IO, value::ExportDefinition)
         :open_file => value.open_file
     )
 end
+Base.summary(io::IO, ::ExportDefinition) = print(io, "Export definition")
 
 function Base.show(io::IO, value::PlotPage)
     return _show_summary(
@@ -48,6 +51,7 @@ function Base.show(io::IO, value::PlotPage)
         :payload => nameof(typeof(value.payload))
     )
 end
+Base.summary(io::IO, value::PlotPage) = print(io, "Plot page \"", value.title, "\"")
 
 function Base.show(io::IO, value::PlotRecipe)
     return _show_summary(
@@ -57,6 +61,8 @@ function Base.show(io::IO, value::PlotRecipe)
         :pages => length(value.pages)
     )
 end
+Base.summary(io::IO, value::PlotRecipe) =
+    print(io, "Plot recipe with ", length(value.pages), " pages")
 
 function Base.show(io::IO, value::UIPlot)
     return _show_summary(
@@ -67,6 +73,7 @@ function Base.show(io::IO, value::UIPlot)
         :backend => value.context.backend
     )
 end
+Base.summary(io::IO, value::UIPlot) = print(io, "Rendered plot \"", value.page.title, "\"")
 
 const _CompactPlotBuilderObject = Union{
     LegendDefinition,

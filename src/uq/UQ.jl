@@ -21,10 +21,12 @@ import ..DataModel
 import ..Engine
 import ..Grammar: compute, computation_options, computation_details, details,
                   observe, observables, check_core_result, computation_owner,
-                  detach
+                  detach, publication_table, request_identity, request_indices,
+                  observation_indices
 import ..ParametricBuilder
 import ..ParametricBuilder: result, traverse
 import ..Units
+import ..TextDisplay
 using ..Grammar:
                  AbstractFormulation, AbstractUncertaintyResult,
                  ComputationOptions, ComputationDetails
@@ -36,7 +38,9 @@ include("statistics.jl")
 include("results.jl")
 include("base.jl")
 include("observations.jl")
+include("publication.jl")
 include("linearerror.jl")
 include("montecarlo/compute.jl")
+include("textdisplay.jl")
 
 end

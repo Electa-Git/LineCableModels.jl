@@ -57,113 +57,74 @@ function Base.get(library::MaterialsLibrary, name::String, default = nothing)
     return get(library.data, name, default)
 end
 
-"""
-$(TYPEDSIGNATURES)
+TextDisplay.name(::Type{<:Material}) = "Material"
 
-Write the plain-text representation of a material to `io`.
+function Base.summary(io::IO, material::Material)
+    print(io, "Material · ", material.kind)
+end
 
-# Arguments
+function _material_fields(material::Material)
+    return (
+        ρ = TextDisplay.engineering(material.rho, :ohm_meter),
+        εᵣ = TextDisplay.value(material.eps_r),
+        μᵣ = TextDisplay.value(material.mu_r),
+        T₀ = TextDisplay.engineering(material.T0, :celsius),
+        α = iszero(material.alpha) ? nothing :
+            TextDisplay.engineering(material.alpha, :kelvin_inverse),
+        ρₜₕ = iszero(material.rho_thermal) ? nothing :
+              string(TextDisplay.value(material.rho_thermal), " K·m/W"),
+        θₘₐₓ = material.theta_max == oftype(material.theta_max, 90) ? nothing :
+               TextDisplay.engineering(material.theta_max, :celsius),
+        tanδ = iszero(material.tan_delta) ? nothing :
+               TextDisplay.value(material.tan_delta),
+        σₛ = iszero(material.sigma_solar) ? nothing :
+             TextDisplay.value(material.sigma_solar)
+    )
+end
 
-- `io`: Output stream.
-- `::MIME"text/plain"`: MIME type for plain text output.
-- `material`: Material to display.
+function Base.show(io::IO, material::Material)
+    fields = _material_fields(material)
+    print(io, "Material(:", material.kind, "; ρ=", fields.ρ,
+        ", εᵣ=", fields.εᵣ, ", μᵣ=", fields.μᵣ)
+    for key in (:ρₜₕ, :θₘₐₓ, :tanδ, :σₛ)
+        displayed = getproperty(fields, key)
+        displayed === nothing && continue
+        print(io, ", ", key, "=", displayed)
+    end
+    print(io, ")")
+end
 
-# Returns
-
-- `nothing` after writing to `io`.
-"""
 function Base.show(io::IO, ::MIME"text/plain", material::Material)
-    print(io, "Material $(material.kind) with properties: [")
-
-    # Select displayed fields.
-    fields = [
-        :rho, :eps_r, :mu_r, :T0, :alpha, :rho_thermal,
-        :theta_max, :tan_delta, :sigma_solar
-    ]
-
-    # Print each field with four significant digits.
-    for (i, field) in enumerate(fields)
-        value = getproperty(material, field)
-        # Separate adjacent fields with a comma.
-        delimiter = i < length(fields) ? ", " : ""
-        print(io, "$field=$(round(value, sigdigits=4))$delimiter")
-    end
-
-    print(io, "]")
+    get(io, :compact, false) && return show(io, material)
+    return TextDisplay.fields(
+        io,
+        "Material · $(material.kind)",
+        _material_fields(material);
+        multiline = true
+    )
 end
 
-"""
-$(TYPEDSIGNATURES)
+TextDisplay.name(::Type{<:MaterialsLibrary}) = "MaterialsLibrary"
 
-Write a summary of a material library to `io`.
+function Base.summary(io::IO, library::MaterialsLibrary)
+    count = length(library)
+    print(io, "MaterialsLibrary with ", count, count == 1 ? " material" : " materials")
+end
 
-# Arguments
+function Base.show(io::IO, library::MaterialsLibrary)
+    count = length(library)
+    print(io, "MaterialsLibrary(", count, count == 1 ? " material)" : " materials)")
+end
 
-- `io`: Output stream.
-- `::MIME"text/plain"`: MIME type for plain text output.
-- `library`: Material library to display.
-
-# Returns
-
-- `nothing` after writing to `io`.
-"""
 function Base.show(io::IO, ::MIME"text/plain", library::MaterialsLibrary)
-    num_materials = length(library)
-    material_word = num_materials == 1 ? "material" : "materials"
-    print(io, "MaterialsLibrary with $num_materials $material_word")
-
-    if num_materials > 0
-        print(io, ":")
-        # Optional: list the first few materials
-        shown_materials = min(5, num_materials)
-        material_names = sort!(collect(keys(library)))[1:shown_materials]
-
-        for (i, name) in enumerate(material_names)
-            print(io, "\n$(i == shown_materials ? "└─" : "├─") $name")
-        end
-
-        # Report entries omitted from the display.
-        if num_materials > shown_materials
-            print(io, "\n└─ ... and $(num_materials - shown_materials) more")
-        end
-    end
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Write a summary of a material dictionary to `io`.
-
-# Arguments
-
-- `io`: Output stream.
-- `::MIME"text/plain"`: MIME type for plain text output.
-- `dict`: Material dictionary to display.
-
-# Returns
-
-- `nothing` after writing to `io`.
-"""
-function Base.show(io::IO, ::MIME"text/plain", dict::Dict{String, Material})
-    num_materials = length(dict)
-    material_word = num_materials == 1 ? "material" : "materials"
-    print(io, "Dict{String, Material} with $num_materials $material_word")
-
-    if num_materials > 0
-        print(io, ":")
-        # List the first few materials
-        shown_materials = min(5, num_materials)
-        material_names = sort!(collect(keys(dict)))[1:shown_materials]
-
-        for (i, name) in enumerate(material_names)
-            print(io, "\n$(i == shown_materials ? "└─" : "├─") $name")
-        end
-
-        # Report entries omitted from the display.
-        if num_materials > shown_materials
-            print(io, "\n└─ ... and $(num_materials - shown_materials) more")
-        end
-    end
+    get(io, :compact, false) && return show(io, library)
+    count = length(library)
+    header = "MaterialsLibrary · $count $(count == 1 ? "material" : "materials")"
+    children = [
+        string(name, " · ", sprint(summary, library[name]))
+        for name in sort!(collect(keys(library)))
+    ]
+    return TextDisplay.tree(io, header, children; noun = "materials")
 end
 
 function Base.convert(::Type{Material{T}}, m::Material) where {T <: Real}

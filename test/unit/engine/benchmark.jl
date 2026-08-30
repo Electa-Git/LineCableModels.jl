@@ -35,7 +35,7 @@
             (Y, relative_error)
         )
     )
-    @test comparison_observables isa Tuple
+    @test comparison_observables isa LineCableModels.Grammar.ObservationPublication
     @test comparison_observables[1].values ==
           1_000comparison.Z.absolute
     @test comparison_observables[2].values ==
@@ -100,7 +100,13 @@
         RMSError([2.0e-20 1.0e-5; 2.0e-5 3.0e-5], [0.5 0.01; 0.02 0.03]),
         RMSError([3.0e-20 2.0e-8; 3.0e-8 4.0e-8], [0.4 0.001; 0.002 0.003])
     )
-    table=DataFrame(displayed)
+    requests=(
+        (Z, absolute_error),
+        (Z, relative_error),
+        (Y, absolute_error),
+        (Y, relative_error)
+    )
+    table=DataFrame(observables(displayed, requests))
     @test names(table) == ["row", "column", "ΔZ", "εZ", "ΔY", "εY"]
     z_noise=only(eachrow(table[(table.row .== 1) .& (table.column .== 1), :]))
     y_signal=only(eachrow(table[(table.row .== 1) .& (table.column .== 2), :]))
@@ -108,7 +114,7 @@
     @test z_noise.εZ == 0.5
     @test y_signal.εY == 0.001
     @test displayed.Z.relative[1, 1] == 0.5
-    @test DataFrame(displayed; clip = false).ΔZ[1] ≈ 2.0e-17
+    @test DataFrame(observables(displayed, requests; clip = false)).ΔZ[1] ≈ 2.0e-17
     observed=LineCableModels.ReportBuilder.observation_columns(table)
     @test keys(observed) == (:ΔZ, :εZ, :ΔY, :εY)
     @test LineCableModels.Units.label(observed.ΔZ.unit) == "Ω/km"

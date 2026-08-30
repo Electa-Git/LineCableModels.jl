@@ -117,9 +117,11 @@ end
     add!(model, EP.EarthLayer(500.0, 20.0, 1.0))
 
     shown=sprint(show, "text/plain", model)
-    @test contains(shown, "2 horizontal earth layers (multilayer)")
-    @test contains(shown, "Layer 1 (air)")
-    @test contains(shown, "rho=100.0")
+    @test contains(shown, "EarthModel · 2 earth layers")
+    @test contains(shown, "air")
+    @test contains(shown, "layer 1")
+    @test contains(shown, "basement")
+    @test contains(shown, "ρ=100 Ω·m")
     @test !contains(shown, "frequency")
 end
 

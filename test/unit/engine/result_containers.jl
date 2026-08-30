@@ -22,9 +22,9 @@
     @test basis(constants) === :pul
     constants_display=sprint(show, constants)
     @test occursin("CableConstants(R=", constants_display)
-    @test occursin("Ω/m", constants_display)
-    @test occursin("H/m", constants_display)
-    @test occursin("F/m", constants_display)
+    @test occursin("Ω/km", constants_display)
+    @test occursin("mH/km", constants_display)
+    @test occursin("μF/km", constants_display)
     @test resistance(constants) === constants.R
     @test inductance(constants) === constants.L
     @test capacitance(constants) === constants.C
@@ -34,11 +34,13 @@
         constants,
         (R, L, C)
     )
-    @test constants_observables isa Tuple
+    @test constants_observables isa LineCableModels.Grammar.ObservationPublication
     @test first(constants_observables).values ≈ 1_000constants.R
     @test keys(first(constants_observables)) == (:values, :quantity, :unit)
-    @test names(DataFrame(constants)) == ["R", "L", "C"]
-    @test only(DataFrame(constants).R) == constants.R
+    constants_table=DataFrame(constants_observables)
+    @test names(constants_table) == ["R", "L", "C"]
+    @test only(constants_table.R) ≈ 1_000constants.R
+    @test_throws Exception DataFrame(constants)
 
     frequency=[50.0, 100.0, 200.0]
     angular=reshape(2π .* frequency, 1, 1, :)
@@ -91,7 +93,7 @@
             (Z, angle, 1, 2, Colon())
         )
     )
-    @test parameter_observables isa Tuple
+    @test parameter_observables isa LineCableModels.Grammar.ObservationPublication
     @test parameter_observables[1].values == frequency
     @test parameter_observables[2].values == resistance_values[1, 2, :]
     @test parameter_observables[4].values ≈
@@ -119,17 +121,19 @@
         @test basis(typeof(container)) === :total
         @test basis(container) === :total
     end
-    @test occursin("2×2×3 [Ω]", sprint(show, series))
-    @test occursin("2×2×3 [S]", sprint(show, shunt))
+    @test occursin("2×2×3", sprint(show, series))
+    @test occursin("unit=Ω", sprint(show, series))
+    @test occursin("2×2×3", sprint(show, shunt))
+    @test occursin("unit=S", sprint(show, shunt))
 
     reconstructed=LineParameters(series, shunt, frequency)
     @test reconstructed.Z === series
     @test reconstructed.Y === shunt
-    @test occursin("LineParameters{ComplexF64} 2×2×3 [total]", sprint(show, reconstructed))
+    @test occursin("LineParameters(phase domain; 2×2×3, basis=:total)", sprint(show, reconstructed))
     detailed=sprint(show, MIME"text/plain"(), reconstructed)
-    @test occursin("domain: PhaseDomain, frequencies: 3", detailed)
-    @test occursin("Z [Ω]", detailed)
-    @test occursin("Y [S]", detailed)
+    @test occursin("LineParameters · phase domain", detailed)
+    @test occursin("Z  2×2×3 · Ω", detailed)
+    @test occursin("Y  2×2×3 · S", detailed)
 
     promoted=LineParameters(
         SeriesImpedance(ComplexF32.(impedance); basis = :total),
@@ -173,7 +177,7 @@
         @observe(G[:, :, :]),
         @observe(C[:, :, :])
     )
-    parameter_table=DataFrame(parameters, requests)
+    parameter_table=DataFrame(observables(parameters, requests))
     @test parameter_table isa DataFrame
     @test names(parameter_table) == ["frequency", "row", "column", "R", "L", "G", "C"]
     @test nrow(parameter_table) == 12
@@ -191,24 +195,23 @@
     @test LineCableModels.Units.label(observed_columns.G.unit) == "S"
     @test LineCableModels.Units.label(observed_columns.C.unit) == "μF"
     @test DataFrames.metadata(parameter_table, "basis") === basis(parameters)
-    subset_table=DataFrame(parameters, (@observe(R[2, 1, 2:3]),))
+    subset_table=DataFrame(observables(parameters, (@observe(R[2, 1, 2:3]),)))
     @test subset_table.row == [2, 2]
     @test subset_table.column == [1, 1]
     @test subset_table.frequency == frequency[2:3]
     @test subset_table.R == resistance_values[2, 1, 2:3]
-    transformed_table=DataFrame(parameters, (
+    transformed_table=DataFrame(observables(parameters, (
         @observe((Z, abs)[:, :, :]),
         @observe((Y, angle)[:, :, :])
-    ))
+    )))
     @test names(transformed_table) ==
           ["frequency", "row", "column", "|Z|", "∠Y"]
     @test transformed_table[!, Symbol("|Z|")][1:4] ≈
           vec(abs.(impedance[:, :, 1]))[[1, 3, 2, 4]]
     @test transformed_table[!, Symbol("∠Y")][1:4] ≈
           rad2deg.(vec(angle.(admittance[:, :, 1]))[[1, 3, 2, 4]])
-    @test_throws ArgumentError DataFrame(parameters)
-    @test_throws ArgumentError DataFrame(parameters, (R, L, G, C))
-    @test_throws DimensionMismatch DataFrame(parameters, (
+    @test_throws Exception DataFrame(parameters)
+    @test_throws DimensionMismatch observables(parameters, (
         @observe(R[1, 1, :]),
         @observe(L[2, 1, :])
     ))
@@ -224,11 +227,11 @@
     @test_throws DomainError L(zero_frequency, 1, 1)
     @test_throws DomainError C(zero_frequency, 1, 1, 1)
     @test_throws DomainError C(zero_frequency)
-    @test DataFrame(zero_frequency, (
+    @test DataFrame(observables(zero_frequency, (
         @observe(R[:, :, :]),
         @observe(G[:, :, :])
-    )) isa DataFrame
-    @test_throws DomainError DataFrame(zero_frequency,
+    ))) isa DataFrame
+    @test_throws DomainError observables(zero_frequency,
         (
             @observe(R[:, :, :]),
             @observe(L[:, :, :]),
