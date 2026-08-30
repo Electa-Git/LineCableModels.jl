@@ -5,16 +5,21 @@ that implements that formulation. A formulation identifies the equations or
 mathematical method being requested and exists independently of a backend. A
 backend participates by defining the dispatch required to compute it.
 
-Formula identities are stable literature symbols. [`formula`](@ref) provides
-one uniform selection wrapper; the receiving keyword determines the owning
-formula family:
+Formula identities are stable literature symbols. Registered literature IDs
+use `:NameYYYY`, or at most `:NameNameYYYY` for a conventional joint name.
+They are local to the receiving formula family: `:Papadopoulos2010` can select
+the corresponding impedance law in `earth_impedance` and the corresponding
+potential-coefficient law in `earth_admittance` without `Z`, `Y`, `Internal`,
+or `External` suffixes. [`formula`](@ref) provides one uniform selection
+wrapper; the receiving keyword supplies that namespace:
 
 ```julia
 Formulation(
-    internal_impedance=formula(:Schelkunoff),
+    internal_impedance=formula(:Schelkunoff1934),
     insulation_impedance=formula(:Lossless),
     earth_impedance=formula(:Papadopoulos2010),
-    insulation_admittance=formula(:ParallelRC),
+    insulation_admittance=formula(:Marti2001),
+    semicon_admittance=formula(:Ametani2004),
     earth_admittance=formula(:Papadopoulos2010),
     earth_properties=formula(:CIGRE2019),
     equivalent_earth=formula(:Xue2021; order=:after),
@@ -44,7 +49,7 @@ without spelling the whole recipe again:
 
 ```julia
 formula = InternalImpedance.Formula(
-    :Schelkunoff;
+    :Schelkunoff1934;
     inner=my_inner_surface_formula,
 )
 ```
@@ -59,9 +64,17 @@ The workspace resolves one `EarthPair` for every upper-triangular cable
 interaction. A pair carries its physical heights, separation, and source and
 target earth-layer indices. The frequency functor receives that pair at its
 leaf call, so a route can distinguish overhead, underground, and mixed
-interactions without rebuilding the full recipe. Built-in homogeneous routes
-reject layer combinations outside the source formula's domain; an experiment
-can replace only the affected `self` or `mutual` route.
+interactions without rebuilding the full recipe. A single `:Pollaczek1926`
+entry consequently owns its overhead, underground, and mixed impedance and
+potential-coefficient leaves. The shared overhead integral is also selectable
+directly as `:Carson1926`. `:Ametani2009` and `:Lucca1994` retain Carson and
+Pollaczek for same-medium pairs and replace the mixed leaf with the selected
+author's approximation. `:MartinsBritto2024` follows the same pair-complete
+rule.
+Support derivations do not become public formula IDs: the surface and
+penetration-depth checks used by `:Xue2018` remain named leaves in its route
+tuple, while the infinite-depth result is its default. An experiment can
+replace any exposed leaf without creating another registry entry.
 
 Each built-in formula lives in one `formulas/authoryear.jl` file. Formula
 modules include those files in sorted order and require each file to return its
@@ -69,12 +82,15 @@ unique `Symbol` identifier. This is source discovery only: the hot loop has no
 runtime registry or dictionary lookup. A contributed file defines its routes,
 assumptions, formula call, and functor leaf dispatch together.
 
-Insulation impedance and admittance use the same discovery rule but have one
-complete scalar route per formula rather than self/mutual interaction tables.
-`InsulationImpedance.formulas()` currently reports `:Lossless`;
-`InsulationAdmittance.formulas()` reports `:Lossless` and `:ParallelRC`.
-Both are selected uniformly through their owning `Formulation` slots. A
-complete experimental scalar law can be supplied with `formula(:Lossless;
+Insulation impedance uses the same discovery rule with one complete scalar
+route per formula. Insulation and semicon admittance formulas are constitutive
+relations applied to the full physical `Material` at each frequency; the
+Coaxial Engine owns the common annular geometry and radial series aggregation.
+`InsulationImpedance.formulas()` includes `:Ametani1980` and `:Lossless`;
+`InsulationAdmittance.formulas()` includes `:Gustavsen2013` and `:Marti2001`;
+`SemiconAdmittance.formulas()` includes `:Ametani2004`. They are selected
+uniformly through `insulation_admittance` and `semicon_admittance`. A complete
+experimental constitutive law can be supplied with `formula(:Marti2001;
 route=my_route)` without changing the Coaxial matrix-assembly loop.
 
 Frequency-dependent soil laws and equivalent homogeneous-earth models belong
@@ -111,15 +127,14 @@ resolved relation is concrete before the frequency scan. An external EHEM can
 similarly use `EarthProps.EHEM.Formula(:Experiment, route, assumptions)` and
 select its ordering with `AfterFD` or `BeforeFD`.
 
-For example, `:Saad` is an Engine-owned earth-impedance identity. The
-`LineCableModelsCoaxial` backend currently defines no evaluation method for it,
-so its computation fails with an ordinary `MethodError`.
-The PSCAD backend defines the corresponding PSCAD input mapping and can execute
-the same formulation. There is no `ReferenceEarthImpedance` category: whether
-a backend implements a formulation does not change the formulation's place in
-the scientific vocabulary. `Deri`, `Wedepohl`, `Saad`, `Ametani`, and `Lucca`
-describe formulae applicable to homogeneous-earth models. Backend support is
-not a type-hierarchy category.
+There is no `ReferenceEarthImpedance` category: whether a backend implements a
+formulation does not change the formulation's place in the scientific
+vocabulary. `:DeriSemlyen1981`, `:WedepohlWilcox1973`, `:Saad1996`,
+`:Ametani2009`, and `:Lucca1994` describe formulae applicable to
+homogeneous-earth models. All except the explicit PSCAD-only
+`:DeriSemlyen1981` vocabulary are executable by the Coaxial backend; the PSCAD
+backend independently maps the identifiers it supports to its own input
+fields. Backend support is not a type-hierarchy category.
 
 PSCAD's direct numerical integration setting is different. PSCAD exposes a
 numerical integration choice through the same input field that selects an

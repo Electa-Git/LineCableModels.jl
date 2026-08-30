@@ -1,9 +1,9 @@
 """
     LineCableModels.Engine.InsulationAdmittance
 
-Define registered shunt-admittance formulas for cable insulation. `:Lossless`
-retains capacitance only. `:ParallelRC` retains capacitance and dielectric
-conductance.
+Define registered constitutive relations for cable-insulation admittance.
+`:Marti2001` retains parallel conductance and capacitance;
+`:Gustavsen2013` selects the conventional lossless approximation.
 
 # Dependencies
 
@@ -21,8 +21,10 @@ export Formula, formula_id, assumptions, formulas
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 import ..Engine: InsulationAdmittanceFormulation, formula_id
+using ...Materials: Material
+import ...LineCableModels: constitutive
 #! explicit-imports: off
-import ..Engine: conductivity, description
+import ..Engine: description
 #! explicit-imports: on
 
 include("interface.jl")

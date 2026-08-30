@@ -1,0 +1,47 @@
+assumptions(::Val{:Ametani2004}) = (;)
+
+function description(::Formula{:Ametani2004})
+    "Ametani semiconducting-screen admittance model (2004)"
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Retain semiconducting-screen conductivity and permittivity in Ametani's
+complex-permittivity representation:
+
+```math
+\\varepsilon_s^\\star=\\varepsilon_s+\\frac{1}{j\\omega\\rho_s},
+\\qquad
+\\kappa_s=\\frac{1}{\\rho_s}+j\\omega\\varepsilon_s.
+```
+
+The common Coaxial Engine operator applies the annular geometry and combines
+the semiconducting screen with adjacent dielectric layers radially in series.
+
+# Arguments
+
+- `material`: Static semiconducting-screen properties.
+- `frequency`: Evaluation frequency \\[Hz\\].
+- `temperature`: Operating temperature \\[°C\\].
+- `values`: Formula assumptions.
+
+# Returns
+
+- The unchanged semiconducting material.
+
+# References
+
+A. Ametani, Y. Miyamoto, and N. Nagaoka, 2004, as reproduced in Ametani,
+Ohno, and Nagaoka (2015), Eqs. 2.66–2.67.
+"""
+@inline function (::Functor{:Ametani2004})(
+        material::Material,
+        frequency::Real,
+        temperature::Real,
+        values::NamedTuple
+)
+    return material
+end
+
+:Ametani2004

@@ -1,0 +1,80 @@
+routes(::Val{:Pettersson1994}) = (
+    self = pettersson1994,
+    mutual = pettersson1994,
+    Γ = pettersson1994_gamma
+)
+
+function assumptions(::Val{:Pettersson1994})
+    (
+        air = _full,
+        earth = _full,
+        permeability = vacuum_permeability
+    )
+end
+
+propagation(::Val{:Pettersson1994}) = Val(:zero)
+function description(::Formula{:Pettersson1994})
+    "Pettersson wideband image potential coefficient (1994)"
+end
+
+pettersson1994_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))
+
+function (formula::Formula{:Pettersson1994})(
+        rho, epsilon, mu, jω, Γ, segments = nothing
+)
+    return _homogeneous_functor(
+        Val(:Pettersson1994), formula, rho, epsilon, mu, jω, Γ, segments
+    )
+end
+
+raw"""
+Evaluate Pettersson's wideband overhead earth potential coefficient:
+
+```math
+P_{e,ij}=\frac{1}{2\pi\varepsilon_0}\ln\frac{D_{ij}}{d_{ij}}
++N_{e,ij},
+```
+
+```math
+N_{e,ij}=\frac{1}{(n^2+1)\pi\varepsilon_0}
+\ln\frac{\sqrt{[H+(n^2+1)/\beta_\gamma]^2+y_{ij}^2}}{D_{ij}},
+```
+
+```math
+n^2=\varepsilon_{rg}+\frac{\sigma_g}{j\omega\varepsilon_0},
+\qquad
+\beta_\gamma=\sqrt{\gamma_g^2-\gamma_0^2}.
+```
+
+The 2020 secondary transcription omits the perfect-ground coefficient
+``1/(2\pi\varepsilon_0)`` in its admittance equation and a square in the
+radicand of ``N_{e,ij}``; both are restored here so that the terms have the
+published potential-coefficient dimensions and the image distance has units
+of length.
+
+# Reference
+
+P. Pettersson, "Image representation of wave propagation on wires above,
+on and under ground," *IEEE Transactions on Power Delivery*, vol. 9,
+pp. 1049-1055, 1994. DOI: 10.1109/61.296290.
+"""
+function pettersson1994(functor, pair)
+    _require(pair, Val(:overhead))
+    state = functor.state
+    geometry = _geometry(pair)
+    γ0_squared, γg_squared = state.gamma_medium_squared
+    βγ = sqrt(γg_squared - γ0_squared)
+    n_squared = state.epsilon[2] / state.epsilon[1] +
+                state.sigma[2] / (state.jω * state.epsilon[1])
+    image = sqrt(
+        (geometry.H + (n_squared + 1) / βγ)^2 + geometry.y_ij^2
+    )
+    πT = one(geometry.H) * π
+    perfect = log(geometry.D_ij / geometry.d_ij) /
+              (2πT * state.epsilon[1])
+    correction = log(image / geometry.D_ij) /
+                 ((n_squared + 1) * πT * state.epsilon[1])
+    return perfect + correction
+end
+
+:Pettersson1994

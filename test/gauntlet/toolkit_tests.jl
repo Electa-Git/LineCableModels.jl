@@ -77,9 +77,9 @@
             frequencies = problem.frequencies
         )
         formulation=Formulation(
-            earth_impedance = :Pollaczek,
+            earth_impedance = :Pollaczek1926,
             earth_admittance = :IdealGround,
-            insulation_admittance = formula(:Lossless),
+            insulation_admittance = formula(:Gustavsen2013),
             options = (kron_reduction = false, reduce_bundle = false)
         )
         reference_problem=LineParametersProblem(
@@ -90,7 +90,7 @@
         )
         reference_formulation=Formulation(
             :pscad;
-            earth_impedance = :Wedepohl
+            earth_impedance = :WedepohlWilcox1973
         )
         tolerances=(
             reference = (
@@ -893,9 +893,9 @@ end
         )
     )
     inner=Formulation(
-        earth_impedance = :Pollaczek,
+        earth_impedance = :Pollaczek1926,
         earth_admittance = :IdealGround,
-        insulation_admittance = formula(:Lossless),
+        insulation_admittance = formula(:Gustavsen2013),
         options = (
             kron_reduction = false,
             reduce_bundle = false,
@@ -936,15 +936,15 @@ end
             variation = ExactOverrides(frequencies = [50.0])
         )
         pollaczek=Formulation(
-            earth_impedance = :Pollaczek,
+            earth_impedance = :Pollaczek1926,
             earth_admittance = :IdealGround,
-            insulation_admittance = formula(:Lossless),
+            insulation_admittance = formula(:Gustavsen2013),
             options = (kron_reduction = false, reduce_bundle = false)
         )
         papadopoulos=Formulation(
             earth_impedance = :Papadopoulos2010,
             earth_admittance = :IdealGround,
-            insulation_admittance = formula(:Lossless),
+            insulation_admittance = formula(:Gustavsen2013),
             options = (kron_reduction = false, reduce_bundle = false)
         )
         limits=(
@@ -991,8 +991,8 @@ end
     using .GauntletSupport
 
     harness=GauntletSupport.PSCADBenchmarks
-    overhead=Formulation(:pscad; earth_impedance = :Deri)
-    underground=Formulation(:pscad; earth_impedance = :Wedepohl)
+    overhead=Formulation(:pscad; earth_impedance = :DeriSemlyen1981)
+    underground=Formulation(:pscad; earth_impedance = :WedepohlWilcox1973)
     @test overhead isa harness.PSCADFormulation
     @test underground isa harness.PSCADFormulation
     @test hasmethod(
@@ -1004,11 +1004,13 @@ end
         Tuple{LineParametersProblem, harness.PSCADFormulation}
     )
     @test harness.pscad_field(overhead.earth_impedance) === :EarthForm2
-    @test EarthImpedance.formula_id(overhead.earth_impedance) === :Deri
+    @test EarthImpedance.formula_id(overhead.earth_impedance) ===
+          :DeriSemlyen1981
     @test harness.pscad_value(overhead.earth_impedance) == 0
     @test harness.pscad_readback(overhead.earth_impedance) == "DERISEMLYEN"
     @test harness.pscad_field(underground.earth_impedance) === :EarthForm
-    @test EarthImpedance.formula_id(underground.earth_impedance) === :Wedepohl
+    @test EarthImpedance.formula_id(underground.earth_impedance) ===
+          :WedepohlWilcox1973
     @test harness.pscad_readback(underground.earth_impedance) == "WEDEPOHL"
     @test description(overhead.earth_admittance) == "PSCAD native earth admittance"
     @test description(overhead.insulation_admittance) ==
@@ -1018,20 +1020,20 @@ end
     @test overhead.options == (;)
     @test_throws ArgumentError Formulation(
         :pscad;
-        earth_impedance = :Wedepohl,
+        earth_impedance = :WedepohlWilcox1973,
         options = (output_stem = "525kV_bipole",)
     )
     @test !isdefined(EarthImpedance, :ReferenceEarthImpedance)
     @test !isdefined(EarthImpedance, :DirectNumericalIntegration)
 
     methods=(
-        EarthImpedance.Formula(:Deri),
+        EarthImpedance.Formula(:DeriSemlyen1981),
         harness.DirectNumericalIntegration(:overhead),
-        EarthImpedance.Formula(:Wedepohl),
+        EarthImpedance.Formula(:WedepohlWilcox1973),
         harness.DirectNumericalIntegration(:underground),
-        EarthImpedance.Formula(:Saad),
-        EarthImpedance.Formula(:Ametani),
-        EarthImpedance.Formula(:Lucca)
+        EarthImpedance.Formula(:Saad1996),
+        EarthImpedance.Formula(:Ametani2009),
+        EarthImpedance.Formula(:Lucca1994)
     )
     @test all(
         method -> Formulation(:pscad; earth_impedance = method) isa
@@ -1041,12 +1043,11 @@ end
                   LineCableModels.Engine.EarthImpedanceFormulation,
         methods
     )
-    @test harness.pscad_field(EarthImpedance.Formula(:Saad)) === :EarthForm
-    @test harness.pscad_readback(EarthImpedance.Formula(:Lucca)) == "LUCCA"
-    @test_throws MethodError EarthImpedance.Formula(:Wedepohl)(:self)
+    @test harness.pscad_field(EarthImpedance.Formula(:Saad1996)) === :EarthForm
+    @test harness.pscad_readback(EarthImpedance.Formula(:Lucca1994)) == "LUCCA"
     unsupported=Formulation(
         :pscad;
-        earth_impedance = :Carson
+        earth_impedance = :Pollaczek1926
     )
     @test unsupported isa harness.PSCADFormulation
     @test_throws MethodError harness.pscad_field(unsupported.earth_impedance)
@@ -1211,7 +1212,7 @@ end
         raw"Z:\gauntlet\benchmarks\.work\case\current",
         raw"C:\gauntlet\case\current",
         "generated",
-        Formulation(:pscad; earth_impedance = :Saad),
+        Formulation(:pscad; earth_impedance = :Saad1996),
         frequency_probe;
         output_stem = "saad",
         verbosity = 0

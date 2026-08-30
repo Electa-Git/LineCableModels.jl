@@ -195,7 +195,11 @@ abstract type EarthImpedanceFormulation <: AbstractImpedanceFormulation end
 
 abstract type AbstractAdmittanceFormulation <: AbstractFormulation end
 abstract type InsulationAdmittanceFormulation <: AbstractAdmittanceFormulation end
+abstract type SemiconAdmittanceFormulation <: AbstractAdmittanceFormulation end
 abstract type EarthAdmittanceFormulation <: AbstractAdmittanceFormulation end
+
+"Return whether an earth formulation consumes homogeneous or stratified media."
+media(::Union{EarthImpedanceFormulation, EarthAdmittanceFormulation}) = Val(:homogeneous)
 
 "Route an explicit external formulation tag to its `Val` dispatch method."
 Formulation(backend::Symbol; kwargs...) = Formulation(Val(backend); kwargs...)

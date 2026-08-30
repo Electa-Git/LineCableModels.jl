@@ -37,7 +37,7 @@ export LineCableModelsCoaxial, LineCableModelsFEM, LineCableModelsFEMOptions,
 export constitutive, formula_id, EarthPair
 export verbosity
 export InternalImpedance, InsulationImpedance, EarthImpedance
-export InsulationAdmittance, EarthAdmittance
+export InsulationAdmittance, SemiconAdmittance, EarthAdmittance
 
 export compute, plot
 
@@ -105,6 +105,10 @@ using .EarthImpedance: EarthImpedance
 # Submodule `InsulationAdmittance`
 include("insulationadmittance/InsulationAdmittance.jl")
 using .InsulationAdmittance: InsulationAdmittance
+
+# Submodule `SemiconAdmittance`
+include("semiconadmittance/SemiconAdmittance.jl")
+using .SemiconAdmittance: SemiconAdmittance
 
 # Submodule `EarthAdmittance`
 include("earthadmittance/EarthAdmittance.jl")

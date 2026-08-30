@@ -51,6 +51,7 @@ Modules = [
     LineCableModels.Engine.EarthAdmittance,
     LineCableModels.Engine.EarthImpedance,
     LineCableModels.Engine.InsulationAdmittance,
+    LineCableModels.Engine.SemiconAdmittance,
     LineCableModels.Engine.InsulationImpedance,
     LineCableModels.Engine.InternalImpedance,
     LineCableModels.Transforms,

@@ -33,7 +33,7 @@
         @test reduced.dielectric.material.mu_r ≈ source.dielectric.material.mu_r
     end
     flattening_formulation=Formulation(
-        insulation_admittance = formula(:ParallelRC),
+        insulation_admittance = formula(:Marti2001),
         earth_admittance = :IdealGround
     )
     source_at_flattening_frequency=CableConstants(
