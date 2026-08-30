@@ -44,6 +44,8 @@ const EXTENSION_API_OBJECTS = (
     LineCableModels.Grammar.request_identity,
     LineCableModels.Grammar.request_quantity,
     LineCableModels.Grammar.request_indices,
+    LineCableModels.Grammar.ObservationPublication,
+    LineCableModels.Grammar.publication_table,
     LineCableModels.Grammar.orchestrator_root,
     LineCableModels.Grammar.orchestrator_method,
     LineCableModels.Units.family,

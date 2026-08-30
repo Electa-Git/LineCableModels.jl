@@ -43,7 +43,7 @@ set_backend!(:cairo); #hide
 
 # Initialize materials library with default values:
 materials = MaterialsLibrary(add_defaults = true)
-materials_summary = materials
+materials
 
 #=
 ```julia
@@ -83,7 +83,7 @@ t_wbt = .3e-3      # nominal thickness of the water blocking tape
 t_sct = .3e-3      # nominal thickness of the semiconductive tape
 t_alt = .15e-3     # nominal thickness of the aluminum tape
 t_pet = .05e-3     # nominal thickness of the pe face in the aluminum tape
-t_jac = 2.4e-3     # nominal PE jacket thickness
+t_jac = 2.4e-3;    # nominal PE jacket thickness
 
 layer_names = ( #hide
     "Conductor", "Inner semiconductive tape", "Inner semiconductor", #hide
@@ -101,15 +101,15 @@ radial_increments = ( #hide
 ) #hide
 layer_diameters = d_core .+ 2 .* cumsum(radial_increments) #hide
 
-# The cable structure is summarized in a table for better visualization, with dimensions in milimiters:
-df = DataFrame( #hide
-    layer = layer_names, #hide
-    thickness = [ #hide
-                 ismissing(t) ? "-" : round(1000t, sigdigits = 2)
-                 for t in layer_thicknesses #hide
-                 ], #hide
-    diameter = round.(1000 .* layer_diameters, digits = 2) #hide
-) #hide
+# The cable structure is summarized in a row-wise table with dimensions in millimeters:
+cable_dimensions = DataFrame(
+    "layer" => collect(layer_names),
+    "thickness [mm]" => [
+        ismissing(t) ? missing : round(1000t, sigdigits = 2)
+        for t in layer_thicknesses
+    ],
+    "diameter [mm]" => collect(round.(1000 .* layer_diameters, digits = 2))
+)
 
 #=
 ## Describing the cable
@@ -125,7 +125,7 @@ is the physical order from the cable centre to its outside surface.
 
 The core consists of a central wire and four concentric AAAC layers with 61
 wires arranged in a (1/6/12/18/24) pattern. The respective lay ratios are
-(15/13.5/12.5/11) [CENELEC50182](@cite). [`strand`](@ref) retains every
+(15/13.5/12.5/11) [CENELEC50182](@cite). [`stranded`](@ref) retains every
 physical strand and the layer-specific longitudinal paths required for
 resistance and GMR calculations.
 =#
@@ -136,18 +136,18 @@ copper = Material(materials, :copper)
 polyacrylate = Material(materials, :polyacrylate)
 semicon1 = Material(materials, :semicon1)
 semicon2 = Material(materials, :semicon2)
-pe = Material(materials, :pe)
+pe = Material(materials, :pe);
 
 # State the actual strand count and lay of every noncentral layer. These are the
 # physical declarations reported for this conductor, not inputs from which the
 # API must infer another layout:
-stranded_core = strand(
+stranded_core = stranded(
     aluminum;
-    wire = Disk(d_w / 2),
+    shape = Disk(d_w / 2),
     layers = 4,
     n = (6, 12, 18, 24),
     lay = LayRatio.((15.0, 13.5, 12.5, 11.0))
-)
+);
 
 #=
 ### Inner semiconductor
@@ -202,11 +202,11 @@ screen_wire_locus = conductor_outer + t_sct + t_sc_in + t_ins +
                     t_sc_out + t_sct + d_ws / 2
 screen_tape_inner = screen_wire_locus + d_ws / 2
 screen_tape_outer = screen_tape_inner + t_cut
-screen_tape_span = w_cut / ((screen_tape_inner + screen_tape_outer) / 2)
+screen_tape_span = w_cut / ((screen_tape_inner + screen_tape_outer) / 2);
 
 # Keep catalogue data beside the physical model rather than inside it:
 cable_id = "18kV_1000mm2"
-datasheet_info = (
+datasheet_info = DatasheetInfo(
     designation_code = "NA2XS(FL)2Y",
     U0 = 18.0,                        # Phase-to-ground voltage [kV]
     U = 30.0,                         # Phase-to-phase voltage [kV]
@@ -222,16 +222,16 @@ datasheet_info = (
 cable_design = @cable cable_id begin
     @terminal :core begin
         stranded_core
-        screen(polyacrylate; t = t_sct, tag = :core_semicon_tape_inner)
-        screen(semicon1; t = t_sc_in, tag = :core_semicon_inner)
-        insulation(pe; t = t_ins, tag = :core_insulation)
-        screen(semicon2; t = t_sc_out, tag = :core_semicon_outer)
-        screen(polyacrylate; t = t_sct, tag = :core_semicon_tape_outer)
+        screen(polyacrylate; t = t_sct)
+        screen(semicon1; t = t_sc_in)
+        insulation(pe; t = t_ins)
+        screen(semicon2; t = t_sc_out)
+        screen(polyacrylate; t = t_sct)
     end
     @terminal :sheath begin
         wires(
             copper;
-            wire = Disk(d_ws / 2),
+            shape = Disk(d_ws / 2),
             n = num_sc_wires,
             r = screen_wire_locus,
             lay = LayRatio(10),
@@ -250,15 +250,15 @@ cable_design = @cable cable_id begin
             tag = :copper_tape
         )
     end
-    screen(polyacrylate; t = t_wbt, tag = :sheath_water_blocking)
+    screen(polyacrylate; t = t_wbt)
     @terminal :jacket begin
-        sheath(aluminum; t = t_alt, tag = :aluminum_barrier)
+        sheath(aluminum; t = t_alt)
     end
-    jacket(pe; t = t_pet, tag = :jacket_pe_face)
-    jacket(pe; t = t_jac, tag = :jacket_insulation)
-end
+    jacket(pe; t = t_pet)
+    jacket(pe; t = t_jac)
+end;
 cable_library = CablesLibrary()
-add!(cable_library, cable_design; catalogue = datasheet_info)
+add!(cable_library, cable_design; catalogue = datasheet_info);
 
 # Inspect the one completed physical design:
 cable_plot = preview(
@@ -276,11 +276,11 @@ In this section, the cable design is examined and the calculated parameters are 
 
 # Calculate the cable constants explicitly. Scientific extraction and tabular
 # presentation are separate consumers of the completed result:
-constants = CableConstants(cable_design)
+constants = CableConstants(cable_design);
+constants
 
-# The native DataFrames adapter returns the complete R/L/C result in its stored
-# per-length units:
-constants_table = DataFrame(constants)
+# A table is constructed only from the explicit detached publication:
+constants_table = DataFrame(observables(constants, (R, L, C)))
 
 # Materialize the homogeneous equivalent only when that design is
 # itself the requested product:
@@ -290,17 +290,17 @@ equivalent_summary = equivalent_design
 # `observables` publishes detached values in the units conventionally used by
 # cable manufacturers. The two rows identify real comparison sources; the
 # physical quantities remain separate columns:
-published_constants = observables(constants, (R, L, C))
+published_constants = observables(constants, (R, L, C));
 datasheet_comparison = DataFrame(
     source = ("calculated", "datasheet"),
     R = (published_constants[1].values, datasheet_info.resistance),
     L = (published_constants[2].values, datasheet_info.inductance),
     C = (published_constants[3].values, datasheet_info.capacitance)
 )
-comparison_units = map(payload -> payload.unit, published_constants)
+comparison_units = map(payload -> payload.unit, published_constants);
 
 # Inspect the completed physical design through its bounded Base display:
-design_summary = cable_design
+cable_design
 
 #=
 ## Saving the cable design
@@ -313,8 +313,8 @@ design_summary = cable_design
 
 # Store the cable design and inspect the library contents:
 library = CablesLibrary()
-add!(library, cable_design)
-library_summary = library
+add!(library, cable_design);
+library
 
 # Save to file for later use:
 output_file = fullfile("cables_library.json")
@@ -323,8 +323,8 @@ save(library, file_name = output_file);
 # Load the saved design into a fresh library and retrieve it by identifier:
 loaded_library = CablesLibrary()
 load!(loaded_library, file_name = output_file)
-loaded_design = get(loaded_library, cable_id)
-loaded_library_summary = loaded_library
+loaded_design = get(loaded_library, cable_id);
+loaded_library
 
 #=
 ### Defining a cable system
@@ -344,7 +344,7 @@ The earth return path significantly affects cable impedance calculations and nee
 
 # Define a frequency scan and typical homogeneous-soil properties:
 f = collect(10.0 .^ range(0, stop = 6, length = 10)) # 1 Hz to 1 MHz
-earth = Earth(rho = 100.0, eps_r = 10.0, mu_r = 1.0)
+earth = Earth(rho = 100.0, eps_r = 10.0, mu_r = 1.0);
 
 #=
 ### Three-phase system in trefoil configuration
@@ -368,10 +368,10 @@ problem = LineParametersProblem(
     earth_props = earth,
     frequencies = f
 )
-earth_params = problem.earth_props
+earth_params = problem.earth_props;
 
 # Inspect the static earth declaration:
-earth_summary = earth_params
+earth_params
 
 #=
 !!! note "Phase mapping"
@@ -388,7 +388,7 @@ In this section the complete three-phase cable system is examined.
 =#
 
 # Display system details:
-system_summary = cable_system
+cable_system
 
 # Visualize the cross-section of the three-phase system:
 plt4 = preview(

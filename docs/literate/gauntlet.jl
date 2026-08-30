@@ -118,7 +118,15 @@ comparison.Z.absolute
 # while absolute and relative Z and Y errors occupy their own columns. No
 # display threshold suppresses the comparison values.
 
-errors = DataFrame(comparison)
+errors = DataFrame(observables(
+    comparison,
+    (
+        (Z, absolute_error),
+        (Z, relative_error),
+        (Y, absolute_error),
+        (Y, relative_error),
+    ),
+))
 errors
 
 # The modified Y mutual term appears directly in the corresponding wide-table

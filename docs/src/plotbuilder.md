@@ -223,8 +223,8 @@ observed = observables(
     parameters,
     (
         (frequencies, Colon()),
-        Z,
-        Y
+        (@observe Z[:, :, :]),
+        (@observe Y[:, :, :])
     )
 )
 frequency_observation, impedance_observation, admittance_observation = observed

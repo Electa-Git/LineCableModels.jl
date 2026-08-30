@@ -136,14 +136,21 @@ it does not bound the mean error or the joint distribution.
 
 ## Tables and reports
 
-DataFrames constructors return one wide table. Coordinates identify rows and
-each requested quantity occupies one column:
+An observation publication is a Tables.jl source. Coordinates identify rows
+and each requested quantity occupies one column:
 
 ```julia
 using DataFrames
 
-table = DataFrame(parameters, (@observe(R[:, :, :]), @observe(L[:, :, :])))
-summary = DataFrame(sampled)
+table = DataFrame(observables(
+    parameters,
+    (@observe(R[:, :, :]), @observe(L[:, :, :])),
+))
+summary = DataFrame(observables(
+    sampled,
+    ((statistics, R, 1), (statistics, L, 1),
+     (statistics, G, 1), (statistics, C, 1)),
+))
 ```
 
 [`report`](@ref) creates an in-memory table or a written report from explicit

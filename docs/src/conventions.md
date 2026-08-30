@@ -176,6 +176,50 @@ Do not inspect UQ storage fields from plotting or reporting code. `samples`,
 `statistics`, and `histograms` select stored products; the scientific selector
 still identifies the physical quantity.
 
+## Text display and table boundaries
+
+Human inspection, scientific extraction, and tabulation are separate actions:
+
+```text
+show             bounded semantic inspection
+preview          geometric inspection
+observables      detached scientific publication
+DataFrame/report tabulation of that publication
+JSON             persistence
+```
+
+Each public owned type defines `summary`, two-argument `show`, and
+`show(::MIME"text/plain", ...)`. The two-argument form is one line. Rich output
+honours `:compact`, `:limit`, and `displaysize(io)`, reports truncation, uses
+engineering notation, and omits inactive fields. Libraries sort their keys.
+Result displays summarize dimensions and ranges; numerical values remain
+available through `observe` and `observables`.
+
+Display reads stored state only. A display method must not call `build`,
+`resolve`, `compute`, `observables`, construct a `DataFrame`, materialize a
+`Gridspace`, tessellate geometry, or load a plotting backend.
+
+Domain objects do not implement Tables.jl and do not receive direct
+`DataFrame(domain_object)` adapters. The qualified
+`Grammar.ObservationPublication` is the table boundary:
+
+```julia
+published = observables(
+    parameters,
+    (
+        @observe(R[:, :, :]),
+        @observe(L[:, :, :]),
+    );
+    length_unit = :kilo,
+)
+
+table = DataFrame(published)
+```
+
+Coordinates identify rows, while each scientific quantity occupies one
+column. ReportBuilder consumes the same publication rather than reopening the
+result or maintaining another conversion path.
+
 ## Docstrings
 
 Docstrings use DocStringExtensions abbreviations so declarations remain aligned

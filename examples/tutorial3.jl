@@ -37,7 +37,7 @@ set_backend!(:cairo); #hide
 materials = MaterialsLibrary(add_defaults = true)
 
 # Inspect the contents of the materials library:
-materials_summary = materials
+materials
 
 #=
 ## Cable dimensions
@@ -58,7 +58,7 @@ t_sc = 3.3e-3      # nominal lead screen thickness
 t_pe = 3e-3        # nominal PE inner sheath thickness
 t_bed = 3e-3       # nominal thickness of the PP bedding
 d_wa = 5.827e-3    # nominal armor wire diameter
-t_jac = 10e-3      # nominal PP jacket thickness
+t_jac = 10e-3;     # nominal PP jacket thickness
 
 layer_names = ( #hide
     "Conductor", "Inner semiconductor", "Main insulation", #hide
@@ -73,20 +73,20 @@ radial_increments = ( #hide
 ) #hide
 layer_diameters = d_core .+ 2 .* cumsum(radial_increments) #hide
 
-# The cable structure is summarized in a table for better visualization, with dimensions in milimiters:
-df = DataFrame( #hide
-    layer = layer_names, #hide
-    thickness = [ #hide
-                 ismissing(t) ? "-" : round(1000t, sigdigits = 2)
-                 for t in layer_thicknesses #hide
-                 ], #hide
-    diameter = round.(1000 .* layer_diameters, digits = 2) #hide
-) #hide
+# The cable structure is summarized in a row-wise table with dimensions in millimeters:
+cable_dimensions = DataFrame(
+    "layer" => collect(layer_names),
+    "thickness [mm]" => [
+        ismissing(t) ? missing : round(1000t, sigdigits = 2)
+        for t in layer_thicknesses
+    ],
+    "diameter [mm]" => collect(round.(1000 .* layer_diameters, digits = 2))
+)
 
 #=
 ## Core and main insulation
 
-The conductor has a central wire and six concentric courses. [`strand`](@ref)
+The conductor has a central wire and six concentric courses. [`stranded`](@ref)
 retains the (1/6/12/18/24/30/36) individual wires and the longitudinal paths
 needed for the helical corrections.
 =#
@@ -99,16 +99,16 @@ pe = Material(materials, :pe)
 polyacrylate = Material(materials, :polyacrylate)
 lead = Material(materials, :lead)
 pp = Material(materials, :pp)
-steel = Material(materials, :steel)
+steel = Material(materials, :steel);
 
 # State the actual population and lay of every noncentral conductor course:
-stranded_core = strand(
+stranded_core = stranded(
     copper;
-    wire = Disk(d_w / 2),
+    shape = Disk(d_w / 2),
     layers = 6,
     n = (6, 12, 18, 24, 30, 36),
     lay = LayRatio.((11.0, 11.0, 11.0, 11.0, 11.0, 11.0))
-)
+);
 
 #=
 ### Inner semiconductor
@@ -129,7 +129,7 @@ Outer semiconductor (500 Ω.m as per IEC 840):
 =#
 
 cable_id = "525kV_1600mm2"
-datasheet_info = (
+datasheet_info = DatasheetInfo(
     designation_code = "(N)2XH(F)RK2Y",
     U0 = 500.0,                        # Phase (pole)-to-ground voltage [kV]
     U = 525.0,                         # Phase (pole)-to-phase (pole) voltage [kV]
@@ -158,29 +158,29 @@ bedding are contextual layers and therefore state only their thickness.
 cable_design = @cable cable_id begin
     @terminal :core begin
         stranded_core
-        screen(semicon1; t = t_sc_in, tag = :core_semicon_inner)
-        insulation(pe; t = t_ins, tag = :core_insulation)
-        screen(semicon2; t = t_sc_out, tag = :core_semicon_outer)
-        screen(polyacrylate; t = t_wbt, tag = :core_water_blocking)
+        screen(semicon1; t = t_sc_in)
+        insulation(pe; t = t_ins)
+        screen(semicon2; t = t_sc_out)
+        screen(polyacrylate; t = t_wbt)
     end
     @terminal :sheath begin
-        sheath(lead; t = t_sc, tag = :lead_sheath)
+        sheath(lead; t = t_sc)
     end
-    jacket(pe; t = t_pe, tag = :sheath_inner)
-    bedding(pp; t = t_bed, tag = :sheath_bedding)
+    jacket(pe; t = t_pe)
+    bedding(pp; t = t_bed)
     @terminal :armor begin
         armor(
             steel;
-            wire = Disk(d_wa / 2),
+            shape = Disk(d_wa / 2),
             n = num_ar_wires,
             lay = LayRatio(10),
             tag = :armor_wire
         )
     end
-    jacket(pp; t = t_jac, tag = :armor_jacket)
-end
+    jacket(pp; t = t_jac)
+end;
 cable_library = CablesLibrary()
-add!(cable_library, cable_design; catalogue = datasheet_info)
+add!(cable_library, cable_design; catalogue = datasheet_info);
 
 # Inspect the finished cable design:
 plt1 = preview(
@@ -203,13 +203,14 @@ available. SVG export always includes the complete legend.
 =#
 
 # Calculate the cable constants explicitly:
-constants = CableConstants(cable_design)
+constants = CableConstants(cable_design);
+constants
 
 # Publish detached scientific observations without reaching into result fields:
-published_constants = observables(constants, (R, L, C))
+published_constants = observables(constants, (R, L, C));
 
-# Use the native DataFrames adapter when a complete tabular result is wanted:
-constants_table = DataFrame(constants)
+# Construct a table from the explicit detached publication:
+constants_table = DataFrame(published_constants)
 
 # Request the homogeneous design explicitly when an equivalent
 # cable, rather than a solver input, is the desired result:
@@ -217,7 +218,7 @@ equivalent_design = homogenize(cable_design; new_id = cable_id * "_equivalent")
 equivalent_summary = equivalent_design
 
 # Inspect the completed physical design through its bounded Base display:
-design_summary = cable_design
+cable_design
 
 #=
 ## Saving the cable design
@@ -227,9 +228,9 @@ Load an existing [`CablesLibrary`](@ref) file or create a new one:
 
 library = CablesLibrary()
 library_file = fullfile("cables_library.json")
-isfile(library_file) && load!(library, file_name = library_file)
-add!(library, cable_design)
-library_summary = library
+isfile(library_file) && load!(library, file_name = library_file);
+add!(library, cable_design);
+library
 
 # Save to file for later use:
 save(library, file_name = library_file);
@@ -237,7 +238,7 @@ save(library, file_name = library_file);
 # Verify that the saved cable can be recovered in a fresh session:
 loaded_library = CablesLibrary()
 load!(loaded_library, file_name = library_file)
-loaded_design = get(loaded_library, cable_id)
+loaded_design = get(loaded_library, cable_id);
 
 #=
 ## Defining a cable system
@@ -253,7 +254,7 @@ problem is resolved.
 =#
 
 f = collect(10.0 .^ range(0, stop = 6, length = 61)) # 1 Hz to 1 MHz
-earth = Earth(rho = 100.0, eps_r = 10.0, mu_r = 1.0)
+earth = Earth(rho = 100.0, eps_r = 10.0, mu_r = 1.0);
 
 #=
 ### Underground bipole configuration
@@ -281,10 +282,10 @@ problem = LineParametersProblem(
     earth_props = earth,
     frequencies = f
 )
-earth_params = problem.earth_props
+earth_params = problem.earth_props;
 
 # Inspect the static earth declaration attached to the problem:
-earth_summary = earth_params
+earth_params
 
 #=
 ### Cable system preview
@@ -293,7 +294,7 @@ In this section the complete bipole cable system is examined.
 =#
 
 # Display system details:
-system_summary = cable_system
+cable_system
 
 # Visualize the cross-section of the three-phase system:
 plt2 = preview(
@@ -341,7 +342,7 @@ conductance_residual = extrema(@observe line_parameters G[1, 1, :])
 
 # Obtain one wide table. Frequency and matrix coordinates come from the result;
 # each observable request adds its own quantity column:
-rlgc_table = DataFrame(
+rlgc_table = DataFrame(observables(
     line_parameters,
     (
         @observe(R[:, :, :]),
@@ -350,7 +351,7 @@ rlgc_table = DataFrame(
         @observe(C[:, :, :])
     );
     length_unit = :kilo
-);
+));
 
 # Select the first matrix term with ordinary DataFrames transformations:
 first_term_table = subset(
@@ -414,8 +415,8 @@ Tv = operators(sequence_parameters).voltage;
 sequence_impedance = @observe sequence_parameters Z[1, 1, :]
 sequence_admittance = @observe sequence_parameters Y[1, 1, :]
 
-# Obtain the complete transformed quantities through the native table adapter:
-sequence_table = DataFrame(
+# Publish and tabulate the complete transformed quantities:
+sequence_table = DataFrame(observables(
     sequence_parameters,
     (
         @observe(R[:, :, :]),
@@ -424,7 +425,7 @@ sequence_table = DataFrame(
         @observe(C[:, :, :])
     );
     length_unit = :kilo
-);
+));
 
 # Display a compact slice with ordinary DataFrames transformations:
 first_sequence_term = subset(

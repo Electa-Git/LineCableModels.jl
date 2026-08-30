@@ -27,7 +27,7 @@ Declare one fixed wire course with `wires`:
 ```julia
 screen_wires = wires(
     copper;
-    wire=Disk(0.5e-3),
+    shape=Disk(0.5e-3),
     n=40,
     r=20e-3,
     gap_frac=0.02,
@@ -35,14 +35,14 @@ screen_wires = wires(
 )
 ```
 
-`strand` creates a central wire and the requested outer courses. A scalar
+`stranded` creates a central strand and the requested outer courses. A scalar
 count is the conventional base count (`k*n` on course `k`); a tuple is an exact
 course schedule.
 
 ```julia
-stranded = strand(
+stranded_core = stranded(
     copper;
-    wire=Rectangle(0.35e-3, 0.8e-3),
+    shape=Rectangle(0.35e-3, 0.8e-3),
     layers=3,
     n=(6, 11, 17),
     lay=(LayRatio(13), Pitch(0.15), LayAngle(0.2)),
@@ -59,7 +59,7 @@ operations while resolving its course radius from the preceding boundary.
 ```julia
 automatic = @distribute wires(
     copper;
-    wire=Disk(0.5e-3),
+    shape=Disk(0.5e-3),
     r=20e-3,
     gap_frac=0.03,
 )

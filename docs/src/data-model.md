@@ -78,13 +78,13 @@ end
 
 ## Repeated conductors
 
-`strand` accepts circular or rectangular wire sections through the same
-surface. `layers` counts outer courses; the central wire is additional.
+`stranded` accepts circular or rectangular strand shapes through the same
+surface. `layers` counts outer courses; the central strand is additional.
 
 ```julia
-core_part = strand(
+core_part = stranded(
     copper;
-    wire=Disk(0.5e-3),
+    shape=Disk(0.5e-3),
     layers=3,
     n=(6, 12, 18),
     lay=(LayRatio(13), LayRatio(12), LayRatio(11)),
@@ -95,9 +95,9 @@ Use `capacity()` when a course should contain the maximum count allowed by its
 actual geometry and compaction law:
 
 ```julia
-compact_core = @distribute strand(
+compact_core = @distribute stranded(
     copper;
-    wire=Disk(0.5e-3),
+    shape=Disk(0.5e-3),
     layers=1,
     compact=FillFactor(0.9),
     lay=LayRatio(11),
@@ -106,6 +106,33 @@ compact_core = @distribute strand(
 
 Course schedules are ordinary physical tuples. Wrap a complete schedule in
 `Grid` only when the schedule itself should vary.
+
+A stranded construction may prescribe the aggregate boundary separately from
+the geometry of each strand:
+
+```julia
+sector_core = stranded(
+    copper;
+    shape=Disk(0.5e-3),
+    layers=4,
+    n=(6, 12, 18, 24),
+    lay=(LayRatio(14), LayRatio(13), LayRatio(12), LayRatio(11)),
+    boundary=RoundedSector(
+        span=deg2rad(119),
+        r_base=1.10e-3,
+        r_back=10.24e-3,
+        fillet=1.02e-3,
+    ),
+    compact=sector_course_compaction,
+)
+```
+
+`shape` is the intrinsic geometry of each strand. `boundary` is the completed
+aggregate boundary after the course-specific `compact` declarations have
+placed or transformed those strands. The boundary does not add a homogeneous
+conductor region and does not replace the retained strand geometry. The
+compaction must produce member geometry consistent with the prescribed
+boundary.
 
 ## Independent cores and enclosures
 

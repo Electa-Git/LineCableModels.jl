@@ -130,7 +130,15 @@ while absolute and relative Z and Y errors occupy their own columns. No
 display threshold suppresses the comparison values.
 
 ````@example gauntlet
-errors = DataFrame(comparison)
+errors = DataFrame(observables(
+    comparison,
+    (
+        (Z, absolute_error),
+        (Z, relative_error),
+        (Y, absolute_error),
+        (Y, relative_error),
+    ),
+))
 errors
 ````
 
