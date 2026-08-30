@@ -29,15 +29,22 @@ Calculus = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
+GlobalSensitivity = "af5da776-676b-467e-8baf-acd8249e4f0f"
 Gmsh = "705231aa-382f-11e9-3f0c-b7cb4346fdeb"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 Measurements = "eff96d63-e80a-5855-80a2-b1b0885c5ab7"
+QuasiMonteCarlo = "8a4e6c94-4038-4cdc-81c3-7e6ffdb2a71b"
 WGLMakie = "276b4fcb-3e11-5398-bf8b-a0c2d153d008"
 XLSX = "fdbf4ff8-1666-58a4-91e7-1b58723a45e0"
 
 [extensions]
 LineCableModelsCairoMakieExt = ["Makie", "CairoMakie"]
 LineCableModelsGLMakieExt = ["Makie", "GLMakie"]
+LineCableModelsGlobalSensitivityExt = [
+    "GlobalSensitivity",
+    "QuasiMonteCarlo",
+    "Distributions",
+]
 LineCableModelsGmshExt = "Gmsh"
 LineCableModelsMakieExt = "Makie"
 LineCableModelsMeasurementsExt = ["Measurements", "Calculus"]
@@ -56,6 +63,7 @@ DocStringExtensions = "0.9.3"
 EzXML = "1.2.0"
 GeometryBasics = "0.5"
 GLMakie = "0.13"
+GlobalSensitivity = "2.12"
 Gmsh = "0.3.1"
 JSON3 = "1.14.2"
 LinearAlgebra = "1.11.0"
@@ -64,6 +72,7 @@ Makie = "0.24.6"
 Measurements = "2.11.0"
 Printf = "1.11.0"
 QuadGK = "2.11.2"
+QuasiMonteCarlo = "0.3"
 Random = "1.11.0"
 RequiredInterfaces = "0.1.7"
 SHA = "0.7"
