@@ -37,6 +37,13 @@ function export_data(
         base_freq, "PSCAD base frequency must be positive"
     ))
     path = _pscad_output_path(system, file_name)
+    isdir(path) && throw(EzXML.XMLError(
+        8,
+        0,
+        "PSCAD output path is a directory: $path",
+        2,
+        0
+    ))
     document = _pscad_project(system, earth, base_freq)
     write(path, document)
     return path
