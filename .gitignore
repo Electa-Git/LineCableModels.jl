@@ -62,6 +62,7 @@ sprint
 .github/prompts
 test/jl_*
 *.sh
+!showcase/bonito/launch.sh
 .vscode/
 designs/
 benchmarks/

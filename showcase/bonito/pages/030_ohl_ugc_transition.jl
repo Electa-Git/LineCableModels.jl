@@ -645,7 +645,7 @@ function recache!(
     end
 end
 
-function content(session::Session)
+function setup(session::Session)
     slider = Bonito.Slider(
         collect(0.0:0.01:1.0);
         value = DEFAULT_SHARE,
@@ -736,7 +736,7 @@ function content(session::Session)
         return nothing
     end
 
-    controls = webpart(
+    corridor_controls = webpart(
         control(
             "Underground-cable share",
             slider;
@@ -756,8 +756,6 @@ function content(session::Session)
             "Frequency sweep" => "100 Hz–5 kHz";
             class = "lc-transition-values"
         ),
-        recache_button,
-        status_line(status; class = "lc-transition-status"),
         diagnostic(
             "PowerImpedance.jl";
             suffix = " · fixed operating point",
@@ -765,6 +763,18 @@ function content(session::Session)
         );
         kind = :controls,
         class = "lc-transition-controls"
+    )
+    operating_controls = webpart(
+        recache_button,
+        status_line(status; class = "lc-transition-status"),
+        diagnostic(
+            "NetworkState";
+            suffix = " · session-owned, deliberately non-observable",
+            class = "lc-transition-diagnostic"
+        );
+        kind = :controls,
+        title = "Numerical operating point",
+        class = "lc-transition-controls lc-operating-controls"
     )
     diagram = webpart(
         WGLMakie.WithConfig(runtime.diagram.figure; resize_to = :parent);
@@ -782,57 +792,132 @@ function content(session::Session)
         id = "b5-impedance-plot",
         body_class = "lc-transition-plot-host"
     )
-    body = webgrid(
-        [:controls :diagram; :controls :impedance];
-        columns = "minmax(16rem, 3fr) minmax(0, 7fr)",
-        compact_columns = "minmax(15rem, 2fr) minmax(0, 5fr)",
-        rows = "minmax(0, 2fr) minmax(0, 3fr)",
-        gap = "0.75rem 1rem",
-        height = "auto",
-        stack_rows = "auto 17rem 26rem",
-        class = "lc-interactive-grid lc-transition-grid",
-        controls,
-        diagram,
-        impedance
-    )
     return (;
-        body,
         runtime,
         slider,
         recache_button,
         status,
+        corridor_controls,
+        operating_controls,
+        diagram,
+        impedance,
         observer = response_observer,
         color_observer,
         recache_observer
     )
 end
 
-function build(session::Session)
-    page = content(session)
-    return merge(page,
-        (;
-            body = slide(
-            "Application case - parametric OHL/UGC transition",
-            page.body;
-            lede = md"""
-            Move the corridor share from overhead line to underground cable and inspect the driving-point impedance ``Z_{B_5,B_5}(f)``.
-            """
-        )
-        ))
+function corridor_page(::Session, state)
+    canvas = webgrid(
+        [:controls :diagram];
+        columns = "minmax(16rem, 3fr) minmax(0, 7fr)",
+        compact_columns = "minmax(15rem, 2fr) minmax(0, 5fr)",
+        rows = "minmax(0, 1fr)",
+        gap = "1rem",
+        height = "100%",
+        stack_rows = "auto 25rem",
+        class = "lc-interactive-grid lc-transition-grid",
+        controls = state.corridor_controls,
+        diagram = state.diagram
+    )
+    return (body = slide(
+        "Corridor composition",
+        canvas;
+        lede = md"""
+        Move the B4–B5 corridor from overhead line to underground cable. The line color follows the share without rebuilding the power-flow operating point.
+        """
+    ),)
 end
 
-const PAGE = page_descriptor(
+function impedance_page(::Session, state)
+    canvas = webgrid(
+        reshape([:impedance], 1, 1);
+        rows = "minmax(0, 1fr)",
+        height = "100%",
+        stack = false,
+        class = "lc-interactive-grid lc-transition-detail-grid",
+        impedance = state.impedance
+    )
+    return (body = slide(
+        "Driving-point impedance at B5",
+        canvas;
+        lede = md"""
+        Inspect the live response ``Z_{B_5,B_5}(f)``. It shares the same session runtime and cached corridor sweep as the network view.
+        """
+    ),)
+end
+
+function operating_point_page(::Session, state)
+    explanation = webpart(
+        prose(md"""
+        ## Deliberately frozen linearization
+
+        Ordinary slider movement changes only the OHL and UGC element lengths used by the harmonic response. It does **not** repeat the reference power flow or rebuild the linearization.
+
+        Use the explicit control only when a new operating point is genuinely required. Re-caching replaces the linearized model for this browser session and clears its response cache.
+
+        ```text
+        one deck session
+        ├── one NetworkState copy
+        ├── one linearized network model
+        ├── one network diagram
+        └── one impedance figure
+        ```
+        """);
+        kind = :panel,
+        class = "lc-operating-explanation"
+    )
+    canvas = webgrid(
+        [:explanation :operations];
+        columns = "minmax(0, 7fr) minmax(16rem, 3fr)",
+        compact_columns = "minmax(0, 5fr) minmax(15rem, 2fr)",
+        rows = "minmax(0, 1fr)",
+        height = "100%",
+        stack_rows = "auto auto",
+        class = "lc-interactive-grid lc-operating-grid",
+        explanation,
+        operations = state.operating_controls
+    )
+    return (body = slide(
+        "Operating point and linearization",
+        canvas;
+        lede = md"""
+        The expensive model boundary is explicit and forcefully controlled rather than hidden inside slider reactivity.
+        """
+    ),)
+end
+
+const DECK = deck_descriptor(
     id = "parametric-ohl-ugc-transition",
     group = "Application cases",
-    title = "Parametric OHL/UGC transition",
+    title = "Application case - parametric OHL/UGC transition",
     order = 30,
     render = true,
-    class = "lc-application-slide",
-    build = build,
+    setup = setup,
+    pages = (
+        deck_page(
+            "Corridor composition";
+            id = "corridor",
+            class = "lc-application-slide",
+            build = corridor_page
+        ),
+        deck_page(
+            "Driving-point impedance at B5";
+            id = "b5-impedance",
+            class = "lc-application-slide",
+            build = impedance_page
+        ),
+        deck_page(
+            "Operating point and linearization";
+            id = "linearization",
+            class = "lc-application-slide",
+            build = operating_point_page
+        )
+    ),
     prepare = start_preparation!,
     ready = is_prepared
 )
 
 end
 
-OHLUGCTransitionPage.PAGE
+OHLUGCTransitionPage.DECK

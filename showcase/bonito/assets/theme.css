@@ -186,6 +186,29 @@ body {
   list-style: none;
 }
 
+.lc-nav-deck-entry {
+  display: block;
+  padding: 0.48rem 0.9rem 0.25rem 1.55rem;
+  overflow: hidden;
+  color: var(--lc-muted);
+  font-size: calc(0.76 * var(--lc-type-unit));
+  font-weight: 700;
+  line-height: 1.3;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lc-nav-deck-entry:hover,
+.lc-nav-deck-entry:focus-visible {
+  color: var(--lc-heading);
+  outline: none;
+}
+
+.lc-nav-page-list .lc-nav-entry {
+  padding-left: 2.25rem;
+}
+
 .lc-nav-entry {
   display: block;
   width: 100%;
@@ -331,6 +354,7 @@ body {
 .lc-navbar-button.is-disabled {
   color: rgb(168 176 176 / 35%);
   cursor: default;
+  pointer-events: none;
 }
 
 .lc-navbar-button.is-disabled:hover {
@@ -921,6 +945,26 @@ body {
   border: 0;
 }
 
+.lc-application-slide .lc-transition-detail-grid,
+.lc-application-slide .lc-operating-grid {
+  width: 100%;
+  height: 100% !important;
+  min-height: 0;
+  margin: 0;
+  align-self: stretch;
+}
+
+.lc-application-slide .lc-operating-explanation {
+  height: 100%;
+  padding: 1rem 1.15rem;
+}
+
+.lc-application-slide .lc-operating-controls {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
 .lc-application-slide .lc-application-figure figcaption {
   display: flex;
   min-width: 0;
@@ -1103,6 +1147,12 @@ body {
     height: auto !important;
     min-height: 54rem;
     grid-template-rows: auto 34rem;
+  }
+
+  .lc-application-slide .lc-transition-detail-grid,
+  .lc-application-slide .lc-operating-grid {
+    height: auto !important;
+    min-height: 34rem;
   }
 
   .lc-manual .lc-pages > .lc-interactive-slide,

@@ -123,7 +123,7 @@ function worker_banner(worker::JuliaWorker)
            "State persists between runs. Ctrl+Enter evaluates the editor.\n\n"
 end
 
-function build(session::Session)
+function build(session::Session, ::Nothing)
     editor = CodeEditor(
         "julia";
         initial_source = INITIAL_SOURCE,
@@ -404,16 +404,22 @@ function build(session::Session)
     )
 end
 
-const PAGE = page_descriptor(
+const DECK = deck_descriptor(
     id = "live-julia-workspace",
     group = "Developer tools",
     title = "Live Julia workspace",
     order = 40,
     render = true,
-    class = "lc-repl-slide",
-    build = build
+    pages = (
+        deck_page(
+        "Live Julia workspace";
+        id = "live-julia-workspace",
+        class = "lc-repl-slide",
+        build
+    ),
+    )
 )
 
 end
 
-LiveJuliaPage.PAGE
+LiveJuliaPage.DECK

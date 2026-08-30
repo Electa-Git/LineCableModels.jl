@@ -38,20 +38,26 @@ function page_body(session::Session)
     return (introduction, preparation_status(session), boundary)
 end
 
-function build(session::Session)
+function build(session::Session, ::Nothing)
     return (; body = page_body(session))
 end
 
-const PAGE = page_descriptor(
+const DECK = deck_descriptor(
     id = "overview",
     group = "Showcase",
     title = "Live technical manual",
     order = 10,
     render = true,
-    class = "lc-overview-slide",
-    build = build
+    pages = (
+        deck_page(
+        "Live technical manual";
+        id = "overview",
+        class = "lc-overview-slide",
+        build
+    ),
+    )
 )
 
 end
 
-OverviewPage.PAGE
+OverviewPage.DECK

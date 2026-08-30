@@ -6,9 +6,10 @@ using Markdown
 export article
 export color_key
 export control
+export deck_descriptor
+export deck_page
 export diagnostic
 export local_image
-export page_descriptor
 export preparation_failed
 export preparation_ready
 export preparation_state
@@ -433,15 +434,53 @@ function local_image(
     )
 end
 
-"""Construct the discoverable descriptor returned by a page file."""
-function page_descriptor(;
+"""
+    deck_page(title; id, render=true, class="", build)
+
+Declare one addressable page inside a deck. The build function receives the
+current Bonito `Session` and the state returned by the deck's `setup` function.
+"""
+function deck_page(
+        build::Function,
+        title::AbstractString;
+        id,
+        render::Bool = true,
+        class::AbstractString = ""
+)
+    return (;
+        id = string(id),
+        title = string(title),
+        render,
+        class,
+        build
+    )
+end
+
+function deck_page(
+        title::AbstractString;
+        id,
+        render::Bool = true,
+        class::AbstractString = "",
+        build
+)
+    return deck_page(build, title; id, render, class)
+end
+
+"""
+    deck_descriptor(; id, group, title, order, pages, ...)
+
+Construct the discoverable descriptor returned by one deck file. `setup` runs
+once per browser session; every rendered page in the deck receives its result.
+"""
+function deck_descriptor(;
         id,
         group,
         title,
         order,
         render::Bool = true,
         class::AbstractString = "",
-        build,
+        setup::Function = _ -> nothing,
+        pages,
         extras...
 )
     return (;
@@ -451,7 +490,8 @@ function page_descriptor(;
         order,
         render,
         class,
-        build,
+        setup,
+        pages = Tuple(pages),
         extras...
     )
 end

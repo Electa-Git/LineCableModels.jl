@@ -9,73 +9,127 @@ const LATO_STYLESHEET = "https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/
 const JULIA_MONO_STYLESHEET = "https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css"
 const DOCUMENTATION_LOGO = joinpath(
     @__DIR__, "..", "..", "docs", "src", "assets", "logo.svg")
-const PAGE_DIRECTORY = joinpath(@__DIR__, "pages")
-const REQUIRED_PAGE_FIELDS = (:id, :group, :title, :order, :render, :class, :build)
+const DECK_DIRECTORY = joinpath(@__DIR__, "pages")
+const REQUIRED_DECK_FIELDS = (:id, :group, :title, :order, :render, :class, :setup, :pages)
+const REQUIRED_DECK_PAGE_FIELDS = (:id, :title, :render, :class, :build)
+const SLUG_PATTERN = r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
 
-function validate_page_descriptor(page, source::AbstractString)
+function validate_slug(value, label::AbstractString, source::AbstractString)
+    value isa AbstractString && !isempty(value) || throw(ArgumentError(
+        "$label in $(basename(source)) must be a non-empty string"
+    ))
+    occursin(SLUG_PATTERN, value) || throw(ArgumentError(
+        "$label $(repr(value)) must contain lowercase words separated by hyphens"
+    ))
+    return value
+end
+
+function validate_deck_page(page, deck_id::AbstractString, source::AbstractString)
     page isa NamedTuple || throw(ArgumentError(
-        "page file $(basename(source)) must return a named tuple"
+        "deck $(repr(deck_id)) in $(basename(source)) contains a page that is not a named tuple"
     ))
-    missing = filter(field -> !hasproperty(page, field), REQUIRED_PAGE_FIELDS)
+    missing = filter(field -> !hasproperty(page, field), REQUIRED_DECK_PAGE_FIELDS)
     isempty(missing) || throw(ArgumentError(
-        "page file $(basename(source)) is missing fields: $(join(missing, ", "))"
+        "page in deck $(repr(deck_id)) is missing fields: $(join(missing, ", "))"
     ))
-    page.id isa AbstractString && !isempty(page.id) || throw(ArgumentError(
-        "page id in $(basename(source)) must be a non-empty string"
-    ))
-    occursin(r"^[a-z0-9]+(?:-[a-z0-9]+)*$", page.id) || throw(ArgumentError(
-        "page id $(repr(page.id)) must contain lowercase words separated by hyphens"
-    ))
-    page.group isa AbstractString && !isempty(page.group) || throw(ArgumentError(
-        "page group in $(basename(source)) must be a non-empty string"
-    ))
+    validate_slug(page.id, "page id", source)
     page.title isa AbstractString && !isempty(page.title) || throw(ArgumentError(
-        "page title in $(basename(source)) must be a non-empty string"
-    ))
-    page.order isa Real && isfinite(page.order) || throw(ArgumentError(
-        "page order in $(basename(source)) must be finite"
+        "page title in deck $(repr(deck_id)) must be a non-empty string"
     ))
     page.render isa Bool || throw(ArgumentError(
-        "page render flag in $(basename(source)) must be true or false"
+        "page render flag in deck $(repr(deck_id)) must be true or false"
     ))
     page.class isa AbstractString || throw(ArgumentError(
-        "page class in $(basename(source)) must be a string"
+        "page class in deck $(repr(deck_id)) must be a string"
     ))
     page.build isa Function || throw(ArgumentError(
-        "page build entry in $(basename(source)) must be a function"
+        "page build entry in deck $(repr(deck_id)) must be a function"
     ))
-    return merge(page, (; source = abspath(source)))
+    return page
 end
 
-function load_page_descriptors(directory::AbstractString = PAGE_DIRECTORY)
-    isdir(directory) || throw(ArgumentError("page directory does not exist: $directory"))
+function validate_deck_descriptor(deck, source::AbstractString)
+    deck isa NamedTuple || throw(ArgumentError(
+        "deck file $(basename(source)) must return a named tuple"
+    ))
+    missing = filter(field -> !hasproperty(deck, field), REQUIRED_DECK_FIELDS)
+    isempty(missing) || throw(ArgumentError(
+        "deck file $(basename(source)) is missing fields: $(join(missing, ", "))"
+    ))
+    validate_slug(deck.id, "deck id", source)
+    deck.group isa AbstractString && !isempty(deck.group) || throw(ArgumentError(
+        "deck group in $(basename(source)) must be a non-empty string"
+    ))
+    deck.title isa AbstractString && !isempty(deck.title) || throw(ArgumentError(
+        "deck title in $(basename(source)) must be a non-empty string"
+    ))
+    deck.order isa Real && isfinite(deck.order) || throw(ArgumentError(
+        "deck order in $(basename(source)) must be finite"
+    ))
+    deck.render isa Bool || throw(ArgumentError(
+        "deck render flag in $(basename(source)) must be true or false"
+    ))
+    deck.class isa AbstractString || throw(ArgumentError(
+        "deck class in $(basename(source)) must be a string"
+    ))
+    deck.setup isa Function || throw(ArgumentError(
+        "deck setup entry in $(basename(source)) must be a function"
+    ))
+    deck.pages isa Tuple || deck.pages isa AbstractVector ||
+        throw(ArgumentError(
+            "deck pages in $(basename(source)) must be a tuple or vector"
+        ))
+    isempty(deck.pages) && throw(ArgumentError(
+        "deck $(repr(deck.id)) must declare at least one page"
+    ))
+    pages = map(page -> validate_deck_page(page, deck.id, source), deck.pages)
+    page_ids = getproperty.(pages, :id)
+    duplicates = unique(filter(id -> count(==(id), page_ids) > 1, page_ids))
+    isempty(duplicates) || throw(ArgumentError(
+        "duplicate page ids in deck $(repr(deck.id)): $(join(duplicates, ", "))"
+    ))
+    return merge(deck, (; pages = Tuple(pages), source = abspath(source)))
+end
+
+function load_deck_descriptors(directory::AbstractString = DECK_DIRECTORY)
+    isdir(directory) || throw(ArgumentError("deck directory does not exist: $directory"))
     sources = sort(filter(path -> endswith(path, ".jl"), readdir(directory; join = true)))
-    isempty(sources) && throw(ArgumentError("no Julia page files found in $directory"))
-    pages = map(sources) do source
-        validate_page_descriptor(Base.include(@__MODULE__, source), source)
+    isempty(sources) && throw(ArgumentError("no Julia deck files found in $directory"))
+    decks = map(sources) do source
+        validate_deck_descriptor(Base.include(@__MODULE__, source), source)
     end
-    ids = getproperty.(pages, :id)
+    ids = getproperty.(decks, :id)
     duplicates = unique(filter(id -> count(==(id), ids) > 1, ids))
     isempty(duplicates) || throw(ArgumentError(
-        "duplicate page ids: $(join(duplicates, ", "))"
+        "duplicate deck ids: $(join(duplicates, ", "))"
     ))
-    return sort(pages; by = page -> (page.order, basename(page.source)))
+    return sort(decks; by = deck -> (deck.order, basename(deck.source)))
 end
 
-function select_rendered_pages(pages)
-    rendered = filter(page -> page.render, pages)
+rendered_deck_pages(deck) = filter(page -> page.render, deck.pages)
+
+function select_rendered_decks(decks)
+    rendered = filter(deck -> deck.render, decks)
     isempty(rendered) && throw(ArgumentError(
-        "no showcase pages are enabled; set `render = true` in at least one pages/*.jl file"
+        "no showcase decks are enabled; set `render = true` in at least one pages/*.jl file"
+    ))
+    empty_decks = filter(deck -> isempty(rendered_deck_pages(deck)), rendered)
+    isempty(empty_decks) || throw(ArgumentError(
+        "rendered decks must contain at least one rendered page: $(join(getproperty.(empty_decks, :id), ", "))"
     ))
     return rendered
 end
 
-function find_page(id::AbstractString, pages)
-    return only(filter(page -> page.id == id, pages))
+function find_deck(id::AbstractString, decks)
+    return only(filter(deck -> deck.id == id, decks))
 end
 
-const PAGE_DESCRIPTORS = load_page_descriptors()
-const RENDERED_PAGES = select_rendered_pages(PAGE_DESCRIPTORS)
+function find_deck_page(id::AbstractString, deck)
+    return only(filter(page -> page.id == id, deck.pages))
+end
+
+const DECK_DESCRIPTORS = load_deck_descriptors()
+const RENDERED_DECKS = select_rendered_decks(DECK_DESCRIPTORS)
 
 function app_assets()
     return (
@@ -86,36 +140,73 @@ function app_assets()
     )
 end
 
-page_route(page, index::Integer) = index == 1 ? "/" : "/$(page.id)"
-page_href(page, index::Integer) = index == 1 ? "./" : "./$(page.id)"
+deck_route(deck, index::Integer) = index == 1 ? "/" : "/$(deck.id)"
+deck_href(deck, index::Integer) = index == 1 ? "./" : "./$(deck.id)"
+function deck_page_href(deck, deck_index::Integer, page)
+    "$(deck_href(deck, deck_index))#$(page.id)"
+end
 
-function page_index(page, pages)
-    index = findfirst(candidate -> candidate.id == page.id, pages)
-    isnothing(index) && throw(ArgumentError("page $(repr(page.id)) is not rendered"))
+function deck_index(deck, decks)
+    index = findfirst(candidate -> candidate.id == deck.id, decks)
+    isnothing(index) && throw(ArgumentError("deck $(repr(deck.id)) is not rendered"))
     return index
 end
 
-function navigation(assets, pages, current_index::Integer)
-    groups = unique(page.group for page in pages)
+function deck_page_refs(decks)
+    refs = NamedTuple[]
+    for (deck_position, deck) in enumerate(decks)
+        for (page_position, page) in enumerate(rendered_deck_pages(deck))
+            push!(refs, (; deck, page, deck_position, page_position))
+        end
+    end
+    return refs
+end
+
+function deck_page_ref_index(deck, page, refs)
+    index = findfirst(ref -> ref.deck.id == deck.id && ref.page.id == page.id, refs)
+    isnothing(index) && throw(ArgumentError(
+        "page $(repr(page.id)) in deck $(repr(deck.id)) is not rendered"
+    ))
+    return index
+end
+
+function navigation(assets, decks, current_deck, current_page)
+    groups = unique(deck.group for deck in decks)
     group_nodes = map(groups) do group
-        entries = map(
-            filter(pair -> pair[2].group == group,
-            collect(enumerate(pages)))
-        ) do (index, page)
-            active = index == current_index
-            DOM.li(
+        deck_nodes = map(
+            filter(pair -> pair[2].group == group, collect(enumerate(decks)))
+        ) do (deck_position, deck)
+            pages = rendered_deck_pages(deck)
+            page_entries = map(pages) do page
+                active = deck.id == current_deck.id && page.id == current_page.id
+                DOM.li(
+                    DOM.a(
+                    page.title;
+                    href = deck_page_href(deck, deck_position, page),
+                    class = active ? "lc-nav-entry is-active" : "lc-nav-entry",
+                    dataDeckId = deck.id,
+                    dataDeckTitle = deck.title,
+                    dataPageId = page.id,
+                    dataPageTitle = page.title,
+                    ariaCurrent = active ? "page" : "false"
+                )
+                )
+            end
+            length(pages) == 1 && return first(page_entries)
+            return DOM.li(
                 DOM.a(
-                page.title;
-                href = page_href(page, index),
-                class = active ? "lc-nav-entry is-active" : "lc-nav-entry",
-                dataPageId = page.id,
-                ariaCurrent = active ? "page" : "false"
-            )
+                    deck.title;
+                    href = deck_page_href(deck, deck_position, first(pages)),
+                    class = "lc-nav-deck-entry",
+                    dataDeckId = deck.id
+                ),
+                DOM.ul(page_entries...; class = "lc-nav-list lc-nav-page-list");
+                class = "lc-nav-deck"
             )
         end
         DOM.div(
             DOM.p(group; class = "lc-nav-group-title"),
-            DOM.ul(entries...; class = "lc-nav-list");
+            DOM.ul(deck_nodes...; class = "lc-nav-list");
             class = "lc-nav-group",
             dataNavGroup = group
         )
@@ -135,9 +226,9 @@ function navigation(assets, pages, current_index::Integer)
             DOM.input(;
                 id = "page-search",
                 type = "search",
-                placeholder = "Search pages",
+                placeholder = "Search decks and pages",
                 autocomplete = "off",
-                ariaLabel = "Search pages"
+                ariaLabel = "Search decks and pages"
             );
             class = "lc-search"
         ),
@@ -145,7 +236,7 @@ function navigation(assets, pages, current_index::Integer)
             group_nodes...;
             id = "page-navigation",
             class = "lc-sidebar-nav",
-            ariaLabel = "Manual pages"
+            ariaLabel = "Manual decks and pages"
         ),
         DOM.div(
             DOM.span("Bonito showcase"),
@@ -158,31 +249,30 @@ function navigation(assets, pages, current_index::Integer)
     )
 end
 
-function page_control(label; id, target, target_index, title, aria_label)
-    if isnothing(target)
-        return DOM.span(
-            label;
-            id,
-            class = "lc-navbar-button is-disabled",
-            title,
-            ariaLabel = aria_label,
-            ariaDisabled = "true"
-        )
-    end
+function page_control(label; id, target, title, aria_label)
+    isnothing(target) && return DOM.a(
+        label;
+        id,
+        class = "lc-navbar-button is-disabled",
+        title,
+        ariaLabel = aria_label,
+        ariaDisabled = "true"
+    )
     return DOM.a(
         label;
         id,
-        href = page_href(target, target_index),
+        href = deck_page_href(target.deck, target.deck_position, target.page),
         class = "lc-navbar-button",
         title,
         ariaLabel = aria_label
     )
 end
 
-function navbar(pages, current_index::Integer; preparing::Bool = false)
-    current = pages[current_index]
-    previous = current_index == 1 ? nothing : pages[current_index - 1]
-    next = current_index == length(pages) ? nothing : pages[current_index + 1]
+function navbar(decks, current_deck, current_page; preparing::Bool = false)
+    refs = deck_page_refs(decks)
+    current_index = deck_page_ref_index(current_deck, current_page, refs)
+    previous = current_index == 1 ? nothing : refs[current_index - 1]
+    next = current_index == length(refs) ? nothing : refs[current_index + 1]
     return DOM.header(
         DOM.button(
             "☰";
@@ -195,12 +285,18 @@ function navbar(pages, current_index::Integer; preparing::Bool = false)
         ),
         DOM.nav(
             DOM.span(
-                current.group;
+                current_deck.group;
                 id = "lc-current-group",
                 class = "lc-breadcrumb-parent"
             ),
             DOM.span("›"; class = "lc-breadcrumb-separator", ariaHidden = "true"),
-            DOM.span(current.title; id = "lc-current-title");
+            DOM.span(
+                current_deck.title;
+                id = "lc-current-deck",
+                class = "lc-breadcrumb-parent"
+            ),
+            DOM.span("›"; class = "lc-breadcrumb-separator", ariaHidden = "true"),
+            DOM.span(current_page.title; id = "lc-current-title");
             class = "lc-breadcrumb",
             ariaLabel = "Current page"
         ),
@@ -209,12 +305,11 @@ function navbar(pages, current_index::Integer; preparing::Bool = false)
                 "‹";
                 id = "lc-previous-page",
                 target = previous,
-                target_index = current_index - 1,
                 title = "Previous page",
                 aria_label = "Previous page"
             ),
             DOM.output(
-                "$(current_index) / $(length(pages))";
+                "$(current_index) / $(length(refs))";
                 id = "lc-page-position",
                 class = "lc-page-position",
                 ariaLive = "polite"
@@ -223,7 +318,6 @@ function navbar(pages, current_index::Integer; preparing::Bool = false)
                 "›";
                 id = "lc-next-page",
                 target = next,
-                target_index = current_index + 1,
                 title = "Next page",
                 aria_label = "Next page"
             ),
@@ -257,13 +351,14 @@ end
 
 function documenter_shell(
         assets,
-        pages,
-        current_index::Integer,
+        decks,
+        current_deck,
+        current_page,
         manual_root;
         preparing::Bool = false
 )
     main = DOM.main(
-        navbar(pages, current_index; preparing),
+        navbar(decks, current_deck, current_page; preparing),
         DOM.div(manual_root; class = "lc-page-frame");
         class = "lc-main"
     )
@@ -271,47 +366,63 @@ function documenter_shell(
         assets.lato_css,
         assets.julia_mono_css,
         DOM.style(assets.app_css),
-        navigation(assets, pages, current_index),
+        navigation(assets, decks, current_deck, current_page),
         main;
         id = "lc-live-docs",
         class = preparing ? "lc-documenter is-preparing" : "lc-documenter",
+        dataCurrentDeckId = current_deck.id,
         ariaBusy = string(preparing)
     )
 end
 
-function render_page(session::Session, page)
-    result = page.build(session)
+function render_deck_page(session::Session, deck, page, state, index::Integer)
+    result = page.build(session, state)
     result isa NamedTuple && hasproperty(result, :body) || throw(ArgumentError(
-        "page $(repr(page.id)) build function must return a named tuple with a `body` field"
+        "page $(repr(page.id)) in deck $(repr(deck.id)) must return a named tuple with a `body` field"
     ))
     body = result.body isa Tuple ? result.body : (result.body,)
     attributes = (;
-        id = "page-$(page.id)",
-        class = "lc-page is-active $(page.class)",
+        id = "deck-$(deck.id)-page-$(page.id)",
+        class = index == 1 ? "lc-page is-active $(page.class) $(deck.class)" :
+                "lc-page $(page.class) $(deck.class)",
+        dataDeckId = deck.id,
+        dataDeckTitle = deck.title,
         dataPageId = page.id,
-        dataNavGroup = page.group,
-        dataNavTitle = page.title,
-        ariaHidden = "false"
+        dataPageTitle = page.title,
+        dataPageIndex = string(index),
+        ariaHidden = string(index != 1)
     )
+    index != 1 && (attributes = merge(attributes, (; hidden = true)))
     return DOM.section(body...; attributes...)
 end
 
-function preparation_page(session::Session, page)
+function render_deck_pages(session::Session, deck)
+    state = deck.setup(session)
+    pages = rendered_deck_pages(deck)
+    rendered = map(enumerate(pages)) do (index, page)
+        render_deck_page(session, deck, page, state, index)
+    end
+    return (; nodes = rendered, state)
+end
+
+function preparation_page(session::Session, deck, page)
     body = slide(
-        page.title,
+        deck.title,
         article(md"""
-        This page is waiting for its process-wide numerical model. The server remains responsive and this status is updated from the actual Julia preparation phases.
+        This deck is waiting for its process-wide numerical model. The server remains responsive and this status is updated from the actual Julia preparation phases.
         """),
         preparation_status(session);
-        lede = md"The application case is being prepared once and will be reused by every browser session."
+        lede = md"The application case is being prepared once and will be reused by every deck session."
     )
     return DOM.section(
         body...;
-        id = "page-$(page.id)",
-        class = "lc-page is-active $(page.class)",
+        id = "deck-$(deck.id)-page-$(page.id)",
+        class = "lc-page is-active $(page.class) $(deck.class)",
+        dataDeckId = deck.id,
+        dataDeckTitle = deck.title,
         dataPageId = page.id,
-        dataNavGroup = page.group,
-        dataNavTitle = page.title,
+        dataPageTitle = page.title,
+        dataPageIndex = "1",
         ariaHidden = "false"
     )
 end
@@ -354,8 +465,15 @@ function bind_shell_behavior(session::Session, root)
     const nextLink = root.querySelector("#lc-next-page");
     const fullscreenToggle = root.querySelector("#lc-fullscreen-toggle");
     const printButton = root.querySelector("#lc-print");
+    const currentTitle = root.querySelector("#lc-current-title");
+    const pagePosition = root.querySelector("#lc-page-position");
     const navEntries = Array.from(root.querySelectorAll(".lc-nav-entry"));
     const navGroups = Array.from(root.querySelectorAll(".lc-nav-group"));
+    const deckSections = Array.from(manualRoot.querySelectorAll(".lc-page"));
+    const currentDeckId = root.dataset.currentDeckId;
+    const currentDeckEntries = navEntries.filter(
+        (entry) => entry.dataset.deckId === currentDeckId
+    );
     const mobileSidebar = window.matchMedia("(max-width: 56rem)");
     const visualViewport = window.visualViewport;
     const presentationModeKey = "linecable:presentation-mode";
@@ -405,6 +523,7 @@ function bind_shell_behavior(session::Session, root)
 
     const releaseViewport = () => {
         window.removeEventListener("resize", settleViewport);
+        window.removeEventListener("hashchange", activateDeckPage);
         visualViewport?.removeEventListener("resize", settleViewport);
         resolutionQuery?.removeEventListener("change", handleResolutionChange);
         cancelAnimationFrame(firstViewportFrame);
@@ -419,20 +538,89 @@ function bind_shell_behavior(session::Session, root)
     settleViewport();
 
     const navigate = (link) => {
-        if (link instanceof HTMLAnchorElement && link.href) {
+        if (
+            link instanceof HTMLAnchorElement &&
+            link.href &&
+            link.getAttribute("aria-disabled") !== "true"
+        ) {
             window.location.assign(link.href);
         }
     };
+
+    const configurePageControl = (link, entry) => {
+        if (!(link instanceof HTMLAnchorElement)) {
+            return;
+        }
+        if (!entry) {
+            link.removeAttribute("href");
+            link.classList.add("is-disabled");
+            link.setAttribute("aria-disabled", "true");
+            return;
+        }
+        link.href = entry.href;
+        link.classList.remove("is-disabled");
+        link.setAttribute("aria-disabled", "false");
+    };
+
+    const activateDeckPage = () => {
+        const requestedId = decodeURIComponent(window.location.hash.slice(1));
+        const section = deckSections.find((candidate) =>
+            candidate.dataset.pageId === requestedId
+        ) || deckSections[0];
+        if (!section) {
+            return;
+        }
+        deckSections.forEach((candidate) => {
+            const active = candidate === section;
+            candidate.hidden = !active;
+            candidate.classList.toggle("is-active", active);
+            candidate.setAttribute("aria-hidden", String(!active));
+        });
+        navEntries.forEach((entry) => {
+            const active = entry.dataset.deckId === currentDeckId &&
+                entry.dataset.pageId === section.dataset.pageId;
+            entry.classList.toggle("is-active", active);
+            entry.setAttribute("aria-current", active ? "page" : "false");
+        });
+        currentTitle.textContent = section.dataset.pageTitle;
+        root.dataset.currentPageId = section.dataset.pageId;
+
+        const currentEntry = currentDeckEntries.find(
+            (entry) => entry.dataset.pageId === section.dataset.pageId
+        );
+        const globalIndex = navEntries.indexOf(currentEntry);
+        configurePageControl(previousLink, navEntries[globalIndex - 1]);
+        configurePageControl(nextLink, navEntries[globalIndex + 1]);
+        pagePosition.textContent = `${globalIndex + 1} / ${navEntries.length}`;
+
+        if (mobileSidebar.matches) {
+            root.classList.remove("is-sidebar-open");
+            sidebarToggle.setAttribute("aria-expanded", "false");
+        }
+        settleViewport();
+    };
+
+    window.addEventListener("hashchange", activateDeckPage);
+    activateDeckPage();
 
     search.addEventListener("input", () => {
         const query = search.value.trim().toLocaleLowerCase();
         navEntries.forEach((entry) => {
             const group = entry.closest(".lc-nav-group").dataset.navGroup;
-            const searchable = `${group} ${entry.textContent}`.toLocaleLowerCase();
+            const searchable = `${group} ${entry.dataset.deckTitle} ${entry.textContent}`
+                .toLocaleLowerCase();
             entry.closest("li").hidden = query.length > 0 && !searchable.includes(query);
         });
+        root.querySelectorAll(".lc-nav-deck").forEach((deck) => {
+            const visiblePage = Array.from(deck.querySelectorAll(".lc-nav-entry")).some(
+                (entry) => !entry.closest("li").hidden
+            );
+            deck.hidden = !visiblePage;
+        });
         navGroups.forEach((group) => {
-            const visibleEntry = Array.from(group.querySelectorAll("li")).some((item) => !item.hidden);
+            const visibleEntry = Array.from(group.querySelectorAll(".lc-nav-entry")).some(
+                (entry) => !entry.closest("li").hidden
+            );
             group.hidden = !visibleEntry;
         });
     });
@@ -568,14 +756,18 @@ function bind_shell_behavior(session::Session, root)
     return root
 end
 
-function manual(session::Session, assets, page; pages = RENDERED_PAGES)
-    pages = select_rendered_pages(pages)
-    current_index = page_index(page, pages)
-    preparing = hasproperty(page, :ready) && !page.ready()
-    rendered_page = preparing ? preparation_page(session, page) :
-                    render_page(session, page)
+function manual(session::Session, assets, deck; decks = RENDERED_DECKS)
+    decks = select_rendered_decks(decks)
+    deck_index(deck, decks)
+    pages = rendered_deck_pages(deck)
+    current_page = first(pages)
+    preparing = hasproperty(deck, :ready) && !deck.ready()
+    rendered = preparing ?
+               (;
+        nodes = [preparation_page(session, deck, current_page)], state = nothing) :
+               render_deck_pages(session, deck)
     page_nodes = DOM.div(
-        rendered_page;
+        rendered.nodes...;
         id = "linecable-pages",
         class = "lc-pages"
     )
@@ -586,19 +778,26 @@ function manual(session::Session, assets, page; pages = RENDERED_PAGES)
         tabindex = "0",
         ariaLabel = "LineCableModels live manual pages"
     )
-    root = documenter_shell(assets, pages, current_index, manual_root; preparing)
+    root = documenter_shell(
+        assets,
+        decks,
+        deck,
+        current_page,
+        manual_root;
+        preparing
+    )
     preparing && bind_preparation_reload(session)
     return bind_shell_behavior(session, root)
 end
 
 function cable_app(
         assets = app_assets();
-        pages = RENDERED_PAGES,
-        page = first(select_rendered_pages(pages))
+        decks = RENDERED_DECKS,
+        deck = first(select_rendered_decks(decks))
 )
-    pages = select_rendered_pages(pages)
+    decks = select_rendered_decks(decks)
     return App(
-        session -> manual(session, assets, page; pages);
+        session -> manual(session, assets, deck; decks);
         title = "LineCableModels live manual",
         indicator = ConnectionIndicator(; size = 8, top = "20px", right = "16px")
     )
@@ -606,19 +805,19 @@ end
 
 function cable_routes(
         assets = app_assets();
-        pages = RENDERED_PAGES
+        decks = RENDERED_DECKS
 )
-    pages = select_rendered_pages(pages)
-    pairs = map(enumerate(pages)) do (index, page)
-        page_route(page, index) => cable_app(assets; pages, page)
+    decks = select_rendered_decks(decks)
+    pairs = map(enumerate(decks)) do (index, deck)
+        deck_route(deck, index) => cable_app(assets; decks, deck)
     end
     return Routes(pairs...)
 end
 
-function start_page_preparations!(pages = RENDERED_PAGES)
-    pages = select_rendered_pages(pages)
+function start_deck_preparations!(decks = RENDERED_DECKS)
+    decks = select_rendered_decks(decks)
     return map(
-        page -> hasproperty(page, :prepare) ? page.prepare() : nothing,
-        pages
+        deck -> hasproperty(deck, :prepare) ? deck.prepare() : nothing,
+        decks
     )
 end

@@ -115,7 +115,7 @@ function default_figure()
     return cable_figure(state)
 end
 
-function build(session::Session)
+function build(session::Session, ::Nothing)
     core_slider = Bonito.Slider(
         collect(5.0:0.1:25.0);
         value = 12.5,
@@ -214,17 +214,23 @@ function build(session::Session)
     )
 end
 
-const PAGE = page_descriptor(
+const DECK = deck_descriptor(
     id = "core-and-insulation",
     group = "Cable design",
     title = "Core and insulation",
     order = 20,
     render = true,
-    class = "lc-interactive-slide",
-    build = build,
+    pages = (
+        deck_page(
+        "Core and insulation";
+        id = "core-and-insulation",
+        class = "lc-interactive-slide",
+        build
+    ),
+    ),
     export_figure = default_figure
 )
 
 end
 
-CableDesignPage.PAGE
+CableDesignPage.DECK

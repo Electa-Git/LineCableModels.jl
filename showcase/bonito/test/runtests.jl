@@ -26,12 +26,18 @@ const ReplPage = LiveJuliaPage
             figure = webpart("figure"; kind = :plot),
             prose = PageAuthoring.prose(md"Inline mathematics: ``x^2``.")
         )
-        descriptor = page_descriptor(
-            id = "fixture",
+        page = deck_page(
+            "First view";
+            id = "first-view",
+            build = (session, state) -> (; body = state)
+        )
+        descriptor = deck_descriptor(
+            id = "fixture-deck",
             group = "Fixtures",
-            title = "Fixture",
+            title = "Fixture deck",
             order = 1,
-            build = identity,
+            setup = identity,
+            pages = (page,),
             fixture = true
         )
         preparation = preparation_status()
@@ -41,6 +47,7 @@ const ReplPage = LiveJuliaPage
         @test descriptor.render
         @test descriptor.fixture
         @test descriptor.class == ""
+        @test only(descriptor.pages).id == "first-view"
         @test_throws ArgumentError webgrid(
             [:area :area; :area :other];
             area = "area",
@@ -197,7 +204,7 @@ const ReplPage = LiveJuliaPage
         @test !ReplPage.worker_running(worker)
 
         session = Session(NoConnection(); asset_server = NoServer())
-        page = ReplPage.build(session)
+        page = ReplPage.build(session, nothing)
         page_worker = page.controller.worker
         try
             @test page.editor isa CodeEditor
@@ -313,77 +320,106 @@ const ReplPage = LiveJuliaPage
         end
     end
 
-    @testset "page discovery" begin
-        @test length(PAGE_DESCRIPTORS) == 4
-        @test getproperty.(PAGE_DESCRIPTORS, :id) == [
+    @testset "deck discovery" begin
+        @test length(DECK_DESCRIPTORS) == 4
+        @test getproperty.(DECK_DESCRIPTORS, :id) == [
             "overview",
             "core-and-insulation",
             "parametric-ohl-ugc-transition",
             "live-julia-workspace"
         ]
-        @test all(page -> page.render, PAGE_DESCRIPTORS)
-        @test allunique(page.id for page in PAGE_DESCRIPTORS)
-        @test allunique(page.source for page in PAGE_DESCRIPTORS)
-        transition_page = find_page("parametric-ohl-ugc-transition", PAGE_DESCRIPTORS)
-        @test hasproperty(transition_page, :prepare)
-        @test hasproperty(transition_page, :ready)
-        @test all(startswith(basename(page.source), lpad(string(page.order), 3, '0'))
-        for page in PAGE_DESCRIPTORS)
-        @test find_page("core-and-insulation", PAGE_DESCRIPTORS).export_figure isa
+        @test all(deck -> deck.render, DECK_DESCRIPTORS)
+        @test allunique(deck.id for deck in DECK_DESCRIPTORS)
+        @test allunique(deck.source for deck in DECK_DESCRIPTORS)
+        transition_deck = find_deck("parametric-ohl-ugc-transition", DECK_DESCRIPTORS)
+        @test hasproperty(transition_deck, :prepare)
+        @test hasproperty(transition_deck, :ready)
+        @test getproperty.(rendered_deck_pages(transition_deck), :id) ==
+              ("corridor", "b5-impedance", "linearization")
+        @test all(
+            startswith(basename(deck.source), lpad(string(deck.order), 3, '0'))
+        for deck in DECK_DESCRIPTORS)
+        @test find_deck("core-and-insulation", DECK_DESCRIPTORS).export_figure isa
               Function
 
-        hidden_cable = map(PAGE_DESCRIPTORS) do page
-            page.id == "core-and-insulation" ? merge(page, (; render = false)) : page
+        hidden_cable = map(DECK_DESCRIPTORS) do deck
+            deck.id == "core-and-insulation" ? merge(deck, (; render = false)) : deck
         end
-        selected = select_rendered_pages(hidden_cable)
+        selected = select_rendered_decks(hidden_cable)
         @test getproperty.(selected, :id) ==
               ["overview", "parametric-ohl-ugc-transition", "live-julia-workspace"]
-        @test_throws ArgumentError select_rendered_pages(
-            map(page -> merge(page, (; render = false)), PAGE_DESCRIPTORS)
+        @test_throws ArgumentError select_rendered_decks(
+            map(deck -> merge(deck, (; render = false)), DECK_DESCRIPTORS)
         )
+
+        hidden_page_deck = merge(transition_deck,
+            (;
+                pages = map(transition_deck.pages) do page
+                page.id == "b5-impedance" ? merge(page, (; render = false)) : page
+            end
+            ))
+        @test getproperty.(rendered_deck_pages(hidden_page_deck), :id) ==
+              ("corridor", "linearization")
 
         mktempdir() do directory
             write(
                 joinpath(directory, "020_visible.jl"),
                 """module VisibleDiscoveryFixture
-                build(value) = value
-                const PAGE = (id = \"visible-fixture\", group = \"Fixtures\", title = \"Visible\", order = 20, render = true, class = \"fixture\", build = build)
+                setup(value) = value
+                build(session, state) = (; body = state)
+                const DECK = (id = \"visible-fixture\", group = \"Fixtures\", title = \"Visible\", order = 20, render = true, class = \"fixture\", setup = setup, pages = ((id = \"visible-page\", title = \"Visible page\", render = true, class = \"\", build = build),))
                 end
-                VisibleDiscoveryFixture.PAGE
+                VisibleDiscoveryFixture.DECK
                 """
             )
             write(
                 joinpath(directory, "010_hidden.jl"),
                 """module HiddenDiscoveryFixture
-                build(value) = value
-                const PAGE = (id = \"hidden-fixture\", group = \"Fixtures\", title = \"Hidden\", order = 10, render = false, class = \"fixture\", build = build)
+                setup(value) = value
+                build(session, state) = (; body = state)
+                const DECK = (id = \"hidden-fixture\", group = \"Fixtures\", title = \"Hidden\", order = 10, render = false, class = \"fixture\", setup = setup, pages = ((id = \"hidden-page\", title = \"Hidden page\", render = true, class = \"\", build = build),))
                 end
-                HiddenDiscoveryFixture.PAGE
+                HiddenDiscoveryFixture.DECK
                 """
             )
-            discovered = load_page_descriptors(directory)
+            discovered = load_deck_descriptors(directory)
             @test getproperty.(discovered, :id) ==
                   ["hidden-fixture", "visible-fixture"]
-            @test getproperty.(select_rendered_pages(discovered), :id) ==
+            @test getproperty.(select_rendered_decks(discovered), :id) ==
                   ["visible-fixture"]
         end
     end
 
     @testset "application DOM" begin
         assets = app_assets()
-        transition_stub = _ -> (;
+        transition_setup_count = Ref(0)
+        transition_setup = _ -> begin
+            transition_setup_count[] += 1
+            return nothing
+        end
+        corridor_stub = (_, _) -> (;
             body = (
-            DOM.h1("Application case - parametric OHL/UGC transition"),
+            DOM.h1("Corridor composition"),
             DOM.div(
                 DOM.div(; id = "ugc-share-control"),
-                DOM.button(; id = "recache-powerflow-control"),
-                DOM.div(; id = "transition-network-diagram"),
-                DOM.div(; id = "b5-impedance-plot");
+                DOM.div(; id = "transition-network-diagram");
                 class = "lc-interactive-grid lc-transition-grid"
             )
         )
         )
-        repl_stub = _ -> (;
+        impedance_stub = (_, _) -> (;
+            body = (
+            DOM.h1("Driving-point impedance at B5"),
+            DOM.div(; id = "b5-impedance-plot")
+        )
+        )
+        linearization_stub = (_, _) -> (;
+            body = (
+            DOM.h1("Operating point and linearization"),
+            DOM.button(; id = "recache-powerflow-control")
+        )
+        )
+        repl_stub = (_, _) -> (;
             body = (
             DOM.h1("Live Julia workspace"),
             DOM.div(
@@ -398,17 +434,28 @@ const ReplPage = LiveJuliaPage
             )
         )
         )
-        test_pages = map(RENDERED_PAGES) do page
-            if page.id == "parametric-ohl-ugc-transition"
-                merge(page, (; build = transition_stub, ready = () -> true))
-            elseif page.id == "live-julia-workspace"
-                merge(page, (; build = repl_stub))
+        test_decks = map(RENDERED_DECKS) do deck
+            if deck.id == "parametric-ohl-ugc-transition"
+                pages = map(deck.pages) do page
+                    build = page.id == "corridor" ? corridor_stub :
+                            page.id == "b5-impedance" ? impedance_stub :
+                            linearization_stub
+                    merge(page, (; build))
+                end
+                merge(deck, (;
+                    setup = transition_setup,
+                    pages,
+                    ready = () -> true
+                ))
+            elseif deck.id == "live-julia-workspace"
+                pages = map(page -> merge(page, (; build = repl_stub)), deck.pages)
+                merge(deck, (; pages))
             else
-                page
+                deck
             end
         end
-        app = cable_app(assets; pages = test_pages)
-        routes = cable_routes(assets; pages = test_pages)
+        app = cable_app(assets; decks = test_decks)
+        routes = cable_routes(assets; decks = test_decks)
         @test app isa App
         @test isnothing(app.loading_page)
         @test Set(keys(routes.routes)) == Set((
@@ -422,10 +469,10 @@ const ReplPage = LiveJuliaPage
         @test app.indicator.right == "16px"
         @test assets.app_css isa String
         @test occursin(".lc-documenter", assets.app_css)
-        @test length(RENDERED_PAGES) == 4
-        @test allunique(page.id for page in RENDERED_PAGES)
-        @test allunique(page.title for page in RENDERED_PAGES)
-        @test last(RENDERED_PAGES).title == "Live Julia workspace"
+        @test length(RENDERED_DECKS) == 4
+        @test allunique(deck.id for deck in RENDERED_DECKS)
+        @test allunique(deck.title for deck in RENDERED_DECKS)
+        @test last(RENDERED_DECKS).title == "Live Julia workspace"
 
         theme = read(joinpath(@__DIR__, "..", "assets", "theme.css"), String)
         @test occursin("--lc-bg: #1f2424;", theme)
@@ -451,10 +498,14 @@ const ReplPage = LiveJuliaPage
 
         source = read(joinpath(@__DIR__, "..", "app.jl"), String)
         @test occursin("PageAuthoring.jl", source)
-        @test occursin("load_page_descriptors()", source)
+        @test occursin("load_deck_descriptors()", source)
+        @test occursin("deck -> deck.render", source)
         @test occursin("page -> page.render", source)
         @test occursin("function cable_routes", source)
-        @test occursin("page_route(page, index)", source)
+        @test occursin("deck_route(deck, index)", source)
+        @test occursin("state = deck.setup(session)", source)
+        @test occursin("window.addEventListener(\"hashchange\"", source)
+        @test occursin("activateDeckPage", source)
         @test occursin("window.location.assign", source)
         @test occursin("root.requestFullscreen", source)
         @test occursin("window.sessionStorage", source)
@@ -468,10 +519,9 @@ const ReplPage = LiveJuliaPage
         @test occursin("document.documentElement.clientWidth", source)
         @test occursin("resolution:", source)
         @test occursin("window.setTimeout(applyViewport, 240)", source)
-        @test occursin("start_page_preparations!", source)
+        @test occursin("start_deck_preparations!", source)
         @test !occursin("loading_page =", source)
         @test !occursin("new MutationObserver", source)
-        @test !occursin("page.hidden", source)
         @test !occursin("window.history.pushState", source)
         @test !occursin("ES6Module", source)
         @test !occursin("Reveal", source)
@@ -484,6 +534,7 @@ const ReplPage = LiveJuliaPage
         )
         @test occursin("module CableDesignPage", cable_source)
         @test occursin("using ..PageAuthoring", cable_source)
+        @test occursin("const DECK = deck_descriptor(", cable_source)
         @test occursin("render = true", cable_source)
         @test !occursin("DOM.", cable_source)
         @test !occursin("LineCableModels.PlotBuilder", cable_source)
@@ -495,6 +546,11 @@ const ReplPage = LiveJuliaPage
         )
         @test occursin("module OHLUGCTransitionPage", case_source)
         @test occursin("using ..PageAuthoring", case_source)
+        @test occursin("const DECK = deck_descriptor(", case_source)
+        @test occursin("setup = setup", case_source)
+        @test occursin("id = \"corridor\"", case_source)
+        @test occursin("id = \"b5-impedance\"", case_source)
+        @test occursin("id = \"linearization\"", case_source)
         @test occursin("render = true", case_source)
         @test occursin("``Z_{B_5,B_5}(f)``", case_source)
         @test !occursin(raw"$Z_{B_5,B_5}(f)$", case_source)
@@ -524,6 +580,7 @@ const ReplPage = LiveJuliaPage
         worker_source = read(joinpath(@__DIR__, "..", "repl_worker.jl"), String)
         @test occursin("module LiveJuliaPage", repl_source)
         @test occursin("using ..PageAuthoring", repl_source)
+        @test occursin("const DECK = deck_descriptor(", repl_source)
         @test occursin("CodeEditor(", repl_source)
         @test occursin("TerminalOutput(", repl_source)
         @test occursin("session.on_close", repl_source)
@@ -564,7 +621,9 @@ const ReplPage = LiveJuliaPage
 
         serve_source = read(joinpath(@__DIR__, "..", "serve.jl"), String)
         @test occursin("Bonito.route!(server, cable_routes())", serve_source)
-        @test occursin("start_page_preparations!()", serve_source)
+        @test occursin("start_deck_preparations!()", serve_source)
+        @test occursin("Sys.which(\"xdg-open\")", serve_source)
+        @test stat(joinpath(@__DIR__, "..", "launch.sh")).mode & 0o111 != 0
 
         function route_html(route_app)
             parent = Session(NoConnection(); asset_server = NoServer())
@@ -603,41 +662,49 @@ const ReplPage = LiveJuliaPage
             )
                 @test occursin(marker, html)
             end
-            @test count("class=\"lc-page ", html) == 1
-            @test occursin("href=\"./core-and-insulation\"", html)
-            @test occursin("href=\"./parametric-ohl-ugc-transition\"", html)
-            @test occursin("href=\"./live-julia-workspace\"", html)
+            @test occursin("href=\"./core-and-insulation#core-and-insulation\"", html)
+            @test occursin("href=\"./parametric-ohl-ugc-transition#corridor\"", html)
+            @test occursin("href=\"./live-julia-workspace#live-julia-workspace\"", html)
         end
 
         overview_html = route_htmls["/"]
-        @test occursin("page-overview", overview_html)
+        @test count("class=\"lc-page ", overview_html) == 1
+        @test occursin("deck-overview-page-overview", overview_html)
         @test occursin("lc-bonito-markdown", overview_html)
         @test occursin("data-math-renderer=\"bonito\"", overview_html)
         @test occursin("lc-preparation-progress", overview_html)
         @test !occursin("core-radius-control", overview_html)
-        @test !occursin("page-parametric-ohl-ugc-transition", overview_html)
+        @test !occursin("deck-parametric-ohl-ugc-transition-page-corridor", overview_html)
 
         cable_html = route_htmls["/core-and-insulation"]
-        @test occursin("page-core-and-insulation", cable_html)
+        @test count("class=\"lc-page ", cable_html) == 1
+        @test occursin("deck-core-and-insulation-page-core-and-insulation", cable_html)
         @test occursin("lc-canvas", cable_html)
         @test occursin("core-radius-control", cable_html)
         @test occursin("insulation-thickness-control", cable_html)
         @test occursin("cable-plot", cable_html)
-        @test !occursin("page-overview", cable_html)
+        @test !occursin("deck-overview-page-overview", cable_html)
         @test !occursin("ugc-share-control", cable_html)
 
         transition_html = route_htmls["/parametric-ohl-ugc-transition"]
-        @test occursin("page-parametric-ohl-ugc-transition", transition_html)
+        @test transition_setup_count[] == 1
+        @test count("class=\"lc-page ", transition_html) == 3
+        @test occursin("deck-parametric-ohl-ugc-transition-page-corridor", transition_html)
+        @test occursin("deck-parametric-ohl-ugc-transition-page-b5-impedance", transition_html)
+        @test occursin("deck-parametric-ohl-ugc-transition-page-linearization", transition_html)
+        @test occursin("data-page-id=\"b5-impedance\"", transition_html)
+        @test occursin("hidden=\"true\"", transition_html)
         @test occursin("Application case - parametric OHL/UGC transition", transition_html)
         @test occursin("ugc-share-control", transition_html)
         @test occursin("recache-powerflow-control", transition_html)
         @test occursin("transition-network-diagram", transition_html)
         @test occursin("b5-impedance-plot", transition_html)
-        @test !occursin("page-overview", transition_html)
+        @test !occursin("deck-overview-page-overview", transition_html)
         @test !occursin("core-radius-control", transition_html)
 
         repl_html = route_htmls["/live-julia-workspace"]
-        @test occursin("page-live-julia-workspace", repl_html)
+        @test count("class=\"lc-page ", repl_html) == 1
+        @test occursin("deck-live-julia-workspace-page-live-julia-workspace", repl_html)
         @test occursin("Live Julia workspace", repl_html)
         @test occursin("live-julia-run", repl_html)
         @test occursin("live-julia-interrupt", repl_html)
@@ -648,14 +715,14 @@ const ReplPage = LiveJuliaPage
         @test occursin("live-julia-terminal", repl_html)
         @test !occursin("core-radius-control", repl_html)
 
-        preparing_pages = map(test_pages) do page
-            page.id == "parametric-ohl-ugc-transition" ?
-            merge(page, (; ready = () -> false)) : page
+        preparing_decks = map(test_decks) do deck
+            deck.id == "parametric-ohl-ugc-transition" ?
+            merge(deck, (; ready = () -> false)) : deck
         end
         preparing_app = cable_app(
             assets;
-            pages = preparing_pages,
-            page = find_page("parametric-ohl-ugc-transition", preparing_pages)
+            decks = preparing_decks,
+            deck = find_deck("parametric-ohl-ugc-transition", preparing_decks)
         )
         preparing_html = route_html(preparing_app)
         @test occursin("lc-documenter is-preparing", preparing_html)
@@ -663,17 +730,17 @@ const ReplPage = LiveJuliaPage
         @test occursin("lc-preparation-progress", preparing_html)
         @test !occursin("transition-network-diagram", preparing_html)
 
-        hidden_test_pages = select_rendered_pages(map(test_pages) do page
-            page.id == "core-and-insulation" ?
-            merge(page, (; render = false)) : page
+        hidden_test_decks = select_rendered_decks(map(test_decks) do deck
+            deck.id == "core-and-insulation" ?
+            merge(deck, (; render = false)) : deck
         end)
-        hidden_routes = cable_routes(assets; pages = hidden_test_pages)
+        hidden_routes = cable_routes(assets; decks = hidden_test_decks)
         @test Set(keys(hidden_routes.routes)) ==
               Set(("/", "/parametric-ohl-ugc-transition", "/live-julia-workspace"))
         hidden_html = route_html(hidden_routes.routes["/"])
-        @test !occursin("page-core-and-insulation", hidden_html)
+        @test !occursin("deck-core-and-insulation-page-core-and-insulation", hidden_html)
         @test !occursin("core-radius-control", hidden_html)
-        @test occursin("page-overview", hidden_html)
-        @test !occursin("page-parametric-ohl-ugc-transition", hidden_html)
+        @test occursin("deck-overview-page-overview", hidden_html)
+        @test !occursin("deck-parametric-ohl-ugc-transition-page-corridor", hidden_html)
     end
 end
