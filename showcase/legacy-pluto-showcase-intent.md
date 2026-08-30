@@ -369,4 +369,3 @@ Keep narrative prose, page layout, and image placeholders independent of package
 construction. Each page may own a small adapter that creates its current domain object
 and extracts the results it displays. This preserves the recovered story while allowing
 the LineCableModels tree and plotting APIs to continue evolving.
-
