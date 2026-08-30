@@ -22,7 +22,8 @@ using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...LineCableModels: nominal
 import ..Engine: EarthImpedanceFormulation, formula_id, bessel_difference
 #! explicit-imports: off
-import ..Engine: description, conductivity
+import ..Engine: description, conductivity, media, special_besselk
+using SpecialFunctions: bessely, hankelh1
 #! explicit-imports: on
 using QuadGK: quadgk
 
@@ -40,15 +41,18 @@ const FORMULAS = let
         readdir(directory; join = true)
     ))
     identifiers = Symbol[]
+    discovered = Set{Symbol}()
     for file in files
         identifier = include(file)
         identifier isa Symbol || error(
             "earth-impedance formula file $(basename(file)) must return its Symbol identifier"
         )
-        identifier in identifiers && error(
+        identifier in discovered && error(
             "duplicate earth-impedance formula identifier :$identifier"
         )
-        push!(identifiers, identifier)
+        push!(discovered, identifier)
+        propagation(Val(identifier)) === Val(:backend) ||
+            push!(identifiers, identifier)
     end
     Tuple(identifiers)
 end

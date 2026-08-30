@@ -45,6 +45,7 @@
         @test TestNumerics.isapprox_scaled(Z(rebuilt), Z(phase_parameters))
         @test TestNumerics.isapprox_scaled(Y(rebuilt), Y(phase_parameters))
         for matrix in (tracked.Z.values, tracked.Y.values), frequency in 1:2
+
             slice=@view matrix[:, :, frequency]
             @test norm(slice-Diagonal(diag(slice))) <=
                   1e-6*max(norm(slice), eps(Float64))
@@ -84,7 +85,7 @@
         Float64, workspace.input, Val(false)) === nothing
 
     allocation_formulation=Formulation(
-        earth_impedance = :Pollaczek,
+        earth_impedance = :Pollaczek1926,
         earth_admittance = :IdealGround,
         options = (
             reduce_bundle = true,
@@ -228,7 +229,7 @@ end
     ))
     execution=computation_options(Val(LineCableModelsCoaxial), (;))
     workspace(problem,
-        formulation = Formulation())=LineParametersWorkspace(
+        formulation = Formulation()) = LineParametersWorkspace(
         LineCableModelsCoaxial(), problem, formulation, execution)
 
     bare_input=workspace(problem_for(bare)).input
@@ -389,7 +390,7 @@ end
     @test all(isfinite, compute(explicit, Formulation()).Z)
     @test_throws ArgumentError compute(
         explicit,
-        Formulation(earth_impedance = :Pollaczek)
+        Formulation(earth_impedance = :Pollaczek1926)
     )
     @test_throws DimensionMismatch LineParametersProblem(
         base.system;
@@ -400,7 +401,7 @@ end
     )
 
     design=TestFixtures.mv_cable_design()
-    connections(phase)=Dict("core"=>phase, "sheath"=>0, "jacket"=>0)
+    connections(phase) = Dict("core"=>phase, "sheath"=>0, "jacket"=>0)
     mixed_system=build(
         LineCableSystem,
         [design, design],
@@ -497,8 +498,8 @@ end
         frequencies = [1.0e6]
     )
     common=(
-        earth_impedance = :Carson,
-        earth_admittance = :ElectrostaticImages,
+        earth_impedance = :Pollaczek1926,
+        earth_admittance = :Ametani2021,
         options = (ideal_transposition = false,)
     )
     selected=compute(

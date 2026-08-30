@@ -60,7 +60,7 @@ end
 
 function Formulation(
         ::Val{:pscad};
-        earth_impedance = :Wedepohl,
+        earth_impedance = :WedepohlWilcox1973,
         earth_admittance::NativeEarthAdmittance = NativeEarthAdmittance(),
         insulation_admittance::NativeInsulationAdmittance =
         NativeInsulationAdmittance(),
@@ -106,9 +106,9 @@ function pscad_readback(formula::EarthImpedance.Formula)
     pscad_readback(Val(EarthImpedance.formula_id(formula)))
 end
 
-pscad_field(::Val{:Deri}) = :EarthForm2
-pscad_value(::Val{:Deri}) = 0
-pscad_readback(::Val{:Deri}) = "DERISEMLYEN"
+pscad_field(::Val{:DeriSemlyen1981}) = :EarthForm2
+pscad_value(::Val{:DeriSemlyen1981}) = 0
+pscad_readback(::Val{:DeriSemlyen1981}) = "DERISEMLYEN"
 
 pscad_field(::DirectNumericalIntegration{:overhead}) = :EarthForm2
 pscad_value(::DirectNumericalIntegration{:overhead}) = 2
@@ -116,9 +116,9 @@ function pscad_readback(::DirectNumericalIntegration{:overhead})
     "DIRECT_NUMERICAL_INTEGRATION"
 end
 
-pscad_field(::Val{:Wedepohl}) = :EarthForm
-pscad_value(::Val{:Wedepohl}) = 0
-pscad_readback(::Val{:Wedepohl}) = "WEDEPOHL"
+pscad_field(::Val{:WedepohlWilcox1973}) = :EarthForm
+pscad_value(::Val{:WedepohlWilcox1973}) = 0
+pscad_readback(::Val{:WedepohlWilcox1973}) = "WEDEPOHL"
 
 pscad_field(::DirectNumericalIntegration{:underground}) = :EarthForm
 pscad_value(::DirectNumericalIntegration{:underground}) = 2
@@ -126,17 +126,17 @@ function pscad_readback(::DirectNumericalIntegration{:underground})
     "DIRECT_NUMERICAL_INTEGRATION"
 end
 
-pscad_field(::Val{:Saad}) = :EarthForm
-pscad_value(::Val{:Saad}) = 3
-pscad_readback(::Val{:Saad}) = "SAAD"
+pscad_field(::Val{:Saad1996}) = :EarthForm
+pscad_value(::Val{:Saad1996}) = 3
+pscad_readback(::Val{:Saad1996}) = "SAAD"
 
-pscad_field(::Val{:Ametani}) = :EarthForm3
-pscad_value(::Val{:Ametani}) = 0
-pscad_readback(::Val{:Ametani}) = "AMETANIL"
+pscad_field(::Val{:Ametani2009}) = :EarthForm3
+pscad_value(::Val{:Ametani2009}) = 0
+pscad_readback(::Val{:Ametani2009}) = "AMETANIL"
 
-pscad_field(::Val{:Lucca}) = :EarthForm3
-pscad_value(::Val{:Lucca}) = 2
-pscad_readback(::Val{:Lucca}) = "LUCCA"
+pscad_field(::Val{:Lucca1994}) = :EarthForm3
+pscad_value(::Val{:Lucca1994}) = 2
+pscad_readback(::Val{:Lucca1994}) = "LUCCA"
 
 function formulation_record(formulation::PSCADFormulation)
     earth_impedance = formulation.earth_impedance

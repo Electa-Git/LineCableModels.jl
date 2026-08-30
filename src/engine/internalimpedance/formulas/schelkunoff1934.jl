@@ -1,4 +1,4 @@
-function routes(::Val{:Schelkunoff})
+function routes(::Val{:Schelkunoff1934})
     (
         inner = schelkunoff_inner,
         outer = schelkunoff_outer,
@@ -6,11 +6,61 @@ function routes(::Val{:Schelkunoff})
     )
 end
 
-assumptions(::Val{:Schelkunoff}) = (;)
+assumptions(::Val{:Schelkunoff1934}) = (;)
 
-description(::Formula{:Schelkunoff}) = "Schelkunoff"
+function description(::Formula{:Schelkunoff1934})
+    "Schelkunoff exact round-conductor surface impedances (1934)"
+end
 
-function (formula::Formula{:Schelkunoff})(
+"""
+$(TYPEDSIGNATURES)
+
+Construct the exact Schelkunoff surface-impedance evaluator for one solid or
+hollow circular conductor:
+
+```math
+Z_{is}=\\frac{\\rho m}{2\\pi aD}
+\\left[I_0(ma)K_1(mb)+K_0(ma)I_1(mb)\\right],
+\\qquad
+Z_{ms}=\\frac{\\rho m}{2\\pi abD},
+```
+
+```math
+Z_{os}=\\frac{\\rho m}{2\\pi bD}
+\\left[I_0(mb)K_1(ma)+K_0(mb)I_1(ma)\\right],
+```
+
+where
+
+```math
+D=I_1(mb)K_1(ma)-K_1(mb)I_1(ma),
+\\qquad
+m=\\sqrt{j\\omega\\mu/\\rho}.
+```
+
+For ``a=0``, the outer term is evaluated from the solid-cylinder limit
+``Z_{int}=\\rho m I_0(mb)/(2\\pi b I_1(mb))``.
+
+# Arguments
+
+- `r_in`: Inner conductor radius ``a`` \\[m\\].
+- `r_ex`: Outer conductor radius ``b`` \\[m\\].
+- `rho_c`: Conductor resistivity ``\\rho`` \\[Ω·m\\].
+- `mur_c`: Relative conductor permeability \\[dimensionless\\].
+- `jω`: Complex angular frequency ``j\\omega`` \\[rad/s\\].
+
+# Returns
+
+- A formula functor evaluating inner, outer, and mutual surface impedances
+  \\[Ω/m\\].
+
+# Notes
+
+Implements Schelkunoff (1934) as reproduced in Ametani et al. (2021),
+Appendix A1.4.1, Eqs. A1.50–A1.55.
+"""
+function schelkunoff1934(
+        formula::Formula{:Schelkunoff1934},
         r_in::T,
         r_ex::T,
         rho_c::T,
@@ -32,30 +82,34 @@ function (formula::Formula{:Schelkunoff})(
         m,
         w_ex
     )
-    return Functor{:Schelkunoff, typeof(formula.routes), typeof(state)}(
+    return Functor{:Schelkunoff1934, typeof(formula.routes), typeof(state)}(
         formula.routes,
         state
     )
 end
 
-@inline function (functor::Functor{:Schelkunoff})(::Val{:inner})
+@inline function (formula::Formula{:Schelkunoff1934})(r_in, r_ex, rho_c, mur_c, jω)
+    return schelkunoff1934(formula, r_in, r_ex, rho_c, mur_c, jω)
+end
+
+@inline function (functor::Functor{:Schelkunoff1934})(::Val{:inner})
     return functor.routes.inner(functor.state)
 end
 
-@inline function (functor::Functor{:Schelkunoff})(::Val{:outer})
+@inline function (functor::Functor{:Schelkunoff1934})(::Val{:outer})
     return functor.routes.outer(functor.state)
 end
 
-@inline function (functor::Functor{:Schelkunoff})(::Val{:mutual})
+@inline function (functor::Functor{:Schelkunoff1934})(::Val{:mutual})
     return functor.routes.mutual(functor.state)
 end
 
-@inline function (functor::Functor{:Schelkunoff})(form::Symbol)
+@inline function (functor::Functor{:Schelkunoff1934})(form::Symbol)
     Base.@nospecialize form
     return form === :inner ? functor(Val(:inner)) :
            form === :outer ? functor(Val(:outer)) :
            form === :mutual ? functor(Val(:mutual)) :
-           throw(ArgumentError("unknown Schelkunoff interaction: $form"))
+           throw(ArgumentError("unknown Schelkunoff1934 interaction: $form"))
 end
 
 @inline function schelkunoff_inner(state)
@@ -117,4 +171,4 @@ end
     )
 end
 
-:Schelkunoff
+:Schelkunoff1934

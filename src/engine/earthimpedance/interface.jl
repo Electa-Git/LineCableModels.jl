@@ -102,6 +102,18 @@ function Formula(identifier::Symbol, selected::NamedTuple, values::NamedTuple = 
     Formula(Val(identifier), selected, values)
 end
 
+@inline function (formula::Formula)(rho, epsilon, mu, jω, Γ, segments, thickness)
+    return formula(rho, epsilon, mu, jω, Γ, segments)
+end
+
+@inline function (functor::Functor)(::Val{:self}, pair)
+    return functor.routes.self(functor, pair)
+end
+
+@inline function (functor::Functor)(::Val{:mutual}, pair)
+    return functor.routes.mutual(functor, pair)
+end
+
 function _longitudinal(formula::Formula, ::Nothing, jω, permeability, permittivity)
     return formula.routes.Γ(jω, permeability, permittivity)
 end

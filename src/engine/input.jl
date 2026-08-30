@@ -34,18 +34,6 @@ constitutive(
     material::Material
 ) = material
 
-constitutive(
-    ::LineParametersFormulation,
-    ::Val{:insulator},
-    material::Material
-) = material
-
-constitutive(
-    ::LineParametersFormulation,
-    ::Val{:semicon},
-    material::Material
-) = material
-
 function constitutive(
         ::LineParametersFormulation,
         ::Val{Kind},
@@ -109,6 +97,21 @@ function _check_workspace(workspace::LineParametersWorkspace)
             "engine input arrays must have $n component entries"
         ))
     end
+    n_layers = length(input.dielectric_materials)
+    for values in (
+        input.r_ins_layer_in, input.r_ins_layer_ext, input.rho_ins_layer,
+        input.eps_ins_layer, workspace.buffers.layer_coefficients
+    )
+        length(values) == n_layers || throw(DimensionMismatch(
+            "dielectric-layer arrays must contain $n_layers entries"
+        ))
+    end
+    sort!(vcat(
+        input.insulation_layer_indices,
+        input.semicon_layer_indices
+    )) == collect(1:n_layers) || throw(DimensionMismatch(
+        "insulation and semicon indices must partition the dielectric layers"
+    ))
     size(input.horz_sep) == (n, n) || throw(DimensionMismatch(
         "horizontal separation matrix must be $n×$n"
     ))
@@ -219,6 +222,11 @@ function LineParametersWorkspace(
     r_ins_layer_ext = Vector{T}(undef, n_layers)
     rho_ins_layer = Vector{T}(undef, n_layers)
     eps_ins_layer = Vector{T}(undef, n_layers)
+    dielectric_materials = Vector{Material{T}}(undef, n_layers)
+    insulation_layer_indices = Int[]
+    semicon_layer_indices = Int[]
+    sizehint!(insulation_layer_indices, n_layers)
+    sizehint!(semicon_layer_indices, n_layers)
     phase_map = copy(system.connection_order)
     cable_map = Int[entry.cable for entry in system.terminal_order]
 
@@ -258,32 +266,32 @@ function LineParametersWorkspace(
             alpha_cond[component_index] = conductor_material.alpha
             mu_cond[component_index] = conductor_material.mu_r
             eps_cond[component_index] = conductor_material.eps_r
-            transformed_layers = map(dielectric.layers) do layer
-                layer_material = constitutive(
-                    formulation,
-                    Val(layer.material.kind),
-                    layer.material
-                )
-                return (
-                    r_in = layer.r_in,
-                    r_ex = layer.r_ex,
-                    material = layer_material
-                )
+            for layer in dielectric.layers
+                layer.material.kind in (:insulator, :semicon) || throw(ArgumentError(
+                    "the coaxial backend requires dielectric layers to be :insulator or :semicon; " *
+                    "got :$(layer.material.kind)"
+                ))
             end
-            mu_ins[component_index] = isempty(transformed_layers) ? one(T) :
+            mu_ins[component_index] = isempty(dielectric.layers) ? one(T) :
                                       DataModel.equivalent_dielectric_permeability(
-                transformed_layers,
+                dielectric.layers,
                 conductor.num_turns,
                 conductor.r_ex,
                 dielectric.r_ex
             )
             first_layer = layer_index + 1
-            for layer in transformed_layers
+            for layer in dielectric.layers
                 layer_index += 1
                 r_ins_layer_in[layer_index] = layer.r_in
                 r_ins_layer_ext[layer_index] = layer.r_ex
                 rho_ins_layer[layer_index] = layer.material.rho
                 eps_ins_layer[layer_index] = layer.material.eps_r
+                dielectric_materials[layer_index] = layer.material
+                if layer.material.kind === :insulator
+                    push!(insulation_layer_indices, layer_index)
+                else
+                    push!(semicon_layer_indices, layer_index)
+                end
             end
             insulator_layer_ranges[component_index] = first_layer:layer_index
         end
@@ -317,9 +325,13 @@ function LineParametersWorkspace(
         r_ins_layer_ext,
         rho_ins_layer,
         eps_ins_layer,
+        dielectric_materials,
+        insulation_layer_indices,
+        semicon_layer_indices,
         phase_map,
         cable_map,
         earth = problem.earth_props,
+        temperature = problem.temperature,
         line_length = system.line_length,
         n_frequencies,
         n_phases,
@@ -403,8 +415,21 @@ function LineParametersWorkspace(
         epsilon = Matrix{T}(undef, 2, pair_count),
         mu = Matrix{T}(undef, 2, pair_count)
     )
+    n_earth_layers = length(problem.earth_props.layers)
+    earth_layers = (
+        rho = Matrix{T}(undef, n_earth_layers, pair_count),
+        epsilon = Matrix{T}(undef, n_earth_layers, pair_count),
+        mu = Matrix{T}(undef, n_earth_layers, pair_count),
+        thickness = Vector{T}(undef, n_earth_layers)
+    )
     integration_type = typeof(float(nominal(one(T))))
-    earth_segments = alloc_segbuf(
+    earth_impedance_segments = alloc_segbuf(
+        integration_type,
+        Complex{T},
+        integration_type;
+        size = 128
+    )
+    earth_admittance_segments = alloc_segbuf(
         integration_type,
         Complex{T},
         integration_type;
@@ -413,6 +438,7 @@ function LineParametersWorkspace(
     largest_cable = maximum(length, cable_indices)
     coefficients = Vector{Complex{T}}(undef, largest_cable)
     tails = similar(coefficients)
+    layer_coefficients = Vector{Complex{T}}(undef, n_layers)
     buffers = (;
         Zbuffer,
         Pbuffer,
@@ -430,7 +456,10 @@ function LineParametersWorkspace(
         Yout,
         earth_matrix,
         earth_media,
-        earth_segments,
+        earth_layers,
+        earth_impedance_segments,
+        earth_admittance_segments,
+        layer_coefficients,
         coefficients,
         tails
     )

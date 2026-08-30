@@ -194,6 +194,7 @@ function LineParametersFormulation(;
         insulation_impedance::InsulationImpedanceFormulation,
         earth_impedance::EarthImpedanceFormulation,
         insulation_admittance::InsulationAdmittanceFormulation,
+        semicon_admittance::SemiconAdmittanceFormulation,
         earth_admittance::EarthAdmittanceFormulation,
         earth_properties,
         equivalent_earth,
@@ -201,7 +202,7 @@ function LineParametersFormulation(;
 )
     methods = (;
         internal_impedance, insulation_impedance, earth_impedance,
-        insulation_admittance, earth_admittance, earth_properties,
+        insulation_admittance, semicon_admittance, earth_admittance, earth_properties,
         equivalent_earth
     )
     return LineParametersFormulation(methods, options)
@@ -235,8 +236,7 @@ function _internal_impedance_formula(
 end
 
 _insulation_impedance_formula(formula::InsulationImpedanceFormulation) = formula
-_insulation_impedance_formula(identifier::Symbol) =
-    InsulationImpedance.Formula(identifier)
+_insulation_impedance_formula(identifier::Symbol) = InsulationImpedance.Formula(identifier)
 function _insulation_impedance_formula(
         selection::FormulaSpec{ID, Order}
 ) where {ID, Order}
@@ -245,13 +245,25 @@ function _insulation_impedance_formula(
 end
 
 _insulation_admittance_formula(formula::InsulationAdmittanceFormulation) = formula
-_insulation_admittance_formula(identifier::Symbol) =
+function _insulation_admittance_formula(identifier::Symbol)
     InsulationAdmittance.Formula(identifier)
+end
 function _insulation_admittance_formula(
         selection::FormulaSpec{ID, Order}
 ) where {ID, Order}
     _direct(selection, :insulation_admittance)
     return InsulationAdmittance.Formula(Val(ID); selection.overrides...)
+end
+
+_semicon_admittance_formula(formula::SemiconAdmittanceFormulation) = formula
+function _semicon_admittance_formula(identifier::Symbol)
+    SemiconAdmittance.Formula(identifier)
+end
+function _semicon_admittance_formula(
+        selection::FormulaSpec{ID, Order}
+) where {ID, Order}
+    _direct(selection, :semicon_admittance)
+    return SemiconAdmittance.Formula(Val(ID); selection.overrides...)
 end
 
 _earth_properties_formula(::Nothing) = nothing
@@ -276,14 +288,16 @@ function _direct(::FormulaSpec{ID, Order}, owner::Symbol) where {ID, Order}
     return nothing
 end
 
-_ehem_rule(
-    ::FormulaSpec{:Layer, Order, NamedTuple{(), Tuple{}}}
-) where {Order} = EHEM.Layer()
+function _ehem_rule(
+        ::FormulaSpec{:Layer, Order, NamedTuple{(), Tuple{}}}
+) where {Order}
+    EHEM.Layer()
+end
 
 function _ehem_rule(
         selection::FormulaSpec{
-            :Layer, Order, NamedTuple{(:layer,), Tuple{T}}
-        }
+        :Layer, Order, NamedTuple{(:layer,), Tuple{T}}
+}
 ) where {Order, T <: Int}
     return EHEM.Layer(selection.overrides.layer)
 end
@@ -313,10 +327,11 @@ function _equivalent_earth(
 end
 
 function Formulation(;
-        internal_impedance = formula(:Schelkunoff),
+        internal_impedance = formula(:Schelkunoff1934),
         insulation_impedance = formula(:Lossless),
         earth_impedance = formula(:Papadopoulos2010),
-        insulation_admittance = formula(:Lossless),
+        insulation_admittance = formula(:Marti2001),
+        semicon_admittance = formula(:Ametani2004),
         earth_admittance = formula(:Papadopoulos2010),
         earth_properties = nothing,
         equivalent_earth = formula(:Layer; order = :after),
@@ -327,6 +342,7 @@ function Formulation(;
         insulation_impedance = _insulation_impedance_formula(insulation_impedance),
         earth_impedance = _earth_impedance_formula(earth_impedance),
         insulation_admittance = _insulation_admittance_formula(insulation_admittance),
+        semicon_admittance = _semicon_admittance_formula(semicon_admittance),
         earth_admittance = _earth_admittance_formula(earth_admittance),
         earth_properties = _earth_properties_formula(earth_properties),
         equivalent_earth = _equivalent_earth(equivalent_earth),

@@ -375,8 +375,16 @@ function _earth_data(
         formulation::LineParametersFormulation,
         input::NamedTuple
 )
+    sequence = formulation.methods.equivalent_earth
+    if sequence === nothing && length(input.earth.layers) != 2 &&
+       (media(formulation.methods.earth_impedance) === Val(:homogeneous) ||
+        media(formulation.methods.earth_admittance) === Val(:homogeneous))
+        throw(ArgumentError(
+            "a homogeneous earth-return formulation requires an EHEM rule for a multilayer earth"
+        ))
+    end
     return _earth_data(
-        formulation.methods.equivalent_earth,
+        sequence,
         formulation.methods.earth_properties,
         input.earth,
         input.freq
@@ -389,9 +397,6 @@ function _earth_data(
         model::EarthModel{T},
         frequencies::AbstractVector{T}
 ) where {T <: Real}
-    sequence === nothing && length(model.layers) != 2 && throw(ArgumentError(
-        "a homogeneous earth-return formulation requires an EHEM rule for a multilayer earth"
-    ))
     nlayer = length(model.layers)
     nfrequency = length(frequencies)
     rho = Matrix{T}(undef, nlayer, nfrequency)
@@ -447,6 +452,12 @@ function homogenize!(
         frequency::Int,
         formulation::LineParametersFormulation
 )
+    layers!(
+        workspace.buffers.earth_layers,
+        formulation.methods.earth_properties,
+        workspace.input.earth,
+        workspace.input.freq[frequency]
+    )
     return homogenize!(
         workspace.buffers.earth_media,
         formulation.methods.equivalent_earth,
@@ -457,6 +468,24 @@ function homogenize!(
         workspace.input.freq[frequency],
         frequency
     )
+end
+
+function layers!(destination, relation, model::EarthModel, frequency)
+    unit = one(frequency)
+    epsilon0 = unit * 88541878128 * (unit * 10)^(-22)
+    mu0 = unit * 4 * (unit * π) * (unit * 10)^(-7)
+    @inbounds for row in eachindex(model.layers)
+        static = EarthMaterial(model.layers[row])
+        material = row == firstindex(model.layers) ?
+                   static : constitutive(relation, static, frequency)
+        destination.thickness[row] = model.layers[row].thickness
+        for column in axes(destination.rho, 2)
+            destination.rho[row, column] = material.rho
+            destination.epsilon[row, column] = epsilon0 * material.eps_r
+            destination.mu[row, column] = mu0 * material.mu_r
+        end
+    end
+    return destination
 end
 
 function homogenize!(
