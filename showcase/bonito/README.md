@@ -21,6 +21,30 @@ intentionally excluded. The impedance response likewise uses a showcase-local
 Makie axis. No PowerImpedance package source is modified, and the local module
 can be deleted when the upstream extension becomes public.
 
+## GitHub Codespaces
+
+The repository's `.devcontainer` configuration provides Julia 1.12 and prepares
+the pinned showcase environment when a codespace is created. In GitHub, choose
+**Code → Codespaces → New with options**, select the branch containing the
+configuration, and create the codespace. The requested minimum machine is four
+cores, 8 GB of memory, and 32 GB of storage.
+
+The first creation downloads and precompiles the Julia dependencies. When the
+post-create command finishes, start the application from the codespace terminal:
+
+```sh
+HOST=0.0.0.0 PORT=8080 PROXY_URL=. julia --project=showcase/bonito showcase/bonito/serve.jl
+```
+
+Open **Bonito showcase** from the VS Code **Ports** panel when port 8080 is
+reported. Keep its visibility set to **Private**. The Live Julia workspace
+evaluates arbitrary Julia code with the codespace user's permissions and must
+not be exposed through an organization-visible or public port.
+
+No GitLab credential or SSH secret is required: the showcase pins
+PowerImpedance from its public GitHub repository over HTTPS, and
+LineCableModels is loaded from the codespace checkout.
+
 Instantiate the pinned application environment from the repository root:
 
 ```sh

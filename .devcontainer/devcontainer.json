@@ -1,0 +1,38 @@
+{
+  "name": "LineCableModels Julia 1.12",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "remoteUser": "vscode",
+  "updateRemoteUserUID": true,
+  "containerEnv": {
+    "JULIA_NUM_THREADS": "auto"
+  },
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "8gb",
+    "storage": "32gb"
+  },
+  "forwardPorts": [
+    8080
+  ],
+  "portsAttributes": {
+    "8080": {
+      "label": "Bonito showcase",
+      "onAutoForward": "notify",
+      "protocol": "http"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "julialang.language-julia"
+      ],
+      "settings": {
+        "julia.executablePath": "/usr/local/julia/bin/julia"
+      }
+    }
+  },
+  "postCreateCommand": "julia --project=showcase/bonito --startup-file=no -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'"
+}
