@@ -2,8 +2,8 @@
     EngineTestSupport, UseEngineSupport, TestNumerics] begin
     using TOML
 
-    formulation=InsulationAdmittance.ParallelRC()
-    lossless=InsulationAdmittance.Lossless()
+    formulation=InsulationAdmittance.Formula(:ParallelRC)
+    lossless=InsulationAdmittance.Formula(:Lossless)
 
     reference=TOML.parsefile(joinpath(
         pkgdir(LineCableModels),
@@ -14,7 +14,7 @@
     ))
     for T in (Float32, Float64, BigFloat)
         setprecision(BigFloat, 128) do
-            typed(value) = parse(T, value)
+            typed(value)=parse(T, value)
             r_inner=typed("0.01")
             r_outer=typed("0.02")
             resistivity=typed("2.0e11")
@@ -72,14 +72,17 @@
     @test s / (first_layer + second_layer) ≈ series_admittance
 
     @test formulation(r_in, r_ex, Inf, eps_r, s) ≈
-          lossless(r_in, r_ex, eps_r, s, 0.0)
+          lossless(r_in, r_ex, Inf, eps_r, s)
 end
 
 @testitem "Engine / ParallelRC / strict layers reach direct computation" tags=[:unit] setup=[
     EngineTestSupport, UseEngineSupport, TestNumerics] begin
     using LinearAlgebra
 
-    function two_terminal_problem(; uncertain = false)
+    function two_terminal_problem(;
+            uncertain = false,
+            frequencies = [1.0e-3, 50.0, 1.0e6]
+    )
         copper=Material(:conductor, 1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
         rho_1=uncertain ? measurement(2.0e11, 2.0e10) : 2.0e11
         eps_1=uncertain ? measurement(2.4, 0.12) : 2.4
@@ -97,21 +100,22 @@ end
             CableDesign,
             "parallel-rc-test",
             Stack(AbstractCablePart[
-                Group(:core, Region(:core_conductor, Annulus(0.0, core_outer), copper)),
-                Region(:insulation_1, Annulus(core_outer, first_outer), dielectric_1),
-                Region(:insulation_2, Annulus(first_outer, insulation_outer), dielectric_2),
-                Group(:sheath,
-                    Region(
-                        :sheath_conductor,
-                        Annulus(insulation_outer, sheath_outer),
-                        copper
-                    )),
+            Group(:core, Region(:core_conductor, Annulus(0.0, core_outer), copper)),
+            Region(:insulation_1, Annulus(core_outer, first_outer), dielectric_1),
+            Region(:insulation_2, Annulus(first_outer, insulation_outer), dielectric_2),
+            Group(
+                :sheath,
                 Region(
-                    :outer_dielectric,
-                    Annulus(sheath_outer, jacket_outer),
-                    outer_dielectric
-                )
-            ])
+                    :sheath_conductor,
+                    Annulus(insulation_outer, sheath_outer),
+                    copper
+                )),
+            Region(
+                :outer_dielectric,
+                Annulus(sheath_outer, jacket_outer),
+                outer_dielectric
+            )
+    ])
         )
         system=build(
             LineCableSystem,
@@ -121,19 +125,18 @@ end
             system_id = "parallel-rc-test",
             line_length = 1000.0
         )
-        frequency=[1.0e-3, 50.0, 1.0e6]
         earth=EarthModel(100.0, 10.0, 1.0)
         return LineParametersProblem(
             system;
             temperature = 20.0,
             earth_props = earth,
-            frequencies = frequency
+            frequencies
         )
     end
 
     formulation=Formulation(;
-        insulation_admittance = InsulationAdmittance.ParallelRC(),
-        modal_transform = nothing,
+        insulation_admittance = formula(:ParallelRC),
+        earth_admittance = :IdealGround,
         options = (
             reduce_bundle = false,
             kron_reduction = false,
@@ -141,10 +144,13 @@ end
         )
     )
     problem=two_terminal_problem()
-    execution=computation_options(Val(LineCableModelsEngine), (;))
+    execution=computation_options(Val(LineCableModelsCoaxial), (;))
     workspace=LineParametersWorkspace(
-        LineCableModelsEngine(), problem, formulation, execution)
-    input=workspace.normalized
+        LineCableModelsCoaxial(), problem, formulation, execution)
+    input=workspace.input
+    @test !hasproperty(input, :rho_ins)
+    @test !hasproperty(input, :eps_ins)
+    @test !hasproperty(input, :tan_ins)
     parameters=compute(problem, formulation; options = (trace = true,))
     trace=details(parameters).trace
     public_parameters=compute(problem, formulation)
@@ -210,6 +216,17 @@ end
     @test uncertainty(real(uncertain_parameters.Y[1, 1, 2])) > 0
     @test uncertainty(imag(uncertain_parameters.Y[1, 1, 2])) > 0
 
+    shifted_reference=compute(
+        two_terminal_problem(frequencies = [1.0e-3, 50.0]),
+        formulation
+    )
+    direct_reference=compute(
+        two_terminal_problem(frequencies = [50.0]),
+        formulation
+    )
+    @test shifted_reference.Y.values[:, :, 2] ==
+          direct_reference.Y.values[:, :, 1]
+
     total=compute(
         problem,
         formulation;
@@ -250,24 +267,25 @@ end
             CableDesign,
             "parallel-rc-mc",
             Stack(AbstractCablePart[
-                Group(:core, Region(:core_conductor, Annulus(0.0, core_outer), copper)),
+            Group(:core, Region(:core_conductor, Annulus(0.0, core_outer), copper)),
+            Region(
+                :core_insulation,
+                Annulus(core_outer, insulation_outer),
+                resolved_dielectric
+            ),
+            Group(
+                :sheath,
                 Region(
-                    :core_insulation,
-                    Annulus(core_outer, insulation_outer),
-                    resolved_dielectric
-                ),
-                Group(:sheath,
-                    Region(
-                        :sheath_conductor,
-                        Annulus(insulation_outer, sheath_outer),
-                        copper
-                    )),
-                Region(
-                    :outer_insulation,
-                    Annulus(sheath_outer, jacket_outer),
-                    outer_dielectric
-                )
-            ])
+                    :sheath_conductor,
+                    Annulus(insulation_outer, sheath_outer),
+                    copper
+                )),
+            Region(
+                :outer_insulation,
+                Annulus(sheath_outer, jacket_outer),
+                outer_dielectric
+            )
+    ])
         )
     end
     design=Gridspace{CableDesign}(build_design, (dielectric, thickness))
@@ -286,8 +304,7 @@ end
         frequencies = [50.0, 500.0]
     )
     formulation=Formulation(;
-        insulation_admittance = InsulationAdmittance.ParallelRC(),
-        modal_transform = nothing,
+        insulation_admittance = formula(:ParallelRC),
         options = (
             reduce_bundle = false,
             kron_reduction = false,

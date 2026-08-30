@@ -315,13 +315,9 @@ function _pscad_cable_parameters(
         base_frequency
 )
     # PSCAD owns this explicit homogenization choice. Its Cable_Coax record
-    # requires concentric equivalent layers, so adaptation happens here rather
+    # requires concentric equivalent layers, so flattening happens here rather
     # than becoming stored CableDesign state.
-    components = Engine.homogeneous_components(
-        Engine.Formulation(),
-        design,
-        base_frequency
-    )
+    components = DataModel.flatten(design, base_frequency)
     length(components) <= 4 || throw(ArgumentError(
         "PSCAD Cable_Coax supports at most four concentric components",
     ))

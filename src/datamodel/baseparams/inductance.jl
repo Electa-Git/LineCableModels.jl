@@ -78,6 +78,52 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Calculate the GMR of two heterogeneous conductor zones:
+
+```math
+GMR_{eq}=GMR_1^{\\beta^2}GMR_2^{(1-\\beta)^2}
+          GMD^{2\\beta(1-\\beta)},\\qquad
+\\beta=\\frac{A_1}{A_1+A_2}.
+```
+
+# Arguments
+
+- `gmr1`: GMR of the accumulated conductor zone \\[m\\].
+- `area1`: Cross-sectional area of the accumulated conductor zone \\[m²\\].
+- `gmr2`: GMR of the added conductor zone \\[m\\].
+- `area2`: Cross-sectional area of the added conductor zone \\[m²\\].
+- `gmd`: Geometric mean distance between the zones \\[m\\].
+
+# Returns
+
+- Equivalent GMR of the combined conductor \\[m\\].
+"""
+function equivalent_gmr(
+        gmr1::Real,
+        area1::Real,
+        gmr2::Real,
+        area2::Real,
+        gmd::Real
+)
+    first_gmr, first_area, second_gmr, second_area, distance = promote(
+        float(gmr1), float(area1), float(gmr2), float(area2), float(gmd)
+    )
+    first_gmr > zero(first_gmr) && second_gmr > zero(second_gmr) ||
+        throw(DomainError((first_gmr, second_gmr), "GMR values must be positive"))
+    first_area > zero(first_area) && second_area > zero(second_area) ||
+        throw(DomainError((first_area, second_area), "conductor areas must be positive"))
+    distance > zero(distance) || throw(DomainError(
+        distance, "geometric mean distance must be positive"
+    ))
+    fraction = first_area / (first_area + second_area)
+    complement = one(fraction) - fraction
+    return first_gmr^(fraction^2) * second_gmr^(complement^2) *
+           distance^(2 * fraction * complement)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Recover relative permeability by inverting [`tubular_gmr`](@ref).
 
 # Notes

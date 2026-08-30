@@ -26,7 +26,7 @@ HVDC cables are constructed around a central conductor enclosed by a triple-extr
 
 # Load the public modeling API and the packages used for presentation:
 using LineCableModels
-import LineCableModels: flatten
+import LineCableModels: homogenize
 import CairoMakie
 using DataFrames
 using LinearAlgebra: diag
@@ -213,7 +213,7 @@ constants_table = DataFrame(constants)
 
 # Request the homogeneous design explicitly when an equivalent
 # cable, rather than a solver input, is the desired result:
-equivalent_design = flatten(cable_design; new_id = cable_id * "_equivalent")
+equivalent_design = homogenize(cable_design; new_id = cable_id * "_equivalent")
 equivalent_summary = equivalent_design
 
 # Inspect the completed physical design through its bounded Base display:
@@ -404,7 +404,11 @@ export_file = export_data(
     :atp, line_parameters; file_name = output_file, cable_system);
 
 # Obtain the symmetrical components via Fortescue transformation
-Tv, sequence_parameters = Fortescue(tol = 1e-5)(line_parameters);
+sequence_parameters = compute(
+    ModalTransformationProblem(line_parameters),
+    ModalTransformationFormulation(:Fortescue; tolerance = 1e-5)
+);
+Tv = operators(sequence_parameters).voltage;
 
 # Read one transformed Z/Y term through the same observation boundary:
 sequence_impedance = @observe sequence_parameters Z[1, 1, :]

@@ -31,6 +31,8 @@ Manifest.toml
 # the hidden folder of shame
 temp/
 @INPROGRESS/
+local/
+.linecablemodels/fem/
 
 # examples artifacts
 !examples/*.jl

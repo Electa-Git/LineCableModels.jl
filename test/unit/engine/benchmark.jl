@@ -84,7 +84,16 @@
     )
     @test_throws ArgumentError compare(reference, total)
 
-    modal=LineParameters(ModalDomain, impedance, admittance, frequencies_value)
+    modal_source=LineParameters(
+        PhaseDomain,
+        cat([1+2im 0; 0 4+1im], [2+3im 0; 0 8+2im]; dims = 3),
+        cat([2im 0; 0 4im], [4im 0; 0 8im]; dims = 3),
+        frequencies_value
+    )
+    modal=compute(
+        ModalTransformationProblem(modal_source),
+        ModalTransformationFormulation(:Fortescue)
+    )
     @test_throws ArgumentError compare(reference, modal)
 
     displayed=LineParametersBenchmark(

@@ -1,20 +1,22 @@
-function compute_impedance_matrix!(
+function impedance!(
         destination::AbstractMatrix{Complex{T}},
         workspace::LineParametersWorkspace{T},
         frequency::Int,
         formulation::LineParametersFormulation
 ) where {T <: Real}
-    input = workspace.normalized
-    rho_cond = workspace.prepared.rho_cond
-    earth = workspace.prepared.earth
-    indices = workspace.prepared.cable_indices
-    cables = workspace.prepared.cable_representatives
+    input = workspace.input
+    rho_cond = workspace.invariants.rho_cond
+    indices = workspace.invariants.cable_indices
+    pairs = workspace.invariants.homogeneous_pairs
     earth_matrix = workspace.buffers.earth_matrix
+    earth_media = workspace.buffers.earth_media
     capture = workspace.capture
     fill!(destination, zero(Complex{T}))
-    compute_earth_return_matrix!(
-        earth_matrix, cables, input, earth, frequency,
-        formulation.methods.earth_impedance
+    earth!(
+        earth_matrix, pairs, input, earth_media, frequency,
+        formulation.methods.earth_impedance,
+        _gamma(input.Γ, frequency),
+        workspace.buffers.earth_segments
     )
     _stash!(_capture_target(capture, :Zg), frequency, earth_matrix)
     s = input.jω[frequency]
@@ -28,17 +30,19 @@ function compute_impedance_matrix!(
             outer = input.r_ext[index]
             rho = rho_cond[index]
             mu = input.mu_cond[index]
-            outside = formulation.methods.internal_impedance(:outer, inner, outer, rho, mu, s)
+            interaction = formulation.methods.internal_impedance(
+                inner, outer, rho, mu, s
+            )
+            outside = interaction(Val(:outer))
             inside = position < count ?
                      formulation.methods.internal_impedance(
-                :inner,
                 input.r_in[conductors[position + 1]],
                 input.r_ext[conductors[position + 1]],
                 rho_cond[conductors[position + 1]],
                 input.mu_cond[conductors[position + 1]],
                 s
-            ) : zero(outside)
-            mutual = formulation.methods.internal_impedance(:mutual, inner, outer, rho, mu, s)
+            )(Val(:inner)) : zero(outside)
+            mutual = interaction(Val(:mutual))
             insulation = formulation.methods.insulation_impedance(
                 outer, input.r_ins_ext[index], input.mu_ins[index], s
             )

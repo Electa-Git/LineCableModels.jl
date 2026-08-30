@@ -105,6 +105,7 @@ end
         joinpath("src", "plotbuilder", "PlotBuilder.jl"),
         joinpath("src", "datamodel", "DataModel.jl"),
         joinpath("src", "engine", "Engine.jl"),
+        joinpath("src", "transforms", "Transforms.jl"),
         joinpath("src", "uq", "UQ.jl"),
         joinpath("src", "reportbuilder", "ReportBuilder.jl"),
         joinpath("src", "importexport", "ImportExport.jl"),
@@ -128,6 +129,18 @@ end
         joinpath("src", "engine", "lineparameters", "lineparameters.jl"),
         joinpath("src", "engine", "lineparameters", "quantities.jl"),
         joinpath("src", "engine", "earthreturn.jl"),
+        joinpath("src", "engine", "insulationimpedance", "interface.jl"),
+        joinpath("src", "engine", "insulationimpedance", "formulas", "lossless.jl"),
+        joinpath("src", "engine", "insulationadmittance", "interface.jl"),
+        joinpath("src", "engine", "insulationadmittance", "formulas", "lossless.jl"),
+        joinpath("src", "engine", "insulationadmittance", "formulas", "parallelrc.jl"),
+        joinpath("src", "transforms", "compute.jl"),
+        joinpath("src", "transforms", "eigensystems.jl"),
+        joinpath("src", "transforms", "quantities.jl"),
+        joinpath("src", "transforms", "formulas", "chrysochos2014.jl"),
+        joinpath("src", "transforms", "formulas", "fan2009.jl"),
+        joinpath("src", "transforms", "formulas", "fortescue.jl"),
+        joinpath("src", "transforms", "formulas", "wedepohl1996.jl"),
         joinpath("src", "uq", "montecarlo", "compute.jl"),
         joinpath("src", "reportbuilder", "grammar.jl"),
         joinpath("src", "reportbuilder", "tables.jl"),
@@ -146,6 +159,9 @@ end
         joinpath("src", "plotbuilder", "uicomponents"),
         joinpath("src", "datamodel", "strands_handler.jl"),
         joinpath("src", "engine", "solver.jl"),
+        joinpath("src", "engine", "insulationimpedance", "lossless.jl"),
+        joinpath("src", "engine", "insulationadmittance", "lossless.jl"),
+        joinpath("src", "engine", "insulationadmittance", "parallelrc.jl"),
         joinpath("src", "uq", "plotspecs.jl"),
         joinpath("src", "engine", "lineparameters", "dataframe.jl"),
         joinpath("src", "uq", "dataframe.jl"),
@@ -190,7 +206,9 @@ end
     @test !isdefined(LineCableModels.DataModel, :PhysicalFillLimit)
     @test !isdefined(LineCableModels.Validation, :PhysicalFillLimit)
 
-    @test parentmodule(LineCableModels.description) === LineCableModels.Engine
+    @test parentmodule(LineCableModels.description) === LineCableModels
+    @test parentmodule(LineCableModels.formula_id) === LineCableModels
+    @test parentmodule(LineCableModels.constitutive) === LineCableModels
     @test parentmodule(LineCableModels.Z) === LineCableModels.Engine
     @test parentmodule(LineCableModels.frequencies) === LineCableModels.Engine
     @test parentmodule(LineCableModels.ncables) === LineCableModels.DataModel
@@ -211,7 +229,10 @@ end
           LineCableModels.ReportBuilder
     @test parentmodule(LineCableModels.validate) === LineCableModels.Validation
     @test parentmodule(LineCableModels.build) === LineCableModels
-    @test parentmodule(LineCableModels.flatten) === LineCableModels
+    @test parentmodule(LineCableModels.homogenize) === LineCableModels
+    @test :homogenize in names(LineCableModels.DataModel)
+    @test :flatten ∉ names(LineCableModels.Engine)
+    @test Base.ispublic(LineCableModels.DataModel, :flatten)
     @test LineCableModels.build === LineCableModels.DataModel.build ===
           LineCableModels.ParametricBuilder.build
     @test fieldtype(LineCableModels.Material{Float64}, :kind) === Symbol
@@ -272,17 +293,25 @@ end
         occursin("DataFrame", source[path])
     end
     @test all(startswith(path, joinpath("src", "reportbuilder"))
-        for path in dataframe_sources)
+    for path in dataframe_sources)
 
     rounded_sector_source=source[joinpath(
         "src", "datamodel", "geometry", "roundedsector.jl"
     )]
-    native_adapter_source=source[joinpath("src", "engine", "native_adapter.jl")]
+    flatten_source=source[joinpath("src", "datamodel", "flatten.jl")]
     for token in ("Point2f", "GeometryBasics", "Makie")
         @test !occursin(token, rounded_sector_source)
-        @test !occursin(token, native_adapter_source)
+        @test !occursin(token, flatten_source)
     end
-    @test !occursin("tessellate", native_adapter_source)
+    @test !occursin("tessellate", flatten_source)
+    for token in (
+        "LineParametersProblem",
+        "LineParametersFormulation",
+        "LineCableModelsCoaxial",
+        "Matrix{"
+    )
+        @test !occursin(token, flatten_source)
+    end
 
     ci_workflow=read(joinpath(root, ".github", "workflows", "CI.yml"), String)
     @test occursin(r"(?m)^  quality:\s*$", ci_workflow)

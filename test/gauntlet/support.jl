@@ -333,7 +333,6 @@
             insulation_admittance = _method_record(methods.insulation_admittance),
             earth_admittance = _method_record(methods.earth_admittance),
             earth_properties = _method_record(methods.earth_properties),
-            modal_transform = _method_record(methods.modal_transform),
             equivalent_earth = _method_record(methods.equivalent_earth),
             options = (
                 reduce_bundle = options.reduce_bundle,
@@ -353,7 +352,8 @@
     benchmark_digest(case::GauntletCase) = bytes2hex(sha256(read(case.source_file)))
 
     _record_value(record::NamedTuple, key::Symbol, default = nothing) = get(record, key, default)
-    _record_value(record::AbstractDict, key::Symbol, default = nothing) = get(
+    _record_value(record::AbstractDict, key::Symbol,
+        default = nothing) = get(
         record, key, get(record, String(key), default))
 
     function _semantic_method_record(record)
@@ -386,7 +386,6 @@
                 insulation_admittance = _semantic_method_record(_record_value(record, :insulation_admittance)),
                 earth_admittance = _semantic_method_record(_record_value(record, :earth_admittance)),
                 earth_properties = _semantic_method_record(_record_value(record, :earth_properties)),
-                modal_transform = _semantic_method_record(_record_value(record, :modal_transform)),
                 equivalent_earth = _semantic_method_record(_record_value(record, :equivalent_earth)),
                 options = _semantic_line_parameters_options(_record_value(record, :options))
             )
@@ -438,7 +437,8 @@
         return isequal(left, right)
     end
 
-    work_path(case::GauntletCase; root::AbstractString = WORK_ROOT) = joinpath(
+    work_path(case::GauntletCase;
+        root::AbstractString = WORK_ROOT) = joinpath(
         root, string(case.backend), string(case.name))
 
     function comparison_passes(error::RMSError, tolerance)

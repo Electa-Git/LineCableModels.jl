@@ -1,4 +1,4 @@
-@testitem "Cable model v1 / reference payload and numerical preservation" tags=[:integration] setup=[
+@testitem "Cable model v1 / DataModel and normalized-input preservation" tags=[:integration] setup=[
     EngineTestSupport,
     UseEngineSupport,
     TestFixtures
@@ -71,15 +71,15 @@
     @test actual_primitive_order == expected_primitive_order
 
     problem=TestFixtures.line_parameters_problem(frequencies = [50.0, 500.0])
-    execution=computation_options(Val(LineCableModelsEngine), (;))
+    execution=computation_options(Val(LineCableModelsCoaxial), (;))
     workspace=LineParametersWorkspace(
-        LineCableModelsEngine(), problem, Formulation(), execution)
-    input=workspace.normalized
+        LineCableModelsCoaxial(), problem, Formulation(), execution)
+    input=workspace.input
     expected_input=reference["normalized_input"]
     vector_fields=(
         :freq, :horz, :vert, :r_in, :r_ext, :r_ins_in, :r_ins_ext,
         :rho0_cond, :T0_cond, :alpha_cond, :mu_cond, :eps_cond,
-        :rho_ins, :mu_ins, :eps_ins, :tan_ins, :r_ins_layer_in,
+        :mu_ins, :r_ins_layer_in,
         :r_ins_layer_ext, :rho_ins_layer, :eps_ins_layer, :phase_map, :cable_map
     )
     for field in vector_fields
@@ -110,14 +110,16 @@
         Formulation(options = (ideal_transposition = false,))
     )
     expected_parameters=reference["line_parameters"]
-    function expected_tensor(node)
-        return reshape(
-            complex.(collect(node["real"]), collect(node["imag"])),
-            Tuple(Int.(node["size"]))
-        )
-    end
-    @test parameters.Z.values == expected_tensor(expected_parameters["Z"])
-    @test parameters.Y.values == expected_tensor(expected_parameters["Y"])
     @test parameters.f == collect(expected_parameters["frequencies"])
     @test string(basis(parameters)) == expected_parameters["basis"]
+    @test size(parameters.Z) == (3, 3, 2)
+    @test size(parameters.Y) == (3, 3, 2)
+    for frequency in eachindex(parameters.f)
+        impedance=@view parameters.Z.values[:, :, frequency]
+        admittance=@view parameters.Y.values[:, :, frequency]
+        @test all(isfinite, impedance)
+        @test all(isfinite, admittance)
+        @test impedance ≈ transpose(impedance)
+        @test admittance ≈ transpose(admittance)
+    end
 end

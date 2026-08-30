@@ -9,8 +9,7 @@ materialised cable systems.
 - Define materialised problems, formulations, and core results.
 - Calculate conductor, insulation, and earth-return impedance and admittance.
 - Assemble phase-domain series-impedance and shunt-admittance matrices.
-- Apply bundle reduction, Kron elimination, transposition, and modal
-  transformations.
+- Apply bundle reduction, Kron elimination, and ideal transposition.
 - Compare, tabulate, and describe plots of completed line-parameter results.
 
 # Dependencies
@@ -32,26 +31,33 @@ export LineParametersProblem,
        frequencies, nconductors, nfrequencies, basis,
        kronify
 export AbstractFormulation, LineParametersFormulation, Formulation
-export LineCableModelsEngine, LineParametersWorkspace
-export constitutive
-export EarthProperties, CPEarth, verbosity
+export AbstractFormulationBackend, AbstractFormulationOptions
+export LineCableModelsCoaxial, LineCableModelsFEM, LineCableModelsFEMOptions,
+       LineCableModelsFEMError, LineParametersWorkspace
+export constitutive, formula_id, EarthPair
+export verbosity
 export InternalImpedance, InsulationImpedance, EarthImpedance
-export InsulationAdmittance, EarthAdmittance, EHEM, Transforms
+export InsulationAdmittance, EarthAdmittance
 
-export compute, flatten, plot
+export compute, plot
 
 # Module-specific dependencies
-using LinearAlgebra: I, diag, ldiv!, lu!
+using LinearAlgebra: I, checksquare, cond, diag, ldiv!, lu, lu!, mul!, norm
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import ..LineCableModels: basis, build, flatten, R, L, C,
+import ..LineCableModels: basis, build, R, L, C,
                           resistance, inductance, capacitance
 import ..LineCableModels: nominal, uncertainty
+import ..LineCableModels: constitutive, formula, formula_id, FormulaSpec
+#! explicit-imports: off
+import ..LineCableModels: description
+#! explicit-imports: on
 import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
                   AbstractProblemResult, AbstractCoreResult,
                   FormulationOptions, ComputationOptions,
                   ComputationDetails,
                   formulation_options, computation_options, computation_details, details,
-                  compute, observe, @observe, observables, validate_observables, unit_targets,
+                  compute, observe, @observe, observables, validate_observables,
+                  unit_targets,
                   observation_request, observation_indices,
                   request_identity, request_quantity, request_indices,
                   computation_owner
@@ -59,7 +65,8 @@ import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
 using ..Units
 using ..PlotBuilder
 using ..Materials
-using ..EarthProps: EarthModel
+import ..EarthProps
+using ..EarthProps: EarthMaterial, EarthModel, EHEM
 using ..DataModel: CableDesign, LineCableSystem, ncables, nphases
 import ..DataModel
 import ..LineCableModels: validate
@@ -67,16 +74,13 @@ import ..Validation
 import Logging
 using Logging: AbstractLogger, ConsoleLogger, with_logger
 import SpecialFunctions
-using QuadGK: quadgk
+using QuadGK: alloc_segbuf, quadgk
 
 include("interfaces.jl")
 include("formulations.jl")
 include("earthkernels.jl")
 
-include("earthproperties/EarthProperties.jl")
-using .EarthProperties: CPEarth
-
-# Problem and native formulation definitions
+# Problem and coaxial formulation definitions
 include("problems.jl")
 include("options.jl")
 
@@ -84,6 +88,7 @@ include("options.jl")
 include("lineparameters/lineparameters.jl")
 include("lineparameters/quantities.jl")
 include("lineparameters/benchmark.jl")
+include("matrixops.jl")
 
 # Submodule `InternalImpedance`
 include("internalimpedance/InternalImpedance.jl")
@@ -105,17 +110,7 @@ using .InsulationAdmittance: InsulationAdmittance
 include("earthadmittance/EarthAdmittance.jl")
 using .EarthAdmittance: EarthAdmittance
 
-# Submodule `Transforms`
-include("transforms/Transforms.jl")
-using .Transforms
-using .Transforms: reciprocity!, ideal_transposition!
-
-# Submodule `EHEM`
-include("ehem/EHEM.jl")
-using .EHEM
-
 # Native workspace and numerical action
-include("native_adapter.jl")
 include("input.jl")
 include("logging.jl")
 include("earthreturn.jl")
@@ -131,5 +126,7 @@ include("lineparameters/plotdefinition.jl")
 include("lineparameters/comparisonplot.jl")
 
 public has_uncertainty_type
+public reduce_primitive_matrices, potential_to_admittance
+public ConsoleVerbosityLogger
 
 end # module Engine

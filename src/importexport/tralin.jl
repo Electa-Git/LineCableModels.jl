@@ -28,9 +28,9 @@ function export_data(::Val{:tralin},
     num_phases = length(cable_system.designs)
     freqs = map(f -> nominal(f), _freqs(freq))
     # TRALIN owns this explicit radial homogenization choice. Nothing is stored
-    # on CableDesign; unsupported physical geometry fails in this adapter.
-    tralin_components(design) = Engine.homogeneous_components(
-        Engine.Formulation(),
+    # on CableDesign; unsupported physical geometry fails at the local
+    # homogenization boundary.
+    tralin_components(design) = DataModel.flatten(
         design,
         first(freqs)
     )

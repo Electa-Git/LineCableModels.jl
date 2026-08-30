@@ -135,11 +135,11 @@
             )
         end
 
-        visibility_state(handle) = Bool[plot_object.visible[]
-                                        for panel in handle.panels
-                                        for plot_object in panel.plots]
-        legend_labels(legend) = [entry.label[]
-                                 for entry in last(first(legend.entrygroups[]))]
+        visibility_state(handle)=Bool[plot_object.visible[]
+                                      for panel in handle.panels
+                                      for plot_object in panel.plots]
+        legend_labels(legend)=[entry.label[]
+                               for entry in last(first(legend.entrygroups[]))]
 
         frequency=[50.0, 100.0, 500.0]
         omega=reshape(2π .* frequency, 1, 1, :)
@@ -261,7 +261,10 @@
         @test length(only(series_plots).panels) == 2
         @test length(only(shunt_plots).panels) == 2
 
-        _, modal_parameters=Fortescue(tol = 1e-10)(parameters)
+        modal_parameters=compute(
+            ModalTransformationProblem(parameters),
+            ModalTransformationFormulation(:Fortescue; tolerance = 1e-10)
+        )
         modal_inductance=Makie.plot(
             modal_parameters,
             (L,);
@@ -456,8 +459,7 @@
         current_contrast_panel=only(
             only(current_contrast_recipe.pages).payload.runtime.panels,
         )
-        @test first(only(contrast_plot.panels).group_order) in
-              current_contrast_panel.hidden_groups
+        @test first(only(contrast_plot.panels).group_order) in current_contrast_panel.hidden_groups
         @test collect(current_contrast_panel.current_limits[2]) ≈ [
             hidden_contrast_limits.origin[2],
             hidden_contrast_max
@@ -489,7 +491,8 @@
         limits=susceptance_axis.finallimits[]
         ymin=limits.origin[2]
         ymax=ymin+limits.widths[2]
-        tick_values, tick_labels=Makie.get_ticks(
+        tick_values,
+        tick_labels=Makie.get_ticks(
             susceptance_axis.yticks[],
             susceptance_axis.yscale[],
             susceptance_axis.ytickformat[],
@@ -530,7 +533,8 @@
         conductance_limits=conductance_axis.finallimits[]
         @test conductance_limits.origin[2] == 1.0e-6
         @test conductance_limits.origin[2] + conductance_limits.widths[2] == 1.0e-5
-        conductance_ticks, conductance_labels=Makie.get_ticks(
+        conductance_ticks,
+        conductance_labels=Makie.get_ticks(
             conductance_axis.yticks[],
             conductance_axis.yscale[],
             conductance_axis.ytickformat[],
@@ -717,7 +721,7 @@
         end
 
         line_samples=reshape(collect(1.0:12.0), 1, 1, 3, 4)
-        summarize(values) = map(
+        summarize(values)=map(
             index->SampleSummary(collect(view(values, index.I..., :))),
             CartesianIndices(size(values)[1:3])
         )

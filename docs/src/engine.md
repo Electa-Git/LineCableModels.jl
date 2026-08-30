@@ -2,20 +2,124 @@
 
 LineCableModels separates a physical problem, a formulation, and the backend
 that implements that formulation. A formulation identifies the equations or
-mathematical method being requested. A formulation exists independently of any backend.
-A backend participates by defining the dispatch required to compute that
-formulation.
+mathematical method being requested and exists independently of a backend. A
+backend participates by defining the dispatch required to compute it.
 
-For example, `EarthImpedance.Saad()` is an Engine-owned earth-impedance
-formulation. The native `LineCableModelsEngine` currently defines no evaluation
-method for it, so native computation fails with an ordinary `MethodError`.
+Formula identities are stable literature symbols. [`formula`](@ref) provides
+one uniform selection wrapper; the receiving keyword determines the owning
+formula family:
+
+```julia
+Formulation(
+    internal_impedance=formula(:Schelkunoff),
+    insulation_impedance=formula(:Lossless),
+    earth_impedance=formula(:Papadopoulos2010),
+    insulation_admittance=formula(:ParallelRC),
+    earth_admittance=formula(:Papadopoulos2010),
+    earth_properties=formula(:CIGRE2019),
+    equivalent_earth=formula(:Xue2021; order=:after),
+)
+```
+
+Bare symbols remain the concise default-only form. Formula-specific keyword
+arguments are forwarded as route or assumption overrides. `order=:before` or
+`:after` places an EHEM reduction relative to material frequency dependence;
+ordinary formula slots reject an `order` value.
+
+`EarthImpedance.Formula{:ID}` carries the identity in its concrete type. Its
+`routes` tuple holds the leaf self, mutual, and propagation-constant formulas;
+its `assumptions` tuple holds the physical approximations shared by those
+routes. Calling a formula with one frequency's earth properties returns a
+concrete, formula-owned functor that aggregates the shared numerical values:
+
+```julia
+formula = EarthImpedance.Formula(:Papadopoulos2010)
+functor = formula(rho, epsilon, mu, jω, nothing)
+value = functor(Val(:mutual), pair)
+EarthImpedance.Γ(functor)
+```
+
+There are no author-named constructors. An experiment can replace one leaf
+without spelling the whole recipe again:
+
+```julia
+formula = InternalImpedance.Formula(
+    :Schelkunoff;
+    inner=my_inner_surface_formula,
+)
+```
+
+`routes(formula)` and `assumptions(formula)` make the selected recipe
+inspectable. `propagation(formula)` reports whether an earth formula accepts an
+explicit longitudinal Γ or fixes it to zero. `LineParametersProblem(...;
+Γ=values)` passes explicit frequency-aligned values through the solve loop;
+zero-assumption formulas reject a nonzero value.
+
+The workspace resolves one `EarthPair` for every upper-triangular cable
+interaction. A pair carries its physical heights, separation, and source and
+target earth-layer indices. The frequency functor receives that pair at its
+leaf call, so a route can distinguish overhead, underground, and mixed
+interactions without rebuilding the full recipe. Built-in homogeneous routes
+reject layer combinations outside the source formula's domain; an experiment
+can replace only the affected `self` or `mutual` route.
+
+Each built-in formula lives in one `formulas/authoryear.jl` file. Formula
+modules include those files in sorted order and require each file to return its
+unique `Symbol` identifier. This is source discovery only: the hot loop has no
+runtime registry or dictionary lookup. A contributed file defines its routes,
+assumptions, formula call, and functor leaf dispatch together.
+
+Insulation impedance and admittance use the same discovery rule but have one
+complete scalar route per formula rather than self/mutual interaction tables.
+`InsulationImpedance.formulas()` currently reports `:Lossless`;
+`InsulationAdmittance.formulas()` reports `:Lossless` and `:ParallelRC`.
+Both are selected uniformly through their owning `Formulation` slots. A
+complete experimental scalar law can be supplied with `formula(:Lossless;
+route=my_route)` without changing the Coaxial matrix-assembly loop.
+
+Frequency-dependent soil laws and equivalent homogeneous-earth models belong
+to separate formula families under `EarthProps`. `EarthModel` continues to
+store only static layer geometry and datasheet properties.
+
+`EarthProps.FD` owns measured and material-physics relations with the scalar
+contract `constitutive(formula, material, frequency)`. The relation selected by
+`Formulation(earth_properties=:AuthorYear)` is applied only to soil; `nothing`
+passes static properties through exactly and air is never modified.
+`EarthProps.FD.formulas()` reports the discovered Longmire–Smith, Portela,
+Alipio–Visacro, Datsios–Mikropoulos, Scott, Messier, Visacro–Portela,
+Visacro–Alipio, and CIGRE WG C4.33 relations.
+
+`EarthProps.EHEM` owns reductions required by homogeneous earth-return
+formulations. `formula(:Xue2021; order=:after)` first evaluates every physical
+layer and then reduces it; `order=:before` reduces the static layers and applies
+FD to the artificial material afterward. These resolve to independent dispatch
+paths. `formula(:Layer; layer=-1)` selects the explicit bottommost-layer policy,
+which is the default and is not a literature formula.
+`:MartinsBritto2020` reconstructs conductivity only, whereas `:Xue2021`
+reconstructs conductivity and permittivity. Both registered routes implement
+their published overhead-line scope and reject underground and mixed pairs.
+
+At each frequency the Coaxial loop evaluates EHEM once per physical
+`EarthPair`, maps the resulting material to a two-medium air/earth view, and
+shares it between earth impedance and earth admittance. Physical layer indices
+are never renumbered or written back to the `EarthModel`.
+
+An external scalar relation can remain outside the built-in directory. It can
+either supply a complete `EarthProps.FD.Formula(:Experiment, route, assumptions)`
+or extend `constitutive(relation, material::EarthMaterial, frequency)`. The
+resolved relation is concrete before the frequency scan. An external EHEM can
+similarly use `EarthProps.EHEM.Formula(:Experiment, route, assumptions)` and
+select its ordering with `AfterFD` or `BeforeFD`.
+
+For example, `:Saad` is an Engine-owned earth-impedance identity. The
+`LineCableModelsCoaxial` backend currently defines no evaluation method for it,
+so its computation fails with an ordinary `MethodError`.
 The PSCAD backend defines the corresponding PSCAD input mapping and can execute
 the same formulation. There is no `ReferenceEarthImpedance` category: whether
 a backend implements a formulation does not change the formulation's place in
 the scientific vocabulary. `Deri`, `Wedepohl`, `Saad`, `Ametani`, and `Lucca`
-describe formulae applicable to homogeneous-earth models and are direct
-children of `EarthImpedanceFormulation`. Backend support is not a type-hierarchy
-category.
+describe formulae applicable to homogeneous-earth models. Backend support is
+not a type-hierarchy category.
 
 PSCAD's direct numerical integration setting is different. PSCAD exposes a
 numerical integration choice through the same input field that selects an
@@ -167,24 +271,105 @@ resolved point values are read through `root_seed`, `point_seed`,
 `trial_count`, `confidence`, `cdf_tolerance`, and `sampling_distribution`.
 Consumers do not inspect the result or its formulation fields.
 
-## Native workspace and supplemental output
+## Coaxial workspace and supplemental output
 
-`LineParametersWorkspace` is the native engine's per-computation working
+`LineCableModelsCoaxial` solves concentric coaxial assemblies. A sector,
+stranded, or otherwise nonconcentric part must be represented by the equivalent
+round/concentric properties owned by DataModel before it reaches this backend.
+The backend then owns frequency scans, self and mutual line parameters, earth
+effects, and reduction; it does not redefine cable-design equivalence or modal
+coordinates.
+
+`LineParametersWorkspace` is the coaxial backend's per-computation working
 state. Its constructor adapts a completed physical system once, evaluates
-earth data, prepares cable and reduction indices, and allocates the matrices
-used by the frequency loop. The workspace is not a result, public data model,
-or alternate cable representation.
+earth data, constructs cable and reduction indices, and allocates the matrices
+and adaptive-quadrature segment storage used by the frequency loop. The
+workspace is not a result, public data model, or alternate cable
+representation. Its shunt solvers consume DataModel's ordered physical
+dielectric layers directly, so the analysis is independent of the frequency
+used when a lossy homogeneous export representation is requested.
 
 The workspace separates four owned concerns:
 
-- `normalized`: immutable numerical input derived from the problem;
-- `prepared`: reusable values and index maps;
+- `input`: immutable numerical input derived from the problem;
+- `invariants`: reusable physical values and index maps;
 - `buffers`: mutable storage reused while solving every frequency;
 - `capture`: optional diagnostic matrices allocated before the loop.
 
 The ordinary result is always `LineParameters`. Requesting
 `options=(trace=true,)` retains completed diagnostic arrays under
 `details(parameters).trace`; it does not select another result type.
+
+## Modal transformations
+
+Modal decomposition is independent of the backend that produced fully coupled
+phase-domain matrices. `LineCableModels.Transforms` owns its own problem,
+formulation, registered formula files, and default backend:
+
+```julia
+phase = compute(line_problem, line_formulation)
+modal = compute(
+    ModalTransformationProblem(phase),
+    ModalTransformationFormulation(
+        formula(:Chrysochos2014; convergence=1e-8),
+    ),
+)
+rebuilt = compute(ModalTransformationProblem(modal))
+```
+
+`LineCableModelsModal` is the default backend for this workflow. Each formula
+has one route and returns a `ModalOperators` value containing the complete
+frequency-dependent phase-to-modal voltage and current tensors. The shared
+backend applies those operators to both `Z` and `Y`.
+
+The modal `LineParameters` result carries `ModalDomain(operators, formula)` as
+its concrete domain value. The stored operators preserve the resolved mode
+order, scaling, and complex phase convention and make the transformation
+bidirectional without rerunning the decomposition. An operator-less modal
+result cannot be constructed through the admitted `LineParameters` interface.
+
+Built-in formula files are included deterministically and selected by symbols:
+
+```julia
+ModalTransformationFormulation(formula(:Fortescue))
+ModalTransformationFormulation(formula(:Chrysochos2014; convergence=1e-8))
+ModalTransformationFormulation(formula(:Fan2009; history_weight=0.3))
+ModalTransformationFormulation(formula(:Wedepohl1996; convergence=1e-9))
+```
+
+`Chrysochos2014` solves independently tracked eigenpairs with a real-valued
+Levenberg–Marquardt step. `Wedepohl1996` follows the corresponding complex
+Newton–Raphson route. `Fan2009` postprocesses conventional eigensolutions with
+optimal assignment, complex phase alignment, and Procrustes alignment of
+coalescent eigenspaces.
+
+There are no author-named formulation structs or runtime registry lookups.
+The built-in route can be replaced at the call site without changing its
+stable identifier:
+
+```julia
+experiment = ModalTransformationFormulation(
+    :Fortescue;
+    route=my_route,
+)
+```
+
+A wholly new formula uses the same typed path with an explicit assumptions
+tuple:
+
+```julia
+formula = Transforms.Formula(
+    :Experiment,
+    my_route,
+    (tolerance=1e-8,),
+)
+experiment = ModalTransformationFormulation(formula)
+```
+
+For a contributed built-in, one `formulas/authoryear.jl` file defines
+`assumptions(::Val{:ID})`, `description(::Formula{:ID})`, and the single
+`(::Functor{:ID})(parameters, assumptions)` route, then returns `:ID` from the
+file. Discovery happens at module load; numerical dispatch remains static.
 
 [`ComputationDetails`](@ref) is an alias for `NamedTuple`.
 [`computation_details`](@ref) reads the fixed-key details tuple owned by a
@@ -225,7 +410,7 @@ type rather than the public construction selector:
 formulation_options(Val(LineParametersFormulation), options)
 ```
 
-The native line-parameter formulation owns:
+The default line-parameter formulation owns:
 
 - bundle and Kron reduction.
 - ideal transposition.
@@ -235,10 +420,10 @@ The normalised named tuple is stored in `LineParametersFormulation.options`.
 `PSCADFormulation` currently has no formulation options because its method
 bundle already contains every mathematical choice it owns.
 
-`Formulation()` constructs the default native method bundle without a backend
+`Formulation()` constructs the default method bundle without a backend
 tag. `LineParametersFormulation` owns the formulation options;
-`LineCableModelsEngine` separately owns execution. Symbol and `Val` selectors
-remain available for external backends, but there is no native
+`LineCableModelsCoaxial` separately owns execution. Symbol and `Val` selectors
+remain available for external backends, but there is no
 `:line_cable_models` or legacy `:analytical` selector.
 
 ## Computation options
@@ -247,7 +432,7 @@ remain available for external backends, but there is no native
 Computation options do not change the selected mathematical formulation and are not
 stored in it.
 
-The native backend accepts:
+The coaxial backend accepts:
 
 ```julia
 (

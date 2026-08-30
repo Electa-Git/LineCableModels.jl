@@ -16,7 +16,7 @@ export cumulative_probability, quantile_pairs
 import Random
 import Statistics
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import ..LineCableModels: basis, domain, frequencies, R, L, C
+import ..LineCableModels: basis, frequencies, R, L, C
 import ..DataModel
 import ..Engine
 import ..Grammar: compute, computation_options, computation_details, details,

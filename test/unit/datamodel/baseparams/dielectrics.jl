@@ -45,4 +45,26 @@
     )
     @test uncertain isa Measurement{Float64}
     @test uncertainty(uncertain) > 0
+
+    omega=2π*50
+    first_admittance=complex(2e-9, omega*3e-10)
+    second_admittance=complex(7e-9, omega*8e-10)
+    expected=inv(inv(first_admittance)+inv(second_admittance))
+    combined=series_shunt_admittance(2e-9, 3e-10, 7e-9, 8e-10, omega)
+    @test combined.conductance ≈ real(expected)
+    @test combined.capacitance ≈ imag(expected)/omega
+    @test series_shunt_admittance(
+        Float32(2e-9),
+        Float32(3e-10),
+        Float32(7e-9),
+        Float32(8e-10),
+        Float32(omega)
+    ).conductance isa Float32
+    @test_throws DomainError series_shunt_admittance(
+        2e-9,
+        3e-10,
+        7e-9,
+        8e-10,
+        0.0
+    )
 end

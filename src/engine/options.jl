@@ -35,13 +35,13 @@ function formulation_options(
 end
 
 function computation_options(
-        ::Val{LineCableModelsEngine},
+        ::Val{LineCableModelsCoaxial},
         options::NamedTuple
 )::ComputationOptions
     allowed = (:verbosity, :output_basis, :trace)
     unknown = filter(key -> key ∉ allowed, keys(options))
     isempty(unknown) || throw(ArgumentError(
-        "unknown LineCableModelsEngine computation options: $(sort!(collect(unknown)))",
+        "unknown LineCableModelsCoaxial computation options: $(sort!(collect(unknown)))",
     ))
     normalized = merge(
         (verbosity = (default = 0,), output_basis = :pul, trace = false),

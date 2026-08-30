@@ -30,6 +30,22 @@
     @test equivalent_mu(0.02, 0.02, 0.02) ≈ 0.0
     @test_throws DomainError equivalent_mu(-0.01, 0.02, 0.01)
     @test_throws DomainError equivalent_mu(0.015, 0.01, 0.02)
+
+    first_gmr=0.004
+    second_gmr=0.012
+    distance=0.009
+    combined=equivalent_gmr(first_gmr, 2.0, second_gmr, 2.0, distance)
+    @test combined ≈ first_gmr^0.25*second_gmr^0.25*sqrt(distance)
+    @test equivalent_gmr(
+        Float32(first_gmr),
+        Float32(2),
+        Float32(second_gmr),
+        Float32(2),
+        Float32(distance)
+    ) isa Float32
+    @test_throws DomainError equivalent_gmr(0.0, 1.0, second_gmr, 1.0, distance)
+    @test_throws DomainError equivalent_gmr(first_gmr, 0.0, second_gmr, 1.0, distance)
+    @test_throws DomainError equivalent_gmr(first_gmr, 1.0, second_gmr, 1.0, 0.0)
 end
 
 @testitem "BaseParams / inductance / trefoil estimate" tags=[:unit] setup=[

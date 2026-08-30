@@ -63,7 +63,7 @@
             "CPASS" => "0"
         )
 
-        expected_components=[LineCableModels.Engine.homogeneous_components(Formulation(), design, 50.0)
+        expected_components=[LineCableModels.DataModel.flatten(design, 50.0)
                              for design in system.designs]
         @test any(length(component.dielectric.layers) > 1
         for components in expected_components for component in components)
@@ -255,11 +255,11 @@ end
             @test imported_connections == original_connections
             @test imported_design.cable_id == original_design.cable_id
             @test imported_design.terminal_order == original_design.terminal_order
-            actual_components=LineCableModels.Engine.homogeneous_components(
-                Formulation(), imported_design, 50.0
+            actual_components=LineCableModels.DataModel.flatten(
+                imported_design, 50.0
             )
-            expected_components=LineCableModels.Engine.homogeneous_components(
-                Formulation(), original_design, 50.0
+            expected_components=LineCableModels.DataModel.flatten(
+                original_design, 50.0
             )
             for (actual, expected) in zip(actual_components, expected_components)
                 @test actual.conductor.r_in ≈ expected.conductor.r_in rtol=1e-5

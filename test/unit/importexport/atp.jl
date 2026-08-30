@@ -56,8 +56,8 @@ end
         for (i, cable_node) in enumerate(cable_nodes)
             source_design=cable_system.designs[i]
             source_position=cable_system.positions[i]
-            source_components=LineCableModels.Engine.homogeneous_components(
-                Formulation(), source_design, problem_atp.frequencies[1]
+            source_components=LineCableModels.DataModel.flatten(
+                source_design, problem_atp.frequencies[1]
             )
 
             # Verify position of EACH cable

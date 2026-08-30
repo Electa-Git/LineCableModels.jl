@@ -15,7 +15,7 @@
     @test parentmodule(Grammar.computation_options) === Grammar
 
     formulation_owner=Val(LineParametersFormulation)
-    computation_owner=Val(LineCableModelsEngine)
+    computation_owner=Val(LineCableModelsCoaxial)
     @test hasmethod(
         Grammar.formulation_options,
         Tuple{typeof(formulation_owner), NamedTuple}

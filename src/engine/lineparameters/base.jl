@@ -26,10 +26,11 @@ function Base.getindex(
     checkbounds(lp.f, selected)
     selected_frequencies = selector isa Integer ? lp.f[selector:selector] : lp.f[selected]
     return LineParameters(
-        D,
-        SeriesImpedance{T, Basis}(Array(view(lp.Z.values, :, :, selected))),
-        ShuntAdmittance{T, Basis}(Array(view(lp.Y.values, :, :, selected))),
-        selected_frequencies
+        selectdomain(lp.domain, selected),
+        SeriesImpedance{T, Basis}(Array(view(lp.Z.values,:,:,selected))),
+        ShuntAdmittance{T, Basis}(Array(view(lp.Y.values,:,:,selected))),
+        selected_frequencies,
+        lp.details
     )
 end
 
@@ -90,7 +91,7 @@ function Base.show(io::IO, ::MIME"text/plain", lp::LineParameters)
         Units.label(impedance_unit),
         "], first frequency slice:"
     )
-    show(io, MIME"text/plain"(), observe(lp, Z, :, :, 1))
+    show(io, MIME"text/plain"(), observe(lp,Z,:,:,1))
     print(
         io,
         "\n",
@@ -99,5 +100,5 @@ function Base.show(io::IO, ::MIME"text/plain", lp::LineParameters)
         Units.label(admittance_unit),
         "], first frequency slice:\n"
     )
-    show(io, MIME"text/plain"(), observe(lp, Y, :, :, 1))
+    show(io, MIME"text/plain"(), observe(lp,Y,:,:,1))
 end
