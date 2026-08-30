@@ -15,6 +15,24 @@ function assumptions(::Val{:Vance1978})
 end
 
 propagation(::Val{:Vance1978}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Lossy cylindrical-dielectric radial term for a buried
+conductor.
+
+**Expression.**
+
+```math
+Z_{e,ii}=\\frac{\\omega\\mu_0}{2\\pi\\gamma_1r_i}
+\\frac{H_0^{(1)}(j\\gamma_1r_i)}{H_1^{(1)}(j\\gamma_1r_i)},
+\\qquad \\gamma_1^2=j\\omega\\mu_0\\sigma_1.
+```
+
+The mutual specialization replaces ``r_i`` by horizontal separation.
+
+**Reference.** E. F. Vance, *Coupling to Shielded Cables*, Wiley, 1978.
+"""
 description(::Formula{:Vance1978}) = "Vance lossy-cylinder underground self term (1978)"
 
 vance1978_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))

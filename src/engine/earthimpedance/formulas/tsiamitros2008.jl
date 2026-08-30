@@ -16,6 +16,33 @@ end
 
 propagation(::Val{:Tsiamitros2008}) = Val(:zero)
 media(::Formula{:Tsiamitros2008}) = Val(:stratified)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** General same-layer, cross-layer, and mixed conductor
+kernel for arbitrarily stratified earth.
+
+**Expression.** For source layer ``m`` and target layer ``l``,
+
+```math
+Z_{e,ij}=\\frac{j\\omega\\mu_m}{2\\pi}\\int_0^\\infty
+\\frac{\\cos(uy_{ij})}{\\bar\\alpha_m}
+\\left[2^{m-l}
+\\frac{(\\mu_1\\cdots\\mu_{m-1})(\\bar\\alpha_1\\cdots\\bar\\alpha_m)}
+{(\\mu_1\\cdots\\mu_{l-1})(\\bar\\alpha_1\\cdots\\bar\\alpha_l)}
+\\frac{e^{-\\sum_{q=l}^{m}\\bar\\alpha_qd_q}\\bar F_1\\bar F_2}
+{\\overline{DTD}_0}\\right]du.
+```
+
+The ``\\overline{DTD}``, ``\\overline{DTN}``, ``\\overline{TDD}``, and
+``\\overline{TDN}`` interface factors are evaluated by the paper's upward and
+downward recursions.
+
+**Reference.** D. A. Tsiamitros, G. K. Papagiannis, and P. S. Dokopoulos,
+“Earth Conduction Effects in Systems of Overhead and Underground Conductors
+in Multilayered Soils,” *IEE Proceedings—Generation, Transmission and
+Distribution*, 2008.
+"""
 function description(::Formula{:Tsiamitros2008})
     "Tsiamitros et al. true arbitrary-layer impedance kernel (2008)"
 end

@@ -13,6 +13,28 @@ function assumptions(::Val{:Pettersson1994})
 end
 
 propagation(::Val{:Pettersson1994}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Wideband complex-image potential coefficient for
+conductors above, on, or below homogeneous earth.
+
+**Expression.**
+
+```math
+P_{e,ij}=\\frac{1}{2\\pi\\varepsilon_0}\\ln\\frac{D_{ij}}{d_{ij}}+N_{e,ij},
+```
+
+```math
+N_{e,ij}=\\frac{1}{(n^2+1)\\pi\\varepsilon_0}
+\\ln\\frac{\\sqrt{[H+(n^2+1)/\\beta_\\gamma]^2+y_{ij}^2}}{D_{ij}},
+\\quad n^2=\\varepsilon_{rg}+\\frac{\\sigma_g}{j\\omega\\varepsilon_0}.
+```
+
+**Reference.** P. Pettersson, “Image Representation of Wave Propagation on
+Wires Above, On and Under Ground,” *IEEE Transactions on Power Delivery*, 9,
+1049–1055, 1994. DOI: 10.1109/61.296290.
+"""
 function description(::Formula{:Pettersson1994})
     "Pettersson wideband image potential coefficient (1994)"
 end

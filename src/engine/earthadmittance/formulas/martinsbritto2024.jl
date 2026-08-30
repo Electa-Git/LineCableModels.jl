@@ -18,6 +18,40 @@ function assumptions(::Val{:MartinsBritto2024})
 end
 
 propagation(::Val{:MartinsBritto2024}) = Val(:explicit)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Wideband, pair-complete potential-coefficient formulation
+with explicit longitudinal propagation.
+
+**Expression.** For conductors in medium ``m``,
+
+```math
+P_{e,ij}^{mm}=\\frac{j\\omega}{2\\pi\\kappa_m}\\left[
+K_0(a_md_{ij})-K_0(a_mD_{ij})+2\\int_0^\\infty
+I_{ij}^{mm}(\\lambda)\\cos(y_{ij}\\lambda)d\\lambda\\right],
+\\quad \\kappa_m=\\sigma_m+j\\omega\\varepsilon_m.
+```
+
+For a mixed pair,
+
+```math
+P_{e,ij}^{01}=\\frac{j\\omega}{\\pi(\\sigma_0+j\\omega\\varepsilon_0)}
+\\int_0^\\infty I_{ij}^{01,MPC}(\\lambda)\\cos(y_{ij}\\lambda)d\\lambda,
+```
+
+```math
+I_{ij}^{01,MPC}=\\gamma_0^2\\mu_1
+\\frac{a_0\\mu_0+a_1\\mu_1}
+{(a_0\\gamma_1^2\\mu_0+a_1\\gamma_0^2\\mu_1)
+(a_0\\mu_1+a_1\\mu_0)}e^{-a_0|h_i|-a_1|h_j|}.
+```
+
+**Reference.** A. G. Martins-Britto, T. A. Papadopoulos, and A. I.
+Chrysochos, “Transient Electromagnetic Interference Between Overhead and
+Underground Conductors,” *IEEE Transactions on Electromagnetic Compatibility*,
+66(3), 983–992, 2024.
+"""
 function description(::Formula{:MartinsBritto2024})
     "Martins-Britto, Papadopoulos, and Chrysochos wideband homogeneous-earth potential coefficient (2024)"
 end

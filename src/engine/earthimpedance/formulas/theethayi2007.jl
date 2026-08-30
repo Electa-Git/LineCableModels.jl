@@ -15,6 +15,25 @@ function assumptions(::Val{:Theethayi2007})
 end
 
 propagation(::Val{:Theethayi2007}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Logarithmic-exponential underground approximation with
+earth displacement current retained.
+
+**Expression.**
+
+```math
+Z_{e,ij}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[
+\\ln\\left(\\frac{1+\\gamma_1R_{ab}}{\\gamma_1R_{ab}}\\right)+
+\\frac{2e^{-H|\\gamma_1|}}{4+\\gamma_1^2R_{ab}^2}\\right].
+```
+
+**Reference.** N. Theethayi, R. Thottappillil, M. Paolone, C. A. Nucci, and
+F. Rachidi, “External Impedance and Admittance of Buried Horizontal Wires for
+Transient Studies Using Transmission Line Analysis,” *IEEE Transactions on
+Dielectrics and Electrical Insulation*, 14, 751–761, 2007.
+"""
 function description(::Formula{:Theethayi2007})
     "Theethayi logarithmic-exponential underground approximation (2007)"
 end

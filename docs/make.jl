@@ -2,6 +2,7 @@ using Documenter
 using DocumenterCitations
 using LineCableModels
 using Literate
+using Markdown
 using TOML
 
 include("type_trees.jl")
@@ -128,6 +129,34 @@ function project_metadata()
     )
 end
 
+function formulation_catalogue(module_owner::Module, path::AbstractString...)
+    directory = normpath(joinpath(ROOT_DIR, "src", path...))
+    entries = NamedTuple[]
+
+    for (binding, multidoc) in Base.Docs.meta(module_owner)
+        binding.var === :description || continue
+        for (typesig, docstring) in multidoc.docs
+            source = normpath(String(docstring.data[:path]))
+            dirname(source) == directory || continue
+
+            formula_type = only(typesig.parameters)
+            identifier = first(Base.unwrap_unionall(formula_type).parameters)
+            body = join(filter(
+                value -> value isa AbstractString,
+                collect(docstring.text),
+            ))
+            push!(entries, (; source, identifier, body = strip(body)))
+        end
+    end
+
+    sort!(entries; by = entry -> basename(entry.source))
+    isempty(entries) && error("no formulation docstrings found in $directory")
+    return Markdown.parse(join(
+        ("### `:$(entry.identifier)`\n\n$(entry.body)" for entry in entries),
+        "\n\n",
+    ))
+end
+
 function strip_literate_footer(content::AbstractString)
     return replace(
         content,
@@ -237,6 +266,7 @@ makedocs(;
         "User guide" => Any[
             "Cable data model" => "data-model.md",
             "Modelling and results" => "usage.md",
+            "Transmission line parameters" => "transmission-line-parameters.md",
             "Gmsh/GetDP FEM backend" => "fem.md",
             "Gridspace and uncertainty" => "gridspace.md"
         ],

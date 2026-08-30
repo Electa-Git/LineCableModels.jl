@@ -6,6 +6,30 @@ function assumptions(::Val{:Fan2009})
     )
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Postprocessed conventional eigensolutions with optimal
+mode assignment, complex-phase alignment, and unitary alignment of coalescent
+eigenspaces.
+
+**Expression.** Candidate current eigenvectors minimize the assignment cost
+
+```math
+c_{pq}=1-\\frac{|\\mathbf t_p^{H}\\mathbf t_q|}
+{\\lVert\\mathbf t_p\\rVert\\lVert\\mathbf t_q\\rVert}
++w_h\\frac{|\\,|\\lambda_p-\\lambda_p^-|-|\\lambda_q-\\lambda_p|\\,|}
+{\\max(|\\lambda_p|,|\\lambda_p^-|,|\\lambda_q|,\\epsilon)},
+```
+
+followed by a unitary Procrustes rotation when eigenvalues are numerically
+coalescent.
+
+**Reference.** S. Fan, Y. Li, X. Li, and L. Bi, “A Method for the Calculation
+of Frequency-Dependent Transmission Line Transformation Matrices,” *IEEE
+Transactions on Power Systems*, 24(2), 2009.
+DOI: 10.1109/TPWRS.2009.2016381.
+"""
 description(::Formula{:Fan2009}) =
     "Fan et al. 2009 (optimal postprocessed eigenvector tracking)"
 

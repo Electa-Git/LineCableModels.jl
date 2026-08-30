@@ -6,6 +6,24 @@ routes(::Val{:IdealGround}) = (
 
 assumptions(::Val{:IdealGround}) = (;)
 propagation(::Val{:IdealGround}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Limiting reference in which the ground is an ideal
+equipotential conductor and contributes no earth potential coefficient.
+
+**Expression.**
+
+```math
+P_{e,ij}=0,\\qquad \\Gamma=0.
+```
+
+Only the non-earth electrostatic or insulation terms remain in the assembled
+potential-coefficient matrix.
+
+**Reference.** Ideal-conductor boundary condition; no empirical literature
+fit is introduced by this reference case.
+"""
 description(::Formula{:IdealGround}) = "Ideal ground reference"
 
 function ideal_gamma(jω, permeability, permittivity)

@@ -13,6 +13,33 @@ function assumptions(::Val{:AlvaradoBetancourt1983})
 end
 
 propagation(::Val{:AlvaradoBetancourt1983}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Closed-form approximation to Carson's overhead integral
+for conductive, nonmagnetic earth.
+
+**Expression.**
+
+```math
+Z_{e,ij}=\\frac{j\\omega\\mu_0}{2\\pi}
+\\left[\\ln\\frac{D_{ij}}{d_{ij}}+J_{m,ij}\\right],
+```
+
+```math
+\\begin{aligned}
+J_{m,ij}={}&\\frac12\\ln\\frac{[1+p_g/(H/2)]^2+(y_{ij}/H)^2}
+{1+(y_{ij}/H)^2}\\\\
+&-\\frac1{24}\\sum_{s\\in\\{-1,1\\}}
+\\left[1+\\frac{H}{2p_g}\\left(1+sj\\frac{y_{ij}}H\\right)\\right]^{-3},
+\\qquad p_g=(j\\omega\\mu_0\\sigma_g)^{-1/2}.
+\\end{aligned}
+```
+
+**Reference.** F. L. Alvarado and R. Betancourt, “An Accurate Closed-Form
+Approximation for Ground Return Impedance Calculations,” *Proceedings of the
+IEEE*, 71, 279–280, 1983. DOI: 10.1109/PROC.1983.12573.
+"""
 function description(::Formula{:AlvaradoBetancourt1983})
     "Alvarado-Betancourt closed-form Carson correction (1983)"
 end

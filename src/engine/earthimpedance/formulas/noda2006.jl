@@ -13,6 +13,33 @@ function assumptions(::Val{:Noda2006})
 end
 
 propagation(::Val{:Noda2006}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Double-logarithmic approximation to Carson's overhead
+integral.
+
+**Expression.**
+
+```math
+Z_{e,ij}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[
+\\ln\\frac{D_{ij}}{d_{ij}}+A\\ln\\frac{S_a}{D_{ij}}+
+(1-A)\\ln\\frac{S_\\beta}{D_{ij}}\\right],
+```
+
+```math
+S_a=\\sqrt{(H+2ap_g)^2+y_{ij}^2},\\quad
+S_\\beta=\\sqrt{(H+2\\beta p_g)^2+y_{ij}^2},\\quad
+\\beta=\\frac{1-Aa}{1-A}.
+```
+
+The piecewise ``A`` and ``a`` coefficients use
+``\\theta=\\tan^{-1}(y_{ij}/H)`` as specified in the paper.
+
+**Reference.** T. Noda, “A Double Logarithmic Approximation of Carson's
+Ground-Return Impedance,” *IEEE Transactions on Power Delivery*, 21,
+472–479, 2006. DOI: 10.1109/TPWRD.2005.852307.
+"""
 description(::Formula{:Noda2006}) = "Noda double-logarithmic approximation (2006)"
 
 noda2006_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))
@@ -56,8 +83,8 @@ a=\begin{cases}
 # Reference
 
 T. Noda, "A double logarithmic approximation of Carson's ground-return
-impedance," *IEEE Transactions on Power Delivery*, vol. 21, pp. 472-479,
-2006. DOI: 10.1109/TPWRD.2005.852307.
+impedance," *IEEE Transactions on Power Delivery*, vol. 21,
+pp. 472-479, 2006. DOI: 10.1109/TPWRD.2005.852307.
 """
 function noda2006(functor, pair)
     _require(pair, Val(:overhead))

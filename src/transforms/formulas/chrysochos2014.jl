@@ -7,6 +7,29 @@ function assumptions(::Val{:Chrysochos2014})
     )
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Levenberg–Marquardt tracking of each complex eigenpair,
+initialized from the preceding frequency.
+
+**Expression.**
+
+```math
+\\widetilde{\\mathbf S}=\\frac{\\mathbf Y\\mathbf Z}
+{-\\omega^2\\mu_0\\varepsilon_0}-\\mathbf I,\\qquad
+\\widetilde{\\mathbf S}\\mathbf t=\\lambda\\mathbf t,qquad
+\\mathbf t^T\\mathbf t=1.
+```
+
+The complex residual is represented as a real least-squares system and solved
+with a damped normal-equation step.
+
+**Reference.** A. I. Chrysochos, T. A. Papadopoulos, and G. K. Papagiannis,
+“Robust Calculation of Frequency-Dependent Transmission-Line Transformation
+Matrices Using the Levenberg–Marquardt Method,” *IEEE Transactions on Power
+Delivery*, 29(4), 1621–1629, 2014. DOI: 10.1109/TPWRD.2013.2284504.
+"""
 description(::Formula{:Chrysochos2014}) =
     "Chrysochos et al. 2014 (Levenberg–Marquardt eigenpair tracking)"
 

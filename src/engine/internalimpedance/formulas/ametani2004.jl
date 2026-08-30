@@ -8,6 +8,25 @@ end
 
 assumptions(::Val{:Ametani2004}) = (;)
 
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Bonded two-material cylindrical conductor, including a
+conductive semiconducting layer.
+
+**Expression.** If the two materials have Schelkunoff surface terms
+``Z_{1i},Z_{1o},Z_{1m}`` and ``Z_{2i},Z_{2o},Z_{2m}``,
+
+```math
+Z_{out}=Z_{2o}-\\frac{Z_{2m}^2}{Z_{1o}+Z_{2i}},\\qquad
+Z_{in}=Z_{1i}-\\frac{Z_{1m}^2}{Z_{1o}+Z_{2i}},\\qquad
+Z_m=\\frac{Z_{1m}Z_{2m}}{Z_{1o}+Z_{2i}}.
+```
+
+**Reference.** A. Ametani, H. Xue, T. Ohno, and H. Khalilnezhad,
+*Electromagnetic Transients in Large HV Cable Networks: Modeling and
+Calculations*, IET, 2021, Appendix A1.4.
+"""
 function description(::Formula{:Ametani2004})
     "Ametani et al. bonded two-layer conductor impedance (2004)"
 end

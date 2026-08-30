@@ -1,6 +1,24 @@
 "Return the 100 Hz boundary assumption of the Visacro–Alipio empirical relation."
 assumptions(::Val{:VisacroAlipio2012}) = (frequency_boundary = 100.0,)
 
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Empirical causal fit with a 100 Hz lower boundary.
+
+**Expression.** With ``f_e=\\max(f,100)`` and ``\\sigma_0=1/\\rho_0``,
+
+```math
+\\varepsilon_r(f)=1.3+7.6\\times10^3 f_e^{-0.4},
+\\qquad
+\\sigma(f)=\\sigma_0+1.2\\times10^{-6}\\sigma_0^{0.27}(f_e-100)^{0.65}.
+```
+
+**Reference.** S. Visacro and R. Alipio, “Frequency Dependence of Soil
+Parameters: Experimental Results, Predicting Formula and Influence on the
+Lightning Response of Grounding Electrodes,” *IEEE Transactions on Power
+Delivery*, 27(2), 2012. DOI: 10.1109/TPWRD.2011.2179070.
+"""
 description(::Formula{:VisacroAlipio2012}) =
     "Visacro–Alipio 2012 (empirical soil dispersion)"
 
@@ -15,8 +33,8 @@ by `abs`. Input and returned resistivity use Ω·m.
 
 S. Visacro and R. Alipio, *Frequency Dependence of Soil Parameters:
 Experimental Results, Predicting Formula and Influence on the Lightning
-Response of Grounding Electrodes*, IEEE Transactions on Power Delivery, 27(2),
-2012. DOI: 10.1109/TPWRD.2011.2179070.
+Response of Grounding Electrodes*, IEEE Transactions on Power Delivery,
+27(2), 2012. DOI: 10.1109/TPWRD.2011.2179070.
 =#
 function (::Functor{:VisacroAlipio2012})(
         material::EarthMaterial{T},

@@ -16,6 +16,27 @@ function assumptions(::Val{:Theethayi2007})
 end
 
 propagation(::Val{:Theethayi2007}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Underground earth-admittance relation derived from the
+matching logarithmic-exponential impedance model.
+
+**Expression.** At matrix level,
+
+```math
+\\mathbf Y_e=\\gamma_1^2\\mathbf Z_e^{-1},\\qquad
+P_{e,ij}=\\frac{j\\omega Z_{e,ij}}{\\gamma_1^2}.
+```
+
+The inverse is taken only after assembling ``\\mathbf P_e``; the package does
+not divide admittance element by impedance element.
+
+**Reference.** N. Theethayi, R. Thottappillil, M. Paolone, C. A. Nucci, and
+F. Rachidi, “External Impedance and Admittance of Buried Horizontal Wires for
+Transient Studies Using Transmission Line Analysis,” *IEEE Transactions on
+Dielectrics and Electrical Insulation*, 14, 751–761, 2007.
+"""
 function description(::Formula{:Theethayi2007})
     "Theethayi et al. earth admittance from impedance (2007)"
 end

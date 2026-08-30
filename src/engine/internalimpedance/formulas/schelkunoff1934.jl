@@ -8,6 +8,31 @@ end
 
 assumptions(::Val{:Schelkunoff1934}) = (;)
 
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Exact cylindrical surface impedances for a solid or
+hollow round conductor.
+
+**Expression.**
+
+```math
+\\begin{aligned}
+Z_{is}&=\\frac{\\rho m}{2\\pi aD}
+[I_0(ma)K_1(mb)+K_0(ma)I_1(mb)],\\\\
+Z_{os}&=\\frac{\\rho m}{2\\pi bD}
+[I_0(mb)K_1(ma)+K_0(mb)I_1(ma)],\\\\
+Z_{ms}&=\\frac{\\rho m}{2\\pi abD},\\\\
+D&=I_1(mb)K_1(ma)-K_1(mb)I_1(ma).
+\\end{aligned}
+```
+
+For ``a=0``, ``Z_{int}=\\rho mI_0(mb)/(2\\pi bI_1(mb))``.
+
+**Reference.** S. A. Schelkunoff, “The Electromagnetic Theory of Coaxial
+Transmission Lines and Cylindrical Shields,” *Bell System Technical Journal*,
+13, 532–579, 1934.
+"""
 function description(::Formula{:Schelkunoff1934})
     "Schelkunoff exact round-conductor surface impedances (1934)"
 end

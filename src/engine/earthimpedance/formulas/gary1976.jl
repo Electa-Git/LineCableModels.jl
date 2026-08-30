@@ -13,6 +13,25 @@ function assumptions(::Val{:Gary1976})
 end
 
 propagation(::Val{:Gary1976}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Complex-depth logarithmic approximation for overhead
+conductors.
+
+**Expression.**
+
+```math
+Z_{e,ij}=\\frac{j\\omega\\mu_0}{2\\pi}\\ln\\frac{S_{ij}}{d_{ij}},\\qquad
+S_{ij}=\\sqrt{(H+2h_e)^2+y_{ij}^2},\\qquad
+h_e=(j\\omega\\mu_0\\sigma_1)^{-1/2}.
+```
+
+**Reference.** C. Gary, “Approche complète de la propagation multifilaire en
+haute fréquence par utilisation des matrices complexes,” *EDF Bulletin de la
+Direction des Études et Recherches*, série B, 1976; formula as reproduced in
+Ametani et al., IET, 2021.
+"""
 description(::Formula{:Gary1976}) = "Gary complex-depth approximation (1976)"
 
 gary1976_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))

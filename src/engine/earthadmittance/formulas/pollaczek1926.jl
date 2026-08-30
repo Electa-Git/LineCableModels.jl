@@ -18,6 +18,30 @@ function assumptions(::Val{:Pollaczek1926})
 end
 
 propagation(::Val{:Pollaczek1926}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Classical pair-complete potential-coefficient recipe:
+electrostatic image coefficient overhead, the classical underground
+coefficient, and zero mixed-media coefficient.
+
+**Expression.**
+
+```math
+P_{e,ij}^{00}=\\frac{1}{2\\pi\\varepsilon_0}\\ln\\frac{D_{ij}}{d_{ij}},
+```
+
+```math
+P_{e,ij}^{11}=\\frac{j\\omega}{2\\pi(\\sigma_1+j\\omega\\varepsilon_1)}
+[K_0(\\gamma_0d_{ij})-K_0(\\gamma_0D_{ij})],\\qquad
+P_{e,ij}^{01}=0.
+```
+
+**Reference.** F. Pollaczek, “Über das Feld einer unendlich langen
+wechselstromdurchflossenen Einfachleitung,” *Elektrische Nachrichtentechnik*,
+3, 339–360, 1926; potential-coefficient transcription follows Ametani et al.,
+IET, 2021.
+"""
 function description(::Formula{:Pollaczek1926})
     "Pollaczek classical overhead, underground, and mixed potential coefficients (1926)"
 end

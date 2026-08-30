@@ -15,6 +15,28 @@ function assumptions(::Val{:Theodoulidis2015})
 end
 
 propagation(::Val{:Theodoulidis2015}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Closed form for Carson's overhead correction using
+Struve and Bessel functions.
+
+**Expression.**
+
+```math
+Z_{e,ij}=\\frac{j\\omega\\mu_0}{2\\pi}
+\\left[\\ln\\frac{D_{ij}}{d_{ij}}+S_{ij}\\right],
+```
+
+```math
+S_{ij}=\\sum_{q\\in\\{1,2\\}}\\left[
+\\frac{\\pi}{2u_q}(\\mathbf H_1(u_q)-Y_1(u_q))-\\frac1{u_q^2}\\right],
+\\quad u_{1,2}=\\gamma_1(H\\mp jy_{ij}).
+```
+
+**Reference.** T. P. Theodoulidis, “On the Closed-Form Evaluation of
+Carson's Integral,” 2015, as reproduced in Ametani et al., IET, 2021.
+"""
 function description(::Formula{:Theodoulidis2015})
     "Theodoulidis closed-form Carson correction (2015)"
 end

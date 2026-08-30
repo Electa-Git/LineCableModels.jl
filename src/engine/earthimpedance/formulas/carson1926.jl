@@ -13,6 +13,25 @@ function assumptions(::Val{:Carson1926})
 end
 
 propagation(::Val{:Carson1926}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Classical homogeneous, conductive-earth overhead
+impedance. Displacement currents and longitudinal propagation are neglected.
+
+**Expression.**
+
+```math
+Z_{e,ij}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[
+\\ln\\frac{D_{ij}}{d_{ij}}+2\\int_0^\\infty
+\\frac{e^{-H\\lambda}\\cos(y_{ij}\\lambda)}
+{\\lambda+\\sqrt{\\lambda^2+\\gamma_g^2}}d\\lambda\\right],
+\\qquad \\gamma_g^2=j\\omega\\mu_0\\sigma_g.
+```
+
+**Reference.** J. R. Carson, “Wave Propagation in Overhead Wires with Ground
+Return,” *Bell System Technical Journal*, 5, 539–554, 1926.
+"""
 description(::Formula{:Carson1926}) = "Carson homogeneous-earth overhead impedance (1926)"
 
 carson1926_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))

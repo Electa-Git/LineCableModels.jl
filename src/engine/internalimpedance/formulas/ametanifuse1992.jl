@@ -8,6 +8,29 @@ end
 
 assumptions(::Val{:AmetaniFuse1992}) = (;)
 
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Cross-section approximation admitted here for circular
+solid or hollow conductors.
+
+**Expression.** With cross-sectional area ``S`` and outer perimeter ``\\ell``,
+
+```math
+Z_i\\simeq R_{dc}\\sqrt{1+j\\omega\\mu_c
+\\frac{S^2}{R_{dc}^2\\ell^2}}
+=\\sqrt{Z_{dc}^2+Z_{hf}^2},\\qquad
+R_{dc}=\\frac{\\rho_c}{S},\\quad
+Z_{hf}=\\frac{\\sqrt{j\\omega\\mu_c\\rho_c}}{\\ell}.
+```
+
+For the implemented circular geometry,
+``S=\\pi(b^2-a^2)`` and ``\\ell=2\\pi b``.
+
+**Reference.** A. Ametani and I. Fuse, 1992, as reproduced in A. Ametani,
+T. Ohno, and N. Nagaoka, *Cable System Transients: Theory, Modeling and
+Simulation*, Wiley-IEEE Press, 2015, Eqs. 2.52 and 2.C.1–2.C.6.
+"""
 description(::Formula{:AmetaniFuse1992}) = "Ametani-Fuse cross-section approximation (1992)"
 
 """

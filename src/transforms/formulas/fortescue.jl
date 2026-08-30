@@ -1,4 +1,24 @@
 assumptions(::Val{:Fortescue}) = (tolerance = 1e-4,)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Frequency-independent unitary symmetrical-component
+transform generalized to ``N`` conductors.
+
+**Expression.**
+
+```math
+a=e^{j2\\pi/N},\\qquad
+F_{km}=\\frac1{\\sqrt N}a^{km},\\quad k,m=0,\\ldots,N-1,
+\\qquad \\mathbf F^{-1}=\\mathbf F^H.
+```
+
+The same unitary operator is used for voltage and current.
+
+**Reference.** C. L. Fortescue, “Method of Symmetrical Co-Ordinates Applied
+to the Solution of Polyphase Networks,” *Transactions of the AIEE*, 37,
+1027–1140, 1918.
+"""
 description(::Formula{:Fortescue}) = "Fortescue (symmetrical components)"
 
 # Construct the unitary Fortescue voltage and current operators.

@@ -13,6 +13,29 @@ function assumptions(::Val{:Wise1948})
 end
 
 propagation(::Val{:Wise1948}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Wideband homogeneous-earth overhead potential
+coefficient.
+
+**Expression.**
+
+```math
+P_{e,ij}=\\frac{P_{0,ij}+M_{ij}+jN_{ij}}{2\\pi\\varepsilon_0},
+```
+
+```math
+M_{ij}+jN_{ij}=2\\int_0^\\infty
+\\frac{e^{-H\\lambda}\\cos(y_{ij}\\lambda)}
+{(\\gamma_1^2/\\gamma_0^2)\\lambda+
+\\sqrt{\\lambda^2+\\gamma_1^2-\\gamma_0^2}}d\\lambda,
+\\quad P_{0,ij}=\\ln(D_{ij}/d_{ij}).
+```
+
+**Reference.** W. H. Wise, “Potential Coefficients for Ground Return
+Circuits,” *Bell System Technical Journal*, 27, 365–371, 1948.
+"""
 function description(::Formula{:Wise1948})
     "Wise wideband homogeneous-earth overhead potential coefficient (1948)"
 end

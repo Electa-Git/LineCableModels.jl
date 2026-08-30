@@ -16,6 +16,34 @@ end
 
 propagation(::Val{:Papadopoulos2011}) = Val(:explicit)
 media(::Formula{:Papadopoulos2011}) = Val(:stratified)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Two-layer underground mutual impedance for conductors in
+the finite upper soil layer.
+
+**Expression.**
+
+```math
+Z'_{e,ij}=\\frac{j\\omega\\mu_1}{2\\pi}\\int_0^\\infty
+F_{ij}^{strat}(\\lambda)\\cos(y_{ij}\\lambda)d\\lambda,
+```
+
+```math
+F_{ij}^{strat}=\\frac{
+s_{10}s_{21}e^{-\\alpha_1|h_i-h_j|}+
+s_{10}d_{21}e^{-\\alpha_1(2d-h_i-h_j)}-
+d_{10}s_{21}e^{-\\alpha_1H}-
+d_{10}d_{21}e^{-\\alpha_1(2d-|h_i-h_j|)}}
+{\\alpha_1(s_{10}s_{21}+d_{10}d_{21}e^{-2\\alpha_1d})}.
+```
+
+**Reference.** T. A. Papadopoulos, G. K. Papagiannis, and D. P. Labridis,
+“A Generalized Model for the Calculation of the Impedances and Admittances of
+Overhead Power Lines Above Stratified Earth,” *Electric Power Systems
+Research*, 80, 1160–1170, 2010; the underground two-layer specialization is
+the 2011 formulation reproduced in Ametani et al., IET, 2021.
+"""
 function description(::Formula{:Papadopoulos2011})
     "Papadopoulos et al. two-layer underground mutual impedance (2011)"
 end

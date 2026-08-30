@@ -15,6 +15,31 @@ function assumptions(::Val{:Xue2018})
 end
 
 propagation(::Val{:Xue2018}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Generalized homogeneous-earth underground wideband
+impedance.
+
+**Expression.**
+
+```math
+Z_{e,ij}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[
+K_0(\\gamma_1d_{ij})-K_0(\\gamma_1D_{ij})+2S_{11}^c+
+2\\gamma_1^2S_{13}^c\\right],
+```
+
+```math
+S_{11}^c=\\int_0^\\infty\\frac{e^{-Hu_1}\\lambda^2\\cos(y\\lambda)}
+{(\\lambda^2+\\gamma_1^2)(u_0+u_1)}d\\lambda,\\qquad
+S_{13}^c=\\int_0^\\infty\\frac{e^{-Hu_1}\\cos(y\\lambda)}
+{(\\lambda^2+\\gamma_1^2)(u_0+u_1)}d\\lambda.
+```
+
+**Reference.** H. Xue, *Electromagnetic Transients in Large HV Cable
+Networks*, doctoral thesis, Delft University of Technology, 2018; equations
+as consolidated in Ametani et al., IET, 2021.
+"""
 function description(::Formula{:Xue2018})
     "Xue et al. generalized homogeneous-earth underground impedance (2018)"
 end

@@ -8,6 +8,23 @@ end
 
 assumptions(::Val{:Zhao2020}) = (;)
 
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** High-frequency asymptotic hollow-shell impedances.
+
+**Expression.**
+
+```math
+Z_{ia}=\\frac{\\rho m}{2\\pi a}\\coth[m(b-a)],\\qquad
+Z_{oa}=\\frac{\\rho m}{2\\pi b}\\coth[m(b-a)],\\qquad
+Z_{ma}=\\frac{\\rho m}{2\\pi\\sqrt{ab}}\\operatorname{csch}[m(b-a)].
+```
+
+**Reference.** Zhao et al., 2020, as reproduced in Ametani et al.,
+*Electromagnetic Transients in Large HV Cable Networks*, IET, 2021,
+Appendix A1.4.4.2, Eqs. A1.61–A1.65.
+"""
 function description(::Formula{:Zhao2020})
     "Zhao et al. high-frequency asymptotic shell impedances (2020)"
 end

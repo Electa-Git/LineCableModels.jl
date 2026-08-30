@@ -16,6 +16,35 @@ end
 
 propagation(::Val{:Papadopoulos2011}) = Val(:explicit)
 media(::Formula{:Papadopoulos2011}) = Val(:stratified)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Two-layer underground potential coefficient for
+conductors in the finite upper soil layer.
+
+**Expression.**
+
+```math
+P_{e,ij}=\\frac{j\\omega}{2\\pi(\\sigma_1+j\\omega\\varepsilon_1)}
+\\int_0^\\infty[F_{ij}^{strat}+G_{ij}^{strat}]
+\\cos(y_{ij}\\lambda)d\\lambda,
+```
+
+```math
+G_{ij}^{strat}=2\\alpha_1(G_{1,ij}+G_{2,ij}+G_{3,ij}+G_{4,ij}),
+```
+
+where ``F_{ij}^{strat}`` is the four-exponential impedance kernel and
+
+```math
+A_{mn}=\\alpha_n\\gamma_m^2\\mu_n+\\alpha_m\\gamma_n^2\\mu_m,\\qquad
+\\Delta_{mn}=\\alpha_n\\gamma_m^2\\mu_n-\\alpha_m\\gamma_n^2\\mu_m.
+```
+
+**Reference.** Papadopoulos et al., two-layer underground formulation, 2011,
+as reproduced in Ametani et al., *Electromagnetic Transients in Large HV
+Cable Networks*, IET, 2021.
+"""
 function description(::Formula{:Papadopoulos2011})
     "Papadopoulos et al. two-layer underground potential coefficient (2011)"
 end

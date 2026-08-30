@@ -18,6 +18,36 @@ function assumptions(::Val{:MartinsBritto2024})
 end
 
 propagation(::Val{:MartinsBritto2024}) = Val(:explicit)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Wideband, pair-complete homogeneous-earth formulation
+with explicit longitudinal propagation.
+
+**Expression.** For two conductors in medium ``m`` with the other medium
+``n``,
+
+```math
+Z_{e,ij}^{mm}=\\frac{j\\omega\\mu_m}{2\\pi}\\left[
+K_0(a_md_{ij})-K_0(a_mD_{ij})+2\\int_0^\\infty
+\\mu_n\\frac{e^{-a_mH}}{a_m\\mu_n+a_n\\mu_m}
+\\cos(y_{ij}\\lambda)d\\lambda\\right],
+```
+
+and for a mixed pair,
+
+```math
+Z_{e,ij}^{01}=\\frac{j\\omega\\mu_0}{\\pi}\\int_0^\\infty
+\\mu_1\\frac{e^{-a_0|h_i|-a_1|h_j|}}
+{a_0\\mu_1+a_1\\mu_0}\\cos(y_{ij}\\lambda)d\\lambda,
+\\quad a_m=\\sqrt{\\lambda^2+\\gamma_m^2+k_x^2}.
+```
+
+**Reference.** A. G. Martins-Britto, T. A. Papadopoulos, and A. I.
+Chrysochos, “Transient Electromagnetic Interference Between Overhead and
+Underground Conductors,” *IEEE Transactions on Electromagnetic Compatibility*,
+66(3), 983–992, 2024.
+"""
 function description(::Formula{:MartinsBritto2024})
     "Martins-Britto, Papadopoulos, and Chrysochos wideband homogeneous-earth impedance (2024)"
 end

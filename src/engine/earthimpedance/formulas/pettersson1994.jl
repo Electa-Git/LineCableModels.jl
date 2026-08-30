@@ -13,6 +13,25 @@ function assumptions(::Val{:Pettersson1994})
 end
 
 propagation(::Val{:Pettersson1994}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Wideband complex-image approximation for conductors above,
+on, or below homogeneous earth.
+
+**Expression.**
+
+```math
+Z_{e,ij}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[
+\\ln\\frac{D_{ij}}{d_{ij}}+\\ln\\frac{
+\\sqrt{(H+2/\\beta_\\gamma)^2+y_{ij}^2}}{D_{ij}}\\right],
+\\qquad \\beta_\\gamma=\\sqrt{\\gamma_g^2-\\gamma_0^2}.
+```
+
+**Reference.** P. Pettersson, “Image Representation of Wave Propagation on
+Wires Above, On and Under Ground,” *IEEE Transactions on Power Delivery*, 9,
+1049–1055, 1994. DOI: 10.1109/61.296290.
+"""
 description(::Formula{:Pettersson1994}) = "Pettersson wideband image approximation (1994)"
 
 pettersson1994_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))

@@ -15,6 +15,31 @@ function assumptions(::Val{:Magalhaes2018})
 end
 
 propagation(::Val{:Magalhaes2018}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Homogeneous-earth underground potential coefficient. The
+implemented transcription is retained exactly and is marked low-confidence in
+the source corpus.
+
+**Expression.**
+
+```math
+P_{e,ij}=\\frac{j\\omega}{2\\pi(\\sigma_1+j\\omega\\varepsilon_1)}
+\\left[\\Lambda_{ij}+2\\int_0^\\infty I_{ij}^{M}(\\lambda)
+\\cos(y_{ij}\\lambda)d\\lambda\\right],
+```
+
+```math
+I_{ij}^{M}=\\frac{u_0e^{-u_1H}-e^{-u_1H/2}}
+{u_0+(\\gamma_0^2/\\gamma_1^2)u_1},\\qquad
+\\Lambda_{ij}=K_0(\\gamma_1d_{ij})-K_0(\\gamma_1D_{ij}).
+```
+
+**Reference.** F. C. R. Magalhães et al., “Closed-Form Expressions for the
+Calculation of the Ground-Return Impedance and Admittance of Underground
+Cables,” 2018; equation transcription follows the package formula corpus.
+"""
 function description(::Formula{:Magalhaes2018})
     "Magalhaes et al. underground potential-coefficient kernel (2018)"
 end

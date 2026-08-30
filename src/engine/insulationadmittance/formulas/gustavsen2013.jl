@@ -1,5 +1,23 @@
 assumptions(::Val{:Gustavsen2013}) = (;)
 
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Conventional lossless-insulation approximation. The
+material permittivity is retained and its finite conductivity is suppressed.
+
+**Expression.**
+
+```math
+\\kappa=j\\omega\\varepsilon_0\\varepsilon_r,\\qquad
+G=0,\\qquad
+C=\\frac{2\\pi\\varepsilon_0\\varepsilon_r}{\\ln(b/a)}.
+```
+
+**Reference.** B. Gustavsen, H. K. Høidalen, and T. M. Ohnstad, “Field
+Measurement and Simulation of 132 kV Oil-Filled Submarine Cables,”
+*International Conference on Power Systems Transients*, 2013.
+"""
 function description(::Formula{:Gustavsen2013})
     "Gustavsen conventional lossless-insulation model (2013)"
 end

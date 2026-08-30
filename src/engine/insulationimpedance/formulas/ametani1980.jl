@@ -1,5 +1,25 @@
 assumptions(::Val{:Ametani1980}) = (;)
 
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Longitudinal magnetic impedance of one concentric
+insulation region in Ametani's single-core cable formulation.
+
+**Expression.**
+
+```math
+Z_{ins}=\\frac{j\\omega\\mu_0\\mu_r}{2\\pi}\\ln\\frac{b}{a}.
+```
+
+The term vanishes when the annular region has zero thickness. It is assembled
+with the conductor surface impedances to form the cable series-impedance
+matrix.
+
+**Reference.** A. Ametani, “A General Formulation of Impedance and Admittance
+of Cables,” *IEEE Transactions on Power Apparatus and Systems*, PAS-99(3),
+902–910, 1980. DOI: 10.1109/TPAS.1980.319718.
+"""
 function description(::Formula{:Ametani1980})
     "Ametani coaxial-insulation magnetic impedance (1980)"
 end

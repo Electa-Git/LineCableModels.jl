@@ -6,6 +6,28 @@ function assumptions(::Val{:Wedepohl1996})
     )
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Complex Newton–Raphson eigenpair tracking, initialized
+from the preceding frequency and scaled by the Frobenius norm of
+``\\mathbf Y\\mathbf Z``.
+
+**Expression.** Each mode solves
+
+```math
+\\mathbf S\\mathbf t-\\lambda\\mathbf t=0,\\qquad
+\\mathbf t^T\\mathbf t-1=0,
+```
+
+with the complex eigenpair and normalization constraint advanced jointly by
+Newton iteration.
+
+**Reference.** L. M. Wedepohl, H. V. Nguyen, and G. D. Irwin,
+“Frequency-Dependent Transformation Matrices for Untransposed Transmission
+Lines Using Newton-Raphson Method,” *IEEE Transactions on Power Systems*,
+11(3), 1996. DOI: 10.1109/59.535695.
+"""
 description(::Formula{:Wedepohl1996}) =
     "Wedepohl et al. 1996 (Newton–Raphson eigenpair tracking)"
 

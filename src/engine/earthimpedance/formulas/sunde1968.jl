@@ -19,6 +19,39 @@ end
 
 propagation(::Val{:Sunde1968}) = Val(:zero)
 media(::Formula{:Sunde1968}) = Val(:stratified)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Overhead impedance for homogeneous or horizontally
+stratified earth; the number of earth layers selects the homogeneous,
+two-layer, or recursive kernel.
+
+**Expression.** The two-layer kernel is
+
+```math
+Z_{e,ij}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[
+\\ln\\frac{D_{ij}}{d_{ij}}+2\\int_0^\\infty F_{ij}^{S}(\\lambda)
+\\cos(y_{ij}\\lambda)d\\lambda\\right],
+```
+
+```math
+F_{ij}^{S}=\\frac{a_1+a_2+(a_1-a_2)e^{-2a_1d}}
+{(a_1+a_2)(\\lambda+a_1)+(a_1-a_2)(\\lambda-a_1)e^{-2a_1d}}
+e^{-\\lambda H}.
+```
+
+For ``N`` layers the implemented recursion uses
+
+```math
+k_{m,N}=\\frac{1-\\Gamma_{m,N}e^{-2d_ma_m}}
+{1+\\Gamma_{m,N}e^{-2d_ma_m}},\\qquad
+\\Gamma_{m,N}=\\frac{\\eta_m-\\eta_{m+1}k_{m+1,N}}
+{\\eta_m+\\eta_{m+1}k_{m+1,N}},\\qquad k_{N,N}=1.
+```
+
+**Reference.** E. D. Sunde, *Earth Conduction Effects in Transmission
+Systems*, Dover, 1968.
+"""
 function description(::Formula{:Sunde1968})
     "Sunde homogeneous and horizontally stratified overhead impedance (1968)"
 end

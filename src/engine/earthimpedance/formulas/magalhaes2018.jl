@@ -15,6 +15,25 @@ function assumptions(::Val{:Magalhaes2018})
 end
 
 propagation(::Val{:Magalhaes2018}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Wideband homogeneous-earth underground integral.
+
+**Expression.**
+
+```math
+Z_{e,ij}=\\frac{j\\omega\\mu_1}{2\\pi}\\left[
+K_0(\\gamma_1d_{ij})-K_0(\\gamma_1D_{ij})+2\\int_0^\\infty
+\\frac{e^{-u_1H}}{u_0+u_1}\\cos(y_{ij}\\lambda)d\\lambda\\right],
+\\qquad u_m=\\sqrt{\\lambda^2+\\gamma_m^2}.
+```
+
+**Reference.** F. C. R. Magalhães et al., “Closed-Form Expressions for the
+Calculation of the Ground-Return Impedance and Admittance of Underground
+Cables,” 2018; implemented equation follows the formula corpus and Ametani
+et al., IET, 2021.
+"""
 function description(::Formula{:Magalhaes2018})
     "Magalhaes et al. homogeneous-earth underground impedance (2018)"
 end

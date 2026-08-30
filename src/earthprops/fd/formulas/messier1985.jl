@@ -1,6 +1,25 @@
 "Return the high-frequency permittivity assumption of the Messier relation."
 assumptions(::Val{:Messier1985}) = (epsilon_infinity = 8.0,)
 
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Square-root dispersive soil model.
+
+**Expression.** With ``\\sigma_0=1/\\rho_0`` and
+``\\varepsilon_\\infty=8``,
+
+```math
+\\varepsilon_r(f)=\\varepsilon_\\infty+
+\\sqrt{\\frac{\\sigma_0\\varepsilon_\\infty}{\\pi f\\varepsilon_0}},
+\\qquad
+\\sigma(f)=\\sigma_0+
+\\sqrt{4\\pi f\\sigma_0\\varepsilon_0\\varepsilon_\\infty}.
+```
+
+**Reference.** M. Messier, *Another Soil Conductivity Model*, internal report,
+JAYCOR, Santa Barbara, 1985.
+"""
 description(::Formula{:Messier1985}) = "Messier 1985 (square-root soil dispersion)"
 
 #=

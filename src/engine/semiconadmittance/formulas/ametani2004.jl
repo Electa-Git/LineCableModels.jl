@@ -1,5 +1,30 @@
 assumptions(::Val{:Ametani2004}) = (;)
 
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Complex-permittivity representation of a concentric
+semiconducting screen. Its conduction and displacement currents enter the same
+radial dielectric network as the adjacent insulation layers.
+
+**Expression.** For screen resistivity ``\\rho_s`` and permittivity
+``\\varepsilon_s``,
+
+```math
+\\varepsilon_s^\\star=\\varepsilon_s+\\frac{1}{j\\omega\\rho_s},\\qquad
+\\kappa_s=\\frac{1}{\\rho_s}+j\\omega\\varepsilon_s,
+```
+
+and an annular screen from ``a`` to ``b`` has
+
+```math
+Y_s=\\frac{2\\pi\\kappa_s}{\\ln(b/a)}.
+```
+
+**Reference.** A. Ametani, Y. Miyamoto, and N. Nagaoka, 2004, as reproduced
+in A. Ametani, T. Ohno, and N. Nagaoka, *Cable System Transients: Theory,
+Modeling and Simulation*, Wiley-IEEE Press, 2015, Eqs. 2.66–2.67.
+"""
 function description(::Formula{:Ametani2004})
     "Ametani semiconducting-screen admittance model (2004)"
 end

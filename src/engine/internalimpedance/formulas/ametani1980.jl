@@ -8,6 +8,34 @@ end
 
 assumptions(::Val{:Ametani1980}) = (;)
 
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Ametani's assembly for a single-core coaxial cable with
+core, sheath, and armour. The cylindrical surface terms are supplied by the
+Schelkunoff relation.
+
+**Expression.** For one cable section,
+
+```math
+\\mathbf Z^{(c,s,a)}=
+\\begin{bmatrix}Z_{cc}&Z_{cs}&Z_{ca}\\\\
+Z_{cs}&Z_{ss}&Z_{sa}\\\\Z_{ca}&Z_{sa}&Z_{aa}\\end{bmatrix},
+```
+
+```math
+\\begin{aligned}
+Z_{cc}&=z_{cs}+z_{sa}+z_{a4}-2z_{2m}-2z_{3m},\\\\
+Z_{ss}&=z_{sa}+z_{a4}-2z_{3m},& Z_{aa}&=z_{a4},\\\\
+Z_{cs}&=z_{sa}+z_{a4}-z_{2m}-2z_{3m},&
+Z_{ca}=Z_{sa}&=z_{a4}-z_{3m}.
+\\end{aligned}
+```
+
+**Reference.** A. Ametani, “A General Formulation of Impedance and Admittance
+of Cables,” *IEEE Transactions on Power Apparatus and Systems*, PAS-99(3),
+902–910, 1980. DOI: 10.1109/TPAS.1980.319718.
+"""
 function description(::Formula{:Ametani1980})
     "Ametani single-core coaxial cable impedance assembly (1980)"
 end

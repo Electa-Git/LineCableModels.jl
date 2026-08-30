@@ -18,6 +18,30 @@ function assumptions(::Val{:Ametani2009})
 end
 
 propagation(::Val{:Ametani2009}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Pair-complete homogeneous-earth recipe using Carson for
+overhead pairs, Pollaczek for underground pairs, and Ametani's approximation
+for mixed overhead-underground pairs.
+
+**Expression.** Its distinctive mixed term is
+
+```math
+Z_{e,ij}^{01}=\\frac{j\\omega\\mu_0}{2\\pi}e^{-h_g/h_e}\\ln\\frac{S}{D},
+\\quad h_e=(j\\omega\\mu_0\\sigma_g)^{-1/2},
+```
+
+```math
+S=\\sqrt{(h_a+h_g+2h_e)^2+y_{ij}^2},\\qquad
+D=\\sqrt{(h_a+h_g)^2+y_{ij}^2}.
+```
+
+**Reference.** A. Ametani, “An Investigation of Earth-Return Impedance
+Between Overhead and Underground Conductors and Its Approximation,” *IEEE
+Transactions on Electromagnetic Compatibility*, 51, 860–867, 2009.
+DOI: 10.1109/TEMC.2009.2019953.
+"""
 description(::Formula{:Ametani2009}) = "Ametani"
 
 ametani2009_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))

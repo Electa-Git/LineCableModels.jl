@@ -1,6 +1,37 @@
 "Return the reconstruction assumptions of the Xue et al. EHEM."
 assumptions(::Val{:Xue2021}) = (layer = -1,)
 
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Equivalent transverse propagation constant, from which
+both conductivity and relative permittivity are reconstructed.
+
+**Expression.** With
+``\\gamma_{e,k}^2=\\gamma_k^2-\\gamma_0^2``, the upward recursion is
+
+```math
+\\gamma_{e,eq,k}=\\gamma_{e,k}
+\\frac{\\gamma_{e,k}+\\gamma_{e,eq,k+1}-
+(\\gamma_{e,k}-\\gamma_{e,eq,k+1})e^{-2h_k\\gamma_{e,k}}}
+{\\gamma_{e,k}+\\gamma_{e,eq,k+1}+
+(\\gamma_{e,k}-\\gamma_{e,eq,k+1})e^{-2h_k\\gamma_{e,k}}}.
+```
+
+The effective material is recovered from
+
+```math
+\\varepsilon_{r,eq}=1-
+\\frac{\\Re\\{\\gamma_{e,eq}^2\\}}{\\omega^2\\mu_0\\varepsilon_0},
+\\qquad
+\\sigma_{eq}=\\frac{\\Im\\{\\gamma_{e,eq}^2\\}}{\\omega\\mu_0}.
+```
+
+**Reference.** H. Xue et al., “Generalized Formulation and Surge Analysis on
+Overhead Lines: Impedance/Admittance of a Multi-Layer Earth,” *IEEE
+Transactions on Power Delivery*, 36(6), 3834–3845, 2021.
+DOI: 10.1109/TPWRD.2021.3049595.
+"""
 description(::Formula{:Xue2021}) =
     "Xue et al. 2021 equivalent propagation constant"
 

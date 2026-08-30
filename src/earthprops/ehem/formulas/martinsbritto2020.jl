@@ -1,6 +1,31 @@
 "Return the reconstruction assumptions of the Martins–Britto et al. EHEM."
 assumptions(::Val{:MartinsBritto2020}) = (layer = -1,)
 
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Equivalent real conductivity; relative permittivity and
+permeability are inherited from the selected reconstruction layer.
+
+**Expression.** For layer ``k`` of thickness ``h_k``,
+
+```math
+\\sigma_{eq,k}=\\sigma_k\\left[
+\\frac{\\sqrt{\\sigma_k}+\\sqrt{\\sigma_{eq,k+1}}-
+(\\sqrt{\\sigma_k}-\\sqrt{\\sigma_{eq,k+1}})
+e^{-2h_k\\sqrt{\\pi f\\mu_0\\sigma_k}}}
+{\\sqrt{\\sigma_k}+\\sqrt{\\sigma_{eq,k+1}}+
+(\\sqrt{\\sigma_k}-\\sqrt{\\sigma_{eq,k+1}})
+e^{-2h_k\\sqrt{\\pi f\\mu_0\\sigma_k}}}
+\\right]^2.
+```
+
+**Reference.** A. G. Martins-Britto, F. V. Lopes, and S. R. M. J.
+Rondineau, “Multilayer Earth Structure Approximation by a Homogeneous
+Conductivity Soil for Ground Return Impedance Calculations,” *IEEE
+Transactions on Power Delivery*, 35(2), 881–891, 2020.
+DOI: 10.1109/TPWRD.2019.2930406.
+"""
 description(::Formula{:MartinsBritto2020}) =
     "Martins–Britto et al. 2020 equivalent conductivity"
 
@@ -52,8 +77,8 @@ which is the bottommost layer by default.
 This registered route supports overhead conductor pairs, matching the scope of
 A. G. Martins–Britto, F. V. Lopes, and S. R. M. J. Rondineau, “Multilayer Earth
 Structure Approximation by a Homogeneous Conductivity Soil for Ground Return
-Impedance Calculations,” IEEE Transactions on Power Delivery, 35(2), 881–891,
-2020. DOI: 10.1109/TPWRD.2019.2930406.
+Impedance Calculations,” IEEE Transactions on Power Delivery, 35(2),
+881–891, 2020. DOI: 10.1109/TPWRD.2019.2930406.
 """
 function martins_britto(
         ::Val{:overhead},

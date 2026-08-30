@@ -15,6 +15,24 @@ function assumptions(::Val{:Petrache2005})
 end
 
 propagation(::Val{:Petrache2005}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Burial-depth-independent logarithmic underground
+approximation.
+
+**Expression.**
+
+```math
+Z_{e,ij}=\\frac{j\\omega\\mu_0}{2\\pi}
+\\ln\\left(\\frac{1+\\gamma_1R_{ab}}{\\gamma_1R_{ab}}\\right).
+```
+
+**Reference.** E. Petrache, F. Rachidi, M. Paolone, C. A. Nucci, V. A.
+Rakov, and M. A. Uman, “Lightning-Induced Voltages on Buried Cables—Part I:
+Theory,” *IEEE Transactions on Electromagnetic Compatibility*, 47,
+498–508, 2005.
+"""
 function description(::Formula{:Petrache2005})
     "Petrache logarithmic underground approximation (2005)"
 end

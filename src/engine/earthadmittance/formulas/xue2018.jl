@@ -18,6 +18,37 @@ function assumptions(::Val{:Xue2018})
 end
 
 propagation(::Val{:Xue2018}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Generalized underground potential coefficient. The
+registered expression is referenced to infinite earth depth; surface and
+penetration-depth corrections are retained as alternative physical forms.
+
+**Expression.**
+
+```math
+P_{e,ij}^{\\infty}=\\frac{j\\omega}{2\\pi(\\sigma_1+j\\omega\\varepsilon_1)}
+\\left[K_0(\\gamma_1d_{ij})-K_0(\\gamma_1D_{ij})+2S_{12}^c+
+2\\gamma_1^2S_{13}^c\\right],
+```
+
+```math
+S_{12}^c=\\int_0^\\infty\\frac{e^{-Hu_1}\\lambda^2\\cos(y\\lambda)}
+{(\\lambda^2+\\gamma_1^2)[u_0+(\\gamma_0^2/\\gamma_1^2)u_1]}d\\lambda,
+\\quad
+S_{13}^c=\\int_0^\\infty\\frac{e^{-Hu_1}\\cos(y\\lambda)}
+{(\\lambda^2+\\gamma_1^2)(u_0+u_1)}d\\lambda.
+```
+
+The surface reference is
+``P_{e,ij}^{0}=P_{e,ij}^{\\infty}-P_{ec,ij}``; the penetration-depth reference
+uses the same structure at the exact lossy-medium penetration depth.
+
+**Reference.** H. Xue, *Electromagnetic Transients in Large HV Cable
+Networks*, doctoral thesis, Delft University of Technology, 2018; equations
+as consolidated in Ametani et al., IET, 2021.
+"""
 function description(::Formula{:Xue2018})
     "Xue et al. generalized underground potential coefficient (2018)"
 end

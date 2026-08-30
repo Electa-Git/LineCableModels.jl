@@ -15,6 +15,24 @@ function assumptions(::Val{:Saad1996})
 end
 
 propagation(::Val{:Saad1996}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Closed-form underground approximation combining the
+direct cylindrical term and an interface correction.
+
+**Expression.**
+
+```math
+Z_{e,ij}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[
+K_0(\\gamma_1R_{ab})+
+\\frac{2e^{-H\\gamma_1}}{4+\\gamma_1^2R_{ab}^2}\\right].
+```
+
+**Reference.** O. Saad, G. Gaba, and M. Giroux, “A Closed-Form Approximation
+for Ground Return Impedance of Underground Cables,” *IEEE Transactions on
+Power Delivery*, 11(3), 1536–1545, 1996.
+"""
 description(::Formula{:Saad1996}) = "Saad underground closed form (1996)"
 
 saad1996_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))

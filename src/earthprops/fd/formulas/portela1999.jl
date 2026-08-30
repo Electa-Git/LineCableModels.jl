@@ -1,6 +1,24 @@
 "Return the fitted dispersion assumptions of the Portela relation."
 assumptions(::Val{:Portela1999}) = (beta = 0.1, exponent = 0.72)
 
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Causal power-law soil dispersion.
+
+**Expression.** For ``\\omega=2\\pi f``, ``\\beta=0.1``, and ``\\alpha=0.72``,
+
+```math
+\\sigma(f)=\\sigma_0+\\beta10^{-6}\\omega^\\alpha,
+\\qquad
+\\varepsilon_r(f)=\\frac{\\beta10^{-6}\\tan(\\pi\\alpha/2)
+\\omega^{\\alpha-1}}{\\varepsilon_0}.
+```
+
+**Reference.** C. M. Portela, “Measurement and Modeling of Soil
+Electromagnetic Behavior,” *IEEE International Symposium on Electromagnetic
+Compatibility*, 1004–1009, 1999.
+"""
 description(::Formula{:Portela1999}) = "Portela 1999 (power-law soil dispersion)"
 
 #=

@@ -10,6 +10,28 @@ assumptions(::Val{:LongmireSmith1975}) = (
     corner_exponent = 0.8312
 )
 
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Thirteen-term dielectric-relaxation model.
+
+**Expression.** With ``\\sigma_0=1/\\rho_0``, base corner
+``f_c=(125\\sigma_0)^{0.8312}``, tabulated coefficients ``a_n``, and
+``f_n=10^{n-1}f_c``,
+
+```math
+\\varepsilon_r(f)=5+\\sum_{n=1}^{13}
+\\frac{a_n}{1+(f/f_n)^2},
+```
+
+```math
+\\sigma(f)=\\sigma_0+2\\pi f\\varepsilon_0
+\\sum_{n=1}^{13}\\frac{a_n(f/f_n)}{1+(f/f_n)^2}.
+```
+
+**Reference.** C. L. Longmire and K. S. Smith, *A Universal Impedance for
+Soils*, Defense Nuclear Agency, 1975.
+"""
 description(::Formula{:LongmireSmith1975}) =
     "Longmire–Smith 1975 (13-term dielectric relaxation)"
 

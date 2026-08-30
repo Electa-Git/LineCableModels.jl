@@ -1,5 +1,23 @@
 assumptions(::Val{:Lossless}) = (;)
 
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Ideal-dielectric limit of the concentric insulation
+series impedance. Dielectric conductivity is zero, but magnetic energy stored
+in the annulus remains.
+
+**Expression.**
+
+```math
+Z_{ins}=j\\omega L_{ins},\\qquad
+L_{ins}=\\frac{\\mu_0\\mu_r}{2\\pi}\\ln\\frac{b}{a}.
+```
+
+**Reference.** A. Ametani, T. Ohno, and N. Nagaoka, *Cable System
+Transients: Theory, Modeling and Simulation*, Wiley-IEEE Press, 2015,
+Sec. 2.2.
+"""
 description(::Formula{:Lossless}) = "Lossless insulation (ideal dielectric)"
 
 """

@@ -15,6 +15,25 @@ function assumptions(::Val{:Ametani2021})
 end
 
 propagation(::Val{:Ametani2021}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Classical electrostatic image coefficient for overhead
+conductors above an equipotential plane.
+
+**Expression.**
+
+```math
+P_{0,ij}=\\frac{1}{2\\pi\\varepsilon_0}\\ln\\frac{D_{ij}}{d_{ij}},
+\\qquad \\mathbf Y_0=j\\omega\\mathbf P_0^{-1}.
+```
+
+For a self term, ``P_{0,ii}=(2\\pi\\varepsilon_0)^{-1}\\ln(2h_i/r_i)``.
+
+**Reference.** A. Ametani, H. Xue, T. Ohno, and H. Khalilnezhad,
+*Electromagnetic Transients in Large HV Cable Networks: Modeling and
+Calculations*, IET, 2021.
+"""
 function description(::Formula{:Ametani2021})
     "Ametani et al. classical overhead space potential coefficient (2021)"
 end

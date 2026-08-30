@@ -18,6 +18,33 @@ function assumptions(::Val{:Pollaczek1926})
 end
 
 propagation(::Val{:Pollaczek1926}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Pair-complete classical homogeneous-earth recipe:
+Carson overhead, Pollaczek underground, and the exact mixed integral.
+
+**Expression.** The underground and mixed terms are
+
+```math
+Z_{e,ij}^{11}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[
+K_0(\\gamma_1d_{ij})-K_0(\\gamma_1D_{ij})+2\\int_0^\\infty
+\\frac{e^{-H\\sqrt{\\lambda^2+\\gamma_1^2}}}
+{\\lambda+\\sqrt{\\lambda^2+\\gamma_1^2}}
+\\cos(y_{ij}\\lambda)d\\lambda\\right],
+```
+
+```math
+Z_{e,ij}^{01}=\\frac{j\\omega\\mu_0}{\\pi}\\int_0^\\infty
+\\frac{\\mu_1e^{-\\lambda|h_i|-a_1|h_j|}}
+{\\lambda\\mu_1+a_1\\mu_0}\\cos(y_{ij}\\lambda)d\\lambda,
+\\qquad a_1=\\sqrt{\\lambda^2+\\gamma_1^2}.
+```
+
+**Reference.** F. Pollaczek, “Über das Feld einer unendlich langen
+wechselstromdurchflossenen Einfachleitung,” *Elektrische Nachrichtentechnik*,
+3, 339–360, 1926.
+"""
 function description(::Formula{:Pollaczek1926})
     "Pollaczek homogeneous-earth overhead, underground, and mixed impedance (1926)"
 end

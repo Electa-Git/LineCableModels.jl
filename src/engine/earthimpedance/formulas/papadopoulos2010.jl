@@ -15,6 +15,33 @@ function assumptions(::Val{:Papadopoulos2010})
 end
 
 propagation(::Val{:Papadopoulos2010}) = Val(:explicit)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Homogeneous-earth underground wideband impedance with
+explicit longitudinal propagation.
+
+**Expression.**
+
+```math
+Z_{e,ij}=\\frac{j\\omega\\mu_0}{2\\pi}(\\Delta_1+2S),
+```
+
+```math
+\\Delta_1=\\int_0^\\infty
+\\frac{e^{-|h_i-h_j|\\alpha_1}-e^{-H\\alpha_1}}{\\alpha_1}
+\\cos(y_{ij}\\lambda)d\\lambda,\\quad
+S=\\int_0^\\infty\\frac{e^{-H\\alpha_1}}{\\alpha_0+\\alpha_1}
+\\cos(y_{ij}\\lambda)d\\lambda,
+```
+
+where ``\\alpha_m=\\sqrt{\\lambda^2+\\gamma_m^2+k_x^2}``.
+
+**Reference.** T. A. Papadopoulos, D. A. Tsiamitros, and G. K. Papagiannis,
+“Impedances and Admittances of Underground Cables for the Homogeneous Earth
+Case,” *IEEE Transactions on Power Delivery*, 25(2), 961–969, 2010.
+DOI: 10.1109/TPWRD.2009.2034797.
+"""
 function description(::Formula{:Papadopoulos2010})
     "Papadopoulos et al. homogeneous-earth underground impedance (2010)"
 end

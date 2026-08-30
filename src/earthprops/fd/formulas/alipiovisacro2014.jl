@@ -6,6 +6,33 @@ assumptions(::Val{:AlipioVisacro2014}) = (
     conductivity_exponent = -0.73
 )
 
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Causal power-law soil model fitted from measured soil
+dispersion.
+
+**Expression.** Let ``\\widehat\\sigma_0=1000/\\rho_0`` in mS/m,
+``\\gamma=0.54``, and ``D=1.26\\widehat\\sigma_0^{-0.73}``. The implemented
+relation is
+
+```math
+\\widehat\\sigma(f)=\\widehat\\sigma_0
+\\left[1+D\\left(\\frac{f}{10^6}\\right)^\\gamma\\right],
+```
+
+```math
+\\varepsilon_r(f)=12+
+\\tan\\left(\\frac{\\pi\\gamma}{2}\\right)
+\\frac{10^{-3}\\widehat\\sigma_0D f^{\\gamma-1}}
+{2\\pi\\varepsilon_0\\cdot10^{6\\gamma}},\\qquad
+\\sigma(f)=10^{-3}\\widehat\\sigma(f).
+```
+
+**Reference.** R. Alipio and S. Visacro, “Modeling the Frequency Dependence
+of Electrical Parameters of Soil,” *IEEE Transactions on Electromagnetic
+Compatibility*, 56(5), 2014. DOI: 10.1109/TEMC.2014.2313977.
+"""
 description(::Formula{:AlipioVisacro2014}) =
     "Alipio–Visacro 2014 (causal soil dispersion)"
 

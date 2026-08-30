@@ -18,6 +18,30 @@ function assumptions(::Val{:Lucca1994})
 end
 
 propagation(::Val{:Lucca1994}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Pair-complete homogeneous-earth recipe with a corrected
+complex-depth approximation for mixed overhead-underground coupling.
+
+**Expression.** Its distinctive mixed term is
+
+```math
+Z_{e,ij}^{01}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[
+\\ln\\frac{S}{D}-\\frac23\\left(\\frac{h_e}{S^2}\\right)^3
+H(H^2-3y_{ij}^2)\\right],
+```
+
+```math
+h_e=(j\\omega\\mu_0\\sigma_g)^{-1/2},\\quad
+H=h_a+h_g+2h_e,\\quad S=\\sqrt{H^2+y_{ij}^2},\\quad
+D=\\sqrt{(h_a+h_g)^2+y_{ij}^2}.
+```
+
+**Reference.** G. Lucca, “Mutual Impedance Between an Overhead and a Buried
+Line with Earth Return,” *9th International Conference on Electromagnetic
+Compatibility*, 1994. DOI: 10.1049/cp:19940679.
+"""
 description(::Formula{:Lucca1994}) = "Lucca"
 
 lucca1994_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))
@@ -67,8 +91,8 @@ and replaces only the mixed interaction.
 # Reference
 
 G. Lucca, "Mutual impedance between an overhead and a buried line with earth
-return," *9th International Conference on Electromagnetic Compatibility*,
-1994. DOI: 10.1049/cp:19940679.
+return," *9th International Conference on Electromagnetic Compatibility*, 1994.
+DOI: 10.1049/cp:19940679.
 """
 function lucca1994_mixed(functor, pair)
     state = functor.state

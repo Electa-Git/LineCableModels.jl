@@ -16,6 +16,32 @@ end
 
 propagation(::Val{:Ametani1974}) = Val(:zero)
 media(::Formula{:Ametani1974}) = Val(:stratified)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Overhead-conductor impedance above two magnetic earth
+layers.
+
+**Expression.**
+
+```math
+Z_{e,ij}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[
+\\ln\\frac{D_{ij}}{d_{ij}}+2\\int_0^\\infty F_{ij}^{A}(\\lambda)
+\\cos(y_{ij}\\lambda)d\\lambda\\right],
+```
+
+```math
+F_{ij}^{A}=\\frac{b_1+b_2+(b_1-b_2)e^{-2a_1d}}
+{(\\lambda+\\mu_0b_1)(b_1+b_2)+(\\lambda-\\mu_0b_1)
+(b_1-b_2)e^{-2a_1d}}e^{-\\lambda H},
+\\quad b_m=\\frac{a_m}{\\mu_m},\\quad
+a_m=\\sqrt{\\lambda^2+\\gamma_m^2-\\gamma_0^2}.
+```
+
+**Reference.** A. Ametani, “Wave Propagation Characteristics of Cables,”
+*IEEE Transactions on Power Apparatus and Systems*, PAS-93, 499–505, 1974;
+equation transcription follows Ametani et al., IET, 2021.
+"""
 function description(::Formula{:Ametani1974})
     "Ametani two-layer magnetic-earth overhead impedance (1974)"
 end

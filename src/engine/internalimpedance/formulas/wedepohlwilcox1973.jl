@@ -8,6 +8,28 @@ end
 
 assumptions(::Val{:WedepohlWilcox1973}) = (;)
 
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Hollow-shell approximation retaining inner, outer, and
+transfer surface impedances.
+
+**Expression.**
+
+```math
+\\begin{aligned}
+Z_{iw}&=\\frac{\\rho m}{2\\pi a}\\coth[m(b-a)]
+-\\frac{\\rho}{2\\pi b(a+b)},\\\\
+Z_{ow}&=\\frac{\\rho m}{2\\pi b}\\coth[m(b-a)]
++\\frac{\\rho}{2\\pi b(a+b)},\\\\
+Z_{mw}&=\\frac{\\rho m}{\\pi(a+b)}\\operatorname{csch}[m(b-a)].
+\\end{aligned}
+```
+
+**Reference.** L. M. Wedepohl and D. J. Wilcox, 1973, as reproduced in
+Ametani et al., *Electromagnetic Transients in Large HV Cable Networks*, IET,
+2021, Appendix A1.4.2, Eqs. A1.56–A1.58.
+"""
 function description(::Formula{:WedepohlWilcox1973})
     "Wedepohl-Wilcox approximate shell impedances (1973)"
 end

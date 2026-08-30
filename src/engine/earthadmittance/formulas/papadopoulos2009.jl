@@ -16,6 +16,41 @@ end
 
 propagation(::Val{:Papadopoulos2009}) = Val(:explicit)
 media(::Formula{:Papadopoulos2009}) = Val(:stratified)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Two-layer overhead potential coefficient with magnetic,
+dielectric, conductive, and longitudinal-propagation effects.
+
+**Expression.**
+
+```math
+P_{e,ij}=\\frac1{2\\pi\\varepsilon_0}\\left[\\ln\\frac{D_{ij}}{d_{ij}}+
+2\\int_0^\\infty(F_{ij}^{P}+G_{ij}^{P})
+\\cos(y_{ij}\\lambda)d\\lambda\\right],
+```
+
+```math
+F_{ij}^{P}=\\mu_1\\frac{s_{12}+d_{12}e^{-2a_1d}}
+{s_{01}s_{12}+d_{01}d_{12}e^{-2a_1d}}e^{-\\lambda H},
+```
+
+with the electric interface kernel
+
+```math
+G_{ij}^{P}=\\lambda
+\\frac{\\mu_0\\mu_1(\\gamma_0^2-\\gamma_1^2)
+(s_{12}+d_{12}e^{-2a_1d})(S_{12}+D_{12}e^{-2a_1d})-
+4\\mu_0\\mu_1^2\\mu_2a_1^2\\gamma_0^2(\\gamma_2^2-\\gamma_1^2)e^{-2a_1d}}
+{(S_{01}S_{12}+D_{01}D_{12}e^{-2a_1d})
+(s_{01}s_{12}+d_{01}d_{12}e^{-2a_1d})}e^{-\\lambda H}.
+```
+
+**Reference.** T. A. Papadopoulos, G. K. Papagiannis, and D. P. Labridis,
+“Wave Propagation Characteristics of Overhead Conductors Above Imperfect
+Stratified Earth for a Wide Frequency Range,” *IEEE Transactions on
+Magnetics*, 45(3), 1064–1067, 2009.
+"""
 function description(::Formula{:Papadopoulos2009})
     "Papadopoulos et al. two-layer overhead potential coefficient (2009)"
 end

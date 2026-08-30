@@ -11,6 +11,26 @@ assumptions(::Val{:Wise1934}) = (
 )
 
 propagation(::Val{:Wise1934}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Homogeneous-earth wideband overhead integral retaining
+earth displacement current and magnetic permeability.
+
+**Expression.**
+
+```math
+Z_{e,ij}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[
+\\ln\\frac{D_{ij}}{d_{ij}}+2\\int_0^\\infty
+\\frac{\\mu_1e^{-\\lambda H}}
+{\\lambda\\mu_1+a_1\\mu_0}\\cos(y_{ij}\\lambda)d\\lambda\\right],
+\\quad a_1=\\sqrt{\\lambda^2+\\gamma_1^2-\\gamma_0^2}.
+```
+
+**Reference.** W. H. Wise, “Propagation of High-Frequency Currents in Ground
+Return Circuits,” *Proceedings of the Institute of Radio Engineers*, 22,
+522–527, 1934.
+"""
 description(::Formula{:Wise1934}) = "Wise homogeneous-earth overhead impedance (1934)"
 
 wise1934_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))

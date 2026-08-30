@@ -1,5 +1,10 @@
 # Computational engine
 
+The physical equations and literature sources for every built-in formulation
+are catalogued in [Transmission line parameters](transmission-line-parameters.md).
+This developer guide describes how those identities are discovered, routed,
+and extended without duplicating their scientific definitions.
+
 LineCableModels separates a physical problem, a formulation, and the backend
 that implements that formulation. A formulation identifies the equations or
 mathematical method being requested and exists independently of a backend. A
