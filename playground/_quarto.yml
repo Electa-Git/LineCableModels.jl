@@ -1,0 +1,34 @@
+project:
+  type: website
+  output-dir: _site
+  render:
+    - index.qmd
+
+website:
+  title: "LineCableModels playground"
+  favicon: assets/logo.svg
+  bread-crumbs: false
+  page-navigation: false
+  sidebar:
+    style: docked
+    background: dark
+    logo: assets/logo.svg
+    title: "LineCableModels.jl"
+    search: false
+    contents:
+      - section: "Playground"
+        contents:
+          - text: "Home"
+            href: index.qmd
+  page-footer:
+    left: "LineCableModels playground"
+    right: "Bonito · NATS · Quarto"
+
+format:
+  html:
+    theme:
+      - darkly
+      - assets/theme.scss
+    toc: false
+    page-layout: full
+    smooth-scroll: true

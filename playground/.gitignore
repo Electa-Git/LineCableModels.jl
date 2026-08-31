@@ -1,0 +1,5 @@
+/_site/
+/.quarto/
+!/bootstrap.sh
+
+**/*.quarto_ipynb

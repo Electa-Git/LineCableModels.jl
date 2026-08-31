@@ -1,0 +1,61 @@
+---
+title: "LineCableModels playground"
+subtitle: "A clean publishing surface for live engineering material, with authoring, presentation and numerical execution kept deliberately separate."
+---
+
+::: {.lc-home-canvas}
+
+::: {.lc-introduction-panel}
+[NEW FOUNDATION]{.lc-eyebrow}
+
+## The web application publishes. The engine computes.
+
+This home is intentionally static. It establishes the visual shell without
+loading presentation content, starting numerical workers, or hiding execution
+inside the browser-facing process.
+
+Future collections are authored independently and dispatched through an
+explicit broker boundary.
+:::
+
+::: {.lc-foundation-grid}
+
+::: {.lc-foundation-card .lc-foundation-authoring}
+::: {.lc-card-heading}
+[AUTHORING]{.lc-card-role}
+[declared]{.lc-card-state}
+:::
+
+## Quarto
+
+Owns structured source material, layouts, navigation, and reproducible document
+generation.
+:::
+
+::: {.lc-foundation-card .lc-foundation-publisher}
+::: {.lc-card-heading}
+[PUBLISHER]{.lc-card-role}
+[declared]{.lc-card-state}
+:::
+
+## Bonito
+
+Serves the generated site now and provides a narrow route for future live
+interactive views.
+:::
+
+::: {.lc-foundation-card .lc-foundation-broker}
+::: {.lc-card-heading}
+[BROKER]{.lc-card-role}
+[declared]{.lc-card-state}
+:::
+
+## NATS
+
+Will dispatch work to external execution services without turning the web
+publisher into the numerical engine.
+:::
+
+:::
+
+:::
