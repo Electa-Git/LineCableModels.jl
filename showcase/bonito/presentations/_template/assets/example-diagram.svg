@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 360" role="img" aria-labelledby="title desc">
+  <title id="title">Example presentation diagram</title>
+  <desc id="desc">Three colored nodes connected by two lines.</desc>
+  <rect width="800" height="360" fill="#e6e6e6"/>
+  <path d="M150 180H400H650" fill="none" stroke="#5e6d6f" stroke-width="8"/>
+  <circle cx="150" cy="180" r="58" fill="#cb3c33"/>
+  <circle cx="400" cy="180" r="58" fill="#389826"/>
+  <circle cx="650" cy="180" r="58" fill="#4063d8"/>
+  <g fill="#172020" font-family="sans-serif" font-size="28" text-anchor="middle">
+    <text x="150" y="285">Input</text>
+    <text x="400" y="285">Model</text>
+    <text x="650" y="285">Result</text>
+  </g>
+</svg>

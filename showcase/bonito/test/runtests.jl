@@ -12,9 +12,23 @@ import PowerImpedance
 CairoMakie.activate!()
 include(joinpath(@__DIR__, "..", "app.jl"))
 
-const CablePage = CableDesignPage
-const TransitionPage = OHLUGCTransitionPage
-const ReplPage = LiveJuliaPage
+const LiveManual = find_presentation("live-manual", PRESENTATION_DESCRIPTORS)
+const ICHQP2026 = find_presentation("ICHQP2026", PRESENTATION_DESCRIPTORS)
+const FundamentalsPage = getfield(
+    ICHQP2026.namespace,
+    :ICHQP2026FundamentalsDeck
+)
+const CablePage = getfield(LiveManual.namespace, :CableDesignPage)
+const TransitionPage = getfield(LiveManual.namespace, :OHLUGCTransitionPage)
+const ReplPage = getfield(LiveManual.namespace, :LiveJuliaPage)
+const PowerImpedanceDiagramExt = getfield(
+    LiveManual.namespace,
+    :PowerImpedanceDiagramExt
+)
+const TemplatePresentation = load_presentation_descriptor(
+    joinpath(@__DIR__, "..", "presentations", "_template");
+    slug = "starter-template"
+)
 
 @testset "Bonito cable showcase" begin
     @testset "page authoring" begin
@@ -40,10 +54,65 @@ const ReplPage = LiveJuliaPage
             pages = (page,),
             fixture = true
         )
+        resource_state = preflight_state()
+        resource = preflight_resource(
+            id = "fixture-resource",
+            title = "Fixture resource",
+            state = resource_state,
+            activate = () -> set_preflight!(
+                resource_state,
+                :hot,
+                1.0,
+                "Fixture resource hot"
+            )
+        )
         preparation = preparation_status()
+        masters = (
+            layout_single("main"),
+            layout_two_columns("left", "right"),
+            layout_three_columns("left", "center", "right"),
+            layout_top_split("top", "left", "right"),
+            layout_split_bottom("left", "right", "bottom"),
+            layout_sidebar_main("sidebar", "main"),
+            layout_controls_plot("controls", "plot"; footer = "footer"),
+            layout_controls_plot(
+                "controls",
+                "plot";
+                footer = "footer",
+                footer_placement = :under_plot
+            ),
+            layout_two_rows("top", "bottom"; ratio = :short_tall),
+            layout_quad("tl", "tr", "bl", "br")
+        )
+        silent_figure = Figure(size = (64, 64))
+        silent_wgl = wgl_figure(silent_figure)
+        silent_spinner = silent_wgl.config.spinner
 
         @test layout isa Bonito.Hyperscript.Node
+        @test all(node -> node isa Bonito.Hyperscript.Node, masters)
+        @test silent_wgl isa WGLMakie.WithConfig
+        @test silent_wgl.config.resize_to === :parent
+        @test silent_spinner isa Bonito.Hyperscript.Node
+        @test getfield(silent_spinner, :attrs)["hidden"] === true
+        @test getfield(silent_spinner, :attrs)["class"] == "wglmakie-spinner"
+        @test_throws ArgumentError wgl_figure(silent_figure; spinner = nothing)
+        @test_throws ArgumentError layout_two_columns("left", "right"; ratio = :bad)
+        @test_throws ArgumentError layout_two_rows("top", "bottom"; ratio = :bad)
+        @test_throws ArgumentError layout_controls_plot(
+            "controls",
+            "plot";
+            footer = "footer",
+            footer_placement = :bad
+        )
         @test preparation isa Bonito.Hyperscript.Node
+        @test preflight_summary((resource,)).phase === :cold
+        resource.activate()
+        @test preflight_ready(resource_state)
+        @test preflight_summary((resource,)).phase === :hot
+        @test preflight_summary(()).phase === :hot
+        set_preflight!(resource_state, :cold, 0.0, "Cold again")
+        PlaygroundHome.activate!((; resources = (resource,)))
+        @test preflight_ready(resource_state)
         @test descriptor.render
         @test descriptor.fixture
         @test descriptor.class == ""
@@ -60,6 +129,11 @@ const ReplPage = LiveJuliaPage
             unexpected = "unexpected"
         )
         @test_throws ArgumentError webgrid(reshape(["bad area"], 1, 1); bad = "bad")
+        @test_throws ArgumentError preflight_resource(
+            id = "Bad resource",
+            title = "Bad",
+            activate = () -> nothing
+        )
 
         authored_app = App(_ -> layout)
         parent = Session(NoConnection(); asset_server = NoServer())
@@ -82,6 +156,30 @@ const ReplPage = LiveJuliaPage
             close(rendered)
             close(parent)
         end
+
+        @test TemplatePresentation.slug == "starter-template"
+        @test length(TemplatePresentation.decks) == 1
+        template_deck = only(TemplatePresentation.decks)
+        @test template_deck.id == "starter-deck"
+        @test length(rendered_deck_pages(template_deck)) == 9
+        @test length(TemplatePresentation.resources) == 1
+        @test only(TemplatePresentation.resources).id == "starter-resource"
+        template_source = read(only(getproperty.(TemplatePresentation.all_decks, :source)), String)
+        for layout_name in (
+            "layout_single",
+            "layout_two_columns",
+            "layout_three_columns",
+            "layout_top_split",
+            "layout_split_bottom",
+            "layout_sidebar_main",
+            "layout_controls_plot",
+            "layout_two_rows",
+            "layout_quad"
+        )
+            @test occursin(layout_name, template_source)
+        end
+        @test occursin("preflight_resource(", template_source)
+        @test occursin("resources = (PREFLIGHT_RESOURCE,)", template_source)
     end
 
     @testset "domain construction" begin
@@ -320,10 +418,121 @@ const ReplPage = LiveJuliaPage
         end
     end
 
-    @testset "deck discovery" begin
-        @test length(DECK_DESCRIPTORS) == 4
+    @testset "fundamentals numerical kernels" begin
+        skin_model = FundamentalsPage.SkinEffectModel(
+            grid_points = 32,
+            radial_points = 128
+        )
+        skin_cache = FundamentalsPage.build_skin_cache(skin_model)
+        skin = FundamentalsPage.solve_skin_state(
+            1.0e3,
+            5.8e7,
+            skin_model,
+            skin_cache
+        )
+        @test size(skin.field_db) == (32, 32)
+        @test length(skin.profile_db) == 128
+        @test isfinite(skin.skin_depth)
+        @test isfinite(skin.ac_over_dc)
+        @test isfinite(real(skin.impedance))
+        @test isfinite(imag(skin.impedance))
+        @test_throws ArgumentError FundamentalsPage.solve_skin_state(
+            0.0,
+            5.8e7,
+            skin_model,
+            skin_cache
+        )
+
+        earth_model = FundamentalsPage.EarthReturnModel(
+            local_ny = 32,
+            local_nz = 32,
+            earth_ny = 32,
+            earth_nz = 32,
+            spectrum_points = 128
+        )
+        earth_cache = FundamentalsPage.build_earth_cache(earth_model)
+        earth = FundamentalsPage.solve_earth_state(
+            50.0,
+            500.0,
+            100.0,
+            10.0,
+            0.0,
+            earth_model,
+            earth_cache
+        )
+        @test size(earth.field_db) == (32, 32)
+        @test size(earth.current_db) == (32, 32)
+        @test isfinite(earth.skin_depth)
+        @test isfinite(earth.conduction_ratio)
+        @test isfinite(real(earth.earth_self))
+        @test isfinite(imag(earth.earth_self))
+        @test isfinite(earth.maximum_current)
+        @test_throws ArgumentError FundamentalsPage.solve_earth_state(
+            50.0,
+            500.0,
+            -1.0,
+            10.0,
+            0.0,
+            earth_model,
+            earth_cache
+        )
+    end
+
+    @testset "presentation and deck discovery" begin
+        @test getproperty.(PRESENTATION_DESCRIPTORS, :slug) == [
+            "ICHQP2026",
+            "live-manual"
+        ]
+        @test ICHQP2026.title == "ICHQP2026"
+        @test getproperty.(ICHQP2026.all_decks, :id) == ["opening", "fundamentals"]
+        @test getproperty.(ICHQP2026.decks, :id) == ["opening", "fundamentals"]
+        opening_deck = find_deck("opening", ICHQP2026.decks)
+        fundamentals_deck = find_deck("fundamentals", ICHQP2026.decks)
+        @test opening_deck.render
+        @test opening_deck.expand_navigation
+        @test fundamentals_deck.id == "fundamentals"
+        @test getproperty.(opening_deck.pages, :id) == ("title",)
+        @test only(opening_deck.pages).class == "lc-title-page"
+        @test getproperty.(fundamentals_deck.pages, :id) ==
+              (
+            "sources-of-uncertainties",
+            "internal-impedances",
+            "earth-return",
+            "uncertainty-quantification"
+        )
+        @test all(
+            page -> occursin("lc-application-slide", page.class),
+            fundamentals_deck.pages[2:3]
+        )
+        @test all(
+            page -> occursin("lc-fluid-type", page.class),
+            (fundamentals_deck.pages[1], fundamentals_deck.pages[4])
+        )
+        @test isempty(opening_deck.resources)
+        @test length(fundamentals_deck.resources) == 1
+        fundamentals_resource = only(fundamentals_deck.resources)
+        @test fundamentals_resource.id == "fundamentals-dashboards"
+        @test fundamentals_resource.state === FundamentalsPage.PREFLIGHT_STATE
+        @test ICHQP2026.resources == collect(fundamentals_deck.resources)
+        @test preflight_summary(ICHQP2026.resources).phase in
+              (:cold, :preparing, :hot)
+        @test all(
+            isfile(joinpath(ICHQP2026.directory, "assets", asset))
+        for asset in (
+            "ETCH_LOGO_RGB_NEG.svg",
+            "ENERGYVILLE-LOGO.svg",
+            "kul_logo.svg",
+            "skeffect.png",
+            "earthreturn.png",
+            "cable_dark_mode.svg"
+        ))
+        @test LiveManual.title == "Live manual"
+        @test LiveManual.content == abspath(joinpath(
+            @__DIR__, "..", "presentations", "live-manual", "content"
+        ))
+        @test parentmodule(CablePage) === LiveManual.namespace
+        @test length(DECK_DESCRIPTORS) == 3
         @test getproperty.(DECK_DESCRIPTORS, :id) == [
-            "overview",
             "core-and-insulation",
             "parametric-ohl-ugc-transition",
             "live-julia-workspace"
@@ -332,8 +541,11 @@ const ReplPage = LiveJuliaPage
         @test allunique(deck.id for deck in DECK_DESCRIPTORS)
         @test allunique(deck.source for deck in DECK_DESCRIPTORS)
         transition_deck = find_deck("parametric-ohl-ugc-transition", DECK_DESCRIPTORS)
-        @test hasproperty(transition_deck, :prepare)
-        @test hasproperty(transition_deck, :ready)
+        @test length(transition_deck.resources) == 1
+        @test only(transition_deck.resources).id == "powerflow-linearization"
+        @test only(transition_deck.resources).state === TransitionPage.PREFLIGHT_STATE
+        @test LiveManual.resources == collect(transition_deck.resources)
+        @test preflight_summary(LiveManual.resources).phase in (:cold, :preparing, :hot)
         @test getproperty.(rendered_deck_pages(transition_deck), :id) ==
               ("corridor", "b5-impedance", "linearization")
         @test all(
@@ -347,7 +559,7 @@ const ReplPage = LiveJuliaPage
         end
         selected = select_rendered_decks(hidden_cable)
         @test getproperty.(selected, :id) ==
-              ["overview", "parametric-ohl-ugc-transition", "live-julia-workspace"]
+              ["parametric-ohl-ugc-transition", "live-julia-workspace"]
         @test_throws ArgumentError select_rendered_decks(
             map(deck -> merge(deck, (; render = false)), DECK_DESCRIPTORS)
         )
@@ -393,11 +605,23 @@ const ReplPage = LiveJuliaPage
     @testset "application DOM" begin
         assets = app_assets()
         transition_setup_count = Ref(0)
+        test_preflight_state = preflight_state(
+            phase = :hot,
+            progress = 1.0,
+            label = "Fixture preflight hot"
+        )
+        test_preflight_resource = preflight_resource(
+            id = "fixture-preflight",
+            title = "Fixture preflight",
+            state = test_preflight_state,
+            activate = () -> nothing
+        )
         transition_setup = _ -> begin
             transition_setup_count[] += 1
             return nothing
         end
-        corridor_stub = (_, _) -> (;
+        corridor_stub = (_,
+            _) -> (;
             body = (
             DOM.h1("Corridor composition"),
             DOM.div(
@@ -407,19 +631,22 @@ const ReplPage = LiveJuliaPage
             )
         )
         )
-        impedance_stub = (_, _) -> (;
+        impedance_stub = (_,
+            _) -> (;
             body = (
             DOM.h1("Driving-point impedance at B5"),
             DOM.div(; id = "b5-impedance-plot")
         )
         )
-        linearization_stub = (_, _) -> (;
+        linearization_stub = (_,
+            _) -> (;
             body = (
             DOM.h1("Operating point and linearization"),
             DOM.button(; id = "recache-powerflow-control")
         )
         )
-        repl_stub = (_, _) -> (;
+        repl_stub = (_,
+            _) -> (;
             body = (
             DOM.h1("Live Julia workspace"),
             DOM.div(
@@ -445,7 +672,7 @@ const ReplPage = LiveJuliaPage
                 merge(deck, (;
                     setup = transition_setup,
                     pages,
-                    ready = () -> true
+                    resources = (test_preflight_resource,)
                 ))
             elseif deck.id == "live-julia-workspace"
                 pages = map(page -> merge(page, (; build = repl_stub)), deck.pages)
@@ -454,22 +681,31 @@ const ReplPage = LiveJuliaPage
                 deck
             end
         end
-        app = cable_app(assets; decks = test_decks)
-        routes = cable_routes(assets; decks = test_decks)
+        test_presentation = merge(
+            LiveManual,
+            (;
+                all_decks = test_decks,
+                decks = test_decks,
+                resources = presentation_resources(test_decks)
+            )
+        )
+        test_presentations = [test_presentation]
+        app = playground_app(assets; presentations = test_presentations)
+        routes = playground_routes(assets; presentations = test_presentations)
         @test app isa App
         @test isnothing(app.loading_page)
         @test Set(keys(routes.routes)) == Set((
             "/",
-            "/core-and-insulation",
-            "/parametric-ohl-ugc-transition",
-            "/live-julia-workspace"
+            "/presentations/live-manual/core-and-insulation",
+            "/presentations/live-manual/parametric-ohl-ugc-transition",
+            "/presentations/live-manual/live-julia-workspace"
         ))
         @test app.indicator.size == 8
         @test app.indicator.top == "20px"
         @test app.indicator.right == "16px"
         @test assets.app_css isa String
         @test occursin(".lc-documenter", assets.app_css)
-        @test length(RENDERED_DECKS) == 4
+        @test length(RENDERED_DECKS) == 3
         @test allunique(deck.id for deck in RENDERED_DECKS)
         @test allunique(deck.title for deck in RENDERED_DECKS)
         @test last(RENDERED_DECKS).title == "Live Julia workspace"
@@ -486,6 +722,14 @@ const ReplPage = LiveJuliaPage
         @test occursin("var(--lc-viewport-width, 100%)", theme)
         @test occursin("var(--lc-viewport-height, 100%)", theme)
         @test occursin(".lc-preparation-progress", theme)
+        @test occursin(".lc-home-activity", theme)
+        @test occursin(
+            "--lc-effective-rows: minmax(0, 3fr) minmax(0, 2fr);",
+            theme
+        )
+        @test occursin("overscroll-behavior: contain;", theme)
+        @test occursin("overflow-x: hidden;", theme)
+        @test occursin("margin: 0 !important;", theme)
         @test occursin("padding-right: 1.5rem;", theme)
         @test occursin("@media print", theme)
         @test occursin(".lc-documenter:fullscreen", theme)
@@ -498,18 +742,19 @@ const ReplPage = LiveJuliaPage
 
         source = read(joinpath(@__DIR__, "..", "app.jl"), String)
         @test occursin("PageAuthoring.jl", source)
-        @test occursin("load_deck_descriptors()", source)
+        @test occursin("load_presentation_descriptors()", source)
+        @test occursin("joinpath(directory, \"content\")", source)
         @test occursin("deck -> deck.render", source)
         @test occursin("page -> page.render", source)
-        @test occursin("function cable_routes", source)
-        @test occursin("deck_route(deck, index)", source)
+        @test occursin("function playground_routes", source)
+        @test occursin("presentation_route(presentation, deck)", source)
         @test occursin("state = deck.setup(session)", source)
         @test occursin("window.addEventListener(\"hashchange\"", source)
         @test occursin("activateDeckPage", source)
         @test occursin("window.location.assign", source)
         @test occursin("root.requestFullscreen", source)
         @test occursin("window.sessionStorage", source)
-        @test occursin("linecable:presentation-mode", source)
+        @test occursin("linecable:playground:presentation-mode", source)
         @test occursin("setFocusMode(readPresentationMode(), false)", source)
         @test !occursin("fallbackFocus", source)
         @test occursin("window.print()", source)
@@ -519,7 +764,9 @@ const ReplPage = LiveJuliaPage
         @test occursin("document.documentElement.clientWidth", source)
         @test occursin("resolution:", source)
         @test occursin("window.setTimeout(applyViewport, 240)", source)
-        @test occursin("start_deck_preparations!", source)
+        @test occursin("preparing && activate_resources!(resources)", source)
+        @test occursin("function presentation_resources", source)
+        @test occursin("function preflight_observable", source)
         @test !occursin("loading_page =", source)
         @test !occursin("new MutationObserver", source)
         @test !occursin("window.history.pushState", source)
@@ -529,7 +776,10 @@ const ReplPage = LiveJuliaPage
         @test !occursin("wglmakie_screen", source)
 
         cable_source = read(
-            joinpath(@__DIR__, "..", "pages", "020_core_and_insulation.jl"),
+            joinpath(
+                @__DIR__, "..", "presentations", "live-manual", "content",
+                "010_core_and_insulation.jl"
+            ),
             String
         )
         @test occursin("module CableDesignPage", cable_source)
@@ -541,7 +791,10 @@ const ReplPage = LiveJuliaPage
         @test !occursin("preview(", cable_source)
 
         case_source = read(
-            joinpath(@__DIR__, "..", "pages", "030_ohl_ugc_transition.jl"),
+            joinpath(
+                @__DIR__, "..", "presentations", "live-manual", "content",
+                "020_ohl_ugc_transition.jl"
+            ),
             String
         )
         @test occursin("module OHLUGCTransitionPage", case_source)
@@ -569,15 +822,26 @@ const ReplPage = LiveJuliaPage
         @test occursin("remotecall(compute_prepared_case", case_source)
         @test occursin(":powerflow,", case_source)
         @test occursin("Solving the reference power flow", case_source)
+        @test occursin("preflight_resource(", case_source)
+        @test occursin("id = \"powerflow-linearization\"", case_source)
+        @test occursin("state = PREFLIGHT_STATE", case_source)
         @test occursin("deepcopy((prepared.network, prepared.network_model))", case_source)
         @test !occursin("PowerImpedance.plot(", case_source)
         @test !occursin("Observable{NetworkState}", case_source)
 
         repl_source = read(
-            joinpath(@__DIR__, "..", "pages", "040_live_julia.jl"),
+            joinpath(
+                @__DIR__, "..", "presentations", "live-manual", "content",
+                "030_live_julia.jl"
+            ),
             String
         )
-        worker_source = read(joinpath(@__DIR__, "..", "repl_worker.jl"), String)
+        worker_source = read(
+            joinpath(
+                @__DIR__, "..", "presentations", "live-manual", "support",
+                "repl_worker.jl"
+            ),
+            String)
         @test occursin("module LiveJuliaPage", repl_source)
         @test occursin("using ..PageAuthoring", repl_source)
         @test occursin("const DECK = deck_descriptor(", repl_source)
@@ -609,7 +873,10 @@ const ReplPage = LiveJuliaPage
         @test !occursin("gitlab.kuleuven.be", project)
 
         diagram_source = read(
-            joinpath(@__DIR__, "..", "PowerImpedanceDiagramExt.jl"),
+            joinpath(
+                @__DIR__, "..", "presentations", "live-manual", "support",
+                "PowerImpedanceDiagramExt.jl"
+            ),
             String
         )
         @test occursin("module PowerImpedanceDiagramExt", diagram_source)
@@ -620,10 +887,19 @@ const ReplPage = LiveJuliaPage
         @test !occursin("PowerImpedance.PlotBuilder", diagram_source)
 
         serve_source = read(joinpath(@__DIR__, "..", "serve.jl"), String)
-        @test occursin("Bonito.route!(server, cable_routes())", serve_source)
-        @test occursin("start_deck_preparations!()", serve_source)
+        @test occursin("Bonito.route!(server, playground_routes())", serve_source)
+        @test !occursin("start_deck_preparations!()", serve_source)
         @test occursin("Sys.which(\"xdg-open\")", serve_source)
         @test stat(joinpath(@__DIR__, "..", "launch.sh")).mode & 0o111 != 0
+
+        home_source = read(joinpath(@__DIR__, "..", "home.jl"), String)
+        @test occursin("module PlaygroundHome", home_source)
+        @test occursin("Bonito.Dropdown(", home_source)
+        @test occursin("TerminalOutput", home_source)
+        @test occursin("playground-presentation-activate", home_source)
+        @test occursin("playground-presentation-open", home_source)
+        @test occursin("layout_split_bottom(", home_source)
+        @test occursin("LineCableModels playground", home_source)
 
         function route_html(route_app)
             parent = Session(NoConnection(); asset_server = NoServer())
@@ -650,8 +926,8 @@ const ReplPage = LiveJuliaPage
                 "page-search",
                 "page-navigation",
                 "lc-navbar",
-                "linecable-app",
-                "linecable-pages",
+                "playground-app",
+                "playground-pages",
                 "lc-manual",
                 "lc-previous-page",
                 "lc-next-page",
@@ -662,31 +938,41 @@ const ReplPage = LiveJuliaPage
             )
                 @test occursin(marker, html)
             end
-            @test occursin("href=\"./core-and-insulation#core-and-insulation\"", html)
-            @test occursin("href=\"./parametric-ohl-ugc-transition#corridor\"", html)
-            @test occursin("href=\"./live-julia-workspace#live-julia-workspace\"", html)
         end
 
-        overview_html = route_htmls["/"]
-        @test count("class=\"lc-page ", overview_html) == 1
-        @test occursin("deck-overview-page-overview", overview_html)
-        @test occursin("lc-bonito-markdown", overview_html)
-        @test occursin("data-math-renderer=\"bonito\"", overview_html)
-        @test occursin("lc-preparation-progress", overview_html)
-        @test !occursin("core-radius-control", overview_html)
-        @test !occursin("deck-parametric-ohl-ugc-transition-page-corridor", overview_html)
+        home_html = route_htmls["/"]
+        @test count("class=\"lc-page ", home_html) == 1
+        @test occursin("home-page-home", home_html)
+        @test occursin("LineCableModels playground", home_html)
+        @test occursin("playground-presentation-select", home_html)
+        @test occursin("playground-presentation-activate", home_html)
+        @test occursin("playground-presentation-open", home_html)
+        @test occursin("playground-preflight-console", home_html)
+        @test occursin("playground-preflight-terminal", home_html)
+        @test occursin("Preflight activity", home_html)
+        @test occursin("class=\"lc-preparation-progress\"", home_html)
+        @test occursin("lc-bonito-markdown", home_html)
+        @test occursin("data-math-renderer=\"bonito\"", home_html)
+        @test !occursin("core-radius-control", home_html)
+        @test !occursin("deck-parametric-ohl-ugc-transition-page-corridor", home_html)
 
-        cable_html = route_htmls["/core-and-insulation"]
+        cable_html = route_htmls["/presentations/live-manual/core-and-insulation"]
         @test count("class=\"lc-page ", cable_html) == 1
         @test occursin("deck-core-and-insulation-page-core-and-insulation", cable_html)
         @test occursin("lc-canvas", cable_html)
         @test occursin("core-radius-control", cable_html)
         @test occursin("insulation-thickness-control", cable_html)
         @test occursin("cable-plot", cable_html)
-        @test !occursin("deck-overview-page-overview", cable_html)
+        @test occursin("href=\"./core-and-insulation#core-and-insulation\"", cable_html)
+        @test occursin("href=\"./parametric-ohl-ugc-transition#corridor\"", cable_html)
+        @test occursin("href=\"./live-julia-workspace#live-julia-workspace\"", cable_html)
+        @test occursin("href=\"../../\"", cable_html)
+        @test !occursin("home-page-home", cable_html)
         @test !occursin("ugc-share-control", cable_html)
 
-        transition_html = route_htmls["/parametric-ohl-ugc-transition"]
+        transition_html = route_htmls[
+        "/presentations/live-manual/parametric-ohl-ugc-transition"
+]
         @test transition_setup_count[] == 1
         @test count("class=\"lc-page ", transition_html) == 3
         @test occursin("deck-parametric-ohl-ugc-transition-page-corridor", transition_html)
@@ -699,10 +985,10 @@ const ReplPage = LiveJuliaPage
         @test occursin("recache-powerflow-control", transition_html)
         @test occursin("transition-network-diagram", transition_html)
         @test occursin("b5-impedance-plot", transition_html)
-        @test !occursin("deck-overview-page-overview", transition_html)
+        @test !occursin("home-page-home", transition_html)
         @test !occursin("core-radius-control", transition_html)
 
-        repl_html = route_htmls["/live-julia-workspace"]
+        repl_html = route_htmls["/presentations/live-manual/live-julia-workspace"]
         @test count("class=\"lc-page ", repl_html) == 1
         @test occursin("deck-live-julia-workspace-page-live-julia-workspace", repl_html)
         @test occursin("Live Julia workspace", repl_html)
@@ -715,18 +1001,34 @@ const ReplPage = LiveJuliaPage
         @test occursin("live-julia-terminal", repl_html)
         @test !occursin("core-radius-control", repl_html)
 
+        preparing_state = preflight_state(label = "Fixture activation required")
+        preparing_resource = preflight_resource(
+            id = "fixture-preflight",
+            title = "Fixture preflight",
+            state = preparing_state,
+            activate = () -> nothing
+        )
         preparing_decks = map(test_decks) do deck
             deck.id == "parametric-ohl-ugc-transition" ?
-            merge(deck, (; ready = () -> false)) : deck
+            merge(deck, (; resources = (preparing_resource,))) : deck
         end
-        preparing_app = cable_app(
+        preparing_presentation = merge(
+            test_presentation,
+            (;
+                all_decks = preparing_decks,
+                decks = preparing_decks,
+                resources = presentation_resources(preparing_decks)
+            )
+        )
+        preparing_app = playground_app(
             assets;
-            decks = preparing_decks,
+            presentations = [preparing_presentation],
+            presentation = preparing_presentation,
             deck = find_deck("parametric-ohl-ugc-transition", preparing_decks)
         )
         preparing_html = route_html(preparing_app)
         @test occursin("lc-documenter is-preparing", preparing_html)
-        @test occursin("Preparing application case", preparing_html)
+        @test occursin("Preparing presentation", preparing_html)
         @test occursin("lc-preparation-progress", preparing_html)
         @test !occursin("transition-network-diagram", preparing_html)
 
@@ -734,13 +1036,28 @@ const ReplPage = LiveJuliaPage
             deck.id == "core-and-insulation" ?
             merge(deck, (; render = false)) : deck
         end)
-        hidden_routes = cable_routes(assets; decks = hidden_test_decks)
+        hidden_presentation = merge(
+            test_presentation,
+            (;
+                all_decks = hidden_test_decks,
+                decks = hidden_test_decks,
+                resources = presentation_resources(hidden_test_decks)
+            )
+        )
+        hidden_routes = playground_routes(
+            assets;
+            presentations = [hidden_presentation]
+        )
         @test Set(keys(hidden_routes.routes)) ==
-              Set(("/", "/parametric-ohl-ugc-transition", "/live-julia-workspace"))
+              Set((
+            "/",
+            "/presentations/live-manual/parametric-ohl-ugc-transition",
+            "/presentations/live-manual/live-julia-workspace"
+        ))
         hidden_html = route_html(hidden_routes.routes["/"])
         @test !occursin("deck-core-and-insulation-page-core-and-insulation", hidden_html)
         @test !occursin("core-radius-control", hidden_html)
-        @test occursin("deck-overview-page-overview", hidden_html)
+        @test occursin("home-page-home", hidden_html)
         @test !occursin("deck-parametric-ohl-ugc-transition-page-corridor", hidden_html)
     end
 end

@@ -1,73 +1,122 @@
-# Bonito cable-design showcase
+# LineCableModels playground
 
-This standalone prototype presents a small live `CableDesign` as a technical
-manual. A Documenter-inspired shell owns the typography, colors, sidebar, and
-responsive layout. Bonito serves one application per deck route, and each deck
-keeps one browser session while its hash-addressed pages change in place. The
-shell adds keyboard/touch navigation, fullscreen, and browser printing. Bonito
-and WGLMakie provide the live controls and figures; there is no page-owning
-presentation framework.
+The playground is a small Bonito-native dynamic publisher. It provides the
+Documenter-inspired shell, responsive layout, navigation, fullscreen, printing,
+connection state, and authoring primitives. The publisher does not decide
+whether its content is a live manual, a targeted tutorial, an application
+study, or a presentation assembled for one audience.
 
-The renderer is intentionally a showcase-local toy. It snapshots the current
-material-preview colors and light Makie canvas, but it neither calls nor extends
-LineCableModels' PlotBuilder machinery. Cairo parity is not a showcase goal.
+Presentation content lives below `presentations/<slug>/content`. Each Julia
+file is one stateful deck, and each deck may contain several hash-addressed
+pages that share one Bonito session. No page-owning JavaScript presentation
+framework is used.
 
-The application-case page adapts PowerImpedance's `P2P_HVDC_ALT.jl` example.
-PowerImpedance is pinned over public HTTPS to GitHub commit
-`457ba27831a3841c97e14b9c832840390df946f4`. Until its GraphMakie work is
-merged publicly, `PowerImpedanceDiagramExt.jl` carries only the topology
-projection and direct Makie renderer from MR 36 commit
-`71183fe1251cd178bc6c8704594d197d4d988414`; its PlotBuilder integration is
-intentionally excluded. The impedance response likewise uses a showcase-local
-Makie axis. No PowerImpedance package source is modified, and the local module
-can be deleted when the upstream extension becomes public.
+## Run it
 
-## GitHub Codespaces
-
-The repository's `.devcontainer` configuration provides Julia 1.12 and prepares
-the pinned showcase environment when a codespace is created. In GitHub, choose
-**Code → Codespaces → New with options**, select the branch containing the
-configuration, and create the codespace. The requested minimum machine is four
-cores, 8 GB of memory, and 32 GB of storage.
-
-The first creation downloads and precompiles the Julia dependencies. When the
-post-create command finishes, start the application from the codespace terminal:
-
-```sh
-HOST=0.0.0.0 PORT=8080 PROXY_URL=. julia --project=showcase/bonito showcase/bonito/serve.jl
-```
-
-Open **Bonito showcase** from the VS Code **Ports** panel when port 8080 is
-reported. Keep its visibility set to **Private**. The Live Julia workspace
-evaluates arbitrary Julia code with the codespace user's permissions and must
-not be exposed through an organization-visible or public port.
-
-No GitLab credential or SSH secret is required: the showcase pins
-PowerImpedance from its public GitHub repository over HTTPS, and
-LineCableModels is loaded from the codespace checkout.
-
-Instantiate the pinned application environment from the repository root:
+Instantiate the pinned Julia 1.12 environment from the repository root:
 
 ```sh
 julia --project=showcase/bonito -e 'using Pkg; Pkg.instantiate()'
 ```
 
-## Deck discovery and authoring
+Start the server:
 
-Every `pages/*.jl` file is one self-contained deck module. At startup, `app.jl`
-includes the files, validates their final `DECK` descriptor, sorts them by
-`order` and filename, and generates the sidebar, deck routes, and internal page
-navigation. A deck owns its Bonito widgets, observables, Makie figures,
-callbacks, and helper methods. Its `setup(session)` function runs exactly once
-for that browser session and returns the state shared by every page in the
-file.
+```sh
+julia --project=showcase/bonito showcase/bonito/serve.jl
+```
 
-`PageAuthoring.jl` keeps presentation DOM construction out of deck files. Its
-small public vocabulary is `slide`, `article`, `prose`, `webgrid`, `webpart`,
-`control`, `value_list`, `diagnostic`, `status_line`, `color_key`,
-`local_image`, `deck_page`, and `deck_descriptor`. Prose uses Julia's native
-`md"""..."""` literals, which can interpolate live Bonito widgets,
-Observables, and Makie content directly.
+On a graphical Linux desktop, start the server and open the default browser in
+one command:
+
+```sh
+./showcase/bonito/launch.sh
+```
+
+An optional argument opens a presentation page directly:
+
+```sh
+./showcase/bonito/launch.sh \
+  '/presentations/live-manual/parametric-ohl-ugc-transition#b5-impedance'
+```
+
+The launcher reads `HOST` (default `127.0.0.1`), `PORT` (default `8080`), and
+`PROXY_URL` (default `.`). A proxy must forward HTTP and WebSocket traffic.
+
+## Publisher and content boundary
+
+The application-owned files are:
+
+```text
+showcase/bonito/
+├── app.jl
+├── home.jl
+├── PageAuthoring.jl
+├── serve.jl
+├── launch.sh
+├── assets/theme.css
+└── presentations/
+```
+
+`home.jl` is a first-class Bonito landing page, not a deck. It introduces the
+playground, displays the project logo, discovers publication folders, and
+provides the presentation dropdown, explicit **Activate** step, bounded
+preflight console, real progress, and gated **Open** button. Home is always the
+first sidebar entry.
+
+`app.jl` discovers URL-safe, case-sensitive directories containing `content/`.
+Lowercase hyphenated names remain the default convention; uppercase letters are
+supported when a presentation slug is an acronym such as `ICHQP2026`.
+Each presentation is loaded into its own Julia namespace, so separate
+presentations may reuse module names and deck IDs without colliding. The
+publisher validates the descriptors, builds namespaced routes, and displays
+only the active presentation in the sidebar.
+
+Routes have this stable form:
+
+```text
+/
+/presentations/<slug>/<deck-id>#<page-id>
+```
+
+The application includes deck modules during startup, but it does not run their
+`setup` functions or heavy preparation. A deck session is constructed only
+when its route is opened. Only resources declared with `preflight_resource`
+participate in activation. Opening a cold heavy route directly invokes the
+same idempotent activation as a defensive fallback.
+
+## Create a presentation
+
+Copy the executable starter:
+
+```sh
+cp -a showcase/bonito/presentations/_template \
+  showcase/bonito/presentations/my-tutorial
+```
+
+The target directory name is the presentation slug. It must contain URL-safe
+words separated by hyphens. Its display name is derived mechanically:
+`my-tutorial` becomes **My tutorial**, while `ICHQP2026` remains **ICHQP2026**.
+Deck and page identifiers remain lowercase and hyphenated. There is no
+presentation manifest, generator, database, or configuration framework.
+
+`_template` is deliberately ignored by normal discovery because its name is
+not a valid slug. Restart the server after copying or renaming a presentation.
+
+The template contains one executable multi-page deck demonstrating:
+
+- Julia Markdown, code, tables, inline math, and display math;
+- sliders, dropdowns, buttons, mapped values, and action callbacks;
+- persistent WGLMakie figures updated through observables;
+- an opt-in process-wide preflight resource;
+- presentation-local images and captions; and
+- all predefined page layouts.
+
+The focused tests load the ignored template explicitly, so it cannot silently
+drift away from the supported authoring API.
+
+## Write a deck
+
+Every `content/*.jl` file defines one module and returns one `DECK` descriptor:
 
 ```julia
 module MyDeck
@@ -83,29 +132,32 @@ function setup(session::Session)
 end
 
 function controls_page(::Session, state)
-    canvas = webgrid(
-        [:description :figure; :controls :figure];
-        columns = "2fr 5fr",
-        rows = "auto minmax(0, 1fr)",
-        description = webpart(prose(md"""
-        Explain the application here. Julia Markdown supports **formatting**,
-        tables, images, code, and LaTeX such as ``Z(j\\omega)``.
-        """)),
-        controls = webpart(
-            control("Example value", state.slider; value = state.doubled);
-            kind = :controls
-        ),
-        figure = webpart("A WGLMakie figure goes here"; kind = :plot)
+    controls = webpart(
+        control("Example value", state.slider; value = state.doubled);
+        kind = :controls,
     )
-    return (; body = slide("Controls", canvas; lede = md"An introduction."))
+    explanation = webpart(
+        prose(md"The same state remains available to every page.");
+        kind = :panel,
+    )
+    return (;
+        body = slide(
+            "Controls",
+            layout_two_columns(
+                controls,
+                explanation;
+                ratio = :narrow_wide,
+            ),
+        ),
+    )
 end
 
 function interpretation_page(::Session, state)
     return (;
         body = slide(
             "Interpretation",
-            article(md"The same deck state is still live: **$(state.doubled)**.")
-        )
+            layout_single(article(md"Result: **$(state.doubled)**.")),
+        ),
     )
 end
 
@@ -113,181 +165,218 @@ const DECK = deck_descriptor(
     id = "my-deck",
     group = "Examples",
     title = "My deck",
-    order = 40,
+    order = 10,
     render = true,
     setup = setup,
     pages = (
-        deck_page(
-            "Controls";
-            id = "controls",
-            class = "lc-my-controls-page",
-            build = controls_page
-        ),
+        deck_page("Controls"; id = "controls", build = controls_page),
         deck_page(
             "Interpretation";
             id = "interpretation",
-            render = true,
-            build = interpretation_page
-        )
-    )
+            build = interpretation_page,
+        ),
+    ),
 )
 
 end
 
-
 MyDeck.DECK
 ```
 
-Each `deck_page(...)` call is an explicit rendering delimiter inside the Julia
-file. It changes only how the deck is divided on screen; it does not create a
-new module, route, or Bonito session. A page builder receives `(session, state)`
-and returns a named tuple containing `body`. Keep resource-heavy initialization
-in `setup`, and let page builders compose views from the returned state.
+`setup(session)` runs once for the browser's deck session. Keep shared widgets,
+observables, Makie figures, callbacks, caches, and heavy models there. Each page
+builder receives `(session, state)` and returns a named tuple containing `body`.
+A `deck_page` is only a rendering delimiter; changing the page fragment does
+not construct another module, route, or session.
 
-The `webgrid` matrix is the canvas layout. Repeating an area name merges those
-cells; use `nothing` for an empty cell. The named keyword arguments must match
-the matrix areas, so malformed layouts fail during startup rather than becoming
-broken CSS in the browser. On narrow screens, grids stack their named areas in
-reading order unless `stack = false` is requested.
+Set `render = false` on a deck or page to exclude it after the next server
+restart. Deck IDs must be unique inside their presentation. Page IDs must be
+unique inside their deck. Number deck files consistently with their `order`,
+for example `020_application_case.jl` with `order = 20`.
 
-Set `render = false` on either a deck or an individual `deck_page` to leave it
-out of that run. A disabled deck receives no route and is never constructed. A
-disabled internal page does not enter navigation and its builder is never
-called. Adding a file or changing either flag takes effect after restarting the
-server; there is no runtime watcher. All `.jl` files in `pages/` are decks, so
-keep private helpers inside their module. Deck IDs must be globally unique
-lowercase hyphenated strings; page IDs must be unique within their deck.
+## Presentation preflight
 
-Start the live manual:
+Preflight is for expensive, process-wide resources that should be ready before
+an audience enters a presentation. It does not construct deck sessions,
+widgets, figures, or REPL workers.
 
-```sh
-julia --project=showcase/bonito showcase/bonito/serve.jl
+Declare state and an idempotent activation function in the deck that owns the
+resource:
+
+```julia
+const MODEL_STATE = preflight_state(label = "Model not activated")
+
+function activate_model!()
+    MODEL_STATE[].phase ∉ (:cold, :error) && return nothing
+    set_preflight!(MODEL_STATE, :preparing, 0.1, "Loading inputs…")
+    return @async begin
+        try
+            model = build_expensive_model()
+            MODEL_CACHE[] = model
+            set_preflight!(MODEL_STATE, :hot, 1.0, "Model hot")
+        catch error
+            set_preflight!(
+                MODEL_STATE,
+                :error,
+                MODEL_STATE[].progress,
+                sprint(showerror, error),
+            )
+        end
+    end
+end
+
+const MODEL_RESOURCE = preflight_resource(
+    id = "network-model",
+    title = "Network model",
+    state = MODEL_STATE,
+    activate = activate_model!,
+)
 ```
 
-On a Linux desktop, start the server and open the default `xdg` browser at the
-landing page with one command:
+Attach it to the descriptor:
 
-```sh
-./showcase/bonito/launch.sh
+```julia
+const DECK = deck_descriptor(
+    # ...
+    resources = (MODEL_RESOURCE,),
+)
 ```
 
-An optional first argument opens a particular deck page directly:
+The publisher aggregates required resources from the selected presentation.
+`Activate` is disabled while preparation runs, the console receives explicit
+state transitions, and `Open` is enabled only when the aggregate phase is
+`hot`. State and caches are server-process-wide, so concurrent browsers reuse
+one activation. Restarting Julia returns resources to `cold`.
 
-```sh
-./showcase/bonito/launch.sh '/parametric-ohl-ugc-transition#b5-impedance'
+## Master layouts
+
+`PageAuthoring.jl` owns the stable layout functions. They are ordinary Julia
+composition helpers, not a second presentation language:
+
+```julia
+layout_single(content)
+layout_two_columns(left, right; ratio = :equal)
+layout_three_columns(left, center, right)
+layout_top_split(top, left, right; ratio = :equal)
+layout_split_bottom(left, right, bottom; ratio = :equal)
+layout_sidebar_main(sidebar, main)
+layout_controls_plot(controls, plot; footer = nothing)
+layout_two_rows(top, bottom; ratio = :equal)
+layout_quad(top_left, top_right, bottom_left, bottom_right)
 ```
 
-Without the launcher, open <http://127.0.0.1:8080/#overview>. Enabled decks have
-ordinary server routes: `/`, `/core-and-insulation`,
-`/parametric-ohl-ugc-transition`, and `/live-julia-workspace`. Pages inside a
-deck use URL fragments, such as
-`/parametric-ohl-ugc-transition#linearization`. Fragment navigation does not
-reload the document or create a new Bonito session, so deck state, WGL figures,
-and native browser fullscreen survive the transition. Moving to another deck
-loads that deck's route and creates its own session.
+Horizontal ratios are `:equal`, `:narrow_wide`, and `:wide_narrow`. Vertical
+ratios are `:equal`, `:short_tall`, and `:tall_short`. Every master supplies
+validated regions, common gaps, narrow-screen stacking, and print behavior.
 
-The top bar contains previous/next links across all enabled pages, the current
-page number, fullscreen, and print/PDF controls. The menu button collapses the
-sidebar on a desktop and opens it as a drawer on narrow screens. Presentation
-mode hides the sidebar and lets the page occupy the complete browser surface.
-That mode is stored for the current browser tab and is restored after a
-cross-deck route load.
+For a page that must consume all space below its heading, give the page
+descriptor `class = "lc-fill-page"` and use `height = "100%"` on its master
+layout. Add `lc-fluid-type` when prose should scale with the available page
+width and height. Both utilities retain bounded type sizes and fall back to a
+scrolling document layout on compact screens.
 
-Typography scales gently with the viewport: the existing 1600-pixel-wide look
-remains the reference size, smaller screens stop at 15 px, and large displays
-grow to an 18 px base. This is ordinary scoped CSS rather than a presentation
-transform, so page geometry and pointer coordinates remain native browser
-coordinates. Browser zoom (`Ctrl`/`Cmd` with `+` or `-`, and `0` to reset) is
-the explicit override when a room or projector needs still larger text.
+Use `webgrid` directly only for a composition that genuinely falls outside the
+masters. Its matrix repeats an area name to merge cells:
 
-The shell reconciles its exact CSS-pixel viewport immediately, after two
-animation frames, and once more after the browser/window manager settles. It
-listens to layout-viewport, visual-viewport, and display-resolution changes,
-which covers moving an already-open window between monitors before maximizing.
-WGLMakie remains configured through its public `resize_to = :parent` interface;
-the shell does not inspect or modify WGLMakie canvas internals.
-
-The branded landing shell is a complete Bonito page and remains interactive
-while the numerical application case is prepared in a separate Julia process.
-Its determinate progress bar reports the real network, power-flow,
-linearization, and impedance-response phases. Opening the application-case
-route before preparation finishes shows the same status and reloads that route
-once the prepared model is available. The deck then constructs its diagram and
-impedance canvas once for that session and reuses them across its internal
-pages. The small status LED occupies a reserved slot at the right of the top
-bar: green is connected, yellow is connecting, and red is disconnected.
-
-Use the sidebar, `Left`/`Right`, `PageUp`/`PageDown`, or a horizontal touch
-swipe to navigate. Keyboard navigation deliberately ignores controls, links,
-and canvases. Search filters deck and page titles. Press `Ctrl+/` (or `Cmd+/`)
-to focus search and `Escape` to clear it. Navigation uses ordinary links, so
-every page has a stable, directly loadable route-and-fragment address.
-
-The **Live Julia workspace** uses Bonito's native Julia `CodeEditor` and
-`TerminalOutput`. `Run` or `Ctrl+Enter` evaluates the editor in a Julia worker
-process owned by that browser session. Definitions, imports, and `ans` persist
-between runs. `Clear console` changes only the transcript; `Restart worker`
-discards the execution namespace. `Interrupt` forcefully terminates a running
-evaluation and starts a fresh worker, so it also clears that worker's state.
-Closing the Bonito session terminates its worker.
-
-The worker is process-isolated from the Bonito server, not container-sandboxed.
-Code entered in the page runs with the same operating-system account and file
-permissions as the server. Keep this page on the default localhost binding; do
-not expose it to a LAN or public interface unless the worker is moved behind an
-appropriate container or virtual-machine boundary.
-
-Julia-authored prose uses Julia Markdown's LaTeX syntax: double backticks for
-inline expressions, such as ``` ``Z(j\omega)`` ```, and a fenced `math` block
-for display expressions. Bonito renders those nodes with its bundled KaTeX.
-Every `prose` region is marked `lc-bonito-markdown` and records Bonito as its
-renderer. There is no second mathematics pass, so Julia string escaping is the
-only syntax boundary authors need to consider.
-
-In the **Application case - parametric OHL/UGC transition** deck, move the slider to
-change the underground-cable share. The B4–B5 corridor changes continuously
-from red (OHL) to blue (UGC), and the existing B5 impedance line is updated in
-place. Server startup prepares one process-wide reference network, power flow,
-linearization, and initial response in the isolated numerical worker. Each
-application-case deck session receives its own deep copy of the prepared
-network/model pair and creates exactly one network diagram and one impedance
-figure shared by the deck's three pages. During
-slider motion, the showcase mutates only that session's OHL and UGC lengths and
-recomputes the frequency response; it does not rebuild the network, rerun the
-power flow, or re-linearize. Completed slider positions are cached and
-intermediate requests are dropped while a newer value is waiting.
-
-The operating point is intentionally frozen at the default 50% split. Use
-**Re-cache power flow + linearization** to force a fresh reference solve, rebuild
-the current session's linearization at the selected split, clear its response
-cache, and refresh the curve. Other already-open sessions retain their own
-linearized models. `NetworkState` itself is not observable.
-
-The launcher reads `HOST` (default `127.0.0.1`), `PORT` (default `8080`), and
-`PROXY_URL` (default `.`). A relative proxy URL requires the proxy to forward
-both HTTP and WebSocket traffic.
-
-Use the print icon in the top bar to open the browser print dialog; choose
-**Save as PDF** for a PDF artifact. Printing acts on the current deck route;
-the print stylesheet removes the sidebar and navbar and prints each enabled
-page in that deck on a separate sheet.
-
-An existing CairoMakie smoke helper remains available, but its output is not a
-visual acceptance target for this application:
-
-```sh
-julia --project=showcase/bonito showcase/bonito/export.jl
+```julia
+webgrid(
+    [:summary :summary; :controls :figure];
+    rows = "auto minmax(0, 1fr)",
+    summary,
+    controls,
+    figure,
+)
 ```
 
-Run the focused tests:
+The other authoring primitives are `slide`, `title_canvas`, `article`, `prose`, `webpart`,
+`control`, `value_list`, `diagnostic`, `status_line`, `color_key`, and
+`local_image`.
+
+Julia Markdown uses double backticks for inline LaTeX, such as
+``` ``Z(j\omega)`` ```, and a fenced `math` block for display expressions.
+Bonito's bundled KaTeX is the only math renderer.
+
+## Current live-manual presentation
+
+The existing showcase material was migrated without changing its state model:
+
+```text
+presentations/live-manual/
+├── content/
+│   ├── 010_core_and_insulation.jl
+│   ├── 020_ohl_ugc_transition.jl
+│   └── 030_live_julia.jl
+└── support/
+    ├── PowerImpedanceDiagramExt.jl
+    ├── PowerImpedanceDiagramExt/
+    └── repl_worker.jl
+```
+
+The cable deck remains a small presentation-local renderer and does not call or
+extend `LineCableModels.PlotBuilder`. The ongoing data-model coupling remains
+confined to its construction and geometry functions.
+
+The OHL/UGC deck shares one network/model pair, network diagram, and impedance
+figure across three pages. Slider motion changes only the OHL/UGC corridor
+lengths and recomputes the cached frequency response. It does not rebuild the
+network, rerun power flow, or re-linearize. The explicit recache button rebuilds
+the current session's operating point.
+
+PowerImpedance is pinned to public GitHub commit
+`457ba27831a3841c97e14b9c832840390df946f4`. Until equivalent diagram support
+is public upstream, `support/PowerImpedanceDiagramExt.jl` contains only the
+topology projection and direct Makie renderer extracted from MR 36 commit
+`71183fe1251cd178bc6c8704594d197d4d988414`.
+
+The Live Julia deck uses Bonito's native `CodeEditor` and `TerminalOutput` with
+a stateful worker process. It is process-isolated from the Bonito server but not
+container-sandboxed. Entered code has the server account's filesystem
+permissions. Never expose that route through a public port without a real
+container or VM boundary.
+
+## Shell behavior
+
+The sidebar, search, previous/next navigation, global page count, keyboard and
+touch navigation, presentation mode, browser fullscreen, printing, and
+connection LED are publisher-owned. Presentation mode is stored for the
+browser tab. Page changes within a deck use fragments and preserve the current
+session and fullscreen state.
+
+Typography scales within bounded viewport limits. Browser zoom remains the
+explicit projector override. The shell reconciles normal, visual, and display-
+resolution viewport changes; WGLMakie continues to use only its public
+`resize_to = :parent` behavior.
+
+Use the print button and select **Save as PDF** in the browser. The print
+stylesheet emits each enabled page in the current deck on a separate sheet.
+
+## GitHub Codespaces
+
+The repository's `.devcontainer` installs Julia 1.12, instantiates this
+environment, and forwards port 8080. In a codespace run:
+
+```sh
+HOST=0.0.0.0 PORT=8080 PROXY_URL=. \
+  julia --project=showcase/bonito showcase/bonito/serve.jl
+```
+
+Open **Bonito showcase** from the Ports panel and keep the port **Private**.
+No GitLab key is required: PowerImpedance is fetched from public GitHub and
+LineCableModels is loaded from the checkout.
+
+## Validation
+
+Run the focused suite:
 
 ```sh
 julia --project=showcase/bonito showcase/bonito/test/runtests.jl
 ```
 
-The visual theme belongs exclusively to `assets/theme.css`, which contains a
-small scoped snapshot of the repository's Documenter dark theme. Its contents
-are embedded in each page so the shell does not depend on Bonito's local asset
-registration or the browser's asset cache. Lato and JuliaMono are loaded from
-the same pinned CDN versions as the generated documentation; these fonts are
-the only remote presentation assets.
+The legacy Cairo smoke export for the cable deck remains available:
+
+```sh
+julia --project=showcase/bonito showcase/bonito/export.jl
+```
+
+The visual system belongs to `assets/theme.css`. Do not add Reveal.js, another
+page-owning framework, or selectors into Bonito/WGLMakie internals.

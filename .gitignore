@@ -45,6 +45,8 @@ dev/*
 !dev/plotting/*.jl
 bibliography/
 presentations/
+!showcase/bonito/presentations/
+!showcase/bonito/presentations/**
 projects/
 confidential/
 *.code-workspace

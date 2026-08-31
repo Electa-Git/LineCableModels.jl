@@ -2,6 +2,7 @@ module PageAuthoring
 
 using Bonito
 using Markdown
+using WGLMakie
 
 export article
 export color_key
@@ -10,25 +11,72 @@ export deck_descriptor
 export deck_page
 export diagnostic
 export local_image
+export layout_controls_plot
+export layout_quad
+export layout_sidebar_main
+export layout_single
+export layout_split_bottom
+export layout_three_columns
+export layout_top_split
+export layout_two_columns
+export layout_two_rows
+export logo_row
 export preparation_failed
 export preparation_ready
 export preparation_state
 export preparation_status
+export preflight_failed
+export preflight_ready
+export preflight_resource
+export preflight_state
+export preflight_summary
 export prose
 export set_preparation!
+export set_preflight!
 export slide
 export status_line
+export title_canvas
 export value_list
 export webgrid
 export webpart
+export wgl_figure
 
 const AREA_NAME = r"^[A-Za-z_][A-Za-z0-9_-]*$"
 const WEBPART_KINDS = (:plain, :panel, :controls, :plot)
-const PREPARATION_STATE = Observable((;
-    phase = :idle,
-    progress = 0.0,
-    label = "Waiting for numerical preparation…"
-))
+const COLUMN_RATIOS = Dict(
+    :equal => "repeat(2, minmax(0, 1fr))",
+    :narrow_wide => "minmax(14rem, 2fr) minmax(0, 5fr)",
+    :wide_narrow => "minmax(0, 5fr) minmax(14rem, 2fr)"
+)
+const ROW_RATIOS = Dict(
+    :equal => "repeat(2, minmax(0, 1fr))",
+    :short_tall => "minmax(0, 2fr) minmax(0, 5fr)",
+    :tall_short => "minmax(0, 5fr) minmax(0, 2fr)"
+)
+
+"""
+    wgl_figure(figure; resize_to=:parent, screen_config...)
+
+Embed a WGLMakie figure without exposing WGLMakie's per-canvas loading spinner.
+The publisher's preflight UI owns preparation feedback; the hidden spinner node
+is retained only as WGLMakie's documented removable initialization sentinel.
+"""
+function wgl_figure(figure; resize_to = :parent, screen_config...)
+    haskey(screen_config, :spinner) && throw(ArgumentError(
+        "wgl_figure owns the WGLMakie spinner; use the publisher preflight UI for loading feedback"
+    ))
+    silent_spinner = DOM.div(;
+        class = "wglmakie-spinner",
+        hidden = true,
+        ariaHidden = "true"
+    )
+    return WGLMakie.WithConfig(
+        figure;
+        resize_to,
+        spinner = silent_spinner,
+        screen_config...
+    )
+end
 
 classes(parts...) = join(filter(!isempty, string.(parts)), " ")
 children(content) = content isa Tuple ? content : (content,)
@@ -84,6 +132,43 @@ function slide(title::AbstractString, content...; lede = nothing)
         class = "lc-page-heading"
     )
     return (heading, content...)
+end
+
+"""
+    title_canvas(title; subtitle=nothing, event=nothing, logo=nothing,
+                 footer=nothing, class="")
+
+Create an unpanelled, full-page title composition for opening slides. Content
+stays in one visual canvas while the shared theme owns its responsive scale and
+spacing.
+"""
+function title_canvas(
+        title::AbstractString;
+        subtitle = nothing,
+        event = nothing,
+        logo = nothing,
+        footer = nothing,
+        class::AbstractString = ""
+)
+    brand = isnothing(logo) ? () :
+            (DOM.div(logo; class = "lc-title-brand"),)
+    event_line = isnothing(event) ? () :
+                 (DOM.p(event; class = "lc-title-event"),)
+    subtitle_line = isnothing(subtitle) ? () :
+                    (DOM.p(subtitle; class = "lc-title-subtitle"),)
+    footer_block = isnothing(footer) ? () :
+                   (DOM.footer(children(footer)...; class = "lc-title-footer"),)
+    return DOM.div(
+        brand...,
+        DOM.div(
+            event_line...,
+            DOM.h1(title; class = "lc-title-heading"),
+            subtitle_line...;
+            class = "lc-title-copy"
+        ),
+        footer_block...;
+        class = classes("lc-title-canvas", class)
+    )
 end
 
 function area_token(value)
@@ -221,6 +306,266 @@ function webgrid(
     )
 end
 
+function layout_tracks(ratios, ratio::Symbol, axis::AbstractString)
+    haskey(ratios, ratio) || throw(ArgumentError(
+        "unsupported $axis ratio $(repr(ratio)); expected one of $(join(sort!(collect(keys(ratios)); by = string), ", "))"
+    ))
+    return ratios[ratio]
+end
+
+function master_class(name::AbstractString, class::AbstractString)
+    classes("lc-master-layout", "lc-layout-$name", class)
+end
+
+"""Lay out one full-width authored region."""
+function layout_single(
+        content;
+        height = "100%",
+        gap = "1rem",
+        id = nothing,
+        class::AbstractString = ""
+)
+    return webgrid(
+        reshape([:main], 1, 1);
+        columns = "minmax(0, 1fr)",
+        rows = "minmax(0, 1fr)",
+        gap,
+        height,
+        stack = false,
+        id,
+        class = master_class("single", class),
+        main = content
+    )
+end
+
+"""Lay out two responsive columns using a semantic width ratio."""
+function layout_two_columns(
+        left,
+        right;
+        ratio::Symbol = :equal,
+        height = "100%",
+        gap = "1rem",
+        id = nothing,
+        class::AbstractString = ""
+)
+    columns = layout_tracks(COLUMN_RATIOS, ratio, "column")
+    return webgrid(
+        reshape([:left, :right], 1, 2);
+        columns,
+        rows = "minmax(0, 1fr)",
+        gap,
+        height,
+        stack_rows = "repeat(2, auto)",
+        id,
+        class = master_class("two-columns", class),
+        left,
+        right
+    )
+end
+
+"""Lay out three equal responsive columns."""
+function layout_three_columns(
+        left,
+        center,
+        right;
+        height = "100%",
+        gap = "1rem",
+        id = nothing,
+        class::AbstractString = ""
+)
+    return webgrid(
+        reshape([:left, :center, :right], 1, 3);
+        columns = "repeat(3, minmax(0, 1fr))",
+        rows = "minmax(0, 1fr)",
+        gap,
+        height,
+        stack_rows = "repeat(3, auto)",
+        id,
+        class = master_class("three-columns", class),
+        left,
+        center,
+        right
+    )
+end
+
+"""Lay out a full-width top region over two responsive columns."""
+function layout_top_split(
+        top,
+        left,
+        right;
+        ratio::Symbol = :equal,
+        height = "100%",
+        gap = "1rem",
+        id = nothing,
+        class::AbstractString = ""
+)
+    columns = layout_tracks(COLUMN_RATIOS, ratio, "column")
+    return webgrid(
+        [:top :top; :left :right];
+        columns,
+        rows = "auto minmax(0, 1fr)",
+        gap,
+        height,
+        stack_rows = "repeat(3, auto)",
+        id,
+        class = master_class("top-split", class),
+        top,
+        left,
+        right
+    )
+end
+
+"""Lay out two responsive columns over a full-width bottom region."""
+function layout_split_bottom(
+        left,
+        right,
+        bottom;
+        ratio::Symbol = :equal,
+        height = "100%",
+        gap = "1rem",
+        id = nothing,
+        class::AbstractString = ""
+)
+    columns = layout_tracks(COLUMN_RATIOS, ratio, "column")
+    return webgrid(
+        [:left :right; :bottom :bottom];
+        columns,
+        rows = "minmax(0, 1fr) auto",
+        gap,
+        height,
+        stack_rows = "repeat(3, auto)",
+        id,
+        class = master_class("split-bottom", class),
+        left,
+        right,
+        bottom
+    )
+end
+
+"""Lay out a narrow contextual sidebar beside a primary region."""
+function layout_sidebar_main(
+        sidebar,
+        main;
+        height = "100%",
+        gap = "1rem",
+        id = nothing,
+        class::AbstractString = ""
+)
+    return webgrid(
+        reshape([:sidebar, :main], 1, 2);
+        columns = COLUMN_RATIOS[:narrow_wide],
+        rows = "minmax(0, 1fr)",
+        gap,
+        height,
+        stack_rows = "repeat(2, auto)",
+        id,
+        class = master_class("sidebar-main", class),
+        sidebar,
+        main
+    )
+end
+
+"""
+Lay out controls beside a primary plot, with an optional footer. Set
+`footer_placement = :under_plot` to keep the controls at full height while the
+footer occupies only the main column.
+"""
+function layout_controls_plot(
+        controls,
+        plot;
+        footer = nothing,
+        footer_placement::Symbol = :shared,
+        footer_rows = "minmax(0, 1fr) auto",
+        height = "100%",
+        gap = "1rem",
+        id = nothing,
+        class::AbstractString = ""
+)
+    isnothing(footer) && return layout_two_columns(
+        controls,
+        plot;
+        ratio = :narrow_wide,
+        height,
+        gap,
+        id,
+        class = classes("lc-layout-controls-plot", class)
+    )
+    areas = if footer_placement === :shared
+        [:controls :plot; :footer :footer]
+    elseif footer_placement === :under_plot
+        [:controls :plot; :controls :footer]
+    else
+        throw(ArgumentError(
+            "unsupported footer placement $(repr(footer_placement)); expected :shared or :under_plot"
+        ))
+    end
+    return webgrid(
+        areas;
+        columns = COLUMN_RATIOS[:narrow_wide],
+        rows = footer_rows,
+        gap,
+        height,
+        stack_rows = "repeat(3, auto)",
+        id,
+        class = master_class("controls-plot", class),
+        controls,
+        plot,
+        footer
+    )
+end
+
+"""Lay out two responsive rows using a semantic height ratio."""
+function layout_two_rows(
+        top,
+        bottom;
+        ratio::Symbol = :equal,
+        height = "100%",
+        gap = "1rem",
+        id = nothing,
+        class::AbstractString = ""
+)
+    rows = layout_tracks(ROW_RATIOS, ratio, "row")
+    return webgrid(
+        reshape([:top, :bottom], 2, 1);
+        columns = "minmax(0, 1fr)",
+        rows,
+        gap,
+        height,
+        stack_rows = "repeat(2, auto)",
+        id,
+        class = master_class("two-rows", class),
+        top,
+        bottom
+    )
+end
+
+"""Lay out a responsive two-by-two dashboard."""
+function layout_quad(
+        top_left,
+        top_right,
+        bottom_left,
+        bottom_right;
+        height = "100%",
+        gap = "1rem",
+        id = nothing,
+        class::AbstractString = ""
+)
+    return webgrid(
+        [:top_left :top_right; :bottom_left :bottom_right];
+        columns = "repeat(2, minmax(0, 1fr))",
+        rows = "repeat(2, minmax(0, 1fr))",
+        gap,
+        height,
+        stack_rows = "repeat(4, auto)",
+        id,
+        class = master_class("quad", class),
+        top_left,
+        top_right,
+        bottom_left,
+        bottom_right
+    )
+end
+
 """
     webpart(content...; kind=:plain, title=nothing, meta=nothing)
 
@@ -273,8 +618,26 @@ function webpart(
                           (DOM.strong(title), DOM.span(meta))
         (DOM.div(heading_content...; class = "lc-webpart-header"),)
     end
+    if kind === :panel
+        body = DOM.div(
+            content...;
+            class = classes("lc-webpart-body", body_class)
+        )
+        return with_id(
+            DOM.div,
+            id,
+            heading...,
+            body;
+            class = classes(
+                "lc-webpart",
+                "lc-webpart-panel",
+                isnothing(title) ? "" : "lc-webpart-has-header",
+                class
+            )
+        )
+    end
     kind_class = kind === :controls ? "lc-webpart-controls lc-controls" :
-                 kind === :panel ? "lc-webpart-panel" : "lc-webpart-plain"
+                 "lc-webpart-plain"
     return with_id(
         DOM.div,
         id,
@@ -341,38 +704,145 @@ function status_line(content; class::AbstractString = "")
     DOM.p(content; class = classes("lc-status-line", class))
 end
 
-function set_preparation!(phase::Symbol, progress::Real, label::AbstractString)
+function preflight_snapshot(phase::Symbol, progress::Real, label::AbstractString)
     isfinite(progress) || throw(ArgumentError("preparation progress must be finite"))
-    PREPARATION_STATE[] = (;
+    return (;
         phase,
         progress = clamp(Float64(progress), 0.0, 1.0),
         label = string(label)
     )
-    return PREPARATION_STATE[]
 end
 
-preparation_ready() = PREPARATION_STATE[].phase === :ready
-preparation_failed() = PREPARATION_STATE[].phase === :error
+"""Create independent process-wide state for one opt-in preflight resource."""
+function preflight_state(;
+        phase::Symbol = :cold,
+        progress::Real = 0.0,
+        label::AbstractString = "Not activated"
+)
+    return Observable(preflight_snapshot(phase, progress, label))
+end
+
+"""Declare a process-wide resource that a presentation may activate explicitly."""
+function preflight_resource(;
+        id,
+        title,
+        activate::Function,
+        state = preflight_state(),
+        required::Bool = true
+)
+    resource_id = string(id)
+    occursin(r"^[a-z0-9]+(?:-[a-z0-9]+)*$", resource_id) ||
+        throw(ArgumentError(
+            "preflight resource ids must contain lowercase words separated by hyphens"
+        ))
+    resource_title = string(title)
+    isempty(resource_title) && throw(ArgumentError(
+        "preflight resource titles must not be empty"
+    ))
+    snapshot = state[]
+    all(hasproperty(snapshot, field) for field in (:phase, :progress, :label)) ||
+        throw(ArgumentError(
+            "preflight state must expose phase, progress, and label fields"
+        ))
+    return (;
+        id = resource_id,
+        title = resource_title,
+        required,
+        state,
+        activate
+    )
+end
+
+function set_preflight!(state, phase::Symbol, progress::Real, label::AbstractString)
+    state[] = preflight_snapshot(phase, progress, label)
+    return state[]
+end
+
+preflight_ready(state) = state[].phase === :hot
+preflight_failed(state) = state[].phase === :error
+
+"""Summarize required resources as one cold, preparing, hot, or error state."""
+function preflight_summary(resources)
+    required = filter(resource -> resource.required, collect(resources))
+    isempty(required) && return preflight_snapshot(
+        :hot,
+        1.0,
+        "No preflight resources required"
+    )
+    states = getindex.(getproperty.(required, :state))
+    progress = sum(state.progress for state in states) / length(states)
+    failure = findfirst(state -> state.phase === :error, states)
+    !isnothing(failure) && return preflight_snapshot(
+        :error,
+        progress,
+        states[failure].label
+    )
+    all(state -> state.phase === :hot, states) && return preflight_snapshot(
+        :hot,
+        1.0,
+        "All required resources are hot"
+    )
+    active = findfirst(state -> state.phase ∉ (:cold, :hot), states)
+    !isnothing(active) && return preflight_snapshot(
+        :preparing,
+        progress,
+        states[active].label
+    )
+    return preflight_snapshot(:cold, progress, "Activation required")
+end
+
+const PREPARATION_STATE = preflight_state(
+    phase = :cold,
+    label = "Waiting for numerical preparation…"
+)
+
+function set_preparation!(phase::Symbol, progress::Real, label::AbstractString)
+    return set_preflight!(PREPARATION_STATE, phase, progress, label)
+end
+
+function set_preparation!(state, phase::Symbol, progress::Real, label::AbstractString)
+    return set_preflight!(state, phase, progress, label)
+end
+
+preparation_ready(state = PREPARATION_STATE) = preflight_ready(state)
+preparation_failed(state = PREPARATION_STATE) = preflight_failed(state)
 preparation_state() = PREPARATION_STATE
 
-function preparation_value(session, transform)
-    return isnothing(session) ? transform(PREPARATION_STATE[]) :
-           map(transform, session, PREPARATION_STATE)
+function preparation_value(session, state, transform)
+    return isnothing(session) ? transform(state[]) :
+           map(transform, session, state)
 end
 
-"""Create the shell-owned display for real process-wide preparation phases."""
-function preparation_status(session::Union{Nothing, Session} = nothing)
-    label = preparation_value(session, state -> state.label)
-    progress = preparation_value(session, state -> string(round(Int, 100state.progress)))
+"""Create the shell-owned display for a real process-wide preflight state."""
+function preparation_status(
+        session::Union{Nothing, Session} = nothing;
+        state = PREPARATION_STATE,
+        title::AbstractString = "Preparing resources"
+)
+    label = preparation_value(session, state, snapshot -> snapshot.label)
+    progress = preparation_value(
+        session,
+        state,
+        snapshot -> string(round(Int, 100snapshot.progress))
+    )
     progress_style = preparation_value(
         session,
-        state -> "width: $(100state.progress)%"
+        state,
+        snapshot -> "width: $(100snapshot.progress)%"
     )
-    phase = preparation_value(session, state -> string(state.phase))
-    busy = preparation_value(session, state -> string(state.phase ∉ (:ready, :error)))
+    phase = preparation_value(
+        session,
+        state,
+        snapshot -> string(snapshot.phase)
+    )
+    busy = preparation_value(
+        session,
+        state,
+        snapshot -> string(snapshot.phase ∉ (:hot, :error))
+    )
     return DOM.div(
         DOM.div(
-            DOM.strong("Preparing application case"),
+            DOM.strong(title),
             DOM.output(
                 label;
                 id = "lc-preparation-label",
@@ -388,7 +858,7 @@ function preparation_status(session::Union{Nothing, Session} = nothing)
             id = "lc-preparation-progress",
             class = "lc-preparation-progress",
             role = "progressbar",
-            ariaLabel = "Application case preparation progress",
+            ariaLabel = "Preflight preparation progress",
             ariaValueMin = "0",
             ariaValueMax = "100",
             ariaValueNow = progress
@@ -432,6 +902,11 @@ function local_image(
         DOM.figcaption(caption);
         class = classes("lc-local-image-figure", class)
     )
+end
+
+"""Arrange institutional or partner marks in one responsive logo row."""
+function logo_row(logos...; class::AbstractString = "")
+    return DOM.div(logos...; class = classes("lc-logo-row", class))
 end
 
 """
@@ -480,6 +955,7 @@ function deck_descriptor(;
         render::Bool = true,
         class::AbstractString = "",
         setup::Function = _ -> nothing,
+        resources = (),
         pages,
         extras...
 )
@@ -491,6 +967,7 @@ function deck_descriptor(;
         render,
         class,
         setup,
+        resources = Tuple(resources),
         pages = Tuple(pages),
         extras...
     )

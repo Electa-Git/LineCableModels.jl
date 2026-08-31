@@ -2,7 +2,7 @@
 
 julia_version = "1.12.7"
 manifest_format = "2.0"
-project_hash = "c98d0503a918849620e58d6827ca49cbb5498c5c"
+project_hash = "68017491acae9dcbdafb950064c8bf1e8b367c0d"
 
 [[deps.ADTypes]]
 deps = ["PrecompileTools"]
@@ -1494,7 +1494,7 @@ uuid = "38a345b3-de98-5d2b-a5d3-14cd9215e700"
 version = "2.42.0+0"
 
 [[deps.LineCableModels]]
-deps = ["Colors", "DataFrames", "Dates", "DocStringExtensions", "EzXML", "GeometryBasics", "JSON3", "LinearAlgebra", "Logging", "NLsolve", "Printf", "QuadGK", "Random", "RequiredInterfaces", "Serialization", "SpecialFunctions", "Statistics", "Tables"]
+deps = ["Colors", "DataFrames", "Dates", "DocStringExtensions", "EzXML", "GeometryBasics", "JSON3", "LinearAlgebra", "Logging", "Printf", "QuadGK", "Random", "RequiredInterfaces", "SHA", "Serialization", "SpecialFunctions", "Statistics", "Tables"]
 path = "../.."
 uuid = "dffb7669-8cd4-4628-99dd-7694e356ba37"
 version = "0.2.0"
@@ -1503,6 +1503,7 @@ version = "0.2.0"
     LineCableModelsCairoMakieExt = ["Makie", "CairoMakie"]
     LineCableModelsDistributionsExt = "Distributions"
     LineCableModelsGLMakieExt = ["Makie", "GLMakie"]
+    LineCableModelsGmshExt = "Gmsh"
     LineCableModelsMakieExt = "Makie"
     LineCableModelsMeasurementsExt = ["Measurements", "Calculus"]
     LineCableModelsWGLMakieExt = ["Makie", "WGLMakie"]
@@ -1513,6 +1514,7 @@ version = "0.2.0"
     Calculus = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
     Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
     GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
+    Gmsh = "705231aa-382f-11e9-3f0c-b7cb4346fdeb"
     Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
     Measurements = "eff96d63-e80a-5855-80a2-b1b0885c5ab7"
     WGLMakie = "276b4fcb-3e11-5398-bf8b-a0c2d153d008"

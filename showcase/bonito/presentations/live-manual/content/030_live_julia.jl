@@ -6,9 +6,9 @@ using Observables: off
 using Serialization
 using ..PageAuthoring
 
-const SHOWCASE_DIRECTORY = dirname(@__DIR__)
-const REPOSITORY_DIRECTORY = normpath(joinpath(SHOWCASE_DIRECTORY, "..", ".."))
-const WORKER_SCRIPT = joinpath(SHOWCASE_DIRECTORY, "repl_worker.jl")
+const PLAYGROUND_DIRECTORY = normpath(joinpath(@__DIR__, "..", "..", ".."))
+const REPOSITORY_DIRECTORY = normpath(joinpath(PLAYGROUND_DIRECTORY, "..", ".."))
+const WORKER_SCRIPT = normpath(joinpath(@__DIR__, "..", "support", "repl_worker.jl"))
 const INITIAL_SOURCE = """using LineCableModels
 
 # This namespace remains alive between evaluations.
@@ -214,7 +214,8 @@ function build(session::Session, ::Nothing)
         editor;
         kind = :panel,
         id = "live-julia-editor",
-        class = "lc-repl-editor"
+        class = "lc-repl-editor",
+        body_class = "lc-webpart-body-flush"
     )
     terminal_host = Grid(
         terminal;
@@ -230,7 +231,8 @@ function build(session::Session, ::Nothing)
         title = "Julia console",
         meta = "process-isolated · stateful",
         id = "live-julia-console",
-        class = "lc-repl-console"
+        class = "lc-repl-console",
+        body_class = "lc-webpart-body-flush"
     )
     canvas = webgrid(
         reshape([:editor, :console], 2, 1);
@@ -408,7 +410,7 @@ const DECK = deck_descriptor(
     id = "live-julia-workspace",
     group = "Developer tools",
     title = "Live Julia workspace",
-    order = 40,
+    order = 30,
     render = true,
     pages = (
         deck_page(

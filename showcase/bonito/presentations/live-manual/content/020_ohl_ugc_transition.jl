@@ -1,3 +1,7 @@
+isdefined(@__MODULE__, :PowerImpedanceDiagramExt) || include(
+    joinpath(@__DIR__, "..", "support", "PowerImpedanceDiagramExt.jl")
+)
+
 module OHLUGCTransitionPage
 
 using Bonito
@@ -31,6 +35,9 @@ const PREPARED_CASE = Ref{Any}(nothing)
 const PREPARATION_TASK = Ref{Union{Nothing, Task}}(nothing)
 const PREPARATION_WORKER = Ref{Union{Nothing, Int}}(nothing)
 const PREPARATION_LOCK = ReentrantLock()
+const PREFLIGHT_STATE = preflight_state(
+    label = "Power flow and linearization not activated"
+)
 
 const CONNECTIONS = (
     (node = :B3d, element = :tl1, side = 2, terminal = 1),
@@ -273,7 +280,7 @@ end
 function report_preparation!(updates, phase, progress, label)
     state = (; phase, progress, label)
     if isnothing(updates)
-        set_preparation!(phase, progress, label)
+        set_preflight!(PREFLIGHT_STATE, phase, progress, label)
     else
         put!(updates, state)
     end
@@ -325,7 +332,8 @@ function compute_prepared_case(updates = nothing)
 end
 
 function preparation_error!(error)
-    set_preparation!(
+    set_preflight!(
+        PREFLIGHT_STATE,
         :error,
         1.0,
         "Preparation failed: $(sprint(showerror, error))"
@@ -338,7 +346,12 @@ function prepare_case!()
         return lock(PREPARATION_LOCK) do
             !isnothing(PREPARED_CASE[]) && return PREPARED_CASE[]
             PREPARED_CASE[] = compute_prepared_case()
-            set_preparation!(:ready, 1.0, "Application case ready")
+            set_preflight!(
+                PREFLIGHT_STATE,
+                :hot,
+                1.0,
+                "Power flow and linearization hot"
+            )
             return PREPARED_CASE[]
         end
     catch error
@@ -350,74 +363,104 @@ end
 is_prepared() = !isnothing(PREPARED_CASE[])
 
 function start_preparation!()
-    is_prepared() && return PREPARATION_TASK[]
-    task = PREPARATION_TASK[]
-    !isnothing(task) && !istaskdone(task) && return task
-    set_preparation!(:queued, 0.02, "Starting numerical preparation…")
-
-    PREPARATION_TASK[] = @async begin
-        worker = nothing
-        try
-            project = Base.active_project()
-            flags = ["--project=$(dirname(project))", "--startup-file=no"]
-            worker = only(addprocs(1; exeflags = flags))
-            PREPARATION_WORKER[] = worker
-
-            imports = quote
-                using LineCableModels
-                import PowerImpedance
-                using Bonito
-                using GraphMakie
-                using Graphs
-                using NetworkLayout
-                using WGLMakie
-                WGLMakie.activate!()
-            end
-            remotecall_wait(Core.eval, worker, Main, imports)
-            remotecall_wait(
-                Base.include,
-                worker,
-                Main,
-                abspath(joinpath(@__DIR__, "..", "app.jl"))
+    return lock(PREPARATION_LOCK) do
+        if is_prepared()
+            preflight_ready(PREFLIGHT_STATE) || set_preflight!(
+                PREFLIGHT_STATE,
+                :hot,
+                1.0,
+                "Power flow and linearization hot"
             )
+            return PREPARATION_TASK[]
+        end
+        task = PREPARATION_TASK[]
+        !isnothing(task) && !istaskdone(task) && return task
+        set_preflight!(
+            PREFLIGHT_STATE,
+            :queued,
+            0.02,
+            "Starting numerical preparation…"
+        )
 
-            updates = RemoteChannel(() -> Channel{NamedTuple}(16), 1)
-            future = remotecall(compute_prepared_case, worker, updates)
-            while !isready(future)
+        PREPARATION_TASK[] = @async begin
+            worker = nothing
+            try
+                project = Base.active_project()
+                flags = ["--project=$(dirname(project))", "--startup-file=no"]
+                worker = only(addprocs(1; exeflags = flags))
+                PREPARATION_WORKER[] = worker
+
+                imports = quote
+                    using LineCableModels
+                    import PowerImpedance
+                    using Bonito
+                    using GraphMakie
+                    using Graphs
+                    using NetworkLayout
+                    using WGLMakie
+                    WGLMakie.activate!()
+                end
+                remotecall_wait(Core.eval, worker, Main, imports)
+                remotecall_wait(
+                    Base.include,
+                    worker,
+                    Main,
+                    abspath(joinpath(@__DIR__, "..", "..", "..", "app.jl"))
+                )
+
+                updates = RemoteChannel(() -> Channel{NamedTuple}(16), 1)
+                future = remotecall(compute_prepared_case, worker, updates)
+                while !isready(future)
+                    while isready(updates)
+                        state = take!(updates)
+                        set_preflight!(
+                            PREFLIGHT_STATE,
+                            state.phase,
+                            state.progress,
+                            state.label
+                        )
+                    end
+                    sleep(0.1)
+                end
                 while isready(updates)
                     state = take!(updates)
-                    set_preparation!(state.phase, state.progress, state.label)
-                end
-                sleep(0.1)
-            end
-            while isready(updates)
-                state = take!(updates)
-                set_preparation!(state.phase, state.progress, state.label)
-            end
-            PREPARED_CASE[] = fetch(future)
-            set_preparation!(:ready, 1.0, "Application case ready")
-        catch error
-            preparation_error!(error)
-            @error "OHL/UGC application-case preparation failed" exception = (
-                error,
-                catch_backtrace()
-            )
-        finally
-            if !isnothing(worker) && worker in workers()
-                try
-                    rmprocs(worker)
-                catch error
-                    @warn "Could not stop the numerical-preparation worker" exception = (
-                        error,
-                        catch_backtrace()
+                    set_preflight!(
+                        PREFLIGHT_STATE,
+                        state.phase,
+                        state.progress,
+                        state.label
                     )
                 end
+                PREPARED_CASE[] = fetch(future)
+                set_preflight!(
+                    PREFLIGHT_STATE,
+                    :hot,
+                    1.0,
+                    "Power flow and linearization hot"
+                )
+            catch error
+                preparation_error!(error)
+                @error "OHL/UGC application-case preparation failed" exception = (
+                    error,
+                    catch_backtrace()
+                )
+            finally
+                if !isnothing(worker) && worker in workers()
+                    try
+                        rmprocs(worker)
+                    catch error
+                        @warn "Could not stop the numerical-preparation worker" exception = (
+                            error,
+                            catch_backtrace()
+                        )
+                    end
+                end
+                PREPARATION_WORKER[] = nothing
             end
-            PREPARATION_WORKER[] = nothing
         end
+        errormonitor(PREPARATION_TASK[])
+        return PREPARATION_TASK[]
     end
-    errormonitor(PREPARATION_TASK[])
-    return PREPARATION_TASK[]
 end
 
 prepared_case() = is_prepared() ? PREPARED_CASE[] : prepare_case!()
@@ -435,10 +478,10 @@ function harmonic_curve(response; node = :B5)
     node_index = only(findall(==(node), nodes))
     frequencies_hz = real.(PowerImpedance.angular_frequencies(response)) ./ (2π)
     impedance = @view PowerImpedance.response_values(response)[
-        node_index,
-        node_index,
-        :
-    ]
+    node_index,
+    node_index,
+    :
+]
     return (;
         frequencies_hz,
         magnitude_db = 20 .* log10.(abs.(vec(impedance)))
@@ -777,7 +820,7 @@ function setup(session::Session)
         class = "lc-transition-controls lc-operating-controls"
     )
     diagram = webpart(
-        WGLMakie.WithConfig(runtime.diagram.figure; resize_to = :parent);
+        wgl_figure(runtime.diagram.figure);
         kind = :plot,
         title = "Network diagram",
         meta = "B4–B5 corridor",
@@ -785,7 +828,7 @@ function setup(session::Session)
         body_class = "lc-transition-plot-host"
     )
     impedance = webpart(
-        WGLMakie.WithConfig(runtime.impedance_plot.figure; resize_to = :parent);
+        wgl_figure(runtime.impedance_plot.figure);
         kind = :plot,
         title = "Driving-point impedance",
         meta = "Z[B5, B5] · 100 Hz–5 kHz",
@@ -887,11 +930,18 @@ function operating_point_page(::Session, state)
     ),)
 end
 
+const PREFLIGHT_RESOURCE = preflight_resource(
+    id = "powerflow-linearization",
+    title = "Reference power flow and linearization",
+    activate = start_preparation!,
+    state = PREFLIGHT_STATE
+)
+
 const DECK = deck_descriptor(
     id = "parametric-ohl-ugc-transition",
     group = "Application cases",
     title = "Application case - parametric OHL/UGC transition",
-    order = 30,
+    order = 20,
     render = true,
     setup = setup,
     pages = (
@@ -914,8 +964,7 @@ const DECK = deck_descriptor(
             build = operating_point_page
         )
     ),
-    prepare = start_preparation!,
-    ready = is_prepared
+    resources = (PREFLIGHT_RESOURCE,)
 )
 
 end

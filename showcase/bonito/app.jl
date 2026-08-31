@@ -1,18 +1,20 @@
 using Bonito
 using Markdown
 
-include(joinpath(@__DIR__, "PowerImpedanceDiagramExt.jl"))
 include(joinpath(@__DIR__, "PageAuthoring.jl"))
 using .PageAuthoring
+include(joinpath(@__DIR__, "home.jl"))
 
 const LATO_STYLESHEET = "https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css"
 const JULIA_MONO_STYLESHEET = "https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css"
 const DOCUMENTATION_LOGO = joinpath(
     @__DIR__, "..", "..", "docs", "src", "assets", "logo.svg")
-const DECK_DIRECTORY = joinpath(@__DIR__, "pages")
+const PRESENTATIONS_DIRECTORY = joinpath(@__DIR__, "presentations")
 const REQUIRED_DECK_FIELDS = (:id, :group, :title, :order, :render, :class, :setup, :pages)
 const REQUIRED_DECK_PAGE_FIELDS = (:id, :title, :render, :class, :build)
+const REQUIRED_PREFLIGHT_RESOURCE_FIELDS = (:id, :title, :required, :state, :activate)
 const SLUG_PATTERN = r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
+const PRESENTATION_SLUG_PATTERN = r"^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$"
 
 function validate_slug(value, label::AbstractString, source::AbstractString)
     value isa AbstractString && !isempty(value) || throw(ArgumentError(
@@ -20,6 +22,16 @@ function validate_slug(value, label::AbstractString, source::AbstractString)
     ))
     occursin(SLUG_PATTERN, value) || throw(ArgumentError(
         "$label $(repr(value)) must contain lowercase words separated by hyphens"
+    ))
+    return value
+end
+
+function validate_presentation_slug(value, source::AbstractString)
+    value isa AbstractString && !isempty(value) || throw(ArgumentError(
+        "presentation slug in $(basename(source)) must be a non-empty string"
+    ))
+    occursin(PRESENTATION_SLUG_PATTERN, value) || throw(ArgumentError(
+        "presentation slug $(repr(value)) must contain URL-safe words separated by hyphens"
     ))
     return value
 end
@@ -46,6 +58,42 @@ function validate_deck_page(page, deck_id::AbstractString, source::AbstractStrin
         "page build entry in deck $(repr(deck_id)) must be a function"
     ))
     return page
+end
+
+function validate_preflight_resource(resource, deck_id::AbstractString, source::AbstractString)
+    resource isa NamedTuple || throw(ArgumentError(
+        "deck $(repr(deck_id)) in $(basename(source)) contains a preflight resource that is not a named tuple"
+    ))
+    missing = filter(
+        field -> !hasproperty(resource, field),
+        REQUIRED_PREFLIGHT_RESOURCE_FIELDS
+    )
+    isempty(missing) || throw(ArgumentError(
+        "preflight resource in deck $(repr(deck_id)) is missing fields: $(join(missing, ", "))"
+    ))
+    validate_slug(resource.id, "preflight resource id", source)
+    resource.title isa AbstractString && !isempty(resource.title) ||
+        throw(ArgumentError(
+            "preflight resource title in deck $(repr(deck_id)) must be a non-empty string"
+        ))
+    resource.required isa Bool || throw(ArgumentError(
+        "preflight resource required flag in deck $(repr(deck_id)) must be true or false"
+    ))
+    resource.activate isa Function || throw(ArgumentError(
+        "preflight resource activate entry in deck $(repr(deck_id)) must be a function"
+    ))
+    snapshot = try
+        resource.state[]
+    catch
+        throw(ArgumentError(
+            "preflight resource state in deck $(repr(deck_id)) must be an observable"
+        ))
+    end
+    all(hasproperty(snapshot, field) for field in (:phase, :progress, :label)) ||
+        throw(ArgumentError(
+            "preflight resource state in deck $(repr(deck_id)) must expose phase, progress, and label"
+        ))
+    return resource
 end
 
 function validate_deck_descriptor(deck, source::AbstractString)
@@ -83,20 +131,35 @@ function validate_deck_descriptor(deck, source::AbstractString)
         "deck $(repr(deck.id)) must declare at least one page"
     ))
     pages = map(page -> validate_deck_page(page, deck.id, source), deck.pages)
+    resources = hasproperty(deck, :resources) ? deck.resources : ()
+    resources isa Tuple || resources isa AbstractVector ||
+        throw(ArgumentError(
+            "deck resources in $(basename(source)) must be a tuple or vector"
+        ))
+    resources = map(
+        resource -> validate_preflight_resource(resource, deck.id, source),
+        resources
+    )
     page_ids = getproperty.(pages, :id)
     duplicates = unique(filter(id -> count(==(id), page_ids) > 1, page_ids))
     isempty(duplicates) || throw(ArgumentError(
         "duplicate page ids in deck $(repr(deck.id)): $(join(duplicates, ", "))"
     ))
-    return merge(deck, (; pages = Tuple(pages), source = abspath(source)))
+    return merge(
+        deck,
+        (; pages = Tuple(pages), resources = Tuple(resources), source = abspath(source))
+    )
 end
 
-function load_deck_descriptors(directory::AbstractString = DECK_DIRECTORY)
+function load_deck_descriptors(
+        directory::AbstractString,
+        owner::Module = @__MODULE__
+)
     isdir(directory) || throw(ArgumentError("deck directory does not exist: $directory"))
     sources = sort(filter(path -> endswith(path, ".jl"), readdir(directory; join = true)))
     isempty(sources) && throw(ArgumentError("no Julia deck files found in $directory"))
     decks = map(sources) do source
-        validate_deck_descriptor(Base.include(@__MODULE__, source), source)
+        validate_deck_descriptor(Base.include(owner, source), source)
     end
     ids = getproperty.(decks, :id)
     duplicates = unique(filter(id -> count(==(id), ids) > 1, ids))
@@ -111,7 +174,7 @@ rendered_deck_pages(deck) = filter(page -> page.render, deck.pages)
 function select_rendered_decks(decks)
     rendered = filter(deck -> deck.render, decks)
     isempty(rendered) && throw(ArgumentError(
-        "no showcase decks are enabled; set `render = true` in at least one pages/*.jl file"
+        "no presentation decks are enabled; set `render = true` in at least one content/*.jl file"
     ))
     empty_decks = filter(deck -> isempty(rendered_deck_pages(deck)), rendered)
     isempty(empty_decks) || throw(ArgumentError(
@@ -128,8 +191,122 @@ function find_deck_page(id::AbstractString, deck)
     return only(filter(page -> page.id == id, deck.pages))
 end
 
-const DECK_DESCRIPTORS = load_deck_descriptors()
-const RENDERED_DECKS = select_rendered_decks(DECK_DESCRIPTORS)
+function presentation_resources(decks)
+    resources = Any[]
+    by_id = Dict{String, Any}()
+    for deck in decks, resource in deck.resources
+
+        if haskey(by_id, resource.id)
+            existing = by_id[resource.id]
+            existing.state === resource.state || throw(ArgumentError(
+                "preflight resource $(repr(resource.id)) is declared with conflicting state"
+            ))
+            continue
+        end
+        by_id[resource.id] = resource
+        push!(resources, resource)
+    end
+    return resources
+end
+
+function presentation_namespace(slug::AbstractString)
+    name = Symbol("PlaygroundPresentation_", replace(slug, '-' => '_'))
+    if isdefined(@__MODULE__, name)
+        return Base.invokelatest(getfield, @__MODULE__, name)
+    end
+    namespace = Core.eval(@__MODULE__, :(module $name end))
+    Core.eval(namespace, :(const PageAuthoring = $PageAuthoring))
+    return namespace
+end
+
+humanize_slug(slug::AbstractString) = uppercasefirst(replace(slug, '-' => ' '))
+
+function load_presentation_descriptor(
+        directory::AbstractString;
+        slug::AbstractString = basename(normpath(directory))
+)
+    validate_presentation_slug(slug, directory)
+    content = joinpath(directory, "content")
+    namespace = presentation_namespace(slug)
+    all_decks = load_deck_descriptors(content, namespace)
+    decks = select_rendered_decks(all_decks)
+    resources = presentation_resources(decks)
+    return (;
+        slug = string(slug),
+        title = humanize_slug(slug),
+        directory = abspath(directory),
+        content = abspath(content),
+        namespace,
+        all_decks,
+        decks,
+        resources
+    )
+end
+
+function load_presentation_descriptors(
+        directory::AbstractString = PRESENTATIONS_DIRECTORY
+)
+    isdir(directory) || throw(ArgumentError(
+        "presentations directory does not exist: $directory"
+    ))
+    directories = filter(readdir(directory; join = true)) do path
+        isdir(path) && occursin(PRESENTATION_SLUG_PATTERN, basename(path)) &&
+            isdir(joinpath(path, "content"))
+    end
+    isempty(directories) && throw(ArgumentError(
+        "no presentations found in $directory"
+    ))
+    presentations = load_presentation_descriptor.(sort(directories))
+    slugs = getproperty.(presentations, :slug)
+    duplicates = unique(filter(slug -> count(==(slug), slugs) > 1, slugs))
+    isempty(duplicates) || throw(ArgumentError(
+        "duplicate presentation slugs: $(join(duplicates, ", "))"
+    ))
+    return presentations
+end
+
+function find_presentation(slug::AbstractString, presentations)
+    return only(filter(presentation -> presentation.slug == slug, presentations))
+end
+
+const PRESENTATION_DESCRIPTORS = load_presentation_descriptors()
+const DEFAULT_PRESENTATION = let live_manual = findfirst(
+        presentation -> presentation.slug == "live-manual",
+        PRESENTATION_DESCRIPTORS
+    )
+    isnothing(live_manual) ? first(PRESENTATION_DESCRIPTORS) :
+    PRESENTATION_DESCRIPTORS[live_manual]
+end
+const DECK_DESCRIPTORS = DEFAULT_PRESENTATION.all_decks
+const RENDERED_DECKS = DEFAULT_PRESENTATION.decks
+
+required_resources(resources) = filter(resource -> resource.required, resources)
+
+function preflight_observable(session::Session, resources)
+    required = required_resources(resources)
+    isempty(required) && return Observable(preflight_summary(required))
+    states = getproperty.(required, :state)
+    return map((_...) -> preflight_summary(required), session, states...)
+end
+
+function activate_resources!(resources)
+    for resource in required_resources(resources)
+        phase = resource.state[].phase
+        phase === :hot && continue
+        phase ∉ (:cold, :error) && continue
+        try
+            resource.activate()
+        catch error
+            set_preflight!(
+                resource.state,
+                :error,
+                resource.state[].progress,
+                "Activation failed: $(sprint(showerror, error))"
+            )
+        end
+    end
+    return preflight_summary(resources)
+end
 
 function app_assets()
     return (
@@ -140,11 +317,10 @@ function app_assets()
     )
 end
 
-deck_route(deck, index::Integer) = index == 1 ? "/" : "/$(deck.id)"
-deck_href(deck, index::Integer) = index == 1 ? "./" : "./$(deck.id)"
-function deck_page_href(deck, deck_index::Integer, page)
-    "$(deck_href(deck, deck_index))#$(page.id)"
-end
+presentation_route(presentation, deck) = "/presentations/$(presentation.slug)/$(deck.id)"
+deck_href(deck) = "./$(deck.id)"
+deck_page_href(deck, page) = "$(deck_href(deck))#$(page.id)"
+home_href() = "../../"
 
 function deck_index(deck, decks)
     index = findfirst(candidate -> candidate.id == deck.id, decks)
@@ -152,25 +328,71 @@ function deck_index(deck, decks)
     return index
 end
 
-function deck_page_refs(decks)
+function deck_page_refs(decks; include_home::Bool = true)
     refs = NamedTuple[]
+    include_home && push!(refs,
+        (;
+            deck = nothing,
+            page = nothing,
+            deck_position = 0,
+            page_position = 0,
+            href = home_href()
+        ))
     for (deck_position, deck) in enumerate(decks)
         for (page_position, page) in enumerate(rendered_deck_pages(deck))
-            push!(refs, (; deck, page, deck_position, page_position))
+            push!(refs, (;
+                deck,
+                page,
+                deck_position,
+                page_position,
+                href = deck_page_href(deck, page)
+            ))
         end
     end
     return refs
 end
 
 function deck_page_ref_index(deck, page, refs)
-    index = findfirst(ref -> ref.deck.id == deck.id && ref.page.id == page.id, refs)
+    index = findfirst(
+        ref -> !isnothing(ref.deck) &&
+               ref.deck.id == deck.id && ref.page.id == page.id,
+        refs
+    )
     isnothing(index) && throw(ArgumentError(
         "page $(repr(page.id)) in deck $(repr(deck.id)) is not rendered"
     ))
     return index
 end
 
-function navigation(assets, decks, current_deck, current_page)
+function navigation(
+        assets,
+        presentation,
+        decks,
+        current_deck,
+        current_page
+)
+    home_active = isnothing(presentation)
+    home_group = DOM.div(
+        DOM.p("Playground"; class = "lc-nav-group-title"),
+        DOM.ul(
+            DOM.li(
+                DOM.a(
+                "Home";
+                href = home_active ? "./" : home_href(),
+                class = home_active ? "lc-nav-entry lc-nav-home-entry is-active" :
+                        "lc-nav-entry lc-nav-home-entry",
+                dataDeckId = "home",
+                dataDeckTitle = "Playground",
+                dataPageId = "home",
+                dataPageTitle = "Home",
+                ariaCurrent = home_active ? "page" : "false"
+            )
+            );
+            class = "lc-nav-list"
+        );
+        class = "lc-nav-group lc-nav-home-group",
+        dataNavGroup = "Playground"
+    )
     groups = unique(deck.group for deck in decks)
     group_nodes = map(groups) do group
         deck_nodes = map(
@@ -182,7 +404,7 @@ function navigation(assets, decks, current_deck, current_page)
                 DOM.li(
                     DOM.a(
                     page.title;
-                    href = deck_page_href(deck, deck_position, page),
+                    href = deck_page_href(deck, page),
                     class = active ? "lc-nav-entry is-active" : "lc-nav-entry",
                     dataDeckId = deck.id,
                     dataDeckTitle = deck.title,
@@ -192,11 +414,13 @@ function navigation(assets, decks, current_deck, current_page)
                 )
                 )
             end
-            length(pages) == 1 && return first(page_entries)
+            expand_navigation = length(pages) > 1 ||
+                                get(deck, :expand_navigation, false)
+            !expand_navigation && return first(page_entries)
             return DOM.li(
                 DOM.a(
                     deck.title;
-                    href = deck_page_href(deck, deck_position, first(pages)),
+                    href = deck_page_href(deck, first(pages)),
                     class = "lc-nav-deck-entry",
                     dataDeckId = deck.id
                 ),
@@ -217,7 +441,7 @@ function navigation(assets, decks, current_deck, current_page)
             DOM.img(; src = assets.logo, alt = "", class = "lc-brand-logo"),
             DOM.div(
                 DOM.strong("LineCableModels.jl"),
-                DOM.span("Live manual");
+                DOM.span("Playground");
                 class = "lc-brand-copy"
             );
             class = "lc-sidebar-header"
@@ -233,13 +457,14 @@ function navigation(assets, decks, current_deck, current_page)
             class = "lc-search"
         ),
         DOM.nav(
+            home_group,
             group_nodes...;
             id = "page-navigation",
             class = "lc-sidebar-nav",
-            ariaLabel = "Manual decks and pages"
+            ariaLabel = "Playground and presentation pages"
         ),
         DOM.div(
-            DOM.span("Bonito showcase"),
+            DOM.span("LineCableModels playground"),
             DOM.span("Bonito · WGLMakie");
             class = "lc-sidebar-footer"
         );
@@ -261,29 +486,44 @@ function page_control(label; id, target, title, aria_label)
     return DOM.a(
         label;
         id,
-        href = deck_page_href(target.deck, target.deck_position, target.page),
+        href = target.href,
         class = "lc-navbar-button",
         title,
         ariaLabel = aria_label
     )
 end
 
-function navbar(decks, current_deck, current_page; preparing::Bool = false)
-    refs = deck_page_refs(decks)
-    current_index = deck_page_ref_index(current_deck, current_page, refs)
+function navbar(
+        presentation,
+        decks,
+        current_deck,
+        current_page;
+        preparing::Bool = false
+)
+    home = isnothing(presentation)
+    refs = home ?
+           [(;
+        deck = nothing,
+        page = nothing,
+        deck_position = 0,
+        page_position = 0,
+        href = "./"
+    )] : deck_page_refs(decks)
+    current_index = home ? 1 : deck_page_ref_index(current_deck, current_page, refs)
     previous = current_index == 1 ? nothing : refs[current_index - 1]
     next = current_index == length(refs) ? nothing : refs[current_index + 1]
-    return DOM.header(
-        DOM.button(
-            "☰";
-            id = "lc-sidebar-toggle",
-            class = "lc-sidebar-toggle",
-            type = "button",
-            ariaLabel = "Toggle page navigation",
-            ariaControls = "lc-sidebar",
-            ariaExpanded = "true"
-        ),
-        DOM.nav(
+    breadcrumb = if home
+        (
+            DOM.span(
+                "Playground";
+                id = "lc-current-group",
+                class = "lc-breadcrumb-parent"
+            ),
+            DOM.span("›"; class = "lc-breadcrumb-separator", ariaHidden = "true"),
+            DOM.span("Home"; id = "lc-current-title")
+        )
+    else
+        (
             DOM.span(
                 current_deck.group;
                 id = "lc-current-group",
@@ -296,7 +536,21 @@ function navbar(decks, current_deck, current_page; preparing::Bool = false)
                 class = "lc-breadcrumb-parent"
             ),
             DOM.span("›"; class = "lc-breadcrumb-separator", ariaHidden = "true"),
-            DOM.span(current_page.title; id = "lc-current-title");
+            DOM.span(current_page.title; id = "lc-current-title")
+        )
+    end
+    return DOM.header(
+        DOM.button(
+            "☰";
+            id = "lc-sidebar-toggle",
+            class = "lc-sidebar-toggle",
+            type = "button",
+            ariaLabel = "Toggle page navigation",
+            ariaControls = "lc-sidebar",
+            ariaExpanded = "true"
+        ),
+        DOM.nav(
+            breadcrumb...;
             class = "lc-breadcrumb",
             ariaLabel = "Current page"
         ),
@@ -342,7 +596,8 @@ function navbar(decks, current_deck, current_page; preparing::Bool = false)
             ariaLabel = "Page controls"
         ),
         DOM.span(
-            preparing ? "Preparing application case" : "Interactive showcase";
+            home ? "Dynamic publisher" :
+            preparing ? "Preparing presentation" : presentation.title;
             class = "lc-navbar-status"
         );
         class = "lc-navbar"
@@ -351,6 +606,7 @@ end
 
 function documenter_shell(
         assets,
+        presentation,
         decks,
         current_deck,
         current_page,
@@ -358,7 +614,7 @@ function documenter_shell(
         preparing::Bool = false
 )
     main = DOM.main(
-        navbar(decks, current_deck, current_page; preparing),
+        navbar(presentation, decks, current_deck, current_page; preparing),
         DOM.div(manual_root; class = "lc-page-frame");
         class = "lc-main"
     )
@@ -366,11 +622,16 @@ function documenter_shell(
         assets.lato_css,
         assets.julia_mono_css,
         DOM.style(assets.app_css),
-        navigation(assets, decks, current_deck, current_page),
+        navigation(assets, presentation, decks, current_deck, current_page),
         main;
         id = "lc-live-docs",
-        class = preparing ? "lc-documenter is-preparing" : "lc-documenter",
-        dataCurrentDeckId = current_deck.id,
+        class = PageAuthoring.classes(
+            "lc-documenter",
+            isnothing(presentation) ? "is-home" : "",
+            preparing ? "is-preparing" : ""
+        ),
+        dataCurrentDeckId = isnothing(current_deck) ? "home" : current_deck.id,
+        dataPresentationSlug = isnothing(presentation) ? "" : presentation.slug,
         ariaBusy = string(preparing)
     )
 end
@@ -405,14 +666,18 @@ function render_deck_pages(session::Session, deck)
     return (; nodes = rendered, state)
 end
 
-function preparation_page(session::Session, deck, page)
+function preparation_page(session::Session, deck, page, state)
     body = slide(
         deck.title,
         article(md"""
         This deck is waiting for its process-wide numerical model. The server remains responsive and this status is updated from the actual Julia preparation phases.
         """),
-        preparation_status(session);
-        lede = md"The application case is being prepared once and will be reused by every deck session."
+        preparation_status(
+            session;
+            state,
+            title = "Activating presentation resources"
+        );
+        lede = md"Preparation runs once for the server process and the ready model is reused by later deck sessions."
     )
     return DOM.section(
         body...;
@@ -427,11 +692,11 @@ function preparation_page(session::Session, deck, page)
     )
 end
 
-function bind_preparation_reload(session::Session)
+function bind_preparation_reload(session::Session, state)
     ready = map(
-        state -> state.phase === :ready,
+        snapshot -> snapshot.phase === :hot,
         session,
-        preparation_state()
+        state
     )
     Bonito.onjs(
         session,
@@ -453,12 +718,12 @@ function bind_shell_behavior(session::Session, root)
         session, root,
         js"""
 (root) => {
-    if (root.__lineCableManual) {
+    if (root.__lineCablePlayground) {
         return;
     }
 
-    root.__lineCableManual = true;
-    const manualRoot = root.querySelector("#linecable-app");
+    root.__lineCablePlayground = true;
+    const manualRoot = root.querySelector("#playground-app");
     const search = root.querySelector("#page-search");
     const sidebarToggle = root.querySelector("#lc-sidebar-toggle");
     const previousLink = root.querySelector("#lc-previous-page");
@@ -476,7 +741,7 @@ function bind_shell_behavior(session::Session, root)
     );
     const mobileSidebar = window.matchMedia("(max-width: 56rem)");
     const visualViewport = window.visualViewport;
-    const presentationModeKey = "linecable:presentation-mode";
+    const presentationModeKey = "linecable:playground:presentation-mode";
     let touchStart = null;
     let firstViewportFrame = 0;
     let secondViewportFrame = 0;
@@ -749,75 +1014,124 @@ function bind_shell_behavior(session::Session, root)
     });
 
     printButton.addEventListener("click", () => window.print());
-    root.dataset.manualState = "ready";
+    root.dataset.playgroundState = "ready";
 }
 """
     )
     return root
 end
 
-function manual(session::Session, assets, deck; decks = RENDERED_DECKS)
-    decks = select_rendered_decks(decks)
+function presentation_manual(session::Session, assets, presentation, deck)
+    decks = select_rendered_decks(presentation.decks)
     deck_index(deck, decks)
     pages = rendered_deck_pages(deck)
     current_page = first(pages)
-    preparing = hasproperty(deck, :ready) && !deck.ready()
+    resources = required_resources(deck.resources)
+    preflight = preflight_observable(session, resources)
+    preparing = !preflight_ready(preflight)
+    preparing && activate_resources!(resources)
     rendered = preparing ?
                (;
-        nodes = [preparation_page(session, deck, current_page)], state = nothing) :
+        nodes = [preparation_page(session, deck, current_page, preflight)], state = nothing) :
                render_deck_pages(session, deck)
     page_nodes = DOM.div(
         rendered.nodes...;
-        id = "linecable-pages",
+        id = "playground-pages",
         class = "lc-pages"
     )
     manual_root = DOM.div(
         page_nodes;
-        id = "linecable-app",
+        id = "playground-app",
         class = "lc-manual",
         tabindex = "0",
-        ariaLabel = "LineCableModels live manual pages"
+        ariaLabel = "LineCableModels playground presentation pages"
     )
     root = documenter_shell(
         assets,
+        presentation,
         decks,
         deck,
         current_page,
         manual_root;
         preparing
     )
-    preparing && bind_preparation_reload(session)
+    preparing && bind_preparation_reload(session, preflight)
     return bind_shell_behavior(session, root)
 end
 
-function cable_app(
+function playground_home(session::Session, assets, presentations)
+    result = PlaygroundHome.build(session, presentations, assets)
+    body = result.body isa Tuple ? result.body : (result.body,)
+    page = DOM.section(
+        body...;
+        id = "home-page-home",
+        class = "lc-page lc-home-page lc-fill-page is-active",
+        dataDeckId = "home",
+        dataDeckTitle = "Playground",
+        dataPageId = "home",
+        dataPageTitle = "Home",
+        dataPageIndex = "1",
+        ariaHidden = "false"
+    )
+    page_nodes = DOM.div(page; id = "playground-pages", class = "lc-pages")
+    manual_root = DOM.div(
+        page_nodes;
+        id = "playground-app",
+        class = "lc-manual",
+        tabindex = "0",
+        ariaLabel = "LineCableModels playground home"
+    )
+    root = documenter_shell(
+        assets,
+        nothing,
+        (),
+        nothing,
+        nothing,
+        manual_root
+    )
+    return bind_shell_behavior(session, root)
+end
+
+function playground_app(
         assets = app_assets();
-        decks = RENDERED_DECKS,
-        deck = first(select_rendered_decks(decks))
+        presentations = PRESENTATION_DESCRIPTORS,
+        presentation = nothing,
+        deck = nothing
 )
-    decks = select_rendered_decks(decks)
+    title = isnothing(presentation) ? "LineCableModels playground" :
+            "$(presentation.title) · LineCableModels playground"
     return App(
-        session -> manual(session, assets, deck; decks);
-        title = "LineCableModels live manual",
+        session -> isnothing(presentation) ?
+                   playground_home(session, assets, presentations) :
+                   presentation_manual(session, assets, presentation, deck);
+        title,
         indicator = ConnectionIndicator(; size = 8, top = "20px", right = "16px")
     )
 end
 
-function cable_routes(
+function playground_routes(
         assets = app_assets();
-        decks = RENDERED_DECKS
+        presentations = PRESENTATION_DESCRIPTORS
 )
-    decks = select_rendered_decks(decks)
-    pairs = map(enumerate(decks)) do (index, deck)
-        deck_route(deck, index) => cable_app(assets; decks, deck)
+    pairs = Pair{String, App}[
+    "/" => playground_app(assets; presentations)
+]
+    for presentation in presentations, deck in presentation.decks
+
+        push!(
+            pairs,
+            presentation_route(presentation,
+                deck) => playground_app(
+                assets;
+                presentations,
+                presentation,
+                deck
+            )
+        )
     end
     return Routes(pairs...)
 end
 
-function start_deck_preparations!(decks = RENDERED_DECKS)
-    decks = select_rendered_decks(decks)
-    return map(
-        deck -> hasproperty(deck, :prepare) ? deck.prepare() : nothing,
-        decks
-    )
+function start_presentation_preparations!(presentation)
+    return activate_resources!(presentation.resources)
 end

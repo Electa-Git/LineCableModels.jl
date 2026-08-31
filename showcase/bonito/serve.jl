@@ -1,9 +1,5 @@
 using LineCableModels
-import PowerImpedance
 using Bonito
-using GraphMakie
-using Graphs
-using NetworkLayout
 using WGLMakie
 
 WGLMakie.activate!()
@@ -15,7 +11,7 @@ function browser_target(arguments)
     target_index = open_index + 1
     target = target_index <= length(arguments) &&
              !startswith(arguments[target_index], "--") ?
-             arguments[target_index] : "/#overview"
+             arguments[target_index] : "/"
     startswith(target, "/") || (target = "/$target")
     return target
 end
@@ -41,11 +37,10 @@ host = get(ENV, "HOST", "127.0.0.1")
 port = parse(Int, get(ENV, "PORT", "8080"))
 proxy_url = get(ENV, "PROXY_URL", ".")
 server = Bonito.Server(host, port; proxy_url)
-Bonito.route!(server, cable_routes())
-println("Showcase listening at $(Bonito.online_url(server, "/"))")
+Bonito.route!(server, playground_routes())
+println("LineCableModels playground listening at $(Bonito.online_url(server, "/"))")
 target = browser_target(ARGS)
 isnothing(target) || open_default_browser(Bonito.online_url(server, target))
-start_deck_preparations!()
 
 Base.exit_on_sigint(false)
 server_task = @async wait(server)

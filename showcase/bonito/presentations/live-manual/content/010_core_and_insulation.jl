@@ -183,7 +183,7 @@ function build(session::Session, ::Nothing)
         kind = :controls
     )
     plot_part = webpart(
-        WGLMakie.WithConfig(plot.figure; resize_to = :parent);
+        wgl_figure(plot.figure);
         kind = :plot,
         id = "cable-plot"
     )
@@ -218,7 +218,7 @@ const DECK = deck_descriptor(
     id = "core-and-insulation",
     group = "Cable design",
     title = "Core and insulation",
-    order = 20,
+    order = 10,
     render = true,
     pages = (
         deck_page(
