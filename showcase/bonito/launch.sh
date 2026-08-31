@@ -6,4 +6,4 @@ repository_directory="$(cd -- "${script_directory}/../.." && pwd)"
 target="${1:-/}"
 
 cd -- "${repository_directory}"
-exec julia --project="${script_directory}" "${script_directory}/serve.jl" --open "${target}"
+exec julia --threads=auto --project="${script_directory}" "${script_directory}/serve.jl" --open "${target}"

@@ -5,7 +5,6 @@ isdefined(@__MODULE__, :PowerImpedanceDiagramExt) || include(
 module OHLUGCTransitionPage
 
 using Bonito
-using Distributed
 using GraphMakie
 using Graphs
 using Makie
@@ -33,7 +32,6 @@ const REFERENCE_POWERFLOW_GENERATION = Ref(0)
 const REFERENCE_POWERFLOW_LOCK = ReentrantLock()
 const PREPARED_CASE = Ref{Any}(nothing)
 const PREPARATION_TASK = Ref{Union{Nothing, Task}}(nothing)
-const PREPARATION_WORKER = Ref{Union{Nothing, Int}}(nothing)
 const PREPARATION_LOCK = ReentrantLock()
 const PREFLIGHT_STATE = preflight_state(
     label = "Power flow and linearization not activated"
@@ -383,34 +381,10 @@ function start_preparation!()
         )
 
         PREPARATION_TASK[] = @async begin
-            worker = nothing
             try
-                project = Base.active_project()
-                flags = ["--project=$(dirname(project))", "--startup-file=no"]
-                worker = only(addprocs(1; exeflags = flags))
-                PREPARATION_WORKER[] = worker
-
-                imports = quote
-                    using LineCableModels
-                    import PowerImpedance
-                    using Bonito
-                    using GraphMakie
-                    using Graphs
-                    using NetworkLayout
-                    using WGLMakie
-                    WGLMakie.activate!()
-                end
-                remotecall_wait(Core.eval, worker, Main, imports)
-                remotecall_wait(
-                    Base.include,
-                    worker,
-                    Main,
-                    abspath(joinpath(@__DIR__, "..", "..", "..", "app.jl"))
-                )
-
-                updates = RemoteChannel(() -> Channel{NamedTuple}(16), 1)
-                future = remotecall(compute_prepared_case, worker, updates)
-                while !isready(future)
+                updates = Channel{NamedTuple}(16)
+                calculation = Threads.@spawn compute_prepared_case(updates)
+                while !istaskdone(calculation)
                     while isready(updates)
                         state = take!(updates)
                         set_preflight!(
@@ -431,7 +405,7 @@ function start_preparation!()
                         state.label
                     )
                 end
-                PREPARED_CASE[] = fetch(future)
+                PREPARED_CASE[] = fetch(calculation)
                 set_preflight!(
                     PREFLIGHT_STATE,
                     :hot,
@@ -444,18 +418,6 @@ function start_preparation!()
                     error,
                     catch_backtrace()
                 )
-            finally
-                if !isnothing(worker) && worker in workers()
-                    try
-                        rmprocs(worker)
-                    catch error
-                        @warn "Could not stop the numerical-preparation worker" exception = (
-                            error,
-                            catch_backtrace()
-                        )
-                    end
-                end
-                PREPARATION_WORKER[] = nothing
             end
         end
         errormonitor(PREPARATION_TASK[])
@@ -488,41 +450,76 @@ function harmonic_curve(response; node = :B5)
     )
 end
 
-function transition_color(share::Real)
-    amount = clamp(Float32(share), 0.0f0, 1.0f0)
-    return RGBf(
-        (1 - amount) * OHL_COLOR.r + amount * UGC_COLOR.r,
-        (1 - amount) * OHL_COLOR.g + amount * UGC_COLOR.g,
-        (1 - amount) * OHL_COLOR.b + amount * UGC_COLOR.b
-    )
-end
-
-function corridor_edge_indices(diagram)
+function corridor_edge_indices(diagram, element::Union{Nothing, Symbol} = nothing)
     indices = Int[]
     for (index, edge) in enumerate(Graphs.edges(diagram.model.graph))
         left = diagram.model.vertex_keys[Graphs.src(edge)]
         right = diagram.model.vertex_keys[Graphs.dst(edge)]
         component = hasproperty(left, :element) ? left : right
-        component.element in CORRIDOR_ELEMENTS && push!(indices, index)
+        selected = isnothing(element) ?
+                   component.element in CORRIDOR_ELEMENTS :
+                   component.element === element
+        selected && push!(indices, index)
     end
     return indices
 end
 
-function color_corridor!(diagram, share::Real)
-    color = transition_color(share)
-    corridor_edges = corridor_edge_indices(diagram)
+function diagram_bus_key(diagram, node::Symbol)
+    return only(bus.key for bus in diagram.model.buses if node in bus.nodes)
+end
+
+function diagram_component_key(diagram, element::Symbol)
+    return only(
+        component.key for component in diagram.model.components
+        if component.key.element === element
+    )
+end
+
+function style_corridor!(diagram)
     edge_colors = copy(diagram.plots.graph.edge_color[])
-    edge_colors[corridor_edges] .= color
-    diagram.plots.graph.edge_color[] = edge_colors
     edge_widths = copy(diagram.plots.graph.edge_width[])
-    edge_widths[corridor_edges] .= 6.0f0
+    for (element, color) in ((:ohl, OHL_COLOR), (:ugc, UGC_COLOR))
+        indices = corridor_edge_indices(diagram, element)
+        edge_colors[indices] .= color
+        edge_widths[indices] .= 6.0f0
+    end
+    diagram.plots.graph.edge_color[] = edge_colors
     diagram.plots.graph.edge_width[] = edge_widths
     for (component, plot) in zip(diagram.model.components, diagram.plots.components)
-        component.key.element in CORRIDOR_ELEMENTS || continue
+        color = component.key.element === :ohl ? OHL_COLOR :
+                component.key.element === :ugc ? UGC_COLOR : nothing
+        isnothing(color) && continue
         plot.color[] = color
         plot.strokecolor[] = color
     end
-    return color
+    return diagram
+end
+
+function position_corridor!(diagram, share::Real)
+    share = normalized_share(share)
+    b4 = diagram_bus_key(diagram, :B4)
+    bx = diagram_bus_key(diagram, :BX)
+    b5 = diagram_bus_key(diagram, :B5)
+    ugc = diagram_component_key(diagram, :ugc)
+    ohl = diagram_component_key(diagram, :ohl)
+    start_position = diagram.positions[b4]
+    end_position = diagram.positions[b5]
+    transition_position = start_position + share * (end_position - start_position)
+    PowerImpedanceDiagramExt.update_positions!(
+        diagram,
+        Dict(
+            bx => transition_position,
+            ugc => (start_position + transition_position) / 2,
+            ohl => (transition_position + end_position) / 2
+        )
+    )
+    return diagram
+end
+
+function update_corridor_diagram!(diagram, share::Real)
+    style_corridor!(diagram)
+    position_corridor!(diagram, share)
+    return diagram
 end
 
 function use_node_labels!(diagram)
@@ -582,7 +579,12 @@ function build_runtime(;
         frequency_range = DEFAULT_FREQUENCY_RANGE
 )
     prepared = prepared_case()
-    network, network_model = deepcopy((prepared.network, prepared.network_model))
+    network = deepcopy(prepared.network)
+    # Rebuild the lightweight frequency model once so its passive-element
+    # closures capture this session's mutable network. Deep-copying the
+    # FunctionWrapper-backed model leaves those closures bound to the prepared
+    # network and makes subsequent length changes numerically invisible.
+    network_model = linearized_network(network, prepared.powerflow)
     set_corridor_lengths!(network, initial_share)
     response = if initial_share == DEFAULT_SHARE &&
                   frequency_range == DEFAULT_FREQUENCY_RANGE
@@ -610,7 +612,7 @@ function build_runtime(;
     use_node_labels!(diagram)
     diagram.axis.aspect[] = nothing
     diagram.axis.backgroundcolor[] = CANVAS_COLOR
-    color_corridor!(diagram, initial_share)
+    update_corridor_diagram!(diagram, initial_share)
 
     cache = Dict{Int, NamedTuple}(share_key(initial_share) => curve)
     return TransitionRuntime(
@@ -659,7 +661,7 @@ function update!(
         frequency_range = DEFAULT_FREQUENCY_RANGE
 )
     normalized_share = share_key(share) / 100
-    color_corridor!(runtime.diagram, normalized_share)
+    update_corridor_diagram!(runtime.diagram, normalized_share)
     return update_impedance!(runtime, normalized_share; frequency_range)
 end
 
@@ -682,7 +684,7 @@ function recache!(
         empty!(runtime.cache)
         runtime.cache[share_key(normalized_share)] = curve
         display_curve!(runtime, curve)
-        color_corridor!(runtime.diagram, normalized_share)
+        update_corridor_diagram!(runtime.diagram, normalized_share)
         runtime.share = normalized_share
         return curve
     end
@@ -706,7 +708,7 @@ function setup(session::Session)
     runtime = build_runtime()
     requested_share = slider.value
     color_observer = on(requested_share) do share
-        color_corridor!(runtime.diagram, normalized_share(share))
+        update_corridor_diagram!(runtime.diagram, normalized_share(share))
         return nothing
     end
     latest_share = async_latest(requested_share, 1)
@@ -867,7 +869,7 @@ function corridor_page(::Session, state)
         "Corridor composition",
         canvas;
         lede = md"""
-        Move the B4–B5 corridor from overhead line to underground cable. The line color follows the share without rebuilding the power-flow operating point.
+        Move the B4–B5 transition point without rebuilding the power-flow operating point. The blue UGC segment grows from B4 while the red OHL segment contracts toward B5.
         """
     ),)
 end

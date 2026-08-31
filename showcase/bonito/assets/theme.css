@@ -403,7 +403,7 @@ body {
   text-align: left;
 }
 
-.lc-manual .lc-pages > .lc-page {
+.lc-manual .lc-pages .lc-page {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -417,11 +417,11 @@ body {
   text-align: left;
 }
 
-.lc-manual .lc-pages > .lc-page.is-active {
+.lc-manual .lc-pages .lc-page.is-active {
   z-index: 11;
 }
 
-.lc-manual .lc-pages > .lc-page.lc-fill-page {
+.lc-manual .lc-pages .lc-page.lc-fill-page {
   display: grid;
   min-height: 0;
   grid-template-rows: auto minmax(0, 1fr);
@@ -686,7 +686,7 @@ body {
   color: var(--lc-muted);
 }
 
-.lc-manual .lc-pages > .lc-page.lc-title-page {
+.lc-manual .lc-pages .lc-page.lc-title-page {
   padding: clamp(1.5rem, 3vw, 3.5rem) clamp(1.75rem, 5vw, 6rem);
   overflow: hidden;
 }
@@ -777,6 +777,91 @@ body {
   max-width: min(9.5rem, 28vw);
   height: auto;
   max-height: 3.5rem;
+  object-fit: contain;
+}
+
+.lc-etch-introduction-page .lc-page-heading h1 {
+  color: #34ca71;
+}
+
+.lc-etch-introduction-page .lc-page-lede,
+.lc-etch-introduction-page .lc-page-lede > .markdown-body {
+  color: var(--lc-heading);
+}
+
+.lc-etch-roadmaps-canvas {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.lc-etch-roadmaps-canvas .lc-etch-roadmaps-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.lc-conclusion-slide .lc-conclusion-layout {
+  width: 100%;
+  height: 100% !important;
+  min-height: 0;
+}
+
+.lc-conclusion-slide .lc-conclusion-remarks {
+  display: flex;
+  min-height: 0;
+  padding: clamp(1.25rem, 2.2vw, 2.5rem);
+  align-items: center;
+}
+
+.lc-conclusion-slide .lc-conclusion-remarks .markdown-body {
+  width: 100%;
+}
+
+.lc-conclusion-slide .lc-conclusion-remarks li {
+  margin: 0 0 clamp(1rem, 2vh, 1.75rem);
+  font-size: calc(0.95 * var(--lc-type-unit));
+  line-height: 1.45;
+}
+
+.lc-conclusion-slide .lc-conclusion-remarks li:last-child {
+  margin-bottom: 0;
+}
+
+.lc-conclusion-slide .lc-conclusion-closing {
+  display: grid;
+  min-height: 0;
+  padding: clamp(0.8rem, 1.5vw, 1.4rem);
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(1.5rem, 3vw, 3rem);
+}
+
+.lc-conclusion-slide .lc-conclusion-closing h2 {
+  margin: 0 !important;
+  color: var(--lc-heading);
+  font-size: calc(1.35 * var(--lc-type-unit));
+  white-space: nowrap;
+}
+
+.lc-conclusion-slide .lc-conclusion-logos {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: center;
+  gap: clamp(1rem, 2vw, 2.5rem);
+}
+
+.lc-conclusion-slide .lc-conclusion-logos .lc-local-image {
+  width: 100%;
+  max-width: 13rem;
+  height: clamp(2.8rem, 7vh, 5.5rem);
+  max-height: none;
   object-fit: contain;
 }
 
@@ -1105,8 +1190,8 @@ body {
   overflow: hidden;
 }
 
-.lc-manual .lc-pages > .lc-interactive-slide,
-.lc-manual .lc-pages > .lc-application-slide {
+.lc-manual .lc-pages .lc-interactive-slide,
+.lc-manual .lc-pages .lc-application-slide {
   display: grid !important;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 1rem;
@@ -1300,6 +1385,214 @@ body {
   border: 0;
 }
 
+.lc-application-slide .lc-cable-constants-grid {
+  width: 100%;
+  height: 100% !important;
+  min-height: 0;
+  margin: 0;
+  align-self: stretch;
+}
+
+.lc-application-slide .lc-cable-constants-controls {
+  display: flex;
+  min-height: 0;
+  padding: clamp(0.75rem, 1.15vw, 1rem);
+  flex-direction: column;
+  overflow: auto;
+}
+
+.lc-application-slide .lc-cable-constants-controls .lc-control + .lc-control {
+  margin-top: 0.82rem;
+}
+
+.lc-application-slide .lc-cable-constants-controls .lc-values {
+  margin-top: 0.9rem !important;
+}
+
+.lc-application-slide .lc-geometry-envelope-key {
+  margin-top: 0.95rem;
+  flex-wrap: wrap;
+  row-gap: 0.55rem;
+}
+
+.lc-application-slide .lc-color-key-swatch.is-wire-envelope {
+  background: rgb(26 199 224);
+}
+
+.lc-application-slide .lc-color-key-swatch.is-insulation-envelope {
+  background: rgb(235 61 184);
+}
+
+.lc-application-slide .lc-geometry-envelope-caption {
+  margin: 0.85rem 0 0;
+  padding: 0.65rem 0.7rem;
+  color: var(--lc-muted);
+  font-size: calc(0.67 * var(--lc-type-unit));
+  line-height: 1.42;
+  background: rgb(255 255 255 / 3%);
+  border-left: 3px solid var(--lc-link);
+}
+
+.lc-application-slide .lc-geometry-envelope-controls .lc-action-button {
+  margin-top: 0.85rem;
+}
+
+.lc-application-slide .lc-cable-result-panel {
+  margin-top: 0.9rem;
+  padding: 0.7rem 0.75rem;
+  background: rgb(255 255 255 / 3%);
+  border: 1px solid var(--lc-border);
+}
+
+.lc-application-slide .lc-cable-result-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--lc-heading);
+  font-size: calc(0.74 * var(--lc-type-unit));
+}
+
+.lc-application-slide .lc-cable-result-heading span {
+  color: var(--lc-link);
+  font-family: "JuliaMono", monospace;
+  font-size: calc(0.68 * var(--lc-type-unit));
+  white-space: nowrap;
+}
+
+.lc-application-slide .lc-cable-result-panel .lc-cable-constants-values {
+  margin-top: 0.45rem !important;
+}
+
+.lc-application-slide .lc-cable-result-panel .lc-values dd {
+  color: var(--lc-heading);
+  font-size: calc(0.72 * var(--lc-type-unit));
+}
+
+.lc-application-slide .lc-cable-constants-status {
+  min-height: 1.3em;
+  margin: 0.75rem 0 0 !important;
+  overflow: hidden;
+  color: var(--lc-muted);
+  font-family: "JuliaMono", monospace;
+  font-size: calc(0.66 * var(--lc-type-unit)) !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lc-application-slide .lc-cable-constants-controls .lc-diagnostic {
+  margin-top: 0.45rem !important;
+}
+
+.lc-application-slide .lc-line-parameters-grid {
+  width: 100%;
+  height: 100% !important;
+  min-height: 0;
+}
+
+.lc-application-slide .lc-line-parameters-plot-host {
+  height: 100%;
+  min-height: 0;
+}
+
+.lc-application-slide .lc-line-parameters-controls {
+  gap: 0;
+  overflow: auto;
+}
+
+.lc-application-slide .lc-application-case-grid,
+.lc-application-slide .lc-application-case-side {
+  width: 100%;
+  height: 100% !important;
+  min-height: 0;
+}
+
+.lc-application-slide .lc-application-case-controls {
+  min-height: 0;
+  padding: clamp(0.75rem, 1vw, 1rem);
+  overflow: auto;
+}
+
+.lc-application-slide .lc-application-case-controls .lc-control + .lc-control {
+  margin-top: 0.85rem;
+}
+
+.lc-application-slide .lc-application-case-controls .lc-values {
+  margin-top: 0.8rem !important;
+}
+
+.lc-application-slide .lc-application-case-diagram-host,
+.lc-application-slide .lc-application-case-impedance-host {
+  height: 100%;
+  min-height: 0;
+}
+
+.lc-application-slide .lc-line-parameter-pair + .lc-line-parameter-pair {
+  margin-top: 0.72rem;
+  padding-top: 0.72rem;
+  border-top: 1px solid rgb(94 109 111 / 45%);
+}
+
+.lc-application-slide .lc-line-parameter-pair-values {
+  display: flex;
+  gap: 0.65rem;
+  align-items: baseline;
+}
+
+.lc-application-slide .lc-line-parameter-pair-values output {
+  color: var(--lc-link);
+  font-family: "JuliaMono", monospace;
+  font-size: calc(0.67 * var(--lc-type-unit));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.lc-application-slide .lc-line-parameter-pair-values output + output {
+  color: var(--lc-muted);
+}
+
+.lc-application-slide .lc-line-parameter-slider-pair {
+  display: grid;
+  margin-top: 0.38rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.lc-application-slide .lc-line-parameter-slider {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+  color: var(--lc-muted);
+  font-size: calc(0.57 * var(--lc-type-unit));
+  line-height: 1.1;
+}
+
+.lc-application-slide .lc-line-parameter-slider input[type="range"] {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--lc-focus);
+}
+
+.lc-application-slide .lc-line-parameter-caption {
+  margin: 0.72rem 0 0;
+  padding: 0.55rem 0.65rem;
+  color: var(--lc-muted);
+  background: rgb(255 255 255 / 3%);
+  border-left: 3px solid var(--lc-link);
+  font-size: calc(0.62 * var(--lc-type-unit));
+  line-height: 1.35;
+}
+
+.lc-application-slide .lc-line-parameters-controls .lc-values {
+  margin-top: 0.72rem !important;
+}
+
+.lc-application-slide .lc-line-parameters-controls .lc-action-button {
+  margin-top: 0.72rem;
+}
+
 .lc-application-slide .lc-transition-detail-grid,
 .lc-application-slide .lc-operating-grid {
   width: 100%;
@@ -1344,7 +1637,7 @@ body {
   white-space: nowrap;
 }
 
-.lc-manual .lc-pages > .lc-repl-slide {
+.lc-manual .lc-pages .lc-repl-slide {
   display: grid !important;
   min-height: 0;
   grid-template-rows: auto minmax(0, 1fr);
@@ -1447,7 +1740,7 @@ body {
     grid-template-columns: minmax(15rem, 2fr) minmax(0, 5fr);
   }
 
-  .lc-manual .lc-pages > .lc-page {
+  .lc-manual .lc-pages .lc-page {
     padding-inline: 1.25rem;
   }
 }
@@ -1479,11 +1772,11 @@ body {
     --lc-effective-height: var(--lc-stacked-height);
   }
 
-  .lc-manual .lc-pages > .lc-page {
+  .lc-manual .lc-pages .lc-page {
     padding: 1rem;
   }
 
-  .lc-manual .lc-pages > .lc-page.lc-fill-page {
+  .lc-manual .lc-pages .lc-page.lc-fill-page {
     display: block;
     overflow: auto;
     container-type: inline-size;
@@ -1498,7 +1791,7 @@ body {
     min-height: 42rem;
   }
 
-  .lc-manual .lc-pages > .lc-page.lc-title-page {
+  .lc-manual .lc-pages .lc-page.lc-title-page {
     padding: 1.25rem;
     overflow: auto;
   }
@@ -1541,9 +1834,9 @@ body {
     min-height: 34rem;
   }
 
-  .lc-manual .lc-pages > .lc-interactive-slide,
-  .lc-manual .lc-pages > .lc-application-slide,
-  .lc-manual .lc-pages > .lc-repl-slide {
+  .lc-manual .lc-pages .lc-interactive-slide,
+  .lc-manual .lc-pages .lc-application-slide,
+  .lc-manual .lc-pages .lc-repl-slide {
     display: block !important;
     overflow: auto;
   }
@@ -1645,8 +1938,8 @@ body {
     inset: auto;
   }
 
-  .lc-manual .lc-pages > .lc-page,
-  .lc-manual .lc-pages > .lc-page[hidden] {
+  .lc-manual .lc-pages .lc-page,
+  .lc-manual .lc-pages .lc-page[hidden] {
     position: relative;
     inset: auto;
     display: block !important;
@@ -1657,7 +1950,7 @@ body {
     break-after: page;
   }
 
-  .lc-manual .lc-pages > .lc-page:last-child {
+  .lc-manual .lc-pages .lc-page:last-child {
     break-after: auto;
   }
 }

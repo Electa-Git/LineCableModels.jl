@@ -141,20 +141,28 @@ end
 _bus_label(key::BusKey) = "$(key.domain == 1 ? "AC" : "DC") $(key.bus)"
 
 function _bus_plot!(axis, descriptor, position, style)
-    halfwidth = 0.13f0
+    points = _bus_points(descriptor, position)
     if descriptor.key.domain == 1
-        points = [position - Makie.Vec2f(halfwidth, 0),
-            position + Makie.Vec2f(halfwidth, 0)]
         return Makie.linesegments!(axis, points; color = style.ac_bus_color, linewidth = 8)
     end
+    return Makie.linesegments!(axis, points; color = style.dc_bus_color, linewidth = 4)
+end
+
+function _bus_points(descriptor, position)
+    halfwidth = 0.13f0
+    if descriptor.key.domain == 1
+        return [
+            position - Makie.Vec2f(halfwidth, 0),
+            position + Makie.Vec2f(halfwidth, 0)
+        ]
+    end
     offset = 0.025f0
-    points = [
+    return [
         position - Makie.Vec2f(halfwidth, offset),
         position + Makie.Vec2f(halfwidth, -offset),
         position - Makie.Vec2f(halfwidth, -offset),
         position + Makie.Vec2f(halfwidth, offset)
     ]
-    return Makie.linesegments!(axis, points; color = style.dc_bus_color, linewidth = 4)
 end
 
 function _component_appearance(component, style)
@@ -188,6 +196,59 @@ function _component_plot!(axis, component, position, style)
         color,
         strokecolor,
         strokewidth
+    )
+end
+
+const _ROLE_LABELS = Dict(
+    :ac_branch => "AC line / cable",
+    :converter => "Converter",
+    :dc_branch => "DC branch",
+    :generic => "Component",
+    :load => "Load",
+    :machine => "Machine",
+    :shunt => "Shunt",
+    :source => "Source",
+    :transformer => "Transformer"
+)
+
+function _legend_element(role::Symbol, style)
+    if role in (:ac_branch, :dc_branch)
+        color = role === :dc_branch ? style.dc_bus_color : style.line_color
+        return Makie.LineElement(color = color, linewidth = 3)
+    end
+    descriptor = (; role, active = true)
+    marker, markersize, color, strokecolor, strokewidth =
+        _component_appearance(descriptor, style)
+    return Makie.MarkerElement(
+        marker = marker,
+        markersize = max(markersize, 12),
+        color = color,
+        strokecolor = strokecolor,
+        strokewidth = strokewidth
+    )
+end
+
+function _component_legend!(figure, model, style)
+    roles = unique(
+        component.role for component in model.components
+        if component.active !== false
+    )
+    isempty(roles) && return nothing
+    elements = [_legend_element(role, style) for role in roles]
+    labels = [get(_ROLE_LABELS, role, string(role)) for role in roles]
+    return Makie.Legend(
+        figure[2, 1],
+        elements,
+        labels;
+        orientation = :horizontal,
+        nbanks = 1,
+        tellwidth = false,
+        framevisible = false,
+        labelcolor = style.label_color,
+        labelsize = 11,
+        padding = (0, 0, 0, 0),
+        patchsize = (22, 12),
+        colgap = 12
     )
 end
 
@@ -312,6 +373,7 @@ function _render_diagram_on_axis!(
         strokecolor = style.highlight_color,
         strokewidth = 2.5
     )
+    legend = _component_legend!(figure, model, style)
     Makie.translate!(GraphMakie.get_node_plot(graph_plot), 0, 0, 100)
 
     selected = Makie.Observable{Union{Nothing, BusKey, ComponentKey}}(nothing)
@@ -322,7 +384,8 @@ function _render_diagram_on_axis!(
         components = component_plots,
         bus_labels = bus_labels,
         component_labels = component_labels,
-        highlight = highlight_plot
+        highlight = highlight_plot,
+        legend
     )
     view = NetworkDiagram(
         figure,
@@ -347,6 +410,41 @@ function _render_diagram_on_axis!(
         )
     end
     Makie.autolimits!(axis)
+    return view
+end
+
+"""Update selected diagram entity positions without rebuilding its Makie scene."""
+function update_positions!(view::NetworkDiagram, updates; autolimits::Bool = false)
+    for (raw_key, raw_position) in pairs(updates)
+        key = _external_position_key(raw_key)
+        haskey(view.positions, key) || throw(KeyError(key))
+        view.positions[key] = _point2(raw_position, raw_key)
+    end
+
+    position_vector = [view.positions[key] for key in view.model.vertex_keys]
+    view.plots.graph.layout[] = position_vector
+
+    for (descriptor, plot, label) in zip(
+            view.model.buses,
+            view.plots.buses,
+            view.plots.bus_labels
+    )
+        position = view.positions[descriptor.key]
+        Makie.update!(plot; arg1 = _bus_points(descriptor, position))
+        Makie.update!(label; arg1 = [position + Makie.Vec2f(0, 0.09)])
+    end
+    for (descriptor, plot, label) in zip(
+            view.model.components,
+            view.plots.components,
+            view.plots.component_labels
+    )
+        position = view.positions[descriptor.key]
+        Makie.update!(plot; arg1 = [position])
+        Makie.update!(label; arg1 = [position + Makie.Vec2f(0, 0.055)])
+    end
+    selected = view.selected[]
+    selected === nothing || (view.highlight[] = [view.positions[selected]])
+    autolimits && Makie.autolimits!(view.axis)
     return view
 end
 

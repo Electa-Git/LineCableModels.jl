@@ -632,6 +632,7 @@ function documenter_shell(
         ),
         dataCurrentDeckId = isnothing(current_deck) ? "home" : current_deck.id,
         dataPresentationSlug = isnothing(presentation) ? "" : presentation.slug,
+        dataPresentationTitle = isnothing(presentation) ? "" : presentation.title,
         ariaBusy = string(preparing)
     )
 end
@@ -692,28 +693,11 @@ function preparation_page(session::Session, deck, page, state)
     )
 end
 
-function bind_preparation_reload(session::Session, state)
-    ready = map(
-        snapshot -> snapshot.phase === :hot,
-        session,
-        state
-    )
-    Bonito.onjs(
-        session,
-        ready,
-        js"""
-isReady => {
-    if (isReady) {
-        window.location.reload();
-    }
-}
-"""
-    )
-    notify(ready)
-    return ready
-end
-
-function bind_shell_behavior(session::Session, root)
+function bind_shell_behavior(
+        session::Session,
+        root,
+        selected_deck_id = Observable("home")
+)
     Bonito.onload(
         session, root,
         js"""
@@ -724,6 +708,7 @@ function bind_shell_behavior(session::Session, root)
 
     root.__lineCablePlayground = true;
     const manualRoot = root.querySelector("#playground-app");
+    const selectedDeck = $(selected_deck_id);
     const search = root.querySelector("#page-search");
     const sidebarToggle = root.querySelector("#lc-sidebar-toggle");
     const previousLink = root.querySelector("#lc-previous-page");
@@ -731,17 +716,20 @@ function bind_shell_behavior(session::Session, root)
     const fullscreenToggle = root.querySelector("#lc-fullscreen-toggle");
     const printButton = root.querySelector("#lc-print");
     const currentTitle = root.querySelector("#lc-current-title");
+    const navbarStatus = root.querySelector(".lc-navbar-status");
     const pagePosition = root.querySelector("#lc-page-position");
     const navEntries = Array.from(root.querySelectorAll(".lc-nav-entry"));
     const navGroups = Array.from(root.querySelectorAll(".lc-nav-group"));
-    const deckSections = Array.from(manualRoot.querySelectorAll(".lc-page"));
-    const currentDeckId = root.dataset.currentDeckId;
-    const currentDeckEntries = navEntries.filter(
+    const deckSections = () => Array.from(manualRoot.querySelectorAll(".lc-page"));
+    const currentDeckEntries = () => navEntries.filter(
         (entry) => entry.dataset.deckId === currentDeckId
     );
     const mobileSidebar = window.matchMedia("(max-width: 56rem)");
     const visualViewport = window.visualViewport;
     const presentationModeKey = "linecable:playground:presentation-mode";
+    let currentDeckId = root.dataset.currentDeckId;
+    let requestedPageId = null;
+    let contentObserver = null;
     let touchStart = null;
     let firstViewportFrame = 0;
     let secondViewportFrame = 0;
@@ -789,8 +777,10 @@ function bind_shell_behavior(session::Session, root)
     const releaseViewport = () => {
         window.removeEventListener("resize", settleViewport);
         window.removeEventListener("hashchange", activateDeckPage);
+        window.removeEventListener("popstate", synchronizeHistory);
         visualViewport?.removeEventListener("resize", settleViewport);
         resolutionQuery?.removeEventListener("change", handleResolutionChange);
+        contentObserver?.disconnect();
         cancelAnimationFrame(firstViewportFrame);
         cancelAnimationFrame(secondViewportFrame);
         clearTimeout(viewportTimer);
@@ -802,13 +792,67 @@ function bind_shell_behavior(session::Session, root)
     bindResolutionQuery();
     settleViewport();
 
+    const entryForLink = (link) => {
+        if (!(link instanceof HTMLAnchorElement) || !link.href) {
+            return null;
+        }
+        if (link.classList.contains("lc-nav-entry")) {
+            return link;
+        }
+        const target = new URL(link.href, window.location.href);
+        return navEntries.find((entry) => {
+            const candidate = new URL(entry.href, window.location.href);
+            return candidate.pathname === target.pathname &&
+                candidate.hash === target.hash;
+        }) || null;
+    };
+
+    const navigateToEntry = (entry, pushHistory = true) => {
+        if (!(entry instanceof HTMLAnchorElement) || !entry.href) {
+            return;
+        }
+        const targetDeckId = entry.dataset.deckId;
+        if (!targetDeckId || targetDeckId === "home") {
+            window.location.assign(entry.href);
+            return;
+        }
+        const targetPageId = entry.dataset.pageId;
+        if (targetDeckId === currentDeckId) {
+            if (window.location.hash !== `#${targetPageId}`) {
+                window.location.hash = targetPageId;
+            } else {
+                activateDeckPage();
+            }
+            return;
+        }
+
+        const target = new URL(entry.href, window.location.href);
+        requestedPageId = targetPageId;
+        currentDeckId = targetDeckId;
+        root.dataset.currentDeckId = currentDeckId;
+        root.setAttribute("aria-busy", "true");
+        currentTitle.textContent = "Loading…";
+        if (navbarStatus) {
+            navbarStatus.textContent = "Opening deck";
+        }
+        if (pushHistory) {
+            window.history.pushState(
+                { deckId: targetDeckId, pageId: targetPageId },
+                "",
+                `${target.pathname}${target.search}#${targetPageId}`
+            );
+        }
+        selectedDeck.notify(targetDeckId);
+    };
+
     const navigate = (link) => {
         if (
             link instanceof HTMLAnchorElement &&
             link.href &&
             link.getAttribute("aria-disabled") !== "true"
         ) {
-            window.location.assign(link.href);
+            const entry = entryForLink(link);
+            entry ? navigateToEntry(entry) : window.location.assign(link.href);
         }
     };
 
@@ -828,14 +872,20 @@ function bind_shell_behavior(session::Session, root)
     };
 
     const activateDeckPage = () => {
-        const requestedId = decodeURIComponent(window.location.hash.slice(1));
-        const section = deckSections.find((candidate) =>
+        const sections = deckSections();
+        const requestedId = requestedPageId ||
+            decodeURIComponent(window.location.hash.slice(1));
+        const section = sections.find((candidate) =>
             candidate.dataset.pageId === requestedId
-        ) || deckSections[0];
+        ) || sections[0];
         if (!section) {
             return;
         }
-        deckSections.forEach((candidate) => {
+        if (section.dataset.deckId !== currentDeckId) {
+            return;
+        }
+        requestedPageId = null;
+        sections.forEach((candidate) => {
             const active = candidate === section;
             candidate.hidden = !active;
             candidate.classList.toggle("is-active", active);
@@ -849,11 +899,26 @@ function bind_shell_behavior(session::Session, root)
         });
         currentTitle.textContent = section.dataset.pageTitle;
         root.dataset.currentPageId = section.dataset.pageId;
+        root.setAttribute("aria-busy", "false");
+        if (navbarStatus && root.dataset.presentationTitle) {
+            navbarStatus.textContent = root.dataset.presentationTitle;
+        }
 
-        const currentEntry = currentDeckEntries.find(
+        const currentEntry = currentDeckEntries().find(
             (entry) => entry.dataset.pageId === section.dataset.pageId
         );
         const globalIndex = navEntries.indexOf(currentEntry);
+        if (globalIndex < 0) {
+            return;
+        }
+        const currentGroup = root.querySelector("#lc-current-group");
+        const currentDeck = root.querySelector("#lc-current-deck");
+        if (currentGroup) {
+            currentGroup.textContent = currentEntry.closest(".lc-nav-group").dataset.navGroup;
+        }
+        if (currentDeck) {
+            currentDeck.textContent = currentEntry.dataset.deckTitle;
+        }
         configurePageControl(previousLink, navEntries[globalIndex - 1]);
         configurePageControl(nextLink, navEntries[globalIndex + 1]);
         pagePosition.textContent = `${globalIndex + 1} / ${navEntries.length}`;
@@ -865,8 +930,52 @@ function bind_shell_behavior(session::Session, root)
         settleViewport();
     };
 
+    function synchronizeHistory() {
+        const routeDeckId = decodeURIComponent(
+            window.location.pathname.split("/").filter(Boolean).at(-1) || ""
+        );
+        const pageId = decodeURIComponent(window.location.hash.slice(1));
+        const entry = navEntries.find((candidate) =>
+            candidate.dataset.deckId === routeDeckId &&
+            candidate.dataset.pageId === pageId
+        ) || navEntries.find((candidate) =>
+            candidate.dataset.deckId === routeDeckId
+        );
+        if (!entry) {
+            window.location.reload();
+            return;
+        }
+        if (routeDeckId !== currentDeckId) {
+            navigateToEntry(entry, false);
+        } else {
+            activateDeckPage();
+        }
+    }
+
+    contentObserver = new MutationObserver(activateDeckPage);
+    contentObserver.observe(manualRoot, { childList: true, subtree: true });
     window.addEventListener("hashchange", activateDeckPage);
+    window.addEventListener("popstate", synchronizeHistory);
     activateDeckPage();
+
+    root.addEventListener("click", (event) => {
+        const link = event.target.closest("a");
+        if (!(link instanceof HTMLAnchorElement)) {
+            return;
+        }
+        const shellControl = link.classList.contains("lc-nav-entry") ||
+            link.classList.contains("lc-nav-deck-entry") ||
+            link === previousLink || link === nextLink;
+        if (!shellControl) {
+            return;
+        }
+        const entry = entryForLink(link);
+        if (!entry || entry.dataset.deckId === "home") {
+            return;
+        }
+        event.preventDefault();
+        navigateToEntry(entry);
+    });
 
     search.addEventListener("input", () => {
         const query = search.value.trim().toLocaleLowerCase();
@@ -1021,6 +1130,65 @@ function bind_shell_behavior(session::Session, root)
     return root
 end
 
+function live_deck_content(session::Session, deck)
+    rendered = render_deck_pages(session, deck)
+    return DOM.div(
+        rendered.nodes...;
+        class = "lc-deck-content",
+        dataDeckId = deck.id
+    )
+end
+
+function loading_deck_content(deck)
+    first_page = first(rendered_deck_pages(deck))
+    return DOM.div(
+        DOM.section(
+            slide(
+                deck.title,
+                article(md"Starting the deck session and its interactive resources…");
+                lede = md"The application shell remains active while Bonito mounts this deck."
+            )...;
+            id = "deck-$(deck.id)-page-$(first_page.id)-loading",
+            class = "lc-page lc-fill-page is-active $(deck.class)",
+            dataDeckId = deck.id,
+            dataDeckTitle = deck.title,
+            dataPageId = first_page.id,
+            dataPageTitle = first_page.title,
+            dataPageIndex = "1",
+            ariaHidden = "false"
+        );
+        class = "lc-deck-content",
+        dataDeckId = deck.id
+    )
+end
+
+function deck_content_app(deck)
+    return App() do session
+        resources = required_resources(deck.resources)
+        preflight = preflight_observable(session, resources)
+        if preflight_ready(preflight)
+            return live_deck_content(session, deck)
+        end
+
+        activate_resources!(resources)
+        first_page = first(rendered_deck_pages(deck))
+        content = Observable{Any}(
+            preparation_page(session, deck, first_page, preflight)
+        )
+        loaded = Ref(false)
+        on(session, preflight) do snapshot
+            snapshot.phase === :hot || return nothing
+            loaded[] && return nothing
+            loaded[] = true
+            content[] = App() do live_session
+                live_deck_content(live_session, deck)
+            end
+            return nothing
+        end
+        return DOM.div(content; class = "lc-deck-content")
+    end
+end
+
 function presentation_manual(session::Session, assets, presentation, deck)
     decks = select_rendered_decks(presentation.decks)
     deck_index(deck, decks)
@@ -1029,13 +1197,19 @@ function presentation_manual(session::Session, assets, presentation, deck)
     resources = required_resources(deck.resources)
     preflight = preflight_observable(session, resources)
     preparing = !preflight_ready(preflight)
-    preparing && activate_resources!(resources)
-    rendered = preparing ?
-               (;
-        nodes = [preparation_page(session, deck, current_page, preflight)], state = nothing) :
-               render_deck_pages(session, deck)
+    selected_deck_id = Observable(deck.id)
+    selected_content = Observable{Any}(deck_content_app(deck))
+    active_deck_id = Ref(deck.id)
+    on(session, selected_deck_id) do requested_id
+        requested_id == active_deck_id[] && return nothing
+        target = find_deck(String(requested_id), decks)
+        active_deck_id[] = target.id
+        selected_content[] = loading_deck_content(target)
+        selected_content[] = deck_content_app(target)
+        return nothing
+    end
     page_nodes = DOM.div(
-        rendered.nodes...;
+        selected_content;
         id = "playground-pages",
         class = "lc-pages"
     )
@@ -1055,8 +1229,7 @@ function presentation_manual(session::Session, assets, presentation, deck)
         manual_root;
         preparing
     )
-    preparing && bind_preparation_reload(session, preflight)
-    return bind_shell_behavior(session, root)
+    return bind_shell_behavior(session, root, selected_deck_id)
 end
 
 function playground_home(session::Session, assets, presentations)

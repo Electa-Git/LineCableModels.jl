@@ -1320,7 +1320,7 @@ function earth_return_page(session::Session, state)
             "σ / (ωε)" => conduction_ratio,
             "Earth self Zᵍ₁₁" => self_correction,
             "Earth mutual Zᵍ₁₂" => mutual_correction,
-            "Zext,11 − Zext,12" => differential,
+            "Zext,₁₁ − Zext,₁₂" => differential,
             "Peak induced |Jₓ|" => peak_current
         ),
         state.earth_reset_button;
@@ -1338,11 +1338,9 @@ function earth_return_page(session::Session, state)
     equations = webpart(
         prose(
             md"""
-      ``\gamma_g^2=j\omega\mu_g(\sigma_g+j\omega\varepsilon_g)``
-
       ``Z^g_{ij}=\frac{j\omega\mu_0}{\pi}\int_0^\infty\frac{e^{-(h_i+h_j)\lambda}\cos(y_{ij}\lambda)}{\lambda+\sqrt{\lambda^2+\gamma_g^2}}\,\mathrm{d}\lambda``
 
-      ``Z^{\mathrm{ext}}_{ij}=Z^{\mathrm{geom}}_{ij}+Z^g_{ij}.``
+      ``Z^{\mathrm{ext}}_{ij}=Z^{\mathrm{perf}}_{ij}+Z^g_{ij}.``
       """;
             class = "lc-equation");
         kind = :panel,
@@ -1362,7 +1360,7 @@ function earth_return_page(session::Session, state)
         "Earth return",
         canvas;
         lede = md"""
-        Explore the external magnetic field and induced earth-current density for conductors above a homogeneous lossy half-space. The spectral field solution and generalized earth-return impedance retain both ``\sigma`` and ``\varepsilon``.
+        Explore the external magnetic field and induced earth-current density for conductors above a homogeneous lossy half-space. The spectral field solution and  earth-return impedance retain both ``\sigma`` and ``\varepsilon``.
         """
     ),)
 end
@@ -1393,7 +1391,8 @@ function uncertainty_quantification_page(::Session, ::Any)
 
         ``\delta f=\sqrt{\sum_i\left(\frac{\partial f}{\partial x_i}\delta x_i\right)^2}``
 
-        > **Important.** Subtracting nominal values does not subtract their uncertainties: the independent contributions still combine in quadrature.
+        > **Important**
+        > Subtracting nominal values does not subtract their uncertainties: the independent > contributions still combine in quadrature.
         """);
         kind = :panel,
         title = "Linear error propagation"

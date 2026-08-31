@@ -5,6 +5,10 @@ using WGLMakie
 WGLMakie.activate!()
 include(joinpath(@__DIR__, "app.jl"))
 
+Threads.nthreads() > 1 || @warn(
+    "The reactive numerical decks run best with multiple Julia threads; restart with --threads=auto"
+)
+
 function browser_target(arguments)
     open_index = findfirst(==("--open"), arguments)
     isnothing(open_index) && return nothing

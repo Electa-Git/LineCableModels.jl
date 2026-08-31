@@ -51,6 +51,6 @@ function diagram(
     )
 end
 
-export diagram
+export diagram, update_positions!
 
 end

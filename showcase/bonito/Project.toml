@@ -6,6 +6,7 @@ GraphMakie = "1ecd5474-83a3-4783-bb4f-06765db800d2"
 Graphs = "86223c79-3864-5bf0-83f7-82e725a168b6"
 LineCableModels = "dffb7669-8cd4-4628-99dd-7694e356ba37"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
+Measurements = "eff96d63-e80a-5855-80a2-b1b0885c5ab7"
 NetworkLayout = "46757867-2c16-5918-afeb-47bfcb05e46a"
 Observables = "510215fc-4207-5dde-b226-833fc4488ee2"
 PowerImpedance = "2b9e73d6-9f99-4895-a28a-fad5d1cd90f9"
@@ -16,7 +17,7 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 WGLMakie = "276b4fcb-3e11-5398-bf8b-a0c2d153d008"
 
 [sources]
-LineCableModels = {path = "../.."}
+LineCableModels = {url = "https://github.com/Electa-Git/LineCableModels.jl.git", rev = "b2b074712f291fac89fd2f4936724c565afa3953"}
 PowerImpedance = {url = "https://github.com/Electa-Git/PowerImpedance.jl.git", rev = "457ba27831a3841c97e14b9c832840390df946f4"}
 
 [compat]
@@ -26,6 +27,7 @@ GraphMakie = "0.6"
 Graphs = "1"
 LineCableModels = "0.2"
 Makie = "0.24"
+Measurements = "2.11"
 NetworkLayout = "0.4"
 Observables = "0.5"
 PowerImpedance = "0.3"
