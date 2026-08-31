@@ -426,6 +426,25 @@ const CONTROL_NAMES = (
     :line_length,
     :length_uncertainty
 )
+const CONTROL_DEFAULTS = (
+    conductor_diameter = 1.0e3 * DEFAULT_INPUT.conductor_diameter,
+    conductor_uncertainty = DEFAULT_INPUT.conductor_uncertainty,
+    insulation_thickness = 1.0e3 * DEFAULT_INPUT.insulation_thickness,
+    insulation_uncertainty = DEFAULT_INPUT.insulation_uncertainty,
+    lateral_distance = DEFAULT_INPUT.lateral_distance,
+    distance_uncertainty = DEFAULT_INPUT.distance_uncertainty,
+    earth_resistivity = log10(DEFAULT_INPUT.earth_resistivity),
+    earth_uncertainty = DEFAULT_INPUT.earth_uncertainty,
+    line_length = DEFAULT_INPUT.line_length,
+    length_uncertainty = DEFAULT_INPUT.length_uncertainty
+)
+
+function reset_control_bundle!(controls)
+    reset_selectors!((
+        getproperty(controls, name) => getproperty(CONTROL_DEFAULTS, name)
+    for name in CONTROL_NAMES)...)
+    return nothing
+end
 
 function make_control_bundle(prefix::AbstractString)
     return (
@@ -590,6 +609,22 @@ function setup(session::Session)
         type = "button",
         ariaLabel = "Reset self and mutual line-parameter plot views"
     )
+    self_selector_reset_button = Bonito.Button(
+        "Reset selectors";
+        style = nothing,
+        id = "line-self-reset-selectors-control",
+        class = "lc-action-button",
+        type = "button",
+        ariaLabel = "Reset all self line-parameter selectors to their initial values"
+    )
+    mutual_selector_reset_button = Bonito.Button(
+        "Reset selectors";
+        style = nothing,
+        id = "line-mutual-reset-selectors-control",
+        class = "lc-action-button",
+        type = "button",
+        ariaLabel = "Reset all mutual line-parameter selectors to their initial values"
+    )
     self_reset_observer = on(self_reset_button.value) do clicked
         clicked && reset_line_parameter_views!(self_plot, mutual_plot)
         return nothing
@@ -598,12 +633,24 @@ function setup(session::Session)
         clicked && reset_line_parameter_views!(self_plot, mutual_plot)
         return nothing
     end
+    self_selector_reset_observer = on(self_selector_reset_button.value) do clicked
+        clicked && reset_control_bundle!(self_controls)
+        return nothing
+    end
+    mutual_selector_reset_observer = on(
+        mutual_selector_reset_button.value
+    ) do clicked
+        clicked && reset_control_bundle!(mutual_controls)
+        return nothing
+    end
 
     on(session.on_close) do _
         off(result_observer)
         off(input_observer)
         off(self_reset_observer)
         off(mutual_reset_observer)
+        off(self_selector_reset_observer)
+        off(mutual_selector_reset_observer)
         close!(worker)
         return nothing
     end
@@ -618,7 +665,9 @@ function setup(session::Session)
         mutual_plot,
         worker,
         self_reset_button,
-        mutual_reset_button
+        mutual_reset_button,
+        self_selector_reset_button,
+        mutual_selector_reset_button
     )
 end
 
@@ -717,7 +766,8 @@ function controls_panel(
         session::Session,
         state,
         widgets,
-        reset_button;
+        reset_button,
+        selector_reset_button;
         prefix::AbstractString
 )
     values = control_values(session, state.input)
@@ -772,7 +822,7 @@ function controls_panel(
             "Curves show the package result and its ±1σ envelope. One debounced solve updates both matrix views.";
             class = "lc-line-parameter-caption"
         ),
-        reset_button,
+        action_row(reset_button, selector_reset_button),
         status_line(status; class = "lc-cable-constants-status"),
         diagnostic(
             "CableDesign → LineCableSystem → LineParametersProblem → compute → observe";
@@ -796,7 +846,8 @@ function self_page(session::Session, state)
         session,
         state,
         state.self_controls,
-        state.self_reset_button;
+        state.self_reset_button,
+        state.self_selector_reset_button;
         prefix = "line-self"
     )
     canvas = layout_two_columns(
@@ -828,7 +879,8 @@ function mutual_page(session::Session, state)
         session,
         state,
         state.mutual_controls,
-        state.mutual_reset_button;
+        state.mutual_reset_button,
+        state.mutual_selector_reset_button;
         prefix = "line-mutual"
     )
     canvas = layout_two_columns(

@@ -829,6 +829,14 @@ function setup(session::Session)
         type = "button",
         ariaLabel = "Reset both skin effect plot axes"
     )
+    skin_selector_reset_button = Bonito.Button(
+        "Reset selectors";
+        style = nothing,
+        id = "skin-reset-selectors-control",
+        class = "lc-action-button",
+        type = "button",
+        ariaLabel = "Reset all skin effect selectors to their initial values"
+    )
     skin_inputs = map(
         (log_frequency, log_conductivity) -> (;
             frequency = 10.0^Float64(log_frequency),
@@ -865,6 +873,16 @@ function setup(session::Session)
         clicked || return nothing
         reset_limits!(skin_plot.field_axis)
         reset_limits!(skin_plot.profile_axis)
+        return nothing
+    end
+    skin_selector_reset_observer = on(skin_selector_reset_button.value) do clicked
+        clicked || return nothing
+        reset_selectors!(
+            skin_frequency_slider => 3.0,
+            conductivity_slider => conductivity_default,
+            skin_db_floor_slider => -80.0,
+            skin_db_ceiling_slider => 60.0
+        )
         return nothing
     end
 
@@ -938,6 +956,14 @@ function setup(session::Session)
         type = "button",
         ariaLabel = "Reset both earth return plot axes"
     )
+    earth_selector_reset_button = Bonito.Button(
+        "Reset selectors";
+        style = nothing,
+        id = "earth-reset-selectors-control",
+        class = "lc-action-button",
+        type = "button",
+        ariaLabel = "Reset all earth return selectors to their initial values"
+    )
     earth_inputs = map(
         (
             log_frequency,
@@ -995,12 +1021,27 @@ function setup(session::Session)
         reset_limits!(earth_plot.current_axis)
         return nothing
     end
+    earth_selector_reset_observer = on(earth_selector_reset_button.value) do clicked
+        clicked || return nothing
+        reset_selectors!(
+            earth_frequency_slider => earth_frequency_default,
+            current_slider => earth_current_default,
+            resistivity_slider => 2.0,
+            permittivity_slider => 1.0,
+            return_ratio_slider => 0.0,
+            earth_field_db_floor_slider => -70.0,
+            earth_current_db_floor_slider => -80.0
+        )
+        return nothing
+    end
 
     on(session.on_close) do _
         off(skin_observer)
         off(earth_observer)
         off(skin_reset_observer)
+        off(skin_selector_reset_observer)
         off(earth_reset_observer)
+        off(earth_selector_reset_observer)
         return nothing
     end
     return (;
@@ -1016,6 +1057,8 @@ function setup(session::Session)
         skin_color_range,
         skin_reset_button,
         skin_reset_observer,
+        skin_selector_reset_button,
+        skin_selector_reset_observer,
         earth_model,
         earth_cache,
         earth_inputs,
@@ -1031,7 +1074,9 @@ function setup(session::Session)
         earth_field_color_range,
         earth_current_color_range,
         earth_reset_button,
-        earth_reset_observer
+        earth_reset_observer,
+        earth_selector_reset_button,
+        earth_selector_reset_observer
     )
 end
 
@@ -1165,7 +1210,10 @@ function internal_impedances_page(session::Session, state)
             "Zint" => impedance,
             "Lint" => inductance
         ),
-        state.skin_reset_button,
+        action_row(
+            state.skin_reset_button,
+            state.skin_selector_reset_button
+        ),
         diagnostic(
             "I₀(γr) / I₀(γa)";
             suffix = " · scaled complex Bessel evaluation"
@@ -1323,7 +1371,10 @@ function earth_return_page(session::Session, state)
             "Zext,₁₁ − Zext,₁₂" => differential,
             "Peak induced |Jₓ|" => peak_current
         ),
-        state.earth_reset_button;
+        action_row(
+            state.earth_reset_button,
+            state.earth_selector_reset_button
+        );
         kind = :controls,
         class = "lc-fundamentals-controls"
     )

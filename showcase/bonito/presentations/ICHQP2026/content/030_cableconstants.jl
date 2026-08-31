@@ -17,6 +17,7 @@ const WIRE_DIAMETER_RANGE_MM = 2.0:0.1:8.0
 const UNCERTAINTY_RANGE_PCT = 0.0:0.1:10.0
 const INSULATION_THICKNESS_RANGE_MM = 2.0:0.1:20.0
 const PREVIEW_MARGIN = 1.08
+const CLONE_LATERAL_OFFSET_MM = 1.0e3
 const ENVELOPE_COVERAGE = 1.0
 const ENVELOPE_ALPHA = 0.22
 const WIRE_ENVELOPE_COLOR = RGBAf(0.10, 0.78, 0.88, ENVELOPE_ALPHA)
@@ -258,6 +259,43 @@ function update_preview_plots!(layer_plot, strand_plot, projection)
     return projection
 end
 
+function translate_polygon(polygon, offset::Point2f)
+    exterior = [point + offset for point in polygon.exterior]
+    interiors = [
+        [point + offset for point in interior] for interior in polygon.interiors
+    ]
+    return Makie.GeometryBasics.Polygon(exterior, interiors)
+end
+
+"""Translate preview geometry for display only; no second domain object is built."""
+function translated_preview_projection(projection, offset::Point2f)
+    return merge(
+        projection,
+        (;
+            strand_centers = [point + offset for point in projection.strand_centers],
+            strand_polygons = [
+                translate_polygon(polygon, offset)
+                for polygon in projection.strand_polygons
+            ],
+            layers = [
+                translate_polygon(polygon, offset)
+                for polygon in projection.layers
+            ]
+        )
+    )
+end
+
+function preview_limits!(axis, radius_limit_mm::Real)
+    limits!(
+        axis,
+        -radius_limit_mm,
+        CLONE_LATERAL_OFFSET_MM + radius_limit_mm,
+        -radius_limit_mm,
+        radius_limit_mm
+    )
+    return axis
+end
+
 function millimetre_points(points)
     converted = Point2f[
         Point2f(1.0e3 * point[1], 1.0e3 * point[2]) for point in points
@@ -479,11 +517,15 @@ end
 
 function preview_figure(design::LCM.CableDesign)
     projection = preview_projection(design)
+    clone_projection = translated_preview_projection(
+        projection,
+        Point2f(CLONE_LATERAL_OFFSET_MM, 0)
+    )
     radius_limit_mm = Ref(Float32(
         PREVIEW_MARGIN * projection.outer_diameter_mm / 2
     ))
     title = Observable(
-        "$(length(projection.strand_centers))-strand conductor · $(round(projection.outer_diameter_mm; digits = 1)) mm OD"
+        "Two $(length(projection.strand_centers))-strand cables · 1.0 m spacing · $(round(projection.outer_diameter_mm; digits = 1)) mm OD"
     )
     figure = Figure(size = (860, 700), backgroundcolor = PLOT_BACKGROUND)
     axis = Axis(
@@ -496,18 +538,15 @@ function preview_figure(design::LCM.CableDesign)
     hidedecorations!(axis)
     hidespines!(axis)
     preview = draw_preview!(axis, projection)
-    limits!(
-        axis,
-        -radius_limit_mm[],
-        radius_limit_mm[],
-        -radius_limit_mm[],
-        radius_limit_mm[]
-    )
+    clone = draw_preview!(axis, clone_projection)
+    preview_limits!(axis, radius_limit_mm[])
     return (;
         figure,
         axis,
         layer_plot = preview.layer_plot,
         strand_plot = preview.strand_plot,
+        clone_layer_plot = clone.layer_plot,
+        clone_strand_plot = clone.strand_plot,
         title,
         radius_limit_mm,
         projection
@@ -516,22 +555,25 @@ end
 
 function update_preview!(handle, design::LCM.CableDesign)
     projection = preview_projection(design)
+    clone_projection = translated_preview_projection(
+        projection,
+        Point2f(CLONE_LATERAL_OFFSET_MM, 0)
+    )
     update_preview_plots!(
         handle.layer_plot,
         handle.strand_plot,
         projection
     )
-    handle.title[] = "$(length(projection.strand_centers))-strand conductor · $(round(projection.outer_diameter_mm; digits = 1)) mm OD"
+    update_preview_plots!(
+        handle.clone_layer_plot,
+        handle.clone_strand_plot,
+        clone_projection
+    )
+    handle.title[] = "Two $(length(projection.strand_centers))-strand cables · 1.0 m spacing · $(round(projection.outer_diameter_mm; digits = 1)) mm OD"
     handle.radius_limit_mm[] = Float32(
         PREVIEW_MARGIN * projection.outer_diameter_mm / 2
     )
-    limits!(
-        handle.axis,
-        -handle.radius_limit_mm[],
-        handle.radius_limit_mm[],
-        -handle.radius_limit_mm[],
-        handle.radius_limit_mm[]
-    )
+    preview_limits!(handle.axis, handle.radius_limit_mm[])
     return projection
 end
 
@@ -1083,14 +1125,30 @@ function setup(session::Session)
         type = "button",
         ariaLabel = "Reset the cable preview plot view"
     )
+    selector_reset_button = Bonito.Button(
+        "Reset selectors";
+        style = nothing,
+        id = "cable-constants-reset-selectors-control",
+        class = "lc-action-button",
+        type = "button",
+        ariaLabel = "Reset all cable-constants selectors to their initial values"
+    )
     reset_observer = on(reset_button.value) do clicked
         clicked || return nothing
-        limits!(
-            plot.axis,
-            -plot.radius_limit_mm[],
-            plot.radius_limit_mm[],
-            -plot.radius_limit_mm[],
-            plot.radius_limit_mm[]
+        preview_limits!(plot.axis, plot.radius_limit_mm[])
+        return nothing
+    end
+    selector_reset_observer = on(selector_reset_button.value) do clicked
+        clicked || return nothing
+        reset_selectors!(
+            frequency_slider => log10(DEFAULT_INPUT.frequency),
+            strand_layers_slider => DEFAULT_INPUT.strand_layers,
+            wire_diameter_slider => 1.0e3 * DEFAULT_INPUT.wire_diameter,
+            wire_uncertainty_slider => DEFAULT_INPUT.wire_uncertainty,
+            insulation_thickness_slider =>
+                1.0e3 * DEFAULT_INPUT.insulation_thickness,
+            insulation_uncertainty_slider =>
+                DEFAULT_INPUT.insulation_uncertainty
         )
         return nothing
     end
@@ -1101,6 +1159,14 @@ function setup(session::Session)
         class = "lc-action-button",
         type = "button",
         ariaLabel = "Reset the geometry uncertainty plot view"
+    )
+    geometry_selector_reset_button = Bonito.Button(
+        "Reset selectors";
+        style = nothing,
+        id = "geometry-envelope-reset-selectors-control",
+        class = "lc-action-button",
+        type = "button",
+        ariaLabel = "Reset all geometry-envelope selectors to their initial values"
     )
     geometry_reset_observer = on(geometry_reset_button.value) do clicked
         clicked || return nothing
@@ -1113,6 +1179,22 @@ function setup(session::Session)
         )
         return nothing
     end
+    geometry_selector_reset_observer = on(
+        geometry_selector_reset_button.value
+    ) do clicked
+        clicked || return nothing
+        reset_selectors!(
+            geometry_strand_layers_slider => DEFAULT_INPUT.strand_layers,
+            geometry_wire_diameter_slider =>
+                1.0e3 * DEFAULT_INPUT.wire_diameter,
+            geometry_wire_uncertainty_slider => DEFAULT_INPUT.wire_uncertainty,
+            geometry_insulation_thickness_slider =>
+                1.0e3 * DEFAULT_INPUT.insulation_thickness,
+            geometry_insulation_uncertainty_slider =>
+                DEFAULT_INPUT.insulation_uncertainty
+        )
+        return nothing
+    end
 
     on(session.on_close) do _
         off(geometry_observer)
@@ -1120,7 +1202,9 @@ function setup(session::Session)
         off(insulation_envelope_observer)
         off(numerical_observer)
         off(reset_observer)
+        off(selector_reset_observer)
         off(geometry_reset_observer)
+        off(geometry_selector_reset_observer)
         close!(worker)
         return nothing
     end
@@ -1146,7 +1230,9 @@ function setup(session::Session)
         geometry_insulation_uncertainty_slider,
         linked_sliders,
         reset_button,
-        geometry_reset_button
+        selector_reset_button,
+        geometry_reset_button,
+        geometry_selector_reset_button
     )
 end
 
@@ -1250,7 +1336,10 @@ function build_geometry_page(session::Session, state)
             "Colored regions show ±1 standard-uncertainty geometry envelopes. Overlapping colors indicate overlapping spatial influence, not probability density.";
             class = "lc-geometry-envelope-caption"
         ),
-        state.geometry_reset_button,
+        action_row(
+            state.geometry_reset_button,
+            state.geometry_selector_reset_button
+        ),
         diagnostic(
             "lower/nominal/upper CableDesign → package preview geometry";
             suffix = " · two batched persistent overlay meshes"
@@ -1426,7 +1515,10 @@ function build_page(session::Session, state)
             );
             class = "lc-cable-result-panel"
         ),
-        state.reset_button,
+        action_row(
+            state.reset_button,
+            state.selector_reset_button
+        ),
         status_line(status; class = "lc-cable-constants-status"),
         diagnostic(
             "CableDesign → CableConstants → observe(R, L, C, G)";

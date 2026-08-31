@@ -94,15 +94,19 @@ const TemplatePresentation = load_presentation_descriptor(
                 footer = "footer",
                 footer_placement = :under_plot
             ),
+            action_row("Reset plot view", "Reset selectors"),
             layout_two_rows("top", "bottom"; ratio = :short_tall),
             layout_quad("tl", "tr", "bl", "br")
         )
+        selector = Observable(9)
+        reset_selectors!(selector => 3)
         silent_figure = Figure(size = (64, 64))
         silent_wgl = wgl_figure(silent_figure)
         silent_spinner = silent_wgl.config.spinner
 
         @test layout isa Bonito.Hyperscript.Node
         @test all(node -> node isa Bonito.Hyperscript.Node, masters)
+        @test selector[] == 3
         @test silent_wgl isa WGLMakie.WithConfig
         @test silent_wgl.config.resize_to === :parent
         @test silent_spinner isa Bonito.Hyperscript.Node
@@ -717,16 +721,33 @@ const TemplatePresentation = load_presentation_descriptor(
         axis = preview.axis
         layer_plot = preview.layer_plot
         strand_plot = preview.strand_plot
+        clone_layer_plot = preview.clone_layer_plot
+        clone_strand_plot = preview.clone_strand_plot
         next_design = CableConstantsPage.build_design(6.0e-3, 10.0e-3, 3)
         next_projection = CableConstantsPage.update_preview!(preview, next_design)
         @test preview.figure === figure
         @test preview.axis === axis
         @test preview.layer_plot === layer_plot
         @test preview.strand_plot === strand_plot
-        @test length(axis.scene.plots) == 2
+        @test preview.clone_layer_plot === clone_layer_plot
+        @test preview.clone_strand_plot === clone_strand_plot
+        @test length(axis.scene.plots) == 4
         @test length(next_projection.strand_centers) == 37
         @test length(next_projection.strand_polygons) == 37
         @test strand_plot[1][] == next_projection.strand_polygons
+        translated = CableConstantsPage.translated_preview_projection(
+            next_projection,
+            Point2f(CableConstantsPage.CLONE_LATERAL_OFFSET_MM, 0)
+        )
+        @test clone_layer_plot[1][] == translated.layers
+        @test clone_strand_plot[1][] == translated.strand_polygons
+        @test all(
+            isapprox(
+                translated.strand_centers[index][1] -
+                next_projection.strand_centers[index][1],
+                1000.0
+            ) for index in eachindex(next_projection.strand_centers)
+        )
         @test next_projection.outer_diameter_mm ≈ 62.0
         @test preview.radius_limit_mm[] ≈
               CableConstantsPage.PREVIEW_MARGIN * 31.0

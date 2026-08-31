@@ -5,6 +5,7 @@ using Markdown
 using WGLMakie
 
 export article
+export action_row
 export color_key
 export control
 export deck_descriptor
@@ -31,6 +32,7 @@ export preflight_resource
 export preflight_state
 export preflight_summary
 export prose
+export reset_selectors!
 export set_preparation!
 export set_preflight!
 export slide
@@ -80,6 +82,29 @@ end
 
 classes(parts...) = join(filter(!isempty, string.(parts)), " ")
 children(content) = content isa Tuple ? content : (content,)
+
+"""Arrange related action buttons in one responsive row."""
+function action_row(actions...; class::AbstractString = "")
+    return DOM.div(
+        actions...;
+        class = classes("lc-action-row", class)
+    )
+end
+
+"""
+    reset_selectors!(selector => default, ...)
+
+Restore Bonito selectors without notifying observers whose value is already at
+its declared default. Existing reactive pipelines remain responsible for any
+resulting visual or numerical update.
+"""
+function reset_selectors!(selector_defaults::Pair...)
+    for (selector, default) in selector_defaults
+        observable = hasproperty(selector, :value) ? selector.value : selector
+        isequal(observable[], default) || (observable[] = default)
+    end
+    return nothing
+end
 
 function with_id(builder, id, content...; attributes...)
     if isnothing(id)

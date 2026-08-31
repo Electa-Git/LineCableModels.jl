@@ -1593,6 +1593,18 @@ body {
   margin-top: 0.72rem;
 }
 
+.lc-application-slide .lc-action-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.72rem;
+}
+
+.lc-application-slide .lc-action-row .lc-action-button {
+  min-width: 0;
+  margin-top: 0;
+}
+
 .lc-application-slide .lc-transition-detail-grid,
 .lc-application-slide .lc-operating-grid {
   width: 100%;
