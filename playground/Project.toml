@@ -1,0 +1,18 @@
+name = "LineCableModelsPlayground"
+uuid = "4d248b51-e7d3-4fea-b76c-670b0acc53ed"
+version = "0.1.0"
+authors = ["LineCableModels contributors"]
+
+[deps]
+Bonito = "824d6782-a2ef-11e9-3a09-e5662e0c26f8"
+NATS = "55e73f9c-eeeb-467f-b4cc-a633fde63d2a"
+Quarto = "d7167be5-f61b-4dc9-b75c-ab62374668c5"
+
+[compat]
+Bonito = "5"
+NATS = "0.1"
+Quarto = "1"
+julia = "1.12"
+
+[apps.linecablemodels]
+julia_flags = ["--threads=auto"]
