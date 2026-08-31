@@ -31,6 +31,19 @@
     @test_throws DomainError equivalent_mu(-0.01, 0.02, 0.01)
     @test_throws DomainError equivalent_mu(0.015, 0.01, 0.02)
 
+    lay_radius=0.01
+    wire_radius=0.001
+    wire_count=12
+    coordinates=[(
+                     lay_radius*cos(2π*index/wire_count),
+                     lay_radius*sin(2π*index/wire_count)
+                 )
+                 for index in 0:(wire_count - 1)]
+    @test strand_gmr(coordinates, wire_radius, 1.0) ≈
+          strand_gmr(lay_radius, wire_count, wire_radius, 1.0)
+    @test_throws ArgumentError strand_gmr(Tuple{Float64, Float64}[], wire_radius, 1.0)
+    @test_throws ArgumentError strand_gmr([(0.0, 0.0), (0.0, 0.0)], wire_radius, 1.0)
+
     first_gmr=0.004
     second_gmr=0.012
     distance=0.009

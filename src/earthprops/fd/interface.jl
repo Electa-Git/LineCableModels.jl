@@ -36,8 +36,20 @@ Construct a registered earth-property formula from its literature identifier.
 
 Keyword arguments replace named formula assumptions. Unknown identifiers and
 unknown assumptions are rejected before a line-parameter computation begins.
+The reserved identifier `:default` returns `nothing`, meaning that the static
+earth properties pass through unchanged.
 """
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
+
+function Formula(::Val{:default}; route = nothing, kwargs...)
+    route === nothing || throw(ArgumentError(
+        ":default earth properties cannot define a route"
+    ))
+    isempty(kwargs) || throw(ArgumentError(
+        ":default earth properties cannot define assumptions"
+    ))
+    return DEFAULT
+end
 
 function Formula(::Val{ID}; route = nothing, kwargs...) where {ID}
     tag = Val(ID)
@@ -67,6 +79,13 @@ function Formula(
         ::Val{ID}, route::R, values::A = (;)
 ) where {ID, R, A <: NamedTuple}
     return Formula{ID, R, A}(route, values)
+end
+
+function Formula(::Val{:default}, route, values::NamedTuple = (;))
+    throw(ArgumentError(
+        ":default earth properties resolve to nothing and cannot define " *
+        "an external route"
+    ))
 end
 
 function Formula(identifier::Symbol, route, values::NamedTuple = (;))

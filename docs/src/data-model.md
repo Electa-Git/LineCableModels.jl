@@ -91,6 +91,12 @@ core_part = stranded(
 )
 ```
 
+For circular strands, a complete `6k` schedule uses exact hexagonal
+close-packed courses: neighbouring strand centres remain one strand diameter
+apart. Incomplete schedules, noncircular members, differing course rotations
+or clearances, and compacted courses retain explicit concentric `Ring`
+placement.
+
 Use `capacity()` when a course should contain the maximum count allowed by its
 actual geometry and compaction law:
 

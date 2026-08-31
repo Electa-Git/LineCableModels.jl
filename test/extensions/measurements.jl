@@ -38,7 +38,7 @@ end
     @testset "Mixed BaseParams calls retain primitive sensitivities" begin
         r_ex = measurement(0.02, 0.001)
         rho = measurement(1.7241e-8, 1.0e-9)
-        resistance = tubular_resistance(0.0, r_ex, rho, 0.0, 20.0, 20.0)
+        resistance = tubular_resistance(0.0, r_ex, rho)
 
         @test !iszero(derivative(resistance, r_ex))
         @test !iszero(derivative(resistance, rho))

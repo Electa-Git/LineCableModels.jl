@@ -30,6 +30,10 @@ using LinearAlgebra: Diagonal, I, checksquare, cond, diag, dot, eigen,
 
 include("interfaces.jl")
 include("problems.jl")
+
+"Registered modal-transformation formula selected by `:default`."
+const DEFAULT = :Chrysochos2014
+
 include("formulations.jl")
 include("eigensystems.jl")
 

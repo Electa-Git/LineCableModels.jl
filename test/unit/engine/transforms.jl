@@ -34,6 +34,11 @@
     selected=@inferred ModalTransformationFormulation(
         formula(:Chrysochos2014; tolerance=1e-7)
     )
+    default_formulation=@inferred ModalTransformationFormulation()
+    @test Transforms.DEFAULT === :Chrysochos2014
+    @test formula_id(default_formulation) === :Chrysochos2014
+    @test formula_id(Transforms.Formula(:default)) === :Chrysochos2014
+    @test :default ∉ Transforms.formulas()
     @test description(formulation) == "Fortescue (symmetrical components)"
     @test formula_id(formulation) === :Fortescue
     @test formula_id(selected) === :Chrysochos2014

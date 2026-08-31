@@ -253,13 +253,6 @@ function _check_cable_constants_problem(problem::CableConstantsProblem)
     system.connection_order == expected || throw(DimensionMismatch(
         "cable-constant terminal connections must retain only each assembly core",
     ))
-    for region in design.geometry.regions
-        DataModel.temperature_factor(
-            region.source.material.alpha,
-            problem.temperature,
-            region.source.material.T0
-        )
-    end
     return nothing
 end
 
@@ -412,11 +405,8 @@ function CableConstantsWorkspace(
         material = component.conductor.material
         rho[index] = material.rho
         if formulation.options.temperature_correction
-            rho[index] *= DataModel.temperature_factor(
-                material.alpha,
-                problem.temperature,
-                material.T0
-            )
+            rho[index] *= one(T) +
+                          material.alpha * (problem.temperature - material.T0)
         end
         layers = component.dielectric.layers
         mu_ins[index] = isempty(layers) ? one(T) :

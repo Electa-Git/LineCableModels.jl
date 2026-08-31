@@ -84,6 +84,53 @@ function geometric_mean_distance(
     return exp(logarithmic_sum / weights)
 end
 
+function geometric_mean_distance(
+        left_coordinates,
+        left_radii::AbstractVector,
+        right_coordinates,
+        right_radii::AbstractVector,
+        left_element_areas::AbstractVector,
+        right_element_areas::AbstractVector
+)
+    isempty(left_coordinates) && throw(ArgumentError(
+        "the first conductor zone requires at least one element coordinate"
+    ))
+    isempty(right_coordinates) && throw(ArgumentError(
+        "the second conductor zone requires at least one element coordinate"
+    ))
+    length(left_coordinates) == length(left_radii) == length(left_element_areas) ||
+        throw(DimensionMismatch(
+            "first conductor coordinates, radii, and areas must have equal lengths"
+        ))
+    length(right_coordinates) == length(right_radii) == length(right_element_areas) ||
+        throw(DimensionMismatch(
+            "second conductor coordinates, radii, and areas must have equal lengths"
+        ))
+    logarithmic_sum, weights = promote(
+        zero(float(first(left_radii))),
+        zero(float(first(right_radii)))
+    )
+    for left in eachindex(left_coordinates), right in eachindex(right_coordinates)
+
+        weight = left_element_areas[left] * right_element_areas[right]
+        weight > zero(weight) || throw(DomainError(
+            weight, "conductor-zone element areas must be positive"
+        ))
+        distance = hypot(
+            left_coordinates[left][1] - right_coordinates[right][1],
+            left_coordinates[left][2] - right_coordinates[right][2]
+        )
+        effective_distance = iszero(distance) ?
+                             max(left_radii[left], right_radii[right]) : distance
+        effective_distance > zero(effective_distance) || throw(DomainError(
+            effective_distance, "conductor-zone distance must be positive"
+        ))
+        logarithmic_sum += weight * log(effective_distance)
+        weights += weight
+    end
+    return exp(logarithmic_sum / weights)
+end
+
 """
 $(TYPEDSIGNATURES)
 
@@ -152,18 +199,25 @@ function conductor_zone(
         first(coordinates)[1] - centre[1],
         first(coordinates)[2] - centre[2]
     )
-    all(
+    circular_locus = all(
         point -> isapprox(
             hypot(point[1] - centre[1], point[2] - centre[2]),
             centre_radius
-        ), coordinates) ||
-        throw(ArgumentError(
-            "a disk conductor zone requires one circular locus"
-        ))
+        ), coordinates)
     element_area = (one(T) * pi) * radius^2
     zone_area = length(zone) * element_area
     zone_r_in, zone_r_ex = if length(zone) == 1 && iszero(centre_radius)
         zero(T), radius
+    elseif !circular_locus
+        outer_radius = maximum(coordinates) do point
+            hypot(point[1] - centre[1], point[2] - centre[2]) + radius
+        end
+        expected_outer = expected_inner + 2radius
+        isapprox(outer_radius, expected_outer) || throw(ArgumentError(
+            "noncircular disk strand course must extend one strand diameter " *
+            "beyond the preceding course"
+        ))
+        expected_inner, outer_radius
     else
         declared_inner = centre_radius - radius
         isapprox(declared_inner, expected_inner) || throw(ArgumentError(
@@ -171,25 +225,33 @@ function conductor_zone(
         ))
         expected_inner, expected_inner + 2radius
     end
-    turns = turns_per_length(source.paths, T)
     patterned = !isempty(source.placement.patterns)
-    resistance = path_corrected_resistance(
-        tubular_resistance(
-            zero(T),
-            radius,
-            material.rho,
-            material.alpha,
-            material.T0,
-            material.T0
-        ),
-        source.paths) / length(zone)
+    uniform_paths = all(item -> item.paths == source.paths, zone)
+    turns = uniform_paths ? turns_per_length(source.paths, T) :
+            sum(item -> turns_per_length(item.paths, T), zone) / length(zone)
+    base_resistance = tubular_resistance(
+        zero(T),
+        radius,
+        material.rho
+    )
+    resistance = if uniform_paths
+        path_corrected_resistance(base_resistance, source.paths) / length(zone)
+    else
+        resistances = map(zone) do item
+            path_corrected_resistance(base_resistance, item.paths)
+        end
+        reduce(parallel, resistances)
+    end
     gmr = patterned ?
-          strand_gmr(
+          (circular_locus ?
+           strand_gmr(
         centre_radius,
         length(zone),
         radius,
         material.mu_r
-    ) : tubular_gmr(zone_r_ex, zone_r_in, material.mu_r)
+    ) :
+           strand_gmr(coordinates, radius, material.mu_r)) :
+          tubular_gmr(zone_r_ex, zone_r_in, material.mu_r)
     return (
         r_in = zone_r_in,
         r_ex = zone_r_ex,
@@ -202,7 +264,11 @@ function conductor_zone(
         element_area,
         coordinates,
         position = centre,
-        material
+        material,
+        pairwise_gmd = any(
+            entry -> entry.pattern isa Hexa,
+            source.placement.patterns
+        )
     )
 end
 
@@ -241,7 +307,8 @@ function conductor_zone(
         element_area = zone_area,
         coordinates = Tuple{T, T}[centre],
         position = centre,
-        material
+        material,
+        pairwise_gmd = false
     )
 end
 
@@ -278,10 +345,7 @@ function conductor_zone(
         strip_resistance(
             tape_thickness,
             tape_width,
-            material.rho,
-            material.alpha,
-            material.T0,
-            material.T0
+            material.rho
         ),
         source.paths) / length(zone)
     return (
@@ -296,7 +360,8 @@ function conductor_zone(
         element_area = zone_area,
         coordinates = Tuple{T, T}[centre],
         position = centre,
-        material
+        material,
+        pairwise_gmd = false
     )
 end
 
@@ -329,7 +394,8 @@ function conductor_zone(
         element_area = zone_area,
         coordinates = Tuple{T, T}[centre],
         position = centre,
-        material
+        material,
+        pairwise_gmd = false
     )
 end
 
@@ -455,10 +521,7 @@ function nested_conductor_zone(
                         tubular_resistance(
                             zero(T),
                             radii[index],
-                            materials[index].rho,
-                            materials[index].alpha,
-                            materials[index].T0,
-                            materials[index].T0
+                            materials[index].rho
                         ),
                         sources[index].paths
                     ) for index in eachindex(sources)]
@@ -606,9 +669,13 @@ function initialize_conductor(zone)
         gmr = zone.gmr,
         reference_temperature = zone.material.T0,
         position = zone.position,
+        coordinates = copy(zone.coordinates),
+        element_radii = fill(zone.element_radius, length(zone.coordinates)),
+        element_areas = fill(zone.element_area, length(zone.coordinates)),
         previous_coordinates = zone.coordinates,
         previous_radius = zone.element_radius,
-        previous_element_area = zone.element_area
+        previous_element_area = zone.element_area,
+        pairwise_gmd = zone.pairwise_gmd
     )
 end
 
@@ -647,14 +714,26 @@ function add_conductor_zone(conductor, zone)
     isapprox(zone.material.T0, conductor.reference_temperature) || throw(
         ArgumentError("all cable materials must share one reference temperature")
     )
-    distance = geometric_mean_distance(
-        conductor.previous_coordinates,
-        conductor.previous_radius,
-        zone.coordinates,
-        zone.element_radius,
-        conductor.previous_element_area,
-        zone.element_area
-    )
+    pairwise_gmd = conductor.pairwise_gmd || zone.pairwise_gmd
+    distance = if pairwise_gmd
+        geometric_mean_distance(
+            conductor.coordinates,
+            conductor.element_radii,
+            zone.coordinates,
+            fill(zone.element_radius, length(zone.coordinates)),
+            conductor.element_areas,
+            fill(zone.element_area, length(zone.coordinates))
+        )
+    else
+        geometric_mean_distance(
+            conductor.previous_coordinates,
+            conductor.previous_radius,
+            zone.coordinates,
+            zone.element_radius,
+            conductor.previous_element_area,
+            zone.element_area
+        )
+    end
     return (
         r_in = conductor.r_in,
         r_ex = zone.r_ex,
@@ -685,9 +764,19 @@ function add_conductor_zone(conductor, zone)
         ),
         reference_temperature = conductor.reference_temperature,
         position = conductor.position,
+        coordinates = append!(copy(conductor.coordinates), zone.coordinates),
+        element_radii = append!(
+            copy(conductor.element_radii),
+            fill(zone.element_radius, length(zone.coordinates))
+        ),
+        element_areas = append!(
+            copy(conductor.element_areas),
+            fill(zone.element_area, length(zone.coordinates))
+        ),
         previous_coordinates = zone.coordinates,
         previous_radius = zone.element_radius,
-        previous_element_area = zone.element_area
+        previous_element_area = zone.element_area,
+        pairwise_gmd
     )
 end
 
@@ -896,6 +985,13 @@ function _radial_regions(regions)
     return radial
 end
 
+function same_path_definitions(left, right)
+    length(left) == length(right) || return false
+    return all(eachindex(left)) do index
+        left[index].path == right[index].path
+    end
+end
+
 """
 $(TYPEDSIGNATURES)
 
@@ -996,7 +1092,7 @@ function flatten(
                 next_signature = map(entry -> entry.pattern, next.placement.patterns)
                 same_zone = next.terminal === terminal &&
                             next.source == source.source &&
-                            next.paths == source.paths &&
+                            same_path_definitions(next.paths, source.paths) &&
                             next_signature == signature
                 same_zone || break
                 cursor += 1

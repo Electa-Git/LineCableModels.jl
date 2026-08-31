@@ -154,6 +154,21 @@ end
         restored_rectangular.geometry.regions
     )
 
+    packed=build(
+        CableDesign,
+        "hexagonal-round-trip",
+        terminal(
+            :core,
+            stranded(copper; shape = Disk(0.35e-3), layers = 2)
+        )
+    )
+    packed_record=IE.serialize_value(packed)
+    @test packed_record["root"]["item"]["items"][1]["items"][2]["pattern"]["kind"] ==
+          "hexagonal_course"
+    restored_packed=IE.deserialize_value(packed_record)
+    @test restored_packed == packed
+    @test IE.serialize_value(restored_packed) == packed_record
+
     scheduled=build(
         CableDesign,
         "scheduled-round-trip",
@@ -211,6 +226,7 @@ end
 
     declarations=(
         Ring(capacity(); r = nothing, φ0 = 0.2, gap_frac = 0.03),
+        Hexa(2; φ0 = 0.2, gap_frac = 0.03),
         Polar(nr = 2, nφ = 6, r0 = 0.0, dr = 2e-3),
         Fill(r = 10e-3, φ = pi/6),
         Lattice(nx = 2, ny = 3, dx = 10e-3, dy = 12e-3),
@@ -311,6 +327,25 @@ end
     schema=JSONSchema.Schema(JSON3.read(read(schema_path, String), Dict{String, Any}))
     @test JSONSchema.validate(schema, cables_document) === nothing
     @test JSONSchema.validate(schema, materials_document) === nothing
+
+    packed_cables=CablesLibrary()
+    add!(packed_cables,
+        build(
+            CableDesign,
+            "hexagonal-schema",
+            terminal(
+                :core,
+                stranded(
+                    TestFixtures.copper_material();
+                    shape = Disk(0.5e-3),
+                    layers = 2
+                )
+            )
+        ))
+    @test JSONSchema.validate(
+        schema,
+        IE._json_document(packed_cables)
+    ) === nothing
 
     earth=EarthModel(100.0, 10.0, 1.0)
     design=TestFixtures.mv_cable_design()

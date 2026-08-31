@@ -56,6 +56,14 @@
     )).layer == 2
 
     defaults=@inferred Formulation()
+    @test defaults.methods.earth_properties === nothing
+    @test defaults.methods.equivalent_earth isa EH.AfterFD
+    @test EH.rule(defaults.methods.equivalent_earth) == EH.Layer(-1)
+    @test Formulation(earth_properties = :default).methods.earth_properties ===
+          nothing
+    explicit_default=Formulation(equivalent_earth = :default)
+    @test explicit_default.methods.equivalent_earth isa EH.AfterFD
+    @test EH.rule(explicit_default.methods.equivalent_earth) == EH.Layer(-1)
     bare=Formulation(
         insulation_impedance = :Ametani1980,
         insulation_admittance = :Gustavsen2013,
@@ -135,6 +143,7 @@
     @test_throws ArgumentError Formulation(
         equivalent_earth = formula(:Layer; unknown = true)
     )
+    @test_throws ArgumentError Formulation(equivalent_earth = formula(:Layer))
 end
 
 @testitem "Engine / external earth-impedance vocabulary" tags=[:unit] setup=[

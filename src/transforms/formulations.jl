@@ -28,6 +28,9 @@ function Formula(identifier::Symbol; route = nothing, kwargs...)
     return Formula(Val(identifier); route, kwargs...)
 end
 
+Formula(::Val{:default}; route = nothing, kwargs...) =
+    Formula(Val(DEFAULT); route, kwargs...)
+
 function Formula(::Val{ID}; route = nothing, kwargs...) where {ID}
     tag = Val(ID)
     applicable(assumptions, tag) || throw(
@@ -63,12 +66,23 @@ function Formula(
     return Formula{ID, R, A}(route, values)
 end
 
+function Formula(
+        ::Val{:default},
+        route::R,
+        values::A = (;)
+) where {R, A <: NamedTuple}
+    return Formula(Val(DEFAULT), route, values)
+end
+
 (formula::Formula)(parameters) = formula.route(parameters, formula.assumptions)
 
 """
 $(TYPEDEF)
 
 Select the one registered route used by a modal-transformation computation.
+
+The zero-argument constructor selects the module's `:default` route,
+`:Chrysochos2014`.
 
 $(TYPEDFIELDS)
 """
@@ -90,6 +104,10 @@ struct ModalTransformationFormulation{F <: Formula} <: AbstractFormulation
         ))
         return new{F}(formula)
     end
+end
+
+function ModalTransformationFormulation()
+    return ModalTransformationFormulation(Formula(Val(DEFAULT)))
 end
 
 function ModalTransformationFormulation(identifier::Symbol; kwargs...)

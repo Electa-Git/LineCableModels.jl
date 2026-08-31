@@ -15,6 +15,9 @@ static earth geometry, the interaction pair, and frequency. It returns one
 artificial homogeneous [`EarthMaterial`](@ref). Formula assumptions participate
 in the concrete Julia type.
 
+The reserved identifier `:default` selects [`Layer`](@ref) with `-1`, which is
+resolved to the bottommost soil layer when the rule is evaluated.
+
 $(TYPEDFIELDS)
 """
 struct Formula{ID, R, A <: NamedTuple} <: AbstractRule
@@ -67,6 +70,16 @@ function assumptions end
 
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
 
+function Formula(::Val{:default}; route = nothing, kwargs...)
+    route === nothing || throw(ArgumentError(
+        ":default EHEM cannot define a route"
+    ))
+    isempty(kwargs) || throw(ArgumentError(
+        ":default EHEM cannot define assumptions"
+    ))
+    return Layer(-1)
+end
+
 function Formula(::Val{ID}; route = nothing, kwargs...) where {ID}
     tag = Val(ID)
     applicable(assumptions, tag) || throw(ArgumentError(
@@ -87,6 +100,13 @@ function Formula(
         ::Val{ID}, route::R, values::A = (;)
 ) where {ID, R, A <: NamedTuple}
     return Formula{ID, R, A}(route, values)
+end
+
+function Formula(::Val{:default}, route, values::NamedTuple = (;))
+    throw(ArgumentError(
+        ":default EHEM selects the last-layer policy and cannot define " *
+        "an external route"
+    ))
 end
 
 Formula(identifier::Symbol, route, values::NamedTuple = (;)) =

@@ -22,6 +22,9 @@ import ...LineCableModels: constitutive, formula_id
 import ...LineCableModels: description
 #! explicit-imports: on
 
+"Absence of a frequency-dependent soil relation selected by `:default`."
+const DEFAULT = nothing
+
 include("interface.jl")
 
 #! explicit-imports: off

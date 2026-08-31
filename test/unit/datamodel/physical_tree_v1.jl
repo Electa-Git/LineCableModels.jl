@@ -113,6 +113,11 @@ end
     @test circular.items[1].path === nothing
     @test circular.items[2].path.lay == LayRatio(15)
     @test circular.items[3].path.lay == LayRatio(11)
+    @test getproperty.(circular.items[2:3], :pattern) == [
+        Hexa(1),
+        Hexa(2)
+    ]
+    @test all(item -> item.pattern isa Ring, rectangular.items[2:3])
 
     circular_design=build(
         CableDesign, "circular-strands", terminal(:core, circular)
@@ -130,6 +135,43 @@ end
           19pi * disk.r^2
     @test sum(area, getproperty.(rectangular_design.geometry.regions, :primitive)) ≈
           19rectangle.w * rectangle.h
+
+    strand_centres=centroid.(getproperty.(
+        circular_design.geometry.regions,
+        :primitive
+    ))
+    course_two=strand_centres[8:19]
+    strand_spacing=2disk.r
+    adjacent_distances=[hypot(
+                            course_two[mod1(index + 1, length(course_two))][1] -
+                            course_two[index][1],
+                            course_two[mod1(index + 1, length(course_two))][2] -
+                            course_two[index][2]
+                        )
+                        for index in eachindex(course_two)]
+    @test all(distance -> distance ≈ strand_spacing, adjacent_distances)
+    all_pair_distances=[hypot(
+                            strand_centres[left][1] - strand_centres[right][1],
+                            strand_centres[left][2] - strand_centres[right][2]
+                        )
+                        for left in eachindex(strand_centres)
+                        for right in (left + 1):length(strand_centres)]
+    @test minimum(all_pair_distances) ≈ strand_spacing
+    course_two_radii=hypot.(first.(course_two), last.(course_two))
+    @test count(radius -> radius ≈ 2strand_spacing, course_two_radii) == 6
+    @test count(radius -> radius ≈ sqrt(3)*strand_spacing, course_two_radii) == 6
+    @test [last(region.placement.patterns).member
+           for region in circular_design.geometry.regions[8:19]] == collect(1:12)
+    flattened_circular=only(LineCableModels.DataModel.flatten(
+        circular_design,
+        50.0
+    )).conductor
+    @test flattened_circular.gmr ≈
+          LineCableModels.DataModel.BaseParams.strand_gmr(
+        strand_centres,
+        disk.r,
+        copper.mu_r
+    )
 
     initial_radius=hypot(rectangle.w, rectangle.h) / 2
     expected_centre=initial_radius + rectangle.h / 2
@@ -350,6 +392,30 @@ end
     @test_throws MethodError LineCableModels.placements(
         ring, wire.primitive, LineCableModels.DiameterFactor(0.9)
     )
+
+    for course in 1:4
+        hexagonal=Hexa(course; φ0 = π / 6)
+        hexagonal_poses=placements(hexagonal, wire.primitive, nothing)
+        @test capacity(hexagonal, wire.primitive, nothing) == 6course
+        @test length(hexagonal_poses) == 6course
+        @test all(eachindex(hexagonal_poses)) do index
+            next=hexagonal_poses[mod1(index + 1, length(hexagonal_poses))]
+            current=hexagonal_poses[index]
+            hypot(next.x - current.x, next.y - current.y) ≈ 1.0
+        end
+    end
+    hexagonal=Hexa(2; φ0 = π / 6)
+    hexagonal_poses=placements(hexagonal, wire.primitive, nothing)
+    @test length(unique(round.(
+        hypot.(getfield.(hexagonal_poses, :x), getfield.(hexagonal_poses, :y));
+        digits = 12
+    ))) == 2
+    @test_throws ArgumentError Hexa(0)
+    @test_throws DomainError Hexa(1; gap_frac = -0.1)
+    @test_throws MethodError placements(hexagonal, Rectangle(1.0, 1.0), nothing)
+    course_space=Hexa(Grid((1, 2)))
+    @test course_space isa Gridspace{Hexa}
+    @test collect(course_space) == [Hexa(1), Hexa(2)]
 
     helix=LineCableModels.Helix(LineCableModels.LayRatio(10); dir = -1)
     @test LineCableModels.pitch(helix, 2.0) == 40.0

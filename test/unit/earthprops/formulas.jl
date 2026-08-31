@@ -28,6 +28,8 @@
     end
     @test_throws ArgumentError FD.Formula(:Unknown)
     @test_throws ArgumentError FD.Formula(:Portela1999; unknown = 1)
+    @test FD.DEFAULT === nothing
+    @test FD.Formula(:default) === nothing
 
     route=(material, frequency, values)->EP.EarthMaterial(
         material.rho / values.scale,
@@ -36,6 +38,9 @@
     )
     experimental=FD.Formula(:Experiment, route, (scale = 2.0,))
     material=EP.EarthMaterial(100.0, 10.0, 1.0)
+    @test constitutive(FD.Formula(:default), material, 50.0) === material
+    @test_throws ArgumentError FD.Formula(:default; route)
+    @test_throws ArgumentError FD.Formula(:default, route)
     output=@inferred constitutive(experimental, material, 50.0)
     @test (output.rho, output.eps_r, output.mu_r) == (50.0, 11.0, 1.0)
 end

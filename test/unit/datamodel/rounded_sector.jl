@@ -205,10 +205,7 @@ end
     @test DM.tubular_resistance(
         component.conductor.r_in,
         component.conductor.r_ex,
-        component.conductor.material.rho,
-        component.conductor.material.alpha,
-        component.conductor.material.T0,
-        component.conductor.material.T0
+        component.conductor.material.rho
     ) ≈ component.conductor.resistance
     @test DM.tubular_gmr(
         component.conductor.r_ex,

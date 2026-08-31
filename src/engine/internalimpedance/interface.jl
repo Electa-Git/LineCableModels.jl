@@ -91,6 +91,12 @@ function Formula(
     return Formula{ID, R, A}(selected, values)
 end
 
+function Formula(
+        ::Val{:default}, selected::R, values::A = (;)
+) where {R <: NamedTuple, A <: NamedTuple}
+    return Formula(Val(DEFAULT), selected, values)
+end
+
 function Formula(identifier::Symbol, selected::NamedTuple, values::NamedTuple = (;))
     Formula(Val(identifier), selected, values)
 end

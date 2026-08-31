@@ -6,7 +6,7 @@ promotes its inputs with Base numeric rules.
 """
 module BaseParams
 
-export equivalent_alpha, parallel, helix, strip_resistance, temperature_factor
+export equivalent_alpha, parallel, helix, strip_resistance
 export tubular_resistance, tubular_inductance, wire_coordinates
 export trefoil_inductance, strand_gmr, tubular_gmr, equivalent_gmr, equivalent_mu
 export shunt_capacitance, shunt_conductance, series_shunt_admittance

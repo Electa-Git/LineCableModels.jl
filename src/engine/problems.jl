@@ -299,28 +299,20 @@ function _direct(::FormulaSpec{ID, Order}, owner::Symbol) where {ID, Order}
     return nothing
 end
 
-function _ehem_rule(
-        ::FormulaSpec{:Layer, Order, NamedTuple{(), Tuple{}}}
-) where {Order}
-    EHEM.Layer()
-end
-
-function _ehem_rule(
-        selection::FormulaSpec{
-        :Layer, Order, NamedTuple{(:layer,), Tuple{T}}
-}
-) where {Order, T <: Int}
-    return EHEM.Layer(selection.overrides.layer)
-end
-
 function _ehem_rule(selection::FormulaSpec{:Layer})
-    defaults = (layer = -1,)
-    unknown = setdiff(keys(selection.overrides), keys(defaults))
+    required = (:layer,)
+    unknown = setdiff(keys(selection.overrides), required)
     isempty(unknown) || throw(ArgumentError(
         "unknown assumptions for equivalent-earth policy :Layer: $(collect(unknown))"
     ))
-    values = merge(defaults, selection.overrides)
-    return EHEM.Layer(values.layer)
+    haskey(selection.overrides, :layer) || throw(ArgumentError(
+        "equivalent-earth policy :Layer requires `layer`"
+    ))
+    layer = selection.overrides.layer
+    layer isa Int || throw(ArgumentError(
+        "equivalent-earth policy :Layer requires an integer `layer`"
+    ))
+    return EHEM.Layer(layer)
 end
 
 function _ehem_rule(selection::FormulaSpec{ID}) where {ID}
@@ -344,8 +336,8 @@ function Formulation(;
         insulation_admittance = formula(:default),
         semicon_admittance = formula(:default),
         earth_admittance = formula(:default),
-        earth_properties = nothing,
-        equivalent_earth = formula(:Layer; order = :after),
+        earth_properties = formula(:default),
+        equivalent_earth = formula(:default),
         options::NamedTuple = (;)
 )
     return LineParametersFormulation(;

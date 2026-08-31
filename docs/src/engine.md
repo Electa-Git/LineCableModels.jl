@@ -42,6 +42,10 @@ registered literature formula before computation. The current mappings are
 impedance, `:Papadopoulos2010` for earth impedance and admittance, and
 `:Ametani2004` for insulation and semicon admittance. `:default` is not a
 catalogue entry and never survives as the concrete formula identity.
+Modal transformation similarly resolves `:default` to `:Chrysochos2014`.
+The two non-literature cases are explicit: frequency-dependent soil resolves
+`:default` to `nothing`, while EHEM resolves it to the last-layer
+reconstruction policy.
 
 `EarthImpedance.Formula{:ID}` carries the identity in its concrete type. Its
 `routes` tuple holds the leaf self, mutual, and propagation-constant formulas;
@@ -112,7 +116,9 @@ store only static layer geometry and datasheet properties.
 `EarthProps.FD` owns measured and material-physics relations with the scalar
 contract `constitutive(formula, material, frequency)`. The relation selected by
 `Formulation(earth_properties=:AuthorYear)` is applied only to soil; `nothing`
-passes static properties through exactly and air is never modified.
+passes static properties through exactly and air is never modified. Its
+`:default` selector resolves to that honest absence rather than to a registered
+identity formula.
 `EarthProps.FD.formulas()` reports the discovered Longmire–Smith, Portela,
 Alipio–Visacro, Datsios–Mikropoulos, Scott, Messier, Visacro–Portela,
 Visacro–Alipio, and CIGRE WG C4.33 relations.
@@ -122,7 +128,9 @@ formulations. `formula(:Xue2021; order=:after)` first evaluates every physical
 layer and then reduces it; `order=:before` reduces the static layers and applies
 FD to the artificial material afterward. These resolve to independent dispatch
 paths. `formula(:Layer; layer=-1)` selects the explicit bottommost-layer policy,
-which is the default and is not a literature formula.
+which is not a literature formula. Explicit `:Layer` selection always requires
+the `layer` argument. EHEM `:default` supplies `layer=-1` and applies that
+last-layer policy after layerwise FD.
 `:MartinsBritto2020` reconstructs conductivity only, whereas `:Xue2021`
 reconstructs conductivity and permittivity. Both registered routes implement
 their published overhead-line scope and reject underground and mixed pairs.
@@ -370,7 +378,7 @@ phase = compute(line_problem, line_formulation)
 modal = compute(
     ModalTransformationProblem(phase),
     ModalTransformationFormulation(
-        formula(:Chrysochos2014; convergence=1e-8),
+        formula(:default; convergence=1e-8),
     ),
 )
 rebuilt = compute(ModalTransformationProblem(modal))
@@ -390,6 +398,7 @@ result cannot be constructed through the admitted `LineParameters` interface.
 Built-in formula files are included deterministically and selected by symbols:
 
 ```julia
+ModalTransformationFormulation() # :Chrysochos2014
 ModalTransformationFormulation(formula(:Fortescue))
 ModalTransformationFormulation(formula(:Chrysochos2014; convergence=1e-8))
 ModalTransformationFormulation(formula(:Fan2009; history_weight=0.3))

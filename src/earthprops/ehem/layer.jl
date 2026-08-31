@@ -10,7 +10,7 @@ struct Layer <: AbstractRule
     "Earth-model layer index; `-1` selects the bottommost layer."
     layer::Int
 
-    function Layer(layer::Int = -1)
+    function Layer(layer::Int)
         layer == -1 || layer >= 2 || throw(DomainError(
             layer,
             "EHEM layer must be -1 or an earth-model index of at least 2"

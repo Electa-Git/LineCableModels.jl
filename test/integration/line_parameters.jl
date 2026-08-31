@@ -519,7 +519,7 @@ end
         problem,
         Formulation(;
             common...,
-            equivalent_earth = EH.AfterFD(EH.Layer())
+            equivalent_earth = EH.AfterFD(EH.Layer(-1))
         )
     )
     martins=compute(

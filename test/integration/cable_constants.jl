@@ -20,6 +20,29 @@
     @test capacitance(constants) === constants.C
     @test conductance(constants) === constants.G
 
+    packed_material=Material(:conductor, 1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
+    packed_dielectric=Material(:insulator, 1e14, 2.3)
+    packed_design=build(
+        CableDesign,
+        "hexagonally-packed-core",
+        terminal(
+            :packed_core,
+            stranded(
+                packed_material;
+                shape = Disk(0.5e-3),
+                layers = 2,
+                lay = (LayRatio(15), LayRatio(11))
+            )
+        ),
+        insulation(packed_dielectric; t = 1e-3)
+    )
+    packed_constants=CableConstants(packed_design; frequency = 50.0)
+    @test all(isfinite,
+        Iterators.flatten(
+            (packed_constants.R, packed_constants.L,
+            packed_constants.C, packed_constants.G)
+        ))
+
     problem=CableConstantsProblem(design)
     formulation=CableConstantsFormulation()
     @test only(problem.system.positions) == Pose2(0.0, 0.0, 0.0)
@@ -68,9 +91,10 @@
     @test homogeneous_constants.G ≈ source_at_flattening_frequency.G
 
     high_frequency=CableConstants(design; frequency = 1e6)
-    @test all(isfinite, Iterators.flatten(
-        (high_frequency.R, high_frequency.L, high_frequency.C, high_frequency.G)
-    ))
+    @test all(isfinite,
+        Iterators.flatten(
+            (high_frequency.R, high_frequency.L, high_frequency.C, high_frequency.G)
+        ))
     @test only(high_frequency).R > row.R
 
     hot=CableConstants(design; temperature = 80.0)

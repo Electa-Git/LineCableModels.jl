@@ -1,290 +1,93 @@
-@testitem "BaseParams / temperature_factor / contracts" tags=[:unit] setup=[
+@testitem "BaseParams / tubular_resistance / reference-state contracts" tags=[:unit] setup=[
     BaseParamsTestSupport, UseBaseParamsSupport, TestNumerics] begin
     using Measurements
-    # Basic Functionality
-    @testset "Basic Functionality" begin
-        # Example from docstring: alpha = 0.00393, Top = 75.0, T0 = 20.0
-        k = temperature_factor(0.00393, 75.0, 20.0)
-        @test isapprox(k, 1.2161, atol = 1e-4)
 
-        # Default reference temperature is 20 °C.
-        k2 = temperature_factor(0.00393, 75.0)
-        k2_ref = temperature_factor(0.00393, 75.0, 20.0)
-        @test isapprox(k2, k2_ref, atol = TestNumerics.absolute_floor(Float64))
-    end
+    r_in=0.01
+    r_ex=0.02
+    rho=1.7241e-8
+    expected=rho/(π*(r_ex^2-r_in^2))
+    @test isapprox(
+        tubular_resistance(r_in, r_ex, rho),
+        expected;
+        atol = TestNumerics.absolute_floor(Float64)
+    )
+    @test isinf(tubular_resistance(r_in, r_in, rho))
+    @test tubular_resistance(r_in, r_in + eps(), rho) > 0
+    @test tubular_resistance(r_in, 0.03, rho) <
+          tubular_resistance(r_in, 0.015, rho)
+    @test tubular_resistance(r_in, r_ex, 1e-7) >
+          tubular_resistance(r_in, r_ex, 1e-8)
 
-    # Edge Cases
-    @testset "Edge Cases" begin
-        # Zero temperature difference
-        @test isapprox(temperature_factor(0.00393, 20.0, 20.0),
-            1.0, atol = TestNumerics.absolute_floor(Float64))
-        # Negative alpha (unusual, but mathematically valid)
-        @test isapprox(temperature_factor(-0.001, 30.0, 20.0),
-            0.99, atol = TestNumerics.absolute_floor(Float64))
-        # Large temperature difference within the 150 °C model range.
-        @test isapprox(temperature_factor(0.00393, 169.0, 20.0),
-            1 + 0.00393 * 149, atol = TestNumerics.absolute_floor(Float64))
-    end
+    result32=tubular_resistance(
+        Float32(r_in),
+        Float32(r_ex),
+        Float32(rho)
+    )
+    @test result32 isa Float32
 
-    # Numerical Consistency
-    @testset "Numerical Consistency" begin
-        # Float32
-        kf = temperature_factor(Float32(0.00393), Float32(75.0), Float32(20.0))
-        @test isapprox(kf, 1.2161f0, atol = Float32(1e-4))
-    end
+    uncertain=tubular_resistance(
+        measurement(r_in, 1e-6),
+        measurement(r_ex, 1e-6),
+        measurement(rho, 1e-10)
+    )
+    @test uncertain isa Measurement{Float64}
+    @test uncertainty(uncertain) > 0
 
-    # Physical Behavior
-    @testset "Physical Behavior" begin
-        # Correction increases with temperature for positive alpha
-        k1 = temperature_factor(0.00393, 50.0, 20.0)
-        k2 = temperature_factor(0.00393, 80.0, 20.0)
-        @test k2 > k1
-        # Correction decreases with temperature for negative alpha
-        k3 = temperature_factor(-0.001, 50.0, 20.0)
-        k4 = temperature_factor(-0.001, 80.0, 20.0)
-        @test k4 < k3
-    end
-
-    # Type Stability & Promotion
-    @testset "Type Stability & Promotion" begin
-        # All Float64
-        kf = temperature_factor(0.00393, 75.0, 20.0)
-        @test typeof(kf) == Float64
-        # All Measurement
-        αm = measurement(0.00393, 1e-5)
-        Topm = measurement(75.0, 0.1)
-        T0m = measurement(20.0, 0.1)
-        km = temperature_factor(αm, Topm, T0m)
-        @test km isa Measurement{Float64}
-        # Mixed: alpha as Measurement
-        kmix1 = temperature_factor(αm, 75.0, 20.0)
-        @test kmix1 isa Measurement{Float64}
-        # Mixed: Top as Measurement
-        kmix2 = temperature_factor(0.00393, Topm, 20.0)
-        @test kmix2 isa Measurement{Float64}
-        # Mixed: T0 as Measurement
-        kmix3 = temperature_factor(0.00393, 75.0, T0m)
-        @test kmix3 isa Measurement{Float64}
-    end
-
-    # Uncertainty Quantification
-    @testset "Uncertainty Quantification" begin
-        αm = measurement(0.00393, 1e-5)
-        Topm = measurement(75.0, 0.1)
-        T0m = measurement(20.0, 0.1)
-        km = temperature_factor(αm, Topm, T0m)
-        # Analytical propagation: k = 1 + α*(Top-T0)
-        # σ² = (Top-T0)²*σ_α² + α²*σ_Top² + α²*σ_T0²
-        μ = 1 + 0.00393 * (75.0 - 20.0)
-        σ2 = (75.0 - 20.0)^2 * 1e-5^2 + 0.00393^2 * 0.1^2 + 0.00393^2 * 0.1^2
-        @test isapprox(value(km), μ, atol = TestNumerics.absolute_floor(Float64))
-        @test isapprox(uncertainty(km), sqrt(σ2), atol = TestNumerics.absolute_floor(Float64))
-    end
+    @test_throws MethodError tubular_resistance(
+        r_in,
+        r_ex,
+        rho,
+        0.00393,
+        20.0,
+        75.0
+    )
 end
-@testitem "BaseParams / tubular_resistance / contracts" tags=[:unit] setup=[
-    BaseParamsTestSupport, UseBaseParamsSupport, TestNumerics] begin
-    # Basic Functionality
-    @testset "Basic Functionality" begin
-        # Example from docstring
-        r_in = 0.01
-        r_ex = 0.02
-        rho = 1.7241e-8
-        alpha = 0.00393
-        T0 = 20.0
-        Top = 25.0
-        expected = temperature_factor(alpha, Top, T0) * rho /
-                   (π * (r_ex^2 - r_in^2))
-        R = tubular_resistance(r_in, r_ex, rho, alpha, T0, Top)
-        @test isapprox(R, expected, atol = TestNumerics.absolute_floor(Float64))
-    end
 
-    # Edge Cases
-    @testset "Edge Cases" begin
-        # Zero thickness (r_in == r_ex): cross-section = 0, expect Inf or error
-        r_in = 0.01
-        r_ext = 0.01
-        rho = 1.7241e-8
-        alpha = 0.00393
-        T0 = 20.0
-        Top = 25.0
-        # Should return Inf (division by zero)
-        R = tubular_resistance(r_in, r_ext, rho, alpha, T0, Top)
-        @test isinf(R)
-        # Very thin tube (r_ex - r_in ≈ eps)
-        r_in2 = 0.01
-        r_ext2 = 0.01 + eps()
-        R2 = tubular_resistance(r_in2, r_ext2, rho, alpha, T0, Top)
-        @test R2 > 0
-        # Large radii
-        R3 = tubular_resistance(1.0, 2.0, rho, alpha, T0, Top)
-        @test R3 < 1e-8
-        # Negative temperature coefficient (mathematically valid)
-        R4 = tubular_resistance(0.01, 0.02, rho, -0.001, T0, Top)
-        expected4 = temperature_factor(-0.001, Top, T0) * rho /
-                    (π * (0.02^2 - 0.01^2))
-        @test isapprox(R4, expected4, atol = TestNumerics.absolute_floor(Float64))
-    end
-
-    # Numerical Consistency
-    @testset "Numerical Consistency" begin
-        # Float32
-        Rf = tubular_resistance(
-            Float32(0.01),
-            Float32(0.02),
-            Float32(1.7241e-8),
-            Float32(0.00393),
-            Float32(20.0),
-            Float32(25.0)
-        )
-        expectedf = temperature_factor(Float32(0.00393), Float32(25.0), Float32(20.0)) *
-                    Float32(1.7241e-8) / (π * (Float32(0.02)^2 - Float32(0.01)^2))
-        @test isapprox(Rf, expectedf, atol = TestNumerics.absolute_floor(Float32))
-    end
-
-    # Physical Behavior
-    @testset "Physical Behavior" begin
-        rho = 1.7241e-8
-        alpha = 0.00393
-        T0 = 20.0
-        Top = 25.0
-        # Resistance decreases as cross-section increases
-        R_small = tubular_resistance(0.01, 0.015, rho, alpha, T0, Top)
-        R_large = tubular_resistance(0.01, 0.03, rho, alpha, T0, Top)
-        @test R_large < R_small
-        # Resistance increases with increasing resistivity
-        R_lowrho = tubular_resistance(0.01, 0.02, 1e-8, alpha, T0, Top)
-        R_highrho = tubular_resistance(0.01, 0.02, 1e-7, alpha, T0, Top)
-        @test R_highrho > R_lowrho
-        # Resistance increases with increasing temperature (for positive alpha)
-        R_T1 = tubular_resistance(0.01, 0.02, rho, alpha, T0, 25.0)
-        R_T2 = tubular_resistance(0.01, 0.02, rho, alpha, T0, 75.0)
-        @test R_T2 > R_T1
-    end
-
-    # Type Stability & Promotion
-    @testset "Type Stability & Promotion" begin
-        # All Float64
-        Rf = tubular_resistance(0.01, 0.02, 1.7241e-8, 0.00393, 20.0, 25.0)
-        @test typeof(Rf) == Float64
-        # All Measurement
-        using Measurements
-        rin_m = measurement(0.01, 1e-6)
-        rext_m = measurement(0.02, 1e-6)
-        rho_m = measurement(1.7241e-8, 1e-10)
-        alpha_m = measurement(0.00393, 1e-5)
-        T0_m = measurement(20.0, 0.1)
-        Top_m = measurement(25.0, 0.1)
-        Rm = tubular_resistance(rin_m, rext_m, rho_m, alpha_m, T0_m, Top_m)
-        @test Rm isa Measurement{Float64}
-        # Mixed: first argument as Measurement
-        Rmix1 = tubular_resistance(rin_m, 0.02, 1.7241e-8, 0.00393, 20.0, 25.0)
-        @test Rmix1 isa Measurement{Float64}
-        # Mixed: middle argument as Measurement
-        Rmix2 = tubular_resistance(0.01, 0.02, rho_m, 0.00393, 20.0, 25.0)
-        @test Rmix2 isa Measurement{Float64}
-        # Mixed: last argument as Measurement
-        Rmix3 = tubular_resistance(0.01, 0.02, 1.7241e-8, 0.00393, 20.0, Top_m)
-        @test Rmix3 isa Measurement{Float64}
-    end
-
-    # Uncertainty Quantification
-    @testset "Uncertainty Quantification" begin
-        rin_m = measurement(0.01, 1e-6)
-        rext_m = measurement(0.02, 1e-6)
-        rho_m = measurement(1.7241e-8, 1e-10)
-        alpha_m = measurement(0.00393, 1e-5)
-        T0_m = measurement(20.0, 0.1)
-        Top_m = measurement(25.0, 0.1)
-        Rm = tubular_resistance(rin_m, rext_m, rho_m, alpha_m, T0_m, Top_m)
-        # Analytical propagation (approximate, neglecting correlations):
-        ΔA = π * (value(rext_m)^2 - value(rin_m)^2)
-        k = value(temperature_factor(alpha_m, Top_m, T0_m))
-        μ = k * value(rho_m) / ΔA
-        @test isapprox(value(Rm), μ, atol = TestNumerics.absolute_floor(Float64))
-        # Uncertainty should be nonzero and scale with input uncertainties
-        @test uncertainty(Rm) > 0
-    end
-end
-@testitem "BaseParams / strip_resistance / contracts" tags=[:unit] setup=[
+@testitem "BaseParams / strip_resistance / reference-state contracts" tags=[:unit] setup=[
     BaseParamsTestSupport, UseBaseParamsSupport, TestNumerics] begin
     using Measurements
-    # --- Basic Functionality ---
-    @testset "Basic Functionality" begin
-        thickness = 0.002
-        width = 0.05
-        rho = 1.7241e-8
-        alpha = 0.00393
-        T0 = 20.0
-        Top = 25.0
-        R = strip_resistance(thickness, width, rho, alpha, T0, Top)
-        @test isapprox(R, 0.00017579785649999996, atol = TestNumerics.absolute_floor(Float64))
-    end
 
-    # --- Edge Cases ---
-    @testset "Edge Cases" begin
-        # Zero thickness (should return Inf or error in physical context, but function will return Inf)
-        R = strip_resistance(0.0, 0.05, 1.7241e-8, 0.00393, 20.0, 25.0)
-        @test isinf(R)
-        # Zero width
-        R = strip_resistance(0.002, 0.0, 1.7241e-8, 0.00393, 20.0, 25.0)
-        @test isinf(R)
-        # Large temperature difference (within asserted range)
-        R = strip_resistance(0.002, 0.05, 1.7241e-8, 0.00393, 20.0, 100.0)
-        @test R > 0.00017579785649999996
-    end
+    thickness=0.002
+    width=0.05
+    rho=1.7241e-8
+    expected=rho/(thickness*width)
+    @test isapprox(
+        strip_resistance(thickness, width, rho),
+        expected;
+        atol = TestNumerics.absolute_floor(Float64)
+    )
+    @test isinf(strip_resistance(0.0, width, rho))
+    @test isinf(strip_resistance(thickness, 0.0, rho))
+    @test strip_resistance(2thickness, width, rho) <
+          strip_resistance(thickness, width, rho)
+    @test strip_resistance(thickness, width, 1e-7) >
+          strip_resistance(thickness, width, 1e-8)
 
-    # --- Numerical Consistency ---
-    @testset "Numerical Consistency" begin
-        # Float32
-        R = strip_resistance(Float32(0.002), Float32(0.05), Float32(1.7241e-8),
-            Float32(0.00393), Float32(20.0), Float32(25.0))
-        @test isapprox(R, 0.00017579785649999996, atol = TestNumerics.absolute_floor(Float64))
-    end
+    result32=strip_resistance(
+        Float32(thickness),
+        Float32(width),
+        Float32(rho)
+    )
+    @test result32 isa Float32
 
-    # --- Physical Behavior ---
-    @testset "Physical Behavior" begin
-        # Resistance increases with temperature
-        R1 = strip_resistance(0.002, 0.05, 1.7241e-8, 0.00393, 20.0, 25.0)
-        R2 = strip_resistance(0.002, 0.05, 1.7241e-8, 0.00393, 20.0, 75.0)
-        @test R2 > R1
-        # Resistance decreases with increasing cross-section
-        R3 = strip_resistance(0.002, 0.05, 1.7241e-8, 0.00393, 20.0, 25.0)
-        R4 = strip_resistance(0.004, 0.05, 1.7241e-8, 0.00393, 20.0, 25.0)
-        @test R4 < R3
-    end
+    uncertain=strip_resistance(
+        measurement(thickness, 1e-6),
+        measurement(width, 1e-5),
+        measurement(rho, 1e-10)
+    )
+    @test uncertain isa Measurement{Float64}
+    @test uncertainty(uncertain) > 0
 
-    # --- Type Stability & Promotion ---
-    @testset "Type Stability & Promotion" begin
-        # All Float64
-        R = strip_resistance(0.002, 0.05, 1.7241e-8, 0.00393, 20.0, 25.0)
-        @test typeof(R) == Float64
-        # All Measurement
-        Rm = strip_resistance(measurement(0.002, 1e-6), measurement(0.05, 1e-5),
-            measurement(1.7241e-8, 1e-10), measurement(0.00393, 1e-6),
-            measurement(20.0, 0.1), measurement(25.0, 0.1))
-        @test Rm isa Measurement{Float64}
-        # Mixed: thickness as Measurement
-        R1 = strip_resistance(
-            measurement(0.002, 1e-6), 0.05, 1.7241e-8, 0.00393, 20.0, 25.0)
-        @test R1 isa Measurement{Float64}
-        # Mixed: alpha as Measurement
-        R2 = strip_resistance(
-            0.002, 0.05, 1.7241e-8, measurement(0.00393, 1e-6), 20.0, 25.0)
-        @test R2 isa Measurement{Float64}
-    end
-
-    # --- Uncertainty Quantification ---
-    @testset "Uncertainty Quantification" begin
-        t = measurement(0.002, 1e-6)
-        w = measurement(0.05, 1e-5)
-        r = measurement(1.7241e-8, 1e-10)
-        a = measurement(0.00393, 1e-6)
-        t0 = measurement(20.0, 0.1)
-        top = measurement(25.0, 0.1)
-        R = strip_resistance(t, w, r, a, t0, top)
-        @test uncertainty(R) > 0
-    end
+    @test_throws MethodError strip_resistance(
+        thickness,
+        width,
+        rho,
+        0.00393,
+        20.0,
+        75.0
+    )
 end
+
 @testitem "BaseParams / parallel / contracts" tags=[:unit] setup=[
     BaseParamsTestSupport, UseBaseParamsSupport, TestNumerics] begin
     @testset "Basic Functionality" begin

@@ -97,6 +97,14 @@ function Formula(
     return Formula{ID, R, A}(route, values)
 end
 
+function Formula(
+        ::Val{:default},
+        route::R,
+        values::A = (;)
+) where {R, A <: NamedTuple}
+    return Formula(Val(DEFAULT), route, values)
+end
+
 @inline function (formula::Formula)(
         material::Material{T},
         frequency::T,

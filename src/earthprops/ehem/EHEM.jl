@@ -27,6 +27,9 @@ import ...LineCableModels: formula_id
 import ...LineCableModels: description
 #! explicit-imports: on
 
+"Last-layer reconstruction policy selected by `:default`."
+const DEFAULT = :Layer
+
 include("interface.jl")
 include("layer.jl")
 

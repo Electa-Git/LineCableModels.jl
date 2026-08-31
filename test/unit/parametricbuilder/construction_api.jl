@@ -407,14 +407,12 @@ end
         boundary = Grid((rounded, second_boundary))
     )
     @test boundary_space isa Gridspace{Stack}
-    @test collect(boundary_space) == [
-        stranded(
-            copper;
-            shape = Disk(0.5e-3),
-            layers = 0,
-            boundary
-        ) for boundary in (rounded, second_boundary)
-    ]
+    @test collect(boundary_space) == [stranded(
+               copper;
+               shape = Disk(0.5e-3),
+               layers = 0,
+               boundary
+           ) for boundary in (rounded, second_boundary)]
 
     rounded_member = RoundedSector(
         span = deg2rad(115.0),
@@ -550,10 +548,7 @@ end
         base = DM.tubular_resistance(
             0.0,
             primitive.r,
-            region.source.material.rho,
-            region.source.material.alpha,
-            region.source.material.T0,
-            region.source.material.T0
+            region.source.material.rho
         )
         foldl(region.paths; init = base) do resistance, entry
             resistance * overlength(entry.path, entry.radius)

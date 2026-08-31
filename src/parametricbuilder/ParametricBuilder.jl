@@ -35,7 +35,8 @@ export Enclosure
 export terminal, core, stranded, rope, cores, tape, insulation, screen, sheath
 export armor, bedding, jacket, filler, pipe, duct
 export solid, shell, wires, layers, assembly
-export capacity, FillFactor, DiameterFactor, TabulatedCompaction, AffineCompaction
+export capacity, Hexa
+export FillFactor, DiameterFactor, TabulatedCompaction, AffineCompaction
 export at, trefoil, hflat, vflat, Earth
 export @cable, @terminal, @assembly, @duct, @at, @hflat, @vflat, @trefoil
 export @distribute
@@ -63,7 +64,7 @@ import ..DataModel: RoundedSector, Shell, Pose2
 import ..DataModel: Region, Stack
 import ..DataModel: Group, Assembly
 import ..DataModel: Enclosure
-import ..DataModel: capacity, FillFactor, DiameterFactor
+import ..DataModel: capacity, Hexa, FillFactor, DiameterFactor
 import ..DataModel: TabulatedCompaction, AffineCompaction
 import ..DataModel: CableDesign, LineCableSystem
 import ..EarthProps

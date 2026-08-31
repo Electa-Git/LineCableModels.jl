@@ -341,9 +341,9 @@ function LineParametersWorkspace(
     rho_cond = copy(rho0_cond)
     if formulation.options.temperature_correction
         @inbounds for index in eachindex(rho_cond)
-            rho_cond[index] *= DataModel.temperature_factor(
-                alpha_cond[index], problem.temperature, T0_cond[index]
-            )
+            rho_cond[index] *= one(T) +
+                               alpha_cond[index] *
+                               (problem.temperature - T0_cond[index])
         end
     end
     earth = _earth_data(formulation, input)

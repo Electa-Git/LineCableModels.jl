@@ -46,6 +46,56 @@ end
 """
 $(TYPEDSIGNATURES)
 
+Calculate the GMR of identical circular strands from their resolved centres:
+
+```math
+\\log GMR=\\frac{1}{N^2}\\left[
+N\\log r_g+2\\sum_{i=1}^{N}\\sum_{j=i+1}^{N}\\log d_{ij}
+\\right],\\qquad
+r_g=r_w\\exp(-\\mu_r/4).
+```
+
+# Arguments
+
+- `coordinates`: Strand-centre coordinates \\[m\\].
+- `wire_radius`: Strand radius \\[m\\].
+- `mu_r`: Relative permeability \\[dimensionless\\].
+
+# Returns
+
+- Geometric mean radius of the complete strand set \\[m\\].
+"""
+function strand_gmr(coordinates, wire_radius::Real, mu_r::Real)
+    isempty(coordinates) && throw(ArgumentError(
+        "strand GMR requires at least one centre coordinate"
+    ))
+    wire, permeability = promote(float(wire_radius), float(mu_r))
+    wire > zero(wire) || throw(DomainError(
+        wire, "wire radius must be positive"
+    ))
+    permeability > zero(permeability) || throw(DomainError(
+        permeability, "relative permeability must be positive"
+    ))
+    count = length(coordinates)
+    logarithmic_sum = count * log(tubular_gmr(wire, zero(wire), permeability))
+    for left in eachindex(coordinates)
+        for right in (left + 1):length(coordinates)
+            distance = hypot(
+                coordinates[left][1] - coordinates[right][1],
+                coordinates[left][2] - coordinates[right][2]
+            )
+            distance > zero(distance) || throw(ArgumentError(
+                "strand centres must be distinct"
+            ))
+            logarithmic_sum += 2log(distance)
+        end
+    end
+    return exp(logarithmic_sum / count^2)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
 Calculate the GMR of an annular conductor.
 
 ```math
