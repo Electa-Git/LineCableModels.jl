@@ -338,12 +338,12 @@ function _equivalent_earth(
 end
 
 function Formulation(;
-        internal_impedance = formula(:Schelkunoff1934),
-        insulation_impedance = formula(:Ametani1980),
-        earth_impedance = formula(:Papadopoulos2010),
-        insulation_admittance = formula(:Marti2001),
-        semicon_admittance = formula(:Ametani2004),
-        earth_admittance = formula(:Papadopoulos2010),
+        internal_impedance = formula(:default),
+        insulation_impedance = formula(:default),
+        earth_impedance = formula(:default),
+        insulation_admittance = formula(:default),
+        semicon_admittance = formula(:default),
+        earth_admittance = formula(:default),
         earth_properties = nothing,
         equivalent_earth = formula(:Layer; order = :after),
         options::NamedTuple = (;)

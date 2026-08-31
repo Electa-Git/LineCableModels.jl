@@ -20,12 +20,12 @@ wrapper; the receiving keyword supplies that namespace:
 
 ```julia
 Formulation(
-    internal_impedance=formula(:Schelkunoff1934),
-    insulation_impedance=formula(:Ametani1980),
-    earth_impedance=formula(:Papadopoulos2010),
-    insulation_admittance=formula(:Marti2001),
-    semicon_admittance=formula(:Ametani2004),
-    earth_admittance=formula(:Papadopoulos2010),
+    internal_impedance=formula(:default),
+    insulation_impedance=formula(:default),
+    earth_impedance=formula(:default),
+    insulation_admittance=formula(:default),
+    semicon_admittance=formula(:default),
+    earth_admittance=formula(:default),
     earth_properties=formula(:CIGRE2019),
     equivalent_earth=formula(:Xue2021; order=:after),
 )
@@ -35,6 +35,13 @@ Bare symbols remain the concise default-only form. Formula-specific keyword
 arguments are forwarded as route or assumption overrides. `order=:before` or
 `:after` places an EHEM reduction relative to material frequency dependence;
 ordinary formula slots reject an `order` value.
+
+Every Engine formula family resolves the UX selector `:default` to one
+registered literature formula before computation. The current mappings are
+`:Schelkunoff1934` for internal impedance, `:Ametani1980` for insulation
+impedance, `:Papadopoulos2010` for earth impedance and admittance, and
+`:Ametani2004` for insulation and semicon admittance. `:default` is not a
+catalogue entry and never survives as the concrete formula identity.
 
 `EarthImpedance.Formula{:ID}` carries the identity in its concrete type. Its
 `routes` tuple holds the leaf self, mutual, and propagation-constant formulas;
@@ -88,14 +95,14 @@ runtime registry or dictionary lookup. A contributed file defines its routes,
 assumptions, formula call, and functor leaf dispatch together.
 
 Insulation impedance uses the same discovery rule with one complete scalar
-route per formula. Insulation and semicon admittance formulas are constitutive
-relations applied to the full physical `Material` at each frequency; the
-Coaxial Engine owns the common annular geometry and radial series aggregation.
+route per formula. Insulation and semicon admittance formulas evaluate complex
+material admittivity at each frequency; the Coaxial Engine owns the common
+annular geometry and radial series aggregation.
 `InsulationImpedance.formulas()` includes `:Ametani1980`;
-`InsulationAdmittance.formulas()` includes `:Gustavsen2013` and `:Marti2001`;
+`InsulationAdmittance.formulas()` includes `:Ametani2004` and `:Gustavsen2013`;
 `SemiconAdmittance.formulas()` includes `:Ametani2004`. They are selected
 uniformly through `insulation_admittance` and `semicon_admittance`. A complete
-experimental constitutive law can be supplied with `formula(:Marti2001;
+experimental constitutive law can be supplied with `formula(:Ametani2004;
 route=my_route)` without changing the Coaxial matrix-assembly loop.
 
 Frequency-dependent soil laws and equivalent homogeneous-earth models belong
@@ -135,20 +142,22 @@ The default bundle is:
 
 ```julia
 CableConstantsFormulation(
-    internal_impedance = formula(:Schelkunoff1934),
-    insulation_impedance = formula(:Ametani1980),
-    insulation_admittance = formula(:Marti2001),
-    semicon_admittance = formula(:Ametani2004),
+    internal_impedance = formula(:default),
+    insulation_impedance = formula(:default),
+    insulation_admittance = formula(:default),
+    semicon_admittance = formula(:default),
 )
 ```
 
 `DataModel.flatten(design, frequency)` supplies the canonical components.
 Contiguous components sharing one radial centre form one concentric assembly.
-The Engine retains its innermost terminal, grounds all outward terminals,
-assembles and reduces the local N-terminal series-impedance matrix, and
-combines the physical dielectric layers between the core and first grounded
-terminal in radial series. Earth impedance, earth admittance, EHEM, Γ,
-position, transposition, and bundle reduction never enter this workflow.
+The Engine retains its innermost terminal, grounds every additional outward
+terminal when present, assembles and reduces the local N-terminal
+series-impedance matrix, and combines the physical dielectric layers outside
+the core in radial series. A one-terminal assembly uses the declared outer
+dielectric boundary directly; it does not require a metallic sheath. Earth
+impedance, earth admittance, EHEM, Γ, position, transposition, and bundle
+reduction never enter this workflow.
 
 `CableConstants(design; temperature=20, frequency=1e-3)` is the convenience
 entry point. The result owns `cores`, aligned `R/L/C/G` vectors, and the

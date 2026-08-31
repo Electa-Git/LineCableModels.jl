@@ -2,7 +2,7 @@
     LineCableModels.Engine.InsulationAdmittance
 
 Define registered constitutive relations for cable-insulation admittance.
-`:Marti2001` retains parallel conductance and capacitance;
+`:Ametani2004` retains material conduction and displacement current;
 `:Gustavsen2013` selects the conventional lossless approximation.
 
 # Dependencies
@@ -24,8 +24,11 @@ import ..Engine: InsulationAdmittanceFormulation, formula_id
 using ...Materials: Material
 import ...LineCableModels: constitutive
 #! explicit-imports: off
-import ..Engine: description
+import ..Engine: description, conductivity
 #! explicit-imports: on
+
+"Registered insulation-admittance formula selected by `:default`."
+const DEFAULT = :Ametani2004
 
 include("interface.jl")
 

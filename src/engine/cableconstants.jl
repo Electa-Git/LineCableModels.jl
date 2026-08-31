@@ -186,8 +186,8 @@ $(TYPEDEF)
 Define one earth-free cable-constant calculation for a completed cable design.
 
 The internally constructed system contains one design at the origin. The
-innermost terminal of every concentric assembly is active and every outward
-terminal is grounded.
+innermost terminal of every concentric assembly is active and every additional
+outward terminal, when present, is grounded.
 
 $(TYPEDFIELDS)
 """
@@ -235,9 +235,6 @@ function _check_cable_constants_problem(problem::CableConstantsProblem)
     design = only(system.designs)
     components = DataModel.flatten(design, problem.frequency, eltype(problem))
     chains = _chains(components)
-    all(length(chain) >= 2 for chain in chains) || throw(ArgumentError(
-        "every concentric assembly requires an outward grounded terminal",
-    ))
     names = getproperty.(components, :name)
     names == design.terminal_order || throw(DimensionMismatch(
         "DataModel terminal order differs from canonical flattened components",
@@ -250,7 +247,7 @@ function _check_cable_constants_problem(problem::CableConstantsProblem)
     for (assembly, chain) in pairs(chains)
         expected[first(chain)] = assembly
         isempty(first(components[chain]).dielectric.layers) && throw(ArgumentError(
-            "assembly core :$(first(components[chain]).name) has no radial dielectric path to its grounded terminal",
+            "assembly core :$(first(components[chain]).name) has no radial dielectric path",
         ))
     end
     system.connection_order == expected || throw(DimensionMismatch(
@@ -364,10 +361,10 @@ Construct the cable-constant formula bundle.
 - `options`: Cable-constant formulation options.
 """
 function CableConstantsFormulation(;
-        internal_impedance = formula(:Schelkunoff1934),
-        insulation_impedance = formula(:Ametani1980),
-        insulation_admittance = formula(:Marti2001),
-        semicon_admittance = formula(:Ametani2004),
+        internal_impedance = formula(:default),
+        insulation_impedance = formula(:default),
+        insulation_admittance = formula(:default),
+        semicon_admittance = formula(:default),
         options::NamedTuple = (;)
 )
     methods = (
@@ -525,7 +522,7 @@ function _shunt(
                 "cable-constant dielectric layers must be :insulator or :semicon; got :$(layer.material.kind)",
             ))
         end
-        material = constitutive(
+        κ = constitutive(
             selected,
             layer.material,
             problem.frequency,
@@ -534,7 +531,7 @@ function _shunt(
         radial += inv(layer_admittance(
             layer.r_in,
             layer.r_ex,
-            admittivity(material, s)
+            κ
         ))
     end
     iszero(radial) && throw(ArgumentError(

@@ -4,8 +4,9 @@ $(TYPEDEF)
 Select one insulation constitutive relation by its stable literature identifier.
 
 Each registered formula has one scalar route with the contract
-`route(material, frequency, temperature, assumptions) -> Material`. Geometry
-and radial series aggregation remain common Engine operations.
+`route(material, frequency, temperature, assumptions) -> Complex`. The route
+returns the material's frequency-evaluated complex admittivity. Geometry and
+radial series aggregation remain common Engine operations.
 
 $(TYPEDFIELDS)
 """
@@ -41,7 +42,7 @@ Construct an insulation constitutive relation from its stable identifier.
 
 - `route`: Optional complete constitutive route. The route receives a
   [`Material`](@ref), frequency \\[Hz\\], operating temperature \\[°C\\], and the
-  formula assumption tuple.
+  formula assumption tuple, and returns complex admittivity \\[S/m\\].
 - `kwargs`: Formula-specific assumption overrides.
 
 # Returns
@@ -51,6 +52,9 @@ Construct an insulation constitutive relation from its stable identifier.
 function Formula(identifier::Symbol; route = nothing, kwargs...)
     Formula(Val(identifier); route, kwargs...)
 end
+
+Formula(::Val{:default}; route = nothing, kwargs...) =
+    Formula(Val(DEFAULT); route, kwargs...)
 
 function Formula(::Val{ID}; route = nothing, kwargs...) where {ID}
     tag = Val(ID)
@@ -126,7 +130,7 @@ function (formula::Formula)(
     )
 end
 
-"Evaluate one registered insulation constitutive relation."
+"Evaluate one registered insulation constitutive relation as complex admittivity."
 function constitutive(
         formula::Formula,
         material::Material,

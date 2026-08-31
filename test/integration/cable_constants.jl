@@ -50,7 +50,7 @@
         @test reduced.dielectric.material.mu_r ≈ source.dielectric.material.mu_r
     end
     flattening_formulation=CableConstantsFormulation(
-        insulation_admittance = formula(:Marti2001)
+        insulation_admittance = formula(:Ametani2004)
     )
     source_at_flattening_frequency=CableConstants(
         design;
@@ -103,6 +103,52 @@
         Group(:bare_core, Region(:bare_metal, Disk(0.01), copper))
     )
     @test_throws ArgumentError CableConstantsProblem(bare_design)
+
+    function unsheathed_member(core_name)
+        Stack(
+            Group(core_name,
+                Region(Symbol(core_name, :_metal), Disk(0.01), copper)),
+            Region(Symbol(core_name, :_insulation),
+                Annulus(0.01, 0.02), dielectric)
+        )
+    end
+    unsheathed_design=build(
+        CableDesign,
+        "unsheathed-core",
+        unsheathed_member(:unsheathed_core)
+    )
+    unsheathed_problem=CableConstantsProblem(unsheathed_design; frequency = 50.0)
+    @test unsheathed_problem.system.connection_order == [1]
+    unsheathed=only(compute(unsheathed_problem, CableConstantsFormulation()))
+    @test unsheathed.core === :unsheathed_core
+    @test unsheathed.R > 0
+    @test unsheathed.L > 0
+    @test unsheathed.C > 0
+    @test unsheathed.G >= 0
+
+    unsheathed_pair=build(
+        CableDesign,
+        "two-unsheathed-assemblies",
+        assembly(
+            at(unsheathed_member(:left_unsheathed_core), -0.03, 0.0),
+            at(unsheathed_member(:right_unsheathed_core), 0.03, 0.0)
+        )
+    )
+    unsheathed_pair_problem=CableConstantsProblem(
+        unsheathed_pair;
+        frequency = 50.0
+    )
+    @test unsheathed_pair_problem.system.connection_order == [1, 2]
+    unsheathed_pair_constants=compute(
+        unsheathed_pair_problem,
+        CableConstantsFormulation()
+    )
+    @test unsheathed_pair_constants.cores ==
+          [:left_unsheathed_core, :right_unsheathed_core]
+    @test all(>(0), unsheathed_pair_constants.R)
+    @test all(>(0), unsheathed_pair_constants.L)
+    @test all(>(0), unsheathed_pair_constants.C)
+    @test all(>=(0), unsheathed_pair_constants.G)
 
     eccentric_member=Stack(
         Group(:eccentric_core, Region(:eccentric_metal, Disk(0.01), copper)),

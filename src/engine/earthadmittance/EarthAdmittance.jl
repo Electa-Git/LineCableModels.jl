@@ -29,6 +29,9 @@ using QuadGK: quadgk
 vacuum_permittivity(value) = one(value) * 88541878128 * (one(value) * 10)^(-22)
 vacuum_permeability(value) = one(value) * 4 * (one(value) * π) * (one(value) * 10)^(-7)
 
+"Registered earth-admittance formula selected by `:default`."
+const DEFAULT = :Papadopoulos2010
+
 include("interface.jl")
 include("homogeneous.jl")
 

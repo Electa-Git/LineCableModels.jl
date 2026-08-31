@@ -62,6 +62,8 @@ the selected formula's defaults.
 """
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
 
+Formula(::Val{:default}; kwargs...) = Formula(Val(DEFAULT); kwargs...)
+
 function Formula(::Val{ID}; kwargs...) where {ID}
     defaults = routes(Val(ID))
     overrides = (; kwargs...)

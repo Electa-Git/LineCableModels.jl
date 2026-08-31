@@ -7,8 +7,10 @@
 
     inner=state->oftype(state.jω, 7)
     insulation_impedance_route=(r_in, r_ex, mu_r, s, values)->zero(s)
-    insulation_admittance_route=(material, frequency, temperature, values)->material
-    semicon_admittance_route=(material, frequency, temperature, values)->material
+    insulation_admittance_route=(material, frequency, temperature, values)->
+        complex(inv(material.rho), frequency * material.eps_r)
+    semicon_admittance_route=(material, frequency, temperature, values)->
+        complex(inv(material.rho), frequency * material.eps_r)
     formulation=@inferred Formulation(
         internal_impedance = formula(:Schelkunoff1934; inner),
         insulation_impedance = formula(
@@ -17,7 +19,7 @@
         ),
         earth_impedance = formula(:Papadopoulos2010),
         insulation_admittance = formula(
-            :Marti2001;
+            :Ametani2004;
             route = insulation_admittance_route
         ),
         semicon_admittance = formula(
@@ -37,7 +39,7 @@
     @test formulation.methods.insulation_impedance.route ===
           insulation_impedance_route
     @test formula_id(formulation.methods.earth_impedance) === :Papadopoulos2010
-    @test formula_id(formulation.methods.insulation_admittance) === :Marti2001
+    @test formula_id(formulation.methods.insulation_admittance) === :Ametani2004
     @test formulation.methods.insulation_admittance.route ===
           insulation_admittance_route
     @test formula_id(formulation.methods.semicon_admittance) === :Ametani2004
@@ -60,8 +62,21 @@
         semicon_admittance = :Ametani2004
     )
     @test formula_id(defaults.methods.insulation_impedance) === :Ametani1980
-    @test formula_id(defaults.methods.insulation_admittance) === :Marti2001
+    @test formula_id(defaults.methods.insulation_admittance) === :Ametani2004
     @test formula_id(defaults.methods.semicon_admittance) === :Ametani2004
+    for (owner, identifier) in (
+            EN.InternalImpedance => :Schelkunoff1934,
+            EN.InsulationImpedance => :Ametani1980,
+            EN.EarthImpedance => :Papadopoulos2010,
+            EN.InsulationAdmittance => :Ametani2004,
+            EN.SemiconAdmittance => :Ametani2004,
+            EN.EarthAdmittance => :Papadopoulos2010
+    )
+        @test owner.DEFAULT === identifier
+        @test formula_id(owner.Formula(:default)) === identifier
+        @test :default ∉ owner.formulas()
+    end
+    @test_throws ArgumentError EN.InsulationAdmittance.Formula(:Marti2001)
     @test formula_id(bare.methods.insulation_impedance) === :Ametani1980
     @test formula_id(bare.methods.insulation_admittance) === :Gustavsen2013
     @test formula_id(bare.methods.semicon_admittance) === :Ametani2004
@@ -78,7 +93,7 @@
     @test formula_id(constants_formulation.methods.insulation_impedance) ===
           :Ametani1980
     @test formula_id(constants_formulation.methods.insulation_admittance) ===
-          :Marti2001
+          :Ametani2004
     @test formula_id(constants_formulation.methods.semicon_admittance) ===
           :Ametani2004
     @test constants_formulation.options == (temperature_correction = true,)
@@ -112,7 +127,7 @@
         insulation_impedance = formula(:Ametani1980; order = :before)
     )
     @test_throws ArgumentError Formulation(
-        insulation_admittance = formula(:Marti2001; order = :after)
+        insulation_admittance = formula(:Ametani2004; order = :after)
     )
     @test_throws ArgumentError Formulation(
         semicon_admittance = formula(:Ametani2004; order = :after)
@@ -156,10 +171,10 @@ end
     @test formula_id(impedance_formulation) === :Ametani1980
     @test formula_id(admittance_formulation) === :Gustavsen2013
     @test InsulationImpedance.formulas() == (:Ametani1980,)
-    @test InsulationAdmittance.formulas() == (:Gustavsen2013, :Marti2001)
+    @test InsulationAdmittance.formulas() == (:Ametani2004, :Gustavsen2013)
     @test SemiconAdmittance.formulas() == (:Ametani2004,)
     @test !isdefined(InsulationAdmittance, :Gustavsen2013)
-    @test !isdefined(InsulationAdmittance, :Marti2001)
+    @test !isdefined(InsulationAdmittance, :Ametani2004)
     @test !isdefined(SemiconAdmittance, :Ametani2004)
     reference=TOML.parsefile(joinpath(
         pkgdir(LineCableModels),
@@ -217,14 +232,8 @@ end
     end
 
     impedance_route=(r_in, r_ex, mu_r, s, values)->values.scale*s
-    admittance_route=(material, frequency, temperature, values)->Material(
-        material.kind,
-        material.rho,
-        values.scale*material.eps_r,
-        material.mu_r,
-        material.T0,
-        material.alpha
-    )
+    admittance_route=(material, frequency, temperature, values)->
+        complex(inv(material.rho), values.scale * material.eps_r)
     experimental_impedance=InsulationImpedance.Formula(
         :Experiment,
         impedance_route,
@@ -237,9 +246,9 @@ end
     )
     @test @inferred(experimental_impedance(0.01, 0.02, 1.0, 2.0im)) == 4.0im
     material=Material(:insulator, 1.0e12, 2.3, 1.0, 20.0, 0.0)
-    @test @inferred(experimental_admittance(material, 50.0, 20.0)).eps_r ≈ 6.9
+    @test imag(@inferred(experimental_admittance(material, 50.0, 20.0))) ≈ 6.9
     @test_throws ArgumentError InsulationImpedance.Formula(:Ametani1980; bad = true)
-    @test_throws ArgumentError InsulationAdmittance.Formula(:Marti2001; bad = true)
+    @test_throws ArgumentError InsulationAdmittance.Formula(:Ametani2004; bad = true)
 end
 
 @testitem "Engine / internal impedance / passivity and solid-conductor limits" tags=[:unit] setup=[

@@ -27,6 +27,9 @@ import ..Engine: special_besselix, special_besselkx
 
 vacuum_permeability(value) = one(value) * 4 * (one(value) * π) * (one(value) * 10)^(-7)
 
+"Registered internal-impedance formula selected by `:default`."
+const DEFAULT = :Schelkunoff1934
+
 include("interface.jl")
 
 #! explicit-imports: off

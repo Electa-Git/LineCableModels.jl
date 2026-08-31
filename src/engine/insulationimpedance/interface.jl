@@ -48,6 +48,9 @@ Construct an insulation-impedance formula from its stable identifier.
 Formula(identifier::Symbol; route = nothing, kwargs...) =
     Formula(Val(identifier); route, kwargs...)
 
+Formula(::Val{:default}; route = nothing, kwargs...) =
+    Formula(Val(DEFAULT); route, kwargs...)
+
 function Formula(::Val{ID}; route = nothing, kwargs...) where {ID}
     tag = Val(ID)
     applicable(assumptions, tag) || throw(ArgumentError(

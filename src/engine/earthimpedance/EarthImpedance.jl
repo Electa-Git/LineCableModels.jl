@@ -29,6 +29,9 @@ using QuadGK: quadgk
 
 vacuum_permeability(value) = one(value) * 4 * (one(value) * π) * (one(value) * 10)^(-7)
 
+"Registered earth-impedance formula selected by `:default`."
+const DEFAULT = :Papadopoulos2010
+
 include("interface.jl")
 include("homogeneous.jl")
 

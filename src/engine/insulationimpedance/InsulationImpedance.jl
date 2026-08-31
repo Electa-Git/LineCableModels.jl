@@ -23,6 +23,9 @@ import ..Engine: InsulationImpedanceFormulation, formula_id
 import ..Engine: description
 #! explicit-imports: on
 
+"Registered insulation-impedance formula selected by `:default`."
+const DEFAULT = :Ametani1980
+
 include("interface.jl")
 
 #! explicit-imports: off

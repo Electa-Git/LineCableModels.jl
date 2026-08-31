@@ -4,21 +4,21 @@ assumptions(::Val{:Ametani2004}) = (;)
 $(TYPEDSIGNATURES)
 
 **Identification.** Complex-permittivity representation of a concentric
-semiconducting screen. Its conduction and displacement currents enter the same
-radial dielectric network as the adjacent insulation layers.
+dielectric layer. Material conduction and displacement current enter the same
+radial dielectric network.
 
-**Expression.** For screen resistivity ``\\rho_s`` and permittivity
-``\\varepsilon_s``,
+**Expression.** For material resistivity ``\\rho`` and permittivity
+``\\varepsilon``,
 
 ```math
-\\varepsilon_s^\\star=\\varepsilon_s+\\frac{1}{j\\omega\\rho_s},\\qquad
-\\kappa_s=\\frac{1}{\\rho_s}+j\\omega\\varepsilon_s,
+\\varepsilon^\\star=\\varepsilon+\\frac{1}{j\\omega\\rho},\\qquad
+\\kappa=\\frac{1}{\\rho}+j\\omega\\varepsilon,
 ```
 
-and an annular screen from ``a`` to ``b`` has
+and an annular layer from ``a`` to ``b`` has
 
 ```math
-Y_s=\\frac{2\\pi\\kappa_s}{\\ln(b/a)}.
+Y=\\frac{2\\pi\\kappa}{\\ln(b/a)}.
 ```
 
 **Reference.** A. Ametani, Y. Miyamoto, and N. Nagaoka, 2004, as reproduced
@@ -26,34 +26,31 @@ in A. Ametani, T. Ohno, and N. Nagaoka, *Cable System Transients: Theory,
 Modeling and Simulation*, Wiley-IEEE Press, 2015, Eqs. 2.66–2.67.
 """
 function description(::Formula{:Ametani2004})
-    "Ametani semiconducting-screen admittance model (2004)"
+    "Ametani complex-permittivity dielectric admittance model (2004)"
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Retain semiconducting-screen conductivity and permittivity in Ametani's
-complex-permittivity representation:
+Evaluate Ametani's complex-permittivity constitutive relation:
 
 ```math
-\\varepsilon_s^\\star=\\varepsilon_s+\\frac{1}{j\\omega\\rho_s},
-\\qquad
-\\kappa_s=\\frac{1}{\\rho_s}+j\\omega\\varepsilon_s.
+\\kappa=\\frac{1}{\\rho}+j\\omega\\varepsilon.
 ```
 
-The common Coaxial Engine operator applies the annular geometry and combines
-the semiconducting screen with adjacent dielectric layers radially in series.
+The common Coaxial Engine operator applies annular geometry and combines
+adjacent dielectric layers radially in series.
 
 # Arguments
 
-- `material`: Static semiconducting-screen properties.
+- `material`: Static dielectric properties.
 - `frequency`: Evaluation frequency \\[Hz\\].
 - `temperature`: Operating temperature \\[°C\\].
 - `values`: Formula assumptions.
 
 # Returns
 
-- Complex screen admittivity ``1/\\rho_s+j\\omega\\varepsilon_s`` \\[S/m\\].
+- Complex material admittivity ``1/\\rho+j\\omega\\varepsilon`` \\[S/m\\].
 
 # References
 

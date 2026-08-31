@@ -2,7 +2,7 @@
     EngineTestSupport, UseEngineSupport, TestNumerics] begin
     using TOML
 
-    formulation=InsulationAdmittance.Formula(:Marti2001)
+    formulation=InsulationAdmittance.Formula(:Ametani2004)
     lossless=InsulationAdmittance.Formula(:Gustavsen2013)
     semicon=SemiconAdmittance.Formula(:Ametani2004)
 
@@ -86,18 +86,15 @@
     series_admittance=inv(inv(first_admittance)+inv(second_admittance))
     @test s / (first_layer + second_layer) ≈ series_admittance
 
-    lossless_material=lossless(material, 50.0, 20.0)
-    @test isinf(lossless_material.rho)
+    lossless_κ=lossless(material, 50.0, 20.0)
+    @test iszero(real(lossless_κ))
     lossless_coefficient=LineCableModels.Engine.potential_coefficient(
-        r_in, r_ex, lossless_material, s
+        r_in, r_ex, lossless_κ, s
     )
     formula_epsilon0=one(r_in)*88541878128*(one(r_in)*10)^(-22)
-    @test lossless_coefficient == Complex(
+    @test lossless_coefficient ≈ Complex(
         log(r_ex/r_in)/(2*(one(r_in)*π)*formula_epsilon0*eps_r)
     )
-    @test LineCableModels.Engine.potential_coefficient(
-        r_in, r_ex, formulation(lossless_material, 50.0, 20.0), s
-    ) == lossless_coefficient
 end
 
 @testitem "Engine / dielectric admittance / strict layers reach direct computation" tags=[:unit] setup=[
@@ -281,7 +278,7 @@ end
     @test total.Y.values ≈ problem.system.line_length .* parameters.Y.values
 end
 
-@testitem "Engine / Marti2001 / Gridspace Monte Carlo samples before assembly" tags=[:unit] setup=[
+@testitem "Engine / Ametani2004 / Gridspace Monte Carlo samples before assembly" tags=[:unit] setup=[
     EngineTestSupport, UseEngineSupport, TestNumerics] begin
     using Statistics
     import LineCableModels.ParametricBuilder as PB
@@ -347,7 +344,7 @@ end
         frequencies = [50.0, 500.0]
     )
     formulation=Formulation(;
-        insulation_admittance = formula(:Marti2001),
+        insulation_admittance = formula(:Ametani2004),
         options = (
             reduce_bundle = false,
             kron_reduction = false,

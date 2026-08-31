@@ -1,29 +1,6 @@
 """
 $(TYPEDSIGNATURES)
 
-Calculate one dielectric material's complex admittivity:
-
-```math
-\\kappa=\\sigma+j\\omega\\varepsilon_0\\varepsilon_r.
-```
-
-# Arguments
-
-- `material`: Frequency-evaluated dielectric material.
-- `s`: Complex angular frequency ``j\\omega`` \\[rad/s\\].
-
-# Returns
-
-- Complex admittivity ``\\kappa`` \\[S/m\\].
-"""
-@inline function admittivity(material::Material{T}, s::Complex{T}) where {T <: Real}
-    ε0 = one(T) * 88541878128 * (one(T) * 10)^(-22)
-    return conductivity(material.rho) + s * ε0 * material.eps_r
-end
-
-"""
-$(TYPEDSIGNATURES)
-
 Calculate the shunt admittance of one homogeneous coaxial annulus:
 
 ```math
@@ -42,7 +19,8 @@ end
 $(TYPEDSIGNATURES)
 
 Calculate one homogeneous coaxial annulus's potential coefficient
-``p=s/y``. A zero inner radius or zero-thickness annulus contributes zero.
+``p=s/y`` from its registered constitutive relation's complex admittivity. A
+zero inner radius or zero-thickness annulus contributes zero.
 
 # Returns
 
@@ -51,21 +29,14 @@ Calculate one homogeneous coaxial annulus's potential coefficient
 @inline function potential_coefficient(
         r_in::T,
         r_ex::T,
-        material::Material{T},
+        κ::Complex{T},
         s::Complex{T}
 ) where {T <: Real}
     if isapprox(r_in, zero(T); atol = eps(T)) ||
        isapprox(r_in, r_ex; atol = eps(T))
         return zero(Complex{T})
     end
-    if iszero(conductivity(material.rho))
-        ε0 = one(T) * 88541878128 * (one(T) * 10)^(-22)
-        return Complex{T}(
-            log(r_ex / r_in) /
-            (2 * (one(T) * π) * ε0 * material.eps_r)
-        )
-    end
-    y = layer_admittance(r_in, r_ex, admittivity(material, s))
+    y = layer_admittance(r_in, r_ex, κ)
     return s / y
 end
 
@@ -87,7 +58,7 @@ function dielectric!(
     f = input.freq[frequency]
     s = input.jω[frequency]
     @inbounds for layer in input.insulation_layer_indices
-        material = constitutive(
+        κ = constitutive(
             formulation.methods.insulation_admittance,
             input.dielectric_materials[layer],
             f,
@@ -96,12 +67,12 @@ function dielectric!(
         coefficients[layer] = potential_coefficient(
             input.r_ins_layer_in[layer],
             input.r_ins_layer_ext[layer],
-            material,
+            κ,
             s
         )
     end
     @inbounds for layer in input.semicon_layer_indices
-        material = constitutive(
+        κ = constitutive(
             formulation.methods.semicon_admittance,
             input.dielectric_materials[layer],
             f,
@@ -110,7 +81,7 @@ function dielectric!(
         coefficients[layer] = potential_coefficient(
             input.r_ins_layer_in[layer],
             input.r_ins_layer_ext[layer],
-            material,
+            κ,
             s
         )
     end
