@@ -236,14 +236,15 @@
             [1.0, 3.0, 5.0],
             [0.25, 0.25]
         )
-        representation = LineCableModels.DataModel.CableConstants(2.5, 2.5, 2.5)
-        statistics = (R = summary, L = summary, C = summary)
+        representation = LineCableModels.Engine.CableConstants(2.5, 2.5, 2.5, 2.5)
+        statistics = (R = [summary], L = [summary], C = [summary], G = [summary])
         samples = (
-            R = copy(values),
-            L = copy(values),
-            C = copy(values)
+            R = permutedims(values),
+            L = permutedims(values),
+            C = permutedims(values),
+            G = permutedims(values)
         )
-        histograms = (R = histogram, L = histogram, C = histogram)
+        histograms = (R = [histogram], L = [histogram], C = [histogram], G = [histogram])
         formulation = LineCableModels.MonteCarlo(
             LineCableModels.Formulation();
             trials = length(values),

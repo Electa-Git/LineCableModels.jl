@@ -33,7 +33,7 @@ end
 
 LinearErrorResult(formulation, values) = LinearErrorResult(formulation, values, (;))
 
-_monte_carlo_keys(::Type{<:DataModel.CableConstants}) = (:R, :L, :C)
+_monte_carlo_keys(::Type{<:Engine.CableConstants}) = (:R, :L, :C, :G)
 _monte_carlo_keys(::Type{<:Engine.LineParameters}) = (:R, :L, :C, :G)
 
 function _validated_product(product, expected_keys::Tuple, name::AbstractString)
@@ -47,24 +47,34 @@ function _validated_product(product, expected_keys::Tuple, name::AbstractString)
 end
 
 function _validate_cable_products(
+        value::Engine.CableConstants,
         statistics_product,
         sample_product,
         histogram_product,
         trials::Int
 )
-    all(summary -> summary isa SampleSummary && summary.n == trials,
+    count = length(value)
+    all(field -> field isa AbstractVector && length(field) == count,
         Base.values(statistics_product)) || throw(DimensionMismatch(
+        "cable-constant summaries must match the assembly count",
+    ))
+    all(summary -> summary isa SampleSummary && summary.n == trials,
+        Iterators.flatten(Base.values(statistics_product))) || throw(DimensionMismatch(
         "cable-constant summaries must contain the Monte Carlo trial count",
     ))
     if sample_product !== nothing
-        all(sample -> sample isa AbstractVector && length(sample) == trials,
+        all(sample -> sample isa AbstractMatrix && size(sample) == (count, trials),
             Base.values(sample_product)) || throw(DimensionMismatch(
-            "cable-constant samples must share the Monte Carlo trial dimension",
+            "cable-constant samples must contain assembly and trial dimensions",
         ))
     end
     if histogram_product !== nothing
+        all(field -> field isa AbstractVector && length(field) == count,
+            Base.values(histogram_product)) || throw(DimensionMismatch(
+            "cable-constant histograms must match the assembly count",
+        ))
         all(histogram -> histogram isa HistogramDensity,
-            Base.values(histogram_product)) || throw(ArgumentError(
+            Iterators.flatten(Base.values(histogram_product))) || throw(ArgumentError(
             "cable-constant histograms must contain HistogramDensity values",
         ))
     end
@@ -112,7 +122,7 @@ function _validate_monte_carlo_products(
         sample_products,
         histogram_products,
         trial_counts
-) where {T <: Union{DataModel.CableConstants, Engine.LineParameters}}
+) where {T <: Union{Engine.CableConstants, Engine.LineParameters}}
     expected_keys = _monte_carlo_keys(T)
     for point in eachindex(values)
         trials = trial_counts[point]
@@ -123,9 +133,10 @@ function _validate_monte_carlo_products(
             sample_products[point], expected_keys, "sample products")
         histogram_product = histogram_products === nothing ? nothing : _validated_product(
             histogram_products[point], expected_keys, "histogram products")
-        if values[point] isa DataModel.CableConstants
+        if values[point] isa Engine.CableConstants
             _validate_cable_products(
-                statistics_product, sample_product, histogram_product, trials)
+                values[point], statistics_product, sample_product,
+                histogram_product, trials)
         else
             _validate_line_products(
                 values[point], statistics_product, sample_product, histogram_product, trials)

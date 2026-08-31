@@ -21,7 +21,7 @@ $(IMPORTS)
 module DataModel
 
 # Export public API
-export CableDesign, CableGeometry, PlacedRegion, LineCableSystem, CableConstants
+export CableDesign, CableGeometry, PlacedRegion, LineCableSystem
 export build, homogenize
 export CablesLibrary, DatasheetInfo, catalogue
 export trefoil_formation, flat_formation, outer_radius
@@ -51,8 +51,6 @@ import ..Units
 import ..TextDisplay
 import ..LineCableModels: add!, build, homogenize, validate, nominal
 import ..LineCableModels: _construction
-import ..LineCableModels: basis, R, L, C, resistance, inductance, capacitance
-import ..Grammar: AbstractCoreResult, observe, observables
 using ..Materials: Material
 import ..Validation
 using Colors: HSL, RGB, RGBA, alpha, blue, green, red
@@ -85,7 +83,6 @@ using .BaseParams
 
 include("design/cabledesign.jl")
 include("flatten.jl")
-include("cabledesign/cableconstants.jl")
 
 # Library
 include("cableslibrary/datasheetinfo.jl")

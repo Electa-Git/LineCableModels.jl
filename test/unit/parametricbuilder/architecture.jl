@@ -161,7 +161,7 @@ end
         "HeterogeneousAssembly", "AssemblySpec", "StrandDefinition",
         "RopeDefinition", "DuctBank", "ResolvedPart", "ResolvedRegion",
         "BuildContext", "BuildManager", "BuildPlan", "BuildSpec",
-        "BuildResult", "CableConstantsProblem", "compute_cable_constants",
+        "BuildResult", "compute_cable_constants",
         "_current_radial_equivalence", "reference_frequency",
         "CableComponent", "CablePosition", "ConductorGroup", "InsulatorGroup",
         "CircStrands", "RectStrands", "ConductorPart", "InsulatorPart",

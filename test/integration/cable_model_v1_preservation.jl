@@ -28,24 +28,13 @@
            for region in design.geometry.regions]
 
     constants=CableConstants(design)
-    phases=NamedTuple{Tuple(design.terminal_order)}(
-        ntuple(index->index==1 ? 1 : 0, length(design.terminal_order))
-    )
-    lowered=LineParametersProblem(
-        design,
-        at(x = 0, y = -1);
-        connections = phases,
-        line_length = 1,
-        temperature = 20,
-        earth_props = Earth(rho = 100),
-        frequencies = [1e-3]
-    )
-    lowered_parameters=compute(lowered)
-    @test constants == CableConstants(
-        @observe(lowered_parameters, R[1, 1, 1]),
-        @observe(lowered_parameters, L[1, 1, 1]),
-        @observe(lowered_parameters, C[1, 1, 1])
-    )
+    constants_problem=CableConstantsProblem(design)
+    @test constants_problem.system.environment === nothing
+    @test only(constants_problem.system.positions) == Pose2(0.0, 0.0, 0.0)
+    @test constants == compute(constants_problem, CableConstantsFormulation())
+    @test all(isfinite, Iterators.flatten(
+        (constants.R, constants.L, constants.C, constants.G)
+    ))
 
     system=TestFixtures.three_phase_system()
     expected_system=reference["system"]

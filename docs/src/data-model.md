@@ -263,8 +263,13 @@ operation calculates no mutual coupling, earth return, or line-parameter
 matrix. The selected engine separately validates whether its formulation
 supports the resulting cable topology.
 
-`CableConstants(design)` follows the same problem and computation path as line
-parameters, then observes `R`, `L`, and `C` from the result.
+`CableConstants(design)` consumes this canonical reduction through the
+Engine-owned `CableConstantsProblem → CableConstantsFormulation → compute`
+workflow. It evaluates one concentric assembly at a time at the requested
+temperature and frequency. It contains no earth-return calculation; the
+innermost terminal is active and every outward terminal is grounded. The
+result stores aligned `R`, `L`, `C`, and `G` vectors with one entry per
+assembly.
 
 ## Persistence and tables
 

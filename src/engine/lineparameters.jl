@@ -1,3 +1,4 @@
+# LineParameters computation remains independent from CableConstants.
 _basis_result(parameters, ::LineParametersWorkspace, ::Val{:pul}) = parameters
 
 function _basis_result(
@@ -301,82 +302,11 @@ function computation_details(
     return details(result)
 end
 
-computation_details(
-    ::Val{LineCableModelsCoaxial},
-    ::DataModel.CableConstants
-)::ComputationDetails = (;)
-
 function computation_details(
         ::Val{LineCableModelsFEM},
         result::LineParameters
 )::ComputationDetails
     return details(result)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Calculate the per-length cable constants of one retained cable terminal through
-the ordinary line-parameter engine.
-
-The selected terminal is assigned to phase 1; every other retained terminal is
-assigned to phase 0 and removed by Kron reduction. The default problem uses a
-single cable at `(0, -1)` m, a 1 m line, 100 Ω·m earth, 20 °C, and 1 mHz.
-
-# Arguments
-
-- `design`: Completed physical cable design.
-
-# Keywords
-
-- `core`: Retained terminal used as phase 1.
-- `formulation`: Line-parameter formulation used by `compute`.
-- `options`: Computation options forwarded to `compute`.
-- `position`: Cable placement in metres.
-- `line_length`: Physical line length \\[m\\].
-- `earth_props`: Static earth model.
-- `temperature`: Operating temperature \\[°C\\].
-- `frequency`: Analysis frequency \\[Hz\\].
-
-# Returns
-
-- A [`CableConstants`](@ref) value observed from the line parameters.
-"""
-function DataModel.CableConstants(
-        design::CableDesign;
-        core::Symbol = :core,
-        formulation::AbstractFormulation = Formulation(),
-        options::NamedTuple = (;),
-        position = DataModel.Pose2(0, -1, 0),
-        line_length::Real = 1,
-        earth_props::EarthModel = EarthModel(100),
-        temperature::Real = 20,
-        frequency::Real = 1e-3
-)
-    matches = findall(==(core), design.terminal_order)
-    length(matches) == 1 || throw(ArgumentError(
-        "cable design must contain exactly one retained terminal named :$core"
-    ))
-    phases = ntuple(
-        index -> index == only(matches) ? 1 : 0,
-        length(design.terminal_order)
-    )
-    connections = NamedTuple{Tuple(design.terminal_order)}(phases)
-    problem = LineParametersProblem(
-        design,
-        position;
-        connections,
-        line_length,
-        temperature,
-        earth_props,
-        frequencies = [frequency]
-    )
-    parameters = compute(problem, formulation; options)
-    return DataModel.CableConstants(
-        @observe(parameters, R[1, 1, 1]),
-        @observe(parameters, L[1, 1, 1]),
-        @observe(parameters, C[1, 1, 1])
-    )
 end
 
 function _earth_data(

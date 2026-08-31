@@ -12,7 +12,7 @@
     formulation=@inferred Formulation(
         internal_impedance = formula(:Schelkunoff1934; inner),
         insulation_impedance = formula(
-            :Lossless;
+            :Ametani1980;
             route = insulation_impedance_route
         ),
         earth_impedance = formula(:Papadopoulos2010),
@@ -33,7 +33,7 @@
     @test EN.InternalImpedance.routes(
         formulation.methods.internal_impedance
     ).inner === inner
-    @test formula_id(formulation.methods.insulation_impedance) === :Lossless
+    @test formula_id(formulation.methods.insulation_impedance) === :Ametani1980
     @test formulation.methods.insulation_impedance.route ===
           insulation_impedance_route
     @test formula_id(formulation.methods.earth_impedance) === :Papadopoulos2010
@@ -55,16 +55,39 @@
 
     defaults=@inferred Formulation()
     bare=Formulation(
-        insulation_impedance = :Lossless,
+        insulation_impedance = :Ametani1980,
         insulation_admittance = :Gustavsen2013,
         semicon_admittance = :Ametani2004
     )
-    @test formula_id(defaults.methods.insulation_impedance) === :Lossless
+    @test formula_id(defaults.methods.insulation_impedance) === :Ametani1980
     @test formula_id(defaults.methods.insulation_admittance) === :Marti2001
     @test formula_id(defaults.methods.semicon_admittance) === :Ametani2004
-    @test formula_id(bare.methods.insulation_impedance) === :Lossless
+    @test formula_id(bare.methods.insulation_impedance) === :Ametani1980
     @test formula_id(bare.methods.insulation_admittance) === :Gustavsen2013
     @test formula_id(bare.methods.semicon_admittance) === :Ametani2004
+
+    constants_formulation=@inferred CableConstantsFormulation()
+    @test keys(constants_formulation.methods) == (
+        :internal_impedance,
+        :insulation_impedance,
+        :insulation_admittance,
+        :semicon_admittance
+    )
+    @test formula_id(constants_formulation.methods.internal_impedance) ===
+          :Schelkunoff1934
+    @test formula_id(constants_formulation.methods.insulation_impedance) ===
+          :Ametani1980
+    @test formula_id(constants_formulation.methods.insulation_admittance) ===
+          :Marti2001
+    @test formula_id(constants_formulation.methods.semicon_admittance) ===
+          :Ametani2004
+    @test constants_formulation.options == (temperature_correction = true,)
+    @test CableConstantsFormulation(
+        options = (temperature_correction = false,)
+    ).options.temperature_correction === false
+    @test_throws ArgumentError CableConstantsFormulation(
+        options = (kron_reduction = true,)
+    )
 
     after_default=@inferred Formulation(equivalent_earth = formula(:Xue2021))
     after_explicit=@inferred Formulation(
@@ -86,7 +109,7 @@
         earth_properties = formula(:CIGRE2019; order = :before)
     )
     @test_throws ArgumentError Formulation(
-        insulation_impedance = formula(:Lossless; order = :before)
+        insulation_impedance = formula(:Ametani1980; order = :before)
     )
     @test_throws ArgumentError Formulation(
         insulation_admittance = formula(:Marti2001; order = :after)
@@ -125,16 +148,16 @@ end
 ] begin
     using TOML
 
-    impedance_formulation=InsulationImpedance.Formula(:Lossless)
+    impedance_formulation=InsulationImpedance.Formula(:Ametani1980)
     admittance_formulation=InsulationAdmittance.Formula(:Gustavsen2013)
-    @test description(impedance_formulation) == "Lossless insulation (ideal dielectric)"
+    @test description(impedance_formulation) ==
+          "Ametani coaxial-insulation magnetic impedance (1980)"
     @test occursin("lossless", lowercase(description(admittance_formulation)))
-    @test formula_id(impedance_formulation) === :Lossless
+    @test formula_id(impedance_formulation) === :Ametani1980
     @test formula_id(admittance_formulation) === :Gustavsen2013
-    @test all(in(InsulationImpedance.formulas()), (:Ametani1980, :Lossless))
+    @test InsulationImpedance.formulas() == (:Ametani1980,)
     @test InsulationAdmittance.formulas() == (:Gustavsen2013, :Marti2001)
     @test SemiconAdmittance.formulas() == (:Ametani2004,)
-    @test !isdefined(InsulationImpedance, :Lossless)
     @test !isdefined(InsulationAdmittance, :Gustavsen2013)
     @test !isdefined(InsulationAdmittance, :Marti2001)
     @test !isdefined(SemiconAdmittance, :Ametani2004)
@@ -215,7 +238,7 @@ end
     @test @inferred(experimental_impedance(0.01, 0.02, 1.0, 2.0im)) == 4.0im
     material=Material(:insulator, 1.0e12, 2.3, 1.0, 20.0, 0.0)
     @test @inferred(experimental_admittance(material, 50.0, 20.0)).eps_r ≈ 6.9
-    @test_throws ArgumentError InsulationImpedance.Formula(:Lossless; bad = true)
+    @test_throws ArgumentError InsulationImpedance.Formula(:Ametani1980; bad = true)
     @test_throws ArgumentError InsulationAdmittance.Formula(:Marti2001; bad = true)
 end
 

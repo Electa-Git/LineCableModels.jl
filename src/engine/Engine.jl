@@ -20,8 +20,8 @@ $(IMPORTS)
 module Engine
 
 # Export public API
-export LineParametersProblem,
-       LineParameters, SeriesImpedance, ShuntAdmittance,
+export LineParametersProblem, CableConstantsProblem,
+       LineParameters, CableConstants, SeriesImpedance, ShuntAdmittance,
        RMSError, LineParametersBenchmark, compare,
        absolute_error, relative_error,
        Z, Y, R, X, L, G, B, C,
@@ -30,7 +30,8 @@ export LineParametersProblem,
        conductance, susceptance, capacitance,
        frequencies, nconductors, nfrequencies, basis,
        kronify
-export AbstractFormulation, LineParametersFormulation, Formulation
+export AbstractFormulation, LineParametersFormulation, CableConstantsFormulation,
+       Formulation
 export AbstractFormulationBackend, AbstractFormulationOptions
 export LineCableModelsCoaxial, LineCableModelsFEM, LineCableModelsFEMOptions,
        LineCableModelsFEMError, LineParametersWorkspace
@@ -56,7 +57,7 @@ import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
                   FormulationOptions, ComputationOptions,
                   ComputationDetails,
                   formulation_options, computation_options, computation_details, details,
-                  compute, observe, @observe, observables, validate_observables,
+                  compute, observe, observables, validate_observables,
                   unit_targets,
                   observation_request, observation_indices,
                   request_identity, request_quantity, request_indices,
@@ -121,8 +122,9 @@ include("logging.jl")
 include("earthreturn.jl")
 include("impedance.jl")
 include("admittance.jl")
-include("compute.jl")
+include("lineparameters.jl")
 include("reduction.jl")
+include("cableconstants.jl")
 
 # Line-parameter protocols and renderer-independent plot definitions
 include("lineparameters/base.jl")

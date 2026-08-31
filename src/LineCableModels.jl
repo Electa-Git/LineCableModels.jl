@@ -63,10 +63,12 @@ export make_stranded, make_screened, WireEstimate
 # Materialised results, reusable designs, and presentation:
 export CableDesign, LineCableSystem, DatasheetInfo, catalogue
 export CableGeometry, PlacedRegion
-export CableConstants, LineParametersProblem, LineParameters, CablesLibrary, preview
+export CableConstants, CableConstantsProblem, CableConstantsFormulation,
+       LineParametersProblem, LineParameters, CablesLibrary, preview
 
 # Engine:
-export Formulation, LineParametersFormulation, LineCableModelsCoaxial,
+export Formulation, LineParametersFormulation, CableConstantsFormulation,
+       LineCableModelsCoaxial,
        LineCableModelsFEM, LineCableModelsFEMOptions, LineCableModelsFEMError,
        SeriesImpedance, ShuntAdmittance, kronify,
        LineParameters, PhaseDomain, ModalDomain
@@ -124,7 +126,7 @@ import .EarthProps
 include("datamodel/DataModel.jl")
 using .DataModel: CableDesign, CableGeometry, PlacedRegion,
                   LineCableSystem, DatasheetInfo, catalogue,
-                  CableConstants, CablesLibrary, preview, ncables, nphases,
+                  CablesLibrary, preview, ncables, nphases,
                   AbstractShape, AbstractPrimitive,
                   Disk, Rectangle, Ellipse, Sector, Annulus, Polygon,
                   RoundedSector, Shell,
@@ -141,7 +143,8 @@ using .DataModel: Ring, Polar, Fill, Lattice, capacity, placements,
 
 # Submodule `Engine`
 include("engine/Engine.jl")
-using .Engine: LineParameters, LineParametersProblem, SeriesImpedance,
+using .Engine: LineParameters, LineParametersProblem, CableConstants,
+               CableConstantsProblem, CableConstantsFormulation, SeriesImpedance,
                ShuntAdmittance, kronify, Formulation,
                LineParametersFormulation, LineCableModelsCoaxial,
                LineCableModelsFEM, LineCableModelsFEMOptions,

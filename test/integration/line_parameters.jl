@@ -200,6 +200,19 @@ end
         LineCableModelsCoaxial(), problem, Formulation(), execution)
     @test_throws ArgumentError compute(problem, Formulation())
     @test_throws ArgumentError CableConstants(design)
+
+    neutral=build(
+        LineCableSystem,
+        design,
+        Pose2(0.0, 0.0);
+        connections = (phase = 1,),
+        environment = nothing
+    )
+    @test_throws DomainError LineParametersProblem(
+        neutral;
+        earth_props = EarthModel(100.0),
+        frequencies = [50.0]
+    )
 end
 
 @testitem "Engine / coaxial profile / explicit radial support boundary" tags=[:integration] setup=[

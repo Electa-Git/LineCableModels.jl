@@ -173,13 +173,14 @@ function _histogram_observation(
 end
 
 function observe(
-        value::MonteCarloResult{<:DataModel.CableConstants},
+        value::MonteCarloResult{<:Engine.CableConstants},
         ::typeof(histograms),
         selector::_MonteCarloScientificSelector,
         point::Integer,
+        assembly::Integer,
         bins::Union{Nothing, Integer}
 )
-    return _histogram_observation(value, selector, point, (), bins)
+    return _histogram_observation(value, selector, point, (assembly,), bins)
 end
 
 function observe(
@@ -225,8 +226,8 @@ end
 
 function observables(
         ::Type{<:MonteCarloResult{T}}
-) where {T <: DataModel.CableConstants}
-    return _monte_carlo_observables((R, L, C))
+) where {T <: Engine.CableConstants}
+    return _monte_carlo_observables((R, L, C, Engine.G))
 end
 
 function observables(

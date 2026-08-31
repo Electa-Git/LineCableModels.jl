@@ -29,9 +29,15 @@ D&=I_1(mb)K_1(ma)-K_1(mb)I_1(ma).
 
 For ``a=0``, ``Z_{int}=\\rho mI_0(mb)/(2\\pi bI_1(mb))``.
 
+Schelkunoff's surface terms were later recovered by Ametani to assemble the
+complete core/sheath/armour impedance matrix. The Engine applies that outward
+assembly recursively to any number of concentric conductive terminals.
+
 **Reference.** S. A. Schelkunoff, “The Electromagnetic Theory of Coaxial
 Transmission Lines and Cylindrical Shields,” *Bell System Technical Journal*,
-13, 532–579, 1934.
+13, 532–579, 1934; A. Ametani, “A General Formulation of Impedance and
+Admittance of Cables,” *IEEE Transactions on Power Apparatus and Systems*,
+PAS-99(3), 902–910, 1980. DOI: 10.1109/TPAS.1980.319718.
 """
 function description(::Formula{:Schelkunoff1934})
     "Schelkunoff exact round-conductor surface impedances (1934)"
@@ -81,8 +87,9 @@ For ``a=0``, the outer term is evaluated from the solid-cylinder limit
 
 # Notes
 
-Implements Schelkunoff (1934) as reproduced in Ametani et al. (2021),
-Appendix A1.4.1, Eqs. A1.50–A1.55.
+Implements Schelkunoff's cylindrical surface terms. Ametani (1980) recovered
+these terms for the complete core/sheath/armour impedance assembly performed
+recursively by the Engine.
 """
 function schelkunoff1934(
         formula::Formula{:Schelkunoff1934},

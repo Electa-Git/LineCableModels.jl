@@ -227,20 +227,23 @@ function build(
     end
     connection_order = collect(Iterators.flatten(normalized_connections))
 
-    # 4. Place the resolved cable geometry and validate its relation to the
-    # air/earth interface and the other cable cross-sections.
+    # 4. Place the resolved cable geometry. An explicit environment owns any
+    # interface constraint; formulation-specific media checks occur in the
+    # problem that consumes the system.
     global_geometry = PlacedRegion[]
     terminal_map = Int[]
     for (cable_index, (design, pose)) in enumerate(zip(declared_designs, poses))
-        iszero(pose.y) && throw(DomainError(
-            pose.y,
-            "a cable centre cannot lie on the air/earth interface"
-        ))
-        radius = outer_radius(design)
-        abs(pose.y) >= radius || throw(DomainError(
-            pose.y,
-            "the cable cross-section crosses the air/earth interface"
-        ))
+        if environment !== nothing
+            iszero(pose.y) && throw(DomainError(
+                pose.y,
+                "a cable centre cannot lie on the environment interface"
+            ))
+            radius = outer_radius(design)
+            abs(pose.y) >= radius || throw(DomainError(
+                pose.y,
+                "the cable cross-section crosses the environment interface"
+            ))
+        end
         for (source, local_terminal) in zip(
                 design.geometry.regions,
                 design.terminal_map

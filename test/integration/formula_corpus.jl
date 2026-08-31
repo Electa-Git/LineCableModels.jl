@@ -11,7 +11,6 @@
     const SA=EN.SemiconAdmittance
 
     expected_internal=(
-        :Ametani1980,
         :Ametani2004,
         :AmetaniFuse1992,
         :Schelkunoff1934,
@@ -344,7 +343,7 @@ end
         @test finite_reciprocal(result)
     end
 
-    for identifier in (:Schelkunoff1934, :Ametani1980, :AmetaniFuse1992)
+    for identifier in (:Schelkunoff1934, :AmetaniFuse1992)
         result=compute(underground,
             Formulation(
                 internal_impedance = identifier,
@@ -521,7 +520,6 @@ end
 
     for identifier in (
         :Schelkunoff1934,
-        :Ametani1980,
         :WedepohlWilcox1973,
         :Zhao2020
     )

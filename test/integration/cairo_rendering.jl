@@ -637,8 +637,8 @@
             published=observables(
                 result,
                 (
-                    (samples, R, 1, Colon()),
-                    (histograms, R, 1)
+                    (samples, R, 1, 1, Colon()),
+                    (histograms, R, 1, 1)
                 );
                 units = (target, target)
             )

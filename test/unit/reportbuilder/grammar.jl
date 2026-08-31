@@ -332,17 +332,18 @@ end
     const RB=LineCableModels.ReportBuilder
     constants=LineCableModels.CableConstants(1.0, 2.0, 3.0)
     expected=report(RB.CableConstantsTableDefinition(), constants).table
-    publication=observables(constants, (R, L, C))
+    publication=observables(constants, (R, L, C, G))
     actual=DataFrame(publication)
 
     @test actual == expected
     @test parentmodule(which(DataFrame, (typeof(publication),))) === RB
     @test parentmodule(which(DataFrame, (typeof(constants),))) !== RB
-    @test names(actual) == ["R", "L", "C"]
-    @test only(actual.R) == publication[1].values
-    @test only(actual.L) == publication[2].values
-    @test only(actual.C) == publication[3].values
-    @test keys(RB.observation_columns(actual)) == (:R, :L, :C)
+    @test names(actual) == ["core", "R", "L", "C", "G"]
+    @test actual.R == publication[1].values
+    @test actual.L == publication[2].values
+    @test actual.C == publication[3].values
+    @test actual.G == publication[4].values
+    @test keys(RB.observation_columns(actual)) == (:R, :L, :C, :G)
 
     monte_carlo=TestFixtures.cable_monte_carlo_result()
     @test parentmodule(which(DataFrame, (typeof(monte_carlo),))) !==

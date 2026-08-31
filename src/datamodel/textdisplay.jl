@@ -175,12 +175,6 @@ function Base.show(io::IO, ::MIME"text/plain", path::Helix)
     ); multiline = true)
 end
 
-TextDisplay.@showfields CableConstants "CableConstants" constants -> (
-    R = TextDisplay.quantity(constants.R, Units.quantity(R), basis(constants)),
-    L = TextDisplay.quantity(constants.L, Units.quantity(L), basis(constants)),
-    C = TextDisplay.quantity(constants.C, Units.quantity(C), basis(constants))
-)
-
 _datasheet_unit(::Val{:U0}) = "kV"
 _datasheet_unit(::Val{:U}) = "kV"
 _datasheet_unit(::Val{:conductor_cross_section}) = "mm²"

@@ -171,14 +171,16 @@ end
         return_samples = true)
     values=[CableConstants(2.0, 20.0, 200.0)]
     stats=[(
-        R = SampleSummary(2.0, 1.0, 1.0, 1.1, 2.0, 2.9, 3.0, 3),
-        L = SampleSummary(20.0, 10.0, 10.0, 11.0, 20.0, 29.0, 30.0, 3),
-        C = SampleSummary(200.0, 100.0, 100.0, 110.0, 200.0, 290.0, 300.0, 3)
+        R = [SampleSummary(2.0, 1.0, 1.0, 1.1, 2.0, 2.9, 3.0, 3)],
+        L = [SampleSummary(20.0, 10.0, 10.0, 11.0, 20.0, 29.0, 30.0, 3)],
+        C = [SampleSummary(200.0, 100.0, 100.0, 110.0, 200.0, 290.0, 300.0, 3)],
+        G = [SampleSummary(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3)]
     )]
     sample_values=[(
-        R = [1.0, 2.0, 3.0],
-        L = [10.0, 20.0, 30.0],
-        C = [100.0, 200.0, 300.0]
+        R = [1.0 2.0 3.0],
+        L = [10.0 20.0 30.0],
+        C = [100.0 200.0 300.0],
+        G = zeros(1, 3)
     )]
     completed=MonteCarloResult(
         formulation, values, stats, sample_values, nothing,

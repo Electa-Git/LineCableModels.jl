@@ -4,61 +4,83 @@ function _dkw_trials(observable_count::Integer, confidence::Real, cdf_tol::Real)
     return ceil(Int, log(2 * observable_count / alpha) / (2 * cdf_tol^2))
 end
 
-_observable_count(::DataModel.CableConstants) = 3
+_observable_count(value::Engine.CableConstants) = 4length(value)
 
 function _observable_count(value::Engine.LineParameters)
     n = size(observe(value, Engine.Z), 1)
     return 2 * n * (n + 1) * length(observe(value, Engine.frequencies))
 end
 
-function _sample_storage(first_result::DataModel.CableConstants, trials::Int)
-    T = typeof(observe(first_result, R))
+function _sample_storage(first_result::Engine.CableConstants, trials::Int)
+    T = eltype(observe(first_result, R))
     return (
-        R = Vector{T}(undef, trials),
-        L = Vector{T}(undef, trials),
-        C = Vector{T}(undef, trials)
+        R = Matrix{T}(undef, length(first_result), trials),
+        L = Matrix{T}(undef, length(first_result), trials),
+        C = Matrix{T}(undef, length(first_result), trials),
+        G = Matrix{T}(undef, length(first_result), trials)
     )
 end
 
 function _record_sample!(
-        storage::NamedTuple{(:R, :L, :C)},
-        value::DataModel.CableConstants,
+        storage::NamedTuple{(:R, :L, :C, :G)},
+        value::Engine.CableConstants,
         trial::Int,
-        ::Nothing
+        expected_axis
 )
-    storage.R[trial] = observe(value, R)
-    storage.L[trial] = observe(value, L)
-    storage.C[trial] = observe(value, C)
+    value.cores == expected_axis.cores || throw(DimensionMismatch(
+        "Monte Carlo cable-constant realisations produced incompatible assembly labels",
+    ))
+    value.frequency == expected_axis.frequency || throw(DimensionMismatch(
+        "Monte Carlo cable-constant realisations produced incompatible frequencies",
+    ))
+    storage.R[:, trial] .= observe(value, R)
+    storage.L[:, trial] .= observe(value, L)
+    storage.C[:, trial] .= observe(value, C)
+    storage.G[:, trial] .= observe(value, Engine.G)
     return storage
 end
 
-_sample_axis(::DataModel.CableConstants) = nothing
+_sample_axis(value::Engine.CableConstants) = (
+    cores = copy(value.cores),
+    frequency = value.frequency
+)
 _sample_axis(value::Engine.LineParameters) = observe(value, Engine.frequencies)
 
+function _cable_summaries(values::AbstractMatrix)
+    return [SampleSummary(collect(@view values[assembly, :]))
+            for assembly in axes(values, 1)]
+end
+
 function _aggregate(
-        sample_values::NamedTuple{(:R, :L, :C)},
-        ::DataModel.CableConstants,
+        sample_values::NamedTuple{(:R, :L, :C, :G)},
+        first_result::Engine.CableConstants,
         formulation::MonteCarlo
 )
-    Rs = sample_values.R
-    Ls = sample_values.L
-    Cs = sample_values.C
     summaries = (
-        R = SampleSummary(Rs),
-        L = SampleSummary(Ls),
-        C = SampleSummary(Cs)
+        R = _cable_summaries(sample_values.R),
+        L = _cable_summaries(sample_values.L),
+        C = _cable_summaries(sample_values.C),
+        G = _cable_summaries(sample_values.G)
     )
-    representation = DataModel.CableConstants(
-        Statistics.mean(summaries.R),
-        Statistics.mean(summaries.L),
-        Statistics.mean(summaries.C)
+    representation = Engine.CableConstants(
+        first_result.cores,
+        Statistics.mean.(summaries.R),
+        Statistics.mean.(summaries.L),
+        Statistics.mean.(summaries.C),
+        Statistics.mean.(summaries.G),
+        first_result.frequency
     )
     retained = formulation.return_samples ? sample_values : nothing
     hist = formulation.return_histograms ?
            (
-        R = HistogramDensity(Rs; bins = formulation.bins),
-        L = HistogramDensity(Ls; bins = formulation.bins),
-        C = HistogramDensity(Cs; bins = formulation.bins)
+        R = [HistogramDensity(collect(@view sample_values.R[assembly, :]);
+                bins = formulation.bins) for assembly in axes(sample_values.R, 1)],
+        L = [HistogramDensity(collect(@view sample_values.L[assembly, :]);
+                bins = formulation.bins) for assembly in axes(sample_values.L, 1)],
+        C = [HistogramDensity(collect(@view sample_values.C[assembly, :]);
+                bins = formulation.bins) for assembly in axes(sample_values.C, 1)],
+        G = [HistogramDensity(collect(@view sample_values.G[assembly, :]);
+                bins = formulation.bins) for assembly in axes(sample_values.G, 1)]
     ) : nothing
     return (; representation, statistics = summaries, samples = retained, histograms = hist)
 end

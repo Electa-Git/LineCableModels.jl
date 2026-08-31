@@ -60,7 +60,7 @@ end
 
 function _disk_fill(
         container::Disk,
-        contents::Union{Disk, Annulus},
+        contents::Disk,
         material::Material,
         tag::Symbol
 )
@@ -106,30 +106,6 @@ resolve(
     "an explicit fill Region requires one occupied boundary"
 ))
 
-function _occupied_boundaries(item::AbstractCablePart)
-    return (boundary(resolve(EmptyBoundary(), item)),)
-end
-
-function _occupied_boundaries(
-        assembly::Assembly{<:Any, <:AbstractCablePart}
-)
-    child = resolve(EmptyBoundary(), assembly.item)
-    return Tuple(
-        resolve(assembly.at * _placement_pose(pose), boundary(child))
-        for pose in placements(assembly.pattern, child, assembly.compact)
-    )
-end
-
-function _occupied_boundaries(assembly::Assembly{<:Any, <:Tuple})
-    return Tuple(
-        resolve(
-            assembly.at * member.at,
-            boundary(resolve(EmptyBoundary(), member.item))
-        )
-        for member in assembly.item
-    )
-end
-
 function _contained(container::Disk, child::AbstractShape)
     return support(child) <= container.r
 end
@@ -150,7 +126,8 @@ end
 function resolve(context::EmptyBoundary, enclosure::Enclosure)
     container = resolve(EmptyBoundary(), enclosure.primitive)
     contents = resolve(EmptyBoundary(), enclosure.item)
-    holes = _occupied_boundaries(enclosure.item)
+    occupied = Tuple(source.primitive for source in contents.regions)
+    holes = enclosure.fill isa Material ? occupied : (boundary(contents),)
     all(hole -> _contained(container, hole), holes) || throw(DomainError(
         holes,
         "enclosed geometry must fit inside the enclosure boundary"

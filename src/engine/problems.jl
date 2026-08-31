@@ -29,6 +29,17 @@ Base.eltype(::Type{LineParametersProblem{T}}) where {T} = T
 function _check_line_parameters_problem(problem::LineParametersProblem)
     validate(problem.system)
     validate(problem.earth_props)
+    for (design, pose) in zip(problem.system.designs, problem.system.positions)
+        iszero(pose.y) && throw(DomainError(
+            pose.y,
+            "a cable centre cannot lie on the air-earth interface"
+        ))
+        radius = DataModel.outer_radius(design)
+        abs(pose.y) >= radius || throw(DomainError(
+            pose.y,
+            "the cable cross-section crosses the air-earth interface"
+        ))
+    end
     phases = unique(problem.system.connection_order)
     positive = filter(>(0), phases)
     isempty(positive) && throw(ArgumentError(
@@ -328,7 +339,7 @@ end
 
 function Formulation(;
         internal_impedance = formula(:Schelkunoff1934),
-        insulation_impedance = formula(:Lossless),
+        insulation_impedance = formula(:Ametani1980),
         earth_impedance = formula(:Papadopoulos2010),
         insulation_admittance = formula(:Marti2001),
         semicon_admittance = formula(:Ametani2004),

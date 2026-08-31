@@ -21,7 +21,7 @@ wrapper; the receiving keyword supplies that namespace:
 ```julia
 Formulation(
     internal_impedance=formula(:Schelkunoff1934),
-    insulation_impedance=formula(:Lossless),
+    insulation_impedance=formula(:Ametani1980),
     earth_impedance=formula(:Papadopoulos2010),
     insulation_admittance=formula(:Marti2001),
     semicon_admittance=formula(:Ametani2004),
@@ -91,7 +91,7 @@ Insulation impedance uses the same discovery rule with one complete scalar
 route per formula. Insulation and semicon admittance formulas are constitutive
 relations applied to the full physical `Material` at each frequency; the
 Coaxial Engine owns the common annular geometry and radial series aggregation.
-`InsulationImpedance.formulas()` includes `:Ametani1980` and `:Lossless`;
+`InsulationImpedance.formulas()` includes `:Ametani1980`;
 `InsulationAdmittance.formulas()` includes `:Gustavsen2013` and `:Marti2001`;
 `SemiconAdmittance.formulas()` includes `:Ametani2004`. They are selected
 uniformly through `insulation_admittance` and `semicon_admittance`. A complete
@@ -124,6 +124,36 @@ At each frequency the Coaxial loop evaluates EHEM once per physical
 `EarthPair`, maps the resulting material to a two-medium air/earth view, and
 shares it between earth impedance and earth admittance. Physical layer indices
 are never renumbered or written back to the `EarthModel`.
+
+## Earth-free cable constants
+
+`CableConstantsProblem`, `CableConstantsFormulation`, and `CableConstants`
+belong to Engine. They reuse the registered internal-impedance,
+insulation-impedance, insulation-admittance, and semicon-admittance formulas,
+but not `LineParametersWorkspace` or either line-parameter assembly routine.
+The default bundle is:
+
+```julia
+CableConstantsFormulation(
+    internal_impedance = formula(:Schelkunoff1934),
+    insulation_impedance = formula(:Ametani1980),
+    insulation_admittance = formula(:Marti2001),
+    semicon_admittance = formula(:Ametani2004),
+)
+```
+
+`DataModel.flatten(design, frequency)` supplies the canonical components.
+Contiguous components sharing one radial centre form one concentric assembly.
+The Engine retains its innermost terminal, grounds all outward terminals,
+assembles and reduces the local N-terminal series-impedance matrix, and
+combines the physical dielectric layers between the core and first grounded
+terminal in radial series. Earth impedance, earth admittance, EHEM, Γ,
+position, transposition, and bundle reduction never enter this workflow.
+
+`CableConstants(design; temperature=20, frequency=1e-3)` is the convenience
+entry point. The result owns `cores`, aligned `R/L/C/G` vectors, and the
+evaluation frequency. A conventional coaxial cable has one row and supports
+`only(constants)`.
 
 An external scalar relation can remain outside the built-in directory. It can
 either supply a complete `EarthProps.FD.Formula(:Experiment, route, assumptions)`

@@ -868,6 +868,34 @@ function equivalent_dielectric_material(dielectric, conductor, terminal::Symbol)
     )
 end
 
+function _radial_regions(regions)
+    radial = PlacedRegion[]
+    sizehint!(radial, length(regions))
+    for source in regions
+        source.primitive isa _DifferencePrimitive || begin
+            push!(radial, source)
+            continue
+        end
+        material = source.source.material
+        source.terminal === nothing || throw(ArgumentError(
+            "a non-radial enclosure fill cannot own a terminal"
+        ))
+        material.kind === :insulator || throw(ArgumentError(
+            "a non-radial enclosure fill must use an insulator material"
+        ))
+        isinf(material.rho) || throw(ArgumentError(
+            "the coaxial reduction requires a lossless non-radial enclosure fill"
+        ))
+        isapprox(material.mu_r, one(material.mu_r)) || throw(ArgumentError(
+            "the coaxial reduction requires a nonmagnetic non-radial enclosure fill"
+        ))
+        isempty(source.paths) || throw(ArgumentError(
+            "a non-radial enclosure fill cannot carry a longitudinal path"
+        ))
+    end
+    return radial
+end
+
 """
 $(TYPEDSIGNATURES)
 
@@ -909,7 +937,7 @@ function flatten(
         frequency::T,
         ::Type{T}
 ) where {T <: Real}
-    regions = design.geometry.regions
+    regions = _radial_regions(design.geometry.regions)
     terminals = design.terminal_order
     isempty(terminals) && throw(ArgumentError(
         "flatten requires at least one retained terminal"

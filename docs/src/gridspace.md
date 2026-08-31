@@ -174,7 +174,8 @@ The current behaviour is:
 | `Earth` | `EarthModel` | `Gridspace{EarthModel}` |
 | `LineCableSystem` | `DataModel.LineCableSystem` | `Gridspace{DataModel.LineCableSystem}` |
 | `LineParametersProblem` | `Engine.LineParametersProblem` | `Gridspace{Engine.LineParametersProblem}` |
-| `CableConstants` | `DataModel.CableConstants` | `Gridspace{DataModel.CableConstants}` |
+| `CableConstantsProblem` | `Engine.CableConstantsProblem` | `Gridspace{Engine.CableConstantsProblem}` |
+| `CableConstants` | `Engine.CableConstants` | `Gridspace{Engine.CableConstants}` |
 | `@gridspace` keyword constructor | strict struct | `Gridspace{Target}` |
 
 Scalar-complete calls invoke their domain action immediately. A varying call
@@ -276,10 +277,12 @@ succeed; the retained failure summary makes the conditioning rate explicit.
 
 For cable-constant Monte Carlo calculations, the representative stored in the
 result space remains a `CableConstants` core result. Retained samples,
-statistics, and histograms are concrete named tuples with keys `R`, `L`, and
-`C`. Line-parameter products add `G`. These are internal point-aligned storage,
-not result types or observation surfaces. `MonteCarloResult` validates their
-keys and dimensions and owns every public observation method.
+statistics, and histograms are concrete named tuples with keys `R`, `L`, `C`,
+and `G`; cable samples have assembly × trial dimensions. Line-parameter
+products retain conductor × conductor × frequency × trial dimensions. These
+are internal point-aligned storage, not result types or observation surfaces.
+`MonteCarloResult` validates their keys and dimensions and owns every public
+observation method.
 
 All completed result spaces are one-dimensional finite Julia collections.
 Iteration and indexing return one stored core result per original Gridspace

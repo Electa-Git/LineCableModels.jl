@@ -52,10 +52,23 @@ function _monte_carlo_publication(
         request;
         kwargs...
 )
-    request isa Function || throw(ArgumentError(
-        "cable-constant Monte Carlo plots require a bare R, L, or C selector",
+    if request isa Function
+        all(value -> length(value) == 1, result.values) || throw(ArgumentError(
+            "a multi-assembly cable-constant plot requires `(selector, assembly)`",
+        ))
+        publication = _monte_carlo_publication(result, request, (1,); kwargs...)
+        return merge(publication, (indices = (),))
+    end
+    request isa Tuple && length(request) == 2 || throw(ArgumentError(
+        "cable-constant Monte Carlo plots require R, L, C, G, or `(selector, assembly)`",
     ))
-    return _monte_carlo_publication(result, request, (); kwargs...)
+    scientific_selector, assembly = request
+    scientific_selector isa Function && assembly isa Integer || throw(ArgumentError(
+        "a cable-constant plot assembly request requires a selector and integer index",
+    ))
+    return _monte_carlo_publication(
+        result, scientific_selector, (Int(assembly),); kwargs...
+    )
 end
 
 function _monte_carlo_publication(

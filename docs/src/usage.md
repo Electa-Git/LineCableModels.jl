@@ -42,12 +42,28 @@ compute(problem, formulation; options=(output_basis=:total,))
 ```
 
 `output_basis=:total` scales both impedance and admittance by the system
-length. `CableConstants(design)` uses a 1 m ordinary line problem and returns
-per-length values.
+length. Cable constants use a separate earth-free workflow:
+
+```julia
+constants_problem = CableConstantsProblem(
+    design;
+    temperature = 20.0,
+    frequency = 1e-3,
+)
+constants = compute(constants_problem, CableConstantsFormulation())
+
+# Admitted convenience for the same operation
+constants = CableConstants(design; temperature = 20.0, frequency = 1e-3)
+```
+
+The cable-constant workflow has no earth model, placement, propagation
+constant, transposition, or bundle option.
 
 ## Completed results
 
-[`CableConstants`](@ref) stores R/L/C values per metre. [`LineParameters`](@ref)
+[`CableConstants`](@ref) stores R/L/C/G values per metre. Its aligned vectors
+contain one row per independent concentric assembly; `only(constants)` returns
+the scalar row of a conventional single-core coaxial cable. [`LineParameters`](@ref)
 stores frequency-dependent Z/Y matrices and records their physical domain and
 `:pul` or `:total` basis. Scientific extraction goes through `observe` or
 `observables`.

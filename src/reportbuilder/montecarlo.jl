@@ -24,13 +24,14 @@ write(::MonteCarloTableDefinition, source, published, table, ::Nothing, ::Nothin
 entitle(::MonteCarloTableDefinition, source::UQ.MonteCarloResult) = source
 
 function _monte_carlo_requests(
-        ::UQ.MonteCarloResult{<:DataModel.CableConstants},
+        ::UQ.MonteCarloResult{<:Engine.CableConstants},
         point::Int
 )
     return (
         (UQ.statistics, R, point),
         (UQ.statistics, L, point),
         (UQ.statistics, C, point),
+        (UQ.statistics, G, point),
     )
 end
 

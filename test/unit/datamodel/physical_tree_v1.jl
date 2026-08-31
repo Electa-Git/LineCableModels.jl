@@ -243,6 +243,101 @@ end
     @test DM.support(DM.boundary(DM.resolve(DM.EmptyBoundary(), nested))) == 5.0
 end
 
+@testitem "DataModel / v1 physical tree / Enclosure material occupancy" tags=[:unit] begin
+    const DM=LineCableModels.DataModel
+    copper=Material(kind = :conductor, rho = 1.7241e-8)
+    matrix=Material(kind = :insulator, rho = Inf, eps_r = 2.3, mu_r = 1.0)
+    insulation_material=Material(kind = :insulator, rho = 1.0e12, eps_r = 2.4)
+    bundle=terminal(
+        :core,
+        stranded(copper; shape = Disk(0.5), layers = 1, n = 6)
+    )
+    packed=Enclosure(
+        :matrix,
+        bundle;
+        primitive = Disk(1.5),
+        fill = matrix
+    )
+    resolved=DM.resolve(DM.EmptyBoundary(), packed)
+    fill=last(resolved.regions)
+
+    @test length(resolved.regions) == 8
+    @test fill.primitive isa DM._DifferencePrimitive
+    @test length(fill.primitive.holes) == 7
+    @test DM.area(fill.primitive) ≈ π * 1.5^2 - 7π * 0.5^2
+    @test all(region -> region.terminal === :core, resolved.regions[1:7])
+    @test fill.terminal === nothing
+    @test DM.boundary(resolved) == Disk(1.5)
+
+    annular=Enclosure(
+        :annular_matrix,
+        Region(:occupied_annulus, Annulus(0.5, 1.0), copper);
+        primitive = Disk(1.5),
+        fill = matrix
+    )
+    annular_fill=last(DM.resolve(DM.EmptyBoundary(), annular).regions)
+    @test annular_fill.primitive isa DM._DifferencePrimitive
+    @test DM.area(annular_fill.primitive) ≈
+          π * 1.5^2 - π * (1.0^2 - 0.5^2)
+
+    bare_design=build(CableDesign, "bare-bundle", bundle)
+    packed_design=build(CableDesign, "packed-bundle", packed)
+    bare=only(DM.flatten(bare_design, 50.0))
+    reduced=only(DM.flatten(packed_design, 50.0))
+    @test reduced.conductor == bare.conductor
+    @test reduced.dielectric == bare.dielectric
+
+    IE=LineCableModels.ImportExport
+    restored=IE.deserialize_value(IE.serialize_value(packed_design))
+    @test restored == packed_design
+    restored_fill=last(restored.geometry.regions).primitive
+    @test restored_fill isa DM._DifferencePrimitive
+    @test length(restored_fill.holes) == 7
+
+    insulated=build(
+        CableDesign,
+        "packed-insulated",
+        packed,
+        Region(:insulation, Shell(0.2), insulation_material)
+    )
+    component=only(DM.flatten(insulated, 50.0))
+    @test length(component.dielectric.layers) == 1
+    @test only(component.dielectric.layers).r_in ≈ 1.5
+    @test only(component.dielectric.layers).r_ex ≈ 1.7
+
+    nested=Group(:core, packed; pattern = Ring(2; r = 4.0))
+    nested_design=build(CableDesign, "nested-packed", nested)
+    @test only(DM.flatten(nested_design, 50.0)).conductor.num_wires == 14
+
+    lossy=Material(kind = :insulator, rho = 1.0e12, eps_r = 2.3, mu_r = 1.0)
+    magnetic=Material(kind = :insulator, rho = Inf, eps_r = 2.3, mu_r = 2.0)
+    semiconducting=Material(kind = :semicon, rho = 1.0e3, eps_r = 10.0)
+    lossy_design=build(
+        CableDesign,
+        "lossy-matrix",
+        Enclosure(:matrix, bundle; primitive = Disk(1.5), fill = lossy)
+    )
+    magnetic_design=build(
+        CableDesign,
+        "magnetic-matrix",
+        Enclosure(:matrix, bundle; primitive = Disk(1.5), fill = magnetic)
+    )
+    semiconducting_design=build(
+        CableDesign,
+        "semiconducting-matrix",
+        Enclosure(:matrix, bundle; primitive = Disk(1.5), fill = semiconducting)
+    )
+    wound_matrix_design=build(
+        CableDesign,
+        "longitudinal-matrix-path",
+        Group(:wound_core, packed; path = Helix(LayRatio(10.0)))
+    )
+    @test_throws ArgumentError DM.flatten(lossy_design, 50.0)
+    @test_throws ArgumentError DM.flatten(magnetic_design, 50.0)
+    @test_throws ArgumentError DM.flatten(semiconducting_design, 50.0)
+    @test_throws ArgumentError DM.flatten(wound_matrix_design, 50.0)
+end
+
 @testitem "DataModel / v1 physical tree / placement, Group, and Assembly" tags=[:unit] begin
     const DM=LineCableModels.DataModel
     copper=LineCableModels.Material(kind = :conductor, rho = 1.7241e-8)

@@ -55,7 +55,7 @@ function _summary_value(summary::SampleSummary, statistic::Symbol)
 end
 
 function publication_table(
-        source::MonteCarloResult{<:DataModel.CableConstants},
+        source::MonteCarloResult{<:Engine.CableConstants},
         requests::Tuple,
         observations::Tuple,
         options::NamedTuple
@@ -66,28 +66,51 @@ function publication_table(
     all(==(first(points)), points) || throw(DimensionMismatch(
         "one Monte Carlo publication must select one common point",
     ))
-    all(request -> isempty(last(_statistics_point(request))), requests) || throw(
-        ArgumentError("cable-constant summaries do not accept matrix indices"),
-    )
     point = first(points)
+    selections = map(requests) do request
+        indices = last(_statistics_point(request))
+        if isempty(indices)
+            collect(eachindex(source.values[point].cores))
+        elseif length(indices) == 1
+            observation_indices(only(indices), length(source.values[point].cores))
+        else
+            throw(ArgumentError(
+                "cable-constant summaries accept at most one assembly index",
+            ))
+        end
+    end
+    all(==(first(selections)), selections) || throw(DimensionMismatch(
+        "cable-constant summary requests must select common assemblies",
+    ))
+    assemblies = first(selections)
     names = _uq_publication_names(observations)
     values = map(observations) do payload
-        [_summary_value(payload.values, statistic) for statistic in _SAMPLE_STATISTICS]
+        summaries = payload.values isa AbstractVector ? payload.values : [payload.values]
+        length(summaries) == length(assemblies) || throw(DimensionMismatch(
+            "cable-constant summary values must align with selected assemblies",
+        ))
+        [
+            _summary_value(summaries[position], statistic)
+            for position in eachindex(assemblies) for statistic in _SAMPLE_STATISTICS
+        ]
     end
+    row_count = length(assemblies) * length(_SAMPLE_STATISTICS)
     columns = merge(
         (
-            point = fill(point, length(_SAMPLE_STATISTICS)),
-            statistic = collect(_SAMPLE_STATISTICS),
+            point = fill(point, row_count),
+            core = repeat(source.values[point].cores[assemblies];
+                inner = length(_SAMPLE_STATISTICS)),
+            statistic = repeat(collect(_SAMPLE_STATISTICS); outer = length(assemblies)),
         ),
         NamedTuple{names}(values),
         (
-            trials = fill(trial_count(source, point), length(_SAMPLE_STATISTICS)),
-            point_seed = fill(point_seed(source, point), length(_SAMPLE_STATISTICS)),
+            trials = fill(trial_count(source, point), row_count),
+            point_seed = fill(point_seed(source, point), row_count),
         )
     )
     return (
         columns,
-        row_order = (:point, :statistic),
+        row_order = (:point, :core, :statistic),
         observation_columns = _uq_publication_contract(names, observations),
     )
 end

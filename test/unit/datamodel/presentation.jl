@@ -11,9 +11,9 @@
     end
 
     constants=CableConstants(design)
-    base=DataFrame(observables(constants, (R, L, C)))
+    base=DataFrame(observables(constants, (R, L, C, G)))
     @test nrow(base) == 1
-    @test names(base) == ["R", "L", "C"]
+    @test names(base) == ["core", "R", "L", "C", "G"]
 
     design_display=sprint(show, MIME("text/plain"), design)
     @test contains(design_display, design.cable_id)
