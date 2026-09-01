@@ -68,6 +68,9 @@ case_definition(
     semicon2 = LineCableModels.Material(materials, :semicon2)
     polyacrylate = LineCableModels.Material(materials, :polyacrylate)
     lead = LineCableModels.Material(materials, :lead)
+    matrix = LineCableModels.Material(
+        kind = :insulator, rho = Inf, eps_r = 1.0, mu_r = 1.0
+    )
     core_strand_area = π * p.core_strand_radius^2
     parts = LineCableModels.AbstractCablePart[
         LineCableModels.Group(
@@ -98,6 +101,13 @@ case_definition(
             ))
         radius = outer
     end
+    core = LineCableModels.Enclosure(
+        :core_matrix,
+        LineCableModels.Stack(parts);
+        primitive = LineCableModels.Disk(radius),
+        fill = matrix
+    )
+    parts = LineCableModels.AbstractCablePart[core]
     for (tag, thickness, material) in (
         (:core_semicon_tape_inner, p.semicon_tape_thickness, polyacrylate),
         (:core_semicon_inner, p.inner_semicon_thickness, semicon1),

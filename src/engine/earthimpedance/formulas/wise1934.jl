@@ -1,8 +1,10 @@
-routes(::Val{:Wise1934}) = (
-    self = wise1934,
-    mutual = wise1934,
-    Γ = wise1934_gamma
-)
+function routes(identifier::Val{:Wise1934})
+    return (
+        self = formula_method(identifier, earth_impedance, Val(:self)),
+        mutual = formula_method(identifier, earth_impedance, Val(:mutual)),
+        Γ = formula_method(identifier, propagation_constant)
+    )
+end
 
 assumptions(::Val{:Wise1934}) = (
     air = _full,
@@ -33,7 +35,9 @@ Return Circuits,” *Proceedings of the Institute of Radio Engineers*, 22,
 """
 description(::Formula{:Wise1934}) = "Wise homogeneous-earth overhead impedance (1934)"
 
-wise1934_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))
+function propagation_constant(::Val{:Wise1934}, jω, permeability, permittivity)
+    return (Γ = zero(jω), squared = zero(jω))
+end
 
 function (formula::Formula{:Wise1934})(rho, epsilon, mu, jω, Γ, segments = nothing)
     return _homogeneous_functor(Val(:Wise1934), formula, rho, epsilon, mu, jω, Γ, segments)
@@ -53,7 +57,9 @@ F_{ij}^{W}=\frac{\mu_1e^{-\lambda(h_i+h_j)}}
 a_1=\sqrt{\lambda^2+\gamma_1^2-\gamma_0^2}.
 ```
 """
-function wise1934(functor, pair)
+function earth_impedance(
+        ::Val{:Wise1934}, ::Val{:mutual}, functor, pair
+)
     _require(pair, Val(:overhead))
     state = functor.state
     geometry = _geometry(pair)

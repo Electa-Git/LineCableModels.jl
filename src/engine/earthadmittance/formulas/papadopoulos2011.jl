@@ -1,8 +1,8 @@
-function routes(::Val{:Papadopoulos2011})
+function routes(identifier::Val{:Papadopoulos2011})
     (
-        self = papadopoulosetaly2011,
-        mutual = papadopoulosetaly2011,
-        Γ = papadopoulosetaly2011_gamma
+        self = formula_method(identifier, earth_potential_coefficient, Val(:self)),
+        mutual = formula_method(identifier, earth_potential_coefficient, Val(:mutual)),
+        Γ = formula_method(identifier, propagation_constant)
     )
 end
 
@@ -41,15 +41,18 @@ A_{mn}=\\alpha_n\\gamma_m^2\\mu_n+\\alpha_m\\gamma_n^2\\mu_m,\\qquad
 \\Delta_{mn}=\\alpha_n\\gamma_m^2\\mu_n-\\alpha_m\\gamma_n^2\\mu_m.
 ```
 
-**Reference.** Papadopoulos et al., two-layer underground formulation, 2011,
-as reproduced in Ametani et al., *Electromagnetic Transients in Large HV
-Cable Networks*, IET, 2021.
+**Reference.** T. A. Papadopoulos, D. A. Tsiamitros, and G. K. Papagiannis,
+“Earth Return Admittances and Impedances of Underground Cables in
+Non-Homogeneous Earth,” *IET Generation, Transmission & Distribution*, 5(2),
+161–171, 2011.
 """
 function description(::Formula{:Papadopoulos2011})
     "Papadopoulos et al. two-layer underground potential coefficient (2011)"
 end
 
-function papadopoulosetaly2011_gamma(jω, permeability, permittivity)
+function propagation_constant(
+        ::Val{:Papadopoulos2011}, jω, permeability, permittivity
+)
     squared = oftype(jω, (-jω^2) * permeability * permittivity)
     return (Γ = sqrt(squared), squared)
 end
@@ -87,7 +90,9 @@ A_{mn}=\alpha_n\gamma_m^2\mu_n+\alpha_m\gamma_n^2\mu_m,\qquad
 are implemented without algebraic contraction so the corpus symbols remain
 traceable in code. Conductors must lie in the finite top earth layer.
 """
-function papadopoulosetaly2011(functor, pair)
+function earth_potential_coefficient(
+        ::Val{:Papadopoulos2011}, ::Val{:mutual}, functor, pair
+)
     pair.layers == (2, 2) || throw(ArgumentError(
         ":Papadopoulos2011 requires both conductors in the top earth layer"
     ))

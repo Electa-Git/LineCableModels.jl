@@ -1,11 +1,13 @@
-function routes(::Val{:Lucca1994})
+function routes(identifier::Val{:Lucca1994})
     (
-        self = lucca1994,
-        mutual = lucca1994,
-        overhead = carson1926,
-        underground = pollaczek1926_underground,
-        mixed = lucca1994_mixed,
-        Γ = lucca1994_gamma
+        self = formula_method(identifier, earth_impedance, Val(:self)),
+        mutual = formula_method(identifier, earth_impedance, Val(:mutual)),
+        overhead = formula_method(identifier, earth_impedance, Val(:overhead)),
+        underground = formula_method(
+            identifier, earth_impedance, Val(:underground)
+        ),
+        mixed = formula_method(identifier, earth_impedance, Val(:mixed)),
+        Γ = formula_method(identifier, propagation_constant)
     )
 end
 
@@ -42,9 +44,12 @@ D=\\sqrt{(h_a+h_g)^2+y_{ij}^2}.
 Line with Earth Return,” *9th International Conference on Electromagnetic
 Compatibility*, 1994. DOI: 10.1049/cp:19940679.
 """
-description(::Formula{:Lucca1994}) = "Lucca"
+description(::Formula{:Lucca1994}) =
+    "Lucca pair-complete homogeneous-earth impedance (1994)"
 
-lucca1994_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))
+function propagation_constant(::Val{:Lucca1994}, jω, permeability, permittivity)
+    return (Γ = zero(jω), squared = zero(jω))
+end
 
 function (formula::Formula{:Lucca1994})(rho, epsilon, mu, jω, Γ, segments = nothing)
     return _homogeneous_functor(
@@ -52,20 +57,27 @@ function (formula::Formula{:Lucca1994})(rho, epsilon, mu, jω, Γ, segments = no
     )
 end
 
-function lucca1994(functor, pair)
-    return lucca1994(functor, pair, _placement(pair))
-end
-
-function lucca1994(functor, pair, ::Val{:overhead})
-    return functor.routes.overhead(functor, pair)
-end
-
-function lucca1994(functor, pair, ::Val{:underground})
-    return functor.routes.underground(functor, pair)
-end
-
-function lucca1994(functor, pair, ::Val{:mixed})
+function earth_impedance(
+        ::Val{:Lucca1994}, ::Val{:mutual}, functor, pair
+)
+    placement = _placement(pair)
+    typeof(placement) === Val{:overhead} &&
+        return functor.routes.overhead(functor, pair)
+    typeof(placement) === Val{:underground} &&
+        return functor.routes.underground(functor, pair)
     return functor.routes.mixed(functor, pair)
+end
+
+function earth_impedance(
+        ::Val{:Lucca1994}, ::Val{:overhead}, functor, pair
+)
+    return earth_impedance(Val(:Carson1926), Val(:mutual), functor, pair)
+end
+
+function earth_impedance(
+        ::Val{:Lucca1994}, ::Val{:underground}, functor, pair
+)
+    return earth_impedance(Val(:Pollaczek1926), Val(:underground), functor, pair)
 end
 
 raw"""
@@ -94,7 +106,9 @@ G. Lucca, "Mutual impedance between an overhead and a buried line with earth
 return," *9th International Conference on Electromagnetic Compatibility*, 1994.
 DOI: 10.1049/cp:19940679.
 """
-function lucca1994_mixed(functor, pair)
+function earth_impedance(
+        ::Val{:Lucca1994}, ::Val{:mixed}, functor, pair
+)
     state = functor.state
     air = pair.layers[1] == 1 ? 1 : 2
     earth = air == 1 ? 2 : 1

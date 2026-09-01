@@ -1,11 +1,15 @@
-function routes(::Val{:MartinsBritto2024})
+function routes(identifier::Val{:MartinsBritto2024})
     (
-        self = martinsbritto2024,
-        mutual = martinsbritto2024,
-        overhead = martinsbritto2024_same,
-        underground = martinsbritto2024_same,
-        mixed = martinsbritto2024_mixed,
-        Γ = martinsbritto2024_gamma
+        self = formula_method(identifier, earth_impedance, Val(:self)),
+        mutual = formula_method(identifier, earth_impedance, Val(:mutual)),
+        overhead = formula_method(
+            identifier, earth_impedance, Val(:same_medium)
+        ),
+        underground = formula_method(
+            identifier, earth_impedance, Val(:same_medium)
+        ),
+        mixed = formula_method(identifier, earth_impedance, Val(:mixed)),
+        Γ = formula_method(identifier, propagation_constant)
     )
 end
 
@@ -52,7 +56,9 @@ function description(::Formula{:MartinsBritto2024})
     "Martins-Britto, Papadopoulos, and Chrysochos wideband homogeneous-earth impedance (2024)"
 end
 
-function martinsbritto2024_gamma(jω, permeability, permittivity)
+function propagation_constant(
+        ::Val{:MartinsBritto2024}, jω, permeability, permittivity
+)
     squared = oftype(jω, (-jω^2) * permeability * permittivity)
     return (Γ = sqrt(squared), squared)
 end
@@ -75,19 +81,14 @@ underground pairs and the published transmission kernel for mixed pairs. The
 three placement routes are individually replaceable without changing the
 public `:MartinsBritto2024` identity.
 """
-function martinsbritto2024(functor, pair)
-    return martinsbritto2024(functor, pair, _placement(pair))
-end
-
-function martinsbritto2024(functor, pair, ::Val{:overhead})
-    return functor.routes.overhead(functor, pair)
-end
-
-function martinsbritto2024(functor, pair, ::Val{:underground})
-    return functor.routes.underground(functor, pair)
-end
-
-function martinsbritto2024(functor, pair, ::Val{:mixed})
+function earth_impedance(
+        ::Val{:MartinsBritto2024}, ::Val{:mutual}, functor, pair
+)
+    placement = _placement(pair)
+    typeof(placement) === Val{:overhead} &&
+        return functor.routes.overhead(functor, pair)
+    typeof(placement) === Val{:underground} &&
+        return functor.routes.underground(functor, pair)
     return functor.routes.mixed(functor, pair)
 end
 
@@ -105,7 +106,9 @@ Z_{e,ij}^{mm}=\frac{j\omega\mu_m}{2\pi}
 where ``m`` is the conductor medium, ``n`` is the other medium, and
 ``a_q=\sqrt{\lambda^2+\gamma_q^2+k_x^2}``.
 """
-function martinsbritto2024_same(functor, pair)
+function earth_impedance(
+        ::Val{:MartinsBritto2024}, ::Val{:same_medium}, functor, pair
+)
     state = functor.state
     placement = _placement(pair)
     source = typeof(placement) === Val{:overhead} ? 1 : 2
@@ -139,7 +142,9 @@ Z_{e,ij}^{01}=\frac{j\omega\mu_0}{\pi}\int_0^\infty
 where ``a_m=\sqrt{\lambda^2+\gamma_m^2+k_x^2}``. The default ``k_x``
 is exposed through `Γ`.
 """
-function martinsbritto2024_mixed(functor, pair)
+function earth_impedance(
+        ::Val{:MartinsBritto2024}, ::Val{:mixed}, functor, pair
+)
     state = functor.state
     air = pair.layers[1] == 1 ? 1 : 2
     earth = air == 1 ? 2 : 1

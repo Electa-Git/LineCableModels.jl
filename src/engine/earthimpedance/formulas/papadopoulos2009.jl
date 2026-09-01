@@ -1,8 +1,8 @@
-function routes(::Val{:Papadopoulos2009})
+function routes(identifier::Val{:Papadopoulos2009})
     (
-        self = papadopoulosetal2009,
-        mutual = papadopoulosetal2009,
-        Γ = papadopoulosetal2009_gamma
+        self = formula_method(identifier, earth_impedance, Val(:self)),
+        mutual = formula_method(identifier, earth_impedance, Val(:mutual)),
+        Γ = formula_method(identifier, propagation_constant)
     )
 end
 
@@ -46,7 +46,9 @@ function description(::Formula{:Papadopoulos2009})
     "Papadopoulos et al. general two-layer overhead impedance (2009)"
 end
 
-function papadopoulosetal2009_gamma(jω, permeability, permittivity)
+function propagation_constant(
+        ::Val{:Papadopoulos2009}, jω, permeability, permittivity
+)
     squared = oftype(jω, (-jω^2) * permeability * permittivity)
     return (Γ = sqrt(squared), squared)
 end
@@ -82,7 +84,9 @@ The contribution is
 ``Z_{e,ij}=(j\omega\mu_0/(2\pi))[\ln(D_{ij}/d_{ij})+2\int F_{ij}^P
 \cos(y_{ij}\lambda)d\lambda]``. By default ``k_0`` is the selected `Γ`.
 """
-function papadopoulosetal2009(functor, pair)
+function earth_impedance(
+        ::Val{:Papadopoulos2009}, ::Val{:mutual}, functor, pair
+)
     _require(pair, Val(:overhead))
     state = functor.state
     geometry = _geometry(pair)

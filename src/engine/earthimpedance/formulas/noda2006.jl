@@ -1,8 +1,10 @@
-routes(::Val{:Noda2006}) = (
-    self = noda2006,
-    mutual = noda2006,
-    Γ = noda2006_gamma
-)
+function routes(identifier::Val{:Noda2006})
+    return (
+        self = formula_method(identifier, earth_impedance, Val(:self)),
+        mutual = formula_method(identifier, earth_impedance, Val(:mutual)),
+        Γ = formula_method(identifier, propagation_constant)
+    )
+end
 
 function assumptions(::Val{:Noda2006})
     (
@@ -42,7 +44,9 @@ Ground-Return Impedance,” *IEEE Transactions on Power Delivery*, 21,
 """
 description(::Formula{:Noda2006}) = "Noda double-logarithmic approximation (2006)"
 
-noda2006_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))
+function propagation_constant(::Val{:Noda2006}, jω, permeability, permittivity)
+    return (Γ = zero(jω), squared = zero(jω))
+end
 
 function (formula::Formula{:Noda2006})(rho, epsilon, mu, jω, Γ, segments = nothing)
     return _homogeneous_functor(
@@ -86,7 +90,9 @@ T. Noda, "A double logarithmic approximation of Carson's ground-return
 impedance," *IEEE Transactions on Power Delivery*, vol. 21,
 pp. 472-479, 2006. DOI: 10.1109/TPWRD.2005.852307.
 """
-function noda2006(functor, pair)
+function earth_impedance(
+        ::Val{:Noda2006}, ::Val{:mutual}, functor, pair
+)
     _require(pair, Val(:overhead))
     state = functor.state
     geometry = _geometry(pair)

@@ -129,8 +129,10 @@ end
     earth_impedance=LineCableModels.Engine.EarthImpedance
     formulations=(
         earth_impedance.Formula(:DeriSemlyen1981)=>"Deri-Semlyen",
-        earth_impedance.Formula(:Ametani2009)=>"Ametani",
-        earth_impedance.Formula(:Lucca1994)=>"Lucca"
+        earth_impedance.Formula(:Ametani2009)=>
+            "Ametani pair-complete homogeneous-earth impedance (2009)",
+        earth_impedance.Formula(:Lucca1994)=>
+            "Lucca pair-complete homogeneous-earth impedance (1994)"
     )
     for (formulation, label) in formulations
         @test supertype(typeof(formulation)) ===

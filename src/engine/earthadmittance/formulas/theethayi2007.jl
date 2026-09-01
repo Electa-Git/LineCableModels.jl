@@ -1,9 +1,9 @@
-function routes(::Val{:Theethayi2007})
+function routes(identifier::Val{:Theethayi2007})
     (
-        self = theethayietaly2007,
-        mutual = theethayietaly2007,
-        impedance = theethayietaly2007_impedance,
-        Γ = theethayietaly2007_gamma
+        self = formula_method(identifier, earth_potential_coefficient, Val(:self)),
+        mutual = formula_method(identifier, earth_potential_coefficient, Val(:mutual)),
+        impedance = formula_method(identifier, earth_impedance, Val(:support)),
+        Γ = formula_method(identifier, propagation_constant)
     )
 end
 
@@ -35,13 +35,16 @@ not divide admittance element by impedance element.
 **Reference.** N. Theethayi, R. Thottappillil, M. Paolone, C. A. Nucci, and
 F. Rachidi, “External Impedance and Admittance of Buried Horizontal Wires for
 Transient Studies Using Transmission Line Analysis,” *IEEE Transactions on
-Dielectrics and Electrical Insulation*, 14, 751–761, 2007.
+Dielectrics and Electrical Insulation*, 14(3), 751–761, 2007.
+DOI: 10.1109/TDEI.2007.369540.
 """
 function description(::Formula{:Theethayi2007})
     "Theethayi et al. earth admittance from impedance (2007)"
 end
 
-function theethayietaly2007_gamma(jω, permeability, permittivity)
+function propagation_constant(
+        ::Val{:Theethayi2007}, jω, permeability, permittivity
+)
     (Γ = zero(jω), squared = zero(jω))
 end
 
@@ -68,14 +71,19 @@ satisfy ``\mathbf Y_e=\gamma_1^2\mathbf Z_e^{-1}``; no elementwise
 admittance quotient is taken. Self evaluation uses the same pair formula with
 horizontal separation set to the conductor radius.
 """
-function theethayietaly2007(functor, pair)
+function earth_potential_coefficient(
+        ::Val{:Theethayi2007}, ::Val{:mutual}, functor, pair
+)
     _require(pair, Val(:underground))
+    pair.row == pair.column || _require_horizontal_separation(pair)
     state = functor.state
     Z_e = functor.routes.impedance(state, pair)
     return state.jω * Z_e / state.gamma_medium_squared[2]
 end
 
-function theethayietaly2007_impedance(state, pair)
+function earth_impedance(
+        ::Val{:Theethayi2007}, ::Val{:support}, state, pair
+)
     geometry = _geometry(pair)
     gamma = state.gamma[2]
     argument = gamma * geometry.y_ij

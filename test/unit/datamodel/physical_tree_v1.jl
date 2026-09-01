@@ -280,6 +280,44 @@ end
     @test DM.area(annular_fill.primitive) ≈
           π * 1.5^2 - π * (1.0^2 - 0.5^2)
 
+    armor=Group(
+        :armor,
+        Region(:armor_wires, Disk(0.1), copper);
+        pattern = Ring(6; r = 1.1)
+    )
+    annular_stage=Enclosure(
+        :armor_matrix,
+        armor;
+        primitive = Annulus(1.0, 1.2),
+        fill = matrix
+    )
+    staged_design=build(
+        CableDesign,
+        "annular-filled-stage",
+        Group(:core, Region(:inner_core, Disk(1.0), copper)),
+        annular_stage
+    )
+    staged_fill=last(staged_design.geometry.regions)
+    @test staged_fill.primitive isa DM._DifferencePrimitive
+    @test staged_fill.primitive.outer isa Annulus
+    @test length(staged_fill.primitive.holes) == 6
+    @test sum(DM.area, staged_design.geometry.regions) ≈
+          DM.area(staged_design.geometry.outer)
+    @test DM.boundary(staged_design.geometry) == Disk(1.2)
+
+    discontinuous_stage=Enclosure(
+        :discontinuous_matrix,
+        armor;
+        primitive = Annulus(1.01, 1.21),
+        fill = matrix
+    )
+    @test_throws DomainError build(
+        CableDesign,
+        "discontinuous-annular-stage",
+        Group(:core, Region(:inner_core, Disk(1.0), copper)),
+        discontinuous_stage
+    )
+
     bare_design=build(CableDesign, "bare-bundle", bundle)
     packed_design=build(CableDesign, "packed-bundle", packed)
     bare=only(DM.flatten(bare_design, 50.0))

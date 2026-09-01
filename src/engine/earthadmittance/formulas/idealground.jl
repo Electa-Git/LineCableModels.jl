@@ -1,8 +1,10 @@
-routes(::Val{:IdealGround}) = (
-    self = ideal_zero,
-    mutual = ideal_zero,
-    Γ = ideal_gamma
-)
+function routes(identifier::Val{:IdealGround})
+    return (
+        self = formula_method(identifier, earth_potential_coefficient, Val(:self)),
+        mutual = formula_method(identifier, earth_potential_coefficient, Val(:mutual)),
+        Γ = formula_method(identifier, propagation_constant)
+    )
+end
 
 assumptions(::Val{:IdealGround}) = (;)
 propagation(::Val{:IdealGround}) = Val(:zero)
@@ -26,7 +28,9 @@ fit is introduced by this reference case.
 """
 description(::Formula{:IdealGround}) = "Ideal ground reference"
 
-function ideal_gamma(jω, permeability, permittivity)
+function propagation_constant(
+        ::Val{:IdealGround}, jω, permeability, permittivity
+)
     value = zero(jω)
     return (Γ = value, squared = value)
 end
@@ -53,7 +57,11 @@ function (formula::Formula{:IdealGround})(
     )
 end
 
-ideal_zero(functor, pair) = zero(functor.state.jω)
+function earth_potential_coefficient(
+        ::Val{:IdealGround}, ::Val{:mutual}, functor, pair
+)
+    return zero(functor.state.jω)
+end
 
 @inline function (functor::Functor{:IdealGround})(::Val{:self}, pair)
     return functor.routes.self(functor, pair)

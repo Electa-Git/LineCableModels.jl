@@ -1,6 +1,6 @@
 // Coupled quasi-TEM A_z / u_r / phi formulation.
-// The complete frequency and basis-terminal scan is executed by the single
-// LineCableModelsFEMScan Resolution below.
+// Each LineCableModelsFEMScan invocation solves exactly one frequency and
+// basis-terminal job. Julia owns the outer scan and process isolation.
 
 If(!Exists(RunDirectory))
   RunDirectory = "";
@@ -8,10 +8,25 @@ EndIf
 If(!Exists(FrequencyCount))
   FrequencyCount = 0;
 EndIf
+If(!Exists(FrequencyIndex))
+  FrequencyIndex = 1;
+EndIf
+If(!Exists(FrequencyHz))
+  FrequencyHz = 1.;
+EndIf
+If(!Exists(BasisTerminal))
+  BasisTerminal = 1;
+EndIf
 If(!Exists(PlotFieldMaps))
   PlotFieldMaps = 0;
 EndIf
+If(!Exists(RawOutputStem))
+  RawOutputStem = "scan";
+EndIf
 RawDirectory = StrCat[RunDirectory, "/raw"];
+RawJobDirectory = StrCat[RawDirectory, "/jobs"];
+RawZPath = StrCat[RawJobDirectory, "/", RawOutputStem, "-Z.tsv"];
+RawPPath = StrCat[RawJobDirectory, "/", RawOutputStem, "-P.tsv"];
 MapDirectory = StrCat[RunDirectory, "/maps"];
 
 Group {
@@ -29,6 +44,8 @@ Group {
     TerminalContours += Region[{TerminalContour~{t}}];
   EndFor
   Sur_Dirichlet_Mag = Region[{OUTBND_EM}];
+  Sur_Insulation_Ele = Region[{OUTBND_ELE_INS}];
+  Sur_Dirichlet_Ele = Region[{OUTBND_ELE_REF}];
 }
 
 Include MaterialFunctionsPath;
@@ -74,7 +91,10 @@ Constraint {
   }
   { Name FEMScalarPotential; Type Assign;
     Case {
-      { Region Sur_Dirichlet_Mag; Value 0.; }
+      // The earth-side far boundary is the electric reference. The air-side
+      // outer shell is intentionally unconstrained: the Galerkin formulation
+      // supplies its natural zero-normal-current boundary condition.
+      { Region Sur_Dirichlet_Ele; Value 0.; }
     }
   }
 }
@@ -255,27 +275,19 @@ Resolution {
       CreateDir[RawDirectory];
       CreateDir[MapDirectory];
       InitSolution[Sys_FEM];
-      For frequency_index In {1:FrequencyCount}
-        Evaluate[$FEMFrequencyIndex = frequency_index];
-        Evaluate[$FEMFrequencyHz = GetNumber[Sprintf[
-          "LineCableModels/FEM/frequency/%g", frequency_index]]];
-        SetFrequency[Sys_FEM, GetNumber[Sprintf[
-          "LineCableModels/FEM/frequency/%g", frequency_index]]];
-        SetTimeStep[1];
-        // GetDP time is an output-step identity, not the physical frequency.
-        // Using the monotone scan index avoids time-range failures on widely
-        // separated frequency vectors; SetFrequency owns the physics.
-        SetTime[frequency_index];
-        For basis_terminal In {1:NumTerminals}
-          Evaluate[$FEMBasisTerminal = basis_terminal];
-          Call FEMSolveBasis;
-          PostOperation[FEMAppendRaw];
-          If(PlotFieldMaps)
-            Call FEMWriteMaps;
-          EndIf
-        EndFor
-      EndFor
-      PostOperation[FEMScanComplete];
+      Evaluate[$FEMFrequencyIndex = FrequencyIndex];
+      Evaluate[$FEMFrequencyHz = FrequencyHz];
+      SetFrequency[Sys_FEM, FrequencyHz];
+      SetTimeStep[1];
+      // GetDP time is an output-step identity, not the physical frequency.
+      // The scan index avoids time-range failures; SetFrequency owns physics.
+      SetTime[FrequencyIndex];
+      Evaluate[$FEMBasisTerminal = BasisTerminal];
+      Call FEMSolveBasis;
+      PostOperation[FEMAppendRaw];
+      If(PlotFieldMaps)
+        Call FEMWriteMaps;
+      EndIf
     }
   }
 }
@@ -354,7 +366,7 @@ PostOperation {
         Print[{$FEMFrequencyIndex, $FEMFrequencyHz, response_terminal,
             $FEMBasisTerminal, $FEMRawRe, $FEMRawIm},
           Format "%g	%.17g	%g	%g	%.17g	%.17g",
-          File StrCat[RawDirectory, "/Z.tsv"], AppendToExistingFile 2];
+          File RawZPath, AppendToExistingFile 1];
 
         Print[ReP, OnRegion Terminal~{response_terminal}, Format Table,
           File "", StoreInVariable $FEMRawRe];
@@ -363,21 +375,9 @@ PostOperation {
         Print[{$FEMFrequencyIndex, $FEMFrequencyHz, response_terminal,
             $FEMBasisTerminal, $FEMRawRe, $FEMRawIm},
           Format "%g	%.17g	%g	%g	%.17g	%.17g",
-          File StrCat[RawDirectory, "/P.tsv"], AppendToExistingFile 2];
+          File RawPPath, AppendToExistingFile 1];
       EndFor
     }
   }
 
-  { Name FEMScanComplete; NameOfPostProcessing FEMFields;
-    LastTimeStepOnly 1;
-    Format Table;
-    NoMesh 1;
-    Operation {
-      Echo[Sprintf["%g	%g	%g	%g	%g	1", FrequencyCount,
-          NumTerminals, FrequencyCount * NumTerminals * NumTerminals,
-          FrequencyCount * NumTerminals * NumTerminals,
-          FrequencyCount * NumTerminals * NumTerminals],
-        File >> StrCat[RawDirectory, "/scan_complete.tsv"]];
-    }
-  }
 }

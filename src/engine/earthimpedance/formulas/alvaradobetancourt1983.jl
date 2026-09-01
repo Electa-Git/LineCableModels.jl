@@ -1,8 +1,10 @@
-routes(::Val{:AlvaradoBetancourt1983}) = (
-    self = alvaradobetancourt1983,
-    mutual = alvaradobetancourt1983,
-    Γ = alvaradobetancourt1983_gamma
-)
+function routes(identifier::Val{:AlvaradoBetancourt1983})
+    return (
+        self = formula_method(identifier, earth_impedance, Val(:self)),
+        mutual = formula_method(identifier, earth_impedance, Val(:mutual)),
+        Γ = formula_method(identifier, propagation_constant)
+    )
+end
 
 function assumptions(::Val{:AlvaradoBetancourt1983})
     (
@@ -44,7 +46,9 @@ function description(::Formula{:AlvaradoBetancourt1983})
     "Alvarado-Betancourt closed-form Carson correction (1983)"
 end
 
-function alvaradobetancourt1983_gamma(jω, permeability, permittivity)
+function propagation_constant(
+        ::Val{:AlvaradoBetancourt1983}, jω, permeability, permittivity
+)
     return (Γ = zero(jω), squared = zero(jω))
 end
 
@@ -87,7 +91,9 @@ F. L. Alvarado and R. Betancourt, "An accurate closed-form approximation
 for ground return impedance calculations," *Proceedings of the IEEE*, vol.
 71, pp. 279-280, 1983. DOI: 10.1109/PROC.1983.12573.
 """
-function alvaradobetancourt1983(functor, pair)
+function earth_impedance(
+        ::Val{:AlvaradoBetancourt1983}, ::Val{:mutual}, functor, pair
+)
     _require(pair, Val(:overhead))
     state = functor.state
     geometry = _geometry(pair)

@@ -1,8 +1,8 @@
-function routes(::Val{:Xue2018})
+function routes(identifier::Val{:Xue2018})
     (
-        self = xueetal2018,
-        mutual = xueetal2018,
-        Γ = xueetal2018_gamma
+        self = formula_method(identifier, earth_impedance, Val(:self)),
+        mutual = formula_method(identifier, earth_impedance, Val(:mutual)),
+        Γ = formula_method(identifier, propagation_constant)
     )
 end
 
@@ -44,7 +44,9 @@ function description(::Formula{:Xue2018})
     "Xue et al. generalized homogeneous-earth underground impedance (2018)"
 end
 
-xueetal2018_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))
+function propagation_constant(::Val{:Xue2018}, jω, permeability, permittivity)
+    return (Γ = zero(jω), squared = zero(jω))
+end
 
 function (formula::Formula{:Xue2018})(rho, epsilon, mu, jω, Γ, segments = nothing)
     return _homogeneous_functor(
@@ -69,7 +71,9 @@ S_{13}^c=\int_0^\infty\frac{e^{-Hu_1}\cos(y\lambda)}
 
 where ``u_m=\sqrt{\lambda^2+\gamma_m^2}``.
 """
-function xueetal2018(functor, pair)
+function earth_impedance(
+        ::Val{:Xue2018}, ::Val{:mutual}, functor, pair
+)
     _require(pair, Val(:underground))
     state = functor.state
     geometry = _geometry(pair)

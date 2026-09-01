@@ -1,8 +1,8 @@
-function routes(::Val{:Nakagawa1973})
+function routes(identifier::Val{:Nakagawa1973})
     (
-        self = nakagawa_recursive1973,
-        mutual = nakagawa_recursive1973,
-        Γ = nakagawa_recursive1973_gamma
+        self = formula_method(identifier, earth_impedance, Val(:self)),
+        mutual = formula_method(identifier, earth_impedance, Val(:mutual)),
+        Γ = formula_method(identifier, propagation_constant)
     )
 end
 
@@ -46,7 +46,9 @@ function description(::Formula{:Nakagawa1973})
     "Nakagawa et al. recursive N-layer overhead impedance (1973)"
 end
 
-function nakagawa_recursive1973_gamma(jω, permeability, permittivity)
+function propagation_constant(
+        ::Val{:Nakagawa1973}, jω, permeability, permittivity
+)
     (Γ = zero(jω), squared = zero(jω))
 end
 
@@ -83,7 +85,9 @@ and the exact upward ``A_m,B_m`` recursions from the corpus are retained.
 The three-layer record `NakagawaEtAl1973` is not duplicated because it is the
 ``N=3`` specialization of this route.
 """
-function nakagawa_recursive1973(functor, pair)
+function earth_impedance(
+        ::Val{:Nakagawa1973}, ::Val{:mutual}, functor, pair
+)
     _require(pair, Val(:overhead))
     state = functor.state
     geometry = _geometry(pair)

@@ -49,15 +49,23 @@ used.
 
 ## Execution model
 
-One call to `compute` builds one complete two-dimensional Gmsh model and one
-mesh sized for the maximum requested frequency. The finite air/earth radius
-also covers the earth skin depth at the minimum requested frequency, and a
-conformal annular transformation-to-infinity shell surrounds it. Exactly one
-GetDP client then
-performs the nested scan over the ordered frequency vector and every
-basis-terminal excitation. GetDP appends response-row, basis-column entries to
-`raw/Z.tsv` and `raw/P.tsv`; Julia accepts them only after validating the
-completion marker, headers, row count, indices, frequencies, and finite values.
+One call to `compute` builds one complete two-dimensional Gmsh mesh for each
+distinct physical frequency. Each mesh uses that frequency's earth skin depth
+for its finite air/earth radius and has its own conformal annular
+transformation-to-infinity shell. The final, highest-frequency mesh is the
+displayed mesh; every frequency-specific mesh is reused by all of that
+frequency's basis-terminal jobs. Julia launches one isolated GetDP process for
+each ordered frequency/basis-terminal pair. Every process appends exactly one
+response column to `raw/Z.tsv` and `raw/P.tsv`. Julia publishes the completion
+marker only after every job has returned a complete column, then validates the
+marker, headers, row count, indices, frequencies, and finite values.
+
+Gmsh otherwise gives external ONELAB clients a shared user socket such as
+`.gmshsock2`. The extension assigns every FEM run a unique socket basename in
+the user directory (or an ephemeral loopback port on Windows) through
+`Solver.SocketName`, then restores the caller's option. Independent Julia
+processes can therefore mesh and solve concurrently without racing on the
+default socket.
 
 The primitive matrices have dimensions
 `(nterminal, nterminal, nfrequency)`. The shared LineCableModels reduction path
@@ -79,45 +87,62 @@ authority. The extension creates only derived tags, surface ownership, mesh
 sizes, and GetDP tables; it defines no second cable, material, or project
 schema.
 
+Every FEM computation starts with a numeric preflight before model adaptation,
+runtime-directory creation, Gmsh initialisation, or meshing. The preflight
+rebuilds continuous problem data as `Float64`; when a
+`Measurements.Measurement` scalar is present, only its nominal value is
+retained. Discrete topology such as terminal assignments, material tags, and
+pattern counts remains integral. The caller-owned problem is not mutated.
+
 | FEM datum | Authoritative LineCableModels property | Handling |
 |---|---|---|
 | Material class and electrical properties | each resolved `PlacedRegion.source.material`: `kind`, `rho`, `eps_r`, `mu_r`, `tan_delta`, `T0`, `alpha` | Reused; resistivity follows the shared temperature-correction option and constant intrinsic loss tangent contributes ``\omega\epsilon\tan\delta`` to conductivity |
-| Material geometry and topology | `CableDesign.geometry.regions`, each resolved `PlacedRegion.primitive`, and `CableDesign.geometry.outer` | Adapted to built-in `gmsh.model.geo` loops and cut-hole surfaces |
+| Material geometry and topology | `CableDesign.geometry.regions`, each resolved `PlacedRegion.primitive`, and `CableDesign.geometry.outer` | Requires an area-complete material partition, then adapts it to built-in `gmsh.model.geo` loops and cut-hole surfaces |
 | Cable identity and placement | `LineCableSystem.designs`, `CableDesign.cable_id`, `LineCableSystem.positions`, and resolved `LineCableSystem.geometry` | Reused in declared order; stable IDs form physical names |
 | Terminal ownership and order | `LineCableSystem.terminal_order`, `terminal_map`, and `connection_order` | Reused exactly; disconnected surfaces of one electrical Group share one terminal physical group |
 | Phase, bundle, and grounded-conductor reduction | `LineCableSystem.connection_order` plus shared formulation options | Delegated to the Engine reduction implementation for both ``Z`` and ``P`` |
-| Frequencies | `LineParametersProblem.frequencies` | Published as indexed, hidden, read-only ONELAB numbers and read by GetDP in the same order |
+| Frequencies | `LineParametersProblem.frequencies` | Published as indexed, hidden, read-only ONELAB numbers; each isolated GetDP job also receives its exact physical frequency and matching transformation radii directly |
 | Temperature | `LineParametersProblem.temperature` | Reused through material `T0` and `alpha` when temperature correction is enabled |
 | Earth material | `LineParametersProblem.earth_props` | One homogeneous horizontal earth half-space is adapted to the FEM domain |
 | Optional environment declaration | `LineCableSystem.environment` | `nothing` and `EarthModel` are accepted; other declarations produce a typed unsupported-feature error |
 | Line length and output basis | `LineCableSystem.line_length` and shared `compute` options | Per-unit-length is canonical; total basis uses the existing package scaling |
 | Propagation constant | backend-owned fixed quasi-TEM constant | A non-`nothing` problem-level `Γ` is rejected rather than silently reinterpreted |
-| Mesh resolution | derived from resolved conductor dimensions, material permeability/resistivity, and maximum frequency | Backend-derived only; it is not duplicated in public options |
+| Mesh resolution | local characteristic lengths derived from each resolved solid, tube, strand, foil, and passive region; per-frequency earth skin depth controls only the exterior domain | Thin internal features remain local and cannot refine unrelated layers or the earth domain |
 
 Disks, ellipses, circular sectors, and rounded sectors retain exact Gmsh
 circle/ellipse arcs; rectangles and schema polygons retain exact line
 segments. Annuli, conformal rounded-sector shells, enclosure differences, and
-assembly boundaries use shared oriented loops. Each host surface is created
-with all occupied cable loops as holes before the corresponding material
-surfaces are added, so cable media, air, earth, and the infinity shell form a
-conformal non-overlapping mesh using only `gmsh.model.geo`.
+assembly boundaries use shared oriented loops. Circular boundaries are
+pre-segmented at sector endpoints and circle contacts, so adjacent materials
+reuse the same curve and tangent strands reuse the same point. A shared
+material interface takes the smaller of its two local characteristic lengths.
+Thin internal foils and strands do not export their size to the cable/earth
+boundary. One `Distance`/`Threshold` field per actual cable exterior grows
+from that exterior layer's size to `domain_radius/20` using an adjacent-element
+growth factor of 1.2; overlapping fields are combined with `Min`. No artificial
+refinement rings are introduced. The adapter
+rejects an incomplete area partition before starting Gmsh and rejects any
+material curve lacking a neighbouring field surface after synchronization,
+before meshing or invoking GetDP.
 
 The current FEM domain explicitly rejects vertical earth layers, more than one
 earth half-space layer, a problem-supplied propagation constant, unsupported
-environment types, and any resolved primitive without a two-dimensional
-built-in-`geo` boundary adaptation. These failures use
+environment types, incomplete material partitions, and any resolved primitive
+without a two-dimensional built-in-`geo` boundary adaptation. These failures use
 `LineCableModelsFEMError`, including the owning object ID and offending field,
 before Gmsh is touched where possible.
 
 ## Mesh lifecycle and diagnostics
 
-`mesh_policy=:reuse` first validates an explicit `mesh_path`, then a
-fingerprinted repository-local cache, and otherwise generates a mesh.
+`mesh_policy=:reuse` first validates an explicit highest-frequency `mesh_path`,
+then checks the fingerprinted repository-local cache for each frequency, and
+otherwise generates the missing frequency-specific mesh.
 Compatibility checks cover mesh dimension, terminal count, material and
 terminal physical groups, and physical names. `mesh_policy=:remesh` always
 regenerates and atomically refreshes the matching cache. The fingerprint
-includes the serialized problem, stable physical metadata, mesh sizes, maximum
-frequency, and Gmsh version.
+includes the serialized problem, stable physical metadata, every local and
+exterior mesh size, the physical mesh frequency, transformation radii, growth
+law, and Gmsh version.
 
 Runs live under `.linecablemodels/fem/runs/`; cached meshes live under
 `.linecablemodels/fem/meshes/`. A successful run directory is deleted after the
@@ -136,9 +161,12 @@ only when the run directory is retained.
 The executable resolution order is an explicit `getdp_executable`, followed
 by the executable named `getdp` on `PATH`; this repository has no additional
 sanctioned GetDP preference. A nonzero client failure is reported as a typed
-error with the retained run directory and the captured Gmsh log tail. A normal
-client return is still not success until the completion marker and every raw
-row have passed strict validation.
+error with its frequency and basis indices, the retained run directory, and
+the captured Gmsh log tail. If Gmsh reports an error only after a complete
+response column was written, the error is deferred to strict table validation.
+A normal client return is still not success until the completion marker and
+every raw row have passed strict validation. Result details report one GetDP
+invocation per frequency/source pair.
 
 ## Optional Gmsh UI
 

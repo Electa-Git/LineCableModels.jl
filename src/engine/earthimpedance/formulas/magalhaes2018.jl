@@ -1,8 +1,8 @@
-function routes(::Val{:Magalhaes2018})
+function routes(identifier::Val{:Magalhaes2018})
     (
-        self = magalhaesetalz2018,
-        mutual = magalhaesetalz2018,
-        Γ = magalhaesetalz2018_gamma
+        self = formula_method(identifier, earth_impedance, Val(:self)),
+        mutual = formula_method(identifier, earth_impedance, Val(:mutual)),
+        Γ = formula_method(identifier, propagation_constant)
     )
 end
 
@@ -18,7 +18,10 @@ propagation(::Val{:Magalhaes2018}) = Val(:zero)
 """
 $(TYPEDSIGNATURES)
 
-**Identification.** Wideband homogeneous-earth underground integral.
+**Identification.** Companion homogeneous-earth underground impedance used
+with the Magalhães earth-admittance formulation. Under the registered
+homogeneous assumptions this kernel is algebraically equivalent to the
+Xue2018 generalized impedance route.
 
 **Expression.**
 
@@ -29,16 +32,20 @@ K_0(\\gamma_1d_{ij})-K_0(\\gamma_1D_{ij})+2\\int_0^\\infty
 \\qquad u_m=\\sqrt{\\lambda^2+\\gamma_m^2}.
 ```
 
-**Reference.** F. C. R. Magalhães et al., “Closed-Form Expressions for the
-Calculation of the Ground-Return Impedance and Admittance of Underground
-Cables,” 2018; implemented equation follows the formula corpus and Ametani
-et al., IET, 2021.
+**Reference.** A. P. C. Magalhães, M. T. C. de Barros, and A. C. S. Lima,
+“Earth Return Admittance Effect on Underground Cable System Modeling,” *IEEE
+Transactions on Power Delivery*, 33(2), 662–670, 2018. The companion
+impedance identity is documented with the generalized underground formulas in
+A. Ametani et al., *Electromagnetic Transients in Large HV Cable Networks*,
+IET, 2021.
 """
 function description(::Formula{:Magalhaes2018})
-    "Magalhaes et al. homogeneous-earth underground impedance (2018)"
+    "Magalhaes companion homogeneous-earth impedance (2018; Xue-equivalent)"
 end
 
-function magalhaesetalz2018_gamma(jω, permeability, permittivity)
+function propagation_constant(
+        ::Val{:Magalhaes2018}, jω, permeability, permittivity
+)
     (Γ = zero(jω), squared = zero(jω))
 end
 
@@ -61,7 +68,9 @@ K_0(\gamma_1D_{ij})+2\int_0^\infty
 
 where ``u_m=\sqrt{\lambda^2+\gamma_m^2}``.
 """
-function magalhaesetalz2018(functor, pair)
+function earth_impedance(
+        ::Val{:Magalhaes2018}, ::Val{:mutual}, functor, pair
+)
     _require(pair, Val(:underground))
     state = functor.state
     geometry = _geometry(pair)

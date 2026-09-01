@@ -1,11 +1,13 @@
-function routes(::Val{:Ametani2009})
+function routes(identifier::Val{:Ametani2009})
     (
-        self = ametani2009,
-        mutual = ametani2009,
-        overhead = carson1926,
-        underground = pollaczek1926_underground,
-        mixed = ametani2009_mixed,
-        Γ = ametani2009_gamma
+        self = formula_method(identifier, earth_impedance, Val(:self)),
+        mutual = formula_method(identifier, earth_impedance, Val(:mutual)),
+        overhead = formula_method(identifier, earth_impedance, Val(:overhead)),
+        underground = formula_method(
+            identifier, earth_impedance, Val(:underground)
+        ),
+        mixed = formula_method(identifier, earth_impedance, Val(:mixed)),
+        Γ = formula_method(identifier, propagation_constant)
     )
 end
 
@@ -37,14 +39,18 @@ S=\\sqrt{(h_a+h_g+2h_e)^2+y_{ij}^2},\\qquad
 D=\\sqrt{(h_a+h_g)^2+y_{ij}^2}.
 ```
 
-**Reference.** A. Ametani, “An Investigation of Earth-Return Impedance
-Between Overhead and Underground Conductors and Its Approximation,” *IEEE
-Transactions on Electromagnetic Compatibility*, 51, 860–867, 2009.
+**Reference.** A. Ametani, T. Yoneda, Y. Baba, and N. Nagaoka, “An
+Investigation of Earth-Return Impedance Between Overhead and Underground
+Conductors and Its Approximation,” *IEEE Transactions on Electromagnetic
+Compatibility*, 51, 860–867, 2009.
 DOI: 10.1109/TEMC.2009.2019953.
 """
-description(::Formula{:Ametani2009}) = "Ametani"
+description(::Formula{:Ametani2009}) =
+    "Ametani pair-complete homogeneous-earth impedance (2009)"
 
-ametani2009_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))
+function propagation_constant(::Val{:Ametani2009}, jω, permeability, permittivity)
+    return (Γ = zero(jω), squared = zero(jω))
+end
 
 function (formula::Formula{:Ametani2009})(rho, epsilon, mu, jω, Γ, segments = nothing)
     return _homogeneous_functor(
@@ -52,20 +58,27 @@ function (formula::Formula{:Ametani2009})(rho, epsilon, mu, jω, Γ, segments = 
     )
 end
 
-function ametani2009(functor, pair)
-    return ametani2009(functor, pair, _placement(pair))
-end
-
-function ametani2009(functor, pair, ::Val{:overhead})
-    return functor.routes.overhead(functor, pair)
-end
-
-function ametani2009(functor, pair, ::Val{:underground})
-    return functor.routes.underground(functor, pair)
-end
-
-function ametani2009(functor, pair, ::Val{:mixed})
+function earth_impedance(
+        ::Val{:Ametani2009}, ::Val{:mutual}, functor, pair
+)
+    placement = _placement(pair)
+    typeof(placement) === Val{:overhead} &&
+        return functor.routes.overhead(functor, pair)
+    typeof(placement) === Val{:underground} &&
+        return functor.routes.underground(functor, pair)
     return functor.routes.mixed(functor, pair)
+end
+
+function earth_impedance(
+        ::Val{:Ametani2009}, ::Val{:overhead}, functor, pair
+)
+    return earth_impedance(Val(:Carson1926), Val(:mutual), functor, pair)
+end
+
+function earth_impedance(
+        ::Val{:Ametani2009}, ::Val{:underground}, functor, pair
+)
+    return earth_impedance(Val(:Pollaczek1926), Val(:underground), functor, pair)
 end
 
 raw"""
@@ -94,7 +107,9 @@ and underground conductors and its approximation," *IEEE Transactions on
 Electromagnetic Compatibility*, vol. 51, pp. 860-867, 2009.
 DOI: 10.1109/TEMC.2009.2019953.
 """
-function ametani2009_mixed(functor, pair)
+function earth_impedance(
+        ::Val{:Ametani2009}, ::Val{:mixed}, functor, pair
+)
     state = functor.state
     air = pair.layers[1] == 1 ? 1 : 2
     earth = air == 1 ? 2 : 1

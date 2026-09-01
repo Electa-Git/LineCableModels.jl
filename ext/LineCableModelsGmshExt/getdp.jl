@@ -140,6 +140,8 @@ function _write_model_data(path::String, model::FEMResolvedModel)
         println(io, "EARTH_INF = ", model.tags.earth_infinite, ";")
         println(io, "DOMAIN_INF = ", model.tags.infinite_domain, ";")
         println(io, "OUTBND_EM = ", model.tags.outer_boundary, ";")
+        println(io, "OUTBND_ELE_INS = ", model.tags.outer_air_boundary, ";")
+        println(io, "OUTBND_ELE_REF = ", model.tags.outer_earth_boundary, ";")
         println(io, "INTERFACE_AIR_SOIL = ", model.tags.interface, ";")
         println(io, "INNER_INF_BND = ", model.tags.inner_shell_boundary, ";")
         println(io, "TERMINAL = ", model.tags.terminal_base + 1, ";")
@@ -168,8 +170,12 @@ function _write_model_data(path::String, model::FEMResolvedModel)
         println(io, "UnitSource = 1.0;")
         println(io, "GammaQuasiTEMRe = 0.0;")
         println(io, "GammaQuasiTEMIm = 1.0e-12;")
-        println(io, "Val_Rint = ", _pro_number(model.domain_radius), ";")
-        println(io, "Val_Rext = ", _pro_number(model.shell_outer_radius), ";")
+        println(io, "If(!Exists(Val_Rint))")
+        println(io, "  Val_Rint = ", _pro_number(model.domain_radius), ";")
+        println(io, "EndIf")
+        println(io, "If(!Exists(Val_Rext))")
+        println(io, "  Val_Rext = ", _pro_number(model.shell_outer_radius), ";")
+        println(io, "EndIf")
         println(io, "Xcenter = ", _pro_number(model.centre[1]), ";")
         println(io, "Ycenter = ", _pro_number(model.centre[2]), ";")
         println(io, "Zcenter = 0.0;")
@@ -240,8 +246,20 @@ function _getdp_command(
         verbosity::Int,
         run::FEMRun,
         model::FEMResolvedModel,
-        formulation::LineCableModelsFEM
+        formulation::LineCableModelsFEM,
+        mesh_plan::FEMMeshPlan,
+        frequency_index::Int,
+        basis_terminal::Int
 )
+    frequency_index in eachindex(model.problem.frequencies) || throw(
+        ArgumentError("frequency index $frequency_index is out of range")
+    )
+    basis_terminal in eachindex(model.terminal_ids) || throw(
+        ArgumentError("basis terminal $basis_terminal is out of range")
+    )
+    job_name = @sprintf(
+        "getdp-f%04d-b%04d", frequency_index, basis_terminal
+    )
     arguments = [
         executable,
         model_path,
@@ -250,20 +268,130 @@ function _getdp_command(
         "-msh",
         mesh_path,
         "-name",
-        joinpath(run.path, "input", "getdp-scan"),
+        joinpath(run.path, "input", job_name),
         "-v",
         string(verbosity),
         "-setstring",
         "RunDirectory",
         run.path,
+        "-setstring",
+        "RawOutputStem",
+        job_name,
         "-setnumber",
         "FrequencyCount",
         string(length(model.problem.frequencies)),
+        "-setnumber",
+        "FrequencyIndex",
+        string(frequency_index),
+        "-setnumber",
+        "FrequencyHz",
+        _pro_number(mesh_plan.frequency),
+        "-setnumber",
+        "Val_Rint",
+        _pro_number(mesh_plan.domain_radius),
+        "-setnumber",
+        "Val_Rext",
+        _pro_number(mesh_plan.shell_outer_radius),
+        "-setnumber",
+        "BasisTerminal",
+        string(basis_terminal),
         "-setnumber",
         "PlotFieldMaps",
         formulation.execution.plot_field_maps ? "1" : "0"
     ]
     return join(_command_argument.(arguments), " ")
+end
+
+function _job_raw_paths(run::FEMRun, job_name::String)
+    root = joinpath(run.path, "raw", "jobs")
+    return (
+        Z = joinpath(root, "$job_name-Z.tsv"),
+        P = joinpath(root, "$job_name-P.tsv")
+    )
+end
+
+function _job_raw_data_row_count(path::String)
+    isfile(path) || return 0
+    return count(!isempty, strip.(readlines(path)))
+end
+
+function _read_job_raw_rows(
+        path::String,
+        terminal_count::Int,
+        run::FEMRun
+)
+    isfile(path) || _fem_error(
+        :getdp,
+        basename(path),
+        :raw_output,
+        "GetDP job output is missing";
+        run_directory = run.path
+    )
+    rows = readlines(path)
+    length(rows) == terminal_count || _fem_error(
+        :getdp,
+        basename(path),
+        :raw_output,
+        "expected $terminal_count physical rows, found $(length(rows))";
+        run_directory = run.path
+    )
+    for (line_index, row) in pairs(rows)
+        isempty(strip(row)) && _fem_error(
+            :getdp,
+            basename(path),
+            :raw_output,
+            "unexpected blank row at line $line_index";
+            run_directory = run.path
+        )
+        length(split(row, '\t'; keepempty = true)) == 6 || _fem_error(
+            :getdp,
+            basename(path),
+            :raw_output,
+            "line $line_index does not contain six tab-separated fields";
+            run_directory = run.path
+        )
+    end
+    return rows
+end
+
+function _append_job_raw!(
+        aggregate_path::String,
+        job_path::String,
+        terminal_count::Int,
+        run::FEMRun
+)
+    rows = _read_job_raw_rows(job_path, terminal_count, run)
+    open(aggregate_path, "a") do io
+        foreach(row -> println(io, row), rows)
+    end
+    return length(rows)
+end
+
+function _raw_data_row_count(path::String)
+    isfile(path) || return 0
+    lines = filter(!isempty, strip.(readlines(path)))
+    return max(length(lines) - 1, 0)
+end
+
+function _write_scan_completion!(run::FEMRun, model::FEMResolvedModel)
+    frequency_count = length(model.problem.frequencies)
+    terminal_count = length(model.terminal_ids)
+    expected_rows = frequency_count * terminal_count * terminal_count
+    path = joinpath(run.path, "raw", "scan_complete.tsv")
+    temporary = tempname(dirname(path))
+    open(temporary, "w") do io
+        println(io, join(FEM_COMPLETE_HEADER, '\t'))
+        println(io, join((
+            frequency_count,
+            terminal_count,
+            expected_rows,
+            expected_rows,
+            expected_rows,
+            1
+        ), '\t'))
+    end
+    mv(temporary, path; force = true)
+    return path
 end
 
 function _persist_gmsh_log(path::String, records)
@@ -282,12 +410,15 @@ function _log_tail(records; count::Int = 20)
     return join(@view(records[first_index:lastindex(records)]), '\n')
 end
 
-function _run_getdp!(
+function _run_getdp_unlocked!(
         run::FEMRun,
         model::FEMResolvedModel,
         formulation::LineCableModelsFEM,
-        mesh_path::String
+        mesh_paths::AbstractVector{<:AbstractString}
 )
+    length(mesh_paths) == length(model.problem.frequencies) || throw(
+        DimensionMismatch("one FEM mesh path is required per frequency")
+    )
     executable = _resolve_getdp(formulation, run)
     assets = _getdp_assets()
     all(isfile, values(assets)) || _fem_error(
@@ -297,54 +428,143 @@ function _run_getdp!(
         "one or more bundled GetDP formulation files are missing";
         run_directory = run.path
     )
-    command = _getdp_command(
-        executable,
-        assets.model,
-        mesh_path,
-        formulation.execution.getdp_verbosity,
-        run,
-        model,
-        formulation
-    )
     log_path = joinpath(run.path, "logs", "getdp.log")
     records = String[]
-    deferred_exception = nothing
-    run.getdp_invocations += 1
-    gmsh.logger.start()
-    try
-        gmsh.onelab.run("LineCableModelsFEMGetDP", command)
-    catch exception
-        completion = joinpath(run.path, "raw", "scan_complete.tsv")
-        if isfile(completion) && length(filter(!isempty, strip.(readlines(completion)))) > 1
-            deferred_exception = exception
-        else
+    terminal_count = length(model.terminal_ids)
+    completed_jobs = 0
+    z_path = joinpath(run.path, "raw", "Z.tsv")
+    p_path = joinpath(run.path, "raw", "P.tsv")
+    for frequency_index in eachindex(model.problem.frequencies)
+        mesh_plan = model.mesh_plans[frequency_index]
+        mesh_path = String(mesh_paths[frequency_index])
+        for basis_terminal in eachindex(model.terminal_ids)
+            job_name = @sprintf(
+                "getdp-f%04d-b%04d", frequency_index, basis_terminal
+            )
+            job_raw = _job_raw_paths(run, job_name)
+            foreach(path -> rm(path; force = true), job_raw)
+            command = _getdp_command(
+                executable,
+                assets.model,
+                mesh_path,
+                formulation.execution.getdp_verbosity,
+                run,
+                model,
+                formulation,
+                mesh_plan,
+                frequency_index,
+                basis_terminal
+            )
+            client_name = @sprintf(
+                "LineCableModelsFEMGetDP-f%04d-b%04d",
+                frequency_index,
+                basis_terminal
+            )
+            job_records = String[]
+            deferred_exception = nothing
+            run.getdp_invocations += 1
+            gmsh.logger.start()
             try
-                append!(records, gmsh.logger.get())
-            catch
+                gmsh.onelab.run(client_name, command)
+            catch exception
+                try
+                    append!(job_records, gmsh.logger.get())
+                catch
+                end
+                z_rows = _job_raw_data_row_count(job_raw.Z)
+                p_rows = _job_raw_data_row_count(job_raw.P)
+                if z_rows == terminal_count && p_rows == terminal_count
+                    deferred_exception = exception
+                else
+                    diagnostic_records = vcat(records, job_records)
+                    _persist_gmsh_log(log_path, diagnostic_records)
+                    _fem_error(
+                        :getdp,
+                        "GetDP",
+                        :client,
+                        "GetDP client failed for frequency index " *
+                        "$frequency_index, basis terminal $basis_terminal: " *
+                        "$(sprint(showerror, exception))\n" *
+                        "raw row counts: Z=$z_rows, P=$p_rows, " *
+                        "expected=$terminal_count\n" *
+                        "Gmsh log tail:\n$(_log_tail(diagnostic_records))";
+                        run_directory = run.path
+                    )
+                end
+            finally
+                try
+                    isempty(job_records) && append!(job_records, gmsh.logger.get())
+                catch
+                end
+                try
+                    gmsh.logger.stop()
+                catch
+                end
+                isempty(job_records) || append!(records, job_records)
+                _persist_gmsh_log(log_path, records)
             end
-            _fem_error(
+            _read_job_raw_rows(job_raw.Z, terminal_count, run)
+            _read_job_raw_rows(job_raw.P, terminal_count, run)
+            _append_job_raw!(z_path, job_raw.Z, terminal_count, run)
+            _append_job_raw!(p_path, job_raw.P, terminal_count, run)
+            completed_jobs += 1
+            expected_job_rows = completed_jobs * terminal_count
+            z_rows = _raw_data_row_count(z_path)
+            p_rows = _raw_data_row_count(p_path)
+            z_rows == expected_job_rows && p_rows == expected_job_rows || _fem_error(
                 :getdp,
                 "GetDP",
-                :client,
-                "GetDP client failed: $(sprint(showerror, exception))\n" *
-                "Gmsh log tail:\n$(_log_tail(records))";
+                :raw_output,
+                "GetDP job for frequency index $frequency_index, basis " *
+                "terminal $basis_terminal returned without one complete " *
+                "response column; raw row counts are Z=$z_rows, P=$p_rows, " *
+                "expected=$expected_job_rows";
                 run_directory = run.path
             )
+            deferred_exception === nothing || @debug(
+                "Gmsh reported a client error after GetDP wrote a complete " *
+                "response column; deferring success to strict result validation",
+                frequency_index,
+                basis_terminal,
+                exception = sprint(showerror, deferred_exception)
+            )
         end
-    finally
-        try
-            isempty(records) && append!(records, gmsh.logger.get())
-        catch
-        end
-        try
-            gmsh.logger.stop()
-        catch
-        end
-        _persist_gmsh_log(log_path, records)
     end
-    deferred_exception === nothing ||
-        @debug("Gmsh declined to visualize a completed raw table; " *
-               "deferring success to strict FEM result validation",
-            exception = sprint(showerror, deferred_exception))
+    _write_scan_completion!(run, model)
     return nothing
+end
+
+function _getdp_socket_name(run::FEMRun)
+    Sys.iswindows() && return "127.0.0.1:0"
+    digest = bytes2hex(sha256(codeunits(run.path)))[1:20]
+    return ".linecablemodels-gmsh-$digest.sock"
+end
+
+function _run_getdp!(
+        run::FEMRun,
+        model::FEMResolvedModel,
+        formulation::LineCableModelsFEM,
+        mesh_paths::AbstractVector{<:AbstractString}
+)
+    previous_socket = gmsh.option.get_string("Solver.SocketName")
+    socket_name = _getdp_socket_name(run)
+    gmsh.option.set_string("Solver.SocketName", socket_name)
+    @info "Assigned an isolated Gmsh/GetDP ONELAB socket" socket_name
+    try
+        return _run_getdp_unlocked!(run, model, formulation, mesh_paths)
+    finally
+        gmsh.option.set_string("Solver.SocketName", previous_socket)
+    end
+end
+
+function _run_getdp!(
+        run::FEMRun,
+        model::FEMResolvedModel,
+        formulation::LineCableModelsFEM,
+        mesh_path::String
+)
+    length(model.problem.frequencies) == 1 || throw(DimensionMismatch(
+        "a single FEM mesh path is valid only for a one-frequency problem"
+    ))
+    return _run_getdp!(run, model, formulation, [mesh_path])
 end

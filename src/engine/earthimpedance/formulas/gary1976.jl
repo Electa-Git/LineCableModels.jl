@@ -1,8 +1,10 @@
-routes(::Val{:Gary1976}) = (
-    self = gary1976,
-    mutual = gary1976,
-    Γ = gary1976_gamma
-)
+function routes(identifier::Val{:Gary1976})
+    return (
+        self = formula_method(identifier, earth_impedance, Val(:self)),
+        mutual = formula_method(identifier, earth_impedance, Val(:mutual)),
+        Γ = formula_method(identifier, propagation_constant)
+    )
+end
 
 function assumptions(::Val{:Gary1976})
     (
@@ -34,7 +36,9 @@ Ametani et al., IET, 2021.
 """
 description(::Formula{:Gary1976}) = "Gary complex-depth approximation (1976)"
 
-gary1976_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))
+function propagation_constant(::Val{:Gary1976}, jω, permeability, permittivity)
+    return (Γ = zero(jω), squared = zero(jω))
+end
 
 function (formula::Formula{:Gary1976})(rho, epsilon, mu, jω, Γ, segments = nothing)
     return _homogeneous_functor(Val(:Gary1976), formula, rho, epsilon, mu, jω, Γ, segments)
@@ -53,7 +57,9 @@ The direct distance is
 ``d_{ij}=\sqrt{(h_i-h_j)^2+y_{ij}^2}``. For self terms, `pair`
 supplies the outer radius as ``y_{ii}=r_i``.
 """
-function gary1976(functor, pair)
+function earth_impedance(
+        ::Val{:Gary1976}, ::Val{:mutual}, functor, pair
+)
     _require(pair, Val(:overhead))
     state = functor.state
     geometry = _geometry(pair)

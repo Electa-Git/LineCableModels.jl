@@ -10,6 +10,14 @@ end
     return sqrt(jω * permeability * conductivity)
 end
 
+@inline function _require_horizontal_separation(pair)
+    iszero(pair.separation) && throw(DomainError(
+        pair.separation,
+        "this mutual closed form requires nonzero horizontal cable separation"
+    ))
+    return nothing
+end
+
 @inline _material(permeability) = permeability
 
 @inline function _complex_result(::Complex{T}, value)::Complex{T} where {T <: Real}

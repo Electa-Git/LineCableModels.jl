@@ -1,8 +1,8 @@
-function routes(::Val{:Papadopoulos2009})
+function routes(identifier::Val{:Papadopoulos2009})
     (
-        self = papadopoulosetaly2009,
-        mutual = papadopoulosetaly2009,
-        Γ = papadopoulosetaly2009_gamma
+        self = formula_method(identifier, earth_potential_coefficient, Val(:self)),
+        mutual = formula_method(identifier, earth_potential_coefficient, Val(:mutual)),
+        Γ = formula_method(identifier, propagation_constant)
     )
 end
 
@@ -55,7 +55,9 @@ function description(::Formula{:Papadopoulos2009})
     "Papadopoulos et al. two-layer overhead potential coefficient (2009)"
 end
 
-function papadopoulosetaly2009_gamma(jω, permeability, permittivity)
+function propagation_constant(
+        ::Val{:Papadopoulos2009}, jω, permeability, permittivity
+)
     squared = oftype(jω, (-jω^2) * permeability * permittivity)
     return (Γ = sqrt(squared), squared)
 end
@@ -97,7 +99,9 @@ G_{ij}^{P}=\lambda\frac{
 
 Adjacent parenthesized factors are products, exactly as in the corpus.
 """
-function papadopoulosetaly2009(functor, pair)
+function earth_potential_coefficient(
+        ::Val{:Papadopoulos2009}, ::Val{:mutual}, functor, pair
+)
     _require(pair, Val(:overhead))
     state = functor.state
     geometry = _geometry(pair)

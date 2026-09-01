@@ -1,8 +1,8 @@
-function routes(::Val{:Papadopoulos2010})
+function routes(identifier::Val{:Papadopoulos2010})
     (
-        self = papadopoulosetal2010,
-        mutual = papadopoulosetal2010,
-        Γ = papadopoulosetal2010_gamma
+        self = formula_method(identifier, earth_impedance, Val(:self)),
+        mutual = formula_method(identifier, earth_impedance, Val(:mutual)),
+        Γ = formula_method(identifier, propagation_constant)
     )
 end
 
@@ -46,7 +46,9 @@ function description(::Formula{:Papadopoulos2010})
     "Papadopoulos et al. homogeneous-earth underground impedance (2010)"
 end
 
-function papadopoulosetal2010_gamma(jω, permeability, permittivity)
+function propagation_constant(
+        ::Val{:Papadopoulos2010}, jω, permeability, permittivity
+)
     squared = oftype(jω, (-jω^2) * permeability * permittivity)
     return (Γ = sqrt(squared), squared)
 end
@@ -77,7 +79,9 @@ where ``\alpha_m=\sqrt{\lambda^2+\gamma_m^2+k_x^2}`` and
 ``k_x=\omega\sqrt{\mu_0\varepsilon_1}`` by default. An explicit `Γ`
 replaces ``k_x`` without changing the leaf routes.
 """
-function papadopoulosetal2010(functor, pair)
+function earth_impedance(
+        ::Val{:Papadopoulos2010}, ::Val{:mutual}, functor, pair
+)
     _require(pair, Val(:underground))
     state = functor.state
     geometry = _geometry(pair)

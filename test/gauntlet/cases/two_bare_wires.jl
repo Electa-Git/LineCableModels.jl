@@ -22,10 +22,8 @@ case_definition(
     ),
     ["cable:1:core", "cable:2:core"]
 ) do p
-    artificial_conductor = LineCableModels.Material(
-        kind = :conductor,
-        rho = eps(Float64), eps_r = 1.0, mu_r = 1.0, T0 = 20.0, alpha = 0.0
-    )
+    materials = LineCableModels.MaterialsLibrary(add_defaults = true)
+    copper = LineCableModels.Material(materials, :copper)
     artificial_insulation = LineCableModels.Material(
         kind = :insulator,
         rho = 1.97e14, eps_r = 2.3, mu_r = 1.0, T0 = 20.0, alpha = 0.0
@@ -39,7 +37,7 @@ case_definition(
                 LineCableModels.Region(
                     :core_metal,
                     LineCableModels.Disk(p.core_radius),
-                    artificial_conductor
+                    copper
                 )
             ),
             LineCableModels.Region(

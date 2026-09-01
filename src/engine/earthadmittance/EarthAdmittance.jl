@@ -22,7 +22,7 @@ using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...LineCableModels: nominal
 import ..Engine: EarthAdmittanceFormulation, formula_id, bessel_difference
 #! explicit-imports: off
-import ..Engine: description, conductivity, media, special_besselk
+import ..Engine: description, conductivity, formula_method, media, special_besselk
 #! explicit-imports: on
 using QuadGK: quadgk
 

@@ -1,8 +1,8 @@
-function routes(::Val{:Saad1996})
+function routes(identifier::Val{:Saad1996})
     (
-        self = saad1996,
-        mutual = saad1996,
-        Γ = saad1996_gamma
+        self = formula_method(identifier, earth_impedance, Val(:self)),
+        mutual = formula_method(identifier, earth_impedance, Val(:mutual)),
+        Γ = formula_method(identifier, propagation_constant)
     )
 end
 
@@ -35,7 +35,9 @@ Power Delivery*, 11(3), 1536–1545, 1996.
 """
 description(::Formula{:Saad1996}) = "Saad underground closed form (1996)"
 
-saad1996_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))
+function propagation_constant(::Val{:Saad1996}, jω, permeability, permittivity)
+    return (Γ = zero(jω), squared = zero(jω))
+end
 
 function (formula::Formula{:Saad1996})(rho, epsilon, mu, jω, Γ, segments = nothing)
     return _homogeneous_functor(
@@ -60,8 +62,11 @@ O. Saad, G. Gaba, and M. Giroux, "A closed-form approximation for ground
 return impedance of underground cables," *IEEE Transactions on Power
 Delivery*, vol. 11, no. 3, pp. 1536-1545, 1996.
 """
-function saad1996(functor, pair)
+function earth_impedance(
+        ::Val{:Saad1996}, ::Val{:mutual}, functor, pair
+)
     _require(pair, Val(:underground))
+    pair.row == pair.column || _require_horizontal_separation(pair)
     state = functor.state
     geometry = _geometry(pair)
     gamma = state.gamma[2]

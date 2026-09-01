@@ -61,6 +61,16 @@ function assumptions end
 "Return the longitudinal-propagation support of a literature formula."
 function propagation end
 
+"Return the longitudinal propagation constant prescribed by a formula."
+function propagation_constant end
+
+"Evaluate one final earth-impedance route."
+function earth_impedance end
+
+@inline function earth_impedance(identifier, ::Val{:self}, functor, pair)
+    return earth_impedance(identifier, Val(:mutual), functor, pair)
+end
+
 """
 $(TYPEDSIGNATURES)
 

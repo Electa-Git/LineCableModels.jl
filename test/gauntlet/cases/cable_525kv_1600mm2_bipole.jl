@@ -83,6 +83,9 @@ case_definition(
     lead = LineCableModels.Material(materials, :lead)
     pp = LineCableModels.Material(materials, :pp)
     steel = LineCableModels.Material(materials, :steel)
+    matrix = LineCableModels.Material(
+        kind = :insulator, rho = Inf, eps_r = 1.0, mu_r = 1.0
+    )
     radius_before_bedding = (p.strand_layers + 0.5) * p.strand_diameter +
                             p.inner_semicon_thickness +
                             p.insulation_thickness +
@@ -127,6 +130,13 @@ case_definition(
             ))
         radius = outer
     end
+    core = LineCableModels.Enclosure(
+        :core_matrix,
+        LineCableModels.Stack(parts);
+        primitive = LineCableModels.Disk(radius),
+        fill = matrix
+    )
+    parts = LineCableModels.AbstractCablePart[core]
     for (tag, thickness, material) in (
         (:core_semicon_inner, p.inner_semicon_thickness, semicon1),
         (:core_insulation, p.insulation_thickness, pe),
@@ -167,14 +177,20 @@ case_definition(
 
     armor_outer = radius + 2armor_wire_radius
     armor_centre = radius + armor_wire_radius
+    armor = LineCableModels.Group(
+        :armor,
+        LineCableModels.Region(
+            :armor_wires, LineCableModels.Disk(armor_wire_radius), steel
+        );
+        pattern = LineCableModels.Ring(p.armor_wires; r = armor_centre),
+        path = LineCableModels.Helix(LineCableModels.LayRatio(p.armor_lay_ratio))
+    )
     push!(parts,
-        LineCableModels.Group(
-            :armor,
-            LineCableModels.Region(
-                :armor_wires, LineCableModels.Disk(armor_wire_radius), steel
-            );
-            pattern = LineCableModels.Ring(p.armor_wires; r = armor_centre),
-            path = LineCableModels.Helix(LineCableModels.LayRatio(p.armor_lay_ratio))
+        LineCableModels.Enclosure(
+            :armor_matrix,
+            armor;
+            primitive = LineCableModels.Annulus(radius, armor_outer),
+            fill = matrix
         ))
     push!(parts, LineCableModels.Region(
         :armor_jacket,

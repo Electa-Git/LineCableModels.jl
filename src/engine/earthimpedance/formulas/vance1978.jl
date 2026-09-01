@@ -1,8 +1,8 @@
-function routes(::Val{:Vance1978})
+function routes(identifier::Val{:Vance1978})
     (
-        self = vance1978_self,
-        mutual = vance1978_self,
-        Γ = vance1978_gamma
+        self = formula_method(identifier, earth_impedance, Val(:self)),
+        mutual = formula_method(identifier, earth_impedance, Val(:mutual)),
+        Γ = formula_method(identifier, propagation_constant)
     )
 end
 
@@ -29,13 +29,16 @@ Z_{e,ii}=\\frac{\\omega\\mu_0}{2\\pi\\gamma_1r_i}
 \\qquad \\gamma_1^2=j\\omega\\mu_0\\sigma_1.
 ```
 
-The mutual specialization replaces ``r_i`` by horizontal separation.
+This is a single-cable self term. The cited cylindrical model does not
+provide a mutual-impedance specialization for a multiconductor system.
 
 **Reference.** E. F. Vance, *Coupling to Shielded Cables*, Wiley, 1978.
 """
 description(::Formula{:Vance1978}) = "Vance lossy-cylinder underground self term (1978)"
 
-vance1978_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))
+function propagation_constant(::Val{:Vance1978}, jω, permeability, permittivity)
+    return (Γ = zero(jω), squared = zero(jω))
+end
 
 function (formula::Formula{:Vance1978})(rho, epsilon, mu, jω, Γ, segments = nothing)
     return _homogeneous_functor(Val(:Vance1978), formula, rho, epsilon, mu, jω, Γ, segments)
@@ -50,11 +53,11 @@ Z_{e,ii}=\frac{\omega\mu_0}{2\pi\gamma_1r_i}
 \gamma_1^2=j\omega\mu_0\sigma_1.
 ```
 
-The same radial kernel supplies mutual terms by replacing ``r_i`` with the
-horizontal pair separation; self evaluation is the standard
-``y_{ii}=r_i`` specialization.
+The cable outer radius is supplied by the self-pair separation field.
 """
-function vance1978_self(functor, pair)
+function earth_impedance(
+        ::Val{:Vance1978}, ::Val{:self}, functor, pair
+)
     _require(pair, Val(:underground))
     state = functor.state
     radius = pair.separation
@@ -62,6 +65,16 @@ function vance1978_self(functor, pair)
     omega = imag(state.jω)
     return omega * state.mu[1] / (2π * state.gamma[2] * radius) *
            hankelh1(0, argument) / hankelh1(1, argument)
+end
+
+function earth_impedance(
+        ::Val{:Vance1978}, ::Val{:mutual}, functor, pair
+)
+    _require(pair, Val(:underground))
+    throw(ArgumentError(
+        "Vance1978 supplies only a single-cable self impedance; " *
+        "the cited formula has no mutual route"
+    ))
 end
 
 :Vance1978

@@ -1,8 +1,8 @@
-function routes(::Val{:Papadopoulos2011})
+function routes(identifier::Val{:Papadopoulos2011})
     (
-        self = papadopoulosetalz2011,
-        mutual = papadopoulosetalz2011,
-        Γ = papadopoulosetalz2011_gamma
+        self = formula_method(identifier, earth_impedance, Val(:self)),
+        mutual = formula_method(identifier, earth_impedance, Val(:mutual)),
+        Γ = formula_method(identifier, propagation_constant)
     )
 end
 
@@ -38,17 +38,18 @@ d_{10}d_{21}e^{-\\alpha_1(2d-|h_i-h_j|)}}
 {\\alpha_1(s_{10}s_{21}+d_{10}d_{21}e^{-2\\alpha_1d})}.
 ```
 
-**Reference.** T. A. Papadopoulos, G. K. Papagiannis, and D. P. Labridis,
-“A Generalized Model for the Calculation of the Impedances and Admittances of
-Overhead Power Lines Above Stratified Earth,” *Electric Power Systems
-Research*, 80, 1160–1170, 2010; the underground two-layer specialization is
-the 2011 formulation reproduced in Ametani et al., IET, 2021.
+**Reference.** T. A. Papadopoulos, D. A. Tsiamitros, and G. K. Papagiannis,
+“Earth Return Admittances and Impedances of Underground Cables in
+Non-Homogeneous Earth,” *IET Generation, Transmission & Distribution*, 5(2),
+161–171, 2011.
 """
 function description(::Formula{:Papadopoulos2011})
     "Papadopoulos et al. two-layer underground mutual impedance (2011)"
 end
 
-function papadopoulosetalz2011_gamma(jω, permeability, permittivity)
+function propagation_constant(
+        ::Val{:Papadopoulos2011}, jω, permeability, permittivity
+)
     squared = oftype(jω, (-jω^2) * permeability * permittivity)
     return (Γ = sqrt(squared), squared)
 end
@@ -87,7 +88,9 @@ Here ``s_{mn}=\mu_n\alpha_m+\mu_m\alpha_n``,
 ``\alpha_m=\sqrt{\lambda^2+\gamma_m^2+k_x^2}``. Conductors must lie in the
 finite top earth layer.
 """
-function papadopoulosetalz2011(functor, pair)
+function earth_impedance(
+        ::Val{:Papadopoulos2011}, ::Val{:mutual}, functor, pair
+)
     pair.layers == (2, 2) || throw(ArgumentError(
         ":Papadopoulos2011 requires both conductors in the top earth layer"
     ))

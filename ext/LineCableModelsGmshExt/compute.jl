@@ -142,6 +142,7 @@ function _prepare_run_inputs!(run::FEMRun, model::FEMResolvedModel)
     model_data_path = joinpath(run.path, "input", "model_data.pro")
     _write_problem_snapshot(problem_path, model.problem)
     _write_model_data(model_data_path, model)
+    mkpath(joinpath(run.path, "raw", "jobs"))
     open(joinpath(run.path, "raw", "Z.tsv"), "w") do io
         println(io, join(FEM_RAW_HEADER, '\t'))
     end
@@ -186,14 +187,18 @@ function _headless_solve!(
     )
     _transition!(run, geometry_ready, "geometry ready")
     @info "FEM geometry ready" run_directory=run.path
-    mesh_path = _select_mesh!(run, model, geometry, formulation, runtime_root)
+    mesh_paths = _select_meshes!(
+        run, model, geometry, formulation, runtime_root
+    )
     _transition!(run, mesh_ready, "mesh ready")
     @info "FEM mesh ready" source=run.mesh_source fingerprint=run.mesh_fingerprint
     model_data_path = _prepare_run_inputs!(run, model)
-    _publish_transport!(run, model, model_data_path, mesh_path, formulation)
-    _transition!(run, running, "GetDP scan running")
-    @info "Starting one-pass GetDP frequency/source scan"
-    _run_getdp!(run, model, formulation, mesh_path)
+    _publish_transport!(
+        run, model, model_data_path, last(mesh_paths), formulation
+    )
+    _transition!(run, running, "isolated GetDP jobs running")
+    @info "Starting isolated GetDP frequency/source jobs"
+    _run_getdp!(run, model, formulation, mesh_paths)
     scan = _parse_scan(run, model, formulation)
     parameters = _line_parameters(run, model, formulation, execution, scan)
     gmsh.onelab.set_number(_onelab_name("completion_status"), [1.0])
@@ -218,7 +223,7 @@ function _ui_solve!(
     Bool(gmsh.fltk.is_available()) || gmsh.fltk.initialize()
     gmsh.fltk.wait(0.05)
     yield()
-    mesh_path = nothing
+    mesh_paths = nothing
     model_data_path = nothing
     parameters = nothing
     while true
@@ -256,22 +261,24 @@ function _ui_solve!(
         elseif transition === :mesh_required
             _set_ui_status(:mesh_required)
         elseif transition === :mesh_requested
-            mesh_path = _select_mesh!(run, model, geometry, formulation, runtime_root)
+            mesh_paths = _select_meshes!(
+                run, model, geometry, formulation, runtime_root
+            )
             model_data_path = _prepare_run_inputs!(run, model)
             _publish_transport!(
-                run, model, model_data_path, mesh_path, formulation
+                run, model, model_data_path, last(mesh_paths), formulation
             )
             _transition!(run, mesh_ready, "mesh ready")
             state = _set_ui_status(:mesh_ready)
         elseif transition === :solve_requested
-            mesh_path === nothing && begin
+            mesh_paths === nothing && begin
                 _set_ui_status(:mesh_required)
                 gmsh.fltk.wait(0.05)
                 continue
             end
             state = _set_ui_status(:running)
-            _transition!(run, running, "GetDP scan running")
-            _run_getdp!(run, model, formulation, mesh_path)
+            _transition!(run, running, "isolated GetDP jobs running")
+            _run_getdp!(run, model, formulation, mesh_paths)
             scan = _parse_scan(run, model, formulation)
             parameters = _line_parameters(run, model, formulation, execution, scan)
             formulation.execution.plot_field_maps && _merge_maps!(scan.map_paths)
@@ -299,7 +306,7 @@ function _attach_run_directory(
 end
 
 function _compute_fem(
-        problem::LineParametersProblem,
+        problem::LineParametersProblem{Float64},
         formulation::LineCableModelsFEM,
         execution::NamedTuple
 )
@@ -347,6 +354,7 @@ function compute(
         formulation::LineCableModelsFEM;
         options::NamedTuple = (;)
 )
+    problem = _preflight_fem_problem(problem)
     execution = _fem_computation_options(options)
     console = ConsoleLogger(stderr, Logging.Debug)
     logger = Engine.ConsoleVerbosityLogger(console, execution.verbosity)

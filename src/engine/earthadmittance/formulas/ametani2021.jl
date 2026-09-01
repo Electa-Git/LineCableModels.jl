@@ -1,8 +1,8 @@
-function routes(::Val{:Ametani2021})
+function routes(identifier::Val{:Ametani2021})
     (
-        self = ametani_space2021,
-        mutual = ametani_space2021,
-        Γ = ametani_space2021_gamma
+        self = formula_method(identifier, earth_potential_coefficient, Val(:self)),
+        mutual = formula_method(identifier, earth_potential_coefficient, Val(:mutual)),
+        Γ = formula_method(identifier, propagation_constant)
     )
 end
 
@@ -38,7 +38,11 @@ function description(::Formula{:Ametani2021})
     "Ametani et al. classical overhead space potential coefficient (2021)"
 end
 
-ametani_space2021_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))
+function propagation_constant(
+        ::Val{:Ametani2021}, jω, permeability, permittivity
+)
+    return (Γ = zero(jω), squared = zero(jω))
+end
 
 function (formula::Formula{:Ametani2021})(
         rho, epsilon, mu, jω, Γ, segments = nothing
@@ -60,7 +64,9 @@ For a self term this reduces to
 ``P_{0,ii}=(2\pi\varepsilon_0)^{-1}\ln(2h_i/r_i)`` under the usual
 thin-conductor approximation.
 """
-function ametani_space2021(functor, pair)
+function earth_potential_coefficient(
+        ::Val{:Ametani2021}, ::Val{:mutual}, functor, pair
+)
     _require(pair, Val(:overhead))
     state = functor.state
     geometry = _geometry(pair)

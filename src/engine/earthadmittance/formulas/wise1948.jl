@@ -1,8 +1,10 @@
-routes(::Val{:Wise1948}) = (
-    self = wise1948,
-    mutual = wise1948,
-    Γ = wise1948_gamma
-)
+function routes(identifier::Val{:Wise1948})
+    return (
+        self = formula_method(identifier, earth_potential_coefficient, Val(:self)),
+        mutual = formula_method(identifier, earth_potential_coefficient, Val(:mutual)),
+        Γ = formula_method(identifier, propagation_constant)
+    )
+end
 
 function assumptions(::Val{:Wise1948})
     (
@@ -40,7 +42,11 @@ function description(::Formula{:Wise1948})
     "Wise wideband homogeneous-earth overhead potential coefficient (1948)"
 end
 
-wise1948_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))
+function propagation_constant(
+        ::Val{:Wise1948}, jω, permeability, permittivity
+)
+    return (Γ = zero(jω), squared = zero(jω))
+end
 
 function (formula::Formula{:Wise1948})(rho, epsilon, mu, jω, Γ, segments = nothing)
     return _homogeneous_functor(Val(:Wise1948), formula, rho, epsilon, mu, jω, Γ, segments)
@@ -61,7 +67,9 @@ M_{ij}+jN_{ij}=2\int_0^\infty
 \qquad P_{0,ij}=\ln(D_{ij}/d_{ij}).
 ```
 """
-function wise1948(functor, pair)
+function earth_potential_coefficient(
+        ::Val{:Wise1948}, ::Val{:mutual}, functor, pair
+)
     _require(pair, Val(:overhead))
     state = functor.state
     geometry = _geometry(pair)

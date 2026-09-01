@@ -102,6 +102,9 @@ case_definition(
     semicon1 = LineCableModels.Material(materials, :semicon1)
     semicon2 = LineCableModels.Material(materials, :semicon2)
     polyacrylate = LineCableModels.Material(materials, :polyacrylate)
+    matrix = LineCableModels.Material(
+        kind = :insulator, rho = Inf, eps_r = 1.0, mu_r = 1.0
+    )
 
     counts = p.core_ring_wire_counts
     lay_ratios = (
@@ -130,6 +133,13 @@ case_definition(
             ))
         radius = count == 1 ? wire_radius : radius + 2wire_radius
     end
+    core = LineCableModels.Enclosure(
+        :core_matrix,
+        LineCableModels.Stack(parts);
+        primitive = LineCableModels.Disk(radius),
+        fill = matrix
+    )
+    parts = LineCableModels.AbstractCablePart[core]
     for (tag, thickness, material) in (
         (:core_semicon_tape_inner, p.semicon_tape_thickness, polyacrylate),
         (:core_semicon_inner, p.inner_semicon_thickness, semicon1),
@@ -144,28 +154,34 @@ case_definition(
     end
 
     screen_radius = p.screen_wire_diameter / 2
+    screen_inner = radius
     screen_centre = radius + screen_radius
-    push!(parts,
-        LineCableModels.Group(
-            :sheath,
-            LineCableModels.Region(
-                :sheath_wires, LineCableModels.Disk(screen_radius), copper
-            );
-            pattern = LineCableModels.Ring(p.screen_wires; r = screen_centre),
-            path = LineCableModels.Helix(LineCableModels.LayRatio(p.screen_wire_lay_ratio))
-        ))
+    screen = LineCableModels.Group(
+        :sheath,
+        LineCableModels.Region(
+            :sheath_wires, LineCableModels.Disk(screen_radius), copper
+        );
+        pattern = LineCableModels.Ring(p.screen_wires; r = screen_centre),
+        path = LineCableModels.Helix(LineCableModels.LayRatio(p.screen_wire_lay_ratio))
+    )
     radius += 2screen_radius
     tape_outer = radius + p.copper_tape_thickness
     tape_span = p.copper_tape_width / ((radius + tape_outer) / 2)
+    tape = LineCableModels.Group(
+        :sheath,
+        LineCableModels.Region(
+            :sheath_copper_tape,
+            LineCableModels.Sector(radius, tape_outer, -tape_span / 2, tape_span),
+            copper
+        );
+        path = LineCableModels.Helix(LineCableModels.LayRatio(p.copper_tape_lay_ratio))
+    )
     push!(parts,
-        LineCableModels.Group(
-            :sheath,
-            LineCableModels.Region(
-                :sheath_copper_tape,
-                LineCableModels.Sector(radius, tape_outer, -tape_span / 2, tape_span),
-                copper
-            );
-            path = LineCableModels.Helix(LineCableModels.LayRatio(p.copper_tape_lay_ratio))
+        LineCableModels.Enclosure(
+            :screen_matrix,
+            LineCableModels.Stack(screen, tape);
+            primitive = LineCableModels.Annulus(screen_inner, tape_outer),
+            fill = matrix
         ))
     radius = tape_outer
     push!(parts,

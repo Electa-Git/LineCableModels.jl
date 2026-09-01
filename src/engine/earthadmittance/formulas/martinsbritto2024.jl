@@ -1,11 +1,15 @@
-function routes(::Val{:MartinsBritto2024})
+function routes(identifier::Val{:MartinsBritto2024})
     (
-        self = martinsbritto2024,
-        mutual = martinsbritto2024,
-        overhead = martinsbritto2024_same,
-        underground = martinsbritto2024_same,
-        mixed = martinsbritto2024_mixed,
-        Γ = martinsbritto2024_gamma
+        self = formula_method(identifier, earth_potential_coefficient, Val(:self)),
+        mutual = formula_method(identifier, earth_potential_coefficient, Val(:mutual)),
+        overhead = formula_method(
+            identifier, earth_potential_coefficient, Val(:same_medium)
+        ),
+        underground = formula_method(
+            identifier, earth_potential_coefficient, Val(:same_medium)
+        ),
+        mixed = formula_method(identifier, earth_potential_coefficient, Val(:mixed)),
+        Γ = formula_method(identifier, propagation_constant)
     )
 end
 
@@ -56,7 +60,9 @@ function description(::Formula{:MartinsBritto2024})
     "Martins-Britto, Papadopoulos, and Chrysochos wideband homogeneous-earth potential coefficient (2024)"
 end
 
-function martinsbritto2024_gamma(jω, permeability, permittivity)
+function propagation_constant(
+        ::Val{:MartinsBritto2024}, jω, permeability, permittivity
+)
     squared = oftype(jω, (-jω^2) * permeability * permittivity)
     return (Γ = sqrt(squared), squared)
 end
@@ -79,19 +85,14 @@ underground pairs and the published transmission kernel for mixed pairs. The
 three placement routes are individually replaceable without changing the
 public `:MartinsBritto2024` identity.
 """
-function martinsbritto2024(functor, pair)
-    return martinsbritto2024(functor, pair, _placement(pair))
-end
-
-function martinsbritto2024(functor, pair, ::Val{:overhead})
-    return functor.routes.overhead(functor, pair)
-end
-
-function martinsbritto2024(functor, pair, ::Val{:underground})
-    return functor.routes.underground(functor, pair)
-end
-
-function martinsbritto2024(functor, pair, ::Val{:mixed})
+function earth_potential_coefficient(
+        ::Val{:MartinsBritto2024}, ::Val{:mutual}, functor, pair
+)
+    placement = _placement(pair)
+    typeof(placement) === Val{:overhead} &&
+        return functor.routes.overhead(functor, pair)
+    typeof(placement) === Val{:underground} &&
+        return functor.routes.underground(functor, pair)
     return functor.routes.mixed(functor, pair)
 end
 
@@ -108,7 +109,9 @@ P_{e,ij}^{mm}=\frac{j\omega}{2\pi\kappa_m}
 where ``\kappa_m=\sigma_m+j\omega\varepsilon_m`` and
 ``a_q=\sqrt{\lambda^2+\gamma_q^2+k_x^2}``.
 """
-function martinsbritto2024_same(functor, pair)
+function earth_potential_coefficient(
+        ::Val{:MartinsBritto2024}, ::Val{:same_medium}, functor, pair
+)
     state = functor.state
     placement = _placement(pair)
     source = typeof(placement) === Val{:overhead} ? 1 : 2
@@ -163,7 +166,9 @@ The implementation preserves the product—not the typographical sum—of the
 two parenthesized denominator factors in the source equation. The
 longitudinal ``k_x`` is exposed through `Γ`.
 """
-function martinsbritto2024_mixed(functor, pair)
+function earth_potential_coefficient(
+        ::Val{:MartinsBritto2024}, ::Val{:mixed}, functor, pair
+)
     state = functor.state
     air = pair.layers[1] == 1 ? 1 : 2
     earth = air == 1 ? 2 : 1

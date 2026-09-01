@@ -1,11 +1,15 @@
-function routes(::Val{:Pollaczek1926})
+function routes(identifier::Val{:Pollaczek1926})
     (
-        self = pollaczek1926,
-        mutual = pollaczek1926,
-        overhead = pollaczek1926_overhead,
-        underground = pollaczek1926_underground,
-        mixed = pollaczek1926_mixed,
-        Γ = pollaczek1926_gamma
+        self = formula_method(identifier, earth_potential_coefficient, Val(:self)),
+        mutual = formula_method(identifier, earth_potential_coefficient, Val(:mutual)),
+        overhead = formula_method(
+            identifier, earth_potential_coefficient, Val(:overhead)
+        ),
+        underground = formula_method(
+            identifier, earth_potential_coefficient, Val(:underground)
+        ),
+        mixed = formula_method(identifier, earth_potential_coefficient, Val(:mixed)),
+        Γ = formula_method(identifier, propagation_constant)
     )
 end
 
@@ -46,7 +50,9 @@ function description(::Formula{:Pollaczek1926})
     "Pollaczek classical overhead, underground, and mixed potential coefficients (1926)"
 end
 
-function pollaczek1926_gamma(jω, permeability, permittivity)
+function propagation_constant(
+        ::Val{:Pollaczek1926}, jω, permeability, permittivity
+)
     (Γ = zero(jω), squared = zero(jω))
 end
 
@@ -67,19 +73,14 @@ The same registered recipe supplies same-medium self and mutual terms together
 with the classical zero mixed-media coefficient. The `overhead`,
 `underground`, and `mixed` leaves remain individually replaceable.
 """
-function pollaczek1926(functor, pair)
-    return pollaczek1926(functor, pair, _placement(pair))
-end
-
-function pollaczek1926(functor, pair, ::Val{:overhead})
-    return functor.routes.overhead(functor, pair)
-end
-
-function pollaczek1926(functor, pair, ::Val{:underground})
-    return functor.routes.underground(functor, pair)
-end
-
-function pollaczek1926(functor, pair, ::Val{:mixed})
+function earth_potential_coefficient(
+        ::Val{:Pollaczek1926}, ::Val{:mutual}, functor, pair
+)
+    placement = _placement(pair)
+    typeof(placement) === Val{:overhead} &&
+        return functor.routes.overhead(functor, pair)
+    typeof(placement) === Val{:underground} &&
+        return functor.routes.underground(functor, pair)
     return functor.routes.mixed(functor, pair)
 end
 
@@ -94,7 +95,9 @@ P_{e,ij}^{00}=\frac{1}{2\pi\varepsilon_0}
 For a self term, ``d_{ii}`` is the conductor outer radius carried by the
 canonical earth pair.
 """
-function pollaczek1926_overhead(functor, pair)
+function earth_potential_coefficient(
+        ::Val{:Pollaczek1926}, ::Val{:overhead}, functor, pair
+)
     state = functor.state
     geometry = _geometry(pair)
     return log(geometry.D_ij / geometry.d_ij) / (2π * state.epsilon[1])
@@ -113,7 +116,9 @@ P_{e,ij}^{11}=\frac{j\omega}{2\pi(\sigma_1+j\omega\varepsilon_1)}
 This is the classical reference used with the zero mixed-media coupling; the
 earth conductivity remains in the potential-coefficient prefactor.
 """
-function pollaczek1926_underground(functor, pair)
+function earth_potential_coefficient(
+        ::Val{:Pollaczek1926}, ::Val{:underground}, functor, pair
+)
     state = functor.state
     geometry = _geometry(pair)
     gamma_0 = state.gamma[2]
@@ -130,7 +135,9 @@ Evaluate Pollaczek's classical overhead-underground potential coefficient:
 P_{e,ij}^{01}=0,\qquad I_{ij}^{01}(\lambda)=0,\qquad A_{ij}^{01}=0.
 ```
 """
-function pollaczek1926_mixed(functor, pair)
+function earth_potential_coefficient(
+        ::Val{:Pollaczek1926}, ::Val{:mixed}, functor, pair
+)
     return zero(functor.state.jω)
 end
 

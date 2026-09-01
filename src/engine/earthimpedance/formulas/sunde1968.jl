@@ -1,11 +1,17 @@
-function routes(::Val{:Sunde1968})
+function routes(identifier::Val{:Sunde1968})
     (
-        self = sunde1968,
-        mutual = sunde1968,
-        homogeneous = sunde1968_homogeneous,
-        two_layer = sunde1968_two_layer,
-        multilayer = sunde1968_multilayer,
-        Γ = sunde1968_gamma
+        self = formula_method(identifier, earth_impedance, Val(:self)),
+        mutual = formula_method(identifier, earth_impedance, Val(:mutual)),
+        homogeneous = formula_method(
+            identifier, earth_impedance, Val(:homogeneous)
+        ),
+        two_layer = formula_method(
+            identifier, earth_impedance, Val(:two_layer)
+        ),
+        multilayer = formula_method(
+            identifier, earth_impedance, Val(:multilayer)
+        ),
+        Γ = formula_method(identifier, propagation_constant)
     )
 end
 
@@ -56,7 +62,9 @@ function description(::Formula{:Sunde1968})
     "Sunde homogeneous and horizontally stratified overhead impedance (1968)"
 end
 
-sunde1968_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))
+function propagation_constant(::Val{:Sunde1968}, jω, permeability, permittivity)
+    return (Γ = zero(jω), squared = zero(jω))
+end
 
 function (formula::Formula{:Sunde1968})(
         rho, epsilon, mu, jω, Γ, segments = nothing
@@ -90,7 +98,9 @@ One earth layer uses the homogeneous formula, two use the explicit two-layer
 formula, and larger models use Sunde's recursive transmission-line form. The
 three leaves are one literature recipe and remain individually replaceable.
 """
-function sunde1968(functor, pair)
+function earth_impedance(
+        ::Val{:Sunde1968}, ::Val{:mutual}, functor, pair
+)
     _require(pair, Val(:overhead))
     count = length(functor.state.rho) - 1
     count == 1 && return functor.routes.homogeneous(functor, pair)
@@ -109,7 +119,9 @@ Z_{e,ij}=\frac{j\omega\mu_0}{2\pi}\left[\ln\frac{D_{ij}}{d_{ij}}+
 
 with ``\gamma_1^2=j\omega\mu_0(\sigma_1+j\omega\varepsilon_1)``.
 """
-function sunde1968_homogeneous(functor, pair)
+function earth_impedance(
+        ::Val{:Sunde1968}, ::Val{:homogeneous}, functor, pair
+)
     state = functor.state
     geometry = _geometry(pair)
     gamma_squared = state.gamma_medium_squared[2]
@@ -137,7 +149,9 @@ e^{-\lambda(h_i+h_j)},\qquad
 a_m=\sqrt{\lambda^2+\gamma_m^2}.
 ```
 """
-function sunde1968_two_layer(functor, pair)
+function earth_impedance(
+        ::Val{:Sunde1968}, ::Val{:two_layer}, functor, pair
+)
     state = functor.state
     geometry = _geometry(pair)
     d = state.thickness[2]
@@ -174,7 +188,9 @@ with ``k_{N,N}=1``, ``a_m=\sqrt{\lambda^2+\gamma_m^2}``, and
 ``\eta_m=\sqrt{j\omega\mu_0/a_m}``. The corpus rates this transcription low
 confidence; this support leaf intentionally does not repair its dimensions.
 """
-function sunde1968_multilayer(functor, pair)
+function earth_impedance(
+        ::Val{:Sunde1968}, ::Val{:multilayer}, functor, pair
+)
     state = functor.state
     geometry = _geometry(pair)
     N = length(state.rho) - 1

@@ -107,7 +107,8 @@ resolve(
 ))
 
 function _contained(container::Disk, child::AbstractShape)
-    return support(child) <= container.r
+    extent = support(child)
+    return extent < container.r || isapprox(extent, container.r)
 end
 
 function _contained(container::Rectangle, child::AbstractShape)
@@ -115,6 +116,25 @@ function _contained(container::Rectangle, child::AbstractShape)
            support(child, pi) <= container.w / 2 &&
            support(child, pi / 2) <= container.h / 2 &&
            support(child, -pi / 2) <= container.h / 2
+end
+
+function _contained(container::Annulus, child::Disk)
+    offset = hypot(
+        child.at.x - container.at.x,
+        child.at.y - container.at.y
+    )
+    return (offset + child.r < container.ro ||
+            isapprox(offset + child.r, container.ro)) &&
+           (offset - child.r > container.ri ||
+            isapprox(offset - child.r, container.ri))
+end
+
+function _contained(container::Annulus, child::Union{Annulus, Sector})
+    concentric = isapprox(child.at.x, container.at.x) &&
+                 isapprox(child.at.y, container.at.y)
+    return concentric &&
+           (child.ro < container.ro || isapprox(child.ro, container.ro)) &&
+           (child.ri > container.ri || isapprox(child.ri, container.ri))
 end
 
 function _contained(::AbstractShape, ::AbstractShape)
@@ -182,11 +202,21 @@ function resolve(context::EmptyBoundary, enclosure::Enclosure)
         end
         outer = boundary(wall_result)
     end
-    return CableGeometry(regions, resolve(enclosure.at, outer))
+    return CableGeometry(regions, resolve(enclosure.at, boundary(outer)))
 end
 
 function resolve(context::AbstractShape, enclosure::Enclosure)
-    throw(ArgumentError(
-        "an Enclosure requires explicit placement inside a Stack or Enclosure"
+    container = resolve(EmptyBoundary(), enclosure.primitive)
+    container isa Annulus || throw(ArgumentError(
+        "a contextual Enclosure requires an annular containing primitive"
     ))
+    placed = resolve(enclosure.at, container)
+    context isa Disk &&
+        isapprox(context.r, placed.ri) &&
+        isapprox(context.at.x, placed.at.x) &&
+        isapprox(context.at.y, placed.at.y) || throw(DomainError(
+        context,
+        "an annular Enclosure must continue the preceding circular boundary"
+    ))
+    return resolve(EmptyBoundary(), enclosure)
 end

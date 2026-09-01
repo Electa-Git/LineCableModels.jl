@@ -37,10 +37,16 @@ arguments are forwarded as route or assumption overrides. `order=:before` or
 ordinary formula slots reject an `order` value.
 
 `EarthImpedance.Formula{:ID}` carries the identity in its concrete type. Its
-`routes` tuple holds the leaf self, mutual, and propagation-constant formulas;
-its `assumptions` tuple holds the physical approximations shared by those
-routes. Calling a formula with one frequency's earth properties returns a
-concrete, formula-owned functor that aggregates the shared numerical values:
+`routes` tuple holds bound method templates for the self, mutual, and
+propagation-constant routes; its `assumptions` tuple holds the physical
+approximations shared by those routes. The built-in leaves dispatch through
+`earth_impedance(::Val{:ID}, ::Val{:route}, ...)` or
+`earth_potential_coefficient(::Val{:ID}, ::Val{:route}, ...)`, while
+`propagation_constant(::Val{:ID}, ...)` owns longitudinal prescriptions.
+Formula identity therefore remains in dispatch instead of being repeated in
+free-standing helper names. Calling a formula with one frequency's earth
+properties returns a concrete, formula-owned functor that aggregates the
+shared numerical values:
 
 ```julia
 formula = EarthImpedance.Formula(:Papadopoulos2010)

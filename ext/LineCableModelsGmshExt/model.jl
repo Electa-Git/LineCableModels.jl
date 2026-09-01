@@ -36,13 +36,25 @@ struct FEMMaterialPlan{T <: Real}
     physical_name::String
 end
 
-struct FEMRegionPlan{S}
+struct FEMRegionPlan{T <: Real, S}
     object_id::String
     cable_index::Int
     region_index::Int
     terminal_index::Int
     material_index::Int
     shape::S
+    mesh_size::T
+end
+
+struct FEMMeshPlan{T <: Real}
+    frequency_index::Int
+    frequency::T
+    domain_radius::T
+    shell_outer_radius::T
+    domain_mesh_size::T
+    infinite_mesh_size::T
+    interface_mesh_size::T
+    cable_interface_mesh_sizes::Vector{T}
 end
 
 struct FEMResolvedModel{T <: Real, P <: LineParametersProblem}
@@ -60,6 +72,9 @@ struct FEMResolvedModel{T <: Real, P <: LineParametersProblem}
     fine_mesh_size::T
     coarse_mesh_size::T
     maximum_frequency::T
+    cable_outer_mesh_sizes::Vector{T}
+    mesh_growth_factor::T
+    mesh_plans::Vector{FEMMeshPlan{T}}
 end
 
 struct FEMGeometry
@@ -72,6 +87,8 @@ struct FEMGeometry
     earth_surfaces::Vector{Int}
     infinite_surfaces::Vector{Int}
     outer_curves::Vector{Int}
+    outer_air_curves::Vector{Int}
+    outer_earth_curves::Vector{Int}
     inner_shell_curves::Vector{Int}
     interface_curves::Vector{Int}
 end
@@ -105,6 +122,99 @@ function _fem_error(
         message;
         run_directory
     ))
+end
+
+const FEM_FLOAT_TAGS = ("Float16", "Float32", "Float64", "BigFloat")
+
+function _fem_float64_scalar(value::AbstractDict)
+    scalar = ImportExport.deserialize_value(value)
+    converted = Float64(scalar)
+    isfinite(scalar) && !isfinite(converted) && throw(OverflowError(
+        "finite value $scalar is outside the Float64 range"
+    ))
+    return ImportExport.serialize_value(converted)
+end
+
+function _fem_float64_document(value::AbstractVector)
+    return [_fem_float64_document(item) for item in value]
+end
+
+function _fem_float64_document(value::AbstractDict)
+    if haskey(value, "__type__")
+        marker = String(value["__type__"])
+        marker in FEM_FLOAT_TAGS && return _fem_float64_scalar(value)
+        marker == "Measurement" && return _fem_float64_document(
+            get(value, "value") do
+                throw(ArgumentError("serialized Measurement has no nominal value"))
+            end
+        )
+        marker == "Complex" && return Dict(
+            "__type__" => "Complex",
+            "re" => _fem_float64_document(get(value, "re") do
+                throw(ArgumentError("serialized Complex has no real component"))
+            end),
+            "im" => _fem_float64_document(get(value, "im") do
+                throw(ArgumentError("serialized Complex has no imaginary component"))
+            end)
+        )
+    end
+    return Dict(
+        String(key) => _fem_float64_document(item) for (key, item) in value
+    )
+end
+
+_fem_float64_document(value) = value
+
+"""
+Rebuild one FEM problem from uncertainty-free `Float64` declarations.
+
+The conversion is deliberately performed before adaptation or runtime setup.
+Integer-valued topology is retained as integer data; all serialized floating
+values, including the nominal component of `Measurements.Measurement`, become
+`Float64`.
+"""
+function _preflight_fem_problem(problem::LineParametersProblem)
+    object_id = problem.system.system_id
+    document = try
+        _fem_float64_document(ImportExport.serialize_value(problem))
+    catch exception
+        _fem_error(
+            :preflight,
+            object_id,
+            :numeric_type,
+            "could not normalize FEM inputs to nominal Float64: " *
+            sprint(showerror, exception)
+        )
+    end
+    normalized = try
+        system = ImportExport.deserialize_value(document["system"])
+        temperature = ImportExport.deserialize_value(document["temperature"])
+        earth_props = ImportExport.deserialize_value(document["earth_props"])
+        frequencies = ImportExport.deserialize_value(document["frequencies"])
+        propagation = ImportExport.deserialize_value(document["Gamma"])
+        LineParametersProblem(
+            system;
+            temperature,
+            earth_props,
+            frequencies,
+            Γ = propagation
+        )
+    catch exception
+        _fem_error(
+            :preflight,
+            object_id,
+            :numeric_type,
+            "could not rebuild the nominal Float64 FEM problem: " *
+            sprint(showerror, exception)
+        )
+    end
+    eltype(normalized) === Float64 || _fem_error(
+        :preflight,
+        object_id,
+        :numeric_type,
+        "FEM preflight produced $(eltype(normalized)); expected Float64"
+    )
+    return normalized
 end
 
 function _validate_material(material, object_id::String)
@@ -173,6 +283,142 @@ function _temperature_resistivity(material, problem, formulation)
     )
 end
 
+function _validate_material_partition(design)
+    envelope_area = LineCableModels.area(design.geometry.outer)
+    declared_area = sum(
+        region -> LineCableModels.area(region.primitive),
+        design.geometry.regions;
+        init = zero(envelope_area)
+    )
+    tolerance = max(abs(envelope_area), one(envelope_area)) * 1e-10
+    isapprox(
+        declared_area,
+        envelope_area;
+        rtol = 1e-10,
+        atol = tolerance
+    ) || _fem_error(
+        :adaptation,
+        design.cable_id,
+        :material_partition,
+        "the resolved cable cross-section is not a complete material " *
+        "partition: declared area $(declared_area), envelope area " *
+        "$(envelope_area); represent interstitial media explicitly with " *
+        "Enclosure"
+    )
+    return nothing
+end
+
+function _fem_region_mesh_size(region::DataModel.PlacedRegion)
+    source = region.source.primitive
+    shape = region.primitive
+    repeated = !isempty(region.placement.patterns)
+    if source isa DataModel.Disk
+        return repeated ? source.r : source.r / 5
+    end
+    if source isa DataModel.Annulus
+        return (source.ro - source.ri) / 2
+    end
+    if source isa DataModel.Sector
+        radial = source.ro - source.ri
+        tangential = ((source.ri + source.ro) / 2) * source.span
+        return min(radial, tangential) / 2
+    end
+    if source isa DataModel.Rectangle
+        return min(source.w, source.h) / (repeated ? 2 : 5)
+    end
+    if source isa DataModel.Ellipse
+        return min(source.a, source.b) / (repeated ? 1 : 5)
+    end
+    if shape isa DataModel.Annulus
+        return (shape.ro - shape.ri) / 2
+    end
+    if shape isa DataModel.Sector
+        radial = shape.ro - shape.ri
+        tangential = ((shape.ri + shape.ro) / 2) * shape.span
+        return min(radial, tangential) / 2
+    end
+    region_area = LineCableModels.area(shape)
+    region_perimeter = DataModel.perimeter(shape)
+    scale = region_area / region_perimeter
+    isfinite(scale) && scale > zero(scale) || _fem_error(
+        :adaptation,
+        String(region.source.tag),
+        :mesh_size,
+        "could not derive a positive local characteristic length"
+    )
+    return scale
+end
+
+function _fem_cable_outer_mesh_sizes(
+        region_plans::Vector{FEMRegionPlan}, cable_boundaries, cable_count::Int
+)
+    sizes = Vector{Float64}(undef, cable_count)
+    for cable_index in 1:cable_count
+        indices = findall(plan -> plan.cable_index == cable_index, region_plans)
+        isempty(indices) && _fem_error(
+            :adaptation,
+            "cable_$cable_index",
+            :mesh_size,
+            "a cable has no resolved material regions"
+        )
+        boundary = cable_boundaries[cable_index]
+        sizes[cable_index] = if hasproperty(boundary, :members)
+            minimum(region_plans[index].mesh_size for index in indices)
+        else
+            region_plans[last(indices)].mesh_size
+        end
+    end
+    return sizes
+end
+
+function _fem_mesh_plans(
+        problem::LineParametersProblem{T},
+        centre_x::T,
+        layout_radius::T,
+        cable_outer_mesh_sizes::Vector{T},
+        growth_factor::T
+) where {T <: Real}
+    earth = problem.earth_props.layers[2]
+    plans = FEMMeshPlan{T}[]
+    for (frequency_index, frequency) in enumerate(problem.frequencies)
+        earth_skin_depth = sqrt(
+            earth.rho /
+            (convert(T, π) * frequency * earth.mu_r * convert(T, 4π * 1e-7))
+        )
+        domain_radius = max(layout_radius, convert(T, earth_skin_depth))
+        shell_outer_radius = convert(T, 1.25) * domain_radius
+        domain_mesh_size = domain_radius / 20
+        infinite_mesh_size = 2domain_mesh_size
+        cable_interface_mesh_sizes = T[]
+        for (cable_index, (design, position)) in enumerate(zip(
+                problem.system.designs, problem.system.positions
+        ))
+            distance = max(
+                zero(T), abs(position.y) - LineCableModels.outer_radius(design)
+            )
+            push!(cable_interface_mesh_sizes, min(
+                domain_mesh_size,
+                cable_outer_mesh_sizes[cable_index] +
+                (growth_factor - one(T)) * distance
+            ))
+        end
+        interface_mesh_size = minimum([
+            domain_mesh_size; cable_interface_mesh_sizes
+        ])
+        push!(plans, FEMMeshPlan(
+            frequency_index,
+            frequency,
+            domain_radius,
+            shell_outer_radius,
+            domain_mesh_size,
+            infinite_mesh_size,
+            interface_mesh_size,
+            cable_interface_mesh_sizes
+        ))
+    end
+    return plans
+end
+
 function _resolved_fem_model(
         problem::LineParametersProblem{T},
         formulation::LineCableModelsFEM
@@ -238,6 +484,7 @@ function _resolved_fem_model(
     material_plans = FEMMaterialPlan{T}[]
     global_region = 0
     for (cable_index, design) in enumerate(system.designs)
+        _validate_material_partition(design)
         for local_region in eachindex(design.geometry.regions)
             global_region += 1
             placed = system.geometry[global_region]
@@ -293,7 +540,8 @@ function _resolved_fem_model(
                     local_region,
                     terminal_index,
                     material_index,
-                    placed.primitive
+                    placed.primitive,
+                    convert(T, _fem_region_mesh_size(placed))
                 ))
         end
     end
@@ -327,58 +575,54 @@ function _resolved_fem_model(
             )
         end
     end
-    maximum_extent = maximum(
-        LineCableModels.support(boundary)
-    for boundary in cable_boundaries
-    )
-    x_min = minimum(
-        position.x - LineCableModels.outer_radius(design)
-    for (design, position) in zip(system.designs, system.positions)
-    )
-    x_max = maximum(
-        position.x + LineCableModels.outer_radius(design)
-    for (design, position) in zip(system.designs, system.positions)
-    )
-    centre_x = convert(T, (x_min + x_max) / 2)
-    layout_radius = convert(T, max(
-        4maximum_extent,
-        4max(abs(x_min - centre_x), abs(x_max - centre_x)),
-        one(T)
-    ))
-
-    maximum_frequency = maximum(problem.frequencies)
-    minimum_frequency = minimum(problem.frequencies)
-    earth_skin_depth = sqrt(
-        earth.layers[2].rho /
-        (convert(T, π) * minimum_frequency * earth.layers[2].mu_r *
-         convert(T, 4π * 1e-7))
-    )
-    domain_radius = max(layout_radius, convert(T, earth_skin_depth))
-    shell_outer_radius = convert(T, 1.25) * domain_radius
-    conductor_scales = T[]
-    for (region, material) in zip(region_plans, material_plans)
-        material.kind === :conductor || continue
-        geometric_scale = sqrt(convert(T, LineCableModels.area(region.shape))) / 4
-        skin_depth = sqrt(
-            material.rho /
-            (convert(T, π) * maximum_frequency * material.mu_r * convert(T, 4π * 1e-7))
+    centre_x = convert(T, sum(position.x for position in system.positions) /
+                          length(system.positions))
+    maximum_cable_distance = maximum((
+        hypot(
+            system.positions[right].x - system.positions[left].x,
+            system.positions[right].y - system.positions[left].y
         )
-        push!(conductor_scales, min(geometric_scale, skin_depth / 3))
-    end
-    isempty(conductor_scales) && _fem_error(
-        :adaptation,
-        system.system_id,
-        :geometry,
-        "at least one conductor region is required"
+        for left in eachindex(system.positions)
+        for right in (left + 1):length(system.positions)
+    ); init = zero(T))
+    envelope_radius = maximum(
+        hypot(position.x - centre_x, position.y) +
+        LineCableModels.outer_radius(design)
+    for (design, position) in zip(system.designs, system.positions)
     )
-    fine_mesh_size = max(minimum(conductor_scales), domain_radius * convert(T, 1e-6))
-    coarse_mesh_size = max(domain_radius / 14, 8fine_mesh_size)
+    layout_radius = max(
+        convert(T, 5),
+        convert(T, 2) * maximum_cable_distance,
+        convert(T, envelope_radius)
+    )
+    cable_outer_mesh_sizes = convert(
+        Vector{T},
+        _fem_cable_outer_mesh_sizes(
+            region_plans, cable_boundaries, length(system.designs)
+        )
+    )
+    mesh_growth_factor = convert(T, 1.2)
+    mesh_plans = _fem_mesh_plans(
+        problem,
+        centre_x,
+        layout_radius,
+        cable_outer_mesh_sizes,
+        mesh_growth_factor
+    )
+    display_plan = last(mesh_plans)
+    domain_radius = display_plan.domain_radius
+    shell_outer_radius = display_plan.shell_outer_radius
+    fine_mesh_size = minimum(getproperty.(region_plans, :mesh_size))
+    coarse_mesh_size = display_plan.domain_mesh_size
+    maximum_frequency = maximum(problem.frequencies)
     tags = (
         air = 1_001,
         earth = 1_002,
         outer_boundary = 2_001,
         interface = 2_002,
         inner_shell_boundary = 2_003,
+        outer_air_boundary = 2_004,
+        outer_earth_boundary = 2_005,
         air_infinite = 1_003,
         earth_infinite = 1_004,
         infinite_domain = 1_005,
@@ -400,6 +644,9 @@ function _resolved_fem_model(
         shell_outer_radius,
         fine_mesh_size,
         coarse_mesh_size,
-        maximum_frequency
+        maximum_frequency,
+        cable_outer_mesh_sizes,
+        mesh_growth_factor,
+        mesh_plans
     )
 end

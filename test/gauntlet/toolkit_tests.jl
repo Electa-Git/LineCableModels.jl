@@ -447,6 +447,22 @@ end
     using LineCableModels
     using .GauntletSupport
 
+    function nested_groups(part)
+        groups=Group[]
+        if part isa Group
+            push!(groups, part)
+            append!(groups, nested_groups(part.item))
+        elseif part isa Stack
+            for item in part.items
+                append!(groups, nested_groups(item))
+            end
+        elseif part isa Enclosure
+            append!(groups, nested_groups(part.item))
+            part.wall === nothing || append!(groups, nested_groups(part.wall))
+        end
+        return groups
+    end
+
     index=case_index()
     expected_sizes=Dict(
         :cable_18kv_1000mm2_trefoil=>(9, 9, 101),
@@ -551,7 +567,7 @@ end
                   (topology isa Tuple && all(value -> value isa Integer, topology))
         end
         design=first(model.nominal_problem.system.designs)
-        groups=filter(item->item isa Group, design.root.items)
+        groups=nested_groups(design.root)
         component_wire_counts=Tuple(
             Tuple(
                 group.pattern.n
@@ -561,6 +577,15 @@ end
         )
         @test component_wire_counts == expected_wire_counts[id]
         @test basename(index[id]) == string(id, ".jl")
+    end
+
+    two_wire_case=load_case(:two_bare_wires)
+    copper=Material(MaterialsLibrary(add_defaults = true), :copper)
+    @test length(two_wire_case.nominal_problem.system.designs) == 2
+    @test all(two_wire_case.nominal_problem.system.designs) do design
+        component=only(LineCableModels.DataModel.flatten(design, 50.0))
+        material=component.conductor.material
+        material.rho == copper.rho && material.alpha == copper.alpha
     end
 
     benchmark_root=joinpath(GauntletSupport.GAUNTLET_ROOT, "benchmarks")
@@ -625,6 +650,22 @@ end
     using Measurements
     using LineCableModels
     using .GauntletSupport
+
+    function nested_groups(part)
+        groups=Group[]
+        if part isa Group
+            push!(groups, part)
+            append!(groups, nested_groups(part.item))
+        elseif part isa Stack
+            for item in part.items
+                append!(groups, nested_groups(item))
+            end
+        elseif part isa Enclosure
+            append!(groups, nested_groups(part.item))
+            part.wall === nothing || append!(groups, nested_groups(part.wall))
+        end
+        return groups
+    end
 
     first_load=load_case(:cable_18kv_1000mm2_trefoil)
     first_load.nominal_problem.system.connections[1][1]=99
@@ -715,7 +756,7 @@ end
     expanded_design=first(expanded_armor.problem.system.designs)
     armor_group=only(filter(
         item->item isa Group&&item.name===:armor,
-        expanded_design.root.items
+        nested_groups(expanded_design.root)
     ))
     armor=only(filter(
         value->value.name===:armor,
