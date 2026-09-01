@@ -347,51 +347,48 @@ iteration returns the representative
 core result reconstructed from each point's sample means; individual trials
 remain available only through `samples`. Standard `first`, `last`, `only`,
 `collect`, `map`, and `zip` operations apply. `only` asserts singleton
-cardinality and performs no statistical selection or projection.
+cardinality and performs no statistical selection or result transport.
 
-## Projecting completed result spaces
+## Transporting completed result spaces
 
-[`project`](@ref) converts a completed result space into the next finite space
-of complete problems. The projection definition owns the mathematical choice;
-ParametricBuilder owns the fixed sequence:
-
-```text
-entitle -> select -> derive -> materialize -> finish
-```
-
-`entitle` rejects an unsupported definition/result-space pair before partial
-work. `select` aligns the result products required by the projection. `derive`
-chooses or calculates a finite set of representative states. `materialize`
-constructs one complete downstream problem per representative. The derived
-`finish` method checks that the output is nonempty and type-consistent, then
-returns `Gridspace{P}` in representative order.
-
-Only `project` is exported from the package root. An external implementation
-imports the definition and required stages from their owner:
+A completed result space enters another scalar calculation through the target
+`Gridspace` constructor:
 
 ```julia
-import LineCableModels.ParametricBuilder:
-    AbstractProjectionDefinition,
-    entitle,
-    select,
-    derive,
-    materialize
-
-struct EnvelopeProjection <: AbstractProjectionDefinition end
-
-entitle(::EnvelopeProjection, source::MonteCarloResult) = source
-select(::EnvelopeProjection, source::MonteCarloResult) = (
-    results = source,
-    statistics = statistics(source),
-)
-# Define derive and materialize for the extension's representative and problem types.
+modal_problems = Gridspace{ModalTransformationProblem}(phase_results)
 ```
 
-A summary projection may calculate a synthetic representative whose components
-did not occur together in any trial. A retained-trial projection instead
-selects complete joint samples and preserves their correlation. The definition
-must state which operation it performs. Projection never overloads `only` and
-does not add a result wrapper; its completed product is the next `Gridspace`.
+The dispatched method `Gridspace{Target}(source::SourceResult)` defines how the
+source result family supplies arguments to the target problem constructor. The
+transport preserves source cardinality and order unless that source-specific
+method explicitly documents another operation. It produces a target-bearing
+problem space, never a nested result envelope.
+
+`ParametricResult` transports its completed combinatorial results directly.
+`LinearErrorResult` transports its uncertainty-bearing results directly. With
+Measurements loaded, `MonteCarloResult` reconstructs one uncertainty-bearing
+core result per deterministic point from each scalar sample mean and standard
+deviation before constructing the downstream problems. This marginal
+reconstruction does not recover covariance between observables.
+
+Only result families with defined semantics are admitted. An unsupported
+source/target pair raises an error naming both types and directs the caller to
+`?Gridspace` and this page. Extension code adds a transport by defining:
+
+```julia
+import LineCableModels: Gridspace
+
+function Gridspace{Target}(source::OwnedResultSpace)
+    # Expose or reconstruct completed source values, then return Gridspace{Target}.
+end
+```
+
+This keeps every scientific calculation scalar. Finite composition recurses
+through the same typed boundary:
+
+```text
+ResultSpace{A} → Gridspace{ProblemB} → ResultSpace{B}
+```
 
 ## Pairing, exact reuse, and correlation
 

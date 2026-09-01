@@ -1,7 +1,7 @@
 # Extension API
 
 Extension code adds methods to the owner that defines their meaning. The public
-calculation entry points remain `compute`, `observe`, `observables`, `project`,
+calculation entry points remain `compute`, `observe`, `observables`,
 `report`, `plot`, and `preview`.
 
 ## Validation rules

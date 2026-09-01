@@ -98,13 +98,19 @@
         @test same_parameters(modal_batch[index], modal_scalar[index])
     end
 
+    transported=Gridspace{ModalTransformationProblem}(run)
+    @test length(transported) == length(run)
+    @test transported.grids === (run,)
     modal_run=compute(
-        ParametricProblem(Grid((modal_problem,))),
+        ParametricProblem(transported),
         Combinatorial(modal_space)
     )
-    @test length(modal_run) == 2
+    expected_modal=[compute(ModalTransformationProblem(parameters), formulation)
+                    for formulation in modal_formulations
+                    for parameters in run]
+    @test length(modal_run) == length(run) * length(modal_formulations)
     @test all(
-        same_parameters(modal_run[index], modal_scalar[index])
-    for index in eachindex(modal_scalar)
+        same_parameters(modal_run[index], expected_modal[index])
+    for index in eachindex(expected_modal)
     )
 end

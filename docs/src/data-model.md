@@ -188,8 +188,17 @@ members = @assembly begin
 end
 ```
 
-`pipe` and `duct` describe containment. Nested ducts use the same operation;
-there is no separate duct-bank object.
+`pipe` and `duct` describe containment. Both accept block notation when several
+members make the physical nesting clearer:
+
+```julia
+contained = @pipe shape=Disk(15e-3) fill=air begin
+    @at phase_a (-5e-3, 0.0)
+    @at phase_b ( 5e-3, 0.0)
+end
+```
+
+Nested ducts use the same operation; there is no separate duct-bank object.
 
 ## Canonical grammar
 
@@ -277,6 +286,11 @@ end
 
 eltype(designs) === CableDesign
 ```
+
+Every block macro forwards `combine=:product` or `combine=:zip` to the same
+construction used by its functional form. `@cable` also accepts
+`nominal_data=(...)`; that descriptive data follows each completed design
+without affecting its physical resolution.
 
 Iteration and stochastic realization return completed ordinary designs. Raw
 tuples, vectors, polygon points, course schedules, and frequency vectors remain

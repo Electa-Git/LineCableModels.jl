@@ -135,7 +135,8 @@ end
         :DiameterFactor, :TabulatedCompaction, :AffineCompaction,
         Symbol("@cable"), Symbol("@system"), Symbol("@earth"),
         Symbol("@terminal"), Symbol("@assembly"),
-        Symbol("@duct"), Symbol("@at"), Symbol("@hflat"), Symbol("@vflat"),
+        Symbol("@pipe"), Symbol("@duct"), Symbol("@at"),
+        Symbol("@hflat"), Symbol("@vflat"),
         Symbol("@trefoil"), Symbol("@distribute")
     )
     public_names = Set(names(LineCableModels))
@@ -143,7 +144,7 @@ end
 
     forbidden = (
         :DuctBank, :Pipe, :Duct, :Core, :Cable, :Trefoil, :distribute, :strand,
-        Symbol("@design"), Symbol("@pipe"), Symbol("@core"),
+        Symbol("@design"), Symbol("@core"),
         Symbol("@insulation"), Symbol("@strand"), Symbol("@rope"),
         Symbol("@armor"), Symbol("@screen"), Symbol("@shell"),
         Symbol("@wire"), Symbol("@fill")
@@ -154,7 +155,7 @@ end
         (:Disk, :Rectangle, :Ellipse, :Sector, :Annulus, :Polygon))
 
     expansions = (
-        :(@cable "x" begin
+        :(@cable "x" nominal_data=metadata combine=:zip begin
             part
         end) => :build,
         :(@system "x" line_length=1 begin
@@ -163,27 +164,64 @@ end
         :(@earth begin
             layer
         end) => :build,
-        :(@terminal :phase begin
+        :(@terminal :phase combine=:zip begin
             part
         end) => :terminal,
-        :(@assembly begin
+        :(@assembly combine=:zip begin
             left
             right
         end) => :assembly,
-        :(@duct shape=shape fill=fill begin
+        :(@pipe shape=shape fill=fill combine=:zip begin
+            left
+            right
+        end) => :pipe,
+        :(@duct shape=shape fill=fill combine=:zip begin
             left
             right
         end) => :duct,
         :(@at subject (1, 2) φ=3) => :at,
-        :(@trefoil design spacing=spacing center=(0, 0) phase=(1, 2, 3)) =>
+        :(@trefoil design spacing=spacing center=(0, 0) combine=:zip phase=(1, 2, 3)) =>
             :trefoil,
-        :(@hflat design spacing=spacing phase=(1, 2, 3)) => :hflat,
-        :(@vflat design spacing=spacing phase=(1, 2, 3)) => :vflat
+        :(@hflat design spacing=spacing combine=:zip phase=(1, 2, 3)) => :hflat,
+        :(@vflat design spacing=spacing combine=:zip phase=(1, 2, 3)) => :vflat
     )
     for (surface, callee) in expansions
         expanded = Base.remove_linenums!(macroexpand(@__MODULE__, surface))
         @test expanded isa Expr && expanded.head === :call
         @test expanded.args[1] == GlobalRef(PB, callee)
+    end
+
+    combined_surfaces = (
+        :(@cable "x" combine=:zip begin
+            part
+        end),
+        :(@terminal :phase combine=:zip begin
+            part
+        end),
+        :(@assembly combine=:zip begin
+            left
+            right
+        end),
+        :(@pipe shape=shape fill=fill combine=:zip begin
+            part
+        end),
+        :(@duct shape=shape fill=fill combine=:zip begin
+            part
+        end),
+        :(@trefoil design spacing=spacing combine=:zip phase=(1, 2, 3)),
+        :(@hflat design spacing=spacing combine=:zip phase=(1, 2, 3)),
+        :(@vflat design spacing=spacing combine=:zip phase=(1, 2, 3))
+    )
+    for surface in combined_surfaces
+        expanded = Base.remove_linenums!(macroexpand(@__MODULE__, surface))
+        parameters = only(filter(
+            argument -> argument isa Expr && argument.head === :parameters,
+            expanded.args
+        ))
+        @test any(parameters.args) do keyword
+            keyword isa Expr && keyword.head === :kw &&
+                keyword.args == [:combine, QuoteNode(:zip)]
+        end
     end
 
     distributed = Base.remove_linenums!(macroexpand(
@@ -206,7 +244,9 @@ end
     copper = Material(kind = :conductor, rho = 1.72e-8)
     evaluations = Dict{Symbol, Int}()
     once(name, value) = (evaluations[name] = get(evaluations, name, 0) + 1; value)
-    nested = @cable once(:identifier, "single-evaluation") begin
+    nested = @cable once(:identifier, "single-evaluation") nominal_data=(
+        rated_voltage = once(:rated_voltage, 132e3),
+    ) begin
         @terminal once(:terminal, :phase) begin
             core(
                 once(:material, copper);
@@ -217,10 +257,12 @@ end
     @test nested isa CableDesign
     @test evaluations == Dict(
         :identifier => 1,
+        :rated_voltage => 1,
         :terminal => 1,
         :material => 1,
         :radius => 1
     )
+    @test nested.nominal_data == (rated_voltage = 132e3,)
 
     system = @system once(:system_id, "single-system-evaluation") line_length=once(
         :line_length, 1.0
@@ -357,6 +399,27 @@ end
     design = build(CableDesign, "asymmetric-ducts", asymmetric)
     @test design.terminal_order == [:a, :b]
     @test any(region -> region.source.tag === :duct_fill, design.geometry.regions)
+
+    piped = pipe(
+        at(cell_a, -5e-3, 0),
+        at(cell_b, 5e-3, 0);
+        shape = Disk(15e-3),
+        fill = air
+    )
+    notated_pipe = @pipe shape=Disk(15e-3) fill=air begin
+        @at cell_a (-5e-3, 0)
+        @at cell_b (5e-3, 0)
+    end
+    @test notated_pipe == piped
+
+    pipe_space = @pipe shape=Disk(Grid((15e-3, 16e-3))) fill=Grid((
+        air,
+        concrete
+    )) combine=:zip begin
+        cell_a
+    end
+    @test pipe_space isa Gridspace{Enclosure}
+    @test length(pipe_space) == 2
 
     repeated = duct(
         cell_a;
@@ -761,6 +824,43 @@ end
                "macro-grid",
                terminal(:phase, core(copper; r), insulation(xlpe; t = 1e-3))
            ) for r in (2e-3, 3e-3)]
+
+    zipped_terminal = @terminal :phase combine=:zip begin
+        core(copper; r = Grid((2e-3, 3e-3)))
+        insulation(xlpe; t = Grid((1e-3, 2e-3)))
+    end
+    @test zipped_terminal isa Gridspace{Group}
+    @test length(zipped_terminal) == 2
+
+    zipped_designs = @cable Grid(("zip-a", "zip-b")) nominal_data=Grid((
+        (rating = 1,),
+        (rating = 2,)
+    )) combine=:zip begin
+        zipped_terminal
+    end
+    @test zipped_designs isa Gridspace{CableDesign}
+    @test length(zipped_designs) == 2
+    @test getproperty.(collect(zipped_designs), :cable_id) == ["zip-a", "zip-b"]
+    @test getproperty.(collect(zipped_designs), :nominal_data) == [
+        (rating = 1,),
+        (rating = 2,)
+    ]
+
+    left_members = terminal(:left, core(copper; r = Grid((1e-3, 1.2e-3))))
+    right_members = terminal(:right, core(copper; r = Grid((0.8e-3, 0.9e-3))))
+    zipped_assembly = @assembly combine=:zip begin
+        left_members
+        right_members
+    end
+    @test zipped_assembly isa Gridspace{Assembly}
+    @test length(zipped_assembly) == 2
+
+    zipped_formation = @trefoil first(zipped_designs) spacing=Grid((
+        0.08,
+        0.1
+    )) center=at(x=Grid((0.0, 0.2)), y=-1.0) combine=:zip phase=(1, 2, 3)
+    @test zipped_formation isa Gridspace{Vector}
+    @test length(zipped_formation) == 2
 
     systems = @system "macro-system" begin
         @at macro_designs (0.0, -1.0) phase=1

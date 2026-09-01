@@ -9,13 +9,13 @@ _gridspace_callable(::Type{Target}) where {Target} = _TypeConstructor{Target}()
 """
 $(TYPEDEF)
 
-Represent a typed finite space assembled from explicit [`Grid`](@ref) or
-nested `Gridspace` sources. `combine` is encoded in the type and may be
-`:product` or `:zip`. `Target` identifies the semantic result family. A
-nonempty deterministic space records the concrete type returned by its
-callable when Julia can prove it without evaluating a point. Otherwise the
-space declares its iterator element type unknown until values are
-materialised; it never advertises a `UnionAll` result type.
+Represent a typed finite space assembled from explicit [`Grid`](@ref), nested
+`Gridspace`, or admitted completed result-space sources. `combine` is encoded
+in the type and may be `:product` or `:zip`. `Target` identifies the semantic
+result family. A nonempty deterministic space records the concrete type
+returned by its callable when Julia can prove it without evaluating a point.
+Otherwise the space declares its iterator element type unknown until values
+are materialised; it never advertises a `UnionAll` result type.
 
 $(TYPEDFIELDS)
 """
@@ -29,6 +29,8 @@ end
 
 "Sentinel result type for a Gridspace whose materialised element type is unknown."
 struct _UnknownGridspaceEltype end
+
+const _GridspaceSource = Union{AbstractGrid, Gridspace, AbstractResultSpace}
 
 function _gridspace_eltype(::Type{Tuple}, ::typeof(tuple), grids::Tuple)
     (any(has_uncertainty, grids) || any(grid -> iszero(length(grid)), grids)) &&
@@ -62,7 +64,9 @@ $(TYPEDSIGNATURES)
 
 Construct a lazy space from explicit finite sources. Product composition uses
 Julia's product order, with the first source varying fastest. Zip composition
-pairs equal-length sources and broadcasts singleton sources.
+pairs equal-length sources and broadcasts singleton sources. A completed
+result space is admitted only through a result-owner transport method of the
+form `Gridspace{Target}(source)`.
 
 # Errors
 
@@ -79,8 +83,10 @@ function Gridspace{Target}(
 ) where {Target, G <: Tuple}
     combine in (:product, :zip) ||
         throw(ArgumentError("combine must be :product or :zip; got :$combine"))
-    all(grid -> grid isa Union{AbstractGrid, Gridspace}, grids) || throw(
-        ArgumentError("Gridspace sources must be Grid or Gridspace values"),
+    all(grid -> grid isa _GridspaceSource, grids) || throw(
+        ArgumentError(
+            "Gridspace sources must be Grid, Gridspace, or completed result-space values",
+        ),
     )
     callable = _gridspace_callable(build)
     result_type = _gridspace_eltype(Target, callable, grids)
@@ -129,6 +135,7 @@ function _finite_construction(
 end
 
 points(grid::AbstractGrid) = grid
+points(result::AbstractResultSpace) = result
 
 _product_combinations(::Tuple{}) = ((),)
 function _product_combinations(grids::Tuple)

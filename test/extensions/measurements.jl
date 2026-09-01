@@ -193,7 +193,7 @@ end
     @test !isdefined(extension_module, :_joint_coordinates)
 end
 
-@testitem "Measurements / Monte Carlo / no implicit completed-result conversion" tags=[:extension] setup=[
+@testitem "Measurements / Monte Carlo / explicit Gridspace reconstruction" tags=[:extension] setup=[
     EngineTestSupport, UseEngineSupport, TestNumerics] begin
     using Measurements
     using Statistics
@@ -218,6 +218,19 @@ end
     )
 
     @test !applicable(Measurements.measurement, completed)
+    struct ConstantsProblem <: AbstractProblemDefinition
+        constants::CableConstants
+    end
+    transported=Gridspace{ConstantsProblem}(completed)
+    reconstructed=only(transported).constants
+    @test value.(reconstructed.R) == [2.0]
+    @test uncertainty.(reconstructed.R) == [1.0]
+    @test value.(reconstructed.L) == [20.0]
+    @test uncertainty.(reconstructed.L) == [10.0]
+    @test value.(reconstructed.C) == [200.0]
+    @test uncertainty.(reconstructed.C) == [100.0]
+    @test iszero(Measurements.cov(reconstructed.R[1], reconstructed.L[1]))
+
     retained=only(samples(completed))
     sample_matrix=vcat(
         reshape(retained.R, 1, :),
@@ -230,4 +243,37 @@ end
     coordinates=Measurements.correlated_values(means, covariance)
     @test value.(coordinates) ≈ [2.0, 20.0, 200.0]
     @test uncertainty(coordinates[2] - 10 * coordinates[1]) ≤ 20 * eps(Float64)
+
+    frequency=[50.0]
+    angular=2π*only(frequency)
+    parameters=LineParameters(
+        PhaseDomain,
+        reshape(ComplexF64[2.0+20.0angular*im], 1, 1, 1),
+        reshape(ComplexF64[0.0+200.0angular*im], 1, 1, 1),
+        frequency
+    )
+    line_stats=[(
+        R = reshape([stats[1].R[1]], 1, 1, 1),
+        L = reshape([stats[1].L[1]], 1, 1, 1),
+        C = reshape([stats[1].C[1]], 1, 1, 1),
+        G = reshape([stats[1].G[1]], 1, 1, 1)
+    )]
+    line_completed=MonteCarloResult(
+        formulation,
+        [parameters],
+        line_stats,
+        nothing,
+        nothing,
+        UInt64(9),
+        UInt64[9],
+        [3]
+    )
+    modal_space=Gridspace{ModalTransformationProblem}(line_completed)
+    modal_problem=only(modal_space)
+    @test modal_problem isa ModalTransformationProblem
+    @test isconcretetype(eltype(modal_space))
+    @test value(real(modal_problem.parameters.Z.values[1])) == 2.0
+    @test uncertainty(real(modal_problem.parameters.Z.values[1])) == 1.0
+    @test value(imag(modal_problem.parameters.Z.values[1])) == 20.0angular
+    @test uncertainty(imag(modal_problem.parameters.Z.values[1])) == 10.0angular
 end

@@ -5,7 +5,6 @@
     const Grammar = LineCableModels.Grammar
     const PlotBuilder = LineCableModels.PlotBuilder
     const ReportBuilder = LineCableModels.ReportBuilder
-    const ParametricBuilder = LineCableModels.ParametricBuilder
 
     @test parentmodule(Grammar.orchestrator_root) === Grammar
     @test parentmodule(Grammar.orchestrator_method) === Grammar
@@ -188,16 +187,6 @@
         optional_hooks = (ReportBuilder.finish,)
     )
 
-    projection_implementors = Tuple(RequiredInterfaces.nonabstract_subtypes(
-        ParametricBuilder.AbstractProjectionDefinition,
-    ))
-    projection_findings = test_orchestrator(
-        ParametricBuilder.project,
-        ParametricBuilder.AbstractProjectionDefinition,
-        projection_implementors;
-        optional_hooks = (ParametricBuilder.finish,)
-    )
-
     # Observation publication is one closed Grammar-owned method, but its
     # sources deliberately have no common abstract owner. `observe` is the
     # open result hook. Treating either generic as an AbstractProblemResult
@@ -222,5 +211,4 @@
 
     @test plot_findings isa Vector{String}
     @test report_findings isa Vector{String}
-    @test projection_findings isa Vector{String}
 end

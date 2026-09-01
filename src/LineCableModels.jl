@@ -20,7 +20,7 @@ export AbstractCoreResult, AbstractResultSpace
 export AbstractParametricResult, AbstractUncertaintyResult
 export FormulationOptions, ComputationOptions, ComputationDetails
 export formulation_options, computation_options, computation_details, details
-export compute, observe, @observe, observables, project
+export compute, observe, @observe, observables
 export quantity, native_unit, display_unit, scale_factor, label, symbol
 export basis, domain, frequencies, nconductors, nfrequencies, ncables, nphases
 export Z, Y, R, X, L, G, B, C
@@ -56,7 +56,8 @@ export at, trefoil, hflat, vflat, Earth, EarthLayer, EarthModel
 export terminal, core, stranded, rope, cores, tape, insulation, screen, sheath
 export armor, bedding, jacket, filler, pipe, duct
 export solid, shell, wires, layers, assembly
-export @cable, @system, @earth, @terminal, @assembly, @duct, @at, @hflat, @vflat, @trefoil
+export @cable, @system, @earth, @terminal, @assembly, @pipe, @duct
+export @at, @hflat, @vflat, @trefoil
 export @distribute
 export make_stranded, make_screened, WireEstimate
 
@@ -172,7 +173,7 @@ using .ParametricBuilder:
                           UncertainValue, Gridspace, has_uncertainty,
                           @gridspace, @relax,
                           Combinatorial, ParametricProblem, ParametricResult,
-                          result, project,
+                          result,
                           Conductor, Insulator,
                           terminal, core, stranded, rope, cores, tape,
                           insulation, screen, sheath, armor, bedding, jacket,
@@ -181,8 +182,8 @@ using .ParametricBuilder:
                           at, trefoil, hflat, vflat, Earth,
                           WireEstimate, make_stranded, make_screened
 using .ParametricBuilder: Semiconductor
-using .ParametricBuilder: @cable, @system, @earth, @terminal, @assembly, @duct, @at,
-                          @hflat, @vflat, @trefoil, @distribute
+using .ParametricBuilder: @cable, @system, @earth, @terminal, @assembly, @pipe,
+                          @duct, @at, @hflat, @vflat, @trefoil, @distribute
 
 # Submodule `UQ`
 include("uq/UQ.jl")
