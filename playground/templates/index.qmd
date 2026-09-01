@@ -1,0 +1,79 @@
+---
+title: "Template gallery"
+subtitle: "Rendered patterns backed by reusable Quarto source files. Open a template, inspect it at full size, then use View Source or copy the corresponding .qmd file."
+body-classes: lc-gallery-page
+---
+
+::: {.lc-gallery-grid}
+
+::: {.lc-gallery-card}
+[ONE REGION]{.lc-gallery-label}
+
+## Full canvas
+
+A single protected surface for diagrams, large figures, prose, or a focused argument.
+
+[Open template →](full-canvas.qmd){.lc-gallery-link}
+:::
+
+::: {.lc-gallery-card}
+[1 + 1]{.lc-gallery-label}
+
+## Balanced columns
+
+Equal columns for comparisons, paired explanations, or text beside an illustration.
+
+[Open template →](balanced-columns.qmd){.lc-gallery-link}
+:::
+
+::: {.lc-gallery-card}
+[2 + 1]{.lc-gallery-label}
+
+## Feature + sidebar
+
+A dominant working area with a narrower column for controls, metrics, or context.
+
+[Open template →](feature-sidebar.qmd){.lc-gallery-link}
+:::
+
+::: {.lc-gallery-card}
+[1 / 2 + 2]{.lc-gallery-label}
+
+## Top band + columns
+
+A full-width statement or figure above two independent supporting regions.
+
+[Open template →](top-split.qmd){.lc-gallery-link}
+:::
+
+::: {.lc-gallery-card}
+[2 × 2]{.lc-gallery-label}
+
+## Dashboard grid
+
+Four equal panels for related plots, quantities, diagnostics, or small multiples.
+
+[Open template →](dashboard-grid.qmd){.lc-gallery-link}
+:::
+
+::: {.lc-gallery-card}
+[MEDIA + PROSE]{.lc-gallery-label}
+
+## Media + narrative
+
+A stable media surface beside explanatory text, equations, or findings.
+
+[Open template →](media-story.qmd){.lc-gallery-link}
+:::
+
+::: {.lc-gallery-card}
+[LIVE ROUTE]{.lc-gallery-label}
+
+## Bonito viewport
+
+A responsive same-origin Bonito viewport with a supporting context or control panel.
+
+[Open template →](bonito-widget.qmd){.lc-gallery-link}
+:::
+
+:::

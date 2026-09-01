@@ -1,0 +1,187 @@
+---
+title: "Widget gallery"
+subtitle: "Live Bonito controls embedded through one responsive Quarto shortcode. Each viewport owns independent session state and no numerical work is dispatched."
+body-classes: lc-widget-gallery
+format:
+  html:
+    code-tools:
+      source: true
+      toggle: false
+      caption: "Source"
+---
+
+::: {.lc-widget-gallery-grid}
+
+::: {.lc-widget-demo}
+::: {.lc-widget-demo-heading}
+[SELECTOR]{.lc-gallery-label}
+
+## Native range slider
+
+A continuous native Bonito selector with a reactive Julia value.
+:::
+
+{{< bonito route="/widgets/slider" title="Native range slider example" height="17rem" >}}
+:::
+
+::: {.lc-widget-demo}
+::: {.lc-widget-demo-heading}
+[BOOLEAN]{.lc-gallery-label}
+
+## Checkbox and status
+
+A Boolean input paired with a derived status badge.
+:::
+
+{{< bonito route="/widgets/toggle" title="Checkbox example" height="17rem" >}}
+:::
+
+::: {.lc-widget-demo}
+::: {.lc-widget-demo-heading}
+[CHOICE]{.lc-gallery-label}
+
+## Dropdown
+
+A discrete selection backed by Bonito's observable option state.
+:::
+
+{{< bonito route="/widgets/dropdown" title="Dropdown example" height="17rem" >}}
+:::
+
+::: {.lc-widget-demo}
+::: {.lc-widget-demo-heading}
+[INPUT]{.lc-gallery-label}
+
+## Text field
+
+A session-local label that commits its value on change.
+:::
+
+{{< bonito route="/widgets/text-input" title="Text input example" height="17rem" >}}
+:::
+
+::: {.lc-widget-demo}
+::: {.lc-widget-demo-heading}
+[NUMERIC INPUT]{.lc-gallery-label}
+
+## Number spinner
+
+A bounded `Bonito.NumberInput` with native stepping and reactive numeric state.
+:::
+
+{{< bonito route="/widgets/number-spinner" title="Number spinner example" height="20rem" >}}
+:::
+
+::: {.lc-widget-demo}
+::: {.lc-widget-demo-heading}
+[ACTION]{.lc-gallery-label}
+
+## Buttons and state
+
+Two actions mutate and reset a small session-local state value.
+:::
+
+{{< bonito route="/widgets/actions" title="Button example" height="17rem" >}}
+:::
+
+::: {.lc-widget-demo}
+::: {.lc-widget-demo-heading}
+[LIFECYCLE]{.lc-gallery-label}
+
+## Progress and status
+
+A bounded lifecycle indicator suitable for broker or worker feedback.
+:::
+
+{{< bonito route="/widgets/progress" title="Progress example" height="17rem" >}}
+:::
+
+::: {.lc-widget-demo .lc-widget-demo-wide}
+::: {.lc-widget-demo-heading}
+[OUTPUT]{.lc-gallery-label}
+
+## Console viewport
+
+A bounded observable sink for Julia, worker, or broker messages. It displays output but does not evaluate code.
+:::
+
+{{< bonito route="/widgets/console" title="Console output example" height="24rem" >}}
+:::
+
+::: {.lc-widget-demo .lc-widget-demo-wide}
+::: {.lc-widget-demo-heading}
+[LAYOUT]{.lc-gallery-label}
+
+## Persistent tabs
+
+`BonitoWidgets.Tabs` keeps every panel mounted so figures, controls, and local state survive tab changes.
+:::
+
+{{< bonito route="/widgets/tabs" title="Persistent tabs example" height="23rem" >}}
+:::
+
+::: {.lc-widget-demo .lc-widget-demo-wide}
+::: {.lc-widget-demo-heading}
+[ACTION SURFACE]{.lc-gallery-label}
+
+## Namespaced toolbar
+
+Horizontal or vertical action groups with small, medium, and large sizing; icon-only and labelled buttons; compact dropdowns; and one module-scoped callback contract.
+:::
+
+{{< bonito route="/widgets/toolbar" title="Namespaced toolbar example" height="31rem" >}}
+:::
+
+::: {.lc-widget-demo .lc-widget-demo-wide}
+::: {.lc-widget-demo-heading}
+[COMPOSITION]{.lc-gallery-label}
+
+## Engineering control panel
+
+Selectors, derived values, and a complete reset action composed without creating a second page framework.
+:::
+
+{{< bonito route="/widgets/control-panel" title="Engineering control panel example" height="34rem" >}}
+:::
+
+:::
+
+## Reuse the boundary
+
+The page source embeds any registered same-origin route with one directive:
+
+```{.markdown shortcodes=false}
+{{< bonito route="/widgets/control-panel" title="Cable controls" height="34rem" >}}
+```
+
+Widget implementations live in `src/widgets.jl`. Keep domain-specific controls in their own Julia files, return a Bonito `App`, and register only their route in the publisher.
+
+For reusable toolbars, bind stable action names to the module that owns their meaning:
+
+```julia
+module PlotTools
+function handle_toolbar(state, event)
+    state[] = "$(event.namespace).$(event.action)"
+end
+end
+
+binding = ToolbarBinding(PlotTools, session_state; namespace=:impedance_plot)
+
+tools = toolbar(
+    [
+        ToolbarButton(:reset_view; icon=:reset, tooltip="Reset view"),
+        ToolbarButton(:fit_view; icon=:fit, label="Fit view"),
+        ToolbarDropdown(
+            :display_layer,
+            [:nominal => "Nominal", :envelope => "Envelope"];
+            icon=:layers,
+            label="Layer"
+        ),
+    ];
+    binding,
+    orientation=:horizontal,
+    size=:medium
+)
+```
+
+The callback receives a `ToolbarEvent(namespace, action, value)`. Names use lowercase `snake_case`; the constructor rejects duplicate actions and invalid identifiers before the page is served.

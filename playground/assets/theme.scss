@@ -6,6 +6,13 @@ $headings-color: #f2f2f2;
 $link-color: #4eb5de;
 $sidebar-bg: #282f2f;
 $border-color: #5e6d6f;
+$font-size-root: 16px;
+$font-weight-base: 500;
+$headings-font-weight: 600;
+$border-radius: 2px;
+$border-radius-sm: 2px;
+$border-radius-lg: 3px;
+$web-font-path: "https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap";
 $font-family-sans-serif: Lato, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 $grid-sidebar-width: 18rem;
 
@@ -22,8 +29,10 @@ $grid-sidebar-width: 18rem;
   --lc-link: #4eb5de;
   --lc-focus: #1abc9c;
   --lc-sidebar-width: 18rem;
-  --lc-radius: 4px;
+  --lc-radius: 2px;
   --lc-type-unit: clamp(15px, calc(13px + 0.1875vw), 18px);
+  --lc-kicker-heading-gap: 0.5rem;
+  --lc-heading-content-gap: 0.75rem;
 }
 
 html,
@@ -35,6 +44,8 @@ body {
   margin: 0;
   overflow: hidden;
   background: var(--lc-bg);
+  caret-color: transparent;
+  cursor: default;
 }
 
 body {
@@ -42,6 +53,54 @@ body {
   color-scheme: dark;
   font-family: $font-family-sans-serif;
   font-size: var(--lc-type-unit);
+  font-weight: 500;
+}
+
+/*
+ * Interaction contract: published text remains selectable and copyable, but
+ * read-only content never displays an insertion caret or an editing cursor.
+ * Only controls that accept typed text restore those editing affordances.
+ */
+input:not([type]):not([readonly]):not([disabled]),
+input[type="text"]:not([readonly]):not([disabled]),
+input[type="textfield"]:not([readonly]):not([disabled]),
+input[type="search"]:not([readonly]):not([disabled]),
+input[type="email"]:not([readonly]):not([disabled]),
+input[type="url"]:not([readonly]):not([disabled]),
+input[type="tel"]:not([readonly]):not([disabled]),
+input[type="password"]:not([readonly]):not([disabled]),
+input[type="number"]:not([readonly]):not([disabled]),
+textarea:not([readonly]):not([disabled]),
+[contenteditable="true"] {
+  caret-color: auto;
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+a[href],
+button:not([disabled]),
+select:not([disabled]),
+summary,
+label[for],
+[role="button"]:not([aria-disabled="true"]),
+input[type="button"]:not([disabled]),
+input[type="submit"]:not([disabled]),
+input[type="reset"]:not([disabled]),
+input[type="checkbox"]:not([disabled]),
+input[type="radio"]:not([disabled]),
+input[type="range"]:not([disabled]) {
+  cursor: pointer;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 600;
+  letter-spacing: normal;
 }
 
 body *,
@@ -222,21 +281,35 @@ body *::after {
   display: flex !important;
   margin: 0;
   align-items: center;
-  color: transparent;
-  font-size: 0;
+  color: var(--lc-heading);
+  font-size: calc(0.84 * var(--lc-type-unit));
 }
 
 .quarto-secondary-nav-title::before {
+  margin-right: 0.55rem;
   color: var(--lc-muted);
   content: "Playground  ›";
   font-size: calc(0.84 * var(--lc-type-unit));
 }
 
-.quarto-secondary-nav-title::after {
-  margin-left: 0.55rem;
+body.lc-home .quarto-secondary-nav-title {
+  color: transparent;
+  font-size: 0;
+}
+
+body.lc-home .quarto-secondary-nav-title::after {
   color: var(--lc-heading);
   content: "Home";
   font-size: calc(0.84 * var(--lc-type-unit));
+}
+
+body.lc-gallery-page .quarto-secondary-nav-title::before,
+body.lc-template-page .quarto-secondary-nav-title::before {
+  content: "Templates  ›";
+}
+
+body.lc-widget-gallery .quarto-secondary-nav-title::before {
+  content: "Widgets  ›";
 }
 
 .quarto-secondary-nav .container-fluid::after {
@@ -262,9 +335,9 @@ main#quarto-document-content {
   min-width: 0;
   min-height: 0;
   margin: 0 !important;
-  padding: clamp(1.5rem, 3vw, 3rem) !important;
+  padding: 1.25rem 2rem 1.75rem !important;
   grid-template-rows: auto minmax(0, 1fr);
-  gap: clamp(1.25rem, 2.5vh, 2rem);
+  gap: 1rem;
   overflow: auto;
   background: var(--lc-bg);
 }
@@ -275,6 +348,11 @@ main#quarto-document-content {
   margin-inline: auto;
 }
 
+body.lc-home .quarto-title-block,
+.lc-home-canvas {
+  width: min(100%, 76rem);
+}
+
 .quarto-title-block {
   margin-block: 0 !important;
 }
@@ -283,19 +361,22 @@ main#quarto-document-content {
   display: block !important;
 }
 
-.quarto-title-block .title {
+.quarto-title-block .title,
+#title-block-header.quarto-title-block.default .quarto-title .title {
   display: block !important;
-  margin: 0 0 0.35rem;
+  margin: 0 0 0.65rem;
   color: var(--lc-heading);
-  font-size: clamp(2rem, calc(1.25rem + 1.7vw), 3.4rem);
-  line-height: 1.08;
+  font-size: clamp(1.85rem, calc(1.65rem + 0.4vw), 2.25rem);
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 .quarto-title-block .subtitle {
-  max-width: 78rem;
+  max-width: 64rem;
   margin: 0;
   color: var(--lc-muted);
-  font-size: clamp(1rem, calc(0.88rem + 0.25vw), 1.25rem);
+  font-size: clamp(0.95rem, calc(0.9rem + 0.12vw), 1.08rem);
+  font-weight: 400;
   line-height: 1.5;
 }
 
@@ -306,23 +387,23 @@ main#quarto-document-content {
 .lc-home-canvas {
   display: grid;
   min-height: 0;
-  grid-template-columns: minmax(24rem, 1.15fr) minmax(22rem, 0.85fr);
-  gap: clamp(1rem, 2vw, 1.5rem);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
 }
 
 .lc-introduction-panel,
 .lc-foundation-card {
   background: var(--lc-panel-bg);
   border: 1px solid var(--lc-border);
-  border-radius: var(--lc-radius);
+  border-radius: 0;
 }
 
 .lc-introduction-panel {
   display: flex;
   min-height: 0;
-  padding: clamp(1.5rem, 3vw, 3rem);
+  padding: clamp(1rem, 1.5vw, 1.4rem);
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .lc-eyebrow,
@@ -331,10 +412,11 @@ main#quarto-document-content {
   font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
   font-size: 0.72rem;
   letter-spacing: 0.08em;
+  line-height: 1;
 }
 
 .lc-eyebrow {
-  margin: 0 0 1rem;
+  margin: 0;
   color: var(--lc-focus);
   font-weight: 700;
 }
@@ -344,46 +426,43 @@ main#quarto-document-content {
 }
 
 .lc-introduction-panel h2 {
-  max-width: 17ch;
-  margin: 0 0 1.25rem;
+  max-width: 30ch;
+  margin: 0 0 var(--lc-heading-content-gap);
   color: var(--lc-heading);
   padding-bottom: 0;
   border-bottom: 0;
-  font-size: clamp(2rem, calc(1.2rem + 2vw), 3.8rem);
-  line-height: 1.06;
+  font-size: clamp(1.45rem, calc(1.25rem + 0.4vw), 1.8rem);
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 .lc-introduction-panel p:not(:first-child) {
   max-width: 58ch;
-  margin: 0 0 1rem;
+  margin: 0 0 0.8rem;
   color: var(--lc-text);
-  font-size: clamp(1rem, calc(0.85rem + 0.35vw), 1.3rem);
-  line-height: 1.55;
+  font-size: var(--lc-type-unit);
+  line-height: 1.5;
 }
 
 .lc-foundation-grid {
   display: grid;
   min-height: 0;
   grid-template-rows: repeat(3, minmax(0, 1fr));
-  gap: clamp(0.75rem, 1.5vh, 1rem);
+  gap: 0.75rem;
 }
 
 .lc-foundation-card {
   position: relative;
   display: flex;
   min-height: 0;
-  padding: clamp(1rem, 2vw, 1.5rem);
+  padding: clamp(0.9rem, 1.35vw, 1.2rem);
   flex-direction: column;
   justify-content: center;
   overflow: hidden;
 }
 
 .lc-foundation-card::before {
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 4px;
-  background: var(--lc-card-accent);
-  content: "";
+  content: none;
 }
 
 .lc-foundation-authoring {
@@ -415,18 +494,318 @@ main#quarto-document-content {
 }
 
 .lc-foundation-card h2 {
-  margin: 0.5rem 0 0.35rem;
+  margin: 0 0 var(--lc-heading-content-gap);
   color: var(--lc-heading);
   padding-bottom: 0;
   border-bottom: 0;
-  font-size: clamp(1.3rem, calc(1rem + 0.6vw), 1.9rem);
+  font-size: clamp(1.18rem, calc(1.05rem + 0.25vw), 1.4rem);
+  font-weight: 600;
 }
 
 .lc-foundation-card p {
   margin: 0;
+  color: var(--lc-text);
+  font-size: clamp(0.9rem, calc(0.86rem + 0.08vw), 0.98rem);
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.lc-gallery-grid,
+.lc-template-stage {
+  width: min(100%, 92rem);
+  min-height: 0;
+  margin-inline: auto;
+}
+
+.lc-gallery-grid {
+  display: grid;
+  padding: 0 0 0.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(17rem, 100%), 1fr));
+  grid-auto-rows: minmax(11.5rem, auto);
+  gap: clamp(0.8rem, 1.5vw, 1.25rem);
+  overflow: visible;
+}
+
+.lc-template-stage {
+  overflow: auto;
+}
+
+.lc-gallery-card,
+.lc-template-panel {
+  background: var(--lc-panel-bg);
+  border: 1px solid var(--lc-border);
+  border-radius: var(--lc-radius);
+}
+
+.lc-gallery-card {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  padding: 1.35rem;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.lc-gallery-card::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--lc-link);
+  content: "";
+}
+
+.lc-gallery-label {
+  color: var(--lc-focus);
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+.lc-gallery-card h2 {
+  margin: 0 0 var(--lc-heading-content-gap);
+  padding: 0;
+  color: var(--lc-heading);
+  font-size: clamp(1.3rem, calc(1rem + 0.55vw), 1.8rem);
+  border: 0;
+}
+
+.lc-gallery-card p {
+  margin: 0;
   color: var(--lc-muted);
-  font-size: clamp(0.9rem, calc(0.8rem + 0.2vw), 1.05rem);
+  line-height: 1.5;
+}
+
+.lc-gallery-card .lc-gallery-link {
+  margin-top: auto;
+  padding-top: 1rem;
+  color: var(--lc-link);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.lc-gallery-card .lc-gallery-link:hover,
+.lc-gallery-card .lc-gallery-link:focus-visible {
+  color: #fff;
+}
+
+.lc-template-stage {
+  display: grid;
+}
+
+.lc-layout {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  gap: clamp(0.8rem, 1.5vw, 1.25rem);
+}
+
+.lc-layout-one {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.lc-layout-two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.lc-layout-feature {
+  grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr);
+}
+
+.lc-layout-top-split {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: minmax(10rem, 0.65fr) minmax(15rem, 1fr);
+}
+
+.lc-layout-span {
+  grid-column: 1 / -1;
+}
+
+.lc-layout-dashboard {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(12rem, 1fr));
+}
+
+.lc-layout-media {
+  grid-template-columns: minmax(20rem, 0.9fr) minmax(0, 1.1fr);
+}
+
+.lc-layout-widget {
+  height: max-content;
+  min-height: 0;
+  grid-template-columns: minmax(0, 2.2fr) minmax(18rem, 0.8fr);
+  align-self: start;
+}
+
+.lc-template-panel {
+  min-width: 0;
+  min-height: 0;
+  padding: clamp(1.25rem, 2.5vw, 2.25rem);
+  overflow: auto;
+}
+
+.lc-template-panel h2,
+.lc-template-panel h3 {
+  margin: 0 0 var(--lc-heading-content-gap);
+  padding-bottom: 0;
+  color: var(--lc-heading);
+  border: 0;
+}
+
+.lc-template-panel p,
+.lc-template-panel li {
+  color: var(--lc-text);
+  font-size: clamp(1rem, calc(0.88rem + 0.2vw), 1.15rem);
+  line-height: 1.55;
+}
+
+.lc-template-panel li + li {
+  margin-top: 0.55rem;
+}
+
+.lc-template-kicker {
+  color: var(--lc-focus);
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+.lc-template-media,
+.lc-widget-placeholder {
+  display: grid;
+  min-height: 18rem;
+  place-items: center;
+  text-align: center;
+  background:
+    linear-gradient(135deg, rgb(78 181 222 / 12%), rgb(26 188 156 / 8%)),
+    var(--lc-panel-bg);
+}
+
+.lc-template-media p,
+.lc-widget-placeholder p {
+  max-width: 28rem;
+  color: var(--lc-muted);
+}
+
+.lc-widget-placeholder {
+  border-style: dashed;
+}
+
+.lc-widget-placeholder code {
+  color: var(--lc-link);
+  background: #1b2020;
+}
+
+.lc-widget-gallery-grid {
+  display: grid;
+  width: min(100%, 92rem);
+  margin-inline: auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(1rem, 2vw, 1.5rem);
+}
+
+.lc-widget-demo,
+.lc-widget-template-panel {
+  min-width: 0;
+  overflow: hidden;
+  background: var(--lc-panel-bg);
+  border: 1px solid var(--lc-border);
+  border-radius: var(--lc-radius);
+}
+
+.lc-widget-demo {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.lc-widget-demo-wide {
+  grid-column: 1 / -1;
+}
+
+.lc-widget-demo-heading {
+  padding: 1.1rem 1.25rem;
+  border-bottom: 1px solid var(--lc-border);
+}
+
+.lc-widget-demo-heading h2 {
+  margin: 0 0 var(--lc-heading-content-gap);
+  padding: 0;
+  color: var(--lc-heading);
+  font-size: clamp(1.15rem, calc(0.95rem + 0.4vw), 1.55rem);
+  border: 0;
+}
+
+.lc-widget-demo-heading p {
+  margin: 0;
+  color: var(--lc-muted);
+  font-size: 0.88rem;
   line-height: 1.45;
+}
+
+/*
+ * Quarto wraps Markdown headings in section.level2. Put the rhythm on that
+ * wrapper so every kicker/heading pair is spaced by the same design token.
+ */
+.lc-introduction-panel > p:first-child,
+.lc-gallery-card > p:first-child,
+.lc-template-panel > p:first-child,
+.lc-widget-demo-heading > p:first-child,
+.lc-card-heading p {
+  margin: 0;
+  line-height: 1;
+}
+
+.lc-introduction-panel > section.level2,
+.lc-foundation-card > section.level2,
+.lc-gallery-card > section.level2,
+.lc-template-panel > section.level2,
+.lc-widget-demo-heading > section.level2 {
+  margin-top: var(--lc-kicker-heading-gap);
+}
+
+.lc-widget-frame {
+  display: block;
+  width: 100%;
+  height: var(--lc-widget-height, 20rem);
+  min-width: 0;
+  background: var(--lc-panel-bg);
+  border: 0;
+}
+
+.lc-widget-template-panel {
+  display: grid;
+  padding: 0;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+body.lc-widget-gallery main#quarto-document-content {
+  display: block;
+}
+
+body.lc-widget-gallery .quarto-title-block {
+  margin-bottom: clamp(1.25rem, 2.5vh, 2rem) !important;
+}
+
+body.lc-widget-gallery #quarto-document-content > section.level2 {
+  width: min(100%, 92rem);
+  margin-inline: auto;
+}
+
+body.lc-widget-gallery #quarto-document-content > section.level2 {
+  margin-top: clamp(1.5rem, 3vh, 2rem);
+}
+
+body.lc-widget-gallery #quarto-document-content > section.level2 > h2 {
+  margin: 0 0 0.75rem;
+  padding: 0 0 0.5rem;
+}
+
+body.lc-widget-gallery #quarto-document-content > section.level2 > p {
+  margin: 0 0 0.75rem;
 }
 
 footer.footer {
@@ -494,12 +873,59 @@ footer.footer {
     grid-template-columns: 1fr;
   }
 
+  body.lc-home main#quarto-document-content {
+    grid-template-rows: auto auto;
+  }
+
+  body.lc-home .lc-home-canvas,
+  body.lc-home .lc-foundation-grid {
+    min-height: auto;
+  }
+
   .lc-introduction-panel {
     justify-content: flex-start;
   }
 
   .lc-foundation-grid {
-    grid-template-rows: repeat(3, auto);
+    grid-template-rows: repeat(3, minmax(9rem, auto));
+  }
+
+  .lc-foundation-card {
+    min-height: 9rem;
+  }
+
+  .lc-layout-two,
+  .lc-layout-feature,
+  .lc-layout-top-split,
+  .lc-layout-dashboard,
+  .lc-layout-media,
+  .lc-layout-widget {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+
+  .lc-widget-gallery-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lc-widget-demo-wide {
+    grid-column: auto;
+  }
+
+  .lc-layout-span {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 1200px) {
+  .lc-layout-widget {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+
+  .lc-layout-widget .lc-widget-template-panel {
+    min-height: max-content;
+    grid-template-rows: auto;
   }
 }
 

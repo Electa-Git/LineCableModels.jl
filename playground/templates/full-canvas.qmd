@@ -1,0 +1,27 @@
+---
+title: "Full canvas"
+subtitle: "One region with maximum usable area. Use View Source to copy this complete template."
+body-classes: lc-template-page
+format:
+  html:
+    code-tools:
+      source: true
+      toggle: false
+      caption: "Source"
+---
+
+::: {.lc-template-stage}
+::: {.lc-layout .lc-layout-one}
+::: {.lc-template-panel}
+[PRIMARY ARGUMENT]{.lc-template-kicker}
+
+## One uninterrupted canvas
+
+Use this layout when one diagram, result, or line of reasoning deserves the full page. The panel protects readable padding while allowing its contents to expand vertically.
+
+- Replace this prose with Markdown, equations, figures, tables, or callouts.
+- Keep the hierarchy shallow: one message, one visual centre of gravity.
+- Remove the panel class when the content itself should touch the canvas edges.
+:::
+:::
+:::

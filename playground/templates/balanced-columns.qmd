@@ -1,0 +1,39 @@
+---
+title: "Balanced columns"
+subtitle: "Two equal regions for comparison or parallel explanation. Use View Source to copy this complete template."
+body-classes: lc-template-page
+format:
+  html:
+    code-tools:
+      source: true
+      toggle: false
+      caption: "Source"
+---
+
+::: {.lc-template-stage}
+::: {.lc-layout .lc-layout-two}
+::: {.lc-template-panel}
+[LEFT COLUMN]{.lc-template-kicker}
+
+## First idea
+
+Explain the first model, scenario, method, or result here.
+
+- Ordinary Markdown remains the authoring language.
+- The column grows with the viewport.
+- At narrow widths the columns stack automatically.
+:::
+
+::: {.lc-template-panel}
+[RIGHT COLUMN]{.lc-template-kicker}
+
+## Second idea
+
+Place the corresponding comparison, illustration, or consequence here.
+
+$$
+Z(\omega) = R(\omega) + j\omega L(\omega)
+$$
+:::
+:::
+:::

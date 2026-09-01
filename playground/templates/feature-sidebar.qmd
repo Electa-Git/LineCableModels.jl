@@ -1,0 +1,34 @@
+---
+title: "Feature + sidebar"
+subtitle: "A dominant region with a compact supporting column. Use View Source to copy this complete template."
+body-classes: lc-template-page
+format:
+  html:
+    code-tools:
+      source: true
+      toggle: false
+      caption: "Source"
+---
+
+::: {.lc-template-stage}
+::: {.lc-layout .lc-layout-feature}
+::: {.lc-template-panel}
+[FEATURE REGION]{.lc-template-kicker}
+
+## Main result or interactive surface
+
+Give the principal figure, model, or explanation most of the available width. This region is suitable for a large plot or a responsive Bonito viewport.
+:::
+
+::: {.lc-template-panel}
+[SUPPORT]{.lc-template-kicker}
+
+## Context
+
+- Controls
+- Assumptions
+- Key metrics
+- Interpretation
+:::
+:::
+:::

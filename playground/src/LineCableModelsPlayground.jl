@@ -1,13 +1,68 @@
 module LineCableModelsPlayground
 
 using Bonito
+using BonitoWidgets
 using Quarto
 
 const PLAYGROUND_ROOT = normpath(joinpath(@__DIR__, ".."))
 const SITE_DIR = joinpath(PLAYGROUND_ROOT, "_site")
 const DEFAULT_HOST = "127.0.0.1"
 const DEFAULT_PORT = 8080
-const DEFAULT_PROXY_URL = "."
+
+include("toolbar.jl")
+include("console.jl")
+include("widgets.jl")
+
+export ConsoleEntry,
+    ConsoleView,
+    Toolbar,
+    ToolbarBinding,
+    ToolbarButton,
+    ToolbarDropdown,
+    ToolbarEvent,
+    ToolbarSeparator,
+    append_console!,
+    clear_console!,
+    set_console_status!,
+    toolbar,
+    toolbar_event_name,
+    toolbar_icon
+
+struct StaticFileHandler
+    path::String
+end
+
+function Bonito.HTTPServer.apply_handler(file::StaticFileHandler, context)
+    headers = [
+        "Access-Control-Allow-Origin" => "*",
+        "Content-Type" => Bonito.file_mimetype(file.path),
+    ]
+    return Bonito.HTTP.Response(200, headers; body=read(file.path))
+end
+
+function register_static_site_routes!(server, directory=SITE_DIR)
+    isdir(directory) || throw(ArgumentError("static site directory not found: $directory"))
+
+    for (root, _, files) in walkdir(directory)
+        for name in files
+            path = joinpath(root, name)
+            relative = replace(relpath(path, directory), '\\' => '/')
+            route = "/$relative"
+            handler = StaticFileHandler(path)
+            Bonito.route!(server, route => handler)
+
+            if name == "index.html"
+                directory_route = dirname(route)
+                directory_route == "/" || Bonito.route!(server, directory_route => handler)
+                Bonito.route!(
+                    server,
+                    (directory_route == "/" ? "/" : "$directory_route/") => handler
+                )
+            end
+        end
+    end
+    return server
+end
 
 function usage(io::IO = stdout)
     println(io, "LineCableModels playground")
@@ -19,11 +74,20 @@ function usage(io::IO = stdout)
     println(io, "Start options:")
     println(io, "  --host HOST         Bind address (default: HOST or 127.0.0.1)")
     println(io, "  --port PORT         Listening port (default: PORT or 8080)")
-    println(io, "  --proxy-url URL     Bonito proxy URL (default: PROXY_URL or .)")
+    println(io, "  --proxy-url URL     Public Bonito URL (default: PROXY_URL or auto-detected)")
     println(io, "  --no-render         Serve the existing Quarto build")
     println(io, "  --no-open           Do not open the default browser")
     println(io, "  -h, --help          Show this help")
     return nothing
+end
+
+function inferred_proxy_url(port)
+    codespace = get(ENV, "CODESPACE_NAME", "")
+    forwarding_domain = get(ENV, "GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN", "")
+    if !isempty(codespace) && !isempty(forwarding_domain)
+        return "https://$codespace-$port.$forwarding_domain"
+    end
+    return ""
 end
 
 function option_value(arguments, index, name)
@@ -39,7 +103,7 @@ function parse_start_options(arguments)
     host = get(ENV, "HOST", DEFAULT_HOST)
     port = tryparse(Int, get(ENV, "PORT", string(DEFAULT_PORT)))
     isnothing(port) && throw(ArgumentError("PORT must be an integer"))
-    proxy_url = get(ENV, "PROXY_URL", DEFAULT_PROXY_URL)
+    proxy_url = get(ENV, "PROXY_URL", nothing)
     open_browser = true
     render_before_start = true
 
@@ -66,6 +130,9 @@ function parse_start_options(arguments)
     end
 
     0 < port <= 65535 || throw(ArgumentError("port must be between 1 and 65535"))
+    if isnothing(proxy_url) || proxy_url in (".", "./")
+        proxy_url = inferred_proxy_url(port)
+    end
     return (; host, port, proxy_url, open_browser, render_before_start)
 end
 
@@ -138,6 +205,34 @@ function open_default_browser(url)
     end
 end
 
+function server_shutdown(server)
+    closed = Ref(false)
+    return function ()
+        closed[] && return nothing
+        closed[] = true
+        try
+            close(server)
+        catch error
+            @debug "Error while closing playground server" exception = (
+                error,
+                catch_backtrace()
+            )
+        end
+        return nothing
+    end
+end
+
+function shutdown_on_stdin(shutdown)
+    return errormonitor(@async begin
+        try
+            read(stdin, UInt8)
+        catch error
+            error isa EOFError || rethrow()
+        end
+        shutdown()
+    end)
+end
+
 function start_server(;
         host,
         port,
@@ -154,18 +249,27 @@ function start_server(;
     end
 
     server = Bonito.Server(host, port; proxy_url)
-    Bonito.route!(server, r".*" => Bonito.FolderServer(SITE_DIR))
+    register_widget_routes!(server)
+    register_static_site_routes!(server)
     url = Bonito.online_url(server, "/")
     println("LineCableModels playground listening at $url")
     open_browser && open_default_browser(url)
 
-    Base.exit_on_sigint(false)
+    shutdown = server_shutdown(server)
+    atexit(shutdown)
+
+    supervised = get(ENV, "LINECABLEMODELS_SUPERVISED", "") == "1"
+    if supervised
+        shutdown_on_stdin(shutdown)
+    else
+        # Direct invocation remains fail-safe: terminate instead of allowing a
+        # Bonito background task to swallow a catchable InterruptException.
+        Base.exit_on_sigint(true)
+    end
     try
         wait(server)
-    catch error
-        error isa InterruptException || rethrow()
     finally
-        close(server)
+        shutdown()
     end
     return nothing
 end

@@ -3,6 +3,8 @@ project:
   output-dir: _site
   render:
     - index.qmd
+    - templates/*.qmd
+    - widgets/*.qmd
 
 website:
   title: "LineCableModels playground"
@@ -20,6 +22,28 @@ website:
         contents:
           - text: "Home"
             href: index.qmd
+      - section: "Templates"
+        contents:
+          - text: "Gallery"
+            href: templates/index.qmd
+          - text: "Full canvas"
+            href: templates/full-canvas.qmd
+          - text: "Balanced columns"
+            href: templates/balanced-columns.qmd
+          - text: "Feature + sidebar"
+            href: templates/feature-sidebar.qmd
+          - text: "Top band + columns"
+            href: templates/top-split.qmd
+          - text: "Dashboard grid"
+            href: templates/dashboard-grid.qmd
+          - text: "Media + narrative"
+            href: templates/media-story.qmd
+          - text: "Bonito viewport"
+            href: templates/bonito-widget.qmd
+      - section: "Widgets"
+        contents:
+          - text: "Gallery"
+            href: widgets/index.qmd
   page-footer:
     left: "LineCableModels playground"
     right: "Bonito · NATS · Quarto"

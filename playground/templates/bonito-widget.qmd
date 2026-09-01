@@ -1,0 +1,34 @@
+---
+title: "Bonito viewport"
+subtitle: "A responsive live route beside stable Quarto-authored context. Use View Source to copy this complete template."
+body-classes: lc-template-page
+format:
+  html:
+    code-tools:
+      source: true
+      toggle: false
+      caption: "Source"
+---
+
+::: {.lc-template-stage}
+::: {.lc-layout .lc-layout-widget}
+::: {.lc-template-panel .lc-widget-template-panel}
+{{< bonito route="/widgets/control-panel" title="Engineering control panel" height="34rem" >}}
+:::
+
+::: {.lc-template-panel}
+[QUARTO CONTEXT]{.lc-template-kicker}
+
+## Explain the interaction
+
+- State what the controls change.
+- Record assumptions and units.
+- Keep citations and equations outside the live application.
+- Provide a static fallback for printing.
+
+```{.markdown shortcodes=false}
+{{< bonito route="/widgets/control-panel" title="Engineering controls" height="34rem" >}}
+```
+:::
+:::
+:::

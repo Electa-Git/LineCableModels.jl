@@ -1,6 +1,7 @@
 ---
 title: "LineCableModels playground"
 subtitle: "A clean publishing surface for live engineering material, with authoring, presentation and numerical execution kept deliberately separate."
+body-classes: lc-home
 ---
 
 ::: {.lc-home-canvas}

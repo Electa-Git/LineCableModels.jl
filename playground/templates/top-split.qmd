@@ -1,0 +1,35 @@
+---
+title: "Top band + columns"
+subtitle: "A full-width opening region followed by two supporting panels. Use View Source to copy this complete template."
+body-classes: lc-template-page
+format:
+  html:
+    code-tools:
+      source: true
+      toggle: false
+      caption: "Source"
+---
+
+::: {.lc-template-stage}
+::: {.lc-layout .lc-layout-top-split}
+::: {.lc-template-panel .lc-layout-span}
+[FULL-WIDTH BAND]{.lc-template-kicker}
+
+## Lead with the shared context
+
+Use this region for the governing question, a network diagram, a compact equation, or the result that both lower panels explain.
+:::
+
+::: {.lc-template-panel}
+## Evidence
+
+Place the first supporting view here.
+:::
+
+::: {.lc-template-panel}
+## Interpretation
+
+Place the corresponding explanation or second view here.
+:::
+:::
+:::

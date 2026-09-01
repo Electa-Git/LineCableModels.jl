@@ -41,6 +41,7 @@ require_command curl
 require_command grep
 require_command julia
 require_command sha256sum
+require_command setsid
 require_command tar
 
 julia --startup-file=no -e \
@@ -94,14 +95,33 @@ fi
 [[ -x "${julia_command}" ]] || die "Pkg did not create ${julia_command}"
 
 mkdir -p -- "${BIN_HOME}"
+private_bin_home="${DATA_HOME}/linecablemodels-playground/bin"
+private_command="${private_bin_home}/linecablemodels-julia"
+mkdir -p -- "${private_bin_home}"
+if [[ -e "${private_command}" || -L "${private_command}" ]]; then
+    [[ -L "${private_command}" ]] \
+        || die "refusing to replace non-symlink path: ${private_command}"
+else
+    ln -s -- "${julia_command}" "${private_command}"
+fi
+
 public_command="${BIN_HOME}/linecablemodels"
 if [[ -e "${public_command}" || -L "${public_command}" ]]; then
-    if [[ ! -L "${public_command}" ]] \
-        || [[ "$(readlink -- "${public_command}")" != "${julia_command}" ]]; then
+    if [[ ! -L "${public_command}" ]]; then
         die "refusing to replace existing command: ${public_command}"
     fi
+    current_target="$(readlink -- "${public_command}")"
+    if [[ "${current_target}" != "${julia_command}" \
+        && "${current_target}" != "${SCRIPT_DIR}/launcher.sh" \
+        && "${current_target}" != "${SCRIPT_DIR}/linecablemodels" ]]; then
+        die "refusing to replace existing command: ${public_command}"
+    fi
+    if [[ "${current_target}" != "${SCRIPT_DIR}/linecablemodels" ]]; then
+        rm -- "${public_command}"
+        ln -s -- "${SCRIPT_DIR}/linecablemodels" "${public_command}"
+    fi
 else
-    ln -s -- "${julia_command}" "${public_command}"
+    ln -s -- "${SCRIPT_DIR}/linecablemodels" "${public_command}"
 fi
 
 printf 'Rendering the initial Quarto site...\n'

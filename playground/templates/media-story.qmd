@@ -1,0 +1,37 @@
+---
+title: "Media + narrative"
+subtitle: "A protected visual region beside prose, equations, or findings. Use View Source to copy this complete template."
+body-classes: lc-template-page
+format:
+  html:
+    code-tools:
+      source: true
+      toggle: false
+      caption: "Source"
+---
+
+::: {.lc-template-stage}
+::: {.lc-layout .lc-layout-media}
+::: {.lc-template-panel .lc-template-media}
+::: {}
+[MEDIA REGION]{.lc-template-kicker}
+
+Replace this block with an image, figure, video, or diagram. The region remains centred and bounded while the page responds.
+:::
+:::
+
+::: {.lc-template-panel}
+[NARRATIVE]{.lc-template-kicker}
+
+## Explain what matters
+
+Use ordinary Markdown for the argument that accompanies the visual.
+
+$$
+\delta f = \sqrt{\sum_i \left(\frac{\partial f}{\partial x_i}\delta x_i\right)^2}
+$$
+
+Call out the observation the audience should carry into the next page.
+:::
+:::
+:::

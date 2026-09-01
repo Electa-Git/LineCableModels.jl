@@ -1,0 +1,39 @@
+---
+title: "Dashboard grid"
+subtitle: "Four coordinated regions for plots, quantities, or diagnostics. Use View Source to copy this complete template."
+body-classes: lc-template-page
+format:
+  html:
+    code-tools:
+      source: true
+      toggle: false
+      caption: "Source"
+---
+
+::: {.lc-template-stage}
+::: {.lc-layout .lc-layout-dashboard}
+::: {.lc-template-panel}
+## Resistance
+
+Primary or self quantity.
+:::
+
+::: {.lc-template-panel}
+## Inductance
+
+Primary or self quantity.
+:::
+
+::: {.lc-template-panel}
+## Capacitance
+
+Secondary or mutual quantity.
+:::
+
+::: {.lc-template-panel}
+## Conductance
+
+Secondary or mutual quantity.
+:::
+:::
+:::

@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+IFS=$'\n\t'
+
+readonly DATA_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}"
+readonly JULIA_APP="${LINECABLEMODELS_JULIA_APP:-${DATA_HOME}/linecablemodels-playground/bin/linecablemodels-julia}"
+
+die() {
+    printf 'linecablemodels: %s\n' "$*" >&2
+    exit 1
+}
+
+[[ -x "${JULIA_APP}" ]] || die "Julia application not found; run playground/bootstrap.sh"
+
+if [[ "${1:-}" != "playground" || "${2:-}" != "start" ]]; then
+    exec "${JULIA_APP}" "$@"
+fi
+
+command -v setsid >/dev/null 2>&1 || die "required command not found: setsid"
+
+control_directory="$(mktemp -d "${TMPDIR:-/tmp}/linecablemodels-playground.XXXXXXXX")"
+control_fifo="${control_directory}/shutdown"
+child_pid=""
+shutdown_requested=false
+
+cleanup() {
+    exec 3>&- || true
+    [[ ! -p "${control_fifo}" ]] || rm -f -- "${control_fifo}"
+    [[ ! -d "${control_directory}" ]] || rmdir -- "${control_directory}"
+}
+
+request_shutdown() {
+    [[ "${shutdown_requested}" == false ]] || return
+    shutdown_requested=true
+    trap - HUP INT TERM
+    printf '\nStopping LineCableModels playground...\n'
+    printf '\n' >&3 || true
+    if [[ -n "${child_pid}" ]]; then
+        wait "${child_pid}" || true
+    fi
+    exit 0
+}
+
+trap cleanup EXIT
+trap request_shutdown HUP INT TERM
+
+mkfifo -- "${control_fifo}"
+exec 3<>"${control_fifo}"
+
+LINECABLEMODELS_SUPERVISED=1 setsid "${JULIA_APP}" "$@" \
+    <"${control_fifo}" 3>&- &
+child_pid=$!
+
+set +e
+wait "${child_pid}"
+status=$?
+set -e
+exit "${status}"
