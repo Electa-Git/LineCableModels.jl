@@ -152,7 +152,8 @@ end
 ] begin
     earth_impedance=LineCableModels.Engine.EarthImpedance
     formulations=(
-        earth_impedance.Formula(:DeriSemlyen1981)=>"Deri-Semlyen",
+        earth_impedance.Formula(:DeriSemlyen1981)=>
+            "Deri-Semlyen complex ground-return-plane approximation (1981)",
         earth_impedance.Formula(:Ametani2009)=>
             "Ametani pair-complete homogeneous-earth impedance (2009)",
         earth_impedance.Formula(:Lucca1994)=>
