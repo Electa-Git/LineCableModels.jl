@@ -1,17 +1,17 @@
 function routes(identifier::Val{:Sunde1968})
     (
-        self = formula_method(identifier, earth_impedance, Val(:self)),
-        mutual = formula_method(identifier, earth_impedance, Val(:mutual)),
-        homogeneous = formula_method(
+        self = FormulaMethod(identifier, earth_impedance, Val(:self)),
+        mutual = FormulaMethod(identifier, earth_impedance, Val(:mutual)),
+        homogeneous = FormulaMethod(
             identifier, earth_impedance, Val(:homogeneous)
         ),
-        two_layer = formula_method(
+        two_layer = FormulaMethod(
             identifier, earth_impedance, Val(:two_layer)
         ),
-        multilayer = formula_method(
+        multilayer = FormulaMethod(
             identifier, earth_impedance, Val(:multilayer)
         ),
-        Γ = formula_method(identifier, propagation_constant)
+        Γ = FormulaMethod(identifier, propagation_constant)
     )
 end
 

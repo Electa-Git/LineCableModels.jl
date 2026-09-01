@@ -1,8 +1,8 @@
 """
 $(TYPEDEF)
 
-Define one materialised line-parameter calculation. Operating temperature and
-analysis frequencies are fields of the problem.
+Define one scalar line-parameter calculation over a completed cable system.
+Operating temperature and analysis frequencies are fields of the problem.
 
 $(TYPEDFIELDS)
 """
@@ -299,28 +299,20 @@ function _direct(::FormulaSpec{ID, Order}, owner::Symbol) where {ID, Order}
     return nothing
 end
 
-function _ehem_rule(
-        ::FormulaSpec{:Layer, Order, NamedTuple{(), Tuple{}}}
-) where {Order}
-    EHEM.Layer()
-end
-
-function _ehem_rule(
-        selection::FormulaSpec{
-        :Layer, Order, NamedTuple{(:layer,), Tuple{T}}
-}
-) where {Order, T <: Int}
-    return EHEM.Layer(selection.overrides.layer)
-end
-
 function _ehem_rule(selection::FormulaSpec{:Layer})
-    defaults = (layer = -1,)
-    unknown = setdiff(keys(selection.overrides), keys(defaults))
+    required = (:layer,)
+    unknown = setdiff(keys(selection.overrides), required)
     isempty(unknown) || throw(ArgumentError(
         "unknown assumptions for equivalent-earth policy :Layer: $(collect(unknown))"
     ))
-    values = merge(defaults, selection.overrides)
-    return EHEM.Layer(values.layer)
+    haskey(selection.overrides, :layer) || throw(ArgumentError(
+        "equivalent-earth policy :Layer requires `layer`"
+    ))
+    layer = selection.overrides.layer
+    layer isa Int || throw(ArgumentError(
+        "equivalent-earth policy :Layer requires an integer `layer`"
+    ))
+    return EHEM.Layer(layer)
 end
 
 function _ehem_rule(selection::FormulaSpec{ID}) where {ID}
@@ -337,16 +329,16 @@ function _equivalent_earth(
     return _ehem_order(Val(Order), _ehem_rule(selection))
 end
 
-function Formulation(;
-        internal_impedance = formula(:Schelkunoff1934),
-        insulation_impedance = formula(:Ametani1980),
-        earth_impedance = formula(:Papadopoulos2010),
-        insulation_admittance = formula(:Marti2001),
-        semicon_admittance = formula(:Ametani2004),
-        earth_admittance = formula(:Papadopoulos2010),
-        earth_properties = nothing,
-        equivalent_earth = formula(:Layer; order = :after),
-        options::NamedTuple = (;)
+function _line_formulation(
+        internal_impedance,
+        insulation_impedance,
+        earth_impedance,
+        insulation_admittance,
+        semicon_admittance,
+        earth_admittance,
+        earth_properties,
+        equivalent_earth,
+        options::NamedTuple
 )
     return LineParametersFormulation(;
         internal_impedance = _internal_impedance_formula(internal_impedance),
@@ -358,5 +350,55 @@ function Formulation(;
         earth_properties = _earth_properties_formula(earth_properties),
         equivalent_earth = _equivalent_earth(equivalent_earth),
         options = formulation_options(Val(LineParametersFormulation), options)
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Select the complete physical-method bundle for a line-parameter calculation.
+
+Each formula slot and the complete `options` tuple accepts either one scalar
+selection or an explicit
+[`Grid`](@ref LineCableModels.ParametricBuilder.Grid)/
+[`Gridspace`](@ref LineCableModels.ParametricBuilder.Gridspace) source. Scalar
+inputs return one [`LineParametersFormulation`](@ref). Varying inputs return a
+`Gridspace{LineParametersFormulation}` whose points contain only completed,
+owner-resolved formula values.
+
+`combine=:product` forms the Cartesian product among varying fields in this
+formulation. `combine=:zip` aligns equally sized fields and broadcasts
+singletons. This composition is independent of the Cartesian product between
+problem points and formulation points performed by
+[`Combinatorial`](@ref LineCableModels.ParametricBuilder.Combinatorial).
+"""
+function Formulation(;
+        internal_impedance = formula(:default),
+        insulation_impedance = formula(:default),
+        earth_impedance = formula(:default),
+        insulation_admittance = formula(:default),
+        semicon_admittance = formula(:default),
+        earth_admittance = formula(:default),
+        earth_properties = formula(:default),
+        equivalent_earth = formula(:default),
+        options = (;),
+        combine::Symbol = :product
+)
+    values = (
+        internal_impedance,
+        insulation_impedance,
+        earth_impedance,
+        insulation_admittance,
+        semicon_admittance,
+        earth_admittance,
+        earth_properties,
+        equivalent_earth,
+        options
+    )
+    return _construction(
+        LineParametersFormulation,
+        _line_formulation,
+        values;
+        combine
     )
 end

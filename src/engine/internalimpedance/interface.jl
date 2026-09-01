@@ -52,6 +52,12 @@ function routes end
 "Return the default physical assumptions of a literature formula."
 function assumptions end
 
+"Evaluate one formula-owned internal-impedance interaction."
+function internal_impedance end
+
+"Return the three cylindrical surface impedances supplied by one formula."
+function surface_impedances end
+
 """
 $(TYPEDSIGNATURES)
 
@@ -62,15 +68,20 @@ the selected formula's defaults.
 """
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
 
+Formula(::Val{:default}; kwargs...) = Formula(Val(DEFAULT); kwargs...)
+
 function Formula(::Val{ID}; kwargs...) where {ID}
-    defaults = routes(Val(ID))
+    identifier = Val(ID)
+    applicable(routes, identifier) && applicable(assumptions, identifier) ||
+        throw(ArgumentError("unknown internal-impedance formula :$ID"))
+    defaults = routes(identifier)
     overrides = (; kwargs...)
     unknown = setdiff(keys(overrides), keys(defaults))
     isempty(unknown) || throw(ArgumentError(
         "unknown routes for internal-impedance formula :$ID: $(collect(unknown))"
     ))
     selected = merge(defaults, overrides)
-    values = assumptions(Val(ID))
+    values = assumptions(identifier)
     return Formula{ID, typeof(selected), typeof(values)}(selected, values)
 end
 
@@ -87,6 +98,12 @@ function Formula(
         ::Val{ID}, selected::R, values::A = (;)
 ) where {ID, R <: NamedTuple, A <: NamedTuple}
     return Formula{ID, R, A}(selected, values)
+end
+
+function Formula(
+        ::Val{:default}, selected::R, values::A = (;)
+) where {R <: NamedTuple, A <: NamedTuple}
+    return Formula(Val(DEFAULT), selected, values)
 end
 
 function Formula(identifier::Symbol, selected::NamedTuple, values::NamedTuple = (;))

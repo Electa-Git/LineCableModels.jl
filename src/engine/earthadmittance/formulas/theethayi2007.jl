@@ -1,9 +1,9 @@
 function routes(identifier::Val{:Theethayi2007})
     (
-        self = formula_method(identifier, earth_potential_coefficient, Val(:self)),
-        mutual = formula_method(identifier, earth_potential_coefficient, Val(:mutual)),
-        impedance = formula_method(identifier, earth_impedance, Val(:support)),
-        Γ = formula_method(identifier, propagation_constant)
+        self = FormulaMethod(identifier, earth_potential_coefficient, Val(:self)),
+        mutual = FormulaMethod(identifier, earth_potential_coefficient, Val(:mutual)),
+        impedance = FormulaMethod(identifier, earth_impedance, Val(:support)),
+        Γ = FormulaMethod(identifier, propagation_constant)
     )
 end
 

@@ -109,6 +109,94 @@ end
 """
 $(TYPEDEF)
 
+Place the `6course` members of one complete hexagonal close-packed course.
+
+For circular members of radius ``a`` and fractional clearance ``g``, adjacent
+member centres are separated by
+
+```math
+d=2a(1+g).
+```
+
+The first member lies on the positive local horizontal axis before applying
+`φ0`. Member identities then advance counter-clockwise along the six sides of
+the course.
+
+$(TYPEDFIELDS)
+"""
+struct Hexa{T <: Real}
+    "Course index counted outward from the central member \\[dimensionless\\]."
+    course::Int
+    "Counter-clockwise rotation of the complete course \\[rad\\]."
+    φ0::T
+    "Fractional clearance between adjacent members \\[dimensionless\\]."
+    gap_frac::T
+
+    function Hexa{T}(
+            course::Int,
+            φ0::T,
+            gap_frac::T
+    ) where {T <: Real}
+        course > 0 || throw(ArgumentError(
+            "hexagonal course index must be positive"
+        ))
+        isfinite(φ0) || throw(DomainError(
+            φ0, "hexagonal course rotation must be finite"
+        ))
+        isfinite(gap_frac) && gap_frac >= zero(gap_frac) || throw(DomainError(
+            gap_frac,
+            "hexagonal course gap fraction must be nonnegative and finite"
+        ))
+        return new{T}(course, φ0, gap_frac)
+    end
+end
+
+function _hexagonal_course(course, φ0, gap_frac)
+    course isa Integer && !(course isa Bool) || throw(ArgumentError(
+        "hexagonal course index must be an integer"
+    ))
+    angle, gap = map(float, promote(φ0, gap_frac))
+    return Hexa{typeof(angle)}(Int(course), angle, gap)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct one hexagonal close-packed course.
+
+# Arguments
+
+- `course`: Course index counted outward from the central member
+  \\[dimensionless\\].
+
+# Keywords
+
+- `φ0=0`: Counter-clockwise rotation of the complete course \\[rad\\].
+- `gap_frac=0`: Fractional clearance between adjacent circular members
+  \\[dimensionless\\].
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- A `Hexa`, or a parameter space when a direct argument varies.
+"""
+function Hexa(
+        course;
+        φ0 = 0,
+        gap_frac = 0,
+        combine::Symbol = :product
+)
+    return _construction(
+        Hexa,
+        _hexagonal_course,
+        (course, φ0, gap_frac);
+        combine
+    )
+end
+
+"""
+$(TYPEDEF)
+
 Place members on `nr` concentric loci with `nφ` angular positions per locus.
 
 $(TYPEDFIELDS)
@@ -153,7 +241,6 @@ function _polar(nr, nφ, r0, dr, φ0, span)
     values = map(float, promote(r0, dr, φ0, span))
     return Polar{typeof(first(values))}(Int(nr), Int(nφ), values...)
 end
-
 
 function Polar(;
         nr,
@@ -201,7 +288,6 @@ function _fill(r, φ, φ0, span)
     values = map(float, promote(r, φ, φ0, span))
     return Fill{typeof(first(values))}(values...)
 end
-
 
 function Fill(;
         r,
@@ -252,7 +338,6 @@ function _lattice(nx, ny, dx, dy)
     return Lattice{typeof(first(values))}(Int(nx), Int(ny), values...)
 end
 
-
 function Lattice(;
         nx,
         ny,
@@ -274,24 +359,57 @@ end
 _placement_pose(value::Pose2) = value
 _placement_pose(value::_ResolvedPlacement) = value.pose
 _placement_definition(value::Pose2, definition::AbstractPrimitive) = definition
-_placement_definition(value::_ResolvedPlacement, ::AbstractPrimitive) =
-    value.primitive
+_placement_definition(value::_ResolvedPlacement, ::AbstractPrimitive) = value.primitive
 
 function _ring_poses(pattern::Ring, count::Int, radius::Real)
     step = count == 1 ? zero(pattern.span) :
            isapprox(pattern.span, oftype(pattern.span, 2π)) ?
            pattern.span / count : pattern.span / (count - 1)
-    return Pose2[
-        Pose2(
-            radius * cos(pattern.φ0 + index * step),
-            radius * sin(pattern.φ0 + index * step),
-            pattern.φ0 + index * step
-        )
-        for index in 0:(count - 1)
-    ]
+    return Pose2[Pose2(
+                     radius * cos(pattern.φ0 + index * step),
+                     radius * sin(pattern.φ0 + index * step),
+                     pattern.φ0 + index * step
+                 )
+                 for index in 0:(count - 1)]
+end
+
+function _hexagonal_course_poses(pattern::Hexa, member_radius::Real)
+    spacing = 2member_radius * (one(pattern.gap_frac) + pattern.gap_frac)
+    root_three = sqrt(oftype(spacing, 3))
+    cosine = cos(pattern.φ0)
+    sine = sin(pattern.φ0)
+    prototype = Pose2(spacing, zero(spacing), pattern.φ0)
+    poses = typeof(prototype)[]
+    axial_q = pattern.course
+    axial_r = 0
+    directions = ((-1, 1), (-1, 0), (0, -1), (1, -1), (1, 0), (0, 1))
+    for (step_q, step_r) in directions
+        for _ in 1:pattern.course
+            q = oftype(spacing, axial_q)
+            r = oftype(spacing, axial_r)
+            local_x = spacing * (q + r / 2)
+            local_y = spacing * root_three * r / 2
+            x = cosine * local_x - sine * local_y
+            y = sine * local_x + cosine * local_y
+            push!(poses, Pose2(x, y, atan(y, x)))
+            axial_q += step_q
+            axial_r += step_r
+        end
+    end
+    return poses
 end
 
 placements(::Nothing, item, ::Nothing) = Pose2[Pose2(0, 0, 0)]
+
+function placements(
+        pattern::Hexa,
+        item::Disk,
+        ::Nothing
+)
+    return _hexagonal_course_poses(pattern, item.r)
+end
+
+capacity(pattern::Hexa, ::Disk, ::Nothing) = 6pattern.course
 
 function _check_ring_clearance(pattern::Ring, tangential_width::Real)
     pattern.n == 1 && return nothing
@@ -346,10 +464,8 @@ function placements(pattern::Ring, item::Rectangle, ::Nothing)
         "a contextual ring radius requires placement inside a physical tree"
     ))
     _check_ring_clearance(pattern, item.w)
-    return [
-        Pose2(pose.x, pose.y, pose.φ + pi / 2)
-        for pose in _ring_poses(pattern, pattern.n, pattern.r)
-    ]
+    return [Pose2(pose.x, pose.y, pose.φ + pi / 2)
+            for pose in _ring_poses(pattern, pattern.n, pattern.r)]
 end
 
 function placements(pattern::Ring, item::Sector, ::Nothing)
@@ -394,7 +510,6 @@ function placements(pattern::Ring, item::RoundedSector, ::Nothing)
     return _ring_poses(pattern, pattern.n, pattern.r)
 end
 
-
 function placements(pattern::Ring, item::CableGeometry, ::Nothing)
     pattern.n isa Int || throw(ArgumentError(
         "capacity() requires contextual placement"
@@ -418,8 +533,9 @@ function _origin_ring_poses(pattern::Ring, shape::RoundedSectorShape)
     return _ring_poses(pattern, pattern.n, pattern.r)
 end
 
-_origin_ring_poses(pattern::Ring, shape::ShellShape) =
+function _origin_ring_poses(pattern::Ring, shape::ShellShape)
     _origin_ring_poses(pattern, shape.outer)
+end
 
 function placements(pattern::Polar, item, ::Nothing)
     poses = Pose2[]
@@ -429,11 +545,12 @@ function placements(pattern::Polar, item, ::Nothing)
             push!(poses, Pose2(0, 0, pattern.φ0))
             continue
         end
-        append!(poses, placements(
-            Ring(pattern.nφ; r = radius, φ0 = pattern.φ0, span = pattern.span),
-            item,
-            nothing
-        ))
+        append!(poses,
+            placements(
+                Ring(pattern.nφ; r = radius, φ0 = pattern.φ0, span = pattern.span),
+                item,
+                nothing
+            ))
     end
     return poses
 end
@@ -476,7 +593,6 @@ function capacity(pattern::Ring, item::Sector, ::Nothing)
     return max(0, floor(Int, pattern.span / occupied + 8eps(float(pattern.span))))
 end
 
-
 function capacity(pattern::Ring, item::RoundedSector, ::Nothing)
     if pattern.r !== nothing && !iszero(pattern.r)
         width = _tangential_width(item)
@@ -501,14 +617,11 @@ end
 function placements(pattern::Lattice, item, ::Nothing)
     x0 = -(pattern.nx - 1) * pattern.dx / 2
     y0 = -(pattern.ny - 1) * pattern.dy / 2
-    return Pose2[
-        Pose2(x0 + ix * pattern.dx, y0 + iy * pattern.dy, 0)
-        for iy in 0:(pattern.ny - 1) for ix in 0:(pattern.nx - 1)
-    ]
+    return Pose2[Pose2(x0 + ix * pattern.dx, y0 + iy * pattern.dy, 0)
+                 for iy in 0:(pattern.ny - 1) for ix in 0:(pattern.nx - 1)]
 end
 
-_fill_member_extent(item::AbstractPrimitive) =
-    support(resolve(EmptyBoundary(), item))
+_fill_member_extent(item::AbstractPrimitive) = support(resolve(EmptyBoundary(), item))
 _fill_member_extent(item::CableGeometry) = support(boundary(item))
 
 function _fill_placements(pattern::Fill, item, compact)
@@ -544,10 +657,8 @@ function _fill_placements(pattern::Fill, item, compact)
     return poses
 end
 
-placements(pattern::Fill, item, ::Nothing) =
-    _fill_placements(pattern, item, nothing)
-capacity(pattern::Fill, item, ::Nothing) =
-    length(_fill_placements(pattern, item, nothing))
+placements(pattern::Fill, item, ::Nothing) = _fill_placements(pattern, item, nothing)
+capacity(pattern::Fill, item, ::Nothing) = length(_fill_placements(pattern, item, nothing))
 
 function placements(poses::AbstractVector{<:Pose2}, item, ::Nothing)
     isempty(poses) && throw(ArgumentError("explicit placements cannot be empty"))

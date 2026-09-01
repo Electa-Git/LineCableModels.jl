@@ -1,15 +1,15 @@
 function routes(identifier::Val{:MartinsBritto2024})
     (
-        self = formula_method(identifier, earth_potential_coefficient, Val(:self)),
-        mutual = formula_method(identifier, earth_potential_coefficient, Val(:mutual)),
-        overhead = formula_method(
+        self = FormulaMethod(identifier, earth_potential_coefficient, Val(:self)),
+        mutual = FormulaMethod(identifier, earth_potential_coefficient, Val(:mutual)),
+        overhead = FormulaMethod(
             identifier, earth_potential_coefficient, Val(:same_medium)
         ),
-        underground = formula_method(
+        underground = FormulaMethod(
             identifier, earth_potential_coefficient, Val(:same_medium)
         ),
-        mixed = formula_method(identifier, earth_potential_coefficient, Val(:mixed)),
-        Γ = formula_method(identifier, propagation_constant)
+        mixed = FormulaMethod(identifier, earth_potential_coefficient, Val(:mixed)),
+        Γ = FormulaMethod(identifier, propagation_constant)
     )
 end
 

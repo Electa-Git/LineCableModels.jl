@@ -1,17 +1,17 @@
 function routes(identifier::Val{:Xue2018})
     (
-        self = formula_method(identifier, earth_potential_coefficient, Val(:self)),
-        mutual = formula_method(identifier, earth_potential_coefficient, Val(:mutual)),
-        infinite = formula_method(
+        self = FormulaMethod(identifier, earth_potential_coefficient, Val(:self)),
+        mutual = FormulaMethod(identifier, earth_potential_coefficient, Val(:mutual)),
+        infinite = FormulaMethod(
             identifier, earth_potential_coefficient, Val(:infinite_depth)
         ),
-        surface = formula_method(
+        surface = FormulaMethod(
             identifier, earth_potential_coefficient, Val(:surface_reference)
         ),
-        penetration = formula_method(
+        penetration = FormulaMethod(
             identifier, earth_potential_coefficient, Val(:penetration_depth)
         ),
-        Γ = formula_method(identifier, propagation_constant)
+        Γ = FormulaMethod(identifier, propagation_constant)
     )
 end
 

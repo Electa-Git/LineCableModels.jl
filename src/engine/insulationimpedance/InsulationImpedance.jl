@@ -19,9 +19,13 @@ export Formula, formula_id, assumptions, formulas
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 import ..Engine: InsulationImpedanceFormulation, formula_id
+import ...LineCableModels: FormulaMethod
 #! explicit-imports: off
 import ..Engine: description
 #! explicit-imports: on
+
+"Registered insulation-impedance formula selected by `:default`."
+const DEFAULT = :Ametani1980
 
 include("interface.jl")
 

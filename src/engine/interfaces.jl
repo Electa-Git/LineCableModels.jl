@@ -44,7 +44,14 @@ struct EarthPair{T <: Real}
 end
 "Tag line parameters expressed in the physical phase domain."
 struct PhaseDomain <: LineParamsDomain end
-"Store the coordinate system of a calculated modal transformation."
+"""
+Store the coordinate system of a calculated modal transformation.
+
+The operator tensor type parameterizes the domain because inverse transforms
+consume it numerically. The owning transform module may use one formula-family
+parameter for provenance storage, so different concrete formula identities can
+share one concrete result-space element type.
+"""
 struct ModalDomain{O, F} <: LineParamsDomain
     "Frequency-dependent phase-to-modal voltage and current operators."
     operators::O

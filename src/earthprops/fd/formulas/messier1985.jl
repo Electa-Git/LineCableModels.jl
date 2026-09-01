@@ -20,7 +20,7 @@ $(TYPEDSIGNATURES)
 **Reference.** M. Messier, *Another Soil Conductivity Model*, internal report,
 JAYCOR, Santa Barbara, 1985.
 """
-description(::Formula{:Messier1985}) = "Messier 1985 (square-root soil dispersion)"
+description(::Formula{:Messier1985}) = "Messier square-root soil dispersion (1985)"
 
 #=
 Evaluate the Messier square-root soil-dispersion relation.
@@ -33,7 +33,8 @@ S/m and relative permittivity is dimensionless.
 M. Messier, *Another Soil Conductivity Model*, internal report, JAYCOR,
 Santa Barbara, 1985.
 =#
-function (::Functor{:Messier1985})(
+function earth_material(
+        ::Val{:Messier1985},
         material::EarthMaterial{T},
         frequency::T,
         values::NamedTuple

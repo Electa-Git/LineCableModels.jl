@@ -61,6 +61,8 @@
     left=CountingGrid(Tuple(1:2_000))
     right=CountingGrid(Tuple(2_001:4_000))
     counted_product=PB.Gridspace{Tuple}(tuple, (left, right))
+    @test eltype(counted_product) === Any
+    @test Base.IteratorEltype(typeof(counted_product)) isa Base.EltypeUnknown
     @test length(counted_product) == 4_000_000
     @test left.iterate_calls == 0
     @test right.iterate_calls == 0
@@ -170,6 +172,8 @@ end
         (PB.Grid((1.0, 2.0, 3.0)),)
     )
     deterministic_point=first(PB.points(deterministic))
+    @test eltype(deterministic) === ScalarTarget
+    @test Base.IteratorEltype(typeof(deterministic)) isa Base.HasEltype
     @test @inferred(first(deterministic)) == ScalarTarget(1.0)
     @test @inferred(PB.materialize(deterministic_point)) == ScalarTarget(1.0)
 
@@ -178,6 +182,8 @@ end
         (PB.Grid(1.0, PB.AbsoluteError(0.1)),)
     )
     uncertain_point=first(PB.points(uncertain))
+    @test eltype(uncertain) === Any
+    @test Base.IteratorEltype(typeof(uncertain)) isa Base.EltypeUnknown
     rng=Random.Xoshiro(0x1234)
     @test @inferred(PB.realize(rng, uncertain_point, :normal)) isa ScalarTarget
 

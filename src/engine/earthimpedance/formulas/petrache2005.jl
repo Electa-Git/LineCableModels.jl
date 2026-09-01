@@ -1,8 +1,8 @@
 function routes(identifier::Val{:Petrache2005})
     (
-        self = formula_method(identifier, earth_impedance, Val(:self)),
-        mutual = formula_method(identifier, earth_impedance, Val(:mutual)),
-        Γ = formula_method(identifier, propagation_constant)
+        self = FormulaMethod(identifier, earth_impedance, Val(:self)),
+        mutual = FormulaMethod(identifier, earth_impedance, Val(:mutual)),
+        Γ = FormulaMethod(identifier, propagation_constant)
     )
 end
 

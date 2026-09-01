@@ -76,7 +76,7 @@
     for (catalogue, templates) in allowed_templates, id in catalogue.formulas()
         formula=catalogue.Formula(id)
         for route in values(catalogue.routes(formula))
-            @test route isa EN.FormulaMethod
+            @test route isa LineCableModels.FormulaMethod
             @test typeof(route).parameters[1] === id
             @test nameof(route.method) in templates
             @test all(argument -> argument isa Val, route.arguments)
@@ -375,7 +375,7 @@ end
             earth_impedance = :Petrache2005,
             earth_admittance = :IdealGround
         )))
-    for identifier in (:Gustavsen2013, :Marti2001)
+    for identifier in (:Ametani2004, :Gustavsen2013)
         result=compute(underground,
             Formulation(
                 insulation_admittance = identifier,

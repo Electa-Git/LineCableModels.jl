@@ -17,10 +17,12 @@ reductions required by line-parameter formulations.
 module EarthProps
 
 export EarthMaterial, EarthLayer, EarthModel
+export build
 export FD, EHEM
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import ..LineCableModels: add!, validate
+import ..LineCableModels: add!, build, validate
+import ..LineCableModels: _construction
 using ..Materials: AbstractMaterial
 import ..Validation
 import ..TextDisplay

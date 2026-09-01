@@ -1,8 +1,8 @@
 function routes(identifier::Val{:Papadopoulos2009})
     (
-        self = formula_method(identifier, earth_potential_coefficient, Val(:self)),
-        mutual = formula_method(identifier, earth_potential_coefficient, Val(:mutual)),
-        Γ = formula_method(identifier, propagation_constant)
+        self = FormulaMethod(identifier, earth_potential_coefficient, Val(:self)),
+        mutual = FormulaMethod(identifier, earth_potential_coefficient, Val(:mutual)),
+        Γ = FormulaMethod(identifier, propagation_constant)
     )
 end
 

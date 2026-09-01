@@ -109,6 +109,14 @@ bank = @duct shape=Rectangle(40e-3, 24e-3) fill=concrete begin
 end
 ```
 
+The corresponding pipe notation uses the same block grammar:
+
+```julia
+contained = @pipe shape=Disk(20e-3) fill=air begin
+    cells
+end
+```
+
 Homogeneous repeated ducts use a pattern and retain one prototype:
 
 ```julia

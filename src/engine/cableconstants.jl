@@ -82,7 +82,7 @@ function CableConstants(
         C::Real,
         G::Real = 0;
         core::Symbol = :core,
-        frequency::Real = 1e-3
+        frequency::Real = 50
 )
     values = promote(R, L, C, G, frequency)
     T = typeof(first(values))
@@ -157,46 +157,23 @@ function publication_table(
     )
 end
 
-function _chains(components)
-    isempty(components) && throw(ArgumentError(
-        "cable constants require at least one flattened component",
-    ))
-    starts = Int[1]
-    positions = [first(components).conductor.position]
-    @inbounds for index in 2:length(components)
-        position = components[index].conductor.position
-        if !DataModel.same_radial_position(position, last(positions))
-            any(reference -> DataModel.same_radial_position(position, reference), positions) &&
-                throw(ArgumentError(
-                    "a concentric assembly cannot reappear after another assembly",
-                ))
-            push!(starts, index)
-            push!(positions, position)
-        end
-    end
-    return UnitRange{Int}[
-        start:(index == length(starts) ? length(components) : starts[index + 1] - 1)
-        for (index, start) in pairs(starts)
-    ]
-end
-
 """
 $(TYPEDEF)
 
 Define one earth-free cable-constant calculation for a completed cable design.
 
-The internally constructed system contains one design at the origin. The
-innermost terminal of every concentric assembly is active and every outward
-terminal is grounded.
+The innermost terminal of every concentric assembly is active and every
+additional outward terminal, when present, is grounded. The calculation is
+restricted to the 50 Hz or 60 Hz base frequency used by cable datasheets.
 
 $(TYPEDFIELDS)
 """
 struct CableConstantsProblem{
     T <: Real,
-    S <: LineCableSystem
+    D <: CableDesign
 } <: AbstractProblemDefinition
-    "Neutral one-design cable system."
-    system::S
+    "Completed physical cable design."
+    design::D
     "Operating temperature [°C]."
     temperature::T
     "Evaluation frequency [Hz]."
@@ -207,62 +184,16 @@ Base.eltype(::CableConstantsProblem{T}) where {T} = T
 Base.eltype(::Type{<:CableConstantsProblem{T}}) where {T} = T
 
 function _check_cable_constants_problem(problem::CableConstantsProblem)
-    system = problem.system
-    validate(system)
-    length(system.designs) == 1 || throw(ArgumentError(
-        "a cable-constant problem requires exactly one cable design",
-    ))
-    system.environment === nothing || throw(ArgumentError(
-        "a cable-constant problem cannot define an external environment",
-    ))
-    isone(system.line_length) || throw(ArgumentError(
-        "a cable-constant problem uses a fixed one-metre reference length",
-    ))
-    pose = only(system.positions)
-    all(iszero, (pose.x, pose.y, pose.φ)) || throw(ArgumentError(
-        "a cable-constant problem requires its design at the origin",
-    ))
+    validate(problem.design)
     isfinite(problem.temperature) || throw(DomainError(
         problem.temperature,
         "cable-constant temperature must be finite",
     ))
-    isfinite(problem.frequency) && problem.frequency > zero(problem.frequency) ||
+    problem.frequency in (oftype(problem.frequency, 50), oftype(problem.frequency, 60)) ||
         throw(DomainError(
             problem.frequency,
-            "cable-constant frequency must be positive and finite",
+            "cable-constant base frequency must be 50 Hz or 60 Hz",
         ))
-
-    design = only(system.designs)
-    components = DataModel.flatten(design, problem.frequency, eltype(problem))
-    chains = _chains(components)
-    all(length(chain) >= 2 for chain in chains) || throw(ArgumentError(
-        "every concentric assembly requires an outward grounded terminal",
-    ))
-    names = getproperty.(components, :name)
-    names == design.terminal_order || throw(DimensionMismatch(
-        "DataModel terminal order differs from canonical flattened components",
-    ))
-    system.terminal_order == [(cable = 1, terminal = name) for name in names] ||
-        throw(DimensionMismatch(
-            "cable-system terminal order differs from canonical flattened components",
-        ))
-    expected = zeros(Int, length(components))
-    for (assembly, chain) in pairs(chains)
-        expected[first(chain)] = assembly
-        isempty(first(components[chain]).dielectric.layers) && throw(ArgumentError(
-            "assembly core :$(first(components[chain]).name) has no radial dielectric path to its grounded terminal",
-        ))
-    end
-    system.connection_order == expected || throw(DimensionMismatch(
-        "cable-constant terminal connections must retain only each assembly core",
-    ))
-    for region in design.geometry.regions
-        DataModel.temperature_factor(
-            region.source.material.alpha,
-            problem.temperature,
-            region.source.material.T0
-        )
-    end
     return nothing
 end
 
@@ -278,7 +209,7 @@ Construct an earth-free cable-constant problem.
 # Keywords
 
 - `temperature=20`: Operating temperature [°C].
-- `frequency=1e-3`: Positive evaluation frequency [Hz].
+- `frequency=50`: Base frequency, either 50 Hz or 60 Hz.
 
 # Returns
 
@@ -287,29 +218,14 @@ Construct an earth-free cable-constant problem.
 function CableConstantsProblem(
         design::CableDesign;
         temperature::Real = 20,
-        frequency::Real = 1e-3
+        frequency::Real = 50
 )
     T = promote_type(
         eltype(design), typeof(float(temperature)), typeof(float(frequency))
     )
     value = convert(T, float(frequency))
-    components = DataModel.flatten(design, value, T)
-    chains = _chains(components)
-    connections = zeros(Int, length(components))
-    @inbounds for (assembly, chain) in pairs(chains)
-        connections[first(chain)] = assembly
-    end
-    system = build(
-        LineCableSystem,
+    problem = CableConstantsProblem{T, typeof(design)}(
         design,
-        DataModel.Pose2(zero(T), zero(T), zero(T)),
-        connections,
-        nothing,
-        "$(design.cable_id)_constants",
-        one(T)
-    )
-    problem = CableConstantsProblem{T, typeof(system)}(
-        system,
         convert(T, float(temperature)),
         value
     )
@@ -350,25 +266,12 @@ function formulation_options(
     return (temperature_correction = normalized.temperature_correction,)
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Construct the cable-constant formula bundle.
-
-# Keywords
-
-- `internal_impedance`: Conductor surface-impedance recipe.
-- `insulation_impedance`: Longitudinal insulation-impedance recipe.
-- `insulation_admittance`: Insulation constitutive relation.
-- `semicon_admittance`: Semiconducting-layer constitutive relation.
-- `options`: Cable-constant formulation options.
-"""
-function CableConstantsFormulation(;
-        internal_impedance = formula(:Schelkunoff1934),
-        insulation_impedance = formula(:Ametani1980),
-        insulation_admittance = formula(:Marti2001),
-        semicon_admittance = formula(:Ametani2004),
-        options::NamedTuple = (;)
+function _constants_formulation(
+        internal_impedance,
+        insulation_impedance,
+        insulation_admittance,
+        semicon_admittance,
+        options::NamedTuple
 )
     methods = (
         internal_impedance = _internal_impedance_formula(internal_impedance),
@@ -382,6 +285,49 @@ function CableConstantsFormulation(;
     )
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Construct the cable-constant formula bundle.
+
+Each formula slot and the complete `options` tuple accepts a scalar selection
+or an explicit [`Grid`](@ref LineCableModels.ParametricBuilder.Grid)/
+[`Gridspace`](@ref LineCableModels.ParametricBuilder.Gridspace) source. Scalar
+inputs return one [`CableConstantsFormulation`](@ref); varying inputs return a
+`Gridspace{CableConstantsFormulation}` of completed formulations.
+
+# Keywords
+
+- `internal_impedance`: Conductor surface-impedance recipe.
+- `insulation_impedance`: Longitudinal insulation-impedance recipe.
+- `insulation_admittance`: Insulation constitutive relation.
+- `semicon_admittance`: Semiconducting-layer constitutive relation.
+- `options`: Complete cable-constant formulation options.
+- `combine`: `:product` or `:zip` composition among varying fields.
+"""
+function CableConstantsFormulation(;
+        internal_impedance = formula(:default),
+        insulation_impedance = formula(:default),
+        insulation_admittance = formula(:default),
+        semicon_admittance = formula(:default),
+        options = (;),
+        combine::Symbol = :product
+)
+    values = (
+        internal_impedance,
+        insulation_impedance,
+        insulation_admittance,
+        semicon_admittance,
+        options
+    )
+    return _construction(
+        CableConstantsFormulation,
+        _constants_formulation,
+        values;
+        combine
+    )
+end
+
 function computation_options(
         ::Val{CableConstantsProblem},
         options::NamedTuple
@@ -392,155 +338,77 @@ function computation_options(
     return (;)
 end
 
-struct CableConstantsWorkspace{T <: Real, V, B}
-    components::V
-    chains::Vector{UnitRange{Int}}
+"""
+$(TYPEDEF)
+
+Own the local cable arrays, corrected resistivities, and reusable matrices for
+one cable-constant calculation. The constructor consumes the structural
+blueprint without retaining a duplicate representation.
+
+$(TYPEDFIELDS)
+"""
+struct CableConstantsWorkspace{T <: Real, L, B}
+    "Concrete array payload used by local primitive assemblers."
+    cable::L
+    "Temperature-corrected conductor resistivities [Ω·m]."
     rho::Vector{T}
-    mu_ins::Vector{T}
+    "Reusable primitive, reduction, and result storage."
     buffers::B
 end
 
 function CableConstantsWorkspace(
         problem::CableConstantsProblem{T},
-        formulation::CableConstantsFormulation
+        formulation::CableConstantsFormulation,
+        blueprint::CableBlueprint{T}
 ) where {T <: Real}
-    design = only(problem.system.designs)
-    components = DataModel.flatten(design, problem.frequency, T)
-    chains = _chains(components)
-    count = length(components)
-    rho = Vector{T}(undef, count)
-    mu_ins = Vector{T}(undef, count)
-    @inbounds for index in eachindex(components)
-        component = components[index]
-        material = component.conductor.material
-        rho[index] = material.rho
+    return CableConstantsWorkspace(
+        problem,
+        formulation,
+        LocalCableData(blueprint)
+    )
+end
+
+function CableConstantsWorkspace(
+        problem::CableConstantsProblem{T},
+        formulation::CableConstantsFormulation,
+        cable::LocalCableData{T}
+) where {T <: Real}
+    @inbounds for assembly in cable.assemblies
+        isempty(cable.dielectric_ranges[first(assembly)]) && throw(ArgumentError(
+            "assembly core :$(cable.terminals[first(assembly)]) has no radial dielectric path",
+        ))
+    end
+    count = length(cable.terminals)
+    rho = copy(cable.rho0_cond)
+    @inbounds for index in eachindex(rho)
         if formulation.options.temperature_correction
-            rho[index] *= DataModel.temperature_factor(
-                material.alpha,
-                problem.temperature,
-                material.T0
-            )
+            rho[index] *= one(T) +
+                          cable.alpha_cond[index] *
+                          (problem.temperature - cable.T0_cond[index])
         end
-        layers = component.dielectric.layers
-        mu_ins[index] = isempty(layers) ? one(T) :
-                        DataModel.equivalent_dielectric_permeability(
-            layers,
-            component.conductor.num_turns,
-            component.conductor.r_ex,
-            component.dielectric.r_ex
-        )
     end
 
-    maximum_size = maximum(length, chains)
+    maximum_size = maximum(length, cable.assemblies)
     removed = maximum_size - 1
     buffers = (
-        Z = Matrix{Complex{T}}(undef, maximum_size, maximum_size),
+        Z = Matrix{Complex{T}}(undef, count, count),
+        Y = Matrix{Complex{T}}(undef, count, count),
         reduced = Matrix{Complex{T}}(undef, 1, 1),
         factor = Matrix{Complex{T}}(undef, removed, removed),
         coupling = Matrix{Complex{T}}(undef, 1, removed),
         right_hand_side = Matrix{Complex{T}}(undef, removed, 1),
         indices = collect(1:maximum_size),
-        R = Vector{T}(undef, length(chains)),
-        L = Vector{T}(undef, length(chains)),
-        C = Vector{T}(undef, length(chains)),
-        G = Vector{T}(undef, length(chains))
+        layer_coefficients = Vector{Complex{T}}(
+            undef, length(cable.dielectric_materials)
+        ),
+        R = Vector{T}(undef, length(cable.assemblies)),
+        L = Vector{T}(undef, length(cable.assemblies)),
+        C = Vector{T}(undef, length(cable.assemblies)),
+        G = Vector{T}(undef, length(cable.assemblies))
     )
-    return CableConstantsWorkspace{T, typeof(components), typeof(buffers)}(
-        components, chains, rho, mu_ins, buffers
+    return CableConstantsWorkspace{T, typeof(cable), typeof(buffers)}(
+        cable, rho, buffers
     )
-end
-
-function _series!(
-        destination::AbstractMatrix{Complex{T}},
-        components,
-        chain::UnitRange{Int},
-        rho::AbstractVector{T},
-        mu_ins::AbstractVector{T},
-        formulation::CableConstantsFormulation,
-        s::Complex{T}
-) where {T <: Real}
-    fill!(destination, zero(Complex{T}))
-    count = length(chain)
-    @inbounds for position in count:-1:1
-        index = chain[position]
-        component = components[index]
-        conductor = component.conductor
-        interaction = formulation.methods.internal_impedance(
-            conductor.r_in,
-            conductor.r_ex,
-            rho[index],
-            conductor.material.mu_r,
-            s
-        )
-        outside = interaction(Val(:outer))
-        inside = if position < count
-            next_index = chain[position + 1]
-            next_conductor = components[next_index].conductor
-            formulation.methods.internal_impedance(
-                next_conductor.r_in,
-                next_conductor.r_ex,
-                rho[next_index],
-                next_conductor.material.mu_r,
-                s
-            )(Val(:inner))
-        else
-            zero(outside)
-        end
-        mutual = interaction(Val(:mutual))
-        insulation = formulation.methods.insulation_impedance(
-            conductor.r_ex,
-            component.dielectric.r_ex,
-            mu_ins[index],
-            s
-        )
-        loop = outside + inside + insulation
-        if position > 1
-            for row in 1:(position - 1), column in 1:(position - 1)
-                destination[row, column] += loop - 2mutual
-            end
-            for row in 1:(position - 1)
-                destination[position, row] += loop - mutual
-                destination[row, position] += loop - mutual
-            end
-        end
-        destination[position, position] += loop
-    end
-    return destination
-end
-
-function _shunt(
-        component,
-        problem::CableConstantsProblem{T},
-        formulation::CableConstantsFormulation,
-        s::Complex{T}
-) where {T <: Real}
-    radial = zero(Complex{T})
-    for layer in component.dielectric.layers
-        selected = if layer.material.kind === :insulator
-            formulation.methods.insulation_admittance
-        elseif layer.material.kind === :semicon
-            formulation.methods.semicon_admittance
-        else
-            throw(ArgumentError(
-                "cable-constant dielectric layers must be :insulator or :semicon; got :$(layer.material.kind)",
-            ))
-        end
-        material = constitutive(
-            selected,
-            layer.material,
-            problem.frequency,
-            problem.temperature
-        )
-        radial += inv(layer_admittance(
-            layer.r_in,
-            layer.r_ex,
-            admittivity(material, s)
-        ))
-    end
-    iszero(radial) && throw(ArgumentError(
-        "a cable-constant assembly requires a finite radial dielectric path",
-    ))
-    return inv(radial)
 end
 
 function _solve!(
@@ -551,19 +419,26 @@ function _solve!(
     buffers = workspace.buffers
     ω = 2 * (one(T) * π) * problem.frequency
     s = complex(zero(T), ω)
+    cable_impedance!(
+        buffers.Z,
+        workspace.cable,
+        workspace.rho,
+        formulation.methods,
+        s
+    )
+    cable_admittance!(
+        buffers.Y,
+        workspace.cable,
+        formulation.methods,
+        problem.frequency,
+        problem.temperature,
+        s,
+        buffers.layer_coefficients
+    )
     keep = @view buffers.indices[1:1]
-    @inbounds for (assembly, chain) in pairs(workspace.chains)
+    @inbounds for (assembly, chain) in pairs(workspace.cable.assemblies)
         count = length(chain)
-        Z = @view buffers.Z[1:count, 1:count]
-        _series!(
-            Z,
-            workspace.components,
-            chain,
-            workspace.rho,
-            workspace.mu_ins,
-            formulation,
-            s
-        )
+        Z = @view buffers.Z[chain, chain]
         eliminate = @view buffers.indices[2:count]
         factor = @view buffers.factor[1:(count - 1), 1:(count - 1)]
         coupling = @view buffers.coupling[:, 1:(count - 1)]
@@ -581,17 +456,16 @@ function _solve!(
         buffers.R[assembly] = real(equivalent)
         buffers.L[assembly] = imag(equivalent) / ω
 
-        Y = _shunt(
-            workspace.components[first(chain)],
-            problem,
-            formulation,
-            s
-        )
+        Y = buffers.Y[first(chain), first(chain)]
+        iszero(Y) && throw(ArgumentError(
+            "assembly core :$(workspace.cable.terminals[first(chain)]) has no finite radial dielectric path",
+        ))
         buffers.G[assembly] = real(Y)
         buffers.C[assembly] = imag(Y) / ω
     end
     return CableConstants(
-        Symbol[workspace.components[first(chain)].name for chain in workspace.chains],
+        Symbol[workspace.cable.terminals[first(chain)]
+               for chain in workspace.cable.assemblies],
         buffers.R,
         buffers.L,
         buffers.C,
@@ -630,21 +504,66 @@ function compute(
     return compute(LineCableModelsCoaxial(), problem, formulation; options)
 end
 
+function compute(
+        problem::CableConstantsProblem,
+        formulations::AbstractVector{<:CableConstantsFormulation};
+        options::NamedTuple = (;)
+)
+    return compute(LineCableModelsCoaxial(), problem, formulations; options)
+end
+
 """
 $(TYPEDSIGNATURES)
 
 Compute earth-free cable constants through the coaxial backend tag.
 """
 function compute(
-        ::LineCableModelsCoaxial,
+        engine::LineCableModelsCoaxial,
         problem::CableConstantsProblem,
         formulation::CableConstantsFormulation = CableConstantsFormulation();
         options::NamedTuple = (;)
 )
+    values = compute(
+        engine,
+        problem,
+        typeof(formulation)[formulation];
+        options
+    )
+    return first(values)
+end
+
+function compute(
+        engine::LineCableModelsCoaxial,
+        problem::CableConstantsProblem,
+        formulations::AbstractVector{<:CableConstantsFormulation};
+        options::NamedTuple = (;)
+)
     computation_options(Val(CableConstantsProblem), options)
+    isempty(formulations) && throw(ArgumentError(
+        "cable-constant formulation collections cannot be empty",
+    ))
     validate(problem)
-    workspace = CableConstantsWorkspace(problem, formulation)
-    return _solve!(workspace, problem, formulation)
+    blueprint = flatten(engine, problem.design, eltype(problem))
+    cable = LocalCableData(blueprint)
+    first_formulation = first(formulations)
+    first_workspace = CableConstantsWorkspace(
+        problem,
+        first_formulation,
+        cable
+    )
+    first_result = _solve!(first_workspace, problem, first_formulation)
+    values = Vector{typeof(first_result)}(undef, length(formulations))
+    values[1] = first_result
+    for index in 2:length(formulations)
+        formulation = formulations[index]
+        workspace = CableConstantsWorkspace(problem, formulation, cable)
+        value = _solve!(workspace, problem, formulation)
+        typeof(value) === eltype(values) || throw(ArgumentError(
+            "cable-constant formulations produced inconsistent result types",
+        ))
+        values[index] = value
+    end
+    return values
 end
 
 """
@@ -655,7 +574,7 @@ Calculate earth-free constants directly from one completed cable design.
 function CableConstants(
         design::CableDesign;
         temperature::Real = 20,
-        frequency::Real = 1e-3,
+        frequency::Real = 50,
         formulation::CableConstantsFormulation = CableConstantsFormulation(),
         options::NamedTuple = (;)
 )

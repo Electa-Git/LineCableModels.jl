@@ -11,7 +11,8 @@ Construct finite parameter spaces and materialise cable problems from explicit
 - Materialise materials, cable parts, cable designs, positions, earth models,
   and line-parameter problems.
 - Evaluate every materialised problem with `Combinatorial`.
-- Project completed result spaces into finite spaces of downstream problems.
+- Transport completed result spaces into target-bearing downstream problem
+  spaces.
 - Estimate stranded-conductor and wire-screen patterns.
 """
 module ParametricBuilder
@@ -24,7 +25,7 @@ export @gridspace, @relax
 export build
 
 export Combinatorial, ParametricProblem, ParametricResult
-export result, project
+export result
 
 export Material, Conductor, Insulator, Semiconductor
 export CableDesign, LineCableSystem
@@ -35,17 +36,17 @@ export Enclosure
 export terminal, core, stranded, rope, cores, tape, insulation, screen, sheath
 export armor, bedding, jacket, filler, pipe, duct
 export solid, shell, wires, layers, assembly
-export capacity, FillFactor, DiameterFactor, TabulatedCompaction, AffineCompaction
-export at, trefoil, hflat, vflat, Earth
-export @cable, @terminal, @assembly, @duct, @at, @hflat, @vflat, @trefoil
+export capacity, Hexa
+export FillFactor, DiameterFactor, TabulatedCompaction, AffineCompaction
+export at, trefoil, hflat, vflat, Earth, EarthLayer, EarthModel
+export @cable, @system, @earth, @terminal, @assembly, @pipe, @duct
+export @at, @hflat, @vflat, @trefoil
 export @distribute
 export WireEstimate, make_stranded, make_screened
 
 using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
 using Random
-using RequiredInterfaces: @required
-using ..Grammar: @orchestrator
-import ..LineCableModels: add!, build
+import ..LineCableModels: add!, build, Gridpoint
 import ..LineCableModels: _construction, _construction_axis, _finite_construction
 import ..Grammar
 import ..Grammar: compute, computation_options, computation_details, details,
@@ -63,10 +64,11 @@ import ..DataModel: RoundedSector, Shell, Pose2
 import ..DataModel: Region, Stack
 import ..DataModel: Group, Assembly
 import ..DataModel: Enclosure
-import ..DataModel: capacity, FillFactor, DiameterFactor
+import ..DataModel: capacity, Hexa, FillFactor, DiameterFactor
 import ..DataModel: TabulatedCompaction, AffineCompaction
 import ..DataModel: CableDesign, LineCableSystem
 import ..EarthProps
+using ..EarthProps: EarthLayer, EarthModel
 import ..Engine
 import ..TextDisplay
 
@@ -74,7 +76,6 @@ include("grid.jl")
 include("gridspace.jl")
 include("macros.jl")
 include("results.jl")
-include("project.jl")
 
 include("material.jl")
 include("geometry.jl")
@@ -94,7 +95,6 @@ using .WirePatterns: WireEstimate, make_stranded, make_screened
 
 include("textdisplay.jl")
 
-public AbstractProjectionDefinition, entitle, select, derive, materialize
-public traverse, sample_uncertainty
+public materialize, traverse, sample_uncertainty
 
 end

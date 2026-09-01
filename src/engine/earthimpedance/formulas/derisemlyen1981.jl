@@ -28,6 +28,7 @@ Complex Ground Return Plane: A Simplified Model for Homogeneous and Multi-Layer
 Earth Return,” *IEEE Transactions on Power Apparatus and Systems*, PAS-100(8),
 3686–3693, 1981. DOI: 10.1109/TPAS.1981.317011.
 """
-description(::Formula{:DeriSemlyen1981}) = "Deri-Semlyen"
+description(::Formula{:DeriSemlyen1981}) =
+    "Deri-Semlyen complex ground-return-plane approximation (1981)"
 
 :DeriSemlyen1981

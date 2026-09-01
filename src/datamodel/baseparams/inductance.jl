@@ -1,24 +1,3 @@
-@inline function _mu0(value)
-    return one(value) * 4 * (one(value) * π) * (one(value) * 10)^(-7)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Calculate internal tubular inductance in the DC approximation:
-``L=\\mu_r\\mu_0\\log(r_{ex}/r_{in})/(2\\pi)`` \\[H/m\\].
-"""
-function tubular_inductance(r_in::Real, r_ex::Real, mu_r::Real)
-    rin, rex, permeability = promote(float(r_in), float(r_ex), float(mu_r))
-    rin > zero(rin) && rex > rin || throw(DomainError(
-        (rin, rex), "tubular inductance requires 0 < r_in < r_ex"
-    ))
-    permeability >= zero(permeability) || throw(DomainError(
-        permeability, "relative permeability must be nonnegative"
-    ))
-    return permeability * _mu0(rin) * log(rex / rin) / (2 * (one(rin) * π))
-end
-
 """
 $(TYPEDSIGNATURES)
 
@@ -41,6 +20,56 @@ function strand_gmr(lay_radius::Real, count::Integer, wire_radius::Real, mu_r::R
     ))
     wire_gmr = wire * exp(-permeability / 4)
     return exp(log(wire_gmr * count * radius^(count - 1)) / count)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Calculate the GMR of identical circular strands from their resolved centres:
+
+```math
+\\log GMR=\\frac{1}{N^2}\\left[
+N\\log r_g+2\\sum_{i=1}^{N}\\sum_{j=i+1}^{N}\\log d_{ij}
+\\right],\\qquad
+r_g=r_w\\exp(-\\mu_r/4).
+```
+
+# Arguments
+
+- `coordinates`: Strand-centre coordinates \\[m\\].
+- `wire_radius`: Strand radius \\[m\\].
+- `mu_r`: Relative permeability \\[dimensionless\\].
+
+# Returns
+
+- Geometric mean radius of the complete strand set \\[m\\].
+"""
+function strand_gmr(coordinates, wire_radius::Real, mu_r::Real)
+    isempty(coordinates) && throw(ArgumentError(
+        "strand GMR requires at least one centre coordinate"
+    ))
+    wire, permeability = promote(float(wire_radius), float(mu_r))
+    wire > zero(wire) || throw(DomainError(
+        wire, "wire radius must be positive"
+    ))
+    permeability > zero(permeability) || throw(DomainError(
+        permeability, "relative permeability must be positive"
+    ))
+    count = length(coordinates)
+    logarithmic_sum = count * log(tubular_gmr(wire, zero(wire), permeability))
+    for left in eachindex(coordinates)
+        for right in (left + 1):length(coordinates)
+            distance = hypot(
+                coordinates[left][1] - coordinates[right][1],
+                coordinates[left][2] - coordinates[right][2]
+            )
+            distance > zero(distance) || throw(ArgumentError(
+                "strand centres must be distinct"
+            ))
+            logarithmic_sum += 2log(distance)
+        end
+    end
+    return exp(logarithmic_sum / count^2)
 end
 
 """
@@ -142,46 +171,4 @@ function equivalent_mu(gmr::Real, r_ex::Real, r_in::Real)
     term1 = is_solid ? zero(rin) : rin^4 / denominator^2 * log(rex / rin)
     term2 = (3 * rin^2 - rex^2) / (4 * denominator)
     return -(log(radius) - log(rex)) / (term1 - term2)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Calculate the positive-sequence inductance of a solid-bonded trefoil cable
-from the CIGRE TB-531 impedance reduction
-``Z_d=(Z_a-Z_x)-(Z_m-Z_x)^2/(Z_s-Z_x)``.
-"""
-function trefoil_inductance(
-        r_in_co::Real,
-        r_ex_co::Real,
-        rho_co::Real,
-        mu_co::Real,
-        r_in_screen::Real,
-        r_ex_screen::Real,
-        rho_screen::Real,
-        mu_screen::Real,
-        spacing::Real;
-        rho_e::Real = oftype(float(spacing), 100),
-        f::Real = oftype(float(spacing), 50)
-)
-    values = promote(
-        float(r_in_co), float(r_ex_co), float(rho_co), float(mu_co),
-        float(r_in_screen), float(r_ex_screen), float(rho_screen),
-        float(mu_screen), float(spacing), float(rho_e), float(f)
-    )
-    rin, rex, rhoc, muc, rins, rexs, rhos, mus, distance, earth, frequency = values
-    omega = oftype(frequency, 2π) * frequency
-    mu0 = _mu0(frequency)
-    coefficient = mu0 / (2 * (one(frequency) * π))
-    earth_depth = oftype(frequency, 659) * sqrt(earth / frequency)
-    earth_resistance = omega * mu0 / 8
-    core_gmr = tubular_gmr(rex, rin, muc)
-    screen_gmr = tubular_gmr(rexs, rins, mus)
-    Za = earth_resistance + rhoc / (oftype(rhoc, π) * (rex^2 - rin^2)) +
-         im * omega * coefficient * log(earth_depth / core_gmr)
-    Zs = earth_resistance + rhos / (oftype(rhos, π) * (rexs^2 - rins^2)) +
-         im * omega * coefficient * log(earth_depth / screen_gmr)
-    Zm = earth_resistance + im * omega * coefficient * log(earth_depth / screen_gmr)
-    Zx = earth_resistance + im * omega * coefficient * log(earth_depth / distance)
-    return imag((Za - Zx) - (Zm - Zx)^2 / (Zs - Zx)) / omega
 end

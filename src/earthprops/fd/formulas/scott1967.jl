@@ -24,7 +24,7 @@ Laboratory Method,” *Journal of Geophysical Research*, 72(20), 1967.
 DOI: 10.1029/JZ072i020p05101.
 """
 description(::Formula{:Scott1967}) =
-    "Scott–Carroll–Cunningham 1967 (empirical moist-soil fit)"
+    "Scott–Carroll–Cunningham empirical moist-soil fit (1967)"
 
 #=
 Evaluate the Scott–Carroll–Cunningham empirical soil relation.
@@ -39,7 +39,8 @@ J. H. Scott, R. D. Carroll, and D. R. Cunningham, *Dielectric Constant and
 Electrical Conductivity Measurements of Moist Rock: A New Laboratory Method*,
 Journal of Geophysical Research, 72(20), 1967. DOI: 10.1029/JZ072i020p05101.
 =#
-function (::Functor{:Scott1967})(
+function earth_material(
+        ::Val{:Scott1967},
         material::EarthMaterial{T},
         frequency::T,
         ::NamedTuple

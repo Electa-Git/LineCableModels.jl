@@ -9,12 +9,8 @@
     @test conductance ≈ 2π/(1e9*log(2))
     @test equivalent_eps(capacitance, 0.02, 0.01) ≈ 2.3
     @test equivalent_conductivity(conductance, 0.01, 0.02) ≈ 1e-9
-    @test loss_tangent(conductance, capacitance, 2π*50) ≈
-          conductance/(2π*50*capacitance)
-
     @test shunt_capacitance(0.01, 0.02, 3.0) > capacitance
     @test shunt_conductance(0.01, 0.02, 1e8) > conductance
-    @test loss_tangent(0.0, capacitance, 2π*50) == 0.0
 
     for call in (
         ()->shunt_capacitance(0.0, 0.02, 2.3),
@@ -22,9 +18,7 @@
         ()->shunt_capacitance(0.01, 0.02, -1.0),
         ()->shunt_conductance(0.01, 0.02, 0.0),
         ()->equivalent_eps(-1e-10, 0.02, 0.01),
-        ()->equivalent_conductivity(-1e-9, 0.01, 0.02),
-        ()->loss_tangent(conductance, 0.0, 2π*50),
-        ()->loss_tangent(conductance, capacitance, 0.0)
+        ()->equivalent_conductivity(-1e-9, 0.01, 0.02)
     )
         @test_throws DomainError call()
     end

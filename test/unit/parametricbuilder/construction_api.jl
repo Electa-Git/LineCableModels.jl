@@ -126,14 +126,17 @@ end
         :insulation, :screen, :sheath, :armor, :bedding, :jacket, :filler,
         :pipe, :duct, :at, :trefoil, :hflat, :vflat, :capacity,
         :solid, :shell, :wires, :layers, :assembly,
+        :EarthLayer, :EarthModel,
         :Region, :Stack, :Group, :Assembly, :Enclosure, :Pose2,
         :Disk, :Rectangle, :Ellipse,
         :Sector, :Annulus, :Shell,
         :Polygon, :Ring, :Polar, :Fill, :Lattice,
         :Helix, :LayRatio, :Pitch, :LayAngle, :FillFactor,
         :DiameterFactor, :TabulatedCompaction, :AffineCompaction,
-        Symbol("@cable"), Symbol("@terminal"), Symbol("@assembly"),
-        Symbol("@duct"), Symbol("@at"), Symbol("@hflat"), Symbol("@vflat"),
+        Symbol("@cable"), Symbol("@system"), Symbol("@earth"),
+        Symbol("@terminal"), Symbol("@assembly"),
+        Symbol("@pipe"), Symbol("@duct"), Symbol("@at"),
+        Symbol("@hflat"), Symbol("@vflat"),
         Symbol("@trefoil"), Symbol("@distribute")
     )
     public_names = Set(names(LineCableModels))
@@ -141,7 +144,7 @@ end
 
     forbidden = (
         :DuctBank, :Pipe, :Duct, :Core, :Cable, :Trefoil, :distribute, :strand,
-        Symbol("@design"), Symbol("@pipe"), Symbol("@core"),
+        Symbol("@design"), Symbol("@core"),
         Symbol("@insulation"), Symbol("@strand"), Symbol("@rope"),
         Symbol("@armor"), Symbol("@screen"), Symbol("@shell"),
         Symbol("@wire"), Symbol("@fill")
@@ -152,30 +155,73 @@ end
         (:Disk, :Rectangle, :Ellipse, :Sector, :Annulus, :Polygon))
 
     expansions = (
-        :(@cable "x" begin
+        :(@cable "x" nominal_data=metadata combine=:zip begin
             part
         end) => :build,
-        :(@terminal :phase begin
+        :(@system "x" line_length=1 begin
+            placed
+        end) => :build,
+        :(@earth begin
+            layer
+        end) => :build,
+        :(@terminal :phase combine=:zip begin
             part
         end) => :terminal,
-        :(@assembly begin
+        :(@assembly combine=:zip begin
             left
             right
         end) => :assembly,
-        :(@duct shape=shape fill=fill begin
+        :(@pipe shape=shape fill=fill combine=:zip begin
+            left
+            right
+        end) => :pipe,
+        :(@duct shape=shape fill=fill combine=:zip begin
             left
             right
         end) => :duct,
         :(@at subject (1, 2) φ=3) => :at,
-        :(@trefoil design spacing=spacing center=(0, 0) phase=(1, 2, 3)) =>
+        :(@trefoil design spacing=spacing center=(0, 0) combine=:zip phase=(1, 2, 3)) =>
             :trefoil,
-        :(@hflat design spacing=spacing phase=(1, 2, 3)) => :hflat,
-        :(@vflat design spacing=spacing phase=(1, 2, 3)) => :vflat
+        :(@hflat design spacing=spacing combine=:zip phase=(1, 2, 3)) => :hflat,
+        :(@vflat design spacing=spacing combine=:zip phase=(1, 2, 3)) => :vflat
     )
     for (surface, callee) in expansions
         expanded = Base.remove_linenums!(macroexpand(@__MODULE__, surface))
         @test expanded isa Expr && expanded.head === :call
         @test expanded.args[1] == GlobalRef(PB, callee)
+    end
+
+    combined_surfaces = (
+        :(@cable "x" combine=:zip begin
+            part
+        end),
+        :(@terminal :phase combine=:zip begin
+            part
+        end),
+        :(@assembly combine=:zip begin
+            left
+            right
+        end),
+        :(@pipe shape=shape fill=fill combine=:zip begin
+            part
+        end),
+        :(@duct shape=shape fill=fill combine=:zip begin
+            part
+        end),
+        :(@trefoil design spacing=spacing combine=:zip phase=(1, 2, 3)),
+        :(@hflat design spacing=spacing combine=:zip phase=(1, 2, 3)),
+        :(@vflat design spacing=spacing combine=:zip phase=(1, 2, 3))
+    )
+    for surface in combined_surfaces
+        expanded = Base.remove_linenums!(macroexpand(@__MODULE__, surface))
+        parameters = only(filter(
+            argument -> argument isa Expr && argument.head === :parameters,
+            expanded.args
+        ))
+        @test any(parameters.args) do keyword
+            keyword isa Expr && keyword.head === :kw &&
+                keyword.args == [:combine, QuoteNode(:zip)]
+        end
     end
 
     distributed = Base.remove_linenums!(macroexpand(
@@ -198,7 +244,9 @@ end
     copper = Material(kind = :conductor, rho = 1.72e-8)
     evaluations = Dict{Symbol, Int}()
     once(name, value) = (evaluations[name] = get(evaluations, name, 0) + 1; value)
-    nested = @cable once(:identifier, "single-evaluation") begin
+    nested = @cable once(:identifier, "single-evaluation") nominal_data=(
+        rated_voltage = once(:rated_voltage, 132e3),
+    ) begin
         @terminal once(:terminal, :phase) begin
             core(
                 once(:material, copper);
@@ -209,9 +257,64 @@ end
     @test nested isa CableDesign
     @test evaluations == Dict(
         :identifier => 1,
+        :rated_voltage => 1,
         :terminal => 1,
         :material => 1,
         :radius => 1
+    )
+    @test nested.nominal_data == (rated_voltage = 132e3,)
+
+    system = @system once(:system_id, "single-system-evaluation") line_length=once(
+        :line_length, 1.0
+    ) begin
+        @at nested (0.0, -1.0) phase=1
+    end
+    @test system isa LineCableSystem
+    @test system.system_id == "single-system-evaluation"
+    @test evaluations[:system_id] == 1
+    @test evaluations[:line_length] == 1
+end
+
+@testitem "ParametricBuilder / construction API / earth grammar" tags=[:unit] begin
+    using LineCableModels
+
+    earth = @earth begin
+        EarthLayer(rho = 100.0, eps_r = 10.0, thickness = 5.0)
+        EarthLayer(rho = 500.0, eps_r = 20.0)
+    end
+    @test earth isa EarthModel{Float64}
+    @test !earth.vertical_layers
+    @test length(earth.layers) == 3
+    @test isinf(first(earth.layers).rho)
+    @test getproperty.(earth.layers[2:end], :rho) == [100.0, 500.0]
+    @test getproperty.(earth.layers[2:end], :thickness) == [5.0, Inf]
+    @test EarthLayer(rho = 100.0f0) isa EarthLayer{Float32}
+
+    air = EarthLayer(rho = Inf, eps_r = 1.0006, mu_r = 1.0)
+    explicit_air = @earth air_layer=air begin
+        EarthLayer(rho = 100.0)
+    end
+    @test first(explicit_air.layers) === air
+
+    homogeneous = Earth(rho = 100.0, eps_r = 10.0)
+    @test homogeneous isa EarthModel{Float64}
+    @test length(homogeneous.layers) == 2
+    @test homogeneous.layers[2].rho == 100.0
+
+    spaces = @earth begin
+        EarthLayer(rho = Grid((10.0, 100.0)), eps_r = 5.0, thickness = 2.0)
+        EarthLayer(rho = 500.0, eps_r = 20.0)
+    end
+    @test spaces isa Gridspace{EarthModel}
+    @test length(spaces) == 2
+    @test [model.layers[2].rho for model in spaces] == [10.0, 100.0]
+    @test all(model -> model.layers[3].rho == 500.0, spaces)
+
+    @test_throws ArgumentError macroexpand(
+        @__MODULE__,
+        :(@earth unsupported=true begin
+            EarthLayer(rho = 100.0)
+        end)
     )
 end
 
@@ -296,6 +399,27 @@ end
     design = build(CableDesign, "asymmetric-ducts", asymmetric)
     @test design.terminal_order == [:a, :b]
     @test any(region -> region.source.tag === :duct_fill, design.geometry.regions)
+
+    piped = pipe(
+        at(cell_a, -5e-3, 0),
+        at(cell_b, 5e-3, 0);
+        shape = Disk(15e-3),
+        fill = air
+    )
+    notated_pipe = @pipe shape=Disk(15e-3) fill=air begin
+        @at cell_a (-5e-3, 0)
+        @at cell_b (5e-3, 0)
+    end
+    @test notated_pipe == piped
+
+    pipe_space = @pipe shape=Disk(Grid((15e-3, 16e-3))) fill=Grid((
+        air,
+        concrete
+    )) combine=:zip begin
+        cell_a
+    end
+    @test pipe_space isa Gridspace{Enclosure}
+    @test length(pipe_space) == 2
 
     repeated = duct(
         cell_a;
@@ -407,14 +531,12 @@ end
         boundary = Grid((rounded, second_boundary))
     )
     @test boundary_space isa Gridspace{Stack}
-    @test collect(boundary_space) == [
-        stranded(
-            copper;
-            shape = Disk(0.5e-3),
-            layers = 0,
-            boundary
-        ) for boundary in (rounded, second_boundary)
-    ]
+    @test collect(boundary_space) == [stranded(
+               copper;
+               shape = Disk(0.5e-3),
+               layers = 0,
+               boundary
+           ) for boundary in (rounded, second_boundary)]
 
     rounded_member = RoundedSector(
         span = deg2rad(115.0),
@@ -550,10 +672,7 @@ end
         base = DM.tubular_resistance(
             0.0,
             primitive.r,
-            region.source.material.rho,
-            region.source.material.alpha,
-            region.source.material.T0,
-            region.source.material.T0
+            region.source.material.rho
         )
         foldl(region.paths; init = base) do resistance, entry
             resistance * overlength(entry.path, entry.radius)
@@ -631,11 +750,51 @@ end
 
     placed = @at design (0.0, -1.0) connections = (phase = 1,)
     @test placed == at(design, 0.0, -1.0; connections = (phase = 1,))
+    @test (@at design (0.0, -1.0) phase=1) == placed
     @test (@at design (0.0, -1.0) φ=0.2 connections=(phase = 1,)) ==
           at(design, 0.0, -1.0; φ = 0.2, connections = (phase = 1,))
     @test_throws ArgumentError macroexpand(
         @__MODULE__,
         :(@at design (0.0, -1.0, 0.2) φ = 0.3)
+    )
+    @test_throws ArgumentError macroexpand(
+        @__MODULE__,
+        :(@at design (0.0, -1.0) connections=(phase = 1,) phase=2)
+    )
+
+    system = @system "placed-system" line_length=2.0 begin
+        @at design (0.0, -1.0) phase=1
+        @at design (0.1, -1.0) phase=2
+    end
+    expected_system = build(
+        LineCableSystem,
+        [
+            at(design, 0.0, -1.0; connections = (phase = 1,)),
+            at(design, 0.1, -1.0; connections = (phase = 2,))
+        ];
+        system_id = "placed-system",
+        line_length = 2.0
+    )
+    @test system.system_id == expected_system.system_id
+    @test system.line_length == expected_system.line_length
+    @test system.designs == expected_system.designs
+    @test system.positions == expected_system.positions
+    @test system.connections == expected_system.connections
+    @test system.terminal_order == expected_system.terminal_order
+    @test system.terminal_map == expected_system.terminal_map
+    @test system.connection_order == expected_system.connection_order
+
+    formation_system = @system "formation-system" begin
+        @hflat design spacing=0.1 phase=(1, 2, 3)
+    end
+    @test length(formation_system.designs) == 3
+    @test formation_system.connection_order == [1, 2, 3]
+
+    @test_throws ArgumentError macroexpand(
+        @__MODULE__,
+        :(@system "invalid" system_id="duplicate" begin
+            placed
+        end)
     )
 
     root_space = terminal(
@@ -665,6 +824,51 @@ end
                "macro-grid",
                terminal(:phase, core(copper; r), insulation(xlpe; t = 1e-3))
            ) for r in (2e-3, 3e-3)]
+
+    zipped_terminal = @terminal :phase combine=:zip begin
+        core(copper; r = Grid((2e-3, 3e-3)))
+        insulation(xlpe; t = Grid((1e-3, 2e-3)))
+    end
+    @test zipped_terminal isa Gridspace{Group}
+    @test length(zipped_terminal) == 2
+
+    zipped_designs = @cable Grid(("zip-a", "zip-b")) nominal_data=Grid((
+        (rating = 1,),
+        (rating = 2,)
+    )) combine=:zip begin
+        zipped_terminal
+    end
+    @test zipped_designs isa Gridspace{CableDesign}
+    @test length(zipped_designs) == 2
+    @test getproperty.(collect(zipped_designs), :cable_id) == ["zip-a", "zip-b"]
+    @test getproperty.(collect(zipped_designs), :nominal_data) == [
+        (rating = 1,),
+        (rating = 2,)
+    ]
+
+    left_members = terminal(:left, core(copper; r = Grid((1e-3, 1.2e-3))))
+    right_members = terminal(:right, core(copper; r = Grid((0.8e-3, 0.9e-3))))
+    zipped_assembly = @assembly combine=:zip begin
+        left_members
+        right_members
+    end
+    @test zipped_assembly isa Gridspace{Assembly}
+    @test length(zipped_assembly) == 2
+
+    zipped_formation = @trefoil first(zipped_designs) spacing=Grid((
+        0.08,
+        0.1
+    )) center=at(x=Grid((0.0, 0.2)), y=-1.0) combine=:zip phase=(1, 2, 3)
+    @test zipped_formation isa Gridspace{Vector}
+    @test length(zipped_formation) == 2
+
+    systems = @system "macro-system" begin
+        @at macro_designs (0.0, -1.0) phase=1
+    end
+    @test systems isa Gridspace{LineCableSystem}
+    @test length(systems) == 2
+    @test all(system -> system.system_id == "macro-system", systems)
+    @test all(system -> system.connection_order == [1], systems)
 
     schedules = Grid((
         (LayRatio(10), LayRatio(11)),

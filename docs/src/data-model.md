@@ -5,11 +5,15 @@ Cable construction follows one path:
 ```text
 physical declaration
         ↓
-      build
+   @cable / build
         ↓
 completed CableDesign
         ↓
-LineParametersProblem → compute → LineParameters
+  @system / build
+        ↓
+completed LineCableSystem ──────────┐
+                                   ├→ LineParametersProblem → compute → LineParameters
+@earth / build → EarthModel ───────┘
 ```
 
 The notation layer describes physical order and electrical ownership. It does
@@ -37,12 +41,16 @@ end
 Its physical declaration remains authoritative while geometry and terminal
 indices are derived once by `build`.
 
-Place the cable and construct an ordinary calculation problem:
+Place the cable, complete the system declaration, and construct an ordinary
+calculation problem:
 
 ```julia
-placed = @at design (0.0, -1.0) connections=(phase=1,)
+system = @system "example-system" line_length=1.0 begin
+    @at design (0.0, -1.0) phase=1
+end
+
 problem = LineParametersProblem(
-    [placed];
+    system;
     earth_props=Earth(rho=100.0),
     frequencies=[50.0],
 )
@@ -51,6 +59,25 @@ parameters = compute(problem)
 
 System placement composes an outer transform with the design; it does not
 rewrite the design's local geometry.
+
+## Declaring earth
+
+`Earth(...)` is the one-layer convenience. A layered model is declared from
+the surface downward; the semi-infinite air layer is implicit:
+
+```julia
+earth = @earth begin
+    EarthLayer(rho=100.0, eps_r=10.0, thickness=5.0)
+    EarthLayer(rho=500.0, eps_r=20.0)
+end
+```
+
+Omitting `thickness` makes that earth layer semi-infinite. Consequently, every
+finite layer must precede the bottom half-space. Use
+`@earth vertical_layers=true` for vertical interfaces, or supply
+`air_layer=EarthLayer(...)` when the air properties must be explicit. Layer
+properties may contain `Grid` values; the result is then a
+`Gridspace{EarthModel}` through the same construction path.
 
 ## Terminals and physical tags
 
@@ -90,6 +117,12 @@ core_part = stranded(
     lay=(LayRatio(13), LayRatio(12), LayRatio(11)),
 )
 ```
+
+For circular strands, a complete `6k` schedule uses exact hexagonal
+close-packed courses: neighbouring strand centres remain one strand diameter
+apart. Incomplete schedules, noncircular members, differing course rotations
+or clearances, and compacted courses retain explicit concentric `Ring`
+placement.
 
 Use `capacity()` when a course should contain the maximum count allowed by its
 actual geometry and compaction law:
@@ -155,8 +188,17 @@ members = @assembly begin
 end
 ```
 
-`pipe` and `duct` describe containment. Nested ducts use the same operation;
-there is no separate duct-bank object.
+`pipe` and `duct` describe containment. Both accept block notation when several
+members make the physical nesting clearer:
+
+```julia
+contained = @pipe shape=Disk(15e-3) fill=air begin
+    @at phase_a (-5e-3, 0.0)
+    @at phase_b ( 5e-3, 0.0)
+end
+```
+
+Nested ducts use the same operation; there is no separate duct-bank object.
 
 ## Canonical grammar
 
@@ -244,6 +286,11 @@ end
 
 eltype(designs) === CableDesign
 ```
+
+Every block macro forwards `combine=:product` or `combine=:zip` to the same
+construction used by its functional form. `@cable` also accepts
+`nominal_data=(...)`; that descriptive data follows each completed design
+without affecting its physical resolution.
 
 Iteration and stochastic realization return completed ordinary designs. Raw
 tuples, vectors, polygon points, course schedules, and frequency vectors remain

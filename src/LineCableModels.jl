@@ -20,7 +20,7 @@ export AbstractCoreResult, AbstractResultSpace
 export AbstractParametricResult, AbstractUncertaintyResult
 export FormulationOptions, ComputationOptions, ComputationDetails
 export formulation_options, computation_options, computation_details, details
-export compute, observe, @observe, observables, project
+export compute, observe, @observe, observables
 export quantity, native_unit, display_unit, scale_factor, label, symbol
 export basis, domain, frequencies, nconductors, nfrequencies, ncables, nphases
 export Z, Y, R, X, L, G, B, C
@@ -49,16 +49,19 @@ export r_in, r_ex, thickness, outer_radius
 export AbstractCablePart, Region, Stack
 export Group, Assembly
 export Enclosure
-export Ring, Polar, Fill, Lattice, DiameterFactor, placements
+export Ring, Hexa, Polar, Fill, Lattice, DiameterFactor, placements
 export capacity, FillFactor, TabulatedCompaction, AffineCompaction
 export LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
-export at, trefoil, hflat, vflat, Earth
+export at, trefoil, hflat, vflat, Earth, EarthLayer, EarthModel
 export terminal, core, stranded, rope, cores, tape, insulation, screen, sheath
 export armor, bedding, jacket, filler, pipe, duct
 export solid, shell, wires, layers, assembly
-export @cable, @terminal, @assembly, @duct, @at, @hflat, @vflat, @trefoil
+export @cable, @system, @earth, @terminal, @assembly, @pipe, @duct
+export @at, @hflat, @vflat, @trefoil
 export @distribute
 export make_stranded, make_screened, WireEstimate
+
+public Gridpoint
 
 # Materialised results, reusable designs, and presentation:
 export CableDesign, LineCableSystem, DatasheetInfo, catalogue
@@ -84,6 +87,9 @@ import DocStringExtensions: DocStringExtensions
 
 include("docstrings.jl")
 include("interfaces.jl")
+include("formulas.jl")
+
+public FormulaMethod
 
 # Submodule `Units`
 include("units/Units.jl")
@@ -121,6 +127,7 @@ using .Materials: AbstractMaterial, Material, MaterialsLibrary
 # Submodule `EarthProps`
 include("earthprops/EarthProps.jl")
 import .EarthProps
+using .EarthProps: EarthLayer, EarthModel
 
 # Submodule `DataModel`
 include("datamodel/DataModel.jl")
@@ -136,7 +143,7 @@ using .DataModel: CableDesign, CableGeometry, PlacedRegion,
                   r_in, r_ex, thickness, outer_radius,
                   AbstractCablePart, Region, Stack,
                   Group, Assembly, Enclosure
-using .DataModel: Ring, Polar, Fill, Lattice, capacity, placements,
+using .DataModel: Ring, Hexa, Polar, Fill, Lattice, capacity, placements,
                   FillFactor, DiameterFactor, TabulatedCompaction,
                   AffineCompaction,
                   LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
@@ -169,7 +176,7 @@ using .ParametricBuilder:
                           UncertainValue, Gridspace, has_uncertainty,
                           @gridspace, @relax,
                           Combinatorial, ParametricProblem, ParametricResult,
-                          result, project,
+                          result,
                           Conductor, Insulator,
                           terminal, core, stranded, rope, cores, tape,
                           insulation, screen, sheath, armor, bedding, jacket,
@@ -178,8 +185,8 @@ using .ParametricBuilder:
                           at, trefoil, hflat, vflat, Earth,
                           WireEstimate, make_stranded, make_screened
 using .ParametricBuilder: Semiconductor
-using .ParametricBuilder: @cable, @terminal, @assembly, @duct, @at,
-                          @hflat, @vflat, @trefoil, @distribute
+using .ParametricBuilder: @cable, @system, @earth, @terminal, @assembly, @pipe,
+                          @duct, @at, @hflat, @vflat, @trefoil, @distribute
 
 # Submodule `UQ`
 include("uq/UQ.jl")

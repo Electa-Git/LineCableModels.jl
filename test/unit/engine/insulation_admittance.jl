@@ -2,7 +2,7 @@
     EngineTestSupport, UseEngineSupport, TestNumerics] begin
     using TOML
 
-    formulation=InsulationAdmittance.Formula(:Marti2001)
+    formulation=InsulationAdmittance.Formula(:Ametani2004)
     lossless=InsulationAdmittance.Formula(:Gustavsen2013)
     semicon=SemiconAdmittance.Formula(:Ametani2004)
 
@@ -86,18 +86,15 @@
     series_admittance=inv(inv(first_admittance)+inv(second_admittance))
     @test s / (first_layer + second_layer) ≈ series_admittance
 
-    lossless_material=lossless(material, 50.0, 20.0)
-    @test isinf(lossless_material.rho)
+    lossless_κ=lossless(material, 50.0, 20.0)
+    @test iszero(real(lossless_κ))
     lossless_coefficient=LineCableModels.Engine.potential_coefficient(
-        r_in, r_ex, lossless_material, s
+        r_in, r_ex, lossless_κ, s
     )
     formula_epsilon0=one(r_in)*88541878128*(one(r_in)*10)^(-22)
-    @test lossless_coefficient == Complex(
+    @test lossless_coefficient ≈ Complex(
         log(r_ex/r_in)/(2*(one(r_in)*π)*formula_epsilon0*eps_r)
     )
-    @test LineCableModels.Engine.potential_coefficient(
-        r_in, r_ex, formulation(lossless_material, 50.0, 20.0), s
-    ) == lossless_coefficient
 end
 
 @testitem "Engine / dielectric admittance / strict layers reach direct computation" tags=[:unit] setup=[
@@ -174,50 +171,57 @@ end
     )
     problem=two_terminal_problem()
     execution=computation_options(Val(LineCableModelsCoaxial), (;))
+    blueprints=LineCableModels.Engine.CableBlueprint{eltype(problem)}[
+        LineCableModels.Engine.flatten(LineCableModelsCoaxial(), design, eltype(problem))
+        for design in problem.system.designs
+    ]
     workspace=LineParametersWorkspace(
-        LineCableModelsCoaxial(), problem, formulation, execution)
+        problem, formulation, execution, blueprints)
     input=workspace.input
+    cable=input.cable
     @test !hasproperty(input, :rho_ins)
     @test !hasproperty(input, :eps_ins)
     @test !hasproperty(input, :tan_ins)
-    @test getproperty.(input.dielectric_materials, :kind) ==
+    @test getproperty.(cable.dielectric_materials, :kind) ==
           [:semicon, :insulator, :insulator]
-    @test input.semicon_layer_indices == [1]
-    @test input.insulation_layer_indices == [2, 3]
-    @test input.dielectric_materials[2].tan_delta == 0.012
+    @test cable.semicon_indices == [1]
+    @test cable.insulation_indices == [2, 3]
+    @test cable.dielectric_materials[2].tan_delta == 0.012
     @test @inferred(LineCableModels.Engine.dielectric!(
         workspace.buffers.layer_coefficients,
-        workspace,
-        1,
-        formulation
+        cable,
+        formulation.methods,
+        input.freq[1],
+        input.temperature,
+        input.jω[1]
     )) === workspace.buffers.layer_coefficients
     parameters=compute(problem, formulation; options = (trace = true,))
     trace=details(parameters).trace
     public_parameters=compute(problem, formulation)
     @test public_parameters.Z.values == parameters.Z.values
     @test public_parameters.Y.values == parameters.Y.values
-    @test input.insulator_layer_ranges == [1:2, 3:3]
-    @test input.r_ins_layer_in[2] ≈ input.r_ins_layer_ext[1]
+    @test cable.dielectric_ranges == [1:2, 3:3]
+    @test cable.r_layer_in[2] ≈ cable.r_layer_ext[1]
     @test size(parameters.Y) == (2, 2, 3)
 
     for frequency_index in eachindex(input.freq)
         s=input.jω[frequency_index]
         function layer_coefficient(layer_index)
-            material=input.dielectric_materials[layer_index]
+            material=cable.dielectric_materials[layer_index]
             relation=material.kind===:semicon ?
                      formulation.methods.semicon_admittance :
                      formulation.methods.insulation_admittance
             evaluated=constitutive(
                 relation, material, input.freq[frequency_index], input.temperature)
             return LineCableModels.Engine.potential_coefficient(
-                input.r_ins_layer_in[layer_index],
-                input.r_ins_layer_ext[layer_index],
+                cable.r_layer_in[layer_index],
+                cable.r_layer_ext[layer_index],
                 evaluated,
                 s
             )
         end
-        inner=sum(layer_coefficient, input.insulator_layer_ranges[1])
-        outer=sum(layer_coefficient, input.insulator_layer_ranges[2])
+        inner=sum(layer_coefficient, cable.dielectric_ranges[1])
+        outer=sum(layer_coefficient, cable.dielectric_ranges[2])
         @test trace.Pin[:, :, frequency_index] ≈ [inner+outer outer
                                                   outer outer]
 
@@ -233,16 +237,16 @@ end
     function component_coefficient(component_index, frequency_index)
         s=input.jω[frequency_index]
         coefficient=zero(s)
-        for layer_index in input.insulator_layer_ranges[component_index]
-            material=input.dielectric_materials[layer_index]
+        for layer_index in cable.dielectric_ranges[component_index]
+            material=cable.dielectric_materials[layer_index]
             relation=material.kind===:semicon ?
                      formulation.methods.semicon_admittance :
                      formulation.methods.insulation_admittance
             evaluated=constitutive(
                 relation, material, input.freq[frequency_index], input.temperature)
             coefficient+=LineCableModels.Engine.potential_coefficient(
-                input.r_ins_layer_in[layer_index],
-                input.r_ins_layer_ext[layer_index],
+                cable.r_layer_in[layer_index],
+                cable.r_layer_ext[layer_index],
                 evaluated,
                 s
             )
@@ -281,7 +285,7 @@ end
     @test total.Y.values ≈ problem.system.line_length .* parameters.Y.values
 end
 
-@testitem "Engine / Marti2001 / Gridspace Monte Carlo samples before assembly" tags=[:unit] setup=[
+@testitem "Engine / Ametani2004 / Gridspace Monte Carlo samples before assembly" tags=[:unit] setup=[
     EngineTestSupport, UseEngineSupport, TestNumerics] begin
     using Statistics
     import LineCableModels.ParametricBuilder as PB
@@ -347,7 +351,7 @@ end
         frequencies = [50.0, 500.0]
     )
     formulation=Formulation(;
-        insulation_admittance = formula(:Marti2001),
+        insulation_admittance = formula(:Ametani2004),
         options = (
             reduce_bundle = false,
             kron_reduction = false,

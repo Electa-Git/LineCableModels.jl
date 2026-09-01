@@ -1,8 +1,8 @@
 function routes(identifier::Val{:Magalhaes2018})
     (
-        self = formula_method(identifier, earth_impedance, Val(:self)),
-        mutual = formula_method(identifier, earth_impedance, Val(:mutual)),
-        Γ = formula_method(identifier, propagation_constant)
+        self = FormulaMethod(identifier, earth_impedance, Val(:self)),
+        mutual = FormulaMethod(identifier, earth_impedance, Val(:mutual)),
+        Γ = FormulaMethod(identifier, propagation_constant)
     )
 end
 
@@ -40,7 +40,7 @@ A. Ametani et al., *Electromagnetic Transients in Large HV Cable Networks*,
 IET, 2021.
 """
 function description(::Formula{:Magalhaes2018})
-    "Magalhaes companion homogeneous-earth impedance (2018; Xue-equivalent)"
+    "Magalhaes companion Xue-equivalent homogeneous-earth impedance (2018)"
 end
 
 function propagation_constant(

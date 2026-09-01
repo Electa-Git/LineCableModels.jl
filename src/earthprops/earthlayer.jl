@@ -57,6 +57,46 @@ function EarthLayer(rho::Real, eps_r::Real, mu_r::Real)
     return EarthLayer{T}(values..., T(Inf))
 end
 
+function _earth_layer(rho, eps_r, mu_r, thickness)
+    permittivity = eps_r === nothing ? one(float(rho)) : eps_r
+    permeability = mu_r === nothing ? one(float(rho)) : mu_r
+    return thickness === nothing ?
+           EarthLayer(rho, permittivity, permeability) :
+           EarthLayer(rho, permittivity, permeability, thickness)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct one static earth layer directly or as an explicit finite space.
+
+# Keywords
+
+- `rho`: Electrical resistivity \\[Ω·m\\].
+- `eps_r=nothing`: Relative permittivity \\[dimensionless\\]; `nothing`
+  selects unity in the resistivity scalar type.
+- `mu_r=nothing`: Relative permeability \\[dimensionless\\]; `nothing`
+  selects unity in the resistivity scalar type.
+- `thickness=nothing`: Layer thickness \\[m\\]; `nothing` selects a
+  semi-infinite layer.
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- An `EarthLayer`, or a `Gridspace{EarthLayer}` when an explicit finite source
+  is supplied.
+"""
+function EarthLayer(;
+        rho,
+        eps_r = nothing,
+        mu_r = nothing,
+        thickness = nothing,
+        combine::Symbol = :product
+)
+    values = (rho, eps_r, mu_r, thickness)
+    return _construction(EarthLayer, _earth_layer, values; combine)
+end
+
 function Base.convert(::Type{EarthLayer{T}}, layer::EarthLayer) where {T <: Real}
     return EarthLayer{T}(
         convert(T, layer.rho), convert(T, layer.eps_r),

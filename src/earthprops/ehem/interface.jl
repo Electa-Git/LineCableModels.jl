@@ -15,6 +15,9 @@ static earth geometry, the interaction pair, and frequency. It returns one
 artificial homogeneous [`EarthMaterial`](@ref). Formula assumptions participate
 in the concrete Julia type.
 
+The reserved identifier `:default` selects [`Layer`](@ref) with `-1`, which is
+resolved to the bottommost soil layer when the rule is evaluated.
+
 $(TYPEDFIELDS)
 """
 struct Formula{ID, R, A <: NamedTuple} <: AbstractRule
@@ -23,9 +26,6 @@ struct Formula{ID, R, A <: NamedTuple} <: AbstractRule
     "Numerical and reconstruction assumptions."
     assumptions::A
 end
-
-"Zero-field route tag shared by built-in EHEM formulas."
-struct Functor{ID} end
 
 """
 $(TYPEDEF)
@@ -65,7 +65,20 @@ assumptions(formula::Formula) = formula.assumptions
 "Return the default assumptions of a registered EHEM formula."
 function assumptions end
 
+"Construct one formula-owned equivalent homogeneous-earth material."
+function equivalent_material end
+
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
+
+function Formula(::Val{:default}; route = nothing, kwargs...)
+    route === nothing || throw(ArgumentError(
+        ":default EHEM cannot define a route"
+    ))
+    isempty(kwargs) || throw(ArgumentError(
+        ":default EHEM cannot define assumptions"
+    ))
+    return Layer(-1)
+end
 
 function Formula(::Val{ID}; route = nothing, kwargs...) where {ID}
     tag = Val(ID)
@@ -79,7 +92,7 @@ function Formula(::Val{ID}; route = nothing, kwargs...) where {ID}
         "unknown assumptions for EHEM formula :$ID: $(collect(unknown))"
     ))
     values = merge(defaults, overrides)
-    selected = route === nothing ? Functor{ID}() : route
+    selected = route === nothing ? FormulaMethod(tag, equivalent_material) : route
     return Formula{ID, typeof(selected), typeof(values)}(selected, values)
 end
 
@@ -87,6 +100,13 @@ function Formula(
         ::Val{ID}, route::R, values::A = (;)
 ) where {ID, R, A <: NamedTuple}
     return Formula{ID, R, A}(route, values)
+end
+
+function Formula(::Val{:default}, route, values::NamedTuple = (;))
+    throw(ArgumentError(
+        ":default EHEM selects the last-layer policy and cannot define " *
+        "an external route"
+    ))
 end
 
 Formula(identifier::Symbol, route, values::NamedTuple = (;)) =
@@ -156,7 +176,11 @@ end
     )
 end
 
-function (::Functor{ID})(::Val{Layout}, args...) where {ID, Layout}
+function equivalent_material(
+        ::Val{ID},
+        ::Val{Layout},
+        args...
+) where {ID, Layout}
     throw(ArgumentError(
         "EHEM formula :$ID does not support :$Layout conductor pairs"
     ))

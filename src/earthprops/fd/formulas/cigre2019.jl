@@ -26,7 +26,7 @@ on the Response of Grounding Electrodes and on the Lightning Performance of
 Electrical Systems*, Technical Brochure 781, 2019.
 """
 description(::Formula{:CIGRE2019}) =
-    "CIGRE WG C4.33 2019 (recommended soil dispersion)"
+    "CIGRE WG C4.33 recommended soil dispersion (2019)"
 
 #=
 Evaluate the frequency-dependent soil relation recommended by CIGRE WG C4.33.
@@ -40,7 +40,8 @@ CIGRE WG C4.33, *Impact of Soil-Parameter Frequency Dependence on the Response
 of Grounding Electrodes and on the Lightning Performance of Electrical
 Systems*, Technical Brochure 781, 2019.
 =#
-function (::Functor{:CIGRE2019})(
+function earth_material(
+        ::Val{:CIGRE2019},
         material::EarthMaterial{T},
         frequency::T,
         values::NamedTuple

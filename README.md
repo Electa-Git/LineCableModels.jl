@@ -101,11 +101,15 @@ label(display_unit(R, :pul))     # "Ω/km"
 ```
 
 Complete parameter traversals return `ParametricResult{T}`, including a space
-with cardinality one. Conditional Monte Carlo propagation returns
+with cardinality one. `Formulation`, `CableConstantsFormulation`, and
+`ModalTransformationFormulation` accept explicit `Grid` fields; combinatorial
+calculation forms the Cartesian product of problem and formulation points and
+retains both axes for `result(run, problem_index, formulation_index)` lookup.
+Conditional Monte Carlo propagation returns
 `MonteCarloResult{T}`. Use `statistics`, `samples`, `histograms`, and
 `uncertain` to inspect stored calculation data. Result order is
-the Gridspace iteration order. Traversal state is not copied into completed
-results. Parametric, linear-error, and Monte Carlo results are ordinary finite
+problem-index-fastest within formulation order. Unresolved traversal state is
+not copied into completed results. Parametric, linear-error, and Monte Carlo results are ordinary finite
 collections: indexing and iteration return stored core results, and Base
 `first`, `last`, `only`, `collect`, `map`, and `zip` retain their standard
 meanings.

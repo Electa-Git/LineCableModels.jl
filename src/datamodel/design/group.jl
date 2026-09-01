@@ -36,10 +36,11 @@ struct Group{A, E <: AbstractCablePart, P, H, C} <: AbstractCablePart
     end
 end
 
-Base.:(==)(left::Group, right::Group) =
+function Base.:(==)(left::Group, right::Group)
     left.name == right.name && left.at == right.at && left.item == right.item &&
-    left.pattern == right.pattern && left.path == right.path &&
-    left.compact == right.compact
+        left.pattern == right.pattern && left.path == right.path &&
+        left.compact == right.compact
+end
 
 function _path_radius(
         pattern::Ring,
@@ -49,19 +50,24 @@ function _path_radius(
     return iszero(pattern.r) ? (r_in(primitive) + r_ex(primitive)) / 2 : pattern.r
 end
 _path_radius(pattern::Ring, pose::Pose2, primitive::AbstractShape) = pattern.r
-_path_radius(
-    ::Nothing,
-    pose::Pose2,
-    primitive::Union{Annulus, Sector}
-) = (r_in(primitive) + r_ex(primitive)) / 2
+function _path_radius(
+        ::Nothing,
+        pose::Pose2,
+        primitive::Union{Annulus, Sector}
+)
+    (r_in(primitive) + r_ex(primitive)) / 2
+end
 _path_radius(::Nothing, pose::Pose2, primitive::AbstractShape) = hypot(pose.x, pose.y)
 _path_radius(pattern, pose::Pose2, primitive::AbstractShape) = hypot(pose.x, pose.y)
 
-_resolved_path_radius(compact, pattern, pose, primitive) =
+function _resolved_path_radius(compact, pattern, pose, primitive)
     _path_radius(pattern, pose, primitive)
-_resolved_path_radius(
-    ::FillFactor, pattern, pose, primitive::Union{Annulus, Sector}
-) = (r_in(primitive) + r_ex(primitive)) / 2
+end
+function _resolved_path_radius(
+        ::FillFactor, pattern, pose, primitive::Union{Annulus, Sector}
+)
+    (r_in(primitive) + r_ex(primitive)) / 2
+end
 
 _aggregate_boundary(child::CableGeometry, compact) = boundary(child)
 function _aggregate_boundary(
@@ -76,8 +82,9 @@ _member_definition(::AbstractCablePart) = nothing
 
 _radial_half_extent(definition::Disk) = definition.r
 _radial_half_extent(definition::Rectangle) = definition.h / 2
-_radial_half_extent(definition::AbstractPrimitive) =
+function _radial_half_extent(definition::AbstractPrimitive)
     support(resolve(EmptyBoundary(), definition))
+end
 
 function _contextual_ring(
         pattern::Ring,
@@ -116,9 +123,11 @@ function _contextual_ring(
 end
 
 _contextual_pattern(pattern, item, child, compact, context) = pattern
-_contextual_pattern(
-    pattern::Ring, item, child, compact, context
-) = _contextual_ring(pattern, item, child, compact, context)
+function _contextual_pattern(
+        pattern::Ring, item, child, compact, context
+)
+    _contextual_ring(pattern, item, child, compact, context)
+end
 
 function _group_placements(pattern, item, child, compact, context)
     concrete = _contextual_pattern(pattern, item, child, compact, context)
@@ -153,14 +162,15 @@ function _resolve_group(
                        source.terminal
             centre = centroid(source.primitive)
             paths = group.path === nothing ? source.paths :
-                    (source.paths..., (
-                        path = group.path,
-                        radius = _path_radius(
-                            nothing,
-                            Pose2(centre[1], centre[2], 0),
-                            source.primitive
-                        )
-                    ))
+                    (source.paths...,
+                (
+                    path = group.path,
+                    radius = _path_radius(
+                        nothing,
+                        Pose2(centre[1], centre[2], 0),
+                        source.primitive
+                    )
+                ))
             push!(regions, PlacedRegion(
                 source.source,
                 primitive,
@@ -200,17 +210,18 @@ function _resolve_group(
             local_extent = local_extent === nothing ? extent : max(local_extent, extent)
             patterns = pattern === nothing ? source.placement.patterns :
                        (source.placement.patterns...,
-                        (pattern = pattern, member = member, pose = pose))
+                (pattern = pattern, member = member, pose = pose))
             paths = group.path === nothing ? source.paths :
-                    (source.paths..., (
-                        path = group.path,
-                        radius = _resolved_path_radius(
-                            group.compact,
-                            pattern,
-                            pose,
-                            local_primitive
-                        )
-                    ))
+                    (source.paths...,
+                (
+                    path = group.path,
+                    radius = _resolved_path_radius(
+                        group.compact,
+                        pattern,
+                        pose,
+                        local_primitive
+                    )
+                ))
             push!(regions, PlacedRegion(
                 source.source,
                 primitive,
@@ -226,6 +237,42 @@ function _resolve_group(
 end
 
 resolve(context::EmptyBoundary, group::Group) = _resolve_group(context, group)
+
+function resolve(
+        context::Disk,
+        group::Group{A, E, P}
+) where {A, E <: AbstractCablePart, P <: Hexa}
+    child = resolve(EmptyBoundary(), group.item)
+    length(child.regions) == 1 || throw(ArgumentError(
+        "a hexagonal course requires one circular member region"
+    ))
+    primitive = only(child.regions).primitive
+    primitive isa Disk || throw(ArgumentError(
+        "a hexagonal course requires a circular member region"
+    ))
+    iszero(primitive.at.x) && iszero(primitive.at.y) || throw(ArgumentError(
+        "a hexagonal course member must be centred in its local frame"
+    ))
+    centre = group.at * primitive.at
+    isapprox(context.at.x, centre.x) && isapprox(context.at.y, centre.y) ||
+        throw(ArgumentError(
+            "a hexagonal course must share the preceding course centre"
+        ))
+    pattern = group.pattern
+    spacing = 2primitive.r * (one(pattern.gap_frac) + pattern.gap_frac)
+    expected_inner = (pattern.course - 1) * spacing + primitive.r
+    isapprox(context.r, expected_inner) || throw(DomainError(
+        context.r,
+        "hexagonal course $(pattern.course) requires preceding radius " *
+        "$expected_inner"
+    ))
+
+    # A hexagonal course interlocks with the valleys of the preceding course.
+    # The ordinary radial-envelope exclusion test would reject that valid
+    # geometry, so this exact course dispatch resolves the owned lattice
+    # directly after validating its course radius and common centre.
+    return _resolve_group(context, group)
+end
 
 function resolve(context::AbstractShape, group::Group)
     result = _resolve_group(context, group)

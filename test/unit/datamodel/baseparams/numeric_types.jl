@@ -8,47 +8,28 @@
             r_in=T(0.01)
             r_ex=T(0.02)
             rho=T(1.7241e-8)
-            alpha=T(0.00393)
-            reference_temperature=T(20)
-            operating_temperature=T(75)
 
-            correction=temperature_factor(
-                alpha,
-                operating_temperature,
-                reference_temperature
-            )
             resistance=tubular_resistance(
                 r_in,
                 r_ex,
-                rho,
-                alpha,
-                reference_temperature,
-                operating_temperature
+                rho
             )
             capacitance=shunt_capacitance(r_in, r_ex, T(2.3))
             conductance=shunt_conductance(r_in, r_ex, T(1e9))
-            inductance=tubular_inductance(r_in, r_ex, one(T))
 
-            @test correction isa T
             @test resistance isa T
             @test capacitance isa T
             @test conductance isa T
-            @test inductance isa T
 
             @test TestNumerics.isapprox_scaled(
-                correction,
-                one(T) + alpha * (operating_temperature - reference_temperature)
-            )
-            @test TestNumerics.isapprox_scaled(
                 resistance,
-                correction * rho / (T(π) * (r_ex^2 - r_in^2))
+                rho / (T(π) * (r_ex^2 - r_in^2))
             )
             @test TestNumerics.isapprox_scaled(
                 conductance,
                 T(2) * T(π) / (T(1e9) * log(r_ex / r_in))
             )
             @test capacitance > zero(T)
-            @test inductance > zero(T)
         end
     end
 

@@ -39,12 +39,12 @@ using ..DataModel: CablesLibrary, DatasheetInfo, CableDesign, LineCableSystem,
                    Disk, Rectangle, Ellipse,
                    Sector, Annulus, Shell,
                    Polygon, RoundedSector, Pose2,
-                   Ring, Polar, Fill, Lattice, capacity,
+                   Ring, Hexa, Polar, Fill, Lattice, capacity,
                    FillFactor, DiameterFactor, TabulatedCompaction,
                    AffineCompaction,
                    LayRatio, Pitch, LayAngle, Helix
 using ..ParametricBuilder: AbstractGrid, DeterministicGrid, RelativeGrid,
-                          AbsoluteGrid, Grid, Gridspace, AbsoluteError
+                           AbsoluteGrid, Grid, Gridspace, AbsoluteError
 import ..Engine
 import ..Engine: LineParameters, SeriesImpedance, ShuntAdmittance,
                  frequencies, Z, Y, C

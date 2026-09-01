@@ -1,13 +1,13 @@
 function routes(identifier::Val{:Pollaczek1926})
     (
-        self = formula_method(identifier, earth_impedance, Val(:self)),
-        mutual = formula_method(identifier, earth_impedance, Val(:mutual)),
-        overhead = formula_method(identifier, earth_impedance, Val(:overhead)),
-        underground = formula_method(
+        self = FormulaMethod(identifier, earth_impedance, Val(:self)),
+        mutual = FormulaMethod(identifier, earth_impedance, Val(:mutual)),
+        overhead = FormulaMethod(identifier, earth_impedance, Val(:overhead)),
+        underground = FormulaMethod(
             identifier, earth_impedance, Val(:underground)
         ),
-        mixed = formula_method(identifier, earth_impedance, Val(:mixed)),
-        Γ = formula_method(identifier, propagation_constant)
+        mixed = FormulaMethod(identifier, earth_impedance, Val(:mixed)),
+        Γ = FormulaMethod(identifier, propagation_constant)
     )
 end
 

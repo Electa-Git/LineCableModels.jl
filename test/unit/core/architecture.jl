@@ -63,6 +63,55 @@
     end
 end
 
+@testitem "Core / architecture / coaxial computation lowering boundaries" tags=[:unit] begin
+    root=pkgdir(LineCableModels)
+    engine_root=joinpath(root, "src", "engine")
+    blueprint=read(joinpath(engine_root, "blueprint.jl"), String)
+    input=read(joinpath(engine_root, "input.jl"), String)
+    cable_constants=read(joinpath(engine_root, "cableconstants.jl"), String)
+    impedance=read(joinpath(engine_root, "impedance.jl"), String)
+    admittance=read(joinpath(engine_root, "admittance.jl"), String)
+    line_parameters=read(joinpath(engine_root, "lineparameters.jl"), String)
+
+    problem_fields=fieldnames(LineCableModels.Engine.CableConstantsProblem)
+    @test problem_fields == (:design, :temperature, :frequency)
+    @test !occursin("LineCableSystem", cable_constants)
+    @test !occursin("EarthModel", cable_constants)
+    @test !occursin("earth_props", cable_constants)
+    @test !isdefined(LineCableModels.DataModel.BaseParams, :tubular_inductance)
+    @test !isdefined(LineCableModels.DataModel.BaseParams, :trefoil_inductance)
+    @test !isdefined(LineCableModels.DataModel.BaseParams, :loss_tangent)
+
+    @test occursin("DataModel.radial_components", blueprint)
+    @test !occursin("DataModel.flatten", blueprint)
+    @test !occursin("homogenize(", blueprint)
+    @test !occursin(r"\b(frequency|temperature|earth|Z|Y|R|L|C|G)::", blueprint)
+    @test !occursin("flatten(", input)
+    @test length(findall("flatten(engine", cable_constants)) == 1
+    @test length(findall("flatten(engine", line_parameters)) == 1
+
+    @test occursin("cable_impedance!(", cable_constants)
+    @test occursin("cable_admittance!(", cable_constants)
+    @test occursin("cable_impedance!(", impedance)
+    @test occursin("cable_potential!(", admittance)
+    @test !occursin("compute(problem", line_parameters)
+
+    impedance_orchestration=split(impedance, "function impedance!"; limit = 2)[2]
+    admittance_orchestration=split(admittance, "function admittance!"; limit = 2)[2]
+    @test first(findfirst("cable_impedance!(", impedance_orchestration)) <
+          first(findfirst("earth!(", impedance_orchestration))
+    @test first(findfirst("cable_potential!(", admittance_orchestration)) <
+          first(findfirst("earth!(", admittance_orchestration))
+
+    frequency_loop=split(
+        split(line_parameters, "function _solve!"; limit = 2)[2],
+        "function _retained_details";
+        limit = 2
+    )[1]
+    @test !occursin("flatten(", frequency_loop)
+    @test !occursin(r"\bbuild\(", frequency_loop)
+end
+
 @testitem "Core / selectors / owner-local symbol facades" tags=[:unit] begin
     const Engine=LineCableModels.Engine
     const ImportExport=LineCableModels.ImportExport
@@ -129,12 +178,13 @@ end
         joinpath("src", "engine", "lineparameters", "lineparameters.jl"),
         joinpath("src", "engine", "lineparameters", "quantities.jl"),
         joinpath("src", "engine", "lineparameters.jl"),
+        joinpath("src", "engine", "blueprint.jl"),
         joinpath("src", "engine", "cableconstants.jl"),
         joinpath("src", "engine", "earthreturn.jl"),
         joinpath("src", "engine", "insulationimpedance", "interface.jl"),
         joinpath("src", "engine", "insulationadmittance", "interface.jl"),
+        joinpath("src", "engine", "insulationadmittance", "formulas", "ametani2004.jl"),
         joinpath("src", "engine", "insulationadmittance", "formulas", "gustavsen2013.jl"),
-        joinpath("src", "engine", "insulationadmittance", "formulas", "marti2001.jl"),
         joinpath("src", "engine", "semiconadmittance", "interface.jl"),
         joinpath("src", "engine", "semiconadmittance", "formulas", "ametani2004.jl"),
         joinpath("src", "transforms", "compute.jl"),
@@ -234,7 +284,9 @@ end
     @test parentmodule(LineCableModels.build) === LineCableModels
     @test parentmodule(LineCableModels.homogenize) === LineCableModels
     @test :homogenize in names(LineCableModels.DataModel)
-    @test :flatten ∉ names(LineCableModels.Engine)
+    @test :flatten in names(LineCableModels.Engine)
+    @test Base.ispublic(LineCableModels.Engine, :flatten)
+    @test Base.ispublic(LineCableModels.Engine, :CableBlueprint)
     @test Base.ispublic(LineCableModels.DataModel, :flatten)
     @test LineCableModels.build === LineCableModels.DataModel.build ===
           LineCableModels.ParametricBuilder.build

@@ -22,8 +22,22 @@ problems.
 """
 function Engine.CableConstantsProblem(
         designs::Gridspace{<:DataModel.CableDesign};
-        kwargs...
+        temperature = 20,
+        frequency = 50,
+        combine::Symbol = :product
 )
-    caller = design -> Engine.CableConstantsProblem(design; kwargs...)
-    return Gridspace{Engine.CableConstantsProblem}(caller, (designs,))
+    sources = (
+        designs,
+        temperature isa Union{AbstractGrid, Gridspace} ? temperature : Grid((temperature,)),
+        frequency isa Union{AbstractGrid, Gridspace} ? frequency : Grid((frequency,))
+    )
+    return Gridspace{Engine.CableConstantsProblem}(
+        _cable_constants_problem,
+        sources;
+        combine
+    )
+end
+
+function _cable_constants_problem(design, temperature, frequency)
+    return Engine.CableConstantsProblem(design; temperature, frequency)
 end

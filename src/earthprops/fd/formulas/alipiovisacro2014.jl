@@ -34,7 +34,7 @@ of Electrical Parameters of Soil,” *IEEE Transactions on Electromagnetic
 Compatibility*, 56(5), 2014. DOI: 10.1109/TEMC.2014.2313977.
 """
 description(::Formula{:AlipioVisacro2014}) =
-    "Alipio–Visacro 2014 (causal soil dispersion)"
+    "Alipio–Visacro causal soil dispersion (2014)"
 
 #=
 Evaluate the Alipio–Visacro causal soil relation.
@@ -49,7 +49,8 @@ R. Alipio and S. Visacro, *Modeling the Frequency Dependence of Electrical
 Parameters of Soil*, IEEE Transactions on Electromagnetic Compatibility,
 56(5), 2014. DOI: 10.1109/TEMC.2014.2313977.
 =#
-function (::Functor{:AlipioVisacro2014})(
+function earth_material(
+        ::Val{:AlipioVisacro2014},
         material::EarthMaterial{T},
         frequency::T,
         values::NamedTuple

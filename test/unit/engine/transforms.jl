@@ -23,18 +23,24 @@
         details = (source = :test,)
     )
 
-    transform=Transforms.fortescue_F(3)
+    transform=Transforms.modal_basis(Val(:Fortescue), 3)
     @test TestNumerics.isapprox_scaled(
         transform * transform',
         Matrix{ComplexF64}(I, 3, 3)
     )
-    @test_throws ArgumentError Transforms.fortescue_F(0)
+    @test_throws ArgumentError Transforms.modal_basis(Val(:Fortescue), 0)
 
     formulation=ModalTransformationFormulation(:Fortescue)
     selected=@inferred ModalTransformationFormulation(
         formula(:Chrysochos2014; tolerance=1e-7)
     )
-    @test description(formulation) == "Fortescue (symmetrical components)"
+    default_formulation=@inferred ModalTransformationFormulation()
+    @test Transforms.DEFAULT === :Chrysochos2014
+    @test formula_id(default_formulation) === :Chrysochos2014
+    @test formula_id(Transforms.Formula(:default)) === :Chrysochos2014
+    @test :default ∉ Transforms.formulas()
+    @test description(formulation) ==
+          "Fortescue symmetrical-component transformation (1918)"
     @test formula_id(formulation) === :Fortescue
     @test formula_id(selected) === :Chrysochos2014
     @test LineCableModels.Transforms.assumptions(selected).tolerance == 1e-7
@@ -172,9 +178,9 @@ end
 
     descriptions=(
         Chrysochos2014 =
-            "Chrysochos et al. 2014 (Levenberg–Marquardt eigenpair tracking)",
-        Fan2009 = "Fan et al. 2009 (optimal postprocessed eigenvector tracking)",
-        Wedepohl1996 = "Wedepohl et al. 1996 (Newton–Raphson eigenpair tracking)"
+            "Chrysochos et al. Levenberg–Marquardt modal transformation (2014)",
+        Fan2009 = "Fan et al. eigenvector-tracking transformation (2009)",
+        Wedepohl1996 = "Wedepohl et al. Newton–Raphson modal transformation (1996)"
     )
 
     frequencies=[50.0, 100.0]

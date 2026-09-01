@@ -35,6 +35,37 @@ problem. `Combinatorial` evaluates every selected point. `LinearError` applies
 direct linear uncertainty propagation. `MonteCarlo` samples independent
 realisations within each selected point.
 
+Any final formulation slot can be an explicit finite source. The constructor
+then returns a target-bearing formulation space:
+
+```julia
+formulations = Formulation(
+    earth_impedance = Grid((
+        :Pollaczek1926,
+        :Papadopoulos2010,
+    )),
+)
+
+run = compute(
+    ParametricProblem(problem_space),
+    Combinatorial(formulations),
+)
+```
+
+The calculation contains `length(problem_space) * length(formulations)`
+results. Each problem point is materialised once and is evaluated against all
+resolved formulations. Use `combine=:product` or `combine=:zip` on the
+formulation constructor only to compose fields inside that formulation; the
+outer problem/formulation relation is always Cartesian. Formula assumptions
+vary as complete selections:
+
+```julia
+modal_formulations = ModalTransformationFormulation(Grid((
+    formula(:Fortescue; tolerance=1e-4),
+    formula(:Fortescue; tolerance=1e-8),
+)))
+```
+
 Execution settings use the `options` keyword:
 
 ```julia
@@ -48,16 +79,16 @@ length. Cable constants use a separate earth-free workflow:
 constants_problem = CableConstantsProblem(
     design;
     temperature = 20.0,
-    frequency = 1e-3,
+    frequency = 50.0,
 )
 constants = compute(constants_problem, CableConstantsFormulation())
 
 # Admitted convenience for the same operation
-constants = CableConstants(design; temperature = 20.0, frequency = 1e-3)
+constants = CableConstants(design; temperature = 20.0, frequency = 50.0)
 ```
 
-The cable-constant workflow has no earth model, placement, propagation
-constant, transposition, or bundle option.
+The cable-constant workflow admits 50 Hz or 60 Hz and has no earth model,
+placement, propagation constant, transposition, or bundle option.
 
 ## Completed results
 
@@ -105,9 +136,21 @@ label(display_unit(R, :pul))         # "Ω/km"
 ## Parameter spaces and uncertainty
 
 `ParametricResult`, `LinearErrorResult`, and `MonteCarloResult` are finite
-one-dimensional collections in Gridspace traversal order. Indexing and
-iteration return stored core results. `first`, `only`, `collect`, `map`, and
-`zip` retain their ordinary Julia meanings.
+one-dimensional collections. Indexing and iteration return stored core
+results. `first`, `only`, `collect`, `map`, and `zip` retain their ordinary
+Julia meanings. A `ParametricResult` also retains its resolved axes and permits
+two-axis lookup:
+
+```julia
+run.axes.problems
+run.axes.formulations
+selected = result(run, problem_index, formulation_index)
+formula_id(run.axes.formulations[formulation_index].methods.earth_impedance)
+```
+
+Linear storage is column-major in `(problem, formulation)` coordinates, so the
+problem index varies fastest. Scalar formulations produce a singleton
+formulation axis and preserve the established scalar numerical calculation.
 
 Use the product accessors for uncertainty calculations:
 

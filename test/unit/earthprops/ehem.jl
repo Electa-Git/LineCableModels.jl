@@ -4,6 +4,10 @@
 
     expected=(:MartinsBritto2020, :Xue2021)
     @test EH.formulas() == expected
+    @test EH.DEFAULT === :Layer
+    @test EH.Formula(:default) == EH.Layer(-1)
+    @test EH.AfterFD(:default) == EH.AfterFD(EH.Layer(-1))
+    @test EH.BeforeFD(:default) == EH.BeforeFD(EH.Layer(-1))
     files=sort(filter(endswith(".jl"), readdir(joinpath(
         pkgdir(LineCableModels), "src", "earthprops", "ehem", "formulas"
     ))))
@@ -21,10 +25,13 @@
     @test_throws ArgumentError EH.Formula(:Unknown)
     @test_throws ArgumentError EH.Formula(:Xue2021; unknown = 1)
     @test_throws DomainError EH.Layer(0)
+    @test_throws MethodError EH.Layer()
 
     route=(layout, rho, eps_r, mu_r, model, pair, frequency, values)->
         EP.EarthMaterial(rho[end] / values.scale, eps_r[end], mu_r[end])
     experimental=EH.Formula(:Experiment, route, (scale = 2.0,))
+    @test_throws ArgumentError EH.Formula(:default; route)
+    @test_throws ArgumentError EH.Formula(:default, route)
 
     model=EP.EarthModel(100.0, 10.0, 1.0; thickness = 5.0)
     add!(model, EP.EarthLayer(50.0, 5.0, 1.0))
@@ -33,7 +40,7 @@
     mu_r=getfield.(model.layers, :mu_r)
     pair=LineCableModels.Engine.EarthPair(1, 1, (1.0, 1.0), 0.0, (1, 1))
 
-    bottom=@inferred EH.Layer()(Val(:overhead), rho, eps_r, mu_r, model, pair, 50.0)
+    bottom=@inferred EH.Layer(-1)(Val(:overhead), rho, eps_r, mu_r, model, pair, 50.0)
     top=@inferred EH.Layer(2)(Val(:overhead), rho, eps_r, mu_r, model, pair, 50.0)
     @test bottom == EP.EarthMaterial(model.layers[3])
     @test top == EP.EarthMaterial(model.layers[2])
@@ -159,11 +166,11 @@ end
 
     layer_after=Formulation(
         earth_properties = :CIGRE2019,
-        equivalent_earth = EH.AfterFD(EH.Layer())
+        equivalent_earth = EH.AfterFD(EH.Layer(-1))
     )
     layer_before=Formulation(
         earth_properties = :CIGRE2019,
-        equivalent_earth = EH.BeforeFD(EH.Layer())
+        equivalent_earth = EH.BeforeFD(EH.Layer(-1))
     )
     layer_after_data=EN._earth_data(layer_after, (earth = model, freq = frequency))
     layer_before_data=EN._earth_data(layer_before, (earth = model, freq = frequency))

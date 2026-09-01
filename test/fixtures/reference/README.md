@@ -12,8 +12,8 @@ cross-precision convergence of the generic dielectric kernel and records the
 corresponding 50 Hz lossless impedance and potential-coefficient values.
 The same record includes the independent 256-bit tubular-inductance value for the
 documented 4π×10⁻⁷ H/m permeability convention.
-The record also includes the conductance of the same geometry at 2×10¹¹ Ω·m for the lossy
-Marti2001 parallel-conductance formulation.
+The record also includes the conductance of the same geometry at 2×10¹¹ Ω·m for the
+Ametani2004 complex-permittivity formulation.
 
 LineCableModels regression output is not stored here because it would repeat
 the implementation under test instead of supplying an independent reference.

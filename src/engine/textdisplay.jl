@@ -13,6 +13,28 @@ TextDisplay.@showfields EarthPair "EarthPair" pair -> (
     layers = pair.layers
 )
 
+TextDisplay.@showfields BlueprintConductor "BlueprintConductor" row -> (
+    terminal = row.terminal,
+    assembly = row.assembly,
+    r_in = TextDisplay.engineering(row.r_in, :meter),
+    r_ex = TextDisplay.engineering(row.r_ex, :meter),
+    kind = row.material.kind
+)
+
+TextDisplay.@showfields BlueprintDielectric "BlueprintDielectric" row -> (
+    conductor = row.conductor,
+    r_in = TextDisplay.engineering(row.r_in, :meter),
+    r_ex = TextDisplay.engineering(row.r_ex, :meter),
+    kind = row.material.kind
+)
+
+TextDisplay.@showfields CableBlueprint "CableBlueprint" blueprint -> (
+    cable_id = blueprint.cable_id,
+    conductors = length(blueprint.conductors),
+    dielectrics = length(blueprint.dielectrics),
+    assemblies = length(blueprint.assembly_ranges)
+)
+
 TextDisplay.@showfields ConsoleVerbosityLogger "ConsoleVerbosityLogger" logger -> (
     sink = String(nameof(typeof(logger.console))),
     levels = logger.levels
@@ -130,7 +152,7 @@ end
 function Base.show(io::IO, ::MIME"text/plain", problem::CableConstantsProblem)
     get(io, :compact, false) && return show(io, problem)
     return TextDisplay.tree(io, "CableConstantsProblem", (
-        (label = "design       $(only(problem.system.designs).cable_id)", noun = "fields"),
+        (label = "design       $(problem.design.cable_id)", noun = "fields"),
         (label = "temperature  $(TextDisplay.engineering(problem.temperature, :celsius))", noun = "fields"),
         (label = "frequency    $(TextDisplay.engineering(problem.frequency, :hertz))", noun = "fields"),
     ))
@@ -279,18 +301,18 @@ TextDisplay.name(::Type{<:LineParametersWorkspace}) = "LineParametersWorkspace"
 Base.summary(io::IO, workspace::LineParametersWorkspace) =
     print(io, "Line-parameters workspace")
 function Base.show(io::IO, workspace::LineParametersWorkspace)
-    normalized = workspace.normalized
-    print(io, "LineParametersWorkspace(phases=", normalized.n_phases,
-        ", cables=", normalized.n_cables,
-        ", frequencies=", normalized.n_frequencies, ")")
+    input = workspace.input
+    print(io, "LineParametersWorkspace(phases=", input.n_phases,
+        ", cables=", input.n_cables,
+        ", frequencies=", input.n_frequencies, ")")
 end
 function Base.show(io::IO, ::MIME"text/plain", workspace::LineParametersWorkspace)
     get(io, :compact, false) && return show(io, workspace)
-    normalized = workspace.normalized
+    input = workspace.input
     return TextDisplay.tree(io, "Line-parameters workspace", (
-        (label = "phases       $(normalized.n_phases)", noun = "fields"),
-        (label = "cables       $(normalized.n_cables)", noun = "fields"),
-        (label = "frequencies  $(normalized.n_frequencies)", noun = "fields"),
+        (label = "phases       $(input.n_phases)", noun = "fields"),
+        (label = "cables       $(input.n_cables)", noun = "fields"),
+        (label = "frequencies  $(input.n_frequencies)", noun = "fields"),
         (label = "capture      $(workspace.capture === nothing ? "disabled" : "enabled")", noun = "fields"),
     ))
 end

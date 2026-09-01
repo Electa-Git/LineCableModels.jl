@@ -33,25 +33,21 @@ print(Main.DocumentationTrees.type_tree(LineCableModels.LineParamsDomain))
 
 ## Declarative actions
 
-Three actions own a fixed sequence selected by an abstract definition type:
+Two actions own a fixed sequence selected by an abstract definition type:
 
 | Action | Definition root | Fixed sequence |
 |:--|:--|:--|
 | `PlotBuilder.make_render` | `AbstractPlotDefinition` | `entitle → parse → resolve → fetch → finish` |
 | `ReportBuilder.report` | `AbstractReportDefinition` | `entitle → select → tabulate → illustrate → encode → write → finish` |
-| `ParametricBuilder.project` | `AbstractProjectionDefinition` | `entitle → select → derive → materialize → finish` |
 
 ```@example grammar_type_trees
 using LineCableModels.PlotBuilder: AbstractPlotDefinition
 using LineCableModels.ReportBuilder: AbstractReportDefinition
-using LineCableModels.ParametricBuilder: AbstractProjectionDefinition
 
 println("Plot definitions")
 print(Main.DocumentationTrees.type_tree(AbstractPlotDefinition))
 println("\nReport definitions")
 print(Main.DocumentationTrees.type_tree(AbstractReportDefinition))
-println("\nProjection definitions")
-print(Main.DocumentationTrees.type_tree(AbstractProjectionDefinition))
 ```
 
 Each action has one method at its declared abstract root. Concrete definitions

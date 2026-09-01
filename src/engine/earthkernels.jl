@@ -5,29 +5,6 @@
 @inline special_besselkx(order::Integer, value) = SpecialFunctions.besselkx(order, value)
 @inline special_besselk(order::Integer, value) = SpecialFunctions.besselk(order, value)
 
-"""
-$(TYPEDEF)
-
-Bind a literature formula identifier and optional semantic route tags to one
-method template while retaining the callable route contract.
-
-$(TYPEDFIELDS)
-"""
-struct FormulaMethod{ID, F, A <: Tuple}
-    "Method template dispatched by the literature identifier."
-    method::F
-    "Semantic route tags bound before runtime arguments."
-    arguments::A
-end
-
-@inline function formula_method(::Val{ID}, method::F, arguments...) where {ID, F}
-    return FormulaMethod{ID, F, typeof(arguments)}(method, arguments)
-end
-
-@inline function (bound::FormulaMethod{ID})(arguments...) where {ID}
-    return bound.method(Val(ID), bound.arguments..., arguments...)
-end
-
 # SpecialFunctions omits complex BigFloat Bessel functions. The local methods
 # retain the caller's working precision for unsupported argument types.
 function special_besselix(order::Integer, value::Complex{BigFloat})

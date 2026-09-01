@@ -21,7 +21,7 @@
     @test sprint(show, copper) ==
           "Material(:conductor; ρ=17.241 nΩ·m, εᵣ=1, μᵣ=0.999994)"
     @test sprint(show, constants) ==
-          "CableConstants(assemblies=1, frequency=0.001)"
+          "CableConstants(assemblies=1, frequency=50.0)"
     @test sprint(show, MIME"text/plain"(), earth) == join((
         "EarthModel · homogeneous",
         "├─ air        ρ=∞  εᵣ=1  μᵣ=1",

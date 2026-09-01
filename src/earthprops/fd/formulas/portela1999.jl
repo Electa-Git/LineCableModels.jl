@@ -19,7 +19,7 @@ $(TYPEDSIGNATURES)
 Electromagnetic Behavior,” *IEEE International Symposium on Electromagnetic
 Compatibility*, 1004–1009, 1999.
 """
-description(::Formula{:Portela1999}) = "Portela 1999 (power-law soil dispersion)"
+description(::Formula{:Portela1999}) = "Portela power-law soil dispersion (1999)"
 
 #=
 Evaluate the Portela power-law soil-dispersion relation.
@@ -34,7 +34,8 @@ C. M. Portela, *Measurement and Modeling of Soil Electromagnetic Behavior*,
 IEEE International Symposium on Electromagnetic Compatibility, 1999,
 pp. 1004–1009.
 =#
-function (::Functor{:Portela1999})(
+function earth_material(
+        ::Val{:Portela1999},
         material::EarthMaterial{T},
         frequency::T,
         values::NamedTuple

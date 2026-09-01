@@ -370,3 +370,29 @@ end
 
 details(value::LinearErrorResult) = value.details
 details(value::MonteCarloResult) = value.details
+
+"""
+$(TYPEDSIGNATURES)
+
+Transport every uncertainty-bearing linear-error result into one
+target-bearing downstream problem point while preserving source cardinality
+and order.
+"""
+function ParametricBuilder.Gridspace{Target}(
+        source::LinearErrorResult
+) where {Target}
+    return ParametricBuilder.Gridspace{Target}(Target, (source,))
+end
+
+function ParametricBuilder.Gridspace{Target}(
+        source::MonteCarloResult{T}
+) where {Target, T}
+    target_name = nameof(Target)
+    throw(ArgumentError(
+        "Gridspace transport from MonteCarloResult to problem $target_name requires " *
+        "a reconstruction for result type $T. For built-in cable and line results, " *
+        "load Measurements.jl with `using Measurements`. See `?Gridspace` and " *
+        "https://electa-git.github.io/LineCableModels.jl/dev/gridspace/" *
+        "#Transporting-completed-result-spaces",
+    ))
+end

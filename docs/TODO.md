@@ -60,12 +60,11 @@ Keep the existing `InsulationAdmittance` family and the parallel
 `SemiconAdmittance` family. No new workflow or problem type is needed.
 
 The Coaxial Engine owns geometry and radial aggregation. Each registered
-formula defines a material constitutive relation:
+formula evaluates a material constitutive relation:
 
 ```julia
-material = constitutive(route, material, frequency, temperature)
-κ = admittivity(material, s)
-p = potential_coefficient(r_in, r_ex, material, s)
+κ = constitutive(route, material, frequency, temperature)
+p = potential_coefficient(r_in, r_ex, κ, s)
 ```
 
 The built-ins should have unambiguous semantics:
@@ -76,7 +75,7 @@ The built-ins should have unambiguous semantics:
   \kappa=s\varepsilon
   \]
 
-- `:Marti2001` — preserve the former parallel-RC behavior and numerical baseline
+- `:Ametani2004` — preserve conduction and displacement current
 
   \[
   \kappa=\sigma_{\mathrm{dc}}+s\varepsilon
@@ -152,4 +151,4 @@ P'_{\mathrm{diel}}
 
 without preserving every voltage vector from the solve. It should be optional result detail, computed before bundle/Kron reduction and transformed by the corresponding voltage congruence.
 
-Finally, inferring `rho` from a 50/60 Hz \(\tan\delta\) is a legitimate reference-frequency calibration, but `:Marti2001` then freezes \(G\) while the actual constant-\(\tan\delta\) relation has \(G\propto\omega\). That inferred resistivity should therefore be advertised as a single-frequency equivalent, not a broadband material property.
+Finally, inferring `rho` from a 50/60 Hz \(\tan\delta\) is a legitimate reference-frequency calibration, but `:Ametani2004` retains that static conductivity while the actual constant-\(\tan\delta\) relation has \(G\propto\omega\). That inferred resistivity should therefore be advertised as a single-frequency equivalent, not a broadband material property.

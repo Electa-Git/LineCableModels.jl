@@ -33,7 +33,7 @@ $(TYPEDSIGNATURES)
 Soils*, Defense Nuclear Agency, 1975.
 """
 description(::Formula{:LongmireSmith1975}) =
-    "Longmire–Smith 1975 (13-term dielectric relaxation)"
+    "Longmire–Smith 13-term dielectric relaxation (1975)"
 
 #=
 Evaluate the 13-term Longmire–Smith soil-dispersion relation.
@@ -47,7 +47,8 @@ relative permittivity is dimensionless.
 C. L. Longmire and K. S. Smith, *A Universal Impedance for Soils*, Defense
 Nuclear Agency, 1975.
 =#
-function (::Functor{:LongmireSmith1975})(
+function earth_material(
+        ::Val{:LongmireSmith1975},
         material::EarthMaterial{T},
         frequency::T,
         values::NamedTuple

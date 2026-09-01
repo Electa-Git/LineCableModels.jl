@@ -17,9 +17,6 @@ struct Formula{ID, R, A <: NamedTuple} <: AbstractFormulation
     assumptions::A
 end
 
-"Generic zero-field route tag shared by built-in earth-property formulas."
-struct Functor{ID} end
-
 "Return the stable literature identifier of an earth-property formula."
 formula_id(::Formula{ID}) where {ID} = ID
 
@@ -29,6 +26,9 @@ assumptions(formula::Formula) = formula.assumptions
 "Return the default assumptions of a registered earth-property formula."
 function assumptions end
 
+"Evaluate one formula-owned frequency-dependent earth material relation."
+function earth_material end
+
 """
 $(TYPEDSIGNATURES)
 
@@ -36,8 +36,20 @@ Construct a registered earth-property formula from its literature identifier.
 
 Keyword arguments replace named formula assumptions. Unknown identifiers and
 unknown assumptions are rejected before a line-parameter computation begins.
+The reserved identifier `:default` returns `nothing`, meaning that the static
+earth properties pass through unchanged.
 """
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
+
+function Formula(::Val{:default}; route = nothing, kwargs...)
+    route === nothing || throw(ArgumentError(
+        ":default earth properties cannot define a route"
+    ))
+    isempty(kwargs) || throw(ArgumentError(
+        ":default earth properties cannot define assumptions"
+    ))
+    return DEFAULT
+end
 
 function Formula(::Val{ID}; route = nothing, kwargs...) where {ID}
     tag = Val(ID)
@@ -51,7 +63,7 @@ function Formula(::Val{ID}; route = nothing, kwargs...) where {ID}
         "unknown assumptions for earth-property formula :$ID: $(collect(unknown))"
     ))
     values = merge(defaults, overrides)
-    selected = route === nothing ? Functor{ID}() : route
+    selected = route === nothing ? FormulaMethod(tag, earth_material) : route
     return Formula{ID, typeof(selected), typeof(values)}(selected, values)
 end
 
@@ -67,6 +79,13 @@ function Formula(
         ::Val{ID}, route::R, values::A = (;)
 ) where {ID, R, A <: NamedTuple}
     return Formula{ID, R, A}(route, values)
+end
+
+function Formula(::Val{:default}, route, values::NamedTuple = (;))
+    throw(ArgumentError(
+        ":default earth properties resolve to nothing and cannot define " *
+        "an external route"
+    ))
 end
 
 function Formula(identifier::Symbol, route, values::NamedTuple = (;))

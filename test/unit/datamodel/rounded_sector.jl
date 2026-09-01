@@ -150,7 +150,8 @@ end
     )
     designs=build(CableDesign, "sector-grid", varied_phase)
     @test designs isa Gridspace{CableDesign}
-    @test eltype(designs) === CableDesign
+    @test eltype(designs) === Any
+    @test Base.IteratorEltype(typeof(designs)) isa Base.EltypeUnknown
     @test length(designs) == 32
     @test all(design -> design isa CableDesign, designs)
     @test all(design -> design.root isa DM.Group, designs)
@@ -205,10 +206,7 @@ end
     @test DM.tubular_resistance(
         component.conductor.r_in,
         component.conductor.r_ex,
-        component.conductor.material.rho,
-        component.conductor.material.alpha,
-        component.conductor.material.T0,
-        component.conductor.material.T0
+        component.conductor.material.rho
     ) ≈ component.conductor.resistance
     @test DM.tubular_gmr(
         component.conductor.r_ex,
@@ -264,7 +262,12 @@ end
     )) do (actual, expected)
         isapprox(actual[1], expected[1]) && isapprox(actual[2], expected[2])
     end
-    @test_throws ArgumentError compute(problem)
+    parameters=compute(problem; options = (trace = true,))
+    @test size(parameters.Z) == (3, 3, 1)
+    @test size(parameters.Y) == (3, 3, 1)
+    @test all(isfinite, parameters.Z)
+    @test all(isfinite, parameters.Y)
+    @test details(parameters).trace.cable_map == [1, 2, 3]
 
     encoded=LineCableModels.ImportExport.serialize_value(design)
     @test encoded["root"]["item"]["item"]["items"][1]["primitive"]["kind"] ==

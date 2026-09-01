@@ -238,6 +238,11 @@
           "additionalProperties": false
         },
         {
+          "type": "object", "required": ["kind", "course", "φ0", "gap_frac"],
+          "properties": {"kind": {"const": "hexagonal_course"}, "course": {"type": "integer", "minimum": 1}, "φ0": {"$ref": "#/$defs/scalar"}, "gap_frac": {"$ref": "#/$defs/scalar"}},
+          "additionalProperties": false
+        },
+        {
           "type": "object", "required": ["kind", "nr", "nφ", "r0", "dr", "φ0", "span"],
           "properties": {"kind": {"const": "polar"}, "nr": {"type": "integer", "minimum": 1}, "nφ": {"type": "integer", "minimum": 1}, "r0": {"$ref": "#/$defs/scalar"}, "dr": {"$ref": "#/$defs/scalar"}, "φ0": {"$ref": "#/$defs/scalar"}, "span": {"$ref": "#/$defs/scalar"}},
           "additionalProperties": false

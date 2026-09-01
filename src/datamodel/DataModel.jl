@@ -34,7 +34,7 @@ export Pose2
 export EmptyBoundary
 export resolve, boundary, area, perimeter, centroid, support, r_in, r_ex, thickness
 export tessellate
-export Ring, Polar, Fill, Lattice, capacity, placements
+export Ring, Hexa, Polar, Fill, Lattice, capacity, placements
 export FillFactor, DiameterFactor, TabulatedCompaction, AffineCompaction
 export LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
 export ncables, nphases

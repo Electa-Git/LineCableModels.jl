@@ -76,6 +76,15 @@ function Material(
     return Material(material; kwargs...)
 end
 
+function Material(unexpected; kwargs...)
+    throw(ArgumentError(
+        "keyword Material construction accepts no positional arguments; " *
+            "got $(repr(unexpected)). To declare uncertainty, keep the error " *
+            "inside Grid: `property = Grid(values, relative_error)` or " *
+            "`property = Grid(values, AbsoluteError(error))`.",
+    ))
+end
+
 """
 $(TYPEDSIGNATURES)
 

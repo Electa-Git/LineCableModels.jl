@@ -34,6 +34,19 @@
     @test length(system) == length(design)
     @test all(item -> item isa LineCableSystem, system)
 
+    collection_system=build(
+        LineCableSystem,
+        [design, design],
+        [Pose2(-0.1, -1.0), Pose2(0.1, -1.0)];
+        connections = [Dict(:core=>1), Dict(:core=>2)],
+        system_id = "parametric-collection",
+        line_length = 100.0
+    )
+    @test collection_system isa Gridspace{LineCableSystem}
+    @test length(collection_system) == length(design)^2
+    @test all(item -> item isa LineCableSystem, collection_system)
+    @test all(item -> all(cable -> cable isa CableDesign, item.designs), collection_system)
+
     problems=LineParametersProblem(
         system;
         earth_props = PB.Earth(rho = 100.0, eps_r = 10.0),
@@ -45,10 +58,24 @@
     @test (@inferred CableDesign first(design)) isa CableDesign
     @test (@inferred LineCableSystem first(system)) isa LineCableSystem
 
+    earth_space=PB.Earth(rho = Grid((10.0, 100.0)), eps_r = 1.0)
+    collection_problems=LineParametersProblem(
+        collection_system,
+        earth_space;
+        frequencies = [50.0]
+    )
+    @test collection_problems isa Gridspace{LineParametersProblem}
+    @test length(collection_problems) == length(collection_system) * length(earth_space)
+    for space in (conductor, wire, terminal, design, system, problems)
+        @test eltype(space) === Any || isconcretetype(eltype(space))
+        @test !(eltype(space) isa UnionAll)
+    end
+
     identifiers=Grid(("first", "second"))
     direct=build(CableDesign, "first", first(terminal))
     design_space=build(CableDesign, identifiers, first(terminal))
-    @test eltype(design_space) === CableDesign
+    @test eltype(design_space) === Any
+    @test Base.IteratorEltype(typeof(design_space)) isa Base.EltypeUnknown
     @test first(design_space).root == direct.root
     @test first(design_space).terminal_order == direct.terminal_order
     @test rand(design_space) isa CableDesign

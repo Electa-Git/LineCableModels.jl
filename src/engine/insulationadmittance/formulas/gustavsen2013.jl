@@ -25,8 +25,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Apply the conventional lossless-insulation approximation by suppressing
-material conductivity while retaining permittivity:
+Apply the conventional lossless-insulation approximation by returning only
+the material's displacement-current admittivity:
 
 ```math
 \\kappa=j\\omega\\varepsilon,
@@ -43,32 +43,23 @@ Y=j\\omega C.
 
 # Returns
 
-- An insulation material with infinite electrical resistivity and all other
-  properties unchanged.
+- Complex lossless admittivity ``j\\omega\\varepsilon`` \\[S/m\\].
 
 # References
 
 B. Gustavsen, H. K. Høidalen, and T. M. Ohnstad, “Field Measurement and
 Simulation of 132 kV Oil-Filled Submarine Cables,” IPST, 2013.
 """
-@inline function (::Functor{:Gustavsen2013})(
+@inline function insulation_material(
+        ::Val{:Gustavsen2013},
         material::Material{T},
-        frequency::Real,
-        temperature::Real,
+        frequency::T,
+        temperature::T,
         values::NamedTuple
 ) where {T <: Real}
-    return Material{T}(
-        material.kind,
-        convert(T, Inf),
-        material.eps_r,
-        material.mu_r,
-        material.T0,
-        material.alpha,
-        material.rho_thermal,
-        material.theta_max,
-        material.tan_delta,
-        material.sigma_solar
-    )
+    ε₀ = one(T) * 88541878128 * (one(T) * 10)^(-22)
+    ω = 2 * (one(T) * π) * frequency
+    return complex(zero(T), ω) * ε₀ * material.eps_r
 end
 
 :Gustavsen2013
