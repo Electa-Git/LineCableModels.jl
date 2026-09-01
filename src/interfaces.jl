@@ -24,6 +24,25 @@ One completed `Target`, or `Gridspace{Target}` for explicit finite inputs.
 """
 function build end
 
+"""
+    Gridpoint{Target}(build, args)
+
+Store one selected but unresolved argument tuple from a finite parameter space.
+`Target` preserves the semantic object or problem family that the point will
+materialise, allowing computation dispatch to consume a scalar point without
+first discarding its target identity.
+"""
+struct Gridpoint{Target, F, A <: Tuple}
+    "Scalar constructor or lowering function selected by the finite space."
+    build::F
+    "Selected argument tuple, with any nested target-bearing points retained."
+    args::A
+end
+
+function Gridpoint{Target}(build, args::A) where {Target, A <: Tuple}
+    return Gridpoint{Target, typeof(build), A}(build, args)
+end
+
 # Shared scalar-versus-parametric construction boundary. Data-owning modules
 # call `_construction` without depending on Gridspace. ParametricBuilder marks
 # its finite sources and owns the lazy branch after it is loaded.

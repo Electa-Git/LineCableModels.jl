@@ -225,9 +225,9 @@ finite source. `@gridspace` composes with `@relax` in either order.
 
 ## Materialisation and realisation
 
-Ordinary iteration selects an internal unresolved point and recursively
+Ordinary iteration selects an internal target-bearing `Gridpoint{Target}` and recursively
 materialises its arguments. Deterministic values pass through unchanged.
-nested points invoke their own callable before the parent callable is invoked.
+Nested points invoke their own callable before the parent callable is invoked.
 After loading Measurements, an `UncertainValue` materialises as one
 `Measurement`.
 
@@ -241,11 +241,12 @@ by exposing unresolved points as application data.
 
 ## Higher-order computation
 
-Combinatorial traversal has one sequence:
+Combinatorial traversal preserves the selected target until core-computation
+dispatch:
 
 ```text
-select point -> `materialize` complete core problem
-             -> Engine.compute
+select `Gridpoint{Target}` -> Engine.compute
+                           -> materialize that scalar problem when no narrower route exists
              -> append core result
 ```
 

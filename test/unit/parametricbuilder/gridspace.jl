@@ -206,6 +206,7 @@ end
     child=PB.Gridspace{Tuple}(tuple, (PB.Grid(10.0, 5.0), PB.Grid(:tag)))
     parent=PB.Gridspace{Tuple}(tuple, (child, PB.Grid((1, 2))))
     point=first(PB.points(parent))
+    @test point isa LineCableModels.Gridpoint{Tuple}
     @test PB.has_uncertainty(parent)
     @test eltype(parent) === Any
     @test Base.IteratorEltype(typeof(parent)) isa Base.EltypeUnknown

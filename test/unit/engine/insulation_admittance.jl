@@ -171,50 +171,57 @@ end
     )
     problem=two_terminal_problem()
     execution=computation_options(Val(LineCableModelsCoaxial), (;))
+    blueprints=LineCableModels.Engine.CableBlueprint{eltype(problem)}[
+        LineCableModels.Engine.flatten(LineCableModelsCoaxial(), design, eltype(problem))
+        for design in problem.system.designs
+    ]
     workspace=LineParametersWorkspace(
-        LineCableModelsCoaxial(), problem, formulation, execution)
+        problem, formulation, execution, blueprints)
     input=workspace.input
+    cable=input.cable
     @test !hasproperty(input, :rho_ins)
     @test !hasproperty(input, :eps_ins)
     @test !hasproperty(input, :tan_ins)
-    @test getproperty.(input.dielectric_materials, :kind) ==
+    @test getproperty.(cable.dielectric_materials, :kind) ==
           [:semicon, :insulator, :insulator]
-    @test input.semicon_layer_indices == [1]
-    @test input.insulation_layer_indices == [2, 3]
-    @test input.dielectric_materials[2].tan_delta == 0.012
+    @test cable.semicon_indices == [1]
+    @test cable.insulation_indices == [2, 3]
+    @test cable.dielectric_materials[2].tan_delta == 0.012
     @test @inferred(LineCableModels.Engine.dielectric!(
         workspace.buffers.layer_coefficients,
-        workspace,
-        1,
-        formulation
+        cable,
+        formulation.methods,
+        input.freq[1],
+        input.temperature,
+        input.jω[1]
     )) === workspace.buffers.layer_coefficients
     parameters=compute(problem, formulation; options = (trace = true,))
     trace=details(parameters).trace
     public_parameters=compute(problem, formulation)
     @test public_parameters.Z.values == parameters.Z.values
     @test public_parameters.Y.values == parameters.Y.values
-    @test input.insulator_layer_ranges == [1:2, 3:3]
-    @test input.r_ins_layer_in[2] ≈ input.r_ins_layer_ext[1]
+    @test cable.dielectric_ranges == [1:2, 3:3]
+    @test cable.r_layer_in[2] ≈ cable.r_layer_ext[1]
     @test size(parameters.Y) == (2, 2, 3)
 
     for frequency_index in eachindex(input.freq)
         s=input.jω[frequency_index]
         function layer_coefficient(layer_index)
-            material=input.dielectric_materials[layer_index]
+            material=cable.dielectric_materials[layer_index]
             relation=material.kind===:semicon ?
                      formulation.methods.semicon_admittance :
                      formulation.methods.insulation_admittance
             evaluated=constitutive(
                 relation, material, input.freq[frequency_index], input.temperature)
             return LineCableModels.Engine.potential_coefficient(
-                input.r_ins_layer_in[layer_index],
-                input.r_ins_layer_ext[layer_index],
+                cable.r_layer_in[layer_index],
+                cable.r_layer_ext[layer_index],
                 evaluated,
                 s
             )
         end
-        inner=sum(layer_coefficient, input.insulator_layer_ranges[1])
-        outer=sum(layer_coefficient, input.insulator_layer_ranges[2])
+        inner=sum(layer_coefficient, cable.dielectric_ranges[1])
+        outer=sum(layer_coefficient, cable.dielectric_ranges[2])
         @test trace.Pin[:, :, frequency_index] ≈ [inner+outer outer
                                                   outer outer]
 
@@ -230,16 +237,16 @@ end
     function component_coefficient(component_index, frequency_index)
         s=input.jω[frequency_index]
         coefficient=zero(s)
-        for layer_index in input.insulator_layer_ranges[component_index]
-            material=input.dielectric_materials[layer_index]
+        for layer_index in cable.dielectric_ranges[component_index]
+            material=cable.dielectric_materials[layer_index]
             relation=material.kind===:semicon ?
                      formulation.methods.semicon_admittance :
                      formulation.methods.insulation_admittance
             evaluated=constitutive(
                 relation, material, input.freq[frequency_index], input.temperature)
             coefficient+=LineCableModels.Engine.potential_coefficient(
-                input.r_ins_layer_in[layer_index],
-                input.r_ins_layer_ext[layer_index],
+                cable.r_layer_in[layer_index],
+                cable.r_layer_ext[layer_index],
                 evaluated,
                 s
             )

@@ -207,7 +207,16 @@ function _compute(
         execution::NamedTuple
 )
     validate(problem)
-    workspace = LineParametersWorkspace(engine, problem, formulation, execution)
+    T = eltype(problem)
+    blueprints = CableBlueprint{T}[
+        flatten(engine, design, T) for design in problem.system.designs
+    ]
+    workspace = LineParametersWorkspace(
+        problem,
+        formulation,
+        execution,
+        blueprints
+    )
     parameters = _solve!(workspace, formulation)
     return _finish(parameters, workspace, formulation, execution)
 end

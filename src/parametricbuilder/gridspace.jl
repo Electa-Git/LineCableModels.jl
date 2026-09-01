@@ -1,9 +1,3 @@
-"A selected but unresolved argument tuple from a [`Gridspace`](@ref)."
-struct Gridpoint{F, A <: Tuple}
-    build::F
-    args::A
-end
-
 "Concrete callable representation of a type constructor used by a Gridspace."
 struct _TypeConstructor{Target} end
 
@@ -36,12 +30,26 @@ end
 "Sentinel result type for a Gridspace whose materialised element type is unknown."
 struct _UnknownGridspaceEltype end
 
+function _gridspace_eltype(::Type{Tuple}, ::typeof(tuple), grids::Tuple)
+    (any(has_uncertainty, grids) || any(grid -> iszero(length(grid)), grids)) &&
+        return _UnknownGridspaceEltype
+    argument_types = map(grid -> eltype(typeof(grid)), grids)
+    all(isconcretetype, argument_types) || return _UnknownGridspaceEltype
+    return Tuple{argument_types...}
+end
+
 function _gridspace_eltype(::Type{Target}, build, grids::Tuple) where {Target}
     (any(has_uncertainty, grids) || any(grid -> iszero(length(grid)), grids)) &&
         return _UnknownGridspaceEltype
 
     argument_types = map(grid -> eltype(typeof(grid)), grids)
-    result_type = Base.promote_op(build, argument_types...)
+    inferred = Base.code_typed(
+        build,
+        Tuple{argument_types...};
+        optimize = false
+    )
+    result_type = isempty(inferred) ? Any :
+                  foldl(typejoin, (last(entry) for entry in inferred))
     isconcretetype(result_type) || return _UnknownGridspaceEltype
     result_type <: Target || throw(ArgumentError(
         "Gridspace callable result $result_type is not a subtype of target $Target",
@@ -164,8 +172,8 @@ function _combinations(space::Gridspace{<:Any, <:Any, <:Any, Val{:zip}, <:Any})
 end
 
 "Return the lazy unresolved points of a Gridspace."
-function points(space::Gridspace)
-    (Gridpoint(space.build, args) for args in _combinations(space))
+function points(space::Gridspace{Target}) where {Target}
+    (Gridpoint{Target}(space.build, args) for args in _combinations(space))
 end
 
 "Return a value unchanged during deterministic point materialisation."
@@ -222,8 +230,9 @@ function Base.iterate(
     return _materialized_result(Result, Target, point), next_state
 end
 
-_gridspace_iterator_eltype(::Type{_UnknownGridspaceEltype}) = Base.EltypeUnknown()
-_gridspace_iterator_eltype(::Type) = Base.HasEltype()
+_gridspace_iterator_eltype(::Type{_UnknownGridspaceEltype}) =
+    Base.IteratorEltype(Any)
+_gridspace_iterator_eltype(::Type) = Base.IteratorEltype(Vector{Int})
 
 _gridspace_eltype_trait(::Type{_UnknownGridspaceEltype}) = Any
 _gridspace_eltype_trait(::Type{Result}) where {Result} = Result

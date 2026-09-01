@@ -1,8 +1,8 @@
 """
 $(TYPEDEF)
 
-Define one materialised line-parameter calculation. Operating temperature and
-analysis frequencies are fields of the problem.
+Define one scalar line-parameter calculation over a completed cable system.
+Operating temperature and analysis frequencies are fields of the problem.
 
 $(TYPEDFIELDS)
 """

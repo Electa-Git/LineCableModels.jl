@@ -145,7 +145,8 @@ are never renumbered or written back to the `EarthModel`.
 `CableConstantsProblem`, `CableConstantsFormulation`, and `CableConstants`
 belong to Engine. They reuse the registered internal-impedance,
 insulation-impedance, insulation-admittance, and semicon-admittance formulas,
-but not `LineParametersWorkspace` or either line-parameter assembly routine.
+and the same earth-free local primitive assemblers used by LineParameters.
+Their public solve orchestration and reduction remain separate.
 The default bundle is:
 
 ```julia
@@ -157,18 +158,20 @@ CableConstantsFormulation(
 )
 ```
 
-`DataModel.flatten(design, frequency)` supplies the canonical components.
-Contiguous components sharing one radial centre form one concentric assembly.
-The Engine retains its innermost terminal, grounds every additional outward
-terminal when present, assembles and reduces the local N-terminal
-series-impedance matrix, and combines the physical dielectric layers outside
-the core in radial series. A one-terminal assembly uses the declared outer
-dielectric boundary directly; it does not require a metallic sheath. Earth
-impedance, earth admittance, EHEM, Γ, position, transposition, and bundle
-reduction never enter this workflow.
+`Engine.flatten(LineCableModelsCoaxial(), design)` supplies a
+frequency-independent, unreduced `CableBlueprint`. Contiguous components
+sharing one radial centre form one concentric assembly. Constitutive relations
+are evaluated only after the workspace has been allocated. The Engine retains
+each assembly's innermost terminal, grounds every additional outward terminal,
+assembles and reduces the local N-terminal series-impedance matrix, and combines
+the physical dielectric layers in radial series. A one-terminal assembly uses
+the declared outer dielectric boundary directly; it does not require a metallic
+sheath. Earth impedance, earth admittance, EHEM, Γ, position, transposition,
+and bundle reduction never enter this workflow.
 
-`CableConstants(design; temperature=20, frequency=1e-3)` is the convenience
-entry point. The result owns `cores`, aligned `R/L/C/G` vectors, and the
+`CableConstants(design; temperature=20, frequency=50)` is the convenience
+entry point. CableConstants admits only the 50 Hz and 60 Hz datasheet base
+frequencies. The result owns `cores`, aligned `R/L/C/G` vectors, and the
 evaluation frequency. A conventional coaxial cable has one row and supports
 `only(constants)`.
 

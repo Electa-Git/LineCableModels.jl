@@ -508,11 +508,15 @@ end
     @test isconcretetype(typeof(system))
     @test isconcretetype(typeof(problem))
     execution=computation_options(Val(LineCableModelsCoaxial), (;))
+    blueprints=LineCableModels.Engine.CableBlueprint{eltype(problem)}[
+        LineCableModels.Engine.flatten(LineCableModelsCoaxial(), source, eltype(problem))
+        for source in problem.system.designs
+    ]
     @test (@inferred LineCableModels.Engine.LineParametersWorkspace(
-        LineCableModelsCoaxial(),
         problem,
         Formulation(),
-        execution
+        execution,
+        blueprints
     )) isa LineCableModels.Engine.LineParametersWorkspace{Float64}
 
     # These bounds record the construction scale without turning the

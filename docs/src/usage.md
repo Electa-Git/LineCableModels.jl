@@ -48,16 +48,16 @@ length. Cable constants use a separate earth-free workflow:
 constants_problem = CableConstantsProblem(
     design;
     temperature = 20.0,
-    frequency = 1e-3,
+    frequency = 50.0,
 )
 constants = compute(constants_problem, CableConstantsFormulation())
 
 # Admitted convenience for the same operation
-constants = CableConstants(design; temperature = 20.0, frequency = 1e-3)
+constants = CableConstants(design; temperature = 20.0, frequency = 50.0)
 ```
 
-The cable-constant workflow has no earth model, placement, propagation
-constant, transposition, or bundle option.
+The cable-constant workflow admits 50 Hz or 60 Hz and has no earth model,
+placement, propagation constant, transposition, or bundle option.
 
 ## Completed results
 

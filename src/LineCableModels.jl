@@ -60,6 +60,8 @@ export @cable, @system, @earth, @terminal, @assembly, @duct, @at, @hflat, @vflat
 export @distribute
 export make_stranded, make_screened, WireEstimate
 
+public Gridpoint
+
 # Materialised results, reusable designs, and presentation:
 export CableDesign, LineCableSystem, DatasheetInfo, catalogue
 export CableGeometry, PlacedRegion

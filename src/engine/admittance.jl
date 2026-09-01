@@ -48,44 +48,143 @@ end
     return coefficient
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Evaluate the registered insulation and semicon constitutive relations and
+store the potential coefficient of every physical dielectric layer.
+
+# Returns
+
+- `coefficients`, overwritten in physical radial-layer order [m/F].
+"""
 function dielectric!(
         coefficients::AbstractVector{Complex{T}},
-        workspace::LineParametersWorkspace{T},
-        frequency::Int,
-        formulation::LineParametersFormulation
+        input::LocalCableData{T},
+        methods::NamedTuple,
+        frequency::T,
+        temperature::T,
+        s::Complex{T}
 ) where {T <: Real}
-    input = workspace.input
-    f = input.freq[frequency]
-    s = input.jω[frequency]
-    @inbounds for layer in input.insulation_layer_indices
+    @inbounds for layer in input.insulation_indices
         κ = constitutive(
-            formulation.methods.insulation_admittance,
+            methods.insulation_admittance,
             input.dielectric_materials[layer],
-            f,
-            input.temperature
+            frequency,
+            temperature
         )
         coefficients[layer] = potential_coefficient(
-            input.r_ins_layer_in[layer],
-            input.r_ins_layer_ext[layer],
+            input.r_layer_in[layer],
+            input.r_layer_ext[layer],
             κ,
             s
         )
     end
-    @inbounds for layer in input.semicon_layer_indices
+    @inbounds for layer in input.semicon_indices
         κ = constitutive(
-            formulation.methods.semicon_admittance,
+            methods.semicon_admittance,
             input.dielectric_materials[layer],
-            f,
-            input.temperature
+            frequency,
+            temperature
         )
         coefficients[layer] = potential_coefficient(
-            input.r_ins_layer_in[layer],
-            input.r_ins_layer_ext[layer],
+            input.r_layer_in[layer],
+            input.r_layer_ext[layer],
             κ,
             s
         )
     end
     return coefficients
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Assemble the unreduced cable-internal potential-coefficient matrix from the
+series sum of physical radial dielectric layers.
+
+# Returns
+
+- `destination`, overwritten with the local potential coefficients [m/F].
+"""
+function cable_potential!(
+        destination::AbstractMatrix{Complex{T}},
+        input::LocalCableData{T},
+        methods::NamedTuple,
+        frequency::T,
+        temperature::T,
+        s::Complex{T},
+        layer_coefficients::AbstractVector{Complex{T}},
+        coefficients::AbstractVector{Complex{T}},
+        tails::AbstractVector{Complex{T}}
+) where {T <: Real}
+    fill!(destination, zero(Complex{T}))
+    dielectric!(layer_coefficients, input, methods, frequency, temperature, s)
+    @inbounds for conductors in input.assemblies
+        count = length(conductors)
+        for component in 1:count
+            coefficients[component] = radial_coefficient(
+                layer_coefficients,
+                input.dielectric_ranges[conductors[component]]
+            )
+        end
+        tails[count] = coefficients[count]
+        for gap in (count - 1):-1:1
+            tails[gap] = coefficients[gap] + tails[gap + 1]
+        end
+        for row in 1:count, column in 1:count
+            destination[conductors[row], conductors[column]] += tails[max(row, column)]
+        end
+    end
+    return destination
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Assemble the earth-free nodal shunt-admittance matrix of independent
+concentric assemblies.
+
+For each conductor-owned radial interval, the physical layer coefficients
+combine in series as ``p=\\sum_k p_k`` and contribute the branch admittance
+``y=s/p``. An interval outside the last retained conductor terminates at the
+external reference.
+
+# Returns
+
+- `destination`, overwritten with the local shunt admittance [S/m].
+"""
+function cable_admittance!(
+        destination::AbstractMatrix{Complex{T}},
+        input::LocalCableData{T},
+        methods::NamedTuple,
+        frequency::T,
+        temperature::T,
+        s::Complex{T},
+        layer_coefficients::AbstractVector{Complex{T}}
+) where {T <: Real}
+    fill!(destination, zero(Complex{T}))
+    dielectric!(layer_coefficients, input, methods, frequency, temperature, s)
+    @inbounds for conductors in input.assemblies
+        count = length(conductors)
+        for position in 1:count
+            index = conductors[position]
+            coefficient = radial_coefficient(
+                layer_coefficients,
+                input.dielectric_ranges[index]
+            )
+            iszero(coefficient) && continue
+            admittance = s / coefficient
+            destination[index, index] += admittance
+            if position < count
+                outside = conductors[position + 1]
+                destination[outside, outside] += admittance
+                destination[index, outside] -= admittance
+                destination[outside, index] -= admittance
+            end
+        end
+    end
+    return destination
 end
 
 function admittance!(
@@ -106,7 +205,20 @@ function admittance!(
     tails = workspace.buffers.tails
     layer_coefficients = workspace.buffers.layer_coefficients
     capture = workspace.capture
-    fill!(destination, zero(Complex{T}))
+    s = input.jω[frequency]
+    cable_potential!(
+        destination,
+        input.cable,
+        formulation.methods,
+        input.freq[frequency],
+        input.temperature,
+        s,
+        layer_coefficients,
+        coefficients,
+        tails
+    )
+    _stash!(_capture_target(capture, :Pin), frequency, destination)
+
     earth!(
         earth_matrix, pairs, input, earth_media, frequency,
         formulation.methods.earth_admittance,
@@ -115,28 +227,6 @@ function admittance!(
         stratified ? earth_media.thickness : nothing
     )
     _stash!(_capture_target(capture, :Pg), frequency, earth_matrix)
-    s = input.jω[frequency]
-    dielectric!(layer_coefficients, workspace, frequency, formulation)
-
-    @inbounds for cable in 1:input.n_cables
-        conductors = indices[cable]
-        count = length(conductors)
-        for component in 1:count
-            coefficients[component] = radial_coefficient(
-                layer_coefficients,
-                input.insulator_layer_ranges[conductors[component]]
-            )
-        end
-        tails[count] = coefficients[count]
-        for gap in (count - 1):-1:1
-            tails[gap] = coefficients[gap] + tails[gap + 1]
-        end
-        for row in 1:count, column in 1:count
-
-            destination[conductors[row], conductors[column]] += tails[max(row, column)]
-        end
-    end
-    _stash!(_capture_target(capture, :Pin), frequency, destination)
 
     @inbounds for cable in 1:input.n_cables
         self = earth_matrix[cable, cable]

@@ -262,7 +262,12 @@ end
     )) do (actual, expected)
         isapprox(actual[1], expected[1]) && isapprox(actual[2], expected[2])
     end
-    @test_throws ArgumentError compute(problem)
+    parameters=compute(problem; options = (trace = true,))
+    @test size(parameters.Z) == (3, 3, 1)
+    @test size(parameters.Y) == (3, 3, 1)
+    @test all(isfinite, parameters.Z)
+    @test all(isfinite, parameters.Y)
+    @test details(parameters).trace.cable_map == [1, 2, 3]
 
     encoded=LineCableModels.ImportExport.serialize_value(design)
     @test encoded["root"]["item"]["item"]["items"][1]["primitive"]["kind"] ==

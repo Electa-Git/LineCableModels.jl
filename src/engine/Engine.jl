@@ -2,11 +2,11 @@
     LineCableModels.Engine
 
 Calculate cable constants and frequency-dependent line-parameter matrices from
-materialised cable systems.
+completed cable declarations and Engine-owned numerical blueprints.
 
 # Overview
 
-- Define materialised problems, formulations, and core results.
+- Define scalar problems, formulations, and core results.
 - Calculate conductor, insulation, and earth-return impedance and admittance.
 - Assemble phase-domain series-impedance and shunt-admittance matrices.
 - Apply bundle reduction, Kron elimination, and ideal transposition.
@@ -117,6 +117,7 @@ include("earthadmittance/EarthAdmittance.jl")
 using .EarthAdmittance: EarthAdmittance
 
 # Native workspace and numerical action
+include("blueprint.jl")
 include("input.jl")
 include("logging.jl")
 include("earthreturn.jl")
@@ -137,5 +138,6 @@ include("textdisplay.jl")
 public has_uncertainty_type
 public reduce_primitive_matrices, potential_to_admittance
 public ConsoleVerbosityLogger
+public CableBlueprint, BlueprintConductor, BlueprintDielectric, flatten
 
 end # module Engine

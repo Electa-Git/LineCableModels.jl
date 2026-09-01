@@ -118,12 +118,13 @@ function build(
     )
 end
 
-function _line_problem(system, temperature, earth, frequencies)
+function _line_problem(system, temperature, earth, frequencies, Γ)
     return Engine.LineParametersProblem(
         system;
         temperature,
         earth_props = earth,
-        frequencies
+        frequencies,
+        Γ
     )
 end
 
@@ -132,9 +133,10 @@ function Engine.LineParametersProblem(
         temperature = 20,
         earth_props,
         frequencies = [50],
+        Γ = nothing,
         combine::Symbol = :product
 )
-    values = (system, temperature, earth_props, frequencies)
+    values = (system, temperature, earth_props, frequencies, Γ)
     grids = map(values) do value
         value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
     end
@@ -146,6 +148,7 @@ function Engine.LineParametersProblem(
         earth_props::Union{AbstractGrid, Gridspace};
         temperature = 20,
         frequencies = [50],
+        Γ = nothing,
         combine::Symbol = :product
 )
     return Engine.LineParametersProblem(
@@ -153,6 +156,7 @@ function Engine.LineParametersProblem(
         temperature,
         earth_props,
         frequencies,
+        Γ,
         combine
     )
 end
@@ -164,14 +168,16 @@ function _placed_line_problem(
         line_length,
         temperature,
         earth_props,
-        frequencies
+        frequencies,
+        Γ
 )
     system = _placed_system(placements, environment, system_id, line_length)
     return Engine.LineParametersProblem(
         system;
         temperature,
         earth_props,
-        frequencies
+        frequencies,
+        Γ
     )
 end
 
@@ -183,11 +189,12 @@ function Engine.LineParametersProblem(
         temperature = 20,
         earth_props,
         frequencies = [50],
+        Γ = nothing,
         combine::Symbol = :product
 )
     values = (
         placements, environment, system_id, line_length, temperature,
-        earth_props, frequencies
+        earth_props, frequencies, Γ
     )
     return _construction(
         Engine.LineParametersProblem, _placed_line_problem, values; combine
@@ -199,9 +206,10 @@ function Engine.LineParametersProblem(
         earth_props::Union{AbstractGrid, Gridspace};
         temperature = 20,
         frequencies = [50],
+        Γ = nothing,
         combine::Symbol = :product
 )
-    values = (system, temperature, earth_props, frequencies)
+    values = (system, temperature, earth_props, frequencies, Γ)
     grids = map(values) do value
         value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
     end
@@ -218,6 +226,7 @@ function Engine.LineParametersProblem(
         temperature,
         earth_props,
         frequencies;
+        Γ = nothing,
         combine::Symbol = :product
 )
     values = (
@@ -229,7 +238,8 @@ function Engine.LineParametersProblem(
         line_length,
         temperature,
         earth_props,
-        frequencies
+        frequencies,
+        Γ
     )
     any(value -> value isa Union{AbstractGrid, Gridspace}, values) || throw(
         MethodError(Engine.LineParametersProblem, values)
@@ -237,8 +247,35 @@ function Engine.LineParametersProblem(
     sources = map(values) do value
         value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
     end
-    caller = (selected...) -> Engine.LineParametersProblem(selected...)
-    return Gridspace{Engine.LineParametersProblem}(caller, sources; combine)
+    return Gridspace{Engine.LineParametersProblem}(
+        _declared_line_problem, sources; combine
+    )
+end
+
+function _declared_line_problem(
+        designs,
+        placements,
+        connections,
+        environment,
+        system_id,
+        line_length,
+        temperature,
+        earth_props,
+        frequencies,
+        Γ
+)
+    return Engine.LineParametersProblem(
+        designs,
+        placements,
+        connections,
+        environment,
+        system_id,
+        line_length,
+        temperature,
+        earth_props,
+        frequencies;
+        Γ
+    )
 end
 
 function Engine.LineParametersProblem(
@@ -251,6 +288,7 @@ function Engine.LineParametersProblem(
         temperature = 20,
         earth_props,
         frequencies = [50],
+        Γ = nothing,
         combine::Symbol = :product
 )
     return Engine.LineParametersProblem(
@@ -263,6 +301,7 @@ function Engine.LineParametersProblem(
         temperature,
         earth_props,
         frequencies;
+        Γ,
         combine
     )
 end

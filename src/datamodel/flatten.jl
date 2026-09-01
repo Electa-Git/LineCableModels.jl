@@ -826,10 +826,30 @@ function dielectric_circuit(layer)
     )
 end
 
+function dielectric_circuit(layers, angular_frequency::Real, ::Type{T}) where {T <: Real}
+    isempty(layers) && return (
+        capacitance = zero(T),
+        conductance = zero(T)
+    )
+    combined = dielectric_circuit(first(layers))
+    @inbounds for layer in Iterators.drop(layers, 1)
+        circuit = dielectric_circuit(layer)
+        combined = series_shunt_admittance(
+            combined.conductance,
+            combined.capacitance,
+            circuit.conductance,
+            circuit.capacitance,
+            angular_frequency
+        )
+    end
+    return combined
+end
+
 """
 $(TYPEDSIGNATURES)
 
-Initialize the scalar shunt-dielectric reduction from its innermost layer.
+Initialize the frequency-independent radial dielectric description from its
+innermost layer.
 """
 function initialize_dielectric(layer, conductor)
     same_radial_position(layer.position, conductor.position) || throw(ArgumentError(
@@ -841,14 +861,11 @@ function initialize_dielectric(layer, conductor)
     isapprox(layer.material.T0, conductor.reference_temperature) || throw(
         ArgumentError("all cable materials must share one reference temperature")
     )
-    circuit = dielectric_circuit(layer)
     return (
         r_in = layer.r_in,
         r_ex = layer.r_ex,
         cross_section = (one(layer.r_in) * pi) *
                         (layer.r_ex^2 - layer.r_in^2),
-        shunt_capacitance = circuit.capacitance,
-        shunt_conductance = circuit.conductance,
         position = layer.position,
         reference_temperature = layer.material.T0,
         layers = [(r_in = layer.r_in, r_ex = layer.r_ex, material = layer.material)]
@@ -858,10 +875,9 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Add one radial dielectric layer in series with an accumulated scalar shunt
-admittance at angular frequency `angular_frequency` \\[rad/s\\].
+Add one radial dielectric layer to a frequency-independent radial description.
 """
-function add_dielectric_layer(dielectric, layer, angular_frequency::Real)
+function add_dielectric_layer(dielectric, layer)
     same_radial_position(layer.position, dielectric.position) || throw(ArgumentError(
         "dielectric layers must share the conductor radial centre"
     ))
@@ -871,14 +887,6 @@ function add_dielectric_layer(dielectric, layer, angular_frequency::Real)
     isapprox(layer.material.T0, dielectric.reference_temperature) || throw(
         ArgumentError("all cable materials must share one reference temperature")
     )
-    circuit = dielectric_circuit(layer)
-    combined = series_shunt_admittance(
-        dielectric.shunt_conductance,
-        dielectric.shunt_capacitance,
-        circuit.conductance,
-        circuit.capacitance,
-        angular_frequency
-    )
     layers = copy(dielectric.layers)
     push!(layers, (r_in = layer.r_in, r_ex = layer.r_ex, material = layer.material))
     return (
@@ -886,8 +894,6 @@ function add_dielectric_layer(dielectric, layer, angular_frequency::Real)
         r_ex = layer.r_ex,
         cross_section = dielectric.cross_section +
                         (one(layer.r_in) * pi) * (layer.r_ex^2 - layer.r_in^2),
-        shunt_capacitance = combined.capacitance,
-        shunt_conductance = combined.conductance,
         position = dielectric.position,
         reference_temperature = dielectric.reference_temperature,
         layers
@@ -903,8 +909,6 @@ function empty_dielectric(conductor, ::Type{T}) where {T <: Real}
         r_in = conductor.r_ex,
         r_ex = conductor.r_ex,
         cross_section = zero(T),
-        shunt_capacitance = zero(T),
-        shunt_conductance = zero(T),
         position = conductor.position,
         reference_temperature = conductor.reference_temperature,
         layers = Layer[]
@@ -996,43 +1000,21 @@ end
 $(TYPEDSIGNATURES)
 
 Reduce each radial terminal section of a completed cable design to equivalent
-conductor and dielectric circuit properties.
+conductor geometry and its ordered physical dielectric layers.
 
-The reduction combines conductor resistance and GMR independently from the
-dielectric series admittance. It performs no line-parameter, mutual-coupling,
-earth-return, or matrix calculation.
+The reduction combines conductor resistance and GMR but does not evaluate a
+dielectric circuit. It performs no constitutive, frequency, line-parameter,
+mutual-coupling, earth-return, or matrix calculation.
 
 # Arguments
 
 - `design`: Completed physical cable design.
-- `dielectric_frequency`: Frequency in hertz used to combine dielectric layers.
-
 # Returns
 
-An ordered vector of named tuples containing conductor and dielectric fields
-for each retained terminal.
+An ordered vector of named tuples containing equivalent conductor fields and
+the uncombined physical dielectric layers for each retained terminal.
 """
-function flatten(
-        design::CableDesign,
-        dielectric_frequency::Real
-)
-    T = promote_type(
-        typeof(float(dielectric_frequency)),
-        (eltype(region.primitive) for region in design.geometry.regions)...,
-        (eltype(region.source.material) for region in design.geometry.regions)...
-    )
-    return flatten(
-        design,
-        convert(T, float(dielectric_frequency)),
-        T
-    )
-end
-
-function flatten(
-        design::CableDesign,
-        frequency::T,
-        ::Type{T}
-) where {T <: Real}
+function radial_components(design::CableDesign, ::Type{T}) where {T <: Real}
     regions = _radial_regions(design.geometry.regions)
     terminals = design.terminal_order
     isempty(terminals) && throw(ArgumentError(
@@ -1050,11 +1032,6 @@ function flatten(
         "flatten requires nonreappearing radial terminal blocks"
     ))
 
-    frequency > zero(frequency) || throw(DomainError(
-        frequency,
-        "dielectric reference frequency must be positive"
-    ))
-    angular_frequency = 2 * (one(T) * pi) * frequency
     Layer = NamedTuple{
         (:r_in, :r_ex, :material),
         Tuple{T, T, Material{T}}
@@ -1065,9 +1042,8 @@ function flatten(
         Tuple{T, T, T, Int, T, T, T, T, Tuple{T, T}, Material{T}}
     }
     DielectricInput = NamedTuple{
-        (:r_in, :r_ex, :cross_section, :shunt_capacitance,
-            :shunt_conductance, :frequency, :layers, :material),
-        Tuple{T, T, T, T, T, T, Vector{Layer}, Material{T}}
+        (:r_in, :r_ex, :cross_section, :layers),
+        Tuple{T, T, T, Vector{Layer}}
     }
     ComponentInput = NamedTuple{
         (:name, :conductor, :dielectric),
@@ -1196,19 +1172,10 @@ function flatten(
             )
             dielectric = layer_index == 1 ?
                          initialize_dielectric(layer, conductor) :
-                         add_dielectric_layer(
-                dielectric,
-                layer,
-                angular_frequency
-            )
+                         add_dielectric_layer(dielectric, layer)
         end
 
         conductor_material = equivalent_conductor_material(conductor)
-        dielectric_material = equivalent_dielectric_material(
-            dielectric,
-            conductor,
-            terminal
-        )
         push!(effective,
             (
                 name = terminal,
@@ -1228,13 +1195,116 @@ function flatten(
                     r_in = dielectric.r_in,
                     r_ex = dielectric.r_ex,
                     cross_section = dielectric.cross_section,
-                    shunt_capacitance = dielectric.shunt_capacitance,
-                    shunt_conductance = dielectric.shunt_conductance,
-                    frequency = frequency,
-                    layers = dielectric.layers,
-                    material = dielectric_material
+                    layers = dielectric.layers
                 )
             ))
+    end
+    return effective
+end
+
+function radial_components(design::CableDesign)
+    T = promote_type(
+        (eltype(region.primitive) for region in design.geometry.regions)...,
+        (eltype(region.source.material) for region in design.geometry.regions)...
+    )
+    return radial_components(design, T)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Reduce a completed cable design to equivalent radial conductor and dielectric
+components at one dielectric reference frequency.
+
+This DataModel operation supports [`homogenize`](@ref). It combines the
+physical radial dielectric layers in series and produces an artificial
+homogeneous material that reproduces their capacitance and conductance at the
+requested frequency. It does not calculate mutual coupling or earth return.
+
+# Arguments
+
+- `design`: Completed physical cable design.
+- `dielectric_frequency`: Reference frequency used to match the equivalent
+  dielectric [Hz].
+
+# Returns
+
+- An ordered vector of equivalent radial component records.
+"""
+function flatten(
+        design::CableDesign,
+        dielectric_frequency::Real
+)
+    T = promote_type(
+        typeof(float(dielectric_frequency)),
+        (eltype(region.primitive) for region in design.geometry.regions)...,
+        (eltype(region.source.material) for region in design.geometry.regions)...
+    )
+    return flatten(
+        design,
+        convert(T, float(dielectric_frequency)),
+        T
+    )
+end
+
+function flatten(
+        design::CableDesign,
+        frequency::T,
+        ::Type{T}
+) where {T <: Real}
+    frequency > zero(frequency) || throw(DomainError(
+        frequency,
+        "dielectric reference frequency must be positive"
+    ))
+    components = radial_components(design, T)
+    angular_frequency = 2 * (one(T) * pi) * frequency
+    Layer = NamedTuple{
+        (:r_in, :r_ex, :material),
+        Tuple{T, T, Material{T}}
+    }
+    ConductorInput = typeof(first(components).conductor)
+    DielectricInput = NamedTuple{
+        (:r_in, :r_ex, :cross_section, :shunt_capacitance,
+            :shunt_conductance, :frequency, :layers, :material),
+        Tuple{T, T, T, T, T, T, Vector{Layer}, Material{T}}
+    }
+    ComponentInput = NamedTuple{
+        (:name, :conductor, :dielectric),
+        Tuple{Symbol, ConductorInput, DielectricInput}
+    }
+    effective = ComponentInput[]
+    sizehint!(effective, length(components))
+    for component in components
+        circuit = dielectric_circuit(
+            component.dielectric.layers,
+            angular_frequency,
+            T
+        )
+        dielectric = merge(component.dielectric, (
+            shunt_capacitance = circuit.capacitance,
+            shunt_conductance = circuit.conductance
+        ))
+        material = equivalent_dielectric_material(
+            dielectric,
+            merge(component.conductor, (
+                reference_temperature = component.conductor.material.T0,
+            )),
+            component.name
+        )
+        push!(effective, (
+            name = component.name,
+            conductor = component.conductor,
+            dielectric = (
+                r_in = dielectric.r_in,
+                r_ex = dielectric.r_ex,
+                cross_section = dielectric.cross_section,
+                shunt_capacitance = circuit.capacitance,
+                shunt_conductance = circuit.conductance,
+                frequency,
+                layers = dielectric.layers,
+                material
+            )
+        ))
     end
     return effective
 end

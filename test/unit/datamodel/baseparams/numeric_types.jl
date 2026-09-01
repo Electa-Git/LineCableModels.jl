@@ -16,12 +16,10 @@
             )
             capacitance=shunt_capacitance(r_in, r_ex, T(2.3))
             conductance=shunt_conductance(r_in, r_ex, T(1e9))
-            inductance=tubular_inductance(r_in, r_ex, one(T))
 
             @test resistance isa T
             @test capacitance isa T
             @test conductance isa T
-            @test inductance isa T
 
             @test TestNumerics.isapprox_scaled(
                 resistance,
@@ -32,7 +30,6 @@
                 T(2) * T(π) / (T(1e9) * log(r_ex / r_in))
             )
             @test capacitance > zero(T)
-            @test inductance > zero(T)
         end
     end
 

@@ -46,7 +46,7 @@ using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
 using Random
 using RequiredInterfaces: @required
 using ..Grammar: @orchestrator
-import ..LineCableModels: add!, build
+import ..LineCableModels: add!, build, Gridpoint
 import ..LineCableModels: _construction, _construction_axis, _finite_construction
 import ..Grammar
 import ..Grammar: compute, computation_options, computation_details, details,

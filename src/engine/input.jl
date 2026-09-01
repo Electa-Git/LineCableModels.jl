@@ -28,32 +28,10 @@ struct LineParametersWorkspace{
     capture::C
 end
 
-constitutive(
-    ::LineParametersFormulation,
-    ::Val{:conductor},
-    material::Material
-) = material
-
-function constitutive(
-        ::LineParametersFormulation,
-        ::Val{Kind},
-        ::Material
-) where {Kind}
-    throw(ArgumentError(
-        "the coaxial formulation does not support material class :$Kind"
-    ))
-end
-
 Base.eltype(::LineParametersWorkspace{T}) where {T} = T
 Base.eltype(::Type{<:LineParametersWorkspace{T}}) where {T} = T
 
-function _capture_buffers(
-        ::Type,
-        input::NamedTuple,
-        ::Val{false}
-)
-    return nothing
-end
+@inline _capture_buffers(::Type, ::Any, ::Val{false}) = nothing
 
 function _capture_buffers(
         ::Type{T},
@@ -75,6 +53,7 @@ end
 
 function _check_workspace(workspace::LineParametersWorkspace)
     input = workspace.input
+    cable = input.cable
     n = input.n_phases
     input.n_frequencies == length(input.freq) || throw(DimensionMismatch(
         "frequency count differs from the frequency vector"
@@ -87,28 +66,28 @@ function _check_workspace(workspace::LineParametersWorkspace)
         "cable count differs from the cable map"
     ))
     for values in (
-        input.horz, input.vert, input.r_in, input.r_ext, input.r_ins_in,
-        input.r_ins_ext, input.rho0_cond, input.T0_cond, input.alpha_cond,
-        input.mu_cond, input.eps_cond, input.mu_ins,
-        input.phase_map, input.cable_map,
-        input.insulator_layer_ranges
+        input.horz, input.vert, input.phase_map, input.cable_map,
+        input.design_map, cable.terminals, cable.positions, cable.r_in,
+        cable.r_ext, cable.r_ins_in, cable.r_ins_ext, cable.rho0_cond,
+        cable.T0_cond, cable.alpha_cond, cable.mu_cond, cable.mu_ins,
+        cable.dielectric_ranges
     )
         length(values) == n || throw(DimensionMismatch(
             "engine input arrays must have $n component entries"
         ))
     end
-    n_layers = length(input.dielectric_materials)
+    n_layers = length(cable.dielectric_materials)
     for values in (
-        input.r_ins_layer_in, input.r_ins_layer_ext, input.rho_ins_layer,
-        input.eps_ins_layer, workspace.buffers.layer_coefficients
+        cable.r_layer_in, cable.r_layer_ext,
+        workspace.buffers.layer_coefficients
     )
         length(values) == n_layers || throw(DimensionMismatch(
             "dielectric-layer arrays must contain $n_layers entries"
         ))
     end
     sort!(vcat(
-        input.insulation_layer_indices,
-        input.semicon_layer_indices
+        cable.insulation_indices,
+        cable.semicon_indices
     )) == collect(1:n_layers) || throw(DimensionMismatch(
         "insulation and semicon indices must partition the dielectric layers"
     ))
@@ -152,54 +131,33 @@ index construction, and numerical allocation occurs before the frequency loop.
 
 # Arguments
 
-- `engine`: Coaxial backend identity.
 - `problem`: Completed line-parameter problem.
 - `formulation`: Selected physical-method bundle.
 - `execution`: Normalized coaxial computation options.
+- `blueprints`: One frequency-independent blueprint per selected design.
 
 # Returns
 
 - A validated [`LineParametersWorkspace`](@ref).
 """
 function LineParametersWorkspace(
-        ::LineCableModelsCoaxial,
         problem::LineParametersProblem{T},
         formulation::LineParametersFormulation,
-        execution::NamedTuple
+        execution::NamedTuple,
+        blueprints::Vector{CableBlueprint{T}}
 ) where {T <: Real}
     system = problem.system
-    # DataModel's homogeneous export view requires a positive dielectric
-    # frequency. Coaxial shunt calculations ignore its equivalent dielectric
-    # material and consume the canonical physical layers below.
-    material_reference_frequency = first(problem.frequencies)
-    terminals_by_design = [DataModel.flatten(
-                               design, material_reference_frequency, T
-                           )
-                           for design in system.designs]
-    for (cable_index, terminals) in enumerate(terminals_by_design)
-        reference_position = first(terminals).conductor.position
-        all(terminals) do terminal
-            DataModel.same_radial_position(
-                terminal.conductor.position,
-                reference_position
-            )
-        end || throw(ArgumentError(
-            "the coaxial backend requires one concentric " *
-            "assembly member per cable; cable $cable_index contains " *
-            "independently positioned members"
-        ))
-    end
+    length(blueprints) == length(system.designs) || throw(DimensionMismatch(
+        "line-parameter blueprints must align with the selected system designs",
+    ))
+    cable = LocalCableData(blueprints)
     n_frequencies = length(problem.frequencies)
     n_phases = length(system.terminal_order)
-    sum(length, terminals_by_design) == n_phases || throw(DimensionMismatch(
-        "DataModel terminal order differs from the homogeneous component count"
+    length(cable.terminals) == n_phases || throw(DimensionMismatch(
+        "DataModel terminal order differs from the cable blueprint count"
     ))
-    n_layers = sum(
-        length(terminal.dielectric.layers)
-    for terminals in terminals_by_design
-    for terminal in terminals
-    )
-    n_cables = ncables(system)
+    n_layers = length(cable.dielectric_materials)
+    n_cables = length(cable.assemblies)
 
     freq = copy(problem.frequencies)
     Γ = problem.Γ === nothing ? nothing : copy(problem.Γ)
@@ -207,100 +165,35 @@ function LineParametersWorkspace(
     horz = Vector{T}(undef, n_phases)
     horz_sep = Matrix{T}(undef, n_phases, n_phases)
     vert = Vector{T}(undef, n_phases)
-    r_in_values = Vector{T}(undef, n_phases)
-    r_ext_values = Vector{T}(undef, n_phases)
-    r_ins_in = Vector{T}(undef, n_phases)
-    r_ins_ext = Vector{T}(undef, n_phases)
-    rho0_cond = Vector{T}(undef, n_phases)
-    T0_cond = Vector{T}(undef, n_phases)
-    alpha_cond = Vector{T}(undef, n_phases)
-    mu_cond = Vector{T}(undef, n_phases)
-    eps_cond = Vector{T}(undef, n_phases)
-    mu_ins = Vector{T}(undef, n_phases)
-    insulator_layer_ranges = Vector{UnitRange{Int}}(undef, n_phases)
-    r_ins_layer_in = Vector{T}(undef, n_layers)
-    r_ins_layer_ext = Vector{T}(undef, n_layers)
-    rho_ins_layer = Vector{T}(undef, n_layers)
-    eps_ins_layer = Vector{T}(undef, n_layers)
-    dielectric_materials = Vector{Material{T}}(undef, n_layers)
-    insulation_layer_indices = Int[]
-    semicon_layer_indices = Int[]
-    sizehint!(insulation_layer_indices, n_layers)
-    sizehint!(semicon_layer_indices, n_layers)
     phase_map = copy(system.connection_order)
-    cable_map = Int[entry.cable for entry in system.terminal_order]
+    design_map = Int[entry.cable for entry in system.terminal_order]
+    cable_map = Vector{Int}(undef, n_phases)
+    @inbounds for (assembly, indices) in pairs(cable.assemblies), index in indices
+        cable_map[index] = assembly
+    end
 
-    component_index = 0
-    layer_index = 0
-    for (cable_index, (terminals, position)) in enumerate(zip(
-        terminals_by_design,
-        system.positions
-    ))
-        for terminal in terminals
-            component_index += 1
-            canonical = system.terminal_order[component_index]
-            canonical == (cable = cable_index, terminal = terminal.name) ||
-                throw(DimensionMismatch(
-                    "DataModel terminal order is not aligned with homogeneous components"
-                ))
-            conductor = terminal.conductor
-            dielectric = terminal.dielectric
-            conductor_material = constitutive(
-                formulation,
-                Val(conductor.material.kind),
-                conductor.material
-            )
-            local_x, local_y = conductor.position
-            horz[component_index] = position.x +
-                                    cos(position.φ) * local_x -
-                                    sin(position.φ) * local_y
-            vert[component_index] = position.y +
-                                    sin(position.φ) * local_x +
-                                    cos(position.φ) * local_y
-            r_in_values[component_index] = conductor.r_in
-            r_ext_values[component_index] = conductor.r_ex
-            r_ins_in[component_index] = dielectric.r_in
-            r_ins_ext[component_index] = dielectric.r_ex
-            rho0_cond[component_index] = conductor_material.rho
-            T0_cond[component_index] = conductor_material.T0
-            alpha_cond[component_index] = conductor_material.alpha
-            mu_cond[component_index] = conductor_material.mu_r
-            eps_cond[component_index] = conductor_material.eps_r
-            for layer in dielectric.layers
-                layer.material.kind in (:insulator, :semicon) || throw(ArgumentError(
-                    "the coaxial backend requires dielectric layers to be :insulator or :semicon; " *
-                    "got :$(layer.material.kind)"
-                ))
-            end
-            mu_ins[component_index] = isempty(dielectric.layers) ? one(T) :
-                                      DataModel.equivalent_dielectric_permeability(
-                dielectric.layers,
-                conductor.num_turns,
-                conductor.r_ex,
-                dielectric.r_ex
-            )
-            first_layer = layer_index + 1
-            for layer in dielectric.layers
-                layer_index += 1
-                r_ins_layer_in[layer_index] = layer.r_in
-                r_ins_layer_ext[layer_index] = layer.r_ex
-                rho_ins_layer[layer_index] = layer.material.rho
-                eps_ins_layer[layer_index] = layer.material.eps_r
-                dielectric_materials[layer_index] = layer.material
-                if layer.material.kind === :insulator
-                    push!(insulation_layer_indices, layer_index)
-                else
-                    push!(semicon_layer_indices, layer_index)
-                end
-            end
-            insulator_layer_ranges[component_index] = first_layer:layer_index
-        end
+    @inbounds for index in eachindex(cable.terminals)
+        canonical = system.terminal_order[index]
+        canonical.terminal === cable.terminals[index] || throw(DimensionMismatch(
+            "DataModel terminal order is not aligned with the cable blueprint"
+        ))
+        design_index = design_map[index]
+        cable.assembly_designs[cable_map[index]] == design_index ||
+            throw(DimensionMismatch(
+                "blueprint assembly ownership differs from system terminal order"
+            ))
+        position = system.positions[design_index]
+        local_x, local_y = cable.positions[index]
+        horz[index] = position.x + cos(position.φ) * local_x -
+                      sin(position.φ) * local_y
+        vert[index] = position.y + sin(position.φ) * local_x +
+                      cos(position.φ) * local_y
     end
     horizontal_separation!(
         horz_sep,
         horz,
-        r_ext_values,
-        r_ins_ext,
+        cable.r_ext,
+        cable.r_ins_ext,
         cable_map
     )
     input = (
@@ -310,26 +203,10 @@ function LineParametersWorkspace(
         horz,
         horz_sep,
         vert,
-        r_in = r_in_values,
-        r_ext = r_ext_values,
-        r_ins_in,
-        r_ins_ext,
-        rho0_cond,
-        T0_cond,
-        alpha_cond,
-        mu_cond,
-        eps_cond,
-        mu_ins,
-        insulator_layer_ranges,
-        r_ins_layer_in,
-        r_ins_layer_ext,
-        rho_ins_layer,
-        eps_ins_layer,
-        dielectric_materials,
-        insulation_layer_indices,
-        semicon_layer_indices,
+        cable,
         phase_map,
         cable_map,
+        design_map,
         earth = problem.earth_props,
         temperature = problem.temperature,
         line_length = system.line_length,
@@ -338,19 +215,16 @@ function LineParametersWorkspace(
         n_cables
     )
 
-    rho_cond = copy(rho0_cond)
+    rho_cond = copy(cable.rho0_cond)
     if formulation.options.temperature_correction
         @inbounds for index in eachindex(rho_cond)
             rho_cond[index] *= one(T) +
-                               alpha_cond[index] *
-                               (problem.temperature - T0_cond[index])
+                               cable.alpha_cond[index] *
+                               (problem.temperature - cable.T0_cond[index])
         end
     end
     earth = _earth_data(formulation, input)
-    cable_indices = [Int[] for _ in 1:n_cables]
-    @inbounds for (index, terminal) in pairs(system.terminal_order)
-        push!(cable_indices[terminal.cable], index)
-    end
+    cable_indices = [collect(indices) for indices in cable.assemblies]
     cable_representatives = first.(cable_indices)
     earth_pairs = _earth_pairs(
         cable_representatives,

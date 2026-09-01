@@ -27,9 +27,8 @@ function traverse(problem::ParametricProblem, formulation)
         "problem-space iteration ended before its declared cardinality",
     ))
     first_point, state = first_item
-    first_problem = materialize(first_point)
     first_result = compute(
-        first_problem,
+        first_point,
         formulation.inner;
         options = problem.options
     )
@@ -55,7 +54,7 @@ function traverse(problem::ParametricProblem, formulation)
         ))
         point, state = item
         core_result = compute(
-            materialize(point),
+            point,
             formulation.inner;
             options = problem.options
         )
@@ -78,6 +77,22 @@ function traverse(problem::ParametricProblem, formulation)
 
     retained_details = retained === nothing ? (;) : (points = retained,)
     return (; values, details = retained_details)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Compute one target-bearing scalar grid point. Core workflows may add a more
+specific lowering route; the general compatibility path materialises exactly
+that selected point and never the surrounding finite space.
+"""
+function compute(
+        point::Gridpoint{Target},
+        formulation;
+        options::NamedTuple = (;)
+) where {Target <: AbstractProblemDefinition}
+    problem = materialize(point)::Target
+    return compute(problem, formulation; options)
 end
 
 function compute(problem::ParametricProblem, formulation::Combinatorial)

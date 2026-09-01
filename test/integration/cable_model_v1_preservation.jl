@@ -29,8 +29,7 @@
 
     constants=CableConstants(design)
     constants_problem=CableConstantsProblem(design)
-    @test constants_problem.system.environment === nothing
-    @test only(constants_problem.system.positions) == Pose2(0.0, 0.0, 0.0)
+    @test constants_problem.design === design
     @test constants == compute(constants_problem, CableConstantsFormulation())
     @test all(isfinite, Iterators.flatten(
         (constants.R, constants.L, constants.C, constants.G)
@@ -61,18 +60,34 @@
 
     problem=TestFixtures.line_parameters_problem(frequencies = [50.0, 500.0])
     execution=computation_options(Val(LineCableModelsCoaxial), (;))
+    blueprints=LineCableModels.Engine.CableBlueprint{eltype(problem)}[
+        LineCableModels.Engine.flatten(LineCableModelsCoaxial(), design, eltype(problem))
+        for design in problem.system.designs
+    ]
     workspace=LineParametersWorkspace(
-        LineCableModelsCoaxial(), problem, Formulation(), execution)
+        problem, Formulation(), execution, blueprints)
     input=workspace.input
     expected_input=reference["normalized_input"]
-    vector_fields=(
-        :freq, :horz, :vert, :r_in, :r_ext, :r_ins_in, :r_ins_ext,
-        :rho0_cond, :T0_cond, :alpha_cond, :mu_cond, :eps_cond,
-        :mu_ins, :r_ins_layer_in,
-        :r_ins_layer_ext, :rho_ins_layer, :eps_ins_layer, :phase_map, :cable_map
-    )
+    vector_fields=(:freq, :horz, :vert, :phase_map, :cable_map)
     for field in vector_fields
         @test getproperty(input, field) == collect(expected_input[string(field)])
+    end
+    cable_fields=(
+        :r_in=>:r_in,
+        :r_ext=>:r_ext,
+        :r_ins_in=>:r_ins_in,
+        :r_ins_ext=>:r_ins_ext,
+        :rho0_cond=>:rho0_cond,
+        :T0_cond=>:T0_cond,
+        :alpha_cond=>:alpha_cond,
+        :mu_cond=>:mu_cond,
+        :mu_ins=>:mu_ins,
+        :r_layer_in=>:r_ins_layer_in,
+        :r_layer_ext=>:r_ins_layer_ext
+    )
+    for (field, reference) in cable_fields
+        @test getproperty(input.cable, field) ==
+              collect(expected_input[string(reference)])
     end
     @test input.phase_map == Int.(expected_system["connection_order"])
     @test input.jω == complex.(
@@ -84,7 +99,8 @@
         collect(expected_separation["values"]),
         Tuple(Int.(expected_separation["size"]))
     )
-    @test input.insulator_layer_ranges == [Int(range["first"]):Int(range["last"])
+    @test input.cable.dielectric_ranges ==
+          [Int(range["first"]):Int(range["last"])
            for range in expected_input["insulator_layer_ranges"]]
     for field in (:line_length, :n_frequencies, :n_phases, :n_cables)
         @test getproperty(input, field) == expected_input[string(field)]
