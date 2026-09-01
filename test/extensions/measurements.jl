@@ -10,6 +10,23 @@
     @test LineCableModels.nominal(1.0 + 2.0im) == 1.0 + 2.0im
     @test LineCableModels.uncertainty(1.0) == 0.0
 
+    uncertain_space=LineCableModels.Material(
+        kind = :insulator,
+        rho = 1.97e14,
+        eps_r = LineCableModels.Grid((2.3,), 1.0),
+        mu_r = 1.0,
+        T0 = 20.0,
+        alpha = 0.0
+    )
+    materialization_error=try
+        first(uncertain_space)
+        nothing
+    catch error
+        error
+    end
+    @test materialization_error isa ArgumentError
+    @test occursin("using Measurements", sprint(showerror, materialization_error))
+
     encoded_measurement=Dict(
         "__type__"=>"Measurement",
         "value"=>Dict("__type__"=>"Float", "value"=>1.0),
@@ -33,6 +50,19 @@ end
         @test derivative(material.rho, x) ≈ 1.0
         @test nominal(material.rho) == value(x)
         @test uncertainty(material.rho) == uncertainty(x)
+
+        space = LineCableModels.ParametricBuilder.Material(
+            kind = :conductor,
+            rho = Grid((1.0, 100.0)),
+            eps_r = Grid(1.0, 5.0),
+            mu_r = 1.0,
+            T0 = 20.0,
+            alpha = 0.0
+        )
+        propagated = collect(space)
+        @test eltype(space) === Any
+        @test Base.IteratorEltype(typeof(space)) isa Base.EltypeUnknown
+        @test eltype(propagated) === Material{Measurement{Float64}}
     end
 
     @testset "Mixed BaseParams calls retain primitive sensitivities" begin

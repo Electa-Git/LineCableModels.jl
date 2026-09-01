@@ -1,18 +1,46 @@
-function _earth_model(rho, eps_r, mu_r, thickness)
-    EarthProps.EarthModel(rho, eps_r, mu_r; thickness)
-end
-_earth_model(rho, eps_r, mu_r, ::Nothing) = EarthProps.EarthModel(rho, eps_r, mu_r)
+"""
+$(TYPEDSIGNATURES)
 
-"Construct static earth properties directly or as an explicit finite space."
+Construct a one-layer earth model through `EarthLayer` and
+`build(EarthModel, ...)`.
+
+# Keywords
+
+- `rho`: Electrical resistivity \\[Ω·m\\].
+- `eps_r=nothing`: Relative permittivity \\[dimensionless\\]; `nothing`
+  selects unity in the resistivity scalar type.
+- `mu_r=nothing`: Relative permeability \\[dimensionless\\]; `nothing`
+  selects unity in the resistivity scalar type.
+- `thickness=nothing`: Earth-layer thickness \\[m\\]; `nothing` selects a
+  semi-infinite earth layer.
+- `vertical_layers=false`: Whether earth interfaces are vertical.
+- `air_layer=nothing`: Optional explicit semi-infinite air layer.
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- An `EarthModel`, or a `Gridspace{EarthModel}` when an explicit finite source
+  is supplied.
+"""
 function Earth(;
         rho,
-        eps_r = 1.0,
-        mu_r = 1.0,
+        eps_r = nothing,
+        mu_r = nothing,
         thickness = nothing,
+        vertical_layers = false,
+        air_layer = nothing,
         combine::Symbol = :product
 )
-    values = (rho, eps_r, mu_r, thickness)
-    return _construction(EarthProps.EarthModel, _earth_model, values; combine)
+    layer = EarthProps.EarthLayer(;
+        rho, eps_r, mu_r, thickness, combine
+    )
+    return build(
+        EarthProps.EarthModel,
+        layer;
+        vertical_layers,
+        air_layer,
+        combine
+    )
 end
 
 function build(
@@ -46,7 +74,18 @@ function _placed_system(
     placements isa Union{Tuple, AbstractVector} && !isempty(placements) || throw(
         ArgumentError("placed cable declarations must be a nonempty collection")
     )
-    all(placements) do placement
+    declarations = Any[]
+    for placement in placements
+        if placement isa Union{Tuple, AbstractVector}
+            append!(declarations, placement)
+        else
+            push!(declarations, placement)
+        end
+    end
+    isempty(declarations) && throw(ArgumentError(
+        "placed cable declarations must be a nonempty collection"
+    ))
+    all(declarations) do placement
         placement isa NamedTuple &&
             keys(placement) == (:design, :pose, :connections) &&
             placement.design isa DataModel.CableDesign &&
@@ -56,9 +95,9 @@ function _placed_system(
     ))
     return build(
         DataModel.LineCableSystem,
-        getproperty.(placements, :design),
-        getproperty.(placements, :pose),
-        getproperty.(placements, :connections),
+        getproperty.(declarations, :design),
+        getproperty.(declarations, :pose),
+        getproperty.(declarations, :connections),
         environment,
         system_id,
         line_length
@@ -100,6 +139,22 @@ function Engine.LineParametersProblem(
         value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
     end
     return Gridspace{Engine.LineParametersProblem}(_line_problem, grids; combine)
+end
+
+function Engine.LineParametersProblem(
+        system::Gridspace{DataModel.LineCableSystem},
+        earth_props::Union{AbstractGrid, Gridspace};
+        temperature = 20,
+        frequencies = [50],
+        combine::Symbol = :product
+)
+    return Engine.LineParametersProblem(
+        system;
+        temperature,
+        earth_props,
+        frequencies,
+        combine
+    )
 end
 
 function _placed_line_problem(

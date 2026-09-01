@@ -61,7 +61,9 @@ end
     ]
     @test length(product_space) == 6
     @test size(product_space) == (6,)
-    @test eltype(product_space) === Tuple
+    @test eltype(product_space) === Tuple{Int, Int}
+    @test Base.IteratorEltype(typeof(product_space)) isa Base.HasEltype
+    @test isconcretetype(eltype(product_space))
     @test PB.Grid(product_space) === product_space
 
     zip_space=PB.Gridspace{Tuple}(
@@ -104,7 +106,13 @@ end
 
     @test collect(PB.Gridspace{Tuple}(tuple, ())) == [()]
     @test isempty(PB.Gridspace{Tuple}(tuple, (PB.Grid(()),)))
+    empty_space=PB.Gridspace{Tuple}(tuple, (PB.Grid(()),))
+    @test eltype(empty_space) === Any
+    @test Base.IteratorEltype(typeof(empty_space)) isa Base.EltypeUnknown
     @test_throws ArgumentError PB.Gridspace{Tuple}(tuple, (1, 2))
+    @test_throws ArgumentError PB.Gridspace{String}(
+        identity, (PB.Grid((1, 2)),)
+    )
     @test_throws ArgumentError PB.Gridspace{Tuple}(
         tuple, (PB.Grid(1),); combine = :outer)
     @test !applicable(getindex, product_space, 1)
@@ -134,11 +142,60 @@ end
         rho = Float32(1.7e-8)
     )
     @test space isa PB.Gridspace{LineCableModels.Materials.Material}
+    @test isconcretetype(typeof(space.build))
+    @test eltype(space) === LineCableModels.Materials.Material{Float32}
+    @test Base.IteratorEltype(typeof(space)) isa Base.HasEltype
+    @test @inferred(first(space)) isa LineCableModels.Materials.Material{Float32}
     @test getproperty.(collect(space), :kind) == [:conductor, :semicon]
     @test all(value -> eltype(value) === Float32, space)
-    sampled=rand(MersenneTwister(8), space)
+    sampled=@inferred rand(MersenneTwister(8), space)
     @test sampled.kind in (:conductor, :semicon)
     @test eltype(sampled) === Float32
+
+    resistivity_space=PB.Material(
+        kind = :conductor,
+        rho = PB.Grid((1.0, 100.0)),
+        eps_r = 1.0,
+        mu_r = 1.0,
+        T0 = 20.0,
+        alpha = 0.0
+    )
+    @test eltype(resistivity_space) ===
+          LineCableModels.Materials.Material{Float64}
+    @test @inferred(first(resistivity_space)) isa
+          LineCableModels.Materials.Material{Float64}
+
+    mixed_space=PB.Material(
+        kind = :conductor,
+        rho = PB.Grid((1.0, 100.0)),
+        eps_r = PB.Grid(1.0, 5.0),
+        mu_r = 1.0,
+        T0 = 20.0,
+        alpha = 0.0
+    )
+    @test PB.has_uncertainty(mixed_space)
+    @test eltype(mixed_space) === Any
+    @test Base.IteratorEltype(typeof(mixed_space)) isa Base.EltypeUnknown
+    @test rand(MersenneTwister(9), mixed_space) isa
+          LineCableModels.Materials.Material{Float64}
+
+    malformed_error=try
+        PB.Material(
+            1.0;
+            kind = :insulator,
+            rho = 1.97e14,
+            eps_r = PB.Grid((2.3,)),
+            mu_r = 1.0,
+            T0 = 20.0,
+            alpha = 0.0
+        )
+    catch error
+        error
+    end
+    @test malformed_error isa ArgumentError
+    @test occursin(
+        "Grid(values, relative_error)", sprint(showerror, malformed_error)
+    )
 end
 
 @testitem "ParametricBuilder / Gridspace / recursive point resolution" tags=[:unit] setup=[
@@ -150,6 +207,8 @@ end
     parent=PB.Gridspace{Tuple}(tuple, (child, PB.Grid((1, 2))))
     point=first(PB.points(parent))
     @test PB.has_uncertainty(parent)
+    @test eltype(parent) === Any
+    @test Base.IteratorEltype(typeof(parent)) isa Base.EltypeUnknown
     @test PB.has_uncertainty(point)
     @test PB.materialize(point)[1][1] isa Measurement
     arguments=PB.realize_arguments(MersenneTwister(42), point, :normal)

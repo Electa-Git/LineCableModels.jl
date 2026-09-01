@@ -44,6 +44,100 @@ macro cable(identifier, block)
     return esc(_macro_call(:build, GlobalRef(DataModel, :CableDesign), identifier, parts...))
 end
 
+"""
+    @system identifier [keyword=value ...] begin
+        placements...
+    end
+
+Build a completed line-cable system from placed cable declarations.
+
+# Arguments
+
+- `identifier`: Stable system identifier.
+- `placements`: Ordered expressions that produce placed cable declarations.
+
+# Keywords
+
+- `environment=nothing`: Optional physical environment declaration.
+- `line_length=1`: Physical line length \\[m\\].
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- A completed `LineCableSystem`, or a `Gridspace{LineCableSystem}` when a
+  placement or keyword value varies.
+"""
+macro system(identifier, arguments...)
+    isempty(arguments) && throw(ArgumentError(
+        "@system requires a begin/end block"
+    ))
+    block = last(arguments)
+    placements = _macro_block(block, :system)
+    isempty(placements) && throw(ArgumentError(
+        "@system requires at least one placed cable"
+    ))
+    keywords = _macro_keywords(arguments[1:(end - 1)], :system)
+    allowed = (:environment, :line_length, :combine)
+    unsupported = filter(pair -> !(first(pair) in allowed), keywords)
+    isempty(unsupported) || throw(ArgumentError(
+        "@system accepts only environment, line_length, and combine"
+    ))
+    pushfirst!(keywords, :system_id => identifier)
+    declarations = Expr(:tuple, placements...)
+    return esc(_call_with_keywords(
+        :build,
+        (GlobalRef(DataModel, :LineCableSystem), declarations),
+        keywords
+    ))
+end
+
+"""
+    @earth [keyword=value ...] begin
+        layers...
+    end
+
+Build a completed earth model from ordered `EarthLayer` declarations. For
+horizontal interfaces, the block runs from the surface downward.
+Semi-infinite air is implicit.
+
+# Arguments
+
+- `layers`: Ordered expressions that produce completed earth layers.
+
+# Keywords
+
+- `vertical_layers=false`: Whether earth interfaces are vertical.
+- `air_layer=nothing`: Optional explicit semi-infinite air layer.
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- An `EarthModel`, or a `Gridspace{EarthModel}` when a layer or keyword value
+  varies.
+"""
+macro earth(arguments...)
+    isempty(arguments) && throw(ArgumentError(
+        "@earth requires a begin/end block"
+    ))
+    block = last(arguments)
+    layers = _macro_block(block, :earth)
+    isempty(layers) && throw(ArgumentError(
+        "@earth requires at least one earth layer"
+    ))
+    keywords = _macro_keywords(arguments[1:(end - 1)], :earth)
+    allowed = (:vertical_layers, :air_layer, :combine)
+    unsupported = filter(pair -> !(first(pair) in allowed), keywords)
+    isempty(unsupported) || throw(ArgumentError(
+        "@earth accepts only vertical_layers, air_layer, and combine"
+    ))
+    declarations = Expr(:tuple, layers...)
+    return esc(_call_with_keywords(
+        :build,
+        (GlobalRef(EarthProps, :EarthModel), declarations),
+        keywords
+    ))
+end
+
 "Coalesce the conductive descendants in one ordered block as a terminal."
 macro terminal(name, block)
     parts = _macro_block(block, :terminal)
@@ -80,6 +174,20 @@ end
 macro at(subject, coordinates, assignments...)
     values = _coordinate_tuple(coordinates, :at)
     keywords = _macro_keywords(assignments, :at)
+    reserved = (:φ, :connections, :combine)
+    explicit_connections = findall(pair -> first(pair) === :connections, keywords)
+    shorthand = filter(pair -> !(first(pair) in reserved), keywords)
+    isempty(explicit_connections) || isempty(shorthand) || throw(ArgumentError(
+        "@at cannot mix connections with connection shorthand"
+    ))
+    if isempty(explicit_connections) && !isempty(shorthand)
+        named = Expr(:tuple, Expr(
+            :parameters,
+            [Expr(:kw, key, value) for (key, value) in shorthand]...
+        ))
+        keywords = filter(pair -> first(pair) in reserved, keywords)
+        push!(keywords, :connections => named)
+    end
     keys = first.(keywords)
     tuple_has_angle = length(values) == 3
     tuple_has_angle && :φ in keys && throw(ArgumentError(

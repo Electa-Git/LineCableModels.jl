@@ -37,8 +37,8 @@ export armor, bedding, jacket, filler, pipe, duct
 export solid, shell, wires, layers, assembly
 export capacity, Hexa
 export FillFactor, DiameterFactor, TabulatedCompaction, AffineCompaction
-export at, trefoil, hflat, vflat, Earth
-export @cable, @terminal, @assembly, @duct, @at, @hflat, @vflat, @trefoil
+export at, trefoil, hflat, vflat, Earth, EarthLayer, EarthModel
+export @cable, @system, @earth, @terminal, @assembly, @duct, @at, @hflat, @vflat, @trefoil
 export @distribute
 export WireEstimate, make_stranded, make_screened
 
@@ -68,6 +68,7 @@ import ..DataModel: capacity, Hexa, FillFactor, DiameterFactor
 import ..DataModel: TabulatedCompaction, AffineCompaction
 import ..DataModel: CableDesign, LineCableSystem
 import ..EarthProps
+using ..EarthProps: EarthLayer, EarthModel
 import ..Engine
 import ..TextDisplay
 

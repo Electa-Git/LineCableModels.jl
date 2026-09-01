@@ -4,21 +4,49 @@ struct Gridpoint{F, A <: Tuple}
     args::A
 end
 
+"Concrete callable representation of a type constructor used by a Gridspace."
+struct _TypeConstructor{Target} end
+
+(::_TypeConstructor{Target})(arguments...) where {Target} = Target(arguments...)
+
+_gridspace_callable(build) = build
+_gridspace_callable(::Type{Target}) where {Target} = _TypeConstructor{Target}()
+
 """
 $(TYPEDEF)
 
 Represent a typed finite space assembled from explicit [`Grid`](@ref) or
 nested `Gridspace` sources. `combine` is encoded in the type and may be
-`:product` or `:zip`.
+`:product` or `:zip`. `Target` identifies the semantic result family. A
+nonempty deterministic space records the concrete type returned by its
+callable when Julia can prove it without evaluating a point. Otherwise the
+space declares its iterator element type unknown until values are
+materialised; it never advertises a `UnionAll` result type.
 
 $(TYPEDFIELDS)
 """
-struct Gridspace{Target, F, G <: Tuple, C}
+struct Gridspace{Target, F, G <: Tuple, C, R}
     "Callable that constructs `Target` from one selected argument tuple."
     build::F
 
     "Explicit Grid or nested Gridspace sources."
     grids::G
+end
+
+"Sentinel result type for a Gridspace whose materialised element type is unknown."
+struct _UnknownGridspaceEltype end
+
+function _gridspace_eltype(::Type{Target}, build, grids::Tuple) where {Target}
+    (any(has_uncertainty, grids) || any(grid -> iszero(length(grid)), grids)) &&
+        return _UnknownGridspaceEltype
+
+    argument_types = map(grid -> eltype(typeof(grid)), grids)
+    result_type = Base.promote_op(build, argument_types...)
+    isconcretetype(result_type) || return _UnknownGridspaceEltype
+    result_type <: Target || throw(ArgumentError(
+        "Gridspace callable result $result_type is not a subtype of target $Target",
+    ))
+    return result_type
 end
 
 """
@@ -32,19 +60,25 @@ pairs equal-length sources and broadcasts singleton sources.
 
 - Throws `ArgumentError` when `combine` is unsupported or an input is not a
   `Grid` or nested `Gridspace`.
+- Throws `ArgumentError` when an inferred concrete callable result does not
+  belong to `Target`.
 - Throws `DimensionMismatch` when zip source lengths are incompatible.
 """
 function Gridspace{Target}(
-        build::F,
+        build,
         grids::G;
         combine::Symbol = :product
-) where {Target, F, G <: Tuple}
+) where {Target, G <: Tuple}
     combine in (:product, :zip) ||
         throw(ArgumentError("combine must be :product or :zip; got :$combine"))
     all(grid -> grid isa Union{AbstractGrid, Gridspace}, grids) || throw(
         ArgumentError("Gridspace sources must be Grid or Gridspace values"),
     )
-    space = Gridspace{Target, F, G, Val{combine}}(build, grids)
+    callable = _gridspace_callable(build)
+    result_type = _gridspace_eltype(Target, callable, grids)
+    space = Gridspace{
+        Target, typeof(callable), G, Val{combine}, result_type
+    }(callable, grids)
     combine === :zip && _zip_length(space)
     return space
 end
@@ -56,14 +90,32 @@ end
 Grid(space::Gridspace) = space
 
 const _FiniteSource = Union{AbstractGrid, Gridspace}
+const _FiniteCollection = Union{Tuple, AbstractVector}
 
 _construction_axis(::_FiniteSource) = true
+_construction_axis(values::_FiniteCollection) = any(_construction_axis, values)
+
+_vector(values...) = collect(values)
+
+_finite_source(source::_FiniteSource; combine::Symbol) = source
+function _finite_source(values::Tuple; combine::Symbol)
+    sources = map(values) do value
+        _construction_axis(value) ? _finite_source(value; combine) : Grid((value,))
+    end
+    return Gridspace{Tuple}(tuple, sources; combine)
+end
+function _finite_source(values::AbstractVector; combine::Symbol)
+    sources = map(values) do value
+        _construction_axis(value) ? _finite_source(value; combine) : Grid((value,))
+    end
+    return Gridspace{Vector}(_vector, Tuple(sources); combine)
+end
 
 function _finite_construction(
         ::Type{Target}, caller, values::Tuple; combine::Symbol
 ) where {Target}
     sources = map(values) do value
-        _construction_axis(value) ? value : Grid((value,))
+        _construction_axis(value) ? _finite_source(value; combine) : Grid((value,))
     end
     return Gridspace{Target}(caller, sources; combine)
 end
@@ -75,8 +127,8 @@ function _product_combinations(grids::Tuple)
     Iterators.product(map(points, grids)...)
 end
 
-_zip_length(::Gridspace{<:Any, <:Any, Tuple{}, Val{:zip}}) = 1
-function _zip_length(space::Gridspace{<:Any, <:Any, <:Tuple, Val{:zip}})
+_zip_length(::Gridspace{<:Any, <:Any, Tuple{}, Val{:zip}, <:Any}) = 1
+function _zip_length(space::Gridspace{<:Any, <:Any, <:Tuple, Val{:zip}, <:Any})
     counts = map(length, space.grids)
     target_count = maximum(counts)
     all(count -> count == 1 || count == target_count, counts) || throw(
@@ -93,17 +145,21 @@ function _zip_source(source, target_count::Int)
     return points(source)
 end
 
-_zip_combinations(::Gridspace{<:Any, <:Any, Tuple{}, Val{:zip}}) = ((),)
-function _zip_combinations(space::Gridspace{<:Any, <:Any, <:Tuple, Val{:zip}})
+_zip_combinations(::Gridspace{<:Any, <:Any, Tuple{}, Val{:zip}, <:Any}) = ((),)
+function _zip_combinations(
+        space::Gridspace{<:Any, <:Any, <:Tuple, Val{:zip}, <:Any}
+)
     target_count = _zip_length(space)
     iterators = map(source -> _zip_source(source, target_count), space.grids)
     return Iterators.zip(iterators...)
 end
 
-function _combinations(space::Gridspace{<:Any, <:Any, <:Any, Val{:product}})
+function _combinations(
+        space::Gridspace{<:Any, <:Any, <:Any, Val{:product}, <:Any}
+)
     _product_combinations(space.grids)
 end
-function _combinations(space::Gridspace{<:Any, <:Any, <:Any, Val{:zip}})
+function _combinations(space::Gridspace{<:Any, <:Any, <:Any, Val{:zip}, <:Any})
     _zip_combinations(space)
 end
 
@@ -117,7 +173,9 @@ materialize(value) = value
 
 function materialize(value::UncertainValue)
     throw(ArgumentError(
-        "materialising uncertainty descriptors requires Measurements.jl",
+        "direct materialisation of an uncertainty-bearing Gridspace requires " *
+            "Measurements.jl; load it with `using Measurements` before " *
+            "iteration, or use stochastic realisation through MonteCarlo",
     ))
 end
 
@@ -146,45 +204,73 @@ function realize(rng::Random.AbstractRNG, point::Gridpoint, distribution)
     return realize(point, realize_arguments(rng, point, distribution))
 end
 
-function Base.iterate(space::Gridspace{Target}, state...) where {Target}
+function _materialized_result(
+        ::Type{_UnknownGridspaceEltype}, ::Type{Target}, point
+) where {Target}
+    return materialize(point)::Target
+end
+function _materialized_result(::Type{Result}, ::Type, point) where {Result}
+    return materialize(point)::Result
+end
+
+function Base.iterate(
+        space::Gridspace{Target, <:Any, <:Any, <:Any, Result}, state...
+) where {Target, Result}
     item = iterate(points(space), state...)
     item === nothing && return nothing
     point, next_state = item
-    return materialize(point)::Target, next_state
+    return _materialized_result(Result, Target, point), next_state
 end
+
+_gridspace_iterator_eltype(::Type{_UnknownGridspaceEltype}) = Base.EltypeUnknown()
+_gridspace_iterator_eltype(::Type) = Base.HasEltype()
+
+_gridspace_eltype_trait(::Type{_UnknownGridspaceEltype}) = Any
+_gridspace_eltype_trait(::Type{Result}) where {Result} = Result
 
 #! explicit-imports: off
 # Base's iterator trait protocol exposes these values without public bindings.
 Base.IteratorSize(::Type{<:Gridspace}) = Base.HasShape{1}()
-Base.IteratorEltype(::Type{<:Gridspace}) = Base.HasEltype()
+function Base.IteratorEltype(
+        ::Type{<:Gridspace{<:Any, <:Any, <:Any, <:Any, Result}}
+) where {Result}
+    return _gridspace_iterator_eltype(Result)
+end
 #! explicit-imports: on
-Base.eltype(::Type{<:Gridspace{Target}}) where {Target} = Target
-function Base.length(space::Gridspace{<:Any, <:Any, <:Any, Val{:product}})
+Base.eltype(
+    ::Type{<:Gridspace{<:Any, <:Any, <:Any, <:Any, Result}}
+) where {Result} = _gridspace_eltype_trait(Result)
+function Base.length(
+        space::Gridspace{<:Any, <:Any, <:Any, Val{:product}, <:Any}
+)
     prod(length, space.grids; init = 1)
 end
-Base.length(space::Gridspace{<:Any, <:Any, <:Any, Val{:zip}}) = _zip_length(space)
+Base.length(space::Gridspace{<:Any, <:Any, <:Any, Val{:zip}, <:Any}) =
+    _zip_length(space)
 Base.size(space::Gridspace) = (length(space),)
 
 "Draw and realise one product point by sampling each source once."
 function Base.rand(
         rng::Random.AbstractRNG,
-        space::Gridspace{<:Any, <:Any, <:Any, Val{:product}};
+        space::Gridspace{<:Any, <:Any, <:Any, Val{:product}, Result};
         distribution = :normal
-)
+) where {Result}
     isempty(space) && throw(ArgumentError("cannot sample an empty Gridspace"))
     arguments = map(
         source -> rand(rng, source; distribution),
         space.grids
     )
-    return space.build(arguments...)
+    value = space.build(arguments...)
+    Result === _UnknownGridspaceEltype && return value
+    return value::Result
 end
 
 "Draw one zipped point and realise its aligned sources without collecting."
 function Base.rand(
         rng::Random.AbstractRNG,
-        space::Gridspace{<:Any, <:Any, <:Any, Val{:zip}};
+        space::Gridspace{<:Any, <:Any, <:Any, Val{:zip}, Result};
         distribution = :normal
-)
+) where {Result}
     isempty(space) && throw(ArgumentError("cannot sample an empty Gridspace"))
     offset = rand(rng, 0:(length(space) - 1))
     arguments = map(space.grids) do source
@@ -192,7 +278,9 @@ function Base.rand(
         selected = first(Iterators.drop(points(source), source_offset))
         realize(rng, selected, distribution)
     end
-    return space.build(arguments...)
+    value = space.build(arguments...)
+    Result === _UnknownGridspaceEltype && return value
+    return value::Result
 end
 
 function Base.rand(space::Gridspace; distribution = :normal)

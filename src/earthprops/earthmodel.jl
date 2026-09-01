@@ -82,6 +82,74 @@ function EarthModel(
     ))
 end
 
+function _earth_model(layers, vertical_layers, air_layer)
+    vertical_layers isa Bool || throw(ArgumentError(
+        "vertical_layers must be true or false"
+    ))
+    declared = if layers isa EarthLayer
+        EarthLayer[layers]
+    elseif layers isa Union{Tuple, AbstractVector}
+        all(layer -> layer isa EarthLayer, layers) || throw(ArgumentError(
+            "earth layers must contain completed EarthLayer objects"
+        ))
+        collect(layers)
+    else
+        throw(ArgumentError(
+            "earth layers must be an EarthLayer or a nonempty layer collection"
+        ))
+    end
+    isempty(declared) && throw(ArgumentError(
+        "an earth model requires at least one earth layer"
+    ))
+    air_layer isa Union{Nothing, EarthLayer} || throw(ArgumentError(
+        "air_layer must be nothing or a completed EarthLayer"
+    ))
+    T = promote_type(
+        eltype.(declared)...,
+        air_layer === nothing ? eltype(first(declared)) : eltype(air_layer)
+    )
+    air = air_layer === nothing ?
+          EarthLayer{T}(T(Inf), convert(T, 1), convert(T, 1), T(Inf)) :
+          convert(EarthLayer{T}, air_layer)
+    earth = EarthLayer{T}[
+        convert(EarthLayer{T}, layer) for layer in declared
+    ]
+    return EarthModel{T}(vertical_layers, EarthLayer{T}[air; earth])
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build a static earth model from one or more completed earth layers. A
+semi-infinite air layer is prepended unless `air_layer` is supplied.
+
+# Arguments
+
+- `layers`: One `EarthLayer` or an ordered collection. Horizontal models are
+  ordered from the surface downward.
+
+# Keywords
+
+- `vertical_layers=false`: Whether earth interfaces are vertical.
+- `air_layer=nothing`: Optional explicit semi-infinite air layer.
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- An `EarthModel`, or a `Gridspace{EarthModel}` when an explicit finite source
+  is supplied.
+"""
+function build(
+        ::Type{EarthModel},
+        layers;
+        vertical_layers = false,
+        air_layer = nothing,
+        combine::Symbol = :product
+)
+    values = (layers, vertical_layers, air_layer)
+    return _construction(EarthModel, _earth_model, values; combine)
+end
+
 function Base.convert(::Type{EarthModel{T}}, model::EarthModel) where {T <: Real}
     return validate(EarthModel{T}(
         model.vertical_layers,

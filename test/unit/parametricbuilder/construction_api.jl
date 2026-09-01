@@ -126,13 +126,15 @@ end
         :insulation, :screen, :sheath, :armor, :bedding, :jacket, :filler,
         :pipe, :duct, :at, :trefoil, :hflat, :vflat, :capacity,
         :solid, :shell, :wires, :layers, :assembly,
+        :EarthLayer, :EarthModel,
         :Region, :Stack, :Group, :Assembly, :Enclosure, :Pose2,
         :Disk, :Rectangle, :Ellipse,
         :Sector, :Annulus, :Shell,
         :Polygon, :Ring, :Polar, :Fill, :Lattice,
         :Helix, :LayRatio, :Pitch, :LayAngle, :FillFactor,
         :DiameterFactor, :TabulatedCompaction, :AffineCompaction,
-        Symbol("@cable"), Symbol("@terminal"), Symbol("@assembly"),
+        Symbol("@cable"), Symbol("@system"), Symbol("@earth"),
+        Symbol("@terminal"), Symbol("@assembly"),
         Symbol("@duct"), Symbol("@at"), Symbol("@hflat"), Symbol("@vflat"),
         Symbol("@trefoil"), Symbol("@distribute")
     )
@@ -154,6 +156,12 @@ end
     expansions = (
         :(@cable "x" begin
             part
+        end) => :build,
+        :(@system "x" line_length=1 begin
+            placed
+        end) => :build,
+        :(@earth begin
+            layer
         end) => :build,
         :(@terminal :phase begin
             part
@@ -212,6 +220,59 @@ end
         :terminal => 1,
         :material => 1,
         :radius => 1
+    )
+
+    system = @system once(:system_id, "single-system-evaluation") line_length=once(
+        :line_length, 1.0
+    ) begin
+        @at nested (0.0, -1.0) phase=1
+    end
+    @test system isa LineCableSystem
+    @test system.system_id == "single-system-evaluation"
+    @test evaluations[:system_id] == 1
+    @test evaluations[:line_length] == 1
+end
+
+@testitem "ParametricBuilder / construction API / earth grammar" tags=[:unit] begin
+    using LineCableModels
+
+    earth = @earth begin
+        EarthLayer(rho = 100.0, eps_r = 10.0, thickness = 5.0)
+        EarthLayer(rho = 500.0, eps_r = 20.0)
+    end
+    @test earth isa EarthModel{Float64}
+    @test !earth.vertical_layers
+    @test length(earth.layers) == 3
+    @test isinf(first(earth.layers).rho)
+    @test getproperty.(earth.layers[2:end], :rho) == [100.0, 500.0]
+    @test getproperty.(earth.layers[2:end], :thickness) == [5.0, Inf]
+    @test EarthLayer(rho = 100.0f0) isa EarthLayer{Float32}
+
+    air = EarthLayer(rho = Inf, eps_r = 1.0006, mu_r = 1.0)
+    explicit_air = @earth air_layer=air begin
+        EarthLayer(rho = 100.0)
+    end
+    @test first(explicit_air.layers) === air
+
+    homogeneous = Earth(rho = 100.0, eps_r = 10.0)
+    @test homogeneous isa EarthModel{Float64}
+    @test length(homogeneous.layers) == 2
+    @test homogeneous.layers[2].rho == 100.0
+
+    spaces = @earth begin
+        EarthLayer(rho = Grid((10.0, 100.0)), eps_r = 5.0, thickness = 2.0)
+        EarthLayer(rho = 500.0, eps_r = 20.0)
+    end
+    @test spaces isa Gridspace{EarthModel}
+    @test length(spaces) == 2
+    @test [model.layers[2].rho for model in spaces] == [10.0, 100.0]
+    @test all(model -> model.layers[3].rho == 500.0, spaces)
+
+    @test_throws ArgumentError macroexpand(
+        @__MODULE__,
+        :(@earth unsupported=true begin
+            EarthLayer(rho = 100.0)
+        end)
     )
 end
 
@@ -626,11 +687,51 @@ end
 
     placed = @at design (0.0, -1.0) connections = (phase = 1,)
     @test placed == at(design, 0.0, -1.0; connections = (phase = 1,))
+    @test (@at design (0.0, -1.0) phase=1) == placed
     @test (@at design (0.0, -1.0) φ=0.2 connections=(phase = 1,)) ==
           at(design, 0.0, -1.0; φ = 0.2, connections = (phase = 1,))
     @test_throws ArgumentError macroexpand(
         @__MODULE__,
         :(@at design (0.0, -1.0, 0.2) φ = 0.3)
+    )
+    @test_throws ArgumentError macroexpand(
+        @__MODULE__,
+        :(@at design (0.0, -1.0) connections=(phase = 1,) phase=2)
+    )
+
+    system = @system "placed-system" line_length=2.0 begin
+        @at design (0.0, -1.0) phase=1
+        @at design (0.1, -1.0) phase=2
+    end
+    expected_system = build(
+        LineCableSystem,
+        [
+            at(design, 0.0, -1.0; connections = (phase = 1,)),
+            at(design, 0.1, -1.0; connections = (phase = 2,))
+        ];
+        system_id = "placed-system",
+        line_length = 2.0
+    )
+    @test system.system_id == expected_system.system_id
+    @test system.line_length == expected_system.line_length
+    @test system.designs == expected_system.designs
+    @test system.positions == expected_system.positions
+    @test system.connections == expected_system.connections
+    @test system.terminal_order == expected_system.terminal_order
+    @test system.terminal_map == expected_system.terminal_map
+    @test system.connection_order == expected_system.connection_order
+
+    formation_system = @system "formation-system" begin
+        @hflat design spacing=0.1 phase=(1, 2, 3)
+    end
+    @test length(formation_system.designs) == 3
+    @test formation_system.connection_order == [1, 2, 3]
+
+    @test_throws ArgumentError macroexpand(
+        @__MODULE__,
+        :(@system "invalid" system_id="duplicate" begin
+            placed
+        end)
     )
 
     root_space = terminal(
@@ -660,6 +761,14 @@ end
                "macro-grid",
                terminal(:phase, core(copper; r), insulation(xlpe; t = 1e-3))
            ) for r in (2e-3, 3e-3)]
+
+    systems = @system "macro-system" begin
+        @at macro_designs (0.0, -1.0) phase=1
+    end
+    @test systems isa Gridspace{LineCableSystem}
+    @test length(systems) == 2
+    @test all(system -> system.system_id == "macro-system", systems)
+    @test all(system -> system.connection_order == [1], systems)
 
     schedules = Grid((
         (LayRatio(10), LayRatio(11)),

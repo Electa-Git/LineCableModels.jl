@@ -31,8 +31,12 @@ Gridspace{Target}(grids::Tuple; combine=:product)
 
 Every member of `grids` must already be a `Grid` or nested `Gridspace`. The
 constructor never interprets a raw tuple, vector, matrix, or other domain value
-as an axis. `Target` is the type promised by iteration, `build` is the callable
-that constructs it, and `combine` is normalised into the concrete Gridspace
+as an axis. `Target` is the semantic result family used for dispatch and
+`build` is the callable that constructs it. A nonempty deterministic space
+advertises a concrete iterator element type when Julia can prove that type
+without evaluating a point. Otherwise—including uncertainty-bearing and empty
+spaces—its iterator uses `Base.EltypeUnknown`; a Gridspace never advertises a
+`UnionAll` element type. `combine` is normalised into the concrete Gridspace
 type. The space is lazy and has an analytic length. `rand(space)` selects and
 realises one point without collecting the space.
 
@@ -89,6 +93,13 @@ one-point source.
 The matrix or frequency vector remains one complete value at every point.
 Calling `Grid(matrix)` is different and explicit: the matrix elements become
 alternatives because the caller requested that variation.
+
+A tuple or vector containing a `Grid` or `Gridspace` is not atomic: the
+explicit finite sources are composed and the collection is rebuilt from their
+selected, completed values. This lets domain collections such as
+`[design_space, design_space]` reach their scalar builder as completed
+`CableDesign` objects. Ordinary collections containing no explicit finite
+source remain one complete value.
 
 ## Product and zip composition
 
@@ -157,10 +168,14 @@ collect(outer)
 Gridspace delays finite selection. Each lifted public action applies one rule:
 
 ```text
-no direct Grid or Gridspace input  -> invoke the scalar action now
-at least one explicit source       -> preserve sources, singleton-wrap siblings,
-                                      and return a Gridspace
+no admitted Grid or Gridspace       -> invoke the scalar action now
+at least one explicit source        -> preserve sources, singleton-wrap siblings,
+                                       and return a Gridspace
 ```
+
+For domain arguments that are tuples or vectors, an admitted source may be a
+collection member; the collection itself is reconstructed before the scalar
+action runs.
 
 The current behaviour is:
 

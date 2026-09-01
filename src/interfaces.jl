@@ -8,9 +8,10 @@ Construct one completed domain object from complete physical declarations.
 
 `build(CableDesign, ...)` resolves a physical cable root and terminal state.
 `build(LineCableSystem, ...)` places completed designs and resolves global
-connections. When a direct argument is a `Grid` or `Gridspace`, the same
-surface returns a `Gridspace{Target}` whose callable invokes scalar `build`
-after selecting one point.
+connections. When an argument is a `Grid` or `Gridspace`, or an admitted tuple
+or vector contains one, the same surface returns a `Gridspace{Target}` whose
+callable invokes scalar `build` after selecting and reconstructing one complete
+point.
 
 # Arguments
 
