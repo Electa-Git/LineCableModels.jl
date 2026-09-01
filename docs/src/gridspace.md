@@ -191,6 +191,10 @@ The current behaviour is:
 | `LineParametersProblem` | `Engine.LineParametersProblem` | `Gridspace{Engine.LineParametersProblem}` |
 | `CableConstantsProblem` | `Engine.CableConstantsProblem` | `Gridspace{Engine.CableConstantsProblem}` |
 | `CableConstants` | `Engine.CableConstants` | `Gridspace{Engine.CableConstants}` |
+| `Formulation` | `Engine.LineParametersFormulation` | `Gridspace{Engine.LineParametersFormulation}` |
+| `CableConstantsFormulation` | `Engine.CableConstantsFormulation` | `Gridspace{Engine.CableConstantsFormulation}` |
+| `ModalTransformationFormulation` | `Transforms.ModalTransformationFormulation` | `Gridspace{Transforms.ModalTransformationFormulation}` |
+| backend formulation constructor | completed backend formulation | target-bearing formulation `Gridspace` |
 | `@gridspace` keyword constructor | strict struct | `Gridspace{Target}` |
 
 Scalar-complete calls invoke their domain action immediately. A varying call
@@ -241,28 +245,63 @@ by exposing unresolved points as application data.
 
 ## Higher-order computation
 
-Combinatorial traversal preserves the selected target until core-computation
-dispatch:
+`Combinatorial` accepts one completed formulation, a deterministic
+target-bearing formulation `Gridspace`, or a deterministic `Grid` containing
+completed formulations. Formulation points are resolved once. Traversal then
+materialises each selected problem exactly once and gives the complete
+formulation vector to `compute`:
 
 ```text
-select `Gridpoint{Target}` -> Engine.compute
-                           -> materialize that scalar problem when no narrower route exists
-             -> append core result
+resolve every formulation point once
+
+for each `Gridpoint{Problem}`
+    materialise the scalar problem once
+    compute(problem, resolved_formulations)
+end
 ```
 
-`ParametricResult` stores the higher-order formulation and the ordered vector
-of core results. The result does not retain traversal state.
+Every problem/formulation pair is evaluated. Composition inside a formulation
+constructor remains local to that formulation: `combine=:product` or
+`combine=:zip` determines its formulation points, while the outer
+problem/formulation relation is always Cartesian.
+
+The generic vector `compute` method delegates to established scalar dispatch.
+Owners may specialize that vector method to share immutable lowering work. The
+Coaxial line-parameter path validates and flattens every selected design once
+per problem point, constructs its formulation-independent local input once,
+then allocates and solves one independent workspace per formulation. The
+cable-constant path independently follows the same one-flatten rule. Mutable
+matrices, formula-dependent earth data, reduction maps, and diagnostic storage
+are never shared. Modal transformation needs no special lowering and uses the
+generic route on the same phase-domain matrices.
+
+`ParametricResult` retains both axes:
+
+```julia
+run.axes.problems
+run.axes.formulations
+result(run, problem_index, formulation_index)
+```
+
+Its `values` vector and ordinary linear iteration remain available. Storage is
+column-major in `(problem, formulation)` coordinates: the problem index varies
+fastest. Thus every selected value can be traced to its completed formulation,
+for example with
+`formula_id(run.axes.formulations[j].methods.earth_impedance)`. The result does
+not retain unresolved points or traversal state.
 
 Direct linear propagation uses the same traversal. The Measurements extension
 changes only how an uncertain descriptor materialises. `LinearErrorResult`
 likewise stores only its formulation and ordered core results.
 
 ParametricBuilder owns this shared traversal as the qualified `traverse`
-method. It computes the first point, allocates a vector of that exact result
-type with the analytic Gridspace cardinality, and rejects any later type
-change. Optional detail records follow the same rule. `Combinatorial` and
-`LinearError` construct their respective result spaces from the returned
-`values` and `details`; Monte Carlo does not use this traversal.
+method. It computes the first problem/formulation batch, allocates a vector of
+that exact result type with the analytic Cartesian cardinality, and rejects any
+later type change. Optional detail records follow the same rule and are
+resolved through each scalar formulation's computation owner. `Combinatorial`
+constructs its result space from `values`, `axes`, and `details`. `LinearError`
+continues to use one scalar formulation and consumes `values` and `details`;
+Monte Carlo does not use this traversal.
 
 Monte Carlo selects each outer point once, derives a deterministic point seed,
 and repeatedly realises that same point:
@@ -301,8 +340,10 @@ are internal point-aligned storage, not result types or observation surfaces.
 observation method.
 
 All completed result spaces are one-dimensional finite Julia collections.
-Iteration and indexing return one stored core result per original Gridspace
-point, in traversal order. Monte Carlo iteration returns the representative
+Iteration and indexing return one stored core result per calculation. A
+`ParametricResult` with several formulations contains the Cartesian
+problem/formulation cardinality in its documented storage order. Monte Carlo
+iteration returns the representative
 core result reconstructed from each point's sample means; individual trials
 remain available only through `samples`. Standard `first`, `last`, `only`,
 `collect`, `map`, and `zip` operations apply. `only` asserts singleton

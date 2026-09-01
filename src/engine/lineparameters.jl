@@ -204,21 +204,71 @@ function _compute(
         engine::LineCableModelsCoaxial,
         problem::LineParametersProblem,
         formulation::LineParametersFormulation,
-        execution::NamedTuple
+        execution::NamedTuple,
+        input::NamedTuple
 )
-    validate(problem)
-    T = eltype(problem)
-    blueprints = CableBlueprint{T}[
-        flatten(engine, design, T) for design in problem.system.designs
-    ]
     workspace = LineParametersWorkspace(
         problem,
         formulation,
         execution,
-        blueprints
+        input
     )
     parameters = _solve!(workspace, formulation)
     return _finish(parameters, workspace, formulation, execution)
+end
+
+function _compute(
+        engine::LineCableModelsCoaxial,
+        problem::LineParametersProblem,
+        formulation::LineParametersFormulation,
+        execution::NamedTuple
+)
+    values = _compute(
+        engine,
+        problem,
+        typeof(formulation)[formulation],
+        execution
+    )
+    return first(values)
+end
+
+function _compute(
+        engine::LineCableModelsCoaxial,
+        problem::LineParametersProblem,
+        formulations::AbstractVector{<:LineParametersFormulation},
+        execution::NamedTuple
+)
+    isempty(formulations) && throw(ArgumentError(
+        "line-parameter formulation collections cannot be empty",
+    ))
+    validate(problem)
+    T = eltype(problem)
+    blueprints = CableBlueprint{T}[flatten(engine, design, T)
+                                   for design in problem.system.designs]
+    input = lineinput(problem, blueprints)
+    first_result = _compute(
+        engine,
+        problem,
+        first(formulations),
+        execution,
+        input
+    )
+    values = Vector{typeof(first_result)}(undef, length(formulations))
+    values[1] = first_result
+    for index in 2:length(formulations)
+        value = _compute(
+            engine,
+            problem,
+            formulations[index],
+            execution,
+            input
+        )
+        typeof(value) === eltype(values) || throw(ArgumentError(
+            "line-parameter formulations produced inconsistent result types",
+        ))
+        values[index] = value
+    end
+    return values
 end
 
 """
@@ -278,6 +328,14 @@ function compute(
     return compute(LineCableModelsCoaxial(), problem, formulation; options)
 end
 
+function compute(
+        problem::LineParametersProblem,
+        formulations::AbstractVector{<:LineParametersFormulation};
+        options::NamedTuple = (;)
+)
+    return compute(LineCableModelsCoaxial(), problem, formulations; options)
+end
+
 """
 $(TYPEDSIGNATURES)
 
@@ -298,6 +356,20 @@ function compute(
     logger = ConsoleVerbosityLogger(console, execution.verbosity)
     return with_logger(logger) do
         _compute(engine, problem, formulation, execution)
+    end
+end
+
+function compute(
+        engine::LineCableModelsCoaxial,
+        problem::LineParametersProblem,
+        formulations::AbstractVector{<:LineParametersFormulation};
+        options::NamedTuple = (;)
+)
+    execution = computation_options(Val(LineCableModelsCoaxial), options)
+    console = ConsoleLogger(stderr, Logging.Debug)
+    logger = ConsoleVerbosityLogger(console, execution.verbosity)
+    return with_logger(logger) do
+        _compute(engine, problem, formulations, execution)
     end
 end
 

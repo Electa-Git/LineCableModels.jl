@@ -140,6 +140,48 @@ At each frequency the Coaxial loop evaluates EHEM once per physical
 shares it between earth impedance and earth admittance. Physical layer indices
 are never renumbered or written back to the `EarthModel`.
 
+## Finite formulation selection
+
+The final formulation constructors participate in the same `Gridspace`
+grammar as physical problem construction. Any line-parameter method slot or
+the complete options tuple may be an explicit finite source:
+
+```julia
+formulations = Formulation(
+    insulation_admittance = Grid((
+        :Ametani2004,
+        :Gustavsen2013,
+    )),
+    earth_impedance = Grid((
+        :Pollaczek1926,
+        :Papadopoulos2010,
+    )),
+    combine = :product,
+)
+```
+
+The result is `Gridspace{LineParametersFormulation}`. Every point is a
+completely resolved scalar formulation: no `Grid`, symbol selector, or
+`FormulaSpec` reaches `compute`. `combine=:zip` aligns formulation fields and
+broadcasts singleton fields. This local composition is separate from
+`Combinatorial`, which always evaluates the Cartesian product of problem and
+formulation points.
+
+`CableConstantsFormulation`, `ModalTransformationFormulation`, and backend
+formulation constructors follow the same rule. A deterministic `Grid` of
+already completed, potentially external formulations is also accepted by
+`Combinatorial`.
+
+For each selected problem, the Coaxial collection dispatch validates and
+lowers the physical declaration once. LineParameters flattens each design and
+constructs `LocalCableData` plus geometry/index input once before creating a
+separate workspace for every formulation. CableConstants performs its own
+independent one-flatten orchestration. Formula-dependent mutable matrices,
+earth/EHEM values, reduction maps, and trace buffers remain workspace-local.
+The generic collection dispatch simply invokes established scalar `compute`
+methods and therefore supports external problem/formulation pairs without a
+new registration layer.
+
 ## Earth-free cable constants
 
 `CableConstantsProblem`, `CableConstantsFormulation`, and `CableConstants`
@@ -393,10 +435,15 @@ frequency-dependent phase-to-modal voltage and current tensors. The shared
 backend applies those operators to both `Z` and `Y`.
 
 The modal `LineParameters` result carries `ModalDomain(operators, formula)` as
-its concrete domain value. The stored operators preserve the resolved mode
+its domain value. The stored operators preserve the resolved mode
 order, scaling, and complex phase convention and make the transformation
 bidirectional without rerunning the decomposition. An operator-less modal
 result cannot be constructed through the admitted `LineParameters` interface.
+The formula value is retained through one formula-family storage parameter; its
+specific author identity does not parameterize the domain. Modal results from
+different registered routes therefore remain one concrete result-space element
+type. Numerical inverse dispatch uses the concrete operator tensor and does not
+inspect formula provenance.
 
 Built-in formula files are included deterministically and selected by symbols:
 

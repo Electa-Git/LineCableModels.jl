@@ -28,8 +28,9 @@ function Formula(identifier::Symbol; route = nothing, kwargs...)
     return Formula(Val(identifier); route, kwargs...)
 end
 
-Formula(::Val{:default}; route = nothing, kwargs...) =
+function Formula(::Val{:default}; route = nothing, kwargs...)
     Formula(Val(DEFAULT); route, kwargs...)
+end
 
 function Formula(::Val{ID}; route = nothing, kwargs...) where {ID}
     tag = Val(ID)
@@ -110,18 +111,55 @@ function ModalTransformationFormulation()
     return ModalTransformationFormulation(Formula(Val(DEFAULT)))
 end
 
-function ModalTransformationFormulation(identifier::Symbol; kwargs...)
-    return ModalTransformationFormulation(Formula(identifier; kwargs...))
+function _modal_formulation(identifier::Symbol, overrides::NamedTuple)
+    return ModalTransformationFormulation(Formula(identifier; overrides...))
 end
 
-function ModalTransformationFormulation(
-        selection::FormulaSpec{ID, Order}
+function _modal_formulation(
+        selection::FormulaSpec{ID, Order},
+        overrides::NamedTuple
 ) where {ID, Order}
+    isempty(overrides) || throw(ArgumentError(
+        "formula(...) selections already contain their modal assumptions"
+    ))
     Order === :default || throw(ArgumentError(
         "formula order is only valid for equivalent_earth; got :$Order for modal transformation"
     ))
     return ModalTransformationFormulation(
         Formula(Val(ID); selection.overrides...)
+    )
+end
+
+function _modal_formulation(formula::Formula, overrides::NamedTuple)
+    isempty(overrides) || throw(ArgumentError(
+        "completed modal formulas cannot receive additional assumptions"
+    ))
+    return ModalTransformationFormulation(formula)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Select one or more completed modal-transformation formulations.
+
+A scalar symbol, `FormulaSpec`, or completed [`Formula`](@ref) returns one
+[`ModalTransformationFormulation`](@ref). An explicit
+[`Grid`](@ref LineCableModels.ParametricBuilder.Grid) or
+[`Gridspace`](@ref LineCableModels.ParametricBuilder.Gridspace) returns a
+`Gridspace{ModalTransformationFormulation}`.
+Formula-specific assumptions vary by placing complete `formula(...)`
+selections in the finite source.
+"""
+function ModalTransformationFormulation(
+        selection;
+        combine::Symbol = :product,
+        kwargs...
+)
+    return _construction(
+        ModalTransformationFormulation,
+        _modal_formulation,
+        (selection, (; kwargs...));
+        combine
     )
 end
 

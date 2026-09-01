@@ -124,26 +124,26 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Construct the coaxial workspace for one validated line-parameter problem.
+Construct the formulation-independent coaxial input for one validated
+line-parameter problem.
 
-All physical adaptation, temperature correction, earth-property evaluation,
-index construction, and numerical allocation occurs before the frequency loop.
+The selected designs have already been flattened into frequency-independent
+blueprints. This step constructs local cable arrays, physical geometry,
+canonical indices, and frequency coordinates once. It does not apply
+temperature correction, earth-property/EHEM formulas, reduction policy, or
+allocate formula-owned mutable workspaces.
 
 # Arguments
 
 - `problem`: Completed line-parameter problem.
-- `formulation`: Selected physical-method bundle.
-- `execution`: Normalized coaxial computation options.
 - `blueprints`: One frequency-independent blueprint per selected design.
 
 # Returns
 
-- A validated [`LineParametersWorkspace`](@ref).
+- A read-only named tuple shared by independent formulation workspaces.
 """
-function LineParametersWorkspace(
+function lineinput(
         problem::LineParametersProblem{T},
-        formulation::LineParametersFormulation,
-        execution::NamedTuple,
         blueprints::Vector{CableBlueprint{T}}
 ) where {T <: Real}
     system = problem.system
@@ -196,7 +196,7 @@ function LineParametersWorkspace(
         cable.r_ins_ext,
         cable_map
     )
-    input = (
+    return (
         freq,
         Γ,
         jω,
@@ -214,7 +214,37 @@ function LineParametersWorkspace(
         n_phases,
         n_cables
     )
+end
 
+function LineParametersWorkspace(
+        problem::LineParametersProblem{T},
+        formulation::LineParametersFormulation,
+        execution::NamedTuple,
+        blueprints::Vector{CableBlueprint{T}}
+) where {T <: Real}
+    return LineParametersWorkspace(
+        problem,
+        formulation,
+        execution,
+        lineinput(problem, blueprints)
+    )
+end
+
+function LineParametersWorkspace(
+        problem::LineParametersProblem{T},
+        formulation::LineParametersFormulation,
+        execution::NamedTuple,
+        input::NamedTuple
+) where {T <: Real}
+    cable = input.cable
+    n_frequencies = input.n_frequencies
+    n_phases = input.n_phases
+    n_cables = input.n_cables
+    n_layers = length(cable.dielectric_materials)
+    horz = input.horz
+    horz_sep = input.horz_sep
+    vert = input.vert
+    phase_map = input.phase_map
     rho_cond = copy(cable.rho0_cond)
     if formulation.options.temperature_correction
         @inbounds for index in eachindex(rho_cond)

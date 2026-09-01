@@ -73,7 +73,7 @@ function _forward(
                 tolerance)
     end
 
-    modal = ModalDomain(maps, formula)
+    modal = ModalDomain{typeof(maps), Formula}(maps, formula)
     return LineParameters(
         modal,
         SeriesImpedance{eltype(impedance), Basis}(impedance),

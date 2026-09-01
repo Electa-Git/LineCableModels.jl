@@ -329,16 +329,16 @@ function _equivalent_earth(
     return _ehem_order(Val(Order), _ehem_rule(selection))
 end
 
-function Formulation(;
-        internal_impedance = formula(:default),
-        insulation_impedance = formula(:default),
-        earth_impedance = formula(:default),
-        insulation_admittance = formula(:default),
-        semicon_admittance = formula(:default),
-        earth_admittance = formula(:default),
-        earth_properties = formula(:default),
-        equivalent_earth = formula(:default),
-        options::NamedTuple = (;)
+function _line_formulation(
+        internal_impedance,
+        insulation_impedance,
+        earth_impedance,
+        insulation_admittance,
+        semicon_admittance,
+        earth_admittance,
+        earth_properties,
+        equivalent_earth,
+        options::NamedTuple
 )
     return LineParametersFormulation(;
         internal_impedance = _internal_impedance_formula(internal_impedance),
@@ -350,5 +350,55 @@ function Formulation(;
         earth_properties = _earth_properties_formula(earth_properties),
         equivalent_earth = _equivalent_earth(equivalent_earth),
         options = formulation_options(Val(LineParametersFormulation), options)
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Select the complete physical-method bundle for a line-parameter calculation.
+
+Each formula slot and the complete `options` tuple accepts either one scalar
+selection or an explicit
+[`Grid`](@ref LineCableModels.ParametricBuilder.Grid)/
+[`Gridspace`](@ref LineCableModels.ParametricBuilder.Gridspace) source. Scalar
+inputs return one [`LineParametersFormulation`](@ref). Varying inputs return a
+`Gridspace{LineParametersFormulation}` whose points contain only completed,
+owner-resolved formula values.
+
+`combine=:product` forms the Cartesian product among varying fields in this
+formulation. `combine=:zip` aligns equally sized fields and broadcasts
+singletons. This composition is independent of the Cartesian product between
+problem points and formulation points performed by
+[`Combinatorial`](@ref LineCableModels.ParametricBuilder.Combinatorial).
+"""
+function Formulation(;
+        internal_impedance = formula(:default),
+        insulation_impedance = formula(:default),
+        earth_impedance = formula(:default),
+        insulation_admittance = formula(:default),
+        semicon_admittance = formula(:default),
+        earth_admittance = formula(:default),
+        earth_properties = formula(:default),
+        equivalent_earth = formula(:default),
+        options = (;),
+        combine::Symbol = :product
+)
+    values = (
+        internal_impedance,
+        insulation_impedance,
+        earth_impedance,
+        insulation_admittance,
+        semicon_admittance,
+        earth_admittance,
+        earth_properties,
+        equivalent_earth,
+        options
+    )
+    return _construction(
+        LineParametersFormulation,
+        _line_formulation,
+        values;
+        combine
     )
 end

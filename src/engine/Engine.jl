@@ -49,6 +49,7 @@ import ..LineCableModels: basis, build, R, L, C,
                           resistance, inductance, capacitance
 import ..LineCableModels: nominal, uncertainty
 import ..LineCableModels: constitutive, formula, formula_id, FormulaSpec
+import ..LineCableModels: _construction
 #! explicit-imports: off
 import ..LineCableModels: description
 #! explicit-imports: on

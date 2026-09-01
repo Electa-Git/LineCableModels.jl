@@ -46,9 +46,10 @@ function operators(parameters::LineParameters{T, U, D}) where {T, U, D <: ModalD
     parameters.domain.operators
 end
 
-function selectdomain(domain::ModalDomain, selected)
+function selectdomain(domain::ModalDomain{O, F}, selected) where {O, F}
     maps = domain.operators
     voltage = Array(view(maps.voltage,:,:,selected))
     current = Array(view(maps.current,:,:,selected))
-    return ModalDomain(ModalOperators(voltage, current), domain.formula)
+    selected_maps = ModalOperators(voltage, current)
+    return ModalDomain{typeof(selected_maps), F}(selected_maps, domain.formula)
 end

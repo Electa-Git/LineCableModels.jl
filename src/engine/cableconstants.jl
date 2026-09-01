@@ -266,25 +266,12 @@ function formulation_options(
     return (temperature_correction = normalized.temperature_correction,)
 end
 
-"""
-$(TYPEDSIGNATURES)
-
-Construct the cable-constant formula bundle.
-
-# Keywords
-
-- `internal_impedance`: Conductor surface-impedance recipe.
-- `insulation_impedance`: Longitudinal insulation-impedance recipe.
-- `insulation_admittance`: Insulation constitutive relation.
-- `semicon_admittance`: Semiconducting-layer constitutive relation.
-- `options`: Cable-constant formulation options.
-"""
-function CableConstantsFormulation(;
-        internal_impedance = formula(:default),
-        insulation_impedance = formula(:default),
-        insulation_admittance = formula(:default),
-        semicon_admittance = formula(:default),
-        options::NamedTuple = (;)
+function _constants_formulation(
+        internal_impedance,
+        insulation_impedance,
+        insulation_admittance,
+        semicon_admittance,
+        options::NamedTuple
 )
     methods = (
         internal_impedance = _internal_impedance_formula(internal_impedance),
@@ -295,6 +282,49 @@ function CableConstantsFormulation(;
     return CableConstantsFormulation(
         methods,
         formulation_options(Val(CableConstantsFormulation), options)
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Construct the cable-constant formula bundle.
+
+Each formula slot and the complete `options` tuple accepts a scalar selection
+or an explicit [`Grid`](@ref LineCableModels.ParametricBuilder.Grid)/
+[`Gridspace`](@ref LineCableModels.ParametricBuilder.Gridspace) source. Scalar
+inputs return one [`CableConstantsFormulation`](@ref); varying inputs return a
+`Gridspace{CableConstantsFormulation}` of completed formulations.
+
+# Keywords
+
+- `internal_impedance`: Conductor surface-impedance recipe.
+- `insulation_impedance`: Longitudinal insulation-impedance recipe.
+- `insulation_admittance`: Insulation constitutive relation.
+- `semicon_admittance`: Semiconducting-layer constitutive relation.
+- `options`: Complete cable-constant formulation options.
+- `combine`: `:product` or `:zip` composition among varying fields.
+"""
+function CableConstantsFormulation(;
+        internal_impedance = formula(:default),
+        insulation_impedance = formula(:default),
+        insulation_admittance = formula(:default),
+        semicon_admittance = formula(:default),
+        options = (;),
+        combine::Symbol = :product
+)
+    values = (
+        internal_impedance,
+        insulation_impedance,
+        insulation_admittance,
+        semicon_admittance,
+        options
+    )
+    return _construction(
+        CableConstantsFormulation,
+        _constants_formulation,
+        values;
+        combine
     )
 end
 
@@ -331,7 +361,18 @@ function CableConstantsWorkspace(
         formulation::CableConstantsFormulation,
         blueprint::CableBlueprint{T}
 ) where {T <: Real}
-    cable = LocalCableData(blueprint)
+    return CableConstantsWorkspace(
+        problem,
+        formulation,
+        LocalCableData(blueprint)
+    )
+end
+
+function CableConstantsWorkspace(
+        problem::CableConstantsProblem{T},
+        formulation::CableConstantsFormulation,
+        cable::LocalCableData{T}
+) where {T <: Real}
     @inbounds for assembly in cable.assemblies
         isempty(cable.dielectric_ranges[first(assembly)]) && throw(ArgumentError(
             "assembly core :$(cable.terminals[first(assembly)]) has no radial dielectric path",
@@ -463,6 +504,14 @@ function compute(
     return compute(LineCableModelsCoaxial(), problem, formulation; options)
 end
 
+function compute(
+        problem::CableConstantsProblem,
+        formulations::AbstractVector{<:CableConstantsFormulation};
+        options::NamedTuple = (;)
+)
+    return compute(LineCableModelsCoaxial(), problem, formulations; options)
+end
+
 """
 $(TYPEDSIGNATURES)
 
@@ -474,11 +523,47 @@ function compute(
         formulation::CableConstantsFormulation = CableConstantsFormulation();
         options::NamedTuple = (;)
 )
+    values = compute(
+        engine,
+        problem,
+        typeof(formulation)[formulation];
+        options
+    )
+    return first(values)
+end
+
+function compute(
+        engine::LineCableModelsCoaxial,
+        problem::CableConstantsProblem,
+        formulations::AbstractVector{<:CableConstantsFormulation};
+        options::NamedTuple = (;)
+)
     computation_options(Val(CableConstantsProblem), options)
+    isempty(formulations) && throw(ArgumentError(
+        "cable-constant formulation collections cannot be empty",
+    ))
     validate(problem)
     blueprint = flatten(engine, problem.design, eltype(problem))
-    workspace = CableConstantsWorkspace(problem, formulation, blueprint)
-    return _solve!(workspace, problem, formulation)
+    cable = LocalCableData(blueprint)
+    first_formulation = first(formulations)
+    first_workspace = CableConstantsWorkspace(
+        problem,
+        first_formulation,
+        cable
+    )
+    first_result = _solve!(first_workspace, problem, first_formulation)
+    values = Vector{typeof(first_result)}(undef, length(formulations))
+    values[1] = first_result
+    for index in 2:length(formulations)
+        formulation = formulations[index]
+        workspace = CableConstantsWorkspace(problem, formulation, cable)
+        value = _solve!(workspace, problem, formulation)
+        typeof(value) === eltype(values) || throw(ArgumentError(
+            "cable-constant formulations produced inconsistent result types",
+        ))
+        values[index] = value
+    end
+    return values
 end
 
 """
