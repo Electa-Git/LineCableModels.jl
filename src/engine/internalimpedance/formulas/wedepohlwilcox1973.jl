@@ -1,8 +1,8 @@
-function routes(::Val{:WedepohlWilcox1973})
+function routes(identifier::Val{:WedepohlWilcox1973})
     (
-        inner = wedepohlwilcox_inner,
-        outer = wedepohlwilcox_outer,
-        mutual = wedepohlwilcox_mutual
+        inner = FormulaMethod(identifier, internal_impedance, Val(:inner)),
+        outer = FormulaMethod(identifier, internal_impedance, Val(:outer)),
+        mutual = FormulaMethod(identifier, internal_impedance, Val(:mutual))
     )
 end
 
@@ -34,7 +34,7 @@ function description(::Formula{:WedepohlWilcox1973})
     "Wedepohl-Wilcox approximate shell impedances (1973)"
 end
 
-"""
+#=
 $(TYPEDSIGNATURES)
 
 Construct the Wedepohl-Wilcox hollow-shell approximation:
@@ -71,9 +71,8 @@ where ``m=\\sqrt{j\\omega\\mu/\\rho}``.
 The approximation applies only to a hollow circular shell. It implements
 Wedepohl and Wilcox (1973) as reproduced in Ametani et al. (2021), Appendix
 A1.4.2, Eqs. A1.56–A1.58.
-"""
-function wedepohlwilcoxinternal1973(
-        formula::Formula{:WedepohlWilcox1973},
+=#
+function (formula::Formula{:WedepohlWilcox1973})(
         r_in::T,
         r_ex::T,
         rho_c::T,
@@ -94,12 +93,6 @@ function wedepohlwilcoxinternal1973(
     }(formula.routes, state)
 end
 
-@inline function (formula::Formula{:WedepohlWilcox1973})(
-        r_in, r_ex, rho_c, mur_c, jω
-)
-    return wedepohlwilcoxinternal1973(formula, r_in, r_ex, rho_c, mur_c, jω)
-end
-
 @inline function (functor::Functor{:WedepohlWilcox1973})(::Val{:inner})
     return functor.routes.inner(functor.state)
 end
@@ -112,7 +105,11 @@ end
     return functor.routes.mutual(functor.state)
 end
 
-@inline function wedepohlwilcox_inner(state)
+@inline function internal_impedance(
+        ::Val{:WedepohlWilcox1973},
+        ::Val{:inner},
+        state
+)
     a = state.r_in
     b = state.r_ex
     x = state.m * (b - a)
@@ -120,7 +117,11 @@ end
            state.rho_c / (2π * b * (a + b))
 end
 
-@inline function wedepohlwilcox_outer(state)
+@inline function internal_impedance(
+        ::Val{:WedepohlWilcox1973},
+        ::Val{:outer},
+        state
+)
     a = state.r_in
     b = state.r_ex
     x = state.m * (b - a)
@@ -128,7 +129,11 @@ end
            state.rho_c / (2π * b * (a + b))
 end
 
-@inline function wedepohlwilcox_mutual(state)
+@inline function internal_impedance(
+        ::Val{:WedepohlWilcox1973},
+        ::Val{:mutual},
+        state
+)
     a = state.r_in
     b = state.r_ex
     x = state.m * (b - a)

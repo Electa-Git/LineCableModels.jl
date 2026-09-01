@@ -51,7 +51,8 @@ z_{ab}=\\frac{s\\mu_0\\mu_i}{2\\pi}\\ln\\frac{b}{a}.
 Implements Ametani (1980) as reproduced in Ametani, Ohno, and Nagaoka
 (2015), Eqs. 2.6–2.13, and Ametani et al. (2021), Appendix A1.1.1.
 """
-@inline function ametani1980(
+@inline function insulation_impedance(
+        ::Val{:Ametani1980},
         r_in::T,
         r_ex::T,
         mu_r::T,
@@ -64,16 +65,6 @@ Implements Ametani (1980) as reproduced in Ametani, Ohno, and Nagaoka
     end
     μ0 = one(r_in) * 4 * (one(r_in) * π) * (one(r_in) * 10)^(-7)
     return s * μ0 * mu_r / (2 * (one(r_in) * π)) * log(r_ex / r_in)
-end
-
-@inline function (::Functor{:Ametani1980})(
-        r_in::T,
-        r_ex::T,
-        mu_r::T,
-        s::Complex{T},
-        values::NamedTuple
-) where {T <: Real}
-    return ametani1980(r_in, r_ex, mu_r, s, values)
 end
 
 :Ametani1980

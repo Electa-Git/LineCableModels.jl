@@ -17,7 +17,7 @@ using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 using ..EarthProps: EarthMaterial
 import ...Grammar: AbstractFormulation
-import ...LineCableModels: constitutive, formula_id
+import ...LineCableModels: FormulaMethod, constitutive, formula_id
 #! explicit-imports: off
 import ...LineCableModels: description
 #! explicit-imports: on

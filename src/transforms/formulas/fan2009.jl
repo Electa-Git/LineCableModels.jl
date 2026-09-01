@@ -31,7 +31,7 @@ Transactions on Power Systems*, 24(2), 2009.
 DOI: 10.1109/TPWRS.2009.2016381.
 """
 description(::Formula{:Fan2009}) =
-    "Fan et al. 2009 (optimal postprocessed eigenvector tracking)"
+    "Fan et al. eigenvector-tracking transformation (2009)"
 
 """
 $(TYPEDSIGNATURES)
@@ -65,7 +65,8 @@ S. Fan, Y. Li, X. Li, and L. Bi, *A Method for the Calculation of
 Frequency-Dependent Transmission Line Transformation Matrices*, IEEE
 Transactions on Power Systems, 24(2), 2009. DOI: 10.1109/TPWRS.2009.2016381.
 """
-function fan2009(
+function modal_operators(
+        ::Val{:Fan2009},
         lp::LineParameters{Tc, U, PhaseDomain, Basis},
         values::NamedTuple
 ) where {Tc <: Complex, U <: Real, Basis}
@@ -131,13 +132,6 @@ function fan2009(
         copyto!(@view(current[:, :, frequency]), current_vectors)
     end
     return _maps(current)
-end
-
-function (::Functor{:Fan2009})(
-        lp::LineParameters{Tc, U, PhaseDomain, Basis},
-        values::NamedTuple
-) where {Tc <: Complex, U <: Real, Basis}
-    return fan2009(lp, values)
 end
 
 :Fan2009

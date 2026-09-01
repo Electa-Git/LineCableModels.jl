@@ -87,6 +87,9 @@ import DocStringExtensions: DocStringExtensions
 
 include("docstrings.jl")
 include("interfaces.jl")
+include("formulas.jl")
+
+public FormulaMethod
 
 # Submodule `Units`
 include("units/Units.jl")

@@ -1,8 +1,8 @@
-function routes(::Val{:AmetaniFuse1992})
+function routes(identifier::Val{:AmetaniFuse1992})
     (
-        inner = ametani_fuse_zero,
-        outer = ametani_fuse_outer,
-        mutual = ametani_fuse_zero
+        inner = FormulaMethod(identifier, internal_impedance, Val(:inner)),
+        outer = FormulaMethod(identifier, internal_impedance, Val(:outer)),
+        mutual = FormulaMethod(identifier, internal_impedance, Val(:mutual))
     )
 end
 
@@ -33,7 +33,7 @@ Simulation*, Wiley-IEEE Press, 2015, Eqs. 2.52 and 2.C.1–2.C.6.
 """
 description(::Formula{:AmetaniFuse1992}) = "Ametani-Fuse cross-section approximation (1992)"
 
-"""
+#=
 $(TYPEDSIGNATURES)
 
 Construct the Ametani-Fuse approximation for the internal impedance of a
@@ -80,9 +80,8 @@ in Eq. 2.C.6 is dimensionally inconsistent with its immediately preceding
 definitions. Evaluation therefore uses the author-defined
 ``\\sqrt{Z_{dc}^2+Z_{hf}^2}`` identity and explicit ``Z_{hf}``, not that
 expanded typo.
-"""
-function ametanifuse1992(
-        formula::Formula{:AmetaniFuse1992},
+=#
+function (formula::Formula{:AmetaniFuse1992})(
         r_in::T,
         r_ex::T,
         rho_c::T,
@@ -100,10 +99,6 @@ function ametanifuse1992(
     )
 end
 
-@inline function (formula::Formula{:AmetaniFuse1992})(r_in, r_ex, rho_c, mur_c, jω)
-    return ametanifuse1992(formula, r_in, r_ex, rho_c, mur_c, jω)
-end
-
 @inline function (functor::Functor{:AmetaniFuse1992})(::Val{:inner})
     return functor.routes.inner(functor.state)
 end
@@ -116,9 +111,27 @@ end
     return functor.routes.mutual(functor.state)
 end
 
-@inline ametani_fuse_zero(state) = zero(state.jω)
+@inline function internal_impedance(
+        ::Val{:AmetaniFuse1992},
+        ::Val{:inner},
+        state
+)
+    return zero(state.jω)
+end
 
-@inline function ametani_fuse_outer(state)
+@inline function internal_impedance(
+        ::Val{:AmetaniFuse1992},
+        ::Val{:mutual},
+        state
+)
+    return zero(state.jω)
+end
+
+@inline function internal_impedance(
+        ::Val{:AmetaniFuse1992},
+        ::Val{:outer},
+        state
+)
     Z_hf = sqrt(state.jω * state.μ_c * state.rho_c) / state.ell
     return sqrt(state.R_dc^2 + Z_hf^2)
 end

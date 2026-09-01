@@ -50,7 +50,8 @@ Y=j\\omega C.
 B. Gustavsen, H. K. Høidalen, and T. M. Ohnstad, “Field Measurement and
 Simulation of 132 kV Oil-Filled Submarine Cables,” IPST, 2013.
 """
-@inline function (::Functor{:Gustavsen2013})(
+@inline function insulation_material(
+        ::Val{:Gustavsen2013},
         material::Material{T},
         frequency::T,
         temperature::T,

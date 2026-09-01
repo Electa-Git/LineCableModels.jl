@@ -42,7 +42,7 @@ Grain Size and Water Content,” *IEEE Transactions on Dielectrics and
 Electrical Insulation*, 26(3), 2019. DOI: 10.1109/TDEI.2018.007864.
 """
 description(::Formula{:DatsiosMikropoulos2019}) =
-    "Datsios–Mikropoulos 2019 (two-limit soil fit)"
+    "Datsios–Mikropoulos two-limit soil fit (2019)"
 
 #=
 Evaluate the Datsios–Mikropoulos soil relation.
@@ -58,7 +58,8 @@ Dependence of the Electrical Properties of Sandy Soil With Variable Grain Size
 and Water Content*, IEEE Transactions on Dielectrics and Electrical Insulation,
 26(3), 2019. DOI: 10.1109/TDEI.2018.007864.
 =#
-function (::Functor{:DatsiosMikropoulos2019})(
+function earth_material(
+        ::Val{:DatsiosMikropoulos2019},
         material::EarthMaterial{T},
         frequency::T,
         values::NamedTuple

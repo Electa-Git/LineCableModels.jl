@@ -31,9 +31,10 @@ Matrices Using the Levenberg–Marquardt Method,” *IEEE Transactions on Power
 Delivery*, 29(4), 1621–1629, 2014. DOI: 10.1109/TPWRD.2013.2284504.
 """
 description(::Formula{:Chrysochos2014}) =
-    "Chrysochos et al. 2014 (Levenberg–Marquardt eigenpair tracking)"
+    "Chrysochos et al. Levenberg–Marquardt modal transformation (2014)"
 
-function _lmres!(
+function levenberg_marquardt_residual!(
+        ::Val{:Chrysochos2014},
         residual::AbstractVector{R},
         x::AbstractVector{R},
         real_matrix::AbstractMatrix{R},
@@ -67,7 +68,8 @@ function _lmres!(
     return residual
 end
 
-function _lmjac!(
+function levenberg_marquardt_jacobian!(
+        ::Val{:Chrysochos2014},
         jacobian::AbstractMatrix{R},
         x::AbstractVector{R},
         real_matrix::AbstractMatrix{R},
@@ -103,7 +105,11 @@ function _lmjac!(
     return jacobian
 end
 
-function _lmwork(::Type{R}, n::Integer) where {R <: Real}
+function levenberg_marquardt_workspace(
+        ::Val{:Chrysochos2014},
+        ::Type{R},
+        n::Integer
+) where {R <: Real}
     order = 2n + 2
     return (
         x = Vector{R}(undef, order),
@@ -120,7 +126,8 @@ function _lmwork(::Type{R}, n::Integer) where {R <: Real}
     )
 end
 
-function _lm!(
+function levenberg_marquardt_step!(
+        ::Val{:Chrysochos2014},
         vector::AbstractVector{T},
         value::T,
         values::NamedTuple,
@@ -152,7 +159,8 @@ function _lm!(
     converged = false
     maximum_damping = inv(eps(R))
     for _ in 1:iterations
-        _lmres!(
+        levenberg_marquardt_residual!(
+            Val(:Chrysochos2014),
             work.residual,
             work.x,
             work.real_matrix,
@@ -163,7 +171,8 @@ function _lm!(
             converged = true
             break
         end
-        _lmjac!(
+        levenberg_marquardt_jacobian!(
+            Val(:Chrysochos2014),
             work.jacobian,
             work.x,
             work.real_matrix,
@@ -192,7 +201,8 @@ function _lm!(
         ldiv!(factorization, work.step)
         all(isfinite, work.step) || return value, false
         work.candidate .= work.x .+ work.step
-        _lmres!(
+        levenberg_marquardt_residual!(
+            Val(:Chrysochos2014),
             work.candidate_residual,
             work.candidate,
             work.real_matrix,
@@ -261,7 +271,8 @@ Calculation of Frequency-Dependent Transmission-Line Transformation Matrices
 Using the Levenberg–Marquardt Method*, IEEE Transactions on Power Delivery,
 29(4), 2014. DOI: 10.1109/TPWRD.2013.2284504.
 """
-function chrysochos2014(
+function modal_operators(
+        ::Val{:Chrysochos2014},
         lp::LineParameters{Tc, U, PhaseDomain, Basis},
         values::NamedTuple
 ) where {Tc <: Complex, U <: Real, Basis}
@@ -287,7 +298,7 @@ function chrysochos2014(
     current = Array{T, 3}(undef, n, n, nfrequencies)
     product = Matrix{T}(undef, n, n)
     normalized = similar(product)
-    work = _lmwork(R, n)
+    work = levenberg_marquardt_workspace(Val(:Chrysochos2014), R, n)
 
     previous_values = Vector{T}(undef, n)
     previous_vectors = Matrix{T}(undef, n, n)
@@ -332,7 +343,8 @@ function chrysochos2014(
             failed_mode = 0
             for mode in 1:n
                 reference = @view previous_vectors[:, mode]
-                value, converged = _lm!(
+                value, converged = levenberg_marquardt_step!(
+                    Val(:Chrysochos2014),
                     @view(current_vectors[:, mode]),
                     previous_values[mode],
                     values,
@@ -377,13 +389,6 @@ function chrysochos2014(
         @warn ":Chrysochos2014 retained matched eigensolutions where LM lost relative accuracy" fallback_count first_fallback
     end
     return _maps(current)
-end
-
-function (::Functor{:Chrysochos2014})(
-        lp::LineParameters{Tc, U, PhaseDomain, Basis},
-        values::NamedTuple
-) where {Tc <: Complex, U <: Real, Basis}
-    return chrysochos2014(lp, values)
 end
 
 :Chrysochos2014

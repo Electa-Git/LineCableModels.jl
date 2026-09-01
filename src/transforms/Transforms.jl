@@ -12,11 +12,11 @@ module Transforms
 
 export ModalTransformationProblem, ModalTransformationFormulation
 export LineCableModelsModal, ModalOperators, Formula
-export operators, assumptions, formulas, gamma, modal_quantities
+export operators, formula_id, assumptions, formulas, gamma, modal_quantities
 
 #! explicit-imports: off
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import ..LineCableModels: nominal, FormulaSpec, _construction
+import ..LineCableModels: FormulaMethod, nominal, FormulaSpec, _construction
 import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
                   ComputationDetails, compute, computation_details,
                   computation_owner, details

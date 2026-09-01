@@ -18,9 +18,6 @@ struct Formula{ID, R, A <: NamedTuple} <: SemiconAdmittanceFormulation
     assumptions::A
 end
 
-"Generic zero-field route tag shared by built-in semicon relations."
-struct Functor{ID} end
-
 "Return the stable identifier of a semicon-admittance formula."
 formula_id(::Formula{ID}) where {ID} = ID
 
@@ -29,6 +26,9 @@ assumptions(formula::Formula) = formula.assumptions
 
 "Return the default assumptions of a registered semicon-admittance formula."
 function assumptions end
+
+"Evaluate one formula-owned semiconducting-material constitutive relation."
+function semicon_material end
 
 """
 $(TYPEDSIGNATURES)
@@ -69,7 +69,8 @@ function Formula(::Val{ID}; route = nothing, kwargs...) where {ID}
         "unknown assumptions for semicon-admittance formula :$ID: $(collect(unknown))"
     ))
     selected = merge(defaults, overrides)
-    selected_route = route === nothing ? Functor{ID}() : route
+    selected_route = route === nothing ?
+                     FormulaMethod(tag, semicon_material) : route
     return Formula{ID, typeof(selected_route), typeof(selected)}(
         selected_route,
         selected

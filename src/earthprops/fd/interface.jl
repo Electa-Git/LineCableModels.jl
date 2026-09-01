@@ -17,9 +17,6 @@ struct Formula{ID, R, A <: NamedTuple} <: AbstractFormulation
     assumptions::A
 end
 
-"Generic zero-field route tag shared by built-in earth-property formulas."
-struct Functor{ID} end
-
 "Return the stable literature identifier of an earth-property formula."
 formula_id(::Formula{ID}) where {ID} = ID
 
@@ -28,6 +25,9 @@ assumptions(formula::Formula) = formula.assumptions
 
 "Return the default assumptions of a registered earth-property formula."
 function assumptions end
+
+"Evaluate one formula-owned frequency-dependent earth material relation."
+function earth_material end
 
 """
 $(TYPEDSIGNATURES)
@@ -63,7 +63,7 @@ function Formula(::Val{ID}; route = nothing, kwargs...) where {ID}
         "unknown assumptions for earth-property formula :$ID: $(collect(unknown))"
     ))
     values = merge(defaults, overrides)
-    selected = route === nothing ? Functor{ID}() : route
+    selected = route === nothing ? FormulaMethod(tag, earth_material) : route
     return Formula{ID, typeof(selected), typeof(values)}(selected, values)
 end
 

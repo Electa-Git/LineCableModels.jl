@@ -57,7 +57,8 @@ adjacent dielectric layers radially in series.
 A. Ametani, Y. Miyamoto, and N. Nagaoka, 2004, as reproduced in Ametani,
 Ohno, and Nagaoka (2015), Eqs. 2.66–2.67.
 """
-@inline function (::Functor{:Ametani2004})(
+@inline function insulation_material(
+        ::Val{:Ametani2004},
         material::Material{T},
         frequency::T,
         temperature::T,

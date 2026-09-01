@@ -27,9 +27,10 @@ Transactions on Power Delivery*, 35(2), 881–891, 2020.
 DOI: 10.1109/TPWRD.2019.2930406.
 """
 description(::Formula{:MartinsBritto2020}) =
-    "Martins–Britto et al. 2020 equivalent conductivity"
+    "Martins–Britto et al. equivalent-conductivity earth reduction (2020)"
 
-@inline function martins_britto_step(
+@inline function equivalent_conductivity_step(
+        ::Val{:MartinsBritto2020},
         conductivity_top,
         conductivity_bottom,
         thickness,
@@ -80,7 +81,8 @@ Structure Approximation by a Homogeneous Conductivity Soil for Ground Return
 Impedance Calculations,” IEEE Transactions on Power Delivery, 35(2),
 881–891, 2020. DOI: 10.1109/TPWRD.2019.2930406.
 """
-function martins_britto(
+function equivalent_material(
+        ::Val{:MartinsBritto2020},
         ::Val{:overhead},
         rho::AbstractVector{T},
         eps_r::AbstractVector{T},
@@ -98,7 +100,8 @@ function martins_britto(
     bottom = lastindex(rho)
     conductivity_equivalent = inv(rho[bottom])
     @inbounds for layer in (bottom - 1):-1:2
-        conductivity_equivalent = martins_britto_step(
+        conductivity_equivalent = equivalent_conductivity_step(
+            Val(:MartinsBritto2020),
             inv(rho[layer]),
             conductivity_equivalent,
             model.layers[layer].thickness,
@@ -108,21 +111,6 @@ function martins_britto(
     end
     return EarthMaterial(
         inv(conductivity_equivalent), base.eps_r, base.mu_r
-    )
-end
-
-@inline function (functor::Functor{:MartinsBritto2020})(
-        layout::Val{:overhead},
-        rho::AbstractVector{T},
-        eps_r::AbstractVector{T},
-        mu_r::AbstractVector{T},
-        model::EarthModel{T},
-        pair,
-        frequency::T,
-        values::NamedTuple
-) where {T <: Real}
-    return martins_britto(
-        layout, rho, eps_r, mu_r, model, pair, frequency, values
     )
 end
 

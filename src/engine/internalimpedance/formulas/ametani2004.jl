@@ -1,8 +1,8 @@
-function routes(::Val{:Ametani2004})
+function routes(identifier::Val{:Ametani2004})
     (
-        inner = ametani2004_inner,
-        outer = ametani2004_outer,
-        mutual = ametani2004_mutual
+        inner = FormulaMethod(identifier, internal_impedance, Val(:inner)),
+        outer = FormulaMethod(identifier, internal_impedance, Val(:outer)),
+        mutual = FormulaMethod(identifier, internal_impedance, Val(:mutual))
     )
 end
 
@@ -31,7 +31,7 @@ function description(::Formula{:Ametani2004})
     "Ametani et al. bonded two-layer conductor impedance (2004)"
 end
 
-raw"""
+#=
 Construct the Ametani et al. two-layer conductor/semiconducting-layer
 surface impedance:
 
@@ -65,9 +65,8 @@ with ``Z_{11}=z_{10}+z_{12}+z_{2i}+z_{20}-2z_{2m}``,
 This aggregate requires both conductive material records at once. The ordinary
 five-argument single-layer call is rejected rather than silently applying the
 aggregate to each flattened conductor independently.
-"""
-function ametanietal2004(
-        formula::Formula{:Ametani2004},
+=#
+function (formula::Formula{:Ametani2004})(
         a::T,
         b::T,
         b_prime::T,
@@ -78,8 +77,10 @@ function ametanietal2004(
         mu_r2::T,
         jω::Complex{T}
 ) where {T <: Real}
-    first = ametani2004_surface(a, b, rho_1, mu_r1, jω)
-    second = ametani2004_surface(b_prime, c, rho_2, mu_r2, jω)
+    first = surface_impedances(Val(:Schelkunoff1934), a, b, rho_1, mu_r1, jω)
+    second = surface_impedances(
+        Val(:Schelkunoff1934), b_prime, c, rho_2, mu_r2, jω
+    )
     denominator = first.outer + second.inner
     state = (;
         jω,
@@ -93,45 +94,35 @@ function ametanietal2004(
     )
 end
 
-function ametani2004_surface(r_in, r_ex, rho_c, mur_c, jω)
-    mu_c = vacuum_permeability(r_in) * mur_c
-    sigma_c = conductivity(rho_c)
-    m = sqrt(jω * mu_c * sigma_c)
-    state = (;
-        r_in,
-        r_ex,
-        rho_c,
-        mur_c,
-        jω,
-        mu_c,
-        sigma_c,
-        m,
-        w_ex = m * r_ex
-    )
-    return (
-        inner = schelkunoff_inner(state),
-        outer = schelkunoff_outer(state),
-        mutual = schelkunoff_mutual(state)
-    )
-end
-
-function (formula::Formula{:Ametani2004})(
-        a, b, b_prime, c, rho_1, rho_2, mu_r1, mu_r2, jω
-)
-    return ametanietal2004(
-        formula, a, b, b_prime, c, rho_1, rho_2, mu_r1, mu_r2, jω
-    )
-end
-
 function (formula::Formula{:Ametani2004})(r_in, r_ex, rho, mu_r, jω)
     throw(ArgumentError(
         ":Ametani2004 requires both bonded conductive layers in one aggregate call"
     ))
 end
 
-@inline ametani2004_inner(state) = state.inner
-@inline ametani2004_outer(state) = state.outer
-@inline ametani2004_mutual(state) = state.mutual
+@inline function internal_impedance(
+        ::Val{:Ametani2004},
+        ::Val{:inner},
+        state
+)
+    return state.inner
+end
+
+@inline function internal_impedance(
+        ::Val{:Ametani2004},
+        ::Val{:outer},
+        state
+)
+    return state.outer
+end
+
+@inline function internal_impedance(
+        ::Val{:Ametani2004},
+        ::Val{:mutual},
+        state
+)
+    return state.mutual
+end
 
 @inline function (functor::Functor{:Ametani2004})(::Val{:inner})
     return functor.routes.inner(functor.state)

@@ -18,7 +18,7 @@ Conductivity Behavior on Frequency Range of Transient Phenomena in Electric
 Power Systems,” *International Symposium on High Voltage Engineering*, 1987.
 """
 description(::Formula{:VisacroPortela1987}) =
-    "Visacro–Portela 1987 (empirical soil dispersion)"
+    "Visacro–Portela empirical soil dispersion (1987)"
 
 #=
 Evaluate the Visacro–Portela empirical soil relation.
@@ -32,7 +32,8 @@ S. Visacro and C. M. Portela, *Soil Permittivity and Conductivity Behavior on
 Frequency Range of Transient Phenomena in Electric Power Systems*, International
 Symposium on High Voltage Engineering, 1987.
 =#
-function (::Functor{:VisacroPortela1987})(
+function earth_material(
+        ::Val{:VisacroPortela1987},
         material::EarthMaterial{T},
         frequency::T,
         values::NamedTuple

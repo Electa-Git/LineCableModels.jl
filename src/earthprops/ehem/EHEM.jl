@@ -22,7 +22,7 @@ using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 using ..EarthProps: EarthMaterial, EarthModel
 import ...Grammar: AbstractFormulation
-import ...LineCableModels: formula_id
+import ...LineCableModels: FormulaMethod, formula_id
 #! explicit-imports: off
 import ...LineCableModels: description
 #! explicit-imports: on

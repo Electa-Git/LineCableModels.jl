@@ -21,6 +21,7 @@ using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 import ..Engine: InternalImpedanceFormulation, formula_id
 #! explicit-imports: off
+import ...LineCableModels: FormulaMethod
 import ..Engine: description, conductivity
 import ..Engine: special_besselix, special_besselkx
 #! explicit-imports: on

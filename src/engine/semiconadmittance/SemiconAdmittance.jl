@@ -16,6 +16,7 @@ export Formula, formula_id, assumptions, formulas
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 #! explicit-imports: on
 import ..Engine: SemiconAdmittanceFormulation, formula_id
+import ...LineCableModels: FormulaMethod
 using ...Materials: Material
 import ...LineCableModels: constitutive
 #! explicit-imports: off

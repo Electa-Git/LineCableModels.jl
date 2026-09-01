@@ -47,11 +47,22 @@ The two non-literature cases are explicit: frequency-dependent soil resolves
 `:default` to `nothing`, while EHEM resolves it to the last-layer
 reconstruction policy.
 
-`EarthImpedance.Formula{:ID}` carries the identity in its concrete type. Its
-`routes` tuple holds the leaf self, mutual, and propagation-constant formulas;
-its `assumptions` tuple holds the physical approximations shared by those
-routes. Calling a formula with one frequency's earth properties returns a
-concrete, formula-owned functor that aggregates the shared numerical values:
+Every concrete `Formula{:ID}` carries its catalogue-local identity in its type.
+Internal impedance, insulation impedance and admittance, semicon admittance,
+frequency-dependent earth properties, EHEM, and modal transformations bind
+their built-in routes through the root-owned `FormulaMethod{ID}`. Calling a
+bound route inserts `Val(:ID)`, followed by any stored semantic selectors,
+before the runtime arguments. Consequently the compiler sees the complete
+route without a global author switch, dictionary, or runtime registry.
+Single-route catalogues store one bound method; internal impedance retains an
+inspectable `routes` tuple of bound interaction methods.
+
+`EarthImpedance.Formula{:ID}` likewise carries its identity and owns a
+multi-route tuple for its leaf self, mutual, and propagation-constant formulas.
+Its `assumptions` tuple holds the physical approximations shared by those
+routes. Calling a formula with one
+frequency's earth properties returns a concrete, formula-owned functor that
+aggregates the shared numerical values:
 
 ```julia
 formula = EarthImpedance.Formula(:Papadopoulos2010)
@@ -95,8 +106,20 @@ replace any exposed leaf without creating another registry entry.
 Each built-in formula lives in one `formulas/authoryear.jl` file. Formula
 modules include those files in sorted order and require each file to return its
 unique `Symbol` identifier. This is source discovery only: the hot loop has no
-runtime registry or dictionary lookup. A contributed file defines its routes,
-assumptions, formula call, and functor leaf dispatch together.
+runtime registry or dictionary lookup.
+
+A contributed file extends the semantic method owned by its catalogue, with
+the formula identity as the first argument. Examples are
+`internal_impedance(::Val{:AuthorYYYY}, ::Val{:inner}, state)`,
+`insulation_material(::Val{:AuthorYYYY}, material, frequency, temperature,
+assumptions)`, `earth_material(::Val{:AuthorYYYY}, ...)`,
+`equivalent_material(::Val{:AuthorYYYY}, ...)`, and
+`modal_operators(::Val{:AuthorYYYY}, ...)`. The file also supplies
+`assumptions(::Val{:AuthorYYYY})`, `description(::Formula{:AuthorYYYY})`, and
+its discovery symbol. Stateful internal and earth-return families keep their
+formula-owned functors; scalar catalogues invoke their bound method directly.
+External callable route overrides retain the runtime-only signatures described
+by each `Formula` constructor and do not receive the inserted identity.
 
 Insulation impedance uses the same discovery rule with one complete scalar
 route per formula. Insulation and semicon admittance formulas evaluate complex

@@ -27,9 +27,6 @@ struct Formula{ID, R, A <: NamedTuple} <: AbstractRule
     assumptions::A
 end
 
-"Zero-field route tag shared by built-in EHEM formulas."
-struct Functor{ID} end
-
 """
 $(TYPEDEF)
 
@@ -68,6 +65,9 @@ assumptions(formula::Formula) = formula.assumptions
 "Return the default assumptions of a registered EHEM formula."
 function assumptions end
 
+"Construct one formula-owned equivalent homogeneous-earth material."
+function equivalent_material end
+
 Formula(identifier::Symbol; kwargs...) = Formula(Val(identifier); kwargs...)
 
 function Formula(::Val{:default}; route = nothing, kwargs...)
@@ -92,7 +92,7 @@ function Formula(::Val{ID}; route = nothing, kwargs...) where {ID}
         "unknown assumptions for EHEM formula :$ID: $(collect(unknown))"
     ))
     values = merge(defaults, overrides)
-    selected = route === nothing ? Functor{ID}() : route
+    selected = route === nothing ? FormulaMethod(tag, equivalent_material) : route
     return Formula{ID, typeof(selected), typeof(values)}(selected, values)
 end
 
@@ -176,7 +176,11 @@ end
     )
 end
 
-function (::Functor{ID})(::Val{Layout}, args...) where {ID, Layout}
+function equivalent_material(
+        ::Val{ID},
+        ::Val{Layout},
+        args...
+) where {ID, Layout}
     throw(ArgumentError(
         "EHEM formula :$ID does not support :$Layout conductor pairs"
     ))

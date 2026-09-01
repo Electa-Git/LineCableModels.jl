@@ -90,69 +90,6 @@ matrices, mutual coupling, or earth return.
 """
 function homogenize end
 
-"Return a short scientific description of a registered formulation."
-function description end
-
-"""
-$(TYPEDEF)
-
-Store one declarative formula selection until its owning formulation resolves
-the identifier and overrides into a concrete formula type.
-
-`FormulaSpec` is produced by [`formula`](@ref). It does not participate in a
-numerical loop.
-
-$(TYPEDFIELDS)
-"""
-struct FormulaSpec{ID, Order, O <: NamedTuple}
-    "Formula-specific route or assumption overrides."
-    overrides::O
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Select a registered formula without exposing its owner module or concrete
-wrapper type. The receiving formulation determines the formula family from the
-keyword slot in which the selection appears.
-
-# Arguments
-
-- `identifier`: Stable formula identifier.
-
-# Keywords
-
-- `order`: Position of an equivalent homogeneous-earth reduction relative to
-  material frequency dependence. `:before` applies EHEM before FD, `:after`
-  applies EHEM after FD, and `:default` selects the receiving formulation's
-  default. Non-EHEM formula slots accept only `:default`.
-- `kwargs`: Formula-specific route or assumption overrides.
-
-# Returns
-
-- A concrete declarative selection resolved before computation.
-
-# Examples
-
-```julia
-earth = formula(:Papadopoulos2010)
-soil = formula(:CIGRE2019; epsilon_infinity=10.0)
-equivalent = formula(:Xue2021; order=:before)
-```
-"""
-function formula(identifier::Symbol; order::Symbol = :default, kwargs...)
-    order in (:default, :before, :after) || throw(ArgumentError(
-        "formula order must be :default, :before, or :after"
-    ))
-    overrides = (; kwargs...)
-    return FormulaSpec{identifier, order, typeof(overrides)}(overrides)
-end
-
-"Return the stable literature identifier of a formula value."
-function formula_id end
-
-formula_id(::FormulaSpec{ID}) where {ID} = ID
-
 "Evaluate the constitutive relation selected for a material value."
 function constitutive end
 

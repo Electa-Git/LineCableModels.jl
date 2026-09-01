@@ -12,9 +12,6 @@ struct Formula{ID, R, A <: NamedTuple} <: InsulationImpedanceFormulation
     assumptions::A
 end
 
-"Generic zero-field route tag shared by built-in insulation-impedance formulas."
-struct Functor{ID} end
-
 "Return the stable identifier of an insulation-impedance formula."
 formula_id(::Formula{ID}) where {ID} = ID
 
@@ -23,6 +20,9 @@ assumptions(formula::Formula) = formula.assumptions
 
 "Return the default assumptions of a registered insulation-impedance formula."
 function assumptions end
+
+"Evaluate one formula-owned insulation-impedance route."
+function insulation_impedance end
 
 """
 $(TYPEDSIGNATURES)
@@ -63,7 +63,8 @@ function Formula(::Val{ID}; route = nothing, kwargs...) where {ID}
         "unknown assumptions for insulation-impedance formula :$ID: $(collect(unknown))"
     ))
     selected = merge(defaults, overrides)
-    selected_route = route === nothing ? Functor{ID}() : route
+    selected_route = route === nothing ?
+                     FormulaMethod(tag, insulation_impedance) : route
     return Formula{ID, typeof(selected_route), typeof(selected)}(
         selected_route,
         selected

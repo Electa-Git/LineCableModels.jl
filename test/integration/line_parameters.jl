@@ -159,16 +159,17 @@ end
     const EY=EN.EarthAdmittance
 
     events=Symbol[]
+    insulation_impedance=II.Formula(:Ametani1980).route
     local_z=(r_in, r_ex, mu_r, s, values)->begin
         push!(events, :local_z)
-        II.ametani1980(r_in, r_ex, mu_r, s, values)
+        insulation_impedance(r_in, r_ex, mu_r, s, values)
     end
-    insulation=IA.Functor{:Ametani2004}()
+    insulation=IA.Formula(:Ametani2004).route
     local_insulation_y=(material, frequency, temperature, values)->begin
         push!(events, :local_y)
         insulation(material, frequency, temperature, values)
     end
-    semicon=SA.Functor{:Ametani2004}()
+    semicon=SA.Formula(:Ametani2004).route
     local_semicon_y=(material, frequency, temperature, values)->begin
         push!(events, :local_y)
         semicon(material, frequency, temperature, values)

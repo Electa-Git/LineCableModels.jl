@@ -33,9 +33,10 @@ Transactions on Power Delivery*, 36(6), 3834–3845, 2021.
 DOI: 10.1109/TPWRD.2021.3049595.
 """
 description(::Formula{:Xue2021}) =
-    "Xue et al. 2021 equivalent propagation constant"
+    "Xue et al. equivalent propagation-constant earth reduction (2021)"
 
-@inline function xue_gamma(
+@inline function transverse_propagation_constant(
+        ::Val{:Xue2021},
         resistivity,
         relative_permittivity,
         angular_frequency,
@@ -79,7 +80,8 @@ H. Xue et al., “Generalized Formulation and Surge Analysis on Overhead Lines:
 Impedance/Admittance of a Multi-Layer Earth,” IEEE Transactions on Power
 Delivery, 36(6), 3834–3845, 2021. DOI: 10.1109/TPWRD.2021.3049595.
 """
-function xue(
+function equivalent_material(
+        ::Val{:Xue2021},
         ::Val{:overhead},
         rho::AbstractVector{T},
         eps_r::AbstractVector{T},
@@ -99,11 +101,13 @@ function xue(
     air_gamma_squared = -mu0 * epsilon0 * omega^2
 
     bottom = lastindex(rho)
-    gamma_equivalent = xue_gamma(
+    gamma_equivalent = transverse_propagation_constant(
+        Val(:Xue2021),
         rho[bottom], eps_r[bottom], omega, epsilon0, mu0, air_gamma_squared
     )
     @inbounds for layer in (bottom - 1):-1:2
-        gamma_top = xue_gamma(
+        gamma_top = transverse_propagation_constant(
+            Val(:Xue2021),
             rho[layer], eps_r[layer], omega, epsilon0, mu0, air_gamma_squared
         )
         decay = exp(-2 * model.layers[layer].thickness * gamma_top)
@@ -119,19 +123,6 @@ function xue(
     relative_permittivity = one(frequency) -
                             real(squared) / (omega^2 * mu0 * epsilon0)
     return EarthMaterial(inv(conductivity), relative_permittivity, base.mu_r)
-end
-
-@inline function (functor::Functor{:Xue2021})(
-        layout::Val{:overhead},
-        rho::AbstractVector{T},
-        eps_r::AbstractVector{T},
-        mu_r::AbstractVector{T},
-        model::EarthModel{T},
-        pair,
-        frequency::T,
-        values::NamedTuple
-) where {T <: Real}
-    return xue(layout, rho, eps_r, mu_r, model, pair, frequency, values)
 end
 
 # Return the stable discovery identifier.

@@ -20,7 +20,7 @@ Lightning Response of Grounding Electrodes,” *IEEE Transactions on Power
 Delivery*, 27(2), 2012. DOI: 10.1109/TPWRD.2011.2179070.
 """
 description(::Formula{:VisacroAlipio2012}) =
-    "Visacro–Alipio 2012 (empirical soil dispersion)"
+    "Visacro–Alipio empirical soil dispersion (2012)"
 
 #=
 Evaluate the Visacro–Alipio empirical soil relation.
@@ -36,7 +36,8 @@ Experimental Results, Predicting Formula and Influence on the Lightning
 Response of Grounding Electrodes*, IEEE Transactions on Power Delivery,
 27(2), 2012. DOI: 10.1109/TPWRD.2011.2179070.
 =#
-function (::Functor{:VisacroAlipio2012})(
+function earth_material(
+        ::Val{:VisacroAlipio2012},
         material::EarthMaterial{T},
         frequency::T,
         values::NamedTuple
