@@ -186,7 +186,7 @@ The current behaviour is:
 | `Region`, `Stack`, `Group`, `Assembly`, `Enclosure` | concrete cable part | `Gridspace{TargetPart}` |
 | `CableDesign` | `DataModel.CableDesign` | `Gridspace{DataModel.CableDesign}` |
 | `at`, `trefoil`, `hflat`, `vflat` | `Pose2` or `Vector{Pose2}` | corresponding `Gridspace` |
-| `Earth` | `EarthModel` | `Gridspace{EarthModel}` |
+| `homogeneous` | `EarthModel` | `Gridspace{EarthModel}` |
 | `LineCableSystem` | `DataModel.LineCableSystem` | `Gridspace{DataModel.LineCableSystem}` |
 | `LineParametersProblem` | `Engine.LineParametersProblem` | `Gridspace{Engine.LineParametersProblem}` |
 | `CableConstantsProblem` | `Engine.CableConstantsProblem` | `Gridspace{Engine.CableConstantsProblem}` |

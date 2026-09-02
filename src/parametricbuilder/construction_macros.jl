@@ -142,7 +142,7 @@ end
         layers...
     end
 
-Build a completed earth model from ordered `EarthLayer` declarations. For
+Build a completed earth model from ordered `layer(...)` declarations. For
 horizontal interfaces, the block runs from the surface downward.
 Semi-infinite air is implicit.
 

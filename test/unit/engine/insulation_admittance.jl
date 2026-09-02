@@ -347,7 +347,7 @@ end
     problem=LineParametersProblem(
         system;
         temperature = 20.0,
-        earth_props = PB.Earth(rho = 100.0, eps_r = 10.0),
+        earth_props = PB.homogeneous(rho = 100.0, eps_r = 10.0),
         frequencies = [50.0, 500.0]
     )
     formulation=Formulation(;

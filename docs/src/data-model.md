@@ -51,7 +51,7 @@ end
 
 problem = LineParametersProblem(
     system;
-    earth_props=Earth(rho=100.0),
+    earth_props=homogeneous(rho=100.0),
     frequencies=[50.0],
 )
 parameters = compute(problem)
@@ -62,20 +62,21 @@ rewrite the design's local geometry.
 
 ## Declaring earth
 
-`Earth(...)` is the one-layer convenience. A layered model is declared from
-the surface downward; the semi-infinite air layer is implicit:
+`homogeneous(...)` declares a single homogeneous earth. A layered model is
+declared from the surface downward with `layer(...)`; the semi-infinite air
+layer is implicit:
 
 ```julia
 earth = @earth begin
-    EarthLayer(rho=100.0, eps_r=10.0, thickness=5.0)
-    EarthLayer(rho=500.0, eps_r=20.0)
+    layer(rho=100.0, eps_r=10.0, thickness=5.0)
+    layer(rho=500.0, eps_r=20.0)
 end
 ```
 
 Omitting `thickness` makes that earth layer semi-infinite. Consequently, every
 finite layer must precede the bottom half-space. Use
 `@earth vertical_layers=true` for vertical interfaces, or supply
-`air_layer=EarthLayer(...)` when the air properties must be explicit. Layer
+`air_layer=layer(...)` when the air properties must be explicit. Layer
 properties may contain `Grid` values; the result is then a
 `Gridspace{EarthModel}` through the same construction path.
 

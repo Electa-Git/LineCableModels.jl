@@ -47,7 +47,9 @@ case_definition(
             )
         )
     )
-    earth = LineCableModels.Earth(rho = p.earth_rho, eps_r = 1.0, mu_r = 1.0)
+    earth = LineCableModels.homogeneous(
+        rho = p.earth_rho, eps_r = 1.0, mu_r = 1.0
+    )
     system = LineCableModels.build(
         LineCableModels.LineCableSystem,
         [design, design],

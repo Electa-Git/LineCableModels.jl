@@ -7,8 +7,9 @@ reductions required by line-parameter formulations.
 
 # Public actions
 
-- Construct and validate [`EarthLayer`](@ref), [`EarthModel`](@ref), and the
-  ephemeral [`EarthMaterial`](@ref).
+- Declare earth descriptions with [`layer`](@ref) and [`homogeneous`](@ref),
+  represented by [`EarthLayer`](@ref) and [`EarthModel`](@ref).
+- Construct the ephemeral [`EarthMaterial`](@ref) used by the engine.
 - Select measured frequency dependence through [`FD`](@ref).
 - Select equivalent homogeneous-earth reductions through [`EHEM`](@ref).
 - Build immutable earth models from complete ordered layer declarations.
@@ -17,6 +18,7 @@ reductions required by line-parameter formulations.
 module EarthProps
 
 export EarthMaterial, EarthLayer, EarthModel
+export layer, homogeneous
 export build
 export FD, EHEM
 

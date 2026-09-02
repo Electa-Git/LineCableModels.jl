@@ -68,7 +68,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Construct one static earth layer directly or as an explicit finite space.
+Declare one static earth layer directly or as an explicit finite space.
 
 # Keywords
 
@@ -86,7 +86,7 @@ Construct one static earth layer directly or as an explicit finite space.
 - An `EarthLayer`, or a `Gridspace{EarthLayer}` when an explicit finite source
   is supplied.
 """
-function EarthLayer(;
+function layer(;
         rho,
         eps_r = nothing,
         mu_r = nothing,

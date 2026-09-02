@@ -225,7 +225,7 @@ end
     function two_bare_wires(;
             y = -1.0,
             frequencies = Float64[1.0, 50.0, 1.0e6],
-            earth = Earth(rho = 0.1, eps_r = 1.0, mu_r = 1.0)
+            earth = homogeneous(rho = 0.1, eps_r = 1.0, mu_r = 1.0)
     )
         conductor=Material(
             kind = :conductor,

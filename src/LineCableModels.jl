@@ -52,7 +52,7 @@ export Enclosure
 export Ring, Hexa, Polar, Fill, Lattice, DiameterFactor, placements
 export capacity, FillFactor, TabulatedCompaction, AffineCompaction
 export LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
-export at, trefoil, hflat, vflat, Earth, EarthLayer, EarthModel
+export at, trefoil, hflat, vflat, layer, homogeneous, EarthLayer, EarthModel
 export terminal, core, stranded, rope, cores, tape, insulation, screen, sheath
 export armor, bedding, jacket, filler, pipe, duct
 export solid, shell, wires, layers, assembly
@@ -127,7 +127,7 @@ using .Materials: AbstractMaterial, Material, MaterialsLibrary
 # Submodule `EarthProps`
 include("earthprops/EarthProps.jl")
 import .EarthProps
-using .EarthProps: EarthLayer, EarthModel
+using .EarthProps: EarthLayer, EarthModel, layer, homogeneous
 
 # Submodule `DataModel`
 include("datamodel/DataModel.jl")
@@ -182,7 +182,7 @@ using .ParametricBuilder:
                           insulation, screen, sheath, armor, bedding, jacket,
                           filler, pipe, duct, solid, shell, wires, layers,
                           assembly,
-                          at, trefoil, hflat, vflat, Earth,
+                          at, trefoil, hflat, vflat,
                           WireEstimate, make_stranded, make_screened
 using .ParametricBuilder: Semiconductor
 using .ParametricBuilder: @cable, @system, @earth, @terminal, @assembly, @pipe,

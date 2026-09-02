@@ -269,7 +269,7 @@ end
     )
     problem=LineParametersProblem(
         system;
-        earth_props = Earth(rho = 0.1, eps_r = 1.0, mu_r = 1.0),
+        earth_props = homogeneous(rho = 0.1, eps_r = 1.0, mu_r = 1.0),
         frequencies = [1.0, 50.0, 1000.0]
     )
     @test isconcretetype(fieldtype(typeof(problem), :earth_props))
@@ -339,7 +339,7 @@ end
     )
     problem=LineParametersProblem(
         system;
-        earth_props = Earth(rho = 100.0),
+        earth_props = homogeneous(rho = 100.0),
         frequencies = [50.0, 500.0]
     )
     parameters=compute(

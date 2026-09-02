@@ -246,7 +246,7 @@ end
         design,
         Pose2(0, -1);
         connections = (a = 1, b = 2, c = 3),
-        earth_props = Earth(rho = 100),
+        earth_props = homogeneous(rho = 100),
         frequencies = [50.0]
     )
     flattened=homogenize(design)

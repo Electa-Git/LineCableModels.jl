@@ -161,7 +161,7 @@ case_definition(
         "640kV_2000mm2",
         LineCableModels.Stack(parts)
     )
-    earth = LineCableModels.Earth(
+    earth = LineCableModels.homogeneous(
         rho = p.earth_rho, eps_r = p.earth_eps_r, mu_r = 1.0
     )
     connections = [Dict(:core => 3index - 2, :sheath => 3index - 1, :jacket => 3index)

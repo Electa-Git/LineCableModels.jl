@@ -61,7 +61,9 @@
     @test @inferred(compute(problem, formulation)) == constants
     @test_throws ArgumentError compute(problem, formulation; options = (trace = true,))
     @test_throws MethodError CableConstants(design; position = at(x = 0, y = -2))
-    @test_throws MethodError CableConstants(design; earth_props = Earth(rho = 200))
+    @test_throws MethodError CableConstants(
+        design; earth_props = homogeneous(rho = 200)
+    )
 
     homogeneous=LineCableModels.homogenize(design)
     source_components=LineCableModels.DataModel.flatten(design, 50.0)
@@ -136,7 +138,7 @@
     )
     traced_problem=LineParametersProblem(
         traced_system;
-        earth_props = Earth(rho = 100.0),
+        earth_props = homogeneous(rho = 100.0),
         frequencies = [50.0, 60.0]
     )
     traced=compute(
@@ -267,7 +269,7 @@
     multicore_parameters=compute(
         LineParametersProblem(
             multicore_system;
-            earth_props = Earth(rho = 100.0),
+            earth_props = homogeneous(rho = 100.0),
             frequencies = [50.0]
         );
         options = (trace = true,)

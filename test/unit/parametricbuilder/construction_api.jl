@@ -125,7 +125,7 @@ end
         :build, :terminal, :core, :stranded, :rope, :cores, :tape,
         :insulation, :screen, :sheath, :armor, :bedding, :jacket, :filler,
         :pipe, :duct, :at, :trefoil, :hflat, :vflat, :capacity,
-        :solid, :shell, :wires, :layers, :assembly,
+        :solid, :shell, :wires, :layers, :assembly, :layer, :homogeneous,
         :EarthLayer, :EarthModel,
         :Region, :Stack, :Group, :Assembly, :Enclosure, :Pose2,
         :Disk, :Rectangle, :Ellipse,
@@ -143,7 +143,8 @@ end
     @test all(name -> name in public_names, required)
 
     forbidden = (
-        :DuctBank, :Pipe, :Duct, :Core, :Cable, :Trefoil, :distribute, :strand,
+        :DuctBank, :Pipe, :Duct, :Core, :Cable, :Trefoil, :Earth,
+        :distribute, :strand,
         Symbol("@design"), Symbol("@core"),
         Symbol("@insulation"), Symbol("@strand"), Symbol("@rope"),
         Symbol("@armor"), Symbol("@screen"), Symbol("@shell"),
@@ -279,8 +280,8 @@ end
     using LineCableModels
 
     earth = @earth begin
-        EarthLayer(rho = 100.0, eps_r = 10.0, thickness = 5.0)
-        EarthLayer(rho = 500.0, eps_r = 20.0)
+        layer(rho = 100.0, eps_r = 10.0, thickness = 5.0)
+        layer(rho = 500.0, eps_r = 20.0)
     end
     @test earth isa EarthModel{Float64}
     @test !earth.vertical_layers
@@ -288,22 +289,22 @@ end
     @test isinf(first(earth.layers).rho)
     @test getproperty.(earth.layers[2:end], :rho) == (100.0, 500.0)
     @test getproperty.(earth.layers[2:end], :thickness) == (5.0, Inf)
-    @test EarthLayer(rho = 100.0f0) isa EarthLayer{Float32}
+    @test layer(rho = 100.0f0) isa EarthLayer{Float32}
 
-    air = EarthLayer(rho = Inf, eps_r = 1.0006, mu_r = 1.0)
+    air = layer(rho = Inf, eps_r = 1.0006, mu_r = 1.0)
     explicit_air = @earth air_layer=air begin
-        EarthLayer(rho = 100.0)
+        layer(rho = 100.0)
     end
     @test first(explicit_air.layers) === air
 
-    homogeneous = @inferred Earth(rho = 100.0, eps_r = 10.0)
-    @test homogeneous isa EarthModel{Float64}
-    @test length(homogeneous.layers) == 2
-    @test homogeneous.layers[2].rho == 100.0
+    earth_model = @inferred homogeneous(rho = 100.0, eps_r = 10.0)
+    @test earth_model isa EarthModel{Float64}
+    @test length(earth_model.layers) == 2
+    @test earth_model.layers[2].rho == 100.0
 
     spaces = @earth begin
-        EarthLayer(rho = Grid((10.0, 100.0)), eps_r = 5.0, thickness = 2.0)
-        EarthLayer(rho = 500.0, eps_r = 20.0)
+        layer(rho = Grid((10.0, 100.0)), eps_r = 5.0, thickness = 2.0)
+        layer(rho = 500.0, eps_r = 20.0)
     end
     @test spaces isa Gridspace{EarthModel}
     @test length(spaces) == 2
@@ -313,7 +314,7 @@ end
     @test_throws ArgumentError macroexpand(
         @__MODULE__,
         :(@earth unsupported=true begin
-            EarthLayer(rho = 100.0)
+            layer(rho = 100.0)
         end)
     )
 end

@@ -186,7 +186,7 @@ case_definition(
         "132kV_630mm2",
         LineCableModels.Stack(parts)
     )
-    earth = LineCableModels.Earth(
+    earth = LineCableModels.homogeneous(
         rho = p.earth_rho, eps_r = p.earth_eps_r, mu_r = 1.0
     )
     designs = fill(design, 3)

@@ -166,3 +166,46 @@ function Base.convert(
 end
 
 Base.convert(::Type{EarthModel{T}}, model::EarthModel{T}) where {T <: Real} = model
+
+"""
+$(TYPEDSIGNATURES)
+
+Declare a homogeneous earth model through [`layer`](@ref) and
+`build(EarthModel, ...)`. Semi-infinite air is implicit.
+
+# Keywords
+
+- `rho`: Electrical resistivity \\[Ω·m\\].
+- `eps_r=nothing`: Relative permittivity \\[dimensionless\\]; `nothing`
+  selects unity in the resistivity scalar type.
+- `mu_r=nothing`: Relative permeability \\[dimensionless\\]; `nothing`
+  selects unity in the resistivity scalar type.
+- `thickness=nothing`: Earth-layer thickness \\[m\\]; `nothing` selects a
+  semi-infinite earth layer.
+- `vertical_layers=false`: Whether earth interfaces are vertical.
+- `air_layer=nothing`: Optional explicit semi-infinite air layer.
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- An `EarthModel`, or a `Gridspace{EarthModel}` when an explicit finite source
+  is supplied.
+"""
+function homogeneous(;
+        rho,
+        eps_r = nothing,
+        mu_r = nothing,
+        thickness = nothing,
+        vertical_layers = false,
+        air_layer = nothing,
+        combine::Symbol = :product
+)
+    earth_layer = layer(; rho, eps_r, mu_r, thickness, combine)
+    return build(
+        EarthModel,
+        earth_layer;
+        vertical_layers,
+        air_layer,
+        combine
+    )
+end

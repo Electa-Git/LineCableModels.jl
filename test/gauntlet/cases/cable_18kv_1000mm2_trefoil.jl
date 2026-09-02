@@ -217,7 +217,7 @@ case_definition(
     )
     formation_spacing = (2 + p.formation_clearance_ratio) *
                         LineCableModels.outer_radius(design)
-    earth = LineCableModels.Earth(
+    earth = LineCableModels.homogeneous(
         rho = p.earth_rho, eps_r = p.earth_eps_r, mu_r = 1.0
     )
     placements = LineCableModels.trefoil(

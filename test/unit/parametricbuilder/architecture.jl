@@ -49,7 +49,7 @@
 
     problems=LineParametersProblem(
         system;
-        earth_props = PB.Earth(rho = 100.0, eps_r = 10.0),
+        earth_props = PB.homogeneous(rho = 100.0, eps_r = 10.0),
         frequencies = [50.0]
     )
     @test problems isa Gridspace{LineParametersProblem}
@@ -58,7 +58,7 @@
     @test (@inferred CableDesign first(design)) isa CableDesign
     @test (@inferred LineCableSystem first(system)) isa LineCableSystem
 
-    earth_space=PB.Earth(rho = Grid((10.0, 100.0)), eps_r = 1.0)
+    earth_space=PB.homogeneous(rho = Grid((10.0, 100.0)), eps_r = 1.0)
     collection_problems=LineParametersProblem(
         collection_system,
         earth_space;
@@ -130,7 +130,7 @@
         first(counted_designs),
         Pose2(0.0, -1.0);
         connections = (core = 1,),
-        earth_props = PB.Earth(rho = 100.0),
+        earth_props = PB.homogeneous(rho = 100.0),
         frequencies = [1.0, 10.0, 100.0]
     )
     @test resolution_count[] == 2
