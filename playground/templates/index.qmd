@@ -1,6 +1,6 @@
 ---
 title: "Template gallery"
-subtitle: "Rendered patterns backed by reusable Quarto source files. Open a template, inspect it at full size, then use View Source or copy the corresponding .qmd file."
+subtitle: "Reusable Quarto layouts and a complete browser-hosted workbench. Open each pattern at full size and copy only the source appropriate to its ownership boundary."
 body-classes: lc-gallery-page
 ---
 
@@ -84,6 +84,16 @@ A responsive same-origin Bonito viewport with a supporting context or control pa
 An expanded navigation sidebar that contracts to a meaningful icon rail while the content canvas reclaims its width.
 
 [Open template →](collapsible-sidebar.qmd){.lc-gallery-link}
+:::
+
+::: {.lc-gallery-card}
+[COMPLETE WORKBENCH]{.lc-gallery-label}
+
+## Engineering workbench
+
+A standalone Bonito application shell with typed commands, persistent views, inspector, output dock, and status bar.
+
+[Open workbench →](/workbenches/template){.lc-gallery-link}
 :::
 
 :::

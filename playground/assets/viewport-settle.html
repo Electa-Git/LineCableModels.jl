@@ -1,0 +1,103 @@
+<script>
+(() => {
+  "use strict";
+
+  const FRAME_SELECTOR = ".lc-widget-frame";
+  const HOST_SELECTOR = ".lc-widget-demo, .lc-widget-template-panel";
+  const SETTLE_DELAY_MS = 220;
+  const stableWidths = new WeakMap();
+  const observedFrames = new WeakSet();
+  let heldFrames = [];
+  let releaseTimer = 0;
+  let settling = false;
+
+  const frameWidth = (frame) => frame.getBoundingClientRect().width;
+
+  const resizeObserver = new ResizeObserver((entries) => {
+    if (settling) return;
+    entries.forEach(({ target, contentRect }) => {
+      if (contentRect.width > 0) stableWidths.set(target, contentRect.width);
+    });
+  });
+
+  const observeFrames = (root = document) => {
+    const frames = [
+      ...(root.matches?.(FRAME_SELECTOR) ? [root] : []),
+      ...root.querySelectorAll(FRAME_SELECTOR),
+    ];
+    frames.forEach((frame) => {
+      if (observedFrames.has(frame)) return;
+      observedFrames.add(frame);
+      stableWidths.set(frame, frameWidth(frame));
+      resizeObserver.observe(frame);
+    });
+  };
+
+  const releaseFrames = () => {
+    heldFrames.forEach(({ frame, host }) => {
+      frame.classList.remove("lc-viewport-held");
+      frame.style.removeProperty("--lc-held-frame-width");
+      host?.classList.remove("lc-viewport-settle-host");
+    });
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        settling = false;
+        heldFrames.forEach(({ frame }) => {
+          const width = frameWidth(frame);
+          if (width > 0) stableWidths.set(frame, width);
+        });
+        heldFrames = [];
+        window.dispatchEvent(new CustomEvent("lcm:viewport-settled"));
+      });
+    });
+  };
+
+  const scheduleRelease = () => {
+    const visibleFrames = Array.from(
+      document.querySelectorAll(FRAME_SELECTOR)
+    ).filter((frame) => frame.getClientRects().length > 0);
+    if (visibleFrames.length === 0) return;
+
+    if (!settling) {
+      settling = true;
+      heldFrames = visibleFrames.map((frame) => {
+        const host = frame.closest(HOST_SELECTOR);
+        const width = stableWidths.get(frame) || frameWidth(frame);
+        frame.style.setProperty(
+          "--lc-held-frame-width",
+          `${Math.max(1, width)}px`
+        );
+        frame.classList.add("lc-viewport-held");
+        host?.classList.add("lc-viewport-settle-host");
+        return { frame, host };
+      });
+    }
+
+    window.clearTimeout(releaseTimer);
+    releaseTimer = window.setTimeout(releaseFrames, SETTLE_DELAY_MS);
+  };
+
+  const initialize = () => {
+    observeFrames();
+    new MutationObserver((mutations) => {
+      mutations.forEach(({ addedNodes }) => {
+        addedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE) observeFrames(node);
+        });
+      });
+    }).observe(document.body, { childList: true, subtree: true });
+
+    window.addEventListener("resize", scheduleRelease, { passive: true });
+    window.addEventListener("orientationchange", scheduleRelease, {
+      passive: true,
+    });
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initialize, { once: true });
+  } else {
+    initialize();
+  }
+})();
+</script>

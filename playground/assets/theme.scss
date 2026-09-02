@@ -18,23 +18,6 @@ $grid-sidebar-width: 18rem;
 
 /*-- scss:rules --*/
 
-:root {
-  --lc-bg: #1f2424;
-  --lc-sidebar-bg: #282f2f;
-  --lc-panel-bg: #252b2b;
-  --lc-text: #dbdee0;
-  --lc-heading: #f2f2f2;
-  --lc-muted: #a8b0b0;
-  --lc-border: #5e6d6f;
-  --lc-link: #4eb5de;
-  --lc-focus: #1abc9c;
-  --lc-sidebar-width: 18rem;
-  --lc-radius: 2px;
-  --lc-type-unit: clamp(15px, calc(13px + 0.1875vw), 18px);
-  --lc-kicker-heading-gap: 0.5rem;
-  --lc-heading-content-gap: 0.75rem;
-}
-
 html,
 body {
   width: 100vw;
@@ -310,6 +293,10 @@ body.lc-template-page .quarto-secondary-nav-title::before {
 
 body.lc-widget-gallery .quarto-secondary-nav-title::before {
   content: "Widgets  ›";
+}
+
+body.lc-workbench-index .quarto-secondary-nav-title::before {
+  content: "Workbench  ›";
 }
 
 .quarto-secondary-nav .container-fluid::after {
@@ -590,6 +577,25 @@ body.lc-home .quarto-title-block,
   color: #fff;
 }
 
+.lc-workbench-open {
+  display: inline-flex;
+  width: max-content;
+  margin-top: 0.35rem;
+  padding: 0.55rem 0.8rem;
+  color: #102523;
+  font-weight: 700;
+  text-decoration: none;
+  background: var(--lc-focus);
+  border: 1px solid var(--lc-focus);
+  border-radius: var(--lc-radius);
+}
+
+.lc-workbench-open:hover,
+.lc-workbench-open:focus-visible {
+  color: #102523;
+  background: #35cbb0;
+}
+
 .lc-template-stage {
   display: grid;
 }
@@ -776,6 +782,21 @@ body.lc-home .quarto-title-block,
   border: 0;
 }
 
+/* Hold live iframe viewports at their last stable width while the browser is
+ * moving or resizing. The static shell remains responsive; Bonito receives
+ * one final viewport change after Chrome's native window geometry settles. */
+.lc-viewport-settle-host {
+  min-width: 0;
+  overflow: hidden !important;
+  contain: inline-size;
+}
+
+.lc-widget-frame.lc-viewport-held {
+  width: var(--lc-held-frame-width) !important;
+  max-width: none;
+  pointer-events: none;
+}
+
 .lc-widget-template-panel {
   display: grid;
   padding: 0;
@@ -806,6 +827,36 @@ body.lc-widget-gallery #quarto-document-content > section.level2 > h2 {
 
 body.lc-widget-gallery #quarto-document-content > section.level2 > p {
   margin: 0 0 0.75rem;
+}
+
+/* The workbench index is reference documentation, so its sections flow as a
+ * document. Quarto's default two-row page grid otherwise makes later code
+ * blocks compete with the introductory panels for the viewport height. */
+body.lc-workbench-index main#quarto-document-content {
+  display: block;
+}
+
+body.lc-workbench-index .quarto-title-block,
+body.lc-workbench-index main#quarto-document-content > .lc-layout,
+body.lc-workbench-index main#quarto-document-content > section.level2 {
+  width: min(100%, 92rem);
+  margin-inline: auto;
+}
+
+body.lc-workbench-index .quarto-title-block {
+  margin-bottom: 1rem !important;
+}
+
+body.lc-workbench-index main#quarto-document-content > .lc-layout {
+  min-height: 0;
+}
+
+body.lc-workbench-index main#quarto-document-content > section.level2 {
+  margin-top: 1rem;
+}
+
+body.lc-workbench-index .lc-template-panel {
+  overflow: visible;
 }
 
 footer.footer {

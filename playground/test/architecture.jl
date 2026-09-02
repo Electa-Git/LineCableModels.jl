@@ -84,6 +84,26 @@
     @test !isnothing(LineCableModelsPlayground.runtime_job_widget(client))
     @test isempty(client.handles)
 
+    workbench_source = joined_sources(joinpath(root, "src", "workbench"))
+    template_workbench_source = joined_sources(
+        joinpath(root, "src", "workbenches")
+    )
+    @test !occursin(
+        r"(?m)^\s*(?:using|import)\s+(?:NATS|LineCableModels|PowerImpedance)\b",
+        workbench_source
+    )
+    @test !occursin(
+        r"(?m)^\s*(?:using|import)\s+(?:NATS|LineCableModels|PowerImpedance)\b",
+        template_workbench_source
+    )
+    @test occursin("abstract type AbstractWorkbenchAction", workbench_source)
+    @test occursin("handle!(runtime.application", workbench_source)
+    @test occursin("ViewStack", workbench_source)
+    @test occursin("/workbenches/template", read(
+        joinpath(root, "src", "LineCableModelsPlayground.jl"),
+        String
+    ))
+
     job_controls = read(
         joinpath(root, "src", "widgets", "JobControls.jl"),
         String

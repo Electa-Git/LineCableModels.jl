@@ -1,0 +1,624 @@
+.lc-wb-demo-kicker {
+  color: var(--lc-focus);
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+.lc-wb-demo-overview,
+.lc-wb-demo-generic-view,
+.lc-wb-demo-viewport {
+  min-width: 0;
+  min-height: 0;
+  padding: clamp(1rem, 2vw, 1.6rem);
+}
+
+.lc-wb-demo-overview {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.lc-wb-demo-overview header {
+  max-width: 64rem;
+}
+
+.lc-wb-demo-overview h1,
+.lc-wb-demo-generic-view h1,
+.lc-wb-demo-viewport h1,
+.lc-wb-demo-empty h1 {
+  margin: 0.42rem 0 0.55rem;
+  color: var(--lc-heading);
+  font-size: clamp(1.55rem, 2.4vw, 2.25rem);
+  line-height: 1.15;
+}
+
+.lc-wb-demo-overview header p,
+.lc-wb-demo-generic-view header p {
+  max-width: 68ch;
+  margin: 0;
+  color: var(--lc-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.lc-wb-demo-principles {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: stretch;
+  gap: 0.75rem;
+}
+
+.lc-wb-demo-principles article {
+  display: flex;
+  min-width: 0;
+  padding: clamp(0.9rem, 1.6vw, 1.25rem);
+  flex-direction: column;
+  justify-content: flex-end;
+  background: var(--lc-panel-bg);
+  border: 1px solid var(--lc-border);
+  border-radius: var(--lc-radius);
+}
+
+.lc-wb-demo-principles article > span {
+  margin-bottom: auto;
+  color: var(--lc-link);
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.72rem;
+}
+
+.lc-wb-demo-principles h2 {
+  margin: 1rem 0 0.5rem;
+  color: var(--lc-heading);
+  font-size: clamp(1rem, 1.5vw, 1.3rem);
+}
+
+.lc-wb-demo-principles p {
+  margin: 0;
+  color: var(--lc-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.lc-wb-demo-viewport {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+.lc-wb-demo-viewport > header {
+  display: flex;
+  min-width: 0;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.lc-wb-demo-machine {
+  color: var(--lc-muted);
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.lc-wb-demo-scene {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  grid-template-rows: 2rem minmax(0, 1fr);
+  background: #e7e8e8;
+  border: 1px solid var(--lc-border);
+  border-radius: var(--lc-radius);
+  overflow: hidden;
+}
+
+.lc-wb-demo-input-panel {
+  display: grid;
+  min-width: 0;
+  min-height: 100%;
+  padding: 0.9rem;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  align-content: start;
+  gap: 0.9rem;
+  background: var(--lc-panel-bg);
+  border: 1px solid var(--lc-border);
+  border-radius: var(--lc-radius);
+}
+
+.lc-wb-demo-input-panel header {
+  min-width: 0;
+}
+
+.lc-wb-demo-input-panel h2 {
+  margin: 0.35rem 0 0;
+  color: var(--lc-heading);
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.lc-wb-demo-fields {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.lc-wb-demo-fields > label {
+  display: grid;
+  min-width: 0;
+  gap: 0.3rem;
+  color: var(--lc-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.lc-wb-demo-fields input,
+.lc-wb-demo-fields select {
+  width: 100%;
+  min-width: 0;
+  height: 2rem;
+  margin: 0;
+  padding: 0 0.55rem;
+  color: var(--lc-heading);
+  background: #1c2222;
+  border: 1px solid var(--lc-border);
+  border-radius: var(--lc-radius);
+  color-scheme: dark;
+}
+
+.lc-wb-demo-fields input:focus,
+.lc-wb-demo-fields select:focus {
+  border-color: var(--lc-link);
+  outline: 1px solid var(--lc-link);
+  outline-offset: -1px;
+}
+
+.lc-wb-demo-fields option {
+  color: var(--lc-heading);
+  background: #202626;
+}
+
+.lc-wb-demo-input-with-unit {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.lc-wb-demo-input-with-unit span {
+  display: grid;
+  height: 2rem;
+  padding: 0 0.55rem;
+  place-items: center;
+  color: var(--lc-muted);
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.68rem;
+  background: #252c2c;
+  border: 1px solid var(--lc-border);
+  border-left: 0;
+}
+
+.lc-wb-demo-input-with-unit input {
+  border-radius: var(--lc-radius) 0 0 var(--lc-radius);
+}
+
+.lc-wb-demo-readout {
+  display: grid;
+  margin: 0;
+  border-top: 1px solid var(--lc-border-soft);
+}
+
+.lc-wb-demo-readout > div {
+  display: grid;
+  min-width: 0;
+  min-height: 2.1rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  border-bottom: 1px solid var(--lc-border-soft);
+}
+
+.lc-wb-demo-readout dt,
+.lc-wb-demo-readout dd {
+  margin: 0;
+  font-size: 0.68rem;
+}
+
+.lc-wb-demo-readout dt {
+  color: var(--lc-muted);
+}
+
+.lc-wb-demo-readout dd {
+  overflow: hidden;
+  color: var(--lc-heading);
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lc-wb-demo-readout .is-accent {
+  color: var(--lc-link);
+}
+
+.lc-wb-demo-input-panel > p {
+  margin: 0;
+  align-self: end;
+  color: var(--lc-muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+/* SplitPane owns the shared seam. Avoid stacking each panel's border on top
+ * of its single draggable rule, while retaining complete borders after the
+ * responsive layout stacks vertically. */
+@container (min-width: 42.001rem) {
+  .lc-wb-split-horizontal > .lc-wb-split-first > .lc-wb-demo-scene {
+    border-right: 0;
+  }
+
+  .lc-wb-split-horizontal > .lc-wb-split-second > .lc-wb-demo-input-panel {
+    border-left: 0;
+  }
+}
+
+.lc-wb-demo-scene figcaption {
+  display: flex;
+  min-width: 0;
+  padding: 0 0.65rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--lc-text);
+  font-size: 0.7rem;
+  background: var(--lc-panel-bg);
+  border-bottom: 1px solid var(--lc-border);
+}
+
+.lc-wb-demo-scene figcaption span {
+  overflow: hidden;
+  color: var(--lc-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lc-wb-demo-scene svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.lc-wb-demo-scene .ground {
+  stroke: #4a985a;
+  stroke-width: 4;
+}
+
+.lc-wb-demo-scene .dimension {
+  fill: none;
+  stroke: #7c8688;
+  stroke-dasharray: 5 5;
+  stroke-width: 1.5;
+}
+
+.lc-wb-demo-scene .label,
+.lc-wb-demo-scene .node {
+  fill: #465355;
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 13px;
+}
+
+.lc-wb-demo-scene .node {
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.lc-wb-demo-scene .jacket {
+  fill: #132929;
+  stroke: #182020;
+  stroke-width: 2;
+}
+
+.lc-wb-demo-scene .insulation {
+  fill: #d8dad8;
+  stroke: #687476;
+  stroke-width: 2;
+}
+
+.lc-wb-demo-scene .conductor {
+  fill: #c67a43;
+  stroke: #6a4027;
+  stroke-width: 2;
+}
+
+.lc-wb-demo-scene .envelope,
+.lc-wb-demo-scene .interface {
+  fill: none;
+  opacity: 0;
+}
+
+.lc-wb-demo-scene.layer-uncertainty .envelope {
+  opacity: 1;
+  stroke: rgb(78 181 222 / 38%);
+  stroke-width: 15;
+}
+
+.lc-wb-demo-scene.layer-interfaces .interface {
+  opacity: 1;
+  stroke: var(--lc-focus);
+  stroke-dasharray: 5 4;
+  stroke-width: 3;
+}
+
+.lc-wb-demo-generic-view {
+  display: grid;
+  grid-template-rows: auto minmax(12rem, 1fr);
+  gap: 1rem;
+}
+
+.lc-wb-demo-sweep {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  padding: 1rem;
+  grid-template-rows: auto minmax(0, 1fr);
+  place-items: center;
+  color: var(--lc-muted);
+  background: var(--lc-panel-bg);
+  border: 1px solid var(--lc-border);
+  overflow: hidden;
+}
+
+.lc-wb-demo-spinner {
+  display: none;
+  width: 1.4rem;
+  height: 1.4rem;
+  border: 2px solid var(--lc-border);
+  border-top-color: var(--lc-focus);
+  border-radius: 50%;
+  animation: lc-wb-spin 700ms linear infinite;
+}
+
+.lc-wb-demo-sweep.is-loading .lc-wb-demo-spinner {
+  display: block;
+}
+
+.lc-wb-demo-trace {
+  display: flex;
+  width: min(92%, 54rem);
+  height: 58%;
+  align-items: end;
+  gap: 2px;
+  border-bottom: 1px solid #667173;
+}
+
+.lc-wb-demo-trace i {
+  width: 100%;
+  height: calc(18% + var(--sample) * 2.6%);
+  background: var(--lc-link);
+  opacity: 0.48;
+}
+
+.lc-wb-demo-sweep.is-loading .lc-wb-demo-trace i {
+  opacity: 0.75;
+}
+
+@keyframes lc-wb-spin {
+  to { transform: rotate(360deg); }
+}
+
+.lc-wb-demo-empty {
+  display: grid;
+  min-height: 100%;
+  padding: 2rem;
+  place-content: center;
+  justify-items: center;
+  text-align: center;
+}
+
+.lc-wb-demo-empty-icon {
+  width: 2.3rem;
+  height: 2.3rem;
+  color: var(--lc-muted);
+}
+
+.lc-wb-demo-empty p {
+  max-width: 38rem;
+  margin: 0;
+  color: var(--lc-muted);
+}
+
+.lc-wb-demo-properties {
+  display: grid;
+  align-content: start;
+}
+
+.lc-wb-demo-properties > div {
+  display: grid;
+  min-width: 0;
+  min-height: 2.65rem;
+  padding: 0.55rem 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--lc-border-soft);
+}
+
+.lc-wb-demo-properties span,
+.lc-wb-demo-property label {
+  color: var(--lc-muted);
+  font-size: 0.72rem;
+}
+
+.lc-wb-demo-properties strong,
+.lc-wb-demo-property output {
+  overflow: hidden;
+  color: var(--lc-heading);
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lc-wb-demo-properties .is-accent {
+  color: var(--lc-link);
+}
+
+.lc-wb-demo-property {
+  grid-template-rows: auto auto;
+}
+
+.lc-wb-demo-range {
+  width: 100%;
+  grid-column: 1 / -1;
+  accent-color: var(--lc-focus);
+}
+
+.lc-wb-demo-footer {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.lc-wb-demo-status-dot {
+  width: 0.48rem;
+  height: 0.48rem;
+  flex: 0 0 auto;
+  background: var(--lc-focus);
+  border-radius: 50%;
+}
+
+.lc-wb-demo-footer-copy {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lc-wb-demo-output {
+  position: relative;
+  min-height: 100%;
+  padding: 0.5rem 0.75rem;
+  color: var(--lc-text);
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.68rem;
+}
+
+.lc-wb-demo-output > button {
+  position: sticky;
+  top: 0;
+  float: right;
+  z-index: 2;
+  padding: 0.25rem 0.5rem;
+  color: var(--lc-muted);
+  background: var(--lc-panel-bg);
+  border: 1px solid var(--lc-border-soft);
+  border-radius: var(--lc-radius);
+}
+
+.lc-wb-demo-log-lines {
+  display: grid;
+  gap: 0.22rem;
+}
+
+.lc-wb-demo-log-lines > div {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  gap: 0.6rem;
+}
+
+.lc-wb-demo-log-lines span {
+  color: var(--lc-muted);
+}
+
+.lc-wb-demo-log-lines .channel-info span,
+.lc-wb-demo-log-lines .channel-broker span {
+  color: var(--lc-focus);
+}
+
+.lc-wb-demo-log-lines code {
+  color: var(--lc-text);
+  background: transparent;
+}
+
+.lc-wb-demo-log-empty {
+  display: grid;
+  min-height: 7rem;
+  place-items: center;
+  color: var(--lc-muted);
+}
+
+.lc-wb-demo-job,
+.lc-wb-demo-broker,
+.lc-wb-demo-dock-empty {
+  display: grid;
+  min-height: 100%;
+  padding: 0.75rem 1rem;
+  align-content: center;
+  gap: 0.22rem;
+}
+
+.lc-wb-demo-job {
+  grid-template-columns: minmax(0, 1fr) minmax(10rem, 0.4fr);
+}
+
+.lc-wb-demo-job > div,
+.lc-wb-demo-broker {
+  display: grid;
+}
+
+.lc-wb-demo-job span,
+.lc-wb-demo-broker > span {
+  color: var(--lc-muted);
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.62rem;
+}
+
+.lc-wb-demo-job.is-running span {
+  color: var(--lc-focus);
+}
+
+.lc-wb-demo-job strong,
+.lc-wb-demo-broker strong,
+.lc-wb-demo-dock-empty span {
+  color: var(--lc-heading);
+  font-size: 0.78rem;
+}
+
+.lc-wb-demo-job small,
+.lc-wb-demo-broker small,
+.lc-wb-demo-dock-empty small {
+  color: var(--lc-muted);
+  font-size: 0.68rem;
+}
+
+.lc-wb-demo-job progress {
+  width: 100%;
+  accent-color: var(--lc-focus);
+}
+
+.lc-wb-demo-dock-empty {
+  grid-template-columns: 1.1rem minmax(0, 1fr);
+}
+
+.lc-wb-demo-dock-empty small {
+  grid-column: 2;
+}
+
+.lc-wb-demo-broker > span {
+  color: var(--lc-link);
+}
+
+@media (max-width: 850px) {
+  .lc-wb-demo-principles {
+    grid-template-columns: 1fr;
+  }
+
+  .lc-wb-demo-job {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,1008 @@
+module WorkbenchUI
+
+using Bonito
+using UUIDs
+
+export AbstractWorkbench,
+    AbstractWorkbenchAction,
+    AbstractWorkbenchView,
+    ChoiceOption,
+    Command,
+    CommandChoice,
+    Dock,
+    DockTab,
+    Identity,
+    Inspector,
+    Menu,
+    MenuBar,
+    NavGroup,
+    NavItem,
+    Sidebar,
+    SplitPane,
+    StatusBar,
+    Toolbar,
+    View,
+    ViewStack,
+    Workbench,
+    compose,
+    handle!,
+    icon,
+    initialize,
+    workbench_app
+
+abstract type AbstractWorkbench end
+abstract type AbstractWorkbenchAction end
+abstract type AbstractWorkbenchView end
+
+const NAME_PATTERN = r"^[a-z][a-z0-9_]*$"
+const BRAND_STYLES_PATH = normpath(
+    joinpath(@__DIR__, "..", "..", "assets", "brand.css")
+)
+const WORKBENCH_STYLES_PATH = joinpath(@__DIR__, "workbench.css")
+include_dependency(BRAND_STYLES_PATH)
+include_dependency(WORKBENCH_STYLES_PATH)
+const BRAND_STYLES = read(BRAND_STYLES_PATH, String)
+const WORKBENCH_STYLES = read(WORKBENCH_STYLES_PATH, String)
+
+function valid_name(name::Symbol, kind::AbstractString)
+    occursin(NAME_PATTERN, string(name)) || throw(ArgumentError(
+        "$kind must use lowercase snake_case and start with a letter: $name"
+    ))
+    return name
+end
+
+struct Identity{M}
+    title::String
+    subtitle::String
+    mark::M
+end
+
+Identity(title::AbstractString, subtitle::AbstractString; mark=nothing) =
+    Identity(string(title), string(subtitle), mark)
+
+struct NavItem{A}
+    id::Symbol
+    label::String
+    icon::Symbol
+    action::A
+    tooltip::String
+    disabled::Bool
+end
+
+function NavItem(
+        id::Symbol,
+        label::AbstractString,
+        action=nothing;
+        icon::Symbol=:document,
+        tooltip::AbstractString=label,
+        disabled::Bool=false
+    )
+    valid_name(id, "navigation item")
+    return NavItem(id, string(label), icon, action, string(tooltip), disabled)
+end
+
+struct NavGroup{T<:Tuple}
+    label::String
+    items::T
+end
+
+NavGroup(label::AbstractString, items::NavItem...) = NavGroup(string(label), items)
+
+struct Sidebar{G<:Tuple,F,A}
+    groups::G
+    footer::F
+    active::A
+    initial_state::Symbol
+end
+
+function Sidebar(
+        groups::NavGroup...;
+        active,
+        footer=nothing,
+        initial_state::Symbol=:expanded
+    )
+    initial_state in (:expanded, :collapsed) || throw(ArgumentError(
+        "sidebar initial_state must be :expanded or :collapsed"
+    ))
+    ids = (item.id for group in groups for item in group.items)
+    allunique(ids) || throw(ArgumentError("navigation item ids must be unique"))
+    return Sidebar(groups, footer, active, initial_state)
+end
+
+struct Command{A}
+    action::A
+    icon::Symbol
+    label::Union{Nothing,String}
+    tooltip::String
+    disabled::Bool
+end
+
+function Command(
+        action;
+        icon::Symbol,
+        label::Union{Nothing,AbstractString}=nothing,
+        tooltip::Union{Nothing,AbstractString}=nothing,
+        disabled::Bool=false
+    )
+    resolved_label = isnothing(label) ? nothing : string(label)
+    resolved_tooltip = if isnothing(tooltip)
+        isnothing(resolved_label) ? string(nameof(typeof(action))) : resolved_label
+    else
+        string(tooltip)
+    end
+    return Command(action, icon, resolved_label, resolved_tooltip, disabled)
+end
+
+struct ChoiceOption{A}
+    id::Symbol
+    label::String
+    action::A
+end
+
+function ChoiceOption(id::Symbol, label::AbstractString, action)
+    valid_name(id, "choice option")
+    return ChoiceOption(id, string(label), action)
+end
+
+struct CommandChoice{O<:Tuple,S}
+    label::String
+    icon::Symbol
+    options::O
+    selected::S
+    tooltip::String
+    disabled::Bool
+end
+
+function CommandChoice(
+        label::AbstractString,
+        options::ChoiceOption...;
+        selected,
+        icon::Symbol=:layers,
+        tooltip::AbstractString=label,
+        disabled::Bool=false
+    )
+    isempty(options) && throw(ArgumentError("command choice requires an option"))
+    allunique(option.id for option in options) || throw(ArgumentError(
+        "command choice option ids must be unique"
+    ))
+    return CommandChoice(
+        string(label),
+        icon,
+        options,
+        selected,
+        string(tooltip),
+        disabled
+    )
+end
+
+struct Menu{T<:Tuple}
+    label::String
+    items::T
+end
+
+Menu(label::AbstractString, items::Command...) = Menu(string(label), items)
+
+struct MenuBar{T<:Tuple}
+    menus::T
+end
+
+MenuBar(menus::Menu...) = MenuBar(menus)
+
+struct Toolbar{T<:Tuple}
+    items::T
+    label::String
+    size::Symbol
+end
+
+function Toolbar(
+        items::Union{Command,CommandChoice}...;
+        label::AbstractString="Workbench tools",
+        size::Symbol=:medium
+    )
+    size in (:small, :medium, :large) || throw(ArgumentError(
+        "toolbar size must be :small, :medium, or :large"
+    ))
+    return Toolbar(items, string(label), size)
+end
+
+struct View{C}
+    id::Symbol
+    title::String
+    content::C
+end
+
+function View(id::Symbol, title::AbstractString, content)
+    valid_name(id, "view")
+    return View(id, string(title), content)
+end
+
+struct ViewStack{V<:Tuple,A}
+    views::V
+    active::A
+end
+
+struct SplitPane{A,B}
+    first::A
+    second::B
+    orientation::Symbol
+    ratio::Float64
+    min_first::String
+    min_second::String
+    resizable::Bool
+    responsive::Bool
+end
+
+function SplitPane(
+        first,
+        second;
+        orientation::Symbol=:horizontal,
+        ratio::Real=0.68,
+        min_first::AbstractString="12rem",
+        min_second::AbstractString="12rem",
+        resizable::Bool=true,
+        responsive::Bool=true
+    )
+    orientation in (:horizontal, :vertical) || throw(ArgumentError(
+        "split orientation must be :horizontal or :vertical"
+    ))
+    0.15 <= ratio <= 0.85 || throw(ArgumentError(
+        "split ratio must be between 0.15 and 0.85"
+    ))
+    return SplitPane(
+        first,
+        second,
+        orientation,
+        Float64(ratio),
+        string(min_first),
+        string(min_second),
+        resizable,
+        responsive
+    )
+end
+
+function ViewStack(views::View...; active)
+    isempty(views) && throw(ArgumentError("view stack requires a view"))
+    allunique(view.id for view in views) || throw(ArgumentError(
+        "view ids must be unique"
+    ))
+    return ViewStack(views, active)
+end
+
+struct Inspector{C}
+    title::String
+    subtitle::String
+    content::C
+end
+
+Inspector(title::AbstractString, content; subtitle::AbstractString="Properties") =
+    Inspector(string(title), string(subtitle), content)
+
+struct DockTab{C}
+    id::Symbol
+    label::String
+    content::C
+end
+
+function DockTab(id::Symbol, label::AbstractString, content)
+    valid_name(id, "dock tab")
+    return DockTab(id, string(label), content)
+end
+
+struct Dock{T<:Tuple,A}
+    tabs::T
+    active::A
+    initial_state::Symbol
+end
+
+function Dock(tabs::DockTab...; active, initial_state::Symbol=:expanded)
+    isempty(tabs) && throw(ArgumentError("dock requires a tab"))
+    allunique(tab.id for tab in tabs) || throw(ArgumentError(
+        "dock tab ids must be unique"
+    ))
+    initial_state in (:expanded, :collapsed) || throw(ArgumentError(
+        "dock initial_state must be :expanded or :collapsed"
+    ))
+    return Dock(tabs, active, initial_state)
+end
+
+struct StatusBar{L,R}
+    left::L
+    right::R
+end
+
+StatusBar(left; right=nothing) = StatusBar(left, right)
+
+struct Workbench{I,M,T,N,W,P,D,S}
+    namespace::Symbol
+    identity::I
+    menu::M
+    toolbar::T
+    navigation::N
+    workspace::W
+    inspector::P
+    output::D
+    status::S
+end
+
+function Workbench(;
+        namespace::Symbol,
+        identity,
+        navigation,
+        workspace,
+        menu=MenuBar(),
+        toolbar=Toolbar(),
+        inspector=nothing,
+        output=nothing,
+        status=nothing
+    )
+    valid_name(namespace, "workbench namespace")
+    return Workbench(
+        namespace,
+        identity,
+        menu,
+        toolbar,
+        navigation,
+        workspace,
+        inspector,
+        output,
+        status
+    )
+end
+
+"""Create session-local state for an application."""
+function initialize end
+
+"""Describe a workbench from its application and session-local state."""
+function compose end
+
+"""Handle one typed workbench action."""
+function handle! end
+
+struct Runtime{A,S,W}
+    application::A
+    state::S
+    workbench::W
+end
+
+function workbench_app(
+        application::AbstractWorkbench;
+        title::AbstractString="LineCableModels workbench"
+    )
+    return App(; title=string(title)) do session
+        state = initialize(application, session)
+        workbench = compose(application, state)
+        workbench isa Workbench || throw(ArgumentError(
+            "compose must return a Workbench"
+        ))
+        return Runtime(application, state, workbench)
+    end
+end
+
+function icon(name::Symbol; class::AbstractString="lc-wb-icon")
+    children = if name == :workbench
+        (
+            SVG.rect(; x="3", y="3", width="7", height="7"),
+            SVG.rect(; x="14", y="3", width="7", height="7"),
+            SVG.rect(; x="3", y="14", width="7", height="7"),
+            SVG.rect(; x="14", y="14", width="7", height="7"),
+        )
+    elseif name == :geometry || name == :cable
+        (
+            SVG.circle(; cx="12", cy="12", r="8.5"),
+            SVG.circle(; cx="12", cy="8.5", r="2.1"),
+            SVG.circle(; cx="8.7", cy="14.2", r="2.1"),
+            SVG.circle(; cx="15.3", cy="14.2", r="2.1"),
+        )
+    elseif name == :chart
+        (
+            SVG.path(; d="M3 19h18M5 17V5m1 10 4-5 3 2 5-7"),
+        )
+    elseif name == :document
+        (
+            SVG.path(; d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h6M9 17h6"),
+        )
+    elseif name == :archive
+        (
+            SVG.path(; d="M4 4h16v5H4zM5.5 9v11h13V9M9 13h6"),
+        )
+    elseif name == :terminal
+        (
+            SVG.path(; d="m5 7 4 5-4 5M12 17h7"),
+        )
+    elseif name == :cloud
+        (
+            SVG.path(; d="M7 18h10a4 4 0 0 0 .5-8A6 6 0 0 0 6 9a4.5 4.5 0 0 0 1 9"),
+        )
+    elseif name == :fit
+        (
+            SVG.path(; d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5"),
+        )
+    elseif name == :reset
+        (
+            SVG.path(; d="M3 12a9 9 0 1 0 3-6.7M3 3v6h6"),
+        )
+    elseif name == :layers
+        (
+            SVG.path(; d="m12 2 9 5-9 5-9-5zM3 12l9 5 9-5M3 17l9 5 9-5"),
+        )
+    elseif name == :download
+        (
+            SVG.path(; d="M12 3v12m-5-5 5 5 5-5M5 21h14"),
+        )
+    elseif name == :play
+        (SVG.path(; d="m8 5 11 7-11 7z"),)
+    elseif name == :warning
+        (
+            SVG.path(; d="M12 3 2.5 20h19zM12 9v5M12 17h.01"),
+        )
+    elseif name == :settings
+        (
+            SVG.circle(; cx="12", cy="12", r="3"),
+            SVG.path(; d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.3 1A7 7 0 0 0 15 6l-.3-2.5h-4L10.4 6a7 7 0 0 0-1.7 1.1l-2.3-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.3-1A7 7 0 0 0 10.4 18l.3 2.5h4L15 18a7 7 0 0 0 1.7-1.1l2.3 1 2-3.4-2-1.5a7 7 0 0 0 0-1z"),
+        )
+    elseif name == :menu
+        (SVG.path(; d="M4 7h16M4 12h16M4 17h16"),)
+    elseif name == :chevron_left
+        (SVG.path(; d="m15 18-6-6 6-6"),)
+    elseif name == :chevron_up
+        (SVG.path(; d="m6 15 6-6 6 6"),)
+    else
+        throw(ArgumentError("unknown workbench icon: $name"))
+    end
+    attributes = Dict{Symbol,Any}(
+        Symbol("stroke-width") => "1.8",
+        Symbol("stroke-linecap") => "round",
+        Symbol("stroke-linejoin") => "round",
+        Symbol("aria-hidden") => "true",
+    )
+    return SVG.svg(
+        children...;
+        attributes...,
+        viewBox="0 0 24 24",
+        fill="none",
+        stroke="currentColor",
+        focusable="false",
+        class=string(class)
+    )
+end
+
+active_class(session, observable, id, base) = map(session, observable) do current
+    current == id ? "$base is-active" : base
+end
+
+function action_button(session, command::Command, dispatch; class="lc-wb-command")
+    trigger = Observable(false)
+    on(session, trigger) do _
+        command.disabled || dispatch(command.action)
+        return nothing
+    end
+    label = isnothing(command.label) ? nothing : DOM.span(
+        command.label;
+        class="lc-wb-command-label"
+    )
+    attributes = Dict{Symbol,Any}(
+        Symbol("aria-label") => command.tooltip,
+        Symbol("data-tooltip") => command.tooltip,
+    )
+    return DOM.button(
+        icon(command.icon),
+        label;
+        attributes...,
+        class,
+        type="button",
+        title=command.tooltip,
+        disabled=command.disabled,
+        onclick=js"event => $(trigger).notify(true)"
+    )
+end
+
+function choice_control(session, choice::CommandChoice, dispatch)
+    changed = Observable(string(choice.selected[]))
+    on(session, changed) do selected
+        option = findfirst(candidate -> string(candidate.id) == selected, choice.options)
+        isnothing(option) || dispatch(choice.options[option].action)
+        return nothing
+    end
+    options = [
+        DOM.option(
+            option.label;
+            value=string(option.id),
+            selected=(option.id == choice.selected[])
+        ) for option in choice.options
+    ]
+    select_attributes = Dict{Symbol,Any}(
+        Symbol("aria-label") => choice.tooltip,
+    )
+    select = DOM.select(
+        options...;
+        select_attributes...,
+        class="lc-wb-choice-select",
+        disabled=choice.disabled,
+        onchange=js"event => $(changed).notify(event.currentTarget.value)"
+    )
+    synchronize = js"""
+    (() => {
+        const select = $(select);
+        const selected = $(choice.selected);
+        selected.on(value => { select.value = String(value); });
+    })();
+    """
+    return DOM.div(
+        icon(choice.icon),
+        DOM.span(choice.label; class="lc-wb-choice-label"),
+        select,
+        DOM.script(synchronize);
+        class="lc-wb-choice",
+        title=choice.tooltip
+    )
+end
+
+function render_menu(session, menu::Menu, dispatch)
+    entries = map(menu.items) do command
+        button = action_button(
+            session,
+            command,
+            dispatch;
+            class="lc-wb-menu-command"
+        )
+        return button
+    end
+    return DOM.details(
+        DOM.summary(menu.label),
+        DOM.div(entries...; class="lc-wb-menu-popover");
+        class="lc-wb-menu"
+    )
+end
+
+function render_menubar(session, menubar::MenuBar, dispatch, namespace)
+    return DOM.header(
+        DOM.div(
+            (render_menu(session, menu, dispatch) for menu in menubar.menus)...;
+            class="lc-wb-menu-groups"
+        ),
+        DOM.span(namespace; class="lc-wb-menu-context");
+        class="lc-wb-menubar"
+    )
+end
+
+function render_toolbar(session, toolbar::Toolbar, dispatch)
+    items = map(toolbar.items) do item
+        item isa Command ?
+            action_button(session, item, dispatch) :
+            choice_control(session, item, dispatch)
+    end
+    attributes = Dict{Symbol,Any}(
+        Symbol("aria-label") => toolbar.label,
+    )
+    return DOM.div(
+        items...;
+        attributes...,
+        class="lc-wb-toolbar lc-wb-toolbar-$(toolbar.size)",
+        role="toolbar"
+    )
+end
+
+function render_nav_item(session, item::NavItem, active, dispatch)
+    trigger = Observable(false)
+    on(session, trigger) do _
+        item.disabled || isnothing(item.action) || dispatch(item.action)
+        return nothing
+    end
+    class = active_class(session, active, item.id, "lc-wb-nav-item")
+    attributes = Dict{Symbol,Any}(
+        Symbol("aria-label") => item.tooltip,
+        Symbol("aria-disabled") => string(item.disabled),
+        Symbol("data-tooltip") => item.tooltip,
+    )
+    return DOM.button(
+        icon(item.icon; class="lc-wb-nav-icon"),
+        DOM.span(item.label; class="lc-wb-nav-label"),
+        DOM.span(; class="lc-wb-active-mark");
+        attributes...,
+        type="button",
+        class,
+        disabled=item.disabled,
+        onclick=js"event => $(trigger).notify(true)"
+    )
+end
+
+function render_sidebar(session, identity::Identity, sidebar::Sidebar, dispatch)
+    mark = isnothing(identity.mark) ? icon(:workbench; class="lc-wb-identity-mark") :
+        identity.mark
+    groups = map(sidebar.groups) do group
+        return DOM.section(
+            DOM.h2(group.label; class="lc-wb-nav-heading"),
+            DOM.div(
+                (
+                    render_nav_item(session, item, sidebar.active, dispatch)
+                    for item in group.items
+                )...;
+                class="lc-wb-nav-items"
+            );
+            class="lc-wb-nav-group"
+        )
+    end
+    footer = isnothing(sidebar.footer) ? nothing : DOM.footer(
+        sidebar.footer;
+        class="lc-wb-sidebar-footer"
+    )
+    toggle_attributes = Dict{Symbol,Any}(
+        Symbol("aria-label") => "Collapse navigation",
+        Symbol("data-tooltip") => "Collapse navigation",
+        Symbol("data-lc-wb-sidebar-toggle") => "",
+    )
+    navigation_attributes = Dict{Symbol,Any}(
+        Symbol("aria-label") => "Workbench",
+    )
+    return DOM.aside(
+        DOM.header(
+            DOM.div(
+                mark,
+                DOM.span(
+                    DOM.strong(identity.title),
+                    DOM.small(identity.subtitle);
+                    class="lc-wb-identity-copy"
+                );
+                class="lc-wb-identity"
+            ),
+            DOM.button(
+                icon(:chevron_left);
+                toggle_attributes...,
+                type="button",
+                class="lc-wb-sidebar-toggle"
+            );
+            class="lc-wb-sidebar-header"
+        ),
+        DOM.nav(
+            groups...;
+            navigation_attributes...,
+            class="lc-wb-navigation"
+        ),
+        footer;
+        class="lc-wb-sidebar"
+    )
+end
+
+function render_viewstack(session, stack::ViewStack)
+    views = map(stack.views) do view
+        attributes = Dict{Symbol,Any}(
+            Symbol("aria-label") => view.title,
+            Symbol("data-view") => string(view.id),
+        )
+        return DOM.section(
+            view.content;
+            attributes...,
+            class=active_class(session, stack.active, view.id, "lc-wb-view"),
+            role="region"
+        )
+    end
+    return DOM.main(views...; class="lc-wb-workspace")
+end
+
+function split_script(root, orientation)
+    return js"""
+    (() => {
+        const root = $(root);
+        const splitter = root.querySelector(':scope > [data-lc-wb-splitter]');
+        if (!splitter) return;
+
+        let dragging = false;
+        let firstSize = 0;
+        let secondSize = 0;
+        let start = 0;
+
+        splitter.addEventListener('pointerdown', event => {
+            dragging = true;
+            const first = root.querySelector(':scope > .lc-wb-split-first');
+            const second = root.querySelector(':scope > .lc-wb-split-second');
+            const firstBounds = first.getBoundingClientRect();
+            const secondBounds = second.getBoundingClientRect();
+            firstSize = $(orientation == :horizontal) ? firstBounds.width : firstBounds.height;
+            secondSize = $(orientation == :horizontal) ? secondBounds.width : secondBounds.height;
+            start = $(orientation == :horizontal) ? event.clientX : event.clientY;
+            splitter.setPointerCapture(event.pointerId);
+            root.classList.add('is-resizing');
+            event.preventDefault();
+        });
+
+        splitter.addEventListener('pointermove', event => {
+            if (!dragging) return;
+            const position = $(orientation == :horizontal) ? event.clientX : event.clientY;
+            const delta = position - start;
+            const total = firstSize + secondSize;
+            const minimum = Math.min(140, total * 0.35);
+            const nextFirst = Math.max(minimum, Math.min(total - minimum, firstSize + delta));
+            const nextSecond = total - nextFirst;
+            if ($(orientation == :horizontal)) {
+                root.style.gridTemplateColumns = `${nextFirst}px 5px ${nextSecond}px`;
+            } else {
+                root.style.gridTemplateRows = `${nextFirst}px 5px ${nextSecond}px`;
+            }
+        });
+
+        const stop = event => {
+            if (!dragging) return;
+            dragging = false;
+            root.classList.remove('is-resizing');
+            if (splitter.hasPointerCapture(event.pointerId)) {
+                splitter.releasePointerCapture(event.pointerId);
+            }
+        };
+        splitter.addEventListener('pointerup', stop);
+        splitter.addEventListener('pointercancel', stop);
+    })();
+    """
+end
+
+function Bonito.jsrender(session::Session, split::SplitPane)
+    divider = split.resizable ? "5px" : "1px"
+    template = if split.orientation == :horizontal
+        "minmax($(split.min_first), $(split.ratio)fr) $divider " *
+        "minmax($(split.min_second), $(1 - split.ratio)fr)"
+    else
+        "minmax($(split.min_first), $(split.ratio)fr) $divider " *
+        "minmax($(split.min_second), $(1 - split.ratio)fr)"
+    end
+    style = split.orientation == :horizontal ?
+        "grid-template-columns: $template;" :
+        "grid-template-rows: $template;"
+    attributes = Dict{Symbol,Any}(
+        Symbol("data-orientation") => string(split.orientation),
+        Symbol("data-responsive") => string(split.responsive),
+    )
+    splitter_attributes = Dict{Symbol,Any}(
+        Symbol("data-lc-wb-splitter") => "",
+        Symbol("aria-hidden") => "true",
+    )
+    class = "lc-wb-split lc-wb-split-$(split.orientation)" *
+        (split.resizable ? "" : " is-fixed")
+    splitter = DOM.div(
+        ;
+        splitter_attributes...,
+        class="lc-wb-splitter"
+    )
+    root = DOM.div(
+        DOM.div(split.first; class="lc-wb-split-region lc-wb-split-first"),
+        splitter,
+        DOM.div(split.second; class="lc-wb-split-region lc-wb-split-second");
+        attributes...,
+        class,
+        style
+    )
+    script = split.resizable ? DOM.script(split_script(root, split.orientation)) : nothing
+    return Bonito.jsrender(session, DOM.div(root, script; class="lc-wb-split-mount"))
+end
+
+function render_inspector(inspector::Inspector)
+    return DOM.aside(
+        DOM.header(
+            DOM.div(
+                DOM.span(inspector.subtitle; class="lc-wb-panel-kicker"),
+                DOM.h2(inspector.title)
+            ),
+            icon(:settings);
+            class="lc-wb-inspector-header"
+        ),
+        DOM.div(inspector.content; class="lc-wb-inspector-content");
+        class="lc-wb-inspector"
+    )
+end
+
+function render_dock(session, dock::Dock)
+    tab_buttons = map(dock.tabs) do tab
+        trigger = Observable(false)
+        on(session, trigger) do _
+            dock.active[] = tab.id
+            return nothing
+        end
+        return DOM.button(
+            tab.label;
+            class=active_class(session, dock.active, tab.id, "lc-wb-dock-tab"),
+            type="button",
+            onclick=js"event => $(trigger).notify(true)"
+        )
+    end
+    panels = map(dock.tabs) do tab
+        attributes = Dict{Symbol,Any}(
+            Symbol("aria-label") => tab.label,
+        )
+        return DOM.section(
+            tab.content;
+            attributes...,
+            class=active_class(session, dock.active, tab.id, "lc-wb-dock-panel"),
+        )
+    end
+    splitter_attributes = Dict{Symbol,Any}(
+        Symbol("data-lc-wb-dock-splitter") => "",
+    )
+    toggle_attributes = Dict{Symbol,Any}(
+        Symbol("aria-label") => "Collapse output panel",
+        Symbol("data-tooltip") => "Collapse output panel",
+        Symbol("data-lc-wb-dock-toggle") => "",
+    )
+    return DOM.section(
+        DOM.div(; splitter_attributes..., class="lc-wb-dock-splitter"),
+        DOM.header(
+            DOM.div(tab_buttons...; class="lc-wb-dock-tabs", role="tablist"),
+            DOM.button(
+                icon(:chevron_up);
+                toggle_attributes...,
+                type="button",
+                class="lc-wb-dock-toggle"
+            );
+            class="lc-wb-dock-header"
+        ),
+        DOM.div(panels...; class="lc-wb-dock-content");
+        class="lc-wb-dock"
+    )
+end
+
+function render_status(status::StatusBar)
+    right = isnothing(status.right) ? nothing : DOM.div(
+        status.right;
+        class="lc-wb-status-right"
+    )
+    return DOM.footer(
+        DOM.div(status.left; class="lc-wb-status-left"),
+        right;
+        class="lc-wb-statusbar"
+    )
+end
+
+function intrinsic_script(root)
+    return js"""
+    (() => {
+        const root = $(root);
+        const sidebarToggle = root.querySelector('[data-lc-wb-sidebar-toggle]');
+        const dockToggle = root.querySelector('[data-lc-wb-dock-toggle]');
+        const splitter = root.querySelector('[data-lc-wb-dock-splitter]');
+        const menus = Array.from(root.querySelectorAll('.lc-wb-menu'));
+
+        menus.forEach(menu => {
+            menu.addEventListener('toggle', () => {
+                if (!menu.open) return;
+                menus.forEach(candidate => {
+                    if (candidate !== menu) candidate.removeAttribute('open');
+                });
+            });
+            menu.addEventListener('click', event => {
+                if (event.target.closest('.lc-wb-menu-command')) {
+                    menu.removeAttribute('open');
+                }
+            });
+        });
+
+        root.addEventListener('pointerdown', event => {
+            menus.forEach(menu => {
+                if (!menu.contains(event.target)) menu.removeAttribute('open');
+            });
+        });
+
+        root.addEventListener('keydown', event => {
+            if (event.key !== 'Escape') return;
+            menus.forEach(menu => menu.removeAttribute('open'));
+        });
+
+        const synchronizeSidebar = () => {
+            const collapsed = root.dataset.sidebarState === 'collapsed';
+            sidebarToggle.setAttribute('aria-label', collapsed
+                ? 'Expand navigation'
+                : 'Collapse navigation');
+            sidebarToggle.dataset.tooltip = collapsed
+                ? 'Expand navigation'
+                : 'Collapse navigation';
+            sidebarToggle.querySelector('svg').style.transform = collapsed
+                ? 'rotate(180deg)'
+                : 'none';
+        };
+
+        const synchronizeDock = () => {
+            const collapsed = root.dataset.dockState === 'collapsed';
+            dockToggle.setAttribute('aria-label', collapsed
+                ? 'Restore output panel'
+                : 'Collapse output panel');
+            dockToggle.dataset.tooltip = collapsed
+                ? 'Restore output panel'
+                : 'Collapse output panel';
+            dockToggle.querySelector('svg').style.transform = collapsed
+                ? 'rotate(180deg)'
+                : 'none';
+        };
+
+        sidebarToggle.addEventListener('click', () => {
+            root.dataset.sidebarState = root.dataset.sidebarState === 'collapsed'
+                ? 'expanded'
+                : 'collapsed';
+            synchronizeSidebar();
+        });
+
+        if (dockToggle) {
+            dockToggle.addEventListener('click', () => {
+                root.dataset.dockState = root.dataset.dockState === 'collapsed'
+                    ? 'expanded'
+                    : 'collapsed';
+                synchronizeDock();
+            });
+        }
+
+        if (splitter) {
+            let dragging = false;
+            splitter.addEventListener('pointerdown', event => {
+                if (root.dataset.dockState === 'collapsed') return;
+                dragging = true;
+                splitter.setPointerCapture(event.pointerId);
+                root.classList.add('is-splitting');
+                event.preventDefault();
+            });
+            splitter.addEventListener('pointermove', event => {
+                if (!dragging) return;
+                const bounds = root.getBoundingClientRect();
+                const height = Math.min(
+                    bounds.height * 0.55,
+                    Math.max(112, bounds.bottom - event.clientY - 26)
+                );
+                root.style.setProperty('--lc-wb-dock-height', `${height}px`);
+            });
+            const stop = event => {
+                if (!dragging) return;
+                dragging = false;
+                root.classList.remove('is-splitting');
+                if (splitter.hasPointerCapture(event.pointerId)) {
+                    splitter.releasePointerCapture(event.pointerId);
+                }
+            };
+            splitter.addEventListener('pointerup', stop);
+            splitter.addEventListener('pointercancel', stop);
+        }
+
+        synchronizeSidebar();
+        synchronizeDock();
+    })();
+    """
+end
+
+function Bonito.jsrender(session::Session, runtime::Runtime)
+    workbench = runtime.workbench
+    dispatch = action -> handle!(runtime.application, runtime.state, action)
+    scope = "$(workbench.namespace)-$(uuid4())"
+    inspector = isnothing(workbench.inspector) ? nothing :
+        render_inspector(workbench.inspector)
+    output = isnothing(workbench.output) ? nothing :
+        render_dock(session, workbench.output)
+    status = isnothing(workbench.status) ? nothing : render_status(workbench.status)
+    attributes = Dict{Symbol,Any}(
+        Symbol("data-lc-workbench") => scope,
+        Symbol("data-sidebar-state") => string(workbench.navigation.initial_state),
+        Symbol("data-dock-state") => isnothing(workbench.output) ?
+            "collapsed" : string(workbench.output.initial_state),
+    )
+    root = DOM.div(
+        render_sidebar(
+            session,
+            workbench.identity,
+            workbench.navigation,
+            dispatch
+        ),
+        render_menubar(session, workbench.menu, dispatch, workbench.namespace),
+        render_toolbar(session, workbench.toolbar, dispatch),
+        render_viewstack(session, workbench.workspace),
+        inspector,
+        output,
+        status;
+        attributes...,
+        id=scope,
+        class=isnothing(inspector) ? "lc-wb-shell without-inspector" : "lc-wb-shell"
+    )
+    return Bonito.jsrender(
+        session,
+        DOM.div(
+            DOM.style(BRAND_STYLES),
+            DOM.style(WORKBENCH_STYLES),
+            root,
+            DOM.script(intrinsic_script(root));
+            class="lc-wb-page"
+        )
+    )
+end
+
+end

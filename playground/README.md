@@ -78,6 +78,20 @@ construction. Layout primitives are consumed directly from `BonitoWidgets`;
 the console accepts observable Julia, worker, or broker messages and starts no
 execution machinery of its own.
 
+## Build a complete workbench
+
+Open `/workbenches/` for the architectural boundary and
+`/workbenches/template` for the complete standalone demonstration. Unlike a
+small live widget, a workbench is not embedded in a Quarto iframe: it owns the
+browser viewport, persistent views, navigation, inspector, output dock, and
+status bar.
+
+Reusable structural types and rendering live under `src/workbench/`. A local
+application module under `src/workbenches/` defines its session state,
+composes those primitives, and implements typed `handle!` methods. The
+template imports no broker or scientific package and performs no work merely
+because its page was opened.
+
 ## Start
 
 ```sh

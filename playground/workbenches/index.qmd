@@ -1,0 +1,77 @@
+---
+title: "Workbench foundation"
+subtitle: "A complete Bonito application mode for persistent engineering views. Quarto documents it; the workbench owns its own browser page."
+body-classes: lc-workbench-index
+---
+
+::: {.lc-layout .lc-layout-feature}
+
+::: {.lc-template-panel}
+[APPLICATION MODE]{.lc-template-kicker}
+
+## LineCableModels Workbench
+
+The workbench is a standalone Bonito route rather than a widget embedded in this document. It owns navigation, commands, persistent workspace views, the inspector, a resizable output dock, and the status bar.
+
+Its demonstration is deliberately local: no broker connection, worker, numerical operation, or domain package is constructed when the page opens.
+
+[Open the full workbench →](/workbenches/template){.lc-workbench-open}
+:::
+
+::: {.lc-template-panel}
+[SOURCE BOUNDARY]{.lc-template-kicker}
+
+## Reuse without copying the shell
+
+Global structural primitives and rendering live in:
+
+```text
+src/workbench/WorkbenchUI.jl
+src/workbench/workbench.css
+```
+
+The self-contained specialization is:
+
+```text
+src/workbenches/TemplateWorkbench.jl
+src/workbenches/template_workbench.css
+```
+
+A new application defines session state, composes the semantic regions, and implements typed `handle!` methods. It does not reproduce the shell DOM or global styling.
+:::
+
+:::
+
+## Narrow extension contract
+
+```julia
+struct CableStudy <: AbstractWorkbench end
+
+initialize(::CableStudy, session) = StudyState(...)
+
+compose(::CableStudy, state) = Workbench(
+    namespace = :cable_study,
+    identity = Identity(...),
+    navigation = Sidebar(...),
+    workspace = ViewStack(...),
+    inspector = Inspector(...),
+    output = Dock(...),
+    status = StatusBar(...),
+)
+
+handle!(::CableStudy, state, ::FitView) = fit!(state.viewport)
+```
+
+Views and actions are ordinary Julia types. Domain modules extend their behavior through dispatch; DOM identity is generated per browser session.
+
+The workspace accepts reusable two-way splits directly. Splits may be nested;
+the leaves remain ordinary view or DOM values:
+
+```julia
+workspace = SplitPane(
+    scene,
+    SplitPane(inputs, results; orientation=:vertical, ratio=0.45);
+    orientation=:horizontal,
+    ratio=0.72,
+)
+```

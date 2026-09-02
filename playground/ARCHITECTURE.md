@@ -22,6 +22,24 @@ The publisher, broker, worker daemon, and executor are independently runnable.
 The publisher starts and remains usable when the broker, workers, or optional
 scientific packages are absent.
 
+## Workbench boundary
+
+The browser-hosted engineering workbench is a publisher mode, not an execution
+environment. `WorkbenchUI` owns the semantic shell, persistent view mounting,
+intrinsic panel interactions, shared visual language, and typed action
+dispatch. A concrete workbench module owns its session-local state, views, and
+`handle!` methods.
+
+The reusable workbench module imports neither NATS nor scientific packages. A
+domain application may receive a publisher-side broker capability explicitly,
+but that adapter remains outside the structural shell. The standalone template
+at `/workbenches/template` deliberately receives no broker client and performs
+no numerical work.
+
+Quarto documents and links to complete workbench routes. It does not wrap a
+full workbench in an iframe: the application shell must own viewport geometry,
+focus, splitters, and persistent rendering surfaces directly.
+
 ## Enforced invariants
 
 1. `playground/Project.toml` never depends on LineCableModels,

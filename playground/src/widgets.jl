@@ -1,24 +1,4 @@
 const WIDGET_THEME = raw"""
-:root {
-  color-scheme: dark;
-  --lc-widget-bg: #1f2424;
-  --lc-widget-panel: #252b2b;
-  --lc-widget-panel-soft: #2b3232;
-  --lc-widget-text: #dbdee0;
-  --lc-widget-heading: #f2f2f2;
-  --lc-widget-muted: #a8b0b0;
-  --lc-widget-border: #5e6d6f;
-  --lc-widget-link: #4eb5de;
-  --lc-widget-focus: #1abc9c;
-  --lc-kicker-heading-gap: 0.5rem;
-  --bonito-widget-bg: #252b2b;
-  --bonito-widget-fg: #dbdee0;
-  --bonito-widget-border: #5e6d6f;
-  --bonito-widget-hover-bg: #323a3a;
-  --bonito-widget-muted-bg: #394142;
-  --bonito-widget-accent: #1abc9c;
-}
-
 html,
 body {
   width: 100%;
@@ -795,6 +775,7 @@ end
 
 function widget_shell(kicker, title, content)
     return DOM.div(
+        DOM.style(BRAND_THEME),
         DOM.style(WIDGET_THEME),
         widget_header(kicker, title),
         DOM.div(content; class="lc-widget-content");

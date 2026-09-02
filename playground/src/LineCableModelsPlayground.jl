@@ -16,7 +16,11 @@ const PLAYGROUND_ROOT = normpath(joinpath(@__DIR__, ".."))
 const SITE_DIR = joinpath(PLAYGROUND_ROOT, "_site")
 const DEFAULT_HOST = "127.0.0.1"
 const DEFAULT_PORT = 8080
+const BRAND_THEME_PATH = joinpath(PLAYGROUND_ROOT, "assets", "brand.css")
+include_dependency(BRAND_THEME_PATH)
+const BRAND_THEME = read(BRAND_THEME_PATH, String)
 
+include("workbench/WorkbenchUI.jl")
 include("toolbar.jl")
 include("console.jl")
 include("artifacts.jl")
@@ -29,6 +33,7 @@ include("broker/RuntimeAdmin.jl")
 include("widgets/WorkerStatus.jl")
 include("widgets/JobControls.jl")
 include("widgets.jl")
+include("workbenches/TemplateWorkbench.jl")
 
 export ConsoleEntry,
     ConsoleView,
@@ -36,6 +41,7 @@ export ConsoleEntry,
     BrokerClient,
     JobHandle,
     JobPanel,
+    TemplateWorkbench,
     Toolbar,
     ToolbarBinding,
     ToolbarButton,
@@ -43,6 +49,7 @@ export ConsoleEntry,
     ToolbarEvent,
     ToolbarSeparator,
     WorkerStatus,
+    WorkbenchUI,
     append_console!,
     cancel!,
     clear_console!,
@@ -56,6 +63,17 @@ export ConsoleEntry,
     toolbar,
     toolbar_event_name,
     toolbar_icon
+
+const WORKBENCH_ROUTES = (
+    "/workbenches/template" => TemplateWorkbench.app,
+)
+
+function register_workbench_routes!(server)
+    for (route, factory) in WORKBENCH_ROUTES
+        Bonito.route!(server, route => factory())
+    end
+    return server
+end
 
 struct StaticFileHandler
     path::String
@@ -322,6 +340,7 @@ function start_server(;
 
     server = Bonito.Server(host, port; proxy_url)
     broker = BrokerClient()
+    register_workbench_routes!(server)
     register_widget_routes!(server, broker)
     register_artifact_route!(server, default_artifact_gateway())
     register_static_site_routes!(server)

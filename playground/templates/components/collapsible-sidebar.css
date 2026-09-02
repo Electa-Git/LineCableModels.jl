@@ -384,7 +384,7 @@
 
 .lc-cs-canvas-copy p {
   max-width: 70rem;
-  margin: 0;
+  margin: 0 0 0.4rem;
   color: var(--lc-cs-muted);
   font-size: 0.88rem;
   font-weight: 400;

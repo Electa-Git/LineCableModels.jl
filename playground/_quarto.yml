@@ -5,6 +5,7 @@ project:
     - index.qmd
     - templates/*.qmd
     - widgets/*.qmd
+    - workbenches/*.qmd
   resources:
     - templates/components/**
 
@@ -48,6 +49,10 @@ website:
         contents:
           - text: "Gallery"
             href: widgets/index.qmd
+      - section: "Workbench"
+        contents:
+          - text: "Foundation"
+            href: workbenches/index.qmd
   page-footer:
     left: "LineCableModels playground"
     right: "Bonito · NATS · Quarto"
@@ -57,6 +62,8 @@ format:
     theme:
       - darkly
       - assets/theme.scss
+    css: assets/brand.css
+    include-after-body: assets/viewport-settle.html
     toc: false
     page-layout: full
     smooth-scroll: true

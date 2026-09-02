@@ -1,0 +1,37 @@
+:root {
+  color-scheme: dark;
+  --lc-bg: #1f2424;
+  --lc-sidebar-bg: #282f2f;
+  --lc-panel-bg: #252b2b;
+  --lc-panel-soft: #2b3232;
+  --lc-sunken-bg: #1d2222;
+  --lc-text: #dbdee0;
+  --lc-heading: #f2f2f2;
+  --lc-muted: #a8b0b0;
+  --lc-border: #5e6d6f;
+  --lc-border-soft: #465355;
+  --lc-link: #4eb5de;
+  --lc-focus: #1abc9c;
+  --lc-sidebar-width: 18rem;
+  --lc-radius: 2px;
+  --lc-type-unit: clamp(15px, calc(13px + 0.1875vw), 18px);
+  --lc-kicker-heading-gap: 0.5rem;
+  --lc-heading-content-gap: 0.75rem;
+
+  /* Bonito and BonitoWidgets consume the same visual tokens as Quarto. */
+  --lc-widget-bg: var(--lc-bg);
+  --lc-widget-panel: var(--lc-panel-bg);
+  --lc-widget-panel-soft: var(--lc-panel-soft);
+  --lc-widget-text: var(--lc-text);
+  --lc-widget-heading: var(--lc-heading);
+  --lc-widget-muted: var(--lc-muted);
+  --lc-widget-border: var(--lc-border);
+  --lc-widget-link: var(--lc-link);
+  --lc-widget-focus: var(--lc-focus);
+  --bonito-widget-bg: var(--lc-panel-bg);
+  --bonito-widget-fg: var(--lc-text);
+  --bonito-widget-border: var(--lc-border);
+  --bonito-widget-hover-bg: #323a3a;
+  --bonito-widget-muted-bg: #394142;
+  --bonito-widget-accent: var(--lc-focus);
+}
