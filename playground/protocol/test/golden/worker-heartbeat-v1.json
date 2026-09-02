@@ -1,0 +1,1 @@
+{"protocol_version":"1.0","worker_id":"worker-1","timestamp":"2026-01-02T03:04:05.006Z","capabilities":["system.echo","cable.constants"],"worker_version":"0.1.0","engine_version":"0.2.0","available_slots":2}

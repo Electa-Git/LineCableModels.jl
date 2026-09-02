@@ -1,0 +1,16 @@
+.git
+.agents
+.codex
+.github
+dev
+docs
+examples
+papers
+showcase
+test
+playground/.quarto
+playground/_site
+playground/deploy/remote/certs
+playground/deploy/.env
+playground/deploy/remote/.env
+playground/test

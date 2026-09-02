@@ -1,0 +1,18 @@
+services:
+  minio:
+    cpus: ${LCM_MINIO_CPUS:-1.0}
+
+  artifact-init:
+    cpus: ${LCM_MINIO_INIT_CPUS:-0.5}
+
+  nats:
+    cpus: ${LCM_NATS_CPUS:-1.0}
+
+  runtime-init:
+    cpus: ${LCM_PUBLISHER_CPUS:-1.0}
+
+  publisher:
+    cpus: ${LCM_PUBLISHER_CPUS:-1.0}
+
+  worker:
+    cpus: ${LCM_WORKER_CPUS:-4.0}

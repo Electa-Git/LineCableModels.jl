@@ -237,6 +237,14 @@ input[type="range"]:not([disabled]) {
   outline-offset: 1px;
 }
 
+.lc-widget-actions button:disabled {
+  color: var(--lc-widget-muted) !important;
+  background: #1b2020 !important;
+  border-color: #3b4647 !important;
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
 .lc-toolbar-showcase {
   display: grid;
   min-width: 0;
@@ -587,6 +595,128 @@ input[type="range"]:not([disabled]) {
   font-style: italic;
 }
 
+.lc-job-panel {
+  display: grid;
+  min-width: 0;
+  overflow: hidden;
+  background: #1d2222;
+  border: 1px solid var(--lc-widget-border);
+  border-radius: 3px;
+}
+
+.lc-job-header,
+.lc-job-status-line {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.lc-job-header {
+  padding: 0.8rem 0.9rem;
+  background: #222929;
+  border-bottom: 1px solid #465355;
+}
+
+.lc-job-heading h2 {
+  margin: var(--lc-kicker-heading-gap) 0 0;
+  color: var(--lc-widget-heading);
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.lc-worker-state,
+.lc-job-state,
+.lc-job-stage,
+.lc-job-result-status {
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.72rem;
+}
+
+.lc-worker-state-online {
+  color: var(--lc-widget-focus);
+}
+
+.lc-worker-state-offline,
+.lc-worker-state-connecting,
+.lc-worker-state-degraded {
+  color: #f3bf61;
+}
+
+.lc-job-body {
+  display: grid;
+  min-width: 0;
+  padding: 0.9rem;
+  gap: 0.75rem;
+}
+
+.lc-job-state {
+  color: var(--lc-widget-link);
+  font-weight: 700;
+}
+
+.lc-job-stage,
+.lc-job-result-status {
+  overflow: hidden;
+  color: var(--lc-widget-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lc-job-progress {
+  position: relative;
+  height: 0.8rem;
+  overflow: hidden;
+  background: #111616;
+  border-radius: 999px;
+}
+
+.lc-job-progress-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--lc-job-progress);
+  background: var(--lc-widget-focus);
+  border-radius: inherit;
+  transition: width 120ms linear;
+}
+
+.lc-job-progress-value {
+  position: absolute;
+  inset: 50% 0 auto;
+  color: #f2f2f2;
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.58rem;
+  line-height: 1;
+  text-align: center;
+  transform: translateY(-50%);
+}
+
+.lc-job-actions button:first-child {
+  color: #102523 !important;
+  background: var(--lc-widget-focus) !important;
+}
+
+.lc-job-result {
+  display: grid;
+  min-width: 0;
+  gap: 0.45rem;
+}
+
+.lc-job-result-preview {
+  max-height: 9rem;
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  overflow: auto;
+  color: var(--lc-widget-text);
+  background: #141919;
+  border: 1px solid #465355;
+  border-radius: 3px;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
 .lc-tabs-demo {
   min-width: 0;
   height: 13rem;
@@ -625,6 +755,13 @@ input[type="range"]:not([disabled]) {
 
 @media (max-width: 480px) {
   .lc-widget-header {
+    align-items: start;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .lc-job-header,
+  .lc-job-status-line {
     align-items: start;
     flex-direction: column;
     gap: 0.35rem;
@@ -1157,9 +1294,46 @@ const WIDGET_ROUTES = (
     "/widgets/control-panel" => control_panel_widget,
 )
 
-function register_widget_routes!(server)
+function runtime_job_widget(client)
+    return App(; title="Broker job · LineCableModels playground") do session
+        steps = NumberInput(8.0; min=1, max=40, step=1)
+        interval = NumberInput(0.1; min=0, max=1, step=0.05)
+        parameters = () -> Dict{String,Any}(
+            "steps" => round(Int, steps.value[]),
+            "interval_seconds" => Float64(interval.value[]),
+        )
+        panel = JobPanel(
+            client;
+            operation="system.progress",
+            parameters,
+            input_observables=(steps.value, interval.value),
+            session_id="widget-$(uuid4())",
+            title="Diagnostic broker lifecycle"
+        )
+        controls = DOM.div(
+            DOM.div(
+                control_copy("Progress steps", "Validated diagnostic workload."),
+                steps;
+                class="lc-control-row"
+            ),
+            DOM.div(
+                control_copy("Step interval", "Delay per step [s]."),
+                interval;
+                class="lc-control-row"
+            ),
+            panel;
+            class="lc-control-stack"
+        )
+        return widget_shell("BROKER BOUNDARY", "Asynchronous job panel", controls)
+    end
+end
+
+function register_widget_routes!(server, client=nothing)
     for (route, factory) in WIDGET_ROUTES
         Bonito.route!(server, route => factory())
+    end
+    if !isnothing(client)
+        Bonito.route!(server, "/widgets/job-panel" => runtime_job_widget(client))
     end
     return server
 end

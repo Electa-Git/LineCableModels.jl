@@ -4,17 +4,37 @@ version = "0.1.0"
 authors = ["LineCableModels contributors"]
 
 [deps]
+AWS = "fbe9abb3-538b-5e4e-ba9e-bc94f4f92ebc"
+AWSS3 = "1c724243-ef5b-51ab-93f4-b0a88ac62a95"
 Bonito = "824d6782-a2ef-11e9-3a09-e5662e0c26f8"
 BonitoWidgets = "62a4b9e4-7ee6-4bfa-b661-80bcb0a47665"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+LineCableModelsPlaygroundProtocol = "f53a55e4-c04f-4c03-acec-f4c4d198278d"
 NATS = "55e73f9c-eeeb-467f-b4cc-a633fde63d2a"
 Quarto = "d7167be5-f61b-4dc9-b75c-ab62374668c5"
+URIs = "5c2747f8-b7ea-4ff2-ba2e-563bfd36b1d4"
+UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
+
+[sources]
+LineCableModelsPlaygroundProtocol = {path = "protocol"}
+NATS = {path = "vendor/NATS"}
 
 [compat]
+AWS = "1"
+AWSS3 = "0.11"
 Bonito = "5"
 BonitoWidgets = "0.1.2"
+JSON3 = "1.14"
+LineCableModelsPlaygroundProtocol = "0.1"
 NATS = "0.1"
 Quarto = "1"
+URIs = "1"
 julia = "1.12"
 
-[apps.linecablemodels]
-julia_flags = ["--threads=auto"]
+[extras]
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test", "TOML"]

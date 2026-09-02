@@ -1,0 +1,203 @@
+services:
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    command:
+      - server
+      - --certs-dir
+      - /etc/minio/certs
+      - /data
+      - --console-address
+      - :9001
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "127.0.0.1:${LCM_MINIO_PORT:-9000}:9000"
+    volumes:
+      - ./certs/artifact-server-cert.pem:/etc/minio/certs/public.crt:ro,z
+      - ./certs/artifact-server-key.pem:/etc/minio/certs/private.key:ro,z
+      - minio-data:/data
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 256
+    mem_limit: ${LCM_MINIO_MEMORY:-2g}
+
+  artifact-init:
+    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
+    entrypoint: ["/bin/sh"]
+    command: ["/initialize-minio.sh"]
+    environment:
+      HOME: /tmp
+      MINIO_ENDPOINT: https://minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_WORKER_ACCESS_KEY: ${MINIO_WORKER_ACCESS_KEY}
+      MINIO_WORKER_SECRET_KEY: ${MINIO_WORKER_SECRET_KEY}
+      MINIO_PUBLISHER_ACCESS_KEY: ${MINIO_PUBLISHER_ACCESS_KEY}
+      MINIO_PUBLISHER_SECRET_KEY: ${MINIO_PUBLISHER_SECRET_KEY}
+    volumes:
+      - ./initialize-minio.sh:/initialize-minio.sh:ro,z
+      - ./minio-worker-policy.json:/policies/minio-worker-policy.json:ro,z
+      - ./minio-publisher-policy.json:/policies/minio-publisher-policy.json:ro,z
+      - ./certs/ca.pem:/tmp/.mc/certs/CAs/lcm-ca.pem:ro,z
+    depends_on:
+      - minio
+    restart: on-failure
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 128
+    mem_limit: ${LCM_MINIO_INIT_MEMORY:-512m}
+
+  nats:
+    image: docker.io/library/nats:2.11-alpine@sha256:e4bf19f15fd3218814a4e3c9e0064e1334bd8aa20d5984b9f1a0afd084f8cc00
+    command: ["-c", "/etc/nats/nats.conf"]
+    environment:
+      NATS_PUBLISHER_PASSWORD: ${NATS_PUBLISHER_PASSWORD}
+      NATS_WORKER_PASSWORD: ${NATS_WORKER_PASSWORD}
+      NATS_ADMIN_PASSWORD: ${NATS_ADMIN_PASSWORD}
+      NATS_JETSTREAM_KEY: ${NATS_JETSTREAM_KEY}
+    ports:
+      - "${LCM_NATS_PORT:-4222}:4222"
+      - "127.0.0.1:${LCM_NATS_MONITOR_PORT:-8222}:8222"
+    volumes:
+      - ./nats-tls.conf:/etc/nats/nats.conf:ro,z
+      - ./certs/server-cert.pem:/etc/nats/certs/server-cert.pem:ro,z
+      - ./certs/server-key.pem:/etc/nats/certs/server-key.pem:ro,z
+      - ./certs/ca.pem:/etc/nats/certs/ca.pem:ro,z
+      - nats-data:/data/jetstream
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    pids_limit: 128
+    mem_limit: ${LCM_NATS_MEMORY:-1g}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  runtime-init:
+    build:
+      context: ../../..
+      dockerfile: playground/deploy/publisher.Dockerfile
+    command: ["lcm", "nats", "init"]
+    environment:
+      NATS_ADMIN_URL: tls://administrator:${NATS_ADMIN_PASSWORD}@nats:4222
+      NATS_TLS_CA_PATH: /run/nats-tls/ca.pem
+      NATS_TLS_CERT_PATH: /run/nats-tls/administrator-cert.pem
+      NATS_TLS_KEY_PATH: /run/nats-tls/administrator-key.pem
+    volumes:
+      - ./certs/ca.pem:/run/nats-tls/ca.pem:ro,z
+      - ./certs/administrator-cert.pem:/run/nats-tls/administrator-cert.pem:ro,z
+      - ./certs/administrator-key.pem:/run/nats-tls/administrator-key.pem:ro,z
+    depends_on:
+      - nats
+    restart: on-failure
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 128
+    mem_limit: ${LCM_PUBLISHER_MEMORY:-2g}
+
+  publisher:
+    build:
+      context: ../../..
+      dockerfile: playground/deploy/publisher.Dockerfile
+    environment:
+      NATS_CONNECT_URL: tls://publisher:${NATS_PUBLISHER_PASSWORD}@nats:4222
+      NATS_TLS_CA_PATH: /run/nats-tls/ca.pem
+      NATS_TLS_CERT_PATH: /run/nats-tls/publisher-cert.pem
+      NATS_TLS_KEY_PATH: /run/nats-tls/publisher-key.pem
+      LCM_ARTIFACT_BACKEND: s3
+      LCM_S3_ENDPOINT: https://minio:9000
+      LCM_S3_BUCKET: lcm-artifacts
+      LCM_S3_PREFIX: linecablemodels
+      AWS_ACCESS_KEY_ID: ${MINIO_PUBLISHER_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_PUBLISHER_SECRET_KEY}
+      AWS_REGION: us-east-1
+      JULIA_SSL_CA_ROOTS_PATH: /run/nats-tls/ca.pem
+      HOST: 0.0.0.0
+      PORT: 8080
+    ports:
+      - "${LCM_PUBLISHER_PORT:-8080}:8080"
+    volumes:
+      - ./certs/ca.pem:/run/nats-tls/ca.pem:ro,z
+      - ./certs/publisher-cert.pem:/run/nats-tls/publisher-cert.pem:ro,z
+      - ./certs/publisher-key.pem:/run/nats-tls/publisher-key.pem:ro,z
+    depends_on:
+      nats:
+        condition: service_started
+      artifact-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 256
+    mem_limit: ${LCM_PUBLISHER_MEMORY:-2g}
+
+  worker:
+    build:
+      context: ../../..
+      dockerfile: playground/deploy/worker.Dockerfile
+    environment:
+      NATS_CONNECT_URL: tls://worker:${NATS_WORKER_PASSWORD}@nats:4222
+      NATS_TLS_CA_PATH: /run/nats-tls/ca.pem
+      NATS_TLS_CERT_PATH: /run/nats-tls/worker-cert.pem
+      NATS_TLS_KEY_PATH: /run/nats-tls/worker-key.pem
+      LCM_WORKER_DATA: /var/lib/linecablemodels-worker
+      LCM_ARTIFACT_BACKEND: s3
+      LCM_S3_ENDPOINT: https://minio:9000
+      LCM_S3_BUCKET: lcm-artifacts
+      LCM_S3_PREFIX: linecablemodels
+      AWS_ACCESS_KEY_ID: ${MINIO_WORKER_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_WORKER_SECRET_KEY}
+      AWS_REGION: us-east-1
+      JULIA_SSL_CA_ROOTS_PATH: /run/nats-tls/ca.pem
+      LCM_WORKER_ID: compose-tls-worker
+    volumes:
+      - ./certs/ca.pem:/run/nats-tls/ca.pem:ro,z
+      - ./certs/worker-cert.pem:/run/nats-tls/worker-cert.pem:ro,z
+      - ./certs/worker-key.pem:/run/nats-tls/worker-key.pem:ro,z
+      - worker-data:/var/lib/linecablemodels-worker
+    depends_on:
+      nats:
+        condition: service_started
+      runtime-init:
+        condition: service_completed_successfully
+      artifact-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 512
+    mem_limit: ${LCM_WORKER_MEMORY:-8g}
+
+volumes:
+  nats-data:
+  worker-data:
+  minio-data:

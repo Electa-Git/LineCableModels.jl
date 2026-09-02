@@ -1,0 +1,1 @@
+{"protocol_version":"1.0","event_type":"JobProgress","job_id":"5ec88436-5e75-4c0e-9434-0e4abbec0f87","event_sequence":3,"timestamp":"2026-01-02T03:04:05.006Z","worker_id":"worker-1","progress":0.5,"stage":"waiting","message":"Halfway","details":{}}

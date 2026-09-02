@@ -17,6 +17,24 @@ die() {
     exit 1
 }
 
+publisher_only=false
+dependencies_only=false
+for argument in "$@"; do
+    case "${argument}" in
+        --publisher-only) publisher_only=true ;;
+        --dependencies-only) dependencies_only=true ;;
+        -h | --help)
+            printf 'Usage: %s [--publisher-only] [--dependencies-only]\n' "$0"
+            exit 0
+            ;;
+        *) die "unknown option: ${argument}" ;;
+    esac
+done
+
+if [[ "${dependencies_only}" == true ]]; then
+    export JULIA_PKG_PRECOMPILE_AUTO=0
+fi
+
 require_command() {
     command -v "$1" >/dev/null 2>&1 || die "required command not found: $1"
 }
@@ -40,6 +58,7 @@ esac
 require_command curl
 require_command grep
 require_command julia
+require_command readlink
 require_command sha256sum
 require_command setsid
 require_command tar
@@ -82,56 +101,73 @@ printf 'Instantiating the playground Julia environment...\n'
 julia --startup-file=no --project="${SCRIPT_DIR}" -e \
     'using Pkg; Pkg.instantiate()'
 
-julia_bin_directory="$(julia --startup-file=no -e 'print(joinpath(first(DEPOT_PATH), "bin"))')"
-julia_command="${julia_bin_directory}/linecablemodels"
-if [[ -x "${julia_command}" ]] \
-    && grep -Fq "export JULIA_LOAD_PATH=${SCRIPT_DIR}" "${julia_command}"; then
-    printf 'The linecablemodels application is already registered.\n'
-else
-    printf 'Registering the linecablemodels application...\n'
-    env QUARTO_PATH="${QUARTO_EXECUTABLE}" \
-        julia --startup-file=no "${SCRIPT_DIR}/install.jl"
+printf 'Instantiating the shared protocol environment...\n'
+julia --startup-file=no --project="${SCRIPT_DIR}/protocol" -e \
+    'using Pkg; Pkg.instantiate()'
+
+if [[ "${publisher_only}" == false ]]; then
+    printf 'Instantiating the isolated scientific worker environment...\n'
+    julia --startup-file=no --project="${SCRIPT_DIR}/worker" -e \
+        'using Pkg; Pkg.instantiate()'
 fi
-[[ -x "${julia_command}" ]] || die "Pkg did not create ${julia_command}"
+
+if [[ "${dependencies_only}" == true ]]; then
+    printf '\nDependency bootstrap complete.\n'
+    printf '  Quarto: %s\n' "${QUARTO_EXECUTABLE}"
+    exit 0
+fi
 
 mkdir -p -- "${BIN_HOME}"
-private_bin_home="${DATA_HOME}/linecablemodels-playground/bin"
-private_command="${private_bin_home}/linecablemodels-julia"
-mkdir -p -- "${private_bin_home}"
-if [[ -e "${private_command}" || -L "${private_command}" ]]; then
-    [[ -L "${private_command}" ]] \
-        || die "refusing to replace non-symlink path: ${private_command}"
-else
-    ln -s -- "${julia_command}" "${private_command}"
-fi
-
-public_command="${BIN_HOME}/linecablemodels"
+public_command="${BIN_HOME}/lcm"
 if [[ -e "${public_command}" || -L "${public_command}" ]]; then
     if [[ ! -L "${public_command}" ]]; then
         die "refusing to replace existing command: ${public_command}"
     fi
     current_target="$(readlink -- "${public_command}")"
-    if [[ "${current_target}" != "${julia_command}" \
-        && "${current_target}" != "${SCRIPT_DIR}/launcher.sh" \
-        && "${current_target}" != "${SCRIPT_DIR}/linecablemodels" ]]; then
+    if [[ "${current_target}" != "${SCRIPT_DIR}/lcm" ]]; then
         die "refusing to replace existing command: ${public_command}"
     fi
-    if [[ "${current_target}" != "${SCRIPT_DIR}/linecablemodels" ]]; then
-        rm -- "${public_command}"
-        ln -s -- "${SCRIPT_DIR}/linecablemodels" "${public_command}"
-    fi
 else
-    ln -s -- "${SCRIPT_DIR}/linecablemodels" "${public_command}"
+    ln -s -- "${SCRIPT_DIR}/lcm" "${public_command}"
+fi
+
+# Remove only the legacy launchers created by earlier revisions of this
+# bootstrap. Unrelated commands or regular files are never replaced.
+legacy_public_command="${BIN_HOME}/linecablemodels"
+if [[ -L "${legacy_public_command}" ]]; then
+    legacy_target="$(readlink -- "${legacy_public_command}")"
+    if [[ "${legacy_target}" == "${SCRIPT_DIR}/linecablemodels" \
+        || "${legacy_target}" == "${SCRIPT_DIR}/launcher.sh" ]]; then
+        rm -- "${legacy_public_command}"
+    fi
+fi
+
+julia_bin_directory="$(julia --startup-file=no -e 'print(joinpath(first(DEPOT_PATH), "bin"))')"
+legacy_julia_command="${julia_bin_directory}/linecablemodels"
+if [[ -f "${legacy_julia_command}" ]] \
+    && grep -Fq "export JULIA_LOAD_PATH=${SCRIPT_DIR}" "${legacy_julia_command}"; then
+    printf 'Removing the legacy linecablemodels Julia application...\n'
+    julia --startup-file=no -e 'using Pkg; Pkg.Apps.rm("linecablemodels")'
+fi
+
+legacy_private_directory="${DATA_HOME}/linecablemodels-playground/bin"
+legacy_private_command="${legacy_private_directory}/linecablemodels-julia"
+if [[ -L "${legacy_private_command}" ]]; then
+    rm -- "${legacy_private_command}"
+    rmdir --ignore-fail-on-non-empty "${legacy_private_directory}"
 fi
 
 printf 'Rendering the initial Quarto site...\n'
 env QUARTO_PATH="${QUARTO_EXECUTABLE}" \
-    "${julia_command}" playground build --quiet
+    "${public_command}" playground build --quiet
 
 printf '\nBootstrap complete.\n'
 printf '  Quarto: %s\n' "${QUARTO_EXECUTABLE}"
 printf '  Command: %s\n' "${public_command}"
-printf '  Start: linecablemodels playground start\n'
+printf '  Start: lcm playground start\n'
+printf '  Worker: lcm worker start\n'
+printf '  NATS: lcm nats status\n'
+printf '  Containers: lcm container resolve\n'
 
 case ":${PATH}:" in
     *":${BIN_HOME}:"*) ;;

@@ -1,0 +1,12 @@
+services:
+  nats:
+    cpus: ${LCM_NATS_CPUS:-1.0}
+
+  runtime-init:
+    cpus: ${LCM_PUBLISHER_CPUS:-1.0}
+
+  publisher:
+    cpus: ${LCM_PUBLISHER_CPUS:-1.0}
+
+  worker:
+    cpus: ${LCM_WORKER_CPUS:-4.0}

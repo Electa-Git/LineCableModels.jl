@@ -1,8 +1,16 @@
 module LineCableModelsPlayground
 
+using AWS
+using AWSS3
 using Bonito
 using BonitoWidgets
+using Dates
+using JSON3
+using LineCableModelsPlaygroundProtocol
+using NATS
 using Quarto
+using URIs
+using UUIDs
 
 const PLAYGROUND_ROOT = normpath(joinpath(@__DIR__, ".."))
 const SITE_DIR = joinpath(PLAYGROUND_ROOT, "_site")
@@ -11,19 +19,40 @@ const DEFAULT_PORT = 8080
 
 include("toolbar.jl")
 include("console.jl")
+include("artifacts.jl")
+include("container_runtime.jl")
+include("broker/Subjects.jl")
+include("broker/ConnectionState.jl")
+include("broker/JobHandle.jl")
+include("broker/BrokerClient.jl")
+include("broker/RuntimeAdmin.jl")
+include("widgets/WorkerStatus.jl")
+include("widgets/JobControls.jl")
 include("widgets.jl")
 
 export ConsoleEntry,
     ConsoleView,
+    ArtifactGateway,
+    BrokerClient,
+    JobHandle,
+    JobPanel,
     Toolbar,
     ToolbarBinding,
     ToolbarButton,
     ToolbarDropdown,
     ToolbarEvent,
     ToolbarSeparator,
+    WorkerStatus,
     append_console!,
+    cancel!,
     clear_console!,
+    close!,
+    mark_dirty!,
+    reattach!,
     set_console_status!,
+    start!,
+    submit!,
+    submit_async!,
     toolbar,
     toolbar_event_name,
     toolbar_icon
@@ -64,20 +93,63 @@ function register_static_site_routes!(server, directory=SITE_DIR)
     return server
 end
 
-function usage(io::IO = stdout)
-    println(io, "LineCableModels playground")
-    println(io)
-    println(io, "Usage:")
-    println(io, "  linecablemodels playground build [--quiet]")
-    println(io, "  linecablemodels playground start [options]")
-    println(io)
-    println(io, "Start options:")
-    println(io, "  --host HOST         Bind address (default: HOST or 127.0.0.1)")
-    println(io, "  --port PORT         Listening port (default: PORT or 8080)")
-    println(io, "  --proxy-url URL     Public Bonito URL (default: PROXY_URL or auto-detected)")
-    println(io, "  --no-render         Serve the existing Quarto build")
-    println(io, "  --no-open           Do not open the default browser")
-    println(io, "  -h, --help          Show this help")
+function usage(io::IO=stdout; feature::Union{Nothing,String}=nothing)
+    if feature == "playground"
+        println(io, "Usage:")
+        println(io, "  lcm playground build [--quiet]")
+        println(io, "  lcm playground start [options]")
+        println(io)
+        println(io, "Start options:")
+        println(io, "  --host HOST         Bind address (default: HOST or 127.0.0.1)")
+        println(io, "  --port PORT         Listening port (default: PORT or 8080)")
+        println(io, "  --proxy-url URL     Public Bonito URL (default: PROXY_URL or auto-detected)")
+        println(io, "  --no-render         Serve the existing Quarto build")
+        println(io, "  --no-open           Do not open the default browser")
+        println(io, "  -h, --help          Show this help")
+    elseif feature == "nats"
+        println(io, "Usage:")
+        println(io, "  lcm nats init")
+        println(io, "  lcm nats status")
+        println(io)
+        println(io, "NATS_CONNECT_URL selects the client endpoint.")
+        println(io, "NATS_ADMIN_URL may select a separate administrator endpoint.")
+    elseif feature == "container"
+        println(io, "Usage:")
+        println(io, "  lcm container resolve [--runtime auto|docker|podman]")
+        println(io, "  lcm container start [options]")
+        println(io, "  lcm container status [options]")
+        println(io, "  lcm container logs [options] [SERVICE ...]")
+        println(io, "  lcm container stop [options]")
+        println(io)
+        println(io, "Common options:")
+        println(io, "  --runtime RUNTIME   auto (default), docker, or podman")
+        println(io, "  --remote            Use the mTLS/S3 remote deployment profile")
+        println(io)
+        println(io, "Start options:")
+        println(io, "  --no-build          Start from existing images")
+        println(io, "  --cpu-limits        Add the optional CPU-quota override")
+        println(io)
+        println(io, "Log options:")
+        println(io, "  --follow            Follow log output")
+        println(io, "  --tail N            Show the last N lines")
+        println(io)
+        println(io, "Stop options:")
+        println(io, "  --volumes           Also remove persistent deployment volumes")
+        println(io)
+        println(io, "LCM_CONTAINER_RUNTIME sets the default runtime selection.")
+    else
+        println(io, "LineCableModels playground")
+        println(io)
+        println(io, "Usage: lcm <feature> <action> [options]")
+        println(io)
+        println(io, "Features:")
+        println(io, "  playground  Build or serve the Quarto/Bonito publisher")
+        println(io, "  worker      Start an isolated scientific worker")
+        println(io, "  nats        Initialize or inspect the JetStream runtime")
+        println(io, "  container   Run the isolated stack with Docker or Podman")
+        println(io)
+        println(io, "Run `lcm <feature> --help` for feature-specific usage.")
+    end
     return nothing
 end
 
@@ -244,21 +316,32 @@ function start_server(;
         render_site()
     elseif !isfile(joinpath(SITE_DIR, "index.html"))
         throw(ArgumentError(
-            "No rendered site exists. Run `linecablemodels playground build` first."
+            "No rendered site exists. Run `lcm playground build` first."
         ))
     end
 
     server = Bonito.Server(host, port; proxy_url)
-    register_widget_routes!(server)
+    broker = BrokerClient()
+    register_widget_routes!(server, broker)
+    register_artifact_route!(server, default_artifact_gateway())
     register_static_site_routes!(server)
     url = Bonito.online_url(server, "/")
     println("LineCableModels playground listening at $url")
     open_browser && open_default_browser(url)
 
-    shutdown = server_shutdown(server)
+    server_only_shutdown = server_shutdown(server)
+    shutdown = let closed=Ref(false)
+        () -> begin
+            closed[] && return nothing
+            closed[] = true
+            close!(broker)
+            server_only_shutdown()
+            return nothing
+        end
+    end
     atexit(shutdown)
 
-    supervised = get(ENV, "LINECABLEMODELS_SUPERVISED", "") == "1"
+    supervised = get(ENV, "LCM_SUPERVISED", "") == "1"
     if supervised
         shutdown_on_stdin(shutdown)
     else
@@ -275,18 +358,39 @@ function start_server(;
 end
 
 function run_cli(arguments)
+    isempty(arguments) && return usage()
     arguments in (["-h"], ["--help"]) && return usage()
-    length(arguments) >= 2 || throw(ArgumentError(
-        "expected `linecablemodels playground build` or `playground start`"
-    ))
-    arguments[1] == "playground" || throw(ArgumentError(
-        "expected `linecablemodels playground build` or `playground start`"
-    ))
+
+    feature = arguments[1]
+    if feature == "nats"
+        length(arguments) == 1 && return usage(; feature="nats")
+        any(argument -> argument in ("-h", "--help"), arguments[2:end]) &&
+            return usage(; feature="nats")
+        arguments == ["nats", "init"] && return initialize_runtime()
+        arguments == ["nats", "status"] && return runtime_status()
+        throw(ArgumentError("unknown nats action: $(arguments[2])"))
+    elseif feature == "container"
+        length(arguments) == 1 && return usage(; feature="container")
+        arguments[2] in ("-h", "--help") && return usage(; feature="container")
+        action = arguments[2]
+        action in ("resolve", "start", "status", "logs", "stop") ||
+            throw(ArgumentError("unknown container action: $action"))
+        any(argument -> argument in ("-h", "--help"), arguments[3:end]) &&
+            return usage(; feature="container")
+        options = parse_container_options(action, arguments[3:end])
+        return run_container_action(action, options)
+    elseif feature != "playground"
+        throw(ArgumentError("unknown feature: $feature"))
+    end
+
+    length(arguments) == 1 && return usage(; feature="playground")
+    arguments[2] in ("-h", "--help") && return usage(; feature="playground")
 
     command = arguments[2]
     if command == "build"
         options = arguments[3:end]
-        any(option -> option in ("-h", "--help"), options) && return usage()
+        any(option -> option in ("-h", "--help"), options) &&
+            return usage(; feature="playground")
         all(==("--quiet"), options) || throw(ArgumentError(
             "unknown build option; only --quiet is supported"
         ))
@@ -294,7 +398,7 @@ function run_cli(arguments)
         return nothing
     elseif command == "start"
         options = parse_start_options(arguments[3:end])
-        isnothing(options) && return usage()
+        isnothing(options) && return usage(; feature="playground")
         return start_server(; options...)
     end
 
@@ -307,7 +411,7 @@ function (@main)(arguments)
     catch error
         error isa InterruptException && return nothing
         println(stderr, "error: ", sprint(showerror, error))
-        println(stderr, "Run `linecablemodels --help` for usage.")
+        println(stderr, "Run `lcm --help` for usage.")
         return 2
     end
 end

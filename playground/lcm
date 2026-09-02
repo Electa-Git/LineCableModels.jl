@@ -3,23 +3,31 @@
 set -Eeuo pipefail
 IFS=$'\n\t'
 
-readonly DATA_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}"
-readonly JULIA_APP="${LINECABLEMODELS_JULIA_APP:-${DATA_HOME}/linecablemodels-playground/bin/linecablemodels-julia}"
+readonly LAUNCHER_PATH="$(readlink -f -- "${BASH_SOURCE[0]}")"
+readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${LAUNCHER_PATH}")" && pwd)"
+readonly JULIA_COMMAND="${LCM_JULIA:-julia}"
 
 die() {
-    printf 'linecablemodels: %s\n' "$*" >&2
+    printf 'lcm: %s\n' "$*" >&2
     exit 1
 }
 
-[[ -x "${JULIA_APP}" ]] || die "Julia application not found; run playground/bootstrap.sh"
+command -v "${JULIA_COMMAND}" >/dev/null 2>&1 \
+    || die "Julia executable not found: ${JULIA_COMMAND}"
+
+if [[ "${1:-}" == "worker" ]]; then
+    exec "${JULIA_COMMAND}" --startup-file=no --threads=auto \
+        --project="${SCRIPT_DIR}/worker" -m LineCableModelsWorker "$@"
+fi
 
 if [[ "${1:-}" != "playground" || "${2:-}" != "start" ]]; then
-    exec "${JULIA_APP}" "$@"
+    exec "${JULIA_COMMAND}" --startup-file=no --threads=auto \
+        --project="${SCRIPT_DIR}" -m LineCableModelsPlayground "$@"
 fi
 
 command -v setsid >/dev/null 2>&1 || die "required command not found: setsid"
 
-control_directory="$(mktemp -d "${TMPDIR:-/tmp}/linecablemodels-playground.XXXXXXXX")"
+control_directory="$(mktemp -d "${TMPDIR:-/tmp}/lcm-playground.XXXXXXXX")"
 control_fifo="${control_directory}/shutdown"
 child_pid=""
 shutdown_requested=false
@@ -48,7 +56,8 @@ trap request_shutdown HUP INT TERM
 mkfifo -- "${control_fifo}"
 exec 3<>"${control_fifo}"
 
-LINECABLEMODELS_SUPERVISED=1 setsid "${JULIA_APP}" "$@" \
+LCM_SUPERVISED=1 setsid "${JULIA_COMMAND}" --startup-file=no --threads=auto \
+    --project="${SCRIPT_DIR}" -m LineCableModelsPlayground "$@" \
     <"${control_fifo}" 3>&- &
 child_pid=$!
 

@@ -1,5 +1,10 @@
 /_site/
 /.quarto/
 !/bootstrap.sh
+!/test/integration/run.sh
+!/deploy/remote/generate-dev-certs.sh
+/deploy/remote/certs/
+/deploy/.env
+/deploy/remote/.env
 
 **/*.quarto_ipynb

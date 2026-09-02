@@ -144,6 +144,18 @@ Selectors, derived values, and a complete reset action composed without creating
 {{< bonito route="/widgets/control-panel" title="Engineering control panel example" height="34rem" >}}
 :::
 
+::: {.lc-widget-demo .lc-widget-demo-wide}
+::: {.lc-widget-demo-heading}
+[BROKER BOUNDARY]{.lc-gallery-label}
+
+## Asynchronous job panel
+
+A durable Run/Cancel/Retry lifecycle with worker discovery, progress, retained results, and streamed messages. It remains usable and explicitly reports unavailability when NATS or a compatible worker is absent.
+:::
+
+{{< bonito route="/widgets/job-panel" title="Asynchronous broker job example" height="48rem" >}}
+:::
+
 :::
 
 ## Reuse the boundary

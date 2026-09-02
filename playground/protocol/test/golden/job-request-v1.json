@@ -1,0 +1,1 @@
+{"protocol_version":"1.0","job_id":"5ec88436-5e75-4c0e-9434-0e4abbec0f87","operation":"system.echo","session_id":"session-1","submitted_at":"2026-01-01T00:00:00.000Z","deadline":"2026-01-01T00:05:00.000Z","input_hash":"2ea18ab8b392aa6e7d9bb9bde71c616ad9154384066ec0ddc19ade9c857f6bba","parameters":{"message":"hello"},"engine_constraint":null,"priority":"normal"}
