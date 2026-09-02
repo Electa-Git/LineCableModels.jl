@@ -114,6 +114,26 @@ end
     @test restored_system.environment.vertical_layers == earth.vertical_layers
     @test restored_system.environment.layers == earth.layers
 
+    problem=LineParametersProblem(
+        system;
+        temperature = 35.0,
+        earth_props = earth,
+        frequencies = [0.1, 50.0, 1.0e6],
+        Γ = ComplexF64[0.0, 1.0e-5im, 2.0e-4 + 3.0e-4im]
+    )
+    mktempdir() do directory
+        path=joinpath(directory, "problem.json")
+        @test export_data(:json, problem; file_name = path) == abspath(path)
+        restored_problem=import_data(
+            :json,
+            LineParametersProblem;
+            file_name = path
+        )
+        @test IE.serialize_value(restored_problem) == IE.serialize_value(problem)
+        @test restored_problem.system.terminal_order == system.terminal_order
+        @test restored_problem.system.connection_order == system.connection_order
+    end
+
     parametric_system_record=deepcopy(encoded_system)
     parametric_system_record["positions"]=IE.serialize_value(Grid((
         Pose2(-0.1, -1.0),

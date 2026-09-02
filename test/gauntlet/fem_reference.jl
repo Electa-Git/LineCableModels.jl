@@ -13,10 +13,13 @@ using LineCableModels: AbstractGrid, Grid, Gridspace
 
 const GAUNTLET_ROOT = @__DIR__
 include(joinpath(GAUNTLET_ROOT, "case_loader.jl"))
+include(joinpath(GAUNTLET_ROOT, "provenance.jl"))
 include(joinpath(GAUNTLET_ROOT, "reference_grid.jl"))
 end
 
-using .FEMReferenceCaseLoader: case_index, reference_case
+using .FEMReferenceCaseLoader: case_index, reference_case,
+                               numerical_input_sha256, repository_provenance,
+                               git_blob_record
 
 const GETDP = get(
     ENV,
@@ -46,6 +49,20 @@ const GETDP_ASSETS = (
     joinpath(GETDP_ASSET_ROOT, "quasi_tem.pro")
 )
 const MODEL_SOURCE_SHA256 = bytes2hex(sha256(join(read.(GETDP_ASSETS, String), '\0')))
+const FEM_IMPLEMENTATION_PATHS = (
+    "ext/LineCableModelsGmshExt/LineCableModelsGmshExt.jl",
+    "ext/LineCableModelsGmshExt/compute.jl",
+    "ext/LineCableModelsGmshExt/geometry.jl",
+    "ext/LineCableModelsGmshExt/getdp.jl",
+    "ext/LineCableModelsGmshExt/mesh.jl",
+    "ext/LineCableModelsGmshExt/model.jl",
+    "ext/LineCableModelsGmshExt/onelab.jl",
+    "ext/LineCableModelsGmshExt/results.jl",
+    "src/engine/matrixops.jl",
+    "src/engine/reduction.jl"
+)
+
+fem_implementation_record() = git_blob_record.(FEM_IMPLEMENTATION_PATHS)
 
 function relative_error(actual, reference)
     norm(actual - reference) / max(norm(reference), eps(Float64))
@@ -217,8 +234,14 @@ function valid_existing(path, model)
     isfile(path) || return false
     try
         document = JLD2.load(path)
-        return document["schema_version"] == 3 &&
-               document["case_source_sha256"] == model.source_sha256 &&
+        input_matches = haskey(document, "input_sha256") ?
+                        document["input_sha256"] == numerical_input_sha256(model.nominal_problem) :
+                        document["case_source_sha256"] == model.source_sha256
+        implementation_matches = document["schema_version"] == 3 ||
+                                 document["implementation"] == fem_implementation_record()
+        return document["schema_version"] in (3, 4) &&
+               input_matches &&
+               implementation_matches &&
                document["getdp_model_sha256"] == MODEL_SOURCE_SHA256 &&
                document["frequencies"] == model.problem.frequencies &&
                document["port_order"] == model.port_order
@@ -232,13 +255,18 @@ function record_result(case_id, model, result, elapsed_seconds, checks)
     mkpath(dirname(path))
     temporary = path * ".new"
     primitive = result.details.fem.primitive
+    repository = repository_provenance()
     JLD2.jldsave(
         temporary;
-        schema_version = 3,
+        schema_version = 4,
         kind = :fem_corrected_fullband_reference,
         status = isempty(checks.observations) ? :validated : :observed_anomalies,
         case_id = string(case_id),
         case_source_sha256 = model.source_sha256,
+        input_sha256 = numerical_input_sha256(model.nominal_problem),
+        implementation = fem_implementation_record(),
+        repository_commit = repository.commit,
+        repository_dirty = repository.dirty,
         getdp_model_sha256 = MODEL_SOURCE_SHA256,
         frequencies = copy(result.f),
         port_order = copy(model.port_order),

@@ -1,5 +1,5 @@
 case_definition(
-    :c525_subsea_armoured__ac_flat,
+    :cable_525kv_subsea_armoured_ac_flat,
     (
         core_diameter = case_parameter(
             :core_diameter, 60.0e-3; tags = (:geometry, :cable_layer)
@@ -192,10 +192,10 @@ case_definition(
 
     design = LineCableModels.build(
         LineCableModels.CableDesign,
-        "c525_subsea_armoured",
+        "cable_525kv_subsea_armoured",
         LineCableModels.Stack(parts);
         nominal_data = (
-            designation_code = "c525_subsea_armoured",
+            designation_code = "cable_525kv_subsea_armoured",
             U0 = p.voltage / sqrt(3),
             U = p.voltage,
             conductor_cross_section = 2_500.0
@@ -212,7 +212,7 @@ case_definition(
         [LineCableModels.Pose2(p.cable_x[index], p.cable_y) for index in 1:3];
         connections,
         environment = earth,
-        system_id = "c525_subsea_armoured__ac_flat",
+        system_id = "cable_525kv_subsea_armoured_ac_flat",
         line_length = p.line_length
     )
     return LineCableModels.Engine.LineParametersProblem(

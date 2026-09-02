@@ -1,5 +1,5 @@
 case_definition(
-    :c525_land_no_armour__ac_flat,
+    :cable_525kv_land_no_armour_ac_flat,
     (
         core_diameter = case_parameter(
             :core_diameter, 68.0e-3; tags = (:geometry, :cable_layer)
@@ -132,10 +132,10 @@ case_definition(
 
     design = LineCableModels.build(
         LineCableModels.CableDesign,
-        "c525_land_no_armour",
+        "cable_525kv_land_no_armour",
         LineCableModels.Stack(parts);
         nominal_data = (
-            designation_code = "c525_land_no_armour",
+            designation_code = "cable_525kv_land_no_armour",
             U0 = p.voltage / sqrt(3),
             U = p.voltage,
             conductor_cross_section = 3_000.0
@@ -151,7 +151,7 @@ case_definition(
         [LineCableModels.Pose2(p.cable_x[index], p.cable_y) for index in 1:3];
         connections,
         environment = earth,
-        system_id = "c525_land_no_armour__ac_flat",
+        system_id = "cable_525kv_land_no_armour_ac_flat",
         line_length = p.line_length
     )
     return LineCableModels.Engine.LineParametersProblem(

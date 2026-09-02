@@ -445,6 +445,24 @@ function _decode_node(::Val{:line_cable_system}, value)
     )
 end
 
+function _decode_node(::Val{:line_parameters_problem}, value)
+    system = _field(value, "system")
+    system isa LineCableSystem || throw(ArgumentError(
+        "line_parameters_problem system must decode as LineCableSystem"
+    ))
+    earth = _field(value, "earth_props")
+    earth isa EarthModel || throw(ArgumentError(
+        "line_parameters_problem earth_props must decode as EarthModel"
+    ))
+    return Engine.LineParametersProblem(
+        system;
+        temperature = _field(value, "temperature"),
+        earth_props = earth,
+        frequencies = _field(value, "frequencies"),
+        Γ = _optional(value, "Gamma")
+    )
+end
+
 function _decode_node(::Val{kind}, value) where {kind}
     throw(ArgumentError("unsupported declaration kind '$kind'"))
 end

@@ -42,11 +42,40 @@ comparisons, or test assertions. Each file's final expression is one
 - a builder closure that receives those named values;
 - canonical terminal order.
 
+Fixed imported cases may declare `parameters = (;)`. A `CaseParameter` exists
+only when the case intentionally exposes one variable input; it is not
+boilerplate required to index a materialised problem.
+
 `cases/index.toml` is the only catalog. `load_case` resolves only indexed files
 beneath `cases/`, verifies the declared ID, builds fresh model state on every
 call, and records the source path and SHA-256. Unknown IDs or overrides,
 unmatched tag selectors, duplicate paths, escaping paths, and ID/file
 mismatches fail immediately.
+
+### Importing existing problems
+
+The repository CLI can import a trusted Julia file whose final expression is
+one concrete `LineParametersProblem`:
+
+```bash
+./cli/lcm gauntlet case import \
+  --id two_wire_variant \
+  --source /path/to/problem.jl \
+  --description "Two buried conductors used for ..."
+```
+
+The source runs in a fresh Julia process with `--startup-file=no`. The importer
+normalises only `system_id`, verifies that the coaxial backend can flatten every
+design, orders ports by positive phase ID, and writes a versioned JSON problem,
+a small `CaseDefinition` wrapper, and the index entry. `--dry-run` validates
+without writing; `--force` replaces the same ID. The stored numbers are the
+fully materialised values, not a reconstruction of the source expressions.
+Pass `--project DIR` when the trusted source belongs to another Julia project;
+that project must provide `LineCableModels`.
+
+Use `./cli/lcm gauntlet case list`, `show`, or `validate` to inspect the
+catalogue. `case catalogue --output FILE` emits the detached manifest consumed
+by the documentation build; `--check` rejects a stale manifest.
 
 Variations are applied before the builder runs:
 
@@ -100,8 +129,9 @@ Engine formulas or option sets later.
 The seven migrated PSCAD benchmarks retain their external formulations,
 mappings, and numerical gates. They use the legacy external-reference runner
 but now receive a neutral `LoadedCase`; their work and artifact identities are
-benchmark IDs, not physical case IDs. A physical case edit intentionally
-invalidates its PSCAD snapshot digest and requires a fresh external recording.
+benchmark IDs, not physical case IDs. A numerical case-input change
+intentionally invalidates its PSCAD reference. Comments, descriptions, and
+unrelated repository changes do not.
 
 ### Exhaustive deterministic formulation comparisons
 
@@ -140,8 +170,12 @@ ONELAB socket transport is not safe across concurrent gauntlet reference
 processes.
 
 All three runners are resumable. Their generated records live under
-`.linecablemodels/` and are invalidated by case, source, formula, frequency, or
-reference changes.
+`.linecablemodels/`. Numerical reuse is keyed by the materialised problem,
+selected formulation, exact Git blob identities of the selected formulas and
+shared numerical implementation, and reference bytes. Adding an unrelated
+formula, plot, extension, or library entry does not invalidate prior results.
+Every newly written artefact also records the full repository commit and dirty
+state for historical provenance; official publication requires a clean tree.
 
 ### LEP versus Monte Carlo
 

@@ -20,6 +20,7 @@
            formulation_record,
            extract_moments, moment_comparison_passes, moment_error_summary,
            parameter_manifest,
+           numerical_input_sha256, implementation_record, repository_provenance,
            load_case, load_prior_snapshot, load_snapshot, performance_comparison,
            reference_case, reference_grid,
            persist_snapshot,
@@ -50,6 +51,7 @@
                        get(ENV, "LINECABLEMODELS_HEADLESS", "false") == "true"
 
     include(joinpath(@__DIR__, "case_loader.jl"))
+    include(joinpath(@__DIR__, "provenance.jl"))
     include(joinpath(@__DIR__, "reference_grid.jl"))
     include(joinpath(@__DIR__, "comparisons", "uq_moments.jl"))
     include(joinpath(@__DIR__, "uq_benchmarks.jl"))

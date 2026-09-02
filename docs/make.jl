@@ -1,5 +1,7 @@
 using Documenter
 using DocumenterCitations
+using CairoMakie
+using JLD2
 using LineCableModels
 using Literate
 using Markdown
@@ -16,6 +18,10 @@ const TUTORIAL_SOURCE = joinpath(ROOT_DIR, "examples")
 const TUTORIAL_OUTPUT = joinpath(DOCS_SRC_DIR, "tutorials")
 const PLOTBUILDER_SOURCE = joinpath(@__DIR__, "literate", "plotbuilder.jl")
 const GAUNTLET_SOURCE = joinpath(@__DIR__, "literate", "gauntlet.jl")
+const CASE_OUTPUT = joinpath(DOCS_SRC_DIR, "cases")
+const CASE_ASSETS = joinpath(DOCS_SRC_DIR, "assets", "cases")
+const CASE_MANIFEST = joinpath(@__DIR__, ".generated", "case_catalogue.jld2")
+const LCM_CLI = joinpath(ROOT_DIR, "cli", "lcm")
 
 const CONVENIENCE_API_OBJECTS = ()
 
@@ -210,10 +216,142 @@ function generate_maintained_pages!()
     return nothing
 end
 
+function markdown_cell(value)
+    return replace(string(value), '|' => "\\|", '\n' => "<br>")
+end
+
+function markdown_table(rows)
+    isempty(rows) && return "_None._\n"
+    names = collect(keys(first(rows)))
+    lines = String[
+        "| " * join(string.(names), " | ") * " |",
+        "| " * join(fill("---", length(names)), " | ") * " |"
+    ]
+    for row in rows
+        push!(lines, "| " * join(
+            (markdown_cell(getproperty(row, name)) for name in names),
+            " | "
+        ) * " |")
+    end
+    return join(lines, '\n') * "\n"
+end
+
+function case_page(record)
+    id = record.id
+    problem = LineCableModels.ImportExport.deserialize_value(record.problem)
+    system = problem.system
+    design_image = "$(id)-designs.png"
+    system_image = "$(id)-system.png"
+
+    design_plot = preview(
+        system.designs;
+        backend = :cairo,
+        display_plot = false,
+        controls = false
+    )
+    system_plot = preview(
+        system;
+        backend = :cairo,
+        display_plot = false,
+        controls = false
+    )
+    CairoMakie.save(joinpath(CASE_ASSETS, design_image), design_plot.figure)
+    CairoMakie.save(joinpath(CASE_ASSETS, system_image), system_plot.figure)
+
+    parameters = if isempty(record.parameters)
+        "_This is a fixed materialised case; it declares no variable case parameters._\n"
+    else
+        markdown_table([(
+            id = parameter.id,
+            nominal = parameter.nominal,
+            tags = join(string.(parameter.tags), ", ")
+        ) for parameter in record.parameters])
+    end
+    problem_text = sprint(show, MIME("text/plain"), problem)
+    return """
+# `$(id)`
+
+$(record.description)
+
+Input fingerprint: `$(record.input_sha256)`.
+
+## Summary
+
+$(markdown_table(record.summary))
+
+## Cable designs
+
+$(markdown_table(record.designs))
+
+![Cable-design cross-sections](../assets/cases/$(design_image))
+
+## System cross-section
+
+The horizontal reference line is the air–earth interface declared by the line-parameter geometry.
+
+![Cable-system cross-section](../assets/cases/$(system_image))
+
+## Case parameters
+
+$(parameters)
+
+## Materialised problem
+
+```text
+$(problem_text)
+```
+
+[Back to the case catalogue](index.md).
+"""
+end
+
+function build_case_catalogue!()
+    mkpath(dirname(CASE_MANIFEST))
+    run(`$LCM_CLI gauntlet case catalogue --output $CASE_MANIFEST`)
+    document = JLD2.load(CASE_MANIFEST)
+    document["schema_version"] == 1 || error("unsupported Gauntlet case catalogue")
+    records = document["cases"]
+
+    rm(CASE_OUTPUT; recursive = true, force = true)
+    rm(CASE_ASSETS; recursive = true, force = true)
+    mkpath(CASE_OUTPUT)
+    mkpath(CASE_ASSETS)
+
+    index_rows = NamedTuple[]
+    pages = Pair{String, String}[]
+    for record in records
+        id = record.id
+        path = joinpath(CASE_OUTPUT, "$(id).md")
+        write(path, case_page(record))
+        push!(pages, id => joinpath("cases", "$(id).md"))
+        push!(index_rows, (
+            case = "[`$(id)`]($(id).md)",
+            description = record.description,
+            terminals = length(record.port_order),
+            frequencies = length(
+                LineCableModels.ImportExport.deserialize_value(record.problem).frequencies
+            )
+        ))
+    end
+    write(
+        joinpath(CASE_OUTPUT, "index.md"),
+        """# Gauntlet case catalogue
+
+This catalogue is generated from the indexed, materialised Gauntlet cases. It does not run a numerical formulation.
+
+$(markdown_table(index_rows))
+
+The input fingerprint covers the complete materialised `LineParametersProblem`; result artefacts separately record the selected numerical implementation blobs.
+"""
+    )
+    return ["Contents" => "cases/index.md"; pages]
+end
+
 metadata = project_metadata()
 tutorials = build_tutorials!()
 tutorial_pages = last.(tutorials)
 generate_maintained_pages!()
+case_pages = build_case_catalogue!()
 
 DocMeta.setdocmeta!(
     LineCableModels,
@@ -271,7 +409,10 @@ makedocs(;
             "Overview" => "conveniences.md",
             "Data entry validation" => "validation.md"
         ],
-        "Benchmarks" => "gauntlet.md",
+        "Benchmarks" => Any[
+            "Gauntlet" => "gauntlet.md",
+            "Case catalogue" => case_pages
+        ],
         "Developers" => Any[
             "Grammar invariants" => "developers.md",
             "Extension API" => "extensions.md",

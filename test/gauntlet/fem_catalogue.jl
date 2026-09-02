@@ -12,11 +12,12 @@ using LineCableModels: AbstractGrid, Grid, Gridspace
 
 const GAUNTLET_ROOT = @__DIR__
 include(joinpath(GAUNTLET_ROOT, "case_loader.jl"))
+include(joinpath(GAUNTLET_ROOT, "provenance.jl"))
 include(joinpath(GAUNTLET_ROOT, "reference_grid.jl"))
 end
 
 using .FEMCatalogueCaseLoader: ExactOverrides, case_index, load_case,
-                               reference_case
+                               reference_case, numerical_input_sha256
 
 const EARTH_IMPEDANCE = LineCableModels.Engine.EarthImpedance
 const EARTH_ADMITTANCE = LineCableModels.Engine.EarthAdmittance
@@ -28,7 +29,7 @@ const BASE_Y = :Papadopoulos2010
 const CORPUS_POLICY = :faithful_literature_observation
 const FORMULA_TREATMENT = :as_registered_no_regularization_no_fallback
 const DIAGNOSTIC_POLICY = :isolated_candidate_reprobe_not_measured_fallback
-const ARTIFACT_SCHEMA_VERSION = 6
+const ARTIFACT_SCHEMA_VERSION = 7
 const HOMOGENEOUS_UNDERGROUND_Z = Set((
     :Ametani2009,
     :Bridges1995,
@@ -82,18 +83,7 @@ const HORIZONTAL_ONLY_Z = Set((
 ))
 const HORIZONTAL_ONLY_Y = Set((:Theethayi2007, :Xue2021))
 
-function fem_lossless_semicon(
-        material::Material{T}, frequency, temperature, assumptions
-) where {T <: Real}
-    ε₀ = one(T) * 88541878128 * (one(T) * 10)^(-22)
-    ω = 2 * (one(T) * π) * convert(T, frequency)
-    return complex(zero(T), ω) * ε₀ * material.eps_r
-end
-
-const FEM_LOSSLESS_SEMICON = SEMICON_ADMITTANCE.Formula(
-    :FEMLossless,
-    fem_lossless_semicon
-)
+include(joinpath(@__DIR__, "formulas", "fem_lossless_semicon.jl"))
 
 const GAUNTLET_ROOT = joinpath(
     pkgdir(LineCableModels),
@@ -256,14 +246,29 @@ function formulation(selected)
     )
 end
 
+function candidate_provenance(model, selected)
+    selected_formulation = formulation(selected)
+    return (
+        input_sha256 = numerical_input_sha256(model.nominal_problem),
+        implementation = FEMCatalogueCaseLoader.implementation_record(
+            selected_formulation;
+            external_sources = ("test/gauntlet/formulas/fem_lossless_semicon.jl",)
+        ),
+        repository = FEMCatalogueCaseLoader.repository_provenance()
+    )
+end
+
 function load_reference(case_id, model)
     path = joinpath(REFERENCE_ROOT, string(case_id), "reference.jld2")
     isfile(path) || error("full-band FEM reference is missing for $case_id: $path")
     document = JLD2.load(path)
-    document["schema_version"] == 3 || error(
+    document["schema_version"] in (3, 4) || error(
         "$case_id FEM reference has unsupported schema"
     )
-    document["case_source_sha256"] == model.source_sha256 || error(
+    input_matches = haskey(document, "input_sha256") ?
+                    document["input_sha256"] == numerical_input_sha256(model.nominal_problem) :
+                    document["case_source_sha256"] == model.source_sha256
+    input_matches || error(
         "$case_id FEM reference case digest does not match the current case"
     )
     document["frequencies"] == model.problem.frequencies || error(
@@ -522,6 +527,7 @@ function record_result(
         selected,
         metrics
     )
+    provenance = candidate_provenance(model, selected)
     JLD2.jldsave(
         temporary;
         schema_version = ARTIFACT_SCHEMA_VERSION,
@@ -534,6 +540,10 @@ function record_result(
                  :observed_invariant_violation,
         case_id = string(case_id),
         case_source_sha256 = model.source_sha256,
+        input_sha256 = provenance.input_sha256,
+        implementation = provenance.implementation,
+        repository_commit = provenance.repository.commit,
+        repository_dirty = provenance.repository.dirty,
         frequencies = copy(result.f),
         port_order = copy(model.port_order),
         internal_impedance = INTERNAL_FORMULA,
@@ -575,6 +585,7 @@ function record_skip(
         reference
 )
     path = artifact_path(case_id, selected)
+    provenance = candidate_provenance(model, selected)
     mkpath(dirname(path))
     temporary = path * ".new"
     JLD2.jldsave(
@@ -588,6 +599,10 @@ function record_skip(
         reason,
         case_id = string(case_id),
         case_source_sha256 = model.source_sha256,
+        input_sha256 = provenance.input_sha256,
+        implementation = provenance.implementation,
+        repository_commit = provenance.repository.commit,
+        repository_dirty = provenance.repository.dirty,
         frequencies = copy(model.problem.frequencies),
         port_order = copy(model.port_order),
         internal_impedance = INTERNAL_FORMULA,
@@ -712,6 +727,7 @@ function record_execution_failure(
         reference
 )
     path = artifact_path(case_id, selected)
+    provenance = candidate_provenance(model, selected)
     mkpath(dirname(path))
     temporary = path * ".new"
     JLD2.jldsave(
@@ -724,6 +740,10 @@ function record_execution_failure(
         status = :execution_failure,
         case_id = string(case_id),
         case_source_sha256 = model.source_sha256,
+        input_sha256 = provenance.input_sha256,
+        implementation = provenance.implementation,
+        repository_commit = provenance.repository.commit,
+        repository_dirty = provenance.repository.dirty,
         frequencies = copy(model.problem.frequencies),
         port_order = copy(model.port_order),
         internal_impedance = INTERNAL_FORMULA,
@@ -760,8 +780,10 @@ function valid_existing(path, model, selected, reference_sha256)
     isfile(path) || return false
     try
         document = JLD2.load(path)
+        provenance = candidate_provenance(model, selected)
         return document["schema_version"] == ARTIFACT_SCHEMA_VERSION &&
-               document["case_source_sha256"] == model.source_sha256 &&
+               document["input_sha256"] == provenance.input_sha256 &&
+               document["implementation"] == provenance.implementation &&
                document["frequencies"] == model.problem.frequencies &&
                document["variant_id"] == selected.id &&
                document["formula"] == selected.identifier &&

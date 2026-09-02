@@ -1,5 +1,5 @@
 case_definition(
-    :c380_no_armour__ac_flat,
+    :cable_320kv_no_armour_dc_bipole,
     (
         strand_layers = case_parameter(
             :strand_layers, 6; tags = (:topology, :cable_layer)
@@ -68,13 +68,13 @@ case_definition(
             :pp_mu_r, 1.1263; tags = (:material, :cable_layer)
         ),
         cable_x = case_parameter(
-            :cable_x, (-1.0, 0.0, 1.0); tags = (:geometry, :system)
+            :cable_x, (-0.5, 0.5); tags = (:geometry, :system)
         ),
         cable_y = case_parameter(:cable_y, -1.0; tags = (:geometry, :system)),
         line_length = case_parameter(
-            :line_length, 20_000.0; tags = (:operation, :system)
+            :line_length, 150_000.0; tags = (:operation, :system)
         ),
-        voltage = case_parameter(:voltage, 380.0; tags = (:operation, :system)),
+        voltage = case_parameter(:voltage, 320.0; tags = (:operation, :system)),
         temperature = case_parameter(
             :temperature, 70.0; tags = (:operation, :system)
         ),
@@ -95,8 +95,7 @@ case_definition(
     ),
     [
         "cable:1:core", "cable:1:sheath",
-        "cable:2:core", "cable:2:sheath",
-        "cable:3:core", "cable:3:sheath"
+        "cable:2:core", "cable:2:sheath"
     ]
 ) do p
     core = LineCableModels.Material(
@@ -181,26 +180,25 @@ case_definition(
 
     design = LineCableModels.build(
         LineCableModels.CableDesign,
-        "c380_no_armour",
+        "cable_320kv_no_armour",
         LineCableModels.Stack(parts);
         nominal_data = (
-            designation_code = "c380_no_armour",
-            U0 = p.voltage / sqrt(3),
-            U = p.voltage,
+            designation_code = "cable_320kv_no_armour",
+            U0 = p.voltage,
             conductor_cross_section = 1_600.0
         )
     )
     earth = LineCableModels.Earth(
         rho = p.earth_rho, eps_r = p.earth_eps_r, mu_r = 1.0
     )
-    connections = [Dict(:core => 2index - 1, :sheath => 2index) for index in 1:3]
+    connections = [Dict(:core => 2index - 1, :sheath => 2index) for index in 1:2]
     system = LineCableModels.build(
         LineCableModels.LineCableSystem,
-        fill(design, 3),
-        [LineCableModels.Pose2(p.cable_x[index], p.cable_y) for index in 1:3];
+        fill(design, 2),
+        [LineCableModels.Pose2(p.cable_x[index], p.cable_y) for index in 1:2];
         connections,
         environment = earth,
-        system_id = "c380_no_armour__ac_flat",
+        system_id = "cable_320kv_no_armour_dc_bipole",
         line_length = p.line_length
     )
     return LineCableModels.Engine.LineParametersProblem(

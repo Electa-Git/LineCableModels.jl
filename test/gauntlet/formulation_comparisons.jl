@@ -1,6 +1,6 @@
 include(joinpath(@__DIR__, "fem_catalogue.jl"))
 
-const COMPARISON_SCHEMA_VERSION = 2
+const COMPARISON_SCHEMA_VERSION = 3
 const PSCAD_REFERENCE_ROOT = joinpath(
     pkgdir(LineCableModels),
     ".linecablemodels",
@@ -16,21 +16,6 @@ const COMPARISON_ROOT = joinpath(
     "formulation_corpus"
 )
 
-function tree_digest(root)
-    paths = sort!([joinpath(directory, file)
-                   for (directory, _, files) in walkdir(root)
-                   for file in files
-                   if endswith(file, ".jl")])
-    contents = UInt8[]
-    for path in paths
-        append!(contents, read(path))
-        push!(contents, 0x00)
-    end
-    return bytes2hex(sha256(contents))
-end
-
-const ENGINE_SHA256 = tree_digest(joinpath(pkgdir(LineCableModels), "src"))
-
 function file_digest(paths)
     contents = UInt8[]
     for path in sort!(abspath.(collect(paths)))
@@ -42,9 +27,22 @@ end
 
 const COMPARISON_SOURCE_SHA256 = file_digest((
     @__FILE__,
-    joinpath(@__DIR__, "fem_catalogue.jl"),
     joinpath(@__DIR__, "reference_grid.jl")
 ))
+
+function comparison_provenance(model, selected)
+    selected_formulation = formulation(selected)
+    return (
+        input_sha256 = numerical_input_sha256(model.nominal_problem),
+        implementation = implementation_record(
+            selected_formulation;
+            external_sources = (
+                "test/gauntlet/formulas/fem_lossless_semicon.jl",
+            )
+        ),
+        repository = repository_provenance()
+    )
+end
 
 function reference_parameters(document)
     LineParameters(
@@ -84,13 +82,16 @@ function references(case_id, model)
         path = joinpath(directory, "reference.jld2")
         isfile(path) || continue
         document = JLD2.load(path)
-        document["schema_version"] == 1 || error(
+        document["schema_version"] in (1, 2) || error(
             "unsupported PSCAD reference schema at $path",
         )
         document["status"] === :complete || error(
             "incomplete PSCAD reference at $path",
         )
-        document["case_source_sha256"] == model.source_sha256 || error(
+        input_matches = haskey(document, "input_sha256") ?
+                        document["input_sha256"] == numerical_input_sha256(model.nominal_problem) :
+                        document["case_source_sha256"] == model.source_sha256
+        input_matches || error(
             "$case_id PSCAD reference case digest is stale: $path",
         )
         document["frequencies"] == model.problem.frequencies || error(
@@ -146,10 +147,11 @@ function valid_comparison(path, model, selected, records)
     isfile(path) || return false
     try
         document = JLD2.load(path)
+        provenance = comparison_provenance(model, selected)
         return document["schema_version"] == COMPARISON_SCHEMA_VERSION &&
                document["status"] === :complete &&
-               document["case_source_sha256"] == model.source_sha256 &&
-               document["engine_sha256"] == ENGINE_SHA256 &&
+               document["input_sha256"] == provenance.input_sha256 &&
+               document["implementation"] == provenance.implementation &&
                document["comparison_source_sha256"] ==
                COMPARISON_SOURCE_SHA256 &&
                document["frequencies"] == model.problem.frequencies &&
@@ -182,6 +184,7 @@ function record_comparison(
         elapsed
 )
     path = comparison_path(case_id, selected)
+    provenance = comparison_provenance(model, selected)
     mkpath(dirname(path))
     temporary = path * ".new"
     JLD2.jldsave(
@@ -191,7 +194,10 @@ function record_comparison(
         status = :complete,
         case_id = string(case_id),
         case_source_sha256 = model.source_sha256,
-        engine_sha256 = ENGINE_SHA256,
+        input_sha256 = provenance.input_sha256,
+        implementation = provenance.implementation,
+        repository_commit = provenance.repository.commit,
+        repository_dirty = provenance.repository.dirty,
         comparison_source_sha256 = COMPARISON_SOURCE_SHA256,
         frequencies = copy(candidate.f),
         port_order = copy(model.port_order),
@@ -216,6 +222,7 @@ end
 
 function record_comparison_failure(case_id, model, selected, exception, elapsed)
     path = comparison_failure_path(case_id, selected)
+    provenance = comparison_provenance(model, selected)
     mkpath(dirname(path))
     temporary = path * ".new"
     JLD2.jldsave(
@@ -225,7 +232,10 @@ function record_comparison_failure(case_id, model, selected, exception, elapsed)
         status = :execution_failure,
         case_id = string(case_id),
         case_source_sha256 = model.source_sha256,
-        engine_sha256 = ENGINE_SHA256,
+        input_sha256 = provenance.input_sha256,
+        implementation = provenance.implementation,
+        repository_commit = provenance.repository.commit,
+        repository_dirty = provenance.repository.dirty,
         comparison_source_sha256 = COMPARISON_SOURCE_SHA256,
         frequencies = copy(model.problem.frequencies),
         port_order = copy(model.port_order),
@@ -445,7 +455,8 @@ function comparison_main(args = ARGS)
         kind = :cross_backend_formulation_summary,
         metric = :elementwise_rms_across_frequency,
         monte_carlo = false,
-        engine_sha256 = ENGINE_SHA256,
+        repository_commit = repository_provenance().commit,
+        repository_dirty = repository_provenance().dirty,
         comparison_source_sha256 = COMPARISON_SOURCE_SHA256,
         cases = string.(requested),
         registered_earth_impedance = collect(EARTH_IMPEDANCE.formulas()),

@@ -11,6 +11,7 @@ using LineCableModels: AbstractGrid, Grid, Gridspace
 
 const GAUNTLET_ROOT = @__DIR__
 include(joinpath(GAUNTLET_ROOT, "case_loader.jl"))
+include(joinpath(GAUNTLET_ROOT, "provenance.jl"))
 include(joinpath(GAUNTLET_ROOT, "reference_grid.jl"))
 end
 
@@ -23,11 +24,13 @@ function formulation_record end
 include(joinpath(GAUNTLET_ROOT, "pscad", "PSCADBenchmarks.jl"))
 end
 
-using .PSCADReferenceCaseLoader: case_index, reference_case
+using .PSCADReferenceCaseLoader: case_index, reference_case,
+                                 numerical_input_sha256, repository_provenance,
+                                 git_blob_record
 using .GauntletSupport: benchmark_metadata, formulation_record
 using .GauntletSupport.PSCADBenchmarks
 
-const SCHEMA_VERSION = 1
+const SCHEMA_VERSION = 2
 const ROOT = joinpath(
     pkgdir(LineCableModels),
     ".linecablemodels",
@@ -132,6 +135,22 @@ end
 
 const SOURCE_SHA256 = source_digest()
 
+function pscad_implementation_record()
+    roots = (
+        joinpath(pkgdir(LineCableModels), "src", "importexport", "pscad"),
+        joinpath(@__DIR__, "pscad")
+    )
+    paths = String[
+        relpath(joinpath(directory, file), pkgdir(LineCableModels))
+        for root in roots
+        for (directory, _, files) in walkdir(root)
+        for file in files
+        if endswith(file, ".jl") || endswith(file, ".ps1")
+    ]
+    push!(paths, "test/gauntlet/reference_grid.jl")
+    return git_blob_record.(sort!(unique!(paths)))
+end
+
 function write_hash(path)
     open(path * ".sha256", "w") do io
         println(io, bytes2hex(sha256(read(path))), "  ", basename(path))
@@ -157,10 +176,15 @@ function valid_existing(path, model, selected)
     isfile(path) || return false
     try
         document = JLD2.load(path)
-        return document["schema_version"] == SCHEMA_VERSION &&
+        input_matches = haskey(document, "input_sha256") ?
+                        document["input_sha256"] == numerical_input_sha256(model.nominal_problem) :
+                        document["case_source_sha256"] == model.source_sha256
+        implementation_matches = document["schema_version"] == 1 ||
+                                 document["implementation"] == pscad_implementation_record()
+        return document["schema_version"] in (1, SCHEMA_VERSION) &&
                document["status"] === :complete &&
-               document["case_source_sha256"] == model.source_sha256 &&
-               document["source_sha256"] == SOURCE_SHA256 &&
+               input_matches &&
+               implementation_matches &&
                document["frequencies"] == model.problem.frequencies &&
                document["port_order"] == model.port_order &&
                document["formula"] == selected.id &&
@@ -179,6 +203,7 @@ function record_result(case_id, model, selected, parameters, execution, elapsed)
     mkpath(dirname(path))
     temporary = path * ".new"
     formulation_value = formulation(selected)
+    repository = repository_provenance()
     JLD2.jldsave(
         temporary;
         schema_version = SCHEMA_VERSION,
@@ -186,7 +211,11 @@ function record_result(case_id, model, selected, parameters, execution, elapsed)
         status = :complete,
         case_id = string(case_id),
         case_source_sha256 = model.source_sha256,
+        input_sha256 = numerical_input_sha256(model.nominal_problem),
+        repository_commit = repository.commit,
+        repository_dirty = repository.dirty,
         source_sha256 = SOURCE_SHA256,
+        implementation = pscad_implementation_record(),
         frequencies = copy(parameters.f),
         port_order = copy(model.port_order),
         basis = :pul,

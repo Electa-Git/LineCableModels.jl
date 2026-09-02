@@ -1,51 +1,62 @@
 case_definition(
-    :c525_subsea_armoured__dc_bipole,
+    :cable_320kv_armoured_dc_bipole,
     (
-        core_diameter = case_parameter(
-            :core_diameter, 60.0e-3; tags = (:geometry, :cable_layer)
+        strand_layers = case_parameter(
+            :strand_layers, 6; tags = (:topology, :cable_layer)
         ),
-        core_r20 = case_parameter(
-            :core_r20, 0.0072; tags = (:material, :cable_layer)
+        strand_diameter = case_parameter(
+            :strand_diameter, 3.66e-3; tags = (:geometry, :cable_layer)
+        ),
+        core_lay_ratio = case_parameter(
+            :core_lay_ratio, 15.0; tags = (:geometry, :cable_layer)
         ),
         inner_semicon_thickness = case_parameter(
             :inner_semicon_thickness, 2.0e-3; tags = (:geometry, :cable_layer)
         ),
         insulation_thickness = case_parameter(
-            :insulation_thickness, 26.0e-3; tags = (:geometry, :cable_layer)
+            :insulation_thickness, 20.0e-3; tags = (:geometry, :cable_layer)
         ),
         outer_semicon_thickness = case_parameter(
-            :outer_semicon_thickness, 1.8e-3; tags = (:geometry, :cable_layer)
+            :outer_semicon_thickness, 1.5e-3; tags = (:geometry, :cable_layer)
         ),
         water_blocking_thickness = case_parameter(
-            :water_blocking_thickness, 0.6e-3; tags = (:geometry, :cable_layer)
+            :water_blocking_thickness, 0.3e-3; tags = (:geometry, :cable_layer)
         ),
         lead_sheath_thickness = case_parameter(
-            :lead_sheath_thickness, 3.2e-3; tags = (:geometry, :cable_layer)
+            :lead_sheath_thickness, 3.3e-3; tags = (:geometry, :cable_layer)
         ),
         inner_pe_thickness = case_parameter(
-            :inner_pe_thickness, 3.3e-3; tags = (:geometry, :cable_layer)
+            :inner_pe_thickness, 3.0e-3; tags = (:geometry, :cable_layer)
         ),
         bedding_thickness = case_parameter(
-            :bedding_thickness, 1.0e-3; tags = (:geometry, :cable_layer)
+            :bedding_thickness, 3.0e-3; tags = (:geometry, :cable_layer)
         ),
         armor_wires = case_parameter(
             :armor_wires, 68; tags = (:topology, :cable_layer)
         ),
         armor_wire_diameter = case_parameter(
-            :armor_wire_diameter, 6.0e-3; tags = (:geometry, :cable_layer)
+            :armor_wire_diameter, 5.82e-3; tags = (:geometry, :cable_layer)
         ),
         armor_lay_ratio = case_parameter(
-            :armor_lay_ratio, pi / sqrt(1.048^2 - 1);
-            tags = (:geometry, :cable_layer)
+            :armor_lay_ratio, 15.0; tags = (:geometry, :cable_layer)
         ),
         jacket_thickness = case_parameter(
-            :jacket_thickness, 6.6e-3; tags = (:geometry, :cable_layer)
+            :jacket_thickness, 10.0e-3; tags = (:geometry, :cable_layer)
+        ),
+        core_rho = case_parameter(
+            :core_rho, 2.3853e-8; tags = (:material, :cable_layer)
+        ),
+        core_mu_r = case_parameter(
+            :core_mu_r, 1.01663; tags = (:material, :cable_layer)
         ),
         xlpe_rho = case_parameter(
             :xlpe_rho, 1.0e14; tags = (:material, :cable_layer)
         ),
         xlpe_eps_r = case_parameter(
-            :xlpe_eps_r, 2.4; tags = (:material, :cable_layer)
+            :xlpe_eps_r, 2.77781; tags = (:material, :cable_layer)
+        ),
+        xlpe_mu_r = case_parameter(
+            :xlpe_mu_r, 1.59891; tags = (:material, :cable_layer)
         ),
         lead_rho = case_parameter(
             :lead_rho, 2.14e-7; tags = (:material, :cable_layer)
@@ -57,7 +68,7 @@ case_definition(
             :pe_rho, 1.97e14; tags = (:material, :cable_layer)
         ),
         pe_eps_r = case_parameter(
-            :pe_eps_r, 2.5; tags = (:material, :cable_layer)
+            :pe_eps_r, 2.51862; tags = (:material, :cable_layer)
         ),
         pp_rho = case_parameter(
             :pp_rho, 1.0e15; tags = (:material, :cable_layer)
@@ -65,11 +76,14 @@ case_definition(
         pp_eps_r = case_parameter(
             :pp_eps_r, 2.8; tags = (:material, :cable_layer)
         ),
+        pp_mu_r = case_parameter(
+            :pp_mu_r, 1.1263; tags = (:material, :cable_layer)
+        ),
         steel_rho = case_parameter(
-            :steel_rho, 1.38e-7; tags = (:material, :cable_layer)
+            :steel_rho, 1.7475e-7; tags = (:material, :cable_layer)
         ),
         steel_mu_r = case_parameter(
-            :steel_mu_r, 10.0; tags = (:material, :cable_layer)
+            :steel_mu_r, 36.6326; tags = (:material, :cable_layer)
         ),
         cable_x = case_parameter(
             :cable_x, (-0.5, 0.5); tags = (:geometry, :system)
@@ -78,7 +92,7 @@ case_definition(
         line_length = case_parameter(
             :line_length, 150_000.0; tags = (:operation, :system)
         ),
-        voltage = case_parameter(:voltage, 525.0; tags = (:operation, :system)),
+        voltage = case_parameter(:voltage, 320.0; tags = (:operation, :system)),
         temperature = case_parameter(
             :temperature, 70.0; tags = (:operation, :system)
         ),
@@ -102,18 +116,21 @@ case_definition(
         "cable:2:core", "cable:2:sheath", "cable:2:armor"
     ]
 ) do p
-    core_rho = p.core_r20 * (pi * (p.core_diameter / 2)^2) / 1_000
     core = LineCableModels.Material(
-        :conductor, core_rho, 1.0, 1.0, 20.0, 0.00393
+        :conductor, p.core_rho, 1.0, p.core_mu_r, 20.0, 0.00393
     )
     semicon_inner = LineCableModels.Material(:semicon, 1_000.0, 1_000.0)
     semicon_outer = LineCableModels.Material(:semicon, 500.0, 1_000.0)
-    xlpe = LineCableModels.Material(:insulator, p.xlpe_rho, p.xlpe_eps_r)
+    xlpe = LineCableModels.Material(
+        :insulator, p.xlpe_rho, p.xlpe_eps_r, p.xlpe_mu_r
+    )
     lead = LineCableModels.Material(
         :conductor, p.lead_rho, 1.0, p.lead_mu_r, 20.0, 0.004
     )
     pe = LineCableModels.Material(:insulator, p.pe_rho, p.pe_eps_r)
-    pp = LineCableModels.Material(:insulator, p.pp_rho, p.pp_eps_r)
+    pp = LineCableModels.Material(
+        :insulator, p.pp_rho, p.pp_eps_r, p.pp_mu_r
+    )
     steel = LineCableModels.Material(
         :conductor, p.steel_rho, 1.0, p.steel_mu_r, 20.0, 0.0045
     )
@@ -121,13 +138,34 @@ case_definition(
         kind = :insulator, rho = Inf, eps_r = 1.0, mu_r = 1.0
     )
 
-    radius = p.core_diameter / 2
-    parts = LineCableModels.AbstractCablePart[
-        LineCableModels.Group(
-        :core,
-        LineCableModels.Region(:core_conductor, LineCableModels.Disk(radius), core)
-    ),
-    ]
+    parts = LineCableModels.AbstractCablePart[]
+    strand_radius = p.strand_diameter / 2
+    radius = zero(strand_radius)
+    for layer in 0:p.strand_layers
+        outer = layer == 0 ? strand_radius : radius + 2strand_radius
+        push!(parts,
+            LineCableModels.Group(
+                :core,
+                LineCableModels.Region(
+                    Symbol(:core_strands_, layer + 1),
+                    LineCableModels.Disk(strand_radius),
+                    core
+                );
+                pattern = layer == 0 ?
+                          LineCableModels.Ring(1; r = zero(radius)) :
+                          LineCableModels.Hexa(layer),
+                path = layer == 0 ? nothing :
+                       LineCableModels.Helix(LineCableModels.LayRatio(p.core_lay_ratio))
+            ))
+        radius = outer
+    end
+    core_enclosure = LineCableModels.Enclosure(
+        :core_matrix,
+        LineCableModels.Stack(parts);
+        primitive = LineCableModels.Disk(radius),
+        fill = matrix
+    )
+    parts = LineCableModels.AbstractCablePart[core_enclosure]
     for (tag, layer_thickness, material) in (
         (:core_semicon_inner, p.inner_semicon_thickness, semicon_inner),
         (:core_insulation, p.insulation_thickness, xlpe),
@@ -148,21 +186,32 @@ case_definition(
                 lead
             )
         ))
+    radius = lead_outer
     push!(parts,
         LineCableModels.Region(
             :sheath_inner_pe,
             LineCableModels.Shell(p.inner_pe_thickness),
             pe
         ))
+    radius += p.inner_pe_thickness
+
+    armor_wire_radius = p.armor_wire_diameter / 2
+    minimum_armor_inner_radius = armor_wire_radius / sinpi(1 / p.armor_wires) -
+                                 armor_wire_radius
+    nominal_armor_inner_radius = radius + p.bedding_thickness
+    packing_shortfall = max(
+        minimum_armor_inner_radius - nominal_armor_inner_radius,
+        zero(minimum_armor_inner_radius)
+    )
+    effective_bedding_thickness = p.bedding_thickness + packing_shortfall
     push!(parts,
         LineCableModels.Region(
             :sheath_bedding,
-            LineCableModels.Shell(p.bedding_thickness),
+            LineCableModels.Shell(effective_bedding_thickness),
             pp
         ))
-    armor_wire_radius = p.armor_wire_diameter / 2
-    armor_inner_radius = lead_outer + p.inner_pe_thickness + p.bedding_thickness
-    armor_outer = armor_inner_radius + 2armor_wire_radius
+    radius += effective_bedding_thickness
+    armor_outer = radius + 2armor_wire_radius
     armor = LineCableModels.Group(
         :armor,
         LineCableModels.Region(
@@ -171,7 +220,7 @@ case_definition(
             steel
         );
         pattern = LineCableModels.Ring(
-            p.armor_wires; r = armor_inner_radius + armor_wire_radius
+            p.armor_wires; r = radius + armor_wire_radius
         ),
         path = LineCableModels.Helix(LineCableModels.LayRatio(p.armor_lay_ratio))
     )
@@ -179,9 +228,10 @@ case_definition(
         LineCableModels.Enclosure(
             :armor_matrix,
             armor;
-            primitive = LineCableModels.Annulus(armor_inner_radius, armor_outer),
+            primitive = LineCableModels.Annulus(radius, armor_outer),
             fill = matrix
         ))
+    radius = armor_outer
     push!(parts,
         LineCableModels.Region(
             :armor_jacket,
@@ -191,12 +241,12 @@ case_definition(
 
     design = LineCableModels.build(
         LineCableModels.CableDesign,
-        "c525_subsea_armoured",
+        "cable_320kv_armoured",
         LineCableModels.Stack(parts);
         nominal_data = (
-            designation_code = "c525_subsea_armoured",
+            designation_code = "cable_320kv_armoured",
             U0 = p.voltage,
-            conductor_cross_section = 2_500.0
+            conductor_cross_section = 1_600.0
         )
     )
     earth = LineCableModels.Earth(
@@ -210,7 +260,7 @@ case_definition(
         [LineCableModels.Pose2(p.cable_x[index], p.cable_y) for index in 1:2];
         connections,
         environment = earth,
-        system_id = "c525_subsea_armoured__dc_bipole",
+        system_id = "cable_320kv_armoured_dc_bipole",
         line_length = p.line_length
     )
     return LineCableModels.Engine.LineParametersProblem(

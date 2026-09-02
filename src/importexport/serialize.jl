@@ -2,6 +2,7 @@ const JSON_SCHEMA_VERSION = "1.0.0"
 const JSON_SCHEMA_DIALECT = "https://json-schema.org/draft/2020-12/schema"
 const MATERIALS_SCHEMA = "linecablemodels.materials"
 const CABLES_SCHEMA = "linecablemodels.cable"
+const PROBLEM_SCHEMA = "linecablemodels.line_parameters_problem"
 
 _scalar_tag(::Type{Float16}) = "Float16"
 _scalar_tag(::Type{Float32}) = "Float32"
@@ -352,5 +353,14 @@ function _json_document(system::LineCableSystem)
         "version" => JSON_SCHEMA_VERSION,
         "materials" => Dict{String, Any}(),
         "root" => serialize_value(system)
+    )
+end
+
+function _json_document(problem::Engine.LineParametersProblem)
+    return Dict(
+        "\$schema" => JSON_SCHEMA_DIALECT,
+        "format" => PROBLEM_SCHEMA,
+        "version" => JSON_SCHEMA_VERSION,
+        "root" => serialize_value(problem)
     )
 end
