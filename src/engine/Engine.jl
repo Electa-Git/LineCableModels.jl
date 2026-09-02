@@ -40,14 +40,14 @@ export verbosity
 export InternalImpedance, InsulationImpedance, EarthImpedance
 export InsulationAdmittance, SemiconAdmittance, EarthAdmittance
 
-export compute, plot
+export compute
 
 # Module-specific dependencies
 using LinearAlgebra: I, checksquare, cond, diag, ldiv!, lu, lu!, mul!, norm
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..LineCableModels: basis, build, R, L, C,
                           resistance, inductance, capacitance
-import ..LineCableModels: nominal, uncertainty
+import ..LineCableModels: nominal
 import ..LineCableModels: constitutive, formula, formula_id, FormulaSpec
 import ..LineCableModels: _construction
 #! explicit-imports: off
@@ -58,14 +58,11 @@ import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
                   FormulationOptions, ComputationOptions,
                   ComputationDetails,
                   formulation_options, computation_options, computation_details, details,
-                  compute, observe, observables, validate_observables,
-                  unit_targets,
+                  compute, observe, observables,
                   observation_request, observation_indices,
-                  request_identity, request_quantity, request_indices,
                   computation_owner, publication_table
 
 using ..Units
-using ..PlotBuilder
 using ..Materials
 import ..EarthProps
 using ..EarthProps: EarthMaterial, EarthModel, EHEM
@@ -127,12 +124,9 @@ include("lineparameters.jl")
 include("reduction.jl")
 include("cableconstants.jl")
 
-# Line-parameter protocols and renderer-independent plot definitions
+# Line-parameter protocols and observation publication
 include("lineparameters/base.jl")
 include("lineparameters/publication.jl")
-include("lineparameters/plot.jl")
-include("lineparameters/plotdefinition.jl")
-include("lineparameters/comparisonplot.jl")
 include("textdisplay.jl")
 
 public has_uncertainty_type

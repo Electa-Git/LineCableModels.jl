@@ -111,12 +111,22 @@ function Makie.hist(
         quantity_units = nothing,
         clip::Bool = true,
         title = nothing,
+        figure_title = nothing,
+        title_attributes::NamedTuple = (;),
+        panel_titles = nothing,
         fig_size = (800, 400),
         backend = nothing,
         display_plot::Bool = true,
         controls::Bool = true,
         export_theme::Symbol = :default,
         open_export::Bool = true,
+        legend_position = :right,
+        legend_anchor = :rt,
+        legend_title = nothing,
+        legend_labels = nothing,
+        legend_attributes::NamedTuple = (;),
+        legend_overflow::Symbol = :ellipsis,
+        panel_legends = (),
         kwargs...
 )
     publication = _monte_carlo_publication(result, request;
@@ -146,24 +156,34 @@ function Makie.hist(
         quantity = LineCableModels.Units.Quantity{:probability_density}(),
         unit = inv(sample.unit)
     )
-    return PlotBuilder.plotwindow(;
+    return _addon_statistical_plot(
+        sample,
+        y_observation;
         title = heading,
-        size = fig_size,
+        figure_title,
+        title_attributes,
+        panel_titles,
+        fig_size,
         backend,
         display_plot,
         controls,
         export_theme,
-        open_export) do context
-        axis = PlotBuilder.axis!(context, context.canvas[1, 1], sample, y_observation;
-            title = heading)
+        open_export,
+        legend_position,
+        legend_anchor,
+        legend_title,
+        legend_labels,
+        legend_attributes,
+        legend_overflow,
+        panel_legends
+    ) do axis, groups, order, labels, series
         plot = bins === nothing ?
                hist!(axis, sample.values; normalization, label = "samples", kwargs...) :
                hist!(axis, sample.values; bins, normalization, label = "samples", kwargs...)
-        PlotBuilder.register!(context, axis;
-            groups = (samples = (plot,),),
-            labels = (samples = "samples",),
-            data = ((; xdata = sample.values, ydata = nothing,
-                group = :samples, label = "samples"),))
+        groups[:samples] = Any[plot]
+        push!(order, :samples)
+        labels[:samples] = "samples"
+        push!(series, (; xdata = sample.values, ydata = nothing, plots = Any[plot]))
     end
 end
 
@@ -175,12 +195,22 @@ function Makie.stairs(
         quantity_units = nothing,
         clip::Bool = true,
         title = nothing,
+        figure_title = nothing,
+        title_attributes::NamedTuple = (;),
+        panel_titles = nothing,
         fig_size = (800, 400),
         backend = nothing,
         display_plot::Bool = true,
         controls::Bool = true,
         export_theme::Symbol = :default,
         open_export::Bool = true,
+        legend_position = :right,
+        legend_anchor = :rt,
+        legend_title = nothing,
+        legend_labels = nothing,
+        legend_attributes::NamedTuple = (;),
+        legend_overflow::Symbol = :ellipsis,
+        panel_legends = (),
         kwargs...
 )
     publication = _monte_carlo_publication(result, request;
@@ -203,19 +233,34 @@ function Makie.stairs(
         quantity = LineCableModels.Units.Quantity{:probability_density}(),
         unit = inv(model.unit)
     )
-    return PlotBuilder.plotwindow(;
-        title = heading, size = fig_size, backend, display_plot, controls,
-        export_theme, open_export) do context
-        axis = PlotBuilder.axis!(context, context.canvas[1, 1], abscissa, ordinate;
-            title = heading)
+    return _addon_statistical_plot(
+        abscissa,
+        ordinate;
+        title = heading,
+        figure_title,
+        title_attributes,
+        panel_titles,
+        fig_size,
+        backend,
+        display_plot,
+        controls,
+        export_theme,
+        open_export,
+        legend_position,
+        legend_anchor,
+        legend_title,
+        legend_labels,
+        legend_attributes,
+        legend_overflow,
+        panel_legends
+    ) do axis, groups, order, labels, series
         y = [model.values.density; last(model.values.density)]
         plot = stairs!(axis, model.values.edges, y;
             step = :post, label = "model PDF", kwargs...)
-        PlotBuilder.register!(context, axis;
-            groups = (model = (plot,),),
-            labels = (model = "model PDF",),
-            data = ((; xdata = model.values.edges, ydata = y,
-                group = :model, label = "model PDF"),))
+        groups[:model] = Any[plot]
+        push!(order, :model)
+        labels[:model] = "model PDF"
+        push!(series, (; xdata = model.values.edges, ydata = y, plots = Any[plot]))
     end
 end
 
@@ -226,12 +271,22 @@ function Makie.ecdfplot(
         quantity_units = nothing,
         clip::Bool = true,
         title = nothing,
+        figure_title = nothing,
+        title_attributes::NamedTuple = (;),
+        panel_titles = nothing,
         fig_size = (800, 400),
         backend = nothing,
         display_plot::Bool = true,
         controls::Bool = true,
         export_theme::Symbol = :default,
         open_export::Bool = true,
+        legend_position = :right,
+        legend_anchor = :rt,
+        legend_title = nothing,
+        legend_labels = nothing,
+        legend_attributes::NamedTuple = (;),
+        legend_overflow::Symbol = :ellipsis,
+        panel_legends = (),
         kwargs...
 )
     publication = _monte_carlo_publication(result, request;
@@ -250,17 +305,32 @@ function Makie.ecdfplot(
         quantity = LineCableModels.Units.Quantity{:cumulative_probability}(),
         unit = LineCableModels.Units.UnitExpr()
     )
-    return PlotBuilder.plotwindow(;
-        title = heading, size = fig_size, backend, display_plot, controls,
-        export_theme, open_export) do context
-        axis = PlotBuilder.axis!(context, context.canvas[1, 1], sample, ordinate;
-            title = heading)
+    return _addon_statistical_plot(
+        sample,
+        ordinate;
+        title = heading,
+        figure_title,
+        title_attributes,
+        panel_titles,
+        fig_size,
+        backend,
+        display_plot,
+        controls,
+        export_theme,
+        open_export,
+        legend_position,
+        legend_anchor,
+        legend_title,
+        legend_labels,
+        legend_attributes,
+        legend_overflow,
+        panel_legends
+    ) do axis, groups, order, labels, series
         plot = ecdfplot!(axis, sample.values; label = "empirical CDF", kwargs...)
-        PlotBuilder.register!(context, axis;
-            groups = (empirical = (plot,),),
-            labels = (empirical = "empirical CDF",),
-            data = ((; xdata = sample.values, ydata = nothing,
-                group = :empirical, label = "empirical CDF"),))
+        groups[:empirical] = Any[plot]
+        push!(order, :empirical)
+        labels[:empirical] = "empirical CDF"
+        push!(series, (; xdata = sample.values, ydata = nothing, plots = Any[plot]))
     end
 end
 
@@ -279,12 +349,22 @@ function Makie.lines(
         quantity_units = nothing,
         clip::Bool = true,
         title = nothing,
+        figure_title = nothing,
+        title_attributes::NamedTuple = (;),
+        panel_titles = nothing,
         fig_size = (800, 400),
         backend = nothing,
         display_plot::Bool = true,
         controls::Bool = true,
         export_theme::Symbol = :default,
         open_export::Bool = true,
+        legend_position = :right,
+        legend_anchor = :rt,
+        legend_title = nothing,
+        legend_labels = nothing,
+        legend_attributes::NamedTuple = (;),
+        legend_overflow::Symbol = :ellipsis,
+        panel_legends = (),
         kwargs...
 )
     publication = _monte_carlo_publication(result, request;
@@ -306,17 +386,32 @@ function Makie.lines(
         quantity = LineCableModels.Units.Quantity{:cumulative_probability}(),
         unit = LineCableModels.Units.UnitExpr()
     )
-    return PlotBuilder.plotwindow(;
-        title = heading, size = fig_size, backend, display_plot, controls,
-        export_theme, open_export) do context
-        axis = PlotBuilder.axis!(context, context.canvas[1, 1], abscissa, ordinate;
-            title = heading)
+    return _addon_statistical_plot(
+        abscissa,
+        ordinate;
+        title = heading,
+        figure_title,
+        title_attributes,
+        panel_titles,
+        fig_size,
+        backend,
+        display_plot,
+        controls,
+        export_theme,
+        open_export,
+        legend_position,
+        legend_anchor,
+        legend_title,
+        legend_labels,
+        legend_attributes,
+        legend_overflow,
+        panel_legends
+    ) do axis, groups, order, labels, series
         plot = lines!(axis, grid, probability; label = "model CDF", kwargs...)
-        PlotBuilder.register!(context, axis;
-            groups = (model = (plot,),),
-            labels = (model = "model CDF",),
-            data = ((; xdata = grid, ydata = probability,
-                group = :model, label = "model CDF"),))
+        groups[:model] = Any[plot]
+        push!(order, :model)
+        labels[:model] = "model CDF"
+        push!(series, (; xdata = grid, ydata = probability, plots = Any[plot]))
     end
 end
 
@@ -329,12 +424,22 @@ function Makie.qqplot(
         quantity_units = nothing,
         clip::Bool = true,
         title = nothing,
+        figure_title = nothing,
+        title_attributes::NamedTuple = (;),
+        panel_titles = nothing,
         fig_size = (800, 400),
         backend = nothing,
         display_plot::Bool = true,
         controls::Bool = true,
         export_theme::Symbol = :default,
         open_export::Bool = true,
+        legend_position = :right,
+        legend_anchor = :rt,
+        legend_title = nothing,
+        legend_labels = nothing,
+        legend_attributes::NamedTuple = (;),
+        legend_overflow::Symbol = :ellipsis,
+        panel_legends = (),
         kwargs...
 )
     qqline in (:identity, :none) || throw(ArgumentError(
@@ -364,35 +469,52 @@ function Makie.qqplot(
         unit = publication.model.unit
     )
     displayed_unit = LineCableModels.Units.label(sample.unit)
-    return PlotBuilder.plotwindow(;
-        title = heading, size = fig_size, backend, display_plot, controls,
-        export_theme, open_export) do context
-        axis = PlotBuilder.axis!(context, context.canvas[1, 1], sample, model;
-            title = heading,
-            xlabel = "Sample quantiles [$displayed_unit]",
-            ylabel = "Model quantiles [$displayed_unit]")
+    return _addon_statistical_plot(
+        sample,
+        model;
+        title = heading,
+        figure_title,
+        title_attributes,
+        panel_titles,
+        fig_size,
+        backend,
+        display_plot,
+        controls,
+        export_theme,
+        open_export,
+        legend_position,
+        legend_anchor,
+        legend_title,
+        legend_labels,
+        legend_attributes,
+        legend_overflow,
+        panel_legends,
+        xlabel = "Sample quantiles [$displayed_unit]",
+        ylabel = "Model quantiles [$displayed_unit]"
+    ) do axis, groups, order, labels, series
         points = scatter!(axis, pairs.sample, pairs.model;
             label = "quantiles", kwargs...)
+        groups[:quantiles] = Any[points]
+        push!(order, :quantiles)
+        labels[:quantiles] = "quantiles"
+        push!(series, (;
+            xdata = pairs.sample,
+            ydata = pairs.model,
+            plots = Any[points]
+        ))
         if qqline === :identity
             reference = collect(pairs.reference)
             line = lines!(axis, reference, reference;
                 color = :black, linestyle = :dash,
                 linewidth = 2, label = "perfect fit")
-            PlotBuilder.register!(context, axis;
-                groups = (quantiles = (points,), reference = (line,)),
-                labels = (quantiles = "quantiles", reference = "perfect fit"),
-                data = (
-                    (; xdata = pairs.sample, ydata = pairs.model,
-                        group = :quantiles, label = "quantiles"),
-                    (; xdata = reference, ydata = reference,
-                        group = :reference, label = "perfect fit")
-                ))
-        else
-            PlotBuilder.register!(context, axis;
-                groups = (quantiles = (points,),),
-                labels = (quantiles = "quantiles",),
-                data = ((; xdata = pairs.sample, ydata = pairs.model,
-                    group = :quantiles, label = "quantiles"),))
+            groups[:reference] = Any[line]
+            push!(order, :reference)
+            labels[:reference] = "perfect fit"
+            push!(series, (;
+                xdata = reference,
+                ydata = reference,
+                plots = Any[line]
+            ))
         end
     end
 end

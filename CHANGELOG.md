@@ -37,9 +37,22 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   composition, one internal unresolved point, and recursive materialization or
   realisation through concrete callable builders. Scalar public construction
   calls now invoke the corresponding scalar action.
-- Converged PlotBuilder on detached definition-owned pages and one fixed core
-  sequence: entitle, parse, resolve, fetch, and finish. Loaded Makie extensions
-  draw those pages directly through the standard shell.
+- Replaced the declarative PlotBuilder renderer with a compact native Makie
+  layer. `plot` retains automatic `(R, X, G, B)` views, scientific formatting,
+  log correction, visible-series limits, uncertainty bars, widgets, previews,
+  Monte Carlo plots, reports, and live SVG export while returning caller-owned
+  figures, axes, legends, colorbars, and controls. Legends and colorbars now
+  accept independent positions and native attributes. Observable quantities
+  now determine axes, while `layout` only arranges those axes in arbitrary
+  horizontal, vertical, or grid compositions.
+- Restored `PlotBuilder` as a deliberately thin owner of optional plotting
+  entry points and live `UIPlot` handles. Plot request normalization, preview
+  presentation, and material palettes now live exclusively in the Makie
+  extension; Engine and DataModel retain only scientific results, public
+  observations, physical geometry, and property ranges.
+- Split material visualization into the reusable `materialcolors(property,
+  range)` palette and `materialscale!(position, scheme)` single-colorbar
+  primitive. The three-scale reference remains optional preview sugar.
 - Added `@observe` as three-index syntax over the native `observe` protocol.
 - Added typed computation details with explicit higher-order retention and no
   default per-point or per-trial record collection.
@@ -81,11 +94,16 @@ and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Restricted radial declarations to numeric radius or thickness semantics.
 - Line-parameter plots and tables now select quantities with accessor tuples,
   such as `(R, L, G, C)` or `(abs, angle)`. Direct plotting of
-  `LineParameters` produces separate Z and Y figures with real and imaginary
-  parts in side-by-side panels.
+  `LineParameters` returns R, X, G, and B matrix-dashboard pages in that order.
+  A direct complex `Z` or `Y` coordinate request expands to a paired component
+  page. Matrix coordinates identify semantic subplots, while legends identify
+  overlaid result containers through `series_labels`.
 
 ### Removed
 
+- Removed PlotBuilder pages, recipes, rendering contexts, backend registration,
+  and fixed legend/colorbar docks. Plotting backends are selected per call or
+  inherited from Makie's active backend.
 - Removed `Commons`, `Utils`, package scalar-union aliases, coercion macros,
   operating-temperature cable fields, `EMTWorkspace`, intermediate-storage options, file
   logging, and the constructor proxy types `MaxFill` and `WireArray`.

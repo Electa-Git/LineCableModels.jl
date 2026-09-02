@@ -69,10 +69,11 @@
     end
 
     execution=computation_options(Val(LineCableModelsCoaxial), (;))
-    blueprints=LineCableModels.Engine.CableBlueprint{eltype(problem)}[
-        LineCableModels.Engine.flatten(LineCableModelsCoaxial(), design, eltype(problem))
-        for design in problem.system.designs
-    ]
+    blueprints=LineCableModels.Engine.CableBlueprint{eltype(problem)}[LineCableModels.Engine.flatten(
+                                                                          LineCableModelsCoaxial(),
+                                                                          design,
+                                                                          eltype(problem))
+                                                                      for design in problem.system.designs]
     workspace=LineParametersWorkspace(
         problem, Formulation(), execution, blueprints)
     @test workspace.input.phase_map == problem.system.connection_order
@@ -285,33 +286,21 @@ end
     )
     parameters=compute(problem, formulation)
     expected_Z=cat(
-        ComplexF64[
-            9.972567772765543e-7+1.0667880124003238e-5im 9.97043431689472e-7+6.699003625368725e-6im;
-            9.97043431689472e-7+6.699003625368725e-6im 9.972567772765543e-7+1.0667880124003238e-5im
-        ],
-        ComplexF64[
-            5.2463186340709196e-5+0.00040739430692732464im 5.226929347335312e-5+0.0002089818015430304im;
-            5.226929347335312e-5+0.0002089818015430304im 5.2463186340709196e-5+0.00040739430692732464im
-        ],
-        ComplexF64[
-            0.0011582715276183772+0.006050197037293153im 0.0011034983201066505+0.0020950707524030328im;
-            0.0011034983201066505+0.0020950707524030328im 0.0011582715276183772+0.006050197037293153im
-        ];
+        ComplexF64[9.972567772765543e-7+1.0667880124003238e-5im 9.97043431689472e-7+6.699003625368725e-6im;
+                   9.97043431689472e-7+6.699003625368725e-6im 9.972567772765543e-7+1.0667880124003238e-5im],
+        ComplexF64[5.2463186340709196e-5+0.00040739430692732464im 5.226929347335312e-5+0.0002089818015430304im;
+                   5.226929347335312e-5+0.0002089818015430304im 5.2463186340709196e-5+0.00040739430692732464im],
+        ComplexF64[0.0011582715276183772+0.006050197037293153im 0.0011034983201066505+0.0020950707524030328im;
+                   0.0011034983201066505+0.0020950707524030328im 0.0011582715276183772+0.006050197037293153im];
         dims = 3
     )
     expected_Y=cat(
-        ComplexF64[
-            1.3725717973458168e-12+3.456886991977605e-8im 1.1151765606538079e-15-1.0103448536100132e-16im;
-            1.1151765606538079e-15-1.0103448536100132e-16im 1.3725717973458172e-12+3.4568869919776055e-8im
-        ],
-        ComplexF64[
-            3.5935586686360366e-12+1.7284431242009702e-6im 2.0678134023375278e-12-3.7669677894046595e-13im;
-            2.0678134023375278e-12-3.7669677894046595e-13im 3.593558668636037e-12+1.7284431242009702e-6im
-        ],
-        ComplexF64[
-            5.141397717625919e-10+3.456862375802595e-5im 4.511959006831256e-10-2.452790870106892e-10im;
-            4.511959006831256e-10-2.452790870106892e-10im 5.141397717625921e-10+3.456862375802596e-5im
-        ];
+        ComplexF64[1.3725717973458168e-12+3.456886991977605e-8im 1.1151765606538079e-15-1.0103448536100132e-16im;
+                   1.1151765606538079e-15-1.0103448536100132e-16im 1.3725717973458172e-12+3.4568869919776055e-8im],
+        ComplexF64[3.5935586686360366e-12+1.7284431242009702e-6im 2.0678134023375278e-12-3.7669677894046595e-13im;
+                   2.0678134023375278e-12-3.7669677894046595e-13im 3.593558668636037e-12+1.7284431242009702e-6im],
+        ComplexF64[5.141397717625919e-10+3.456862375802595e-5im 4.511959006831256e-10-2.452790870106892e-10im;
+                   4.511959006831256e-10-2.452790870106892e-10im 5.141397717625921e-10+3.456862375802596e-5im];
         dims = 3
     )
     @test parameters.Z.values == expected_Z
@@ -401,11 +390,11 @@ end
         problem,
         Formulation(),
         execution,
-        LineCableModels.Engine.CableBlueprint{eltype(problem)}[
-            LineCableModels.Engine.flatten(
-                LineCableModelsCoaxial(), source, eltype(problem)
-            ) for source in problem.system.designs
-        ]
+        LineCableModels.Engine.CableBlueprint{eltype(problem)}[LineCableModels.Engine.flatten(
+                                                                   LineCableModelsCoaxial(), source,
+                                                                   eltype(problem)
+                                                               )
+                                                               for source in problem.system.designs]
     )
     @test_throws ArgumentError compute(problem, Formulation())
     @test_throws ArgumentError CableConstants(design)
@@ -455,11 +444,11 @@ end
         problem,
         formulation,
         execution,
-        LineCableModels.Engine.CableBlueprint{eltype(problem)}[
-            LineCableModels.Engine.flatten(
-                LineCableModelsCoaxial(), source, eltype(problem)
-            ) for source in problem.system.designs
-        ]
+        LineCableModels.Engine.CableBlueprint{eltype(problem)}[LineCableModels.Engine.flatten(
+                                                                   LineCableModelsCoaxial(), source,
+                                                                   eltype(problem)
+                                                               )
+                                                               for source in problem.system.designs]
     )
 
     bare_input=workspace(problem_for(bare)).input
@@ -648,11 +637,11 @@ end
     )
     execution=computation_options(Val(LineCableModelsCoaxial), (;))
     ordinary=Formulation(options = (ideal_transposition = false,))
-    blueprints=LineCableModels.Engine.CableBlueprint{eltype(mixed_problem)}[
-        LineCableModels.Engine.flatten(
-            LineCableModelsCoaxial(), design, eltype(mixed_problem)
-        ) for design in mixed_problem.system.designs
-    ]
+    blueprints=LineCableModels.Engine.CableBlueprint{eltype(mixed_problem)}[LineCableModels.Engine.flatten(
+                                                                                LineCableModelsCoaxial(), design,
+                                                                                eltype(mixed_problem)
+                                                                            )
+                                                                            for design in mixed_problem.system.designs]
     workspace=LineParametersWorkspace(
         mixed_problem, ordinary, execution, blueprints)
     @test getfield.(workspace.invariants.earth_pairs, :layers) ==

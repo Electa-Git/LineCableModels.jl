@@ -171,10 +171,11 @@ end
     )
     problem=two_terminal_problem()
     execution=computation_options(Val(LineCableModelsCoaxial), (;))
-    blueprints=LineCableModels.Engine.CableBlueprint{eltype(problem)}[
-        LineCableModels.Engine.flatten(LineCableModelsCoaxial(), design, eltype(problem))
-        for design in problem.system.designs
-    ]
+    blueprints=LineCableModels.Engine.CableBlueprint{eltype(problem)}[LineCableModels.Engine.flatten(
+                                                                          LineCableModelsCoaxial(),
+                                                                          design,
+                                                                          eltype(problem))
+                                                                      for design in problem.system.designs]
     workspace=LineParametersWorkspace(
         problem, formulation, execution, blueprints)
     input=workspace.input

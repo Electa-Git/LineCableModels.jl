@@ -16,7 +16,7 @@ const REPOSITORY_URL = "https://github.com/$(REPOSITORY)"
 const SITE_URL = "https://electa-git.github.io/LineCableModels.jl"
 const TUTORIAL_SOURCE = joinpath(ROOT_DIR, "examples")
 const TUTORIAL_OUTPUT = joinpath(DOCS_SRC_DIR, "tutorials")
-const PLOTBUILDER_SOURCE = joinpath(@__DIR__, "literate", "plotbuilder.jl")
+const PLOTTING_SOURCE = joinpath(@__DIR__, "literate", "plotting.jl")
 const GAUNTLET_SOURCE = joinpath(@__DIR__, "literate", "gauntlet.jl")
 const CASE_OUTPUT = joinpath(DOCS_SRC_DIR, "cases")
 const CASE_ASSETS = joinpath(DOCS_SRC_DIR, "assets", "cases")
@@ -55,40 +55,21 @@ const EXTENSION_API_OBJECTS = (
     LineCableModels.Units.family,
     LineCableModels.DataModel.preview_shapes,
     LineCableModels.DataModel.preview_materials,
-    LineCableModels.DataModel.PreviewPolygon,
-    LineCableModels.DataModel.PreviewReferenceLine,
-    LineCableModels.DataModel.PreviewPayload,
+    LineCableModels.DataModel.PreviewShape,
+    LineCableModels.DataModel.material_property_ranges,
+    LineCableModels.materialcolors,
+    LineCableModels.materialscale!,
     LineCableModels.Engine.has_uncertainty_type,
     LineCableModels.ParametricBuilder.materialize,
     LineCableModels.ParametricBuilder.traverse,
     LineCableModels.ParametricBuilder.sample_uncertainty,
-    LineCableModels.PlotBuilder,
-    LineCableModels.PlotBuilder.AbstractPlotDefinition,
-    LineCableModels.PlotBuilder.PlotPage,
-    LineCableModels.PlotBuilder.PlotRecipe,
-    LineCableModels.PlotBuilder.LegendDefinition,
-    LineCableModels.PlotBuilder.ColorbarDefinition,
-    LineCableModels.PlotBuilder.ExportDefinition,
-    LineCableModels.PlotBuilder.AbstractWidgetDefinition,
-    LineCableModels.PlotBuilder.make_render,
-    LineCableModels.PlotBuilder.plotwindow,
-    LineCableModels.PlotBuilder.axis!,
-    LineCableModels.PlotBuilder.register!,
-    LineCableModels.PlotBuilder.backend_available,
-    LineCableModels.PlotBuilder.current_backend_symbol,
-    LineCableModels.PlotBuilder.ensure_backend!,
-    LineCableModels.PlotBuilder.make_screen,
-    LineCableModels.PlotBuilder.next_fignum,
-    LineCableModels.PlotBuilder.renderfig,
-    LineCableModels.PlotBuilder.with_backend,
-    LineCableModels.PlotBuilder.input_defaults,
-    LineCableModels.PlotBuilder.renderer_defaults,
-    LineCableModels.PlotBuilder.entitle,
-    LineCableModels.PlotBuilder.parse,
-    LineCableModels.PlotBuilder.resolve,
-    LineCableModels.PlotBuilder.fetch,
-    LineCableModels.PlotBuilder.finish,
-    LineCableModels.PlotBuilder.validate_export_theme,
+    LineCableModels.UIPlot,
+    LineCableModels.plotwindow,
+    LineCableModels.export_svg,
+    LineCableModels.figurelegend!,
+    LineCableModels.panellegend!,
+    LineCableModels.figuretitle!,
+    LineCableModels.paneltitle!,
     LineCableModels.ReportBuilder,
     LineCableModels.ReportBuilder.AbstractReportDefinition,
     LineCableModels.ReportBuilder.CableConstantsTableDefinition,
@@ -198,7 +179,7 @@ end
 function generate_maintained_pages!()
     cp(joinpath(ROOT_DIR, "TODO.md"), joinpath(DOCS_SRC_DIR, "TODO.md"); force = true)
     Literate.markdown(
-        PLOTBUILDER_SOURCE,
+        PLOTTING_SOURCE,
         DOCS_SRC_DIR;
         documenter = true,
         credit = false,
@@ -418,7 +399,7 @@ makedocs(;
             "Extension API" => "extensions.md",
             "Conventions" => "conventions.md",
             "Computational engine" => "engine.md",
-            "PlotBuilder guide" => "plotbuilder.md",
+            "Makie plotting" => "plotting.md",
             "Contributing" => "contributing.md",
             "TODO" => "TODO.md"
         ],

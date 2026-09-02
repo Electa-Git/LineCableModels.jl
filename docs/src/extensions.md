@@ -4,6 +4,11 @@ Extension code adds methods to the owner that defines their meaning. The public
 calculation entry points remain `compute`, `observe`, `observables`,
 `report`, `plot`, and `preview`.
 
+`PlotBuilder` owns only optional plotting entry points and the live `UIPlot`
+handle. Scientific owners expose observations, quantities, geometry, and
+physical property ranges. The Makie extension owns request normalization,
+palettes, legend grouping, layout sugar, widgets, and native rendering.
+
 ## Input validation
 
 A materialized input owns one direct `validate(::OwnedType)` method. The method
@@ -39,12 +44,8 @@ Do not delegate the method to private checking helpers. Constructors normalize
 their admitted grammar; `validate` only checks the completed value and does not
 convert, repair, or mutate it.
 
-```@autodocs
-Modules = [LineCableModels.InputValidation]
-Order = [:module, :constant, :type, :function, :macro]
-Filter = developer_reference_entry
-Public = true
-Private = false
+```@docs
+LineCableModels.InputValidation
 ```
 
 ## Grammar, observations, and units
@@ -75,16 +76,6 @@ Public = true
 Private = false
 ```
 
-## Plot definitions
-
-```@autodocs
-Modules = [LineCableModels.PlotBuilder]
-Order = [:module, :constant, :type, :function, :macro]
-Filter = developer_reference_entry
-Public = true
-Private = false
-```
-
 ## Report definitions
 
 ```@autodocs
@@ -93,6 +84,12 @@ Order = [:module, :constant, :type, :function, :macro]
 Filter = developer_reference_entry
 Public = true
 Private = false
+```
+
+## Plotting shell
+
+```@docs
+LineCableModels.PlotBuilder
 ```
 
 ## Index

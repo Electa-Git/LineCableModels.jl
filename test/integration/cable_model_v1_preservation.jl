@@ -60,10 +60,11 @@
 
     problem=TestFixtures.line_parameters_problem(frequencies = [50.0, 500.0])
     execution=computation_options(Val(LineCableModelsCoaxial), (;))
-    blueprints=LineCableModels.Engine.CableBlueprint{eltype(problem)}[
-        LineCableModels.Engine.flatten(LineCableModelsCoaxial(), design, eltype(problem))
-        for design in problem.system.designs
-    ]
+    blueprints=LineCableModels.Engine.CableBlueprint{eltype(problem)}[LineCableModels.Engine.flatten(
+                                                                          LineCableModelsCoaxial(),
+                                                                          design,
+                                                                          eltype(problem))
+                                                                      for design in problem.system.designs]
     workspace=LineParametersWorkspace(
         problem, Formulation(), execution, blueprints)
     input=workspace.input

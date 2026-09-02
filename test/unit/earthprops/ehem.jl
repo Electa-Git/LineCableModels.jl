@@ -8,9 +8,10 @@
     @test EH.Formula(:default) == EH.Layer(-1)
     @test EH.AfterFD(:default) == EH.AfterFD(EH.Layer(-1))
     @test EH.BeforeFD(:default) == EH.BeforeFD(EH.Layer(-1))
-    files=sort(filter(endswith(".jl"), readdir(joinpath(
-        pkgdir(LineCableModels), "src", "earthprops", "ehem", "formulas"
-    ))))
+    files=sort(filter(endswith(".jl"),
+        readdir(joinpath(
+            pkgdir(LineCableModels), "src", "earthprops", "ehem", "formulas"
+        ))))
     @test files == collect(lowercase.(string.(expected)) .* ".jl")
 
     for identifier in expected
@@ -27,8 +28,8 @@
     @test_throws DomainError EH.Layer(0)
     @test_throws MethodError EH.Layer()
 
-    route=(layout, rho, eps_r, mu_r, model, pair, frequency, values)->
-        EP.EarthMaterial(rho[end] / values.scale, eps_r[end], mu_r[end])
+    route=(layout, rho, eps_r, mu_r, model, pair, frequency, values) -> EP.EarthMaterial(
+        rho[end] / values.scale, eps_r[end], mu_r[end])
     experimental=EH.Formula(:Experiment, route, (scale = 2.0,))
     @test_throws ArgumentError EH.Formula(:default; route)
     @test_throws ArgumentError EH.Formula(:default, route)

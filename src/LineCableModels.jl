@@ -5,15 +5,15 @@ Calculate electrical parameters for overhead and underground cable systems.
 
 The public API constructs materialised or finite parametric cable models,
 selects numerical formulations, evaluates cable constants and line-parameter
-matrices, propagates declared uncertainty, and describes plots for optional
-Makie renderers.
+matrices, propagates declared uncertainty, and adds a small high-level plotting
+surface when Makie is loaded.
 """
 module LineCableModels
 
 ## Public API
 # -------------------------------------------------------------------------
 # Core generics:
-export add!, build, homogenize, validate, description, constitutive, set_backend!
+export add!, build, homogenize, validate, description, constitutive
 export formula, formula_id
 export AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult
 export AbstractCoreResult, AbstractResultSpace
@@ -68,7 +68,8 @@ public Gridpoint
 export CableDesign, LineCableSystem, DatasheetInfo, catalogue
 export CableGeometry, PlacedRegion
 export CableConstants, CableConstantsProblem, CableConstantsFormulation,
-       LineParametersProblem, LineParameters, CablesLibrary, preview
+       LineParametersProblem, LineParameters, CablesLibrary
+export preview, show_material_scale
 
 # Engine:
 export Formulation, LineParametersFormulation, CableConstantsFormulation,
@@ -115,10 +116,15 @@ using .Grammar:
 include("inputvalidation/InputValidation.jl")
 using .InputValidation: validate
 
-# Submodule `PlotBuilder`
+# Thin native plotting handles and optional-extension entry points.
 include("plotbuilder/PlotBuilder.jl")
-using .PlotBuilder: UIPlot, export_svg, set_backend!
-export UIPlot, export_svg
+using .PlotBuilder:
+    UIPlot, plot, preview, show_material_scale, export_svg,
+    figurelegend!, panellegend!, figuretitle!, paneltitle!,
+    plotwindow, materialcolors, materialscale!
+export UIPlot, export_svg, figurelegend!, panellegend!, figuretitle!, paneltitle!
+export materialcolors, materialscale!
+public PlotBuilder, plot, plotwindow
 
 # Submodule `Materials`
 include("materials/Materials.jl")
@@ -134,7 +140,7 @@ using .EarthProps: AbstractEarthModel, EarthLayer, EarthModel, layer, homogeneou
 include("datamodel/DataModel.jl")
 using .DataModel: CableDesign, CableGeometry, PlacedRegion,
                   LineCableSystem, DatasheetInfo, catalogue,
-                  CablesLibrary, preview, ncables, nphases,
+                  CablesLibrary, ncables, nphases,
                   AbstractShape, AbstractPrimitive,
                   Disk, Rectangle, Ellipse, Sector, Annulus, Polygon,
                   RoundedSector, Shell,

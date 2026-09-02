@@ -8,33 +8,23 @@ export custom_layout_plot
 function custom_layout_plot(;
         backend = :cairo,
         display_plot::Bool = false,
-        controls::Bool = true,
-        export_mode::Bool = false
+        controls::Bool = true
 )
-    PB = LineCableModels.PlotBuilder
-    return PB.plotwindow(;
-        title = "Nested PlotBuilder layout",
+    return LineCableModels.plotwindow(;
+        title = "Nested native layout",
         size = (900, 650),
         backend = backend,
         display_plot = display_plot,
         controls = controls,
-        export_mode = export_mode,
         open_export = false,
-        export_name = "nested_dashboard",
-        colorbars = ((;
-            label = "field value",
-            colormap = :viridis,
-            limits = (0.0, 1.0),
-            ticks = ([0.0, 0.5, 1.0], ["0", "0.5", "1"])
-        ),)
-    ) do ui
+        export_name = "nested_dashboard"
+    ) do canvas
         plots = GridLayout()
         plots.default_rowgap = Fixed(6)
         plots.default_colgap = Fixed(6)
-        ui.canvas[1, 1][] = plots
+        canvas[1, 1][] = plots
 
-        line_axis = PB.axis!(
-            ui,
+        line_axis = Axis(
             plots[1, 1:2];
             title = "Spanning response",
             xlabel = "x",
@@ -59,33 +49,9 @@ function custom_layout_plot(;
             linewidth = 2,
             color = :darkorange
         )
-        PB.register!(
-            ui,
-            line_axis;
-            xmetadata = (
-                label = "x", scale = :linear,
-                allowed_scales = (:linear,), exponent = 0
-            ),
-            ymetadata = (
-                label = "y", scale = :linear,
-                allowed_scales = (:linear,), exponent = 0
-            ),
-            groups = (
-                response_a = (line_a,),
-                response_b = (line_b,)
-            ),
-            labels = (
-                response_a = "response A",
-                response_b = "response B"
-            ),
-            data = (
-                (; xdata = x, ydata = response_a, group = :response_a),
-                (; xdata = x, ydata = response_b, group = :response_b)
-            )
-        )
+        axislegend(line_axis; position = :rt)
 
-        scatter_axis = PB.axis!(
-            ui,
+        scatter_axis = Axis(
             plots[2, 1];
             title = "Samples",
             xlabel = "x",
@@ -100,24 +66,9 @@ function custom_layout_plot(;
             color = :seagreen,
             markersize = 10
         )
-        PB.register!(
-            ui,
-            scatter_axis;
-            xmetadata = (
-                label = "x", scale = :linear,
-                allowed_scales = (:linear,), exponent = 0
-            ),
-            ymetadata = (
-                label = "y", scale = :linear,
-                allowed_scales = (:linear,), exponent = 0
-            ),
-            groups = (samples = (scatter_plot,),),
-            labels = (samples = "samples",),
-            data = ((; xdata = x, ydata = samples, group = :samples),)
-        )
+        axislegend(scatter_axis; position = :rt)
 
-        heatmap_axis = PB.axis!(
-            ui,
+        heatmap_axis = Axis(
             plots[2, 2];
             title = "Field",
             xlabel = "x",
@@ -132,19 +83,11 @@ function custom_layout_plot(;
             [0.0 0.5; 0.75 1.0];
             colormap = :viridis
         )
-        PB.register!(
-            ui,
-            heatmap_axis;
-            xmetadata = (
-                label = "x", scale = :linear,
-                allowed_scales = (:linear,), exponent = 0
-            ),
-            ymetadata = (
-                label = "y", scale = :linear,
-                allowed_scales = (:linear,), exponent = 0
-            ),
-            groups = (field = (field_plot,),),
-            data = ((; xdata = field_x, ydata = field_y, group = :field),)
+        Colorbar(
+            plots[2, 3],
+            field_plot;
+            label = "field value",
+            ticks = ([0.0, 0.5, 1.0], ["0", "0.5", "1"])
         )
         return nothing
     end

@@ -39,7 +39,6 @@ import LineCableModels: homogenize
 import CairoMakie
 using DataFrames
 fullfile(filename) = joinpath(@__DIR__, filename); #hide
-set_backend!(:cairo); #hide
 
 # Initialize materials library with default values:
 materials = MaterialsLibrary(add_defaults = true)
@@ -104,10 +103,8 @@ layer_diameters = d_core .+ 2 .* cumsum(radial_increments) #hide
 # The cable structure is summarized in a row-wise table with dimensions in millimeters:
 cable_dimensions = DataFrame(
     "layer" => collect(layer_names),
-    "thickness [mm]" => [
-        ismissing(t) ? missing : round(1000t, sigdigits = 2)
-        for t in layer_thicknesses
-    ],
+    "thickness [mm]" => [ismissing(t) ? missing : round(1000t, sigdigits = 2)
+     for t in layer_thicknesses],
     "diameter [mm]" => collect(round.(1000 .* layer_diameters, digits = 2))
 )
 
@@ -308,7 +305,8 @@ cable_design
 !!! note "Cables library"
     Designs can be saved to a library for future use. The [`CablesLibrary`](@ref)
     stores multiple cable designs and is managed through [`add!`](@ref),
-    ordinary collection operations, and [`save`](@ref).
+    ordinary collection operations, and
+    [`save`](@ref LineCableModels.ImportExport.save).
 =#
 
 # Store the cable design and inspect the library contents:
@@ -344,7 +342,7 @@ The earth return path significantly affects cable impedance calculations and nee
 
 # Define a frequency scan and typical homogeneous-soil properties:
 f = collect(10.0 .^ range(0, stop = 6, length = 10)) # 1 Hz to 1 MHz
-earth = Earth(rho = 100.0, eps_r = 10.0, mu_r = 1.0);
+earth = homogeneous(rho = 100.0, eps_r = 10.0, mu_r = 1.0);
 
 #=
 ### Three-phase system in trefoil configuration

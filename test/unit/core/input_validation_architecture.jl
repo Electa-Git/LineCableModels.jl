@@ -32,6 +32,8 @@
             joinpath("src", "earthprops", "earthmaterial.jl"),
         EarthLayer=>joinpath("src", "earthprops", "earthlayer.jl"),
         EarthModel=>joinpath("src", "earthprops", "earthmodel.jl"),
+        LineCableModels.DataModel.PreviewShape =>
+            joinpath("src", "datamodel", "preview", "geometry.jl"),
         CableDesign=>joinpath("src", "datamodel", "design", "cabledesign.jl"),
         LineCableSystem =>
             joinpath("src", "datamodel", "linecablesystem", "linecablesystem.jl"),
@@ -128,6 +130,7 @@
         joinpath("src", "earthprops", "earthmaterial.jl"),
         joinpath("src", "earthprops", "earthlayer.jl"),
         joinpath("src", "earthprops", "earthmodel.jl"),
+        joinpath("src", "datamodel", "preview", "geometry.jl"),
         joinpath("src", "datamodel", "design", "cabledesign.jl"),
         joinpath("src", "datamodel", "linecablesystem", "linecablesystem.jl"),
         joinpath("src", "engine", "problems.jl"),

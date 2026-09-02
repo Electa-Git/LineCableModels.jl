@@ -1,30 +1,19 @@
 """
     PlotBuilder
 
-Build renderer-independent plotting recipes from domain definitions. Optional Makie
-extensions render the completed `PlotRecipe` values.
+Provide the thin, renderer-optional plotting surface used by the Makie
+extension.  This module owns live plot handles and addon entry points only; it
+does not define renderer-independent plot specifications or scientific data.
 """
 module PlotBuilder
 
-using DocStringExtensions: SIGNATURES, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-using ..Grammar: @orchestrator
+using DocStringExtensions: TYPEDEF, TYPEDFIELDS
 
-export AbstractPlotDefinition, PlotPage, PlotRecipe
-export LegendDefinition, ColorbarDefinition, ExportDefinition,
-       AbstractWidgetDefinition
-export UIPlot
-export make_render, export_svg, plotwindow, axis!, register!
-export backend_available, current_backend_symbol, ensure_backend!, make_screen,
-       next_fignum, renderfig, set_backend!, with_backend
-export input_defaults, renderer_defaults
-export entitle, parse, resolve, fetch, finish
+export UIPlot, plot, preview, show_material_scale, export_svg
+export figurelegend!, panellegend!, figuretitle!, paneltitle!
+export plotwindow, materialcolors, materialscale!
 
-include("backends.jl")
-include("types.jl")
+include("handle.jl")
 include("interfaces.jl")
-include("render.jl")
-include("base.jl")
-
-public validate_export_theme
 
 end # module PlotBuilder

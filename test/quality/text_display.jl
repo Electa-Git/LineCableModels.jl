@@ -7,7 +7,7 @@
         joinpath(source_root, "textdisplay", "TextDisplay.jl"),
         joinpath(source_root, "materials", "base.jl"),
         joinpath(source_root, "earthprops", "base.jl"),
-        joinpath(source_root, "plotbuilder", "base.jl")
+        joinpath(source_root, "plotbuilder", "handle.jl")
     ]
     append!(display_paths,
         [joinpath(source_root, owner, "textdisplay.jl")
@@ -46,7 +46,6 @@
         LineCableModels.Engine,
         LineCableModels.ParametricBuilder,
         LineCableModels.UQ,
-        LineCableModels.PlotBuilder,
         LineCableModels.ReportBuilder
     )
     for binding in names(LineCableModels; all = false, imported = true)

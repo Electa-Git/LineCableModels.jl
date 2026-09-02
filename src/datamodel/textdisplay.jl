@@ -543,44 +543,17 @@ function Base.show(io::IO, ::MIME"text/plain", shape::ShellShape)
 end
 
 function _preview_geometry_count(geometry)
-    points = _preview_geometry_points(geometry)
+    points = geometry isa GeometryBasics.Polygon ? geometry.exterior : geometry
     applicable(length, points) && return length(points)
     return count(_ -> true, points)
 end
 
-TextDisplay.name(::Type{<:PreviewPolygon}) = "Preview polygon"
-function Base.summary(io::IO, polygon::PreviewPolygon)
-    print(io, "Preview polygon :", polygon.group)
+TextDisplay.name(::Type{<:PreviewShape}) = "Preview shape"
+function Base.summary(io::IO, shape::PreviewShape)
+    print(io, "Preview shape :", shape.tag)
 end
-function Base.show(io::IO, polygon::PreviewPolygon)
-    print(io, "PreviewPolygon(:", polygon.group, "; vertices=",
-        _preview_geometry_count(polygon.geometry), ")")
+function Base.show(io::IO, shape::PreviewShape)
+    print(io, "PreviewShape(:", shape.tag, "; vertices=",
+        _preview_geometry_count(shape.geometry), ")")
 end
-Base.show(io::IO, ::MIME"text/plain", polygon::PreviewPolygon) = show(io, polygon)
-
-TextDisplay.name(::Type{<:PreviewReferenceLine}) = "Preview reference line"
-function Base.summary(io::IO, line::PreviewReferenceLine)
-    print(io, "Preview reference line :", line.group)
-end
-function Base.show(io::IO, line::PreviewReferenceLine)
-    print(io, "PreviewReferenceLine(:", line.group, "; values=", length(line.values), ")")
-end
-Base.show(io::IO, ::MIME"text/plain", line::PreviewReferenceLine) = show(io, line)
-
-TextDisplay.name(::Type{<:PreviewPayload}) = "Preview payload"
-Base.summary(io::IO, payload::PreviewPayload) = print(io, "Detached preview payload")
-function Base.show(io::IO, payload::PreviewPayload)
-    print(io, "PreviewPayload(polygons=", length(payload.polygons),
-        ", references=", length(payload.references), ")")
-end
-function Base.show(io::IO, ::MIME"text/plain", payload::PreviewPayload)
-    get(io, :compact, false) && return show(io, payload)
-    limits = payload.limits === nothing ? "fitted" : _bounded_collection(payload.limits)
-    return TextDisplay.tree(io,
-        "Detached preview payload",
-        (
-            (label = "polygons    $(length(payload.polygons))", noun = "fields"),
-            (label = "references  $(length(payload.references))", noun = "fields"),
-            (label = "limits      $limits", noun = "fields")
-        ))
-end
+Base.show(io::IO, ::MIME"text/plain", shape::PreviewShape) = show(io, shape)

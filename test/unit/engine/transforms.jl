@@ -32,7 +32,7 @@
 
     formulation=ModalTransformationFormulation(:Fortescue)
     selected=@inferred ModalTransformationFormulation(
-        formula(:Chrysochos2014; tolerance=1e-7)
+        formula(:Chrysochos2014; tolerance = 1e-7)
     )
     default_formulation=@inferred ModalTransformationFormulation()
     @test Transforms.DEFAULT === :Chrysochos2014
@@ -98,7 +98,7 @@
         unsupported = true
     )
     @test_throws ArgumentError ModalTransformationFormulation(
-        formula(:Fortescue; order=:before)
+        formula(:Fortescue; order = :before)
     )
     @test_throws DomainError ModalTransformationFormulation(
         :Fortescue;
@@ -243,17 +243,15 @@ end
         angle=(frequency_index-1)/(length(smooth_frequencies)-1)*(pi/3)
         basis_matrix=[cos(angle) -sin(angle); sin(angle) cos(angle)]
         modal_impedance=Diagonal(ComplexF64[
-            2+0.01frequency_index+3im,
-            4+0.02frequency_index+5im
+            2 + 0.01frequency_index + 3im,
+            4 + 0.02frequency_index + 5im
         ])
         modal_admittance=Diagonal(ComplexF64[
-            (4+0.01frequency_index)+8im,
-            (8+0.02frequency_index)+12im
-        ].*1e-9)
-        smooth_impedance[:, :, frequency_index]=
-            basis_matrix*modal_impedance*transpose(basis_matrix)
-        smooth_admittance[:, :, frequency_index]=
-            basis_matrix*modal_admittance*transpose(basis_matrix)
+            (4 + 0.01frequency_index) + 8im,
+            (8 + 0.02frequency_index) + 12im
+        ] .* 1e-9)
+        smooth_impedance[:, :, frequency_index]=basis_matrix*modal_impedance*transpose(basis_matrix)
+        smooth_admittance[:, :, frequency_index]=basis_matrix*modal_admittance*transpose(basis_matrix)
     end
     smooth_parameters=LineParameters(
         PhaseDomain,
@@ -268,7 +266,8 @@ end
         )
         maps=operators(transformed)
         for frequency_index in 2:length(smooth_frequencies), mode in 1:2
-            previous=@view maps.voltage[mode, :, frequency_index-1]
+
+            previous=@view maps.voltage[mode, :, frequency_index - 1]
             current=@view maps.voltage[mode, :, frequency_index]
             overlap=abs(dot(previous, current))/(norm(previous)*norm(current))
             @test overlap > 0.99
@@ -277,27 +276,27 @@ end
 
     @test_throws DomainError compute(
         ModalTransformationProblem(parameters),
-        ModalTransformationFormulation(:Chrysochos2014; max_iterations=0)
+        ModalTransformationFormulation(:Chrysochos2014; max_iterations = 0)
     )
     @test_throws DomainError compute(
         ModalTransformationProblem(parameters),
-        ModalTransformationFormulation(:Chrysochos2014; convergence=-1)
+        ModalTransformationFormulation(:Chrysochos2014; convergence = -1)
     )
     @test_throws DomainError compute(
         ModalTransformationProblem(parameters),
-        ModalTransformationFormulation(:Fan2009; history_weight=-1)
+        ModalTransformationFormulation(:Fan2009; history_weight = -1)
     )
     @test_throws DomainError compute(
         ModalTransformationProblem(parameters),
-        ModalTransformationFormulation(:Fan2009; coalescence_tolerance=-1)
+        ModalTransformationFormulation(:Fan2009; coalescence_tolerance = -1)
     )
     @test_throws DomainError compute(
         ModalTransformationProblem(parameters),
-        ModalTransformationFormulation(:Wedepohl1996; max_iterations=0)
+        ModalTransformationFormulation(:Wedepohl1996; max_iterations = 0)
     )
     @test_throws DomainError compute(
         ModalTransformationProblem(parameters),
-        ModalTransformationFormulation(:Wedepohl1996; convergence=-1)
+        ModalTransformationFormulation(:Wedepohl1996; convergence = -1)
     )
 end
 

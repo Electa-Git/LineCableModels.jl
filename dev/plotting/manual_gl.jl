@@ -9,8 +9,6 @@ const ARTIFACT_DIRECTORY = abspath(get(
 ))
 mkpath(ARTIFACT_DIRECTORY)
 
-set_backend!(:gl)
-
 frequency = [50.0, 100.0, 500.0]
 omega = reshape(2π .* frequency, 1, 1, :)
 resistance_values = reshape([1.0, 0.2, 0.2, 2.0], 2, 2, 1) .*
@@ -34,44 +32,31 @@ plots = Makie.plot(
 handle = first(plots)
 
 @testset "manual GL plotting gate without CairoMakie" begin
-    @test !LineCableModels.PlotBuilder.backend_available(:cairo)
-    handle.controls[:export_svg].clicks[] += 1
-    @test occursin("load CairoMakie", handle.context.status[])
     @test Base.get_extension(LineCableModels, :LineCableModelsCairoMakieExt) === nothing
-    @test LineCableModels.PlotBuilder.current_backend_symbol() === :gl
+    @test Base.get_extension(
+        LineCableModels, :LineCableModelsMakieExt
+    ).current_backend_symbol() === :gl
 end
 
 using CairoMakie
-set_backend!(:gl)
+Base.get_extension(LineCableModels, :LineCableModelsGLMakieExt).activate!()
 
 @testset "manual GL plotting gate" begin
     @test plots isa Vector{UIPlot}
-    @test length(plots) == 2
-    @test all(plot -> plot.context.window !== nothing, plots)
-    @test length(unique(objectid(plot.context.window) for plot in plots)) == length(plots)
+    @test length(plots) == 4
+    @test length(handle.axes) == 4
     @test sort!(collect(keys(handle.controls))) ==
-          [:export_svg, :legend, :reset, :xlog, :ylog]
-    @test handle.context.backend === :gl
+          [:export_svg, :reset, :xlog, :ylog]
     @test handle.figure.scene.backgroundcolor[] == Makie.to_color(:grey90)
     @test occursin("\\ue5d5", sprint(show, handle.controls[:reset].label[]))
     @test occursin("\\ue161", sprint(show, handle.controls[:export_svg].label[]))
 
     handle.controls[:xlog].active[] = true
     handle.controls[:ylog].active[] = true
-    @test all(panel -> panel.axis.xscale[] === Makie.log10, handle.panels)
-    @test all(panel -> panel.axis.yscale[] === Makie.log10, handle.panels)
-
-    legend = handle.controls[:legend]
-    entry = first(last(first(legend.entrygroups[])))
-    Makie.toggle_visibility!(entry)
-    @test any(
-        plot_object -> !plot_object.visible[],
-        Iterators.flatten(panel.plots for panel in handle.panels)
-    )
-    Makie.toggle_visibility!(entry)
+    @test all(axis -> axis.xscale[] === Makie.log10, handle.axes)
+    @test all(axis -> axis.yscale[] === Makie.log10, handle.axes)
 
     handle.controls[:reset].clicks[] += 1
-    @test handle.context.status[] == "Axis limits reset"
 
     GLMakie.save(joinpath(ARTIFACT_DIRECTORY, "gl-ui.png"), handle.figure)
     cd(ARTIFACT_DIRECTORY) do
@@ -84,8 +69,9 @@ set_backend!(:gl)
         @test filesize(svg_path) > 100
         @test occursin("<svg", read(svg_path, String))
     end
-    @test startswith(handle.context.status[], "Saved SVG to ")
-    @test LineCableModels.PlotBuilder.current_backend_symbol() === :gl
+    @test Base.get_extension(
+        LineCableModels, :LineCableModelsMakieExt
+    ).current_backend_symbol() === :gl
 
     susceptance = last(Makie.plot(
         parameters;
@@ -93,7 +79,7 @@ set_backend!(:gl)
         display_plot = false
     ))
     susceptance.controls[:ylog].active[] = true
-    susceptance_axis = last(susceptance.panels).axis
+    susceptance_axis = last(susceptance.axes)
     @test susceptance_axis.yscale[] === Makie.log10
     @test susceptance_axis.ytickformat[] === Makie.automatic
     @test susceptance_axis.ylabel[] == "Shunt susceptance [S/km]"

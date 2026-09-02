@@ -3,7 +3,6 @@
     using RequiredInterfaces: NotImplementedError
 
     const RB = LineCableModels.ReportBuilder
-    const PB = LineCableModels.PlotBuilder
     const U = LineCableModels.Units
 
     struct ReportProfile
@@ -28,41 +27,17 @@
     U.label(::U.Quantity{:report_response}) = "Response"
     U.symbol(::U.Quantity{:report_response}) = "u"
 
-    struct ReportProfilePlot <: PB.AbstractPlotDefinition end
-    PB.entitle(
-        ::Type{ReportProfilePlot},
-        published::LineCableModels.Grammar.ObservationPublication
-    ) = published
-    function PB.resolve(
-            ::Type{ReportProfilePlot},
-            ::LineCableModels.Grammar.ObservationPublication,
-            request::NamedTuple
-    )
-        return request
-    end
-    function PB.fetch(
-            ::Type{ReportProfilePlot},
-            published::LineCableModels.Grammar.ObservationPublication,
-            request::NamedTuple
-    )
-        payload = (;
-            published,
-            legend = PB.LegendDefinition(enabled = false),
-            colorbars = (),
-            export_definition = PB.ExportDefinition(name = "report_profile")
-        )
-        return (PB.PlotPage(
-            "Report profile",
-            (800, 400),
-            (; kind = :report_profile),
-            payload
-        ),)
+    const illustrated_publication = Ref{Any}(nothing)
+    function report_profile_plot(published; marker)
+        illustrated_publication[] = published
+        return (; kind = :report_profile, marker)
     end
 
     source = ReportProfile([1.0, 2.0])
     definition = TableReportDefinition(
         (profile_response,);
-        illustration = ReportProfilePlot
+        illustration = report_profile_plot,
+        plot_options = (; marker = :report)
     )
     artifact = report(definition, source)
 
@@ -73,9 +48,8 @@
     columns=RB.observation_columns(artifact.table)
     @test U.label(columns.u.unit) == "mΩ"
     @test U.label(columns.u.quantity, columns.u.unit) == "Response [mΩ]"
-    @test artifact.illustration isa PB.PlotRecipe
-    @test only(only(artifact.illustration.pages).payload.published).values ==
-          artifact.table.u
+    @test artifact.illustration == (; kind = :report_profile, marker = :report)
+    @test only(illustrated_publication[]).values == artifact.table.u
     @test artifact.output === nothing
     artifact.table.u[1] = 0.0
     @test source.values == [1.0, 2.0]

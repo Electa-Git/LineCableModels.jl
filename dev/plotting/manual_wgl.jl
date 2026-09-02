@@ -22,8 +22,6 @@ const WGL_ARTIFACT_DIRECTORY = abspath(get(
 
 mkpath(WGL_ARTIFACT_DIRECTORY)
 cd(WGL_ARTIFACT_DIRECTORY)
-set_backend!(:wgl)
-
 include(joinpath(@__DIR__, "_gallery_fixtures.jl"))
 gallery = build_manual_plot_gallery(:wgl; display_plot = false)
 

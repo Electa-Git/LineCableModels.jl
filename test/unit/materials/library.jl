@@ -124,7 +124,7 @@ end
     @test sprint(show, MIME"text/plain"(), reverse_library) == summary
 
     narrow=sprint(show, MIME"text/plain"(), library;
-        context = IOContext(stdout, :limit => true, :displaysize => (5, 80)))
+        context = IOContext(stdout, :limit=>true, :displaysize=>(5, 80)))
     @test occursin("⋮", narrow)
     @test occursin("more materials", narrow)
 
