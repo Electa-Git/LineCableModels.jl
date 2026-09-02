@@ -8,7 +8,7 @@ abstract type AbstractReportDefinition end
 """
 $(TYPEDEF)
 
-Hold the table, optional PlotBuilder artifact, and written output produced by
+Hold the table, optional plot, and written output produced by
 [`report`](@ref).
 
 $(TYPEDFIELDS)
@@ -27,8 +27,9 @@ $(TYPEDEF)
 
 Request one generic wide table from a completed scientific source.
 
-The request and unit tuples follow [`observables`](@ref). `illustration` may be
-a PlotBuilder definition type; `plot_options` are passed to `make_render`.
+The request and unit tuples follow [`observables`](@ref). Set `illustration =
+true` to plot the resulting [`ObservationPublication`](@ref), or provide a
+callable that accepts it. `plot_options` are forwarded as keywords.
 
 $(TYPEDFIELDS)
 """
@@ -38,9 +39,9 @@ struct TableReportDefinition{R <: Tuple, U <: Tuple, P, O <: NamedTuple} <:
     requests::R
     "Optional display-unit overrides aligned with `requests`."
     units::U
-    "PlotBuilder definition type, or `nothing` for a table-only report."
+    "`true`, a publication-plotting callable, or `nothing` for table only."
     illustration::P
-    "Keyword options passed to PlotBuilder."
+    "Keyword options passed to the illustration call."
     plot_options::O
     "Whether detached display residue is replaced with exact zero."
     clip::Bool
@@ -65,7 +66,7 @@ function select end
 "Construct the report-owned table representation."
 function tabulate end
 
-"Construct an optional PlotBuilder artifact."
+"Construct an optional plot from the published observations."
 function illustrate end
 
 "Encode a supported report representation."
@@ -146,12 +147,13 @@ function tabulate(::TableReportDefinition, source, published::ObservationPublica
 end
 
 function illustrate(definition::TableReportDefinition, source, published, table)
-    definition.illustration === nothing && return nothing
-    return PlotBuilder.make_render(
-        definition.illustration,
-        published;
-        definition.plot_options...
-    )
+    illustration = definition.illustration
+    (illustration === nothing || illustration === false) && return nothing
+    illustration === true && return PlotBuilder.plot(published; definition.plot_options...)
+    applicable(illustration, published) || throw(ArgumentError(
+        "illustration must be true, a callable accepting the publication, or nothing",
+    ))
+    return illustration(published; definition.plot_options...)
 end
 
 encode(::TableReportDefinition, source, published, table, illustration) = nothing

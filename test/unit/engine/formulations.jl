@@ -7,10 +7,10 @@
 
     inner=state->oftype(state.jω, 7)
     insulation_impedance_route=(r_in, r_ex, mu_r, s, values)->zero(s)
-    insulation_admittance_route=(material, frequency, temperature, values)->
-        complex(inv(material.rho), frequency * material.eps_r)
-    semicon_admittance_route=(material, frequency, temperature, values)->
-        complex(inv(material.rho), frequency * material.eps_r)
+    insulation_admittance_route=(material, frequency, temperature, values)->complex(
+        inv(material.rho), frequency*material.eps_r)
+    semicon_admittance_route=(material, frequency, temperature, values)->complex(
+        inv(material.rho), frequency*material.eps_r)
     formulation=@inferred Formulation(
         internal_impedance = formula(:Schelkunoff1934; inner),
         insulation_impedance = formula(
@@ -73,12 +73,12 @@
     @test formula_id(defaults.methods.insulation_admittance) === :Ametani2004
     @test formula_id(defaults.methods.semicon_admittance) === :Ametani2004
     for (owner, identifier) in (
-            EN.InternalImpedance => :Schelkunoff1934,
-            EN.InsulationImpedance => :Ametani1980,
-            EN.EarthImpedance => :Papadopoulos2010,
-            EN.InsulationAdmittance => :Ametani2004,
-            EN.SemiconAdmittance => :Ametani2004,
-            EN.EarthAdmittance => :Papadopoulos2010
+        EN.InternalImpedance=>:Schelkunoff1934,
+        EN.InsulationImpedance=>:Ametani1980,
+        EN.EarthImpedance=>:Papadopoulos2010,
+        EN.InsulationAdmittance=>:Ametani2004,
+        EN.SemiconAdmittance=>:Ametani2004,
+        EN.EarthAdmittance=>:Papadopoulos2010
     )
         @test owner.DEFAULT === identifier
         @test formula_id(owner.Formula(:default)) === identifier
@@ -241,8 +241,8 @@ end
     end
 
     impedance_route=(r_in, r_ex, mu_r, s, values)->values.scale*s
-    admittance_route=(material, frequency, temperature, values)->
-        complex(inv(material.rho), values.scale * material.eps_r)
+    admittance_route=(material, frequency, temperature, values)->complex(
+        inv(material.rho), values.scale*material.eps_r)
     experimental_impedance=InsulationImpedance.Formula(
         :Experiment,
         impedance_route,

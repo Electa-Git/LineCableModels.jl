@@ -285,20 +285,22 @@
         outer_radius=0.005
         for index in 2:6
             dielectric_outer=outer_radius+0.0005
-            push!(parts, Region(
-                Symbol(:dielectric_, index-1),
-                Annulus(outer_radius, dielectric_outer),
-                dielectric
-            ))
-            conductor_outer=dielectric_outer+0.0003
-            push!(parts, Group(
-                Symbol(:terminal_, index),
+            push!(parts,
                 Region(
-                    Symbol(:metal_, index),
-                    Annulus(dielectric_outer, conductor_outer),
-                    copper
-                )
-            ))
+                    Symbol(:dielectric_, index-1),
+                    Annulus(outer_radius, dielectric_outer),
+                    dielectric
+                ))
+            conductor_outer=dielectric_outer+0.0003
+            push!(parts,
+                Group(
+                    Symbol(:terminal_, index),
+                    Region(
+                        Symbol(:metal_, index),
+                        Annulus(dielectric_outer, conductor_outer),
+                        copper
+                    )
+                ))
             outer_radius=conductor_outer
         end
         return build(CableDesign, "six-conductor-coax", Stack(parts))
@@ -309,12 +311,13 @@
         frequency = 50.0
     )
     @test many_layer_constants.cores == [:terminal_1]
-    @test all(isfinite, Iterators.flatten((
-        many_layer_constants.R,
-        many_layer_constants.L,
-        many_layer_constants.C,
-        many_layer_constants.G
-    )))
+    @test all(isfinite,
+        Iterators.flatten((
+            many_layer_constants.R,
+            many_layer_constants.L,
+            many_layer_constants.C,
+            many_layer_constants.G
+        )))
 
     designs=build(
         CableDesign,

@@ -4,6 +4,11 @@ Extension code adds methods to the owner that defines their meaning. The public
 calculation entry points remain `compute`, `observe`, `observables`, `project`,
 `report`, `plot`, and `preview`.
 
+`PlotBuilder` owns only optional plotting entry points and the live `UIPlot`
+handle. Scientific owners expose observations, quantities, geometry, and
+physical property ranges. The Makie extension owns request normalization,
+palettes, legend grouping, layout sugar, widgets, and native rendering.
+
 ## Validation rules
 
 A type with field-local constraints may define `Validation.rules(::Type)` and
@@ -62,16 +67,6 @@ Public = true
 Private = false
 ```
 
-## Plot definitions
-
-```@autodocs
-Modules = [LineCableModels.PlotBuilder]
-Order = [:module, :constant, :type, :function, :macro]
-Filter = developer_reference_entry
-Public = true
-Private = false
-```
-
 ## Report definitions
 
 ```@autodocs
@@ -80,6 +75,12 @@ Order = [:module, :constant, :type, :function, :macro]
 Filter = developer_reference_entry
 Public = true
 Private = false
+```
+
+## Plotting shell
+
+```@docs
+LineCableModels.PlotBuilder
 ```
 
 ## Index

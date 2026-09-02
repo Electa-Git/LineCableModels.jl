@@ -3,7 +3,6 @@
     using XLSX
 
     const Grammar = LineCableModels.Grammar
-    const PlotBuilder = LineCableModels.PlotBuilder
     const ReportBuilder = LineCableModels.ReportBuilder
     const ParametricBuilder = LineCableModels.ParametricBuilder
 
@@ -167,17 +166,6 @@
         return findings
     end
 
-    plot_implementors = Tuple(RequiredInterfaces.nonabstract_subtypes(
-        PlotBuilder.AbstractPlotDefinition,
-    ))
-    plot_findings = test_orchestrator(
-        PlotBuilder.make_render,
-        PlotBuilder.AbstractPlotDefinition,
-        plot_implementors;
-        required_hooks = (PlotBuilder.entitle, PlotBuilder.resolve, PlotBuilder.fetch),
-        optional_hooks = (PlotBuilder.parse, PlotBuilder.finish)
-    )
-
     report_implementors = Tuple(RequiredInterfaces.nonabstract_subtypes(
         ReportBuilder.AbstractReportDefinition,
     ))
@@ -220,7 +208,6 @@
         Grammar.AbstractProblemResult
     )
 
-    @test plot_findings isa Vector{String}
     @test report_findings isa Vector{String}
     @test projection_findings isa Vector{String}
 end

@@ -6,7 +6,7 @@
     root = pkgdir(LineCableModels)
     page = read(
         joinpath(root, "docs", "src", "transmission-line-parameters.md"),
-        String,
+        String
     )
     navigation = read(joinpath(root, "docs", "make.jl"), String)
 
@@ -15,63 +15,63 @@
             module_owner = LineCableModels.Engine.InternalImpedance,
             registry = LineCableModels.Engine.InternalImpedance.formulas(),
             path = ("engine", "internalimpedance", "formulas"),
-            default = :Schelkunoff1934,
+            default = :Schelkunoff1934
         ),
         (
             module_owner = LineCableModels.Engine.InsulationImpedance,
             registry = LineCableModels.Engine.InsulationImpedance.formulas(),
             path = ("engine", "insulationimpedance", "formulas"),
-            default = :Ametani1980,
+            default = :Ametani1980
         ),
         (
             module_owner = LineCableModels.Engine.InsulationAdmittance,
             registry = LineCableModels.Engine.InsulationAdmittance.formulas(),
             path = ("engine", "insulationadmittance", "formulas"),
-            default = :Ametani2004,
+            default = :Ametani2004
         ),
         (
             module_owner = LineCableModels.Engine.SemiconAdmittance,
             registry = LineCableModels.Engine.SemiconAdmittance.formulas(),
             path = ("engine", "semiconadmittance", "formulas"),
-            default = :Ametani2004,
+            default = :Ametani2004
         ),
         (
             module_owner = LineCableModels.Engine.EarthImpedance,
             registry = LineCableModels.Engine.EarthImpedance.formulas(),
             path = ("engine", "earthimpedance", "formulas"),
-            default = :Papadopoulos2010,
+            default = :Papadopoulos2010
         ),
         (
             module_owner = LineCableModels.Engine.EarthAdmittance,
             registry = LineCableModels.Engine.EarthAdmittance.formulas(),
             path = ("engine", "earthadmittance", "formulas"),
-            default = :Papadopoulos2010,
+            default = :Papadopoulos2010
         ),
         (
             module_owner = LineCableModels.Transforms,
             registry = LineCableModels.Transforms.formulas(),
             path = ("transforms", "formulas"),
-            default = :Chrysochos2014,
+            default = :Chrysochos2014
         ),
         (
             module_owner = LineCableModels.EarthProps.FD,
             registry = LineCableModels.EarthProps.FD.formulas(),
             path = ("earthprops", "fd", "formulas"),
-            default = nothing,
+            default = nothing
         ),
         (
             module_owner = LineCableModels.EarthProps.EHEM,
             registry = LineCableModels.EarthProps.EHEM.formulas(),
             path = ("earthprops", "ehem", "formulas"),
-            default = :Layer,
-        ),
+            default = :Layer
+        )
     )
 
     for category in categories
         directory = joinpath(root, "src", category.path...)
         formula_files = sort(filter(
             file -> endswith(file, ".jl"),
-            readdir(directory),
+            readdir(directory)
         ))
 
         @test category.module_owner.DEFAULT === category.default
@@ -90,7 +90,7 @@
             source = read(joinpath(directory, file), String)
             @test isnothing(match(
                 r"(?m)^\s*return\s+(material|model|parameters|input|source)\s*$",
-                source,
+                source
             ))
         end
 
@@ -105,7 +105,7 @@
 
         documented_files = sort(map(
             entry -> basename(String(last(entry).data[:path])),
-            descriptions,
+            descriptions
         ))
         @test documented_files == formula_files
 
@@ -118,7 +118,7 @@
         for (_, docstring) in descriptions
             @test any(
                 value -> value isa TypedMethodSignatures,
-                collect(docstring.text),
+                collect(docstring.text)
             )
             strings = filter(value -> value isa String, collect(docstring.text))
             scientific_text = join(strings)
@@ -140,6 +140,6 @@
     @test !occursin("**Reference.**", page)
     @test occursin(
         "\"Transmission line parameters\" => \"transmission-line-parameters.md\"",
-        navigation,
+        navigation
     )
 end

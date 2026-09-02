@@ -268,11 +268,11 @@ Publication converts and detaches `values`; it does not attach labels, result
 objects, execution options, Gridspace points, or Monte Carlo context.
 
 Line plotting accepts explicit observable requests. Its public convenience
-forms expand selectors such as `Z`, `real`, and `angle` once, at the plotting
-surface, then enter the same request path. PlotBuilder groups completed
+forms expand selectors such as `Z`, `real`, and `angle` once, at the optional
+Makie surface, then enter the same request path. The plotting extension groups completed
 observations with the qualified `Units.family(::Quantity)` metadata. Series and
 shunt identities return `Val(:series)` and `Val(:shunt)` respectively. Neither
-PlotBuilder nor ReportBuilder owns another quantity or family map.
+the plotting extension nor ReportBuilder owns another quantity or family map.
 
 The qualified `Grammar.validate_observables` method is the single entitlement
 check used by direct publication and generic reports. It validates the source
@@ -284,7 +284,7 @@ Line plots, Monte Carlo plots, and reports all use this path.
 
 `LineCableModels.Units` owns `Unit`, `UnitExpr`, `Quantity`, `units`,
 `quantity`, `native_unit`, `display_unit`, `scale_factor`, `label`, and
-`symbol`. PlotBuilder derives scientific axes from publication payloads.
+`symbol`. The plotting extension derives scientific axes from publication payloads.
 ReportBuilder derives human-facing tables through `report`. Neither consumer
 owns a quantity map, physical transform, or ordinary scientific unit string.
 

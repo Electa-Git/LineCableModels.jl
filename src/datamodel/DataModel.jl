@@ -10,7 +10,7 @@ Define the physical cable object model and completed line arrangements.
   [`Assembly`](@ref), and [`Enclosure`](@ref).
 - Build one physical declaration as a completed [`CableDesign`](@ref).
 - Place completed designs and resolve connections as a [`LineCableSystem`](@ref).
-- Describe cable and system previews for PlotBuilder.
+- Expose detached cable geometry and physical material ranges to consumers.
 - Store cable designs in [`CablesLibrary`](@ref).
 
 # Dependencies
@@ -38,7 +38,6 @@ export Ring, Hexa, Polar, Fill, Lattice, capacity, placements
 export FillFactor, DiameterFactor, TabulatedCompaction, AffineCompaction
 export LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
 export ncables, nphases
-export preview
 
 # Module-specific dependencies
 #! explicit-imports: off
@@ -46,18 +45,14 @@ export preview
 using DocStringExtensions: IMPORTS
 #! explicit-imports: on
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES, FUNCTIONNAME
-import ..PlotBuilder
 import ..Units
 import ..TextDisplay
 import ..LineCableModels: add!, build, homogenize, validate, nominal
 import ..LineCableModels: _construction
 using ..Materials: Material
 import ..Validation
-using Colors: HSL, RGB, RGBA, alpha, blue, green, red
 import GeometryBasics
 using GeometryBasics: Point2f
-using Printf: @sprintf
-using Statistics: mean
 import Base: angle
 
 # Abstract types and interfaces
@@ -91,18 +86,14 @@ include("linecablesystem/linecablesystem.jl")
 
 # Geometry and language protocols
 include("geometry.jl")
-include("preview/definitions.jl")
+include("preview/geometry.jl")
 include("preview/materials.jl")
-include("preview/cable.jl")
-include("preview/cables.jl")
-include("preview/system.jl")
-include("preview/materialscale.jl")
 
 # Bounded human-readable representations for the completed physical grammar.
 include("textdisplay.jl")
 
 public preview_shapes, preview_materials
-public PreviewPolygon, PreviewReferenceLine, PreviewPayload
+public PreviewShape, material_property_ranges
 public RoundedSectorShape, ShellShape
 public flatten
 

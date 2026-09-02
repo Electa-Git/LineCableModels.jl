@@ -21,9 +21,9 @@ import ..Grammar: observables, validate_observables
 import ..Grammar: ObservationPublication
 using ..Grammar: @observe
 import ..Units
-import ..PlotBuilder
 import ..DataModel
 import ..Engine
+import ..PlotBuilder
 import ..UQ
 import ..TextDisplay
 import ..LineCableModels: basis, Z, Y, R, X, L, G, B, C

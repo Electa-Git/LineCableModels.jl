@@ -39,7 +39,6 @@ import LineCableModels: homogenize
 import CairoMakie
 using DataFrames
 fullfile(filename) = joinpath(@__DIR__, filename); #hide
-set_backend!(:cairo); #hide
 
 # Initialize materials library with default values:
 materials = MaterialsLibrary(add_defaults = true)
@@ -104,10 +103,8 @@ layer_diameters = d_core .+ 2 .* cumsum(radial_increments) #hide
 # The cable structure is summarized in a row-wise table with dimensions in millimeters:
 cable_dimensions = DataFrame(
     "layer" => collect(layer_names),
-    "thickness [mm]" => [
-        ismissing(t) ? missing : round(1000t, sigdigits = 2)
-        for t in layer_thicknesses
-    ],
+    "thickness [mm]" => [ismissing(t) ? missing : round(1000t, sigdigits = 2)
+     for t in layer_thicknesses],
     "diameter [mm]" => collect(round.(1000 .* layer_diameters, digits = 2))
 )
 

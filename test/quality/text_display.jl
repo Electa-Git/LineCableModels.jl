@@ -6,20 +6,18 @@
     display_paths=String[
         joinpath(source_root, "textdisplay", "TextDisplay.jl"),
         joinpath(source_root, "materials", "base.jl"),
-        joinpath(source_root, "earthprops", "base.jl"),
-        joinpath(source_root, "plotbuilder", "base.jl"),
+        joinpath(source_root, "earthprops", "base.jl")
     ]
-    append!(display_paths, [
-        joinpath(source_root, owner, "textdisplay.jl")
-        for owner in (
+    append!(display_paths,
+        [joinpath(source_root, owner, "textdisplay.jl")
+         for owner in (
             "datamodel",
             "engine",
             "parametricbuilder",
             "reportbuilder",
             "uq",
-            "validation",
-        )
-    ])
+            "validation"
+        )])
     display_source=join(read(path, String) for path in display_paths)
 
     for forbidden in (
@@ -48,8 +46,7 @@
         LineCableModels.Engine,
         LineCableModels.ParametricBuilder,
         LineCableModels.UQ,
-        LineCableModels.PlotBuilder,
-        LineCableModels.ReportBuilder,
+        LineCableModels.ReportBuilder
     )
     for binding in names(LineCableModels; all = false, imported = true)
         isdefined(LineCableModels, binding) || continue
@@ -94,15 +91,15 @@
     for owner in ("datamodel", "engine")
         owner_source=join(
             read(joinpath(directory, file), String)
-            for (directory, _, files) in walkdir(joinpath(source_root, owner))
-            for file in files if endswith(file, ".jl")
+        for (directory, _, files) in walkdir(joinpath(source_root, owner))
+        for file in files if endswith(file, ".jl")
         )
         @test !occursin("DataFrames", owner_source)
     end
 
     tutorial_source=join(
         read(joinpath(root, "examples", tutorial), String)
-        for tutorial in ("tutorial2.jl", "tutorial3.jl")
+    for tutorial in ("tutorial2.jl", "tutorial3.jl")
     )
     for object in (
         "materials",
@@ -113,7 +110,7 @@
         "earth_params",
         "cable_system",
         "line_parameters",
-        "sequence_parameters",
+        "sequence_parameters"
     )
         @test !occursin(Regex("DataFrame\\s*\\(\\s*" * object * "\\s*[),]"),
             tutorial_source)

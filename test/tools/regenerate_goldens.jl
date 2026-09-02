@@ -152,7 +152,7 @@ if lowercase(get(ENV, "LINECABLEMODELS_UPDATE_PLOT_REFERENCES", "false")) == "tr
     )
     save_reference(
         "material_scale",
-        LineCableModels.DataModel.show_material_scale(
+        LineCableModels.show_material_scale(
             backend = :cairo,
             display_plot = false
         )

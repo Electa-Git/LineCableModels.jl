@@ -115,14 +115,12 @@ end
 @testitem "Core / selectors / owner-local symbol facades" tags=[:unit] begin
     const Engine=LineCableModels.Engine
     const ImportExport=LineCableModels.ImportExport
-    const PlotBuilder=LineCableModels.PlotBuilder
     const WirePatterns=LineCableModels.ParametricBuilder.WirePatterns
 
     @test which(Engine.Formulation, (Symbol,)).module === Engine
     @test which(ImportExport.export_data, (Symbol, Nothing)).module === ImportExport
     @test which(ImportExport.import_data, (Symbol, Nothing)).module === ImportExport
     @test which(Engine.LineParameters, (Symbol, String)).module === ImportExport
-    @test !isdefined(PlotBuilder, :layout_preset)
     @test which(
         getindex,
         (WirePatterns.WireEstimate{Float64, WirePatterns.HexaPattern{Float64}}, Symbol)
@@ -173,8 +171,8 @@ end
         joinpath("src", "datamodel", "placement", "patterns.jl"),
         joinpath("src", "datamodel", "placement", "paths.jl"),
         joinpath("src", "parametricbuilder", "physicaltree.jl"),
-        joinpath("src", "datamodel", "preview", "cable.jl"),
-        joinpath("src", "datamodel", "preview", "cables.jl"),
+        joinpath("src", "datamodel", "preview", "geometry.jl"),
+        joinpath("src", "datamodel", "preview", "materials.jl"),
         joinpath("src", "engine", "lineparameters", "lineparameters.jl"),
         joinpath("src", "engine", "lineparameters", "quantities.jl"),
         joinpath("src", "engine", "lineparameters.jl"),
@@ -199,7 +197,11 @@ end
         joinpath("src", "reportbuilder", "tables.jl"),
         joinpath("src", "reportbuilder", "xlsx.jl"),
         joinpath("src", "importexport", "pscad", "pscad.jl"),
-        joinpath("ext", "LineCableModelsMakieExt", "UIComponents.jl"),
+        joinpath("ext", "LineCableModelsMakieExt", "shell.jl"),
+        joinpath("ext", "LineCableModelsMakieExt", "material_colors.jl"),
+        joinpath("ext", "LineCableModelsMakieExt", "recipes", "line_data.jl"),
+        joinpath("ext", "LineCableModelsMakieExt", "recipes", "preview_data.jl"),
+        joinpath("ext", "LineCableModelsMakieExt", "native_export.jl"),
         joinpath("dev", "plotting", "Project.toml"),
         joinpath("schemas", "cable-design.schema.json")
     )
@@ -208,8 +210,9 @@ end
     obsolete_paths=(
         joinpath("src", "Grammar.jl"),
         joinpath("src", "unithandler"),
-        joinpath("src", "plotbuilder", "backendhandler"),
-        joinpath("src", "plotbuilder", "uicomponents"),
+        joinpath("src", "plotting.jl"),
+        joinpath("ext", "LineCableModelsMakieExt", "UIComponents.jl"),
+        joinpath("ext", "LineCableModelsMakieExt", "uicomponents"),
         joinpath("src", "datamodel", "strands_handler.jl"),
         joinpath("src", "engine", "solver.jl"),
         joinpath("src", "engine", "insulationimpedance", "lossless.jl"),
@@ -223,39 +226,33 @@ end
     )
     @test all(!ispath(joinpath(root, path)) for path in obsolete_paths)
 
-    @test Set(readdir(joinpath(source_root, "plotbuilder"))) == Set((
-        "PlotBuilder.jl",
-        "backends.jl",
-        "base.jl",
-        "interfaces.jl",
-        "render.jl",
-        "types.jl"
-    ))
     @test Set(readdir(joinpath(extension_root, "LineCableModelsMakieExt"))) == Set((
         "LineCableModelsMakieExt.jl",
-        "UIComponents.jl",
-        "context.jl",
-        "lineparameters.jl",
+        "material_colors.jl",
         "montecarlo.jl",
-        "native.jl",
-        "previews.jl",
-        "shell.jl",
-        "uicomponents"
+        "native_export.jl",
+        "recipes",
+        "shell.jl"
     ))
     @test Set(readdir(joinpath(
-        extension_root,
-        "LineCableModelsMakieExt",
-        "uicomponents"
+        extension_root, "LineCableModelsMakieExt", "recipes"
     ))) == Set((
-        "axes.jl",
-        "docks.jl",
-        "drawing.jl",
-        "export.jl",
-        "theme.jl"
+        "comparison_data.jl",
+        "line_data.jl",
+        "line_facets.jl",
+        "preview_data.jl",
+        "preview_render.jl",
+        "preview_types.jl",
+        "publication_render.jl"
     ))
 
     @test !isdefined(LineCableModels, :UnitHandler)
-    @test !isdefined(LineCableModels.PlotBuilder, :BackendHandler)
+    @test isdefined(LineCableModels, :PlotBuilder)
+    @test !isdefined(LineCableModels, :set_backend!)
+    @test fieldnames(Base.unwrap_unionall(LineCableModels.UIPlot)) == (
+        :figure, :title, :axes, :controls, :legend, :panel_legends, :colorbars,
+        :addon_state, :export_name, :export_theme, :open_export
+    )
     @test !isdefined(LineCableModels.DataModel, :PhysicalFillLimit)
     @test !isdefined(LineCableModels.Validation, :PhysicalFillLimit)
 
@@ -266,6 +263,9 @@ end
     @test parentmodule(LineCableModels.frequencies) === LineCableModels.Engine
     @test parentmodule(LineCableModels.ncables) === LineCableModels.DataModel
     @test parentmodule(LineCableModels.nphases) === LineCableModels.DataModel
+    @test parentmodule(LineCableModels.plot) === LineCableModels.PlotBuilder
+    @test parentmodule(LineCableModels.preview) === LineCableModels.PlotBuilder
+    @test parentmodule(LineCableModels.materialcolors) === LineCableModels.PlotBuilder
     @test parentmodule(LineCableModels.DataModel.preview_shapes) ===
           LineCableModels.DataModel
     @test parentmodule(LineCableModels.DataModel.preview_materials) ===
@@ -397,10 +397,7 @@ end
         report_monte_carlo)
     @test length(findall("observables(", report_monte_carlo)) == 1
     report_grammar=source[joinpath("src", "reportbuilder", "grammar.jl")]
-    @test occursin(
-        "PlotBuilder.make_render(\n        definition.illustration,\n        published;",
-        report_grammar
-    )
+    @test occursin("PlotBuilder.plot(published; definition.plot_options...)", report_grammar)
     report_xlsx=source[joinpath("src", "reportbuilder", "xlsx.jl")]
     @test !occursin(r"\b(?:Z|Y|frequencies)\(source", report_xlsx)
     @test !occursin("_xlsx_table_definition", report_xlsx)
@@ -425,11 +422,6 @@ end
     @test occursin("using XLSX", xlsx_extension)
     @test occursin("function ReportBuilder.write", xlsx_extension)
 
-    plotbuilder_source=join(
-        (source[path]
-        for path in keys(source)
-        if startswith(path, joinpath("src", "plotbuilder"))),
-        "\n")
     makie_source=join(
         (read(path, String)
         for (directory, _, files) in walkdir(
@@ -439,17 +431,16 @@ end
         "\n")
     maintained_implementation=join((values(source)..., makie_source), "\n")
     for token in (
-        "input_kwargs",
-        "renderer_kwargs",
-        "_symbol_tuple",
-        "_validate_defaults",
-        "_BACKEND_EXTENSIONS",
-        "_backend_extension",
-        "_backend_package"
-    )
-        @test !occursin(token, plotbuilder_source)
-    end
-    for token in (
+        "AbstractPlotDefinition",
+        "PlotPage",
+        "PlotRecipe",
+        "LegendDefinition",
+        "ColorbarDefinition",
+        "UIContext",
+        "UIPanel",
+        "AxisBehavior",
+        "set_backend!",
+        "make_render",
         "hasproperty(page.payload",
         "_page_legend",
         "_page_colorbars",
@@ -473,14 +464,13 @@ end
     @test occursin("preview_shapes(region::PlacedRegion", preview_materials)
     @test occursin("preview_materials(region::PlacedRegion", preview_materials)
 
-    shell_source=read(
+    native_addons=read(
         joinpath(extension_root, "LineCableModelsMakieExt", "shell.jl"),
         String
     )
-    @test occursin("function build_widget! end", shell_source)
-    @test occursin("function toolbar_button!", shell_source)
-    @test occursin("function bind_widget_callback!", shell_source)
-    @test occursin("build_shell(context, recipe.definition, page)", shell_source)
+    @test occursin("function _addon_controls!", native_addons)
+    @test occursin("function LineCableModels.plotwindow", native_addons)
+    @test occursin("function _addon_responsive_legend!", native_addons)
 
     monte_carlo_renderer=read(
         joinpath(extension_root, "LineCableModelsMakieExt", "montecarlo.jl"),
@@ -492,7 +482,7 @@ end
     @test !occursin(r"\b(?:mode|ijk)\s*=", monte_carlo_renderer)
     @test !occursin(r"Val\(:(?:histogram|stairs|line|scatter)", monte_carlo_renderer)
     @test !occursin("Figure(", monte_carlo_renderer)
-    @test occursin("PlotBuilder.plotwindow", monte_carlo_renderer)
+    @test occursin("_addon_statistical_plot", monte_carlo_renderer)
     @test !occursin("LineCableModels.result(", monte_carlo_renderer)
     @test !occursin("LineCableModels.histograms(", monte_carlo_renderer)
     @test !occursin("LineCableModels.UQ._histogram", monte_carlo_renderer)
@@ -513,10 +503,7 @@ end
     @test !occursin("_position_kind", system)
     @test !occursin("shell.kind", makie_source)
 
-    backends=source[joinpath("src", "plotbuilder", "backends.jl")]
-    @test !occursin("_parent_package", backends)
-    @test !hasmethod(LineCableModels.PlotBuilder.ensure_backend!, Tuple{Symbol})
-    @test !hasmethod(LineCableModels.PlotBuilder.ensure_backend!, Tuple{Val{:cairo}})
+    @test !isdefined(LineCableModels, :current_backend_symbol)
 
     @test !isdefined(LineCableModels.Engine, :FEM)
     @test !isdefined(LineCableModels.DataModel, :SectorParams)
@@ -538,10 +525,9 @@ end
     end
 
     presentation_paths=filter(keys(source)) do path
-        startswith(path, joinpath("src", "plotbuilder")) ||
-            startswith(path, joinpath("src", "reportbuilder")) ||
-            endswith(path, "plotdefinition.jl") ||
-            endswith(path, "comparisonplot.jl") ||
+        startswith(path, joinpath("src", "reportbuilder")) ||
+            endswith(path, "plotdata.jl") ||
+            endswith(path, "comparisondata.jl") ||
             endswith(path, joinpath("montecarlo", "plot.jl"))
     end
     for path in presentation_paths

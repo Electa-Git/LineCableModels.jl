@@ -14,9 +14,10 @@
         :VisacroPortela1987
     )
     @test FD.formulas() == expected
-    files=sort(filter(endswith(".jl"), readdir(joinpath(
-        pkgdir(LineCableModels), "src", "earthprops", "fd", "formulas"
-    ))))
+    files=sort(filter(endswith(".jl"),
+        readdir(joinpath(
+            pkgdir(LineCableModels), "src", "earthprops", "fd", "formulas"
+        ))))
     @test files == collect(lowercase.(string.(expected)) .* ".jl")
 
     for identifier in expected

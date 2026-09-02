@@ -14,7 +14,7 @@ const REPOSITORY_URL = "https://github.com/$(REPOSITORY)"
 const SITE_URL = "https://electa-git.github.io/LineCableModels.jl"
 const TUTORIAL_SOURCE = joinpath(ROOT_DIR, "examples")
 const TUTORIAL_OUTPUT = joinpath(DOCS_SRC_DIR, "tutorials")
-const PLOTBUILDER_SOURCE = joinpath(@__DIR__, "literate", "plotbuilder.jl")
+const PLOTTING_SOURCE = joinpath(@__DIR__, "literate", "plotting.jl")
 const GAUNTLET_SOURCE = joinpath(@__DIR__, "literate", "gauntlet.jl")
 
 const CONVENIENCE_API_OBJECTS = ()
@@ -24,7 +24,7 @@ const BENCHMARK_API_OBJECTS = (
     LineCableModels.Engine.LineParametersBenchmark,
     LineCableModels.Engine.compare,
     LineCableModels.Engine.absolute_error,
-    LineCableModels.Engine.relative_error,
+    LineCableModels.Engine.relative_error
 )
 
 const EXTENSION_API_OBJECTS = (
@@ -52,9 +52,10 @@ const EXTENSION_API_OBJECTS = (
     LineCableModels.Units.family,
     LineCableModels.DataModel.preview_shapes,
     LineCableModels.DataModel.preview_materials,
-    LineCableModels.DataModel.PreviewPolygon,
-    LineCableModels.DataModel.PreviewReferenceLine,
-    LineCableModels.DataModel.PreviewPayload,
+    LineCableModels.DataModel.PreviewShape,
+    LineCableModels.DataModel.material_property_ranges,
+    LineCableModels.materialcolors,
+    LineCableModels.materialscale!,
     LineCableModels.Engine.has_uncertainty_type,
     LineCableModels.ParametricBuilder.AbstractProjectionDefinition,
     LineCableModels.ParametricBuilder.entitle,
@@ -63,33 +64,13 @@ const EXTENSION_API_OBJECTS = (
     LineCableModels.ParametricBuilder.materialize,
     LineCableModels.ParametricBuilder.traverse,
     LineCableModels.ParametricBuilder.sample_uncertainty,
-    LineCableModels.PlotBuilder,
-    LineCableModels.PlotBuilder.AbstractPlotDefinition,
-    LineCableModels.PlotBuilder.PlotPage,
-    LineCableModels.PlotBuilder.PlotRecipe,
-    LineCableModels.PlotBuilder.LegendDefinition,
-    LineCableModels.PlotBuilder.ColorbarDefinition,
-    LineCableModels.PlotBuilder.ExportDefinition,
-    LineCableModels.PlotBuilder.AbstractWidgetDefinition,
-    LineCableModels.PlotBuilder.make_render,
-    LineCableModels.PlotBuilder.plotwindow,
-    LineCableModels.PlotBuilder.axis!,
-    LineCableModels.PlotBuilder.register!,
-    LineCableModels.PlotBuilder.backend_available,
-    LineCableModels.PlotBuilder.current_backend_symbol,
-    LineCableModels.PlotBuilder.ensure_backend!,
-    LineCableModels.PlotBuilder.make_screen,
-    LineCableModels.PlotBuilder.next_fignum,
-    LineCableModels.PlotBuilder.renderfig,
-    LineCableModels.PlotBuilder.with_backend,
-    LineCableModels.PlotBuilder.input_defaults,
-    LineCableModels.PlotBuilder.renderer_defaults,
-    LineCableModels.PlotBuilder.entitle,
-    LineCableModels.PlotBuilder.parse,
-    LineCableModels.PlotBuilder.resolve,
-    LineCableModels.PlotBuilder.fetch,
-    LineCableModels.PlotBuilder.finish,
-    LineCableModels.PlotBuilder.validate_export_theme,
+    LineCableModels.UIPlot,
+    LineCableModels.plotwindow,
+    LineCableModels.export_svg,
+    LineCableModels.figurelegend!,
+    LineCableModels.panellegend!,
+    LineCableModels.figuretitle!,
+    LineCableModels.paneltitle!,
     LineCableModels.ReportBuilder,
     LineCableModels.ReportBuilder.AbstractReportDefinition,
     LineCableModels.ReportBuilder.CableConstantsTableDefinition,
@@ -109,14 +90,15 @@ const EXTENSION_API_OBJECTS = (
     LineCableModels.ReportBuilder.XLSXWorkbook,
     LineCableModels.ImportExport.serialize_value,
     LineCableModels.ImportExport.deserialize_value,
-    LineCableModels.ImportExport.deserialize_extension,
+    LineCableModels.ImportExport.deserialize_extension
 )
 
 _contains_identity(collection, object) = any(candidate -> candidate === object, collection)
-api_reference_entry(object) =
+function api_reference_entry(object)
     !_contains_identity(CONVENIENCE_API_OBJECTS, object) &&
-    !_contains_identity(BENCHMARK_API_OBJECTS, object) &&
-    !_contains_identity(EXTENSION_API_OBJECTS, object)
+        !_contains_identity(BENCHMARK_API_OBJECTS, object) &&
+        !_contains_identity(EXTENSION_API_OBJECTS, object)
+end
 developer_reference_entry(object) = _contains_identity(EXTENSION_API_OBJECTS, object)
 
 function project_metadata()
@@ -143,7 +125,7 @@ function formulation_catalogue(module_owner::Module, path::AbstractString...)
             identifier = first(Base.unwrap_unionall(formula_type).parameters)
             body = join(filter(
                 value -> value isa AbstractString,
-                collect(docstring.text),
+                collect(docstring.text)
             ))
             push!(entries, (; source, identifier, body = strip(body)))
         end
@@ -153,7 +135,7 @@ function formulation_catalogue(module_owner::Module, path::AbstractString...)
     isempty(entries) && error("no formulation docstrings found in $directory")
     return Markdown.parse(join(
         ("### `:$(entry.identifier)`\n\n$(entry.body)" for entry in entries),
-        "\n\n",
+        "\n\n"
     ))
 end
 
@@ -198,7 +180,7 @@ end
 function generate_maintained_pages!()
     cp(joinpath(ROOT_DIR, "TODO.md"), joinpath(DOCS_SRC_DIR, "TODO.md"); force = true)
     Literate.markdown(
-        PLOTBUILDER_SOURCE,
+        PLOTTING_SOURCE,
         DOCS_SRC_DIR;
         documenter = true,
         credit = false,
@@ -281,7 +263,7 @@ makedocs(;
             "Extension API" => "extensions.md",
             "Conventions" => "conventions.md",
             "Computational engine" => "engine.md",
-            "PlotBuilder guide" => "plotbuilder.md",
+            "Makie plotting" => "plotting.md",
             "Contributing" => "contributing.md",
             "TODO" => "TODO.md"
         ],

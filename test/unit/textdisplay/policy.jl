@@ -22,17 +22,21 @@
           "Material(:conductor; ρ=17.241 nΩ·m, εᵣ=1, μᵣ=0.999994)"
     @test sprint(show, constants) ==
           "CableConstants(assemblies=1, frequency=50.0)"
-    @test sprint(show, MIME"text/plain"(), earth) == join((
-        "EarthModel · homogeneous",
-        "├─ air        ρ=∞  εᵣ=1  μᵣ=1",
-        "└─ earth      ρ=100 Ω·m  εᵣ=10  μᵣ=1",
-    ), '\n')
-    @test sprint(show, MIME"text/plain"(), parameters) == join((
-        "LineParameters · phase domain",
-        "├─ f  2 points · 1 Hz … 1 MHz",
-        "├─ Z  2×2×2 · Ω/m",
-        "└─ Y  2×2×2 · S/m",
-    ), '\n')
+    @test sprint(show, MIME"text/plain"(), earth) == join(
+        (
+            "EarthModel · homogeneous",
+            "├─ air        ρ=∞  εᵣ=1  μᵣ=1",
+            "└─ earth      ρ=100 Ω·m  εᵣ=10  μᵣ=1"
+        ),
+        '\n')
+    @test sprint(show, MIME"text/plain"(), parameters) == join(
+        (
+            "LineParameters · phase domain",
+            "├─ f  2 points · 1 Hz … 1 MHz",
+            "├─ Z  2×2×2 · Ω/m",
+            "└─ Y  2×2×2 · S/m"
+        ),
+        '\n')
 
     inactive=Material(:insulator, Inf, 2.3, 1.0, 20.0, 0.0)
     inactive_text=sprint(show, MIME"text/plain"(), inactive)
@@ -55,8 +59,8 @@ end
         pattern = Ring(6; r = 2.0e-3),
         path = Helix(LayRatio(11.0))
     )
-    insulating_layers=ntuple(index ->
-        Region(Symbol(:layer_, index), Annulus(index * 1.0e-3, (index + 1) * 1.0e-3), insulator),
+    insulating_layers=ntuple(
+        index->Region(Symbol(:layer_, index), Annulus(index*1.0e-3, (index+1)*1.0e-3), insulator),
         10)
     stack=Stack(group, insulating_layers...)
     repeated=Assembly(
@@ -78,8 +82,8 @@ end
     grid=Grid((1.0, 2.0, 3.0, 4.0, 5.0))
     build_calls=Ref(0)
     space=Gridspace{CableConstants}(
-        (r, l, c) -> begin
-            build_calls[] += 1
+        (r, l, c)->begin
+            build_calls[]+=1
             CableConstants(r, l, c)
         end,
         (Grid((1.0, 2.0, 3.0)), Grid((2.0,)), Grid((3.0, 4.0)))
@@ -106,7 +110,7 @@ end
         cables,
         parametric,
         parameters,
-        monte_carlo,
+        monte_carlo
     )
     family_names=(
         :group,
@@ -123,23 +127,23 @@ end
         :cables_library,
         :parametric_result,
         :line_parameters,
-        :monte_carlo_result,
+        :monte_carlo_result
     )
 
     function structural_snapshot(names, objects, display_size)
-        sections = map(names, objects) do name, object
-            rendered = sprint(
+        sections=map(names, objects) do name, object
+            rendered=sprint(
                 show,
                 MIME"text/plain"(),
                 object;
                 context = IOContext(
-                    IOBuffer(), :compact => false, :limit => true,
-                    :displaysize => display_size
+                    IOBuffer(), :compact=>false, :limit=>true,
+                    :displaysize=>display_size
                 )
             )
             return string("## ", name, '\n', rendered)
         end
-        return join(sections, "\n\n") * '\n'
+        return join(sections, "\n\n")*'\n'
     end
 
     snapshot_root=joinpath(pkgdir(LineCableModels), "test", "fixtures", "textdisplay")
@@ -155,12 +159,12 @@ end
         @test !endswith(compact, '\n')
 
         wide_context=IOContext(
-            IOBuffer(), :compact => false, :limit => true,
-            :displaysize => (40, 120)
+            IOBuffer(), :compact=>false, :limit=>true,
+            :displaysize=>(40, 120)
         )
         narrow_context=IOContext(
-            IOBuffer(), :compact => false, :limit => true,
-            :displaysize => (6, 48)
+            IOBuffer(), :compact=>false, :limit=>true,
+            :displaysize=>(6, 48)
         )
         wide=sprint(show, MIME"text/plain"(), object; context = wide_context)
         repeated_wide=sprint(show, MIME"text/plain"(), object; context = wide_context)
@@ -175,13 +179,14 @@ end
 
     @test build_calls[] == 0
     @test sprint(show, space) == "CableConstants parameter space · 6 points"
-    @test occursin("⋮", sprint(
-        show,
-        MIME"text/plain"(),
-        stack;
-        context = IOContext(
-            IOBuffer(), :limit => true, :displaysize => (5, 48)
-        )
-    ))
+    @test occursin("⋮",
+        sprint(
+            show,
+            MIME"text/plain"(),
+            stack;
+            context = IOContext(
+                IOBuffer(), :limit => true, :displaysize => (5, 48)
+            )
+        ))
     @test !occursin("0.0 + 0.0im", sprint(show, MIME"text/plain"(), parameters))
 end

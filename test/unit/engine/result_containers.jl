@@ -200,10 +200,11 @@
     @test subset_table.column == [1, 1]
     @test subset_table.frequency == frequency[2:3]
     @test subset_table.R == resistance_values[2, 1, 2:3]
-    transformed_table=DataFrame(observables(parameters, (
-        @observe((Z, abs)[:, :, :]),
-        @observe((Y, angle)[:, :, :])
-    )))
+    transformed_table=DataFrame(observables(
+        parameters, (
+            @observe((Z, abs)[:, :, :]),
+            @observe((Y, angle)[:, :, :])
+        )))
     @test names(transformed_table) ==
           ["frequency", "row", "column", "|Z|", "∠Y"]
     @test transformed_table[!, Symbol("|Z|")][1:4] ≈

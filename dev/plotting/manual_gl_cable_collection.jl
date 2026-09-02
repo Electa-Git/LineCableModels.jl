@@ -7,11 +7,9 @@ const CABLE_COLLECTION_GALLERY_SMOKE_ONLY = lowercase(
     get(ENV, "LINECABLEMODELS_GL_GALLERY_SMOKE", "false")
 ) == "true"
 
-set_backend!(:gl)
-
-# Load one detailed design and derive renderer-independent variants. The
-# collection recipe accepts an ordinary vector; no gallery or Makie wrapper
-# type is required at the call site.
+# Load one detailed design and derive renderer-independent variants. `preview`
+# accepts an ordinary vector; no gallery or Makie wrapper type is required at
+# the call site.
 library = CablesLibrary()
 load!(library;
     file_name = joinpath(
@@ -23,10 +21,11 @@ load!(library;
     ))
 source = only(values(library.data))
 designs = [build(
-    CableDesign,
-    cable_id,
-    source.root
-) for cable_id in (
+               CableDesign,
+               cable_id,
+               source.root
+           )
+           for cable_id in (
     "Detailed cable A",
     "Detailed cable B",
     "Detailed cable C",
@@ -46,7 +45,7 @@ automatic = preview(
 )
 
 # Passing `(rows, columns)` exercises the caller-owned layout choice. The same
-# feature grammar is used; only the resolved grid differs.
+# preview data is used; only the native grid differs.
 explicit = preview(
     designs[1:4];
     layout = (1, 4),
@@ -57,18 +56,12 @@ explicit = preview(
 )
 
 @testset "manual GL cable collection preview" begin
-    @test automatic.page.payload.layout == (2, 3)
-    @test explicit.page.payload.layout == (1, 4)
-    @test length(automatic.panels) == 5
-    @test length(explicit.panels) == 4
-    @test automatic.context.legend === nothing
-    @test explicit.context.legend === nothing
-    @test length(automatic.context.colorbars) == 3
-    automatic_valign = automatic.context.shell.side.valign[]
-    explicit_valign = explicit.context.shell.side.valign[]
-    @test automatic_valign == convert(typeof(automatic_valign), :top)
-    @test explicit_valign == convert(typeof(explicit_valign), :top)
-    @test [panel.axis.title[] for panel in automatic.panels] ==
+    @test length(automatic.axes) == 5
+    @test length(explicit.axes) == 4
+    @test automatic.legend === nothing
+    @test explicit.legend === nothing
+    @test length(automatic.colorbars) == 3
+    @test [axis.title[] for axis in automatic.axes] ==
           getproperty.(designs, :cable_id)
 end
 
@@ -77,18 +70,10 @@ println("Confirm that every subplot title is its cable id and no legend is prese
 println("Confirm that each canvas has one shared, top-aligned set of material colorbars.")
 
 if CABLE_COLLECTION_GALLERY_SMOKE_ONLY
-    @test automatic.context.window === nothing
-    @test explicit.context.window === nothing
     println("GL gallery smoke-only mode complete; native windows were not opened.")
     exit()
 end
 
-println("Close both windows to finish, or press Ctrl+C here.")
-
-try
-    while isopen(automatic.context.window) || isopen(explicit.context.window)
-        sleep(0.1)
-    end
-finally
-    GLMakie.closeall()
-end
+println("Inspect the native GLMakie figures, then press Enter to finish.")
+readline()
+GLMakie.closeall()

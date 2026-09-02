@@ -164,7 +164,7 @@ corresponding series are overlaid across frequency.
 impedance_plots = CairoMakie.plot(
     reference,
     candidate;
-    legend = ("Reference", "LineCableModels"),
+    legend_labels = ("Reference", "LineCableModels"),
     requests = (Z,),
     xscale = :log10,
     fig_size = (1000, 650),
@@ -384,7 +384,7 @@ uq_plot_sources = (
 resistance_uncertainty_plot = CairoMakie.plot(
     uq_plot_sources,
     @observe(R[1, 1, :]);
-    legend = ("LEP", "Monte Carlo"),
+    legend_labels = ("LEP", "Monte Carlo"),
     xscale = :log10,
     yscale = :log10,
     fig_size = (950, 420),
@@ -395,7 +395,7 @@ resistance_uncertainty_plot = CairoMakie.plot(
 capacitance_uncertainty_plot = CairoMakie.plot(
     uq_plot_sources,
     @observe(C[1, 1, :]);
-    legend = ("LEP", "Monte Carlo"),
+    legend_labels = ("LEP", "Monte Carlo"),
     xscale = :log10,
     fig_size = (950, 420),
     display_plot = false, #hide
@@ -406,13 +406,13 @@ capacitance_uncertainty_plot = CairoMakie.plot(
 Core self-resistance means and one-standard-deviation error bars:
 
 ````@example gauntlet
-resistance_uncertainty_plot[1].figure #hide
+resistance_uncertainty_plot.figure #hide
 ````
 
 Core self-capacitance means and one-standard-deviation error bars:
 
 ````@example gauntlet
-capacitance_uncertainty_plot[1].figure #hide
+capacitance_uncertainty_plot.figure #hide
 ````
 
 ### Engineering agreement

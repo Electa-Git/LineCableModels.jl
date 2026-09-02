@@ -508,10 +508,11 @@ end
     @test isconcretetype(typeof(system))
     @test isconcretetype(typeof(problem))
     execution=computation_options(Val(LineCableModelsCoaxial), (;))
-    blueprints=LineCableModels.Engine.CableBlueprint{eltype(problem)}[
-        LineCableModels.Engine.flatten(LineCableModelsCoaxial(), source, eltype(problem))
-        for source in problem.system.designs
-    ]
+    blueprints=LineCableModels.Engine.CableBlueprint{eltype(problem)}[LineCableModels.Engine.flatten(
+                                                                          LineCableModelsCoaxial(),
+                                                                          source,
+                                                                          eltype(problem))
+                                                                      for source in problem.system.designs]
     @test (@inferred LineCableModels.Engine.LineParametersWorkspace(
         problem,
         Formulation(),

@@ -59,14 +59,17 @@ function build_manual_plot_gallery(
 
     summary = SampleSummary([1.0, 2.0, 3.0, 4.0])
     histogram = HistogramDensity([1.0, 3.0, 5.0], [0.25, 0.25])
-    representation = CableConstants(2.5, 2.5, 2.5)
-    statistics_value = CableConstants(summary, summary, summary)
-    samples_value = CableConstants(
-        [1.0, 2.0, 3.0, 4.0],
-        [1.0, 2.0, 3.0, 4.0],
-        [1.0, 2.0, 3.0, 4.0]
+    representation = CableConstants(2.5, 2.5, 2.5, 2.5)
+    statistics_value = (R = [summary], L = [summary], C = [summary], G = [summary])
+    samples_value = (
+        R = [1.0 2.0 3.0 4.0],
+        L = [1.0 2.0 3.0 4.0],
+        C = [1.0 2.0 3.0 4.0],
+        G = [1.0 2.0 3.0 4.0]
     )
-    histograms_value = CableConstants(histogram, histogram, histogram)
+    histograms_value = (
+        R = [histogram], L = [histogram], C = [histogram], G = [histogram]
+    )
     mc_formulation = MonteCarlo(
         Formulation(); trials = 4, seed = 1,
         return_samples = true, return_histograms = true
@@ -84,7 +87,8 @@ function build_manual_plot_gallery(
 
     gallery = Pair{String, UIPlot}[]
     function add_pages!(title, handles)
-        for (index, handle) in enumerate(handles)
+        pages = handles isa UIPlot ? (handles,) : handles
+        for (index, handle) in enumerate(pages)
             push!(gallery, "$title — page $index" => handle)
         end
         return handles
@@ -143,7 +147,10 @@ function build_manual_plot_gallery(
             export_theme
         )
     )
-    _, modal_parameters=Fortescue(tol = 1e-10)(parameters)
+    modal_parameters = compute(
+        ModalTransformationProblem(parameters),
+        ModalTransformationFormulation(:Fortescue; tolerance = 1e-10)
+    )
     add_pages!(
         "Line parameters: modal inductance",
         Makie.plot(
@@ -199,7 +206,7 @@ function build_manual_plot_gallery(
 
     connections = Dict(
         terminal => (index == 1 ? 1 : 0)
-        for (index, terminal) in enumerate(design.terminal_order)
+    for (index, terminal) in enumerate(design.terminal_order)
     )
     system = build(
         LineCableSystem,
@@ -222,17 +229,13 @@ function build_manual_plot_gallery(
     )
     push!(
         gallery,
-        "Material scale" => LineCableModels.DataModel.show_material_scale(
+        "Material scale" => LineCableModels.show_material_scale(
             ; backend, display_plot, export_theme
         )
     )
 
-    @assert length(gallery) == 19
+    @assert length(gallery) == 15
     @assert all(pair -> pair.second isa UIPlot, gallery)
-    @assert all(pair -> pair.second.context.backend === backend, gallery)
-    @assert all(
-        pair -> pair.second.page.payload.export_definition.theme === export_theme,
-        gallery
-    )
+    @assert all(pair -> pair.second.export_theme === export_theme, gallery)
     return gallery
 end

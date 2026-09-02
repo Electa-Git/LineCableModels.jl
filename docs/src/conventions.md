@@ -123,8 +123,11 @@ format translations belong in focused files selected by the owner.
 
 Place a method according to the reason it changes. A method that exposes an
 Engine result through `observe` belongs with that result. A method that draws a
-detached plot page with Makie belongs in the Makie extension. A method that
-parses an external file belongs with the format owner.
+native figure with Makie belongs in the Makie extension. Scientific
+observations and physical preview geometry remain with their owner; plot
+request normalization, presentation groups, palettes, Makie blocks, layouts,
+widgets, callbacks, and backend activation do not. A method that parses an
+external file belongs with the format owner.
 
 Optional dependencies remain in package extensions. Core source may define
 package-neutral requests and completed values, but it does not import Makie,
@@ -164,13 +167,15 @@ Apply these rules:
 1. Construct scientific requests with `@observe` and retain their tuple form.
 2. Define quantity identity, units, labels, and symbols in `Units`.
 3. Let the result owner implement `observe` and declare supported requests.
-4. Publish once before a table or plot consumes the values.
+4. Publish once before a table or report consumes values; plotting sugar must
+   use the same public observation protocol rather than Engine internals.
 5. Keep scientific tables wide: coordinates identify rows and each observed
    quantity owns one column.
-6. Select a drawing primitive with the Makie function itself.
-7. Create managed axes through `axis!`, or attach an ordinary Makie axis with
-   `register!`.
-8. Add preview geometry beside the DataModel type that owns the cable part.
+6. Select statistical drawing primitives with Makie function identity itself.
+7. Create ordinary Makie axes directly or through the small addon shell; do not
+   introduce renderer-independent axis or subscription aggregates.
+8. Add physical preview geometry beside the DataModel type that owns the cable
+   part, and add colors or legend grouping only in the Makie extension.
 
 Do not inspect UQ storage fields from plotting or reporting code. `samples`,
 `statistics`, and `histograms` select stored products; the scientific selector
