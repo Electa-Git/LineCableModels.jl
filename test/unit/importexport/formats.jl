@@ -132,8 +132,10 @@ end
         @test count(line -> startswith(line, "GROUP,PH-"), readlines(exported)) == 3
         @test all(label -> occursin(label, text), ("CORE,", "SHEATH,", "ARMOUR,"))
 
-        layered=EarthModel(80.0, 8.0, 1.0; thickness = 4.0)
-        add!(layered, EarthLayer(300.0, 12.0, 1.0))
+        layered=build(EarthModel, (
+            EarthLayer(80.0, 8.0, 1.0, 4.0),
+            EarthLayer(300.0, 12.0, 1.0)
+        ))
         layered_path=export_data(
             :tralin,
             system,

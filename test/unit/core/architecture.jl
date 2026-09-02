@@ -63,6 +63,21 @@
     end
 end
 
+@testitem "Core / architecture / earth models are immutable values" tags=[:unit] begin
+    earth=@earth begin
+        EarthLayer(rho = 100.0, thickness = 5.0)
+        EarthLayer(rho = 500.0)
+    end
+    layer=EarthLayer(rho = 50.0)
+
+    @test !ismutabletype(typeof(earth))
+    @test eltype(typeof(earth)) === Float64
+    @test fieldtype(typeof(earth), :layers) ===
+          NTuple{3, EarthLayer{Float64}}
+    @test !hasmethod(add!, Tuple{typeof(earth), typeof(layer)})
+    @test_throws MethodError setindex!(earth.layers, layer, 2)
+end
+
 @testitem "Core / architecture / coaxial computation lowering boundaries" tags=[:unit] begin
     root=pkgdir(LineCableModels)
     engine_root=joinpath(root, "src", "engine")

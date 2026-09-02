@@ -286,8 +286,8 @@ end
     @test !earth.vertical_layers
     @test length(earth.layers) == 3
     @test isinf(first(earth.layers).rho)
-    @test getproperty.(earth.layers[2:end], :rho) == [100.0, 500.0]
-    @test getproperty.(earth.layers[2:end], :thickness) == [5.0, Inf]
+    @test getproperty.(earth.layers[2:end], :rho) == (100.0, 500.0)
+    @test getproperty.(earth.layers[2:end], :thickness) == (5.0, Inf)
     @test EarthLayer(rho = 100.0f0) isa EarthLayer{Float32}
 
     air = EarthLayer(rho = Inf, eps_r = 1.0006, mu_r = 1.0)
@@ -296,7 +296,7 @@ end
     end
     @test first(explicit_air.layers) === air
 
-    homogeneous = Earth(rho = 100.0, eps_r = 10.0)
+    homogeneous = @inferred Earth(rho = 100.0, eps_r = 10.0)
     @test homogeneous isa EarthModel{Float64}
     @test length(homogeneous.layers) == 2
     @test homogeneous.layers[2].rho == 100.0

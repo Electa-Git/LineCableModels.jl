@@ -79,6 +79,12 @@ finite layer must precede the bottom half-space. Use
 properties may contain `Grid` values; the result is then a
 `Gridspace{EarthModel}` through the same construction path.
 
+The completed `EarthModel` is immutable. Its read-only `layers` tuple begins
+with the implicit or explicitly supplied air layer, followed by the declared
+earth layers in block order. Programmatic code that already owns a complete
+layer collection uses `build(EarthModel, layers; ...)`; earth models are never
+extended incrementally with `add!`.
+
 ## Terminals and physical tags
 
 Terminal names and physical tags have different jobs:

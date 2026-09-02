@@ -272,6 +272,8 @@ end
         earth_props = Earth(rho = 0.1, eps_r = 1.0, mu_r = 1.0),
         frequencies = [1.0, 50.0, 1000.0]
     )
+    @test isconcretetype(fieldtype(typeof(problem), :earth_props))
+    @test fieldtype(typeof(problem), :earth_props) === typeof(problem.earth_props)
     formulation=Formulation(
         internal_impedance = :Schelkunoff1934,
         insulation_impedance = :Ametani1980,
@@ -724,9 +726,11 @@ end
         connections,
         system_id = "overhead-ehem"
     )
-    earth=EarthModel(100.0, 10.0, 1.0; thickness = 5.0)
-    add!(earth, EP.EarthLayer(500.0, 20.0, 1.0, 10.0))
-    add!(earth, EP.EarthLayer(50.0, 5.0, 1.0))
+    earth=build(EarthModel, (
+        EP.EarthLayer(100.0, 10.0, 1.0, 5.0),
+        EP.EarthLayer(500.0, 20.0, 1.0, 10.0),
+        EP.EarthLayer(50.0, 5.0, 1.0)
+    ))
     problem=LineParametersProblem(
         system;
         earth_props = earth,

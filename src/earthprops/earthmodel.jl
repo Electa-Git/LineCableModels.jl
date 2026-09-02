@@ -1,26 +1,34 @@
 """
 $(TYPEDEF)
 
-Store a static layered earth description. The first layer is always air.
+Store an immutable static layered-earth description. The first layer is always
+air, and `layers` is a read-only ordered tuple.
 
 $(TYPEDFIELDS)
 """
-mutable struct EarthModel{T <: Real}
+struct EarthModel{T <: Real, N}
     "Whether earth interfaces are vertical rather than horizontal."
     vertical_layers::Bool
-    "Static layers beginning with semi-infinite air."
-    layers::Vector{EarthLayer{T}}
+    "Read-only static layers beginning with semi-infinite air."
+    layers::NTuple{N, EarthLayer{T}}
 
-    function EarthModel{T}(
+    function EarthModel{T, N}(
             vertical_layers::Bool,
-            layers::Vector{EarthLayer{T}}
-    ) where {T <: Real}
-        return validate(new{T}(vertical_layers, layers))
+            layers::NTuple{N, EarthLayer{T}}
+    ) where {T <: Real, N}
+        return validate(new{T, N}(vertical_layers, layers))
     end
 end
 
+function EarthModel{T}(
+        vertical_layers::Bool,
+        layers::NTuple{N, EarthLayer{T}}
+) where {T <: Real, N}
+    return EarthModel{T, N}(vertical_layers, layers)
+end
+
 Base.eltype(::EarthModel{T}) where {T} = T
-Base.eltype(::Type{EarthModel{T}}) where {T} = T
+Base.eltype(::Type{<:EarthModel{T}}) where {T} = T
 
 function _valid_layer_sequence(vertical::Bool, layers)
     length(layers) >= 2 || throw(ArgumentError("an earth model requires air and earth"))
@@ -54,8 +62,8 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Construct a static earth model. Frequencies are supplied later by a
-`LineParametersProblem`.
+Construct a complete immutable static earth model. Frequencies are supplied
+later by a `LineParametersProblem`.
 """
 function EarthModel(
         rho::Real,
@@ -77,9 +85,9 @@ function EarthModel(
         convert(T, rho), convert(T, eps_r), convert(T, mu_r),
         convert(T, thickness)
     )
-    return validate(EarthModel{T}(
-        vertical_layers, EarthLayer{T}[air, convert(EarthLayer{T}, earth)]
-    ))
+    return EarthModel{T}(
+        vertical_layers, (air, convert(EarthLayer{T}, earth))
+    )
 end
 
 function _earth_model(layers, vertical_layers, air_layer)
@@ -87,12 +95,12 @@ function _earth_model(layers, vertical_layers, air_layer)
         "vertical_layers must be true or false"
     ))
     declared = if layers isa EarthLayer
-        EarthLayer[layers]
+        (layers,)
     elseif layers isa Union{Tuple, AbstractVector}
         all(layer -> layer isa EarthLayer, layers) || throw(ArgumentError(
             "earth layers must contain completed EarthLayer objects"
         ))
-        collect(layers)
+        Tuple(layers)
     else
         throw(ArgumentError(
             "earth layers must be an EarthLayer or a nonempty layer collection"
@@ -111,17 +119,15 @@ function _earth_model(layers, vertical_layers, air_layer)
     air = air_layer === nothing ?
           EarthLayer{T}(T(Inf), convert(T, 1), convert(T, 1), T(Inf)) :
           convert(EarthLayer{T}, air_layer)
-    earth = EarthLayer{T}[
-        convert(EarthLayer{T}, layer) for layer in declared
-    ]
-    return EarthModel{T}(vertical_layers, EarthLayer{T}[air; earth])
+    earth = map(layer -> convert(EarthLayer{T}, layer), declared)
+    return EarthModel{T}(vertical_layers, (air, earth...))
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Build a static earth model from one or more completed earth layers. A
-semi-infinite air layer is prepended unless `air_layer` is supplied.
+Build a complete immutable static earth model from one or more completed earth
+layers. A semi-infinite air layer is prepended unless `air_layer` is supplied.
 
 # Arguments
 
@@ -150,41 +156,13 @@ function build(
     return _construction(EarthModel, _earth_model, values; combine)
 end
 
-function Base.convert(::Type{EarthModel{T}}, model::EarthModel) where {T <: Real}
-    return validate(EarthModel{T}(
+function Base.convert(
+        ::Type{EarthModel{T}}, model::EarthModel{U, N}
+) where {T <: Real, U <: Real, N}
+    return EarthModel{T}(
         model.vertical_layers,
-        EarthLayer{T}[convert(EarthLayer{T}, layer) for layer in model.layers]
-    ))
+        ntuple(index -> convert(EarthLayer{T}, model.layers[index]), N)
+    )
 end
 
 Base.convert(::Type{EarthModel{T}}, model::EarthModel{T}) where {T <: Real} = model
-
-function add!(model::EarthModel{T}, layer::EarthLayer{T}) where {T}
-    candidate = EarthLayer{T}[model.layers; layer]
-    validated = validate(EarthModel{T}(model.vertical_layers, candidate))
-    model.layers = validated.layers
-    return model
-end
-
-function add!(model::EarthModel{T}, layer::EarthLayer{U}) where {T, U}
-    throw(ArgumentError(
-        "cannot add EarthLayer{$U} to EarthModel{$T}; explicitly convert the " *
-        "complete model before mutation",
-    ))
-end
-
-function add!(
-        model::EarthModel{T},
-        rho::Real,
-        eps_r::Real,
-        mu_r::Real;
-        thickness::Real = T(Inf)
-) where {T}
-    if !(rho isa T && eps_r isa T && mu_r isa T && thickness isa T)
-        throw(ArgumentError(
-            "earth-layer scalar inputs must all be $T; construct EarthLayer{$T} " *
-            "explicitly or convert the complete model before mutation",
-        ))
-    end
-    return add!(model, EarthLayer{T}(rho, eps_r, mu_r, thickness))
-end

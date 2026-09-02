@@ -11,7 +11,7 @@ reductions required by line-parameter formulations.
   ephemeral [`EarthMaterial`](@ref).
 - Select measured frequency dependence through [`FD`](@ref).
 - Select equivalent homogeneous-earth reductions through [`EHEM`](@ref).
-- Extend an earth model with `add!`.
+- Build immutable earth models from complete ordered layer declarations.
 - Present earth data through the Base display protocol.
 """
 module EarthProps
@@ -21,7 +21,7 @@ export build
 export FD, EHEM
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import ..LineCableModels: add!, build, validate
+import ..LineCableModels: build, validate
 import ..LineCableModels: _construction
 using ..Materials: AbstractMaterial
 import ..Validation

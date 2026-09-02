@@ -9,14 +9,15 @@ $(TYPEDFIELDS)
 struct LineParametersProblem{
     T <: Real,
     S <: LineCableSystem{T},
-    P <: Union{Nothing, Vector{Complex{T}}}
+    P <: Union{Nothing, Vector{Complex{T}}},
+    E <: EarthModel{T}
 } <: AbstractProblemDefinition
     "Physical cable system."
     system::S
     "Operating temperature \\[°C\\]."
     temperature::T
     "Static earth model."
-    earth_props::EarthModel{T}
+    earth_props::E
     "Strictly positive, sorted analysis frequencies \\[Hz\\]."
     frequencies::Vector{T}
     "Optional longitudinal propagation constants aligned with frequency \\[1/m\\]."
@@ -117,16 +118,18 @@ function LineParametersProblem(
         typeof(float(first(frequencies))), propagation_type
     )
     converted_system = convert(LineCableSystem{T}, system)
+    converted_earth = convert(EarthModel{T}, earth_props)
     propagation = Γ === nothing ? nothing :
                   Complex{T}[convert(Complex{T}, value) for value in Γ]
     problem = LineParametersProblem{
         T,
         typeof(converted_system),
-        typeof(propagation)
+        typeof(propagation),
+        typeof(converted_earth)
     }(
         converted_system,
         convert(T, float(temperature)),
-        convert(EarthModel{T}, earth_props),
+        converted_earth,
         T[convert(T, float(value)) for value in frequencies],
         propagation
     )

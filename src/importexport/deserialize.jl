@@ -190,9 +190,15 @@ function _decode_node(::Val{:earth_model}, value)
     layers = EarthLayer[deserialize_value(layer) for layer in raw_layers]
     isempty(layers) && throw(ArgumentError("earth_model layers cannot be empty"))
     T = promote_type(map(eltype, layers)...)
-    return EarthModel{T}(
-        Bool(_required(value, "vertical_layers", "earth_model")),
-        EarthLayer{T}[convert(EarthLayer{T}, layer) for layer in layers]
+    converted = Tuple(convert(EarthLayer{T}, layer) for layer in layers)
+    length(converted) >= 2 || throw(ArgumentError(
+        "earth_model requires air and at least one earth layer"
+    ))
+    return build(
+        EarthModel,
+        Base.tail(converted);
+        vertical_layers = Bool(_required(value, "vertical_layers", "earth_model")),
+        air_layer = first(converted)
     )
 end
 

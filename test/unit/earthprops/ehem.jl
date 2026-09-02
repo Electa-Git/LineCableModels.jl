@@ -33,11 +33,13 @@
     @test_throws ArgumentError EH.Formula(:default; route)
     @test_throws ArgumentError EH.Formula(:default, route)
 
-    model=EP.EarthModel(100.0, 10.0, 1.0; thickness = 5.0)
-    add!(model, EP.EarthLayer(50.0, 5.0, 1.0))
-    rho=getfield.(model.layers, :rho)
-    eps_r=getfield.(model.layers, :eps_r)
-    mu_r=getfield.(model.layers, :mu_r)
+    model=build(EP.EarthModel, (
+        EP.EarthLayer(100.0, 10.0, 1.0, 5.0),
+        EP.EarthLayer(50.0, 5.0, 1.0)
+    ))
+    rho=collect(getfield.(model.layers, :rho))
+    eps_r=collect(getfield.(model.layers, :eps_r))
+    mu_r=collect(getfield.(model.layers, :mu_r))
     pair=LineCableModels.Engine.EarthPair(1, 1, (1.0, 1.0), 0.0, (1, 1))
 
     bottom=@inferred EH.Layer(-1)(Val(:overhead), rho, eps_r, mu_r, model, pair, 50.0)
@@ -65,16 +67,14 @@ end
     eps_soil=reference["eps_r"]
     mu_soil=reference["mu_r"]
     thickness=reference["thickness_m"]
-    model=EP.EarthModel(
-        rho_soil[1], eps_soil[1], mu_soil[1]; thickness = thickness[1]
-    )
-    add!(model, EP.EarthLayer(
-        rho_soil[2], eps_soil[2], mu_soil[2], thickness[2]
+    model=build(EP.EarthModel, (
+        EP.EarthLayer(rho_soil[1], eps_soil[1], mu_soil[1], thickness[1]),
+        EP.EarthLayer(rho_soil[2], eps_soil[2], mu_soil[2], thickness[2]),
+        EP.EarthLayer(rho_soil[3], eps_soil[3], mu_soil[3])
     ))
-    add!(model, EP.EarthLayer(rho_soil[3], eps_soil[3], mu_soil[3]))
-    rho=getfield.(model.layers, :rho)
-    eps_r=getfield.(model.layers, :eps_r)
-    mu_r=getfield.(model.layers, :mu_r)
+    rho=collect(getfield.(model.layers, :rho))
+    eps_r=collect(getfield.(model.layers, :eps_r))
+    mu_r=collect(getfield.(model.layers, :mu_r))
     pair=LineCableModels.Engine.EarthPair(1, 1, (10.0, 10.0), 0.0, (1, 1))
 
     for identifier in EH.formulas()
@@ -105,9 +105,9 @@ end
     @test xue.rho ≈ martins.rho rtol=2e-3
 
     model32=convert(EP.EarthModel{Float32}, model)
-    rho32=getfield.(model32.layers, :rho)
-    eps32=getfield.(model32.layers, :eps_r)
-    mu32=getfield.(model32.layers, :mu_r)
+    rho32=collect(getfield.(model32.layers, :rho))
+    eps32=collect(getfield.(model32.layers, :eps_r))
+    mu32=collect(getfield.(model32.layers, :mu_r))
     pair32=LineCableModels.Engine.EarthPair(
         1, 1, (10.0f0, 10.0f0), 0.0f0, (1, 1)
     )
@@ -126,9 +126,11 @@ end
     const EH=EP.EHEM
     const EN=LineCableModels.Engine
 
-    model=EarthModel(100.0, 10.0, 1.0; thickness = 5.0)
-    add!(model, EP.EarthLayer(500.0, 20.0, 1.0, 10.0))
-    add!(model, EP.EarthLayer(50.0, 5.0, 1.0))
+    model=build(EarthModel, (
+        EP.EarthLayer(100.0, 10.0, 1.0, 5.0),
+        EP.EarthLayer(500.0, 20.0, 1.0, 10.0),
+        EP.EarthLayer(50.0, 5.0, 1.0)
+    ))
     frequency=[1.0e6]
     pair=EN.EarthPair(1, 1, (10.0, 10.0), 0.0, (1, 1))
 
