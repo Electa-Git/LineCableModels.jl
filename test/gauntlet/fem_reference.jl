@@ -13,9 +13,10 @@ using LineCableModels: AbstractGrid, Grid, Gridspace
 
 const GAUNTLET_ROOT = @__DIR__
 include(joinpath(GAUNTLET_ROOT, "case_loader.jl"))
+include(joinpath(GAUNTLET_ROOT, "reference_grid.jl"))
 end
 
-using .FEMReferenceCaseLoader: case_index, load_case
+using .FEMReferenceCaseLoader: case_index, reference_case
 
 const GETDP = get(
     ENV,
@@ -46,10 +47,10 @@ const GETDP_ASSETS = (
 )
 const MODEL_SOURCE_SHA256 = bytes2hex(sha256(join(read.(GETDP_ASSETS, String), '\0')))
 
-relative_error(actual, reference) =
+function relative_error(actual, reference)
     norm(actual - reference) / max(norm(reference), eps(Float64))
-symmetry_error(matrix) =
-    norm(matrix - transpose(matrix)) / max(norm(matrix), eps(Float64))
+end
+symmetry_error(matrix) = norm(matrix - transpose(matrix)) / max(norm(matrix), eps(Float64))
 
 function frequency_spectra(z, y, frequencies)
     count = length(frequencies)
@@ -73,8 +74,8 @@ function frequency_spectra(z, y, frequencies)
         for quantity in keys(values)
             matrix = getproperty(values, quantity)
             getproperty(spectra, quantity)[index] = eigmin(Symmetric(matrix))
-            getproperty(tolerances, quantity)[index] =
-                1.0e-8 * max(opnorm(matrix), eps(Float64))
+            getproperty(tolerances, quantity)[index] = 1.0e-8 *
+                                                       max(opnorm(matrix), eps(Float64))
         end
     end
     return spectra, tolerances
@@ -104,48 +105,43 @@ function validate_result(case_id, model, result)
         "expected $expected"
     )
     for (label, values) in (
-            (:Z, result.Z.values),
-            (:Y, result.Y.values),
-            (:Z_primitive, primitive.Z_primitive),
-            (:P_primitive, primitive.P_primitive)
-        )
+        (:Z, result.Z.values),
+        (:Y, result.Y.values),
+        (:Z_primitive, primitive.Z_primitive),
+        (:P_primitive, primitive.P_primitive)
+    )
         all(isfinite, values) || error("$case_id returned non-finite $label")
     end
 
-    z_symmetry = [
-        symmetry_error(@view primitive.Z_primitive[:, :, index])
-        for index in eachindex(frequencies)
-    ]
-    p_symmetry = [
-        symmetry_error(@view primitive.P_primitive[:, :, index])
-        for index in eachindex(frequencies)
-    ]
-    y_symmetry = [
-        symmetry_error(@view result.Y.values[:, :, index])
-        for index in eachindex(frequencies)
-    ]
+    z_symmetry = [symmetry_error(@view primitive.Z_primitive[:, :, index])
+                  for index in eachindex(frequencies)]
+    p_symmetry = [symmetry_error(@view primitive.P_primitive[:, :, index])
+                  for index in eachindex(frequencies)]
+    y_symmetry = [symmetry_error(@view result.Y.values[:, :, index])
+                  for index in eachindex(frequencies)]
     observations = NamedTuple[]
     for (quantity, values, matrices, threshold) in (
-            (:Z_primitive, z_symmetry, primitive.Z_primitive, 1.0e-10),
-            (:P_primitive, p_symmetry, primitive.P_primitive, 1.0e-8),
-            (:Y, y_symmetry, result.Y.values, 1.0e-10)
-        )
+        (:Z_primitive, z_symmetry, primitive.Z_primitive, 1.0e-10),
+        (:P_primitive, p_symmetry, primitive.P_primitive, 1.0e-8),
+        (:Y, y_symmetry, result.Y.values, 1.0e-10)
+    )
         maximum_value, frequency_index = findmax(values)
         maximum_value <= threshold && continue
         matrix = @view matrices[:, :, frequency_index]
         difference = matrix - transpose(matrix)
         _, cartesian_pair = findmax(abs, difference)
         terminal_pair = Tuple(cartesian_pair)
-        push!(observations, (;
-            mode = :reciprocity,
-            quantity,
-            maximum = maximum_value,
-            threshold,
-            frequency_index,
-            frequency_hz = frequencies[frequency_index],
-            terminal_pair,
-            pair_difference = difference[cartesian_pair]
-        ))
+        push!(observations,
+            (;
+                mode = :reciprocity,
+                quantity,
+                maximum = maximum_value,
+                threshold,
+                frequency_index,
+                frequency_hz = frequencies[frequency_index],
+                terminal_pair,
+                pair_difference = difference[cartesian_pair]
+            ))
     end
 
     inversion_residuals = result.details.fem.inversion_residuals
@@ -157,14 +153,15 @@ function validate_result(case_id, model, result)
         "$case_id returned a non-finite P condition number"
     )
     maximum_residual, residual_index = findmax(inversion_residuals)
-    maximum_residual <= 1.0e-10 || push!(observations, (;
-        mode = :inversion_residual,
-        quantity = :P_primitive,
-        maximum = maximum_residual,
-        threshold = 1.0e-10,
-        frequency_index = residual_index,
-        frequency_hz = frequencies[residual_index]
-    ))
+    maximum_residual <= 1.0e-10 || push!(observations,
+        (;
+            mode = :inversion_residual,
+            quantity = :P_primitive,
+            maximum = maximum_residual,
+            threshold = 1.0e-10,
+            frequency_index = residual_index,
+            frequency_hz = frequencies[residual_index]
+        ))
 
     spectra, tolerances = frequency_spectra(
         primitive.Z_primitive,
@@ -179,25 +176,27 @@ function validate_result(case_id, model, result)
         severity = map(index -> -values[index] / limits[index], failed)
         _, worst_offset = findmax(severity)
         frequency_index = failed[worst_offset]
-        push!(observations, (;
-            mode = :non_passive,
-            quantity,
-            minimum_eigenvalue = values[frequency_index],
-            tolerance = limits[frequency_index],
-            frequency_index,
-            frequency_hz = frequencies[frequency_index],
-            failed_frequency_count = length(failed)
-        ))
+        push!(observations,
+            (;
+                mode = :non_passive,
+                quantity,
+                minimum_eigenvalue = values[frequency_index],
+                tolerance = limits[frequency_index],
+                frequency_index,
+                frequency_hz = frequencies[frequency_index],
+                failed_frequency_count = length(failed)
+            ))
     end
 
     expected_invocations = length(frequencies) * length(result.details.fem.terminal_ids)
     actual_invocations = result.details.fem.run.getdp_invocations
-    actual_invocations == expected_invocations || push!(observations, (;
-        mode = :invocation_count,
-        quantity = :getdp_jobs,
-        actual = actual_invocations,
-        expected = expected_invocations
-    ))
+    actual_invocations == expected_invocations || push!(observations,
+        (;
+            mode = :invocation_count,
+            quantity = :getdp_jobs,
+            actual = actual_invocations,
+            expected = expected_invocations
+        ))
     return (;
         z_symmetry,
         p_symmetry,
@@ -261,6 +260,7 @@ function record_result(case_id, model, result, elapsed_seconds, checks)
     open(path * ".sha256", "w") do io
         println(io, bytes2hex(sha256(read(path))), "  ", basename(path))
     end
+    clear_current_failure(dirname(path))
     return path
 end
 
@@ -308,6 +308,13 @@ function archive_current_failure(directory)
     return archived
 end
 
+function clear_current_failure(directory)
+    current = joinpath(directory, "failure.jld2")
+    rm(current; force = true)
+    rm(current * ".sha256"; force = true)
+    return nothing
+end
+
 function record_failure(case_id, model, result, exception, elapsed_seconds)
     directory = joinpath(ROOT, string(case_id))
     mkpath(directory)
@@ -350,9 +357,10 @@ function record_failure(case_id, model, result, exception, elapsed_seconds)
 end
 
 function run_case(case_id)
-    model = load_case(case_id)
+    model = reference_case(case_id)
     path = artifact_path(case_id)
     if valid_existing(path, model)
+        clear_current_failure(dirname(path))
         println("REUSE\t", case_id, "\t", path)
         flush(stdout)
         return true
@@ -365,12 +373,6 @@ function run_case(case_id)
     archive_current_failure(dirname(path))
 
     frequencies = model.problem.frequencies
-    length(frequencies) == 101 || error(
-        "$case_id has $(length(frequencies)) frequencies; expected 101"
-    )
-    first(frequencies) == 1.0 && last(frequencies) == 1.0e6 || error(
-        "$case_id does not retain its original 1 Hz--1 MHz range"
-    )
     println(
         "BEGIN\t", case_id,
         "\tfrequencies=", length(frequencies),
@@ -397,7 +399,11 @@ function run_case(case_id)
     started = time()
     result = nothing
     try
-        result = compute(model.problem, formulation; options = (trace = true,))
+        result = compute(
+            model.problem,
+            formulation;
+            options = (trace = true, resume_run_directory = :latest)
+        )
         elapsed_seconds = time() - started
         checks = validate_result(case_id, model, result)
         path = record_result(case_id, model, result, elapsed_seconds, checks)
@@ -433,22 +439,26 @@ function run_case(case_id)
     end
 end
 
-available = sort!(collect(keys(case_index())); by = string)
-requested = isempty(ARGS) ? available : Symbol.(ARGS)
-all(case_id -> case_id in available, requested) || error(
-    "unknown case requested; available cases are $(join(available, ", "))"
-)
+function main(args = ARGS)
+    available = sort!(collect(keys(case_index())); by = string)
+    requested = isempty(args) ? available : Symbol.(args)
+    all(case_id -> case_id in available, requested) || error(
+        "unknown case requested; available cases are $(join(available, ", "))"
+    )
 
-println(
-    "PLAN\tcases=", length(requested),
-    "\tfrequencies_per_case=101\trange_hz=1:1e6"
-)
-flush(stdout)
-statuses = Bool[]
-for case_id in requested
-    push!(statuses, run_case(case_id))
+    println(
+        "PLAN\tcases=", length(requested),
+        "\tfrequency_grid=case_reference_grid"
+    )
+    flush(stdout)
+    statuses = Bool[]
+    for case_id in requested
+        push!(statuses, run_case(case_id))
+    end
+    passed = count(identity, statuses)
+    failed = length(statuses) - passed
+    println("COMPLETE\tpassed=", passed, "\tfailed=", failed)
+    return failed == 0 ? 0 : 1
 end
-passed = count(identity, statuses)
-failed = length(statuses) - passed
-println("COMPLETE\tpassed=", passed, "\tfailed=", failed)
-failed == 0 || exit(1)
+
+abspath(PROGRAM_FILE) == abspath(@__FILE__) && exit(main())

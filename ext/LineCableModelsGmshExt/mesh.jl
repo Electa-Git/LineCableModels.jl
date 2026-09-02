@@ -337,13 +337,25 @@ function _select_mesh!(
 
     selected = nothing
     source = :generated
-    if displayed && execution.mesh_policy === :reuse &&
+    if execution.mesh_policy === :reuse && isfile(run_mesh) && isfile(run_metadata)
+        try
+            metadata = JSON3.read(read(run_metadata, String))
+            String(metadata.fingerprint) == fingerprint || error("fingerprint mismatch")
+            _validate_mesh_file(model, run_mesh)
+            selected = run_mesh
+            source = :resume
+        catch exception
+            @warn "Ignoring an invalid retained FEM mesh" run_mesh exception
+        end
+    end
+    if selected === nothing && displayed && execution.mesh_policy === :reuse &&
        execution.mesh_path !== nothing
         explicit = abspath(execution.mesh_path)
         _validate_mesh_file(model, explicit)
         selected = explicit
         source = :explicit
-    elseif execution.mesh_policy === :reuse && isfile(cache_mesh) && isfile(cache_metadata)
+    elseif selected === nothing && execution.mesh_policy === :reuse &&
+           isfile(cache_mesh) && isfile(cache_metadata)
         try
             metadata = JSON3.read(read(cache_metadata, String))
             String(metadata.fingerprint) == fingerprint || error("fingerprint mismatch")
@@ -368,12 +380,14 @@ function _select_mesh!(
         _write_json_atomic(run_metadata, metadata)
         _cache_mesh!(run_mesh, cache_mesh, cache_metadata, metadata)
         source = :generated
-    else
+    elseif selected != run_mesh
         metadata = _mesh_metadata(
             model, fingerprint, gmsh_version, source, mesh_plan
         )
         _copy_mesh_snapshot!(selected, run_mesh, run_metadata, metadata)
         formulation.execution.ui && displayed && _load_mesh_for_display!(run_mesh)
+    elseif formulation.execution.ui && displayed
+        _load_mesh_for_display!(run_mesh)
     end
     displayed && (run.mesh_source = source)
     return run_mesh

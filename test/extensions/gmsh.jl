@@ -47,6 +47,18 @@
     @test_throws ArgumentError LineCableModels.LineCableModelsFEMOptions(
         getdp_verbosity = 6
     )
+    resume_options = extension_module._fem_computation_options(
+        (trace = true, resume_run_directory = :latest)
+    )
+    @test resume_options.trace === Val(true)
+    @test resume_options.resume_run_directory === :latest
+    @test_throws ArgumentError extension_module._fem_computation_options(
+        (resume_run_directory = :invalid,)
+    )
+    @test extension_module._resume_value_matches(
+        Dict("first" => 1, "second" => [2.0, 3.0]),
+        Dict("second" => [2.0, 3.0], "first" => 1)
+    )
 
     formulation = LineCableModels.Formulation(
         :LineCableModelsFEM;
@@ -98,6 +110,18 @@
         @test matrix[2, 1, 1] == 3 + 4im
         @test matrix[1, 2, 1] == 5 + 6im
         @test matrix[2, 2, 1] == 7 + 8im
+
+        job_path = joinpath(directory, "getdp-f0001-b0001-Z.tsv")
+        open(job_path, "w") do io
+            println(io, rows[1])
+            println(io, rows[2])
+        end
+        @test extension_module._valid_job_raw(job_path, 2, 1, 50.0, 1)
+        open(job_path, "w") do io
+            println(io, rows[1])
+            println(io, rows[1])
+        end
+        @test !extension_module._valid_job_raw(job_path, 2, 1, 50.0, 1)
 
         open(path, "w") do io
             println(io, header)

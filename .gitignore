@@ -33,6 +33,7 @@ temp/
 @INPROGRESS/
 local/
 .linecablemodels/fem/
+.linecablemodels/gauntlet/
 
 # examples artifacts
 !examples/*.jl

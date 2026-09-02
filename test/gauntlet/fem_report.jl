@@ -40,7 +40,7 @@ function summary_row(case_id, path, document)
         P_first_reciprocity_index = p_first,
         P_first_reciprocity_hz = p_first == 0 ? NaN : frequencies[p_first],
         P_first_reciprocity_error = p_first == 0 ? NaN :
-                                      checks.p_symmetry[p_first],
+                                    checks.p_symmetry[p_first],
         P_peak_reciprocity_index = p_peak,
         P_peak_reciprocity_hz = frequencies[p_peak],
         P_peak_reciprocity_error = checks.p_symmetry[p_peak],
@@ -69,26 +69,27 @@ end
 function observation_rows(case_id, path, document)
     rows = NamedTuple[]
     for observation in get(document, "observations", NamedTuple[])
-        push!(rows, (;
-            case = case_id,
-            status = string(document["status"]),
-            mode = string(observation.mode),
-            quantity = string(observation.quantity),
-            frequency_index = get(observation, :frequency_index, 0),
-            frequency_hz = get(observation, :frequency_hz, NaN),
-            maximum = get(observation, :maximum, NaN),
-            threshold = get(observation, :threshold, NaN),
-            minimum_eigenvalue = get(
-                observation, :minimum_eigenvalue, NaN
-            ),
-            tolerance = get(observation, :tolerance, NaN),
-            failed_frequency_count = get(
-                observation, :failed_frequency_count, 0
-            ),
-            terminal_pair = string(get(observation, :terminal_pair, "")),
-            pair_difference = string(get(observation, :pair_difference, "")),
-            artifact = path
-        ))
+        push!(rows,
+            (;
+                case = case_id,
+                status = string(document["status"]),
+                mode = string(observation.mode),
+                quantity = string(observation.quantity),
+                frequency_index = get(observation, :frequency_index, 0),
+                frequency_hz = get(observation, :frequency_hz, NaN),
+                maximum = get(observation, :maximum, NaN),
+                threshold = get(observation, :threshold, NaN),
+                minimum_eigenvalue = get(
+                    observation, :minimum_eigenvalue, NaN
+                ),
+                tolerance = get(observation, :tolerance, NaN),
+                failed_frequency_count = get(
+                    observation, :failed_frequency_count, 0
+                ),
+                terminal_pair = string(get(observation, :terminal_pair, "")),
+                pair_difference = string(get(observation, :pair_difference, "")),
+                artifact = path
+            ))
     end
     return rows
 end
@@ -133,9 +134,7 @@ for directory in sort!(filter(isdir, readdir(ROOT; join = true)))
     append!(observations, observation_rows(case_id, path, document))
 end
 
-length(summaries) == 7 || error(
-    "expected seven FEM references, found $(length(summaries))"
-)
+isempty(summaries) && error("no FEM references were found in $ROOT")
 summary_path = write_hash(write_tsv(
     joinpath(ROOT, "reference_summary.tsv"), summaries
 ))

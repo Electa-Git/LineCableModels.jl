@@ -373,6 +373,83 @@ function _raw_data_row_count(path::String)
     return max(length(lines) - 1, 0)
 end
 
+function _valid_job_raw(
+        path::String,
+        terminal_count::Int,
+        frequency_index::Int,
+        frequency::Real,
+        basis_terminal::Int
+)
+    isfile(path) || return false
+    rows = readlines(path)
+    length(rows) == terminal_count || return false
+    responses = Set{Int}()
+    for row in rows
+        columns = split(row, '\t'; keepempty = true)
+        length(columns) == 6 || return false
+        parsed_frequency_index = tryparse(Int, columns[1])
+        parsed_frequency = tryparse(Float64, columns[2])
+        response = tryparse(Int, columns[3])
+        parsed_basis = tryparse(Int, columns[4])
+        real_part = tryparse(Float64, columns[5])
+        imaginary_part = tryparse(Float64, columns[6])
+        parsed_frequency_index == frequency_index || return false
+        response isa Int && response in 1:terminal_count || return false
+        parsed_basis == basis_terminal || return false
+        parsed_frequency === nothing && return false
+        isapprox(
+            parsed_frequency,
+            Float64(frequency);
+            rtol = 16eps(Float64),
+            atol = 0.0
+        ) || return false
+        real_part === nothing && return false
+        imaginary_part === nothing && return false
+        isfinite(real_part) && isfinite(imaginary_part) || return false
+        response in responses && return false
+        push!(responses, response)
+    end
+    return length(responses) == terminal_count
+end
+
+function _valid_job_raw(
+        paths::NamedTuple,
+        terminal_count::Int,
+        frequency_index::Int,
+        frequency::Real,
+        basis_terminal::Int,
+        plot_field_maps::Bool,
+        run::FEMRun
+)
+    _valid_job_raw(
+        paths.Z,
+        terminal_count,
+        frequency_index,
+        frequency,
+        basis_terminal
+    ) || return false
+    _valid_job_raw(
+        paths.P,
+        terminal_count,
+        frequency_index,
+        frequency,
+        basis_terminal
+    ) || return false
+    plot_field_maps || return true
+    return all(FEM_FIELD_QUANTITIES) do quantity
+        isfile(joinpath(
+            run.path,
+            "maps",
+            @sprintf(
+                "%s_f%04d_b%04d.pos",
+                quantity,
+                frequency_index,
+                basis_terminal
+            )
+        ))
+    end
+end
+
 function _write_scan_completion!(run::FEMRun, model::FEMResolvedModel)
     frequency_count = length(model.problem.frequencies)
     terminal_count = length(model.terminal_ids)
@@ -442,7 +519,16 @@ function _run_getdp_unlocked!(
                 "getdp-f%04d-b%04d", frequency_index, basis_terminal
             )
             job_raw = _job_raw_paths(run, job_name)
-            foreach(path -> rm(path; force = true), job_raw)
+            reusable = _valid_job_raw(
+                job_raw,
+                terminal_count,
+                frequency_index,
+                model.problem.frequencies[frequency_index],
+                basis_terminal,
+                formulation.execution.plot_field_maps,
+                run
+            )
+            reusable || foreach(path -> rm(path; force = true), job_raw)
             command = _getdp_command(
                 executable,
                 assets.model,
@@ -463,45 +549,49 @@ function _run_getdp_unlocked!(
             job_records = String[]
             deferred_exception = nothing
             run.getdp_invocations += 1
-            gmsh.logger.start()
-            try
-                gmsh.onelab.run(client_name, command)
-            catch exception
+            if reusable
+                @debug "Reusing complete retained GetDP job" frequency_index basis_terminal
+            else
+                gmsh.logger.start()
                 try
-                    append!(job_records, gmsh.logger.get())
-                catch
+                    gmsh.onelab.run(client_name, command)
+                catch exception
+                    try
+                        append!(job_records, gmsh.logger.get())
+                    catch
+                    end
+                    z_rows = _job_raw_data_row_count(job_raw.Z)
+                    p_rows = _job_raw_data_row_count(job_raw.P)
+                    if z_rows == terminal_count && p_rows == terminal_count
+                        deferred_exception = exception
+                    else
+                        diagnostic_records = vcat(records, job_records)
+                        _persist_gmsh_log(log_path, diagnostic_records)
+                        _fem_error(
+                            :getdp,
+                            "GetDP",
+                            :client,
+                            "GetDP client failed for frequency index " *
+                            "$frequency_index, basis terminal $basis_terminal: " *
+                            "$(sprint(showerror, exception))\n" *
+                            "raw row counts: Z=$z_rows, P=$p_rows, " *
+                            "expected=$terminal_count\n" *
+                            "Gmsh log tail:\n$(_log_tail(diagnostic_records))";
+                            run_directory = run.path
+                        )
+                    end
+                finally
+                    try
+                        isempty(job_records) && append!(job_records, gmsh.logger.get())
+                    catch
+                    end
+                    try
+                        gmsh.logger.stop()
+                    catch
+                    end
+                    isempty(job_records) || append!(records, job_records)
+                    _persist_gmsh_log(log_path, records)
                 end
-                z_rows = _job_raw_data_row_count(job_raw.Z)
-                p_rows = _job_raw_data_row_count(job_raw.P)
-                if z_rows == terminal_count && p_rows == terminal_count
-                    deferred_exception = exception
-                else
-                    diagnostic_records = vcat(records, job_records)
-                    _persist_gmsh_log(log_path, diagnostic_records)
-                    _fem_error(
-                        :getdp,
-                        "GetDP",
-                        :client,
-                        "GetDP client failed for frequency index " *
-                        "$frequency_index, basis terminal $basis_terminal: " *
-                        "$(sprint(showerror, exception))\n" *
-                        "raw row counts: Z=$z_rows, P=$p_rows, " *
-                        "expected=$terminal_count\n" *
-                        "Gmsh log tail:\n$(_log_tail(diagnostic_records))";
-                        run_directory = run.path
-                    )
-                end
-            finally
-                try
-                    isempty(job_records) && append!(job_records, gmsh.logger.get())
-                catch
-                end
-                try
-                    gmsh.logger.stop()
-                catch
-                end
-                isempty(job_records) || append!(records, job_records)
-                _persist_gmsh_log(log_path, records)
             end
             _read_job_raw_rows(job_raw.Z, terminal_count, run)
             _read_job_raw_rows(job_raw.P, terminal_count, run)

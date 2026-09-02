@@ -84,6 +84,34 @@ function Stop-OwnedRunner {
     Remove-Item -LiteralPath $OwnerPath -Force -ErrorAction SilentlyContinue
 }
 
+function Remove-DirectoryWithRetry {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Path,
+        [int] $Attempts = 30,
+        [int] $DelayMilliseconds = 500,
+        [switch] $BestEffort
+    )
+
+    for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+        if (-not (Test-Path -LiteralPath $Path)) {
+            return
+        }
+        try {
+            Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction Stop
+            return
+        } catch {
+            if ($attempt -eq $Attempts) {
+                if ($BestEffort) {
+                    return
+                }
+                throw
+            }
+            Start-Sleep -Milliseconds $DelayMilliseconds
+        }
+    }
+}
+
 function Copy-Result {
     param(
         [Parameter(Mandatory = $true)]
@@ -136,7 +164,7 @@ if (-not (Test-Path -LiteralPath $Python -PathType Leaf)) {
 $ownerPath = Join-Path $LocalCase "owner.txt"
 Stop-OwnedRunner -OwnerPath $ownerPath -OwnedRoot $LocalCase
 if (Test-Path -LiteralPath $LocalCase) {
-    Remove-Item -LiteralPath $LocalCase -Recurse -Force
+    Remove-DirectoryWithRetry -Path $LocalCase
 }
 New-Item -ItemType Directory -Path $LocalCase -Force | Out-Null
 Get-ChildItem -LiteralPath $SharedCase -Force |
@@ -286,6 +314,6 @@ try {
 }
 
 if ($exitCode -eq 0) {
-    Remove-Item -LiteralPath $LocalCase -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-DirectoryWithRetry -Path $LocalCase -BestEffort
 }
 exit $exitCode

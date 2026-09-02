@@ -367,6 +367,7 @@ end
     GauntletSupport
 ] begin
     using Test
+    import LineCableModels
     using LineCableModels: PhaseDomain,
                            ModalTransformationProblem, ModalTransformationFormulation
     using LineCableModels.Engine
@@ -458,13 +459,21 @@ end
             end
         elseif part isa Enclosure
             append!(groups, nested_groups(part.item))
-            part.wall === nothing || append!(groups, nested_groups(part.wall))
+            part.wall===nothing||append!(groups, nested_groups(part.wall))
         end
         return groups
     end
 
     index=case_index()
     expected_sizes=Dict(
+        :c320_armoured__dc_bipole=>(6, 6, 227),
+        :c320_no_armour__dc_bipole=>(4, 4, 227),
+        :c380_armoured__ac_flat=>(9, 9, 227),
+        :c380_no_armour__ac_flat=>(6, 6, 227),
+        :c525_land_no_armour__ac_flat=>(6, 6, 227),
+        :c525_land_no_armour__dc_bipole=>(4, 4, 227),
+        :c525_subsea_armoured__ac_flat=>(9, 9, 227),
+        :c525_subsea_armoured__dc_bipole=>(6, 6, 227),
         :cable_18kv_1000mm2_trefoil=>(9, 9, 101),
         :cable_132kv_630mm2_flathor=>(9, 9, 101),
         :cable_380kv_2000mm2_flatver=>(9, 9, 101),
@@ -528,6 +537,22 @@ end
     end
 
     expected_wire_counts=Dict(
+        :c320_armoured__dc_bipole=>(
+            (1, 6, 12, 18, 24, 30, 36), (), (68,)
+        ),
+        :c320_no_armour__dc_bipole=>(
+            (1, 6, 12, 18, 24, 30, 36), ()
+        ),
+        :c380_armoured__ac_flat=>(
+            (1, 6, 12, 18, 24, 30, 36), (), (68,)
+        ),
+        :c380_no_armour__ac_flat=>(
+            (1, 6, 12, 18, 24, 30, 36), ()
+        ),
+        :c525_land_no_armour__ac_flat=>((), ()),
+        :c525_land_no_armour__dc_bipole=>((), ()),
+        :c525_subsea_armoured__ac_flat=>((), (), (68,)),
+        :c525_subsea_armoured__dc_bipole=>((), (), (68,)),
         :cable_132kv_630mm2_flathor=>(
             (1, 6, 12, 18, 24), (19,), ()
         ),
@@ -546,12 +571,26 @@ end
         :solid_1000mm2_single=>((),),
         :two_bare_wires=>((),)
     )
+    expected_reference_counts=Dict(
+        id=>101
+    for id in keys(expected_sizes)
+    )
+    close_packed_cases=Set((
+        :c320_armoured__dc_bipole,
+        :c320_no_armour__dc_bipole,
+        :c380_armoured__ac_flat,
+        :c380_no_armour__ac_flat
+    ))
     for (id, expected_size) in expected_sizes
         model=load_case(id)
         @test model.id === id
         @test model.expected_size == expected_size
         @test model.source_file == index[id]
         @test model.source_sha256 == bytes2hex(SHA.sha256(read(index[id])))
+        selected_frequencies=reference_grid(model.nominal_problem.frequencies)
+        @test length(selected_frequencies) == expected_reference_counts[id]
+        @test first(selected_frequencies) ==
+              max(first(model.nominal_problem.frequencies), 0.1)
         source=read(index[id], String)
         @test length(collect(eachmatch(r"\bcase_definition\s*\(", source))) == 1
         @test !occursin("@testitem", source)
@@ -570,12 +609,22 @@ end
         groups=nested_groups(design.root)
         component_wire_counts=Tuple(
             Tuple(
-                group.pattern.n
+                group.pattern isa Ring ? group.pattern.n : 6group.pattern.course
             for group in groups
-            if group.name===terminal&&group.pattern isa Ring
+            if group.name===terminal&&
+            (group.pattern isa Ring||group.pattern isa Hexa)
             ) for terminal in design.terminal_order
         )
         @test component_wire_counts == expected_wire_counts[id]
+        if id in close_packed_cases
+            core_patterns=[group.pattern for group in groups if group.name===:core]
+            @test first(core_patterns) isa Ring
+            @test first(core_patterns).n == 1
+            @test all(core_patterns[2:end]) do pattern
+                pattern isa Hexa
+            end
+            @test getproperty.(core_patterns[2:end], :course) == collect(1:6)
+        end
         @test basename(index[id]) == string(id, ".jl")
     end
 
@@ -638,8 +687,9 @@ end
     end
     @test length(unique(benchmark_ids)) == length(benchmark_ids)
     for collection in (:pscad, :uq)
-        @test sort(benchmark_cases[collection]; by = string) ==
-              sort!(collect(keys(index)); by = string)
+        @test length(unique(benchmark_cases[collection])) ==
+              length(benchmark_cases[collection])
+        @test all(in(keys(index)), benchmark_cases[collection])
     end
 end
 
@@ -662,7 +712,7 @@ end
             end
         elseif part isa Enclosure
             append!(groups, nested_groups(part.item))
-            part.wall === nothing || append!(groups, nested_groups(part.wall))
+            part.wall===nothing||append!(groups, nested_groups(part.wall))
         end
         return groups
     end
@@ -1057,7 +1107,8 @@ end
     @test description(overhead.insulation_admittance) ==
           "PSCAD native insulation admittance"
     @test harness._formulation_label(overhead) ==
-          "Deri-Semlyen/PSCAD native earth admittance/PSCAD native insulation admittance"
+          "Deri-Semlyen complex ground-return-plane approximation (1981)/" *
+          "PSCAD native earth admittance/PSCAD native insulation admittance"
     @test overhead.options == (;)
     @test_throws ArgumentError Formulation(
         :pscad;
@@ -1228,6 +1279,12 @@ end
     )
     frequency_probe=collect(10.0 .^ range(0, stop = 6, length = 101))
     @test harness._validate_frequencies(frequency_probe) === frequency_probe
+    minimum_frequency_probe=collect(10.0 .^ range(-1, stop = 6, length = 101))
+    @test harness._validate_frequencies(minimum_frequency_probe) ===
+          minimum_frequency_probe
+    @test_throws DomainError harness._validate_frequencies(
+        collect(10.0 .^ range(-2, stop = 6, length = 101))
+    )
     supervisor_command=harness._supervisor_command(
         config,
         raw"Z:\gauntlet\benchmarks\.work\case\current",
@@ -1383,6 +1440,7 @@ end
         String
     )
     @test occursin("Stop-OwnedRunner", supervisor)
+    @test occursin("Remove-DirectoryWithRetry", supervisor)
     @test occursin("\$ProgressPreference = \"SilentlyContinue\"", supervisor)
     @test occursin("taskkill.exe /PID", supervisor)
     @test occursin("TimeoutSeconds", supervisor)

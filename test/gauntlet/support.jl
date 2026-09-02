@@ -21,6 +21,7 @@
            extract_moments, moment_comparison_passes, moment_error_summary,
            parameter_manifest,
            load_case, load_prior_snapshot, load_snapshot, performance_comparison,
+           reference_case, reference_grid,
            persist_snapshot,
            package_collection, prepare_staging, release_tag,
            report, run_case, run_snapshot, snapshot_path,
@@ -49,6 +50,7 @@
                        get(ENV, "LINECABLEMODELS_HEADLESS", "false") == "true"
 
     include(joinpath(@__DIR__, "case_loader.jl"))
+    include(joinpath(@__DIR__, "reference_grid.jl"))
     include(joinpath(@__DIR__, "comparisons", "uq_moments.jl"))
     include(joinpath(@__DIR__, "uq_benchmarks.jl"))
     include(joinpath(@__DIR__, "owned.jl"))

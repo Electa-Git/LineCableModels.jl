@@ -17,6 +17,10 @@ LoadedCase / Gridspace{LineParametersProblem}
         │
         └── benchmarks/uq/<benchmark-id>.jl
                 LEP reference versus Monte Carlo candidate
+
+pscad_reference.jl                 exhaustive deterministic PSCAD references
+fem_reference.jl                   one deterministic FEM reference per case
+formulation_comparisons.jl         every native formulation versus both backends
 ```
 
 The hard invariant is one file equals one benchmark. Every Julia file below
@@ -99,11 +103,52 @@ but now receive a neutral `LoadedCase`; their work and artifact identities are
 benchmark IDs, not physical case IDs. A physical case edit intentionally
 invalidates its PSCAD snapshot digest and requires a fresh external recording.
 
+### Exhaustive deterministic formulation comparisons
+
+The cross-backend catalogue covers every case in `cases/index.toml`. It is
+separate from the seven legacy benchmark files and does not run uncertainty or
+Monte Carlo calculations.
+
+`reference_case` normalizes every external solve to exactly 101 logarithmically
+spaced frequencies. The lower bound is `max(first(case.frequencies), 0.1)` Hz,
+because PSCAD cannot calculate below 0.1 Hz, and the upper bound is the case's
+declared maximum. PSCAD and FEM therefore produce directly comparable tensors
+on the same frequency axis.
+
+Run the stages in order:
+
+```bash
+julia --project=test/gauntlet --startup-file=no test/gauntlet/pscad_reference.jl
+
+LINECABLEMODELS_GETDP=/path/to/getdp \
+julia --project=test/gauntlet --startup-file=no test/gauntlet/fem_reference.jl
+
+julia --project=test/gauntlet --startup-file=no \
+  test/gauntlet/formulation_comparisons.jl
+```
+
+The PSCAD runner executes every field formulation applicable to the case's
+overhead, underground, or mixed placement and records honest skips for the
+other fields. The FEM runner executes each case once. The comparison runner
+then computes every applicable registered native formulation and compares it
+with every available PSCAD reference and the FEM reference. Its locked metric
+is element-wise absolute and reference-normalized RMS error across frequency
+for every entry of `Z` and `Y`.
+
+Run only one `fem_reference.jl` process at a time. The current Gmsh/GetDP
+ONELAB socket transport is not safe across concurrent gauntlet reference
+processes.
+
+All three runners are resumable. Their generated records live under
+`.linecablemodels/` and are invalidated by case, source, formula, frequency, or
+reference changes.
+
 ### LEP versus Monte Carlo
 
-Every indexed case has one owned LEP-versus-Monte-Carlo benchmark file. The
-scientific experiment therefore covers all seven cable and overhead-line
-models without a loop or multi-case benchmark file.
+The legacy uncertainty collection has one owned LEP-versus-Monte-Carlo
+benchmark for each of its seven cable and overhead-line models. New indexed
+cases are covered by the exhaustive deterministic catalogue above without
+inventing uncertainty experiments for them.
 
 Both calculations consume the same single-point `ParametricProblem`, the same
 inner native `Formulation`, and the same execution options:
@@ -196,12 +241,14 @@ without the mode setting it would use the default snapshot mode:
 ```bash
 julia --project=test/gauntlet --startup-file=no -e '
 using TestItemRunner
-@run_package_tests(filter=ti -> :uq in ti.tags, verbose=true)
+TestItemRunner.run_tests(joinpath(pwd(), "test");
+          filter=ti -> :uq in ti.tags, verbose=true)
 '
 LINECABLEMODELS_GAUNTLET_MODE=live \
 julia --project=test/gauntlet --startup-file=no -e '
 using TestItemRunner
-@run_package_tests(filter=ti -> :pscad in ti.tags, verbose=true)
+TestItemRunner.run_tests(joinpath(pwd(), "test");
+          filter=ti -> :pscad in ti.tags, verbose=true)
 '
 ```
 
@@ -209,7 +256,7 @@ Run the reusable infrastructure checks with:
 
 ```bash
 julia --project=test/gauntlet --startup-file=no -e \
-  'using TestItemRunner; @run_package_tests(filter=ti -> :gauntlet_toolkit in ti.tags, verbose=true)'
+  'using TestItemRunner; TestItemRunner.run_tests(joinpath(pwd(), "test"); filter=ti -> :gauntlet_toolkit in ti.tags, verbose=true)'
 ```
 
 Record collections only through the dedicated runner:

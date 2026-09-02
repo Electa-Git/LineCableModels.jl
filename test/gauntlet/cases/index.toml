@@ -1,4 +1,12 @@
 [cases]
+c320_armoured__dc_bipole = "c320_armoured__dc_bipole.jl"
+c320_no_armour__dc_bipole = "c320_no_armour__dc_bipole.jl"
+c380_armoured__ac_flat = "c380_armoured__ac_flat.jl"
+c380_no_armour__ac_flat = "c380_no_armour__ac_flat.jl"
+c525_land_no_armour__ac_flat = "c525_land_no_armour__ac_flat.jl"
+c525_land_no_armour__dc_bipole = "c525_land_no_armour__dc_bipole.jl"
+c525_subsea_armoured__ac_flat = "c525_subsea_armoured__ac_flat.jl"
+c525_subsea_armoured__dc_bipole = "c525_subsea_armoured__dc_bipole.jl"
 cable_132kv_630mm2_flathor = "cable_132kv_630mm2_flathor.jl"
 cable_18kv_1000mm2_trefoil = "cable_18kv_1000mm2_trefoil.jl"
 cable_380kv_2000mm2_flatver = "cable_380kv_2000mm2_flatver.jl"

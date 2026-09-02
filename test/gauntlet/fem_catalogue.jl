@@ -12,9 +12,11 @@ using LineCableModels: AbstractGrid, Grid, Gridspace
 
 const GAUNTLET_ROOT = @__DIR__
 include(joinpath(GAUNTLET_ROOT, "case_loader.jl"))
+include(joinpath(GAUNTLET_ROOT, "reference_grid.jl"))
 end
 
-using .FEMCatalogueCaseLoader: ExactOverrides, case_index, load_case
+using .FEMCatalogueCaseLoader: ExactOverrides, case_index, load_case,
+                               reference_case
 
 const EARTH_IMPEDANCE = LineCableModels.Engine.EarthImpedance
 const EARTH_ADMITTANCE = LineCableModels.Engine.EarthAdmittance
@@ -83,18 +85,9 @@ const HORIZONTAL_ONLY_Y = Set((:Theethayi2007, :Xue2021))
 function fem_lossless_semicon(
         material::Material{T}, frequency, temperature, assumptions
 ) where {T <: Real}
-    return Material{T}(
-        material.kind,
-        convert(T, Inf),
-        material.eps_r,
-        material.mu_r,
-        material.T0,
-        material.alpha,
-        material.rho_thermal,
-        material.theta_max,
-        material.tan_delta,
-        material.sigma_solar
-    )
+    ε₀ = one(T) * 88541878128 * (one(T) * 10)^(-22)
+    ω = 2 * (one(T) * π) * convert(T, frequency)
+    return complex(zero(T), ω) * ε₀ * material.eps_r
 end
 
 const FEM_LOSSLESS_SEMICON = SEMICON_ADMITTANCE.Formula(
@@ -111,11 +104,11 @@ const GAUNTLET_ROOT = joinpath(
 const REFERENCE_ROOT = joinpath(GAUNTLET_ROOT, "corrected_fullband")
 const OUTPUT_ROOT = joinpath(GAUNTLET_ROOT, "analytical_fullband_corpus")
 
-relative_error(actual, reference) =
+function relative_error(actual, reference)
     norm(actual - reference) / max(norm(reference), eps(Float64))
+end
 rms_error(actual, reference) = norm(actual - reference) / sqrt(length(reference))
-symmetry_error(matrix) =
-    norm(matrix - transpose(matrix)) / max(norm(matrix), eps(Float64))
+symmetry_error(matrix) = norm(matrix - transpose(matrix)) / max(norm(matrix), eps(Float64))
 
 function coverage_record(kind, identifier)
     applicable, category, reason = if kind === :earth_impedance
@@ -253,7 +246,7 @@ function formulation(selected)
         earth_impedance = selected.earth_impedance,
         earth_admittance = selected.earth_admittance,
         earth_properties = nothing,
-        equivalent_earth = formula(:Layer; order = :after),
+        equivalent_earth = :default,
         options = (
             reduce_bundle = false,
             kron_reduction = false,
@@ -274,7 +267,7 @@ function load_reference(case_id, model)
         "$case_id FEM reference case digest does not match the current case"
     )
     document["frequencies"] == model.problem.frequencies || error(
-        "$case_id FEM reference does not use the original frequency vector"
+        "$case_id FEM reference does not use the selected reference frequency vector"
     )
     document["port_order"] == model.port_order || error(
         "$case_id FEM reference terminal order does not match the current case"
@@ -329,14 +322,10 @@ function result_metrics(result, reference)
     all(isfinite, actual_z) || error("analytical Z contains non-finite values")
     all(isfinite, actual_y) || error("analytical Y contains non-finite values")
 
-    z_symmetry = [
-        symmetry_error(@view actual_z[:, :, index])
-        for index in eachindex(frequencies)
-    ]
-    y_symmetry = [
-        symmetry_error(@view actual_y[:, :, index])
-        for index in eachindex(frequencies)
-    ]
+    z_symmetry = [symmetry_error(@view actual_z[:, :, index])
+                  for index in eachindex(frequencies)]
+    y_symmetry = [symmetry_error(@view actual_y[:, :, index])
+                  for index in eachindex(frequencies)]
     actual_components = component_matrices(actual_z, actual_y, frequencies)
     reference_components = component_matrices(
         reference_z,
@@ -345,11 +334,11 @@ function result_metrics(result, reference)
     )
     components = NamedTuple{keys(actual_components)}(
         map(keys(actual_components)) do quantity
-            frequency_errors(
-                getproperty(actual_components, quantity),
-                getproperty(reference_components, quantity)
-            )
-        end
+        frequency_errors(
+            getproperty(actual_components, quantity),
+            getproperty(reference_components, quantity)
+        )
+    end
     )
     spectra = NamedTuple{keys(actual_components)}(
         ntuple(_ -> Vector{Float64}(undef, length(frequencies)), 4)
@@ -359,33 +348,36 @@ function result_metrics(result, reference)
     )
     violations = NamedTuple[]
     for index in eachindex(frequencies)
-        z_symmetry[index] <= 1.0e-12 || push!(violations, (
-            quantity = :Z_reciprocity,
-            frequency_index = index,
-            frequency_hz = frequencies[index],
-            minimum_eigenvalue = NaN,
-            tolerance = 1.0e-12
-        ))
-        y_symmetry[index] <= 1.0e-12 || push!(violations, (
-            quantity = :Y_reciprocity,
-            frequency_index = index,
-            frequency_hz = frequencies[index],
-            minimum_eigenvalue = NaN,
-            tolerance = 1.0e-12
-        ))
+        z_symmetry[index] <= 1.0e-12 || push!(violations,
+            (
+                quantity = :Z_reciprocity,
+                frequency_index = index,
+                frequency_hz = frequencies[index],
+                minimum_eigenvalue = NaN,
+                tolerance = 1.0e-12
+            ))
+        y_symmetry[index] <= 1.0e-12 || push!(violations,
+            (
+                quantity = :Y_reciprocity,
+                frequency_index = index,
+                frequency_hz = frequencies[index],
+                minimum_eigenvalue = NaN,
+                tolerance = 1.0e-12
+            ))
         for quantity in keys(actual_components)
             matrix = @view getproperty(actual_components, quantity)[:, :, index]
             lower = eigmin(Symmetric(matrix))
             tolerance = 1.0e-8 * max(opnorm(matrix), eps(Float64))
             getproperty(spectra, quantity)[index] = lower
             getproperty(tolerances, quantity)[index] = tolerance
-            lower >= -tolerance || push!(violations, (
-                quantity,
-                frequency_index = index,
-                frequency_hz = frequencies[index],
-                minimum_eigenvalue = lower,
-                tolerance
-            ))
+            lower >= -tolerance || push!(violations,
+                (
+                    quantity,
+                    frequency_index = index,
+                    frequency_hz = frequencies[index],
+                    minimum_eigenvalue = lower,
+                    tolerance
+                ))
         end
     end
     return (
@@ -667,13 +659,14 @@ function diagnose_execution_failure(case_id, selected, frequencies, reference)
             catch
                 :candidate_or_shared
             end
-            push!(failures, (
-                frequency_index = index,
-                frequency_hz = frequency,
-                attribution,
-                exception_type = string(typeof(exception)),
-                message = sprint(showerror, exception)
-            ))
+            push!(failures,
+                (
+                    frequency_index = index,
+                    frequency_hz = frequency,
+                    attribution,
+                    exception_type = string(typeof(exception)),
+                    message = sprint(showerror, exception)
+                ))
         end
     end
     partial_metrics = nothing
@@ -834,30 +827,34 @@ function execution_breakdown_summary(
                           NaN : maximum(successful_frequencies),
         partial_candidate_invariant_violations = length(candidate_violations),
         partial_candidate_first_violation_hz =
-            isempty(partial_candidate_frequencies) ?
-            NaN : minimum(partial_candidate_frequencies),
+        isempty(partial_candidate_frequencies) ?
+        NaN : minimum(partial_candidate_frequencies),
         partial_candidate_last_violation_hz =
-            isempty(partial_candidate_frequencies) ?
-            NaN : maximum(partial_candidate_frequencies),
+        isempty(partial_candidate_frequencies) ?
+        NaN : maximum(partial_candidate_frequencies),
         partial_context_invariant_violations = length(context_violations),
         partial_context_first_violation_hz =
-            isempty(partial_context_frequencies) ?
-            NaN : minimum(partial_context_frequencies),
+        isempty(partial_context_frequencies) ?
+        NaN : minimum(partial_context_frequencies),
         partial_context_last_violation_hz =
-            isempty(partial_context_frequencies) ?
-            NaN : maximum(partial_context_frequencies),
+        isempty(partial_context_frequencies) ?
+        NaN : maximum(partial_context_frequencies),
         partial_Z_relative_frobenius = partial_metrics === nothing ?
                                        NaN : partial_metrics.Z.aggregate_relative,
         partial_Y_relative_frobenius = partial_metrics === nothing ?
                                        NaN : partial_metrics.Y.aggregate_relative,
         partial_R_relative_frobenius = partial_metrics === nothing ?
-                                       NaN : partial_metrics.components.R.aggregate_relative,
+                                       NaN :
+                                       partial_metrics.components.R.aggregate_relative,
         partial_L_relative_frobenius = partial_metrics === nothing ?
-                                       NaN : partial_metrics.components.L.aggregate_relative,
+                                       NaN :
+                                       partial_metrics.components.L.aggregate_relative,
         partial_G_relative_frobenius = partial_metrics === nothing ?
-                                       NaN : partial_metrics.components.G.aggregate_relative,
+                                       NaN :
+                                       partial_metrics.components.G.aggregate_relative,
         partial_C_relative_frobenius = partial_metrics === nothing ?
-                                       NaN : partial_metrics.components.C.aggregate_relative,
+                                       NaN :
+                                       partial_metrics.components.C.aggregate_relative,
         exception_type = string(exception_type),
         message = string(message),
         artifact = path
@@ -933,11 +930,11 @@ function case_skip_reason(model, selected)
     has_vertical_pair = length(unique(getproperty.(positions, :x))) <
                         length(positions)
     if has_vertical_pair && (
-            selected.kind === :earth_impedance &&
-            selected.identifier in HORIZONTAL_ONLY_Z ||
-            selected.kind === :earth_admittance &&
-            selected.identifier in HORIZONTAL_ONLY_Y
-        )
+        selected.kind === :earth_impedance &&
+        selected.identifier in HORIZONTAL_ONLY_Z ||
+        selected.kind === :earth_admittance &&
+        selected.identifier in HORIZONTAL_ONLY_Y
+    )
         return "source closed form is undefined at zero horizontal separation; " *
                "the case contains a vertical cable pair"
     end
@@ -1008,7 +1005,7 @@ function write_failure_tsv(path, failures)
     return path
 end
 
-function write_outputs(rows, skipped, failures, coverage)
+function write_outputs(rows, skipped, failures, coverage, reference_grids)
     mkpath(OUTPUT_ROOT)
     summary_path = write_tsv(joinpath(OUTPUT_ROOT, "summary.tsv"), rows)
     skipped_path = write_tsv(joinpath(OUTPUT_ROOT, "skipped.tsv"), skipped)
@@ -1026,9 +1023,7 @@ function write_outputs(rows, skipped, failures, coverage)
         corpus_policy = CORPUS_POLICY,
         formula_treatment = FORMULA_TREATMENT,
         diagnostic_policy = DIAGNOSTIC_POLICY,
-        frequency_count = 101,
-        frequency_start_hz = 1.0,
-        frequency_end_hz = 1.0e6,
+        reference_grids,
         internal_impedance = INTERNAL_FORMULA,
         insulation_admittance = :Gustavsen2013,
         semicon_admittance = :FEMLossless,
@@ -1047,192 +1042,209 @@ function write_outputs(rows, skipped, failures, coverage)
     return summary_path, skipped_path, failure_path, coverage_path, jld_path
 end
 
-coverage = catalogue()
-variants = variant.(coverage)
-length(unique(getproperty.(variants, :id))) == 39 || error(
-    "catalogue variant IDs are not unique"
-)
-available = sort!(collect(keys(case_index())); by = string)
-requested = isempty(ARGS) ? available : Symbol.(ARGS)
-all(case_id -> case_id in available, requested) || error(
-    "unknown case requested; available cases are $(join(available, ", "))"
-)
+function main(args = ARGS)
+    coverage = catalogue()
+    variants = variant.(coverage)
+    length(unique(getproperty.(variants, :id))) == 39 || error(
+        "catalogue variant IDs are not unique"
+    )
+    available = sort!(collect(keys(case_index())); by = string)
+    requested = isempty(args) ? available : Symbol.(args)
+    all(case_id -> case_id in available, requested) || error(
+        "unknown case requested; available cases are $(join(available, ", "))"
+    )
 
-rows = NamedTuple[]
-skipped = NamedTuple[]
-failures = NamedTuple[]
-println(
-    "PLAN\tcases=", length(requested),
-    "\tregistered_z=", length(EARTH_IMPEDANCE.formulas()),
-    "\tregistered_y=", length(EARTH_ADMITTANCE.formulas()),
-    "\tvariants_per_case=", length(variants),
-    "\tfrequencies=101\trange_hz=1:1e6",
-    "\tpolicy=", CORPUS_POLICY,
-    "\ttreatment=", FORMULA_TREATMENT,
-    "\tdiagnostics=", DIAGNOSTIC_POLICY
-)
-flush(stdout)
-for case_id in requested
-    model = load_case(case_id)
-    reference_path, reference, reference_sha256 = load_reference(case_id, model)
-    println("BEGIN_CASE\t", case_id, "\tterminals=", length(model.port_order))
+    rows = NamedTuple[]
+    skipped = NamedTuple[]
+    failures = NamedTuple[]
+    reference_grids = NamedTuple[]
+    println(
+        "PLAN\tcases=", length(requested),
+        "\tregistered_z=", length(EARTH_IMPEDANCE.formulas()),
+        "\tregistered_y=", length(EARTH_ADMITTANCE.formulas()),
+        "\tvariants_per_case=", length(variants),
+        "\tfrequencies=101\trange_hz=case_reference_grid",
+        "\tpolicy=", CORPUS_POLICY,
+        "\ttreatment=", FORMULA_TREATMENT,
+        "\tdiagnostics=", DIAGNOSTIC_POLICY
+    )
     flush(stdout)
-    for selected in variants
-        path = artifact_path(case_id, selected)
-        if valid_existing(path, model, selected, reference_sha256)
-            write_hash(path)
-            recovered = recover_existing(path, selected, reference)
-            recovered.row === nothing || push!(rows, recovered.row)
-            recovered.skipped === nothing || push!(skipped, recovered.skipped)
-            recovered.failure === nothing || push!(failures, recovered.failure)
-            println("REUSE\t", case_id, "\t", selected.id)
-            flush(stdout)
-            continue
-        end
-        if isfile(path)
-            archived = archive_stale_artifact(path)
-            println(
-                "STALE_ARCHIVED\t", case_id,
-                "\t", selected.id,
-                "\t", archived
-            )
-            flush(stdout)
-        end
-        reason = case_skip_reason(model, selected)
-        if reason !== nothing
-            path = record_skip(
-                case_id,
-                model,
-                selected,
-                reason,
-                reference_path,
-                reference_sha256,
-                reference
-            )
-            push!(skipped, (
+    for case_id in requested
+        model = reference_case(case_id)
+        push!(reference_grids,
+            (;
                 case = string(case_id),
-                variant = string(selected.id),
-                kind = string(selected.kind),
-                formula = string(selected.identifier),
-                reason,
-                artifact = path
+                count = length(model.problem.frequencies),
+                first_hz = first(model.problem.frequencies),
+                last_hz = last(model.problem.frequencies)
             ))
-            println("SKIP\t", case_id, "\t", selected.id, "\t", reason)
-            flush(stdout)
-            continue
-        end
+        reference_path, reference, reference_sha256 = load_reference(case_id, model)
+        println("BEGIN_CASE\t", case_id, "\tterminals=", length(model.port_order))
+        flush(stdout)
+        for selected in variants
+            path = artifact_path(case_id, selected)
+            if valid_existing(path, model, selected, reference_sha256)
+                write_hash(path)
+                recovered = recover_existing(path, selected, reference)
+                recovered.row === nothing || push!(rows, recovered.row)
+                recovered.skipped === nothing || push!(skipped, recovered.skipped)
+                recovered.failure === nothing || push!(failures, recovered.failure)
+                println("REUSE\t", case_id, "\t", selected.id)
+                flush(stdout)
+                continue
+            end
+            if isfile(path)
+                archived = archive_stale_artifact(path)
+                println(
+                    "STALE_ARCHIVED\t", case_id,
+                    "\t", selected.id,
+                    "\t", archived
+                )
+                flush(stdout)
+            end
+            reason = case_skip_reason(model, selected)
+            if reason !== nothing
+                path = record_skip(
+                    case_id,
+                    model,
+                    selected,
+                    reason,
+                    reference_path,
+                    reference_sha256,
+                    reference
+                )
+                push!(skipped,
+                    (
+                        case = string(case_id),
+                        variant = string(selected.id),
+                        kind = string(selected.kind),
+                        formula = string(selected.identifier),
+                        reason,
+                        artifact = path
+                    ))
+                println("SKIP\t", case_id, "\t", selected.id, "\t", reason)
+                flush(stdout)
+                continue
+            end
 
-        started = time()
-        try
-            result = compute(model.problem, formulation(selected))
-            size(result.Z.values) == size(reference["Z"]) || error(
-                "analytical and FEM Z shapes differ"
-            )
-            size(result.Y.values) == size(reference["Y"]) || error(
-                "analytical and FEM Y shapes differ"
-            )
-            result.f == model.problem.frequencies || error(
-                "analytical result changed the frequency vector"
-            )
-            metrics = result_metrics(result, reference)
-            elapsed = time() - started
-            path = record_result(
-                case_id,
-                model,
-                selected,
-                result,
-                metrics,
-                elapsed,
-                reference_path,
-                reference_sha256,
-                reference
-            )
-            push!(rows, summary_row(
-                case_id,
-                selected,
-                metrics,
-                model.problem.frequencies,
-                elapsed,
-                path,
-                reference
-            ))
-            candidate_violations, context_violations = partition_violations(
-                selected,
-                metrics
-            )
-            state = isempty(candidate_violations) ?
-                    "OBSERVED" : "OBSERVED_BREAK"
-            println(
-                state, "\t", case_id,
-                "\t", selected.id,
-                "\tZ=", metrics.Z.aggregate_relative,
-                "\tY=", metrics.Y.aggregate_relative,
-                "\tcandidate_violations=", length(candidate_violations),
-                "\tcontext_violations=", length(context_violations),
-                "\telapsed_s=", round(elapsed; digits = 3)
-            )
-            flush(stdout)
-        catch exception
-            diagnostic = diagnose_execution_failure(
-                case_id,
-                selected,
-                model.problem.frequencies,
-                reference
-            )
-            elapsed = time() - started
-            path = record_execution_failure(
-                case_id,
-                model,
-                selected,
-                exception,
-                diagnostic,
-                elapsed,
-                reference_path,
-                reference_sha256,
-                reference
-            )
-            push!(failures, execution_breakdown_summary(
-                case_id,
-                selected,
-                diagnostic.frequency_failures,
-                typeof(exception),
-                sprint(showerror, exception),
-                path;
-                successful_frequencies = diagnostic.successful_frequencies,
-                partial_metrics = diagnostic.partial_metrics,
-                candidate_violations = diagnostic.candidate_violations,
-                context_violations = diagnostic.context_violations
-            ))
-            println(
-                stderr,
-                "OBSERVED_EXECUTION_BREAKDOWN\t", case_id,
-                "\t", selected.id,
-                "\tformula=", selected.identifier,
-                "\tfailed_frequencies=", length(diagnostic.frequency_failures),
-                "\tsuccessful_frequencies=", length(
-                    diagnostic.successful_frequencies
-                ),
-                "\t", sprint(showerror, exception)
-            )
-            flush(stderr)
+            started = time()
+            try
+                result = compute(model.problem, formulation(selected))
+                size(result.Z.values) == size(reference["Z"]) || error(
+                    "analytical and FEM Z shapes differ"
+                )
+                size(result.Y.values) == size(reference["Y"]) || error(
+                    "analytical and FEM Y shapes differ"
+                )
+                result.f == model.problem.frequencies || error(
+                    "analytical result changed the frequency vector"
+                )
+                metrics = result_metrics(result, reference)
+                elapsed = time() - started
+                path = record_result(
+                    case_id,
+                    model,
+                    selected,
+                    result,
+                    metrics,
+                    elapsed,
+                    reference_path,
+                    reference_sha256,
+                    reference
+                )
+                push!(rows,
+                    summary_row(
+                        case_id,
+                        selected,
+                        metrics,
+                        model.problem.frequencies,
+                        elapsed,
+                        path,
+                        reference
+                    ))
+                candidate_violations, context_violations = partition_violations(
+                    selected,
+                    metrics
+                )
+                state = isempty(candidate_violations) ?
+                        "OBSERVED" : "OBSERVED_BREAK"
+                println(
+                    state, "\t", case_id,
+                    "\t", selected.id,
+                    "\tZ=", metrics.Z.aggregate_relative,
+                    "\tY=", metrics.Y.aggregate_relative,
+                    "\tcandidate_violations=", length(candidate_violations),
+                    "\tcontext_violations=", length(context_violations),
+                    "\telapsed_s=", round(elapsed; digits = 3)
+                )
+                flush(stdout)
+            catch exception
+                diagnostic = diagnose_execution_failure(
+                    case_id,
+                    selected,
+                    model.problem.frequencies,
+                    reference
+                )
+                elapsed = time() - started
+                path = record_execution_failure(
+                    case_id,
+                    model,
+                    selected,
+                    exception,
+                    diagnostic,
+                    elapsed,
+                    reference_path,
+                    reference_sha256,
+                    reference
+                )
+                push!(failures,
+                    execution_breakdown_summary(
+                        case_id,
+                        selected,
+                        diagnostic.frequency_failures,
+                        typeof(exception),
+                        sprint(showerror, exception),
+                        path;
+                        successful_frequencies = diagnostic.successful_frequencies,
+                        partial_metrics = diagnostic.partial_metrics,
+                        candidate_violations = diagnostic.candidate_violations,
+                        context_violations = diagnostic.context_violations
+                    ))
+                println(
+                    stderr,
+                    "OBSERVED_EXECUTION_BREAKDOWN\t", case_id,
+                    "\t", selected.id,
+                    "\tformula=", selected.identifier,
+                    "\tfailed_frequencies=", length(diagnostic.frequency_failures),
+                    "\tsuccessful_frequencies=", length(
+                        diagnostic.successful_frequencies
+                    ),
+                    "\t", sprint(showerror, exception)
+                )
+                flush(stderr)
+            end
         end
     end
+
+    summary_path, skipped_path, failure_path, coverage_path, jld_path = write_outputs(
+        rows,
+        skipped,
+        failures,
+        coverage,
+        reference_grids
+    )
+    println(
+        "COMPLETE\tevaluated=", length(rows),
+        "\tskipped=", length(skipped),
+        "\texecution_breakdowns=", length(failures),
+        "\tplanned=", length(requested) * length(variants),
+        "\tsummary=", summary_path,
+        "\tskips=", skipped_path,
+        "\tfailures=", failure_path,
+        "\tcoverage=", coverage_path,
+        "\tjld2=", jld_path
+    )
+    return isempty(failures) ? 0 : 1
 end
 
-summary_path, skipped_path, failure_path, coverage_path, jld_path = write_outputs(
-    rows,
-    skipped,
-    failures,
-    coverage
-)
-println(
-    "COMPLETE\tevaluated=", length(rows),
-    "\tskipped=", length(skipped),
-    "\texecution_breakdowns=", length(failures),
-    "\tplanned=", length(requested) * length(variants),
-    "\tsummary=", summary_path,
-    "\tskips=", skipped_path,
-    "\tfailures=", failure_path,
-    "\tcoverage=", coverage_path,
-    "\tjld2=", jld_path
-)
+abspath(PROGRAM_FILE) == abspath(@__FILE__) && exit(main())

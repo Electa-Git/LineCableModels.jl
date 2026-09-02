@@ -120,6 +120,94 @@ function _create_run(runtime_root::String)
     return run
 end
 
+function _resume_value_matches(existing::AbstractDict, expected::AbstractDict)
+    length(existing) == length(expected) || return false
+    return all(keys(expected)) do key
+        haskey(existing, key) &&
+            _resume_value_matches(existing[key], expected[key])
+    end
+end
+
+function _resume_value_matches(existing::AbstractVector, expected::AbstractVector)
+    length(existing) == length(expected) || return false
+    return all(splat(_resume_value_matches), zip(existing, expected))
+end
+
+_resume_value_matches(existing, expected) = isequal(existing, expected)
+
+function _resume_problem_matches(path::String, model::FEMResolvedModel)
+    snapshot = joinpath(path, "input", "problem.json")
+    isfile(snapshot) || return false
+    existing = try
+        JSON3.read(read(snapshot, String))
+    catch
+        return false
+    end
+    expected = ImportExport.serialize_value(model.problem)
+    return _resume_value_matches(existing, expected)
+end
+
+function _resume_run(
+        runtime_root::String,
+        requested::Union{Nothing, Symbol, String},
+        model::FEMResolvedModel
+)
+    requested === nothing && return _create_run(runtime_root)
+    runs = joinpath(runtime_root, "runs")
+    mkpath(runs)
+    runs_path = realpath(runs)
+    candidate = if requested === :latest
+        directories = filter(isdir, readdir(runs_path; join = true))
+        sort!(directories; by = path -> stat(path).mtime, rev = true)
+        index = findfirst(
+            path -> _resume_problem_matches(path, model), directories
+        )
+        index === nothing ? nothing : directories[index]
+    elseif requested isa String
+        path = abspath(requested)
+        isdir(path) || throw(ArgumentError(
+            "resume_run_directory does not exist: $path",
+        ))
+        _resume_problem_matches(path, model) || throw(ArgumentError(
+            "resume_run_directory does not match the requested FEM problem: $path",
+        ))
+        path
+    else
+        throw(ArgumentError(
+            "resume_run_directory must be nothing, :latest, or a path string",
+        ))
+    end
+    candidate === nothing && return _create_run(runtime_root)
+    path = realpath(candidate)
+    dirname(path) == runs_path || throw(ArgumentError(
+        "resume_run_directory must be an immediate child of $runs_path",
+    ))
+    for directory in ("input", "mesh", "raw", "maps", "logs")
+        isdir(joinpath(path, directory)) || throw(ArgumentError(
+            "resume_run_directory is missing $directory/: $path",
+        ))
+    end
+    document = try
+        JSON3.read(read(joinpath(path, "run.json"), String))
+    catch
+        nothing
+    end
+    mesh_source = document === nothing ? :none :
+                  Symbol(String(document.mesh_source))
+    mesh_fingerprint = document === nothing ? "" :
+                       String(document.mesh_fingerprint)
+    run = FEMRun(
+        path,
+        created,
+        "resuming interrupted run",
+        mesh_source,
+        mesh_fingerprint
+    )
+    _transition!(run, created, "resuming interrupted run")
+    @info "Resuming compatible FEM run" run_directory=path
+    return run
+end
+
 function _transition!(run::FEMRun, state::FEMRunState, message::AbstractString)
     run.state = state
     run.message = String(message)
@@ -156,7 +244,13 @@ function _prepare_run_inputs!(run::FEMRun, model::FEMResolvedModel)
 end
 
 function _fem_computation_options(options::NamedTuple)
-    allowed = (:verbosity, :output_basis, :trace, :log_file)
+    allowed = (
+        :verbosity,
+        :output_basis,
+        :trace,
+        :log_file,
+        :resume_run_directory
+    )
     unknown = filter(key -> key ∉ allowed, keys(options))
     isempty(unknown) || throw(ArgumentError(
         "unknown LineCableModelsFEM computation options: $(sort!(collect(unknown)))",
@@ -166,13 +260,29 @@ function _fem_computation_options(options::NamedTuple)
         "log_file must be a path string or nothing",
     ))
     log_file === "" && throw(ArgumentError("log_file cannot be empty"))
-    standard_keys = filter(!=(:log_file), keys(options))
+    resume = get(options, :resume_run_directory, nothing)
+    resume isa Union{Nothing, Symbol, AbstractString} || throw(ArgumentError(
+        "resume_run_directory must be nothing, :latest, or a path string",
+    ))
+    resume isa Symbol && resume !== :latest && throw(ArgumentError(
+        "the only symbolic resume_run_directory is :latest",
+    ))
+    resume === "" && throw(ArgumentError(
+        "resume_run_directory cannot be empty",
+    ))
+    standard_keys = filter(
+        key -> key ∉ (:log_file, :resume_run_directory), keys(options)
+    )
     standard_values = map(key -> getproperty(options, key), standard_keys)
     standard = NamedTuple{Tuple(standard_keys)}(Tuple(standard_values))
     execution = computation_options(
         Val(LineCableModels.LineCableModelsCoaxial), standard
     )
-    return (; execution..., log_file = log_file === nothing ? nothing : String(log_file))
+    return (;
+        execution...,
+        log_file = log_file === nothing ? nothing : String(log_file),
+        resume_run_directory = resume isa AbstractString ? String(resume) : resume
+    )
 end
 
 function _headless_solve!(
@@ -312,7 +422,9 @@ function _compute_fem(
 )
     model = _resolved_fem_model(problem, formulation)
     runtime_root = _runtime_root()
-    run = _create_run(runtime_root)
+    run = _resume_run(
+        runtime_root, execution.resume_run_directory, model
+    )
     session = nothing
     succeeded = false
     try
