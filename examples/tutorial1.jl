@@ -129,7 +129,7 @@ materials_from_json = MaterialsLibrary()
 load!(materials_from_json, file_name = output_file)
 
 # Retrieve a material and display the object:
-copper = get(materials_from_json, "copper_corrected")
+copper = materials_from_json["copper_corrected"]
 
 # Access the material properties:
 println("Retrieved copper_corrected material properties:")

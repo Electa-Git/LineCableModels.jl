@@ -3,14 +3,15 @@ Base.eltype(::Type{Material{T}}) where {T} = T
 
 # Implement the AbstractDict interface
 Base.length(lib::MaterialsLibrary) = length(lib.data)
-function Base.setindex!(lib::MaterialsLibrary, value::Material, key::String)
-    (lib.data[key] = value)
+function Base.setindex!(lib::MaterialsLibrary, value::Material, key)
+    setindex!(lib.data, validate(value), key)
+    return lib
 end
 Base.iterate(lib::MaterialsLibrary, state...) = iterate(lib.data, state...)
 Base.keys(lib::MaterialsLibrary) = keys(lib.data)
 Base.values(lib::MaterialsLibrary) = values(lib.data)
-Base.haskey(lib::MaterialsLibrary, key::String) = haskey(lib.data, key)
-Base.getindex(lib::MaterialsLibrary, key::String) = getindex(lib.data, key)
+Base.haskey(lib::MaterialsLibrary, key) = haskey(lib.data, key)
+Base.getindex(lib::MaterialsLibrary, key) = getindex(lib.data, key)
 
 """
 $(TYPEDSIGNATURES)
@@ -26,13 +27,8 @@ Remove the material stored under `name`.
 
 - The modified `library`.
 
-# Errors
-
-- Throws `KeyError` when `name` is absent.
-
 """
-function Base.delete!(library::MaterialsLibrary, name::String)
-    haskey(library, name) || throw(KeyError(name))
+function Base.delete!(library::MaterialsLibrary, name)
     delete!(library.data, name)
     return library
 end
@@ -46,16 +42,34 @@ Return the material stored under `name`, or `default` when absent.
 
 - `library`: Material library.
 - `name`: Stored material name.
-- `default`: Value returned when `name` is absent. Default: `nothing`.
+- `default`: Value returned when `name` is absent.
 
 # Returns
 
 - The stored [`Material`](@ref), or `default`.
 
 """
-function Base.get(library::MaterialsLibrary, name::String, default = nothing)
+function Base.get(library::MaterialsLibrary, name, default)
     return get(library.data, name, default)
 end
+
+function Base.get(
+        default::Union{Function, Type}, library::MaterialsLibrary, name
+)
+    return get(default, library.data, name)
+end
+
+"Return an empty material library without repopulating built-in records."
+Base.empty(::MaterialsLibrary) = MaterialsLibrary(; add_defaults = false)
+
+"Remove every stored material and return `library`."
+function Base.empty!(library::MaterialsLibrary)
+    empty!(library.data)
+    return library
+end
+
+"Return a shallow material-library copy with independent dictionary storage."
+Base.copy(library::MaterialsLibrary) = MaterialsLibrary(copy(library.data))
 
 TextDisplay.name(::Type{<:Material}) = "Material"
 

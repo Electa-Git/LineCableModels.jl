@@ -238,7 +238,7 @@ save(library, file_name = library_file);
 # Verify that the saved cable can be recovered in a fresh session:
 loaded_library = CablesLibrary()
 load!(loaded_library, file_name = library_file)
-loaded_design = get(loaded_library, cable_id);
+loaded_design = loaded_library[cable_id];
 
 #=
 ## Defining a cable system

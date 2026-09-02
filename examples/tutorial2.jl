@@ -323,7 +323,7 @@ save(library, file_name = output_file);
 # Load the saved design into a fresh library and retrieve it by identifier:
 loaded_library = CablesLibrary()
 load!(loaded_library, file_name = output_file)
-loaded_design = get(loaded_library, cable_id);
+loaded_design = loaded_library[cable_id];
 loaded_library
 
 #=

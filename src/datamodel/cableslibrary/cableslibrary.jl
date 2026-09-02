@@ -1,11 +1,15 @@
 """
 $(TYPEDEF)
 
-Store cable designs by `cable_id`.
+Store cable designs by `cable_id` as an `AbstractDict{String, CableDesign}`.
+
+Ordinary indexed assignment inserts or replaces a design and resets its
+catalogue record from `design.nominal_data`. Use [`add!`](@ref) to reject an
+existing identifier or to supply an explicit catalogue record.
 
 $(TYPEDFIELDS)
 """
-mutable struct CablesLibrary
+mutable struct CablesLibrary <: AbstractDict{String, CableDesign}
     "Cable designs indexed by `cable_id`."
     data::Dict{String, CableDesign}
     "Catalogue records indexed by `cable_id`."
@@ -66,9 +70,10 @@ function add!(
     haskey(library, design.cable_id) && throw(ArgumentError(
         "cable design '$(design.cable_id)' already exists",
     ))
-    library.data[design.cable_id] = validate(design)
-    library.catalogues[design.cable_id] =
-        catalogue isa DatasheetInfo ? catalogue : DatasheetInfo(catalogue)
+    candidate = validate(design)
+    record = catalogue isa DatasheetInfo ? catalogue : DatasheetInfo(catalogue)
+    library.data[design.cable_id] = candidate
+    library.catalogues[design.cable_id] = record
     return library
 end
 
