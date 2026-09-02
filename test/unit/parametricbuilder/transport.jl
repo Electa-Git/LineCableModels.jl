@@ -10,6 +10,7 @@
     struct DownstreamProblem <: Grammar.AbstractProblemDefinition
         source::TransportResult
     end
+    LineCableModels.validate(problem::DownstreamProblem) = problem
 
     struct TransportFormulation <: Grammar.AbstractFormulation end
 
@@ -86,16 +87,16 @@ end
     # The retired transaction and its staged protocol must not regain a public
     # binding under their old names.
     for name in (
-            :project, :AbstractProjectionDefinition, :ProjectionResult,
-            :entitle, :select, :derive, :finish
+        :project, :AbstractProjectionDefinition, :ProjectionResult,
+        :entitle, :select, :derive, :finish
     )
         @test !isdefined(LineCableModels, name)
         @test !isdefined(PB, name)
     end
 
     for path in (
-            joinpath("src", "parametricbuilder", "project.jl"),
-            joinpath("test", "unit", "parametricbuilder", "projection.jl")
+        joinpath("src", "parametricbuilder", "project.jl"),
+        joinpath("test", "unit", "parametricbuilder", "projection.jl")
     )
         @test !ispath(joinpath(root, path))
     end
@@ -132,14 +133,15 @@ end
     representative=PB.Gridspace{Engine.LineParametersProblem}
     transport_methods=filter(consumes_result_space, collect(methods(representative)))
     transport_owners=Set(normpath(abspath(String(method.file)))
-        for method in transport_methods)
+    for method in transport_methods)
     core_owners=Set((
         normpath(joinpath(root, "src", "parametricbuilder", "results.jl")),
         normpath(joinpath(root, "src", "uq", "results.jl"))
     ))
-    allowed_owners=union(core_owners, Set((
-        normpath(joinpath(root, "ext", "LineCableModelsMeasurementsExt.jl")),
-    )))
+    allowed_owners=union(core_owners,
+        Set((
+            normpath(joinpath(root, "ext", "LineCableModelsMeasurementsExt.jl")),
+        )))
     @test core_owners ⊆ transport_owners
     @test transport_owners ⊆ allowed_owners
 
@@ -154,8 +156,8 @@ end
         joinpath(root, "docs", "src", "extensions.md")
     ]
     for directory in (
-            joinpath(root, "src", "parametricbuilder"),
-            joinpath(root, "src", "uq")
+        joinpath(root, "src", "parametricbuilder"),
+        joinpath(root, "src", "uq")
     )
         append!(surfaces,
             [joinpath(path, file)

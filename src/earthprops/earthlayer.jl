@@ -5,7 +5,7 @@ Store the static physical properties of one earth or air layer.
 
 $(TYPEDFIELDS)
 """
-struct EarthLayer{T <: Real}
+struct EarthLayer{T <: Real} <: AbstractEarthModel
     "Electrical resistivity \\[Ω·m\\]."
     rho::T
     "Relative permittivity \\[dimensionless\\]."
@@ -23,21 +23,26 @@ end
 Base.eltype(::EarthLayer{T}) where {T} = T
 Base.eltype(::Type{EarthLayer{T}}) where {T} = T
 
-function _check_earth_layer(layer::EarthLayer)
-    isnan(layer.rho) && throw(DomainError(layer.rho, "resistivity cannot be NaN"))
+function validate(layer::EarthLayer)
+    isnan(layer.rho) && throw(DomainError(
+        layer.rho,
+        "EarthLayer.rho must not be NaN"
+    ))
     layer.rho > zero(layer.rho) ||
-        throw(DomainError(layer.rho, "resistivity must be positive"))
+        throw(DomainError(layer.rho, "EarthLayer.rho must be positive"))
     isfinite(layer.eps_r) && layer.eps_r > zero(layer.eps_r) ||
-        throw(DomainError(layer.eps_r, "relative permittivity must be positive and finite"))
+        throw(DomainError(
+            layer.eps_r,
+            "EarthLayer.eps_r must be positive and finite"
+        ))
     isfinite(layer.mu_r) && layer.mu_r > zero(layer.mu_r) ||
-        throw(DomainError(layer.mu_r, "relative permeability must be positive and finite"))
+        throw(DomainError(
+            layer.mu_r,
+            "EarthLayer.mu_r must be positive and finite"
+        ))
     layer.thickness > zero(layer.thickness) ||
-        throw(DomainError(layer.thickness, "thickness must be positive"))
-    return nothing
-end
-
-function Validation.rules(::Type{<:EarthLayer})
-    (Validation.OwnerRule(:earth_layer_properties, _check_earth_layer),)
+        throw(DomainError(layer.thickness, "EarthLayer.thickness must be positive"))
+    return layer
 end
 
 """
@@ -107,5 +112,6 @@ end
 Base.convert(::Type{EarthLayer{T}}, layer::EarthLayer{T}) where {T <: Real} = layer
 
 "Construct the ephemeral electromagnetic material represented by an earth layer."
-EarthMaterial(layer::EarthLayer{T}) where {T <: Real} =
+function EarthMaterial(layer::EarthLayer{T}) where {T <: Real}
     EarthMaterial{T}(layer.rho, layer.eps_r, layer.mu_r)
+end

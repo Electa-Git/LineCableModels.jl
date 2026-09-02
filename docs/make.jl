@@ -30,15 +30,12 @@ const BENCHMARK_API_OBJECTS = (
     LineCableModels.Engine.LineParametersBenchmark,
     LineCableModels.Engine.compare,
     LineCableModels.Engine.absolute_error,
-    LineCableModels.Engine.relative_error,
+    LineCableModels.Engine.relative_error
 )
 
 const EXTENSION_API_OBJECTS = (
-    LineCableModels.Validation,
-    LineCableModels.Validation.Rule,
-    LineCableModels.Validation.OwnerRule,
-    LineCableModels.Validation.rules,
-    LineCableModels.Validation.check,
+    LineCableModels.InputValidation,
+    LineCableModels.InputValidation.validate,
     getfield(LineCableModels.Grammar, Symbol("@orchestrator")),
     LineCableModels.Grammar.check_core_result,
     LineCableModels.Grammar.computation_owner,
@@ -111,14 +108,15 @@ const EXTENSION_API_OBJECTS = (
     LineCableModels.ReportBuilder.XLSXWorkbook,
     LineCableModels.ImportExport.serialize_value,
     LineCableModels.ImportExport.deserialize_value,
-    LineCableModels.ImportExport.deserialize_extension,
+    LineCableModels.ImportExport.deserialize_extension
 )
 
 _contains_identity(collection, object) = any(candidate -> candidate === object, collection)
-api_reference_entry(object) =
+function api_reference_entry(object)
     !_contains_identity(CONVENIENCE_API_OBJECTS, object) &&
-    !_contains_identity(BENCHMARK_API_OBJECTS, object) &&
-    !_contains_identity(EXTENSION_API_OBJECTS, object)
+        !_contains_identity(BENCHMARK_API_OBJECTS, object) &&
+        !_contains_identity(EXTENSION_API_OBJECTS, object)
+end
 developer_reference_entry(object) = _contains_identity(EXTENSION_API_OBJECTS, object)
 
 function project_metadata()
@@ -145,7 +143,7 @@ function formulation_catalogue(module_owner::Module, path::AbstractString...)
             identifier = first(Base.unwrap_unionall(formula_type).parameters)
             body = join(filter(
                 value -> value isa AbstractString,
-                collect(docstring.text),
+                collect(docstring.text)
             ))
             push!(entries, (; source, identifier, body = strip(body)))
         end
@@ -155,7 +153,7 @@ function formulation_catalogue(module_owner::Module, path::AbstractString...)
     isempty(entries) && error("no formulation docstrings found in $directory")
     return Markdown.parse(join(
         ("### `:$(entry.identifier)`\n\n$(entry.body)" for entry in entries),
-        "\n\n",
+        "\n\n"
     ))
 end
 
@@ -228,10 +226,11 @@ function markdown_table(rows)
         "| " * join(fill("---", length(names)), " | ") * " |"
     ]
     for row in rows
-        push!(lines, "| " * join(
-            (markdown_cell(getproperty(row, name)) for name in names),
-            " | "
-        ) * " |")
+        push!(lines, "| " *
+                     join(
+                         (markdown_cell(getproperty(row, name)) for name in names),
+                         " | "
+                     ) * " |")
     end
     return join(lines, '\n') * "\n"
 end
@@ -262,10 +261,10 @@ function case_page(record)
         "_This is a fixed materialised case; it declares no variable case parameters._\n"
     else
         markdown_table([(
-            id = parameter.id,
-            nominal = parameter.nominal,
-            tags = join(string.(parameter.tags), ", ")
-        ) for parameter in record.parameters])
+                            id = parameter.id,
+                            nominal = parameter.nominal,
+                            tags = join(string.(parameter.tags), ", ")
+                        ) for parameter in record.parameters])
     end
     problem_text = sprint(show, MIME("text/plain"), problem)
     return """
@@ -324,14 +323,15 @@ function build_case_catalogue!()
         path = joinpath(CASE_OUTPUT, "$(id).md")
         write(path, case_page(record))
         push!(pages, id => joinpath("cases", "$(id).md"))
-        push!(index_rows, (
-            case = "[`$(id)`]($(id).md)",
-            description = record.description,
-            terminals = length(record.port_order),
-            frequencies = length(
-                LineCableModels.ImportExport.deserialize_value(record.problem).frequencies
-            )
-        ))
+        push!(index_rows,
+            (
+                case = "[`$(id)`]($(id).md)",
+                description = record.description,
+                terminals = length(record.port_order),
+                frequencies = length(
+                    LineCableModels.ImportExport.deserialize_value(record.problem).frequencies
+                )
+            ))
     end
     write(
         joinpath(CASE_OUTPUT, "index.md"),

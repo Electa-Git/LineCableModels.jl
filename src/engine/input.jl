@@ -26,6 +26,20 @@ struct LineParametersWorkspace{
     buffers::B
     "Optional retained diagnostic arrays, or `nothing`."
     capture::C
+
+    function LineParametersWorkspace{T, N, P, B, C}(
+            input::N,
+            invariants::P,
+            buffers::B,
+            capture::C
+    ) where {T <: Real, N <: NamedTuple, P <: NamedTuple, B <: NamedTuple, C}
+        return validate(new{T, N, P, B, C}(
+            input,
+            invariants,
+            buffers,
+            capture
+        ))
+    end
 end
 
 Base.eltype(::LineParametersWorkspace{T}) where {T} = T
@@ -51,7 +65,7 @@ function _capture_buffers(
     )
 end
 
-function _check_workspace(workspace::LineParametersWorkspace)
+function validate(workspace::LineParametersWorkspace)
     input = workspace.input
     cable = input.cable
     n = input.n_phases
@@ -85,7 +99,7 @@ function _check_workspace(workspace::LineParametersWorkspace)
             "dielectric-layer arrays must contain $n_layers entries"
         ))
     end
-    sort!(vcat(
+    sort(vcat(
         cable.insulation_indices,
         cable.semicon_indices
     )) == collect(1:n_layers) || throw(DimensionMismatch(
@@ -114,11 +128,7 @@ function _check_workspace(workspace::LineParametersWorkspace)
     size(workspace.buffers.Pprimitive) == (n, n) || throw(DimensionMismatch(
         "primitive potential-coefficient storage must be $n×$n"
     ))
-    return nothing
-end
-
-function Validation.rules(::Type{<:LineParametersWorkspace})
-    (Validation.OwnerRule(:line_parameters_workspace_dimensions, _check_workspace),)
+    return workspace
 end
 
 """
@@ -169,6 +179,7 @@ function lineinput(
     design_map = Int[entry.cable for entry in system.terminal_order]
     cable_map = Vector{Int}(undef, n_phases)
     @inbounds for (assembly, indices) in pairs(cable.assemblies), index in indices
+
         cable_map[index] = assembly
     end
 
@@ -375,7 +386,6 @@ function LineParametersWorkspace(
         typeof(buffers),
         typeof(capture)
     }(input, invariants, buffers, capture)
-    validate(workspace)
     return workspace
 end
 

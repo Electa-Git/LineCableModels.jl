@@ -109,6 +109,7 @@
     struct CountedProblem<:AbstractProblemDefinition
         value::Int
     end
+    LineCableModels.validate(problem::CountedProblem) = problem
     struct CountedFormulation{ID}<:AbstractFormulation end
     struct CountedResult<:AbstractCoreResult
         value::Int

@@ -74,6 +74,22 @@ struct CableBlueprint{T <: Real}
     dielectric_ranges::Vector{UnitRange{Int}}
     "Contiguous conductor ranges for independent concentric assemblies."
     assembly_ranges::Vector{UnitRange{Int}}
+
+    function CableBlueprint{T}(
+            cable_id::String,
+            conductors::Vector{BlueprintConductor{T}},
+            dielectrics::Vector{BlueprintDielectric{T}},
+            dielectric_ranges::Vector{UnitRange{Int}},
+            assembly_ranges::Vector{UnitRange{Int}}
+    ) where {T <: Real}
+        return validate(new{T}(
+            cable_id,
+            conductors,
+            dielectrics,
+            dielectric_ranges,
+            assembly_ranges
+        ))
+    end
 end
 
 Base.eltype(::CableBlueprint{T}) where {T} = T
@@ -97,56 +113,117 @@ function _assembly_ranges(components)
             push!(positions, position)
         end
     end
-    return UnitRange{Int}[
-        start:(index == length(starts) ? length(components) : starts[index + 1] - 1)
-        for (index, start) in pairs(starts)
-    ]
+    return UnitRange{Int}[start:(index == length(starts) ? length(components) :
+                                 starts[index + 1] - 1)
+                          for (index, start) in pairs(starts)]
 end
 
-function _check_blueprint(blueprint::CableBlueprint)
+function validate(blueprint::CableBlueprint)
+    isempty(blueprint.cable_id) && throw(ArgumentError(
+        "CableBlueprint.cable_id cannot be empty"
+    ))
     count = length(blueprint.conductors)
-    count > 0 || throw(ArgumentError("a cable blueprint cannot be empty"))
+    count > 0 || throw(ArgumentError(
+        "CableBlueprint.conductors must contain at least one conductor"
+    ))
     length(blueprint.dielectric_ranges) == count || throw(DimensionMismatch(
-        "dielectric ranges must align with blueprint conductors",
+        "CableBlueprint.dielectric_ranges must contain one range per conductor; " *
+        "received $(length(blueprint.dielectric_ranges)) ranges for $count conductors",
     ))
     isempty(blueprint.assembly_ranges) && throw(ArgumentError(
-        "a cable blueprint requires at least one concentric assembly",
+        "CableBlueprint.assembly_ranges must contain at least one assembly",
     ))
     collect(Iterators.flatten(blueprint.assembly_ranges)) == collect(1:count) ||
         throw(DimensionMismatch(
-            "assembly ranges must partition blueprint conductors in order",
+            "CableBlueprint.assembly_ranges must partition conductor indices 1:$count in order",
         ))
     layer_count = length(blueprint.dielectrics)
     collected_layers = collect(Iterators.flatten(blueprint.dielectric_ranges))
     collected_layers == collect(1:layer_count) || throw(DimensionMismatch(
-        "dielectric ranges must partition blueprint layers in order",
+        "CableBlueprint.dielectric_ranges must partition dielectric indices " *
+        "1:$layer_count in order",
     ))
     @inbounds for (index, conductor) in pairs(blueprint.conductors)
+        isempty(String(conductor.terminal)) && throw(ArgumentError(
+            "CableBlueprint.conductors[$index].terminal cannot be empty"
+        ))
         conductor.assembly in eachindex(blueprint.assembly_ranges) || throw(DomainError(
             conductor.assembly,
-            "blueprint conductor has an invalid assembly index",
+            "CableBlueprint.conductors[$index].assembly must index assembly_ranges"
         ))
         index in blueprint.assembly_ranges[conductor.assembly] || throw(DimensionMismatch(
-            "blueprint conductor assembly does not match its assembly range",
+            "CableBlueprint.conductors[$index].assembly does not own conductor $index",
         ))
+        isfinite(conductor.r_in) && conductor.r_in >= zero(conductor.r_in) ||
+            throw(DomainError(
+                conductor.r_in,
+                "CableBlueprint.conductors[$index].r_in must be nonnegative and finite"
+            ))
+        isfinite(conductor.r_ex) && conductor.r_ex > conductor.r_in ||
+            throw(DomainError(
+                conductor.r_ex,
+                "CableBlueprint.conductors[$index].r_ex must be finite and greater than r_in"
+            ))
+        isfinite(conductor.cross_section) &&
+        conductor.cross_section > zero(conductor.cross_section) || throw(DomainError(
+            conductor.cross_section,
+            "CableBlueprint.conductors[$index].cross_section must be positive and finite"
+        ))
+        conductor.num_wires >= 0 || throw(DomainError(
+            conductor.num_wires,
+            "CableBlueprint.conductors[$index].num_wires must be nonnegative"
+        ))
+        isfinite(conductor.num_turns) || throw(DomainError(
+            conductor.num_turns,
+            "CableBlueprint.conductors[$index].num_turns must be finite"
+        ))
+        isfinite(conductor.resistance) &&
+        conductor.resistance > zero(conductor.resistance) || throw(DomainError(
+            conductor.resistance,
+            "CableBlueprint.conductors[$index].resistance must be positive and finite"
+        ))
+        isfinite(conductor.alpha) || throw(DomainError(
+            conductor.alpha,
+            "CableBlueprint.conductors[$index].alpha must be finite"
+        ))
+        isfinite(conductor.gmr) && conductor.gmr > zero(conductor.gmr) ||
+            throw(DomainError(
+                conductor.gmr,
+                "CableBlueprint.conductors[$index].gmr must be positive and finite"
+            ))
+        all(isfinite, conductor.position) || throw(DomainError(
+            conductor.position,
+            "CableBlueprint.conductors[$index].position must be finite"
+        ))
+        validate(conductor.material)
         conductor.material.kind === :conductor || throw(ArgumentError(
-            "blueprint conductor material must have kind :conductor",
+            "CableBlueprint.conductors[$index].material.kind must be :conductor; " *
+            "received $(repr(conductor.material.kind))",
         ))
         for layer_index in blueprint.dielectric_ranges[index]
             layer = blueprint.dielectrics[layer_index]
             layer.conductor == index || throw(DimensionMismatch(
-                "blueprint dielectric owner differs from its radial range",
+                "CableBlueprint.dielectrics[$layer_index].conductor must be $index; " *
+                "received $(layer.conductor)",
             ))
+            isfinite(layer.r_in) && layer.r_in >= zero(layer.r_in) ||
+                throw(DomainError(
+                    layer.r_in,
+                    "CableBlueprint.dielectrics[$layer_index].r_in must be nonnegative and finite"
+                ))
+            isfinite(layer.r_ex) && layer.r_ex > layer.r_in ||
+                throw(DomainError(
+                    layer.r_ex,
+                    "CableBlueprint.dielectrics[$layer_index].r_ex must be finite and greater than r_in"
+                ))
+            validate(layer.material)
             layer.material.kind in (:insulator, :semicon) || throw(ArgumentError(
-                "the coaxial backend requires dielectric materials of kind :insulator or :semicon",
+                "CableBlueprint.dielectrics[$layer_index].material.kind must be " *
+                ":insulator or :semicon; received $(repr(layer.material.kind))",
             ))
         end
     end
-    return nothing
-end
-
-function Validation.rules(::Type{<:CableBlueprint})
-    (Validation.OwnerRule(:cable_blueprint, _check_blueprint),)
+    return blueprint
 end
 
 """
@@ -175,6 +252,7 @@ function flatten(
     ranges = _assembly_ranges(components)
     assembly_by_conductor = Vector{Int}(undef, length(components))
     @inbounds for (assembly, indices) in pairs(ranges), index in indices
+
         assembly_by_conductor[index] = assembly
     end
 
@@ -211,13 +289,13 @@ function flatten(
         end
         dielectric_ranges[index] = first_layer:layer_index
     end
-    return validate(CableBlueprint{T}(
+    return CableBlueprint{T}(
         design.cable_id,
         conductors,
         dielectrics,
         dielectric_ranges,
         ranges
-    ))
+    )
 end
 
 function flatten(
@@ -391,5 +469,6 @@ function LocalCableData(blueprints::AbstractVector{<:CableBlueprint{T}}) where {
     )
 end
 
-LocalCableData(blueprint::CableBlueprint{T}) where {T <: Real} =
+function LocalCableData(blueprint::CableBlueprint{T}) where {T <: Real}
     LocalCableData(CableBlueprint{T}[blueprint])
+end

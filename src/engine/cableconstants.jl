@@ -45,11 +45,11 @@ struct CableConstants{T <: Real} <: AbstractCoreResult
         ))
         isfinite(frequency) && frequency > zero(frequency) || throw(DomainError(
             frequency,
-            "cable-constant frequency must be positive and finite",
+            "cable-constant frequency must be positive and finite"
         ))
         all(isfinite, Iterators.flatten((R, L, C, G))) || throw(DomainError(
             (R, L, C, G),
-            "cable constants must be finite",
+            "cable constants must be finite"
         ))
         return new{T}(cores, R, L, C, G, frequency)
     end
@@ -96,9 +96,10 @@ function CableConstants(
     )
 end
 
-Base.:(==)(left::CableConstants, right::CableConstants) =
+function Base.:(==)(left::CableConstants, right::CableConstants)
     left.cores == right.cores && left.R == right.R && left.L == right.L &&
-    left.C == right.C && left.G == right.G && left.frequency == right.frequency
+        left.C == right.C && left.G == right.G && left.frequency == right.frequency
+end
 
 Base.length(constants::CableConstants) = length(constants.cores)
 
@@ -178,27 +179,31 @@ struct CableConstantsProblem{
     temperature::T
     "Evaluation frequency [Hz]."
     frequency::T
+
+    function CableConstantsProblem{T, D}(
+            design::D,
+            temperature::T,
+            frequency::T
+    ) where {T <: Real, D <: CableDesign}
+        return validate(new{T, D}(design, temperature, frequency))
+    end
 end
 
 Base.eltype(::CableConstantsProblem{T}) where {T} = T
 Base.eltype(::Type{<:CableConstantsProblem{T}}) where {T} = T
 
-function _check_cable_constants_problem(problem::CableConstantsProblem)
+function validate(problem::CableConstantsProblem)
     validate(problem.design)
     isfinite(problem.temperature) || throw(DomainError(
         problem.temperature,
-        "cable-constant temperature must be finite",
+        "cable-constant temperature must be finite"
     ))
     problem.frequency in (oftype(problem.frequency, 50), oftype(problem.frequency, 60)) ||
         throw(DomainError(
             problem.frequency,
-            "cable-constant base frequency must be 50 Hz or 60 Hz",
+            "cable-constant base frequency must be 50 Hz or 60 Hz"
         ))
-    return nothing
-end
-
-function Validation.rules(::Type{<:CableConstantsProblem})
-    (Validation.OwnerRule(:cable_constants_problem, _check_cable_constants_problem),)
+    return problem
 end
 
 """
@@ -224,12 +229,11 @@ function CableConstantsProblem(
         eltype(design), typeof(float(temperature)), typeof(float(frequency))
     )
     value = convert(T, float(frequency))
-    problem = CableConstantsProblem{T, typeof(design)}(
+    return CableConstantsProblem{T, typeof(design)}(
         design,
         convert(T, float(temperature)),
         value
     )
-    return validate(problem)
 end
 
 """

@@ -73,7 +73,6 @@ using ..DataModel: CableDesign, LineCableSystem, ncables, nphases
 import ..DataModel
 import ..TextDisplay
 import ..LineCableModels: validate
-import ..Validation
 import Logging
 using Logging: AbstractLogger, ConsoleLogger, with_logger
 import SpecialFunctions

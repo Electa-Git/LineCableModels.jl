@@ -82,9 +82,31 @@ struct ParametricProblem{S, O <: NamedTuple} <: AbstractProblemDefinition
     space::S
     "Options supplied to each core computation."
     options::O
+
+    function ParametricProblem(space::S, options::O) where {S, O <: NamedTuple}
+        return validate(new{S, O}(space, options))
+    end
 end
 
 ParametricProblem(space) = ParametricProblem(space, (;))
+
+function validate(problem::ParametricProblem)
+    problem.space isa Union{
+        AbstractProblemDefinition,
+        Gridspace{<:AbstractProblemDefinition}
+    } || throw(ArgumentError(
+        "ParametricProblem.space must be a completed problem or a Gridspace " *
+        "targeting AbstractProblemDefinition; received $(typeof(problem.space))"
+    ))
+    if problem.space isa AbstractProblemDefinition
+        validate(problem.space)
+    else
+        length(problem.space) > 0 || throw(ArgumentError(
+            "ParametricProblem.space must contain at least one problem point"
+        ))
+    end
+    return problem
+end
 
 """
 $(TYPEDEF)
@@ -176,9 +198,8 @@ end
 
 details(value::ParametricResult) = value.details
 
-const _GRIDSPACE_TRANSPORT_DOCUMENTATION =
-    "https://electa-git.github.io/LineCableModels.jl/dev/gridspace/" *
-    "#Transporting-completed-result-spaces"
+const _GRIDSPACE_TRANSPORT_DOCUMENTATION = "https://electa-git.github.io/LineCableModels.jl/dev/gridspace/" *
+                                           "#Transporting-completed-result-spaces"
 
 function _transport_error(::Type{Target}, source::AbstractResultSpace) where {Target}
     target_name = nameof(Target)

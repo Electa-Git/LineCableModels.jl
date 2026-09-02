@@ -22,12 +22,33 @@ struct LineParametersProblem{
     frequencies::Vector{T}
     "Optional longitudinal propagation constants aligned with frequency \\[1/m\\]."
     Γ::P
+
+    function LineParametersProblem{T, S, P, E}(
+            system::S,
+            temperature::T,
+            earth_props::E,
+            frequencies::Vector{T},
+            Γ::P
+    ) where {
+            T <: Real,
+            S <: LineCableSystem{T},
+            P <: Union{Nothing, Vector{Complex{T}}},
+            E <: EarthModel{T}
+    }
+        return validate(new{T, S, P, E}(
+            system,
+            temperature,
+            earth_props,
+            frequencies,
+            Γ
+        ))
+    end
 end
 
 Base.eltype(::LineParametersProblem{T}) where {T} = T
 Base.eltype(::Type{LineParametersProblem{T}}) where {T} = T
 
-function _check_line_parameters_problem(problem::LineParametersProblem)
+function validate(problem::LineParametersProblem)
     validate(problem.system)
     validate(problem.earth_props)
     for (design, pose) in zip(problem.system.designs, problem.system.positions)
@@ -74,14 +95,7 @@ function _check_line_parameters_problem(problem::LineParametersProblem)
                 "longitudinal propagation constants must be finite"
             ))
     end
-    maximum(problem.frequencies) > oftype(first(problem.frequencies), 1e8) &&
-        @warn("Frequencies above 100 MHz exceed the quasi-TEM validity range.",
-            max_frequency=maximum(problem.frequencies),)
-    return nothing
-end
-
-function Validation.rules(::Type{<:LineParametersProblem})
-    (Validation.OwnerRule(:line_parameters_problem, _check_line_parameters_problem),)
+    return problem
 end
 
 """
@@ -121,7 +135,7 @@ function LineParametersProblem(
     converted_earth = convert(EarthModel{T}, earth_props)
     propagation = Γ === nothing ? nothing :
                   Complex{T}[convert(Complex{T}, value) for value in Γ]
-    problem = LineParametersProblem{
+    return LineParametersProblem{
         T,
         typeof(converted_system),
         typeof(propagation),
@@ -133,7 +147,6 @@ function LineParametersProblem(
         T[convert(T, float(value)) for value in frequencies],
         propagation
     )
-    return validate(problem)
 end
 
 """

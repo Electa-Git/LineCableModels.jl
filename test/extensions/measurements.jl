@@ -218,9 +218,10 @@ end
     )
 
     @test !applicable(Measurements.measurement, completed)
-    struct ConstantsProblem <: AbstractProblemDefinition
+    struct ConstantsProblem<:AbstractProblemDefinition
         constants::CableConstants
     end
+    LineCableModels.validate(problem::ConstantsProblem) = problem
     transported=Gridspace{ConstantsProblem}(completed)
     reconstructed=only(transported).constants
     @test value.(reconstructed.R) == [2.0]
@@ -248,8 +249,8 @@ end
     angular=2π*only(frequency)
     parameters=LineParameters(
         PhaseDomain,
-        reshape(ComplexF64[2.0+20.0angular*im], 1, 1, 1),
-        reshape(ComplexF64[0.0+200.0angular*im], 1, 1, 1),
+        reshape(ComplexF64[2.0 + 20.0angular * im], 1, 1, 1),
+        reshape(ComplexF64[0.0 + 200.0angular * im], 1, 1, 1),
         frequency
     )
     line_stats=[(

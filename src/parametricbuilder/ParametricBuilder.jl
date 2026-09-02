@@ -46,7 +46,7 @@ export WireEstimate, make_stranded, make_screened
 
 using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
 using Random
-import ..LineCableModels: add!, build, Gridpoint
+import ..LineCableModels: add!, build, Gridpoint, validate
 import ..LineCableModels: _construction, _construction_axis, _finite_construction
 import ..Grammar
 import ..Grammar: compute, computation_options, computation_details, details,

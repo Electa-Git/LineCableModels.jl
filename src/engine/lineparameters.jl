@@ -242,6 +242,9 @@ function _compute(
         "line-parameter formulation collections cannot be empty",
     ))
     validate(problem)
+    maximum(problem.frequencies) > oftype(first(problem.frequencies), 1e8) &&
+        @warn("Frequencies above 100 MHz exceed the quasi-TEM validity range.",
+            max_frequency=maximum(problem.frequencies),)
     T = eltype(problem)
     blueprints = CableBlueprint{T}[flatten(engine, design, T)
                                    for design in problem.system.designs]

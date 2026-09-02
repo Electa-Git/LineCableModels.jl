@@ -85,8 +85,8 @@ function Gridspace{Target}(
         throw(ArgumentError("combine must be :product or :zip; got :$combine"))
     all(grid -> grid isa _GridspaceSource, grids) || throw(
         ArgumentError(
-            "Gridspace sources must be Grid, Gridspace, or completed result-space values",
-        ),
+        "Gridspace sources must be Grid, Gridspace, or completed result-space values",
+    ),
     )
     callable = _gridspace_callable(build)
     result_type = _gridspace_eltype(Target, callable, grids)
@@ -189,14 +189,20 @@ materialize(value) = value
 function materialize(value::UncertainValue)
     throw(ArgumentError(
         "direct materialisation of an uncertainty-bearing Gridspace requires " *
-            "Measurements.jl; load it with `using Measurements` before " *
-            "iteration, or use stochastic realisation through MonteCarlo",
+        "Measurements.jl; load it with `using Measurements` before " *
+        "iteration, or use stochastic realisation through MonteCarlo",
     ))
 end
 
 "Recursively materialise a selected Gridspace point."
 function materialize(point::Gridpoint)
     point.build(map(materialize, point.args)...)
+end
+
+function materialize(
+        point::Gridpoint{Target}
+) where {Target <: AbstractProblemDefinition}
+    return validate(point.build(map(materialize, point.args)...))::Target
 end
 
 "Return a deterministic value unchanged during stochastic realisation."
@@ -213,6 +219,13 @@ end
 
 "Build a selected Gridspace point from an already realised argument tuple."
 realize(point::Gridpoint, arguments::Tuple) = point.build(arguments...)
+
+function realize(
+        point::Gridpoint{Target},
+        arguments::Tuple
+) where {Target <: AbstractProblemDefinition}
+    return validate(point.build(arguments...))::Target
+end
 
 "Recursively realise a selected Gridspace point using the caller's RNG."
 function realize(rng::Random.AbstractRNG, point::Gridpoint, distribution)
@@ -237,8 +250,7 @@ function Base.iterate(
     return _materialized_result(Result, Target, point), next_state
 end
 
-_gridspace_iterator_eltype(::Type{_UnknownGridspaceEltype}) =
-    Base.IteratorEltype(Any)
+_gridspace_iterator_eltype(::Type{_UnknownGridspaceEltype}) = Base.IteratorEltype(Any)
 _gridspace_iterator_eltype(::Type) = Base.IteratorEltype(Vector{Int})
 
 _gridspace_eltype_trait(::Type{_UnknownGridspaceEltype}) = Any
@@ -253,16 +265,17 @@ function Base.IteratorEltype(
     return _gridspace_iterator_eltype(Result)
 end
 #! explicit-imports: on
-Base.eltype(
-    ::Type{<:Gridspace{<:Any, <:Any, <:Any, <:Any, Result}}
-) where {Result} = _gridspace_eltype_trait(Result)
+function Base.eltype(
+        ::Type{<:Gridspace{<:Any, <:Any, <:Any, <:Any, Result}}
+) where {Result}
+    _gridspace_eltype_trait(Result)
+end
 function Base.length(
         space::Gridspace{<:Any, <:Any, <:Any, Val{:product}, <:Any}
 )
     prod(length, space.grids; init = 1)
 end
-Base.length(space::Gridspace{<:Any, <:Any, <:Any, Val{:zip}, <:Any}) =
-    _zip_length(space)
+Base.length(space::Gridspace{<:Any, <:Any, <:Any, Val{:zip}, <:Any}) = _zip_length(space)
 Base.size(space::Gridspace) = (length(space),)
 
 "Draw and realise one product point by sampling each source once."

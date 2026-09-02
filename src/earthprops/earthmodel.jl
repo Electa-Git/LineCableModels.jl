@@ -6,7 +6,7 @@ air, and `layers` is a read-only ordered tuple.
 
 $(TYPEDFIELDS)
 """
-struct EarthModel{T <: Real, N}
+struct EarthModel{T <: Real, N} <: AbstractEarthModel
     "Whether earth interfaces are vertical rather than horizontal."
     vertical_layers::Bool
     "Read-only static layers beginning with semi-infinite air."
@@ -30,33 +30,32 @@ end
 Base.eltype(::EarthModel{T}) where {T} = T
 Base.eltype(::Type{<:EarthModel{T}}) where {T} = T
 
-function _valid_layer_sequence(vertical::Bool, layers)
-    length(layers) >= 2 || throw(ArgumentError("an earth model requires air and earth"))
-    air = first(layers)
-    isinf(air.rho) && isinf(air.thickness) || throw(ArgumentError(
-        "the first layer must be semi-infinite air",
+function validate(model::EarthModel)
+    for layer in model.layers
+        validate(layer)
+    end
+    length(model.layers) >= 2 || throw(ArgumentError(
+        "EarthModel.layers must contain air and at least one earth layer; " *
+        "received $(length(model.layers)) layers"
     ))
-    vertical && !isinf(layers[2].thickness) &&
+    air = first(model.layers)
+    isinf(air.rho) && isinf(air.thickness) || throw(ArgumentError(
+        "EarthModel.layers[1] must be semi-infinite air",
+    ))
+    model.vertical_layers && !isinf(model.layers[2].thickness) &&
         throw(ArgumentError(
-            "the first vertical earth layer must be semi-infinite",
+            "EarthModel.layers[2].thickness must be infinite for vertical layers",
         ))
-    for index in 2:(length(layers) - 1)
-        if isinf(layers[index].thickness)
-            vertical && index == 2 && continue
-            throw(ArgumentError("an infinite layer must be the final layer"))
+    for index in 2:(length(model.layers) - 1)
+        if isinf(model.layers[index].thickness)
+            model.vertical_layers && index == 2 && continue
+            throw(ArgumentError(
+                "EarthModel.layers[$index].thickness must be finite because " *
+                "only the final horizontal layer may be semi-infinite"
+            ))
         end
     end
-    return layers
-end
-
-function _check_earth_model(model::EarthModel)
-    foreach(validate, model.layers)
-    _valid_layer_sequence(model.vertical_layers, model.layers)
-    return nothing
-end
-
-function Validation.rules(::Type{<:EarthModel})
-    (Validation.OwnerRule(:earth_model_geometry, _check_earth_model),)
+    return model
 end
 
 """

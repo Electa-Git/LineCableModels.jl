@@ -17,17 +17,24 @@ reductions required by line-parameter formulations.
 """
 module EarthProps
 
-export EarthMaterial, EarthLayer, EarthModel
+export AbstractEarthModel, EarthMaterial, EarthLayer, EarthModel
 export layer, homogeneous
 export build
 export FD, EHEM
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
+using RequiredInterfaces: @required
 import ..LineCableModels: build, validate
 import ..LineCableModels: _construction
 using ..Materials: AbstractMaterial
-import ..Validation
 import ..TextDisplay
+
+"Supertype for materialized static earth-layer and earth-model descriptions."
+abstract type AbstractEarthModel end
+
+@required AbstractEarthModel begin
+    validate(::AbstractEarthModel)
+end
 
 include("earthmaterial.jl")
 include("earthlayer.jl")

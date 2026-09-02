@@ -10,7 +10,7 @@
     @test uncertainty(3.0) == 0.0
     @test uncertainty("not numeric") == 0.0
     value=(answer = 42,)
-    @test validate(value) === value
+    @test_throws MethodError validate(value)
 end
 
 @testitem "Core / retired features / absent runtime bindings" tags=[:unit] begin

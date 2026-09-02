@@ -165,7 +165,7 @@ end
     expected_entries=(
         joinpath("src", "grammar", "Grammar.jl"),
         joinpath("src", "units", "Units.jl"),
-        joinpath("src", "validation", "Validation.jl"),
+        joinpath("src", "inputvalidation", "InputValidation.jl"),
         joinpath("src", "plotbuilder", "PlotBuilder.jl"),
         joinpath("src", "datamodel", "DataModel.jl"),
         joinpath("src", "engine", "Engine.jl"),
@@ -272,7 +272,7 @@ end
     @test !isdefined(LineCableModels, :UnitHandler)
     @test !isdefined(LineCableModels.PlotBuilder, :BackendHandler)
     @test !isdefined(LineCableModels.DataModel, :PhysicalFillLimit)
-    @test !isdefined(LineCableModels.Validation, :PhysicalFillLimit)
+    @test !isdefined(LineCableModels.InputValidation, :PhysicalFillLimit)
 
     @test parentmodule(LineCableModels.description) === LineCableModels
     @test parentmodule(LineCableModels.formula_id) === LineCableModels
@@ -295,7 +295,7 @@ end
     @test parentmodule(LineCableModels.ReportArtifact) === LineCableModels.ReportBuilder
     @test parentmodule(LineCableModels.XLSXReportDefinition) ===
           LineCableModels.ReportBuilder
-    @test parentmodule(LineCableModels.validate) === LineCableModels.Validation
+    @test parentmodule(LineCableModels.validate) === LineCableModels.InputValidation
     @test parentmodule(LineCableModels.build) === LineCableModels
     @test parentmodule(LineCableModels.homogenize) === LineCableModels
     @test :homogenize in names(LineCableModels.DataModel)

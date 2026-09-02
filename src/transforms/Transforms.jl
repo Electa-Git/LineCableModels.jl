@@ -16,7 +16,7 @@ export operators, formula_id, assumptions, formulas, gamma, modal_quantities
 
 #! explicit-imports: off
 using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import ..LineCableModels: FormulaMethod, nominal, FormulaSpec, _construction
+import ..LineCableModels: FormulaMethod, nominal, FormulaSpec, _construction, validate
 import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
                   ComputationDetails, compute, computation_details,
                   computation_owner, details

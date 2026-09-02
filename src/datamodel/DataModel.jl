@@ -52,7 +52,6 @@ import ..TextDisplay
 import ..LineCableModels: add!, build, homogenize, validate, nominal
 import ..LineCableModels: _construction
 using ..Materials: Material
-import ..Validation
 using Colors: HSL, RGB, RGBA, alpha, blue, green, red
 import GeometryBasics
 using GeometryBasics: Point2f

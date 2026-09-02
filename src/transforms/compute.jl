@@ -141,6 +141,7 @@ function compute(
         options::NamedTuple = (;)
 ) where {T, U, P <: LineParameters{T, U, PhaseDomain}}
     _execution(options)
+    validate(problem)
     return _forward(problem.parameters, formulation)
 end
 
@@ -157,6 +158,7 @@ function compute(
         options::NamedTuple = (;)
 ) where {T, U, D <: ModalDomain, P <: LineParameters{T, U, D}}
     _execution(options)
+    validate(problem)
     return _inverse(problem.parameters)
 end
 

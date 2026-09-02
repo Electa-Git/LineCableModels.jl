@@ -52,7 +52,8 @@ export Enclosure
 export Ring, Hexa, Polar, Fill, Lattice, DiameterFactor, placements
 export capacity, FillFactor, TabulatedCompaction, AffineCompaction
 export LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
-export at, trefoil, hflat, vflat, layer, homogeneous, EarthLayer, EarthModel
+export at, trefoil, hflat, vflat, layer, homogeneous
+export AbstractEarthModel, EarthLayer, EarthModel
 export terminal, core, stranded, rope, cores, tape, insulation, screen, sheath
 export armor, bedding, jacket, filler, pipe, duct
 export solid, shell, wires, layers, assembly
@@ -110,9 +111,9 @@ using .Grammar:
                 compute, observe, @observe, observables,
                 nominal, uncertainty
 
-# Submodule `Validation`
-include("validation/Validation.jl")
-using .Validation: validate
+# Submodule `InputValidation`
+include("inputvalidation/InputValidation.jl")
+using .InputValidation: validate
 
 # Submodule `PlotBuilder`
 include("plotbuilder/PlotBuilder.jl")
@@ -127,7 +128,7 @@ using .Materials: AbstractMaterial, Material, MaterialsLibrary
 # Submodule `EarthProps`
 include("earthprops/EarthProps.jl")
 import .EarthProps
-using .EarthProps: EarthLayer, EarthModel, layer, homogeneous
+using .EarthProps: AbstractEarthModel, EarthLayer, EarthModel, layer, homogeneous
 
 # Submodule `DataModel`
 include("datamodel/DataModel.jl")
