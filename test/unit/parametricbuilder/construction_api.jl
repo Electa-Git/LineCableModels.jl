@@ -463,6 +463,15 @@ end
     copper = Material(kind = :conductor, rho = 1.72e-8)
     xlpe = Material(kind = :insulator, rho = 1.0e14, eps_r = 2.3)
 
+    @test LayRatio(13, 12, 11) ==
+          (LayRatio(13), LayRatio(12), LayRatio(11))
+    @test LayRatio((13, 12, 11)) == LayRatio(13, 12, 11)
+    @test Pitch(0.13, 0.12) == (Pitch(0.13), Pitch(0.12))
+    @test LayAngle([0.13, 0.12]) == (LayAngle(0.13), LayAngle(0.12))
+    @test FillFactor(0.88, 0.9) == (FillFactor(0.88), FillFactor(0.9))
+    @test DiameterFactor((0.92, 0.9)) ==
+          (DiameterFactor(0.92), DiameterFactor(0.9))
+
     round = stranded(
         copper;
         shape = Disk(0.5e-3),
@@ -481,6 +490,21 @@ end
         Helix(LayRatio(12); dir = 1, φ0 = 0.0),
         Helix(Pitch(0.2); dir = -1, φ0 = 0.1)
     ]
+
+    normalized = stranded(
+        copper;
+        shape = Disk(0.5e-3),
+        layers = 2,
+        n = (6, 12),
+        lay = LayRatio(12, 11),
+        compact = FillFactor(0.88, 0.9)
+    )
+    @test getfield.(normalized.items[2:3], :path) == [
+        Helix(LayRatio(12)),
+        Helix(LayRatio(11))
+    ]
+    @test getfield.(normalized.items[2:3], :compact) ==
+          [FillFactor(0.88), FillFactor(0.9)]
 
     rounded = RoundedSector(
         span = deg2rad(119.0),
@@ -661,6 +685,16 @@ end
         n = 6,
         lay = LayRatio(9)
     )
+    scheduled_rope = rope(
+        round;
+        layers = 2,
+        n = (6, 12),
+        lay = LayRatio(10, 9)
+    )
+    @test getfield.(scheduled_rope.items[2:3], :path) == [
+        Helix(LayRatio(10)),
+        Helix(LayRatio(9))
+    ]
     nested_design = build(
         CableDesign,
         "nested-rope",
@@ -872,8 +906,8 @@ end
     @test all(system -> system.connection_order == [1], systems)
 
     schedules = Grid((
-        (LayRatio(10), LayRatio(11)),
-        (LayRatio(12), LayRatio(13))
+        LayRatio(10, 11),
+        LayRatio(12, 13)
     ))
     strands = stranded(
         copper;
@@ -889,7 +923,7 @@ end
         shape = Disk(0.5e-3),
         layers = 2,
         n = (6, 12),
-        lay = (LayRatio(10), LayRatio(11))
+        lay = LayRatio(10, 11)
     ) isa Stack
 
     repeated_cores = cores(

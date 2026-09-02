@@ -16,8 +16,33 @@ struct DiameterFactor{T <: Real}
 end
 
 _diameter_factor(k) = DiameterFactor{typeof(float(k))}(float(k))
+
+"""
+$(TYPEDSIGNATURES)
+
+Declare one diameter factor or a homogeneous schedule of diameter factors.
+
+# Arguments
+
+- `k`: One compacted-to-nominal diameter ratio \\[dimensionless\\].
+- `values`: Two or more factors, or one tuple or vector of factors, defining
+  one factor per repeated course.
+
+# Keywords
+
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- A `DiameterFactor`, a tuple of `DiameterFactor` values, or the corresponding
+  `Gridspace` when an explicit finite source is supplied.
+"""
 DiameterFactor(k; combine::Symbol = :product) =
     _construction(DiameterFactor, _diameter_factor, (k,); combine)
+DiameterFactor(values::Union{Tuple, AbstractVector}; combine::Symbol = :product) =
+    _normalize_schedule(DiameterFactor, values; combine)
+DiameterFactor(first, second, remaining...; combine::Symbol = :product) =
+    _normalize_schedule(DiameterFactor, (first, second, remaining...); combine)
 
 """
 $(TYPEDEF)
@@ -38,8 +63,34 @@ struct FillFactor{T <: Real}
 end
 
 _fill_factor(η) = FillFactor{typeof(float(η))}(float(η))
+
+"""
+$(TYPEDSIGNATURES)
+
+Declare one material-area fill factor or a homogeneous schedule of fill
+factors.
+
+# Arguments
+
+- `η`: One material-area fraction \\[dimensionless\\].
+- `values`: Two or more factors, or one tuple or vector of factors, defining
+  one factor per repeated course.
+
+# Keywords
+
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- A `FillFactor`, a tuple of `FillFactor` values, or the corresponding
+  `Gridspace` when an explicit finite source is supplied.
+"""
 FillFactor(η; combine::Symbol = :product) =
     _construction(FillFactor, _fill_factor, (η,); combine)
+FillFactor(values::Union{Tuple, AbstractVector}; combine::Symbol = :product) =
+    _normalize_schedule(FillFactor, values; combine)
+FillFactor(first, second, remaining...; combine::Symbol = :product) =
+    _normalize_schedule(FillFactor, (first, second, remaining...); combine)
 
 """
 $(TYPEDEF)

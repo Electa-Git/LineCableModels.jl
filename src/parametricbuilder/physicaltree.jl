@@ -673,10 +673,13 @@ the explicit concentric-ring placement requested by their declarations.
 - `shape`: Intrinsic strand primitive.
 - `layers`: Number of outer courses \\[dimensionless\\].
 - `n=6`: Base count, exact course schedule, or deferred `capacity()` policy.
-- `lay=nothing`: One lay law or one law per outer course.
+- `lay=nothing`: One lay law or one law per outer course. Homogeneous schedules
+  may be declared as `LayRatio(q...)`, `Pitch(p...)`, or `LayAngle(α...)`.
 - `dir=1`: One handedness or one value per outer course.
 - `φ0=0`: One initial angle or one value per outer course \\[rad\\].
 - `compact=nothing`: One compaction law or one law per outer course.
+  Homogeneous scalar schedules may be declared as `FillFactor(η...)` or
+  `DiameterFactor(k...)`.
 - `boundary=nothing`: Prescribed aggregate cross-sectional boundary after
   member placement and compaction.
 - `gap_frac=0`: One clearance fraction or one value per outer course
@@ -780,10 +783,13 @@ Repeat one physical item as a central child and concentric outer courses.
 
 - `layers`: Number of outer courses \\[dimensionless\\].
 - `n=6`: Base count, exact course schedule, or deferred `capacity()` policy.
-- `lay=nothing`: One lay law or one law per outer course.
+- `lay=nothing`: One lay law or one law per outer course. Homogeneous schedules
+  may be declared as `LayRatio(q...)`, `Pitch(p...)`, or `LayAngle(α...)`.
 - `dir=1`: One handedness or one value per outer course.
 - `φ0=0`: One initial angle or one value per outer course \\[rad\\].
 - `compact=nothing`: One compaction law or one law per outer course.
+  Homogeneous scalar schedules may be declared as `FillFactor(η...)` or
+  `DiameterFactor(k...)`.
 - `gap_frac=0`: One clearance fraction or one value per outer course
   \\[dimensionless\\].
 - `combine=:product`: Gridspace composition rule.

@@ -121,7 +121,7 @@ core_part = stranded(
     shape=Disk(0.5e-3),
     layers=3,
     n=(6, 12, 18),
-    lay=(LayRatio(13), LayRatio(12), LayRatio(11)),
+    lay=LayRatio(13, 12, 11),
 )
 ```
 
@@ -156,7 +156,7 @@ sector_core = stranded(
     shape=Disk(0.5e-3),
     layers=4,
     n=(6, 12, 18, 24),
-    lay=(LayRatio(14), LayRatio(13), LayRatio(12), LayRatio(11)),
+    lay=LayRatio(14, 13, 12, 11),
     boundary=RoundedSector(
         span=deg2rad(119),
         r_base=1.10e-3,

@@ -49,6 +49,21 @@ stranded_core = stranded(
 )
 ```
 
+A schedule sharing one definition lifts its raw course values directly:
+
+```julia
+round_core = stranded(
+    copper;
+    shape=Disk(0.5e-3),
+    layers=3,
+    n=(6, 12, 18),
+    lay=LayRatio(13, 12, 11),
+    compact=FillFactor(0.88, 0.90, 0.92),
+)
+```
+
+The explicit tuple form above remains available when course definitions differ.
+
 `rope(item; ...)` applies the same course grammar to an existing physical
 item. Every child retains its internal path declarations; an outer course adds
 its own path. `armor` uses the same ring, path, clearance, and compaction
