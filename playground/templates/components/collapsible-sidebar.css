@@ -1,0 +1,669 @@
+/*
+ * CollapsibleSidebar template primitive.
+ * All selectors are component-scoped; the shell can be copied independently
+ * of the surrounding Quarto gallery page.
+ */
+.lc-cs-template-stage {
+  overflow: visible;
+}
+
+.lc-cs-shell {
+  --lc-cs-bg: var(--lc-bg, #1f2424);
+  --lc-cs-sidebar-bg: var(--lc-sidebar-bg, #282f2f);
+  --lc-cs-panel-bg: var(--lc-panel-bg, #252b2b);
+  --lc-cs-heading: var(--lc-heading, #f2f2f2);
+  --lc-cs-text: var(--lc-text, #dbdee0);
+  --lc-cs-muted: var(--lc-muted, #a8b0b0);
+  --lc-cs-border: var(--lc-border, #5e6d6f);
+  --lc-cs-link: var(--lc-link, #4eb5de);
+  --lc-cs-focus: var(--lc-focus, #1abc9c);
+  --lc-cs-hover: #32393a;
+  --lc-cs-sidebar-width: 18rem;
+  --lc-cs-rail-width: 4.25rem;
+  display: flex !important;
+  width: 100%;
+  height: clamp(34rem, calc(100dvh - 11.5rem), 46rem);
+  min-width: 0;
+  min-height: 34rem;
+  overflow: hidden;
+  color: var(--lc-cs-text);
+  background: var(--lc-cs-bg);
+  border: 1px solid var(--lc-cs-border);
+  border-radius: 2px;
+}
+
+.lc-cs-shell button {
+  font: inherit;
+}
+
+/* Quarto may decorate raw full-width markup with its page grid classes.
+ * These scoped resets keep the standalone component's tracks self-owned. */
+.lc-cs-shell.page-columns .lc-cs-workspace.page-columns {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+}
+
+.lc-cs-shell.page-columns .lc-cs-canvas.page-columns {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+}
+
+.lc-cs-shell.page-columns .lc-cs-analysis-layout.page-columns {
+  display: grid !important;
+  grid-template-columns: minmax(0, 2.5fr) minmax(13rem, 0.8fr) !important;
+}
+
+.lc-cs-shell.page-columns > *,
+.lc-cs-shell.page-columns .lc-cs-workspace.page-columns > *,
+.lc-cs-shell.page-columns .lc-cs-canvas.page-columns > *,
+.lc-cs-shell.page-columns .lc-cs-analysis-layout.page-columns > * {
+  grid-column: auto !important;
+  grid-row: auto !important;
+}
+
+.lc-cs-sidebar {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  min-width: 0;
+  width: var(--lc-cs-sidebar-width);
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: visible;
+  background: var(--lc-cs-sidebar-bg);
+  border-right: 1px solid var(--lc-cs-border);
+  flex: 0 0 var(--lc-cs-sidebar-width);
+  transition: width 150ms ease-out, flex-basis 150ms ease-out;
+}
+
+.lc-cs-shell[data-sidebar-state="collapsed"] .lc-cs-sidebar {
+  width: var(--lc-cs-rail-width);
+  flex-basis: var(--lc-cs-rail-width);
+}
+
+.lc-cs-sidebar-header {
+  display: grid;
+  min-width: 0;
+  min-height: 4.35rem;
+  padding: 0.65rem 0.7rem;
+  grid-template-columns: minmax(0, 1fr) 2rem;
+  align-items: center;
+  gap: 0.45rem;
+  border-bottom: 1px solid var(--lc-cs-border);
+}
+
+.lc-cs-identity {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 2.65rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.lc-cs-identity-mark {
+  display: block;
+  width: 2.65rem;
+  height: 2.65rem;
+}
+
+.lc-cs-identity-copy,
+.lc-cs-footer-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.08rem;
+}
+
+.lc-cs-identity-copy strong,
+.lc-cs-footer-copy strong {
+  overflow: hidden;
+  color: var(--lc-cs-heading);
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lc-cs-identity-copy small,
+.lc-cs-footer-copy small {
+  overflow: hidden;
+  color: var(--lc-cs-muted);
+  font-size: 0.7rem;
+  font-weight: 400;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lc-cs-toggle {
+  position: relative;
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  margin: 0;
+  padding: 0;
+  place-items: center;
+  color: var(--lc-cs-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 2px;
+}
+
+.lc-cs-toggle:hover {
+  color: var(--lc-cs-heading);
+  background: var(--lc-cs-hover);
+  border-color: var(--lc-cs-border);
+}
+
+.lc-cs-toggle:focus-visible,
+.lc-cs-nav-item:focus-visible {
+  outline: 1px solid var(--lc-cs-focus);
+  outline-offset: -2px;
+}
+
+.lc-cs-toggle svg,
+.lc-cs-nav-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.lc-cs-navigation {
+  min-width: 0;
+  min-height: 0;
+  padding: 0.45rem 0;
+  overflow: auto;
+  scrollbar-color: #657173 transparent;
+  scrollbar-width: thin;
+}
+
+.lc-cs-nav-section {
+  margin: 0;
+  padding: 0;
+}
+
+.lc-cs-nav-section + .lc-cs-nav-section {
+  margin-top: 0.35rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid rgb(94 109 111 / 55%);
+}
+
+.lc-cs-section-heading {
+  margin: 0;
+  padding: 0.45rem 0.85rem 0.3rem;
+  color: var(--lc-cs-muted);
+  border: 0;
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.lc-cs-nav-item {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: 2.5rem;
+  margin: 0;
+  padding: 0.48rem 0.72rem 0.48rem 0.82rem;
+  grid-template-columns: 1.25rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--lc-cs-text);
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-left: 3px solid transparent;
+  border-radius: 0;
+}
+
+.lc-cs-nav-item:hover:not(:disabled),
+.lc-cs-nav-item.is-hover-preview:not(.is-active) {
+  color: var(--lc-cs-heading);
+  background: var(--lc-cs-hover);
+}
+
+.lc-cs-nav-item.is-active {
+  color: #fff;
+  background: var(--lc-cs-bg);
+  border-left-color: var(--lc-cs-link);
+  font-weight: 700;
+}
+
+.lc-cs-nav-item:disabled {
+  color: var(--lc-cs-muted);
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.lc-cs-nav-icon {
+  justify-self: center;
+  color: currentcolor;
+}
+
+.lc-cs-nav-label {
+  overflow: hidden;
+  font-size: 0.82rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lc-cs-disabled-label {
+  color: var(--lc-cs-muted);
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.lc-cs-active-indicator {
+  width: 0.35rem;
+  height: 0.35rem;
+  background: var(--lc-cs-focus);
+  border-radius: 50%;
+}
+
+.lc-cs-sidebar-footer {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 3.25rem;
+  padding: 0.6rem 0.85rem;
+  grid-template-columns: 0.65rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.6rem;
+  border-top: 1px solid var(--lc-cs-border);
+}
+
+.lc-cs-status-mark {
+  width: 0.48rem;
+  height: 0.48rem;
+  background: var(--lc-cs-focus);
+  border: 1px solid rgb(242 242 242 / 30%);
+  border-radius: 50%;
+}
+
+.lc-cs-workspace {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--lc-cs-bg);
+  flex: 1 1 auto;
+}
+
+.lc-cs-workspace-bar {
+  display: flex;
+  min-width: 0;
+  min-height: 3.15rem;
+  padding: 0.55rem 0.9rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--lc-cs-border);
+}
+
+.lc-cs-workspace-bar > div {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 0.65rem;
+}
+
+.lc-cs-context,
+.lc-cs-mode {
+  overflow: hidden;
+  color: var(--lc-cs-muted);
+  font-size: 0.7rem;
+  font-weight: 400;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lc-cs-workspace-bar strong {
+  overflow: hidden;
+  color: var(--lc-cs-heading);
+  font-size: 0.82rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lc-cs-mode {
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+}
+
+.lc-cs-canvas {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  padding: clamp(1rem, 2vw, 1.6rem);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 1rem;
+  overflow: auto;
+}
+
+.lc-cs-kicker {
+  color: var(--lc-cs-focus);
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+.lc-cs-canvas-copy h2,
+.lc-cs-state-panel h3 {
+  margin: 0.45rem 0 0.6rem;
+  padding: 0;
+  color: var(--lc-cs-heading);
+  border: 0;
+  font-weight: 600;
+}
+
+.lc-cs-canvas-copy h2 {
+  font-size: clamp(1.35rem, calc(1.1rem + 0.55vw), 1.85rem);
+}
+
+.lc-cs-canvas-copy p {
+  max-width: 70rem;
+  margin: 0;
+  color: var(--lc-cs-muted);
+  font-size: 0.88rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.lc-cs-analysis-layout {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: minmax(0, 2.5fr) minmax(13rem, 0.8fr);
+  gap: 0.8rem;
+}
+
+.lc-cs-figure,
+.lc-cs-state-panel {
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  background: var(--lc-cs-panel-bg);
+  border: 1px solid var(--lc-cs-border);
+  border-radius: 2px;
+}
+
+.lc-cs-figure {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.lc-cs-figure figcaption {
+  display: flex;
+  min-width: 0;
+  padding: 0.55rem 0.7rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--lc-cs-border);
+}
+
+.lc-cs-figure figcaption strong {
+  color: var(--lc-cs-heading);
+  font-size: 0.76rem;
+}
+
+.lc-cs-figure figcaption span {
+  color: var(--lc-cs-muted);
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.62rem;
+}
+
+.lc-cs-figure > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 15rem;
+  background: #202626;
+}
+
+.lc-cs-ground,
+.lc-cs-depth-line,
+.lc-cs-dimension,
+.lc-cs-dimension-cap {
+  fill: none;
+  stroke-linecap: square;
+}
+
+.lc-cs-ground {
+  stroke: var(--lc-cs-muted);
+  stroke-width: 2;
+}
+
+.lc-cs-depth-line,
+.lc-cs-dimension,
+.lc-cs-dimension-cap {
+  stroke: var(--lc-cs-link);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 5;
+}
+
+.lc-cs-cable-outer {
+  fill: #1c3333;
+  stroke: var(--lc-cs-focus);
+  stroke-width: 2;
+}
+
+.lc-cs-cable-inner {
+  fill: #2a3232;
+  stroke: var(--lc-cs-muted);
+  stroke-width: 1.5;
+}
+
+.lc-cs-cable-core {
+  fill: var(--lc-cs-link);
+  stroke: var(--lc-cs-heading);
+  stroke-width: 1.5;
+}
+
+.lc-cs-svg-label,
+.lc-cs-svg-node {
+  fill: var(--lc-cs-muted);
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+}
+
+.lc-cs-svg-label {
+  font-size: 13px;
+}
+
+.lc-cs-svg-node {
+  fill: var(--lc-cs-heading);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.lc-cs-state-panel {
+  padding: 1rem;
+  overflow: auto;
+}
+
+.lc-cs-state-panel h3 {
+  font-size: 1rem;
+}
+
+.lc-cs-state-panel dl {
+  margin: 0.85rem 0;
+  border-top: 1px solid var(--lc-cs-border);
+}
+
+.lc-cs-state-panel dl div {
+  display: grid;
+  padding: 0.5rem 0;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  gap: 0.5rem;
+  border-bottom: 1px solid rgb(94 109 111 / 55%);
+}
+
+.lc-cs-state-panel dt,
+.lc-cs-state-panel dd,
+.lc-cs-state-panel p {
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+.lc-cs-state-panel dt {
+  color: var(--lc-cs-heading);
+  font-weight: 700;
+}
+
+.lc-cs-state-panel dd,
+.lc-cs-state-panel p {
+  color: var(--lc-cs-muted);
+  font-weight: 400;
+}
+
+.lc-cs-shell[data-sidebar-state="collapsed"] .lc-cs-sidebar-header {
+  padding: 0.55rem 0;
+  grid-template-columns: 1fr;
+  justify-items: center;
+  gap: 0.35rem;
+}
+
+.lc-cs-shell[data-sidebar-state="collapsed"] .lc-cs-identity {
+  display: block;
+}
+
+.lc-cs-shell[data-sidebar-state="collapsed"] .lc-cs-identity-mark {
+  width: 2.35rem;
+  height: 2.35rem;
+}
+
+.lc-cs-shell[data-sidebar-state="collapsed"] .lc-cs-toggle svg {
+  transform: rotate(180deg);
+}
+
+.lc-cs-shell[data-sidebar-state="collapsed"] .lc-cs-navigation {
+  padding-top: 0.45rem;
+  overflow: visible;
+}
+
+.lc-cs-shell[data-sidebar-state="collapsed"] .lc-cs-nav-section + .lc-cs-nav-section {
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
+}
+
+.lc-cs-shell[data-sidebar-state="collapsed"] .lc-cs-nav-item {
+  min-height: 2.75rem;
+  padding: 0;
+  grid-template-columns: 1fr;
+  justify-items: center;
+  gap: 0;
+}
+
+.lc-cs-shell[data-sidebar-state="collapsed"] .lc-cs-sidebar-footer {
+  min-height: 3.25rem;
+  padding: 0;
+  grid-template-columns: 1fr;
+  justify-items: center;
+}
+
+.lc-cs-shell[data-sidebar-state="collapsed"] .lc-cs-identity-copy,
+.lc-cs-shell[data-sidebar-state="collapsed"] .lc-cs-section-heading,
+.lc-cs-shell[data-sidebar-state="collapsed"] .lc-cs-nav-label,
+.lc-cs-shell[data-sidebar-state="collapsed"] .lc-cs-disabled-label,
+.lc-cs-shell[data-sidebar-state="collapsed"] .lc-cs-active-indicator,
+.lc-cs-shell[data-sidebar-state="collapsed"] .lc-cs-footer-copy {
+  display: none;
+}
+
+.lc-cs-shell[data-sidebar-state="collapsed"] [data-tooltip]::after {
+  position: absolute;
+  z-index: 20;
+  top: 50%;
+  left: calc(100% + 0.5rem);
+  width: max-content;
+  max-width: 16rem;
+  padding: 0.38rem 0.5rem;
+  color: var(--lc-cs-heading);
+  background: #1b2020;
+  border: 1px solid var(--lc-cs-border);
+  border-radius: 2px;
+  content: attr(data-tooltip);
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1.25;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(0.2rem, -50%);
+  transition: opacity 90ms linear, transform 90ms linear;
+  white-space: nowrap;
+}
+
+.lc-cs-shell[data-sidebar-state="collapsed"] [data-tooltip]:hover::after,
+.lc-cs-shell[data-sidebar-state="collapsed"] [data-tooltip]:focus-visible::after {
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lc-cs-shell,
+  .lc-cs-sidebar,
+  .lc-cs-shell[data-sidebar-state="collapsed"] [data-tooltip]::after {
+    transition: none;
+  }
+}
+
+@media (max-width: 1100px) {
+  .lc-cs-shell {
+    --lc-cs-sidebar-width: 15rem;
+  }
+
+  .lc-cs-mode {
+    display: none;
+  }
+
+  .lc-cs-analysis-layout,
+  .lc-cs-shell.page-columns .lc-cs-analysis-layout.page-columns {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .lc-cs-state-panel {
+    min-height: 12rem;
+  }
+}
+
+@media (max-width: 680px) {
+  .lc-cs-shell {
+    --lc-cs-sidebar-width: 13.5rem;
+    --lc-cs-rail-width: 3.75rem;
+    min-height: 36rem;
+  }
+
+  .lc-cs-context {
+    display: none;
+  }
+
+  .lc-cs-canvas {
+    padding: 0.8rem;
+  }
+}

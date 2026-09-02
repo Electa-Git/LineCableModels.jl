@@ -76,4 +76,14 @@ A responsive same-origin Bonito viewport with a supporting context or control pa
 [Open template →](bonito-widget.qmd){.lc-gallery-link}
 :::
 
+::: {.lc-gallery-card}
+[APPLICATION SHELL]{.lc-gallery-label}
+
+## Collapsible sidebar
+
+An expanded navigation sidebar that contracts to a meaningful icon rail while the content canvas reclaims its width.
+
+[Open template →](collapsible-sidebar.qmd){.lc-gallery-link}
+:::
+
 :::

@@ -5,6 +5,8 @@ project:
     - index.qmd
     - templates/*.qmd
     - widgets/*.qmd
+  resources:
+    - templates/components/**
 
 website:
   title: "LineCableModels playground"
@@ -40,6 +42,8 @@ website:
             href: templates/media-story.qmd
           - text: "Bonito viewport"
             href: templates/bonito-widget.qmd
+          - text: "Collapsible sidebar"
+            href: templates/collapsible-sidebar.qmd
       - section: "Widgets"
         contents:
           - text: "Gallery"
