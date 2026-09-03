@@ -1,5 +1,5 @@
 function formulation_options(
-        ::Val{LineParametersFormulation},
+        ::Type{LineParametersFormulation},
         options::NamedTuple
 )::FormulationOptions
     allowed = (
@@ -35,7 +35,7 @@ function formulation_options(
 end
 
 function computation_options(
-        ::Val{LineCableModelsCoaxial},
+        ::Type{LineCableModelsCoaxial},
         options::NamedTuple
 )::ComputationOptions
     allowed = (:verbosity, :output_basis, :trace)

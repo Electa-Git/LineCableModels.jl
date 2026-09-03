@@ -29,7 +29,8 @@ function _publication_series_data(publication, observation)
         "publication plot coordinates must align with observation values",
     ))
     coordinate_names = frequency_name === nothing ? () :
-                       Tuple(name for name in publication.metadata.row_order
+                       Tuple(name
+    for name in publication.metadata.row_order
     if name != frequency_name && name != observation_name &&
        hasproperty(publication.columns, name))
     grouped = Dict{Tuple, Vector{Int}}()
@@ -55,11 +56,11 @@ function _publication_series_data(publication, observation)
         yobservation = merge(observation, (; values = yvalues)),
         coordinate_names,
         series = Tuple((;
-            coordinate,
-            x = xvalues[grouped[coordinate]],
-            y = yvalues[grouped[coordinate]],
-        ) for coordinate in order),
-        xlabel = frequency_name === nothing ? "Sample" : nothing,
+                           coordinate,
+                           x = xvalues[grouped[coordinate]],
+                           y = yvalues[grouped[coordinate]]
+                       ) for coordinate in order),
+        xlabel = frequency_name === nothing ? "Sample" : nothing
     )
 end
 
@@ -88,7 +89,6 @@ function _addon_publication_plot(
         figure_title = nothing,
         title_attributes::NamedTuple = (;),
         panel_titles = nothing,
-        labels = nothing,
         fig_size::Tuple{Int, Int} = (800, 400),
         layout = nothing,
         xscale::Symbol = :linear,
@@ -110,11 +110,7 @@ function _addon_publication_plot(
     isempty(publication.observations) && throw(ArgumentError(
         "an observation publication plot requires at least one observation",
     ))
-    resolved_panel_titles = _addon_panel_titles(
-        panel_titles,
-        labels,
-        length(publication)
-    )
+    resolved_panel_titles = _addon_panel_titles(panel_titles, length(publication))
     display_title = title === nothing ? "Observation publication" : String(title)
     _addon_activate_backend(backend)
     positions, dimensions = _addon_positions(length(publication), layout)
@@ -156,9 +152,10 @@ function _addon_publication_plot(
             attributes = (;
                 xlabelvisible = row == dimensions[1],
                 xticklabelsvisible = row == dimensions[1],
-                xticksvisible = row == dimensions[1],
+                xticksvisible = row == dimensions[1]
             )
-            axis, axis_labels = _addon_axis!(
+            axis,
+            axis_labels = _addon_axis!(
                 panel.content,
                 data.xobservation,
                 data.yobservation;
@@ -176,7 +173,8 @@ function _addon_publication_plot(
             for item in data.series
                 coordinate_label = _publication_coordinate_label(
                     data.coordinate_names, item.coordinate)
-                group, parent_symbol = _publication_group(
+                group,
+                parent_symbol = _publication_group(
                     observation, item.coordinate, index)
                 if !haskey(groups, group)
                     groups[group] = Any[]
@@ -223,6 +221,7 @@ function _addon_publication_plot(
         _addon_relabel_legend!(group_labels, groups, order, legend_labels)
         if legend_labels !== nothing
             for scoped_labels in panel_group_labels, group in keys(scoped_labels)
+
                 haskey(group_labels, group) && (scoped_labels[group] = group_labels[group])
             end
         end

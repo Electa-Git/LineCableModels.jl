@@ -1,9 +1,9 @@
-@testsnippet defs_earthprops begin
+@testsnippet current_earthprops begin
     const EP = LineCableModels.EarthProps
 end
 
 @testitem "EarthProps / ephemeral material validation and promotion" tags=[:unit] setup=[
-    defs_earthprops,
+    current_earthprops,
 ] begin
     using Measurements: Measurement, measurement, uncertainty, value
 
@@ -30,7 +30,7 @@ end
 end
 
 @testitem "EarthProps / static layer validation and promotion" tags=[:unit] setup=[
-    defs_earthprops,
+    current_earthprops,
 ] begin
     using Measurements: Measurement, measurement, uncertainty, value
 
@@ -64,15 +64,16 @@ end
 end
 
 @testitem "EarthProps / immutable static model ownership" tags=[:unit] setup=[
-    defs_earthprops,
+    current_earthprops,
 ] begin
     using Measurements: Measurement, measurement, uncertainty, value
 
-    model=@inferred build(EP.EarthModel, (
-        EP.EarthLayer(100.0, 10.0, 1.0, 20.0),
-        EP.EarthLayer(200.0, 15.0, 1.0, 40.0),
-        EP.EarthLayer(500.0, 20.0, 1.0)
-    ))
+    model=@inferred build(EP.EarthModel,
+        (
+            EP.EarthLayer(100.0, 10.0, 1.0, 20.0),
+            EP.EarthLayer(200.0, 15.0, 1.0, 40.0),
+            EP.EarthLayer(500.0, 20.0, 1.0)
+        ))
     @test model isa EP.EarthModel{Float64}
     @test !ismutabletype(typeof(model))
     @test !model.vertical_layers
@@ -88,10 +89,11 @@ end
     @test_throws MethodError setindex!(
         model.layers, EP.EarthLayer(800.0, 25.0, 1.0), 2
     )
-    @test_throws ArgumentError build(EP.EarthModel, (
-        EP.EarthLayer(100.0, 10.0, 1.0),
-        EP.EarthLayer(800.0, 25.0, 1.0, 10.0)
-    ))
+    @test_throws ArgumentError build(
+        EP.EarthModel, (
+            EP.EarthLayer(100.0, 10.0, 1.0),
+            EP.EarthLayer(800.0, 25.0, 1.0, 10.0)
+        ))
 
     converted=@inferred convert(
         EP.EarthModel{Float32}, EP.EarthModel(100.0, 10.0, 1.0)
@@ -104,11 +106,13 @@ end
     @test value(uncertain.layers[2].rho) == 100.0
     @test uncertainty(uncertain.layers[2].rho) == 0.0
 
-    vertical=build(EP.EarthModel, (
-        EP.EarthLayer(100.0, 10.0, 1.0),
-        EP.EarthLayer(200.0, 15.0, 1.0, 20.0),
-        EP.EarthLayer(500.0, 20.0, 1.0)
-    ); vertical_layers = true)
+    vertical=build(EP.EarthModel,
+        (
+            EP.EarthLayer(100.0, 10.0, 1.0),
+            EP.EarthLayer(200.0, 15.0, 1.0, 20.0),
+            EP.EarthLayer(500.0, 20.0, 1.0)
+        );
+        vertical_layers = true)
     @test vertical.vertical_layers
     @test length(vertical.layers) == 4
     @test_throws ArgumentError EP.EarthModel(
@@ -116,7 +120,7 @@ end
     )
 end
 
-@testitem "EarthProps / concise display" tags=[:unit] setup=[defs_earthprops] begin
+@testitem "EarthProps / concise display" tags=[:unit] setup=[current_earthprops] begin
     model=build(EP.EarthModel, (
         EP.EarthLayer(100.0, 10.0, 1.0, 20.0),
         EP.EarthLayer(500.0, 20.0, 1.0)
@@ -132,7 +136,7 @@ end
 end
 
 @testitem "EarthProps / static constitutive pass-through" tags=[:unit] setup=[
-    defs_earthprops,
+    current_earthprops,
 ] begin
     using Measurements: Measurement, measurement, uncertainty, value
 

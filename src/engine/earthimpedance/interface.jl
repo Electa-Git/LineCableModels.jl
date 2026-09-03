@@ -85,7 +85,7 @@ Formula(::Val{:default}; kwargs...) = Formula(Val(DEFAULT); kwargs...)
 
 function Formula(::Val{ID}; kwargs...) where {ID}
     identifier = Val(ID)
-    applicable(routes, identifier) || throw(ArgumentError(
+    ID in REGISTERED || throw(ArgumentError(
         "unknown earth-impedance formula :$ID"
     ))
     defaults = routes(identifier)

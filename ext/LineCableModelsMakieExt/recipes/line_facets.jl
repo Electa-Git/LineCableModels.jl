@@ -12,17 +12,19 @@ function _semantic_line_facets(published, requests)
         diagonal = _diagonal_request(requests[request_index])
         for (local_row, source_row) in enumerate(rows),
             (local_column, source_column) in enumerate(columns)
-            push!(facets, (;
-                request_index,
-                local_row,
-                local_column,
-                row = source_row,
-                column = diagonal ? source_row : source_column,
-                diagonal,
-                family = _line_request_family(requests[request_index]),
-                quantity = observation.quantity,
-                identity = request_identity(requests[request_index])
-            ))
+
+            push!(facets,
+                (;
+                    request_index,
+                    local_row,
+                    local_column,
+                    row = source_row,
+                    column = diagonal ? source_row : source_column,
+                    diagonal,
+                    family = _line_request_family(requests[request_index]),
+                    quantity = observation.quantity,
+                    identity = request_identity(requests[request_index])
+                ))
         end
     end
     return facets
@@ -54,8 +56,9 @@ end
 function _semantic_line_pages(object, facets, layout)
     mode = _semantic_line_layout_mode(object, facets, layout)
     if mode === :individual
-        return mode, [(; facets = Any[facet], positions = ((1, 1),),
-            dimensions = (1, 1)) for facet in facets]
+        return mode,
+        [(; facets = Any[facet], positions = ((1, 1),),
+             dimensions = (1, 1)) for facet in facets]
     end
 
     keys = Any[]
@@ -77,15 +80,16 @@ function _semantic_line_pages(object, facets, layout)
     matrix_size = size(object isa LineParameters ? Z(object) : object, 1)
     pages = NamedTuple[]
     for page_facets in grouped
-        positions, dimensions = if mode === :paired
+        positions,
+        dimensions = if mode === :paired
             requested = layout === nothing ? (1, length(page_facets)) : layout
             _addon_positions(length(page_facets), requested)
         else
             matrix_positions = Tuple((facet.row, facet.column) for facet in page_facets)
             length(unique(matrix_positions)) == length(matrix_positions) || throw(
                 ArgumentError(
-                    "the observation selection maps more than one curve to the same physical subplot",
-                ),
+                "the observation selection maps more than one curve to the same physical subplot",
+            ),
             )
             matrix_positions, (matrix_size, matrix_size)
         end
@@ -94,8 +98,11 @@ function _semantic_line_pages(object, facets, layout)
     return mode, pages
 end
 
-_semantic_coordinate_name(::LineCableModels.LineParameters{T, U, D}) where {
-    T, U, D <: LineCableModels.ModalDomain} = "mode"
+function _semantic_coordinate_name(::LineCableModels.LineParameters{
+        T, U, D}) where {
+        T, U, D <: LineCableModels.ModalDomain}
+    "mode"
+end
 _semantic_coordinate_name(_) = "conductor"
 
 function _semantic_quantity_title(object, facet)
@@ -149,7 +156,8 @@ function _semantic_page_option(value, page_index::Int, page_count::Int, name::Ab
     return value
 end
 
-function _semantic_panel_title(panel_titles, object, facet, panel_index::Int, panel_count::Int)
+function _semantic_panel_title(
+        panel_titles, object, facet, panel_index::Int, panel_count::Int)
     panel_titles === nothing && return _semantic_quantity_title(object, facet)
     panel_titles isa Function && return String(panel_titles(facet))
     if panel_titles isa AbstractDict
@@ -166,9 +174,10 @@ function _semantic_panel_title(panel_titles, object, facet, panel_index::Int, pa
         end
         return _semantic_quantity_title(object, facet)
     end
-    panel_titles isa Tuple || panel_titles isa AbstractVector || throw(ArgumentError(
-        "panel_titles must be a tuple, vector, dictionary, function, or nothing",
-    ))
+    panel_titles isa Tuple || panel_titles isa AbstractVector ||
+        throw(ArgumentError(
+            "panel_titles must be a tuple, vector, dictionary, function, or nothing",
+        ))
     length(panel_titles) == panel_count || throw(DimensionMismatch(
         "panel_titles must contain one entry per subplot on each generated figure",
     ))
@@ -228,7 +237,8 @@ function _addon_semantic_line_page(
 
     for (panel_index, (facet, position)) in enumerate(zip(page.facets, page.positions))
         observation = first(published).observations[facet.request_index]
-        xvalues = collect(Iterators.flatten(source.frequency.values for source in published))
+        xvalues = collect(Iterators.flatten(source.frequency.values
+        for source in published))
         yvalues = collect(Iterators.flatten(
             view(source.observations[facet.request_index].values,
                 facet.local_row, facet.local_column, :) for source in published
@@ -239,11 +249,11 @@ function _addon_semantic_line_page(
         yscales = _axis_scales(yvalues)
         xscale in xscales || throw(DomainError(
             xvalues,
-            "logarithmic frequency axes require positive finite data and uncertainty bounds",
+            "logarithmic frequency axes require positive finite data and uncertainty bounds"
         ))
         yscale in yscales || throw(DomainError(
             yvalues,
-            "logarithmic ordinate axes require positive finite data and uncertainty bounds",
+            "logarithmic ordinate axes require positive finite data and uncertainty bounds"
         ))
         panel = _addon_panel!(shell, position)
         row, column = position
@@ -255,7 +265,8 @@ function _addon_semantic_line_page(
             yticklabelsvisible = mode !== :matrix || column == 1,
             yticksvisible = mode !== :matrix || column == 1
         )
-        axis, axis_labels = _addon_axis!(
+        axis,
+        axis_labels = _addon_axis!(
             panel.content,
             xobservation,
             yobservation;
@@ -320,8 +331,9 @@ function _addon_semantic_line_page(
     end
     length(xsetters) == length(axes) || empty!(xsetters)
     length(ysetters) == length(axes) || empty!(ysetters)
-    mode === :paired && length(axes) > 1 && _addon_responsive_axis_grid!(
-        shell.figure, shell.canvas, panels, axes, page.dimensions)
+    mode === :paired && length(axes) > 1 &&
+        _addon_responsive_axis_grid!(
+            shell.figure, shell.canvas, panels, axes, page.dimensions)
     return _addon_finish!(
         shell, axes, resets, xsetters, ysetters, groups, group_order, group_labels;
         title,
@@ -352,7 +364,6 @@ function _addon_line_pages(
         figure_title = nothing,
         title_attributes::NamedTuple = (;),
         panel_titles = nothing,
-        labels = nothing,
         freq_unit = :base,
         length_unit = :kilo,
         quantity_units = nothing,
@@ -380,10 +391,6 @@ function _addon_line_pages(
     legend_attributes isa NamedTuple || throw(ArgumentError(
         "legend_attributes must be a NamedTuple",
     ))
-    panel_titles === nothing || labels === nothing || throw(ArgumentError(
-        "use panel_titles; labels is only a compatibility alias",
-    ))
-    resolved_panel_titles = panel_titles === nothing ? labels : panel_titles
     explicit_source_labels = series_labels !== nothing
     source_labels = explicit_source_labels ?
                     _comparison_labels(series_labels, length(sources)) :
@@ -424,28 +431,29 @@ function _addon_line_pages(
             (page_title = "$page_title — $automatic_title")
         visible_title = _semantic_page_option(
             figure_title, page_index, length(pages), "figure_title")
-        push!(built, with_theme(_addon_theme(export_theme = export_theme)) do
-            _addon_semantic_line_page(
-                first(sources), published, source_labels, page, mode;
-                title = page_title,
-                figure_title = visible_title,
-                title_attributes,
-                panel_titles = resolved_panel_titles,
-                fig_size,
-                xscale,
-                yscale,
-                legend_position = effective_legend_position,
-                legend_anchor,
-                legend_title,
-                legend_attributes,
-                legend_overflow,
-                panel_legends,
-                controls,
-                display_plot,
-                export_theme,
-                open_export
-            )
-        end)
+        push!(built,
+            with_theme(_addon_theme(export_theme = export_theme)) do
+                _addon_semantic_line_page(
+                    first(sources), published, source_labels, page, mode;
+                    title = page_title,
+                    figure_title = visible_title,
+                    title_attributes,
+                    panel_titles,
+                    fig_size,
+                    xscale,
+                    yscale,
+                    legend_position = effective_legend_position,
+                    legend_anchor,
+                    legend_title,
+                    legend_attributes,
+                    legend_overflow,
+                    panel_legends,
+                    controls,
+                    display_plot,
+                    export_theme,
+                    open_export
+                )
+            end)
     end
     return length(built) == 1 ? only(built) : built
 end
@@ -455,21 +463,13 @@ function _addon_semantic_line_plots(
         frequencies = nothing,
         requests,
         series_labels = nothing,
-        legend = nothing,
-        legend_labels = nothing,
         kwargs...
 )
-    supplied_labels = count(!isnothing, (series_labels, legend_labels, legend))
-    supplied_labels <= 1 || throw(ArgumentError(
-        "use series_labels; legend_labels and legend are compatibility aliases",
-    ))
-    resolved_labels = series_labels !== nothing ? series_labels :
-                      legend_labels !== nothing ? legend_labels : legend
     return _addon_line_pages(
         (object,);
         frequencies,
         requests,
-        series_labels = resolved_labels,
+        series_labels,
         kwargs...
     )
 end

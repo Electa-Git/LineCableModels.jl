@@ -37,7 +37,8 @@ include("interface.jl")
 include("homogeneous.jl")
 
 #! explicit-imports: off
-const FORMULAS = let
+const REGISTERED,
+FORMULAS = let
     directory = joinpath(@__DIR__, "formulas")
     Base.include_dependency(directory)
     files = sort!(filter(
@@ -45,7 +46,7 @@ const FORMULAS = let
         readdir(directory; join = true)
     ))
     identifiers = Symbol[]
-    discovered = Set{Symbol}()
+    discovered = Symbol[]
     for file in files
         identifier = include(file)
         identifier isa Symbol || error(
@@ -58,7 +59,7 @@ const FORMULAS = let
         propagation(Val(identifier)) === Val(:backend) ||
             push!(identifiers, identifier)
     end
-    Tuple(identifiers)
+    Tuple(discovered), Tuple(identifiers)
 end
 #! explicit-imports: on
 

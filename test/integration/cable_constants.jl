@@ -147,7 +147,8 @@
         options = (trace = true,)
     )
     primitive=details(traced).trace
-    for (frequency_index, (frequency, expected)) in enumerate((
+    for (frequency_index,
+        (frequency, expected)) in enumerate((
         (50.0, constants),
         (60.0, sixty_hertz)
     ))
@@ -282,8 +283,8 @@
 
     function many_conductor_design()
         parts=AbstractCablePart[
-            Group(:terminal_1, Region(:metal_1, Disk(0.005), copper))
-        ]
+        Group(:terminal_1, Region(:metal_1, Disk(0.005), copper))
+]
         outer_radius=0.005
         for index in 2:6
             dielectric_outer=outer_radius+0.0005
@@ -334,7 +335,7 @@
 
     problem_space=CableConstantsProblem(designs; frequency = 50.0)
     @test problem_space isa Gridspace{CableConstantsProblem}
-    selected_problem=first(LineCableModels.ParametricBuilder.points(problem_space))
+    selected_problem=first(LineCableModels.points(problem_space))
     @test selected_problem isa LineCableModels.Gridpoint{CableConstantsProblem}
     calculated=compute(
         ParametricProblem(problem_space),

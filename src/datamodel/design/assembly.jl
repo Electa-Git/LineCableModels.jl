@@ -1,4 +1,5 @@
-struct _AssemblyMember{E <: AbstractCablePart, P <: Pose2}
+"Store one explicitly placed member of an `Assembly`."
+struct AssemblyMember{E <: AbstractCablePart, P <: Pose2}
     item::E
     at::P
 end
@@ -10,10 +11,10 @@ The member boundaries remain exact. In particular, an assembly of sector
 cores is not replaced by a circular envelope. Consumers that require one
 containing domain must request an explicit `Enclosure`.
 """
-struct _AssemblyShape{T <: Real, S <: Tuple} <: AbstractShape{T}
+struct AssemblyShape{T <: Real, S <: Tuple} <: AbstractShape{T}
     members::S
 
-    function _AssemblyShape(members::S) where {S <: Tuple}
+    function AssemblyShape(members::S) where {S <: Tuple}
         isempty(members) && throw(ArgumentError(
             "an assembly boundary requires at least one member"
         ))
@@ -25,14 +26,15 @@ struct _AssemblyShape{T <: Real, S <: Tuple} <: AbstractShape{T}
     end
 end
 
-boundary(shape::_AssemblyShape) = shape
-area(shape::_AssemblyShape) = sum(area, shape.members)
-perimeter(shape::_AssemblyShape) = sum(perimeter, shape.members)
-support(shape::_AssemblyShape, angle::Real) =
+boundary(shape::AssemblyShape) = shape
+area(shape::AssemblyShape) = sum(area, shape.members)
+perimeter(shape::AssemblyShape) = sum(perimeter, shape.members)
+function support(shape::AssemblyShape, angle::Real)
     maximum(member -> support(member, angle), shape.members)
-support(shape::_AssemblyShape) = maximum(support, shape.members)
+end
+support(shape::AssemblyShape) = maximum(support, shape.members)
 
-function centroid(shape::_AssemblyShape)
+function centroid(shape::AssemblyShape)
     areas = map(area, shape.members)
     total = sum(areas)
     centres = map(centroid, shape.members)
@@ -42,13 +44,15 @@ function centroid(shape::_AssemblyShape)
     )
 end
 
-resolve(at::Pose2, shape::_AssemblyShape) =
-    _AssemblyShape(map(member -> resolve(at, member), shape.members))
+function resolve(at::Pose2, shape::AssemblyShape)
+    AssemblyShape(map(member -> resolve(at, member), shape.members))
+end
 
-_AssemblyMember(item::AbstractCablePart) = _AssemblyMember(item, Pose2(0, 0, 0))
+AssemblyMember(item::AbstractCablePart) = AssemblyMember(item, Pose2(0, 0, 0))
 
-Base.:(==)(left::_AssemblyMember, right::_AssemblyMember) =
+function Base.:(==)(left::AssemblyMember, right::AssemblyMember)
     left.item == right.item && left.at == right.at
+end
 
 """
 $(TYPEDEF)
@@ -87,10 +91,11 @@ struct Assembly{A, E, P, H, C, N} <: AbstractCablePart
         at isa Pose2 || throw(ArgumentError("assembly pose must resolve to Pose2"))
         repeated = item isa AbstractCablePart
         explicit = item isa Tuple && !isempty(item) &&
-                   all(member -> member isa _AssemblyMember, item)
-        repeated || explicit || throw(ArgumentError(
-            "assembly item must be one prototype or explicit placed members"
-        ))
+                   all(member -> member isa AssemblyMember, item)
+        repeated || explicit ||
+            throw(ArgumentError(
+                "assembly item must be one prototype or explicit placed members"
+            ))
         if repeated
             pattern === nothing && throw(ArgumentError(
                 "a repeated assembly requires a placement pattern"
@@ -100,23 +105,25 @@ struct Assembly{A, E, P, H, C, N} <: AbstractCablePart
                     "assembly names must be exact symbols or nothing"
                 ))
             names === nothing ||
-                all(name -> !isempty(String(name)), names) || throw(ArgumentError(
+                all(name -> !isempty(String(name)), names) ||
+                throw(ArgumentError(
                     "assembly names cannot be empty"
                 ))
         else
             pattern === nothing && path === nothing && compact === nothing &&
-                names === nothing || throw(ArgumentError(
-                    "explicit assembly members own their poses and terminal identities"
-                ))
+            names === nothing || throw(ArgumentError(
+                "explicit assembly members own their poses and terminal identities"
+            ))
         end
         return new{A, E, P, H, C, N}(at, item, pattern, path, compact, names)
     end
 end
 
-Base.:(==)(left::Assembly, right::Assembly) =
+function Base.:(==)(left::Assembly, right::Assembly)
     left.at == right.at && left.item == right.item &&
-    left.pattern == right.pattern && left.path == right.path &&
-    left.compact == right.compact && left.names == right.names
+        left.pattern == right.pattern && left.path == right.path &&
+        left.compact == right.compact && left.names == right.names
+end
 
 function _append_assembly_member!(
         regions::Vector{PlacedRegion},
@@ -136,25 +143,26 @@ function _append_assembly_member!(
         extent = max(extent, support(local_primitive))
         patterns = pattern === nothing ? source.placement.patterns :
                    (source.placement.patterns...,
-                    (pattern = pattern, member = member, pose = member_at))
+            (pattern = pattern, member = member, pose = member_at))
         paths = path === nothing ? source.paths :
                 (source.paths..., (path = path, radius = radius))
-        push!(regions, PlacedRegion(
-            source.source,
-            resolve(assembly_at, local_primitive),
-            terminal,
-            (patterns = patterns,),
-            paths
-        ))
+        push!(regions,
+            PlacedRegion(
+                source.source,
+                resolve(assembly_at, local_primitive),
+                terminal,
+                (patterns = patterns,),
+                paths
+            ))
     end
     return extent
 end
 
 function _resolve_repeated(assembly::Assembly)
     child = resolve(EmptyBoundary(), assembly.item)
-    child_terminals = unique(Symbol[
-        source.terminal for source in child.regions if source.terminal !== nothing
-    ])
+    child_terminals = unique(Symbol[source.terminal
+                                    for source in child.regions
+                                    if source.terminal !== nothing])
     length(child_terminals) <= 1 || throw(ArgumentError(
         "a repeated assembly prototype may resolve at most one terminal"
     ))
@@ -196,7 +204,7 @@ function _resolve_repeated(assembly::Assembly)
         )
         push!(boundaries, resolve(assembly.at * pose, boundary(child)))
     end
-    return CableGeometry(regions, _AssemblyShape(Tuple(boundaries)))
+    return CableGeometry(regions, AssemblyShape(Tuple(boundaries)))
 end
 
 function _resolve_explicit(assembly::Assembly)
@@ -205,9 +213,9 @@ function _resolve_explicit(assembly::Assembly)
     boundaries = AbstractShape[]
     for member in assembly.item
         child = resolve(EmptyBoundary(), member.item)
-        child_terminals = unique(Symbol[
-            source.terminal for source in child.regions if source.terminal !== nothing
-        ])
+        child_terminals = unique(Symbol[source.terminal
+                                        for source in child.regions
+                                        if source.terminal !== nothing])
         for terminal in child_terminals
             terminal in terminals && throw(ArgumentError(
                 "explicit assembly terminal :$terminal is not unique"
@@ -219,13 +227,15 @@ function _resolve_explicit(assembly::Assembly)
         )
         push!(boundaries, resolve(assembly.at * member.at, boundary(child)))
     end
-    return CableGeometry(regions, _AssemblyShape(Tuple(boundaries)))
+    return CableGeometry(regions, AssemblyShape(Tuple(boundaries)))
 end
 
-resolve(
-    ::EmptyBoundary,
-    assembly::Assembly{<:Any, <:AbstractCablePart}
-) = _resolve_repeated(assembly)
+function resolve(
+        ::EmptyBoundary,
+        assembly::Assembly{<:Any, <:AbstractCablePart}
+)
+    _resolve_repeated(assembly)
+end
 
 resolve(
     ::EmptyBoundary,

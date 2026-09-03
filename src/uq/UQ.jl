@@ -8,7 +8,7 @@ module UQ
 
 export LinearError, MonteCarlo, LinearErrorResult, MonteCarloResult
 export SampleSummary, HistogramDensity
-export result, statistics, samples, histograms, uncertain
+export statistics, samples, histograms, uncertain
 export root_seed, point_seed, trial_count
 export confidence, cdf_tolerance, sampling_distribution
 export cumulative_probability, quantile_pairs
@@ -17,14 +17,15 @@ import Random
 import Statistics
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..LineCableModels: basis, frequencies, R, L, C
+import ..LineCableModels: points, realize, realize_arguments
 import ..DataModel
 import ..Engine
 import ..Grammar: compute, computation_options, computation_details, details,
-                  observe, observables, check_core_result, computation_owner,
+                  observe, observables, check_core_result,
                   detach, publication_table, request_identity, request_indices,
                   observation_indices
 import ..ParametricBuilder
-import ..ParametricBuilder: result, traverse
+import ..ParametricBuilder: traverse
 import ..Units
 import ..TextDisplay
 using ..Grammar:

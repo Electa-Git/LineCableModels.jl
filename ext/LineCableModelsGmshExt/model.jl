@@ -129,9 +129,10 @@ const FEM_FLOAT_TAGS = ("Float16", "Float32", "Float64", "BigFloat")
 function _fem_float64_scalar(value::AbstractDict)
     scalar = ImportExport.deserialize_value(value)
     converted = Float64(scalar)
-    isfinite(scalar) && !isfinite(converted) && throw(OverflowError(
-        "finite value $scalar is outside the Float64 range"
-    ))
+    isfinite(scalar) && !isfinite(converted) &&
+        throw(OverflowError(
+            "finite value $scalar is outside the Float64 range"
+        ))
     return ImportExport.serialize_value(converted)
 end
 
@@ -145,8 +146,8 @@ function _fem_float64_document(value::AbstractDict)
         marker in FEM_FLOAT_TAGS && return _fem_float64_scalar(value)
         marker == "Measurement" && return _fem_float64_document(
             get(value, "value") do
-                throw(ArgumentError("serialized Measurement has no nominal value"))
-            end
+            throw(ArgumentError("serialized Measurement has no nominal value"))
+        end
         )
         marker == "Complex" && return Dict(
             "__type__" => "Complex",
@@ -237,36 +238,38 @@ function _validate_material(material, object_id::String)
     return nothing
 end
 
+function _validate_fem_shape(
+        shape::Union{
+            DataModel.Disk,
+            DataModel.Rectangle,
+            DataModel.Ellipse,
+            DataModel.Sector,
+            DataModel.Annulus,
+            DataModel.Polygon,
+            DataModel.RoundedSectorShape},
+        object_id::String
+)
+    return nothing
+end
+
+function _validate_fem_shape(shape::DataModel.ShellShape, object_id::String)
+    _validate_fem_shape(shape.inner, object_id)
+    _validate_fem_shape(shape.outer, object_id)
+    return nothing
+end
+
+function _validate_fem_shape(shape::DataModel.DifferenceShape, object_id::String)
+    _validate_fem_shape(shape.outer, object_id)
+    foreach(hole -> _validate_fem_shape(hole, object_id), shape.holes)
+    return nothing
+end
+
+function _validate_fem_shape(shape::DataModel.AssemblyShape, object_id::String)
+    foreach(member -> _validate_fem_shape(member, object_id), shape.members)
+    return nothing
+end
+
 function _validate_fem_shape(shape, object_id::String)
-    if shape isa Union{
-        DataModel.Disk,
-        DataModel.Rectangle,
-        DataModel.Ellipse,
-        DataModel.Sector,
-        DataModel.Annulus,
-        DataModel.Polygon,
-        DataModel.RoundedSectorShape
-    }
-        return nothing
-    end
-    if hasproperty(shape, :inner) && hasproperty(shape, :outer)
-        _validate_fem_shape(getproperty(shape, :inner), object_id)
-        _validate_fem_shape(getproperty(shape, :outer), object_id)
-        return nothing
-    end
-    if hasproperty(shape, :holes) && hasproperty(shape, :outer)
-        _validate_fem_shape(getproperty(shape, :outer), object_id)
-        for hole in getproperty(shape, :holes)
-            _validate_fem_shape(hole, object_id)
-        end
-        return nothing
-    end
-    if hasproperty(shape, :members)
-        for member in getproperty(shape, :members)
-            _validate_fem_shape(member, object_id)
-        end
-        return nothing
-    end
     _fem_error(
         :unsupported,
         object_id,
@@ -362,7 +365,7 @@ function _fem_cable_outer_mesh_sizes(
             "a cable has no resolved material regions"
         )
         boundary = cable_boundaries[cable_index]
-        sizes[cable_index] = if hasproperty(boundary, :members)
+        sizes[cable_index] = if boundary isa DataModel.AssemblyShape
             minimum(region_plans[index].mesh_size for index in indices)
         else
             region_plans[last(indices)].mesh_size
@@ -391,30 +394,30 @@ function _fem_mesh_plans(
         infinite_mesh_size = 2domain_mesh_size
         cable_interface_mesh_sizes = T[]
         for (cable_index, (design, position)) in enumerate(zip(
-                problem.system.designs, problem.system.positions
+            problem.system.designs, problem.system.positions
         ))
             distance = max(
                 zero(T), abs(position.y) - LineCableModels.outer_radius(design)
             )
-            push!(cable_interface_mesh_sizes, min(
-                domain_mesh_size,
-                cable_outer_mesh_sizes[cable_index] +
-                (growth_factor - one(T)) * distance
-            ))
+            push!(cable_interface_mesh_sizes,
+                min(
+                    domain_mesh_size,
+                    cable_outer_mesh_sizes[cable_index] +
+                    (growth_factor - one(T)) * distance
+                ))
         end
-        interface_mesh_size = minimum([
-            domain_mesh_size; cable_interface_mesh_sizes
-        ])
-        push!(plans, FEMMeshPlan(
-            frequency_index,
-            frequency,
-            domain_radius,
-            shell_outer_radius,
-            domain_mesh_size,
-            infinite_mesh_size,
-            interface_mesh_size,
-            cable_interface_mesh_sizes
-        ))
+        interface_mesh_size = minimum([domain_mesh_size; cable_interface_mesh_sizes])
+        push!(plans,
+            FEMMeshPlan(
+                frequency_index,
+                frequency,
+                domain_radius,
+                shell_outer_radius,
+                domain_mesh_size,
+                infinite_mesh_size,
+                interface_mesh_size,
+                cable_interface_mesh_sizes
+            ))
     end
     return plans
 end
@@ -577,14 +580,16 @@ function _resolved_fem_model(
     end
     centre_x = convert(T, sum(position.x for position in system.positions) /
                           length(system.positions))
-    maximum_cable_distance = maximum((
-        hypot(
-            system.positions[right].x - system.positions[left].x,
-            system.positions[right].y - system.positions[left].y
-        )
+    maximum_cable_distance = maximum(
+        (
+            hypot(
+                system.positions[right].x - system.positions[left].x,
+                system.positions[right].y - system.positions[left].y
+            )
         for left in eachindex(system.positions)
         for right in (left + 1):length(system.positions)
-    ); init = zero(T))
+        );
+        init = zero(T))
     envelope_radius = maximum(
         hypot(position.x - centre_x, position.y) +
         LineCableModels.outer_radius(design)

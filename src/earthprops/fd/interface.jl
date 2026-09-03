@@ -53,7 +53,7 @@ end
 
 function Formula(::Val{ID}; route = nothing, kwargs...) where {ID}
     tag = Val(ID)
-    applicable(assumptions, tag) || throw(ArgumentError(
+    ID in FORMULAS || throw(ArgumentError(
         "unknown earth-property formula :$ID"
     ))
     defaults = assumptions(tag)
@@ -114,8 +114,9 @@ end
 constitutive(::Nothing, material::EarthMaterial, ::Real) = material
 
 "Evaluate one registered frequency-dependent earth constitutive relation."
-constitutive(formula::Formula, material::EarthMaterial, frequency::Real) =
+function constitutive(formula::Formula, material::EarthMaterial, frequency::Real)
     formula(material, frequency)
+end
 
 "Return vacuum permittivity represented in the scalar type of `value` \\[F/m\\]."
 vacuum_permittivity(value) = one(value) * 88541878128 * (one(value) * 10)^(-22)

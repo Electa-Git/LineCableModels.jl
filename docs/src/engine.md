@@ -340,8 +340,8 @@ observations with the qualified `Units.family(::Quantity)` metadata. Series and
 shunt identities return `Val(:series)` and `Val(:shunt)` respectively. Neither
 the plotting extension nor ReportBuilder owns another quantity or family map.
 
-The qualified `Grammar.validate_observables` method is the single entitlement
-check used by direct publication and generic reports. It validates the source
+The qualified `Grammar.validate_observables` method is the single request
+validation used by direct publication and generic reports. It validates the source
 declaration, request identities, and positional unit alignment.
 `Grammar.unit_targets` resolves a tuple of requests to aligned `UnitExpr`
 values. A unit override may be `nothing`, a metric-prefix `Symbol`, an explicit
@@ -515,13 +515,10 @@ file. Discovery happens at module load; numerical dispatch remains static.
 
 [`ComputationDetails`](@ref) is an alias for `NamedTuple`.
 [`computation_details`](@ref) reads the fixed-key details tuple owned by a
-registered computation owner. There is no general method: an unregistered
-owner raises `MethodError`.
-
-Higher-order calculations normalize the inner formulation once through the
-qualified `Grammar.computation_owner` method before collecting retained
-records. This produces the unparameterized type token required by the existing
-`Val(OwnerType)` details contract; it is not a registry.
+registered formulation type. There is no general method: an unregistered
+formulation raises `MethodError`. Higher-order calculations dispatch directly
+on `typeof(formulation)` while collecting retained records; no owner registry
+or wrapper token intervenes.
 
 [`ParametricResult`](@ref), [`LinearErrorResult`](@ref), and
 [`MonteCarloResult`](@ref) store the concrete details tuple type. Retention is
@@ -549,7 +546,7 @@ calculation represented by a formulation. Dispatch uses the formulation owner
 type rather than the public construction selector:
 
 ```julia
-formulation_options(Val(LineParametersFormulation), options)
+formulation_options(LineParametersFormulation, options)
 ```
 
 The default line-parameter formulation owns:
@@ -657,7 +654,8 @@ import LineCableModels:
     AbstractCoreResult,
     ComputationOptions,
     FormulationOptions,
-    computation_owner,
+    ComputationDetails,
+    computation_details,
     computation_options,
     compute,
     formulation_options
@@ -669,7 +667,7 @@ struct ExternalFormulation{O <: NamedTuple} <: AbstractFormulation
 end
 
 function formulation_options(
-    ::Val{ExternalFormulation},
+    ::Type{ExternalFormulation},
     options::NamedTuple,
 )::FormulationOptions
     isempty(options) || throw(ArgumentError("unsupported formulation option"))
@@ -677,7 +675,7 @@ function formulation_options(
 end
 
 function computation_options(
-    ::Val{ExternalEngine},
+    ::Type{ExternalEngine},
     options::NamedTuple,
 )::ComputationOptions
     unknown = filter(key -> key != :tolerance, keys(options))
@@ -687,15 +685,13 @@ function computation_options(
     return (tolerance = Float64(normalized.tolerance),)
 end
 
-computation_owner(::ExternalFormulation) = ExternalEngine
-
 function compute(
     ::ExternalEngine,
     problem,
     formulation::ExternalFormulation;
     options::NamedTuple = (;),
 )
-    execution = computation_options(Val(ExternalEngine), options)
+    execution = computation_options(ExternalEngine, options)
     # Use `problem`, `formulation`, and `execution` here.
 end
 ```
@@ -717,7 +713,7 @@ struct ExternalResult <: AbstractCoreResult
 end
 
 function computation_details(
-    ::Val{ExternalEngine},
+    ::Type{<:ExternalFormulation},
     output::ExternalResult,
 )::ComputationDetails
     return (
@@ -739,10 +735,10 @@ the fields.
 
 ## Reports and XLSX output
 
-[`report`](@ref) executes `entitle`, `select`, `tabulate`, `illustrate`,
-`encode`, `write`, and `finish`. In-memory definitions implement explicit
-no-op `encode` and `write` methods and return `ReportArtifact.output ===
-nothing`.
+[`report`](@ref) executes `select`, `tabulate`, `illustrate`, `encode`, and
+`write`, then constructs a `ReportArtifact`. `select` and `tabulate` are
+required. Optional stages inherit the abstract-root no-op and in-memory reports
+return `ReportArtifact.output === nothing`.
 
 [`XLSXReportDefinition`](@ref) owns the human-facing line-parameter workbook:
 

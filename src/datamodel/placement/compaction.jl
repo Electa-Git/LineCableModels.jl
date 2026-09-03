@@ -37,12 +37,15 @@ Declare one diameter factor or a homogeneous schedule of diameter factors.
 - A `DiameterFactor`, a tuple of `DiameterFactor` values, or the corresponding
   `Gridspace` when an explicit finite source is supplied.
 """
-DiameterFactor(k; combine::Symbol = :product) =
-    _construction(DiameterFactor, _diameter_factor, (k,); combine)
-DiameterFactor(values::Union{Tuple, AbstractVector}; combine::Symbol = :product) =
+function DiameterFactor(k; combine::Symbol = :product)
+    parameterize(DiameterFactor, _diameter_factor, (k,); combine)
+end
+function DiameterFactor(values::Union{Tuple, AbstractVector}; combine::Symbol = :product)
     _normalize_schedule(DiameterFactor, values; combine)
-DiameterFactor(first, second, remaining...; combine::Symbol = :product) =
+end
+function DiameterFactor(first, second, remaining...; combine::Symbol = :product)
     _normalize_schedule(DiameterFactor, (first, second, remaining...); combine)
+end
 
 """
 $(TYPEDEF)
@@ -85,12 +88,15 @@ factors.
 - A `FillFactor`, a tuple of `FillFactor` values, or the corresponding
   `Gridspace` when an explicit finite source is supplied.
 """
-FillFactor(η; combine::Symbol = :product) =
-    _construction(FillFactor, _fill_factor, (η,); combine)
-FillFactor(values::Union{Tuple, AbstractVector}; combine::Symbol = :product) =
+function FillFactor(η; combine::Symbol = :product)
+    parameterize(FillFactor, _fill_factor, (η,); combine)
+end
+function FillFactor(values::Union{Tuple, AbstractVector}; combine::Symbol = :product)
     _normalize_schedule(FillFactor, values; combine)
-FillFactor(first, second, remaining...; combine::Symbol = :product) =
+end
+function FillFactor(first, second, remaining...; combine::Symbol = :product)
     _normalize_schedule(FillFactor, (first, second, remaining...); combine)
+end
 
 """
 $(TYPEDEF)
@@ -105,12 +111,13 @@ struct TabulatedCompaction{D}
 end
 
 _tabulated_compaction(data) = TabulatedCompaction{typeof(data)}(data)
-TabulatedCompaction(data; combine::Symbol = :product) = _construction(
-    TabulatedCompaction, _tabulated_compaction, (data,); combine
-)
+function TabulatedCompaction(data; combine::Symbol = :product)
+    parameterize(
+        TabulatedCompaction, _tabulated_compaction, (data,); combine
+    )
+end
 
-Base.:(==)(left::TabulatedCompaction, right::TabulatedCompaction) =
-    left.data == right.data
+Base.:(==)(left::TabulatedCompaction, right::TabulatedCompaction) = left.data == right.data
 
 """
 $(TYPEDEF)
@@ -123,12 +130,13 @@ struct AffineCompaction{M}
 end
 
 _affine_compaction(map) = AffineCompaction{typeof(map)}(map)
-AffineCompaction(map; combine::Symbol = :product) = _construction(
-    AffineCompaction, _affine_compaction, (map,); combine
-)
+function AffineCompaction(map; combine::Symbol = :product)
+    parameterize(
+        AffineCompaction, _affine_compaction, (map,); combine
+    )
+end
 
-Base.:(==)(left::AffineCompaction, right::AffineCompaction) =
-    left.map == right.map
+Base.:(==)(left::AffineCompaction, right::AffineCompaction) = left.map == right.map
 
 function _fillfactor_placements(
         pattern::Ring,
@@ -148,13 +156,11 @@ function _fillfactor_placements(
         span
     )
     step = count == 1 ? zero(pattern.span) : pattern.span / count
-    return _ResolvedPlacement[
-        _ResolvedPlacement(
-            Pose2(0, 0, pattern.φ0 + index * step),
-            section
-        )
-        for index in 0:(count - 1)
-    ]
+    return _ResolvedPlacement[_ResolvedPlacement(
+                                  Pose2(0, 0, pattern.φ0 + index * step),
+                                  section
+                              )
+                              for index in 0:(count - 1)]
 end
 
 function placements(
@@ -224,8 +230,10 @@ function _fillfactor_capacity(
     return max(0, floor(Int, count + 8eps(float(count))))
 end
 
-capacity(pattern::Ring, item::Disk, factor::FillFactor) =
+function capacity(pattern::Ring, item::Disk, factor::FillFactor)
     _fillfactor_capacity(pattern, pi * item.r^2, item.r, factor)
+end
 
-capacity(pattern::Ring, item::Rectangle, factor::FillFactor) =
+function capacity(pattern::Ring, item::Rectangle, factor::FillFactor)
     _fillfactor_capacity(pattern, item.w * item.h, item.h / 2, factor)
+end

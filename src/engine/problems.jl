@@ -365,7 +365,7 @@ function _line_formulation(
         earth_admittance = _earth_admittance_formula(earth_admittance),
         earth_properties = _earth_properties_formula(earth_properties),
         equivalent_earth = _equivalent_earth(equivalent_earth),
-        options = formulation_options(Val(LineParametersFormulation), options)
+        options = formulation_options(LineParametersFormulation, options)
     )
 end
 
@@ -411,7 +411,7 @@ function Formulation(;
         equivalent_earth,
         options
     )
-    return _construction(
+    return parameterize(
         LineParametersFormulation,
         _line_formulation,
         values;

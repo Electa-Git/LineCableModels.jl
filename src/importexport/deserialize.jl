@@ -63,7 +63,8 @@ function _decode_material_record(value)
         _field(value, "tan_delta"),
         _field(value, "sigma_solar")
     )
-    build = (selected_kind, properties...) -> Material(
+    build = (selected_kind,
+        properties...) -> Material(
         selected_kind isa Symbol ? selected_kind : Symbol(selected_kind),
         properties...
     )
@@ -337,7 +338,7 @@ function _decode_part(::Val{:assembly}, value, materials)
             member isa AbstractDict || throw(ArgumentError(
                 "explicit assembly members must be objects"
             ))
-            DataModel._AssemblyMember(
+            DataModel.AssemblyMember(
                 _decode_part(_required(member, "item", "assembly member"), materials),
                 deserialize_value(_required(member, "at", "assembly member"))
             )
@@ -400,7 +401,8 @@ function _decode_design_resolved(value, materials)
         haskey(value, "nominal_data") ?
         _decode_named_tuple(_required(value, "nominal_data", "cable_design")) : (;)
     )
-    caller = (cable_id, root, nominal_data) -> build(
+    caller = (
+        cable_id, root, nominal_data) -> build(
         CableDesign, cable_id, root; nominal_data
     )
     return _decoded_target(CableDesign, caller, values)

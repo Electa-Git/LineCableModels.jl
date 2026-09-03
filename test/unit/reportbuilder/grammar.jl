@@ -1,6 +1,5 @@
 @testitem "ReportBuilder / grammar / publication and stage order" tags=[:unit] begin
     using DataFrames
-    using RequiredInterfaces: NotImplementedError
 
     const RB = LineCableModels.ReportBuilder
     const U = LineCableModels.Units
@@ -61,27 +60,8 @@
         TableReportDefinition((identity,)),
         :unsupported
     )
-    publication_error=try
-        LineCableModels.observables(source, (identity,))
-        nothing
-    catch error
-        error
-    end
-    entitlement_error=try
-        RB.entitle(TableReportDefinition((identity,)), source)
-        nothing
-    catch error
-        error
-    end
-    @test typeof(entitlement_error) === typeof(publication_error)
-    @test sprint(showerror, entitlement_error) == sprint(showerror, publication_error)
-
     struct StageReport <: RB.AbstractReportDefinition end
     const report_stage_calls = Symbol[]
-    function RB.entitle(::StageReport, source)
-        push!(report_stage_calls, :entitle)
-        return source
-    end
     function RB.select(::StageReport, source)
         push!(report_stage_calls, :select)
         return :published
@@ -109,50 +89,25 @@
         push!(report_stage_calls, :write)
         return :written
     end
-    function RB.finish(
-            ::StageReport,
-            source,
-            published,
-            table,
-            illustration,
-            encoded,
-            written
-    )
-        push!(report_stage_calls, :finish)
-        return (; table, illustration, encoded, written)
-    end
 
     completed = report(StageReport(), :source)
-    @test completed == (
-        table = :table,
-        illustration = :illustration,
-        encoded = :encoded,
-        written = :written
-    )
+    @test completed isa ReportArtifact
+    @test completed.table === :table
+    @test completed.illustration === :illustration
+    @test completed.output === :written
     @test report_stage_calls == [
-        :entitle,
         :select,
         :tabulate,
         :illustrate,
         :encode,
-        :write,
-        :finish
+        :write
     ]
 
-    struct MissingEncodeReport <: RB.AbstractReportDefinition end
-    RB.entitle(::MissingEncodeReport, source) = source
-    RB.select(::MissingEncodeReport, source) = :published
-    RB.tabulate(::MissingEncodeReport, source, published) = :table
-    RB.illustrate(::MissingEncodeReport, source, published, table) = nothing
-    @test_throws NotImplementedError report(MissingEncodeReport(), :source)
-
-    struct MissingWriteReport <: RB.AbstractReportDefinition end
-    RB.entitle(::MissingWriteReport, source) = source
-    RB.select(::MissingWriteReport, source) = :published
-    RB.tabulate(::MissingWriteReport, source, published) = :table
-    RB.illustrate(::MissingWriteReport, source, published, table) = nothing
-    RB.encode(::MissingWriteReport, source, published, table, illustration) = :encoded
-    @test_throws NotImplementedError report(MissingWriteReport(), :source)
+    struct MinimalReport <: RB.AbstractReportDefinition end
+    RB.select(::MinimalReport, source) = :published
+    RB.tabulate(::MinimalReport, source, published) = :table
+    minimal = report(MinimalReport(), :source)
+    @test minimal == ReportArtifact(:table, nothing, nothing)
 end
 
 @testitem "ReportBuilder / XLSX / workbook pipeline and delegation" tags=[:integration] setup=[

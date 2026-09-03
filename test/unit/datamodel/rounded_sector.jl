@@ -121,12 +121,7 @@ end
 
     first_region=first(design.geometry.regions)
     @test first_region.source.primitive == primitive
-    preview_shape=only(DM.preview_shapes(
-        first_region, (
-            include_label = false,
-            label = nothing,
-            group = :rounded_sector
-        )))
+    preview_shape=only(DM.preview_shapes(first_region))
     @test length(preview_shape.geometry.exterior) > 6
     @test all(point -> all(isfinite, point), preview_shape.geometry.exterior)
 

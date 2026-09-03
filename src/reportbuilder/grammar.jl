@@ -57,9 +57,6 @@ function TableReportDefinition(
     return TableReportDefinition(requests, units, illustration, plot_options, clip)
 end
 
-"Reject unsupported definition/source pairs before report construction."
-function entitle end
-
 "Publish the observations required by a report definition."
 function select end
 
@@ -76,20 +73,15 @@ function encode end
 function write end
 
 @required AbstractReportDefinition begin
-    entitle(::AbstractReportDefinition, source)
     select(::AbstractReportDefinition, source)
     tabulate(::AbstractReportDefinition, source, published)
-    illustrate(::AbstractReportDefinition, source, published, table)
-    encode(::AbstractReportDefinition, source, published, table, illustration)
-    write(::AbstractReportDefinition, source, published, table, illustration, encoded)
 end
 
-"Return the completed report artifact."
-function finish end
-
-function entitle(definition::TableReportDefinition, source)
-    validate_observables(source, definition.requests, definition.units)
-    return source
+illustrate(::AbstractReportDefinition, source, published, table) = nothing
+encode(::AbstractReportDefinition, source, published, table, illustration) = nothing
+function write(
+        ::AbstractReportDefinition, source, published, table, illustration, ::Nothing)
+    nothing
 end
 
 function select(definition::TableReportDefinition, source)
@@ -156,26 +148,11 @@ function illustrate(definition::TableReportDefinition, source, published, table)
     return illustration(published; definition.plot_options...)
 end
 
-encode(::TableReportDefinition, source, published, table, illustration) = nothing
-write(::TableReportDefinition, source, published, table, illustration, ::Nothing) = nothing
-
-function finish(
-        ::AbstractReportDefinition,
-        source,
-        published,
-        table,
-        illustration,
-        encoded,
-        written
-)
-    return ReportArtifact(table, illustration, written)
-end
-
 """
 $(TYPEDSIGNATURES)
 
-Build a report through `entitle`, `select`, `tabulate`, `illustrate`, `encode`,
-`write`, and `finish`, in that order.
+Build a report through `select`, `tabulate`, optional `illustrate`, optional
+`encode`, and optional `write`, in that order.
 
 # Arguments
 
@@ -184,38 +161,28 @@ Build a report through `entitle`, `select`, `tabulate`, `illustrate`, `encode`,
 
 # Returns
 
-- A [`ReportArtifact`](@ref), or the value returned by a specialised `finish`
-  method.
+- A [`ReportArtifact`](@ref).
 
 # Errors
 
 - Throws when the definition does not accept the source or requests an
   unsupported observation.
 """
-@orchestrator AbstractReportDefinition function report(
+function report(
         definition::AbstractReportDefinition,
         source
 )
-    entitled = entitle(definition, source)
-    published = select(definition, entitled)
-    table = tabulate(definition, entitled, published)
-    illustration = illustrate(definition, entitled, published, table)
-    encoded = encode(definition, entitled, published, table, illustration)
+    published = select(definition, source)
+    table = tabulate(definition, source, published)
+    illustration = illustrate(definition, source, published, table)
+    encoded = encode(definition, source, published, table, illustration)
     written = write(
         definition,
-        entitled,
+        source,
         published,
         table,
         illustration,
         encoded
     )
-    return finish(
-        definition,
-        entitled,
-        published,
-        table,
-        illustration,
-        encoded,
-        written
-    )
+    return ReportArtifact(table, illustration, written)
 end

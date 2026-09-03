@@ -354,7 +354,7 @@ function compute(
         formulation::LineParametersFormulation = Formulation();
         options::NamedTuple = (;)
 )
-    execution = computation_options(Val(LineCableModelsCoaxial), options)
+    execution = computation_options(LineCableModelsCoaxial, options)
     console = ConsoleLogger(stderr, Logging.Debug)
     logger = ConsoleVerbosityLogger(console, execution.verbosity)
     return with_logger(logger) do
@@ -368,7 +368,7 @@ function compute(
         formulations::AbstractVector{<:LineParametersFormulation};
         options::NamedTuple = (;)
 )
-    execution = computation_options(Val(LineCableModelsCoaxial), options)
+    execution = computation_options(LineCableModelsCoaxial, options)
     console = ConsoleLogger(stderr, Logging.Debug)
     logger = ConsoleVerbosityLogger(console, execution.verbosity)
     return with_logger(logger) do
@@ -376,18 +376,15 @@ function compute(
     end
 end
 
-computation_owner(::LineParametersFormulation) = LineCableModelsCoaxial
-computation_owner(::LineCableModelsFEM) = LineCableModelsFEM
-
 function computation_details(
-        ::Val{LineCableModelsCoaxial},
+        ::Type{<:LineParametersFormulation},
         result::LineParameters
 )::ComputationDetails
     return details(result)
 end
 
 function computation_details(
-        ::Val{LineCableModelsFEM},
+        ::Type{<:LineCableModelsFEM},
         result::LineParameters
 )::ComputationDetails
     return details(result)

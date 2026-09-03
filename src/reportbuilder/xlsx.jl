@@ -56,7 +56,6 @@ struct XLSXWorkbook
     sheets::Vector{XLSXSheet}
 end
 
-entitle(::XLSXReportDefinition, source::Engine.LineParameters) = source
 function select(definition::XLSXReportDefinition, source::Engine.LineParameters)
     line_definition = _line_definition(
         (
@@ -73,16 +72,14 @@ function select(definition::XLSXReportDefinition, source::Engine.LineParameters)
     return select(line_definition, source)
 end
 function tabulate(::XLSXReportDefinition, source::Engine.LineParameters, selected)
-    return _publication_table(selected)
+    return DataFrame(selected)
 end
-illustrate(::XLSXReportDefinition, source, published, table) = nothing
-
 function _family_columns(table::DataFrame, family::Val)
     contract = observation_columns(table)
     return Tuple(name
     for (name, entry) in pairs(contract)
     if applicable(Units.family, entry.quantity) &&
-        Units.family(entry.quantity) === family)
+       Units.family(entry.quantity) === family)
 end
 
 function _is_diagonal(table::DataFrame, quantity_columns::Tuple)
@@ -121,17 +118,17 @@ function _encoded_sheet(
         column::Int
 )
     selected = table[
-        (table.row .== row) .& (table.column .== column),
-        :
-    ]
+    (table.row .== row) .& (table.column .== column),
+    :
+]
     isempty(selected) && throw(ArgumentError(
         "workbook sheet $name has no line-parameter rows",
     ))
     frequency_values = unique(selected.frequency)
     contract = observation_columns(table)
     unit_rows = Pair{String, String}[
-        "frequency" => Units.label(contract.frequency.unit),
-    ]
+    "frequency" => Units.label(contract.frequency.unit),
+]
     for quantity in quantity_columns
         push!(unit_rows, String(quantity) => Units.label(contract[quantity].unit))
     end

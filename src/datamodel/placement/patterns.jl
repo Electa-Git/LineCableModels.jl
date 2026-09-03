@@ -101,7 +101,7 @@ function Ring(
         gap_frac = 0,
         combine::Symbol = :product
 )
-    return _construction(
+    return parameterize(
         Ring, _ring, (n, r, φ0, span, gap_frac); combine
     )
 end
@@ -186,7 +186,7 @@ function Hexa(
         gap_frac = 0,
         combine::Symbol = :product
 )
-    return _construction(
+    return parameterize(
         Hexa,
         _hexagonal_course,
         (course, φ0, gap_frac);
@@ -251,7 +251,7 @@ function Polar(;
         span = 2π,
         combine::Symbol = :product
 )
-    return _construction(Polar, _polar, (nr, nφ, r0, dr, φ0, span); combine)
+    return parameterize(Polar, _polar, (nr, nφ, r0, dr, φ0, span); combine)
 end
 
 """
@@ -296,7 +296,7 @@ function Fill(;
         span = 2π,
         combine::Symbol = :product
 )
-    return _construction(Fill, _fill, (r, φ, φ0, span); combine)
+    return parameterize(Fill, _fill, (r, φ, φ0, span); combine)
 end
 
 """
@@ -345,7 +345,7 @@ function Lattice(;
         dy,
         combine::Symbol = :product
 )
-    return _construction(Lattice, _lattice, (nx, ny, dx, dy); combine)
+    return parameterize(Lattice, _lattice, (nx, ny, dx, dy); combine)
 end
 
 "Return local member poses prescribed by a placement pattern."

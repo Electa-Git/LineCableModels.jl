@@ -40,10 +40,12 @@ function _record_sample!(
     return storage
 end
 
-_sample_axis(value::Engine.CableConstants) = (
-    cores = copy(value.cores),
-    frequency = value.frequency
-)
+function _sample_axis(value::Engine.CableConstants)
+    (
+        cores = copy(value.cores),
+        frequency = value.frequency
+    )
+end
 _sample_axis(value::Engine.LineParameters) = observe(value, Engine.frequencies)
 
 function _cable_summaries(values::AbstractMatrix)
@@ -74,13 +76,13 @@ function _aggregate(
     hist = formulation.return_histograms ?
            (
         R = [HistogramDensity(collect(@view sample_values.R[assembly, :]);
-                bins = formulation.bins) for assembly in axes(sample_values.R, 1)],
+                 bins = formulation.bins) for assembly in axes(sample_values.R, 1)],
         L = [HistogramDensity(collect(@view sample_values.L[assembly, :]);
-                bins = formulation.bins) for assembly in axes(sample_values.L, 1)],
+                 bins = formulation.bins) for assembly in axes(sample_values.L, 1)],
         C = [HistogramDensity(collect(@view sample_values.C[assembly, :]);
-                bins = formulation.bins) for assembly in axes(sample_values.C, 1)],
+                 bins = formulation.bins) for assembly in axes(sample_values.C, 1)],
         G = [HistogramDensity(collect(@view sample_values.G[assembly, :]);
-                bins = formulation.bins) for assembly in axes(sample_values.G, 1)]
+                 bins = formulation.bins) for assembly in axes(sample_values.G, 1)]
     ) : nothing
     return (; representation, statistics = summaries, samples = retained, histograms = hist)
 end
@@ -265,13 +267,13 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
         value = nothing
         succeeded = false
         try
-            sample = ParametricBuilder.realize_arguments(
+            sample = realize_arguments(
                 rng,
                 point,
                 formulation.distribution
             )
             stage = :build
-            realization = ParametricBuilder.realize(point, sample)
+            realization = realize(point, sample)
             stage = :compute
             value = compute(realization, formulation.inner; options)
             succeeded = true
@@ -298,7 +300,7 @@ function _monte_carlo(point, formulation::MonteCarlo, options, seed, details_own
         succeeded || continue
 
         record = formulation.options.retain_details ?
-                 computation_details(Val(details_owner), value) : nothing
+                 computation_details(details_owner, value) : nothing
         if accepted == 0
             first_result = value
             ntrials = something(
@@ -351,8 +353,8 @@ function compute(problem::ParametricProblem, formulation::MonteCarlo)
     root_seed = formulation.seed === nothing ? rand(Random.RandomDevice(), UInt64) :
                 formulation.seed
     details_owner = formulation.options.retain_details ?
-                    computation_owner(formulation.inner) : nothing
-    point_source = ParametricBuilder.points(problem.space)
+                    typeof(formulation.inner) : nothing
+    point_source = points(problem.space)
     first_item = iterate(point_source)
     first_item === nothing && throw(DimensionMismatch(
         "problem-space iteration ended before its declared cardinality",

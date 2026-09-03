@@ -157,7 +157,7 @@ function _addon_preview(
     display_title = title === nothing ?
                     _native_cable_title(display_id, design) :
                     String(title)
-    resolved_panel_titles = _addon_panel_titles(panel_titles, nothing, 1)
+    resolved_panel_titles = _addon_panel_titles(panel_titles, 1)
     panel_title = resolved_panel_titles === nothing ?
                   display_title : only(resolved_panel_titles)
     polygons = _native_design_shapes(
@@ -179,7 +179,8 @@ function _addon_preview(
         groups = Dict{Symbol, Vector{Any}}()
         order = Symbol[]
         labels = Dict{Symbol, String}()
-        axis, reset!, panel = _addon_preview_axis!(
+        axis, reset!,
+        panel = _addon_preview_axis!(
             shell,
             (1, 1),
             panel_title,
@@ -249,7 +250,7 @@ function _addon_preview(
         LineCableModels.DataModel.material_property_ranges(designs)
     ) : ()
     display_title = title === nothing ? "Cable design previews" : String(title)
-    resolved_panel_titles = _addon_panel_titles(panel_titles, nothing, length(designs))
+    resolved_panel_titles = _addon_panel_titles(panel_titles, length(designs))
     return with_theme(_addon_theme(export_theme = export_theme)) do
         shell = _addon_shell(; size, controls)
         axes = Any[]
@@ -267,7 +268,8 @@ function _addon_preview(
                 legend_group,
                 legend_labels
             )
-            axis, reset!, panel = _addon_preview_axis!(
+            axis, reset!,
+            panel = _addon_preview_axis!(
                 shell,
                 (cld(index, columns), mod1(index, columns)),
                 resolved_panel_titles === nothing ?
@@ -350,7 +352,8 @@ function _addon_preview(
 )
     _addon_activate_backend(backend)
     limits = _native_system_limits(system, zoom_factor)
-    polygons, references = _native_system_shapes(
+    polygons,
+    references = _native_system_shapes(
         system,
         earth_model,
         limits,
@@ -363,7 +366,7 @@ function _addon_preview(
     display_title = title === nothing ?
                     _native_system_title(display_id, system) :
                     String(title)
-    resolved_panel_titles = _addon_panel_titles(panel_titles, nothing, 1)
+    resolved_panel_titles = _addon_panel_titles(panel_titles, 1)
     panel_title = resolved_panel_titles === nothing ?
                   display_title : only(resolved_panel_titles)
     return with_theme(_addon_theme(export_theme = export_theme)) do
@@ -371,7 +374,8 @@ function _addon_preview(
         groups = Dict{Symbol, Vector{Any}}()
         order = Symbol[]
         labels = Dict{Symbol, String}()
-        axis, reset!, panel = _addon_preview_axis!(
+        axis, reset!,
+        panel = _addon_preview_axis!(
             shell,
             (1, 1),
             panel_title,

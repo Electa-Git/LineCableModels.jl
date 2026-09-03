@@ -8,7 +8,7 @@
         iterate_calls::Int
         length_calls::Int
     end
-    CountingGrid(values::Tuple) = CountingGrid(values, 0, 0)
+    CountingGrid(values::Tuple)=CountingGrid(values, 0, 0)
     function Base.iterate(grid::CountingGrid, state...)
         grid.iterate_calls+=1
         return iterate(grid.vals, state...)
@@ -99,7 +99,7 @@ end
     import LineCableModels.ParametricBuilder as PB
 
     struct DuplicateValue end
-    (::DuplicateValue)(value) = (value, value)
+    (::DuplicateValue)(value)=(value, value)
 
     duplicated=PB.Gridspace{Tuple}(
         DuplicateValue(),
@@ -113,7 +113,7 @@ end
 
     rng=MersenneTwister(42)
     @test all(1:32) do _
-        draw=PB.realize(rng, duplicated_point, :normal)
+        draw=LineCableModels.realize(rng, duplicated_point, :normal)
         draw[1] === draw[2]
     end
 
@@ -148,7 +148,7 @@ end
         value::Float64
     end
     struct BuildScalarTarget end
-    (::BuildScalarTarget)(value) = ScalarTarget(value)
+    (::BuildScalarTarget)(value)=ScalarTarget(value)
 
     function deterministic_sum(space, repetitions)
         total=0.0
@@ -162,7 +162,7 @@ end
     function realization_sum(rng, point, repetitions)
         total=0.0
         for _ in 1:repetitions
-            total+=PB.realize(rng, point, :normal).value
+            total+=LineCableModels.realize(rng, point, :normal).value
         end
         return total
     end
@@ -185,7 +185,7 @@ end
     @test eltype(uncertain) === Any
     @test Base.IteratorEltype(typeof(uncertain)) isa Base.EltypeUnknown
     rng=Random.Xoshiro(0x1234)
-    @test @inferred(PB.realize(rng, uncertain_point, :normal)) isa ScalarTarget
+    @test @inferred(LineCableModels.realize(rng, uncertain_point, :normal)) isa ScalarTarget
 
     deterministic_sum(deterministic, 1)
     realization_sum(rng, uncertain_point, 1)
@@ -224,4 +224,6 @@ end
     @test :Gridpoint ∉ names(PB)
     @test :points ∉ names(PB)
     @test :realize ∉ names(PB)
+    @test !isdefined(PB, :realize)
+    @test !isdefined(PB, :realize_arguments)
 end

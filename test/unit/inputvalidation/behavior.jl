@@ -86,12 +86,12 @@
         return problem
     end
     space=Gridspace{CheckedProblem}(CheckedProblem, (Grid((1, -1)),))
-    points=LineCableModels.ParametricBuilder.points(space)
+    points=LineCableModels.points(space)
     first_point, state=iterate(points)
-    @test LineCableModels.ParametricBuilder.materialize(first_point) == CheckedProblem(1)
+    @test LineCableModels.materialize(first_point) == CheckedProblem(1)
     second_point=first(iterate(points, state))
     point_error=try
-        LineCableModels.ParametricBuilder.materialize(second_point)
+        LineCableModels.materialize(second_point)
         nothing
     catch error
         error

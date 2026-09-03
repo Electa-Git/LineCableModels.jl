@@ -15,7 +15,7 @@
     ))
     for T in (Float32, Float64, BigFloat)
         setprecision(BigFloat, 128) do
-            typed(value) = parse(T, value)
+            typed(value)=parse(T, value)
             r_inner=typed("0.01")
             r_outer=typed("0.02")
             resistivity=typed("2.0e11")
@@ -125,22 +125,22 @@ end
             CableDesign,
             "parallel-rc-test",
             Stack(AbstractCablePart[
-                Group(:core, Region(:core_conductor, Annulus(0.0, core_outer), copper)),
-                Region(:insulation_1, Annulus(core_outer, first_outer), dielectric_1),
-                Region(:insulation_2, Annulus(first_outer, insulation_outer), dielectric_2),
-                Group(
-                    :sheath,
-                    Region(
-                        :sheath_conductor,
-                        Annulus(insulation_outer, sheath_outer),
-                        copper
-                    )),
+            Group(:core, Region(:core_conductor, Annulus(0.0, core_outer), copper)),
+            Region(:insulation_1, Annulus(core_outer, first_outer), dielectric_1),
+            Region(:insulation_2, Annulus(first_outer, insulation_outer), dielectric_2),
+            Group(
+                :sheath,
                 Region(
-                    :outer_dielectric,
-                    Annulus(sheath_outer, jacket_outer),
-                    outer_dielectric
-                )
-            ])
+                    :sheath_conductor,
+                    Annulus(insulation_outer, sheath_outer),
+                    copper
+                )),
+            Region(
+                :outer_dielectric,
+                Annulus(sheath_outer, jacket_outer),
+                outer_dielectric
+            )
+    ])
         )
         system=build(
             LineCableSystem,
@@ -170,7 +170,7 @@ end
         )
     )
     problem=two_terminal_problem()
-    execution=computation_options(Val(LineCableModelsCoaxial), (;))
+    execution=computation_options(LineCableModelsCoaxial, (;))
     blueprints=LineCableModels.Engine.CableBlueprint{eltype(problem)}[LineCableModels.Engine.flatten(
                                                                           LineCableModelsCoaxial(),
                                                                           design,
@@ -315,25 +315,25 @@ end
             CableDesign,
             "parallel-rc-mc",
             Stack(AbstractCablePart[
-                Group(:core, Region(:core_conductor, Annulus(0.0, core_outer), copper)),
+            Group(:core, Region(:core_conductor, Annulus(0.0, core_outer), copper)),
+            Region(
+                :core_insulation,
+                Annulus(core_outer, insulation_outer),
+                resolved_dielectric
+            ),
+            Group(
+                :sheath,
                 Region(
-                    :core_insulation,
-                    Annulus(core_outer, insulation_outer),
-                    resolved_dielectric
-                ),
-                Group(
-                    :sheath,
-                    Region(
-                        :sheath_conductor,
-                        Annulus(insulation_outer, sheath_outer),
-                        copper
-                    )),
-                Region(
-                    :outer_insulation,
-                    Annulus(sheath_outer, jacket_outer),
-                    outer_dielectric
-                )
-            ])
+                    :sheath_conductor,
+                    Annulus(insulation_outer, sheath_outer),
+                    copper
+                )),
+            Region(
+                :outer_insulation,
+                Annulus(sheath_outer, jacket_outer),
+                outer_dielectric
+            )
+    ])
         )
     end
     design=Gridspace{CableDesign}(build_design, (dielectric, thickness))
@@ -398,8 +398,8 @@ end
         ParametricProblem(problem, (output_basis = :total,)),
         policy
     )
-    @test basis(only(LineCableModels.result(sampled))) === :pul
-    @test basis(only(LineCableModels.result(total))) === :total
+    @test basis(only(sampled)) === :pul
+    @test basis(only(total)) === :total
     for component in (:R, :L, :G, :C)
         @test getproperty(only(samples(total)), component) ≈
               1000.0 .* getproperty(only(samples(sampled)), component)

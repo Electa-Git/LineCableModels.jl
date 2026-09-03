@@ -54,12 +54,13 @@ function Formula(identifier::Symbol; route = nothing, kwargs...)
     Formula(Val(identifier); route, kwargs...)
 end
 
-Formula(::Val{:default}; route = nothing, kwargs...) =
+function Formula(::Val{:default}; route = nothing, kwargs...)
     Formula(Val(DEFAULT); route, kwargs...)
+end
 
 function Formula(::Val{ID}; route = nothing, kwargs...) where {ID}
     tag = Val(ID)
-    applicable(assumptions, tag) || throw(ArgumentError(
+    ID in FORMULAS || throw(ArgumentError(
         "unknown semicon-admittance formula :$ID"
     ))
     defaults = assumptions(tag)

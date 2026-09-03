@@ -6,11 +6,11 @@ Contain a physical cable object in an explicit cross-section, fill, and wall.
 $(TYPEDFIELDS)
 """
 struct Enclosure{
-        A,
-        S <: AbstractPrimitive,
-        E <: AbstractCablePart,
-        F,
-        W
+    A,
+    S <: AbstractPrimitive,
+    E <: AbstractCablePart,
+    F,
+    W
 } <: AbstractCablePart
     "Physical enclosure identity."
     tag::Symbol
@@ -43,10 +43,11 @@ struct Enclosure{
     end
 end
 
-Base.:(==)(left::Enclosure, right::Enclosure) =
+function Base.:(==)(left::Enclosure, right::Enclosure)
     left.tag == right.tag && left.at == right.at &&
-    left.primitive == right.primitive && left.item == right.item &&
-    left.fill == right.fill && left.wall == right.wall
+        left.primitive == right.primitive && left.item == right.item &&
+        left.fill == right.fill && left.wall == right.wall
+end
 
 function resolve(
         container::Disk,
@@ -72,39 +73,45 @@ function _disk_fill(
     return resolve(EmptyBoundary(), fill_region)
 end
 
-
-_disk_fill(container::Disk, contents, material::Material, tag::Symbol) =
+function _disk_fill(container::Disk, contents, material::Material, tag::Symbol)
     _difference_fill(container, (contents,), material, tag)
+end
 
 function _difference_fill(container, holes, material, tag)
     source = Region(Symbol(tag, :_fill), _definition(container), material)
-    primitive = _DifferencePrimitive(container, holes)
+    primitive = DifferenceShape(container, holes)
     area(primitive) > zero(eltype(primitive)) || throw(DomainError(
         area(primitive), "enclosure fill must have positive area"
     ))
     return CableGeometry(PlacedRegion[PlacedRegion(source, primitive)], boundary(container))
 end
 
-resolve(container::AbstractShape, holes::Tuple, material::Material, tag::Symbol) =
+function resolve(container::AbstractShape, holes::Tuple, material::Material, tag::Symbol)
     _difference_fill(container, holes, material, tag)
+end
 
 _definition(primitive::Disk) = Disk(primitive.r)
 _definition(primitive::Rectangle) = Rectangle(primitive.w, primitive.h)
 _definition(primitive::Ellipse) = Ellipse(primitive.a, primitive.b)
-_definition(primitive::Sector) = Sector(
-    primitive.ri, primitive.ro, primitive.φ0, primitive.span
-)
+function _definition(primitive::Sector)
+    Sector(
+        primitive.ri, primitive.ro, primitive.φ0, primitive.span
+    )
+end
 _definition(primitive::Annulus) = Annulus(primitive.ri, primitive.ro)
 _definition(primitive::Polygon) = Polygon(primitive.points)
 
-resolve(
-    ::AbstractPrimitive,
-    holes::Tuple,
-    fill::Region,
-    ::Symbol
-) = length(holes) == 1 ? resolve(only(holes), fill) : throw(ArgumentError(
-    "an explicit fill Region requires one occupied boundary"
-))
+function resolve(
+        ::AbstractPrimitive,
+        holes::Tuple,
+        fill::Region,
+        ::Symbol
+)
+    length(holes) == 1 ? resolve(only(holes), fill) :
+    throw(ArgumentError(
+        "an explicit fill Region requires one occupied boundary"
+    ))
+end
 
 function _contained(container::Disk, child::AbstractShape)
     extent = support(child)
@@ -156,13 +163,14 @@ function resolve(context::EmptyBoundary, enclosure::Enclosure)
     regions = PlacedRegion[]
     for source in contents.regions
         primitive = resolve(enclosure.at, source.primitive)
-        push!(regions, PlacedRegion(
-            source.source,
-            primitive,
-            source.terminal,
-            (patterns = source.placement.patterns,),
-            source.paths
-        ))
+        push!(regions,
+            PlacedRegion(
+                source.source,
+                primitive,
+                source.terminal,
+                (patterns = source.placement.patterns,),
+                source.paths
+            ))
     end
 
     fill_result = resolve(
@@ -178,13 +186,14 @@ function resolve(context::EmptyBoundary, enclosure::Enclosure)
     ))
     for source in fill_result.regions
         primitive = resolve(enclosure.at, source.primitive)
-        push!(regions, PlacedRegion(
-            source.source,
-            primitive,
-            source.terminal,
-            (patterns = source.placement.patterns,),
-            source.paths
-        ))
+        push!(regions,
+            PlacedRegion(
+                source.source,
+                primitive,
+                source.terminal,
+                (patterns = source.placement.patterns,),
+                source.paths
+            ))
     end
 
     outer = container
@@ -192,13 +201,14 @@ function resolve(context::EmptyBoundary, enclosure::Enclosure)
         wall_result = resolve(container, enclosure.wall)
         for source in wall_result.regions
             primitive = resolve(enclosure.at, source.primitive)
-            push!(regions, PlacedRegion(
-                source.source,
-                primitive,
-                source.terminal,
-                (patterns = source.placement.patterns,),
-                source.paths
-            ))
+            push!(regions,
+                PlacedRegion(
+                    source.source,
+                    primitive,
+                    source.terminal,
+                    (patterns = source.placement.patterns,),
+                    source.paths
+                ))
         end
         outer = boundary(wall_result)
     end
@@ -212,9 +222,9 @@ function resolve(context::AbstractShape, enclosure::Enclosure)
     ))
     placed = resolve(enclosure.at, container)
     context isa Disk &&
-        isapprox(context.r, placed.ri) &&
-        isapprox(context.at.x, placed.at.x) &&
-        isapprox(context.at.y, placed.at.y) || throw(DomainError(
+    isapprox(context.r, placed.ri) &&
+    isapprox(context.at.x, placed.at.x) &&
+    isapprox(context.at.y, placed.at.y) || throw(DomainError(
         context,
         "an annular Enclosure must continue the preceding circular boundary"
     ))

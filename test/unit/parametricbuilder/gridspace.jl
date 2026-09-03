@@ -212,8 +212,8 @@ end
     @test Base.IteratorEltype(typeof(parent)) isa Base.EltypeUnknown
     @test PB.has_uncertainty(point)
     @test PB.materialize(point)[1][1] isa Measurement
-    arguments=PB.realize_arguments(MersenneTwister(42), point, :normal)
-    draw=PB.realize(point, arguments)
+    arguments=LineCableModels.realize_arguments(MersenneTwister(42), point, :normal)
+    draw=LineCableModels.realize(point, arguments)
     @test draw[1][1] isa Float64
     @test draw[1][2] == :tag
     @test draw[2] == 1
@@ -226,21 +226,9 @@ end
     EngineTestSupport, UseEngineSupport] begin
     import LineCableModels.ParametricBuilder as PB
 
-    PB.@gridspace PB.@relax struct MacroVault{T <: Real}
+    PB.@gridspace struct MacroVault{T <: Real}
         value::T
         label::Symbol=:default
-    end
-
-    PB.@relax PB.@gridspace struct ReverseMacroVault{T <: Real}
-        value::T
-        label::Symbol=:default
-    end
-
-    PB.@relax struct RelaxedMixedFields{T <: Real}
-        value::T
-        count::Int
-        enabled::Bool
-        label::Symbol
     end
 
     @test collect(MacroVault(; value = PB.Grid((1.0, 2.0)), label = :ok)) == [
@@ -250,21 +238,6 @@ end
     scalar=MacroVault(; value = 1.0)
     @test scalar isa MacroVault
     @test scalar == MacroVault(1.0, :default)
-    @test collect(ReverseMacroVault(; value = PB.Grid((3.0, 4.0)))) == [
-        ReverseMacroVault(3.0, :default),
-        ReverseMacroVault(4.0, :default)
-    ]
-    mixed=RelaxedMixedFields(Float32(1), 3, true, :fixed)
-    @test eltype(mixed) === Float32
-    @test mixed.count === 3
-    @test mixed.enabled === true
-    @test mixed.label === :fixed
-    converted=convert(RelaxedMixedFields{Float64}, mixed)
-    @test converted.value === 1.0
-    @test converted.count === 3
-    @test converted.enabled === true
-    @test converted.label === :fixed
-
     PB.@gridspace struct AtomicCollections{T}
         payload::T
         label::Symbol=:default

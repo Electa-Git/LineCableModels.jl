@@ -49,7 +49,7 @@ import ..LineCableModels: basis, build, R, L, C,
                           resistance, inductance, capacitance
 import ..LineCableModels: nominal
 import ..LineCableModels: constitutive, formula, formula_id, FormulaSpec
-import ..LineCableModels: _construction
+import ..LineCableModels: parameterize
 #! explicit-imports: off
 import ..LineCableModels: description
 #! explicit-imports: on
@@ -60,7 +60,7 @@ import ..Grammar: AbstractProblemDefinition, AbstractFormulation,
                   formulation_options, computation_options, computation_details, details,
                   compute, observe, observables,
                   observation_request, observation_indices,
-                  computation_owner, publication_table
+                  publication_table
 
 using ..Units
 using ..Materials

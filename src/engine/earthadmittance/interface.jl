@@ -90,7 +90,7 @@ Formula(::Val{:default}; kwargs...) = Formula(Val(DEFAULT); kwargs...)
 
 function Formula(::Val{ID}; kwargs...) where {ID}
     identifier = Val(ID)
-    applicable(routes, identifier) || throw(ArgumentError(
+    ID in FORMULAS || throw(ArgumentError(
         "unknown earth-admittance formula :$ID"
     ))
     defaults = routes(identifier)

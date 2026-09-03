@@ -182,7 +182,7 @@ struct Polygon{T <: Real, V <: Tuple, P <: Pose2{T}} <: AbstractPrimitive{T}
         twice_area = sum(eachindex(points)) do index
             next = mod1(index + 1, length(points))
             points[index][1] * points[next][2] -
-                points[next][1] * points[index][2]
+            points[next][1] * points[index][2]
         end
         iszero(twice_area) && throw(DomainError(
             twice_area, "polygon area must be nonzero"
@@ -191,17 +191,23 @@ struct Polygon{T <: Real, V <: Tuple, P <: Pose2{T}} <: AbstractPrimitive{T}
     end
 end
 
-struct _DifferencePrimitive{
-        T <: Real,
-        O <: AbstractShape,
-        H <: Tuple,
-        P <: Pose2{T}
+"""
+Store one exact outer shape with exact material-free holes removed from it.
+
+`DifferenceShape` is a resolved geometry value used by downstream geometry
+consumers; it is not a new modelling declaration.
+"""
+struct DifferenceShape{
+    T <: Real,
+    O <: AbstractShape,
+    H <: Tuple,
+    P <: Pose2{T}
 } <: AbstractShape{T}
     outer::O
     holes::H
     at::P
 
-    function _DifferencePrimitive(
+    function DifferenceShape(
             outer::O,
             holes::H
     ) where {O <: AbstractShape, H <: Tuple}
@@ -381,10 +387,12 @@ end
 
 _local_support(primitive::Disk, φ::Real) = primitive.r
 _local_support(primitive::Annulus, φ::Real) = primitive.ro
-_local_support(primitive::Rectangle, φ::Real) =
+function _local_support(primitive::Rectangle, φ::Real)
     abs(cos(φ)) * primitive.w / 2 + abs(sin(φ)) * primitive.h / 2
-_local_support(primitive::Ellipse, φ::Real) =
+end
+function _local_support(primitive::Ellipse, φ::Real)
     hypot(primitive.a * cos(φ), primitive.b * sin(φ))
+end
 function _local_support(primitive::Sector, φ::Real)
     candidates = (primitive.φ0, primitive.φ0 + primitive.span, φ, φ + π)
     values = map(candidates) do angle
@@ -396,9 +404,11 @@ function _local_support(primitive::Sector, φ::Real)
     end
     return maximum(values)
 end
-_local_support(primitive::Polygon, φ::Real) = maximum(
-    point[1] * cos(φ) + point[2] * sin(φ) for point in primitive.points
-)
+function _local_support(primitive::Polygon, φ::Real)
+    maximum(
+        point[1] * cos(φ) + point[2] * sin(φ) for point in primitive.points
+    )
+end
 
 function support(primitive::AbstractPrimitive, φ::Real)
     at = primitive.at
@@ -412,8 +422,10 @@ _local_extent(primitive::Rectangle) = hypot(primitive.w, primitive.h) / 2
 _local_extent(primitive::Ellipse) = max(primitive.a, primitive.b)
 _local_extent(primitive::Sector) = primitive.ro
 _local_extent(primitive::Polygon) = maximum(hypot(point...) for point in primitive.points)
-support(primitive::AbstractPrimitive) = hypot(primitive.at.x, primitive.at.y) +
-                                        _local_extent(primitive)
+function support(primitive::AbstractPrimitive)
+    hypot(primitive.at.x, primitive.at.y) +
+    _local_extent(primitive)
+end
 
 boundary(primitive::Union{Disk, Rectangle, Ellipse, Sector, Polygon}) = primitive
 boundary(primitive::Annulus) = Disk(primitive.ro, primitive.at)
@@ -421,23 +433,23 @@ boundary(primitive::Annulus) = Disk(primitive.ro, primitive.at)
 area(primitive::Disk) = π * primitive.r^2
 area(primitive::Rectangle) = primitive.w * primitive.h
 area(primitive::Ellipse) = π * primitive.a * primitive.b
-area(primitive::Sector) =
-    primitive.span * (primitive.ro^2 - primitive.ri^2) / 2
+area(primitive::Sector) = primitive.span * (primitive.ro^2 - primitive.ri^2) / 2
 area(primitive::Annulus) = π * (primitive.ro^2 - primitive.ri^2)
 function area(primitive::Polygon)
     twice = sum(eachindex(primitive.points)) do index
         next = mod1(index + 1, length(primitive.points))
         primitive.points[index][1] * primitive.points[next][2] -
-            primitive.points[next][1] * primitive.points[index][2]
+        primitive.points[next][1] * primitive.points[index][2]
     end
     return abs(twice) / 2
 end
 
 perimeter(primitive::Disk) = 2π * primitive.r
 perimeter(primitive::Rectangle) = 2 * (primitive.w + primitive.h)
-perimeter(primitive::Sector) =
+function perimeter(primitive::Sector)
     primitive.span * (primitive.ro + primitive.ri) +
     2 * (primitive.ro - primitive.ri)
+end
 perimeter(primitive::Annulus) = 2π * (primitive.ro + primitive.ri)
 function perimeter(primitive::Polygon)
     return sum(eachindex(primitive.points)) do index
@@ -462,17 +474,19 @@ thickness(primitive::Sector) = primitive.ro - primitive.ri
 _with_pose(primitive::Disk, at::Pose2) = Disk(primitive.r, at)
 _with_pose(primitive::Rectangle, at::Pose2) = Rectangle(primitive.w, primitive.h, at)
 _with_pose(primitive::Ellipse, at::Pose2) = Ellipse(primitive.a, primitive.b, at)
-_with_pose(primitive::Sector, at::Pose2) =
+function _with_pose(primitive::Sector, at::Pose2)
     Sector(primitive.ri, primitive.ro, primitive.φ0, primitive.span, at)
+end
 _with_pose(primitive::Annulus, at::Pose2) = Annulus(primitive.ri, primitive.ro, at)
 _with_pose(primitive::Polygon, at::Pose2) = _polygon(primitive.points, at)
 
-boundary(primitive::_DifferencePrimitive) = boundary(primitive.outer)
-support(primitive::_DifferencePrimitive, φ::Real) = support(primitive.outer, φ)
-support(primitive::_DifferencePrimitive) = support(primitive.outer)
-area(primitive::_DifferencePrimitive) =
+boundary(primitive::DifferenceShape) = boundary(primitive.outer)
+support(primitive::DifferenceShape, φ::Real) = support(primitive.outer, φ)
+support(primitive::DifferenceShape) = support(primitive.outer)
+function area(primitive::DifferenceShape)
     area(primitive.outer) - sum(area, primitive.holes; init = zero(eltype(primitive)))
-function centroid(primitive::_DifferencePrimitive)
+end
+function centroid(primitive::DifferenceShape)
     total_area = area(primitive)
     total_area > zero(total_area) || throw(DomainError(
         total_area, "difference primitive must have positive area"

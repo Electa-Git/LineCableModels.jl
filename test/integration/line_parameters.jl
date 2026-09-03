@@ -68,7 +68,7 @@
             Diagonal(diag(trace.Pg[:, :, frequency_index])))
     end
 
-    execution=computation_options(Val(LineCableModelsCoaxial), (;))
+    execution=computation_options(LineCableModelsCoaxial, (;))
     blueprints=LineCableModels.Engine.CableBlueprint{eltype(problem)}[LineCableModels.Engine.flatten(
                                                                           LineCableModelsCoaxial(),
                                                                           design,
@@ -161,17 +161,20 @@ end
 
     events=Symbol[]
     insulation_impedance=II.Formula(:Ametani1980).route
-    local_z=(r_in, r_ex, mu_r, s, values)->begin
+    local_z=(
+        r_in, r_ex, mu_r, s, values)->begin
         push!(events, :local_z)
         insulation_impedance(r_in, r_ex, mu_r, s, values)
     end
     insulation=IA.Formula(:Ametani2004).route
-    local_insulation_y=(material, frequency, temperature, values)->begin
+    local_insulation_y=(material, frequency, temperature,
+        values)->begin
         push!(events, :local_y)
         insulation(material, frequency, temperature, values)
     end
     semicon=SA.Formula(:Ametani2004).route
-    local_semicon_y=(material, frequency, temperature, values)->begin
+    local_semicon_y=(material, frequency, temperature,
+        values)->begin
         push!(events, :local_y)
         semicon(material, frequency, temperature, values)
     end
@@ -385,7 +388,7 @@ end
         frequencies = [50.0]
     )
     @test problem.system === system
-    execution=computation_options(Val(LineCableModelsCoaxial), (;))
+    execution=computation_options(LineCableModelsCoaxial, (;))
     @test_throws ArgumentError LineParametersWorkspace(
         problem,
         Formulation(),
@@ -394,7 +397,8 @@ end
                                                                    LineCableModelsCoaxial(), source,
                                                                    eltype(problem)
                                                                )
-                                                               for source in problem.system.designs]
+                                                               for source in
+                                                                   problem.system.designs]
     )
     @test_throws ArgumentError compute(problem, Formulation())
     @test_throws ArgumentError CableConstants(design)
@@ -438,9 +442,9 @@ end
     bare=build(CableDesign, "bare", Group(
         :phase, Region(:bare, Disk(0.01), conductor)
     ))
-    execution=computation_options(Val(LineCableModelsCoaxial), (;))
+    execution=computation_options(LineCableModelsCoaxial, (;))
     workspace(problem,
-        formulation = Formulation()) = LineParametersWorkspace(
+        formulation = Formulation())=LineParametersWorkspace(
         problem,
         formulation,
         execution,
@@ -622,7 +626,7 @@ end
     )
 
     design=TestFixtures.mv_cable_design()
-    connections(phase) = Dict("core"=>phase, "sheath"=>0, "jacket"=>0)
+    connections(phase)=Dict("core"=>phase, "sheath"=>0, "jacket"=>0)
     mixed_system=build(
         LineCableSystem,
         [design, design],
@@ -635,7 +639,7 @@ end
         earth_props = EarthModel(100.0),
         frequencies = [50.0]
     )
-    execution=computation_options(Val(LineCableModelsCoaxial), (;))
+    execution=computation_options(LineCableModelsCoaxial, (;))
     ordinary=Formulation(options = (ideal_transposition = false,))
     blueprints=LineCableModels.Engine.CableBlueprint{eltype(mixed_problem)}[LineCableModels.Engine.flatten(
                                                                                 LineCableModelsCoaxial(), design,
@@ -715,11 +719,12 @@ end
         connections,
         system_id = "overhead-ehem"
     )
-    earth=build(EarthModel, (
-        EP.EarthLayer(100.0, 10.0, 1.0, 5.0),
-        EP.EarthLayer(500.0, 20.0, 1.0, 10.0),
-        EP.EarthLayer(50.0, 5.0, 1.0)
-    ))
+    earth=build(EarthModel,
+        (
+            EP.EarthLayer(100.0, 10.0, 1.0, 5.0),
+            EP.EarthLayer(500.0, 20.0, 1.0, 10.0),
+            EP.EarthLayer(50.0, 5.0, 1.0)
+        ))
     problem=LineParametersProblem(
         system;
         earth_props = earth,

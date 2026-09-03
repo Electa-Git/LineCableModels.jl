@@ -28,19 +28,15 @@
 
     expected=Dict(
         Material=>joinpath("src", "materials", "material.jl"),
-        LineCableModels.EarthProps.EarthMaterial =>
-            joinpath("src", "earthprops", "earthmaterial.jl"),
+        LineCableModels.EarthProps.EarthMaterial => joinpath("src", "earthprops", "earthmaterial.jl"),
         EarthLayer=>joinpath("src", "earthprops", "earthlayer.jl"),
         EarthModel=>joinpath("src", "earthprops", "earthmodel.jl"),
-        LineCableModels.DataModel.PreviewShape =>
-            joinpath("src", "datamodel", "preview", "geometry.jl"),
+        LineCableModels.DataModel.PreviewShape => joinpath("src", "datamodel", "preview", "geometry.jl"),
         CableDesign=>joinpath("src", "datamodel", "design", "cabledesign.jl"),
-        LineCableSystem =>
-            joinpath("src", "datamodel", "linecablesystem", "linecablesystem.jl"),
+        LineCableSystem => joinpath("src", "datamodel", "linecablesystem", "linecablesystem.jl"),
         LineParametersProblem=>joinpath("src", "engine", "problems.jl"),
         CableConstantsProblem=>joinpath("src", "engine", "cableconstants.jl"),
-        LineParameters =>
-            joinpath("src", "engine", "lineparameters", "lineparameters.jl"),
+        LineParameters => joinpath("src", "engine", "lineparameters", "lineparameters.jl"),
         Engine.CableBlueprint=>joinpath("src", "engine", "blueprint.jl"),
         Engine.LineParametersWorkspace=>joinpath("src", "engine", "input.jl"),
         ModalTransformationProblem=>joinpath("src", "transforms", "problems.jl"),
@@ -145,7 +141,7 @@
         @test occursin(r"validate\s*\(\s*new", source[path])
     end
 
-    gridspace=source[joinpath("src", "parametricbuilder", "gridspace.jl")]
+    gridspace=source[joinpath("src", "gridspace.jl")]
     @test occursin("Target <: AbstractProblemDefinition", gridspace)
     @test occursin("validate(point.build", gridspace)
     lineparameters=source[joinpath("src", "engine", "lineparameters.jl")]

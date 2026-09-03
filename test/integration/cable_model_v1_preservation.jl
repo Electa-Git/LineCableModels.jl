@@ -40,7 +40,10 @@
     @test system.system_id == expected_system["system_id"]
     @test system.line_length == expected_system["line_length"]
     @test length(system.designs) == length(expected_system["positions"])
-    for (design_data, position, connections, expected) in zip(
+    for (design_data,
+        position,
+        connections,
+        expected) in zip(
         system.designs,
         system.positions,
         system.connections,
@@ -59,7 +62,7 @@
     @test actual_primitive_order == expected_primitive_order
 
     problem=TestFixtures.line_parameters_problem(frequencies = [50.0, 500.0])
-    execution=computation_options(Val(LineCableModelsCoaxial), (;))
+    execution=computation_options(LineCableModelsCoaxial, (;))
     blueprints=LineCableModels.Engine.CableBlueprint{eltype(problem)}[LineCableModels.Engine.flatten(
                                                                           LineCableModelsCoaxial(),
                                                                           design,

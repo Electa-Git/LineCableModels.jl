@@ -44,8 +44,9 @@ function _primitive_geometry(primitive::Sector)
     inner_angles = reverse(outer_angles)
     points = Point2f[(primitive.ro * cos(angle), primitive.ro * sin(angle))
                      for angle in outer_angles]
-    append!(points, Point2f[(primitive.ri * cos(angle), primitive.ri * sin(angle))
-                            for angle in inner_angles])
+    append!(points,
+        Point2f[(primitive.ri * cos(angle), primitive.ri * sin(angle))
+                for angle in inner_angles])
     return GeometryBasics.Polygon(points)
 end
 
@@ -74,7 +75,7 @@ function _shape_geometry(primitive::AbstractPrimitive)
     return GeometryBasics.Polygon(exterior, interiors)
 end
 
-function _shape_geometry(primitive::_DifferencePrimitive)
+function _shape_geometry(primitive::DifferenceShape)
     outer = _shape_geometry(primitive.outer)
     interiors = copy(outer.interiors)
     for hole in primitive.holes
@@ -99,17 +100,12 @@ preview_materials(region::PlacedRegion) = (region.source.material,)
 function preview_shapes(region::PlacedRegion)
     return PreviewShape[
         PreviewShape(
-            _shape_geometry(region.primitive),
-            region.source.material,
-            region.source.tag
-        ),
+        _shape_geometry(region.primitive),
+        region.source.material,
+        region.source.tag
+    ),
     ]
 end
-
-# Compatibility for callers that used to provide renderer metadata while
-# requesting tessellated geometry. Presentation fields are deliberately not
-# retained by `PreviewShape`; the Makie extension now owns labels and groups.
-preview_shapes(region::PlacedRegion, ::NamedTuple) = preview_shapes(region)
 
 function _each_material(callback, design::CableDesign)
     for source in design.geometry.regions

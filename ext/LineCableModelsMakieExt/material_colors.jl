@@ -9,7 +9,7 @@ const _METAL_COLORS = [
     RGB(0.92, 0.90, 0.86),
     RGB(0.89, 0.89, 0.89),
     RGB(0.86, 0.89, 0.92),
-    RGB(0.70, 0.72, 0.75),
+    RGB(0.70, 0.72, 0.75)
 ]
 const _SEMIMETAL_COLORS = [RGB(0.70, 0.72, 0.75), RGB(0.80, 0.75, 0.65)]
 const _SEMICON_COLORS = [RGB(1.00, 0.83, 0.40), RGB(0.85, 0.55, 0.18)]
@@ -28,7 +28,7 @@ function _gradient(colors, value::Real)
     return RGB(
         (1 - fraction) * red(first_color) + fraction * red(second_color),
         (1 - fraction) * green(first_color) + fraction * green(second_color),
-        (1 - fraction) * blue(first_color) + fraction * blue(second_color),
+        (1 - fraction) * blue(first_color) + fraction * blue(second_color)
     )
 end
 
@@ -48,27 +48,27 @@ function _base_material_color(resistivity::Real)
     elseif resistivity <= _RHO_METAL_MAX
         return _gradient(
             _METAL_COLORS,
-            _log_fraction(max(resistivity, 1.0e-8), 1.0e-8, _RHO_METAL_MAX),
+            _log_fraction(max(resistivity, 1.0e-8), 1.0e-8, _RHO_METAL_MAX)
         )
     elseif resistivity <= _RHO_SEMIMETAL_MAX
         return _gradient(
             _SEMIMETAL_COLORS,
-            _log_fraction(resistivity, _RHO_METAL_MAX, _RHO_SEMIMETAL_MAX),
+            _log_fraction(resistivity, _RHO_METAL_MAX, _RHO_SEMIMETAL_MAX)
         )
     elseif resistivity <= _RHO_SEMICON_MAX
         return _gradient(
             _SEMICON_COLORS,
-            _log_fraction(resistivity, _RHO_SEMIMETAL_MAX, _RHO_SEMICON_MAX),
+            _log_fraction(resistivity, _RHO_SEMIMETAL_MAX, _RHO_SEMICON_MAX)
         )
     elseif resistivity <= _RHO_LEAKY_MAX
         return _gradient(
             _LEAKY_COLORS,
-            _log_fraction(resistivity, _RHO_SEMICON_MAX, _RHO_LEAKY_MAX),
+            _log_fraction(resistivity, _RHO_SEMICON_MAX, _RHO_LEAKY_MAX)
         )
     end
     return _minimum_lightness(_gradient(
         _INSULATOR_COLORS,
-        _log_fraction(min(resistivity, _RHO_MAX), _RHO_LEAKY_MAX, _RHO_MAX),
+        _log_fraction(min(resistivity, _RHO_MAX), _RHO_LEAKY_MAX, _RHO_MAX)
     ))
 end
 
@@ -82,7 +82,7 @@ function _alpha_composite(background::RGBA, foreground::RGBA)
          green(background) * alpha(background) * (1 - alpha(foreground))) / output_alpha,
         (blue(foreground) * alpha(foreground) +
          blue(background) * alpha(background) * (1 - alpha(foreground))) / output_alpha,
-        output_alpha,
+        output_alpha
     )
 end
 
@@ -108,11 +108,11 @@ function _material_color(material; alpha::Real = 1.0)
 
     color = _alpha_composite(
         RGBA(base.r, base.g, base.b, 1.0),
-        RGBA(mu_tint.r, mu_tint.g, mu_tint.b, mu_alpha),
+        RGBA(mu_tint.r, mu_tint.g, mu_tint.b, mu_alpha)
     )
     color = _alpha_composite(
         color,
-        RGBA(eps_tint.r, eps_tint.g, eps_tint.b, eps_alpha),
+        RGBA(eps_tint.r, eps_tint.g, eps_tint.b, eps_alpha)
     )
     return RGBA(red(color), green(color), blue(color), alpha)
 end
@@ -127,7 +127,7 @@ function _compact_number(value::Real)
         string(parse(Int, exponent)),
         "-" => "⁻", "0" => "⁰", "1" => "¹", "2" => "²", "3" => "³",
         "4" => "⁴", "5" => "⁵", "6" => "⁶", "7" => "⁷", "8" => "⁸",
-        "9" => "⁹",
+        "9" => "⁹"
     )
     return coefficient == "1" ? "10$superscript" : "$coefficient × 10$superscript"
 end
@@ -153,23 +153,19 @@ end
 function LineCableModels.materialcolors(
         property::Symbol,
         property_range = nothing;
-        alpha::Real = 1.0,
-        alpha_value = nothing
+        alpha::Real = 1.0
 )
     property in (:rho, :mu_r, :eps_r) || throw(ArgumentError(
         "material property must be :rho, :mu_r, or :eps_r",
     ))
-    alpha_value === nothing || alpha == 1.0 || throw(ArgumentError(
-        "use either alpha or the compatibility keyword alpha_value, not both",
-    ))
-    opacity = alpha_value === nothing ? alpha : alpha_value
-    opacity isa Real && 0 <= opacity <= 1 || throw(ArgumentError(
+    0 <= alpha <= 1 || throw(ArgumentError(
         "alpha must be between zero and one",
     ))
     ranges = LineCableModels.DataModel.material_property_ranges()
-    resolved_range = property_range === nothing ? getproperty(ranges, property) : property_range
+    resolved_range = property_range === nothing ? getproperty(ranges, property) :
+                     property_range
     resolved_range isa Tuple && length(resolved_range) == 2 &&
-        all(value -> value isa Real, resolved_range) || throw(ArgumentError(
+    all(value -> value isa Real, resolved_range) || throw(ArgumentError(
         "a material property range must be a tuple of two real values",
     ))
 
@@ -180,7 +176,7 @@ function LineCableModels.materialcolors(
         tint = _gradient(_MU_COLORS, fraction)
         _alpha_composite(
             RGBA(gray.r, gray.g, gray.b, 1.0),
-            RGBA(tint.r, tint.g, tint.b, 0.5 * fraction),
+            RGBA(tint.r, tint.g, tint.b, 0.5 * fraction)
         )
     end
     permittivity_color(value) = begin
@@ -188,7 +184,7 @@ function LineCableModels.materialcolors(
         tint = _gradient(_EPS_COLORS, fraction)
         _alpha_composite(
             RGBA(dark.r, dark.g, dark.b, 1.0),
-            RGBA(tint.r, tint.g, tint.b, 0.6 * fraction),
+            RGBA(tint.r, tint.g, tint.b, 0.6 * fraction)
         )
     end
     label, color, bounded_range = if property === :rho
@@ -200,7 +196,7 @@ function LineCableModels.materialcolors(
     end
     lower, upper, ticks = _colorbar_range(bounded_range)
     colors = _color_samples(color, lower, upper)
-    colors = RGBA[RGBA(red(value), green(value), blue(value), opacity) for value in colors]
+    colors = RGBA[RGBA(red(value), green(value), blue(value), alpha) for value in colors]
     return (; label, colormap = colors, limits = (0.0, 1.0), ticks)
 end
 
@@ -209,7 +205,7 @@ function _material_schemes(ranges; kwargs...)
         LineCableModels.materialcolors(
             property,
             getproperty(ranges, property);
-            kwargs...,
+            kwargs...
         ) for property in (:rho, :mu_r, :eps_r)
     )
 end

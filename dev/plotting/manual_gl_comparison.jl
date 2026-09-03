@@ -22,7 +22,7 @@ reference=comparison_fixture(1.0, 0.0)
 pollaczek=comparison_fixture(1.015, 0.005)
 numerical=comparison_fixture(0.985, -0.004)
 
-labels=(
+series_labels=(
     "Reference · Wedepohl",
     "LineCableModels · Pollaczek",
     "LineCableModels · direct numerical integration"
@@ -32,7 +32,7 @@ plots=Makie.plot(
     reference,
     pollaczek,
     numerical;
-    legend_labels = labels,
+    series_labels,
     requests = (R, L, G, C),
     xscale = :log10,
     fig_size = (1400, 900),

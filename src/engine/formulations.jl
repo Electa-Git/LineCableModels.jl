@@ -216,7 +216,7 @@ function _fem_formulation(
         options::NamedTuple,
         fem_options::Union{NamedTuple, LineCableModelsFEMOptions}
 )
-    shared = formulation_options(Val(LineParametersFormulation), options)
+    shared = formulation_options(LineParametersFormulation, options)
     return LineCableModelsFEM(shared, _fem_execution_options(fem_options))
 end
 
@@ -244,7 +244,7 @@ function Formulation(
         fem_options = (;),
         combine::Symbol = :product
 )
-    return _construction(
+    return parameterize(
         LineCableModelsFEM,
         _fem_formulation,
         (options, fem_options);

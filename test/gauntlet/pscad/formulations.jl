@@ -51,7 +51,7 @@ function Base.getproperty(formulation::PSCADFormulation, name::Symbol)
 end
 
 function formulation_options(
-        ::Val{PSCADFormulation},
+        ::Type{PSCADFormulation},
         options::NamedTuple
 )::FormulationOptions
     isempty(options) || throw(ArgumentError("PSCAD has no formulation options"))
@@ -83,7 +83,7 @@ function Formulation(
     return PSCADFormulation(
         Val(:pscad),
         methods,
-        formulation_options(Val(PSCADFormulation), options)
+        formulation_options(PSCADFormulation, options)
     )
 end
 

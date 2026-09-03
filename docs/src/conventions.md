@@ -55,10 +55,9 @@ methods for the stages they own.
 
 ```julia
 function process(definition::AbstractDefinition, source)
-    admitted = entitle(definition, source)
-    selected = select(definition, admitted)
+    selected = select(definition, source)
     product = build(definition, selected)
-    return finish(definition, admitted, selected, product)
+    return Product(product)
 end
 ```
 
@@ -87,13 +86,12 @@ owned_action(::Val{:example}, args...; kwargs...) = ...
 ```
 
 Use an explicit no-op method only when doing nothing is a valid stage result.
-Reject unsupported definition/source pairs before partial work. Introduce a
-mutable context only when several stages genuinely share buffers, resources,
-or evolving state.
-
-The sanctioned `@orchestrator` actions and their CI checks are listed in
-[Grammar invariants](developers.md). Do not apply `@orchestrator` to an open
-generic such as `observe`.
+Reject unsupported definition/source pairs through required stage dispatch
+before partial work. Introduce a mutable context only when several stages
+genuinely share buffers, resources, or evolving state. CI checks the fixed
+actions listed in [Grammar invariants](developers.md) directly; runtime
+metadata that merely repeats their method definitions is not part of the
+grammar.
 
 ## Ownership-centred recursive module layout
 

@@ -99,7 +99,7 @@ function layer(;
         combine::Symbol = :product
 )
     values = (rho, eps_r, mu_r, thickness)
-    return _construction(EarthLayer, _earth_layer, values; combine)
+    return parameterize(EarthLayer, _earth_layer, values; combine)
 end
 
 function Base.convert(::Type{EarthLayer{T}}, layer::EarthLayer) where {T <: Real}

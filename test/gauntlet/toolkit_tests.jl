@@ -11,7 +11,7 @@
     using .TestFixtures
 
     @test isdefined(GauntletSupport, :PSCADBenchmarks)
-    run_owner=Val(GauntletCase)
+    run_owner=GauntletCase
     run_defaults=LineCableModels.computation_options(run_owner, (;))
     @test run_defaults == (
         output_basis = :pul,
@@ -639,14 +639,15 @@ end
 
     benchmark_root=joinpath(GauntletSupport.GAUNTLET_ROOT, "benchmarks")
     benchmark_files=sort!(filter(
-        path->endswith(path, ".jl")&&
+        path->endswith(path,
+            ".jl")&&
         !startswith(path, joinpath(benchmark_root, ".work")*Base.Filesystem.path_separator),
         collect(Iterators.flatten(
             (joinpath(root, file) for file in files)
         for (root, _, files) in walkdir(benchmark_root)
         ))
     ))
-    contains_for(value) = value isa Expr&&
+    contains_for(value)=value isa Expr&&
     (value.head===:for||any(contains_for, value.args))
     benchmark_ids=Symbol[]
     benchmark_cases=Dict(:pscad=>Symbol[], :uq=>Symbol[])
@@ -1194,7 +1195,7 @@ end
         transport = :ssh,
         timeout_seconds = 60
     )
-    owner=Val(harness.PSCADFormulation)
+    owner=harness.PSCADFormulation
     @test LineCableModels.formulation_options(owner, (;)) == (;)
     @test_throws ArgumentError LineCableModels.formulation_options(
         owner,

@@ -40,7 +40,9 @@
     @test names(constants_table) == ["core", "R", "L", "C", "G"]
     @test only(constants_table.core) === :core
     @test constants_table.R ≈ 1_000constants.R
-    @test_throws Exception DataFrame(constants)
+    native_constants_table=DataFrame(constants)
+    @test names(native_constants_table) == ["core", "R", "L", "C", "G"]
+    @test native_constants_table.R == constants.R
 
     frequency=[50.0, 100.0, 200.0]
     angular=reshape(2π .* frequency, 1, 1, :)

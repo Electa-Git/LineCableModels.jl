@@ -60,11 +60,10 @@ function resolve(
 end
 
 "Compose `at` with the existing absolute primitive pose."
-resolve(at::Pose2, primitive::AbstractPrimitive) =
-    _with_pose(primitive, at * primitive.at)
+resolve(at::Pose2, primitive::AbstractPrimitive) = _with_pose(primitive, at * primitive.at)
 
-function resolve(at::Pose2, primitive::_DifferencePrimitive)
-    return _DifferencePrimitive(
+function resolve(at::Pose2, primitive::DifferenceShape)
+    return DifferenceShape(
         resolve(at, primitive.outer),
         map(hole -> resolve(at, hole), primitive.holes)
     )

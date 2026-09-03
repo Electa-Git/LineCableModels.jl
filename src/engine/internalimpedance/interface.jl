@@ -72,8 +72,9 @@ Formula(::Val{:default}; kwargs...) = Formula(Val(DEFAULT); kwargs...)
 
 function Formula(::Val{ID}; kwargs...) where {ID}
     identifier = Val(ID)
-    applicable(routes, identifier) && applicable(assumptions, identifier) ||
-        throw(ArgumentError("unknown internal-impedance formula :$ID"))
+    ID in FORMULAS || throw(ArgumentError(
+        "unknown internal-impedance formula :$ID"
+    ))
     defaults = routes(identifier)
     overrides = (; kwargs...)
     unknown = setdiff(keys(overrides), keys(defaults))

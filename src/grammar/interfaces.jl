@@ -3,8 +3,8 @@ $(SIGNATURES)
 
 Validate and normalise the options owned by a formulation type.
 
-The implementation that owns `FormulationType` defines a method for
-`Val(FormulationType)`. No broad fallback exists. An unregistered formulation
+The implementation that owns `FormulationType` defines a method for the type
+itself. No broad fallback exists. An unregistered formulation
 raises `MethodError`.
 
 # Arguments
@@ -24,7 +24,7 @@ $(SIGNATURES)
 
 Validate and normalise the options owned by one computation.
 
-The implementation that owns `OwnerType` defines a method for `Val(OwnerType)`.
+The implementation that owns `OwnerType` defines a method for the type itself.
 `OwnerType` may identify a core solver or a composite calculation such as
 a Gauntlet case. No broad fallback exists. An unregistered owner raises
 `MethodError`.
@@ -46,9 +46,9 @@ $(SIGNATURES)
 
 Normalize supplemental output owned by one core or composite computation.
 
-The computation owner defines a method for `Val(OwnerType)` and returns a
+The formulation type defines a method for itself and returns a
 fixed-key [`ComputationDetails`](@ref) named tuple. No broad fallback exists;
-an unregistered owner raises `MethodError`.
+an unregistered formulation raises `MethodError`.
 """
 function computation_details end
 

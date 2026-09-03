@@ -1,11 +1,13 @@
 @testitem "Makie addons / native figures, layouts, docks, widgets, and export" tags=[:visual] setup=[
     NativePlotTestSupport, UseNativePlotSupport, TestFixtures
 ] begin
-    get(ENV, "LINECABLEMODELS_TEST_PLOTTING", "false")=="true"||
+    get(ENV,
+        "LINECABLEMODELS_TEST_PLOTTING",
+        "false")=="true"||
     error("set LINECABLEMODELS_TEST_PLOTTING=true to run the visual contract")
     using CairoMakie
 
-    legend_labels(legend) = [entry.label[] for entry in last(first(legend.entrygroups[]))]
+    legend_labels(legend)=[entry.label[] for entry in last(first(legend.entrygroups[]))]
 
     frequency=[50.0, 100.0, 500.0]
     parameters=TestFixtures.two_conductor_results(; frequencies = frequency)
@@ -179,7 +181,8 @@
     @test combined.legend.orientation[] == :horizontal
     @test legend_labels(combined.legend) == ["reference", "candidate"]
 
-    for (position, orientation) in (
+    for (position,
+        orientation) in (
         (:left, :vertical), (:right, :vertical),
         (:top, :horizontal), (:bottom, :horizontal),
         ((1, 3), :horizontal)
@@ -301,14 +304,6 @@
         backend = :cairo,
         display_plot = false,
         panel_titles = ("only one",)
-    )
-    @test_throws ArgumentError Makie.plot(
-        parameters,
-        self_impedance_request;
-        backend = :cairo,
-        display_plot = false,
-        panel_titles = ("R", "X"),
-        labels = ("legacy R", "legacy X")
     )
     @test_throws ArgumentError Makie.plot(
         parameters,

@@ -39,6 +39,9 @@ export FillFactor, DiameterFactor, TabulatedCompaction, AffineCompaction
 export LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
 export ncables, nphases
 
+public AssemblyMember, AssemblyShape, DifferenceShape, ShellShape,
+       RoundedSectorShape
+
 # Module-specific dependencies
 #! explicit-imports: off
 # IMPORTS is expanded in the module docstring rather than called as Julia code.
@@ -48,7 +51,7 @@ using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES, FUNCTIONNAME
 import ..Units
 import ..TextDisplay
 import ..LineCableModels: add!, build, homogenize, validate, nominal
-import ..LineCableModels: _construction
+import ..LineCableModels: parameterize
 using ..Materials: Material
 import GeometryBasics
 using GeometryBasics: Point2f

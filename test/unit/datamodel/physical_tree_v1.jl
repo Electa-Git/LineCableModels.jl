@@ -50,7 +50,8 @@ end
         at::DM.Pose2{T}
     end
 
-    DM.resolve(::DM.EmptyBoundary, definition::CapsuleDefinition) = Capsule(
+    DM.resolve(::DM.EmptyBoundary,
+        definition::CapsuleDefinition) = Capsule(
         definition.radius,
         DM.Pose2(0, 0, 0)
     )
@@ -59,8 +60,9 @@ end
     DM.boundary(primitive::Capsule) = primitive
     DM.area(primitive::Capsule) = pi * primitive.radius^2
     DM.centroid(primitive::Capsule) = (primitive.at.x, primitive.at.y)
-    DM.support(primitive::Capsule, φ::Real) = primitive.at.x * cos(φ) +
-                                              primitive.at.y * sin(φ) + primitive.radius
+    DM.support(primitive::Capsule,
+        φ::Real) = primitive.at.x * cos(φ) +
+                   primitive.at.y * sin(φ) + primitive.radius
     DM.support(primitive::Capsule) = hypot(primitive.at.x, primitive.at.y) +
                                      primitive.radius
 
@@ -304,7 +306,7 @@ end
     fill=last(resolved.regions)
 
     @test length(resolved.regions) == 8
-    @test fill.primitive isa DM._DifferencePrimitive
+    @test fill.primitive isa DM.DifferenceShape
     @test length(fill.primitive.holes) == 7
     @test DM.area(fill.primitive) ≈ π * 1.5^2 - 7π * 0.5^2
     @test all(region -> region.terminal === :core, resolved.regions[1:7])
@@ -318,7 +320,7 @@ end
         fill = matrix
     )
     annular_fill=last(DM.resolve(DM.EmptyBoundary(), annular).regions)
-    @test annular_fill.primitive isa DM._DifferencePrimitive
+    @test annular_fill.primitive isa DM.DifferenceShape
     @test DM.area(annular_fill.primitive) ≈
           π * 1.5^2 - π * (1.0^2 - 0.5^2)
 
@@ -340,7 +342,7 @@ end
         annular_stage
     )
     staged_fill=last(staged_design.geometry.regions)
-    @test staged_fill.primitive isa DM._DifferencePrimitive
+    @test staged_fill.primitive isa DM.DifferenceShape
     @test staged_fill.primitive.outer isa Annulus
     @test length(staged_fill.primitive.holes) == 6
     @test sum(DM.area, staged_design.geometry.regions) ≈
@@ -371,7 +373,7 @@ end
     restored=IE.deserialize_value(IE.serialize_value(packed_design))
     @test restored == packed_design
     restored_fill=last(restored.geometry.regions).primitive
-    @test restored_fill isa DM._DifferencePrimitive
+    @test restored_fill isa DM.DifferenceShape
     @test length(restored_fill.holes) == 7
 
     insulated=build(
@@ -545,12 +547,13 @@ end
     @test isconcretetype(typeof(design))
     @test isconcretetype(typeof(system))
     @test isconcretetype(typeof(problem))
-    execution=computation_options(Val(LineCableModelsCoaxial), (;))
+    execution=computation_options(LineCableModelsCoaxial, (;))
     blueprints=LineCableModels.Engine.CableBlueprint{eltype(problem)}[LineCableModels.Engine.flatten(
                                                                           LineCableModelsCoaxial(),
                                                                           source,
                                                                           eltype(problem))
-                                                                      for source in problem.system.designs]
+                                                                      for source in
+                                                                          problem.system.designs]
     @test (@inferred LineCableModels.Engine.LineParametersWorkspace(
         problem,
         Formulation(),

@@ -152,7 +152,7 @@ function build(
         combine::Symbol = :product
 )
     values = (layers, vertical_layers, air_layer)
-    return _construction(EarthModel, _earth_model, values; combine)
+    return parameterize(EarthModel, _earth_model, values; combine)
 end
 
 function Base.convert(

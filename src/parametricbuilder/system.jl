@@ -17,7 +17,7 @@ function build(
         line_length
     )
     caller = (selected...) -> build(DataModel.LineCableSystem, selected...)
-    return _construction(DataModel.LineCableSystem, caller, values; combine)
+    return parameterize(DataModel.LineCableSystem, caller, values; combine)
 end
 
 function _placed_system(
@@ -68,7 +68,7 @@ function build(
         combine::Symbol = :product
 )
     values = (placements, environment, system_id, line_length)
-    return _construction(
+    return parameterize(
         DataModel.LineCableSystem, _placed_system, values; combine
     )
 end
@@ -151,7 +151,7 @@ function Engine.LineParametersProblem(
         placements, environment, system_id, line_length, temperature,
         earth_props, frequencies, Γ
     )
-    return _construction(
+    return parameterize(
         Engine.LineParametersProblem, _placed_line_problem, values; combine
     )
 end

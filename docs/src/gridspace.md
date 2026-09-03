@@ -225,7 +225,7 @@ function immediately unpacks.
 `@gridspace` applies the same rule to a keyword-constructed struct. The macro
 retains the strict positional constructor, returns the struct immediately for
 scalar keyword input, and creates a Gridspace only when a field is an explicit
-finite source. `@gridspace` composes with `@relax` in either order.
+finite source.
 
 ## Materialisation and realisation
 
@@ -280,7 +280,7 @@ generic route on the same phase-domain matrices.
 ```julia
 run.axes.problems
 run.axes.formulations
-result(run, problem_index, formulation_index)
+run[problem_index, formulation_index]
 ```
 
 Its `values` vector and ordinary linear iteration remain available. Storage is

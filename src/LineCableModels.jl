@@ -32,11 +32,11 @@ export Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGrid
 export AbstractGrid, AbstractUncertainGrid, UncertainValue
 export Gridspace
 export has_uncertainty, nominal, uncertainty
-export @gridspace, @relax
+export @gridspace
 export Combinatorial, LinearError, MonteCarlo, ParametricProblem
 export ParametricResult, LinearErrorResult, MonteCarloResult
 export SampleSummary, HistogramDensity
-export result, statistics, samples, histograms, uncertain
+export statistics, samples, histograms, uncertain
 export root_seed, point_seed, trial_count
 export confidence, cdf_tolerance, sampling_distribution
 export report, TableReportDefinition, XLSXReportDefinition, ReportArtifact
@@ -86,6 +86,8 @@ export export_data, import_data, save, load!
 # -------------------------------------------------------------------------
 
 import DocStringExtensions: DocStringExtensions
+using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
+using Random
 
 include("docstrings.jl")
 include("interfaces.jl")
@@ -109,19 +111,27 @@ using .Grammar:
                 AbstractParametricResult, AbstractUncertaintyResult,
                 FormulationOptions, ComputationOptions, ComputationDetails,
                 formulation_options, computation_options, computation_details, details,
-                compute, observe, @observe, observables,
-                nominal, uncertainty
+                compute, observe, @observe, observables
+import .Grammar: nominal, uncertainty
 
 # Submodule `InputValidation`
 include("inputvalidation/InputValidation.jl")
 using .InputValidation: validate
 
+# Root-owned finite parameter grammar. These primitives are loaded before the
+# domain modules so every constructor enters the same scalar-or-Gridspace path
+# without a late-loaded bridge through ParametricBuilder.
+include("grid.jl")
+include("gridspace.jl")
+
+public parameterize, materialize, sample_uncertainty
+
 # Thin native plotting handles and optional-extension entry points.
 include("plotbuilder/PlotBuilder.jl")
 using .PlotBuilder:
-    UIPlot, plot, preview, show_material_scale, export_svg,
-    figurelegend!, panellegend!, figuretitle!, paneltitle!,
-    plotwindow, materialcolors, materialscale!
+                    UIPlot, plot, preview, show_material_scale, export_svg,
+                    figurelegend!, panellegend!, figuretitle!, paneltitle!,
+                    plotwindow, materialcolors, materialscale!
 export UIPlot, export_svg, figurelegend!, panellegend!, figuretitle!, paneltitle!
 export materialcolors, materialscale!
 public PlotBuilder, plot, plotwindow
@@ -178,12 +188,8 @@ using .Transforms: ModalTransformationProblem, ModalTransformationFormulation,
 # Submodule `ParametricBuilder`
 include("parametricbuilder/ParametricBuilder.jl")
 using .ParametricBuilder:
-                          Grid, AbsoluteError, DeterministicGrid, RelativeGrid,
-                          AbsoluteGrid, AbstractGrid, AbstractUncertainGrid,
-                          UncertainValue, Gridspace, has_uncertainty,
-                          @gridspace, @relax,
+                          @gridspace,
                           Combinatorial, ParametricProblem, ParametricResult,
-                          result,
                           Conductor, Insulator,
                           terminal, core, stranded, rope, cores, tape,
                           insulation, screen, sheath, armor, bedding, jacket,

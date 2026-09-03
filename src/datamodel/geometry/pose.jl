@@ -26,7 +26,7 @@ function _pose2(x, y, φ)
 end
 
 function Pose2(x, y, φ; combine::Symbol = :product)
-    return _construction(Pose2, _pose2, (x, y, φ); combine)
+    return parameterize(Pose2, _pose2, (x, y, φ); combine)
 end
 
 Pose2(x, y; combine::Symbol = :product) = Pose2(x, y, 0; combine)

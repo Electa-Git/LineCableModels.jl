@@ -102,19 +102,29 @@ function Base.:(==)(left::CableConstants, right::CableConstants)
 end
 
 Base.length(constants::CableConstants) = length(constants.cores)
+Base.size(constants::CableConstants) = (length(constants),)
+function Base.eltype(::Type{CableConstants{T}}) where {T}
+    NamedTuple{
+        (:core, :R, :L, :C, :G),
+        Tuple{Symbol, T, T, T, T}
+    }
+end
+Base.firstindex(constants::CableConstants) = firstindex(constants.cores)
+Base.lastindex(constants::CableConstants) = lastindex(constants.cores)
 
-"Return the only assembly as a scalar named tuple."
-function Base.only(constants::CableConstants)
-    length(constants) == 1 || throw(ArgumentError(
-        "CableConstants contains $(length(constants)) assemblies; expected exactly one",
-    ))
+function Base.getindex(constants::CableConstants, index::Integer)
     return (
-        core = only(constants.cores),
-        R = only(constants.R),
-        L = only(constants.L),
-        C = only(constants.C),
-        G = only(constants.G)
+        core = constants.cores[index],
+        R = constants.R[index],
+        L = constants.L[index],
+        C = constants.C[index],
+        G = constants.G[index]
     )
+end
+
+function Base.iterate(constants::CableConstants, state::Int = 1)
+    state > length(constants) && return nothing
+    return constants[state], state + 1
 end
 
 observe(constants::CableConstants, ::typeof(R)) = constants.R
@@ -255,7 +265,7 @@ struct CableConstantsFormulation{
 end
 
 function formulation_options(
-        ::Val{CableConstantsFormulation},
+        ::Type{CableConstantsFormulation},
         options::NamedTuple
 )::FormulationOptions
     allowed = (:temperature_correction,)
@@ -285,7 +295,7 @@ function _constants_formulation(
     )
     return CableConstantsFormulation(
         methods,
-        formulation_options(Val(CableConstantsFormulation), options)
+        formulation_options(CableConstantsFormulation, options)
     )
 end
 
@@ -324,7 +334,7 @@ function CableConstantsFormulation(;
         semicon_admittance,
         options
     )
-    return _construction(
+    return parameterize(
         CableConstantsFormulation,
         _constants_formulation,
         values;
@@ -333,7 +343,7 @@ function CableConstantsFormulation(;
 end
 
 function computation_options(
-        ::Val{CableConstantsProblem},
+        ::Type{CableConstantsProblem},
         options::NamedTuple
 )::ComputationOptions
     isempty(options) || throw(ArgumentError(
@@ -542,7 +552,7 @@ function compute(
         formulations::AbstractVector{<:CableConstantsFormulation};
         options::NamedTuple = (;)
 )
-    computation_options(Val(CableConstantsProblem), options)
+    computation_options(CableConstantsProblem, options)
     isempty(formulations) && throw(ArgumentError(
         "cable-constant formulation collections cannot be empty",
     ))
@@ -586,10 +596,8 @@ function CableConstants(
     return compute(problem, formulation; options)
 end
 
-computation_owner(::CableConstantsFormulation) = LineCableModelsCoaxial
-
 function computation_details(
-        ::Val{LineCableModelsCoaxial},
+        ::Type{<:CableConstantsFormulation},
         ::CableConstants
 )::ComputationDetails
     return (;)

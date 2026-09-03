@@ -10,14 +10,13 @@ export AbstractReportDefinition, ReportArtifact
 export TableReportDefinition, CableConstantsTableDefinition
 export LineParametersTableDefinition, BenchmarkTableDefinition
 export MonteCarloTableDefinition, XLSXReportDefinition, report
-export entitle, select, tabulate, illustrate, encode, write, finish
+export select, tabulate, illustrate, encode, write
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using Printf: @sprintf
 using RequiredInterfaces: @required
-using ..Grammar: @orchestrator
 import DataFrames: DataFrame, metadata, metadata!
-import ..Grammar: observables, validate_observables
+import ..Grammar: observables
 import ..Grammar: ObservationPublication
 using ..Grammar: @observe
 import ..Units

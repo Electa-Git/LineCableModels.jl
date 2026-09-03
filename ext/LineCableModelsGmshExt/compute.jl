@@ -264,9 +264,10 @@ function _fem_computation_options(options::NamedTuple)
     resume isa Union{Nothing, Symbol, AbstractString} || throw(ArgumentError(
         "resume_run_directory must be nothing, :latest, or a path string",
     ))
-    resume isa Symbol && resume !== :latest && throw(ArgumentError(
-        "the only symbolic resume_run_directory is :latest",
-    ))
+    resume isa Symbol && resume !== :latest &&
+        throw(ArgumentError(
+            "the only symbolic resume_run_directory is :latest",
+        ))
     resume === "" && throw(ArgumentError(
         "resume_run_directory cannot be empty",
     ))
@@ -276,7 +277,7 @@ function _fem_computation_options(options::NamedTuple)
     standard_values = map(key -> getproperty(options, key), standard_keys)
     standard = NamedTuple{Tuple(standard_keys)}(Tuple(standard_values))
     execution = computation_options(
-        Val(LineCableModels.LineCableModelsCoaxial), standard
+        LineCableModels.LineCableModelsCoaxial, standard
     )
     return (;
         execution...,

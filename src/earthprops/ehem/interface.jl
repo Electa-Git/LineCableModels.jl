@@ -82,7 +82,7 @@ end
 
 function Formula(::Val{ID}; route = nothing, kwargs...) where {ID}
     tag = Val(ID)
-    applicable(assumptions, tag) || throw(ArgumentError(
+    ID in FORMULAS || throw(ArgumentError(
         "unknown EHEM formula :$ID"
     ))
     defaults = assumptions(tag)
@@ -109,8 +109,9 @@ function Formula(::Val{:default}, route, values::NamedTuple = (;))
     ))
 end
 
-Formula(identifier::Symbol, route, values::NamedTuple = (;)) =
+function Formula(identifier::Symbol, route, values::NamedTuple = (;))
     Formula(Val(identifier), route, values)
+end
 
 AfterFD(identifier::Symbol; kwargs...) = AfterFD(Formula(identifier; kwargs...))
 BeforeFD(identifier::Symbol; kwargs...) = BeforeFD(Formula(identifier; kwargs...))

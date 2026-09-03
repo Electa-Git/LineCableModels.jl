@@ -103,7 +103,7 @@ function _register_full_circle_breaks!(registry::FEMLoopRegistry, centre, radius
 end
 
 function _tangent_circular_fill_plan(shape)
-    shape isa DataModel._DifferencePrimitive || return nothing
+    shape isa DataModel.DifferenceShape || return nothing
     outer = shape.outer
     outer isa DataModel.Annulus || return nothing
     isempty(shape.holes) && return nothing
@@ -137,7 +137,8 @@ function _tangent_circular_fill_plan(shape)
     tolerance = 1.0e-12 * max(
         Float64(outer.ro), computed_outer_radius, 1.0
     )
-    all(radius -> isapprox(
+    all(
+        radius -> isapprox(
             radius, computed_outer_radius; rtol = 0, atol = tolerance
         ), outer_contacts) || return nothing
     computed_outer_radius <= Float64(outer.ro) + tolerance || return nothing
@@ -177,7 +178,7 @@ function _tangent_circular_fill_plan(shape)
             atol = tolerance
         ) || return nothing
         FEM_BOUNDARY_ANGLE_TOLERANCE < Float64(cutout.span) <
-            2π - FEM_BOUNDARY_ANGLE_TOLERANCE || return nothing
+        2π - FEM_BOUNDARY_ANGLE_TOLERANCE || return nothing
     end
     has_outer_shell = Float64(outer.ro) - tangent_outer_radius > tolerance
     has_outer_shell || isempty(cutouts) || return nothing
@@ -188,10 +189,8 @@ function _tangent_circular_fill_plan(shape)
     sort!(entries; by = first)
     if length(entries) > 1
         angles = first.(entries)
-        separations = [
-            mod(angles[mod1(index + 1, end)] - angles[index], 2π)
-            for index in eachindex(angles)
-        ]
+        separations = [mod(angles[mod1(index + 1, end)] - angles[index], 2π)
+                       for index in eachindex(angles)]
         minimum(separations) > FEM_BOUNDARY_ANGLE_TOLERANCE || return nothing
     end
     return (
@@ -222,7 +221,7 @@ function _complementary_sector_spans(cutouts)
     merged = Tuple{Float64, Float64}[]
     for interval in occupied
         if isempty(merged) || interval[1] > last(merged)[2] +
-                                      FEM_BOUNDARY_ANGLE_TOLERANCE
+                                            FEM_BOUNDARY_ANGLE_TOLERANCE
             push!(merged, interval)
             continue
         end
@@ -291,16 +290,17 @@ function _annular_sector_surface!(
         last_point = outer_stop_point
     )
     push!(curves, _line!(registry, outer_stop, inner_stop))
-    append!(curves, _circle_arc_path!(
-        registry,
-        centre,
-        inner_radius,
-        start_angle + span,
-        -span;
-        mesh_size,
-        first_point = inner_stop_point,
-        last_point = inner_start_point
-    ))
+    append!(curves,
+        _circle_arc_path!(
+            registry,
+            centre,
+            inner_radius,
+            start_angle + span,
+            -span;
+            mesh_size,
+            first_point = inner_stop_point,
+            last_point = inner_start_point
+        ))
     push!(curves, _line!(registry, inner_start, outer_start))
     loop = gmsh.model.geo.add_curve_loop(curves)
     return gmsh.model.geo.add_plane_surface([loop])
@@ -358,69 +358,72 @@ function _register_tangent_fill_contacts!(registry::FEMLoopRegistry, shape)
     return plan
 end
 
-function _register_shape_breaks!(registry::FEMLoopRegistry, shape)
-    if shape isa DataModel.Disk
-        _register_full_circle_breaks!(
-            registry, (shape.at.x, shape.at.y), shape.r
-        )
-        return nothing
+_register_shape_breaks!(::FEMLoopRegistry, shape) = nothing
+
+function _register_shape_breaks!(registry::FEMLoopRegistry, shape::DataModel.Disk)
+    _register_full_circle_breaks!(registry, (shape.at.x, shape.at.y), shape.r)
+    return nothing
+end
+
+function _register_shape_breaks!(registry::FEMLoopRegistry, shape::DataModel.Annulus)
+    centre = (shape.at.x, shape.at.y)
+    _register_full_circle_breaks!(registry, centre, shape.ri)
+    _register_full_circle_breaks!(registry, centre, shape.ro)
+    return nothing
+end
+
+function _register_shape_breaks!(registry::FEMLoopRegistry, shape::DataModel.Sector)
+    centre = (shape.at.x, shape.at.y)
+    start_angle = shape.at.φ + shape.φ0
+    stop_angle = start_angle + shape.span
+    _register_circle_break!(registry, centre, shape.ro, start_angle)
+    _register_circle_break!(registry, centre, shape.ro, stop_angle)
+    if !iszero(shape.ri)
+        _register_circle_break!(registry, centre, shape.ri, start_angle)
+        _register_circle_break!(registry, centre, shape.ri, stop_angle)
     end
-    if shape isa DataModel.Annulus
-        centre = (shape.at.x, shape.at.y)
-        _register_full_circle_breaks!(registry, centre, shape.ri)
-        _register_full_circle_breaks!(registry, centre, shape.ro)
-        return nothing
+    return nothing
+end
+
+function _register_shape_breaks!(
+        registry::FEMLoopRegistry,
+        shape::DataModel.RoundedSectorShape
+)
+    for arc in (
+        shape.contacts.arcs.base,
+        shape.contacts.arcs.lower,
+        shape.contacts.arcs.back,
+        shape.contacts.arcs.upper
+    )
+        iszero(arc.radius) && continue
+        centre = _transform_point(arc.center, shape.at)
+        _register_circle_break!(registry, centre, arc.radius, shape.at.φ + arc.start)
+        _register_circle_break!(registry, centre, arc.radius, shape.at.φ + arc.stop)
     end
-    if shape isa DataModel.Sector
-        centre = (shape.at.x, shape.at.y)
-        start_angle = shape.at.φ + shape.φ0
-        stop_angle = start_angle + shape.span
-        _register_circle_break!(registry, centre, shape.ro, start_angle)
-        _register_circle_break!(registry, centre, shape.ro, stop_angle)
-        if !iszero(shape.ri)
-            _register_circle_break!(registry, centre, shape.ri, start_angle)
-            _register_circle_break!(registry, centre, shape.ri, stop_angle)
-        end
-        return nothing
-    end
-    if shape isa DataModel.RoundedSectorShape
-        for arc in (
-                shape.contacts.arcs.base,
-                shape.contacts.arcs.lower,
-                shape.contacts.arcs.back,
-                shape.contacts.arcs.upper
-        )
-            iszero(arc.radius) && continue
-            centre = _transform_point(arc.center, shape.at)
-            _register_circle_break!(
-                registry, centre, arc.radius, shape.at.φ + arc.start
-            )
-            _register_circle_break!(
-                registry, centre, arc.radius, shape.at.φ + arc.stop
-            )
-        end
-        return nothing
-    end
-    if hasproperty(shape, :inner) && hasproperty(shape, :outer)
-        _register_shape_breaks!(registry, getproperty(shape, :inner))
-        _register_shape_breaks!(registry, getproperty(shape, :outer))
-        return nothing
-    end
-    if hasproperty(shape, :holes) && hasproperty(shape, :outer)
-        _register_shape_breaks!(registry, getproperty(shape, :outer))
-        foreach(
-            hole -> _register_shape_breaks!(registry, hole),
-            getproperty(shape, :holes)
-        )
-        _register_tangent_fill_contacts!(registry, shape)
-        return nothing
-    end
-    if hasproperty(shape, :members)
-        foreach(
-            member -> _register_shape_breaks!(registry, member),
-            getproperty(shape, :members)
-        )
-    end
+    return nothing
+end
+
+function _register_shape_breaks!(registry::FEMLoopRegistry, shape::DataModel.ShellShape)
+    _register_shape_breaks!(registry, shape.inner)
+    _register_shape_breaks!(registry, shape.outer)
+    return nothing
+end
+
+function _register_shape_breaks!(
+        registry::FEMLoopRegistry,
+        shape::DataModel.DifferenceShape
+)
+    _register_shape_breaks!(registry, shape.outer)
+    foreach(hole -> _register_shape_breaks!(registry, hole), shape.holes)
+    _register_tangent_fill_contacts!(registry, shape)
+    return nothing
+end
+
+function _register_shape_breaks!(
+        registry::FEMLoopRegistry,
+        shape::DataModel.AssemblyShape
+)
+    foreach(member -> _register_shape_breaks!(registry, member), shape.members)
     return nothing
 end
 
@@ -734,7 +737,8 @@ function _circle_arc_path!(
                 first_tag = point_tags[index]
                 last_tag = point_tags[index + 1]
                 key = (:circle_arc, circle_key, minmax(first_tag, last_tag))
-                tag, stored_first, stored_last = get!(registry.circle_arcs, key) do
+                tag, stored_first,
+                stored_last = get!(registry.circle_arcs, key) do
                     (
                         gmsh.model.geo.add_circle_arc(
                             first_tag, centre_tag, last_tag
@@ -910,10 +914,11 @@ function _shape_points(shape::DataModel.Polygon)
     return [_transform_point(point, shape.at) for point in shape.points]
 end
 
+function _shape_points(shape::DataModel.RoundedSectorShape)
+    return DataModel.tessellate(shape; points_per_arc = 24)
+end
+
 function _shape_points(shape)
-    if hasproperty(shape, :contacts) && hasproperty(shape, :primitive)
-        return DataModel.tessellate(shape; points_per_arc = 24)
-    end
     _fem_error(
         :unsupported,
         string(typeof(shape)),
@@ -947,27 +952,28 @@ function _boundary_loop!(
     return _polygon_loop!(registry, _shape_points(shape); mesh_size)
 end
 
-function _surface_boundaries(shape)
-    if shape isa DataModel.Annulus
-        outer = DataModel.Disk(shape.ro, shape.at)
-        inner = DataModel.Disk(shape.ri, shape.at)
-        return outer, Any[inner]
-    end
-    if shape isa DataModel.Sector &&
-       isapprox(
-           shape.span, 2π; rtol = 0, atol = 128eps(Float64)
-       ) && !iszero(shape.ri)
+function _surface_boundaries(shape::DataModel.Annulus)
+    outer = DataModel.Disk(shape.ro, shape.at)
+    inner = DataModel.Disk(shape.ri, shape.at)
+    return outer, Any[inner]
+end
+
+function _surface_boundaries(shape::DataModel.Sector)
+    if isapprox(shape.span, 2π; rtol = 0, atol = 128eps(Float64)) &&
+       !iszero(shape.ri)
         return DataModel.Disk(shape.ro, shape.at), Any[DataModel.Disk(shape.ri, shape.at)]
-    end
-    if hasproperty(shape, :inner) && hasproperty(shape, :outer)
-        return getproperty(shape, :outer), Any[getproperty(shape, :inner)]
-    end
-    if hasproperty(shape, :holes) && hasproperty(shape, :outer)
-        outer, outer_holes = _surface_boundaries(getproperty(shape, :outer))
-        return outer, Any[outer_holes..., getproperty(shape, :holes)...]
     end
     return shape, Any[]
 end
+
+_surface_boundaries(shape::DataModel.ShellShape) = (shape.outer, Any[shape.inner])
+
+function _surface_boundaries(shape::DataModel.DifferenceShape)
+    outer, outer_holes = _surface_boundaries(shape.outer)
+    return outer, Any[outer_holes..., shape.holes...]
+end
+
+_surface_boundaries(shape) = (shape, Any[])
 
 function _surface!(registry::FEMLoopRegistry, shape, mesh_size)
     outer, holes = _surface_boundaries(shape)
@@ -1003,59 +1009,64 @@ function _tangent_fill_surfaces!(registry::FEMLoopRegistry, shape, mesh_size)
             plan.centre, plan.inner_radius, next_angle
         )
         curves = Int[]
-        append!(curves, _circle_arc_path!(
-            registry,
-            plan.centre,
-            plan.outer_radius,
-            angle,
-            span;
-            mesh_size,
-            first_point = outer_point,
-            last_point = next_outer_point
-        ))
-        append!(curves, _circle_arc_path!(
-            registry,
-            next_hole_centre,
-            Float64(next_hole.r),
-            next_angle,
-            -π;
-            mesh_size,
-            first_point = next_outer_point,
-            last_point = next_inner_point
-        ))
-        append!(curves, _circle_arc_path!(
-            registry,
-            plan.centre,
-            plan.inner_radius,
-            next_angle,
-            -span;
-            mesh_size,
-            first_point = next_inner_point,
-            last_point = inner_point
-        ))
-        append!(curves, _circle_arc_path!(
-            registry,
-            hole_centre,
-            Float64(hole.r),
-            angle + π,
-            -π;
-            mesh_size,
-            first_point = inner_point,
-            last_point = outer_point
-        ))
+        append!(curves,
+            _circle_arc_path!(
+                registry,
+                plan.centre,
+                plan.outer_radius,
+                angle,
+                span;
+                mesh_size,
+                first_point = outer_point,
+                last_point = next_outer_point
+            ))
+        append!(curves,
+            _circle_arc_path!(
+                registry,
+                next_hole_centre,
+                Float64(next_hole.r),
+                next_angle,
+                -π;
+                mesh_size,
+                first_point = next_outer_point,
+                last_point = next_inner_point
+            ))
+        append!(curves,
+            _circle_arc_path!(
+                registry,
+                plan.centre,
+                plan.inner_radius,
+                next_angle,
+                -span;
+                mesh_size,
+                first_point = next_inner_point,
+                last_point = inner_point
+            ))
+        append!(curves,
+            _circle_arc_path!(
+                registry,
+                hole_centre,
+                Float64(hole.r),
+                angle + π,
+                -π;
+                mesh_size,
+                first_point = inner_point,
+                last_point = outer_point
+            ))
         loop = gmsh.model.geo.add_curve_loop(curves)
         push!(surfaces, gmsh.model.geo.add_plane_surface([loop]))
     end
     for (start_angle, span) in plan.outer_spans
-        push!(surfaces, _annular_sector_surface!(
-            registry,
-            plan.centre,
-            plan.outer_radius,
-            plan.shell_outer_radius,
-            start_angle,
-            span,
-            mesh_size
-        ))
+        push!(surfaces,
+            _annular_sector_surface!(
+                registry,
+                plan.centre,
+                plan.outer_radius,
+                plan.shell_outer_radius,
+                start_angle,
+                span,
+                mesh_size
+            ))
     end
     return surfaces
 end
@@ -1066,12 +1077,8 @@ function _surfaces!(registry::FEMLoopRegistry, shape, mesh_size)
     return Int[_surface!(registry, shape, mesh_size)]
 end
 
-function _boundary_components(shape)
-    if hasproperty(shape, :members)
-        return collect(getproperty(shape, :members))
-    end
-    return Any[shape]
-end
+_boundary_components(shape::DataModel.AssemblyShape) = collect(shape.members)
+_boundary_components(shape) = Any[shape]
 
 function _physical_group(dim::Int, entities, tag::Int, name::String)
     values = sort!(unique(Int.(entities)))
@@ -1211,10 +1218,8 @@ function _build_geometry!(
         push!(interface_points, _point!(registry, (x, 0.0); mesh_size))
     end
     push!(interface_points, inner_right)
-    finite_interfaces = [
-        _line!(registry, interface_points[index], interface_points[index + 1])
-        for index in 1:(length(interface_points) - 1)
-    ]
+    finite_interfaces = [_line!(registry, interface_points[index], interface_points[index + 1])
+                         for index in 1:(length(interface_points) - 1)]
     left_connector = _line!(registry, outer_left, inner_left)
     right_connector = _line!(registry, inner_right, outer_right)
     air_holes = Int[]
@@ -1223,12 +1228,10 @@ function _build_geometry!(
         target = model.cable_hosts[cable_index] === :air ? air_holes : earth_holes
         append!(target, getproperty.(cable_loops[cable_index], :cw))
     end
-    air_loop = gmsh.model.geo.add_curve_loop([
-        finite_interfaces; inner.curves[1]; inner.curves[2]
-    ])
-    earth_loop = gmsh.model.geo.add_curve_loop([
-        -reverse(finite_interfaces); inner.curves[3]; inner.curves[4]
-    ])
+    air_loop = gmsh.model.geo.add_curve_loop([finite_interfaces; inner.curves[1];
+                                              inner.curves[2]])
+    earth_loop = gmsh.model.geo.add_curve_loop([-reverse(finite_interfaces);
+                                                inner.curves[3]; inner.curves[4]])
     air_surface = gmsh.model.geo.add_plane_surface([air_loop; air_holes])
     earth_surface = gmsh.model.geo.add_plane_surface([earth_loop; earth_holes])
 
@@ -1311,9 +1314,8 @@ function _build_geometry!(
         "LCM/domain/infinite_shell"
     )
 
-    interface_curves = sort!(unique(abs.([
-        finite_interfaces; left_connector; right_connector
-    ])))
+    interface_curves = sort!(unique(abs.([finite_interfaces; left_connector;
+                                          right_connector])))
     outer_curves = sort!(unique(outer.curves))
     outer_air_curves = intersect(
         outer_curves,

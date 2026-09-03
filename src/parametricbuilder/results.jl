@@ -19,7 +19,7 @@ struct Combinatorial{F, O <: ComputationOptions} <: AbstractFormulation
 end
 
 function computation_options(
-        ::Val{Combinatorial},
+        ::Type{Combinatorial},
         options::NamedTuple
 )::ComputationOptions
     unknown = filter(key -> key !== :retain_details, keys(options))
@@ -65,7 +65,7 @@ end
 
 function Combinatorial(inner::F; options::NamedTuple = (;)) where {F}
     source = _combinatorial_source(inner)
-    normalized = computation_options(Val(Combinatorial), options)
+    normalized = computation_options(Combinatorial, options)
     return Combinatorial{typeof(source), typeof(normalized)}(source, normalized)
 end
 
@@ -115,7 +115,7 @@ Store core results over resolved problem and formulation axes.
 
 Linear indexing remains compatible with ordinary result-space iteration.
 Values use column-major `(problem, formulation)` order: the problem index
-varies fastest. [`result`](@ref) accepts the two indices directly.
+varies fastest. Two-dimensional indexing accepts those indices directly.
 
 $(TYPEDFIELDS)
 """
@@ -170,11 +170,8 @@ Base.iterate(value::ParametricResult, state...) = iterate(value.values, state...
 Base.firstindex(value::ParametricResult) = firstindex(value.values)
 Base.lastindex(value::ParametricResult) = lastindex(value.values)
 
-"Return the core results of a parametric calculation."
-result(value::ParametricResult) = value.values
-
 "Return one result selected by its problem and formulation indices."
-function result(
+function Base.getindex(
         value::ParametricResult,
         problem_index::Integer,
         formulation_index::Integer

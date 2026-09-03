@@ -1,6 +1,4 @@
 "Return core results in Gridspace traversal order."
-result(value::Union{LinearErrorResult, MonteCarloResult}) = value.values
-
 Units.label(::Units.Quantity{:sample_count}) = "Count"
 Units.symbol(::Units.Quantity{:sample_count}) = "n"
 Units.label(::Units.Quantity{:probability}) = "Probability"

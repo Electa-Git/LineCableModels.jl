@@ -34,7 +34,7 @@ end
 
 function Formula(::Val{ID}; route = nothing, kwargs...) where {ID}
     tag = Val(ID)
-    applicable(assumptions, tag) || throw(
+    ID in FORMULAS || throw(
         ArgumentError("unknown modal-transformation formula :$ID")
     )
     defaults = assumptions(tag)
@@ -155,7 +155,7 @@ function ModalTransformationFormulation(
         combine::Symbol = :product,
         kwargs...
 )
-    return _construction(
+    return parameterize(
         ModalTransformationFormulation,
         _modal_formulation,
         (selection, (; kwargs...));

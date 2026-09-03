@@ -36,9 +36,7 @@ const BENCHMARK_API_OBJECTS = (
 const EXTENSION_API_OBJECTS = (
     LineCableModels.InputValidation,
     LineCableModels.InputValidation.validate,
-    getfield(LineCableModels.Grammar, Symbol("@orchestrator")),
     LineCableModels.Grammar.check_core_result,
-    LineCableModels.Grammar.computation_owner,
     LineCableModels.Grammar.validate_observables,
     LineCableModels.Grammar.unit_targets,
     LineCableModels.Grammar.detach,
@@ -50,8 +48,6 @@ const EXTENSION_API_OBJECTS = (
     LineCableModels.Grammar.request_indices,
     LineCableModels.Grammar.ObservationPublication,
     LineCableModels.Grammar.publication_table,
-    LineCableModels.Grammar.orchestrator_root,
-    LineCableModels.Grammar.orchestrator_method,
     LineCableModels.Units.family,
     LineCableModels.DataModel.preview_shapes,
     LineCableModels.DataModel.preview_materials,
@@ -60,9 +56,9 @@ const EXTENSION_API_OBJECTS = (
     LineCableModels.materialcolors,
     LineCableModels.materialscale!,
     LineCableModels.Engine.has_uncertainty_type,
-    LineCableModels.ParametricBuilder.materialize,
+    LineCableModels.materialize,
     LineCableModels.ParametricBuilder.traverse,
-    LineCableModels.ParametricBuilder.sample_uncertainty,
+    LineCableModels.sample_uncertainty,
     LineCableModels.UIPlot,
     LineCableModels.plotwindow,
     LineCableModels.export_svg,
@@ -76,13 +72,11 @@ const EXTENSION_API_OBJECTS = (
     LineCableModels.ReportBuilder.LineParametersTableDefinition,
     LineCableModels.ReportBuilder.BenchmarkTableDefinition,
     LineCableModels.ReportBuilder.MonteCarloTableDefinition,
-    LineCableModels.ReportBuilder.entitle,
     LineCableModels.ReportBuilder.select,
     LineCableModels.ReportBuilder.tabulate,
     LineCableModels.ReportBuilder.illustrate,
     LineCableModels.ReportBuilder.encode,
     LineCableModels.ReportBuilder.write,
-    LineCableModels.ReportBuilder.finish,
     LineCableModels.ReportBuilder.observation_columns,
     LineCableModels.ReportBuilder.encode_cell,
     LineCableModels.ReportBuilder.XLSXSheet,
@@ -203,9 +197,10 @@ function markdown_table(rows)
     isempty(rows) && return "_None._\n"
     names = collect(keys(first(rows)))
     lines = String[
-        "| " * join(string.(names), " | ") * " |",
-        "| " * join(fill("---", length(names)), " | ") * " |"
-    ]
+    "| " * join(string.(names), " | ") * " |",
+    "| " * join(
+        fill("---", length(names)), " | ") * " |"
+]
     for row in rows
         push!(lines, "| " *
                      join(

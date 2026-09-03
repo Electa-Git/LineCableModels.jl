@@ -109,53 +109,53 @@
     struct CountedProblem<:AbstractProblemDefinition
         value::Int
     end
-    LineCableModels.validate(problem::CountedProblem) = problem
+    LineCableModels.validate(problem::CountedProblem)=problem
     struct CountedFormulation{ID}<:AbstractFormulation end
     struct CountedResult<:AbstractCoreResult
         value::Int
     end
     builds=Ref(0)
-    make_problem(value) = (builds[]+=1; CountedProblem(value))
+    make_problem(value)=(builds[]+=1; CountedProblem(value))
     problem_space=Gridspace{CountedProblem}(make_problem, (Grid((1, 2)),))
     formulas=Grid((CountedFormulation{:first}(), CountedFormulation{:second}()))
     LineCableModels.compute(
         problem::CountedProblem,
         ::CountedFormulation{:first};
         options::NamedTuple = (;)
-    ) = CountedResult(problem.value)
+    )=CountedResult(problem.value)
     LineCableModels.compute(
         problem::CountedProblem,
         ::CountedFormulation{:second};
         options::NamedTuple = (;)
-    ) = CountedResult(10problem.value)
+    )=CountedResult(10problem.value)
 
     run=compute(
         ParametricProblem(problem_space),
         Combinatorial(formulas)
     )
     @test builds[] == 2
-    @test result(run) == CountedResult.(Int[1, 2, 10, 20])
-    @test result(run, 1, 1) == CountedResult(1)
-    @test result(run, 2, 1) == CountedResult(2)
-    @test result(run, 1, 2) == CountedResult(10)
-    @test result(run, 2, 2) == CountedResult(20)
+    @test collect(run) == CountedResult.(Int[1, 2, 10, 20])
+    @test run[1, 1] == CountedResult(1)
+    @test run[2, 1] == CountedResult(2)
+    @test run[1, 2] == CountedResult(10)
+    @test run[2, 2] == CountedResult(20)
     @test run.axes.problems === problem_space
     @test run.axes.formulations isa Vector{<:AbstractFormulation}
-    @test_throws BoundsError result(run, 3, 1)
+    @test_throws BoundsError run[3, 1]
 
     linear=compute(
         ParametricProblem(problem_space),
         LinearError(CountedFormulation{:first}())
     )
     @test builds[] == 4
-    @test result(linear) == CountedResult.(Int[1, 2])
+    @test collect(linear) == CountedResult.(Int[1, 2])
 
     legacy=ParametricResult(
         Combinatorial(CountedFormulation{:first}()),
         CountedResult[CountedResult(1)]
     )
     @test isempty(legacy.axes)
-    @test_throws ArgumentError result(legacy, 1, 1)
+    @test_throws ArgumentError legacy[1, 1]
     @test_throws MethodError compute(CountedProblem(1), formulas)
     @test_throws ArgumentError Combinatorial(Grid((1, 2)))
     @test_throws ArgumentError Combinatorial(

@@ -170,9 +170,9 @@ function _line_plot_requests(source::_LineSource, selection)
     return Tuple(request
     for item in selected
     for request in (_is_line_observation_request(source, item) ?
-                    _expand_line_observation_request(source, item) :
-                    item isa Function ? _line_selector_requests(source, item) :
-                    throw(ArgumentError("unsupported line selection $(repr(item))"))))
+         _expand_line_observation_request(source, item) :
+         item isa Function ? _line_selector_requests(source, item) :
+         throw(ArgumentError("unsupported line selection $(repr(item))"))))
 end
 
 function plot(
@@ -276,8 +276,6 @@ function plot(
         second::LineCableModels.LineParameters,
         rest...;
         series_labels = nothing,
-        legend = nothing,
-        legend_labels = nothing,
         requests = (),
         backend = nothing,
         display_plot::Bool = true,
@@ -303,12 +301,7 @@ function plot(
         throw(ArgumentError(
             "use either a trailing observation selection or the requests keyword, not both",
         ))
-    supplied_labels = count(!isnothing, (series_labels, legend_labels, legend))
-    supplied_labels <= 1 || throw(ArgumentError(
-        "use series_labels; legend_labels and legend are compatibility aliases",
-    ))
-    labels = series_labels !== nothing ? series_labels :
-             legend_labels !== nothing ? legend_labels : legend
+    labels = series_labels
     labels === nothing && (labels = Tuple("Result $index" for index in eachindex(sources)))
     selection = trailing_selection === nothing ? requests : trailing_selection
     normalized = _line_plot_requests(first, selection)
@@ -329,8 +322,6 @@ function plot(
         sources::NamedTuple,
         selection = ();
         series_labels = nothing,
-        legend = nothing,
-        legend_labels = nothing,
         backend = nothing,
         display_plot::Bool = true,
         controls::Bool = true,
@@ -344,16 +335,8 @@ function plot(
     ))
     all(parameter -> parameter isa LineCableModels.LineParameters, parameters) ||
         throw(ArgumentError("all comparison sources must be LineParameters"))
-    supplied_labels = count(!isnothing, (series_labels, legend_labels, legend))
-    supplied_labels <= 1 || throw(ArgumentError(
-        "use series_labels; legend_labels and legend are compatibility aliases",
-    ))
     labels = if series_labels !== nothing
         series_labels
-    elseif legend_labels !== nothing
-        legend_labels
-    elseif legend !== nothing
-        legend
     else
         Tuple(String(key) for key in keys(sources))
     end

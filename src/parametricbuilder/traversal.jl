@@ -113,11 +113,9 @@ function traverse(problem::ParametricProblem, formulation)
         values[1 + (formulation_index - 1) * point_count] = value
     end
 
-    details_owners = formulation.options.retain_details ?
-                     computation_owner.(formulations) : nothing
     retained = if formulation.options.retain_details
         first_record = computation_details(
-            Val(first(details_owners)),
+            typeof(first(formulations)),
             first_result
         )
         records = Vector{typeof(first_record)}(
@@ -126,7 +124,7 @@ function traverse(problem::ParametricProblem, formulation)
         )
         @inbounds for formulation_index in 1:formulation_count
             record = computation_details(
-                Val(details_owners[formulation_index]),
+                typeof(formulations[formulation_index]),
                 first_batch[formulation_index]
             )
             typeof(record) === eltype(records) || throw(ArgumentError(
@@ -160,7 +158,7 @@ function traverse(problem::ParametricProblem, formulation)
 
             if retained !== nothing
                 record = computation_details(
-                    Val(details_owners[formulation_index]),
+                    typeof(formulations[formulation_index]),
                     core_result
                 )
                 typeof(record) === eltype(retained) || throw(ArgumentError(

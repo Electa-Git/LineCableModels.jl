@@ -53,7 +53,8 @@ function _addon_activate_backend(backend)
     backend isa Symbol || throw(ArgumentError(
         "backend must be :cairo, :gl, :wgl, or nothing",
     ))
-    extension_name, package = if backend === :cairo
+    extension_name,
+    package = if backend === :cairo
         (:LineCableModelsCairoMakieExt, "CairoMakie")
     elseif backend === :gl
         (:LineCableModelsGLMakieExt, "GLMakie")
@@ -73,11 +74,12 @@ end
 function _addon_display!(figure, title::AbstractString)
     if current_backend_symbol() === :gl
         extension = Base.get_extension(LineCableModels, :LineCableModelsGLMakieExt)
-        extension === nothing && error("GLMakie is active but its LineCableModels extension is unavailable")
+        extension === nothing &&
+            error("GLMakie is active but its LineCableModels extension is unavailable")
         viewport = figure.scene.viewport[]
         minimum_size = Tuple(
             min(Int(viewport.widths[index]), _ADDON_MIN_WINDOW_SIZE[index])
-            for index in 1:2
+        for index in 1:2
         )
         screen = Base.invokelatest(
             extension.make_screen,
@@ -367,13 +369,14 @@ function _addon_statistical_plot(
         ylabel = nothing
 ) where {F}
     _addon_activate_backend(backend)
-    resolved_panel_titles = _addon_panel_titles(panel_titles, nothing, 1)
+    resolved_panel_titles = _addon_panel_titles(panel_titles, 1)
     panel_title = resolved_panel_titles === nothing ? title :
                   only(resolved_panel_titles)
     return with_theme(_addon_theme(export_theme = export_theme)) do
         shell = _addon_shell(; size = fig_size, controls)
         panel = _addon_panel!(shell, (1, 1))
-        axis, automatic_labels = _addon_axis!(
+        axis,
+        automatic_labels = _addon_axis!(
             panel.content,
             xobservation,
             yobservation;
@@ -553,19 +556,16 @@ function _addon_positions(count::Int, layout)
     return positions, (rows, columns)
 end
 
-function _addon_panel_titles(panel_titles, labels, expected::Int)
-    panel_titles === nothing || labels === nothing || throw(ArgumentError(
-        "use panel_titles for axis titles; do not also pass the compatibility keyword labels",
-    ))
-    resolved = panel_titles === nothing ? labels : panel_titles
-    resolved === nothing && return nothing
-    resolved isa Tuple || resolved isa AbstractVector || throw(ArgumentError(
-        "panel_titles must be a tuple, vector, or nothing",
-    ))
-    length(resolved) == expected || throw(DimensionMismatch(
+function _addon_panel_titles(panel_titles, expected::Int)
+    panel_titles === nothing && return nothing
+    panel_titles isa Tuple || panel_titles isa AbstractVector ||
+        throw(ArgumentError(
+            "panel_titles must be a tuple, vector, or nothing",
+        ))
+    length(panel_titles) == expected || throw(DimensionMismatch(
         "panel_titles must contain one entry per logical plot panel",
     ))
-    return Tuple(String(value) for value in resolved)
+    return Tuple(String(value) for value in panel_titles)
 end
 
 function _addon_panel!(shell, position::Tuple{Int, Int})
@@ -905,9 +905,8 @@ end
 
 function _addon_relabel_legend!(labels, groups, order, requested)
     requested === nothing && return labels
-    displayed = Any[
-        group for group in order if haskey(groups, group) && haskey(labels, group)
-    ]
+    displayed = Any[group
+                    for group in order if haskey(groups, group) && haskey(labels, group)]
     if requested isa AbstractDict
         for group in displayed
             current = labels[group]
@@ -922,9 +921,10 @@ function _addon_relabel_legend!(labels, groups, order, requested)
         end
         return labels
     end
-    requested isa Tuple || requested isa AbstractVector || throw(ArgumentError(
-        "legend_labels must be a tuple, vector, dictionary, or nothing",
-    ))
+    requested isa Tuple || requested isa AbstractVector ||
+        throw(ArgumentError(
+            "legend_labels must be a tuple, vector, dictionary, or nothing",
+        ))
     length(requested) == length(displayed) || throw(DimensionMismatch(
         "legend_labels must contain one entry for each displayed legend group",
     ))
@@ -1055,21 +1055,22 @@ function _addon_panel_legend_data(
     length(panels) == length(axes) || throw(DimensionMismatch(
         "plot panels must align with their axes",
     ))
-    panel_labels === nothing || length(panel_labels) == length(axes) || throw(
-        DimensionMismatch("panel legend labels must align with their axes"),
-    )
-    panel_titles === nothing || length(panel_titles) == length(axes) || throw(
-        DimensionMismatch("panel legend titles must align with their axes"),
-    )
+    panel_labels === nothing || length(panel_labels) == length(axes) ||
+        throw(
+            DimensionMismatch("panel legend labels must align with their axes"),
+        )
+    panel_titles === nothing || length(panel_titles) == length(axes) ||
+        throw(
+            DimensionMismatch("panel legend titles must align with their axes"),
+        )
     result = Dict{Tuple{Int, Int}, Any}()
     for (index, (panel, axis)) in enumerate(zip(panels, axes))
         scoped = Dict{Any, Vector{Any}}()
         scoped_order = Any[]
         scoped_labels = Dict(panel_labels === nothing ? labels : panel_labels[index])
         for key in order
-            plots = Any[
-                plot for plot in groups[key] if _addon_plot_belongs_to_axis(plot, axis)
-            ]
+            plots = Any[plot
+                        for plot in groups[key] if _addon_plot_belongs_to_axis(plot, axis)]
             isempty(plots) && continue
             scoped[key] = plots
             push!(scoped_order, key)
@@ -1140,7 +1141,7 @@ function _addon_panel_legends!(figure, panel_data, requested)
     for pair in _addon_panel_legend_pairs(requested)
         logical_position = _addon_positive_panel_position(first(pair))
         haskey(panel_data, logical_position) || throw(BoundsError(
-            collect(keys(panel_data)), logical_position,
+            collect(keys(panel_data)), logical_position
         ))
         value = last(pair)
         (value === nothing || value === false) && continue
@@ -1187,12 +1188,14 @@ function _addon_colorbar!(position, scale; attributes)
         throw(ArgumentError(
             "a material color scale requires colormap, limits, ticks, and label",
         ))
-    options = merge((;
-        colormap = scale.colormap,
-        limits = scale.limits,
-        ticks = scale.ticks,
-        label = scale.label
-    ), attributes)
+    options = merge(
+        (;
+            colormap = scale.colormap,
+            limits = scale.limits,
+            ticks = scale.ticks,
+            label = scale.label
+        ),
+        attributes)
     return Colorbar(position; options...)
 end
 
@@ -1610,7 +1613,7 @@ function LineCableModels.panellegend!(
         "this plot does not retain controlled legend groups",
     ))
     haskey(data.panel_data, logical_position) || throw(BoundsError(
-        collect(keys(data.panel_data)), logical_position,
+        collect(keys(data.panel_data)), logical_position
     ))
     panel = data.panel_data[logical_position]
     previous_position = get(data.panel_legend_positions, logical_position, nothing)
@@ -1671,7 +1674,7 @@ function LineCableModels.paneltitle!(
         "this plot does not retain logical plot panels",
     ))
     haskey(data.panel_data, logical_position) || throw(BoundsError(
-        collect(keys(data.panel_data)), logical_position,
+        collect(keys(data.panel_data)), logical_position
     ))
     axis = data.panel_data[logical_position].axis
     axis.title[] = title === nothing ? "" : String(title)

@@ -31,14 +31,14 @@ physical coordinate system of a completed line-parameter matrix:
 print(Main.DocumentationTrees.type_tree(LineCableModels.LineParamsDomain))
 ```
 
-## Declarative actions
+## Fixed actions
 
 One declarative action owns a fixed sequence selected by an abstract definition
 type:
 
 | Action | Definition root | Fixed sequence |
 |:--|:--|:--|
-| `ReportBuilder.report` | `AbstractReportDefinition` | `entitle → select → tabulate → illustrate → encode → write → finish` |
+| `ReportBuilder.report` | `AbstractReportDefinition` | `select → tabulate → illustrate → encode → write → ReportArtifact` |
 
 ```@example grammar_type_trees
 using LineCableModels.ReportBuilder: AbstractReportDefinition
@@ -50,8 +50,9 @@ print(Main.DocumentationTrees.type_tree(AbstractReportDefinition))
 Each action has one method at its declared abstract root. Concrete definitions
 implement stage methods. They do not specialise the public action itself.
 Required stages are declared with RequiredInterfaces where the type family
-admits that form. Plotting is deliberately not such an action: the optional
-Makie extension constructs native figures directly from published observations.
+admits that form. Optional stages have an explicit no-op at the abstract root.
+Plotting is deliberately not such an action: the optional Makie extension
+constructs native figures directly from published observations.
 
 Observation uses a different structure. Result owners add `observe` methods.
 Grammar owns one `observables(source, requests::Tuple; ...)` publication
@@ -61,9 +62,8 @@ abstract observation type.
 ## CI hard gates
 
 The `Quality contracts` CI job rejects changes that violate these rules. Its
-checks require:
+checks inspect the native method and interface declarations and require:
 
-- declared action metadata and a root present in the action signature;
 - the action and its abstract root to belong to the same module;
 - one public action method, with no more-specific definition methods;
 - every fixed stage to remain visible in the declared action;

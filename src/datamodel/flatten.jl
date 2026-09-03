@@ -106,7 +106,8 @@ function geometric_mean_distance(
         throw(DimensionMismatch(
             "second conductor coordinates, radii, and areas must have equal lengths"
         ))
-    logarithmic_sum, weights = promote(
+    logarithmic_sum,
+    weights = promote(
         zero(float(first(left_radii))),
         zero(float(first(right_radii)))
     )
@@ -206,7 +207,8 @@ function conductor_zone(
         ), coordinates)
     element_area = (one(T) * pi) * radius^2
     zone_area = length(zone) * element_area
-    zone_r_in, zone_r_ex = if length(zone) == 1 && iszero(centre_radius)
+    zone_r_in,
+    zone_r_ex = if length(zone) == 1 && iszero(centre_radius)
         zero(T), radius
     elseif !circular_locus
         outer_radius = maximum(coordinates) do point
@@ -965,7 +967,7 @@ function _radial_regions(regions)
     radial = PlacedRegion[]
     sizehint!(radial, length(regions))
     for source in regions
-        source.primitive isa _DifferencePrimitive || begin
+        source.primitive isa DifferenceShape || begin
             push!(radial, source)
             continue
         end
@@ -1280,10 +1282,11 @@ function flatten(
             angular_frequency,
             T
         )
-        dielectric = merge(component.dielectric, (
-            shunt_capacitance = circuit.capacitance,
-            shunt_conductance = circuit.conductance
-        ))
+        dielectric = merge(component.dielectric,
+            (
+                shunt_capacitance = circuit.capacitance,
+                shunt_conductance = circuit.conductance
+            ))
         material = equivalent_dielectric_material(
             dielectric,
             merge(component.conductor, (
@@ -1291,20 +1294,21 @@ function flatten(
             )),
             component.name
         )
-        push!(effective, (
-            name = component.name,
-            conductor = component.conductor,
-            dielectric = (
-                r_in = dielectric.r_in,
-                r_ex = dielectric.r_ex,
-                cross_section = dielectric.cross_section,
-                shunt_capacitance = circuit.capacitance,
-                shunt_conductance = circuit.conductance,
-                frequency,
-                layers = dielectric.layers,
-                material
-            )
-        ))
+        push!(effective,
+            (
+                name = component.name,
+                conductor = component.conductor,
+                dielectric = (
+                    r_in = dielectric.r_in,
+                    r_ex = dielectric.r_ex,
+                    cross_section = dielectric.cross_section,
+                    shunt_capacitance = circuit.capacitance,
+                    shunt_conductance = circuit.conductance,
+                    frequency,
+                    layers = dielectric.layers,
+                    material
+                )
+            ))
     end
     return effective
 end
@@ -1412,7 +1416,7 @@ function homogenize(
         only(flattened_members)
     else
         members = Tuple(
-            _AssemblyMember(
+            AssemblyMember(
                 member,
                 Pose2(position[1], position[2], 0)
             )

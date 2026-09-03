@@ -75,8 +75,7 @@ none of them changes a result tensor or geometry tag.
 
 Some established recipes also accept `title` as their window/export or
 single-recipe heading. Use the explicit scoped names above when composing a
-dashboard. The old line/publication keyword `labels` remains a compatibility
-alias for `panel_titles`, but new code should not use it.
+dashboard.
 
 The same scopes are mutable after construction. `figuretitle!` and
 `paneltitle!` replace titles. `figurelegend!` and `panellegend!` rebuild a
@@ -122,18 +121,24 @@ visible in the generated documentation.
 ````@example plotting
 frequency = collect(10.0 .^ range(1, 4; length = 24));
 angular_frequency = reshape(2π .* frequency, 1, 1, :);
-resistance = cat((
-    [1.0 0.22; 0.22 1.8] .* 1.0e-4 .* (1 + 0.12 * log10(f / first(frequency)))
+resistance = cat(
+    (
+        [1.0 0.22; 0.22 1.8] .* 1.0e-4 .* (1 + 0.12 * log10(f / first(frequency)))
     for f in frequency
-)...; dims = 3);
-inductance = cat((
-    [2.0 0.28; 0.28 2.5] .* 1.0e-7 .* (1 - 0.04 * log10(f / first(frequency)))
+    )...;
+    dims = 3);
+inductance = cat(
+    (
+        [2.0 0.28; 0.28 2.5] .* 1.0e-7 .* (1 - 0.04 * log10(f / first(frequency)))
     for f in frequency
-)...; dims = 3);
-conductance = cat((
-    [3.0 -0.45; -0.45 4.0] .* 1.0e-9 .* (1 + 0.08 * log10(f / first(frequency)))
+    )...;
+    dims = 3);
+conductance = cat(
+    (
+        [3.0 -0.45; -0.45 4.0] .* 1.0e-9 .* (1 + 0.08 * log10(f / first(frequency)))
     for f in frequency
-)...; dims = 3);
+    )...;
+    dims = 3);
 capacitance = repeat([4.0 -0.7; -0.7 5.0] .* 1.0e-10, 1, 1, length(frequency));
 parameters = LineParameters(
     complex.(resistance, inductance .* angular_frequency),
@@ -189,11 +194,11 @@ mc_result = MonteCarloResult(
     mc_formulation,
     [CableConstants(3.0, 3.0, 3.0, 3.0)],
     [(R = [sample_summary], L = [sample_summary], C = [sample_summary],
-      G = [sample_summary])],
+        G = [sample_summary])],
     [(R = reshape(sample_values, 1, :), L = reshape(sample_values, 1, :),
-      C = reshape(sample_values, 1, :), G = reshape(sample_values, 1, :))],
+        C = reshape(sample_values, 1, :), G = reshape(sample_values, 1, :))],
     [(R = [sample_model], L = [sample_model], C = [sample_model],
-      G = [sample_model])],
+        G = [sample_model])],
     UInt64(41),
     UInt64[41],
     [length(sample_values)]
@@ -361,10 +366,9 @@ legend_scope_demo.figure #hide
 
 The same panel legends can be requested at construction time with
 `panel_legends=Dict((1, 1) => (position=:inside, anchor=:lb,
-legend_labels=("base R", "alternative R")))`. At construction, prefer
-`series_labels`; `legend_labels` remains a compatibility alias. Runtime
-dictionaries target stable source keys such as `:result_1`. These labels do
-not alter result tensors or observation coordinates.
+legend_labels=("base R", "alternative R")))`. Runtime dictionaries target
+stable source keys such as `:result_1`. These labels do not alter result
+tensors or observation coordinates.
 
 ### Derived R/L/G/C dashboard
 
@@ -617,8 +621,7 @@ The exact-request positional form is
 `Makie.plot(reference, candidate, @observe(Z[1,1,:]);
 series_labels=("reference", "candidate"))`.
 Change line styling after construction through the native plot objects in each
-axis; change source identity through `series_labels` or named-tuple keys. The
-older `legend_labels` and `legend` keywords remain compatibility aliases.
+axis; change source identity through `series_labels` or named-tuple keys.
 
 ### Generic observation publication
 
@@ -682,7 +685,7 @@ cable_preview = preview(
     # Geometry tags, terminals, and electrical construction remain untouched.
     legend_group = region -> startswith(
         String(region.source.tag), "core_strands_") ?
-        :stranded_core : region.source.tag,
+                             :stranded_core : region.source.tag,
     legend_labels = Dict(:stranded_core => "Stranded core"),
     legend_position = :right,
     legend_attributes = (; nbanks = 2),
@@ -960,6 +963,7 @@ custom_dashboard = LineCableModels.plotwindow(
     controls = false
 ) do grid
     for row in 1:2, column in 1:2
+
         axis = Axis(
             grid[row, column];
             title = "Response $row,$column",

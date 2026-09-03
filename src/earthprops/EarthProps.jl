@@ -25,7 +25,7 @@ export FD, EHEM
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 using RequiredInterfaces: @required
 import ..LineCableModels: build, validate
-import ..LineCableModels: _construction
+import ..LineCableModels: parameterize
 using ..Materials: AbstractMaterial
 import ..TextDisplay
 

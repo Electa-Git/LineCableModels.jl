@@ -21,11 +21,10 @@ export Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGrid
 export AbstractGrid, AbstractUncertainGrid, UncertainValue
 export Gridspace
 export has_uncertainty, nominal, uncertainty
-export @gridspace, @relax
+export @gridspace
 export build
 
 export Combinatorial, ParametricProblem, ParametricResult
-export result
 
 export Material, Conductor, Insulator, Semiconductor
 export CableDesign, LineCableSystem
@@ -45,13 +44,15 @@ export @distribute
 export WireEstimate, make_stranded, make_screened
 
 using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
-using Random
+import Random
 import ..LineCableModels: add!, build, Gridpoint, validate
-import ..LineCableModels: _construction, _construction_axis, _finite_construction
+import ..LineCableModels: Grid, AbsoluteError, DeterministicGrid, RelativeGrid
+import ..LineCableModels: AbsoluteGrid, AbstractGrid, AbstractUncertainGrid
+import ..LineCableModels: UncertainValue, Gridspace, has_uncertainty
+import ..LineCableModels: parameterize, materialize, points
 import ..Grammar
 import ..Grammar: compute, computation_options, computation_details, details,
-                  nominal, uncertainty, check_core_result,
-                  computation_owner
+                  nominal, uncertainty, check_core_result
 using ..Grammar:
                  AbstractProblemDefinition, AbstractFormulation, AbstractResultSpace,
                  AbstractParametricResult,
@@ -72,8 +73,6 @@ using ..EarthProps: EarthLayer, EarthModel, layer, homogeneous
 import ..Engine
 import ..TextDisplay
 
-include("grid.jl")
-include("gridspace.jl")
 include("macros.jl")
 include("results.jl")
 
@@ -95,6 +94,6 @@ using .WirePatterns: WireEstimate, make_stranded, make_screened
 
 include("textdisplay.jl")
 
-public materialize, traverse, sample_uncertainty
+public traverse
 
 end

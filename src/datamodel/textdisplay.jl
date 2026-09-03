@@ -67,6 +67,20 @@ TextDisplay.@showfields Shell "Shell" layer -> (
     t = TextDisplay.engineering(layer.t, :meter),
 )
 
+TextDisplay.@showfields DifferenceShape "DifferenceShape" shape -> (
+    outer = string(nameof(typeof(shape.outer))),
+    holes = length(shape.holes)
+)
+
+TextDisplay.@showfields AssemblyShape "AssemblyShape" shape -> (
+    members = length(shape.members),
+)
+
+TextDisplay.@showfields AssemblyMember "AssemblyMember" member -> (
+    item = string(nameof(typeof(member.item))),
+    at = _display_pose(member.at)
+)
+
 TextDisplay.name(::Type{<:EmptyBoundary}) = "Empty boundary"
 Base.summary(io::IO, ::EmptyBoundary) = print(io, "Empty boundary")
 Base.show(io::IO, ::EmptyBoundary) = print(io, "EmptyBoundary()")
@@ -275,7 +289,8 @@ function _part_children(enclosure::Enclosure)
     fill = enclosure.fill isa Material ?
            "fill · Material · $(enclosure.fill.kind)" :
            string("fill · ", _part_label(enclosure.fill))
-    children = Any[_part_node(enclosure.item), (label = fill, noun = "parts")]
+    children = Any[_part_node(enclosure.item), (
+        label = fill, noun = "parts")]
     enclosure.wall === nothing || push!(children,
         (
             label = string("wall · ", _part_label(enclosure.wall)),
@@ -377,9 +392,9 @@ end
 function Base.show(io::IO, ::MIME"text/plain", region::PlacedRegion)
     get(io, :compact, false) && return show(io, region)
     attributes = String[
-        "source    $(_part_label(region.source))",
-        "primitive $(_compact_text(region.primitive))"
-    ]
+    "source    $(_part_label(region.source))",
+    "primitive $(_compact_text(region.primitive))"
+]
     region.terminal === nothing || push!(attributes, "terminal  :$(region.terminal)")
     isempty(region.placement.patterns) || push!(attributes,
         "patterns  $(length(region.placement.patterns))")
@@ -398,7 +413,8 @@ function Base.show(io::IO, geometry::CableGeometry)
 end
 function Base.show(io::IO, ::MIME"text/plain", geometry::CableGeometry)
     get(io, :compact, false) && return show(io, geometry)
-    children = Any[(label = "outer    $(_compact_text(geometry.outer))", noun = "regions")]
+    children = Any[(
+        label = "outer    $(_compact_text(geometry.outer))", noun = "regions")]
     append!(children,
         (
             label = string(
@@ -461,7 +477,8 @@ function Base.show(io::IO, ::MIME"text/plain", system::LineCableSystem)
                            " · ", _compact_text(position),
                            " · ", join(
                                ("$terminal→$phase"
-                               for (terminal, phase) in zip(design.terminal_order, connections)),
+                               for (terminal, phase) in
+                                   zip(design.terminal_order, connections)),
                                ", "
                            )
                        ),

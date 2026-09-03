@@ -40,7 +40,7 @@ pscad_suite = DataFrame( #hide
         2.1625, 1.7168, 1.8092, 1.9195, 1.9258, 1.1860, 14.9325 #hide
     ], #hide
     maximum_Y_rms_difference_percent = Union{Missing, Float64}[ #hide
-        0.2469, 0.2469, 0.2469, 0.0005, missing, missing, missing #hide
+    0.2469, 0.2469, 0.2469, 0.0005, missing, missing, missing #hide
     ], #hide
     linecablemodels_median_ms = [ #hide
         27.828, 27.496, 27.171, 13.174, 13.362, 2.834, 5.356 #hide
@@ -136,8 +136,8 @@ errors = DataFrame(observables(
         (Z, absolute_error),
         (Z, relative_error),
         (Y, absolute_error),
-        (Y, relative_error),
-    ),
+        (Y, relative_error)
+    )
 ))
 errors
 ````
@@ -164,7 +164,7 @@ corresponding series are overlaid across frequency.
 impedance_plots = CairoMakie.plot(
     reference,
     candidate;
-    legend_labels = ("Reference", "LineCableModels"),
+    series_labels = ("Reference", "LineCableModels"),
     requests = (Z,),
     xscale = :log10,
     fig_size = (1000, 650),
@@ -384,7 +384,7 @@ uq_plot_sources = (
 resistance_uncertainty_plot = CairoMakie.plot(
     uq_plot_sources,
     @observe(R[1, 1, :]);
-    legend_labels = ("LEP", "Monte Carlo"),
+    series_labels = ("LEP", "Monte Carlo"),
     xscale = :log10,
     yscale = :log10,
     fig_size = (950, 420),
@@ -395,7 +395,7 @@ resistance_uncertainty_plot = CairoMakie.plot(
 capacitance_uncertainty_plot = CairoMakie.plot(
     uq_plot_sources,
     @observe(C[1, 1, :]);
-    legend_labels = ("LEP", "Monte Carlo"),
+    series_labels = ("LEP", "Monte Carlo"),
     xscale = :log10,
     fig_size = (950, 420),
     display_plot = false, #hide
@@ -425,10 +425,10 @@ corresponding absolute RMS exceeds the quantity-specific numerical floor.
 uq_summary = DataFrame(
     quantity = ["R", "L", "C", "G"],
     maximum_mean_difference_percent = Union{Missing, Float64}[
-        0.0212, missing, 1.8823, missing
+    0.0212, missing, 1.8823, missing
     ],
     maximum_std_difference_percent = Union{Missing, Float64}[
-        4.8633, 4.6896, 8.5139, missing
+    4.8633, 4.6896, 8.5139, missing
     ]
 )
 ````

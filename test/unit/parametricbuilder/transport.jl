@@ -102,8 +102,8 @@ end
     end
 
     # A typed result consumer added to ParametricBuilder is an architectural
-    # action. Keep the ordinary result accessor and Gridspace's own internals;
-    # reject a second result-to-problem protocol under a novel verb.
+    # action. Keep Gridspace's own transport error; reject a second
+    # result-to-problem protocol under a novel verb.
     function consumes_result_space(method)
         signature=Base.unwrap_unionall(method.sig)
         return any(signature.parameters[2:end]) do argument
@@ -125,7 +125,7 @@ end
         end
         any(consumes_result_space, methods_for_binding) && push!(consumers, name)
     end
-    @test consumers == Set((:_transport_error, :points, :result))
+    @test consumers == Set((:_transport_error,))
 
     # Result-bearing Gridspace constructors may only be implemented by the
     # result family that owns the transport. Any new owner must amend this gate
@@ -149,12 +149,16 @@ end
     # surfaces that own result transport. Other uses of "project" elsewhere in
     # the repository (package projects, CAD projections) are unrelated.
     surfaces=String[
-        joinpath(root, "src", "LineCableModels.jl"),
-        joinpath(root, "ext", "LineCableModelsMeasurementsExt.jl"),
-        joinpath(root, "docs", "src", "gridspace.md"),
-        joinpath(root, "docs", "src", "developers.md"),
-        joinpath(root, "docs", "src", "extensions.md")
-    ]
+    joinpath(root, "src", "LineCableModels.jl"),
+    joinpath(
+        root, "ext", "LineCableModelsMeasurementsExt.jl"),
+    joinpath(
+        root, "docs", "src", "gridspace.md"),
+    joinpath(
+        root, "docs", "src", "developers.md"),
+    joinpath(
+        root, "docs", "src", "extensions.md")
+]
     for directory in (
         joinpath(root, "src", "parametricbuilder"),
         joinpath(root, "src", "uq")

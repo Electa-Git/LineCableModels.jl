@@ -106,30 +106,42 @@ Grid(space::Gridspace) = space
 const _FiniteSource = Union{AbstractGrid, Gridspace}
 const _FiniteCollection = Union{Tuple, AbstractVector}
 
-_construction_axis(::_FiniteSource) = true
-_construction_axis(values::_FiniteCollection) = any(_construction_axis, values)
+_contains_grid(::_FiniteSource) = true
+_contains_grid(values::_FiniteCollection) = any(_contains_grid, values)
+_contains_grid(::Any) = false
 
-_vector(values...) = collect(values)
+_collect_arguments(values...) = collect(values)
 
-_finite_source(source::_FiniteSource; combine::Symbol) = source
-function _finite_source(values::Tuple; combine::Symbol)
+_grid_source(source::_FiniteSource; combine::Symbol) = source
+function _grid_source(values::Tuple; combine::Symbol)
     sources = map(values) do value
-        _construction_axis(value) ? _finite_source(value; combine) : Grid((value,))
+        _contains_grid(value) ? _grid_source(value; combine) : Grid((value,))
     end
     return Gridspace{Tuple}(tuple, sources; combine)
 end
-function _finite_source(values::AbstractVector; combine::Symbol)
+function _grid_source(values::AbstractVector; combine::Symbol)
     sources = map(values) do value
-        _construction_axis(value) ? _finite_source(value; combine) : Grid((value,))
+        _contains_grid(value) ? _grid_source(value; combine) : Grid((value,))
     end
-    return Gridspace{Vector}(_vector, Tuple(sources); combine)
+    return Gridspace{Vector}(_collect_arguments, Tuple(sources); combine)
 end
 
-function _finite_construction(
-        ::Type{Target}, caller, values::Tuple; combine::Symbol
+"""
+    parameterize(Target, caller, values; combine=:product)
+
+Invoke `caller` directly when `values` are scalar. If an explicit `Grid` or
+`Gridspace` occurs at any admitted argument position, return a
+`Gridspace{Target}` that reconstructs the same call point by point.
+"""
+function parameterize(
+        ::Type{Target}, caller, values::Tuple; combine::Symbol = :product
 ) where {Target}
+    combine in (:product, :zip) || throw(ArgumentError(
+        "combine must be :product or :zip"
+    ))
+    any(_contains_grid, values) || return caller(values...)
     sources = map(values) do value
-        _construction_axis(value) ? _finite_source(value; combine) : Grid((value,))
+        _contains_grid(value) ? _grid_source(value; combine) : Grid((value,))
     end
     return Gridspace{Target}(caller, sources; combine)
 end

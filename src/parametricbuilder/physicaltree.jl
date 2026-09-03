@@ -1,5 +1,5 @@
 function Region(tag, primitive, material; combine::Symbol = :product)
-    return _construction(
+    return parameterize(
         DataModel.Region, DataModel.Region, (tag, primitive, material); combine
     )
 end
@@ -10,13 +10,13 @@ end
 const _FiniteRegionInput = Union{AbstractGrid, Gridspace}
 
 function Region(tag::_FiniteRegionInput, primitive, material; combine::Symbol = :product)
-    _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
 end
 function Region(tag, primitive::_FiniteRegionInput, material; combine::Symbol = :product)
-    _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
 end
 function Region(tag, primitive, material::_FiniteRegionInput; combine::Symbol = :product)
-    _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
 end
 function Region(
         tag::Symbol,
@@ -24,7 +24,7 @@ function Region(
         material;
         combine::Symbol = :product
 )
-    _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
 end
 function Region(
         tag::Symbol,
@@ -32,7 +32,7 @@ function Region(
         material::_FiniteRegionInput;
         combine::Symbol = :product
 )
-    _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
 end
 function Region(
         tag::Symbol,
@@ -40,7 +40,7 @@ function Region(
         material::_FiniteRegionInput;
         combine::Symbol = :product
 )
-    _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
 end
 function Region(
         tag::_FiniteRegionInput,
@@ -48,7 +48,7 @@ function Region(
         material;
         combine::Symbol = :product
 )
-    _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
 end
 function Region(
         tag::_FiniteRegionInput,
@@ -56,7 +56,7 @@ function Region(
         material::_FiniteRegionInput;
         combine::Symbol = :product
 )
-    _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
 end
 function Region(
         tag,
@@ -64,7 +64,7 @@ function Region(
         material::_FiniteRegionInput;
         combine::Symbol = :product
 )
-    _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
 end
 function Region(
         tag::_FiniteRegionInput,
@@ -72,12 +72,12 @@ function Region(
         material::_FiniteRegionInput;
         combine::Symbol = :product
 )
-    _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
 end
 
 function Stack(items...; combine::Symbol = :product)
     isempty(items) && throw(ArgumentError("layers require at least one part"))
-    return _construction(DataModel.Stack, DataModel.Stack, items; combine)
+    return parameterize(DataModel.Stack, DataModel.Stack, items; combine)
 end
 
 """
@@ -109,7 +109,7 @@ function Group(
         combine::Symbol = :product
 )
     values = (name, at, item, pattern, path, compact)
-    return _construction(DataModel.Group, DataModel.Group, values; combine)
+    return parameterize(DataModel.Group, DataModel.Group, values; combine)
 end
 
 function Assembly(
@@ -122,13 +122,13 @@ function Assembly(
         combine::Symbol = :product
 )
     values = (at, item, pattern, path, compact, names)
-    return _construction(DataModel.Assembly, DataModel.Assembly, values; combine)
+    return parameterize(DataModel.Assembly, DataModel.Assembly, values; combine)
 end
 
 function _explicit_assembly(members...)
     placed = map(members) do member
-        member isa DataModel._AssemblyMember ? member :
-        member isa DataModel.AbstractCablePart ? DataModel._AssemblyMember(member) :
+        member isa DataModel.AssemblyMember ? member :
+        member isa DataModel.AbstractCablePart ? DataModel.AssemblyMember(member) :
         throw(ArgumentError("assembly members must be physical cable parts"))
     end
     return DataModel.Assembly(
@@ -163,7 +163,7 @@ The variadic method retains heterogeneous members and their local poses.
 """
 function assembly(members...; combine::Symbol = :product)
     isempty(members) && throw(ArgumentError("assembly requires at least one member"))
-    return _construction(DataModel.Assembly, _explicit_assembly, members; combine)
+    return parameterize(DataModel.Assembly, _explicit_assembly, members; combine)
 end
 
 function assembly(
@@ -194,7 +194,7 @@ function Enclosure(
         combine::Symbol = :product
 )
     values = (tag, at, primitive, item, fill, wall)
-    return _construction(DataModel.Enclosure, DataModel.Enclosure, values; combine)
+    return parameterize(DataModel.Enclosure, DataModel.Enclosure, values; combine)
 end
 
 _terminal_eligible(region::DataModel.Region) = region.material.kind === :conductor ? 1 : 0
@@ -252,7 +252,7 @@ retained terminal.
 """
 function terminal(name, parts...; combine::Symbol = :product)
     isempty(parts) && throw(ArgumentError("terminal requires at least one part"))
-    return _construction(DataModel.Group, _terminal, (name, parts...); combine)
+    return parameterize(DataModel.Group, _terminal, (name, parts...); combine)
 end
 
 function _require_material(material, role::Symbol, allowed::Tuple)
@@ -336,12 +336,14 @@ Declare a conductive core region.
   varies.
 """
 function core(material, primitive; tag = :core, combine::Symbol = :product)
-    caller = (resolved_material, resolved_primitive, resolved_tag) -> DataModel.Region(
+    caller = (resolved_material,
+        resolved_primitive,
+        resolved_tag) -> DataModel.Region(
         resolved_tag,
         resolved_primitive,
         _require_material(resolved_material, :core, (:conductor,))
     )
-    return _construction(
+    return parameterize(
         DataModel.Region, caller, (material, primitive, tag); combine
     )
 end
@@ -362,9 +364,11 @@ function _shell_role(
         role::Symbol, allowed::Tuple, material, t, tag;
         combine::Symbol
 )
-    caller = (resolved_material, resolved_t, resolved_tag) -> _role_shell(
+    caller = (resolved_material,
+        resolved_t,
+        resolved_tag) -> _role_shell(
         role, allowed, resolved_material, resolved_t, resolved_tag)
-    return _construction(DataModel.Region, caller, (material, t, tag); combine)
+    return parameterize(DataModel.Region, caller, (material, t, tag); combine)
 end
 
 """Declare an insulating layer of thickness `t` \\[m\\]."""
@@ -408,14 +412,16 @@ Bind a nonconducting filler material to an intrinsic primitive definition.
 - A filler `Region`, or a `Gridspace{Region}` when a direct argument varies.
 """
 function filler(material, primitive; tag = :filler, combine::Symbol = :product)
-    caller = (resolved_material, resolved_primitive, resolved_tag) -> DataModel.Region(
+    caller = (resolved_material,
+        resolved_primitive,
+        resolved_tag) -> DataModel.Region(
         resolved_tag,
         resolved_primitive,
         _require_material(
             resolved_material, :filler, (:insulator,)
         )
     )
-    return _construction(
+    return parameterize(
         DataModel.Region, caller, (material, primitive, tag); combine
     )
 end
@@ -532,7 +538,7 @@ function wires(
         material, shape, pattern, path, n, r, gap_frac, lay, dir, φ0,
         compact, tag
     )
-    return _construction(DataModel.Group, caller, values; combine)
+    return parameterize(DataModel.Group, caller, values; combine)
 end
 
 function _course_schedule(value, count::Int, name::Symbol)
@@ -554,7 +560,7 @@ function _count_schedule(value, count::Int)
     end
     value isa Integer && !(value isa Bool) && value > 0 &&
         return ntuple(index -> index * Int(value), count)
-    value isa DataModel._DeferredCardinality && return ntuple(_ -> value, count)
+    value === DataModel.capacity() && return ntuple(_ -> value, count)
     throw(ArgumentError(
         "n must be a positive base count, exact course schedule, or capacity()"
     ))
@@ -731,7 +737,7 @@ function stranded(
         material, shape, layers, n, lay, dir, φ0, compact, boundary,
         gap_frac
     )
-    return _construction(DataModel.Stack, caller, values; combine)
+    return parameterize(DataModel.Stack, caller, values; combine)
 end
 
 function _rope(
@@ -830,7 +836,7 @@ function rope(
         )
     end
     values = (item, layers, n, lay, dir, φ0, compact, gap_frac)
-    return _construction(DataModel.Stack, caller, values; combine)
+    return parameterize(DataModel.Stack, caller, values; combine)
 end
 
 """
@@ -896,7 +902,7 @@ function armor(
         )
     end
     values = (material, shape, n, lay, dir, φ0, compact, gap_frac, tag)
-    return _construction(DataModel.Group, caller, values; combine)
+    return parameterize(DataModel.Group, caller, values; combine)
 end
 
 function _tape(material, section, n, lay, gap, compact, tag)
@@ -945,7 +951,7 @@ function tape(
         combine::Symbol = :product
 )
     values = (material, section, n, lay, gap_frac, compact, tag)
-    return _construction(DataModel.Group, _tape, values; combine)
+    return parameterize(DataModel.Group, _tape, values; combine)
 end
 
 """
@@ -1006,7 +1012,7 @@ function cores(
         )
     end
     values = (item, n, r, names, φ0, span, path, compact)
-    return _construction(DataModel.Assembly, caller, values; combine)
+    return parameterize(DataModel.Assembly, caller, values; combine)
 end
 
 cores(members...; combine::Symbol = :product) = assembly(members...; combine)
@@ -1075,7 +1081,7 @@ function pipe(
         _enclose(:pipe, physical, selected[(count + 1):end]..., nothing)
     end
     values = (items..., shape, fill, wall, at)
-    return _construction(DataModel.Enclosure, caller, values; combine)
+    return parameterize(DataModel.Enclosure, caller, values; combine)
 end
 
 """
@@ -1119,7 +1125,7 @@ function duct(
         _enclose(:duct, physical, selected[(count + 1):end]...)
     end
     values = (items..., shape, fill, wall, at, formation)
-    return _construction(DataModel.Enclosure, caller, values; combine)
+    return parameterize(DataModel.Enclosure, caller, values; combine)
 end
 
 function build(
@@ -1137,7 +1143,7 @@ function build(
         build(DataModel.CableDesign, id, Tuple(physical), data)
     end
     values = (cable_id, parts..., nominal_data)
-    return _construction(DataModel.CableDesign, caller, values; combine)
+    return parameterize(DataModel.CableDesign, caller, values; combine)
 end
 
 function build(
@@ -1148,7 +1154,7 @@ function build(
         combine::Symbol = :product
 )
     values = (cable_id, parts..., nominal_data)
-    any(value -> value isa _FiniteSource, values) || throw(MethodError(
+    any(value -> value isa Union{AbstractGrid, Gridspace}, values) || throw(MethodError(
         build, (DataModel.CableDesign, cable_id, parts...)
     ))
     return build(

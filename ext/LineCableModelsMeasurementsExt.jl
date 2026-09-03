@@ -31,12 +31,13 @@ import LineCableModels.ReportBuilder: encode_cell
 nominal(value::Measurements.Measurement) = Measurements.value(value)
 uncertainty(value::Measurements.Measurement) = Measurements.uncertainty(value)
 
-function ParametricBuilder.materialize(value::ParametricBuilder.UncertainValue{<:Real})
+function LineCableModels.materialize(value::ParametricBuilder.UncertainValue{<:Real})
     Measurements.measurement(value.nominal, value.sigma)
 end
 
-_measurement(summary::UQ.SampleSummary) =
+function _measurement(summary::UQ.SampleSummary)
     Measurements.measurement(summary.mean, summary.std)
+end
 
 function _measurement_result(
         source::UQ.MonteCarloResult{<:Engine.CableConstants},

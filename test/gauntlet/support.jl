@@ -184,7 +184,7 @@
     end
 
     function computation_options(
-            ::Val{GauntletCase},
+            ::Type{GauntletCase},
             options::NamedTuple
     )::ComputationOptions
         allowed = (:output_basis, :reference, :candidate, :benchmark)
@@ -512,7 +512,7 @@
             record::Bool = false,
             options::NamedTuple = (;)
     )
-        run = computation_options(Val(GauntletCase), options)
+        run = computation_options(GauntletCase, options)
         reference = run.reference
         if case.reference_formulation isa PSCADBenchmarks.PSCADFormulation &&
            !haskey(reference, :remote)

@@ -54,7 +54,7 @@ function RemoteConfig(
 end
 
 function computation_options(
-        ::Val{PSCADFormulation},
+        ::Type{PSCADFormulation},
         options::NamedTuple
 )::ComputationOptions
     allowed = (:output_stem, :remote, :verbosity, :output_basis)
@@ -532,7 +532,7 @@ function compute(
         formulation::PSCADFormulation;
         options::NamedTuple = (;)
 )
-    execution_options = computation_options(Val(PSCADFormulation), options)
+    execution_options = computation_options(PSCADFormulation, options)
     config = execution_options.remote
     root = _pscad_root(problem)
     isdir(root) && rm(root; recursive = true)

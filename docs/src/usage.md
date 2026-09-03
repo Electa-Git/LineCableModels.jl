@@ -144,7 +144,7 @@ two-axis lookup:
 ```julia
 run.axes.problems
 run.axes.formulations
-selected = result(run, problem_index, formulation_index)
+selected = run[problem_index, formulation_index]
 formula_id(run.axes.formulations[formulation_index].methods.earth_impedance)
 ```
 
@@ -155,7 +155,7 @@ formulation axis and preserve the established scalar numerical calculation.
 Use the product accessors for uncertainty calculations:
 
 ```julia
-result(sampled)
+collect(sampled)
 statistics(sampled)
 samples(sampled)
 histograms(sampled)

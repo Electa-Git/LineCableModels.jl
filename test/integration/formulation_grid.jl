@@ -55,7 +55,7 @@
             index=problem_index+
             (formulation_index-1)*length(problems)
             @test same_parameters(
-                result(run, problem_index, formulation_index),
+                run[problem_index, formulation_index],
                 expected[index]
             )
         end
