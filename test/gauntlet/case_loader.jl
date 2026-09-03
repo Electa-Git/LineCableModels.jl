@@ -74,7 +74,7 @@ function case_definition(
         id::Symbol,
         parameters::NamedTuple,
         port_order::AbstractVector{<:AbstractString};
-        description::AbstractString = "Gauntlet case $(id).",
+        description::AbstractString = string(id),
         assets = ()
 ) where {F}
     return CaseDefinition(

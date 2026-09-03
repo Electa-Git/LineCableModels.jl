@@ -64,6 +64,9 @@ one concrete `LineParametersProblem`:
   --description "Two buried conductors used for ..."
 ```
 
+`--description` supplies the documentation-page title. It defaults to the case
+ID when omitted.
+
 The source runs in a fresh Julia process with `--startup-file=no`. The importer
 normalises only `system_id`, verifies that the coaxial backend can flatten every
 design, orders ports by positive phase ID, and writes a versioned JSON problem,

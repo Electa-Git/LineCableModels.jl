@@ -137,7 +137,7 @@ function _addon_preview(
         legend_position = :right,
         legend_anchor = :rt,
         legend_title = nothing,
-        legend_attributes::NamedTuple = (; nbanks = 2),
+        legend_attributes::NamedTuple = (; nbanks = 1),
         legend_overflow::Symbol = :ellipsis,
         panel_legends = (),
         legend_group = nothing,

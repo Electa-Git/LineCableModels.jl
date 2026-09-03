@@ -88,7 +88,7 @@ using Measurements: measurement
 # Every `(quantity, row, column)` is one facet and therefore one axis. Its
 # default title comes from the unit registry plus the coordinate relation, for
 # example `Self series resistance — conductor 1` or
-# `Mutual series reactance — conductor 1 → conductor 2`. Coordinates never
+# `Mutual series reactance — conductor 1 → 2`. Coordinates never
 # become legend entries. A legend exists to distinguish overlaid result sets;
 # a single unlabeled result therefore has no legend by default.
 #

@@ -189,37 +189,94 @@ function generate_maintained_pages!()
     return nothing
 end
 
-function markdown_cell(value)
-    return replace(string(value), '|' => "\\|", '\n' => "<br>")
+function markdown_text(value)
+    return replace(
+        string(value),
+        '\\' => "\\\\",
+        '|' => "\\|",
+        '*' => "\\*",
+        '_' => "\\_",
+        '\n' => "<br>"
+    )
 end
 
-function markdown_table(rows)
+function markdown_table(rows; markdown_columns = ())
     isempty(rows) && return "_None._\n"
     names = collect(keys(first(rows)))
     lines = String[
-    "| " * join(string.(names), " | ") * " |",
-    "| " * join(
-        fill("---", length(names)), " | ") * " |"
-]
+        "| " * join(markdown_text.(names), " | ") * " |",
+        "| " * join(
+            fill("---", length(names)), " | ") * " |"
+    ]
     for row in rows
-        push!(lines, "| " *
-                     join(
-                         (markdown_cell(getproperty(row, name)) for name in names),
-                         " | "
-                     ) * " |")
+        push!(lines,
+            "| " *
+            join(
+                (
+                    name in markdown_columns ?
+                    replace(
+                        string(getproperty(row, name)),
+                        '|' => "\\|",
+                        '\n' => "<br>"
+                    ) :
+                    markdown_text(getproperty(row, name))
+                for name in names),
+                " | "
+            ) * " |")
     end
     return join(lines, '\n') * "\n"
+end
+
+function logarithmic_range(values)
+    length(values) > 1 || return nothing
+    all(value -> value isa Real && isfinite(value) && value > 0, values) ||
+        return nothing
+    exponents = log10.(values)
+    step = (last(exponents) - first(exponents)) / (length(exponents) - 1)
+    all(pairs(exponents)) do (index, exponent)
+        isapprox(exponent, first(exponents) + (index - 1) * step; atol = 1.0e-12)
+    end || return nothing
+    return first(exponents), last(exponents), length(exponents)
+end
+
+function compact_number(value)
+    isinteger(value) ? string(Int(round(value))) :
+    string(round(value; sigdigits = 6))
+end
+
+function frequency_parameter(values)
+    values isa AbstractVector || return values
+    span = logarithmic_range(values)
+    extra = nothing
+    if span === nothing
+        for index in eachindex(values)
+            candidate = [values[begin:(index - 1)]; values[(index + 1):end]]
+            span = logarithmic_range(candidate)
+            span === nothing || begin
+                extra = values[index]
+                break
+            end
+        end
+    end
+    span === nothing &&
+        return "$(length(values)) points: $(first(values)) … $(last(values)) Hz"
+    first_exponent, last_exponent, count = span
+    summary = "10.0 .^ range($(compact_number(first_exponent)), " *
+              "stop = $(compact_number(last_exponent)), length = $count) Hz"
+    extra === nothing || (summary *= ", plus $(compact_number(extra)) Hz")
+    return summary
 end
 
 function case_page(record)
     id = record.id
     problem = LineCableModels.ImportExport.deserialize_value(record.problem)
     system = problem.system
+    designs = [system.designs[row.cable] for row in record.designs]
     design_image = "$(id)-designs.png"
     system_image = "$(id)-system.png"
 
     design_plot = preview(
-        system.designs;
+        designs;
         backend = :cairo,
         display_plot = false,
         controls = false
@@ -238,15 +295,17 @@ function case_page(record)
     else
         markdown_table([(
                             id = parameter.id,
-                            nominal = parameter.nominal,
+                            nominal = parameter.id === :frequencies ?
+                                      frequency_parameter(parameter.nominal) :
+                                      parameter.nominal,
                             tags = join(string.(parameter.tags), ", ")
                         ) for parameter in record.parameters])
     end
     problem_text = sprint(show, MIME("text/plain"), problem)
     return """
-# `$(id)`
+# $(markdown_text(record.description))
 
-$(record.description)
+Case ID: `$(id)`.
 
 Input fingerprint: `$(record.input_sha256)`.
 
@@ -298,7 +357,7 @@ function build_case_catalogue!()
         id = record.id
         path = joinpath(CASE_OUTPUT, "$(id).md")
         write(path, case_page(record))
-        push!(pages, id => joinpath("cases", "$(id).md"))
+        push!(pages, markdown_text(id) => joinpath("cases", "$(id).md"))
         push!(index_rows,
             (
                 case = "[`$(id)`]($(id).md)",
@@ -315,7 +374,7 @@ function build_case_catalogue!()
 
 This catalogue is generated from the indexed, materialised Gauntlet cases. It does not run a numerical formulation.
 
-$(markdown_table(index_rows))
+$(markdown_table(index_rows; markdown_columns = (:case,)))
 
 The input fingerprint covers the complete materialised `LineParametersProblem`; result artefacts separately record the selected numerical implementation blobs.
 """
@@ -339,7 +398,7 @@ DocMeta.setdocmeta!(
     recursive = true
 )
 
-bibliography = CitationBibliography(joinpath(DOCS_SRC_DIR, "refs.bib"); style = :numeric)
+bibliography = CitationBibliography(joinpath(DOCS_SRC_DIR, "bibliography.bib"); style = :numeric)
 
 makedocs(;
     modules = [LineCableModels],
@@ -398,7 +457,7 @@ makedocs(;
             "Contributing" => "contributing.md",
             "TODO" => "TODO.md"
         ],
-        "Bibliography" => "bib.md"
+        "Bibliography" => "bibliography.md"
     ],
     clean = true,
     plugins = [bibliography],

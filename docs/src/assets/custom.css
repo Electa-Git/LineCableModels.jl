@@ -20,7 +20,7 @@
 
 article#documenter-page img {
     display: block !important;
-    margin: auto !important;
+    margin: 0.75rem auto !important;
 }
 
 /* Improved scrollbar styling for code blocks rendered in Chrome */

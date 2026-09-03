@@ -111,12 +111,12 @@ function _semantic_quantity_title(object, facet)
     coordinate = _semantic_coordinate_name(object)
     if coordinate == "mode"
         return facet.row == facet.column ?
-               "$quantity_label — mode $(facet.row)" :
-               "$quantity_label — mode $(facet.row) → mode $(facet.column)"
+               "$quantity_label, mode $(facet.row)" :
+               "$quantity_label, modes $(facet.row) → $(facet.column)"
     elseif facet.row == facet.column
-        return "Self $description — conductor $(facet.row)"
+        return "Self- $description, conductor $(facet.row)"
     end
-    return "Mutual $description — conductor $(facet.row) → conductor $(facet.column)"
+    return "Mutual- $description, conductors $(facet.row) → $(facet.column)"
 end
 
 function _semantic_relation_title(object, quantity, row, column)
@@ -128,9 +128,9 @@ function _semantic_relation_title(object, quantity, row, column)
                "$quantity_label — mode $row" :
                "$quantity_label — mode $row → mode $column"
     elseif row == column
-        return "Self $description — conductor $row"
+        return "Self- $description, conductors $row"
     end
-    return "Mutual $description — conductor $row → conductor $column"
+    return "Mutual- $description, conductors $row → $column"
 end
 
 function _semantic_page_title(object, page, mode)

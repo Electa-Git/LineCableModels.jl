@@ -76,8 +76,7 @@ function validate_problem(problem, id::Symbol, ports)
         _ -> problem,
         id,
         (;),
-        ports;
-        description = "Imported Gauntlet case $(id)."
+        ports
     )
     _validate_loaded_problem(definition, problem)
     T = eltype(problem)
@@ -125,7 +124,7 @@ function import_case(args)
     description = option(
         args,
         "--description";
-        default = "Imported from $(basename(source))."
+        default = string(id)
     )
     source_project = abspath(option(args, "--project"; default = GAUNTLET_ROOT))
     isdir(source_project) || throw(ArgumentError(
@@ -213,10 +212,15 @@ end
 
 function design_rows(model)
     rows = NamedTuple[]
-    for (index, design) in pairs(model.nominal_problem.system.designs)
+    designs = model.nominal_problem.system.designs
+    retained = Int[]
+    for (index, design) in pairs(designs)
+        any(other -> designs[other] == design, retained) && continue
+        push!(retained, index)
         push!(rows, (
             cable = index,
             cable_id = design.cable_id,
+            instances = count(==(design), designs),
             terminals = length(design.terminal_order),
             regions = length(design.geometry.regions),
             outer_diameter_m = 2 * LineCableModels.outer_radius(design)
