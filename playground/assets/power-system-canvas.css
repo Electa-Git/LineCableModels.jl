@@ -1,0 +1,187 @@
+.lc-widget-shell:has(.lc-power-system-canvas) {
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.lc-widget-content:has(> .lc-power-system-canvas) {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  align-content: stretch;
+}
+
+html:has(.lc-power-system-canvas),
+body:has(.lc-power-system-canvas) {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.lc-power-system-canvas {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: 42rem;
+  height: 100%;
+  overflow: hidden;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  color: var(--lc-widget-text);
+  background: var(--lc-sunken-bg);
+  border: 1px solid var(--lc-widget-border);
+  border-radius: 2px;
+}
+
+.lc-power-system-command-bar {
+  display: flex;
+  min-width: 0;
+  min-height: 3rem;
+  padding: 0.55rem 0.7rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: var(--lc-toolbar-bg);
+  border-bottom: 1px solid var(--lc-widget-border);
+}
+
+.lc-power-system-copy {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 0.8rem;
+}
+
+.lc-power-system-label {
+  color: var(--lc-widget-heading);
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.lc-power-system-summary {
+  overflow: hidden;
+  color: var(--lc-widget-muted);
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lc-power-system-summary[data-kind="error"] {
+  color: var(--lc-danger);
+}
+
+.lc-power-system-reset {
+  min-height: 2rem;
+  margin: 0;
+  padding: 0.35rem 0.65rem;
+  color: var(--lc-widget-text);
+  background: var(--lc-option-bg);
+  border: 1px solid var(--lc-widget-border);
+  border-radius: 2px;
+  box-shadow: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.lc-power-system-reset:hover,
+.lc-power-system-reset:focus-visible {
+  color: var(--lc-widget-heading);
+  background: var(--lc-hover-bg);
+  border-color: var(--lc-widget-link);
+  outline: none;
+}
+
+.lc-power-system-editor-mount {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.lc-power-system-editor-mount > .ole-root,
+.lc-power-system-editor-mount .h-screen {
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0;
+  min-height: 0;
+}
+
+.lc-power-system-editor-mount .w-screen {
+  width: 100% !important;
+}
+
+.lc-power-system-canvas .ole-root {
+  --font-sans: Lato, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  --background: var(--lc-panel-bg);
+  --foreground: var(--lc-heading);
+  --card: var(--lc-panel-soft);
+  --card-foreground: var(--lc-heading);
+  --popover: var(--lc-panel-bg);
+  --popover-foreground: var(--lc-heading);
+  --primary: var(--lc-focus);
+  --primary-foreground: var(--lc-accent-ink);
+  --secondary: var(--lc-sunken-bg);
+  --secondary-foreground: var(--lc-text);
+  --muted: var(--lc-panel-soft);
+  --muted-foreground: var(--lc-muted);
+  --accent: var(--lc-hover-bg);
+  --accent-foreground: var(--lc-heading);
+  --destructive: var(--lc-danger);
+  --destructive-foreground: var(--lc-strong-text);
+  --border: var(--lc-border-soft);
+  --input: var(--lc-option-bg);
+  --ring: var(--lc-link);
+  --selection: var(--lc-focus);
+  --canvas-bg: var(--lc-sunken-bg);
+  --canvas-grid: var(--lc-border-soft);
+  --canvas-grid-strong: var(--lc-border);
+  --radius: 3px;
+  --radius-2xl: 3px;
+  font-family: var(--font-sans);
+}
+
+.lc-power-system-canvas .ole-root .ole-glass {
+  background: var(--lc-panel-bg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.lc-power-system-canvas .ole-root [class*="shadow"] {
+  box-shadow: none !important;
+}
+
+.lc-power-system-canvas .ole-root .rounded-2xl,
+.lc-power-system-canvas .ole-root .rounded-md,
+.lc-power-system-canvas .ole-root .rounded-sm,
+.lc-power-system-canvas .ole-root .rounded {
+  border-radius: 2px;
+}
+
+.lc-power-system-boundary {
+  min-height: 2rem;
+  padding: 0.48rem 0.7rem;
+  color: var(--lc-widget-muted);
+  background: var(--lc-toolbar-bg);
+  border-top: 1px solid var(--lc-widget-border);
+  font-size: 0.66rem;
+  line-height: 1.35;
+}
+
+@media (max-width: 680px) {
+  .lc-power-system-canvas {
+    min-height: 38rem;
+  }
+
+  .lc-power-system-command-bar,
+  .lc-power-system-copy {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .lc-power-system-reset {
+    width: 100%;
+  }
+}

@@ -33,7 +33,7 @@ body {
 
 body {
   color: var(--lc-text);
-  color-scheme: dark;
+  color-scheme: var(--lc-color-scheme);
   font-family: $font-family-sans-serif;
   font-size: var(--lc-type-unit);
   font-weight: 500;
@@ -215,14 +215,14 @@ body *::after {
 
 .sidebar-section .sidebar-link:hover,
 .sidebar-section .sidebar-link:focus-visible {
-  background: #32393a;
-  color: #fff;
+  background: var(--lc-hover-bg);
+  color: var(--lc-strong-text);
   outline: none;
 }
 
 .sidebar-section .sidebar-link.active {
   background: var(--lc-bg);
-  color: #fff;
+  color: var(--lc-strong-text);
   border-left-color: var(--lc-link);
   font-weight: 700;
 }
@@ -247,7 +247,7 @@ body *::after {
 .quarto-secondary-nav .container-fluid {
   display: flex !important;
   align-items: center;
-  padding: 0 2.5rem 0 1rem;
+  padding: 0 1rem;
 }
 
 .quarto-secondary-nav .quarto-btn-toggle,
@@ -300,11 +300,60 @@ body.lc-workbench-index .quarto-secondary-nav-title::before {
 }
 
 .quarto-secondary-nav .container-fluid::after {
+  content: none;
+}
+
+.lc-publisher-theme-control {
+  display: flex;
+  width: max-content;
+  height: 3rem;
   margin-left: auto;
+  align-items: center;
+  gap: 0.85rem;
   color: var(--lc-muted);
-  content: "Static publisher shell";
   font-size: calc(0.75 * var(--lc-type-unit));
   white-space: nowrap;
+}
+
+.lc-publisher-theme-control label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+}
+
+.lc-publisher-theme-context {
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.68rem;
+}
+
+.lc-publisher-theme-select {
+  width: auto;
+  height: 1.8rem;
+  margin: 0;
+  padding: 0.18rem 1.75rem 0.18rem 0.5rem;
+  color: var(--lc-text);
+  background-color: var(--lc-control-bg);
+  border: 1px solid var(--lc-border);
+  border-radius: var(--lc-radius);
+  box-shadow: none;
+  font: inherit;
+  color-scheme: var(--lc-color-scheme);
+}
+
+.lc-publisher-theme-select:hover {
+  background-color: var(--lc-hover-bg);
+}
+
+.lc-publisher-theme-select:focus-visible {
+  border-color: var(--lc-focus);
+  outline: 1px solid var(--lc-focus);
+  outline-offset: 1px;
+}
+
+.lc-publisher-theme-select option {
+  color: var(--lc-text);
+  background: var(--lc-option-bg);
 }
 
 #quarto-content {
@@ -574,7 +623,7 @@ body.lc-home .quarto-title-block,
 
 .lc-gallery-card .lc-gallery-link:hover,
 .lc-gallery-card .lc-gallery-link:focus-visible {
-  color: #fff;
+  color: var(--lc-strong-text);
 }
 
 .lc-workbench-open {
@@ -582,7 +631,7 @@ body.lc-home .quarto-title-block,
   width: max-content;
   margin-top: 0.35rem;
   padding: 0.55rem 0.8rem;
-  color: #102523;
+  color: var(--lc-accent-ink);
   font-weight: 700;
   text-decoration: none;
   background: var(--lc-focus);
@@ -592,8 +641,8 @@ body.lc-home .quarto-title-block,
 
 .lc-workbench-open:hover,
 .lc-workbench-open:focus-visible {
-  color: #102523;
-  background: #35cbb0;
+  color: var(--lc-accent-ink);
+  background: var(--lc-status-border);
 }
 
 .lc-template-stage {
@@ -703,7 +752,25 @@ body.lc-home .quarto-title-block,
 
 .lc-widget-placeholder code {
   color: var(--lc-link);
-  background: #1b2020;
+  background: var(--lc-code-bg);
+}
+
+:root[data-lcm-resolved-theme="light"] {
+  --bs-body-bg: var(--lc-bg);
+  --bs-body-color: var(--lc-text);
+  --bs-border-color: var(--lc-border);
+  --bs-secondary-color: var(--lc-muted);
+  --bs-heading-color: var(--lc-heading);
+  --bs-link-color: var(--lc-link);
+}
+
+:root[data-lcm-resolved-theme="light"] div.sourceCode,
+:root[data-lcm-resolved-theme="light"] pre.sourceCode,
+:root[data-lcm-resolved-theme="light"] pre:not(.sourceCode),
+:root[data-lcm-resolved-theme="light"] code:not(pre code) {
+  color: var(--lc-text);
+  background: var(--lc-code-bg) !important;
+  border-color: var(--lc-border-soft);
 }
 
 .lc-widget-gallery-grid {
@@ -878,8 +945,13 @@ footer.footer {
   justify-content: space-between;
   gap: 0.75rem;
   color: var(--lc-muted);
+  background: transparent;
   font-size: calc(0.68 * var(--lc-type-unit));
   line-height: 1;
+}
+
+.nav-footer a {
+  color: inherit;
 }
 
 .nav-footer p {
@@ -913,6 +985,11 @@ footer.footer {
   }
 
   .quarto-secondary-nav .container-fluid::after {
+    display: none;
+  }
+
+  .lc-publisher-theme-context,
+  .lc-publisher-theme-control label > span {
     display: none;
   }
 

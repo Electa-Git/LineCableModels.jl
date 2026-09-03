@@ -47,6 +47,7 @@ const LIVE_WIDGET_ROUTES = [
     "/widgets/tabs",
     "/widgets/toolbar",
     "/widgets/control-panel",
+    "/widgets/repeater",
     "/widgets/job-panel",
 ]
 

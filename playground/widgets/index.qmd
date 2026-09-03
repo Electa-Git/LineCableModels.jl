@@ -134,6 +134,18 @@ Horizontal or vertical action groups with small, medium, and large sizing; icon-
 
 ::: {.lc-widget-demo .lc-widget-demo-wide}
 ::: {.lc-widget-demo-heading}
+[COMMAND COMPOSITION]{.lc-gallery-label}
+
+## Compact application ribbon
+
+Tabbed command groups reuse the toolbar action contract while adding quick access, compact and prominent controls, responsive overflow, keyboard navigation, and a collapsible ribbon body.
+:::
+
+{{< bonito route="/widgets/ribbon" title="Compact application ribbon example" height="39rem" >}}
+:::
+
+::: {.lc-widget-demo .lc-widget-demo-wide}
+::: {.lc-widget-demo-heading}
 [COMPOSITION]{.lc-gallery-label}
 
 ## Engineering control panel
@@ -146,6 +158,18 @@ Selectors, derived values, and a complete reset action composed without creating
 
 ::: {.lc-widget-demo .lc-widget-demo-wide}
 ::: {.lc-widget-demo-heading}
+[COLLECTION EDITOR]{.lc-gallery-label}
+
+## Repeatable mixed-control rows
+
+Add, duplicate, remove, and reorder rows without remounting surviving controls. Each row owns an arbitrary named value bundle and arbitrary Bonito content.
+:::
+
+{{< bonito route="/widgets/repeater" title="Repeatable row collection example" height="45rem" >}}
+:::
+
+::: {.lc-widget-demo .lc-widget-demo-wide}
+::: {.lc-widget-demo-heading}
 [BROKER BOUNDARY]{.lc-gallery-label}
 
 ## Asynchronous job panel
@@ -154,6 +178,42 @@ A durable Run/Cancel/Retry lifecycle with worker discovery, progress, retained r
 :::
 
 {{< bonito route="/widgets/job-panel" title="Asynchronous broker job example" height="48rem" >}}
+:::
+
+::: {.lc-widget-demo .lc-widget-demo-wide}
+::: {.lc-widget-demo-heading}
+[FILE INGRESS]{.lc-gallery-label}
+
+## Transactional file upload
+
+A single logical input slot with progress, validation, atomic replacement, explicit removal, and session-scoped cleanup. This specimen accepts CSV, JSON, and plain-text files up to 2 MiB.
+:::
+
+{{< bonito route="/widgets/file-upload" title="Transactional file upload example" height="24rem" >}}
+:::
+
+::: {.lc-widget-demo .lc-widget-demo-wide}
+::: {.lc-widget-demo-heading}
+[GEOGRAPHIC INPUT]{.lc-gallery-label}
+
+## KML/KMZ reference map
+
+Load Point and LineString placemarks, enable reference placement, then click a route line. The new point snaps to the line and receives a project-defined ID and tag without dispatching numerical work.
+:::
+
+{{< bonito route="/widgets/geographic-map" title="KML and KMZ reference map" height="48rem" >}}
+:::
+
+::: {.lc-widget-demo .lc-widget-demo-wide}
+::: {.lc-widget-demo-heading}
+[DOMAIN CANVAS]{.lc-gallery-label}
+
+## Power-system single-line editor
+
+Edit a seeded source, transformer, three buses, overhead line, cable, and load. The isolated browser surface compiles terminal connectivity into a validated snapshot without running a simulation.
+:::
+
+{{< bonito route="/widgets/power-system-canvas" title="Power-system single-line editor" height="56rem" >}}
 :::
 
 :::
@@ -197,3 +257,76 @@ tools = toolbar(
 ```
 
 The callback receives a `ToolbarEvent(namespace, action, value)`. Names use lowercase `snake_case`; the constructor rejects duplicate actions and invalid identifiers before the page is served.
+
+Repeaters keep collection mechanics separate from a row's locally meaningful fields and controls:
+
+```julia
+function cable_entry(values=(name="Cable 01", enabled=true, model="Solid"))
+    name = TextField(values.name)
+    enabled = Checkbox(values.enabled)
+    model = Dropdown(["Solid", "Stranded"]; index=values.model == "Solid" ? 1 : 2)
+
+    fields = (name=name.value, enabled=enabled.value, model=model.value)
+    content = DOM.div(name, enabled, model; class="my-cable-row")
+    return RepeatEntry(fields, content)
+end
+
+cables = Repeater(
+    cable_entry;
+    initial=2,
+    duplicate=cable_entry,
+    min_entries=1,
+    max_entries=12,
+    label="Cable definitions"
+)
+
+values = snapshot(cables)
+```
+
+Power-system canvases accept a versioned diagram and expose only a validated
+topology snapshot to Julia. The editor remains an authoring surface, not an
+execution engine:
+
+```julia
+canvas = PowerSystemCanvas(diagram)
+topology = snapshot(canvas) # nothing until the browser publishes its first snapshot
+```
+
+File upload destinations are supplied by the workbench. Browser filenames remain metadata and never determine server paths:
+
+```julia
+target = UploadTarget(
+    DirectoryUploadStore(joinpath(state.workspace, "inputs")),
+    "network-model";
+    extensions=[".json", ".csv"],
+    max_bytes=20 * 1024 * 1024,
+    retention=:persistent
+)
+
+input_file = UploadField(
+    target;
+    label="Network model",
+    hint="Validated workbench input"
+)
+
+input_file.value   # Observable{Union{Nothing, UploadedFile}}
+input_file.status  # :empty → :uploading → :validating → :ready
+```
+
+Geographic maps compose that upload slot with a persistent browser renderer. The tag vocabulary belongs to the workbench using the component:
+
+```julia
+upload = UploadField(kml_target)
+route_map = GeographicMap(
+    KMLUploadSource(upload);
+    tags=[
+        "terminal" => "Terminal",
+        "joint" => "Cable joint",
+        "survey" => "Survey reference",
+    ]
+)
+
+route_map.references[]
+```
+
+`fields` may contain any number of observables nested in named tuples, tuples, arrays, or dictionaries. `content` may contain input fields, checkboxes, dropdowns, figures, prose, or any other Bonito-renderable composition. Supply `extract=fields -> ...` to `RepeatEntry` when a row needs a specialized snapshot.

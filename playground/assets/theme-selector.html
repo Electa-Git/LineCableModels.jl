@@ -1,0 +1,37 @@
+<div class="lc-publisher-theme-control" aria-label="Playground appearance">
+  <span class="lc-publisher-theme-context">Static publisher shell</span>
+  <label>
+    <span>Theme</span>
+    <select class="lc-publisher-theme-select"
+            data-lcm-theme-selector
+            aria-label="Playground color theme">
+      <option value="system">System</option>
+      <option value="dark">Dark</option>
+      <option value="light">Light</option>
+    </select>
+  </label>
+</div>
+<script>
+(() => {
+  const connectThemeSelector = () => {
+    const control = document.querySelector(".lc-publisher-theme-control");
+    const header = document.querySelector(".quarto-secondary-nav .container-fluid");
+    if (control && header && control.parentElement !== header) {
+      header.append(control);
+    }
+    const selector = control?.querySelector("[data-lcm-theme-selector]");
+    const theme = window.LineCableModelsTheme;
+    if (!selector || !theme) return;
+    selector.value = theme.preference();
+    selector.addEventListener("change", event => {
+      theme.select(event.currentTarget.value);
+    });
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", connectThemeSelector, { once: true });
+  } else {
+    connectThemeSelector();
+  }
+})();
+</script>

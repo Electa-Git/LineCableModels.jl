@@ -2,7 +2,7 @@
 
 julia_version = "1.12.7"
 manifest_format = "2.0"
-project_hash = "6ed34040c3daeedb3e3dcb2ccfa386ce1423376a"
+project_hash = "44855347f1cea54013eda4e844d2f3b52c82a30d"
 
 [[deps.ANSIColoredPrinters]]
 git-tree-sha1 = "574baf8110975760d391c710b6341da1afa48d8c"
@@ -284,7 +284,7 @@ uuid = "94ce4f54-9a6c-5748-9c1c-f9c7231a4531"
 version = "1.18.0+0"
 
 [[deps.LineCableModelsPlayground]]
-deps = ["AWS", "AWSS3", "Bonito", "BonitoWidgets", "Dates", "JSON3", "LineCableModelsPlaygroundProtocol", "NATS", "Quarto", "URIs", "UUIDs"]
+deps = ["AWS", "AWSS3", "Bonito", "BonitoWidgets", "Dates", "EzXML", "JSON3", "LineCableModelsPlaygroundProtocol", "NATS", "Observables", "Quarto", "SHA", "URIs", "UUIDs", "ZipFile"]
 path = "."
 uuid = "4d248b51-e7d3-4fea-b76c-670b0acc53ed"
 version = "0.1.0"
@@ -585,6 +585,12 @@ deps = ["Base64", "Dates", "Printf", "StringEncodings"]
 git-tree-sha1 = "a1c0c7585346251353cddede21f180b96388c403"
 uuid = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 version = "0.4.16"
+
+[[deps.ZipFile]]
+deps = ["Libdl", "Printf", "Zlib_jll"]
+git-tree-sha1 = "f492b7fe1698e623024e873244f10d89c95c340a"
+uuid = "a5390f91-8eb1-5f08-bee0-b1d1ffed6cea"
+version = "0.10.1"
 
 [[deps.Zlib_jll]]
 deps = ["Libdl"]

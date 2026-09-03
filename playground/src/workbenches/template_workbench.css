@@ -163,10 +163,10 @@
   margin: 0;
   padding: 0 0.55rem;
   color: var(--lc-heading);
-  background: #1c2222;
+  background: var(--lc-control-bg);
   border: 1px solid var(--lc-border);
   border-radius: var(--lc-radius);
-  color-scheme: dark;
+  color-scheme: var(--lc-color-scheme);
 }
 
 .lc-wb-demo-fields input:focus,
@@ -178,7 +178,7 @@
 
 .lc-wb-demo-fields option {
   color: var(--lc-heading);
-  background: #202626;
+  background: var(--lc-option-bg);
 }
 
 .lc-wb-demo-input-with-unit {
@@ -196,7 +196,7 @@
   color: var(--lc-muted);
   font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
   font-size: 0.68rem;
-  background: #252c2c;
+  background: var(--lc-control-addon-bg);
   border: 1px solid var(--lc-border);
   border-left: 0;
 }

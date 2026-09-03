@@ -5,6 +5,9 @@ struct ToolbarButton <: AbstractToolbarItem
     icon::Any
     label::Union{Nothing,String}
     tooltip::String
+    disabled::Bool
+    active::Bool
+    busy::Bool
 end
 
 struct ToolbarDropdown <: AbstractToolbarItem
@@ -14,6 +17,28 @@ struct ToolbarDropdown <: AbstractToolbarItem
     options::Vector{Pair{Symbol,String}}
     selected::Symbol
     tooltip::String
+    disabled::Bool
+end
+
+struct ToolbarToggle <: AbstractToolbarItem
+    action::Symbol
+    icon::Any
+    label::String
+    checked::Bool
+    tooltip::String
+    disabled::Bool
+end
+
+struct ToolbarNumber <: AbstractToolbarItem
+    action::Symbol
+    label::String
+    value::Float64
+    minimum::Float64
+    maximum::Float64
+    step::Float64
+    unit::String
+    tooltip::String
+    disabled::Bool
 end
 
 struct ToolbarSeparator <: AbstractToolbarItem end
@@ -21,7 +46,7 @@ struct ToolbarSeparator <: AbstractToolbarItem end
 struct ToolbarEvent
     namespace::Symbol
     action::Symbol
-    value::Union{Nothing,Symbol}
+    value::Union{Nothing,Symbol,Bool,Float64,String}
 end
 
 struct ToolbarBinding{F}
@@ -49,7 +74,10 @@ function ToolbarButton(
         action::Symbol;
         icon,
         label::Union{Nothing,AbstractString}=nothing,
-        tooltip::Union{Nothing,AbstractString}=nothing
+        tooltip::Union{Nothing,AbstractString}=nothing,
+        disabled::Bool=false,
+        active::Bool=false,
+        busy::Bool=false
     )
     valid_toolbar_name(action, "toolbar action")
     resolved_label = isnothing(label) ? nothing : string(label)
@@ -58,7 +86,15 @@ function ToolbarButton(
     else
         string(tooltip)
     end
-    return ToolbarButton(action, icon, resolved_label, resolved_tooltip)
+    return ToolbarButton(
+        action,
+        icon,
+        resolved_label,
+        resolved_tooltip,
+        disabled,
+        active,
+        busy
+    )
 end
 
 function ToolbarDropdown(
@@ -67,7 +103,8 @@ function ToolbarDropdown(
         icon,
         label::AbstractString,
         selected::Union{Nothing,Symbol}=nothing,
-        tooltip::Union{Nothing,AbstractString}=nothing
+        tooltip::Union{Nothing,AbstractString}=nothing,
+        disabled::Bool=false
     )
     valid_toolbar_name(action, "toolbar action")
     converted = Pair{Symbol,String}[
@@ -90,7 +127,58 @@ function ToolbarDropdown(
         string(label),
         converted,
         resolved_selected,
-        resolved_tooltip
+        resolved_tooltip,
+        disabled
+    )
+end
+
+function ToolbarToggle(
+        action::Symbol;
+        icon,
+        label::AbstractString,
+        checked::Bool=false,
+        tooltip::Union{Nothing,AbstractString}=nothing,
+        disabled::Bool=false
+    )
+    valid_toolbar_name(action, "toolbar action")
+    resolved_tooltip = isnothing(tooltip) ? string(label) : string(tooltip)
+    return ToolbarToggle(
+        action,
+        icon,
+        string(label),
+        checked,
+        resolved_tooltip,
+        disabled
+    )
+end
+
+function ToolbarNumber(
+        action::Symbol;
+        label::AbstractString,
+        value::Real,
+        minimum::Real,
+        maximum::Real,
+        step::Real=1,
+        unit::AbstractString="",
+        tooltip::Union{Nothing,AbstractString}=nothing,
+        disabled::Bool=false
+    )
+    valid_toolbar_name(action, "toolbar action")
+    minimum <= value <= maximum || throw(ArgumentError(
+        "toolbar number value must be between minimum and maximum"
+    ))
+    step > 0 || throw(ArgumentError("toolbar number step must be positive"))
+    resolved_tooltip = isnothing(tooltip) ? string(label) : string(tooltip)
+    return ToolbarNumber(
+        action,
+        string(label),
+        Float64(value),
+        Float64(minimum),
+        Float64(maximum),
+        Float64(step),
+        string(unit),
+        resolved_tooltip,
+        disabled
     )
 end
 
@@ -188,6 +276,52 @@ function toolbar_icon(name::Symbol)
             SVG.path(; d="m7 10 5 5 5-5"),
             SVG.path(; d="M5 21h14"),
         )
+    elseif name == :new_file
+        (
+            SVG.path(; d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"),
+            SVG.path(; d="M14 2v6h6M12 12v6M9 15h6"),
+        )
+    elseif name == :open
+        (
+            SVG.path(; d="M3 7h6l2 2h10l-2 10H5z"),
+            SVG.path(; d="M3 7V5h7l2 2"),
+        )
+    elseif name == :save
+        (
+            SVG.path(; d="M4 3h14l2 2v16H4z"),
+            SVG.path(; d="M8 3v6h8V3M8 21v-7h8v7"),
+        )
+    elseif name == :busbar
+        (
+            SVG.path(; d="M4 5v14M20 5v14M4 8h16M4 16h16"),
+        )
+    elseif name == :cable
+        (
+            SVG.path(; d="M5 4v5a3 3 0 0 0 3 3h8a3 3 0 0 1 3 3v5"),
+            SVG.circle(; cx="5", cy="3", r="1.5"),
+            SVG.circle(; cx="19", cy="21", r="1.5"),
+        )
+    elseif name == :chart
+        (
+            SVG.path(; d="M4 20V4M4 20h16"),
+            SVG.path(; d="m7 16 4-5 3 2 5-7"),
+        )
+    elseif name == :grid
+        (
+            SVG.rect(; x="3", y="3", width="7", height="7"),
+            SVG.rect(; x="14", y="3", width="7", height="7"),
+            SVG.rect(; x="3", y="14", width="7", height="7"),
+            SVG.rect(; x="14", y="14", width="7", height="7"),
+        )
+    elseif name == :settings
+        (
+            SVG.circle(; cx="12", cy="12", r="3"),
+            SVG.path(; d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1z"),
+        )
+    elseif name == :collapse
+        (
+            SVG.path(; d="m6 9 6 6 6-6"),
+        )
     else
         throw(ArgumentError("unknown toolbar icon: $name"))
     end
@@ -236,15 +370,20 @@ function toolbar_button(item::ToolbarButton, events, binding)
     class = icon_only ?
         "lc-toolbar-button lc-toolbar-button-icon-only" :
         "lc-toolbar-button"
+    item.active && (class *= " lc-toolbar-button-active")
+    item.busy && (class *= " lc-toolbar-button-busy")
     attributes = Dict{Symbol,Any}(
         Symbol("aria-label") => item.tooltip,
         Symbol("data-toolbar-action") => string(item.action),
+        Symbol("aria-pressed") => string(item.active),
+        Symbol("aria-busy") => string(item.busy),
     )
     return DOM.button(
         content;
         attributes...,
         type="button",
         class,
+        disabled=item.disabled || item.busy,
         title=item.tooltip,
         onclick=js"event => $(clicks).notify(true)"
     )
@@ -271,6 +410,7 @@ function toolbar_dropdown(item::ToolbarDropdown, events, binding)
         options...;
         attributes...,
         class="lc-toolbar-select",
+        disabled=item.disabled,
         title=item.tooltip,
         onchange=js"event => $(selection).notify(event.currentTarget.value)"
     )
@@ -278,7 +418,72 @@ function toolbar_dropdown(item::ToolbarDropdown, events, binding)
         toolbar_icon(item.icon),
         DOM.span(item.label; class="lc-toolbar-dropdown-label"),
         select;
-        class="lc-toolbar-dropdown"
+        class=item.disabled ?
+            "lc-toolbar-dropdown lc-toolbar-control-disabled" :
+            "lc-toolbar-dropdown"
+    )
+end
+
+function toolbar_toggle(item::ToolbarToggle, events, binding)
+    checked = Observable(item.checked)
+    on(checked) do value
+        emit_toolbar_event!(events, binding, item.action, Bool(value))
+        return nothing
+    end
+    attributes = Dict{Symbol,Any}(
+        Symbol("data-toolbar-action") => string(item.action),
+    )
+    return DOM.label(
+        DOM.span(toolbar_icon(item.icon); class="lc-toolbar-toggle-icon"),
+        DOM.span(item.label; class="lc-toolbar-button-label"),
+        DOM.input(
+            ;
+            type="checkbox",
+            checked=item.checked,
+            disabled=item.disabled,
+            onchange=js"event => $(checked).notify(event.currentTarget.checked)"
+        );
+        attributes...,
+        class=item.disabled ?
+            "lc-toolbar-toggle lc-toolbar-control-disabled" :
+            "lc-toolbar-toggle",
+        title=item.tooltip
+    )
+end
+
+function toolbar_number(item::ToolbarNumber, events, binding)
+    value = Observable(item.value)
+    on(value) do current
+        emit_toolbar_event!(events, binding, item.action, Float64(current))
+        return nothing
+    end
+    attributes = Dict{Symbol,Any}(
+        Symbol("aria-label") => item.tooltip,
+        Symbol("data-toolbar-action") => string(item.action),
+    )
+    return DOM.label(
+        DOM.span(item.label; class="lc-toolbar-number-label"),
+        DOM.span(
+            DOM.input(
+                ;
+                attributes...,
+                type="number",
+                value=item.value,
+                min=item.minimum,
+                max=item.maximum,
+                step=item.step,
+                disabled=item.disabled,
+                class="lc-toolbar-number-input",
+                onchange=js"event => $(value).notify(Number(event.currentTarget.value))"
+            ),
+            isempty(item.unit) ? nothing :
+                DOM.span(item.unit; class="lc-toolbar-number-unit");
+            class="lc-toolbar-number-field"
+        );
+        class=item.disabled ?
+            "lc-toolbar-number lc-toolbar-control-disabled" :
+            "lc-toolbar-number",
+        title=item.tooltip
     )
 end
 
@@ -289,6 +494,8 @@ toolbar_item(::ToolbarSeparator, _, _) = DOM.span(
 )
 toolbar_item(item::ToolbarButton, events, binding) = toolbar_button(item, events, binding)
 toolbar_item(item::ToolbarDropdown, events, binding) = toolbar_dropdown(item, events, binding)
+toolbar_item(item::ToolbarToggle, events, binding) = toolbar_toggle(item, events, binding)
+toolbar_item(item::ToolbarNumber, events, binding) = toolbar_number(item, events, binding)
 
 function toolbar(
         items::AbstractVector{<:AbstractToolbarItem};

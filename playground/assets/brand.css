@@ -12,6 +12,29 @@
   --lc-border-soft: #465355;
   --lc-link: #4eb5de;
   --lc-focus: #1abc9c;
+  --lc-strong-text: #ffffff;
+  --lc-hover-bg: #32393a;
+  --lc-hover-bg-strong: #303737;
+  --lc-active-bg: #343c3c;
+  --lc-toolbar-bg: #222929;
+  --lc-tooltip-bg: #171b1b;
+  --lc-disabled: #778080;
+  --lc-scrollbar: #596566;
+  --lc-control-bg: #1c2222;
+  --lc-control-addon-bg: #252c2c;
+  --lc-option-bg: #202626;
+  --lc-option-selected-bg: #314849;
+  --lc-status-text: #16312e;
+  --lc-status-border: #42ccb5;
+  --lc-code-bg: #1b2020;
+  --lc-console-bg: #141919;
+  --lc-success-text: #c9fff4;
+  --lc-success-bg: rgb(26 188 156 / 14%);
+  --lc-success-border: rgb(26 188 156 / 55%);
+  --lc-warning: #f3bf61;
+  --lc-danger: #f07178;
+  --lc-accent-ink: #102523;
+  --lc-color-scheme: dark;
   --lc-sidebar-width: 18rem;
   --lc-radius: 2px;
   --lc-type-unit: clamp(15px, calc(13px + 0.1875vw), 18px);
@@ -31,7 +54,50 @@
   --bonito-widget-bg: var(--lc-panel-bg);
   --bonito-widget-fg: var(--lc-text);
   --bonito-widget-border: var(--lc-border);
-  --bonito-widget-hover-bg: #323a3a;
-  --bonito-widget-muted-bg: #394142;
+  --bonito-widget-hover-bg: var(--lc-hover-bg);
+  --bonito-widget-muted-bg: var(--lc-panel-soft);
   --bonito-widget-accent: var(--lc-focus);
+}
+
+/* Every publisher surface resolves the same stored preference against this
+ * semantic palette. The workbench selector is retained as a local control,
+ * while Quarto and embedded Bonito routes follow the document root. */
+:root[data-lcm-resolved-theme="light"],
+.lc-wb-page[data-resolved-theme="light"] {
+  color-scheme: light;
+  --lc-bg: #f2f5f4;
+  --lc-sidebar-bg: #e7ecea;
+  --lc-panel-bg: #f8faf9;
+  --lc-panel-soft: #edf1f0;
+  --lc-sunken-bg: #e4e9e8;
+  --lc-text: #293334;
+  --lc-heading: #151c1d;
+  --lc-muted: #657071;
+  --lc-border: #a9b4b4;
+  --lc-border-soft: #c8d0d0;
+  --lc-link: #087da7;
+  --lc-focus: #07977f;
+  --lc-strong-text: #111718;
+  --lc-hover-bg: #d9e2e0;
+  --lc-hover-bg-strong: #d1dcda;
+  --lc-active-bg: #d4dfdd;
+  --lc-toolbar-bg: #e1e7e5;
+  --lc-tooltip-bg: #ffffff;
+  --lc-disabled: #8a9494;
+  --lc-scrollbar: #9aa5a5;
+  --lc-control-bg: #ffffff;
+  --lc-control-addon-bg: #e8edec;
+  --lc-option-bg: #ffffff;
+  --lc-option-selected-bg: #cee3df;
+  --lc-status-text: #052f28;
+  --lc-status-border: #078c77;
+  --lc-code-bg: #e5eae9;
+  --lc-console-bg: #e8edec;
+  --lc-success-text: #075d4e;
+  --lc-success-bg: rgb(7 151 127 / 12%);
+  --lc-success-border: rgb(7 140 119 / 55%);
+  --lc-warning: #855600;
+  --lc-danger: #b4232c;
+  --lc-accent-ink: #052f28;
+  --lc-color-scheme: light;
 }

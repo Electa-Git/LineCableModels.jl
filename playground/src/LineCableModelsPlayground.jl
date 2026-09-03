@@ -5,12 +5,16 @@ using AWSS3
 using Bonito
 using BonitoWidgets
 using Dates
+using EzXML
 using JSON3
 using LineCableModelsPlaygroundProtocol
 using NATS
+using Observables
 using Quarto
+using SHA
 using URIs
 using UUIDs
+using ZipFile
 
 const PLAYGROUND_ROOT = normpath(joinpath(@__DIR__, ".."))
 const SITE_DIR = joinpath(PLAYGROUND_ROOT, "_site")
@@ -22,6 +26,11 @@ const BRAND_THEME = read(BRAND_THEME_PATH, String)
 
 include("workbench/WorkbenchUI.jl")
 include("toolbar.jl")
+include("ribbon.jl")
+include("repeater.jl")
+include("uploads.jl")
+include("geographic_map.jl")
+include("power_system_canvas.jl")
 include("console.jl")
 include("artifacts.jl")
 include("container_runtime.jl")
@@ -38,28 +47,59 @@ include("workbenches/TemplateWorkbench.jl")
 export ConsoleEntry,
     ConsoleView,
     ArtifactGateway,
+    AbstractUploadStore,
     BrokerClient,
+    DirectoryUploadStore,
+    GeographicMap,
     JobHandle,
     JobPanel,
+    KMLUploadSource,
+    MapReference,
+    PowerSystemCanvas,
+    RepeatEntry,
+    Repeater,
+    Ribbon,
+    RibbonGroup,
+    RibbonTab,
+    UploadedFile,
+    UploadField,
+    UploadPolicy,
+    UploadRegistry,
+    UploadTarget,
     TemplateWorkbench,
     Toolbar,
     ToolbarBinding,
     ToolbarButton,
     ToolbarDropdown,
     ToolbarEvent,
+    ToolbarNumber,
     ToolbarSeparator,
+    ToolbarToggle,
     WorkerStatus,
     WorkbenchUI,
     append_console!,
+    add!,
     cancel!,
     clear_console!,
     close!,
     mark_dirty!,
+    move!,
     reattach!,
+    remove!,
     set_console_status!,
     start!,
     submit!,
     submit_async!,
+    duplicate!,
+    delete_upload!,
+    register_upload_route!,
+    snapshot,
+    store_upload!,
+    sweep_upload_staging!,
+    upload_path,
+    validate_kml_upload,
+    validate_power_system_diagram,
+    validate_power_system_topology,
     toolbar,
     toolbar_event_name,
     toolbar_icon
@@ -343,6 +383,7 @@ function start_server(;
     register_workbench_routes!(server)
     register_widget_routes!(server, broker)
     register_artifact_route!(server, default_artifact_gateway())
+    register_upload_route!(server)
     register_static_site_routes!(server)
     url = Bonito.online_url(server, "/")
     println("LineCableModels playground listening at $url")

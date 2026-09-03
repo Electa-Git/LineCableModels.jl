@@ -63,7 +63,10 @@ format:
       - darkly
       - assets/theme.scss
     css: assets/brand.css
-    include-after-body: assets/viewport-settle.html
+    include-in-header: assets/theme-init.html
+    include-after-body:
+      - assets/theme-selector.html
+      - assets/viewport-settle.html
     toc: false
     page-layout: full
     smooth-scroll: true

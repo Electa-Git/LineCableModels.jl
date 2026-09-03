@@ -555,12 +555,30 @@ function render_menu(session, menu::Menu, dispatch)
 end
 
 function render_menubar(session, menubar::MenuBar, dispatch, namespace)
+    theme_attributes = Dict{Symbol,Any}(
+        Symbol("aria-label") => "Workbench color theme",
+        Symbol("data-lc-wb-theme-selector") => "",
+    )
     return DOM.header(
         DOM.div(
             (render_menu(session, menu, dispatch) for menu in menubar.menus)...;
             class="lc-wb-menu-groups"
         ),
-        DOM.span(namespace; class="lc-wb-menu-context");
+        DOM.div(
+            DOM.span(namespace; class="lc-wb-menu-context"),
+            DOM.label(
+                DOM.span("Theme"),
+                DOM.select(
+                    DOM.option("System"; value="system"),
+                    DOM.option("Dark"; value="dark", selected=true),
+                    DOM.option("Light"; value="light");
+                    theme_attributes...,
+                    class="lc-wb-theme-select"
+                );
+                class="lc-wb-theme-control"
+            );
+            class="lc-wb-menubar-tools"
+        );
         class="lc-wb-menubar"
     )
 end
@@ -856,7 +874,59 @@ function intrinsic_script(root)
         const sidebarToggle = root.querySelector('[data-lc-wb-sidebar-toggle]');
         const dockToggle = root.querySelector('[data-lc-wb-dock-toggle]');
         const splitter = root.querySelector('[data-lc-wb-dock-splitter]');
+        const page = root.closest('.lc-wb-page');
+        const themeSelector = root.querySelector('[data-lc-wb-theme-selector]');
+        const systemTheme = window.matchMedia('(prefers-color-scheme: light)');
+        const themeStorageKey = 'lcm.playground.theme';
+        const legacyThemeStorageKey = 'lcm.workbench.theme';
         const menus = Array.from(root.querySelectorAll('.lc-wb-menu'));
+
+        const validTheme = value => ['system', 'dark', 'light'].includes(value);
+        const applyTheme = preference => {
+            const selected = validTheme(preference) ? preference : 'dark';
+            const resolved = selected === 'system'
+                ? (systemTheme.matches ? 'light' : 'dark')
+                : selected;
+            page.dataset.theme = selected;
+            page.dataset.resolvedTheme = resolved;
+            document.documentElement.dataset.lcmTheme = selected;
+            document.documentElement.dataset.lcmResolvedTheme = resolved;
+            themeSelector.value = selected;
+        };
+
+        let initialTheme = 'dark';
+        try {
+            const storedTheme = window.localStorage.getItem(themeStorageKey)
+                || window.localStorage.getItem(legacyThemeStorageKey);
+            if (validTheme(storedTheme)) initialTheme = storedTheme;
+        } catch (_) {
+            // Storage may be disabled; the selector remains session-local.
+        }
+        applyTheme(initialTheme);
+        themeSelector.addEventListener('change', event => {
+            const preference = event.currentTarget.value;
+            applyTheme(preference);
+            try {
+                window.localStorage.setItem(themeStorageKey, preference);
+                window.localStorage.removeItem(legacyThemeStorageKey);
+            } catch (_) {
+                // Applying the selected theme does not depend on persistence.
+            }
+        });
+        systemTheme.addEventListener('change', () => {
+            if (page.dataset.theme === 'system') applyTheme('system');
+        });
+        window.addEventListener('storage', event => {
+            if (![themeStorageKey, legacyThemeStorageKey].includes(event.key)) return;
+            let storedTheme = null;
+            try {
+                storedTheme = window.localStorage.getItem(themeStorageKey)
+                    || window.localStorage.getItem(legacyThemeStorageKey);
+            } catch (_) {
+                // Fall through to the deterministic dark default.
+            }
+            applyTheme(storedTheme);
+        });
 
         menus.forEach(menu => {
             menu.addEventListener('toggle', () => {
@@ -976,6 +1046,10 @@ function Bonito.jsrender(session::Session, runtime::Runtime)
         Symbol("data-dock-state") => isnothing(workbench.output) ?
             "collapsed" : string(workbench.output.initial_state),
     )
+    page_attributes = Dict{Symbol,Any}(
+        Symbol("data-theme") => "dark",
+        Symbol("data-resolved-theme") => "dark",
+    )
     root = DOM.div(
         render_sidebar(
             session,
@@ -1000,6 +1074,7 @@ function Bonito.jsrender(session::Session, runtime::Runtime)
             DOM.style(WORKBENCH_STYLES),
             root,
             DOM.script(intrinsic_script(root));
+            page_attributes...,
             class="lc-wb-page"
         )
     )

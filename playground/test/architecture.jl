@@ -35,6 +35,21 @@
     @test occursin("-m LineCableModelsWorker", launcher)
     @test occursin("--project=\"\${SCRIPT_DIR}/worker\"", launcher)
 
+    quarto_config = read(joinpath(root, "_quarto.yml"), String)
+    theme_init = read(joinpath(root, "assets", "theme-init.html"), String)
+    theme_selector = read(joinpath(root, "assets", "theme-selector.html"), String)
+    workbench_source_file = read(
+        joinpath(root, "src", "workbench", "WorkbenchUI.jl"),
+        String
+    )
+    widgets_source_file = read(joinpath(root, "src", "widgets.jl"), String)
+    @test occursin("include-in-header: assets/theme-init.html", quarto_config)
+    @test occursin("- assets/theme-selector.html", quarto_config)
+    @test occursin("data-lcm-theme-selector", theme_selector)
+    @test occursin("lcm.playground.theme", theme_init)
+    @test occursin("lcm.playground.theme", workbench_source_file)
+    @test occursin("lcm.playground.theme", widgets_source_file)
+
     protocol_project = TOML.parsefile(joinpath(root, "protocol", "Project.toml"))
     @test Set(keys(protocol_project["deps"])) == Set((
         "Dates", "JSON3", "SHA", "StructTypes", "UUIDs"
