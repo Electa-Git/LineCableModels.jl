@@ -72,7 +72,8 @@ case_definition(
     [
         "cable:1:core", "cable:1:sheath", "cable:1:armor",
         "cable:2:core", "cable:2:sheath", "cable:2:armor"
-    ]
+    ];
+    description = "525 kV 1600 mm² armoured cable DC bipole"
 ) do p
     materials = LineCableModels.MaterialsLibrary(add_defaults = true)
     copper = LineCableModels.Material(materials, :copper)
@@ -109,30 +110,19 @@ case_definition(
         zero(minimum_armor_radius - buffered_armor_radius)
     )
     bedding_thickness = p.bedding_thickness + packing_buffer + packing_shortfall
-    parts = LineCableModels.AbstractCablePart[]
     strand_radius = p.strand_diameter / 2
-    radius = zero(strand_radius)
-    for layer in 0:p.strand_layers
-        count = layer == 0 ? 1 : layer * p.strands_per_layer
-        outer = count == 1 ? strand_radius : radius + 2strand_radius
-        centre_radius = count == 1 ? zero(radius) : radius + strand_radius
-        push!(parts,
-            LineCableModels.Group(
-                :core,
-                LineCableModels.Region(
-                    Symbol(:core_strands_, layer + 1),
-                    LineCableModels.Disk(strand_radius),
-                    copper
-                );
-                pattern = LineCableModels.Ring(count; r = centre_radius),
-                path = count == 1 ? nothing :
-                       LineCableModels.Helix(LineCableModels.LayRatio(p.core_lay_ratio))
-            ))
-        radius = outer
-    end
+    radius = (2p.strand_layers + 1) * strand_radius
+    stranded_core = LineCableModels.stranded(
+        copper;
+        shape = LineCableModels.Disk(strand_radius),
+        layers = p.strand_layers,
+        n = p.strands_per_layer,
+        lay = LineCableModels.LayRatio(p.core_lay_ratio),
+        boundary = LineCableModels.Disk(radius)
+    )
     core = LineCableModels.Enclosure(
         :core_matrix,
-        LineCableModels.Stack(parts);
+        stranded_core;
         primitive = LineCableModels.Disk(radius),
         fill = matrix
     )

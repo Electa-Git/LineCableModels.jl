@@ -46,6 +46,38 @@ end
     @test plots isa Vector{UIPlot}
     @test length(plots) == 4
     @test all(plot -> plot.figure isa Makie.Figure, plots)
+
+    copper=Material(kind = :conductor, rho = 1.72e-8, eps_r = 1.0, mu_r = 1.0)
+    insulation_material=Material(
+        kind = :insulator, rho = Inf, eps_r = 2.3, mu_r = 1.0
+    )
+    strand_area=0.6e-3*0.8e-3
+    core_radius=sqrt((0.5e-3)^2+4strand_area/pi)
+    core=stranded(
+        copper;
+        center = Disk(0.5e-3),
+        shape = Rectangle(0.6e-3, 0.8e-3),
+        layers = 1,
+        n = 4,
+        lay = nothing,
+        compact = FillFactor(1),
+        boundary = Disk(core_radius)
+    )
+    design=build(
+        CableDesign,
+        "outlined-rectangular-strands",
+        terminal(:phase, core),
+        insulation(insulation_material; t = 1e-3)
+    )
+    polygons=extension._native_design_shapes(
+        design, 0.0, 0.0; display_legend = false
+    )
+    @test length(polygons) == 6
+    @test all(polygon -> polygon.stroke == (:black, 0.35), polygons[1:5])
+    @test all(polygon -> polygon.width == 0.6, polygons[1:5])
+    @test polygons[6].stroke === :transparent
+    @test polygons[6].width == 0.0
+
     @test_throws ArgumentError Makie.plot(
         parameters; backend = :gl, display_plot = false
     )

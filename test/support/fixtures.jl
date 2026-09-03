@@ -101,14 +101,16 @@
                 :sheath,
                 LineCableModels.Region(
                     :sheath_tape,
-                    LineCableModels.Sector(
-                        tape_inner,
-                        tape_outer,
-                        -tape_width / (tape_inner + tape_outer),
-                        2tape_width / (tape_inner + tape_outer)
+                    LineCableModels.Rectangle(
+                        tape_width,
+                        tape_outer - tape_inner
                     ),
                     copper
                 );
+                pattern = LineCableModels.Ring(
+                    1;
+                    r = (tape_inner + tape_outer) / 2
+                ),
                 path = LineCableModels.Helix(LineCableModels.LayRatio(10.0))
             ))
         push!(parts,

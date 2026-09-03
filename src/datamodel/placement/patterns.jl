@@ -109,94 +109,6 @@ end
 """
 $(TYPEDEF)
 
-Place the `6course` members of one complete hexagonal close-packed course.
-
-For circular members of radius ``a`` and fractional clearance ``g``, adjacent
-member centres are separated by
-
-```math
-d=2a(1+g).
-```
-
-The first member lies on the positive local horizontal axis before applying
-`φ0`. Member identities then advance counter-clockwise along the six sides of
-the course.
-
-$(TYPEDFIELDS)
-"""
-struct Hexa{T <: Real}
-    "Course index counted outward from the central member \\[dimensionless\\]."
-    course::Int
-    "Counter-clockwise rotation of the complete course \\[rad\\]."
-    φ0::T
-    "Fractional clearance between adjacent members \\[dimensionless\\]."
-    gap_frac::T
-
-    function Hexa{T}(
-            course::Int,
-            φ0::T,
-            gap_frac::T
-    ) where {T <: Real}
-        course > 0 || throw(ArgumentError(
-            "hexagonal course index must be positive"
-        ))
-        isfinite(φ0) || throw(DomainError(
-            φ0, "hexagonal course rotation must be finite"
-        ))
-        isfinite(gap_frac) && gap_frac >= zero(gap_frac) || throw(DomainError(
-            gap_frac,
-            "hexagonal course gap fraction must be nonnegative and finite"
-        ))
-        return new{T}(course, φ0, gap_frac)
-    end
-end
-
-function _hexagonal_course(course, φ0, gap_frac)
-    course isa Integer && !(course isa Bool) || throw(ArgumentError(
-        "hexagonal course index must be an integer"
-    ))
-    angle, gap = map(float, promote(φ0, gap_frac))
-    return Hexa{typeof(angle)}(Int(course), angle, gap)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
-Construct one hexagonal close-packed course.
-
-# Arguments
-
-- `course`: Course index counted outward from the central member
-  \\[dimensionless\\].
-
-# Keywords
-
-- `φ0=0`: Counter-clockwise rotation of the complete course \\[rad\\].
-- `gap_frac=0`: Fractional clearance between adjacent circular members
-  \\[dimensionless\\].
-- `combine=:product`: Gridspace composition rule.
-
-# Returns
-
-- A `Hexa`, or a parameter space when a direct argument varies.
-"""
-function Hexa(
-        course;
-        φ0 = 0,
-        gap_frac = 0,
-        combine::Symbol = :product
-)
-    return parameterize(
-        Hexa,
-        _hexagonal_course,
-        (course, φ0, gap_frac);
-        combine
-    )
-end
-
-"""
-$(TYPEDEF)
-
 Place members on `nr` concentric loci with `nφ` angular positions per locus.
 
 $(TYPEDFIELDS)
@@ -351,7 +263,7 @@ end
 "Return local member poses prescribed by a placement pattern."
 function placements end
 
-struct _ResolvedPlacement{P <: Pose2, D <: AbstractPrimitive}
+struct _ResolvedPlacement{P <: Pose2, D <: AbstractShape}
     pose::P
     primitive::D
 end
@@ -373,43 +285,7 @@ function _ring_poses(pattern::Ring, count::Int, radius::Real)
                  for index in 0:(count - 1)]
 end
 
-function _hexagonal_course_poses(pattern::Hexa, member_radius::Real)
-    spacing = 2member_radius * (one(pattern.gap_frac) + pattern.gap_frac)
-    root_three = sqrt(oftype(spacing, 3))
-    cosine = cos(pattern.φ0)
-    sine = sin(pattern.φ0)
-    prototype = Pose2(spacing, zero(spacing), pattern.φ0)
-    poses = typeof(prototype)[]
-    axial_q = pattern.course
-    axial_r = 0
-    directions = ((-1, 1), (-1, 0), (0, -1), (1, -1), (1, 0), (0, 1))
-    for (step_q, step_r) in directions
-        for _ in 1:pattern.course
-            q = oftype(spacing, axial_q)
-            r = oftype(spacing, axial_r)
-            local_x = spacing * (q + r / 2)
-            local_y = spacing * root_three * r / 2
-            x = cosine * local_x - sine * local_y
-            y = sine * local_x + cosine * local_y
-            push!(poses, Pose2(x, y, atan(y, x)))
-            axial_q += step_q
-            axial_r += step_r
-        end
-    end
-    return poses
-end
-
 placements(::Nothing, item, ::Nothing) = Pose2[Pose2(0, 0, 0)]
-
-function placements(
-        pattern::Hexa,
-        item::Disk,
-        ::Nothing
-)
-    return _hexagonal_course_poses(pattern, item.r)
-end
-
-capacity(pattern::Hexa, ::Disk, ::Nothing) = 6pattern.course
 
 function _check_ring_clearance(pattern::Ring, tangential_width::Real)
     pattern.n == 1 && return nothing
@@ -463,9 +339,24 @@ function placements(pattern::Ring, item::Rectangle, ::Nothing)
     pattern.r === nothing && throw(ArgumentError(
         "a contextual ring radius requires placement inside a physical tree"
     ))
-    _check_ring_clearance(pattern, item.w)
-    return [Pose2(pose.x, pose.y, pose.φ + pi / 2)
-            for pose in _ring_poses(pattern, pattern.n, pattern.r)]
+    occupied = pattern.n * item.w * (one(pattern.gap_frac) + pattern.gap_frac)
+    available = pattern.r * pattern.span
+    tolerance = sqrt(eps(float(available))) * max(one(available), available)
+    occupied <= available + tolerance || throw(DomainError(
+        pattern.n,
+        "rectangular members exceed the available angular span"
+    ))
+    inner = max(zero(pattern.r), pattern.r - item.h / 2)
+    outer = inner + item.h
+    angular_width = 2area(item) / (outer^2 - inner^2)
+    definition = BentStrip(inner, outer, angular_width)
+    step = pattern.n == 1 ? zero(pattern.span) : pattern.span / pattern.n
+    return _ResolvedPlacement[
+        _ResolvedPlacement(
+            Pose2(0, 0, pattern.φ0 + index * step),
+            definition
+        ) for index in 0:(pattern.n - 1)
+    ]
 end
 
 function placements(pattern::Ring, item::Sector, ::Nothing)
@@ -489,27 +380,6 @@ function placements(pattern::Ring, item::Sector, ::Nothing)
     return _ring_poses(pattern, pattern.n, pattern.r)
 end
 
-function placements(pattern::Ring, item::RoundedSector, ::Nothing)
-    pattern.n isa Int || throw(ArgumentError(
-        "capacity() requires contextual placement"
-    ))
-    pattern.r === nothing && throw(ArgumentError(
-        "a contextual ring radius requires placement inside a physical tree"
-    ))
-    if iszero(pattern.r)
-        occupied = pattern.n * item.span *
-                   (one(pattern.gap_frac) + pattern.gap_frac)
-        tolerance = sqrt(eps(float(pattern.span))) * max(one(pattern.span), pattern.span)
-        occupied <= pattern.span + tolerance || throw(DomainError(
-            pattern.n,
-            "rounded-sector members exceed the available angular span"
-        ))
-        return _ring_poses(pattern, pattern.n, pattern.r)
-    end
-    _check_ring_clearance(pattern, _tangential_width(item))
-    return _ring_poses(pattern, pattern.n, pattern.r)
-end
-
 function placements(pattern::Ring, item::CableGeometry, ::Nothing)
     pattern.n isa Int || throw(ArgumentError(
         "capacity() requires contextual placement"
@@ -522,13 +392,13 @@ function placements(pattern::Ring, item::CableGeometry, ::Nothing)
     return _ring_poses(pattern, pattern.n, pattern.r)
 end
 
-function _origin_ring_poses(pattern::Ring, shape::RoundedSectorShape)
+function _origin_ring_poses(pattern::Ring, shape::SectorShape)
     occupied = pattern.n * shape.primitive.span *
                (one(pattern.gap_frac) + pattern.gap_frac)
     tolerance = sqrt(eps(float(pattern.span))) * max(one(pattern.span), pattern.span)
     occupied <= pattern.span + tolerance || throw(DomainError(
         pattern.n,
-        "rounded-sector members exceed the available angular span"
+        "sector members exceed the available angular span"
     ))
     return _ring_poses(pattern, pattern.n, pattern.r)
 end
@@ -583,17 +453,6 @@ function capacity(pattern::Ring, item::Rectangle, ::Nothing)
 end
 
 function capacity(pattern::Ring, item::Sector, ::Nothing)
-    if pattern.r !== nothing && !iszero(pattern.r)
-        width = _tangential_width(item)
-        ratio = width * (one(pattern.gap_frac) + pattern.gap_frac) /
-                (2pattern.r)
-        return _ring_capacity(pattern, ratio)
-    end
-    occupied = item.span * (one(pattern.gap_frac) + pattern.gap_frac)
-    return max(0, floor(Int, pattern.span / occupied + 8eps(float(pattern.span))))
-end
-
-function capacity(pattern::Ring, item::RoundedSector, ::Nothing)
     if pattern.r !== nothing && !iszero(pattern.r)
         width = _tangential_width(item)
         ratio = width * (one(pattern.gap_frac) + pattern.gap_frac) /

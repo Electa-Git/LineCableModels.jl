@@ -62,7 +62,15 @@
     matrix=Material(kind = :insulator, rho = Inf, eps_r = 2.3)
     packed=Enclosure(
         :preview_matrix,
-        terminal(:preview_core, stranded(copper; shape = Disk(0.5), layers = 1));
+        terminal(
+            :preview_core,
+            stranded(
+                copper;
+                shape = Disk(0.5),
+                layers = 1,
+                boundary = Disk(1.4)
+            )
+        );
         primitive = Disk(1.5),
         fill = matrix
     )

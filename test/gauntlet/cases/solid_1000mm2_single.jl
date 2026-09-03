@@ -24,7 +24,8 @@ case_definition(
             tags = (:operation, :frequency)
         )
     ),
-    ["cable:1:core"]
+    ["cable:1:core"];
+    description = "Single 1000 mm² solid conductor"
 ) do p
     materials = LineCableModels.MaterialsLibrary(add_defaults = true)
     aluminum = LineCableModels.Material(materials, :aluminum)

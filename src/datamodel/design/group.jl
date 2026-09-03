@@ -8,7 +8,7 @@ conductive descendant is a valid physical group and contributes no terminal.
 
 $(TYPEDFIELDS)
 """
-struct Group{A, E <: AbstractCablePart, P, H, C} <: AbstractCablePart
+struct Group{A, E <: AbstractCablePart, P, H, C, B} <: AbstractCablePart
     "Coalesced terminal name when the group contains conductive descendants."
     name::Symbol
     "Pose relative to the containing frame."
@@ -21,6 +21,8 @@ struct Group{A, E <: AbstractCablePart, P, H, C} <: AbstractCablePart
     path::H
     "Compaction definition or `nothing`."
     compact::C
+    "Authoritative finished boundary for a bounded formation, or `nothing`."
+    boundary::B
 
     function Group(
             name::Symbol,
@@ -28,33 +30,40 @@ struct Group{A, E <: AbstractCablePart, P, H, C} <: AbstractCablePart
             item::E,
             pattern::P,
             path::H,
-            compact::C
-    ) where {A, E <: AbstractCablePart, P, H, C}
+            compact::C,
+            boundary::B
+    ) where {A, E <: AbstractCablePart, P, H, C, B}
         isempty(String(name)) && throw(ArgumentError("group name cannot be empty"))
         at isa Pose2 || throw(ArgumentError("group pose must resolve to Pose2"))
-        return new{A, E, P, H, C}(name, at, item, pattern, path, compact)
+        boundary === nothing || boundary isa Union{Disk, Sector} || throw(ArgumentError(
+            "group boundary must be a Disk, Sector, or nothing"
+        ))
+        boundary === nothing || pattern === nothing || throw(ArgumentError(
+            "a bounded formation owns its member placements and cannot carry a group pattern"
+        ))
+        boundary === nothing || path === nothing || throw(ArgumentError(
+            "a bounded formation cannot carry a group-level longitudinal path"
+        ))
+        return new{A, E, P, H, C, B}(
+            name, at, item, pattern, path, compact, boundary
+        )
     end
 end
+
+Group(name::Symbol, at, item, pattern, path, compact) =
+    Group(name, at, item, pattern, path, compact, nothing)
 
 function Base.:(==)(left::Group, right::Group)
     left.name == right.name && left.at == right.at && left.item == right.item &&
         left.pattern == right.pattern && left.path == right.path &&
-        left.compact == right.compact
+        left.compact == right.compact && left.boundary == right.boundary
 end
 
-function _path_radius(
-        pattern::Ring,
-        pose::Pose2,
-        primitive::Union{Annulus, Sector}
-)
+function _path_radius(pattern::Ring, pose::Pose2, primitive::Annulus)
     return iszero(pattern.r) ? (r_in(primitive) + r_ex(primitive)) / 2 : pattern.r
 end
 _path_radius(pattern::Ring, pose::Pose2, primitive::AbstractShape) = pattern.r
-function _path_radius(
-        ::Nothing,
-        pose::Pose2,
-        primitive::Union{Annulus, Sector}
-)
+function _path_radius(::Nothing, pose::Pose2, primitive::Annulus)
     (r_in(primitive) + r_ex(primitive)) / 2
 end
 _path_radius(::Nothing, pose::Pose2, primitive::AbstractShape) = hypot(pose.x, pose.y)
@@ -64,21 +73,130 @@ function _resolved_path_radius(compact, pattern, pose, primitive)
     _path_radius(pattern, pose, primitive)
 end
 function _resolved_path_radius(
-        ::FillFactor, pattern, pose, primitive::Union{Annulus, Sector}
+        compact, pattern, pose, primitive::Union{Polygon, BentStrip}
 )
-    (r_in(primitive) + r_ex(primitive)) / 2
+    centre = centroid(primitive)
+    return hypot(centre...)
 end
-
-_aggregate_boundary(child::CableGeometry, compact) = boundary(child)
-function _aggregate_boundary(
-        ::CableGeometry,
-        compact::TabulatedCompaction{D}
-) where {D <: AbstractPrimitive}
-    return resolve(EmptyBoundary(), compact.data)
+function _resolved_path_radius(::FillFactor, pattern, pose, primitive::Annulus)
+    (r_in(primitive) + r_ex(primitive)) / 2
 end
 
 _member_definition(region::Region) = region.primitive
 _member_definition(::AbstractCablePart) = nothing
+
+function bounded_members(group::Group)
+    group.item isa Stack || throw(ArgumentError(
+        "a bounded formation must own an ordered Stack of member courses"
+    ))
+    members = NamedTuple[]
+    course = 0
+    for (part_index, part) in enumerate(group.item.items)
+        part isa Group || throw(ArgumentError(
+            "a bounded formation Stack may contain only member Groups"
+        ))
+        part.item isa Region || throw(ArgumentError(
+            "each bounded-formation course must repeat one Region"
+        ))
+        part.at == Pose2(0, 0, 0) || throw(ArgumentError(
+            "bounded-formation courses must share the formation origin"
+        ))
+        part.boundary === nothing || throw(ArgumentError(
+            "nested bounded formations are not supported"
+        ))
+        if part.pattern === nothing
+            part_index == 1 || throw(ArgumentError(
+                "only the first bounded-formation member may omit its course pattern"
+            ))
+            push!(members,
+                (
+                    source = part.item,
+                    course,
+                    member = 1,
+                    pattern = nothing,
+                    path = part.path,
+                    angle = zero(eltype(group.at))
+            ))
+            continue
+        end
+        course += 1
+        pattern = part.pattern
+        pattern isa Ring || throw(ArgumentError(
+            "bounded-formation outer courses require a Ring inventory declaration"
+        ))
+        pattern.n isa Int || throw(ArgumentError(
+            "bounded-formation member counts must be explicit integers"
+        ))
+        pattern.r === nothing || throw(ArgumentError(
+            "bounded-formation course radii are resolved by compaction"
+        ))
+        step = pattern.span / pattern.n
+        for member in 1:pattern.n
+            push!(members,
+                (
+                    source = part.item,
+                    course,
+                    member,
+                    pattern,
+                    path = part.path,
+                    angle = pattern.φ0 + (member - 1) * step
+                ))
+        end
+    end
+    isempty(members) && throw(ArgumentError(
+        "a bounded formation requires at least one member"
+    ))
+    return members
+end
+
+function bounded_pose(absolute, origin::Pose2, angle)
+    dx = absolute[1] - origin.x
+    dy = absolute[2] - origin.y
+    cosine = cos(origin.φ)
+    sine = sin(origin.φ)
+    return Pose2(
+        cosine * dx + sine * dy,
+        -sine * dx + cosine * dy,
+        angle
+    )
+end
+
+function resolve_bounded(group::Group)
+    members = bounded_members(group)
+    primitives, outer = compact_bounded_members(
+        group.boundary, members, group.compact, group.at
+    )
+    length(primitives) == length(members) || throw(DimensionMismatch(
+        "bounded compaction must preserve the declared member count"
+    ))
+    regions = PlacedRegion[]
+    for (formation_member, (member, primitive)) in enumerate(zip(members, primitives))
+        absolute_centre = centroid(primitive)
+        pose = bounded_pose(absolute_centre, group.at, member.angle)
+        declared = member.pattern === nothing ? () :
+                   ((pattern = member.pattern, member = member.member, pose = pose),)
+        patterns = (
+            declared...,
+            (
+                pattern = BoundedPlacement(outer),
+                member = formation_member,
+                pose = pose
+            )
+        )
+        paths = member.path === nothing ? () :
+                ((path = member.path, radius = hypot(pose.x, pose.y)),)
+        terminal = member.source.material.kind === :conductor ? group.name : nothing
+        push!(regions,
+            PlacedRegion(
+                member.source,
+                primitive,
+                terminal,
+                (patterns = patterns,),
+                paths
+            ))
+    end
+    return CableGeometry(regions, outer)
+end
 
 _radial_half_extent(definition::Disk) = definition.r
 _radial_half_extent(definition::Rectangle) = definition.h / 2
@@ -136,8 +254,12 @@ function _group_placements(pattern, item, child, compact, context)
     return concrete, placements(concrete, subject, compact)
 end
 
-function _minimum_radius(primitive::Union{Annulus, Sector})
+function _minimum_radius(primitive::Annulus)
     iszero(primitive.at.x) && iszero(primitive.at.y) && return r_in(primitive)
+    return _minimum_radius_general(primitive)
+end
+function _minimum_radius(primitive::BentStrip)
+    iszero(primitive.at.x) && iszero(primitive.at.y) && return primitive.ri
     return _minimum_radius_general(primitive)
 end
 _minimum_radius(primitive::AbstractShape) = _minimum_radius_general(primitive)
@@ -153,11 +275,17 @@ function _resolve_group(
         context::Union{EmptyBoundary, AbstractShape},
         group::Group
 )
+    if group.boundary !== nothing
+        context isa EmptyBoundary || throw(ArgumentError(
+            "a bounded stranded formation must be the innermost physical formation"
+        ))
+        return resolve_bounded(group)
+    end
     if group.pattern === nothing
         child = resolve(context, group.item)
         regions = PlacedRegion[]
         for source in child.regions
-            primitive = resolve(group.at, source.primitive)
+            placed = resolve(group.at, source)
             terminal = source.source.material.kind === :conductor ? group.name :
                        source.terminal
             centre = centroid(source.primitive)
@@ -173,14 +301,13 @@ function _resolve_group(
                 ))
             push!(regions, PlacedRegion(
                 source.source,
-                primitive,
+                placed.primitive,
                 terminal,
-                source.placement,
+                placed.placement,
                 paths
             ))
         end
-        outer = group.path === nothing ? _aggregate_boundary(child, group.compact) :
-                Disk(support(boundary(child)))
+        outer = group.path === nothing ? boundary(child) : Disk(support(boundary(child)))
         return CableGeometry(regions, resolve(group.at, outer))
     end
 
@@ -206,10 +333,11 @@ function _resolve_group(
                               resolve(pose, definition) :
                               resolve(pose, source.primitive)
             primitive = resolve(group.at, local_primitive)
+            placed = resolve(placed_at, source)
             extent = support(local_primitive)
             local_extent = local_extent === nothing ? extent : max(local_extent, extent)
-            patterns = pattern === nothing ? source.placement.patterns :
-                       (source.placement.patterns...,
+            patterns = pattern === nothing ? placed.placement.patterns :
+                       (placed.placement.patterns...,
                 (pattern = pattern, member = member, pose = pose))
             paths = group.path === nothing ? source.paths :
                     (source.paths...,
@@ -237,42 +365,6 @@ function _resolve_group(
 end
 
 resolve(context::EmptyBoundary, group::Group) = _resolve_group(context, group)
-
-function resolve(
-        context::Disk,
-        group::Group{A, E, P}
-) where {A, E <: AbstractCablePart, P <: Hexa}
-    child = resolve(EmptyBoundary(), group.item)
-    length(child.regions) == 1 || throw(ArgumentError(
-        "a hexagonal course requires one circular member region"
-    ))
-    primitive = only(child.regions).primitive
-    primitive isa Disk || throw(ArgumentError(
-        "a hexagonal course requires a circular member region"
-    ))
-    iszero(primitive.at.x) && iszero(primitive.at.y) || throw(ArgumentError(
-        "a hexagonal course member must be centred in its local frame"
-    ))
-    centre = group.at * primitive.at
-    isapprox(context.at.x, centre.x) && isapprox(context.at.y, centre.y) ||
-        throw(ArgumentError(
-            "a hexagonal course must share the preceding course centre"
-        ))
-    pattern = group.pattern
-    spacing = 2primitive.r * (one(pattern.gap_frac) + pattern.gap_frac)
-    expected_inner = (pattern.course - 1) * spacing + primitive.r
-    isapprox(context.r, expected_inner) || throw(DomainError(
-        context.r,
-        "hexagonal course $(pattern.course) requires preceding radius " *
-        "$expected_inner"
-    ))
-
-    # A hexagonal course interlocks with the valleys of the preceding course.
-    # The ordinary radial-envelope exclusion test would reject that valid
-    # geometry, so this exact course dispatch resolves the owned lattice
-    # directly after validating its course radius and common centre.
-    return _resolve_group(context, group)
-end
 
 function resolve(context::AbstractShape, group::Group)
     result = _resolve_group(context, group)

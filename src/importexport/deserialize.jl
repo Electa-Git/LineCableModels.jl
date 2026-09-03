@@ -140,8 +140,10 @@ function _decode_node(::Val{:sector}, value)
         Sector,
         Sector,
         (
-            _field(value, "ri"), _field(value, "ro"),
-            _field(value, "φ0"), _field(value, "span")
+            _field(value, "span"),
+            _field(value, "r_base"),
+            _field(value, "r_back"),
+            _field(value, "fillet")
         )
     )
 end
@@ -155,18 +157,6 @@ end
 _decode_node(::Val{:shell}, value) = _decoded_target(Shell, Shell, (_field(value, "t"),))
 function _decode_node(::Val{:polygon}, value)
     _decoded_target(Polygon, Polygon, (_field(value, "points"),))
-end
-function _decode_node(::Val{:rounded_sector}, value)
-    _decoded_target(
-        RoundedSector,
-        RoundedSector,
-        (
-            _field(value, "span"),
-            _field(value, "r_base"),
-            _field(value, "r_back"),
-            _field(value, "fillet")
-        )
-    )
 end
 function _decode_node(::Val{:pose2}, value)
     _decoded_target(
@@ -212,19 +202,6 @@ function _decode_node(::Val{:ring}, value)
     build = (n, r, φ0, span, gap_frac) -> Ring(n; r, φ0, span, gap_frac)
     return _decoded_target(Ring, build, values)
 end
-function _decode_node(::Val{:hexagonal_course}, value)
-    values = (
-        _field(value, "course"),
-        _field(value, "φ0"),
-        haskey(value, "gap_frac") ? _field(value, "gap_frac") : 0
-    )
-    build = (course, φ0, gap_frac) -> Hexa(
-        course;
-        φ0,
-        gap_frac
-    )
-    return _decoded_target(Hexa, build, values)
-end
 function _decode_node(::Val{:polar}, value)
     values = (
         _field(value, "nr"), _field(value, "nφ"),
@@ -250,24 +227,11 @@ function _decode_node(::Val{:lattice}, value)
     build = (nx, ny, dx, dy) -> Lattice(; nx, ny, dx, dy)
     return _decoded_target(Lattice, build, values)
 end
-function _decode_node(::Val{:diameter_factor}, value)
-    _decoded_target(
-        DiameterFactor, DiameterFactor, (_field(value, "k"),)
-    )
-end
 function _decode_node(::Val{:fill_factor}, value)
     _decoded_target(
         FillFactor, FillFactor, (_field(value, "η"),)
     )
 end
-function _decode_node(::Val{:tabulated_compaction}, value)
-    TabulatedCompaction(
-        _field(value, "data")
-    )
-end
-_decode_node(::Val{:affine_compaction}, value) = AffineCompaction(
-    _field(value, "map")
-)
 _decode_node(::Val{:capacity}, value) = capacity()
 function _decode_node(::Val{:lay_ratio}, value)
     _decoded_target(LayRatio, LayRatio, (_field(value, "q"),))
@@ -324,7 +288,8 @@ function _decode_part(::Val{:group}, value, materials)
         _decode_part(_required(value, "item", "group"), materials),
         deserialize_value(_required(value, "pattern", "group")),
         deserialize_value(_required(value, "path", "group")),
-        deserialize_value(_required(value, "compact", "group"))
+        deserialize_value(_required(value, "compact", "group")),
+        deserialize_value(_required(value, "boundary", "group"))
     )
     return _decoded_target(Group, Group, values)
 end

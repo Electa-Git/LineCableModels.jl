@@ -37,11 +37,11 @@ TextDisplay.@showfields Ellipse "Ellipse" primitive -> (
 )
 
 TextDisplay.@showfields Sector "Sector" primitive -> (
-    rᵢ = TextDisplay.engineering(primitive.ri, :meter),
-    rₒ = TextDisplay.engineering(primitive.ro, :meter),
-    φ₀ = iszero(primitive.φ0) ? nothing : TextDisplay.angle(primitive.φ0),
     Δφ = TextDisplay.angle(primitive.span),
-    at = _display_pose(primitive.at)
+    rᵢ = TextDisplay.engineering(primitive.r_base, :meter),
+    rₒ = TextDisplay.engineering(primitive.r_back, :meter),
+    fillet = iszero(primitive.fillet) ? nothing :
+             TextDisplay.engineering(primitive.fillet, :meter)
 )
 
 TextDisplay.@showfields Annulus "Annulus" primitive -> (
@@ -55,12 +55,15 @@ TextDisplay.@showfields Polygon "Polygon" primitive -> (
     at = _display_pose(primitive.at)
 )
 
-TextDisplay.@showfields RoundedSector "RoundedSector" primitive -> (
-    Δφ = TextDisplay.angle(primitive.span),
-    rᵢ = TextDisplay.engineering(primitive.r_base, :meter),
-    rₒ = TextDisplay.engineering(primitive.r_back, :meter),
-    fillet = iszero(primitive.fillet) ? nothing :
-             TextDisplay.engineering(primitive.fillet, :meter)
+TextDisplay.@showfields BentStrip "BentStrip" shape -> (
+    rᵢ = TextDisplay.engineering(shape.ri, :meter),
+    rₒ = TextDisplay.engineering(shape.ro, :meter),
+    Δφ = TextDisplay.angle(shape.span),
+    at = _display_pose(shape.at)
+)
+
+TextDisplay.@showfields BoundedPlacement "BoundedPlacement" placement -> (
+    boundary = string(nameof(typeof(placement.boundary))),
 )
 
 TextDisplay.@showfields Shell "Shell" layer -> (
@@ -100,13 +103,6 @@ TextDisplay.@showfields Ring "Ring" pattern -> (
     gap = iszero(pattern.gap_frac) ? nothing : TextDisplay.value(pattern.gap_frac)
 )
 
-TextDisplay.@showfields Hexa "Hexagonal course" pattern -> (
-    course = pattern.course,
-    n = 6pattern.course,
-    φ₀ = iszero(pattern.φ0) ? nothing : TextDisplay.angle(pattern.φ0),
-    gap = iszero(pattern.gap_frac) ? nothing : TextDisplay.value(pattern.gap_frac)
-)
-
 TextDisplay.@showfields Polar "Polar" pattern -> (
     nᵣ = pattern.nr,
     nφ = pattern.nφ,
@@ -132,20 +128,8 @@ TextDisplay.@showfields Lattice "Lattice" pattern -> (
     Δy = TextDisplay.engineering(pattern.dy, :meter)
 )
 
-TextDisplay.@showfields DiameterFactor "DiameterFactor" factor -> (
-    k = TextDisplay.value(factor.k),
-)
-
 TextDisplay.@showfields FillFactor "FillFactor" factor -> (
     η = TextDisplay.value(factor.η),
-)
-
-TextDisplay.@showfields TabulatedCompaction "TabulatedCompaction" compaction -> (
-    data = _bounded_collection(compaction.data),
-)
-
-TextDisplay.@showfields AffineCompaction "AffineCompaction" compaction -> (
-    map = _bounded_collection(compaction.map),
 )
 
 TextDisplay.@showfields LayRatio "LayRatio" lay -> (
@@ -340,6 +324,8 @@ function Base.show(io::IO, group::Group)
         (print(io, ", path="); show(IOContext(io, :compact => true), group.path))
     group.compact === nothing ||
         (print(io, ", compact="); show(IOContext(io, :compact => true), group.compact))
+    group.boundary === nothing ||
+        (print(io, ", boundary="); show(IOContext(io, :compact => true), group.boundary))
     print(io, ")")
 end
 function Base.show(io::IO, ::MIME"text/plain", group::Group)
@@ -529,16 +515,16 @@ function Base.show(io::IO, ::MIME"text/plain", library::CablesLibrary)
     )
 end
 
-TextDisplay.name(::Type{<:RoundedSectorShape}) = "Rounded sector shape"
-Base.summary(io::IO, ::RoundedSectorShape) = print(io, "Resolved rounded sector")
-function Base.show(io::IO, shape::RoundedSectorShape)
-    print(io, "ResolvedRoundedSector(")
+TextDisplay.name(::Type{<:SectorShape}) = "Sector shape"
+Base.summary(io::IO, ::SectorShape) = print(io, "Resolved sector")
+function Base.show(io::IO, shape::SectorShape)
+    print(io, "ResolvedSector(")
     show(IOContext(io, :compact => true), shape.primitive)
     _identity_pose(shape.at) ||
         (print(io, "; at="); show(IOContext(io, :compact => true), shape.at))
     print(io, ")")
 end
-Base.show(io::IO, ::MIME"text/plain", shape::RoundedSectorShape) = show(io, shape)
+Base.show(io::IO, ::MIME"text/plain", shape::SectorShape) = show(io, shape)
 
 TextDisplay.name(::Type{<:ShellShape}) = "Shell shape"
 Base.summary(io::IO, ::ShellShape) = print(io, "Resolved shell")

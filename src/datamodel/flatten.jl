@@ -175,10 +175,11 @@ $(TYPEDSIGNATURES)
 
 Reduce one geometrically uniform conductor zone to resistance, GMR, path, and
 cross-sectional values. Primitive-specific methods preserve the implemented
-disk, annulus, tape-sector, and equivalent-area rounded-sector assumptions.
+disk, annulus, and equivalent-area cable-sector assumptions.
 """
 
 function conductor_zone(
+        definition::Disk,
         primitive::Disk,
         zone,
         ::Type{T},
@@ -267,14 +268,12 @@ function conductor_zone(
         coordinates,
         position = centre,
         material,
-        pairwise_gmd = any(
-            entry -> entry.pattern isa Hexa,
-            source.placement.patterns
-        )
+        pairwise_gmd = patterned
     )
 end
 
 function conductor_zone(
+        definition::Annulus,
         primitive::Annulus,
         zone,
         ::Type{T},
@@ -315,46 +314,37 @@ function conductor_zone(
 end
 
 function conductor_zone(
-        primitive::Sector,
+        definition::Shell,
+        primitive::Annulus,
         zone,
         ::Type{T},
         expected_inner
 ) where {T <: Real}
-    source = first(zone)
-    length(source.paths) == 1 || throw(ArgumentError(
-        "flatten supports a sector conductor only as one helical tape"
+    length(zone) == 1 || throw(ArgumentError(
+        "flatten requires one region per contextual conductor shell"
     ))
-    length(source.placement.patterns) <= 1 || throw(ArgumentError(
-        "flatten does not support nested sector repetition"
-    ))
-    poses = map(item -> item.primitive.at, zone)
-    centre = (convert(T, first(poses).x), convert(T, first(poses).y))
-    all(pose -> isapprox(pose.x, centre[1]) && isapprox(pose.y, centre[2]), poses) ||
-        throw(ArgumentError(
-            "a sector conductor zone requires one common centre"
-        ))
+    source = only(zone)
     material = convert(Material{T}, source.source.material)
+    centre = (convert(T, primitive.at.x), convert(T, primitive.at.y))
     zone_r_in = convert(T, primitive.ri)
     zone_r_ex = convert(T, primitive.ro)
-    tape_width = convert(T, primitive.span) * (zone_r_in + zone_r_ex) / 2
-    tape_thickness = isempty(source.placement.patterns) ?
-                     zone_r_ex - zone_r_in :
-                     (one(T) * pi) * (zone_r_ex^2 - zone_r_in^2) /
-                     (length(zone) * tape_width)
-    zone_area = length(zone) * tape_thickness * tape_width
+    isapprox(zone_r_in, expected_inner) || throw(ArgumentError(
+        "resolved conductor shell does not begin at the preceding radial boundary"
+    ))
+    isapprox(zone_r_ex - zone_r_in, definition.t) || throw(ArgumentError(
+        "resolved conductor shell does not preserve its declared thickness"
+    ))
+    zone_area = (one(T) * pi) * (zone_r_ex^2 - zone_r_in^2)
     turns = turns_per_length(source.paths, T)
     resistance = path_corrected_resistance(
-        strip_resistance(
-            tape_thickness,
-            tape_width,
-            material.rho
-        ),
-        source.paths) / length(zone)
+        material.rho / zone_area,
+        source.paths
+    )
     return (
         r_in = zone_r_in,
         r_ex = zone_r_ex,
         area = zone_area,
-        wires = isempty(source.placement.patterns) ? 1 : 0,
+        wires = isempty(source.paths) ? 0 : 1,
         turns = convert(T, turns),
         resistance,
         gmr = tubular_gmr(zone_r_ex, zone_r_in, material.mu_r),
@@ -368,17 +358,18 @@ function conductor_zone(
 end
 
 function conductor_zone(
-        primitive::RoundedSectorShape,
+        definition::Sector,
+        primitive::SectorShape,
         zone,
         ::Type{T},
         expected_inner
 ) where {T <: Real}
     length(zone) == 1 || throw(ArgumentError(
-        "flatten requires one region per rounded-sector conductor"
+        "flatten requires one region per sector conductor"
     ))
     source = only(zone)
     isempty(source.paths) || throw(ArgumentError(
-        "flatten does not support a helical rounded-sector conductor"
+        "flatten does not support a helical sector conductor"
     ))
     material = convert(Material{T}, source.source.material)
     zone_area = convert(T, area(primitive))
@@ -402,14 +393,15 @@ function conductor_zone(
 end
 
 function conductor_zone(
+        definition::AbstractPrimitive,
         primitive::AbstractShape,
         zone,
         ::Type,
         expected_inner
 )
     throw(ArgumentError(
-        "flatten does not support conductor primitive " *
-        "$(nameof(typeof(primitive)))"
+        "flatten does not support conductor source/resolved pair " *
+        "$(nameof(typeof(definition))) → $(nameof(typeof(primitive)))"
     ))
 end
 
@@ -418,7 +410,7 @@ $(TYPEDSIGNATURES)
 
 Reduce one homogeneous dielectric region to concentric radii and material
 properties. Primitive-specific methods retain circular and equivalent-area
-rounded-sector assumptions.
+cable-sector assumptions.
 """
 function dielectric_layer(
         primitive::Annulus,
@@ -444,14 +436,14 @@ end
 function dielectric_layer(
         primitive::ShellShape{
             <:Any,
-            <:RoundedSectorShape,
-            <:RoundedSectorShape
+            <:SectorShape,
+            <:SectorShape
         },
         source::PlacedRegion,
         ::Type{T}
 ) where {T <: Real}
     isempty(source.paths) || throw(ArgumentError(
-        "flatten does not support a helical rounded-sector dielectric"
+        "flatten does not support a helical sector dielectric"
     ))
     material = convert(Material{T}, source.source.material)
     material.kind === :conductor && throw(ArgumentError(
@@ -484,9 +476,63 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Reduce a nested repeated-wire conductor to parallel resistance, area-weighted
-GMR, equivalent temperature coefficient, turns, and radial extent.
+Reduce a nested repeated-wire conductor to parallel resistance,
+current-share-weighted GMR, equivalent temperature coefficient, turns, and
+radial extent.
 """
+function member_resistance(definition::Disk, material)
+    return tubular_resistance(zero(definition.r), definition.r, material.rho)
+end
+
+function member_resistance(definition::Rectangle, material)
+    return strip_resistance(definition.h, definition.w, material.rho)
+end
+
+function radial_extent(shape::Disk, centre)
+    return hypot(shape.at.x - centre[1], shape.at.y - centre[2]) + shape.r
+end
+
+function radial_extent(shape::Polygon, centre)
+    cosine = cos(shape.at.φ)
+    sine = sin(shape.at.φ)
+    return maximum(shape.points) do point
+        x = shape.at.x + cosine * point[1] - sine * point[2]
+        y = shape.at.y + sine * point[1] + cosine * point[2]
+        hypot(x - centre[1], y - centre[2])
+    end
+end
+
+function radial_extent(shape::BentStrip, centre)
+    dx = shape.at.x - centre[1]
+    dy = shape.at.y - centre[2]
+    offset = hypot(dx, dy)
+    iszero(offset) && return shape.ro
+    direction = atan(dy, dx)
+    period = oftype(direction, 2pi)
+    relative = mod(direction - shape.at.φ + pi, period) - pi
+    nearest = clamp(relative, -shape.span / 2, shape.span / 2)
+    cosine = cos(relative - nearest)
+    return sqrt(max(
+        offset^2 + shape.ri^2 + 2offset * shape.ri * cosine,
+        offset^2 + shape.ro^2 + 2offset * shape.ro * cosine
+    ))
+end
+
+function radial_extent(shape::Rectangle, centre)
+    cosine = cos(shape.at.φ)
+    sine = sin(shape.at.φ)
+    half_width = shape.w / 2
+    half_height = shape.h / 2
+    return maximum(
+        ((-half_width, -half_height), (half_width, -half_height),
+            (half_width, half_height), (-half_width, half_height))
+    ) do point
+        x = shape.at.x + cosine * point[1] - sine * point[2]
+        y = shape.at.y + sine * point[1] + cosine * point[2]
+        hypot(x - centre[1], y - centre[2])
+    end
+end
+
 function nested_conductor_zone(
         sources,
         ::Type{T},
@@ -495,11 +541,13 @@ function nested_conductor_zone(
     isempty(sources) && throw(ArgumentError(
         "a nested conductor requires at least one resolved primitive"
     ))
-    all(source -> source.primitive isa Disk, sources) || throw(
-        ArgumentError(
-        "flatten supports nested conductor paths only for disk primitives"
-    )
-    )
+    all(sources) do source
+        source.source.primitive isa Union{Disk, Rectangle} &&
+            source.primitive isa Union{Disk, Rectangle, Polygon, BentStrip}
+    end || throw(ArgumentError(
+        "nested conductor flattening requires Disk or Rectangle source members " *
+        "resolved as Disk, Rectangle, Polygon, or BentStrip geometry"
+    ))
 
     materials = Material{T}[convert(Material{T}, source.source.material)
                             for source in sources]
@@ -508,22 +556,26 @@ function nested_conductor_zone(
         ArgumentError("all nested conductor materials must share one reference temperature")
     )
 
-    areas = T[convert(T, area(source.primitive)) for source in sources]
-    radii = T[convert(T, source.primitive.r) for source in sources]
+    areas = T[convert(T, area(source.source.primitive)) for source in sources]
+    all(eachindex(sources)) do index
+        isapprox(
+            convert(T, area(sources[index].primitive)),
+            areas[index];
+            rtol = 5.0e-6,
+            atol = zero(T)
+        )
+    end || throw(ArgumentError(
+        "resolved compacted strands must preserve every declared source area"
+    ))
+    equivalent_radii = sqrt.(areas ./ (one(T) * π))
     coordinates = Tuple{T, T}[convert.(T, centroid(source.primitive))
                               for source in sources]
     total_area = sum(areas)
-    centre = (
-        sum(index -> areas[index] * coordinates[index][1], eachindex(sources)) /
-        total_area,
-        sum(index -> areas[index] * coordinates[index][2], eachindex(sources)) /
-        total_area
-    )
+    centre = convert.(T, conductor_zone_position(sources))
     resistances = T[path_corrected_resistance(
-                        tubular_resistance(
-                            zero(T),
-                            radii[index],
-                            materials[index].rho
+                        member_resistance(
+                            sources[index].source.primitive,
+                            materials[index]
                         ),
                         sources[index].paths
                     ) for index in eachindex(sources)]
@@ -540,14 +592,11 @@ function nested_conductor_zone(
         resistance = parallel(resistance, resistances[index])
     end
 
-    weights = areas ./ total_area
+    conductances = inv.(resistances)
+    weights = conductances ./ sum(conductances)
     log_gmr = zero(T)
     for left in eachindex(sources)
-        self_gmr = tubular_gmr(
-            radii[left],
-            zero(T),
-            materials[left].mu_r
-        )
+        self_gmr = equivalent_radii[left] * exp(-materials[left].mu_r / 4)
         log_gmr += weights[left]^2 * log(self_gmr)
         for right in (left + 1):length(sources)
             distance = hypot(
@@ -555,19 +604,36 @@ function nested_conductor_zone(
                 coordinates[left][2] - coordinates[right][2]
             )
             distance > zero(distance) || throw(ArgumentError(
-                "nested conductor primitives must have distinct centres"
+                "nested conductor members must have distinct centroids"
             ))
             log_gmr += 2weights[left] * weights[right] * log(distance)
         end
     end
 
     turn_values = T[turns_per_length(source.paths, T) for source in sources]
-    turns = sum(turn_values) / length(turn_values)
-    outer = maximum(eachindex(sources)) do index
-        hypot(
-            coordinates[index][1] - centre[1],
-            coordinates[index][2] - centre[2]
-        ) + radii[index]
+    turns = sum(weights .* turn_values)
+    bounded = map(sources) do source
+        index = findfirst(
+            entry -> entry.pattern isa BoundedPlacement,
+            source.placement.patterns
+        )
+        index === nothing || index != length(source.placement.patterns) ? nothing :
+        source.placement.patterns[index].pattern.boundary
+    end
+    outer = if all(!isnothing, bounded)
+        envelope = first(bounded)
+        all(==(envelope), bounded) || throw(ArgumentError(
+            "one nested conductor cannot combine different bounded formations"
+        ))
+        iszero(expected_inner) || throw(ArgumentError(
+            "a bounded stranded formation must be the innermost conductor"
+        ))
+        sqrt(convert(T, area(envelope)) / (one(T) * π))
+    else
+        maximum(
+            index -> radial_extent(sources[index].primitive, centre),
+            eachindex(sources)
+        )
     end
     outer > expected_inner || throw(ArgumentError(
         "nested conductor envelope must exceed its preceding radial boundary"
@@ -586,13 +652,13 @@ function nested_conductor_zone(
     )
 end
 
-radial_position(shape::Union{Disk, Annulus, Sector}) = (shape.at.x, shape.at.y)
-radial_position(shape::RoundedSectorShape) = centroid(shape)
+radial_position(shape::Union{Disk, Annulus}) = (shape.at.x, shape.at.y)
+radial_position(shape::SectorShape) = centroid(shape)
 function radial_position(
         shape::ShellShape{
         <:Any,
-        <:RoundedSectorShape,
-        <:RoundedSectorShape
+        <:SectorShape,
+        <:SectorShape
 }
 )
     centroid(shape.inner)
@@ -603,6 +669,20 @@ function conductor_zone_position(sources)
     isempty(sources) && throw(ArgumentError(
         "a conductor zone requires at least one resolved region"
     ))
+    bounded = map(sources) do source
+        index = findfirst(
+            entry -> entry.pattern isa BoundedPlacement,
+            source.placement.patterns
+        )
+        index === nothing && return nothing
+        shape = source.placement.patterns[index].pattern.boundary
+        return shape isa Disk ? (shape.at.x, shape.at.y) : centroid(shape)
+    end
+    if all(!isnothing, bounded)
+        reference = first(bounded)
+        all(position -> same_radial_position(position, reference), bounded) &&
+            return reference
+    end
     patterned = map(sources) do source
         entries = source.placement.patterns
         length(entries) == 1 || return nothing
@@ -1088,7 +1168,9 @@ function radial_components(design::CableDesign, ::Type{T}) where {T <: Real}
 
         conductor_sources = @view block[firstindex(block):(cursor - 1)]
         nested = any(conductor_sources) do source
-            length(source.placement.patterns) > 1 || length(source.paths) > 1
+            source.primitive isa Union{Polygon, BentStrip} ||
+                source.source.primitive isa Rectangle ||
+                length(source.placement.patterns) > 1 || length(source.paths) > 1
         end
         conductor = if nested
             zone_position = conductor_zone_position(conductor_sources)
@@ -1125,6 +1207,7 @@ function radial_components(design::CableDesign, ::Type{T}) where {T <: Real}
                     zero(T)
                 end
                 values = conductor_zone(
+                    source.source.primitive,
                     source.primitive,
                     zone,
                     T,

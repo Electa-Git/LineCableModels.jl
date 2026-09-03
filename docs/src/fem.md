@@ -109,9 +109,9 @@ pattern counts remains integral. The caller-owned problem is not mutated.
 | Propagation constant | backend-owned fixed quasi-TEM constant | A non-`nothing` problem-level `Γ` is rejected rather than silently reinterpreted |
 | Mesh resolution | local characteristic lengths derived from each resolved solid, tube, strand, foil, and passive region; per-frequency earth skin depth controls only the exterior domain | Thin internal features remain local and cannot refine unrelated layers or the earth domain |
 
-Disks, ellipses, circular sectors, and rounded sectors retain exact Gmsh
-circle/ellipse arcs; rectangles and schema polygons retain exact line
-segments. Annuli, conformal rounded-sector shells, enclosure differences, and
+Disks, ellipses, and cable sectors retain exact Gmsh circle/ellipse arcs;
+rectangles and schema polygons retain exact line segments. Annuli, conformal
+sector shells, enclosure differences, and
 assembly boundaries use shared oriented loops. Circular boundaries are
 pre-segmented at sector endpoints and circle contacts, so adjacent materials
 reuse the same curve and tangent strands reuse the same point. A shared

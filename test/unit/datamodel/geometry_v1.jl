@@ -4,14 +4,14 @@
     @test DM.Disk(2) isa DM.AbstractPrimitive{Float64}
     @test DM.Rectangle(4.0f0, 2) isa DM.Rectangle{Float32}
     @test DM.Ellipse(3, 2) isa DM.Ellipse{Float64}
-    @test DM.Sector(0, 2, 0, π / 2) isa DM.Sector
+    @test DM.Sector(span = π / 2, r_base = 0.2, r_back = 2, fillet = 0.1) isa DM.Sector
     @test DM.Annulus(1, 2) isa DM.Annulus
     @test DM.Shell(0.5) isa DM.Shell
     @test_throws DomainError DM.Disk(0)
     @test_throws DomainError DM.Rectangle(-1, 2)
     @test_throws DomainError DM.Ellipse(1, Inf)
-    @test_throws DomainError DM.Sector(-1, 2, 0, 1)
-    @test_throws DomainError DM.Sector(0, 2, 0, 0)
+    @test_throws DomainError DM.Sector(span = 0, r_base = 0.2, r_back = 2)
+    @test_throws DomainError DM.Sector(span = 1, r_base = -1, r_back = 2)
     @test_throws DomainError DM.Annulus(2, 1)
     @test_throws DomainError DM.Shell(0)
 
@@ -50,12 +50,14 @@
     @test DM.support(ellipse, 0) == 3.0
     @test DM.support(ellipse, π / 2) ≈ 2.0
 
-    sector=DM.resolve(DM.EmptyBoundary(), DM.Sector(0, 2, 0, π / 2))
-    @test DM.area(sector) ≈ π
-    @test DM.r_in(sector) == 0.0
+    sector=DM.resolve(DM.EmptyBoundary(),
+        DM.Sector(span = π / 2, r_base = 0.2, r_back = 2, fillet = 0.1))
+    @test DM.area(sector) > 0
+    @test DM.r_in(sector) == 0.2
     @test DM.r_ex(sector) == 2.0
-    @test DM.support(sector, π / 4) ≈ 2.0
-    @test DM.centroid(sector)[1] ≈ DM.centroid(sector)[2]
+    @test DM.support(sector, 0) ≈ 2.0
+    @test DM.centroid(sector)[1] > 0
+    @test abs(DM.centroid(sector)[2]) <= 16eps(Float64)
 
     polygon=DM.Polygon(((0, 0), (2, 0), (2, 1), (0, 1)))
     resolved_polygon=DM.resolve(DM.EmptyBoundary(), polygon)

@@ -357,7 +357,9 @@ function build_case_catalogue!()
         id = record.id
         path = joinpath(CASE_OUTPUT, "$(id).md")
         write(path, case_page(record))
-        push!(pages, markdown_text(id) => joinpath("cases", "$(id).md"))
+        label = record.description isa AbstractString &&
+                !isempty(strip(record.description)) ? record.description : string(id)
+        push!(pages, markdown_text(label) => joinpath("cases", "$(id).md"))
         push!(index_rows,
             (
                 case = "[`$(id)`]($(id).md)",

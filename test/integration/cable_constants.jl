@@ -31,7 +31,8 @@
                 packed_material;
                 shape = Disk(0.5e-3),
                 layers = 2,
-                lay = (LayRatio(15), LayRatio(11))
+                lay = (LayRatio(15), LayRatio(11)),
+                boundary = Disk(3e-3)
             )
         ),
         insulation(packed_dielectric; t = 1e-3)
@@ -41,6 +42,37 @@
         Iterators.flatten(
             (packed_constants.R, packed_constants.L,
             packed_constants.C, packed_constants.G)
+        ))
+
+    sector_design=build(
+        CableDesign,
+        "sector-stranded-core",
+        terminal(
+            :sector_core,
+            stranded(
+                packed_material;
+                shape = Disk(0.5e-3),
+                layers = 2,
+                n = (6, 12),
+                lay = LayRatio(15, 11),
+                boundary = Sector(
+                    span = deg2rad(119),
+                    r_base = 1.10e-3,
+                    r_back = 10.24e-3,
+                    fillet = 1.02e-3
+                )
+            )
+        ),
+        insulation(packed_dielectric; t = 1e-3)
+    )
+    @test length(sector_design.geometry.regions) == 19
+    @test count(region -> region.terminal === :sector_core,
+        sector_design.geometry.regions) == 18
+    sector_constants=CableConstants(sector_design; frequency = 50.0)
+    @test all(isfinite,
+        Iterators.flatten(
+            (sector_constants.R, sector_constants.L,
+            sector_constants.C, sector_constants.G)
         ))
 
     problem=CableConstantsProblem(design)
@@ -129,6 +161,22 @@
     lossy_dielectric=CableConstants(design; frequency = 50.0)
     @test lossless_dielectric.G[1] < lossy_dielectric.G[1]
     @test lossless_dielectric.C[1] ≈ lossy_dielectric.C[1]
+
+    shell_return_design=build(
+        CableDesign,
+        "contextual-shell-return",
+        Group(:shell_core, Region(:shell_core_metal, Disk(0.01), packed_material)),
+        Region(:shell_insulation, Shell(0.003), packed_dielectric),
+        Group(:shell_return,
+            Region(:shell_return_metal, Shell(0.001), packed_material)),
+        Region(:shell_jacket, Shell(0.002), packed_dielectric)
+    )
+    shell_return_constants=CableConstants(shell_return_design; frequency = 50.0)
+    @test all(isfinite,
+        Iterators.flatten(
+            (shell_return_constants.R, shell_return_constants.L,
+            shell_return_constants.C, shell_return_constants.G)
+        ))
 
     traced_system=build(
         LineCableSystem,
@@ -283,8 +331,8 @@
 
     function many_conductor_design()
         parts=AbstractCablePart[
-        Group(:terminal_1, Region(:metal_1, Disk(0.005), copper))
-]
+            Group(:terminal_1, Region(:metal_1, Disk(0.005), copper))
+        ]
         outer_radius=0.005
         for index in 2:6
             dielectric_outer=outer_radius+0.0005

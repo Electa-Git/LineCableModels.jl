@@ -57,7 +57,8 @@ case_definition(
     [
         "cable:1:core", "cable:1:sheath", "cable:1:jacket",
         "cable:2:core", "cable:2:sheath", "cable:2:jacket"
-    ]
+    ];
+    description = "640 kV 2000 mm² cable DC bipole"
 ) do p
     materials = LineCableModels.MaterialsLibrary(add_defaults = true)
     aluminum = LineCableModels.Material(materials, :aluminum)
@@ -72,40 +73,27 @@ case_definition(
         kind = :insulator, rho = Inf, eps_r = 1.0, mu_r = 1.0
     )
     core_strand_area = π * p.core_strand_radius^2
-    parts = LineCableModels.AbstractCablePart[
-        LineCableModels.Group(
-        :core,
-        LineCableModels.Region(
-            :core_central, LineCableModels.Disk(p.core_strand_radius), copper
-        )
-    )
-    ]
     radius = p.core_strand_radius
-    for (layer, count) in enumerate(p.ring_counts)
+    course_shapes = LineCableModels.Rectangle[]
+    for count in p.ring_counts
         strand_width = prevfloat(2π * radius / count)
         strand_thickness = core_strand_area / strand_width
         outer = sqrt(
             radius^2 + count * strand_width * strand_thickness / π
         )
-        span = strand_width / ((radius + outer) / 2)
-        push!(parts,
-            LineCableModels.Group(
-                :core,
-                LineCableModels.Region(
-                    Symbol(:core_rectangular_strands_, layer),
-                    LineCableModels.Sector(radius, outer, -span / 2, span),
-                    copper
-                );
-                pattern = LineCableModels.Ring(count; r = zero(radius)),
-                path = LineCableModels.Helix(LineCableModels.LayRatio(p.core_lay_ratio))
-            ))
+        push!(course_shapes,
+            LineCableModels.Rectangle(strand_width, strand_thickness))
         radius = outer
     end
-    core = LineCableModels.Enclosure(
-        :core_matrix,
-        LineCableModels.Stack(parts);
-        primitive = LineCableModels.Disk(radius),
-        fill = matrix
+    core = LineCableModels.stranded(
+        copper;
+        center = LineCableModels.Disk(p.core_strand_radius),
+        shape = Tuple(course_shapes),
+        layers = length(p.ring_counts),
+        n = p.ring_counts,
+        lay = LineCableModels.LayRatio(p.core_lay_ratio),
+        compact = LineCableModels.FillFactor(1.0),
+        boundary = LineCableModels.Disk(radius)
     )
     parts = LineCableModels.AbstractCablePart[core]
     for (tag, thickness, material) in (

@@ -243,10 +243,10 @@ function _validate_fem_shape(
             DataModel.Disk,
             DataModel.Rectangle,
             DataModel.Ellipse,
-            DataModel.Sector,
             DataModel.Annulus,
             DataModel.Polygon,
-            DataModel.RoundedSectorShape},
+            DataModel.BentStrip,
+            DataModel.SectorShape},
         object_id::String
 )
     return nothing
@@ -321,11 +321,6 @@ function _fem_region_mesh_size(region::DataModel.PlacedRegion)
     if source isa DataModel.Annulus
         return (source.ro - source.ri) / 2
     end
-    if source isa DataModel.Sector
-        radial = source.ro - source.ri
-        tangential = ((source.ri + source.ro) / 2) * source.span
-        return min(radial, tangential) / 2
-    end
     if source isa DataModel.Rectangle
         return min(source.w, source.h) / (repeated ? 2 : 5)
     end
@@ -334,11 +329,6 @@ function _fem_region_mesh_size(region::DataModel.PlacedRegion)
     end
     if shape isa DataModel.Annulus
         return (shape.ro - shape.ri) / 2
-    end
-    if shape isa DataModel.Sector
-        radial = shape.ro - shape.ri
-        tangential = ((shape.ri + shape.ro) / 2) * shape.span
-        return min(radial, tangential) / 2
     end
     region_area = LineCableModels.area(shape)
     region_perimeter = DataModel.perimeter(shape)
@@ -422,6 +412,139 @@ function _fem_mesh_plans(
     return plans
 end
 
+function _formations(regions, terminal_map, object_id)
+    formations = NamedTuple[]
+    assigned = falses(length(regions))
+    for (region_index, region) in pairs(regions)
+        assigned[region_index] && continue
+        entry_index = findfirst(
+            entry -> entry.pattern isa DataModel.BoundedPlacement,
+            region.placement.patterns
+        )
+        entry_index === nothing && continue
+        entry = region.placement.patterns[entry_index]
+        enclosing = region.placement.patterns[(entry_index + 1):end]
+        members = Int[]
+        member_ids = Int[]
+        for (peer_index, peer) in pairs(regions)
+            peer_entry_index = findfirst(
+                candidate -> candidate.pattern isa DataModel.BoundedPlacement,
+                peer.placement.patterns
+            )
+            peer_entry_index === nothing && continue
+            peer_entry = peer.placement.patterns[peer_entry_index]
+            isequal(peer_entry.pattern.boundary, entry.pattern.boundary) || continue
+            peer.terminal === region.terminal || continue
+            isequal(
+                peer.placement.patterns[(peer_entry_index + 1):end], enclosing
+            ) || continue
+            push!(members, peer_index)
+            push!(member_ids, peer_entry.member)
+        end
+        order = sortperm(member_ids)
+        members = members[order]
+        member_ids = member_ids[order]
+        member_ids == collect(1:length(member_ids)) || _fem_error(
+            :adaptation,
+            object_id,
+            :material_partition,
+            "bounded-formation member identities must be contiguous from one"
+        )
+        assigned[members] .= true
+
+        boundary = entry.pattern.boundary
+        occupied_area = sum(
+            index -> LineCableModels.area(regions[index].source.primitive),
+            members
+        )
+        boundary_area = LineCableModels.area(boundary)
+        complete = isapprox(
+            occupied_area,
+            boundary_area;
+            rtol = 5.0e-6,
+            atol = zero(boundary_area)
+        )
+        member_shapes = [regions[index].primitive for index in members]
+        if complete
+            material = regions[first(members)].source.material
+            all(
+                index -> regions[index].source.material == material,
+                members
+            ) || _fem_error(
+                :unsupported,
+                object_id,
+                :material_partition,
+                "a complete bounded formation can collapse only when every " *
+                "member has the same material"
+            )
+            terminal = terminal_map[first(members)]
+            all(index -> terminal_map[index] == terminal, members) || _fem_error(
+                :unsupported,
+                object_id,
+                :terminal,
+                "a complete bounded formation can collapse only when every " *
+                "member has the same terminal owner"
+            )
+        else
+            filled = any(regions) do candidate
+                shape = candidate.primitive
+                candidate.source.material.kind === :conductor && return false
+                shape isa DataModel.DifferenceShape || return false
+                all(member_shapes) do member_shape
+                    any(hole -> isequal(hole, member_shape), shape.holes)
+                end
+            end
+            filled || _fem_error(
+                :adaptation,
+                object_id,
+                :material_partition,
+                "an incomplete bounded formation leaves unassigned cross-sectional " *
+                "area; contain it in Enclosure with an explicit fill material"
+            )
+        end
+        push!(formations, (;
+            members,
+            member_shapes,
+            boundary,
+            complete,
+            mesh_size = minimum(
+                index -> _fem_region_mesh_size(regions[index]), members
+            )
+        ))
+    end
+    return formations
+end
+
+function _coalesce(shape::DataModel.DifferenceShape, formations, object_id)
+    holes = Any[shape.holes...]
+    for formation in formations
+        formation.complete || continue
+        matched = findall(eachindex(holes)) do hole_index
+            any(
+                member_shape -> isequal(holes[hole_index], member_shape),
+                formation.member_shapes
+            )
+        end
+        isempty(matched) && continue
+        length(matched) == length(formation.member_shapes) || _fem_error(
+            :adaptation,
+            object_id,
+            :material_partition,
+            "an enclosing material excludes only part of a collapsed bounded formation"
+        )
+        insertion = first(matched)
+        retained = Any[]
+        for hole_index in eachindex(holes)
+            hole_index == insertion && push!(retained, formation.boundary)
+            hole_index in matched || push!(retained, holes[hole_index])
+        end
+        holes = retained
+    end
+    return DataModel.DifferenceShape(shape.outer, Tuple(holes))
+end
+
+_coalesce(shape, ::Any, ::Any) = shape
+
 function _resolved_fem_model(
         problem::LineParametersProblem{T},
         formulation::LineCableModelsFEM
@@ -488,8 +611,25 @@ function _resolved_fem_model(
     global_region = 0
     for (cable_index, design) in enumerate(system.designs)
         _validate_material_partition(design)
+        count = length(design.geometry.regions)
+        first_global = global_region + 1
+        last_global = global_region + count
+        regions = @view system.geometry[first_global:last_global]
+        terminals = @view system.terminal_map[first_global:last_global]
+        cable_id = @sprintf("cable_%04d/%s", cable_index, design.cable_id)
+        formations = _formations(regions, terminals, cable_id)
+        collapsed = Dict(
+            first(formation.members) => formation
+            for formation in formations if formation.complete
+        )
+        skipped = Set(
+            member
+            for formation in formations if formation.complete
+            for member in formation.members[2:end]
+        )
         for local_region in eachindex(design.geometry.regions)
             global_region += 1
+            local_region in skipped && continue
             placed = system.geometry[global_region]
             source = placed.source
             object_id = @sprintf("cable_%04d/%s/%s/region_%04d",
@@ -517,7 +657,13 @@ function _resolved_fem_model(
             rho = convert(T, _temperature_resistivity(
                 source.material, problem, formulation
             ))
-            _validate_fem_shape(placed.primitive, object_id)
+            formation = get(collapsed, local_region, nothing)
+            shape = formation === nothing ?
+                    _coalesce(placed.primitive, formations, object_id) :
+                    formation.boundary
+            mesh_size = formation === nothing ?
+                        _fem_region_mesh_size(placed) : formation.mesh_size
+            _validate_fem_shape(shape, object_id)
             material_index = length(material_plans) + 1
             physical_tag = 10_000 + material_index
             physical_name = @sprintf("LCM/material/%04d/%s/%s",
@@ -543,8 +689,8 @@ function _resolved_fem_model(
                     local_region,
                     terminal_index,
                     material_index,
-                    placed.primitive,
-                    convert(T, _fem_region_mesh_size(placed))
+                    shape,
+                    convert(T, mesh_size)
                 ))
         end
     end

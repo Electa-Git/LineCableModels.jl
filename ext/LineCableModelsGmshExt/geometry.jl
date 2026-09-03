@@ -113,7 +113,7 @@ function _tangent_circular_fill_plan(shape)
     disks = filter(hole -> hole isa DataModel.Disk, shape.holes)
     cutouts = filter(hole -> !(hole isa DataModel.Disk), shape.holes)
     isempty(disks) && return nothing
-    all(hole -> hole isa DataModel.Sector, cutouts) || return nothing
+    all(hole -> hole isa DataModel.BentStrip, cutouts) || return nothing
     entries = Tuple{Float64, Any}[]
     outer_contacts = Float64[]
     for hole in disks
@@ -208,7 +208,7 @@ function _complementary_sector_spans(cutouts)
     isempty(cutouts) && return Tuple{Float64, Float64}[(0.0, 2π)]
     occupied = Tuple{Float64, Float64}[]
     for cutout in cutouts
-        start = _angle_key(Float64(cutout.at.φ + cutout.φ0))
+        start = _angle_key(Float64(cutout.at.φ - cutout.span / 2))
         stop = start + Float64(cutout.span)
         if stop <= 2π + FEM_BOUNDARY_ANGLE_TOLERANCE
             push!(occupied, (start, min(stop, 2π)))
@@ -372,10 +372,10 @@ function _register_shape_breaks!(registry::FEMLoopRegistry, shape::DataModel.Ann
     return nothing
 end
 
-function _register_shape_breaks!(registry::FEMLoopRegistry, shape::DataModel.Sector)
+function _register_shape_breaks!(registry::FEMLoopRegistry, shape::DataModel.BentStrip)
     centre = (shape.at.x, shape.at.y)
-    start_angle = shape.at.φ + shape.φ0
-    stop_angle = start_angle + shape.span
+    start_angle = shape.at.φ - shape.span / 2
+    stop_angle = shape.at.φ + shape.span / 2
     _register_circle_break!(registry, centre, shape.ro, start_angle)
     _register_circle_break!(registry, centre, shape.ro, stop_angle)
     if !iszero(shape.ri)
@@ -387,7 +387,7 @@ end
 
 function _register_shape_breaks!(
         registry::FEMLoopRegistry,
-        shape::DataModel.RoundedSectorShape
+        shape::DataModel.SectorShape
 )
     for arc in (
         shape.contacts.arcs.base,
@@ -758,79 +758,7 @@ end
 
 function _sector_loop!(
         registry::FEMLoopRegistry,
-        shape::DataModel.Sector;
-        mesh_size = registry.mesh_size
-)
-    full = isapprox(shape.span, 2π; rtol = 0, atol = 128eps(Float64))
-    centre = (shape.at.x, shape.at.y)
-    full && return _circle_loop!(registry, centre, shape.ro; mesh_size)
-
-    start_angle = shape.at.φ + shape.φ0
-    key = (
-        :sector,
-        _coordinate_key(centre[1]),
-        _coordinate_key(centre[2]),
-        _coordinate_key(start_angle),
-        _coordinate_key(shape.span),
-        _coordinate_key(shape.ri),
-        _coordinate_key(shape.ro)
-    )
-    loop = get!(registry.loops, key) do
-        outer = _circle_arc_path!(
-            registry,
-            centre,
-            shape.ro,
-            start_angle,
-            shape.span;
-            mesh_size
-        )
-        outer_start = _point!(
-            registry,
-            _circle_point(centre, shape.ro, start_angle);
-            mesh_size
-        )
-        outer_stop = _point!(
-            registry,
-            _circle_point(centre, shape.ro, start_angle + shape.span);
-            mesh_size
-        )
-
-        curves = copy(outer)
-        if iszero(shape.ri)
-            centre_tag = _point!(registry, centre; mesh_size)
-            push!(curves, _line!(registry, outer_stop, centre_tag))
-            push!(curves, _line!(registry, centre_tag, outer_start))
-        else
-            inner_stop_point = _circle_point(
-                centre, shape.ri, start_angle + shape.span
-            )
-            inner_start_point = _circle_point(centre, shape.ri, start_angle)
-            inner_stop = _point!(registry, inner_stop_point; mesh_size)
-            inner_start = _point!(registry, inner_start_point; mesh_size)
-            push!(curves, _line!(registry, outer_stop, inner_stop))
-            append!(curves,
-                _circle_arc_path!(
-                    registry,
-                    centre,
-                    shape.ri,
-                    start_angle + shape.span,
-                    -shape.span;
-                    mesh_size,
-                    first_point = inner_stop_point,
-                    last_point = inner_start_point
-                ))
-            push!(curves, _line!(registry, inner_start, outer_start))
-        end
-        ccw = gmsh.model.geo.add_curve_loop(curves)
-        cw = gmsh.model.geo.add_curve_loop(-reverse(curves))
-        FEMLoop(ccw, cw, abs.(curves))
-    end
-    return _refine_loop_mesh_size!(registry, loop, mesh_size)
-end
-
-function _rounded_sector_loop!(
-        registry::FEMLoopRegistry,
-        shape::DataModel.RoundedSectorShape;
+        shape::DataModel.SectorShape;
         mesh_size = registry.mesh_size
 )
     contacts = shape.contacts
@@ -846,7 +774,7 @@ function _rounded_sector_loop!(
             points.side_upper
         )
     )
-    key = (:rounded_sector,
+    key = (:sector,
         Tuple(
             (_coordinate_key(point[1]), _coordinate_key(point[2]))
         for point in transformed
@@ -898,6 +826,73 @@ function _rounded_sector_loop!(
     return _refine_loop_mesh_size!(registry, loop, mesh_size)
 end
 
+function _bent_strip_loop!(
+        registry::FEMLoopRegistry,
+        shape::DataModel.BentStrip;
+        mesh_size = registry.mesh_size
+)
+    centre = (shape.at.x, shape.at.y)
+    if iszero(shape.ri) && isapprox(
+            shape.span, 2π; rtol = 0, atol = FEM_BOUNDARY_ANGLE_TOLERANCE
+    )
+        return _circle_loop!(registry, centre, shape.ro; mesh_size)
+    end
+    start_angle = shape.at.φ - shape.span / 2
+    stop_angle = shape.at.φ + shape.span / 2
+    key = (
+        :bent_strip,
+        _coordinate_key(centre[1]),
+        _coordinate_key(centre[2]),
+        _coordinate_key(start_angle),
+        _coordinate_key(shape.span),
+        _coordinate_key(shape.ri),
+        _coordinate_key(shape.ro)
+    )
+    loop = get!(registry.loops, key) do
+        outer_start_point = _circle_point(centre, shape.ro, start_angle)
+        outer_stop_point = _circle_point(centre, shape.ro, stop_angle)
+        outer_start = _point!(registry, outer_start_point; mesh_size)
+        outer_stop = _point!(registry, outer_stop_point; mesh_size)
+        curves = _circle_arc_path!(
+            registry,
+            centre,
+            shape.ro,
+            start_angle,
+            shape.span;
+            mesh_size,
+            first_point = outer_start_point,
+            last_point = outer_stop_point
+        )
+        if iszero(shape.ri)
+            centre_point = _point!(registry, centre; mesh_size)
+            push!(curves, _line!(registry, outer_stop, centre_point))
+            push!(curves, _line!(registry, centre_point, outer_start))
+        else
+            inner_start_point = _circle_point(centre, shape.ri, start_angle)
+            inner_stop_point = _circle_point(centre, shape.ri, stop_angle)
+            inner_start = _point!(registry, inner_start_point; mesh_size)
+            inner_stop = _point!(registry, inner_stop_point; mesh_size)
+            push!(curves, _line!(registry, outer_stop, inner_stop))
+            append!(curves,
+                _circle_arc_path!(
+                    registry,
+                    centre,
+                    shape.ri,
+                    stop_angle,
+                    -shape.span;
+                    mesh_size,
+                    first_point = inner_stop_point,
+                    last_point = inner_start_point
+                ))
+            push!(curves, _line!(registry, inner_start, outer_start))
+        end
+        ccw = gmsh.model.geo.add_curve_loop(curves)
+        cw = gmsh.model.geo.add_curve_loop(-reverse(curves))
+        FEMLoop(ccw, cw, abs.(curves))
+    end
+    return _refine_loop_mesh_size!(registry, loop, mesh_size)
+end
+
 function _shape_points(shape::DataModel.Rectangle)
     half_width = shape.w / 2
     half_height = shape.h / 2
@@ -914,7 +909,11 @@ function _shape_points(shape::DataModel.Polygon)
     return [_transform_point(point, shape.at) for point in shape.points]
 end
 
-function _shape_points(shape::DataModel.RoundedSectorShape)
+function _shape_points(shape::DataModel.SectorShape)
+    return DataModel.tessellate(shape; points_per_arc = 24)
+end
+
+function _shape_points(shape::DataModel.BentStrip)
     return DataModel.tessellate(shape; points_per_arc = 24)
 end
 
@@ -943,10 +942,10 @@ function _boundary_loop!(
     shape isa DataModel.Ellipse && return _ellipse_loop!(
         registry, shape; mesh_size
     )
-    shape isa DataModel.Sector && return _sector_loop!(
+    shape isa DataModel.SectorShape && return _sector_loop!(
         registry, shape; mesh_size
     )
-    shape isa DataModel.RoundedSectorShape && return _rounded_sector_loop!(
+    shape isa DataModel.BentStrip && return _bent_strip_loop!(
         registry, shape; mesh_size
     )
     return _polygon_loop!(registry, _shape_points(shape); mesh_size)
@@ -956,14 +955,6 @@ function _surface_boundaries(shape::DataModel.Annulus)
     outer = DataModel.Disk(shape.ro, shape.at)
     inner = DataModel.Disk(shape.ri, shape.at)
     return outer, Any[inner]
-end
-
-function _surface_boundaries(shape::DataModel.Sector)
-    if isapprox(shape.span, 2π; rtol = 0, atol = 128eps(Float64)) &&
-       !iszero(shape.ri)
-        return DataModel.Disk(shape.ro, shape.at), Any[DataModel.Disk(shape.ri, shape.at)]
-    end
-    return shape, Any[]
 end
 
 _surface_boundaries(shape::DataModel.ShellShape) = (shape.outer, Any[shape.inner])
@@ -1096,6 +1087,13 @@ function _entity_boundary(surfaces)
 end
 
 function _validate_material_interfaces!(model::FEMResolvedModel, material_surfaces)
+    surfaces = collect(Iterators.flatten(material_surfaces))
+    length(unique(surfaces)) == length(surfaces) || _fem_error(
+        :geometry,
+        model.problem.system.system_id,
+        :material_partition,
+        "a FEM surface is assigned to more than one material"
+    )
     curves = Int[]
     for surfaces in material_surfaces
         append!(curves, _entity_boundary(surfaces))

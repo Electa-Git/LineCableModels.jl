@@ -104,7 +104,8 @@ stranded_core = stranded(
     shape = Disk(d_w / 2),
     layers = 6,
     n = (6, 12, 18, 24, 30, 36),
-    lay = LayRatio.((11.0, 11.0, 11.0, 11.0, 11.0, 11.0))
+    lay = LayRatio(11.0, 11.0, 11.0, 11.0, 11.0, 11.0),
+    boundary = Disk(d_core / 2)
 );
 
 #=

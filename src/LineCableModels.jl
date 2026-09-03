@@ -42,15 +42,15 @@ export confidence, cdf_tolerance, sampling_distribution
 export report, TableReportDefinition, XLSXReportDefinition, ReportArtifact
 export AbstractMaterial, Material, MaterialsLibrary, Conductor, Insulator, Semiconductor
 export AbstractShape, AbstractPrimitive
-export Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, RoundedSector, Shell
+export Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, Shell
 export Pose2
 export EmptyBoundary, resolve, boundary, area, perimeter, centroid, support, tessellate
 export r_in, r_ex, thickness, outer_radius
 export AbstractCablePart, Region, Stack
 export Group, Assembly
 export Enclosure
-export Ring, Hexa, Polar, Fill, Lattice, DiameterFactor, placements
-export capacity, FillFactor, TabulatedCompaction, AffineCompaction
+export Ring, Polar, Fill, Lattice, placements
+export capacity, FillFactor
 export LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
 export at, trefoil, hflat, vflat, layer, homogeneous
 export AbstractEarthModel, EarthLayer, EarthModel
@@ -152,17 +152,15 @@ using .DataModel: CableDesign, CableGeometry, PlacedRegion,
                   LineCableSystem, DatasheetInfo, catalogue,
                   CablesLibrary, ncables, nphases,
                   AbstractShape, AbstractPrimitive,
-                  Disk, Rectangle, Ellipse, Sector, Annulus, Polygon,
-                  RoundedSector, Shell,
+                  Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, Shell,
                   Pose2,
                   EmptyBoundary, resolve, boundary, area, perimeter, centroid, support,
                   tessellate,
                   r_in, r_ex, thickness, outer_radius,
                   AbstractCablePart, Region, Stack,
                   Group, Assembly, Enclosure
-using .DataModel: Ring, Hexa, Polar, Fill, Lattice, capacity, placements,
-                  FillFactor, DiameterFactor, TabulatedCompaction,
-                  AffineCompaction,
+using .DataModel: Ring, Polar, Fill, Lattice, capacity, placements,
+                  FillFactor,
                   LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
 
 # Submodule `Engine`

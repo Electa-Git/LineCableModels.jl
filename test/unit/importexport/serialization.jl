@@ -156,9 +156,14 @@ end
             :core,
             stranded(
                 copper;
+                center = Disk(0.35e-3),
                 shape = Rectangle(0.35e-3, 0.8e-3),
                 layers = 2,
-                n = (6, 12)
+                n = (6, 12),
+                compact = FillFactor(1),
+                boundary = Disk(sqrt(
+                    (0.35e-3)^2+18*0.35e-3*0.8e-3/pi
+                ))
             )
         )
     )
@@ -170,22 +175,28 @@ end
     @test area.(getproperty.(restored_rectangular.geometry.regions, :primitive)) ==
           area.(getproperty.(rectangular.geometry.regions, :primitive))
     @test all(
-        region -> region.source.primitive isa Rectangle &&
-                  region.primitive isa LineCableModels.DataModel.Rectangle,
+        region -> region.source.primitive isa Rectangle ?
+                  region.primitive isa LineCableModels.DataModel.BentStrip :
+                  region.primitive isa Disk,
         restored_rectangular.geometry.regions
     )
 
     packed=build(
         CableDesign,
-        "hexagonal-round-trip",
+        "bounded-round-trip",
         terminal(
             :core,
-            stranded(copper; shape = Disk(0.35e-3), layers = 2)
+            stranded(
+                copper;
+                shape = Disk(0.35e-3),
+                layers = 2,
+                boundary = Disk(2e-3)
+            )
         )
     )
     packed_record=IE.serialize_value(packed)
-    @test packed_record["root"]["item"]["items"][1]["items"][2]["pattern"]["kind"] ==
-          "hexagonal_course"
+    @test packed_record["root"]["item"]["items"][1]["items"][1]["boundary"]["kind"] ==
+          "disk"
     restored_packed=IE.deserialize_value(packed_record)
     @test restored_packed == packed
     @test IE.serialize_value(restored_packed) == packed_record
@@ -199,11 +210,11 @@ end
                 copper;
                 shape = Disk(0.35e-3),
                 layers = 2,
-                n = (6, capacity()),
+                n = (6, 12),
                 lay = (LayRatio(12), Pitch(0.1)),
                 dir = (1, -1),
                 φ0 = (0.0, 0.2),
-                compact = (nothing, FillFactor(0.9))
+                boundary = Disk(2e-3)
             )
         )
     )
@@ -212,7 +223,7 @@ end
     @test restored_scheduled == scheduled
     @test IE.serialize_value(restored_scheduled) == scheduled_record
 
-    rounded_boundary=RoundedSector(
+    sector_boundary=Sector(
         span = deg2rad(119.0),
         r_base = 1.10e-3,
         r_back = 10.24e-3,
@@ -225,14 +236,10 @@ end
             :core,
             stranded(
                 copper;
-                shape = RoundedSector(
-                    span = deg2rad(115.0),
-                    r_base = 0.8e-3,
-                    r_back = 8.0e-3,
-                    fillet = 0.6e-3
-                ),
-                layers = 0,
-                boundary = rounded_boundary
+                shape = Disk(0.35e-3),
+                layers = 1,
+                n = 6,
+                boundary = sector_boundary
             )
         )
     )
@@ -240,22 +247,17 @@ end
     restored_bounded=IE.deserialize_value(bounded_record)
     @test restored_bounded == bounded
     @test IE.serialize_value(restored_bounded) == bounded_record
-    bounded_stack=only(bounded.root.item.items)
-    @test bounded_stack isa Stack
-    @test only(bounded_stack.items).compact isa TabulatedCompaction
-    @test only(bounded_stack.items).compact.data == rounded_boundary
+    bounded_group=only(only(bounded.root.item.items).items)
+    @test bounded_group isa Group
+    @test bounded_group.boundary == sector_boundary
 
     declarations=(
         Ring(capacity(); r = nothing, φ0 = 0.2, gap_frac = 0.03),
-        Hexa(2; φ0 = 0.2, gap_frac = 0.03),
         Polar(nr = 2, nφ = 6, r0 = 0.0, dr = 2e-3),
         Fill(r = 10e-3, φ = pi/6),
         Lattice(nx = 2, ny = 3, dx = 10e-3, dy = 12e-3),
         Helix(LayRatio(11); dir = -1, φ0 = 0.1),
-        FillFactor(0.9),
-        DiameterFactor(0.95),
-        TabulatedCompaction(Dict("course"=>[1.0, 2.0])),
-        AffineCompaction([[1.0, 0.0], [0.0, 0.9]])
+        FillFactor(0.9)
     )
     for declaration in declarations
         @test IE.deserialize_value(IE.serialize_value(declaration)) == declaration
@@ -353,13 +355,14 @@ end
     add!(packed_cables,
         build(
             CableDesign,
-            "hexagonal-schema",
+            "bounded-schema",
             terminal(
                 :core,
                 stranded(
                     TestFixtures.copper_material();
                     shape = Disk(0.5e-3),
-                    layers = 2
+                    layers = 2,
+                    boundary = Disk(3e-3)
                 )
             )
         ))

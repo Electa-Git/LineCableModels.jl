@@ -39,17 +39,6 @@ function _primitive_geometry(primitive::Annulus)
     )
 end
 
-function _primitive_geometry(primitive::Sector)
-    outer_angles = range(primitive.φ0, primitive.φ0 + primitive.span; length = 96)
-    inner_angles = reverse(outer_angles)
-    points = Point2f[(primitive.ro * cos(angle), primitive.ro * sin(angle))
-                     for angle in outer_angles]
-    append!(points,
-        Point2f[(primitive.ri * cos(angle), primitive.ri * sin(angle))
-                for angle in inner_angles])
-    return GeometryBasics.Polygon(points)
-end
-
 function _primitive_geometry(primitive::Rectangle)
     x = nominal(primitive.w) / 2
     y = nominal(primitive.h) / 2
@@ -84,7 +73,11 @@ function _shape_geometry(primitive::DifferenceShape)
     return GeometryBasics.Polygon(outer.exterior, interiors)
 end
 
-function _shape_geometry(shape::RoundedSectorShape)
+function _shape_geometry(shape::SectorShape)
+    return GeometryBasics.Polygon(Point2f.(tessellate(shape)))
+end
+
+function _shape_geometry(shape::BentStrip)
     return GeometryBasics.Polygon(Point2f.(tessellate(shape)))
 end
 

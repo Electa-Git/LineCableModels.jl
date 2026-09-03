@@ -397,8 +397,7 @@ end
                                                                    LineCableModelsCoaxial(), source,
                                                                    eltype(problem)
                                                                )
-                                                               for source in
-                                                                   problem.system.designs]
+                                                               for source in problem.system.designs]
     )
     @test_throws ArgumentError compute(problem, Formulation())
     @test_throws ArgumentError CableConstants(design)
@@ -444,7 +443,7 @@ end
     ))
     execution=computation_options(LineCableModelsCoaxial, (;))
     workspace(problem,
-        formulation = Formulation())=LineParametersWorkspace(
+        formulation = Formulation()) = LineParametersWorkspace(
         problem,
         formulation,
         execution,
@@ -626,7 +625,7 @@ end
     )
 
     design=TestFixtures.mv_cable_design()
-    connections(phase)=Dict("core"=>phase, "sheath"=>0, "jacket"=>0)
+    connections(phase) = Dict("core"=>phase, "sheath"=>0, "jacket"=>0)
     mixed_system=build(
         LineCableSystem,
         [design, design],
@@ -728,7 +727,7 @@ end
     problem=LineParametersProblem(
         system;
         earth_props = earth,
-        frequencies = [1.0e6]
+        frequencies = [50.0]
     )
     common=(
         earth_impedance = :Pollaczek1926,
@@ -761,6 +760,6 @@ end
         @test all(isfinite, result.Z)
         @test all(isfinite, result.Y)
     end
-    @test martins.Z.values != selected.Z.values
-    @test xue.Z.values != selected.Z.values
+    @test !isapprox(martins.Z.values, selected.Z.values; rtol = 1.0e-10)
+    @test !isapprox(xue.Z.values, selected.Z.values; rtol = 1.0e-10)
 end

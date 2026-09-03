@@ -29,18 +29,18 @@ export AbstractShape, AbstractPrimitive
 export AbstractCablePart, Region, Stack
 export Group, Assembly
 export Enclosure
-export Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, RoundedSector, Shell
+export Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, Shell
 export Pose2
 export EmptyBoundary
 export resolve, boundary, area, perimeter, centroid, support, r_in, r_ex, thickness
 export tessellate
-export Ring, Hexa, Polar, Fill, Lattice, capacity, placements
-export FillFactor, DiameterFactor, TabulatedCompaction, AffineCompaction
+export Ring, Polar, Fill, Lattice, capacity, placements
+export FillFactor
 export LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
 export ncables, nphases
 
-public AssemblyMember, AssemblyShape, DifferenceShape, ShellShape,
-       RoundedSectorShape
+public AssemblyMember, AssemblyShape, BentStrip, BoundedPlacement
+public DifferenceShape, ShellShape, SectorShape
 
 # Module-specific dependencies
 #! explicit-imports: off
@@ -56,6 +56,7 @@ using ..Materials: Material
 import GeometryBasics
 using GeometryBasics: Point2f
 import Base: angle
+import LinearAlgebra
 
 # Abstract types and interfaces
 include("interfaces.jl")
@@ -63,13 +64,14 @@ include("types.jl")
 include("geometry/pose.jl")
 include("geometry/primitives.jl")
 include("geometry/shell.jl")
-include("geometry/roundedsector.jl")
+include("geometry/sector.jl")
 include("geometry/resolve.jl")
 include("design/region.jl")
 include("design/stack.jl")
 include("placement/patterns.jl")
 include("placement/paths.jl")
 include("placement/compaction.jl")
+include("placement/bounded.jl")
 include("design/group.jl")
 include("design/assembly.jl")
 include("design/enclosure.jl")
@@ -96,7 +98,6 @@ include("textdisplay.jl")
 
 public preview_shapes, preview_materials
 public PreviewShape, material_property_ranges
-public RoundedSectorShape, ShellShape
 public flatten
 
 end # module DataModel

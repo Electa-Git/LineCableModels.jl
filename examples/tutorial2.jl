@@ -143,7 +143,8 @@ stranded_core = stranded(
     shape = Disk(d_w / 2),
     layers = 4,
     n = (6, 12, 18, 24),
-    lay = LayRatio.((15.0, 13.5, 12.5, 11.0))
+    lay = LayRatio(15.0, 13.5, 12.5, 11.0),
+    boundary = Disk(d_core / 2)
 );
 
 #=
@@ -191,15 +192,12 @@ Modern cables often include an aluminum tape as moisture barrier
 and PE (polyethylene) outer jacket for mechanical protection.
 =#
 
-# The wire screen needs its physical centre locus. The copper tape section is
-# stated by its measured inner and outer radii; every contextual layer needs
-# only its thickness.
-conductor_outer = 9d_w / 2
+# The wire screen needs its physical centre locus. The copper tape retains its
+# measured rectangular width and thickness; placement bends it around the
+# preceding cable boundary without changing its cross-sectional area.
+conductor_outer = d_core / 2
 screen_wire_locus = conductor_outer + t_sct + t_sc_in + t_ins +
                     t_sc_out + t_sct + d_ws / 2
-screen_tape_inner = screen_wire_locus + d_ws / 2
-screen_tape_outer = screen_tape_inner + t_cut
-screen_tape_span = w_cut / ((screen_tape_inner + screen_tape_outer) / 2);
 
 # Keep catalogue data beside the physical model rather than inside it:
 cable_id = "18kV_1000mm2"
@@ -236,12 +234,7 @@ cable_design = @cable cable_id begin
         )
         tape(
             copper;
-            section = Sector(
-                screen_tape_inner,
-                screen_tape_outer,
-                -screen_tape_span / 2,
-                screen_tape_span
-            ),
+            section = Rectangle(w_cut, t_cut),
             n = 1,
             lay = LayRatio(10),
             tag = :copper_tape

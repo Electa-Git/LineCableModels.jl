@@ -96,7 +96,8 @@ case_definition(
     [
         "cable:1:core", "cable:1:sheath",
         "cable:2:core", "cable:2:sheath"
-    ]
+    ];
+    description = "320 kV unarmoured cable DC bipole"
 ) do p
     core = LineCableModels.Material(
         :conductor, p.core_rho, 1.0, p.core_mu_r, 20.0, 0.00393
@@ -113,38 +114,19 @@ case_definition(
     pp = LineCableModels.Material(
         :insulator, p.pp_rho, p.pp_eps_r, p.pp_mu_r
     )
-    matrix = LineCableModels.Material(
-        kind = :insulator, rho = Inf, eps_r = 1.0, mu_r = 1.0
-    )
-
-    parts = LineCableModels.AbstractCablePart[]
     strand_radius = p.strand_diameter / 2
-    radius = zero(strand_radius)
-    for layer in 0:p.strand_layers
-        outer = layer == 0 ? strand_radius : radius + 2strand_radius
-        push!(parts,
-            LineCableModels.Group(
-                :core,
-                LineCableModels.Region(
-                    Symbol(:core_strands_, layer + 1),
-                    LineCableModels.Disk(strand_radius),
-                    core
-                );
-                pattern = layer == 0 ?
-                          LineCableModels.Ring(1; r = zero(radius)) :
-                          LineCableModels.Hexa(layer),
-                path = layer == 0 ? nothing :
-                       LineCableModels.Helix(LineCableModels.LayRatio(p.core_lay_ratio))
-            ))
-        radius = outer
-    end
-    core_enclosure = LineCableModels.Enclosure(
-        :core_matrix,
-        LineCableModels.Stack(parts);
-        primitive = LineCableModels.Disk(radius),
-        fill = matrix
+    strand_count = 1 + 3p.strand_layers * (p.strand_layers + 1)
+    radius = sqrt(strand_count) * strand_radius
+    packed_core = LineCableModels.stranded(
+        core;
+        shape = LineCableModels.Disk(strand_radius),
+        layers = p.strand_layers,
+        n = 6,
+        lay = LineCableModels.LayRatio(p.core_lay_ratio),
+        compact = LineCableModels.FillFactor(1),
+        boundary = LineCableModels.Disk(radius)
     )
-    parts = LineCableModels.AbstractCablePart[core_enclosure]
+    parts = LineCableModels.AbstractCablePart[packed_core]
     for (tag, layer_thickness, material) in (
         (:core_semicon_inner, p.inner_semicon_thickness, semicon_inner),
         (:core_insulation, p.insulation_thickness, xlpe),

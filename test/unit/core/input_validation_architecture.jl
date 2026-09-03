@@ -28,12 +28,15 @@
 
     expected=Dict(
         Material=>joinpath("src", "materials", "material.jl"),
-        LineCableModels.EarthProps.EarthMaterial => joinpath("src", "earthprops", "earthmaterial.jl"),
+        LineCableModels.EarthProps.EarthMaterial =>
+            joinpath("src", "earthprops", "earthmaterial.jl"),
         EarthLayer=>joinpath("src", "earthprops", "earthlayer.jl"),
         EarthModel=>joinpath("src", "earthprops", "earthmodel.jl"),
-        LineCableModels.DataModel.PreviewShape => joinpath("src", "datamodel", "preview", "geometry.jl"),
+        LineCableModels.DataModel.PreviewShape =>
+            joinpath("src", "datamodel", "preview", "geometry.jl"),
         CableDesign=>joinpath("src", "datamodel", "design", "cabledesign.jl"),
-        LineCableSystem => joinpath("src", "datamodel", "linecablesystem", "linecablesystem.jl"),
+        LineCableSystem =>
+            joinpath("src", "datamodel", "linecablesystem", "linecablesystem.jl"),
         LineParametersProblem=>joinpath("src", "engine", "problems.jl"),
         CableConstantsProblem=>joinpath("src", "engine", "cableconstants.jl"),
         LineParameters => joinpath("src", "engine", "lineparameters", "lineparameters.jl"),
@@ -69,6 +72,7 @@
 
     admitted_calls=Set{Function}((
         validate,
+        LineCableModels.DataModel.area,
         LineCableModels.DataModel.outer_radius,
         nphases
     ))

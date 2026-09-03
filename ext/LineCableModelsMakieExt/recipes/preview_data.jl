@@ -62,6 +62,11 @@ function _native_design_shapes(
     labelled_groups = Set{Symbol}()
     polygons = PreviewPolygon[]
     for region in design.geometry.regions
+        bounded = any(region.placement.patterns) do entry
+            entry.pattern isa LineCableModels.DataModel.BoundedPlacement
+        end
+        stroke = bounded ? (:black, 0.35) : :transparent
+        width = bounded ? 0.6 : 0.0
         presentation_group = _preview_legend_group(region, legend_group)
         identity = get!(identities, presentation_group) do
             (;
@@ -85,8 +90,8 @@ function _native_design_shapes(
                 label,
                 identity.group,
                 _material_color(shape.material),
-                :transparent,
-                0.0,
+                stroke,
+                width,
             ))
         end
         push!(labelled_groups, identity.group)

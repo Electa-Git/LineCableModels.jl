@@ -100,6 +100,109 @@ function validate(design::CableDesign)
             "the design reference temperature $reference °C; received " *
             "$(placed.source.material.T0) °C"
         ))
+        bounded_index = findall(
+            entry -> entry.pattern isa BoundedPlacement,
+            placed.placement.patterns
+        )
+        length(bounded_index) <= 1 || throw(ArgumentError(
+            "CableDesign.geometry.regions[$index] belongs to more than one " *
+            "bounded formation"
+        ))
+        isempty(bounded_index) && continue
+        placed.source.material.kind === :conductor || throw(ArgumentError(
+            "CableDesign.geometry.regions[$index] is a bounded strand but its " *
+            "material is not conductive"
+        ))
+        placed.source.primitive isa Union{Disk, Rectangle} || throw(ArgumentError(
+            "CableDesign.geometry.regions[$index] has an unsupported bounded " *
+            "strand declaration $(nameof(typeof(placed.source.primitive)))"
+        ))
+        placed.primitive isa Union{Disk, Rectangle, Polygon, BentStrip} ||
+            throw(ArgumentError(
+                "CableDesign.geometry.regions[$index] has unsupported resolved " *
+                "bounded geometry $(nameof(typeof(placed.primitive)))"
+            ))
+        declared_area = area(placed.source.primitive)
+        resolved_area = area(placed.primitive)
+        isapprox(
+            resolved_area,
+            declared_area;
+            rtol = 5.0e-6,
+            atol = 0
+        ) || throw(ArgumentError(
+            "CableDesign.geometry.regions[$index] does not preserve its " *
+            "declared strand area"
+        ))
+        entry_index = only(bounded_index)
+        entry = placed.placement.patterns[entry_index]
+        entry.member == 1 || continue
+        enclosing_placements = placed.placement.patterns[(entry_index + 1):end]
+        formation_indices = [peer_index
+                             for (peer_index, peer) in pairs(design.geometry.regions)
+                             if begin
+                                 peer_entries = findall(
+                                     candidate -> candidate.pattern isa BoundedPlacement,
+                                     peer.placement.patterns
+                                 )
+                                 if length(peer_entries) != 1
+                                     false
+                                 else
+                                     peer_entry_index = only(peer_entries)
+                                     peer_entry = peer.placement.patterns[peer_entry_index]
+                                     isequal(
+                                         peer_entry.pattern.boundary,
+                                         entry.pattern.boundary
+                                     ) && peer.terminal === placed.terminal &&
+                                         isequal(
+                                         peer.placement.patterns[
+                                             (peer_entry_index + 1):end
+                                         ],
+                                         enclosing_placements
+                                     )
+                                 end
+                             end]
+        members = sort([
+            begin
+                peer = design.geometry.regions[peer_index]
+                peer_entry = findfirst(
+                    candidate -> candidate.pattern isa BoundedPlacement,
+                    peer.placement.patterns
+                )
+                peer.placement.patterns[peer_entry].member
+            end for peer_index in formation_indices
+        ])
+        members == collect(1:length(members)) ||
+            throw(ArgumentError(
+                "bounded-formation member identities must be contiguous from one"
+            ))
+        source_area = sum(
+            peer_index -> area(
+                design.geometry.regions[peer_index].source.primitive
+            ),
+            formation_indices
+        )
+        formation_area = sum(
+            peer_index -> area(design.geometry.regions[peer_index].primitive),
+            formation_indices
+        )
+        isapprox(
+            source_area,
+            formation_area;
+            rtol = 5.0e-6,
+            atol = 0
+        ) || throw(ArgumentError(
+                "a bounded formation must preserve its total declared strand area"
+            ))
+        boundary = entry.pattern.boundary
+        boundary isa Union{Disk, SectorShape} ||
+            throw(ArgumentError(
+                "a bounded formation has an unsupported authoritative boundary"
+            ))
+        boundary_area = area(boundary)
+        formation_area <= boundary_area * (1 + 5.0e-6) ||
+            throw(ArgumentError(
+                "bounded strand area cannot exceed its authoritative boundary"
+            ))
     end
     return design
 end

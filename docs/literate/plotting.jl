@@ -625,10 +625,9 @@ cable_preview = preview(
     controls = false,
     display_id = true,
     size = (950, 700),
-    ## Group the physical `core_strands_*` regions into one presentation entry.
+    ## Group the physical core-wire regions into one presentation entry.
     ## Geometry tags, terminals, and electrical construction remain untouched.
-    legend_group = region -> startswith(
-        String(region.source.tag), "core_strands_") ?
+    legend_group = region -> region.source.tag === :wire ?
                              :stranded_core : region.source.tag,
     legend_labels = Dict(:stranded_core => "Stranded core"),
     legend_position = :right,

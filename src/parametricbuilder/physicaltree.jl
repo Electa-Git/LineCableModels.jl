@@ -106,9 +106,10 @@ function Group(
         pattern = nothing,
         path = nothing,
         compact = nothing,
+        boundary = nothing,
         combine::Symbol = :product
 )
-    values = (name, at, item, pattern, path, compact)
+    values = (name, at, item, pattern, path, compact, boundary)
     return parameterize(DataModel.Group, DataModel.Group, values; combine)
 end
 
@@ -566,96 +567,91 @@ function _count_schedule(value, count::Int)
     ))
 end
 
-function _hexagonal_schedule(shape, counts, angles, compactions, gaps)
-    shape isa DataModel.Disk || return false
-    isempty(counts) && return false
-    all(isnothing, compactions) || return false
-    all(eachindex(counts)) do course
-        count = counts[course]
-        count isa Integer && !(count isa Bool) && count == 6course
-    end || return false
-    all(angle -> angle isa Real, angles) || return false
-    all(gap -> gap isa Real, gaps) || return false
-    reference_angle = first(angles)
-    reference_gap = first(gaps)
-    return all(angle -> isapprox(angle, reference_angle), angles) &&
-           all(gap -> isapprox(gap, reference_gap), gaps)
-end
-
 function _stranded(
         material,
-        shape,
+        center,
+        shapes,
         course_count,
         counts,
         lays,
         directions,
         angles,
-        compactions,
-        gaps,
+        compaction,
         prescribed_boundary
 )
     course_count isa Integer && !(course_count isa Bool) && course_count >= 0 ||
         throw(ArgumentError("layers must be a nonnegative integer"))
     material = _require_material(material, :stranded, (:conductor,))
-    central = DataModel.Group(
-        :strand,
-        DataModel.Pose2(0, 0, 0),
-        DataModel.Region(:wire, shape, material),
-        nothing,
-        nothing,
-        nothing
-    )
-    parts = DataModel.AbstractCablePart[central]
-    hexagonal = _hexagonal_schedule(
-        shape,
-        counts,
-        angles,
-        compactions,
-        gaps
-    )
+    prescribed_boundary isa Union{DataModel.Disk, DataModel.Sector} ||
+        throw(ArgumentError(
+            "stranded requires a nonhollow Disk or Sector boundary"
+        ))
+    all(shape -> shape isa Union{DataModel.Disk, DataModel.Rectangle}, shapes) ||
+        throw(ArgumentError("stranded members must be Disk or Rectangle primitives"))
+    if prescribed_boundary isa DataModel.Sector
+        center === nothing || throw(ArgumentError(
+            "a sector stranded formation has no central member; declare every strand in n"
+        ))
+        course_count > 0 || throw(ArgumentError(
+            "a sector stranded formation requires at least one strand course"
+        ))
+    elseif center === nothing
+        isempty(shapes) && throw(ArgumentError(
+            "a zero-course stranded formation requires an explicit centre member"
+        ))
+        first(shapes) isa DataModel.Disk || throw(ArgumentError(
+            "rectangular outer courses require an explicit circular centre member"
+        ))
+        center = first(shapes)
+    end
+    center === nothing || center isa DataModel.Disk || throw(ArgumentError(
+        "a disk stranded formation requires one circular centre member"
+    ))
+
+    all(count -> count isa Integer && !(count isa Bool) && count > 0, counts) ||
+        throw(ArgumentError("stranded requires explicit positive integer member counts"))
+    resolved_angles = Any[angles...]
+    for course in eachindex(resolved_angles)
+        resolved_angles[course] === nothing || continue
+        resolved_angles[course] = course == 1 ? zero(float(counts[course])) :
+                                  resolved_angles[course - 1] +
+                                  π / counts[course - 1]
+    end
+    parts = DataModel.AbstractCablePart[]
+    center === nothing || push!(parts,
+        DataModel.Group(
+            :strand,
+            DataModel.Pose2(0, 0, 0),
+            DataModel.Region(:wire, center, material),
+            nothing,
+            nothing,
+            nothing
+        ))
     for course in 1:course_count
-        pattern = if hexagonal
-            DataModel.Hexa(
-                course;
-                φ0 = angles[course],
-                gap_frac = gaps[course]
-            )
-        else
-            DataModel.Ring(
-                counts[course];
-                r = nothing,
-                φ0 = angles[course],
-                gap_frac = gaps[course]
-            )
-        end
+        pattern = DataModel.Ring(
+            counts[course];
+            r = nothing,
+            φ0 = resolved_angles[course]
+        )
         push!(parts,
             DataModel.Group(
                 :strand,
                 DataModel.Pose2(0, 0, 0),
-                DataModel.Region(:wire, shape, material),
+                DataModel.Region(:wire, shapes[course], material),
                 pattern,
-                _path(lays[course], directions[course], angles[course]),
-                compactions[course]
+                _path(lays[course], directions[course], resolved_angles[course]),
+                nothing
             ))
     end
     stack = DataModel.Stack(parts)
-    prescribed_boundary === nothing && return stack
-    prescribed_boundary isa DataModel.AbstractPrimitive || throw(ArgumentError(
-        "stranded boundary must be an intrinsic primitive or nothing"
-    ))
-
-    # A patternless outer group carries the prescribed aggregate boundary as
-    # existing tabulated compaction data. The inner course groups retain their
-    # own compaction and path declarations unchanged. Resolution uses the
-    # prescribed primitive only as the aggregate CableGeometry boundary; it
-    # never inserts a second conductor region or homogenizes the strands.
     bounded = DataModel.Group(
-        :strand,
+        :core,
         DataModel.Pose2(0, 0, 0),
         stack,
         nothing,
         nothing,
-        DataModel.TabulatedCompaction(prescribed_boundary)
+        compaction,
+        prescribed_boundary
     )
     return DataModel.Stack(bounded)
 end
@@ -663,12 +659,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Declare one central wire and a prescribed number of outer courses.
-
-Circular strands with the complete ``6k`` members of every course use exact
-hexagonal close-packed positions. Noncircular members, incomplete course
-schedules, differing course rotations or gaps, and compacted courses retain
-the explicit concentric-ring placement requested by their declarations.
+Declare one boundary-constrained conductive core made from discrete members.
 
 # Arguments
 
@@ -676,44 +667,45 @@ the explicit concentric-ring placement requested by their declarations.
 
 # Keywords
 
-- `shape`: Intrinsic strand primitive.
+- `center=nothing`: Circular centre member for a disk-bounded core. It defaults
+  to `shape` for circular strands and must be supplied for rectangular outer
+  courses. Sector-bounded cores have no centre member.
+- `shape`: One circular or rectangular outer-course member primitive, or one
+  primitive per outer course.
+- `boundary`: Authoritative nonhollow `Disk` or `Sector` core boundary.
 - `layers`: Number of outer courses \\[dimensionless\\].
-- `n=6`: Base count, exact course schedule, or deferred `capacity()` policy.
+- `n=6`: Positive base count or exact positive course schedule.
 - `lay=nothing`: One lay law or one law per outer course. Homogeneous schedules
   may be declared as `LayRatio(q...)`, `Pitch(p...)`, or `LayAngle(α...)`.
 - `dir=1`: One handedness or one value per outer course.
-- `φ0=0`: One initial angle or one value per outer course \\[rad\\].
-- `compact=nothing`: One compaction law or one law per outer course.
-  Homogeneous scalar schedules may be declared as `FillFactor(η...)` or
-  `DiameterFactor(k...)`.
-- `boundary=nothing`: Prescribed aggregate cross-sectional boundary after
-  member placement and compaction.
-- `gap_frac=0`: One clearance fraction or one value per outer course
-  \\[dimensionless\\].
+- `φ0=nothing`: Optional initial angle or schedule. Omission deterministically
+  staggers consecutive courses.
+- `compact=nothing`: Formation-wide fill factor. Rectangular courses may use
+  one fill factor per outer course.
 - `combine=:product`: Gridspace composition rule.
 
 # Returns
 
-- A `Stack` of ordinary groups, or a `Gridspace{Stack}` when a direct argument
-  varies.
+- A boundary-owning core `Stack`, or a `Gridspace{Stack}` when a direct
+  argument varies.
 """
 function stranded(
         material;
+        center = nothing,
         shape,
         layers,
         n = 6,
         lay = nothing,
         dir = 1,
-        φ0 = 0,
+        φ0 = nothing,
         compact = nothing,
-        boundary = nothing,
-        gap_frac = 0,
+        boundary,
         combine::Symbol = :product
 )
     caller = function (
-            resolved_material, resolved_shape, resolved_layers, resolved_n,
+            resolved_material, resolved_center, resolved_shape, resolved_layers, resolved_n,
             resolved_lay, resolved_dir, resolved_φ0, resolved_compact,
-            resolved_boundary, resolved_gap
+            resolved_boundary
     )
         resolved_layers isa Integer && !(resolved_layers isa Bool) &&
         resolved_layers >= 0 || throw(ArgumentError(
@@ -722,20 +714,19 @@ function stranded(
         count = Int(resolved_layers)
         return _stranded(
             resolved_material,
-            resolved_shape,
+            resolved_center,
+            _course_schedule(resolved_shape, count, :shape),
             count,
             _count_schedule(resolved_n, count),
             _course_schedule(resolved_lay, count, :lay),
             _course_schedule(resolved_dir, count, :dir),
             _course_schedule(resolved_φ0, count, :φ0),
-            _course_schedule(resolved_compact, count, :compact),
-            _course_schedule(resolved_gap, count, :gap_frac),
+            resolved_compact,
             resolved_boundary
         )
     end
     values = (
-        material, shape, layers, n, lay, dir, φ0, compact, boundary,
-        gap_frac
+        material, center, shape, layers, n, lay, dir, φ0, compact, boundary
     )
     return parameterize(DataModel.Stack, caller, values; combine)
 end
@@ -794,8 +785,7 @@ Repeat one physical item as a central child and concentric outer courses.
 - `dir=1`: One handedness or one value per outer course.
 - `φ0=0`: One initial angle or one value per outer course \\[rad\\].
 - `compact=nothing`: One compaction law or one law per outer course.
-  Homogeneous scalar schedules may be declared as `FillFactor(η...)` or
-  `DiameterFactor(k...)`.
+  Homogeneous scalar schedules may be declared as `FillFactor(η...)`.
 - `gap_frac=0`: One clearance fraction or one value per outer course
   \\[dimensionless\\].
 - `combine=:product`: Gridspace composition rule.
@@ -906,12 +896,15 @@ function armor(
 end
 
 function _tape(material, section, n, lay, gap, compact, tag)
+    section isa DataModel.Rectangle || throw(ArgumentError(
+        "tape section must be a Rectangle(width, thickness)"
+    ))
     source = DataModel.Region(tag, section, material)
     return DataModel.Group(
         :tapes,
         DataModel.Pose2(0, 0, 0),
         source,
-        DataModel.Ring(n; r = 0, gap_frac = gap),
+        DataModel.Ring(n; r = nothing, gap_frac = gap),
         _path(lay, 1, 0),
         compact
     )

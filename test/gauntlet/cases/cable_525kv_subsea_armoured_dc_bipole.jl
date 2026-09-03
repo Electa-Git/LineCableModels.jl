@@ -100,7 +100,8 @@ case_definition(
     [
         "cable:1:core", "cable:1:sheath", "cable:1:armor",
         "cable:2:core", "cable:2:sheath", "cable:2:armor"
-    ]
+    ];
+    description = "525 kV armoured subsea cable DC bipole"
 ) do p
     core_rho = p.core_r20 * (pi * (p.core_diameter / 2)^2) / 1_000
     core = LineCableModels.Material(

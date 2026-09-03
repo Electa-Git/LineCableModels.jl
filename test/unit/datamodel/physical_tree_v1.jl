@@ -81,45 +81,43 @@ end
     copper=Material(kind = :conductor, rho = 1.7241e-8)
     disk=Disk(0.5e-3)
     rectangle=Rectangle(0.35e-3, 0.8e-3)
+    circular_boundary=Disk(sqrt(19 / 0.9) * disk.r)
+    rectangular_boundary=Disk(sqrt(
+        disk.r^2 + 18area(rectangle) / pi
+    ))
 
     circular=stranded(
         copper;
         shape = disk,
         layers = 2,
         n = (6, 12),
-        lay = (LayRatio(15), LayRatio(11))
+        lay = (LayRatio(15), LayRatio(11)),
+        compact = FillFactor(0.9),
+        boundary = circular_boundary
     )
     rectangular=stranded(
         copper;
+        center = disk,
         shape = rectangle,
         layers = 2,
         n = (6, 12),
-        lay = (LayRatio(15), LayRatio(11))
-    )
-    strand_space=stranded(
-        copper;
-        shape = Grid((disk, rectangle)),
-        layers = 0
+        lay = (LayRatio(15), LayRatio(11)),
+        compact = FillFactor(1),
+        boundary = rectangular_boundary
     )
     @test circular isa Stack
     @test rectangular isa Stack
-    @test strand_space isa Gridspace{Stack}
-    resolved_strands=collect(strand_space)
-    @test typeof.(getproperty.(first.(getproperty.(resolved_strands, :items)), :item)) ==
-          [Region{typeof(disk), typeof(copper)},
-        Region{typeof(rectangle), typeof(copper)}]
-    @test all(item -> item isa Group, circular.items)
-    @test all(item -> item isa Group, rectangular.items)
-    @test getproperty.(circular.items, :name) == fill(:strand, 3)
-    @test getproperty.(rectangular.items, :name) == fill(:strand, 3)
-    @test circular.items[1].path === nothing
-    @test circular.items[2].path.lay == LayRatio(15)
-    @test circular.items[3].path.lay == LayRatio(11)
-    @test getproperty.(circular.items[2:3], :pattern) == [
-        Hexa(1),
-        Hexa(2)
-    ]
-    @test all(item -> item.pattern isa Ring, rectangular.items[2:3])
+    circular_courses=only(circular.items).item.items
+    rectangular_courses=only(rectangular.items).item.items
+    @test all(item -> item isa Group, circular_courses)
+    @test all(item -> item isa Group, rectangular_courses)
+    @test getproperty.(circular_courses, :name) == fill(:strand, 3)
+    @test getproperty.(rectangular_courses, :name) == fill(:strand, 3)
+    @test circular_courses[1].path === nothing
+    @test circular_courses[2].path.lay == LayRatio(15)
+    @test circular_courses[3].path.lay == LayRatio(11)
+    @test all(item -> item.pattern isa Ring, circular_courses[2:3])
+    @test all(item -> item.pattern isa Ring, rectangular_courses[2:3])
 
     circular_design=build(
         CableDesign, "circular-strands", terminal(:core, circular)
@@ -130,55 +128,49 @@ end
     @test length(circular_design.geometry.regions) == 19
     @test length(rectangular_design.geometry.regions) == 19
     @test all(
-        region -> region.primitive isa LineCableModels.DataModel.Rectangle,
+        region -> region.source.primitive isa Rectangle ?
+                  region.primitive isa LineCableModels.DataModel.BentStrip :
+                  region.primitive isa Disk,
         rectangular_design.geometry.regions
     )
     @test sum(area, getproperty.(circular_design.geometry.regions, :primitive)) ≈
           19pi * disk.r^2
     @test sum(area, getproperty.(rectangular_design.geometry.regions, :primitive)) ≈
-          19rectangle.w * rectangle.h
+          area(disk) + 18area(rectangle)
 
     strand_centres=centroid.(getproperty.(
         circular_design.geometry.regions,
         :primitive
     ))
-    course_two=strand_centres[8:19]
-    strand_spacing=2disk.r
-    adjacent_distances=[hypot(
-                            course_two[mod1(index + 1, length(course_two))][1] -
-                            course_two[index][1],
-                            course_two[mod1(index + 1, length(course_two))][2] -
-                            course_two[index][2]
-                        )
-                        for index in eachindex(course_two)]
-    @test all(distance -> distance ≈ strand_spacing, adjacent_distances)
-    all_pair_distances=[hypot(
-                            strand_centres[left][1] - strand_centres[right][1],
-                            strand_centres[left][2] - strand_centres[right][2]
-                        )
-                        for left in eachindex(strand_centres)
-                        for right in (left + 1):length(strand_centres)]
-    @test minimum(all_pair_distances) ≈ strand_spacing
-    course_two_radii=hypot.(first.(course_two), last.(course_two))
-    @test count(radius -> radius ≈ 2strand_spacing, course_two_radii) == 6
-    @test count(radius -> radius ≈ sqrt(3)*strand_spacing, course_two_radii) == 6
+    @test hypot(first(strand_centres)...) <= 1e-15
+    @test length(unique(strand_centres)) == 19
     @test [last(region.placement.patterns).member
-           for region in circular_design.geometry.regions[8:19]] == collect(1:12)
+           for region in circular_design.geometry.regions] == collect(1:19)
     flattened_circular=only(LineCableModels.DataModel.flatten(
         circular_design,
         50.0
     )).conductor
-    @test flattened_circular.gmr ≈
-          LineCableModels.DataModel.BaseParams.strand_gmr(
-        strand_centres,
-        disk.r,
-        copper.mu_r
-    )
+    resistances=[copper.rho / area(disk) * prod(
+                     entry -> overlength(entry.path, entry.radius),
+                     region.paths;
+                     init = 1.0
+                 ) for region in circular_design.geometry.regions]
+    weights=inv.(resistances) ./ sum(inv, resistances)
+    log_gmr=sum(eachindex(strand_centres)) do left
+        value=weights[left]^2 * log(disk.r * exp(-copper.mu_r / 4))
+        for right in (left + 1):length(strand_centres)
+            value += 2weights[left] * weights[right] *
+                     log(hypot(
+                         strand_centres[left][1] - strand_centres[right][1],
+                         strand_centres[left][2] - strand_centres[right][2]
+                     ))
+        end
+        value
+    end
+    @test flattened_circular.gmr ≈ exp(log_gmr)
 
-    initial_radius=hypot(rectangle.w, rectangle.h) / 2
-    expected_centre=initial_radius + rectangle.h / 2
-    @test hypot(centroid(rectangular_design.geometry.regions[2].primitive)...) ≈
-          expected_centre
+    @test maximum(region -> LineCableModels.DataModel.r_ex(region.primitive),
+        rectangular_design.geometry.regions[2:end]) ≈ rectangular_boundary.r
     @test getproperty.(rectangular_design.geometry.regions, :terminal) ==
           fill(:core, 19)
     @test all(
@@ -191,7 +183,7 @@ end
     for (member, placed) in enumerate(rectangular_design.geometry.regions[2:7])
         x, y = centroid(placed.primitive)
         radial = atan(y, x)
-        @test mod(placed.primitive.at.φ - radial, 2pi) ≈ pi / 2
+        @test mod(placed.primitive.at.φ - radial, 2pi) ≈ 0 atol=1e-12
         @test placed.source.primitive === rectangle
     end
     @test_throws DomainError build(
@@ -203,26 +195,31 @@ end
                 copper;
                 shape = Rectangle(10e-3, 1e-3),
                 layers = 1,
-                n = (6,)
+                n = (6,),
+                center = disk,
+                boundary = Disk(2e-3)
             )
         )
     )
     @test_throws DimensionMismatch stranded(
-        copper; shape = disk, layers = 2, n = (6,)
+        copper; shape = disk, layers = 2, n = (6,), boundary = circular_boundary
     )
     @test_throws DimensionMismatch stranded(
-        copper; shape = disk, layers = 2, n = (6, 12), lay = (LayRatio(11),)
+        copper; shape = disk, layers = 2, n = (6, 12), lay = (LayRatio(11),),
+        boundary = circular_boundary
     )
-    elliptical=stranded(
+    @test_throws ArgumentError stranded(
         copper;
         shape = Ellipse(0.5e-3, 0.25e-3),
         layers = 1,
-        n = 6
+        n = 6,
+        boundary = Disk(2e-3)
     )
-    @test build(CableDesign, "elliptical", terminal(:core, elliptical)) isa CableDesign
-    @test_throws ArgumentError LineCableModels.DataModel.flatten(
+    flattened_rectangular=only(LineCableModels.DataModel.flatten(
         rectangular_design, 50.0
-    )
+    )).conductor
+    @test flattened_rectangular.cross_section ≈ area(disk) + 18area(rectangle)
+    @test isfinite(flattened_rectangular.gmr)
 end
 
 @testitem "DataModel / v1 physical tree / Enclosure and class conveniences" tags=[:unit] begin
@@ -294,7 +291,13 @@ end
     insulation_material=Material(kind = :insulator, rho = 1.0e12, eps_r = 2.4)
     bundle=terminal(
         :core,
-        stranded(copper; shape = Disk(0.5), layers = 1, n = 6)
+        stranded(
+            copper;
+            shape = Disk(0.5),
+            layers = 1,
+            n = 6,
+            boundary = Disk(1.4)
+        )
     )
     packed=Enclosure(
         :matrix,
@@ -429,33 +432,8 @@ end
     poses=LineCableModels.placements(ring, wire.primitive, nothing)
     @test length(poses) == 6
     @test all(pose -> hypot(pose.x, pose.y) ≈ 2.0, poses)
-    @test_throws MethodError LineCableModels.placements(
-        ring, wire.primitive, LineCableModels.DiameterFactor(0.9)
-    )
-
-    for course in 1:4
-        hexagonal=Hexa(course; φ0 = π / 6)
-        hexagonal_poses=placements(hexagonal, wire.primitive, nothing)
-        @test capacity(hexagonal, wire.primitive, nothing) == 6course
-        @test length(hexagonal_poses) == 6course
-        @test all(eachindex(hexagonal_poses)) do index
-            next=hexagonal_poses[mod1(index + 1, length(hexagonal_poses))]
-            current=hexagonal_poses[index]
-            hypot(next.x - current.x, next.y - current.y) ≈ 1.0
-        end
-    end
-    hexagonal=Hexa(2; φ0 = π / 6)
-    hexagonal_poses=placements(hexagonal, wire.primitive, nothing)
-    @test length(unique(round.(
-        hypot.(getfield.(hexagonal_poses, :x), getfield.(hexagonal_poses, :y));
-        digits = 12
-    ))) == 2
-    @test_throws ArgumentError Hexa(0)
-    @test_throws DomainError Hexa(1; gap_frac = -0.1)
-    @test_throws MethodError placements(hexagonal, Rectangle(1.0, 1.0), nothing)
-    course_space=Hexa(Grid((1, 2)))
-    @test course_space isa Gridspace{Hexa}
-    @test collect(course_space) == [Hexa(1), Hexa(2)]
+    @test !isdefined(LineCableModels, :Hexa)
+    @test !isdefined(LineCableModels, :DiameterFactor)
 
     helix=LineCableModels.Helix(LineCableModels.LayRatio(10); dir = -1)
     @test LineCableModels.pitch(helix, 2.0) == 40.0
@@ -552,8 +530,7 @@ end
                                                                           LineCableModelsCoaxial(),
                                                                           source,
                                                                           eltype(problem))
-                                                                      for source in
-                                                                          problem.system.designs]
+                                                                      for source in problem.system.designs]
     @test (@inferred LineCableModels.Engine.LineParametersWorkspace(
         problem,
         Formulation(),

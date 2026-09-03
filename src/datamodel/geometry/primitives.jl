@@ -100,42 +100,6 @@ end
 """
 $(TYPEDEF)
 
-Represent a circular or annular sector and its composed pose.
-
-$(TYPEDFIELDS)
-"""
-struct Sector{T <: Real, P <: Pose2{T}} <: AbstractPrimitive{T}
-    "Inner radius \\[m\\]."
-    ri::T
-    "Outer radius \\[m\\]."
-    ro::T
-    "Starting angle in the local frame \\[rad\\]."
-    φ0::T
-    "Counter-clockwise angular span \\[rad\\]."
-    span::T
-    "Pose in the completed cable coordinate system."
-    at::P
-
-    function Sector{T, P}(
-            ri::T, ro::T, φ0::T, span::T, at::P
-    ) where {T <: Real, P <: Pose2{T}}
-        isfinite(ri) && ri >= zero(ri) || throw(DomainError(
-            ri, "sector inner radius must be nonnegative and finite"
-        ))
-        isfinite(ro) && ro > ri || throw(DomainError(
-            ro, "sector outer radius must exceed its inner radius"
-        ))
-        isfinite(φ0) || throw(DomainError(φ0, "sector start angle must be finite"))
-        isfinite(span) && zero(span) < span <= oftype(span, 2π) || throw(DomainError(
-            span, "sector span must lie in (0, 2π]"
-        ))
-        return new{T, P}(ri, ro, φ0, span, at)
-    end
-end
-
-"""
-$(TYPEDEF)
-
 Represent an annular cross-section and its composed pose.
 
 $(TYPEDFIELDS)
@@ -234,13 +198,6 @@ function Ellipse(a::Real, b::Real, at::Pose2)
     return Ellipse{T, Pose2{T}}(
         convert(T, a), convert(T, b), convert(Pose2{T}, at))
 end
-function Sector(ri::Real, ro::Real, φ0::Real, span::Real, at::Pose2)
-    T = promote_type(
-        typeof(ri), typeof(ro), typeof(φ0), typeof(span), eltype(at))
-    return Sector{T, Pose2{T}}(
-        convert(T, ri), convert(T, ro), convert(T, φ0), convert(T, span),
-        convert(Pose2{T}, at))
-end
 function Annulus(ri::Real, ro::Real, at::Pose2)
     T = promote_type(typeof(ri), typeof(ro), eltype(at))
     return Annulus{T, Pose2{T}}(
@@ -268,12 +225,6 @@ function Ellipse(a::Real, b::Real)
     T = promote_type(typeof(a), typeof(b))
     return Ellipse(convert(T, a), convert(T, b), _origin(T))
 end
-function Sector(ri::Real, ro::Real, φ0::Real, span::Real)
-    T = promote_type(typeof(ri), typeof(ro), typeof(φ0), typeof(span))
-    return Sector(
-        convert(T, ri), convert(T, ro), convert(T, φ0), convert(T, span), _origin(T)
-    )
-end
 function Annulus(ri::Real, ro::Real)
     T = promote_type(typeof(ri), typeof(ro))
     return Annulus(convert(T, ri), convert(T, ro), _origin(T))
@@ -299,14 +250,6 @@ function Base.convert(
 ) where {T <: Real}
     return Ellipse(
         convert(T, value.a), convert(T, value.b), convert(Pose2{T}, value.at)
-    )
-end
-function Base.convert(
-        ::Type{<:AbstractPrimitive{T}}, value::Sector
-) where {T <: Real}
-    return Sector(
-        convert(T, value.ri), convert(T, value.ro), convert(T, value.φ0),
-        convert(T, value.span), convert(Pose2{T}, value.at)
     )
 end
 function Base.convert(
@@ -348,15 +291,6 @@ function r_ex end
 function thickness end
 
 @inline _local_centroid(::Union{Disk, Rectangle, Ellipse, Annulus}) = (0, 0)
-function _local_centroid(primitive::Sector)
-    full = isapprox(primitive.span, oftype(primitive.span, 2π))
-    full && return (zero(primitive.span), zero(primitive.span))
-    radial = 4 * sin(primitive.span / 2) *
-             (primitive.ro^3 - primitive.ri^3) /
-             (3 * primitive.span * (primitive.ro^2 - primitive.ri^2))
-    angle = primitive.φ0 + primitive.span / 2
-    return (radial * cos(angle), radial * sin(angle))
-end
 function _local_centroid(primitive::Polygon)
     signed_twice_area = zero(eltype(primitive))
     xmoment = zero(eltype(primitive))
@@ -393,17 +327,6 @@ end
 function _local_support(primitive::Ellipse, φ::Real)
     hypot(primitive.a * cos(φ), primitive.b * sin(φ))
 end
-function _local_support(primitive::Sector, φ::Real)
-    candidates = (primitive.φ0, primitive.φ0 + primitive.span, φ, φ + π)
-    values = map(candidates) do angle
-        relative = mod(angle - primitive.φ0, oftype(primitive.span, 2π))
-        relative <= primitive.span || return -oftype(primitive.span, Inf)
-        direction = cos(angle - φ)
-        radius = direction >= zero(direction) ? primitive.ro : primitive.ri
-        return radius * direction
-    end
-    return maximum(values)
-end
 function _local_support(primitive::Polygon, φ::Real)
     maximum(
         point[1] * cos(φ) + point[2] * sin(φ) for point in primitive.points
@@ -420,20 +343,27 @@ _local_extent(primitive::Disk) = primitive.r
 _local_extent(primitive::Annulus) = primitive.ro
 _local_extent(primitive::Rectangle) = hypot(primitive.w, primitive.h) / 2
 _local_extent(primitive::Ellipse) = max(primitive.a, primitive.b)
-_local_extent(primitive::Sector) = primitive.ro
 _local_extent(primitive::Polygon) = maximum(hypot(point...) for point in primitive.points)
 function support(primitive::AbstractPrimitive)
     hypot(primitive.at.x, primitive.at.y) +
     _local_extent(primitive)
 end
+function support(primitive::Polygon)
+    cosine = cos(primitive.at.φ)
+    sine = sin(primitive.at.φ)
+    return maximum(primitive.points) do point
+        x = primitive.at.x + cosine * point[1] - sine * point[2]
+        y = primitive.at.y + sine * point[1] + cosine * point[2]
+        hypot(x, y)
+    end
+end
 
-boundary(primitive::Union{Disk, Rectangle, Ellipse, Sector, Polygon}) = primitive
+boundary(primitive::Union{Disk, Rectangle, Ellipse, Polygon}) = primitive
 boundary(primitive::Annulus) = Disk(primitive.ro, primitive.at)
 
 area(primitive::Disk) = π * primitive.r^2
 area(primitive::Rectangle) = primitive.w * primitive.h
 area(primitive::Ellipse) = π * primitive.a * primitive.b
-area(primitive::Sector) = primitive.span * (primitive.ro^2 - primitive.ri^2) / 2
 area(primitive::Annulus) = π * (primitive.ro^2 - primitive.ri^2)
 function area(primitive::Polygon)
     twice = sum(eachindex(primitive.points)) do index
@@ -446,10 +376,6 @@ end
 
 perimeter(primitive::Disk) = 2π * primitive.r
 perimeter(primitive::Rectangle) = 2 * (primitive.w + primitive.h)
-function perimeter(primitive::Sector)
-    primitive.span * (primitive.ro + primitive.ri) +
-    2 * (primitive.ro - primitive.ri)
-end
 perimeter(primitive::Annulus) = 2π * (primitive.ro + primitive.ri)
 function perimeter(primitive::Polygon)
     return sum(eachindex(primitive.points)) do index
@@ -463,20 +389,14 @@ end
 
 r_in(primitive::Disk) = zero(primitive.r)
 r_in(primitive::Annulus) = primitive.ri
-r_in(primitive::Sector) = primitive.ri
 r_ex(primitive::Disk) = primitive.r
 r_ex(primitive::Annulus) = primitive.ro
-r_ex(primitive::Sector) = primitive.ro
 thickness(primitive::Disk) = primitive.r
 thickness(primitive::Annulus) = primitive.ro - primitive.ri
-thickness(primitive::Sector) = primitive.ro - primitive.ri
 
 _with_pose(primitive::Disk, at::Pose2) = Disk(primitive.r, at)
 _with_pose(primitive::Rectangle, at::Pose2) = Rectangle(primitive.w, primitive.h, at)
 _with_pose(primitive::Ellipse, at::Pose2) = Ellipse(primitive.a, primitive.b, at)
-function _with_pose(primitive::Sector, at::Pose2)
-    Sector(primitive.ri, primitive.ro, primitive.φ0, primitive.span, at)
-end
 _with_pose(primitive::Annulus, at::Pose2) = Annulus(primitive.ri, primitive.ro, at)
 _with_pose(primitive::Polygon, at::Pose2) = _polygon(primitive.points, at)
 

@@ -1,7 +1,7 @@
-@testitem "DataModel / RoundedSector / exact geometry and conformal shells" tags=[:unit] begin
+@testitem "DataModel / Sector / exact geometry and conformal shells" tags=[:unit] begin
     const DM=LineCableModels.DataModel
 
-    primitive=RoundedSector(
+    primitive=Sector(
         span = deg2rad(119.0),
         r_base = 1.10e-3,
         r_back = 10.24e-3,
@@ -16,7 +16,7 @@
     end
 
     shape=DM.resolve(DM.EmptyBoundary(), primitive)
-    @test shape isa DM.RoundedSectorShape
+    @test shape isa DM.SectorShape
     @test DM.area(shape) ≈ 9.207305021593468e-5 rtol=4eps(Float64)
     @test DM.perimeter(shape) ≈ 3.780313381817682e-2 rtol=4eps(Float64)
     @test DM.centroid(shape)[1] ≈ 6.131368623545798e-3 rtol=4eps(Float64)
@@ -84,16 +84,16 @@
     @test second.outer.primitive.r_back == primitive.r_back + 0.75e-3
     @test second.outer.primitive.fillet == primitive.fillet + 0.75e-3
     @test_throws DomainError DM.resolve(shape, Shell(primitive.r_base + eps()))
-    @test_throws DomainError RoundedSector(0.2, 0.0, 1.0, 0.95)
+    @test_throws DomainError Sector(span = 0.2, r_base = 0.0, r_back = 1.0, fillet = 0.95)
 end
 
-@testitem "DataModel / RoundedSector / terminal assembly and Gridspace" tags=[:unit] begin
+@testitem "DataModel / Sector / terminal assembly and Gridspace" tags=[:unit] begin
     const DM=LineCableModels.DataModel
 
     copper=Material(kind = :conductor, rho = 1.7241e-8, mu_r = 0.999994,
         alpha = 0.00393)
     insulation_material=Material(kind = :insulator, rho = 1.97e14, eps_r = 2.5)
-    primitive=RoundedSector(
+    primitive=Sector(
         span = deg2rad(119.0),
         r_base = 1.10e-3,
         r_back = 10.24e-3,
@@ -112,7 +112,7 @@ end
     design=build(CableDesign, "sectorized", root)
     @test design.terminal_order == [:a, :b, :c]
     @test count(!isnothing, getproperty.(design.geometry.regions, :terminal)) == 3
-    @test count(region -> region.primitive isa DM.RoundedSectorShape,
+    @test count(region -> region.primitive isa DM.SectorShape,
         design.geometry.regions) == 3
     @test count(region -> region.primitive isa DM.ShellShape,
         design.geometry.regions) == 3
@@ -131,7 +131,7 @@ end
     @test getproperty.(getproperty.(conductor_shapes, :at), :φ) ≈
           [0.0, 2pi / 3, 4pi / 3]
 
-    varied=RoundedSector(
+    varied=Sector(
         span = Grid((deg2rad(118.0), deg2rad(119.0))),
         r_base = Grid((1.00e-3, 1.10e-3)),
         r_back = Grid((10.24e-3, 10.34e-3)),
@@ -152,13 +152,13 @@ end
     @test all(design -> design.root isa DM.Group, designs)
 end
 
-@testitem "DataModel / RoundedSector / member-local equivalent-area flattening" tags=[:unit] begin
+@testitem "DataModel / Sector / member-local equivalent-area flattening" tags=[:unit] begin
     const DM=LineCableModels.DataModel
 
     copper=Material(kind = :conductor, rho = 1.7241e-8, mu_r = 0.999994,
         alpha = 0.00393)
     xlpe=Material(kind = :insulator, rho = 1.97e14, eps_r = 2.5)
-    primitive=RoundedSector(
+    primitive=Sector(
         span = deg2rad(119.0),
         r_base = 1.10e-3,
         r_back = 10.24e-3,
@@ -266,7 +266,7 @@ end
 
     encoded=LineCableModels.ImportExport.serialize_value(design)
     @test encoded["root"]["item"]["item"]["items"][1]["primitive"]["kind"] ==
-          "rounded_sector"
+          "sector"
     serialized=sprint(show, encoded)
     for derived in (
         "contacts", "geometry", "equivalent_radius", "resistance", "gmr",
@@ -278,7 +278,7 @@ end
     @test restored == design
 end
 
-@testitem "DataModel / RoundedSector / legacy equivalence equations" tags=[:unit] begin
+@testitem "DataModel / Sector / legacy equivalence equations" tags=[:unit] begin
     const DM=LineCableModels.DataModel
 
     # The sector fork used these material values and dimensions. Its scientific
@@ -303,7 +303,7 @@ end
     phase=terminal(
         :phase,
         Region(:core,
-            RoundedSector(
+            Sector(
                 span = deg2rad(119.0),
                 r_base = 1.10e-3,
                 r_back = 10.24e-3,

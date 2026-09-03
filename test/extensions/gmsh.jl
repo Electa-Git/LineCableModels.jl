@@ -333,9 +333,9 @@ end
     @test only(model.mesh_plans).infinite_mesh_size == model.domain_radius / 10
     @test only(model.mesh_plans).cable_interface_mesh_sizes ≈ [
         min(
-            model.domain_radius / 20,
-            0.001 + 0.2 * (0.1 - 0.013)
-        )
+        model.domain_radius / 20,
+        0.001 + 0.2 * (0.1 - 0.013)
+    )
     ]
 
     multifrequency_problem = LineParametersProblem(
@@ -361,7 +361,7 @@ end
             :core,
             Region(
                 :core_sectors,
-                Sector(0.001, 0.002, -0.4, 0.8),
+                Sector(span = 0.8, r_base = 0.001, r_back = 0.002),
                 copper
             );
             pattern = Ring(6; r = 0.0)
@@ -464,13 +464,15 @@ end
                         :screen,
                         Region(
                             :screen_tape,
-                            Sector(
-                                tape_inner_radius,
-                                tape_outer_radius,
-                                -0.2,
-                                0.4
+                            Rectangle(
+                                0.4 * (tape_inner_radius + tape_outer_radius) / 2,
+                                tape_outer_radius - tape_inner_radius
                             ),
                             copper
+                        );
+                        pattern = Ring(
+                            1;
+                            r = (tape_inner_radius + tape_outer_radius) / 2
                         )
                     )
                 );
@@ -591,18 +593,19 @@ end
                 )
                 sector_loop = extension_module._boundary_loop!(
                     registry,
-                    Sector(0.01, 0.02, -π / 4, π / 2, Pose2(0.0, 0.0, π / 9))
-                )
-                rounded_loop = extension_module._boundary_loop!(
-                    registry,
-                    LineCableModels.DataModel.RoundedSectorShape(
-                        RoundedSector(π / 3, 0.005, 0.02, 0.001),
+                    LineCableModels.DataModel.SectorShape(
+                        Sector(
+                            span = π / 3,
+                            r_base = 0.005,
+                            r_back = 0.02,
+                            fillet = 0.001
+                        ),
                         Pose2(0.05, 0.0, -π / 11)
                     )
                 )
                 gmsh.model.geo.synchronize()
                 @test length(ellipse_loop.curves) == 4
-                @test length(sector_loop.curves) == 6
+                @test length(sector_loop.curves) == 10
                 @test all(
                     gmsh.model.get_type(1, curve) == "Ellipse"
                 for curve in ellipse_loop.curves
@@ -610,14 +613,36 @@ end
                 @test count(
                     curve -> gmsh.model.get_type(1, curve) == "Circle",
                     sector_loop.curves
-                ) == 4
-                @test count(
-                    curve -> gmsh.model.get_type(1, curve) == "Circle",
-                    rounded_loop.curves
                 ) == 8
                 @test count(
                     curve -> gmsh.model.get_type(1, curve) == "Line",
-                    rounded_loop.curves
+                    sector_loop.curves
+                ) == 2
+
+                gmsh.model.add("fem-zero-inner-strip")
+                zero_inner_registry = extension_module.FEMLoopRegistry(1.0e-3)
+                zero_inner_shape = LineCableModels.DataModel.BentStrip(
+                    0.0, 0.01, π / 3
+                )
+                extension_module._register_shape_breaks!(
+                    zero_inner_registry, zero_inner_shape
+                )
+                @test all(
+                    key -> !iszero(key[3]),
+                    keys(zero_inner_registry.circle_breaks)
+                )
+                zero_inner_strip = extension_module._boundary_loop!(
+                    zero_inner_registry,
+                    zero_inner_shape
+                )
+                gmsh.model.geo.synchronize()
+                @test count(
+                    curve -> gmsh.model.get_type(1, curve) == "Circle",
+                    zero_inner_strip.curves
+                ) >= 1
+                @test count(
+                    curve -> gmsh.model.get_type(1, curve) == "Line",
+                    zero_inner_strip.curves
                 ) == 2
 
                 gmsh.model.add("fem-shared-circle-arcs")
@@ -631,7 +656,9 @@ end
                 )
                 @test first_contact == second_contact
                 full_circle = Disk(0.02)
-                partial_sector = Sector(0.01, 0.02, -0.4, 0.8)
+                partial_sector = LineCableModels.DataModel.SectorShape(
+                    Sector(span = 0.8, r_base = 0.01, r_back = 0.02)
+                )
                 extension_module._register_shape_breaks!(
                     shared_registry, full_circle
                 )
@@ -677,13 +704,13 @@ end
                 first_points = reduce(
                     union,
                     (Set(gmsh.model.get_adjacencies(1, curve)[2])
-                     for curve in first_loop.curves);
+                    for curve in first_loop.curves);
                     init = Set{Int32}()
                 )
                 second_points = reduce(
                     union,
                     (Set(gmsh.model.get_adjacencies(1, curve)[2])
-                     for curve in second_loop.curves);
+                    for curve in second_loop.curves);
                     init = Set{Int32}()
                 )
                 @test length(intersect(first_points, second_points)) == 1
@@ -764,10 +791,9 @@ end
                     first_geometry.outer_air_curves,
                     first_geometry.outer_earth_curves
                 ))
-                @test sort!(unique([
-                    first_geometry.outer_air_curves;
-                    first_geometry.outer_earth_curves
-                ])) == first_geometry.outer_curves
+                @test sort!(unique([first_geometry.outer_air_curves;
+                                    first_geometry.outer_earth_curves])) ==
+                      first_geometry.outer_curves
                 extension_module._validate_mesh_file(model, first_mesh)
 
                 second_run = extension_module._create_run(runtime_root)
@@ -861,6 +887,241 @@ end
     end
 end
 
+@testitem "Gmsh FEM / bounded formations and complete material ownership" tags=[
+    :extension
+] begin
+    using Gmsh
+    using LineCableModels
+
+    const DM = LineCableModels.DataModel
+    extension_module = Base.get_extension(LineCableModels, :LineCableModelsGmshExt)
+    formulation = Formulation(
+        :LineCableModelsFEM; options = (ideal_transposition = false,)
+    )
+    copper = Material(
+        kind = :conductor, rho = 1.72e-8, eps_r = 1.0, mu_r = 1.0
+    )
+    dielectric = Material(
+        kind = :insulator, rho = Inf, eps_r = 2.3, mu_r = 1.0
+    )
+
+    function problem(design, connections, id)
+        system = build(
+            LineCableSystem,
+            design,
+            Pose2(0.0, -0.1);
+            connections,
+            system_id = id,
+            line_length = 1.0
+        )
+        return LineParametersProblem(
+            system;
+            earth_props = homogeneous(rho = 100.0, eps_r = 10.0),
+            frequencies = [50.0]
+        )
+    end
+
+    strand_radius = 0.5e-3
+    strand_layers = 3
+    strand_count = 1 + 3strand_layers * (strand_layers + 1)
+    circular_boundary = Disk(sqrt(strand_count) * strand_radius)
+    circular = stranded(
+        copper;
+        shape = Disk(strand_radius),
+        layers = strand_layers,
+        n = 6,
+        compact = FillFactor(1),
+        boundary = circular_boundary
+    )
+    circular_design = build(
+        CableDesign,
+        "fem-compacted-circular-core",
+        terminal(:core, circular),
+        Region(:insulation, Shell(1e-3), dielectric)
+    )
+    circular_model = extension_module._resolved_fem_model(
+        problem(circular_design, Dict(:core => 1), circular_design.cable_id),
+        formulation
+    )
+    @test length(circular_model.region_plans) == 2
+    @test circular_model.region_plans[1].shape isa DM.Disk
+    @test circular_model.region_plans[1].shape.r == circular_boundary.r
+    @test circular_model.region_plans[1].shape.at == Pose2(0.0, -0.1)
+    @test circular_model.region_plans[1].terminal_index == 1
+
+    rectangle = Rectangle(0.6e-3, 0.8e-3)
+    rectangular_boundary = Disk(sqrt(
+        strand_radius^2 + 6DM.area(rectangle) / pi
+    ))
+    rectangular = stranded(
+        copper;
+        center = Disk(strand_radius),
+        shape = rectangle,
+        layers = 1,
+        n = 6,
+        compact = FillFactor(1),
+        boundary = rectangular_boundary
+    )
+    rectangular_design = build(
+        CableDesign,
+        "fem-compacted-rectangular-core",
+        terminal(:core, rectangular),
+        Region(:insulation, Shell(1e-3), dielectric)
+    )
+    rectangular_model = extension_module._resolved_fem_model(
+        problem(rectangular_design, Dict(:core => 1), rectangular_design.cable_id),
+        formulation
+    )
+    @test length(rectangular_model.region_plans) == 2
+    @test rectangular_model.region_plans[1].shape isa DM.Disk
+    @test rectangular_model.region_plans[1].shape.r == rectangular_boundary.r
+    @test rectangular_model.region_plans[1].shape.at == Pose2(0.0, -0.1)
+
+    partial_boundary = Disk(sqrt(7 / 0.9) * strand_radius)
+    partial = terminal(
+        :core,
+        stranded(
+            copper;
+            shape = Disk(strand_radius),
+            layers = 1,
+            n = 6,
+            compact = FillFactor(0.9),
+            boundary = partial_boundary
+        )
+    )
+    incomplete_design = build(
+        CableDesign, "fem-unassigned-compaction", partial
+    )
+    incomplete_error = try
+        extension_module._resolved_fem_model(
+            problem(
+                incomplete_design,
+                Dict(:core => 1),
+                incomplete_design.cable_id
+            ),
+            formulation
+        )
+        nothing
+    catch exception
+        exception
+    end
+    @test incomplete_error isa LineCableModelsFEMError
+    @test incomplete_error.field === :material_partition
+    @test occursin("Enclosure", incomplete_error.message)
+
+    filled_design = build(
+        CableDesign,
+        "fem-filled-compaction",
+        Enclosure(
+            :core_matrix,
+            partial;
+            primitive = partial_boundary,
+            fill = dielectric
+        )
+    )
+    filled_model = extension_module._resolved_fem_model(
+        problem(filled_design, Dict(:core => 1), filled_design.cable_id),
+        formulation
+    )
+    @test length(filled_model.region_plans) == 8
+    @test count(
+        plan -> plan.shape isa DM.Polygon,
+        filled_model.region_plans
+    ) == 7
+    @test count(
+        plan -> plan.shape isa DM.DifferenceShape,
+        filled_model.region_plans
+    ) == 1
+
+    sector = Sector(
+        span = deg2rad(100.0),
+        r_base = 1.0e-3,
+        r_back = 4.0e-3,
+        fillet = 0.2e-3
+    )
+    sector_shape = DM.resolve(DM.EmptyBoundary(), sector)
+    sector_strand_radius = sqrt(DM.area(sector_shape) / (6pi))
+    sector_core = terminal(
+        :sector,
+        stranded(
+            copper;
+            shape = Disk(sector_strand_radius),
+            layers = 1,
+            n = 6,
+            compact = FillFactor(1),
+            boundary = sector
+        )
+    )
+    sectors = Assembly(
+        sector_core;
+        pattern = Ring(3; r = 8.0e-3),
+        names = (:a, :b, :c)
+    )
+    sector_design = build(
+        CableDesign,
+        "fem-sector-formations",
+        Enclosure(
+            :sector_matrix,
+            sectors;
+            primitive = Disk(15.0e-3),
+            fill = dielectric
+        )
+    )
+    sector_model = extension_module._resolved_fem_model(
+        problem(
+            sector_design,
+            Dict(:a => 1, :b => 2, :c => 3),
+            sector_design.cable_id
+        ),
+        formulation
+    )
+    @test length(sector_model.region_plans) == 4
+    @test count(
+        plan -> plan.shape isa DM.SectorShape,
+        sector_model.region_plans
+    ) == 3
+    @test sort(filter(>(0), getproperty.(sector_model.region_plans, :terminal_index))) ==
+          [1, 2, 3]
+    matrix_plan = only(filter(
+        plan -> plan.terminal_index == 0,
+        sector_model.region_plans
+    ))
+    @test matrix_plan.shape isa DM.DifferenceShape
+    @test count(
+        hole -> hole isa DM.SectorShape,
+        matrix_plan.shape.holes
+    ) == 3
+    @test all(hole -> !(hole isa DM.Polygon), matrix_plan.shape.holes)
+
+    Gmsh.initialize(String[]; finalize_atexit = false)
+    try
+        gmsh.option.set_number("General.Terminal", 1)
+        gmsh.option.set_number("General.Verbosity", 0)
+        for (name, model) in (
+            ("fem-compacted-circular-core", circular_model),
+            ("fem-compacted-rectangular-core", rectangular_model),
+            ("fem-filled-compaction", filled_model),
+            ("fem-sector-formations", sector_model)
+        )
+            geometry = extension_module._build_geometry!(model, name)
+            gmsh.model.set_current(geometry.model_name)
+            @test all(!isempty, geometry.material_surfaces)
+            @test all(!isempty, geometry.terminal_surfaces)
+            name in (
+                "fem-compacted-circular-core",
+                "fem-sector-formations"
+            ) || continue
+            extension_module._configure_mesh!(
+                model, geometry, only(model.mesh_plans)
+            )
+            gmsh.model.mesh.generate(2)
+            @test !isempty(first(gmsh.model.mesh.get_nodes()))
+        end
+    finally
+        Gmsh.finalize()
+    end
+end
+
 @testitem "Gmsh FEM / optional real GetDP multi-frequency scan" tags=[
     :extension,
     :integration
@@ -912,15 +1173,12 @@ end
         @test all(isfinite, result.Z)
         @test all(isfinite, result.Y)
         @test result.f == [50.0, 1000.0]
-        expected_capacitance =
-            2π * 8.8541878128e-12 * dielectric.eps_r / log(0.01 / 0.005)
-        fem_capacitance = [
-            imag(result.Y[1, 1, index]) / (2π * frequency)
-            for (index, frequency) in pairs(result.f)
-        ]
+        expected_capacitance = 2π * 8.8541878128e-12 * dielectric.eps_r / log(0.01 / 0.005)
+        fem_capacitance = [imag(result.Y[1, 1, index]) / (2π * frequency)
+                           for (index, frequency) in pairs(result.f)]
         @test all(
             isapprox(value, expected_capacitance; rtol = 0.02)
-            for value in fem_capacitance
+        for value in fem_capacitance
         )
         @test result.details.fem.run.state === Base.get_extension(
             LineCableModels, :LineCableModelsGmshExt
@@ -928,7 +1186,8 @@ end
         @test result.details.fem.run.getdp_invocations ==
               length(problem.frequencies) * length(result.details.fem.terminal_ids)
         @test run_directory !== nothing
-        expected_rows = 1 + length(problem.frequencies) *
+        expected_rows = 1 +
+                        length(problem.frequencies) *
                         length(result.details.fem.terminal_ids)^2
         for filename in ("Z.tsv", "P.tsv")
             content = read(joinpath(run_directory, "raw", filename), String)
@@ -1008,13 +1267,15 @@ end
     @test fixture.cases.two_coaxial_bundle_kron.phase_map == [1, 0, 1, 0]
     @test fixture.provenance.development_only_repairs !== nothing
 
-    getdp_model = read(joinpath(
-        pkgdir(LineCableModels),
-        "ext",
-        "LineCableModelsGmshExt",
-        "getdp",
-        "model.pro"
-    ), String)
+    getdp_model = read(
+        joinpath(
+            pkgdir(LineCableModels),
+            "ext",
+            "LineCableModelsGmshExt",
+            "getdp",
+            "model.pro"
+        ),
+        String)
     @test occursin("AirInfJacobian = Region[{AIR_INF}]", getdp_model)
     @test occursin("EarthInfJacobian = Region[{EARTH_INF}]", getdp_model)
     @test occursin(

@@ -466,14 +466,14 @@ end
 
     index=case_index()
     expected_sizes=Dict(
-        :c320_armoured__dc_bipole=>(6, 6, 227),
-        :c320_no_armour__dc_bipole=>(4, 4, 227),
-        :c380_armoured__ac_flat=>(9, 9, 227),
-        :c380_no_armour__ac_flat=>(6, 6, 227),
-        :c525_land_no_armour__ac_flat=>(6, 6, 227),
-        :c525_land_no_armour__dc_bipole=>(4, 4, 227),
-        :c525_subsea_armoured__ac_flat=>(9, 9, 227),
-        :c525_subsea_armoured__dc_bipole=>(6, 6, 227),
+        :cable_320kv_armoured_dc_bipole=>(6, 6, 227),
+        :cable_320kv_no_armour_dc_bipole=>(4, 4, 227),
+        :cable_380kv_armoured_ac_flat=>(9, 9, 227),
+        :cable_380kv_no_armour_ac_flat=>(6, 6, 227),
+        :cable_525kv_land_no_armour_ac_flat=>(6, 6, 227),
+        :cable_525kv_land_no_armour_dc_bipole=>(4, 4, 227),
+        :cable_525kv_subsea_armoured_ac_flat=>(9, 9, 227),
+        :cable_525kv_subsea_armoured_dc_bipole=>(6, 6, 227),
         :cable_18kv_1000mm2_trefoil=>(9, 9, 101),
         :cable_132kv_630mm2_flathor=>(9, 9, 101),
         :cable_380kv_2000mm2_flatver=>(9, 9, 101),
@@ -537,36 +537,36 @@ end
     end
 
     expected_wire_counts=Dict(
-        :c320_armoured__dc_bipole=>(
+        :cable_320kv_armoured_dc_bipole=>(
             (1, 6, 12, 18, 24, 30, 36), (), (68,)
         ),
-        :c320_no_armour__dc_bipole=>(
+        :cable_320kv_no_armour_dc_bipole=>(
             (1, 6, 12, 18, 24, 30, 36), ()
         ),
-        :c380_armoured__ac_flat=>(
+        :cable_380kv_armoured_ac_flat=>(
             (1, 6, 12, 18, 24, 30, 36), (), (68,)
         ),
-        :c380_no_armour__ac_flat=>(
+        :cable_380kv_no_armour_ac_flat=>(
             (1, 6, 12, 18, 24, 30, 36), ()
         ),
-        :c525_land_no_armour__ac_flat=>((), ()),
-        :c525_land_no_armour__dc_bipole=>((), ()),
-        :c525_subsea_armoured__ac_flat=>((), (), (68,)),
-        :c525_subsea_armoured__dc_bipole=>((), (), (68,)),
+        :cable_525kv_land_no_armour_ac_flat=>((), ()),
+        :cable_525kv_land_no_armour_dc_bipole=>((), ()),
+        :cable_525kv_subsea_armoured_ac_flat=>((), (), (68,)),
+        :cable_525kv_subsea_armoured_dc_bipole=>((), (), (68,)),
         :cable_132kv_630mm2_flathor=>(
-            (1, 6, 12, 18, 24), (19,), ()
+            (1, 6, 12, 18, 24), (19, 1), ()
         ),
         :cable_18kv_1000mm2_trefoil=>(
-            (1, 6, 12, 18, 24), (49,), ()
+            (1, 6, 12, 18, 24), (49, 1), ()
         ),
         :cable_380kv_2000mm2_flatver=>(
-            (1, 6, 12, 18, 24), (14,), ()
+            (1, 6, 12, 18, 24), (14, 1), ()
         ),
         :cable_525kv_1600mm2_bipole=>(
             (1, 6, 12, 18, 24, 30, 36), (), (68,)
         ),
         :cable_640kv_2000mm2_bipole=>(
-            (6, 12, 18, 24), (), ()
+            (1, 6, 12, 18, 24), (), ()
         ),
         :solid_1000mm2_single=>((),),
         :two_bare_wires=>((),)
@@ -575,12 +575,6 @@ end
         id=>101
     for id in keys(expected_sizes)
     )
-    close_packed_cases=Set((
-        :c320_armoured__dc_bipole,
-        :c320_no_armour__dc_bipole,
-        :c380_armoured__ac_flat,
-        :c380_no_armour__ac_flat
-    ))
     for (id, expected_size) in expected_sizes
         model=load_case(id)
         @test model.id === id
@@ -608,22 +602,35 @@ end
         design=first(model.nominal_problem.system.designs)
         groups=nested_groups(design.root)
         component_wire_counts=Tuple(
-            Tuple(
-                group.pattern isa Ring ? group.pattern.n : 6group.pattern.course
-            for group in groups
-            if group.name===terminal&&
-            (group.pattern isa Ring||group.pattern isa Hexa)
-            ) for terminal in design.terminal_order
+            begin
+                bounded=findfirst(
+                    group->group.name===terminal&&group.boundary!==nothing,
+                    groups
+                )
+                if bounded===nothing
+                    Tuple(group.pattern.n
+                    for group in groups
+                    if group.name===terminal&&group.pattern isa Ring)
+                else
+                    courses=groups[bounded].item.items
+                    Tuple(group.pattern===nothing ? 1 : group.pattern.n
+                    for group in courses)
+                end
+            end
+        for terminal in design.terminal_order
         )
         @test component_wire_counts == expected_wire_counts[id]
-        if id in close_packed_cases
-            core_patterns=[group.pattern for group in groups if group.name===:core]
-            @test first(core_patterns) isa Ring
-            @test first(core_patterns).n == 1
-            @test all(core_patterns[2:end]) do pattern
-                pattern isa Hexa
-            end
-            @test getproperty.(core_patterns[2:end], :course) == collect(1:6)
+        expected_core_counts=first(expected_wire_counts[id])
+        if !isempty(expected_core_counts)&&first(expected_core_counts)==1
+            bounded=only(group
+            for group in groups
+            if group.name===:core&&group.boundary!==nothing)
+            @test bounded.boundary isa Disk
+            core_patterns=getproperty.(bounded.item.items, :pattern)
+            @test first(core_patterns) === nothing
+            @test all(pattern -> pattern isa Ring, core_patterns[2:end])
+            @test Tuple(getproperty.(core_patterns[2:end], :n)) ==
+                  Base.tail(expected_core_counts)
         end
         @test basename(index[id]) == string(id, ".jl")
     end
@@ -647,7 +654,7 @@ end
         for (root, _, files) in walkdir(benchmark_root)
         ))
     ))
-    contains_for(value)=value isa Expr&&
+    contains_for(value) = value isa Expr&&
     (value.head===:for||any(contains_for, value.args))
     benchmark_ids=Symbol[]
     benchmark_cases=Dict(:pscad=>Symbol[], :uq=>Symbol[])

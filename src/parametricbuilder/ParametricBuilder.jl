@@ -28,15 +28,15 @@ export Combinatorial, ParametricProblem, ParametricResult
 
 export Material, Conductor, Insulator, Semiconductor
 export CableDesign, LineCableSystem
-export Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, RoundedSector, Shell, Pose2
+export Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, Shell, Pose2
 export Region, Stack
 export Group, Assembly
 export Enclosure
 export terminal, core, stranded, rope, cores, tape, insulation, screen, sheath
 export armor, bedding, jacket, filler, pipe, duct
 export solid, shell, wires, layers, assembly
-export capacity, Hexa
-export FillFactor, DiameterFactor, TabulatedCompaction, AffineCompaction
+export capacity
+export FillFactor
 export at, trefoil, hflat, vflat, layer, homogeneous, EarthLayer, EarthModel
 export @cable, @system, @earth, @terminal, @assembly, @pipe, @duct
 export @at, @hflat, @vflat, @trefoil
@@ -61,12 +61,11 @@ import ..Materials
 import ..Materials: Material
 import ..DataModel
 import ..DataModel: Disk, Rectangle, Ellipse, Sector, Annulus, Polygon
-import ..DataModel: RoundedSector, Shell, Pose2
+import ..DataModel: Shell, Pose2
 import ..DataModel: Region, Stack
 import ..DataModel: Group, Assembly
 import ..DataModel: Enclosure
-import ..DataModel: capacity, Hexa, FillFactor, DiameterFactor
-import ..DataModel: TabulatedCompaction, AffineCompaction
+import ..DataModel: capacity, FillFactor
 import ..DataModel: CableDesign, LineCableSystem
 import ..EarthProps
 using ..EarthProps: EarthLayer, EarthModel, layer, homogeneous

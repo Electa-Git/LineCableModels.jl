@@ -93,11 +93,7 @@ end
 _definition(primitive::Disk) = Disk(primitive.r)
 _definition(primitive::Rectangle) = Rectangle(primitive.w, primitive.h)
 _definition(primitive::Ellipse) = Ellipse(primitive.a, primitive.b)
-function _definition(primitive::Sector)
-    Sector(
-        primitive.ri, primitive.ro, primitive.φ0, primitive.span
-    )
-end
+_definition(shape::SectorShape) = shape.primitive
 _definition(primitive::Annulus) = Annulus(primitive.ri, primitive.ro)
 _definition(primitive::Polygon) = Polygon(primitive.points)
 
@@ -136,7 +132,15 @@ function _contained(container::Annulus, child::Disk)
             isapprox(offset - child.r, container.ri))
 end
 
-function _contained(container::Annulus, child::Union{Annulus, Sector})
+function _contained(container::Annulus, child::Annulus)
+    concentric = isapprox(child.at.x, container.at.x) &&
+                 isapprox(child.at.y, container.at.y)
+    return concentric &&
+           (child.ro < container.ro || isapprox(child.ro, container.ro)) &&
+           (child.ri > container.ri || isapprox(child.ri, container.ri))
+end
+
+function _contained(container::Annulus, child::BentStrip)
     concentric = isapprox(child.at.x, container.at.x) &&
                  isapprox(child.at.y, container.at.y)
     return concentric &&
@@ -162,13 +166,13 @@ function resolve(context::EmptyBoundary, enclosure::Enclosure)
 
     regions = PlacedRegion[]
     for source in contents.regions
-        primitive = resolve(enclosure.at, source.primitive)
+        placed = resolve(enclosure.at, source)
         push!(regions,
             PlacedRegion(
                 source.source,
-                primitive,
+                placed.primitive,
                 source.terminal,
-                (patterns = source.placement.patterns,),
+                placed.placement,
                 source.paths
             ))
     end
@@ -185,13 +189,13 @@ function resolve(context::EmptyBoundary, enclosure::Enclosure)
         "enclosure fill must reach the containing boundary"
     ))
     for source in fill_result.regions
-        primitive = resolve(enclosure.at, source.primitive)
+        placed = resolve(enclosure.at, source)
         push!(regions,
             PlacedRegion(
                 source.source,
-                primitive,
+                placed.primitive,
                 source.terminal,
-                (patterns = source.placement.patterns,),
+                placed.placement,
                 source.paths
             ))
     end
@@ -200,13 +204,13 @@ function resolve(context::EmptyBoundary, enclosure::Enclosure)
     if enclosure.wall !== nothing
         wall_result = resolve(container, enclosure.wall)
         for source in wall_result.regions
-            primitive = resolve(enclosure.at, source.primitive)
+            placed = resolve(enclosure.at, source)
             push!(regions,
                 PlacedRegion(
                     source.source,
-                    primitive,
+                    placed.primitive,
                     source.terminal,
-                    (patterns = source.placement.patterns,),
+                    placed.placement,
                     source.paths
                 ))
         end

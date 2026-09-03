@@ -1,7 +1,7 @@
 """
 $(TYPEDEF)
 
-Define one material-neutral rounded cable-sector primitive.
+Define one material-neutral cable-sector primitive with optional fillets.
 
 The symmetry axis is local `+x`. Translation and rotation belong to
 [`Pose2`](@ref), while material and terminal identity belong to `Region` and
@@ -9,7 +9,7 @@ its containing physical tree.
 
 $(TYPEDFIELDS)
 """
-struct RoundedSector{T <: Real} <: AbstractPrimitive{T}
+struct Sector{T <: Real} <: AbstractPrimitive{T}
     "Angular opening \\[rad\\]."
     span::T
     "Radial coordinate of the innermost midpoint \\[m\\]."
@@ -19,45 +19,45 @@ struct RoundedSector{T <: Real} <: AbstractPrimitive{T}
     "Common base and side fillet radius \\[m\\]."
     fillet::T
 
-    function RoundedSector{T}(
+    function Sector{T}(
             span::T,
             r_base::T,
             r_back::T,
             fillet::T
     ) where {T <: Real}
         all(isfinite, (span, r_base, r_back, fillet)) || throw(ArgumentError(
-            "rounded-sector dimensions must be finite"
+            "sector dimensions must be finite"
         ))
         zero(span) < span < oftype(span, π) || throw(DomainError(
-            span, "rounded-sector span must lie in (0, π)"
+            span, "sector span must lie in (0, π)"
         ))
         zero(r_base) <= r_base < r_back || throw(DomainError(
-            r_base, "rounded-sector base radius must lie in [0, r_back)"
+            r_base, "sector base radius must lie in [0, r_back)"
         ))
         zero(fillet) <= fillet < r_back || throw(DomainError(
-            fillet, "rounded-sector fillet must lie in [0, r_back)"
+            fillet, "sector fillet must lie in [0, r_back)"
         ))
         value = new{T}(span, r_base, r_back, fillet)
-        _rounded_sector_contacts(value)
+        _sector_contacts(value)
         return value
     end
 end
 
-function RoundedSector(
+function Sector(
         span::Real,
         r_base::Real,
         r_back::Real,
         fillet::Real = 0
 )
     values = map(float, promote(span, r_base, r_back, fillet))
-    return RoundedSector{typeof(first(values))}(values...)
+    return Sector{typeof(first(values))}(values...)
 end
 
 function Base.convert(
         ::Type{<:AbstractPrimitive{T}},
-        value::RoundedSector
+        value::Sector
 ) where {T <: Real}
-    return RoundedSector{T}(
+    return Sector{T}(
         convert(T, value.span),
         convert(T, value.r_base),
         convert(T, value.r_back),
@@ -68,18 +68,18 @@ end
 """
 $(TYPEDEF)
 
-Store the exact contact geometry of one placed [`RoundedSector`](@ref).
+Store the exact contact geometry of one placed [`Sector`](@ref).
 
 `contacts` contains passive derived arc and segment data. It is rebuilt from
 the authoritative primitive and is never serialized.
 """
-struct RoundedSectorShape{
+struct SectorShape{
         T <: Real,
-        P <: RoundedSector{T},
+        P <: Sector{T},
         C <: NamedTuple,
         A <: Pose2{T}
 } <: AbstractShape{T}
-    "Authoritative intrinsic rounded-sector primitive."
+    "Authoritative intrinsic cable-sector primitive."
     primitive::P
     "Exact derived arc contacts and straight boundary segments."
     contacts::C
@@ -135,7 +135,7 @@ function _arc(center, radius, first_point, last_point)
     return (; center, radius, interval.start, interval.stop)
 end
 
-function _rounded_sector_contacts(primitive::RoundedSector)
+function _sector_contacts(primitive::Sector)
     α = primitive.span
     b = primitive.r_base
     radius = primitive.r_back
@@ -155,7 +155,7 @@ function _rounded_sector_contacts(primitive::RoundedSector)
     discriminant_value = _geometry_scalar(discriminant)
     discriminant_value < -tolerance && throw(DomainError(
         discriminant,
-        "rounded-sector side fillet has no valid tangent contact"
+        "sector side fillet has no valid tangent contact"
     ))
     discriminant_value < 0 && (discriminant = zero(discriminant))
 
@@ -166,7 +166,7 @@ function _rounded_sector_contacts(primitive::RoundedSector)
     abs(_geometry_scalar(side_distance - (radius - fillet))) <=
         distance_tolerance || throw(DomainError(
         side_distance,
-        "rounded-sector side contact is inconsistent with its outer back"
+        "sector side contact is inconsistent with its outer back"
     ))
 
     base_center = (b + fillet, zero(b))
@@ -186,7 +186,7 @@ function _rounded_sector_contacts(primitive::RoundedSector)
     )
     lower_direction[1] * cosine - lower_direction[2] * sine >=
         -distance_tolerance || throw(DomainError(
-        lower_direction, "rounded-sector straight side has reversed contact order"
+        lower_direction, "sector straight side has reversed contact order"
     ))
 
     arcs = (
@@ -196,10 +196,11 @@ function _rounded_sector_contacts(primitive::RoundedSector)
         upper = _arc(upper_center, fillet, back_upper, side_upper)
     )
     all(arc -> begin
+        iszero(arc.radius) && return true
         extent = _geometry_scalar(arc.stop - arc.start)
         -distance_tolerance <= extent <= π + distance_tolerance
     end, values(arcs)) || throw(DomainError(
-        arcs, "rounded-sector arc contacts do not form a convex boundary"
+        arcs, "sector arc contacts do not form a convex boundary"
     ))
     segments = (
         lower = (base_lower, side_lower),
@@ -216,12 +217,12 @@ function _rounded_sector_contacts(primitive::RoundedSector)
     return (; points, arcs, segments)
 end
 
-function RoundedSectorShape(primitive::RoundedSector, at::Pose2 = _origin(eltype(primitive)))
+function SectorShape(primitive::Sector, at::Pose2 = _origin(eltype(primitive)))
     T = promote_type(eltype(primitive), eltype(at))
     converted = convert(AbstractPrimitive{T}, primitive)
     pose = convert(Pose2{T}, at)
-    contacts = _rounded_sector_contacts(converted)
-    return RoundedSectorShape{T, typeof(converted), typeof(contacts), typeof(pose)}(
+    contacts = _sector_contacts(converted)
+    return SectorShape{T, typeof(converted), typeof(contacts), typeof(pose)}(
         converted, contacts, pose
     )
 end
@@ -265,7 +266,7 @@ function _arc_moments(arc)
     )
 end
 
-function _rounded_sector_moments(shape::RoundedSectorShape)
+function _sector_moments(shape::SectorShape)
     moments = (
         _arc_moments(shape.contacts.arcs.base),
         _line_moments(shape.contacts.segments.lower...),
@@ -281,8 +282,8 @@ function _rounded_sector_moments(shape::RoundedSectorShape)
     )
 end
 
-area(shape::RoundedSectorShape) = _rounded_sector_moments(shape).area
-function perimeter(shape::RoundedSectorShape)
+area(shape::SectorShape) = _sector_moments(shape).area
+function perimeter(shape::SectorShape)
     arc_length = sum(values(shape.contacts.arcs)) do arc
         arc.radius * (arc.stop - arc.start)
     end
@@ -304,8 +305,8 @@ function _transform_point(point, at::Pose2)
     )
 end
 
-function centroid(shape::RoundedSectorShape)
-    moments = _rounded_sector_moments(shape)
+function centroid(shape::SectorShape)
+    moments = _sector_moments(shape)
     local_centroid = (
         moments.xmoment / moments.area,
         moments.ymoment / moments.area
@@ -320,7 +321,7 @@ function _angle_in_arc(angle, arc)
     return _geometry_scalar(candidate - arc.stop) <= tolerance
 end
 
-function _local_support(shape::RoundedSectorShape, angle::Real)
+function _local_support(shape::SectorShape, angle::Real)
     cosine = cos(angle)
     sine = sin(angle)
     projection(point) = point[1] * cosine + point[2] * sine
@@ -332,32 +333,32 @@ function _local_support(shape::RoundedSectorShape, angle::Real)
     return maximum(candidates)
 end
 
-function support(shape::RoundedSectorShape, angle::Real)
+function support(shape::SectorShape, angle::Real)
     return shape.at.x * cos(angle) + shape.at.y * sin(angle) +
            _local_support(shape, angle - shape.at.φ)
 end
 
-support(shape::RoundedSectorShape) = hypot(shape.at.x, shape.at.y) + shape.primitive.r_back
-boundary(shape::RoundedSectorShape) = shape
-r_in(shape::RoundedSectorShape) = shape.primitive.r_base
-r_ex(shape::RoundedSectorShape) = shape.primitive.r_back
-thickness(shape::RoundedSectorShape) = r_ex(shape) - r_in(shape)
+support(shape::SectorShape) = hypot(shape.at.x, shape.at.y) + shape.primitive.r_back
+boundary(shape::SectorShape) = shape
+r_in(shape::SectorShape) = shape.primitive.r_base
+r_ex(shape::SectorShape) = shape.primitive.r_back
+thickness(shape::SectorShape) = r_ex(shape) - r_in(shape)
 
-resolve(::EmptyBoundary, primitive::RoundedSector) = RoundedSectorShape(primitive)
-resolve(at::Pose2, primitive::RoundedSector) = RoundedSectorShape(primitive, at)
-function resolve(at::Pose2, shape::RoundedSectorShape)
-    return RoundedSectorShape(shape.primitive, at * shape.at)
+resolve(::EmptyBoundary, primitive::Sector) = SectorShape(primitive)
+resolve(at::Pose2, primitive::Sector) = SectorShape(primitive, at)
+function resolve(at::Pose2, shape::SectorShape)
+    return SectorShape(shape.primitive, at * shape.at)
 end
 
-function resolve(inner::RoundedSectorShape, layer::Shell)
+function resolve(inner::SectorShape, layer::Shell)
     primitive = inner.primitive
-    outer = RoundedSector(
+    outer = Sector(
         primitive.span,
         primitive.r_base - layer.t,
         primitive.r_back + layer.t,
         primitive.fillet + layer.t
     )
-    return ShellShape(inner, RoundedSectorShape(outer, inner.at))
+    return ShellShape(inner, SectorShape(outer, inner.at))
 end
 
 boundary(shape::ShellShape) = shape.outer
@@ -395,12 +396,12 @@ function _arc_points(arc, count::Int)
 end
 
 """
-    tessellate(shape::RoundedSectorShape; points_per_arc=32)
+    tessellate(shape::SectorShape; points_per_arc=32)
 
 Approximate the exact boundary with ordinary coordinate tuples for rendering
 or meshing. Exact geometric properties never use these points.
 """
-function tessellate(shape::RoundedSectorShape; points_per_arc::Integer = 32)
+function tessellate(shape::SectorShape; points_per_arc::Integer = 32)
     points_per_arc >= 2 || throw(ArgumentError(
         "points_per_arc must be at least two"
     ))

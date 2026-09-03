@@ -20,7 +20,8 @@ case_definition(
             tags = (:operation, :frequency)
         )
     ),
-    ["cable:1:core", "cable:2:core"]
+    ["cable:1:core", "cable:2:core"];
+    description = "Two buried bare wires"
 ) do p
     materials = LineCableModels.MaterialsLibrary(add_defaults = true)
     copper = LineCableModels.Material(materials, :copper)

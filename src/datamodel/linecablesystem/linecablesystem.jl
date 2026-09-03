@@ -376,15 +376,7 @@ function build(
             design.geometry.regions,
             design.terminal_map
         )
-            primitive = resolve(pose, source.primitive)
-            push!(global_geometry,
-                PlacedRegion(
-                    source.source,
-                    primitive,
-                    source.terminal,
-                    (patterns = source.placement.patterns,),
-                    source.paths
-                ))
+            push!(global_geometry, resolve(pose, source))
             push!(
                 terminal_map,
                 iszero(local_terminal) ? 0 :

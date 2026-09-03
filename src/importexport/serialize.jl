@@ -74,21 +74,17 @@ _serialize_object(value::Disk) = _node("disk"; r = value.r)
 _serialize_object(value::Rectangle) = _node("rectangle"; w = value.w, h = value.h)
 _serialize_object(value::Ellipse) = _node("ellipse"; a = value.a, b = value.b)
 function _serialize_object(value::Sector)
-    return _node("sector"; ri = value.ri, ro = value.ro, φ0 = value.φ0,
-        span = value.span)
-end
-_serialize_object(value::Annulus) = _node("annulus"; ri = value.ri, ro = value.ro)
-_serialize_object(value::Shell) = _node("shell"; t = value.t)
-_serialize_object(value::Polygon) = _node("polygon"; points = value.points)
-function _serialize_object(value::RoundedSector)
     return _node(
-        "rounded_sector";
+        "sector";
         span = value.span,
         r_base = value.r_base,
         r_back = value.r_back,
         fillet = value.fillet
     )
 end
+_serialize_object(value::Annulus) = _node("annulus"; ri = value.ri, ro = value.ro)
+_serialize_object(value::Shell) = _node("shell"; t = value.t)
+_serialize_object(value::Polygon) = _node("polygon"; points = value.points)
 _serialize_object(value::Pose2) = _node("pose2"; x = value.x, y = value.y, φ = value.φ)
 
 function _serialize_object(value::EarthLayer)
@@ -112,14 +108,6 @@ function _serialize_object(value::Ring)
     return _node("ring"; n = value.n, r = value.r, φ0 = value.φ0,
         span = value.span, gap_frac = value.gap_frac)
 end
-function _serialize_object(value::Hexa)
-    return _node(
-        "hexagonal_course";
-        course = value.course,
-        φ0 = value.φ0,
-        gap_frac = value.gap_frac
-    )
-end
 function _serialize_object(value::Polar)
     return _node("polar"; nr = value.nr, nφ = value.nφ, r0 = value.r0,
         dr = value.dr, φ0 = value.φ0, span = value.span)
@@ -130,12 +118,7 @@ end
 function _serialize_object(value::Lattice)
     _node("lattice"; nx = value.nx, ny = value.ny, dx = value.dx, dy = value.dy)
 end
-_serialize_object(value::DiameterFactor) = _node("diameter_factor"; k = value.k)
 _serialize_object(value::FillFactor) = _node("fill_factor"; η = value.η)
-function _serialize_object(value::TabulatedCompaction)
-    _node("tabulated_compaction"; data = value.data)
-end
-_serialize_object(value::AffineCompaction) = _node("affine_compaction"; map = value.map)
 _serialize_object(::typeof(capacity())) = _node("capacity")
 _serialize_object(value::LayRatio) = _node("lay_ratio"; q = value.q)
 _serialize_object(value::Pitch) = _node("pitch"; p = value.p)
@@ -168,7 +151,8 @@ function _serialize_part(value::Group, material_name)
         "item" => _serialize_part(value.item, material_name),
         "pattern" => serialize_value(value.pattern),
         "path" => serialize_value(value.path),
-        "compact" => serialize_value(value.compact)
+        "compact" => serialize_value(value.compact),
+        "boundary" => serialize_value(value.boundary)
     )
 end
 function _serialize_part(

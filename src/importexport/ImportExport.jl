@@ -38,10 +38,9 @@ using ..DataModel: CablesLibrary, DatasheetInfo, CableDesign, LineCableSystem,
                    AbstractCablePart, Region, Stack, Group, Assembly, Enclosure,
                    Disk, Rectangle, Ellipse,
                    Sector, Annulus, Shell,
-                   Polygon, RoundedSector, Pose2,
-                   Ring, Hexa, Polar, Fill, Lattice, capacity,
-                   FillFactor, DiameterFactor, TabulatedCompaction,
-                   AffineCompaction,
+                   Polygon, Pose2,
+                   Ring, Polar, Fill, Lattice, capacity,
+                   FillFactor,
                    LayRatio, Pitch, LayAngle, Helix
 using ..ParametricBuilder: AbstractGrid, DeterministicGrid, RelativeGrid,
                            AbsoluteGrid, Grid, Gridspace, AbsoluteError

@@ -170,12 +170,13 @@ end
     expected_owned_files=(
         joinpath("src", "datamodel", "geometry", "primitives.jl"),
         joinpath("src", "datamodel", "geometry", "shell.jl"),
-        joinpath("src", "datamodel", "geometry", "roundedsector.jl"),
+        joinpath("src", "datamodel", "geometry", "sector.jl"),
         joinpath("src", "datamodel", "geometry", "resolve.jl"),
         joinpath("src", "datamodel", "design", "region.jl"),
         joinpath("src", "datamodel", "design", "cabledesign.jl"),
         joinpath("src", "datamodel", "placement", "patterns.jl"),
         joinpath("src", "datamodel", "placement", "paths.jl"),
+        joinpath("src", "datamodel", "placement", "bounded.jl"),
         joinpath("src", "parametricbuilder", "physicaltree.jl"),
         joinpath("src", "datamodel", "preview", "geometry.jl"),
         joinpath("src", "datamodel", "preview", "materials.jl"),
@@ -309,6 +310,8 @@ end
     @test !isdefined(LineCableModels.DataModel, :_DifferencePrimitive)
     @test Base.ispublic(LineCableModels.DataModel, :AssemblyMember)
     @test Base.ispublic(LineCableModels.DataModel, :AssemblyShape)
+    @test Base.ispublic(LineCableModels.DataModel, :BentStrip)
+    @test Base.ispublic(LineCableModels.DataModel, :BoundedPlacement)
     @test Base.ispublic(LineCableModels.DataModel, :DifferenceShape)
     @test !isdefined(LineCableModels.DataModel, :AbstractPrimitiveDefinition)
     for name in (
@@ -364,15 +367,26 @@ end
     @test all(startswith(path, joinpath("src", "reportbuilder"))
     for path in dataframe_sources)
 
-    rounded_sector_source=source[joinpath(
-        "src", "datamodel", "geometry", "roundedsector.jl"
+    sector_source=source[joinpath(
+        "src", "datamodel", "geometry", "sector.jl"
     )]
     flatten_source=source[joinpath("src", "datamodel", "flatten.jl")]
     for token in ("Point2f", "GeometryBasics", "Makie")
-        @test !occursin(token, rounded_sector_source)
+        @test !occursin(token, sector_source)
         @test !occursin(token, flatten_source)
     end
     @test !occursin("tessellate", flatten_source)
+    engine_sources=filter(keys(source)) do path
+        startswith(path, joinpath("src", "engine"))
+    end
+    for token in (
+        r"\bresolve\(",
+        r"\bresolve_bounded\(",
+        r"\bcompact_bounded_members\(",
+        r"\bpower_cells?\("
+    )
+        @test all(!occursin(token, source[path]) for path in engine_sources)
+    end
     for token in (
         "LineParametersProblem",
         "LineParametersFormulation",
@@ -545,8 +559,7 @@ end
 
     gmsh_source=join(
         (read(path, String)
-        for (directory, _, files) in
-            walkdir(joinpath(extension_root, "LineCableModelsGmshExt"))
+        for (directory, _, files) in walkdir(joinpath(extension_root, "LineCableModelsGmshExt"))
         for file in files if endswith(file, ".jl")
         for path in (joinpath(directory, file),)),
         "\n")

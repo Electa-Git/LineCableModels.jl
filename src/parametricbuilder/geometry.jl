@@ -38,12 +38,18 @@ function Ellipse(a, b; combine::Symbol = :product)
     )
 end
 
-"Declare a sector primitive, or a finite space of sector primitives."
-function Sector(ri, ro, φ0, span; combine::Symbol = :product)
+"Declare a filleted cable-sector primitive, or a finite space of sectors."
+function Sector(;
+        span,
+        r_base,
+        r_back,
+        fillet = 0,
+        combine::Symbol = :product
+)
     return parameterize(
         DataModel.Sector,
         DataModel.Sector,
-        (ri, ro, φ0, span);
+        (span, r_base, r_back, fillet);
         combine
     )
 end
@@ -64,22 +70,6 @@ function Shell(t; combine::Symbol = :product)
         DataModel.Shell,
         DataModel.Shell,
         (t,);
-        combine
-    )
-end
-
-"Declare a rounded cable-sector primitive, or a finite space of such primitives."
-function RoundedSector(;
-        span,
-        r_base,
-        r_back,
-        fillet = 0,
-        combine::Symbol = :product
-)
-    return parameterize(
-        DataModel.RoundedSector,
-        DataModel.RoundedSector,
-        (span, r_base, r_back, fillet);
         combine
     )
 end

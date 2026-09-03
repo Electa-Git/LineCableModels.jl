@@ -113,7 +113,9 @@ end
 ## Repeated conductors
 
 `stranded` accepts circular or rectangular strand shapes through the same
-surface. `layers` counts outer courses; the central strand is additional.
+surface. For a `Disk` boundary, `layers` counts outer courses and the central
+strand is additional. A `Sector` boundary has no central strand; its inventory
+is exactly the sum of the declared course counts.
 
 ```julia
 core_part = stranded(
@@ -122,27 +124,36 @@ core_part = stranded(
     layers=3,
     n=(6, 12, 18),
     lay=LayRatio(13, 12, 11),
+    boundary=Disk(4.0e-3),
 )
 ```
 
-For circular strands, a complete `6k` schedule uses exact hexagonal
-close-packed courses: neighbouring strand centres remain one strand diameter
-apart. Incomplete schedules, noncircular members, differing course rotations
-or clearances, and compacted courses retain explicit concentric `Ring`
-placement.
+`boundary` is the authoritative finished core. `stranded` partitions that
+boundary among the declared members, preserves every source-strand area, and
+stores the deformed members as resolved geometry. `Ring` records course
+inventory and deterministic angular ordering; it does not prescribe a
+fictitious common placement radius. Omitted `φ0` values stagger each course at
+the angular midpoint of the previous course.
 
-Use `capacity()` when a course should contain the maximum count allowed by its
-actual geometry and compaction law:
+For a circular core, `FillFactor` is one formation-wide material fraction. It
+must agree with declared strand area divided by boundary area; omission infers
+that ratio:
 
 ```julia
-compact_core = @distribute stranded(
+compact_core = stranded(
     copper;
     shape=Disk(0.5e-3),
     layers=1,
+    n=6,
     compact=FillFactor(0.9),
     lay=LayRatio(11),
+    boundary=Disk(sqrt(7 / 0.9) * 0.5e-3),
 )
 ```
+
+Member counts in a bounded formation are explicit. `capacity()` remains for
+ordinary repeated `wires`, tapes, armor, and rope courses, where a contextual
+ring actually determines capacity.
 
 Course schedules are ordinary physical tuples. Wrap a complete schedule in
 `Grid` only when the schedule itself should vary.
@@ -157,22 +168,36 @@ sector_core = stranded(
     layers=4,
     n=(6, 12, 18, 24),
     lay=LayRatio(14, 13, 12, 11),
-    boundary=RoundedSector(
+    boundary=Sector(
         span=deg2rad(119),
         r_base=1.10e-3,
         r_back=10.24e-3,
         fillet=1.02e-3,
     ),
-    compact=sector_course_compaction,
 )
 ```
 
-`shape` is the intrinsic geometry of each strand. `boundary` is the completed
-aggregate boundary after the course-specific `compact` declarations have
-placed or transformed those strands. The boundary does not add a homogeneous
-conductor region and does not replace the retained strand geometry. The
-compaction must produce member geometry consistent with the prescribed
-boundary.
+`shape` is the undeformed geometry of each strand. A `Sector` boundary invokes
+the same formation-wide area-preserving partition inside the exact filleted
+cable-sector shape. The boundary adds no homogeneous conductor and never
+replaces the retained strand identities. It also adds no fictitious strand at
+the cable origin: the example contains exactly `6 + 12 + 18 + 24` strands.
+
+Rectangular stranding states its circular centre separately and bends each
+outer rectangle into an exact annular strip. The radial expansion preserves
+the declared rectangular area:
+
+```julia
+rectangular_core = stranded(
+    copper;
+    center=Disk(0.5e-3),
+    shape=Rectangle(0.35e-3, 0.8e-3),
+    layers=3,
+    n=(6, 12, 18),
+    compact=FillFactor(1),
+    boundary=Disk(sqrt((0.5e-3)^2 + 36 * 0.35e-3 * 0.8e-3 / pi)),
+)
+```
 
 ## Independent cores and enclosures
 
@@ -180,12 +205,12 @@ boundary.
 
 ```julia
 phase_a = @terminal :a begin
-    core(copper, Sector(0, 4e-3, -pi / 6, pi / 3))
+    core(copper, Sector(span=pi / 3, r_base=1e-3, r_back=4e-3))
     insulation(xlpe; t=1e-3)
 end
 
 phase_b = @terminal :b begin
-    core(copper, Sector(0, 4e-3, -pi / 6, pi / 3))
+    core(copper, Sector(span=pi / 3, r_base=1e-3, r_back=4e-3))
     insulation(xlpe; t=1e-3)
 end
 
@@ -236,14 +261,14 @@ inside `CableGeometry`. `EmptyBoundary` represents the first stacking state.
 Adding a primitive requires local `resolve`, `boundary`, `area`, `centroid`, and
 `support` methods rather than a central type switch.
 
-## Rounded sector cores
+## Sector cores
 
-`RoundedSector` describes one material-neutral cable-sector cross-section. Its
-symmetry axis is local `+x`; placement and terminal identity remain outside the
-primitive.
+`Sector` describes one material-neutral cable-sector cross-section with an
+optional fillet. Its symmetry axis is local `+x`; placement and terminal
+identity remain outside the primitive.
 
 ```julia
-sector = RoundedSector(
+sector = Sector(
     span=deg2rad(119),
     r_base=1.10e-3,
     r_back=10.24e-3,

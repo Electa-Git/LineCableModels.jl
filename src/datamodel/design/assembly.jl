@@ -138,18 +138,19 @@ function _append_assembly_member!(
     radius = hypot(member_at.x, member_at.y)
     extent = zero(support(boundary(child)))
     for source in child.regions
+        placed = resolve(assembly_at * member_at, source)
         terminal = source.terminal === nothing ? nothing : terminal_map(source.terminal)
         local_primitive = resolve(member_at, source.primitive)
         extent = max(extent, support(local_primitive))
-        patterns = pattern === nothing ? source.placement.patterns :
-                   (source.placement.patterns...,
+        patterns = pattern === nothing ? placed.placement.patterns :
+                   (placed.placement.patterns...,
             (pattern = pattern, member = member, pose = member_at))
         paths = path === nothing ? source.paths :
                 (source.paths..., (path = path, radius = radius))
         push!(regions,
             PlacedRegion(
                 source.source,
-                resolve(assembly_at, local_primitive),
+                placed.primitive,
                 terminal,
                 (patterns = patterns,),
                 paths
