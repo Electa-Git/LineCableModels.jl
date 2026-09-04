@@ -124,7 +124,8 @@ using .InputValidation: validate
 include("grid.jl")
 include("gridspace.jl")
 
-public parameterize, materialize, sample_uncertainty
+public parameterize, points, uncertainties
+public materialize, realize, realize_arguments, sample_uncertainty
 
 # Thin native plotting handles and optional-extension entry points.
 include("plotbuilder/PlotBuilder.jl")
