@@ -11,7 +11,6 @@
     const SA=EN.SemiconAdmittance
 
     expected_internal=(
-        :Ametani1980,
         :Ametani2004,
         :AmetaniFuse1992,
         :Schelkunoff1934,
@@ -65,6 +64,26 @@
     @test II.formulas() == expected_internal
     @test EI.formulas() == expected_earth_impedance
     @test EA.formulas() == expected_earth_admittance
+
+    allowed_templates=(
+        EI=>Set((:earth_impedance, :propagation_constant)),
+        EA=>Set((
+            :earth_potential_coefficient,
+            :earth_impedance,
+            :propagation_constant
+        ))
+    )
+    for (catalogue, templates) in allowed_templates, id in catalogue.formulas()
+
+        formula=catalogue.Formula(id)
+        for route in values(catalogue.routes(formula))
+            @test route isa LineCableModels.FormulaMethod
+            @test typeof(route).parameters[1] === id
+            @test nameof(route.method) in templates
+            @test all(argument -> argument isa Val, route.arguments)
+        end
+    end
+
     @test all(id -> !isempty(description(II.Formula(id))), II.formulas())
     @test all(id -> !isempty(description(EI.Formula(id))), EI.formulas())
     @test all(id -> !isempty(description(EA.Formula(id))), EA.formulas())
@@ -207,7 +226,7 @@ end
     function two_bare_wires(;
             y = -1.0,
             frequencies = Float64[1.0, 50.0, 1.0e6],
-            earth = Earth(rho = 0.1, eps_r = 1.0, mu_r = 1.0)
+            earth = homogeneous(rho = 0.1, eps_r = 1.0, mu_r = 1.0)
     )
         conductor=Material(
             kind = :conductor,
@@ -272,7 +291,6 @@ end
     overhead=two_bare_wires(y = 1.0)
     underground_impedance=(
         :Ametani2009,
-        :Bridges1995,
         :Lucca1994,
         :Magalhaes2018,
         :Papadopoulos2010,
@@ -281,7 +299,6 @@ end
         :Saad1996,
         :Theethayi2007,
         :Tsiamitros2008,
-        :Vance1978,
         :WedepohlWilcox1973,
         :Xue2018
     )
@@ -330,7 +347,7 @@ end
     end
     for identifier in underground_admittance
         result=compute(underground, Formulation(
-            earth_impedance = :Bridges1995,
+            earth_impedance = :Petrache2005,
             earth_admittance = identifier
         ))
         @test finite_reciprocal(result)
@@ -344,11 +361,11 @@ end
         @test finite_reciprocal(result)
     end
 
-    for identifier in (:Schelkunoff1934, :Ametani1980, :AmetaniFuse1992)
+    for identifier in (:Schelkunoff1934, :AmetaniFuse1992)
         result=compute(underground,
             Formulation(
                 internal_impedance = identifier,
-                earth_impedance = :Bridges1995,
+                earth_impedance = :Petrache2005,
                 earth_admittance = :IdealGround
             ))
         @test finite_reciprocal(result)
@@ -356,14 +373,14 @@ end
     @test finite_reciprocal(compute(underground,
         Formulation(
             insulation_impedance = :Ametani1980,
-            earth_impedance = :Bridges1995,
+            earth_impedance = :Petrache2005,
             earth_admittance = :IdealGround
         )))
-    for identifier in (:Gustavsen2013, :Marti2001)
+    for identifier in (:Ametani2004, :Gustavsen2013)
         result=compute(underground,
             Formulation(
                 insulation_admittance = identifier,
-                earth_impedance = :Bridges1995,
+                earth_impedance = :Petrache2005,
                 earth_admittance = :IdealGround
             ))
         @test finite_reciprocal(result)
@@ -390,6 +407,7 @@ end
     homogeneous_thickness=Float64[Inf, Inf]
     overhead=EarthPair(1, 2, (1.0, 1.2), 1.0, (1, 1))
     underground=EarthPair(1, 2, (-1.0, -1.2), 1.0, (2, 2))
+    vertical_underground=EarthPair(1, 2, (-1.0, -1.2), 0.0, (2, 2))
     mixed=EarthPair(1, 2, (1.0, -1.0), 1.0, (1, 2))
 
     sunde=EI.Formula(:Sunde1968)(
@@ -438,6 +456,31 @@ end
     rho_mixed=Float64[Inf, 0.1]
     epsilon_mixed=Float64[epsilon0, epsilon0]
     mu_mixed=Float64[mu0, mu0]
+    radial_self=EarthPair(1, 1, (-1.0, -1.0), 0.0425, (2, 2))
+    for identifier in (:Bridges1995, :Vance1978)
+        radial=EI.Formula(identifier)(
+            rho_mixed, epsilon_mixed, mu_mixed, s, nothing
+        )
+        @test isfinite(radial(Val(:self), radial_self))
+        @test_throws ArgumentError radial(Val(:mutual), underground)
+    end
+    for identifier in (
+        :Petrache2005,
+        :Saad1996,
+        :Theethayi2007,
+        :WedepohlWilcox1973
+    )
+        radial=EI.Formula(identifier)(
+            rho_mixed, epsilon_mixed, mu_mixed, s, nothing
+        )
+        @test_throws DomainError radial(Val(:mutual), vertical_underground)
+    end
+    for identifier in (:Theethayi2007, :Xue2021)
+        radial=EA.Formula(identifier)(
+            rho_mixed, epsilon_mixed, mu_mixed, s, nothing
+        )
+        @test_throws DomainError radial(Val(:mutual), vertical_underground)
+    end
     for identifier in (
         :Ametani2009,
         :Lucca1994,
@@ -499,6 +542,16 @@ end
     @test surface(rho_mixed, epsilon_mixed, mu_mixed, s, nothing)(
         Val(:mutual), underground
     ) == EA.routes(xue).surface(xue_functor, underground)
+    magalhaes=EA.Formula(:Magalhaes2018)(
+        rho_mixed, epsilon_mixed, mu_mixed, s, nothing
+    )
+    for (kind, pair) in (
+        (:mutual, underground),
+        (:self, EarthPair(1, 1, (-1.0, -1.0), 0.0425, (2, 2)))
+    )
+        @test magalhaes(Val(kind), pair) ≈
+              EA.routes(xue).surface(xue_functor, pair) rtol=1.0e-9
+    end
     tsiamitros=@inferred EI.Formula(:Tsiamitros2008)(
         rho3, epsilon3, mu3, s, nothing, nothing, thickness
     )(Val(:mutual), mixed)
@@ -521,7 +574,6 @@ end
 
     for identifier in (
         :Schelkunoff1934,
-        :Ametani1980,
         :WedepohlWilcox1973,
         :Zhao2020
     )

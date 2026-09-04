@@ -1,11 +1,13 @@
-function routes(::Val{:Lucca1994})
+function routes(identifier::Val{:Lucca1994})
     (
-        self = lucca1994,
-        mutual = lucca1994,
-        overhead = carson1926,
-        underground = pollaczek1926_underground,
-        mixed = lucca1994_mixed,
-        Γ = lucca1994_gamma
+        self = FormulaMethod(identifier, earth_impedance, Val(:self)),
+        mutual = FormulaMethod(identifier, earth_impedance, Val(:mutual)),
+        overhead = FormulaMethod(identifier, earth_impedance, Val(:overhead)),
+        underground = FormulaMethod(
+            identifier, earth_impedance, Val(:underground)
+        ),
+        mixed = FormulaMethod(identifier, earth_impedance, Val(:mixed)),
+        Γ = FormulaMethod(identifier, propagation_constant)
     )
 end
 
@@ -18,9 +20,36 @@ function assumptions(::Val{:Lucca1994})
 end
 
 propagation(::Val{:Lucca1994}) = Val(:zero)
-description(::Formula{:Lucca1994}) = "Lucca"
+"""
+$(TYPEDSIGNATURES)
 
-lucca1994_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))
+**Identification.** Pair-complete homogeneous-earth recipe with a corrected
+complex-depth approximation for mixed overhead-underground coupling.
+
+**Expression.** Its distinctive mixed term is
+
+```math
+Z_{e,ij}^{01}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[
+\\ln\\frac{S}{D}-\\frac23\\left(\\frac{h_e}{S^2}\\right)^3
+H(H^2-3y_{ij}^2)\\right],
+```
+
+```math
+h_e=(j\\omega\\mu_0\\sigma_g)^{-1/2},\\quad
+H=h_a+h_g+2h_e,\\quad S=\\sqrt{H^2+y_{ij}^2},\\quad
+D=\\sqrt{(h_a+h_g)^2+y_{ij}^2}.
+```
+
+**Reference.** G. Lucca, “Mutual Impedance Between an Overhead and a Buried
+Line with Earth Return,” *9th International Conference on Electromagnetic
+Compatibility*, 1994. DOI: 10.1049/cp:19940679.
+"""
+description(::Formula{:Lucca1994}) =
+    "Lucca pair-complete homogeneous-earth impedance (1994)"
+
+function propagation_constant(::Val{:Lucca1994}, jω, permeability, permittivity)
+    return (Γ = zero(jω), squared = zero(jω))
+end
 
 function (formula::Formula{:Lucca1994})(rho, epsilon, mu, jω, Γ, segments = nothing)
     return _homogeneous_functor(
@@ -28,20 +57,27 @@ function (formula::Formula{:Lucca1994})(rho, epsilon, mu, jω, Γ, segments = no
     )
 end
 
-function lucca1994(functor, pair)
-    return lucca1994(functor, pair, _placement(pair))
-end
-
-function lucca1994(functor, pair, ::Val{:overhead})
-    return functor.routes.overhead(functor, pair)
-end
-
-function lucca1994(functor, pair, ::Val{:underground})
-    return functor.routes.underground(functor, pair)
-end
-
-function lucca1994(functor, pair, ::Val{:mixed})
+function earth_impedance(
+        ::Val{:Lucca1994}, ::Val{:mutual}, functor, pair
+)
+    placement = _placement(pair)
+    typeof(placement) === Val{:overhead} &&
+        return functor.routes.overhead(functor, pair)
+    typeof(placement) === Val{:underground} &&
+        return functor.routes.underground(functor, pair)
     return functor.routes.mixed(functor, pair)
+end
+
+function earth_impedance(
+        ::Val{:Lucca1994}, ::Val{:overhead}, functor, pair
+)
+    return earth_impedance(Val(:Carson1926), Val(:mutual), functor, pair)
+end
+
+function earth_impedance(
+        ::Val{:Lucca1994}, ::Val{:underground}, functor, pair
+)
+    return earth_impedance(Val(:Pollaczek1926), Val(:underground), functor, pair)
 end
 
 raw"""
@@ -67,10 +103,12 @@ and replaces only the mixed interaction.
 # Reference
 
 G. Lucca, "Mutual impedance between an overhead and a buried line with earth
-return," *9th International Conference on Electromagnetic Compatibility*,
-1994. DOI: 10.1049/cp:19940679.
+return," *9th International Conference on Electromagnetic Compatibility*, 1994.
+DOI: 10.1049/cp:19940679.
 """
-function lucca1994_mixed(functor, pair)
+function earth_impedance(
+        ::Val{:Lucca1994}, ::Val{:mixed}, functor, pair
+)
     state = functor.state
     air = pair.layers[1] == 1 ? 1 : 2
     earth = air == 1 ? 2 : 1

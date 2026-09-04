@@ -1,9 +1,9 @@
-@testsnippet defs_earthprops begin
+@testsnippet current_earthprops begin
     const EP = LineCableModels.EarthProps
 end
 
 @testitem "EarthProps / ephemeral material validation and promotion" tags=[:unit] setup=[
-    defs_earthprops,
+    current_earthprops,
 ] begin
     using Measurements: Measurement, measurement, uncertainty, value
 
@@ -30,7 +30,7 @@ end
 end
 
 @testitem "EarthProps / static layer validation and promotion" tags=[:unit] setup=[
-    defs_earthprops,
+    current_earthprops,
 ] begin
     using Measurements: Measurement, measurement, uncertainty, value
 
@@ -63,37 +63,41 @@ end
     @test_throws DomainError EP.EarthLayer(100.0, 10.0, 1.0, 0.0)
 end
 
-@testitem "EarthProps / static model ownership and atomic mutation" tags=[:unit] setup=[
-    defs_earthprops,
+@testitem "EarthProps / immutable static model ownership" tags=[:unit] setup=[
+    current_earthprops,
 ] begin
     using Measurements: Measurement, measurement, uncertainty, value
 
-    model=EP.EarthModel(100.0, 10.0, 1.0; thickness = 20.0)
+    model=@inferred build(EP.EarthModel,
+        (
+            EP.EarthLayer(100.0, 10.0, 1.0, 20.0),
+            EP.EarthLayer(200.0, 15.0, 1.0, 40.0),
+            EP.EarthLayer(500.0, 20.0, 1.0)
+        ))
     @test model isa EP.EarthModel{Float64}
+    @test !ismutabletype(typeof(model))
     @test !model.vertical_layers
-    @test length(model.layers) == 2
+    @test model.layers isa NTuple{4, EP.EarthLayer{Float64}}
+    @test length(model.layers) == 4
     @test isinf(first(model.layers).rho)
     @test isinf(first(model.layers).thickness)
-    @test last(model.layers).thickness == 20.0
+    @test isinf(last(model.layers).thickness)
     @test !hasfield(typeof(model), :frequencies)
     @test !hasfield(typeof(model), :freq_dependence)
+    @test getproperty.(model.layers, :rho) == (Inf, 100.0, 200.0, 500.0)
+    @test !applicable(add!, model, EP.EarthLayer(800.0, 25.0, 1.0))
+    @test_throws MethodError setindex!(
+        model.layers, EP.EarthLayer(800.0, 25.0, 1.0), 2
+    )
+    @test_throws ArgumentError build(
+        EP.EarthModel, (
+            EP.EarthLayer(100.0, 10.0, 1.0),
+            EP.EarthLayer(800.0, 25.0, 1.0, 10.0)
+        ))
 
-    add!(model, EP.EarthLayer(200.0, 15.0, 1.0, 40.0))
-    add!(model, EP.EarthLayer(500.0, 20.0, 1.0))
-    @test getproperty.(model.layers, :rho) == [Inf, 100.0, 200.0, 500.0]
-
-    snapshot=copy(model.layers)
-    @test_throws ArgumentError add!(model, EP.EarthLayer(800.0, 25.0, 1.0, 10.0))
-    @test model.layers == snapshot
-    @test_throws ArgumentError add!(model, EP.EarthLayer(800.0f0, 25.0f0, 1.0f0))
-    @test model.layers == snapshot
-
-    model32=EP.EarthModel(100.0f0, 10.0f0, 1.0f0; thickness = 20.0f0)
-    add!(model32, 200.0f0, 15.0f0, 1.0f0; thickness = Float32(Inf))
-    @test model32 isa EP.EarthModel{Float32}
-    @test_throws ArgumentError add!(model32, 300.0, 15.0, 1.0)
-
-    converted=convert(EP.EarthModel{Float32}, EP.EarthModel(100.0, 10.0, 1.0))
+    converted=@inferred convert(
+        EP.EarthModel{Float32}, EP.EarthModel(100.0, 10.0, 1.0)
+    )
     @test converted isa EP.EarthModel{Float32}
     @test convert(EP.EarthModel{Float32}, converted) === converted
 
@@ -102,9 +106,13 @@ end
     @test value(uncertain.layers[2].rho) == 100.0
     @test uncertainty(uncertain.layers[2].rho) == 0.0
 
-    vertical=EP.EarthModel(100.0, 10.0, 1.0; vertical_layers = true)
-    add!(vertical, EP.EarthLayer(200.0, 15.0, 1.0, 20.0))
-    add!(vertical, EP.EarthLayer(500.0, 20.0, 1.0))
+    vertical=build(EP.EarthModel,
+        (
+            EP.EarthLayer(100.0, 10.0, 1.0),
+            EP.EarthLayer(200.0, 15.0, 1.0, 20.0),
+            EP.EarthLayer(500.0, 20.0, 1.0)
+        );
+        vertical_layers = true)
     @test vertical.vertical_layers
     @test length(vertical.layers) == 4
     @test_throws ArgumentError EP.EarthModel(
@@ -112,9 +120,11 @@ end
     )
 end
 
-@testitem "EarthProps / concise display" tags=[:unit] setup=[defs_earthprops] begin
-    model=EP.EarthModel(100.0, 10.0, 1.0; thickness = 20.0)
-    add!(model, EP.EarthLayer(500.0, 20.0, 1.0))
+@testitem "EarthProps / concise display" tags=[:unit] setup=[current_earthprops] begin
+    model=build(EP.EarthModel, (
+        EP.EarthLayer(100.0, 10.0, 1.0, 20.0),
+        EP.EarthLayer(500.0, 20.0, 1.0)
+    ))
 
     shown=sprint(show, "text/plain", model)
     @test contains(shown, "EarthModel · 2 earth layers")
@@ -126,12 +136,14 @@ end
 end
 
 @testitem "EarthProps / static constitutive pass-through" tags=[:unit] setup=[
-    defs_earthprops,
+    current_earthprops,
 ] begin
     using Measurements: Measurement, measurement, uncertainty, value
 
-    model=EP.EarthModel(100.0, 10.0, 1.0; thickness = 20.0)
-    add!(model, EP.EarthLayer(500.0, 20.0, 2.0))
+    model=build(EP.EarthModel, (
+        EP.EarthLayer(100.0, 10.0, 1.0, 20.0),
+        EP.EarthLayer(500.0, 20.0, 2.0)
+    ))
     frequencies=[50.0, 60.0, 1.0e3]
     formulation=LineCableModels.Engine.Formulation()
     @test formulation.methods.earth_properties === nothing
@@ -141,12 +153,12 @@ end
         formulation,
         (earth = model, freq = frequencies)
     )
-    static_rho=repeat(getproperty.(model.layers, :rho), 1, length(frequencies))
+    static_rho=repeat(collect(getproperty.(model.layers, :rho)), 1, length(frequencies))
     static_eps_r=repeat(
-        getproperty.(model.layers, :eps_r), 1, length(frequencies)
+        collect(getproperty.(model.layers, :eps_r)), 1, length(frequencies)
     )
     static_mu_r=repeat(
-        getproperty.(model.layers, :mu_r), 1, length(frequencies)
+        collect(getproperty.(model.layers, :mu_r)), 1, length(frequencies)
     )
 
     @test size(properties.rho) == (3, 3)

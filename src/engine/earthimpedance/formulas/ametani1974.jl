@@ -1,8 +1,8 @@
-function routes(::Val{:Ametani1974})
+function routes(identifier::Val{:Ametani1974})
     (
-        self = ametanitwolayer1974,
-        mutual = ametanitwolayer1974,
-        Γ = ametanitwolayer1974_gamma
+        self = FormulaMethod(identifier, earth_impedance, Val(:self)),
+        mutual = FormulaMethod(identifier, earth_impedance, Val(:mutual)),
+        Γ = FormulaMethod(identifier, propagation_constant)
     )
 end
 
@@ -16,11 +16,40 @@ end
 
 propagation(::Val{:Ametani1974}) = Val(:zero)
 media(::Formula{:Ametani1974}) = Val(:stratified)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Overhead-conductor impedance above two magnetic earth
+layers.
+
+**Expression.**
+
+```math
+Z_{e,ij}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[
+\\ln\\frac{D_{ij}}{d_{ij}}+2\\int_0^\\infty F_{ij}^{A}(\\lambda)
+\\cos(y_{ij}\\lambda)d\\lambda\\right],
+```
+
+```math
+F_{ij}^{A}=\\frac{b_1+b_2+(b_1-b_2)e^{-2a_1d}}
+{(\\lambda+\\mu_0b_1)(b_1+b_2)+(\\lambda-\\mu_0b_1)
+(b_1-b_2)e^{-2a_1d}}e^{-\\lambda H},
+\\quad b_m=\\frac{a_m}{\\mu_m},\\quad
+a_m=\\sqrt{\\lambda^2+\\gamma_m^2-\\gamma_0^2}.
+```
+
+**Reference.** A. Ametani, “Stratified Earth Effects on Wave Propagation:
+Frequency-Dependent Parameters,” *IEEE Transactions on Power Apparatus and
+Systems*, PAS-93(5), 1233–1239, 1974; equation transcription follows Ametani
+et al., IET, 2021.
+"""
 function description(::Formula{:Ametani1974})
     "Ametani two-layer magnetic-earth overhead impedance (1974)"
 end
 
-function ametanitwolayer1974_gamma(jω, permeability, permittivity)
+function propagation_constant(
+        ::Val{:Ametani1974}, jω, permeability, permittivity
+)
     (Γ = zero(jω), squared = zero(jω))
 end
 
@@ -50,7 +79,9 @@ where ``b_m=a_m/\mu_m`` and
 ``Z_{e,ij}=(j\omega\mu_0/(2\pi))[\ln(D_{ij}/d_{ij})+2\int F_{ij}^A
 \cos(y_{ij}\lambda)d\lambda]``.
 """
-function ametanitwolayer1974(functor, pair)
+function earth_impedance(
+        ::Val{:Ametani1974}, ::Val{:mutual}, functor, pair
+)
     _require(pair, Val(:overhead))
     state = functor.state
     geometry = _geometry(pair)

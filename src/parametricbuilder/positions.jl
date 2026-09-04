@@ -4,14 +4,14 @@ struct _ConnectionsAbsent end
 
 const _CONNECTIONS_ABSENT = _ConnectionsAbsent()
 
-_construction_type(value) = typeof(value)
-_construction_type(::DeterministicGrid{Values}) where {Values} = eltype(Values)
-_construction_type(::Union{RelativeGrid, AbsoluteGrid}) = Real
-_construction_type(::Gridspace{Target}) where {Target} = Target
+_parameter_type(value) = typeof(value)
+_parameter_type(::DeterministicGrid{Values}) where {Values} = eltype(Values)
+_parameter_type(::Union{RelativeGrid, AbsoluteGrid}) = Real
+_parameter_type(::Gridspace{Target}) where {Target} = Target
 
 function _at_kind(left, right, connections)
-    left_type = _construction_type(left)
-    right_type = _construction_type(right)
+    left_type = _parameter_type(left)
+    right_type = _parameter_type(right)
     (left_type === Union{} || right_type === Union{}) && throw(ArgumentError(
         "at does not accept an empty finite source"
     ))
@@ -19,43 +19,53 @@ function _at_kind(left, right, connections)
 end
 
 _at_kind(::Type{<:Real}, ::Type{<:Real}, ::_ConnectionsAbsent) = Val(:pose)
-_at_kind(
-    ::Type{<:DataModel.AbstractCablePart},
-    ::Type{<:DataModel.Pose2},
-    ::_ConnectionsAbsent
-) = Val(:member)
-_at_kind(
-    ::Type{<:DataModel.CableDesign},
-    ::Type{<:DataModel.Pose2},
-    connections
-) = Val(:design)
-_at_kind(
-    ::Type{<:Union{Tuple, AbstractVector}},
-    ::Type{<:DataModel.Pose2},
-    ::_ConnectionsAbsent
-) = Val(:collection)
+function _at_kind(
+        ::Type{<:DataModel.AbstractCablePart},
+        ::Type{<:DataModel.Pose2},
+        ::_ConnectionsAbsent
+)
+    Val(:member)
+end
+function _at_kind(
+        ::Type{<:DataModel.CableDesign},
+        ::Type{<:DataModel.Pose2},
+        connections
+)
+    Val(:design)
+end
+function _at_kind(
+        ::Type{<:Union{Tuple, AbstractVector}},
+        ::Type{<:DataModel.Pose2},
+        ::_ConnectionsAbsent
+)
+    Val(:collection)
+end
 
-at(; x = 0, y = 0, φ = 0, combine::Symbol = :product) =
-    at(x, y; φ, combine)
+at(; x = 0, y = 0, φ = 0, combine::Symbol = :product) = at(x, y; φ, combine)
 
 at(pose::DataModel.Pose2) = pose
 
-_placed_member(part, pose) = DataModel._AssemblyMember(part, pose)
+_placed_member(part, pose) = DataModel.AssemblyMember(part, pose)
 
-_placed_design(design, pose, connections) = (
-    design = design,
-    pose = pose,
-    connections = connections
-)
+function _placed_design(design, pose, connections)
+    (
+        design = design,
+        pose = pose,
+        connections = connections
+    )
+end
 
 _compose_pose(outer::DataModel.Pose2, inner::DataModel.Pose2) = outer * inner
-_compose_member(outer, member::DataModel._AssemblyMember) =
-    DataModel._AssemblyMember(member.item, _compose_pose(outer, member.at))
+function _compose_member(outer, member::DataModel.AssemblyMember)
+    DataModel.AssemblyMember(member.item, _compose_pose(outer, member.at))
+end
 _compose_member(outer, pose::DataModel.Pose2) = _compose_pose(outer, pose)
-_compose_member(outer, placement::NamedTuple) = merge(
-    placement,
-    (pose = _compose_pose(outer, placement.pose),)
-)
+function _compose_member(outer, placement::NamedTuple)
+    merge(
+        placement,
+        (pose = _compose_pose(outer, placement.pose),)
+    )
+end
 
 function _compose_collection(placements, pose)
     placements isa Union{Tuple, AbstractVector} || throw(ArgumentError(
@@ -66,13 +76,12 @@ end
 
 _collection_target(::Tuple) = Tuple
 _collection_target(::AbstractVector) = Vector
-_collection_target(::Gridspace{Target}) where {Target} =
-    Target <: Tuple ? Tuple : Vector
+_collection_target(::Gridspace{Target}) where {Target} = Target <: Tuple ? Tuple : Vector
 
 function _at_pair(
         ::Val{:pose}, x, y, φ, ::_ConnectionsAbsent, combine::Symbol
 )
-    return _construction(DataModel.Pose2, _pose, (x, y, φ); combine)
+    return parameterize(DataModel.Pose2, _pose, (x, y, φ); combine)
 end
 
 function _at_pair(
@@ -81,8 +90,8 @@ function _at_pair(
     iszero(φ) || throw(ArgumentError(
         "at(part, pose) does not accept a second rotation"
     ))
-    return _construction(
-        DataModel._AssemblyMember, _placed_member, (part, pose); combine
+    return parameterize(
+        DataModel.AssemblyMember, _placed_member, (part, pose); combine
     )
 end
 
@@ -95,7 +104,7 @@ function _at_pair(
     iszero(φ) || throw(ArgumentError(
         "at(design, pose) does not accept a second rotation"
     ))
-    return _construction(
+    return parameterize(
         NamedTuple, _placed_design, (design, pose, connections); combine
     )
 end
@@ -107,7 +116,7 @@ function _at_pair(
     iszero(φ) || throw(ArgumentError(
         "at(placements, pose) does not accept a second rotation"
     ))
-    return _construction(
+    return parameterize(
         _collection_target(placements),
         _compose_collection,
         (placements, pose);
@@ -178,15 +187,15 @@ end
 
 function _connection_for_member(connections::AbstractDict, member::Int, count::Int)
     return Dict(key => begin
-        if value isa Union{Tuple, AbstractVector}
-            length(value) == count || throw(DimensionMismatch(
-                "connection schedules must contain $count values"
-            ))
-            value[member]
-        else
-            value
-        end
-    end for (key, value) in connections)
+                    if value isa Union{Tuple, AbstractVector}
+                        length(value) == count || throw(DimensionMismatch(
+                            "connection schedules must contain $count values"
+                        ))
+                        value[member]
+                    else
+                        value
+                    end
+                end for (key, value) in connections)
 end
 
 function _connection_for_member(connections::Union{Tuple, AbstractVector}, member, count)
@@ -198,14 +207,12 @@ end
 
 function _formation(design, local_poses, center, connections)
     count = length(local_poses)
-    return [
-        _placed_design(
-            design,
-            center * pose,
-            _connection_for_member(connections, member, count)
-        )
-        for (member, pose) in enumerate(local_poses)
-    ]
+    return [_placed_design(
+                design,
+                center * pose,
+                _connection_for_member(connections, member, count)
+            )
+            for (member, pose) in enumerate(local_poses)]
 end
 
 function _trefoil(design, center, spacing, connections, φ0)
@@ -213,10 +220,8 @@ function _trefoil(design, center, spacing, connections, φ0)
         spacing, "trefoil spacing must be positive"
     ))
     coordinates = DataModel.trefoil_formation(0, 0, spacing / 2)
-    poses = DataModel.Pose2[
-        DataModel.Pose2(coordinates[index], coordinates[index + 1], 0)
-        for index in 1:2:6
-    ]
+    poses = DataModel.Pose2[DataModel.Pose2(coordinates[index], coordinates[index + 1], 0)
+                            for index in 1:2:6]
     origin = center * DataModel.Pose2(0, 0, φ0)
     return _formation(design, poses, origin, connections)
 end
@@ -252,7 +257,7 @@ function trefoil(
         combine::Symbol = :product
 )
     values = (design, center, spacing, connections, φ0)
-    return _construction(Vector, _trefoil, values; combine)
+    return parameterize(Vector, _trefoil, values; combine)
 end
 
 function _flat(design, center, spacing, connections, vertical::Bool)
@@ -260,11 +265,9 @@ function _flat(design, center, spacing, connections, vertical::Bool)
         spacing, "flat-formation spacing must be positive"
     ))
     offsets = (-spacing, zero(spacing), spacing)
-    poses = DataModel.Pose2[
-        vertical ? DataModel.Pose2(0, -offset, 0) :
-        DataModel.Pose2(offset, 0, 0)
-        for offset in offsets
-    ]
+    poses = DataModel.Pose2[vertical ? DataModel.Pose2(0, -offset, 0) :
+                            DataModel.Pose2(offset, 0, 0)
+                            for offset in offsets]
     return _formation(design, poses, center, connections)
 end
 
@@ -284,7 +287,7 @@ function hflat(
         combine::Symbol = :product
 )
     caller = (resolved...) -> _flat(resolved..., false)
-    return _construction(
+    return parameterize(
         Vector, caller, (design, center, spacing, connections); combine
     )
 end
@@ -305,7 +308,7 @@ function vflat(
         combine::Symbol = :product
 )
     caller = (resolved...) -> _flat(resolved..., true)
-    return _construction(
+    return parameterize(
         Vector, caller, (design, center, spacing, connections); combine
     )
 end

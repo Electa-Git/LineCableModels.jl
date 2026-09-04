@@ -114,6 +114,26 @@ end
     @test restored_system.environment.vertical_layers == earth.vertical_layers
     @test restored_system.environment.layers == earth.layers
 
+    problem=LineParametersProblem(
+        system;
+        temperature = 35.0,
+        earth_props = earth,
+        frequencies = [0.1, 50.0, 1.0e6],
+        Γ = ComplexF64[0.0, 1.0e-5im, 2.0e-4 + 3.0e-4im]
+    )
+    mktempdir() do directory
+        path=joinpath(directory, "problem.json")
+        @test export_data(:json, problem; file_name = path) == abspath(path)
+        restored_problem=import_data(
+            :json,
+            LineParametersProblem;
+            file_name = path
+        )
+        @test IE.serialize_value(restored_problem) == IE.serialize_value(problem)
+        @test restored_problem.system.terminal_order == system.terminal_order
+        @test restored_problem.system.connection_order == system.connection_order
+    end
+
     parametric_system_record=deepcopy(encoded_system)
     parametric_system_record["positions"]=IE.serialize_value(Grid((
         Pose2(-0.1, -1.0),
@@ -121,38 +141,61 @@ end
     )))
     system_space=IE.deserialize_value(parametric_system_record)
     @test system_space isa Gridspace{LineCableSystem}
-    @test eltype(system_space) === LineCableSystem
+    @test eltype(system_space) === Any
+    @test Base.IteratorEltype(typeof(system_space)) isa Base.EltypeUnknown
     @test getproperty.(collect(system_space), :positions) == [
         [Pose2(-0.1, -1.0)],
         [Pose2(0.1, -1.0)]
     ]
 
     copper=Material(kind = :conductor, rho = 1.7241e-8)
-    rectangular=build(
+    compacted=build(
         CableDesign,
-        "rectangular-round-trip",
+        "compacted-round-trip",
         terminal(
             :core,
             stranded(
                 copper;
-                shape = Rectangle(0.35e-3, 0.8e-3),
+                shape = Disk(0.35e-3),
                 layers = 2,
-                n = (6, 12)
+                n = (6, 12),
+                compact = FillFactor(1),
+                boundary = Disk(sqrt(19)*0.35e-3)
             )
         )
     )
-    rectangular_record=IE.serialize_value(rectangular)
-    restored_rectangular=IE.deserialize_value(rectangular_record)
-    @test IE.serialize_value(restored_rectangular) == rectangular_record
-    @test getproperty.(restored_rectangular.geometry.regions, :terminal) ==
-          getproperty.(rectangular.geometry.regions, :terminal)
-    @test area.(getproperty.(restored_rectangular.geometry.regions, :primitive)) ==
-          area.(getproperty.(rectangular.geometry.regions, :primitive))
+    compacted_record=IE.serialize_value(compacted)
+    restored_compacted=IE.deserialize_value(compacted_record)
+    @test IE.serialize_value(restored_compacted) == compacted_record
+    @test getproperty.(restored_compacted.geometry.regions, :terminal) ==
+          getproperty.(compacted.geometry.regions, :terminal)
+    @test area.(getproperty.(restored_compacted.geometry.regions, :primitive)) ==
+          area.(getproperty.(compacted.geometry.regions, :primitive))
     @test all(
-        region -> region.source.primitive isa Rectangle &&
-                  region.primitive isa LineCableModels.DataModel.Rectangle,
-        restored_rectangular.geometry.regions
+        region -> region.source.primitive isa Disk &&
+                  region.primitive isa LineCableModels.DataModel.Polygon,
+        restored_compacted.geometry.regions
     )
+
+    packed=build(
+        CableDesign,
+        "bounded-round-trip",
+        terminal(
+            :core,
+            stranded(
+                copper;
+                shape = Disk(0.35e-3),
+                layers = 2,
+                boundary = Disk(2e-3)
+            )
+        )
+    )
+    packed_record=IE.serialize_value(packed)
+    @test packed_record["root"]["item"]["items"][1]["items"][1]["boundary"]["kind"] ==
+          "disk"
+    restored_packed=IE.deserialize_value(packed_record)
+    @test restored_packed == packed
+    @test IE.serialize_value(restored_packed) == packed_record
 
     scheduled=build(
         CableDesign,
@@ -163,11 +206,11 @@ end
                 copper;
                 shape = Disk(0.35e-3),
                 layers = 2,
-                n = (6, capacity()),
+                n = (6, 12),
                 lay = (LayRatio(12), Pitch(0.1)),
                 dir = (1, -1),
                 φ0 = (0.0, 0.2),
-                compact = (nothing, FillFactor(0.9))
+                boundary = Disk(2e-3)
             )
         )
     )
@@ -176,7 +219,7 @@ end
     @test restored_scheduled == scheduled
     @test IE.serialize_value(restored_scheduled) == scheduled_record
 
-    rounded_boundary=RoundedSector(
+    sector_boundary=Sector(
         span = deg2rad(119.0),
         r_base = 1.10e-3,
         r_back = 10.24e-3,
@@ -189,14 +232,10 @@ end
             :core,
             stranded(
                 copper;
-                shape = RoundedSector(
-                    span = deg2rad(115.0),
-                    r_base = 0.8e-3,
-                    r_back = 8.0e-3,
-                    fillet = 0.6e-3
-                ),
-                layers = 0,
-                boundary = rounded_boundary
+                shape = Disk(0.35e-3),
+                layers = 1,
+                n = 6,
+                boundary = sector_boundary
             )
         )
     )
@@ -204,10 +243,9 @@ end
     restored_bounded=IE.deserialize_value(bounded_record)
     @test restored_bounded == bounded
     @test IE.serialize_value(restored_bounded) == bounded_record
-    bounded_stack=only(bounded.root.item.items)
-    @test bounded_stack isa Stack
-    @test only(bounded_stack.items).compact isa TabulatedCompaction
-    @test only(bounded_stack.items).compact.data == rounded_boundary
+    bounded_group=only(only(bounded.root.item.items).items)
+    @test bounded_group isa Group
+    @test bounded_group.boundary == sector_boundary
 
     declarations=(
         Ring(capacity(); r = nothing, φ0 = 0.2, gap_frac = 0.03),
@@ -215,10 +253,7 @@ end
         Fill(r = 10e-3, φ = pi/6),
         Lattice(nx = 2, ny = 3, dx = 10e-3, dy = 12e-3),
         Helix(LayRatio(11); dir = -1, φ0 = 0.1),
-        FillFactor(0.9),
-        DiameterFactor(0.95),
-        TabulatedCompaction(Dict("course"=>[1.0, 2.0])),
-        AffineCompaction([[1.0, 0.0], [0.0, 0.9]])
+        FillFactor(0.9)
     )
     for declaration in declarations
         @test IE.deserialize_value(IE.serialize_value(declaration)) == declaration
@@ -311,6 +346,26 @@ end
     schema=JSONSchema.Schema(JSON3.read(read(schema_path, String), Dict{String, Any}))
     @test JSONSchema.validate(schema, cables_document) === nothing
     @test JSONSchema.validate(schema, materials_document) === nothing
+
+    packed_cables=CablesLibrary()
+    add!(packed_cables,
+        build(
+            CableDesign,
+            "bounded-schema",
+            terminal(
+                :core,
+                stranded(
+                    TestFixtures.copper_material();
+                    shape = Disk(0.5e-3),
+                    layers = 2,
+                    boundary = Disk(3e-3)
+                )
+            )
+        ))
+    @test JSONSchema.validate(
+        schema,
+        IE._json_document(packed_cables)
+    ) === nothing
 
     earth=EarthModel(100.0, 10.0, 1.0)
     design=TestFixtures.mv_cable_design()

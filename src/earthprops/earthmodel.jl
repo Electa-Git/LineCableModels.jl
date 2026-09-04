@@ -1,61 +1,68 @@
 """
 $(TYPEDEF)
 
-Store a static layered earth description. The first layer is always air.
+Store an immutable static layered-earth description. The first layer is always
+air, and `layers` is a read-only ordered tuple.
 
 $(TYPEDFIELDS)
 """
-mutable struct EarthModel{T <: Real}
+struct EarthModel{T <: Real, N} <: AbstractEarthModel
     "Whether earth interfaces are vertical rather than horizontal."
     vertical_layers::Bool
-    "Static layers beginning with semi-infinite air."
-    layers::Vector{EarthLayer{T}}
+    "Read-only static layers beginning with semi-infinite air."
+    layers::NTuple{N, EarthLayer{T}}
 
-    function EarthModel{T}(
+    function EarthModel{T, N}(
             vertical_layers::Bool,
-            layers::Vector{EarthLayer{T}}
-    ) where {T <: Real}
-        return validate(new{T}(vertical_layers, layers))
+            layers::NTuple{N, EarthLayer{T}}
+    ) where {T <: Real, N}
+        return validate(new{T, N}(vertical_layers, layers))
     end
+end
+
+function EarthModel{T}(
+        vertical_layers::Bool,
+        layers::NTuple{N, EarthLayer{T}}
+) where {T <: Real, N}
+    return EarthModel{T, N}(vertical_layers, layers)
 end
 
 Base.eltype(::EarthModel{T}) where {T} = T
-Base.eltype(::Type{EarthModel{T}}) where {T} = T
+Base.eltype(::Type{<:EarthModel{T}}) where {T} = T
 
-function _valid_layer_sequence(vertical::Bool, layers)
-    length(layers) >= 2 || throw(ArgumentError("an earth model requires air and earth"))
-    air = first(layers)
-    isinf(air.rho) && isinf(air.thickness) || throw(ArgumentError(
-        "the first layer must be semi-infinite air",
+function validate(model::EarthModel)
+    for layer in model.layers
+        validate(layer)
+    end
+    length(model.layers) >= 2 || throw(ArgumentError(
+        "EarthModel.layers must contain air and at least one earth layer; " *
+        "received $(length(model.layers)) layers"
     ))
-    vertical && !isinf(layers[2].thickness) &&
+    air = first(model.layers)
+    isinf(air.rho) && isinf(air.thickness) || throw(ArgumentError(
+        "EarthModel.layers[1] must be semi-infinite air",
+    ))
+    model.vertical_layers && !isinf(model.layers[2].thickness) &&
         throw(ArgumentError(
-            "the first vertical earth layer must be semi-infinite",
+            "EarthModel.layers[2].thickness must be infinite for vertical layers",
         ))
-    for index in 2:(length(layers) - 1)
-        if isinf(layers[index].thickness)
-            vertical && index == 2 && continue
-            throw(ArgumentError("an infinite layer must be the final layer"))
+    for index in 2:(length(model.layers) - 1)
+        if isinf(model.layers[index].thickness)
+            model.vertical_layers && index == 2 && continue
+            throw(ArgumentError(
+                "EarthModel.layers[$index].thickness must be finite because " *
+                "only the final horizontal layer may be semi-infinite"
+            ))
         end
     end
-    return layers
-end
-
-function _check_earth_model(model::EarthModel)
-    foreach(validate, model.layers)
-    _valid_layer_sequence(model.vertical_layers, model.layers)
-    return nothing
-end
-
-function Validation.rules(::Type{<:EarthModel})
-    (Validation.OwnerRule(:earth_model_geometry, _check_earth_model),)
+    return model
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Construct a static earth model. Frequencies are supplied later by a
-`LineParametersProblem`.
+Construct a complete immutable static earth model. Frequencies are supplied
+later by a `LineParametersProblem`.
 """
 function EarthModel(
         rho::Real,
@@ -77,46 +84,127 @@ function EarthModel(
         convert(T, rho), convert(T, eps_r), convert(T, mu_r),
         convert(T, thickness)
     )
-    return validate(EarthModel{T}(
-        vertical_layers, EarthLayer{T}[air, convert(EarthLayer{T}, earth)]
-    ))
+    return EarthModel{T}(
+        vertical_layers, (air, convert(EarthLayer{T}, earth))
+    )
 end
 
-function Base.convert(::Type{EarthModel{T}}, model::EarthModel) where {T <: Real}
-    return validate(EarthModel{T}(
-        model.vertical_layers,
-        EarthLayer{T}[convert(EarthLayer{T}, layer) for layer in model.layers]
+function _earth_model(layers, vertical_layers, air_layer)
+    vertical_layers isa Bool || throw(ArgumentError(
+        "vertical_layers must be true or false"
     ))
+    declared = if layers isa EarthLayer
+        (layers,)
+    elseif layers isa Union{Tuple, AbstractVector}
+        all(layer -> layer isa EarthLayer, layers) || throw(ArgumentError(
+            "earth layers must contain completed EarthLayer objects"
+        ))
+        Tuple(layers)
+    else
+        throw(ArgumentError(
+            "earth layers must be an EarthLayer or a nonempty layer collection"
+        ))
+    end
+    isempty(declared) && throw(ArgumentError(
+        "an earth model requires at least one earth layer"
+    ))
+    air_layer isa Union{Nothing, EarthLayer} || throw(ArgumentError(
+        "air_layer must be nothing or a completed EarthLayer"
+    ))
+    T = promote_type(
+        eltype.(declared)...,
+        air_layer === nothing ? eltype(first(declared)) : eltype(air_layer)
+    )
+    air = air_layer === nothing ?
+          EarthLayer{T}(T(Inf), convert(T, 1), convert(T, 1), T(Inf)) :
+          convert(EarthLayer{T}, air_layer)
+    earth = map(layer -> convert(EarthLayer{T}, layer), declared)
+    return EarthModel{T}(vertical_layers, (air, earth...))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build a complete immutable static earth model from one or more completed earth
+layers. A semi-infinite air layer is prepended unless `air_layer` is supplied.
+
+# Arguments
+
+- `layers`: One `EarthLayer` or an ordered collection. Horizontal models are
+  ordered from the surface downward.
+
+# Keywords
+
+- `vertical_layers=false`: Whether earth interfaces are vertical.
+- `air_layer=nothing`: Optional explicit semi-infinite air layer.
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- An `EarthModel`, or a `Gridspace{EarthModel}` when an explicit finite source
+  is supplied.
+"""
+function build(
+        ::Type{EarthModel},
+        layers;
+        vertical_layers = false,
+        air_layer = nothing,
+        combine::Symbol = :product
+)
+    values = (layers, vertical_layers, air_layer)
+    return parameterize(EarthModel, _earth_model, values; combine)
+end
+
+function Base.convert(
+        ::Type{EarthModel{T}}, model::EarthModel{U, N}
+) where {T <: Real, U <: Real, N}
+    return EarthModel{T}(
+        model.vertical_layers,
+        ntuple(index -> convert(EarthLayer{T}, model.layers[index]), N)
+    )
 end
 
 Base.convert(::Type{EarthModel{T}}, model::EarthModel{T}) where {T <: Real} = model
 
-function add!(model::EarthModel{T}, layer::EarthLayer{T}) where {T}
-    candidate = EarthLayer{T}[model.layers; layer]
-    validated = validate(EarthModel{T}(model.vertical_layers, candidate))
-    model.layers = validated.layers
-    return model
-end
+"""
+$(TYPEDSIGNATURES)
 
-function add!(model::EarthModel{T}, layer::EarthLayer{U}) where {T, U}
-    throw(ArgumentError(
-        "cannot add EarthLayer{$U} to EarthModel{$T}; explicitly convert the " *
-        "complete model before mutation",
-    ))
-end
+Declare a homogeneous earth model through [`layer`](@ref) and
+`build(EarthModel, ...)`. Semi-infinite air is implicit.
 
-function add!(
-        model::EarthModel{T},
-        rho::Real,
-        eps_r::Real,
-        mu_r::Real;
-        thickness::Real = T(Inf)
-) where {T}
-    if !(rho isa T && eps_r isa T && mu_r isa T && thickness isa T)
-        throw(ArgumentError(
-            "earth-layer scalar inputs must all be $T; construct EarthLayer{$T} " *
-            "explicitly or convert the complete model before mutation",
-        ))
-    end
-    return add!(model, EarthLayer{T}(rho, eps_r, mu_r, thickness))
+# Keywords
+
+- `rho`: Electrical resistivity \\[Ω·m\\].
+- `eps_r=nothing`: Relative permittivity \\[dimensionless\\]; `nothing`
+  selects unity in the resistivity scalar type.
+- `mu_r=nothing`: Relative permeability \\[dimensionless\\]; `nothing`
+  selects unity in the resistivity scalar type.
+- `thickness=nothing`: Earth-layer thickness \\[m\\]; `nothing` selects a
+  semi-infinite earth layer.
+- `vertical_layers=false`: Whether earth interfaces are vertical.
+- `air_layer=nothing`: Optional explicit semi-infinite air layer.
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- An `EarthModel`, or a `Gridspace{EarthModel}` when an explicit finite source
+  is supplied.
+"""
+function homogeneous(;
+        rho,
+        eps_r = nothing,
+        mu_r = nothing,
+        thickness = nothing,
+        vertical_layers = false,
+        air_layer = nothing,
+        combine::Symbol = :product
+)
+    earth_layer = layer(; rho, eps_r, mu_r, thickness, combine)
+    return build(
+        EarthModel,
+        earth_layer;
+        vertical_layers,
+        air_layer,
+        combine
+    )
 end

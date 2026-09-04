@@ -31,33 +31,28 @@ physical coordinate system of a completed line-parameter matrix:
 print(Main.DocumentationTrees.type_tree(LineCableModels.LineParamsDomain))
 ```
 
-## Declarative actions
+## Fixed actions
 
-Three actions own a fixed sequence selected by an abstract definition type:
+One declarative action owns a fixed sequence selected by an abstract definition
+type:
 
 | Action | Definition root | Fixed sequence |
 |:--|:--|:--|
-| `PlotBuilder.make_render` | `AbstractPlotDefinition` | `entitle → parse → resolve → fetch → finish` |
-| `ReportBuilder.report` | `AbstractReportDefinition` | `entitle → select → tabulate → illustrate → encode → write → finish` |
-| `ParametricBuilder.project` | `AbstractProjectionDefinition` | `entitle → select → derive → materialize → finish` |
+| `ReportBuilder.report` | `AbstractReportDefinition` | `select → tabulate → illustrate → encode → write → ReportArtifact` |
 
 ```@example grammar_type_trees
-using LineCableModels.PlotBuilder: AbstractPlotDefinition
 using LineCableModels.ReportBuilder: AbstractReportDefinition
-using LineCableModels.ParametricBuilder: AbstractProjectionDefinition
 
-println("Plot definitions")
-print(Main.DocumentationTrees.type_tree(AbstractPlotDefinition))
-println("\nReport definitions")
+println("Report definitions")
 print(Main.DocumentationTrees.type_tree(AbstractReportDefinition))
-println("\nProjection definitions")
-print(Main.DocumentationTrees.type_tree(AbstractProjectionDefinition))
 ```
 
 Each action has one method at its declared abstract root. Concrete definitions
 implement stage methods. They do not specialise the public action itself.
 Required stages are declared with RequiredInterfaces where the type family
-admits that form; PlotBuilder checks its definition-owned stages directly.
+admits that form. Optional stages have an explicit no-op at the abstract root.
+Plotting is deliberately not such an action: the optional Makie extension
+constructs native figures directly from published observations.
 
 Observation uses a different structure. Result owners add `observe` methods.
 Grammar owns one `observables(source, requests::Tuple; ...)` publication
@@ -67,9 +62,8 @@ abstract observation type.
 ## CI hard gates
 
 The `Quality contracts` CI job rejects changes that violate these rules. Its
-checks require:
+checks inspect the native method and interface declarations and require:
 
-- declared action metadata and a root present in the action signature;
 - the action and its abstract root to belong to the same module;
 - one public action method, with no more-specific definition methods;
 - every fixed stage to remain visible in the declared action;
@@ -88,6 +82,6 @@ can enter the maintained type family.
   from the user API reference.
 - [Computational engine](engine.md) covers formulations, options, supplemental
   calculation output, and external implementations.
-- [PlotBuilder guide](plotbuilder.md) covers detached recipes and Makie drawing.
+- [Makie plotting](plotting.md) covers the small high-level API and native ownership.
 - [Conventions](conventions.md) defines placement, dispatch, naming, and
   docstring rules.

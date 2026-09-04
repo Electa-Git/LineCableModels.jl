@@ -1,18 +1,35 @@
-function routes(::Val{:Zhao2020})
+function routes(identifier::Val{:Zhao2020})
     (
-        inner = zhao_inner,
-        outer = zhao_outer,
-        mutual = zhao_mutual
+        inner = FormulaMethod(identifier, internal_impedance, Val(:inner)),
+        outer = FormulaMethod(identifier, internal_impedance, Val(:outer)),
+        mutual = FormulaMethod(identifier, internal_impedance, Val(:mutual))
     )
 end
 
 assumptions(::Val{:Zhao2020}) = (;)
 
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** High-frequency asymptotic hollow-shell impedances.
+
+**Expression.**
+
+```math
+Z_{ia}=\\frac{\\rho m}{2\\pi a}\\coth[m(b-a)],\\qquad
+Z_{oa}=\\frac{\\rho m}{2\\pi b}\\coth[m(b-a)],\\qquad
+Z_{ma}=\\frac{\\rho m}{2\\pi\\sqrt{ab}}\\operatorname{csch}[m(b-a)].
+```
+
+**Reference.** Zhao et al., 2020, as reproduced in Ametani et al.,
+*Electromagnetic Transients in Large HV Cable Networks*, IET, 2021,
+Appendix A1.4.4.2, Eqs. A1.61–A1.65.
+"""
 function description(::Formula{:Zhao2020})
     "Zhao et al. high-frequency asymptotic shell impedances (2020)"
 end
 
-"""
+#=
 $(TYPEDSIGNATURES)
 
 Construct the high-frequency asymptotic shell evaluator:
@@ -45,9 +62,8 @@ where ``m=\\sqrt{j\\omega\\mu/\\rho}``.
 Implements Zhao et al. (2020) as reproduced in Ametani et al. (2021),
 Appendix A1.4.4.2, Eqs. A1.61–A1.65. The formula is an asymptotic
 high-frequency approximation for hollow circular shells.
-"""
-function zhaoetal2020(
-        formula::Formula{:Zhao2020},
+=#
+function (formula::Formula{:Zhao2020})(
         r_in::T,
         r_ex::T,
         rho_c::T,
@@ -67,10 +83,6 @@ function zhaoetal2020(
     )
 end
 
-@inline function (formula::Formula{:Zhao2020})(r_in, r_ex, rho_c, mur_c, jω)
-    return zhaoetal2020(formula, r_in, r_ex, rho_c, mur_c, jω)
-end
-
 @inline function (functor::Functor{:Zhao2020})(::Val{:inner})
     return functor.routes.inner(functor.state)
 end
@@ -83,17 +95,29 @@ end
     return functor.routes.mutual(functor.state)
 end
 
-@inline function zhao_inner(state)
+@inline function internal_impedance(
+        ::Val{:Zhao2020},
+        ::Val{:inner},
+        state
+)
     x = state.m * (state.r_ex - state.r_in)
     return state.rho_c * state.m / (2π * state.r_in) * coth(x)
 end
 
-@inline function zhao_outer(state)
+@inline function internal_impedance(
+        ::Val{:Zhao2020},
+        ::Val{:outer},
+        state
+)
     x = state.m * (state.r_ex - state.r_in)
     return state.rho_c * state.m / (2π * state.r_ex) * coth(x)
 end
 
-@inline function zhao_mutual(state)
+@inline function internal_impedance(
+        ::Val{:Zhao2020},
+        ::Val{:mutual},
+        state
+)
     x = state.m * (state.r_ex - state.r_in)
     return state.rho_c * state.m /
            (2π * sqrt(state.r_in * state.r_ex) * sinh(x))

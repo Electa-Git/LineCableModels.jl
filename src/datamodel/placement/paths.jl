@@ -9,8 +9,40 @@ struct LayRatio{T <: Real}
 end
 
 _lay_ratio(q) = LayRatio{typeof(float(q))}(float(q))
-LayRatio(q; combine::Symbol = :product) =
-    _construction(LayRatio, _lay_ratio, (q,); combine)
+
+function _normalize_schedule(wrapper, values; combine::Symbol)
+    return map(Tuple(values)) do value
+        value isa wrapper ? value : wrapper(value; combine)
+    end
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Declare one lay-length ratio or a homogeneous schedule of lay-length ratios.
+
+# Arguments
+
+- `q`: One positive lay-length to mean-diameter ratio \\[dimensionless\\].
+- `values`: Two or more ratios, or one tuple or vector of ratios, defining one
+  ratio per repeated course.
+
+# Keywords
+
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- A `LayRatio`, a tuple of `LayRatio` values, or the corresponding `Gridspace`
+  when an explicit finite source is supplied.
+"""
+LayRatio(q; combine::Symbol = :product) = parameterize(LayRatio, _lay_ratio, (q,); combine)
+function LayRatio(values::Union{Tuple, AbstractVector}; combine::Symbol = :product)
+    _normalize_schedule(LayRatio, values; combine)
+end
+function LayRatio(first, second, remaining...; combine::Symbol = :product)
+    _normalize_schedule(LayRatio, (first, second, remaining...); combine)
+end
 
 "Store an authoritative helical pitch length \\[m\\]."
 struct Pitch{T <: Real}
@@ -23,8 +55,34 @@ struct Pitch{T <: Real}
 end
 
 _pitch(p) = Pitch{typeof(float(p))}(float(p))
-Pitch(p; combine::Symbol = :product) =
-    _construction(Pitch, _pitch, (p,); combine)
+
+"""
+$(TYPEDSIGNATURES)
+
+Declare one helical pitch or a homogeneous schedule of helical pitches.
+
+# Arguments
+
+- `p`: One positive helical pitch \\[m\\].
+- `values`: Two or more pitches, or one tuple or vector of pitches, defining
+  one pitch per repeated course \\[m\\].
+
+# Keywords
+
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- A `Pitch`, a tuple of `Pitch` values, or the corresponding `Gridspace` when
+  an explicit finite source is supplied.
+"""
+Pitch(p; combine::Symbol = :product) = parameterize(Pitch, _pitch, (p,); combine)
+function Pitch(values::Union{Tuple, AbstractVector}; combine::Symbol = :product)
+    _normalize_schedule(Pitch, values; combine)
+end
+function Pitch(first, second, remaining...; combine::Symbol = :product)
+    _normalize_schedule(Pitch, (first, second, remaining...); combine)
+end
 
 "Store an authoritative helical lay angle relative to the cable axis \\[rad\\]."
 struct LayAngle{T <: Real}
@@ -37,8 +95,34 @@ struct LayAngle{T <: Real}
 end
 
 _lay_angle(α) = LayAngle{typeof(float(α))}(float(α))
-LayAngle(α; combine::Symbol = :product) =
-    _construction(LayAngle, _lay_angle, (α,); combine)
+
+"""
+$(TYPEDSIGNATURES)
+
+Declare one helical lay angle or a homogeneous schedule of lay angles.
+
+# Arguments
+
+- `α`: One lay angle relative to the cable axis \\[rad\\].
+- `values`: Two or more angles, or one tuple or vector of angles, defining one
+  angle per repeated course \\[rad\\].
+
+# Keywords
+
+- `combine=:product`: Gridspace composition rule.
+
+# Returns
+
+- A `LayAngle`, a tuple of `LayAngle` values, or the corresponding `Gridspace`
+  when an explicit finite source is supplied.
+"""
+LayAngle(α; combine::Symbol = :product) = parameterize(LayAngle, _lay_angle, (α,); combine)
+function LayAngle(values::Union{Tuple, AbstractVector}; combine::Symbol = :product)
+    _normalize_schedule(LayAngle, values; combine)
+end
+function LayAngle(first, second, remaining...; combine::Symbol = :product)
+    _normalize_schedule(LayAngle, (first, second, remaining...); combine)
+end
 
 """
 $(TYPEDEF)
@@ -78,15 +162,14 @@ function Helix(
         φ0 = 0,
         combine::Symbol = :product
 )
-    return _construction(Helix, _helix, (lay, dir, φ0); combine)
+    return parameterize(Helix, _helix, (lay, dir, φ0); combine)
 end
 
 "Return helical pitch at local radius `radius` \\[m\\]."
 function pitch end
 pitch(path::Helix{<:LayRatio}, radius::Real) = path.lay.q * (2 * radius)
 pitch(path::Helix{<:Pitch}, radius::Real) = path.lay.p
-pitch(path::Helix{<:LayAngle}, radius::Real) =
-    2π * radius / tan(path.lay.α)
+pitch(path::Helix{<:LayAngle}, radius::Real) = 2π * radius / tan(path.lay.α)
 
 "Return helical lay angle at local radius `radius` \\[rad\\]."
 function angle(path::Helix, radius::Real)

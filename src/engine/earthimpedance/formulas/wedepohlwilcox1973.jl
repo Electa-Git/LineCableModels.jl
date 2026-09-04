@@ -1,8 +1,8 @@
-function routes(::Val{:WedepohlWilcox1973})
+function routes(identifier::Val{:WedepohlWilcox1973})
     (
-        self = wedepohlwilcox1973_self,
-        mutual = wedepohlwilcox1973_mutual,
-        Γ = wedepohlwilcox1973_gamma
+        self = FormulaMethod(identifier, earth_impedance, Val(:self)),
+        mutual = FormulaMethod(identifier, earth_impedance, Val(:mutual)),
+        Γ = FormulaMethod(identifier, propagation_constant)
     )
 end
 
@@ -15,11 +15,37 @@ function assumptions(::Val{:WedepohlWilcox1973})
 end
 
 propagation(::Val{:WedepohlWilcox1973}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Low-frequency underground expansion for conductive,
+nonmagnetic earth.
+
+**Expression.**
+
+```math
+Z_{e,ii}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[-\\ln
+\\left(\\frac{e_c\\gamma_1r_i}{2}\\right)+\\frac12-
+\\frac43\\gamma_1h_i\\right],
+```
+
+```math
+Z_{e,ij}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[-\\ln
+\\left(\\frac{e_c\\gamma_1y_{ij}}{2}\\right)+\\frac12-
+\\frac23\\gamma_1H\\right],\\qquad e_c=1.7811.
+```
+
+**Reference.** L. M. Wedepohl and D. J. Wilcox, “Transient Analysis of
+Underground Power-Transmission Systems: System-Model and Wave-Propagation
+Characteristics,” *Proceedings of the IEE*, 120, 253–260, 1973.
+"""
 function description(::Formula{:WedepohlWilcox1973})
     "Wedepohl-Wilcox low-frequency underground approximation (1973)"
 end
 
-function wedepohlwilcox1973_gamma(jω, permeability, permittivity)
+function propagation_constant(
+        ::Val{:WedepohlWilcox1973}, jω, permeability, permittivity
+)
     (Γ = zero(jω), squared = zero(jω))
 end
 
@@ -47,7 +73,9 @@ Z_{e,ij}=\frac{j\omega\mu_0}{2\pi}
 -\frac23\gamma_1(h_i+h_j)\right],\qquad e_c=1.7811.
 ```
 """
-function wedepohlwilcox1973_self(functor, pair)
+function earth_impedance(
+        ::Val{:WedepohlWilcox1973}, ::Val{:self}, functor, pair
+)
     _require(pair, Val(:underground))
     state = functor.state
     geometry = _geometry(pair)
@@ -58,8 +86,11 @@ function wedepohlwilcox1973_self(functor, pair)
     return state.jω * state.mu[1] / (2π) * bracket
 end
 
-function wedepohlwilcox1973_mutual(functor, pair)
+function earth_impedance(
+        ::Val{:WedepohlWilcox1973}, ::Val{:mutual}, functor, pair
+)
     _require(pair, Val(:underground))
+    _require_horizontal_separation(pair)
     state = functor.state
     geometry = _geometry(pair)
     e_c = oftype(geometry.H, 1.7811)

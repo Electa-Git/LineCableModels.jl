@@ -42,12 +42,10 @@
 
     insulating_tapes = tape(
         xlpe;
-        section = Sector(8.5e-3, 9e-3, -0.08, 0.16),
+        section = Rectangle(1.0e-3, 0.5e-3),
         n = 12,
         lay = LayRatio(10)
     )
-    insulating_resolution = DM.resolve(DM.EmptyBoundary(), insulating_tapes)
-    @test all(isnothing, getproperty.(insulating_resolution.regions, :terminal))
     @test_throws ArgumentError terminal(:insulating_tapes, insulating_tapes)
     with_tapes = build(CableDesign, "taped", phase, insulating_tapes)
     @test with_tapes.terminal_order == [:phase]
@@ -55,7 +53,7 @@
 
     distributed_tapes = @distribute tape(
         xlpe;
-        section = Sector(8.5e-3, 9e-3, -0.08, 0.16),
+        section = Rectangle(1.0e-3, 0.5e-3),
         gap_frac = 0.02,
         lay = LayRatio(10)
     )
@@ -71,8 +69,8 @@
         distributed_design.geometry.regions
     )
     @test length(tape_regions) == capacity(
-        Ring(capacity(); r = 0, gap_frac = 0.02),
-        Sector(8.5e-3, 9e-3, -0.08, 0.16),
+        Ring(capacity(); r = 8.75e-3, gap_frac = 0.02),
+        Rectangle(1.0e-3, 0.5e-3),
         nothing
     )
     @test all(region -> length(region.paths) == 1, tape_regions)
@@ -86,12 +84,12 @@
 
     sector_a = terminal(
         :a,
-        core(copper, Sector(0, 3e-3, -pi / 6, pi / 3)),
+        core(copper, Sector(span = pi / 3, r_base = 0.5e-3, r_back = 3e-3)),
         insulation(xlpe; t = 0.5e-3)
     )
     sector_b = terminal(
         :b,
-        core(copper, Sector(0, 2.5e-3, -pi / 8, pi / 4)),
+        core(copper, Sector(span = pi / 4, r_base = 0.4e-3, r_back = 2.5e-3)),
         insulation(xlpe; t = 0.4e-3)
     )
     explicit_assembly = assembly(
@@ -105,7 +103,7 @@
     @test notated_assembly == explicit_assembly
     multicore = build(CableDesign, "sectorized", explicit_assembly)
     @test multicore.terminal_order == [:a, :b]
-    @test multicore.geometry.regions[1].primitive isa DM.Sector
+    @test multicore.geometry.regions[1].primitive isa DM.SectorShape
 
     separate_screen = build(
         CableDesign,
@@ -125,57 +123,106 @@ end
         :build, :terminal, :core, :stranded, :rope, :cores, :tape,
         :insulation, :screen, :sheath, :armor, :bedding, :jacket, :filler,
         :pipe, :duct, :at, :trefoil, :hflat, :vflat, :capacity,
-        :solid, :shell, :wires, :layers, :assembly,
+        :solid, :shell, :wires, :layers, :assembly, :layer, :homogeneous,
+        :EarthLayer, :EarthModel,
         :Region, :Stack, :Group, :Assembly, :Enclosure, :Pose2,
         :Disk, :Rectangle, :Ellipse,
         :Sector, :Annulus, :Shell,
         :Polygon, :Ring, :Polar, :Fill, :Lattice,
         :Helix, :LayRatio, :Pitch, :LayAngle, :FillFactor,
-        :DiameterFactor, :TabulatedCompaction, :AffineCompaction,
-        Symbol("@cable"), Symbol("@terminal"), Symbol("@assembly"),
-        Symbol("@duct"), Symbol("@at"), Symbol("@hflat"), Symbol("@vflat"),
+        Symbol("@cable"), Symbol("@system"), Symbol("@earth"),
+        Symbol("@terminal"), Symbol("@assembly"),
+        Symbol("@pipe"), Symbol("@duct"), Symbol("@at"),
+        Symbol("@hflat"), Symbol("@vflat"),
         Symbol("@trefoil"), Symbol("@distribute")
     )
     public_names = Set(names(LineCableModels))
     @test all(name -> name in public_names, required)
 
     forbidden = (
-        :DuctBank, :Pipe, :Duct, :Core, :Cable, :Trefoil, :distribute, :strand,
-        Symbol("@design"), Symbol("@pipe"), Symbol("@core"),
+        :DuctBank, :Pipe, :Duct, :Core, :Cable, :Trefoil, :Earth,
+        :RoundedSector, :Hexa, :DiameterFactor, :TabulatedCompaction,
+        :AffineCompaction, :distribute, :strand,
+        Symbol("@design"), Symbol("@core"),
         Symbol("@insulation"), Symbol("@strand"), Symbol("@rope"),
         Symbol("@armor"), Symbol("@screen"), Symbol("@shell"),
         Symbol("@wire"), Symbol("@fill")
     )
     @test all(name -> !(name in public_names), forbidden)
+    @test Base.ispublic(DM, :BentStrip)
+    @test Base.ispublic(DM, :BoundedPlacement)
     @test LineCableModels.build === DM.build === PB.build
     @test all(name -> name in public_names,
         (:Disk, :Rectangle, :Ellipse, :Sector, :Annulus, :Polygon))
 
     expansions = (
-        :(@cable "x" begin
+        :(@cable "x" nominal_data=metadata combine=:zip begin
             part
         end) => :build,
-        :(@terminal :phase begin
+        :(@system "x" line_length=1 begin
+            placed
+        end) => :build,
+        :(@earth begin
+            layer
+        end) => :build,
+        :(@terminal :phase combine=:zip begin
             part
         end) => :terminal,
-        :(@assembly begin
+        :(@assembly combine=:zip begin
             left
             right
         end) => :assembly,
-        :(@duct shape=shape fill=fill begin
+        :(@pipe shape=shape fill=fill combine=:zip begin
+            left
+            right
+        end) => :pipe,
+        :(@duct shape=shape fill=fill combine=:zip begin
             left
             right
         end) => :duct,
         :(@at subject (1, 2) φ=3) => :at,
-        :(@trefoil design spacing=spacing center=(0, 0) phase=(1, 2, 3)) =>
+        :(@trefoil design spacing=spacing center=(0, 0) combine=:zip phase=(1, 2, 3)) =>
             :trefoil,
-        :(@hflat design spacing=spacing phase=(1, 2, 3)) => :hflat,
-        :(@vflat design spacing=spacing phase=(1, 2, 3)) => :vflat
+        :(@hflat design spacing=spacing combine=:zip phase=(1, 2, 3)) => :hflat,
+        :(@vflat design spacing=spacing combine=:zip phase=(1, 2, 3)) => :vflat
     )
     for (surface, callee) in expansions
         expanded = Base.remove_linenums!(macroexpand(@__MODULE__, surface))
         @test expanded isa Expr && expanded.head === :call
         @test expanded.args[1] == GlobalRef(PB, callee)
+    end
+
+    combined_surfaces = (
+        :(@cable "x" combine=:zip begin
+            part
+        end),
+        :(@terminal :phase combine=:zip begin
+            part
+        end),
+        :(@assembly combine=:zip begin
+            left
+            right
+        end),
+        :(@pipe shape=shape fill=fill combine=:zip begin
+            part
+        end),
+        :(@duct shape=shape fill=fill combine=:zip begin
+            part
+        end),
+        :(@trefoil design spacing=spacing combine=:zip phase=(1, 2, 3)),
+        :(@hflat design spacing=spacing combine=:zip phase=(1, 2, 3)),
+        :(@vflat design spacing=spacing combine=:zip phase=(1, 2, 3))
+    )
+    for surface in combined_surfaces
+        expanded = Base.remove_linenums!(macroexpand(@__MODULE__, surface))
+        parameters = only(filter(
+            argument -> argument isa Expr && argument.head === :parameters,
+            expanded.args
+        ))
+        @test any(parameters.args) do keyword
+            keyword isa Expr && keyword.head === :kw &&
+                keyword.args == [:combine, QuoteNode(:zip)]
+        end
     end
 
     distributed = Base.remove_linenums!(macroexpand(
@@ -198,7 +245,9 @@ end
     copper = Material(kind = :conductor, rho = 1.72e-8)
     evaluations = Dict{Symbol, Int}()
     once(name, value) = (evaluations[name] = get(evaluations, name, 0) + 1; value)
-    nested = @cable once(:identifier, "single-evaluation") begin
+    nested = @cable once(:identifier, "single-evaluation") nominal_data=(
+        rated_voltage = once(:rated_voltage, 132e3),
+    ) begin
         @terminal once(:terminal, :phase) begin
             core(
                 once(:material, copper);
@@ -209,9 +258,64 @@ end
     @test nested isa CableDesign
     @test evaluations == Dict(
         :identifier => 1,
+        :rated_voltage => 1,
         :terminal => 1,
         :material => 1,
         :radius => 1
+    )
+    @test nested.nominal_data == (rated_voltage = 132e3,)
+
+    system = @system once(:system_id, "single-system-evaluation") line_length=once(
+        :line_length, 1.0
+    ) begin
+        @at nested (0.0, -1.0) phase=1
+    end
+    @test system isa LineCableSystem
+    @test system.system_id == "single-system-evaluation"
+    @test evaluations[:system_id] == 1
+    @test evaluations[:line_length] == 1
+end
+
+@testitem "ParametricBuilder / construction API / earth grammar" tags=[:unit] begin
+    using LineCableModels
+
+    earth = @earth begin
+        layer(rho = 100.0, eps_r = 10.0, thickness = 5.0)
+        layer(rho = 500.0, eps_r = 20.0)
+    end
+    @test earth isa EarthModel{Float64}
+    @test !earth.vertical_layers
+    @test length(earth.layers) == 3
+    @test isinf(first(earth.layers).rho)
+    @test getproperty.(earth.layers[2:end], :rho) == (100.0, 500.0)
+    @test getproperty.(earth.layers[2:end], :thickness) == (5.0, Inf)
+    @test layer(rho = 100.0f0) isa EarthLayer{Float32}
+
+    air = layer(rho = Inf, eps_r = 1.0006, mu_r = 1.0)
+    explicit_air = @earth air_layer=air begin
+        layer(rho = 100.0)
+    end
+    @test first(explicit_air.layers) === air
+
+    earth_model = @inferred homogeneous(rho = 100.0, eps_r = 10.0)
+    @test earth_model isa EarthModel{Float64}
+    @test length(earth_model.layers) == 2
+    @test earth_model.layers[2].rho == 100.0
+
+    spaces = @earth begin
+        layer(rho = Grid((10.0, 100.0)), eps_r = 5.0, thickness = 2.0)
+        layer(rho = 500.0, eps_r = 20.0)
+    end
+    @test spaces isa Gridspace{EarthModel}
+    @test length(spaces) == 2
+    @test [model.layers[2].rho for model in spaces] == [10.0, 100.0]
+    @test all(model -> model.layers[3].rho == 500.0, spaces)
+
+    @test_throws ArgumentError macroexpand(
+        @__MODULE__,
+        :(@earth unsupported=true begin
+            layer(rho = 100.0)
+        end)
     )
 end
 
@@ -297,6 +401,27 @@ end
     @test design.terminal_order == [:a, :b]
     @test any(region -> region.source.tag === :duct_fill, design.geometry.regions)
 
+    piped = pipe(
+        at(cell_a, -5e-3, 0),
+        at(cell_b, 5e-3, 0);
+        shape = Disk(15e-3),
+        fill = air
+    )
+    notated_pipe = @pipe shape=Disk(15e-3) fill=air begin
+        @at cell_a (-5e-3, 0)
+        @at cell_b (5e-3, 0)
+    end
+    @test notated_pipe == piped
+
+    pipe_space = @pipe shape=Disk(Grid((15e-3, 16e-3))) fill=Grid((
+        air,
+        concrete
+    )) combine=:zip begin
+        cell_a
+    end
+    @test pipe_space isa Gridspace{Enclosure}
+    @test length(pipe_space) == 2
+
     repeated = duct(
         cell_a;
         formation = Lattice(nx = 2, ny = 1, dx = 12e-3, dy = 0),
@@ -306,6 +431,33 @@ end
     @test repeated.item isa Assembly
     @test repeated.item.item === cell_a
     @test repeated.item.pattern == Lattice(nx = 2, ny = 1, dx = 12e-3, dy = 0)
+
+    elliptical = duct(
+        at(cell_a, -6e-3, 0),
+        at(cell_b, 6e-3, 0);
+        shape = Ellipse(15e-3, 8e-3),
+        fill = concrete
+    )
+    elliptical_design = build(CableDesign, "elliptical-duct", elliptical)
+    @test elliptical_design.geometry.outer isa Ellipse
+    @test area(elliptical_design.geometry.outer) ≈ pi * 15e-3 * 8e-3
+    elliptical_fill = only(filter(elliptical_design.geometry.regions) do region
+        region.primitive isa DM.DifferenceShape &&
+            region.primitive.outer isa Ellipse
+    end)
+    @test elliptical_fill.primitive isa DM.DifferenceShape
+    @test length(elliptical_fill.primitive.holes) == 2
+    @test all(hole -> hole isa Disk, elliptical_fill.primitive.holes)
+    @test_throws DomainError build(
+        CableDesign,
+        "overfilled-elliptical-duct",
+        duct(
+            at(cell_a, -14e-3, 0),
+            at(cell_b, 14e-3, 0);
+            shape = Ellipse(15e-3, 8e-3),
+            fill = concrete
+        )
+    )
 
     evaluations = Symbol[]
     identifier() = (push!(evaluations, :identifier); "single-evaluation")
@@ -333,11 +485,20 @@ end
 
 @testitem "ParametricBuilder / construction API / repetition and compaction" tags=[:unit] begin
     using LineCableModels
+    using Measurements: Measurement, uncertainty
     import LineCableModels.DataModel as DM
 
     copper = Material(kind = :conductor, rho = 1.72e-8)
     xlpe = Material(kind = :insulator, rho = 1.0e14, eps_r = 2.3)
 
+    @test LayRatio(13, 12, 11) ==
+          (LayRatio(13), LayRatio(12), LayRatio(11))
+    @test LayRatio((13, 12, 11)) == LayRatio(13, 12, 11)
+    @test Pitch(0.13, 0.12) == (Pitch(0.13), Pitch(0.12))
+    @test LayAngle([0.13, 0.12]) == (LayAngle(0.13), LayAngle(0.12))
+    @test FillFactor(0.88, 0.9) == (FillFactor(0.88), FillFactor(0.9))
+
+    round_boundary = Disk(3.0e-3)
     round = stranded(
         copper;
         shape = Disk(0.5e-3),
@@ -345,31 +506,56 @@ end
         n = 6,
         lay = (LayRatio(12), Pitch(0.2)),
         dir = (1, -1),
-        φ0 = (0.0, 0.1)
+        φ0 = (0.0, 0.1),
+        boundary = round_boundary
     )
     @test round isa Stack
-    @test length(round.items) == 3
-    @test round.items[1].pattern === nothing
-    @test round.items[1].path === nothing
-    @test [item.pattern.n for item in round.items[2:3]] == [6, 12]
-    @test getfield.(round.items[2:3], :path) == [
+    @test length(round.items) == 1
+    round_group = only(round.items)
+    @test round_group.boundary == round_boundary
+    @test round_group.pattern === nothing
+    round_courses = round_group.item.items
+    @test round_courses[1].pattern === nothing
+    @test round_courses[1].path === nothing
+    @test [item.pattern.n for item in round_courses[2:3]] == [6, 12]
+    @test getfield.(round_courses[2:3], :path) == [
         Helix(LayRatio(12); dir = 1, φ0 = 0.0),
         Helix(Pitch(0.2); dir = -1, φ0 = 0.1)
     ]
 
-    rounded = RoundedSector(
+    compact_boundary = Disk(sqrt(19 / 0.9) * 0.5e-3)
+    normalized = stranded(
+        copper;
+        shape = Disk(0.5e-3),
+        layers = 2,
+        n = (6, 12),
+        lay = LayRatio(12, 11),
+        compact = FillFactor(0.9),
+        boundary = compact_boundary
+    )
+    normalized_group = only(normalized.items)
+    @test normalized_group.compact == FillFactor(0.9)
+    @test getfield.(normalized_group.item.items[2:3], :path) == [
+        Helix(LayRatio(12)),
+        Helix(LayRatio(11); φ0 = pi / 6)
+    ]
+
+    sector_boundary = Sector(
         span = deg2rad(119.0),
         r_base = 1.10e-3,
         r_back = 10.24e-3,
         fillet = 1.02e-3
     )
+    resolved_sector = DM.resolve(DM.EmptyBoundary(), sector_boundary)
+    sector_fill = 18pi * (0.5e-3)^2 / DM.area(resolved_sector)
     bounded = stranded(
         copper;
         shape = Disk(0.5e-3),
         layers = 2,
         n = (6, 12),
         lay = (LayRatio(12), LayRatio(11)),
-        boundary = rounded
+        compact = FillFactor(sector_fill),
+        boundary = sector_boundary
     )
     @test bounded isa Stack
     @test length(bounded.items) == 1
@@ -377,24 +563,90 @@ end
     @test bounded_group isa Group
     @test bounded_group.pattern === nothing
     @test bounded_group.path === nothing
-    @test bounded_group.compact isa TabulatedCompaction
-    @test bounded_group.compact.data == rounded
+    @test bounded_group.compact == FillFactor(sector_fill)
+    @test bounded_group.boundary == sector_boundary
     @test bounded_group.item isa Stack
-    @test length(bounded_group.item.items) == 3
+    @test length(bounded_group.item.items) == 2
     @test getproperty.(bounded_group.item.items, :path) == [
-        nothing,
         Helix(LayRatio(12)),
-        Helix(LayRatio(11))
+        Helix(LayRatio(11); φ0 = pi / 6)
     ]
     bounded_design = build(
         CableDesign,
         "bounded-stranded-core",
         terminal(:core, bounded)
     )
-    @test length(bounded_design.geometry.regions) == 19
-    @test DM.boundary(bounded_design.geometry).primitive == rounded
+    @test length(bounded_design.geometry.regions) == 18
+    @test DM.boundary(bounded_design.geometry).primitive == sector_boundary
+    @test all(region -> region.primitive isa DM.Polygon,
+        bounded_design.geometry.regions)
+    @test sum(DM.area, bounded_design.geometry.regions) ≈ 18pi * (0.5e-3)^2
+    sector_centre = DM.centroid(resolved_sector)
+    course_counts = [first(region.placement.patterns).pattern.n
+                     for region in bounded_design.geometry.regions]
+    path_radii = [only(region.paths).radius for region in bounded_design.geometry.regions]
+    @test all(zip(bounded_design.geometry.regions, path_radii)) do (region, radius)
+        centre = DM.centroid(region.primitive)
+        radius ≈ hypot(
+            centre[1] - sector_centre[1],
+            centre[2] - sector_centre[2]
+        )
+    end
+    @test maximum(path_radii[course_counts .== 6]) <
+          minimum(path_radii[course_counts .== 12])
+    bounded_component = only(DM.flatten(bounded_design, 50.0))
+    @test bounded_component.conductor.r_ex ≈ sqrt(DM.area(resolved_sector) / pi)
+    @test all(isapprox.(
+        bounded_component.conductor.position,
+        DM.centroid(resolved_sector)
+    ))
+    member_resistances = map(bounded_design.geometry.regions) do region
+        path = only(region.paths)
+        copper.rho / DM.area(region.source.primitive) *
+        overlength(path.path, path.radius)
+    end
+    @test bounded_component.conductor.resistance ≈
+          inv(sum(inv, member_resistances))
 
-    second_boundary = RoundedSector(
+    natural_sector = stranded(
+        copper;
+        shape = Disk(0.5e-3),
+        boundary = sector_boundary
+    )
+    natural_group = only(natural_sector.items)
+    @test length(natural_group.item.items) == 1
+    @test only(natural_group.item.items).pattern.n == capacity()
+    natural_sector_design = build(
+        CableDesign,
+        "natural-sector-strands",
+        terminal(:core, natural_sector)
+    )
+    @test all(region -> region.primitive isa Disk,
+        natural_sector_design.geometry.regions)
+    @test length(natural_sector_design.geometry.regions) ==
+          length(DM.sector_wire_sites(resolved_sector, Disk(0.5e-3)))
+    natural_centres = DM.centroid.(getproperty.(
+        natural_sector_design.geometry.regions,
+        :primitive
+    ))
+    @test all(
+        hypot(
+            natural_centres[left][1] - natural_centres[right][1],
+            natural_centres[left][2] - natural_centres[right][2]
+        ) + 1e-12 >= 1e-3
+    for left in 1:(length(natural_centres) - 1)
+    for right in (left + 1):length(natural_centres)
+    )
+    @test_throws ArgumentError stranded(
+        copper;
+        center = Disk(0.5e-3),
+        shape = Disk(0.5e-3),
+        layers = 1,
+        n = 6,
+        boundary = sector_boundary
+    )
+
+    second_boundary = Sector(
         span = deg2rad(118.0),
         r_base = 1.0e-3,
         r_back = 10.0e-3,
@@ -403,41 +655,67 @@ end
     boundary_space = stranded(
         copper;
         shape = Disk(0.5e-3),
-        layers = 0,
-        boundary = Grid((rounded, second_boundary))
+        layers = 1,
+        n = 6,
+        boundary = Grid((sector_boundary, second_boundary))
     )
     @test boundary_space isa Gridspace{Stack}
-    @test collect(boundary_space) == [
-        stranded(
-            copper;
-            shape = Disk(0.5e-3),
-            layers = 0,
-            boundary
-        ) for boundary in (rounded, second_boundary)
-    ]
+    @test collect(boundary_space) == [stranded(
+               copper;
+               shape = Disk(0.5e-3),
+               layers = 1,
+               n = 6,
+               boundary
+           ) for boundary in (sector_boundary, second_boundary)]
 
-    rounded_member = RoundedSector(
-        span = deg2rad(115.0),
-        r_base = 0.8e-3,
-        r_back = 8.0e-3,
-        fillet = 0.6e-3
-    )
-    rounded_strand = stranded(
+    product_space = stranded(
         copper;
-        shape = rounded_member,
-        layers = 0,
-        boundary = rounded
+        shape = Disk(Grid((0.4e-3, 0.5e-3))),
+        layers = 1,
+        n = 6,
+        dir = Grid((1, -1)),
+        boundary = Disk(2.0e-3)
     )
-    rounded_design = build(
+    @test product_space isa Gridspace{Stack}
+    @test length(product_space) == 4
+
+    radii = (0.4e-3, 0.5e-3)
+    counts = (6, 7)
+    fills = (0.9, 0.8)
+    zipped_space = stranded(
+        copper;
+        shape = Grid(Disk.(radii)),
+        layers = 1,
+        n = Grid(counts),
+        lay = Grid((LayRatio(12), LayRatio(11))),
+        dir = Grid((1, -1)),
+        compact = Grid(FillFactor.(fills)),
+        boundary = Grid(Disk.(sqrt.((1 .+ counts) ./ fills) .* radii)),
+        combine = :zip
+    )
+    zipped_designs = [build(CableDesign, "zipped-bounded-$index", terminal(:phase, value))
+                      for (index, value) in enumerate(zipped_space)]
+    @test length(zipped_designs) == 2
+    @test [length(design.geometry.regions) for design in zipped_designs] == [7, 8]
+
+    uncertain_space = stranded(
+        copper;
+        shape = Disk(Grid(0.5e-3, 1.0)),
+        layers = 1,
+        n = 6,
+        compact = FillFactor(0.9),
+        boundary = Disk(sqrt(7 / 0.9) * 0.5e-3)
+    )
+    uncertain_design = build(
         CableDesign,
-        "bounded-rounded-strand",
-        terminal(:phase, rounded_strand),
-        insulation(xlpe; t = 0.5e-3)
+        "uncertain-bounded-core",
+        terminal(:phase, first(uncertain_space))
     )
-    @test rounded_design.geometry.regions[1].primitive isa DM.RoundedSectorShape
-    @test rounded_design.geometry.regions[2].primitive isa DM.ShellShape
-    @test DM.boundary(rounded_design.geometry).primitive.r_back ==
-          rounded.r_back + 0.5e-3
+    @test eltype(uncertain_design) <: Measurement
+    @test any(
+        region -> uncertainty(DM.area(region.primitive)) > 0,
+        uncertain_design.geometry.regions
+    )
 
     @test_throws ArgumentError stranded(
         copper;
@@ -446,26 +724,16 @@ end
         boundary = "rounded"
     )
 
-    exact = stranded(
+    @test_throws ArgumentError stranded(
         copper;
+        center = Disk(0.5e-3),
         shape = Rectangle(0.6e-3, 0.8e-3),
         layers = 2,
         n = (5, 11),
-        lay = nothing
+        lay = nothing,
+        compact = FillFactor(1),
+        boundary = Disk(sqrt((0.5e-3)^2 + 16 * 0.6e-3 * 0.8e-3 / pi))
     )
-    @test [item.pattern.n for item in exact.items[2:3]] == [5, 11]
-    rectangular = build(
-        CableDesign,
-        "rectangular-strand",
-        terminal(:phase, exact),
-        insulation(xlpe; t = 1e-3)
-    )
-    rectangles = filter(
-        region -> region.primitive isa DM.Rectangle,
-        rectangular.geometry.regions
-    )
-    @test length(rectangles) == 17
-    @test all(region -> DM.area(region) == 0.6e-3 * 0.8e-3, rectangles)
 
     compacted = stranded(
         copper;
@@ -473,41 +741,72 @@ end
         layers = 1,
         n = 6,
         compact = FillFactor(0.9),
-        lay = LayRatio(11)
+        lay = LayRatio(11),
+        boundary = Disk(sqrt(7 / 0.9) * 0.5e-3)
     )
     compacted_design = build(
         CableDesign,
         "compacted",
         terminal(:phase, compacted)
     )
-    sectors = filter(
-        region -> region.primitive isa DM.Sector,
+    deformed = filter(
+        region -> region.primitive isa DM.Polygon,
         compacted_design.geometry.regions
     )
-    @test length(sectors) == 6
-    @test sum(DM.area, sectors) ≈ 6pi * (0.5e-3)^2
-    @test all(region -> length(region.paths) == 1, sectors)
-    expected_outer = sqrt((0.5e-3)^2 + 6 * (0.5e-3)^2 / 0.9)
-    @test all(region -> region.primitive.ro ≈ expected_outer, sectors)
+    @test length(deformed) == 7
+    @test sum(DM.area, deformed) ≈ 7pi * (0.5e-3)^2
+    outer_course = filter(region -> length(region.paths) == 1, deformed)
+    @test length(outer_course) == 6
     @test all(
-        region -> only(region.paths).radius ≈
-                  (0.5e-3 + expected_outer) / 2,
-        sectors
+        region -> only(region.paths).radius ≈ hypot(DM.centroid(region)...),
+        outer_course
     )
 
-    mixed = stranded(
+    saturated_boundary = Disk(sqrt(7) * 0.5e-3)
+    saturated = build(
+        CableDesign,
+        "saturated-compaction",
+        terminal(
+            :phase,
+            stranded(
+                copper;
+                shape = Disk(0.5e-3),
+                layers = 1,
+                n = 6,
+                compact = FillFactor(1),
+                boundary = saturated_boundary
+            )
+        )
+    )
+    @test sum(DM.area, saturated.geometry.regions) ≈ DM.area(saturated_boundary)
+    @test all(
+        region -> DM.support(region.primitive) <=
+                  saturated_boundary.r * (1 + 5e-6),
+        saturated.geometry.regions
+    )
+    @test_throws DomainError build(
+        CableDesign,
+        "inconsistent-fill-factor",
+        terminal(
+            :phase,
+            stranded(
+                copper;
+                shape = Disk(0.5e-3),
+                layers = 1,
+                n = 6,
+                compact = FillFactor(0.5),
+                boundary = saturated_boundary
+            )
+        )
+    )
+
+    @test_throws ArgumentError stranded(
         copper;
         shape = Disk(0.5e-3),
         layers = 2,
         n = (6, capacity()),
-        compact = (nothing, FillFactor(0.9))
+        boundary = compact_boundary
     )
-    mixed_design = build(CableDesign, "mixed-capacity", terminal(:phase, mixed))
-    resolved_counts = unique([last(region.placement.patterns).pattern.n
-                              for region in mixed_design.geometry.regions
-                              if !isempty(region.placement.patterns)])
-    @test first(resolved_counts) == 6
-    @test last(resolved_counts) > 6
 
     direct_capacity = capacity(Ring, 10e-3, 0.5e-3; gap_frac = 0.03)
     pattern = Ring(capacity(); r = 10e-3, gap_frac = 0.03)
@@ -538,6 +837,16 @@ end
         n = 6,
         lay = LayRatio(9)
     )
+    scheduled_rope = rope(
+        round;
+        layers = 2,
+        n = (6, 12),
+        lay = LayRatio(10, 9)
+    )
+    @test getfield.(scheduled_rope.items[2:3], :path) == [
+        Helix(LayRatio(10)),
+        Helix(LayRatio(9))
+    ]
     nested_design = build(
         CableDesign,
         "nested-rope",
@@ -546,14 +855,11 @@ end
     @test any(region -> length(region.paths) == 2, nested_design.geometry.regions)
     @test any(region -> isempty(region.paths), nested_design.geometry.regions)
     leaf_resistances = map(nested_design.geometry.regions) do region
-        primitive = region.primitive
+        primitive = region.source.primitive
         base = DM.tubular_resistance(
             0.0,
             primitive.r,
-            region.source.material.rho,
-            region.source.material.alpha,
-            region.source.material.T0,
-            region.source.material.T0
+            region.source.material.rho
         )
         foldl(region.paths; init = base) do resistance, entry
             resistance * overlength(entry.path, entry.radius)
@@ -570,12 +876,8 @@ end
         copper;
         shape = Disk(0.5e-3),
         layers = 2,
-        lay = (LayRatio(10),)
-    )
-    @test_throws MethodError DM.placements(
-        Ring(6; r = 2e-3),
-        Disk(0.5e-3),
-        DiameterFactor(0.9)
+        lay = (LayRatio(10),),
+        boundary = round_boundary
     )
 end
 
@@ -631,11 +933,51 @@ end
 
     placed = @at design (0.0, -1.0) connections = (phase = 1,)
     @test placed == at(design, 0.0, -1.0; connections = (phase = 1,))
+    @test (@at design (0.0, -1.0) phase=1) == placed
     @test (@at design (0.0, -1.0) φ=0.2 connections=(phase = 1,)) ==
           at(design, 0.0, -1.0; φ = 0.2, connections = (phase = 1,))
     @test_throws ArgumentError macroexpand(
         @__MODULE__,
         :(@at design (0.0, -1.0, 0.2) φ = 0.3)
+    )
+    @test_throws ArgumentError macroexpand(
+        @__MODULE__,
+        :(@at design (0.0, -1.0) connections=(phase = 1,) phase=2)
+    )
+
+    system = @system "placed-system" line_length=2.0 begin
+        @at design (0.0, -1.0) phase=1
+        @at design (0.1, -1.0) phase=2
+    end
+    expected_system = build(
+        LineCableSystem,
+        [
+            at(design, 0.0, -1.0; connections = (phase = 1,)),
+            at(design, 0.1, -1.0; connections = (phase = 2,))
+        ];
+        system_id = "placed-system",
+        line_length = 2.0
+    )
+    @test system.system_id == expected_system.system_id
+    @test system.line_length == expected_system.line_length
+    @test system.designs == expected_system.designs
+    @test system.positions == expected_system.positions
+    @test system.connections == expected_system.connections
+    @test system.terminal_order == expected_system.terminal_order
+    @test system.terminal_map == expected_system.terminal_map
+    @test system.connection_order == expected_system.connection_order
+
+    formation_system = @system "formation-system" begin
+        @hflat design spacing=0.1 phase=(1, 2, 3)
+    end
+    @test length(formation_system.designs) == 3
+    @test formation_system.connection_order == [1, 2, 3]
+
+    @test_throws ArgumentError macroexpand(
+        @__MODULE__,
+        :(@system "invalid" system_id="duplicate" begin
+            placed
+        end)
     )
 
     root_space = terminal(
@@ -666,16 +1008,62 @@ end
                terminal(:phase, core(copper; r), insulation(xlpe; t = 1e-3))
            ) for r in (2e-3, 3e-3)]
 
+    zipped_terminal = @terminal :phase combine=:zip begin
+        core(copper; r = Grid((2e-3, 3e-3)))
+        insulation(xlpe; t = Grid((1e-3, 2e-3)))
+    end
+    @test zipped_terminal isa Gridspace{Group}
+    @test length(zipped_terminal) == 2
+
+    zipped_designs = @cable Grid(("zip-a", "zip-b")) nominal_data=Grid((
+        (rating = 1,),
+        (rating = 2,)
+    )) combine=:zip begin
+        zipped_terminal
+    end
+    @test zipped_designs isa Gridspace{CableDesign}
+    @test length(zipped_designs) == 2
+    @test getproperty.(collect(zipped_designs), :cable_id) == ["zip-a", "zip-b"]
+    @test getproperty.(collect(zipped_designs), :nominal_data) == [
+        (rating = 1,),
+        (rating = 2,)
+    ]
+
+    left_members = terminal(:left, core(copper; r = Grid((1e-3, 1.2e-3))))
+    right_members = terminal(:right, core(copper; r = Grid((0.8e-3, 0.9e-3))))
+    zipped_assembly = @assembly combine=:zip begin
+        left_members
+        right_members
+    end
+    @test zipped_assembly isa Gridspace{Assembly}
+    @test length(zipped_assembly) == 2
+
+    zipped_formation = @trefoil first(zipped_designs) spacing=Grid((
+        0.08,
+        0.1
+    )) center=at(x = Grid((0.0, 0.2)), y = -1.0) combine=:zip phase=(1, 2, 3)
+    @test zipped_formation isa Gridspace{Vector}
+    @test length(zipped_formation) == 2
+
+    systems = @system "macro-system" begin
+        @at macro_designs (0.0, -1.0) phase=1
+    end
+    @test systems isa Gridspace{LineCableSystem}
+    @test length(systems) == 2
+    @test all(system -> system.system_id == "macro-system", systems)
+    @test all(system -> system.connection_order == [1], systems)
+
     schedules = Grid((
-        (LayRatio(10), LayRatio(11)),
-        (LayRatio(12), LayRatio(13))
+        LayRatio(10, 11),
+        LayRatio(12, 13)
     ))
     strands = stranded(
         copper;
         shape = Disk(0.5e-3),
         layers = 2,
         n = (6, 12),
-        lay = schedules
+        lay = schedules,
+        boundary = Disk(3e-3)
     )
     @test strands isa Gridspace{Stack}
     @test length(strands) == 2
@@ -684,7 +1072,8 @@ end
         shape = Disk(0.5e-3),
         layers = 2,
         n = (6, 12),
-        lay = (LayRatio(10), LayRatio(11))
+        lay = LayRatio(10, 11),
+        boundary = Disk(3e-3)
     ) isa Stack
 
     repeated_cores = cores(
@@ -712,10 +1101,7 @@ end
         Pitch(radii),
         LayAngle(Grid((0.1, 0.2))),
         Helix(LayRatio(10); φ0 = Grid((0.0, 0.1))),
-        FillFactor(Grid((0.8, 0.9))),
-        DiameterFactor(Grid((0.8, 0.9))),
-        TabulatedCompaction(Grid(((course = 1,), (course = 2,)))),
-        AffineCompaction(Grid((([1.0 0.0; 0.0 1.0]), ([0.9 0.0; 0.0 1.0]))))
+        FillFactor(Grid((0.8, 0.9)))
     )
     @test all(space -> space isa Gridspace, advanced_spaces)
     @test all(==(2), length.(advanced_spaces))
@@ -732,11 +1118,6 @@ end
     )
     @test local_member.at == DM.Pose2(0.01, 0.02, 0.3)
 
-    @test (@distribute stranded(
-        copper;
-        shape = Disk(0.5e-3),
-        layers = 1
-    )).items[2].pattern.n == capacity()
     @test (@distribute rope(
         terminal(:aux, core(copper; r = 0.5e-3));
         layers = 1

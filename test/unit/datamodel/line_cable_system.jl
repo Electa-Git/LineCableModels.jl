@@ -31,6 +31,22 @@
     @test !hasproperty(system, :num_phases)
     @test validate(system) === system
 
+    neutral=build(
+        LineCableSystem,
+        design,
+        Pose2(0.0, 0.0, 0.0);
+        environment = nothing,
+        system_id = "neutral"
+    )
+    @test only(neutral.positions) == Pose2(0.0, 0.0, 0.0)
+    @test neutral.environment === nothing
+    @test_throws DomainError build(
+        LineCableSystem,
+        design,
+        Pose2(0.0, 0.0, 0.0);
+        environment = :interface
+    )
+
     @test_throws DomainError build(
         LineCableSystem,
         [design, design],

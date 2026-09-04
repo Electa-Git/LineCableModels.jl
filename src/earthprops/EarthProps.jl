@@ -7,23 +7,34 @@ reductions required by line-parameter formulations.
 
 # Public actions
 
-- Construct and validate [`EarthLayer`](@ref), [`EarthModel`](@ref), and the
-  ephemeral [`EarthMaterial`](@ref).
+- Declare earth descriptions with [`layer`](@ref) and [`homogeneous`](@ref),
+  represented by [`EarthLayer`](@ref) and [`EarthModel`](@ref).
+- Construct the ephemeral [`EarthMaterial`](@ref) used by the engine.
 - Select measured frequency dependence through [`FD`](@ref).
 - Select equivalent homogeneous-earth reductions through [`EHEM`](@ref).
-- Extend an earth model with `add!`.
+- Build immutable earth models from complete ordered layer declarations.
 - Present earth data through the Base display protocol.
 """
 module EarthProps
 
-export EarthMaterial, EarthLayer, EarthModel
+export AbstractEarthModel, EarthMaterial, EarthLayer, EarthModel
+export layer, homogeneous
+export build
 export FD, EHEM
 
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
-import ..LineCableModels: add!, validate
+using RequiredInterfaces: @required
+import ..LineCableModels: build, validate
+import ..LineCableModels: parameterize
 using ..Materials: AbstractMaterial
-import ..Validation
 import ..TextDisplay
+
+"Supertype for materialized static earth-layer and earth-model descriptions."
+abstract type AbstractEarthModel end
+
+@required AbstractEarthModel begin
+    validate(::AbstractEarthModel)
+end
 
 include("earthmaterial.jl")
 include("earthlayer.jl")

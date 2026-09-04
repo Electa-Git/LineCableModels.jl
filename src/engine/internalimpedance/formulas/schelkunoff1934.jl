@@ -1,18 +1,49 @@
-function routes(::Val{:Schelkunoff1934})
+function routes(identifier::Val{:Schelkunoff1934})
     (
-        inner = schelkunoff_inner,
-        outer = schelkunoff_outer,
-        mutual = schelkunoff_mutual
+        inner = FormulaMethod(identifier, internal_impedance, Val(:inner)),
+        outer = FormulaMethod(identifier, internal_impedance, Val(:outer)),
+        mutual = FormulaMethod(identifier, internal_impedance, Val(:mutual))
     )
 end
 
 assumptions(::Val{:Schelkunoff1934}) = (;)
 
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Exact cylindrical surface impedances for a solid or
+hollow round conductor.
+
+**Expression.**
+
+```math
+\\begin{aligned}
+Z_{is}&=\\frac{\\rho m}{2\\pi aD}
+[I_0(ma)K_1(mb)+K_0(ma)I_1(mb)],\\\\
+Z_{os}&=\\frac{\\rho m}{2\\pi bD}
+[I_0(mb)K_1(ma)+K_0(mb)I_1(ma)],\\\\
+Z_{ms}&=\\frac{\\rho m}{2\\pi abD},\\\\
+D&=I_1(mb)K_1(ma)-K_1(mb)I_1(ma).
+\\end{aligned}
+```
+
+For ``a=0``, ``Z_{int}=\\rho mI_0(mb)/(2\\pi bI_1(mb))``.
+
+Schelkunoff's surface terms were later recovered by Ametani to assemble the
+complete core/sheath/armour impedance matrix. The Engine applies that outward
+assembly recursively to any number of concentric conductive terminals.
+
+**Reference.** S. A. Schelkunoff, “The Electromagnetic Theory of Coaxial
+Transmission Lines and Cylindrical Shields,” *Bell System Technical Journal*,
+13, 532–579, 1934; A. Ametani, “A General Formulation of Impedance and
+Admittance of Cables,” *IEEE Transactions on Power Apparatus and Systems*,
+PAS-99(3), 902–910, 1980. DOI: 10.1109/TPAS.1980.319718.
+"""
 function description(::Formula{:Schelkunoff1934})
     "Schelkunoff exact round-conductor surface impedances (1934)"
 end
 
-"""
+#=
 $(TYPEDSIGNATURES)
 
 Construct the exact Schelkunoff surface-impedance evaluator for one solid or
@@ -56,11 +87,28 @@ For ``a=0``, the outer term is evaluated from the solid-cylinder limit
 
 # Notes
 
-Implements Schelkunoff (1934) as reproduced in Ametani et al. (2021),
-Appendix A1.4.1, Eqs. A1.50–A1.55.
-"""
-function schelkunoff1934(
-        formula::Formula{:Schelkunoff1934},
+Implements Schelkunoff's cylindrical surface terms. Ametani (1980) recovered
+these terms for the complete core/sheath/armour impedance assembly performed
+recursively by the Engine.
+=#
+function (formula::Formula{:Schelkunoff1934})(
+        r_in::T,
+        r_ex::T,
+        rho_c::T,
+        mur_c::T,
+        jω::Complex{T}
+) where {T <: Real}
+    state = surface_impedance_state(
+        Val(:Schelkunoff1934), r_in, r_ex, rho_c, mur_c, jω
+    )
+    return Functor{:Schelkunoff1934, typeof(formula.routes), typeof(state)}(
+        formula.routes,
+        state
+    )
+end
+
+function surface_impedance_state(
+        ::Val{:Schelkunoff1934},
         r_in::T,
         r_ex::T,
         rho_c::T,
@@ -82,14 +130,7 @@ function schelkunoff1934(
         m,
         w_ex
     )
-    return Functor{:Schelkunoff1934, typeof(formula.routes), typeof(state)}(
-        formula.routes,
-        state
-    )
-end
-
-@inline function (formula::Formula{:Schelkunoff1934})(r_in, r_ex, rho_c, mur_c, jω)
-    return schelkunoff1934(formula, r_in, r_ex, rho_c, mur_c, jω)
+    return state
 end
 
 @inline function (functor::Functor{:Schelkunoff1934})(::Val{:inner})
@@ -112,7 +153,11 @@ end
            throw(ArgumentError("unknown Schelkunoff1934 interaction: $form"))
 end
 
-@inline function schelkunoff_inner(state)
+@inline function internal_impedance(
+        ::Val{:Schelkunoff1934},
+        ::Val{:inner},
+        state
+)
     T = typeof(state.r_in)
     if isapprox(state.r_in, zero(T); atol = eps(T))
         return zero(Complex{T})
@@ -131,7 +176,11 @@ end
     )
 end
 
-@inline function schelkunoff_outer(state)
+@inline function internal_impedance(
+        ::Val{:Schelkunoff1934},
+        ::Val{:outer},
+        state
+)
     T = typeof(state.r_in)
     if isapprox(state.r_in, zero(T); atol = eps(T))
         numerator = special_besselix(0, state.w_ex)
@@ -152,7 +201,11 @@ end
     )
 end
 
-@inline function schelkunoff_mutual(state)
+@inline function internal_impedance(
+        ::Val{:Schelkunoff1934},
+        ::Val{:mutual},
+        state
+)
     T = typeof(state.r_in)
     if isapprox(state.r_in, zero(T); atol = eps(T))
         return zero(Complex{T})
@@ -168,6 +221,24 @@ end
     return Complex{T}(
         (1 / (2π * state.r_in * state.r_ex * state.sigma_c)) *
         (numerator / denominator)
+    )
+end
+
+function surface_impedances(
+        identifier::Val{:Schelkunoff1934},
+        r_in::T,
+        r_ex::T,
+        rho_c::T,
+        mur_c::T,
+        jω::Complex{T}
+) where {T <: Real}
+    state = surface_impedance_state(
+        identifier, r_in, r_ex, rho_c, mur_c, jω
+    )
+    return (
+        inner = internal_impedance(identifier, Val(:inner), state),
+        outer = internal_impedance(identifier, Val(:outer), state),
+        mutual = internal_impedance(identifier, Val(:mutual), state)
     )
 end
 

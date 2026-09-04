@@ -1,0 +1,31 @@
+#!/bin/sh
+set -eu
+
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+COMMAND=${1:-}
+
+case "$COMMAND" in
+    gauntlet)
+        shift
+        exec "$ROOT/test/gauntlet/cli/lcm-gauntlet" "$@"
+        ;;
+    --help|-h|help|'')
+        cat <<'EOF'
+Usage: lcm <command> [arguments]
+
+Commands:
+  gauntlet    Manage validation cases and benchmark artefacts
+
+Run `lcm <command> --help` for command-specific help.
+EOF
+        ;;
+    --version)
+        exec julia --project="$ROOT" --startup-file=no -e \
+            'using Pkg; println("lcm ", Pkg.project().version)'
+        ;;
+    *)
+        echo "lcm: unknown command '$COMMAND'" >&2
+        echo "Run 'lcm --help' for available commands." >&2
+        exit 2
+        ;;
+esac

@@ -18,11 +18,14 @@
     return maps
 end
 
-@inline function _execution(options::NamedTuple)
+function computation_options(
+        ::Type{LineCableModelsModal},
+        options::NamedTuple
+)::ComputationOptions
     isempty(options) || throw(ArgumentError(
         "the modal backend has no computation options; got $(collect(keys(options)))"
     ))
-    return nothing
+    return (;)
 end
 
 function _forward(
@@ -73,7 +76,7 @@ function _forward(
                 tolerance)
     end
 
-    modal = ModalDomain(maps, formula)
+    modal = ModalDomain{typeof(maps), Formula}(maps, formula)
     return LineParameters(
         modal,
         SeriesImpedance{eltype(impedance), Basis}(impedance),
@@ -140,7 +143,8 @@ function compute(
         formulation::ModalTransformationFormulation;
         options::NamedTuple = (;)
 ) where {T, U, P <: LineParameters{T, U, PhaseDomain}}
-    _execution(options)
+    computation_options(LineCableModelsModal, options)
+    validate(problem)
     return _forward(problem.parameters, formulation)
 end
 
@@ -156,14 +160,13 @@ function compute(
         problem::ModalTransformationProblem{P};
         options::NamedTuple = (;)
 ) where {T, U, D <: ModalDomain, P <: LineParameters{T, U, D}}
-    _execution(options)
+    computation_options(LineCableModelsModal, options)
+    validate(problem)
     return _inverse(problem.parameters)
 end
 
-computation_owner(::ModalTransformationFormulation) = LineCableModelsModal
-
 function computation_details(
-        ::Val{LineCableModelsModal},
+        ::Type{<:ModalTransformationFormulation},
         result::LineParameters
 )::ComputationDetails
     return details(result)

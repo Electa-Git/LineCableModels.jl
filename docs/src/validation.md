@@ -7,24 +7,25 @@ Pages = ["validation.md"]
 Depth = 3
 ```
 
-[`validate`](@ref) is the common validation entry point. The function returns its argument
-unchanged when the value is valid and throws a native Julia exception when it is not:
+[`validate`](@ref) checks materialized inputs before they enter another
+construction or numerical operation. It returns its argument unchanged when
+the value is usable and throws a native Julia exception when it is not:
 
 ```julia
 validated = validate(value)
 @assert validated === value
 ```
 
-Validation never converts, fills defaults, rewrites nested values, or mutates its input.
-Constructors first promote their complete input with Julia's ordinary `promote` and
-`convert` mechanisms, then validate the resulting immutable record. Mutable operations
-calculate and validate a complete candidate state before changing the owned collection.
+Input validation never converts, fills defaults, rewrites nested values, or
+mutates its input. Constructors normalize admitted scalar grammar before
+checking the resulting object. A selected `Gridpoint` is checked when it
+materializes, and computation entry points check their complete problem again.
 
 ## Validation failures
 
-Construction and mutation validate complete values before returning or changing
-them. Validation does not fill defaults, estimate wire counts, rewrite nested
-values, or mutate its input.
+Construction and mutation check complete values before returning or changing
+them. Rechecking at a numerical boundary detects changes to mutable vectors or
+dictionaries retained by an otherwise immutable object.
 
 The failure type communicates the category:
 
@@ -47,9 +48,9 @@ Radius or thickness selection, repetition, and variation use explicit
 materialize the same action through `Gridspace`. Completed objects therefore
 contain one resolved geometry and cannot drift from their declarations.
 
-Mutable libraries and earth models validate a complete candidate before
-changing owned state. Cable parts, cable designs, and line systems are
-immutable; rebuild the authoritative declaration when it changes.
+Mutable libraries validate a complete candidate before changing owned state.
+Earth models, cable designs, and line systems are immutable descriptions;
+rebuild the authoritative declaration when it changes.
 
 Operating temperature is not a cable-part constructor input. Cable designs represent
 the common material reference state and reject mixed material reference temperatures.

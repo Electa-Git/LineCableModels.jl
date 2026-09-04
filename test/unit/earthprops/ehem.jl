@@ -4,9 +4,14 @@
 
     expected=(:MartinsBritto2020, :Xue2021)
     @test EH.formulas() == expected
-    files=sort(filter(endswith(".jl"), readdir(joinpath(
-        pkgdir(LineCableModels), "src", "earthprops", "ehem", "formulas"
-    ))))
+    @test EH.DEFAULT === :Layer
+    @test EH.Formula(:default) == EH.Layer(-1)
+    @test EH.AfterFD(:default) == EH.AfterFD(EH.Layer(-1))
+    @test EH.BeforeFD(:default) == EH.BeforeFD(EH.Layer(-1))
+    files=sort(filter(endswith(".jl"),
+        readdir(joinpath(
+            pkgdir(LineCableModels), "src", "earthprops", "ehem", "formulas"
+        ))))
     @test files == collect(lowercase.(string.(expected)) .* ".jl")
 
     for identifier in expected
@@ -21,19 +26,24 @@
     @test_throws ArgumentError EH.Formula(:Unknown)
     @test_throws ArgumentError EH.Formula(:Xue2021; unknown = 1)
     @test_throws DomainError EH.Layer(0)
+    @test_throws MethodError EH.Layer()
 
-    route=(layout, rho, eps_r, mu_r, model, pair, frequency, values)->
-        EP.EarthMaterial(rho[end] / values.scale, eps_r[end], mu_r[end])
+    route=(layout, rho, eps_r, mu_r, model, pair, frequency, values) -> EP.EarthMaterial(
+        rho[end] / values.scale, eps_r[end], mu_r[end])
     experimental=EH.Formula(:Experiment, route, (scale = 2.0,))
+    @test_throws ArgumentError EH.Formula(:default; route)
+    @test_throws ArgumentError EH.Formula(:default, route)
 
-    model=EP.EarthModel(100.0, 10.0, 1.0; thickness = 5.0)
-    add!(model, EP.EarthLayer(50.0, 5.0, 1.0))
-    rho=getfield.(model.layers, :rho)
-    eps_r=getfield.(model.layers, :eps_r)
-    mu_r=getfield.(model.layers, :mu_r)
+    model=build(EP.EarthModel, (
+        EP.EarthLayer(100.0, 10.0, 1.0, 5.0),
+        EP.EarthLayer(50.0, 5.0, 1.0)
+    ))
+    rho=collect(getfield.(model.layers, :rho))
+    eps_r=collect(getfield.(model.layers, :eps_r))
+    mu_r=collect(getfield.(model.layers, :mu_r))
     pair=LineCableModels.Engine.EarthPair(1, 1, (1.0, 1.0), 0.0, (1, 1))
 
-    bottom=@inferred EH.Layer()(Val(:overhead), rho, eps_r, mu_r, model, pair, 50.0)
+    bottom=@inferred EH.Layer(-1)(Val(:overhead), rho, eps_r, mu_r, model, pair, 50.0)
     top=@inferred EH.Layer(2)(Val(:overhead), rho, eps_r, mu_r, model, pair, 50.0)
     @test bottom == EP.EarthMaterial(model.layers[3])
     @test top == EP.EarthMaterial(model.layers[2])
@@ -58,16 +68,15 @@ end
     eps_soil=reference["eps_r"]
     mu_soil=reference["mu_r"]
     thickness=reference["thickness_m"]
-    model=EP.EarthModel(
-        rho_soil[1], eps_soil[1], mu_soil[1]; thickness = thickness[1]
-    )
-    add!(model, EP.EarthLayer(
-        rho_soil[2], eps_soil[2], mu_soil[2], thickness[2]
-    ))
-    add!(model, EP.EarthLayer(rho_soil[3], eps_soil[3], mu_soil[3]))
-    rho=getfield.(model.layers, :rho)
-    eps_r=getfield.(model.layers, :eps_r)
-    mu_r=getfield.(model.layers, :mu_r)
+    model=build(EP.EarthModel,
+        (
+            EP.EarthLayer(rho_soil[1], eps_soil[1], mu_soil[1], thickness[1]),
+            EP.EarthLayer(rho_soil[2], eps_soil[2], mu_soil[2], thickness[2]),
+            EP.EarthLayer(rho_soil[3], eps_soil[3], mu_soil[3])
+        ))
+    rho=collect(getfield.(model.layers, :rho))
+    eps_r=collect(getfield.(model.layers, :eps_r))
+    mu_r=collect(getfield.(model.layers, :mu_r))
     pair=LineCableModels.Engine.EarthPair(1, 1, (10.0, 10.0), 0.0, (1, 1))
 
     for identifier in EH.formulas()
@@ -98,9 +107,9 @@ end
     @test xue.rho ≈ martins.rho rtol=2e-3
 
     model32=convert(EP.EarthModel{Float32}, model)
-    rho32=getfield.(model32.layers, :rho)
-    eps32=getfield.(model32.layers, :eps_r)
-    mu32=getfield.(model32.layers, :mu_r)
+    rho32=collect(getfield.(model32.layers, :rho))
+    eps32=collect(getfield.(model32.layers, :eps_r))
+    mu32=collect(getfield.(model32.layers, :mu_r))
     pair32=LineCableModels.Engine.EarthPair(
         1, 1, (10.0f0, 10.0f0), 0.0f0, (1, 1)
     )
@@ -119,9 +128,12 @@ end
     const EH=EP.EHEM
     const EN=LineCableModels.Engine
 
-    model=EarthModel(100.0, 10.0, 1.0; thickness = 5.0)
-    add!(model, EP.EarthLayer(500.0, 20.0, 1.0, 10.0))
-    add!(model, EP.EarthLayer(50.0, 5.0, 1.0))
+    model=build(EarthModel,
+        (
+            EP.EarthLayer(100.0, 10.0, 1.0, 5.0),
+            EP.EarthLayer(500.0, 20.0, 1.0, 10.0),
+            EP.EarthLayer(50.0, 5.0, 1.0)
+        ))
     frequency=[1.0e6]
     pair=EN.EarthPair(1, 1, (10.0, 10.0), 0.0, (1, 1))
 
@@ -159,11 +171,11 @@ end
 
     layer_after=Formulation(
         earth_properties = :CIGRE2019,
-        equivalent_earth = EH.AfterFD(EH.Layer())
+        equivalent_earth = EH.AfterFD(EH.Layer(-1))
     )
     layer_before=Formulation(
         earth_properties = :CIGRE2019,
-        equivalent_earth = EH.BeforeFD(EH.Layer())
+        equivalent_earth = EH.BeforeFD(EH.Layer(-1))
     )
     layer_after_data=EN._earth_data(layer_after, (earth = model, freq = frequency))
     layer_before_data=EN._earth_data(layer_before, (earth = model, freq = frequency))

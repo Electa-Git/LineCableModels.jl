@@ -23,18 +23,24 @@
         details = (source = :test,)
     )
 
-    transform=Transforms.fortescue_F(3)
+    transform=Transforms.modal_basis(Val(:Fortescue), 3)
     @test TestNumerics.isapprox_scaled(
         transform * transform',
         Matrix{ComplexF64}(I, 3, 3)
     )
-    @test_throws ArgumentError Transforms.fortescue_F(0)
+    @test_throws ArgumentError Transforms.modal_basis(Val(:Fortescue), 0)
 
     formulation=ModalTransformationFormulation(:Fortescue)
     selected=@inferred ModalTransformationFormulation(
-        formula(:Chrysochos2014; tolerance=1e-7)
+        formula(:Chrysochos2014; tolerance = 1e-7)
     )
-    @test description(formulation) == "Fortescue (symmetrical components)"
+    default_formulation=@inferred ModalTransformationFormulation()
+    @test Transforms.DEFAULT === :Chrysochos2014
+    @test formula_id(default_formulation) === :Chrysochos2014
+    @test formula_id(Transforms.Formula(:default)) === :Chrysochos2014
+    @test :default ∉ Transforms.formulas()
+    @test description(formulation) ==
+          "Fortescue symmetrical-component transformation (1918)"
     @test formula_id(formulation) === :Fortescue
     @test formula_id(selected) === :Chrysochos2014
     @test LineCableModels.Transforms.assumptions(selected).tolerance == 1e-7
@@ -92,7 +98,7 @@
         unsupported = true
     )
     @test_throws ArgumentError ModalTransformationFormulation(
-        formula(:Fortescue; order=:before)
+        formula(:Fortescue; order = :before)
     )
     @test_throws DomainError ModalTransformationFormulation(
         :Fortescue;
@@ -172,9 +178,9 @@ end
 
     descriptions=(
         Chrysochos2014 =
-            "Chrysochos et al. 2014 (Levenberg–Marquardt eigenpair tracking)",
-        Fan2009 = "Fan et al. 2009 (optimal postprocessed eigenvector tracking)",
-        Wedepohl1996 = "Wedepohl et al. 1996 (Newton–Raphson eigenpair tracking)"
+        "Chrysochos et al. Levenberg–Marquardt modal transformation (2014)",
+        Fan2009 = "Fan et al. eigenvector-tracking transformation (2009)",
+        Wedepohl1996 = "Wedepohl et al. Newton–Raphson modal transformation (1996)"
     )
 
     frequencies=[50.0, 100.0]
@@ -237,17 +243,15 @@ end
         angle=(frequency_index-1)/(length(smooth_frequencies)-1)*(pi/3)
         basis_matrix=[cos(angle) -sin(angle); sin(angle) cos(angle)]
         modal_impedance=Diagonal(ComplexF64[
-            2+0.01frequency_index+3im,
-            4+0.02frequency_index+5im
+            2 + 0.01frequency_index + 3im,
+            4 + 0.02frequency_index + 5im
         ])
         modal_admittance=Diagonal(ComplexF64[
-            (4+0.01frequency_index)+8im,
-            (8+0.02frequency_index)+12im
-        ].*1e-9)
-        smooth_impedance[:, :, frequency_index]=
-            basis_matrix*modal_impedance*transpose(basis_matrix)
-        smooth_admittance[:, :, frequency_index]=
-            basis_matrix*modal_admittance*transpose(basis_matrix)
+            (4 + 0.01frequency_index) + 8im,
+            (8 + 0.02frequency_index) + 12im
+        ] .* 1e-9)
+        smooth_impedance[:, :, frequency_index]=basis_matrix*modal_impedance*transpose(basis_matrix)
+        smooth_admittance[:, :, frequency_index]=basis_matrix*modal_admittance*transpose(basis_matrix)
     end
     smooth_parameters=LineParameters(
         PhaseDomain,
@@ -262,7 +266,8 @@ end
         )
         maps=operators(transformed)
         for frequency_index in 2:length(smooth_frequencies), mode in 1:2
-            previous=@view maps.voltage[mode, :, frequency_index-1]
+
+            previous=@view maps.voltage[mode, :, frequency_index - 1]
             current=@view maps.voltage[mode, :, frequency_index]
             overlap=abs(dot(previous, current))/(norm(previous)*norm(current))
             @test overlap > 0.99
@@ -271,27 +276,27 @@ end
 
     @test_throws DomainError compute(
         ModalTransformationProblem(parameters),
-        ModalTransformationFormulation(:Chrysochos2014; max_iterations=0)
+        ModalTransformationFormulation(:Chrysochos2014; max_iterations = 0)
     )
     @test_throws DomainError compute(
         ModalTransformationProblem(parameters),
-        ModalTransformationFormulation(:Chrysochos2014; convergence=-1)
+        ModalTransformationFormulation(:Chrysochos2014; convergence = -1)
     )
     @test_throws DomainError compute(
         ModalTransformationProblem(parameters),
-        ModalTransformationFormulation(:Fan2009; history_weight=-1)
+        ModalTransformationFormulation(:Fan2009; history_weight = -1)
     )
     @test_throws DomainError compute(
         ModalTransformationProblem(parameters),
-        ModalTransformationFormulation(:Fan2009; coalescence_tolerance=-1)
+        ModalTransformationFormulation(:Fan2009; coalescence_tolerance = -1)
     )
     @test_throws DomainError compute(
         ModalTransformationProblem(parameters),
-        ModalTransformationFormulation(:Wedepohl1996; max_iterations=0)
+        ModalTransformationFormulation(:Wedepohl1996; max_iterations = 0)
     )
     @test_throws DomainError compute(
         ModalTransformationProblem(parameters),
-        ModalTransformationFormulation(:Wedepohl1996; convergence=-1)
+        ModalTransformationFormulation(:Wedepohl1996; convergence = -1)
     )
 end
 

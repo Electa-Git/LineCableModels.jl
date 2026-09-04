@@ -38,13 +38,12 @@ using ..DataModel: CablesLibrary, DatasheetInfo, CableDesign, LineCableSystem,
                    AbstractCablePart, Region, Stack, Group, Assembly, Enclosure,
                    Disk, Rectangle, Ellipse,
                    Sector, Annulus, Shell,
-                   Polygon, RoundedSector, Pose2,
+                   Polygon, Pose2,
                    Ring, Polar, Fill, Lattice, capacity,
-                   FillFactor, DiameterFactor, TabulatedCompaction,
-                   AffineCompaction,
+                   FillFactor,
                    LayRatio, Pitch, LayAngle, Helix
 using ..ParametricBuilder: AbstractGrid, DeterministicGrid, RelativeGrid,
-                          AbsoluteGrid, Grid, Gridspace, AbsoluteError
+                           AbsoluteGrid, Grid, Gridspace, AbsoluteError
 import ..Engine
 import ..Engine: LineParameters, SeriesImpedance, ShuntAdmittance,
                  frequencies, Z, Y, C
@@ -60,6 +59,7 @@ include("interfaces.jl")
 include("paths.jl")
 include("serialize.jl")
 include("deserialize.jl")
+include("problem.jl")
 include("cableslibrary.jl")
 include("materialslibrary.jl")
 include("pscad/pscad.jl")

@@ -15,6 +15,7 @@ import LineCableModels
 const Grammar = LineCableModels.Grammar
 const ParametricBuilder = LineCableModels.ParametricBuilder
 const Engine = LineCableModels.Engine
+const UQ = LineCableModels.UQ
 const ReportBuilder = LineCableModels.ReportBuilder
 const ImportExport = LineCableModels.ImportExport
 
@@ -30,8 +31,73 @@ import LineCableModels.ReportBuilder: encode_cell
 nominal(value::Measurements.Measurement) = Measurements.value(value)
 uncertainty(value::Measurements.Measurement) = Measurements.uncertainty(value)
 
-function ParametricBuilder.materialize(value::ParametricBuilder.UncertainValue{<:Real})
+function LineCableModels.materialize(value::ParametricBuilder.UncertainValue{<:Real})
     Measurements.measurement(value.nominal, value.sigma)
+end
+
+function _measurement(summary::UQ.SampleSummary)
+    Measurements.measurement(summary.mean, summary.std)
+end
+
+function _measurement_result(
+        source::UQ.MonteCarloResult{<:Engine.CableConstants},
+        point::Integer
+)
+    representative = source.values[point]
+    summary = source.stats[point]
+    return Engine.CableConstants(
+        representative.cores,
+        _measurement.(summary.R),
+        _measurement.(summary.L),
+        _measurement.(summary.C),
+        _measurement.(summary.G),
+        representative.frequency
+    )
+end
+
+function _measurement_result(
+        source::UQ.MonteCarloResult{<:Engine.LineParameters},
+        point::Integer
+)
+    representative = source.values[point]
+    summary = source.stats[point]
+    resistance = _measurement.(summary.R)
+    inductance = _measurement.(summary.L)
+    capacitance = _measurement.(summary.C)
+    conductance = _measurement.(summary.G)
+    angular = reshape(2π .* representative.f, 1, 1, :)
+    impedance = complex.(resistance, inductance .* angular)
+    admittance = complex.(conductance, capacitance .* angular)
+    return Engine.LineParameters(
+        representative.domain,
+        impedance,
+        admittance,
+        representative.f;
+        basis = LineCableModels.basis(representative),
+        details = representative.details
+    )
+end
+
+function ParametricBuilder.Gridspace{Target}(
+        source::UQ.MonteCarloResult{T}
+) where {
+        Target,
+        T <: Union{Engine.CableConstants, Engine.LineParameters}
+}
+    first_value = _measurement_result(source, firstindex(source))
+    values = Vector{typeof(first_value)}(undef, length(source))
+    values[1] = first_value
+    for point in 2:length(source)
+        value = _measurement_result(source, point)
+        typeof(value) === eltype(values) || throw(ArgumentError(
+            "Monte Carlo statistics reconstructed inconsistent result types",
+        ))
+        values[point] = value
+    end
+    return ParametricBuilder.Gridspace{Target}(
+        Target,
+        (ParametricBuilder.Grid(values),)
+    )
 end
 
 function has_uncertainty_type(

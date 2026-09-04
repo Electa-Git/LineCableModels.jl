@@ -120,6 +120,94 @@ function _create_run(runtime_root::String)
     return run
 end
 
+function _resume_value_matches(existing::AbstractDict, expected::AbstractDict)
+    length(existing) == length(expected) || return false
+    return all(keys(expected)) do key
+        haskey(existing, key) &&
+            _resume_value_matches(existing[key], expected[key])
+    end
+end
+
+function _resume_value_matches(existing::AbstractVector, expected::AbstractVector)
+    length(existing) == length(expected) || return false
+    return all(splat(_resume_value_matches), zip(existing, expected))
+end
+
+_resume_value_matches(existing, expected) = isequal(existing, expected)
+
+function _resume_problem_matches(path::String, model::FEMResolvedModel)
+    snapshot = joinpath(path, "input", "problem.json")
+    isfile(snapshot) || return false
+    existing = try
+        JSON3.read(read(snapshot, String))
+    catch
+        return false
+    end
+    expected = ImportExport.serialize_value(model.problem)
+    return _resume_value_matches(existing, expected)
+end
+
+function _resume_run(
+        runtime_root::String,
+        requested::Union{Nothing, Symbol, String},
+        model::FEMResolvedModel
+)
+    requested === nothing && return _create_run(runtime_root)
+    runs = joinpath(runtime_root, "runs")
+    mkpath(runs)
+    runs_path = realpath(runs)
+    candidate = if requested === :latest
+        directories = filter(isdir, readdir(runs_path; join = true))
+        sort!(directories; by = path -> stat(path).mtime, rev = true)
+        index = findfirst(
+            path -> _resume_problem_matches(path, model), directories
+        )
+        index === nothing ? nothing : directories[index]
+    elseif requested isa String
+        path = abspath(requested)
+        isdir(path) || throw(ArgumentError(
+            "resume_run_directory does not exist: $path",
+        ))
+        _resume_problem_matches(path, model) || throw(ArgumentError(
+            "resume_run_directory does not match the requested FEM problem: $path",
+        ))
+        path
+    else
+        throw(ArgumentError(
+            "resume_run_directory must be nothing, :latest, or a path string",
+        ))
+    end
+    candidate === nothing && return _create_run(runtime_root)
+    path = realpath(candidate)
+    dirname(path) == runs_path || throw(ArgumentError(
+        "resume_run_directory must be an immediate child of $runs_path",
+    ))
+    for directory in ("input", "mesh", "raw", "maps", "logs")
+        isdir(joinpath(path, directory)) || throw(ArgumentError(
+            "resume_run_directory is missing $directory/: $path",
+        ))
+    end
+    document = try
+        JSON3.read(read(joinpath(path, "run.json"), String))
+    catch
+        nothing
+    end
+    mesh_source = document === nothing ? :none :
+                  Symbol(String(document.mesh_source))
+    mesh_fingerprint = document === nothing ? "" :
+                       String(document.mesh_fingerprint)
+    run = FEMRun(
+        path,
+        created,
+        "resuming interrupted run",
+        mesh_source,
+        mesh_fingerprint
+    )
+    _transition!(run, created, "resuming interrupted run")
+    @info "Resuming compatible FEM run" run_directory=path
+    return run
+end
+
 function _transition!(run::FEMRun, state::FEMRunState, message::AbstractString)
     run.state = state
     run.message = String(message)
@@ -142,6 +230,7 @@ function _prepare_run_inputs!(run::FEMRun, model::FEMResolvedModel)
     model_data_path = joinpath(run.path, "input", "model_data.pro")
     _write_problem_snapshot(problem_path, model.problem)
     _write_model_data(model_data_path, model)
+    mkpath(joinpath(run.path, "raw", "jobs"))
     open(joinpath(run.path, "raw", "Z.tsv"), "w") do io
         println(io, join(FEM_RAW_HEADER, '\t'))
     end
@@ -155,7 +244,13 @@ function _prepare_run_inputs!(run::FEMRun, model::FEMResolvedModel)
 end
 
 function _fem_computation_options(options::NamedTuple)
-    allowed = (:verbosity, :output_basis, :trace, :log_file)
+    allowed = (
+        :verbosity,
+        :output_basis,
+        :trace,
+        :log_file,
+        :resume_run_directory
+    )
     unknown = filter(key -> key ∉ allowed, keys(options))
     isempty(unknown) || throw(ArgumentError(
         "unknown LineCableModelsFEM computation options: $(sort!(collect(unknown)))",
@@ -165,13 +260,30 @@ function _fem_computation_options(options::NamedTuple)
         "log_file must be a path string or nothing",
     ))
     log_file === "" && throw(ArgumentError("log_file cannot be empty"))
-    standard_keys = filter(!=(:log_file), keys(options))
+    resume = get(options, :resume_run_directory, nothing)
+    resume isa Union{Nothing, Symbol, AbstractString} || throw(ArgumentError(
+        "resume_run_directory must be nothing, :latest, or a path string",
+    ))
+    resume isa Symbol && resume !== :latest &&
+        throw(ArgumentError(
+            "the only symbolic resume_run_directory is :latest",
+        ))
+    resume === "" && throw(ArgumentError(
+        "resume_run_directory cannot be empty",
+    ))
+    standard_keys = filter(
+        key -> key ∉ (:log_file, :resume_run_directory), keys(options)
+    )
     standard_values = map(key -> getproperty(options, key), standard_keys)
     standard = NamedTuple{Tuple(standard_keys)}(Tuple(standard_values))
     execution = computation_options(
-        Val(LineCableModels.LineCableModelsCoaxial), standard
+        LineCableModels.LineCableModelsCoaxial, standard
     )
-    return (; execution..., log_file = log_file === nothing ? nothing : String(log_file))
+    return (;
+        execution...,
+        log_file = log_file === nothing ? nothing : String(log_file),
+        resume_run_directory = resume isa AbstractString ? String(resume) : resume
+    )
 end
 
 function _headless_solve!(
@@ -186,14 +298,18 @@ function _headless_solve!(
     )
     _transition!(run, geometry_ready, "geometry ready")
     @info "FEM geometry ready" run_directory=run.path
-    mesh_path = _select_mesh!(run, model, geometry, formulation, runtime_root)
+    mesh_paths = _select_meshes!(
+        run, model, geometry, formulation, runtime_root
+    )
     _transition!(run, mesh_ready, "mesh ready")
     @info "FEM mesh ready" source=run.mesh_source fingerprint=run.mesh_fingerprint
     model_data_path = _prepare_run_inputs!(run, model)
-    _publish_transport!(run, model, model_data_path, mesh_path, formulation)
-    _transition!(run, running, "GetDP scan running")
-    @info "Starting one-pass GetDP frequency/source scan"
-    _run_getdp!(run, model, formulation, mesh_path)
+    _publish_transport!(
+        run, model, model_data_path, last(mesh_paths), formulation
+    )
+    _transition!(run, running, "isolated GetDP jobs running")
+    @info "Starting isolated GetDP frequency/source jobs"
+    _run_getdp!(run, model, formulation, mesh_paths)
     scan = _parse_scan(run, model, formulation)
     parameters = _line_parameters(run, model, formulation, execution, scan)
     gmsh.onelab.set_number(_onelab_name("completion_status"), [1.0])
@@ -218,7 +334,7 @@ function _ui_solve!(
     Bool(gmsh.fltk.is_available()) || gmsh.fltk.initialize()
     gmsh.fltk.wait(0.05)
     yield()
-    mesh_path = nothing
+    mesh_paths = nothing
     model_data_path = nothing
     parameters = nothing
     while true
@@ -256,22 +372,24 @@ function _ui_solve!(
         elseif transition === :mesh_required
             _set_ui_status(:mesh_required)
         elseif transition === :mesh_requested
-            mesh_path = _select_mesh!(run, model, geometry, formulation, runtime_root)
+            mesh_paths = _select_meshes!(
+                run, model, geometry, formulation, runtime_root
+            )
             model_data_path = _prepare_run_inputs!(run, model)
             _publish_transport!(
-                run, model, model_data_path, mesh_path, formulation
+                run, model, model_data_path, last(mesh_paths), formulation
             )
             _transition!(run, mesh_ready, "mesh ready")
             state = _set_ui_status(:mesh_ready)
         elseif transition === :solve_requested
-            mesh_path === nothing && begin
+            mesh_paths === nothing && begin
                 _set_ui_status(:mesh_required)
                 gmsh.fltk.wait(0.05)
                 continue
             end
             state = _set_ui_status(:running)
-            _transition!(run, running, "GetDP scan running")
-            _run_getdp!(run, model, formulation, mesh_path)
+            _transition!(run, running, "isolated GetDP jobs running")
+            _run_getdp!(run, model, formulation, mesh_paths)
             scan = _parse_scan(run, model, formulation)
             parameters = _line_parameters(run, model, formulation, execution, scan)
             formulation.execution.plot_field_maps && _merge_maps!(scan.map_paths)
@@ -299,13 +417,15 @@ function _attach_run_directory(
 end
 
 function _compute_fem(
-        problem::LineParametersProblem,
+        problem::LineParametersProblem{Float64},
         formulation::LineCableModelsFEM,
         execution::NamedTuple
 )
     model = _resolved_fem_model(problem, formulation)
     runtime_root = _runtime_root()
-    run = _create_run(runtime_root)
+    run = _resume_run(
+        runtime_root, execution.resume_run_directory, model
+    )
     session = nothing
     succeeded = false
     try
@@ -347,6 +467,7 @@ function compute(
         formulation::LineCableModelsFEM;
         options::NamedTuple = (;)
 )
+    problem = _preflight_fem_problem(problem)
     execution = _fem_computation_options(options)
     console = ConsoleLogger(stderr, Logging.Debug)
     logger = Engine.ConsoleVerbosityLogger(console, execution.verbosity)

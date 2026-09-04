@@ -17,20 +17,15 @@ function MonteCarloTableDefinition(length_unit::Symbol, quantity_units)
     MonteCarloTableDefinition(length_unit, quantity_units, true)
 end
 
-illustrate(::MonteCarloTableDefinition, source, published, table) = nothing
-encode(::MonteCarloTableDefinition, source, published, table, ::Nothing) = nothing
-write(::MonteCarloTableDefinition, source, published, table, ::Nothing, ::Nothing) = nothing
-
-entitle(::MonteCarloTableDefinition, source::UQ.MonteCarloResult) = source
-
 function _monte_carlo_requests(
-        ::UQ.MonteCarloResult{<:DataModel.CableConstants},
+        ::UQ.MonteCarloResult{<:Engine.CableConstants},
         point::Int
 )
     return (
         (UQ.statistics, R, point),
         (UQ.statistics, L, point),
         (UQ.statistics, C, point),
+        (UQ.statistics, G, point)
     )
 end
 
@@ -42,7 +37,7 @@ function _monte_carlo_requests(
         (UQ.statistics, R, point),
         (UQ.statistics, L, point),
         (UQ.statistics, G, point),
-        (UQ.statistics, C, point),
+        (UQ.statistics, C, point)
     )
 end
 
@@ -50,16 +45,14 @@ function select(
         definition::MonteCarloTableDefinition,
         source::UQ.MonteCarloResult
 )
-    return [
-        observables(
-            source,
-            _monte_carlo_requests(source, point);
-            length_unit = definition.length_unit,
-            quantity_units = definition.quantity_units,
-            clip = definition.clip
-        )
-        for point in 1:length(source)
-    ]
+    return [observables(
+                source,
+                _monte_carlo_requests(source, point);
+                length_unit = definition.length_unit,
+                quantity_units = definition.quantity_units,
+                clip = definition.clip
+            )
+            for point in 1:length(source)]
 end
 
 function _monte_carlo_metadata!(table::DataFrame, source, publications)

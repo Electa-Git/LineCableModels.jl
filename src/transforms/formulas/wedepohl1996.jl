@@ -6,10 +6,36 @@ function assumptions(::Val{:Wedepohl1996})
     )
 end
 
-description(::Formula{:Wedepohl1996}) =
-    "Wedepohl et al. 1996 (Newton–Raphson eigenpair tracking)"
+"""
+$(TYPEDSIGNATURES)
 
-function _nrwork(::Type{T}, n::Integer) where {T <: Complex}
+**Identification.** Complex Newton–Raphson eigenpair tracking, initialized
+from the preceding frequency and scaled by the Frobenius norm of
+``\\mathbf Y\\mathbf Z``.
+
+**Expression.** Each mode solves
+
+```math
+\\mathbf S\\mathbf t-\\lambda\\mathbf t=0,\\qquad
+\\mathbf t^T\\mathbf t-1=0,
+```
+
+with the complex eigenpair and normalization constraint advanced jointly by
+Newton iteration.
+
+**Reference.** L. M. Wedepohl, H. V. Nguyen, and G. D. Irwin,
+“Frequency-Dependent Transformation Matrices for Untransposed Transmission
+Lines Using Newton-Raphson Method,” *IEEE Transactions on Power Systems*,
+11(3), 1996. DOI: 10.1109/59.535695.
+"""
+description(::Formula{:Wedepohl1996}) =
+    "Wedepohl et al. Newton–Raphson modal transformation (1996)"
+
+function newton_workspace(
+        ::Val{:Wedepohl1996},
+        ::Type{T},
+        n::Integer
+) where {T <: Complex}
     return (
         residual = Vector{T}(undef, n + 1),
         jacobian = Matrix{T}(undef, n + 1, n + 1),
@@ -17,7 +43,8 @@ function _nrwork(::Type{T}, n::Integer) where {T <: Complex}
     )
 end
 
-function _nr!(
+function newton_step!(
+        ::Val{:Wedepohl1996},
         vector::AbstractVector{T},
         value::T,
         matrix::AbstractMatrix{T},
@@ -111,7 +138,8 @@ Transformation Matrices for Untransposed Transmission Lines Using
 Newton-Raphson Method*, IEEE Transactions on Power Systems, 11(3), 1996.
 DOI: 10.1109/59.535695.
 """
-function wedepohl1996(
+function modal_operators(
+        ::Val{:Wedepohl1996},
         lp::LineParameters{Tc, U, PhaseDomain, Basis},
         values::NamedTuple
 ) where {Tc <: Complex, U <: Real, Basis}
@@ -132,7 +160,7 @@ function wedepohl1996(
     current = Array{T, 3}(undef, n, n, nfrequencies)
     product = Matrix{T}(undef, n, n)
     normalized = similar(product)
-    work = _nrwork(T, n)
+    work = newton_workspace(Val(:Wedepohl1996), T, n)
     previous_values = Vector{T}(undef, n)
     previous_vectors = Matrix{T}(undef, n, n)
     current_values = similar(previous_values)
@@ -158,7 +186,8 @@ function wedepohl1996(
             failed_mode = 0
             for mode in 1:n
                 reference = @view previous_vectors[:, mode]
-                value, converged = _nr!(
+                value, converged = newton_step!(
+                    Val(:Wedepohl1996),
                     @view(current_vectors[:, mode]),
                     previous_values[mode] / scale,
                     normalized,
@@ -200,13 +229,6 @@ function wedepohl1996(
         @warn ":Wedepohl1996 retained matched eigensolutions where Newton–Raphson did not converge" fallback_count first_fallback first_failed_mode
     end
     return _maps(current)
-end
-
-function (::Functor{:Wedepohl1996})(
-        lp::LineParameters{Tc, U, PhaseDomain, Basis},
-        values::NamedTuple
-) where {Tc <: Complex, U <: Real, Basis}
-    return wedepohl1996(lp, values)
 end
 
 :Wedepohl1996

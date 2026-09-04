@@ -18,6 +18,9 @@ function UQ.Sensitivity(
     )
 end
 
+_observe_request(source, request::Function) = Grammar.observe(source, request)
+_observe_request(source, request::Tuple) = Grammar.observe(source, request...)
+
 function compute(
         problem::ParametricBuilder.ParametricProblem,
         formulation::UQ.Sensitivity{F, M}
@@ -49,11 +52,20 @@ function compute(
             ))
     end
 
+    problem.space isa LineCableModels.Gridspace{<:Grammar.AbstractProblemDefinition} ||
+        throw(ArgumentError(
+        "Sensitivity requires an uncertainty-bearing problem Gridspace; " *
+        "use scalar compute or Combinatorial for a completed problem",
+    ))
+    LineCableModels.has_uncertainty(problem.space) || throw(ArgumentError(
+        "Sensitivity requires an uncertainty-bearing problem Gridspace; " *
+        "use Combinatorial for a deterministic space",
+    ))
     point_count = length(problem.space)
     point_count > 0 || throw(ArgumentError(
         "higher-order problem space must contain at least one core problem",
     ))
-    points = collect(ParametricBuilder.points(problem.space))
+    points = collect(LineCableModels.points(problem.space))
     length(points) == point_count || throw(DimensionMismatch(
         "problem-space iteration did not match its declared cardinality",
     ))
@@ -64,7 +76,7 @@ function compute(
     second_order_enabled = 2 in orders
     total_cost = big(0)
     for point_index in eachindex(points)
-        descriptors = ParametricBuilder.uncertainties(points[point_index])
+        descriptors = LineCableModels.uncertainties(points[point_index])
         descriptors_by_point[point_index] = descriptors
         if formulation.input_labels !== nothing &&
            length(formulation.input_labels) != length(descriptors)
@@ -75,8 +87,8 @@ function compute(
 
         active_indices = Int[]
         for (coordinate, descriptor) in pairs(descriptors)
-            nominal = ParametricBuilder.nominal(descriptor)
-            sigma = ParametricBuilder.uncertainty(descriptor)
+            nominal = LineCableModels.nominal(descriptor)
+            sigma = LineCableModels.uncertainty(descriptor)
             nominal isa Real && isfinite(nominal) || throw(ArgumentError(
                 "uncertainty coordinate $coordinate at outer point $point_index has a non-finite real nominal value",
             ))
@@ -113,8 +125,7 @@ function compute(
         ))
     end
 
-    details_owner = formulation.options.retain_details ?
-                    Grammar.computation_owner(formulation.inner) : nothing
+    details_owner = typeof(formulation.inner)
 
     function point_sensitivity(point_index::Int)
         point = points[point_index]
@@ -168,8 +179,8 @@ function compute(
         normal_distributions = formulation.distribution === :normal ?
                                map(
             coordinate -> Distributions.Normal(
-                float(ParametricBuilder.nominal(descriptors[coordinate])),
-                float(ParametricBuilder.uncertainty(descriptors[coordinate]))
+                float(LineCableModels.nominal(descriptors[coordinate])),
+                float(LineCableModels.uncertainty(descriptors[coordinate]))
             ),
             active_indices
         ) : nothing
@@ -182,11 +193,11 @@ function compute(
             return ntuple(length(descriptors)) do coordinate
                 descriptor = descriptors[coordinate]
                 row = active_row[coordinate]
-                row == 0 && return ParametricBuilder.nominal(descriptor)
+                row == 0 && return LineCableModels.nominal(descriptor)
                 probability = unit_points[row, column]
                 if formulation.distribution === :uniform
-                    nominal = ParametricBuilder.nominal(descriptor)
-                    sigma = ParametricBuilder.uncertainty(descriptor)
+                    nominal = LineCableModels.nominal(descriptor)
+                    sigma = LineCableModels.uncertainty(descriptor)
                     return nominal + sqrt(3) * sigma * (2 * probability - 1)
                 end
                 open_probability = if iszero(probability)
@@ -205,7 +216,7 @@ function compute(
 
         function native_observations(core_result)
             observed = map(
-                request -> Grammar.observe(core_result, request),
+                request -> _observe_request(core_result, request),
                 formulation.requests
             )
             shapes = map(observed) do value
@@ -285,16 +296,17 @@ function compute(
                 "GlobalSensitivity Sobol batch input must use d × evaluations orientation",
             ))
 
-            first_problem = ParametricBuilder.realize(
-                point,
-                physical_values(unit_points, 1)
+            first_arguments = LineCableModels.realize_arguments(
+                point, physical_values(unit_points, 1)
             )
+            first_problem = LineCableModels.realize(point, first_arguments)
             first_result = compute(
                 first_problem,
                 formulation.inner;
                 options = problem.options
             )
             Grammar.check_core_result(typeof(first_result))
+            Grammar.validate_observables(first_result, formulation.requests)
             observed, shapes, output_type = native_observations(first_result)
             request_shapes = shapes
             output_length = sum(
@@ -317,7 +329,7 @@ function compute(
 
             if formulation.options.retain_details
                 first_record = Grammar.computation_details(
-                    Val(details_owner),
+                    details_owner,
                     first_result
                 )
                 records = Vector{typeof(first_record)}(undef, evaluation_count)
@@ -326,10 +338,10 @@ function compute(
             end
 
             for column in 2:evaluation_count
-                core_problem = ParametricBuilder.realize(
-                    point,
-                    physical_values(unit_points, column)
+                arguments = LineCableModels.realize_arguments(
+                    point, physical_values(unit_points, column)
                 )
+                core_problem = LineCableModels.realize(point, arguments)
                 core_result = compute(
                     core_problem,
                     formulation.inner;
@@ -348,7 +360,7 @@ function compute(
                 ))
                 if retained_records !== nothing
                     record = Grammar.computation_details(
-                        Val(details_owner),
+                        details_owner,
                         core_result
                     )
                     typeof(record) === eltype(retained_records) || throw(ArgumentError(
@@ -543,6 +555,6 @@ function compute(
         end
     end
 
-    retained_details = retained === nothing ? (;) : (evaluations = retained,)
+    retained_details = retained === nothing ? (;) : (points = retained,)
     return UQ.SensitivityResult(formulation, values, retained_details)
 end

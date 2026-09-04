@@ -8,8 +8,25 @@ assumptions(::Val{:CIGRE2019}) = (
     conductivity_frequency_exponent = 0.54
 )
 
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Relation recommended by CIGRE WG C4.33.
+
+**Expression.** With ``\\sigma_0=1/\\rho_0``,
+
+```math
+\\varepsilon_r(f)=12+9.5\\times10^4\\sigma_0^{0.27}f^{-0.46},
+\\qquad
+\\sigma(f)=\\sigma_0+4.7\\times10^{-6}\\sigma_0^{0.27}f^{0.54}.
+```
+
+**Reference.** CIGRE WG C4.33, *Impact of Soil-Parameter Frequency Dependence
+on the Response of Grounding Electrodes and on the Lightning Performance of
+Electrical Systems*, Technical Brochure 781, 2019.
+"""
 description(::Formula{:CIGRE2019}) =
-    "CIGRE WG C4.33 2019 (recommended soil dispersion)"
+    "CIGRE WG C4.33 recommended soil dispersion (2019)"
 
 #=
 Evaluate the frequency-dependent soil relation recommended by CIGRE WG C4.33.
@@ -23,7 +40,8 @@ CIGRE WG C4.33, *Impact of Soil-Parameter Frequency Dependence on the Response
 of Grounding Electrodes and on the Lightning Performance of Electrical
 Systems*, Technical Brochure 781, 2019.
 =#
-function (::Functor{:CIGRE2019})(
+function earth_material(
+        ::Val{:CIGRE2019},
         material::EarthMaterial{T},
         frequency::T,
         values::NamedTuple

@@ -57,7 +57,8 @@ case_definition(
     [
         "cable:1:core", "cable:1:sheath", "cable:1:jacket",
         "cable:2:core", "cable:2:sheath", "cable:2:jacket"
-    ]
+    ];
+    description = "640 kV 2000 mm² cable DC bipole"
 ) do p
     materials = LineCableModels.MaterialsLibrary(add_defaults = true)
     aluminum = LineCableModels.Material(materials, :aluminum)
@@ -68,36 +69,21 @@ case_definition(
     semicon2 = LineCableModels.Material(materials, :semicon2)
     polyacrylate = LineCableModels.Material(materials, :polyacrylate)
     lead = LineCableModels.Material(materials, :lead)
-    core_strand_area = π * p.core_strand_radius^2
-    parts = LineCableModels.AbstractCablePart[
-        LineCableModels.Group(
-        :core,
-        LineCableModels.Region(
-            :core_central, LineCableModels.Disk(p.core_strand_radius), copper
-        )
+    matrix = LineCableModels.Material(
+        kind = :insulator, rho = Inf, eps_r = 1.0, mu_r = 1.0
     )
-    ]
-    radius = p.core_strand_radius
-    for (layer, count) in enumerate(p.ring_counts)
-        strand_width = prevfloat(2π * radius / count)
-        strand_thickness = core_strand_area / strand_width
-        outer = sqrt(
-            radius^2 + count * strand_width * strand_thickness / π
-        )
-        span = strand_width / ((radius + outer) / 2)
-        push!(parts,
-            LineCableModels.Group(
-                :core,
-                LineCableModels.Region(
-                    Symbol(:core_rectangular_strands_, layer),
-                    LineCableModels.Sector(radius, outer, -span / 2, span),
-                    copper
-                );
-                pattern = LineCableModels.Ring(count; r = zero(radius)),
-                path = LineCableModels.Helix(LineCableModels.LayRatio(p.core_lay_ratio))
-            ))
-        radius = outer
-    end
+    strand_count = 1 + sum(p.ring_counts)
+    radius = sqrt(strand_count) * p.core_strand_radius
+    core = LineCableModels.stranded(
+        copper;
+        shape = LineCableModels.Disk(p.core_strand_radius),
+        layers = length(p.ring_counts),
+        n = p.ring_counts,
+        lay = LineCableModels.LayRatio(p.core_lay_ratio),
+        compact = LineCableModels.FillFactor(1.0),
+        boundary = LineCableModels.Disk(radius)
+    )
+    parts = LineCableModels.AbstractCablePart[core]
     for (tag, thickness, material) in (
         (:core_semicon_tape_inner, p.semicon_tape_thickness, polyacrylate),
         (:core_semicon_inner, p.inner_semicon_thickness, semicon1),
@@ -151,7 +137,7 @@ case_definition(
         "640kV_2000mm2",
         LineCableModels.Stack(parts)
     )
-    earth = LineCableModels.Earth(
+    earth = LineCableModels.homogeneous(
         rho = p.earth_rho, eps_r = p.earth_eps_r, mu_r = 1.0
     )
     connections = [Dict(:core => 3index - 2, :sheath => 3index - 1, :jacket => 3index)

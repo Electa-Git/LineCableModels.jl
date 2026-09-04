@@ -84,6 +84,54 @@ function geometric_mean_distance(
     return exp(logarithmic_sum / weights)
 end
 
+function geometric_mean_distance(
+        left_coordinates,
+        left_radii::AbstractVector,
+        right_coordinates,
+        right_radii::AbstractVector,
+        left_element_areas::AbstractVector,
+        right_element_areas::AbstractVector
+)
+    isempty(left_coordinates) && throw(ArgumentError(
+        "the first conductor zone requires at least one element coordinate"
+    ))
+    isempty(right_coordinates) && throw(ArgumentError(
+        "the second conductor zone requires at least one element coordinate"
+    ))
+    length(left_coordinates) == length(left_radii) == length(left_element_areas) ||
+        throw(DimensionMismatch(
+            "first conductor coordinates, radii, and areas must have equal lengths"
+        ))
+    length(right_coordinates) == length(right_radii) == length(right_element_areas) ||
+        throw(DimensionMismatch(
+            "second conductor coordinates, radii, and areas must have equal lengths"
+        ))
+    logarithmic_sum,
+    weights = promote(
+        zero(float(first(left_radii))),
+        zero(float(first(right_radii)))
+    )
+    for left in eachindex(left_coordinates), right in eachindex(right_coordinates)
+
+        weight = left_element_areas[left] * right_element_areas[right]
+        weight > zero(weight) || throw(DomainError(
+            weight, "conductor-zone element areas must be positive"
+        ))
+        distance = hypot(
+            left_coordinates[left][1] - right_coordinates[right][1],
+            left_coordinates[left][2] - right_coordinates[right][2]
+        )
+        effective_distance = iszero(distance) ?
+                             max(left_radii[left], right_radii[right]) : distance
+        effective_distance > zero(effective_distance) || throw(DomainError(
+            effective_distance, "conductor-zone distance must be positive"
+        ))
+        logarithmic_sum += weight * log(effective_distance)
+        weights += weight
+    end
+    return exp(logarithmic_sum / weights)
+end
+
 """
 $(TYPEDSIGNATURES)
 
@@ -127,10 +175,11 @@ $(TYPEDSIGNATURES)
 
 Reduce one geometrically uniform conductor zone to resistance, GMR, path, and
 cross-sectional values. Primitive-specific methods preserve the implemented
-disk, annulus, tape-sector, and equivalent-area rounded-sector assumptions.
+disk, annulus, and equivalent-area cable-sector assumptions.
 """
 
 function conductor_zone(
+        definition::Disk,
         primitive::Disk,
         zone,
         ::Type{T},
@@ -152,18 +201,26 @@ function conductor_zone(
         first(coordinates)[1] - centre[1],
         first(coordinates)[2] - centre[2]
     )
-    all(
+    circular_locus = all(
         point -> isapprox(
             hypot(point[1] - centre[1], point[2] - centre[2]),
             centre_radius
-        ), coordinates) ||
-        throw(ArgumentError(
-            "a disk conductor zone requires one circular locus"
-        ))
+        ), coordinates)
     element_area = (one(T) * pi) * radius^2
     zone_area = length(zone) * element_area
-    zone_r_in, zone_r_ex = if length(zone) == 1 && iszero(centre_radius)
+    zone_r_in,
+    zone_r_ex = if length(zone) == 1 && iszero(centre_radius)
         zero(T), radius
+    elseif !circular_locus
+        outer_radius = maximum(coordinates) do point
+            hypot(point[1] - centre[1], point[2] - centre[2]) + radius
+        end
+        expected_outer = expected_inner + 2radius
+        isapprox(outer_radius, expected_outer) || throw(ArgumentError(
+            "noncircular disk strand course must extend one strand diameter " *
+            "beyond the preceding course"
+        ))
+        expected_inner, outer_radius
     else
         declared_inner = centre_radius - radius
         isapprox(declared_inner, expected_inner) || throw(ArgumentError(
@@ -171,25 +228,33 @@ function conductor_zone(
         ))
         expected_inner, expected_inner + 2radius
     end
-    turns = turns_per_length(source.paths, T)
     patterned = !isempty(source.placement.patterns)
-    resistance = path_corrected_resistance(
-        tubular_resistance(
-            zero(T),
-            radius,
-            material.rho,
-            material.alpha,
-            material.T0,
-            material.T0
-        ),
-        source.paths) / length(zone)
+    uniform_paths = all(item -> item.paths == source.paths, zone)
+    turns = uniform_paths ? turns_per_length(source.paths, T) :
+            sum(item -> turns_per_length(item.paths, T), zone) / length(zone)
+    base_resistance = tubular_resistance(
+        zero(T),
+        radius,
+        material.rho
+    )
+    resistance = if uniform_paths
+        path_corrected_resistance(base_resistance, source.paths) / length(zone)
+    else
+        resistances = map(zone) do item
+            path_corrected_resistance(base_resistance, item.paths)
+        end
+        reduce(parallel, resistances)
+    end
     gmr = patterned ?
-          strand_gmr(
+          (circular_locus ?
+           strand_gmr(
         centre_radius,
         length(zone),
         radius,
         material.mu_r
-    ) : tubular_gmr(zone_r_ex, zone_r_in, material.mu_r)
+    ) :
+           strand_gmr(coordinates, radius, material.mu_r)) :
+          tubular_gmr(zone_r_ex, zone_r_in, material.mu_r)
     return (
         r_in = zone_r_in,
         r_ex = zone_r_ex,
@@ -202,11 +267,13 @@ function conductor_zone(
         element_area,
         coordinates,
         position = centre,
-        material
+        material,
+        pairwise_gmd = patterned
     )
 end
 
 function conductor_zone(
+        definition::Annulus,
         primitive::Annulus,
         zone,
         ::Type{T},
@@ -241,54 +308,43 @@ function conductor_zone(
         element_area = zone_area,
         coordinates = Tuple{T, T}[centre],
         position = centre,
-        material
+        material,
+        pairwise_gmd = false
     )
 end
 
 function conductor_zone(
-        primitive::Sector,
+        definition::Shell,
+        primitive::Annulus,
         zone,
         ::Type{T},
         expected_inner
 ) where {T <: Real}
-    source = first(zone)
-    length(source.paths) == 1 || throw(ArgumentError(
-        "flatten supports a sector conductor only as one helical tape"
+    length(zone) == 1 || throw(ArgumentError(
+        "flatten requires one region per contextual conductor shell"
     ))
-    length(source.placement.patterns) <= 1 || throw(ArgumentError(
-        "flatten does not support nested sector repetition"
-    ))
-    poses = map(item -> item.primitive.at, zone)
-    centre = (convert(T, first(poses).x), convert(T, first(poses).y))
-    all(pose -> isapprox(pose.x, centre[1]) && isapprox(pose.y, centre[2]), poses) ||
-        throw(ArgumentError(
-            "a sector conductor zone requires one common centre"
-        ))
+    source = only(zone)
     material = convert(Material{T}, source.source.material)
+    centre = (convert(T, primitive.at.x), convert(T, primitive.at.y))
     zone_r_in = convert(T, primitive.ri)
     zone_r_ex = convert(T, primitive.ro)
-    tape_width = convert(T, primitive.span) * (zone_r_in + zone_r_ex) / 2
-    tape_thickness = isempty(source.placement.patterns) ?
-                     zone_r_ex - zone_r_in :
-                     (one(T) * pi) * (zone_r_ex^2 - zone_r_in^2) /
-                     (length(zone) * tape_width)
-    zone_area = length(zone) * tape_thickness * tape_width
+    isapprox(zone_r_in, expected_inner) || throw(ArgumentError(
+        "resolved conductor shell does not begin at the preceding radial boundary"
+    ))
+    isapprox(zone_r_ex - zone_r_in, definition.t) || throw(ArgumentError(
+        "resolved conductor shell does not preserve its declared thickness"
+    ))
+    zone_area = (one(T) * pi) * (zone_r_ex^2 - zone_r_in^2)
     turns = turns_per_length(source.paths, T)
     resistance = path_corrected_resistance(
-        strip_resistance(
-            tape_thickness,
-            tape_width,
-            material.rho,
-            material.alpha,
-            material.T0,
-            material.T0
-        ),
-        source.paths) / length(zone)
+        material.rho / zone_area,
+        source.paths
+    )
     return (
         r_in = zone_r_in,
         r_ex = zone_r_ex,
         area = zone_area,
-        wires = isempty(source.placement.patterns) ? 1 : 0,
+        wires = isempty(source.paths) ? 0 : 1,
         turns = convert(T, turns),
         resistance,
         gmr = tubular_gmr(zone_r_ex, zone_r_in, material.mu_r),
@@ -296,22 +352,24 @@ function conductor_zone(
         element_area = zone_area,
         coordinates = Tuple{T, T}[centre],
         position = centre,
-        material
+        material,
+        pairwise_gmd = false
     )
 end
 
 function conductor_zone(
-        primitive::RoundedSectorShape,
+        definition::Sector,
+        primitive::SectorShape,
         zone,
         ::Type{T},
         expected_inner
 ) where {T <: Real}
     length(zone) == 1 || throw(ArgumentError(
-        "flatten requires one region per rounded-sector conductor"
+        "flatten requires one region per sector conductor"
     ))
     source = only(zone)
     isempty(source.paths) || throw(ArgumentError(
-        "flatten does not support a helical rounded-sector conductor"
+        "flatten does not support a helical sector conductor"
     ))
     material = convert(Material{T}, source.source.material)
     zone_area = convert(T, area(primitive))
@@ -329,19 +387,21 @@ function conductor_zone(
         element_area = zone_area,
         coordinates = Tuple{T, T}[centre],
         position = centre,
-        material
+        material,
+        pairwise_gmd = false
     )
 end
 
 function conductor_zone(
+        definition::AbstractPrimitive,
         primitive::AbstractShape,
         zone,
         ::Type,
         expected_inner
 )
     throw(ArgumentError(
-        "flatten does not support conductor primitive " *
-        "$(nameof(typeof(primitive)))"
+        "flatten does not support conductor source/resolved pair " *
+        "$(nameof(typeof(definition))) → $(nameof(typeof(primitive)))"
     ))
 end
 
@@ -350,7 +410,7 @@ $(TYPEDSIGNATURES)
 
 Reduce one homogeneous dielectric region to concentric radii and material
 properties. Primitive-specific methods retain circular and equivalent-area
-rounded-sector assumptions.
+cable-sector assumptions.
 """
 function dielectric_layer(
         primitive::Annulus,
@@ -376,14 +436,14 @@ end
 function dielectric_layer(
         primitive::ShellShape{
             <:Any,
-            <:RoundedSectorShape,
-            <:RoundedSectorShape
+            <:SectorShape,
+            <:SectorShape
         },
         source::PlacedRegion,
         ::Type{T}
 ) where {T <: Real}
     isempty(source.paths) || throw(ArgumentError(
-        "flatten does not support a helical rounded-sector dielectric"
+        "flatten does not support a helical sector dielectric"
     ))
     material = convert(Material{T}, source.source.material)
     material.kind === :conductor && throw(ArgumentError(
@@ -416,9 +476,63 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Reduce a nested repeated-wire conductor to parallel resistance, area-weighted
-GMR, equivalent temperature coefficient, turns, and radial extent.
+Reduce a nested repeated-wire conductor to parallel resistance,
+current-share-weighted GMR, equivalent temperature coefficient, turns, and
+radial extent.
 """
+function member_resistance(definition::Disk, material)
+    return tubular_resistance(zero(definition.r), definition.r, material.rho)
+end
+
+function member_resistance(definition::Rectangle, material)
+    return strip_resistance(definition.h, definition.w, material.rho)
+end
+
+function radial_extent(shape::Disk, centre)
+    return hypot(shape.at.x - centre[1], shape.at.y - centre[2]) + shape.r
+end
+
+function radial_extent(shape::Polygon, centre)
+    cosine = cos(shape.at.φ)
+    sine = sin(shape.at.φ)
+    return maximum(shape.points) do point
+        x = shape.at.x + cosine * point[1] - sine * point[2]
+        y = shape.at.y + sine * point[1] + cosine * point[2]
+        hypot(x - centre[1], y - centre[2])
+    end
+end
+
+function radial_extent(shape::BentStrip, centre)
+    dx = shape.at.x - centre[1]
+    dy = shape.at.y - centre[2]
+    offset = hypot(dx, dy)
+    iszero(offset) && return shape.ro
+    direction = atan(dy, dx)
+    period = oftype(direction, 2pi)
+    relative = mod(direction - shape.at.φ + pi, period) - pi
+    nearest = clamp(relative, -shape.span / 2, shape.span / 2)
+    cosine = cos(relative - nearest)
+    return sqrt(max(
+        offset^2 + shape.ri^2 + 2offset * shape.ri * cosine,
+        offset^2 + shape.ro^2 + 2offset * shape.ro * cosine
+    ))
+end
+
+function radial_extent(shape::Rectangle, centre)
+    cosine = cos(shape.at.φ)
+    sine = sin(shape.at.φ)
+    half_width = shape.w / 2
+    half_height = shape.h / 2
+    return maximum(
+        ((-half_width, -half_height), (half_width, -half_height),
+            (half_width, half_height), (-half_width, half_height))
+    ) do point
+        x = shape.at.x + cosine * point[1] - sine * point[2]
+        y = shape.at.y + sine * point[1] + cosine * point[2]
+        hypot(x - centre[1], y - centre[2])
+    end
+end
+
 function nested_conductor_zone(
         sources,
         ::Type{T},
@@ -427,11 +541,13 @@ function nested_conductor_zone(
     isempty(sources) && throw(ArgumentError(
         "a nested conductor requires at least one resolved primitive"
     ))
-    all(source -> source.primitive isa Disk, sources) || throw(
-        ArgumentError(
-        "flatten supports nested conductor paths only for disk primitives"
-    )
-    )
+    all(sources) do source
+        source.source.primitive isa Union{Disk, Rectangle} &&
+            source.primitive isa Union{Disk, Rectangle, Polygon, BentStrip}
+    end || throw(ArgumentError(
+        "nested conductor flattening requires Disk or Rectangle source members " *
+        "resolved as Disk, Rectangle, Polygon, or BentStrip geometry"
+    ))
 
     materials = Material{T}[convert(Material{T}, source.source.material)
                             for source in sources]
@@ -440,25 +556,26 @@ function nested_conductor_zone(
         ArgumentError("all nested conductor materials must share one reference temperature")
     )
 
-    areas = T[convert(T, area(source.primitive)) for source in sources]
-    radii = T[convert(T, source.primitive.r) for source in sources]
+    areas = T[convert(T, area(source.source.primitive)) for source in sources]
+    all(eachindex(sources)) do index
+        isapprox(
+            convert(T, area(sources[index].primitive)),
+            areas[index];
+            rtol = 5.0e-6,
+            atol = zero(T)
+        )
+    end || throw(ArgumentError(
+        "resolved compacted strands must preserve every declared source area"
+    ))
+    equivalent_radii = sqrt.(areas ./ (one(T) * π))
     coordinates = Tuple{T, T}[convert.(T, centroid(source.primitive))
                               for source in sources]
     total_area = sum(areas)
-    centre = (
-        sum(index -> areas[index] * coordinates[index][1], eachindex(sources)) /
-        total_area,
-        sum(index -> areas[index] * coordinates[index][2], eachindex(sources)) /
-        total_area
-    )
+    centre = convert.(T, conductor_zone_position(sources))
     resistances = T[path_corrected_resistance(
-                        tubular_resistance(
-                            zero(T),
-                            radii[index],
-                            materials[index].rho,
-                            materials[index].alpha,
-                            materials[index].T0,
-                            materials[index].T0
+                        member_resistance(
+                            sources[index].source.primitive,
+                            materials[index]
                         ),
                         sources[index].paths
                     ) for index in eachindex(sources)]
@@ -475,14 +592,11 @@ function nested_conductor_zone(
         resistance = parallel(resistance, resistances[index])
     end
 
-    weights = areas ./ total_area
+    conductances = inv.(resistances)
+    weights = conductances ./ sum(conductances)
     log_gmr = zero(T)
     for left in eachindex(sources)
-        self_gmr = tubular_gmr(
-            radii[left],
-            zero(T),
-            materials[left].mu_r
-        )
+        self_gmr = equivalent_radii[left] * exp(-materials[left].mu_r / 4)
         log_gmr += weights[left]^2 * log(self_gmr)
         for right in (left + 1):length(sources)
             distance = hypot(
@@ -490,19 +604,36 @@ function nested_conductor_zone(
                 coordinates[left][2] - coordinates[right][2]
             )
             distance > zero(distance) || throw(ArgumentError(
-                "nested conductor primitives must have distinct centres"
+                "nested conductor members must have distinct centroids"
             ))
             log_gmr += 2weights[left] * weights[right] * log(distance)
         end
     end
 
     turn_values = T[turns_per_length(source.paths, T) for source in sources]
-    turns = sum(turn_values) / length(turn_values)
-    outer = maximum(eachindex(sources)) do index
-        hypot(
-            coordinates[index][1] - centre[1],
-            coordinates[index][2] - centre[2]
-        ) + radii[index]
+    turns = sum(weights .* turn_values)
+    bounded = map(sources) do source
+        index = findfirst(
+            entry -> entry.pattern isa BoundedPlacement,
+            source.placement.patterns
+        )
+        index === nothing || index != length(source.placement.patterns) ? nothing :
+        source.placement.patterns[index].pattern.boundary
+    end
+    outer = if all(!isnothing, bounded)
+        envelope = first(bounded)
+        all(==(envelope), bounded) || throw(ArgumentError(
+            "one nested conductor cannot combine different bounded formations"
+        ))
+        iszero(expected_inner) || throw(ArgumentError(
+            "a bounded stranded formation must be the innermost conductor"
+        ))
+        sqrt(convert(T, area(envelope)) / (one(T) * π))
+    else
+        maximum(
+            index -> radial_extent(sources[index].primitive, centre),
+            eachindex(sources)
+        )
     end
     outer > expected_inner || throw(ArgumentError(
         "nested conductor envelope must exceed its preceding radial boundary"
@@ -521,13 +652,13 @@ function nested_conductor_zone(
     )
 end
 
-radial_position(shape::Union{Disk, Annulus, Sector}) = (shape.at.x, shape.at.y)
-radial_position(shape::RoundedSectorShape) = centroid(shape)
+radial_position(shape::Union{Disk, Annulus}) = (shape.at.x, shape.at.y)
+radial_position(shape::SectorShape) = centroid(shape)
 function radial_position(
         shape::ShellShape{
         <:Any,
-        <:RoundedSectorShape,
-        <:RoundedSectorShape
+        <:SectorShape,
+        <:SectorShape
 }
 )
     centroid(shape.inner)
@@ -538,6 +669,20 @@ function conductor_zone_position(sources)
     isempty(sources) && throw(ArgumentError(
         "a conductor zone requires at least one resolved region"
     ))
+    bounded = map(sources) do source
+        index = findfirst(
+            entry -> entry.pattern isa BoundedPlacement,
+            source.placement.patterns
+        )
+        index === nothing && return nothing
+        shape = source.placement.patterns[index].pattern.boundary
+        return shape isa Disk ? (shape.at.x, shape.at.y) : centroid(shape)
+    end
+    if all(!isnothing, bounded)
+        reference = first(bounded)
+        all(position -> same_radial_position(position, reference), bounded) &&
+            return reference
+    end
     patterned = map(sources) do source
         entries = source.placement.patterns
         length(entries) == 1 || return nothing
@@ -606,9 +751,13 @@ function initialize_conductor(zone)
         gmr = zone.gmr,
         reference_temperature = zone.material.T0,
         position = zone.position,
+        coordinates = copy(zone.coordinates),
+        element_radii = fill(zone.element_radius, length(zone.coordinates)),
+        element_areas = fill(zone.element_area, length(zone.coordinates)),
         previous_coordinates = zone.coordinates,
         previous_radius = zone.element_radius,
-        previous_element_area = zone.element_area
+        previous_element_area = zone.element_area,
+        pairwise_gmd = zone.pairwise_gmd
     )
 end
 
@@ -647,14 +796,26 @@ function add_conductor_zone(conductor, zone)
     isapprox(zone.material.T0, conductor.reference_temperature) || throw(
         ArgumentError("all cable materials must share one reference temperature")
     )
-    distance = geometric_mean_distance(
-        conductor.previous_coordinates,
-        conductor.previous_radius,
-        zone.coordinates,
-        zone.element_radius,
-        conductor.previous_element_area,
-        zone.element_area
-    )
+    pairwise_gmd = conductor.pairwise_gmd || zone.pairwise_gmd
+    distance = if pairwise_gmd
+        geometric_mean_distance(
+            conductor.coordinates,
+            conductor.element_radii,
+            zone.coordinates,
+            fill(zone.element_radius, length(zone.coordinates)),
+            conductor.element_areas,
+            fill(zone.element_area, length(zone.coordinates))
+        )
+    else
+        geometric_mean_distance(
+            conductor.previous_coordinates,
+            conductor.previous_radius,
+            zone.coordinates,
+            zone.element_radius,
+            conductor.previous_element_area,
+            zone.element_area
+        )
+    end
     return (
         r_in = conductor.r_in,
         r_ex = zone.r_ex,
@@ -685,9 +846,19 @@ function add_conductor_zone(conductor, zone)
         ),
         reference_temperature = conductor.reference_temperature,
         position = conductor.position,
+        coordinates = append!(copy(conductor.coordinates), zone.coordinates),
+        element_radii = append!(
+            copy(conductor.element_radii),
+            fill(zone.element_radius, length(zone.coordinates))
+        ),
+        element_areas = append!(
+            copy(conductor.element_areas),
+            fill(zone.element_area, length(zone.coordinates))
+        ),
         previous_coordinates = zone.coordinates,
         previous_radius = zone.element_radius,
-        previous_element_area = zone.element_area
+        previous_element_area = zone.element_area,
+        pairwise_gmd
     )
 end
 
@@ -737,10 +908,30 @@ function dielectric_circuit(layer)
     )
 end
 
+function dielectric_circuit(layers, angular_frequency::Real, ::Type{T}) where {T <: Real}
+    isempty(layers) && return (
+        capacitance = zero(T),
+        conductance = zero(T)
+    )
+    combined = dielectric_circuit(first(layers))
+    @inbounds for layer in Iterators.drop(layers, 1)
+        circuit = dielectric_circuit(layer)
+        combined = series_shunt_admittance(
+            combined.conductance,
+            combined.capacitance,
+            circuit.conductance,
+            circuit.capacitance,
+            angular_frequency
+        )
+    end
+    return combined
+end
+
 """
 $(TYPEDSIGNATURES)
 
-Initialize the scalar shunt-dielectric reduction from its innermost layer.
+Initialize the frequency-independent radial dielectric description from its
+innermost layer.
 """
 function initialize_dielectric(layer, conductor)
     same_radial_position(layer.position, conductor.position) || throw(ArgumentError(
@@ -752,14 +943,11 @@ function initialize_dielectric(layer, conductor)
     isapprox(layer.material.T0, conductor.reference_temperature) || throw(
         ArgumentError("all cable materials must share one reference temperature")
     )
-    circuit = dielectric_circuit(layer)
     return (
         r_in = layer.r_in,
         r_ex = layer.r_ex,
         cross_section = (one(layer.r_in) * pi) *
                         (layer.r_ex^2 - layer.r_in^2),
-        shunt_capacitance = circuit.capacitance,
-        shunt_conductance = circuit.conductance,
         position = layer.position,
         reference_temperature = layer.material.T0,
         layers = [(r_in = layer.r_in, r_ex = layer.r_ex, material = layer.material)]
@@ -769,10 +957,9 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Add one radial dielectric layer in series with an accumulated scalar shunt
-admittance at angular frequency `angular_frequency` \\[rad/s\\].
+Add one radial dielectric layer to a frequency-independent radial description.
 """
-function add_dielectric_layer(dielectric, layer, angular_frequency::Real)
+function add_dielectric_layer(dielectric, layer)
     same_radial_position(layer.position, dielectric.position) || throw(ArgumentError(
         "dielectric layers must share the conductor radial centre"
     ))
@@ -782,14 +969,6 @@ function add_dielectric_layer(dielectric, layer, angular_frequency::Real)
     isapprox(layer.material.T0, dielectric.reference_temperature) || throw(
         ArgumentError("all cable materials must share one reference temperature")
     )
-    circuit = dielectric_circuit(layer)
-    combined = series_shunt_admittance(
-        dielectric.shunt_conductance,
-        dielectric.shunt_capacitance,
-        circuit.conductance,
-        circuit.capacitance,
-        angular_frequency
-    )
     layers = copy(dielectric.layers)
     push!(layers, (r_in = layer.r_in, r_ex = layer.r_ex, material = layer.material))
     return (
@@ -797,8 +976,6 @@ function add_dielectric_layer(dielectric, layer, angular_frequency::Real)
         r_ex = layer.r_ex,
         cross_section = dielectric.cross_section +
                         (one(layer.r_in) * pi) * (layer.r_ex^2 - layer.r_in^2),
-        shunt_capacitance = combined.capacitance,
-        shunt_conductance = combined.conductance,
         position = dielectric.position,
         reference_temperature = dielectric.reference_temperature,
         layers
@@ -814,8 +991,6 @@ function empty_dielectric(conductor, ::Type{T}) where {T <: Real}
         r_in = conductor.r_ex,
         r_ex = conductor.r_ex,
         cross_section = zero(T),
-        shunt_capacitance = zero(T),
-        shunt_conductance = zero(T),
         position = conductor.position,
         reference_temperature = conductor.reference_temperature,
         layers = Layer[]
@@ -868,48 +1043,61 @@ function equivalent_dielectric_material(dielectric, conductor, terminal::Symbol)
     )
 end
 
+function _radial_regions(regions)
+    radial = PlacedRegion[]
+    sizehint!(radial, length(regions))
+    for source in regions
+        source.primitive isa DifferenceShape || begin
+            push!(radial, source)
+            continue
+        end
+        material = source.source.material
+        source.terminal === nothing || throw(ArgumentError(
+            "a non-radial enclosure fill cannot own a terminal"
+        ))
+        material.kind === :insulator || throw(ArgumentError(
+            "a non-radial enclosure fill must use an insulator material"
+        ))
+        isinf(material.rho) || throw(ArgumentError(
+            "the coaxial reduction requires a lossless non-radial enclosure fill"
+        ))
+        isapprox(material.mu_r, one(material.mu_r)) || throw(ArgumentError(
+            "the coaxial reduction requires a nonmagnetic non-radial enclosure fill"
+        ))
+        isempty(source.paths) || throw(ArgumentError(
+            "a non-radial enclosure fill cannot carry a longitudinal path"
+        ))
+    end
+    return radial
+end
+
+function same_path_definitions(left, right)
+    length(left) == length(right) || return false
+    return all(eachindex(left)) do index
+        left[index].path == right[index].path
+    end
+end
+
 """
 $(TYPEDSIGNATURES)
 
 Reduce each radial terminal section of a completed cable design to equivalent
-conductor and dielectric circuit properties.
+conductor geometry and its ordered physical dielectric layers.
 
-The reduction combines conductor resistance and GMR independently from the
-dielectric series admittance. It performs no line-parameter, mutual-coupling,
-earth-return, or matrix calculation.
+The reduction combines conductor resistance and GMR but does not evaluate a
+dielectric circuit. It performs no constitutive, frequency, line-parameter,
+mutual-coupling, earth-return, or matrix calculation.
 
 # Arguments
 
 - `design`: Completed physical cable design.
-- `dielectric_frequency`: Frequency in hertz used to combine dielectric layers.
-
 # Returns
 
-An ordered vector of named tuples containing conductor and dielectric fields
-for each retained terminal.
+An ordered vector of named tuples containing equivalent conductor fields and
+the uncombined physical dielectric layers for each retained terminal.
 """
-function flatten(
-        design::CableDesign,
-        dielectric_frequency::Real
-)
-    T = promote_type(
-        typeof(float(dielectric_frequency)),
-        (eltype(region.primitive) for region in design.geometry.regions)...,
-        (eltype(region.source.material) for region in design.geometry.regions)...
-    )
-    return flatten(
-        design,
-        convert(T, float(dielectric_frequency)),
-        T
-    )
-end
-
-function flatten(
-        design::CableDesign,
-        frequency::T,
-        ::Type{T}
-) where {T <: Real}
-    regions = design.geometry.regions
+function radial_components(design::CableDesign, ::Type{T}) where {T <: Real}
+    regions = _radial_regions(design.geometry.regions)
     terminals = design.terminal_order
     isempty(terminals) && throw(ArgumentError(
         "flatten requires at least one retained terminal"
@@ -926,11 +1114,6 @@ function flatten(
         "flatten requires nonreappearing radial terminal blocks"
     ))
 
-    frequency > zero(frequency) || throw(DomainError(
-        frequency,
-        "dielectric reference frequency must be positive"
-    ))
-    angular_frequency = 2 * (one(T) * pi) * frequency
     Layer = NamedTuple{
         (:r_in, :r_ex, :material),
         Tuple{T, T, Material{T}}
@@ -941,9 +1124,8 @@ function flatten(
         Tuple{T, T, T, Int, T, T, T, T, Tuple{T, T}, Material{T}}
     }
     DielectricInput = NamedTuple{
-        (:r_in, :r_ex, :cross_section, :shunt_capacitance,
-            :shunt_conductance, :frequency, :layers, :material),
-        Tuple{T, T, T, T, T, T, Vector{Layer}, Material{T}}
+        (:r_in, :r_ex, :cross_section, :layers),
+        Tuple{T, T, T, Vector{Layer}}
     }
     ComponentInput = NamedTuple{
         (:name, :conductor, :dielectric),
@@ -968,7 +1150,7 @@ function flatten(
                 next_signature = map(entry -> entry.pattern, next.placement.patterns)
                 same_zone = next.terminal === terminal &&
                             next.source == source.source &&
-                            next.paths == source.paths &&
+                            same_path_definitions(next.paths, source.paths) &&
                             next_signature == signature
                 same_zone || break
                 cursor += 1
@@ -986,7 +1168,9 @@ function flatten(
 
         conductor_sources = @view block[firstindex(block):(cursor - 1)]
         nested = any(conductor_sources) do source
-            length(source.placement.patterns) > 1 || length(source.paths) > 1
+            source.primitive isa Union{Polygon, BentStrip} ||
+                source.source.primitive isa Rectangle ||
+                length(source.placement.patterns) > 1 || length(source.paths) > 1
         end
         conductor = if nested
             zone_position = conductor_zone_position(conductor_sources)
@@ -1023,6 +1207,7 @@ function flatten(
                     zero(T)
                 end
                 values = conductor_zone(
+                    source.source.primitive,
                     source.primitive,
                     zone,
                     T,
@@ -1072,19 +1257,10 @@ function flatten(
             )
             dielectric = layer_index == 1 ?
                          initialize_dielectric(layer, conductor) :
-                         add_dielectric_layer(
-                dielectric,
-                layer,
-                angular_frequency
-            )
+                         add_dielectric_layer(dielectric, layer)
         end
 
         conductor_material = equivalent_conductor_material(conductor)
-        dielectric_material = equivalent_dielectric_material(
-            dielectric,
-            conductor,
-            terminal
-        )
         push!(effective,
             (
                 name = terminal,
@@ -1104,11 +1280,116 @@ function flatten(
                     r_in = dielectric.r_in,
                     r_ex = dielectric.r_ex,
                     cross_section = dielectric.cross_section,
-                    shunt_capacitance = dielectric.shunt_capacitance,
-                    shunt_conductance = dielectric.shunt_conductance,
-                    frequency = frequency,
+                    layers = dielectric.layers
+                )
+            ))
+    end
+    return effective
+end
+
+function radial_components(design::CableDesign)
+    T = promote_type(
+        (eltype(region.primitive) for region in design.geometry.regions)...,
+        (eltype(region.source.material) for region in design.geometry.regions)...
+    )
+    return radial_components(design, T)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Reduce a completed cable design to equivalent radial conductor and dielectric
+components at one dielectric reference frequency.
+
+This DataModel operation supports [`homogenize`](@ref). It combines the
+physical radial dielectric layers in series and produces an artificial
+homogeneous material that reproduces their capacitance and conductance at the
+requested frequency. It does not calculate mutual coupling or earth return.
+
+# Arguments
+
+- `design`: Completed physical cable design.
+- `dielectric_frequency`: Reference frequency used to match the equivalent
+  dielectric [Hz].
+
+# Returns
+
+- An ordered vector of equivalent radial component records.
+"""
+function flatten(
+        design::CableDesign,
+        dielectric_frequency::Real
+)
+    T = promote_type(
+        typeof(float(dielectric_frequency)),
+        (eltype(region.primitive) for region in design.geometry.regions)...,
+        (eltype(region.source.material) for region in design.geometry.regions)...
+    )
+    return flatten(
+        design,
+        convert(T, float(dielectric_frequency)),
+        T
+    )
+end
+
+function flatten(
+        design::CableDesign,
+        frequency::T,
+        ::Type{T}
+) where {T <: Real}
+    frequency > zero(frequency) || throw(DomainError(
+        frequency,
+        "dielectric reference frequency must be positive"
+    ))
+    components = radial_components(design, T)
+    angular_frequency = 2 * (one(T) * pi) * frequency
+    Layer = NamedTuple{
+        (:r_in, :r_ex, :material),
+        Tuple{T, T, Material{T}}
+    }
+    ConductorInput = typeof(first(components).conductor)
+    DielectricInput = NamedTuple{
+        (:r_in, :r_ex, :cross_section, :shunt_capacitance,
+            :shunt_conductance, :frequency, :layers, :material),
+        Tuple{T, T, T, T, T, T, Vector{Layer}, Material{T}}
+    }
+    ComponentInput = NamedTuple{
+        (:name, :conductor, :dielectric),
+        Tuple{Symbol, ConductorInput, DielectricInput}
+    }
+    effective = ComponentInput[]
+    sizehint!(effective, length(components))
+    for component in components
+        circuit = dielectric_circuit(
+            component.dielectric.layers,
+            angular_frequency,
+            T
+        )
+        dielectric = merge(component.dielectric,
+            (
+                shunt_capacitance = circuit.capacitance,
+                shunt_conductance = circuit.conductance
+            ))
+        material = equivalent_dielectric_material(
+            dielectric,
+            merge(component.conductor, (
+                reference_temperature = component.conductor.material.T0,
+            )),
+            component.name
+        )
+        push!(effective,
+            (
+                name = component.name,
+                conductor = component.conductor,
+                dielectric = (
+                    r_in = dielectric.r_in,
+                    r_ex = dielectric.r_ex,
+                    cross_section = dielectric.cross_section,
+                    shunt_capacitance = circuit.capacitance,
+                    shunt_conductance = circuit.conductance,
+                    frequency,
                     layers = dielectric.layers,
-                    material = dielectric_material
+                    material
                 )
             ))
     end
@@ -1218,7 +1499,7 @@ function homogenize(
         only(flattened_members)
     else
         members = Tuple(
-            _AssemblyMember(
+            AssemblyMember(
                 member,
                 Pose2(position[1], position[2], 0)
             )

@@ -1,9 +1,7 @@
 @testitem "ReportBuilder / grammar / publication and stage order" tags=[:unit] begin
     using DataFrames
-    using RequiredInterfaces: NotImplementedError
 
     const RB = LineCableModels.ReportBuilder
-    const PB = LineCableModels.PlotBuilder
     const U = LineCableModels.Units
 
     struct ReportProfile
@@ -28,41 +26,17 @@
     U.label(::U.Quantity{:report_response}) = "Response"
     U.symbol(::U.Quantity{:report_response}) = "u"
 
-    struct ReportProfilePlot <: PB.AbstractPlotDefinition end
-    PB.entitle(
-        ::Type{ReportProfilePlot},
-        published::LineCableModels.Grammar.ObservationPublication
-    ) = published
-    function PB.resolve(
-            ::Type{ReportProfilePlot},
-            ::LineCableModels.Grammar.ObservationPublication,
-            request::NamedTuple
-    )
-        return request
-    end
-    function PB.fetch(
-            ::Type{ReportProfilePlot},
-            published::LineCableModels.Grammar.ObservationPublication,
-            request::NamedTuple
-    )
-        payload = (;
-            published,
-            legend = PB.LegendDefinition(enabled = false),
-            colorbars = (),
-            export_definition = PB.ExportDefinition(name = "report_profile")
-        )
-        return (PB.PlotPage(
-            "Report profile",
-            (800, 400),
-            (; kind = :report_profile),
-            payload
-        ),)
+    const illustrated_publication = Ref{Any}(nothing)
+    function report_profile_plot(published; marker)
+        illustrated_publication[] = published
+        return (; kind = :report_profile, marker)
     end
 
     source = ReportProfile([1.0, 2.0])
     definition = TableReportDefinition(
         (profile_response,);
-        illustration = ReportProfilePlot
+        illustration = report_profile_plot,
+        plot_options = (; marker = :report)
     )
     artifact = report(definition, source)
 
@@ -73,9 +47,8 @@
     columns=RB.observation_columns(artifact.table)
     @test U.label(columns.u.unit) == "mΩ"
     @test U.label(columns.u.quantity, columns.u.unit) == "Response [mΩ]"
-    @test artifact.illustration isa PB.PlotRecipe
-    @test only(only(artifact.illustration.pages).payload.published).values ==
-          artifact.table.u
+    @test artifact.illustration == (; kind = :report_profile, marker = :report)
+    @test only(illustrated_publication[]).values == artifact.table.u
     @test artifact.output === nothing
     artifact.table.u[1] = 0.0
     @test source.values == [1.0, 2.0]
@@ -87,27 +60,8 @@
         TableReportDefinition((identity,)),
         :unsupported
     )
-    publication_error=try
-        LineCableModels.observables(source, (identity,))
-        nothing
-    catch error
-        error
-    end
-    entitlement_error=try
-        RB.entitle(TableReportDefinition((identity,)), source)
-        nothing
-    catch error
-        error
-    end
-    @test typeof(entitlement_error) === typeof(publication_error)
-    @test sprint(showerror, entitlement_error) == sprint(showerror, publication_error)
-
     struct StageReport <: RB.AbstractReportDefinition end
     const report_stage_calls = Symbol[]
-    function RB.entitle(::StageReport, source)
-        push!(report_stage_calls, :entitle)
-        return source
-    end
     function RB.select(::StageReport, source)
         push!(report_stage_calls, :select)
         return :published
@@ -135,50 +89,25 @@
         push!(report_stage_calls, :write)
         return :written
     end
-    function RB.finish(
-            ::StageReport,
-            source,
-            published,
-            table,
-            illustration,
-            encoded,
-            written
-    )
-        push!(report_stage_calls, :finish)
-        return (; table, illustration, encoded, written)
-    end
 
     completed = report(StageReport(), :source)
-    @test completed == (
-        table = :table,
-        illustration = :illustration,
-        encoded = :encoded,
-        written = :written
-    )
+    @test completed isa ReportArtifact
+    @test completed.table === :table
+    @test completed.illustration === :illustration
+    @test completed.output === :written
     @test report_stage_calls == [
-        :entitle,
         :select,
         :tabulate,
         :illustrate,
         :encode,
-        :write,
-        :finish
+        :write
     ]
 
-    struct MissingEncodeReport <: RB.AbstractReportDefinition end
-    RB.entitle(::MissingEncodeReport, source) = source
-    RB.select(::MissingEncodeReport, source) = :published
-    RB.tabulate(::MissingEncodeReport, source, published) = :table
-    RB.illustrate(::MissingEncodeReport, source, published, table) = nothing
-    @test_throws NotImplementedError report(MissingEncodeReport(), :source)
-
-    struct MissingWriteReport <: RB.AbstractReportDefinition end
-    RB.entitle(::MissingWriteReport, source) = source
-    RB.select(::MissingWriteReport, source) = :published
-    RB.tabulate(::MissingWriteReport, source, published) = :table
-    RB.illustrate(::MissingWriteReport, source, published, table) = nothing
-    RB.encode(::MissingWriteReport, source, published, table, illustration) = :encoded
-    @test_throws NotImplementedError report(MissingWriteReport(), :source)
+    struct MinimalReport <: RB.AbstractReportDefinition end
+    RB.select(::MinimalReport, source) = :published
+    RB.tabulate(::MinimalReport, source, published) = :table
+    minimal = report(MinimalReport(), :source)
+    @test minimal == ReportArtifact(:table, nothing, nothing)
 end
 
 @testitem "ReportBuilder / XLSX / workbook pipeline and delegation" tags=[:integration] setup=[
@@ -332,17 +261,18 @@ end
     const RB=LineCableModels.ReportBuilder
     constants=LineCableModels.CableConstants(1.0, 2.0, 3.0)
     expected=report(RB.CableConstantsTableDefinition(), constants).table
-    publication=observables(constants, (R, L, C))
+    publication=observables(constants, (R, L, C, G))
     actual=DataFrame(publication)
 
     @test actual == expected
     @test parentmodule(which(DataFrame, (typeof(publication),))) === RB
     @test parentmodule(which(DataFrame, (typeof(constants),))) !== RB
-    @test names(actual) == ["R", "L", "C"]
-    @test only(actual.R) == publication[1].values
-    @test only(actual.L) == publication[2].values
-    @test only(actual.C) == publication[3].values
-    @test keys(RB.observation_columns(actual)) == (:R, :L, :C)
+    @test names(actual) == ["core", "R", "L", "C", "G"]
+    @test actual.R == publication[1].values
+    @test actual.L == publication[2].values
+    @test actual.C == publication[3].values
+    @test actual.G == publication[4].values
+    @test keys(RB.observation_columns(actual)) == (:R, :L, :C, :G)
 
     monte_carlo=TestFixtures.cable_monte_carlo_result()
     @test parentmodule(which(DataFrame, (typeof(monte_carlo),))) !==

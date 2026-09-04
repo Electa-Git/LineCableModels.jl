@@ -30,69 +30,57 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Return the linear resistivity correction factor
-``k(T)=1+\\alpha(T-T_0)``.
+Calculate reference-state strip resistance per unit length:
 
-# Notes
+```math
+R=\\frac{\\rho}{w t}.
+```
 
-The linear material model is accepted only for temperature differences below
-150 °C.
-"""
-function temperature_factor(alpha::Real, temperature::Real, reference::Real)
-    a, value, base = promote(float(alpha), float(temperature), float(reference))
-    delta = abs(value - base)
-    delta < oftype(delta, 150) || throw(DomainError(
-        delta,
-        "the linear resistivity model requires |T - T0| < 150 °C"
-    ))
-    return one(a) + a * (value - base)
-end
+# Arguments
 
-function temperature_factor(alpha::Real, temperature::Real)
-    temperature_factor(alpha, temperature, oftype(float(temperature), 20))
-end
+- `thickness`: Strip thickness \\[m\\].
+- `width`: Strip width \\[m\\].
+- `rho`: Material resistivity at its reference temperature \\[Ω·m\\].
 
-"""
-$(TYPEDSIGNATURES)
+# Returns
 
-Calculate strip resistance per unit length,
-``R=\\rho k(T)/(w t)`` \\[Ω/m\\].
+- Strip resistance per unit length \\[Ω/m\\].
 """
 function strip_resistance(
         thickness::Real,
         width::Real,
-        rho::Real,
-        alpha::Real,
-        reference::Real,
-        temperature::Real
+        rho::Real
 )
-    t, w, resistivity, a, base, value = promote(
-        float(thickness), float(width), float(rho), float(alpha),
-        float(reference), float(temperature)
-    )
-    return temperature_factor(a, value, base) * resistivity / (t * w)
+    t, w, resistivity = promote(float(thickness), float(width), float(rho))
+    return resistivity / (t * w)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Calculate tubular resistance per unit length,
-``R=\\rho k(T)/(\\pi(r_{ex}^2-r_{in}^2))`` \\[Ω/m\\].
+Calculate reference-state tubular resistance per unit length:
+
+```math
+R=\\frac{\\rho}{\\pi(r_{ex}^2-r_{in}^2)}.
+```
+
+# Arguments
+
+- `r_in`: Inner conductor radius \\[m\\].
+- `r_ex`: Outer conductor radius \\[m\\].
+- `rho`: Material resistivity at its reference temperature \\[Ω·m\\].
+
+# Returns
+
+- Tubular resistance per unit length \\[Ω/m\\].
 """
 function tubular_resistance(
         r_in::Real,
         r_ex::Real,
-        rho::Real,
-        alpha::Real,
-        reference::Real,
-        temperature::Real
+        rho::Real
 )
-    rin, rex, resistivity, a, base, value = promote(
-        float(r_in), float(r_ex), float(rho), float(alpha),
-        float(reference), float(temperature)
-    )
-    return temperature_factor(a, value, base) * resistivity /
-           ((one(rin) * π) * (rex^2 - rin^2))
+    rin, rex, resistivity = promote(float(r_in), float(r_ex), float(rho))
+    return resistivity / ((one(rin) * π) * (rex^2 - rin^2))
 end
 
 """

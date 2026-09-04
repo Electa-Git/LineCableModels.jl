@@ -13,7 +13,7 @@ struct LinearError{F <: AbstractFormulation, O <: ComputationOptions} <: Abstrac
 end
 
 function computation_options(
-        ::Val{LinearError},
+        ::Type{LinearError},
         options::NamedTuple
 )::ComputationOptions
     unknown = filter(key -> key !== :retain_details, keys(options))
@@ -31,7 +31,7 @@ function LinearError(
         inner::F;
         options::NamedTuple = (;)
 ) where {F <: AbstractFormulation}
-    normalized = computation_options(Val(LinearError), options)
+    normalized = computation_options(LinearError, options)
     return LinearError{F, typeof(normalized)}(inner, normalized)
 end
 
@@ -77,7 +77,7 @@ struct Sensitivity{
 end
 
 function computation_options(
-        ::Val{Sensitivity},
+        ::Type{Sensitivity},
         options::NamedTuple
 )::ComputationOptions
     unknown = filter(key -> key !== :retain_details, keys(options))
@@ -151,7 +151,7 @@ function Sensitivity(
             ArgumentError("Sensitivity input_labels must be nothing or a tuple of strings or symbols"),
         )
     labels = input_labels === nothing ? nothing : map(String, input_labels)
-    normalized = computation_options(Val(Sensitivity), options)
+    normalized = computation_options(Sensitivity, options)
     return Sensitivity{
         F,
         typeof(method),
@@ -232,7 +232,7 @@ struct MonteCarlo{F <: AbstractFormulation, D, S, O <: ComputationOptions} <:
                 "unsupported distribution $(repr(distribution)); expected :normal, :uniform, a sampler function, or an extension-supported distribution",
             ))
         actual_seed = seed === nothing ? nothing : UInt64(seed)
-        normalized_options = computation_options(Val(MonteCarlo), options)
+        normalized_options = computation_options(MonteCarlo, options)
         return new{F, typeof(distribution), typeof(actual_seed), typeof(normalized_options)}(
             inner,
             trials === nothing ? nothing : Int(trials),
@@ -249,7 +249,7 @@ struct MonteCarlo{F <: AbstractFormulation, D, S, O <: ComputationOptions} <:
 end
 
 function computation_options(
-        ::Val{MonteCarlo},
+        ::Type{MonteCarlo},
         options::NamedTuple
 )::ComputationOptions
     supported = (:retain_details, :on_error, :max_failures)
@@ -268,14 +268,15 @@ function computation_options(
         "MonteCarlo on_error must be :fail or :retry",
     ))
     normalized.max_failures isa Integer && !(normalized.max_failures isa Bool) &&
-        normalized.max_failures > 0 || throw(ArgumentError(
+    normalized.max_failures > 0 || throw(ArgumentError(
         "MonteCarlo max_failures must be a positive integer",
     ))
-    normalized.on_error === :retry && !normalized.retain_details && throw(
-        ArgumentError(
+    normalized.on_error === :retry && !normalized.retain_details &&
+        throw(
+            ArgumentError(
             "MonteCarlo on_error=:retry requires retain_details=true",
         ),
-    )
+        )
     return (
         retain_details = normalized.retain_details,
         on_error = normalized.on_error,

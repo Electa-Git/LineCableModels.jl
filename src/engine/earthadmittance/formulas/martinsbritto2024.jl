@@ -1,11 +1,15 @@
-function routes(::Val{:MartinsBritto2024})
+function routes(identifier::Val{:MartinsBritto2024})
     (
-        self = martinsbritto2024,
-        mutual = martinsbritto2024,
-        overhead = martinsbritto2024_same,
-        underground = martinsbritto2024_same,
-        mixed = martinsbritto2024_mixed,
-        Γ = martinsbritto2024_gamma
+        self = FormulaMethod(identifier, earth_potential_coefficient, Val(:self)),
+        mutual = FormulaMethod(identifier, earth_potential_coefficient, Val(:mutual)),
+        overhead = FormulaMethod(
+            identifier, earth_potential_coefficient, Val(:same_medium)
+        ),
+        underground = FormulaMethod(
+            identifier, earth_potential_coefficient, Val(:same_medium)
+        ),
+        mixed = FormulaMethod(identifier, earth_potential_coefficient, Val(:mixed)),
+        Γ = FormulaMethod(identifier, propagation_constant)
     )
 end
 
@@ -18,11 +22,47 @@ function assumptions(::Val{:MartinsBritto2024})
 end
 
 propagation(::Val{:MartinsBritto2024}) = Val(:explicit)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Wideband, pair-complete potential-coefficient formulation
+with explicit longitudinal propagation.
+
+**Expression.** For conductors in medium ``m``,
+
+```math
+P_{e,ij}^{mm}=\\frac{j\\omega}{2\\pi\\kappa_m}\\left[
+K_0(a_md_{ij})-K_0(a_mD_{ij})+2\\int_0^\\infty
+I_{ij}^{mm}(\\lambda)\\cos(y_{ij}\\lambda)d\\lambda\\right],
+\\quad \\kappa_m=\\sigma_m+j\\omega\\varepsilon_m.
+```
+
+For a mixed pair,
+
+```math
+P_{e,ij}^{01}=\\frac{j\\omega}{\\pi(\\sigma_0+j\\omega\\varepsilon_0)}
+\\int_0^\\infty I_{ij}^{01,MPC}(\\lambda)\\cos(y_{ij}\\lambda)d\\lambda,
+```
+
+```math
+I_{ij}^{01,MPC}=\\gamma_0^2\\mu_1
+\\frac{a_0\\mu_0+a_1\\mu_1}
+{(a_0\\gamma_1^2\\mu_0+a_1\\gamma_0^2\\mu_1)
+(a_0\\mu_1+a_1\\mu_0)}e^{-a_0|h_i|-a_1|h_j|}.
+```
+
+**Reference.** A. G. Martins-Britto, T. A. Papadopoulos, and A. I.
+Chrysochos, “Transient Electromagnetic Interference Between Overhead and
+Underground Conductors,” *IEEE Transactions on Electromagnetic Compatibility*,
+66(3), 983–992, 2024.
+"""
 function description(::Formula{:MartinsBritto2024})
     "Martins-Britto, Papadopoulos, and Chrysochos wideband homogeneous-earth potential coefficient (2024)"
 end
 
-function martinsbritto2024_gamma(jω, permeability, permittivity)
+function propagation_constant(
+        ::Val{:MartinsBritto2024}, jω, permeability, permittivity
+)
     squared = oftype(jω, (-jω^2) * permeability * permittivity)
     return (Γ = sqrt(squared), squared)
 end
@@ -45,19 +85,14 @@ underground pairs and the published transmission kernel for mixed pairs. The
 three placement routes are individually replaceable without changing the
 public `:MartinsBritto2024` identity.
 """
-function martinsbritto2024(functor, pair)
-    return martinsbritto2024(functor, pair, _placement(pair))
-end
-
-function martinsbritto2024(functor, pair, ::Val{:overhead})
-    return functor.routes.overhead(functor, pair)
-end
-
-function martinsbritto2024(functor, pair, ::Val{:underground})
-    return functor.routes.underground(functor, pair)
-end
-
-function martinsbritto2024(functor, pair, ::Val{:mixed})
+function earth_potential_coefficient(
+        ::Val{:MartinsBritto2024}, ::Val{:mutual}, functor, pair
+)
+    placement = _placement(pair)
+    typeof(placement) === Val{:overhead} &&
+        return functor.routes.overhead(functor, pair)
+    typeof(placement) === Val{:underground} &&
+        return functor.routes.underground(functor, pair)
     return functor.routes.mixed(functor, pair)
 end
 
@@ -74,7 +109,9 @@ P_{e,ij}^{mm}=\frac{j\omega}{2\pi\kappa_m}
 where ``\kappa_m=\sigma_m+j\omega\varepsilon_m`` and
 ``a_q=\sqrt{\lambda^2+\gamma_q^2+k_x^2}``.
 """
-function martinsbritto2024_same(functor, pair)
+function earth_potential_coefficient(
+        ::Val{:MartinsBritto2024}, ::Val{:same_medium}, functor, pair
+)
     state = functor.state
     placement = _placement(pair)
     source = typeof(placement) === Val{:overhead} ? 1 : 2
@@ -129,7 +166,9 @@ The implementation preserves the product—not the typographical sum—of the
 two parenthesized denominator factors in the source equation. The
 longitudinal ``k_x`` is exposed through `Γ`.
 """
-function martinsbritto2024_mixed(functor, pair)
+function earth_potential_coefficient(
+        ::Val{:MartinsBritto2024}, ::Val{:mixed}, functor, pair
+)
     state = functor.state
     air = pair.layers[1] == 1 ? 1 : 2
     earth = air == 1 ? 2 : 1

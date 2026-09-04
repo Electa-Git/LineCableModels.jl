@@ -116,39 +116,46 @@ end
     )
 end
 
-function _check_material(material::Material)
-    isempty(string(material.kind)) && throw(ArgumentError("material kind cannot be empty"))
-    isnan(material.rho) && throw(DomainError(material.rho, "resistivity cannot be NaN"))
+function validate(material::Material)
+    isempty(string(material.kind)) && throw(ArgumentError(
+        "Material.kind cannot be empty; received $(repr(material.kind))"
+    ))
+    isnan(material.rho) && throw(DomainError(
+        material.rho,
+        "Material.rho must not be NaN"
+    ))
     material.rho > zero(material.rho) ||
-        throw(DomainError(material.rho, "resistivity must be positive"))
+        throw(DomainError(material.rho, "Material.rho must be positive"))
     isfinite(material.eps_r) && material.eps_r >= zero(material.eps_r) ||
-        throw(DomainError(material.eps_r, "relative permittivity must be nonnegative and finite"))
+        throw(DomainError(
+            material.eps_r,
+            "Material.eps_r must be nonnegative and finite"
+        ))
     isfinite(material.mu_r) && material.mu_r > zero(material.mu_r) ||
-        throw(DomainError(material.mu_r, "relative permeability must be positive and finite"))
+        throw(DomainError(
+            material.mu_r,
+            "Material.mu_r must be positive and finite"
+        ))
     isfinite(material.T0) ||
-        throw(DomainError(material.T0, "reference temperature must be finite"))
+        throw(DomainError(material.T0, "Material.T0 must be finite"))
     isfinite(material.alpha) ||
-        throw(DomainError(material.alpha, "temperature coefficient must be finite"))
+        throw(DomainError(material.alpha, "Material.alpha must be finite"))
     isfinite(material.rho_thermal) && material.rho_thermal >= zero(material.rho_thermal) ||
         throw(DomainError(
             material.rho_thermal,
-            "thermal resistivity must be nonnegative and finite"
+            "Material.rho_thermal must be nonnegative and finite"
         ))
     isfinite(material.theta_max) ||
-        throw(DomainError(material.theta_max, "maximum temperature must be finite"))
+        throw(DomainError(material.theta_max, "Material.theta_max must be finite"))
     isfinite(material.tan_delta) && material.tan_delta >= zero(material.tan_delta) ||
         throw(DomainError(
             material.tan_delta,
-            "dielectric loss tangent must be nonnegative and finite"
+            "Material.tan_delta must be nonnegative and finite"
         ))
     isfinite(material.sigma_solar) && material.sigma_solar >= zero(material.sigma_solar) ||
         throw(DomainError(
             material.sigma_solar,
-            "solar-absorption coefficient must be nonnegative and finite"
+            "Material.sigma_solar must be nonnegative and finite"
         ))
-    return nothing
-end
-
-function Validation.rules(::Type{<:Material})
-    (Validation.OwnerRule(:material_properties, _check_material),)
+    return material
 end

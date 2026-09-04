@@ -2,8 +2,6 @@ using Test
 using LineCableModels
 using GLMakie
 
-set_backend!(:gl)
-
 frequency=10.0 .^ range(0, 6; length = 61)
 omega=reshape(2π .* frequency, 1, 1, :)
 resistance=[1.0 0.18 0.12; 0.18 1.1 0.16; 0.12 0.16 1.2] .* 1.0e-4
@@ -24,7 +22,7 @@ reference=comparison_fixture(1.0, 0.0)
 pollaczek=comparison_fixture(1.015, 0.005)
 numerical=comparison_fixture(0.985, -0.004)
 
-labels=(
+series_labels=(
     "Reference · Wedepohl",
     "LineCableModels · Pollaczek",
     "LineCableModels · direct numerical integration"
@@ -34,7 +32,7 @@ plots=Makie.plot(
     reference,
     pollaczek,
     numerical;
-    legend = labels,
+    series_labels,
     requests = (R, L, G, C),
     xscale = :log10,
     fig_size = (1400, 900),
@@ -45,13 +43,11 @@ plots=Makie.plot(
 
 @testset "manual GL line-parameter comparison" begin
     @test length(plots) == 4
-    @test all(plot -> length(plot.panels) == 9, plots)
+    @test all(plot -> length(plot.axes) == 9, plots)
     @test all(
-        panel -> length(panel.metadata.series) == 3,
-        (panel for plot in plots for panel in plot.panels)
+        axis -> length(axis.scene.plots) >= 3,
+        (axis for plot in plots for axis in plot.axes)
     )
-    @test all(plot -> plot.context.window !== nothing, plots)
-    @test all(plot -> plot.context.status[] == "Ready.", plots)
     @test all(plot -> haskey(plot.controls, :legend), plots)
     @test all(
         plot -> sort!(collect(keys(plot.controls))) ==
@@ -63,12 +59,6 @@ end
 println("Opened one 3×3 comparison grid for each of R, L, G, and C.")
 println("Resize the windows to inspect the matrix grid and responsive legend.")
 println("Toggle a legend entry and confirm that it hides the same result in every panel.")
-println("Close all windows to finish, or press Ctrl+C here.")
-
-try
-    while any(plot -> isopen(plot.context.window), plots)
-        sleep(0.1)
-    end
-finally
-    GLMakie.closeall()
-end
+println("Press Enter to close all figures and finish.")
+readline()
+GLMakie.closeall()

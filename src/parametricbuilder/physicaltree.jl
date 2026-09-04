@@ -1,5 +1,5 @@
 function Region(tag, primitive, material; combine::Symbol = :product)
-    return _construction(
+    return parameterize(
         DataModel.Region, DataModel.Region, (tag, primitive, material); combine
     )
 end
@@ -9,58 +9,75 @@ end
 # to reach the common construction boundary instead of that scalar constructor.
 const _FiniteRegionInput = Union{AbstractGrid, Gridspace}
 
-Region(tag::_FiniteRegionInput, primitive, material; combine::Symbol = :product) =
-    _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
-Region(tag, primitive::_FiniteRegionInput, material; combine::Symbol = :product) =
-    _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
-Region(tag, primitive, material::_FiniteRegionInput; combine::Symbol = :product) =
-    _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
-Region(
-    tag::Symbol,
-    primitive::_FiniteRegionInput,
-    material;
-    combine::Symbol = :product
-) = _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
-Region(
-    tag::Symbol,
-    primitive,
-    material::_FiniteRegionInput;
-    combine::Symbol = :product
-) = _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
-Region(
-    tag::Symbol,
-    primitive::_FiniteRegionInput,
-    material::_FiniteRegionInput;
-    combine::Symbol = :product
-) = _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
-Region(
-    tag::_FiniteRegionInput,
-    primitive::_FiniteRegionInput,
-    material;
-    combine::Symbol = :product
-) = _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
-Region(
-    tag::_FiniteRegionInput,
-    primitive,
-    material::_FiniteRegionInput;
-    combine::Symbol = :product
-) = _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
-Region(
-    tag,
-    primitive::_FiniteRegionInput,
-    material::_FiniteRegionInput;
-    combine::Symbol = :product
-) = _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
-Region(
-    tag::_FiniteRegionInput,
-    primitive::_FiniteRegionInput,
-    material::_FiniteRegionInput;
-    combine::Symbol = :product
-) = _construction(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+function Region(tag::_FiniteRegionInput, primitive, material; combine::Symbol = :product)
+    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+end
+function Region(tag, primitive::_FiniteRegionInput, material; combine::Symbol = :product)
+    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+end
+function Region(tag, primitive, material::_FiniteRegionInput; combine::Symbol = :product)
+    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+end
+function Region(
+        tag::Symbol,
+        primitive::_FiniteRegionInput,
+        material;
+        combine::Symbol = :product
+)
+    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+end
+function Region(
+        tag::Symbol,
+        primitive,
+        material::_FiniteRegionInput;
+        combine::Symbol = :product
+)
+    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+end
+function Region(
+        tag::Symbol,
+        primitive::_FiniteRegionInput,
+        material::_FiniteRegionInput;
+        combine::Symbol = :product
+)
+    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+end
+function Region(
+        tag::_FiniteRegionInput,
+        primitive::_FiniteRegionInput,
+        material;
+        combine::Symbol = :product
+)
+    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+end
+function Region(
+        tag::_FiniteRegionInput,
+        primitive,
+        material::_FiniteRegionInput;
+        combine::Symbol = :product
+)
+    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+end
+function Region(
+        tag,
+        primitive::_FiniteRegionInput,
+        material::_FiniteRegionInput;
+        combine::Symbol = :product
+)
+    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+end
+function Region(
+        tag::_FiniteRegionInput,
+        primitive::_FiniteRegionInput,
+        material::_FiniteRegionInput;
+        combine::Symbol = :product
+)
+    parameterize(DataModel.Region, DataModel.Region, (tag, primitive, material); combine)
+end
 
 function Stack(items...; combine::Symbol = :product)
     isempty(items) && throw(ArgumentError("layers require at least one part"))
-    return _construction(DataModel.Stack, DataModel.Stack, items; combine)
+    return parameterize(DataModel.Stack, DataModel.Stack, items; combine)
 end
 
 """
@@ -89,10 +106,11 @@ function Group(
         pattern = nothing,
         path = nothing,
         compact = nothing,
+        boundary = nothing,
         combine::Symbol = :product
 )
-    values = (name, at, item, pattern, path, compact)
-    return _construction(DataModel.Group, DataModel.Group, values; combine)
+    values = (name, at, item, pattern, path, compact, boundary)
+    return parameterize(DataModel.Group, DataModel.Group, values; combine)
 end
 
 function Assembly(
@@ -105,13 +123,13 @@ function Assembly(
         combine::Symbol = :product
 )
     values = (at, item, pattern, path, compact, names)
-    return _construction(DataModel.Assembly, DataModel.Assembly, values; combine)
+    return parameterize(DataModel.Assembly, DataModel.Assembly, values; combine)
 end
 
 function _explicit_assembly(members...)
     placed = map(members) do member
-        member isa DataModel._AssemblyMember ? member :
-        member isa DataModel.AbstractCablePart ? DataModel._AssemblyMember(member) :
+        member isa DataModel.AssemblyMember ? member :
+        member isa DataModel.AbstractCablePart ? DataModel.AssemblyMember(member) :
         throw(ArgumentError("assembly members must be physical cable parts"))
     end
     return DataModel.Assembly(
@@ -146,7 +164,7 @@ The variadic method retains heterogeneous members and their local poses.
 """
 function assembly(members...; combine::Symbol = :product)
     isempty(members) && throw(ArgumentError("assembly requires at least one member"))
-    return _construction(DataModel.Assembly, _explicit_assembly, members; combine)
+    return parameterize(DataModel.Assembly, _explicit_assembly, members; combine)
 end
 
 function assembly(
@@ -177,17 +195,17 @@ function Enclosure(
         combine::Symbol = :product
 )
     values = (tag, at, primitive, item, fill, wall)
-    return _construction(DataModel.Enclosure, DataModel.Enclosure, values; combine)
+    return parameterize(DataModel.Enclosure, DataModel.Enclosure, values; combine)
 end
 
-_terminal_eligible(region::DataModel.Region) =
-    region.material.kind === :conductor ? 1 : 0
-_terminal_eligible(stack::DataModel.Stack) =
-    sum(_terminal_eligible, stack.items; init = 0)
+_terminal_eligible(region::DataModel.Region) = region.material.kind === :conductor ? 1 : 0
+_terminal_eligible(stack::DataModel.Stack) = sum(_terminal_eligible, stack.items; init = 0)
 _terminal_eligible(group::DataModel.Group) = _terminal_eligible(group.item)
-_terminal_eligible(
-    assembly::DataModel.Assembly{<:Any, <:DataModel.AbstractCablePart}
-) = _terminal_eligible(assembly.item)
+function _terminal_eligible(
+        assembly::DataModel.Assembly{<:Any, <:DataModel.AbstractCablePart}
+)
+    _terminal_eligible(assembly.item)
+end
 function _terminal_eligible(assembly::DataModel.Assembly{<:Any, <:Tuple})
     return sum(member -> _terminal_eligible(member.item), assembly.item; init = 0)
 end
@@ -235,7 +253,7 @@ retained terminal.
 """
 function terminal(name, parts...; combine::Symbol = :product)
     isempty(parts) && throw(ArgumentError("terminal requires at least one part"))
-    return _construction(DataModel.Group, _terminal, (name, parts...); combine)
+    return parameterize(DataModel.Group, _terminal, (name, parts...); combine)
 end
 
 function _require_material(material, role::Symbol, allowed::Tuple)
@@ -268,8 +286,9 @@ Bind an intrinsic primitive definition to one material and local physical tag.
 
 - A `Region`, or a `Gridspace{Region}` when a direct argument varies.
 """
-solid(material, primitive; tag = :solid, combine::Symbol = :product) =
+function solid(material, primitive; tag = :solid, combine::Symbol = :product)
     Region(tag, primitive, material; combine)
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -291,8 +310,9 @@ Declare one outward material layer of thickness `t` \\[m\\].
 - A contextual `Region`, or a `Gridspace{Region}` when a direct argument
   varies.
 """
-shell(material; t, tag = :shell, combine::Symbol = :product) =
+function shell(material; t, tag = :shell, combine::Symbol = :product)
     Region(tag, Shell(t), material; combine)
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -317,18 +337,21 @@ Declare a conductive core region.
   varies.
 """
 function core(material, primitive; tag = :core, combine::Symbol = :product)
-    caller = (resolved_material, resolved_primitive, resolved_tag) -> DataModel.Region(
+    caller = (resolved_material,
+        resolved_primitive,
+        resolved_tag) -> DataModel.Region(
         resolved_tag,
         resolved_primitive,
         _require_material(resolved_material, :core, (:conductor,))
     )
-    return _construction(
+    return parameterize(
         DataModel.Region, caller, (material, primitive, tag); combine
     )
 end
 
-core(material; r, tag = :core, combine::Symbol = :product) =
+function core(material; r, tag = :core, combine::Symbol = :product)
     core(material, Disk(r); tag, combine)
+end
 
 function _role_shell(role::Symbol, allowed, material, t, tag)
     return DataModel.Region(
@@ -342,26 +365,33 @@ function _shell_role(
         role::Symbol, allowed::Tuple, material, t, tag;
         combine::Symbol
 )
-    caller = (resolved_material, resolved_t, resolved_tag) ->
-             _role_shell(role, allowed, resolved_material, resolved_t, resolved_tag)
-    return _construction(DataModel.Region, caller, (material, t, tag); combine)
+    caller = (resolved_material,
+        resolved_t,
+        resolved_tag) -> _role_shell(
+        role, allowed, resolved_material, resolved_t, resolved_tag)
+    return parameterize(DataModel.Region, caller, (material, t, tag); combine)
 end
 
 """Declare an insulating layer of thickness `t` \\[m\\]."""
-insulation(material; t, tag = :insulation, combine::Symbol = :product) =
+function insulation(material; t, tag = :insulation, combine::Symbol = :product)
     _shell_role(:insulation, (:insulator,), material, t, tag; combine)
+end
 """Declare a semiconductive or conductive screen layer of thickness `t` \\[m\\]."""
-screen(material; t, tag = :screen, combine::Symbol = :product) =
+function screen(material; t, tag = :screen, combine::Symbol = :product)
     _shell_role(:screen, (:semicon, :conductor), material, t, tag; combine)
+end
 """Declare a conductive sheath layer of thickness `t` \\[m\\]."""
-sheath(material; t, tag = :sheath, combine::Symbol = :product) =
+function sheath(material; t, tag = :sheath, combine::Symbol = :product)
     _shell_role(:sheath, (:conductor,), material, t, tag; combine)
+end
 """Declare a nonconducting bedding layer of thickness `t` \\[m\\]."""
-bedding(material; t, tag = :bedding, combine::Symbol = :product) =
+function bedding(material; t, tag = :bedding, combine::Symbol = :product)
     _shell_role(:bedding, (:insulator,), material, t, tag; combine)
+end
 """Declare an insulating jacket layer of thickness `t` \\[m\\]."""
-jacket(material; t, tag = :jacket, combine::Symbol = :product) =
+function jacket(material; t, tag = :jacket, combine::Symbol = :product)
     _shell_role(:jacket, (:insulator,), material, t, tag; combine)
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -383,14 +413,16 @@ Bind a nonconducting filler material to an intrinsic primitive definition.
 - A filler `Region`, or a `Gridspace{Region}` when a direct argument varies.
 """
 function filler(material, primitive; tag = :filler, combine::Symbol = :product)
-    caller = (resolved_material, resolved_primitive, resolved_tag) -> DataModel.Region(
+    caller = (resolved_material,
+        resolved_primitive,
+        resolved_tag) -> DataModel.Region(
         resolved_tag,
         resolved_primitive,
         _require_material(
             resolved_material, :filler, (:insulator,)
         )
     )
-    return _construction(
+    return parameterize(
         DataModel.Region, caller, (material, primitive, tag); combine
     )
 end
@@ -507,7 +539,7 @@ function wires(
         material, shape, pattern, path, n, r, gap_frac, lay, dir, φ0,
         compact, tag
     )
-    return _construction(DataModel.Group, caller, values; combine)
+    return parameterize(DataModel.Group, caller, values; combine)
 end
 
 function _course_schedule(value, count::Int, name::Symbol)
@@ -529,7 +561,7 @@ function _count_schedule(value, count::Int)
     end
     value isa Integer && !(value isa Bool) && value > 0 &&
         return ntuple(index -> index * Int(value), count)
-    value isa DataModel._DeferredCardinality && return ntuple(_ -> value, count)
+    value === DataModel.capacity() && return ntuple(_ -> value, count)
     throw(ArgumentError(
         "n must be a positive base count, exact course schedule, or capacity()"
     ))
@@ -537,61 +569,96 @@ end
 
 function _stranded(
         material,
-        shape,
+        center,
+        shapes,
         course_count,
         counts,
         lays,
         directions,
         angles,
-        compactions,
-        gaps,
+        compaction,
         prescribed_boundary
 )
     course_count isa Integer && !(course_count isa Bool) && course_count >= 0 ||
         throw(ArgumentError("layers must be a nonnegative integer"))
     material = _require_material(material, :stranded, (:conductor,))
-    central = DataModel.Group(
-        :strand,
-        DataModel.Pose2(0, 0, 0),
-        DataModel.Region(:wire, shape, material),
-        nothing,
-        nothing,
-        nothing
-    )
-    parts = DataModel.AbstractCablePart[central]
-    for course in 1:course_count
-        push!(parts, DataModel.Group(
-            :strand,
-            DataModel.Pose2(0, 0, 0),
-            DataModel.Region(:wire, shape, material),
-            DataModel.Ring(
-                counts[course];
-                r = nothing,
-                φ0 = angles[course],
-                gap_frac = gaps[course]
-            ),
-            _path(lays[course], directions[course], angles[course]),
-            compactions[course]
+    prescribed_boundary isa Union{DataModel.Disk, DataModel.Sector} ||
+        throw(ArgumentError(
+            "stranded requires a nonhollow Disk or Sector boundary"
         ))
+    all(shape -> shape isa DataModel.Disk, shapes) || throw(ArgumentError(
+        "stranded members must be circular Disk primitives; use tape for flat strips"
+    ))
+    if prescribed_boundary isa DataModel.Sector
+        center === nothing || throw(ArgumentError(
+            "a sector stranded formation has no central member"
+        ))
+        course_count > 0 || throw(ArgumentError(
+            "a sector stranded formation requires at least one strand course"
+        ))
+    elseif center === nothing
+        isempty(shapes) && throw(ArgumentError(
+            "a zero-course stranded formation requires an explicit centre member"
+        ))
+        center = first(shapes)
     end
-    stack = DataModel.Stack(parts)
-    prescribed_boundary === nothing && return stack
-    prescribed_boundary isa DataModel.AbstractPrimitive || throw(ArgumentError(
-        "stranded boundary must be an intrinsic primitive or nothing"
+    center === nothing || center isa DataModel.Disk || throw(ArgumentError(
+        "a disk stranded formation requires one circular centre member"
     ))
 
-    # A patternless outer group carries the prescribed aggregate boundary as
-    # existing tabulated compaction data. The inner course groups retain their
-    # own compaction and path declarations unchanged. Resolution uses the
-    # prescribed primitive only as the aggregate CableGeometry boundary; it
-    # never inserts a second conductor region or homogenizes the strands.
+    natural_sector = prescribed_boundary isa DataModel.Sector && compaction === nothing
+    all(counts) do count
+        count isa Integer && !(count isa Bool) && count > 0 ||
+            natural_sector && count === DataModel.capacity()
+    end || throw(ArgumentError(
+        "stranded requires positive member counts; only an uncompacted sector accepts capacity()"
+    ))
+    resolved_angles = Any[angles...]
+    angle_zero = prescribed_boundary isa DataModel.Sector ?
+                 zero(float(prescribed_boundary.span)) :
+                 zero(float(prescribed_boundary.r))
+    for course in eachindex(resolved_angles)
+        resolved_angles[course] === nothing || continue
+        resolved_angles[course] = course == 1 ?
+                                  angle_zero :
+                                  resolved_angles[course - 1] +
+                                  π / counts[course - 1]
+    end
+    parts = DataModel.AbstractCablePart[]
+    center === nothing || push!(parts,
+        DataModel.Group(
+            :strand,
+            DataModel.Pose2(0, 0, 0),
+            DataModel.Region(:wire, center, material),
+            nothing,
+            nothing,
+            nothing
+        ))
+    for course in 1:course_count
+        pattern = DataModel.Ring(
+            counts[course];
+            r = nothing,
+            φ0 = resolved_angles[course]
+        )
+        push!(parts,
+            DataModel.Group(
+                :strand,
+                DataModel.Pose2(0, 0, 0),
+                DataModel.Region(:wire, shapes[course], material),
+                pattern,
+                _path(lays[course], directions[course], resolved_angles[course]),
+                nothing
+            ))
+    end
+    stack = DataModel.Stack(parts)
     bounded = DataModel.Group(
-        :strand,
+        :core,
         DataModel.Pose2(0, 0, 0),
         stack,
         nothing,
         nothing,
-        DataModel.TabulatedCompaction(prescribed_boundary)
+        compaction,
+        prescribed_boundary
     )
     return DataModel.Stack(bounded)
 end
@@ -599,7 +666,7 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Declare one central wire and a prescribed number of concentric outer courses.
+Declare one boundary-constrained conductive core made from discrete members.
 
 # Arguments
 
@@ -607,65 +674,84 @@ Declare one central wire and a prescribed number of concentric outer courses.
 
 # Keywords
 
-- `shape`: Intrinsic strand primitive.
-- `layers`: Number of outer courses \\[dimensionless\\].
-- `n=6`: Base count, exact course schedule, or deferred `capacity()` policy.
-- `lay=nothing`: One lay law or one law per outer course.
+- `center=nothing`: Circular centre member for a disk-bounded core. It defaults
+  to `shape`. Sector-bounded cores have no centre member.
+- `shape`: One circular wire primitive, or one circular primitive per course.
+- `boundary`: Authoritative nonhollow `Disk` or `Sector` core boundary.
+- `layers=nothing`: Number of outer courses \\[dimensionless\\]. Disk boundaries
+  and compacted sector boundaries require it. An uncompacted sector infers one
+  uniformly packed wire inventory.
+- `n=nothing`: Positive base count or exact positive course schedule. It
+  defaults to six per circular course and to `capacity()` for an uncompacted
+  sector.
+- `lay=nothing`: One lay law or one law per outer course. Homogeneous schedules
+  may be declared as `LayRatio(q...)`, `Pitch(p...)`, or `LayAngle(α...)`.
 - `dir=1`: One handedness or one value per outer course.
-- `φ0=0`: One initial angle or one value per outer course \\[rad\\].
-- `compact=nothing`: One compaction law or one law per outer course.
-- `boundary=nothing`: Prescribed aggregate cross-sectional boundary after
-  member placement and compaction.
-- `gap_frac=0`: One clearance fraction or one value per outer course
-  \\[dimensionless\\].
+- `φ0=nothing`: Optional initial angle or schedule. Omission deterministically
+  staggers consecutive courses.
+- `compact=nothing`: Preserve natural circular wires. A `FillFactor` explicitly
+  requests area-preserving deformation inside the boundary.
 - `combine=:product`: Gridspace composition rule.
 
 # Returns
 
-- A `Stack` of ordinary groups, or a `Gridspace{Stack}` when a direct argument
-  varies.
+- A boundary-owning core `Stack`, or a `Gridspace{Stack}` when a direct
+  argument varies.
 """
 function stranded(
         material;
+        center = nothing,
         shape,
-        layers,
-        n = 6,
+        layers = nothing,
+        n = nothing,
         lay = nothing,
         dir = 1,
-        φ0 = 0,
+        φ0 = nothing,
         compact = nothing,
-        boundary = nothing,
-        gap_frac = 0,
+        boundary,
         combine::Symbol = :product
 )
     caller = function (
-            resolved_material, resolved_shape, resolved_layers, resolved_n,
+            resolved_material, resolved_center, resolved_shape, resolved_layers, resolved_n,
             resolved_lay, resolved_dir, resolved_φ0, resolved_compact,
-            resolved_boundary, resolved_gap
+            resolved_boundary
     )
-        resolved_layers isa Integer && !(resolved_layers isa Bool) &&
+        natural_sector = resolved_boundary isa DataModel.Sector &&
+                         resolved_compact === nothing
+        count = if natural_sector
+            resolved_layers in (nothing, 1) || throw(ArgumentError(
+                "an uncompacted sector infers one uniform circular-wire inventory"
+            ))
+            1
+        else
+            resolved_layers isa Integer && !(resolved_layers isa Bool) &&
             resolved_layers >= 0 || throw(ArgumentError(
                 "layers must be a nonnegative integer"
             ))
-        count = Int(resolved_layers)
+            Int(resolved_layers)
+        end
+        counts = _count_schedule(
+            resolved_n === nothing ?
+            (natural_sector ? DataModel.capacity() : 6) : resolved_n,
+            count
+        )
         return _stranded(
             resolved_material,
-            resolved_shape,
+            resolved_center,
+            _course_schedule(resolved_shape, count, :shape),
             count,
-            _count_schedule(resolved_n, count),
+            counts,
             _course_schedule(resolved_lay, count, :lay),
             _course_schedule(resolved_dir, count, :dir),
             _course_schedule(resolved_φ0, count, :φ0),
-            _course_schedule(resolved_compact, count, :compact),
-            _course_schedule(resolved_gap, count, :gap_frac),
+            resolved_compact,
             resolved_boundary
         )
     end
     values = (
-        material, shape, layers, n, lay, dir, φ0, compact, boundary,
-        gap_frac
+        material, center, shape, layers, n, lay, dir, φ0, compact, boundary
     )
-    return _construction(DataModel.Stack, caller, values; combine)
+    return parameterize(DataModel.Stack, caller, values; combine)
 end
 
 function _rope(
@@ -686,19 +772,20 @@ function _rope(
     )
     parts = DataModel.AbstractCablePart[central]
     for course in 1:course_count
-        push!(parts, DataModel.Group(
-            :rope,
-            DataModel.Pose2(0, 0, 0),
-            item,
-            DataModel.Ring(
-                counts[course];
-                r = nothing,
-                φ0 = angles[course],
-                gap_frac = gaps[course]
-            ),
-            _path(lays[course], directions[course], angles[course]),
-            compactions[course]
-        ))
+        push!(parts,
+            DataModel.Group(
+                :rope,
+                DataModel.Pose2(0, 0, 0),
+                item,
+                DataModel.Ring(
+                    counts[course];
+                    r = nothing,
+                    φ0 = angles[course],
+                    gap_frac = gaps[course]
+                ),
+                _path(lays[course], directions[course], angles[course]),
+                compactions[course]
+            ))
     end
     return DataModel.Stack(parts)
 end
@@ -716,10 +803,12 @@ Repeat one physical item as a central child and concentric outer courses.
 
 - `layers`: Number of outer courses \\[dimensionless\\].
 - `n=6`: Base count, exact course schedule, or deferred `capacity()` policy.
-- `lay=nothing`: One lay law or one law per outer course.
+- `lay=nothing`: One lay law or one law per outer course. Homogeneous schedules
+  may be declared as `LayRatio(q...)`, `Pitch(p...)`, or `LayAngle(α...)`.
 - `dir=1`: One handedness or one value per outer course.
 - `φ0=0`: One initial angle or one value per outer course \\[rad\\].
 - `compact=nothing`: One compaction law or one law per outer course.
+  Homogeneous scalar schedules may be declared as `FillFactor(η...)`.
 - `gap_frac=0`: One clearance fraction or one value per outer course
   \\[dimensionless\\].
 - `combine=:product`: Gridspace composition rule.
@@ -744,9 +833,9 @@ function rope(
             resolved_dir, resolved_φ0, resolved_compact, resolved_gap
     )
         resolved_layers isa Integer && !(resolved_layers isa Bool) &&
-            resolved_layers >= 0 || throw(ArgumentError(
-                "layers must be a nonnegative integer"
-            ))
+        resolved_layers >= 0 || throw(ArgumentError(
+            "layers must be a nonnegative integer"
+        ))
         count = Int(resolved_layers)
         return _rope(
             resolved_item,
@@ -760,7 +849,7 @@ function rope(
         )
     end
     values = (item, layers, n, lay, dir, φ0, compact, gap_frac)
-    return _construction(DataModel.Stack, caller, values; combine)
+    return parameterize(DataModel.Stack, caller, values; combine)
 end
 
 """
@@ -826,16 +915,19 @@ function armor(
         )
     end
     values = (material, shape, n, lay, dir, φ0, compact, gap_frac, tag)
-    return _construction(DataModel.Group, caller, values; combine)
+    return parameterize(DataModel.Group, caller, values; combine)
 end
 
 function _tape(material, section, n, lay, gap, compact, tag)
+    section isa DataModel.Rectangle || throw(ArgumentError(
+        "tape section must be a Rectangle(width, thickness)"
+    ))
     source = DataModel.Region(tag, section, material)
     return DataModel.Group(
         :tapes,
         DataModel.Pose2(0, 0, 0),
         source,
-        DataModel.Ring(n; r = 0, gap_frac = gap),
+        DataModel.Ring(n; r = nothing, gap_frac = gap),
         _path(lay, 1, 0),
         compact
     )
@@ -875,7 +967,7 @@ function tape(
         combine::Symbol = :product
 )
     values = (material, section, n, lay, gap_frac, compact, tag)
-    return _construction(DataModel.Group, _tape, values; combine)
+    return parameterize(DataModel.Group, _tape, values; combine)
 end
 
 """
@@ -936,7 +1028,7 @@ function cores(
         )
     end
     values = (item, n, r, names, φ0, span, path, compact)
-    return _construction(DataModel.Assembly, caller, values; combine)
+    return parameterize(DataModel.Assembly, caller, values; combine)
 end
 
 cores(members...; combine::Symbol = :product) = assembly(members...; combine)
@@ -1005,7 +1097,7 @@ function pipe(
         _enclose(:pipe, physical, selected[(count + 1):end]..., nothing)
     end
     values = (items..., shape, fill, wall, at)
-    return _construction(DataModel.Enclosure, caller, values; combine)
+    return parameterize(DataModel.Enclosure, caller, values; combine)
 end
 
 """
@@ -1049,7 +1141,7 @@ function duct(
         _enclose(:duct, physical, selected[(count + 1):end]...)
     end
     values = (items..., shape, fill, wall, at, formation)
-    return _construction(DataModel.Enclosure, caller, values; combine)
+    return parameterize(DataModel.Enclosure, caller, values; combine)
 end
 
 function build(
@@ -1067,9 +1159,8 @@ function build(
         build(DataModel.CableDesign, id, Tuple(physical), data)
     end
     values = (cable_id, parts..., nominal_data)
-    return _construction(DataModel.CableDesign, caller, values; combine)
+    return parameterize(DataModel.CableDesign, caller, values; combine)
 end
-
 
 function build(
         ::Type{DataModel.CableDesign},
@@ -1079,7 +1170,7 @@ function build(
         combine::Symbol = :product
 )
     values = (cable_id, parts..., nominal_data)
-    any(value -> value isa _FiniteSource, values) || throw(MethodError(
+    any(value -> value isa Union{AbstractGrid, Gridspace}, values) || throw(MethodError(
         build, (DataModel.CableDesign, cable_id, parts...)
     ))
     return build(

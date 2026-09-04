@@ -25,26 +25,25 @@ end
 Base.eltype(::EarthMaterial{T}) where {T} = T
 Base.eltype(::Type{EarthMaterial{T}}) where {T} = T
 
-function _check_earth_material(material::EarthMaterial)
-    isnan(material.rho) && throw(DomainError(material.rho, "resistivity cannot be NaN"))
+function validate(material::EarthMaterial)
+    isnan(material.rho) && throw(DomainError(
+        material.rho,
+        "EarthMaterial.rho must not be NaN"
+    ))
     material.rho > zero(material.rho) || throw(DomainError(
         material.rho,
-        "resistivity must be positive"
+        "EarthMaterial.rho must be positive"
     ))
     isfinite(material.eps_r) && !iszero(material.eps_r) || throw(DomainError(
         material.eps_r,
-        "relative permittivity must be nonzero and finite"
+        "EarthMaterial.eps_r must be nonzero and finite"
     ))
     isfinite(material.mu_r) && material.mu_r > zero(material.mu_r) ||
         throw(DomainError(
             material.mu_r,
-            "relative permeability must be positive and finite"
+            "EarthMaterial.mu_r must be positive and finite"
         ))
-    return nothing
-end
-
-function Validation.rules(::Type{<:EarthMaterial})
-    (Validation.OwnerRule(:earth_material_properties, _check_earth_material),)
+    return material
 end
 
 """
@@ -74,6 +73,8 @@ function Base.convert(::Type{EarthMaterial{T}}, material::EarthMaterial) where {
     )
 end
 
-Base.convert(
-    ::Type{EarthMaterial{T}}, material::EarthMaterial{T}
-) where {T <: Real} = material
+function Base.convert(
+        ::Type{EarthMaterial{T}}, material::EarthMaterial{T}
+) where {T <: Real}
+    material
+end

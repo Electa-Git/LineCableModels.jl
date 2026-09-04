@@ -193,8 +193,8 @@
           "additionalProperties": false
         },
         {
-          "type": "object", "required": ["kind", "ri", "ro", "φ0", "span"],
-          "properties": {"kind": {"const": "sector"}, "ri": {"$ref": "#/$defs/scalar"}, "ro": {"$ref": "#/$defs/scalar"}, "φ0": {"$ref": "#/$defs/scalar"}, "span": {"$ref": "#/$defs/scalar"}},
+          "type": "object", "required": ["kind", "span", "r_base", "r_back", "fillet"],
+          "properties": {"kind": {"const": "sector"}, "span": {"$ref": "#/$defs/scalar"}, "r_base": {"$ref": "#/$defs/scalar"}, "r_back": {"$ref": "#/$defs/scalar"}, "fillet": {"$ref": "#/$defs/scalar"}},
           "additionalProperties": false
         },
         {
@@ -212,18 +212,6 @@
           "properties": {
             "kind": {"const": "polygon"},
             "points": {"type": "array", "minItems": 3, "items": {"type": "array", "prefixItems": [{"$ref": "#/$defs/scalar"}, {"$ref": "#/$defs/scalar"}], "items": false}}
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": ["kind", "span", "r_base", "r_back", "fillet"],
-          "properties": {
-            "kind": {"const": "rounded_sector"},
-            "span": {"$ref": "#/$defs/scalar"},
-            "r_base": {"$ref": "#/$defs/scalar"},
-            "r_back": {"$ref": "#/$defs/scalar"},
-            "fillet": {"$ref": "#/$defs/scalar"}
           },
           "additionalProperties": false
         }
@@ -275,10 +263,7 @@
     "compaction": {
       "oneOf": [
         {"type": "null"},
-        {"type": "object", "required": ["kind", "k"], "properties": {"kind": {"const": "diameter_factor"}, "k": {"$ref": "#/$defs/scalar"}}, "additionalProperties": false},
-        {"type": "object", "required": ["kind", "η"], "properties": {"kind": {"const": "fill_factor"}, "η": {"$ref": "#/$defs/scalar"}}, "additionalProperties": false},
-        {"type": "object", "required": ["kind", "data"], "properties": {"kind": {"const": "tabulated_compaction"}, "data": {}}, "additionalProperties": false},
-        {"type": "object", "required": ["kind", "map"], "properties": {"kind": {"const": "affine_compaction"}, "map": {}}, "additionalProperties": false}
+        {"type": "object", "required": ["kind", "η"], "properties": {"kind": {"const": "fill_factor"}, "η": {"$ref": "#/$defs/scalar"}}, "additionalProperties": false}
       ]
     },
     "materialRef": {
@@ -300,8 +285,9 @@
           "additionalProperties": false
         },
         {
-          "type": "object", "required": ["kind", "name", "at", "item", "pattern", "path", "compact"],
-          "properties": {"kind": {"const": "group"}, "name": {"type": "string", "minLength": 1}, "at": {"$ref": "#/$defs/pose"}, "item": {"$ref": "#/$defs/part"}, "pattern": {"$ref": "#/$defs/pattern"}, "path": {"$ref": "#/$defs/path"}, "compact": {"$ref": "#/$defs/compaction"}},
+          "type": "object", "required": ["kind", "name", "at", "item", "pattern", "path", "compact", "boundary"],
+          "properties": {"kind": {"const": "group"}, "name": {"type": "string", "minLength": 1}, "at": {"$ref": "#/$defs/pose"}, "item": {"$ref": "#/$defs/part"}, "pattern": {"$ref": "#/$defs/pattern"}, "path": {"$ref": "#/$defs/path"}, "compact": {"$ref": "#/$defs/compaction"}, "boundary": {"oneOf": [{"type": "null"}, {"allOf": [{"$ref": "#/$defs/primitive"}, {"properties": {"kind": {"enum": ["disk", "sector"]}}, "required": ["kind"]}]}]}},
+          "allOf": [{"if": {"properties": {"boundary": {"not": {"type": "null"}}}, "required": ["boundary"]}, "then": {"properties": {"pattern": {"type": "null"}, "path": {"type": "null"}}}}],
           "additionalProperties": false
         },
         {

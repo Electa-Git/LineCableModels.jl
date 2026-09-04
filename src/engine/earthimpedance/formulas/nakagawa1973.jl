@@ -1,8 +1,8 @@
-function routes(::Val{:Nakagawa1973})
+function routes(identifier::Val{:Nakagawa1973})
     (
-        self = nakagawa_recursive1973,
-        mutual = nakagawa_recursive1973,
-        Γ = nakagawa_recursive1973_gamma
+        self = FormulaMethod(identifier, earth_impedance, Val(:self)),
+        mutual = FormulaMethod(identifier, earth_impedance, Val(:mutual)),
+        Γ = FormulaMethod(identifier, propagation_constant)
     )
 end
 
@@ -16,11 +16,39 @@ end
 
 propagation(::Val{:Nakagawa1973}) = Val(:zero)
 media(::Formula{:Nakagawa1973}) = Val(:stratified)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Recursive ``N``-layer overhead-earth impedance.
+
+**Expression.**
+
+```math
+F_{ij}^{N}=\\frac{A_1+B_1}
+{(\\lambda+\\mu_0a_1/\\mu_1)A_1+(\\lambda-\\mu_0a_1/\\mu_1)B_1}
+e^{-\\lambda H},
+```
+
+```math
+A_{N-1}=b_{N-1}+b_N,\\qquad
+B_{N-1}=(b_{N-1}-b_N)e^{-2a_{N-1}t_{N-1}},\\qquad
+b_m=\\frac{a_m}{\\mu_m}.
+```
+
+The implementation evaluates the published upward ``A_m,B_m`` recursion and
+inserts ``F_{ij}^{N}`` in the standard overhead integral.
+
+**Reference.** M. Nakagawa, A. Ametani, and K. Iwamoto, “Further Studies on
+Wave Propagation in Overhead Lines with Earth Return: Impedance of Stratified
+Earth,” *Proceedings of the IEE*, 120, 1521–1528, 1973.
+"""
 function description(::Formula{:Nakagawa1973})
     "Nakagawa et al. recursive N-layer overhead impedance (1973)"
 end
 
-function nakagawa_recursive1973_gamma(jω, permeability, permittivity)
+function propagation_constant(
+        ::Val{:Nakagawa1973}, jω, permeability, permittivity
+)
     (Γ = zero(jω), squared = zero(jω))
 end
 
@@ -57,7 +85,9 @@ and the exact upward ``A_m,B_m`` recursions from the corpus are retained.
 The three-layer record `NakagawaEtAl1973` is not duplicated because it is the
 ``N=3`` specialization of this route.
 """
-function nakagawa_recursive1973(functor, pair)
+function earth_impedance(
+        ::Val{:Nakagawa1973}, ::Val{:mutual}, functor, pair
+)
     _require(pair, Val(:overhead))
     state = functor.state
     geometry = _geometry(pair)

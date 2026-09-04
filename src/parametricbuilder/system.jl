@@ -1,20 +1,3 @@
-function _earth_model(rho, eps_r, mu_r, thickness)
-    EarthProps.EarthModel(rho, eps_r, mu_r; thickness)
-end
-_earth_model(rho, eps_r, mu_r, ::Nothing) = EarthProps.EarthModel(rho, eps_r, mu_r)
-
-"Construct static earth properties directly or as an explicit finite space."
-function Earth(;
-        rho,
-        eps_r = 1.0,
-        mu_r = 1.0,
-        thickness = nothing,
-        combine::Symbol = :product
-)
-    values = (rho, eps_r, mu_r, thickness)
-    return _construction(EarthProps.EarthModel, _earth_model, values; combine)
-end
-
 function build(
         ::Type{DataModel.LineCableSystem},
         designs,
@@ -34,7 +17,7 @@ function build(
         line_length
     )
     caller = (selected...) -> build(DataModel.LineCableSystem, selected...)
-    return _construction(DataModel.LineCableSystem, caller, values; combine)
+    return parameterize(DataModel.LineCableSystem, caller, values; combine)
 end
 
 function _placed_system(
@@ -46,7 +29,18 @@ function _placed_system(
     placements isa Union{Tuple, AbstractVector} && !isempty(placements) || throw(
         ArgumentError("placed cable declarations must be a nonempty collection")
     )
-    all(placements) do placement
+    declarations = Any[]
+    for placement in placements
+        if placement isa Union{Tuple, AbstractVector}
+            append!(declarations, placement)
+        else
+            push!(declarations, placement)
+        end
+    end
+    isempty(declarations) && throw(ArgumentError(
+        "placed cable declarations must be a nonempty collection"
+    ))
+    all(declarations) do placement
         placement isa NamedTuple &&
             keys(placement) == (:design, :pose, :connections) &&
             placement.design isa DataModel.CableDesign &&
@@ -56,9 +50,9 @@ function _placed_system(
     ))
     return build(
         DataModel.LineCableSystem,
-        getproperty.(placements, :design),
-        getproperty.(placements, :pose),
-        getproperty.(placements, :connections),
+        getproperty.(declarations, :design),
+        getproperty.(declarations, :pose),
+        getproperty.(declarations, :connections),
         environment,
         system_id,
         line_length
@@ -74,17 +68,18 @@ function build(
         combine::Symbol = :product
 )
     values = (placements, environment, system_id, line_length)
-    return _construction(
+    return parameterize(
         DataModel.LineCableSystem, _placed_system, values; combine
     )
 end
 
-function _line_problem(system, temperature, earth, frequencies)
+function _line_problem(system, temperature, earth, frequencies, Γ)
     return Engine.LineParametersProblem(
         system;
         temperature,
         earth_props = earth,
-        frequencies
+        frequencies,
+        Γ
     )
 end
 
@@ -93,13 +88,32 @@ function Engine.LineParametersProblem(
         temperature = 20,
         earth_props,
         frequencies = [50],
+        Γ = nothing,
         combine::Symbol = :product
 )
-    values = (system, temperature, earth_props, frequencies)
+    values = (system, temperature, earth_props, frequencies, Γ)
     grids = map(values) do value
         value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
     end
     return Gridspace{Engine.LineParametersProblem}(_line_problem, grids; combine)
+end
+
+function Engine.LineParametersProblem(
+        system::Gridspace{DataModel.LineCableSystem},
+        earth_props::Union{AbstractGrid, Gridspace};
+        temperature = 20,
+        frequencies = [50],
+        Γ = nothing,
+        combine::Symbol = :product
+)
+    return Engine.LineParametersProblem(
+        system;
+        temperature,
+        earth_props,
+        frequencies,
+        Γ,
+        combine
+    )
 end
 
 function _placed_line_problem(
@@ -109,14 +123,16 @@ function _placed_line_problem(
         line_length,
         temperature,
         earth_props,
-        frequencies
+        frequencies,
+        Γ
 )
     system = _placed_system(placements, environment, system_id, line_length)
     return Engine.LineParametersProblem(
         system;
         temperature,
         earth_props,
-        frequencies
+        frequencies,
+        Γ
     )
 end
 
@@ -128,13 +144,14 @@ function Engine.LineParametersProblem(
         temperature = 20,
         earth_props,
         frequencies = [50],
+        Γ = nothing,
         combine::Symbol = :product
 )
     values = (
         placements, environment, system_id, line_length, temperature,
-        earth_props, frequencies
+        earth_props, frequencies, Γ
     )
-    return _construction(
+    return parameterize(
         Engine.LineParametersProblem, _placed_line_problem, values; combine
     )
 end
@@ -144,9 +161,10 @@ function Engine.LineParametersProblem(
         earth_props::Union{AbstractGrid, Gridspace};
         temperature = 20,
         frequencies = [50],
+        Γ = nothing,
         combine::Symbol = :product
 )
-    values = (system, temperature, earth_props, frequencies)
+    values = (system, temperature, earth_props, frequencies, Γ)
     grids = map(values) do value
         value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
     end
@@ -163,6 +181,7 @@ function Engine.LineParametersProblem(
         temperature,
         earth_props,
         frequencies;
+        Γ = nothing,
         combine::Symbol = :product
 )
     values = (
@@ -174,7 +193,8 @@ function Engine.LineParametersProblem(
         line_length,
         temperature,
         earth_props,
-        frequencies
+        frequencies,
+        Γ
     )
     any(value -> value isa Union{AbstractGrid, Gridspace}, values) || throw(
         MethodError(Engine.LineParametersProblem, values)
@@ -182,8 +202,35 @@ function Engine.LineParametersProblem(
     sources = map(values) do value
         value isa Union{AbstractGrid, Gridspace} ? value : Grid((value,))
     end
-    caller = (selected...) -> Engine.LineParametersProblem(selected...)
-    return Gridspace{Engine.LineParametersProblem}(caller, sources; combine)
+    return Gridspace{Engine.LineParametersProblem}(
+        _declared_line_problem, sources; combine
+    )
+end
+
+function _declared_line_problem(
+        designs,
+        placements,
+        connections,
+        environment,
+        system_id,
+        line_length,
+        temperature,
+        earth_props,
+        frequencies,
+        Γ
+)
+    return Engine.LineParametersProblem(
+        designs,
+        placements,
+        connections,
+        environment,
+        system_id,
+        line_length,
+        temperature,
+        earth_props,
+        frequencies;
+        Γ
+    )
 end
 
 function Engine.LineParametersProblem(
@@ -196,6 +243,7 @@ function Engine.LineParametersProblem(
         temperature = 20,
         earth_props,
         frequencies = [50],
+        Γ = nothing,
         combine::Symbol = :product
 )
     return Engine.LineParametersProblem(
@@ -208,6 +256,7 @@ function Engine.LineParametersProblem(
         temperature,
         earth_props,
         frequencies;
+        Γ,
         combine
     )
 end

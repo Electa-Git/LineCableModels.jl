@@ -41,6 +41,10 @@
     @test !occursin("Figure(", read(
         joinpath(root, "ext", "LineCableModelsMakieExt", "montecarlo.jl"), String
     ))
-    @test occursin("PlotBuilder.plotwindow", makie)
-    @test occursin("PlotBuilder.axis!", makie)
+    @test occursin("function LineCableModels.plotwindow", makie)
+    @test occursin("function _addon_axis!", makie)
+    @test occursin(
+        "import LineCableModels.PlotBuilder: plot, preview, show_material_scale",
+        makie
+    )
 end

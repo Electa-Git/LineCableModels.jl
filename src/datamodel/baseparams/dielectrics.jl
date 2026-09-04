@@ -102,23 +102,6 @@ end
 """
 $(TYPEDSIGNATURES)
 
-Calculate dielectric loss tangent ``\\tan\\delta=G/(\\omega C)``.
-"""
-function loss_tangent(conductance::Real, capacitance::Real, omega::Real)
-    G, C, frequency = promote(
-        float(conductance), float(capacitance), float(omega)
-    )
-    G >= zero(G) || throw(DomainError(G, "conductance must be nonnegative"))
-    C > zero(C) || throw(DomainError(C, "capacitance must be positive"))
-    frequency > zero(frequency) || throw(DomainError(
-        frequency, "angular frequency must be positive"
-    ))
-    return G / (frequency * C)
-end
-
-"""
-$(TYPEDSIGNATURES)
-
 Recover equivalent conductivity from coaxial conductance:
 ``\\sigma_{eq}=G\\log(r_{ex}/r_{in})/(2\\pi)``.
 """

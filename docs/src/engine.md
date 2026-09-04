@@ -1,5 +1,10 @@
 # Computational engine
 
+The physical equations and literature sources for every built-in formulation
+are catalogued in [Transmission line parameters](transmission-line-parameters.md).
+This developer guide describes how those identities are discovered, routed,
+and extended without duplicating their scientific definitions.
+
 LineCableModels separates a physical problem, a formulation, and the backend
 that implements that formulation. A formulation identifies the equations or
 mathematical method being requested and exists independently of a backend. A
@@ -15,12 +20,12 @@ wrapper; the receiving keyword supplies that namespace:
 
 ```julia
 Formulation(
-    internal_impedance=formula(:Schelkunoff1934),
-    insulation_impedance=formula(:Lossless),
-    earth_impedance=formula(:Papadopoulos2010),
-    insulation_admittance=formula(:Marti2001),
-    semicon_admittance=formula(:Ametani2004),
-    earth_admittance=formula(:Papadopoulos2010),
+    internal_impedance=formula(:default),
+    insulation_impedance=formula(:default),
+    earth_impedance=formula(:default),
+    insulation_admittance=formula(:default),
+    semicon_admittance=formula(:default),
+    earth_admittance=formula(:default),
     earth_properties=formula(:CIGRE2019),
     equivalent_earth=formula(:Xue2021; order=:after),
 )
@@ -31,11 +36,34 @@ arguments are forwarded as route or assumption overrides. `order=:before` or
 `:after` places an EHEM reduction relative to material frequency dependence;
 ordinary formula slots reject an `order` value.
 
-`EarthImpedance.Formula{:ID}` carries the identity in its concrete type. Its
-`routes` tuple holds the leaf self, mutual, and propagation-constant formulas;
-its `assumptions` tuple holds the physical approximations shared by those
-routes. Calling a formula with one frequency's earth properties returns a
-concrete, formula-owned functor that aggregates the shared numerical values:
+Every Engine formula family resolves the UX selector `:default` to one
+registered literature formula before computation. The current mappings are
+`:Schelkunoff1934` for internal impedance, `:Ametani1980` for insulation
+impedance, `:Papadopoulos2010` for earth impedance and admittance, and
+`:Ametani2004` for insulation and semicon admittance. `:default` is not a
+catalogue entry and never survives as the concrete formula identity.
+Modal transformation similarly resolves `:default` to `:Chrysochos2014`.
+The two non-literature cases are explicit: frequency-dependent soil resolves
+`:default` to `nothing`, while EHEM resolves it to the last-layer
+reconstruction policy.
+
+Every concrete `Formula{:ID}` carries its catalogue-local identity in its type.
+All built-in formula routes bind through the root-owned `FormulaMethod{ID}`.
+Calling a bound route inserts `Val(:ID)`, followed by any stored semantic
+selectors, before the runtime arguments. Consequently the compiler sees the
+complete route without a global author switch, dictionary, or runtime
+registry. Single-route catalogues store one bound method; internal impedance
+and the two earth-return catalogues retain inspectable tuples of bound
+interaction methods.
+
+The earth-return leaves dispatch through
+`earth_impedance(::Val{:ID}, ::Val{:route}, ...)` or
+`earth_potential_coefficient(::Val{:ID}, ::Val{:route}, ...)`, while
+`propagation_constant(::Val{:ID}, ...)` owns longitudinal prescriptions.
+Formula identity therefore remains in dispatch instead of being repeated in
+free-standing function names. Calling an earth formula with one frequency's
+properties returns a concrete, formula-owned functor that aggregates the
+shared numerical values:
 
 ```julia
 formula = EarthImpedance.Formula(:Papadopoulos2010)
@@ -79,18 +107,30 @@ replace any exposed leaf without creating another registry entry.
 Each built-in formula lives in one `formulas/authoryear.jl` file. Formula
 modules include those files in sorted order and require each file to return its
 unique `Symbol` identifier. This is source discovery only: the hot loop has no
-runtime registry or dictionary lookup. A contributed file defines its routes,
-assumptions, formula call, and functor leaf dispatch together.
+runtime registry or dictionary lookup.
+
+A contributed file extends the semantic method owned by its catalogue, with
+the formula identity as the first argument. Examples are
+`internal_impedance(::Val{:AuthorYYYY}, ::Val{:inner}, state)`,
+`insulation_material(::Val{:AuthorYYYY}, material, frequency, temperature,
+assumptions)`, `earth_material(::Val{:AuthorYYYY}, ...)`,
+`equivalent_material(::Val{:AuthorYYYY}, ...)`, and
+`modal_operators(::Val{:AuthorYYYY}, ...)`. The file also supplies
+`assumptions(::Val{:AuthorYYYY})`, `description(::Formula{:AuthorYYYY})`, and
+its discovery symbol. Stateful internal and earth-return families keep their
+formula-owned functors; scalar catalogues invoke their bound method directly.
+External callable route overrides retain the runtime-only signatures described
+by each `Formula` constructor and do not receive the inserted identity.
 
 Insulation impedance uses the same discovery rule with one complete scalar
-route per formula. Insulation and semicon admittance formulas are constitutive
-relations applied to the full physical `Material` at each frequency; the
-Coaxial Engine owns the common annular geometry and radial series aggregation.
-`InsulationImpedance.formulas()` includes `:Ametani1980` and `:Lossless`;
-`InsulationAdmittance.formulas()` includes `:Gustavsen2013` and `:Marti2001`;
+route per formula. Insulation and semicon admittance formulas evaluate complex
+material admittivity at each frequency; the Coaxial Engine owns the common
+annular geometry and radial series aggregation.
+`InsulationImpedance.formulas()` includes `:Ametani1980`;
+`InsulationAdmittance.formulas()` includes `:Ametani2004` and `:Gustavsen2013`;
 `SemiconAdmittance.formulas()` includes `:Ametani2004`. They are selected
 uniformly through `insulation_admittance` and `semicon_admittance`. A complete
-experimental constitutive law can be supplied with `formula(:Marti2001;
+experimental constitutive law can be supplied with `formula(:Ametani2004;
 route=my_route)` without changing the Coaxial matrix-assembly loop.
 
 Frequency-dependent soil laws and equivalent homogeneous-earth models belong
@@ -100,7 +140,9 @@ store only static layer geometry and datasheet properties.
 `EarthProps.FD` owns measured and material-physics relations with the scalar
 contract `constitutive(formula, material, frequency)`. The relation selected by
 `Formulation(earth_properties=:AuthorYear)` is applied only to soil; `nothing`
-passes static properties through exactly and air is never modified.
+passes static properties through exactly and air is never modified. Its
+`:default` selector resolves to that honest absence rather than to a registered
+identity formula.
 `EarthProps.FD.formulas()` reports the discovered Longmire–Smith, Portela,
 Alipio–Visacro, Datsios–Mikropoulos, Scott, Messier, Visacro–Portela,
 Visacro–Alipio, and CIGRE WG C4.33 relations.
@@ -110,7 +152,9 @@ formulations. `formula(:Xue2021; order=:after)` first evaluates every physical
 layer and then reduces it; `order=:before` reduces the static layers and applies
 FD to the artificial material afterward. These resolve to independent dispatch
 paths. `formula(:Layer; layer=-1)` selects the explicit bottommost-layer policy,
-which is the default and is not a literature formula.
+which is not a literature formula. Explicit `:Layer` selection always requires
+the `layer` argument. EHEM `:default` supplies `layer=-1` and applies that
+last-layer policy after layerwise FD.
 `:MartinsBritto2020` reconstructs conductivity only, whereas `:Xue2021`
 reconstructs conductivity and permittivity. Both registered routes implement
 their published overhead-line scope and reject underground and mixed pairs.
@@ -119,6 +163,83 @@ At each frequency the Coaxial loop evaluates EHEM once per physical
 `EarthPair`, maps the resulting material to a two-medium air/earth view, and
 shares it between earth impedance and earth admittance. Physical layer indices
 are never renumbered or written back to the `EarthModel`.
+
+## Finite formulation selection
+
+The final formulation constructors participate in the same `Gridspace`
+grammar as physical problem construction. Any line-parameter method slot or
+the complete options tuple may be an explicit finite source:
+
+```julia
+formulations = Formulation(
+    insulation_admittance = Grid((
+        :Ametani2004,
+        :Gustavsen2013,
+    )),
+    earth_impedance = Grid((
+        :Pollaczek1926,
+        :Papadopoulos2010,
+    )),
+    combine = :product,
+)
+```
+
+The result is `Gridspace{LineParametersFormulation}`. Every point is a
+completely resolved scalar formulation: no `Grid`, symbol selector, or
+`FormulaSpec` reaches `compute`. `combine=:zip` aligns formulation fields and
+broadcasts singleton fields. This local composition is separate from
+`Combinatorial`, which always evaluates the Cartesian product of problem and
+formulation points.
+
+`CableConstantsFormulation`, `ModalTransformationFormulation`, and backend
+formulation constructors follow the same rule. A deterministic `Grid` of
+already completed, potentially external formulations is also accepted by
+`Combinatorial`.
+
+For each selected problem, the Coaxial collection dispatch validates and
+lowers the physical declaration once. LineParameters flattens each design and
+constructs `LocalCableData` plus geometry/index input once before creating a
+separate workspace for every formulation. CableConstants performs its own
+independent one-flatten orchestration. Formula-dependent mutable matrices,
+earth/EHEM values, reduction maps, and trace buffers remain workspace-local.
+The generic collection dispatch simply invokes established scalar `compute`
+methods and therefore supports external problem/formulation pairs without a
+new registration layer.
+
+## Earth-free cable constants
+
+`CableConstantsProblem`, `CableConstantsFormulation`, and `CableConstants`
+belong to Engine. They reuse the registered internal-impedance,
+insulation-impedance, insulation-admittance, and semicon-admittance formulas,
+and the same earth-free local primitive assemblers used by LineParameters.
+Their public solve orchestration and reduction remain separate.
+The default bundle is:
+
+```julia
+CableConstantsFormulation(
+    internal_impedance = formula(:default),
+    insulation_impedance = formula(:default),
+    insulation_admittance = formula(:default),
+    semicon_admittance = formula(:default),
+)
+```
+
+`Engine.flatten(LineCableModelsCoaxial(), design)` supplies a
+frequency-independent, unreduced `CableBlueprint`. Contiguous components
+sharing one radial centre form one concentric assembly. Constitutive relations
+are evaluated only after the workspace has been allocated. The Engine retains
+each assembly's innermost terminal, grounds every additional outward terminal,
+assembles and reduces the local N-terminal series-impedance matrix, and combines
+the physical dielectric layers in radial series. A one-terminal assembly uses
+the declared outer dielectric boundary directly; it does not require a metallic
+sheath. Earth impedance, earth admittance, EHEM, Γ, position, transposition,
+and bundle reduction never enter this workflow.
+
+`CableConstants(design; temperature=20, frequency=50)` is the convenience
+entry point. CableConstants admits only the 50 Hz and 60 Hz datasheet base
+frequencies. The result owns `cores`, aligned `R/L/C/G` vectors, and the
+evaluation frequency. A conventional coaxial cable has one row and supports
+`only(constants)`.
 
 An external scalar relation can remain outside the built-in directory. It can
 either supply a complete `EarthProps.FD.Formula(:Experiment, route, assumptions)`
@@ -213,14 +334,14 @@ Publication converts and detaches `values`; it does not attach labels, result
 objects, execution options, Gridspace points, or Monte Carlo context.
 
 Line plotting accepts explicit observable requests. Its public convenience
-forms expand selectors such as `Z`, `real`, and `angle` once, at the plotting
-surface, then enter the same request path. PlotBuilder groups completed
+forms expand selectors such as `Z`, `real`, and `angle` once, at the optional
+Makie surface, then enter the same request path. The plotting extension groups completed
 observations with the qualified `Units.family(::Quantity)` metadata. Series and
 shunt identities return `Val(:series)` and `Val(:shunt)` respectively. Neither
-PlotBuilder nor ReportBuilder owns another quantity or family map.
+the plotting extension nor ReportBuilder owns another quantity or family map.
 
-The qualified `Grammar.validate_observables` method is the single entitlement
-check used by direct publication and generic reports. It validates the source
+The qualified `Grammar.validate_observables` method is the single request
+validation used by direct publication and generic reports. It validates the source
 declaration, request identities, and positional unit alignment.
 `Grammar.unit_targets` resolves a tuple of requests to aligned `UnitExpr`
 values. A unit override may be `nothing`, a metric-prefix `Symbol`, an explicit
@@ -229,7 +350,7 @@ Line plots, Monte Carlo plots, and reports all use this path.
 
 `LineCableModels.Units` owns `Unit`, `UnitExpr`, `Quantity`, `units`,
 `quantity`, `native_unit`, `display_unit`, `scale_factor`, `label`, and
-`symbol`. PlotBuilder derives scientific axes from publication payloads.
+`symbol`. The plotting extension derives scientific axes from publication payloads.
 ReportBuilder derives human-facing tables through `report`. Neither consumer
 owns a quantity map, physical transform, or ordinary scientific unit string.
 
@@ -326,7 +447,7 @@ phase = compute(line_problem, line_formulation)
 modal = compute(
     ModalTransformationProblem(phase),
     ModalTransformationFormulation(
-        formula(:Chrysochos2014; convergence=1e-8),
+        formula(:default; convergence=1e-8),
     ),
 )
 rebuilt = compute(ModalTransformationProblem(modal))
@@ -338,14 +459,20 @@ frequency-dependent phase-to-modal voltage and current tensors. The shared
 backend applies those operators to both `Z` and `Y`.
 
 The modal `LineParameters` result carries `ModalDomain(operators, formula)` as
-its concrete domain value. The stored operators preserve the resolved mode
+its domain value. The stored operators preserve the resolved mode
 order, scaling, and complex phase convention and make the transformation
 bidirectional without rerunning the decomposition. An operator-less modal
 result cannot be constructed through the admitted `LineParameters` interface.
+The formula value is retained through one formula-family storage parameter; its
+specific author identity does not parameterize the domain. Modal results from
+different registered routes therefore remain one concrete result-space element
+type. Numerical inverse dispatch uses the concrete operator tensor and does not
+inspect formula provenance.
 
 Built-in formula files are included deterministically and selected by symbols:
 
 ```julia
+ModalTransformationFormulation() # :Chrysochos2014
 ModalTransformationFormulation(formula(:Fortescue))
 ModalTransformationFormulation(formula(:Chrysochos2014; convergence=1e-8))
 ModalTransformationFormulation(formula(:Fan2009; history_weight=0.3))
@@ -388,13 +515,10 @@ file. Discovery happens at module load; numerical dispatch remains static.
 
 [`ComputationDetails`](@ref) is an alias for `NamedTuple`.
 [`computation_details`](@ref) reads the fixed-key details tuple owned by a
-registered computation owner. There is no general method: an unregistered
-owner raises `MethodError`.
-
-Higher-order calculations normalize the inner formulation once through the
-qualified `Grammar.computation_owner` method before collecting retained
-records. This produces the unparameterized type token required by the existing
-`Val(OwnerType)` details contract; it is not a registry.
+registered formulation type. There is no general method: an unregistered
+formulation raises `MethodError`. Higher-order calculations dispatch directly
+on `typeof(formulation)` while collecting retained records; no owner registry
+or wrapper token intervenes.
 
 [`ParametricResult`](@ref), [`LinearErrorResult`](@ref), and
 [`MonteCarloResult`](@ref) store the concrete details tuple type. Retention is
@@ -422,7 +546,7 @@ calculation represented by a formulation. Dispatch uses the formulation owner
 type rather than the public construction selector:
 
 ```julia
-formulation_options(Val(LineParametersFormulation), options)
+formulation_options(LineParametersFormulation, options)
 ```
 
 The default line-parameter formulation owns:
@@ -530,7 +654,8 @@ import LineCableModels:
     AbstractCoreResult,
     ComputationOptions,
     FormulationOptions,
-    computation_owner,
+    ComputationDetails,
+    computation_details,
     computation_options,
     compute,
     formulation_options
@@ -542,7 +667,7 @@ struct ExternalFormulation{O <: NamedTuple} <: AbstractFormulation
 end
 
 function formulation_options(
-    ::Val{ExternalFormulation},
+    ::Type{ExternalFormulation},
     options::NamedTuple,
 )::FormulationOptions
     isempty(options) || throw(ArgumentError("unsupported formulation option"))
@@ -550,7 +675,7 @@ function formulation_options(
 end
 
 function computation_options(
-    ::Val{ExternalEngine},
+    ::Type{ExternalEngine},
     options::NamedTuple,
 )::ComputationOptions
     unknown = filter(key -> key != :tolerance, keys(options))
@@ -560,15 +685,13 @@ function computation_options(
     return (tolerance = Float64(normalized.tolerance),)
 end
 
-computation_owner(::ExternalFormulation) = ExternalEngine
-
 function compute(
     ::ExternalEngine,
     problem,
     formulation::ExternalFormulation;
     options::NamedTuple = (;),
 )
-    execution = computation_options(Val(ExternalEngine), options)
+    execution = computation_options(ExternalEngine, options)
     # Use `problem`, `formulation`, and `execution` here.
 end
 ```
@@ -590,7 +713,7 @@ struct ExternalResult <: AbstractCoreResult
 end
 
 function computation_details(
-    ::Val{ExternalEngine},
+    ::Type{<:ExternalFormulation},
     output::ExternalResult,
 )::ComputationDetails
     return (
@@ -612,10 +735,10 @@ the fields.
 
 ## Reports and XLSX output
 
-[`report`](@ref) executes `entitle`, `select`, `tabulate`, `illustrate`,
-`encode`, `write`, and `finish`. In-memory definitions implement explicit
-no-op `encode` and `write` methods and return `ReportArtifact.output ===
-nothing`.
+[`report`](@ref) executes `select`, `tabulate`, `illustrate`, `encode`, and
+`write`, then constructs a `ReportArtifact`. `select` and `tabulate` are
+required. Optional stages inherit the abstract-root no-op and in-memory reports
+return `ReportArtifact.output === nothing`.
 
 [`XLSXReportDefinition`](@ref) owns the human-facing line-parameter workbook:
 

@@ -1,11 +1,13 @@
-function routes(::Val{:Pollaczek1926})
+function routes(identifier::Val{:Pollaczek1926})
     (
-        self = pollaczek1926,
-        mutual = pollaczek1926,
-        overhead = carson1926,
-        underground = pollaczek1926_underground,
-        mixed = pollaczek1926_mixed,
-        Γ = pollaczek1926_gamma
+        self = FormulaMethod(identifier, earth_impedance, Val(:self)),
+        mutual = FormulaMethod(identifier, earth_impedance, Val(:mutual)),
+        overhead = FormulaMethod(identifier, earth_impedance, Val(:overhead)),
+        underground = FormulaMethod(
+            identifier, earth_impedance, Val(:underground)
+        ),
+        mixed = FormulaMethod(identifier, earth_impedance, Val(:mixed)),
+        Γ = FormulaMethod(identifier, propagation_constant)
     )
 end
 
@@ -18,11 +20,40 @@ function assumptions(::Val{:Pollaczek1926})
 end
 
 propagation(::Val{:Pollaczek1926}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Pair-complete classical homogeneous-earth recipe:
+Carson overhead, Pollaczek underground, and the exact mixed integral.
+
+**Expression.** The underground and mixed terms are
+
+```math
+Z_{e,ij}^{11}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[
+K_0(\\gamma_1d_{ij})-K_0(\\gamma_1D_{ij})+2\\int_0^\\infty
+\\frac{e^{-H\\sqrt{\\lambda^2+\\gamma_1^2}}}
+{\\lambda+\\sqrt{\\lambda^2+\\gamma_1^2}}
+\\cos(y_{ij}\\lambda)d\\lambda\\right],
+```
+
+```math
+Z_{e,ij}^{01}=\\frac{j\\omega\\mu_0}{\\pi}\\int_0^\\infty
+\\frac{\\mu_1e^{-\\lambda|h_i|-a_1|h_j|}}
+{\\lambda\\mu_1+a_1\\mu_0}\\cos(y_{ij}\\lambda)d\\lambda,
+\\qquad a_1=\\sqrt{\\lambda^2+\\gamma_1^2}.
+```
+
+**Reference.** F. Pollaczek, “Über das Feld einer unendlich langen
+wechselstromdurchflossenen Einfachleitung,” *Elektrische Nachrichtentechnik*,
+3, 339–360, 1926.
+"""
 function description(::Formula{:Pollaczek1926})
     "Pollaczek homogeneous-earth overhead, underground, and mixed impedance (1926)"
 end
 
-function pollaczek1926_gamma(jω, permeability, permittivity)
+function propagation_constant(
+        ::Val{:Pollaczek1926}, jω, permeability, permittivity
+)
     (Γ = zero(jω), squared = zero(jω))
 end
 
@@ -44,20 +75,21 @@ and overhead-underground interactions. Its public identity therefore does not
 encode which leaf the pair requires. The `overhead`, `underground`, and
 `mixed` routes remain individually replaceable when composing an experiment.
 """
-function pollaczek1926(functor, pair)
-    return pollaczek1926(functor, pair, _placement(pair))
-end
-
-function pollaczek1926(functor, pair, ::Val{:overhead})
-    return functor.routes.overhead(functor, pair)
-end
-
-function pollaczek1926(functor, pair, ::Val{:underground})
-    return functor.routes.underground(functor, pair)
-end
-
-function pollaczek1926(functor, pair, ::Val{:mixed})
+function earth_impedance(
+        ::Val{:Pollaczek1926}, ::Val{:mutual}, functor, pair
+)
+    placement = _placement(pair)
+    typeof(placement) === Val{:overhead} &&
+        return functor.routes.overhead(functor, pair)
+    typeof(placement) === Val{:underground} &&
+        return functor.routes.underground(functor, pair)
     return functor.routes.mixed(functor, pair)
+end
+
+function earth_impedance(
+        ::Val{:Pollaczek1926}, ::Val{:overhead}, functor, pair
+)
+    return earth_impedance(Val(:Carson1926), Val(:mutual), functor, pair)
 end
 
 raw"""
@@ -71,7 +103,9 @@ K_0(\gamma_1D_{ij})+2\int_0^\infty
 \cos(y_{ij}\lambda)\,d\lambda\right].
 ```
 """
-function pollaczek1926_underground(functor, pair)
+function earth_impedance(
+        ::Val{:Pollaczek1926}, ::Val{:underground}, functor, pair
+)
     state = functor.state
     geometry = _geometry(pair)
     gamma = state.gamma[2]
@@ -99,7 +133,9 @@ Z_{e,ij}^{01}=\frac{j\omega\mu_0}{\pi}\int_0^\infty
 \qquad a_1=\sqrt{\lambda^2+\gamma_1^2}.
 ```
 """
-function pollaczek1926_mixed(functor, pair)
+function earth_impedance(
+        ::Val{:Pollaczek1926}, ::Val{:mixed}, functor, pair
+)
     state = functor.state
     air = pair.layers[1] == 1 ? 1 : 2
     earth = air == 1 ? 2 : 1

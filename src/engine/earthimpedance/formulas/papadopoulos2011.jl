@@ -1,8 +1,8 @@
-function routes(::Val{:Papadopoulos2011})
+function routes(identifier::Val{:Papadopoulos2011})
     (
-        self = papadopoulosetalz2011,
-        mutual = papadopoulosetalz2011,
-        Γ = papadopoulosetalz2011_gamma
+        self = FormulaMethod(identifier, earth_impedance, Val(:self)),
+        mutual = FormulaMethod(identifier, earth_impedance, Val(:mutual)),
+        Γ = FormulaMethod(identifier, propagation_constant)
     )
 end
 
@@ -16,11 +16,40 @@ end
 
 propagation(::Val{:Papadopoulos2011}) = Val(:explicit)
 media(::Formula{:Papadopoulos2011}) = Val(:stratified)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Two-layer underground mutual impedance for conductors in
+the finite upper soil layer.
+
+**Expression.**
+
+```math
+Z'_{e,ij}=\\frac{j\\omega\\mu_1}{2\\pi}\\int_0^\\infty
+F_{ij}^{strat}(\\lambda)\\cos(y_{ij}\\lambda)d\\lambda,
+```
+
+```math
+F_{ij}^{strat}=\\frac{
+s_{10}s_{21}e^{-\\alpha_1|h_i-h_j|}+
+s_{10}d_{21}e^{-\\alpha_1(2d-h_i-h_j)}-
+d_{10}s_{21}e^{-\\alpha_1H}-
+d_{10}d_{21}e^{-\\alpha_1(2d-|h_i-h_j|)}}
+{\\alpha_1(s_{10}s_{21}+d_{10}d_{21}e^{-2\\alpha_1d})}.
+```
+
+**Reference.** T. A. Papadopoulos, D. A. Tsiamitros, and G. K. Papagiannis,
+“Earth Return Admittances and Impedances of Underground Cables in
+Non-Homogeneous Earth,” *IET Generation, Transmission & Distribution*, 5(2),
+161–171, 2011.
+"""
 function description(::Formula{:Papadopoulos2011})
     "Papadopoulos et al. two-layer underground mutual impedance (2011)"
 end
 
-function papadopoulosetalz2011_gamma(jω, permeability, permittivity)
+function propagation_constant(
+        ::Val{:Papadopoulos2011}, jω, permeability, permittivity
+)
     squared = oftype(jω, (-jω^2) * permeability * permittivity)
     return (Γ = sqrt(squared), squared)
 end
@@ -59,7 +88,9 @@ Here ``s_{mn}=\mu_n\alpha_m+\mu_m\alpha_n``,
 ``\alpha_m=\sqrt{\lambda^2+\gamma_m^2+k_x^2}``. Conductors must lie in the
 finite top earth layer.
 """
-function papadopoulosetalz2011(functor, pair)
+function earth_impedance(
+        ::Val{:Papadopoulos2011}, ::Val{:mutual}, functor, pair
+)
     pair.layers == (2, 2) || throw(ArgumentError(
         ":Papadopoulos2011 requires both conductors in the top earth layer"
     ))

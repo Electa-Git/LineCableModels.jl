@@ -65,24 +65,33 @@ scalar `build` method.
 
 ## Optional plotting
 
-Load one Makie backend explicitly before calling `preview`, `plot`, or
-`set_backend!`:
+Load one Makie backend explicitly before calling `preview` or `plot`:
 
 ```julia
 using LineCableModels
 using CairoMakie
 
-set_backend!(:cairo)
+plot_pages = plot(line_parameters) # R, X, G, B matrix-dashboard pages
+export_svg(plot_pages[1]; path = "series_resistance.svg")
 
-plots = plot(line_parameters) # Vector{UIPlot}, one page per quantity
-export_svg(first(plots); path = "series_resistance.svg")
+self_impedance = plot(line_parameters, @observe Z[1, 1, :])
+# `self_impedance` is one UIPlot with separate R and X axes.
 ```
 
 `GLMakie` and `WGLMakie` are supported in the same way. LineCableModels
-never imports or selects a backend dynamically. `preview` returns one `UIPlot`.
-line-parameter plots always return a
-`Vector{UIPlot}`. The Export SVG control preserves the current declarative plot
-state and requires CairoMakie to have been loaded explicitly.
+never imports a backend dynamically. The optional `backend=:cairo`, `:gl`, or
+`:wgl` keyword is explicit call-local sugar. Observation requests determine
+physical quantity/coordinate axes; `layout` only groups those facets into
+figures. Singular recipes return a `UIPlot`; calls that produce several figures
+return a vector. Each handle exposes native Makie objects that remain
+caller-owned. `figure_title` names the whole figure, `panel_titles` names its
+logical axes, and `series_labels` names overlaid result containers in legends.
+Matrix coordinates belong in semantic axis titles, never legend entries.
+Legends accept outer docks or
+`legend_position=:inside` with an anchor such as `:rt`; `figurelegend!`,
+`panellegend!`, `figuretitle!`, and `paneltitle!` can change those native blocks
+after construction. The Export SVG control saves their current live state and
+requires CairoMakie to have been loaded explicitly.
 
 ## Result access
 
@@ -101,11 +110,15 @@ label(display_unit(R, :pul))     # "Ω/km"
 ```
 
 Complete parameter traversals return `ParametricResult{T}`, including a space
-with cardinality one. Conditional Monte Carlo propagation returns
+with cardinality one. `Formulation`, `CableConstantsFormulation`, and
+`ModalTransformationFormulation` accept explicit `Grid` fields; combinatorial
+calculation forms the Cartesian product of problem and formulation points and
+retains both axes for `result(run, problem_index, formulation_index)` lookup.
+Conditional Monte Carlo propagation returns
 `MonteCarloResult{T}`. Use `statistics`, `samples`, `histograms`, and
 `uncertain` to inspect stored calculation data. Result order is
-the Gridspace iteration order. Traversal state is not copied into completed
-results. Parametric, linear-error, and Monte Carlo results are ordinary finite
+problem-index-fastest within formulation order. Unresolved traversal state is
+not copied into completed results. Parametric, linear-error, and Monte Carlo results are ordinary finite
 collections: indexing and iteration return stored core results, and Base
 `first`, `last`, `only`, `collect`, `map`, and `zip` retain their standard
 meanings.

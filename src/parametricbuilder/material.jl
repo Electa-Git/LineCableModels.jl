@@ -41,7 +41,7 @@ function Material(;
         kind, rho, eps_r, mu_r, T0, alpha, rho_thermal,
         theta_max, tan_delta, sigma_solar
     )
-    return _construction(
+    return parameterize(
         Materials.Material, Materials.Material, values; combine
     )
 end
@@ -74,6 +74,15 @@ function Material(
     material = get(library, String(name), nothing)
     material === nothing && throw(KeyError(String(name)))
     return Material(material; kwargs...)
+end
+
+function Material(unexpected; kwargs...)
+    throw(ArgumentError(
+        "keyword Material construction accepts no positional arguments; " *
+        "got $(repr(unexpected)). To declare uncertainty, keep the error " *
+        "inside Grid: `property = Grid(values, relative_error)` or " *
+        "`property = Grid(values, AbsoluteError(error))`.",
+    ))
 end
 
 """

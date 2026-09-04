@@ -96,16 +96,16 @@ end
 
 function _validate_sensitivity_details(details, values)
     isempty(details) && return nothing
-    keys(details) == (:evaluations,) || throw(ArgumentError(
-        "SensitivityResult details must be empty or contain only evaluations",
+    keys(details) == (:points,) || throw(ArgumentError(
+        "SensitivityResult details must be empty or contain only points",
     ))
-    details.evaluations isa AbstractVector || throw(ArgumentError(
-        "Sensitivity evaluation details must be point-aligned vectors",
+    details.points isa AbstractVector || throw(ArgumentError(
+        "Sensitivity details must be point-aligned vectors",
     ))
-    length(details.evaluations) == length(values) || throw(DimensionMismatch(
-        "Sensitivity evaluation details must contain one entry per outer point",
+    length(details.points) == length(values) || throw(DimensionMismatch(
+        "Sensitivity details must contain one entry per outer point",
     ))
-    for records in details.evaluations
+    for records in details.points
         records isa AbstractVector && isconcretetype(eltype(records)) || throw(
             ArgumentError(
             "Sensitivity inner details must use concretely typed vectors",
@@ -123,38 +123,34 @@ products for a [`Sensitivity`](@ref) calculation.
 
 $(TYPEDFIELDS)
 """
-struct SensitivityResult{F, V, D <: ComputationDetails} <: AbstractProblemResult
+struct SensitivityResult{T, F, D <: ComputationDetails} <:
+       AbstractUncertaintyResult{T}
     "Higher-order formulation used for the calculation."
     formulation::F
     "Sensitivity products in Gridspace traversal order."
-    values::V
+    values::Vector{T}
     "Typed supplemental output retained by the calculation."
     details::D
 
     function SensitivityResult(
             formulation::F,
-            values::V,
+            values::Vector{T},
             details::D
-    ) where {F, V, D <: ComputationDetails}
-        values isa AbstractVector || throw(ArgumentError(
-            "SensitivityResult values must be stored in a vector",
-        ))
+    ) where {T, F, D <: ComputationDetails}
         isempty(values) && throw(ArgumentError(
             "SensitivityResult requires at least one point product",
         ))
-        isconcretetype(eltype(values)) || throw(ArgumentError(
-            "SensitivityResult values must use a concrete product type",
-        ))
+        check_core_result(T)
         request_count = length(formulation.requests)
         foreach(value -> _validate_sensitivity_value(value, request_count), values)
         _validate_sensitivity_details(details, values)
-        return new{F, V, D}(formulation, values, details)
+        return new{T, F, D}(formulation, values, details)
     end
 end
 
 SensitivityResult(formulation, values) = SensitivityResult(formulation, values, (;))
 
-_monte_carlo_keys(::Type{<:DataModel.CableConstants}) = (:R, :L, :C)
+_monte_carlo_keys(::Type{<:Engine.CableConstants}) = (:R, :L, :C, :G)
 _monte_carlo_keys(::Type{<:Engine.LineParameters}) = (:R, :L, :C, :G)
 
 function _validated_product(product, expected_keys::Tuple, name::AbstractString)
@@ -168,24 +164,34 @@ function _validated_product(product, expected_keys::Tuple, name::AbstractString)
 end
 
 function _validate_cable_products(
+        value::Engine.CableConstants,
         statistics_product,
         sample_product,
         histogram_product,
         trials::Int
 )
-    all(summary -> summary isa SampleSummary && summary.n == trials,
+    count = length(value)
+    all(field -> field isa AbstractVector && length(field) == count,
         Base.values(statistics_product)) || throw(DimensionMismatch(
+        "cable-constant summaries must match the assembly count",
+    ))
+    all(summary -> summary isa SampleSummary && summary.n == trials,
+        Iterators.flatten(Base.values(statistics_product))) || throw(DimensionMismatch(
         "cable-constant summaries must contain the Monte Carlo trial count",
     ))
     if sample_product !== nothing
-        all(sample -> sample isa AbstractVector && length(sample) == trials,
+        all(sample -> sample isa AbstractMatrix && size(sample) == (count, trials),
             Base.values(sample_product)) || throw(DimensionMismatch(
-            "cable-constant samples must share the Monte Carlo trial dimension",
+            "cable-constant samples must contain assembly and trial dimensions",
         ))
     end
     if histogram_product !== nothing
+        all(field -> field isa AbstractVector && length(field) == count,
+            Base.values(histogram_product)) || throw(DimensionMismatch(
+            "cable-constant histograms must match the assembly count",
+        ))
         all(histogram -> histogram isa HistogramDensity,
-            Base.values(histogram_product)) || throw(ArgumentError(
+            Iterators.flatten(Base.values(histogram_product))) || throw(ArgumentError(
             "cable-constant histograms must contain HistogramDensity values",
         ))
     end
@@ -233,7 +239,7 @@ function _validate_monte_carlo_products(
         sample_products,
         histogram_products,
         trial_counts
-) where {T <: Union{DataModel.CableConstants, Engine.LineParameters}}
+) where {T <: Union{Engine.CableConstants, Engine.LineParameters}}
     expected_keys = _monte_carlo_keys(T)
     for point in eachindex(values)
         trials = trial_counts[point]
@@ -244,9 +250,10 @@ function _validate_monte_carlo_products(
             sample_products[point], expected_keys, "sample products")
         histogram_product = histogram_products === nothing ? nothing : _validated_product(
             histogram_products[point], expected_keys, "histogram products")
-        if values[point] isa DataModel.CableConstants
+        if values[point] isa Engine.CableConstants
             _validate_cable_products(
-                statistics_product, sample_product, histogram_product, trials)
+                values[point], statistics_product, sample_product,
+                histogram_product, trials)
         else
             _validate_line_products(
                 values[point], statistics_product, sample_product, histogram_product, trials)
@@ -493,3 +500,29 @@ second_order(value::SensitivityResult) = map(product -> product.second_order, va
 
 "Return point-aligned bootstrap confidence products."
 confidence(value::SensitivityResult) = map(product -> product.confidence, value.values)
+
+"""
+$(TYPEDSIGNATURES)
+
+Transport every uncertainty-bearing linear-error result into one
+target-bearing downstream problem point while preserving source cardinality
+and order.
+"""
+function ParametricBuilder.Gridspace{Target}(
+        source::LinearErrorResult
+) where {Target}
+    return ParametricBuilder.Gridspace{Target}(Target, (source,))
+end
+
+function ParametricBuilder.Gridspace{Target}(
+        source::MonteCarloResult{T}
+) where {Target, T}
+    target_name = nameof(Target)
+    throw(ArgumentError(
+        "Gridspace transport from MonteCarloResult to problem $target_name requires " *
+        "a reconstruction for result type $T. For built-in cable and line results, " *
+        "load Measurements.jl with `using Measurements`. See `?Gridspace` and " *
+        "https://electa-git.github.io/LineCableModels.jl/dev/gridspace/" *
+        "#Transporting-completed-result-spaces",
+    ))
+end

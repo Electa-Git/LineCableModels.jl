@@ -109,7 +109,7 @@ confidence(sensitivity)
 ```
 
 Setting `options=(retain_details=true,)` retains one core computation-details
-record per evaluation under `details(sensitivity).evaluations`. The records
+record per evaluation under `details(sensitivity).points`. The records
 remain aligned first by outer point and then by core evaluation.
 
 ## Cost and failure boundaries
@@ -138,7 +138,7 @@ fail explicitly. Wrapped angle observations are not admitted for variance
 decomposition. Physical construction errors, including `DomainError`, are
 propagated; Sobol analysis does not reject and redraw infeasible points.
 
-QuasiMonteCarlo 0.3.6 emits its documented warning when the deterministic
+QuasiMonteCarlo 0.3 emits its documented warning when the deterministic
 `SobolSample()` design-matrix overload uses `NoRand()`. The integration keeps
 that public deterministic API and does not hide the warning or substitute a
 private randomisation path.
@@ -150,7 +150,7 @@ against their closed-form reference and reports the exact evaluation count,
 elapsed time, and maximum errors:
 
 ```bash
-julia --project=test benchmark/sobol_ishigami.jl
+julia --project=test benchmarks/sobol_ishigami.jl
 ```
 
 The benchmark is executable maintenance evidence. It is not discovered by the

@@ -13,6 +13,28 @@ TextDisplay.@showfields EarthPair "EarthPair" pair -> (
     layers = pair.layers
 )
 
+TextDisplay.@showfields BlueprintConductor "BlueprintConductor" row -> (
+    terminal = row.terminal,
+    assembly = row.assembly,
+    r_in = TextDisplay.engineering(row.r_in, :meter),
+    r_ex = TextDisplay.engineering(row.r_ex, :meter),
+    kind = row.material.kind
+)
+
+TextDisplay.@showfields BlueprintDielectric "BlueprintDielectric" row -> (
+    conductor = row.conductor,
+    r_in = TextDisplay.engineering(row.r_in, :meter),
+    r_ex = TextDisplay.engineering(row.r_ex, :meter),
+    kind = row.material.kind
+)
+
+TextDisplay.@showfields CableBlueprint "CableBlueprint" blueprint -> (
+    cable_id = blueprint.cable_id,
+    conductors = length(blueprint.conductors),
+    dielectrics = length(blueprint.dielectrics),
+    assemblies = length(blueprint.assembly_ranges)
+)
+
 TextDisplay.@showfields ConsoleVerbosityLogger "ConsoleVerbosityLogger" logger -> (
     sink = String(nameof(typeof(logger.console))),
     levels = logger.levels
@@ -104,6 +126,57 @@ TextDisplay.name(::Type{<:LineParametersFormulation}) = "LineParametersFormulati
 Base.summary(io::IO, ::LineParametersFormulation) = print(io, "Line-parameters formulation")
 function Base.show(io::IO, formulation::LineParametersFormulation)
     print(io, "LineParametersFormulation(", length(formulation.methods), " methods)")
+end
+
+TextDisplay.name(::Type{<:CableConstantsFormulation}) = "CableConstantsFormulation"
+Base.summary(io::IO, ::CableConstantsFormulation) =
+    print(io, "Cable-constants formulation")
+function Base.show(io::IO, formulation::CableConstantsFormulation)
+    print(io, "CableConstantsFormulation(", length(formulation.methods), " methods)")
+end
+function Base.show(io::IO, ::MIME"text/plain", formulation::CableConstantsFormulation)
+    get(io, :compact, false) && return show(io, formulation)
+    children = Tuple((
+        label = string(key, "  ", sprint(show, method; context = :compact => true)),
+        noun = "methods",
+    ) for (key, method) in pairs(formulation.methods))
+    return TextDisplay.tree(io, "Cable-constants formulation", children; noun = "methods")
+end
+
+TextDisplay.name(::Type{<:CableConstantsProblem}) = "CableConstantsProblem"
+Base.summary(io::IO, ::CableConstantsProblem) = print(io, "Cable-constants problem")
+function Base.show(io::IO, problem::CableConstantsProblem)
+    print(io, "CableConstantsProblem(temperature=", problem.temperature,
+        ", frequency=", problem.frequency, ")")
+end
+function Base.show(io::IO, ::MIME"text/plain", problem::CableConstantsProblem)
+    get(io, :compact, false) && return show(io, problem)
+    return TextDisplay.tree(io, "CableConstantsProblem", (
+        (label = "design       $(problem.design.cable_id)", noun = "fields"),
+        (label = "temperature  $(TextDisplay.engineering(problem.temperature, :celsius))", noun = "fields"),
+        (label = "frequency    $(TextDisplay.engineering(problem.frequency, :hertz))", noun = "fields"),
+    ))
+end
+
+TextDisplay.name(::Type{<:CableConstants}) = "CableConstants"
+Base.summary(io::IO, constants::CableConstants) =
+    print(io, "CableConstants, ", length(constants), " assemblies")
+function Base.show(io::IO, constants::CableConstants)
+    print(io, "CableConstants(assemblies=", length(constants),
+        ", frequency=", constants.frequency, ")")
+end
+function Base.show(io::IO, ::MIME"text/plain", constants::CableConstants)
+    get(io, :compact, false) && return show(io, constants)
+    rows = Tuple((
+        label = string(
+            constants.cores[index], "  R=", constants.R[index],
+            " Ω/m  L=", constants.L[index], " H/m  C=", constants.C[index],
+            " F/m  G=", constants.G[index], " S/m"
+        ),
+        noun = "assemblies",
+    ) for index in eachindex(constants.cores))
+    return TextDisplay.tree(io,
+        "Cable constants · $(constants.frequency) Hz", rows; noun = "assemblies")
 end
 function Base.show(io::IO, ::MIME"text/plain", formulation::LineParametersFormulation)
     get(io, :compact, false) && return show(io, formulation)
@@ -228,18 +301,18 @@ TextDisplay.name(::Type{<:LineParametersWorkspace}) = "LineParametersWorkspace"
 Base.summary(io::IO, workspace::LineParametersWorkspace) =
     print(io, "Line-parameters workspace")
 function Base.show(io::IO, workspace::LineParametersWorkspace)
-    normalized = workspace.normalized
-    print(io, "LineParametersWorkspace(phases=", normalized.n_phases,
-        ", cables=", normalized.n_cables,
-        ", frequencies=", normalized.n_frequencies, ")")
+    input = workspace.input
+    print(io, "LineParametersWorkspace(phases=", input.n_phases,
+        ", cables=", input.n_cables,
+        ", frequencies=", input.n_frequencies, ")")
 end
 function Base.show(io::IO, ::MIME"text/plain", workspace::LineParametersWorkspace)
     get(io, :compact, false) && return show(io, workspace)
-    normalized = workspace.normalized
+    input = workspace.input
     return TextDisplay.tree(io, "Line-parameters workspace", (
-        (label = "phases       $(normalized.n_phases)", noun = "fields"),
-        (label = "cables       $(normalized.n_cables)", noun = "fields"),
-        (label = "frequencies  $(normalized.n_frequencies)", noun = "fields"),
+        (label = "phases       $(input.n_phases)", noun = "fields"),
+        (label = "cables       $(input.n_cables)", noun = "fields"),
+        (label = "frequencies  $(input.n_frequencies)", noun = "fields"),
         (label = "capture      $(workspace.capture === nothing ? "disabled" : "enabled")", noun = "fields"),
     ))
 end

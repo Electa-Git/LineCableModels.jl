@@ -1,15 +1,23 @@
 """
     LineCableModelsMakieExt
 
-Build Makie figures and controls from LineCableModels plot recipes.
+Add compact high-level LineCableModels plotting methods to native Makie.
 """
 module LineCableModelsMakieExt
 
 using LineCableModels
 using Makie
 using LinearAlgebra: diag
+using Printf: @sprintf
+using Colors: HSL, HSV, RGB, RGBA, alpha, blue, green, red
+using Dates
+using Statistics: mean
 
-const PlotBuilder = LineCableModels.PlotBuilder
+const Units = LineCableModels.Units
+import LineCableModels.Grammar:
+                                observation_indices, observation_request, request_identity,
+                                request_indices,
+                                request_quantity, unit_targets, validate_observables
 
 function current_backend_symbol()
     backend = Makie.current_backend()
@@ -21,13 +29,19 @@ function current_backend_symbol()
     return :unknown
 end
 
-renderfig(figure) = display(figure)
+include("recipes/line_data.jl")
+include("recipes/comparison_data.jl")
+include("material_colors.jl")
+include("recipes/preview_types.jl")
+include("recipes/preview_data.jl")
+include("shell.jl")
+include("recipes/line_facets.jl")
+include("recipes/preview_render.jl")
+include("recipes/publication_render.jl")
+include("montecarlo.jl")
+include("native_export.jl")
 
-include("UIComponents.jl")
-using .UIComponents
-
-import LineCableModels.Engine: plot
-import LineCableModels.DataModel: preview, show_material_scale
+import LineCableModels.PlotBuilder: plot, preview, show_material_scale
 
 function _scale_symbol(value)
     value isa Symbol && return value
@@ -42,9 +56,11 @@ const _LineSource = Union{
     LineCableModels.ShuntAdmittance
 }
 
-_is_line_index_selector(value) = value isa Integer || value isa AbstractRange ||
-                                 value isa AbstractVector{<:Integer} ||
-                                 value isa Colon
+function _is_line_index_selector(value)
+    value isa Integer || value isa AbstractRange ||
+        value isa AbstractVector{<:Integer} ||
+        value isa Colon
+end
 
 function _is_line_observation_request(source, value)
     value isa Tuple || return false
@@ -59,11 +75,33 @@ function _is_line_observation_request(source, value)
            all(_is_line_index_selector, resolved.indices)
 end
 
+function _expand_line_observation_request(source, request)
+    resolved = LineCableModels.Grammar.observation_request(source, request)
+    identity = resolved.identity
+    indices = resolved.indices
+    if identity === LineCableModels.Z
+        return ((LineCableModels.R, indices...), (LineCableModels.X, indices...))
+    elseif identity === LineCableModels.Y
+        return ((LineCableModels.G, indices...), (LineCableModels.B, indices...))
+    elseif identity == (LineCableModels.Z, diag)
+        return (
+            (LineCableModels.R, diag, indices...),
+            (LineCableModels.X, diag, indices...)
+        )
+    elseif identity == (LineCableModels.Y, diag)
+        return (
+            (LineCableModels.G, diag, indices...),
+            (LineCableModels.B, diag, indices...)
+        )
+    end
+    return (request,)
+end
+
 _full_line_request(selector::Function) = (selector, Colon(), Colon(), Colon())
-_full_line_request(selector::Function, transform::Function) =
+function _full_line_request(selector::Function, transform::Function)
     (selector, transform, Colon(), Colon(), Colon())
-_full_diagonal_request(selector::Function) =
-    (selector, diag, Colon(), Colon())
+end
+_full_diagonal_request(selector::Function) = (selector, diag, Colon(), Colon())
 
 function _domain_line_request(source, selector::Function)
     LineCableModels.domain(source) === LineCableModels.ModalDomain &&
@@ -72,10 +110,12 @@ function _domain_line_request(source, selector::Function)
 end
 
 function _line_selector_requests(source::LineCableModels.LineParameters, selector::Function)
-    selector === LineCableModels.Z && return (_domain_line_request(source, LineCableModels.R),
-        _domain_line_request(source, LineCableModels.X))
-    selector === LineCableModels.Y && return (_domain_line_request(source, LineCableModels.G),
-        _domain_line_request(source, LineCableModels.B))
+    selector === LineCableModels.Z &&
+        return (_domain_line_request(source, LineCableModels.R),
+            _domain_line_request(source, LineCableModels.X))
+    selector === LineCableModels.Y &&
+        return (_domain_line_request(source, LineCableModels.G),
+            _domain_line_request(source, LineCableModels.B))
     selector === real && return (_domain_line_request(source, LineCableModels.R),
         _domain_line_request(source, LineCableModels.G))
     selector === imag && return (_domain_line_request(source, LineCableModels.X),
@@ -107,26 +147,32 @@ function _line_selector_requests(::LineCableModels.ShuntAdmittance, selector::Fu
     return (_full_line_request(selector),)
 end
 
-_default_line_selection(::LineCableModels.LineParameters) = (
-    LineCableModels.R, LineCableModels.X, LineCableModels.G, LineCableModels.B)
-_default_line_selection(::LineCableModels.SeriesImpedance) =
+function _default_line_selection(::LineCableModels.LineParameters)
+    (
+        LineCableModels.R, LineCableModels.X, LineCableModels.G, LineCableModels.B)
+end
+function _default_line_selection(::LineCableModels.SeriesImpedance)
     (LineCableModels.R, LineCableModels.X)
-_default_line_selection(::LineCableModels.ShuntAdmittance) =
+end
+function _default_line_selection(::LineCableModels.ShuntAdmittance)
     (LineCableModels.G, LineCableModels.B)
+end
 
 function _line_plot_requests(source::_LineSource, selection)
     selected = selection === nothing || selection == () ?
                _default_line_selection(source) : selection
-    _is_line_observation_request(source, selected) && return (selected,)
+    _is_line_observation_request(source, selected) &&
+        return _expand_line_observation_request(source, selected)
     selected isa Function && return _line_selector_requests(source, selected)
     selected isa Tuple || throw(ArgumentError(
         "line selection must be a selector, observable request, or tuple of them",
     ))
     return Tuple(request
     for item in selected
-    for request in (_is_line_observation_request(source, item) ? (item,) :
-                    item isa Function ? _line_selector_requests(source, item) :
-                    throw(ArgumentError("unsupported line selection $(repr(item))"))))
+    for request in (_is_line_observation_request(source, item) ?
+         _expand_line_observation_request(source, item) :
+         item isa Function ? _line_selector_requests(source, item) :
+         throw(ArgumentError("unsupported line selection $(repr(item))"))))
 end
 
 function plot(
@@ -140,16 +186,17 @@ function plot(
         yscale = :linear,
         kwargs...
 )
-    render_spec = PlotBuilder.make_render(
-        LineCableModels.Engine.LineParameterPlotDefinition,
+    return _addon_semantic_line_plots(
         object;
         frequencies,
         requests = _line_plot_requests(object, selection),
         xscale = _scale_symbol(xscale),
         yscale = _scale_symbol(yscale),
+        backend,
+        display_plot,
+        controls,
         kwargs...
     )
-    return UIComponents.build(render_spec; backend, display = display_plot, controls)
 end
 
 function Makie.plot(
@@ -172,16 +219,17 @@ function plot(
         yscale = :linear,
         kwargs...
 )
-    render_spec = PlotBuilder.make_render(
-        LineCableModels.Engine.LineParameterPlotDefinition,
+    return _addon_semantic_line_plots(
         object;
         frequencies,
         requests = _line_plot_requests(object, selection),
         xscale = _scale_symbol(xscale),
         yscale = _scale_symbol(yscale),
+        backend,
+        display_plot,
+        controls,
         kwargs...
     )
-    return UIComponents.build(render_spec; backend, display = display_plot, controls)
 end
 
 function Makie.plot(
@@ -203,15 +251,16 @@ function plot(
         yscale = :linear,
         kwargs...
 )
-    render_spec = PlotBuilder.make_render(
-        LineCableModels.Engine.LineParameterPlotDefinition,
+    return _addon_semantic_line_plots(
         parameters;
         requests = _line_plot_requests(parameters, selection),
         xscale = _scale_symbol(xscale),
         yscale = _scale_symbol(yscale),
+        backend,
+        display_plot,
+        controls,
         kwargs...
     )
-    return UIComponents.build(render_spec; backend, display = display_plot, controls)
 end
 
 function Makie.plot(
@@ -225,8 +274,8 @@ end
 function plot(
         first::LineCableModels.LineParameters,
         second::LineCableModels.LineParameters,
-        rest::LineCableModels.LineParameters...;
-        legend,
+        rest...;
+        series_labels = nothing,
         requests = (),
         backend = nothing,
         display_plot::Bool = true,
@@ -235,25 +284,44 @@ function plot(
         yscale = :linear,
         kwargs...
 )
-    parameters = (first, second, rest...)
-    normalized = _line_plot_requests(first, requests)
-    render_spec = PlotBuilder.make_render(
-        LineCableModels.Engine.LineParametersBenchmarkPlotDefinition,
-        parameters;
-        legend,
+    sources = LineCableModels.LineParameters[first, second]
+    trailing_selection = nothing
+    for item in rest
+        if item isa LineCableModels.LineParameters && trailing_selection === nothing
+            push!(sources, item)
+        elseif trailing_selection === nothing
+            trailing_selection = item
+        else
+            throw(ArgumentError(
+                "a line comparison accepts sources followed by at most one observation selection",
+            ))
+        end
+    end
+    requests == () || trailing_selection === nothing ||
+        throw(ArgumentError(
+            "use either a trailing observation selection or the requests keyword, not both",
+        ))
+    labels = series_labels
+    labels === nothing && (labels = Tuple("Result $index" for index in eachindex(sources)))
+    selection = trailing_selection === nothing ? requests : trailing_selection
+    normalized = _line_plot_requests(first, selection)
+    return _addon_line_pages(
+        Tuple(sources);
+        series_labels = labels,
         requests = normalized,
         xscale = _scale_symbol(xscale),
         yscale = _scale_symbol(yscale),
+        backend,
+        display_plot,
+        controls,
         kwargs...
     )
-    return UIComponents.build(render_spec; backend, display = display_plot, controls)
 end
-
 
 function plot(
         sources::NamedTuple,
         selection = ();
-        legend = nothing,
+        series_labels = nothing,
         backend = nothing,
         display_plot::Bool = true,
         controls::Bool = true,
@@ -267,26 +335,32 @@ function plot(
     ))
     all(parameter -> parameter isa LineCableModels.LineParameters, parameters) ||
         throw(ArgumentError("all comparison sources must be LineParameters"))
-    labels = legend === nothing ? Tuple(String(key) for key in keys(sources)) : legend
-    render_spec = PlotBuilder.make_render(
-        LineCableModels.Engine.LineParametersBenchmarkPlotDefinition,
+    labels = if series_labels !== nothing
+        series_labels
+    else
+        Tuple(String(key) for key in keys(sources))
+    end
+    return _addon_line_pages(
         parameters;
-        legend = labels,
+        series_labels = labels,
         requests = _line_plot_requests(first(parameters), selection),
         xscale = _scale_symbol(xscale),
         yscale = _scale_symbol(yscale),
+        backend,
+        display_plot,
+        controls,
         kwargs...
     )
-    return UIComponents.build(render_spec; backend, display = display_plot, controls)
 end
 
-Makie.plot(sources::NamedTuple, selection = (); kwargs...) =
+function Makie.plot(sources::NamedTuple, selection = (); kwargs...)
     plot(sources, selection; kwargs...)
+end
 
 function Makie.plot(
         first::LineCableModels.LineParameters,
         second::LineCableModels.LineParameters,
-        rest::LineCableModels.LineParameters...;
+        rest...;
         kwargs...
 )
     return plot(first, second, rest...; kwargs...)
@@ -299,17 +373,18 @@ function preview(
         controls::Bool = true,
         kwargs...
 )
-    render_spec = PlotBuilder.make_render(
-        LineCableModels.DataModel.CablePreviewPlotDefinition,
+    return _addon_preview(
         design;
+        backend,
+        display_plot,
+        controls,
         kwargs...
     )
-    return only(UIComponents.build(render_spec; backend, display = display_plot, controls))
 end
 
 # The public extension method consumes backend/display choices and forwards the
-# remaining recipe keywords unchanged, leaving the DataModel recipe free of
-# Makie objects and backend state.
+# remaining preview options unchanged. DataModel retains only detached geometry
+# and material attributes; Makie objects and backend state stay here.
 function preview(
         designs::AbstractVector{<:LineCableModels.DataModel.CableDesign};
         backend = nothing,
@@ -317,12 +392,13 @@ function preview(
         controls::Bool = true,
         kwargs...
 )
-    render_spec = PlotBuilder.make_render(
-        LineCableModels.DataModel.CableCollectionPreviewPlotDefinition,
+    return _addon_preview(
         designs;
+        backend,
+        display_plot,
+        controls,
         kwargs...
     )
-    return only(UIComponents.build(render_spec; backend, display = display_plot, controls))
 end
 
 function preview(
@@ -332,12 +408,13 @@ function preview(
         controls::Bool = true,
         kwargs...
 )
-    render_spec = PlotBuilder.make_render(
-        LineCableModels.DataModel.SystemPreviewPlotDefinition,
+    return _addon_preview(
         system;
+        backend,
+        display_plot,
+        controls,
         kwargs...
     )
-    return only(UIComponents.build(render_spec; backend, display = display_plot, controls))
 end
 
 function show_material_scale(
@@ -346,12 +423,23 @@ function show_material_scale(
         controls::Bool = true,
         kwargs...
 )
-    render_spec = PlotBuilder.make_render(
-        LineCableModels.DataModel.MaterialScalePlotDefinition,
-        nothing;
+    return _addon_material_scale(;
+        backend,
+        display_plot,
+        controls,
         kwargs...
     )
-    return only(UIComponents.build(render_spec; backend, display = display_plot, controls))
+end
+
+function plot(
+        publication::LineCableModels.Grammar.ObservationPublication;
+        kwargs...
+)
+    return _addon_publication_plot(publication; kwargs...)
+end
+
+function Makie.plot(publication::LineCableModels.Grammar.ObservationPublication; kwargs...)
+    plot(publication; kwargs...)
 end
 
 end # module LineCableModelsMakieExt

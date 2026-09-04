@@ -17,6 +17,10 @@ LoadedCase / Gridspace{LineParametersProblem}
         │
         └── benchmarks/uq/<benchmark-id>.jl
                 LEP reference versus Monte Carlo candidate
+
+pscad_reference.jl                 exhaustive deterministic PSCAD references
+fem_reference.jl                   one deterministic FEM reference per case
+formulation_comparisons.jl         every native formulation versus both backends
 ```
 
 The hard invariant is one file equals one benchmark. Every Julia file below
@@ -38,11 +42,43 @@ comparisons, or test assertions. Each file's final expression is one
 - a builder closure that receives those named values;
 - canonical terminal order.
 
+Fixed imported cases may declare `parameters = (;)`. A `CaseParameter` exists
+only when the case intentionally exposes one variable input; it is not
+boilerplate required to index a materialised problem.
+
 `cases/index.toml` is the only catalog. `load_case` resolves only indexed files
 beneath `cases/`, verifies the declared ID, builds fresh model state on every
 call, and records the source path and SHA-256. Unknown IDs or overrides,
 unmatched tag selectors, duplicate paths, escaping paths, and ID/file
 mismatches fail immediately.
+
+### Importing existing problems
+
+The repository CLI can import a trusted Julia file whose final expression is
+one concrete `LineParametersProblem`:
+
+```bash
+./cli/lcm gauntlet case import \
+  --id two_wire_variant \
+  --source /path/to/problem.jl \
+  --description "Two buried conductors used for ..."
+```
+
+`--description` supplies the documentation-page title. It defaults to the case
+ID when omitted.
+
+The source runs in a fresh Julia process with `--startup-file=no`. The importer
+normalises only `system_id`, verifies that the coaxial backend can flatten every
+design, orders ports by positive phase ID, and writes a versioned JSON problem,
+a small `CaseDefinition` wrapper, and the index entry. `--dry-run` validates
+without writing; `--force` replaces the same ID. The stored numbers are the
+fully materialised values, not a reconstruction of the source expressions.
+Pass `--project DIR` when the trusted source belongs to another Julia project;
+that project must provide `LineCableModels`.
+
+Use `./cli/lcm gauntlet case list`, `show`, or `validate` to inspect the
+catalogue. `case catalogue --output FILE` emits the detached manifest consumed
+by the documentation build; `--check` rejects a stale manifest.
 
 Variations are applied before the builder runs:
 
@@ -96,14 +132,60 @@ Engine formulas or option sets later.
 The seven migrated PSCAD benchmarks retain their external formulations,
 mappings, and numerical gates. They use the legacy external-reference runner
 but now receive a neutral `LoadedCase`; their work and artifact identities are
-benchmark IDs, not physical case IDs. A physical case edit intentionally
-invalidates its PSCAD snapshot digest and requires a fresh external recording.
+benchmark IDs, not physical case IDs. A numerical case-input change
+intentionally invalidates its PSCAD reference. Comments, descriptions, and
+unrelated repository changes do not.
+
+### Exhaustive deterministic formulation comparisons
+
+The cross-backend catalogue covers every case in `cases/index.toml`. It is
+separate from the seven legacy benchmark files and does not run uncertainty or
+Monte Carlo calculations.
+
+`reference_case` normalizes every external solve to exactly 101 logarithmically
+spaced frequencies. The lower bound is `max(first(case.frequencies), 0.1)` Hz,
+because PSCAD cannot calculate below 0.1 Hz, and the upper bound is the case's
+declared maximum. PSCAD and FEM therefore produce directly comparable tensors
+on the same frequency axis.
+
+Run the stages in order:
+
+```bash
+julia --project=test/gauntlet --startup-file=no test/gauntlet/pscad_reference.jl
+
+LINECABLEMODELS_GETDP=/path/to/getdp \
+julia --project=test/gauntlet --startup-file=no test/gauntlet/fem_reference.jl
+
+julia --project=test/gauntlet --startup-file=no \
+  test/gauntlet/formulation_comparisons.jl
+```
+
+The PSCAD runner executes every field formulation applicable to the case's
+overhead, underground, or mixed placement and records honest skips for the
+other fields. The FEM runner executes each case once. The comparison runner
+then computes every applicable registered native formulation and compares it
+with every available PSCAD reference and the FEM reference. Its locked metric
+is element-wise absolute and reference-normalized RMS error across frequency
+for every entry of `Z` and `Y`.
+
+Run only one `fem_reference.jl` process at a time. The current Gmsh/GetDP
+ONELAB socket transport is not safe across concurrent gauntlet reference
+processes.
+
+All three runners are resumable. Their generated records live under
+`.linecablemodels/`. Numerical reuse is keyed by the materialised problem,
+selected formulation, exact Git blob identities of the selected formulas and
+shared numerical implementation, and reference bytes. Adding an unrelated
+formula, plot, extension, or library entry does not invalidate prior results.
+Every newly written artefact also records the full repository commit and dirty
+state for historical provenance; official publication requires a clean tree.
 
 ### LEP versus Monte Carlo
 
-Every indexed case has one owned LEP-versus-Monte-Carlo benchmark file. The
-scientific experiment therefore covers all seven cable and overhead-line
-models without a loop or multi-case benchmark file.
+The legacy uncertainty collection has one owned LEP-versus-Monte-Carlo
+benchmark for each of its seven cable and overhead-line models. New indexed
+cases are covered by the exhaustive deterministic catalogue above without
+inventing uncertainty experiments for them.
 
 Both calculations consume the same single-point `ParametricProblem`, the same
 inner native `Formulation`, and the same execution options:
@@ -196,12 +278,14 @@ without the mode setting it would use the default snapshot mode:
 ```bash
 julia --project=test/gauntlet --startup-file=no -e '
 using TestItemRunner
-@run_package_tests(filter=ti -> :uq in ti.tags, verbose=true)
+TestItemRunner.run_tests(joinpath(pwd(), "test");
+          filter=ti -> :uq in ti.tags, verbose=true)
 '
 LINECABLEMODELS_GAUNTLET_MODE=live \
 julia --project=test/gauntlet --startup-file=no -e '
 using TestItemRunner
-@run_package_tests(filter=ti -> :pscad in ti.tags, verbose=true)
+TestItemRunner.run_tests(joinpath(pwd(), "test");
+          filter=ti -> :pscad in ti.tags, verbose=true)
 '
 ```
 
@@ -209,7 +293,7 @@ Run the reusable infrastructure checks with:
 
 ```bash
 julia --project=test/gauntlet --startup-file=no -e \
-  'using TestItemRunner; @run_package_tests(filter=ti -> :gauntlet_toolkit in ti.tags, verbose=true)'
+  'using TestItemRunner; TestItemRunner.run_tests(joinpath(pwd(), "test"); filter=ti -> :gauntlet_toolkit in ti.tags, verbose=true)'
 ```
 
 Record collections only through the dedicated runner:

@@ -101,18 +101,39 @@ struct LineParameters{
             Basis,
             Q <: NamedTuple
     }
-        _check_basis(Basis)
-        size(Z, 1) == size(Z, 2) || throw(DimensionMismatch("Z must be square"))
-        size(Y, 1) == size(Y, 2) || throw(DimensionMismatch("Y must be square"))
-        size(Z) == size(Y) || throw(
-            DimensionMismatch("Z and Y must have equal n×n×nfreq dimensions"),
-        )
-        size(Z, 3) == length(f) || throw(
-            DimensionMismatch("frequency count must match the Z/Y third dimension"),
-        )
-        all(isfinite, f) || throw(ArgumentError("frequencies must be finite"))
-        return new{T, U, D, Basis, Q}(Z, Y, Vector{U}(f), domain, details)
+        return validate(new{T, U, D, Basis, Q}(
+            Z,
+            Y,
+            Vector{U}(f),
+            domain,
+            details
+        ))
     end
+end
+
+function validate(parameters::LineParameters{T, U, D, Basis}) where {T, U, D, Basis}
+    Basis in LINE_PARAMETER_BASES || throw(ArgumentError(
+        "LineParameters basis must be :pul or :total; received $(repr(Basis))"
+    ))
+    size(parameters.Z, 1) == size(parameters.Z, 2) || throw(DimensionMismatch(
+        "LineParameters.Z must be square; received size $(size(parameters.Z))"
+    ))
+    size(parameters.Y, 1) == size(parameters.Y, 2) || throw(DimensionMismatch(
+        "LineParameters.Y must be square; received size $(size(parameters.Y))"
+    ))
+    size(parameters.Z) == size(parameters.Y) || throw(DimensionMismatch(
+        "LineParameters.Z and LineParameters.Y must have equal n×n×nfreq " *
+        "dimensions; received $(size(parameters.Z)) and $(size(parameters.Y))"
+    ))
+    size(parameters.Z, 3) == length(parameters.f) || throw(DimensionMismatch(
+        "LineParameters.f must contain one value per matrix frequency plane; " *
+        "received $(length(parameters.f)) values for $(size(parameters.Z, 3)) planes"
+    ))
+    all(isfinite, parameters.f) || throw(ArgumentError(
+        "LineParameters.f must contain only finite frequencies; received " *
+        repr(parameters.f)
+    ))
+    return parameters
 end
 
 function LineParameters(

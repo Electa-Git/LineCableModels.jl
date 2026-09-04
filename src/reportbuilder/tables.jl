@@ -1,7 +1,8 @@
 """
 $(TYPEDEF)
 
-Publish a [`DataModel.CableConstants`](@ref) result as one R/L/C table.
+Publish an [`Engine.CableConstants`](@ref) result as one R/L/C/G table with
+one row per concentric assembly.
 
 $(TYPEDFIELDS)
 """
@@ -46,23 +47,8 @@ struct BenchmarkTableDefinition <: AbstractReportDefinition
 end
 BenchmarkTableDefinition() = BenchmarkTableDefinition(true)
 
-const _TableOnlyReport = Union{
-    CableConstantsTableDefinition,
-    LineParametersTableDefinition,
-    BenchmarkTableDefinition
-}
-illustrate(::_TableOnlyReport, source, published, table) = nothing
-encode(::_TableOnlyReport, source, published, table, ::Nothing) = nothing
-write(::_TableOnlyReport, source, published, table, ::Nothing, ::Nothing) = nothing
-
-entitle(::CableConstantsTableDefinition, source::DataModel.CableConstants) = source
-entitle(::LineParametersTableDefinition, source::Engine.LineParameters) = source
-entitle(::BenchmarkTableDefinition, source::Engine.LineParametersBenchmark) = source
-
-_publication_table(published::ObservationPublication) = DataFrame(published)
-
-function select(definition::CableConstantsTableDefinition, source::DataModel.CableConstants)
-    return observables(source, (R, L, C); clip = definition.clip)
+function select(definition::CableConstantsTableDefinition, source::Engine.CableConstants)
+    return observables(source, (R, L, C, G); clip = definition.clip)
 end
 
 function tabulate(
@@ -70,7 +56,7 @@ function tabulate(
         source,
         published::ObservationPublication
 )
-    return _publication_table(published)
+    return DataFrame(published)
 end
 
 function _line_definition(
@@ -111,7 +97,7 @@ function tabulate(
         source,
         published::ObservationPublication
 )
-    return _publication_table(published)
+    return DataFrame(published)
 end
 
 function select(
@@ -127,11 +113,10 @@ function select(
     return observables(comparison, requests; clip = definition.clip)
 end
 
-
 function tabulate(
         ::BenchmarkTableDefinition,
         source,
         published::ObservationPublication
 )
-    return _publication_table(published)
+    return DataFrame(published)
 end

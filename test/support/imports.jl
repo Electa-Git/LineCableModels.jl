@@ -43,17 +43,16 @@ end
     using LineCableModels.ImportExport
 end
 
-@testmodule PlotBuilderTestSupport begin
+@testmodule NativePlotTestSupport begin
 end
 
-@testsnippet UsePlotBuilderSupport begin
+@testsnippet UseNativePlotSupport begin
     using DataFrames
     using Measurements
     using LineCableModels
     using LineCableModels.DataModel
     using LineCableModels.EarthProps
     using LineCableModels.Engine
-    using LineCableModels.PlotBuilder
     using LineCableModels.UQ
 end
 

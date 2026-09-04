@@ -1,11 +1,17 @@
-function routes(::Val{:Xue2018})
+function routes(identifier::Val{:Xue2018})
     (
-        self = xue2018_infinite,
-        mutual = xue2018_infinite,
-        infinite = xue2018_infinite,
-        surface = xue2018_surface,
-        penetration = xue2018_penetration,
-        Γ = xue2018_gamma
+        self = FormulaMethod(identifier, earth_potential_coefficient, Val(:self)),
+        mutual = FormulaMethod(identifier, earth_potential_coefficient, Val(:mutual)),
+        infinite = FormulaMethod(
+            identifier, earth_potential_coefficient, Val(:infinite_depth)
+        ),
+        surface = FormulaMethod(
+            identifier, earth_potential_coefficient, Val(:surface_reference)
+        ),
+        penetration = FormulaMethod(
+            identifier, earth_potential_coefficient, Val(:penetration_depth)
+        ),
+        Γ = FormulaMethod(identifier, propagation_constant)
     )
 end
 
@@ -18,11 +24,44 @@ function assumptions(::Val{:Xue2018})
 end
 
 propagation(::Val{:Xue2018}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Generalized underground potential coefficient. The
+registered expression is referenced to infinite earth depth; surface and
+penetration-depth corrections are retained as alternative physical forms.
+
+**Expression.**
+
+```math
+P_{e,ij}^{\\infty}=\\frac{j\\omega}{2\\pi(\\sigma_1+j\\omega\\varepsilon_1)}
+\\left[K_0(\\gamma_1d_{ij})-K_0(\\gamma_1D_{ij})+2S_{12}^c+
+2\\gamma_1^2S_{13}^c\\right],
+```
+
+```math
+S_{12}^c=\\int_0^\\infty\\frac{e^{-Hu_1}\\lambda^2\\cos(y\\lambda)}
+{(\\lambda^2+\\gamma_1^2)[u_0+(\\gamma_0^2/\\gamma_1^2)u_1]}d\\lambda,
+\\quad
+S_{13}^c=\\int_0^\\infty\\frac{e^{-Hu_1}\\cos(y\\lambda)}
+{(\\lambda^2+\\gamma_1^2)(u_0+u_1)}d\\lambda.
+```
+
+The surface reference is
+``P_{e,ij}^{0}=P_{e,ij}^{\\infty}-P_{ec,ij}``; the penetration-depth reference
+uses the same structure at the exact lossy-medium penetration depth.
+
+**Reference.** H. Xue, *Electromagnetic Transients in Large HV Cable
+Networks*, doctoral thesis, Delft University of Technology, 2018; equations
+as consolidated in Ametani et al., IET, 2021.
+"""
 function description(::Formula{:Xue2018})
     "Xue et al. generalized underground potential coefficient (2018)"
 end
 
-xue2018_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))
+function propagation_constant(::Val{:Xue2018}, jω, permeability, permittivity)
+    return (Γ = zero(jω), squared = zero(jω))
+end
 
 function (formula::Formula{:Xue2018})(rho, epsilon, mu, jω, Γ, segments = nothing)
     return _homogeneous_functor(
@@ -52,7 +91,9 @@ This infinite-depth reference is the registered default. The surface and
 penetration-depth references are support leaves of the same `:Xue2018`
 entry, available through [`routes`](@ref) without creating more formula IDs.
 """
-function xue2018_terms(state, geometry, height = geometry.H)
+function integral_terms(
+        ::Val{:Xue2018}, state, geometry, height = geometry.H
+)
     gamma_0_squared, gamma_1_squared = state.gamma_medium_squared
     ratio = gamma_0_squared / gamma_1_squared
     S12 = _quadrature(state) do lambda
@@ -70,11 +111,21 @@ function xue2018_terms(state, geometry, height = geometry.H)
     return S12, S13
 end
 
-function xue2018_infinite(functor, pair)
+function earth_potential_coefficient(
+        identifier::Val{:Xue2018}, ::Val{:mutual}, functor, pair
+)
+    return earth_potential_coefficient(
+        identifier, Val(:infinite_depth), functor, pair
+    )
+end
+
+function earth_potential_coefficient(
+        identifier::Val{:Xue2018}, ::Val{:infinite_depth}, functor, pair
+)
     _require(pair, Val(:underground))
     state = functor.state
     geometry = _geometry(pair)
-    S12, S13 = xue2018_terms(state, geometry)
+    S12, S13 = integral_terms(identifier, state, geometry)
     gamma_1 = state.gamma[2]
     direct = special_besselk(0, gamma_1 * geometry.d_ij) -
              special_besselk(0, gamma_1 * geometry.D_ij)
@@ -95,12 +146,14 @@ P_{ec,ij}=\frac{j\omega}{\pi(\sigma_1+j\omega\varepsilon_1)}
 where ``S_{14}^c`` and ``S_{15}^c`` use the infinite-depth denominators and
 the attenuation ``e^{-\frac12(h_i+h_j)u_1}``.
 """
-function xue2018_surface(functor, pair)
+function earth_potential_coefficient(
+        identifier::Val{:Xue2018}, ::Val{:surface_reference}, functor, pair
+)
     _require(pair, Val(:underground))
     state = functor.state
     geometry = _geometry(pair)
-    S12, S13 = xue2018_terms(state, geometry)
-    S14, S15 = xue2018_terms(state, geometry, geometry.H / 2)
+    S12, S13 = integral_terms(identifier, state, geometry)
+    S14, S15 = integral_terms(identifier, state, geometry, geometry.H / 2)
     gamma_1 = state.gamma[2]
     direct = special_besselk(0, gamma_1 * geometry.d_ij) -
              special_besselk(0, gamma_1 * geometry.D_ij)
@@ -127,11 +180,13 @@ h_r=-\left\{\frac{\omega^2\varepsilon_1\mu_0}{2}
 The correction retains the corpus distances ``d_{\delta,ij}``,
 ``D_{\delta,ij}`` and integrals ``S_{16}^c``, ``S_{17}^c`` verbatim.
 """
-function xue2018_penetration(functor, pair)
+function earth_potential_coefficient(
+        identifier::Val{:Xue2018}, ::Val{:penetration_depth}, functor, pair
+)
     _require(pair, Val(:underground))
     state = functor.state
     geometry = _geometry(pair)
-    S12, S13 = xue2018_terms(state, geometry)
+    S12, S13 = integral_terms(identifier, state, geometry)
     gamma_0_squared, gamma_1_squared = state.gamma_medium_squared
     ratio = gamma_0_squared / gamma_1_squared
     omega = imag(state.jω)

@@ -26,10 +26,10 @@
     @test formulation.max_evaluations == 200_000
     @test formulation.max_output_values == 20_000_000
     @test formulation.options == (retain_details = true,)
-    @test @inferred(computation_options(Val(Sensitivity), (;))) ==
+    @test @inferred(computation_options(Sensitivity, (;))) ==
           (retain_details = false,)
     constants=CableConstants(1.0, 2.0, 3.0)
-    @test observe(constants, (R,)) == observe(constants, R) == 1.0
+    @test observe(constants, R) == [1.0]
 
     transformed=Sensitivity(
         SensitivityInner(),
@@ -86,7 +86,7 @@
         evaluations = 128
     )
     result=SensitivityResult(formulation, [product])
-    @test result isa Grammar.AbstractProblemResult
+    @test result isa Grammar.AbstractUncertaintyResult{typeof(product)}
     @test Base.IteratorSize(typeof(result)) == Base.HasShape{1}()
     @test Base.IteratorEltype(typeof(result)) == Base.HasEltype()
     @test eltype(typeof(result)) === typeof(product)
@@ -109,12 +109,12 @@
     retained=SensitivityResult(
         formulation,
         [product],
-        (evaluations = [records],)
+        (points = [records],)
     )
-    @test details(retained).evaluations[1] === records
+    @test details(retained).points[1] === records
 
     @test_throws ArgumentError SensitivityResult(formulation, NamedTuple[])
-    @test_throws ArgumentError SensitivityResult(formulation, (product,))
+    @test_throws MethodError SensitivityResult(formulation, (product,))
     @test_throws DimensionMismatch SensitivityResult(
         formulation,
         [merge(product, (inputs = ["rho"],))]
@@ -126,7 +126,7 @@
     @test_throws DimensionMismatch SensitivityResult(
         formulation,
         [product],
-        (evaluations = Vector{NamedTuple}[],)
+        (points = Vector{NamedTuple}[],)
     )
 
     @test LineCableModels.Sensitivity === UQ.Sensitivity
@@ -145,6 +145,11 @@ end
     struct UnloadedInner <: Grammar.AbstractFormulation end
     struct UnloadedMethod end
     struct UnloadedSampler end
+    struct UnloadedProblem <: Grammar.AbstractProblemDefinition
+        value::Float64
+    end
+
+    LineCableModels.validate(problem::UnloadedProblem) = problem
 
     formulation=Sensitivity(
         UnloadedInner(),
@@ -153,7 +158,10 @@ end
         samples = 2,
         sampler = UnloadedSampler()
     )
-    space=PB.Gridspace{Float64}(identity, (PB.Grid((1.0,)),))
+    space=PB.Gridspace{UnloadedProblem}(
+        UnloadedProblem,
+        (PB.Grid((1.0,)),)
+    )
     problem=ParametricProblem(space)
     @test_throws MethodError compute(problem, formulation)
     @test Base.get_extension(

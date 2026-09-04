@@ -54,7 +54,7 @@ function RemoteConfig(
 end
 
 function computation_options(
-        ::Val{PSCADFormulation},
+        ::Type{PSCADFormulation},
         options::NamedTuple
 )::ComputationOptions
     allowed = (:output_stem, :remote, :verbosity, :output_basis)
@@ -256,12 +256,16 @@ function _load_config()
 end
 
 function _validate_frequencies(frequencies_value::AbstractVector)
-    length(frequencies_value) >= 101 || throw(ArgumentError(
-        "PSCAD 5.1 requires at least 100 frequency increments (101 samples)",
+    length(frequencies_value) == 101 || throw(ArgumentError(
+        "PSCAD 5.1 requires exactly 100 frequency increments (101 samples)",
     ))
     all(>(0), frequencies_value) || throw(DomainError(
         frequencies_value,
         "PSCAD frequencies must be positive"
+    ))
+    first(frequencies_value) >= 0.1 || throw(DomainError(
+        first(frequencies_value),
+        "PSCAD 5.1 requires a minimum frequency of 0.1 Hz"
     ))
     expected = 10.0 .^ range(
         log10(first(frequencies_value));
@@ -404,7 +408,7 @@ function run_remote_pscad(
     variant = last(work_parts)
     _stage_toolkit(local_project, local_output)
     shared_case = _remote_path(config.shared_root, work_parts...)
-    remote_case = _remote_path(config.remote_root, work_parts...)
+    remote_case = _remote_path(config.remote_root, work_parts..., output_stem)
     stdout_path = joinpath(local_output, "stdout.txt")
     stderr_path = joinpath(local_output, "stderr.txt")
     transport_stdout = joinpath(local_output, "transport-stdout.txt")
@@ -528,7 +532,7 @@ function compute(
         formulation::PSCADFormulation;
         options::NamedTuple = (;)
 )
-    execution_options = computation_options(Val(PSCADFormulation), options)
+    execution_options = computation_options(PSCADFormulation, options)
     config = execution_options.remote
     root = _pscad_root(problem)
     isdir(root) && rm(root; recursive = true)

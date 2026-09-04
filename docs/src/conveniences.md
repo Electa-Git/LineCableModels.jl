@@ -35,19 +35,39 @@ screen_wires = wires(
 )
 ```
 
-`stranded` creates a central strand and the requested outer courses. A scalar
-count is the conventional base count (`k*n` on course `k`); a tuple is an exact
-course schedule.
+With a `Disk` boundary, `stranded` creates a central strand and the requested
+outer courses. Without compaction the circular wires retain their natural
+shape. A `FillFactor` explicitly requests deformation. With an uncompacted
+`Sector` boundary, circular-wire capacity and placement are inferred and no
+central strand is added. A scalar count is the conventional base count (`k*n`
+on course `k`); a tuple is an exact compacted-course schedule.
 
 ```julia
-stranded_core = stranded(
+compacted_core = stranded(
     copper;
-    shape=Rectangle(0.35e-3, 0.8e-3),
+    shape=Disk(0.5e-3),
     layers=3,
-    n=(6, 11, 17),
+    n=(6, 12, 18),
     lay=(LayRatio(13), Pitch(0.15), LayAngle(0.2)),
+    compact=FillFactor(1),
+    boundary=Disk(sqrt(37) * 0.5e-3),
 )
 ```
+
+A schedule sharing one definition lifts its raw course values directly:
+
+```julia
+round_core = stranded(
+    copper;
+    shape=Disk(0.5e-3),
+    layers=3,
+    n=(6, 12, 18),
+    lay=LayRatio(13, 12, 11),
+    boundary=Disk(4e-3),
+)
+```
+
+The explicit tuple form above remains available when course definitions differ.
 
 `rope(item; ...)` applies the same course grammar to an existing physical
 item. Every child retains its internal path declarations; an outer course adds
@@ -72,7 +92,7 @@ One tape function covers conductive, semiconductive, and insulating systems:
 ```julia
 insulating_tapes = @distribute tape(
     tape_insulation;
-    section=Sector(8e-3, 8.5e-3, -0.08, 0.16),
+    section=Rectangle(1.4e-3, 0.5e-3),
     gap_frac=0.02,
     lay=LayRatio(10),
 )
@@ -85,7 +105,7 @@ under an explicit terminal scope:
 screen_tape = @terminal :screen begin
     tape(
         copper;
-        section=Sector(8e-3, 8.5e-3, -pi / 4, pi / 2),
+        section=Rectangle(3.0e-3, 0.5e-3),
         n=4,
         lay=LayRatio(12),
     )
@@ -105,6 +125,14 @@ cells = @assembly begin
 end
 
 bank = @duct shape=Rectangle(40e-3, 24e-3) fill=concrete begin
+    cells
+end
+```
+
+The corresponding pipe notation uses the same block grammar:
+
+```julia
+contained = @pipe shape=Disk(20e-3) fill=air begin
     cells
 end
 ```

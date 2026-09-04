@@ -11,7 +11,7 @@
     using .TestFixtures
 
     @test isdefined(GauntletSupport, :PSCADBenchmarks)
-    run_owner=Val(GauntletCase)
+    run_owner=GauntletCase
     run_defaults=LineCableModels.computation_options(run_owner, (;))
     @test run_defaults == (
         output_basis = :pul,
@@ -367,6 +367,7 @@ end
     GauntletSupport
 ] begin
     using Test
+    import LineCableModels
     using LineCableModels: PhaseDomain,
                            ModalTransformationProblem, ModalTransformationFormulation
     using LineCableModels.Engine
@@ -447,8 +448,32 @@ end
     using LineCableModels
     using .GauntletSupport
 
+    function nested_groups(part)
+        groups=Group[]
+        if part isa Group
+            push!(groups, part)
+            append!(groups, nested_groups(part.item))
+        elseif part isa Stack
+            for item in part.items
+                append!(groups, nested_groups(item))
+            end
+        elseif part isa Enclosure
+            append!(groups, nested_groups(part.item))
+            part.wall===nothing||append!(groups, nested_groups(part.wall))
+        end
+        return groups
+    end
+
     index=case_index()
     expected_sizes=Dict(
+        :cable_320kv_armoured_dc_bipole=>(6, 6, 227),
+        :cable_320kv_no_armour_dc_bipole=>(4, 4, 227),
+        :cable_380kv_armoured_ac_flat=>(9, 9, 227),
+        :cable_380kv_no_armour_ac_flat=>(6, 6, 227),
+        :cable_525kv_land_no_armour_ac_flat=>(6, 6, 227),
+        :cable_525kv_land_no_armour_dc_bipole=>(4, 4, 227),
+        :cable_525kv_subsea_armoured_ac_flat=>(9, 9, 227),
+        :cable_525kv_subsea_armoured_dc_bipole=>(6, 6, 227),
         :cable_18kv_1000mm2_trefoil=>(9, 9, 101),
         :cable_132kv_630mm2_flathor=>(9, 9, 101),
         :cable_380kv_2000mm2_flatver=>(9, 9, 101),
@@ -512,23 +537,43 @@ end
     end
 
     expected_wire_counts=Dict(
+        :cable_320kv_armoured_dc_bipole=>(
+            (1, 6, 12, 18, 24, 30, 36), (), (68,)
+        ),
+        :cable_320kv_no_armour_dc_bipole=>(
+            (1, 6, 12, 18, 24, 30, 36), ()
+        ),
+        :cable_380kv_armoured_ac_flat=>(
+            (1, 6, 12, 18, 24, 30, 36), (), (68,)
+        ),
+        :cable_380kv_no_armour_ac_flat=>(
+            (1, 6, 12, 18, 24, 30, 36), ()
+        ),
+        :cable_525kv_land_no_armour_ac_flat=>((), ()),
+        :cable_525kv_land_no_armour_dc_bipole=>((), ()),
+        :cable_525kv_subsea_armoured_ac_flat=>((), (), (68,)),
+        :cable_525kv_subsea_armoured_dc_bipole=>((), (), (68,)),
         :cable_132kv_630mm2_flathor=>(
-            (1, 6, 12, 18, 24), (19,), ()
+            (1, 6, 12, 18, 24), (19, 1), ()
         ),
         :cable_18kv_1000mm2_trefoil=>(
-            (1, 6, 12, 18, 24), (49,), ()
+            (1, 6, 12, 18, 24), (49, 1), ()
         ),
         :cable_380kv_2000mm2_flatver=>(
-            (1, 6, 12, 18, 24), (14,), ()
+            (1, 6, 12, 18, 24), (14, 1), ()
         ),
         :cable_525kv_1600mm2_bipole=>(
             (1, 6, 12, 18, 24, 30, 36), (), (68,)
         ),
         :cable_640kv_2000mm2_bipole=>(
-            (6, 12, 18, 24), (), ()
+            (1, 6, 12, 18, 24), (), ()
         ),
         :solid_1000mm2_single=>((),),
         :two_bare_wires=>((),)
+    )
+    expected_reference_counts=Dict(
+        id=>101
+    for id in keys(expected_sizes)
     )
     for (id, expected_size) in expected_sizes
         model=load_case(id)
@@ -536,6 +581,10 @@ end
         @test model.expected_size == expected_size
         @test model.source_file == index[id]
         @test model.source_sha256 == bytes2hex(SHA.sha256(read(index[id])))
+        selected_frequencies=reference_grid(model.nominal_problem.frequencies)
+        @test length(selected_frequencies) == expected_reference_counts[id]
+        @test first(selected_frequencies) ==
+              max(first(model.nominal_problem.frequencies), 0.1)
         source=read(index[id], String)
         @test length(collect(eachmatch(r"\bcase_definition\s*\(", source))) == 1
         @test !occursin("@testitem", source)
@@ -551,21 +600,54 @@ end
                   (topology isa Tuple && all(value -> value isa Integer, topology))
         end
         design=first(model.nominal_problem.system.designs)
-        groups=filter(item->item isa Group, design.root.items)
+        groups=nested_groups(design.root)
         component_wire_counts=Tuple(
-            Tuple(
-                group.pattern.n
-            for group in groups
-            if group.name===terminal&&group.pattern isa Ring
-            ) for terminal in design.terminal_order
+            begin
+                bounded=findfirst(
+                    group->group.name===terminal&&group.boundary!==nothing,
+                    groups
+                )
+                if bounded===nothing
+                    Tuple(group.pattern.n
+                    for group in groups
+                    if group.name===terminal&&group.pattern isa Ring)
+                else
+                    courses=groups[bounded].item.items
+                    Tuple(group.pattern===nothing ? 1 : group.pattern.n
+                    for group in courses)
+                end
+            end
+        for terminal in design.terminal_order
         )
         @test component_wire_counts == expected_wire_counts[id]
+        expected_core_counts=first(expected_wire_counts[id])
+        if !isempty(expected_core_counts)&&first(expected_core_counts)==1
+            bounded=only(group
+            for group in groups
+            if group.name===:core&&group.boundary!==nothing)
+            @test bounded.boundary isa Disk
+            core_patterns=getproperty.(bounded.item.items, :pattern)
+            @test first(core_patterns) === nothing
+            @test all(pattern -> pattern isa Ring, core_patterns[2:end])
+            @test Tuple(getproperty.(core_patterns[2:end], :n)) ==
+                  Base.tail(expected_core_counts)
+        end
         @test basename(index[id]) == string(id, ".jl")
+    end
+
+    two_wire_case=load_case(:two_bare_wires)
+    copper=Material(MaterialsLibrary(add_defaults = true), :copper)
+    @test length(two_wire_case.nominal_problem.system.designs) == 2
+    @test all(two_wire_case.nominal_problem.system.designs) do design
+        component=only(LineCableModels.DataModel.flatten(design, 50.0))
+        material=component.conductor.material
+        material.rho == copper.rho && material.alpha == copper.alpha
     end
 
     benchmark_root=joinpath(GauntletSupport.GAUNTLET_ROOT, "benchmarks")
     benchmark_files=sort!(filter(
-        path->endswith(path, ".jl")&&
+        path->endswith(path,
+            ".jl")&&
         !startswith(path, joinpath(benchmark_root, ".work")*Base.Filesystem.path_separator),
         collect(Iterators.flatten(
             (joinpath(root, file) for file in files)
@@ -613,8 +695,9 @@ end
     end
     @test length(unique(benchmark_ids)) == length(benchmark_ids)
     for collection in (:pscad, :uq)
-        @test sort(benchmark_cases[collection]; by = string) ==
-              sort!(collect(keys(index)); by = string)
+        @test length(unique(benchmark_cases[collection])) ==
+              length(benchmark_cases[collection])
+        @test all(in(keys(index)), benchmark_cases[collection])
     end
 end
 
@@ -625,6 +708,22 @@ end
     using Measurements
     using LineCableModels
     using .GauntletSupport
+
+    function nested_groups(part)
+        groups=Group[]
+        if part isa Group
+            push!(groups, part)
+            append!(groups, nested_groups(part.item))
+        elseif part isa Stack
+            for item in part.items
+                append!(groups, nested_groups(item))
+            end
+        elseif part isa Enclosure
+            append!(groups, nested_groups(part.item))
+            part.wall===nothing||append!(groups, nested_groups(part.wall))
+        end
+        return groups
+    end
 
     first_load=load_case(:cable_18kv_1000mm2_trefoil)
     first_load.nominal_problem.system.connections[1][1]=99
@@ -715,7 +814,7 @@ end
     expanded_design=first(expanded_armor.problem.system.designs)
     armor_group=only(filter(
         item->item isa Group&&item.name===:armor,
-        expanded_design.root.items
+        nested_groups(expanded_design.root)
     ))
     armor=only(filter(
         value->value.name===:armor,
@@ -1016,7 +1115,8 @@ end
     @test description(overhead.insulation_admittance) ==
           "PSCAD native insulation admittance"
     @test harness._formulation_label(overhead) ==
-          "Deri-Semlyen/PSCAD native earth admittance/PSCAD native insulation admittance"
+          "Deri-Semlyen complex ground-return-plane approximation (1981)/" *
+          "PSCAD native earth admittance/PSCAD native insulation admittance"
     @test overhead.options == (;)
     @test_throws ArgumentError Formulation(
         :pscad;
@@ -1102,7 +1202,7 @@ end
         transport = :ssh,
         timeout_seconds = 60
     )
-    owner=Val(harness.PSCADFormulation)
+    owner=harness.PSCADFormulation
     @test LineCableModels.formulation_options(owner, (;)) == (;)
     @test_throws ArgumentError LineCableModels.formulation_options(
         owner,
@@ -1187,6 +1287,12 @@ end
     )
     frequency_probe=collect(10.0 .^ range(0, stop = 6, length = 101))
     @test harness._validate_frequencies(frequency_probe) === frequency_probe
+    minimum_frequency_probe=collect(10.0 .^ range(-1, stop = 6, length = 101))
+    @test harness._validate_frequencies(minimum_frequency_probe) ===
+          minimum_frequency_probe
+    @test_throws DomainError harness._validate_frequencies(
+        collect(10.0 .^ range(-2, stop = 6, length = 101))
+    )
     supervisor_command=harness._supervisor_command(
         config,
         raw"Z:\gauntlet\benchmarks\.work\case\current",
@@ -1342,6 +1448,7 @@ end
         String
     )
     @test occursin("Stop-OwnedRunner", supervisor)
+    @test occursin("Remove-DirectoryWithRetry", supervisor)
     @test occursin("\$ProgressPreference = \"SilentlyContinue\"", supervisor)
     @test occursin("taskkill.exe /PID", supervisor)
     @test occursin("TimeoutSeconds", supervisor)

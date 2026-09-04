@@ -311,7 +311,7 @@ function run_snapshot(
         artifacts_toml::AbstractString = ARTIFACTS_TOML,
         options::NamedTuple = (;)
 )
-    run = computation_options(Val(GauntletCase), options)
+    run = computation_options(GauntletCase, options)
     candidate_options = merge(
         run.candidate,
         (output_basis = run.output_basis,)

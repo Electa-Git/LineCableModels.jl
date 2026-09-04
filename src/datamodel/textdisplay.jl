@@ -37,11 +37,11 @@ TextDisplay.@showfields Ellipse "Ellipse" primitive -> (
 )
 
 TextDisplay.@showfields Sector "Sector" primitive -> (
-    rᵢ = TextDisplay.engineering(primitive.ri, :meter),
-    rₒ = TextDisplay.engineering(primitive.ro, :meter),
-    φ₀ = iszero(primitive.φ0) ? nothing : TextDisplay.angle(primitive.φ0),
     Δφ = TextDisplay.angle(primitive.span),
-    at = _display_pose(primitive.at)
+    rᵢ = TextDisplay.engineering(primitive.r_base, :meter),
+    rₒ = TextDisplay.engineering(primitive.r_back, :meter),
+    fillet = iszero(primitive.fillet) ? nothing :
+             TextDisplay.engineering(primitive.fillet, :meter)
 )
 
 TextDisplay.@showfields Annulus "Annulus" primitive -> (
@@ -55,16 +55,33 @@ TextDisplay.@showfields Polygon "Polygon" primitive -> (
     at = _display_pose(primitive.at)
 )
 
-TextDisplay.@showfields RoundedSector "RoundedSector" primitive -> (
-    Δφ = TextDisplay.angle(primitive.span),
-    rᵢ = TextDisplay.engineering(primitive.r_base, :meter),
-    rₒ = TextDisplay.engineering(primitive.r_back, :meter),
-    fillet = iszero(primitive.fillet) ? nothing :
-             TextDisplay.engineering(primitive.fillet, :meter)
+TextDisplay.@showfields BentStrip "BentStrip" shape -> (
+    rᵢ = TextDisplay.engineering(shape.ri, :meter),
+    rₒ = TextDisplay.engineering(shape.ro, :meter),
+    Δφ = TextDisplay.angle(shape.span),
+    at = _display_pose(shape.at)
+)
+
+TextDisplay.@showfields BoundedPlacement "BoundedPlacement" placement -> (
+    boundary = string(nameof(typeof(placement.boundary))),
 )
 
 TextDisplay.@showfields Shell "Shell" layer -> (
     t = TextDisplay.engineering(layer.t, :meter),
+)
+
+TextDisplay.@showfields DifferenceShape "DifferenceShape" shape -> (
+    outer = string(nameof(typeof(shape.outer))),
+    holes = length(shape.holes)
+)
+
+TextDisplay.@showfields AssemblyShape "AssemblyShape" shape -> (
+    members = length(shape.members),
+)
+
+TextDisplay.@showfields AssemblyMember "AssemblyMember" member -> (
+    item = string(nameof(typeof(member.item))),
+    at = _display_pose(member.at)
 )
 
 TextDisplay.name(::Type{<:EmptyBoundary}) = "Empty boundary"
@@ -111,20 +128,8 @@ TextDisplay.@showfields Lattice "Lattice" pattern -> (
     Δy = TextDisplay.engineering(pattern.dy, :meter)
 )
 
-TextDisplay.@showfields DiameterFactor "DiameterFactor" factor -> (
-    k = TextDisplay.value(factor.k),
-)
-
 TextDisplay.@showfields FillFactor "FillFactor" factor -> (
     η = TextDisplay.value(factor.η),
-)
-
-TextDisplay.@showfields TabulatedCompaction "TabulatedCompaction" compaction -> (
-    data = _bounded_collection(compaction.data),
-)
-
-TextDisplay.@showfields AffineCompaction "AffineCompaction" compaction -> (
-    map = _bounded_collection(compaction.map),
 )
 
 TextDisplay.@showfields LayRatio "LayRatio" lay -> (
@@ -160,26 +165,25 @@ TextDisplay.@showfields Helix{<:LayAngle} "Helix" path -> (
 TextDisplay.name(::Type{<:Helix}) = "Helix"
 Base.summary(io::IO, ::Helix) = print(io, "Helix")
 function Base.show(io::IO, path::Helix)
-    return TextDisplay.fields(io, "Helix", (
-        lay = sprint(show, path.lay; context = :compact => true),
-        dir = path.dir > 0 ? "+1" : "−1",
-        φ₀ = iszero(path.φ0) ? nothing : TextDisplay.angle(path.φ0),
-    ))
+    return TextDisplay.fields(io,
+        "Helix",
+        (
+            lay = sprint(show, path.lay; context = :compact => true),
+            dir = path.dir > 0 ? "+1" : "−1",
+            φ₀ = iszero(path.φ0) ? nothing : TextDisplay.angle(path.φ0)
+        ))
 end
 function Base.show(io::IO, ::MIME"text/plain", path::Helix)
     get(io, :compact, false) && return show(io, path)
-    return TextDisplay.fields(io, "Helix", (
-        lay = sprint(show, path.lay; context = :compact => true),
-        dir = path.dir > 0 ? "+1" : "−1",
-        φ₀ = iszero(path.φ0) ? nothing : TextDisplay.angle(path.φ0),
-    ); multiline = true)
+    return TextDisplay.fields(io,
+        "Helix",
+        (
+            lay = sprint(show, path.lay; context = :compact => true),
+            dir = path.dir > 0 ? "+1" : "−1",
+            φ₀ = iszero(path.φ0) ? nothing : TextDisplay.angle(path.φ0)
+        );
+        multiline = true)
 end
-
-TextDisplay.@showfields CableConstants "CableConstants" constants -> (
-    R = TextDisplay.quantity(constants.R, Units.quantity(R), basis(constants)),
-    L = TextDisplay.quantity(constants.L, Units.quantity(L), basis(constants)),
-    C = TextDisplay.quantity(constants.C, Units.quantity(C), basis(constants))
-)
 
 _datasheet_unit(::Val{:U0}) = "kV"
 _datasheet_unit(::Val{:U}) = "kV"
@@ -205,8 +209,7 @@ function _datasheet_fields(info::DatasheetInfo)
     return NamedTuple{names}(values)
 end
 
-TextDisplay.@showfields DatasheetInfo "DatasheetInfo" info ->
-    _datasheet_fields(info)
+TextDisplay.@showfields DatasheetInfo "DatasheetInfo" info -> _datasheet_fields(info)
 
 _compact_text(value) = sprint(show, value; context = :compact => true)
 
@@ -224,8 +227,8 @@ function _part_label(group::Group)
     attributes = String[]
     !_identity_pose(group.at) && push!(attributes, _compact_text(group.at))
     one_member = group.pattern === nothing ||
-        group.pattern isa Ring && group.pattern.n == 1 &&
-        (group.pattern.r === nothing || iszero(group.pattern.r))
+                 group.pattern isa Ring && group.pattern.n == 1 &&
+                 (group.pattern.r === nothing || iszero(group.pattern.r))
     push!(attributes, one_member ? "one member" : _compact_text(group.pattern))
     group.path === nothing || push!(attributes, _compact_text(group.path))
     group.compact === nothing || push!(attributes, _compact_text(group.compact))
@@ -258,11 +261,11 @@ _part_children(group::Group) = (_part_node(group.item),)
 function _part_children(assembly::Assembly)
     if assembly.item isa Tuple
         return Tuple((
-            label = _identity_pose(member.at) ? _part_label(member.item) :
-                    string(_part_label(member.item), " · ", _compact_text(member.at)),
-            children = _part_children(member.item),
-            noun = "parts",
-        ) for member in assembly.item)
+                         label = _identity_pose(member.at) ? _part_label(member.item) :
+                                 string(_part_label(member.item), " · ", _compact_text(member.at)),
+                         children = _part_children(member.item),
+                         noun = "parts"
+                     ) for member in assembly.item)
     end
     return (_part_node(assembly.item),)
 end
@@ -270,20 +273,24 @@ function _part_children(enclosure::Enclosure)
     fill = enclosure.fill isa Material ?
            "fill · Material · $(enclosure.fill.kind)" :
            string("fill · ", _part_label(enclosure.fill))
-    children = Any[_part_node(enclosure.item), (label = fill, noun = "parts")]
-    enclosure.wall === nothing || push!(children, (
-        label = string("wall · ", _part_label(enclosure.wall)),
-        children = _part_children(enclosure.wall),
-        noun = "parts",
-    ))
+    children = Any[_part_node(enclosure.item), (
+        label = fill, noun = "parts")]
+    enclosure.wall === nothing || push!(children,
+        (
+            label = string("wall · ", _part_label(enclosure.wall)),
+            children = _part_children(enclosure.wall),
+            noun = "parts"
+        ))
     return Tuple(children)
 end
 
-_part_node(part::AbstractCablePart) = (
-    label = _part_label(part),
-    children = _part_children(part),
-    noun = "parts",
-)
+function _part_node(part::AbstractCablePart)
+    (
+        label = _part_label(part),
+        children = _part_children(part),
+        noun = "parts"
+    )
+end
 
 TextDisplay.name(::Type{<:Region}) = "Region"
 Base.summary(io::IO, region::Region) = print(io, "Region :", region.tag)
@@ -313,8 +320,12 @@ function Base.show(io::IO, group::Group)
     else
         show(IOContext(io, :compact => true), group.pattern)
     end
-    group.path === nothing || (print(io, ", path="); show(IOContext(io, :compact => true), group.path))
-    group.compact === nothing || (print(io, ", compact="); show(IOContext(io, :compact => true), group.compact))
+    group.path === nothing ||
+        (print(io, ", path="); show(IOContext(io, :compact => true), group.path))
+    group.compact === nothing ||
+        (print(io, ", compact="); show(IOContext(io, :compact => true), group.compact))
+    group.boundary === nothing ||
+        (print(io, ", boundary="); show(IOContext(io, :compact => true), group.boundary))
     print(io, ")")
 end
 function Base.show(io::IO, ::MIME"text/plain", group::Group)
@@ -325,8 +336,8 @@ end
 TextDisplay.name(::Type{<:Assembly}) = "Assembly"
 function Base.summary(io::IO, assembly::Assembly)
     assembly.item isa Tuple ?
-        print(io, "Assembly with $(length(assembly.item)) members") :
-        print(io, "Assembly")
+    print(io, "Assembly with $(length(assembly.item)) members") :
+    print(io, "Assembly")
 end
 function Base.show(io::IO, assembly::Assembly)
     if assembly.item isa Tuple
@@ -367,9 +378,9 @@ end
 function Base.show(io::IO, ::MIME"text/plain", region::PlacedRegion)
     get(io, :compact, false) && return show(io, region)
     attributes = String[
-        "source    $(_part_label(region.source))",
-        "primitive $(_compact_text(region.primitive))",
-    ]
+    "source    $(_part_label(region.source))",
+    "primitive $(_compact_text(region.primitive))"
+]
     region.terminal === nothing || push!(attributes, "terminal  :$(region.terminal)")
     isempty(region.placement.patterns) || push!(attributes,
         "patterns  $(length(region.placement.patterns))")
@@ -388,15 +399,17 @@ function Base.show(io::IO, geometry::CableGeometry)
 end
 function Base.show(io::IO, ::MIME"text/plain", geometry::CableGeometry)
     get(io, :compact, false) && return show(io, geometry)
-    children = Any[(label = "outer    $(_compact_text(geometry.outer))", noun = "regions")]
-    append!(children, (
-        label = string(
-            "region :", region.source.tag,
-            region.terminal === nothing ? "" : " · terminal :$(region.terminal)",
-            " · ", _compact_text(region.primitive)
-        ),
-        noun = "regions",
-    ) for region in geometry.regions)
+    children = Any[(
+        label = "outer    $(_compact_text(geometry.outer))", noun = "regions")]
+    append!(children,
+        (
+            label = string(
+                "region :", region.source.tag,
+                region.terminal === nothing ? "" : " · terminal :$(region.terminal)",
+                " · ", _compact_text(region.primitive)
+            ),
+            noun = "regions"
+        ) for region in geometry.regions)
     count = length(geometry.regions)
     return TextDisplay.tree(
         io,
@@ -407,7 +420,9 @@ function Base.show(io::IO, ::MIME"text/plain", geometry::CableGeometry)
 end
 
 TextDisplay.name(::Type{<:CableDesign}) = "CableDesign"
-Base.summary(io::IO, design::CableDesign) = print(io, "CableDesign \"", design.cable_id, "\"")
+function Base.summary(io::IO, design::CableDesign)
+    print(io, "CableDesign \"", design.cable_id, "\"")
+end
 function Base.show(io::IO, design::CableDesign)
     print(
         io,
@@ -422,14 +437,17 @@ function Base.show(io::IO, ::MIME"text/plain", design::CableDesign)
     children = (
         (label = "terminals  $terminals", noun = "parts"),
         (label = "regions    $(length(design.geometry.regions))", noun = "parts"),
-        (label = "diameter   $(TextDisplay.engineering(2outer_radius(design), :meter))", noun = "parts"),
-        (label = "root       $(root.label)", children = root.children, noun = "parts"),
+        (label = "diameter   $(TextDisplay.engineering(2outer_radius(design), :meter))",
+            noun = "parts"),
+        (label = "root       $(root.label)", children = root.children, noun = "parts")
     )
     return TextDisplay.tree(io, "CableDesign \"$(design.cable_id)\"", children)
 end
 
 TextDisplay.name(::Type{<:LineCableSystem}) = "LineCableSystem"
-Base.summary(io::IO, system::LineCableSystem) = print(io, "LineCableSystem \"", system.system_id, "\"")
+function Base.summary(io::IO, system::LineCableSystem)
+    print(io, "LineCableSystem \"", system.system_id, "\"")
+end
 function Base.show(io::IO, system::LineCableSystem)
     print(
         io,
@@ -440,23 +458,26 @@ end
 function Base.show(io::IO, ::MIME"text/plain", system::LineCableSystem)
     get(io, :compact, false) && return show(io, system)
     cables = Tuple((
-        label = string(
-            design.cable_id,
-            " · ", _compact_text(position),
-            " · ", join(
-                ("$terminal→$phase" for (terminal, phase) in
-                 zip(design.terminal_order, connections)),
-                ", "
-            )
-        ),
-        noun = "cables",
-    ) for (design, position, connections) in zip(
+                       label = string(
+                           design.cable_id,
+                           " · ", _compact_text(position),
+                           " · ", join(
+                               ("$terminal→$phase"
+                               for (terminal, phase) in
+                                   zip(design.terminal_order, connections)),
+                               ", "
+                           )
+                       ),
+                       noun = "cables"
+                   )
+    for (design, position, connections) in zip(
         system.designs, system.positions, system.connections
     ))
     children = (
-        (label = "length     $(TextDisplay.engineering(system.line_length, :meter))", noun = "cables"),
+        (label = "length     $(TextDisplay.engineering(system.line_length, :meter))",
+            noun = "cables"),
         (label = "terminals  $(length(system.terminal_order))", noun = "cables"),
-        (label = "cables", children = cables, noun = "cables"),
+        (label = "cables", children = cables, noun = "cables")
     )
     return TextDisplay.tree(io, "LineCableSystem \"$(system.system_id)\"", children)
 end
@@ -474,16 +495,17 @@ function Base.show(io::IO, ::MIME"text/plain", library::CablesLibrary)
     get(io, :compact, false) && return show(io, library)
     ids = sort!(collect(keys(library)))
     children = Tuple(begin
-        design = library[cable_id]
-        (
-            label = string(
-                cable_id, " · ", length(design.terminal_order), " terminals · ",
-                length(design.geometry.regions), " regions · D=",
-                TextDisplay.engineering(2outer_radius(design), :meter)
-            ),
-            noun = "designs",
-        )
-    end for cable_id in ids)
+                         design = library[cable_id]
+                         (
+                             label = string(
+                                 cable_id, " · ", length(design.terminal_order), " terminals · ",
+                                 length(design.geometry.regions), " regions · D=",
+                                 TextDisplay.engineering(2outer_radius(design), :meter)
+                             ),
+                             noun = "designs"
+                         )
+                     end
+    for cable_id in ids)
     count = length(library)
     return TextDisplay.tree(
         io,
@@ -493,15 +515,16 @@ function Base.show(io::IO, ::MIME"text/plain", library::CablesLibrary)
     )
 end
 
-TextDisplay.name(::Type{<:RoundedSectorShape}) = "Rounded sector shape"
-Base.summary(io::IO, ::RoundedSectorShape) = print(io, "Resolved rounded sector")
-function Base.show(io::IO, shape::RoundedSectorShape)
-    print(io, "ResolvedRoundedSector(")
+TextDisplay.name(::Type{<:SectorShape}) = "Sector shape"
+Base.summary(io::IO, ::SectorShape) = print(io, "Resolved sector")
+function Base.show(io::IO, shape::SectorShape)
+    print(io, "ResolvedSector(")
     show(IOContext(io, :compact => true), shape.primitive)
-    _identity_pose(shape.at) || (print(io, "; at="); show(IOContext(io, :compact => true), shape.at))
+    _identity_pose(shape.at) ||
+        (print(io, "; at="); show(IOContext(io, :compact => true), shape.at))
     print(io, ")")
 end
-Base.show(io::IO, ::MIME"text/plain", shape::RoundedSectorShape) = show(io, shape)
+Base.show(io::IO, ::MIME"text/plain", shape::SectorShape) = show(io, shape)
 
 TextDisplay.name(::Type{<:ShellShape}) = "Shell shape"
 Base.summary(io::IO, ::ShellShape) = print(io, "Resolved shell")
@@ -514,46 +537,26 @@ function Base.show(io::IO, shape::ShellShape)
 end
 function Base.show(io::IO, ::MIME"text/plain", shape::ShellShape)
     get(io, :compact, false) && return show(io, shape)
-    return TextDisplay.tree(io, "Resolved shell", (
-        (label = "inner  $(_compact_text(shape.inner))", noun = "boundaries"),
-        (label = "outer  $(_compact_text(shape.outer))", noun = "boundaries"),
-    ))
+    return TextDisplay.tree(io,
+        "Resolved shell",
+        (
+            (label = "inner  $(_compact_text(shape.inner))", noun = "boundaries"),
+            (label = "outer  $(_compact_text(shape.outer))", noun = "boundaries")
+        ))
 end
 
 function _preview_geometry_count(geometry)
-    points = _preview_geometry_points(geometry)
+    points = geometry isa GeometryBasics.Polygon ? geometry.exterior : geometry
     applicable(length, points) && return length(points)
     return count(_ -> true, points)
 end
 
-TextDisplay.name(::Type{<:PreviewPolygon}) = "Preview polygon"
-Base.summary(io::IO, polygon::PreviewPolygon) = print(io, "Preview polygon :", polygon.group)
-function Base.show(io::IO, polygon::PreviewPolygon)
-    print(io, "PreviewPolygon(:", polygon.group, "; vertices=",
-        _preview_geometry_count(polygon.geometry), ")")
+TextDisplay.name(::Type{<:PreviewShape}) = "Preview shape"
+function Base.summary(io::IO, shape::PreviewShape)
+    print(io, "Preview shape :", shape.tag)
 end
-Base.show(io::IO, ::MIME"text/plain", polygon::PreviewPolygon) = show(io, polygon)
-
-TextDisplay.name(::Type{<:PreviewReferenceLine}) = "Preview reference line"
-Base.summary(io::IO, line::PreviewReferenceLine) =
-    print(io, "Preview reference line :", line.group)
-function Base.show(io::IO, line::PreviewReferenceLine)
-    print(io, "PreviewReferenceLine(:", line.group, "; values=", length(line.values), ")")
+function Base.show(io::IO, shape::PreviewShape)
+    print(io, "PreviewShape(:", shape.tag, "; vertices=",
+        _preview_geometry_count(shape.geometry), ")")
 end
-Base.show(io::IO, ::MIME"text/plain", line::PreviewReferenceLine) = show(io, line)
-
-TextDisplay.name(::Type{<:PreviewPayload}) = "Preview payload"
-Base.summary(io::IO, payload::PreviewPayload) = print(io, "Detached preview payload")
-function Base.show(io::IO, payload::PreviewPayload)
-    print(io, "PreviewPayload(polygons=", length(payload.polygons),
-        ", references=", length(payload.references), ")")
-end
-function Base.show(io::IO, ::MIME"text/plain", payload::PreviewPayload)
-    get(io, :compact, false) && return show(io, payload)
-    limits = payload.limits === nothing ? "fitted" : _bounded_collection(payload.limits)
-    return TextDisplay.tree(io, "Detached preview payload", (
-        (label = "polygons    $(length(payload.polygons))", noun = "fields"),
-        (label = "references  $(length(payload.references))", noun = "fields"),
-        (label = "limits      $limits", noun = "fields"),
-    ))
-end
+Base.show(io::IO, ::MIME"text/plain", shape::PreviewShape) = show(io, shape)

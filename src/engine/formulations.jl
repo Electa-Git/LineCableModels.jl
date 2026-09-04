@@ -212,11 +212,22 @@ function _fem_execution_options(options::NamedTuple)
     return LineCableModelsFEMOptions(; options...)
 end
 
+function _fem_formulation(
+        options::NamedTuple,
+        fem_options::Union{NamedTuple, LineCableModelsFEMOptions}
+)
+    shared = formulation_options(LineParametersFormulation, options)
+    return LineCableModelsFEM(shared, _fem_execution_options(fem_options))
+end
+
 """
 $(TYPEDSIGNATURES)
 
 Construct the Gmsh/GetDP finite-element formulation through the code-first
-`Formulation` grammar.
+`Formulation` grammar. `options` and `fem_options` accept scalar values or
+explicit [`Grid`](@ref LineCableModels.ParametricBuilder.Grid)/
+[`Gridspace`](@ref LineCableModels.ParametricBuilder.Gridspace) sources; a
+varying call returns a `Gridspace{LineCableModelsFEM}`.
 
 # Keywords
 
@@ -224,23 +235,27 @@ Construct the Gmsh/GetDP finite-element formulation through the code-first
   options accepted by the line-parameter engine.
 - `fem_options=(;)`: A [`LineCableModelsFEMOptions`](@ref) value or the
   equivalent named tuple.
-
-# Returns
-
-- A [`LineCableModelsFEM`](@ref) formulation.
+- `combine=:product`: `:product` or `:zip` composition between varying option
+  bundles.
 """
 function Formulation(
         ::Val{:LineCableModelsFEM};
-        options::NamedTuple = (;),
-        fem_options::Union{NamedTuple, LineCableModelsFEMOptions} = (;)
+        options = (;),
+        fem_options = (;),
+        combine::Symbol = :product
 )
-    shared = formulation_options(Val(LineParametersFormulation), options)
-    return LineCableModelsFEM(shared, _fem_execution_options(fem_options))
+    return parameterize(
+        LineCableModelsFEM,
+        _fem_formulation,
+        (options, fem_options);
+        combine
+    )
 end
 
 function LineCableModelsFEM(;
-        options::NamedTuple = (;),
-        fem_options::Union{NamedTuple, LineCableModelsFEMOptions} = (;)
+        options = (;),
+        fem_options = (;),
+        combine::Symbol = :product
 )
-    return Formulation(Val(:LineCableModelsFEM); options, fem_options)
+    return Formulation(Val(:LineCableModelsFEM); options, fem_options, combine)
 end

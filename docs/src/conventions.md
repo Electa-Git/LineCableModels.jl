@@ -55,10 +55,9 @@ methods for the stages they own.
 
 ```julia
 function process(definition::AbstractDefinition, source)
-    admitted = entitle(definition, source)
-    selected = select(definition, admitted)
+    selected = select(definition, source)
     product = build(definition, selected)
-    return finish(definition, admitted, selected, product)
+    return Product(product)
 end
 ```
 
@@ -87,13 +86,12 @@ owned_action(::Val{:example}, args...; kwargs...) = ...
 ```
 
 Use an explicit no-op method only when doing nothing is a valid stage result.
-Reject unsupported definition/source pairs before partial work. Introduce a
-mutable context only when several stages genuinely share buffers, resources,
-or evolving state.
-
-The sanctioned `@orchestrator` actions and their CI checks are listed in
-[Grammar invariants](developers.md). Do not apply `@orchestrator` to an open
-generic such as `observe`.
+Reject unsupported definition/source pairs through required stage dispatch
+before partial work. Introduce a mutable context only when several stages
+genuinely share buffers, resources, or evolving state. CI checks the fixed
+actions listed in [Grammar invariants](developers.md) directly; runtime
+metadata that merely repeats their method definitions is not part of the
+grammar.
 
 ## Ownership-centred recursive module layout
 
@@ -123,8 +121,11 @@ format translations belong in focused files selected by the owner.
 
 Place a method according to the reason it changes. A method that exposes an
 Engine result through `observe` belongs with that result. A method that draws a
-detached plot page with Makie belongs in the Makie extension. A method that
-parses an external file belongs with the format owner.
+native figure with Makie belongs in the Makie extension. Scientific
+observations and physical preview geometry remain with their owner; plot
+request normalization, presentation groups, palettes, Makie blocks, layouts,
+widgets, callbacks, and backend activation do not. A method that parses an
+external file belongs with the format owner.
 
 Optional dependencies remain in package extensions. Core source may define
 package-neutral requests and completed values, but it does not import Makie,
@@ -164,13 +165,15 @@ Apply these rules:
 1. Construct scientific requests with `@observe` and retain their tuple form.
 2. Define quantity identity, units, labels, and symbols in `Units`.
 3. Let the result owner implement `observe` and declare supported requests.
-4. Publish once before a table or plot consumes the values.
+4. Publish once before a table or report consumes values; plotting sugar must
+   use the same public observation protocol rather than Engine internals.
 5. Keep scientific tables wide: coordinates identify rows and each observed
    quantity owns one column.
-6. Select a drawing primitive with the Makie function itself.
-7. Create managed axes through `axis!`, or attach an ordinary Makie axis with
-   `register!`.
-8. Add preview geometry beside the DataModel type that owns the cable part.
+6. Select statistical drawing primitives with Makie function identity itself.
+7. Create ordinary Makie axes directly or through the small addon shell; do not
+   introduce renderer-independent axis or subscription aggregates.
+8. Add physical preview geometry beside the DataModel type that owns the cable
+   part, and add colors or legend grouping only in the Makie extension.
 
 Do not inspect UQ storage fields from plotting or reporting code. `samples`,
 `statistics`, and `histograms` select stored products; the scientific selector

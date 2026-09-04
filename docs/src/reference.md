@@ -106,9 +106,18 @@ Private = false
 ## Plots, reports, and tables
 
 ```@docs
-LineCableModels.PlotBuilder.UIPlot
+LineCableModels.UIPlot
+LineCableModels.plot
+LineCableModels.preview
+LineCableModels.show_material_scale
 LineCableModels.export_svg
-LineCableModels.set_backend!
+LineCableModels.figurelegend!
+LineCableModels.panellegend!
+LineCableModels.figuretitle!
+LineCableModels.paneltitle!
+LineCableModels.plotwindow
+LineCableModels.materialcolors
+LineCableModels.materialscale!
 LineCableModels.ReportBuilder.ReportArtifact
 LineCableModels.ReportBuilder.TableReportDefinition
 LineCableModels.ReportBuilder.XLSXReportDefinition

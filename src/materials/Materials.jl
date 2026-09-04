@@ -24,12 +24,16 @@ export AbstractMaterial, Material, MaterialsLibrary, add!
 using DocStringExtensions: IMPORTS
 #! explicit-imports: on
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES, FUNCTIONNAME
+using RequiredInterfaces: @required
 import ..LineCableModels: add!, validate
-import ..Validation
 import ..TextDisplay
 
 include("material.jl")
 include("materialslibrary.jl")
 include("base.jl")
+
+@required AbstractMaterial begin
+    validate(::AbstractMaterial)
+end
 
 end # module Materials

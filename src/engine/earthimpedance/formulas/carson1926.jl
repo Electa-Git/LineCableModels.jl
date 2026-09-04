@@ -1,8 +1,10 @@
-routes(::Val{:Carson1926}) = (
-    self = carson1926,
-    mutual = carson1926,
-    Γ = carson1926_gamma
-)
+function routes(identifier::Val{:Carson1926})
+    return (
+        self = FormulaMethod(identifier, earth_impedance, Val(:self)),
+        mutual = FormulaMethod(identifier, earth_impedance, Val(:mutual)),
+        Γ = FormulaMethod(identifier, propagation_constant)
+    )
+end
 
 function assumptions(::Val{:Carson1926})
     (
@@ -13,9 +15,30 @@ function assumptions(::Val{:Carson1926})
 end
 
 propagation(::Val{:Carson1926}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Classical homogeneous, conductive-earth overhead
+impedance. Displacement currents and longitudinal propagation are neglected.
+
+**Expression.**
+
+```math
+Z_{e,ij}=\\frac{j\\omega\\mu_0}{2\\pi}\\left[
+\\ln\\frac{D_{ij}}{d_{ij}}+2\\int_0^\\infty
+\\frac{e^{-H\\lambda}\\cos(y_{ij}\\lambda)}
+{\\lambda+\\sqrt{\\lambda^2+\\gamma_g^2}}d\\lambda\\right],
+\\qquad \\gamma_g^2=j\\omega\\mu_0\\sigma_g.
+```
+
+**Reference.** J. R. Carson, “Wave Propagation in Overhead Wires with Ground
+Return,” *Bell System Technical Journal*, 5, 539–554, 1926.
+"""
 description(::Formula{:Carson1926}) = "Carson homogeneous-earth overhead impedance (1926)"
 
-carson1926_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))
+function propagation_constant(::Val{:Carson1926}, jω, permeability, permittivity)
+    return (Γ = zero(jω), squared = zero(jω))
+end
 
 function (formula::Formula{:Carson1926})(rho, epsilon, mu, jω, Γ, segments = nothing)
     return _homogeneous_functor(
@@ -47,7 +70,9 @@ defined only here.
 J. R. Carson, "Wave propagation in overhead wires with ground return,"
 *Bell System Technical Journal*, vol. 5, pp. 539-554, 1926.
 """
-function carson1926(functor, pair)
+function earth_impedance(
+        ::Val{:Carson1926}, ::Val{:mutual}, functor, pair
+)
     _require(pair, Val(:overhead))
     state = functor.state
     geometry = _geometry(pair)

@@ -43,9 +43,9 @@ During development, select the owned UQ or external PSCAD family directly:
 
 ```sh
 julia --project=test/gauntlet --startup-file=no -e \
-  'using TestItemRunner; @run_package_tests(filter=ti -> :uq in ti.tags, verbose=true)'
+  'using TestItemRunner; TestItemRunner.run_tests(joinpath(pwd(), "test"); filter=ti -> :uq in ti.tags, verbose=true)'
 julia --project=test/gauntlet --startup-file=no -e \
-  'using TestItemRunner; @run_package_tests(filter=ti -> :pscad in ti.tags, verbose=true)'
+  'using TestItemRunner; TestItemRunner.run_tests(joinpath(pwd(), "test"); filter=ti -> :pscad in ti.tags, verbose=true)'
 ```
 
 Run the reusable gauntlet toolkit checks separately with:

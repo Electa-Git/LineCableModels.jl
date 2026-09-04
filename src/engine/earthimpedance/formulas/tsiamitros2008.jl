@@ -1,8 +1,8 @@
-function routes(::Val{:Tsiamitros2008})
+function routes(identifier::Val{:Tsiamitros2008})
     (
-        self = tsiamitros2008_self,
-        mutual = tsiamitros2008_mutual,
-        Γ = tsiamitros2008_gamma
+        self = FormulaMethod(identifier, earth_impedance, Val(:self)),
+        mutual = FormulaMethod(identifier, earth_impedance, Val(:mutual)),
+        Γ = FormulaMethod(identifier, propagation_constant)
     )
 end
 
@@ -16,11 +16,42 @@ end
 
 propagation(::Val{:Tsiamitros2008}) = Val(:zero)
 media(::Formula{:Tsiamitros2008}) = Val(:stratified)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** General same-layer, cross-layer, and mixed conductor
+kernel for arbitrarily stratified earth.
+
+**Expression.** For source layer ``m`` and target layer ``l``,
+
+```math
+Z_{e,ij}=\\frac{j\\omega\\mu_m}{2\\pi}\\int_0^\\infty
+\\frac{\\cos(uy_{ij})}{\\bar\\alpha_m}
+\\left[2^{m-l}
+\\frac{(\\mu_1\\cdots\\mu_{m-1})(\\bar\\alpha_1\\cdots\\bar\\alpha_m)}
+{(\\mu_1\\cdots\\mu_{l-1})(\\bar\\alpha_1\\cdots\\bar\\alpha_l)}
+\\frac{e^{-\\sum_{q=l}^{m}\\bar\\alpha_qd_q}\\bar F_1\\bar F_2}
+{\\overline{DTD}_0}\\right]du.
+```
+
+The ``\\overline{DTD}``, ``\\overline{DTN}``, ``\\overline{TDD}``, and
+``\\overline{TDN}`` interface factors are evaluated by the paper's upward and
+downward recursions.
+
+**Reference.** D. A. Tsiamitros, G. K. Papagiannis, and P. S. Dokopoulos,
+“Earth Return Impedances of Conductor Arrangements in Multilayer Soils—Part
+I: Theoretical Model,” *IEEE Transactions on Power Delivery*, 23(4),
+2392–2400, 2008.
+"""
 function description(::Formula{:Tsiamitros2008})
     "Tsiamitros et al. true arbitrary-layer impedance kernel (2008)"
 end
 
-tsiamitros2008_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))
+function propagation_constant(
+        ::Val{:Tsiamitros2008}, jω, permeability, permittivity
+)
+    return (Γ = zero(jω), squared = zero(jω))
+end
 
 function (formula::Formula{:Tsiamitros2008})(
         rho, epsilon, mu, jω, Γ, segments, thickness
@@ -93,13 +124,15 @@ As specified by the author, self impedance is the same-layer mutual route
 with both depths equal and ``y_{ii}`` set to the conductor outer radius. The
 canonical `EarthPair` already carries that radius as its self separation.
 """
-tsiamitros2008_self(functor, pair) = tsiamitros2008_mutual(functor, pair)
-
-function tsiamitros2008_mutual(functor, pair)
-    return tsiamitros2008(functor, pair, _placement(pair))
+function earth_impedance(
+        identifier::Val{:Tsiamitros2008}, ::Val{:mutual}, functor, pair
+)
+    return earth_impedance(identifier, _placement(pair), functor, pair)
 end
 
-function tsiamitros2008(functor, pair, ::Val{:overhead})
+function earth_impedance(
+        identifier::Val{:Tsiamitros2008}, ::Val{:overhead}, functor, pair
+)
     state = functor.state
     geometry = _geometry(pair)
     count = length(state.rho)
@@ -109,7 +142,9 @@ function tsiamitros2008(functor, pair, ::Val{:overhead})
     denominator = similar(attenuation)
     difference = abs(geometry.h_i - geometry.h_j)
     integral = _quadrature(state) do lambda
-        tsiamitros_down!(numerator, denominator, attenuation, state, lambda)
+        downward_coefficients!(
+            identifier, numerator, denominator, attenuation, state, lambda
+        )
         a_0 = attenuation[1]
         reflection = numerator[1] / denominator[1]
         exact = (
@@ -126,13 +161,15 @@ function tsiamitros2008(functor, pair, ::Val{:overhead})
            (log(geometry.D_ij / geometry.d_ij) + integral)
 end
 
-function tsiamitros2008(functor, pair, ::Val{:underground})
+function earth_impedance(
+        identifier::Val{:Tsiamitros2008}, ::Val{:underground}, functor, pair
+)
     state = functor.state
-    source, target = tsiamitros_order(pair)
+    source, target = conductor_order(identifier, pair)
     m = pair.layers[source] - 1
     l = pair.layers[target] - 1
-    h_1 = tsiamitros_depth(state, pair, source, m)
-    h_2 = tsiamitros_depth(state, pair, target, l)
+    h_1 = local_layer_depth(identifier, state, pair, source, m)
+    h_2 = local_layer_depth(identifier, state, pair, target, l)
     count = length(state.rho)
     T = typeof(state.jω)
     attenuation = Vector{T}(undef, count)
@@ -145,9 +182,19 @@ function tsiamitros2008(functor, pair, ::Val{:underground})
         state.gamma[m + 1] * hypot(pair.separation, h_1 - h_2)
     ) : zero(T)
     integral = _quadrature(state) do lambda
-        tsiamitros_down!(numerator, denominator, attenuation, state, lambda)
-        value = tsiamitros_kernel(
-            state, attenuation, numerator, denominator, l, m, h_1, h_2
+        downward_coefficients!(
+            identifier, numerator, denominator, attenuation, state, lambda
+        )
+        value = spectral_kernel(
+            identifier,
+            state,
+            attenuation,
+            numerator,
+            denominator,
+            l,
+            m,
+            h_1,
+            h_2
         )
         if same_layer
             value -= exp(-attenuation[m + 1] * (h_1 - h_2)) /
@@ -158,7 +205,9 @@ function tsiamitros2008(functor, pair, ::Val{:underground})
     return state.jω * state.mu[m + 1] / (2π) * (direct + integral)
 end
 
-function tsiamitros2008(functor, pair, ::Val{:mixed})
+function earth_impedance(
+        identifier::Val{:Tsiamitros2008}, ::Val{:mixed}, functor, pair
+)
     state = functor.state
     air_position = pair.layers[1] == 1 ? 1 : 2
     earth_position = air_position == 1 ? 2 : 1
@@ -166,13 +215,15 @@ function tsiamitros2008(functor, pair, ::Val{:mixed})
     m = earth_layer - 1
     Nlayer = length(state.rho) - 1
     h_air = abs(pair.heights[air_position])
-    local_depth = tsiamitros_depth(state, pair, earth_position, m)
+    local_depth = local_layer_depth(identifier, state, pair, earth_position, m)
     T = typeof(state.jω)
     a = Vector{T}(undef, Nlayer + 1)
     numerator = similar(a)
     denominator = similar(a)
     integral = _quadrature(state) do lambda
-        tsiamitros_down!(numerator, denominator, a, state, lambda)
+        downward_coefficients!(
+            identifier, numerator, denominator, a, state, lambda
+        )
         coefficient = exp(-a[1] * h_air) * 2^(m - 1)
         attenuation_prior = one(T)
         @inbounds for k in 1:m
@@ -194,7 +245,14 @@ function tsiamitros2008(functor, pair, ::Val{:mixed})
     return state.jω * state.mu[1] / π * integral
 end
 
-function tsiamitros_down!(numerator, denominator, attenuation, state, lambda)
+function downward_coefficients!(
+        ::Val{:Tsiamitros2008},
+        numerator,
+        denominator,
+        attenuation,
+        state,
+        lambda
+)
     N = length(state.rho) - 1
     T = eltype(attenuation)
     @inbounds for medium in 0:N
@@ -221,7 +279,9 @@ function tsiamitros_down!(numerator, denominator, attenuation, state, lambda)
     return nothing
 end
 
-function tsiamitros_up(state, attenuation, layer)
+function upward_coefficients(
+        ::Val{:Tsiamitros2008}, state, attenuation, layer
+)
     T = eltype(attenuation)
     denominator = one(T)
     numerator = zero(T)
@@ -244,12 +304,21 @@ function tsiamitros_up(state, attenuation, layer)
     return denominator, numerator
 end
 
-function tsiamitros_kernel(
-        state, attenuation, down_numerator, down_denominator,
-        l, m, h_1, h_2
+function spectral_kernel(
+        identifier::Val{:Tsiamitros2008},
+        state,
+        attenuation,
+        down_numerator,
+        down_denominator,
+        l,
+        m,
+        h_1,
+        h_2
 )
     T = eltype(attenuation)
-    top_denominator, top_numerator = tsiamitros_up(state, attenuation, l)
+    top_denominator, top_numerator = upward_coefficients(
+        identifier, state, attenuation, l
+    )
     coefficient = T(2^(m - l))
     @inbounds for layer in l:(m - 1)
         coefficient *= state.mu[layer + 1]
@@ -293,7 +362,7 @@ function tsiamitros_kernel(
     end
 end
 
-function tsiamitros_order(pair)
+function conductor_order(::Val{:Tsiamitros2008}, pair)
     first_layer, second_layer = pair.layers
     first_depth, second_depth = abs.(pair.heights)
     if first_layer > second_layer ||
@@ -303,7 +372,9 @@ function tsiamitros_order(pair)
     return 2, 1
 end
 
-function tsiamitros_depth(state, pair, position, layer)
+function local_layer_depth(
+        ::Val{:Tsiamitros2008}, state, pair, position, layer
+)
     depth = abs(pair.heights[position])
     top = layer == 1 ? zero(depth) : sum(@view state.thickness[2:layer])
     local_depth = depth - top

@@ -22,6 +22,10 @@
                                     "value": 0,
                                     "__type__": "Float64"
                                 },
+                                "gap_frac": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
                                 "r": {
                                     "value": 0,
                                     "__type__": "Float64"
@@ -56,7 +60,8 @@
                                     "__type__": "Float64"
                                 }
                             },
-                            "path": null
+                            "path": null,
+                            "boundary": null
                         },
                         {
                             "kind": "group",
@@ -68,6 +73,10 @@
                                     "__type__": "Float64"
                                 },
                                 "φ0": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "gap_frac": {
                                     "value": 0,
                                     "__type__": "Float64"
                                 },
@@ -119,7 +128,8 @@
                                     }
                                 },
                                 "dir": 1
-                            }
+                            },
+                            "boundary": null
                         },
                         {
                             "kind": "group",
@@ -131,6 +141,10 @@
                                     "__type__": "Float64"
                                 },
                                 "φ0": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "gap_frac": {
                                     "value": 0,
                                     "__type__": "Float64"
                                 },
@@ -182,7 +196,8 @@
                                     }
                                 },
                                 "dir": 1
-                            }
+                            },
+                            "boundary": null
                         },
                         {
                             "kind": "group",
@@ -194,6 +209,10 @@
                                     "__type__": "Float64"
                                 },
                                 "φ0": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "gap_frac": {
                                     "value": 0,
                                     "__type__": "Float64"
                                 },
@@ -245,7 +264,8 @@
                                     }
                                 },
                                 "dir": 1
-                            }
+                            },
+                            "boundary": null
                         },
                         {
                             "kind": "group",
@@ -257,6 +277,10 @@
                                     "__type__": "Float64"
                                 },
                                 "φ0": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "gap_frac": {
                                     "value": 0,
                                     "__type__": "Float64"
                                 },
@@ -308,7 +332,8 @@
                                     }
                                 },
                                 "dir": 1
-                            }
+                            },
+                            "boundary": null
                         },
                         {
                             "kind": "region",
@@ -403,6 +428,10 @@
                                     "value": 0,
                                     "__type__": "Float64"
                                 },
+                                "gap_frac": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
                                 "r": {
                                     "value": 0.031125000000000003,
                                     "__type__": "Float64"
@@ -451,33 +480,45 @@
                                     }
                                 },
                                 "dir": 1
-                            }
+                            },
+                            "boundary": null
                         },
                         {
                             "kind": "group",
                             "name": "sheath",
-                            "pattern": null,
+                            "pattern": {
+                                "kind": "ring",
+                                "span": {
+                                    "value": 6.283185307179586,
+                                    "__type__": "Float64"
+                                },
+                                "φ0": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "gap_frac": {
+                                    "value": 0,
+                                    "__type__": "Float64"
+                                },
+                                "r": {
+                                    "value": 0.031650000000000005,
+                                    "__type__": "Float64"
+                                },
+                                "n": 1
+                            },
                             "compact": null,
                             "item": {
                                 "kind": "region",
                                 "tag": "sheath_tape",
                                 "material": "conductor_6",
                                 "primitive": {
-                                    "kind": "sector",
-                                    "span": {
-                                        "value": 0.31595576619273297,
+                                    "kind": "rectangle",
+                                    "w": {
+                                        "value": 0.01,
                                         "__type__": "Float64"
                                     },
-                                    "φ0": {
-                                        "value": -0.15797788309636648,
-                                        "__type__": "Float64"
-                                    },
-                                    "ro": {
-                                        "value": 0.031700000000000006,
-                                        "__type__": "Float64"
-                                    },
-                                    "ri": {
-                                        "value": 0.0316,
+                                    "h": {
+                                        "value": 0.00010000000000000286,
                                         "__type__": "Float64"
                                     }
                                 }
@@ -511,7 +552,8 @@
                                     }
                                 },
                                 "dir": 1
-                            }
+                            },
+                            "boundary": null
                         },
                         {
                             "kind": "region",
@@ -565,7 +607,8 @@
                                     "__type__": "Float64"
                                 }
                             },
-                            "path": null
+                            "path": null,
+                            "boundary": null
                         },
                         {
                             "kind": "region",
@@ -601,6 +644,8 @@
                         }
                     ]
                 },
+                "nominal_data": [
+                ],
                 "catalogue": {
                     "U": {
                         "value": 30,

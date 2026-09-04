@@ -31,7 +31,6 @@ import CairoMakie
 using DataFrames
 using LinearAlgebra: diag
 fullfile(filename) = joinpath(@__DIR__, filename); #hide
-set_backend!(:cairo); #hide
 
 # Initialize library and the required materials for this design:
 materials = MaterialsLibrary(add_defaults = true)
@@ -76,10 +75,8 @@ layer_diameters = d_core .+ 2 .* cumsum(radial_increments) #hide
 # The cable structure is summarized in a row-wise table with dimensions in millimeters:
 cable_dimensions = DataFrame(
     "layer" => collect(layer_names),
-    "thickness [mm]" => [
-        ismissing(t) ? missing : round(1000t, sigdigits = 2)
-        for t in layer_thicknesses
-    ],
+    "thickness [mm]" => [ismissing(t) ? missing : round(1000t, sigdigits = 2)
+     for t in layer_thicknesses],
     "diameter [mm]" => collect(round.(1000 .* layer_diameters, digits = 2))
 )
 
@@ -88,7 +85,9 @@ cable_dimensions = DataFrame(
 
 The conductor has a central wire and six concentric courses. [`stranded`](@ref)
 retains the (1/6/12/18/24/30/36) individual wires and the longitudinal paths
-needed for the helical corrections.
+needed for the helical corrections. Its measured finished diameter is smaller
+than the natural circular-wire envelope, so the corresponding fill factor is
+declared explicitly.
 =#
 
 # Select reusable materials from the library:
@@ -101,13 +100,18 @@ lead = Material(materials, :lead)
 pp = Material(materials, :pp)
 steel = Material(materials, :steel);
 
+core_strand_count = 1 + 6 + 12 + 18 + 24 + 30 + 36
+core_fill_factor = core_strand_count * (d_w / d_core)^2;
+
 # State the actual population and lay of every noncentral conductor course:
 stranded_core = stranded(
     copper;
     shape = Disk(d_w / 2),
     layers = 6,
     n = (6, 12, 18, 24, 30, 36),
-    lay = LayRatio.((11.0, 11.0, 11.0, 11.0, 11.0, 11.0))
+    lay = LayRatio(11.0, 11.0, 11.0, 11.0, 11.0, 11.0),
+    compact = FillFactor(core_fill_factor),
+    boundary = Disk(d_core / 2)
 );
 
 #=
@@ -238,7 +242,7 @@ save(library, file_name = library_file);
 # Verify that the saved cable can be recovered in a fresh session:
 loaded_library = CablesLibrary()
 load!(loaded_library, file_name = library_file)
-loaded_design = get(loaded_library, cable_id);
+loaded_design = loaded_library[cable_id];
 
 #=
 ## Defining a cable system
@@ -254,7 +258,7 @@ problem is resolved.
 =#
 
 f = collect(10.0 .^ range(0, stop = 6, length = 61)) # 1 Hz to 1 MHz
-earth = Earth(rho = 100.0, eps_r = 10.0, mu_r = 1.0);
+earth = homogeneous(rho = 100.0, eps_r = 10.0, mu_r = 1.0);
 
 #=
 ### Underground bipole configuration
@@ -361,9 +365,8 @@ first_term_table = subset(
 )
 first(first_term_table, 12)
 
-# Plot the R/L and G/C frequency responses on logarithmic frequency axes. The
-# accessors select the displayed quantities; each matrix family occupies one
-# page with its two quantities side by side:
+# Plot the R/L and G/C frequency responses on logarithmic frequency axes. Each
+# requested physical quantity receives its own matrix-dashboard page:
 rlcg_plots = CairoMakie.plot(
     line_parameters,
     (
@@ -379,13 +382,12 @@ rlcg_plots = CairoMakie.plot(
     controls = false #hide
 )
 rlcg_plots[1].figure #hide
-
-# The shunt conductance and capacitance responses:
 rlcg_plots[2].figure #hide
+rlcg_plots[3].figure #hide
+rlcg_plots[4].figure #hide
 
-# Plot the real and imaginary parts of the complex Z/Y matrices. Each generated
-# page places the two components side by side so their frequency dependence can
-# be compared directly:
+# Plot the real and imaginary parts of the complex Z/Y matrices. The default
+# request expands Z and Y into R/X and G/B axes without fixing their layout:
 zy_plots = CairoMakie.plot(
     line_parameters;
     xscale = :log10,
@@ -395,9 +397,9 @@ zy_plots = CairoMakie.plot(
     controls = false #hide
 )
 zy_plots[1].figure #hide
-
-# The shunt-admittance page uses the same real/imaginary arrangement:
 zy_plots[2].figure #hide
+zy_plots[3].figure #hide
+zy_plots[4].figure #hide
 
 # Export ZY matrices to ATPDraw
 output_file = fullfile("ZY_export.xml")
@@ -435,7 +437,8 @@ first_sequence_term = subset(
 )
 first(first_sequence_term, 12)
 
-# Plot the two modal R/L and G/C responses. Diagonal observation is explicit:
+# Plot the modal R/L and G/C responses. Diagonal observation is explicit and
+# each physical quantity receives its own dashboard page:
 sequence_plots = CairoMakie.plot(
     sequence_parameters,
     (
@@ -451,9 +454,9 @@ sequence_plots = CairoMakie.plot(
     controls = false #hide
 )
 sequence_plots[1].figure #hide
-
-# The sequence-domain shunt response:
 sequence_plots[2].figure #hide
+sequence_plots[3].figure #hide
+sequence_plots[4].figure #hide
 
 #=
 ## Conclusion

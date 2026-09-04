@@ -17,6 +17,8 @@
         inductance::LValue
     end
 
+    LineCableModels.validate(problem::AnalyticProblem) = problem
+
     function Grammar.compute(
             problem::AnalyticProblem,
             formulation::AnalyticFormulation{Mode};
@@ -47,6 +49,7 @@
     function Grammar.observe(result::AnalyticResult, ::typeof(L), indices...)
         return isempty(indices) ? result.inductance : result.inductance[indices...]
     end
+    Grammar.observables(::Type{<:AnalyticResult}) = (R, L)
 
     function analytic_problem(mu1, sigma1, mu2, sigma2)
         space = PB.Gridspace{AnalyticProblem}(
@@ -185,6 +188,8 @@ end
         value::T
     end
 
+    LineCableModels.validate(problem::FailureProblem) = problem
+
     function Grammar.compute(
             problem::FailureProblem,
             formulation::FailureFormulation{Mode};
@@ -216,6 +221,8 @@ end
     Grammar.observe(result::FailureResult, ::typeof(R)) = result.value
     Grammar.observe(result::FailureResult, ::typeof(Z)) = result.value
     Grammar.observe(result::AlternateFailureResult, ::typeof(R)) = result.value
+    Grammar.observables(::Type{<:FailureResult}) = (R, Z)
+    Grammar.observables(::Type{<:AlternateFailureResult}) = (R,)
 
     function failure_problem(;
             builder = FailureProblem,
@@ -268,6 +275,15 @@ end
     @test occursin("point 2: d=2, evaluations=32", sprint(showerror, error))
     @test occursin("requested total=64", sprint(showerror, error))
     @test budget_solves[] == 0
+
+    scalar_solves = Ref(0)
+    scalar = failure_sensitivity(:valid, scalar_solves)
+    error = capture_exception() do
+        compute(ParametricProblem(FailureProblem(0.0, 0.0)), scalar)
+    end
+    @test error isa ArgumentError
+    @test occursin("problem Gridspace", sprint(showerror, error))
+    @test scalar_solves[] == 0
 
     storage_solves = Ref(0)
     storage = failure_sensitivity(

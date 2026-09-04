@@ -1,8 +1,8 @@
-function routes(::Val{:Papadopoulos2009})
+function routes(identifier::Val{:Papadopoulos2009})
     (
-        self = papadopoulosetal2009,
-        mutual = papadopoulosetal2009,
-        Γ = papadopoulosetal2009_gamma
+        self = FormulaMethod(identifier, earth_impedance, Val(:self)),
+        mutual = FormulaMethod(identifier, earth_impedance, Val(:mutual)),
+        Γ = FormulaMethod(identifier, propagation_constant)
     )
 end
 
@@ -16,11 +16,39 @@ end
 
 propagation(::Val{:Papadopoulos2009}) = Val(:explicit)
 media(::Formula{:Papadopoulos2009}) = Val(:stratified)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** General two-layer, magnetic-earth overhead integral with
+explicit longitudinal propagation.
+
+**Expression.**
+
+```math
+F_{ij}^{P}=\\mu_1\\frac{s_{12}+d_{12}e^{-2a_1d}}
+{s_{01}s_{12}+d_{01}d_{12}e^{-2a_1d}}e^{-\\lambda H},
+```
+
+```math
+s_{mn}=a_m\\mu_n+a_n\\mu_m,\\qquad
+d_{mn}=a_m\\mu_n-a_n\\mu_m,\\qquad
+a_m=\\sqrt{\\lambda^2+\\gamma_m^2+k_x^2},
+```
+
+with ``F_{ij}^{P}`` inserted in the standard overhead integral.
+
+**Reference.** T. A. Papadopoulos, G. K. Papagiannis, and D. P. Labridis,
+“Wave Propagation Characteristics of Overhead Conductors Above Imperfect
+Stratified Earth for a Wide Frequency Range,” *IEEE Transactions on
+Magnetics*, 45(3), 1064–1067, 2009.
+"""
 function description(::Formula{:Papadopoulos2009})
     "Papadopoulos et al. general two-layer overhead impedance (2009)"
 end
 
-function papadopoulosetal2009_gamma(jω, permeability, permittivity)
+function propagation_constant(
+        ::Val{:Papadopoulos2009}, jω, permeability, permittivity
+)
     squared = oftype(jω, (-jω^2) * permeability * permittivity)
     return (Γ = sqrt(squared), squared)
 end
@@ -56,7 +84,9 @@ The contribution is
 ``Z_{e,ij}=(j\omega\mu_0/(2\pi))[\ln(D_{ij}/d_{ij})+2\int F_{ij}^P
 \cos(y_{ij}\lambda)d\lambda]``. By default ``k_0`` is the selected `Γ`.
 """
-function papadopoulosetal2009(functor, pair)
+function earth_impedance(
+        ::Val{:Papadopoulos2009}, ::Val{:mutual}, functor, pair
+)
     _require(pair, Val(:overhead))
     state = functor.state
     geometry = _geometry(pair)

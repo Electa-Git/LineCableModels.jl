@@ -1,5 +1,5 @@
-# These AST helpers are core composition machinery for `@gridspace` and
-# `@relax`. They operate on exactly one struct and reject ambiguous inputs.
+# These AST helpers are core composition machinery for `@gridspace`. They
+# operate on exactly one struct and reject ambiguous inputs.
 function _strip_escapes(expression)
     if expression isa Expr && expression.head === :escape
         return _strip_escapes(expression.args[1])
@@ -67,12 +67,6 @@ function _parse_fields(struct_body)
     return Tuple(fields), clean_body
 end
 
-function _uses_type_parameter(expression, parameter::Symbol)
-    expression === parameter && return true
-    expression isa Expr || return false
-    return any(argument -> _uses_type_parameter(argument, parameter), expression.args)
-end
-
 function _extract_struct_name(struct_node)
     signature = struct_node.args[2]
     signature isa Expr && signature.head === :(<:) &&
@@ -83,61 +77,9 @@ function _extract_struct_name(struct_node)
     throw(ArgumentError("malformed struct signature"))
 end
 
-function _extract_type_parameters(struct_node)
-    signature = struct_node.args[2]
-    signature isa Expr && signature.head === :(<:) &&
-        (signature = signature.args[1])
-    signature isa Expr && signature.head === :curly || return ()
-    return Tuple(signature.args[2:end])
-end
-
-function _extract_parametric_supertype(struct_node)
-    signature = struct_node.args[2]
-    signature isa Expr && signature.head === :(<:) || return nothing
-    supertype = signature.args[2]
-    supertype isa Expr && supertype.head === :curly || return nothing
-    return supertype.args[1]
-end
-
-function _type_parameter_name(parameter)
-    parameter isa Symbol && return parameter
-    parameter isa Expr && parameter.head in (:<:, :>:) &&
-        return parameter.args[1]
-    return nothing
-end
-
 function _rebuild_ast(expression, old_struct, new_struct, generated)
     replaced = _replace_struct(expression, old_struct, new_struct)
     return Expr(:block, replaced, generated...)
-end
-
-recast(::Type{T}, value::Number) where {T <: Real} = convert(T, value)
-function recast(::Type{T}, values::AbstractArray) where {T <: Real}
-    map(value -> recast(T, value), values)
-end
-recast(::Type{T}, values::Tuple) where {T <: Real} = map(value -> recast(T, value), values)
-function recast(::Type{T}, values::NamedTuple) where {T <: Real}
-    map(value -> recast(T, value), values)
-end
-recast(::Type{<:Real}, value) = value
-
-_relax_eltype(value::Number) = typeof(value)
-_relax_eltype(values::AbstractArray{<:Number}) = eltype(values)
-_relax_eltype(values::Tuple) = isempty(values) ? nothing : _promoted_numeric_type(values)
-_relax_eltype(value) =
-    try
-        candidate = eltype(typeof(value))
-        candidate <: Number ? candidate : nothing
-    catch
-        nothing
-    end
-
-function _promoted_numeric_type(values::Tuple)
-    types = filter(!isnothing, map(_relax_eltype, values))
-    isempty(types) && throw(ArgumentError(
-        "@relax constructor received no numeric fields to promote",
-    ))
-    return promote_type(types...)
 end
 
 """
@@ -150,8 +92,9 @@ generated space materialises that target instead of the vault struct itself.
 macro gridspace(arguments...)
     length(arguments) in (1, 2) ||
         throw(ArgumentError("@gridspace accepts a struct and optional target"))
-    target_expression, expression = length(arguments) == 1 ? (nothing, arguments[1]) :
-                                    arguments
+    target_expression,
+    expression = length(arguments) == 1 ? (nothing, arguments[1]) :
+                 arguments
     raw = _strip_escapes(expression)
     struct_node = _get_struct_node(raw)
     struct_name = _extract_struct_name(struct_node)
@@ -203,94 +146,4 @@ macro gridspace(arguments...)
             return $target(values...)
         end)
     return esc(_rebuild_ast(raw, struct_node, clean_struct, (constructor,)))
-end
-
-"""
-$(SIGNATURES)
-
-Add promoted numeric construction and conversion methods to a parametric
-structure.
-"""
-macro relax(expression)
-    raw = _strip_escapes(expression)
-    struct_node = _get_struct_node(raw)
-    struct_name = _extract_struct_name(struct_node)
-    fields, _ = _parse_fields(struct_node.args[3])
-    parameters = _extract_type_parameters(struct_node)
-    isempty(parameters) &&
-        throw(ArgumentError("@relax requires a parametric struct"))
-    scalar_parameter = _type_parameter_name(first(parameters))
-    scalar_parameter === nothing && throw(ArgumentError(
-        "@relax could not identify the leading scalar type parameter",
-    ))
-
-    field_names = map(field -> field.name, fields)
-    relaxed = map(
-        field -> field.declared_type !== nothing &&
-                 _uses_type_parameter(field.declared_type, scalar_parameter),
-        fields
-    )
-    any(relaxed) || throw(ArgumentError(
-        "@relax found no fields declared with scalar parameter $scalar_parameter",
-    ))
-    promoted_values = Expr(:tuple, (
-        field.name for (field, participates) in zip(fields, relaxed) if participates
-    )...)
-    recasts = [
-        participates ?
-        :($(GlobalRef(@__MODULE__, :recast))(promoted_type, $(field.name))) :
-        field.name
-        for (field, participates) in zip(fields, relaxed)
-    ]
-    target_recasts = [
-        participates ?
-        :($(GlobalRef(@__MODULE__, :recast))(TargetScalar, value.$(field.name))) :
-        :(value.$(field.name))
-        for (field, participates) in zip(fields, relaxed)
-    ]
-    abstract_supertype = _extract_parametric_supertype(struct_node)
-
-    promoted_constructor = quote
-        @inline function $struct_name($(field_names...))
-            promoted_type = $(GlobalRef(@__MODULE__, :_promoted_numeric_type))(
-                $promoted_values
-            )
-            return $struct_name{promoted_type}($(recasts...))
-        end
-    end
-    concrete_converter = quote
-        @inline function Base.convert(
-                ::Type{<:$struct_name{TargetScalar}},
-                value::$struct_name
-        ) where {TargetScalar <: Real}
-            return $struct_name{TargetScalar}($(target_recasts...))
-        end
-        @inline Base.eltype(::Type{<:$struct_name{Scalar}}) where {Scalar} = Scalar
-        @inline Base.eltype(::$struct_name{Scalar}) where {Scalar} = Scalar
-        @inline $(GlobalRef(@__MODULE__, :recast))(
-            ::Type{TargetScalar},
-            value::$struct_name
-        ) where {TargetScalar <: Real} = $struct_name{TargetScalar}($(target_recasts...))
-    end
-
-    abstract_converter = abstract_supertype === nothing ? nothing :
-                         quote
-        @inline function Base.convert(
-                ::Type{<:$abstract_supertype{TargetScalar}},
-                value::$struct_name
-        ) where {TargetScalar <: Real}
-            return $struct_name{TargetScalar}($(target_recasts...))
-        end
-    end
-
-    generated = abstract_converter === nothing ?
-                (promoted_constructor, concrete_converter) :
-                (promoted_constructor, concrete_converter, abstract_converter)
-    rebuilt = _rebuild_ast(
-        raw,
-        struct_node,
-        struct_node,
-        generated
-    )
-    return esc(rebuilt)
 end

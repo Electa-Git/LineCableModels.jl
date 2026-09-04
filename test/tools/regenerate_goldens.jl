@@ -62,14 +62,17 @@ if lowercase(get(ENV, "LINECABLEMODELS_UPDATE_PLOT_REFERENCES", "false")) == "tr
 
     summary = SampleSummary([1.0, 2.0, 3.0, 4.0])
     histogram = HistogramDensity([1.0, 3.0, 5.0], [0.25, 0.25])
-    representation = CableConstants(2.5, 2.5, 2.5)
-    statistics_value = (R = summary, L = summary, C = summary)
+    representation = CableConstants(2.5, 2.5, 2.5, 2.5)
+    statistics_value = (R = [summary], L = [summary], C = [summary], G = [summary])
     samples_value = (
-        R = [1.0, 2.0, 3.0, 4.0],
-        L = [1.0, 2.0, 3.0, 4.0],
-        C = [1.0, 2.0, 3.0, 4.0]
+        R = [1.0 2.0 3.0 4.0],
+        L = [1.0 2.0 3.0 4.0],
+        C = [1.0 2.0 3.0 4.0],
+        G = [1.0 2.0 3.0 4.0]
     )
-    histograms_value = (R = histogram, L = histogram, C = histogram)
+    histograms_value = (
+        R = [histogram], L = [histogram], C = [histogram], G = [histogram]
+    )
     mc_formulation = MonteCarlo(
         Formulation(); trials = 4, seed = 1,
         return_samples = true, return_histograms = true
@@ -149,7 +152,7 @@ if lowercase(get(ENV, "LINECABLEMODELS_UPDATE_PLOT_REFERENCES", "false")) == "tr
     )
     save_reference(
         "material_scale",
-        LineCableModels.DataModel.show_material_scale(
+        LineCableModels.show_material_scale(
             backend = :cairo,
             display_plot = false
         )

@@ -1,35 +1,29 @@
-@testitem "BaseParams / inductance / tubular and equivalent permeability" tags=[:unit] setup=[
+@testitem "BaseParams / inductance / GMR and equivalent permeability" tags=[:unit] setup=[
     BaseParamsTestSupport,
     UseBaseParamsSupport
 ] begin
-    μ0=4π*1e-7
-    inductance_value=tubular_inductance(0.01, 0.02, 1.0)
-    @test inductance_value ≈ μ0/(2π)*log(2)
-    @test tubular_inductance(0.01, 0.02, 2.0) ≈ 2inductance_value
-    @test tubular_inductance(0.01, 0.02, 0.0) == 0.0
-    @test_throws DomainError tubular_inductance(0.0, 0.02, 1.0)
-    @test_throws DomainError tubular_inductance(0.02, 0.01, 1.0)
-    @test_throws DomainError tubular_inductance(0.01, 0.02, -1.0)
-
     for T in (Float32, Float64, BigFloat)
-        result=tubular_inductance(T(0.01), T(0.02), one(T))
-        @test result isa T
         radius=tubular_gmr(T(0.02), T(0.01), T(1.5))
         @test equivalent_mu(radius, T(0.02), T(0.01)) ≈ T(1.5)
     end
-
-    uncertain=tubular_inductance(
-        measurement(0.01, 1e-5),
-        measurement(0.02, 1e-5),
-        measurement(1.0, 1e-3)
-    )
-    @test uncertain isa Measurement{Float64}
-    @test uncertainty(uncertain) > 0
 
     @test equivalent_mu(tubular_gmr(0.02, 0.0, 1.0), 0.02, 0.0) ≈ 1.0
     @test equivalent_mu(0.02, 0.02, 0.02) ≈ 0.0
     @test_throws DomainError equivalent_mu(-0.01, 0.02, 0.01)
     @test_throws DomainError equivalent_mu(0.015, 0.01, 0.02)
+
+    lay_radius=0.01
+    wire_radius=0.001
+    wire_count=12
+    coordinates=[(
+                     lay_radius*cos(2π*index/wire_count),
+                     lay_radius*sin(2π*index/wire_count)
+                 )
+                 for index in 0:(wire_count - 1)]
+    @test strand_gmr(coordinates, wire_radius, 1.0) ≈
+          strand_gmr(lay_radius, wire_count, wire_radius, 1.0)
+    @test_throws ArgumentError strand_gmr(Tuple{Float64, Float64}[], wire_radius, 1.0)
+    @test_throws ArgumentError strand_gmr([(0.0, 0.0), (0.0, 0.0)], wire_radius, 1.0)
 
     first_gmr=0.004
     second_gmr=0.012
@@ -46,29 +40,4 @@
     @test_throws DomainError equivalent_gmr(0.0, 1.0, second_gmr, 1.0, distance)
     @test_throws DomainError equivalent_gmr(first_gmr, 0.0, second_gmr, 1.0, distance)
     @test_throws DomainError equivalent_gmr(first_gmr, 1.0, second_gmr, 1.0, 0.0)
-end
-
-@testitem "BaseParams / inductance / trefoil estimate" tags=[:unit] setup=[
-    BaseParamsTestSupport,
-    UseBaseParamsSupport
-] begin
-    args=(0.010, 0.015, 1.72e-8, 1.0, 0.020, 0.025, 2.82e-8, 1.0, 0.100)
-    reference=trefoil_inductance(args...; rho_e = 100.0, f = 50.0)
-    @test reference ≈ 1.573964832699787e-7
-    @test trefoil_inductance(args...; rho_e = 100.0, f = 60.0) < reference
-
-    better_screen=Base.setindex(args, args[7]/10, 7)
-    magnetic_core=Base.setindex(args, 2args[4], 4)
-    @test trefoil_inductance(better_screen...; rho_e = 100.0, f = 50.0) < reference
-    @test trefoil_inductance(magnetic_core...; rho_e = 100.0, f = 50.0) > reference
-
-    args32=Float32.(args)
-    result32=trefoil_inductance(args32...)
-    @test result32 isa Float32
-    @test result32 ≈ Float32(reference) rtol=sqrt(eps(Float32))
-
-    uncertain_args=Base.setindex(args, measurement(args[9], 1e-4), 9)
-    uncertain=trefoil_inductance(uncertain_args...; rho_e = 100.0, f = 50.0)
-    @test uncertain isa Measurement{Float64}
-    @test uncertainty(uncertain) > 0
 end

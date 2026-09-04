@@ -32,18 +32,19 @@ struct CaseDefinition{P <: NamedTuple, F}
     parameters::P
     build::F
     port_order::Vector{String}
+    description::String
+    assets::Vector{String}
 
     function CaseDefinition(
             id::Symbol,
             parameters::P,
             build::F,
-            port_order::Vector{String}
+            port_order::Vector{String},
+            description::String,
+            assets::Vector{String}
     ) where {P <: NamedTuple, F}
         occursin(_CASE_IDENTIFIER, string(id)) || throw(ArgumentError(
             "case identifiers must be lowercase; got $(repr(id))",
-        ))
-        isempty(parameters) && throw(ArgumentError(
-            "case :$id must declare at least one parameter",
         ))
         parameter_ids = Tuple(parameter.id for parameter in values(parameters))
         parameter_ids == keys(parameters) || throw(ArgumentError(
@@ -55,7 +56,16 @@ struct CaseDefinition{P <: NamedTuple, F}
         isempty(port_order) && throw(ArgumentError(
             "case :$id must declare at least one terminal",
         ))
-        return new{P, F}(id, parameters, build, port_order)
+        isempty(strip(description)) && throw(ArgumentError(
+            "case :$id description cannot be empty",
+        ))
+        all(path -> !isabspath(path), assets) || throw(ArgumentError(
+            "case :$id assets must use paths relative to the case file",
+        ))
+        length(unique(assets)) == length(assets) || throw(ArgumentError(
+            "case :$id contains duplicate assets",
+        ))
+        return new{P, F}(id, parameters, build, port_order, description, assets)
     end
 end
 
@@ -63,9 +73,18 @@ function case_definition(
         build::F,
         id::Symbol,
         parameters::NamedTuple,
-        port_order::AbstractVector{<:AbstractString}
+        port_order::AbstractVector{<:AbstractString};
+        description::AbstractString = string(id),
+        assets = ()
 ) where {F}
-    return CaseDefinition(id, parameters, build, String.(port_order))
+    return CaseDefinition(
+        id,
+        parameters,
+        build,
+        String.(port_order),
+        String(description),
+        String[String(path) for path in assets]
+    )
 end
 
 abstract type AbstractCaseVariation end
@@ -474,6 +493,37 @@ function load_case(
     selected = Symbol[parameter.id
                       for (parameter, source) in zip(values(definition.parameters), values(sources))
                       if !isequal(source, parameter.nominal)]
+    asset_paths = String[]
+    root = realpath(case_root)
+    separator = Base.Filesystem.path_separator
+    for relative in definition.assets
+        candidate = normpath(joinpath(dirname(source_file), relative))
+        startswith(candidate, root * separator) || throw(ArgumentError(
+            "case :$id asset escapes the cases directory: $relative",
+        ))
+        isfile(candidate) || throw(ArgumentError(
+            "case :$id asset is missing: $candidate",
+        ))
+        real = realpath(candidate)
+        startswith(real, root * separator) || throw(ArgumentError(
+            "case :$id asset resolves outside the cases directory: $relative",
+        ))
+        push!(asset_paths, real)
+    end
+    source_digest = if isempty(asset_paths)
+        # Preserve the historical digest for declaration-only cases so
+        # existing external references remain reusable during this migration.
+        bytes2hex(sha256(read(source_file)))
+    else
+        digest = UInt8[]
+        for path in (source_file, sort!(asset_paths)...)
+            append!(digest, codeunits(relpath(path, root)))
+            push!(digest, 0x00)
+            append!(digest, read(path))
+            push!(digest, 0x00)
+        end
+        bytes2hex(sha256(digest))
+    end
     return LoadedCase(
         id,
         definition,
@@ -485,6 +535,6 @@ function load_case(
         copy(definition.port_order),
         loaded_size,
         source_file,
-        bytes2hex(sha256(read(source_file)))
+        source_digest
     )
 end

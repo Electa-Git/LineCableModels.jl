@@ -5,22 +5,22 @@ Calculate electrical parameters for overhead and underground cable systems.
 
 The public API constructs materialised or finite parametric cable models,
 selects numerical formulations, evaluates cable constants and line-parameter
-matrices, propagates declared uncertainty, and describes plots for optional
-Makie renderers.
+matrices, propagates declared uncertainty, and adds a small high-level plotting
+surface when Makie is loaded.
 """
 module LineCableModels
 
 ## Public API
 # -------------------------------------------------------------------------
 # Core generics:
-export add!, build, homogenize, validate, description, constitutive, set_backend!
+export add!, build, homogenize, validate, description, constitutive
 export formula, formula_id
 export AbstractProblemDefinition, AbstractFormulation, AbstractProblemResult
 export AbstractCoreResult, AbstractResultSpace
 export AbstractParametricResult, AbstractUncertaintyResult
 export FormulationOptions, ComputationOptions, ComputationDetails
 export formulation_options, computation_options, computation_details, details
-export compute, observe, @observe, observables, project
+export compute, observe, @observe, observables
 export quantity, native_unit, display_unit, scale_factor, label, symbol
 export basis, domain, frequencies, nconductors, nfrequencies, ncables, nphases
 export Z, Y, R, X, L, G, B, C
@@ -32,42 +32,49 @@ export Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGrid
 export AbstractGrid, AbstractUncertainGrid, UncertainValue
 export Gridspace
 export has_uncertainty, nominal, uncertainty
-export @gridspace, @relax
+export @gridspace
 export Combinatorial, LinearError, MonteCarlo, Sensitivity, ParametricProblem
 export ParametricResult, LinearErrorResult, MonteCarloResult, SensitivityResult
 export SampleSummary, HistogramDensity
-export result, statistics, samples, histograms, uncertain
+export statistics, samples, histograms, uncertain
 export root_seed, point_seed, trial_count
 export first_order, total_order, second_order
 export confidence, cdf_tolerance, sampling_distribution
 export report, TableReportDefinition, XLSXReportDefinition, ReportArtifact
 export AbstractMaterial, Material, MaterialsLibrary, Conductor, Insulator, Semiconductor
 export AbstractShape, AbstractPrimitive
-export Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, RoundedSector, Shell
+export Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, Shell
 export Pose2
 export EmptyBoundary, resolve, boundary, area, perimeter, centroid, support, tessellate
 export r_in, r_ex, thickness, outer_radius
 export AbstractCablePart, Region, Stack
 export Group, Assembly
 export Enclosure
-export Ring, Polar, Fill, Lattice, DiameterFactor, placements
-export capacity, FillFactor, TabulatedCompaction, AffineCompaction
+export Ring, Polar, Fill, Lattice, placements
+export capacity, FillFactor
 export LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
-export at, trefoil, hflat, vflat, Earth
+export at, trefoil, hflat, vflat, layer, homogeneous
+export AbstractEarthModel, EarthLayer, EarthModel
 export terminal, core, stranded, rope, cores, tape, insulation, screen, sheath
 export armor, bedding, jacket, filler, pipe, duct
 export solid, shell, wires, layers, assembly
-export @cable, @terminal, @assembly, @duct, @at, @hflat, @vflat, @trefoil
+export @cable, @system, @earth, @terminal, @assembly, @pipe, @duct
+export @at, @hflat, @vflat, @trefoil
 export @distribute
 export make_stranded, make_screened, WireEstimate
+
+public Gridpoint
 
 # Materialised results, reusable designs, and presentation:
 export CableDesign, LineCableSystem, DatasheetInfo, catalogue
 export CableGeometry, PlacedRegion
-export CableConstants, LineParametersProblem, LineParameters, CablesLibrary, preview
+export CableConstants, CableConstantsProblem, CableConstantsFormulation,
+       LineParametersProblem, LineParameters, CablesLibrary
+export preview, show_material_scale
 
 # Engine:
-export Formulation, LineParametersFormulation, LineCableModelsCoaxial,
+export Formulation, LineParametersFormulation, CableConstantsFormulation,
+       LineCableModelsCoaxial,
        LineCableModelsFEM, LineCableModelsFEMOptions, LineCableModelsFEMError,
        SeriesImpedance, ShuntAdmittance, kronify,
        LineParameters, PhaseDomain, ModalDomain
@@ -80,9 +87,14 @@ export export_data, import_data, save, load!
 # -------------------------------------------------------------------------
 
 import DocStringExtensions: DocStringExtensions
+using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
+using Random
 
 include("docstrings.jl")
 include("interfaces.jl")
+include("formulas.jl")
+
+public FormulaMethod
 
 # Submodule `Units`
 include("units/Units.jl")
@@ -100,17 +112,31 @@ using .Grammar:
                 AbstractParametricResult, AbstractUncertaintyResult,
                 FormulationOptions, ComputationOptions, ComputationDetails,
                 formulation_options, computation_options, computation_details, details,
-                compute, observe, @observe, observables,
-                nominal, uncertainty
+                compute, observe, @observe, observables
+import .Grammar: nominal, uncertainty
 
-# Submodule `Validation`
-include("validation/Validation.jl")
-using .Validation: validate
+# Submodule `InputValidation`
+include("inputvalidation/InputValidation.jl")
+using .InputValidation: validate
 
-# Submodule `PlotBuilder`
+# Root-owned finite parameter grammar. These primitives are loaded before the
+# domain modules so every constructor enters the same scalar-or-Gridspace path
+# without a late-loaded bridge through ParametricBuilder.
+include("grid.jl")
+include("gridspace.jl")
+
+public parameterize, points, uncertainties
+public materialize, realize, realize_arguments, sample_uncertainty
+
+# Thin native plotting handles and optional-extension entry points.
 include("plotbuilder/PlotBuilder.jl")
-using .PlotBuilder: UIPlot, export_svg, set_backend!
-export UIPlot, export_svg
+using .PlotBuilder:
+                    UIPlot, plot, preview, show_material_scale, export_svg,
+                    figurelegend!, panellegend!, figuretitle!, paneltitle!,
+                    plotwindow, materialcolors, materialscale!
+export UIPlot, export_svg, figurelegend!, panellegend!, figuretitle!, paneltitle!
+export materialcolors, materialscale!
+public PlotBuilder, plot, plotwindow
 
 # Submodule `Materials`
 include("materials/Materials.jl")
@@ -120,15 +146,15 @@ using .Materials: AbstractMaterial, Material, MaterialsLibrary
 # Submodule `EarthProps`
 include("earthprops/EarthProps.jl")
 import .EarthProps
+using .EarthProps: AbstractEarthModel, EarthLayer, EarthModel, layer, homogeneous
 
 # Submodule `DataModel`
 include("datamodel/DataModel.jl")
 using .DataModel: CableDesign, CableGeometry, PlacedRegion,
                   LineCableSystem, DatasheetInfo, catalogue,
-                  CableConstants, CablesLibrary, preview, ncables, nphases,
+                  CablesLibrary, ncables, nphases,
                   AbstractShape, AbstractPrimitive,
-                  Disk, Rectangle, Ellipse, Sector, Annulus, Polygon,
-                  RoundedSector, Shell,
+                  Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, Shell,
                   Pose2,
                   EmptyBoundary, resolve, boundary, area, perimeter, centroid, support,
                   tessellate,
@@ -136,13 +162,13 @@ using .DataModel: CableDesign, CableGeometry, PlacedRegion,
                   AbstractCablePart, Region, Stack,
                   Group, Assembly, Enclosure
 using .DataModel: Ring, Polar, Fill, Lattice, capacity, placements,
-                  FillFactor, DiameterFactor, TabulatedCompaction,
-                  AffineCompaction,
+                  FillFactor,
                   LayRatio, Pitch, LayAngle, Helix, pitch, angle, overlength
 
 # Submodule `Engine`
 include("engine/Engine.jl")
-using .Engine: LineParameters, LineParametersProblem, SeriesImpedance,
+using .Engine: LineParameters, LineParametersProblem, CableConstants,
+               CableConstantsProblem, CableConstantsFormulation, SeriesImpedance,
                ShuntAdmittance, kronify, Formulation,
                LineParametersFormulation, LineCableModelsCoaxial,
                LineCableModelsFEM, LineCableModelsFEMOptions,
@@ -162,22 +188,18 @@ using .Transforms: ModalTransformationProblem, ModalTransformationFormulation,
 # Submodule `ParametricBuilder`
 include("parametricbuilder/ParametricBuilder.jl")
 using .ParametricBuilder:
-                          Grid, AbsoluteError, DeterministicGrid, RelativeGrid,
-                          AbsoluteGrid, AbstractGrid, AbstractUncertainGrid,
-                          UncertainValue, Gridspace, has_uncertainty,
-                          @gridspace, @relax,
+                          @gridspace,
                           Combinatorial, ParametricProblem, ParametricResult,
-                          result, project,
                           Conductor, Insulator,
                           terminal, core, stranded, rope, cores, tape,
                           insulation, screen, sheath, armor, bedding, jacket,
                           filler, pipe, duct, solid, shell, wires, layers,
                           assembly,
-                          at, trefoil, hflat, vflat, Earth,
+                          at, trefoil, hflat, vflat,
                           WireEstimate, make_stranded, make_screened
 using .ParametricBuilder: Semiconductor
-using .ParametricBuilder: @cable, @terminal, @assembly, @duct, @at,
-                          @hflat, @vflat, @trefoil, @distribute
+using .ParametricBuilder: @cable, @system, @earth, @terminal, @assembly, @pipe,
+                          @duct, @at, @hflat, @vflat, @trefoil, @distribute
 
 # Submodule `UQ`
 include("uq/UQ.jl")

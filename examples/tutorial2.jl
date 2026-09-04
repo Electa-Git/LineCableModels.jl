@@ -39,7 +39,6 @@ import LineCableModels: homogenize
 import CairoMakie
 using DataFrames
 fullfile(filename) = joinpath(@__DIR__, filename); #hide
-set_backend!(:cairo); #hide
 
 # Initialize materials library with default values:
 materials = MaterialsLibrary(add_defaults = true)
@@ -104,10 +103,8 @@ layer_diameters = d_core .+ 2 .* cumsum(radial_increments) #hide
 # The cable structure is summarized in a row-wise table with dimensions in millimeters:
 cable_dimensions = DataFrame(
     "layer" => collect(layer_names),
-    "thickness [mm]" => [
-        ismissing(t) ? missing : round(1000t, sigdigits = 2)
-        for t in layer_thicknesses
-    ],
+    "thickness [mm]" => [ismissing(t) ? missing : round(1000t, sigdigits = 2)
+     for t in layer_thicknesses],
     "diameter [mm]" => collect(round.(1000 .* layer_diameters, digits = 2))
 )
 
@@ -127,7 +124,9 @@ The core consists of a central wire and four concentric AAAC layers with 61
 wires arranged in a (1/6/12/18/24) pattern. The respective lay ratios are
 (15/13.5/12.5/11) [CENELEC50182](@cite). [`stranded`](@ref) retains every
 physical strand and the layer-specific longitudinal paths required for
-resistance and GMR calculations.
+resistance and GMR calculations. The reported 38.1 mm finished diameter is
+smaller than the 42.3 mm natural circular-wire envelope, so the fill factor is
+stated explicitly rather than silently deforming the wires.
 =#
 
 # Select reusable materials from the library:
@@ -138,6 +137,9 @@ semicon1 = Material(materials, :semicon1)
 semicon2 = Material(materials, :semicon2)
 pe = Material(materials, :pe);
 
+core_strand_count = 1 + 6 + 12 + 18 + 24
+core_fill_factor = core_strand_count * (d_w / d_core)^2;
+
 # State the actual strand count and lay of every noncentral layer. These are the
 # physical declarations reported for this conductor, not inputs from which the
 # API must infer another layout:
@@ -146,7 +148,9 @@ stranded_core = stranded(
     shape = Disk(d_w / 2),
     layers = 4,
     n = (6, 12, 18, 24),
-    lay = LayRatio.((15.0, 13.5, 12.5, 11.0))
+    lay = LayRatio(15.0, 13.5, 12.5, 11.0),
+    compact = FillFactor(core_fill_factor),
+    boundary = Disk(d_core / 2)
 );
 
 #=
@@ -194,15 +198,12 @@ Modern cables often include an aluminum tape as moisture barrier
 and PE (polyethylene) outer jacket for mechanical protection.
 =#
 
-# The wire screen needs its physical centre locus. The copper tape section is
-# stated by its measured inner and outer radii; every contextual layer needs
-# only its thickness.
-conductor_outer = 9d_w / 2
+# The wire screen needs its physical centre locus. The copper tape retains its
+# measured rectangular width and thickness; placement bends it around the
+# preceding cable boundary without changing its cross-sectional area.
+conductor_outer = d_core / 2
 screen_wire_locus = conductor_outer + t_sct + t_sc_in + t_ins +
                     t_sc_out + t_sct + d_ws / 2
-screen_tape_inner = screen_wire_locus + d_ws / 2
-screen_tape_outer = screen_tape_inner + t_cut
-screen_tape_span = w_cut / ((screen_tape_inner + screen_tape_outer) / 2);
 
 # Keep catalogue data beside the physical model rather than inside it:
 cable_id = "18kV_1000mm2"
@@ -239,12 +240,7 @@ cable_design = @cable cable_id begin
         )
         tape(
             copper;
-            section = Sector(
-                screen_tape_inner,
-                screen_tape_outer,
-                -screen_tape_span / 2,
-                screen_tape_span
-            ),
+            section = Rectangle(w_cut, t_cut),
             n = 1,
             lay = LayRatio(10),
             tag = :copper_tape
@@ -308,7 +304,8 @@ cable_design
 !!! note "Cables library"
     Designs can be saved to a library for future use. The [`CablesLibrary`](@ref)
     stores multiple cable designs and is managed through [`add!`](@ref),
-    ordinary collection operations, and [`save`](@ref).
+    ordinary collection operations, and
+    [`save`](@ref LineCableModels.ImportExport.save).
 =#
 
 # Store the cable design and inspect the library contents:
@@ -323,7 +320,7 @@ save(library, file_name = output_file);
 # Load the saved design into a fresh library and retrieve it by identifier:
 loaded_library = CablesLibrary()
 load!(loaded_library, file_name = output_file)
-loaded_design = get(loaded_library, cable_id);
+loaded_design = loaded_library[cable_id];
 loaded_library
 
 #=
@@ -344,7 +341,7 @@ The earth return path significantly affects cable impedance calculations and nee
 
 # Define a frequency scan and typical homogeneous-soil properties:
 f = collect(10.0 .^ range(0, stop = 6, length = 10)) # 1 Hz to 1 MHz
-earth = Earth(rho = 100.0, eps_r = 10.0, mu_r = 1.0);
+earth = homogeneous(rho = 100.0, eps_r = 10.0, mu_r = 1.0);
 
 #=
 ### Three-phase system in trefoil configuration

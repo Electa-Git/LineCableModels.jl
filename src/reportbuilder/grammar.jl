@@ -8,7 +8,7 @@ abstract type AbstractReportDefinition end
 """
 $(TYPEDEF)
 
-Hold the table, optional PlotBuilder artifact, and written output produced by
+Hold the table, optional plot, and written output produced by
 [`report`](@ref).
 
 $(TYPEDFIELDS)
@@ -27,8 +27,9 @@ $(TYPEDEF)
 
 Request one generic wide table from a completed scientific source.
 
-The request and unit tuples follow [`observables`](@ref). `illustration` may be
-a PlotBuilder definition type; `plot_options` are passed to `make_render`.
+The request and unit tuples follow [`observables`](@ref). Set `illustration =
+true` to plot the resulting [`ObservationPublication`](@ref), or provide a
+callable that accepts it. `plot_options` are forwarded as keywords.
 
 $(TYPEDFIELDS)
 """
@@ -38,9 +39,9 @@ struct TableReportDefinition{R <: Tuple, U <: Tuple, P, O <: NamedTuple} <:
     requests::R
     "Optional display-unit overrides aligned with `requests`."
     units::U
-    "PlotBuilder definition type, or `nothing` for a table-only report."
+    "`true`, a publication-plotting callable, or `nothing` for table only."
     illustration::P
-    "Keyword options passed to PlotBuilder."
+    "Keyword options passed to the illustration call."
     plot_options::O
     "Whether detached display residue is replaced with exact zero."
     clip::Bool
@@ -56,16 +57,13 @@ function TableReportDefinition(
     return TableReportDefinition(requests, units, illustration, plot_options, clip)
 end
 
-"Reject unsupported definition/source pairs before report construction."
-function entitle end
-
 "Publish the observations required by a report definition."
 function select end
 
 "Construct the report-owned table representation."
 function tabulate end
 
-"Construct an optional PlotBuilder artifact."
+"Construct an optional plot from the published observations."
 function illustrate end
 
 "Encode a supported report representation."
@@ -75,20 +73,15 @@ function encode end
 function write end
 
 @required AbstractReportDefinition begin
-    entitle(::AbstractReportDefinition, source)
     select(::AbstractReportDefinition, source)
     tabulate(::AbstractReportDefinition, source, published)
-    illustrate(::AbstractReportDefinition, source, published, table)
-    encode(::AbstractReportDefinition, source, published, table, illustration)
-    write(::AbstractReportDefinition, source, published, table, illustration, encoded)
 end
 
-"Return the completed report artifact."
-function finish end
-
-function entitle(definition::TableReportDefinition, source)
-    validate_observables(source, definition.requests, definition.units)
-    return source
+illustrate(::AbstractReportDefinition, source, published, table) = nothing
+encode(::AbstractReportDefinition, source, published, table, illustration) = nothing
+function write(
+        ::AbstractReportDefinition, source, published, table, illustration, ::Nothing)
+    nothing
 end
 
 function select(definition::TableReportDefinition, source)
@@ -146,34 +139,20 @@ function tabulate(::TableReportDefinition, source, published::ObservationPublica
 end
 
 function illustrate(definition::TableReportDefinition, source, published, table)
-    definition.illustration === nothing && return nothing
-    return PlotBuilder.make_render(
-        definition.illustration,
-        published;
-        definition.plot_options...
-    )
-end
-
-encode(::TableReportDefinition, source, published, table, illustration) = nothing
-write(::TableReportDefinition, source, published, table, illustration, ::Nothing) = nothing
-
-function finish(
-        ::AbstractReportDefinition,
-        source,
-        published,
-        table,
-        illustration,
-        encoded,
-        written
-)
-    return ReportArtifact(table, illustration, written)
+    illustration = definition.illustration
+    (illustration === nothing || illustration === false) && return nothing
+    illustration === true && return PlotBuilder.plot(published; definition.plot_options...)
+    applicable(illustration, published) || throw(ArgumentError(
+        "illustration must be true, a callable accepting the publication, or nothing",
+    ))
+    return illustration(published; definition.plot_options...)
 end
 
 """
 $(TYPEDSIGNATURES)
 
-Build a report through `entitle`, `select`, `tabulate`, `illustrate`, `encode`,
-`write`, and `finish`, in that order.
+Build a report through `select`, `tabulate`, optional `illustrate`, optional
+`encode`, and optional `write`, in that order.
 
 # Arguments
 
@@ -182,38 +161,28 @@ Build a report through `entitle`, `select`, `tabulate`, `illustrate`, `encode`,
 
 # Returns
 
-- A [`ReportArtifact`](@ref), or the value returned by a specialised `finish`
-  method.
+- A [`ReportArtifact`](@ref).
 
 # Errors
 
 - Throws when the definition does not accept the source or requests an
   unsupported observation.
 """
-@orchestrator AbstractReportDefinition function report(
+function report(
         definition::AbstractReportDefinition,
         source
 )
-    entitled = entitle(definition, source)
-    published = select(definition, entitled)
-    table = tabulate(definition, entitled, published)
-    illustration = illustrate(definition, entitled, published, table)
-    encoded = encode(definition, entitled, published, table, illustration)
+    published = select(definition, source)
+    table = tabulate(definition, source, published)
+    illustration = illustrate(definition, source, published, table)
+    encoded = encode(definition, source, published, table, illustration)
     written = write(
         definition,
-        entitled,
+        source,
         published,
         table,
         illustration,
         encoded
     )
-    return finish(
-        definition,
-        entitled,
-        published,
-        table,
-        illustration,
-        encoded,
-        written
-    )
+    return ReportArtifact(table, illustration, written)
 end

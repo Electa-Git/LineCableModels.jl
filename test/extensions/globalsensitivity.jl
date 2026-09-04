@@ -2,8 +2,8 @@
     using GlobalSensitivity
     using QuasiMonteCarlo
 
-    @test pkgversion(GlobalSensitivity) == v"2.12.1"
-    @test pkgversion(QuasiMonteCarlo) == v"0.3.6"
+    @test v"2.12" <= pkgversion(GlobalSensitivity) < v"3"
+    @test v"0.3" <= pkgversion(QuasiMonteCarlo) < v"0.4"
 
     samples = 16
     dimension = 2
@@ -98,6 +98,8 @@ end
         outputs::Vector{Float64}
     end
 
+    LineCableModels.validate(problem::SobolContractProblem) = problem
+
     const contract_solves = Ref(0)
     function Grammar.compute(
             problem::SobolContractProblem,
@@ -111,9 +113,10 @@ end
             problem.x1 * problem.x2
         ])
     end
+    Grammar.observables(::Type{SobolContractResult}) = (R,)
     Grammar.observe(result::SobolContractResult, ::typeof(R)) = result.outputs
     function Grammar.computation_details(
-            ::Val{SobolContractFormulation},
+            ::Type{SobolContractFormulation},
             result::SobolContractResult
     )
         return (checksum = sum(result.outputs),)
@@ -160,7 +163,7 @@ end
     @test size(only(product.confidence.first_order)) == (2, 2)
     @test size(only(product.confidence.total_order)) == (2, 2)
     @test product.confidence.second_order === nothing
-    @test length(details(result).evaluations) == 1
-    @test length(only(details(result).evaluations)) == product.evaluations
-    @test eltype(only(details(result).evaluations)) <: NamedTuple
+    @test length(details(result).points) == 1
+    @test length(only(details(result).points)) == product.evaluations
+    @test eltype(only(details(result).points)) <: NamedTuple
 end

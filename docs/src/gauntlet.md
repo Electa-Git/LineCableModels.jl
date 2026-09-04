@@ -26,7 +26,7 @@ using JLD2 #hide
 using Measurements #hide
 
 pscad_suite = DataFrame( #hide
-    case = [ #hide
+    :case => [ #hide
         "132 kV flat horizontal", #hide
         "18 kV trefoil", #hide
         "380 kV flat vertical", #hide
@@ -35,22 +35,27 @@ pscad_suite = DataFrame( #hide
         "1000 mm² solid single", #hide
         "two bare wires" #hide
     ], #hide
-    conductors = [9, 9, 9, 6, 6, 1, 2], #hide
-    maximum_Z_rms_difference_percent = [ #hide
+    :conductors => [9, 9, 9, 6, 6, 1, 2], #hide
+    Symbol("max εZ") => [ #hide
         2.1625, 1.7168, 1.8092, 1.9195, 1.9258, 1.1860, 14.9325 #hide
     ], #hide
-    maximum_Y_rms_difference_percent = Union{Missing, Float64}[ #hide
-        0.2469, 0.2469, 0.2469, 0.0005, missing, missing, missing #hide
+    Symbol("max εY") => Union{Missing, Float64}[ #hide
+    0.2469, 0.2469, 0.2469, 0.0005, missing, missing, missing #hide
     ], #hide
-    linecablemodels_median_ms = [ #hide
+    Symbol("LCM [ms]") => [ #hide
         27.828, 27.496, 27.171, 13.174, 13.362, 2.834, 5.356 #hide
     ], #hide
-    pscad_wall_ms = [50.000, 74.000, 53.000, 71.000, 54.000, 73.000, 65.000] #hide
+    Symbol("PSCAD [ms]") => [ #hide
+        50.000, 74.000, 53.000, 71.000, 54.000, 73.000, 65.000 #hide
+    ] #hide
 ) #hide
 pscad_suite
 ````
 
-These comparisons retain the method choices in each snapshot. The recorded
+Here `εZ` and `εY` are the maximum element-wise RMS relative differences,
+reported as percentages by [`compare`](@ref LineCableModels.Engine.compare).
+These comparisons retain the
+method choices in each snapshot. The recorded
 PSCAD cases use Wedepohl earth return, while LineCableModels uses Pollaczek;
 the table therefore reports validation differences rather than bitwise
 equivalence. The two-bare-wire case has the largest relative Z difference.
@@ -136,8 +141,8 @@ errors = DataFrame(observables(
         (Z, absolute_error),
         (Z, relative_error),
         (Y, absolute_error),
-        (Y, relative_error),
-    ),
+        (Y, relative_error)
+    )
 ))
 errors
 ````
@@ -164,7 +169,7 @@ corresponding series are overlaid across frequency.
 impedance_plots = CairoMakie.plot(
     reference,
     candidate;
-    legend = ("Reference", "LineCableModels"),
+    series_labels = ("Reference", "LineCableModels"),
     requests = (Z,),
     xscale = :log10,
     fig_size = (1000, 650),
@@ -226,7 +231,7 @@ for the Monte Carlo-to-LEP timing ratio.
 
 ````@example gauntlet
 uq_suite = DataFrame( #hide
-    case = [ #hide
+    :case => [ #hide
         "132 kV flat horizontal", #hide
         "18 kV trefoil", #hide
         "380 kV flat vertical", #hide
@@ -235,21 +240,23 @@ uq_suite = DataFrame( #hide
         "1000 mm² solid single", #hide
         "two bare wires" #hide
     ], #hide
-    monte_carlo_trials = [512, 512, 512, 2048, 512, 512, 2048], #hide
-    maximum_mean_difference_percent = [ #hide
+    Symbol("MC trials") => [512, 512, 512, 2048, 512, 512, 2048], #hide
+    Symbol("max εμ") => [ #hide
         1.2295, 1.8823, 1.6797, 1.3101, 0.8628, 0.6833, 1.7548 #hide
     ], #hide
-    maximum_std_difference_percent = [ #hide
+    Symbol("max εσ") => [ #hide
         3.5812, 8.5139, 9.1603, 9.2480, 6.6836, 7.3302, 6.2435 #hide
     ], #hide
-    monte_carlo_over_lep_time = [ #hide
+    Symbol("MC/LEP time") => [ #hide
         23.37, 6.25, 24.99, 80.76, 21.28, 34.28, 165.28 #hide
     ] #hide
 ) #hide
 uq_suite
 ````
 
-Across the suite, the largest mean difference is 1.88% and the largest
+Here `εμ` and `εσ` are the maximum element-wise RMS relative differences
+in mean and standard deviation, reported as percentages. Across the suite,
+the largest mean difference is 1.88% and the largest
 propagated standard-deviation difference is 9.25%. The methods therefore
 give consistent propagated uncertainties for the stated engineering gates.
 LEP is faster in every recorded case; the smallest observed timing ratio is
@@ -384,7 +391,7 @@ uq_plot_sources = (
 resistance_uncertainty_plot = CairoMakie.plot(
     uq_plot_sources,
     @observe(R[1, 1, :]);
-    legend = ("LEP", "Monte Carlo"),
+    series_labels = ("LEP", "Monte Carlo"),
     xscale = :log10,
     yscale = :log10,
     fig_size = (950, 420),
@@ -395,7 +402,7 @@ resistance_uncertainty_plot = CairoMakie.plot(
 capacitance_uncertainty_plot = CairoMakie.plot(
     uq_plot_sources,
     @observe(C[1, 1, :]);
-    legend = ("LEP", "Monte Carlo"),
+    series_labels = ("LEP", "Monte Carlo"),
     xscale = :log10,
     fig_size = (950, 420),
     display_plot = false, #hide
@@ -406,13 +413,13 @@ capacitance_uncertainty_plot = CairoMakie.plot(
 Core self-resistance means and one-standard-deviation error bars:
 
 ````@example gauntlet
-resistance_uncertainty_plot[1].figure #hide
+resistance_uncertainty_plot.figure #hide
 ````
 
 Core self-capacitance means and one-standard-deviation error bars:
 
 ````@example gauntlet
-capacitance_uncertainty_plot[1].figure #hide
+capacitance_uncertainty_plot.figure #hide
 ````
 
 ### Engineering agreement
@@ -423,12 +430,12 @@ corresponding absolute RMS exceeds the quantity-specific numerical floor.
 
 ````@example gauntlet
 uq_summary = DataFrame(
-    quantity = ["R", "L", "C", "G"],
-    maximum_mean_difference_percent = Union{Missing, Float64}[
-        0.0212, missing, 1.8823, missing
+    :quantity => ["R", "L", "C", "G"],
+    Symbol("max εμ") => Union{Missing, Float64}[
+    0.0212, missing, 1.8823, missing
     ],
-    maximum_std_difference_percent = Union{Missing, Float64}[
-        4.8633, 4.6896, 8.5139, missing
+    Symbol("max εσ") => Union{Missing, Float64}[
+    4.8633, 4.6896, 8.5139, missing
     ]
 )
 ````
@@ -446,14 +453,16 @@ are machine-specific and the snapshot records the complete environment.
 
 ````@example gauntlet
 DataFrame(
-    method = ["LEP", "Monte Carlo"],
-    execution_seconds = [6.407, 16.718],
-    warmed_median_seconds = [2.992, 18.711],
-    timing_samples = [3, 2]
+    :method => ["LEP", "Monte Carlo"],
+    Symbol("cold [s]") => [6.407, 16.718],
+    Symbol("warmed [s]") => [2.992, 18.711],
+    :samples => [3, 2]
 )
 ````
 
-On the recorded machine, the warmed Monte Carlo median was 6.25× the LEP
+The `cold` columns report the first execution. The `warmed` columns report
+the median over the stated number of samples. On the recorded machine, the
+warmed Monte Carlo median was 6.25× the LEP
 median, comfortably above the required 2× advantage. Monte Carlo completed
 two warmed timing samples within the 20-second sampling budget, so the
 ratio is an engineering performance indicator rather than a portable timing

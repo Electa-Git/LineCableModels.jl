@@ -13,22 +13,25 @@ function _required(value, name::AbstractString, owner)
     return value[name]
 end
 
-_field(value, name::AbstractString) = deserialize_value(
-    _required(value, name, get(value, "kind", get(value, "type", "object")))
-)
-_optional(value, name::AbstractString) =
+function _field(value, name::AbstractString)
+    deserialize_value(
+        _required(value, name, get(value, "kind", get(value, "type", "object")))
+    )
+end
+function _optional(value, name::AbstractString)
     haskey(value, name) ? deserialize_value(value[name]) : nothing
+end
 
 function _decode_named_tuple(value)
     value isa AbstractVector || throw(ArgumentError(
         "named-tuple data must be an ordered array"
     ))
     names = Tuple(Symbol(_required(entry, "name", "named-tuple entry"))
-                  for entry in value)
+    for entry in value)
     allunique(names) || throw(ArgumentError("named-tuple names must be unique"))
     values = Tuple(deserialize_value(
-        _required(entry, "value", "named-tuple entry")
-    ) for entry in value)
+                       _required(entry, "value", "named-tuple entry")
+                   ) for entry in value)
     return NamedTuple{names}(values)
 end
 
@@ -60,7 +63,8 @@ function _decode_material_record(value)
         _field(value, "tan_delta"),
         _field(value, "sigma_solar")
     )
-    build = (selected_kind, properties...) -> Material(
+    build = (selected_kind,
+        properties...) -> Material(
         selected_kind isa Symbol ? selected_kind : Symbol(selected_kind),
         properties...
     )
@@ -116,56 +120,59 @@ function deserialize_value(value)
     return Dict(String(key) => deserialize_value(item) for (key, item) in value)
 end
 
-_decode_node(::Val{:disk}, value) =
-    _decoded_target(Disk, Disk, (_field(value, "r"),))
-_decode_node(::Val{:rectangle}, value) = _decoded_target(
-    Rectangle,
-    Rectangle,
-    (_field(value, "w"), _field(value, "h"))
-)
-_decode_node(::Val{:ellipse}, value) = _decoded_target(
-    Ellipse,
-    Ellipse,
-    (_field(value, "a"), _field(value, "b"))
-)
-_decode_node(::Val{:sector}, value) = _decoded_target(
-    Sector,
-    Sector,
-    (
-        _field(value, "ri"), _field(value, "ro"),
-        _field(value, "φ0"), _field(value, "span")
+_decode_node(::Val{:disk}, value) = _decoded_target(Disk, Disk, (_field(value, "r"),))
+function _decode_node(::Val{:rectangle}, value)
+    _decoded_target(
+        Rectangle,
+        Rectangle,
+        (_field(value, "w"), _field(value, "h"))
     )
-)
-_decode_node(::Val{:annulus}, value) = _decoded_target(
-    Annulus,
-    Annulus,
-    (_field(value, "ri"), _field(value, "ro"))
-)
-_decode_node(::Val{:shell}, value) =
-    _decoded_target(Shell, Shell, (_field(value, "t"),))
-_decode_node(::Val{:polygon}, value) =
+end
+function _decode_node(::Val{:ellipse}, value)
+    _decoded_target(
+        Ellipse,
+        Ellipse,
+        (_field(value, "a"), _field(value, "b"))
+    )
+end
+function _decode_node(::Val{:sector}, value)
+    _decoded_target(
+        Sector,
+        Sector,
+        (
+            _field(value, "span"),
+            _field(value, "r_base"),
+            _field(value, "r_back"),
+            _field(value, "fillet")
+        )
+    )
+end
+function _decode_node(::Val{:annulus}, value)
+    _decoded_target(
+        Annulus,
+        Annulus,
+        (_field(value, "ri"), _field(value, "ro"))
+    )
+end
+_decode_node(::Val{:shell}, value) = _decoded_target(Shell, Shell, (_field(value, "t"),))
+function _decode_node(::Val{:polygon}, value)
     _decoded_target(Polygon, Polygon, (_field(value, "points"),))
-_decode_node(::Val{:rounded_sector}, value) = _decoded_target(
-    RoundedSector,
-    RoundedSector,
-    (
-        _field(value, "span"),
-        _field(value, "r_base"),
-        _field(value, "r_back"),
-        _field(value, "fillet")
+end
+function _decode_node(::Val{:pose2}, value)
+    _decoded_target(
+        Pose2,
+        Pose2,
+        (_field(value, "x"), _field(value, "y"), _field(value, "φ"))
     )
-)
-_decode_node(::Val{:pose2}, value) = _decoded_target(
-    Pose2,
-    Pose2,
-    (_field(value, "x"), _field(value, "y"), _field(value, "φ"))
-)
-_decode_node(::Val{:earth_layer}, value) = EarthLayer(
-    _field(value, "rho"),
-    _field(value, "eps_r"),
-    _field(value, "mu_r"),
-    _field(value, "thickness")
-)
+end
+function _decode_node(::Val{:earth_layer}, value)
+    EarthLayer(
+        _field(value, "rho"),
+        _field(value, "eps_r"),
+        _field(value, "mu_r"),
+        _field(value, "thickness")
+    )
+end
 function _decode_node(::Val{:earth_model}, value)
     raw_layers = _required(value, "layers", "earth_model")
     raw_layers isa AbstractVector || throw(ArgumentError(
@@ -174,9 +181,15 @@ function _decode_node(::Val{:earth_model}, value)
     layers = EarthLayer[deserialize_value(layer) for layer in raw_layers]
     isempty(layers) && throw(ArgumentError("earth_model layers cannot be empty"))
     T = promote_type(map(eltype, layers)...)
-    return EarthModel{T}(
-        Bool(_required(value, "vertical_layers", "earth_model")),
-        EarthLayer{T}[convert(EarthLayer{T}, layer) for layer in layers]
+    converted = Tuple(convert(EarthLayer{T}, layer) for layer in layers)
+    length(converted) >= 2 || throw(ArgumentError(
+        "earth_model requires air and at least one earth layer"
+    ))
+    return build(
+        EarthModel,
+        Base.tail(converted);
+        vertical_layers = Bool(_required(value, "vertical_layers", "earth_model")),
+        air_layer = first(converted)
     )
 end
 
@@ -214,25 +227,19 @@ function _decode_node(::Val{:lattice}, value)
     build = (nx, ny, dx, dy) -> Lattice(; nx, ny, dx, dy)
     return _decoded_target(Lattice, build, values)
 end
-_decode_node(::Val{:diameter_factor}, value) = _decoded_target(
-    DiameterFactor, DiameterFactor, (_field(value, "k"),)
-)
-_decode_node(::Val{:fill_factor}, value) = _decoded_target(
-    FillFactor, FillFactor, (_field(value, "η"),)
-)
-_decode_node(::Val{:tabulated_compaction}, value) = TabulatedCompaction(
-    _field(value, "data")
-)
-_decode_node(::Val{:affine_compaction}, value) = AffineCompaction(
-    _field(value, "map")
-)
+function _decode_node(::Val{:fill_factor}, value)
+    _decoded_target(
+        FillFactor, FillFactor, (_field(value, "η"),)
+    )
+end
 _decode_node(::Val{:capacity}, value) = capacity()
-_decode_node(::Val{:lay_ratio}, value) =
+function _decode_node(::Val{:lay_ratio}, value)
     _decoded_target(LayRatio, LayRatio, (_field(value, "q"),))
-_decode_node(::Val{:pitch}, value) =
-    _decoded_target(Pitch, Pitch, (_field(value, "p"),))
-_decode_node(::Val{:lay_angle}, value) =
+end
+_decode_node(::Val{:pitch}, value) = _decoded_target(Pitch, Pitch, (_field(value, "p"),))
+function _decode_node(::Val{:lay_angle}, value)
     _decoded_target(LayAngle, LayAngle, (_field(value, "α"),))
+end
 function _decode_node(::Val{:helix}, value)
     values = (
         _field(value, "lay"), _field(value, "dir"), _field(value, "φ0")
@@ -281,7 +288,8 @@ function _decode_part(::Val{:group}, value, materials)
         _decode_part(_required(value, "item", "group"), materials),
         deserialize_value(_required(value, "pattern", "group")),
         deserialize_value(_required(value, "path", "group")),
-        deserialize_value(_required(value, "compact", "group"))
+        deserialize_value(_required(value, "compact", "group")),
+        deserialize_value(_required(value, "boundary", "group"))
     )
     return _decoded_target(Group, Group, values)
 end
@@ -295,7 +303,7 @@ function _decode_part(::Val{:assembly}, value, materials)
             member isa AbstractDict || throw(ArgumentError(
                 "explicit assembly members must be objects"
             ))
-            DataModel._AssemblyMember(
+            DataModel.AssemblyMember(
                 _decode_part(_required(member, "item", "assembly member"), materials),
                 deserialize_value(_required(member, "at", "assembly member"))
             )
@@ -356,9 +364,10 @@ function _decode_design_resolved(value, materials)
         String(_required(value, "cable_id", "cable_design")),
         _decode_part(_required(value, "root", "cable_design"), materials),
         haskey(value, "nominal_data") ?
-        _decode_named_tuple(_required(value, "nominal_data", "cable_design")) : (;),
+        _decode_named_tuple(_required(value, "nominal_data", "cable_design")) : (;)
     )
-    caller = (cable_id, root, nominal_data) -> build(
+    caller = (
+        cable_id, root, nominal_data) -> build(
         CableDesign, cable_id, root; nominal_data
     )
     return _decoded_target(CableDesign, caller, values)
@@ -367,8 +376,8 @@ end
 function _decode_design(value, materials = Dict{String, Material}())
     varying = Tuple(
         (name, material)
-        for (name, material) in sort!(collect(materials); by = first)
-        if material isa Gridspace{Material}
+    for (name, material) in sort!(collect(materials); by = first)
+    if material isa Gridspace{Material}
     )
     isempty(varying) && return _decode_design_resolved(value, materials)
     names = first.(varying)
@@ -403,6 +412,24 @@ function _decode_node(::Val{:line_cable_system}, value)
     )
 end
 
+function _decode_node(::Val{:line_parameters_problem}, value)
+    system = _field(value, "system")
+    system isa LineCableSystem || throw(ArgumentError(
+        "line_parameters_problem system must decode as LineCableSystem"
+    ))
+    earth = _field(value, "earth_props")
+    earth isa EarthModel || throw(ArgumentError(
+        "line_parameters_problem earth_props must decode as EarthModel"
+    ))
+    return Engine.LineParametersProblem(
+        system;
+        temperature = _field(value, "temperature"),
+        earth_props = earth,
+        frequencies = _field(value, "frequencies"),
+        Γ = _optional(value, "Gamma")
+    )
+end
+
 function _decode_node(::Val{kind}, value) where {kind}
     throw(ArgumentError("unsupported declaration kind '$kind'"))
 end
@@ -414,7 +441,7 @@ function _read_document(file_name::AbstractString, expected_format::AbstractStri
         #! explicit-imports: on
     end
     _required(document, "\$schema", "LineCableModels document") ==
-        JSON_SCHEMA_DIALECT || throw(ArgumentError(
+    JSON_SCHEMA_DIALECT || throw(ArgumentError(
         "unsupported JSON Schema dialect"
     ))
     format = _required(document, "format", "LineCableModels document")

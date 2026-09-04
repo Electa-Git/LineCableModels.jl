@@ -68,9 +68,14 @@
             Diagonal(diag(trace.Pg[:, :, frequency_index])))
     end
 
-    execution=computation_options(Val(LineCableModelsCoaxial), (;))
+    execution=computation_options(LineCableModelsCoaxial, (;))
+    blueprints=LineCableModels.Engine.CableBlueprint{eltype(problem)}[LineCableModels.Engine.flatten(
+                                                                          LineCableModelsCoaxial(),
+                                                                          design,
+                                                                          eltype(problem))
+                                                                      for design in problem.system.designs]
     workspace=LineParametersWorkspace(
-        LineCableModelsCoaxial(), problem, Formulation(), execution)
+        problem, Formulation(), execution, blueprints)
     @test workspace.input.phase_map == problem.system.connection_order
     @test workspace.input.cable_map ==
           [entry.cable for entry in problem.system.terminal_order]
@@ -95,10 +100,10 @@
         )
     )
     allocation_workspace=LineParametersWorkspace(
-        LineCableModelsCoaxial(),
         problem,
         allocation_formulation,
-        execution
+        execution,
+        blueprints
     )
     function solve_without_logging(workspace, formulation)
         return with_logger(NullLogger()) do
@@ -115,6 +120,194 @@
         allocation_formulation
     )
     @test allocations <= 4_096
+end
+
+@testitem "Engine / Gridpoint / selected line problem reaches scalar compute" tags=[:integration] setup=[
+    EngineTestSupport,
+    UseEngineSupport,
+    TestFixtures
+] begin
+    import LineCableModels.ParametricBuilder as PB
+
+    system=TestFixtures.three_phase_system()
+    earth=Grid((EarthModel(10.0), EarthModel(100.0)))
+    problem_space=LineParametersProblem(
+        system,
+        earth;
+        frequencies = [50.0]
+    )
+    @test problem_space isa Gridspace{LineParametersProblem}
+    @test length(problem_space) == 2
+
+    point=first(PB.points(problem_space))
+    @test point isa LineCableModels.Gridpoint{LineParametersProblem}
+    result=compute(point, Formulation())
+    @test result isa LineParameters
+    @test size(result.Z) == (3, 3, 1)
+    @test size(result.Y) == (3, 3, 1)
+end
+
+@testitem "Engine / coaxial choreography / local formulas precede earth formulas" tags=[:integration] setup=[
+    EngineTestSupport,
+    UseEngineSupport,
+    TestFixtures
+] begin
+    const EN=LineCableModels.Engine
+    const II=EN.InsulationImpedance
+    const IA=EN.InsulationAdmittance
+    const SA=EN.SemiconAdmittance
+    const EZ=EN.EarthImpedance
+    const EY=EN.EarthAdmittance
+
+    events=Symbol[]
+    insulation_impedance=II.Formula(:Ametani1980).route
+    local_z=(
+        r_in, r_ex, mu_r, s, values)->begin
+        push!(events, :local_z)
+        insulation_impedance(r_in, r_ex, mu_r, s, values)
+    end
+    insulation=IA.Formula(:Ametani2004).route
+    local_insulation_y=(material, frequency, temperature,
+        values)->begin
+        push!(events, :local_y)
+        insulation(material, frequency, temperature, values)
+    end
+    semicon=SA.Formula(:Ametani2004).route
+    local_semicon_y=(material, frequency, temperature,
+        values)->begin
+        push!(events, :local_y)
+        semicon(material, frequency, temperature, values)
+    end
+
+    earth_z_routes=EZ.routes(Val(:Papadopoulos2010))
+    earth_z_self=(functor, pair)->begin
+        push!(events, :earth_z)
+        earth_z_routes.self(functor, pair)
+    end
+    earth_z_mutual=(functor, pair)->begin
+        push!(events, :earth_z)
+        earth_z_routes.mutual(functor, pair)
+    end
+    earth_y_routes=EY.routes(Val(:Papadopoulos2010))
+    earth_y_self=(functor, pair)->begin
+        push!(events, :earth_y)
+        earth_y_routes.self(functor, pair)
+    end
+    earth_y_mutual=(functor, pair)->begin
+        push!(events, :earth_y)
+        earth_y_routes.mutual(functor, pair)
+    end
+
+    formulation=Formulation(
+        insulation_impedance = formula(:Ametani1980; route = local_z),
+        earth_impedance = formula(
+            :Papadopoulos2010;
+            self = earth_z_self,
+            mutual = earth_z_mutual
+        ),
+        insulation_admittance = formula(
+            :Ametani2004;
+            route = local_insulation_y
+        ),
+        semicon_admittance = formula(
+            :Ametani2004;
+            route = local_semicon_y
+        ),
+        earth_admittance = formula(
+            :Papadopoulos2010;
+            self = earth_y_self,
+            mutual = earth_y_mutual
+        ),
+        options = (ideal_transposition = false,)
+    )
+    result=compute(
+        TestFixtures.line_parameters_problem(frequencies = [50.0]),
+        formulation
+    )
+
+    local_z_calls=findall(==(:local_z), events)
+    earth_z_calls=findall(==(:earth_z), events)
+    local_y_calls=findall(==(:local_y), events)
+    earth_y_calls=findall(==(:earth_y), events)
+    @test all(!isempty, (local_z_calls, earth_z_calls, local_y_calls, earth_y_calls))
+    @test maximum(local_z_calls) < minimum(earth_z_calls)
+    @test maximum(earth_z_calls) < minimum(local_y_calls)
+    @test maximum(local_y_calls) < minimum(earth_y_calls)
+    @test all(isfinite, result.Z)
+    @test all(isfinite, result.Y)
+end
+
+@testitem "Engine / preservation / two underground wires remain bit exact" tags=[:integration] setup=[
+    EngineTestSupport,
+    UseEngineSupport
+] begin
+    conductor=Material(
+        kind = :conductor,
+        rho = eps(Float64),
+        eps_r = 1.0,
+        mu_r = 1.0,
+        T0 = 20.0,
+        alpha = 0.0
+    )
+    insulation=Material(
+        kind = :insulator,
+        rho = 1.97e14,
+        eps_r = 2.3,
+        mu_r = 1.0,
+        T0 = 20.0,
+        alpha = 0.0
+    )
+    design=build(
+        CableDesign,
+        "two-bare-wires-preservation",
+        Stack(
+            Group(:core, Region(:core_metal, Disk(0.0425), conductor)),
+            Region(:core_insulation, Shell(1.0e-3), insulation)
+        )
+    )
+    system=build(
+        LineCableSystem,
+        [design, design],
+        [Pose2(0.0, -1.0), Pose2(1.0, -1.0)];
+        connections = [Dict(:core=>1), Dict(:core=>2)]
+    )
+    problem=LineParametersProblem(
+        system;
+        earth_props = homogeneous(rho = 0.1, eps_r = 1.0, mu_r = 1.0),
+        frequencies = [1.0, 50.0, 1000.0]
+    )
+    @test isconcretetype(fieldtype(typeof(problem), :earth_props))
+    @test fieldtype(typeof(problem), :earth_props) === typeof(problem.earth_props)
+    formulation=Formulation(
+        internal_impedance = :Schelkunoff1934,
+        insulation_impedance = :Ametani1980,
+        earth_impedance = :Papadopoulos2010,
+        insulation_admittance = :Ametani2004,
+        semicon_admittance = :Ametani2004,
+        earth_admittance = :Papadopoulos2010,
+        options = (ideal_transposition = false,)
+    )
+    parameters=compute(problem, formulation)
+    expected_Z=cat(
+        ComplexF64[9.972567772765543e-7+1.0667880124003238e-5im 9.97043431689472e-7+6.699003625368725e-6im;
+                   9.97043431689472e-7+6.699003625368725e-6im 9.972567772765543e-7+1.0667880124003238e-5im],
+        ComplexF64[5.2463186340709196e-5+0.00040739430692732475im 5.226929347335312e-5+0.00020898180154303036im;
+                   5.226929347335312e-5+0.00020898180154303036im 5.2463186340709196e-5+0.00040739430692732475im],
+        ComplexF64[0.0011582715276183772+0.006050197037293153im 0.0011034983201066505+0.0020950707524030328im;
+                   0.0011034983201066505+0.0020950707524030328im 0.0011582715276183772+0.006050197037293153im];
+        dims = 3
+    )
+    expected_Y=cat(
+        ComplexF64[1.3725717973458168e-12+3.456886991977605e-8im 1.1151765606538079e-15-1.0103448536100131e-16im;
+                   1.1151765606538079e-15-1.0103448536100131e-16im 1.3725717973458172e-12+3.4568869919776055e-8im],
+        ComplexF64[3.5935586686360366e-12+1.7284431242009702e-6im 2.0678134023375274e-12-3.7669677894046595e-13im;
+                   2.0678134023375274e-12-3.7669677894046595e-13im 3.593558668636037e-12+1.7284431242009702e-6im],
+        ComplexF64[5.141397717625919e-10+3.4568623758025955e-5im 4.511959006831256e-10-2.452790870106892e-10im;
+                   4.511959006831256e-10-2.452790870106892e-10im 5.141397717625921e-10+3.456862375802596e-5im];
+        dims = 3
+    )
+    @test parameters.Z.values == expected_Z
+    @test parameters.Y.values == expected_Y
 end
 
 @testitem "Engine / transform / symmetric two-cable system retains two modes" tags=[:integration] setup=[
@@ -138,7 +331,7 @@ end
     )
     problem=LineParametersProblem(
         system;
-        earth_props = Earth(rho = 100.0),
+        earth_props = homogeneous(rho = 100.0),
         frequencies = [50.0, 500.0]
     )
     parameters=compute(
@@ -195,11 +388,32 @@ end
         frequencies = [50.0]
     )
     @test problem.system === system
-    execution=computation_options(Val(LineCableModelsCoaxial), (;))
+    execution=computation_options(LineCableModelsCoaxial, (;))
     @test_throws ArgumentError LineParametersWorkspace(
-        LineCableModelsCoaxial(), problem, Formulation(), execution)
+        problem,
+        Formulation(),
+        execution,
+        LineCableModels.Engine.CableBlueprint{eltype(problem)}[LineCableModels.Engine.flatten(
+                                                                   LineCableModelsCoaxial(), source,
+                                                                   eltype(problem)
+                                                               )
+                                                               for source in problem.system.designs]
+    )
     @test_throws ArgumentError compute(problem, Formulation())
     @test_throws ArgumentError CableConstants(design)
+
+    neutral=build(
+        LineCableSystem,
+        design,
+        Pose2(0.0, 0.0);
+        connections = (phase = 1,),
+        environment = nothing
+    )
+    @test_throws DomainError LineParametersProblem(
+        neutral;
+        earth_props = EarthModel(100.0),
+        frequencies = [50.0]
+    )
 end
 
 @testitem "Engine / coaxial profile / explicit radial support boundary" tags=[:integration] setup=[
@@ -227,15 +441,23 @@ end
     bare=build(CableDesign, "bare", Group(
         :phase, Region(:bare, Disk(0.01), conductor)
     ))
-    execution=computation_options(Val(LineCableModelsCoaxial), (;))
+    execution=computation_options(LineCableModelsCoaxial, (;))
     workspace(problem,
         formulation = Formulation()) = LineParametersWorkspace(
-        LineCableModelsCoaxial(), problem, formulation, execution)
+        problem,
+        formulation,
+        execution,
+        LineCableModels.Engine.CableBlueprint{eltype(problem)}[LineCableModels.Engine.flatten(
+                                                                   LineCableModelsCoaxial(), source,
+                                                                   eltype(problem)
+                                                               )
+                                                               for source in problem.system.designs]
+    )
 
     bare_input=workspace(problem_for(bare)).input
-    @test bare_input.r_ins_in == bare_input.r_ins_ext == [0.01]
-    @test bare_input.insulator_layer_ranges == [1:0]
-    @test isempty(bare_input.r_ins_layer_in)
+    @test bare_input.cable.r_ins_in == bare_input.cable.r_ins_ext == [0.01]
+    @test bare_input.cable.dielectric_ranges == [1:0]
+    @test isempty(bare_input.cable.r_layer_in)
 
     layered=build(CableDesign,
         "layered",
@@ -254,8 +476,9 @@ end
         ))
     layered_input=workspace(problem_for(layered)).input
     @test layered_input.n_phases == 2
-    @test layered_input.insulator_layer_ranges == [1:2, 3:2]
-    @test layered_input.r_ins_in[2] == layered_input.r_ins_ext[2] == 0.014
+    @test layered_input.cable.dielectric_ranges == [1:2, 3:2]
+    @test layered_input.cable.r_ins_in[2] ==
+          layered_input.cable.r_ins_ext[2] == 0.014
 
     filled=build(CableDesign,
         "filled",
@@ -266,9 +489,10 @@ end
             fill = dielectric
         ))
     filled_input=workspace(problem_for(filled)).input
-    @test filled_input.r_ins_layer_in == [0.01]
-    @test filled_input.r_ins_layer_ext == [0.03]
-    @test filled_input.rho_ins_layer == [dielectric.rho]
+    @test filled_input.cable.r_layer_in == [0.01]
+    @test filled_input.cable.r_layer_ext == [0.03]
+    @test getproperty.(filled_input.cable.dielectric_materials, :rho) ==
+          [dielectric.rho]
 
     reappearing=build(CableDesign,
         "reappearing",
@@ -414,10 +638,15 @@ end
         earth_props = EarthModel(100.0),
         frequencies = [50.0]
     )
-    execution=computation_options(Val(LineCableModelsCoaxial), (;))
+    execution=computation_options(LineCableModelsCoaxial, (;))
     ordinary=Formulation(options = (ideal_transposition = false,))
+    blueprints=LineCableModels.Engine.CableBlueprint{eltype(mixed_problem)}[LineCableModels.Engine.flatten(
+                                                                                LineCableModelsCoaxial(), design,
+                                                                                eltype(mixed_problem)
+                                                                            )
+                                                                            for design in mixed_problem.system.designs]
     workspace=LineParametersWorkspace(
-        LineCableModelsCoaxial(), mixed_problem, ordinary, execution)
+        mixed_problem, ordinary, execution, blueprints)
     @test getfield.(workspace.invariants.earth_pairs, :layers) ==
           [(1, 1), (1, 2), (2, 2)]
     @test_throws ArgumentError compute(mixed_problem, ordinary)
@@ -489,13 +718,16 @@ end
         connections,
         system_id = "overhead-ehem"
     )
-    earth=EarthModel(100.0, 10.0, 1.0; thickness = 5.0)
-    add!(earth, EP.EarthLayer(500.0, 20.0, 1.0, 10.0))
-    add!(earth, EP.EarthLayer(50.0, 5.0, 1.0))
+    earth=build(EarthModel,
+        (
+            EP.EarthLayer(100.0, 10.0, 1.0, 5.0),
+            EP.EarthLayer(500.0, 20.0, 1.0, 10.0),
+            EP.EarthLayer(50.0, 5.0, 1.0)
+        ))
     problem=LineParametersProblem(
         system;
         earth_props = earth,
-        frequencies = [1.0e6]
+        frequencies = [50.0]
     )
     common=(
         earth_impedance = :Pollaczek1926,
@@ -506,7 +738,7 @@ end
         problem,
         Formulation(;
             common...,
-            equivalent_earth = EH.AfterFD(EH.Layer())
+            equivalent_earth = EH.AfterFD(EH.Layer(-1))
         )
     )
     martins=compute(
@@ -528,6 +760,6 @@ end
         @test all(isfinite, result.Z)
         @test all(isfinite, result.Y)
     end
-    @test martins.Z.values != selected.Z.values
-    @test xue.Z.values != selected.Z.values
+    @test !isapprox(martins.Z.values, selected.Z.values; rtol = 1.0e-10)
+    @test !isapprox(xue.Z.values, selected.Z.values; rtol = 1.0e-10)
 end

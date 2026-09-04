@@ -11,7 +11,8 @@ Construct finite parameter spaces and materialise cable problems from explicit
 - Materialise materials, cable parts, cable designs, positions, earth models,
   and line-parameter problems.
 - Evaluate every materialised problem with `Combinatorial`.
-- Project completed result spaces into finite spaces of downstream problems.
+- Transport completed result spaces into target-bearing downstream problem
+  spaces.
 - Estimate stranded-conductor and wire-screen patterns.
 """
 module ParametricBuilder
@@ -20,37 +21,38 @@ export Grid, AbsoluteError, DeterministicGrid, RelativeGrid, AbsoluteGrid
 export AbstractGrid, AbstractUncertainGrid, UncertainValue
 export Gridspace
 export has_uncertainty, nominal, uncertainty
-export @gridspace, @relax
+export @gridspace
 export build
 
 export Combinatorial, ParametricProblem, ParametricResult
-export result, project
 
 export Material, Conductor, Insulator, Semiconductor
 export CableDesign, LineCableSystem
-export Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, RoundedSector, Shell, Pose2
+export Disk, Rectangle, Ellipse, Sector, Annulus, Polygon, Shell, Pose2
 export Region, Stack
 export Group, Assembly
 export Enclosure
 export terminal, core, stranded, rope, cores, tape, insulation, screen, sheath
 export armor, bedding, jacket, filler, pipe, duct
 export solid, shell, wires, layers, assembly
-export capacity, FillFactor, DiameterFactor, TabulatedCompaction, AffineCompaction
-export at, trefoil, hflat, vflat, Earth
-export @cable, @terminal, @assembly, @duct, @at, @hflat, @vflat, @trefoil
+export capacity
+export FillFactor
+export at, trefoil, hflat, vflat, layer, homogeneous, EarthLayer, EarthModel
+export @cable, @system, @earth, @terminal, @assembly, @pipe, @duct
+export @at, @hflat, @vflat, @trefoil
 export @distribute
 export WireEstimate, make_stranded, make_screened
 
 using DocStringExtensions: SIGNATURES, TYPEDSIGNATURES, TYPEDEF, TYPEDFIELDS
-using Random
-using RequiredInterfaces: @required
-using ..Grammar: @orchestrator
-import ..LineCableModels: add!, build
-import ..LineCableModels: _construction, _construction_axis, _finite_construction
+import Random
+import ..LineCableModels: add!, build, Gridpoint, validate
+import ..LineCableModels: Grid, AbsoluteError, DeterministicGrid, RelativeGrid
+import ..LineCableModels: AbsoluteGrid, AbstractGrid, AbstractUncertainGrid
+import ..LineCableModels: UncertainValue, Gridspace, has_uncertainty
+import ..LineCableModels: parameterize, materialize, points
 import ..Grammar
 import ..Grammar: compute, computation_options, computation_details, details,
-                  nominal, uncertainty, check_core_result,
-                  computation_owner
+                  nominal, uncertainty, check_core_result
 using ..Grammar:
                  AbstractProblemDefinition, AbstractFormulation, AbstractResultSpace,
                  AbstractParametricResult,
@@ -59,22 +61,19 @@ import ..Materials
 import ..Materials: Material
 import ..DataModel
 import ..DataModel: Disk, Rectangle, Ellipse, Sector, Annulus, Polygon
-import ..DataModel: RoundedSector, Shell, Pose2
+import ..DataModel: Shell, Pose2
 import ..DataModel: Region, Stack
 import ..DataModel: Group, Assembly
 import ..DataModel: Enclosure
-import ..DataModel: capacity, FillFactor, DiameterFactor
-import ..DataModel: TabulatedCompaction, AffineCompaction
+import ..DataModel: capacity, FillFactor
 import ..DataModel: CableDesign, LineCableSystem
 import ..EarthProps
+using ..EarthProps: EarthLayer, EarthModel, layer, homogeneous
 import ..Engine
 import ..TextDisplay
 
-include("grid.jl")
-include("gridspace.jl")
 include("macros.jl")
 include("results.jl")
-include("project.jl")
 
 include("material.jl")
 include("geometry.jl")
@@ -94,7 +93,6 @@ using .WirePatterns: WireEstimate, make_stranded, make_screened
 
 include("textdisplay.jl")
 
-public AbstractProjectionDefinition, entitle, select, derive, materialize
-public traverse, sample_uncertainty
+public traverse
 
 end

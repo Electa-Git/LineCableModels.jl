@@ -1,8 +1,10 @@
-routes(::Val{:Pettersson1994}) = (
-    self = pettersson1994,
-    mutual = pettersson1994,
-    Γ = pettersson1994_gamma
-)
+function routes(identifier::Val{:Pettersson1994})
+    return (
+        self = FormulaMethod(identifier, earth_potential_coefficient, Val(:self)),
+        mutual = FormulaMethod(identifier, earth_potential_coefficient, Val(:mutual)),
+        Γ = FormulaMethod(identifier, propagation_constant)
+    )
+end
 
 function assumptions(::Val{:Pettersson1994})
     (
@@ -13,11 +15,38 @@ function assumptions(::Val{:Pettersson1994})
 end
 
 propagation(::Val{:Pettersson1994}) = Val(:zero)
+"""
+$(TYPEDSIGNATURES)
+
+**Identification.** Wideband complex-image potential coefficient for overhead
+conductors above homogeneous earth. Pettersson's paper treats wires above, on,
+and under ground; the registered route implements only its overhead equation.
+
+**Expression.**
+
+```math
+P_{e,ij}=\\frac{1}{2\\pi\\varepsilon_0}\\ln\\frac{D_{ij}}{d_{ij}}+N_{e,ij},
+```
+
+```math
+N_{e,ij}=\\frac{1}{(n^2+1)\\pi\\varepsilon_0}
+\\ln\\frac{\\sqrt{[H+(n^2+1)/\\beta_\\gamma]^2+y_{ij}^2}}{D_{ij}},
+\\quad n^2=\\varepsilon_{rg}+\\frac{\\sigma_g}{j\\omega\\varepsilon_0}.
+```
+
+**Reference.** P. Pettersson, “Image Representation of Wave Propagation on
+Wires Above, On and Under Ground,” *IEEE Transactions on Power Delivery*, 9,
+1049–1055, 1994. DOI: 10.1109/61.296290.
+"""
 function description(::Formula{:Pettersson1994})
-    "Pettersson wideband image potential coefficient (1994)"
+    "Pettersson wideband overhead image potential coefficient (1994)"
 end
 
-pettersson1994_gamma(jω, permeability, permittivity) = (Γ = zero(jω), squared = zero(jω))
+function propagation_constant(
+        ::Val{:Pettersson1994}, jω, permeability, permittivity
+)
+    return (Γ = zero(jω), squared = zero(jω))
+end
 
 function (formula::Formula{:Pettersson1994})(
         rho, epsilon, mu, jω, Γ, segments = nothing
@@ -58,7 +87,9 @@ P. Pettersson, "Image representation of wave propagation on wires above,
 on and under ground," *IEEE Transactions on Power Delivery*, vol. 9,
 pp. 1049-1055, 1994. DOI: 10.1109/61.296290.
 """
-function pettersson1994(functor, pair)
+function earth_potential_coefficient(
+        ::Val{:Pettersson1994}, ::Val{:mutual}, functor, pair
+)
     _require(pair, Val(:overhead))
     state = functor.state
     geometry = _geometry(pair)

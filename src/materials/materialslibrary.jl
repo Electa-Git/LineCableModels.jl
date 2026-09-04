@@ -1,7 +1,10 @@
 """
 $(TYPEDEF)
 
-Store materials by name.
+Store materials by name as an `AbstractDict{String, Material}`.
+
+Ordinary indexed assignment inserts or replaces a material. Use [`add!`](@ref)
+when an existing name must be rejected.
 
 $(TYPEDFIELDS)
 """

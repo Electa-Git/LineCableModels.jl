@@ -16,31 +16,33 @@
     design=first(values(library.data))
     constants=CableConstants(design)
     @test constants isa CableConstants{Float64}
-    @test constants.R > 0
-    @test constants.L > 0
-    @test constants.C > 0
+    @test all(>(0), constants.R)
+    @test all(>(0), constants.L)
+    @test all(>(0), constants.C)
+    @test all(>=(0), constants.G)
     @test basis(constants) === :pul
     constants_display=sprint(show, constants)
-    @test occursin("CableConstants(R=", constants_display)
-    @test occursin("Ω/km", constants_display)
-    @test occursin("mH/km", constants_display)
-    @test occursin("μF/km", constants_display)
+    @test occursin("CableConstants(assemblies=1", constants_display)
     @test resistance(constants) === constants.R
     @test inductance(constants) === constants.L
     @test capacitance(constants) === constants.C
+    @test conductance(constants) === constants.G
     @test observe(constants, R) === constants.R
-    @test observables(typeof(constants)) == (R, L, C)
+    @test observables(typeof(constants)) == (R, L, C, G)
     constants_observables=observables(
         constants,
-        (R, L, C)
+        (R, L, C, G)
     )
     @test constants_observables isa LineCableModels.Grammar.ObservationPublication
     @test first(constants_observables).values ≈ 1_000constants.R
     @test keys(first(constants_observables)) == (:values, :quantity, :unit)
     constants_table=DataFrame(constants_observables)
-    @test names(constants_table) == ["R", "L", "C"]
-    @test only(constants_table.R) ≈ 1_000constants.R
-    @test_throws Exception DataFrame(constants)
+    @test names(constants_table) == ["core", "R", "L", "C", "G"]
+    @test only(constants_table.core) === :core
+    @test constants_table.R ≈ 1_000constants.R
+    native_constants_table=DataFrame(constants)
+    @test names(native_constants_table) == ["core", "R", "L", "C", "G"]
+    @test native_constants_table.R == constants.R
 
     frequency=[50.0, 100.0, 200.0]
     angular=reshape(2π .* frequency, 1, 1, :)
@@ -200,10 +202,11 @@
     @test subset_table.column == [1, 1]
     @test subset_table.frequency == frequency[2:3]
     @test subset_table.R == resistance_values[2, 1, 2:3]
-    transformed_table=DataFrame(observables(parameters, (
-        @observe((Z, abs)[:, :, :]),
-        @observe((Y, angle)[:, :, :])
-    )))
+    transformed_table=DataFrame(observables(
+        parameters, (
+            @observe((Z, abs)[:, :, :]),
+            @observe((Y, angle)[:, :, :])
+        )))
     @test names(transformed_table) ==
           ["frequency", "row", "column", "|Z|", "∠Y"]
     @test transformed_table[!, Symbol("|Z|")][1:4] ≈
@@ -355,24 +358,24 @@ end
     @test_throws MethodError observables(summaries_only)
 
     @test observables(typeof(complete)) == (
-        R, L, C,
-        (statistics, R), (statistics, L), (statistics, C),
-        (samples, R), (samples, L), (samples, C),
-        (histograms, R), (histograms, L), (histograms, C)
+        R, L, C, G,
+        (statistics, R), (statistics, L), (statistics, C), (statistics, G),
+        (samples, R), (samples, L), (samples, C), (samples, G),
+        (histograms, R), (histograms, L), (histograms, C), (histograms, G)
     )
-    @test @inferred(observe(complete, R, 1)) == 2.5
-    @test @inferred(observe(complete, statistics, R, mean, 1)) == 2.5
-    @test @inferred(observe(complete, statistics, R, std, 1)) ≈ sqrt(5 / 3)
+    @test only(@inferred(observe(complete, R, 1))) == 2.5
+    @test only(@inferred(observe(complete, statistics, R, mean, 1))) == 2.5
+    @test only(@inferred(observe(complete, statistics, R, std, 1))) ≈ sqrt(5 / 3)
     retained_samples=[1.0, 2.0, 3.0, 4.0]
-    retained_histogram=observe(complete, histograms, R, 1)
-    @test observe(complete, samples, R, 1, :) == retained_samples
+    retained_histogram=observe(complete, histograms, R, 1, 1)
+    @test observe(complete, samples, R, 1, 1, :) == retained_samples
     @test retained_histogram.edges == density.edges
     @test retained_histogram.density == density.density
-    @test_throws BoundsError observe(complete, samples, R, 2, :)
-    @test_throws BoundsError observe(complete, samples, R, 1, 5)
-    @test_throws ArgumentError observe(histogram_only, samples, R, 1, :)
-    @test_throws ArgumentError observe(sample_only, histograms, R, 1)
-    @test_throws ArgumentError MonteCarloResult(
+    @test_throws BoundsError observe(complete, samples, R, 2, 1, :)
+    @test_throws BoundsError observe(complete, samples, R, 1, 2, :)
+    @test_throws ArgumentError observe(histogram_only, samples, R, 1, 1, :)
+    @test_throws ArgumentError observe(sample_only, histograms, R, 1, 1)
+    @test_throws DimensionMismatch MonteCarloResult(
         complete.formulation,
         complete.values,
         [(R = summary, L = summary, C = summary, G = summary)],
@@ -386,7 +389,7 @@ end
         complete.formulation,
         complete.values,
         complete.stats,
-        [(R = [1.0], L = [1.0], C = [1.0])],
+        [(R = [1.0], L = [1.0], C = [1.0], G = [1.0])],
         complete.histogram_values,
         complete.root_seed,
         complete.point_seeds,
@@ -396,9 +399,9 @@ end
     result_publication=observables(
         complete,
         (
-            (statistics, R, mean, 1),
-            (samples, R, 1, Colon()),
-            (histograms, R, 1)
+            (statistics, R, mean, 1, 1),
+            (samples, R, 1, 1, Colon()),
+            (histograms, R, 1, 1)
         );
         units = (:milli, :milli, :milli)
     )
@@ -412,29 +415,29 @@ end
     summary_product=only(statistics(complete))
     sample_product=only(samples(complete))
     histogram_product=only(histograms(complete))
-    @test keys(summary_product) == (:R, :L, :C)
-    @test keys(sample_product) == (:R, :L, :C)
-    @test keys(histogram_product) == (:R, :L, :C)
+    @test keys(summary_product) == (:R, :L, :C, :G)
+    @test keys(sample_product) == (:R, :L, :C, :G)
+    @test keys(histogram_product) == (:R, :L, :C, :G)
     @test !applicable(observe, summary_product, R)
     @test !applicable(observe, sample_product, R, :)
     @test !applicable(observe, histogram_product, R)
     summary_publication=observables(
         complete,
-        ((statistics, R, 1),);
+        ((statistics, R, 1, 1),);
         units = (:milli,)
     )|>only
     histogram_publication=observables(
         complete,
-        ((histograms, R, 1),);
+        ((histograms, R, 1, 1),);
         units = (:milli,)
     )|>only
     summary_factor=scale_factor(R, basis(complete), summary_publication.unit)
-    @test summary_publication.values.mean == summary_product.R.mean * summary_factor
-    @test summary_publication.values.std == summary_product.R.std * abs(summary_factor)
+    @test summary_publication.values.mean == summary_product.R[1].mean * summary_factor
+    @test summary_publication.values.std == summary_product.R[1].std * abs(summary_factor)
     @test histogram_publication.values.edges ==
-          histogram_product.R.edges .* summary_factor
+          histogram_product.R[1].edges .* summary_factor
     @test histogram_publication.values.density ==
-          histogram_product.R.density ./ summary_factor
+          histogram_product.R[1].density ./ summary_factor
 
     frequency=[50.0, 100.0]
     impedance=fill(1.0e-4+2.0e-4im, 2, 2, 2)

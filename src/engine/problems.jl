@@ -1,34 +1,67 @@
 """
 $(TYPEDEF)
 
-Define one materialised line-parameter calculation. Operating temperature and
-analysis frequencies are fields of the problem.
+Define one scalar line-parameter calculation over a completed cable system.
+Operating temperature and analysis frequencies are fields of the problem.
 
 $(TYPEDFIELDS)
 """
 struct LineParametersProblem{
     T <: Real,
     S <: LineCableSystem{T},
-    P <: Union{Nothing, Vector{Complex{T}}}
+    P <: Union{Nothing, Vector{Complex{T}}},
+    E <: EarthModel{T}
 } <: AbstractProblemDefinition
     "Physical cable system."
     system::S
     "Operating temperature \\[°C\\]."
     temperature::T
     "Static earth model."
-    earth_props::EarthModel{T}
+    earth_props::E
     "Strictly positive, sorted analysis frequencies \\[Hz\\]."
     frequencies::Vector{T}
     "Optional longitudinal propagation constants aligned with frequency \\[1/m\\]."
     Γ::P
+
+    function LineParametersProblem{T, S, P, E}(
+            system::S,
+            temperature::T,
+            earth_props::E,
+            frequencies::Vector{T},
+            Γ::P
+    ) where {
+            T <: Real,
+            S <: LineCableSystem{T},
+            P <: Union{Nothing, Vector{Complex{T}}},
+            E <: EarthModel{T}
+    }
+        return validate(new{T, S, P, E}(
+            system,
+            temperature,
+            earth_props,
+            frequencies,
+            Γ
+        ))
+    end
 end
 
 Base.eltype(::LineParametersProblem{T}) where {T} = T
 Base.eltype(::Type{LineParametersProblem{T}}) where {T} = T
 
-function _check_line_parameters_problem(problem::LineParametersProblem)
+function validate(problem::LineParametersProblem)
     validate(problem.system)
     validate(problem.earth_props)
+    for (design, pose) in zip(problem.system.designs, problem.system.positions)
+        iszero(pose.y) && throw(DomainError(
+            pose.y,
+            "a cable centre cannot lie on the air-earth interface"
+        ))
+        radius = DataModel.outer_radius(design)
+        abs(pose.y) >= radius || throw(DomainError(
+            pose.y,
+            "the cable cross-section crosses the air-earth interface"
+        ))
+    end
     phases = unique(problem.system.connection_order)
     positive = filter(>(0), phases)
     isempty(positive) && throw(ArgumentError(
@@ -62,14 +95,7 @@ function _check_line_parameters_problem(problem::LineParametersProblem)
                 "longitudinal propagation constants must be finite"
             ))
     end
-    maximum(problem.frequencies) > oftype(first(problem.frequencies), 1e8) &&
-        @warn("Frequencies above 100 MHz exceed the quasi-TEM validity range.",
-            max_frequency=maximum(problem.frequencies),)
-    return nothing
-end
-
-function Validation.rules(::Type{<:LineParametersProblem})
-    (Validation.OwnerRule(:line_parameters_problem, _check_line_parameters_problem),)
+    return problem
 end
 
 """
@@ -106,20 +132,21 @@ function LineParametersProblem(
         typeof(float(first(frequencies))), propagation_type
     )
     converted_system = convert(LineCableSystem{T}, system)
+    converted_earth = convert(EarthModel{T}, earth_props)
     propagation = Γ === nothing ? nothing :
                   Complex{T}[convert(Complex{T}, value) for value in Γ]
-    problem = LineParametersProblem{
+    return LineParametersProblem{
         T,
         typeof(converted_system),
-        typeof(propagation)
+        typeof(propagation),
+        typeof(converted_earth)
     }(
         converted_system,
         convert(T, float(temperature)),
-        convert(EarthModel{T}, earth_props),
+        converted_earth,
         T[convert(T, float(value)) for value in frequencies],
         propagation
     )
-    return validate(problem)
 end
 
 """
@@ -288,28 +315,20 @@ function _direct(::FormulaSpec{ID, Order}, owner::Symbol) where {ID, Order}
     return nothing
 end
 
-function _ehem_rule(
-        ::FormulaSpec{:Layer, Order, NamedTuple{(), Tuple{}}}
-) where {Order}
-    EHEM.Layer()
-end
-
-function _ehem_rule(
-        selection::FormulaSpec{
-        :Layer, Order, NamedTuple{(:layer,), Tuple{T}}
-}
-) where {Order, T <: Int}
-    return EHEM.Layer(selection.overrides.layer)
-end
-
 function _ehem_rule(selection::FormulaSpec{:Layer})
-    defaults = (layer = -1,)
-    unknown = setdiff(keys(selection.overrides), keys(defaults))
+    required = (:layer,)
+    unknown = setdiff(keys(selection.overrides), required)
     isempty(unknown) || throw(ArgumentError(
         "unknown assumptions for equivalent-earth policy :Layer: $(collect(unknown))"
     ))
-    values = merge(defaults, selection.overrides)
-    return EHEM.Layer(values.layer)
+    haskey(selection.overrides, :layer) || throw(ArgumentError(
+        "equivalent-earth policy :Layer requires `layer`"
+    ))
+    layer = selection.overrides.layer
+    layer isa Int || throw(ArgumentError(
+        "equivalent-earth policy :Layer requires an integer `layer`"
+    ))
+    return EHEM.Layer(layer)
 end
 
 function _ehem_rule(selection::FormulaSpec{ID}) where {ID}
@@ -326,16 +345,16 @@ function _equivalent_earth(
     return _ehem_order(Val(Order), _ehem_rule(selection))
 end
 
-function Formulation(;
-        internal_impedance = formula(:Schelkunoff1934),
-        insulation_impedance = formula(:Lossless),
-        earth_impedance = formula(:Papadopoulos2010),
-        insulation_admittance = formula(:Marti2001),
-        semicon_admittance = formula(:Ametani2004),
-        earth_admittance = formula(:Papadopoulos2010),
-        earth_properties = nothing,
-        equivalent_earth = formula(:Layer; order = :after),
-        options::NamedTuple = (;)
+function _line_formulation(
+        internal_impedance,
+        insulation_impedance,
+        earth_impedance,
+        insulation_admittance,
+        semicon_admittance,
+        earth_admittance,
+        earth_properties,
+        equivalent_earth,
+        options::NamedTuple
 )
     return LineParametersFormulation(;
         internal_impedance = _internal_impedance_formula(internal_impedance),
@@ -346,6 +365,56 @@ function Formulation(;
         earth_admittance = _earth_admittance_formula(earth_admittance),
         earth_properties = _earth_properties_formula(earth_properties),
         equivalent_earth = _equivalent_earth(equivalent_earth),
-        options = formulation_options(Val(LineParametersFormulation), options)
+        options = formulation_options(LineParametersFormulation, options)
+    )
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Select the complete physical-method bundle for a line-parameter calculation.
+
+Each formula slot and the complete `options` tuple accepts either one scalar
+selection or an explicit
+[`Grid`](@ref LineCableModels.ParametricBuilder.Grid)/
+[`Gridspace`](@ref LineCableModels.ParametricBuilder.Gridspace) source. Scalar
+inputs return one [`LineParametersFormulation`](@ref). Varying inputs return a
+`Gridspace{LineParametersFormulation}` whose points contain only completed,
+owner-resolved formula values.
+
+`combine=:product` forms the Cartesian product among varying fields in this
+formulation. `combine=:zip` aligns equally sized fields and broadcasts
+singletons. This composition is independent of the Cartesian product between
+problem points and formulation points performed by
+[`Combinatorial`](@ref LineCableModels.ParametricBuilder.Combinatorial).
+"""
+function Formulation(;
+        internal_impedance = formula(:default),
+        insulation_impedance = formula(:default),
+        earth_impedance = formula(:default),
+        insulation_admittance = formula(:default),
+        semicon_admittance = formula(:default),
+        earth_admittance = formula(:default),
+        earth_properties = formula(:default),
+        equivalent_earth = formula(:default),
+        options = (;),
+        combine::Symbol = :product
+)
+    values = (
+        internal_impedance,
+        insulation_impedance,
+        earth_impedance,
+        insulation_admittance,
+        semicon_admittance,
+        earth_admittance,
+        earth_properties,
+        equivalent_earth,
+        options
+    )
+    return parameterize(
+        LineParametersFormulation,
+        _line_formulation,
+        values;
+        combine
     )
 end

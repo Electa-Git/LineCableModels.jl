@@ -38,6 +38,11 @@ end
     UseDataModelSupport
 ] begin
     empty_library=MaterialsLibrary(add_defaults = false)
+    @test empty_library isa AbstractDict{String, Material}
+    @test keytype(typeof(empty_library)) === String
+    @test valtype(typeof(empty_library)) === Material
+    @test eltype(typeof(empty_library)) === Pair{String, Material}
+    @test pairs(empty_library) === empty_library
     @test isempty(empty_library)
     @test sprint(show, MIME("text/plain"), empty_library) ==
           "MaterialsLibrary · 0 materials"
@@ -45,16 +50,44 @@ end
     copper=Material(:conductor, 1.7241e-8, 1.0, 1.0, 20.0, 0.00393)
     @test add!(empty_library, :copper, copper) === empty_library
     @test empty_library["copper"] === copper
+    @test collect(empty_library) isa Vector{Pair{String, Material}}
     @test collect(keys(empty_library)) == ["copper"]
     @test_throws ArgumentError add!(empty_library, "copper", copper)
 
     fallback=Material(:insulator, Inf, 1.0, 1.0, 20.0, 0.0)
     @test get(empty_library, "missing", fallback) === fallback
-    @test get(empty_library, "missing") === nothing
+    @test get(() -> fallback, empty_library, "missing") === fallback
+    @test get(() -> fallback, empty_library, "copper") === copper
+    @test_throws MethodError get(empty_library, "missing")
+    @test !haskey(empty_library, :copper)
+    @test get(empty_library, :copper, fallback) === fallback
+    @test_throws KeyError empty_library[:copper]
+
+    replacement=Material(:conductor, 1.8e-8, 1.0, 1.0, 20.0, 0.004)
+    @test setindex!(empty_library, replacement, "copper") === empty_library
+    @test empty_library["copper"] === replacement
+    @test (empty_library["copper"] = copper) === copper
+    @test empty_library["copper"] === copper
+    empty_library["copper"]=replacement
+
+    copied=copy(empty_library)
+    @test copied isa MaterialsLibrary
+    @test copied !== empty_library
+    @test copied.data !== empty_library.data
+    @test copied["copper"] === replacement
+    @test delete!(copied, "copper") === copied
+    @test haskey(empty_library, "copper")
+
+    blank=empty(empty_library)
+    @test blank isa MaterialsLibrary
+    @test isempty(blank)
+    @test empty!(copied) === copied
+    @test isempty(copied)
 
     @test delete!(empty_library, "copper") === empty_library
     @test isempty(empty_library)
-    @test_throws KeyError delete!(empty_library, "missing")
+    @test delete!(empty_library, "missing") === empty_library
+    @test delete!(empty_library, :missing) === empty_library
 
     defaults=MaterialsLibrary()
     @test all(name -> haskey(defaults, name), ("air", "copper", "xlpe", "steel"))
@@ -91,7 +124,7 @@ end
     @test sprint(show, MIME"text/plain"(), reverse_library) == summary
 
     narrow=sprint(show, MIME"text/plain"(), library;
-        context = IOContext(stdout, :limit => true, :displaysize => (5, 80)))
+        context = IOContext(stdout, :limit=>true, :displaysize=>(5, 80)))
     @test occursin("⋮", narrow)
     @test occursin("more materials", narrow)
 

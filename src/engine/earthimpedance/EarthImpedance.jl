@@ -22,6 +22,7 @@ using DocStringExtensions: IMPORTS, TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ...LineCableModels: nominal
 import ..Engine: EarthImpedanceFormulation, formula_id, bessel_difference
 #! explicit-imports: off
+import ...LineCableModels: FormulaMethod
 import ..Engine: description, conductivity, media, special_besselk
 using SpecialFunctions: bessely, hankelh1
 #! explicit-imports: on
@@ -29,11 +30,15 @@ using QuadGK: quadgk
 
 vacuum_permeability(value) = one(value) * 4 * (one(value) * π) * (one(value) * 10)^(-7)
 
+"Registered earth-impedance formula selected by `:default`."
+const DEFAULT = :Papadopoulos2010
+
 include("interface.jl")
 include("homogeneous.jl")
 
 #! explicit-imports: off
-const FORMULAS = let
+const REGISTERED,
+FORMULAS = let
     directory = joinpath(@__DIR__, "formulas")
     Base.include_dependency(directory)
     files = sort!(filter(
@@ -41,7 +46,7 @@ const FORMULAS = let
         readdir(directory; join = true)
     ))
     identifiers = Symbol[]
-    discovered = Set{Symbol}()
+    discovered = Symbol[]
     for file in files
         identifier = include(file)
         identifier isa Symbol || error(
@@ -54,7 +59,7 @@ const FORMULAS = let
         propagation(Val(identifier)) === Val(:backend) ||
             push!(identifiers, identifier)
     end
-    Tuple(identifiers)
+    Tuple(discovered), Tuple(identifiers)
 end
 #! explicit-imports: on
 
