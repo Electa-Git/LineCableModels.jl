@@ -21,7 +21,7 @@ const GAUNTLET_SOURCE = joinpath(@__DIR__, "literate", "gauntlet.jl")
 const CASE_OUTPUT = joinpath(DOCS_SRC_DIR, "cases")
 const CASE_ASSETS = joinpath(DOCS_SRC_DIR, "assets", "cases")
 const CASE_MANIFEST = joinpath(@__DIR__, ".generated", "case_catalogue.jld2")
-const LCM_CLI = joinpath(ROOT_DIR, "cli", "lcm")
+const GAUNTLET_CLI = joinpath(ROOT_DIR, "test", "gauntlet", "cli.jl")
 
 const CONVENIENCE_API_OBJECTS = ()
 
@@ -341,7 +341,9 @@ end
 
 function build_case_catalogue!()
     mkpath(dirname(CASE_MANIFEST))
-    run(`$LCM_CLI gauntlet case catalogue --output $CASE_MANIFEST`)
+    run(
+        `$(Base.julia_cmd()) --project=$(@__DIR__) $GAUNTLET_CLI case catalogue --output $CASE_MANIFEST`
+    )
     document = JLD2.load(CASE_MANIFEST)
     document["schema_version"] == 1 || error("unsupported Gauntlet case catalogue")
     records = document["cases"]
