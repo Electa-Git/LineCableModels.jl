@@ -6,10 +6,12 @@ statistics, and uncertainty-result presentation.
 """
 module UQ
 
-export LinearError, MonteCarlo, LinearErrorResult, MonteCarloResult
+export LinearError, MonteCarlo, Sensitivity
+export LinearErrorResult, MonteCarloResult, SensitivityResult
 export SampleSummary, HistogramDensity
 export statistics, samples, histograms, uncertain
 export root_seed, point_seed, trial_count
+export first_order, total_order, second_order
 export confidence, cdf_tolerance, sampling_distribution
 export cumulative_probability, quantile_pairs
 
@@ -18,7 +20,6 @@ import Statistics
 using DocStringExtensions: TYPEDEF, TYPEDFIELDS, TYPEDSIGNATURES
 import ..LineCableModels: basis, frequencies, R, L, C
 import ..LineCableModels: points, realize, realize_arguments
-import ..DataModel
 import ..Engine
 import ..Grammar: compute, computation_options, computation_details, details,
                   observe, observables, check_core_result,
@@ -29,7 +30,8 @@ import ..ParametricBuilder: traverse
 import ..Units
 import ..TextDisplay
 using ..Grammar:
-                 AbstractFormulation, AbstractUncertaintyResult,
+                 AbstractFormulation,
+                 AbstractUncertaintyResult,
                  ComputationOptions, ComputationDetails
 using ..ParametricBuilder:
                            ParametricProblem

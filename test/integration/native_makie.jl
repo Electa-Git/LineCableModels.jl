@@ -7,7 +7,7 @@
     error("set LINECABLEMODELS_TEST_PLOTTING=true to run the visual contract")
     using CairoMakie
 
-    legend_labels(legend)=[entry.label[] for entry in last(first(legend.entrygroups[]))]
+    legend_labels(legend) = [entry.label[] for entry in last(first(legend.entrygroups[]))]
 
     frequency=[50.0, 100.0, 500.0]
     parameters=TestFixtures.two_conductor_results(; frequencies = frequency)

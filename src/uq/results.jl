@@ -33,6 +33,123 @@ end
 
 LinearErrorResult(formulation, values) = LinearErrorResult(formulation, values, (;))
 
+function _validate_request_products(product, request_count::Int, name::AbstractString)
+    product isa Tuple || throw(ArgumentError(
+        "Sensitivity $name must be a tuple aligned with observable requests",
+    ))
+    length(product) == request_count || throw(DimensionMismatch(
+        "Sensitivity $name must contain one array per observable request",
+    ))
+    return nothing
+end
+
+function _validate_sensitivity_value(value, request_count::Int)
+    value isa NamedTuple &&
+    keys(value) == (
+        :inputs,
+        :active_indices,
+        :first_order,
+        :total_order,
+        :second_order,
+        :confidence,
+        :evaluations
+    ) || throw(ArgumentError(
+        "Sensitivity values have an invalid product schema",
+    ))
+    value.inputs isa Vector{String} || throw(ArgumentError(
+        "Sensitivity input labels must be stored in a Vector{String}",
+    ))
+    value.active_indices isa Vector{Int} || throw(ArgumentError(
+        "Sensitivity active indices must be stored in a Vector{Int}",
+    ))
+    length(value.inputs) == length(value.active_indices) || throw(DimensionMismatch(
+        "Sensitivity input labels and active indices must align",
+    ))
+    _validate_request_products(value.first_order, request_count, "first-order products")
+    _validate_request_products(value.total_order, request_count, "total-order products")
+    value.second_order === nothing || _validate_request_products(
+        value.second_order,
+        request_count,
+        "second-order products"
+    )
+    intervals = value.confidence
+    intervals isa NamedTuple &&
+    keys(intervals) == (
+        :first_order,
+        :total_order,
+        :second_order
+    ) || throw(ArgumentError(
+        "Sensitivity confidence products have an invalid schema",
+    ))
+    for (name, product) in pairs(intervals)
+        product === nothing || _validate_request_products(
+            product,
+            request_count,
+            "$(replace(String(name), '_' => '-')) confidence products"
+        )
+    end
+    value.evaluations isa Int && value.evaluations > 0 || throw(ArgumentError(
+        "Sensitivity evaluation counts must be positive integers",
+    ))
+    return nothing
+end
+
+function _validate_sensitivity_details(details, values)
+    isempty(details) && return nothing
+    keys(details) == (:points,) || throw(ArgumentError(
+        "SensitivityResult details must be empty or contain only points",
+    ))
+    details.points isa AbstractVector || throw(ArgumentError(
+        "Sensitivity details must be point-aligned vectors",
+    ))
+    length(details.points) == length(values) || throw(DimensionMismatch(
+        "Sensitivity details must contain one entry per outer point",
+    ))
+    for records in details.points
+        records isa AbstractVector && isconcretetype(eltype(records)) || throw(
+            ArgumentError(
+            "Sensitivity inner details must use concretely typed vectors",
+        ),
+        )
+    end
+    return nothing
+end
+
+"""
+$(TYPEDEF)
+
+Store point-aligned first-, total-, and optional second-order sensitivity
+products for a [`Sensitivity`](@ref) calculation.
+
+$(TYPEDFIELDS)
+"""
+struct SensitivityResult{T, F, D <: ComputationDetails} <:
+       AbstractUncertaintyResult{T}
+    "Higher-order formulation used for the calculation."
+    formulation::F
+    "Sensitivity products in Gridspace traversal order."
+    values::Vector{T}
+    "Typed supplemental output retained by the calculation."
+    details::D
+
+    function SensitivityResult(
+            formulation::F,
+            values::Vector{T},
+            details::D
+    ) where {T, F, D <: ComputationDetails}
+        isempty(values) && throw(ArgumentError(
+            "SensitivityResult requires at least one point product",
+        ))
+        check_core_result(T)
+        request_count = length(formulation.requests)
+        foreach(value -> _validate_sensitivity_value(value, request_count), values)
+        _validate_sensitivity_details(details, values)
+        return new{T, F, D}(formulation, values, details)
+    end
+end
+
+SensitivityResult(formulation, values) = SensitivityResult(formulation, values, (;))
+
 _monte_carlo_keys(::Type{<:Engine.CableConstants}) = (:R, :L, :C, :G)
 _monte_carlo_keys(::Type{<:Engine.LineParameters}) = (:R, :L, :C, :G)
 
@@ -370,6 +487,19 @@ end
 
 details(value::LinearErrorResult) = value.details
 details(value::MonteCarloResult) = value.details
+details(value::SensitivityResult) = value.details
+
+"Return point-aligned first-order sensitivity products."
+first_order(value::SensitivityResult) = map(product -> product.first_order, value.values)
+
+"Return point-aligned total-order sensitivity products."
+total_order(value::SensitivityResult) = map(product -> product.total_order, value.values)
+
+"Return point-aligned second-order sensitivity products or `nothing` entries."
+second_order(value::SensitivityResult) = map(product -> product.second_order, value.values)
+
+"Return point-aligned bootstrap confidence products."
+confidence(value::SensitivityResult) = map(product -> product.confidence, value.values)
 
 """
 $(TYPEDSIGNATURES)

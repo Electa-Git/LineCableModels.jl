@@ -76,11 +76,12 @@ end
     )
     design=TestFixtures.mv_cable_design()
     system=TestFixtures.three_phase_system()
-    earth=build(EP.EarthModel, (
-        EP.EarthLayer(100.0, 10.0, 1.0, 2.0),
-        EP.EarthLayer(30.0, 15.0, 1.0, 5.0),
-        EP.EarthLayer(500.0, 8.0, 1.0)
-    ))
+    earth=build(EP.EarthModel,
+        (
+            EP.EarthLayer(100.0, 10.0, 1.0, 2.0),
+            EP.EarthLayer(30.0, 15.0, 1.0, 5.0),
+            EP.EarthLayer(500.0, 8.0, 1.0)
+        ))
     grid=Grid((1.0, 2.0, 3.0, 4.0, 5.0))
     build_calls=Ref(0)
     space=Gridspace{CableConstants}(

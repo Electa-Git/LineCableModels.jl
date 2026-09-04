@@ -209,12 +209,12 @@
     end
 
     for owner in (
-            EN.InsulationImpedance,
-            EN.InsulationAdmittance,
-            EN.SemiconAdmittance,
-            EP.FD,
-            EP.EHEM,
-            LineCableModels.Transforms
+        EN.InsulationImpedance,
+        EN.InsulationAdmittance,
+        EN.SemiconAdmittance,
+        EP.FD,
+        EP.EHEM,
+        LineCableModels.Transforms
     )
         @test !isdefined(owner, :Functor)
     end

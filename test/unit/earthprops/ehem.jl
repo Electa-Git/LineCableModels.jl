@@ -68,11 +68,12 @@ end
     eps_soil=reference["eps_r"]
     mu_soil=reference["mu_r"]
     thickness=reference["thickness_m"]
-    model=build(EP.EarthModel, (
-        EP.EarthLayer(rho_soil[1], eps_soil[1], mu_soil[1], thickness[1]),
-        EP.EarthLayer(rho_soil[2], eps_soil[2], mu_soil[2], thickness[2]),
-        EP.EarthLayer(rho_soil[3], eps_soil[3], mu_soil[3])
-    ))
+    model=build(EP.EarthModel,
+        (
+            EP.EarthLayer(rho_soil[1], eps_soil[1], mu_soil[1], thickness[1]),
+            EP.EarthLayer(rho_soil[2], eps_soil[2], mu_soil[2], thickness[2]),
+            EP.EarthLayer(rho_soil[3], eps_soil[3], mu_soil[3])
+        ))
     rho=collect(getfield.(model.layers, :rho))
     eps_r=collect(getfield.(model.layers, :eps_r))
     mu_r=collect(getfield.(model.layers, :mu_r))
@@ -127,11 +128,12 @@ end
     const EH=EP.EHEM
     const EN=LineCableModels.Engine
 
-    model=build(EarthModel, (
-        EP.EarthLayer(100.0, 10.0, 1.0, 5.0),
-        EP.EarthLayer(500.0, 20.0, 1.0, 10.0),
-        EP.EarthLayer(50.0, 5.0, 1.0)
-    ))
+    model=build(EarthModel,
+        (
+            EP.EarthLayer(100.0, 10.0, 1.0, 5.0),
+            EP.EarthLayer(500.0, 20.0, 1.0, 10.0),
+            EP.EarthLayer(50.0, 5.0, 1.0)
+        ))
     frequency=[1.0e6]
     pair=EN.EarthPair(1, 1, (10.0, 10.0), 0.0, (1, 1))
 

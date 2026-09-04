@@ -184,18 +184,19 @@ function implementation_record(
 )
     methods = formulation.methods
     paths = String[COAXIAL_IMPLEMENTATION_PATHS...]
-    append!(paths, (
-        "src/engine/internalimpedance/interface.jl",
-        "src/engine/insulationimpedance/interface.jl",
-        "src/engine/insulationadmittance/interface.jl",
-        "src/engine/semiconadmittance/interface.jl",
-        "src/engine/earthimpedance/interface.jl",
-        "src/engine/earthimpedance/homogeneous.jl",
-        "src/engine/earthadmittance/interface.jl",
-        "src/engine/earthadmittance/homogeneous.jl",
-        "src/earthprops/ehem/interface.jl",
-        "src/earthprops/fd/interface.jl"
-    ))
+    append!(paths,
+        (
+            "src/engine/internalimpedance/interface.jl",
+            "src/engine/insulationimpedance/interface.jl",
+            "src/engine/insulationadmittance/interface.jl",
+            "src/engine/semiconadmittance/interface.jl",
+            "src/engine/earthimpedance/interface.jl",
+            "src/engine/earthimpedance/homogeneous.jl",
+            "src/engine/earthadmittance/interface.jl",
+            "src/engine/earthadmittance/homogeneous.jl",
+            "src/earthprops/ehem/interface.jl",
+            "src/earthprops/fd/interface.jl"
+        ))
     for (family, formula) in (
         ("internalimpedance", methods.internal_impedance),
         ("insulationimpedance", methods.insulation_impedance),

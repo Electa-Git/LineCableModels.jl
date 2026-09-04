@@ -89,7 +89,8 @@ function references(case_id, model)
             "incomplete PSCAD reference at $path",
         )
         input_matches = haskey(document, "input_sha256") ?
-                        document["input_sha256"] == numerical_input_sha256(model.nominal_problem) :
+                        document["input_sha256"] ==
+                        numerical_input_sha256(model.nominal_problem) :
                         document["case_source_sha256"] == model.source_sha256
         input_matches || error(
             "$case_id PSCAD reference case digest is stale: $path",

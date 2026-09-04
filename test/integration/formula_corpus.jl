@@ -66,14 +66,15 @@
     @test EA.formulas() == expected_earth_admittance
 
     allowed_templates=(
-        EI => Set((:earth_impedance, :propagation_constant)),
-        EA => Set((
+        EI=>Set((:earth_impedance, :propagation_constant)),
+        EA=>Set((
             :earth_potential_coefficient,
             :earth_impedance,
             :propagation_constant
         ))
     )
     for (catalogue, templates) in allowed_templates, id in catalogue.formulas()
+
         formula=catalogue.Formula(id)
         for route in values(catalogue.routes(formula))
             @test route isa LineCableModels.FormulaMethod
@@ -464,11 +465,11 @@ end
         @test_throws ArgumentError radial(Val(:mutual), underground)
     end
     for identifier in (
-            :Petrache2005,
-            :Saad1996,
-            :Theethayi2007,
-            :WedepohlWilcox1973
-        )
+        :Petrache2005,
+        :Saad1996,
+        :Theethayi2007,
+        :WedepohlWilcox1973
+    )
         radial=EI.Formula(identifier)(
             rho_mixed, epsilon_mixed, mu_mixed, s, nothing
         )
@@ -545,9 +546,9 @@ end
         rho_mixed, epsilon_mixed, mu_mixed, s, nothing
     )
     for (kind, pair) in (
-            (:mutual, underground),
-            (:self, EarthPair(1, 1, (-1.0, -1.0), 0.0425, (2, 2)))
-        )
+        (:mutual, underground),
+        (:self, EarthPair(1, 1, (-1.0, -1.0), 0.0425, (2, 2)))
+    )
         @test magalhaes(Val(kind), pair) ≈
               EA.routes(xue).surface(xue_functor, pair) rtol=1.0e-9
     end

@@ -251,10 +251,12 @@ Each non-mutating managed plotting call returns [`UIPlot`](@ref). Use
 
 ## Optional uncertainty packages
 
-The core `Grid`/`Gridspace` grammar does not load Measurements.jl or
-Distributions.jl. Loading Measurements enables `LinearError`. Loading
-Distributions enables supported univariate distributions as Monte Carlo
-samplers and `pdf`/`cdf` evaluation for [`HistogramDensity`](@ref).
+The core `Grid`/`Gridspace` grammar does not load Measurements.jl,
+Distributions.jl, GlobalSensitivity.jl, or QuasiMonteCarlo.jl. Loading
+Measurements enables `LinearError`. Loading Distributions enables supported
+univariate distributions as Monte Carlo samplers and `pdf`/`cdf` evaluation
+for [`HistogramDensity`](@ref). Loading the three dependencies of the
+[Global sensitivity](sensitivity.md) extension enables Sobol decomposition.
 
 Repeated use of the same uncertain argument during direct propagation retains
 its covariance. Distinct uncertain arguments remain independent.

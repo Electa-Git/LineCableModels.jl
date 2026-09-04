@@ -63,7 +63,7 @@
         insulation(packed_dielectric; t = 1e-3)
     )
     sector_wires=filter(
-        region -> region.terminal === :sector_core,
+        region->region.terminal===:sector_core,
         sector_design.geometry.regions
     )
     @test !isempty(sector_wires)

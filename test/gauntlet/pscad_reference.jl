@@ -140,13 +140,11 @@ function pscad_implementation_record()
         joinpath(pkgdir(LineCableModels), "src", "importexport", "pscad"),
         joinpath(@__DIR__, "pscad")
     )
-    paths = String[
-        relpath(joinpath(directory, file), pkgdir(LineCableModels))
-        for root in roots
-        for (directory, _, files) in walkdir(root)
-        for file in files
-        if endswith(file, ".jl") || endswith(file, ".ps1")
-    ]
+    paths = String[relpath(joinpath(directory, file), pkgdir(LineCableModels))
+                   for root in roots
+                   for (directory, _, files) in walkdir(root)
+                   for file in files
+                   if endswith(file, ".jl") || endswith(file, ".ps1")]
     push!(paths, "test/gauntlet/reference_grid.jl")
     return git_blob_record.(sort!(unique!(paths)))
 end
@@ -177,7 +175,8 @@ function valid_existing(path, model, selected)
     try
         document = JLD2.load(path)
         input_matches = haskey(document, "input_sha256") ?
-                        document["input_sha256"] == numerical_input_sha256(model.nominal_problem) :
+                        document["input_sha256"] ==
+                        numerical_input_sha256(model.nominal_problem) :
                         document["case_source_sha256"] == model.source_sha256
         implementation_matches = document["schema_version"] == 1 ||
                                  document["implementation"] == pscad_implementation_record()

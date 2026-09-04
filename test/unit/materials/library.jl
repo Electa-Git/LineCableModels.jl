@@ -68,7 +68,7 @@ end
     @test empty_library["copper"] === replacement
     @test (empty_library["copper"] = copper) === copper
     @test empty_library["copper"] === copper
-    empty_library["copper"] = replacement
+    empty_library["copper"]=replacement
 
     copied=copy(empty_library)
     @test copied isa MaterialsLibrary

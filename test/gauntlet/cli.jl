@@ -33,7 +33,6 @@ function option(args, name; default = nothing)
     return args[index + 1]
 end
 
-
 function required_option(args, name)
     value = option(args, name)
     value === nothing && throw(ArgumentError("$name is required"))
@@ -139,9 +138,10 @@ function import_case(args)
     data = joinpath(root, "data", "$(id).json")
     exists = isfile(wrapper) || isfile(data) ||
              (isfile(index_path) && haskey(_case_index_document(index_path), string(id)))
-    exists && !flag(args, "--force") && throw(ArgumentError(
-        "case :$id already exists; pass --force to replace it",
-    ))
+    exists && !flag(args, "--force") &&
+        throw(ArgumentError(
+            "case :$id already exists; pass --force to replace it",
+        ))
 
     mktempdir() do staging
         staged_data = joinpath(staging, "$(id).json")
@@ -164,14 +164,15 @@ function import_case(args)
         mkpath(joinpath(root, "data"))
         staged_wrapper = joinpath(staging, "$(id).jl")
         write(staged_wrapper, wrapper_contents)
-        entries = isfile(index_path) ? Dict(
+        entries = isfile(index_path) ?
+                  Dict(
             Symbol(key) => String(value)
-            for (key, value) in _case_index_document(index_path)
+        for (key, value) in _case_index_document(index_path)
         ) : Dict{Symbol, String}()
         entries[id] = "$(id).jl"
         prior = Dict(
             path => (isfile(path) ? read(path) : nothing)
-            for path in (data, wrapper, index_path)
+        for path in (data, wrapper, index_path)
         )
         try
             cp(staged_data, data; force = true)
@@ -204,7 +205,8 @@ function summary_rows(model)
         (property = "Line length [m]", value = string(system.line_length)),
         (property = "Temperature [°C]", value = string(problem.temperature)),
         (property = "Frequencies", value = string(length(frequencies))),
-        (property = "Frequency range [Hz]", value = "$(first(frequencies)) – $(last(frequencies))"),
+        (property = "Frequency range [Hz]",
+            value = "$(first(frequencies)) – $(last(frequencies))"),
         (property = "Earth layers including air", value = string(length(earth.layers))),
         (property = "Vertical earth layers", value = string(earth.vertical_layers))
     ]
@@ -217,14 +219,15 @@ function design_rows(model)
     for (index, design) in pairs(designs)
         any(other -> designs[other] == design, retained) && continue
         push!(retained, index)
-        push!(rows, (
-            cable = index,
-            cable_id = design.cable_id,
-            instances = count(==(design), designs),
-            terminals = length(design.terminal_order),
-            regions = length(design.geometry.regions),
-            outer_diameter_m = 2 * LineCableModels.outer_radius(design)
-        ))
+        push!(rows,
+            (
+                cable = index,
+                cable_id = design.cable_id,
+                instances = count(==(design), designs),
+                terminals = length(design.terminal_order),
+                regions = length(design.geometry.regions),
+                outer_diameter_m = 2 * LineCableModels.outer_radius(design)
+            ))
     end
     return rows
 end
@@ -233,26 +236,26 @@ function catalogue_records()
     records = NamedTuple[]
     for id in sort!(collect(keys(case_index())); by = string)
         model = load_case(id)
-        push!(records, (
-            id = string(id),
-            description = model.definition.description,
-            problem = LineCableModels.ImportExport.serialize_value(model.nominal_problem),
-            port_order = model.port_order,
-            parameters = parameter_manifest(model),
-            summary = summary_rows(model),
-            designs = design_rows(model),
-            source_sha256 = model.source_sha256,
-            input_sha256 = numerical_input_sha256(model.nominal_problem)
-        ))
+        push!(records,
+            (
+                id = string(id),
+                description = model.definition.description,
+                problem = LineCableModels.ImportExport.serialize_value(model.nominal_problem),
+                port_order = model.port_order,
+                parameters = parameter_manifest(model),
+                summary = summary_rows(model),
+                designs = design_rows(model),
+                source_sha256 = model.source_sha256,
+                input_sha256 = numerical_input_sha256(model.nominal_problem)
+            ))
     end
     return records
 end
 
 function catalogue_digest(records)
-    semantic_sha256([
-        (id = record.id, source = record.source_sha256, input = record.input_sha256)
-        for record in records
-    ])
+    semantic_sha256([(id = record.id, source = record.source_sha256,
+                         input = record.input_sha256)
+                     for record in records])
 end
 
 function catalogue(args)

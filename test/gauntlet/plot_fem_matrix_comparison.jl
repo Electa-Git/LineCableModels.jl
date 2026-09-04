@@ -187,9 +187,9 @@ function load_case(case_id, quantity)
     fem_values = require_key(fem, config.matrix_key, paths.fem)
 
     for (label, document, path) in (
-            ("Papadopoulos", papadopoulos, paths.papadopoulos),
-            ("Xue", xue, paths.xue)
-        )
+        ("Papadopoulos", papadopoulos, paths.papadopoulos),
+        ("Xue", xue, paths.xue)
+    )
         status = require_key(document, "status", path)
         status in (:execution_failure, :not_applicable) && error(
             "$label artifact for $case_id cannot be plotted: status=$status"
@@ -220,10 +220,10 @@ function load_case(case_id, quantity)
     xue_values = require_key(xue, config.matrix_key, paths.xue)
     expected_size = (length(port_order), length(port_order), length(frequencies))
     for (label, values) in (
-            ("FEM $(config.matrix_label)", fem_values),
-            ("Papadopoulos $(config.matrix_label)", papadopoulos_values),
-            ("Xue $(config.matrix_label)", xue_values)
-        )
+        ("FEM $(config.matrix_label)", fem_values),
+        ("Papadopoulos $(config.matrix_label)", papadopoulos_values),
+        ("Xue $(config.matrix_label)", xue_values)
+    )
         size(values) == expected_size || error(
             "$case_id $label has size $(size(values)); expected $expected_size"
         )
@@ -286,6 +286,7 @@ function matrix_plot(data, component::Symbol)
     styles = (fem = :solid, papadopoulos = :dash, xue = :dot)
 
     for row in 1:terminal_count, column in 1:terminal_count
+
         axis = Axis(
             figure[row, column];
             xscale = log10,

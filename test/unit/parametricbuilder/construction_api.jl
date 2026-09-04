@@ -582,10 +582,8 @@ end
         bounded_design.geometry.regions)
     @test sum(DM.area, bounded_design.geometry.regions) ≈ 18pi * (0.5e-3)^2
     sector_centre = DM.centroid(resolved_sector)
-    course_counts = [
-        first(region.placement.patterns).pattern.n
-        for region in bounded_design.geometry.regions
-    ]
+    course_counts = [first(region.placement.patterns).pattern.n
+                     for region in bounded_design.geometry.regions]
     path_radii = [only(region.paths).radius for region in bounded_design.geometry.regions]
     @test all(zip(bounded_design.geometry.regions, path_radii)) do (region, radius)
         centre = DM.centroid(region.primitive)
@@ -636,8 +634,8 @@ end
             natural_centres[left][1] - natural_centres[right][1],
             natural_centres[left][2] - natural_centres[right][2]
         ) + 1e-12 >= 1e-3
-        for left in 1:(length(natural_centres) - 1)
-        for right in (left + 1):length(natural_centres)
+    for left in 1:(length(natural_centres) - 1)
+    for right in (left + 1):length(natural_centres)
     )
     @test_throws ArgumentError stranded(
         copper;

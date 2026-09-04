@@ -79,6 +79,12 @@ Private = false
 
 ## Uncertainty quantification
 
+[`Sensitivity`](@ref), [`SensitivityResult`](@ref), [`first_order`](@ref),
+[`total_order`](@ref), and [`second_order`](@ref) are dependency-neutral. The
+optional [`GlobalSensitivity.Sobol`](sensitivity.md) integration supplies the
+corresponding `compute` method without adding an estimator type to
+LineCableModels.
+
 ```@autodocs
 Modules = [LineCableModels.UQ]
 Order = [:module, :constant, :type, :function, :macro]

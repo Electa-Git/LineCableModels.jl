@@ -8,7 +8,7 @@
         iterate_calls::Int
         length_calls::Int
     end
-    CountingGrid(values::Tuple)=CountingGrid(values, 0, 0)
+    CountingGrid(values::Tuple) = CountingGrid(values, 0, 0)
     function Base.iterate(grid::CountingGrid, state...)
         grid.iterate_calls+=1
         return iterate(grid.vals, state...)
@@ -99,7 +99,7 @@ end
     import LineCableModels.ParametricBuilder as PB
 
     struct DuplicateValue end
-    (::DuplicateValue)(value)=(value, value)
+    (::DuplicateValue)(value) = (value, value)
 
     duplicated=PB.Gridspace{Tuple}(
         DuplicateValue(),
@@ -139,6 +139,112 @@ end
     @test iszero(Measurements.cov(reused_values...))
 end
 
+@testitem "ParametricBuilder / Gridspace / supplied uncertainty realization" tags=[:unit] setup=[
+    EngineTestSupport, UseEngineSupport] begin
+    using Random
+    import LineCableModels.ParametricBuilder as PB
+
+    events=Symbol[]
+    child=PB.Gridspace{Tuple}(
+        (left, right)->begin
+            push!(events, :child)
+            (left, right)
+        end,
+        (
+            PB.Grid(10.0, PB.AbsoluteError(0.5)),
+            PB.Grid(20.0, PB.AbsoluteError(0.0))
+        )
+    )
+    parent=PB.Gridspace{Tuple}(
+        (nested, value, tag)->begin
+            push!(events, :parent)
+            (nested, value, tag)
+        end,
+        (
+            child,
+            PB.Grid(30.0, PB.AbsoluteError(3.0)),
+            PB.Grid((:tag,))
+        )
+    )
+    point=first(LineCableModels.points(parent))
+    descriptors=@inferred LineCableModels.uncertainties(point)
+    @test nominal.(descriptors) == (10.0, 20.0, 30.0)
+    @test PB.uncertainty.(descriptors) == (0.5, 0.0, 3.0)
+
+    arguments=@inferred LineCableModels.realize_arguments(
+        point,
+        (11.0, 20.0, 33.0)
+    )
+    @test events == [:child]
+    supplied=@inferred LineCableModels.realize(point, arguments)
+    @test events == [:child, :parent]
+    @test supplied == ((11.0, 20.0), 33.0, :tag)
+
+    empty!(events)
+    @test_throws DimensionMismatch LineCableModels.realize_arguments(
+        point,
+        (11.0, 20.0)
+    )
+    @test isempty(events)
+    @test LineCableModels.realize(
+        Xoshiro(0x1234),
+        point,
+        :normal
+    ) == (
+        (10.541923815394892, 20.0),
+        32.2168218083917,
+        :tag
+    )
+    @test LineCableModels.realize(
+        Xoshiro(0x1234),
+        point,
+        (rng, mean, sigma)->mean + sigma
+    ) == ((10.5, 20.0), 33.0, :tag)
+    comparison=LineCableModels.realize_arguments(
+        point,
+        (10.5, 20.0, 33.0)
+    )
+    @test LineCableModels.realize(point, comparison) ==
+          ((10.5, 20.0), 33.0, :tag)
+
+    duplicated=PB.Gridspace{Tuple}(
+        value->(value, value),
+        (PB.Grid(1.0, PB.AbsoluteError(0.1)),)
+    )
+    @test length(LineCableModels.uncertainties(
+        first(LineCableModels.points(duplicated))
+    )) == 1
+
+    reused=PB.Grid(1.0, PB.AbsoluteError(0.1))
+    repeated=PB.Gridspace{Tuple}(tuple, (reused, reused); combine = :zip)
+    repeated_descriptors=LineCableModels.uncertainties(
+        first(LineCableModels.points(repeated))
+    )
+    @test length(repeated_descriptors) == 2
+    @test repeated_descriptors[1] == repeated_descriptors[2]
+
+    opaque=(PB.UncertainValue(2.0, 0.2), :opaque)
+    atomic=PB.Gridspace{Tuple}(tuple, (PB.Grid((opaque,)),))
+    @test isempty(LineCableModels.uncertainties(
+        first(LineCableModels.points(atomic))
+    ))
+
+    struct PositiveTarget<:AbstractProblemDefinition
+        value::Float64
+    end
+    function LineCableModels.validate(value::PositiveTarget)
+        value.value>0||throw(DomainError(value.value, "value must be positive"))
+        return value
+    end
+    positive=PB.Gridspace{PositiveTarget}(
+        PositiveTarget,
+        (PB.Grid(1.0, PB.AbsoluteError(0.1)),)
+    )
+    positive_point=first(LineCableModels.points(positive))
+    invalid_arguments=LineCableModels.realize_arguments(positive_point, (-1.0,))
+    @test_throws DomainError LineCableModels.realize(positive_point, invalid_arguments)
+end
+
 @testitem "ParametricBuilder / Gridspace / inference and allocation contracts" tags=[:unit] setup=[
     EngineTestSupport, UseEngineSupport] begin
     using Random
@@ -148,7 +254,7 @@ end
         value::Float64
     end
     struct BuildScalarTarget end
-    (::BuildScalarTarget)(value)=ScalarTarget(value)
+    (::BuildScalarTarget)(value) = ScalarTarget(value)
 
     function deterministic_sum(space, repetitions)
         total=0.0
@@ -163,6 +269,15 @@ end
         total=0.0
         for _ in 1:repetitions
             total+=LineCableModels.realize(rng, point, :normal).value
+        end
+        return total
+    end
+
+    function supplied_sum(point, repetitions)
+        total=0.0
+        for _ in 1:repetitions
+            arguments=LineCableModels.realize_arguments(point, (2.0,))
+            total+=LineCableModels.realize(point, arguments).value
         end
         return total
     end
@@ -186,12 +301,24 @@ end
     @test Base.IteratorEltype(typeof(uncertain)) isa Base.EltypeUnknown
     rng=Random.Xoshiro(0x1234)
     @test @inferred(LineCableModels.realize(rng, uncertain_point, :normal)) isa ScalarTarget
+    @test @inferred(LineCableModels.uncertainties(uncertain_point)) ==
+          (PB.UncertainValue(1.0, 0.1),)
+    supplied_arguments=@inferred LineCableModels.realize_arguments(
+        uncertain_point,
+        (2.0,)
+    )
+    @test @inferred(LineCableModels.realize(
+        uncertain_point,
+        supplied_arguments
+    )) == ScalarTarget(2.0)
 
     deterministic_sum(deterministic, 1)
     realization_sum(rng, uncertain_point, 1)
+    supplied_sum(uncertain_point, 1)
     @test @allocated(deterministic_sum(deterministic, 10_000)) == 0
     rng=Random.Xoshiro(0x1234)
     @test @allocated(realization_sum(rng, uncertain_point, 10_000)) == 0
+    @test @allocated(supplied_sum(uncertain_point, 10_000)) == 0
 end
 
 @testitem "ParametricBuilder / Gridspace / removed traversal machinery" tags=[:unit] setup=[
@@ -224,6 +351,14 @@ end
     @test :Gridpoint ∉ names(PB)
     @test :points ∉ names(PB)
     @test :realize ∉ names(PB)
+    @test :uncertainties ∉ names(PB)
     @test !isdefined(PB, :realize)
     @test !isdefined(PB, :realize_arguments)
+    @test !isdefined(PB, :uncertainties)
+    @test !Base.isexported(LineCableModels, :realize)
+    @test !Base.isexported(LineCableModels, :realize_arguments)
+    @test !Base.isexported(LineCableModels, :uncertainties)
+    @test Base.ispublic(LineCableModels, :realize)
+    @test Base.ispublic(LineCableModels, :realize_arguments)
+    @test Base.ispublic(LineCableModels, :uncertainties)
 end

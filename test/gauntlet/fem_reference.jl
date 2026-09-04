@@ -235,7 +235,8 @@ function valid_existing(path, model)
     try
         document = JLD2.load(path)
         input_matches = haskey(document, "input_sha256") ?
-                        document["input_sha256"] == numerical_input_sha256(model.nominal_problem) :
+                        document["input_sha256"] ==
+                        numerical_input_sha256(model.nominal_problem) :
                         document["case_source_sha256"] == model.source_sha256
         implementation_matches = document["schema_version"] == 3 ||
                                  document["implementation"] == fem_implementation_record()

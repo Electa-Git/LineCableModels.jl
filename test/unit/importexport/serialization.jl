@@ -160,7 +160,7 @@ end
                 layers = 2,
                 n = (6, 12),
                 compact = FillFactor(1),
-                boundary = Disk(sqrt(19) * 0.35e-3)
+                boundary = Disk(sqrt(19)*0.35e-3)
             )
         )
     )

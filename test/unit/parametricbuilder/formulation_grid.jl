@@ -109,25 +109,25 @@
     struct CountedProblem<:AbstractProblemDefinition
         value::Int
     end
-    LineCableModels.validate(problem::CountedProblem)=problem
+    LineCableModels.validate(problem::CountedProblem) = problem
     struct CountedFormulation{ID}<:AbstractFormulation end
     struct CountedResult<:AbstractCoreResult
         value::Int
     end
     builds=Ref(0)
-    make_problem(value)=(builds[]+=1; CountedProblem(value))
+    make_problem(value) = (builds[]+=1; CountedProblem(value))
     problem_space=Gridspace{CountedProblem}(make_problem, (Grid((1, 2)),))
     formulas=Grid((CountedFormulation{:first}(), CountedFormulation{:second}()))
     LineCableModels.compute(
         problem::CountedProblem,
         ::CountedFormulation{:first};
         options::NamedTuple = (;)
-    )=CountedResult(problem.value)
+    ) = CountedResult(problem.value)
     LineCableModels.compute(
         problem::CountedProblem,
         ::CountedFormulation{:second};
         options::NamedTuple = (;)
-    )=CountedResult(10problem.value)
+    ) = CountedResult(10problem.value)
 
     run=compute(
         ParametricProblem(problem_space),

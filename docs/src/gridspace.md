@@ -423,8 +423,8 @@ consumed by one builder. Gridspace does not infer or register correlation.
 
 ## Optional package extensions
 
-The core package declares uncertainty without loading Measurements or
-Distributions.
+The core package declares uncertainty without loading Measurements,
+Distributions, GlobalSensitivity, or QuasiMonteCarlo.
 
 - Loading Measurements adds direct materialisation of `UncertainValue` while
   retaining exact structural reuse.
@@ -432,8 +432,12 @@ Distributions.
   selected distribution must have finite mean and positive finite standard
   deviation. Samples are transformed to the descriptor's nominal value and
   standard uncertainty.
+- Loading GlobalSensitivity, QuasiMonteCarlo, and Distributions together adds
+  the [Sobol global-sensitivity workflow](sensitivity.md). The extension
+  realises physical scalar coordinates through the same nested Gridspace
+  point and evaluates the ordinary core formulation.
 
-Neither extension knows about finite-source identity, result presentation, or
+These extensions do not own finite-source identity, result presentation, or
 Engine internals.
 
 ## Performance and conformance

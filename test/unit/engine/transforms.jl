@@ -178,7 +178,7 @@ end
 
     descriptions=(
         Chrysochos2014 =
-            "Chrysochos et al. Levenberg–Marquardt modal transformation (2014)",
+        "Chrysochos et al. Levenberg–Marquardt modal transformation (2014)",
         Fan2009 = "Fan et al. eigenvector-tracking transformation (2009)",
         Wedepohl1996 = "Wedepohl et al. Newton–Raphson modal transformation (1996)"
     )

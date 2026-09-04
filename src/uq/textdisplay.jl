@@ -13,6 +13,31 @@ function Base.show(io::IO, ::MIME"text/plain", formulation::LinearError)
     ))
 end
 
+TextDisplay.name(::Type{<:Sensitivity}) = "Sensitivity"
+Base.summary(io::IO, ::Sensitivity) = print(io, "Global sensitivity attribution")
+function Base.show(io::IO, formulation::Sensitivity)
+    print(
+        io,
+        "Sensitivity(samples=",
+        formulation.samples,
+        "; requests=",
+        length(formulation.requests),
+        ")"
+    )
+end
+function Base.show(io::IO, ::MIME"text/plain", formulation::Sensitivity)
+    get(io, :compact, false) && return show(io, formulation)
+    return TextDisplay.tree(io, "Global sensitivity attribution", (
+        (label = "inner         $(_uq_compact(formulation.inner))", noun = "fields"),
+        (label = "method        $(_uq_compact(formulation.method))", noun = "fields"),
+        (label = "samples       $(formulation.samples)", noun = "fields"),
+        (label = "requests      $(length(formulation.requests))", noun = "fields"),
+        (label = "distribution  :$(formulation.distribution)", noun = "fields"),
+        (label = "estimator     :$(formulation.estimator)", noun = "fields"),
+        (label = "details       $(formulation.options.retain_details ? "retained" : "not retained")", noun = "fields"),
+    ))
+end
+
 TextDisplay.name(::Type{<:MonteCarlo}) = "MonteCarlo"
 Base.summary(io::IO, formulation::MonteCarlo) = print(io, "Monte Carlo propagation")
 function Base.show(io::IO, formulation::MonteCarlo)
@@ -81,6 +106,26 @@ function Base.show(io::IO, ::MIME"text/plain", result::LinearErrorResult)
     kind = isempty(result.values) ? "none" : String(nameof(eltype(result.values)))
     return TextDisplay.tree(io, "Linear-error result · $(length(result)) values", (
         (label = "result type  $kind", noun = "fields"),
+        (label = "details      $(length(result.details)) entries", noun = "fields"),
+    ))
+end
+
+TextDisplay.name(::Type{<:SensitivityResult}) = "SensitivityResult"
+function Base.summary(io::IO, result::SensitivityResult)
+    print(io, "Sensitivity result with $(length(result)) points")
+end
+function Base.show(io::IO, result::SensitivityResult)
+    print(io, "SensitivityResult($(length(result)) points)")
+end
+function Base.show(io::IO, ::MIME"text/plain", result::SensitivityResult)
+    get(io, :compact, false) && return show(io, result)
+    evaluation_span = extrema(product.evaluations for product in result.values)
+    evaluations = first(evaluation_span) == last(evaluation_span) ?
+                  string(first(evaluation_span)) :
+                  "$(first(evaluation_span))…$(last(evaluation_span))"
+    return TextDisplay.tree(io, "Sensitivity result · $(length(result)) points", (
+        (label = "requests     $(length(result.formulation.requests))", noun = "fields"),
+        (label = "evaluations  $evaluations per point", noun = "fields"),
         (label = "details      $(length(result.details)) entries", noun = "fields"),
     ))
 end

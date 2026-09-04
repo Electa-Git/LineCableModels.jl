@@ -217,6 +217,23 @@ function materialize(
     return validate(point.build(map(materialize, point.args)...))::Target
 end
 
+"Return an empty uncertainty-coordinate tuple for a deterministic leaf."
+uncertainties(::Any) = ()
+
+"Return the single coordinate represented by an uncertainty descriptor."
+uncertainties(value::UncertainValue) = (value,)
+
+_uncertainties(::Tuple{}) = ()
+function _uncertainties(values::Tuple)
+    return (
+        uncertainties(first(values))...,
+        _uncertainties(Base.tail(values))...,
+    )
+end
+
+"Return uncertainty leaves in recursive depth-first, left-to-right order."
+uncertainties(point::Gridpoint) = _uncertainties(point.args)
+
 "Return a deterministic value unchanged during stochastic realisation."
 realize(::Random.AbstractRNG, value, _) = value
 
@@ -227,6 +244,42 @@ end
 "Draw the arguments of a selected Gridspace point without invoking its builder."
 function realize_arguments(rng::Random.AbstractRNG, point::Gridpoint, distribution)
     return map(value -> realize(rng, value, distribution), point.args)
+end
+
+_realize_supplied(value, values::Tuple) = value, values
+function _realize_supplied(::UncertainValue, values::Tuple)
+    return first(values), Base.tail(values)
+end
+function _realize_supplied(point::Gridpoint, values::Tuple)
+    arguments, remaining = _realize_supplied_arguments(point.args, values)
+    return realize(point, arguments), remaining
+end
+
+_realize_supplied_arguments(::Tuple{}, values::Tuple) = (), values
+function _realize_supplied_arguments(arguments::Tuple, values::Tuple)
+    argument, remaining = _realize_supplied(first(arguments), values)
+    tail, unused = _realize_supplied_arguments(Base.tail(arguments), remaining)
+    return (argument, tail...), unused
+end
+
+"""
+    realize_arguments(point::Gridpoint, values::Tuple)
+
+Reconstruct the already-realised top-level argument tuple for `point` by
+replacing every nested `UncertainValue` with the corresponding supplied value.
+Values follow [`uncertainties`](@ref) order. Cardinality is checked before any
+stored callable is invoked.
+"""
+function realize_arguments(point::Gridpoint, values::Tuple)
+    expected = length(uncertainties(point))
+    length(values) == expected || throw(DimensionMismatch(
+        "supplied uncertainty values must contain $expected entries; got $(length(values))",
+    ))
+    arguments, remaining = _realize_supplied_arguments(point.args, values)
+    isempty(remaining) || throw(DimensionMismatch(
+        "supplied uncertainty values were not consumed completely",
+    ))
+    return arguments
 end
 
 "Build a selected Gridspace point from an already realised argument tuple."

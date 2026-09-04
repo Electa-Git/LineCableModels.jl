@@ -14,8 +14,10 @@ const ROOT = joinpath(
 )
 const SOURCE = joinpath(ROOT, "summary.jld2")
 
-relevant_error(row) = row.kind == "earth_impedance" ?
-                      row.Z_relative_frobenius : row.Y_relative_frobenius
+function relevant_error(row)
+    row.kind == "earth_impedance" ?
+    row.Z_relative_frobenius : row.Y_relative_frobenius
+end
 
 function case_rows(rows, skipped)
     output = NamedTuple[]
@@ -23,31 +25,32 @@ function case_rows(rows, skipped)
         selected = filter(row -> row.case == case_id, rows)
         impedance = filter(row -> row.kind == "earth_impedance", selected)
         admittance = filter(row -> row.kind == "earth_admittance", selected)
-        push!(output, (;
-            case = case_id,
-            fem_reference_status = first(selected).fem_reference_status,
-            fem_reference_observations = first(selected).fem_reference_observations,
-            applicable_variants = length(selected),
-            skipped_variants = count(row -> row.case == case_id, skipped),
-            candidate_break_variants = count(
-                row -> row.candidate_invariant_violations > 0, selected
-            ),
-            context_break_variants = count(
-                row -> row.context_invariant_violations > 0, selected
-            ),
-            minimum_Z_relative = minimum(
-                getproperty.(impedance, :Z_relative_frobenius)
-            ),
-            maximum_Z_relative = maximum(
-                getproperty.(impedance, :Z_relative_frobenius)
-            ),
-            minimum_Y_relative = minimum(
-                getproperty.(admittance, :Y_relative_frobenius)
-            ),
-            maximum_Y_relative = maximum(
-                getproperty.(admittance, :Y_relative_frobenius)
-            )
-        ))
+        push!(output,
+            (;
+                case = case_id,
+                fem_reference_status = first(selected).fem_reference_status,
+                fem_reference_observations = first(selected).fem_reference_observations,
+                applicable_variants = length(selected),
+                skipped_variants = count(row -> row.case == case_id, skipped),
+                candidate_break_variants = count(
+                    row -> row.candidate_invariant_violations > 0, selected
+                ),
+                context_break_variants = count(
+                    row -> row.context_invariant_violations > 0, selected
+                ),
+                minimum_Z_relative = minimum(
+                    getproperty.(impedance, :Z_relative_frobenius)
+                ),
+                maximum_Z_relative = maximum(
+                    getproperty.(impedance, :Z_relative_frobenius)
+                ),
+                minimum_Y_relative = minimum(
+                    getproperty.(admittance, :Y_relative_frobenius)
+                ),
+                maximum_Y_relative = maximum(
+                    getproperty.(admittance, :Y_relative_frobenius)
+                )
+            ))
     end
     return output
 end
@@ -62,25 +65,26 @@ function formula_rows(rows)
         )
         errors = relevant_error.(selected)
         worst = argmax(errors)
-        push!(output, (;
-            kind,
-            formula,
-            applicable_cases = length(selected),
-            skipped_cases = 7 - length(selected),
-            candidate_break_cases = count(
-                row -> row.candidate_invariant_violations > 0, selected
-            ),
-            candidate_invariant_violations = sum(
-                getproperty.(selected, :candidate_invariant_violations)
-            ),
-            context_break_cases = count(
-                row -> row.context_invariant_violations > 0, selected
-            ),
-            minimum_relevant_relative = minimum(errors),
-            median_relevant_relative = median(errors),
-            maximum_relevant_relative = maximum(errors),
-            maximum_error_case = selected[worst].case
-        ))
+        push!(output,
+            (;
+                kind,
+                formula,
+                applicable_cases = length(selected),
+                skipped_cases = 7 - length(selected),
+                candidate_break_cases = count(
+                    row -> row.candidate_invariant_violations > 0, selected
+                ),
+                candidate_invariant_violations = sum(
+                    getproperty.(selected, :candidate_invariant_violations)
+                ),
+                context_break_cases = count(
+                    row -> row.context_invariant_violations > 0, selected
+                ),
+                minimum_relevant_relative = minimum(errors),
+                median_relevant_relative = median(errors),
+                maximum_relevant_relative = maximum(errors),
+                maximum_error_case = selected[worst].case
+            ))
     end
     return output
 end
@@ -92,18 +96,19 @@ function break_rows(rows)
         by = row -> (row.case, row.kind, row.formula)
     )
     for row in selected
-        push!(output, (;
-            case = row.case,
-            kind = row.kind,
-            formula = row.formula,
-            quantities = row.candidate_violation_quantities,
-            violations = row.candidate_invariant_violations,
-            first_violation_hz = row.candidate_first_violation_hz,
-            last_violation_hz = row.candidate_last_violation_hz,
-            relevant_relative_error = relevant_error(row),
-            context_violations = row.context_invariant_violations,
-            artifact = row.artifact
-        ))
+        push!(output,
+            (;
+                case = row.case,
+                kind = row.kind,
+                formula = row.formula,
+                quantities = row.candidate_violation_quantities,
+                violations = row.candidate_invariant_violations,
+                first_violation_hz = row.candidate_first_violation_hz,
+                last_violation_hz = row.candidate_last_violation_hz,
+                relevant_relative_error = relevant_error(row),
+                context_violations = row.context_invariant_violations,
+                artifact = row.artifact
+            ))
     end
     return output
 end
@@ -121,12 +126,12 @@ function violation_mode_rows(rows)
     for row in selected
         document = JLD2.load(row.artifact)
         for (attribution, field) in (
-                ("candidate", "candidate_violations"),
-                ("context", "context_violations")
-            )
+            ("candidate", "candidate_violations"),
+            ("context", "context_violations")
+        )
             violations = get(document, field, NamedTuple[])
             for quantity in sort!(unique(getproperty.(violations, :quantity));
-                    by = string)
+                by = string)
                 matching = filter(
                     violation -> violation.quantity == quantity,
                     violations
@@ -138,28 +143,29 @@ function violation_mode_rows(rows)
                 finite = findall(isfinite, severities)
                 worst = isempty(finite) ? 0 :
                         finite[argmax(severities[finite])]
-                push!(output, (;
-                    case = row.case,
-                    kind = row.kind,
-                    formula = row.formula,
-                    attribution,
-                    quantity = string(quantity),
-                    violations = length(matching),
-                    first_violation_hz = minimum(getproperty.(
-                        matching, :frequency_hz
-                    )),
-                    last_violation_hz = maximum(getproperty.(
-                        matching, :frequency_hz
-                    )),
-                    worst_frequency_hz = worst == 0 ? NaN :
-                                         matching[worst].frequency_hz,
-                    worst_minimum_eigenvalue = worst == 0 ? NaN :
-                                               matching[worst].minimum_eigenvalue,
-                    worst_tolerance = worst == 0 ? NaN :
-                                      matching[worst].tolerance,
-                    worst_severity = worst == 0 ? NaN : severities[worst],
-                    artifact = row.artifact
-                ))
+                push!(output,
+                    (;
+                        case = row.case,
+                        kind = row.kind,
+                        formula = row.formula,
+                        attribution,
+                        quantity = string(quantity),
+                        violations = length(matching),
+                        first_violation_hz = minimum(getproperty.(
+                            matching, :frequency_hz
+                        )),
+                        last_violation_hz = maximum(getproperty.(
+                            matching, :frequency_hz
+                        )),
+                        worst_frequency_hz = worst == 0 ? NaN :
+                                             matching[worst].frequency_hz,
+                        worst_minimum_eigenvalue = worst == 0 ? NaN :
+                                                   matching[worst].minimum_eigenvalue,
+                        worst_tolerance = worst == 0 ? NaN :
+                                          matching[worst].tolerance,
+                        worst_severity = worst == 0 ? NaN : severities[worst],
+                        artifact = row.artifact
+                    ))
             end
         end
     end
@@ -201,16 +207,17 @@ function near_equivalence_rows(rows, matrices)
                     )
                 end
                 maximum(distances) <= 1.0e-8 || continue
-                push!(output, (;
-                    kind,
-                    first_formula,
-                    second_formula,
-                    common_cases = length(common),
-                    exact_cases = count(iszero, distances),
-                    median_relative_distance = median(distances),
-                    maximum_relative_distance = maximum(distances),
-                    cases = join(common, ",")
-                ))
+                push!(output,
+                    (;
+                        kind,
+                        first_formula,
+                        second_formula,
+                        common_cases = length(common),
+                        exact_cases = count(iszero, distances),
+                        median_relative_distance = median(distances),
+                        maximum_relative_distance = maximum(distances),
+                        cases = join(common, ",")
+                    ))
             end
         end
     end

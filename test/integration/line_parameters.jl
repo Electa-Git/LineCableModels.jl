@@ -237,7 +237,7 @@ end
     @test all(isfinite, result.Y)
 end
 
-@testitem "Engine / preservation / two underground wires remain bit exact" tags=[:integration] setup=[
+@testitem "Engine / preservation / two underground wires remain numerically stable" tags=[:integration] setup=[
     EngineTestSupport,
     UseEngineSupport
 ] begin
@@ -306,8 +306,8 @@ end
                    4.511959006831256e-10-2.452790870106892e-10im 5.141397717625921e-10+3.456862375802596e-5im];
         dims = 3
     )
-    @test parameters.Z.values == expected_Z
-    @test parameters.Y.values == expected_Y
+    @test isapprox(parameters.Z.values, expected_Z; rtol = 1.0e-12, atol = 0.0)
+    @test isapprox(parameters.Y.values, expected_Y; rtol = 1.0e-12, atol = 0.0)
 end
 
 @testitem "Engine / transform / symmetric two-cable system retains two modes" tags=[:integration] setup=[

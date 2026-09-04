@@ -149,16 +149,16 @@ end
     # surfaces that own result transport. Other uses of "project" elsewhere in
     # the repository (package projects, CAD projections) are unrelated.
     surfaces=String[
-    joinpath(root, "src", "LineCableModels.jl"),
-    joinpath(
-        root, "ext", "LineCableModelsMeasurementsExt.jl"),
-    joinpath(
-        root, "docs", "src", "gridspace.md"),
-    joinpath(
-        root, "docs", "src", "developers.md"),
-    joinpath(
-        root, "docs", "src", "extensions.md")
-]
+        joinpath(root, "src", "LineCableModels.jl"),
+        joinpath(
+            root, "ext", "LineCableModelsMeasurementsExt.jl"),
+        joinpath(
+            root, "docs", "src", "gridspace.md"),
+        joinpath(
+            root, "docs", "src", "developers.md"),
+        joinpath(
+            root, "docs", "src", "extensions.md")
+    ]
     for directory in (
         joinpath(root, "src", "parametricbuilder"),
         joinpath(root, "src", "uq")
