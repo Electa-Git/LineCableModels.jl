@@ -121,6 +121,14 @@ function _contained(container::Rectangle, child::AbstractShape)
            support(child, -pi / 2) <= container.h / 2
 end
 
+function _contained(container::Ellipse, child::AbstractShape)
+    tolerance = sqrt(eps(float(max(container.a, container.b))))
+    angles = range(zero(container.a), oftype(container.a, 2pi); length = 4097)
+    return all(Iterators.take(angles, 4096)) do angle
+        support(child, angle) <= support(container, angle) + tolerance
+    end
+end
+
 function _contained(container::Annulus, child::Disk)
     offset = hypot(
         child.at.x - container.at.x,
@@ -154,11 +162,25 @@ function _contained(::AbstractShape, ::AbstractShape)
     ))
 end
 
+function fill_holes(::AbstractCablePart, contents::CableGeometry)
+    return Tuple(source.primitive for source in contents.regions)
+end
+
+fill_holes(::Enclosure, contents::CableGeometry) = (boundary(contents),)
+
+function fill_holes(assembly::Assembly, contents::CableGeometry)
+    outer = boundary(contents)
+    outer isa AssemblyShape || throw(ArgumentError(
+        "an enclosed assembly must retain its member boundaries"
+    ))
+    return outer.members
+end
+
 function resolve(context::EmptyBoundary, enclosure::Enclosure)
     container = resolve(EmptyBoundary(), enclosure.primitive)
     contents = resolve(EmptyBoundary(), enclosure.item)
-    occupied = Tuple(source.primitive for source in contents.regions)
-    holes = enclosure.fill isa Material ? occupied : (boundary(contents),)
+    holes = enclosure.fill isa Material ?
+            fill_holes(enclosure.item, contents) : (boundary(contents),)
     all(hole -> _contained(container, hole), holes) || throw(DomainError(
         holes,
         "enclosed geometry must fit inside the enclosure boundary"

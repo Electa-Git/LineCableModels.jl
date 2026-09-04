@@ -1,4 +1,4 @@
-"Record the resolved boundary shared by every member of one compacted formation."
+"Record the resolved boundary shared by every member of one bounded formation."
 struct BoundedPlacement{B <: AbstractShape}
     boundary::B
 end
@@ -352,61 +352,50 @@ function compact_power_cells(boundary, sites, targets; relaxations::Integer = 4)
     return cells
 end
 
-function point_in_convex_polygon(point, polygon)
-    tolerance = 256eps(float(maximum(p -> hypot(p...), polygon)))
-    for index in eachindex(polygon)
-        next = mod1(index + 1, length(polygon))
-        edge = (
-            polygon[next][1] - polygon[index][1],
-            polygon[next][2] - polygon[index][2]
-        )
-        offset = (point[1] - polygon[index][1], point[2] - polygon[index][2])
-        edge[1] * offset[2] - edge[2] * offset[1] >= -tolerance || return false
-    end
-    return true
-end
-
-function distributed_sites(polygon, count::Integer)
-    count > 0 || throw(ArgumentError("bounded compaction requires at least one member"))
-    centre = polygon_centroid(polygon)
-    xmin = minimum(first, polygon)
-    xmax = maximum(first, polygon)
-    ymin = minimum(last, polygon)
-    ymax = maximum(last, polygon)
-    divisions = max(8, 5ceil(Int, sqrt(count)))
-    candidates = Tuple{typeof(centre[1]), typeof(centre[2])}[]
-    for row in 1:divisions, column in 1:divisions
-        point = (
-            xmin + (column - 0.5) * (xmax - xmin) / divisions,
-            ymin + (row - 0.5) * (ymax - ymin) / divisions
-        )
-        point_in_convex_polygon(point, polygon) && push!(candidates, point)
-    end
-    length(candidates) >= count || throw(ArgumentError(
-        "bounded compaction could not seed the requested member count"
+function sector_course_sites(shape::SectorShape, members, polygon)
+    centre = centroid(shape)
+    maximum_course = maximum(member -> member.course, members)
+    maximum_course > 0 || throw(ArgumentError(
+        "a sector stranded formation requires at least one strand course"
     ))
-    first_index = findmin(
-        point -> hypot(point[1] - centre[1], point[2] - centre[2]),
-        candidates
-    )[2]
-    selected = [candidates[first_index]]
-    deleteat!(candidates, first_index)
-    while length(selected) < count
-        index = findmax(
-            candidate -> minimum(
-                site -> (candidate[1] - site[1])^2 +
-                        (candidate[2] - site[2])^2,
-                selected
-            ),
-            candidates
-        )[2]
-        push!(selected, candidates[index])
-        deleteat!(candidates, index)
+    scale = maximum(point -> hypot(point[1] - centre[1], point[2] - centre[2]), polygon)
+    tolerance = 256eps(float(scale)) * max(scale, one(scale))
+    return map(members) do member
+        member.course > 0 || throw(ArgumentError(
+            "a sector stranded formation cannot contain a central member"
+        ))
+        angle = shape.at.φ + member.angle
+        direction = (cos(angle), sin(angle))
+        extent = oftype(scale, Inf)
+        for index in eachindex(polygon)
+            next = mod1(index + 1, length(polygon))
+            edge = (
+                polygon[next][1] - polygon[index][1],
+                polygon[next][2] - polygon[index][2]
+            )
+            denominator = edge[1] * direction[2] - edge[2] * direction[1]
+            denominator < -tolerance || continue
+            offset = (
+                centre[1] - polygon[index][1],
+                centre[2] - polygon[index][2]
+            )
+            numerator = edge[1] * offset[2] - edge[2] * offset[1]
+            candidate = numerator / -denominator
+            candidate >= -tolerance || continue
+            extent = min(extent, max(candidate, zero(candidate)))
+        end
+        isfinite(extent) && extent > tolerance || throw(ArgumentError(
+            "a sector strand course could not be mapped inside its boundary"
+        ))
+        fraction = member.course / (maximum_course + 0.35)
+        return (
+            centre[1] + fraction * extent * direction[1],
+            centre[2] + fraction * extent * direction[2]
+        )
     end
-    return selected
 end
 
-function disk_sites(shape::Disk, members)
+function disk_course_sites(shape::Disk, members)
     centre = (shape.at.x, shape.at.y)
     maximum_course = maximum(member -> member.course, members)
     maximum_course == 0 && return [centre]
@@ -420,7 +409,7 @@ function disk_sites(shape::Disk, members)
     return sites
 end
 
-function compaction_factor(compact, source_area, boundary_area)
+function compaction_factor(compact::FillFactor, source_area, boundary_area)
     derived = source_area / boundary_area
     positive = derived > zero(derived)
     admissible = derived <= one(derived) ||
@@ -430,16 +419,169 @@ function compaction_factor(compact, source_area, boundary_area)
         "bounded strand area must be positive and cannot exceed its boundary area"
     ))
     derived = min(derived, one(derived))
-    compact === nothing && return derived
-    compact isa FillFactor || throw(ArgumentError(
-        "a circular or sector stranded formation accepts one FillFactor or nothing"
-    ))
     isapprox(compact.η, derived; rtol = 2.0e-6, atol = zero(derived)) ||
         throw(DomainError(
             compact.η,
             "the declared fill factor conflicts with strand area / boundary area = $derived"
         ))
     return derived
+end
+
+function natural_disk_members(shape::Disk, members)
+    centre = (shape.at.x, shape.at.y)
+    resolved = Vector{AbstractShape}(undef, length(members))
+    outer_radius = zero(shape.r)
+    for course in 0:maximum(member -> member.course, members)
+        indices = findall(member -> member.course == course, members)
+        isempty(indices) && throw(ArgumentError(
+            "a natural circular formation must contain every declared course"
+        ))
+        radii = [members[index].source.primitive.r for index in indices]
+        radius = first(radii)
+        all(value -> isapprox(value, radius), radii) || throw(ArgumentError(
+            "one natural circular strand course requires equal wire radii"
+        ))
+        if iszero(course)
+            length(indices) == 1 || throw(ArgumentError(
+                "a natural circular formation requires exactly one central wire"
+            ))
+            resolved[only(indices)] = Disk(radius, Pose2(centre[1], centre[2], shape.at.φ))
+            outer_radius = radius
+            continue
+        end
+        lay_radius = outer_radius + radius
+        count = length(indices)
+        chord = count == 1 ? oftype(lay_radius, Inf) :
+                2lay_radius * sin(π / count)
+        tolerance = sqrt(eps(float(chord))) * max(one(chord), chord)
+        chord + tolerance >= 2radius || throw(DomainError(
+            count,
+            "natural circular strands overlap in course $course"
+        ))
+        for index in indices
+            angle = shape.at.φ + members[index].angle
+            pose = Pose2(
+                centre[1] + lay_radius * cos(angle),
+                centre[2] + lay_radius * sin(angle),
+                angle
+            )
+            resolved[index] = resolve(pose, members[index].source.primitive)
+        end
+        outer_radius = lay_radius + radius
+    end
+    tolerance = sqrt(eps(float(shape.r))) * max(one(shape.r), shape.r)
+    outer_radius <= shape.r + tolerance || throw(DomainError(
+        shape.r,
+        "the natural circular strands require radius $outer_radius"
+    ))
+    return resolved
+end
+
+function circle_inside_polygon(point, radius, polygon, tolerance)
+    for index in eachindex(polygon)
+        next = mod1(index + 1, length(polygon))
+        edge = (
+            polygon[next][1] - polygon[index][1],
+            polygon[next][2] - polygon[index][2]
+        )
+        offset = (
+            point[1] - polygon[index][1],
+            point[2] - polygon[index][2]
+        )
+        clearance = edge[1] * offset[2] - edge[2] * offset[1]
+        clearance + tolerance >= radius * hypot(edge...) || return false
+    end
+    return true
+end
+
+function order_sector_sites(sites, centre)
+    return sort(sites; by = point -> (
+        atan(point[2] - centre[2], point[1] - centre[1]),
+        hypot(point[1] - centre[1], point[2] - centre[2])
+    ))
+end
+
+function select_sector_sites(sites, count::Integer, centre)
+    count > 0 || throw(ArgumentError(
+        "a sector stranded formation requires at least one wire"
+    ))
+    count <= length(sites) || throw(DomainError(
+        count,
+        "the sector admits at most $(length(sites)) natural circular wires"
+    ))
+    count == length(sites) && return order_sector_sites(sites, centre)
+    available = collect(eachindex(sites))
+    first_index = findmin(index -> hypot(
+        sites[index][1] - centre[1], sites[index][2] - centre[2]
+    ), available)[2]
+    selected = Int[available[first_index]]
+    deleteat!(available, first_index)
+    while length(selected) < count
+        position = findmax(available) do candidate
+            minimum(selected) do accepted
+                (sites[candidate][1] - sites[accepted][1])^2 +
+                (sites[candidate][2] - sites[accepted][2])^2
+            end
+        end[2]
+        push!(selected, available[position])
+        deleteat!(available, position)
+    end
+    return order_sector_sites(sites[selected], centre)
+end
+
+function sector_wire_sites(shape::SectorShape, wire::Disk)
+    polygon = boundary_polygon(shape; points = 128)
+    centre = centroid(shape)
+    spacing = 2wire.r
+    scale = maximum(point -> hypot(
+        point[1] - centre[1], point[2] - centre[2]
+    ), polygon)
+    tolerance = 512eps(float(scale)) * max(scale, one(scale))
+    limit = ceil(Int, 2nominal(scale / spacing)) + 3
+    best = Tuple{typeof(centre[1]), typeof(centre[2])}[]
+    best_offset = oftype(float(nominal(scale)), Inf)
+    for orientation in range(shape.at.φ, shape.at.φ + π / 6; length = 4)
+        first_basis = (spacing * cos(orientation), spacing * sin(orientation))
+        second_basis = (
+            spacing * cos(orientation + π / 3),
+            spacing * sin(orientation + π / 3)
+        )
+        for first_phase in 0:4, second_phase in 0:4
+            first_fraction = first_phase / 5
+            second_fraction = second_phase / 5
+            sites = Tuple{typeof(centre[1]), typeof(centre[2])}[]
+            for first_index in -limit:limit, second_index in -limit:limit
+                first_coordinate = first_index + first_fraction
+                second_coordinate = second_index + second_fraction
+                point = (
+                    centre[1] + first_coordinate * first_basis[1] +
+                    second_coordinate * second_basis[1],
+                    centre[2] + first_coordinate * first_basis[2] +
+                    second_coordinate * second_basis[2]
+                )
+                circle_inside_polygon(point, wire.r, polygon, tolerance) &&
+                    push!(sites, point)
+            end
+            isempty(sites) && continue
+            site_centre = (
+                sum(first, sites) / length(sites),
+                sum(last, sites) / length(sites)
+            )
+            offset = hypot(
+                site_centre[1] - centre[1], site_centre[2] - centre[2]
+            )
+            if length(sites) > length(best) ||
+               (length(sites) == length(best) && offset < best_offset)
+                best = sites
+                best_offset = offset
+            end
+        end
+    end
+    isempty(best) && throw(DomainError(
+        wire.r,
+        "one circular wire does not fit inside the sector boundary"
+    ))
+    return order_sector_sites(best, centre)
 end
 
 function boundary_anchor(cell, boundary, centre)
@@ -533,9 +675,10 @@ function compact_disk_members(boundary_shape, members, compact)
     targets = signed_polygon_area(polygon) .* source_areas ./ total_source_area
     sites = if boundary_shape isa Disk
         [convert.(coordinate_type, point)
-         for point in disk_sites(boundary_shape, members)]
+         for point in disk_course_sites(boundary_shape, members)]
     else
-        distributed_sites(polygon, length(members))
+        [convert.(coordinate_type, point)
+         for point in sector_course_sites(boundary_shape, members, polygon)]
     end
     cells = compact_power_cells(polygon, sites, targets)
     centre = centroid(boundary_shape)
@@ -549,94 +692,22 @@ function compact_disk_members(boundary_shape, members, compact)
     ]
 end
 
-function rectangular_factors(compact, members, boundary_shape::Disk)
-    courses = maximum(member -> member.course, members)
-    courses > 0 || throw(ArgumentError(
-        "a rectangular stranded formation requires at least one outer course"
-    ))
-    central = only(filter(member -> member.course == 0, members))
-    central.source.primitive isa Disk || throw(ArgumentError(
-        "a rectangular stranded formation requires a circular centre member"
-    ))
-    outer_area = sum(member -> area(member.source.primitive),
-        filter(member -> member.course > 0, members))
-    envelope_area = area(boundary_shape) - area(central.source.primitive)
-    derived = outer_area / envelope_area
-    if compact === nothing
-        zero(derived) < derived <= one(derived) || throw(DomainError(
-            derived, "rectangular strand area cannot exceed its radial boundary"
-        ))
-        return ntuple(_ -> FillFactor(derived), courses)
-    end
-    if compact isa FillFactor
-        return ntuple(_ -> compact, courses)
-    end
-    compact isa Tuple && length(compact) == courses &&
-        all(factor -> factor isa FillFactor, compact) || throw(ArgumentError(
-        "rectangular stranded compaction requires one FillFactor per outer course"
-    ))
-    return compact
-end
-
-function compact_rectangular_members(boundary_shape::Disk, members, compact)
-    central = filter(member -> member.course == 0, members)
-    length(central) == 1 || throw(ArgumentError(
-        "a rectangular stranded formation requires exactly one centre member"
-    ))
-    centre_member = only(central)
-    centre_member.source.primitive isa Disk || throw(ArgumentError(
-        "a rectangular stranded formation requires a circular centre member"
-    ))
-    all(member -> member.course == 0 || member.source.primitive isa Rectangle, members) ||
-        throw(ArgumentError(
-            "rectangular stranded courses require Rectangle source members"
-        ))
-    factors = rectangular_factors(compact, members, boundary_shape)
-    centre = (boundary_shape.at.x, boundary_shape.at.y)
-    resolved = AbstractShape[resolve(boundary_shape.at, centre_member.source.primitive)]
-    inner = centre_member.source.primitive.r
-    for course in eachindex(factors)
-        course_members = filter(member -> member.course == course, members)
-        count = length(course_members)
-        count > 0 || throw(ArgumentError("every rectangular course requires members"))
-        source_area = area(first(course_members).source.primitive)
-        all(member -> isapprox(area(member.source.primitive), source_area), course_members) ||
-            throw(ArgumentError("one rectangular course must use equal-area members"))
-        factor = factors[course].η
-        outer = sqrt(inner^2 + count * source_area / (π * factor))
-        angular_width = 2π * factor / count
-        for member in course_members
-            push!(resolved,
-                BentStrip(
-                    inner,
-                    outer,
-                    angular_width,
-                    Pose2(centre[1], centre[2], member.angle)
-                ))
-        end
-        inner = outer
-    end
-    isapprox(inner, boundary_shape.r; rtol = 2.0e-6, atol = zero(inner)) ||
-        throw(DomainError(
-            boundary_shape.r,
-            "the rectangular courses resolve to radius $inner, inconsistent with the boundary"
-        ))
-    return resolved
-end
-
 function compact_bounded_members(boundary, members, compact, at::Pose2)
     boundary_shape = resolve(at, boundary)
     source_shapes = map(member -> member.source.primitive, members)
-    resolved = if all(shape -> shape isa Disk, source_shapes)
-        compact_disk_members(boundary_shape, members, compact)
-    elseif boundary_shape isa Disk && first(source_shapes) isa Disk &&
-           all(shape -> shape isa Union{Disk, Rectangle}, source_shapes)
-        compact_rectangular_members(boundary_shape, members, compact)
+    all(shape -> shape isa Disk, source_shapes) || throw(ArgumentError(
+        "stranded formations require circular source wires"
+    ))
+    resolved = if compact === nothing && boundary_shape isa Disk
+        natural_disk_members(boundary_shape, members)
+    elseif compact === nothing && boundary_shape isa SectorShape
+        [resolve(Pose2(member.site..., member.angle), member.source.primitive)
+         for member in members]
     else
-        throw(ArgumentError(
-            "bounded stranding supports circular strands in Disk or Sector boundaries, " *
-            "and rectangular outer courses in Disk boundaries"
+        compact isa FillFactor || throw(ArgumentError(
+            "bounded strand deformation requires one FillFactor"
         ))
+        compact_disk_members(boundary_shape, members, compact)
     end
     return resolved, boundary_shape
 end

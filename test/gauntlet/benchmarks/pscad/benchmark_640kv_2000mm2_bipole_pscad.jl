@@ -1,4 +1,4 @@
-@testitem "PSCAD benchmark / 640 kV 2000 mm² rectangular-stranded bipole" tags=[
+@testitem "PSCAD benchmark / 640 kV 2000 mm² compact-stranded bipole" tags=[
     :gauntlet, :pscad] setup=[GauntletSupport] begin
     using Test
     using DataFrames

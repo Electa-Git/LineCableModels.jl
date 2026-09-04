@@ -51,32 +51,36 @@ end
     insulation_material=Material(
         kind = :insulator, rho = Inf, eps_r = 2.3, mu_r = 1.0
     )
-    strand_area=0.6e-3*0.8e-3
-    core_radius=sqrt((0.5e-3)^2+4strand_area/pi)
+    perfect_insulator=extension._base_material_color(Inf)
+    @test perfect_insulator.r > 0.8
+    @test perfect_insulator.g > 0.8
+    @test perfect_insulator.b > 0.8
+    @test extension._base_material_color(1e10) != perfect_insulator
+    strand_radius=0.5e-3
+    core_radius=sqrt(7)*strand_radius
     core=stranded(
         copper;
-        center = Disk(0.5e-3),
-        shape = Rectangle(0.6e-3, 0.8e-3),
+        shape = Disk(strand_radius),
         layers = 1,
-        n = 4,
+        n = 6,
         lay = nothing,
         compact = FillFactor(1),
         boundary = Disk(core_radius)
     )
     design=build(
         CableDesign,
-        "outlined-rectangular-strands",
+        "outlined-compacted-strands",
         terminal(:phase, core),
         insulation(insulation_material; t = 1e-3)
     )
     polygons=extension._native_design_shapes(
         design, 0.0, 0.0; display_legend = false
     )
-    @test length(polygons) == 6
-    @test all(polygon -> polygon.stroke == (:black, 0.35), polygons[1:5])
-    @test all(polygon -> polygon.width == 0.6, polygons[1:5])
-    @test polygons[6].stroke === :transparent
-    @test polygons[6].width == 0.0
+    @test length(polygons) == 8
+    @test all(polygon -> polygon.stroke == (:black, 0.35), polygons[1:7])
+    @test all(polygon -> polygon.width == 0.6, polygons[1:7])
+    @test polygons[8].stroke === :transparent
+    @test polygons[8].width == 0.0
 
     @test_throws ArgumentError Makie.plot(
         parameters; backend = :gl, display_plot = false

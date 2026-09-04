@@ -13,8 +13,9 @@ const _METAL_COLORS = [
 ]
 const _SEMIMETAL_COLORS = [RGB(0.70, 0.72, 0.75), RGB(0.80, 0.75, 0.65)]
 const _SEMICON_COLORS = [RGB(1.00, 0.83, 0.40), RGB(0.85, 0.55, 0.18)]
-const _LEAKY_COLORS = [RGB(0.42, 0.55, 0.15), RGB(0.13, 0.13, 0.13)]
-const _INSULATOR_COLORS = [RGB(0.07, 0.07, 0.07), RGB(0.00, 0.00, 0.00)]
+const _LEAKY_COLORS = [RGB(0.42, 0.55, 0.15), RGB(0.20, 0.24, 0.25)]
+const _INSULATOR_COLORS = [RGB(0.20, 0.24, 0.25), RGB(0.78, 0.86, 0.88)]
+const _PERFECT_INSULATOR_COLOR = RGB(0.90, 0.94, 0.96)
 const _MU_COLORS = [RGB(0.20, 0.50, 0.95), RGB(0.56, 0.00, 0.91)]
 const _EPS_COLORS = [RGB(0.00, 0.85, 0.70), RGB(0.00, 0.55, 0.90)]
 
@@ -44,7 +45,7 @@ end
 
 function _base_material_color(resistivity::Real)
     if !isfinite(resistivity)
-        return _INSULATOR_COLORS[end]
+        return _PERFECT_INSULATOR_COLOR
     elseif resistivity <= _RHO_METAL_MAX
         return _gradient(
             _METAL_COLORS,

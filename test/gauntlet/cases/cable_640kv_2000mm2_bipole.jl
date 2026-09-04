@@ -72,23 +72,11 @@ case_definition(
     matrix = LineCableModels.Material(
         kind = :insulator, rho = Inf, eps_r = 1.0, mu_r = 1.0
     )
-    core_strand_area = π * p.core_strand_radius^2
-    radius = p.core_strand_radius
-    course_shapes = LineCableModels.Rectangle[]
-    for count in p.ring_counts
-        strand_width = prevfloat(2π * radius / count)
-        strand_thickness = core_strand_area / strand_width
-        outer = sqrt(
-            radius^2 + count * strand_width * strand_thickness / π
-        )
-        push!(course_shapes,
-            LineCableModels.Rectangle(strand_width, strand_thickness))
-        radius = outer
-    end
+    strand_count = 1 + sum(p.ring_counts)
+    radius = sqrt(strand_count) * p.core_strand_radius
     core = LineCableModels.stranded(
         copper;
-        center = LineCableModels.Disk(p.core_strand_radius),
-        shape = Tuple(course_shapes),
+        shape = LineCableModels.Disk(p.core_strand_radius),
         layers = length(p.ring_counts),
         n = p.ring_counts,
         lay = LineCableModels.LayRatio(p.core_lay_ratio),

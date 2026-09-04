@@ -24,7 +24,13 @@
                                                 "kind": "group",
                                                 "name": "core",
                                                 "pattern": null,
-                                                "compact": null,
+                                                "compact": {
+                                                    "kind": "fill_factor",
+                                                    "η": {
+                                                        "value": 0.9282727454343798,
+                                                        "__type__": "Float64"
+                                                    }
+                                                },
                                                 "item": {
                                                     "kind": "stack",
                                                     "items": [
@@ -700,7 +706,13 @@
                                                 "kind": "group",
                                                 "name": "core",
                                                 "pattern": null,
-                                                "compact": null,
+                                                "compact": {
+                                                    "kind": "fill_factor",
+                                                    "η": {
+                                                        "value": 0.7957304858771558,
+                                                        "__type__": "Float64"
+                                                    }
+                                                },
                                                 "item": {
                                                     "kind": "stack",
                                                     "items": [

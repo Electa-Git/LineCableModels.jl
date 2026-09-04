@@ -432,6 +432,33 @@ end
     @test repeated.item.item === cell_a
     @test repeated.item.pattern == Lattice(nx = 2, ny = 1, dx = 12e-3, dy = 0)
 
+    elliptical = duct(
+        at(cell_a, -6e-3, 0),
+        at(cell_b, 6e-3, 0);
+        shape = Ellipse(15e-3, 8e-3),
+        fill = concrete
+    )
+    elliptical_design = build(CableDesign, "elliptical-duct", elliptical)
+    @test elliptical_design.geometry.outer isa Ellipse
+    @test area(elliptical_design.geometry.outer) ≈ pi * 15e-3 * 8e-3
+    elliptical_fill = only(filter(elliptical_design.geometry.regions) do region
+        region.primitive isa DM.DifferenceShape &&
+            region.primitive.outer isa Ellipse
+    end)
+    @test elliptical_fill.primitive isa DM.DifferenceShape
+    @test length(elliptical_fill.primitive.holes) == 2
+    @test all(hole -> hole isa Disk, elliptical_fill.primitive.holes)
+    @test_throws DomainError build(
+        CableDesign,
+        "overfilled-elliptical-duct",
+        duct(
+            at(cell_a, -14e-3, 0),
+            at(cell_b, 14e-3, 0);
+            shape = Ellipse(15e-3, 8e-3),
+            fill = concrete
+        )
+    )
+
     evaluations = Symbol[]
     identifier() = (push!(evaluations, :identifier); "single-evaluation")
     phase() = (push!(evaluations, :phase); terminal(:phase, core(copper; r = 1e-3)))
@@ -519,12 +546,15 @@ end
         r_back = 10.24e-3,
         fillet = 1.02e-3
     )
+    resolved_sector = DM.resolve(DM.EmptyBoundary(), sector_boundary)
+    sector_fill = 18pi * (0.5e-3)^2 / DM.area(resolved_sector)
     bounded = stranded(
         copper;
         shape = Disk(0.5e-3),
         layers = 2,
         n = (6, 12),
         lay = (LayRatio(12), LayRatio(11)),
+        compact = FillFactor(sector_fill),
         boundary = sector_boundary
     )
     @test bounded isa Stack
@@ -533,7 +563,7 @@ end
     @test bounded_group isa Group
     @test bounded_group.pattern === nothing
     @test bounded_group.path === nothing
-    @test bounded_group.compact === nothing
+    @test bounded_group.compact == FillFactor(sector_fill)
     @test bounded_group.boundary == sector_boundary
     @test bounded_group.item isa Stack
     @test length(bounded_group.item.items) == 2
@@ -551,13 +581,64 @@ end
     @test all(region -> region.primitive isa DM.Polygon,
         bounded_design.geometry.regions)
     @test sum(DM.area, bounded_design.geometry.regions) ≈ 18pi * (0.5e-3)^2
+    sector_centre = DM.centroid(resolved_sector)
+    course_counts = [
+        first(region.placement.patterns).pattern.n
+        for region in bounded_design.geometry.regions
+    ]
+    path_radii = [only(region.paths).radius for region in bounded_design.geometry.regions]
+    @test all(zip(bounded_design.geometry.regions, path_radii)) do (region, radius)
+        centre = DM.centroid(region.primitive)
+        radius ≈ hypot(
+            centre[1] - sector_centre[1],
+            centre[2] - sector_centre[2]
+        )
+    end
+    @test maximum(path_radii[course_counts .== 6]) <
+          minimum(path_radii[course_counts .== 12])
     bounded_component = only(DM.flatten(bounded_design, 50.0))
-    resolved_sector = DM.resolve(DM.EmptyBoundary(), sector_boundary)
     @test bounded_component.conductor.r_ex ≈ sqrt(DM.area(resolved_sector) / pi)
     @test all(isapprox.(
         bounded_component.conductor.position,
         DM.centroid(resolved_sector)
     ))
+    member_resistances = map(bounded_design.geometry.regions) do region
+        path = only(region.paths)
+        copper.rho / DM.area(region.source.primitive) *
+        overlength(path.path, path.radius)
+    end
+    @test bounded_component.conductor.resistance ≈
+          inv(sum(inv, member_resistances))
+
+    natural_sector = stranded(
+        copper;
+        shape = Disk(0.5e-3),
+        boundary = sector_boundary
+    )
+    natural_group = only(natural_sector.items)
+    @test length(natural_group.item.items) == 1
+    @test only(natural_group.item.items).pattern.n == capacity()
+    natural_sector_design = build(
+        CableDesign,
+        "natural-sector-strands",
+        terminal(:core, natural_sector)
+    )
+    @test all(region -> region.primitive isa Disk,
+        natural_sector_design.geometry.regions)
+    @test length(natural_sector_design.geometry.regions) ==
+          length(DM.sector_wire_sites(resolved_sector, Disk(0.5e-3)))
+    natural_centres = DM.centroid.(getproperty.(
+        natural_sector_design.geometry.regions,
+        :primitive
+    ))
+    @test all(
+        hypot(
+            natural_centres[left][1] - natural_centres[right][1],
+            natural_centres[left][2] - natural_centres[right][2]
+        ) + 1e-12 >= 1e-3
+        for left in 1:(length(natural_centres) - 1)
+        for right in (left + 1):length(natural_centres)
+    )
     @test_throws ArgumentError stranded(
         copper;
         center = Disk(0.5e-3),
@@ -619,28 +700,6 @@ end
     @test length(zipped_designs) == 2
     @test [length(design.geometry.regions) for design in zipped_designs] == [7, 8]
 
-    centre_radii = (0.4e-3, 0.5e-3)
-    strip_area = 0.3e-3 * 0.2e-3
-    centre_space = stranded(
-        copper;
-        center = Disk(Grid(centre_radii)),
-        shape = Rectangle(0.3e-3, 0.2e-3),
-        layers = 1,
-        n = 6,
-        compact = FillFactor(1),
-        boundary = Grid(Disk.(sqrt.(centre_radii .^ 2 .+ 6strip_area / pi))),
-        combine = :zip
-    )
-    @test length(centre_space) == 2
-    @test all(enumerate(centre_space)) do (index, value)
-        design = build(
-            CableDesign,
-            "zipped-centre-$index",
-            terminal(:phase, value)
-        )
-        length(design.geometry.regions) == 7
-    end
-
     uncertain_space = stranded(
         copper;
         shape = Disk(Grid(0.5e-3, 1.0)),
@@ -667,7 +726,7 @@ end
         boundary = "rounded"
     )
 
-    exact = stranded(
+    @test_throws ArgumentError stranded(
         copper;
         center = Disk(0.5e-3),
         shape = Rectangle(0.6e-3, 0.8e-3),
@@ -677,21 +736,6 @@ end
         compact = FillFactor(1),
         boundary = Disk(sqrt((0.5e-3)^2 + 16 * 0.6e-3 * 0.8e-3 / pi))
     )
-    exact_courses = only(exact.items).item.items
-    @test [item.pattern.n for item in exact_courses[2:3]] == [5, 11]
-    rectangular = build(
-        CableDesign,
-        "rectangular-strand",
-        terminal(:phase, exact),
-        insulation(xlpe; t = 1e-3)
-    )
-    rectangles = filter(
-        region -> region.source.primitive isa Rectangle,
-        rectangular.geometry.regions
-    )
-    @test length(rectangles) == 16
-    @test all(region -> region.primitive isa DM.BentStrip, rectangles)
-    @test all(region -> DM.area(region) ≈ 0.6e-3 * 0.8e-3, rectangles)
 
     compacted = stranded(
         copper;

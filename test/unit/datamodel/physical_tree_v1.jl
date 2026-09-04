@@ -77,84 +77,67 @@ end
     @test design.terminal_order == [:core]
 end
 
-@testitem "DataModel / v1 physical tree / circular and rectangular strands" tags=[:unit] begin
+@testitem "DataModel / v1 physical tree / natural and compacted circular strands" tags=[:unit] begin
     copper=Material(kind = :conductor, rho = 1.7241e-8)
     disk=Disk(0.5e-3)
-    rectangle=Rectangle(0.35e-3, 0.8e-3)
-    circular_boundary=Disk(sqrt(19 / 0.9) * disk.r)
-    rectangular_boundary=Disk(sqrt(
-        disk.r^2 + 18area(rectangle) / pi
-    ))
+    natural_boundary=Disk(5disk.r)
+    compact_boundary=Disk(sqrt(19 / 0.9) * disk.r)
 
-    circular=stranded(
+    natural=stranded(
         copper;
         shape = disk,
         layers = 2,
         n = (6, 12),
         lay = (LayRatio(15), LayRatio(11)),
-        compact = FillFactor(0.9),
-        boundary = circular_boundary
+        boundary = natural_boundary
     )
-    rectangular=stranded(
+    compacted=stranded(
         copper;
-        center = disk,
-        shape = rectangle,
+        shape = disk,
         layers = 2,
         n = (6, 12),
-        lay = (LayRatio(15), LayRatio(11)),
-        compact = FillFactor(1),
-        boundary = rectangular_boundary
+        compact = FillFactor(0.9),
+        boundary = compact_boundary
     )
-    @test circular isa Stack
-    @test rectangular isa Stack
-    circular_courses=only(circular.items).item.items
-    rectangular_courses=only(rectangular.items).item.items
-    @test all(item -> item isa Group, circular_courses)
-    @test all(item -> item isa Group, rectangular_courses)
-    @test getproperty.(circular_courses, :name) == fill(:strand, 3)
-    @test getproperty.(rectangular_courses, :name) == fill(:strand, 3)
-    @test circular_courses[1].path === nothing
-    @test circular_courses[2].path.lay == LayRatio(15)
-    @test circular_courses[3].path.lay == LayRatio(11)
-    @test all(item -> item.pattern isa Ring, circular_courses[2:3])
-    @test all(item -> item.pattern isa Ring, rectangular_courses[2:3])
+    @test natural isa Stack
+    natural_courses=only(natural.items).item.items
+    @test all(item -> item isa Group, natural_courses)
+    @test getproperty.(natural_courses, :name) == fill(:strand, 3)
+    @test natural_courses[1].path === nothing
+    @test natural_courses[2].path.lay == LayRatio(15)
+    @test natural_courses[3].path.lay == LayRatio(11)
+    @test all(item -> item.pattern isa Ring, natural_courses[2:3])
 
-    circular_design=build(
-        CableDesign, "circular-strands", terminal(:core, circular)
+    natural_design=build(
+        CableDesign, "natural-circular-strands", terminal(:core, natural)
     )
-    rectangular_design=build(
-        CableDesign, "rectangular-strands", terminal(:core, rectangular)
+    compacted_design=build(
+        CableDesign, "compacted-circular-strands", terminal(:core, compacted)
     )
-    @test length(circular_design.geometry.regions) == 19
-    @test length(rectangular_design.geometry.regions) == 19
-    @test all(
-        region -> region.source.primitive isa Rectangle ?
-                  region.primitive isa LineCableModels.DataModel.BentStrip :
-                  region.primitive isa Disk,
-        rectangular_design.geometry.regions
-    )
-    @test sum(area, getproperty.(circular_design.geometry.regions, :primitive)) ≈
+    @test length(natural_design.geometry.regions) == 19
+    @test all(region -> region.primitive isa Disk, natural_design.geometry.regions)
+    @test all(region -> region.primitive isa LineCableModels.DataModel.Polygon,
+        compacted_design.geometry.regions)
+    @test sum(area, getproperty.(natural_design.geometry.regions, :primitive)) ≈
           19pi * disk.r^2
-    @test sum(area, getproperty.(rectangular_design.geometry.regions, :primitive)) ≈
-          area(disk) + 18area(rectangle)
 
     strand_centres=centroid.(getproperty.(
-        circular_design.geometry.regions,
+        natural_design.geometry.regions,
         :primitive
     ))
     @test hypot(first(strand_centres)...) <= 1e-15
     @test length(unique(strand_centres)) == 19
     @test [last(region.placement.patterns).member
-           for region in circular_design.geometry.regions] == collect(1:19)
+           for region in natural_design.geometry.regions] == collect(1:19)
     flattened_circular=only(LineCableModels.DataModel.flatten(
-        circular_design,
+        natural_design,
         50.0
     )).conductor
     resistances=[copper.rho / area(disk) * prod(
                      entry -> overlength(entry.path, entry.radius),
                      region.paths;
                      init = 1.0
-                 ) for region in circular_design.geometry.regions]
+                 ) for region in natural_design.geometry.regions]
     weights=inv.(resistances) ./ sum(inv, resistances)
     log_gmr=sum(eachindex(strand_centres)) do left
         value=weights[left]^2 * log(disk.r * exp(-copper.mu_r / 4))
@@ -168,45 +151,12 @@ end
         value
     end
     @test flattened_circular.gmr ≈ exp(log_gmr)
-
-    @test maximum(region -> LineCableModels.DataModel.r_ex(region.primitive),
-        rectangular_design.geometry.regions[2:end]) ≈ rectangular_boundary.r
-    @test getproperty.(rectangular_design.geometry.regions, :terminal) ==
-          fill(:core, 19)
-    @test all(
-        region -> region.source.tag === :wire,
-        rectangular_design.geometry.regions
-    )
-    @test all(isempty, getproperty.(rectangular_design.geometry.regions[1:1], :paths))
-    @test all(!isempty, getproperty.(rectangular_design.geometry.regions[2:end], :paths))
-
-    for (member, placed) in enumerate(rectangular_design.geometry.regions[2:7])
-        x, y = centroid(placed.primitive)
-        radial = atan(y, x)
-        @test mod(placed.primitive.at.φ - radial, 2pi) ≈ 0 atol=1e-12
-        @test placed.source.primitive === rectangle
-    end
-    @test_throws DomainError build(
-        CableDesign,
-        "overpacked",
-        terminal(
-            :core,
-            stranded(
-                copper;
-                shape = Rectangle(10e-3, 1e-3),
-                layers = 1,
-                n = (6,),
-                center = disk,
-                boundary = Disk(2e-3)
-            )
-        )
-    )
     @test_throws DimensionMismatch stranded(
-        copper; shape = disk, layers = 2, n = (6,), boundary = circular_boundary
+        copper; shape = disk, layers = 2, n = (6,), boundary = natural_boundary
     )
     @test_throws DimensionMismatch stranded(
         copper; shape = disk, layers = 2, n = (6, 12), lay = (LayRatio(11),),
-        boundary = circular_boundary
+        boundary = natural_boundary
     )
     @test_throws ArgumentError stranded(
         copper;
@@ -215,11 +165,15 @@ end
         n = 6,
         boundary = Disk(2e-3)
     )
-    flattened_rectangular=only(LineCableModels.DataModel.flatten(
-        rectangular_design, 50.0
-    )).conductor
-    @test flattened_rectangular.cross_section ≈ area(disk) + 18area(rectangle)
-    @test isfinite(flattened_rectangular.gmr)
+    @test_throws ArgumentError stranded(
+        copper;
+        center = disk,
+        shape = Rectangle(0.35e-3, 0.8e-3),
+        layers = 1,
+        n = 6,
+        compact = FillFactor(1),
+        boundary = Disk(2e-3)
+    )
 end
 
 @testitem "DataModel / v1 physical tree / Enclosure and class conveniences" tags=[:unit] begin
@@ -296,7 +250,7 @@ end
             shape = Disk(0.5),
             layers = 1,
             n = 6,
-            boundary = Disk(1.4)
+            boundary = Disk(1.5)
         )
     )
     packed=Enclosure(

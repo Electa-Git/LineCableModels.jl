@@ -85,7 +85,50 @@ end
 _member_definition(region::Region) = region.primitive
 _member_definition(::AbstractCablePart) = nothing
 
+function natural_sector_members(group::Group)
+    group.item isa Stack && length(group.item.items) == 1 || throw(ArgumentError(
+        "an uncompacted sector stranded formation uses one circular-wire inventory"
+    ))
+    part = only(group.item.items)
+    part isa Group && part.item isa Region || throw(ArgumentError(
+        "an uncompacted sector stranded formation requires one circular wire declaration"
+    ))
+    part.at == Pose2(0, 0, 0) || throw(ArgumentError(
+        "sector wire packing owns every member placement"
+    ))
+    part.item.primitive isa Disk || throw(ArgumentError(
+        "an uncompacted sector stranded formation requires circular wires"
+    ))
+    pattern = part.pattern
+    pattern isa Ring || throw(ArgumentError(
+        "an uncompacted sector stranded formation requires one wire inventory"
+    ))
+    boundary_shape = resolve(group.at, group.boundary)
+    sites = sector_wire_sites(boundary_shape, part.item.primitive)
+    count = pattern.n isa Int ? pattern.n : length(sites)
+    sites = select_sector_sites(sites, count, centroid(boundary_shape))
+    concrete = Ring(
+        count;
+        r = nothing,
+        φ0 = pattern.φ0,
+        span = pattern.span,
+        gap_frac = pattern.gap_frac
+    )
+    centre = centroid(boundary_shape)
+    return [(
+                source = part.item,
+                course = 1,
+                member,
+                pattern = concrete,
+                path = part.path,
+                angle = atan(site[2] - centre[2], site[1] - centre[1]),
+                site
+            ) for (member, site) in enumerate(sites)]
+end
+
 function bounded_members(group::Group)
+    group.boundary isa Sector && group.compact === nothing &&
+        return natural_sector_members(group)
     group.item isa Stack || throw(ArgumentError(
         "a bounded formation must own an ordered Stack of member courses"
     ))
@@ -169,6 +212,7 @@ function resolve_bounded(group::Group)
     length(primitives) == length(members) || throw(DimensionMismatch(
         "bounded compaction must preserve the declared member count"
     ))
+    formation_centre = centroid(outer)
     regions = PlacedRegion[]
     for (formation_member, (member, primitive)) in enumerate(zip(members, primitives))
         absolute_centre = centroid(primitive)
@@ -184,7 +228,13 @@ function resolve_bounded(group::Group)
             )
         )
         paths = member.path === nothing ? () :
-                ((path = member.path, radius = hypot(pose.x, pose.y)),)
+                ((
+                    path = member.path,
+                    radius = hypot(
+                        absolute_centre[1] - formation_centre[1],
+                        absolute_centre[2] - formation_centre[2]
+                    )
+                ),)
         terminal = member.source.material.kind === :conductor ? group.name : nothing
         push!(regions,
             PlacedRegion(

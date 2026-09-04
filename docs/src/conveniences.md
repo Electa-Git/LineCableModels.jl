@@ -36,19 +36,21 @@ screen_wires = wires(
 ```
 
 With a `Disk` boundary, `stranded` creates a central strand and the requested
-outer courses. With a `Sector` boundary, the declared courses are the complete
-inventory and no central strand is added. A scalar count is the conventional
-base count (`k*n` on course `k`); a tuple is an exact course schedule.
+outer courses. Without compaction the circular wires retain their natural
+shape. A `FillFactor` explicitly requests deformation. With an uncompacted
+`Sector` boundary, circular-wire capacity and placement are inferred and no
+central strand is added. A scalar count is the conventional base count (`k*n`
+on course `k`); a tuple is an exact compacted-course schedule.
 
 ```julia
-stranded_core = stranded(
+compacted_core = stranded(
     copper;
-    center=Disk(0.5e-3),
-    shape=Rectangle(0.35e-3, 0.8e-3),
+    shape=Disk(0.5e-3),
     layers=3,
-    n=(6, 11, 17),
+    n=(6, 12, 18),
     lay=(LayRatio(13), Pitch(0.15), LayAngle(0.2)),
-    boundary=Disk(4e-3),
+    compact=FillFactor(1),
+    boundary=Disk(sqrt(37) * 0.5e-3),
 )
 ```
 

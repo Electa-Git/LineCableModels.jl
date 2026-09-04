@@ -68,7 +68,7 @@
                 copper;
                 shape = Disk(0.5),
                 layers = 1,
-                boundary = Disk(1.4)
+                boundary = Disk(1.5)
             )
         );
         primitive = Disk(1.5),

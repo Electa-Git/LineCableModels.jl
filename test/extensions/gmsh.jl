@@ -949,34 +949,6 @@ end
     @test circular_model.region_plans[1].shape.at == Pose2(0.0, -0.1)
     @test circular_model.region_plans[1].terminal_index == 1
 
-    rectangle = Rectangle(0.6e-3, 0.8e-3)
-    rectangular_boundary = Disk(sqrt(
-        strand_radius^2 + 6DM.area(rectangle) / pi
-    ))
-    rectangular = stranded(
-        copper;
-        center = Disk(strand_radius),
-        shape = rectangle,
-        layers = 1,
-        n = 6,
-        compact = FillFactor(1),
-        boundary = rectangular_boundary
-    )
-    rectangular_design = build(
-        CableDesign,
-        "fem-compacted-rectangular-core",
-        terminal(:core, rectangular),
-        Region(:insulation, Shell(1e-3), dielectric)
-    )
-    rectangular_model = extension_module._resolved_fem_model(
-        problem(rectangular_design, Dict(:core => 1), rectangular_design.cable_id),
-        formulation
-    )
-    @test length(rectangular_model.region_plans) == 2
-    @test rectangular_model.region_plans[1].shape isa DM.Disk
-    @test rectangular_model.region_plans[1].shape.r == rectangular_boundary.r
-    @test rectangular_model.region_plans[1].shape.at == Pose2(0.0, -0.1)
-
     partial_boundary = Disk(sqrt(7 / 0.9) * strand_radius)
     partial = terminal(
         :core,
@@ -1099,7 +1071,6 @@ end
         gmsh.option.set_number("General.Verbosity", 0)
         for (name, model) in (
             ("fem-compacted-circular-core", circular_model),
-            ("fem-compacted-rectangular-core", rectangular_model),
             ("fem-filled-compaction", filled_model),
             ("fem-sector-formations", sector_model)
         )

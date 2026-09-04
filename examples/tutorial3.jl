@@ -85,7 +85,9 @@ cable_dimensions = DataFrame(
 
 The conductor has a central wire and six concentric courses. [`stranded`](@ref)
 retains the (1/6/12/18/24/30/36) individual wires and the longitudinal paths
-needed for the helical corrections.
+needed for the helical corrections. Its measured finished diameter is smaller
+than the natural circular-wire envelope, so the corresponding fill factor is
+declared explicitly.
 =#
 
 # Select reusable materials from the library:
@@ -98,6 +100,9 @@ lead = Material(materials, :lead)
 pp = Material(materials, :pp)
 steel = Material(materials, :steel);
 
+core_strand_count = 1 + 6 + 12 + 18 + 24 + 30 + 36
+core_fill_factor = core_strand_count * (d_w / d_core)^2;
+
 # State the actual population and lay of every noncentral conductor course:
 stranded_core = stranded(
     copper;
@@ -105,6 +110,7 @@ stranded_core = stranded(
     layers = 6,
     n = (6, 12, 18, 24, 30, 36),
     lay = LayRatio(11.0, 11.0, 11.0, 11.0, 11.0, 11.0),
+    compact = FillFactor(core_fill_factor),
     boundary = Disk(d_core / 2)
 );
 

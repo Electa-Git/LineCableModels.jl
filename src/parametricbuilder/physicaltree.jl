@@ -586,11 +586,12 @@ function _stranded(
         throw(ArgumentError(
             "stranded requires a nonhollow Disk or Sector boundary"
         ))
-    all(shape -> shape isa Union{DataModel.Disk, DataModel.Rectangle}, shapes) ||
-        throw(ArgumentError("stranded members must be Disk or Rectangle primitives"))
+    all(shape -> shape isa DataModel.Disk, shapes) || throw(ArgumentError(
+        "stranded members must be circular Disk primitives; use tape for flat strips"
+    ))
     if prescribed_boundary isa DataModel.Sector
         center === nothing || throw(ArgumentError(
-            "a sector stranded formation has no central member; declare every strand in n"
+            "a sector stranded formation has no central member"
         ))
         course_count > 0 || throw(ArgumentError(
             "a sector stranded formation requires at least one strand course"
@@ -599,21 +600,27 @@ function _stranded(
         isempty(shapes) && throw(ArgumentError(
             "a zero-course stranded formation requires an explicit centre member"
         ))
-        first(shapes) isa DataModel.Disk || throw(ArgumentError(
-            "rectangular outer courses require an explicit circular centre member"
-        ))
         center = first(shapes)
     end
     center === nothing || center isa DataModel.Disk || throw(ArgumentError(
         "a disk stranded formation requires one circular centre member"
     ))
 
-    all(count -> count isa Integer && !(count isa Bool) && count > 0, counts) ||
-        throw(ArgumentError("stranded requires explicit positive integer member counts"))
+    natural_sector = prescribed_boundary isa DataModel.Sector && compaction === nothing
+    all(counts) do count
+        count isa Integer && !(count isa Bool) && count > 0 ||
+            natural_sector && count === DataModel.capacity()
+    end || throw(ArgumentError(
+        "stranded requires positive member counts; only an uncompacted sector accepts capacity()"
+    ))
     resolved_angles = Any[angles...]
+    angle_zero = prescribed_boundary isa DataModel.Sector ?
+                 zero(float(prescribed_boundary.span)) :
+                 zero(float(prescribed_boundary.r))
     for course in eachindex(resolved_angles)
         resolved_angles[course] === nothing || continue
-        resolved_angles[course] = course == 1 ? zero(float(counts[course])) :
+        resolved_angles[course] = course == 1 ?
+                                  angle_zero :
                                   resolved_angles[course - 1] +
                                   π / counts[course - 1]
     end
@@ -668,20 +675,22 @@ Declare one boundary-constrained conductive core made from discrete members.
 # Keywords
 
 - `center=nothing`: Circular centre member for a disk-bounded core. It defaults
-  to `shape` for circular strands and must be supplied for rectangular outer
-  courses. Sector-bounded cores have no centre member.
-- `shape`: One circular or rectangular outer-course member primitive, or one
-  primitive per outer course.
+  to `shape`. Sector-bounded cores have no centre member.
+- `shape`: One circular wire primitive, or one circular primitive per course.
 - `boundary`: Authoritative nonhollow `Disk` or `Sector` core boundary.
-- `layers`: Number of outer courses \\[dimensionless\\].
-- `n=6`: Positive base count or exact positive course schedule.
+- `layers=nothing`: Number of outer courses \\[dimensionless\\]. Disk boundaries
+  and compacted sector boundaries require it. An uncompacted sector infers one
+  uniformly packed wire inventory.
+- `n=nothing`: Positive base count or exact positive course schedule. It
+  defaults to six per circular course and to `capacity()` for an uncompacted
+  sector.
 - `lay=nothing`: One lay law or one law per outer course. Homogeneous schedules
   may be declared as `LayRatio(q...)`, `Pitch(p...)`, or `LayAngle(α...)`.
 - `dir=1`: One handedness or one value per outer course.
 - `φ0=nothing`: Optional initial angle or schedule. Omission deterministically
   staggers consecutive courses.
-- `compact=nothing`: Formation-wide fill factor. Rectangular courses may use
-  one fill factor per outer course.
+- `compact=nothing`: Preserve natural circular wires. A `FillFactor` explicitly
+  requests area-preserving deformation inside the boundary.
 - `combine=:product`: Gridspace composition rule.
 
 # Returns
@@ -693,8 +702,8 @@ function stranded(
         material;
         center = nothing,
         shape,
-        layers,
-        n = 6,
+        layers = nothing,
+        n = nothing,
         lay = nothing,
         dir = 1,
         φ0 = nothing,
@@ -707,17 +716,31 @@ function stranded(
             resolved_lay, resolved_dir, resolved_φ0, resolved_compact,
             resolved_boundary
     )
-        resolved_layers isa Integer && !(resolved_layers isa Bool) &&
-        resolved_layers >= 0 || throw(ArgumentError(
-            "layers must be a nonnegative integer"
-        ))
-        count = Int(resolved_layers)
+        natural_sector = resolved_boundary isa DataModel.Sector &&
+                         resolved_compact === nothing
+        count = if natural_sector
+            resolved_layers in (nothing, 1) || throw(ArgumentError(
+                "an uncompacted sector infers one uniform circular-wire inventory"
+            ))
+            1
+        else
+            resolved_layers isa Integer && !(resolved_layers isa Bool) &&
+            resolved_layers >= 0 || throw(ArgumentError(
+                "layers must be a nonnegative integer"
+            ))
+            Int(resolved_layers)
+        end
+        counts = _count_schedule(
+            resolved_n === nothing ?
+            (natural_sector ? DataModel.capacity() : 6) : resolved_n,
+            count
+        )
         return _stranded(
             resolved_material,
             resolved_center,
             _course_schedule(resolved_shape, count, :shape),
             count,
-            _count_schedule(resolved_n, count),
+            counts,
             _course_schedule(resolved_lay, count, :lay),
             _course_schedule(resolved_dir, count, :dir),
             _course_schedule(resolved_φ0, count, :φ0),

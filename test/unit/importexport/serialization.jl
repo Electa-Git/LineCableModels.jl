@@ -149,36 +149,32 @@ end
     ]
 
     copper=Material(kind = :conductor, rho = 1.7241e-8)
-    rectangular=build(
+    compacted=build(
         CableDesign,
-        "rectangular-round-trip",
+        "compacted-round-trip",
         terminal(
             :core,
             stranded(
                 copper;
-                center = Disk(0.35e-3),
-                shape = Rectangle(0.35e-3, 0.8e-3),
+                shape = Disk(0.35e-3),
                 layers = 2,
                 n = (6, 12),
                 compact = FillFactor(1),
-                boundary = Disk(sqrt(
-                    (0.35e-3)^2+18*0.35e-3*0.8e-3/pi
-                ))
+                boundary = Disk(sqrt(19) * 0.35e-3)
             )
         )
     )
-    rectangular_record=IE.serialize_value(rectangular)
-    restored_rectangular=IE.deserialize_value(rectangular_record)
-    @test IE.serialize_value(restored_rectangular) == rectangular_record
-    @test getproperty.(restored_rectangular.geometry.regions, :terminal) ==
-          getproperty.(rectangular.geometry.regions, :terminal)
-    @test area.(getproperty.(restored_rectangular.geometry.regions, :primitive)) ==
-          area.(getproperty.(rectangular.geometry.regions, :primitive))
+    compacted_record=IE.serialize_value(compacted)
+    restored_compacted=IE.deserialize_value(compacted_record)
+    @test IE.serialize_value(restored_compacted) == compacted_record
+    @test getproperty.(restored_compacted.geometry.regions, :terminal) ==
+          getproperty.(compacted.geometry.regions, :terminal)
+    @test area.(getproperty.(restored_compacted.geometry.regions, :primitive)) ==
+          area.(getproperty.(compacted.geometry.regions, :primitive))
     @test all(
-        region -> region.source.primitive isa Rectangle ?
-                  region.primitive isa LineCableModels.DataModel.BentStrip :
-                  region.primitive isa Disk,
-        restored_rectangular.geometry.regions
+        region -> region.source.primitive isa Disk &&
+                  region.primitive isa LineCableModels.DataModel.Polygon,
+        restored_compacted.geometry.regions
     )
 
     packed=build(
