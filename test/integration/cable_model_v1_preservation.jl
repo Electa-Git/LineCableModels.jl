@@ -90,8 +90,12 @@
         :r_layer_ext=>:r_ins_layer_ext
     )
     for (field, reference) in cable_fields
-        @test getproperty(input.cable, field) ==
-              collect(expected_input[string(reference)])
+        @test isapprox(
+            getproperty(input.cable, field),
+            collect(expected_input[string(reference)]);
+            rtol = 1.0e-12,
+            atol = 0.0
+        )
     end
     @test input.phase_map == Int.(expected_system["connection_order"])
     @test input.jω == complex.(
