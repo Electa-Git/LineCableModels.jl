@@ -23,7 +23,17 @@ const DEFAULT_PORT = 8080
 const BRAND_THEME_PATH = joinpath(PLAYGROUND_ROOT, "assets", "brand.css")
 include_dependency(BRAND_THEME_PATH)
 const BRAND_THEME = read(BRAND_THEME_PATH, String)
+const CONTROL_CONTRACT_PATH = joinpath(
+    PLAYGROUND_ROOT,
+    "assets",
+    "control-contract.css"
+)
+include_dependency(CONTROL_CONTRACT_PATH)
+const CONTROL_CONTRACT = read(CONTROL_CONTRACT_PATH, String)
 
+include("diagnostics/ComponentXRay.jl")
+include("toolkit/Toolkit.jl")
+using .Toolkit
 include("workbench/WorkbenchUI.jl")
 include("toolbar.jl")
 include("ribbon.jl")
@@ -46,6 +56,34 @@ include("workbenches/TemplateWorkbench.jl")
 
 export ConsoleEntry,
     ConsoleView,
+    ComponentXRay,
+    ComboBox,
+    ConfirmDialog,
+    DataTable,
+    Dialog,
+    DialogAction,
+    DialogEvent,
+    Disclosure,
+    Field,
+    Form,
+    FormDialog,
+    InlineNotice,
+    MessageDialog,
+    MultiSelect,
+    PropertyGrid,
+    PropertyItem,
+    RadioGroup,
+    RangeInput,
+    SecretInput,
+    SegmentedControl,
+    TableColumn,
+    TextAreaInput,
+    TextInput,
+    ToastCenter,
+    ToastEntry,
+    Toolkit,
+    UnitNumberInput,
+    ViewportFrame,
     ArtifactGateway,
     AbstractUploadStore,
     BrokerClient,
@@ -81,11 +119,20 @@ export ConsoleEntry,
     add!,
     cancel!,
     clear_console!,
+    clear_toasts!,
     close!,
+    close_dialog!,
+    dismiss_notice!,
+    dismiss_toast!,
+    field_error!,
     mark_dirty!,
     move!,
+    open_dialog!,
+    push_toast!,
     reattach!,
     remove!,
+    reset_form!,
+    set_viewport_state!,
     set_console_status!,
     start!,
     submit!,
@@ -95,6 +142,7 @@ export ConsoleEntry,
     register_upload_route!,
     snapshot,
     store_upload!,
+    submit_payload,
     sweep_upload_staging!,
     upload_path,
     validate_kml_upload,
@@ -108,9 +156,9 @@ const WORKBENCH_ROUTES = (
     "/workbenches/template" => TemplateWorkbench.app,
 )
 
-function register_workbench_routes!(server)
+function register_workbench_routes!(server; xray::Bool=false)
     for (route, factory) in WORKBENCH_ROUTES
-        Bonito.route!(server, route => factory())
+        Bonito.route!(server, route => factory(; xray))
     end
     return server
 end
@@ -163,6 +211,7 @@ function usage(io::IO=stdout; feature::Union{Nothing,String}=nothing)
         println(io, "  --proxy-url URL     Public Bonito URL (default: PROXY_URL or auto-detected)")
         println(io, "  --no-render         Serve the existing Quarto build")
         println(io, "  --no-open           Do not open the default browser")
+        println(io, "  --xray             Enable owned-component diagnostics")
         println(io, "  -h, --help          Show this help")
     elseif feature == "nats"
         println(io, "Usage:")
@@ -236,6 +285,7 @@ function parse_start_options(arguments)
     proxy_url = get(ENV, "PROXY_URL", nothing)
     open_browser = true
     render_before_start = true
+    xray = false
 
     index = 1
     while index <= length(arguments)
@@ -245,6 +295,8 @@ function parse_start_options(arguments)
             open_browser = false
         elseif argument == "--no-render"
             render_before_start = false
+        elseif argument == "--xray"
+            xray = true
         elseif argument == "--host" || startswith(argument, "--host=")
             host, index = option_value(arguments, index, "--host")
         elseif argument == "--port" || startswith(argument, "--port=")
@@ -263,7 +315,7 @@ function parse_start_options(arguments)
     if isnothing(proxy_url) || proxy_url in (".", "./")
         proxy_url = inferred_proxy_url(port)
     end
-    return (; host, port, proxy_url, open_browser, render_before_start)
+    return (; host, port, proxy_url, open_browser, render_before_start, xray)
 end
 
 function require_quarto()
@@ -368,7 +420,8 @@ function start_server(;
         port,
         proxy_url,
         open_browser,
-        render_before_start
+        render_before_start,
+        xray
     )
     if render_before_start
         render_site()
@@ -380,7 +433,7 @@ function start_server(;
 
     server = Bonito.Server(host, port; proxy_url)
     broker = BrokerClient()
-    register_workbench_routes!(server)
+    register_workbench_routes!(server; xray)
     register_widget_routes!(server, broker)
     register_artifact_route!(server, default_artifact_gateway())
     register_upload_route!(server)

@@ -67,11 +67,13 @@ is mounted through a responsive, same-origin iframe:
 {{< bonito route="/widgets/control-panel" title="Cable controls" height="34rem" >}}
 ```
 
-The local shortcode is implemented in `_extensions/bonito/`. Reusable widget
-factories and their registered routes live in `src/widgets.jl`. The examples
-cover sliders, numeric spinners, checkboxes, dropdowns, text fields, actions,
-progress feedback, a read-only console sink, persistent tabs, namespaced
-toolbars, and a composed engineering control panel. The asynchronous job panel
+The local shortcode is implemented in `_extensions/bonito/`. Reusable
+primitive implementations live in `src/toolkit/`; gallery composition and
+registered routes live in `src/widgets.jl`. The examples cover sliders,
+numeric spinners, checkboxes, dropdowns, text fields, actions, progress
+feedback, a read-only console sink, persistent tabs, namespaced toolbars, typed
+forms and secret input, dialogs and notifications, compact data views, and a
+composed engineering control panel. The asynchronous job panel
 adds worker discovery, Run/Cancel/Retry, durable lifecycle state, retained
 previous results, and broker messages without submitting work during page
 construction. Layout primitives are consumed directly from `BonitoWidgets`;

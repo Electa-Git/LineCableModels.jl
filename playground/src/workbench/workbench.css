@@ -9,11 +9,7 @@ body {
   cursor: default;
 }
 
-body,
-button,
-input,
-select,
-textarea {
+body {
   font-family: Lato, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -21,12 +17,6 @@ textarea {
 *::before,
 *::after {
   box-sizing: border-box;
-}
-
-button:not(:disabled),
-select:not(:disabled),
-summary {
-  cursor: pointer;
 }
 
 button:focus-visible,
@@ -448,12 +438,6 @@ summary:focus-visible,
   background-color: var(--lc-control-bg);
   border: 1px solid var(--lc-border-soft);
   border-radius: var(--lc-radius);
-  color-scheme: var(--lc-color-scheme);
-}
-
-.lc-wb-theme-select option {
-  color: var(--lc-text);
-  background: var(--lc-option-bg);
 }
 
 .lc-wb-toolbar {
@@ -525,17 +509,6 @@ summary:focus-visible,
   border-left: 1px solid var(--lc-border-soft);
   border-radius: 0;
   outline: 0;
-  color-scheme: var(--lc-color-scheme);
-}
-
-.lc-wb-choice-select option {
-  color: var(--lc-text);
-  background: var(--lc-option-bg);
-}
-
-.lc-wb-choice-select option:checked {
-  color: var(--lc-heading);
-  background: var(--lc-option-selected-bg);
 }
 
 .lc-wb-toolbar-small {

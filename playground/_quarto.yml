@@ -62,7 +62,9 @@ format:
     theme:
       - darkly
       - assets/theme.scss
-    css: assets/brand.css
+    css:
+      - assets/brand.css
+      - assets/control-contract.css
     include-in-header: assets/theme-init.html
     include-after-body:
       - assets/theme-selector.html

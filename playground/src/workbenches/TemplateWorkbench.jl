@@ -1,6 +1,7 @@
 module TemplateWorkbench
 
 using Bonito
+using ..ComponentXRay
 using ..WorkbenchUI
 
 export Application, app
@@ -76,6 +77,161 @@ end
 
 struct DiagnosticsView <: AbstractWorkbenchView end
 struct BrokerActivityView <: AbstractWorkbenchView end
+
+source(line) = ComponentXRay.source_reference(@__MODULE__, @__FILE__, line)
+
+function view_inspection(
+        view,
+        name,
+        css_scopes;
+        parameters=ComponentXRay.PropertyInspection[],
+        bindings=ComponentXRay.BindingInspection[],
+        actions=ComponentXRay.ActionInspection[],
+        notes=String[],
+        line=0
+    )
+    return ComponentXRay.ComponentInspection(
+        view;
+        name,
+        source=source(line),
+        parameters,
+        bindings,
+        actions,
+        css_scopes,
+        notes
+    )
+end
+
+ComponentXRay.inspection(view::OverviewView) = view_inspection(
+    view,
+    "OverviewView",
+    [".lc-wb-demo-overview", ".lc-wb-demo-principles"];
+    line=@__LINE__
+)
+
+ComponentXRay.inspection(view::GeometryViewport) = view_inspection(
+    view,
+    "GeometryViewport",
+    [".lc-wb-demo-viewport"];
+    bindings=[ComponentXRay.BindingInspection(
+        :depth,
+        view.state.depth;
+        notes="displayed burial depth"
+    )],
+    line=@__LINE__
+)
+
+ComponentXRay.inspection(view::GeometryScene) = view_inspection(
+    view,
+    "GeometryScene",
+    [".lc-wb-demo-scene"];
+    bindings=[
+        ComponentXRay.BindingInspection(
+            :layer,
+            view.state.layer;
+            notes="visual layer only"
+        ),
+        ComponentXRay.BindingInspection(
+            :spacing,
+            view.state.spacing;
+            notes="scene label projection"
+        ),
+    ],
+    notes=["Local mock geometry; no scientific calculation is dispatched."],
+    line=@__LINE__
+)
+
+ComponentXRay.inspection(view::GeometryInputs) = view_inspection(
+    view,
+    "GeometryInputs",
+    [
+        ".lc-wb-demo-input-panel",
+        ".lc-wb-demo-fields",
+        ".lc-wb-demo-readout",
+        ".lc-control-input",
+        ".lc-control-select",
+    ];
+    bindings=[
+        ComponentXRay.BindingInspection(:scenario, view.state.scenario),
+        ComponentXRay.BindingInspection(:spacing, view.state.spacing),
+        ComponentXRay.BindingInspection(:earth_model, view.state.earth_model),
+    ],
+    actions=[
+        ComponentXRay.ActionInspection(:input, "set scenario", view.state.scenario),
+        ComponentXRay.ActionInspection(:input, "set spacing", view.state.spacing),
+        ComponentXRay.ActionInspection(:change, "set earth model", view.state.earth_model),
+    ],
+    line=@__LINE__
+)
+
+ComponentXRay.inspection(view::SweepViewport) = view_inspection(
+    view,
+    "SweepViewport",
+    [".lc-wb-demo-generic-view", ".lc-wb-demo-sweep"];
+    bindings=[ComponentXRay.BindingInspection(:loading, view.state.loading)],
+    line=@__LINE__
+)
+
+ComponentXRay.inspection(view::EmptyResultsView) = view_inspection(
+    view,
+    "EmptyResultsView",
+    [".lc-wb-demo-empty"];
+    line=@__LINE__
+)
+
+ComponentXRay.inspection(view::PropertiesView) = view_inspection(
+    view,
+    "PropertiesView",
+    [".lc-wb-demo-properties", ".lc-wb-demo-property"];
+    bindings=[
+        ComponentXRay.BindingInspection(:depth, view.state.depth),
+        ComponentXRay.BindingInspection(:spacing, view.state.spacing),
+    ],
+    line=@__LINE__
+)
+
+ComponentXRay.inspection(view::OutputView) = view_inspection(
+    view,
+    "OutputView",
+    [".lc-wb-demo-output", ".lc-wb-demo-log-lines"];
+    bindings=[ComponentXRay.BindingInspection(
+        :messages,
+        view.state.messages;
+        notes="session-local output entries"
+    )],
+    actions=[ComponentXRay.ActionInspection(:click, "ClearOutput", ClearOutput())],
+    line=@__LINE__
+)
+
+ComponentXRay.inspection(view::JobActivityView) = view_inspection(
+    view,
+    "JobActivityView",
+    [".lc-wb-demo-job"];
+    bindings=[ComponentXRay.BindingInspection(:loading, view.state.loading)],
+    line=@__LINE__
+)
+
+ComponentXRay.inspection(view::DiagnosticsView) = view_inspection(
+    view,
+    "DiagnosticsView",
+    [".lc-wb-demo-dock-empty"];
+    line=@__LINE__
+)
+
+ComponentXRay.inspection(view::BrokerActivityView) = view_inspection(
+    view,
+    "BrokerActivityView",
+    [".lc-wb-demo-broker"];
+    notes=["This template intentionally has no broker capability."],
+    line=@__LINE__
+)
+
+function render_inspected(session, component, node)
+    return Bonito.jsrender(
+        session,
+        ComponentXRay.instrument(session, node, component)
+    )
+end
 
 function append_message!(state::State, channel::Symbol, text::AbstractString)
     state.messages[] = [state.messages[]; (; channel, text=string(text))]
@@ -299,10 +455,8 @@ function WorkbenchUI.handle!(::Application, state::State, ::ToggleLoading)
     return nothing
 end
 
-function Bonito.jsrender(session::Session, ::OverviewView)
-    return Bonito.jsrender(
-        session,
-        DOM.div(
+function Bonito.jsrender(session::Session, view::OverviewView)
+    node = DOM.div(
             DOM.style(TEMPLATE_STYLES),
             DOM.header(
                 DOM.span("WORKBENCH TEMPLATE"; class="lc-wb-demo-kicker"),
@@ -332,7 +486,7 @@ function Bonito.jsrender(session::Session, ::OverviewView)
             );
             class="lc-wb-demo-overview"
         )
-    )
+    return render_inspected(session, view, node)
 end
 
 function Bonito.jsrender(session::Session, view::GeometryViewport)
@@ -347,9 +501,7 @@ function Bonito.jsrender(session::Session, view::GeometryViewport)
         min_first="24rem",
         min_second="15rem"
     )
-    return Bonito.jsrender(
-        session,
-        DOM.div(
+    node = DOM.div(
             DOM.header(
                 DOM.div(
                     DOM.span("SCENE VIEWPORT"; class="lc-wb-demo-kicker"),
@@ -360,7 +512,7 @@ function Bonito.jsrender(session::Session, view::GeometryViewport)
             layout;
             class="lc-wb-demo-viewport"
         )
-    )
+    return render_inspected(session, view, node)
 end
 
 function Bonito.jsrender(session::Session, view::GeometryScene)
@@ -386,9 +538,7 @@ function Bonito.jsrender(session::Session, view::GeometryScene)
         });
     })();
     """
-    return Bonito.jsrender(
-        session,
-        DOM.figure(
+    node = DOM.figure(
             DOM.figcaption(
                 DOM.strong("Two-conductor line arrangement"),
                 DOM.span("local mock geometry · no simulation")
@@ -424,7 +574,7 @@ function Bonito.jsrender(session::Session, view::GeometryScene)
             DOM.script(synchronize);
             class=scene_class
         )
-    )
+    return render_inspected(session, view, node)
 end
 
 function Bonito.jsrender(session::Session, view::GeometryInputs)
@@ -458,6 +608,7 @@ function Bonito.jsrender(session::Session, view::GeometryInputs)
     scenario = DOM.input(
         ;
         scenario_attributes...,
+        class="lc-control-input",
         type="text",
         value=view.state.scenario[],
         oninput=js"event => $(scenario_changed).notify(event.currentTarget.value)"
@@ -465,6 +616,7 @@ function Bonito.jsrender(session::Session, view::GeometryInputs)
     spacing = DOM.input(
         ;
         spacing_attributes...,
+        class="lc-control-input",
         type="number",
         min="1",
         max="10",
@@ -477,6 +629,7 @@ function Bonito.jsrender(session::Session, view::GeometryInputs)
         DOM.option("Carson"; value="carson"),
         DOM.option("Wedepohl"; value="wedepohl");
         earth_attributes...,
+        class="lc-control-select",
         onchange=js"event => $(earth_changed).notify(event.currentTarget.value)"
     )
     synchronize = js"""
@@ -492,9 +645,7 @@ function Bonito.jsrender(session::Session, view::GeometryInputs)
     spacing_readout = map(session, view.state.spacing) do value
         "$(round(value; digits=2)) m"
     end
-    return Bonito.jsrender(
-        session,
-        DOM.section(
+    node = DOM.section(
             DOM.header(
                 DOM.span("DATA ENTRY"; class="lc-wb-demo-kicker"),
                 DOM.h2("Arrangement")
@@ -520,7 +671,7 @@ function Bonito.jsrender(session::Session, view::GeometryInputs)
             DOM.script(synchronize);
             class="lc-wb-demo-input-panel"
         )
-    )
+    return render_inspected(session, view, node)
 end
 
 function Bonito.jsrender(session::Session, view::SweepViewport)
@@ -530,9 +681,7 @@ function Bonito.jsrender(session::Session, view::SweepViewport)
     state_copy = map(session, view.state.loading) do loading
         loading ? "Mock job running" : "No job dispatched"
     end
-    return Bonito.jsrender(
-        session,
-        DOM.div(
+    node = DOM.div(
             DOM.header(
                 DOM.span("PERSISTENT VIEW"; class="lc-wb-demo-kicker"),
                 DOM.h1("Frequency sweep"),
@@ -549,19 +698,17 @@ function Bonito.jsrender(session::Session, view::SweepViewport)
             );
             class="lc-wb-demo-generic-view"
         )
-    )
+    return render_inspected(session, view, node)
 end
 
-function Bonito.jsrender(session::Session, ::EmptyResultsView)
-    return Bonito.jsrender(
-        session,
-        DOM.div(
+function Bonito.jsrender(session::Session, view::EmptyResultsView)
+    node = DOM.div(
             icon(:archive; class="lc-wb-demo-empty-icon"),
             DOM.h1("No archived results"),
             DOM.p("Empty states are finite and explicit. Nothing is silently loading.");
             class="lc-wb-demo-empty"
         )
-    )
+    return render_inspected(session, view, node)
 end
 
 function Bonito.jsrender(session::Session, view::PropertiesView)
@@ -576,7 +723,7 @@ function Bonito.jsrender(session::Session, view::PropertiesView)
         max="3.0",
         step="0.1",
         value=string(view.state.depth[]),
-        class="lc-wb-demo-range"
+        class="lc-control-input lc-wb-demo-range"
     )
     changed = Observable(string(view.state.depth[]))
     on(session, changed) do value
@@ -594,9 +741,7 @@ function Bonito.jsrender(session::Session, view::PropertiesView)
     depth_value = map(session, view.state.depth) do depth
         "$(round(depth; digits=1)) m"
     end
-    return Bonito.jsrender(
-        session,
-        DOM.div(
+    node = DOM.div(
             DOM.div(
                 DOM.label("Burial depth"),
                 DOM.output(depth_value),
@@ -620,7 +765,7 @@ function Bonito.jsrender(session::Session, view::PropertiesView)
             );
             class="lc-wb-demo-properties"
         )
-    )
+    return render_inspected(session, view, node)
 end
 
 function Bonito.jsrender(session::Session, view::OutputView)
@@ -645,9 +790,7 @@ function Bonito.jsrender(session::Session, view::OutputView)
         WorkbenchUI.handle!(Application(), view.state, ClearOutput())
         return nothing
     end
-    return Bonito.jsrender(
-        session,
-        DOM.div(
+    node = DOM.div(
             DOM.button(
                 "Clear";
                 type="button",
@@ -656,7 +799,7 @@ function Bonito.jsrender(session::Session, view::OutputView)
             lines;
             class="lc-wb-demo-output"
         )
-    )
+    return render_inspected(session, view, node)
 end
 
 function Bonito.jsrender(session::Session, view::JobActivityView)
@@ -666,9 +809,7 @@ function Bonito.jsrender(session::Session, view::JobActivityView)
     label = map(session, view.state.loading) do loading
         loading ? "RUNNING" : "IDLE"
     end
-    return Bonito.jsrender(
-        session,
-        DOM.div(
+    node = DOM.div(
             DOM.div(
                 DOM.span(label),
                 DOM.strong("Mock frequency sweep"),
@@ -677,36 +818,33 @@ function Bonito.jsrender(session::Session, view::JobActivityView)
             DOM.progress(value="42", max="100");
             class
         )
-    )
+    return render_inspected(session, view, node)
 end
 
-function Bonito.jsrender(session::Session, ::DiagnosticsView)
-    return Bonito.jsrender(
-        session,
-        DOM.div(
+function Bonito.jsrender(session::Session, view::DiagnosticsView)
+    node = DOM.div(
             icon(:warning),
             DOM.span("No diagnostics"),
             DOM.small("The template contains no domain validation errors.");
             class="lc-wb-demo-dock-empty"
         )
-    )
+    return render_inspected(session, view, node)
 end
 
-function Bonito.jsrender(session::Session, ::BrokerActivityView)
-    return Bonito.jsrender(
-        session,
-        DOM.div(
+function Bonito.jsrender(session::Session, view::BrokerActivityView)
+    node = DOM.div(
             DOM.span("OFFLINE"),
             DOM.strong("Broker capability not installed"),
             DOM.small("The workbench shell remains fully usable without NATS.");
             class="lc-wb-demo-broker"
         )
-    )
+    return render_inspected(session, view, node)
 end
 
-app() = workbench_app(
+app(; xray::Bool=false) = workbench_app(
     Application();
-    title="Workbench template · LineCableModels playground"
+    title="Workbench template · LineCableModels playground",
+    xray=ComponentXRay.XRayPolicy(xray)
 )
 
 end

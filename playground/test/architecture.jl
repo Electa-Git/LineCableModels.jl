@@ -114,6 +114,14 @@
     @test occursin("abstract type AbstractWorkbenchAction", workbench_source)
     @test occursin("handle!(runtime.application", workbench_source)
     @test occursin("ViewStack", workbench_source)
+    @test occursin("ComponentXRay.instrument", workbench_source)
+    @test occursin("ComponentXRay.install", workbench_source)
+    xray_source = joined_sources(joinpath(root, "src", "diagnostics"), (".jl", ".js"))
+    @test !occursin("getComputedStyle", xray_source)
+    @test occursin("cssRules", xray_source)
+    @test occursin("data-lcm-inspection-id", lowercase(xray_source))
+    @test occursin("beginPanelInteraction", xray_source)
+    @test occursin("xray-resize-handle", xray_source)
     @test occursin("/workbenches/template", read(
         joinpath(root, "src", "LineCableModelsPlayground.jl"),
         String

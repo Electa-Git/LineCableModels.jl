@@ -16,6 +16,23 @@ The workbench is a standalone Bonito route rather than a widget embedded in this
 Its demonstration is deliberately local: no broker connection, worker, numerical operation, or domain package is constructed when the page opens.
 
 [Open the full workbench →](/workbenches/template){.lc-workbench-open}
+
+## Owned-component X-ray
+
+Start the publisher with component diagnostics enabled:
+
+```bash
+./lcm playground start --xray
+```
+
+Hover an owned component to inspect its Julia type, configured parameters,
+live bindings, typed actions, source definition, rendered dimensions, and only
+the CSS rules declared for that component's registered selector scopes. Drag
+the inspector by its header or resize it from the lower-right corner. Click to
+pin the inspection, use its breadcrumb to select an owned ancestor, press
+`Escape` to release it, or toggle the mode with `Ctrl+Shift+X`.
+
+X-ray metadata is not emitted unless the server is started with `--xray`.
 :::
 
 ::: {.lc-template-panel}

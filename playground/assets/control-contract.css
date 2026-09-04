@@ -1,0 +1,77 @@
+/*
+ * Shared browser-control contract.
+ *
+ * This file owns interaction semantics that must not drift between Quarto,
+ * standalone widget routes, and full workbenches. Component CSS may size and
+ * arrange controls, but it must not redefine these cross-surface states.
+ */
+
+button,
+input,
+select,
+textarea {
+  font-family: Lato, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.lc-control-input,
+.lc-control-select,
+.lc-control-textarea {
+  color-scheme: var(--lc-color-scheme);
+}
+
+input:not([type]):not([readonly]):not([disabled]),
+input[type="text"]:not([readonly]):not([disabled]),
+input[type="textfield"]:not([readonly]):not([disabled]),
+input[type="search"]:not([readonly]):not([disabled]),
+input[type="email"]:not([readonly]):not([disabled]),
+input[type="url"]:not([readonly]):not([disabled]),
+input[type="tel"]:not([readonly]):not([disabled]),
+input[type="password"]:not([readonly]):not([disabled]),
+input[type="number"]:not([readonly]):not([disabled]),
+textarea:not([readonly]):not([disabled]),
+[contenteditable="true"] {
+  caret-color: auto;
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+a[href],
+button:not([disabled]),
+select:not([disabled]),
+summary,
+label[for],
+[role="button"]:not([aria-disabled="true"]),
+input[type="button"]:not([disabled]),
+input[type="submit"]:not([disabled]),
+input[type="reset"]:not([disabled]),
+input[type="checkbox"]:not([disabled]),
+input[type="radio"]:not([disabled]),
+input[type="range"]:not([disabled]) {
+  cursor: pointer;
+}
+
+.lc-control-select option {
+  color: var(--lc-text);
+  background-color: var(--lc-option-bg);
+}
+
+.lc-control-select option:checked {
+  color: var(--lc-heading);
+  background-color: var(--lc-option-selected-bg);
+}
+
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"],
+progress {
+  accent-color: var(--lc-focus);
+}
+
+button:disabled,
+select:disabled,
+input:disabled,
+textarea:disabled,
+[role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
+}

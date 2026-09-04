@@ -292,6 +292,7 @@ function Bonito.jsrender(session::Session, component::GeographicMap)
         DOM.label(
             DOM.span("ID"),
             DOM.input(
+                class="lc-control-input",
                 type="text",
                 autocomplete="off",
                 var"data-map-role"="identifier"
@@ -305,6 +306,7 @@ function Bonito.jsrender(session::Session, component::GeographicMap)
                     DOM.option(last(tag); value=first(tag))
                     for tag in component.tags
                 )...;
+                class="lc-control-select",
                 var"data-map-role"="tag"
             );
             class="lc-map-field"

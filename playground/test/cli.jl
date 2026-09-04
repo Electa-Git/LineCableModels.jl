@@ -25,6 +25,16 @@ end
 
     _, start_help = captured_cli(["playground", "start", "--help"])
     @test occursin("--proxy-url URL", start_help)
+    @test occursin("--xray", start_help)
+
+    options = LineCableModelsPlayground.parse_start_options([
+        "--no-open",
+        "--no-render",
+        "--xray",
+    ])
+    @test options.xray
+    @test !options.open_browser
+    @test !options.render_before_start
 
     _, nats = captured_cli(["nats", "--help"])
     @test occursin("lcm nats init", nats)

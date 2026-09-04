@@ -47,6 +47,9 @@ const LIVE_WIDGET_ROUTES = [
     "/widgets/tabs",
     "/widgets/toolbar",
     "/widgets/control-panel",
+    "/widgets/form-toolkit",
+    "/widgets/overlay-toolkit",
+    "/widgets/data-view-toolkit",
     "/widgets/repeater",
     "/widgets/job-panel",
 ]

@@ -1,0 +1,202 @@
+/* Modal and notification surfaces. Palette values remain in brand.css. */
+.lc-dialog {
+  width: min(38rem, calc(100vw - 2rem));
+  max-height: min(42rem, calc(100vh - 2rem));
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  color: var(--lc-text);
+  background: var(--lc-panel-bg);
+  border: 1px solid var(--lc-border);
+  border-radius: var(--lc-radius);
+  box-shadow: none;
+}
+
+.lc-dialog::backdrop {
+  background: rgb(0 0 0 / 58%);
+}
+
+.lc-dialog-header,
+.lc-dialog-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.68rem 0.78rem;
+  background: var(--lc-toolbar-bg);
+}
+
+.lc-dialog-header {
+  justify-content: space-between;
+  border-bottom: 1px solid var(--lc-border-soft);
+}
+
+.lc-dialog-header h2 {
+  margin: 0;
+  color: var(--lc-heading);
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.lc-dialog-close,
+.lc-notice-close,
+.lc-toast-close {
+  display: inline-grid;
+  flex: 0 0 auto;
+  width: 1.9rem;
+  height: 1.9rem;
+  padding: 0;
+  place-items: center;
+  color: var(--lc-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--lc-radius);
+  box-shadow: none;
+}
+
+.lc-dialog-close:hover,
+.lc-notice-close:hover,
+.lc-toast-close:hover {
+  color: var(--lc-heading);
+  background: var(--lc-hover-bg);
+  border-color: var(--lc-border-soft);
+}
+
+.lc-dialog-close svg,
+.lc-notice-close svg,
+.lc-toast-close svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.lc-dialog-description,
+.lc-dialog-copy {
+  margin: 0;
+  color: var(--lc-muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.lc-dialog-description {
+  padding: 0.75rem 0.85rem 0;
+}
+
+.lc-dialog-body {
+  min-width: 0;
+  max-height: calc(100vh - 12rem);
+  padding: 0.85rem;
+  overflow: auto;
+}
+
+.lc-dialog-actions {
+  justify-content: flex-end;
+  border-top: 1px solid var(--lc-border-soft);
+}
+
+.lc-dialog-action {
+  min-width: 5rem;
+}
+
+.lc-dialog-action.is-primary {
+  color: var(--lc-accent-ink);
+  background: var(--lc-focus);
+  border-color: var(--lc-focus);
+}
+
+.lc-dialog-action.is-danger {
+  color: var(--lc-strong-text);
+  background: var(--lc-danger);
+  border-color: var(--lc-danger);
+}
+
+.lc-notice {
+  display: flex;
+  min-width: 0;
+  padding: 0.65rem 0.72rem;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--lc-text);
+  background: var(--lc-panel-soft);
+  border: 1px solid var(--lc-border-soft);
+  border-left: 3px solid var(--lc-link);
+  border-radius: var(--lc-radius);
+}
+
+.lc-notice.is-success,
+.lc-toast.is-success {
+  border-left-color: var(--lc-focus);
+}
+
+.lc-notice.is-warning,
+.lc-toast.is-warning {
+  border-left-color: var(--lc-warning);
+}
+
+.lc-notice.is-danger,
+.lc-toast.is-danger {
+  border-left-color: var(--lc-danger);
+}
+
+.lc-notice.is-hidden {
+  display: none;
+}
+
+.lc-notice-copy,
+.lc-toast-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+}
+
+.lc-notice-copy strong,
+.lc-toast-copy strong {
+  color: var(--lc-heading);
+  font-size: 0.76rem;
+  line-height: 1.25;
+}
+
+.lc-notice-copy > :not(strong),
+.lc-toast-copy span {
+  margin: 0;
+  color: var(--lc-muted);
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
+.lc-toast-center {
+  position: fixed;
+  z-index: 5000;
+  right: 1rem;
+  bottom: 1rem;
+  display: grid;
+  width: min(22rem, calc(100vw - 2rem));
+  gap: 0.45rem;
+  pointer-events: none;
+}
+
+.lc-toast {
+  display: flex;
+  min-width: 0;
+  padding: 0.62rem 0.68rem;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.7rem;
+  color: var(--lc-text);
+  background: var(--lc-panel-bg);
+  border: 1px solid var(--lc-border);
+  border-left: 3px solid var(--lc-link);
+  border-radius: var(--lc-radius);
+  pointer-events: auto;
+}
+
+@media (max-width: 520px) {
+  .lc-dialog-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+  }
+
+  .lc-dialog-action {
+    width: 100%;
+  }
+}

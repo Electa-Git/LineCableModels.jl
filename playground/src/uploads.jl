@@ -618,7 +618,7 @@ function Bonito.jsrender(session::Session, field::UploadField)
     input = DOM.input(
         type="file",
         accept=upload_accept_attribute(field.target.policy),
-        class="lc-upload-native-input",
+        class="lc-control-input lc-upload-native-input",
         tabindex="-1",
         var"aria-hidden"="true"
     )

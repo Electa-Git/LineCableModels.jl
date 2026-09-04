@@ -1,5 +1,6 @@
 const WorkbenchUI = LineCableModelsPlayground.WorkbenchUI
 const TemplateWorkbench = LineCableModelsPlayground.TemplateWorkbench
+const ComponentXRay = LineCableModelsPlayground.ComponentXRay
 
 @testset "workbench foundation" begin
     application = TemplateWorkbench.Application()
@@ -72,4 +73,26 @@ const TemplateWorkbench = LineCableModelsPlayground.TemplateWorkbench
         "/workbenches/template"
     )
     @test TemplateWorkbench.app() isa LineCableModelsPlayground.Bonito.App
+    @test TemplateWorkbench.app(; xray=true) isa LineCableModelsPlayground.Bonito.App
+
+    toolbar_inspection = ComponentXRay.inspection(workbench.toolbar)
+    @test toolbar_inspection isa ComponentXRay.ComponentInspection
+    @test toolbar_inspection.name == "Toolbar"
+    @test length(toolbar_inspection.parameters) == 3
+    @test toolbar_inspection.css_scopes == [".lc-wb-toolbar"]
+
+    choice = only(filter(item -> item isa WorkbenchUI.CommandChoice, workbench.toolbar.items))
+    choice_inspection = ComponentXRay.inspection(choice)
+    @test only(choice_inspection.bindings).observable === state.layer
+    @test length(choice_inspection.actions) == 3
+
+    payload = ComponentXRay.inspection_payload(choice_inspection; id="test-choice")
+    @test payload["id"] == "test-choice"
+    @test payload["name"] == "CommandChoice"
+    @test only(payload["bindings"])["value"] == ":nominal"
+
+    @test_throws ArgumentError ComponentXRay.XRayPolicy(
+        ; permitted=false,
+        enabled=true
+    )
 end

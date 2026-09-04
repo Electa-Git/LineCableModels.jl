@@ -158,6 +158,42 @@ Selectors, derived values, and a complete reset action composed without creating
 
 ::: {.lc-widget-demo .lc-widget-demo-wide}
 ::: {.lc-widget-demo-heading}
+[FORM CONTRACT]{.lc-gallery-label}
+
+## Typed fields and forms
+
+Exact reusable controls for text, secrets, multiline input, radio and segmented choices, combo and multiple selection, unit-bearing numbers, paired ranges, validation, submission, and reset.
+:::
+
+{{< bonito route="/widgets/form-toolkit" title="Typed field and form toolkit" height="62rem" >}}
+:::
+
+::: {.lc-widget-demo .lc-widget-demo-wide}
+::: {.lc-widget-demo-heading}
+[FEEDBACK]{.lc-gallery-label}
+
+## Dialogs, notices, and toasts
+
+Native modal messages, confirmations, modal forms, inline semantic notices, and a bounded notification stack with explicit lifecycle events.
+:::
+
+{{< bonito route="/widgets/overlay-toolkit" title="Overlay and feedback toolkit" height="28rem" >}}
+:::
+
+::: {.lc-widget-demo .lc-widget-demo-wide}
+::: {.lc-widget-demo-heading}
+[DATA SURFACES]{.lc-gallery-label}
+
+## Persistent viewport and compact records
+
+A persistent content frame with loading, empty, and error overlays; sortable and filterable records; property grids; and native disclosure sections.
+:::
+
+{{< bonito route="/widgets/data-view-toolkit" title="Data-view toolkit" height="40rem" >}}
+:::
+
+::: {.lc-widget-demo .lc-widget-demo-wide}
+::: {.lc-widget-demo-heading}
 [COLLECTION EDITOR]{.lc-gallery-label}
 
 ## Repeatable mixed-control rows

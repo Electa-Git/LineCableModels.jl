@@ -409,7 +409,7 @@ function toolbar_dropdown(item::ToolbarDropdown, events, binding)
     select = DOM.select(
         options...;
         attributes...,
-        class="lc-toolbar-select",
+        class="lc-control-select lc-toolbar-select",
         disabled=item.disabled,
         title=item.tooltip,
         onchange=js"event => $(selection).notify(event.currentTarget.value)"
@@ -439,6 +439,7 @@ function toolbar_toggle(item::ToolbarToggle, events, binding)
         DOM.input(
             ;
             type="checkbox",
+            class="lc-control-input",
             checked=item.checked,
             disabled=item.disabled,
             onchange=js"event => $(checked).notify(event.currentTarget.checked)"
@@ -473,7 +474,7 @@ function toolbar_number(item::ToolbarNumber, events, binding)
                 max=item.maximum,
                 step=item.step,
                 disabled=item.disabled,
-                class="lc-toolbar-number-input",
+                class="lc-control-input lc-toolbar-number-input",
                 onchange=js"event => $(value).notify(Number(event.currentTarget.value))"
             ),
             isempty(item.unit) ? nothing :

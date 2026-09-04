@@ -1,0 +1,352 @@
+:host {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  display: block;
+  color: var(--lc-text, #dbdee0);
+  font-family: Lato, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px;
+  line-height: 1.35;
+  pointer-events: none;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+button {
+  font: inherit;
+}
+
+.xray-outline {
+  position: fixed;
+  z-index: 1;
+  display: none;
+  border: 1px solid var(--lc-focus, #1abc9c);
+  outline: 1px solid rgb(0 0 0 / 34%);
+  pointer-events: none;
+}
+
+.xray-outline.is-visible {
+  display: block;
+}
+
+.xray-badge {
+  position: absolute;
+  left: -1px;
+  bottom: calc(100% + 2px);
+  width: max-content;
+  max-width: 26rem;
+  padding: 0.22rem 0.38rem;
+  overflow: hidden;
+  color: var(--lc-accent-ink, #102523);
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.67rem;
+  font-weight: 700;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--lc-focus, #1abc9c);
+  border-radius: 1px;
+}
+
+.xray-badge.is-below {
+  top: calc(100% + 2px);
+  bottom: auto;
+}
+
+.xray-toggle {
+  position: fixed;
+  right: 0.65rem;
+  bottom: 0.55rem;
+  z-index: 3;
+  min-height: 1.65rem;
+  padding: 0.25rem 0.52rem;
+  color: var(--lc-muted, #a8b0b0);
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  background: var(--lc-panel-bg, #252b2b);
+  border: 1px solid var(--lc-border, #5e6d6f);
+  border-radius: var(--lc-radius, 2px);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.xray-toggle:hover,
+.xray-toggle:focus-visible,
+.xray-toggle.is-active {
+  color: var(--lc-strong-text, #fff);
+  border-color: var(--lc-focus, #1abc9c);
+}
+
+.xray-toggle.is-active {
+  color: var(--lc-accent-ink, #102523);
+  background: var(--lc-focus, #1abc9c);
+}
+
+.xray-toggle:focus-visible,
+.xray-close:focus-visible,
+.xray-crumb:focus-visible {
+  outline: 2px solid rgb(78 181 222 / 58%);
+  outline-offset: 1px;
+}
+
+.xray-panel {
+  position: fixed;
+  top: 0.55rem;
+  right: 0.65rem;
+  z-index: 2;
+  display: grid;
+  width: min(31rem, calc(100vw - 1.3rem));
+  min-width: min(20rem, calc(100vw - 1rem));
+  min-height: min(11rem, calc(100vh - 1rem));
+  max-width: calc(100vw - 1rem);
+  max-height: calc(100vh - 3.2rem);
+  grid-template-rows: auto auto minmax(0, 1fr);
+  color: var(--lc-text, #dbdee0);
+  background: var(--lc-panel-bg, #252b2b);
+  border: 1px solid var(--lc-border, #5e6d6f);
+  border-radius: var(--lc-radius, 2px);
+  pointer-events: auto;
+}
+
+.xray-panel[hidden] {
+  display: none;
+}
+
+.xray-panel-header {
+  display: flex;
+  min-width: 0;
+  min-height: 3rem;
+  padding: 0.52rem 0.6rem 0.48rem 0.7rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--lc-border-soft, #465355);
+  cursor: move;
+  touch-action: none;
+  user-select: none;
+}
+
+.xray-panel.is-moving .xray-panel-header {
+  cursor: grabbing;
+}
+
+.xray-heading {
+  display: grid;
+  min-width: 0;
+  gap: 0.12rem;
+}
+
+.xray-kicker,
+.xray-section-title {
+  margin: 0;
+  color: var(--lc-focus, #1abc9c);
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.61rem;
+  font-weight: 700;
+  letter-spacing: 0.075em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.xray-title {
+  overflow: hidden;
+  color: var(--lc-heading, #f2f2f2);
+  font-size: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xray-close {
+  display: grid;
+  width: 1.7rem;
+  height: 1.7rem;
+  padding: 0;
+  place-items: center;
+  color: var(--lc-muted, #a8b0b0);
+  font-size: 1.2rem;
+  line-height: 1;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--lc-radius, 2px);
+  cursor: pointer;
+}
+
+.xray-close:hover {
+  color: var(--lc-heading, #f2f2f2);
+  background: var(--lc-hover-bg, #32393a);
+  border-color: var(--lc-border-soft, #465355);
+}
+
+.xray-breadcrumbs {
+  display: flex;
+  min-width: 0;
+  padding: 0.3rem 0.55rem;
+  overflow-x: auto;
+  align-items: center;
+  gap: 0.18rem;
+  background: var(--lc-sunken-bg, #1d2222);
+  border-bottom: 1px solid var(--lc-border-soft, #465355);
+  scrollbar-width: thin;
+}
+
+.xray-crumb {
+  padding: 0.12rem 0.2rem;
+  color: var(--lc-muted, #a8b0b0);
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.64rem;
+  white-space: nowrap;
+  background: transparent;
+  border: 0;
+  border-radius: 1px;
+  cursor: pointer;
+}
+
+.xray-crumb:hover,
+.xray-crumb.is-current {
+  color: var(--lc-heading, #f2f2f2);
+  background: var(--lc-hover-bg, #32393a);
+}
+
+.xray-separator {
+  color: var(--lc-border, #5e6d6f);
+}
+
+.xray-body {
+  min-height: 0;
+  padding: 0.58rem 0.68rem 0.75rem;
+  overflow: auto;
+  scrollbar-color: var(--lc-scrollbar, #596566) transparent;
+  scrollbar-width: thin;
+}
+
+.xray-resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 1rem;
+  height: 1rem;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+.xray-resize-handle::before,
+.xray-resize-handle::after {
+  position: absolute;
+  right: 0.18rem;
+  bottom: 0.18rem;
+  width: 0.42rem;
+  height: 0.42rem;
+  content: "";
+  border-right: 1px solid var(--lc-muted, #a8b0b0);
+  border-bottom: 1px solid var(--lc-muted, #a8b0b0);
+}
+
+.xray-resize-handle::after {
+  right: 0.38rem;
+  bottom: 0.38rem;
+  width: 0.24rem;
+  height: 0.24rem;
+}
+
+.xray-resize-handle:hover::before,
+.xray-resize-handle:hover::after {
+  border-color: var(--lc-focus, #1abc9c);
+}
+
+.xray-grid {
+  display: grid;
+  align-items: baseline;
+  border-top: 1px solid var(--lc-border-soft, #465355);
+  border-left: 1px solid var(--lc-border-soft, #465355);
+}
+
+.xray-grid-2 {
+  grid-template-columns: minmax(6rem, 0.34fr) minmax(0, 0.66fr);
+}
+
+.xray-grid-4 {
+  grid-template-columns: minmax(4.5rem, 0.22fr) minmax(5rem, 0.28fr) minmax(6rem, 0.3fr) minmax(4rem, 0.2fr);
+}
+
+.xray-cell {
+  min-width: 0;
+  min-height: 1.7rem;
+  padding: 0.3rem 0.4rem;
+  overflow-wrap: anywhere;
+  border-right: 1px solid var(--lc-border-soft, #465355);
+  border-bottom: 1px solid var(--lc-border-soft, #465355);
+}
+
+.xray-cell:nth-child(4n + 2),
+.xray-cell:nth-child(4n + 3),
+.xray-grid-2 .xray-cell:nth-child(even) {
+  color: var(--lc-heading, #f2f2f2);
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.68rem;
+}
+
+.xray-section {
+  margin-top: 0.72rem;
+}
+
+.xray-section-title {
+  margin-bottom: 0.32rem;
+}
+
+.xray-css-rule {
+  padding: 0.4rem 0.48rem;
+  background: var(--lc-code-bg, #1b2020);
+  border: 1px solid var(--lc-border-soft, #465355);
+}
+
+.xray-css-rule + .xray-css-rule {
+  margin-top: 0.32rem;
+}
+
+.xray-selector,
+.xray-declaration {
+  display: block;
+  overflow-wrap: anywhere;
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.67rem;
+}
+
+.xray-selector {
+  margin-bottom: 0.25rem;
+  color: var(--lc-link, #4eb5de);
+}
+
+.xray-declaration {
+  padding-left: 0.55rem;
+  color: var(--lc-text, #dbdee0);
+}
+
+.xray-note,
+.xray-empty {
+  margin: 0;
+  color: var(--lc-muted, #a8b0b0);
+  font-size: 0.72rem;
+}
+
+.xray-note + .xray-note {
+  margin-top: 0.3rem;
+}
+
+@media (max-width: 660px) {
+  .xray-panel {
+    left: 0.5rem;
+    right: 0.5rem;
+    width: auto;
+  }
+
+  .xray-grid-4 {
+    grid-template-columns: minmax(4rem, 0.35fr) minmax(0, 0.65fr);
+  }
+}

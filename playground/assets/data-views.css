@@ -1,0 +1,294 @@
+/* Reusable data and persistent viewport surfaces. Palette stays in brand.css. */
+.lc-disclosure {
+  min-width: 0;
+  background: var(--lc-panel-bg);
+  border: 1px solid var(--lc-border-soft);
+  border-radius: var(--lc-radius);
+}
+
+.lc-disclosure > summary {
+  padding: 0.58rem 0.7rem;
+  color: var(--lc-heading);
+  background: var(--lc-toolbar-bg);
+  font-size: 0.76rem;
+  font-weight: 700;
+  list-style-position: inside;
+}
+
+.lc-disclosure > summary:hover {
+  background: var(--lc-hover-bg);
+}
+
+.lc-disclosure.is-disabled {
+  opacity: 0.58;
+}
+
+.lc-disclosure.is-disabled > summary {
+  cursor: not-allowed;
+}
+
+.lc-disclosure-body {
+  padding: 0.72rem;
+  border-top: 1px solid var(--lc-border-soft);
+}
+
+.lc-property-grid {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  grid-template-columns: repeat(var(--lc-property-columns, 1), minmax(0, 1fr));
+  border: 1px solid var(--lc-border-soft);
+  border-radius: var(--lc-radius);
+}
+
+.lc-property-grid.columns-1 { --lc-property-columns: 1; }
+.lc-property-grid.columns-2 { --lc-property-columns: 2; }
+.lc-property-grid.columns-3 { --lc-property-columns: 3; }
+.lc-property-grid.columns-4 { --lc-property-columns: 4; }
+
+.lc-property-item {
+  display: grid;
+  min-width: 0;
+  padding: 0.58rem 0.65rem;
+  grid-template-columns: minmax(6rem, 0.75fr) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0.2rem 0.65rem;
+  border-right: 1px solid var(--lc-border-soft);
+  border-bottom: 1px solid var(--lc-border-soft);
+}
+
+.lc-property-item dt,
+.lc-property-item dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.lc-property-item dt {
+  color: var(--lc-muted);
+  font-size: 0.68rem;
+}
+
+.lc-property-item dd {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  color: var(--lc-heading);
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.74rem;
+  text-align: right;
+}
+
+.lc-property-item.is-success dd { color: var(--lc-focus); }
+.lc-property-item.is-warning dd { color: var(--lc-warning); }
+.lc-property-item.is-danger dd { color: var(--lc-danger); }
+.lc-property-item.is-muted dd { color: var(--lc-muted); }
+
+.lc-property-unit {
+  color: var(--lc-muted);
+  font-size: 0.65rem;
+}
+
+.lc-property-description {
+  grid-column: 1 / -1;
+  color: var(--lc-muted);
+  font-size: 0.64rem;
+  line-height: 1.35;
+}
+
+.lc-data-table {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  background: var(--lc-panel-bg);
+  border: 1px solid var(--lc-border);
+  border-radius: var(--lc-radius);
+}
+
+.lc-data-tools {
+  display: flex;
+  padding: 0.5rem;
+  justify-content: flex-end;
+  background: var(--lc-toolbar-bg);
+  border-bottom: 1px solid var(--lc-border-soft);
+}
+
+.lc-data-filter {
+  width: min(100%, 18rem);
+  min-height: 2rem;
+}
+
+.lc-data-table-scroll {
+  min-width: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+.lc-data-table table {
+  width: 100%;
+  min-width: 32rem;
+  border-spacing: 0;
+  border-collapse: collapse;
+  color: var(--lc-text);
+  font-size: 0.72rem;
+}
+
+.lc-data-table th,
+.lc-data-table td {
+  padding: 0.5rem 0.62rem;
+  border-right: 1px solid var(--lc-border-soft);
+  border-bottom: 1px solid var(--lc-border-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.lc-data-table th:last-child,
+.lc-data-table td:last-child {
+  border-right: 0;
+}
+
+.lc-data-table th {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  color: var(--lc-heading);
+  background: var(--lc-toolbar-bg);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+
+.lc-data-table tbody tr:hover {
+  background: var(--lc-hover-bg);
+}
+
+.lc-data-row.is-selected {
+  background: var(--lc-option-selected-bg);
+  box-shadow: inset 3px 0 0 var(--lc-focus);
+}
+
+.lc-data-row:focus-visible {
+  outline: 1px solid var(--lc-focus);
+  outline-offset: -1px;
+}
+
+.lc-data-sort {
+  width: 100%;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: inherit;
+  text-transform: inherit;
+}
+
+.align-left { text-align: left; }
+.align-center { text-align: center; }
+.align-right { text-align: right; }
+
+.lc-viewport-frame {
+  display: grid;
+  min-width: 0;
+  min-height: 12rem;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  color: var(--lc-text);
+  background: var(--lc-sunken-bg);
+  border: 1px solid var(--lc-border);
+  border-radius: var(--lc-radius);
+}
+
+.lc-viewport-header,
+.lc-viewport-footer {
+  display: flex;
+  min-width: 0;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.65rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: var(--lc-toolbar-bg);
+}
+
+.lc-viewport-header {
+  border-bottom: 1px solid var(--lc-border-soft);
+}
+
+.lc-viewport-header strong {
+  color: var(--lc-heading);
+  font-size: 0.72rem;
+}
+
+.lc-viewport-footer {
+  color: var(--lc-muted);
+  border-top: 1px solid var(--lc-border-soft);
+  font-size: 0.65rem;
+}
+
+.lc-viewport-body {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.lc-viewport-content {
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+}
+
+.lc-viewport-state {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: none;
+  min-width: 0;
+  padding: 1rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  color: var(--lc-muted);
+  background: color-mix(in srgb, var(--lc-sunken-bg) 92%, transparent);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.lc-viewport-frame.is-loading .lc-viewport-state,
+.lc-viewport-frame.is-empty .lc-viewport-state,
+.lc-viewport-frame.is-error .lc-viewport-state {
+  display: flex;
+}
+
+.lc-viewport-frame.is-error .lc-viewport-state {
+  color: var(--lc-danger);
+}
+
+.lc-viewport-spinner {
+  display: none;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--lc-border);
+  border-top-color: var(--lc-focus);
+  border-radius: 50%;
+  animation: lc-viewport-spin 700ms linear infinite;
+}
+
+.lc-viewport-frame.is-loading .lc-viewport-spinner {
+  display: block;
+}
+
+@keyframes lc-viewport-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lc-viewport-spinner { animation: none; }
+}
+
+@media (max-width: 720px) {
+  .lc-property-grid {
+    grid-template-columns: 1fr;
+  }
+}

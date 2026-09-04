@@ -166,7 +166,6 @@
   background: var(--lc-control-bg);
   border: 1px solid var(--lc-border);
   border-radius: var(--lc-radius);
-  color-scheme: var(--lc-color-scheme);
 }
 
 .lc-wb-demo-fields input:focus,
@@ -174,11 +173,6 @@
   border-color: var(--lc-link);
   outline: 1px solid var(--lc-link);
   outline-offset: -1px;
-}
-
-.lc-wb-demo-fields option {
-  color: var(--lc-heading);
-  background: var(--lc-option-bg);
 }
 
 .lc-wb-demo-input-with-unit {

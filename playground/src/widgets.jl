@@ -8,46 +8,7 @@ body {
   background: var(--lc-widget-bg);
   caret-color: transparent;
   cursor: default;
-}
-
-body,
-button,
-input,
-select,
-textarea {
   font-family: Lato, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-
-input:not([type]):not([readonly]):not([disabled]),
-input[type="text"]:not([readonly]):not([disabled]),
-input[type="textfield"]:not([readonly]):not([disabled]),
-input[type="search"]:not([readonly]):not([disabled]),
-input[type="email"]:not([readonly]):not([disabled]),
-input[type="url"]:not([readonly]):not([disabled]),
-input[type="tel"]:not([readonly]):not([disabled]),
-input[type="password"]:not([readonly]):not([disabled]),
-input[type="number"]:not([readonly]):not([disabled]),
-textarea:not([readonly]):not([disabled]),
-[contenteditable="true"] {
-  caret-color: auto;
-  cursor: text;
-  user-select: text;
-  -webkit-user-select: text;
-}
-
-a[href],
-button:not([disabled]),
-select:not([disabled]),
-summary,
-label[for],
-[role="button"]:not([aria-disabled="true"]),
-input[type="button"]:not([disabled]),
-input[type="submit"]:not([disabled]),
-input[type="reset"]:not([disabled]),
-input[type="checkbox"]:not([disabled]),
-input[type="radio"]:not([disabled]),
-input[type="range"]:not([disabled]) {
-  cursor: pointer;
 }
 
 *,
@@ -184,7 +145,6 @@ input[type="range"]:not([disabled]) {
 }
 
 .lc-native-number {
-  color-scheme: var(--lc-color-scheme);
   font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
   font-variant-numeric: tabular-nums;
 }
@@ -979,6 +939,63 @@ input[type="range"]:not([disabled]) {
   white-space: pre-wrap;
 }
 
+.lc-toolkit-split,
+.lc-feedback-specimen,
+.lc-data-specimen {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 0.8rem;
+}
+
+.lc-toolkit-split {
+  grid-template-columns: minmax(0, 1.35fr) minmax(13rem, 0.65fr);
+}
+
+.lc-toolkit-summary,
+.lc-specimen-panel {
+  display: grid;
+  min-width: 0;
+  padding: 0.75rem;
+  align-content: start;
+  gap: 0.65rem;
+  background: var(--lc-sunken-bg);
+  border: 1px solid var(--lc-border-soft);
+  border-radius: var(--lc-radius);
+}
+
+.lc-specimen-panel > h2,
+.lc-toolkit-summary > h2 {
+  margin: 0;
+  color: var(--lc-heading);
+  font-size: 0.92rem;
+}
+
+.lc-toolkit-summary pre {
+  min-height: 8rem;
+  margin: 0;
+  padding: 0.65rem;
+  overflow: auto;
+  color: var(--lc-link);
+  background: var(--lc-console-bg);
+  border: 1px solid var(--lc-border-soft);
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.67rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.lc-data-specimen-grid {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1.25fr) minmax(14rem, 0.75fr);
+  gap: 0.8rem;
+}
+
+.lc-data-specimen .lc-viewport-frame {
+  min-height: 19rem;
+}
+
 @media (max-width: 480px) {
   .lc-widget-header {
     align-items: start;
@@ -1016,6 +1033,11 @@ input[type="range"]:not([disabled]) {
   }
 
   .lc-repeater-demo-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .lc-toolkit-split,
+  .lc-data-specimen-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -1086,6 +1108,8 @@ end
 function widget_shell(kicker, title, content)
     return DOM.div(
         DOM.style(BRAND_THEME),
+        DOM.style(CONTROL_CONTRACT),
+        DOM.style(Toolkit.TOOLKIT_STYLES),
         DOM.style(WIDGET_THEME),
         widget_theme_script(),
         widget_header(kicker, title),
@@ -1164,7 +1188,11 @@ end
 function dropdown_widget()
     return App(; title="Dropdown · LineCableModels playground") do session
         options = ["Solid conductor", "Concentric strands", "Tubular sheath"]
-        dropdown = Dropdown(options; index=2, class="lc-native-select")
+        dropdown = Dropdown(
+            options;
+            index=2,
+            class="lc-control-select lc-native-select"
+        )
         selection = map(session, dropdown.value) do current
             return string(current)
         end
@@ -1188,7 +1216,7 @@ function text_widget()
     return App(; title="Text input · LineCableModels playground") do session
         field = TextField(
             "B4–B5 cable corridor";
-            class="lc-native-field",
+            class="lc-control-input lc-native-field",
             aria_label="Scenario name"
         )
         summary = map(session, field.value) do current
@@ -1215,7 +1243,7 @@ function number_spinner_widget()
         spacing = NumberInput(
             1.0;
             style=nothing,
-            class="lc-native-number",
+            class="lc-control-input lc-native-number",
             min=0.25,
             max=10.0,
             step=0.25,
@@ -1424,7 +1452,7 @@ function control_panel_widget()
         model = Dropdown(
             ["Default earth", "Carson", "Pollaczek"];
             index=1,
-            class="lc-native-select"
+            class="lc-control-select lc-native-select"
         )
         include_losses = Checkbox(true)
         reset = Button("Redefine selectors")
@@ -1761,13 +1789,13 @@ function repeater_demo_entry(values=(
     selected = something(findfirst(==(string(values.construction)), constructions), 1)
     name = TextField(
         string(values.name);
-        class="lc-native-field",
+        class="lc-control-input lc-native-field",
         var"aria-label"="Cable name"
     )
     spacing = NumberInput(
         Float64(values.spacing);
         style=nothing,
-        class="lc-native-number",
+        class="lc-control-input lc-native-number",
         min=0.25,
         max=20.0,
         step=0.25,
@@ -1776,11 +1804,11 @@ function repeater_demo_entry(values=(
     construction = Dropdown(
         constructions;
         index=selected,
-        class="lc-native-select"
+        class="lc-control-select lc-native-select"
     )
     note = TextField(
         string(values.note);
-        class="lc-native-field",
+        class="lc-control-input lc-native-field",
         var"aria-label"="Row note"
     )
     enabled = Checkbox(Bool(values.enabled))
@@ -2053,6 +2081,174 @@ function power_system_canvas_widget()
     end
 end
 
+function form_toolkit_widget()
+    return App(; title="Forms · LineCableModels playground") do session
+        scenario = TextInput(:scenario; value="North corridor", required=true)
+        password = SecretInput(:credential; placeholder="Session credential",
+            autocomplete="new-password", required=true)
+        notes = TextAreaInput(:notes; value="Nominal study case", rows=3)
+        mode = RadioGroup(:mode,
+            [:planning => "Planning", :operations => "Operations"];
+            selected=:planning, orientation=:horizontal)
+        phase = SegmentedControl(:phase,
+            [:a => "Phase A", :b => "Phase B", :c => "Phase C"];
+            selected=:a)
+        model = ComboBox(:earth_model,
+            [:default => "Default earth", :carson => "Carson", :pollaczek => "Pollaczek"];
+            selected=:default)
+        outputs = MultiSelect(:outputs,
+            [:r => "Resistance", :l => "Inductance", :c => "Capacitance", :g => "Conductance"];
+            selected=[:r, :l], size=4)
+        length = UnitNumberInput(:length; value=1.0, minimum=0.1,
+            maximum=5000, step=0.1, unit="km", required=true)
+        harmonics = RangeInput(:harmonics; lower=1, upper=50,
+            minimum=1, maximum=100, step=1, unit="order")
+        validator = payload -> begin
+            errors = Dict{String,String}()
+            isempty(strip(string(get(payload, "scenario", "")))) &&
+                (errors["scenario"] = "Provide a scenario name.")
+            return errors
+        end
+        form = Form(
+            Field("Scenario", scenario; hint="Project-local display name."),
+            Field("Credential", password;
+                hint="Never mirrored into an Observable or X-ray metadata."),
+            Field("Notes", notes),
+            Field("Study mode", mode),
+            Field("Reference phase", phase),
+            Field("Earth model", model),
+            Field("Requested outputs", outputs),
+            Field("Line length", length),
+            Field("Harmonic interval", harmonics);
+            name=:toolkit_form, validator, submit_label="Validate specimen",
+            reset_label="Restore defaults", cancel_label="Cancel"
+        )
+        summary = map(session, form.status, form.submitted) do status, payload
+            if isnothing(payload)
+                return "status = :$status\nNo payload submitted."
+            end
+            visible = Dict(key => key == "credential" ? "[redacted]" : value
+                for (key, value) in payload)
+            return "status = :$status\n" * String(JSON3.write(visible))
+        end
+        return widget_shell(
+            "FORM CONTRACT",
+            "Typed fields and explicit submission",
+            DOM.div(
+                form,
+                DOM.aside(DOM.h2("Submission boundary"), DOM.pre(summary);
+                    class="lc-toolkit-summary");
+                class="lc-toolkit-split"
+            )
+        )
+    end
+end
+
+function overlay_toolkit_widget()
+    return App(; title="Dialogs and notices · LineCableModels playground") do session
+        activity = Observable("No overlay action yet")
+        message = MessageDialog(:message_specimen, "Preparation complete",
+            "Static inputs have been validated. No numerical work was dispatched.";
+            description="Informational modal")
+        confirmation = ConfirmDialog(:confirmation_specimen, "Replace project file",
+            "The previous upload will be replaced atomically.";
+            onconfirm=() -> (activity[] = "Replacement confirmed"), danger=true)
+        modal_form = Form(
+            Field("Project label", TextInput(:project_label; value="Cable study", required=true)),
+            Field("Access token", SecretInput(:access_token; autocomplete="off", required=true));
+            name=:modal_form, submit_label="Accept", reset_label="Reset",
+            cancel_label="Cancel"
+        )
+        form_dialog = FormDialog(:form_specimen, "Project details", modal_form;
+            description="The same Field and Form primitives compose inside a modal.")
+        for dialog in (message, confirmation, form_dialog)
+            on(session, dialog.event) do event
+                isnothing(event) || (activity[] = "$(event.dialog).$(event.action)")
+                return nothing
+            end
+        end
+        notice = InlineNotice(:warning, "Unsaved browser state",
+            DOM.span("This specimen has not been attached to a persistent project.");
+            dismissible=true)
+        toasts = ToastCenter(; capacity=3)
+        open_message = Button("Message dialog")
+        open_confirm = Button("Confirmation dialog")
+        open_form = Button("Form dialog")
+        restore_notice = Button("Restore notice")
+        add_toast = Button("Push toast")
+        on(open_message.value) do _; open_dialog!(message); nothing; end
+        on(open_confirm.value) do _; open_dialog!(confirmation); nothing; end
+        on(open_form.value) do _; open_dialog!(form_dialog); nothing; end
+        on(restore_notice.value) do _; notice.visible[] = true; nothing; end
+        on(add_toast.value) do _
+            push_toast!(toasts, :success, "Snapshot retained",
+                "The toast stack is bounded and session-local."; timeout_ms=4500)
+            activity[] = "Toast pushed"
+            return nothing
+        end
+        content = DOM.div(
+            notice,
+            DOM.div(open_message, open_confirm, open_form, restore_notice, add_toast;
+                class="lc-widget-actions"),
+            widget_output("Latest event", activity),
+            message, confirmation, form_dialog, toasts;
+            class="lc-feedback-specimen"
+        )
+        return widget_shell("FEEDBACK", "Dialogs, notices, and toast lifecycle", content)
+    end
+end
+
+function data_view_toolkit_widget()
+    return App(; title="Data views · LineCableModels playground") do session
+        table = DataTable(
+            TableColumn(:quantity, "Quantity"),
+            TableColumn(:value, "Value"; align=:right,
+                format=value -> round(value; digits=4)),
+            TableColumn(:unit, "Unit"),
+            TableColumn(:state, "State");
+            rows=[
+                (id="r", quantity="Resistance", value=0.0643, unit="Ω/km", state="ready"),
+                (id="l", quantity="Inductance", value=0.0616, unit="mH/km", state="ready"),
+                (id="c", quantity="Capacitance", value=0.4762, unit="μF/km", state="ready"),
+                (id="g", quantity="Conductance", value=0.0002, unit="μS/km", state="estimated"),
+            ],
+            row_key=(row, _) -> row.id,
+            label="Cable constants"
+        )
+        properties = PropertyGrid(
+            PropertyItem("Frequency", "1.259"; unit="kHz"),
+            PropertyItem("Worker", "idle"; state=:muted),
+            PropertyItem("Geometry", "validated"; state=:success),
+            PropertyItem("Warnings", 1; state=:warning);
+            columns=2, label="Result metadata"
+        )
+        disclosure = Disclosure("Calculation metadata", properties; open=true)
+        viewport = ViewportFrame("One-frequency package result", table;
+            footer="Persistent table · overlays do not remount content")
+        ready = Button("Ready")
+        loading = Button("Loading")
+        empty = Button("Empty")
+        failure = Button("Error")
+        on(ready.value) do _; set_viewport_state!(viewport, :ready; message=""); nothing; end
+        on(loading.value) do _; set_viewport_state!(viewport, :loading;
+            message="Waiting for worker result…"); nothing; end
+        on(empty.value) do _; set_viewport_state!(viewport, :empty;
+            message="No rows match this request."); nothing; end
+        on(failure.value) do _; set_viewport_state!(viewport, :error;
+            message="Result artifact is unavailable."); nothing; end
+        content = DOM.div(
+            DOM.div(viewport, DOM.div(
+                DOM.aside(DOM.h2("Viewport states"),
+                    DOM.div(ready, loading, empty, failure; class="lc-widget-actions");
+                    class="lc-specimen-panel"),
+                disclosure;
+                class="lc-data-specimen-grid"));
+            class="lc-data-specimen"
+        )
+        return widget_shell("DATA SURFACES", "Persistent viewport and compact records", content)
+    end
+end
+
 const WIDGET_ROUTES = (
     "/widgets/slider" => slider_widget,
     "/widgets/toggle" => toggle_widget,
@@ -2066,6 +2262,9 @@ const WIDGET_ROUTES = (
     "/widgets/toolbar" => toolbar_widget,
     "/widgets/ribbon" => ribbon_widget,
     "/widgets/control-panel" => control_panel_widget,
+    "/widgets/form-toolkit" => form_toolkit_widget,
+    "/widgets/overlay-toolkit" => overlay_toolkit_widget,
+    "/widgets/data-view-toolkit" => data_view_toolkit_widget,
     "/widgets/repeater" => repeater_widget,
     "/widgets/file-upload" => file_upload_widget,
     "/widgets/geographic-map" => geographic_map_widget,
@@ -2074,8 +2273,20 @@ const WIDGET_ROUTES = (
 
 function runtime_job_widget(client)
     return App(; title="Broker job · LineCableModels playground") do session
-        steps = NumberInput(8.0; min=1, max=40, step=1)
-        interval = NumberInput(0.1; min=0, max=1, step=0.05)
+        steps = NumberInput(
+            8.0;
+            class="lc-control-input",
+            min=1,
+            max=40,
+            step=1
+        )
+        interval = NumberInput(
+            0.1;
+            class="lc-control-input",
+            min=0,
+            max=1,
+            step=0.05
+        )
         parameters = () -> Dict{String,Any}(
             "steps" => round(Int, steps.value[]),
             "interval_seconds" => Float64(interval.value[]),

@@ -2,6 +2,9 @@ module WorkbenchUI
 
 using Bonito
 using UUIDs
+using ..ComponentXRay
+using ..Toolkit
+using ..LineCableModelsPlayground: CONTROL_CONTRACT
 
 export AbstractWorkbench,
     AbstractWorkbenchAction,
@@ -358,15 +361,17 @@ function compose end
 """Handle one typed workbench action."""
 function handle! end
 
-struct Runtime{A,S,W}
+struct Runtime{A,S,W,X}
     application::A
     state::S
     workbench::W
+    xray::X
 end
 
 function workbench_app(
         application::AbstractWorkbench;
-        title::AbstractString="LineCableModels workbench"
+        title::AbstractString="LineCableModels workbench",
+        xray::ComponentXRay.XRayPolicy=ComponentXRay.XRayPolicy()
     )
     return App(; title=string(title)) do session
         state = initialize(application, session)
@@ -374,8 +379,300 @@ function workbench_app(
         workbench isa Workbench || throw(ArgumentError(
             "compose must return a Workbench"
         ))
-        return Runtime(application, state, workbench)
+        return Runtime(application, state, workbench, xray)
     end
+end
+
+action_name(action) = action === nothing ? "none" : string(nameof(typeof(action)))
+
+source(line) = ComponentXRay.source_reference(@__MODULE__, @__FILE__, line)
+
+function ComponentXRay.inspection(identity::Identity)
+    return ComponentXRay.ComponentInspection(
+        identity;
+        name="Identity",
+        source=source(@__LINE__),
+        parameters=[
+            ComponentXRay.PropertyInspection(:title, identity.title),
+            ComponentXRay.PropertyInspection(:subtitle, identity.subtitle),
+            ComponentXRay.PropertyInspection(:mark, isnothing(identity.mark) ? :default : :custom),
+        ],
+        css_scopes=[".lc-wb-identity"]
+    )
+end
+
+function ComponentXRay.inspection(item::NavItem)
+    return ComponentXRay.ComponentInspection(
+        item;
+        name="NavItem",
+        source=source(@__LINE__),
+        parameters=[
+            ComponentXRay.PropertyInspection(:id, item.id),
+            ComponentXRay.PropertyInspection(:label, item.label),
+            ComponentXRay.PropertyInspection(:icon, item.icon),
+            ComponentXRay.PropertyInspection(:tooltip, item.tooltip),
+            ComponentXRay.PropertyInspection(:disabled, item.disabled),
+        ],
+        actions=[ComponentXRay.ActionInspection(
+            :click,
+            action_name(item.action),
+            item.action;
+            disabled=item.disabled
+        )],
+        css_scopes=[".lc-wb-nav-item", ".lc-wb-nav-icon", ".lc-wb-nav-label"]
+    )
+end
+
+function ComponentXRay.inspection(group::NavGroup)
+    return ComponentXRay.ComponentInspection(
+        group;
+        name="NavGroup",
+        source=source(@__LINE__),
+        parameters=[
+            ComponentXRay.PropertyInspection(:label, group.label),
+            ComponentXRay.PropertyInspection(:items, length(group.items)),
+        ],
+        css_scopes=[".lc-wb-nav-group", ".lc-wb-nav-heading", ".lc-wb-nav-items"]
+    )
+end
+
+function ComponentXRay.inspection(sidebar::Sidebar)
+    return ComponentXRay.ComponentInspection(
+        sidebar;
+        name="Sidebar",
+        source=source(@__LINE__),
+        parameters=[
+            ComponentXRay.PropertyInspection(:groups, length(sidebar.groups)),
+            ComponentXRay.PropertyInspection(:initial_state, sidebar.initial_state),
+            ComponentXRay.PropertyInspection(:footer, !isnothing(sidebar.footer)),
+        ],
+        bindings=[ComponentXRay.BindingInspection(
+            :active,
+            sidebar.active;
+            notes="session-local navigation selection"
+        )],
+        css_scopes=[".lc-wb-sidebar", ".lc-wb-navigation"]
+    )
+end
+
+function ComponentXRay.inspection(command::Command)
+    label = isnothing(command.label) ? command.tooltip : command.label
+    return ComponentXRay.ComponentInspection(
+        command;
+        name="Command",
+        source=source(@__LINE__),
+        parameters=[
+            ComponentXRay.PropertyInspection(:label, label),
+            ComponentXRay.PropertyInspection(:icon, command.icon),
+            ComponentXRay.PropertyInspection(:tooltip, command.tooltip),
+            ComponentXRay.PropertyInspection(:disabled, command.disabled),
+        ],
+        actions=[ComponentXRay.ActionInspection(
+            :click,
+            action_name(command.action),
+            command.action;
+            disabled=command.disabled
+        )],
+        css_scopes=[".lc-wb-command", ".lc-wb-menu-command"]
+    )
+end
+
+function ComponentXRay.inspection(choice::CommandChoice)
+    actions = [
+        ComponentXRay.ActionInspection(
+            :change,
+            string(option.id),
+            option.action;
+            disabled=choice.disabled
+        ) for option in choice.options
+    ]
+    return ComponentXRay.ComponentInspection(
+        choice;
+        name="CommandChoice",
+        source=source(@__LINE__),
+        parameters=[
+            ComponentXRay.PropertyInspection(:label, choice.label),
+            ComponentXRay.PropertyInspection(:icon, choice.icon),
+            ComponentXRay.PropertyInspection(:options, length(choice.options)),
+            ComponentXRay.PropertyInspection(:tooltip, choice.tooltip),
+            ComponentXRay.PropertyInspection(:disabled, choice.disabled),
+        ],
+        bindings=[ComponentXRay.BindingInspection(
+            :selected,
+            choice.selected;
+            notes="live choice selection"
+        )],
+        actions,
+        css_scopes=[
+            ".lc-wb-choice",
+            ".lc-wb-choice-select",
+            ".lc-wb-choice-label",
+            ".lc-control-select",
+        ]
+    )
+end
+
+function ComponentXRay.inspection(menu::Menu)
+    return ComponentXRay.ComponentInspection(
+        menu;
+        name="Menu",
+        source=source(@__LINE__),
+        parameters=[
+            ComponentXRay.PropertyInspection(:label, menu.label),
+            ComponentXRay.PropertyInspection(:items, length(menu.items)),
+        ],
+        actions=[ComponentXRay.ActionInspection(:toggle, "native details", nothing)],
+        css_scopes=[".lc-wb-menu", ".lc-wb-menu-popover"]
+    )
+end
+
+function ComponentXRay.inspection(menubar::MenuBar)
+    return ComponentXRay.ComponentInspection(
+        menubar;
+        name="MenuBar",
+        source=source(@__LINE__),
+        parameters=[ComponentXRay.PropertyInspection(:menus, length(menubar.menus))],
+        css_scopes=[
+            ".lc-wb-menubar",
+            ".lc-wb-menu-groups",
+            ".lc-wb-menubar-tools",
+            ".lc-control-select",
+        ]
+    )
+end
+
+function ComponentXRay.inspection(toolbar::Toolbar)
+    return ComponentXRay.ComponentInspection(
+        toolbar;
+        name="Toolbar",
+        source=source(@__LINE__),
+        parameters=[
+            ComponentXRay.PropertyInspection(:label, toolbar.label),
+            ComponentXRay.PropertyInspection(:size, toolbar.size),
+            ComponentXRay.PropertyInspection(:items, length(toolbar.items)),
+        ],
+        css_scopes=[".lc-wb-toolbar"]
+    )
+end
+
+function ComponentXRay.inspection(view::View)
+    return ComponentXRay.ComponentInspection(
+        view;
+        name="View",
+        source=source(@__LINE__),
+        parameters=[
+            ComponentXRay.PropertyInspection(:id, view.id),
+            ComponentXRay.PropertyInspection(:title, view.title),
+            ComponentXRay.PropertyInspection(:content, ComponentXRay.short_type(view.content)),
+        ],
+        css_scopes=[".lc-wb-view"]
+    )
+end
+
+function ComponentXRay.inspection(stack::ViewStack)
+    return ComponentXRay.ComponentInspection(
+        stack;
+        name="ViewStack",
+        source=source(@__LINE__),
+        parameters=[ComponentXRay.PropertyInspection(:views, length(stack.views))],
+        bindings=[ComponentXRay.BindingInspection(
+            :active,
+            stack.active;
+            notes="mounted views remain persistent"
+        )],
+        css_scopes=[".lc-wb-workspace", ".lc-wb-view"]
+    )
+end
+
+function ComponentXRay.inspection(split::SplitPane)
+    return ComponentXRay.ComponentInspection(
+        split;
+        name="SplitPane",
+        source=source(@__LINE__),
+        parameters=[
+            ComponentXRay.PropertyInspection(:orientation, split.orientation),
+            ComponentXRay.PropertyInspection(:ratio, split.ratio),
+            ComponentXRay.PropertyInspection(:min_first, split.min_first),
+            ComponentXRay.PropertyInspection(:min_second, split.min_second),
+            ComponentXRay.PropertyInspection(:resizable, split.resizable),
+            ComponentXRay.PropertyInspection(:responsive, split.responsive),
+        ],
+        actions=[ComponentXRay.ActionInspection(:pointerdrag, "resize split", nothing)],
+        css_scopes=[".lc-wb-split", ".lc-wb-splitter", ".lc-wb-split-region"]
+    )
+end
+
+function ComponentXRay.inspection(inspector::Inspector)
+    return ComponentXRay.ComponentInspection(
+        inspector;
+        name="Inspector",
+        source=source(@__LINE__),
+        parameters=[
+            ComponentXRay.PropertyInspection(:title, inspector.title),
+            ComponentXRay.PropertyInspection(:subtitle, inspector.subtitle),
+            ComponentXRay.PropertyInspection(:content, ComponentXRay.short_type(inspector.content)),
+        ],
+        css_scopes=[".lc-wb-inspector"]
+    )
+end
+
+function ComponentXRay.inspection(tab::DockTab)
+    return ComponentXRay.ComponentInspection(
+        tab;
+        name="DockTab",
+        source=source(@__LINE__),
+        parameters=[
+            ComponentXRay.PropertyInspection(:id, tab.id),
+            ComponentXRay.PropertyInspection(:label, tab.label),
+            ComponentXRay.PropertyInspection(:content, ComponentXRay.short_type(tab.content)),
+        ],
+        css_scopes=[".lc-wb-dock-panel"]
+    )
+end
+
+function ComponentXRay.inspection(dock::Dock)
+    return ComponentXRay.ComponentInspection(
+        dock;
+        name="Dock",
+        source=source(@__LINE__),
+        parameters=[
+            ComponentXRay.PropertyInspection(:tabs, length(dock.tabs)),
+            ComponentXRay.PropertyInspection(:initial_state, dock.initial_state),
+        ],
+        bindings=[ComponentXRay.BindingInspection(
+            :active,
+            dock.active;
+            notes="session-local output selection"
+        )],
+        actions=[ComponentXRay.ActionInspection(:pointerdrag, "resize dock", nothing)],
+        css_scopes=[".lc-wb-dock", ".lc-wb-dock-header", ".lc-wb-dock-content"]
+    )
+end
+
+function ComponentXRay.inspection(status::StatusBar)
+    return ComponentXRay.ComponentInspection(
+        status;
+        name="StatusBar",
+        source=source(@__LINE__),
+        parameters=[ComponentXRay.PropertyInspection(:right_content, !isnothing(status.right))],
+        css_scopes=[".lc-wb-statusbar"]
+    )
+end
+
+function ComponentXRay.inspection(workbench::Workbench)
+    return ComponentXRay.ComponentInspection(
+        workbench;
+        name="Workbench",
+        source=source(@__LINE__),
+        parameters=[
+            ComponentXRay.PropertyInspection(:namespace, workbench.namespace),
+            ComponentXRay.PropertyInspection(:inspector, !isnothing(workbench.inspector)),
+            ComponentXRay.PropertyInspection(:output, !isnothing(workbench.output)),
+            ComponentXRay.PropertyInspection(:status, !isnothing(workbench.status)),
+        ],
+        css_scopes=[".lc-wb-shell", ".lc-wb-page"],
+        notes=["The X-ray reports semantic workbench components, not anonymous DOM descendants."]
+    )
 end
 
 function icon(name::Symbol; class::AbstractString="lc-wb-icon")
@@ -484,7 +781,7 @@ function action_button(session, command::Command, dispatch; class="lc-wb-command
         Symbol("aria-label") => command.tooltip,
         Symbol("data-tooltip") => command.tooltip,
     )
-    return DOM.button(
+    node = DOM.button(
         icon(command.icon),
         label;
         attributes...,
@@ -494,6 +791,7 @@ function action_button(session, command::Command, dispatch; class="lc-wb-command
         disabled=command.disabled,
         onclick=js"event => $(trigger).notify(true)"
     )
+    return ComponentXRay.instrument(session, node, command)
 end
 
 function choice_control(session, choice::CommandChoice, dispatch)
@@ -516,7 +814,7 @@ function choice_control(session, choice::CommandChoice, dispatch)
     select = DOM.select(
         options...;
         select_attributes...,
-        class="lc-wb-choice-select",
+        class="lc-control-select lc-wb-choice-select",
         disabled=choice.disabled,
         onchange=js"event => $(changed).notify(event.currentTarget.value)"
     )
@@ -527,7 +825,7 @@ function choice_control(session, choice::CommandChoice, dispatch)
         selected.on(value => { select.value = String(value); });
     })();
     """
-    return DOM.div(
+    node = DOM.div(
         icon(choice.icon),
         DOM.span(choice.label; class="lc-wb-choice-label"),
         select,
@@ -535,6 +833,7 @@ function choice_control(session, choice::CommandChoice, dispatch)
         class="lc-wb-choice",
         title=choice.tooltip
     )
+    return ComponentXRay.instrument(session, node, choice)
 end
 
 function render_menu(session, menu::Menu, dispatch)
@@ -547,11 +846,12 @@ function render_menu(session, menu::Menu, dispatch)
         )
         return button
     end
-    return DOM.details(
+    node = DOM.details(
         DOM.summary(menu.label),
         DOM.div(entries...; class="lc-wb-menu-popover");
         class="lc-wb-menu"
     )
+    return ComponentXRay.instrument(session, node, menu)
 end
 
 function render_menubar(session, menubar::MenuBar, dispatch, namespace)
@@ -559,7 +859,7 @@ function render_menubar(session, menubar::MenuBar, dispatch, namespace)
         Symbol("aria-label") => "Workbench color theme",
         Symbol("data-lc-wb-theme-selector") => "",
     )
-    return DOM.header(
+    node = DOM.header(
         DOM.div(
             (render_menu(session, menu, dispatch) for menu in menubar.menus)...;
             class="lc-wb-menu-groups"
@@ -573,7 +873,7 @@ function render_menubar(session, menubar::MenuBar, dispatch, namespace)
                     DOM.option("Dark"; value="dark", selected=true),
                     DOM.option("Light"; value="light");
                     theme_attributes...,
-                    class="lc-wb-theme-select"
+                    class="lc-control-select lc-wb-theme-select"
                 );
                 class="lc-wb-theme-control"
             );
@@ -581,6 +881,7 @@ function render_menubar(session, menubar::MenuBar, dispatch, namespace)
         );
         class="lc-wb-menubar"
     )
+    return ComponentXRay.instrument(session, node, menubar)
 end
 
 function render_toolbar(session, toolbar::Toolbar, dispatch)
@@ -592,12 +893,13 @@ function render_toolbar(session, toolbar::Toolbar, dispatch)
     attributes = Dict{Symbol,Any}(
         Symbol("aria-label") => toolbar.label,
     )
-    return DOM.div(
+    node = DOM.div(
         items...;
         attributes...,
         class="lc-wb-toolbar lc-wb-toolbar-$(toolbar.size)",
         role="toolbar"
     )
+    return ComponentXRay.instrument(session, node, toolbar)
 end
 
 function render_nav_item(session, item::NavItem, active, dispatch)
@@ -612,7 +914,7 @@ function render_nav_item(session, item::NavItem, active, dispatch)
         Symbol("aria-disabled") => string(item.disabled),
         Symbol("data-tooltip") => item.tooltip,
     )
-    return DOM.button(
+    node = DOM.button(
         icon(item.icon; class="lc-wb-nav-icon"),
         DOM.span(item.label; class="lc-wb-nav-label"),
         DOM.span(; class="lc-wb-active-mark");
@@ -622,13 +924,14 @@ function render_nav_item(session, item::NavItem, active, dispatch)
         disabled=item.disabled,
         onclick=js"event => $(trigger).notify(true)"
     )
+    return ComponentXRay.instrument(session, node, item)
 end
 
 function render_sidebar(session, identity::Identity, sidebar::Sidebar, dispatch)
     mark = isnothing(identity.mark) ? icon(:workbench; class="lc-wb-identity-mark") :
         identity.mark
     groups = map(sidebar.groups) do group
-        return DOM.section(
+        node = DOM.section(
             DOM.h2(group.label; class="lc-wb-nav-heading"),
             DOM.div(
                 (
@@ -639,6 +942,7 @@ function render_sidebar(session, identity::Identity, sidebar::Sidebar, dispatch)
             );
             class="lc-wb-nav-group"
         )
+        return ComponentXRay.instrument(session, node, group)
     end
     footer = isnothing(sidebar.footer) ? nothing : DOM.footer(
         sidebar.footer;
@@ -652,17 +956,19 @@ function render_sidebar(session, identity::Identity, sidebar::Sidebar, dispatch)
     navigation_attributes = Dict{Symbol,Any}(
         Symbol("aria-label") => "Workbench",
     )
-    return DOM.aside(
+    identity_node = DOM.div(
+        mark,
+        DOM.span(
+            DOM.strong(identity.title),
+            DOM.small(identity.subtitle);
+            class="lc-wb-identity-copy"
+        );
+        class="lc-wb-identity"
+    )
+    identity_node = ComponentXRay.instrument(session, identity_node, identity)
+    node = DOM.aside(
         DOM.header(
-            DOM.div(
-                mark,
-                DOM.span(
-                    DOM.strong(identity.title),
-                    DOM.small(identity.subtitle);
-                    class="lc-wb-identity-copy"
-                );
-                class="lc-wb-identity"
-            ),
+            identity_node,
             DOM.button(
                 icon(:chevron_left);
                 toggle_attributes...,
@@ -679,6 +985,7 @@ function render_sidebar(session, identity::Identity, sidebar::Sidebar, dispatch)
         footer;
         class="lc-wb-sidebar"
     )
+    return ComponentXRay.instrument(session, node, sidebar)
 end
 
 function render_viewstack(session, stack::ViewStack)
@@ -687,14 +994,16 @@ function render_viewstack(session, stack::ViewStack)
             Symbol("aria-label") => view.title,
             Symbol("data-view") => string(view.id),
         )
-        return DOM.section(
+        node = DOM.section(
             view.content;
             attributes...,
             class=active_class(session, stack.active, view.id, "lc-wb-view"),
             role="region"
         )
+        return ComponentXRay.instrument(session, node, view)
     end
-    return DOM.main(views...; class="lc-wb-workspace")
+    node = DOM.main(views...; class="lc-wb-workspace")
+    return ComponentXRay.instrument(session, node, stack)
 end
 
 function split_script(root, orientation)
@@ -788,11 +1097,15 @@ function Bonito.jsrender(session::Session, split::SplitPane)
         style
     )
     script = split.resizable ? DOM.script(split_script(root, split.orientation)) : nothing
-    return Bonito.jsrender(session, DOM.div(root, script; class="lc-wb-split-mount"))
+    instrumented = ComponentXRay.instrument(session, root, split)
+    return Bonito.jsrender(
+        session,
+        DOM.div(instrumented, script; class="lc-wb-split-mount")
+    )
 end
 
-function render_inspector(inspector::Inspector)
-    return DOM.aside(
+function render_inspector(session, inspector::Inspector)
+    node = DOM.aside(
         DOM.header(
             DOM.div(
                 DOM.span(inspector.subtitle; class="lc-wb-panel-kicker"),
@@ -804,6 +1117,7 @@ function render_inspector(inspector::Inspector)
         DOM.div(inspector.content; class="lc-wb-inspector-content");
         class="lc-wb-inspector"
     )
+    return ComponentXRay.instrument(session, node, inspector)
 end
 
 function render_dock(session, dock::Dock)
@@ -824,11 +1138,12 @@ function render_dock(session, dock::Dock)
         attributes = Dict{Symbol,Any}(
             Symbol("aria-label") => tab.label,
         )
-        return DOM.section(
+        node = DOM.section(
             tab.content;
             attributes...,
             class=active_class(session, dock.active, tab.id, "lc-wb-dock-panel"),
         )
+        return ComponentXRay.instrument(session, node, tab)
     end
     splitter_attributes = Dict{Symbol,Any}(
         Symbol("data-lc-wb-dock-splitter") => "",
@@ -838,7 +1153,7 @@ function render_dock(session, dock::Dock)
         Symbol("data-tooltip") => "Collapse output panel",
         Symbol("data-lc-wb-dock-toggle") => "",
     )
-    return DOM.section(
+    node = DOM.section(
         DOM.div(; splitter_attributes..., class="lc-wb-dock-splitter"),
         DOM.header(
             DOM.div(tab_buttons...; class="lc-wb-dock-tabs", role="tablist"),
@@ -853,18 +1168,20 @@ function render_dock(session, dock::Dock)
         DOM.div(panels...; class="lc-wb-dock-content");
         class="lc-wb-dock"
     )
+    return ComponentXRay.instrument(session, node, dock)
 end
 
-function render_status(status::StatusBar)
+function render_status(session, status::StatusBar)
     right = isnothing(status.right) ? nothing : DOM.div(
         status.right;
         class="lc-wb-status-right"
     )
-    return DOM.footer(
+    node = DOM.footer(
         DOM.div(status.left; class="lc-wb-status-left"),
         right;
         class="lc-wb-statusbar"
     )
+    return ComponentXRay.instrument(session, node, status)
 end
 
 function intrinsic_script(root)
@@ -1032,14 +1349,15 @@ function intrinsic_script(root)
 end
 
 function Bonito.jsrender(session::Session, runtime::Runtime)
+    ComponentXRay.set_policy!(session, runtime.xray)
     workbench = runtime.workbench
     dispatch = action -> handle!(runtime.application, runtime.state, action)
     scope = "$(workbench.namespace)-$(uuid4())"
     inspector = isnothing(workbench.inspector) ? nothing :
-        render_inspector(workbench.inspector)
+        render_inspector(session, workbench.inspector)
     output = isnothing(workbench.output) ? nothing :
         render_dock(session, workbench.output)
-    status = isnothing(workbench.status) ? nothing : render_status(workbench.status)
+    status = isnothing(workbench.status) ? nothing : render_status(session, workbench.status)
     attributes = Dict{Symbol,Any}(
         Symbol("data-lc-workbench") => scope,
         Symbol("data-sidebar-state") => string(workbench.navigation.initial_state),
@@ -1067,13 +1385,18 @@ function Bonito.jsrender(session::Session, runtime::Runtime)
         id=scope,
         class=isnothing(inspector) ? "lc-wb-shell without-inspector" : "lc-wb-shell"
     )
+    instrumented = ComponentXRay.instrument(session, root, workbench)
+    xray = ComponentXRay.install(session, root)
     return Bonito.jsrender(
         session,
         DOM.div(
             DOM.style(BRAND_STYLES),
+            DOM.style(CONTROL_CONTRACT),
+            DOM.style(Toolkit.TOOLKIT_STYLES),
             DOM.style(WORKBENCH_STYLES),
-            root,
-            DOM.script(intrinsic_script(root));
+            instrumented,
+            DOM.script(intrinsic_script(root)),
+            xray;
             page_attributes...,
             class="lc-wb-page"
         )

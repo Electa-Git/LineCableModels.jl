@@ -39,43 +39,6 @@ body {
   font-weight: 500;
 }
 
-/*
- * Interaction contract: published text remains selectable and copyable, but
- * read-only content never displays an insertion caret or an editing cursor.
- * Only controls that accept typed text restore those editing affordances.
- */
-input:not([type]):not([readonly]):not([disabled]),
-input[type="text"]:not([readonly]):not([disabled]),
-input[type="textfield"]:not([readonly]):not([disabled]),
-input[type="search"]:not([readonly]):not([disabled]),
-input[type="email"]:not([readonly]):not([disabled]),
-input[type="url"]:not([readonly]):not([disabled]),
-input[type="tel"]:not([readonly]):not([disabled]),
-input[type="password"]:not([readonly]):not([disabled]),
-input[type="number"]:not([readonly]):not([disabled]),
-textarea:not([readonly]):not([disabled]),
-[contenteditable="true"] {
-  caret-color: auto;
-  cursor: text;
-  user-select: text;
-  -webkit-user-select: text;
-}
-
-a[href],
-button:not([disabled]),
-select:not([disabled]),
-summary,
-label[for],
-[role="button"]:not([aria-disabled="true"]),
-input[type="button"]:not([disabled]),
-input[type="submit"]:not([disabled]),
-input[type="reset"]:not([disabled]),
-input[type="checkbox"]:not([disabled]),
-input[type="radio"]:not([disabled]),
-input[type="range"]:not([disabled]) {
-  cursor: pointer;
-}
-
 h1,
 h2,
 h3,
@@ -94,10 +57,13 @@ body *::after {
 
 #quarto-sidebar {
   position: fixed !important;
-  inset: 0 auto 2rem 0 !important;
+  inset: 0 auto 0 0 !important;
   display: grid !important;
   width: var(--lc-sidebar-width) !important;
   max-width: var(--lc-sidebar-width) !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  max-height: none !important;
   min-width: 0;
   min-height: 0;
   padding: 0 !important;
@@ -169,6 +135,7 @@ body *::after {
 
 .sidebar-menu-container {
   min-height: 0;
+  padding-bottom: 2rem;
   overflow: auto;
 }
 
@@ -338,7 +305,6 @@ body.lc-workbench-index .quarto-secondary-nav-title::before {
   border-radius: var(--lc-radius);
   box-shadow: none;
   font: inherit;
-  color-scheme: var(--lc-color-scheme);
 }
 
 .lc-publisher-theme-select:hover {
@@ -349,11 +315,6 @@ body.lc-workbench-index .quarto-secondary-nav-title::before {
   border-color: var(--lc-focus);
   outline: 1px solid var(--lc-focus);
   outline-offset: 1px;
-}
-
-.lc-publisher-theme-select option {
-  color: var(--lc-text);
-  background: var(--lc-option-bg);
 }
 
 #quarto-content {
@@ -934,6 +895,8 @@ footer.footer {
   height: 2rem;
   background: var(--lc-sidebar-bg);
   border-top: 1px solid var(--lc-border);
+  /* The footer overlays the full-height sidebar. Repeat the same one-pixel
+   * edge here so its background cannot mask the shell's continuous contour. */
   border-right: 1px solid var(--lc-border);
 }
 

@@ -40,6 +40,22 @@ Quarto documents and links to complete workbench routes. It does not wrap a
 full workbench in an iframe: the application shell must own viewport geometry,
 focus, splitters, and persistent rendering surfaces directly.
 
+## UI toolkit boundary
+
+`src/toolkit/Toolkit.jl` is the shared presentation vocabulary below gallery
+pages and workbenches. Its concrete controls, fields, forms, dialogs, notices,
+toasts, disclosures, property grids, data tables, and viewport frames own their
+DOM behavior and component-scoped CSS once. Gallery routes instantiate those
+exact types; workbench leaves compose the same types directly.
+
+`assets/brand.css` remains the only palette authority and
+`assets/control-contract.css` remains the cross-surface native-control
+authority. Toolkit styles consume those tokens without redefining them. X-ray
+metadata is implemented beside each owned component. `SecretInput` is the
+deliberate exception to ordinary reactive controls: its value does not exist in
+Julia state or diagnostic metadata and crosses the browser boundary only when
+the containing form is explicitly submitted.
+
 ## Enforced invariants
 
 1. `playground/Project.toml` never depends on LineCableModels,
@@ -56,6 +72,8 @@ focus, splitters, and persistent rendering surfaces directly.
 9. Missing capabilities produce a finite `unavailable` state, not a spinner.
 10. Arbitrary REPL execution is a separate sandboxed feature and is not part of
     ordinary calculations.
+11. Gallery and workbench compositions share toolkit implementations and
+    semantic CSS contracts; gallery-only replicas are forbidden.
 
 These rules are checked by `playground/test/architecture.jl`.
 
