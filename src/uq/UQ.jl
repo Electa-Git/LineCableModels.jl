@@ -6,9 +6,10 @@ statistics, and uncertainty-result presentation.
 """
 module UQ
 
-export LinearError, MonteCarlo, LinearErrorResult, MonteCarloResult
+export LinearError, MonteCarlo, PolynomialChaos
+export LinearErrorResult, MonteCarloResult, PolynomialChaosResult
 export SampleSummary, HistogramDensity
-export statistics, samples, histograms, uncertain
+export statistics, samples, histograms, expansions, validation, uncertain
 export root_seed, point_seed, trial_count
 export confidence, cdf_tolerance, sampling_distribution
 export cumulative_probability, quantile_pairs
