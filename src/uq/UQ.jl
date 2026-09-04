@@ -1,8 +1,9 @@
 """
     LineCableModels.UQ
 
-Define direct linear propagation, conditional Monte Carlo sampling, retained
-statistics, and uncertainty-result presentation.
+Define direct linear propagation, conditional Monte Carlo sampling,
+dependency-neutral polynomial-chaos contracts, retained statistics, and
+uncertainty-result presentation.
 """
 module UQ
 
