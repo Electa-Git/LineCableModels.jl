@@ -188,7 +188,7 @@ body *::after {
 }
 
 .sidebar-section .sidebar-link.active {
-  background: var(--lc-bg);
+  background: var(--lc-active-bg);
   color: var(--lc-strong-text);
   border-left-color: var(--lc-link);
   font-weight: 700;
@@ -381,6 +381,46 @@ body.lc-home .quarto-title-block,
   display: none;
 }
 
+/* Quarto owns the Source button markup, but not its visual contract. Its
+ * generated theme otherwise injects fixed gray/white hover colors which are
+ * incorrect as soon as the publisher switches themes. */
+.quarto-title-block .code-tools-button {
+  padding: 0.25rem 0.42rem;
+  color: var(--lc-muted) !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: var(--lc-radius);
+  box-shadow: none !important;
+  text-decoration: none;
+}
+
+.quarto-title-block .code-tools-button > .bi::before {
+  width: auto;
+  height: auto;
+  color: currentcolor;
+  content: "</>";
+  background-image: none !important;
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: 0.02em;
+}
+
+.quarto-title-block .code-tools-button:hover {
+  color: var(--lc-strong-text) !important;
+  background: var(--lc-hover-bg) !important;
+  border-color: var(--lc-border-soft) !important;
+}
+
+.quarto-title-block .code-tools-button:focus-visible {
+  color: var(--lc-strong-text) !important;
+  background: var(--lc-hover-bg) !important;
+  border-color: var(--lc-focus) !important;
+  outline: 1px solid var(--lc-focus);
+  outline-offset: 1px;
+}
+
 .lc-home-canvas {
   display: grid;
   min-height: 0;
@@ -463,15 +503,15 @@ body.lc-home .quarto-title-block,
 }
 
 .lc-foundation-authoring {
-  --lc-card-accent: #9558b2;
+  --lc-card-accent: var(--lc-role-authoring);
 }
 
 .lc-foundation-publisher {
-  --lc-card-accent: #4eb5de;
+  --lc-card-accent: var(--lc-role-publisher);
 }
 
 .lc-foundation-broker {
-  --lc-card-accent: #1abc9c;
+  --lc-card-accent: var(--lc-role-broker);
 }
 
 .lc-card-heading p {
@@ -696,9 +736,7 @@ body.lc-home .quarto-title-block,
   min-height: 18rem;
   place-items: center;
   text-align: center;
-  background:
-    linear-gradient(135deg, rgb(78 181 222 / 12%), rgb(26 188 156 / 8%)),
-    var(--lc-panel-bg);
+  background: var(--lc-template-media-decoration), var(--lc-panel-bg);
 }
 
 .lc-template-media p,
@@ -725,13 +763,91 @@ body.lc-home .quarto-title-block,
   --bs-link-color: var(--lc-link);
 }
 
-:root[data-lcm-resolved-theme="light"] div.sourceCode,
-:root[data-lcm-resolved-theme="light"] pre.sourceCode,
-:root[data-lcm-resolved-theme="light"] pre:not(.sourceCode),
-:root[data-lcm-resolved-theme="light"] code:not(pre code) {
-  color: var(--lc-text);
+div.sourceCode,
+pre.sourceCode,
+pre:not(.sourceCode),
+code:not(pre code) {
+  color: var(--lc-code-text);
   background: var(--lc-code-bg) !important;
   border-color: var(--lc-border-soft);
+}
+
+pre.sourceCode > code,
+code.sourceCode,
+code.sourceCode > span {
+  color: var(--lc-code-text) !important;
+}
+
+code.sourceCode span.al,
+code.sourceCode span.er {
+  color: var(--lc-code-alert) !important;
+}
+
+code.sourceCode span.co,
+code.sourceCode span.cv,
+code.sourceCode span.do,
+code.sourceCode span.in {
+  color: var(--lc-code-comment) !important;
+}
+
+code.sourceCode span.cf,
+code.sourceCode span.dt,
+code.sourceCode span.fu,
+code.sourceCode span.kw,
+code.sourceCode span.op,
+code.sourceCode span.ot {
+  color: var(--lc-code-keyword) !important;
+}
+
+code.sourceCode span.ch,
+code.sourceCode span.im,
+code.sourceCode span.sc,
+code.sourceCode span.ss,
+code.sourceCode span.st,
+code.sourceCode span.va,
+code.sourceCode span.vs {
+  color: var(--lc-code-string) !important;
+}
+
+code.sourceCode span.an,
+code.sourceCode span.bn,
+code.sourceCode span.cn,
+code.sourceCode span.dv,
+code.sourceCode span.fl {
+  color: var(--lc-code-number) !important;
+}
+
+code.sourceCode span.at,
+code.sourceCode span.bu,
+code.sourceCode span.ex {
+  color: var(--lc-code-name) !important;
+}
+
+code.sourceCode span.pp,
+code.sourceCode span.re,
+code.sourceCode span.wa {
+  color: var(--lc-code-preprocessor) !important;
+}
+
+.code-copy-button {
+  color: var(--lc-muted) !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: var(--lc-radius);
+  box-shadow: none !important;
+}
+
+.code-copy-button:hover,
+.code-copy-button:focus-visible {
+  color: var(--lc-strong-text) !important;
+  background: var(--lc-hover-bg) !important;
+  border-color: var(--lc-border-soft) !important;
+}
+
+.code-copy-button:focus-visible {
+  border-color: var(--lc-focus) !important;
+  outline: 1px solid var(--lc-focus);
+  outline-offset: 1px;
 }
 
 .lc-widget-gallery-grid {

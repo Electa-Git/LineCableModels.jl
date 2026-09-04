@@ -23,7 +23,7 @@ button:focus-visible,
 select:focus-visible,
 summary:focus-visible,
 [tabindex]:focus-visible {
-  outline: 2px solid rgb(78 181 222 / 52%);
+  outline: 2px solid var(--lc-focus-ring);
   outline-offset: -2px;
 }
 
@@ -221,7 +221,7 @@ summary:focus-visible,
 .lc-wb-nav-item.is-active {
   color: var(--lc-strong-text);
   font-weight: 700;
-  background: var(--lc-bg);
+  background: var(--lc-active-bg);
   border-left-color: var(--lc-link);
 }
 
@@ -617,36 +617,48 @@ summary:focus-visible,
   cursor: ns-resize;
 }
 
-.lc-wb-splitter::after {
+.lc-wb-splitter-handle {
   position: absolute;
-  background: var(--lc-border-soft);
-  content: "";
-  pointer-events: none;
+  display: grid;
+  width: 1.45rem;
+  height: 1.35rem;
+  place-items: center;
+  color: var(--lc-muted);
+  background: var(--lc-panel-bg);
+  border: 1px solid var(--lc-border);
+  border-radius: var(--lc-radius);
+  font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: auto;
 }
 
-.lc-wb-split-horizontal > .lc-wb-splitter::after {
-  inset: 0 auto 0 50%;
-  width: 1px;
+.lc-wb-split-horizontal > .lc-wb-splitter > .lc-wb-splitter-handle {
+  top: 0.45rem;
+  left: 50%;
   transform: translateX(-50%);
 }
 
-.lc-wb-split-vertical > .lc-wb-splitter::after {
-  inset: 50% 0 auto;
-  height: 1px;
+.lc-wb-split-vertical > .lc-wb-splitter > .lc-wb-splitter-handle {
+  top: 50%;
+  left: 0.45rem;
   transform: translateY(-50%);
 }
 
-.lc-wb-splitter:hover::after,
-.lc-wb-split.is-resizing > .lc-wb-splitter::after {
-  background: var(--lc-link);
+.lc-wb-splitter:hover > .lc-wb-splitter-handle,
+.lc-wb-split.is-resizing > .lc-wb-splitter > .lc-wb-splitter-handle {
+  color: var(--lc-strong-text);
+  background: var(--lc-hover-bg);
+  border-color: var(--lc-focus);
 }
 
 .lc-wb-split.is-fixed > .lc-wb-splitter {
   cursor: default;
 }
 
-.lc-wb-split.is-fixed > .lc-wb-splitter::after {
-  background: var(--lc-border-soft);
+.lc-wb-split.is-fixed > .lc-wb-splitter > .lc-wb-splitter-handle {
+  display: none;
 }
 
 @container (max-width: 42rem) {

@@ -122,6 +122,9 @@
     @test occursin("data-lcm-inspection-id", lowercase(xray_source))
     @test occursin("beginPanelInteraction", xray_source)
     @test occursin("xray-resize-handle", xray_source)
+    @test occursin("positionToggle", xray_source)
+    @test occursin("lc-wb-splitter-handle", workbench_source)
+    @test !occursin("icon(:settings);", workbench_source_file)
     @test occursin("/workbenches/template", read(
         joinpath(root, "src", "LineCableModelsPlayground.jl"),
         String

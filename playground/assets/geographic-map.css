@@ -26,7 +26,7 @@
   width: 100%;
   height: 100%;
   min-height: 31rem;
-  background: #d7dcda;
+  background: var(--lc-map-canvas-bg);
 }
 
 .lc-map-canvas.is-placing {
@@ -109,9 +109,9 @@
   inset: 50% auto auto 50%;
   max-width: 22rem;
   padding: 0.7rem 0.9rem;
-  color: #455152;
-  background: rgb(248 250 249 / 90%);
-  border: 1px solid #9ba7a7;
+  color: var(--lc-map-overlay-text);
+  background: var(--lc-map-overlay-bg);
+  border: 1px solid var(--lc-map-overlay-border);
   border-radius: 2px;
   font-size: 0.78rem;
   line-height: 1.45;
@@ -308,7 +308,7 @@
 }
 
 .lc-map-component .ol-attribution {
-  color: #293334;
+  color: var(--lc-map-attribution-text);
   font-size: 0.62rem;
 }
 
@@ -327,4 +327,3 @@
     min-height: 25rem;
   }
 }
-

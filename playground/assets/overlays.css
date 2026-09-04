@@ -13,7 +13,7 @@
 }
 
 .lc-dialog::backdrop {
-  background: rgb(0 0 0 / 58%);
+  background: var(--lc-overlay-scrim);
 }
 
 .lc-dialog-header,

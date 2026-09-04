@@ -3,7 +3,7 @@
   inset: 0;
   z-index: 2147483000;
   display: block;
-  color: var(--lc-text, #dbdee0);
+  color: var(--lc-text);
   font-family: Lato, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 13px;
   line-height: 1.35;
@@ -24,8 +24,8 @@ button {
   position: fixed;
   z-index: 1;
   display: none;
-  border: 1px solid var(--lc-focus, #1abc9c);
-  outline: 1px solid rgb(0 0 0 / 34%);
+  border: 1px solid var(--lc-focus);
+  outline: 1px solid var(--lc-xray-shadow-outline);
   pointer-events: none;
 }
 
@@ -41,14 +41,14 @@ button {
   max-width: 26rem;
   padding: 0.22rem 0.38rem;
   overflow: hidden;
-  color: var(--lc-accent-ink, #102523);
+  color: var(--lc-accent-ink);
   font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
   font-size: 0.67rem;
   font-weight: 700;
   line-height: 1.15;
   text-overflow: ellipsis;
   white-space: nowrap;
-  background: var(--lc-focus, #1abc9c);
+  background: var(--lc-focus);
   border-radius: 1px;
 }
 
@@ -59,18 +59,19 @@ button {
 
 .xray-toggle {
   position: fixed;
-  right: 0.65rem;
-  bottom: 0.55rem;
+  top: 0.16rem;
+  right: var(--xray-toggle-right, 0.65rem);
+  bottom: auto;
   z-index: 3;
   min-height: 1.65rem;
   padding: 0.25rem 0.52rem;
-  color: var(--lc-muted, #a8b0b0);
+  color: var(--lc-muted);
   font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
   font-size: 0.64rem;
   font-weight: 700;
   letter-spacing: 0.06em;
-  background: var(--lc-panel-bg, #252b2b);
-  border: 1px solid var(--lc-border, #5e6d6f);
+  background: var(--lc-panel-bg);
+  border: 1px solid var(--lc-border);
   border-radius: var(--lc-radius, 2px);
   cursor: pointer;
   pointer-events: auto;
@@ -79,19 +80,19 @@ button {
 .xray-toggle:hover,
 .xray-toggle:focus-visible,
 .xray-toggle.is-active {
-  color: var(--lc-strong-text, #fff);
-  border-color: var(--lc-focus, #1abc9c);
+  color: var(--lc-strong-text);
+  border-color: var(--lc-focus);
 }
 
 .xray-toggle.is-active {
-  color: var(--lc-accent-ink, #102523);
-  background: var(--lc-focus, #1abc9c);
+  color: var(--lc-accent-ink);
+  background: var(--lc-focus);
 }
 
 .xray-toggle:focus-visible,
 .xray-close:focus-visible,
 .xray-crumb:focus-visible {
-  outline: 2px solid rgb(78 181 222 / 58%);
+  outline: 2px solid var(--lc-focus-ring);
   outline-offset: 1px;
 }
 
@@ -107,9 +108,9 @@ button {
   max-width: calc(100vw - 1rem);
   max-height: calc(100vh - 3.2rem);
   grid-template-rows: auto auto minmax(0, 1fr);
-  color: var(--lc-text, #dbdee0);
-  background: var(--lc-panel-bg, #252b2b);
-  border: 1px solid var(--lc-border, #5e6d6f);
+  color: var(--lc-text);
+  background: var(--lc-panel-bg);
+  border: 1px solid var(--lc-border);
   border-radius: var(--lc-radius, 2px);
   pointer-events: auto;
 }
@@ -126,7 +127,7 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  border-bottom: 1px solid var(--lc-border-soft, #465355);
+  border-bottom: 1px solid var(--lc-border-soft);
   cursor: move;
   touch-action: none;
   user-select: none;
@@ -145,7 +146,7 @@ button {
 .xray-kicker,
 .xray-section-title {
   margin: 0;
-  color: var(--lc-focus, #1abc9c);
+  color: var(--lc-focus);
   font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
   font-size: 0.61rem;
   font-weight: 700;
@@ -156,7 +157,7 @@ button {
 
 .xray-title {
   overflow: hidden;
-  color: var(--lc-heading, #f2f2f2);
+  color: var(--lc-heading);
   font-size: 1rem;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -168,7 +169,7 @@ button {
   height: 1.7rem;
   padding: 0;
   place-items: center;
-  color: var(--lc-muted, #a8b0b0);
+  color: var(--lc-muted);
   font-size: 1.2rem;
   line-height: 1;
   background: transparent;
@@ -178,9 +179,9 @@ button {
 }
 
 .xray-close:hover {
-  color: var(--lc-heading, #f2f2f2);
-  background: var(--lc-hover-bg, #32393a);
-  border-color: var(--lc-border-soft, #465355);
+  color: var(--lc-heading);
+  background: var(--lc-hover-bg);
+  border-color: var(--lc-border-soft);
 }
 
 .xray-breadcrumbs {
@@ -190,14 +191,14 @@ button {
   overflow-x: auto;
   align-items: center;
   gap: 0.18rem;
-  background: var(--lc-sunken-bg, #1d2222);
-  border-bottom: 1px solid var(--lc-border-soft, #465355);
+  background: var(--lc-sunken-bg);
+  border-bottom: 1px solid var(--lc-border-soft);
   scrollbar-width: thin;
 }
 
 .xray-crumb {
   padding: 0.12rem 0.2rem;
-  color: var(--lc-muted, #a8b0b0);
+  color: var(--lc-muted);
   font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
   font-size: 0.64rem;
   white-space: nowrap;
@@ -209,19 +210,19 @@ button {
 
 .xray-crumb:hover,
 .xray-crumb.is-current {
-  color: var(--lc-heading, #f2f2f2);
-  background: var(--lc-hover-bg, #32393a);
+  color: var(--lc-heading);
+  background: var(--lc-hover-bg);
 }
 
 .xray-separator {
-  color: var(--lc-border, #5e6d6f);
+  color: var(--lc-border);
 }
 
 .xray-body {
   min-height: 0;
   padding: 0.58rem 0.68rem 0.75rem;
   overflow: auto;
-  scrollbar-color: var(--lc-scrollbar, #596566) transparent;
+  scrollbar-color: var(--lc-scrollbar) transparent;
   scrollbar-width: thin;
 }
 
@@ -244,8 +245,8 @@ button {
   width: 0.42rem;
   height: 0.42rem;
   content: "";
-  border-right: 1px solid var(--lc-muted, #a8b0b0);
-  border-bottom: 1px solid var(--lc-muted, #a8b0b0);
+  border-right: 1px solid var(--lc-muted);
+  border-bottom: 1px solid var(--lc-muted);
 }
 
 .xray-resize-handle::after {
@@ -257,22 +258,22 @@ button {
 
 .xray-resize-handle:hover::before,
 .xray-resize-handle:hover::after {
-  border-color: var(--lc-focus, #1abc9c);
+  border-color: var(--lc-focus);
 }
 
 .xray-grid {
   display: grid;
   align-items: baseline;
-  border-top: 1px solid var(--lc-border-soft, #465355);
-  border-left: 1px solid var(--lc-border-soft, #465355);
+  border-top: 1px solid var(--lc-border-soft);
+  border-left: 1px solid var(--lc-border-soft);
 }
 
 .xray-grid-2 {
-  grid-template-columns: minmax(6rem, 0.34fr) minmax(0, 0.66fr);
+  grid-template-columns: minmax(6rem, 22%) minmax(0, 78%);
 }
 
 .xray-grid-4 {
-  grid-template-columns: minmax(4.5rem, 0.22fr) minmax(5rem, 0.28fr) minmax(6rem, 0.3fr) minmax(4rem, 0.2fr);
+  grid-template-columns: minmax(6rem, 22%) minmax(5rem, 28%) minmax(6rem, 30%) minmax(4rem, 20%);
 }
 
 .xray-cell {
@@ -280,14 +281,14 @@ button {
   min-height: 1.7rem;
   padding: 0.3rem 0.4rem;
   overflow-wrap: anywhere;
-  border-right: 1px solid var(--lc-border-soft, #465355);
-  border-bottom: 1px solid var(--lc-border-soft, #465355);
+  border-right: 1px solid var(--lc-border-soft);
+  border-bottom: 1px solid var(--lc-border-soft);
 }
 
 .xray-cell:nth-child(4n + 2),
 .xray-cell:nth-child(4n + 3),
 .xray-grid-2 .xray-cell:nth-child(even) {
-  color: var(--lc-heading, #f2f2f2);
+  color: var(--lc-heading);
   font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
   font-size: 0.68rem;
 }
@@ -302,8 +303,8 @@ button {
 
 .xray-css-rule {
   padding: 0.4rem 0.48rem;
-  background: var(--lc-code-bg, #1b2020);
-  border: 1px solid var(--lc-border-soft, #465355);
+  background: var(--lc-code-bg);
+  border: 1px solid var(--lc-border-soft);
 }
 
 .xray-css-rule + .xray-css-rule {
@@ -320,18 +321,18 @@ button {
 
 .xray-selector {
   margin-bottom: 0.25rem;
-  color: var(--lc-link, #4eb5de);
+  color: var(--lc-link);
 }
 
 .xray-declaration {
   padding-left: 0.55rem;
-  color: var(--lc-text, #dbdee0);
+  color: var(--lc-text);
 }
 
 .xray-note,
 .xray-empty {
   margin: 0;
-  color: var(--lc-muted, #a8b0b0);
+  color: var(--lc-muted);
   font-size: 0.72rem;
 }
 

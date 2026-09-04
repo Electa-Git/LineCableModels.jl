@@ -1079,12 +1079,18 @@ function Bonito.jsrender(session::Session, split::SplitPane)
     )
     splitter_attributes = Dict{Symbol,Any}(
         Symbol("data-lc-wb-splitter") => "",
-        Symbol("aria-hidden") => "true",
+        Symbol("aria-label") => "Drag to resize split pane",
+        Symbol("aria-orientation") => split.orientation == :horizontal ?
+            "vertical" : "horizontal",
+        :role => "separator",
     )
     class = "lc-wb-split lc-wb-split-$(split.orientation)" *
         (split.resizable ? "" : " is-fixed")
     splitter = DOM.div(
-        ;
+        DOM.span(split.orientation == :horizontal ? "↔" : "↕";
+            Symbol("aria-hidden") => "true",
+            class="lc-wb-splitter-handle"
+        );
         splitter_attributes...,
         class="lc-wb-splitter"
     )
@@ -1110,8 +1116,7 @@ function render_inspector(session, inspector::Inspector)
             DOM.div(
                 DOM.span(inspector.subtitle; class="lc-wb-panel-kicker"),
                 DOM.h2(inspector.title)
-            ),
-            icon(:settings);
+            );
             class="lc-wb-inspector-header"
         ),
         DOM.div(inspector.content; class="lc-wb-inspector-content");

@@ -124,10 +124,16 @@
     palette_tokens = (
         "lc-text",
         "lc-heading",
+        "lc-strong-text",
         "lc-focus",
+        "lc-hover-bg",
+        "lc-active-bg",
         "lc-control-bg",
         "lc-option-bg",
         "lc-option-selected-bg",
+        "lc-code-text",
+        "lc-code-keyword",
+        "lc-code-string",
         "lc-color-scheme",
     )
     for token in palette_tokens
@@ -144,8 +150,10 @@
         joinpath(root, "assets", "forms.css"),
         joinpath(root, "assets", "overlays.css"),
         joinpath(root, "assets", "data-views.css"),
+        joinpath(root, "src", "diagnostics", "component_xray.css"),
         joinpath(root, "src", "workbench", "workbench.css"),
         joinpath(root, "src", "workbenches", "template_workbench.css"),
+        joinpath(root, "templates", "components", "collapsible-sidebar.css"),
     ]
     for path in owned_styles
         source = read(path, String)
@@ -154,6 +162,38 @@
         end
         @test !occursin(r"(?m)^\s*[^/\n]*\boption(?::checked)?[^\{\n]*\{", source)
     end
+
+    # Literal color values are implementation-local palettes in disguise.
+    # All first-party CSS consumes brand.css tokens; only vendored styles and
+    # brand.css itself are allowed to own color literals.
+    first_party_css = String[]
+    for subtree in ("assets", "src", "templates")
+        for (directory, directories, files) in walkdir(joinpath(root, subtree))
+            filter!(name -> name != "vendor", directories)
+            for file in files
+                endswith(file, ".css") || continue
+                path = joinpath(directory, file)
+                path == joinpath(root, "assets", "brand.css") && continue
+                push!(first_party_css, path)
+            end
+        end
+    end
+    @test !isempty(first_party_css)
+    for path in first_party_css
+        source = read(path, String)
+        @test !occursin(r"(?i)(#[0-9a-f]{3,8}\b|rgb\()", source)
+    end
+
+    theme = read(joinpath(root, "assets", "theme.scss"), String)
+    collapsible = read(
+        joinpath(root, "templates", "components", "collapsible-sidebar.css"),
+        String
+    )
+    @test occursin("code.sourceCode span.kw", theme)
+    @test occursin(".quarto-title-block .code-tools-button:hover", theme)
+    @test occursin("background: var(--lc-cs-active)", collapsible)
+    @test occursin("background: var(--lc-cs-hover)", collapsible)
+    @test occursin("background: var(--lc-scene-bg)", collapsible)
 
     # Every first-party native select has to opt into the semantic contract.
     # Looking forward from each constructor is deliberately simple and strict:

@@ -34,6 +34,48 @@
   --lc-warning: #f3bf61;
   --lc-danger: #f07178;
   --lc-accent-ink: #102523;
+  --lc-focus-ring: rgb(78 181 222 / 52%);
+  --lc-overlay-scrim: rgb(0 0 0 / 58%);
+  --lc-separator: rgb(94 109 111 / 55%);
+  --lc-status-mark-border: rgb(242 242 242 / 30%);
+  --lc-xray-shadow-outline: rgb(0 0 0 / 34%);
+
+  /* Quarto syntax roles are remapped to the publisher palette in theme.scss. */
+  --lc-code-text: #f8f8f2;
+  --lc-code-comment: #a8b0b0;
+  --lc-code-keyword: #ffa07a;
+  --lc-code-string: #abe338;
+  --lc-code-number: #d4d0ab;
+  --lc-code-name: #00e0e0;
+  --lc-code-preprocessor: #dcc6e0;
+  --lc-code-alert: #f07178;
+
+  /* Shared role and engineering-scene colors. */
+  --lc-role-authoring: #9558b2;
+  --lc-role-publisher: #4eb5de;
+  --lc-role-broker: #1abc9c;
+  --lc-template-media-decoration: linear-gradient(
+    135deg,
+    rgb(78 181 222 / 12%),
+    rgb(26 188 156 / 8%)
+  );
+  --lc-scene-bg: #e7e8e8;
+  --lc-scene-ground: #4a985a;
+  --lc-scene-dimension: #7c8688;
+  --lc-scene-label: #465355;
+  --lc-scene-jacket-fill: #132929;
+  --lc-scene-jacket-stroke: #182020;
+  --lc-scene-insulation-fill: #d8dad8;
+  --lc-scene-insulation-stroke: #687476;
+  --lc-scene-conductor-fill: #c67a43;
+  --lc-scene-conductor-stroke: #6a4027;
+  --lc-scene-envelope: rgb(78 181 222 / 38%);
+  --lc-scene-trace-axis: #667173;
+  --lc-map-canvas-bg: #d7dcda;
+  --lc-map-overlay-text: #455152;
+  --lc-map-overlay-bg: rgb(248 250 249 / 90%);
+  --lc-map-overlay-border: #9ba7a7;
+  --lc-map-attribution-text: #293334;
   --lc-color-scheme: dark;
   --lc-sidebar-width: 18rem;
   --lc-radius: 2px;
@@ -99,5 +141,14 @@
   --lc-warning: #855600;
   --lc-danger: #b4232c;
   --lc-accent-ink: #052f28;
+  --lc-focus-ring: rgb(8 125 167 / 48%);
+  --lc-code-text: #293334;
+  --lc-code-comment: #566263;
+  --lc-code-keyword: #8a3b13;
+  --lc-code-string: #3f6b08;
+  --lc-code-number: #685400;
+  --lc-code-name: #006b78;
+  --lc-code-preprocessor: #6b4375;
+  --lc-code-alert: #a51d28;
   --lc-color-scheme: light;
 }

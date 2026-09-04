@@ -4,9 +4,9 @@
   padding: 0.8rem;
   align-content: start;
   gap: 0.7rem;
-  color: var(--lc-widget-text, var(--lc-text, #dbdee0));
-  background: var(--lc-sunken-bg, #1d2222);
-  border: 1px solid var(--lc-widget-border, var(--lc-border-soft, #465355));
+  color: var(--lc-widget-text);
+  background: var(--lc-sunken-bg);
+  border: 1px solid var(--lc-widget-border);
   border-radius: 3px;
 }
 
@@ -46,7 +46,7 @@
 .lc-upload-label,
 .lc-upload-filename {
   overflow: hidden;
-  color: var(--lc-widget-heading, var(--lc-heading, #f2f2f2));
+  color: var(--lc-widget-heading);
   font-size: 0.82rem;
   font-weight: 700;
   text-overflow: ellipsis;
@@ -56,7 +56,7 @@
 .lc-upload-hint,
 .lc-upload-details {
   overflow: hidden;
-  color: var(--lc-widget-muted, var(--lc-muted, #a8b0b0));
+  color: var(--lc-widget-muted);
   font-size: 0.72rem;
   line-height: 1.35;
   text-overflow: ellipsis;
@@ -65,7 +65,7 @@
 
 .lc-upload-status {
   flex: 0 0 auto;
-  color: var(--lc-widget-focus, var(--lc-focus, #1abc9c));
+  color: var(--lc-widget-focus);
   font-family: "JuliaMono", "SFMono-Regular", Consolas, monospace;
   font-size: 0.68rem;
   white-space: nowrap;
@@ -89,9 +89,9 @@
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  color: var(--lc-widget-text, var(--lc-text, #dbdee0));
-  background: var(--lc-option-bg, #202626);
-  border: 1px solid var(--lc-border-soft, #465355);
+  color: var(--lc-widget-text);
+  background: var(--lc-option-bg);
+  border: 1px solid var(--lc-border-soft);
   border-radius: 2px;
   box-shadow: none;
   font: inherit;
@@ -101,30 +101,30 @@
 }
 
 .lc-upload-choose {
-  color: var(--lc-accent-ink, #102523);
-  background: var(--lc-widget-focus, var(--lc-focus, #1abc9c));
-  border-color: var(--lc-widget-focus, var(--lc-focus, #1abc9c));
+  color: var(--lc-accent-ink);
+  background: var(--lc-widget-focus);
+  border-color: var(--lc-widget-focus);
 }
 
 .lc-upload-choose:hover:not(:disabled),
 .lc-upload-choose:focus-visible,
 .lc-upload-remove:hover:not(:disabled),
 .lc-upload-remove:focus-visible {
-  outline: 1px solid var(--lc-widget-focus, var(--lc-focus, #1abc9c));
+  outline: 1px solid var(--lc-widget-focus);
   outline-offset: 1px;
 }
 
 .lc-upload-remove:hover:not(:disabled) {
-  color: var(--lc-strong-text, #fff);
-  background: var(--lc-hover-bg-strong, #303737);
-  border-color: var(--lc-border, #5e6d6f);
+  color: var(--lc-strong-text);
+  background: var(--lc-hover-bg-strong);
+  border-color: var(--lc-border);
 }
 
 .lc-upload-choose:disabled,
 .lc-upload-remove:disabled {
-  color: var(--lc-disabled, #778080);
-  background: var(--lc-code-bg, #1b2020);
-  border-color: var(--lc-border-soft, #465355);
+  color: var(--lc-disabled);
+  background: var(--lc-code-bg);
+  border-color: var(--lc-border-soft);
   cursor: not-allowed;
   opacity: 0.58;
 }
@@ -139,25 +139,25 @@
   width: 100%;
   height: 0.48rem;
   overflow: hidden;
-  accent-color: var(--lc-widget-focus, var(--lc-focus, #1abc9c));
-  background: var(--lc-console-bg, #171b1b);
+  accent-color: var(--lc-widget-focus);
+  background: var(--lc-console-bg);
   border: 0;
   border-radius: 999px;
 }
 
 .lc-upload-progress::-webkit-progress-bar {
-  background: var(--lc-console-bg, #171b1b);
+  background: var(--lc-console-bg);
   border-radius: 999px;
 }
 
 .lc-upload-progress::-webkit-progress-value {
-  background: var(--lc-widget-focus, var(--lc-focus, #1abc9c));
+  background: var(--lc-widget-focus);
   border-radius: 999px;
 }
 
 .lc-upload-error {
   min-height: 0;
-  color: var(--lc-danger, #ee6a72);
+  color: var(--lc-danger);
   font-size: 0.72rem;
   line-height: 1.35;
 }

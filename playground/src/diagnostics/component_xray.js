@@ -147,6 +147,7 @@ function installXRay(root, options = {}, styles = "") {
   let hoverTimer = 0;
   let frame = 0;
   let resizeObserver = null;
+  let layoutObserver = null;
   let panelPositioned = false;
   let panelInteraction = null;
   const abort = new AbortController();
@@ -154,6 +155,19 @@ function installXRay(root, options = {}, styles = "") {
 
   const queryFlag = new URLSearchParams(window.location.search).get("xray");
   if (queryFlag !== null) active = isTruthyFlag(queryFlag);
+
+  function positionToggle() {
+    const inspector = root.querySelector(".lc-wb-inspector");
+    const inspectorBounds = inspector?.getBoundingClientRect();
+    const inspectorVisible = inspectorBounds && inspectorBounds.width > 1;
+    const right = inspectorVisible
+      ? Math.max(8, window.innerWidth - inspectorBounds.left + 6)
+      : 8;
+    host.style.setProperty("--xray-toggle-right", `${right}px`);
+  }
+  positionToggle();
+  layoutObserver = new ResizeObserver(positionToggle);
+  layoutObserver.observe(root);
 
   function owns(node) {
     return node instanceof Element && (node === root || root.contains(node));
@@ -511,6 +525,7 @@ function installXRay(root, options = {}, styles = "") {
   document.addEventListener("keydown", keyboard, { capture: true, signal });
   document.addEventListener("scroll", scheduleOutline, { capture: true, passive: true, signal });
   window.addEventListener("resize", () => {
+    positionToggle();
     constrainPanel();
     scheduleOutline();
   }, { passive: true, signal });
@@ -527,6 +542,7 @@ function installXRay(root, options = {}, styles = "") {
       window.clearTimeout(hoverTimer);
       if (frame) cancelAnimationFrame(frame);
       if (resizeObserver) resizeObserver.disconnect();
+      if (layoutObserver) layoutObserver.disconnect();
       host.remove();
       controllers.delete(controller);
     },

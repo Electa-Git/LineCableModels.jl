@@ -138,6 +138,23 @@ async function clickButton(devtools, label, scope = "document") {
   assert(clicked, `button not found: ${label}`);
 }
 
+async function hoverSelector(devtools, selector) {
+  const point = await evaluate(devtools, `(() => {
+    const element = document.querySelector(${JSON.stringify(selector)});
+    if (!element) return null;
+    element.scrollIntoView({block: "center", inline: "center"});
+    const box = element.getBoundingClientRect();
+    return {x: box.left + box.width / 2, y: box.top + box.height / 2};
+  })()`);
+  assert(point, `hover target not found: ${selector}`);
+  await devtools.command("Input.dispatchMouseEvent", {
+    type: "mouseMoved",
+    x: point.x,
+    y: point.y,
+  });
+  await new Promise(resolve => setTimeout(resolve, 75));
+}
+
 async function setTheme(devtools, theme) {
   await navigate(devtools, `${baseUrl}/`, "#quarto-sidebar");
   await evaluate(
@@ -226,6 +243,148 @@ async function inspectShell(devtools) {
       sidebarBorderRight: sidebarStyle.borderRightWidth,
       footerBorderRight: footerStyle.borderRightWidth,
       footerBorderTop: footerStyle.borderTopWidth,
+    };
+  })()`);
+}
+
+async function inspectCodeContract(devtools) {
+  return evaluate(devtools, `(() => {
+    const code = document.querySelector('pre.sourceCode code.sourceCode:has(span.kw)');
+    const surface = code?.closest('div.sourceCode') ?? code?.parentElement;
+    if (!code || !surface) return null;
+    const parse = value => (value.match(/[\\d.]+/g) ?? []).slice(0, 3).map(Number);
+    const luminance = value => {
+      const channels = parse(value).map(channel => {
+        const normalized = channel / 255;
+        return normalized <= 0.04045
+          ? normalized / 12.92
+          : ((normalized + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+    };
+    const contrast = (foreground, background) => {
+      const light = Math.max(luminance(foreground), luminance(background));
+      const dark = Math.min(luminance(foreground), luminance(background));
+      return (light + 0.05) / (dark + 0.05);
+    };
+    const background = getComputedStyle(surface).backgroundColor;
+    const roles = Array.from(code.querySelectorAll('span[class]'))
+      .filter(element => element.textContent.trim().length > 0)
+      .map(element => ({
+        role: element.className,
+        color: getComputedStyle(element).color,
+      }))
+      .filter((sample, index, all) =>
+        all.findIndex(candidate => candidate.role === sample.role) === index)
+      .map(sample => ({
+        ...sample,
+        contrast: contrast(sample.color, background),
+      }));
+    const base = getComputedStyle(code).color;
+    return {background, base, baseContrast: contrast(base, background), roles};
+  })()`);
+}
+
+async function inspectSidebarSpecimen(devtools) {
+  return evaluate(devtools, `(() => {
+    const resolveColor = variable => {
+      const probe = document.createElement('i');
+      probe.style.color = 'var(' + variable + ')';
+      document.body.append(probe);
+      const value = getComputedStyle(probe).color;
+      probe.remove();
+      return value;
+    };
+    const resolveBackground = variable => {
+      const probe = document.createElement('i');
+      probe.style.backgroundColor = 'var(' + variable + ')';
+      document.body.append(probe);
+      const value = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return value;
+    };
+    const hovered = getComputedStyle(document.querySelector('.lc-cs-nav-item.is-hover-preview'));
+    const active = getComputedStyle(document.querySelector('.lc-cs-nav-item.is-active'));
+    const scene = getComputedStyle(document.querySelector('.lc-cs-figure > svg'));
+    return {
+      hovered: {color: hovered.color, background: hovered.backgroundColor},
+      active: {color: active.color, background: active.backgroundColor},
+      scene: {background: scene.backgroundColor},
+      tokens: {
+        strong: resolveColor('--lc-strong-text'),
+        hover: resolveBackground('--lc-hover-bg'),
+        active: resolveBackground('--lc-active-bg'),
+        scene: resolveBackground('--lc-scene-bg'),
+      },
+    };
+  })()`);
+}
+
+async function inspectSourceButton(devtools) {
+  return evaluate(devtools, `(() => {
+    const resolveColor = variable => {
+      const probe = document.createElement('i');
+      probe.style.color = 'var(' + variable + ')';
+      document.body.append(probe);
+      const value = getComputedStyle(probe).color;
+      probe.remove();
+      return value;
+    };
+    const resolveBackground = variable => {
+      const probe = document.createElement('i');
+      probe.style.backgroundColor = 'var(' + variable + ')';
+      document.body.append(probe);
+      const value = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return value;
+    };
+    const button = document.querySelector('#quarto-code-tools-source');
+    if (!button) return null;
+    const style = getComputedStyle(button);
+    return {
+      hovered: button.matches(':hover'),
+      color: style.color,
+      background: style.backgroundColor,
+      tokens: {
+        strong: resolveColor('--lc-strong-text'),
+        hover: resolveBackground('--lc-hover-bg'),
+      },
+    };
+  })()`);
+}
+
+async function inspectWorkbenchAffordances(devtools) {
+  return evaluate(devtools, `(() => {
+    const split = document.querySelector('.lc-wb-split-horizontal');
+    const handle = split?.querySelector(':scope > .lc-wb-splitter .lc-wb-splitter-handle');
+    const first = split?.querySelector(':scope > .lc-wb-split-first');
+    const inspector = document.querySelector('.lc-wb-inspector');
+    const xrayHost = document.querySelector('.lc-xray-host');
+    const xrayToggle = xrayHost?.shadowRoot?.querySelector('.xray-toggle');
+    const splitBox = split?.getBoundingClientRect();
+    const handleBox = handle?.getBoundingClientRect();
+    const inspectorBox = inspector?.getBoundingClientRect();
+    const xrayBox = xrayToggle?.getBoundingClientRect();
+    return {
+      split: splitBox ? {left: splitBox.left, top: splitBox.top} : null,
+      handle: handleBox ? {
+        left: handleBox.left,
+        top: handleBox.top,
+        width: handleBox.width,
+        height: handleBox.height,
+      } : null,
+      firstWidth: first?.getBoundingClientRect().width ?? 0,
+      legacyRule: split
+        ? getComputedStyle(split.querySelector(':scope > .lc-wb-splitter'), '::after').content
+        : null,
+      inspectorInteractiveChildren: inspector
+        ? inspector.querySelectorAll('.lc-wb-inspector-header button, .lc-wb-inspector-header [role="button"]').length
+        : 0,
+      inspectorLeft: inspectorBox?.left ?? null,
+      xray: xrayBox ? {
+        top: xrayBox.top,
+        right: xrayBox.right,
+      } : null,
     };
   })()`);
 }
@@ -331,6 +490,91 @@ try {
       }
     }
 
+    await navigate(devtools, `${baseUrl}/workbenches/template`, ".lc-wb-splitter-handle");
+    const workbenchBefore = await inspectWorkbenchAffordances(devtools);
+    assert(workbenchBefore.handle?.width >= 18 && workbenchBefore.handle?.height >= 18,
+      `split handle is not a usable target in ${theme}`);
+    assert(workbenchBefore.handle.top - workbenchBefore.split.top <= 16,
+      `split handle is not anchored near the leading edge in ${theme}`);
+    assert(["none", "normal"].includes(workbenchBefore.legacyRule),
+      `legacy full-height split rule is still rendered in ${theme}`);
+    assert(workbenchBefore.inspectorInteractiveChildren === 0,
+      `inspector header exposes an inert control in ${theme}`);
+    if (workbenchBefore.xray) {
+      assert(workbenchBefore.xray.top <= 8,
+        `X-RAY launcher is not in the top chrome in ${theme}`);
+      assert(workbenchBefore.xray.right <= workbenchBefore.inspectorLeft,
+        `X-RAY launcher overlaps the inspector in ${theme}`);
+    }
+    const handlePoint = {
+      x: workbenchBefore.handle.left + workbenchBefore.handle.width / 2,
+      y: workbenchBefore.handle.top + workbenchBefore.handle.height / 2,
+    };
+    await devtools.command("Input.dispatchMouseEvent", {
+      type: "mousePressed",
+      x: handlePoint.x,
+      y: handlePoint.y,
+      button: "left",
+      buttons: 1,
+      clickCount: 1,
+    });
+    await devtools.command("Input.dispatchMouseEvent", {
+      type: "mouseMoved",
+      x: handlePoint.x + 48,
+      y: handlePoint.y,
+      button: "left",
+      buttons: 1,
+    });
+    await devtools.command("Input.dispatchMouseEvent", {
+      type: "mouseReleased",
+      x: handlePoint.x + 48,
+      y: handlePoint.y,
+      button: "left",
+      buttons: 0,
+      clickCount: 1,
+    });
+    const workbenchAfter = await inspectWorkbenchAffordances(devtools);
+    assert(workbenchAfter.firstWidth - workbenchBefore.firstWidth >= 30,
+      `split handle did not resize its pane in ${theme}`);
+
+    await navigate(devtools, `${baseUrl}/workbenches/`,
+      "pre.sourceCode code.sourceCode span.kw");
+    const codeContract = await inspectCodeContract(devtools);
+    assert(codeContract, `code contract did not mount in ${theme}`);
+    assert(codeContract.baseContrast >= 4.5,
+      `base code text fails contrast in ${theme}: ${codeContract.baseContrast}`);
+    assert(codeContract.roles.length >= 4,
+      `syntax-role coverage is unexpectedly narrow in ${theme}`);
+    for (const role of codeContract.roles) {
+      assert(role.contrast >= 4.5,
+        `syntax role ${role.role} fails contrast in ${theme}: ${role.contrast}`);
+    }
+
+    await navigate(devtools, `${baseUrl}/templates/collapsible-sidebar.html`,
+      ".lc-cs-shell");
+    const sidebarSpecimen = await inspectSidebarSpecimen(devtools);
+    assert(sidebarSpecimen.hovered.color === sidebarSpecimen.tokens.strong,
+      `sidebar hover foreground escaped the ${theme} palette`);
+    assert(sidebarSpecimen.hovered.background === sidebarSpecimen.tokens.hover,
+      `sidebar hover background escaped the ${theme} palette`);
+    assert(sidebarSpecimen.active.color === sidebarSpecimen.tokens.strong,
+      `sidebar active foreground escaped the ${theme} palette`);
+    assert(sidebarSpecimen.active.background === sidebarSpecimen.tokens.active,
+      `sidebar active background escaped the ${theme} palette`);
+    assert(sidebarSpecimen.scene.background === sidebarSpecimen.tokens.scene,
+      `sidebar scene escaped the shared engineering-scene palette in ${theme}`);
+
+    await devtools.command("Input.dispatchMouseEvent", {
+      type: "mouseMoved", x: 2, y: 998,
+    });
+    await hoverSelector(devtools, "#quarto-code-tools-source");
+    const sourceButton = await inspectSourceButton(devtools);
+    assert(sourceButton?.hovered, `Source button did not enter hover state in ${theme}`);
+    assert(sourceButton.color === sourceButton.tokens.strong,
+      `Source hover foreground escaped the ${theme} palette`);
+    assert(sourceButton.background === sourceButton.tokens.hover,
+      `Source hover background escaped the ${theme} palette`);
+
     await navigate(devtools, `${baseUrl}/widgets/form-toolkit`, ".lc-form");
     const secretBoundary = await evaluate(devtools, `(() => {
       const secret = document.querySelector('#credential');
@@ -429,12 +673,15 @@ try {
         const root = frame.contentDocument.documentElement;
         return {
           title: ${JSON.stringify(title)},
+          clientHeight: frame.clientHeight,
+          scrollHeight: root.scrollHeight,
           horizontalOverflow: root.scrollWidth > frame.clientWidth + 1,
           verticalOverflow: root.scrollHeight > frame.clientHeight + 1,
         };
       })()`);
       assert(!sizing.horizontalOverflow, `${title} gallery viewport overflows horizontally`);
-      assert(!sizing.verticalOverflow, `${title} gallery viewport has an internal scrollbar`);
+      assert(!sizing.verticalOverflow,
+        `${title} gallery viewport has an internal scrollbar (${sizing.scrollHeight}px content in ${sizing.clientHeight}px)`);
       gallerySizing.push(sizing);
     }
 
@@ -443,6 +690,10 @@ try {
       shell,
       specimens,
       selects: selectReport,
+      codeContract,
+      sidebarSpecimen,
+      sourceButton,
+      workbenchAffordances: {before: workbenchBefore, after: workbenchAfter},
       toolkit: { secretBoundary, persistentViewport: persistent },
       gallerySizing,
     };

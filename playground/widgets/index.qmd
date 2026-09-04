@@ -165,7 +165,7 @@ Selectors, derived values, and a complete reset action composed without creating
 Exact reusable controls for text, secrets, multiline input, radio and segmented choices, combo and multiple selection, unit-bearing numbers, paired ranges, validation, submission, and reset.
 :::
 
-{{< bonito route="/widgets/form-toolkit" title="Typed field and form toolkit" height="62rem" >}}
+{{< bonito route="/widgets/form-toolkit" title="Typed field and form toolkit" height="41rem" >}}
 :::
 
 ::: {.lc-widget-demo .lc-widget-demo-wide}
